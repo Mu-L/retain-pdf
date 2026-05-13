@@ -25,6 +25,7 @@ class RenderBlock:
     fit_shift_up_pt: float = 0.0
     text_color: tuple[float, float, float] = (0, 0, 0)
     cover_fill: tuple[float, float, float] = (1, 1, 1)
+    use_cover_fill: bool = False
 
 
 @dataclass

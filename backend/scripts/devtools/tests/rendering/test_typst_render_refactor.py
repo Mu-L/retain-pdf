@@ -641,7 +641,7 @@ def test_typst_overlay_fit_respects_python_min_font_and_leading() -> None:
     assert "fallback_min_leading - 0.08em" not in source
 
 
-def test_typst_overlay_uses_filled_text_blocks_instead_of_cover_rects() -> None:
+def test_typst_overlay_defaults_to_transparent_text_blocks() -> None:
     translated_items = [
         {
             "item_id": "p001-b001",
@@ -654,10 +654,30 @@ def test_typst_overlay_uses_filled_text_blocks_instead_of_cover_rects() -> None:
         }
     ]
 
-    source = build_typst_overlay_source(200.0, 300.0, translated_items, include_cover_rect=True)
+    source = build_typst_overlay_source(200.0, 300.0, translated_items)
 
     assert "rect(" not in source
     assert "block(width:" in source
+    assert "fill: rgb(255, 255, 255)" not in source
+
+
+def test_typst_overlay_can_use_block_cover_fill_as_fallback() -> None:
+    translated_items = [
+        {
+            "item_id": "p001-b001",
+            "page_idx": 0,
+            "block_type": "text",
+            "bbox": [10.0, 20.0, 120.0, 62.0],
+            "translated_text": "白底文本块",
+            "protected_translated_text": "白底文本块",
+            "formula_map": [],
+            "_render_use_cover_fill": True,
+        }
+    ]
+
+    source = build_typst_overlay_source(200.0, 300.0, translated_items)
+
+    assert "rect(" not in source
     assert "fill: rgb(255, 255, 255)" in source
 
 
@@ -910,6 +930,63 @@ def test_build_render_blocks_uses_vertical_fit_for_tight_stacked_overlay_blocks(
     assert upper.fit_max_height_pt <= expected_limit
     assert upper.fit_min_font_size_pt <= upper.font_size_pt
     assert upper.fit_min_leading_em <= upper.leading_em
+
+
+def test_build_render_blocks_binary_fits_long_translated_title_to_box() -> None:
+    items = [
+        {
+            "item_id": "p001-title",
+            "page_idx": 0,
+            "block_type": "text",
+            "block_kind": "text",
+            "layout_role": "title",
+            "structure_role": "title",
+            "bbox": [20.0, 22.0, 180.0, 50.0],
+            "lines": [{"text": "A Long Title"}],
+            "source_text": "A Long Title",
+            "protected_source_text": "A Long Title",
+            "protected_translated_text": "这是一个非常长的中文标题需要在很窄的标题框里面自动缩小并且完整显示",
+        }
+    ]
+
+    blocks = build_render_blocks(items, page_width=200.0, page_height=300.0)
+
+    title = blocks[0]
+    assert title.font_weight == "bold"
+    assert title.fit_to_box is True
+    assert title.fit_single_line is False
+    assert title.font_size_pt < 12.0
+    assert title.leading_em >= 0.34
+    assert title.fit_min_font_size_pt < title.font_size_pt
+    assert title.fit_target_width_pt == 160.0
+    assert title.fit_target_height_pt == 28.0
+
+
+def test_typst_overlay_source_uses_title_single_line_fit_when_title_fits_one_line() -> None:
+    source = build_typst_overlay_source(
+        200.0,
+        300.0,
+        [
+            {
+                "item_id": "p001-title",
+                "page_idx": 0,
+                "block_type": "text",
+                "block_kind": "text",
+                "layout_role": "title",
+                "structure_role": "title",
+                "bbox": [20.0, 22.0, 180.0, 58.0],
+                "lines": [{"text": "Intro"}],
+                "source_text": "Intro",
+                "protected_source_text": "Intro",
+                "protected_translated_text": "引言",
+            }
+        ],
+    )
+
+    assert "pdftr_fit_single_line_markdown" in source
+    assert 'weight: "bold"' in source
+    assert "fit_width: 160.0pt" in source
+    assert "fit_height: 36.0pt" in source
 
 
 def test_background_render_resilient_compile_sanitizes_on_failure() -> None:

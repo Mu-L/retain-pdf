@@ -108,6 +108,74 @@ def test_apply_title_skip_preserves_source_text_for_render_fallback() -> None:
     assert payload[0]["protected_translated_text"] == "Introduction"
 
 
+def test_apply_translation_policies_translates_title_by_default_with_title_rule_hint() -> None:
+    payload = [
+        _translation_item(
+            item_id="p001-b000",
+            block_type="text",
+            layout_role="title",
+            semantic_role="unknown",
+            structure_role="title",
+            policy_translate=True,
+            raw_block_type="doc_title",
+            normalized_sub_type="title",
+            source_text="Document Title",
+            metadata={
+                "layout_role": "title",
+                "semantic_role": "unknown",
+                "structure_role": "title",
+                "policy_translate": True,
+            },
+        )
+    ]
+
+    _apply_default_policy(payload)
+
+    assert payload[0]["should_translate"] is True
+    assert payload[0]["skip_reason"] == ""
+    assert "Title rule:" in payload[0]["translation_style_hint"]
+
+
+def test_apply_translation_policies_skips_title_when_config_enabled() -> None:
+    payload = [
+        _translation_item(
+            item_id="p001-b000",
+            block_type="text",
+            layout_role="title",
+            semantic_role="unknown",
+            structure_role="title",
+            policy_translate=True,
+            raw_block_type="doc_title",
+            normalized_sub_type="title",
+            source_text="Document Title",
+            metadata={
+                "layout_role": "title",
+                "semantic_role": "unknown",
+                "structure_role": "title",
+                "policy_translate": True,
+            },
+        )
+    ]
+
+    apply_translation_policies(
+        payload=payload,
+        mode="sci",
+        classify_batch_size=8,
+        workers=1,
+        api_key="",
+        model="deepseek-chat",
+        base_url="https://api.deepseek.com/v1",
+        skip_title_translation=True,
+        page_idx=0,
+        sci_cutoff_page_idx=None,
+        sci_cutoff_block_idx=None,
+    )
+
+    assert payload[0]["should_translate"] is False
+    assert payload[0]["skip_reason"] == "skip_title"
+    assert payload[0]["translated_text"] == "Document Title"
+
+
 def test_apply_cjk_source_keep_origin_skips_cjk_body_text() -> None:
     cjk_text = "综上，本文系统综述了DFT计算在光催化领域中的广泛应用，并为未来开发高效稳定催化剂提供参考。"
     payload = [_translation_item(item_id="p036-b015", page_idx=35, block_idx=15, source_text=cjk_text)]

@@ -255,7 +255,7 @@ def test_paddle_page_spec_marks_empty_bbox_and_absorber_blocks() -> None:
     assert page_metadata["body_repair_block_ids"] == ["p001-b0001", "p001-b0002"]
 
 
-def test_paddle_page_spec_marks_body_whitelist_policy_and_translation_extractor_only_keeps_body() -> None:
+def test_paddle_page_spec_marks_text_title_and_footnote_translation_candidates() -> None:
     page_payload = {
         "prunedResult": {
             "width": 1200,
@@ -277,6 +277,11 @@ def test_paddle_page_spec_marks_body_whitelist_policy_and_translation_extractor_
                     "block_bbox": [100, 260, 420, 300],
                 },
                 {
+                    "block_label": "vision_footnote",
+                    "block_content": "Note: Values are averaged over three runs.",
+                    "block_bbox": [100, 320, 420, 360],
+                },
+                {
                     "block_label": "footer",
                     "block_content": "Page footer",
                     "block_bbox": [100, 1480, 420, 1520],
@@ -295,14 +300,17 @@ def test_paddle_page_spec_marks_body_whitelist_policy_and_translation_extractor_
         preprocessed_image="",
     )
 
-    text_block, abstract_block, heading_block, footer_block = page_spec["blocks"]
+    text_block, abstract_block, heading_block, footnote_block, footer_block = page_spec["blocks"]
     assert text_block["policy"] == {"translate": True, "translate_reason": "provider_body_whitelist:body"}
     assert text_block["structure_role"] == "body"
     assert text_block["semantic_role"] == "body"
     assert abstract_block["policy"] == {"translate": True, "translate_reason": "provider_body_whitelist:abstract"}
     assert abstract_block["structure_role"] == "body"
     assert abstract_block["semantic_role"] == "abstract"
-    assert heading_block["policy"]["translate"] is False
+    assert heading_block["policy"] == {"translate": True, "translate_reason": "provider_heading_candidate"}
+    assert heading_block["structure_role"] == "heading"
+    assert footnote_block["policy"] == {"translate": True, "translate_reason": "provider_footnote_whitelist"}
+    assert footnote_block["structure_role"] == "footnote"
     assert footer_block["policy"]["translate"] is False
 
     document = build_paddle_document(
@@ -320,6 +328,8 @@ def test_paddle_page_spec_marks_body_whitelist_policy_and_translation_extractor_
     assert [item.text for item in items] == [
         "Body paragraph text.",
         "Abstract paragraph text.",
+        "Introduction",
+        "Note: Values are averaged over three runs.",
     ]
 
 
@@ -536,6 +546,35 @@ def test_paddle_figure_caption_enters_translation_items() -> None:
     page_spec = build_page_spec(page_payload=payload["layoutParsingResults"][0], page_index=0, page_meta={}, preprocessed_image="")
     assert page_spec["blocks"][0]["sub_type"] == "figure_caption"
     assert page_spec["blocks"][0]["policy"]["translate"] is True
+
+
+def test_paddle_doc_title_enters_translation_items_as_optional_title_candidate() -> None:
+    payload = {
+        "layoutParsingResults": [
+            {
+                "prunedResult": {
+                    "parsing_res_list": [
+                        {"block_label": "doc_title", "block_content": "Document Title"},
+                    ]
+                },
+                "markdown": {"text": "", "images": {}},
+            }
+        ],
+        "dataInfo": {"pages": [{"width": 1200, "height": 1600}], "type": "paddle"},
+    }
+
+    document = build_paddle_document(
+        payload,
+        document_id="title-policy-doc",
+        source_json_path=PADDLE_FIXTURE_JSON,
+        provider_version="PaddleOCR-VL",
+    )
+
+    block = document["pages"][0]["blocks"][0]
+    assert block["sub_type"] == "title"
+    assert block["structure_role"] == "title"
+    assert block["policy"] == {"translate": True, "translate_reason": "provider_title_candidate"}
+    assert [item.text for item in extract_text_items(document, 0)] == ["Document Title"]
 
 
 def test_paddle_classifies_ancillary_tail_headings_as_metadata() -> None:

@@ -266,6 +266,37 @@ class WideAspectBodyFitTests(unittest.TestCase):
         self.assertLess(font_size, 10.4)
         self.assertGreaterEqual(leading, 0.54)
 
+    def test_dense_body_boxes_do_not_inherit_oversized_page_font(self):
+        items = [
+            {
+                "item_id": "large-body",
+                "block_type": "text",
+                "source_text": "Large paragraph establishes the local page body size.",
+                "bbox": [40, 80, 520, 230],
+                "lines": [
+                    {"bbox": [40, 80, 515, 96], "spans": [{"type": "text", "content": "Large paragraph"}]},
+                    {"bbox": [40, 104, 515, 120], "spans": [{"type": "text", "content": "with generous geometry."}]},
+                ],
+                "protected_translated_text": "这是一个普通的大正文块，用来建立本页正文的字号基准。",
+            },
+            {
+                "item_id": "dense-small",
+                "block_type": "text",
+                "source_text": "Dense small paragraph should stay visually modest.",
+                "bbox": [40, 250, 220, 300],
+                "lines": [
+                    {"bbox": [40, 250, 218, 263], "spans": [{"type": "text", "content": "Dense small paragraph"}]},
+                    {"bbox": [40, 266, 218, 279], "spans": [{"type": "text", "content": "with longer translated text."}]},
+                ],
+                "protected_translated_text": "这是一个密集的小正文框，译文比较长，但字号不应该继承过大的页级正文尺寸。" * 2,
+            },
+        ]
+
+        blocks = build_render_blocks(items, page_width=612.0, page_height=792.0)
+        dense_block = next(block for block in blocks if block.block_id == "item-1")
+
+        self.assertLessEqual(dense_block.font_size_pt, 10.35)
+
     def test_wide_aspect_body_relaxes_leading_when_vertical_slack_exists(self):
         text = (
             "本文件提出了产业政策议程的初步构想，旨在确保向超级智能过渡的过程中以人为本。"

@@ -11,6 +11,28 @@ from services.rendering.workflow.modes import run_dual_render
 from services.rendering.workflow.modes import run_overlay_render
 from services.rendering.workflow.modes import run_selected_pages_overlay_render
 from services.rendering.source.render_source import build_render_source_pdf
+from services.translation.item_reader import item_block_kind
+
+
+def _mark_typst_cover_fallback_pages(
+    translated_pages: dict[int, list[dict]],
+    page_indices: frozenset[int],
+) -> dict[int, list[dict]]:
+    if not page_indices:
+        return translated_pages
+    marked: dict[int, list[dict]] = {}
+    for page_idx, items in translated_pages.items():
+        if page_idx not in page_indices:
+            marked[page_idx] = items
+            continue
+        marked_items: list[dict] = []
+        for item in items:
+            if item_block_kind(item) == "text":
+                marked_items.append({**item, "_render_use_cover_fill": True})
+            else:
+                marked_items.append(item)
+        marked[page_idx] = marked_items
+    return marked
 
 
 def execute_render_plan(
@@ -56,7 +78,10 @@ def execute_render_plan(
         pages_rendered, render_diagnostics = _dispatch_render_mode(
             mode=render_plan.effective_render_mode,
             source_pdf_path=render_source_pdf.path,
-            translated_pages=render_plan.selected_pages,
+            translated_pages=_mark_typst_cover_fallback_pages(
+                render_plan.selected_pages,
+                render_source_pdf.bbox_text_strip_skipped_page_indices,
+            ),
             context=context,
             extract_selected_pages=extract_selected_pages,
         )

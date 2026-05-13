@@ -19,6 +19,8 @@ from services.rendering.layout.font_fit import normalize_leading_em_for_font_siz
 from services.rendering.layout.font_fit import page_baseline_font_size
 from services.rendering.layout.font_fit import percentile_value
 from services.rendering.layout.font_fit import resolve_font_weight
+from services.rendering.layout.font_fit import resolve_title_fill_max_font_size_pt
+from services.rendering.layout.font_roles import is_title_like_block
 from services.rendering.layout.payload.body_context import page_box_area_ratio as compute_page_box_area_ratio
 from services.rendering.layout.payload.capacity import estimated_render_height_pt
 from services.rendering.layout.payload.metrics import fit_translated_block_metrics
@@ -28,6 +30,7 @@ from services.rendering.layout.payload.shared import get_render_formula_map
 from services.rendering.layout.payload.shared import get_render_protected_text
 from services.rendering.layout.payload.shared import is_flag_like_plain_text_block
 from services.rendering.layout.payload.shared import translation_density_ratio
+from services.rendering.layout.title_binary_fit import solve_title_fit
 from services.rendering.layout.typography.geometry import inner_bbox
 from services.rendering.layout.typography.measurement import bbox_height
 from services.rendering.layout.typography.measurement import bbox_width
@@ -44,6 +47,8 @@ WIDE_ASPECT_BODY_FONT_BOOST_PT = 0.28
 WIDE_ASPECT_BODY_LEADING_TARGET = 0.46
 WIDE_ASPECT_BODY_LEADING_STEP = 0.02
 WIDE_ASPECT_BODY_MIN_SLACK_PT = 2.8
+DENSE_BODY_FONT_MAX_PT = 10.35
+HEAVY_DENSE_BODY_FONT_MAX_PT = 10.2
 
 def _is_caption_like(item: dict) -> bool:
     return is_caption_like_block(item)
@@ -151,6 +156,7 @@ def build_block_payloads(
         use_raw_text_bbox = bool(item.get("_use_raw_text_bbox"))
         font_size_pt, leading_em = base_metrics[index]
         formula_map = get_render_formula_map(item)
+        title_fit = None
         density_ratio = translation_density_ratio(item, translated_text)
         page_box_area_ratio = compute_page_box_area_ratio(bbox, page_width, page_height)
         dense_small_box = density_ratio >= 0.9 and 0 < page_box_area_ratio <= SMALL_PAGE_BOX_RATIO
@@ -168,33 +174,51 @@ def build_block_payloads(
             down_band = 0.34 if heavy_dense_small_box else (0.2 if dense_small_box else 0.06)
             up_band = 0.18 if dense_small_box else 0.24
             font_size_pt = round(min(max(font_size_pt, page_body_font_size_pt - down_band), page_body_font_size_pt + up_band), 2)
+            if dense_small_box:
+                dense_cap = HEAVY_DENSE_BODY_FONT_MAX_PT if heavy_dense_small_box else DENSE_BODY_FONT_MAX_PT
+                font_size_pt = round(min(font_size_pt, dense_cap), 2)
             if wide_aspect_body_text:
                 font_size_pt = round(min(page_body_font_size_pt + up_band, font_size_pt + WIDE_ASPECT_BODY_FONT_BOOST_PT), 2)
 
         item_inner_bbox = inner_bbox(item)
 
-        if dense_small_box and not body_flags.get(index):
+        title_like = is_title_like_block(item)
+        if title_like:
+            title_fit = solve_title_fit(
+                item,
+                translated_text,
+                formula_map,
+                base_font_size_pt=font_size_pt,
+                base_leading_em=leading_em,
+                max_font_size_pt=resolve_title_fill_max_font_size_pt(item, font_size_pt),
+            )
+            if title_fit is not None:
+                font_size_pt = title_fit.font_size_pt
+                leading_em = title_fit.leading_em
+
+        if dense_small_box and not body_flags.get(index) and not title_like:
             font_size_pt = round(font_size_pt * COMPACT_SCALE, 2)
             leading_em = round(leading_em * COMPACT_SCALE, 2)
 
-        font_size_pt, leading_em = fit_translated_block_metrics(
-            {
-                **item,
-                "_render_inner_bbox": item_inner_bbox,
-                "_is_body_text_candidate": body_like_single_line,
-                "_page_box_area_ratio": page_box_area_ratio,
-                "_dense_small_box": dense_small_box,
-                "_heavy_dense_small_box": heavy_dense_small_box,
-                "_wide_aspect_body_text": wide_aspect_body_text,
-            },
-            translated_text,
-            formula_map,
-            font_size_pt,
-            leading_em,
-            page_body_font_size_pt=page_body_font_size_pt if body_like_single_line else None,
-        )
+        if not title_like:
+            font_size_pt, leading_em = fit_translated_block_metrics(
+                {
+                    **item,
+                    "_render_inner_bbox": item_inner_bbox,
+                    "_is_body_text_candidate": body_like_single_line,
+                    "_page_box_area_ratio": page_box_area_ratio,
+                    "_dense_small_box": dense_small_box,
+                    "_heavy_dense_small_box": heavy_dense_small_box,
+                    "_wide_aspect_body_text": wide_aspect_body_text,
+                },
+                translated_text,
+                formula_map,
+                font_size_pt,
+                leading_em,
+                page_body_font_size_pt=page_body_font_size_pt if body_like_single_line else None,
+            )
 
-        if body_like_single_line:
+        if body_like_single_line and not title_like:
             leading_em = normalize_leading_em_for_font_size(
                 font_size_pt,
                 leading_em,
@@ -204,7 +228,7 @@ def build_block_payloads(
                 strength=BODY_LEADING_SIZE_ADJUST,
                 floor_min_leading_em=BODY_LEADING_FLOOR_MIN,
             )
-        else:
+        elif not title_like:
             leading_em = normalize_leading_em_for_font_size(
                 font_size_pt,
                 leading_em,
@@ -244,6 +268,7 @@ def build_block_payloads(
                 "heavy_dense_small_box": heavy_dense_small_box,
                 "wide_aspect_body_text": wide_aspect_body_text,
                 "prefer_typst_fit": bool(body_flags.get(index, False) and dense_small_box),
+                "title_fit": title_fit,
                 "adjacent_collision_risk": False,
                 "adjacent_available_height_pt": None,
                 "text_color": item.get("_render_text_color", (0, 0, 0)),

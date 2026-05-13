@@ -15,6 +15,8 @@ class RenderSourcePdf:
     path: Path
     temp_paths: list[Path]
     image_compressed: bool = False
+    bbox_text_stripped_page_indices: frozenset[int] = frozenset()
+    bbox_text_strip_skipped_page_indices: frozenset[int] = frozenset()
 
 
 def build_render_source_pdf(
@@ -30,6 +32,8 @@ def build_render_source_pdf(
     temp_paths: list[Path] = []
     render_source_path = source_pdf_path
     typst_temp_root = default_typst_temp_root(output_pdf_path)
+    bbox_text_stripped_page_indices: frozenset[int] = frozenset()
+    bbox_text_strip_skipped_page_indices: frozenset[int] = frozenset()
 
     if strip_hidden_text:
         hidden_started = time.perf_counter()
@@ -59,6 +63,8 @@ def build_render_source_pdf(
             translated_pages=translated_pages,
         )
         print(f"render source pdf: bbox-text strip elapsed={time.perf_counter() - bbox_started:.2f}s", flush=True)
+        bbox_text_stripped_page_indices = bbox_text_result.changed_page_indices
+        bbox_text_strip_skipped_page_indices = bbox_text_result.skipped_complex_page_indices
         if bbox_text_result.changed and bbox_text_result.output_pdf_path is not None:
             render_source_path = bbox_text_result.output_pdf_path
             temp_paths.append(render_source_path)
@@ -70,7 +76,12 @@ def build_render_source_pdf(
             bbox_text_stripped_path.unlink(missing_ok=True)
 
     if pdf_compress_dpi <= 0:
-        return RenderSourcePdf(path=render_source_path, temp_paths=temp_paths)
+        return RenderSourcePdf(
+            path=render_source_path,
+            temp_paths=temp_paths,
+            bbox_text_stripped_page_indices=bbox_text_stripped_page_indices,
+            bbox_text_strip_skipped_page_indices=bbox_text_strip_skipped_page_indices,
+        )
     compress_started = time.perf_counter()
     compressed_source_path = (
         default_typst_temp_root(output_pdf_path) / f"{output_pdf_path.stem}.source-compressed.pdf"
@@ -79,10 +90,21 @@ def build_render_source_pdf(
         print(f"render source pdf: image compression elapsed={time.perf_counter() - compress_started:.2f}s", flush=True)
         print(f"render source pdf: using compressed copy {compressed_source_path}", flush=True)
         temp_paths.append(compressed_source_path)
-        return RenderSourcePdf(path=compressed_source_path, temp_paths=temp_paths, image_compressed=True)
+        return RenderSourcePdf(
+            path=compressed_source_path,
+            temp_paths=temp_paths,
+            image_compressed=True,
+            bbox_text_stripped_page_indices=bbox_text_stripped_page_indices,
+            bbox_text_strip_skipped_page_indices=bbox_text_strip_skipped_page_indices,
+        )
     compressed_source_path.unlink(missing_ok=True)
     print("render source pdf: source image compression skipped", flush=True)
-    return RenderSourcePdf(path=render_source_path, temp_paths=temp_paths)
+    return RenderSourcePdf(
+        path=render_source_path,
+        temp_paths=temp_paths,
+        bbox_text_stripped_page_indices=bbox_text_stripped_page_indices,
+        bbox_text_strip_skipped_page_indices=bbox_text_strip_skipped_page_indices,
+    )
 
 
 def prepare_render_source_pdf(

@@ -13,6 +13,7 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 from services.rendering.source.cleanup.vector_text_cleanup import collect_vector_text_rects
 from services.rendering.source.cleanup.vector_text_cleanup import cleanup_vector_text_drawings
+from services.rendering.source.preparation.bbox_text_strip import _page_text_rects
 
 
 def test_collect_vector_text_rects_detects_black_filled_glyph_drawings() -> None:
@@ -82,3 +83,25 @@ def test_cleanup_vector_text_drawings_uses_background_covers_instead_of_redactio
     assert count == 1
     prepare_mock.assert_called_once_with(page, [vector_rect])
     apply_mock.assert_called_once_with(page, ["cover"])
+
+
+def test_bbox_text_strip_rects_shrink_away_from_adjacent_display_formula() -> None:
+    page_height = 818.362
+    items = [
+        {
+            "block_type": "text",
+            "bbox": [319.967, 244.459, 566.442, 417.43],
+            "protected_translated_text": "正文译文",
+        },
+        {
+            "block_type": "formula",
+            "bbox": [333.466, 419.929, 472.452, 445.425],
+            "source_text": "$$ E^{(1)} $$",
+        },
+    ]
+
+    rects = _page_text_rects(page_height=page_height, translated_items=items)
+
+    assert len(rects) == 1
+    formula_top_in_pdf_coords = page_height - items[1]["bbox"][3]
+    assert rects[0].y0 > formula_top_in_pdf_coords

@@ -24,7 +24,16 @@ _FOUNDATIONAL_SKIP_BY_BLOCK_TYPE = {
     "table_body": ("skip_table_body", "skip_table_body"),
     "code_body": ("code", "code"),
 }
-_DEFAULT_TRANSLATABLE_TEXT_STRUCTURE_ROLES = {"", "body", "abstract", "heading"}
+_DEFAULT_TRANSLATABLE_TEXT_STRUCTURE_ROLES = {
+    "",
+    "body",
+    "abstract",
+    "heading",
+    "title",
+    "footnote",
+    "image_footnote",
+    "table_footnote",
+}
 
 
 def _is_ref_text_like(item: dict) -> bool:
@@ -56,8 +65,6 @@ def _foundational_skip_defaults(item: dict) -> tuple[str, str] | None:
         return None
     if _is_default_translatable_text_item(item):
         return None
-    if item_is_title_like(item) or normalized_block_type == "title":
-        return "skip_title", "skip_title"
     if normalized_block_type:
         return f"skip_{normalized_block_type}", f"skip_{normalized_block_type}"
     return "skip_non_body_text", "skip_non_body_text"

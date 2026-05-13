@@ -7,6 +7,7 @@ from services.translation.policy.config import build_translation_policy_config
 from services.translation.policy.hints import apply_policy_hints
 from services.translation.policy.planner import TranslationPlanner
 from services.translation.policy.structured_technical_blocks import collect_structured_technical_hints
+from services.translation.policy.title_rules import apply_title_translation_rule
 
 
 def _build_skip_summary(
@@ -31,6 +32,7 @@ def _build_skip_summary(
         "mixed_translate_all": 0,
         "mixed_translate_tail": 0,
         "structured_technical_blocks": 0,
+        "title_translation_candidates": 0,
     }
 
 
@@ -58,6 +60,7 @@ def apply_translation_policies(
         )
 
     payload_ops.reset_policy_state(payload)
+    title_translation_candidates = apply_title_translation_rule(payload)
     structured_technical_blocks = apply_policy_hints(payload, collect_structured_technical_hints(payload))
     classified_items = 0
     skip_summary = _build_skip_summary(
@@ -108,6 +111,7 @@ def apply_translation_policies(
         )
 
     skip_summary["structured_technical_blocks"] = structured_technical_blocks
+    skip_summary["title_translation_candidates"] = title_translation_candidates
     return classified_items, skip_summary
 
 

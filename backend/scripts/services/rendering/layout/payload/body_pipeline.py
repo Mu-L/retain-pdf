@@ -18,11 +18,9 @@ BODY_DENSITY_TARGET_MIN = 0.82
 BODY_PRESSURE_TIGHTEN_TRIGGER = 1.38
 BODY_PRESSURE_TIGHTEN_TRIGGER_HIGH = 1.30
 BODY_FINAL_FORCE_FIT_DENSITY = 1.12
-SMALL_BOX_GROW_DENSITY_TRIGGER = 0.88
-SMALL_BOX_GROW_FONT_GAP = 0.1
-SMALL_BOX_GROW_STEP = 0.22
-SMALL_BOX_GROW_ELIGIBLE_MAX_DENSITY = 1.02
-SMALL_BOX_GROW_MAX_DENSITY = 1.03
+BODY_FONT_SMOOTH_BAND_PT = 0.16
+BODY_DENSE_FONT_MAX_PT = 10.35
+BODY_HEAVY_DENSE_FONT_MAX_PT = 10.2
 
 
 def _payload_density(payload: dict, *, font_size_pt: float | None = None, leading_em: float | None = None) -> float:
@@ -38,7 +36,12 @@ def _payload_density(payload: dict, *, font_size_pt: float | None = None, leadin
 
 
 def _resolve_body_targets(body_payloads: list[dict]) -> tuple[float, float, float]:
-    body_font_median = median(payload["font_size_pt"] for payload in body_payloads)
+    stable_body_fonts = [
+        payload["font_size_pt"]
+        for payload in body_payloads
+        if not payload["dense_small_box"] and not payload["heavy_dense_small_box"]
+    ]
+    body_font_median = median(stable_body_fonts or [payload["font_size_pt"] for payload in body_payloads])
     for payload in body_payloads:
         payload["page_body_font_size_pt"] = round(body_font_median, 2)
 
@@ -72,7 +75,15 @@ def _tighten_body_payloads(
     body_pressure_median: float,
 ) -> None:
     for payload in body_payloads:
-        payload["font_size_pt"] = round(min(max(payload["font_size_pt"], body_font_median - 0.10), body_font_median + 0.14), 2)
+        smooth_floor = body_font_median - BODY_FONT_SMOOTH_BAND_PT
+        smooth_cap = body_font_median + BODY_FONT_SMOOTH_BAND_PT
+        if payload["heavy_dense_small_box"]:
+            smooth_cap = min(smooth_cap, BODY_HEAVY_DENSE_FONT_MAX_PT)
+        elif payload["dense_small_box"]:
+            smooth_cap = min(smooth_cap, BODY_DENSE_FONT_MAX_PT)
+        if smooth_cap < smooth_floor:
+            smooth_floor = smooth_cap
+        payload["font_size_pt"] = round(min(max(payload["font_size_pt"], smooth_floor), smooth_cap), 2)
         inner_height = max(8.0, payload["inner_bbox"][3] - payload["inner_bbox"][1])
         inner_width = max(8.0, payload["inner_bbox"][2] - payload["inner_bbox"][0])
         demand = text_demand_units(payload["translated_text"], payload["formula_map"])
@@ -83,14 +94,20 @@ def _tighten_body_payloads(
 
         if pressure_ratio > pressure_trigger and payload["dense_small_box"] and density > body_density_target + 0.04:
             steps = min(3, max(1, ceil((pressure_ratio - pressure_trigger) / 0.26)))
-            payload["font_size_pt"] = round(max(body_font_median - 0.34, payload["font_size_pt"] - steps * 0.08), 2)
+            shrink_floor = min(payload["font_size_pt"], body_font_median - 0.34)
+            payload["font_size_pt"] = round(max(shrink_floor, payload["font_size_pt"] - steps * 0.08), 2)
             payload["leading_em"] = round(max(0.52, payload["leading_em"] - 0.01 * min(steps, 2)), 2)
             payload["prefer_typst_fit"] = True
             density = _payload_density(payload)
 
         if density > body_density_target + 0.06 and payload["dense_small_box"] and pressure_ratio > BODY_PRESSURE_TIGHTEN_TRIGGER_HIGH:
             payload["prefer_typst_fit"] = True
-        elif density < body_density_target - 0.12 and pressure_ratio < 0.94:
+        elif (
+            not payload["dense_small_box"]
+            and not payload["heavy_dense_small_box"]
+            and density < body_density_target - 0.12
+            and pressure_ratio < 0.94
+        ):
             steps = min(2, max(1, ceil((body_density_target - density) / 0.12)))
             payload["font_size_pt"] = round(min(body_font_median + 0.08, payload["font_size_pt"] + steps * 0.04), 2)
 
@@ -103,21 +120,20 @@ def _mark_force_fit_dense_outliers(body_payloads: list[dict]) -> None:
 
 def _grow_underfilled_body_payloads(body_payloads: list[dict], *, body_font_median: float) -> None:
     for payload in body_payloads:
+        if payload["dense_small_box"] or payload["heavy_dense_small_box"]:
+            continue
         density = _payload_density(payload)
-        eligible_max_density = SMALL_BOX_GROW_ELIGIBLE_MAX_DENSITY if payload["dense_small_box"] else 0.9
-        if density >= eligible_max_density:
+        if density >= 0.9:
             continue
 
-        grow_font_gap = SMALL_BOX_GROW_FONT_GAP if payload["dense_small_box"] else 0.2
-        if payload["font_size_pt"] >= body_font_median - grow_font_gap:
+        if payload["font_size_pt"] >= body_font_median - 0.2:
             continue
 
-        candidate_step = SMALL_BOX_GROW_STEP if payload["dense_small_box"] and density <= SMALL_BOX_GROW_DENSITY_TRIGGER else 0.12
+        candidate_step = 0.12
         candidate_cap = body_font_median - 0.12
         candidate_font = round(min(candidate_cap, payload["font_size_pt"] + candidate_step), 2)
         candidate_density = _payload_density(payload, font_size_pt=candidate_font)
-        max_candidate_density = SMALL_BOX_GROW_MAX_DENSITY if payload["dense_small_box"] else 0.94
-        if candidate_density <= max_candidate_density:
+        if candidate_density <= 0.94:
             payload["font_size_pt"] = candidate_font
 
 

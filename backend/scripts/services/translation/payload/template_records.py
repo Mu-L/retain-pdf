@@ -8,7 +8,6 @@ from services.document_schema.semantics import is_algorithm_semantic
 from services.translation.item_reader import item_block_kind
 from services.translation.item_reader import item_is_algorithm_like
 from services.translation.item_reader import item_is_bodylike
-from services.translation.item_reader import item_is_title_like
 from services.translation.item_reader import item_policy_translate
 from services.translation.ocr.models import TextItem
 
@@ -68,8 +67,6 @@ def default_translation_flags(
         return "code", False, "code"
     if is_default_translatable_text_block(normalized_block_type, metadata, contract_fields=contract_fields):
         return "", True, ""
-    if item_is_title_like(payload):
-        return "skip_title", False, "skip_title"
     if normalized_block_type:
         return f"skip_{normalized_block_type}", False, f"skip_{normalized_block_type}"
     return "skip_non_body_text", False, "skip_non_body_text"

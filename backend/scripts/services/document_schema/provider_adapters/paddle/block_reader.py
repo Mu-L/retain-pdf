@@ -14,60 +14,77 @@ from services.document_schema.provider_adapters.paddle.trace import build_metada
 from services.document_schema.provider_adapters.paddle.trace import build_source
 
 
+_TEXT_LAYOUT_ROLE_BY_SUBTYPE = {
+    "title": "title",
+    "heading": "heading",
+    "body": "paragraph",
+    "header": "header",
+    "footer": "footer",
+    "page_number": "page_number",
+    "footnote": "footnote",
+    "image_footnote": "footnote",
+    "table_footnote": "footnote",
+    "figure_caption": "caption",
+    "metadata": "unknown",
+    "reference_entry": "unknown",
+    "formula_number": "unknown",
+    "table_caption": "caption",
+    "image_caption": "caption",
+    "caption": "caption",
+}
+_TEXT_SEMANTIC_ROLE_BY_SUBTYPE = {
+    "body": "body",
+    "header": "metadata",
+    "footer": "metadata",
+    "page_number": "metadata",
+    "metadata": "metadata",
+    "formula_number": "metadata",
+    "reference_entry": "reference",
+}
+_TEXT_STRUCTURE_ROLE_BY_SUBTYPE = {
+    "body": "body",
+    "figure_caption": "figure_caption",
+    "heading": "heading",
+    "title": "title",
+    "reference_entry": "reference_entry",
+    "caption": "caption",
+    "image_caption": "caption",
+    "table_caption": "caption",
+    "code_caption": "caption",
+    "footnote": "footnote",
+    "image_footnote": "footnote",
+    "table_footnote": "footnote",
+}
+_TEXT_TRANSLATE_REASON_BY_SUBTYPE = {
+    "title": "provider_title_candidate",
+    "heading": "provider_heading_candidate",
+    "body": "provider_body_whitelist:body",
+    "figure_caption": "provider_caption_whitelist:figure_caption",
+    "footnote": "provider_footnote_whitelist",
+    "image_footnote": "provider_footnote_whitelist:image_footnote",
+    "table_footnote": "provider_footnote_whitelist:table_footnote",
+}
+
+
 def _paddle_layout_role(*, block_type: str, sub_type: str) -> str:
     if block_type != "text":
         return "unknown"
-    return {
-        "title": "title",
-        "heading": "heading",
-        "body": "paragraph",
-        "header": "header",
-        "footer": "footer",
-        "page_number": "page_number",
-        "footnote": "footnote",
-        "figure_caption": "caption",
-        "metadata": "unknown",
-        "reference_entry": "unknown",
-        "formula_number": "unknown",
-        "table_caption": "caption",
-        "image_caption": "caption",
-        "caption": "caption",
-    }.get(sub_type, "unknown")
+    return _TEXT_LAYOUT_ROLE_BY_SUBTYPE.get(sub_type, "unknown")
 
 
 def _paddle_semantic_role(*, raw_label: str, block_type: str, sub_type: str) -> str:
     label = raw_label.strip().lower()
     if block_type != "text":
         return "unknown"
-    if sub_type in {"header", "footer", "footnote", "page_number", "metadata", "formula_number"}:
-        return "metadata"
-    if sub_type == "reference_entry":
-        return "reference"
     if label == "abstract":
         return "abstract"
-    if sub_type == "body":
-        return "body"
-    return "unknown"
+    return _TEXT_SEMANTIC_ROLE_BY_SUBTYPE.get(sub_type, "unknown")
 
 
 def _paddle_structure_role(*, block_type: str, sub_type: str) -> str:
     if block_type != "text":
         return ""
-    if sub_type == "body":
-        return "body"
-    if sub_type == "figure_caption":
-        return "figure_caption"
-    if sub_type == "heading":
-        return "heading"
-    if sub_type == "title":
-        return "title"
-    if sub_type == "reference_entry":
-        return "reference_entry"
-    if sub_type in {"caption", "figure_caption", "image_caption", "table_caption", "code_caption"}:
-        return "caption"
-    if sub_type in {"footnote", "image_footnote", "table_footnote"}:
-        return "footnote"
-    return ""
+    return _TEXT_STRUCTURE_ROLE_BY_SUBTYPE.get(sub_type, "")
 
 
 def _paddle_translate_policy(*, raw_label: str, block_type: str, sub_type: str) -> dict:
@@ -76,10 +93,9 @@ def _paddle_translate_policy(*, raw_label: str, block_type: str, sub_type: str) 
         return {"translate": False, "translate_reason": f"provider_non_text:{block_type or 'unknown'}"}
     if label == "abstract":
         return {"translate": True, "translate_reason": "provider_body_whitelist:abstract"}
-    if sub_type == "figure_caption":
-        return {"translate": True, "translate_reason": "provider_caption_whitelist:figure_caption"}
-    if sub_type == "body":
-        return {"translate": True, "translate_reason": "provider_body_whitelist:body"}
+    reason = _TEXT_TRANSLATE_REASON_BY_SUBTYPE.get(sub_type)
+    if reason is not None:
+        return {"translate": True, "translate_reason": reason}
     return {"translate": False, "translate_reason": f"provider_non_body:{sub_type or label or 'unknown'}"}
 
 

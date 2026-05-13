@@ -14,6 +14,7 @@ from services.rendering.layout.page_fit import should_fit_wrapped_markdown
 from services.rendering.layout.payload.text_common import get_render_formula_map
 from services.rendering.layout.payload.text_common import get_render_protected_text
 from services.rendering.layout.payload.text_common import is_flag_like_plain_text_block
+from services.rendering.layout.title_binary_fit import solve_title_fit
 from services.rendering.layout.typography.geometry import cover_bbox
 from services.rendering.layout.typography.geometry import inner_bbox
 
@@ -62,6 +63,19 @@ def layout_block_from_item(
         font_size_pt=font_size_pt,
         leading_em=leading_em,
     )
+    title_fit = None
+    if title_like:
+        title_fit = solve_title_fit(
+            item,
+            protected_text,
+            formula_map,
+            base_font_size_pt=font_size_pt,
+            base_leading_em=leading_em,
+            max_font_size_pt=resolve_title_fill_max_font_size_pt(item, font_size_pt),
+        )
+        if title_fit is not None:
+            font_size_pt = title_fit.font_size_pt
+            leading_em = title_fit.leading_em
     fit_to_box = title_like or body_candidate or wrapped_markdown_candidate
     fit_single_line = bool(title_like and content_kind == "markdown")
     fit_min_font_size_pt = font_size_pt if title_like else max(7.2, round(font_size_pt - 0.8, 2))
@@ -70,9 +84,15 @@ def layout_block_from_item(
     if wrapped_markdown_candidate and not body_candidate:
         fit_min_font_size_pt = max(7.2, round(font_size_pt - 2.2, 2))
         fit_min_leading_em = max(0.18, round(leading_em - 0.2, 2))
+    if title_fit is not None:
+        fit_to_box = title_fit.fit_to_box
+        fit_single_line = title_fit.fit_single_line
+        fit_min_font_size_pt = title_fit.fit_min_font_size_pt
+        fit_max_font_size_pt = title_fit.fit_max_font_size_pt
+        fit_min_leading_em = title_fit.fit_min_leading_em
 
     item_inner_bbox = inner_bbox(item)
-    return RenderLayoutBlock(
+    block = RenderLayoutBlock(
         block_id=f"item-{item.get('item_id', page_index)}",
         page_index=page_index,
         background_rect=list(cover_bbox(item)),
@@ -89,8 +109,11 @@ def layout_block_from_item(
         fit_min_font_size_pt=fit_min_font_size_pt,
         fit_max_font_size_pt=fit_max_font_size_pt,
         fit_min_leading_em=fit_min_leading_em,
-        fit_max_height_pt=max(8.0, item_inner_bbox[3] - item_inner_bbox[1]),
+        fit_max_height_pt=title_fit.fit_max_height_pt if title_fit is not None else max(8.0, item_inner_bbox[3] - item_inner_bbox[1]),
+        fit_target_width_pt=title_fit.fit_target_width_pt if title_fit is not None else 0.0,
+        fit_target_height_pt=title_fit.fit_target_height_pt if title_fit is not None else 0.0,
     )
+    return block
 
 
 __all__ = [

@@ -7,23 +7,38 @@ from services.rendering.layout.payload.metrics import resolve_typst_binary_fit
 
 
 def payload_to_render_block(payload: dict) -> RenderBlock:
-    fit_to_box, fit_min_font_size_pt, fit_min_leading_em, fit_max_height_pt = resolve_typst_binary_fit(
-        {
-            **payload["item"],
-            "_render_inner_bbox": payload["inner_bbox"],
-            "_is_body_text_candidate": payload["is_body"],
-            "_dense_small_box": payload["dense_small_box"],
-            "_heavy_dense_small_box": payload["heavy_dense_small_box"],
-        },
-        payload["translated_text"],
-        payload["formula_map"],
-        payload["font_size_pt"],
-        payload["leading_em"],
-        page_body_font_size_pt=payload["page_body_font_size_pt"],
-        prefer_typst_fit=payload["prefer_typst_fit"],
-        adjacent_collision_risk=payload["adjacent_collision_risk"],
-        adjacent_available_height_pt=payload["adjacent_available_height_pt"],
-    )
+    title_fit = payload.get("title_fit")
+    if title_fit is not None:
+        fit_to_box = title_fit.fit_to_box
+        fit_single_line = title_fit.fit_single_line
+        fit_min_font_size_pt = title_fit.fit_min_font_size_pt
+        fit_max_font_size_pt = title_fit.fit_max_font_size_pt
+        fit_min_leading_em = title_fit.fit_min_leading_em
+        fit_max_height_pt = title_fit.fit_max_height_pt
+        fit_target_width_pt = title_fit.fit_target_width_pt
+        fit_target_height_pt = title_fit.fit_target_height_pt
+    else:
+        fit_to_box, fit_min_font_size_pt, fit_min_leading_em, fit_max_height_pt = resolve_typst_binary_fit(
+            {
+                **payload["item"],
+                "_render_inner_bbox": payload["inner_bbox"],
+                "_is_body_text_candidate": payload["is_body"],
+                "_dense_small_box": payload["dense_small_box"],
+                "_heavy_dense_small_box": payload["heavy_dense_small_box"],
+            },
+            payload["translated_text"],
+            payload["formula_map"],
+            payload["font_size_pt"],
+            payload["leading_em"],
+            page_body_font_size_pt=payload["page_body_font_size_pt"],
+            prefer_typst_fit=payload["prefer_typst_fit"],
+            adjacent_collision_risk=payload["adjacent_collision_risk"],
+            adjacent_available_height_pt=payload["adjacent_available_height_pt"],
+        )
+        fit_single_line = False
+        fit_max_font_size_pt = 0.0
+        fit_target_width_pt = 0.0
+        fit_target_height_pt = 0.0
     return RenderBlock(
         block_id=f"item-{payload['index']}",
         bbox=payload["bbox"],
@@ -35,12 +50,17 @@ def payload_to_render_block(payload: dict) -> RenderBlock:
         font_size_pt=payload["font_size_pt"],
         leading_em=payload["leading_em"],
         font_weight=payload.get("font_weight", "regular"),
-        fit_to_box=payload["render_kind"] == "markdown",
+        fit_to_box=bool(fit_to_box and payload["render_kind"] == "markdown"),
+        fit_single_line=fit_single_line,
         fit_min_font_size_pt=fit_min_font_size_pt,
+        fit_max_font_size_pt=fit_max_font_size_pt,
         fit_min_leading_em=fit_min_leading_em,
         fit_max_height_pt=fit_max_height_pt,
+        fit_target_width_pt=fit_target_width_pt,
+        fit_target_height_pt=fit_target_height_pt,
         text_color=tuple(payload.get("text_color", (0, 0, 0))),
         cover_fill=tuple(payload.get("cover_fill", (1, 1, 1))),
+        use_cover_fill=bool(payload["item"].get("_render_use_cover_fill", False)),
     )
 
 

@@ -17,6 +17,8 @@ TEXT_SHOW_OPERATORS = {"Tj", "TJ", "'", '"'}
 DEFAULT_TEXT_ADVANCE_PT = 18.0
 MIN_TEXT_BOX_HEIGHT_PT = 2.0
 BBOX_TEXT_STRIP_CONTENT_STREAM_SIZE_THRESHOLD = 1_000_000
+FORMULA_PROTECTION_GAP_PT = 6.0
+FORMULA_PROTECTION_X_OVERLAP_RATIO = 0.18
 
 
 @dataclass(frozen=True)
@@ -28,6 +30,9 @@ class BBoxTextStripResult:
     pages_skipped_complex: int = 0
     pages_skipped_no_text_overlap: int = 0
     forms_changed: int = 0
+    changed_page_indices: frozenset[int] = frozenset()
+    skipped_complex_page_indices: frozenset[int] = frozenset()
+    skipped_no_text_overlap_page_indices: frozenset[int] = frozenset()
 
 
 def _mul(left: tuple[float, float, float, float, float, float], right: tuple[float, float, float, float, float, float]) -> tuple[float, float, float, float, float, float]:
@@ -107,6 +112,7 @@ def _page_text_rects(
     translated_items: list[dict],
 ) -> list[fitz.Rect]:
     rects: list[fitz.Rect] = []
+    protected_formula_rects = _page_formula_rects(page_height=page_height, translated_items=translated_items)
     for item in translated_items:
         if not _should_strip_item_text(item):
             continue
@@ -117,8 +123,51 @@ def _page_text_rects(
         rect = fitz.Rect(x0, page_height - y1, x1, page_height - y0)
         if rect.is_empty:
             continue
-        rects.append(rect + (-1.0, -1.0, 1.0, 1.0))
+        protected_rect = _shrink_rect_away_from_formulas(rect, protected_formula_rects)
+        if not protected_rect.is_empty:
+            rects.append(protected_rect + (-1.0, -1.0, 1.0, 1.0))
     return merge_rects(rects)
+
+
+def _page_formula_rects(
+    *,
+    page_height: float,
+    translated_items: list[dict],
+) -> list[fitz.Rect]:
+    rects: list[fitz.Rect] = []
+    for item in translated_items:
+        if item_block_kind(item) != "formula":
+            continue
+        bbox = item.get("bbox", [])
+        if len(bbox) != 4:
+            continue
+        x0, y0, x1, y1 = (_to_float(value) for value in bbox)
+        rect = fitz.Rect(x0, page_height - y1, x1, page_height - y0)
+        if not rect.is_empty:
+            rects.append(rect)
+    return rects
+
+
+def _x_overlap_ratio(left: fitz.Rect, right: fitz.Rect) -> float:
+    overlap = max(0.0, min(left.x1, right.x1) - max(left.x0, right.x0))
+    width = max(1.0, min(left.width, right.width))
+    return overlap / width
+
+
+def _shrink_rect_away_from_formulas(rect: fitz.Rect, formula_rects: list[fitz.Rect]) -> fitz.Rect:
+    protected = fitz.Rect(rect)
+    for formula in formula_rects:
+        if _x_overlap_ratio(protected, formula) < FORMULA_PROTECTION_X_OVERLAP_RATIO:
+            continue
+        gap_below = protected.y0 - formula.y1
+        if 0 <= gap_below <= FORMULA_PROTECTION_GAP_PT:
+            protected.y0 = max(protected.y0, formula.y1 + FORMULA_PROTECTION_GAP_PT)
+        gap_above = formula.y0 - protected.y1
+        if 0 <= gap_above <= FORMULA_PROTECTION_GAP_PT:
+            protected.y1 = min(protected.y1, formula.y0 - FORMULA_PROTECTION_GAP_PT)
+    if protected.y1 <= protected.y0 or protected.x1 <= protected.x0:
+        return fitz.Rect()
+    return protected
 
 
 def _page_item_rects(translated_items: list[dict]) -> list[fitz.Rect]:
@@ -344,6 +393,8 @@ def build_bbox_text_stripped_pdf_copy(
 
     candidate_started = time.perf_counter()
     page_rects: dict[int, list[fitz.Rect]] = {}
+    skipped_complex_page_indices: set[int] = set()
+    skipped_no_text_overlap_page_indices: set[int] = set()
     skipped_complex = 0
     skipped_no_text_overlap = 0
     doc = fitz.open(source_pdf_path)
@@ -357,10 +408,12 @@ def build_bbox_text_stripped_pdf_copy(
                 continue
             if _page_content_stream_size(doc, page) >= BBOX_TEXT_STRIP_CONTENT_STREAM_SIZE_THRESHOLD:
                 skipped_complex += 1
+                skipped_complex_page_indices.add(page_idx)
                 continue
             _drawing_count, text_overlap_count = _page_bboxlog_stats(page, item_rects)
             if text_overlap_count <= 0:
                 skipped_no_text_overlap += 1
+                skipped_no_text_overlap_page_indices.add(page_idx)
                 continue
             rects = _page_text_rects(page_height=page.rect.height, translated_items=items)
             if rects:
@@ -374,6 +427,8 @@ def build_bbox_text_stripped_pdf_copy(
             changed=False,
             pages_skipped_complex=skipped_complex,
             pages_skipped_no_text_overlap=skipped_no_text_overlap,
+            skipped_complex_page_indices=frozenset(skipped_complex_page_indices),
+            skipped_no_text_overlap_page_indices=frozenset(skipped_no_text_overlap_page_indices),
         )
 
     output_pdf_path.parent.mkdir(parents=True, exist_ok=True)
@@ -382,6 +437,7 @@ def build_bbox_text_stripped_pdf_copy(
     copy_elapsed = time.perf_counter() - copy_started
 
     pages_changed = 0
+    changed_page_indices: set[int] = set()
     removed_total = 0
     forms_changed_total = 0
     parse_elapsed = 0.0
@@ -395,10 +451,12 @@ def build_bbox_text_stripped_pdf_copy(
             if not content_stream or removed <= 0:
                 if forms_changed > 0:
                     pages_changed += 1
+                    changed_page_indices.add(page_idx)
                     removed_total += removed
                 continue
             pdf.pages[page_idx].obj[Name("/Contents")] = pdf.make_stream(content_stream)
             pages_changed += 1
+            changed_page_indices.add(page_idx)
             removed_total += removed
 
         if pages_changed <= 0:
@@ -407,6 +465,8 @@ def build_bbox_text_stripped_pdf_copy(
                 changed=False,
                 pages_skipped_complex=skipped_complex,
                 pages_skipped_no_text_overlap=skipped_no_text_overlap,
+                skipped_complex_page_indices=frozenset(skipped_complex_page_indices),
+                skipped_no_text_overlap_page_indices=frozenset(skipped_no_text_overlap_page_indices),
             )
 
         save_started = time.perf_counter()
@@ -434,4 +494,7 @@ def build_bbox_text_stripped_pdf_copy(
         pages_skipped_complex=skipped_complex,
         pages_skipped_no_text_overlap=skipped_no_text_overlap,
         forms_changed=forms_changed_total,
+        changed_page_indices=frozenset(changed_page_indices),
+        skipped_complex_page_indices=frozenset(skipped_complex_page_indices),
+        skipped_no_text_overlap_page_indices=frozenset(skipped_no_text_overlap_page_indices),
     )

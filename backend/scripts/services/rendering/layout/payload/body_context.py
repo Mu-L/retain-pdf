@@ -209,6 +209,7 @@ def smooth_adjacent_body_pair(current: dict, nxt: dict) -> None:
         grow_allowed = (
             not smaller_font_payload["prefer_typst_fit"]
             and not smaller_font_payload["heavy_dense_small_box"]
+            and not smaller_font_payload["dense_small_box"]
             and payload_estimated_density(smaller_font_payload) <= density_limit
         )
         grown = 0.0
@@ -235,6 +236,8 @@ def smooth_adjacent_body_pair(current: dict, nxt: dict) -> None:
         excess = leading_delta - max_leading_delta
         grow_allowed = (
             not smaller_leading_payload["prefer_typst_fit"]
+            and not smaller_leading_payload["heavy_dense_small_box"]
+            and not smaller_leading_payload["dense_small_box"]
             and payload_estimated_density(smaller_leading_payload) <= max(BODY_DENSITY_TARGET_MAX, density_limit - 0.02)
         )
         grown = 0.0
