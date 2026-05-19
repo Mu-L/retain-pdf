@@ -1,4 +1,4 @@
-FROM rust:1.81-slim-bookworm AS builder
+FROM rust:1.88-slim-bookworm AS builder
 
 ARG TYPST_VERSION=0.14.2
 ARG CMARKER_VERSION=0.1.8
@@ -34,10 +34,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN mkdir -p /tmp/typst /opt/typst/bin /opt/typst-packages/preview
 
 RUN set -eux; \
-    curl -fsSL "https://github.com/typst/typst/releases/download/v${TYPST_VERSION}/typst-x86_64-unknown-linux-musl.tar.xz" \
+    ARCH="$(uname -m)"; \
+    case "$ARCH" in \
+      x86_64) TYPST_ARCH="x86_64" ;; \
+      aarch64) TYPST_ARCH="aarch64" ;; \
+      *) echo "Unsupported architecture: $ARCH"; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://github.com/typst/typst/releases/download/v${TYPST_VERSION}/typst-${TYPST_ARCH}-unknown-linux-musl.tar.xz" \
     -o /tmp/typst/typst.tar.xz \
     && tar -xJf /tmp/typst/typst.tar.xz -C /tmp/typst \
-    && cp /tmp/typst/typst-x86_64-unknown-linux-musl/typst /opt/typst/bin/typst
+    && cp /tmp/typst/typst-${TYPST_ARCH}-unknown-linux-musl/typst /opt/typst/bin/typst
 
 RUN set -eux; \
     for pkg in cmarker:${CMARKER_VERSION} mitex:${MITEX_VERSION}; do \
