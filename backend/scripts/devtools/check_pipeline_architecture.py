@@ -239,6 +239,12 @@ TRANSLATION_SHARED_COMPAT_IMPORTS = (
     "services.translation.core.item_reader",
     "services.translation.services.context.session_context",
 )
+TRANSLATION_ROOT_SHIM_IMPORTS = (
+    "services.translation.from_ocr_pipeline",
+    "services.translation.translate_only_pipeline",
+    "services.translation.item_reader",
+    "services.translation.session_context",
+)
 TRANSLATION_STAGE_PIPELINE = PIPELINE_ROOT / "translation_stage.py"
 RENDER_STAGE_PIPELINE = PIPELINE_ROOT / "render_stage.py"
 RENDER_EXECUTION_PIPELINE = PIPELINE_ROOT / "render_execution.py"
@@ -353,7 +359,7 @@ ENTRYPOINT_IMPORT_ALLOWLIST: dict[Path, tuple[str, ...]] = {
         "from services.translation.llm.shared.provider_runtime import",
         "from services.translation.llm.shared.response_parsing import",
     ),
-    Path("run_book.py"): ("from services.translation.from_ocr_pipeline import main",),
+    Path("run_book.py"): ("from services.translation.entrypoints.from_ocr_pipeline import main",),
     Path("run_document_flow.py"): (
         "from runtime.pipeline.book_pipeline import",
         "from services.translation.llm.shared.provider_runtime import",
@@ -362,9 +368,9 @@ ENTRYPOINT_IMPORT_ALLOWLIST: dict[Path, tuple[str, ...]] = {
     Path("run_provider_case.py"): ("from services.ocr_provider.provider_pipeline import main",),
     Path("run_provider_ocr.py"): ("from services.ocr_provider.provider_pipeline import main",),
     Path("run_render_only.py"): ("from services.rendering.workflow.render_only import main",),
-    Path("run_translate_from_ocr.py"): ("from services.translation.from_ocr_pipeline import main",),
-    Path("run_translate_only.py"): ("from services.translation.translate_only_pipeline import main",),
-    Path("translate_book.py"): ("from services.translation.translate_only_pipeline import main",),
+    Path("run_translate_from_ocr.py"): ("from services.translation.entrypoints.from_ocr_pipeline import main",),
+    Path("run_translate_only.py"): ("from services.translation.entrypoints.translate_only_pipeline import main",),
+    Path("translate_book.py"): ("from services.translation.entrypoints.translate_only_pipeline import main",),
     Path("translate_page.py"): (
         "from services.translation.core.ocr.json_extractor import",
         "from services.translation.llm.shared.provider_runtime import",
@@ -954,6 +960,22 @@ def check_translation_internal_boundaries(errors: list[str]) -> None:
         "from runtime.pipeline",
         "import runtime.pipeline",
     )
+    shim_files = {
+        TRANSLATION_ROOT / "from_ocr_pipeline.py",
+        TRANSLATION_ROOT / "translate_only_pipeline.py",
+        TRANSLATION_ROOT / "item_reader.py",
+        TRANSLATION_ROOT / "session_context.py",
+    }
+    for path in scan_py_files(SCRIPTS_ROOT):
+        if path in shim_files:
+            continue
+        for module in imported_modules(path):
+            if module_allowed(module, TRANSLATION_ROOT_SHIM_IMPORTS):
+                errors.append(
+                    f"{rel(path)}: import translation implementation through its real layer path, not root shim '{module}'"
+                )
+                break
+
     for path in scan_py_files(TRANSLATION_ROOT):
         if path in {TRANSLATE_ONLY_ENTRYPOINT, FROM_OCR_ENTRYPOINT}:
             continue

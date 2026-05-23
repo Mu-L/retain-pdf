@@ -6,7 +6,7 @@ import sys
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from foundation.shared.structured_errors import run_with_structured_failure
-from services.translation.translate_only_pipeline import main
+from services.translation.entrypoints.translate_only_pipeline import main
 
 
 if __name__ == "__main__":

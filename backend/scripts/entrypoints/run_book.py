@@ -10,7 +10,7 @@ import sys
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from foundation.shared.structured_errors import run_with_structured_failure
-from services.translation.from_ocr_pipeline import main
+from services.translation.entrypoints.from_ocr_pipeline import main
 
 
 if __name__ == "__main__":
