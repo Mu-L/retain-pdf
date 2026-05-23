@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from services.translation.diagnostics import TranslationDiagnosticsCollector
+from services.translation.artifacts import TranslationDiagnosticsCollector
 from services.translation.llm.result_validator import validate_batch_result
 from services.translation.llm.shared.control_context import TranslationControlContext
 from services.translation.llm.shared.orchestration.direct_typst import translate_direct_typst_plain_text_with_retries

@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from typing import Callable
 
-from services.translation.diagnostics import TranslationDiagnosticsCollector
+from services.translation.artifacts import TranslationDiagnosticsCollector
 from services.translation.llm.placeholder_transform import item_with_placeholder_aliases
 from services.translation.llm.placeholder_transform import item_with_runtime_hard_glossary
 from services.translation.llm.placeholder_transform import placeholder_alias_maps

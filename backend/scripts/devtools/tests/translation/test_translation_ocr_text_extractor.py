@@ -9,7 +9,7 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 from services.document_schema.defaults import default_block_continuation_hint
 from services.document_schema.adapters import adapt_payload_to_document_v1
 from services.document_schema.providers import PROVIDER_GENERIC_FLAT_OCR
-from services.translation.ocr.json_extractor import extract_text_items
+from services.translation.core.ocr.json_extractor import extract_text_items
 
 def test_extract_text_items_only_keeps_primary_body_like_text_blocks() -> None:
     adapted = adapt_payload_to_document_v1(

@@ -9,11 +9,11 @@ REPO_SCRIPTS_ROOT = Path("/home/wxyhgk/tmp/Code/backend/scripts")
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.continuation import review as continuation_review
+from services.translation.services.continuation import review as continuation_review
 from services.translation.llm import domain_context
 from services.translation.llm.shared import control_context
-from services.translation.context import models as context_models
-from services.translation.postprocess import garbled_reconstruction
+from services.translation.services.context import models as context_models
+from services.translation.services.postprocess import garbled_reconstruction
 from services.translation import session_context
 
 

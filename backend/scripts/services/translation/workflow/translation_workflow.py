@@ -3,19 +3,19 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from services.translation.orchestration.document_orchestrator import annotate_payload_layout_zones
-from services.translation.orchestration.document_orchestrator import finalize_payload_orchestration_metadata
-from services.translation.payload import apply_translated_text_map
-from services.translation.payload import pending_translation_items
-from services.translation.payload import summarize_payload
-from services.translation.policy import TranslationPolicyConfig
-from services.translation.policy import build_translation_policy_config
-from services.translation.continuation import annotate_continuation_context
-from services.translation.continuation import summarize_continuation_decisions
-from services.translation.policy.flow import apply_translation_policies
+from services.translation.core.orchestration.document_orchestrator import annotate_payload_layout_zones
+from services.translation.core.orchestration.document_orchestrator import finalize_payload_orchestration_metadata
+from services.translation.core.payload import apply_translated_text_map
+from services.translation.core.payload import pending_translation_items
+from services.translation.core.payload import summarize_payload
+from services.translation.services.policy import TranslationPolicyConfig
+from services.translation.services.policy import build_translation_policy_config
+from services.translation.services.continuation import annotate_continuation_context
+from services.translation.services.continuation import summarize_continuation_decisions
+from services.translation.services.policy.flow import apply_translation_policies
 from services.translation.llm.shared.provider_runtime import DEFAULT_BASE_URL, DEFAULT_MODEL
 from services.translation.llm.shared.orchestration import translate_batch
-from services.translation.payload import ensure_translation_template, load_translations, save_translations
+from services.translation.core.payload import ensure_translation_template, load_translations, save_translations
 
 
 def chunked(seq: list[dict], size: int) -> list[list[dict]]:

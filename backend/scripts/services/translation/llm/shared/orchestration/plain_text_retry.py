@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import time
 
-from services.translation.diagnostics import TranslationDiagnosticsCollector
+from services.translation.artifacts import TranslationDiagnosticsCollector
 from services.translation.llm.validation.errors import EmptyTranslationError
 from services.translation.llm.validation.errors import EnglishResidueError
 from services.translation.llm.validation.errors import MathDelimiterError

@@ -6,10 +6,10 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.payload.parts.legacy_policy_mutations import apply_ref_text_skip
-from services.translation.payload.parts.policy_mutations import apply_reference_zone_skip
-from services.translation.policy.config import build_translation_policy_config
-from services.translation.policy.flow import apply_translation_policies
+from services.translation.core.payload.parts.legacy_policy_mutations import apply_ref_text_skip
+from services.translation.core.payload.parts.policy_mutations import apply_reference_zone_skip
+from services.translation.services.policy.config import build_translation_policy_config
+from services.translation.services.policy.flow import apply_translation_policies
 
 
 def test_apply_reference_zone_skip_uses_top_level_contract_fields_without_metadata() -> None:

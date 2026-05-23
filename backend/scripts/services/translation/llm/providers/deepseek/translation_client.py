@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 
-from services.translation.diagnostics import TranslationDiagnosticsCollector
+from services.translation.artifacts import TranslationDiagnosticsCollector
 from services.translation.llm.providers.deepseek.client import DEFAULT_BASE_URL
 from services.translation.llm.providers.deepseek.client import DEFAULT_MODEL
 from services.translation.llm.providers.deepseek.client import request_chat_content

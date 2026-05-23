@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 
-from services.translation.diagnostics import TranslationDiagnosticsCollector
+from services.translation.artifacts import TranslationDiagnosticsCollector
 from services.translation.llm.shared.orchestration.common import is_continuation_or_group_unit
 from services.translation.llm.shared.orchestration.common import sentence_level_fallback_allowed
 from services.translation.llm.shared.orchestration.metadata import attach_result_metadata

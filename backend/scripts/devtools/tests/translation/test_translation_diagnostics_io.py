@@ -6,7 +6,7 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.diagnostics.io import aggregate_payload_diagnostics
+from services.translation.artifacts.io import aggregate_payload_diagnostics
 from runtime.pipeline.book_pipeline import _blocking_untranslated_items
 
 

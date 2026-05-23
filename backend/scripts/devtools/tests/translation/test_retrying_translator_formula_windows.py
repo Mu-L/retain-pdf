@@ -28,7 +28,7 @@ def load_retrying_translator():
         "services.translation.llm.shared.orchestration": REPO_SCRIPTS_ROOT / "services" / "translation" / "llm" / "shared" / "orchestration",
         "services.translation.llm.providers": REPO_SCRIPTS_ROOT / "services" / "translation" / "llm" / "providers",
         "services.translation.llm.providers.deepseek": REPO_SCRIPTS_ROOT / "services" / "translation" / "llm" / "providers" / "deepseek",
-        "services.translation.policy": REPO_SCRIPTS_ROOT / "services" / "translation" / "policy",
+        "services.translation.services.policy": REPO_SCRIPTS_ROOT / "services" / "translation" / "policy",
         "services.document_schema": REPO_SCRIPTS_ROOT / "services" / "document_schema",
     }
     for name, path in package_paths.items():

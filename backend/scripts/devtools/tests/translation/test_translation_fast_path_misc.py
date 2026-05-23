@@ -14,7 +14,7 @@ from services.translation.llm.shared.orchestration import segment_routing
 from services.translation.llm.shared.orchestration.intentional_keep_origin import (
     keep_origin_payload_for_repeated_empty_translation,
 )
-from services.translation.payload.parts.apply import apply_translated_text_map
+from services.translation.core.payload.parts.apply import apply_translated_text_map
 
 
 def test_citation_rich_body_text_still_forces_translation() -> None:

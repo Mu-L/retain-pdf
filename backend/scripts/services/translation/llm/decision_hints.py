@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import re
 
-from services.translation.item_reader import item_block_kind
-from services.translation.item_reader import item_effective_role
-from services.translation.item_reader import item_is_reference_like
-from services.translation.item_reader import item_layout_role
-from services.translation.item_reader import item_semantic_role
+from services.translation.core.item_reader import item_block_kind
+from services.translation.core.item_reader import item_effective_role
+from services.translation.core.item_reader import item_is_reference_like
+from services.translation.core.item_reader import item_layout_role
+from services.translation.core.item_reader import item_semantic_role
 
 YEAR_RE = re.compile(r"\b(?:19|20)\d{2}\b")
 AUTHOR_TOKEN_RE = re.compile(r"\b[A-Z][a-z]+(?:[-'][A-Za-z]+)?\b")

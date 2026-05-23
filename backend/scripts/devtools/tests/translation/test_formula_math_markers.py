@@ -21,14 +21,14 @@ from services.rendering.layout.inline_content.fallback.latex_normalizer import n
 from services.rendering.layout.inline_content.fallback.png_renderer import convert_latexish_to_typst
 from services.rendering.layout.inline_content.fallback.png_renderer import compile_formula_png
 from services.rendering.layout.inline_content.fallback.png_renderer import convert_latexish_to_typst
-from services.translation.payload.translations import export_translation_template
-from services.translation.payload.formula_protection import formula_map_from_protected_map
-from services.translation.payload.formula_protection import protect_inline_content
-from services.translation.payload.formula_protection import protect_inline_formulas
-from services.translation.payload.formula_protection import protect_inline_formulas_in_segments
-from services.translation.payload.formula_protection import re_protect_restored_formulas
-from services.translation.payload.formula_protection import restore_protected_tokens
-from services.translation.ocr.models import TextItem
+from services.translation.core.payload.translations import export_translation_template
+from services.translation.core.payload.formula_protection import formula_map_from_protected_map
+from services.translation.core.payload.formula_protection import protect_inline_content
+from services.translation.core.payload.formula_protection import protect_inline_formulas
+from services.translation.core.payload.formula_protection import protect_inline_formulas_in_segments
+from services.translation.core.payload.formula_protection import re_protect_restored_formulas
+from services.translation.core.payload.formula_protection import restore_protected_tokens
+from services.translation.core.ocr.models import TextItem
 
 
 MATH_NORMALIZATION_CASES = [

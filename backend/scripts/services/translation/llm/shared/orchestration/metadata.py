@@ -3,7 +3,7 @@ from __future__ import annotations
 from services.translation.llm.result_payload import is_internal_placeholder_degraded
 from services.translation.llm.result_payload import result_entry
 from services.translation.llm.shared.orchestration.common import formula_placeholder_count
-from services.translation.payload.formula_protection import restore_tokens_by_type
+from services.translation.core.payload.formula_protection import restore_tokens_by_type
 from services.translation.llm.shared.orchestration.segment_routing import build_formula_segment_plan
 from services.translation.llm.shared.orchestration.segment_routing import effective_formula_segment_count
 from services.translation.llm.shared.orchestration.segment_routing import formula_segment_translation_route

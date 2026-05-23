@@ -14,7 +14,7 @@ def load_placeholder_guard():
         "services": REPO_SCRIPTS_ROOT / "services",
         "services.translation": REPO_SCRIPTS_ROOT / "services" / "translation",
         "services.translation.llm": REPO_SCRIPTS_ROOT / "services" / "translation" / "llm",
-        "services.translation.policy": REPO_SCRIPTS_ROOT / "services" / "translation" / "policy",
+        "services.translation.services.policy": REPO_SCRIPTS_ROOT / "services" / "translation" / "policy",
         "services.document_schema": REPO_SCRIPTS_ROOT / "services" / "document_schema",
     }
     for name, path in package_paths.items():

@@ -19,8 +19,8 @@ from services.document_schema import list_registered_ocr_adapters
 from services.document_schema import validate_document_path
 from services.document_schema import validate_document_payload
 from services.document_schema.providers import PROVIDER_PADDLE
-from services.translation.ocr.json_extractor import extract_text_items
-from services.translation.payload.translations import _default_translation_flags
+from services.translation.core.ocr.json_extractor import extract_text_items
+from services.translation.core.payload.translations import _default_translation_flags
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 

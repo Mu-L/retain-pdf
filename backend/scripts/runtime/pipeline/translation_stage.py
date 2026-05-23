@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from services.translation.terms import GlossaryEntry
+from services.translation.services.terms import GlossaryEntry
 from services.translation.llm.shared.provider_runtime import DEFAULT_BASE_URL
 from services.translation.llm.shared.provider_runtime import DEFAULT_MODEL
 from services.translation.workflow import TranslationExecutionRequest

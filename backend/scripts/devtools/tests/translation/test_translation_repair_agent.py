@@ -7,12 +7,12 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.agents import RepairAgent
-from services.translation.agents import TranslationAgentCoordinator
-from services.translation.agents import TranslationRepairRequest
+from services.translation.services.agents import RepairAgent
+from services.translation.services.agents import TranslationAgentCoordinator
+from services.translation.services.agents import TranslationRepairRequest
 from services.translation.llm.shared.control_context import GlossaryEntry
 from services.translation.llm.shared.control_context import build_translation_control_context
-from services.translation.quality import TranslationQualityIssue
+from services.translation.services.quality import TranslationQualityIssue
 
 
 def _item() -> dict:

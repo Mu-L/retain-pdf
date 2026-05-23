@@ -17,11 +17,11 @@ if str(REPO_SCRIPTS_ROOT) not in sys.path:
 from foundation.shared.stage_specs import TranslateStageSpec
 from foundation.shared.stage_specs import resolve_credential_ref
 from services.translation.llm import translate_batch
-from services.translation.payload import load_translation_manifest_file
-from services.translation.payload import load_translations
-from services.translation.policy import build_translation_policy_config
-from services.translation.policy.flow import apply_translation_policies
-from services.translation.session_context import build_translation_context_from_policy
+from services.translation.core.payload import load_translation_manifest_file
+from services.translation.core.payload import load_translations
+from services.translation.services.policy import build_translation_policy_config
+from services.translation.services.policy.flow import apply_translation_policies
+from services.translation.services.context.session_context import build_translation_context_from_policy
 
 
 def _preview_text(text: str, *, limit: int = 220) -> str:

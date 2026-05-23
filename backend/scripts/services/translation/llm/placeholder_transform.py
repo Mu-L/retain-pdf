@@ -9,8 +9,8 @@ from services.translation.llm.validation.english_residue import unit_source_text
 from services.translation.llm.validation.placeholder_tokens import FORMULA_TOKEN_RE
 from services.translation.llm.validation.placeholder_tokens import PLACEHOLDER_RE
 from services.translation.llm.validation.placeholder_tokens import placeholder_sequence
-from services.translation.payload.formula_protection import protected_map_from_formula_map
-from services.translation.payload.formula_protection import protect_glossary_terms
+from services.translation.core.payload.formula_protection import protected_map_from_formula_map
+from services.translation.core.payload.formula_protection import protect_glossary_terms
 
 
 def repair_safe_duplicate_placeholders(source_text: str, translated_text: str) -> str | None:

@@ -6,8 +6,8 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.classification.rule_engine import should_include
-from services.translation.payload.parts.policy_mutations import apply_classification_labels
+from services.translation.services.classification.rule_engine import should_include
+from services.translation.core.payload.parts.policy_mutations import apply_classification_labels
 
 
 def test_apply_classification_labels_marks_model_no_trans_as_keep_origin() -> None:

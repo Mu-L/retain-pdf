@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from services.translation.diagnostics import TranslationDiagnosticsCollector
+from services.translation.artifacts import TranslationDiagnosticsCollector
 from services.translation.llm.result_validator import validate_batch_result
 from services.translation.llm.result_payload import result_entry
 from services.translation.llm.validation.errors import EmptyTranslationError

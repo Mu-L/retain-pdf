@@ -4,16 +4,16 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from runtime.pipeline.render_mode import resolve_page_range
-from services.translation.diagnostics import TranslationRunDiagnostics
-from services.translation.diagnostics import classify_provider_family
+from services.translation.artifacts import TranslationRunDiagnostics
+from services.translation.artifacts import classify_provider_family
 from services.translation.llm.shared.control_context import TranslationControlContext
-from services.translation.ocr.json_extractor import get_page_count
-from services.translation.ocr.json_extractor import load_ocr_json
-from services.translation.policy import TranslationPolicyConfig
-from services.translation.policy import build_book_translation_policy_config
-from services.translation.session_context import build_translation_context_from_policy
-from services.translation.terms import GlossaryEntry
-from services.translation.terms import normalize_glossary_entries
+from services.translation.core.ocr.json_extractor import get_page_count
+from services.translation.core.ocr.json_extractor import load_ocr_json
+from services.translation.services.policy import TranslationPolicyConfig
+from services.translation.services.policy import build_book_translation_policy_config
+from services.translation.services.context.session_context import build_translation_context_from_policy
+from services.translation.services.terms import GlossaryEntry
+from services.translation.services.terms import normalize_glossary_entries
 from services.translation.workflow.workers import _adaptive_floor_limit
 
 if TYPE_CHECKING:

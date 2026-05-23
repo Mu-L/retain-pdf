@@ -18,12 +18,12 @@ if str(REPO_SCRIPTS_ROOT) not in sys.path:
 from foundation.shared.stage_specs import TranslateStageSpec
 from foundation.shared.stage_specs import resolve_credential_ref
 from services.pipeline_shared.io import save_json
-from services.translation.agents.repair import RepairAgent
-from services.translation.agents.repair import TranslationRepairRequest
-from services.translation.diagnostics.review import TRANSLATION_REVIEW_FILE_NAME
+from services.translation.services.agents.repair import RepairAgent
+from services.translation.services.agents.repair import TranslationRepairRequest
+from services.translation.artifacts.review import TRANSLATION_REVIEW_FILE_NAME
 from services.translation.llm.shared.provider_runtime import request_chat_content
-from services.translation.payload import load_translation_manifest_file
-from services.translation.quality import TranslationQualityIssue
+from services.translation.core.payload import load_translation_manifest_file
+from services.translation.services.quality import TranslationQualityIssue
 
 
 TRANSLATION_REPAIR_PLAN_FILE_NAME = "translation_repair_plan.json"

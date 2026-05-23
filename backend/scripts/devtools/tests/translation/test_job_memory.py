@@ -7,10 +7,10 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path("/home/wxyhgk/tmp/Code/backend/scripts")
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.translation.memory import JobMemory
-from services.translation.memory import JobMemoryStore
-from services.translation.memory import update_job_memory_from_batch
-from services.translation.memory.candidates import extract_scored_term_candidates
+from services.translation.services.memory import JobMemory
+from services.translation.services.memory import JobMemoryStore
+from services.translation.services.memory import update_job_memory_from_batch
+from services.translation.services.memory.candidates import extract_scored_term_candidates
 
 
 def test_job_memory_extracts_translated_term_pairs_and_prompt_summary(tmp_path) -> None:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from services.translation.payload.formula_protection import PROTECTED_TOKEN_RE
+from services.translation.core.payload.formula_protection import PROTECTED_TOKEN_RE
 
 
 FORMAL_PLACEHOLDER_RE = re.compile(r"<f\d+-[0-9a-z]{3}/>|<t\d+-[0-9a-z]{3}/>|\[\[FORMULA_\d+]]")

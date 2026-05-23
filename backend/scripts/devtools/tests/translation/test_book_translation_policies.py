@@ -8,13 +8,13 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
 from services.translation.workflow.page_policies import finalize_page_payloads
-from services.translation.policy.flow import apply_translation_policies
-from services.translation.policy.config import build_translation_policy_config
-from services.translation.payload.parts.legacy_policy_mutations import apply_mixed_literal_split_policy
-from services.translation.payload.parts.legacy_policy_mutations import apply_cjk_source_keep_origin
-from services.translation.payload.parts.policy_mutations import apply_title_skip
-from services.translation.context import TranslationDocumentContext
-from services.translation.policy.planner import TranslationPlanner
+from services.translation.services.policy.flow import apply_translation_policies
+from services.translation.services.policy.config import build_translation_policy_config
+from services.translation.core.payload.parts.legacy_policy_mutations import apply_mixed_literal_split_policy
+from services.translation.core.payload.parts.legacy_policy_mutations import apply_cjk_source_keep_origin
+from services.translation.core.payload.parts.policy_mutations import apply_title_skip
+from services.translation.services.context import TranslationDocumentContext
+from services.translation.services.policy.planner import TranslationPlanner
 
 
 def _page_payload_item(
@@ -120,7 +120,7 @@ def test_translation_planner_reuses_page_context_for_no_trans_classification(mon
         return "no-trans: 1"
 
     monkeypatch.setattr(
-        "services.translation.classification.page_classifier.request_chat_content",
+        "services.translation.services.classification.page_classifier.request_chat_content",
         _fake_request,
     )
     payload = [

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from services.translation.diagnostics import TranslationDiagnosticsCollector
+from services.translation.artifacts import TranslationDiagnosticsCollector
 from services.translation.llm.shared.orchestration.common import is_long_plain_text_item
 import services.translation.llm.shared.orchestration.terminal_payloads as terminal_payloads
 

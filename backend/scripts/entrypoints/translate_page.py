@@ -6,7 +6,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from foundation.config import paths
 from foundation.shared.schema_cli import SOURCE_JSON_MAINLINE_HELP
-from services.translation.ocr.json_extractor import extract_text_items, load_ocr_json
+from services.translation.core.ocr.json_extractor import extract_text_items, load_ocr_json
 from services.translation.llm.shared.provider_runtime import DEFAULT_BASE_URL, DEFAULT_MODEL, get_api_key, normalize_base_url
 from services.translation.workflow import translate_items_to_path
 

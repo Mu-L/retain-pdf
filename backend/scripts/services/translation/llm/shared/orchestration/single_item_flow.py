@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 
-from services.translation.diagnostics import TranslationDiagnosticsCollector
+from services.translation.artifacts import TranslationDiagnosticsCollector
 from services.translation.llm.result_validator import validate_batch_result
 from services.translation.llm.placeholder_diagnostics import log_placeholder_failure
 from services.translation.llm.placeholder_transform import item_with_runtime_hard_glossary

@@ -20,7 +20,7 @@ if str(SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_ROOT))
 
 from foundation.shared.job_dirs import create_job_dirs
-from services.translation.diagnostics.io import aggregate_payload_diagnostics
+from services.translation.artifacts.io import aggregate_payload_diagnostics
 
 
 DEFAULT_SAMPLE = REPO_ROOT / "resources" / "samples" / "golden-pdfs" / "1.pdf"

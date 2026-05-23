@@ -7,10 +7,10 @@ import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[3]))
 
-from services.translation.payload import protect_inline_formulas_in_segments
-from services.translation.payload import apply_translated_text_map
-from services.translation.payload import pending_translation_items
-from services.translation.policy.flow import apply_translation_policies
+from services.translation.core.payload import protect_inline_formulas_in_segments
+from services.translation.core.payload import apply_translated_text_map
+from services.translation.core.payload import pending_translation_items
+from services.translation.services.policy.flow import apply_translation_policies
 from services.translation.llm import translate_batch
 
 

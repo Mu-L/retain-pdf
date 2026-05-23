@@ -50,24 +50,14 @@ OCR_PROVIDER_COMPAT_SYMBOLS = (
     "tighten_paddle_text_bbox",
     "save_normalized_document_for_paddle",
 )
-TRANSLATE_ONLY_ENTRYPOINT = SCRIPTS_ROOT / "services" / "translation" / "translate_only_pipeline.py"
-FROM_OCR_ENTRYPOINT = SCRIPTS_ROOT / "services" / "translation" / "from_ocr_pipeline.py"
+TRANSLATE_ONLY_ENTRYPOINT = SCRIPTS_ROOT / "services" / "translation" / "entrypoints" / "translate_only_pipeline.py"
+FROM_OCR_ENTRYPOINT = SCRIPTS_ROOT / "services" / "translation" / "entrypoints" / "from_ocr_pipeline.py"
 TRANSLATION_ALLOWED_ROOT_DIRS = {
-    "batching",
-    "classification",
-    "context",
-    "continuation",
-    "diagnostics",
-    "fast_path",
+    "artifacts",
+    "core",
+    "entrypoints",
     "llm",
-    "memory",
-    "ocr",
-    "orchestration",
-    "payload",
-    "policy",
-    "postprocess",
-    "results",
-    "terms",
+    "services",
     "workflow",
 }
 TRANSLATION_ALLOWED_ROOT_FILES = {
@@ -79,128 +69,163 @@ TRANSLATION_ALLOWED_ROOT_FILES = {
     "translate_only_pipeline.py",
 }
 TRANSLATION_LAYER_IMPORT_RULES: dict[str, tuple[str, ...]] = {
-    "workflow": (
+    "entrypoints": (
+        "services.translation.entrypoints",
+        "services.translation.artifacts",
+        "services.translation.llm",
+        "services.translation.services.terms",
         "services.translation.workflow",
-        "services.translation.batching",
-        "services.translation.classification",
-        "services.translation.context",
-        "services.translation.continuation",
-        "services.translation.diagnostics",
-        "services.translation.fast_path",
-        "services.translation.llm",
-        "services.translation.memory",
-        "services.translation.ocr",
-        "services.translation.orchestration",
-        "services.translation.payload",
-        "services.translation.policy",
-        "services.translation.postprocess",
-        "services.translation.results",
-        "services.translation.terms",
     ),
-    "batching": (
-        "services.translation.batching",
-        "services.translation.context",
-        "services.translation.fast_path",
-        "services.translation.llm",
-        "services.translation.memory",
-        "services.translation.payload",
-        "services.translation.results",
-        "services.translation.workflow.batch_runner",
-        "services.translation.workflow.workers",
-    ),
-    "results": (
-        "services.translation.results",
-        "services.translation.memory",
-        "services.translation.payload",
+    "core": (
+        "services.translation.core",
+        # Payload/orchestration still contain legacy decision helpers while the
+        # physical layout is being consolidated.
+        "services.translation.services.classification",
+        "services.translation.services.continuation",
+        "services.translation.services.context",
+        "services.translation.services.policy",
+        "services.translation.services.terms",
         "services.translation.workflow.pages",
     ),
-    "fast_path": (
-        "services.translation.fast_path",
-        "services.translation.item_reader",
+    "workflow": (
+        "services.translation.workflow",
+        "services.translation.workflow.batching",
+        "services.translation.services.classification",
+        "services.translation.core",
+        "services.translation.services.context",
+        "services.translation.services.continuation",
+        "services.translation.artifacts",
+        "services.translation.services.fast_path",
         "services.translation.llm",
-        "services.translation.policy",
+        "services.translation.services.memory",
+        "services.translation.core.ocr",
+        "services.translation.core.orchestration",
+        "services.translation.core.payload",
+        "services.translation.services.policy",
+        "services.translation.services.postprocess",
+        "services.translation.services.results",
+        "services.translation.services.terms",
     ),
     "llm": (
         "services.translation.llm",
-        "services.translation.context",
-        "services.translation.diagnostics",
-        "services.translation.memory",
-        "services.translation.payload",
-        "services.translation.policy",
-        "services.translation.terms",
+        "services.translation.core",
+        "services.translation.services.context",
+        "services.translation.artifacts",
+        "services.translation.services.memory",
+        "services.translation.core.payload",
+        "services.translation.services.policy",
+        "services.translation.services.quality",
+        "services.translation.services.terms",
+    ),
+    "services": (
+        "services.translation.services",
+        "services.translation.core",
+        "services.translation.core.item_reader",
+        "services.translation.llm",
+        "services.translation.artifacts",
+        "services.translation.workflow",
+    ),
+    "artifacts": (
+        "services.translation.artifacts",
+        "services.translation.services.agents",
+        "services.translation.core",
+        "services.translation.llm.shared.control_context",
+        "services.translation.core.payload",
     ),
     "policy": (
-        "services.translation.policy",
+        "services.translation.services.policy",
         # Historical policy modules still inspect OCR contracts and LLM domain hints.
         # T17-T18 will narrow this to decision-only inputs.
-        "services.translation.classification",
-        "services.translation.context",
+        "services.translation.services.classification",
+        "services.translation.core",
+        "services.translation.services.context",
         "services.translation.llm.domain_context",
         "services.translation.llm.shared.provider_runtime",
-        "services.translation.ocr",
-        "services.translation.payload",
+        "services.translation.core.ocr",
+        "services.translation.core.payload",
     ),
     "payload": (
-        "services.translation.payload",
+        "services.translation.core.payload",
         # Payload still applies historical policy/classification mutations while T23 is pending.
-        "services.translation.classification",
-        "services.translation.continuation",
-        "services.translation.ocr",
-        "services.translation.policy",
-        "services.translation.terms",
+        "services.translation.services.classification",
+        "services.translation.core",
+        "services.translation.services.continuation",
+        "services.translation.core.ocr",
+        "services.translation.services.policy",
+        "services.translation.services.terms",
     ),
     "memory": (
-        "services.translation.memory",
-        "services.translation.terms",
+        "services.translation.services.memory",
+        "services.translation.services.terms",
     ),
     "context": (
-        "services.translation.context",
+        "services.translation.services.context",
         "services.translation.llm.shared.control_context",
         "services.translation.llm.style_hints",
+        "services.translation.services.policy",
+        "services.translation.services.terms",
     ),
     "ocr": (
-        "services.translation.ocr",
+        "services.translation.core.ocr",
     ),
     "orchestration": (
-        "services.translation.orchestration",
-        "services.translation.context",
-        "services.translation.continuation",
-        "services.translation.ocr",
-        "services.translation.payload",
+        "services.translation.core.orchestration",
+        "services.translation.core",
+        "services.translation.services.context",
+        "services.translation.services.continuation",
+        "services.translation.core.ocr",
+        "services.translation.core.payload",
     ),
     "continuation": (
-        "services.translation.continuation",
-        "services.translation.context",
+        "services.translation.services.continuation",
+        "services.translation.services.context",
         # Continuation review currently asks LLM for borderline cases.
         "services.translation.llm",
     ),
     "classification": (
-        "services.translation.classification",
-        "services.translation.context",
+        "services.translation.services.classification",
+        "services.translation.core",
+        "services.translation.services.context",
         "services.translation.llm",
-        "services.translation.ocr",
-        "services.translation.policy",
+        "services.translation.core.ocr",
+        "services.translation.services.policy",
     ),
     "terms": (
-        "services.translation.terms",
+        "services.translation.services.terms",
     ),
     "diagnostics": (
-        "services.translation.diagnostics",
-        "services.translation.payload",
+        "services.translation.artifacts",
+        "services.translation.services.agents",
+        "services.translation.core",
+        "services.translation.llm.shared.control_context",
+        "services.translation.core.payload",
+    ),
+    "agents": (
+        "services.translation.services.agents",
+        "services.translation.llm",
+        "services.translation.services.quality",
+        "services.translation.services.terms",
+    ),
+    "quality": (
+        "services.translation.core",
+        "services.translation.core.item_reader",
+        "services.translation.llm",
+        "services.translation.services.quality",
+        "services.translation.services.terms",
     ),
     "postprocess": (
-        "services.translation.postprocess",
+        "services.translation.services.postprocess",
         "services.translation.llm",
     ),
 }
 TRANSLATION_LAYER_IMPORT_EXCEPTIONS: dict[Path, tuple[str, ...]] = {
     # Transitional orchestration code still constructs concrete payload records.
-    Path("orchestration/document_orchestrator.py"): (
-        "services.translation.policy",
+    Path("core/orchestration/document_orchestrator.py"): (
+        "services.translation.services.policy",
     ),
     # Current llm orchestration still bridges workflow-ish retry behavior until T04-T10 migrate runtime flow.
     Path("llm/shared/orchestration/fallbacks.py"): (
-        "services.translation.postprocess",
+        "services.translation.services.postprocess",
     ),
 }
 TRANSLATION_RENDERING_IMPORT_EXCEPTIONS: dict[Path, tuple[str, ...]] = {
@@ -211,8 +236,8 @@ TRANSLATION_RENDERING_IMPORT_EXCEPTIONS: dict[Path, tuple[str, ...]] = {
     ),
 }
 TRANSLATION_SHARED_COMPAT_IMPORTS = (
-    "services.translation.item_reader",
-    "services.translation.session_context",
+    "services.translation.core.item_reader",
+    "services.translation.services.context.session_context",
 )
 TRANSLATION_STAGE_PIPELINE = PIPELINE_ROOT / "translation_stage.py"
 RENDER_STAGE_PIPELINE = PIPELINE_ROOT / "render_stage.py"
@@ -319,10 +344,10 @@ RENDERING_LAYER_IMPORT_EXCEPTIONS: dict[Path, tuple[str, ...]] = {
 ENTRYPOINT_IMPORT_ALLOWLIST: dict[Path, tuple[str, ...]] = {
     Path("build_book.py"): ("from runtime.pipeline.book_pipeline import",),
     Path("build_page.py"): (
-        "from services.translation.ocr.json_extractor import",
+        "from services.translation.core.ocr.json_extractor import",
         "from services.rendering.legacy.pdf_overlay import",
         "from services.rendering.legacy.typst_page_renderer import",
-        "from services.translation.payload import",
+        "from services.translation.core.payload import",
     ),
     Path("diagnose_failure_with_ai.py"): (
         "from services.translation.llm.shared.provider_runtime import",
@@ -341,7 +366,7 @@ ENTRYPOINT_IMPORT_ALLOWLIST: dict[Path, tuple[str, ...]] = {
     Path("run_translate_only.py"): ("from services.translation.translate_only_pipeline import main",),
     Path("translate_book.py"): ("from services.translation.translate_only_pipeline import main",),
     Path("translate_page.py"): (
-        "from services.translation.ocr.json_extractor import",
+        "from services.translation.core.ocr.json_extractor import",
         "from services.translation.llm.shared.provider_runtime import",
         "from services.translation.workflow import",
     ),
@@ -520,37 +545,37 @@ def check_translation_worker_protocol(errors: list[str]) -> None:
     translate_only_text = read_text(TRANSLATE_ONLY_ENTRYPOINT)
     if "PipelineEventWriter(" not in translate_only_text:
         errors.append(
-            "services/translation/translate_only_pipeline.py: translate-only worker must initialize PipelineEventWriter"
+            "services/translation/entrypoints/translate_only_pipeline.py: translate-only worker must initialize PipelineEventWriter"
         )
     if "STDOUT_LABEL_EVENTS_JSONL" not in translate_only_text:
         errors.append(
-            "services/translation/translate_only_pipeline.py: translate-only worker must publish pipeline_events.jsonl via stdout contract"
+            "services/translation/entrypoints/translate_only_pipeline.py: translate-only worker must publish pipeline_events.jsonl via stdout contract"
         )
     if 'artifact_key="pipeline_events_jsonl"' not in translate_only_text:
         errors.append(
-            "services/translation/translate_only_pipeline.py: translate-only worker must publish pipeline_events_jsonl artifact"
+            "services/translation/entrypoints/translate_only_pipeline.py: translate-only worker must publish pipeline_events_jsonl artifact"
         )
     if 'artifact_key="translation_diagnostics_json"' not in translate_only_text:
         errors.append(
-            "services/translation/translate_only_pipeline.py: translate-only worker must publish translation_diagnostics_json artifact"
+            "services/translation/entrypoints/translate_only_pipeline.py: translate-only worker must publish translation_diagnostics_json artifact"
         )
     if '"translation_diagnostics.json"' not in translate_only_text:
         errors.append(
-            "services/translation/translate_only_pipeline.py: translate-only worker must keep translation_diagnostics.json as stable diagnostics output"
+            "services/translation/entrypoints/translate_only_pipeline.py: translate-only worker must keep translation_diagnostics.json as stable diagnostics output"
         )
 
     from_ocr_text = read_text(FROM_OCR_ENTRYPOINT)
     if "PipelineEventWriter(" not in from_ocr_text:
         errors.append(
-            "services/translation/from_ocr_pipeline.py: translate-from-ocr worker must initialize PipelineEventWriter"
+            "services/translation/entrypoints/from_ocr_pipeline.py: translate-from-ocr worker must initialize PipelineEventWriter"
         )
     if "STDOUT_LABEL_EVENTS_JSONL" not in from_ocr_text:
         errors.append(
-            "services/translation/from_ocr_pipeline.py: translate-from-ocr worker must publish pipeline_events.jsonl via stdout contract"
+            "services/translation/entrypoints/from_ocr_pipeline.py: translate-from-ocr worker must publish pipeline_events.jsonl via stdout contract"
         )
     if 'artifact_key="pipeline_events_jsonl"' not in from_ocr_text:
         errors.append(
-            "services/translation/from_ocr_pipeline.py: translate-from-ocr worker must publish pipeline_events_jsonl artifact"
+            "services/translation/entrypoints/from_ocr_pipeline.py: translate-from-ocr worker must publish pipeline_events_jsonl artifact"
         )
 
 
@@ -590,9 +615,9 @@ def check_translation_pipeline_facade_boundary(errors: list[str]) -> None:
                 f"runtime/pipeline/translation_stage.py: must call translation workflow facade via '{item}'"
             )
     forbidden = (
-        "from services.translation.policy import",
-        "from services.translation.session_context import",
-        "from services.translation.diagnostics import",
+        "from services.translation.services.policy import",
+        "from services.translation.services.context.session_context import",
+        "from services.translation.artifacts import",
         "from runtime.pipeline.book_translation_flow import",
     )
     for item in forbidden:
@@ -922,7 +947,7 @@ def check_translation_internal_boundaries(errors: list[str]) -> None:
             )
         if path.is_file() and path.name not in TRANSLATION_ALLOWED_ROOT_FILES:
             errors.append(
-                f"services/translation/{path.name}: unexpected translation root file; place new code inside workflow/llm/policy/context/memory/payload/etc."
+                f"services/translation/{path.name}: unexpected translation root file; place new code inside entrypoints/workflow/core/services/llm/artifacts."
             )
 
     forbidden_runtime_imports = (
@@ -949,8 +974,8 @@ def check_translation_internal_boundaries(errors: list[str]) -> None:
         forbidden = (
             "from services.translation.workflow",
             "import services.translation.workflow",
-            "from services.translation.policy",
-            "import services.translation.policy",
+            "from services.translation.services.policy",
+            "import services.translation.services.policy",
             "from services.rendering",
             "import services.rendering",
             "from runtime.pipeline",
@@ -963,7 +988,7 @@ def check_translation_internal_boundaries(errors: list[str]) -> None:
                 )
                 break
 
-    for path in scan_py_files(TRANSLATION_ROOT / "payload"):
+    for path in scan_py_files(TRANSLATION_ROOT / "core" / "payload"):
         text = read_text(path)
         rel_path = rel(path)
         forbidden = (
@@ -971,14 +996,14 @@ def check_translation_internal_boundaries(errors: list[str]) -> None:
             "import services.translation.llm",
             "from services.translation.workflow",
             "import services.translation.workflow",
-            "from services.translation.batching",
-            "import services.translation.batching",
-            "from services.translation.fast_path",
-            "import services.translation.fast_path",
-            "from services.translation.results",
-            "import services.translation.results",
-            "from services.translation.memory",
-            "import services.translation.memory",
+            "from services.translation.workflow.batching",
+            "import services.translation.workflow.batching",
+            "from services.translation.services.fast_path",
+            "import services.translation.services.fast_path",
+            "from services.translation.services.results",
+            "import services.translation.services.results",
+            "from services.translation.services.memory",
+            "import services.translation.services.memory",
             "from runtime.pipeline",
             "import runtime.pipeline",
         )

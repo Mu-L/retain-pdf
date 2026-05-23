@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from services.translation.diagnostics import TranslationDiagnosticsCollector
+from services.translation.artifacts import TranslationDiagnosticsCollector
 from services.translation.llm.placeholder_transform import item_with_runtime_hard_glossary
 from services.translation.llm.shared.cache import split_cached_batch
 from services.translation.llm.shared.cache import store_cached_batch

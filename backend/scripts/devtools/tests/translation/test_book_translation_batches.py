@@ -5,17 +5,17 @@ from unittest import mock
 REPO_SCRIPTS_ROOT = Path("/home/wxyhgk/tmp/Code/backend/scripts")
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.translation.batching.plan import _allocate_translation_queue_workers
-from services.translation.batching.plan import _build_translation_batches
-from services.translation.batching.plan import _classify_translation_batches
-from services.translation.batching.plan import _dedupe_pending_items
-from services.translation.batching.plan import _effective_translation_batch_size
-from services.translation.batching.plan import TranslationBatchRunStats
+from services.translation.workflow.batching.plan import _allocate_translation_queue_workers
+from services.translation.workflow.batching.plan import _build_translation_batches
+from services.translation.workflow.batching.plan import _classify_translation_batches
+from services.translation.workflow.batching.plan import _dedupe_pending_items
+from services.translation.workflow.batching.plan import _effective_translation_batch_size
+from services.translation.workflow.batching.plan import TranslationBatchRunStats
 from services.translation.llm.shared.control_context import build_translation_control_context
 from services.translation.llm.shared.control_context import resolve_engine_profile
-from services.translation.orchestration.units import finalize_payload_orchestration_metadata
-from services.translation.payload.parts.units import pending_translation_items
-from services.translation.results.applier import expand_duplicate_results as _expand_duplicate_results
+from services.translation.core.orchestration.units import finalize_payload_orchestration_metadata
+from services.translation.core.payload.parts.units import pending_translation_items
+from services.translation.services.results.applier import expand_duplicate_results as _expand_duplicate_results
 
 
 def _item(item_id: str, text: str, **overrides):

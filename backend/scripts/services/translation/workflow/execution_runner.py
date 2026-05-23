@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from services.translation.diagnostics import aggregate_payload_diagnostics
-from services.translation.diagnostics import translation_run_diagnostics_scope
-from services.translation.diagnostics.review import build_translation_review
-from services.translation.payload import write_translation_manifest
+from services.translation.artifacts import aggregate_payload_diagnostics
+from services.translation.artifacts import translation_run_diagnostics_scope
+from services.translation.artifacts.review import build_translation_review
+from services.translation.core.payload import write_translation_manifest
 from services.rendering.source.prewarm import RenderPrewarmHandle
 from services.rendering.source.prewarm import RenderPrewarmSpec
 from services.rendering.source.prewarm import start_render_source_prewarm
-from services.translation.terms import summarize_glossary_usage
+from services.translation.services.terms import summarize_glossary_usage
 from services.translation.workflow.translation_workflow import default_page_translation_name
 
 if TYPE_CHECKING:

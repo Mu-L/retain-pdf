@@ -7,7 +7,7 @@ and ``services.translation.llm.validation.*`` directly. This module remains as a
 stable shim for existing tests, tools, and older orchestration paths.
 """
 
-from services.translation.diagnostics import TranslationDiagnosticsCollector
+from services.translation.artifacts import TranslationDiagnosticsCollector
 from services.translation.llm.placeholder_diagnostics import log_placeholder_failure
 from services.translation.llm.placeholder_transform import has_formula_placeholders
 from services.translation.llm.placeholder_transform import item_with_placeholder_aliases

@@ -5,11 +5,11 @@ from dataclasses import field
 from dataclasses import replace
 from collections.abc import Iterable
 
-from services.translation.diagnostics import classify_provider_family
-from services.translation.agents.coordinator import TranslationAgentCoordinator
-from services.translation.terms import AbbreviationEntry
-from services.translation.terms import GlossaryEntry
-from services.translation.terms import build_terms_guidance
+from services.translation.artifacts import classify_provider_family
+from services.translation.services.terms import AbbreviationEntry
+from services.translation.services.terms import GlossaryEntry
+from services.translation.services.terms import build_terms_guidance
+from services.translation.services.terms import matched_glossary_entries
 
 
 @dataclass(frozen=True)
@@ -162,7 +162,10 @@ class TranslationControlContext:
         text_list = [text for text in texts if text]
         if not text_list or not self.glossary_entries:
             return self
-        return TranslationAgentCoordinator.from_control_context(self).scope_context_to_source_texts(self, text_list)
+        matched = matched_glossary_entries(self.glossary_entries, "\n".join(text_list))
+        if len(matched) == len(self.glossary_entries):
+            return self
+        return replace(self, glossary_entries=matched)
 
     def scoped_to_item(self, item: dict) -> "TranslationControlContext":
         source_text = str(

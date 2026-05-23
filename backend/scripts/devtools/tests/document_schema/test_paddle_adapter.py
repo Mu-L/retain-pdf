@@ -18,7 +18,7 @@ from services.document_schema.provider_adapters.paddle.content_extract import bu
 from services.document_schema.provider_adapters.paddle.page_reader import build_page_spec
 from services.document_schema.provider_adapters.paddle.adapter import build_paddle_document
 from services.document_schema.provider_adapters.paddle.relations import classify_page_blocks
-from services.translation.ocr.json_extractor import extract_text_items
+from services.translation.core.ocr.json_extractor import extract_text_items
 from foundation.shared.job_dirs import ensure_job_dirs
 from foundation.shared.job_dirs import resolve_job_dirs
 

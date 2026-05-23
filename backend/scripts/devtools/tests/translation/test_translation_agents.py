@@ -4,9 +4,9 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path("/home/wxyhgk/tmp/Code/backend/scripts")
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.translation.agents import TerminologyAgent
-from services.translation.agents import TranslationAgentCoordinator
-from services.translation.agents import ConsistencyReviewerAgent
+from services.translation.services.agents import TerminologyAgent
+from services.translation.services.agents import TranslationAgentCoordinator
+from services.translation.services.agents import ConsistencyReviewerAgent
 from services.translation.llm.shared.control_context import GlossaryEntry
 from services.translation.llm.shared.control_context import build_translation_control_context
 

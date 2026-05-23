@@ -4,12 +4,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from services.translation.llm.shared.control_context import TranslationControlContext
 from services.translation.llm.shared.orchestration import translate_batch
-from services.translation.memory import JobMemoryStore
+from services.translation.services.memory import JobMemoryStore
 
-from services.translation.batching.executor import _submit_parallel_translation_batches
-from services.translation.batching.executor import _translate_batch_or_keep_origin
-from services.translation.results.flush import TranslationFlushState
-from services.translation.results.applier import TranslationResultApplier
+from services.translation.workflow.batching.executor import _submit_parallel_translation_batches
+from services.translation.workflow.batching.executor import _translate_batch_or_keep_origin
+from services.translation.services.results.flush import TranslationFlushState
+from services.translation.services.results.applier import TranslationResultApplier
 
 
 def run_translation_batches_sequential(

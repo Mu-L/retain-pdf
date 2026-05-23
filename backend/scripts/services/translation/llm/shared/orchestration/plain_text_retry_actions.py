@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 
-from services.translation.diagnostics import TranslationDiagnosticsCollector
+from services.translation.artifacts import TranslationDiagnosticsCollector
 from services.translation.llm.result_payload import result_entry
 from services.translation.llm.shared.control_context import TranslationControlContext
 from services.translation.llm.shared.orchestration.common import single_item_http_retry_attempts

@@ -17,7 +17,8 @@ def _ensure_package_stubs():
         "foundation.shared": REPO_SCRIPTS_ROOT / "foundation" / "shared",
         "services": REPO_SCRIPTS_ROOT / "services",
         "services.translation": REPO_SCRIPTS_ROOT / "services" / "translation",
-        "services.translation.policy": REPO_SCRIPTS_ROOT / "services" / "translation" / "policy",
+        "services.translation.services": REPO_SCRIPTS_ROOT / "services" / "translation" / "services",
+        "services.translation.services.policy": REPO_SCRIPTS_ROOT / "services" / "translation" / "services" / "policy",
         "services.translation.llm": REPO_SCRIPTS_ROOT / "services" / "translation" / "llm",
         "services.document_schema": REPO_SCRIPTS_ROOT / "services" / "document_schema",
     }
@@ -41,8 +42,8 @@ def _load_module(name: str, path: Path):
 class MixedLiteralSplitterTests(unittest.TestCase):
     def test_local_command_prefix_short_circuit(self):
         module = _load_module(
-            "services.translation.policy.mixed_literal_splitter",
-            REPO_SCRIPTS_ROOT / "services" / "translation" / "policy" / "mixed_literal_splitter.py",
+            "services.translation.services.policy.mixed_literal_splitter",
+            REPO_SCRIPTS_ROOT / "services" / "translation" / "services" / "policy" / "mixed_literal_splitter.py",
         )
         item = {
             "item_id": "x1",
@@ -57,8 +58,8 @@ class MixedLiteralSplitterTests(unittest.TestCase):
 
     def test_cached_decision_round_trip(self):
         module = _load_module(
-            "services.translation.policy.mixed_literal_splitter",
-            REPO_SCRIPTS_ROOT / "services" / "translation" / "policy" / "mixed_literal_splitter.py",
+            "services.translation.services.policy.mixed_literal_splitter",
+            REPO_SCRIPTS_ROOT / "services" / "translation" / "services" / "policy" / "mixed_literal_splitter.py",
         )
         with tempfile.TemporaryDirectory() as tmp:
             module.paths.TRANSLATION_UNIT_CACHE_DIR = Path(tmp)

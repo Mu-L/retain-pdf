@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from services.translation.diagnostics import TranslationDiagnosticsCollector
+from services.translation.artifacts import TranslationDiagnosticsCollector
 from services.translation.llm.result_payload import text_preview
 from services.translation.llm.validation.english_residue import unit_source_text
 from services.translation.llm.validation.errors import PlaceholderInventoryError

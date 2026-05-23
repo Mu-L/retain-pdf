@@ -6,7 +6,7 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.classification.page_classifier import _candidate_record
+from services.translation.services.classification.page_classifier import _candidate_record
 from services.translation.llm.style_hints import structure_style_hint
 
 

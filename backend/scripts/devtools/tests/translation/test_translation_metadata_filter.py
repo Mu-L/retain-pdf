@@ -6,7 +6,7 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.policy import metadata_filter
+from services.translation.services.policy import metadata_filter
 
 
 def test_editorial_metadata_token_is_not_force_skipped_anymore() -> None:

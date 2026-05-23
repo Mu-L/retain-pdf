@@ -3,10 +3,10 @@ from __future__ import annotations
 from difflib import SequenceMatcher
 import re
 
-from services.translation.item_reader import item_is_bodylike
-from services.translation.item_reader import item_is_reference_like
-from services.translation.item_reader import item_normalized_sub_type
-from services.translation.item_reader import item_raw_block_type
+from services.translation.core.item_reader import item_is_bodylike
+from services.translation.core.item_reader import item_is_reference_like
+from services.translation.core.item_reader import item_normalized_sub_type
+from services.translation.core.item_reader import item_raw_block_type
 from services.translation.llm.validation.placeholder_tokens import FORMULA_TOKEN_RE
 from services.translation.llm.validation.placeholder_tokens import strip_placeholders
 from services.translation.llm.validation.text_features import AUTHOR_NAME_TOKEN_RE
@@ -16,9 +16,9 @@ from services.translation.llm.validation.text_features import english_chunk_word
 from services.translation.llm.validation.text_features import english_word_count
 from services.translation.llm.validation.text_features import looks_like_short_fragment_text
 from services.translation.llm.validation.text_features import zh_char_count
-from services.translation.policy.metadata_filter import looks_like_url_fragment
-from services.translation.policy.reference_section import looks_like_reference_entry_text
-from services.translation.policy.soft_hints import looks_like_code_literal_text_value
+from services.translation.services.policy.metadata_filter import looks_like_url_fragment
+from services.translation.services.policy.reference_section import looks_like_reference_entry_text
+from services.translation.services.policy.soft_hints import looks_like_code_literal_text_value
 
 
 def normalize_inline_whitespace(text: str) -> str:

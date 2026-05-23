@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 
-from services.translation.diagnostics import TranslationDiagnosticsCollector
+from services.translation.artifacts import TranslationDiagnosticsCollector
 from services.translation.llm.result_validator import validate_batch_result
 from services.translation.llm.result_canonicalizer import canonicalize_batch_result
 from services.translation.llm.result_payload import result_entry

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from services.translation.diagnostics import TranslationDiagnosticsCollector
+from services.translation.artifacts import TranslationDiagnosticsCollector
 from services.translation.llm.shared.control_context import TranslationControlContext
 from services.translation.llm.shared.control_context import build_translation_control_context
 import services.translation.llm.shared.orchestration.fallbacks as fallbacks

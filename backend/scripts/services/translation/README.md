@@ -97,38 +97,53 @@ Rust API 对应暴露了：
 
 一级目录按稳定职责划分。新代码优先放入这些目录，不要在根目录继续增加大文件。
 
+根目录只保留兼容入口和薄 shim。新代码不要再新增 `translation/*.py`
+大文件，也不要继续依赖根目录 shim；优先使用下表里的真实目录。
+
 | 目录 | 职责 | 不该做的事 |
 | --- | --- | --- |
-| `workflow/` | 翻译流程编排：加载输入、建立执行计划、调度 batch、写出结果和 summary。 | 不直接拼 provider HTTP payload；不写具体 policy 规则。 |
+| `entrypoints/` | Python worker 入口脚本实现，例如 translate-only、book translation pipeline。根目录同名文件只是兼容 shim。 | 不放业务规则；不被 workflow 反向依赖。 |
+| `workflow/` | 翻译流程编排、阶段调度、batch/worker 分配和主流程落盘。 | 不直接拼 provider HTTP payload；不写具体 policy 规则。 |
+| `core/` | 稳定领域模型和数据协议：item contract、`document.v1` 读取、translation payload、manifest、orchestration。 | 不调用 LLM；不管理 job 生命周期。 |
+| `services/` | 翻译业务能力：policy、continuation、classification、context、terms、memory、quality、agents、postprocess、results。 | 不做外部入口解析；不直接依赖 runtime pipeline。 |
 | `llm/` | LLM provider、prompt 协议、缓存、响应解析、重试和校验入口。 | 不读取 OCR 文件；不决定页面级 workflow。 |
-| `policy/` | 是否翻译、保留原文、技术块 hint、正文过滤等策略决策。 | 不调用 provider；不落盘翻译结果。 |
-| `context/` | 前后文窗口、执行上下文、跨页/跨块上下文模型。 | 不做网络请求；不直接改 payload。 |
-| `memory/` | job 级术语/缩写/稳定翻译记忆的提取、过滤、摘要。 | 不阻塞 provider 主调用路径；不做强制替换。 |
-| `payload/` | translation payload 协议、模板同步、公式保护、结果回填数据结构。 | 不直接选择 provider；不读取 provider raw OCR。 |
-| `ocr/` | 从 `document.v1.json` 读取统一 OCR 中间层并抽取候选块。 | 不理解 Paddle/MinerU raw 字段。 |
-| `orchestration/` | translation unit、zone、文档级编排辅助。 | 不直接发送 LLM 请求。 |
-| `continuation/` | 同页/跨页段落连续性候选、规则和审阅状态。 | 不写最终译文。 |
-| `classification/` | `precise` 模式下的可疑块分类。 | 不替代默认 `document.v1` policy。 |
-| `terms/` | 术语表归一化、提示词注入和术语命中统计。 | 不做翻译后硬替换。 |
-| `diagnostics/` | 结构化诊断、debug index、失败路径记录。 | 不承担业务决策。 |
-| `postprocess/` | 翻译后轻量修复和乱码恢复。 | 不重新调用完整翻译流程。 |
+| `artifacts/` | 结构化诊断、debug index、review artifact、运行统计输出。 | 不承担业务决策；不调用 provider。 |
 
 ### 依赖方向
 
-推荐依赖方向：
+目标依赖方向：
 
 ```text
+entrypoints
+  -> workflow / pipeline_shared / foundation
 workflow
-  -> ocr / orchestration / continuation / policy / context / memory / payload / terms / llm / diagnostics / postprocess
+  -> core / services / llm / artifacts
+core
+  -> core
+services
+  -> core / llm / artifacts
 llm
-  -> context / terms / diagnostics / payload / policy
-policy
-  -> context / payload
-payload
-  -> continuation / policy
-diagnostics
-  -> payload
+  -> core / artifacts
+artifacts
+  -> core / llm control context
 ```
+
+当前仍有少量过渡例外：
+
+- `core/payload` 里还保留历史 policy/terms 辅助调用；后续触碰 payload 回填时应继续向纯数据构造收窄。
+- `llm` 里仍会读取 terms、memory、quality 的轻量辅助能力；新 provider 代码不要依赖这些 service。
+- `workflow/execution_runner.py` 会启动 render source prewarm，这是为了和翻译并行预热渲染输入，例外必须保持窄范围。
+- `artifacts/review.py` 仍会读取 reviewer/LLM 控制上下文来生成审查产物；不要把业务决策继续放进 artifacts。
+
+当前兼容 shim：
+
+- `translation/from_ocr_pipeline.py` -> `translation/entrypoints/from_ocr_pipeline.py`
+- `translation/translate_only_pipeline.py` -> `translation/entrypoints/translate_only_pipeline.py`
+- `translation/item_reader.py` -> `translation/core/item_reader.py`
+- `translation/session_context.py` -> `translation/services/context/session_context.py`
+
+这些 shim 是为了避免一次性改动外部 entrypoint、rendering 和历史脚本。translation 内部新代码不要再引用 shim，
+应直接引用真实路径。
 
 ### payload/parts 边界
 
@@ -152,20 +167,20 @@ diagnostics
 
 ## 主要流程
 
-1. `ocr/` 读取统一中间层 `document.v1.json` 并抽取页面块
+1. `core/ocr/` 读取统一中间层 `document.v1.json` 并抽取页面块
 2. 如果入口给的是 provider 原始 JSON，则先由 `document_schema/adapters.py` 转成 `document.v1`
 3. `workflow/translation_workflow.py` 生成每页翻译模板并加载 payload
-4. `orchestration` 补齐布局区和编排元数据
-5. `continuation` 先消费上游 `continuation_hint`，再用规则兜底，把连续段落合并成统一 translation unit
-6. `policy` 根据模式决定跳过哪些块
+4. `core/orchestration` 补齐布局区和编排元数据
+5. `services/continuation` 先消费上游 `continuation_hint`，再用规则兜底，把连续段落合并成统一 translation unit
+6. `services/policy` 根据模式决定跳过哪些块
 7. `llm` 按 batch 调模型翻译、缓存和重试，并统一处理 placeholder/segment/fallback 控制
-8. `payload` 把翻译结果回填到 page payload，并保存最终 JSON
+8. `core/payload` 把翻译结果回填到 page payload，并保存最终 JSON
 
 补充约定：
 
 - translation 主线不应该直接理解某个 OCR provider 的 raw JSON 结构
 - translation 主线当前的默认落盘结果是“逐页 translation payload + translation-manifest.json”；这层负责产物内容和映射协议，不负责最终 PDF 文件名和渲染模式
-- `document.v1` 里凡是已经带 `skip_translation` tag 的块，必须在 `ocr/json_extractor.py` 抽取阶段就被挡掉，不能再漏进翻译候选
+- `document.v1` 里凡是已经带 `skip_translation` tag 的块，必须在 `core/ocr/json_extractor.py` 抽取阶段就被挡掉，不能再漏进翻译候选
 - `abstract` 这类正文扩展语义可以继续进入翻译；`reference_entry`、`formula_number` 这类 provider 已明确标记跳过的块不应进入 payload
 - 抽取阶段优先读取显式 `content.kind / layout_role / semantic_role / structure_role / policy.translate`；默认主链不再从 `derived.role / sub_type / raw_type / tags` 反推正文
 - 抽取阶段会把 block 上的 `continuation_hint` 展开成 payload 里的 `ocr_continuation_*` 字段
@@ -220,7 +235,7 @@ Translation 阶段当前只做两件事：
 
 ## Policy Config 兼容说明
 
-`policy/config.py` 里的 `build_translation_policy_config()` 目前还保留了几个旧字段，但它们已经不属于默认主链语义：
+`services/policy/config.py` 里的 `build_translation_policy_config()` 目前还保留了几个旧字段，但它们已经不属于默认主链语义：
 
 - `enable_narrow_body_noise_skip`
 - `enable_metadata_fragment_skip`

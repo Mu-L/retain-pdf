@@ -1,17 +1,17 @@
-from services.translation.batching.plan import TranslationBatchRunStats
-from services.translation.batching.plan import _allocate_translation_queue_workers
-from services.translation.batching.plan import _build_translation_batches
-from services.translation.batching.plan import _classify_translation_batches
-from services.translation.batching.plan import _dedupe_pending_items
-from services.translation.batching.plan import _dedupe_signature
-from services.translation.batching.plan import _effective_translation_batch_size
-from services.translation.batching.plan import _fast_path_keep_origin_result
-from services.translation.batching.plan import _is_fast_path_keep_origin_item
-from services.translation.batching.plan import _normalized_text_without_placeholders
-from services.translation.batching.plan import _plan_item_view
-from services.translation.batching.plan import _save_flush_interval
-from services.translation.batching.plan import _source_text
-from services.translation.batching.plan import chunked
+from services.translation.workflow.batching.plan import TranslationBatchRunStats
+from services.translation.workflow.batching.plan import _allocate_translation_queue_workers
+from services.translation.workflow.batching.plan import _build_translation_batches
+from services.translation.workflow.batching.plan import _classify_translation_batches
+from services.translation.workflow.batching.plan import _dedupe_pending_items
+from services.translation.workflow.batching.plan import _dedupe_signature
+from services.translation.workflow.batching.plan import _effective_translation_batch_size
+from services.translation.workflow.batching.plan import _fast_path_keep_origin_result
+from services.translation.workflow.batching.plan import _is_fast_path_keep_origin_item
+from services.translation.workflow.batching.plan import _normalized_text_without_placeholders
+from services.translation.workflow.batching.plan import _plan_item_view
+from services.translation.workflow.batching.plan import _save_flush_interval
+from services.translation.workflow.batching.plan import _source_text
+from services.translation.workflow.batching.plan import chunked
 
 __all__ = [
     "TranslationBatchRunStats",

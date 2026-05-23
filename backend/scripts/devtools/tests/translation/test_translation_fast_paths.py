@@ -22,8 +22,8 @@ def _ensure_package_stubs():
         "services.translation.llm.shared.orchestration": REPO_SCRIPTS_ROOT / "services" / "translation" / "llm" / "shared" / "orchestration",
         "services.translation.llm.providers": REPO_SCRIPTS_ROOT / "services" / "translation" / "llm" / "providers",
         "services.translation.llm.providers.deepseek": REPO_SCRIPTS_ROOT / "services" / "translation" / "llm" / "providers" / "deepseek",
-        "services.translation.orchestration": REPO_SCRIPTS_ROOT / "services" / "translation" / "orchestration",
-        "services.translation.continuation": REPO_SCRIPTS_ROOT / "services" / "translation" / "continuation",
+        "services.translation.core.orchestration": REPO_SCRIPTS_ROOT / "services" / "translation" / "orchestration",
+        "services.translation.services.continuation": REPO_SCRIPTS_ROOT / "services" / "translation" / "continuation",
     }
     for name, path in package_paths.items():
         module = sys.modules.get(name)
@@ -44,27 +44,27 @@ def _load_module(name: str, path: Path):
 
 def _load_continuation_package():
     return _load_module(
-        "services.translation.continuation",
+        "services.translation.services.continuation",
         REPO_SCRIPTS_ROOT / "services" / "translation" / "continuation" / "__init__.py",
     )
 
 
 def _install_minimal_continuation_stub():
     rules_module = _load_module(
-        "services.translation.continuation.rules",
+        "services.translation.services.continuation.rules",
         REPO_SCRIPTS_ROOT / "services" / "translation" / "continuation" / "rules.py",
     )
     pairs_module = _load_module(
-        "services.translation.continuation.pairs",
+        "services.translation.services.continuation.pairs",
         REPO_SCRIPTS_ROOT / "services" / "translation" / "continuation" / "pairs.py",
     )
-    module = types.ModuleType("services.translation.continuation")
+    module = types.ModuleType("services.translation.services.continuation")
     module.apply_candidate_pair_joins = pairs_module.apply_candidate_pair_joins
     module.candidate_continuation_pairs = pairs_module.candidate_continuation_pairs
     module.pair_break_score = rules_module.pair_break_score
     module.pair_join_score = rules_module.pair_join_score
     module.review_candidate_pairs = lambda *args, **kwargs: {}
-    sys.modules["services.translation.continuation"] = module
+    sys.modules["services.translation.services.continuation"] = module
     return module
 
 

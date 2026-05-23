@@ -11,10 +11,10 @@ REPO_SCRIPTS_ROOT = Path("/home/wxyhgk/tmp/Code/backend/scripts")
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.batching.pending_units import _translate_batch_or_keep_origin
+from services.translation.workflow.batching.pending_units import _translate_batch_or_keep_origin
 from services.translation.llm.shared.orchestration.batched_plain import translate_items_plain_text
 from services.translation.llm.shared.control_context import build_translation_control_context
-from services.translation.terms import GlossaryEntry
+from services.translation.services.terms import GlossaryEntry
 
 
 def _item(item_id: str, text: str, **overrides):
@@ -36,7 +36,7 @@ def test_translate_batch_wrapper_marks_transport_failure_failed() -> None:
         _item("b", "This paragraph keeps enough content for translation even when the network request times out."),
     ]
     with mock.patch(
-        "services.translation.batching.pending_units.translate_batch",
+        "services.translation.workflow.batching.pending_units.translate_batch",
         side_effect=requests.ConnectionError("Read timed out"),
     ):
         result = _translate_batch_or_keep_origin(

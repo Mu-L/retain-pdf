@@ -14,8 +14,8 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from foundation.shared.local_env import get_secret
-from services.translation.diagnostics import get_active_translation_run_diagnostics
-from services.translation.diagnostics import infer_stage_from_request_label
+from services.translation.artifacts import get_active_translation_run_diagnostics
+from services.translation.artifacts import infer_stage_from_request_label
 from services.translation.llm.shared.prompt_building import build_messages
 from services.translation.llm.shared.prompt_building import build_single_item_fallback_messages
 from services.translation.llm.shared.response_parsing import extract_json_text

@@ -6,8 +6,8 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.payload.parts.apply import apply_translated_text_map
-from services.translation.payload.translations import load_translations
+from services.translation.core.payload.parts.apply import apply_translated_text_map
+from services.translation.core.payload.translations import load_translations
 
 
 def test_apply_translated_text_map_unwraps_json_string_result() -> None:

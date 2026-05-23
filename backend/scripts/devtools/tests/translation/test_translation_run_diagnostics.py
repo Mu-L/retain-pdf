@@ -15,10 +15,10 @@ REPO_SCRIPTS_ROOT = Path("/home/wxyhgk/tmp/Code/backend/scripts")
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 from foundation.shared.structured_errors import classify_exception
-from services.translation.diagnostics import TranslationRunDiagnostics
-from services.translation.diagnostics import classify_provider_family
-from services.translation.diagnostics import infer_stage_from_request_label
-from services.translation.diagnostics import translation_run_diagnostics_scope
+from services.translation.artifacts import TranslationRunDiagnostics
+from services.translation.artifacts import classify_provider_family
+from services.translation.artifacts import infer_stage_from_request_label
+from services.translation.artifacts import translation_run_diagnostics_scope
 
 
 def load_deepseek_client():
@@ -28,7 +28,7 @@ def load_deepseek_client():
         "services.translation.llm": REPO_SCRIPTS_ROOT / "services" / "translation" / "llm",
         "services.translation.llm.providers": REPO_SCRIPTS_ROOT / "services" / "translation" / "llm" / "providers",
         "services.translation.llm.providers.deepseek": REPO_SCRIPTS_ROOT / "services" / "translation" / "llm" / "providers" / "deepseek",
-        "services.translation.policy": REPO_SCRIPTS_ROOT / "services" / "translation" / "policy",
+        "services.translation.services.policy": REPO_SCRIPTS_ROOT / "services" / "translation" / "policy",
         "services.document_schema": REPO_SCRIPTS_ROOT / "services" / "document_schema",
     }
     for name, path in package_paths.items():

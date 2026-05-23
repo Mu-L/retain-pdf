@@ -3,17 +3,17 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from services.translation.batching.pending_units import translate_pending_units
+from services.translation.workflow.batching.pending_units import translate_pending_units
 from services.translation.workflow.pages import save_pages
 from services.translation.workflow.page_policies import apply_page_policies
 from services.translation.workflow.page_policies import finalize_page_payloads
 from services.translation.workflow.page_policies import review_and_apply_continuations
 from services.pipeline_shared.events import emit_stage_progress
 from services.pipeline_shared.events import emit_stage_transition
-from services.translation.diagnostics import TranslationRunDiagnostics
+from services.translation.artifacts import TranslationRunDiagnostics
 from services.translation.llm.shared.control_context import TranslationControlContext
-from services.translation.policy import TranslationPolicyConfig
-from services.translation.postprocess import reconstruct_garbled_page_payloads
+from services.translation.services.policy import TranslationPolicyConfig
+from services.translation.services.postprocess import reconstruct_garbled_page_payloads
 
 
 def format_translation_progress_message(current: int, total: int, touched_pages: set[int]) -> str:

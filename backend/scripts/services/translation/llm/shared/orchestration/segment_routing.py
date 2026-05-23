@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from services.translation.diagnostics import TranslationDiagnosticsCollector
+from services.translation.artifacts import TranslationDiagnosticsCollector
 from services.translation.llm.shared.control_context import SegmentationPolicy
 from services.translation.llm.shared.orchestration.segment_errors import SegmentTranslationFormatError
 from services.translation.llm.shared.orchestration.segment_errors import SegmentTranslationParseError

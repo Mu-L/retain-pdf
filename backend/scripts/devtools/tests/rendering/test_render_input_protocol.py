@@ -12,7 +12,7 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 from runtime.pipeline.render_inputs import resolve_render_inputs
 from runtime.pipeline.render_stage import run_render_stage
 from runtime.pipeline.translation_loader import load_translated_pages
-from services.translation.payload.manifest import write_translation_manifest
+from services.translation.core.payload.manifest import write_translation_manifest
 
 
 def _write_payload(path: Path, translated_text: str) -> None:

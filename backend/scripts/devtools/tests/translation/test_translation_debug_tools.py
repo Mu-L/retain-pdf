@@ -9,7 +9,7 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.diagnostics.debug_index import build_translation_debug_index
+from services.translation.artifacts.debug_index import build_translation_debug_index
 from devtools.replay_translation_item import replay_translation_case_artifact
 from devtools.replay_translation_item import replay_translation_item
 

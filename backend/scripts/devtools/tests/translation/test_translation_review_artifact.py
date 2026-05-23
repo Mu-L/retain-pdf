@@ -8,8 +8,8 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.diagnostics.review import build_translation_review
-from services.translation.diagnostics.review import write_translation_review
+from services.translation.artifacts.review import build_translation_review
+from services.translation.artifacts.review import write_translation_review
 from services.translation.llm.shared.control_context import GlossaryEntry
 from services.translation.llm.shared.control_context import build_translation_control_context
 

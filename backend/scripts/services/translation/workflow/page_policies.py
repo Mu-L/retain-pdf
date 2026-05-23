@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from services.translation.continuation import annotate_continuation_context_global
-from services.translation.continuation import summarize_continuation_decisions
-from services.translation.orchestration.document_orchestrator import annotate_layout_zones_by_page
-from services.translation.orchestration.document_orchestrator import finalize_orchestration_metadata_by_page
-from services.translation.orchestration.document_orchestrator import review_candidate_continuation_pairs
-from services.translation.policy import TranslationPolicyConfig
-from services.translation.policy.flow import apply_translation_policies
-from services.translation.payload import summarize_payload
+from services.translation.services.continuation import annotate_continuation_context_global
+from services.translation.services.continuation import summarize_continuation_decisions
+from services.translation.core.orchestration.document_orchestrator import annotate_layout_zones_by_page
+from services.translation.core.orchestration.document_orchestrator import finalize_orchestration_metadata_by_page
+from services.translation.core.orchestration.document_orchestrator import review_candidate_continuation_pairs
+from services.translation.services.policy import TranslationPolicyConfig
+from services.translation.services.policy.flow import apply_translation_policies
+from services.translation.core.payload import summarize_payload
 
 from services.translation.workflow.pages import save_pages
 

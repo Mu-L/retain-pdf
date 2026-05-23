@@ -7,19 +7,19 @@ REPO_SCRIPTS_ROOT = Path("/home/wxyhgk/tmp/Code/backend/scripts")
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.continuation import pairs as continuation_pairs
-from services.translation.continuation import rules as continuation_rules
-from services.translation.orchestration import document_orchestrator
+from services.translation.services.continuation import pairs as continuation_pairs
+from services.translation.services.continuation import rules as continuation_rules
+from services.translation.core.orchestration import document_orchestrator
 
 
 def _install_minimal_continuation_stub() -> None:
-    module = types.ModuleType("services.translation.continuation")
+    module = types.ModuleType("services.translation.services.continuation")
     module.apply_candidate_pair_joins = continuation_pairs.apply_candidate_pair_joins
     module.candidate_continuation_pairs = continuation_pairs.candidate_continuation_pairs
     module.pair_break_score = continuation_rules.pair_break_score
     module.pair_join_score = continuation_rules.pair_join_score
     module.review_candidate_pairs = lambda *args, **kwargs: {}
-    sys.modules["services.translation.continuation"] = module
+    sys.modules["services.translation.services.continuation"] = module
 
 
 def test_continuation_review_short_circuits_high_confidence_pairs() -> None:

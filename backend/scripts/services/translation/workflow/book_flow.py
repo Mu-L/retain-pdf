@@ -11,12 +11,12 @@ from services.translation.workflow.stages import run_translation_batch_stage
 from services.translation.workflow.pages import load_page_payloads
 from services.translation.workflow.pages import save_pages
 from services.translation.workflow.page_policies import build_page_summaries
-from services.translation.diagnostics import TranslationRunDiagnostics
-from services.translation.context.windows import annotate_translation_context_windows
-from services.translation.orchestration.document_orchestrator import finalize_orchestration_metadata_by_page
+from services.translation.artifacts import TranslationRunDiagnostics
+from services.translation.services.context.windows import annotate_translation_context_windows
+from services.translation.core.orchestration.document_orchestrator import finalize_orchestration_metadata_by_page
 from services.translation.llm.shared.control_context import TranslationControlContext
-from services.translation.policy import TranslationPolicyConfig
-from services.translation.payload import load_translations
+from services.translation.services.policy import TranslationPolicyConfig
+from services.translation.core.payload import load_translations
 
 
 def translate_book_with_global_continuations(

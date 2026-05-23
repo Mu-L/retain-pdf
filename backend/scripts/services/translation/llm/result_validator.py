@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
-from services.translation.diagnostics import TranslationDiagnosticsCollector
+from services.translation.artifacts import TranslationDiagnosticsCollector
 from services.translation.llm.result_payload import KEEP_ORIGIN_LABEL
 from services.translation.llm.result_payload import normalize_decision
 from services.translation.llm.validation.english_residue import looks_like_english_prose
@@ -15,11 +15,11 @@ from services.translation.llm.validation.errors import PlaceholderInventoryError
 from services.translation.llm.validation.errors import SuspiciousKeepOriginError
 from services.translation.llm.validation.errors import TranslationProtocolError
 from services.translation.llm.validation.errors import UnexpectedPlaceholderError
-from services.translation.policy.metadata_filter import looks_like_url_fragment
-from services.translation.policy.soft_hints import looks_like_code_literal_text_value
-from services.translation.quality import TranslationQualityIssue
-from services.translation.quality import review_translation_item
-from services.translation.quality import should_reject_keep_origin
+from services.translation.services.policy.metadata_filter import looks_like_url_fragment
+from services.translation.services.policy.soft_hints import looks_like_code_literal_text_value
+from services.translation.services.quality import TranslationQualityIssue
+from services.translation.services.quality import review_translation_item
+from services.translation.services.quality import should_reject_keep_origin
 
 
 @dataclass(frozen=True)

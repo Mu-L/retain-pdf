@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from services.translation.diagnostics import TranslationDiagnosticsCollector
+from services.translation.artifacts import TranslationDiagnosticsCollector
 from services.translation.llm.result_payload import result_entry
 from services.translation.llm.validation.errors import EmptyTranslationError
 from services.translation.llm.shared.orchestration.common import chunk_source_text_fallback

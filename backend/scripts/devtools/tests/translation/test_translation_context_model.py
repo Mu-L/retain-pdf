@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from services.translation.context import TranslationDocumentContext
-from services.translation.context import build_unit_context
-from services.translation.context import build_unit_contexts
-from services.translation.context.windows import annotate_translation_context_windows
-from services.translation.context.windows import build_translation_context_windows
+from services.translation.services.context import TranslationDocumentContext
+from services.translation.services.context import build_unit_context
+from services.translation.services.context import build_unit_contexts
+from services.translation.services.context.windows import annotate_translation_context_windows
+from services.translation.services.context.windows import build_translation_context_windows
 
 
 def test_build_unit_context_carries_document_item_and_neighbor_context() -> None:

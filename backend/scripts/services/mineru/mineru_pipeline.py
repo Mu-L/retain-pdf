@@ -22,7 +22,7 @@ from runtime.pipeline.book_pipeline import run_book_pipeline
 from services.translation.llm.shared.provider_runtime import DEFAULT_BASE_URL
 from services.translation.llm.shared.provider_runtime import get_api_key
 from services.translation.llm.shared.provider_runtime import normalize_base_url
-from services.translation.terms import parse_glossary_json
+from services.translation.services.terms import parse_glossary_json
 
 
 def parse_args() -> argparse.Namespace:

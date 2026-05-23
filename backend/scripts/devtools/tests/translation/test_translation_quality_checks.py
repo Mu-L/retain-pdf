@@ -6,9 +6,9 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.quality import review_translation_batch
-from services.translation.quality import review_translation_item
-from services.translation.terms import GlossaryEntry
+from services.translation.services.quality import review_translation_batch
+from services.translation.services.quality import review_translation_item
+from services.translation.services.terms import GlossaryEntry
 
 
 def _body_item(item_id: str, source_text: str, **overrides) -> dict:

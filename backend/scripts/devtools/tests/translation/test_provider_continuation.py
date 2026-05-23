@@ -12,18 +12,19 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 from services.document_schema.defaults import default_block_continuation_hint
 from services.document_schema.adapters import adapt_payload_to_document_v1
 from services.document_schema.providers import PROVIDER_GENERIC_FLAT_OCR
-from services.translation.ocr.json_extractor import extract_text_items
-from services.translation.ocr.models import TextItem
-from services.translation.payload.translations import export_translation_template
-from services.translation.payload.translations import load_translations
-from services.translation.orchestration.document_orchestrator import _filter_boundary_candidate_pairs
+from services.translation.core.ocr.json_extractor import extract_text_items
+from services.translation.core.ocr.models import TextItem
+from services.translation.core.payload.translations import export_translation_template
+from services.translation.core.payload.translations import load_translations
+from services.translation.core.orchestration.document_orchestrator import _filter_boundary_candidate_pairs
 
 
 def _ensure_package_stubs() -> None:
     package_paths = {
         "services": REPO_SCRIPTS_ROOT / "services",
         "services.translation": REPO_SCRIPTS_ROOT / "services" / "translation",
-        "services.translation.continuation": REPO_SCRIPTS_ROOT / "services" / "translation" / "continuation",
+        "services.translation.services": REPO_SCRIPTS_ROOT / "services" / "translation" / "services",
+        "services.translation.services.continuation": REPO_SCRIPTS_ROOT / "services" / "translation" / "services" / "continuation",
     }
     for name, path in package_paths.items():
         module = sys.modules.get(name)
@@ -44,12 +45,12 @@ def _load_module(name: str, path: Path):
 
 def _load_state_module():
     _load_module(
-        "services.translation.continuation.rules",
-        REPO_SCRIPTS_ROOT / "services" / "translation" / "continuation" / "rules.py",
+        "services.translation.services.continuation.rules",
+        REPO_SCRIPTS_ROOT / "services" / "translation" / "services" / "continuation" / "rules.py",
     )
     return _load_module(
-        "services.translation.continuation.state",
-        REPO_SCRIPTS_ROOT / "services" / "translation" / "continuation" / "state.py",
+        "services.translation.services.continuation.state",
+        REPO_SCRIPTS_ROOT / "services" / "translation" / "services" / "continuation" / "state.py",
     )
 
 
@@ -232,7 +233,7 @@ def test_chunk_source_text_fallback_keeps_inline_math_atomic() -> None:
 
 
 def test_group_translation_split_keeps_inline_math_atomic() -> None:
-    from services.translation.payload.parts.apply import _split_group_protected_translation
+    from services.translation.core.payload.parts.apply import _split_group_protected_translation
 
     items = [
         {"protected_source_text": "prev part"},

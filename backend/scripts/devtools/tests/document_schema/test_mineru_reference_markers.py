@@ -6,7 +6,7 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 from services.document_schema.adapters import adapt_payload_to_document_v1
 from services.document_schema.providers import PROVIDER_MINERU
-from services.translation.policy.reference_section import resolve_reference_cutoff
+from services.translation.services.policy.reference_section import resolve_reference_cutoff
 
 
 def _text_block(block_type: str, text: str) -> dict:

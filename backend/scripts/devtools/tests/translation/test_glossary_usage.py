@@ -6,7 +6,7 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.terms.usage import summarize_glossary_usage
+from services.translation.services.terms.usage import summarize_glossary_usage
 
 
 def test_summarize_glossary_usage_counts_hits_and_unapplied_terms() -> None:

@@ -8,7 +8,7 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path("/home/wxyhgk/tmp/Code/backend/scripts")
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.translation.terms import auto_preserve_glossary_entries_from_texts
+from services.translation.services.terms import auto_preserve_glossary_entries_from_texts
 from services.translation.workflow.execution import TranslationExecutionRequest
 from services.translation.workflow.execution_plan import build_translation_execution_plan
 
