@@ -4,6 +4,7 @@ from collections.abc import Iterable
 import re
 
 from services.rendering.layout.payload.text_common import get_render_formula_map
+from services.rendering.layout.payload.line_structure import maybe_preserve_structured_line_breaks
 from services.rendering.layout.payload.text_common import same_meaningful_render_text
 from services.rendering.layout.model.render_text import should_skip_display_math_render
 
@@ -107,6 +108,7 @@ def seed_render_fields(item: dict) -> None:
         return
     render_text = render_protected_translation_text(item)
     source_text = render_protected_source_text(item)
+    render_text = maybe_preserve_structured_line_breaks(item, render_text)
     if not render_text and should_render_source_block(item):
         render_text = source_text
     item["render_protected_text"] = (

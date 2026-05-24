@@ -31,10 +31,12 @@ class TranslationAgentCoordinator:
 
     @classmethod
     def from_control_context(cls, context: "TranslationControlContext") -> "TranslationAgentCoordinator":
+        scoped_context = context.scoped_to_source_texts([])
+        glossary_entries = list(scoped_context.glossary_entries or [])
         return cls(
-            terminology_agent=TerminologyAgent(context.glossary_entries),
-            reviewer_agent=ConsistencyReviewerAgent(context.glossary_entries),
-            repair_agent=RepairAgent(glossary_entries=context.glossary_entries),
+            terminology_agent=TerminologyAgent(glossary_entries),
+            reviewer_agent=ConsistencyReviewerAgent(glossary_entries),
+            repair_agent=RepairAgent(glossary_entries=glossary_entries),
         )
 
     def scope_context_to_source_texts(

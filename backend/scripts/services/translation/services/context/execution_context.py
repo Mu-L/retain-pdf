@@ -32,6 +32,20 @@ def memory_summary_for_batch(memory_store: TranslationMemorySummary | None, batc
     return memory_store.summary()
 
 
+def memory_summary_for_mode(
+    memory_store: TranslationMemorySummary | None,
+    batch: list[dict] | None,
+    *,
+    mode: str = "matched",
+) -> str:
+    resolved_mode = str(mode or "matched").strip().lower()
+    if resolved_mode == "off" or memory_store is None:
+        return ""
+    if resolved_mode == "broad":
+        return memory_store.summary()
+    return memory_summary_for_batch(memory_store, batch)
+
+
 def domain_guidance_with_memory(domain_guidance: str, memory_store: TranslationMemorySummary | None) -> str:
     return merge_guidance_parts(domain_guidance, memory_summary(memory_store))
 
@@ -40,8 +54,12 @@ def domain_guidance_with_retrieved_memory(
     domain_guidance: str,
     memory_store: TranslationMemorySummary | None,
     batch: list[dict] | None,
+    memory_mode: str = "matched",
 ) -> str:
-    return merge_guidance_parts(domain_guidance, memory_summary_for_batch(memory_store, batch))
+    return merge_guidance_parts(
+        domain_guidance,
+        memory_summary_for_mode(memory_store, batch, mode=memory_mode),
+    )
 
 
 def context_with_memory_guidance(
@@ -54,10 +72,12 @@ def context_with_memory_guidance(
     request_label: str = "",
 ) -> TranslationControlContext:
     base_domain_guidance = context.domain_guidance if context is not None and context.domain_guidance.strip() else domain_guidance
+    memory_mode = str(getattr(context, "memory_mode", "matched") if context is not None else "matched")
     merged_domain_guidance = domain_guidance_with_retrieved_memory(
         base_domain_guidance,
         memory_store,
         batch,
+        memory_mode=memory_mode,
     )
     if not merged_domain_guidance and batch is None:
         merged_domain_guidance = domain_guidance_with_memory(
@@ -83,5 +103,6 @@ __all__ = [
     "domain_guidance_with_retrieved_memory",
     "memory_summary",
     "memory_summary_for_batch",
+    "memory_summary_for_mode",
     "merge_guidance_parts",
 ]

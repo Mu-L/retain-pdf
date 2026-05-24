@@ -23,18 +23,31 @@ class TranslationFlushState:
         self.total_batches = total_batches
         self.progress_callback = progress_callback
         self.dirty_pages: set[int] = set()
+        self._last_progress_emit_at = 0.0
+        self._last_progress_emit_completed = 0
+        self._last_flush_completed = 0
 
     def mark_dirty(self, pages: set[int]) -> None:
         self.dirty_pages.update(pages)
 
     def record_progress(self, completed: int, touched_pages: set[int]) -> None:
         if self.progress_callback is not None:
+            now = time.perf_counter()
+            if (
+                completed < self.total_batches
+                and completed - self._last_progress_emit_completed < 20
+                and now - self._last_progress_emit_at < 1.0
+            ):
+                return
+            self._last_progress_emit_at = now
+            self._last_progress_emit_completed = completed
             self.progress_callback(completed, self.total_batches, touched_pages)
 
     def flush_if_due(self, completed: int, *, label: str) -> None:
-        if completed % self.flush_interval != 0:
+        if completed < self.total_batches and completed - self._last_flush_completed < self.flush_interval:
             return
         self.flush(label=label)
+        self._last_flush_completed = completed
 
     def flush(self, *, label: str) -> None:
         if not self.dirty_pages:

@@ -25,7 +25,13 @@ def _effective_group_unit_id(members: list[dict]) -> str:
     return existing_ids[0] if existing_ids else ""
 
 
-def refresh_payload_translation_units(payload: list[dict]) -> bool:
+def _has_external_group_members(item: dict) -> bool:
+    item_id = str(item.get("item_id", "") or "")
+    member_ids = [str(member or "").strip() for member in item.get("translation_unit_member_ids", []) if str(member or "").strip()]
+    return bool(item_id and any(member_id != item_id for member_id in member_ids))
+
+
+def refresh_payload_translation_units(payload: list[dict], *, preserve_external_groups: bool = False) -> bool:
     changed = False
     grouped_members: dict[str, list[dict]] = {}
     for item in payload:
@@ -69,6 +75,9 @@ def refresh_payload_translation_units(payload: list[dict]) -> bool:
             after = translation_unit_state_snapshot(item)
             if before != after:
                 changed = True
+            continue
+
+        if preserve_external_groups and key and _has_external_group_members(item):
             continue
 
         before = translation_unit_state_snapshot(item)

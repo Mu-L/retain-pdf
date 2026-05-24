@@ -145,10 +145,36 @@ class JobMemory:
         )
 
 
+class JobMemorySnapshot:
+    def __init__(self, memory: JobMemory) -> None:
+        self._memory = memory
+
+    @classmethod
+    def from_store(cls, store: "JobMemoryStore") -> "JobMemorySnapshot":
+        return cls(store.load())
+
+    def summary(self) -> str:
+        return self._memory.prompt_summary()
+
+    def summary_for_source(self, source_text: str) -> str:
+        return self._memory.prompt_summary_for_source(source_text)
+
+    def summary_for_batch(self, batch: list[dict]) -> str:
+        return self.summary_for_source(source_text_for_batch(batch))
+
+
 class JobMemoryStore:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, save_interval: int = 1) -> None:
         self.path = path
         self._lock = _lock_for_path(path)
+        self._memory: JobMemory | None = None
+        self._dirty_updates = 0
+        self._save_interval = max(1, int(save_interval))
+
+    def _load_cached(self) -> JobMemory:
+        if self._memory is None:
+            self._memory = self.load()
+        return self._memory
 
     def load(self) -> JobMemory:
         if not self.path.exists():
@@ -173,22 +199,46 @@ class JobMemoryStore:
 
     def summary(self) -> str:
         with self._lock:
-            return self.load().prompt_summary()
+            return self._load_cached().prompt_summary()
 
     def summary_for_source(self, source_text: str) -> str:
         with self._lock:
-            return self.load().prompt_summary_for_source(source_text)
+            return self._load_cached().prompt_summary_for_source(source_text)
 
     def summary_for_batch(self, batch: list[dict]) -> str:
         return self.summary_for_source(source_text_for_batch(batch))
 
     def update_from_batch(self, batch: list[dict], translated: dict[str, dict[str, Any]]) -> int:
         with self._lock:
-            memory = self.load()
+            memory = self._load_cached()
             changed = update_job_memory_from_batch(memory, batch=batch, translated=translated)
             if changed:
-                self.save(memory)
+                self._dirty_updates += changed
+                if self._dirty_updates >= self._save_interval:
+                    self.save(memory)
+                    self._dirty_updates = 0
             return changed
+
+    def update_many(self, updates: list[tuple[list[dict], dict[str, dict[str, Any]]]]) -> int:
+        if not updates:
+            return 0
+        with self._lock:
+            memory = self._load_cached()
+            changed_total = 0
+            for batch, translated in updates:
+                changed_total += update_job_memory_from_batch(memory, batch=batch, translated=translated)
+            if changed_total:
+                self._dirty_updates += changed_total
+                if self._dirty_updates >= self._save_interval:
+                    self.save(memory)
+                    self._dirty_updates = 0
+            return changed_total
+
+    def flush(self) -> None:
+        with self._lock:
+            if self._memory is not None and self._dirty_updates:
+                self.save(self._memory)
+                self._dirty_updates = 0
 
 
 def update_job_memory_from_batch(

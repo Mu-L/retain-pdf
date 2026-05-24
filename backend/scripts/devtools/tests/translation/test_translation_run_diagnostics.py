@@ -169,6 +169,7 @@ class TranslationRunDiagnosticsTests(unittest.TestCase):
             translation_batch_size=1,
         )
         run.set_workload(pending_items=66, total_batches=66)
+        run.set_translation_result_stats(applied_batches=66, apply_elapsed_ms=1234, max_result_drain_batch=32)
         run.mark_phase_start("translation_batches")
         time.sleep(0.002)
         run.mark_phase_end("translation_batches")
@@ -214,6 +215,8 @@ class TranslationRunDiagnosticsTests(unittest.TestCase):
         self.assertGreaterEqual(summary["concurrency_observed"]["peak_inflight_translation_requests"], 2)
         self.assertEqual(summary["configured_workers"], 100)
         self.assertEqual(summary["pending_items"], 66)
+        self.assertEqual(summary["result_apply"]["apply_elapsed_ms"], 1234)
+        self.assertEqual(summary["result_apply"]["max_result_drain_batch"], 32)
         self.assertEqual(summary["retry_summary"]["retrying_request_labels"], 1)
 
     def test_request_chat_content_records_retry_attempts(self):
@@ -245,7 +248,7 @@ class TranslationRunDiagnosticsTests(unittest.TestCase):
         self.assertEqual(summary["request_counts"]["timeout_attempts"], 1)
         self.assertEqual(summary["request_counts"]["succeeded_attempts"], 1)
         self.assertEqual(summary["retry_summary"]["max_http_attempt"], 2)
-        self.assertLess(summary["adaptive_concurrency"]["current_limit"], 16)
+        self.assertEqual(summary["adaptive_concurrency"]["current_limit"], 16)
 
     def test_deepseek_session_pool_scales_to_configured_workers(self):
         deepseek_client = load_deepseek_client()
@@ -326,9 +329,9 @@ class TranslationRunDiagnosticsTests(unittest.TestCase):
 
     def test_adaptive_concurrency_downshifts_on_slow_successes(self):
         run = TranslationRunDiagnostics(
-            provider_family="deepseek_official",
-            model="deepseek-chat",
-            base_url="https://api.deepseek.com/v1",
+            provider_family="other",
+            model="qwen-plus",
+            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
             configured_workers=1000,
             configured_batch_size=1,
             configured_classify_batch_size=12,
@@ -345,9 +348,9 @@ class TranslationRunDiagnosticsTests(unittest.TestCase):
 
     def test_adaptive_concurrency_downshifts_after_repeated_moderately_slow_successes(self):
         run = TranslationRunDiagnostics(
-            provider_family="deepseek_official",
-            model="deepseek-chat",
-            base_url="https://api.deepseek.com/v1",
+            provider_family="other",
+            model="qwen-plus",
+            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
             configured_workers=1000,
             configured_batch_size=1,
             configured_classify_batch_size=12,
@@ -358,6 +361,22 @@ class TranslationRunDiagnosticsTests(unittest.TestCase):
         self.assertEqual(run.build_summary()["adaptive_concurrency"]["current_limit"], 32)
         run.release_request_slot(success=True, elapsed_ms=45000)
         self.assertEqual(run.build_summary()["adaptive_concurrency"]["current_limit"], 27)
+
+    def test_deepseek_official_keeps_limit_on_slow_success_and_timeout(self):
+        run = TranslationRunDiagnostics(
+            provider_family="deepseek_official",
+            model="deepseek-chat",
+            base_url="https://api.deepseek.com/v1",
+            configured_workers=100,
+            configured_batch_size=1,
+            configured_classify_batch_size=12,
+        )
+        run.configure_adaptive_concurrency(initial_limit=100, floor_limit=8)
+
+        run.release_request_slot(success=True, elapsed_ms=90000)
+        run.release_request_slot(success=False, elapsed_ms=55000, error_class="ReadTimeout")
+
+        self.assertEqual(run.build_summary()["adaptive_concurrency"]["current_limit"], 100)
 
     def test_request_chat_content_retries_dns_failures_even_when_max_attempts_is_one(self):
         deepseek_client = load_deepseek_client()

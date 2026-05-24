@@ -151,9 +151,10 @@ def test_translate_items_plain_text_sends_only_matched_glossary_entries_to_promp
     )
 
     assert result["a"]["translated_text"] == "已翻译"
-    assert "SCF -> 自洽场" in captured["domain_guidance"]
+    assert '"source": "SCF"' in captured["domain_guidance"]
+    assert '"target": "自洽场"' in captured["domain_guidance"]
     assert "DFTB" not in captured["domain_guidance"]
-    assert "Hartree-Fock -> Hartree-Fock" not in captured["domain_guidance"]
+    assert '"source": "Hartree-Fock"' not in captured["domain_guidance"]
     assert result["a"]["translation_diagnostics"]["term_scope"]["glossary_sources"] == ["SCF"]
     assert result["b"]["translation_diagnostics"]["term_scope"]["glossary_sources"] == ["Hartree-Fock"]
 
@@ -259,3 +260,43 @@ def test_deferred_transport_items_are_queued_instead_of_retried_inline() -> None
     }
     assert calls == ["a:True", "b:True"]
     assert len(context.transport_tail_retry_queue) == 1
+
+
+def test_batched_plain_fallback_retries_uncached_items_with_small_parallel_pool() -> None:
+    batch = [
+        _item(
+            f"item-{index}",
+            "This body paragraph is long enough for the batched plain translation path.",
+            _batched_plain_candidate=True,
+        )
+        for index in range(4)
+    ]
+    context = build_translation_control_context()
+    calls: list[str] = []
+
+    def _single_item_translator(item, **_kwargs):
+        calls.append(item["item_id"])
+        return {
+            item["item_id"]: {
+                "decision": "translate",
+                "translated_text": f"已翻译 {item['item_id']}",
+                "final_status": "translated",
+            }
+        }
+
+    result = translate_items_plain_text(
+        batch,
+        api_key="sk-test",
+        model="deepseek-chat",
+        base_url="https://api.deepseek.com/v1",
+        request_label="test batched fallback",
+        context=context,
+        diagnostics=None,
+        single_item_translator=_single_item_translator,
+        split_cached_batch_fn=lambda batch_arg, **_kwargs: ({}, batch_arg),
+        store_cached_batch_fn=lambda *_args, **_kwargs: None,
+        translate_batch_once_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(ValueError("bad batch")),
+    )
+
+    assert sorted(result) == [item["item_id"] for item in batch]
+    assert sorted(calls) == [item["item_id"] for item in batch]

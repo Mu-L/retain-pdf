@@ -10,6 +10,7 @@ from services.translation.llm.shared.orchestration.direct_typst_recovery_actions
 from services.translation.llm.shared.orchestration.direct_typst_recovery_actions import sentence_level_fallback_or_terminal_failure
 from services.translation.llm.shared.orchestration.direct_typst_recovery_actions import try_math_delimiter_repair
 from services.translation.llm.shared.orchestration.direct_typst_recovery_actions import try_protocol_shell_salvage
+from services.translation.llm.shared.orchestration.short_text_retry import translate_empty_short_text_retry
 import services.translation.llm.shared.orchestration.intentional_keep_origin as intentional_keep_origin
 import services.translation.llm.shared.orchestration.terminal_payloads as terminal_payloads
 from services.translation.llm.validation.english_residue import should_force_translate_body_text
@@ -244,6 +245,20 @@ def handle_raw_validation_failure(
                 degradation_reason="empty_translation_repeated",
                 error_code="EMPTY_TRANSLATION",
             ), last_error
+        short_retry = translate_empty_short_text_retry(
+            item,
+            api_key=api_key,
+            model=model,
+            base_url=base_url,
+            request_label=request_label,
+            context=context,
+            diagnostics=diagnostics,
+            route_prefix=route_prefix + ["validation"],
+            timeout_s=getattr(context.timeout_policy, "plain_text_seconds", 35),
+            validate_batch_result_fn=validate_batch_result_fn,
+        )
+        if short_retry is not None:
+            return short_retry, last_error
         if sentence_level_fallback_allowed(item):
             return sentence_level_fallback_or_terminal_failure(
                 item,

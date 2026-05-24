@@ -35,9 +35,11 @@ from services.translation.llm.shared.provider_runtime import DEFAULT_BASE_URL
 from services.translation.llm.shared.provider_runtime import DEFAULT_MODEL
 from services.translation.llm.shared.provider_runtime import is_transport_error
 from services.translation.llm.shared.provider_runtime import translate_batch_once
+from services.translation.llm.shared.provider_runtime import translate_continuation_group_members
 from services.translation.llm.shared.provider_runtime import translate_single_item_plain_text
 from services.translation.llm.shared.provider_runtime import translate_single_item_plain_text_unstructured
 from services.translation.llm.shared.provider_runtime import unwrap_translation_shell
+from services.translation.llm.shared.orchestration.common import is_continuation_or_group_unit
 
 
 def _sentence_level_fallback(
@@ -81,6 +83,7 @@ def _default_flow_deps() -> SingleItemFlowDeps:
     return SingleItemFlowDeps(
         translate_plain_fn=translate_single_item_plain_text,
         translate_unstructured_fn=translate_single_item_plain_text_unstructured,
+        translate_group_members_fn=translate_continuation_group_members,
         formula_segment_translator_fn=translate_single_item_formula_segment_text_with_retries,
         stable_placeholder_text_fn=translate_single_item_stable_placeholder_text,
         sentence_level_fallback_fn=_sentence_level_fallback,
@@ -127,6 +130,38 @@ def translate_single_item_plain_text_with_retries(
     flow_deps = deps or _default_flow_deps()
     single_item_translator = flow_deps.single_item_translator_fn or translate_single_item_plain_text_with_retries
     route = select_single_item_route(item, context=context)
+    if is_continuation_or_group_unit(item) and flow_deps.translate_group_members_fn is not None:
+        try:
+            group_result = flow_deps.translate_group_members_fn(
+                item,
+                api_key=api_key,
+                model=model,
+                base_url=base_url,
+                request_label=f"{request_label} group-members" if request_label else "",
+                domain_guidance=context.merged_guidance,
+                mode=context.mode,
+                target_language_name=context.target_language_name,
+                diagnostics=diagnostics,
+                timeout_s=plain_text_timeout_seconds(
+                    item,
+                    context=context,
+                    transport_tail_retry=not allow_transport_tail_defer,
+                ),
+                http_retry_attempts=1,
+            )
+            return attach_result_metadata(
+                restore_runtime_term_tokens(group_result, item=item),
+                item=item,
+                context=context,
+                route_path=["block_level", "continuation_group_members"],
+                output_mode_path=["json", "member_translations"],
+            )
+        except Exception as exc:
+            if request_label:
+                print(
+                    f"{request_label}: continuation group member route failed, fallback to legacy route: {type(exc).__name__}: {exc}",
+                    flush=True,
+                )
     if route.direct_typst:
         return translate_direct_typst_route(
             item,

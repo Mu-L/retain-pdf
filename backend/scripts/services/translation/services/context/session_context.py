@@ -25,6 +25,9 @@ def build_translation_context(
     retrieval_entries: list[RetrievalEvidence] | None = None,
     model: str = "",
     base_url: str = "",
+    context_mode: str = "needed",
+    glossary_mode: str = "matched",
+    memory_mode: str = "matched",
 ) -> TranslationControlContext:
     return build_translation_control_context(
         mode=mode,
@@ -38,6 +41,9 @@ def build_translation_context(
         glossary_entries=glossary_entries,
         abbreviation_entries=abbreviation_entries,
         retrieval_entries=retrieval_entries,
+        context_mode=context_mode,
+        glossary_mode=glossary_mode,
+        memory_mode=memory_mode,
         engine_profile=resolve_engine_profile(model=model, base_url=base_url),
     )
 
@@ -52,6 +58,9 @@ def build_translation_context_from_policy(
     retrieval_entries: list[RetrievalEvidence] | None = None,
     model: str = "",
     base_url: str = "",
+    context_mode: str = "needed",
+    glossary_mode: str = "matched",
+    memory_mode: str = "matched",
 ) -> TranslationControlContext:
     extra_guidance_parts: list[str] = []
     if extra_guidance.strip():
@@ -74,6 +83,9 @@ def build_translation_context_from_policy(
         retrieval_entries=retrieval_entries,
         model=model,
         base_url=base_url,
+        context_mode=context_mode,
+        glossary_mode=glossary_mode,
+        memory_mode=memory_mode,
     )
 
 

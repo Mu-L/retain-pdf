@@ -46,6 +46,12 @@ pub struct TranslationInput {
     pub glossary_overridden_entry_count: i64,
     #[serde(default)]
     pub glossary_entries: Vec<GlossaryEntryInput>,
+    #[serde(default = "default_translation_context_mode")]
+    pub context_mode: String,
+    #[serde(default = "default_translation_glossary_mode")]
+    pub glossary_mode: String,
+    #[serde(default = "default_translation_memory_mode")]
+    pub memory_mode: String,
     #[serde(default)]
     pub api_key: String,
     #[serde(default)]
@@ -77,6 +83,9 @@ impl Default for TranslationInput {
             glossary_inline_entry_count: 0,
             glossary_overridden_entry_count: 0,
             glossary_entries: Vec::new(),
+            context_mode: default_translation_context_mode(),
+            glossary_mode: default_translation_glossary_mode(),
+            memory_mode: default_translation_memory_mode(),
             api_key: String::new(),
             model: String::new(),
             base_url: String::new(),
@@ -86,4 +95,16 @@ impl Default for TranslationInput {
             workers: 0,
         }
     }
+}
+
+pub fn default_translation_context_mode() -> String {
+    "needed".to_string()
+}
+
+pub fn default_translation_glossary_mode() -> String {
+    "matched".to_string()
+}
+
+pub fn default_translation_memory_mode() -> String {
+    "matched".to_string()
 }

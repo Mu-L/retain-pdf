@@ -35,7 +35,8 @@ def test_terminology_agent_matches_only_terms_present_in_source_texts() -> None:
 
     assert [entry.source for entry in result.entries] == ["Hartree-Fock", "SCF"]
     assert result.matched_entry_count == 2
-    assert "SCF -> 自洽场" in result.guidance
+    assert '"source": "SCF"' in result.guidance
+    assert '"target": "自洽场"' in result.guidance
     assert "DFTB" not in result.guidance
 
 
@@ -53,7 +54,8 @@ def test_translation_agent_coordinator_scopes_control_context_terms() -> None:
     )
 
     assert [entry.source for entry in scoped.glossary_entries] == ["DFTB"]
-    assert "DFTB -> 密度泛函紧束缚" in scoped.merged_guidance
+    assert '"source": "DFTB"' in scoped.merged_guidance
+    assert '"target": "密度泛函紧束缚"' in scoped.merged_guidance
     assert "SCF" not in scoped.merged_guidance
 
 

@@ -34,6 +34,7 @@ REPAIR_RESPONSE_SCHEMA = {
 }
 
 DEFAULT_REPAIRABLE_ISSUE_KINDS = {
+    "empty_translation",
     "english_residue",
     "english_residue_warning",
     "glossary_term_missing",
@@ -176,10 +177,16 @@ def parse_repair_response(content: str) -> dict[str, object]:
     from services.translation.llm.shared.structured_output import parse_structured_json
 
     payload = parse_structured_json(content)
+    if isinstance(payload.get("result"), dict):
+        payload = {**payload, **payload["result"]}
+    if isinstance(payload.get("repair"), dict):
+        payload = {**payload, **payload["repair"]}
     repaired_text = str(
         payload.get("repaired_text")
         or payload.get("translated_text")
         or payload.get("translation")
+        or payload.get("text")
+        or payload.get("output")
         or ""
     ).strip()
     if not repaired_text:

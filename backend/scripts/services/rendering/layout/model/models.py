@@ -3,6 +3,12 @@ from pathlib import Path
 
 
 @dataclass
+class RenderLineBox:
+    text: str
+    bbox: list[float]
+
+
+@dataclass
 class RenderBlock:
     block_id: str
     bbox: list[float]
@@ -31,6 +37,8 @@ class RenderBlock:
     math_map: list[dict] | None = None
     skip_reason: str = ""
     source_item_id: str = ""
+    preserve_line_breaks: bool = False
+    preserved_line_boxes: list[RenderLineBox] | None = None
 
 
 @dataclass
@@ -59,6 +67,8 @@ class RenderLayoutBlock:
     justify_text: bool = False
     use_cover_fill: bool = False
     skip_reason: str = ""
+    preserve_line_breaks: bool = False
+    preserved_line_boxes: list[RenderLineBox] | None = None
 
 
 @dataclass

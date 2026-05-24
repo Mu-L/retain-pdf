@@ -29,6 +29,8 @@ def layout_block_to_render_block(block: RenderLayoutBlock) -> RenderBlock:
         justify_text=block.justify_text,
         use_cover_fill=block.use_cover_fill,
         skip_reason=block.skip_reason,
+        preserve_line_breaks=block.preserve_line_breaks,
+        preserved_line_boxes=list(block.preserved_line_boxes or []),
     )
 
 

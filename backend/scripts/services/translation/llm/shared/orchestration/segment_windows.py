@@ -29,9 +29,10 @@ def translate_formula_segment_window_with_retries(
     window_range = str(window["segment_range"])
     context_before = str(window.get("context_before", "") or "")
     context_after = str(window.get("context_after", "") or "")
-    if bool(window.get("is_first_window")):
+    include_continuation_context = str(item.get("translation_context_mode", "needed") or "needed").strip().lower() != "off"
+    if include_continuation_context and bool(window.get("is_first_window")):
         context_before = merge_segment_contexts(str(item.get("continuation_prev_text", "") or ""), context_before)
-    if bool(window.get("is_last_window")):
+    if include_continuation_context and bool(window.get("is_last_window")):
         context_after = merge_segment_contexts(context_after, str(item.get("continuation_next_text", "") or ""))
     last_error: Exception | None = None
     for attempt in range(1, max(1, attempt_limit) + 1):

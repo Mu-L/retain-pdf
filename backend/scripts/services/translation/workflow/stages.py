@@ -4,12 +4,13 @@ import os
 import time
 from pathlib import Path
 
-from services.translation.core.payload import save_translations
 from services.translation.llm.shared.provider_runtime import request_chat_content
+from services.translation.artifacts import blocking_untranslated_items
 from services.translation.services.agents import AgentRunContext
 from services.translation.services.agents import TranslationAgentCoordinator
 from services.translation.services.agents import TranslationAgentRuntime
 from services.translation.services.agents import run_agent_repair_pipeline
+from services.translation.services.finalization import recover_blocking_untranslated_items
 from services.translation.workflow.batching.pending_units import translate_pending_units
 from services.translation.workflow.pages import save_pages
 from services.translation.workflow.page_policies import apply_page_policies
@@ -225,6 +226,11 @@ def run_translation_batch_stage(
             single_slow_workers=batch_summary.get("single_slow_workers", 0),
             slow_worker_limit=batch_summary.get("slow_worker_limit", 0),
         )
+        run_diagnostics.set_translation_result_stats(
+            applied_batches=batch_summary.get("total_batches", 0),
+            apply_elapsed_ms=batch_summary.get("apply_elapsed_ms", 0),
+            max_result_drain_batch=batch_summary.get("max_result_drain_batch", 0),
+        )
     emit_stage_progress(
         stage="translating",
         message="翻译批次完成",
@@ -234,6 +240,9 @@ def run_translation_batch_stage(
         payload={
             "pending_items": batch_summary["pending_items"],
             "effective_batch_size": batch_summary["effective_batch_size"],
+            "fast_queue_workers": batch_summary.get("fast_queue_workers", 0),
+            "apply_elapsed_ms": batch_summary.get("apply_elapsed_ms", 0),
+            "max_result_drain_batch": batch_summary.get("max_result_drain_batch", 0),
         },
     )
     print(f"book: translation batches in {time.perf_counter() - translate_started:.2f}s", flush=True)
@@ -313,7 +322,12 @@ def run_agent_repair_stage(
     translation_context: TranslationControlContext | None,
     run_diagnostics: TranslationRunDiagnostics | None,
 ) -> dict[str, int]:
-    repair_limit = _agent_repair_limit_from_env()
+    flat_payload: list[dict] = [item for page_idx in sorted(page_payloads) for item in page_payloads[page_idx]]
+    blocking_untranslated = blocking_untranslated_items(page_payloads)
+    repair_limit = _agent_repair_limit_from_env(
+        payload_size=len(flat_payload),
+        blocking_untranslated_count=len(blocking_untranslated),
+    )
     if repair_limit <= 0:
         return {
             "reviewed_items": 0,
@@ -330,8 +344,16 @@ def run_agent_repair_stage(
         message="开始执行翻译结果修复",
         progress_current=0,
         progress_total=repair_limit,
+        payload={"blocking_untranslated": len(blocking_untranslated)},
     )
-    glossary_entries = list(getattr(translation_context, "glossary_entries", []) or [])
+    glossary_entries = list(
+        getattr(
+            translation_context.scoped_to_source_texts([]) if translation_context is not None else None,
+            "glossary_entries",
+            [],
+        )
+        or []
+    )
     coordinator = (
         TranslationAgentCoordinator.from_control_context(translation_context)
         if translation_context is not None
@@ -342,7 +364,6 @@ def run_agent_repair_stage(
         context=AgentRunContext(model=model, base_url=base_url),
         request_chat_content_fn=request_chat_content,
     )
-    flat_payload: list[dict] = [item for page_idx in sorted(page_payloads) for item in page_payloads[page_idx]]
     translated_results = {
         str(item.get("item_id", "") or ""): {
             "decision": "translate",
@@ -367,8 +388,7 @@ def run_agent_repair_stage(
         base_url=base_url,
     ).as_dict()
     if summary["repaired_items"] or summary["skipped_items"] or summary["failed_items"]:
-        for page_idx, payload in page_payloads.items():
-            save_translations(translation_paths[page_idx], payload)
+        save_pages(page_payloads, translation_paths)
     if run_diagnostics is not None:
         run_diagnostics.mark_phase_end("agent_repair")
     emit_stage_progress(
@@ -389,12 +409,80 @@ def run_agent_repair_stage(
     return summary
 
 
-def _agent_repair_limit_from_env() -> int:
-    raw = str(os.environ.get("RETAIN_TRANSLATION_AGENT_REPAIR_LIMIT", "8") or "").strip()
+def run_final_untranslated_recovery_stage(
+    *,
+    page_payloads: dict[int, list[dict]],
+    translation_paths: dict[int, Path],
+    api_key: str,
+    model: str,
+    base_url: str,
+    translation_context: TranslationControlContext | None,
+    workers: int,
+) -> dict[str, int]:
+    target_language_name = str(
+        getattr(translation_context, "target_language_name", "") if translation_context is not None else ""
+    ) or "简体中文"
+    blocking_before = len(blocking_untranslated_items(page_payloads))
+    if blocking_before <= 0:
+        return {
+            "blocking_before": 0,
+            "attempted_items": 0,
+            "recovered_items": 0,
+            "dead_letter_items": 0,
+            "blocking_after": 0,
+        }
+    started = time.perf_counter()
+    emit_stage_transition(
+        stage="final_untranslated_recovery",
+        message="开始最终未翻译收口",
+        progress_current=0,
+        progress_total=blocking_before,
+        payload={"blocking_untranslated": blocking_before},
+    )
+    summary = recover_blocking_untranslated_items(
+        page_payloads,
+        api_key=api_key,
+        model=model,
+        base_url=base_url,
+        target_language_name=target_language_name,
+        workers=max(1, min(32, int(workers or 1))),
+        request_chat_content_fn=request_chat_content,
+    ).as_dict()
+    save_pages(page_payloads, translation_paths)
+    emit_stage_progress(
+        stage="final_untranslated_recovery",
+        message="最终未翻译收口完成",
+        progress_current=summary["attempted_items"],
+        progress_total=blocking_before,
+        elapsed_ms=int((time.perf_counter() - started) * 1000),
+        payload=summary,
+    )
+    print(
+        "book: final untranslated recovery "
+        f"before={summary['blocking_before']} attempted={summary['attempted_items']} "
+        f"recovered={summary['recovered_items']} dead_letter={summary['dead_letter_items']} "
+        f"after={summary['blocking_after']} in {time.perf_counter() - started:.2f}s",
+        flush=True,
+    )
+    return summary
+
+
+def _agent_repair_limit_from_env(
+    *,
+    payload_size: int = 0,
+    blocking_untranslated_count: int = 0,
+) -> int:
+    raw = str(os.environ.get("RETAIN_TRANSLATION_AGENT_REPAIR_LIMIT", "") or "").strip()
+    if not raw:
+        return max(
+            8,
+            min(256, max(0, int(blocking_untranslated_count)) * 2),
+            min(64, max(0, int(payload_size)) // 80),
+        )
     try:
         return max(0, int(raw))
     except ValueError:
-        return 8
+        return max(8, min(256, max(0, int(blocking_untranslated_count)) * 2))
 
 
 __all__ = [
@@ -403,6 +491,7 @@ __all__ = [
     "run_continuation_review",
     "run_garbled_reconstruction_stage",
     "run_initial_continuation_pass",
+    "run_final_untranslated_recovery_stage",
     "run_page_policy_stage",
     "run_translation_batch_stage",
 ]

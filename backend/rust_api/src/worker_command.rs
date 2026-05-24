@@ -529,6 +529,9 @@ mod tests {
         request.translation.glossary_resource_entry_count = 2;
         request.translation.glossary_inline_entry_count = 1;
         request.translation.glossary_overridden_entry_count = 1;
+        request.translation.context_mode = "all".to_string();
+        request.translation.glossary_mode = "all".to_string();
+        request.translation.memory_mode = "broad".to_string();
         request.translation.glossary_entries = vec![GlossaryEntryInput {
             source: "bond".to_string(),
             target: "键".to_string(),
@@ -557,6 +560,9 @@ mod tests {
         assert_eq!(payload["params"]["glossary_inline_entry_count"], 1);
         assert_eq!(payload["params"]["glossary_overridden_entry_count"], 1);
         assert_eq!(payload["params"]["glossary_entries"][0]["source"], "bond");
+        assert_eq!(payload["params"]["context_mode"], "all");
+        assert_eq!(payload["params"]["glossary_mode"], "all");
+        assert_eq!(payload["params"]["memory_mode"], "broad");
     }
 
     #[test]
@@ -628,6 +634,9 @@ mod tests {
                 "glossary_inline_entry_count",
                 "glossary_overridden_entry_count",
                 "glossary_entries",
+                "context_mode",
+                "glossary_mode",
+                "memory_mode",
                 "model",
                 "base_url",
                 "credential_ref",
@@ -714,6 +723,9 @@ mod tests {
                 "glossary_inline_entry_count",
                 "glossary_overridden_entry_count",
                 "glossary_entries",
+                "context_mode",
+                "glossary_mode",
+                "memory_mode",
                 "model",
                 "base_url",
                 "credential_ref",

@@ -79,9 +79,91 @@ def is_blocking_untranslated(item: dict, diagnostics: dict | None = None, route_
     return False
 
 
+def blocking_untranslated_items(translated_pages_map: dict[int, list[dict]]) -> list[dict[str, object]]:
+    blocked: list[dict[str, object]] = []
+    for page_idx, items in sorted(translated_pages_map.items()):
+        for item in items:
+            diagnostics = dict(item.get("translation_diagnostics") or {})
+            if (
+                str(item.get("final_status", "") or "").strip() == FinalStatus.TRANSLATED.value
+                and has_translation_artifact(item)
+            ):
+                diagnostics["final_status"] = FinalStatus.TRANSLATED.value
+            if not is_blocking_untranslated(item, diagnostics):
+                continue
+            blocked.append(
+                {
+                    "item_id": str(item.get("item_id", "") or ""),
+                    "page_idx": int(item.get("page_idx", page_idx) or page_idx),
+                    "final_status": item_final_status(item, diagnostics),
+                    "reason": str(
+                        diagnostics.get("degradation_reason", "")
+                        or diagnostics.get("fallback_to", "")
+                        or "untranslated"
+                    ),
+                }
+            )
+    return blocked
+
+
+def blocking_review_error_items(review: dict | None) -> list[dict[str, object]]:
+    if not isinstance(review, dict):
+        return []
+    blocked: list[dict[str, object]] = []
+    for issue in review.get("issues") or []:
+        if not isinstance(issue, dict):
+            continue
+        if str(issue.get("severity", "") or "") != "error":
+            continue
+        blocked.append(
+            {
+                "item_id": str(issue.get("item_id", "") or ""),
+                "page_idx": issue.get("page_idx"),
+                "kind": str(issue.get("kind", "") or "review_error"),
+                "message": str(issue.get("message", "") or ""),
+            }
+        )
+    return blocked
+
+
+def enforce_no_blocking_review_errors(review: dict | None) -> None:
+    blocked = blocking_review_error_items(review)
+    if not blocked:
+        return
+    preview_parts: list[str] = []
+    for item in blocked[:8]:
+        page_idx = item.get("page_idx")
+        try:
+            page_label = f"p{int(page_idx) + 1}"
+        except Exception:
+            page_label = "p?"
+        preview_parts.append(f"{page_label}:{item['item_id']}:{item['kind']}")
+    preview = ", ".join(preview_parts)
+    raise RuntimeError(
+        f"translation review gate blocked: review_error_count={len(blocked)} preview={preview}"
+    )
+
+
+def enforce_no_blocking_untranslated(translated_pages_map: dict[int, list[dict]]) -> None:
+    blocked = blocking_untranslated_items(translated_pages_map)
+    if not blocked:
+        return
+    preview = ", ".join(
+        f"p{int(item['page_idx']) + 1}:{item['item_id']}:{item['reason']}"
+        for item in blocked[:8]
+    )
+    raise RuntimeError(
+        f"translation export gate blocked: unresolved_translation_count={len(blocked)} preview={preview}"
+    )
+
+
 __all__ = [
     "ALLOWED_UNTRANSLATED_REASONS",
     "ALLOWED_UNTRANSLATED_ROUTE_NAMES",
+    "blocking_review_error_items",
+    "blocking_untranslated_items",
+    "enforce_no_blocking_review_errors",
+    "enforce_no_blocking_untranslated",
     "has_translation_artifact",
     "has_repaired_translation_artifact",
     "is_allowed_untranslated",

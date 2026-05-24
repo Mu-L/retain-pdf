@@ -12,6 +12,7 @@ from services.translation.core.terms import GlossaryEntry
 from services.translation.core.terms import build_terms_guidance
 from services.translation.core.terms import matched_abbreviation_entries
 from services.translation.core.terms import matched_glossary_entries
+from services.translation.core.terms import normalize_glossary_entries
 from services.translation.llm.shared.tail_retry_queue import TransportTailRetryQueue
 
 
@@ -99,6 +100,9 @@ class TranslationControlContext:
     rule_guidance: str = ""
     extra_guidance: str = ""
     request_label: str = ""
+    context_mode: str = "needed"
+    glossary_mode: str = "matched"
+    memory_mode: str = "matched"
     placeholder_policy: PlaceholderPolicy = field(default_factory=PlaceholderPolicy)
     segmentation_policy: SegmentationPolicy = field(default_factory=SegmentationPolicy)
     fallback_policy: FallbackPolicy = field(default_factory=FallbackPolicy)
@@ -112,6 +116,11 @@ class TranslationControlContext:
     term_scope_glossary_total_count: int = 0
     term_scope_abbreviation_total_count: int = 0
     transport_tail_retry_queue: TransportTailRetryQueue | None = None
+    _term_scope_cache: dict[tuple[str, ...], tuple[list[GlossaryEntry], list[AbbreviationEntry]]] = field(
+        default_factory=dict,
+        compare=False,
+        repr=False,
+    )
 
     @property
     def terms_guidance(self) -> str:
@@ -169,11 +178,30 @@ class TranslationControlContext:
 
     def scoped_to_source_texts(self, texts: Iterable[str]) -> "TranslationControlContext":
         text_list = [text for text in texts if text]
+        glossary_mode = _normalize_glossary_mode(self.glossary_mode)
+        if glossary_mode == "off":
+            return replace(
+                self,
+                glossary_entries=[],
+                abbreviation_entries=[],
+                term_scope_source_text_count=len(text_list),
+                term_scope_glossary_total_count=len(self.glossary_entries),
+                term_scope_abbreviation_total_count=len(self.abbreviation_entries),
+            )
+        if glossary_mode == "all":
+            return self
         if not text_list or not (self.glossary_entries or self.abbreviation_entries):
             return self
-        source_text = "\n".join(text_list)
-        matched_glossary = matched_glossary_entries(self.glossary_entries, source_text)
-        matched_abbreviations = matched_abbreviation_entries(self.abbreviation_entries, source_text)
+        cache_key = tuple(text_list)
+        cached_scope = self._term_scope_cache.get(cache_key)
+        if cached_scope is None:
+            source_text = "\n".join(text_list)
+            cached_scope = (
+                matched_glossary_entries(self.glossary_entries, source_text),
+                matched_abbreviation_entries(self.abbreviation_entries, source_text),
+            )
+            self._term_scope_cache[cache_key] = cached_scope
+        matched_glossary, matched_abbreviations = cached_scope
         if len(matched_glossary) == len(self.glossary_entries) and len(matched_abbreviations) == len(self.abbreviation_entries):
             return self
         return replace(
@@ -249,6 +277,9 @@ def build_translation_control_context(
     rule_guidance: str = "",
     extra_guidance: str = "",
     request_label: str = "",
+    context_mode: str = "needed",
+    glossary_mode: str = "matched",
+    memory_mode: str = "matched",
     glossary_entries: list[GlossaryEntry] | None = None,
     abbreviation_entries: list[AbbreviationEntry] | None = None,
     retrieval_entries: list[RetrievalEvidence] | None = None,
@@ -264,16 +295,40 @@ def build_translation_control_context(
         rule_guidance=rule_guidance,
         extra_guidance=extra_guidance,
         request_label=request_label,
+        context_mode=_normalize_context_mode(context_mode),
+        glossary_mode=_normalize_glossary_mode(glossary_mode),
+        memory_mode=_normalize_memory_mode(memory_mode),
         segmentation_policy=resolved_profile.segmentation_policy,
         fallback_policy=resolved_profile.fallback_policy,
         timeout_policy=resolved_profile.timeout_policy,
         batch_policy=resolved_profile.batch_policy,
         engine_profile_name=resolved_profile.name,
-        glossary_entries=list(glossary_entries or []),
+        glossary_entries=normalize_glossary_entries(glossary_entries),
         abbreviation_entries=list(abbreviation_entries or []),
         retrieval_entries=list(retrieval_entries or []),
         transport_tail_retry_queue=TransportTailRetryQueue(),
     )
+
+
+def _normalize_context_mode(value: str) -> str:
+    normalized = str(value or "needed").strip().lower()
+    if normalized in {"needed", "all", "off"}:
+        return normalized
+    return "needed"
+
+
+def _normalize_glossary_mode(value: str) -> str:
+    normalized = str(value or "matched").strip().lower()
+    if normalized in {"matched", "all", "off"}:
+        return normalized
+    return "matched"
+
+
+def _normalize_memory_mode(value: str) -> str:
+    normalized = str(value or "matched").strip().lower()
+    if normalized in {"matched", "broad", "off"}:
+        return normalized
+    return "matched"
 
 
 def resolve_engine_profile(*, model: str = "", base_url: str = "") -> EngineProfile:
@@ -292,11 +347,19 @@ def resolve_engine_profile(*, model: str = "", base_url: str = "") -> EngineProf
                 profile.fallback_policy,
                 formula_segment_attempts=2,
             ),
+            batch_policy=replace(profile.batch_policy, plain_batch_size=1),
         )
     if provider_family == "deepseek_official":
         return replace(
             profile,
             name="deepseek_balanced",
+            timeout_policy=replace(
+                profile.timeout_policy,
+                plain_text_seconds=20,
+                batch_plain_text_seconds=25,
+                long_plain_text_seconds=30,
+                transport_tail_retry_seconds=40,
+            ),
             segmentation_policy=replace(
                 profile.segmentation_policy,
                 prefer_plain_when_segment_count_leq=6,
@@ -305,6 +368,6 @@ def resolve_engine_profile(*, model: str = "", base_url: str = "") -> EngineProf
                 profile.fallback_policy,
                 formula_segment_attempts=2,
             ),
-            batch_policy=replace(profile.batch_policy, plain_batch_size=8),
+            batch_policy=replace(profile.batch_policy, plain_batch_size=1),
         )
     return profile

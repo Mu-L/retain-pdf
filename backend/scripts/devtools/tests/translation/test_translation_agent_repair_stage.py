@@ -91,3 +91,21 @@ def test_agent_repair_stage_runs_limited_repair_and_saves(monkeypatch, tmp_path:
     assert summary["repaired_items"] == 1
     assert saved[0]["translated_text"] == "自洽场过程计算分子轨道，然后评估体系的最终能量。"
     assert saved[0]["translation_diagnostics"]["agent_repaired"] is True
+
+
+def test_agent_repair_limit_scales_with_blocking_untranslated(monkeypatch) -> None:
+    monkeypatch.delenv("RETAIN_TRANSLATION_AGENT_REPAIR_LIMIT", raising=False)
+
+    assert stages._agent_repair_limit_from_env(
+        payload_size=3331,
+        blocking_untranslated_count=26,
+    ) >= 52
+
+
+def test_agent_repair_limit_env_override_still_wins(monkeypatch) -> None:
+    monkeypatch.setenv("RETAIN_TRANSLATION_AGENT_REPAIR_LIMIT", "3")
+
+    assert stages._agent_repair_limit_from_env(
+        payload_size=3331,
+        blocking_untranslated_count=26,
+    ) == 3

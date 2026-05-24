@@ -23,6 +23,8 @@ PAREN_INLINE_MATH_RE = re.compile(
     r"(?P<math>(?<!\\)(?<!\$)\$(?!\$)(?:\\.|[^$\\\n])+(?<!\\)\$(?!\$))"
     r"\s*(?P<close>[\)])"
 )
+TEXT_HEAVY_INLINE_MATH_MIN_TEXT_CHARS = 10
+TEXT_HEAVY_INLINE_MATH_MIN_TEXT_BLOCKS = 2
 
 
 def apply_to_non_math_segments(text: str, replacer) -> str:
@@ -99,6 +101,129 @@ def normalize_direct_typst_math_boundaries(text: str) -> str:
     return PAREN_INLINE_MATH_RE.sub(_wrap_parenthesized_math, source)
 
 
+def _scan_latex_text_blocks(expr: str) -> list[tuple[str, str]]:
+    parts: list[tuple[str, str]] = []
+    index = 0
+    while index < len(expr):
+        start = expr.find(r"\text{", index)
+        if start < 0:
+            if index < len(expr):
+                parts.append(("math", expr[index:]))
+            break
+        if start > index:
+            parts.append(("math", expr[index:start]))
+        cursor = start + len(r"\text{")
+        depth = 1
+        body_start = cursor
+        while cursor < len(expr):
+            char = expr[cursor]
+            if char == "\\":
+                cursor += 2
+                continue
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    parts.append(("text", expr[body_start:cursor]))
+                    cursor += 1
+                    break
+            cursor += 1
+        else:
+            parts.append(("math", expr[start:]))
+            break
+        index = cursor
+    return parts
+
+
+def _plain_text_from_latex_text(body: str) -> str:
+    text = re.sub(r"\\([{}])", r"\1", body or "")
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def _math_chunk_needs_math(chunk: str) -> bool:
+    text = re.sub(r"\s+", " ", chunk or "").strip()
+    if not text:
+        return False
+    if re.fullmatch(r"[,;:，。！？、()\[\]{}（）]+", text):
+        return False
+    return bool(
+        "\\" in text
+        or re.search(r"[_^=|<>+\-*/]", text)
+        or re.search(r"\b[A-Za-z]\b", text)
+        or re.search(r"[Α-Ωα-ω]", text)
+    )
+
+
+def _normalize_math_punctuation_chunk(chunk: str) -> str:
+    text = re.sub(r"\s+", " ", chunk or "").strip()
+    text = re.sub(r"\s*,\s*", ", ", text)
+    text = re.sub(r"\s*\)\s*", ") ", text)
+    text = re.sub(r"\s*\(\s*", " (", text)
+    return re.sub(r"\s{2,}", " ", text).strip()
+
+
+def _append_demoted_math_chunk(chunks: list[str], chunk: str) -> None:
+    text = re.sub(r"\s+", " ", chunk or "").strip()
+    if not text:
+        return
+    leading = ""
+    trailing = ""
+    while text and text[0] in "([{（":
+        leading += text[0]
+        text = text[1:].strip()
+    while text and text[-1] in ",.;:，。；：)]）":
+        trailing = text[-1] + trailing
+        text = text[:-1].strip()
+    if leading:
+        chunks.append(leading)
+    if text:
+        if _math_chunk_needs_math(text):
+            chunks.append(f"${text}$")
+        else:
+            punct = _normalize_math_punctuation_chunk(text)
+            if punct:
+                chunks.append(punct)
+    if trailing:
+        chunks.append(trailing)
+
+
+def _demote_text_heavy_inline_math_expr(expr: str) -> str | None:
+    parts = _scan_latex_text_blocks(expr)
+    text_parts = [_plain_text_from_latex_text(value) for kind, value in parts if kind == "text"]
+    text_char_count = sum(len(value) for value in text_parts)
+    if len(text_parts) < TEXT_HEAVY_INLINE_MATH_MIN_TEXT_BLOCKS and text_char_count < TEXT_HEAVY_INLINE_MATH_MIN_TEXT_CHARS:
+        return None
+    if text_char_count <= 0:
+        return None
+
+    chunks: list[str] = []
+    for kind, value in parts:
+        if kind == "text":
+            plain = _plain_text_from_latex_text(value)
+            if plain:
+                chunks.append(plain)
+            continue
+        math = re.sub(r"\s+", " ", value or "").strip()
+        if not math:
+            continue
+        _append_demoted_math_chunk(chunks, math)
+    return re.sub(r"\s{2,}", " ", " ".join(chunks)).strip() or None
+
+
+def demote_text_heavy_inline_math(text: str) -> str:
+    def _replace(match: re.Match[str]) -> str:
+        raw = match.group(0)
+        if raw.startswith("$$"):
+            return raw
+        expr = raw[1:-1].strip()
+        replacement = _demote_text_heavy_inline_math_expr(expr)
+        return replacement if replacement is not None else raw
+
+    return MATH_BLOCK_RE.sub(_replace, text or "")
+
+
 def sanitize_direct_typst_inline_math(text: str) -> str:
     from services.rendering.layout.inline_content.fallback.latex_normalizer import (
         normalize_formula_for_latex_math,
@@ -132,5 +257,6 @@ def sanitize_direct_typst_inline_math(text: str) -> str:
 def build_direct_typst_passthrough_markdown(text: str) -> str:
     markdown = apply_to_non_math_segments(str(text or "").strip(), escape_literal_asterisks_preserving_emphasis)
     markdown = normalize_direct_typst_math_boundaries(markdown)
+    markdown = demote_text_heavy_inline_math(markdown)
     markdown = sanitize_direct_typst_inline_math(markdown)
     return surround_inline_math_with_spaces(markdown)

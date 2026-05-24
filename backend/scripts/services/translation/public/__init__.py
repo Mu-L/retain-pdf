@@ -13,6 +13,8 @@ from importlib import import_module
 _EXPORTS = {
     "write_translation_debug_index": ("services.translation.artifacts", "write_translation_debug_index"),
     "write_translation_diagnostics": ("services.translation.artifacts", "write_translation_diagnostics"),
+    "blocking_untranslated_items": ("services.translation.artifacts", "blocking_untranslated_items"),
+    "enforce_no_blocking_review_errors": ("services.translation.artifacts", "enforce_no_blocking_review_errors"),
     "is_blocking_untranslated": ("services.translation.artifacts.status", "is_blocking_untranslated"),
     "item_final_status": ("services.translation.artifacts.status", "item_final_status"),
     "item_asset_id": ("services.translation.core.item_reader", "item_asset_id"),

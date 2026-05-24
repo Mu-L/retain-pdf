@@ -20,6 +20,7 @@ from services.rendering.layout.payload.body_pipeline import apply_body_payload_p
 from services.rendering.layout.payload.collision import mark_adjacent_collision_risk
 from services.rendering.layout.payload.emit import payload_to_render_block
 from services.rendering.layout.payload.first_line_indent import detect_first_line_indent_pt
+from services.rendering.layout.payload.line_structure import maybe_preserve_structured_line_breaks
 from services.rendering.layout.model.models import RenderLayoutBlock
 from services.rendering.layout.model.models import RenderPageSpec
 from services.rendering.layout.page_specs import build_render_page_specs
@@ -30,6 +31,7 @@ from services.rendering.source.dev_overlay.text_draw import _build_direct_draw_t
 from services.rendering.source.dev_overlay.text_draw import _fit_segment_layout
 from services.rendering.layout.payload.suspicious_ocr import detect_and_drop_suspicious_ocr_glued_blocks
 from services.rendering.output.typst.book_renderer import _compile_render_pages_pdf_resilient
+from services.rendering.output.typst.block_renderer import build_typst_block
 from services.rendering.output.typst.overlay_ops import overlay_translated_pages_on_doc
 from services.rendering.output.typst.book_support import prepare_translated_pages_for_render
 from services.rendering.output.typst.compiler import _resolved_font_paths
@@ -3187,3 +3189,168 @@ def test_final_pdf_compression_runs_when_source_not_compressed() -> None:
     assert compressed is True
     compress_mock.assert_called_once_with(context.output_pdf_path, dpi=context.pdf_compress_dpi)
 
+
+def test_regular_structured_lines_preserve_source_line_structure() -> None:
+    item = {
+        "item_id": "p014-b001",
+        "block_type": "text",
+        "block_kind": "text",
+        "normalized_sub_type": "body",
+        "bbox": [48.989, 221.367, 351.92, 594.643],
+        "source_text": (
+            "ALDA adiabatic local density approximation AF antiferromagnetic ASA atomic sphere approximation "
+            "B86 Becke 86 GGA for exchange energy B88 Becke 88 GGA for exchange energy B3LYP hybrid "
+            "constructed on basis of Becke-Lee-Yang-Parr GGA BLYP Becke-Lee-Yang-Parr GGA bcc "
+            "body-centered cubic BO Born-Oppenheimer C Coulomb CDFT current density functional theory "
+            "CS Colle-Salvetti CSDFT current spin density functional theory DC Dirac-Coulomb DCB "
+            "Dirac-Coulomb-Breit DFT density functional theory DIR direct matrix element EA electron "
+            "affinity ext external EXX exact exchange fcc face-centered cubic FP full potential GE "
+            "gradient expansion GGA generalized gradient approximation GKS generalized Kohn-Sham GK "
+            "Gross-Kohn H Hartree HDL high-density limit HEG homogeneous electron gas HF Hartree-Fock "
+            "HK Hohenberg-Kohn"
+        ),
+        "lines": [
+            {"bbox": [48.989, 221.367, 351.92, 240.031], "spans": [{"content": "ALDA adiabatic local density approximation"}]},
+            {"bbox": [48.989, 240.031, 351.92, 258.695], "spans": [{"content": "AF antiferromagnetic ASA atomic sphere"}]},
+            {"bbox": [48.989, 258.695, 351.92, 277.358], "spans": [{"content": "approximation B86 Becke 86 GGA for"}]},
+            {"bbox": [48.989, 277.358, 351.92, 296.022], "spans": [{"content": "exchange energy B88 Becke 88 GGA for"}]},
+            {"bbox": [48.989, 296.022, 351.92, 314.686], "spans": [{"content": "exchange energy B3LYP hybrid constructed"}]},
+            {"bbox": [48.989, 314.686, 351.92, 333.35], "spans": [{"content": "on basis of Becke-Lee-Yang-Parr GGA"}]},
+            {"bbox": [48.989, 333.35, 351.92, 352.014], "spans": [{"content": "BLYP Becke-Lee-Yang-Parr GGA bcc body-centered"}]},
+            {"bbox": [48.989, 352.014, 351.92, 370.677], "spans": [{"content": "cubic BO Born-Oppenheimer C Coulomb"}]},
+        ],
+    }
+    translated = (
+        "ALDA 绝热局域密度近似 AF 反铁磁 ASA 原子球近似 B86 Becke 86 交换能GGA "
+        "B88 Becke 88 交换能GGA B3LYP 基于Becke-Lee-Yang-Parr GGA的混合泛函 "
+        "BLYP Becke-Lee-Yang-Parr GGA bcc 体心立方 BO Born-Oppenheimer C 库仑 "
+        "CDFT 流密度泛函理论 CS Colle-Salvetti CSDFT 流自旋密度泛函理论"
+    )
+
+    structured = maybe_preserve_structured_line_breaks(item, translated)
+
+    assert item["_render_preserve_line_breaks"] is True
+    assert item["_render_line_structure"] == "structured_lines"
+    assert structured.count("\n") == len(item["lines"]) - 1
+    assert "ALDA 绝热局域密度近似" in structured.splitlines()[0]
+    assert "CSDFT" in structured.splitlines()[-1]
+
+
+def test_structured_line_render_block_keeps_hard_line_breaks() -> None:
+    blocks = build_render_blocks(
+        [
+            {
+                "item_id": "p014-b001",
+                "page_idx": 13,
+                "block_type": "text",
+                "block_kind": "text",
+                "normalized_sub_type": "body",
+                "bbox": [48.989, 221.367, 351.92, 594.643],
+                "source_text": (
+                    "ALDA adiabatic local density approximation AF antiferromagnetic ASA atomic sphere approximation "
+                    "B86 Becke 86 GGA for exchange energy B88 Becke 88 GGA for exchange energy B3LYP hybrid "
+                    "constructed on basis of Becke-Lee-Yang-Parr GGA BLYP Becke-Lee-Yang-Parr GGA bcc "
+                    "body-centered cubic BO Born-Oppenheimer C Coulomb CDFT current density functional theory "
+                    "CS Colle-Salvetti CSDFT current spin density functional theory"
+                ),
+                "protected_source_text": (
+                    "ALDA adiabatic local density approximation AF antiferromagnetic ASA atomic sphere approximation "
+                    "B86 Becke 86 GGA for exchange energy B88 Becke 88 GGA for exchange energy B3LYP hybrid "
+                    "constructed on basis of Becke-Lee-Yang-Parr GGA BLYP Becke-Lee-Yang-Parr GGA bcc "
+                    "body-centered cubic BO Born-Oppenheimer C Coulomb CDFT current density functional theory "
+                    "CS Colle-Salvetti CSDFT current spin density functional theory"
+                ),
+                "protected_translated_text": (
+                    "ALDA 绝热局域密度近似 AF 反铁磁 ASA 原子球近似 B86 Becke 86 交换能GGA "
+                    "B88 Becke 88 交换能GGA B3LYP 基于Becke-Lee-Yang-Parr GGA的混合泛函 "
+                    "BLYP Becke-Lee-Yang-Parr GGA bcc 体心立方 BO Born-Oppenheimer C 库仑 "
+                    "CDFT 流密度泛函理论 CS Colle-Salvetti CSDFT 流自旋密度泛函理论"
+                ),
+                "lines": [
+                    {"bbox": [48.989, 221.367, 351.92, 240.031], "spans": [{"content": "ALDA adiabatic local density approximation"}]},
+                    {"bbox": [48.989, 240.031, 351.92, 258.695], "spans": [{"content": "AF antiferromagnetic ASA atomic sphere"}]},
+                    {"bbox": [48.989, 258.695, 351.92, 277.358], "spans": [{"content": "approximation B86 Becke 86 GGA for"}]},
+                    {"bbox": [48.989, 277.358, 351.92, 296.022], "spans": [{"content": "exchange energy B88 Becke 88 GGA for"}]},
+                    {"bbox": [48.989, 296.022, 351.92, 314.686], "spans": [{"content": "exchange energy B3LYP hybrid constructed"}]},
+                    {"bbox": [48.989, 314.686, 351.92, 333.35], "spans": [{"content": "on basis of Becke-Lee-Yang-Parr GGA"}]},
+                ],
+            }
+        ],
+        page_width=595.0,
+        page_height=842.0,
+    )
+
+    assert len(blocks) == 1
+    assert "\n" in blocks[0].markdown_text
+    assert blocks[0].fit_to_box is False
+    assert blocks[0].preserved_line_boxes
+
+
+def test_structured_line_typst_uses_source_line_boxes() -> None:
+    blocks = build_render_blocks(
+        [
+            {
+                "item_id": "p014-b001",
+                "page_idx": 13,
+                "block_type": "text",
+                "block_kind": "text",
+                "normalized_sub_type": "body",
+                "bbox": [48.989, 221.367, 351.92, 594.643],
+                "text_flow": "preserve_lines",
+                "source_text": "ALDA adiabatic local density approximation\nAF antiferromagnetic\nASA atomic sphere approximation",
+                "protected_source_text": "ALDA adiabatic local density approximation\nAF antiferromagnetic\nASA atomic sphere approximation",
+                "protected_translated_text": "ALDA 绝热局域密度近似\nAF 反铁磁性\nASA 原子球近似",
+                "lines": [
+                    {"bbox": [48.989, 221.367, 351.92, 233.408], "spans": [{"content": "ALDA adiabatic local density approximation"}]},
+                    {"bbox": [48.989, 233.408, 351.92, 245.449], "spans": [{"content": "AF antiferromagnetic"}]},
+                    {"bbox": [48.989, 245.449, 351.92, 257.49], "spans": [{"content": "ASA atomic sphere approximation"}]},
+                ],
+            }
+        ],
+        page_width=595.0,
+        page_height=842.0,
+    )
+
+    typst = build_typst_block("rp13_item_p014_b001_1", blocks[0])
+
+    assert "stack(dir: ttb" not in typst
+    assert "rp13_item_p014_b001_1_line_0_md" in typst
+    assert "dy: 221.367pt" in typst
+    assert "dy: 233.408pt" in typst
+    assert "dy: 245.449pt" in typst
+
+
+def test_text_heavy_inline_math_demotes_latex_text_to_plain_text() -> None:
+    blocks = build_render_blocks(
+        [
+            {
+                "item_id": "p020-b015",
+                "page_idx": 19,
+                "block_type": "text",
+                "block_kind": "text",
+                "normalized_sub_type": "body",
+                "bbox": [50.988, 307.815, 386.912, 332.3],
+                "source_text": (
+                    r"$ (\nabla_i \equiv \nabla_{r_i}, \text{with } \mathbf{r}_i "
+                    r"\text{ denoting the position of electron } i), \text{ the interaction between electrons "
+                    r"and nuclei (with charges } Z_\alpha e, e = |e|), $"
+                ),
+                "protected_translated_text": (
+                    r"$ (\nabla_i \equiv \nabla_{r_i}, \text{其中 } \mathbf{r}_i "
+                    r"\text{ 表示电子 } i \text{ 的位置}), \text{电子与原子核（带有电荷 } "
+                    r"Z_\alpha e, e = |e|) \text{ 之间的相互作用}, $"
+                ),
+            }
+        ],
+        page_width=595.0,
+        page_height=842.0,
+    )
+
+    markdown = blocks[0].markdown_text
+
+    assert r"\text{其中" not in markdown
+    assert "表示电子" in markdown
+    assert "电子与原子核" in markdown
+    assert "$\\nabla_i \\equiv \\nabla_{r_i}$" in markdown
+    assert "$\\mathbf{r}_i$" in markdown
+    assert "$Z_\\alpha e, e = |e|$" in markdown

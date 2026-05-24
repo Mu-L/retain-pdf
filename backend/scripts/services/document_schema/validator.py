@@ -49,6 +49,14 @@ def _validate_content(path: str, content: dict) -> None:
         _fail(f"{path}.kind", f"unexpected content kind '{content['kind']}'")
     if "text" in content:
         _expect_type(f"{path}.text", content["text"], str)
+    if "line_texts" in content:
+        _expect_type(f"{path}.line_texts", content["line_texts"], list)
+        for index, line_text in enumerate(content["line_texts"]):
+            _expect_type(f"{path}.line_texts[{index}]", line_text, str)
+    if "text_flow" in content:
+        _expect_type(f"{path}.text_flow", content["text_flow"], str)
+        if content["text_flow"] not in {"flow", "preserve_lines"}:
+            _fail(f"{path}.text_flow", f"unexpected text flow '{content['text_flow']}'")
     if "asset_id" in content:
         _expect_type(f"{path}.asset_id", content["asset_id"], str)
         if not content["asset_id"]:

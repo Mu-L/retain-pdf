@@ -33,7 +33,7 @@ def load_translations(translation_path: Path, *, strict_contract: bool = True) -
     for record in payload:
         if isinstance(record, dict):
             changed = sanitize_loaded_translation_record(record) or changed
-    if refresh_payload_translation_units(payload):
+    if refresh_payload_translation_units(payload, preserve_external_groups=True):
         changed = True
     if changed:
         save_translations(translation_path, payload)

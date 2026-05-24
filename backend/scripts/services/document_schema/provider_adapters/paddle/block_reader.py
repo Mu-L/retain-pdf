@@ -11,6 +11,8 @@ from services.document_schema.provider_adapters.paddle.context import PaddleBloc
 from services.document_schema.provider_adapters.paddle.context import PaddlePageContext
 from services.document_schema.provider_adapters.paddle.page_trace import attach_layout_trace
 from services.document_schema.provider_adapters.paddle.rich_content import enrich_rich_content_trace
+from services.document_schema.text_flow import classify_text_flow
+from services.document_schema.text_flow import line_texts_from_lines
 from services.document_schema.provider_adapters.paddle.trace import build_derived
 from services.document_schema.provider_adapters.paddle.trace import build_metadata
 from services.document_schema.provider_adapters.paddle.trace import build_source
@@ -232,6 +234,9 @@ def build_block_spec(
         block_type=block_type,
         sub_type=sub_type,
     )
+    explicit_line_texts = [line.strip() for line in block_context["text"].splitlines() if line.strip()]
+    line_texts = explicit_line_texts if len(explicit_line_texts) >= 2 else line_texts_from_lines(lines)
+    text_flow = classify_text_flow(text=block_context["text"], lines=lines)
     metadata = build_block_metadata(
         block_context=block_context,
         kind_metadata=kind_metadata,
@@ -269,7 +274,11 @@ def build_block_spec(
         "sub_type": sub_type,
         "bbox": bbox,
         "geometry": {"bbox": list(bbox)},
-        "content": {"kind": block_type, "text": block_context["text"]},
+        "content": {
+            "kind": block_type,
+            "text": block_context["text"],
+            **({"line_texts": line_texts, "text_flow": text_flow} if line_texts else {}),
+        },
         "text": block_context["text"],
         "lines": lines,
         "segments": segments,

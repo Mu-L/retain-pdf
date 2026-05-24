@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import replace
 
 from services.translation.llm.shared.orchestration.metadata import should_store_translation_result
@@ -11,6 +12,80 @@ from services.translation.llm.shared.tail_retry_queue import DeferredTransportTa
 
 
 def translate_uncached_items_single(
+    uncached_batch: list[dict],
+    *,
+    api_key: str,
+    model: str,
+    base_url: str,
+    request_label: str,
+    context,
+    diagnostics,
+    single_item_translator,
+    store_cached_batch_fn,
+) -> tuple[dict[str, dict[str, str]], list[dict]]:
+    total_items = len(uncached_batch)
+    if total_items <= 1:
+        return _translate_uncached_items_single_sequential(
+            uncached_batch,
+            api_key=api_key,
+            model=model,
+            base_url=base_url,
+            request_label=request_label,
+            context=context,
+            diagnostics=diagnostics,
+            single_item_translator=single_item_translator,
+            store_cached_batch_fn=store_cached_batch_fn,
+        )
+
+    merged: dict[str, dict[str, str]] = {}
+    deferred_transport_items: list[dict] = []
+    max_workers = max(1, min(total_items, 4))
+
+    def _run(index: int, item: dict) -> tuple[dict, dict[str, dict[str, str]], bool]:
+        item_label = f"{request_label} item {index}/{total_items} {item['item_id']}" if request_label else ""
+        item_context = context.scoped_to_item(item)
+        try:
+            result = single_item_translator(
+                item,
+                api_key=api_key,
+                model=model,
+                base_url=base_url,
+                request_label=item_label,
+                context=item_context,
+                diagnostics=diagnostics,
+                allow_transport_tail_defer=item_context.fallback_policy.transport_tail_retry_passes > 0,
+            )
+        except DeferredTransportRetry:
+            return item, {}, True
+        payload = result.get(item["item_id"], {})
+        if should_store_translation_result(payload):
+            store_cached_batch_fn(
+                [item],
+                result,
+                model=model,
+                base_url=base_url,
+                domain_guidance=item_context.cache_guidance,
+                mode=item_context.mode,
+                target_lang=item_context.target_lang,
+                target_language_name=item_context.target_language_name,
+            )
+        return item, result, False
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(_run, index, item): item
+            for index, item in enumerate(uncached_batch, start=1)
+        }
+        for future in as_completed(futures):
+            item, result, deferred = future.result()
+            if deferred:
+                deferred_transport_items.append(item)
+            else:
+                merged.update(result)
+    return merged, deferred_transport_items
+
+
+def _translate_uncached_items_single_sequential(
     uncached_batch: list[dict],
     *,
     api_key: str,

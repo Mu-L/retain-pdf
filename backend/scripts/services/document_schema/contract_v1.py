@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from copy import deepcopy
 
+from services.document_schema.text_flow import classify_text_flow
+from services.document_schema.text_flow import line_texts_from_lines
+
 
 _TEXT_LAYOUT_SUBTYPE_MAP = {
     "title": "title",
@@ -148,6 +151,11 @@ def _build_content(block: dict, *, page_index: int, order: int) -> dict:
     text = str(block.get("text", "") or "")
     if text:
         content["text"] = text
+    explicit_line_texts = [line.strip() for line in text.splitlines() if line.strip()]
+    line_texts = explicit_line_texts if len(explicit_line_texts) >= 2 else line_texts_from_lines(block.get("lines", []))
+    if line_texts:
+        content["line_texts"] = line_texts
+        content["text_flow"] = classify_text_flow(text=text, lines=block.get("lines", []))
 
     metadata = block.get("metadata", {}) or {}
     asset_key = str(metadata.get("asset_key", "") or "").strip()

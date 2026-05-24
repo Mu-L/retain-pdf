@@ -6,6 +6,7 @@ from statistics import median
 from foundation.config import layout
 from services.rendering.layout.payload.body_common import resolve_body_targets
 from services.rendering.layout.payload import body_policy_facade as body_policy
+from services.rendering.layout.payload.line_structure import fit_preserved_line_block_metrics
 
 
 BodyStage = Callable[..., None]
@@ -29,6 +30,20 @@ BODY_POST_GROW_STAGES: tuple[BodyStage, ...] = (
 BODY_FONT_UNIFY_STAGES: tuple[BodyStage, ...] = (
     body_policy.unify_similar_body_fonts,
 )
+
+
+def _refit_preserved_line_payloads(payloads: list[dict]) -> None:
+    for payload in payloads:
+        if not payload.get("preserve_line_breaks"):
+            continue
+        font_size_pt, leading_em = fit_preserved_line_block_metrics(
+            payload.get("inner_bbox") or payload.get("bbox") or [],
+            payload.get("translated_text") or "",
+            float(payload.get("font_size_pt") or 0.0),
+            float(payload.get("leading_em") or 0.0),
+        )
+        payload["font_size_pt"] = font_size_pt
+        payload["leading_em"] = leading_em
 
 
 def _run_stage(
@@ -107,3 +122,4 @@ def apply_body_payload_pipeline(
             page_text_width_med=page_text_width_med,
             book_body_font_target=book_body_font_target,
         )
+    _refit_preserved_line_payloads(body_payloads)

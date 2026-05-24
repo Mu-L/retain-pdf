@@ -7,6 +7,7 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
 from services.translation.artifacts.io import aggregate_payload_diagnostics
+from services.translation.artifacts.status import enforce_no_blocking_untranslated
 from runtime.pipeline.book_pipeline import _blocking_untranslated_items
 
 
@@ -120,6 +121,13 @@ def test_translated_status_without_translation_artifact_is_blocking() -> None:
     assert summary["unresolved_items"][0]["item_id"] == "p002-b002"
     assert len(blocked) == 1
     assert blocked[0]["item_id"] == "p002-b002"
+    try:
+        enforce_no_blocking_untranslated(translated_pages_map)
+    except RuntimeError as exc:
+        assert "translation export gate blocked" in str(exc)
+        assert "p2:p002-b002" in str(exc)
+    else:
+        raise AssertionError("expected hard gate to reject empty translated item")
 
 
 def test_repaired_item_translation_artifact_overrides_stale_failed_diagnostics() -> None:

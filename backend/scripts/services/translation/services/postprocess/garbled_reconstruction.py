@@ -13,6 +13,8 @@ from services.translation.llm.shared.provider_runtime import normalize_base_url
 from services.translation.llm.shared.provider_runtime import request_chat_content
 from services.translation.llm.shared.structured_models import GARBLED_RECONSTRUCTION_RESPONSE_SCHEMA
 from services.translation.llm.shared.structured_parsers import parse_garbled_reconstruction_response
+from services.translation.artifacts.status import has_translation_artifact
+from services.translation.services.quality import review_translation_item
 
 
 GARBLED_LEGACY_STYLE_RE = re.compile(r"\\(?:bf|rm|it|sf|tt|pmb)\b")
@@ -121,18 +123,25 @@ def should_reconstruct_garbled_item(item: dict) -> bool:
         return False
     if not item.get("should_translate", True):
         return False
-    if _has_formula_identity(item):
-        return False
 
     source_text = _source_text(item)
     translated_text = _translated_text(item)
     bad_formulas = _bad_formula_entries(item)
+    final_status = str(item.get("final_status", "") or "").strip()
+    diagnostics = dict(item.get("translation_diagnostics") or {})
+    low_quality_translation = (
+        not translated_text
+        or final_status == "failed"
+        or str(diagnostics.get("final_status", "") or "").strip() == "failed"
+    )
 
-    if bad_formulas and translated_text:
+    if bad_formulas and low_quality_translation:
         return True
-    if bad_formulas and len(source_text) >= 80:
+    if bad_formulas and not has_translation_artifact(item) and len(source_text) >= 80:
         return True
-    if _looks_like_duplicate_glued_text(source_text) and len(source_text) >= 80:
+    if _has_formula_identity(item):
+        return False
+    if _looks_like_duplicate_glued_text(source_text) and low_quality_translation and len(source_text) >= 80:
         return True
     if not translated_text and len(source_text) >= 120:
         return True
@@ -198,6 +207,11 @@ def _repair_item_translation(item: dict, *, api_key: str, model: str, base_url: 
 def _apply_reconstruction(items: list[dict], translated_text: str) -> None:
     if not translated_text:
         return
+    validation_issues = _validate_reconstruction(items[0], translated_text) if items else []
+    if validation_issues:
+        for item in items:
+            _record_reconstruction_rejected(item, validation_issues)
+        return
     for item in items:
         item["protected_translated_text"] = translated_text
         item["translated_text"] = translated_text
@@ -220,11 +234,31 @@ def _apply_reconstruction(items: list[dict], translated_text: str) -> None:
 
 
 def _candidate_key(item: dict) -> str:
-    unit_kind = str(item.get("translation_unit_kind", "") or "")
-    unit_id = str(item.get("translation_unit_id", "") or "")
-    if unit_kind == "group" and unit_id:
-        return f"group:{unit_id}"
     return f"item:{item.get('item_id', '')}"
+
+
+def _validate_reconstruction(item: dict, translated_text: str) -> list:
+    review = review_translation_item(
+        item,
+        {
+            "decision": "translate",
+            "translated_text": translated_text,
+        },
+    )
+    item_id = str(item.get("item_id", "") or "")
+    return [
+        issue
+        for issue in review.issues
+        if issue.item_id == item_id and issue.severity == "error"
+    ]
+
+
+def _record_reconstruction_rejected(item: dict, issues: list) -> None:
+    diagnostics = dict(item.get("translation_diagnostics") or {})
+    diagnostics["garbled_reconstruction_rejected"] = True
+    diagnostics["garbled_reconstruction_issue_kinds"] = [issue.kind for issue in issues]
+    diagnostics["garbled_reconstruction_issues"] = [issue.as_dict() for issue in issues]
+    item["translation_diagnostics"] = diagnostics
 
 
 def _collect_candidates(items: list[dict]) -> tuple[dict[str, list[dict]], dict[str, dict]]:
@@ -265,7 +299,7 @@ def _run_reconstruction_candidates(
         model=model,
         base_url=base_url,
     )
-    max_workers = max(1, min(workers, 4, len(candidate_list)))
+    max_workers = max(1, min(workers, 12, len(candidate_list)))
     print(f"book: garbled reconstruction candidates={len(candidate_list)} workers={max_workers}", flush=True)
     print(
         f"book: garbled reconstruction provider={resolved_model} {normalize_base_url(resolved_base_url)}"

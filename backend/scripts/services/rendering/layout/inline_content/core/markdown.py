@@ -2,6 +2,7 @@ import re
 
 from services.rendering.layout.inline_content.core.inline_math import apply_to_non_math_segments
 from services.rendering.layout.inline_content.core.inline_math import build_direct_typst_passthrough_markdown
+from services.rendering.layout.inline_content.core.inline_math import demote_text_heavy_inline_math
 from services.rendering.layout.inline_content.core.inline_math import escape_markdown_literal_asterisks
 from services.rendering.layout.inline_content.core.inline_math import surround_inline_math_with_spaces
 from services.rendering.layout.inline_content.fallback.latex_normalizer import normalize_formula_for_latex_math
@@ -76,7 +77,8 @@ SUPERSCRIPT_CHAR_MAP = str.maketrans(
 
 
 def _normalize_text_chunk(text: str) -> str:
-    return re.sub(r"\s+", " ", (text or "").strip())
+    normalized_lines = [re.sub(r"[ \t\r\f\v]+", " ", line).strip() for line in (text or "").strip().split("\n")]
+    return "\n".join(line for line in normalized_lines if line)
 
 
 def _compact_citation_body(body: str) -> str:
@@ -174,6 +176,7 @@ def build_markdown_from_direct_text(
     normalize_existing_inline_math: bool = False,
 ) -> str:
     markdown = _normalize_text_chunk(text)
+    markdown = demote_text_heavy_inline_math(markdown)
     if aggressive_math_promotion:
         markdown = promote_inline_math_like_text(markdown)
     else:
@@ -218,4 +221,5 @@ def build_plain_text(item: dict) -> str:
 
 
 def build_plain_text_from_text(text: str) -> str:
-    return re.sub(r"\s+", " ", (text or "").strip())
+    normalized_lines = [re.sub(r"[ \t\r\f\v]+", " ", line).strip() for line in (text or "").strip().split("\n")]
+    return "\n".join(line for line in normalized_lines if line)

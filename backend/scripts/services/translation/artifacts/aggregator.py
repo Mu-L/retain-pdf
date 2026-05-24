@@ -115,6 +115,7 @@ class TranslationRunDiagnostics:
     _adaptive_success_streak: int = field(default=0, init=False, repr=False)
     _adaptive_recent_failure_count: int = field(default=0, init=False, repr=False)
     _adaptive_slow_success_streak: int = field(default=0, init=False, repr=False)
+    _result_stats: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
 
     def __post_init__(self) -> None:
         initial_limit = max(1, int(self.configured_workers))
@@ -168,6 +169,20 @@ class TranslationRunDiagnostics:
             self._effective["effective_workers_single_fast"] = int(max(0, single_fast_workers))
             self._effective["effective_workers_single_slow"] = int(max(0, single_slow_workers))
             self._effective["slow_worker_limit"] = int(max(0, slow_worker_limit))
+
+    def set_translation_result_stats(
+        self,
+        *,
+        applied_batches: int,
+        apply_elapsed_ms: int,
+        max_result_drain_batch: int,
+    ) -> None:
+        with self._lock:
+            self._result_stats = {
+                "applied_batches": int(max(0, applied_batches)),
+                "apply_elapsed_ms": int(max(0, apply_elapsed_ms)),
+                "max_result_drain_batch": int(max(0, max_result_drain_batch)),
+            }
 
     def set_http_pool_settings(self, *, pool_size: int, pool_cap: int) -> None:
         with self._lock:
@@ -280,12 +295,35 @@ class TranslationRunDiagnostics:
         max_limit = max(1, self.configured_workers)
         timeout_like = error_class in {"ReadTimeout", "ConnectTimeout", "Timeout", "ConnectionError"}
         overloaded_status = status_code in {408, 429, 500, 502, 503, 504}
-        if not success and (timeout_like or overloaded_status):
+        high_capacity_provider = self.provider_family == "deepseek_official"
+        if not success and overloaded_status:
+            self._adaptive_recent_failure_count += 1
+            ratio = 0.75 if high_capacity_provider else 0.5
+            reduced = max(min_limit, int(math.floor(self._adaptive_limit * ratio)))
+            self._adaptive_limit = reduced
+            self._adaptive_success_streak = 0
+            self._adaptive_slow_success_streak = 0
+            return
+        if not success and timeout_like:
+            if high_capacity_provider:
+                self._adaptive_recent_failure_count += 1
+                self._adaptive_success_streak = 0
+                self._adaptive_slow_success_streak = 0
+                return
             self._adaptive_recent_failure_count += 1
             reduced = max(min_limit, int(math.floor(self._adaptive_limit * 0.5)))
             self._adaptive_limit = reduced
             self._adaptive_success_streak = 0
             self._adaptive_slow_success_streak = 0
+            return
+        if high_capacity_provider and success:
+            self._adaptive_recent_failure_count = 0
+            self._adaptive_slow_success_streak = 0
+            self._adaptive_success_streak += 1
+            if elapsed_ms <= 15000 and self._adaptive_success_streak >= 12 and self._adaptive_limit < max_limit:
+                self._adaptive_limit += 1
+                self._adaptive_peak_limit = max(self._adaptive_peak_limit, self._adaptive_limit)
+                self._adaptive_success_streak = 0
             return
         if success and elapsed_ms >= 90000:
             self._adaptive_limit = max(min_limit, int(math.floor(self._adaptive_limit * 0.5)))
@@ -427,6 +465,7 @@ class TranslationRunDiagnostics:
                     "peak_limit": self._adaptive_peak_limit,
                     "floor_limit": self._adaptive_floor_limit,
                 },
+                "result_apply": dict(self._result_stats),
                 "phase_elapsed_ms": self._phase_elapsed_summary(),
                 "slow_request_samples": list(self._slow_requests),
                 "recommendations": self._recommendations(),

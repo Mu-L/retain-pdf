@@ -17,6 +17,8 @@ from services.translation.public import item_final_status
 from services.translation.public import write_translation_debug_index
 from services.translation.public import write_translation_diagnostics
 from services.translation.public import GlossaryEntry
+from services.translation.public import blocking_untranslated_items
+from services.translation.public import enforce_no_blocking_review_errors
 
 
 def _blocking_untranslated_items(translated_pages_map: dict[int, list[dict]]) -> list[dict[str, object]]:
@@ -73,6 +75,9 @@ def run_book_pipeline(
     glossary_inline_entry_count: int = 0,
     glossary_overridden_entry_count: int = 0,
     glossary_entries: list[GlossaryEntry] | None = None,
+    context_mode: str = "needed",
+    glossary_mode: str = "matched",
+    memory_mode: str = "matched",
     compile_workers: int | None = None,
     typst_font_family: str = fonts.TYPST_DEFAULT_FONT_FAMILY,
     pdf_compress_dpi: int = runtime.DEFAULT_PDF_COMPRESS_DPI,
@@ -103,6 +108,9 @@ def run_book_pipeline(
         glossary_inline_entry_count=glossary_inline_entry_count,
         glossary_overridden_entry_count=glossary_overridden_entry_count,
         glossary_entries=glossary_entries or [],
+        context_mode=context_mode,
+        glossary_mode=glossary_mode,
+        memory_mode=memory_mode,
         invocation=invocation,
         render_prewarm_output_pdf_path=output_pdf_path,
         render_prewarm_artifacts_dir=output_dir.parent / ARTIFACTS_DIR_NAME,
@@ -133,7 +141,7 @@ def run_book_pipeline(
     translated_items_total = translation_summary["translated_items"]
     for page_summary in translation_summary["summaries"]:
         print(f"page {page_summary['page_idx'] + 1}: translated {page_summary['translated_items']}/{page_summary['total_items']}")
-    blocking_untranslated = _blocking_untranslated_items(translation_summary["translated_pages_map"])
+    blocking_untranslated = blocking_untranslated_items(translation_summary["translated_pages_map"])
     if blocking_untranslated:
         preview = ", ".join(
             f"p{int(item['page_idx']) + 1}:{item['item_id']}:{item['reason']}"
@@ -142,6 +150,7 @@ def run_book_pipeline(
         raise RuntimeError(
             f"translation export gate blocked: unresolved_translation_count={len(blocking_untranslated)} preview={preview}"
         )
+    enforce_no_blocking_review_errors(translation_summary.get("translation_review"))
 
     save_started = time.perf_counter()
     render_summary = run_render_stage(

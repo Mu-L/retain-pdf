@@ -4,6 +4,7 @@ from services.rendering.layout.model.models import RenderBlock
 from services.rendering.layout.inline_content.core.markdown import build_plain_text_from_text
 from services.rendering.layout.inline_content.mode_router import build_item_render_markdown
 from services.rendering.layout.payload.metrics import resolve_typst_binary_fit
+from services.rendering.layout.payload.line_structure import preserved_line_boxes_for_item
 from services.rendering.policy import item_uses_white_overlay_fill
 
 
@@ -47,6 +48,8 @@ def payload_to_render_block(payload: dict) -> RenderBlock:
         fit_max_font_size_pt = 0.0
         fit_target_width_pt = 0.0
         fit_target_height_pt = 0.0
+    preserve_line_breaks = bool(payload.get("preserve_line_breaks"))
+    preserved_line_boxes = preserved_line_boxes_for_item(payload["item"], payload["translated_text"])
     return RenderBlock(
         block_id=f"item-{payload['index']}",
         bbox=payload["bbox"],
@@ -60,7 +63,7 @@ def payload_to_render_block(payload: dict) -> RenderBlock:
         first_line_indent_pt=payload.get("first_line_indent_pt", 0.0),
         justify_text=bool(payload.get("is_body") and payload["render_kind"] == "markdown"),
         font_weight=payload.get("font_weight", "regular"),
-        fit_to_box=bool(fit_to_box and payload["render_kind"] == "markdown"),
+        fit_to_box=bool(fit_to_box and payload["render_kind"] == "markdown" and not preserve_line_breaks),
         fit_single_line=fit_single_line,
         fit_min_font_size_pt=fit_min_font_size_pt,
         fit_max_font_size_pt=fit_max_font_size_pt,
@@ -74,6 +77,8 @@ def payload_to_render_block(payload: dict) -> RenderBlock:
         math_map=list(payload["formula_map"]),
         skip_reason="adjacent_collision_risk" if payload.get("adjacent_collision_risk") else "",
         source_item_id=str(payload["item"].get("item_id") or ""),
+        preserve_line_breaks=preserve_line_breaks,
+        preserved_line_boxes=preserved_line_boxes or None,
     )
 
 

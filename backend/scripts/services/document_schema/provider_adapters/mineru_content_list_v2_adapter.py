@@ -10,6 +10,8 @@ from services.document_schema.provider_adapters.common import build_line_records
 from services.document_schema.provider_adapters.common import build_page_record
 from services.document_schema.provider_adapters.common import build_text_segments
 from services.document_schema.provider_adapters.common import normalize_bbox
+from services.document_schema.text_flow import classify_text_flow
+from services.document_schema.text_flow import line_texts_from_lines
 from services.mineru.contracts import MINERU_CONTENT_LIST_V2_FILE_NAME
 
 
@@ -80,6 +82,9 @@ def build_block_spec(block: dict, *, page_idx: int, order: int) -> dict:
     bbox = normalize_bbox(block.get("bbox"))
     block_type, sub_type = map_block_kind(raw_type)
     lines, segments, text = extract_text_structure(block)
+    explicit_line_texts = [line.strip() for line in text.splitlines() if line.strip()]
+    line_texts = explicit_line_texts if len(explicit_line_texts) >= 2 else line_texts_from_lines(lines)
+    text_flow = classify_text_flow(text=text, lines=lines)
     return {
         "block_id": f"p{page_idx + 1:03d}-b{order:04d}",
         "page_index": page_idx,
@@ -87,6 +92,11 @@ def build_block_spec(block: dict, *, page_idx: int, order: int) -> dict:
         "block_type": block_type,
         "sub_type": sub_type,
         "bbox": bbox,
+        "content": {
+            "kind": block_type,
+            "text": text,
+            **({"line_texts": line_texts, "text_flow": text_flow} if line_texts else {}),
+        },
         "text": text,
         "lines": lines,
         "segments": segments,

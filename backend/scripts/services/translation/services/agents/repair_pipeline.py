@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import as_completed
 from dataclasses import dataclass
 
 from services.translation.core.payload import apply_translated_text_map
+from services.translation.core.item_reader import item_raw_block_type
 from services.translation.services.agents.coordinator import TranslationAgentCoordinator
 from services.translation.services.agents.repair import TranslationRepairRequest
 from services.translation.services.agents.repair import RepairAgent
 from services.translation.services.agents.runtime import TranslationAgentRuntime
 from services.translation.services.quality import TranslationQualityIssue
 from services.translation.services.quality import TranslationQualityReport
+from services.translation.services.quality import review_translation_item
 
 
 BLOCKING_REPAIR_ISSUE_KINDS = {
@@ -18,6 +22,8 @@ BLOCKING_REPAIR_ISSUE_KINDS = {
     "math_delimiter_unbalanced",
     "context_bleed",
 }
+DEFAULT_AGENT_REPAIR_WORKERS = 8
+MAX_AGENT_REPAIR_WORKERS = 16
 
 
 @dataclass(frozen=True)
@@ -56,6 +62,14 @@ def run_agent_repair_pipeline(
         item_id = str(item.get("item_id", "") or "")
         if not item_id or item_id not in translated_results:
             continue
+        if _should_skip_non_translatable_item(item):
+            skipped += 1
+            _record_agent_repair_skip(item, "non_translatable_item", [])
+            continue
+        if _is_group_member_item(item):
+            skipped += 1
+            _record_agent_repair_skip(item, "continuation_group_member", [])
+            continue
         translated_result = translated_results.get(item_id, {}) or {}
         review = coordinator.review_batch([item], {item_id: translated_result})
         reviewed += review.reviewed_item_count
@@ -75,23 +89,51 @@ def run_agent_repair_pipeline(
     repaired = 0
     failed = 0
     repaired_results: dict[str, dict[str, object]] = {}
-    for item, translated_result, issues in candidates:
-        item_id = str(item.get("item_id", "") or "")
-        try:
-            repair_result = coordinator.run_repair(
-                TranslationRepairRequest(
-                    item=item,
-                    translated_result=translated_result,
-                    issues=issues,
-                    glossary_entries=glossary_entries,
-                ),
+    repair_workers = _agent_repair_worker_count(len(candidates))
+    if repair_workers <= 1:
+        repair_outputs = [
+            _run_single_agent_repair(
+                item=item,
+                translated_result=translated_result,
+                issues=issues,
+                coordinator=coordinator,
                 runtime=runtime,
+                glossary_entries=glossary_entries,
                 model=model,
                 base_url=base_url,
             )
-        except Exception as exc:
+            for item, translated_result, issues in candidates
+        ]
+    else:
+        repair_outputs = []
+        with ThreadPoolExecutor(max_workers=repair_workers) as executor:
+            futures = [
+                executor.submit(
+                    _run_single_agent_repair,
+                    item=item,
+                    translated_result=translated_result,
+                    issues=issues,
+                    coordinator=coordinator,
+                    runtime=runtime,
+                    glossary_entries=glossary_entries,
+                    model=model,
+                    base_url=base_url,
+                )
+                for item, translated_result, issues in candidates
+            ]
+            for future in as_completed(futures):
+                repair_outputs.append(future.result())
+
+    for item, repair_result, exc in repair_outputs:
+        item_id = str(item.get("item_id", "") or "")
+        if exc is not None or repair_result is None:
             failed += 1
-            _record_agent_repair_failure(item, exc)
+            _record_agent_repair_failure(item, exc or RuntimeError("empty repair result"))
+            continue
+        validation_issues = _validate_repair_result(item, repair_result.repaired_text)
+        if validation_issues:
+            failed += 1
+            _record_agent_repair_rejected(item, validation_issues)
             continue
         repaired_results[item_id] = {
             "decision": "translate",
@@ -119,12 +161,68 @@ def run_agent_repair_pipeline(
     )
 
 
+def _agent_repair_worker_count(candidate_count: int) -> int:
+    if candidate_count <= 1:
+        return 1
+    return max(1, min(MAX_AGENT_REPAIR_WORKERS, DEFAULT_AGENT_REPAIR_WORKERS, candidate_count))
+
+
+def _run_single_agent_repair(
+    *,
+    item: dict,
+    translated_result: dict[str, str],
+    issues: list[TranslationQualityIssue],
+    coordinator: TranslationAgentCoordinator,
+    runtime: TranslationAgentRuntime,
+    glossary_entries: list | None,
+    model: str,
+    base_url: str,
+):
+    try:
+        return (
+            item,
+            coordinator.run_repair(
+                TranslationRepairRequest(
+                    item=item,
+                    translated_result=translated_result,
+                    issues=issues,
+                    glossary_entries=glossary_entries,
+                ),
+                runtime=runtime,
+                model=model,
+                base_url=base_url,
+            ),
+            None,
+        )
+    except Exception as exc:
+        return item, None, exc
+
+
 def _repairable_review_issues(report: TranslationQualityReport) -> list[TranslationQualityIssue]:
     return RepairAgent().repairable_issues(report.issues)
 
 
 def _has_blocking_issue(issues: list[TranslationQualityIssue]) -> bool:
     return any(issue.kind in BLOCKING_REPAIR_ISSUE_KINDS for issue in issues)
+
+
+def _is_group_member_item(item: dict) -> bool:
+    if str(item.get("continuation_group", "") or "").strip():
+        return True
+    unit_id = str(item.get("translation_unit_id", "") or "")
+    return unit_id.startswith("group:")
+
+
+def _should_skip_non_translatable_item(item: dict) -> bool:
+    if item.get("should_translate") is False or item.get("policy_translate") is False:
+        return True
+    return item_raw_block_type(item) in {
+        "display_formula",
+        "formula",
+        "image",
+        "table",
+        "chart",
+    }
 
 
 def _record_agent_repair_skip(item: dict, reason: str, issues: list[TranslationQualityIssue]) -> None:
@@ -140,6 +238,32 @@ def _record_agent_repair_failure(item: dict, exc: Exception) -> None:
     diagnostics["agent_repair_failed"] = True
     diagnostics["agent_repair_error_type"] = type(exc).__name__
     diagnostics["agent_repair_error"] = str(exc)
+    item["translation_diagnostics"] = diagnostics
+
+
+def _validate_repair_result(item: dict, repaired_text: str) -> list[TranslationQualityIssue]:
+    item_id = str(item.get("item_id", "") or "")
+    review = review_translation_item(
+        item,
+        {
+            "decision": "translate",
+            "translated_text": repaired_text,
+        },
+    )
+    return [
+        issue
+        for issue in review.issues
+        if issue.item_id == item_id and issue.severity == "error"
+    ]
+
+
+def _record_agent_repair_rejected(item: dict, issues: list[TranslationQualityIssue]) -> None:
+    diagnostics = dict(item.get("translation_diagnostics") or {})
+    diagnostics["agent_repair_failed"] = True
+    diagnostics["agent_repair_error_type"] = "RepairValidationError"
+    diagnostics["agent_repair_error"] = "Repair output failed translation quality validation."
+    diagnostics["agent_repair_issue_kinds"] = [issue.kind for issue in issues]
+    diagnostics["agent_repair_issues"] = [issue.as_dict() for issue in issues]
     item["translation_diagnostics"] = diagnostics
 
 

@@ -24,7 +24,10 @@ mod tests {
             "translation": {
                 "model": "deepseek-v4-flash",
                 "base_url": "https://api.deepseek.com/v1",
-                "api_key": "sk-test"
+                "api_key": "sk-test",
+                "context_mode": "all",
+                "glossary_mode": "all",
+                "memory_mode": "broad"
             },
             "render": { "render_mode": "typst" },
             "runtime": { "job_id": "job-1", "timeout_seconds": 1200 }
@@ -37,6 +40,9 @@ mod tests {
         assert_eq!(input.translation.model, "deepseek-v4-flash");
         assert_eq!(input.translation.base_url, "https://api.deepseek.com/v1");
         assert_eq!(input.translation.api_key, "sk-test");
+        assert_eq!(input.translation.context_mode, "all");
+        assert_eq!(input.translation.glossary_mode, "all");
+        assert_eq!(input.translation.memory_mode, "broad");
         assert_eq!(input.render.render_mode, "typst");
         assert_eq!(input.runtime.job_id, "job-1");
         assert_eq!(input.runtime.timeout_seconds, 1200);

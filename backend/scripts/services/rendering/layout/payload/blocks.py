@@ -9,6 +9,7 @@ from services.rendering.layout.payload.body_font_policy import resolve_book_body
 from services.rendering.layout.payload.collision import mark_adjacent_collision_risk
 from services.rendering.layout.payload.emit import emit_render_blocks
 from services.rendering.layout.model.models import RenderBlock
+from services.rendering.layout.payload.render_item import seed_render_fields
 
 
 def build_render_blocks(
@@ -18,6 +19,8 @@ def build_render_blocks(
     page_height: float | None = None,
     book_body_font_target: float | None = None,
 ) -> list[RenderBlock]:
+    for item in translated_items:
+        seed_render_fields(item)
     block_payloads, page_text_width_med = build_block_payloads(
         translated_items,
         page_width=page_width,

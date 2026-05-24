@@ -123,6 +123,127 @@ def test_translation_context_windows_attach_neighbor_text() -> None:
     assert middle["translation_context_after"] == "that are used to build the Fock operator."
 
 
+def test_translation_context_windows_skip_complete_body_paragraph_by_default() -> None:
+    page_payloads = {
+        4: [
+            {
+                "item_id": "p005-b001",
+                "page_idx": 4,
+                "block_idx": 1,
+                "block_type": "text",
+                "block_kind": "text",
+                "layout_role": "paragraph",
+                "semantic_role": "body",
+                "structure_role": "body",
+                "source_text": "The matrix contains one-electron kinetic elements.",
+            },
+            {
+                "item_id": "p005-b002",
+                "page_idx": 4,
+                "block_idx": 2,
+                "block_type": "text",
+                "block_kind": "text",
+                "layout_role": "paragraph",
+                "semantic_role": "body",
+                "structure_role": "body",
+                "source_text": "The Fock operator is built from these terms.",
+            },
+            {
+                "item_id": "p005-b003",
+                "page_idx": 4,
+                "block_idx": 3,
+                "block_type": "text",
+                "block_kind": "text",
+                "layout_role": "paragraph",
+                "semantic_role": "body",
+                "structure_role": "body",
+                "source_text": "The resulting matrix is diagonalized.",
+            },
+        ]
+    }
+
+    updates = annotate_translation_context_windows(page_payloads, neighbors=1)
+
+    middle = page_payloads[4][1]
+    assert updates == 0
+    assert middle["translation_context_before"] == ""
+    assert middle["translation_context_after"] == ""
+
+
+def test_translation_context_windows_all_mode_keeps_legacy_neighbor_context() -> None:
+    page_payloads = {
+        4: [
+            {"item_id": "a", "page_idx": 4, "block_idx": 1, "block_type": "text", "source_text": "Alpha sentence."},
+            {"item_id": "b", "page_idx": 4, "block_idx": 2, "block_type": "text", "source_text": "Beta sentence."},
+            {"item_id": "c", "page_idx": 4, "block_idx": 3, "block_type": "text", "source_text": "Gamma sentence."},
+        ]
+    }
+
+    updates = annotate_translation_context_windows(page_payloads, neighbors=1, mode="all")
+
+    assert updates >= 2
+    assert page_payloads[4][1]["translation_context_before"] == "Alpha sentence."
+    assert page_payloads[4][1]["translation_context_after"] == "Gamma sentence."
+
+
+def test_translation_context_windows_off_mode_clears_context() -> None:
+    page_payloads = {
+        4: [
+            {"item_id": "a", "page_idx": 4, "block_idx": 1, "block_type": "text", "source_text": "Alpha context"},
+            {"item_id": "b", "page_idx": 4, "block_idx": 2, "block_type": "text", "source_text": "and beta fragment"},
+            {"item_id": "c", "page_idx": 4, "block_idx": 3, "block_type": "text", "source_text": "Gamma context"},
+        ]
+    }
+
+    updates = annotate_translation_context_windows(page_payloads, neighbors=1, mode="off")
+
+    assert updates == 0
+    assert page_payloads[4][1]["translation_context_before"] == ""
+    assert page_payloads[4][1]["translation_context_after"] == ""
+    assert page_payloads[4][1]["translation_context_mode"] == "off"
+
+
+def test_context_mode_off_suppresses_continuation_prompt_context() -> None:
+    from services.translation.core.context import build_item_context
+
+    item = {
+        "item_id": "p006-b056",
+        "block_type": "text",
+        "source_text": "and the next fragment",
+        "protected_source_text": "and the next fragment",
+        "continuation_prev_text": "previous sentence",
+        "continuation_next_text": "following sentence",
+        "translation_context_mode": "off",
+    }
+
+    context = build_item_context(item)
+
+    assert context.context_before_for_prompt() == ""
+    assert context.context_after_for_prompt() == ""
+
+
+def test_batch_payload_includes_needed_context_without_continuation_group() -> None:
+    from services.translation.core.context import build_item_context
+
+    item = {
+        "item_id": "p005-b002",
+        "block_type": "text",
+        "block_kind": "text",
+        "layout_role": "paragraph",
+        "semantic_role": "body",
+        "structure_role": "body",
+        "source_text": "and nuclear attraction elements",
+        "protected_source_text": "and nuclear attraction elements",
+        "translation_context_before": "The matrix contains one-electron kinetic",
+        "translation_context_after": "that are used to build the Fock operator.",
+    }
+
+    payload = build_item_context(item).as_batch_payload()
+
+    assert payload["context_before"] == "仅供理解，禁止翻译进输出：The matrix contains one-electron kinetic"
+    assert payload["context_after"] == "仅供理解，禁止翻译进输出：that are used to build the Fock operator."
+
+
 def test_prompt_building_uses_translation_context_windows() -> None:
     from services.translation.llm.shared.prompt_building import build_single_item_fallback_messages
 

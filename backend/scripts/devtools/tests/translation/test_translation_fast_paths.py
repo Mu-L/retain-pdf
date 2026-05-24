@@ -167,6 +167,10 @@ class TranslationFastPathTests(unittest.TestCase):
 
         with mock.patch.object(
             module,
+            "translate_continuation_group_members",
+            side_effect=module.TranslationProtocolError("__cg__:cg-028-037"),
+        ), mock.patch.object(
+            module,
             "translate_single_item_plain_text",
             side_effect=module.TranslationProtocolError("__cg__:cg-028-037"),
         ), mock.patch.object(
@@ -195,6 +199,117 @@ class TranslationFastPathTests(unittest.TestCase):
         self.assertEqual(
             payload["translation_diagnostics"]["degradation_reason"],
             "protocol_shell_repeated",
+        )
+
+    def test_continuation_group_prefers_structured_member_route(self):
+        module = _load_module(
+            "services.translation.llm.shared.orchestration.fallbacks",
+            REPO_SCRIPTS_ROOT / "services" / "translation" / "llm" / "shared" / "orchestration" / "fallbacks.py",
+        )
+        context_module = _load_module(
+            "services.translation.llm.shared.control_context",
+            REPO_SCRIPTS_ROOT / "services" / "translation" / "llm" / "shared" / "control_context.py",
+        )
+        context = context_module.build_translation_control_context(mode="sci")
+        item = {
+            "item_id": "__cg__:cg-010-001",
+            "translation_unit_id": "__cg__:cg-010-001",
+            "translation_unit_member_ids": ["p010-b001", "p010-b002"],
+            "page_idx": 10,
+            "block_type": "text",
+            "metadata": {"structure_role": "body"},
+            "math_mode": "placeholder",
+            "continuation_group": "cg-010-001",
+            "translation_unit_protected_source_text": "This sentence starts and continues.",
+            "protected_source_text": "This sentence starts and continues.",
+        }
+
+        with mock.patch.object(
+            module,
+            "translate_continuation_group_members",
+            return_value={
+                "__cg__:cg-010-001": {
+                    "decision": "translate",
+                    "translated_text": "这句话开始并继续。",
+                    "final_status": "translated",
+                    "member_translations": [
+                        {"item_id": "p010-b001", "translated_text": "这句话开始"},
+                        {"item_id": "p010-b002", "translated_text": "并继续。"},
+                    ],
+                }
+            },
+        ) as group_mock, mock.patch.object(
+            module,
+            "translate_single_item_plain_text",
+            side_effect=AssertionError("legacy route should not run"),
+        ):
+            result = module.translate_single_item_plain_text_with_retries(
+                item,
+                api_key="",
+                model="deepseek-chat",
+                base_url="https://api.deepseek.com/v1",
+                request_label="test",
+                context=context,
+                diagnostics=None,
+            )
+
+        payload = result["__cg__:cg-010-001"]
+        group_mock.assert_called_once()
+        self.assertEqual(payload["translated_text"], "这句话开始并继续。")
+        self.assertEqual(payload["member_translations"][0]["item_id"], "p010-b001")
+        self.assertEqual(payload["translation_diagnostics"]["route_path"], ["block_level", "continuation_group_members"])
+        self.assertEqual(payload["translation_diagnostics"]["output_mode_path"], ["json", "member_translations"])
+
+    def test_direct_typst_short_empty_translation_uses_short_retry(self):
+        module = _load_module(
+            "services.translation.llm.shared.orchestration.fallbacks",
+            REPO_SCRIPTS_ROOT / "services" / "translation" / "llm" / "shared" / "orchestration" / "fallbacks.py",
+        )
+        context_module = _load_module(
+            "services.translation.llm.shared.control_context",
+            REPO_SCRIPTS_ROOT / "services" / "translation" / "llm" / "shared" / "control_context.py",
+        )
+        short_retry_module = _load_module(
+            "services.translation.llm.shared.orchestration.short_text_retry",
+            REPO_SCRIPTS_ROOT / "services" / "translation" / "llm" / "shared" / "orchestration" / "short_text_retry.py",
+        )
+        context = context_module.build_translation_control_context(mode="sci")
+        item = {
+            "item_id": "p020-b012",
+            "page_idx": 19,
+            "block_type": "text",
+            "block_kind": "text",
+            "raw_block_type": "text",
+            "layout_role": "paragraph",
+            "semantic_role": "body",
+            "structure_role": "body",
+            "metadata": {"structure_role": "body"},
+            "math_mode": "direct_typst",
+            "translation_unit_protected_source_text": "We need only to diagonalize the matrix $ F' $",
+            "protected_source_text": "We need only to diagonalize the matrix $ F' $",
+        }
+
+        with mock.patch.object(
+            module,
+            "translate_single_item_plain_text",
+            side_effect=module.EmptyTranslationError("p020-b012"),
+        ), mock.patch.object(
+            module,
+            "translate_single_item_plain_text_unstructured",
+            side_effect=module.EmptyTranslationError("p020-b012"),
+        ), mock.patch.object(
+            short_retry_module.provider_runtime,
+            "request_chat_content",
+            return_value="我们只需要对角化矩阵 $ F' $",
+        ):
+            result = _translate_direct_typst_for_test(module, item, context=context)
+
+        payload = result["p020-b012"]
+        self.assertEqual(payload["translated_text"], "我们只需要对角化矩阵 $ F' $")
+        self.assertEqual(payload["final_status"], "translated")
+        self.assertEqual(
+            payload["translation_diagnostics"]["degradation_reason"],
+            "empty_translation_short_text_retry",
         )
 
     def test_direct_typst_continuation_group_protocol_shell_is_salvaged(self):

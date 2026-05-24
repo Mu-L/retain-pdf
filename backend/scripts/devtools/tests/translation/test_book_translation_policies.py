@@ -8,6 +8,7 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
 from services.translation.workflow.page_policies import finalize_page_payloads
+from services.translation.services.continuation.orchestrator import review_candidate_continuation_pairs
 from services.translation.services.policy.flow import apply_translation_policies
 from services.translation.services.policy.config import build_translation_policy_config
 from services.translation.services.policy.payload_rules.legacy_policy_mutations import apply_mixed_literal_split_policy
@@ -250,6 +251,87 @@ def test_finalize_page_payloads_does_not_join_figure_caption_with_body_text() ->
     assert caption["translation_unit_id"] == "p003-b010"
 
 
+def test_continuation_review_uses_small_parallel_batches(monkeypatch) -> None:
+    page_payloads = {0: []}
+    for index in range(14):
+        page_payloads[0].append(
+            {
+                "item_id": f"p001-b{index:03d}",
+                "page_idx": 0,
+                "block_idx": index,
+                "block_type": "text",
+                "block_kind": "text",
+                "layout_role": "paragraph",
+                "semantic_role": "body",
+                "structure_role": "body",
+                "policy_translate": True,
+                "raw_block_type": "text",
+                "normalized_sub_type": "",
+                "bbox": [0, index * 20, 200, index * 20 + 12],
+                "source_text": f"Continuation fragment {index}",
+                "protected_source_text": f"Continuation fragment {index}",
+                "formula_map": [],
+                "classification_label": "",
+                "should_translate": True,
+                "layout_mode": "single",
+                "layout_zone": "single_column",
+                "layout_boundary_role": "tail" if index % 2 == 0 else "head",
+                "continuation_group": "",
+                "continuation_prev_text": "",
+                "continuation_next_text": "",
+                "continuation_decision": "",
+                "continuation_candidate_prev_id": "",
+                "continuation_candidate_next_id": "",
+                "translation_unit_id": f"p001-b{index:03d}",
+                "translation_unit_kind": "single",
+                "translation_unit_member_ids": [f"p001-b{index:03d}"],
+                "translation_unit_protected_source_text": f"Continuation fragment {index}",
+                "translation_unit_formula_map": [],
+            }
+        )
+
+    fake_pairs = [
+        {"prev_item_id": f"p001-b{index:03d}", "next_item_id": f"p001-b{index + 1:03d}"}
+        for index in range(13)
+    ]
+    batch_sizes: list[int] = []
+
+    monkeypatch.setattr(
+        "services.translation.services.continuation.orchestrator.candidate_continuation_pairs",
+        lambda _payload: fake_pairs,
+    )
+    monkeypatch.setattr(
+        "services.translation.services.continuation.orchestrator.pair_join_score",
+        lambda _prev, _next: 0,
+    )
+    monkeypatch.setattr(
+        "services.translation.services.continuation.orchestrator.pair_break_score",
+        lambda _prev, _next: 0,
+    )
+
+    def _fake_review(batch_pairs, **_kwargs):
+        batch_sizes.append(len(batch_pairs))
+        return {pair["pair_id"]: "break" for pair in batch_pairs}
+
+    monkeypatch.setattr(
+        "services.translation.services.continuation.orchestrator.review_candidate_pairs",
+        _fake_review,
+    )
+
+    review_candidate_continuation_pairs(
+        page_payloads=page_payloads,
+        translation_paths={},
+        api_key="",
+        model="deepseek-chat",
+        base_url="https://api.deepseek.com/v1",
+        workers=4,
+        save_pages_fn=lambda *_args, **_kwargs: None,
+    )
+
+    assert len(batch_sizes) == 5
+    assert max(batch_sizes) <= 3
+
+
 def test_apply_translation_policies_does_not_call_no_trans_classifier_by_default(monkeypatch) -> None:
     def _fail_if_called(*args, **kwargs):
         raise AssertionError("no-trans classifier should be opt-in")
@@ -304,4 +386,3 @@ def test_apply_translation_policies_does_not_call_no_trans_classifier_by_default
     assert classified == 0
     assert payload[0]["should_translate"] is True
     assert payload[0]["classification_label"] == ""
-

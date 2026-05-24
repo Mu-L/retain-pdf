@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
+import time
 from pathlib import Path
 from typing import Callable
 
 from services.translation.llm.shared.control_context import TranslationControlContext
 from services.translation.llm.shared.orchestration import translate_batch
+from services.translation.services.memory import JobMemorySnapshot
 from services.translation.services.memory import JobMemoryStore
 from services.translation.core.payload import pending_translation_items
 
 from services.translation.workflow.batching.executor import _keep_origin_results_for_transport_batch
-from services.translation.workflow.batching.executor import _submit_parallel_translation_batches as _submit_parallel_translation_batches_impl
 from services.translation.workflow.batching.executor import _translate_batch_or_keep_origin as _translate_batch_or_keep_origin_impl
 from services.translation.workflow.batch_runner import run_translation_batches_parallel
 from services.translation.workflow.batch_runner import run_translation_batches_sequential
@@ -55,36 +55,6 @@ def _translate_batch_or_keep_origin(
     )
 
 
-def _submit_parallel_translation_batches(
-    batches: list[list[dict]],
-    *,
-    worker_count: int,
-    queue_name: str,
-    api_key: str,
-    model: str,
-    base_url: str,
-    domain_guidance: str,
-    mode: str,
-    translation_context: TranslationControlContext | None,
-    memory_store: JobMemoryStore | None,
-    executors: list[ThreadPoolExecutor],
-) -> dict[object, tuple[str, list[dict]]]:
-    return _submit_parallel_translation_batches_impl(
-        batches,
-        worker_count=worker_count,
-        queue_name=queue_name,
-        api_key=api_key,
-        model=model,
-        base_url=base_url,
-        domain_guidance=domain_guidance,
-        mode=mode,
-        translation_context=translation_context,
-        memory_store=memory_store,
-        executors=executors,
-        translate_fn=translate_batch,
-    )
-
-
 def _infer_job_memory_path(translation_paths: dict[int, Path]) -> Path:
     first_path = next(iter(translation_paths.values()))
     return first_path.parent / "job-memory.json"
@@ -104,6 +74,14 @@ def translate_pending_units(
     translation_context: TranslationControlContext | None = None,
     progress_callback: Callable[[int, int, set[int]], None] | None = None,
 ) -> dict[str, int]:
+    apply_elapsed_s = 0.0
+    max_result_drain_batch = 0
+
+    def _apply_stats_callback(*, batch_count: int, elapsed_s: float) -> None:
+        nonlocal apply_elapsed_s, max_result_drain_batch
+        apply_elapsed_s += max(0.0, elapsed_s)
+        max_result_drain_batch = max(max_result_drain_batch, max(0, batch_count))
+
     flat_payload: list[dict] = []
     item_to_page: dict[str, int] = {}
     for page_idx in sorted(page_payloads):
@@ -127,7 +105,7 @@ def translate_pending_units(
     batched_fast_batches, single_fast_batches, single_slow_batches = _classify_translation_batches(batches)
     total_batches = len(batches)
     flush_interval = _save_flush_interval(workers=workers, total_batches=total_batches)
-    slow_worker_limit = _slow_worker_cap(max(1, workers))
+    slow_worker_limit = _slow_worker_cap(max(1, workers), len(single_slow_batches))
     queue_workers = _allocate_translation_queue_workers(
         workers,
         batched_fast_count=len(batched_fast_batches),
@@ -149,6 +127,7 @@ def translate_pending_units(
         single_slow_workers=queue_workers["single_slow"],
         slow_worker_limit=slow_worker_limit,
     )
+    run_stats_payload = run_stats.as_dict()
     print(
         f"book: pending items={len(pending)} batches={total_batches} workers={max(1, workers)} "
         f"mode={mode} effective_batch_size={effective_batch_size}",
@@ -178,7 +157,8 @@ def translate_pending_units(
         total_batches=total_batches,
         progress_callback=progress_callback,
     )
-    memory_store = JobMemoryStore(_infer_job_memory_path(translation_paths)) if translation_paths else None
+    memory_store = JobMemoryStore(_infer_job_memory_path(translation_paths), save_interval=200) if translation_paths else None
+    prompt_memory = JobMemorySnapshot.from_store(memory_store) if memory_store is not None else None
     result_applier = TranslationResultApplier(
         flat_payload=flat_payload,
         item_to_page=item_to_page,
@@ -191,6 +171,7 @@ def translate_pending_units(
     if immediate_results and not batches:
         flush_state.flush(label="final flush for fast-path items")
     if workers <= 1:
+        sequential_started = time.perf_counter()
         run_translation_batches_sequential(
             batches,
             api_key=api_key,
@@ -199,11 +180,13 @@ def translate_pending_units(
             domain_guidance=domain_guidance,
             mode=mode,
             translation_context=translation_context,
-            memory_store=memory_store,
+            memory_store=prompt_memory,
             result_applier=result_applier,
             flush_state=flush_state,
         )
-        return run_stats.as_dict()
+        run_stats_payload["apply_elapsed_ms"] = int(round(max(0.0, time.perf_counter() - sequential_started) * 1000))
+        run_stats_payload["max_result_drain_batch"] = 1 if batches else 0
+        return run_stats_payload
 
     run_translation_batches_parallel(
         batched_fast_batches=batched_fast_batches,
@@ -216,8 +199,11 @@ def translate_pending_units(
         domain_guidance=domain_guidance,
         mode=mode,
         translation_context=translation_context,
-        memory_store=memory_store,
+        memory_store=prompt_memory,
         result_applier=result_applier,
         flush_state=flush_state,
+        apply_stats_callback=_apply_stats_callback,
     )
-    return run_stats.as_dict()
+    run_stats_payload["apply_elapsed_ms"] = int(round(apply_elapsed_s * 1000))
+    run_stats_payload["max_result_drain_batch"] = max_result_drain_batch
+    return run_stats_payload

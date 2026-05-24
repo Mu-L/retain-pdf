@@ -44,6 +44,12 @@ def _append_context_lines(lines: list[str], item: TranslationItemContext) -> Non
         lines.append(f"后文上下文（仅供理解，禁止翻译进输出）：{context_after}")
 
 
+def _append_text_flow_guidance(lines: list[str], item: TranslationItemContext) -> None:
+    if item.text_flow != "preserve_lines" or not item.line_texts:
+        return
+    lines.append("结构提示：当前原文是多行结构块；译文应尽量保持相同换行数量和行序，不要合并成普通段落。")
+
+
 def direct_math_guidance(*, target_language_name: str = DEFAULT_TARGET_LANGUAGE_NAME) -> str:
     return render_prompt("translation_direct_typst_guidance.txt", **_prompt_context(target_language_name=target_language_name))
 
@@ -92,6 +98,7 @@ def direct_typst_batch_user_prompt(
         lines.append("")
         lines.append(f"原文 {item.item_id}:")
         lines.append(item.source_for_prompt())
+        _append_text_flow_guidance(lines, item)
         if item.style_hint:
             lines.append(f"风格提示：{item.style_hint}")
         if item.continuation_group:
@@ -116,6 +123,7 @@ def direct_typst_single_user_prompt(
         item.source_for_prompt(),
         "【当前原文结束】",
     ]
+    _append_text_flow_guidance(lines, item)
     if item.style_hint:
         lines.append(f"风格提示：{item.style_hint}")
     if item.continuation_group:
@@ -140,6 +148,7 @@ def plain_text_single_user_prompt(
         item.source_for_prompt(),
         "【当前原文结束】",
     ]
+    _append_text_flow_guidance(lines, item)
     if item.style_hint:
         lines.append(f"风格提示：{item.style_hint}")
     if item.continuation_group:
@@ -179,11 +188,54 @@ def batch_json_user_prompt(
     return json.dumps(user_payload, ensure_ascii=False)
 
 
+def group_member_json_user_prompt(
+    item: TranslationItemContext,
+    *,
+    target_language_name: str = DEFAULT_TARGET_LANGUAGE_NAME,
+) -> str:
+    raw_item = item.raw_item or {}
+    member_ids = [
+        str(member_id or "").strip()
+        for member_id in raw_item.get("translation_unit_member_ids", [])
+        if str(member_id or "").strip()
+    ]
+    if not member_ids:
+        member_ids = [item.item_id]
+    user_payload: dict[str, Any] = {
+        "task": (
+            f"Translate the continuation group into {_target_language_name(target_language_name)}. "
+            "Return one translated fragment per member_id. Do not add text from neighboring context."
+        ),
+        "group": {
+            "item_id": item.item_id,
+            "continuation_group": item.continuation_group,
+            "member_ids": member_ids,
+            "combined_source_text": item.source_for_prompt(),
+        },
+        "output_schema": {
+            "translated_text": "full translated continuation group",
+            "member_translations": [
+                {"item_id": "member id from member_ids", "translated_text": "translation for this member only"}
+            ],
+        },
+    }
+    if item.style_hint:
+        user_payload["group"]["style_hint"] = item.style_hint
+    context_before = item.context_before_for_prompt()
+    context_after = item.context_after_for_prompt()
+    if context_before:
+        user_payload["context_before"] = f"仅供理解，禁止翻译进输出：{context_before}"
+    if context_after:
+        user_payload["context_after"] = f"仅供理解，禁止翻译进输出：{context_after}"
+    return json.dumps(user_payload, ensure_ascii=False)
+
+
 __all__ = [
     "batch_json_user_prompt",
     "build_translation_system_prompt",
     "direct_math_guidance",
     "direct_typst_batch_user_prompt",
     "direct_typst_single_user_prompt",
+    "group_member_json_user_prompt",
     "plain_text_single_user_prompt",
 ]

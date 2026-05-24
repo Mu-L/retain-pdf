@@ -133,6 +133,9 @@ fn apply_multipart_request_field(
         "glossary_json" | "glossary_entries" => {
             request.translation.glossary_entries = parse_glossary_entries_field(value)?
         }
+        "context_mode" => request.translation.context_mode = value.to_string(),
+        "glossary_mode" => request.translation.glossary_mode = value.to_string(),
+        "memory_mode" => request.translation.memory_mode = value.to_string(),
         "api_key" => request.translation.api_key = value.to_string(),
         "model" => request.translation.model = value.to_string(),
         "base_url" => request.translation.base_url = value.to_string(),

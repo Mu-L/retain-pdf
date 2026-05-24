@@ -57,7 +57,6 @@ def _has_acceptable_placeholder_count(view, context: TranslationControlContext) 
 
 
 _LOW_RISK_BATCHABILITY_RULES: tuple[_BatchabilityRule, ...] = (
-    _BatchabilityRule(lambda view, _context: _math_mode(view.item) != "direct_typst"),
     _BatchabilityRule(lambda view, _context: not str(view.item.get("continuation_group", "") or "").strip()),
     _BatchabilityRule(lambda view, _context: not str(view.item.get("translation_unit_id", "") or "").startswith(GROUP_ITEM_PREFIX)),
     _BatchabilityRule(lambda view, _context: item_block_kind(view.item) == "text"),

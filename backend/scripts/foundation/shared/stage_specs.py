@@ -174,6 +174,9 @@ class TranslateStageParams:
     glossary_inline_entry_count: int
     glossary_overridden_entry_count: int
     glossary_entries: list[dict[str, Any]]
+    context_mode: str
+    glossary_mode: str
+    memory_mode: str
     model: str
     base_url: str
     credential_ref: str
@@ -242,6 +245,9 @@ class TranslateStageSpec:
             glossary_inline_entry_count=int(params_payload.get("glossary_inline_entry_count", 0) or 0),
             glossary_overridden_entry_count=int(params_payload.get("glossary_overridden_entry_count", 0) or 0),
             glossary_entries=glossary_entries,
+            context_mode=str(params_payload.get("context_mode", "needed") or "needed").strip().lower(),
+            glossary_mode=str(params_payload.get("glossary_mode", "matched") or "matched").strip().lower(),
+            memory_mode=str(params_payload.get("memory_mode", "matched") or "matched").strip().lower(),
             model=str(params_payload.get("model", "") or ""),
             base_url=str(params_payload.get("base_url", "") or ""),
             credential_ref=str(params_payload.get("credential_ref", "") or ""),
@@ -411,6 +417,9 @@ class ProviderStageTranslationParams:
     glossary_inline_entry_count: int
     glossary_overridden_entry_count: int
     glossary_entries: list[dict[str, Any]]
+    context_mode: str
+    glossary_mode: str
+    memory_mode: str
     model: str
     base_url: str
     credential_ref: str
@@ -508,6 +517,9 @@ class ProviderStageSpec:
             glossary_inline_entry_count=int(translation_payload.get("glossary_inline_entry_count", 0) or 0),
             glossary_overridden_entry_count=int(translation_payload.get("glossary_overridden_entry_count", 0) or 0),
             glossary_entries=glossary_entries,
+            context_mode=str(translation_payload.get("context_mode", "needed") or "needed").strip().lower(),
+            glossary_mode=str(translation_payload.get("glossary_mode", "matched") or "matched").strip().lower(),
+            memory_mode=str(translation_payload.get("memory_mode", "matched") or "matched").strip().lower(),
             model=str(translation_payload.get("model", "") or ""),
             base_url=str(translation_payload.get("base_url", "") or ""),
             credential_ref=str(translation_payload.get("credential_ref", "") or ""),
@@ -568,6 +580,9 @@ class BookStageTranslationParams:
     glossary_inline_entry_count: int
     glossary_overridden_entry_count: int
     glossary_entries: list[dict[str, Any]]
+    context_mode: str
+    glossary_mode: str
+    memory_mode: str
     model: str
     base_url: str
     credential_ref: str
@@ -649,6 +664,9 @@ class BookStageSpec:
             glossary_inline_entry_count=int(translation_payload.get("glossary_inline_entry_count", 0) or 0),
             glossary_overridden_entry_count=int(translation_payload.get("glossary_overridden_entry_count", 0) or 0),
             glossary_entries=glossary_entries,
+            context_mode=str(translation_payload.get("context_mode", "needed") or "needed").strip().lower(),
+            glossary_mode=str(translation_payload.get("glossary_mode", "matched") or "matched").strip().lower(),
+            memory_mode=str(translation_payload.get("memory_mode", "matched") or "matched").strip().lower(),
             model=str(translation_payload.get("model", "") or ""),
             base_url=str(translation_payload.get("base_url", "") or ""),
             credential_ref=str(translation_payload.get("credential_ref", "") or ""),

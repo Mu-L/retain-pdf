@@ -83,6 +83,14 @@ def sync_translation_record(record: dict, item: TextItem, *, math_mode: str) -> 
     if record.get("source_text") != item.text:
         record["source_text"] = item.text
         changed = True
+    source_line_texts = list(getattr(item, "line_texts", []) or [])
+    if record.get("source_line_texts") != source_line_texts:
+        record["source_line_texts"] = source_line_texts
+        changed = True
+    text_flow = str(getattr(item, "text_flow", "") or "flow")
+    if record.get("text_flow") != text_flow:
+        record["text_flow"] = text_flow
+        changed = True
     if record.get("lines") != item.lines:
         record["lines"] = item.lines
         changed = True
@@ -96,6 +104,8 @@ def sync_translation_record(record: dict, item: TextItem, *, math_mode: str) -> 
         or "lines" not in record
     ):
         record["source_text"] = item.text
+        record["source_line_texts"] = source_line_texts
+        record["text_flow"] = text_flow
         record["lines"] = item.lines
         record["metadata"] = item.metadata
         record.update(contract_fields)

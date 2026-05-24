@@ -9,12 +9,15 @@ from services.translation.llm.providers.deepseek.client import DEFAULT_MODEL
 from services.translation.llm.providers.deepseek.client import request_chat_content
 from services.translation.llm.shared.prompt_building import build_messages
 from services.translation.llm.shared.prompt_building import build_single_item_fallback_messages
+from services.translation.llm.shared.prompt_building import build_group_member_messages
 from services.translation.llm.result_validator import validate_batch_result
 from services.translation.llm.result_canonicalizer import canonicalize_batch_result
 from services.translation.llm.result_payload import result_entry
 from services.translation.llm.shared.response_parsing import extract_json_text
 from services.translation.llm.shared.response_parsing import extract_single_item_translation_text
 from services.translation.llm.shared.response_parsing import unwrap_translation_shell
+from services.translation.llm.shared.structured_output import parse_structured_json
+from services.translation.llm.shared.structured_models import TRANSLATION_GROUP_MEMBER_RESPONSE_SCHEMA
 from services.translation.llm.shared.structured_models import TRANSLATION_SINGLE_DECISION_RESPONSE_SCHEMA
 
 
@@ -37,7 +40,7 @@ def parse_translation_payload(content: str) -> dict[str, dict[str, str]]:
     if result:
         return result
 
-    payload = json.loads(extract_json_text(content))
+    payload = parse_structured_json(content)
     translations = payload.get("translations", [])
     for item in translations:
         item_id = item.get("item_id")
@@ -121,6 +124,53 @@ def translate_single_item_plain_text_unstructured(
     )
     translated_text = extract_single_item_translation_text(content, item["item_id"])
     result = {item["item_id"]: result_entry("translate", translated_text)}
+    result = canonicalize_batch_result([item], result)
+    validate_batch_result([item], result, diagnostics=diagnostics)
+    return result
+
+
+def translate_continuation_group_members(
+    item: dict,
+    *,
+    api_key: str = "",
+    model: str = DEFAULT_MODEL,
+    base_url: str = DEFAULT_BASE_URL,
+    request_label: str = "",
+    domain_guidance: str = "",
+    mode: str = "fast",
+    target_language_name: str = "简体中文",
+    diagnostics: TranslationDiagnosticsCollector | None = None,
+    timeout_s: int = 120,
+    http_retry_attempts: int | None = None,
+) -> dict[str, dict[str, str]]:
+    content = request_chat_content(
+        build_group_member_messages(
+            item,
+            domain_guidance=domain_guidance,
+            mode=mode,
+            target_language_name=target_language_name,
+        ),
+        api_key=api_key,
+        model=model,
+        base_url=base_url,
+        temperature=0.0,
+        response_format=TRANSLATION_GROUP_MEMBER_RESPONSE_SCHEMA,
+        timeout=timeout_s,
+        request_label=request_label,
+        max_attempts=http_retry_attempts,
+    )
+    payload = parse_structured_json(content)
+    translated_text = unwrap_translation_shell(str(payload.get("translated_text", "") or ""), item_id=item["item_id"])
+    result_payload = result_entry("translate", translated_text)
+    result_payload["member_translations"] = [
+        {
+            "item_id": str(entry.get("item_id", "") or ""),
+            "translated_text": str(entry.get("translated_text", "") or "").strip(),
+        }
+        for entry in payload.get("member_translations", [])
+        if isinstance(entry, dict)
+    ]
+    result = {item["item_id"]: result_payload}
     result = canonicalize_batch_result([item], result)
     validate_batch_result([item], result, diagnostics=diagnostics)
     return result

@@ -44,7 +44,7 @@ def test_default_profile_enables_provider_agnostic_plain_batching() -> None:
     )
 
 
-def test_deepseek_profile_can_raise_plain_batch_size() -> None:
+def test_deepseek_profile_keeps_frontend_batch_size_for_single_item_throughput() -> None:
     context = build_translation_control_context(
         engine_profile=resolve_engine_profile(
             model="deepseek-chat",
@@ -58,12 +58,16 @@ def test_deepseek_profile_can_raise_plain_batch_size() -> None:
             base_url="https://api.deepseek.com/v1",
             translation_context=context,
         )
-        == 8
+        == 1
     )
     assert context.segmentation_policy.prefer_plain_when_segment_count_leq == 6
     assert context.fallback_policy.formula_segment_attempts == 2
     assert context.fallback_policy.main_http_retry_attempts == 1
     assert context.fallback_policy.tail_http_retry_attempts == 2
+    assert context.timeout_policy.plain_text_seconds == 20
+    assert context.timeout_policy.batch_plain_text_seconds == 25
+    assert context.timeout_policy.long_plain_text_seconds == 30
+    assert context.timeout_policy.transport_tail_retry_seconds == 40
 
 
 def test_adaptive_initial_limit_ramps_up_high_worker_counts() -> None:
@@ -441,28 +445,40 @@ def test_queue_worker_allocation_reserves_small_tail_pool() -> None:
         batched_fast_count=4,
         single_fast_count=6,
         single_slow_count=2,
-    ) == {"batched_fast": 4, "single_fast": 3, "single_slow": 1}
+    ) == {"batched_fast": 2, "single_fast": 4, "single_slow": 2}
     assert _allocate_translation_queue_workers(
         24,
         batched_fast_count=2,
         single_fast_count=10,
         single_slow_count=3,
-    ) == {"batched_fast": 8, "single_fast": 14, "single_slow": 2}
+    ) == {"batched_fast": 4, "single_fast": 17, "single_slow": 3}
     assert _allocate_translation_queue_workers(
         12,
         batched_fast_count=0,
         single_fast_count=0,
         single_slow_count=5,
     ) == {"batched_fast": 0, "single_fast": 0, "single_slow": 12}
+    assert _allocate_translation_queue_workers(
+        32,
+        batched_fast_count=10,
+        single_fast_count=10,
+        single_slow_count=20,
+    ) == {"batched_fast": 12, "single_fast": 12, "single_slow": 8}
 
 
-def test_queue_worker_allocation_prioritizes_batched_plain_throughput() -> None:
+def test_queue_worker_allocation_balances_fast_queues_by_workload() -> None:
     assert _allocate_translation_queue_workers(
         16,
         batched_fast_count=12,
         single_fast_count=12,
         single_slow_count=0,
-    ) == {"batched_fast": 11, "single_fast": 5, "single_slow": 0}
+    ) == {"batched_fast": 8, "single_fast": 8, "single_slow": 0}
+    assert _allocate_translation_queue_workers(
+        100,
+        batched_fast_count=138,
+        single_fast_count=51,
+        single_slow_count=0,
+    ) == {"batched_fast": 72, "single_fast": 28, "single_slow": 0}
 
 
 def test_translation_batch_run_stats_reports_queue_worker_split() -> None:
@@ -489,7 +505,7 @@ def test_translation_batch_run_stats_reports_queue_worker_split() -> None:
     assert stats["slow_worker_limit"] == 2
 
 
-def test_direct_typst_singleton_uses_single_fast_queue() -> None:
+def test_direct_typst_singleton_uses_batched_fast_when_marked_batchable() -> None:
     batched_fast_batches, single_fast_batches, single_slow_batches = _classify_translation_batches(
         [
             [
@@ -497,13 +513,30 @@ def test_direct_typst_singleton_uses_single_fast_queue() -> None:
                     "dt-1",
                     "Observe $x_{i}$ under the boundary condition and translate directly.",
                     math_mode="direct_typst",
+                    _batched_plain_candidate=True,
                 )
             ]
         ]
     )
-    assert batched_fast_batches == []
-    assert [[item["item_id"] for item in batch] for batch in single_fast_batches] == [["dt-1"]]
+    assert [[item["item_id"] for item in batch] for batch in batched_fast_batches] == [["dt-1"]]
+    assert single_fast_batches == []
     assert single_slow_batches == []
+
+
+def test_direct_typst_low_risk_body_items_can_enter_batched_plain_path() -> None:
+    context = build_translation_control_context()
+    body_text = "This direct Typst paragraph discusses density functional theory with enough text for translation."
+    batches, immediate = _build_translation_batches(
+        [
+            _item("dt-a", body_text, math_mode="direct_typst"),
+            _item("dt-b", body_text, math_mode="direct_typst"),
+        ],
+        effective_batch_size=4,
+        translation_context=context,
+    )
+    assert immediate == []
+    assert [[item["item_id"] for item in batch] for batch in batches] == [["dt-a", "dt-b"]]
+    assert all(item.get("_batched_plain_candidate") for item in batches[0])
 
 
 def test_smarter_batches_leave_reference_like_text_as_single_batch_without_fast_skip() -> None:
@@ -550,3 +583,30 @@ def test_duplicate_plain_items_are_collapsed_and_expanded_with_item_diagnostics(
     assert expanded["b"]["translated_text"] == "甲"
     assert expanded["b"]["translation_diagnostics"]["item_id"] == "b"
     assert expanded["b"]["translation_diagnostics"]["page_idx"] == 1
+
+
+def test_duplicate_plain_items_keep_origin_when_representative_result_failed() -> None:
+    pending = [
+        _item("a", "A", block_type="image_caption", page_idx=0),
+        _item("b", "A", block_type="image_caption", page_idx=1),
+    ]
+    _unique, duplicates = _dedupe_pending_items(pending)
+
+    expanded = _expand_duplicate_results(
+        {
+            "a": {
+                "decision": "translate",
+                "translated_text": "",
+                "final_status": "failed",
+                "translation_diagnostics": {"item_id": "a", "page_idx": 0},
+            }
+        },
+        duplicate_items_by_rep_id=duplicates,
+    )
+
+    assert expanded["b"]["final_status"] == "kept_origin"
+    assert expanded["b"]["translation_diagnostics"]["item_id"] == "b"
+    assert expanded["b"]["translation_diagnostics"]["page_idx"] == 1
+    assert expanded["b"]["translation_diagnostics"]["fallback_to"] == "keep_origin"
+    assert "fast_path_keep_origin" in expanded["b"]["translation_diagnostics"]["route_path"]
+    assert expanded["b"]["translation_diagnostics"]["degradation_reason"] == "duplicate_representative_not_expandable"

@@ -56,7 +56,12 @@ def _translate_batch_or_keep_origin(
         mode=mode,
         request_label=request_label,
     )
-    effective_domain_guidance = domain_guidance_with_retrieved_memory(domain_guidance, memory_store, batch)
+    effective_domain_guidance = domain_guidance_with_retrieved_memory(
+        domain_guidance,
+        memory_store,
+        batch,
+        memory_mode=str(getattr(effective_context, "memory_mode", "matched")),
+    )
     try:
         return translate_fn(
             batch,

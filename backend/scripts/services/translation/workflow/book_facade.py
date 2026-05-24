@@ -35,6 +35,9 @@ class BookRequest:
     glossary_inline_entry_count: int = 0
     glossary_overridden_entry_count: int = 0
     glossary_entries: list[GlossaryEntry] | None = None
+    context_mode: str = "needed"
+    glossary_mode: str = "matched"
+    memory_mode: str = "matched"
     compile_workers: int | None = None
     typst_font_family: str = ""
     pdf_compress_dpi: int = 144
@@ -133,6 +136,9 @@ class TranslationRequest:
     glossary_inline_entry_count: int = 0
     glossary_overridden_entry_count: int = 0
     glossary_entries: list[GlossaryEntry] | None = None
+    context_mode: str = "needed"
+    glossary_mode: str = "matched"
+    memory_mode: str = "matched"
     invocation: dict[str, Any] | None = None
     render_prewarm_output_pdf_path: Path | None = None
     render_prewarm_artifacts_dir: Path | None = None
@@ -233,6 +239,9 @@ def translate_book(request: TranslationRequest) -> TranslationResult:
             glossary_inline_entry_count=request.glossary_inline_entry_count,
             glossary_overridden_entry_count=request.glossary_overridden_entry_count,
             glossary_entries=request.glossary_entries,
+            context_mode=request.context_mode,
+            glossary_mode=request.glossary_mode,
+            memory_mode=request.memory_mode,
             invocation=request.invocation,
             render_prewarm_output_pdf_path=request.render_prewarm_output_pdf_path,
             render_prewarm_artifacts_dir=request.render_prewarm_artifacts_dir,
@@ -273,6 +282,9 @@ def run_book(request: BookRequest) -> BookResult:
             glossary_inline_entry_count=request.glossary_inline_entry_count,
             glossary_overridden_entry_count=request.glossary_overridden_entry_count,
             glossary_entries=request.glossary_entries,
+            context_mode=request.context_mode,
+            glossary_mode=request.glossary_mode,
+            memory_mode=request.memory_mode,
             compile_workers=request.compile_workers,
             typst_font_family=request.typst_font_family,
             pdf_compress_dpi=request.pdf_compress_dpi,

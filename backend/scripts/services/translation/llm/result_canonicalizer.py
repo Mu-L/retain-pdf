@@ -33,6 +33,8 @@ def canonicalize_batch_result(batch: list[dict], result: dict[str, dict[str, str
         canonical[item_id] = result_entry(decision, translated_text)
         if isinstance(payload, dict) and payload.get("final_status"):
             canonical[item_id]["final_status"] = str(payload.get("final_status", "") or canonical[item_id]["final_status"])
+        if isinstance(payload, dict) and isinstance(payload.get("member_translations"), list):
+            canonical[item_id]["member_translations"] = payload["member_translations"]
     return canonical
 
 

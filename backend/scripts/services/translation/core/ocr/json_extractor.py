@@ -18,10 +18,12 @@ from services.translation.core.ocr.normalized_reader import (
     block_children as _block_children,
     block_kind as _block_kind,
     block_layout_role as _block_layout_role,
+    block_line_texts as _block_line_texts,
     block_policy_translate as _block_policy_translate,
     block_reading_order as _block_reading_order,
     block_semantic_role as _block_semantic_role,
     block_sub_type as _block_sub_type,
+    block_text_flow as _block_text_flow,
     raw_block_type as _raw_block_type,
     ensure_normalized_document,
     get_pages as _get_pages,
@@ -176,6 +178,14 @@ def normalize_text(raw_text: str) -> str:
     return " ".join(_repair_math_control_chars(raw_text).split())
 
 
+def normalize_source_text(raw_text: str) -> str:
+    text = _repair_math_control_chars(raw_text)
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if len(lines) >= 2:
+        return "\n".join(" ".join(line.split()) for line in lines)
+    return " ".join(text.split())
+
+
 def normalize_span_text(raw_text: str, next_text: str = "") -> str:
     return " ".join(_repair_math_control_chars(raw_text, next_text=next_text).split())
 
@@ -241,6 +251,13 @@ def block_lines(block: dict) -> list[dict]:
 
 def merge_segments_text(segments: list[dict]) -> str:
     return normalize_text(" ".join(segment["content"] for segment in segments if segment["content"]))
+
+
+def block_source_text(block: dict, segments: list[dict]) -> str:
+    content_text = str(((block.get("content") or {}).get("text")) or block.get("text") or "")
+    if content_text.strip():
+        return normalize_source_text(content_text)
+    return merge_segments_text(segments)
 
 
 def _bbox_left(item: TextItem) -> float:
@@ -496,7 +513,7 @@ def extract_block_item(
 ) -> TextItem | None:
     segments = block_segments(block)
     lines = block_lines(block)
-    text = merge_segments_text(segments)
+    text = block_source_text(block, segments)
     if not text:
         return None
     if not should_translate_block(
@@ -522,6 +539,8 @@ def extract_block_item(
         text=text,
         segments=segments,
         lines=lines,
+        line_texts=_block_line_texts(block),
+        text_flow=_block_text_flow(block) or "flow",
         metadata={
             **_translation_metadata_bridge(block),
         },

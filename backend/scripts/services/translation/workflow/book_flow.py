@@ -5,6 +5,7 @@ from collections.abc import Callable
 
 from services.translation.workflow.stages import run_continuation_review
 from services.translation.workflow.stages import run_agent_repair_stage
+from services.translation.workflow.stages import run_final_untranslated_recovery_stage
 from services.translation.workflow.stages import run_garbled_reconstruction_stage
 from services.translation.workflow.stages import run_initial_continuation_pass
 from services.translation.workflow.stages import run_page_policy_stage
@@ -83,7 +84,10 @@ def translate_book_with_global_continuations(
         run_diagnostics=run_diagnostics,
     )
     finalize_orchestration_metadata_by_page(page_payloads)
-    context_window_updates = annotate_translation_context_windows(page_payloads)
+    context_window_updates = annotate_translation_context_windows(
+        page_payloads,
+        mode=str(getattr(translation_context, "context_mode", "needed") if translation_context is not None else "needed"),
+    )
     if context_window_updates:
         print(f"book: translation context windows updated={context_window_updates}", flush=True)
     save_pages(page_payloads, translation_paths)
@@ -128,6 +132,16 @@ def translate_book_with_global_continuations(
         base_url=base_url,
         translation_context=translation_context,
         run_diagnostics=run_diagnostics,
+    )
+
+    run_final_untranslated_recovery_stage(
+        page_payloads=page_payloads,
+        translation_paths=translation_paths,
+        api_key=api_key,
+        model=model,
+        base_url=base_url,
+        translation_context=translation_context,
+        workers=workers,
     )
 
     translated_pages_map = {page_idx: load_translations(translation_paths[page_idx]) for page_idx in sorted(page_payloads)}

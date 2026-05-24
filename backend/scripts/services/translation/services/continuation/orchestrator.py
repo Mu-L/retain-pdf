@@ -60,7 +60,7 @@ def review_candidate_continuation_pairs(
     base_url: str,
     workers: int,
     save_pages_fn,
-    batch_size: int = 24,
+    batch_size: int = 3,
     progress_callback: Callable[[int, int], None] | None = None,
 ) -> int:
     flat_payload = [item for page_idx in sorted(page_payloads) for item in page_payloads[page_idx]]

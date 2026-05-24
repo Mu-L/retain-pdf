@@ -4,7 +4,7 @@ import json
 import re
 from typing import Any
 
-from services.translation.llm.shared.provider_runtime import extract_json_text
+from services.translation.llm.shared.response_parsing import extract_json_text
 
 
 _TRAILING_COMMA_RE = re.compile(r",(\s*[}\]])")

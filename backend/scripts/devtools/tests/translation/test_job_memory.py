@@ -9,6 +9,7 @@ REPO_SCRIPTS_ROOT = Path("/home/wxyhgk/tmp/Code/backend/scripts")
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 from services.translation.services.memory import JobMemory
+from services.translation.services.memory import JobMemorySnapshot
 from services.translation.services.memory import JobMemoryStore
 from services.translation.services.memory import update_job_memory_from_batch
 from services.translation.services.memory.candidates import extract_scored_term_candidates
@@ -149,6 +150,22 @@ def test_job_memory_store_summary_for_batch_only_returns_relevant_terms(tmp_path
 
     assert "DFTB => 密度泛函紧束缚" in summary
     assert "SCF =>" not in summary
+
+
+def test_job_memory_snapshot_is_read_only_point_in_time(tmp_path) -> None:
+    store = JobMemoryStore(tmp_path / "translated" / "job-memory.json")
+    memory = JobMemory.empty(store.path)
+    memory.add_term(key="SCF", value="自洽场", source="p001-b001")
+    store.save(memory)
+    snapshot = JobMemorySnapshot.from_store(store)
+
+    store.update_from_batch(
+        [{"item_id": "p002-b001", "source_text": "DFTB", "protected_source_text": "DFTB"}],
+        {"p002-b001": {"translated_text": "密度泛函紧束缚（DFTB）"}},
+    )
+
+    assert "SCF => 自洽场" in snapshot.summary_for_batch([{"source_text": "SCF"}])
+    assert "DFTB =>" not in snapshot.summary_for_batch([{"source_text": "DFTB"}])
 
 
 def test_term_candidate_extraction_exposes_scores_without_breaking_tuple_api() -> None:

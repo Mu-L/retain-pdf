@@ -67,9 +67,13 @@ def build_translation_execution_plan(request: TranslationExecutionRequest) -> Tr
         glossary_entries=glossary_entries,
         model=request.model,
         base_url=request.base_url,
+        context_mode=request.context_mode,
+        glossary_mode=request.glossary_mode,
+        memory_mode=request.memory_mode,
     )
+    provider_family = classify_provider_family(base_url=request.base_url, model=request.model)
     run_diagnostics = TranslationRunDiagnostics(
-        provider_family=classify_provider_family(base_url=request.base_url, model=request.model),
+        provider_family=provider_family,
         model=request.model,
         base_url=request.base_url,
         configured_workers=max(1, request.workers),
@@ -77,8 +81,13 @@ def build_translation_execution_plan(request: TranslationExecutionRequest) -> Tr
         configured_classify_batch_size=max(1, request.classify_batch_size),
     )
     effective_workers = max(1, request.workers)
+    initial_concurrency_limit = (
+        effective_workers
+        if provider_family == "deepseek_official"
+        else _adaptive_initial_limit(effective_workers)
+    )
     run_diagnostics.configure_adaptive_concurrency(
-        initial_limit=_adaptive_initial_limit(effective_workers),
+        initial_limit=initial_concurrency_limit,
         floor_limit=_adaptive_floor_limit(effective_workers),
     )
     run_diagnostics.set_effective_settings(

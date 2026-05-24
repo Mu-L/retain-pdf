@@ -58,6 +58,7 @@ class TranslationItemContext:
     line_count: int = 0
     lines: list[dict] | None = None
     line_texts: list[str] | None = None
+    text_flow: str = "flow"
     has_inline_formula: bool = False
     math_mode: str = "placeholder"
     style_hint: str = ""
@@ -68,6 +69,8 @@ class TranslationItemContext:
     raw_item: dict[str, Any] | None = None
 
     def source_for_prompt(self) -> str:
+        if self.text_flow == "preserve_lines" and self.line_texts:
+            return "\n".join(line for line in self.line_texts if line.strip())
         return self.protected_source_text
 
     def context_before_for_prompt(self) -> str:
@@ -86,14 +89,18 @@ class TranslationItemContext:
         }
         if self.style_hint:
             payload["style_hint"] = self.style_hint
+        if self.text_flow == "preserve_lines" and self.line_texts:
+            payload["text_flow"] = "preserve_lines"
+            payload["line_count"] = len(self.line_texts)
+            payload["instruction"] = "保持原文多行结构，译文尽量使用相同换行数量和行序。"
         if self.continuation_group:
             payload["continuation_group"] = self.continuation_group
-            context_before = self.context_before_for_prompt()
-            context_after = self.context_after_for_prompt()
-            if context_before:
-                payload["context_before"] = f"仅供理解，禁止翻译进输出：{context_before}"
-            if context_after:
-                payload["context_after"] = f"仅供理解，禁止翻译进输出：{context_after}"
+        context_before = self.context_before_for_prompt()
+        context_after = self.context_after_for_prompt()
+        if context_before:
+            payload["context_before"] = f"仅供理解，禁止翻译进输出：{context_before}"
+        if context_after:
+            payload["context_after"] = f"仅供理解，禁止翻译进输出：{context_after}"
         return payload
 
     def as_classification_record(self, *, rule_label: str = "") -> dict[str, Any]:
@@ -121,6 +128,11 @@ class TranslationItemContext:
 def build_item_context(item: dict[str, Any], *, order: int = 0, page_idx: int | None = None) -> TranslationItemContext:
     lines = list(item.get("lines", []) or [])
     source_text = str(item.get("source_text", "") or "")
+    explicit_line_texts = [
+        str(line).strip()
+        for line in item.get("source_line_texts", [])
+        if str(line).strip()
+    ]
     protected_source_text = str(
         item.get("translation_unit_protected_source_text")
         or item.get("group_protected_source_text")
@@ -147,6 +159,8 @@ def build_item_context(item: dict[str, Any], *, order: int = 0, page_idx: int | 
     }
     formula_map = item.get("formula_map")
     segments = list(item.get("segments", []) or [])
+    context_mode = str(item.get("translation_context_mode", "needed") or "needed").strip().lower()
+    include_continuation_context = context_mode != "off"
     return TranslationItemContext(
         item_id=str(item.get("item_id", "") or ""),
         page_idx=resolved_page_idx,
@@ -161,17 +175,18 @@ def build_item_context(item: dict[str, Any], *, order: int = 0, page_idx: int | 
         bbox=list(item.get("bbox", []) or []),
         line_count=len(lines),
         lines=lines,
-        line_texts=_line_texts(lines),
+        line_texts=explicit_line_texts or _line_texts(lines),
+        text_flow=str(item.get("text_flow", "") or "flow").strip().lower() or "flow",
         has_inline_formula=bool(formula_map) or _count_inline_formulas(segments) > 0,
         math_mode=str(item.get("math_mode", "placeholder") or "placeholder").strip() or "placeholder",
         style_hint=structure_style_hint(item),
         continuation_group=str(item.get("continuation_group", "") or ""),
         context_before=_merge_context_text(
             item.get("translation_context_before", ""),
-            item.get("continuation_prev_text", ""),
+            item.get("continuation_prev_text", "") if include_continuation_context else "",
         ),
         context_after=_merge_context_text(
-            item.get("continuation_next_text", ""),
+            item.get("continuation_next_text", "") if include_continuation_context else "",
             item.get("translation_context_after", ""),
         ),
         metadata=dict(item.get("metadata", {}) or {}),

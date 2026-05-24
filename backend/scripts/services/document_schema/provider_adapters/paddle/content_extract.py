@@ -184,6 +184,26 @@ def _build_pseudo_lines(*, bbox: list[float], text: str, raw_label: str) -> list
     return lines
 
 
+def _build_explicit_text_lines(*, bbox: list[float], text: str, raw_label: str) -> list[dict]:
+    chunks = [line.strip() for line in str(text or "").splitlines() if line.strip()]
+    if len(chunks) <= 1 or len(bbox) != 4:
+        return []
+    x0, y0, x1, y1 = (float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3]))
+    total_lines = len(chunks)
+    line_height = max(1.0, (y1 - y0) / total_lines)
+    lines: list[dict] = []
+    for index, chunk in enumerate(chunks):
+        line_y0 = y0 + line_height * index
+        line_y1 = y1 if index == total_lines - 1 else y0 + line_height * (index + 1)
+        lines.append(
+            {
+                "bbox": [x0, round(line_y0, 3), x1, round(line_y1, 3)],
+                "spans": build_segments(chunk, raw_label),
+            }
+        )
+    return lines
+
+
 def build_lines(
     *,
     bbox: list[float],
@@ -193,6 +213,9 @@ def build_lines(
     block_type: str = "",
     sub_type: str = "",
 ) -> list[dict]:
+    explicit_lines = _build_explicit_text_lines(bbox=bbox, text=text, raw_label=raw_label)
+    if explicit_lines:
+        return explicit_lines
     if block_type == "text" and str(sub_type or "").strip().lower() in BODYLIKE_SUBTYPES:
         pseudo_bbox = tighten_text_bbox(
             bbox=bbox,

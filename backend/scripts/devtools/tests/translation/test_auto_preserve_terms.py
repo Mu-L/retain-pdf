@@ -158,6 +158,6 @@ def test_execution_plan_ramps_up_high_configured_workers(tmp_path: Path) -> None
 
     assert summary["configured_workers"] == 1000
     assert summary["adaptive_concurrency"]["configured_limit"] == 1000
-    assert summary["adaptive_concurrency"]["initial_limit"] == 32
-    assert summary["adaptive_concurrency"]["current_limit"] == 32
+    assert summary["adaptive_concurrency"]["initial_limit"] == 1000
+    assert summary["adaptive_concurrency"]["current_limit"] == 1000
     assert summary["adaptive_concurrency"]["floor_limit"] == 8

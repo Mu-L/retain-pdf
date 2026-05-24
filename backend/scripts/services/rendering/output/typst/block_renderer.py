@@ -12,6 +12,7 @@ from services.rendering.output.typst.block_markup import typst_markdown_fit_call
 from services.rendering.output.typst.block_markup import typst_place_context
 from services.rendering.output.typst.block_markup import typst_plain_markdown_expr
 from services.rendering.output.typst.block_markup import typst_plain_text_expr
+from services.rendering.output.typst.block_markup import typst_preserved_lines_expr
 from services.rendering.output.typst.block_markup import typst_single_line_fit_call
 from services.rendering.output.typst.shared import escape_typst_string
 
@@ -32,6 +33,37 @@ def sanitize_typst_markdown_for_compile(markdown: str) -> str:
     text = text.replace(r"\textcircled{\times}", r"\otimes")
     text = text.replace(r"\textcircled{\parallel}", r"\circ")
     return text
+
+
+def _typst_string_array(values: list[str]) -> str:
+    return "(" + ", ".join(f'"{escape_typst_string(value)}"' for value in values) + ("," if len(values) == 1 else "") + ")"
+
+
+def _build_preserved_line_box_typst(block_id: str, block: RenderBlock, *, text_fill: str) -> str:
+    parts: list[str] = []
+    font_weight = block.font_weight if str(block.font_weight or "").strip() else "regular"
+    for index, line in enumerate(block.preserved_line_boxes or []):
+        if len(line.bbox) != 4 or not str(line.text or "").strip():
+            continue
+        x0, y0, x1, y1 = [float(value) for value in line.bbox]
+        width = max(typst_config.MIN_BLOCK_SIZE_PT, x1 - x0)
+        height = max(typst_config.MIN_BLOCK_SIZE_PT, y1 - y0)
+        max_font_pt = round(max(1.0, min(block.font_size_pt, height * 0.86)), 2)
+        min_font_pt = round(max(1.0, min(max_font_pt, height * 0.58)), 2)
+        line_name = f"{block_id.replace('-', '_')}_line_{index}_md"
+        body_name = f"{block_id.replace('-', '_')}_line_{index}_body"
+        parts.extend(
+            [
+                f'#let {line_name} = "{escape_typst_string(line.text)}"',
+                f"#let {body_name} = block(width: {width}pt, height: {height}pt)[#{{ "
+                f"set text(fill: {text_fill}); "
+                f'pdftr_fit_single_line_markdown({line_name}, max_size: {max_font_pt}pt, '
+                f'min_size: {min_font_pt}pt, fit_width: {width}pt, fit_height: {height}pt, '
+                f'weight: "{font_weight}", justify: false) }}]',
+                typst_place_context(x_pt=x0, y_pt=y0, body_name=body_name).rstrip(),
+            ]
+        )
+    return "\n".join(parts) + ("\n" if parts else "")
 
 
 def build_typst_block(block_id: str, block: RenderBlock, *, include_fill: bool = False) -> str:
@@ -95,6 +127,31 @@ def build_typst_block(block_id: str, block: RenderBlock, *, include_fill: bool =
     markdown = sanitize_typst_markdown_for_compile(block.markdown_text)
     first_line_indent = typst_config.first_line_indent_pt(block.first_line_indent_pt)
     justify_text = typst_config.typst_bool(block.justify_text)
+    if block.preserve_line_breaks and block.preserved_line_boxes:
+        return _build_preserved_line_box_typst(block_id, block, text_fill=text_fill)
+    if block.preserve_line_breaks and "\n" in markdown:
+        lines_name = f"{fields.var_prefix}_lines"
+        line_values = [line.strip() for line in markdown.splitlines() if line.strip()]
+        body_expr = typst_preserved_lines_expr(
+            lines_name,
+            font_size_pt=fields.font_size,
+            leading_em=fields.leading,
+            font_weight=fields.font_weight,
+            text_fill=text_fill,
+            justify_text="false",
+        )
+        parts = [
+            f"#let {lines_name} = {_typst_string_array(line_values)}",
+            typst_markdown_block(
+                body_name,
+                width_pt=fields.width,
+                height_pt=fields.height,
+                block_fill=block_fill,
+                body_expr=body_expr,
+            ),
+            typst_place_context(x_pt=fields.x0, y_pt=fields.y0, body_name=body_name),
+        ]
+        return "\n".join(parts) + "\n"
     if block.fit_to_box:
         if block.fit_single_line:
             single_line_fit = typst_config.single_line_fit_config(

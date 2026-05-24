@@ -21,6 +21,7 @@ from services.rendering.layout.payload.block_seed_body_policy import relax_wide_
 from services.rendering.layout.payload.block_seed_metrics import PageSeedMetrics
 from services.rendering.layout.payload.body_context import page_box_area_ratio as compute_page_box_area_ratio
 from services.rendering.layout.payload.metrics import fit_translated_block_metrics
+from services.rendering.layout.payload.line_structure import fit_preserved_line_block_metrics
 from services.rendering.layout.payload.shared import COMPACT_SCALE
 from services.rendering.layout.payload.shared import HEAVY_COMPACT_RATIO
 from services.rendering.layout.payload.shared import get_render_formula_map
@@ -57,6 +58,7 @@ def build_seed_payload_for_item(
     page_box_area_ratio = compute_page_box_area_ratio(bbox, page_width, page_height)
     raw_inner_bbox = inner_bbox(item)
     item_inner_bbox = metrics.effective_inner_bboxes.get(index, raw_inner_bbox)
+    preserve_line_breaks = bool(item.get("_render_preserve_line_breaks"))
     seed_line_step = max(font_size_pt * 1.02, font_size_pt * (1.0 + leading_em))
     layout_density = layout_density_ratio(
         item_inner_bbox,
@@ -161,6 +163,13 @@ def build_seed_payload_for_item(
             font_size_pt,
             leading_em,
         )
+    if preserve_line_breaks:
+        font_size_pt, leading_em = fit_preserved_line_block_metrics(
+            item_inner_bbox,
+            translated_text,
+            font_size_pt,
+            leading_em,
+        )
     item_cover_bbox = resolve_cover_bbox(item)
     return {
         "index": index,
@@ -183,6 +192,7 @@ def build_seed_payload_for_item(
         "wide_aspect_body_text": wide_aspect_body_text,
         "prefer_typst_fit": bool(metrics.body_flags.get(index, False) and dense_small_box),
         "title_fit": title_fit,
+        "preserve_line_breaks": preserve_line_breaks,
         "adjacent_collision_risk": False,
         "adjacent_available_height_pt": None,
         "text_color": item.get("_render_text_color", (0, 0, 0)),

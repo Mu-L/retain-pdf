@@ -19,6 +19,31 @@ Translation 阶段的正式输入和输出固定为：
 - 不负责源 PDF 的页面写回、排版覆盖和最终 PDF 交付
 - 不负责 OCR provider 上传、轮询、下载和 normalize 产物生成
 
+## 默认翻译策略
+
+默认策略按人工翻译流程设计，而不是把整页信息全部塞给模型：
+
+1. 当前块优先
+   每次翻译以当前 item 的原文为唯一输出对象。上下文、术语和文档记忆只能辅助理解，不能被翻译进当前块。
+2. 术语按命中注入
+   用户词汇表和自动文档记忆不会全量进入 prompt。主翻译链会先用当前 item 或当前 batch 的 source text 匹配术语，只把命中的 `preferred` 术语作为翻译偏好注入；`preserve/canonical` 这类硬约束优先通过占位保护处理。
+3. 上下文按需注入
+   完整普通正文段默认不带前后文，减少 prompt 体积并避免邻近段落被误翻进当前块。只有跨栏/跨页续接、候选续接、图注、连接词开头片段、短的不完整片段等场景才会带 reading-order 前后文。需要调试旧行为时可用 `mode="all"` 保留全量邻居上下文。
+4. 质量兜底不可关闭
+   `should_translate=true` 的 item 不能以空译文结束。普通翻译、短文本 retry、乱码修复和 agent repair 都应把空译视为可修复问题；高级选项可以控制上下文/术语/质量预算，但不应关闭最终空译修复保证。
+
+### 高级选项
+
+后端翻译请求支持三个高级选项，Rust API 会写入 stage spec 并传给 Python 翻译执行层：
+
+| 字段 | 默认值 | 可选值 | 含义 |
+| --- | --- | --- | --- |
+| `context_mode` | `needed` | `needed` / `all` / `off` | 控制 reading-order 前后文。`needed` 只给不完整片段、续接段和图注等需要上下文的块；`all` 退回旧的邻居上下文行为；`off` 完全关闭前后文。 |
+| `glossary_mode` | `matched` | `matched` / `all` / `off` | 控制用户词汇表注入。`matched` 只注入当前 item/batch 命中的术语；`all` 把整张表交给 prompt；`off` 不注入词汇表。 |
+| `memory_mode` | `matched` | `matched` / `broad` / `off` | 控制自动文档记忆。`matched` 只注入当前 item/batch 命中的历史术语；`broad` 注入文档级摘要；`off` 关闭记忆注入。 |
+
+这些选项只影响 prompt 上下文预算和术语/记忆注入范围，不影响最终质量兜底。空译、严重英文残留和占位符错误仍然必须进入后续修复链路。
+
 当前稳定交接点：
 
 - 上游 OCR 阶段应先把 provider 结果收敛成 `document.v1.json`

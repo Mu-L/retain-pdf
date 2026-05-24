@@ -39,7 +39,14 @@ def build_markdown_from_parts(
                 continue
             chunks.append(f"${normalize_formula_for_latex_math(formula_text)}$")
         else:
-            text = re.sub(r"\s+", " ", (part or "").strip())
+            text = "\n".join(
+                line
+                for line in (
+                    re.sub(r"[ \t\r\f\v]+", " ", raw_line).strip()
+                    for raw_line in (part or "").strip().split("\n")
+                )
+                if line
+            )
             if text:
                 chunks.append(text)
 

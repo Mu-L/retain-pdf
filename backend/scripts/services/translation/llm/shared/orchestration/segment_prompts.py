@@ -68,11 +68,16 @@ def build_formula_segment_messages(
         "segment_structure": segment_structure_outline(skeleton),
         "segments": serialized_segments,
     }
+    include_continuation_context = str(item.get("translation_context_mode", "needed") or "needed").strip().lower() != "off"
     resolved_context_before = (
-        context_before if context_before is not None else segment_context_text(str(item.get("continuation_prev_text", "") or ""))
+        context_before
+        if context_before is not None
+        else segment_context_text(str(item.get("continuation_prev_text", "") or "") if include_continuation_context else "")
     )
     resolved_context_after = (
-        context_after if context_after is not None else segment_context_text(str(item.get("continuation_next_text", "") or ""))
+        context_after
+        if context_after is not None
+        else segment_context_text(str(item.get("continuation_next_text", "") or "") if include_continuation_context else "")
     )
     if resolved_context_before:
         user_payload["context_before"] = resolved_context_before

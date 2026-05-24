@@ -11,6 +11,7 @@ from services.translation.llm.shared.prompt_protocols import build_translation_s
 from services.translation.llm.shared.prompt_protocols import direct_math_guidance as _direct_math_guidance
 from services.translation.llm.shared.prompt_protocols import direct_typst_batch_user_prompt as _direct_typst_batch_user_prompt
 from services.translation.llm.shared.prompt_protocols import direct_typst_single_user_prompt as _direct_typst_single_user_prompt
+from services.translation.llm.shared.prompt_protocols import group_member_json_user_prompt as _group_member_json_user_prompt
 from services.translation.llm.shared.prompt_protocols import plain_text_single_user_prompt as _plain_text_single_user_prompt
 
 
@@ -151,4 +152,32 @@ def build_single_item_fallback_messages(
     return [
         {"role": "system", "content": fallback_system},
         {"role": "user", "content": user_prompt},
+    ]
+
+
+def build_group_member_messages(
+    item: dict,
+    domain_guidance: str = "",
+    mode: str = "fast",
+    target_language_name: str = "简体中文",
+) -> list[dict[str, str]]:
+    item_context = _item_context(item)
+    system_prompt = _build_translation_system_prompt(
+        domain_guidance=domain_guidance,
+        mode=mode,
+        response_style="json",
+        include_sci_decision=False,
+        target_language_name=target_language_name,
+    )
+    system_prompt = (
+        f"{system_prompt}\n\n"
+        "Return only valid JSON. Required schema: "
+        '{"translated_text":"full translated continuation group","member_translations":[{"item_id":"...","translated_text":"..."}]}. '
+        "Every member_id from the request must appear exactly once."
+    )
+    if _item_math_mode(item_context) == "direct_typst":
+        system_prompt = f"{system_prompt}\n{_direct_math_guidance(target_language_name=target_language_name)}"
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": _group_member_json_user_prompt(item_context, target_language_name=target_language_name)},
     ]

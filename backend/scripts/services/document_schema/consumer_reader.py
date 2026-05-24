@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Iterable
 
+from services.document_schema.text_flow import TEXT_FLOW_PRESERVE_LINES
+
 
 SCHEMA_PREFIX = "normalized_document_v"
 
@@ -51,6 +53,26 @@ def block_bbox(block: dict) -> list[float]:
 def block_text(block: dict) -> str:
     content = block.get("content", {}) or {}
     return str(content.get("text", "") or "")
+
+
+def block_line_texts(block: dict) -> list[str]:
+    content = block.get("content", {}) or {}
+    text = str(content.get("text", "") or "")
+    explicit_lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if len(explicit_lines) >= 2:
+        return explicit_lines
+    values = content.get("line_texts", [])
+    if isinstance(values, list):
+        return [str(value).strip() for value in values if str(value).strip()]
+    return []
+
+
+def block_text_flow(block: dict) -> str:
+    content = block.get("content", {}) or {}
+    text = str(content.get("text", "") or "")
+    if len([line for line in text.splitlines() if line.strip()]) >= 2:
+        return TEXT_FLOW_PRESERVE_LINES
+    return str(content.get("text_flow", "") or "").strip().lower()
 
 
 def block_kind(block: dict) -> str:
@@ -107,6 +129,7 @@ __all__ = [
     "block_bbox",
     "block_children",
     "block_kind",
+    "block_line_texts",
     "block_layout_role",
     "block_policy_translate",
     "block_reading_order",
@@ -114,6 +137,7 @@ __all__ = [
     "block_structure_role",
     "block_sub_type",
     "block_text",
+    "block_text_flow",
     "ensure_normalized_document",
     "get_pages",
     "is_normalized_document",

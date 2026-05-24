@@ -47,7 +47,8 @@ def test_repair_agent_builds_llm_task_with_matched_issues_and_glossary() -> None
     assert task.response_format["type"] == "json_schema"
     assert user_payload["source_placeholders"] == ["<f1-abc/>"]
     assert [issue["kind"] for issue in user_payload["issues"]] == ["glossary_term_missing"]
-    assert "SCF -> 自洽场" in user_payload["matched_glossary_guidance"]
+    assert '"source": "SCF"' in user_payload["matched_glossary_guidance"]
+    assert '"target": "自洽场"' in user_payload["matched_glossary_guidance"]
     assert "DFTB" not in user_payload["matched_glossary_guidance"]
 
 
@@ -109,4 +110,6 @@ def test_coordinator_exposes_repair_task_builder() -> None:
     )
 
     assert task.task_id == "repair:p001-b001"
-    assert "SCF -> 自洽场" in task.messages[1]["content"]
+    user_payload = json.loads(task.messages[1]["content"])
+    assert '"source": "SCF"' in user_payload["matched_glossary_guidance"]
+    assert '"target": "自洽场"' in user_payload["matched_glossary_guidance"]

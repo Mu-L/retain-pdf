@@ -12,6 +12,8 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 from services.translation.llm.providers.deepseek import client as deepseek_client
 from services.translation.llm.providers.deepseek import translation_client
+from services.translation.core.context import build_item_context
+from services.translation.llm.shared.prompt_protocols import group_member_json_user_prompt
 
 
 def test_translate_single_item_plain_text_uses_plain_text_protocol() -> None:
@@ -83,6 +85,36 @@ def test_translate_batch_once_uses_tagged_protocol_without_schema() -> None:
     assert captured["response_format"] is None
     assert result["p001-b001"]["translated_text"] == "复杂计算机程序的发展。"
     assert result["p001-b002"]["translated_text"] == "更快的算力提升了模拟能力。"
+
+
+def test_translate_continuation_group_members_repairs_loose_json_response() -> None:
+    item = {
+        "item_id": "__cg__:cg-010-001",
+        "translation_unit_id": "__cg__:cg-010-001",
+        "translation_unit_member_ids": ["p010-b001", "p010-b002"],
+        "protected_source_text": "This sentence starts and continues.",
+        "translation_unit_protected_source_text": "This sentence starts and continues.",
+        "block_type": "text",
+        "metadata": {"structure_role": "body"},
+    }
+
+    def _fake_request(_messages, **_kwargs):
+        return """
+        {
+          translated_text: "这句话开始并继续。",
+          member_translations: [
+            {"item_id": "p010-b001", "translated_text": "这句话开始"},
+            {"item_id": "p010-b002", "translated_text": "并继续。"},
+          ],
+        }
+        """
+
+    with mock.patch.object(translation_client, "request_chat_content", side_effect=_fake_request):
+        result = translation_client.translate_continuation_group_members(item)
+
+    payload = result["__cg__:cg-010-001"]
+    assert payload["translated_text"] == "这句话开始并继续。"
+    assert payload["member_translations"][1]["translated_text"] == "并继续。"
 
 
 def test_build_messages_sci_tagged_uses_translation_only_protocol() -> None:
@@ -186,6 +218,27 @@ def test_build_single_item_fallback_messages_plain_text_user_prompt_is_not_json(
     assert "JSON" not in messages[1]["content"]
     assert '"item_id"' not in messages[1]["content"]
     assert '"source_text"' not in messages[1]["content"]
+
+
+def test_group_member_json_user_prompt_includes_member_ids_and_schema() -> None:
+    item_context = build_item_context(
+        {
+            "item_id": "__cg__:cg-010-001",
+            "translation_unit_member_ids": ["p010-b001", "p010-b002"],
+            "continuation_group": "cg-010-001",
+            "translation_unit_protected_source_text": "This sentence starts and continues.",
+            "protected_source_text": "This sentence starts and continues.",
+            "translation_context_after": "Do not include this context in output.",
+            "metadata": {"structure_role": "body"},
+        }
+    )
+
+    payload = json.loads(group_member_json_user_prompt(item_context))
+
+    assert payload["group"]["item_id"] == "__cg__:cg-010-001"
+    assert payload["group"]["member_ids"] == ["p010-b001", "p010-b002"]
+    assert payload["output_schema"]["member_translations"][0]["item_id"] == "member id from member_ids"
+    assert "Do not include this context" in payload["context_after"]
 
 
 def test_plain_text_prompt_keeps_literal_preservation_in_translation_scope() -> None:

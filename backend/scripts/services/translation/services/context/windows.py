@@ -1,13 +1,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 
 from services.translation.core.context.models import sanitize_prompt_context_text
+from services.translation.core.item_reader import item_is_caption_like
 from services.translation.core.item_reader import item_is_textual
 
 
 DEFAULT_CONTEXT_WINDOW_NEIGHBORS = 2
 DEFAULT_CONTEXT_TEXT_LIMIT = 360
+SOURCE_TERMINAL_RE = re.compile(r"[.!?。！？；;:：)\]）】”’\"']\s*$")
+CONNECTOR_START_RE = re.compile(
+    r"^(?:and|or|but|than|which|that|where|when|while|because|therefore|thus|hence|so|as|of|to|for|from|with|in|on|by)\b",
+    re.IGNORECASE,
+)
+WORD_RE = re.compile(r"[A-Za-z]+(?:[-'][A-Za-z]+)?")
 
 
 @dataclass(frozen=True)
@@ -62,6 +70,33 @@ def _is_context_candidate(item: dict) -> bool:
     return True
 
 
+def _source_looks_incomplete(text: str) -> bool:
+    source = str(text or "").strip()
+    if not source:
+        return False
+    return SOURCE_TERMINAL_RE.search(source) is None
+
+
+def _needs_translation_context(item: dict) -> bool:
+    source = _context_source(item)
+    if not source:
+        return False
+    if str(item.get("continuation_group", "") or "").strip():
+        return True
+    if str(item.get("continuation_candidate_prev_id", "") or "").strip():
+        return True
+    if str(item.get("continuation_candidate_next_id", "") or "").strip():
+        return True
+    if item_is_caption_like(item):
+        return True
+    words = WORD_RE.findall(source)
+    if CONNECTOR_START_RE.search(source):
+        return True
+    if len(words) <= 8 and _source_looks_incomplete(source):
+        return True
+    return False
+
+
 def build_translation_context_windows(
     page_payloads: dict[int, list[dict]],
     *,
@@ -99,15 +134,19 @@ def annotate_translation_context_windows(
     *,
     neighbors: int = DEFAULT_CONTEXT_WINDOW_NEIGHBORS,
     text_limit: int = DEFAULT_CONTEXT_TEXT_LIMIT,
+    mode: str = "needed",
 ) -> int:
-    """Attach lightweight reading-order context for the translator.
+    """Attach reading-order context only where a human translator would look around.
 
-    This does not decide whether an item should be translated. It only gives the
-    model nearby text so short fragments, captions, and structured technical
-    rows can be interpreted without adding fragile no-translation rules.
+    The default keeps ordinary complete body paragraphs context-free, reducing
+    prompt size and preventing neighboring text from being translated into the
+    current block. Use mode="all" for the legacy behavior.
     """
 
     windows = build_translation_context_windows(page_payloads, neighbors=neighbors, text_limit=text_limit)
+    resolved_mode = str(mode or "needed").strip().lower()
+    annotate_all = resolved_mode == "all"
+    annotate_none = resolved_mode == "off"
     annotated = 0
     flat_items = [
         item
@@ -115,9 +154,10 @@ def annotate_translation_context_windows(
         for item in sorted(page_payloads[page_idx], key=_item_order)
     ]
     for item in flat_items:
+        item["translation_context_mode"] = resolved_mode
         item_id = str(item.get("item_id", "") or "")
         window = windows.get(item_id)
-        if window is None:
+        if annotate_none or window is None or (not annotate_all and not _needs_translation_context(item)):
             item["translation_context_before"] = ""
             item["translation_context_after"] = ""
             continue

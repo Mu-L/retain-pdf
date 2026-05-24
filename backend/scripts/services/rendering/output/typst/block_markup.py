@@ -98,5 +98,27 @@ def typst_plain_text_expr(
     )
 
 
+def typst_preserved_lines_expr(
+    lines_name: str,
+    *,
+    font_size_pt: float,
+    leading_em: float,
+    font_weight: str | None = None,
+    text_fill: str | None = None,
+    justify_text: str,
+) -> str:
+    text_args = [f"size: {font_size_pt}pt"]
+    if font_weight is not None:
+        text_args.append(f'weight: "{font_weight}"')
+    if text_fill is not None:
+        text_args.append(f"fill: {text_fill}")
+    gap_em = max(0.0, float(leading_em or 0.0))
+    return (
+        f"set text({', '.join(text_args)}); "
+        f"set par(leading: {leading_em}em, justify: {justify_text}); "
+        f"stack(dir: ttb, spacing: {gap_em}em, ..{lines_name}.map(line => block(line)))"
+    )
+
+
 def typst_place_context(*, x_pt: float, y_pt: float, body_name: str) -> str:
     return "#context {\n" f"  place(top + left, dx: {x_pt}pt, dy: {y_pt}pt, {body_name})\n" "}\n"

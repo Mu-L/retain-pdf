@@ -11,9 +11,10 @@ def save_pages(
     translation_paths: dict[int, Path],
     page_indices: set[int] | None = None,
 ) -> None:
+    flat_payload = [item for page_idx in sorted(page_payloads) for item in page_payloads[page_idx]]
+    refresh_payload_translation_units(flat_payload)
     targets = sorted(page_payloads) if page_indices is None else sorted(page_indices)
     for page_idx in targets:
-        refresh_payload_translation_units(page_payloads[page_idx])
         save_translations(translation_paths[page_idx], page_payloads[page_idx])
 
 

@@ -36,6 +36,9 @@ class TranslationExecutionRequest:
     glossary_inline_entry_count: int = 0
     glossary_overridden_entry_count: int = 0
     glossary_entries: list[GlossaryEntry] | None = None
+    context_mode: str = "needed"
+    glossary_mode: str = "matched"
+    memory_mode: str = "matched"
     invocation: dict[str, Any] | None = None
     render_prewarm_output_pdf_path: Path | None = None
     render_prewarm_artifacts_dir: Path | None = None

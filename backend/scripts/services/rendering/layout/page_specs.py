@@ -45,6 +45,8 @@ def _layout_block_from_render_block(block, *, page_index: int) -> RenderLayoutBl
         justify_text=block.justify_text,
         use_cover_fill=block.use_cover_fill,
         skip_reason=block.skip_reason,
+        preserve_line_breaks=block.preserve_line_breaks,
+        preserved_line_boxes=list(block.preserved_line_boxes or []),
     )
 
 

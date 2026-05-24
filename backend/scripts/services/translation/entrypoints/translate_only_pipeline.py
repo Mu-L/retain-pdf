@@ -35,6 +35,8 @@ from services.pipeline_shared.events import pipeline_event_writer_scope
 from services.pipeline_shared.io import save_json
 from services.translation.artifacts import write_translation_debug_index
 from services.translation.artifacts import write_translation_diagnostics
+from services.translation.artifacts import blocking_untranslated_items
+from services.translation.artifacts import enforce_no_blocking_review_errors
 from services.translation.llm.shared.provider_runtime import DEFAULT_BASE_URL
 from services.translation.llm.shared.provider_runtime import get_api_key
 from services.translation.llm.shared.provider_runtime import normalize_base_url
@@ -80,6 +82,9 @@ def _args_from_spec(spec: TranslateStageSpec) -> SimpleNamespace:
         glossary_inline_entry_count=spec.params.glossary_inline_entry_count,
         glossary_overridden_entry_count=spec.params.glossary_overridden_entry_count,
         glossary_json=parse_glossary_json_json(spec.params.glossary_entries),
+        context_mode=spec.params.context_mode,
+        glossary_mode=spec.params.glossary_mode,
+        memory_mode=spec.params.memory_mode,
         api_key=resolve_credential_ref(spec.params.credential_ref),
         model=spec.params.model,
         base_url=spec.params.base_url,
@@ -157,6 +162,9 @@ def main() -> None:
                 glossary_inline_entry_count=args.glossary_inline_entry_count,
                 glossary_overridden_entry_count=args.glossary_overridden_entry_count,
                 glossary_entries=parse_glossary_json(args.glossary_json),
+                context_mode=args.context_mode,
+                glossary_mode=args.glossary_mode,
+                memory_mode=args.memory_mode,
                 invocation=build_stage_invocation_metadata(
                     stage="translate",
                     stage_spec_schema_version=stage_spec_schema_version,
@@ -202,6 +210,17 @@ def main() -> None:
             stage="saving",
             message="translation review 已发布",
         )
+
+        blocking_untranslated = blocking_untranslated_items(result.get("translated_pages_map", {}))
+        if blocking_untranslated:
+            preview = ", ".join(
+                f"p{int(item['page_idx']) + 1}:{item['item_id']}:{item['reason']}"
+                for item in blocking_untranslated[:8]
+            )
+            raise RuntimeError(
+                f"translation export gate blocked: unresolved_translation_count={len(blocking_untranslated)} preview={preview}"
+            )
+        enforce_no_blocking_review_errors(review_summary)
 
         schema_validation = build_validation_report_from_path(source_json_path)
         normalization_report = load_normalization_report(normalization_report_path)
