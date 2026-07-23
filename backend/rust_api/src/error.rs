@@ -19,6 +19,8 @@ pub enum AppError {
     #[error("{0}")]
     BadGateway(String),
     #[error("{0}")]
+    ServiceUnavailable(String),
+    #[error("{0}")]
     Internal(String),
 }
 
@@ -53,6 +55,10 @@ impl AppError {
         Self::BadGateway(msg.into())
     }
 
+    pub fn service_unavailable(msg: impl Into<String>) -> Self {
+        Self::ServiceUnavailable(msg.into())
+    }
+
     pub fn internal(msg: impl Into<String>) -> Self {
         Self::Internal(msg.into())
     }
@@ -67,6 +73,7 @@ impl IntoResponse for AppError {
             AppError::Conflict(_) => (StatusCode::CONFLICT, 40900),
             AppError::TooManyRequests(_) => (StatusCode::TOO_MANY_REQUESTS, 42900),
             AppError::BadGateway(_) => (StatusCode::BAD_GATEWAY, 50200),
+            AppError::ServiceUnavailable(_) => (StatusCode::SERVICE_UNAVAILABLE, 50300),
             AppError::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, 50000),
         };
         let body = ErrorBody {

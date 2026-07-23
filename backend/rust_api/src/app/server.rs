@@ -66,10 +66,21 @@ async fn serve_with_shutdown(
 
     let shutdown_signal = Arc::new(tokio::sync::Notify::new());
     let shutdown_waiter = shutdown_signal.clone();
+    // watch 通道给长生命周期后台任务（ai_supervisor）：Notify 的一次性
+    // notify_waiters 可能在任务未处于 await 时错过，watch 不会。
+    let (shutdown_tx_watch, shutdown_rx_watch) = tokio::sync::watch::channel(false);
     tokio::spawn(async move {
         shutdown.await;
+        let _ = shutdown_tx_watch.send(true);
         shutdown_waiter.notify_waiters();
     });
+
+    // Phase 2（ADR-001）：RUST_API_AI_SUPERVISE=1 时 rust 监督 ai_service 生命周期
+    let ai_supervisor_handle =
+        crate::services::ai_supervisor::spawn_ai_supervisor(config.clone(), shutdown_rx_watch);
+    if ai_supervisor_handle.is_some() {
+        tracing::info!("ai_supervisor enabled: managing retainpdf-ai lifecycle");
+    }
 
     let full_server = axum::serve(listener, app).with_graceful_shutdown({
         let shutdown_signal = shutdown_signal.clone();
@@ -79,6 +90,9 @@ async fn serve_with_shutdown(
         .with_graceful_shutdown(async move { shutdown_signal.notified().await });
 
     tokio::try_join!(full_server, simple_server)?;
+    if let Some(handle) = ai_supervisor_handle {
+        let _ = handle.await;
+    }
     Ok(())
 }
 

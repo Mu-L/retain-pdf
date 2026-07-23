@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "retainpdf/contracts/ai-ask/v1",
+  "title": "AI 问答链路契约（单一真值）",
+  "description": "frontend ↔ rust_api(透传代理) ↔ ai_service 三方共用的 /v1/ask 契约。生产者：ai_service（Python）；消费者：frontend api/ai.ts。rust ai_proxy 按字节透传不解析。双端契约测试：backend/ai_service/tests/test_contract_schema.py 与 frontend/tests/ai-ask-contract.test.mjs 各自加载本文件断言实现一致——改契约必须三处同步，先改这里。",
+  "definitions": {
+    "Citation": {
+      "type": "object",
+      "description": "引用锚点。page_idx 全链 0 基；旧链路的 page 字段（1 基）不属于本契约，前端 resolveCitationPageIdx 做兼容换算。",
+      "required": ["ref", "document_id", "job_id", "page_idx", "block_id", "snippet"],
+      "properties": {
+        "ref": { "type": "integer", "minimum": 1, "description": "答案内 [n] 编号，从 1 递增" },
+        "document_id": { "type": "string" },
+        "job_id": { "type": "string" },
+        "page_idx": { "type": "integer", "minimum": 0, "description": "0 基页码" },
+        "block_id": { "type": "string", "description": "跳转锚点；非空才可跳转（isAgenticCitation 判据）" },
+        "snippet": { "type": "string", "maxLength": 400 }
+      }
+    },
+    "AskInput": {
+      "type": "object",
+      "description": "POST /v1/ask 请求体（ai_service AskInput pydantic 模型的镜像）",
+      "required": ["question"],
+      "properties": {
+        "question": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "document_id": { "type": "string" },
+        "job_id": { "type": "string" },
+        "conversation_id": { "type": "string" },
+        "parent_id": { "type": "string" },
+        "regenerate": { "type": "boolean" },
+        "user_message_id": { "type": "string", "maxLength": 128 },
+        "assistant_message_id": { "type": "string", "maxLength": 128 },
+        "stream": { "type": "boolean" },
+        "force_compress": { "type": "boolean" },
+        "llm_api_key": { "type": "string" },
+        "llm_base_url": { "type": "string" },
+        "llm_model": { "type": "string" }
+      }
+    },
+    "DonePayload": {
+      "type": "object",
+      "description": "SSE done 事件与非流式 data 字段的公共载荷",
+      "required": ["answer", "citations", "tool_trace", "rounds", "persisted"],
+      "properties": {
+        "answer": { "type": "string" },
+        "citations": { "type": "array", "items": { "$ref": "#/definitions/Citation" } },
+        "tool_trace": { "type": "array", "items": { "type": "object" } },
+        "rounds": { "type": "integer", "minimum": 0 },
+        "persisted": { "type": "boolean", "description": "历史回写是否成功（审计 C2）；false 时前端提示本轮可能丢失" },
+        "conversation_id": { "type": "string", "description": "auto-create 时回传" },
+        "memory": { "type": "object", "description": "记忆装配调试信息（had_summary 等），前端可忽略" }
+      }
+    },
+    "SseEventType": {
+      "type": "string",
+      "enum": ["tool", "answer_delta", "compress", "done", "error"],
+      "description": "SSE data 行的 type 枚举。前端当前消费 tool/answer_delta/done/error；compress 允许忽略但不允许报错。"
+    }
+  }
+}

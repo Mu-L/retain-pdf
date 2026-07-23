@@ -64,6 +64,7 @@ fn test_state(test_name: &str) -> AppState {
         provider_limits: crate::config::ProviderLimitsConfig::default(),
         provider_runtime: crate::config::ProviderRuntimeConfig::default(),
         job_runner: crate::config::JobRunnerConfig::default(),
+        ai_service: crate::config::AiServiceConfig::default(),
     });
 
     AppState {

@@ -4,7 +4,13 @@ version = "0.1.0"
 edition = "2021"
 build = "build.rs"
 
+[workspace]
+members = [".", "crates/retain-core", "crates/retain-data", "crates/retain-jobs"]
+
 [dependencies]
+retain-core = { path = "crates/retain-core" }
+retain-data = { path = "crates/retain-data" }
+retain-jobs = { path = "crates/retain-jobs" }
 axum = { version = "0.7", features = ["multipart", "macros"] }
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["io"] }

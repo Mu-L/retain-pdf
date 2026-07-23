@@ -37,11 +37,13 @@ class Settings:
 
 
 def load_settings() -> Settings:
-    api_keys = frozenset(
-        key.strip()
-        for key in os.environ.get("RETAIN_AI_API_KEYS", "").split(",")
-        if key.strip()
+    # 钥匙单源：单机部署一把钥匙就够。RETAIN_AI_API_KEYS 缺省时回退
+    # RETAIN_API_KEYS（rust_api 的钥匙集）——此前双 env 必须人肉保持同步，
+    # 错配时前端只能看到费解的 401（审计 D4 备注）。显式设置仍优先，兼容不破。
+    raw_keys = os.environ.get("RETAIN_AI_API_KEYS", "").strip() or os.environ.get(
+        "RETAIN_API_KEYS", ""
     )
+    api_keys = frozenset(key.strip() for key in raw_keys.split(",") if key.strip())
     data_root = os.environ.get("RETAIN_AI_DATA_ROOT", "").strip()
     return Settings(
         host=os.environ.get("RETAIN_AI_HOST", "127.0.0.1"),

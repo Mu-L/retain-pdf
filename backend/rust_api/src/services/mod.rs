@@ -1,3 +1,4 @@
+pub mod ai_supervisor;
 pub mod artifacts;
 pub(crate) mod book_projection;
 pub(crate) mod derived_artifacts;

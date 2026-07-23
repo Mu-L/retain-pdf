@@ -237,7 +237,32 @@ async fn search_returns_anchored_hits() {
 
 #[tokio::test]
 async fn ai_proxy_returns_bad_gateway_when_upstream_is_down() {
-    // 指向必死端口:代理应干净地报 502,而不是挂起或 500
+    // 两个场景同函数串行跑:AI_STATUS 是进程级全局,拆开会被 cargo test
+    // 并行调度互踩(503 分支置 UNHEALTHY 的窗口可能污染 502 分支)。
+    use crate::services::ai_supervisor::{
+        set_status_for_test, AI_STATUS_DISABLED, AI_STATUS_UNHEALTHY,
+    };
+
+    // 场景 1(Phase 2 快速失败):监督器判定 unhealthy → 不发起上游连接,立即 503
+    set_status_for_test(AI_STATUS_UNHEALTHY);
+    let state = test_state("ai-proxy-unhealthy");
+    let app = build_app(state);
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/ai/ask")
+                .header("X-API-Key", "test-key")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"question":"q"}"#))
+                .expect("request"),
+        )
+        .await
+        .expect("proxy response");
+    set_status_for_test(AI_STATUS_DISABLED);
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+
+    // 场景 2(unsupervised 直连):指向必死端口,代理干净地报 502,不挂起不 500
     std::env::set_var("RUST_API_AI_SERVICE_BASE", "http://127.0.0.1:9");
     let state = test_state("ai-proxy-down");
     let app = build_app(state);

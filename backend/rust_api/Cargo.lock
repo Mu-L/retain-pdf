@@ -1255,6 +1255,57 @@ dependencies = [
 ]
 
 [[package]]
+name = "retain-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "fastrand",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "retain-data"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "fastrand",
+ "once_cell",
+ "regex",
+ "reqwest",
+ "retain-core",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "tracing",
+ "zip",
+]
+
+[[package]]
+name = "retain-jobs"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "fastrand",
+ "libc",
+ "lopdf",
+ "once_cell",
+ "regex",
+ "reqwest",
+ "retain-core",
+ "retain-data",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "ring"
 version = "0.17.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1298,6 +1349,9 @@ dependencies = [
  "once_cell",
  "regex",
  "reqwest",
+ "retain-core",
+ "retain-data",
+ "retain-jobs",
  "rusqlite",
  "serde",
  "serde_json",

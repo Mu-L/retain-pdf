@@ -33,6 +33,17 @@ pub async fn ask_proxy(
     headers: HeaderMap,
     Json(payload): Json<serde_json::Value>,
 ) -> Result<Response, AppError> {
+    // Phase 2 快速失败：监督器已判定 ai_service 不健康时不再发起上游连接，
+    // 立即返回结构化 503（重启退避期间的请求不用等 connect 超时）。
+    // starting 放行——刚拉起可能已在 listening，connect 失败自然报错；
+    // unsupervised（默认/开发模式）行为与历史完全一致。
+    if crate::services::ai_supervisor::ai_service_status()
+        == crate::services::ai_supervisor::AI_STATUS_UNHEALTHY
+    {
+        return Err(AppError::service_unavailable(
+            "AI 服务暂不可用（监督器正在重启它），请稍后重试",
+        ));
+    }
     let api_key = headers
         .get("X-API-Key")
         .and_then(|value| value.to_str().ok())
