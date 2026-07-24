@@ -55,7 +55,7 @@ import {
   CREDENTIALS_CHANGED_EVENT,
   hasModelApiKey,
   MISSING_MODEL_API_KEY_MESSAGE,
-} from "../../../../../js/reader/ai/config.js";
+} from "../../../external.js";
 
 /** Notion 侧栏式建议：图标 + 短标题 */
 const SUGGESTIONS: Array<{

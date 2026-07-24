@@ -2,6 +2,8 @@ use crate::models::domain::JobSnapshot;
 
 mod artifact_fields;
 mod artifact_rules;
+#[cfg(test)]
+mod contract_lock;
 mod failure;
 mod labels;
 mod metric_rules;

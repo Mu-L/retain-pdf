@@ -43,10 +43,10 @@
 .reader-float-ai .aui-llm-lock-msg {
   margin: 0;
   padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--danger, #c44) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 22%, transparent);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--danger, #c44) 6%, var(--paper));
-  color: color-mix(in srgb, var(--danger, #c44) 80%, var(--ink));
+  background: color-mix(in srgb, var(--danger) 6%, var(--paper));
+  color: color-mix(in srgb, var(--danger) 80%, var(--ink));
   font-size: 12.5px;
   font-weight: 500;
   line-height: 1.45;
@@ -154,7 +154,7 @@
     opacity 140ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
 }
 .reader-float-ai .aui-send:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--ink) 88%, #000);
+  background: color-mix(in srgb, var(--ink) 88%, black);
 }
 .reader-float-ai .aui-send:active:not(:disabled) {
   transform: scale(0.94);
@@ -166,12 +166,12 @@
   opacity: 0.7;
 }
 .reader-float-ai .aui-send-stop {
-  background: color-mix(in srgb, var(--danger, #c44) 12%, var(--paper));
-  color: var(--danger, #c44);
-  border: 1px solid color-mix(in srgb, var(--danger, #c44) 28%, transparent);
+  background: color-mix(in srgb, var(--danger) 12%, var(--paper));
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, transparent);
 }
 .reader-float-ai .aui-send-stop:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--danger, #c44) 18%, var(--paper));
+  background: color-mix(in srgb, var(--danger) 18%, var(--paper));
 }
 
 .reader-float-ai .aui-hint {
@@ -218,9 +218,9 @@
   border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
 }
 .reader-float-ai .aui-btn-stop {
-  background: color-mix(in srgb, var(--danger, #c44) 8%, var(--paper));
-  color: var(--danger, #c44);
-  border: 1px solid color-mix(in srgb, var(--danger, #c44) 35%, transparent);
+  background: color-mix(in srgb, var(--danger) 8%, var(--paper));
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
 }
 .reader-float-ai .aui-running {
   display: inline-flex;

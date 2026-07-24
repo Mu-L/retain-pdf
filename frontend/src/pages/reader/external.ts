@@ -120,3 +120,10 @@ export {
   normalizeServerFavorite,
 } from "../../js/reader/server-favorites-port.js";
 export type { ServerFavorite } from "../../js/reader/types.js";
+
+// —— 阅读器 AI 面板：模型 Key 门禁 ——
+export {
+  CREDENTIALS_CHANGED_EVENT,
+  hasModelApiKey,
+  MISSING_MODEL_API_KEY_MESSAGE,
+} from "../../js/reader/ai/config.js";

@@ -324,3 +324,33 @@ export {
 export { createStatusDetailTranslationDataPort } from "../../../js/features/status-detail/translation-data-port.js";
 export { createStatusDetailTranslationTabCoordinator } from "../../../js/features/status-detail/translation-tab-coordinator.js";
 export { createTranslationState } from "../../../js/features/status-detail/translation-state.js";
+
+// —— 主页 AI 问答（home-ask）——
+export {
+  injectCitationMarkers,
+  isAgenticCitation,
+  neutralizeMarkdownAnchors,
+  renderCitationFooter,
+  type AiCitationLike,
+} from "../../../js/reader/ai/answer-enhance.js";
+export {
+  renderFinalAnswerHtml,
+  renderStreamingPreviewHtml,
+} from "../../../js/reader/ai/render-answer-html.js";
+export { buildFrontendPageUrl } from "../../../js/config/runtime.js";
+export {
+  CREDENTIALS_CHANGED_EVENT,
+  hasModelApiKey,
+  MISSING_MODEL_API_KEY_MESSAGE,
+  resolveReaderAiConfig,
+} from "../../../js/reader/ai/config.js";
+export { sanitizeAssistantAnswer } from "../../../js/reader/ai/sanitize-answer.js";
+export { askLibraryAi, AiAskError } from "../../../js/api/ai.js";
+export {
+  deleteConversation,
+  getConversation,
+  listConversations,
+  patchConversation,
+  type ConversationRecord,
+} from "../../../js/api/conversations.js";
+export type { DocumentRecord } from "../../../js/api/documents.js";

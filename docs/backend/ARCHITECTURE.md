@@ -143,8 +143,30 @@ retain-jobs 7.0k——约 52% 的代码移出了编译热路径，依赖方向�
 
 ## 已知欠账（按此架构继续清）
 
-- rust_api ↔ pipeline 的 stdout 协议尚未 schema 化（代码即契约 → 提取为
-  contracts/pipeline-stdout.v1.schema.json + 双端测试）
-- conversations 转发端点（rust）与 ai_service 的 CRUD schema 未入契约目录
+- ~~rust_api ↔ pipeline 的 stdout 协议尚未 schema 化~~ **已落地（2026-07-23）**：
+  `contracts/pipeline-stdout.v1.schema.json` 单一真值（五类行：带标签工件行
+  ×16、artifact_published JSONL 事件、指标行 ×5、provider 状态行、阶段前缀行）
+  + 双端锁：rust 侧 `retain-jobs stdout_parser/contract_lock.rs`（6 测试，
+  行为级——契约示例喂 apply_line 断言真落值；key/标签集合双向相等）、
+  python 侧 `pipeline/devtools/tests/pipeline/test_stdout_contract_schema.py`
+  （5 测试——常量↔schema 对齐、每个标签有发射点、事件 key ⊆ 契约）。
+  顺手收敛：4 个 provider 短语标签从 mineru 裸 f-string 收入
+  `pipeline_shared/contracts.py` 单源（输出逐字节不变）。
+  **坑**：`document_schema.DOCUMENT_SCHEMA_VERSION` 是 "1.1"，stdout 协议的
+  "schema version" 行值是 "document.v1"——语义不同，已在 contracts.py 注释
+  并锁死。**emit-only 分区**：`source json used` 标签行、translation
+  diagnostics/debug_index/review 三个事件 key 是 python 发射但 rust 明确
+  不消费（rust 走 storage_paths 按约定解析），双侧都有锁防误消费/误漂移。
+- ~~conversations CRUD schema 未入契约目录~~ **已落地（2026-07-23）**：
+  `contracts/ai-conversations.v1.schema.json`（六端点 + 九个结构体定义，
+  含消息树 parent_id/head_id 语义）。实际拓扑与旧欠账描述相反：**rust 是
+  生产者**（SQLite 唯一写者，routes/library_extras.rs），ai_service
+  （rust_client.py）与前端（src/js/api/conversations.ts）都是消费者。
+  三端锁：rust `api_tests/conversations_contract.rs`（视图序列化键集合
+  与契约相等、输入按契约示例可反序列化/缺必填即拒、端点真实挂载）、
+  python `tests/test_conversations_contract.py`（请求路径 ⊆ 契约端点、
+  写入载荷键 ⊆ 契约输入）、frontend
+  `tests/ai-conversations-contract.test.mjs`（TS 类型逐字段相等、路径与
+  载荷双向覆盖）。至此三条服务边界的显式契约全部落地。
 - 迁移阶梯测试已改为与 `versioned_migration_count()` 动态同步（写死数字
   曾在 v3 加入后红了一轮）——新增迁移无需再改测试

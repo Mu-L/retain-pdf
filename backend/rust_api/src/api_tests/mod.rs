@@ -1,3 +1,4 @@
+mod conversations_contract;
 mod glossaries;
 mod http_contract;
 mod jobs_common;
