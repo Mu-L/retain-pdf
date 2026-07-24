@@ -4,7 +4,7 @@ name: Rust API Architecture
   pull_request:
     paths:
       - "backend/rust_api/**"
-      - "backend/scripts/**"
+      - "backend/pipeline/**"
       - "doc/adr/**"
       - "doc/core/python/**"
       - ".github/workflows/rust-api-architecture.yml"
@@ -14,7 +14,7 @@ name: Rust API Architecture
       - master
     paths:
       - "backend/rust_api/**"
-      - "backend/scripts/**"
+      - "backend/pipeline/**"
       - "doc/adr/**"
       - "doc/core/python/**"
       - ".github/workflows/rust-api-architecture.yml"
@@ -26,20 +26,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
+      # 纯静态架构检查（秒级）。全量测试在 tests.yml——此前这里挂着
+      # 两个定点冒烟测试，但 cargo 名字筛选匹配 0 个时照样绿，先后因
+      # 重构改名/crate 拆分变成"静默跑 0"。定点筛选是反模式，勿再用。
       - name: Architecture Check
         run: python3 backend/rust_api/scripts/check_architecture.py
 
       - name: Python Pipeline Architecture Check
-        run: python3 backend/scripts/devtools/check_pipeline_architecture.py
-
-      - name: Cargo Build
-        run: cargo build --manifest-path backend/rust_api/Cargo.toml
-
-      - name: Runner Smoke Test
-        run: cargo test --manifest-path backend/rust_api/Cargo.toml --lib job_runner::process_runner::tests::execute_process_job_injects_provider_and_translation_envs
-
-      - name: Route Redaction Smoke Test
-        run: cargo test --manifest-path backend/rust_api/Cargo.toml --lib routes::jobs::query::tests::job_detail_and_events_routes_redact_secrets
+        run: python3 backend/pipeline/devtools/check_pipeline_architecture.py

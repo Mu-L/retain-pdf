@@ -9,6 +9,45 @@ import sys
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src"
 
+# 2026-07 workspace 拆分：以下模块移入 crates/*，内部相对结构不变。
+# 本脚本沿用旧 "src/<module>/..." 字面量作为逻辑路径：abs_src() 负责映射到
+# 新家，rel() 负责逆映射回逻辑路径——检查逻辑与 allowlist 全部不用改。
+_CRATE_OF_MODULE = {
+    "job_runner": "crates/retain-jobs",
+    "db": "crates/retain-data",
+    "job_events": "crates/retain-data",
+    "worker_command": "crates/retain-data",
+    "ocr_provider": "crates/retain-data",
+    "models": "crates/retain-core",
+    "storage_paths": "crates/retain-core",
+    "config": "crates/retain-core",
+    "job_failure": "crates/retain-core",
+    "job_failure_structured": "crates/retain-core",
+    "job_failure_support": "crates/retain-core",
+}
+
+ALL_SRC_ROOTS = (
+    SRC_ROOT,
+    REPO_ROOT / "crates" / "retain-core" / "src",
+    REPO_ROOT / "crates" / "retain-data" / "src",
+    REPO_ROOT / "crates" / "retain-jobs" / "src",
+)
+
+
+def abs_src(rel_path: Path) -> Path:
+    parts = rel_path.parts
+    key = parts[1].removesuffix(".rs") if len(parts) > 1 else ""
+    crate = _CRATE_OF_MODULE.get(key)
+    return (REPO_ROOT / crate / rel_path) if crate else (REPO_ROOT / rel_path)
+
+
+def scan_all_rs_files() -> list:
+    out = []
+    for root in ALL_SRC_ROOTS:
+        out.extend(scan_rs_files(root))
+    return out
+
+
 ALLOWED_APPSTATE_FILES = {
     Path("src/app/mod.rs"),
     Path("src/app/jobs.rs"),
@@ -107,7 +146,7 @@ PROVIDER_RAW_INTERNAL_TOKENS = (
     "prunedResult",
     "block_label",
 )
-OCR_FLOW_ROOT = SRC_ROOT / "job_runner" / "ocr_flow"
+OCR_FLOW_ROOT = abs_src(Path("src/job_runner/ocr_flow"))
 OCR_FLOW_ORCHESTRATOR_FILE = Path("src/job_runner/ocr_flow/mod.rs")
 OCR_FLOW_ALLOWED_RAW_TOKEN_FILES = {
     Path("src/job_runner/ocr_flow/paddle_markdown.rs"),
@@ -117,10 +156,15 @@ STAGE_VIEW_CONSUMER_ROOTS = (
     SRC_ROOT / "services" / "jobs" / "presentation",
     SRC_ROOT / "services" / "book_projection",
 )
-WORKER_COMMAND_FACADE = SRC_ROOT / "worker_command.rs"
+WORKER_COMMAND_FACADE = abs_src(Path("src/worker_command.rs"))
 
 def rel(path: Path) -> Path:
-    return path.relative_to(REPO_ROOT)
+    relative = path.relative_to(REPO_ROOT)
+    parts = relative.parts
+    if len(parts) > 2 and parts[0] == "crates":
+        # crates/<name>/src/... → src/...（逻辑路径，与 allowlist 对齐）
+        return Path(*parts[2:])
+    return relative
 
 
 def scan_rs_files(root: Path) -> list[Path]:
@@ -133,7 +177,7 @@ def scan_rs_files(root: Path) -> list[Path]:
 
 def check_appstate_boundaries(errors: list[str]) -> None:
     for guarded_dir in APPSTATE_GUARDED_DIRS:
-        for path in scan_rs_files(REPO_ROOT / guarded_dir):
+        for path in scan_rs_files(abs_src(guarded_dir)):
             rel_path = rel(path)
             if rel_path in ALLOWED_APPSTATE_FILES:
                 continue
@@ -244,55 +288,55 @@ def check_service_model_facade_boundaries(errors: list[str]) -> None:
         SRC_ROOT / "services" / "artifacts",
         SRC_ROOT / "services" / "derived_artifacts",
         SRC_ROOT / "services" / "derived_artifacts.rs",
-        SRC_ROOT / "job_events",
-        SRC_ROOT / "job_events.rs",
-        SRC_ROOT / "db",
-        SRC_ROOT / "db.rs",
-        SRC_ROOT / "storage_paths",
-        SRC_ROOT / "storage_paths.rs",
-        SRC_ROOT / "worker_command",
-        SRC_ROOT / "worker_command.rs",
+        abs_src(Path("src/job_events")),
+        abs_src(Path("src/job_events.rs")),
+        abs_src(Path("src/db")),
+        abs_src(Path("src/db.rs")),
+        abs_src(Path("src/storage_paths")),
+        abs_src(Path("src/storage_paths.rs")),
+        abs_src(Path("src/worker_command")),
+        abs_src(Path("src/worker_command.rs")),
         SRC_ROOT / "app" / "state.rs",
         SRC_ROOT / "app" / "state_recovery.rs",
-        SRC_ROOT / "ocr_provider",
-        SRC_ROOT / "job_runner" / "mod.rs",
-        SRC_ROOT / "job_runner" / "lifecycle.rs",
-        SRC_ROOT / "job_runner" / "process_runner",
-        SRC_ROOT / "job_runner" / "process_runner.rs",
-        SRC_ROOT / "job_runner" / "stdout_parser",
-        SRC_ROOT / "job_runner" / "process_contract.rs",
-        SRC_ROOT / "job_runner" / "stage_contract.rs",
-        SRC_ROOT / "job_runner" / "runtime_state.rs",
-        SRC_ROOT / "job_runner" / "worker_process.rs",
-        SRC_ROOT / "job_runner" / "execution_queue.rs",
-        SRC_ROOT / "job_runner" / "translation_flow.rs",
-        SRC_ROOT / "job_runner" / "translation_flow_artifacts.rs",
-        SRC_ROOT / "job_runner" / "translation_flow_child.rs",
-        SRC_ROOT / "job_runner" / "translation_flow_executor.rs",
-        SRC_ROOT / "job_runner" / "translation_flow_stage.rs",
-        SRC_ROOT / "job_runner" / "translation_flow_support.rs",
-        SRC_ROOT / "job_runner" / "render_flow.rs",
-        SRC_ROOT / "job_runner" / "render_flow_artifacts.rs",
-        SRC_ROOT / "job_runner" / "ocr_flow" / "mod.rs",
-        SRC_ROOT / "job_runner" / "ocr_flow" / "bundle_download.rs",
-        SRC_ROOT / "job_runner" / "ocr_flow" / "bundle_download_retry.rs",
-        SRC_ROOT / "job_runner" / "ocr_flow" / "bundle_events.rs",
-        SRC_ROOT / "job_runner" / "ocr_flow" / "bundle_ready_wait.rs",
-        SRC_ROOT / "job_runner" / "ocr_flow" / "mineru.rs",
-        SRC_ROOT / "job_runner" / "ocr_flow" / "mineru_polling.rs",
-        SRC_ROOT / "job_runner" / "ocr_flow" / "mineru_retry.rs",
-        SRC_ROOT / "job_runner" / "ocr_flow" / "mineru_status_handlers.rs",
-        SRC_ROOT / "job_runner" / "ocr_flow" / "paddle.rs",
-        SRC_ROOT / "job_runner" / "ocr_flow" / "paddle_errors.rs",
-        SRC_ROOT / "job_runner" / "ocr_flow" / "provider_result.rs",
-        SRC_ROOT / "job_runner" / "ocr_flow" / "provider_transport.rs",
-        SRC_ROOT / "job_runner" / "ocr_flow" / "status.rs",
-        SRC_ROOT / "job_runner" / "ocr_flow" / "support.rs",
-        SRC_ROOT / "job_runner" / "ocr_flow" / "transport.rs",
-        SRC_ROOT / "job_runner" / "ocr_flow" / "workspace.rs",
-        SRC_ROOT / "job_failure.rs",
-        SRC_ROOT / "job_failure_support.rs",
-        SRC_ROOT / "job_failure_structured.rs",
+        abs_src(Path("src/ocr_provider")),
+        abs_src(Path("src/job_runner")) / "mod.rs",
+        abs_src(Path("src/job_runner")) / "lifecycle.rs",
+        abs_src(Path("src/job_runner")) / "process_runner",
+        abs_src(Path("src/job_runner")) / "process_runner.rs",
+        abs_src(Path("src/job_runner")) / "stdout_parser",
+        abs_src(Path("src/job_runner")) / "process_contract.rs",
+        abs_src(Path("src/job_runner")) / "stage_contract.rs",
+        abs_src(Path("src/job_runner")) / "runtime_state.rs",
+        abs_src(Path("src/job_runner")) / "worker_process.rs",
+        abs_src(Path("src/job_runner")) / "execution_queue.rs",
+        abs_src(Path("src/job_runner")) / "translation_flow.rs",
+        abs_src(Path("src/job_runner")) / "translation_flow_artifacts.rs",
+        abs_src(Path("src/job_runner")) / "translation_flow_child.rs",
+        abs_src(Path("src/job_runner")) / "translation_flow_executor.rs",
+        abs_src(Path("src/job_runner")) / "translation_flow_stage.rs",
+        abs_src(Path("src/job_runner")) / "translation_flow_support.rs",
+        abs_src(Path("src/job_runner")) / "render_flow.rs",
+        abs_src(Path("src/job_runner")) / "render_flow_artifacts.rs",
+        abs_src(Path("src/job_runner")) / "ocr_flow" / "mod.rs",
+        abs_src(Path("src/job_runner")) / "ocr_flow" / "bundle_download.rs",
+        abs_src(Path("src/job_runner")) / "ocr_flow" / "bundle_download_retry.rs",
+        abs_src(Path("src/job_runner")) / "ocr_flow" / "bundle_events.rs",
+        abs_src(Path("src/job_runner")) / "ocr_flow" / "bundle_ready_wait.rs",
+        abs_src(Path("src/job_runner")) / "ocr_flow" / "mineru.rs",
+        abs_src(Path("src/job_runner")) / "ocr_flow" / "mineru_polling.rs",
+        abs_src(Path("src/job_runner")) / "ocr_flow" / "mineru_retry.rs",
+        abs_src(Path("src/job_runner")) / "ocr_flow" / "mineru_status_handlers.rs",
+        abs_src(Path("src/job_runner")) / "ocr_flow" / "paddle.rs",
+        abs_src(Path("src/job_runner")) / "ocr_flow" / "paddle_errors.rs",
+        abs_src(Path("src/job_runner")) / "ocr_flow" / "provider_result.rs",
+        abs_src(Path("src/job_runner")) / "ocr_flow" / "provider_transport.rs",
+        abs_src(Path("src/job_runner")) / "ocr_flow" / "status.rs",
+        abs_src(Path("src/job_runner")) / "ocr_flow" / "support.rs",
+        abs_src(Path("src/job_runner")) / "ocr_flow" / "transport.rs",
+        abs_src(Path("src/job_runner")) / "ocr_flow" / "workspace.rs",
+        abs_src(Path("src/job_failure.rs")),
+        abs_src(Path("src/job_failure_support.rs")),
+        abs_src(Path("src/job_failure_structured.rs")),
         SRC_ROOT / "services" / "glossary_api.rs",
         SRC_ROOT / "services" / "glossaries.rs",
         SRC_ROOT / "services" / "job_snapshot_factory.rs",
@@ -358,7 +402,7 @@ def check_process_runtime_deps_usage(errors: list[str]) -> None:
         Path("src/job_runner/process_runner.rs"),
         Path("src/services/jobs/creation/tests.rs"),
     }
-    for path in scan_rs_files(SRC_ROOT):
+    for path in scan_all_rs_files():
         rel_path = rel(path)
         text = path.read_text(encoding="utf-8")
         if legacy_pattern in text:
@@ -380,7 +424,7 @@ def check_job_persist_deps_usage(errors: list[str]) -> None:
         Path("src/job_runner/process_runner/startup.rs"),
         Path("src/job_runner/process_runner/timeout_support.rs"),
     }
-    for path in scan_rs_files(SRC_ROOT):
+    for path in scan_all_rs_files():
         rel_path = rel(path)
         if rel_path in allowed:
             continue
@@ -392,7 +436,7 @@ def check_job_persist_deps_usage(errors: list[str]) -> None:
 
 
 def check_runtime_deps_module_boundary(errors: list[str]) -> None:
-    for path in scan_rs_files(REPO_ROOT / "src" / "job_runner"):
+    for path in scan_rs_files(abs_src(Path("src/job_runner"))):
         rel_path = rel(path)
         if rel_path in {
             Path("src/job_runner/mod.rs"),
@@ -424,7 +468,7 @@ def check_state_recovery_boundary(errors: list[str]) -> None:
 
 
 def check_lifecycle_helper_boundaries(errors: list[str]) -> None:
-    path = REPO_ROOT / "src/job_runner/lifecycle.rs"
+    path = abs_src(Path("src/job_runner/lifecycle.rs"))
     text = path.read_text(encoding="utf-8")
     required_helpers = (
         "should_skip_job_execution",
@@ -446,7 +490,7 @@ def check_provider_markdown_fallback(errors: list[str]) -> None:
         Path("src/job_runner/ocr_flow/markdown_bundle.rs"),
         Path("src/job_runner/ocr_flow/bundle_download.rs"),
     }
-    for path in scan_rs_files(SRC_ROOT):
+    for path in scan_all_rs_files():
         rel_path = rel(path)
         if rel_path in allowed:
             continue
@@ -461,7 +505,7 @@ def check_provider_markdown_fallback(errors: list[str]) -> None:
 
 def check_artifact_boundary_layer(errors: list[str]) -> None:
     for rel_path in ARTIFACT_BOUNDARY_FILES:
-        path = REPO_ROOT / rel_path
+        path = abs_src(rel_path)
         text = path.read_text(encoding="utf-8")
         if "crate::ocr_provider::" in text:
             errors.append(
@@ -704,9 +748,9 @@ def check_worker_command_boundary(errors: list[str]) -> None:
             )
 
     required_modules = (
-        SRC_ROOT / "worker_command" / "legacy_ocr.rs",
-        SRC_ROOT / "worker_command" / "stage_commands.rs",
-        SRC_ROOT / "worker_command" / "stage_specs.rs",
+        abs_src(Path("src/worker_command/legacy_ocr.rs")),
+        abs_src(Path("src/worker_command/stage_commands.rs")),
+        abs_src(Path("src/worker_command/stage_specs.rs")),
     )
     for path in required_modules:
         if not path.exists():
@@ -733,7 +777,7 @@ def check_worker_command_boundary(errors: list[str]) -> None:
             "src/services/job_snapshot_factory.rs: snapshot creation must not build worker commands"
         )
 
-    child_creation_path = SRC_ROOT / "job_runner" / "translation_flow_child.rs"
+    child_creation_path = abs_src(Path("src/job_runner/translation_flow_child.rs"))
     child_creation_text = route_source_without_tests(child_creation_path)
     if "build_ocr_command" in child_creation_text:
         errors.append(

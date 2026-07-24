@@ -1,0 +1,74 @@
+name: Tests
+
+# 全量测试门禁：rust workspace + 前端（含棘轮/边界门禁）+ ai_service（含契约锁）。
+# 此前这三套只在本地跑，CI 无人站岗——门禁存在但拦不住绕过（先例：v4.1.9
+# home-ask 带着 4 类门禁违规发布）。python pipeline 聚合 suite 依赖重
+#（PyMuPDF/pikepdf 等），暂由 translation-replay 覆盖其子集，未纳入本 workflow。
+
+"on":
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  rust-workspace:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend/rust_api
+
+      # 必须 --workspace：裸 cargo test 只跑主 crate，会漏掉
+      # retain-core/retain-data/retain-jobs 三个子 crate 的测试
+      - name: Cargo Workspace Tests
+        run: cargo test --workspace --manifest-path backend/rust_api/Cargo.toml
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.0"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend Tests
+        working-directory: frontend
+        run: npm test
+
+  ai-service:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r desktop/requirements-ai-service.txt pytest
+
+      - name: AI Service Tests
+        working-directory: backend/ai_service
+        run: python -m pytest tests -q
