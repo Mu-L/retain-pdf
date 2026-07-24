@@ -11,7 +11,7 @@ except ModuleNotFoundError:  # pragma: no cover
 
 
 HEADER = [
-    "# Generated from pyproject.toml by backend/scripts/devtools/sync_python_requirements.py.",
+    "# Generated from pyproject.toml by backend/pipeline/devtools/sync_python_requirements.py.",
     "# Do not edit manually.",
 ]
 

@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS_ROOT = REPO_ROOT / "backend" / "scripts"
+SCRIPTS_ROOT = REPO_ROOT / "backend" / "pipeline"
 
 
 def _ensure_package_imports_available() -> None:

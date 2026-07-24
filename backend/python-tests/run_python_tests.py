@@ -11,7 +11,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_TEST_ROOTS = (
     REPO_ROOT / "backend" / "python-tests",
-    REPO_ROOT / "backend" / "scripts" / "devtools" / "tests",
+    REPO_ROOT / "backend" / "pipeline" / "devtools" / "tests",
 )
 PYTEST_INI = Path(__file__).resolve().parent / "pytest.ini"
 

@@ -43,7 +43,7 @@ impl RuntimePathsConfig {
     }
 
     pub fn from_desktop(resource_root: PathBuf, data_root: PathBuf) -> Self {
-        let scripts_dir = resource_root.join("scripts");
+        let scripts_dir = resource_root.join("pipeline");
         Self::from_roots_unchecked(
             resource_root,
             data_root.join("rust_api"),
@@ -144,11 +144,13 @@ fn infer_project_root(rust_api_root: &Path) -> Result<PathBuf> {
 }
 
 fn default_scripts_dir(project_root: &Path) -> PathBuf {
-    let backend_scripts = project_root.join("backend").join("scripts");
-    if backend_scripts.exists() {
-        backend_scripts
+    // 2026-07 目录重构：backend/scripts 更名 backend/pipeline。
+    // env 变量名 RUST_API_SCRIPTS_DIR 保持不变（对外接口，兼容优先）。
+    let backend_pipeline = project_root.join("backend").join("pipeline");
+    if backend_pipeline.exists() {
+        backend_pipeline
     } else {
-        project_root.join("scripts")
+        project_root.join("pipeline")
     }
 }
 

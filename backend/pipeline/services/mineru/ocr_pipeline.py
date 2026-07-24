@@ -13,7 +13,12 @@ from services.pipeline_shared.contracts import STDOUT_LABEL_JOB_ROOT
 from services.pipeline_shared.contracts import STDOUT_LABEL_LAYOUT_JSON
 from services.pipeline_shared.contracts import STDOUT_LABEL_NORMALIZATION_REPORT_JSON
 from services.pipeline_shared.contracts import STDOUT_LABEL_NORMALIZED_DOCUMENT_JSON
+from services.pipeline_shared.contracts import STDOUT_LABEL_PROVIDER_RAW_DIR
+from services.pipeline_shared.contracts import STDOUT_LABEL_PROVIDER_SUMMARY_JSON
+from services.pipeline_shared.contracts import STDOUT_LABEL_PROVIDER_ZIP
+from services.pipeline_shared.contracts import STDOUT_LABEL_SCHEMA_VERSION
 from services.pipeline_shared.contracts import STDOUT_LABEL_SOURCE_PDF
+from services.pipeline_shared.contracts import STDOUT_SCHEMA_VERSION_VALUE
 from services.pipeline_shared.contracts import format_stdout_kv
 from services.mineru.job_flow import run_mineru_to_job_dir
 
@@ -57,10 +62,13 @@ def main() -> None:
         format_stdout_kv(STDOUT_LABEL_NORMALIZATION_REPORT_JSON, normalization_report_path),
         flush=True,
     )
-    print(f"provider raw dir: {artifact_paths.unpack_dir}", flush=True)
-    print(f"provider zip: {artifact_paths.bundle_zip_path}", flush=True)
-    print(f"provider summary json: {artifact_paths.result_json_path}", flush=True)
-    print("schema version: document.v1", flush=True)
+    print(format_stdout_kv(STDOUT_LABEL_PROVIDER_RAW_DIR, artifact_paths.unpack_dir), flush=True)
+    print(format_stdout_kv(STDOUT_LABEL_PROVIDER_ZIP, artifact_paths.bundle_zip_path), flush=True)
+    print(
+        format_stdout_kv(STDOUT_LABEL_PROVIDER_SUMMARY_JSON, artifact_paths.result_json_path),
+        flush=True,
+    )
+    print(format_stdout_kv(STDOUT_LABEL_SCHEMA_VERSION, STDOUT_SCHEMA_VERSION_VALUE), flush=True)
 
 
 if __name__ == "__main__":

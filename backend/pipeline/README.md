@@ -1,6 +1,6 @@
-# Scripts 总览
+# Pipeline 总览
 
-`scripts/` 是整套“PDF -> OCR -> 翻译 -> 保留排版渲染”的脚本工程目录。
+`pipeline/` 是整套“PDF -> OCR -> 翻译 -> 保留排版渲染”的脚本工程目录。
 
 现在顶层按职责分成五层：
 
@@ -234,13 +234,13 @@
 修改依赖后统一执行：
 
 ```bash
-python backend/scripts/devtools/sync_python_requirements.py --repo-root .
+python backend/pipeline/devtools/sync_python_requirements.py --repo-root .
 ```
 
 只检查是否漂移：
 
 ```bash
-python backend/scripts/devtools/sync_python_requirements.py --repo-root . --check
+python backend/pipeline/devtools/sync_python_requirements.py --repo-root . --check
 ```
 
 兼容说明：
@@ -277,7 +277,7 @@ python backend/scripts/devtools/sync_python_requirements.py --repo-root . --chec
 日常改动建议至少跑这两条：
 
 - `python3 backend/rust_api/scripts/check_architecture.py`
-- `python3 backend/scripts/devtools/check_pipeline_architecture.py`
+- `python3 backend/pipeline/devtools/check_pipeline_architecture.py`
 
 第二条负责卡住 Python 主链最容易回退的边界：
 

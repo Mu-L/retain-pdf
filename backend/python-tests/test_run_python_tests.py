@@ -24,7 +24,7 @@ def test_default_run_collects_new_and_legacy_tests(monkeypatch) -> None:
         str(run_python_tests.PYTEST_INI),
         "-q",
         str(run_python_tests.REPO_ROOT / "backend" / "python-tests"),
-        str(run_python_tests.REPO_ROOT / "backend" / "scripts" / "devtools" / "tests"),
+        str(run_python_tests.REPO_ROOT / "backend" / "pipeline" / "devtools" / "tests"),
     ]
 
 
@@ -68,5 +68,5 @@ def test_pytest_option_values_do_not_suppress_default_roots(monkeypatch) -> None
         "render_source",
         "-q",
         str(run_python_tests.REPO_ROOT / "backend" / "python-tests"),
-        str(run_python_tests.REPO_ROOT / "backend" / "scripts" / "devtools" / "tests"),
+        str(run_python_tests.REPO_ROOT / "backend" / "pipeline" / "devtools" / "tests"),
     ]

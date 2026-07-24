@@ -135,7 +135,7 @@ async function startBundledBackend() {
   const backendRoot = resolveBackendRoot();
   const backendBin = resolveBackendBinary(backendRoot);
   let pythonRuntime = resolvePythonRuntime(backendRoot);
-  const scriptsDir = path.join(backendRoot, "scripts");
+  const scriptsDir = path.join(backendRoot, "pipeline");
   const typstBin = resolveTypstBinary(backendRoot);
   const bundledFontPath = path.join(backendRoot, "fonts", "SourceHanSerifSC-Regular.otf");
   const bundledTitleBoldFontPath = path.join(backendRoot, "fonts", "SourceHanSerifSC-Bold.otf");

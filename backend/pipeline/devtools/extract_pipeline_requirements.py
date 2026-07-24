@@ -33,7 +33,7 @@ class ImportHit:
 def parse_args() -> argparse.Namespace:
     default_output_dir = Path("doc") / "python"
     parser = argparse.ArgumentParser(
-        description="Extract Python/runtime dependency signals from backend/scripts.",
+        description="Extract Python/runtime dependency signals from backend/pipeline.",
     )
     parser.add_argument(
         "--repo-root",
@@ -225,9 +225,9 @@ def _render_markdown(report: dict[str, object]) -> str:
     lines = [
         "# Python Pipeline Dependencies",
         "",
-        "This file is generated from static import scanning under `backend/scripts`.",
+        "This file is generated from static import scanning under `backend/pipeline`.",
         "Regenerate with:",
-        "`python backend/scripts/devtools/extract_pipeline_requirements.py --repo-root . --json-out doc/core/python/pipeline_dependencies.json --markdown-out doc/core/python/pipeline_dependencies.md --runtime-req-out doc/core/python/pipeline_runtime_requirements.in --test-req-out doc/core/python/pipeline_test_requirements.in`",
+        "`python backend/pipeline/devtools/extract_pipeline_requirements.py --repo-root . --json-out doc/core/python/pipeline_dependencies.json --markdown-out doc/core/python/pipeline_dependencies.md --runtime-req-out doc/core/python/pipeline_runtime_requirements.in --test-req-out doc/core/python/pipeline_test_requirements.in`",
         "",
         "## Runtime Python Packages",
         "",
