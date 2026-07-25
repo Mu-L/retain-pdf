@@ -294,7 +294,7 @@ mod tests {
         // marked failed in the DB), and reaped so it doesn't linger.
         let exit_status = child.wait().expect("reap terminated child");
         assert!(!exit_status.success());
-        assert!(!crate::job_runner::worker_process_exists(pid));
+        assert!(!crate::process::worker_process_exists(pid));
     }
 
     #[test]

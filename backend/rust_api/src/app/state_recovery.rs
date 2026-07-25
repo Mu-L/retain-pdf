@@ -4,7 +4,7 @@ use tracing::warn;
 use crate::config::AppConfig;
 use crate::db::Db;
 use crate::job_events::persist_job_with_resources;
-use crate::job_runner::{terminate_job_process_tree_blocking, worker_process_exists};
+use crate::process::{terminate_job_process_tree_blocking, worker_process_exists};
 use crate::models::domain::{now_iso, JobFailureInfo, JobStatusKind};
 
 /// Why a `Running`-status job found at startup is being reconciled.

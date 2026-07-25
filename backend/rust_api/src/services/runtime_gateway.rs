@@ -21,9 +21,8 @@ use tokio::sync::RwLock;
 
 use crate::config::{JobRunnerConfig, JobsServiceConfig};
 use crate::error::AppError;
-use crate::job_runner::{
-    clear_cancel_request_with_registry, request_cancel_with_registry, terminate_job_process_tree,
-};
+use crate::job_runner::{clear_cancel_request_with_registry, request_cancel_with_registry};
+use crate::process::terminate_job_process_tree;
 
 /// 内部 HTTP 客户端：把接缝操作转发给 retain-jobsd。
 #[derive(Clone)]

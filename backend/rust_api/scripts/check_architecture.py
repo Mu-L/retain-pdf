@@ -72,6 +72,15 @@ ALLOWED_APPSTATE_FILES = {
     Path("src/services/jobs/support.rs"),
 }
 
+# ADR-002 Phase 2：壳只能经接缝碰任务运行时。job_runner 是 jobsd 的地盘，
+# 壳里唯二可以引用它的地方是 InProcess 落点的装配处与接缝本身——多一个
+# 文件引用，就意味着"换落点不影响上层"这条保证被悄悄打破了。
+# （纯 OS 进程工具已迁往 retain-proc，用 crate::process::，不算越界。）
+JOB_RUNNER_IMPORT_ALLOWLIST = {
+    Path("src/app/jobs.rs"),
+    Path("src/services/runtime_gateway.rs"),
+}
+
 APPSTATE_GUARDED_DIRS = [
     Path("src/services"),
     Path("src/job_runner"),
@@ -728,6 +737,23 @@ def check_ocr_flow_boundaries(errors: list[str]) -> None:
                 )
 
 
+
+def check_job_runner_boundary(errors: list[str]) -> None:
+    # 只扫壳自己的 src/：子 crate 内部当然可以自由使用 job_runner。
+    for path in scan_rs_files(SRC_ROOT):
+        rel_path = rel(path)
+        if rel_path in JOB_RUNNER_IMPORT_ALLOWLIST:
+            continue
+        if rel_path.parts[:2] == ("src", "api_tests"):
+            continue
+        text = path.read_text(encoding="utf-8")
+        if "job_runner::" in text:
+            errors.append(
+                f"{rel_path}: shell code must reach the job runtime through "
+                f"services/runtime_gateway.rs (ADR-002); use crate::process:: for "
+                f"generic process utilities"
+            )
+
 def check_worker_command_boundary(errors: list[str]) -> None:
     text = route_source_without_tests(WORKER_COMMAND_FACADE)
     forbidden_facade_tokens = (
@@ -823,6 +849,7 @@ def main() -> int:
     check_reader_regions_boundary(errors)
     check_summary_loaders_boundary(errors)
     check_ocr_flow_boundaries(errors)
+    check_job_runner_boundary(errors)
     check_worker_command_boundary(errors)
     check_protocol_docs(errors)
 

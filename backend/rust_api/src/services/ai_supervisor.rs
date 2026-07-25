@@ -19,7 +19,7 @@ use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
 use crate::config::{AiServiceConfig, AppConfig};
-use crate::job_runner::{configure_child_process, terminate_job_process_tree};
+use crate::process::{configure_child_process, terminate_job_process_tree};
 
 pub const AI_STATUS_DISABLED: u8 = 0;
 pub const AI_STATUS_STARTING: u8 = 1;

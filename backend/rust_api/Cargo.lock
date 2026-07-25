@@ -1299,6 +1299,7 @@ dependencies = [
  "reqwest",
  "retain-core",
  "retain-data",
+ "retain-proc",
  "serde",
  "serde_json",
  "tokio",
@@ -1319,6 +1320,15 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "retain-proc"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "libc",
+ "tokio",
 ]
 
 [[package]]
@@ -1368,6 +1378,7 @@ dependencies = [
  "retain-core",
  "retain-data",
  "retain-jobs",
+ "retain-proc",
  "rusqlite",
  "serde",
  "serde_json",

@@ -87,8 +87,28 @@ desktop (Electron)
     设的 key 会被静默忽略（这也正好证明壳与 jobsd 的钥匙天然同源）。
   - 坑：架构门禁是文本扫描，doc 注释里出现 `AppState` 字样也会判越界；
     改注释措辞而非放宽门禁。
-- **Phase 2**：壳侧移除 job_runner 依赖（编译期隔离）——改壳不再重编任务栈，
-  壳的重启成本进一步下降。
+- **Phase 2——已落地（2026-07-24），但目标被实测推翻并重塑**：
+  - **原目标作废**：实测改壳 1.67–1.87s、改 job_runner 1.64–1.66s，两者
+    几乎相同——"改壳不重编任务栈"这条收益 **ADR-001 的 crate 拆分早已兑现**
+    （touch 壳代码时 retain-jobs 根本不参与重编；剩下的 1.7s 是壳自己 22k 行
+    的编译链接）。照原计划再加一套 cargo feature 只会换来构建复杂度，
+    收益接近零，故不做。
+  - **真问题在归属而非编译**：`configure_child_process` /
+    `worker_process_exists` / `terminate_job_process_tree(_blocking)` 是纯
+    OS 进程操作、零任务语义，却住在 job_runner 里——导致 `ai_supervisor`
+    （监督的是 Python AI 服务，与任务毫无关系）为了杀一棵进程树而依赖整个
+    任务执行栈。
+  - **实际做法**：抽出 `crates/retain-proc`（仅 anyhow + libc + tokio），
+    job_runner 侧 re-export 保持 `job_runner::` 路径不变；壳经
+    `crate::process::` 直取。壳对 job_runner 的引用因此从 **5 个文件收敛
+    到 2 个**，且两处恰好就是 InProcess 落点本身：
+    `app/jobs.rs`（spawn_job + ProcessRuntimeDeps）与
+    `services/runtime_gateway.rs`（取消注册表）。
+  - **门禁焊死**：`check_architecture.py` 新增 `check_job_runner_boundary`，
+    壳内除上述两文件外引用 `job_runner::` 即红。已用故意越界验证它**真会咬**
+    （probe 时 exit 1，还原后 exit 0）——只会绿的门禁等于没门禁。
+  - 验收：`cargo test --workspace` 331/331，进程工具的 2 个测试随代码迁入
+    retain-proc（未丢失）；架构检查通过。
 - **Phase 3**：dev 脚本（分别拉三个进程、各自热重载）+ 桌面端监督接线
   （复用 ai_supervisor 模式监督 jobsd）+ 文档。
 
