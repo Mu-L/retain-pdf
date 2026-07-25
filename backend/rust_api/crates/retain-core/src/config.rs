@@ -7,6 +7,7 @@ mod ai_service;
 mod auth;
 mod env_vars;
 mod job_runner;
+mod jobs_service;
 mod paths;
 mod provider;
 pub mod provider_config;
@@ -16,6 +17,7 @@ mod upload;
 use auth::AuthRuntimeConfig;
 pub use ai_service::AiServiceConfig;
 pub use job_runner::JobRunnerConfig;
+pub use jobs_service::{JobsRuntimeMode, JobsServiceConfig};
 use paths::{create_runtime_dirs, RuntimePathsConfig};
 pub use provider::{
     DeepSeekRuntimeConfig, MineruRuntimeConfig, PaddleRuntimeConfig, ProviderLimitsConfig,
@@ -80,6 +82,7 @@ pub struct AppConfig {
     pub provider_runtime: ProviderRuntimeConfig,
     pub job_runner: JobRunnerConfig,
     pub ai_service: AiServiceConfig,
+    pub jobs_service: JobsServiceConfig,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -224,6 +227,7 @@ impl AppConfig {
         } = parts;
 
         let ai_service = AiServiceConfig::from_env(&paths.project_root, &server.python_bin);
+        let jobs_service = JobsServiceConfig::from_env();
         Ok(Self {
             project_root: paths.project_root,
             rust_api_root: paths.rust_api_root,
@@ -253,6 +257,7 @@ impl AppConfig {
             provider_runtime,
             job_runner,
             ai_service,
+            jobs_service,
         })
     }
 }

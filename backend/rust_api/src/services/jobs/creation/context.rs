@@ -1,14 +1,12 @@
-use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 
 use tokio::sync::Mutex;
-use tokio::sync::RwLock;
 
 use crate::config::{JobRunnerConfig, JobSnapshotRuntimeConfig};
 use crate::db::Db;
 use crate::services::job_launcher::JobLaunchDeps;
-use crate::services::runtime_gateway::RuntimeControl;
+use crate::services::runtime_gateway::{JobRuntime, RuntimeControl};
 
 #[derive(Clone)]
 pub(crate) struct SnapshotBuildDeps<'a> {
@@ -92,14 +90,14 @@ impl<'a> ControlDeps<'a> {
         job_runner: &'a JobRunnerConfig,
         data_root: &'a Path,
         output_root: &'a Path,
-        canceled_jobs: &'a RwLock<HashSet<String>>,
+        job_runtime: &'a JobRuntime,
     ) -> Self {
         Self {
             db,
             job_runner,
             data_root,
             output_root,
-            runtime: RuntimeControl::new(canceled_jobs),
+            runtime: RuntimeControl::new(job_runtime),
         }
     }
 }

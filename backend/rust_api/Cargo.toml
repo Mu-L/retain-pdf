@@ -5,7 +5,7 @@ edition = "2021"
 build = "build.rs"
 
 [workspace]
-members = [".", "crates/retain-core", "crates/retain-data", "crates/retain-jobs"]
+members = [".", "crates/retain-core", "crates/retain-data", "crates/retain-jobs", "crates/retain-jobsd"]
 
 [dependencies]
 retain-core = { path = "crates/retain-core" }

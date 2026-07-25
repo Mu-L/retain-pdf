@@ -148,6 +148,7 @@ mod tests {
             provider_runtime: crate::config::ProviderRuntimeConfig::default(),
             job_runner: crate::config::JobRunnerConfig::default(),
             ai_service: crate::config::AiServiceConfig::default(),
+            jobs_service: crate::config::JobsServiceConfig::default(),
         });
 
         let db = Arc::new(Db::new(

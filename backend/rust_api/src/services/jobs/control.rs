@@ -82,7 +82,7 @@ pub(crate) async fn cancel_job(
 
     if !ocr_only || !matches!(job.stage.as_deref(), Some("normalizing")) {
         if let Some(pid) = job.pid {
-            terminate_runtime_process(pid, deps.job_runner).await?;
+            terminate_runtime_process(deps.runtime.job_runtime(), pid, deps.job_runner).await?;
         }
     }
     if ocr_only {
@@ -155,14 +155,16 @@ mod tests {
 
         let output_root = data_root.join("jobs");
         let job_runner = crate::config::JobRunnerConfig::default();
-        let canceled_jobs: RwLock<HashSet<String>> = RwLock::new(HashSet::new());
+        let canceled_jobs = std::sync::Arc::new(RwLock::new(HashSet::new()));
+        let job_runtime =
+            crate::services::runtime_gateway::JobRuntime::in_process(canceled_jobs.clone());
 
         let deps = ControlDeps::new(
             &db,
             &job_runner,
             &data_root,
             &output_root,
-            &canceled_jobs,
+            &job_runtime,
         );
 
         // Hold the registry write lock so that cancel_job's

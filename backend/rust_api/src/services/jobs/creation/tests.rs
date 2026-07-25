@@ -65,6 +65,7 @@ fn test_state(test_name: &str) -> AppState {
         provider_runtime: crate::config::ProviderRuntimeConfig::default(),
         job_runner: crate::config::JobRunnerConfig::default(),
         ai_service: crate::config::AiServiceConfig::default(),
+        jobs_service: crate::config::JobsServiceConfig::default(),
     });
 
     AppState {
@@ -76,6 +77,7 @@ fn test_state(test_name: &str) -> AppState {
         downloads_lock: Arc::new(Mutex::new(())),
         canceled_jobs: Arc::new(RwLock::new(HashSet::new())),
         job_slots: Arc::new(Semaphore::new(1)),
+        job_runtime: Arc::new(crate::services::runtime_gateway::JobRuntime::in_process(Arc::new(RwLock::new(HashSet::new())))),
     }
 }
 

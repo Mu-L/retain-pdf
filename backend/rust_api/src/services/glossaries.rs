@@ -519,6 +519,7 @@ mod tests {
             provider_runtime: crate::config::ProviderRuntimeConfig::default(),
             job_runner: crate::config::JobRunnerConfig::default(),
             ai_service: crate::config::AiServiceConfig::default(),
+            jobs_service: crate::config::JobsServiceConfig::default(),
         });
 
         let db = Arc::new(Db::new(
@@ -532,6 +533,7 @@ mod tests {
             downloads_lock: Arc::new(Mutex::new(())),
             canceled_jobs: Arc::new(RwLock::new(HashSet::new())),
             job_slots: Arc::new(Semaphore::new(1)),
+            job_runtime: Arc::new(crate::services::runtime_gateway::JobRuntime::in_process(Arc::new(RwLock::new(HashSet::new())))),
         }
     }
 

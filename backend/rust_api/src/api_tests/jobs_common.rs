@@ -52,6 +52,7 @@ pub(crate) fn test_state(test_name: &str) -> crate::AppState {
         provider_runtime: crate::config::ProviderRuntimeConfig::default(),
         job_runner: crate::config::JobRunnerConfig::default(),
         ai_service: crate::config::AiServiceConfig::default(),
+        jobs_service: crate::config::JobsServiceConfig::default(),
     }))
     .expect("build state")
 }

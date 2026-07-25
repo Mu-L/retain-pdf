@@ -8,6 +8,7 @@ use tracing::warn;
 use super::state_recovery::reconcile_stale_running_jobs;
 use crate::config::AppConfig;
 use crate::db::Db;
+use crate::services::runtime_gateway::JobRuntime;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -16,6 +17,8 @@ pub struct AppState {
     pub downloads_lock: Arc<Mutex<()>>,
     pub canceled_jobs: Arc<RwLock<HashSet<String>>>,
     pub job_slots: Arc<Semaphore>,
+    /// 任务运行时落点（ADR-002）：进程内或远端 jobsd，装配一次此后只读。
+    pub job_runtime: Arc<JobRuntime>,
 }
 
 pub fn build_state(config: Arc<AppConfig>) -> Result<AppState> {
@@ -32,12 +35,26 @@ pub fn build_state(config: Arc<AppConfig>) -> Result<AppState> {
     }
     reconcile_stale_running_jobs(config.as_ref(), db.as_ref())?;
 
+    let canceled_jobs = Arc::new(RwLock::new(HashSet::new()));
+    let job_runtime = Arc::new(if config.jobs_service.is_remote() {
+        // 钥匙单源：下发壳自己的 key 集合首项，与 ai_supervisor 同规则
+        let api_key = {
+            let mut sorted: Vec<_> = config.api_keys.iter().cloned().collect();
+            sorted.sort();
+            sorted.first().cloned().unwrap_or_default()
+        };
+        JobRuntime::remote(&config.jobs_service, api_key)
+    } else {
+        JobRuntime::in_process(canceled_jobs.clone())
+    });
+
     Ok(AppState {
         config: config.clone(),
         db,
         downloads_lock: Arc::new(Mutex::new(())),
-        canceled_jobs: Arc::new(RwLock::new(HashSet::new())),
+        canceled_jobs,
         job_slots: Arc::new(Semaphore::new(config.max_running_jobs)),
+        job_runtime,
     })
 }
 
@@ -129,6 +146,7 @@ mod tests {
                 provider_runtime: crate::config::ProviderRuntimeConfig::default(),
                 job_runner: crate::config::JobRunnerConfig::default(),
                 ai_service: crate::config::AiServiceConfig::default(),
+                jobs_service: crate::config::JobsServiceConfig::default(),
             })
         }
 

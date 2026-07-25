@@ -1306,6 +1306,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "retain-jobsd"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "retain-core",
+ "retain-data",
+ "retain-jobs",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "ring"
 version = "0.17.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"

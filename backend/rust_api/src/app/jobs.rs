@@ -20,14 +20,25 @@ fn build_process_runtime_deps(state: &AppState) -> ProcessRuntimeDeps {
 }
 
 pub fn build_jobs_facade_from_state(state: &AppState) -> JobsFacade<'_> {
-    let runtime_state = state.clone();
+    // ADR-002：发射落点二选一。进程内是历史行为；远端把任务交给 jobsd，
+    // 于是壳重启不再牵连正在跑的 worker。
+    let runtime_launcher = if state.config.jobs_service.is_remote() {
+        let job_runtime = state.job_runtime.clone();
+        JobRuntimeLauncher::new(Arc::new(move |job_id| {
+            let job_runtime = job_runtime.clone();
+            tokio::spawn(async move { job_runtime.launch_remote(job_id).await });
+        }))
+    } else {
+        let runtime_state = state.clone();
+        JobRuntimeLauncher::new(Arc::new(move |job_id| {
+            spawn_job(build_process_runtime_deps(&runtime_state), job_id)
+        }))
+    };
     let launcher = JobLaunchDeps::new(
         state.db.as_ref(),
         &state.config.data_root,
         &state.config.output_root,
-        JobRuntimeLauncher::new(Arc::new(move |job_id| {
-            spawn_job(build_process_runtime_deps(&runtime_state), job_id)
-        })),
+        runtime_launcher,
     );
     let snapshot = SnapshotBuildDeps::new(state.db.as_ref(), state.config.job_snapshot_runtime());
     let uploads = UploadStoreDeps::new(
@@ -43,7 +54,7 @@ pub fn build_jobs_facade_from_state(state: &AppState) -> JobsFacade<'_> {
         &state.config.job_runner,
         &state.config.data_root,
         &state.config.output_root,
-        &state.canceled_jobs,
+        state.job_runtime.as_ref(),
     );
     let replay = ReplayDeps::new(
         &state.config.project_root,
