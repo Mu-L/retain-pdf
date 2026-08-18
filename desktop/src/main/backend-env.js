@@ -23,6 +23,9 @@ function buildBackendEnv(options = {}) {
   const inheritHostPythonPath = options.inheritHostPythonPath === true;
   const aiServicePort = options.aiServicePort || 41100;
   const aiServiceRoot = options.aiServiceRoot || path.join(backendRoot, "ai_service");
+  const jobsPort = options.jobsPort || 41002;
+  const jobsMode = options.jobsMode || process.env.RUST_API_JOBS_MODE || "";
+  const jobsSupervise = options.jobsSupervise ?? process.env.RUST_API_JOBS_SUPERVISE;
   const env = {
     ...process.env,
     RUST_API_BIND_HOST: "127.0.0.1",
@@ -60,6 +63,11 @@ function buildBackendEnv(options = {}) {
     RETAIN_AI_RUST_API_KEY: desktopApiKey,
     RETAIN_AI_RUST_API_BASE: `http://127.0.0.1:${apiPort}`,
     RETAIN_AI_DATA_ROOT: dataRoot,
+    // retain-jobsd (ADR-002 Phase 3: 壳监督 jobsd，改壳不杀任务)
+    ...(jobsMode ? { RUST_API_JOBS_MODE: jobsMode } : {}),
+    RUST_API_JOBS_PORT: String(jobsPort),
+    ...(jobsSupervise ? { RUST_API_JOBS_SUPERVISE: String(jobsSupervise) } : {}),
+    ...(process.env.RUST_API_AI_SUPERVISE ? { RUST_API_AI_SUPERVISE: process.env.RUST_API_AI_SUPERVISE } : {}),
   };
   if (fs.existsSync(typstPackagePath)) {
     env.TYPST_PACKAGE_PATH = typstPackagePath;

@@ -338,6 +338,43 @@ function resolveRustApiBinary() {
   };
 }
 
+function resolveJobsdBinary() {
+  const overridePath = process.env.JOBSD_BINARY
+    ? path.resolve(process.env.JOBSD_BINARY)
+    : "";
+  const candidates = [overridePath];
+
+  if (targetPlatform === "win32") {
+    candidates.push(
+      path.join(backendRoot, "rust_api", "target", "x86_64-pc-windows-msvc", "release", "retain-jobsd.exe"),
+      path.join(backendRoot, "rust_api", "target", "i686-pc-windows-msvc", "release", "retain-jobsd.exe"),
+      path.join(backendRoot, "rust_api", "target", "release", "retain-jobsd.exe"),
+    );
+  } else if (targetPlatform === "darwin") {
+    candidates.push(
+      path.join(backendRoot, "rust_api", "target", "release", "retain-jobsd"),
+      path.join(backendRoot, "rust_api", "target", "x86_64-apple-darwin", "release", "retain-jobsd"),
+      path.join(backendRoot, "rust_api", "target", "aarch64-apple-darwin", "release", "retain-jobsd"),
+    );
+  } else {
+    candidates.push(path.join(backendRoot, "rust_api", "target", "release", "retain-jobsd"));
+  }
+
+  for (const candidate of candidates) {
+    if (candidate && fs.existsSync(candidate)) {
+      return {
+        path: candidate,
+        fileName: path.basename(candidate),
+      };
+    }
+  }
+
+  return {
+    path: candidates[1] || "",
+    fileName: targetPlatform === "win32" ? "retain-jobsd.exe" : "retain-jobsd",
+  };
+}
+
 function hasBundledPosixPython(root) {
   return fs.existsSync(path.join(root, "bin", "python3"))
     || fs.existsSync(path.join(root, "bin", "python"));
@@ -489,6 +526,7 @@ function verifyBundledPythonRuntime(root) {
 }
 
 const rustApiBinary = resolveRustApiBinary();
+const jobsdBinary = resolveJobsdBinary();
 if (desktopPackage.version !== releaseVersion) {
   desktopPackage.version = releaseVersion;
   fs.writeFileSync(`${desktopPackagePath}.tmp`, `${JSON.stringify(desktopPackage, null, 2)}\n`, "utf8");
@@ -709,6 +747,12 @@ if (!frontendOnly) {
 if (!frontendOnly && fs.existsSync(rustApiBinary.path)) {
   fs.mkdirSync(path.join(outputBackendRoot, "bin"), { recursive: true });
   fs.cpSync(rustApiBinary.path, path.join(outputBackendRoot, "bin", rustApiBinary.fileName), {
+    force: true,
+  });
+}
+if (!frontendOnly && fs.existsSync(jobsdBinary.path)) {
+  fs.mkdirSync(path.join(outputBackendRoot, "bin"), { recursive: true });
+  fs.cpSync(jobsdBinary.path, path.join(outputBackendRoot, "bin", jobsdBinary.fileName), {
     force: true,
   });
 }

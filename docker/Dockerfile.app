@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY backend/rust_api/Cargo.toml backend/rust_api/Cargo.lock backend/rust_api/build.rs ./backend/rust_api/
+COPY backend/rust_api/crates ./backend/rust_api/crates
 COPY backend/rust_api/src ./backend/rust_api/src
 
 WORKDIR /build/backend/rust_api
@@ -103,7 +104,10 @@ COPY docker/requirements-app.txt /tmp/requirements-app.txt
 RUN pip install --no-cache-dir -r /tmp/requirements-app.txt
 
 COPY --from=builder /build/backend/rust_api/target/release/rust_api /usr/local/bin/rust_api
-COPY backend/scripts /app/backend/scripts
+COPY --from=builder /build/backend/rust_api/target/release/retain-jobsd /usr/local/bin/retain-jobsd
+COPY backend/pipeline /app/backend/pipeline
+# 兼容旧路径（过渡期）
+RUN mkdir -p /app/backend/scripts && cp -r /app/backend/pipeline/* /app/backend/scripts/ 2>/dev/null || true
 COPY backend/rust_api/auth.local.example.json /app/backend/rust_api/auth.local.example.json
 COPY docker/entrypoint-app.sh /entrypoint.sh
 

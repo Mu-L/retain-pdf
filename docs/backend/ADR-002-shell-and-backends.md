@@ -109,8 +109,12 @@ desktop (Electron)
     （probe 时 exit 1，还原后 exit 0）——只会绿的门禁等于没门禁。
   - 验收：`cargo test --workspace` 331/331，进程工具的 2 个测试随代码迁入
     retain-proc（未丢失）；架构检查通过。
-- **Phase 3**：dev 脚本（分别拉三个进程、各自热重载）+ 桌面端监督接线
-  （复用 ai_supervisor 模式监督 jobsd）+ 文档。
+- **Phase 3——已落地（2026-08-18）**：
+  - **dev 脚本**：`backend/rust_api/scripts/dev-remote.sh` 一键拉起 `shell:41000 + jobsd:41002 + ai:41100`，支持 `cargo watch` 热重载（有则用，无则 `cargo run`）。`RUST_API_JOBS_MODE=remote + SUPERVISE=0` 下三进程独立，便于各自重启验证“改壳不杀任务”。已验证 `healthz` 探活与 `cargo test --workspace` / 架构门禁全绿。
+  - **桌面端监督接线**：`backend/rust_api/src/services/jobsd_supervisor.rs` 复用 `ai_supervisor` 模式（`RUST_API_JOBS_SUPERVISE=1 + remote` 时壳监督 jobsd，指数退避重启、组杀回收、`watch` 优雅退出）。`desktop/src/main/backend-env.js` + `desktop/main.js` 打包版默认 `remote + supervise=1`（开发版保持 `InProcess` 除非显式设 env），避免双进程；`desktop/scripts/prepare-app.mjs` 同步打包 `retain-jobsd` 二进制，`docker/Dockerfile.app` 同步构建/拷贝双二进制并修正 `pipeline/` 路径。
+  - **健康与可观测**：`routes/health.rs` 新增 `jobsd` 字段（与 `ai_service` 同级），`/api/v1/health` 可直接观察三进程拓扑。
+  - **验收**：`cargo check --workspace` 绿、`cargo test --workspace` 333/333、`check_architecture.py` / `check_pipeline_architecture.py` 绿。
+  - **剩余**：真实 PDF 端到端（上传→OCR→翻译→渲染）在 `remote + supervised` 下需真凭据手动跑一轮；为后续可选的 B 方案留口。
 
 ## 与既有欠账的关系
 

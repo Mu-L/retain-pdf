@@ -16,6 +16,7 @@ pub struct HealthView {
     pub running_jobs: i64,
     pub provider_backends: Vec<String>,
     pub ai_service: &'static str,
+    pub jobsd: &'static str,
     pub time: String,
 }
 
@@ -36,6 +37,7 @@ fn build_health_view(deps: HealthRouteDeps<'_>) -> HealthView {
         running_jobs: running,
         provider_backends: supported_provider_keys(),
         ai_service: crate::services::ai_supervisor::ai_service_status_label(),
+        jobsd: crate::services::jobsd_supervisor::jobsd_status_label(),
         time: now_iso(),
     }
 }

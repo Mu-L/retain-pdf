@@ -8,7 +8,10 @@
 //! 拆开的收益是**开发粒度**：改路由/服务只重启壳，jobsd 与其 worker 子进程
 //! 不受影响，正在跑的翻译任务继续。
 
-use super::env_vars::env_u16;
+use std::path::PathBuf;
+use std::time::Duration;
+
+use super::env_vars::{env_bool, env_u16, env_u32, env_u64};
 
 /// 任务运行时跑在哪儿。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -24,6 +27,23 @@ pub struct JobsServiceConfig {
     pub mode: JobsRuntimeMode,
     /// jobsd 监听端口（RUST_API_JOBS_PORT，默认 41002）
     pub port: u16,
+    /// 是否由壳监督 jobsd 生命周期（RUST_API_JOBS_SUPERVISE，默认 false）
+    pub supervise: bool,
+    /// jobsd 启动命令（RUST_API_JOBSD_COMMAND；缺省为同目录 retain-jobsd 二进制）
+    pub command: String,
+    /// jobsd 启动参数（RUST_API_JOBSD_ARGS，空格分隔）
+    pub args: Vec<String>,
+    /// jobsd 工作目录（RUST_API_JOBSD_CWD）
+    pub cwd: Option<PathBuf>,
+    /// healthz 就绪等待上限
+    pub startup_timeout: Duration,
+    /// 探活间隔
+    pub health_interval: Duration,
+    /// 连续失败判定阈值
+    pub health_fail_threshold: u32,
+    /// 重启退避（初始 → 指数翻倍 → 上限）
+    pub backoff_initial: Duration,
+    pub backoff_max: Duration,
 }
 
 impl JobsServiceConfig {
@@ -39,9 +59,48 @@ impl JobsServiceConfig {
             // 在明确要求时改变行为，绝不因笔误把生产拓扑换掉。
             _ => JobsRuntimeMode::InProcess,
         };
+        let command = std::env::var("RUST_API_JOBSD_COMMAND")
+            .ok()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+            .unwrap_or_default();
+        let args = std::env::var("RUST_API_JOBSD_ARGS")
+            .ok()
+            .map(|v| {
+                v.split_whitespace()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<_>>()
+            })
+            .filter(|v| !v.is_empty())
+            .unwrap_or_default();
+        let cwd = std::env::var("RUST_API_JOBSD_CWD")
+            .ok()
+            .map(PathBuf::from)
+            .filter(|p| p.is_dir());
         Self {
             mode,
             port: env_u16("RUST_API_JOBS_PORT", 41002),
+            supervise: env_bool("RUST_API_JOBS_SUPERVISE", false),
+            command,
+            args,
+            cwd,
+            startup_timeout: Duration::from_secs(env_u64(
+                "RUST_API_JOBSD_STARTUP_TIMEOUT_SECS",
+                30,
+            )),
+            health_interval: Duration::from_secs(env_u64(
+                "RUST_API_JOBSD_HEALTH_INTERVAL_SECS",
+                5,
+            )),
+            health_fail_threshold: env_u32("RUST_API_JOBSD_HEALTH_FAIL_THRESHOLD", 3),
+            backoff_initial: Duration::from_millis(env_u64(
+                "RUST_API_JOBSD_BACKOFF_INITIAL_MS",
+                500,
+            )),
+            backoff_max: Duration::from_millis(env_u64(
+                "RUST_API_JOBSD_BACKOFF_MAX_MS",
+                30_000,
+            )),
         }
     }
 
@@ -60,6 +119,15 @@ impl Default for JobsServiceConfig {
         Self {
             mode: JobsRuntimeMode::InProcess,
             port: 41002,
+            supervise: false,
+            command: String::new(),
+            args: Vec::new(),
+            cwd: None,
+            startup_timeout: Duration::from_secs(30),
+            health_interval: Duration::from_secs(5),
+            health_fail_threshold: 3,
+            backoff_initial: Duration::from_millis(500),
+            backoff_max: Duration::from_millis(30_000),
         }
     }
 }
@@ -79,8 +147,15 @@ mod tests {
     fn base_url_is_loopback_only() {
         let config = JobsServiceConfig {
             mode: JobsRuntimeMode::Remote,
-            port: 41002,
+            ..Default::default()
         };
         assert_eq!(config.base_url(), "http://127.0.0.1:41002");
+    }
+
+    #[test]
+    fn supervise_defaults_to_disabled() {
+        let config = JobsServiceConfig::default();
+        assert!(!config.supervise);
+        assert!(config.command.is_empty());
     }
 }

@@ -77,9 +77,18 @@ async fn serve_with_shutdown(
 
     // Phase 2（ADR-001）：RUST_API_AI_SUPERVISE=1 时 rust 监督 ai_service 生命周期
     let ai_supervisor_handle =
-        crate::services::ai_supervisor::spawn_ai_supervisor(config.clone(), shutdown_rx_watch);
+        crate::services::ai_supervisor::spawn_ai_supervisor(config.clone(), shutdown_rx_watch.clone());
     if ai_supervisor_handle.is_some() {
         tracing::info!("ai_supervisor enabled: managing retainpdf-ai lifecycle");
+    }
+
+    // Phase 3（ADR-002）：RUST_API_JOBS_SUPERVISE=1 且 RUST_API_JOBS_MODE=remote 时壳监督 jobsd
+    let jobsd_supervisor_handle = crate::services::jobsd_supervisor::spawn_jobsd_supervisor(
+        config.clone(),
+        shutdown_rx_watch,
+    );
+    if jobsd_supervisor_handle.is_some() {
+        tracing::info!("jobsd_supervisor enabled: managing retain-jobsd lifecycle");
     }
 
     let full_server = axum::serve(listener, app).with_graceful_shutdown({
@@ -91,6 +100,9 @@ async fn serve_with_shutdown(
 
     tokio::try_join!(full_server, simple_server)?;
     if let Some(handle) = ai_supervisor_handle {
+        let _ = handle.await;
+    }
+    if let Some(handle) = jobsd_supervisor_handle {
         let _ = handle.await;
     }
     Ok(())

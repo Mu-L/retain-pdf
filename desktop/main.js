@@ -260,6 +260,10 @@ async function startBundledBackend() {
   }
 
   const bundledPythonHome = resolveBundledPythonHome(pythonRuntime.bundledHome);
+  // ADR-002 Phase3: 打包版默认 remote + 监督（改壳不杀任务），开发版保持 InProcess 除非显式设 env
+  const jobsModeForEnv = process.env.RUST_API_JOBS_MODE || (app.isPackaged ? "remote" : "");
+  const jobsSuperviseForEnv = process.env.RUST_API_JOBS_SUPERVISE || (app.isPackaged ? "1" : "");
+  const aiSuperviseForEnv = process.env.RUST_API_AI_SUPERVISE || (app.isPackaged ? "1" : "");
   const env = buildBackendEnv({
     apiPort,
     aiServicePort,
@@ -273,6 +277,8 @@ async function startBundledBackend() {
     dataRoot,
     desktopApiKey: DESKTOP_API_KEY,
     inheritHostPythonPath: !app.isPackaged,
+    jobsMode: jobsModeForEnv,
+    jobsSupervise: jobsSuperviseForEnv,
     pythonRuntime,
     rustApiRoot,
     scriptsDir,
@@ -281,6 +287,7 @@ async function startBundledBackend() {
     typstPackageCachePath,
     typstPackagePath,
   });
+  if (aiSuperviseForEnv) env.RUST_API_AI_SUPERVISE = aiSuperviseForEnv;
 
   updateSplashProgress(52, "正在启动本地服务", "Rust API 与 AI 服务正在启动");
   logDesktop(`[desktop] spawning backend: ${backendBin}`);
@@ -316,13 +323,22 @@ async function startBundledBackend() {
     dialog.showErrorBox("Rust API worker crashed", detail);
   });
 
-  // retainpdf-ai：与 Rust 同生命周期；LLM key 由前端按请求传入
-  await startRetainpdfAiService({
-    aiServicePort,
-    aiServiceRoot,
-    env,
-    pythonCommand: pythonRuntime.command,
-  });
+  // retainpdf-ai：由壳监督（RUST_API_AI_SUPERVISE=1）时桌面端不再自拉，避免双进程
+  const aiSupervisedByShell = env.RUST_API_AI_SUPERVISE === "1";
+  const jobsdSupervisedByShell = env.RUST_API_JOBS_SUPERVISE === "1" && env.RUST_API_JOBS_MODE === "remote";
+  if (aiSupervisedByShell) {
+    logDesktop("[desktop] ai_service supervised by shell (RUST_API_AI_SUPERVISE=1); skipping desktop spawn");
+  } else {
+    await startRetainpdfAiService({
+      aiServicePort,
+      aiServiceRoot,
+      env,
+      pythonCommand: pythonRuntime.command,
+    });
+  }
+  if (jobsdSupervisedByShell) {
+    logDesktop("[desktop] jobsd supervised by shell (RUST_API_JOBS_SUPERVISE=1); shell will spawn retain-jobsd");
+  }
 
   let waitingProgress = 58;
   const waitingTimer = setInterval(() => {
