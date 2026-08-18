@@ -13,6 +13,14 @@ DATA_ROOT="${RUST_API_DATA_ROOT:-$ROOT/data}"
 JOBS_PORT="${RUST_API_JOBS_PORT:-41002}"
 AI_PORT="${RUST_API_AI_PORT:-41100}"
 SHELL_PORT="${RUST_API_PORT:-41000}"
+GOLDEN_SMOKE=0
+GOLDEN_FIXTURE=""
+for arg in "$@"; do
+  case "$arg" in
+    --golden-smoke) GOLDEN_SMOKE=1 ;;
+    --golden-smoke=*) GOLDEN_SMOKE=1; GOLDEN_FIXTURE="${arg#--golden-smoke=}" ;;
+  esac
+done
 
 export RUST_API_PROJECT_ROOT="$ROOT"
 export RUST_API_ROOT="$RUST_API_ROOT"
@@ -101,5 +109,21 @@ fi
 
 echo "[dev-remote] all started. Ctrl+C to stop."
 echo "[dev-remote] shell http://127.0.0.1:$SHELL_PORT  health http://127.0.0.1:$SHELL_PORT/api/v1/health"
+if [ "$GOLDEN_SMOKE" = 1 ]; then
+  FIXTURE="${GOLDEN_FIXTURE:-$ROOT/resources/fixtures/golden-jobs/chem-6ada81-10p}"
+  echo "[dev-remote] --golden-smoke: running offline harness against $FIXTURE"
+  if python3 "$ROOT/backend/pipeline/devtools/golden_harness.py" --fixture "$FIXTURE" 2>&1; then
+    echo "[dev-remote] golden-smoke (structural) ok"
+  else
+    echo "[dev-remote] golden-smoke (structural) FAILED — see above"
+  fi
+  # 有凭证且本地有 source 时可加 --render 做全量渲染冒烟
+  if [ -n "${RETAIN_PADDLE_API_TOKEN:-}" ] || [ -n "${RETAIN_TRANSLATION_API_KEY:-}" ]; then
+    echo "[dev-remote] credentials detected — also running --render smoke (needs source PDF)"
+    python3 "$ROOT/backend/pipeline/devtools/golden_harness.py" --fixture "$FIXTURE" --render 2>&1 || echo "[dev-remote] golden-smoke --render failed (check typst/source)"
+  else
+    echo "[dev-remote] no provider credentials — skip --render (structural already ok)"
+  fi
+fi
 
 wait

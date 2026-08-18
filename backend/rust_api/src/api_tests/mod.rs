@@ -1,5 +1,6 @@
 mod conversations_contract;
 mod glossaries;
+mod golden_replay;
 mod http_contract;
 mod jobs_common;
 mod jobs_control_contract;
