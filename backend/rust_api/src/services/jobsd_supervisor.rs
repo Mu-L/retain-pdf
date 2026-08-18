@@ -210,11 +210,11 @@ pub fn spawn_jobsd_supervisor(
     set_status(JOBSD_STATUS_STARTING);
     Some(tokio::spawn(async move {
         let client = reqwest::Client::builder()
-            .connect_timeout(Duration::from_secs(1))
-            .timeout(Duration::from_secs(2))
+            .connect_timeout(app.jobs_service.health_probe_connect_timeout)
+            .timeout(app.jobs_service.health_probe_timeout)
             .build()
             .expect("build jobsd supervisor client");
-        let health_url = format!("http://127.0.0.1:{}/healthz", app.jobs_service.port);
+        let health_url = app.jobs_service.health_url();
         let mut shutdown = shutdown;
         let mut backoff = app.jobs_service.backoff_initial;
         loop {

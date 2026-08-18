@@ -24,7 +24,7 @@ pub async fn list_books(
     Query(query): Query<ListJobsQuery>,
 ) -> Result<Json<ApiResponse<LibraryBookListView>>, AppError> {
     let deps = build_library_route_deps(&state);
-    let base_url = request_base_url(&headers, deps.default_port);
+    let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
     Ok(ok_json(list_library_books_view(
         &deps.library,
         &query,
@@ -38,7 +38,7 @@ pub async fn get_book(
     AxumPath(job_id): AxumPath<String>,
 ) -> Result<Json<ApiResponse<LibraryBookDetailView>>, AppError> {
     let deps = build_library_route_deps(&state);
-    let base_url = request_base_url(&headers, deps.default_port);
+    let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
     Ok(ok_json(get_library_book_view(
         &deps.library,
         &job_id,

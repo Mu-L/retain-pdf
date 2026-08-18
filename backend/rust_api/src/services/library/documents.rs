@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+use crate::config::limits::MAX_DOCUMENT_LIMIT;
 use crate::error::AppError;
 use crate::models::api::{
     DocumentDeleteResultView, DocumentListView, DocumentRecord, ListDocumentsQuery,
@@ -88,7 +89,7 @@ pub fn list_documents(
     let documents = deps
         .db
         .list_documents(
-            query.limit.clamp(1, 500),
+            query.limit.clamp(1, MAX_DOCUMENT_LIMIT),
             query.offset,
             query.reading_status.as_deref(),
             query.tag.as_deref(),

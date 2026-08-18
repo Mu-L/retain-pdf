@@ -85,9 +85,17 @@ fn every_contract_op_has_its_http_method_mounted() {
 fn contract_binds_loopback_only() {
     let contract = contract();
     assert_eq!(contract["bind_host"], "127.0.0.1");
+    // 默认仅回环：代码应通过 JobsServiceConfig::bind_host 决定监听地址
+    // （默认 127.0.0.1，可经 RUST_API_JOBS_HOST 覆盖），而非到处散落字面量。
     let source = include_str!("main.rs");
     assert!(
-        source.contains("bind((\"127.0.0.1\", port))"),
-        "jobsd 必须只监听回环——内部控制面不得对外暴露"
+        source.contains("jobs_service.bind_host") || source.contains("bind_host"),
+        "jobsd 必须通过 bind_host 配置决定监听地址——内部控制面默认仅回环"
+    );
+    // 同时确保持续声明默认值为回环（双重保险，字面量仅允许在配置默认值处）
+    assert_eq!(
+        retain_core::config::JobsServiceConfig::default().bind_host,
+        "127.0.0.1",
+        "JobsServiceConfig 默认 bind_host 必须为 127.0.0.1（仅回环）"
     );
 }

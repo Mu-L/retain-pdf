@@ -11,7 +11,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use super::env_vars::{env_bool, env_u16, env_u32, env_u64};
+use super::env_vars::{env_bool, env_string, env_u16, env_u32, env_u64};
 
 /// 任务运行时跑在哪儿。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -25,6 +25,8 @@ pub enum JobsRuntimeMode {
 #[derive(Clone, Debug)]
 pub struct JobsServiceConfig {
     pub mode: JobsRuntimeMode,
+    /// jobsd 监听绑定地址（RUST_API_JOBS_HOST，默认 127.0.0.1 = 仅回环）
+    pub bind_host: String,
     /// jobsd 监听端口（RUST_API_JOBS_PORT，默认 41002）
     pub port: u16,
     /// 是否由壳监督 jobsd 生命周期（RUST_API_JOBS_SUPERVISE，默认 false）
@@ -44,6 +46,9 @@ pub struct JobsServiceConfig {
     /// 重启退避（初始 → 指数翻倍 → 上限）
     pub backoff_initial: Duration,
     pub backoff_max: Duration,
+    /// 健康探活 HTTP 客户端连接/整体超时
+    pub health_probe_connect_timeout: Duration,
+    pub health_probe_timeout: Duration,
 }
 
 impl JobsServiceConfig {
@@ -79,6 +84,7 @@ impl JobsServiceConfig {
             .filter(|p| p.is_dir());
         Self {
             mode,
+            bind_host: env_string("RUST_API_JOBS_HOST", "127.0.0.1"),
             port: env_u16("RUST_API_JOBS_PORT", 41002),
             supervise: env_bool("RUST_API_JOBS_SUPERVISE", false),
             command,
@@ -101,12 +107,24 @@ impl JobsServiceConfig {
                 "RUST_API_JOBSD_BACKOFF_MAX_MS",
                 30_000,
             )),
+            health_probe_connect_timeout: Duration::from_secs(env_u64(
+                "RUST_API_JOBSD_HEALTH_PROBE_CONNECT_TIMEOUT_SECS",
+                1,
+            )),
+            health_probe_timeout: Duration::from_secs(env_u64(
+                "RUST_API_JOBSD_HEALTH_PROBE_TIMEOUT_SECS",
+                2,
+            )),
         }
     }
 
-    /// jobsd 内部基址；仅回环，不对外暴露。
+    /// jobsd 内部基址；默认仅回环（bind_host 可通过 RUST_API_JOBS_HOST 覆盖）。
     pub fn base_url(&self) -> String {
-        format!("http://127.0.0.1:{}", self.port)
+        format!("http://{}:{}", self.bind_host, self.port)
+    }
+
+    pub fn health_url(&self) -> String {
+        format!("{}/healthz", self.base_url())
     }
 
     pub fn is_remote(&self) -> bool {
@@ -118,6 +136,7 @@ impl Default for JobsServiceConfig {
     fn default() -> Self {
         Self {
             mode: JobsRuntimeMode::InProcess,
+            bind_host: "127.0.0.1".to_string(),
             port: 41002,
             supervise: false,
             command: String::new(),
@@ -128,6 +147,8 @@ impl Default for JobsServiceConfig {
             health_fail_threshold: 3,
             backoff_initial: Duration::from_millis(500),
             backoff_max: Duration::from_millis(30_000),
+            health_probe_connect_timeout: Duration::from_secs(1),
+            health_probe_timeout: Duration::from_secs(2),
         }
     }
 }

@@ -16,7 +16,7 @@ pub async fn markdown_response(
     query: &MarkdownQuery,
 ) -> Result<Response, AppError> {
     let markdown = jobs_facade_ref(deps).markdown_document(job_id).await?;
-    markdown_download_response(headers, markdown, query.raw, deps.default_port)
+    markdown_download_response(headers, markdown, query.raw, deps.default_port, &deps.bind_host)
 }
 
 pub async fn markdown_document_response(
@@ -24,7 +24,7 @@ pub async fn markdown_document_response(
     headers: &HeaderMap,
     job_id: &str,
 ) -> Result<Response, AppError> {
-    let base_url = request_base_url(headers, deps.default_port);
+    let base_url = request_base_url(headers, deps.default_port, &deps.bind_host);
     let view = jobs_facade_ref(deps)
         .markdown_document_view(job_id, &base_url)
         .await?;
@@ -36,6 +36,7 @@ fn markdown_download_response(
     markdown: MarkdownDownload,
     raw: bool,
     default_port: u16,
+    bind_host: &str,
 ) -> Result<Response, AppError> {
     if raw {
         return Ok((
@@ -44,7 +45,7 @@ fn markdown_download_response(
         )
             .into_response());
     }
-    let base_url = request_base_url(headers, default_port);
+    let base_url = request_base_url(headers, default_port, bind_host);
     let raw_path = format!("/api/v1/jobs/{}/markdown?raw=true", markdown.job_id);
     let images_base_path = format!("/api/v1/jobs/{}/markdown/images/", markdown.job_id);
     Ok(ok_json(MarkdownView {

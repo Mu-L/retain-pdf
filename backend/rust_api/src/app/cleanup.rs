@@ -25,9 +25,24 @@ use tracing::{info, warn};
 
 use crate::db::Db;
 
+pub use retain_core::config::CleanupConfig;
+
 /// How often the recurring sweep runs once the server is up. Deliberately
 /// coarse: this is maintenance, not something latency-sensitive.
-const CLEANUP_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
+/// Env `RUST_API_CLEANUP_INTERVAL_SECS` (default 21600) via
+/// `retain_core::config::env_vars::env_u64` — the interval is env-tunable
+/// without rebuilding (see `retain_core::config::CleanupConfig`).
+fn cleanup_interval_from_config() -> Duration {
+    // Single source: retain_core::config::env_vars::env_u64 (env `RUST_API_CLEANUP_INTERVAL_SECS`, default 21600)
+    // Also keep AppConfig facet in sync via CleanupConfig.
+    let direct = Duration::from_secs(retain_core::config::env_vars::env_u64(
+        "RUST_API_CLEANUP_INTERVAL_SECS",
+        21600,
+    ));
+    let via_config = CleanupConfig::from_env().interval;
+    debug_assert_eq!(direct, via_config);
+    direct
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct RetentionSettings {
@@ -58,6 +73,10 @@ fn env_u64_allow_zero(name: &str, fallback: u64) -> u64 {
 }
 
 pub fn log_startup_settings(settings: &RetentionSettings) {
+    log_startup_settings_with_interval(settings, cleanup_interval_from_config());
+}
+
+pub fn log_startup_settings_with_interval(settings: &RetentionSettings, interval: Duration) {
     info!(
         "retention cleanup: events_retention_days={} ({}), orphan_upload_retention_hours={} ({}), sweep_interval_secs={}",
         settings.events_retention_days,
@@ -72,7 +91,7 @@ pub fn log_startup_settings(settings: &RetentionSettings) {
         } else {
             "enabled"
         },
-        CLEANUP_INTERVAL.as_secs(),
+        interval.as_secs(),
     );
 }
 
@@ -138,8 +157,19 @@ pub fn spawn_periodic_cleanup(
     settings: RetentionSettings,
     db: Arc<Db>,
 ) -> tokio::task::JoinHandle<()> {
+    spawn_periodic_cleanup_with_interval(settings, db, cleanup_interval_from_config())
+}
+
+/// Same as `spawn_periodic_cleanup` but with an explicit interval (e.g. from `AppConfig::cleanup`).
+/// This is the AppConfig-wired entry point; the zero-arg version above remains as
+/// a convenience that reads `RUST_API_CLEANUP_INTERVAL_SECS` directly.
+pub fn spawn_periodic_cleanup_with_interval(
+    settings: RetentionSettings,
+    db: Arc<Db>,
+    interval_duration: Duration,
+) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(CLEANUP_INTERVAL);
+        let mut interval = tokio::time::interval(interval_duration);
         // The first tick fires immediately; skip it since a startup sweep
         // already ran in `app::state::build_state`.
         interval.tick().await;

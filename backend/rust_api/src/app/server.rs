@@ -7,7 +7,8 @@ use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
 use crate::app::cleanup::{
-    log_startup_settings, run_cleanup_once, spawn_periodic_cleanup, RetentionSettings,
+    log_startup_settings_with_interval, run_cleanup_once, spawn_periodic_cleanup_with_interval,
+    RetentionSettings,
 };
 use crate::app::{build_app, build_simple_app, build_state};
 use crate::config::AppConfig;
@@ -41,11 +42,12 @@ async fn serve_with_shutdown(
     // which is also called directly by many unit tests that don't want
     // background retention sweeps touching their fixtures.
     let retention_settings = RetentionSettings::from_env();
-    log_startup_settings(&retention_settings);
+    log_startup_settings_with_interval(&retention_settings, config.cleanup.interval);
     if let Err(error) = run_cleanup_once(&retention_settings, state.db.as_ref()) {
         tracing::warn!("startup retention cleanup sweep failed: {error:#}");
     }
-    let _cleanup_handle = spawn_periodic_cleanup(retention_settings, state.db.clone());
+    let _cleanup_handle =
+        spawn_periodic_cleanup_with_interval(retention_settings, state.db.clone(), config.cleanup.interval);
 
     let app = build_app(state.clone());
     let simple_app = build_simple_app(state);
@@ -113,8 +115,8 @@ pub async fn run_servers(config: AppConfig) -> Result<()> {
 }
 
 pub fn spawn_servers(config: AppConfig) -> RunningServers {
-    let base_url = format!("http://127.0.0.1:{}", config.port);
-    let simple_base_url = format!("http://127.0.0.1:{}", config.simple_port);
+    let base_url = format!("http://{}:{}", config.bind_host, config.port);
+    let simple_base_url = format!("http://{}:{}", config.bind_host, config.simple_port);
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
     let config = Arc::new(config);
     let join_handle = tokio::spawn(async move {

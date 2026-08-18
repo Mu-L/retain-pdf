@@ -12,6 +12,7 @@ mod runtime;
 mod source;
 #[cfg(test)]
 mod tests {
+    use crate::config::env_vars::env_test_lock;
     use crate::models::{CreateJobInput, ResolvedJobSpec, WorkflowKind};
     use serde_json::json;
 
@@ -143,6 +144,13 @@ mod tests {
 
     #[test]
     fn resolved_job_spec_from_input_derives_job_id_and_workers() {
+        let _g = env_test_lock();
+        // env from other tests (RUST_API_DEFAULT_*_WORKERS) bleeds via process-global
+        // env; clear it so default 1000 holds.
+        let prev_deepseek = std::env::var("RUST_API_DEFAULT_DEEPSEEK_WORKERS").ok();
+        let prev_generic = std::env::var("RUST_API_DEFAULT_GENERIC_WORKERS").ok();
+        std::env::remove_var("RUST_API_DEFAULT_DEEPSEEK_WORKERS");
+        std::env::remove_var("RUST_API_DEFAULT_GENERIC_WORKERS");
         let mut input = CreateJobInput::default();
         input.source.upload_id = "upload-1".to_string();
         input.translation.model = "deepseek-v4-flash".to_string();
@@ -155,6 +163,8 @@ mod tests {
         assert!(!spec.job_id.trim().is_empty());
         assert_eq!(spec.source.upload_id, "upload-1");
         assert_eq!(spec.resolved_workers(), 1000);
+        if let Some(v) = prev_deepseek { std::env::set_var("RUST_API_DEFAULT_DEEPSEEK_WORKERS", v); }
+        if let Some(v) = prev_generic { std::env::set_var("RUST_API_DEFAULT_GENERIC_WORKERS", v); }
     }
 }
 #[path = "input/translation.rs"]

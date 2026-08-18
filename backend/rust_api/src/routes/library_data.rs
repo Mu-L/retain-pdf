@@ -35,7 +35,7 @@ pub async fn list_documents_route(
     Query(query): Query<ListDocumentsQuery>,
 ) -> Result<Json<ApiResponse<DocumentListView>>, AppError> {
     let deps = build_library_route_deps(&state);
-    let base_url = request_base_url(&headers, deps.default_port);
+    let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
     Ok(ok_json(list_documents_view(
         &deps.library,
         &query,
@@ -49,7 +49,7 @@ pub async fn get_document_route(
     AxumPath(document_id): AxumPath<String>,
 ) -> Result<Json<ApiResponse<DocumentRecord>>, AppError> {
     let deps = build_library_route_deps(&state);
-    let base_url = request_base_url(&headers, deps.default_port);
+    let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
     Ok(ok_json(get_document_view(
         &deps.library,
         &document_id,
@@ -115,7 +115,7 @@ pub async fn patch_document_route(
     Json(payload): Json<PatchDocumentInput>,
 ) -> Result<Json<ApiResponse<DocumentRecord>>, AppError> {
     let deps = build_library_route_deps(&state);
-    let base_url = request_base_url(&headers, deps.default_port);
+    let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
     Ok(ok_json(patch_document_view(
         &deps.library,
         &document_id,
@@ -150,7 +150,7 @@ pub async fn translate_document_route(
     Json(request): Json<CreateJobInput>,
 ) -> Result<Json<ApiResponse<JobSubmissionView>>, AppError> {
     let deps = build_library_route_deps(&state);
-    let base_url = request_base_url(&headers, deps.default_port);
+    let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
     Ok(ok_json(translate_document_view(
         &deps.library,
         &deps.jobs,

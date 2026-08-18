@@ -169,6 +169,7 @@ async fn main() -> Result<()> {
     db.init().context("init db")?;
 
     let port = config.jobs_service.port;
+    let bind_host = config.jobs_service.bind_host.clone();
     let state = JobsdState {
         api_keys: Arc::new(config.api_keys.clone()),
         job_slots: Arc::new(Semaphore::new(config.max_running_jobs)),
@@ -177,10 +178,10 @@ async fn main() -> Result<()> {
         config,
     };
 
-    let listener = tokio::net::TcpListener::bind(("127.0.0.1", port))
+    let listener = tokio::net::TcpListener::bind((bind_host.as_str(), port))
         .await
-        .with_context(|| format!("bind 127.0.0.1:{port}"))?;
-    tracing::info!("retain-jobsd listening on 127.0.0.1:{port}");
+        .with_context(|| format!("bind {bind_host}:{port}"))?;
+    tracing::info!("retain-jobsd listening on {bind_host}:{port}");
     axum::serve(listener, build_router(state))
         .await
         .context("serve")?;

@@ -13,7 +13,7 @@ pub fn stage_actions_response(
     headers: &HeaderMap,
     job_id: &str,
 ) -> Result<Json<ApiResponse<StageActionsView>>, AppError> {
-    let base_url = request_base_url(headers, deps.default_port);
+    let base_url = request_base_url(headers, deps.default_port, &deps.bind_host);
     Ok(ok_json(
         jobs_facade(deps).stage_actions_view(&base_url, job_id)?,
     ))
@@ -25,7 +25,7 @@ pub async fn cancel_job_response(
     job_id: &str,
     ocr_only: bool,
 ) -> Result<Json<ApiResponse<JobSubmissionView>>, AppError> {
-    let base_url = request_base_url(headers, deps.default_port);
+    let base_url = request_base_url(headers, deps.default_port, &deps.bind_host);
     Ok(ok_json(
         jobs_facade(deps)
             .cancel_submission(&base_url, job_id, ocr_only)
@@ -38,7 +38,7 @@ pub fn rerun_job_response(
     headers: &HeaderMap,
     job_id: &str,
 ) -> Result<Json<ApiResponse<JobSubmissionView>>, AppError> {
-    let base_url = request_base_url(headers, deps.default_port);
+    let base_url = request_base_url(headers, deps.default_port, &deps.bind_host);
     Ok(ok_json(
         jobs_facade(deps).rerun_submission(&base_url, job_id)?,
     ))
@@ -58,7 +58,7 @@ pub fn retry_stage_response(
     job_id: &str,
     request: RetryStageRequest,
 ) -> Result<Json<ApiResponse<RetryStageSubmissionView>>, AppError> {
-    let base_url = request_base_url(headers, deps.default_port);
+    let base_url = request_base_url(headers, deps.default_port, &deps.bind_host);
     Ok(ok_json(
         jobs_facade(deps).retry_stage_submission(&base_url, job_id, request)?,
     ))

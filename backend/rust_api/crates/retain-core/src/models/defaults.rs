@@ -81,3 +81,11 @@ pub(crate) fn default_limit() -> u32 {
 pub(crate) fn default_event_limit() -> u32 {
     100
 }
+
+// ---- Pagination max limits (centralized) ----
+// Single source of truth is `crate::config::limits`; re-export here for
+// `models`-local callers and to satisfy contract-first centralization.
+pub use crate::config::limits::{
+    MAX_CONVERSATION_LIMIT, MAX_DOCUMENT_LIMIT, MAX_JOB_EVENT_LIMIT, MAX_JOB_LIMIT,
+    MAX_SEARCH_LIMIT,
+};

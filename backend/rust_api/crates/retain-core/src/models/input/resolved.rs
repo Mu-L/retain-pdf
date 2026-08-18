@@ -8,6 +8,22 @@ use crate::models::{
 pub const DEFAULT_DEEPSEEK_TRANSLATION_WORKERS: i64 = 1000;
 pub const DEFAULT_GENERIC_TRANSLATION_WORKERS: i64 = 4;
 
+pub fn default_deepseek_workers() -> i64 {
+    env_workers("RUST_API_DEFAULT_DEEPSEEK_WORKERS", DEFAULT_DEEPSEEK_TRANSLATION_WORKERS)
+}
+
+pub fn default_generic_workers() -> i64 {
+    env_workers("RUST_API_DEFAULT_GENERIC_WORKERS", DEFAULT_GENERIC_TRANSLATION_WORKERS)
+}
+
+fn env_workers(name: &str, fallback: i64) -> i64 {
+    std::env::var(name)
+        .ok()
+        .and_then(|value| value.trim().parse::<i64>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(fallback)
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct ResolvedJobSpec {
     pub workflow: WorkflowKind,
@@ -48,9 +64,9 @@ impl ResolvedJobSpec {
         let model = self.translation.model.to_lowercase();
         let base = self.translation.base_url.to_lowercase();
         if model.contains("deepseek") || base.contains("deepseek.com") {
-            DEFAULT_DEEPSEEK_TRANSLATION_WORKERS
+            default_deepseek_workers()
         } else {
-            DEFAULT_GENERIC_TRANSLATION_WORKERS
+            default_generic_workers()
         }
     }
 }
@@ -58,5 +74,80 @@ impl ResolvedJobSpec {
 impl From<CreateJobInput> for ResolvedJobSpec {
     fn from(value: CreateJobInput) -> Self {
         ResolvedJobSpec::from_input(value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::env_vars::env_test_lock;
+    use crate::models::CreateJobInput;
+
+    fn with_env<F>(key: &str, value: Option<&str>, f: F)
+    where
+        F: FnOnce(),
+    {
+        let prev = std::env::var(key).ok();
+        match value {
+            Some(v) => std::env::set_var(key, v),
+            None => std::env::remove_var(key),
+        }
+        f();
+        match prev {
+            Some(v) => std::env::set_var(key, v),
+            None => std::env::remove_var(key),
+        }
+    }
+
+    #[test]
+    fn defaults_follow_const_when_env_unset() {
+        let _g = env_test_lock();
+        with_env("RUST_API_DEFAULT_DEEPSEEK_WORKERS", None, || {
+            with_env("RUST_API_DEFAULT_GENERIC_WORKERS", None, || {
+                assert_eq!(default_deepseek_workers(), 1000);
+                assert_eq!(default_generic_workers(), 4);
+                let mut input = CreateJobInput::default();
+                input.translation.model = "deepseek-chat".to_string();
+                let spec = ResolvedJobSpec::from_input(input);
+                assert_eq!(spec.resolved_workers(), 1000);
+                let mut input2 = CreateJobInput::default();
+                input2.translation.model = "gpt-4".to_string();
+                let spec2 = ResolvedJobSpec::from_input(input2);
+                assert_eq!(spec2.resolved_workers(), 4);
+            });
+        });
+    }
+
+    #[test]
+    fn env_overrides_default_workers() {
+        let _g = env_test_lock();
+        with_env("RUST_API_DEFAULT_DEEPSEEK_WORKERS", Some("42"), || {
+            assert_eq!(default_deepseek_workers(), 42);
+            let mut input = CreateJobInput::default();
+            input.translation.model = "deepseek-v3".to_string();
+            let spec = ResolvedJobSpec::from_input(input);
+            assert_eq!(spec.resolved_workers(), 42);
+        });
+        with_env("RUST_API_DEFAULT_GENERIC_WORKERS", Some("7"), || {
+            assert_eq!(default_generic_workers(), 7);
+            let mut input = CreateJobInput::default();
+            input.translation.model = "openai-gpt".to_string();
+            let spec = ResolvedJobSpec::from_input(input);
+            assert_eq!(spec.resolved_workers(), 7);
+        });
+    }
+
+    #[test]
+    fn invalid_or_zero_env_falls_back() {
+        let _g = env_test_lock();
+        with_env("RUST_API_DEFAULT_DEEPSEEK_WORKERS", Some("0"), || {
+            assert_eq!(default_deepseek_workers(), 1000);
+        });
+        with_env("RUST_API_DEFAULT_DEEPSEEK_WORKERS", Some("not_a_number"), || {
+            assert_eq!(default_deepseek_workers(), 1000);
+        });
+        with_env("RUST_API_DEFAULT_GENERIC_WORKERS", Some("-5"), || {
+            assert_eq!(default_generic_workers(), 4);
+        });
     }
 }

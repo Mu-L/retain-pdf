@@ -59,7 +59,7 @@ fn child_env(app: &AppConfig, ai: &AiServiceConfig) -> Vec<(String, String)> {
         sorted
     };
     vec![
-        ("RETAIN_AI_HOST".into(), "127.0.0.1".into()),
+        ("RETAIN_AI_HOST".into(), ai.bind_host.clone()),
         ("RETAIN_AI_PORT".into(), ai.port.to_string()),
         ("RETAIN_AI_API_KEYS".into(), keys.join(",")),
         (
@@ -68,7 +68,7 @@ fn child_env(app: &AppConfig, ai: &AiServiceConfig) -> Vec<(String, String)> {
         ),
         (
             "RETAIN_AI_RUST_API_BASE".into(),
-            format!("http://127.0.0.1:{}", app.port),
+            format!("http://{}:{}", app.bind_host, app.port),
         ),
         (
             "RETAIN_AI_DATA_ROOT".into(),
@@ -224,11 +224,11 @@ pub fn spawn_ai_supervisor(
     set_status(AI_STATUS_STARTING);
     Some(tokio::spawn(async move {
         let client = reqwest::Client::builder()
-            .connect_timeout(Duration::from_secs(1))
-            .timeout(Duration::from_secs(2))
+            .connect_timeout(ai.health_probe_connect_timeout)
+            .timeout(ai.health_probe_timeout)
             .build()
             .expect("build ai supervisor client");
-        let health_url = format!("http://127.0.0.1:{}/healthz", ai.port);
+        let health_url = ai.health_url();
         let mut shutdown = shutdown;
         let mut backoff = ai.backoff_initial;
         loop {
@@ -276,12 +276,15 @@ mod tests {
             command: "/bin/sh".to_string(),
             args: vec!["-c".to_string(), "sleep 30".to_string()],
             cwd: None,
+            bind_host: "127.0.0.1".to_string(),
             port: 1, // 无人监听,探活必失败
             startup_timeout: std::time::Duration::from_millis(300),
             health_interval: std::time::Duration::from_millis(50),
             health_fail_threshold: 1,
             backoff_initial: std::time::Duration::from_millis(50),
             backoff_max: std::time::Duration::from_millis(100),
+            health_probe_connect_timeout: std::time::Duration::from_secs(1),
+            health_probe_timeout: std::time::Duration::from_secs(2),
         };
         let (tx, rx) = tokio::sync::watch::channel(false);
         let handle =

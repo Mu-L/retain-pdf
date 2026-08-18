@@ -1,5 +1,6 @@
 //! AI conversation history (soft-anchor citations + message tree branches).
 
+use crate::config::limits::MAX_CONVERSATION_LIMIT;
 use crate::error::AppError;
 use crate::models::api::{
     AppendMessageInput, ConversationDetailView, ConversationListView, ConversationMutationResult,
@@ -34,7 +35,7 @@ pub fn list_conversations(
     deps: &LibraryDeps<'_>,
     query: &ListConversationsQuery,
 ) -> Result<ConversationListView, AppError> {
-    let limit = query.limit.clamp(1, 200);
+    let limit = query.limit.clamp(1, MAX_CONVERSATION_LIMIT);
     let document_id = query.document_id.trim();
     let conversations = if document_id.is_empty() {
         deps.db.list_conversations(limit, query.offset)?

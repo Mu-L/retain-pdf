@@ -7,6 +7,7 @@ use super::super::summary_loaders::load_invocation_summary;
 use super::helpers::{cover_url, derive_display_name, job_path_prefix};
 use super::helpers::{page_count_for_job, source_file_name, thumbnail_url};
 use super::security::redact_job_events;
+use crate::config::limits::MAX_JOB_LIMIT;
 use crate::db::Db;
 use crate::error::AppError;
 use crate::models::api::{
@@ -39,7 +40,7 @@ pub fn build_job_events_view(
     job_id: &str,
     query: &ListJobEventsQuery,
 ) -> Result<JobEventListView, AppError> {
-    let limit = query.limit.clamp(1, 500);
+    let limit = query.limit.clamp(1, MAX_JOB_LIMIT);
     let job = db.get_job(job_id)?;
     let items = redact_job_events(
         &job,

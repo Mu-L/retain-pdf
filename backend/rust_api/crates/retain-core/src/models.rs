@@ -3,7 +3,7 @@ pub mod api;
 #[path = "models/common.rs"]
 mod common;
 #[path = "models/defaults.rs"]
-mod defaults;
+pub mod defaults;
 #[path = "models/domain.rs"]
 pub mod domain;
 #[path = "models/glossary.rs"]

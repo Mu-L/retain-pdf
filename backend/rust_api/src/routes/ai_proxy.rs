@@ -12,11 +12,24 @@ use once_cell::sync::Lazy;
 
 use crate::error::AppError;
 
+fn ai_proxy_connect_timeout() -> std::time::Duration {
+    // Single source of truth is `retain_core::config::AiProxyConfig`
+    // (env `RUST_API_AI_PROXY_CONNECT_TIMEOUT_SECS` default 3), but we also
+    // support a direct env read here so the Lazy client can initialize
+    // without requiring AppConfig to be threaded through the route.
+    std::env::var("RUST_API_AI_PROXY_CONNECT_TIMEOUT_SECS")
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .filter(|value| *value > 0)
+        .map(std::time::Duration::from_secs)
+        .unwrap_or_else(|| retain_core::config::AiProxyConfig::from_env().connect_timeout)
+}
+
 static PROXY_CLIENT: Lazy<reqwest::Client> = Lazy::new(|| {
     reqwest::Client::builder()
         // 上游 agent 循环最长可跑数分钟;连接超时短、整体不设上限,
         // 由上游自身的轮数/超时护栏兜底。
-        .connect_timeout(std::time::Duration::from_secs(3))
+        .connect_timeout(ai_proxy_connect_timeout())
         .build()
         .expect("build ai proxy client")
 });
@@ -26,7 +39,7 @@ fn ai_service_base() -> String {
         .ok()
         .map(|value| value.trim().trim_end_matches('/').to_string())
         .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| "http://127.0.0.1:41100".to_string())
+        .unwrap_or_else(|| crate::config::AiServiceConfig::default().base_url())
 }
 
 pub async fn ask_proxy(

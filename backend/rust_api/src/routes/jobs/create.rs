@@ -18,7 +18,7 @@ pub async fn create_job(
     let request = CreateJobInput::from_api_value(payload)
         .map_err(|e| AppError::bad_request(format!("invalid job payload: {e}")))?;
     let deps = build_jobs_route_deps(&state);
-    let base_url = request_base_url(&headers, deps.default_port);
+    let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
     Ok(ok_json(
         jobs_facade(deps).create_submission(&base_url, &request)?,
     ))
@@ -36,7 +36,7 @@ pub async fn create_ocr_job(
         _ => return Err(AppError::bad_request("file upload is incomplete")),
     };
     let deps = build_jobs_route_deps(&state);
-    let base_url = request_base_url(&headers, deps.default_port);
+    let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
     let view = jobs_facade(deps)
         .create_ocr_submission(&base_url, &parsed.request, upload)
         .await?;
@@ -50,7 +50,7 @@ pub async fn translate_bundle(
 ) -> Result<Json<ApiResponse<JobSubmissionView>>, AppError> {
     let parsed = parse_translate_bundle_request(&mut multipart).await?;
     let deps = build_jobs_route_deps(&state);
-    let base_url = request_base_url(&headers, deps.default_port);
+    let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
     let view = jobs_facade(deps)
         .create_translation_bundle_submission(
             &base_url,

@@ -18,12 +18,14 @@ pub fn ok_json<T>(value: T) -> Json<ApiResponse<T>> {
 pub struct JobsRouteDeps<'a> {
     pub jobs: JobsFacade<'a>,
     pub default_port: u16,
+    pub bind_host: String,
 }
 
 pub fn build_jobs_route_deps(state: &AppState) -> JobsRouteDeps<'_> {
     JobsRouteDeps {
         jobs: build_jobs_facade_from_state(state),
         default_port: state.config.port,
+        bind_host: state.config.bind_host.clone(),
     }
 }
 
@@ -31,13 +33,13 @@ pub fn jobs_facade(deps: JobsRouteDeps<'_>) -> JobsFacade<'_> {
     deps.jobs
 }
 
-pub fn request_base_url(headers: &HeaderMap, default_port: u16) -> String {
+pub fn request_base_url(headers: &HeaderMap, default_port: u16, bind_host: &str) -> String {
     let scheme = forwarded_header(headers, "x-forwarded-proto")
         .or_else(|| forwarded_header(headers, "x-scheme"))
         .unwrap_or_else(|| "http".to_string());
     let host = forwarded_header(headers, "x-forwarded-host")
         .or_else(|| forwarded_header(headers, header::HOST.as_str()))
-        .unwrap_or_else(|| format!("127.0.0.1:{default_port}"));
+        .unwrap_or_else(|| format!("{}:{default_port}", bind_host));
     let forwarded_port =
         forwarded_header(headers, "x-forwarded-port").filter(|value| !value.is_empty());
     let (hostname, host_port) = split_host_port(&host);
@@ -115,6 +117,7 @@ pub struct LibraryRouteDeps<'a> {
     /// Jobs creation path for document translate-from-library (and future library→job flows).
     pub jobs: JobsFacade<'a>,
     pub default_port: u16,
+    pub bind_host: String,
 }
 
 pub fn build_library_route_deps(state: &AppState) -> LibraryRouteDeps<'_> {
@@ -129,6 +132,7 @@ pub fn build_library_route_deps(state: &AppState) -> LibraryRouteDeps<'_> {
         },
         jobs: build_jobs_facade_from_state(state),
         default_port: state.config.port,
+        bind_host: state.config.bind_host.clone(),
     }
 }
 
@@ -171,6 +175,8 @@ mod tests {
     use super::*;
     use axum::http::HeaderValue;
 
+    const TEST_BIND_HOST: &str = "127.0.0.1";
+
     #[test]
     fn request_base_url_prefers_forwarded_headers() {
         let mut headers = HeaderMap::new();
@@ -178,7 +184,7 @@ mod tests {
         headers.insert("x-forwarded-host", HeaderValue::from_static("example.com"));
         headers.insert("x-forwarded-port", HeaderValue::from_static("8443"));
 
-        let base_url = request_base_url(&headers, 41000);
+        let base_url = request_base_url(&headers, 41000, TEST_BIND_HOST);
         assert_eq!(base_url, "https://example.com:8443");
     }
 
@@ -189,7 +195,7 @@ mod tests {
         headers.insert("x-forwarded-host", HeaderValue::from_static("qzlab:40001"));
         headers.insert("x-forwarded-port", HeaderValue::from_static("80"));
 
-        let base_url = request_base_url(&headers, 41000);
+        let base_url = request_base_url(&headers, 41000, TEST_BIND_HOST);
         assert_eq!(base_url, "http://qzlab:40001");
     }
 
@@ -200,7 +206,7 @@ mod tests {
         headers.insert("x-forwarded-host", HeaderValue::from_static("example.com"));
         headers.insert("x-forwarded-port", HeaderValue::from_static("443"));
 
-        let base_url = request_base_url(&headers, 41000);
+        let base_url = request_base_url(&headers, 41000, TEST_BIND_HOST);
         assert_eq!(base_url, "https://example.com");
     }
 
@@ -211,7 +217,7 @@ mod tests {
         headers.insert("x-forwarded-host", HeaderValue::from_static("example.com"));
         headers.insert("x-forwarded-port", HeaderValue::from_static("80"));
 
-        let base_url = request_base_url(&headers, 41000);
+        let base_url = request_base_url(&headers, 41000, TEST_BIND_HOST);
         assert_eq!(base_url, "http://example.com");
     }
 
@@ -224,7 +230,7 @@ mod tests {
             HeaderValue::from_static("example.com:443"),
         );
 
-        let base_url = request_base_url(&headers, 41000);
+        let base_url = request_base_url(&headers, 41000, TEST_BIND_HOST);
         assert_eq!(base_url, "https://example.com");
     }
 
@@ -235,7 +241,7 @@ mod tests {
         headers.insert("x-forwarded-host", HeaderValue::from_static("example.com"));
         headers.insert("x-forwarded-port", HeaderValue::from_static("80"));
 
-        let base_url = request_base_url(&headers, 41000);
+        let base_url = request_base_url(&headers, 41000, TEST_BIND_HOST);
         assert_eq!(base_url, "https://example.com:80");
     }
 
@@ -246,7 +252,16 @@ mod tests {
         headers.insert("x-forwarded-host", HeaderValue::from_static("example.com"));
         headers.insert("x-forwarded-port", HeaderValue::from_static("443"));
 
-        let base_url = request_base_url(&headers, 41000);
+        let base_url = request_base_url(&headers, 41000, TEST_BIND_HOST);
         assert_eq!(base_url, "http://example.com:443");
+    }
+
+    #[test]
+    fn request_base_url_falls_back_to_bind_host() {
+        let headers = HeaderMap::new();
+        let base_url = request_base_url(&headers, 41000, "127.0.0.1");
+        assert_eq!(base_url, "http://127.0.0.1:41000");
+        let base_url = request_base_url(&headers, 41000, "0.0.0.0");
+        assert_eq!(base_url, "http://0.0.0.0:41000");
     }
 }

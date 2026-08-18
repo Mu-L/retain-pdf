@@ -1,12 +1,21 @@
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
 
 use crate::error::AppError;
 use crate::models::api::{ReaderAiChatRequest, ReaderAiHistoryMessageView};
 
 use super::config::ReaderAiConfig;
 use super::retrieval::RetrievedChunk;
+
+const DEFAULT_READER_TEMPERATURE: f32 = 0.2;
+
+fn reader_temperature() -> f32 {
+    std::env::var("RUST_API_READER_TEMPERATURE")
+        .ok()
+        .and_then(|value| value.trim().parse::<f32>().ok())
+        .filter(|value| value.is_finite() && *value >= 0.0 && *value <= 2.0)
+        .unwrap_or(DEFAULT_READER_TEMPERATURE)
+}
 
 pub(super) async fn complete_reader_answer(
     config: &ReaderAiConfig,
@@ -17,12 +26,13 @@ pub(super) async fn complete_reader_answer(
     let payload = ChatCompletionRequest {
         model: config.model.clone(),
         messages,
-        temperature: 0.2,
+        temperature: reader_temperature(),
     };
     let url = format!("{}/chat/completions", config.base_url);
+    let reader_llm = retain_core::config::ReaderLlmConfig::from_env();
     let client = reqwest::Client::builder()
-        .connect_timeout(Duration::from_secs(10))
-        .timeout(Duration::from_secs(60))
+        .connect_timeout(reader_llm.connect_timeout)
+        .timeout(reader_llm.timeout)
         .build()
         .map_err(|err| AppError::internal(format!("failed to build AI HTTP client: {err}")))?;
     let response = client

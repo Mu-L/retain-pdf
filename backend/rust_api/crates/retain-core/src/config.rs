@@ -3,19 +3,30 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Result};
 
+mod ai_proxy;
 mod ai_service;
+mod asset;
 mod auth;
-mod env_vars;
+mod cleanup;
+mod db;
+pub mod env_vars;
+pub mod limits;
 mod job_runner;
 mod jobs_service;
 mod paths;
 mod provider;
 pub mod provider_config;
+mod rag;
+mod reader_llm;
 mod server;
 mod upload;
 
 use auth::AuthRuntimeConfig;
+pub use ai_proxy::AiProxyConfig;
 pub use ai_service::AiServiceConfig;
+pub use asset::AssetConfig;
+pub use cleanup::CleanupConfig;
+pub use db::DbConfig;
 pub use job_runner::JobRunnerConfig;
 pub use jobs_service::{JobsRuntimeMode, JobsServiceConfig};
 use paths::{create_runtime_dirs, RuntimePathsConfig};
@@ -23,6 +34,8 @@ pub use provider::{
     DeepSeekRuntimeConfig, MineruRuntimeConfig, PaddleRuntimeConfig, ProviderLimitsConfig,
     ProviderRuntimeConfig,
 };
+pub use rag::RagConfig;
+pub use reader_llm::ReaderLlmConfig;
 use server::ServerRuntimeConfig;
 use upload::UploadRuntimeConfig;
 
@@ -83,6 +96,12 @@ pub struct AppConfig {
     pub job_runner: JobRunnerConfig,
     pub ai_service: AiServiceConfig,
     pub jobs_service: JobsServiceConfig,
+    pub asset: AssetConfig,
+    pub cleanup: CleanupConfig,
+    pub db: DbConfig,
+    pub ai_proxy: AiProxyConfig,
+    pub reader_llm: ReaderLlmConfig,
+    pub rag: RagConfig,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -131,6 +150,7 @@ struct AppConfigParts {
     provider_limits: ProviderLimitsConfig,
     provider_runtime: ProviderRuntimeConfig,
     job_runner: JobRunnerConfig,
+    asset: AssetConfig,
 }
 
 impl AppConfig {
@@ -189,6 +209,7 @@ impl AppConfig {
             provider_limits: ProviderLimitsConfig::from_env(),
             provider_runtime: ProviderRuntimeConfig::from_env(),
             job_runner: JobRunnerConfig::from_env(),
+            asset: AssetConfig::from_env(),
         })
     }
 
@@ -212,6 +233,7 @@ impl AppConfig {
             provider_limits: ProviderLimitsConfig::from_env(),
             provider_runtime: ProviderRuntimeConfig::from_env(),
             job_runner: JobRunnerConfig::from_env(),
+            asset: AssetConfig::from_env(),
         })
     }
 
@@ -224,6 +246,7 @@ impl AppConfig {
             provider_limits,
             provider_runtime,
             job_runner,
+            asset,
         } = parts;
 
         let ai_service = AiServiceConfig::from_env(&paths.project_root, &server.python_bin);
@@ -258,6 +281,12 @@ impl AppConfig {
             job_runner,
             ai_service,
             jobs_service,
+            asset,
+            cleanup: CleanupConfig::from_env(),
+            db: DbConfig::from_env(),
+            ai_proxy: AiProxyConfig::from_env(),
+            reader_llm: ReaderLlmConfig::from_env(),
+            rag: RagConfig::from_env(),
         })
     }
 }
