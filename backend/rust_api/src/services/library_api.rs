@@ -236,6 +236,13 @@ pub fn patch_conversation_view(
     patch_conversation(deps, conversation_id, payload)
 }
 
+pub fn fork_conversation_view(
+    deps: &LibraryDeps<'_>,
+    payload: &crate::models::api::ForkConversationInput,
+) -> Result<ConversationDetailView, AppError> {
+    super::library::fork_conversation(deps, payload)
+}
+
 // --- collections ---
 
 pub fn create_collection_view(

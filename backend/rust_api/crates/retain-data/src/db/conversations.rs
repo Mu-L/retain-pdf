@@ -242,6 +242,85 @@ impl Db {
             parent_id: parent.to_string(),
         })
     }
+
+    /// 原子 fork：单事务内创建会话并批量写入 path（根→叶），失败整体回滚不留孤儿。
+    /// 调用方已做 message_id 重映射，parent_id 指向同批内更早一条或空（根）。
+    pub fn fork_conversation(
+        &self,
+        conversation_id: &str,
+        title: &str,
+        document_id: Option<&str>,
+        messages: &[(String, String, String, String, String, String, String)],
+        // (message_id, role, content, parent_id, citations_json, tool_trace_json, model)
+    ) -> Result<(ConversationRecord, Vec<MessageRecord>)> {
+        let mut conn = self.connect()?;
+        let now = now_iso();
+        let tx = conn.transaction()?;
+        tx.execute(
+            r#"
+            INSERT INTO ai_conversations (conversation_id, title, document_id, created_at, updated_at, head_id)
+            VALUES (?1, ?2, ?3, ?4, ?4, '')
+            "#,
+            params![conversation_id, title, document_id, now],
+        )?;
+        let mut seen_ids = std::collections::HashSet::new();
+        let mut out = Vec::with_capacity(messages.len());
+        let mut last_id = String::new();
+        for (idx, (message_id, role, content, parent_id, citations_json, tool_trace_json, model)) in
+            messages.iter().enumerate()
+        {
+            let seq = (idx + 1) as i64;
+            let parent = parent_id.trim();
+            if !parent.is_empty() && !seen_ids.contains(parent) {
+                anyhow::bail!("fork parent_id not in path: {parent}");
+            }
+            tx.execute(
+                r#"
+                INSERT INTO ai_messages (
+                    message_id, conversation_id, seq, role, content,
+                    citations_json, tool_trace_json, model, created_at, parent_id
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+                "#,
+                params![
+                    message_id,
+                    conversation_id,
+                    seq,
+                    role,
+                    content,
+                    citations_json,
+                    tool_trace_json,
+                    model,
+                    now,
+                    parent,
+                ],
+            )?;
+            seen_ids.insert(message_id.clone());
+            last_id = message_id.clone();
+            out.push(MessageRecord {
+                message_id: message_id.clone(),
+                conversation_id: conversation_id.to_string(),
+                seq,
+                role: role.clone(),
+                content: content.clone(),
+                citations_json: citations_json.clone(),
+                tool_trace_json: tool_trace_json.clone(),
+                model: model.clone(),
+                created_at: now.clone(),
+                parent_id: parent.to_string(),
+            });
+        }
+        if !last_id.is_empty() {
+            tx.execute(
+                "UPDATE ai_conversations SET head_id = ?1, updated_at = ?2 WHERE conversation_id = ?3",
+                params![last_id, now, conversation_id],
+            )?;
+        }
+        tx.commit()?;
+        let record = self
+            .get_conversation(conversation_id)?
+            .context("conversation vanished after fork")?;
+        Ok((record, out))
+    }
 }
 
 fn row_to_conversation(row: &rusqlite::Row<'_>) -> rusqlite::Result<ConversationRecord> {

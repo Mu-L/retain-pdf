@@ -14,14 +14,14 @@ use axum::Json;
 use crate::error::AppError;
 use crate::models::api::{
     ApiResponse, AppendMessageInput, AssetRecord, ConversationDetailView, ConversationListView,
-    ConversationMutationResult, ConversationRecord, CreateConversationInput,
+    ConversationMutationResult, ConversationRecord, CreateConversationInput, ForkConversationInput,
     ListConversationsQuery, MessageRecord, PatchConversationInput,
 };
 use crate::routes::common::{build_library_route_deps, ok_json};
 use crate::services::library_api::{
     append_message_view, create_conversation_view, delete_conversation_view,
-    get_conversation_view, list_conversations_view, load_asset_view, patch_conversation_view,
-    store_asset_view,
+    fork_conversation_view, get_conversation_view, list_conversations_view, load_asset_view,
+    patch_conversation_view, store_asset_view,
 };
 use crate::AppState;
 
@@ -141,4 +141,12 @@ pub async fn append_message_route(
         &conversation_id,
         payload,
     )?))
+}
+
+pub async fn fork_conversation_route(
+    State(state): State<AppState>,
+    Json(payload): Json<ForkConversationInput>,
+) -> Result<Json<ApiResponse<ConversationDetailView>>, AppError> {
+    let deps = build_library_route_deps(&state);
+    Ok(ok_json(fork_conversation_view(&deps.library, &payload)?))
 }

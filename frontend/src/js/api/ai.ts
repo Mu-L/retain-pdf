@@ -45,8 +45,8 @@ function parseSseEvent(line = "") {
 }
 
 // 消费 /ai/ask 的 SSE body:按行切分 `data: {json}`,tool 事件回调,
-// done 事件返回最终结果,error 事件抛 AiAskError。
-export async function readAiAskStream(body, { onToolEvent = null, onAnswerDelta = null } = {}) {
+// compress 透出给上层做可观测提示,done 事件返回最终结果,error 事件抛 AiAskError。
+export async function readAiAskStream(body, { onToolEvent = null, onAnswerDelta = null, onCompress = null } = {}) {
   if (!body || typeof body.getReader !== "function") {
     throw new AiAskError("AI 服务响应格式异常,请重试。");
   }
@@ -84,6 +84,10 @@ export async function readAiAskStream(body, { onToolEvent = null, onAnswerDelta 
     }
     if (event.type === "error") {
       throw new AiAskError(`${event.message || "AI 服务返回错误。"}`);
+    }
+    if (event.type === "compress") {
+      onCompress?.(event);
+      return;
     }
   }
 
@@ -214,6 +218,7 @@ export async function askLibraryAi({
   assistantMessageId = "",
   onToolEvent = null,
   onAnswerDelta = null,
+  onCompress = null,
   signal = null,
   apiPrefix = API_PREFIX,
   fetchImpl = fetch,
@@ -228,7 +233,7 @@ export async function askLibraryAi({
   if (isMockMode()) {
     // 忠实模拟真实 SSE 流:tool 事件 → answer_delta 逐块 → done 带引用,
     // 让 markdown 渲染 / 流式 / 引用跳转三条链路都能在 mock 下端到端复现。
-    return readAiAskStream(buildMockAskStream(trimmed), { onToolEvent, onAnswerDelta });
+    return readAiAskStream(buildMockAskStream(trimmed), { onToolEvent, onAnswerDelta, onCompress });
   }
   const payload: Record<string, any> = { question: trimmed, stream: true };
   const normalizedDocumentId = `${documentId || ""}`.trim();
@@ -300,5 +305,5 @@ export async function askLibraryAi({
     // 后端未按流式返回时,兼容一次性 JSON envelope
     return normalizeDonePayload(unwrapEnvelope(await resp.json()));
   }
-  return readAiAskStream(resp.body, { onToolEvent, onAnswerDelta });
+  return readAiAskStream(resp.body, { onToolEvent, onAnswerDelta, onCompress });
 }

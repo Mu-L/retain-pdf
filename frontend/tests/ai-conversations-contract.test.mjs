@@ -69,6 +69,8 @@ test("写入载荷:body 字段 ⊆ 契约输入字段", () => {
     ...schemaProps("CreateConversationInput"),
     ...schemaProps("PatchConversationInput"),
     ...schemaProps("AppendMessageInput"),
+    ...schemaProps("ForkConversationInput"),
+    ...schemaProps("ForkMessageInput"),
   ]);
   const bodies = [...source.matchAll(/JSON\.stringify\(\{([\s\S]*?)\}\)/g)];
   const assigns = [...source.matchAll(/body\.([a-z_]+)\s*=/g)];

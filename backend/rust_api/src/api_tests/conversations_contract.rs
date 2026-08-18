@@ -2,7 +2,7 @@
 //!
 //! 单一真值在 backend/contracts/ai-conversations.v1.schema.json。本测试保证
 //! rust 的视图/输入结构体与契约逐字段一致（序列化键集合相等、输入按契约
-//! 示例可反序列化、必填缺失即拒绝），且六个端点路径真实挂载在 router。
+//! 示例可反序列化、必填缺失即拒绝），且七个端点路径真实挂载在 router。
 //! 消费者侧锁：ai_service tests/test_conversations_contract.py、
 //! frontend tests/ai-conversations-contract.test.mjs。
 
@@ -13,8 +13,8 @@ use serde_json::{json, Value};
 
 use crate::models::api::{
     AppendMessageInput, ConversationDetailView, ConversationListView, ConversationMutationResult,
-    ConversationRecord, CreateConversationInput, ListConversationsQuery, MessageRecord,
-    PatchConversationInput,
+    ConversationRecord, CreateConversationInput, ForkConversationInput, ForkMessageInput,
+    ListConversationsQuery, MessageRecord, PatchConversationInput,
 };
 
 fn contract() -> Value {
@@ -142,6 +142,13 @@ fn inputs_accept_contract_shaped_payloads() {
         .expect("PatchConversationInput full payload");
     serde_json::from_value::<AppendMessageInput>(full_payload(&contract, "AppendMessageInput"))
         .expect("AppendMessageInput full payload");
+    // fork 新增：单条 + 批量
+    serde_json::from_value::<ForkMessageInput>(full_payload(&contract, "ForkMessageInput"))
+        .expect("ForkMessageInput full payload");
+    serde_json::from_value::<ForkConversationInput>(json!({
+        "messages": [{"role":"user","content":"hi"}]
+    }))
+    .expect("ForkConversationInput minimal payload");
 
     // 必填约束与契约一致：required 之外全省略必须成功，缺 required 必须失败
     serde_json::from_value::<CreateConversationInput>(json!({})).expect("create: 全默认");

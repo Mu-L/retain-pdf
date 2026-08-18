@@ -9,9 +9,10 @@ pub use super::library::{
     CollectionListView, CollectionMutationResult, CollectionRecord, ConversationDetailView,
     ConversationListView, ConversationMutationResult, ConversationRecord, CreateCollectionInput,
     CreateConversationInput, CreateFavoriteInput, DocumentListView, DocumentRecord,
-    FavoriteListView, FavoriteMutationResult, FavoriteRecord, FtsBlockRow, ListConversationsQuery,
-    ListDocumentsQuery, ListFavoritesQuery, MessageRecord, PatchCollectionInput,
-    PatchConversationInput, PatchDocumentInput, PatchFavoriteInput, SearchQuery, SearchResultView,
+    FavoriteListView, FavoriteMutationResult, FavoriteRecord, ForkConversationInput,
+    ForkMessageInput, FtsBlockRow, ListConversationsQuery, ListDocumentsQuery,
+    ListFavoritesQuery, MessageRecord, PatchCollectionInput, PatchConversationInput,
+    PatchDocumentInput, PatchFavoriteInput, SearchQuery, SearchResultView,
 };
 pub use super::public_contract::{public_request_payload, PublicResolvedJobSpec};
 pub use super::redaction::{

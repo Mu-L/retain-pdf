@@ -12,6 +12,7 @@ use crate::models::api::{ReaderAiChatRequest, ReaderAiChatView, ReaderAiUsedCont
 use crate::models::domain::{JobSnapshot, JobStatusKind};
 use crate::storage_paths::resolve_markdown_path;
 use tracing::info;
+use tracing::warn;
 
 use artifact_chunks::chunks_from_translation_artifacts;
 use chunking::chunk_markdown;
@@ -24,6 +25,7 @@ pub(crate) async fn answer_reader_chat(
     job: &JobSnapshot,
     request: ReaderAiChatRequest,
 ) -> Result<ReaderAiChatView, AppError> {
+    warn!(job_id = %job.job_id, "legacy reader/ai/chat called — deprecated, use POST /api/v1/ai/ask");
     let message = request.message.trim();
     if message.is_empty() {
         return Err(AppError::bad_request("message is required"));

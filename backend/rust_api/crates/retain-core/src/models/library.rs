@@ -305,6 +305,32 @@ pub struct PatchConversationInput {
     pub title: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ForkMessageInput {
+    pub role: String,
+    pub content: String,
+    #[serde(default)]
+    pub parent_id: String,
+    #[serde(default)]
+    pub message_id: String,
+    #[serde(default)]
+    pub citations_json: String,
+    #[serde(default)]
+    pub tool_trace_json: String,
+    #[serde(default)]
+    pub model: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ForkConversationInput {
+    #[serde(default)]
+    pub title: String,
+    #[serde(default)]
+    pub document_id: String,
+    #[serde(default)]
+    pub messages: Vec<ForkMessageInput>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct ConversationMutationResult {
     pub deleted: bool,

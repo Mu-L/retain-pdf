@@ -711,6 +711,16 @@ export function useReaderAskRuntime(options: {
             //（每 token 全文 sanitize 是 O(n²)，审计 P1-7）
             if (fullText) scheduleAnswerText(assistantId, fullText);
           },
+          onCompress: (event: unknown) => {
+            const info = event as { dropped_turns?: number; summary_chars?: number; policy?: string };
+            console.debug("[reader-ai] compress", info);
+            if (info?.dropped_turns) {
+              patchAssistant(assistantId, {
+                progress: `已压缩 ${info.dropped_turns} 轮早期对话`,
+                status: { type: "running" },
+              });
+            }
+          },
           signal: controller.signal,
         });
       } catch (error) {

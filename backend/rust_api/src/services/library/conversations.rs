@@ -3,8 +3,8 @@
 use crate::error::AppError;
 use crate::models::api::{
     AppendMessageInput, ConversationDetailView, ConversationListView, ConversationMutationResult,
-    ConversationRecord, CreateConversationInput, ListConversationsQuery, MessageRecord,
-    PatchConversationInput,
+    ConversationRecord, CreateConversationInput, ForkConversationInput, ListConversationsQuery,
+    MessageRecord, PatchConversationInput,
 };
 use crate::models::domain::build_job_id;
 
@@ -108,6 +108,91 @@ pub fn patch_conversation(
     deps.db
         .get_conversation(conversation_id)?
         .ok_or_else(|| AppError::not_found(format!("conversation not found: {conversation_id}")))
+}
+
+pub fn fork_conversation(
+    deps: &LibraryDeps<'_>,
+    payload: &ForkConversationInput,
+) -> Result<ConversationDetailView, AppError> {
+    if payload.messages.is_empty() {
+        return Err(AppError::bad_request("fork messages must not be empty"));
+    }
+    let document_id = payload.document_id.trim();
+    let document_id_opt = if document_id.is_empty() {
+        None
+    } else {
+        deps.db
+            .get_document(document_id)
+            .map_err(|_| AppError::not_found(format!("document not found: {document_id}")))?;
+        Some(document_id)
+    };
+    let title = payload.title.trim();
+    let title = if title.is_empty() {
+        let first_user = payload.messages.iter().find(|m| m.role == "user");
+        first_user
+            .map(|m| m.content.chars().take(40).collect::<String>())
+            .unwrap_or_else(|| "未命名对话".to_string())
+    } else {
+        let t: String = title.chars().take(80).collect();
+        t
+    };
+
+    let conversation_id = format!("conv-{}", build_job_id());
+    let mut tuples: Vec<(String, String, String, String, String, String, String)> =
+        Vec::with_capacity(payload.messages.len());
+    for msg in &payload.messages {
+        if !matches!(msg.role.as_str(), "user" | "assistant") {
+            return Err(AppError::bad_request("fork role must be user or assistant"));
+        }
+        if msg.content.trim().is_empty() {
+            return Err(AppError::bad_request("fork content must not be empty"));
+        }
+        let message_id = {
+            let c = msg.message_id.trim();
+            if c.is_empty() {
+                format!("msg-{}", build_job_id())
+            } else if c.len() > 128 {
+                return Err(AppError::bad_request("fork message_id too long"));
+            } else {
+                c.to_string()
+            }
+        };
+        let citations = if msg.citations_json.trim().is_empty() {
+            "[]".to_string()
+        } else {
+            msg.citations_json.clone()
+        };
+        let trace = if msg.tool_trace_json.trim().is_empty() {
+            "[]".to_string()
+        } else {
+            msg.tool_trace_json.clone()
+        };
+        tuples.push((
+            message_id,
+            msg.role.clone(),
+            msg.content.clone(),
+            msg.parent_id.clone(),
+            citations,
+            trace,
+            msg.model.clone(),
+        ));
+    }
+
+    let (conversation, messages) =
+        deps.db
+            .fork_conversation(&conversation_id, &title, document_id_opt, &tuples)
+            .map_err(|e| {
+                let msg = format!("{e}");
+                if msg.contains("parent_id not in path") || msg.contains("UNIQUE") || msg.contains("PRIMARY") {
+                    AppError::bad_request(msg)
+                } else {
+                    AppError::internal(msg)
+                }
+            })?;
+    Ok(ConversationDetailView {
+        conversation,
+        messages,
+    })
 }
 
 pub fn append_message(

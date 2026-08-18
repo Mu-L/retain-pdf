@@ -287,6 +287,119 @@ export async function forkConversationFromPath(
   const rawTitle = `${options.title || firstUser?.content || "未命名对话"}`.replace(/\s+/g, " ").trim();
   const title = rawTitle.length > 80 ? `${rawTitle.slice(0, 79).trim()}…` : rawTitle;
 
+  // 优先走服务端原子接口：单事务批量写入，失败不留孤儿
+  const idMap = new Map<string, string>();
+  const makeId = (role: string, i: number) =>
+    `fork-${role[0] || "m"}-${Date.now().toString(36)}-${i}-${Math.random().toString(36).slice(2, 7)}`;
+
+  path.forEach((m, i) => {
+    idMap.set(m.id, makeId(m.role, i));
+  });
+
+  const forkMessages = path.map((m, i) => {
+    const newId = idMap.get(m.id)!;
+    const parentRaw = m.parentId ? idMap.get(m.parentId) || "" : "";
+    const parentId =
+      parentRaw
+      || (i > 0 ? idMap.get(path[i - 1].id) || "" : "");
+    let citations_json = "";
+    if (m.citations?.length) {
+      try {
+        citations_json = JSON.stringify(m.citations);
+      } catch {
+        citations_json = "[]";
+      }
+    }
+    return {
+      role: m.role,
+      content: m.content,
+      message_id: newId,
+      parent_id: parentId,
+      citations_json,
+    };
+  });
+
+  const items: ReturnType<typeof messagesToBranchItems> = forkMessages.map((fm) => ({
+    parentId: fm.parent_id || null,
+    message: {
+      id: fm.message_id,
+      role: fm.role as "user" | "assistant",
+      content: fm.content,
+      ...(fm.citations_json && fm.citations_json !== "[]" ? { citations: JSON.parse(fm.citations_json) } : {}),
+      ...(fm.role === "assistant"
+        ? { status: { type: "complete", reason: "stop" as const } }
+        : {}),
+    },
+  }));
+
+  // mock 模式或旧后端：直接走原子接口的 mock 回退
+  if (isMockMode()) {
+    const mockConv: ConversationRecord = {
+      conversation_id: `mock-conv-${Date.now().toString(36)}`,
+      title: title || "未命名对话",
+      document_id: options.documentId || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      message_count: forkMessages.length,
+      head_id: forkMessages[forkMessages.length - 1]?.message_id || "",
+    };
+    return { conversation: mockConv, items };
+  }
+
+  try {
+    const detail = await apiJson<ConversationDetail>(
+      "ai/conversations/fork",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          title: title || "未命名对话",
+          document_id: options.documentId || "",
+          messages: forkMessages.map((m) => ({
+            role: m.role,
+            content: m.content,
+            message_id: m.message_id,
+            parent_id: m.parent_id,
+            citations_json: m.citations_json,
+          })),
+        }),
+      },
+      apiPrefix,
+    );
+    // 服务端返回扁平的 ConversationDetail（conversation 字段平铺 + messages）
+    const conversation: ConversationRecord = {
+      conversation_id: (detail as ConversationDetail).conversation_id || "",
+      title: (detail as ConversationDetail).title || title,
+      document_id: (detail as ConversationDetail).document_id ?? options.documentId ?? null,
+      created_at: (detail as ConversationDetail).created_at || new Date().toISOString(),
+      updated_at: (detail as ConversationDetail).updated_at || new Date().toISOString(),
+      message_count: (detail as ConversationDetail).messages?.length || forkMessages.length,
+      head_id: (detail as ConversationDetail).head_id || forkMessages[forkMessages.length - 1]?.message_id || "",
+    };
+    // 若服务端正常返回，解析它的 messages 为 items（与本地构建一致）
+    const serverMessages = (detail as ConversationDetail).messages;
+    if (Array.isArray(serverMessages) && serverMessages.length) {
+      const serverItems = messagesToBranchItems(serverMessages);
+      return {
+        conversation: {
+          ...conversation,
+          head_id: serverItems[serverItems.length - 1]?.message.id || conversation.head_id,
+          message_count: serverItems.length,
+        },
+        items: serverItems,
+      };
+    }
+    return {
+      conversation: {
+        ...conversation,
+        head_id: items[items.length - 1]?.message.id || "",
+        message_count: items.length,
+      },
+      items,
+    };
+  } catch (_err) {
+    // 原子接口失败（旧后端/网络）：回退到逐条 append 的非原子路径，失败可能留孤儿但至少可用
+  }
+
   const conversation = await createConversation(
     {
       title: title || "未命名对话",
@@ -296,59 +409,21 @@ export async function forkConversationFromPath(
   );
   const convId = conversation.conversation_id;
 
-  // message_id 全局唯一，必须重映射
-  const idMap = new Map<string, string>();
-  const makeId = (role: string, i: number) =>
-    `fork-${role[0] || "m"}-${Date.now().toString(36)}-${i}-${Math.random().toString(36).slice(2, 7)}`;
-
-  path.forEach((m, i) => {
-    idMap.set(m.id, makeId(m.role, i));
-  });
-
-  const items: ReturnType<typeof messagesToBranchItems> = [];
-  for (let i = 0; i < path.length; i += 1) {
-    const m = path[i];
-    const newId = idMap.get(m.id)!;
-    const parentRaw = m.parentId ? idMap.get(m.parentId) || "" : "";
-    // 路径上若 parent 未映射（不应发生），按线性挂上一条
-    const parentId =
-      parentRaw
-      || (i > 0 ? idMap.get(path[i - 1].id) || "" : "");
-
-    let citations_json = "";
-    if (m.citations?.length) {
-      try {
-        citations_json = JSON.stringify(m.citations);
-      } catch {
-        citations_json = "[]";
-      }
-    }
-
+  // 已在上面生成 idMap/forkMessages/items，回退时复用同一映射逐条写入
+  for (let i = 0; i < forkMessages.length; i += 1) {
+    const fm = forkMessages[i];
     await appendConversationMessage(
       convId,
       {
-        role: m.role,
-        content: m.content,
-        message_id: newId,
-        parent_id: parentId,
-        citations_json,
-        set_head: i === path.length - 1,
+        role: fm.role,
+        content: fm.content,
+        message_id: fm.message_id,
+        parent_id: fm.parent_id,
+        citations_json: fm.citations_json,
+        set_head: i === forkMessages.length - 1,
       },
       apiPrefix,
     );
-
-    items.push({
-      parentId: parentId || null,
-      message: {
-        id: newId,
-        role: m.role,
-        content: m.content,
-        ...(m.citations?.length ? { citations: m.citations } : {}),
-        ...(m.role === "assistant"
-          ? { status: { type: "complete", reason: "stop" as const } }
-          : {}),
-      },
-    });
   }
 
   return {

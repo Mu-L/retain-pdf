@@ -132,6 +132,10 @@ pub fn build_app(state: AppState) -> Router {
                 .get(library_extras::list_conversations_route),
         )
         .route(
+            "/api/v1/ai/conversations/fork",
+            post(library_extras::fork_conversation_route),
+        )
+        .route(
             "/api/v1/ai/conversations/:conversation_id",
             get(library_extras::get_conversation_route)
                 .patch(library_extras::patch_conversation_route)
@@ -185,7 +189,7 @@ pub fn build_app(state: AppState) -> Router {
         )
         .route(
             "/api/v1/jobs/:job_id/reader/ai/chat",
-            post(jobs::reader_ai_chat),
+            post(jobs::reader_ai_chat), // deprecated: use POST /api/v1/ai/ask, see ai-ask.v1 contract
         )
         .route(
             "/api/v1/jobs/:job_id/diagnostics",
