@@ -99,25 +99,38 @@ class FrontendRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(encoded)
             return
-        if self.path == "/runtime-config.local.js":
-            # 策略：磁盘文件只放非密钥项；密钥不进仓库/本地配置文件。
-            # - model/OCR key：仅当显式设置了对应环境变量时才注入（默认空 → UI 门禁生效）
-            # - 后端 X-API-Key：可从 env 或 auth.local.json 注入，方便本地连 Rust API
+        if self.path in ("/runtime-config.js", "/runtime-config.local.js"):
+            is_local = self.path == "/runtime-config.local.js"
+            # 单人本地使用：自动带上后端 X-API-Key，免去手写 runtime-config.local.js
+            # - 磁盘文件仍优先（便于显式覆盖），否则用默认值兜底
+            # - X-API-Key 从 env / auth.local.json 自动注入，空则补
             root = Path(self.directory).resolve()
-            disk_local = root / "runtime-config.local.js"
-            chunks: list[str] = []
-            if disk_local.is_file():
-                chunks.append(disk_local.read_text(encoding="utf-8"))
+            if is_local:
+                disk_file = root / "runtime-config.local.js"
+                chunks: list[str] = []
+                if disk_file.is_file():
+                    chunks.append(disk_file.read_text(encoding="utf-8"))
+                else:
+                    chunks.append(
+                        "window.__FRONT_RUNTIME_CONFIG__ = {\n"
+                        "  ...(window.__FRONT_RUNTIME_CONFIG__ || {}),\n"
+                        f"  apiBase: {json.dumps(DEFAULT_API_BASE)},\n"
+                        f"  ocrProvider: {json.dumps(DEFAULT_OCR_PROVIDER or 'paddle')},\n"
+                        f"  model: {json.dumps(DEFAULT_MODEL)},\n"
+                        f"  baseUrl: {json.dumps(DEFAULT_BASE_URL)},\n"
+                        "};\n"
+                    )
             else:
-                chunks.append(
-                    "window.__FRONT_RUNTIME_CONFIG__ = {\n"
-                    "  ...(window.__FRONT_RUNTIME_CONFIG__ || {}),\n"
-                    f"  apiBase: {json.dumps(DEFAULT_API_BASE)},\n"
-                    f"  ocrProvider: {json.dumps(DEFAULT_OCR_PROVIDER or 'paddle')},\n"
-                    f"  model: {json.dumps(DEFAULT_MODEL)},\n"
-                    f"  baseUrl: {json.dumps(DEFAULT_BASE_URL)},\n"
-                    "};\n"
-                )
+                disk_file = root / "runtime-config.js"
+                if disk_file.is_file():
+                    chunks = [disk_file.read_text(encoding="utf-8")]
+                else:
+                    chunks = [
+                        "window.__FRONT_RUNTIME_CONFIG__ = {\n"
+                        "  ...(window.__FRONT_RUNTIME_CONFIG__ || {}),\n"
+                        f"  apiBase: {json.dumps(DEFAULT_API_BASE)},\n"
+                        "};\n"
+                    ]
 
             x_key = default_x_api_key(root)
             model_key = DEFAULT_MODEL_API_KEY  # only non-empty when env set
@@ -160,7 +173,7 @@ class FrontendRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     def end_headers(self) -> None:
         path = urllib.parse.urlsplit(self.path).path
-        if path == "/runtime-config.local.js":
+        if path in ("/runtime-config.js", "/runtime-config.local.js"):
             self.send_header("Cache-Control", "no-store")
         elif path.startswith(("/vendor/", "/src/assets/", "/dist/")):
             self.send_header("Cache-Control", "public, max-age=0, must-revalidate")
