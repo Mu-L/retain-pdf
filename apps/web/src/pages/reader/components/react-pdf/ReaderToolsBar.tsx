@@ -1,3 +1,2 @@
-// 已由 ReaderFab（可拖动悬浮钮）替代；保留 re-export 避免旧 import 断裂。
-export { ReaderFab as ReaderToolsBar } from "./ReaderFab.js";
-export type { ReaderFabProps as ReaderToolsBarProps } from "./ReaderFab.js";
+// 代理：真值已迁 @retainpdf/reader
+export * from "../../../../../../../packages/reader/src/components/react-pdf/ReaderToolsBar.js";
