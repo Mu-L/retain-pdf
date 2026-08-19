@@ -4,7 +4,7 @@ import {
   resolveResourceUrl,
 } from "../job/artifacts.js";
 import { resolveJobActions } from "../job/actions.js";
-import { resolveReaderArtifactUrl } from "./pdf-controller.js";
+import { resolveReaderArtifactUrl } from "./pdf-document.js";
 
 export function resolveReaderJobId(configPort) {
   return configPort?.readerJobId?.() || "";
