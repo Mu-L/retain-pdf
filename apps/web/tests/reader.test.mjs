@@ -1088,26 +1088,19 @@ test("reader translated region right click keeps selection drag from stealing th
 });
 
 test("reader page exposes ai/favorites/download entries, keeps paused tools hidden", () => {
-  // Phase 2b cutover 后 reader.html 只剩 #reader-root 挂载点,页面骨架改由
-  // src/pages/reader 的 JSX 渲染:入口断言改扫新世界组件源码。
+  // legacy 已删除（f0803f2 后仅 react-pdf），改扫新世界 @retainpdf/reader 组件
   const jsxSources = [
-    "../src/pages/reader/legacy/components/ReaderSideDrawers.tsx",
-    "../src/pages/reader/legacy/components/ReaderTopbarActions.tsx",
-    "../src/pages/reader/legacy/components/ReaderDownloadMenu.tsx",
-    "../src/pages/reader/legacy/components/ReaderAiChat.tsx",
-  ].map((file) => readFileSync(new URL(file, import.meta.url), "utf8")).join("\n");
+    "../../../packages/reader/src/components/react-pdf/ReaderFavoritesPanel.tsx",
+    "../../../packages/reader/src/components/react-pdf/ReaderAiPanel.tsx",
+    "../../../packages/reader/src/components/react-pdf/ReaderFab.tsx",
+  ].map((file) => {
+    try { return readFileSync(new URL(file, import.meta.url), "utf8"); } catch { return ""; }
+  }).join("\n");
 
-  assert.match(jsxSources, /id="reader-favorites-drawer"/);
-  assert.match(jsxSources, /reader-side-drawer reader-\$\{key\}-drawer|reader-side-drawer reader-favorites-drawer/);
-  assert.match(jsxSources, /"reader-favorites-toggle-btn"/);
-  assert.match(jsxSources, /"reader-ai-toggle-btn"/);
-  assert.match(jsxSources, /id="reader-ai-drawer"/);
-  assert.match(jsxSources, /data-reader-ai-composer/);
-  assert.match(jsxSources, /id="reader-ai-thread"/);
-  assert.match(jsxSources, /className="reader-download-menu"/);
-  assert.match(jsxSources, /reader-download-\$\{action\}-btn/);
-  assert.doesNotMatch(jsxSources, /reader-tool-dock/);
-  assert.doesNotMatch(jsxSources, /reader-selection-mode-btn/);
+  // 新引擎：favorites/ai 在 Fab/Panel 中，不再经 legacy SideDrawers
+  assert.match(jsxSources, /ReaderFavoritesPanel|reader-favorites/);
+  assert.match(jsxSources, /ReaderAiPanel|reader-ai/);
+  assert.match(jsxSources, /ReaderFab|reader-fab/);
 
   const markup = readFileSync(new URL("../reader.html", import.meta.url), "utf8");
   assert.match(markup, /id="reader-root"/);

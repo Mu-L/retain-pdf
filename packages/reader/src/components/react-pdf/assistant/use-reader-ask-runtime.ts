@@ -8,7 +8,7 @@ import {
   type ThreadMessage,
   type ThreadMessageLike,
 } from "@assistant-ui/react";
-import { describeToolEvent } from "../../../legacy/ai/answer-view.js";
+import { describeToolEvent } from "../../../shared/ai/tool-labels.js";
 import {
   armReaderAiClickShield,
   clearThreadBranchSnapshot,
