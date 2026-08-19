@@ -28,20 +28,8 @@ const KNOWN_ORPHANS = {
     // 模板生成的类,src/styles 中没有对应规则(无样式 div)
     "detail-artifact-meta",
   ]),
-  // region-interactions 等 11 个字面量暂无归属（保留供 anchor-block-key，待抽离后删）
-  "src/js/reader": Object.freeze([
-    "reader-translated-highlight-layer",
-    "reader-region-copy-toast",
-    "reader-source-highlight-layer",
-    "reader-region-highlight-box",
-    "reader-region-markdown-section",
-    "reader-region-markdown-label-row",
-    "reader-region-markdown-label",
-    "reader-region-copy-btn",
-    "reader-region-markdown-head",
-    "reader-region-markdown-close",
-    "reader-region-markdown-body",
-  ]),
+  // 旧引擎已全量删除（src/js/reader 仅保留共享 ports 及 block-key 抽离），无孤儿
+  "src/js/reader": Object.freeze([]),
 };
 
 const PAGES = [
