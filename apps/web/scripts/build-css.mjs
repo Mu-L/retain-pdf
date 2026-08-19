@@ -26,17 +26,15 @@ const minify = !process.argv.includes("--no-minify");
 const watch = process.argv.includes("--watch");
 
 function runOne(entry, { watchMode = false } = {}) {
-  const args = [
-    "tailwindcss",
-    "-i",
-    join(ROOT, entry.in),
-    "-o",
-    join(ROOT, entry.out),
-  ];
-  if (minify && !watchMode) args.push("--minify");
-  if (watchMode) args.push("--watch");
-  console.log(`[build-css] ${entry.in} → ${entry.out}`);
-  const r = spawnSync("npx", args, {
+  const tailwindBin = join(ROOT, "node_modules/.bin/tailwindcss");
+  const useDirect = existsSync(tailwindBin);
+  const baseArgs = ["-i", join(ROOT, entry.in), "-o", join(ROOT, entry.out)];
+  if (minify && !watchMode) baseArgs.push("--minify");
+  if (watchMode) baseArgs.push("--watch");
+  const args = useDirect ? baseArgs : ["tailwindcss", ...baseArgs];
+  const cmd = useDirect ? tailwindBin : "npx";
+  console.log(`[build-css] ${entry.in} → ${entry.out}${useDirect ? " (direct)" : ""}`);
+  const r = spawnSync(cmd, args, {
     cwd: ROOT,
     stdio: "inherit",
     shell: process.platform === "win32",
@@ -48,17 +46,14 @@ function runOne(entry, { watchMode = false } = {}) {
 
 if (watch) {
   // 并行 watch 三个入口
+  const tailwindBin = join(ROOT, "node_modules/.bin/tailwindcss");
+  const useDirect = existsSync(tailwindBin);
   const kids = ENTRIES.map((entry) => {
-    const args = [
-      "tailwindcss",
-      "-i",
-      join(ROOT, entry.in),
-      "-o",
-      join(ROOT, entry.out),
-      "--watch",
-    ];
-    console.log(`[build-css:watch] ${entry.in} → ${entry.out}`);
-    return spawnSync("npx", args, {
+    const baseArgs = ["-i", join(ROOT, entry.in), "-o", join(ROOT, entry.out), "--watch"];
+    const args = useDirect ? baseArgs : ["tailwindcss", ...baseArgs];
+    const cmd = useDirect ? tailwindBin : "npx";
+    console.log(`[build-css:watch] ${entry.in} → ${entry.out}${useDirect ? " (direct)" : ""}`);
+    return spawnSync(cmd, args, {
       cwd: ROOT,
       stdio: "inherit",
       shell: process.platform === "win32",
