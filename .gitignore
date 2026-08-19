@@ -42,6 +42,10 @@ __MACOSX/
 desktop/linux/
 desktop/win_jobid/
 data/
+!apps/web/src/shared/data/
+!apps/web/src/shared/data/**
+!packages/reader/src/shared/data/
+!packages/reader/src/shared/data/**
 *.dmg
 *.AppImage
 backend/python/
