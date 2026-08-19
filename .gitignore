@@ -52,3 +52,4 @@ VERSION
 
 # macOS
 .DS_Store
+backend/contracts

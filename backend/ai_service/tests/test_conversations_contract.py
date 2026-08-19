@@ -1,6 +1,6 @@
 """ai-conversations.v1 契约锁（消费者侧：ai_service）。
 
-单一真值在 backend/contracts/ai-conversations.v1.schema.json。ai_service
+单一真值在 packages/schemas/ai-conversations.v1.schema.json。ai_service
 访问会话 API 的唯一咽喉是 rust_client.py——本测试源码扫描它：请求路径
 必须是契约端点、写入载荷的键必须 ⊆ 契约输入字段。生产侧锁在 rust_api
 src/api_tests/conversations_contract.rs，前端锁在

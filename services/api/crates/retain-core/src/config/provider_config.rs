@@ -196,9 +196,22 @@ fn config_path() -> Option<PathBuf> {
         .or_else(|| env_override(OCR_PROVIDER_CONFIG_COMPAT_ENV))
         .map(PathBuf::from)
         .or_else(|| {
-            // CARGO_MANIFEST_DIR = <backend>/rust_api/crates/retain-core;
-            // 向上 3 级得到 <backend>(与拆分前 rust_api/.. 的解析结果一致)。
+            // Monorepo 整理前：CARGO_MANIFEST_DIR = <repo>/backend/rust_api/crates/retain-core → 3 级到 <repo>/backend
+            // 整理后：<repo>/services/api/crates/retain-core → 4 级到 <repo>，再拼接 backend/config
             let core_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+            if let Some(repo_root) = core_root.ancestors().nth(4) {
+                let candidates = [
+                    repo_root.join("backend").join("config").join("ocr_providers.json"),
+                    repo_root.join("services").join("config").join("ocr_providers.json"),
+                ];
+                for candidate in candidates {
+                    if candidate.exists() {
+                        return Some(candidate);
+                    }
+                }
+                // 默认走 backend/config（兼容旧逻辑，缺文件时返回 Null 由上层 fallback）
+                return Some(repo_root.join("backend").join("config").join("ocr_providers.json"));
+            }
             core_root
                 .ancestors()
                 .nth(3)

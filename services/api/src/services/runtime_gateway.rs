@@ -7,7 +7,7 @@
 //! 两种落点：
 //! - `InProcess`（默认）：闭包直调 `spawn_job`，与拆分前逐字节同行为
 //! - `Remote`：经内部 HTTP 交给 retain-jobsd 进程
-//!   （契约 backend/contracts/jobs-control.v1.schema.json）
+//!   （契约 packages/schemas/jobs-control.v1.schema.json）
 //!
 //! 取消/清理刻意保持返回 `()`：进程内实现本就不会失败，远端失败只记日志而
 //! 不改变上层控制流——否则"取消"这个高频路径会因 jobsd 抖动而向用户报错，

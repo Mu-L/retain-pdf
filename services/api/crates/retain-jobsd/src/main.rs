@@ -2,7 +2,7 @@
 //!
 //! 它只做一件事：**拥有 worker 子进程的生命周期**。壳（rust_api）经内部
 //! HTTP 把 launch/cancel/terminate 交过来，契约见
-//! `backend/contracts/jobs-control.v1.schema.json`。
+//! `packages/schemas/jobs-control.v1.schema.json`。
 //!
 //! 这么切的理由是变更频率：路由与业务逻辑天天改，任务调度几周才动一次。
 //! 拆开之后改壳只重启壳，正在跑的翻译任务毫发无伤——这正是拆分要买的东西。
