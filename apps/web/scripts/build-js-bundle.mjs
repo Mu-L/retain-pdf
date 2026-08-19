@@ -93,7 +93,10 @@ function bundleOptions({ entry, outfile }) {
     jsx: "automatic",
     alias: {
       "@": path.join(frontendRoot, "src"),
+      "@retainpdf/reader": path.join(frontendRoot, "../../packages/reader/src/index.ts"),
     },
+    // packages/reader/src 内的 import "react" 需回落到 apps/web 的 node_modules
+    nodePaths: [path.join(frontendRoot, "node_modules")],
     plugins: [jsToTsResolvePlugin()],
     define: {
       PACKAGE_VERSION: JSON.stringify(resolveMathJaxPackageVersion()),
