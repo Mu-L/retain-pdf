@@ -26,7 +26,7 @@ RETAIN_AI_API_KEYS=dev-local-key \
 RETAIN_AI_RUST_API_KEY=dev-local-key \
 RETAIN_AI_LLM_API_KEY=sk-... \
 python3 -m retainpdf_ai
-# 默认 127.0.0.1:41100;在 backend/ai_service 目录下运行
+# 默认 127.0.0.1:41100;在 services/ai 目录下运行（兼容旧 backend/ai_service）
 ```
 
 环境变量(均有默认值,凭证除外):
@@ -57,5 +57,7 @@ curl -s -X POST http://127.0.0.1:41100/v1/ask \
 ## 测试
 
 ```bash
-cd backend/ai_service && python3 -m pytest tests/ -q
+cd services/ai && python3 -m pytest tests/ -q
+# 兼容旧路径（symlink）：
+# PYTHONPATH=services/ai python3 -m pytest backend/ai_service/tests -q
 ```

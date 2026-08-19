@@ -10,8 +10,10 @@ const repoRoot = path.resolve(desktopRoot, "..", "..");
 const versionFile = path.join(repoRoot, "VERSION");
 const frontendRoot = path.join(repoRoot, "apps/web");
 const backendRoot = path.join(repoRoot, "backend");
+const infraRoot = path.join(repoRoot, "infra");
 const servicesApiRoot = path.join(repoRoot, "services/api");
 const servicesPipelineRoot = path.join(repoRoot, "services/pipeline");
+const servicesAiRoot = path.join(repoRoot, "services/ai");
 const desktopSrcRoot = path.join(desktopRoot, "src");
 const desktopRuntimeRoot = path.join(desktopSrcRoot, "runtime");
 const targetPlatform = process.env.RETAIN_PDF_DESKTOP_PLATFORM || process.platform;
@@ -62,13 +64,17 @@ function resolveRuntimeCandidate(relativePath) {
   const legacyCandidates = {
     "python": path.join(backendRoot, "python"),
     "typst": {
-      win32: path.join(backendRoot, "typst-win32"),
-      darwin: path.join(backendRoot, "typst-darwin"),
-      linux: path.join(backendRoot, "typst-linux"),
+      win32: [path.join(infraRoot, "typst/win32"), path.join(backendRoot, "typst-win32")],
+      darwin: [path.join(infraRoot, "typst/darwin"), path.join(backendRoot, "typst-darwin")],
+      linux: [path.join(infraRoot, "typst/linux"), path.join(backendRoot, "typst-linux")],
     }[targetPlatform],
   };
 
   const legacyCandidate = legacyCandidates[relativePath];
+  if (Array.isArray(legacyCandidate)) {
+    const match = legacyCandidate.find((candidate) => fs.existsSync(candidate));
+    return match || desktopCandidate;
+  }
   return legacyCandidate && fs.existsSync(legacyCandidate) ? legacyCandidate : desktopCandidate;
 }
 
@@ -80,6 +86,7 @@ function resolveSharedRuntimePath(relativePath) {
   const legacyCandidates = {
     "typst-packages": path.join(backendRoot, "typst-packages"),
     "fonts": [
+      path.join(infraRoot, "fonts"),
       path.join(backendRoot, "fonts"),
       path.join(desktopRoot, "assets", "fonts"),
     ],
@@ -100,6 +107,7 @@ function resolveSharedRuntimePaths(relativePath) {
   }
   if (relativePath === "fonts") {
     for (const candidate of [
+      path.join(infraRoot, "fonts"),
       path.join(backendRoot, "fonts"),
       path.join(desktopRoot, "assets", "fonts"),
     ]) {
@@ -725,11 +733,13 @@ if (!frontendOnly) {
     recursive: true,
     force: true,
   });
-  // retainpdf-ai：桌面端由 main 进程拉起，Rust 反代 41100
-  const aiServiceSrc = path.join(backendRoot, "ai_service");
+  // retainpdf-ai 已迁 services/ai，兼容旧 backend/ai_service
+  const aiServiceSrc = fs.existsSync(servicesAiRoot)
+    ? servicesAiRoot
+    : path.join(backendRoot, "ai_service");
   const aiServiceDst = path.join(outputBackendRoot, "ai_service");
   if (!fs.existsSync(aiServiceSrc)) {
-    throw new Error(`missing backend/ai_service at ${aiServiceSrc}`);
+    throw new Error(`missing ai_service at ${aiServiceSrc} (expected services/ai or backend/ai_service)`);
   }
   fs.cpSync(aiServiceSrc, aiServiceDst, {
     recursive: true,

@@ -18,7 +18,7 @@ pub struct AiServiceConfig {
     pub command: String,
     /// 启动参数（RUST_API_AI_ARGS，空格分隔；缺省 `-m retainpdf_ai`）
     pub args: Vec<String>,
-    /// 工作目录（RUST_API_AI_CWD；缺省 <project_root>/backend/ai_service）
+    /// 工作目录（RUST_API_AI_CWD；缺省 <project_root>/services/ai，兼容旧 backend/ai_service）
     pub cwd: Option<PathBuf>,
     /// ai_service 监听绑定地址（RUST_API_AI_HOST，默认 127.0.0.1 = 仅回环）
     pub bind_host: String,
@@ -59,7 +59,7 @@ impl AiServiceConfig {
             .map(PathBuf::from)
             .filter(|p| p.is_dir())
             .or_else(|| {
-                let fallback_candidates = [project_root.join("backend").join("ai_service"), project_root.join("services").join("ai_service")];
+                let fallback_candidates = [project_root.join("services").join("ai"), project_root.join("backend").join("ai_service")];
                 fallback_candidates.into_iter().find(|p| p.is_dir())
             });
         Self {

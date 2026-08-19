@@ -147,12 +147,15 @@ async function startBundledBackend() {
   const apiPort = 41000;
   const simplePort = 42000;
   const aiServicePort = AI_SERVICE_PORT;
-  // packaged: backend/ai_service；开发未 prepare 时可回退仓库 backend/ai_service
+  // packaged: backend/ai_service；已迁 services/ai，开发未 prepare 时回退仓库 services/ai
   let aiServiceRoot = path.join(backendRoot, "ai_service");
   if (!fs.existsSync(path.join(aiServiceRoot, "retainpdf_ai", "__main__.py"))) {
-    const repoAi = path.join(appRoot, "..", "backend", "ai_service");
-    if (fs.existsSync(path.join(repoAi, "retainpdf_ai", "__main__.py"))) {
-      aiServiceRoot = repoAi;
+    const repoAiServices = path.join(appRoot, "..", "services", "ai");
+    const repoAiLegacy = path.join(appRoot, "..", "backend", "ai_service");
+    if (fs.existsSync(path.join(repoAiServices, "retainpdf_ai", "__main__.py"))) {
+      aiServiceRoot = repoAiServices;
+    } else if (fs.existsSync(path.join(repoAiLegacy, "retainpdf_ai", "__main__.py"))) {
+      aiServiceRoot = repoAiLegacy;
     }
   }
 

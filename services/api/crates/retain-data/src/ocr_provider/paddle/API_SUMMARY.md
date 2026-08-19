@@ -144,7 +144,7 @@ Python 读取口：
 
 默认值来自共享配置：
 
-- [`backend/config/ocr_providers.json`](/home/wxyhgk/tmp/Code/backend/config/ocr_providers.json)
+- [`packages/config/ocr_providers.json`](../../../../../../packages/config/ocr_providers.json) (compat `backend/config` symlink)
 
 兼容归一化：
 

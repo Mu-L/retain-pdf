@@ -7,11 +7,12 @@ set -euo pipefail
 #  改 shell 只重启 shell，jobsd/workers 不受影响
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-# Monorepo 整理：新路径 services/api + services/pipeline + backend/ai_service（兼容旧 backend/*）
+# Monorepo 整理：新路径 services/api + services/pipeline + services/ai（兼容旧 backend/*）
 if [ -d "$ROOT/services/api" ]; then RUST_API_ROOT_NEW="$ROOT/services/api"; else RUST_API_ROOT_NEW="$ROOT/backend/rust_api"; fi
 if [ -d "$ROOT/services/pipeline" ]; then PIPELINE_ROOT="$ROOT/services/pipeline"; else PIPELINE_ROOT="$ROOT/backend/pipeline"; fi
+if [ -d "$ROOT/services/ai" ]; then AI_SERVICE_ROOT_NEW="$ROOT/services/ai"; else AI_SERVICE_ROOT_NEW="$ROOT/backend/ai_service"; fi
 RUST_API_ROOT="$RUST_API_ROOT_NEW"
-AI_SERVICE_ROOT="$ROOT/backend/ai_service"
+AI_SERVICE_ROOT="$AI_SERVICE_ROOT_NEW"
 DATA_ROOT="${RUST_API_DATA_ROOT:-$ROOT/data}"
 JOBS_PORT="${RUST_API_JOBS_PORT:-41002}"
 AI_PORT="${RUST_API_AI_PORT:-41100}"

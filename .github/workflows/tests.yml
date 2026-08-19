@@ -70,5 +70,5 @@ jobs:
           python -m pip install -r desktop/requirements-ai-service.txt pytest
 
       - name: AI Service Tests
-        working-directory: backend/ai_service
+        working-directory: services/ai
         run: python -m pytest tests -q

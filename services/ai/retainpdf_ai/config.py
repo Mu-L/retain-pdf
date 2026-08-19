@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 def _repo_root() -> Path:
-    # backend/ai_service/retainpdf_ai/config.py -> 仓库根
+    # services/ai/retainpdf_ai/config.py -> 仓库根（兼容旧 backend/ai_service）
     return Path(__file__).resolve().parents[3]
 
 

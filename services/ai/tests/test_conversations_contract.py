@@ -14,10 +14,14 @@ import re
 from pathlib import Path
 
 AI_SERVICE_ROOT = Path(__file__).resolve().parents[1]
-BACKEND_ROOT = AI_SERVICE_ROOT.parent
-SCHEMA = json.loads(
-    (BACKEND_ROOT / "contracts" / "ai-conversations.v1.schema.json").read_text(encoding="utf-8")
-)
+# 已迁 services/ai；契约真值在 packages/schemas，通过仓库根解析，兼容旧 backend/contracts symlink
+REPO_ROOT = Path(__file__).resolve().parents[3]
+SCHEMA_CANDIDATES = [
+    REPO_ROOT / "packages" / "schemas" / "ai-conversations.v1.schema.json",
+    REPO_ROOT / "backend" / "contracts" / "ai-conversations.v1.schema.json",
+]
+SCHEMA_PATH = next((p for p in SCHEMA_CANDIDATES if p.exists()), SCHEMA_CANDIDATES[0])
+SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
 CLIENT_SOURCE = (AI_SERVICE_ROOT / "retainpdf_ai" / "rust_client.py").read_text(encoding="utf-8")
 
 BASE_PATH = SCHEMA["base_path"]

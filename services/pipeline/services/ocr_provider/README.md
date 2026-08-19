@@ -230,7 +230,7 @@ provider 层产物一旦落盘，下一步只做一件事：
 - `paddle_normalize.py` 只处理 normalized document 和几何修正，不碰 provider transport
 - `local_command_driver.py` 是本地 OCR 模型的最小接入口；它不关心模型实现，只校验落盘契约
 - `services/document_schema/adapters.py` 只做 adapter registry，不直接 import `services/mineru/*`；MinerU 走 `services/document_schema/provider_adapters/mineru/`
-- Paddle 默认模型和 alias 配在 `backend/config/ocr_providers.json`，不要在 Python/Rust 里硬编码版本号
+- Paddle 默认模型和 alias 配在 `packages/config/ocr_providers.json` (compat `backend/config` symlink)，不要在 Python/Rust 里硬编码版本号
 
 这些约束已经进入：
 
@@ -333,7 +333,8 @@ export RETAIN_OCR_RAW_PROVIDER=generic_flat_ocr
 Paddle 模型版本不要写死在调用层。默认模型和 alias 统一来自：
 
 ```text
-backend/config/ocr_providers.json
+packages/config/ocr_providers.json
+# 兼容路径：backend/config -> ../packages/config
 ```
 
 当前默认：
@@ -361,7 +362,8 @@ export RUST_API_PADDLE_DEFAULT_MODEL=PaddleOCR-VL-1.6
 OCR provider 的可见契约统一放在：
 
 ```text
-backend/config/ocr_providers.json
+packages/config/ocr_providers.json
+# 兼容路径：backend/config -> ../packages/config
 ```
 
 前端和外部集成方不要硬编码“某个 provider 需要填哪些字段”，而是读取：

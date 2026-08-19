@@ -46,6 +46,11 @@ data/
 *.AppImage
 backend/python/
 backend/typst-win32/bin/
+infra/typst/win32/bin/
+infra/typst/*/bin/
+# Phase 3-3 compat symlinks — real assets live in infra/fonts, infra/typst/win32
+/backend/fonts
+/backend/typst-win32
 VERSION
 .codex
 .codex/
@@ -53,3 +58,5 @@ VERSION
 # macOS
 .DS_Store
 backend/contracts
+backend/ai_service
+backend/config

@@ -197,7 +197,30 @@ def _config_path() -> Path:
     override = str(os.environ.get(OCR_PROVIDER_CONFIG_ENV, "") or "").strip()
     if override:
         return Path(override).expanduser().resolve()
-    return Path(__file__).resolve().parents[3] / "config" / "ocr_providers.json"
+    # Phase3-2: 主真值已迁移至 packages/config (跨 services/api + services/pipeline 共享)
+    # 兼容：backend/config -> ../packages/config (本地 symlink, 已 gitignore)
+    file_path = Path(__file__).resolve()
+    # 优先通过向上遍历查找已存在的配置，真值优先 packages/config
+    for parent in file_path.parents:
+        pkg = parent / "packages" / "config" / "ocr_providers.json"
+        if pkg.exists():
+            return pkg
+        legacy = parent / "backend" / "config" / "ocr_providers.json"
+        if legacy.exists():
+            return legacy
+        svc = parent / "services" / "config" / "ocr_providers.json"
+        if svc.exists():
+            return svc
+    # 无已存在文件时，以仓库根推断默认路径（.git / pyproject.toml 标记）
+    for parent in file_path.parents:
+        if (parent / ".git").exists() or (parent / "pyproject.toml").exists():
+            return parent / "packages" / "config" / "ocr_providers.json"
+    # 兜底：兼容旧 parents[3] 计算，但默认指向 packages/config
+    if len(file_path.parents) > 4:
+        return file_path.parents[4] / "packages" / "config" / "ocr_providers.json"
+    if len(file_path.parents) > 3:
+        return file_path.parents[3] / "packages" / "config" / "ocr_providers.json"
+    return file_path.parent / "ocr_providers.json"
 
 
 __all__ = [
