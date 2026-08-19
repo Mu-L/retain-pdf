@@ -1,13 +1,16 @@
-// @retainpdf/reader — Phase4 薄壳：仅导出契约，真实实现仍在 apps/web/src/pages/reader
-//
-// 下一步再将 hooks/pdf/annotations/components/react-pdf 逐批移入本包 src/，
-// 并把 external.ts 的 20+ 符号收敛为 adapters 注入。当前阶段不做物理搬运，
-// 仅验证包可独立构建与发布。
+// @retainpdf/reader — Phase4-deep：hooks/pdf/annotations 已物理迁入，仍通过 external 兼容层代理 apps/web
 
 export type { ReaderAdapters, ReaderDocumentSource, ReaderMode } from "./adapters.js";
 export { DEFAULT_READER_ADAPTERS } from "./adapters.js";
+export * from "./external.js"; // 兼容 re-export，便于 apps/web 适配层复用
 
-// 占位：真实组件迁移后将在此 re-export
-// export { ReaderAppReactPdf } from "./components/ReaderAppReactPdf.js";
+// 核心 hooks/pdf 能力（已迁入）
+export * from "./hooks/use-reader-session.js";
+export * from "./hooks/use-reader-react-controller.js";
+export * from "./hooks/use-reader-tools.js";
+export * from "./hooks/use-reader-shell.js";
+export * from "./hooks/use-reader-zoom.js";
+export * from "./pdf/useProtectedPdfFile.js";
+export * from "./pdf/useReadingAnchor.js";
 
-export const READER_PACKAGE_VERSION = "0.1.0";
+export const READER_PACKAGE_VERSION = "0.1.0-deep1";
