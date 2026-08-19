@@ -1,0 +1,20 @@
+{
+  "name": "retain-pdf-monorepo",
+  "private": true,
+  "version": "4.1.0",
+  "workspaces": [
+    "apps/web",
+    "apps/desktop",
+    "apps/web-react",
+    "packages/*"
+  ],
+  "scripts": {
+    "build:web": "npm --prefix apps/web run build",
+    "build:reader": "npm --prefix packages/reader run build",
+    "test:web": "npm --prefix apps/web test",
+    "test:api": "cargo test --manifest-path services/api/Cargo.toml"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

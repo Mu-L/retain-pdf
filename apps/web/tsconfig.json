@@ -20,7 +20,9 @@
     "noFallthroughCasesInSwitch": true,
     "allowJs": false,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@retainpdf/reader": ["../../packages/reader/src/index.ts"],
+      "@retainpdf/reader/*": ["../../packages/reader/src/*"]
     },
     "types": ["node"]
   },
