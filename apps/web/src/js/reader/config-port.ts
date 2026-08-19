@@ -4,9 +4,9 @@ export {
   resolveReaderAnchor,
   resolveReaderDocumentId,
   resolveReaderJobId,
-} from "./page-config.js";
+} from "../../shared/config/page-config.js";
 
 export {
   createReaderPdfDocumentConfigPort,
   defaultReaderPdfDocumentConfigPort,
-} from "./pdf-document-config.js";
+} from "../../shared/config/pdf-document-config.js";
