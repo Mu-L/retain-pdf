@@ -5,11 +5,11 @@ name: Desktop Frontend Sync
     paths:
       - ".github/workflows/desktop-frontend-sync.yml"
       - ".githooks/pre-commit"
-      - "desktop/package.json"
-      - "desktop/package-lock.json"
-      - "desktop/scripts/prepare-app.mjs"
-      - "desktop/scripts/check-frontend-bundle.mjs"
-      - "frontend/**"
+      - "apps/desktop/package.json"
+      - "apps/desktop/package-lock.json"
+      - "apps/desktop/scripts/prepare-app.mjs"
+      - "apps/desktop/scripts/check-frontend-bundle.mjs"
+      - "apps/web/**"
   push:
     branches:
       - main
@@ -17,11 +17,11 @@ name: Desktop Frontend Sync
     paths:
       - ".github/workflows/desktop-frontend-sync.yml"
       - ".githooks/pre-commit"
-      - "desktop/package.json"
-      - "desktop/package-lock.json"
-      - "desktop/scripts/prepare-app.mjs"
-      - "desktop/scripts/check-frontend-bundle.mjs"
-      - "frontend/**"
+      - "apps/desktop/package.json"
+      - "apps/desktop/package-lock.json"
+      - "apps/desktop/scripts/prepare-app.mjs"
+      - "apps/desktop/scripts/check-frontend-bundle.mjs"
+      - "apps/web/**"
   workflow_dispatch: {}
 
 jobs:
@@ -37,15 +37,15 @@ jobs:
           node-version: "20"
           cache: "npm"
           cache-dependency-path: |
-            desktop/package-lock.json
-            frontend/package-lock.json
+            apps/desktop/package-lock.json
+            apps/web/package-lock.json
 
       - name: Install desktop dependencies
-        working-directory: desktop
+        working-directory: apps/desktop
         run: npm ci
 
       - name: Install frontend dependencies
-        working-directory: frontend
+        working-directory: apps/web
         run: |
           npm ci
           # @tailwindcss/oxide 需本机原生绑定；npm optionalDeps 偶发漏装时补齐
@@ -56,11 +56,11 @@ jobs:
         env:
           RETAIN_PDF_DESKTOP_PLATFORM: linux
           RETAIN_PDF_SKIP_BUNDLED_RUNTIME_VERIFICATION: "1"
-        run: npm --prefix desktop run verify-frontend-sync
+        run: npm --prefix apps/desktop run verify-frontend-sync
 
       - name: Check tracked generated files are up to date
         run: |
           git diff --exit-code -- \
-            frontend/styles.css \
-            desktop/build/icons \
-            desktop/package.json
+            apps/web/styles.css \
+            apps/desktop/build/icons \
+            apps/desktop/package.json

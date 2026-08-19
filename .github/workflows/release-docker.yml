@@ -28,10 +28,10 @@ jobs:
       matrix:
         target:
           - name: app
-            file: docker/Dockerfile.app
+            file: infra/docker/Dockerfile.app
             repo: retainpdf-app
           - name: web
-            file: docker/Dockerfile.web
+            file: infra/docker/Dockerfile.web
             repo: retainpdf-web
 
     steps:

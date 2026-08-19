@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      PYTHONPATH: backend/pipeline
+      PYTHONPATH: services/pipeline
       RETAIN_TRANSLATION_API_KEY: ${{ secrets.RETAIN_TRANSLATION_API_KEY }}
     steps:
       - name: Checkout
@@ -32,16 +32,16 @@ jobs:
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          python backend/pipeline/devtools/sync_python_requirements.py --repo-root . --check
-          python -m pip install -r docker/requirements-test.txt
+          python services/pipeline/devtools/sync_python_requirements.py --repo-root . --check
+          python -m pip install -r infra/docker/requirements-test.txt
 
       - name: Run promptfoo toolchain unit tests
         shell: bash
         run: |
           python -m pytest -q \
-            backend/pipeline/devtools/tests/translation/test_promptfoo_case_tools.py \
-            backend/pipeline/devtools/tests/translation/test_promptfoo_harness_regressions.py \
-            backend/pipeline/devtools/tests/translation/test_translation_debug_tools.py
+            services/pipeline/devtools/tests/translation/test_promptfoo_case_tools.py \
+            services/pipeline/devtools/tests/translation/test_promptfoo_harness_regressions.py \
+            services/pipeline/devtools/tests/translation/test_translation_debug_tools.py
 
       - name: Note missing replay secret on fork PRs
         if: env.RETAIN_TRANSLATION_API_KEY == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
@@ -60,8 +60,8 @@ jobs:
         if: env.RETAIN_TRANSLATION_API_KEY != ''
         shell: bash
         run: |
-          mkdir -p backend/pipeline/devtools/promptfoo/.ci
-          python backend/pipeline/devtools/promptfoo/run_eval.py -- --output "$GITHUB_WORKSPACE/backend/pipeline/devtools/promptfoo/.ci/current-replay.json" --no-table
+          mkdir -p services/pipeline/devtools/promptfoo/.ci
+          python services/pipeline/devtools/promptfoo/run_eval.py -- --output "$GITHUB_WORKSPACE/services/pipeline/devtools/promptfoo/.ci/current-replay.json" --no-table
 
       - name: Upload promptfoo artifacts
         if: always()
@@ -70,7 +70,7 @@ jobs:
           name: translation-replay-${{ github.run_id }}
           if-no-files-found: ignore
           path: |
-            backend/pipeline/devtools/promptfoo/.ci/*.json
-            backend/pipeline/devtools/promptfoo/fixtures/cases.csv
-            backend/pipeline/devtools/promptfoo/fixtures/cases/*.json
+            services/pipeline/devtools/promptfoo/.ci/*.json
+            services/pipeline/devtools/promptfoo/fixtures/cases.csv
+            services/pipeline/devtools/promptfoo/fixtures/cases/*.json
             ${{ env.HOME }}/.promptfoo/logs/*.log

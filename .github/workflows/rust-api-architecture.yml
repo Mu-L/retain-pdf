@@ -3,8 +3,8 @@ name: Rust API Architecture
 "on":
   pull_request:
     paths:
-      - "backend/rust_api/**"
-      - "backend/pipeline/**"
+      - "services/api/**"
+      - "services/pipeline/**"
       - "doc/adr/**"
       - "doc/core/python/**"
       - ".github/workflows/rust-api-architecture.yml"
@@ -13,8 +13,8 @@ name: Rust API Architecture
       - main
       - master
     paths:
-      - "backend/rust_api/**"
-      - "backend/pipeline/**"
+      - "services/api/**"
+      - "services/pipeline/**"
       - "doc/adr/**"
       - "doc/core/python/**"
       - ".github/workflows/rust-api-architecture.yml"
@@ -30,7 +30,7 @@ jobs:
       # 两个定点冒烟测试，但 cargo 名字筛选匹配 0 个时照样绿，先后因
       # 重构改名/crate 拆分变成"静默跑 0"。定点筛选是反模式，勿再用。
       - name: Architecture Check
-        run: python3 backend/rust_api/scripts/check_architecture.py
+        run: python3 services/api/scripts/check_architecture.py
 
       - name: Python Pipeline Architecture Check
-        run: python3 backend/pipeline/devtools/check_pipeline_architecture.py
+        run: python3 services/pipeline/devtools/check_pipeline_architecture.py
