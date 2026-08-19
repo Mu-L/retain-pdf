@@ -1,13 +1,5 @@
 // packages/reader 对宿主环境的唯一契约（取代 apps/web/src/pages/reader/external.ts）
-//
-// 新包不直接 import apps/web/src/js/*。宿主（RetainPDF 或其他产品）通过 adapters 注入：
-// - 资源定位（sourceUrl/translatedUrl）
-// - 网络/鉴权
-// - 收藏/AI 等可选能力
-// 旧 external.ts 保留为 RetainPDF 适配层（thin wrapper）→ adapters 的实现。
-
 export type ReaderMode = "source" | "translated" | "compare";
-
 export type ReaderDocumentSource = {
   sourceUrl: string;
   translatedUrl?: string | null;
@@ -15,26 +7,37 @@ export type ReaderDocumentSource = {
   translatedFile?: unknown | null;
   title?: string;
 };
-
+// 扩展：将 external 的 20+ 符号收敛为可注入能力，逐步替换直接 import
 export type ReaderSessionAdapters = {
-  // 会话：由宿主解析 job/document/anchor
-  resolveSession?: () => {
-    jobId?: string;
-    documentId?: string;
-    sourceOnly?: boolean;
-    mode?: ReaderMode;
-  };
-  // 资源：宿主提供已解析的 PDF URL（取代 resolveResourceUrl/resolveReader*Url）
+  resolveSession?: () => { jobId?: string; documentId?: string; sourceOnly?: boolean; mode?: ReaderMode };
   resolveDocument?: () => Promise<ReaderDocumentSource> | ReaderDocumentSource;
-  // 网络：受保护下载的 fetcher（取代 fetchProtected/downloadProtectedResource）
   fetchPdf?: (url: string, init?: RequestInit) => Promise<Response>;
-  // 可选能力：收藏、AI、Markdown 等按需注入，未注入则对应面板自动隐藏
   favoritesPort?: unknown;
   aiAnswerer?: unknown;
   markdownLoader?: (jobId: string) => Promise<string>;
+  // 细粒度：保留旧 external 的关键能力以便渐进迁移
+  isMockMode?: () => boolean;
+  resolveResourceUrl?: (url: string) => string;
+  fetchProtected?: typeof fetch;
+  resolvePdfjsVendorUrl?: () => string;
+  resolveMarkedVendorUrl?: () => string;
+  defaultReaderDataPort?: unknown;
+  defaultReaderPageConfigPort?: unknown;
+  resolveReaderAnchor?: (...args: any[]) => any;
+  resolveReaderDocumentId?: () => string;
+  resolveReaderJobId?: () => string;
+  resolveReaderArtifactUrl?: (...args: any[]) => string;
+  resolveReaderSourcePdf?: (...args: any[]) => any;
+  resolveReaderTranslatedPdfUrl?: (...args: any[]) => string;
 };
-
 export type ReaderAdapters = ReaderSessionAdapters;
-
-// 兼容旧 external 的最小子集，供 apps/web 适配层复用
 export const DEFAULT_READER_ADAPTERS: Partial<ReaderAdapters> = {};
+// 全局注入注册（monorepo 内由 apps/web 在启动时 set）
+let _adapters: ReaderAdapters | null = null;
+export function setReaderAdapters(a: ReaderAdapters | null) { _adapters = a; }
+export function getReaderAdapters(): ReaderAdapters | null { return _adapters; }
+export function requireAdapter<T extends keyof ReaderAdapters>(key: T): NonNullable<ReaderAdapters[T]> {
+  const v = _adapters?.[key];
+  if (v == null) throw new Error(`Reader adapter missing: ${String(key)} (call setReaderAdapters)`);
+  return v as NonNullable<ReaderAdapters[T]>;
+}
