@@ -28,15 +28,8 @@ const KNOWN_ORPHANS = {
     // 模板生成的类,src/styles 中没有对应规则(无样式 div)
     "detail-artifact-meta",
   ]),
-  // legacy 旧引擎的 6 个字面量暂无归属（新 reader 已迁 @retainpdf/reader，旧引擎文件仍保留待后续清理）
-  "src/js/reader": Object.freeze([
-    "reader-left-collapse-btn",
-    "reader-right-collapse-btn",
-    "reader-pdf-empty",
-    "reader-translation-empty",
-    "reader-pdf",
-    "reader-translated-pdf",
-  ]),
+  // js/reader 旧引擎已全量删除（仅保留共享 ports），无孤儿
+  "src/js/reader": Object.freeze([]),
 };
 
 const PAGES = [
