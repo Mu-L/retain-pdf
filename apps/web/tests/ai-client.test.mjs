@@ -6,7 +6,7 @@ globalThis.window = globalThis.window || { location: { search: "", protocol: "ht
 
 const { AiAskError, askLibraryAi, readAiAskStream } = await import("../src/js/api/ai.js");
 const { setRuntimeConfig } = await import("../src/js/config/runtime.js");
-const { buildScopedQuestion, createReaderAskAnswerer } = await import("../src/js/reader/ai/ask-answerer.js");
+const { buildScopedQuestion, createReaderAskAnswerer } = await import("../src/shared/ai/ask-answerer.js");
 
 function sseStream(chunks = []) {
   const encoder = new TextEncoder();

@@ -11,7 +11,7 @@ const dom = new JSDOM("<!doctype html><body></body>");
 globalThis.document = dom.window.document;
 
 const { renderFinalAnswerHtml, renderStreamingPreviewHtml } = await import(
-  "../src/js/reader/ai/render-answer-html.ts"
+  "../src/shared/ai/render-answer-html.ts"
 );
 
 /** 把输出重新解析,断言不存在任何危险活元素/属性 */

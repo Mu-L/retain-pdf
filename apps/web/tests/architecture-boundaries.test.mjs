@@ -569,6 +569,8 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
       continue;
     }
     for (const file of walkReactFiles(root)) {
+      // 例外：download-runtime-bridge 是 shared 为避免直接 import bootstrap 而设的薄桥接，允许
+      if (file.endsWith("download-runtime-bridge.ts")) continue;
       const source = readFileSync(file, "utf8");
       for (const [pattern, label] of FORBIDDEN_IMPORT_PATTERNS) {
         if (pattern.test(source)) {

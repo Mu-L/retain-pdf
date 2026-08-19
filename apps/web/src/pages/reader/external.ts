@@ -21,7 +21,7 @@ export {
 } from "../../js/runtime/vendor-url.js";
 
 // —— js/reader 共享 ports（新引擎允许依赖的子集）——
-// 薄包装已清零：直连 shared/*，不再经 js/reader 中转（保留 ai/* 待抽 + download-runtime-bridge）
+// 已清零：直连 shared/*，不再经 js/reader 中转
 export { defaultReaderDataPort } from "../../shared/data/data-port.js";
 export {
   defaultReaderPageConfigPort,
@@ -52,8 +52,8 @@ export { resolveMarkdownAssetUrl } from "../../js/job/artifacts.js";
 export { parseMarkdownWithMath } from "../../shared/content/markdown-math.js";
 
 // —— AI 追问（react-pdf assistant）——
-export { createReaderAskAnswerer } from "../../js/reader/ai/ask-answerer.js";
-export { createReaderMarkdownAnswerer } from "../../js/reader/ai/markdown-answerer.js";
+export { createReaderAskAnswerer } from "../../shared/ai/ask-answerer.js";
+export { createReaderMarkdownAnswerer } from "../../shared/ai/markdown-answerer.js";
 export {
   hydrateProtectedImages,
   injectCitationMarkers,
@@ -61,8 +61,8 @@ export {
   neutralizeMarkdownAnchors,
   renderCitationFooter,
   revokeHydratedImageUrls,
-} from "../../js/reader/ai/answer-enhance.js";
-export type { AiCitationLike } from "../../js/reader/ai/answer-enhance.js";
+} from "../../shared/ai/answer-enhance.js";
+export type { AiCitationLike } from "../../shared/ai/answer-enhance.js";
 export {
   armReaderAiClickShield,
   clearReaderAiNavigationLock,
@@ -70,26 +70,26 @@ export {
   isReaderAiNavigationLocked,
   lockReaderAiNavigation,
   shouldIgnoreReaderAiNavEvent,
-} from "../../js/reader/ai/ui-interaction-lock.js";
+} from "../../shared/ai/ui-interaction-lock.js";
 export {
   peekFinalAnswerHtmlCache,
   renderFinalAnswerHtml,
   renderStreamingPreviewHtml,
-} from "../../js/reader/ai/render-answer-html.js";
-export { sanitizeAssistantAnswer } from "../../js/reader/ai/sanitize-answer.js";
+} from "../../shared/ai/render-answer-html.js";
+export { sanitizeAssistantAnswer } from "../../shared/ai/sanitize-answer.js";
 export {
   clearThreadBranchSnapshot,
   loadThreadBranchSnapshot,
   saveThreadBranchSnapshot,
   threadBranchStorageKey,
   visiblePathFromSnapshot,
-} from "../../js/reader/ai/thread-branch-store.js";
+} from "../../shared/ai/thread-branch-store.js";
 export type {
   ThreadBranchCitation,
   ThreadBranchItem,
   ThreadBranchMessage,
   ThreadBranchSnapshot,
-} from "../../js/reader/ai/thread-branch-store.js";
+} from "../../shared/ai/thread-branch-store.js";
 export {
   appendConversationMessage,
   baseConversationTitle,
@@ -111,7 +111,7 @@ export {
   loadStoredConversationId,
   saveStoredConversationId,
   clearStoredConversationId,
-} from "../../js/reader/ai/conversation-store.js";
+} from "../../shared/ai/conversation-store.js";
 
 // —— 服务端收藏面板 ——
 export { API_PREFIX } from "../../js/config/api-constants.js";
@@ -127,4 +127,4 @@ export {
   CREDENTIALS_CHANGED_EVENT,
   hasModelApiKey,
   MISSING_MODEL_API_KEY_MESSAGE,
-} from "../../js/reader/ai/config.js";
+} from "../../shared/ai/config.js";

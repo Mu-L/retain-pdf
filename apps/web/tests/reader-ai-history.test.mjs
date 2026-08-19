@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createReaderAiHistoryStore } from "../src/js/reader/ai/chat-history-store.js";
+import { createReaderAiHistoryStore } from "../src/shared/ai/chat-history-store.js";
 
 function memoryStorage() {
   const map = new Map();

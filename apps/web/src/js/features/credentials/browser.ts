@@ -24,7 +24,7 @@ import {
 import { createCredentialRuntimeEnvPort } from "./runtime-env-port.js";
 import { createCredentialUploadReadinessPort } from "./upload-readiness-port.js";
 import { savePersistedBrowserStoredConfig } from "../../config/persisted-config.js";
-import { notifyCredentialsChanged } from "../../reader/ai/config.js";
+import { notifyCredentialsChanged } from "../../../shared/ai/config.js";
 import type {
   CredentialsFields,
   CredentialsStatePort,
