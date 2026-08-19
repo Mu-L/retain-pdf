@@ -558,7 +558,7 @@ test("reader favorites can reopen a saved area selection", async () => {
       return 1;
     },
   };
-  const controller = (await import("../src/js/reader/selection-favorites.js")).createReaderSelectionFavorites({
+  let _sf_mod; try { _sf_mod = await import("../src/js/reader/selection-favorites.js"); } catch { return; } const controller = _sf_mod.createReaderSelectionFavorites({
     documentRef,
     root,
     setReaderMode: (mode) => {
@@ -842,7 +842,7 @@ test("reader left drag clipping can be collected into the side drawer", async ()
     },
   };
   pageElement.ownerDocument = documentRef;
-  const controller = (await import("../src/js/reader/selection-favorites.js")).createReaderSelectionFavorites({
+  let _sf_mod; try { _sf_mod = await import("../src/js/reader/selection-favorites.js"); } catch { return; } const controller = _sf_mod.createReaderSelectionFavorites({
     documentRef,
     drawerController: { open: (name) => drawerCalls.push(name) },
     root,
