@@ -5,7 +5,7 @@ import {
   resolveTranslatedPdfDownloadName,
 } from "../../../js/job/artifacts.js";
 import { createReaderDialogRuntimePort } from "../../../js/reader/download-runtime-bridge.js";
-import { resolveReaderSourcePdf } from "../../../js/reader/resource-resolver.js";
+import { resolveReaderSourcePdf } from "../../data/resource-resolver.js";
 import * as shared from "../../../../../../packages/reader/src/shared/state/downloads/resolve.js";
 
 export const READER_DOWNLOAD_ACTIONS = shared.READER_DOWNLOAD_ACTIONS;

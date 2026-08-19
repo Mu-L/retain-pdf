@@ -27,7 +27,8 @@
   "dependencies": {
     "react-pdf": "^9.2.1",
     "pdfjs-dist": "^4.8.69",
-    "mathjax-full": "^3.2.1"
+    "mathjax-full": "^3.2.1",
+    "marked": "^18.0.6"
   },
   "devDependencies": {
     "vite": "^6.3.0",

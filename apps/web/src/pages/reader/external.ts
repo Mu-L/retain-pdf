@@ -21,19 +21,20 @@ export {
 } from "../../js/runtime/vendor-url.js";
 
 // —— js/reader 共享 ports（新引擎允许依赖的子集）——
-export { defaultReaderDataPort } from "../../js/reader/data-port.js";
+// 薄包装已清零：直连 shared/*，不再经 js/reader 中转（保留 ai/* 待抽 + download-runtime-bridge）
+export { defaultReaderDataPort } from "../../shared/data/data-port.js";
 export {
   defaultReaderPageConfigPort,
   resolveReaderAnchor,
   resolveReaderDocumentId,
   resolveReaderJobId,
-} from "../../js/reader/config-port.js";
-export { resolveReaderArtifactUrl } from "../../js/reader/pdf-document.js";
+} from "../../shared/config/page-config.js";
+export { resolveReaderArtifactUrl } from "../../shared/data/pdf-document.js";
 export {
   resolveReaderSourcePdf,
   resolveReaderTranslatedPdfUrl,
-} from "../../js/reader/resource-resolver.js";
-export { READER_PROGRESS_COPY } from "../../js/reader/page-state.js";
+} from "../../shared/data/resource-resolver.js";
+export { READER_PROGRESS_COPY } from "../../shared/state/page-state.js";
 
 // —— 下载（与 legacy 共用解析 / 受保护下载）——
 export {
@@ -42,13 +43,13 @@ export {
   resolveReaderDownloadName,
   resolveReaderDownloadUrls,
   trimString as trimReaderDownloadString,
-} from "../../js/reader/downloads/resolve.js";
+} from "../../shared/state/downloads/resolve.js";
 export { downloadProtectedResource } from "../../js/features/reader-dialog/downloads.js";
 export { failDownloadToast } from "../../js/utils/download-feedback.js";
 
 // —— markdown 面板 ——
 export { resolveMarkdownAssetUrl } from "../../js/job/artifacts.js";
-export { parseMarkdownWithMath } from "../../js/reader/markdown-math.js";
+export { parseMarkdownWithMath } from "../../shared/content/markdown-math.js";
 
 // —— AI 追问（react-pdf assistant）——
 export { createReaderAskAnswerer } from "../../js/reader/ai/ask-answerer.js";
@@ -118,8 +119,8 @@ export { fetchFavorites } from "../../js/api/favorites.js";
 export {
   createReaderServerFavoritesPort,
   normalizeServerFavorite,
-} from "../../js/reader/server-favorites-port.js";
-export type { ServerFavorite } from "../../js/reader/types.js";
+} from "../../shared/state/server-favorites-port.js";
+export type { ServerFavorite } from "../../shared/types/types.js";
 
 // —— 阅读器 AI 面板：模型 Key 门禁 ——
 export {

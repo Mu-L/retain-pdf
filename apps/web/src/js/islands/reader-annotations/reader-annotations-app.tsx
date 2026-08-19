@@ -5,7 +5,7 @@ import {
   annotationAnchor,
   buildAnnotationsMarkdown,
   groupAnnotationsByPage,
-} from "../../reader/annotations/view-model.js";
+} from "../../../shared/content/annotations/view-model.js";
 
 function AnnotationItem({ annotation, onJump, onDelete, onSaveNote }) {
   const [editing, setEditing] = useState(false);

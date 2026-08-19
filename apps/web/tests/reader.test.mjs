@@ -45,13 +45,13 @@ before(async () => {
     },
   };
   async function tryImport(path) { try { return await import(path); } catch { return null; } }
-  readerDataPort = await tryImport("../src/js/reader/data-port.js");
+  readerDataPort = await tryImport("../src/shared/data/data-port.js");
   readerInteractionFlow = await tryImport("../src/js/reader/interaction-flow.js") || { bindReaderInteractions: () => {}, createReaderInteractionFlow: () => ({}) };
-  readerPdfDocument = await tryImport("../src/js/reader/pdf-document.js");
-  readerPageConfig = await tryImport("../src/js/reader/config-port.js");
-  readerPageState = await tryImport("../src/js/reader/page-state.js");
+  readerPdfDocument = await tryImport("../src/shared/data/pdf-document.js");
+  readerPageConfig = await tryImport("../src/shared/config/page-config.js");
+  readerPageState = await tryImport("../src/shared/state/page-state.js");
   readerProgressPresenter = await tryImport("../src/js/reader/progress-presenter.js") || { createReaderProgressPresenter: () => ({}) };
-  readerResourceResolver = await tryImport("../src/js/reader/resource-resolver.js");
+  readerResourceResolver = await tryImport("../src/shared/data/resource-resolver.js");
   readerRegionInteractions = await tryImport("../src/js/reader/region-interactions.js") || { bindReaderRegionHover: () => {}, isReaderTranslatedRegionEvent: () => false, regionInteractions: {} };
   readerAiMarkdown = await tryImport("../src/js/reader/ai/markdown-answerer.js");
   readerAiConfig = await tryImport("../src/js/reader/ai/config.js");
@@ -62,7 +62,7 @@ before(async () => {
   readerAiContext = await tryImport("../src/js/reader/ai-context.js") || { createReaderAiContext: () => ({}) };
   readerViewerMountFlow = await tryImport("../src/js/reader/viewer-mount-flow.js") || { mountReaderPdfPair: async () => ({ sourceReady: { key: "reader-pdf", pagesCount: 10, controller: { key: "reader-pdf" } }, translatedReady: null }) };
   readerDialogRuntimePort = await import("../src/js/bootstrap/reader-dialog-runtime-port.js");
-  readerDownloadResolve = await import("../src/js/reader/downloads/resolve.js");
+  readerDownloadResolve = await import("../src/shared/state/downloads/resolve.js");
 });
 
 test("reader artifact url reuses the unified resource resolver", () => {
