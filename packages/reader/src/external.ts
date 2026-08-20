@@ -12,7 +12,7 @@ export const READER_DIALOG_MESSAGES = {} as any;
 // —— job / http / vendor ——
 export const resolveResourceUrl = (url: string): string => (getReaderAdapters()?.resolveResourceUrl as any)?.(url) ?? url;
 export const fetchProtected: typeof fetch = (...args: any[]) => (getReaderAdapters()?.fetchProtected as any)?.(...args) ?? (fetch as any)(...args);
-export const resolvePdfjsVendorUrl = (): string => (getReaderAdapters()?.resolvePdfjsVendorUrl as any)?.() ?? "";
+export const resolvePdfjsVendorUrl = (relativePath = ""): string => (getReaderAdapters()?.resolvePdfjsVendorUrl as any)?.(relativePath) ?? "";
 export const resolveMarkedVendorUrl = (): string => (getReaderAdapters()?.resolveMarkedVendorUrl as any)?.() ?? "";
 
 // —— js/reader 共享 ports ——
