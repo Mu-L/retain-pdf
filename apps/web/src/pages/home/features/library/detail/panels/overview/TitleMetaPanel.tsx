@@ -1,6 +1,6 @@
 // 右栏：标题 / 作者 / 标签 + 编辑表单。
 
-import { btn } from "./ui.jsx";
+import { btn } from "../ui.jsx";
 
 /**
  * @param {object} props

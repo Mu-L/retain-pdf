@@ -8,8 +8,8 @@
 // 进度主场永远在本面板，绝不打开 #translation-workflow-dialog。
 
 import { cn } from "@/lib/utils";
-import { BookTranslateProgressPanel } from "./BookTranslateProgressPanel.jsx";
-import { BookTranslateLaunchForm } from "./BookTranslateLaunchForm.jsx";
+import { BookTranslateProgressPanel } from "./TranslateProgress.jsx";
+import { BookTranslateLaunchForm } from "./TranslateForm.jsx";
 import type { LibraryCardItem } from "../../types.js";
 
 export type BookTranslationWorkflowPanelProps = {

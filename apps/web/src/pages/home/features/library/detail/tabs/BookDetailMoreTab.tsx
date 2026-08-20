@@ -1,9 +1,9 @@
 // Tab「其他操作」——阅读状态 / 合集 / 占位 / 删除。
 // 后续导出、重命名等接在本组件内，不必动其他 tab。
 
-import { ReadingStatusPanel } from "../panels/ReadingStatusPanel.jsx";
-import { CollectionsPanel } from "../panels/CollectionsPanel.jsx";
-import { DeleteFooterPanel } from "../panels/DeleteFooterPanel.jsx";
+import { ReadingStatusPanel } from "../panels/more/ReadingStatusPanel.jsx";
+import { CollectionsPanel } from "../panels/more/CollectionsPanel.jsx";
+import { DeleteFooterPanel } from "../panels/more/DeleteFooterPanel.jsx";
 
 /** 占位：后续接导出 / 分享等。 */
 export function BookDetailMorePlaceholder() {

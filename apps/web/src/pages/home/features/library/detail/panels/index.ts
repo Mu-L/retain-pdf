@@ -1,10 +1,9 @@
-// 细粒度区块（被 tabs/* 组装，一般不直接给 Dialog 用）
+// 细粒度区块（被 tabs/* 组装）— 9→3 收敛：overview/translate/more
 export { CoverActionsPanel } from "./CoverActionsPanel.jsx";
-export { TitleMetaPanel } from "./TitleMetaPanel.jsx";
-export { TranslateWorkspacePanel } from "./TranslateWorkspacePanel.jsx";
-export { BookTranslationWorkflowPanel } from "./BookTranslationWorkflowPanel.jsx";
-export { BookTranslateLaunchForm } from "./BookTranslateLaunchForm.jsx";
-export { BookTranslateProgressPanel } from "./BookTranslateProgressPanel.jsx";
-export { ReadingStatusPanel, READING_STATUSES } from "./ReadingStatusPanel.jsx";
-export { CollectionsPanel } from "./CollectionsPanel.jsx";
-export { DeleteFooterPanel } from "./DeleteFooterPanel.jsx";
+export { TitleMetaPanel } from "./overview/TitleMetaPanel.jsx";
+export { BookTranslationWorkflowPanel } from "./translate/WorkflowPanel.jsx";
+export { BookTranslateLaunchForm } from "./translate/TranslateForm.jsx";
+export { BookTranslateProgressPanel } from "./translate/TranslateProgress.jsx";
+export { ReadingStatusPanel, READING_STATUSES } from "./more/ReadingStatusPanel.jsx";
+export { CollectionsPanel } from "./more/CollectionsPanel.jsx";
+export { DeleteFooterPanel } from "./more/DeleteFooterPanel.jsx";

@@ -1,7 +1,7 @@
 // 详情「翻译」Tab：发起 / 重新翻译表单。
 // 从原 TranslateWorkspacePanel 抽出；书已在馆，无需 WorkflowPanel 上传瓦片。
 
-import { btn, IconLanguages } from "./ui.jsx";
+import { btn, IconLanguages } from "../ui.jsx";
 
 export type BookTranslateLaunchFormProps = {
   canTranslate: boolean;
