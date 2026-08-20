@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-BACKEND_FONTS_DIR = Path(__file__).resolve().parents[3] / "fonts"
+BACKEND_FONTS_DIR = Path(__file__).resolve().parents[4] / "infra" / "fonts"
 
 DEFAULT_FONT_PATH = Path(
     os.environ.get("RETAIN_PDF_FONT_PATH", "").strip()
