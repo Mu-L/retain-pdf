@@ -45,24 +45,24 @@ before(async () => {
     },
   };
   async function tryImport(path) { try { return await import(path); } catch { return null; } }
-  readerDataPort = await tryImport("../src/shared/data/data-port.js");
+  readerDataPort = await tryImport("../src/shared/reader/data/data-port.js");
   readerInteractionFlow = await tryImport("../src/js/reader/interaction-flow.js") || { bindReaderInteractions: () => {}, createReaderInteractionFlow: () => ({}) };
-  readerPdfDocument = await tryImport("../src/shared/data/pdf-document.js");
-  readerPageConfig = await tryImport("../src/shared/config/page-config.js");
-  readerPageState = await tryImport("../src/shared/state/page-state.js");
+  readerPdfDocument = await tryImport("../src/shared/reader/data/pdf-document.js");
+  readerPageConfig = await tryImport("../src/shared/reader/config/page-config.js");
+  readerPageState = await tryImport("../src/shared/reader/state/page-state.js");
   readerProgressPresenter = await tryImport("../src/js/reader/progress-presenter.js") || { createReaderProgressPresenter: () => ({}) };
-  readerResourceResolver = await tryImport("../src/shared/data/resource-resolver.js");
+  readerResourceResolver = await tryImport("../src/shared/reader/data/resource-resolver.js");
   readerRegionInteractions = await tryImport("../src/js/reader/region-interactions.js") || { bindReaderRegionHover: () => {}, isReaderTranslatedRegionEvent: () => false, regionInteractions: {} };
-  readerAiMarkdown = await tryImport("../src/shared/ai/markdown-answerer.js");
-  readerAiConfig = await tryImport("../src/shared/ai/config.js");
+  readerAiMarkdown = await tryImport("../src/shared/reader/ai/markdown-answerer.js");
+  readerAiConfig = await tryImport("../src/shared/reader/ai/config.js");
   readerModeController = await tryImport("../src/js/reader/mode-controller.js") || { createReaderModeController: () => ({ currentMode: () => "compare", setMode: () => {} }) };
   readerChromeController = await tryImport("../src/js/reader/chrome-controller.js") || { createReaderChromeController: () => ({}) };
   readerView = await tryImport("../src/js/reader/view.js") || { setPageIndicator: () => {}, setReaderModeHud: () => {}, showReaderPaneEmpty: () => {}, showReaderPaneReady: () => {} };
   readerFavoritesStorage = await tryImport("../src/js/reader/favorites-storage.js") || { createReaderFavoritesStore: () => ({}) };
-  readerAiContext = await tryImport("../src/shared/ai/chat-history-store.js") || { createReaderAiContext: () => ({}) };
+  readerAiContext = await tryImport("../src/shared/reader/ai/chat-history-store.js") || { createReaderAiContext: () => ({}) };
   readerViewerMountFlow = await tryImport("../src/js/reader/viewer-mount-flow.js") || { mountReaderPdfPair: async () => ({ sourceReady: { key: "reader-pdf", pagesCount: 10, controller: { key: "reader-pdf" } }, translatedReady: null }) };
   readerDialogRuntimePort = await import("../src/js/bootstrap/reader-dialog-runtime-port.js");
-  readerDownloadResolve = await import("../src/shared/state/downloads/resolve.js");
+  readerDownloadResolve = await import("../src/shared/reader/state/downloads/resolve.js");
 });
 
 test("reader artifact url reuses the unified resource resolver", () => {

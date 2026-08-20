@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   resolveReaderDocumentId,
   resolveReaderJobId,
-} from "../src/shared/config/page-config.js";
+} from "../src/shared/reader/config/page-config.js";
 import { createReaderDialogConfigPort } from "../src/js/features/reader-dialog/config-port.js";
 
 // 馆藏文档"读原文"(F4):无 job、只有 document_id 时,阅读器走只读源文档分支。

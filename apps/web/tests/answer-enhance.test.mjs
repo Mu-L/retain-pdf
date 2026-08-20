@@ -9,7 +9,7 @@ import {
   pickCitationsForAnswer,
   resolveCitationPageIdx,
   resolveCitationPageNumber,
-} from "../src/shared/ai/answer-enhance.ts";
+} from "../src/shared/reader/ai/answer-enhance.ts";
 
 test("injectCitationMarkers turns [n] into buttons", () => {
   const dom = new JSDOM('<!doctype html><div id="r"><p>结论成立 [1] 且扩展 [2]。</p></div>');

@@ -5,7 +5,7 @@
 //   actions/    卡片操作工厂（read / translate）
 //   display/    展示辅助（封面、徽标）
 //   page/       书架页编排（网格、工具条、viewPort）
-//   categories/ 合集 tab
+//   categories/ 合集 tab（历史名，领域已统一为 collections，文件为 CollectionsView.tsx，CategoriesView 为兼容别名）
 //   favorites/  收藏 tab（摘录/笔记）
 //   detail/     书籍详情（shell 壳 + Dialog 容器）
 //   domain/     领域 controller
@@ -31,9 +31,10 @@ export {
 export { RecentJobsLibrary, useLibrarySearchBinding } from "./page/RecentJobsLibrary.jsx";
 export { createRecentJobsReactViewPort } from "./page/recent-jobs-react-port.js";
 export { createLibraryViewStore } from "./page/library-view-store.js";
-export { LibraryTopTabs } from "./page/LibraryTopTabs.jsx";
+export { LibraryTopTabs } from "../app-shell/tabs/LibraryTopTabs.jsx";
 
-export { CategoriesView } from "./categories/CategoriesView.jsx";
+export { CollectionsView } from "./categories/CollectionsView.jsx";
+export { CollectionsView as CategoriesView } from "./categories/CollectionsView.jsx";
 export { FavoritesView } from "./favorites/FavoritesView.jsx";
 
 export { BookDetailDialog } from "./detail/BookDetailDialog.jsx";

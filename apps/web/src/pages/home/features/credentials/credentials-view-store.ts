@@ -37,7 +37,7 @@ export type CredentialsViewState = {
   deepSeek: CredentialsMessage;
   deepSeekTopUpVisible: boolean;
   dialogStatus: CredentialsMessage;
-  /** 只读态,供 HeroUpload 订阅决定上传瓦片锁定/credential-gate 可见性 */
+  /** 只读态,供 UploadTile 订阅决定上传瓦片锁定/credential-gate 可见性 */
   credentialGate: CredentialGateState;
 };
 
@@ -79,9 +79,9 @@ export function createCredentialsViewFeature({
       deepSeek: { message: "", tone: "" },
       deepSeekTopUpVisible: false,
       dialogStatus: { message: "", tone: "" },
-      // 只读态,供 3a HeroUpload 订阅决定上传瓦片锁定/credential-gate 可见性
+      // 只读态,供 UploadTile 订阅决定上传瓦片锁定/credential-gate 可见性
       // (蓝图 §2.2「upload 按钮锁定态移交 3a」——本域只写这份快照,不直接
-      // 触碰 upload-view-store.js/HeroUpload.jsx)。
+      // 触碰 stores/upload-store)。
       credentialGate: {
         desktopMode: false,
         show: false,
@@ -124,7 +124,7 @@ export function createCredentialsViewFeature({
     },
   });
 
-  // 对话框内可见字段的非受控 DOM ref 收集点(镜像 upload-view-store.js 的
+  // 对话框内可见字段的非受控 DOM ref 收集点(镜像 stores/upload-store 的
   // domRefs 模式)。dialog-values.js/dialog-sync.js(kept)直接读写这些节点的
   // .value,不走 React 受控 value/onChange——避免两套写入源打架(蓝图风险 1
   // 的姊妹问题:可见字段虽不是"隐藏 input 桥接"那 4 个,但同样不该双写)。
@@ -154,7 +154,7 @@ export function createCredentialsViewFeature({
 
   const elementsPort = {
     elements,
-    // OCR provider 面板可见性由 OcrProviderPanels.jsx 直接订阅
+    // OCR provider 面板可见性由 ProviderPanels 直接订阅
     // credentialsStatePort(credentials.ocrProvider)渲染;不需要
     // dialog-sync.js 原本那种命令式二次同步,no-op。
     syncOcrProviderControls: () => {},

@@ -29,7 +29,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = false;
 
 const { createRoot } = await import("react-dom/client");
 const React = await import("react");
-const { createHomeComposition } = await import("../src/pages/home/composition.js");
+const { createHomeComposition } = await import("../src/pages/home/create-home-composition.js");
 const { HomeApp } = await import("../src/pages/home/HomeApp.jsx");
 const { APP_EVENTS } = await import("../src/js/contracts/app-contract.js");
 const { defaultCredentialsStatePort } = await import("../src/js/features/credentials/default-state-port.js");

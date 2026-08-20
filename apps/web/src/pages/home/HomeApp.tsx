@@ -15,13 +15,14 @@ import { AppTopBar } from "./features/app-shell/AppTopBar.jsx";
 import { AppBottomBar } from "./features/app-shell/AppBottomBar.jsx";
 import { MockModeBanner } from "./features/app-shell/MockModeBanner.jsx";
 import { TranslationWorkflowDialog } from "./features/workflow/TranslationWorkflowDialog.jsx";
-import { PageRangeDialog } from "./features/upload/PageRangeDialog.jsx";
+import { PageRangeDialog } from "./features/workflow/components/PageRangeDialog.jsx";
 import {
   RecentJobsLibrary,
-  CategoriesView,
+  CollectionsView,
   FavoritesView,
   BookDetailDialog,
 } from "./features/library/index.js";
+// CategoriesView 为历史别名（同 CollectionsView），保留在 library/index 兼容导出
 import { HomeAskView } from "./features/home-ask/HomeAskView.js";
 import { CredentialsDialog } from "./features/credentials/CredentialsDialog.jsx";
 import { GlossariesDialog } from "./features/glossaries/GlossariesDialog.jsx";
@@ -45,7 +46,9 @@ function HomeShell() {
   // 从阅读器返回时尽量恢复离开前的 tab；否则默认图书馆。
   const [activeLibraryTab, setActiveLibraryTab] = useState(readInitialLibraryTabFromReturn);
   const isLibraryTab = activeLibraryTab === "library";
+  // 历史契约 key "categories" == 领域 collections（见 LibraryTopTabs/COLLECTIONS_TAB_KEY 映射）
   const isCategoriesTab = activeLibraryTab === "categories";
+  const isCollectionsTab = isCategoriesTab; // 统一别名，领域语义用 collections
   const isFavoritesTab = activeLibraryTab === "favorites";
   const isAskTab = activeLibraryTab === "ask";
   // #31 批量选择工具栏和底部栏都固定在底部居中,批量模式期间底部栏用 CSS
@@ -69,9 +72,9 @@ function HomeShell() {
               <AppBottomBar showSearch hidden={batchModeActive} />
               <library-search-island></library-search-island>
             </>
-          ) : isCategoriesTab ? (
+          ) : isCollectionsTab ? (
             <>
-              <CategoriesView />
+              <CollectionsView />
               <AppBottomBar showSearch={false} />
             </>
           ) : isFavoritesTab ? (

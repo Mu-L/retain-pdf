@@ -15,7 +15,7 @@ export function readInitialLibraryTabFromReturn(): string {
   const state = peekHomeReturnState();
   const tab = `${state?.activeTab || ""}`;
   if (
-    tab === "categories"
+    tab === "categories" // == collections（历史契约，见 LibraryTopTabs COLLECTIONS_TAB_KEY）
     || tab === "favorites"
     || tab === "library"
     || tab === "ask"

@@ -4,7 +4,7 @@ import type { Store } from "../../composition/external.js";
 // workflow 域视图 store + React viewPort。
 //
 // mountWorkflowFeature(纯逻辑控制器,原样复用)的 viewPort 契约在这里落到
-// store,由 WorkflowPanel/HeroUpload/PageRangeDialog 订阅渲染。
+// store,由 WorkflowPanel/UploadTile/PageRangeDialog 订阅渲染。
 // applyMockUpload/applyWorkflowUpload/setSubmitControls/renderBudgetNote
 // 逐条镜像 features/workflow/view.js 的语义(该文件属旧 DOM 视图,禁 import)。
 //
@@ -72,7 +72,7 @@ export type WorkflowViewActions = {
 
 export type WorkflowViewStore = Store<WorkflowViewState, WorkflowViewActions>;
 
-/** workflow → upload 瓦片端口（upload-view-store.uploadTilePort） */
+/** workflow → upload 瓦片端口（stores/upload-store.uploadTilePort） */
 export type WorkflowUploadTilePort = {
   setUploadActionSlotVisible?: (visible?: boolean) => void;
   setUploadTileLocked?: (options?: { locked?: boolean; enabled?: boolean }) => void;

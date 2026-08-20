@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createReaderAiHistoryStore } from "../src/shared/ai/chat-history-store.js";
+import { createReaderAiHistoryStore } from "../src/shared/reader/ai/chat-history-store.js";
 import {
   deriveSessionTitle,
   summarizeSessions,
   trimSessions,
-} from "../src/shared/ai/chat-sessions-view-model.js";
+} from "../src/shared/reader/ai/chat-sessions-view-model.js";
 
 function memoryStorage(seed) {
   const map = new Map(seed ? Object.entries(seed) : []);

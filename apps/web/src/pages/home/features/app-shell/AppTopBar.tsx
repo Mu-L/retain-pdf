@@ -5,7 +5,7 @@
 // 居中做法:logo 左、两侧各一条 flex:1 的 spacer 把 tabs 挤到正中。#developer-btn/
 // #open-output-btn 是契约 id(测试引用),保留在 display:none 的隐藏容器里,不占布局。
 
-import { LibraryTopTabs } from "../library/page/LibraryTopTabs.jsx";
+import { LibraryTopTabs } from "./tabs/LibraryTopTabs.jsx";
 
 export function AppTopBar({ activeTab, onTabChange }) {
   return (

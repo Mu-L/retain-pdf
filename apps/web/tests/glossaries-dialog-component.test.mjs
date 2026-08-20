@@ -42,7 +42,7 @@ if (!dom.window.customElements.get("download-toast")) {
 
 const { createRoot } = await import("react-dom/client");
 const React = await import("react");
-const { createHomeComposition } = await import("../src/pages/home/composition.js");
+const { createHomeComposition } = await import("../src/pages/home/create-home-composition.js");
 const { HomeApp } = await import("../src/pages/home/HomeApp.jsx");
 const { APP_EVENTS } = await import("../src/js/contracts/app-contract.js");
 

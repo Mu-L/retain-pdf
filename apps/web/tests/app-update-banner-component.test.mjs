@@ -28,7 +28,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = false;
 
 const { createRoot } = await import("react-dom/client");
 const React = await import("react");
-const { createHomeComposition } = await import("../src/pages/home/composition.js");
+const { createHomeComposition } = await import("../src/pages/home/create-home-composition.js");
 const { HomeApp } = await import("../src/pages/home/HomeApp.jsx");
 
 function wait(ms) {

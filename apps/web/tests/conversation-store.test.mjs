@@ -5,7 +5,7 @@ import {
   conversationStorageKey,
   loadStoredConversationId,
   saveStoredConversationId,
-} from "../src/shared/ai/conversation-store.ts";
+} from "../src/shared/reader/ai/conversation-store.ts";
 
 class MemoryStorage {
   constructor() {

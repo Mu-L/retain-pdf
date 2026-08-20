@@ -12,14 +12,14 @@
 import { createRoot } from "react-dom/client";
 import { bootTheme } from "../../shared/theme/theme.js";
 import { DecorStage } from "../../shared/decor/DecorStage.jsx";
-import { createHomeComposition } from "./composition.js";
+import { createHomeComposition } from "./create-home-composition.js";
 import { HomeApp } from "./HomeApp.jsx";
 
 // 尽早挂 data-theme，减少换肤 FOUC（见 docs/theme-system/THEME_SYSTEM.md）
 bootTheme();
 
-// appUpdateAutoCheckEnabled: true——composition.js 默认关闭 app-update 的后台
-// GitHub 自检(测试隔离,见 composition.js 头注释),生产入口这里显式打开,
+// appUpdateAutoCheckEnabled: true——create-home-composition.js 默认关闭 app-update 的后台
+// GitHub 自检(测试隔离,见 create-home-composition.js 头注释),生产入口这里显式打开,
 // 与旧世界 bootstrap/core-app-update-runtime-port.js 的 isAppUpdateEnabled
 // port 行为等价。
 const services = createHomeComposition({ appUpdateAutoCheckEnabled: true });

@@ -9,7 +9,7 @@
 
 import { useStoreSnapshot } from "../../../../shared/react/use-store.js";
 import { useHomeServices } from "../../home-services-context.js";
-import { HeroUpload } from "../upload/HeroUpload.jsx";
+import { HeroUpload } from "./components/UploadTile.jsx";
 import { InlineErrorBox } from "../../components/InlineErrorBox.jsx";
 import { HiddenCredentialInputs } from "../credentials/HiddenCredentialInputs.jsx";
 

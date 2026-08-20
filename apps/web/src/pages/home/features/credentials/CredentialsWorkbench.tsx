@@ -6,16 +6,12 @@
 // DOM id 不会同屏重复。状态/保存/校验全部走 useCredentialsController 的
 // 单例 store——宿主只是壳。
 //
-// TaskOptionsPanel 常驻挂载（不随 tab 卸载）的约束沿用 CredentialsDialog
-// 头注释结论：其字段 ref 在保存时被统一读取，卸载会复现"切到 API 面板点
-// 保存，任务选项静默丢失"。
+// 任务选项面板已内联（原 TaskOptionsPanel 常驻挂载不卸载的约束保留：其字段 ref 在保存时被统一读取）。
 
 import { Tabs as TabsPrimitive } from "radix-ui";
 import { CREDENTIAL_DOM_IDS } from "./credentials-dom-ids.js";
 import { useCredentialsController } from "./useCredentialsController.js";
-import { OcrProviderPanels } from "./OcrProviderPanels.jsx";
-import { DeepSeekPanel } from "./DeepSeekPanel.jsx";
-import { TaskOptionsPanel } from "./TaskOptionsPanel.jsx";
+import { OcrPanels, TranslationPanel } from "./ProviderPanels.jsx";
 import { Button as ButtonBase } from "../../../../components/Button.jsx";
 
 // Button.size 在未注解源文件里被推断为必填;unstyled 路径运行时不用 size。
@@ -29,7 +25,7 @@ const TABS = [
 ];
 
 export function CredentialsWorkbench() {
-  const { view, feature, handlers } = useCredentialsController();
+  const { view, feature, handlers, elementsRef } = useCredentialsController();
 
   const setupMode = Boolean(view.setupMode);
   const activeTab = view.activeTab || "api";
@@ -79,14 +75,57 @@ export function CredentialsWorkbench() {
                 <div className="credential-card-head">
                   <h3>OCR</h3>
                 </div>
-                <OcrProviderPanels />
+                <OcrPanels />
               </section>
-              <DeepSeekPanel />
+              <TranslationPanel />
             </div>
           </TabsPrimitive.Content>
-          {/* 不套 TabsPrimitive.Content 的理由见 CredentialsDialog 原注释：
-              TaskOptionsPanel 自带 role=tabpanel，再包一层语义重复 */}
-          <TaskOptionsPanel hidden={activeTab !== "task"} />
+          {/* 任务选项：原 TaskOptionsPanel 已内联，forceMount + hidden 保持常驻挂载 */}
+          <TabsPrimitive.Content
+            value="task"
+            forceMount
+            hidden={activeTab !== "task"}
+            className={`credential-panel${activeTab === "task" ? " is-active" : ""}`}
+            data-credential-panel="task"
+            role="tabpanel"
+          >
+            <div className="credential-card-grid credential-card-grid-compact">
+              <section className="credential-card">
+                <div className="credential-card-head">
+                  <h3>任务选项</h3>
+                </div>
+                <label>
+                  <span className="developer-label">
+                    <span>公式模式</span>
+                  </span>
+                  <select
+                    id={BROWSER_IDS.mathMode}
+                    aria-label="公式模式"
+                    defaultValue="direct_typst"
+                    ref={(node) => { elementsRef.mathModeSelect = node || null; }}
+                  >
+                    <option value="placeholder">占位保护</option>
+                    <option value="direct_typst">直出公式</option>
+                  </select>
+                </label>
+                {/* 模型地址/模型名不在旧模板可见布局里,但 dialog-values.js/dialog-sync.js 仍读写这两个字段——保留隐藏字段契约 */}
+                <input
+                  id={BROWSER_IDS.modelBaseUrl}
+                  name="model_base_url"
+                  type="hidden"
+                  defaultValue=""
+                  ref={(node) => { elementsRef.modelBaseUrlInput = node || null; }}
+                />
+                <input
+                  id={BROWSER_IDS.modelName}
+                  name="model_name"
+                  type="hidden"
+                  defaultValue=""
+                  ref={(node) => { elementsRef.modelNameInput = node || null; }}
+                />
+              </section>
+            </div>
+          </TabsPrimitive.Content>
         </div>
         <div className="actions credential-dialog-actions">
           <span id={BROWSER_IDS.status} className={statusClasses}>{statusContent}</span>

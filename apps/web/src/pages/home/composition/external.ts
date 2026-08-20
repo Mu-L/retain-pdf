@@ -332,19 +332,19 @@ export {
   neutralizeMarkdownAnchors,
   renderCitationFooter,
   type AiCitationLike,
-} from "../../../shared/ai/answer-enhance.js";
+} from "../../../shared/reader/ai/answer-enhance.js";
 export {
   renderFinalAnswerHtml,
   renderStreamingPreviewHtml,
-} from "../../../shared/ai/render-answer-html.js";
+} from "../../../shared/reader/ai/render-answer-html.js";
 export { buildFrontendPageUrl } from "../../../js/config/runtime.js";
 export {
   CREDENTIALS_CHANGED_EVENT,
   hasModelApiKey,
   MISSING_MODEL_API_KEY_MESSAGE,
   resolveReaderAiConfig,
-} from "../../../shared/ai/config.js";
-export { sanitizeAssistantAnswer } from "../../../shared/ai/sanitize-answer.js";
+} from "../../../shared/reader/ai/config.js";
+export { sanitizeAssistantAnswer } from "../../../shared/reader/ai/sanitize-answer.js";
 export { askLibraryAi, AiAskError } from "../../../js/api/ai.js";
 export {
   deleteConversation,

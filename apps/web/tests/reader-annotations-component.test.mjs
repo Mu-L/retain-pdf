@@ -22,7 +22,7 @@ globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
 globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
 globalThis.IS_REACT_ACT_ENVIRONMENT = false;
 
-const { ANNOTATION_KIND_META } = await import("../src/shared/content/annotations/view-model.js");
+const { ANNOTATION_KIND_META } = await import("../src/shared/reader/content/annotations/view-model.js");
 const { mountReaderAnnotationsApp } = await import("../src/js/islands/reader-annotations/reader-annotations-app.jsx");
 
 function wait(ms) {

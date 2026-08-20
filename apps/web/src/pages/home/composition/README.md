@@ -14,7 +14,7 @@
    源码已全量 TS；import 路径仍可写 `.js`（esbuild / test loader 映射到 `.ts/.tsx`）。
 
 2. **工厂返回 bag，不写可变 `ctx`**  
-   `createXxx(...)` 返回自己的产物；`composition.js` 显式赋值到 `features` / `domains`。
+   `createXxx(...)` 返回自己的产物；`create-home-composition.ts` 显式赋值到 `features` / `domains`。
 
 3. **`features` 是唯一可变注册表**  
    晚绑定（A 装配时 B 尚未创建）通过 `features.xxx` 读，装配完成后再调用。
@@ -30,7 +30,7 @@
 
 | 文件 | 职责 |
 |------|------|
-| `../composition.js` | 顺序接线入口 |
+| `../create-home-composition.ts` | 顺序接线入口（原 `composition.ts`，避免与 `composition/` 目录同名） |
 | `external.js` | 外部依赖 barrel |
 | `create-bridge.js` | 3b 回调桥 |
 | `create-workflow-upload.js` | workflow + upload |

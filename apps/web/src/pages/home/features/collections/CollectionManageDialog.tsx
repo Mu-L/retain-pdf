@@ -6,10 +6,10 @@
 // 简化成单栏勾选(不做手动排序——本次不做拖拽/排序,见调研计划「不做的事」)。
 //
 // dialogStore.payload = 正在编辑的 CollectionRecord,或 null(新建模式)。
-// open() 由 CategoriesView.jsx 调用。这个对话框和 CategoriesView 是 HomeApp.jsx
+// open() 由 CollectionsView.jsx（兼容名 CategoriesView）调用。这个对话框和 CollectionsView 是 HomeApp.jsx
 // 下的兄弟节点(不是父子),保存/删除成功后没法直接 prop 回调回去——靠
 // services.collections.reloadSignal(一个只有 version 字段的极简 store)桥接,
-// 这里 bump 一次,CategoriesView 订阅到变化就重新拉取列表。
+// 这里 bump 一次,CollectionsView 订阅到变化就重新拉取列表。
 
 import { useEffect, useState } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";

@@ -10,11 +10,11 @@ import {
   shapeDocumentsWithBooks,
 } from "../../composition/external.js";
 
-// 分类(合集)域的唯一装配面。这是一个纯 React 时代新建的域,没有旧世界
-// controller.js 可复用,所以不套其余域那套 mountXFeature()/viewPort 壳子——
-// 直接是一层绑好 apiPrefix 的薄函数集合,composition.js 建一次实例,
-// CategoriesView.jsx/CollectionManageDialog.jsx 经 services.collections.controller
-// 消费。
+// 合集域的唯一装配面（领域名统一为 collections，历史别名 categories）。
+// 这是一个纯 React 时代新建的域,没有旧世界 controller.js 可复用,所以不套其余域那套 mountXFeature()/viewPort 壳子——
+// 直接是一层绑好 apiPrefix 的薄函数集合,create-home-composition.ts 建一次实例,
+// CollectionsView.jsx（兼容名 CategoriesView）/CollectionManageDialog.jsx 经 services.collections.controller 消费。
+// 三名一物映射：features/collections（领域） == LibraryTopTabs key "categories"（UI 契约） == CollectionsView/CategoriesView（视图）
 
 export function createCollectionsController({ apiPrefix }) {
   return {
@@ -32,7 +32,7 @@ export function createCollectionsController({ apiPrefix }) {
       return documents;
     },
 
-    // 某个文件夹当前的成员 document_id 集合(管理弹窗打开已有分类时用来
+    // 某个合集当前的成员 document_id 集合(管理弹窗打开已有合集时用来
     // 勾选初始状态)。
     async listCollectionDocumentIds(collectionId) {
       const { documents = [] } = await fetchDocumentList(apiPrefix, { collectionId, limit: 500 });
