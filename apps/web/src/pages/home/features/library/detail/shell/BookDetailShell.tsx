@@ -12,6 +12,7 @@
 // 用法:
 //   <BookDetailShell open={…} onOpenChange={…} left={…} right={…} />
 
+import { X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 
 /**
@@ -37,9 +38,9 @@ export function BookDetailShell({
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="desktop-dialog-overlay" />
-        <DialogPrimitive.Content
+          <DialogPrimitive.Content
           id="book-detail-dialog"
-          className={`book-detail-dialog-content fixed inset-0 z-[101] m-auto h-fit w-[min(940px,94vw)] max-h-[88vh] overflow-y-auto rounded-2xl border border-border bg-paper p-6 shadow-[0_30px_60px_color-mix(in_srgb,var(--shadow-color)_22%,transparent)] sm:p-7 ${contentClassName}`.trim()}
+          className={`book-detail-dialog-content fixed inset-0 z-[101] m-auto h-fit w-[min(1040px,96vw)] max-h-[90vh] overflow-hidden rounded-[20px] border border-border/60 bg-paper shadow-[0_32px_80px_color-mix(in_srgb,var(--shadow-color)_24%,transparent)] ${contentClassName}`.trim()}
           onCloseAutoFocus={onCloseAutoFocus}
         >
           <DialogPrimitive.Title asChild>
@@ -50,16 +51,15 @@ export function BookDetailShell({
               id="book-detail-close-btn"
               type="button"
               aria-label="关闭"
-              className="absolute right-4 top-4 z-[2] inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="absolute right-5 top-5 z-[2] inline-flex h-8 w-8 items-center justify-center rounded-full bg-muted/80 text-muted-foreground backdrop-blur hover:bg-muted hover:text-foreground"
             >
-              ×
+              <X className="h-4 w-4" />
             </button>
           </DialogPrimitive.Close>
 
-          <div className="book-detail-shell-grid grid grid-cols-1 gap-7 sm:grid-cols-[236px_1fr]">
-            <div className="book-detail-shell-left">{left}</div>
-            {/* pr-10：给右上角关闭钮留空，避免 tab 顶到 × */}
-            <div className="book-detail-shell-right min-w-0 space-y-4 pr-10">{right}</div>
+          <div className="book-detail-shell-grid grid grid-cols-1 gap-0 sm:grid-cols-[320px_1fr] sm:divide-x sm:divide-border/60">
+            <div className="book-detail-shell-left bg-muted/20 p-7 pr-6">{left}</div>
+            <div className="book-detail-shell-right min-w-0 max-h-[90vh] overflow-y-auto p-7 pl-7 pr-12">{right}</div>
           </div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>

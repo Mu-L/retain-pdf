@@ -25,34 +25,41 @@ export function CoverActionsPanel({
   onReadSource,
 }) {
   return (
-    <div className="sticky top-0 space-y-3">
+    <div className="sticky top-0 space-y-4">
       <div
-        className="relative mx-auto flex aspect-[3/4] w-full max-w-[220px] items-center justify-center overflow-hidden rounded-xl border border-border bg-muted bg-cover bg-center shadow-[0_10px_26px_color-mix(in_srgb,var(--shadow-color)_14%,transparent)] sm:mx-0 sm:max-w-none"
+        className="relative mx-auto flex aspect-[3/4] w-full max-w-none items-center justify-center overflow-hidden rounded-[16px] border border-border/60 bg-gradient-to-br from-muted/80 to-muted/30 bg-cover bg-center shadow-[0_16px_36px_color-mix(in_srgb,var(--shadow-color)_16%,transparent)] sm:mx-0"
         style={coverUrl ? { backgroundImage: `url("${coverUrl}")` } : undefined}
         data-cover-processing={processing ? "true" : "false"}
       >
-        {coverUrl ? null : <span className="text-xs text-muted-foreground">无封面</span>}
+        {coverUrl ? null : (
+          <div className="flex flex-col items-center gap-2 text-muted-foreground/60">
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-paper/80 shadow-sm">
+              <IconEye className="h-6 w-6" />
+            </span>
+            <span className="text-xs tracking-wide">无封面</span>
+          </div>
+        )}
         {processing ? <BookCardProcessingOverlay /> : null}
       </div>
-      <div className="flex flex-col gap-2 pt-1">
+      <div className="flex flex-col gap-2.5 pt-1">
         {readerAvailable ? (
           <button
             id="book-detail-compare-btn"
-            className={btn("default", "w-full")}
+            className={btn("default", "w-full gap-1.5 py-2.5 text-sm")}
             disabled={Boolean(busy)}
             onClick={onCompare}
           >
-            <IconCompare className="mr-1" />
+            <IconCompare className="mr-0.5 h-4 w-4" />
             对照阅读
           </button>
         ) : null}
         <button
           id="book-detail-read-source-btn"
-          className={btn(readerAvailable ? "outline" : "default", "w-full")}
+          className={btn(readerAvailable ? "outline" : "default", "w-full gap-1.5 py-2.5 text-sm bg-paper")}
           disabled={Boolean(busy) || !documentId}
           onClick={onReadSource}
         >
-          <IconEye className="mr-1" />
+          <IconEye className="mr-0.5 h-4 w-4" />
           查看原版
         </button>
       </div>

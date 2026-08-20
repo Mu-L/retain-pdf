@@ -39,6 +39,7 @@
 // 值最终生效),语义与原来手写的 hidden 属性完全一致——这条只在对话框处于
 // 打开态时才有意义(对话框关闭时 Content 整体卸载,tab 常驻挂载无从谈起)。
 
+import { X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useAppEvent } from "../../../../shared/react/use-app-event.js";
 import { useDialogReturnFocus } from "../../../../shared/react/use-dialog-return-focus.js";
@@ -99,7 +100,7 @@ export function CredentialsDialog() {
                 <p id={BROWSER_IDS.subtitle} className="muted hidden"></p>
               </div>
               <DialogPrimitive.Close asChild>
-                <Button id={BROWSER_IDS.closeButton} className="dialog-close-btn" aria-label="关闭">×</Button>
+                <Button id={BROWSER_IDS.closeButton} className="dialog-close-btn" aria-label="关闭"><X className="h-4 w-4" /></Button>
               </DialogPrimitive.Close>
             </div>
             {/* 表单主体抽到 CredentialsWorkbench（与 SettingsHubDialog API 区

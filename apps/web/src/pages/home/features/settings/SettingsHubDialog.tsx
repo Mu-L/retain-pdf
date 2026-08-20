@@ -19,6 +19,7 @@
 // 周期说明见旧版头注释结论：后台自检由 composition 的纯逻辑控制器驱动，
 // 与本组件是否挂载无关。
 
+import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Dialog as DialogPrimitive, Tabs as TabsPrimitive } from "radix-ui";
 import { useHomeServices } from "../../home-services-context.js";
@@ -175,7 +176,7 @@ export function SettingsHubDialog() {
                     className="dialog-close-btn app-settings-close"
                     aria-label="关闭"
                   >
-                    ×
+                    <X className="h-4 w-4" />
                   </Button>
                 </DialogPrimitive.Close>
 

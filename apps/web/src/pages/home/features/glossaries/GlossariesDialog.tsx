@@ -22,6 +22,7 @@
 // 迁移 effect(见 useGlossariesController.js)把这次打开接回 controller.js 的
 // open(),补上"打开即刷新列表"的旧语义。
 
+import { X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useDialogReturnFocus } from "../../../../shared/react/use-dialog-return-focus.js";
 import { GLOSSARY_DOM_IDS } from "./glossaries-dom-ids.js";
@@ -84,7 +85,7 @@ export function GlossariesDialog() {
                   className="dialog-close-btn"
                   aria-label="关闭"
                 >
-                  ×
+                  <X className="h-4 w-4" />
                 </Button>
               </DialogPrimitive.Close>
             </div>

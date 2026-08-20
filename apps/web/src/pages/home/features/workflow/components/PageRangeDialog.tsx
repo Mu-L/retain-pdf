@@ -9,6 +9,7 @@
 // 背板/Esc/关闭按钮统一为纯关闭语义,不触发应用副作用。
 // 术语表下拉由 workflow store 的 glossaries/selectedGlossaryId 驱动。
 
+import { X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useStoreSnapshot } from "../../../../../shared/react/use-store.js";
 import { useHomeServices } from "../../../home-services-context.js";
@@ -49,7 +50,7 @@ export function PageRangeDialog() {
                   <h2 id="page-range-title">专业翻译</h2>
                 </DialogPrimitive.Title>
                 <DialogPrimitive.Close asChild>
-                  <button id="page-range-close-btn" type="button" className="dialog-close-btn" aria-label="关闭">×</button>
+                  <button id="page-range-close-btn" type="button" className="dialog-close-btn" aria-label="关闭"><X className="h-4 w-4" /></button>
                 </DialogPrimitive.Close>
               </div>
               <div className="desktop-body">

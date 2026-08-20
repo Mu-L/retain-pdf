@@ -54,6 +54,7 @@
 // use-dialog-return-focus.js(同 CredentialsDialog 等的先例)。
 
 import { useEffect } from "react";
+import { X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useStoreSnapshot } from "../../../../shared/react/use-store.js";
 import { useHomeServices } from "../../home-services-context.js";
@@ -135,7 +136,7 @@ export function TranslationWorkflowDialog() {
                   className="dialog-close-btn"
                   aria-label="关闭"
                 >
-                  ×
+                  <X className="h-4 w-4" />
                 </button>
               </DialogPrimitive.Close>
             </div>

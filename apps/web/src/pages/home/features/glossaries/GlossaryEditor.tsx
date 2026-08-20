@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 // 术语表编辑器表格(对照 glossary-manager-dialog-template.js 的
 // .glossary-editor-panel 表格区块 + view.js:appendGlossaryEntryRow 逐列镜像)。
 //
@@ -83,7 +84,7 @@ export function GlossaryEditor({ entries, onFieldChange, onRemoveRow }) {
                   aria-label="删除词条"
                   onClick={() => onRemoveRow(index)}
                 >
-                  ×
+                  <X className="h-4 w-4" />
                 </button>
               </td>
             </tr>

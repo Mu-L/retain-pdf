@@ -20,6 +20,7 @@
 // AppShellHeader.jsx 不再残留 app-update-dialog 模板骨架(3a 遗留,已清理,
 // 避免 id 重复违反视觉基线/门禁)。
 
+import { X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useStoreSnapshot } from "../../../../shared/react/use-store.js";
 import { useHomeServices } from "../../home-services-context.js";
@@ -99,7 +100,7 @@ export function AppUpdateBanner() {
                   <p>{versionText}</p>
                 </div>
                 <DialogPrimitive.Close asChild>
-                  <Button className="desktop-close app-update-close" aria-label="关闭">×</Button>
+                  <Button className="desktop-close app-update-close" aria-label="关闭"><X className="h-4 w-4" /></Button>
                 </DialogPrimitive.Close>
               </div>
               <div className="app-update-body">

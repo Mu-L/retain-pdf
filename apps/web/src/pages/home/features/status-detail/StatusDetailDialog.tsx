@@ -256,7 +256,7 @@ export function StatusDetailDialog() {
                 </div>
               </div>
               <DialogPrimitive.Close asChild>
-                <Button size={undefined} id={ids.headline.closeButton} className="dialog-close-btn" aria-label="关闭">×</Button>
+                <Button size={undefined} id={ids.headline.closeButton} className="dialog-close-btn" aria-label="关闭"><X className="h-4 w-4" /></Button>
               </DialogPrimitive.Close>
             </div>
             <TabsPrimitive.Root

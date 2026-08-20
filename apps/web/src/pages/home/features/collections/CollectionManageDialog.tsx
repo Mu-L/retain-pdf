@@ -12,6 +12,7 @@
 // 这里 bump 一次,CollectionsView 订阅到变化就重新拉取列表。
 
 import { useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { Button as ButtonBase } from "../../../../components/Button.jsx";
 
@@ -162,7 +163,7 @@ export function CollectionManageDialog() {
                 <h2>{isCreate ? "新建合集" : "管理合集"}</h2>
               </DialogPrimitive.Title>
               <DialogPrimitive.Close asChild>
-                <button id="collection-manage-close-btn" type="button" className="dialog-close-btn" aria-label="关闭">×</button>
+                <button id="collection-manage-close-btn" type="button" className="dialog-close-btn" aria-label="关闭"><X className="h-4 w-4" /></button>
               </DialogPrimitive.Close>
             </div>
             <div className="desktop-body collection-manage-body">

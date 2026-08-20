@@ -35,6 +35,7 @@
 // (只要一个打开,遮罩 + focus trap 就会让另一个的触发卡片不可达),不会出现
 // 两套机制同时争抢 body 样式的场景。
 
+import { X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useDialogReturnFocus } from "../../../shared/react/use-dialog-return-focus.js";
 import {
@@ -145,7 +146,7 @@ function DetailModal({ modalId, titleId, title, subtitle, closeButtonId, open, o
                 <p className="detail-modal-subtitle">{subtitle}</p>
               </div>
               <DialogPrimitive.Close asChild>
-                <button id={closeButtonId} type="button" className="detail-modal-close" aria-label="关闭">×</button>
+                <button id={closeButtonId} type="button" className="detail-modal-close" aria-label="关闭"><X className="h-4 w-4" /></button>
               </DialogPrimitive.Close>
             </div>
             <div className="desktop-body">

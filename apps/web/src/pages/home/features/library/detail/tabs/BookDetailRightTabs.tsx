@@ -86,7 +86,7 @@ export function BookDetailRightTabs({
       onValueChange={handleTabChange}
     >
       <TabsPrimitive.List
-        className="book-detail-right-tabs-list"
+        className="book-detail-right-tabs-list flex items-center gap-1.5 rounded-full bg-muted/60 p-1"
         aria-label="书籍详情分区"
       >
         {BOOK_DETAIL_TABS.map((tab) => {
@@ -99,10 +99,15 @@ export function BookDetailRightTabs({
               id={`book-detail-tab-${tab.id}`}
               title={tab.title}
               aria-label={tab.title}
-              className={cn("book-detail-right-tab", isActive && "is-active")}
+              className={cn(
+                "book-detail-right-tab inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-foreground text-background shadow-sm"
+                  : "text-muted-foreground hover:bg-paper hover:text-foreground",
+              )}
               data-active={isActive ? "true" : "false"}
             >
-              <Icon className="book-detail-right-tab-icon" />
+              <Icon className="book-detail-right-tab-icon h-3.5 w-3.5" />
               <span className="book-detail-right-tab-label">{tab.label}</span>
             </TabsPrimitive.Trigger>
           );
