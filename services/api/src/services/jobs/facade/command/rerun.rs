@@ -21,13 +21,13 @@ impl<'a> JobsFacade<'a> {
             let ocr_child_id = format!("{}-ocr", job_id);
             // Clean up any previous OCR child that is now orphaned due to in-place rerender
             let _ = self.command.db.delete_job(&ocr_child_id);
-            let ocr_child_dir = self.command.submit.data_root.join("jobs").join(&ocr_child_id);
+            let ocr_child_dir = self.command.control.data_root.join("jobs").join(&ocr_child_id);
             let _ = std::fs::remove_dir_all(&ocr_child_dir);
             // Also clear any stale rendered output on disk that would otherwise make
             // completion's Path::exists() treat old PDF as success
             let rendered_dir = self
                 .command
-                .submit
+                .control
                 .output_root
                 .join(&job_id)
                 .join("rendered");
