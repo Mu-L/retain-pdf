@@ -93,7 +93,12 @@ function bundleOptions({ entry, outfile }) {
     jsx: "automatic",
     alias: {
       "@": path.join(frontendRoot, "src"),
-      "@retainpdf/reader": path.join(frontendRoot, "../../packages/reader/src/index.ts"),
+      "@retainpdf/reader": path.join(frontendRoot, "../../packages/reader/src"),
+      "@retainpdf/reader/*": path.join(frontendRoot, "../../packages/reader/src"),
+      "@retainpdf/ui": path.join(frontendRoot, "../../packages/ui/src"),
+      "@retainpdf/ui/*": path.join(frontendRoot, "../../packages/ui/src"),
+      "@retainpdf/api": path.join(frontendRoot, "../../packages/api/src"),
+      "@retainpdf/api/*": path.join(frontendRoot, "../../packages/api/src"),
     },
     // packages/reader/src 内的 import "react" 需回落到 apps/web 的 node_modules
     nodePaths: [path.join(frontendRoot, "node_modules")],

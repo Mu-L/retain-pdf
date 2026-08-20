@@ -39,6 +39,24 @@ function resolveWithTsFallback(filePath) {
 }
 
 export async function resolve(specifier, context, nextResolve) {
+  // @retainpdf/* alias → packages/*
+  if (specifier.startsWith("@retainpdf/")) {
+    const sub = specifier.slice("@retainpdf/".length);
+    const pkg = sub.split("/")[0];
+    const rest = sub.slice(pkg.length).replace(/^\//, "");
+    const base = rest ? `../../packages/${pkg}/src/${rest}` : `../../packages/${pkg}/src/index.ts`;
+    const basePath = fileURLToPath(new URL(base, import.meta.url));
+    const hit = resolveWithTsFallback(basePath);
+    if (hit) {
+      return { url: pathToFileURL(hit).href, shortCircuit: true };
+    }
+    // fallback to package root (for @retainpdf/reader bare)
+    if (!rest) {
+      const pkgRoot = fileURLToPath(new URL(`../../packages/${pkg}/src/index.ts`, import.meta.url));
+      const hit2 = resolveWithTsFallback(pkgRoot);
+      if (hit2) return { url: pathToFileURL(hit2).href, shortCircuit: true };
+    }
+  }
   // @/ alias
   if (specifier.startsWith("@/")) {
     const basePath = fileURLToPath(new URL(specifier.slice(2), SRC_ROOT));

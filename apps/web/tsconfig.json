@@ -22,7 +22,11 @@
     "paths": {
       "@/*": ["./src/*"],
       "@retainpdf/reader": ["../../packages/reader/src/index.ts"],
-      "@retainpdf/reader/*": ["../../packages/reader/src/*"]
+      "@retainpdf/reader/*": ["../../packages/reader/src/*"],
+      "@retainpdf/ui": ["../../packages/ui/src/index.ts"],
+      "@retainpdf/ui/*": ["../../packages/ui/src/*"],
+      "@retainpdf/api": ["../../packages/api/src/index.ts"],
+      "@retainpdf/api/*": ["../../packages/api/src/*"]
     },
     "types": ["node"]
   },
