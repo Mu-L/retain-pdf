@@ -22,19 +22,19 @@ export {
 
 // —— js/reader 共享 ports（新引擎允许依赖的子集）——
 // 已清零：直连 shared/*，不再经 js/reader 中转
-export { defaultReaderDataPort } from "../../shared/reader/data/data-port.js";
+export { defaultReaderDataPort } from "@/shared/reader/data/data-port.js";
 export {
   defaultReaderPageConfigPort,
   resolveReaderAnchor,
   resolveReaderDocumentId,
   resolveReaderJobId,
-} from "../../shared/reader/config/page-config.js";
-export { resolveReaderArtifactUrl } from "../../shared/reader/data/pdf-document.js";
+} from "@/shared/reader/config/page-config.js";
+export { resolveReaderArtifactUrl } from "@/shared/reader/data/pdf-document.js";
 export {
   resolveReaderSourcePdf,
   resolveReaderTranslatedPdfUrl,
-} from "../../shared/reader/data/resource-resolver.js";
-export { READER_PROGRESS_COPY } from "../../shared/reader/state/page-state.js";
+} from "@/shared/reader/data/resource-resolver.js";
+export { READER_PROGRESS_COPY } from "@/shared/reader/state/page-state.js";
 
 // —— 下载（与 legacy 共用解析 / 受保护下载）——
 export {
@@ -43,17 +43,17 @@ export {
   resolveReaderDownloadName,
   resolveReaderDownloadUrls,
   trimString as trimReaderDownloadString,
-} from "../../shared/reader/state/downloads/resolve.js";
+} from "@/shared/reader/state/downloads/resolve.js";
 export { downloadProtectedResource } from "../../js/features/reader-dialog/downloads.js";
 export { failDownloadToast } from "../../js/utils/download-feedback.js";
 
 // —— markdown 面板 ——
 export { resolveMarkdownAssetUrl } from "../../js/job/artifacts.js";
-export { parseMarkdownWithMath } from "../../shared/reader/content/markdown-math.js";
+export { parseMarkdownWithMath } from "@/shared/reader/content/markdown-math.js";
 
 // —— AI 追问（react-pdf assistant）——
-export { createReaderAskAnswerer } from "../../shared/reader/ai/ask-answerer.js";
-export { createReaderMarkdownAnswerer } from "../../shared/reader/ai/markdown-answerer.js";
+export { createReaderAskAnswerer } from "@/shared/reader/ai/ask-answerer.js";
+export { createReaderMarkdownAnswerer } from "@/shared/reader/ai/markdown-answerer.js";
 export {
   hydrateProtectedImages,
   injectCitationMarkers,
@@ -61,8 +61,8 @@ export {
   neutralizeMarkdownAnchors,
   renderCitationFooter,
   revokeHydratedImageUrls,
-} from "../../shared/reader/ai/answer-enhance.js";
-export type { AiCitationLike } from "../../shared/reader/ai/answer-enhance.js";
+} from "@/shared/reader/ai/answer-enhance.js";
+export type { AiCitationLike } from "@/shared/reader/ai/answer-enhance.js";
 export {
   armReaderAiClickShield,
   clearReaderAiNavigationLock,
@@ -70,26 +70,26 @@ export {
   isReaderAiNavigationLocked,
   lockReaderAiNavigation,
   shouldIgnoreReaderAiNavEvent,
-} from "../../shared/reader/ai/ui-interaction-lock.js";
+} from "@/shared/reader/ai/ui-interaction-lock.js";
 export {
   peekFinalAnswerHtmlCache,
   renderFinalAnswerHtml,
   renderStreamingPreviewHtml,
-} from "../../shared/reader/ai/render-answer-html.js";
-export { sanitizeAssistantAnswer } from "../../shared/reader/ai/sanitize-answer.js";
+} from "@/shared/reader/ai/render-answer-html.js";
+export { sanitizeAssistantAnswer } from "@/shared/reader/ai/sanitize-answer.js";
 export {
   clearThreadBranchSnapshot,
   loadThreadBranchSnapshot,
   saveThreadBranchSnapshot,
   threadBranchStorageKey,
   visiblePathFromSnapshot,
-} from "../../shared/reader/ai/thread-branch-store.js";
+} from "@/shared/reader/ai/thread-branch-store.js";
 export type {
   ThreadBranchCitation,
   ThreadBranchItem,
   ThreadBranchMessage,
   ThreadBranchSnapshot,
-} from "../../shared/reader/ai/thread-branch-store.js";
+} from "@/shared/reader/ai/thread-branch-store.js";
 export {
   appendConversationMessage,
   baseConversationTitle,
@@ -111,7 +111,7 @@ export {
   loadStoredConversationId,
   saveStoredConversationId,
   clearStoredConversationId,
-} from "../../shared/reader/ai/conversation-store.js";
+} from "@/shared/reader/ai/conversation-store.js";
 
 // —— 服务端收藏面板 ——
 export { API_PREFIX } from "../../js/config/api-constants.js";
@@ -119,12 +119,12 @@ export { fetchFavorites } from "../../js/api/favorites.js";
 export {
   createReaderServerFavoritesPort,
   normalizeServerFavorite,
-} from "../../shared/reader/state/server-favorites-port.js";
-export type { ServerFavorite } from "../../shared/reader/types/types.js";
+} from "@/shared/reader/state/server-favorites-port.js";
+export type { ServerFavorite } from "@/shared/reader/types/types.js";
 
 // —— 阅读器 AI 面板：模型 Key 门禁 ——
 export {
   CREDENTIALS_CHANGED_EVENT,
   hasModelApiKey,
   MISSING_MODEL_API_KEY_MESSAGE,
-} from "../../shared/reader/ai/config.js";
+} from "@/shared/reader/ai/config.js";

@@ -1,9 +1,13 @@
 // recent-jobs ports + library controller + collections。
 
+import { API_PREFIX } from "./external/config.js";
+import { APP_EVENTS, createStore } from "./external/state.js";
 import {
-  API_PREFIX,
-  APP_EVENTS,
-  createStore,
+  deleteLibraryBook,
+  fetchDocumentList,
+  fetchLibraryBookList,
+} from "./external/api.js";
+import {
   createRecentJobsStatePort,
   createRecentJobActions,
   createRecentJobsRuntimePort,
@@ -11,11 +15,8 @@ import {
   createRecentJobsNavigationPort,
   createRecentJobsLibraryRefreshPort,
   readActiveJobId,
-  deleteLibraryBook,
-  fetchDocumentList,
-  fetchLibraryBookList,
   createDocumentLibraryResource,
-} from "./external.js";
+} from "./external/features.js";
 import {
   createLibraryController,
   createRecentJobsReactViewPort,
@@ -146,6 +147,7 @@ export function createLibraryDomain({ features, documentRef, statusArea }: Creat
       features.jobRuntimeFeature.startPolling(jobId, options);
     },
     hideStatusArea: () => statusArea.setVisible(false),
+    recentJobsStatePort,
   }) as LibraryController;
 
   return {

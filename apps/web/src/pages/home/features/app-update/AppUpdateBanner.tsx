@@ -22,9 +22,9 @@
 
 import { X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
-import { useStoreSnapshot } from "../../../../shared/react/use-store.js";
+import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useHomeServices } from "../../home-services-context.js";
-import { useDialogReturnFocus } from "../../../../shared/react/use-dialog-return-focus.js";
+import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
 import { APP_UPDATE_IDS } from "./app-update-contract.js";
 import { useAppUpdateDialogOpen } from "./useAppUpdateDialogOpen.js";
 import { Button as ButtonBase } from "../../../../components/Button.jsx";

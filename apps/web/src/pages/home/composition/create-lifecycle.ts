@@ -2,14 +2,13 @@
 // 特性在 createRuntimeFeatures 已挂好；workflow 对话框事件在 composition
 // 里先于 recent-jobs 绑定（见 composition.js 注释）。
 
+import { APP_EVENTS } from "./external/state.js";
+import { normalizeJobPayload, summarizeStatus } from "./external/job.js";
 import {
-  APP_EVENTS,
   requestedReaderJobIdFromLocation,
   initializeIdleAppView,
   defaultAppShellConfigPort,
-  normalizeJobPayload,
-  summarizeStatus,
-} from "./external.js";
+} from "./external/features.js";
 
 import type { HomeBridge, HomeFeatures } from "./types.js";
 

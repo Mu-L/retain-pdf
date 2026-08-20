@@ -12,6 +12,7 @@
 import { useEffect, useRef, useState } from "react";
 import { THEME_CHANGE_EVENT, getTheme, getThemeDefinition } from "../theme/theme.js";
 import { planStage, type StagePlan } from "./stage-plan.js";
+import { defaultDecorManifestPort, type DecorManifestFetchPort } from "./decor-manifest-port.js";
 
 function currentPack(): string {
   return getThemeDefinition(getTheme())?.decorPack || "";
@@ -21,7 +22,15 @@ function prefersReducedMotion(): boolean {
   return !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 }
 
-export function DecorStage() {
+export type DecorStageProps = {
+  /** Port for decor manifest fetch — defaults to defaultDecorManifestPort. Injected for testing/story isolation. */
+  manifestPort?: { fetchManifest: (assetBase: string) => Promise<Response> };
+  /** Direct fetch impl override (alternative to manifestPort) */
+  fetchImpl?: DecorManifestFetchPort;
+};
+
+export function DecorStage({ manifestPort, fetchImpl }: DecorStageProps = {}) {
+  const resolvedPort = manifestPort ?? (fetchImpl ? { fetchManifest: (assetBase: string) => fetchImpl(`${assetBase}/manifest.json`) } : defaultDecorManifestPort);
   const [pack, setPack] = useState(currentPack);
   const [plan, setPlan] = useState<StagePlan | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -53,6 +62,9 @@ export function DecorStage() {
   }
 
   // 加载 manifest → 渲染计划
+  // FETCH BOUNDARY: static asset fetch is isolated behind decor-manifest-port.
+  // This fetch targets same-origin public/decor/<pack>/manifest.json and intentionally
+  // bypasses API_PREFIX/buildApiEndpoint. Use manifestPort/fetchImpl to stub in tests.
   useEffect(() => {
     if (!pack) {
       setPlan(null);
@@ -60,7 +72,7 @@ export function DecorStage() {
     }
     let alive = true;
     const assetBase = `decor/${pack}`;
-    fetch(`${assetBase}/manifest.json`)
+    resolvedPort.fetchManifest(assetBase)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
       .then((json) => {
         if (!alive) return;
@@ -80,7 +92,7 @@ export function DecorStage() {
     return () => {
       alive = false;
     };
-  }, [pack]);
+  }, [pack, resolvedPort]);
 
   // 鼠标视差：rAF 节流，只写宿主 CSS 变量，各层用自己的 parallax 系数消费
   const hasParallax = !!plan?.layers.some((layer) => layer.parallax > 0);

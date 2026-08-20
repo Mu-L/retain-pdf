@@ -47,6 +47,7 @@ export function createLibraryController({
   buildTranslateConfig,
   startPolling,
   hideStatusArea,
+  recentJobsStatePort,
 }: LibraryControllerDeps = {}): LibraryController {
   const bookDetailStore = createBookDetailDialogStore();
   const translatingDocumentIds = new Set<string>();
@@ -374,6 +375,24 @@ export function createLibraryController({
     return updated;
   }
 
+  /**
+   * 网格选任务 → 详情翻译 Tab（永不弹 #translation-workflow-dialog）。
+   * 业务内聚到 controller：findItem 直接读 recentJobsStatePort，不再由外层 composition 拼闭包。
+   */
+  function selectJob(jobId: string) {
+    const id = `${jobId || ""}`.trim();
+    if (!id) return;
+    const findItem = (targetId: string): LibraryCardItem | null => {
+      const items = (recentJobsStatePort?.getSnapshot?.().items || []) as LibraryCardItem[];
+      return (
+        (items.find((row) => `${(row as any)?.job_id || ""}`.trim() === targetId) as LibraryCardItem) ||
+        (items.find((row) => `${(row as any)?.active_job_id || ""}`.trim() === targetId) as LibraryCardItem) ||
+        null
+      );
+    };
+    selectJobForDetail(id, { findItem });
+  }
+
   return {
     bookDetailStore,
     // 键名对齐 services.library.actions 的既有契约(消费方 RecentJobsLibrary /
@@ -386,6 +405,7 @@ export function createLibraryController({
     deleteCard,
     openBookDetail,
     selectJobForDetail,
+    selectJob,
     updateDocument: updateLibraryDocument,
     /** 详情内嵌进度：静默轮询，不弹 #translation-workflow-dialog */
     attachJobProgress,

@@ -27,6 +27,17 @@ import type {
  */
 export type AppStore = Store;
 
+// ── Read-only selector port (hide Store behind read-only selectors) ────────
+
+/**
+ * 隐藏 Store 写入能力：仅暴露读侧（配合 useStoreSnapshot）。
+ * 消费方不得直接调用 store.actions；写入必须经由 domain controller / feature。
+ */
+export type ReadOnlyStore<T = unknown> = Pick<Store<T, any>, "getSnapshot" | "subscribe">;
+
+/** 便利别名：只读文本/视图等简单快照 */
+export type ReadOnlySelector<T> = ReadOnlyStore<T>;
+
 // ── Features ──────────────────────────────────────────────────────────
 
 export type WorkflowFeature = {
@@ -147,14 +158,18 @@ export type HomePorts = {
   uploadStatePort: UploadStatePort;
 };
 
+/**
+ * 仅读 stores：消费方经 useStoreSnapshot 读取，写入走 domain actions。
+ * 对比之前的 AppStore，刻意隐藏 actions，避免神对象扩散。
+ */
 export type HomeStores = {
-  dialog: AppStore;
-  homeState: AppStore;
-  statusArea: AppStore;
-  text: AppStore;
-  uploadView: AppStore;
-  workflowView: AppStore;
-  credentialsView: AppStore;
+  dialog: ReadOnlyStore;
+  homeState: ReadOnlyStore;
+  statusArea: ReadOnlyStore;
+  text: ReadOnlyStore;
+  uploadView: ReadOnlyStore;
+  workflowView: ReadOnlyStore;
+  credentialsView: ReadOnlyStore;
 };
 
 // ── Domain bags ───────────────────────────────────────────────────────
@@ -173,7 +188,7 @@ export type CredentialsElementsRef = {
 };
 
 export type CredentialsViewBag = {
-  store: AppStore;
+  store: ReadOnlyStore;
   handlersRef: { current: HandlersBag | null };
   tokenInputRef: (providerId: string) => (node: HTMLInputElement | null) => void;
   elementsRef: CredentialsElementsRef;
@@ -192,7 +207,7 @@ export type HomeSettingsHub = {
 };
 
 export type GlossariesViewBag = {
-  store: AppStore;
+  store: ReadOnlyStore;
   handlersRef: { current: HandlersBag | null };
   viewPort?: unknown;
 };
@@ -204,7 +219,7 @@ export type HomeGlossaries = {
 };
 
 export type AppUpdateViewBag = {
-  store: AppStore;
+  store: ReadOnlyStore;
   viewPort?: unknown;
   handlersRef: { current: HandlersBag | null };
 };
@@ -239,7 +254,7 @@ export type LibraryActions = RecentJobActions & {
 
 export type HomeLibrary = {
   viewPort: RecentJobsReactViewPort;
-  recentJobsStore: AppStore;
+  recentJobsStore: ReadOnlyStore<{ items: LibraryCardItem[]; [key: string]: unknown }>;
   actions: LibraryActions;
 };
 
@@ -304,7 +319,7 @@ export type HomeArtifactDownloads = {
 };
 
 export type HomeStatusCard = {
-  store: AppStore;
+  store: ReadOnlyStore<{ snapshot: unknown; cancelDisabled: boolean }>;
   cancelCurrentJob: () => unknown;
 };
 
@@ -316,8 +331,10 @@ export type StatusDetailStoreActions = {
   setRerunPending?: (pending: boolean) => unknown;
 };
 
-export type StatusDetailStore = AppStore & {
+export type StatusDetailStore = ReadOnlyStore & {
   actions: StatusDetailStoreActions;
+  getSnapshot: () => unknown;
+  subscribe: (listener: (snapshot: unknown, meta?: unknown) => void) => () => void;
 };
 
 export type StatusDetailDialogStore = DialogStore<{ activeTab?: string } | null>;
@@ -348,7 +365,7 @@ export type HomeReader = {
 };
 
 export type StatusAreaBag = {
-  store: AppStore;
+  store: ReadOnlyStore;
   isVisible: () => boolean;
   setVisible: (visible: boolean) => void;
   setWorkflowSections: (job?: unknown) => void;
@@ -384,8 +401,33 @@ export type StatusDetailHolder = {
   dialogStore: StatusDetailDialogStore | null;
 };
 
+// ── Narrow per-domain ports (god-object split) ────────────────────────
+
+/** Status 分域窄端口：仅 store 读侧 + 取消任务 */
+export type StatusCardPort = HomeStatusCard;
+/** Library 分域窄端口 */
+export type LibraryPort = HomeLibrary;
+/** Upload 分域窄端口：仅 DOM refs + actions + 只读 store */
+export type UploadPort = {
+  domRefs: UploadDomRefs;
+  viewActions: UploadViewActions;
+  store: ReadOnlyStore;
+};
+/** Text 分域窄端口 */
+export type TextPort = {
+  store: ReadOnlyStore;
+  textOf: (snapshot: unknown, id: string, fallback?: unknown) => unknown;
+};
+/** Workflow 分域窄端口 */
+export type WorkflowPort = {
+  viewActions: WorkflowViewActions;
+  dialog: WorkflowDialogRuntime;
+  store: ReadOnlyStore;
+};
+
 // ── Bridge / Services ─────────────────────────────────────────────────
 
+/** @deprecated god-object 兼容别名，请改用按域的 Port 类型 */
 export type HomeBridge = {
   setText: (id: string, value?: string) => void;
   setWorkflowSections: (job?: unknown) => void;
@@ -402,32 +444,57 @@ export type HomeBridge = {
   submitForm: (event?: { preventDefault?: () => void } | null) => unknown;
 };
 
-export type HomeServices = {
+/** Composition 核心：生命周期 + ports + 只读 stores */
+export type HomeCoreServices = {
   bridge: HomeBridge;
   dispose: () => void;
   features: HomeFeatures;
   initialize: () => void;
   ports: HomePorts;
   stores: HomeStores;
+};
+
+/** 各域聚合（按域拆分的神对象替代） */
+export type HomeDomainServices = {
   statusArea: StatusAreaBag;
   credentials: HomeCredentials;
   settingsHub: HomeSettingsHub;
   glossaries: HomeGlossaries;
   appUpdate: HomeAppUpdate;
-  library: HomeLibrary;
+  library: LibraryPort;
   bookDetail: HomeBookDetail;
   collections: HomeCollections;
   artifactDownloads: HomeArtifactDownloads;
-  statusCard: HomeStatusCard;
+  statusCard: StatusCardPort;
   statusDetail: HomeStatusDetail;
   reader: HomeReader;
-  /** text-store 的 selector 帮助函数（配合 useStoreSnapshot） */
-  textOf: (snapshot: unknown, id: string, fallback?: unknown) => unknown;
-  uploadDomRefs: UploadDomRefs;
-  uploadViewActions: UploadViewActions;
-  workflowViewActions: WorkflowViewActions;
-  workflowDialog: WorkflowDialogRuntime;
 };
+
+/** 窄端口别名（显式暴露，供消费者按需取用，避免直达 stores/feature） */
+export type HomeNarrowPorts = {
+  statusCardPort: StatusCardPort;
+  libraryPort: LibraryPort;
+  uploadPort: UploadPort;
+  textPort: TextPort;
+  workflowPort: WorkflowPort;
+};
+
+/** HomeServices = Core + Domains + 窄端口 + 视图帮助 */
+export type HomeServices = HomeCoreServices &
+  HomeDomainServices & {
+    /** 窄端口显式别名（与域字段指向同一对象，便于按域解耦消费） */
+    statusCardPort: StatusCardPort;
+    libraryPort: LibraryPort;
+    uploadPort: UploadPort;
+    textPort: TextPort;
+    workflowPort: WorkflowPort;
+    /** text-store 的 selector 帮助函数（配合 useStoreSnapshot） */
+    textOf: (snapshot: unknown, id: string, fallback?: unknown) => unknown;
+    uploadDomRefs: UploadDomRefs;
+    uploadViewActions: UploadViewActions;
+    workflowViewActions: WorkflowViewActions;
+    workflowDialog: WorkflowDialogRuntime;
+  };
 
 /** buildHomeServices 的 views 入参 */
 export type HomeServicesViews = {
@@ -470,6 +537,7 @@ export type HomeServicesDomains = {
   };
   status: {
     statusCardStore: AppStore;
+    statusCardController?: { cancelCurrentJob: () => unknown };
     statusDetailStore: StatusDetailStore;
     statusDetailDialogStore: StatusDetailDialogStore;
     statusDetailController: StatusDetailController;
@@ -477,7 +545,7 @@ export type HomeServicesDomains = {
   };
   library: {
     recentJobsViewPort: RecentJobsReactViewPort;
-    recentJobsStatePort: { store: AppStore };
+    recentJobsStatePort: any;
     recentJobActions: RecentJobActions;
     libraryController: LibraryController;
     bookDetailStore: DialogStore<LibraryCardItem | null>;

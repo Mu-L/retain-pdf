@@ -69,10 +69,10 @@
 
 后端改动默认至少跑这几项：
 
-- `python3 backend/rust_api/scripts/check_architecture.py`
-- `cargo build --manifest-path backend/rust_api/Cargo.toml`
-- `cargo test --manifest-path backend/rust_api/Cargo.toml --lib job_runner::process_runner::tests::execute_process_job_injects_provider_and_translation_envs`
-- `cargo test --manifest-path backend/rust_api/Cargo.toml --lib routes::jobs::query::tests::job_detail_and_events_routes_redact_secrets`
+- `python3 services/api/scripts/check_architecture.py`
+- `cargo build --manifest-path services/api/Cargo.toml`
+- `cargo test --manifest-path services/api/Cargo.toml --lib job_runner::process_runner::tests::execute_process_job_injects_provider_and_translation_envs`
+- `cargo test --manifest-path services/api/Cargo.toml --lib routes::jobs::query::tests::job_detail_and_events_routes_redact_secrets`
 
 第一条负责卡住最容易回退的架构问题：
 

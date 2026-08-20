@@ -12,17 +12,21 @@ import {
   DEFAULT_FILE_LABEL,
   FRONT_MAX_BYTES,
   FRONT_MAX_PAGE_COUNT,
+  savePersistedDeveloperStoredConfig,
+} from "./external/config.js";
+import {
   getDeveloperConfig,
   resetDeveloperConfig,
   setDeveloperConfig,
   isDesktopMode,
-  savePersistedDeveloperStoredConfig,
+} from "./external/state.js";
+import {
   mountUploadFeature,
   mountWorkflowFeature,
   defaultWorkflowConfigPort,
   countPdfPages,
   collectUploadFormData,
-} from "./external.js";
+} from "./external/features.js";
 import {
   normalizeMathMode,
   normalizeWorkflow,

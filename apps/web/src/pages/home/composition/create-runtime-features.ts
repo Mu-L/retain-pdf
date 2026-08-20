@@ -1,8 +1,8 @@
 // job-runtime / recent-jobs / artifact-downloads —— 在 composition 阶段一次挂齐，
 // 不放进 initialize 的 if 懒挂载。
 
+import { API_PREFIX } from "./external/config.js";
 import {
-  API_PREFIX,
   buildJobDetailEndpoint,
   submitJson,
   fetchJobPayload,
@@ -13,20 +13,24 @@ import {
   fetchJobList,
   fetchLibraryBookList,
   deleteLibraryBook,
+  fetchProtected,
+} from "./external/api.js";
+import {
+  adaptJobStageSnapshot,
+  resolveSourcePdfDownloadName,
+  resolveTranslatedPdfDownloadName,
+  normalizeJobPayload,
+  isTerminalStatus,
+  isJobTerminal,
+} from "./external/job.js";
+import {
   mountJobRuntimeFeature,
   mountRecentJobsFeature,
   mountArtifactDownloadsFeature,
   createArtifactDownloadsRuntimePort,
   currentJobIdFor,
   readActiveJobId,
-  adaptJobStageSnapshot,
-  resolveSourcePdfDownloadName,
-  resolveTranslatedPdfDownloadName,
-  fetchProtected,
-  normalizeJobPayload,
-  isTerminalStatus,
-  isJobTerminal,
-} from "./external.js";
+} from "./external/features.js";
 import type {
   HomeBridge,
   HomeFeatures,

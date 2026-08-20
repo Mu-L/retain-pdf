@@ -11,7 +11,7 @@ import {
   fetchFavorites,
 } from "../../../composition/external.js";
 import { useHomeServices } from "../../../home-services-context.js";
-import { EmptyState } from "../../../../../shared/icons/EmptyState.jsx";
+import { EmptyState } from "@/shared/icons/EmptyState.jsx";
 
 type FavoriteItem = {
   favorite_id?: string;

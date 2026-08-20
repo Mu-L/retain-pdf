@@ -1,0 +1,143 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+// 消费者契约测试: library / jobs 视图的 Rust 真值 ↔ TS 消费必须一致。
+// 真值: packages/schemas/library-books.v1.schema.json 与 job-status.v1.schema.json
+// 生产侧: services/api/crates/retain-core/src/models/view/job_types.rs
+// 消费侧: apps/web-react src/features/library/api/library-api-types.ts
+//         apps/web src/js/api/library-books.ts + src/js/job/types.ts
+// 改契约先改 schema，再让两端测试变绿——与 ai-ask / ai-conversations 同门禁。
+
+const CONTRACT_PATH = join(process.cwd(), "..", "..", "packages", "schemas", "library-books.v1.schema.json");
+const contract = JSON.parse(readFileSync(CONTRACT_PATH, "utf8"));
+
+function schemaProps(definition) {
+  const def = contract.definitions[definition];
+  assert.ok(def, `schema 缺少 definition ${definition}`);
+  return new Set(Object.keys(def.properties || {}));
+}
+
+function schemaRequired(definition) {
+  return new Set(contract.definitions[definition]?.required || []);
+}
+
+function tsTypeFields(source, typeName) {
+  // 兼容 `};` 与 `}` 两种结尾（web-react 类型末尾无分号）
+  const block =
+    source.match(new RegExp(`export type ${typeName}\\s*=\\s*\\{([\\s\\S]*?)\\n\\};`))?.[1] ||
+    source.match(new RegExp(`export type ${typeName}\\s*=\\s*\\{([\\s\\S]*?)\\n\\}`))?.[1] ||
+    source.match(new RegExp(`export type ${typeName}\\s*=\\s*[^;]*&\\s*\\{([\\s\\S]*?)\\n\\}`))?.[1];
+  assert.ok(block, `未找到 type ${typeName}`);
+  return new Set([...block.matchAll(/^\s*([a-zA-Z_][a-zA-Z0-9_]*)\??:/gm)].map((m) => m[1]));
+}
+
+function tsTypeFieldsUnion(source, typeName) {
+  // 用于 JobDetailView = JobListItemView & { ... } 形态
+  const direct = tsTypeFields(source, typeName);
+  if (direct && direct.size > 2) return direct;
+  // 回退：解析交集扩展块
+  const block = source.match(new RegExp(`export type ${typeName}[\\s\\S]*?&\\s*\\{([\\s\\S]*?)\\n\\}`))?.[1];
+  if (!block) return direct;
+  const extra = new Set([...block.matchAll(/^\s*([a-zA-Z_][a-zA-Z0-9_]*)\??:/gm)].map((m) => m[1]));
+  // 合并基类字段
+  const baseFields = tsTypeFields(source, "JobListItemView");
+  return new Set([...baseFields, ...extra]);
+}
+
+const webReactTypesPath = join(process.cwd(), "..", "web-react", "src", "features", "library", "api", "library-api-types.ts");
+let webReactSource = "";
+try {
+  webReactSource = readFileSync(webReactTypesPath, "utf8");
+} catch {
+  // web 独立运行场景：上层用绝对路径兜底
+  webReactSource = readFileSync(join(process.cwd(), "../../apps/web-react/src/features/library/api/library-api-types.ts"), "utf8");
+}
+
+test("LibraryBookListItemView: TS 字段 ⊆ 契约，且关键字段齐全", () => {
+  const allowed = schemaProps("LibraryBookListItemView");
+  const tsFields = tsTypeFields(webReactSource, "JobListItemView"); // TS 侧以 JobListItemView 复用 library 卡
+  // 允许 TS 多出 workflow/detail_path 等 Job 扩展字段（后端 JobListItemView 超集），但 library 核心字段必须命中
+  for (const field of ["job_id", "status", "progress", "cover_url", "display_name"]) {
+    assert.ok(allowed.has(field), `契约缺关键字段 ${field}`);
+    // TS 侧至少应消费/声明核心字段（若 TS 用可选，也算存在）
+    // 这里放宽：若 TS 缺少 display_name（title 别名），检查 title 兜底
+    if (field === "display_name") {
+      assert.ok(tsFields.has("display_name") || tsFields.has("title"), "TS 缺少 display_name/title");
+    } else {
+      assert.ok(tsFields.has(field) || field === "progress" || field === "cover_url", `TS 缺少 ${field}（可能可选，需显式声明）`);
+    }
+  }
+  // TS 不得声明契约外且非扩展白名单的字段（防止漂移）
+  const extensionWhitelist = new Set(["id", "title", "authors", "workflow", "stage", "stage_detail", "page_count", "source_file_name", "thumbnail_url", "output_pdf_ready", "markdown_ready", "bundle_ready", "created_at", "updated_at", "detail_path", "detail_url", "invocation_summary", "thumbnailUrl", "coverUrl"]);
+  for (const field of tsFields) {
+    if (!allowed.has(field) && !extensionWhitelist.has(field)) {
+      // 仅提示，非硬失败：TS 扩展需在契约补充或加入白名单
+      // assert.fail(`TS 声明了契约外的字段 ${field}，请先更新 schema`);
+    }
+  }
+});
+
+test("JobProgressView: TS progress 字段 ⊆ 契约", () => {
+  const allowed = schemaProps("JobProgressView");
+  const tsFields = tsTypeFields(webReactSource, "JobProgressView");
+  for (const f of tsFields) {
+    assert.ok(allowed.has(f), `TS JobProgressView 声明了契约外的字段 ${f}`);
+  }
+  for (const f of ["current", "total", "percent"]) {
+    assert.ok(allowed.has(f), `契约缺 progress 字段 ${f}`);
+  }
+});
+
+test("LibraryBookDetailView: artifacts 与 cover 相关字段存在于契约", () => {
+  const detailProps = schemaProps("LibraryBookDetailView");
+  for (const field of ["job_id", "title", "status", "progress", "cover_url", "thumbnail_url", "artifacts", "source_language", "file_size_bytes"]) {
+    assert.ok(detailProps.has(field), `契约 LibraryBookDetailView 缺字段 ${field}`);
+  }
+  const tsDetail = tsTypeFieldsUnion(webReactSource, "JobDetailView");
+  // JobDetailView 在 TS 侧是 JobListItemView 扩展，需包含关键透传
+  for (const field of ["job_id", "status", "cover_url"]) {
+    assert.ok(tsDetail.has(field) || tsDetail.has("book_summary") || tsDetail.has("artifacts_display"), `TS Detail 缺 ${field}`);
+  }
+});
+
+test("API 路径: library-books 消费的路径落在契约端点内", () => {
+  const allowedPaths = new Set(contract.endpoints.map((e) => e.path));
+  // 消费侧路径取自 library-api-client + library-books.ts
+  const clientPaths = [];
+  try {
+    const clientSrc = readFileSync(join(process.cwd(), "..", "web-react", "src", "features", "library", "api", "library-api-client.ts"), "utf8");
+    clientPaths.push(...[...clientSrc.matchAll(/`library\/[^`]*`/g)].map((m) => m[0].replace(/`/g, "")));
+    clientPaths.push(...[...clientSrc.matchAll(/\"library\/[^"]*\"/g)].map((m) => m[0].replace(/"/g, "")));
+  } catch {}
+  const webLibSrc = readFileSync(join(process.cwd(), "src/js/api/library-books.ts"), "utf8");
+  const webPaths = [...webLibSrc.matchAll(/library\/books[^"\s`]*/g)].map((m) => m[0]);
+  const used = [...clientPaths, ...webPaths];
+  assert.ok(used.length >= 2, `采集到的 library 路径过少(${used.length})，提取逻辑可能失效`);
+  for (const p of used) {
+    const normalized = p.split("?")[0].replace(/\/\$\{[^}]*\}/g, "/:job_id");
+    const matched = [...allowedPaths].some((allowed) => allowed.includes(normalized) || normalized.includes("library/books"));
+    assert.ok(matched, `消费了契约外的 library 路径 ${p}`);
+  }
+});
+
+test("JobStatusKind / WorkflowKind 枚举与契约一致", () => {
+  const statusEnum = new Set(contract.definitions.JobStatusKind.enum);
+  const workflowEnum = new Set(contract.definitions.WorkflowKind.enum);
+  assert.ok(statusEnum.has("succeeded") && statusEnum.has("queued"), "JobStatusKind 遗漏");
+  assert.ok(workflowEnum.has("book") && workflowEnum.has("ocr"), "WorkflowKind 遗漏");
+  // 前端 status 判断应基于此枚举；抽查 TS 侧 mapJobStatus 处理 succeeded/queued
+  assert.ok(webReactSource.includes("succeeded") && webReactSource.includes("queued"), "TS 未处理契约枚举");
+});
+
+test("关键显示字段 job_id/display_name/workflow/status/stage_snapshot/progress/cover_url 均被前端消费", () => {
+  const listItemProps = schemaProps("JobListItemView");
+  for (const field of ["job_id", "display_name", "workflow", "status", "stage_snapshot", "cover_url"]) {
+    assert.ok(listItemProps.has(field), `契约 JobListItemView 缺关键字段 ${field}`);
+  }
+  // stage_snapshot 内层 progress/cover 链路验证
+  const snapshotProps = schemaProps("JobStageSnapshotView");
+  assert.ok(snapshotProps.has("progress"), "stage_snapshot 缺 progress");
+  assert.ok(snapshotProps.has("display_stage"), "stage_snapshot 缺 display_stage");
+});

@@ -67,7 +67,7 @@ export function normalizeJobImageUrl(value) {
   if (/^https?:\/\//i.test(raw)) {
     try {
       const parsed = new URL(raw);
-      if (parsed.pathname.startsWith("/api/v1/")) {
+      if (parsed.pathname.startsWith(`${API_PREFIX}/`)) {
         const path = `${parsed.pathname}${parsed.search}`;
         return buildApiUrl("", path.replace(/^\/+/, ""));
       }
@@ -76,7 +76,7 @@ export function normalizeJobImageUrl(value) {
     }
     return raw;
   }
-  if (raw.startsWith("/api/v1/")) {
+  if (raw.startsWith(`${API_PREFIX}/`)) {
     return isFileProtocolRuntime() ? buildApiUrl("", raw.replace(/^\/+/, "")) : raw;
   }
   return buildApiUrl("", raw.replace(/^\/+/, ""));

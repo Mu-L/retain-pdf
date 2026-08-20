@@ -1,4 +1,9 @@
 [package]
+# NOTE: Package name stays `rust_api` for compatibility. Renaming to `retain-api`
+# would change the binary to `retain-api`/`retain_api` and require coordinated
+# updates in infra/docker/Dockerfile.app, infra/docker/entrypoint-app.sh,
+# apps/desktop/scripts/prepare-app.mjs, services/api/src/main.rs (`use rust_api::...`),
+# and Cargo.lock. Defer rename until a coordinated `retain-api` migration is planned.
 name = "rust_api"
 version = "0.1.0"
 edition = "2021"

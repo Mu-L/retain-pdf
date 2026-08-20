@@ -1,0 +1,32 @@
+{
+  "overrides": [
+    {
+      "files": ["src/pages/**/*.{ts,tsx,js,jsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/shared/react/**",
+                  "**/shared/reader/**",
+                  "**/shared/theme/**",
+                  "**/shared/navigation/**",
+                  "**/shared/icons/**",
+                  "**/shared/credentials/**",
+                  "**/shared/decor/**",
+                  "../../shared/**",
+                  "../../../shared/**",
+                  "../../../../shared/**",
+                  "../../../../../shared/**"
+                ],
+                "message": "Use @/shared alias instead of deep relative import (e.g., import { X } from \"@/shared/react/use-store.js\")"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -17,11 +17,6 @@ Fast_API/jobs/
 Fast_API/jobs.db
 Fast_API/uploads/
 Fast_API/downloads/
-rust_api/auth.local.json
-rust_api/target/
-rust_api/downloads/
-rust_api/jobs.db
-rust_api/uploads/
 Fast_API/*.log
 Fast_API/downloads-check/
 Fast_API/downloads-check-*.zip

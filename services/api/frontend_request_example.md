@@ -4,9 +4,9 @@
 
 配合主文档使用：
 
-- [RetainPDF 后端 API 总入口](/home/wxyhgk/tmp/Code/doc/core/api/index.md)
-- [Rust API README](/home/wxyhgk/tmp/Code/backend/rust_api/README.md)
-- [CURRENT_API_MAP](/home/wxyhgk/tmp/Code/backend/rust_api/CURRENT_API_MAP.md)
+- [RetainPDF 后端 API 总入口](doc/core/api/index.md)
+- [Rust API README](services/api/README.md)
+- [CURRENT_API_MAP](services/api/CURRENT_API_MAP.md)
 
 文档约定：
 

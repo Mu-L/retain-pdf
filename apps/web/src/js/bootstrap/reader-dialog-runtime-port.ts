@@ -1,3 +1,4 @@
+import { API_PREFIX } from "../config/api-constants.js";
 import {
   resolveManifestArtifactUrl,
   resolveResourceUrl,
@@ -48,14 +49,14 @@ export function createReaderDialogRuntimePort({
     const sourcePdfAction = job ? resolveSourceAction(job, manifest) : null;
     const sourcePdf = sourcePdfAction?.url || resolveManifestUrl(manifest, "source_pdf");
     const fallbackTranslatedPdf = jobCanUseTranslatedPdfRoute(job, actions) && jobId
-      ? resolveResourceUrl(`/api/v1/jobs/${encodeURIComponent(jobId)}/pdf`)
+      ? resolveResourceUrl(`${API_PREFIX}/jobs/${encodeURIComponent(jobId)}/pdf`)
       : "";
     const translatedPdf = actions?.pdf || resolveManifestUrl(manifest, "pdf")
       || resolveManifestUrl(manifest, "translated_pdf")
       || resolveManifestUrl(manifest, "result_pdf")
       || fallbackTranslatedPdf;
     const sideBySidePdf = sourcePdf && translatedPdf && jobId
-      ? resolveResourceUrl(`/api/v1/jobs/${encodeURIComponent(jobId)}/pdf/side-by-side`)
+      ? resolveResourceUrl(`${API_PREFIX}/jobs/${encodeURIComponent(jobId)}/pdf/side-by-side`)
       : "";
     return { sourcePdf, translatedPdf, sideBySidePdf };
   }

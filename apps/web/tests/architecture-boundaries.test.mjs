@@ -542,6 +542,10 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
     [/from\s+["'][^"']*\/features\/[^"']*card-markup\.js["']/, "features/*card-markup.js(字符串模板)"],
     [/from\s+["'][^"']*\/features\/[^"']*card-template\.js["']/, "features/*card-template.js(字符串模板)"],
     [/from\s+["'][^"']*\/js\/dom\//, "src/js/dom/(旧 DOM 工具)"],
+    [/from\s+["'][^"']*\/js\/state\/store/, "src/js/state/store.js(全局状态)"],
+    [/from\s+["'][^"']*\/js\/job\/core/, "src/js/job/core.js(任务核心)"],
+    [/from\s+["'][^"']*\/js\/app-framework\/store/, "src/js/app-framework/store.js(状态框架)"],
+    [/import\s*\(\s*["'][^"']*\/js\//, "dynamic import src/js/*(应经 composition/external)"],
   ];
 
   function walkReactFiles(root) {
@@ -563,6 +567,13 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
     return files.sort();
   }
 
+  function isExternalGate(file) {
+    const normalized = file.replace(/\\/g, "/");
+    return normalized.includes("/composition/external")
+      || normalized.endsWith("/external.ts")
+      || normalized.endsWith("/external.js");
+  }
+
   const violations = [];
   for (const root of REACT_ROOTS) {
     if (!existsSync(root)) {
@@ -571,8 +582,26 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
     for (const file of walkReactFiles(root)) {
       // 例外：download-runtime-bridge 是 shared 为避免直接 import bootstrap 而设的薄桥接，允许
       if (file.endsWith("download-runtime-bridge.ts")) continue;
+      if (isExternalGate(file)) continue;
       const source = readFileSync(file, "utf8");
       for (const [pattern, label] of FORBIDDEN_IMPORT_PATTERNS) {
+        if (label.startsWith("dynamic import")) {
+          if (file.includes("/composition/")) {
+            // composition 层含大量 TS 类型查询 `import("js/...")`，非运行时动态 import，豁免
+            continue;
+          }
+          // 排除 TS 类型查询 `import("...")`（Promise<import> / `=> import(` / `: import(` / `as import(`），只拦运行时动态 import
+          const stripped = source
+            .replace(/Promise<\s*import\s*\(/g, "Promise<typeImport(")
+            .replace(/:\s*import\s*\(/g, ": typeImport(")
+            .replace(/=>\s*import\s*\(/g, "=> typeImport(")
+            .replace(/\bas\s+import\s*\(/g, "as typeImport(")
+            .replace(/import\s+type\s+/g, "typeImport ");
+          if (pattern.test(stripped)) {
+            violations.push(`${relative(PROJECT_ROOT, file)} → ${label}`);
+          }
+          continue;
+        }
         if (pattern.test(source)) {
           violations.push(`${relative(PROJECT_ROOT, file)} → ${label}`);
         }
@@ -653,5 +682,98 @@ test("reader non-legacy must not import src/js/* directly (use pages/reader/exte
     offenders,
     [],
     "non-legacy reader code imports src/js/* only via pages/reader/external.ts",
+  );
+});
+
+test("composition/external re-exports cover all symbols imported by home features", () => {
+  const HOME_COMPOSITION_ROOT = join(PROJECT_ROOT, "src/pages/home/composition");
+  const EXTERNAL_BARRELS = [
+    join(HOME_COMPOSITION_ROOT, "external.ts"),
+    join(HOME_COMPOSITION_ROOT, "external/index.ts"),
+    join(HOME_COMPOSITION_ROOT, "external/config.ts"),
+    join(HOME_COMPOSITION_ROOT, "external/state.ts"),
+    join(HOME_COMPOSITION_ROOT, "external/job.ts"),
+    join(HOME_COMPOSITION_ROOT, "external/api.ts"),
+    join(HOME_COMPOSITION_ROOT, "external/features.ts"),
+    join(HOME_COMPOSITION_ROOT, "external/shared.ts"),
+    join(HOME_COMPOSITION_ROOT, "external/islands.ts"),
+  ];
+
+  function collectExports() {
+    const exported = new Set();
+    for (const file of EXTERNAL_BARRELS) {
+      if (!existsSync(file)) continue;
+      const src = readFileSync(file, "utf8");
+      // export { A, B, C } from "..."
+      for (const m of src.matchAll(/export\s*\{\s*([^}]+?)\s*\}\s*from\s+["'][^"']+["']/g)) {
+        for (const part of m[1].split(",")) {
+          const token = part.trim();
+          if (!token) continue;
+          const alias = token.split(/\s+as\s+/);
+          const name = alias[alias.length - 1].trim().split(/\s+/)[0];
+          if (name) exported.add(name);
+        }
+      }
+      // export { A } (local re-export)
+      // already handled above, but also handle export { A, B };
+      // 忽略 from 的已处理
+      // export const / function / type / interface
+      for (const m of src.matchAll(/export\s+(?:const|let|var|function|class|type|interface)\s+([A-Za-z0-9_]+)/g)) {
+        exported.add(m[1]);
+      }
+      // export type { A, B }
+      for (const m of src.matchAll(/export\s+type\s*\{\s*([^}]+?)\s*\}/g)) {
+        for (const part of m[1].split(",")) {
+          const token = part.trim();
+          if (!token) continue;
+          const alias = token.split(/\s+as\s+/);
+          const name = alias[alias.length - 1].trim().split(/\s+/)[0];
+          if (name) exported.add(name);
+        }
+      }
+      // export * is satisfied via index re-exports, skip
+    }
+    return exported;
+  }
+
+  function collectHomeFeatureImports() {
+    const imported = new Map(); // name -> first file
+    const files = walkFiles(HOME_FEATURES_ROOT).filter((f) => /\.(?:ts|tsx|js|jsx)$/.test(f));
+    // also include src/pages/home composition consumers (e.g. create-home-composition)
+    const homeRootFiles = walkFiles(join(PROJECT_ROOT, "src/pages/home"))
+      .filter((f) => /\.(?:ts|tsx|js|jsx)$/.test(f))
+      .filter((f) => !f.includes("/composition/external"));
+    const all = [...files, ...homeRootFiles];
+    for (const file of all) {
+      const src = readFileSync(file, "utf8");
+      for (const m of src.matchAll(/import\s*(?:type\s*)?\{\s*([^}]+?)\s*\}\s*from\s*["'][^"']*composition\/external[^"']*["']/g)) {
+        for (const raw of m[1].split(",")) {
+          let token = raw.trim();
+          if (!token) continue;
+          // 移除行内注释
+          token = token.replace(/\/\*.*?\*\//g, "").trim();
+          // 处理 `X as Y`
+          const aliasParts = token.split(/\s+as\s+/);
+          const name = aliasParts[0].trim().split(/\s+/)[0].split(":")[0].trim();
+          if (!name || name === "type") continue;
+          if (!imported.has(name)) imported.set(name, relative(PROJECT_ROOT, file));
+        }
+      }
+    }
+    return imported;
+  }
+
+  const exported = collectExports();
+  const imported = collectHomeFeatureImports();
+  const missing = [];
+  for (const [name, file] of imported) {
+    if (!exported.has(name)) {
+      missing.push(`${name} (imported in ${file})`);
+    }
+  }
+  assert.deepEqual(
+    missing,
+    [],
+    `以下符号被 home features 从 composition/external 导入，但在 external barrels 中未 re-export，请补到 external/*:\n  ${missing.join("\n  ")}`,
   );
 });

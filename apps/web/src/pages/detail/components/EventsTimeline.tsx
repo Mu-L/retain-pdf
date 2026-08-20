@@ -37,7 +37,7 @@
 
 import { X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
-import { useDialogReturnFocus } from "../../../shared/react/use-dialog-return-focus.js";
+import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
 import {
   formatEventTimestamp,
   formatRuntimeDuration,

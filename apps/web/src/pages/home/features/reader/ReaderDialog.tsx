@@ -4,7 +4,7 @@
 // 深链 replace 仍硬进 reader.html。
 
 import { useEffect } from "react";
-import { useAppEvent } from "../../../../shared/react/use-app-event.js";
+import { useAppEvent } from "@/shared/react/use-app-event.js";
 import {
   APP_EVENTS,
   buildReaderDocumentPageUrl,

@@ -3,7 +3,7 @@
 // 折成一个 hook,组件只订阅需要的切片,不各自重复 useStoreSnapshot/
 // useDialogState 样板(镜像 useCredentialsController.js 的先例)。
 
-import { useStoreSnapshot } from "../../../../shared/react/use-store.js";
+import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useHomeServices } from "../../home-services-context.js";
 import { useDialogState } from "../../state/use-dialog-state.js";
 import type {

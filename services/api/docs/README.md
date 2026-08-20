@@ -1,6 +1,6 @@
 # Rust API Docs
 
-这里保留 `backend/rust_api` 目录内的文档兼容入口。
+这里保留 `services/api` 目录内的文档兼容入口。
 
 对外 HTTP API、图书馆接口、任务接口、产物下载、事件流和删除语义统一看：
 
@@ -18,5 +18,5 @@
 原则：
 
 - `doc/core/api/index.md` 是对外 API 唯一真源。
-- `backend/rust_api/docs/*` 不再维护第二份接口详情。
-- `backend/rust_api/API_SPEC.md` 保留为历史/实现参考，不作为前端首读文档。
+- `services/api/docs/*` 不再维护第二份接口详情。
+- `services/api/API_SPEC.md` 保留为历史/实现参考，不作为前端首读文档。

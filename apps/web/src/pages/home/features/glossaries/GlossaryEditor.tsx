@@ -6,7 +6,7 @@
 // 写 store(updateEntryField),不再手写行级 DOM 增删。
 
 import { X } from "lucide-react";
-import { EmptyState } from "../../../../shared/icons/EmptyState.jsx";
+import { EmptyState } from "@/shared/icons/EmptyState.jsx";
 import { GLOSSARY_DOM_IDS, ENTRY_LEVEL_OPTIONS, MATCH_MODE_OPTIONS } from "./glossaries-dom-ids.js";
 
 export function GlossaryEditor({ entries, onFieldChange, onRemoveRow }) {

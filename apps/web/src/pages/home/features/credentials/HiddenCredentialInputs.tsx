@@ -20,7 +20,7 @@
 // 仍照常触发(browser.js 内部一路调用),现在只是多余但无害——真正生效的
 // 写入路径是这里的 store 订阅。
 
-import { useStoreSnapshot } from "../../../../shared/react/use-store.js";
+import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useHomeServices } from "../../home-services-context.js";
 import { CREDENTIAL_DOM_IDS } from "./credentials-dom-ids.js";
 

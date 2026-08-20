@@ -3,13 +3,13 @@
 `rust_api` is the new external service layer for the PDF translation pipeline.
 
 Doc index:
-[`README.md`](/home/wxyhgk/tmp/Code/backend/rust_api/README.md)
+[`README.md`](services/api/README.md)
 
 If you only need the current active runtime path, read
-[`CURRENT_API_MAP.md`](/home/wxyhgk/tmp/Code/backend/rust_api/CURRENT_API_MAP.md) first.
+[`CURRENT_API_MAP.md`](services/api/CURRENT_API_MAP.md) first.
 
 If you need the current team-facing module boundaries and refactor rules, read
-[`RUST_API_ARCHITECTURE.md`](/home/wxyhgk/tmp/Code/backend/rust_api/RUST_API_ARCHITECTURE.md).
+[`RUST_API_ARCHITECTURE.md`](services/api/RUST_API_ARCHITECTURE.md).
 
 Its backend is now split into two layers:
 
@@ -110,11 +110,11 @@ Planned but not fully implemented in this first pass:
 ## Reading Guide
 
 - Want to know how requests actually run through Rust + Python:
-  [`CURRENT_API_MAP.md`](/home/wxyhgk/tmp/Code/backend/rust_api/CURRENT_API_MAP.md)
+  [`CURRENT_API_MAP.md`](services/api/CURRENT_API_MAP.md)
 - Want to know team-facing refactor boundaries:
-  [`RUST_API_ARCHITECTURE.md`](/home/wxyhgk/tmp/Code/backend/rust_api/RUST_API_ARCHITECTURE.md)
+  [`RUST_API_ARCHITECTURE.md`](services/api/RUST_API_ARCHITECTURE.md)
 - Want to know worker/stage spec contracts:
-  [`STAGE_EXECUTION_CONTRACT.md`](/home/wxyhgk/tmp/Code/backend/rust_api/STAGE_EXECUTION_CONTRACT.md)
+  [`STAGE_EXECUTION_CONTRACT.md`](services/api/STAGE_EXECUTION_CONTRACT.md)
 
 ## Frontend Library Contract
 
@@ -191,7 +191,7 @@ Current precedence contract is:
 ## Runtime Knobs
 
 These values are deployment/provider knobs, not API protocol constants. Defaults are owned by
-`backend/rust_api/src/config/*` and can be overridden by environment variables.
+`services/api/src/config/*` and can be overridden by environment variables.
 
 Config source map:
 
@@ -1651,7 +1651,7 @@ Response:
 
 Behavior:
 
-- launches `backend/scripts/devtools/replay_translation_item.py`
+- launches `services/pipeline/devtools/replay_translation_item.py`
 - re-applies current policy to the saved item payload
 - if the item still qualifies for translation, reruns `translate_batch([item])`
 - never writes back to the original job directory

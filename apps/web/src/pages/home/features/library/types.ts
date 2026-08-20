@@ -219,6 +219,8 @@ export type LibraryControllerDeps = {
     options?: { silent?: boolean; publishLibrary?: boolean; showWorkflow?: boolean },
   ) => void;
   hideStatusArea?: () => void;
+  /** 网格状态端口（供 selectJob 的 findItem 内聚到 controller） */
+  recentJobsStatePort?: any | null;
 };
 
 export type LibraryController = {
@@ -246,6 +248,8 @@ export type LibraryController = {
       fallbackSelectJob?: (jobId: string) => void;
     },
   ) => void;
+  /** 網格選任務的業務封裝（findItem 內聚到 controller，不再由 build-home-services 拼） */
+  selectJob: (jobId: string) => unknown;
   updateDocument: (
     documentId?: string | null,
     payload?: UpdateDocumentPayload,

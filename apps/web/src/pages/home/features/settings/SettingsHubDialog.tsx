@@ -24,7 +24,7 @@ import { useEffect, useState } from "react";
 import { Dialog as DialogPrimitive, Tabs as TabsPrimitive } from "radix-ui";
 import { useHomeServices } from "../../home-services-context.js";
 import { useDialogState } from "../../state/use-dialog-state.js";
-import { useDialogReturnFocus } from "../../../../shared/react/use-dialog-return-focus.js";
+import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
 import { APP_SETTINGS_DIALOG_IDS } from "../shared/settings-dialog-ids.js";
 import { ThemeAppearancePanel } from "./ThemeAppearancePanel.jsx";
 import { Button as ButtonBase } from "../../../../components/Button.jsx";

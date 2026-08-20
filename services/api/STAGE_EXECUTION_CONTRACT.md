@@ -7,11 +7,11 @@
 相关文档：
 
 - 总体架构边界：
-  [`RUST_API_ARCHITECTURE.md`](/home/wxyhgk/tmp/Code/backend/rust_api/RUST_API_ARCHITECTURE.md)
+  [`RUST_API_ARCHITECTURE.md`](services/api/RUST_API_ARCHITECTURE.md)
 - 当前运行主链：
-  [`CURRENT_API_MAP.md`](/home/wxyhgk/tmp/Code/backend/rust_api/CURRENT_API_MAP.md)
+  [`CURRENT_API_MAP.md`](services/api/CURRENT_API_MAP.md)
 - OCR provider 边界：
-  [`OCR_PROVIDER_CONTRACT.md`](/home/wxyhgk/tmp/Code/backend/rust_api/OCR_PROVIDER_CONTRACT.md)
+  [`OCR_PROVIDER_CONTRACT.md`](services/api/OCR_PROVIDER_CONTRACT.md)
 
 ## 1. 目标
 
@@ -69,7 +69,7 @@ parent job
 
 入口代码：
 
-- [translation_flow.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/translation_flow.rs)
+- [translation_flow.rs](services/api/src/job_runner/translation_flow.rs)
 
 ### 3.2 `workflow=translate`
 
@@ -96,7 +96,7 @@ reuse source.artifact_job_id
 
 入口代码：
 
-- [render_flow.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/render_flow.rs)
+- [render_flow.rs](services/api/src/job_runner/render_flow.rs)
 
 ### 3.4 `workflow=ocr`
 
@@ -109,7 +109,7 @@ provider transport
 
 入口代码：
 
-- [ocr_flow/mod.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/ocr_flow/mod.rs)
+- [ocr_flow/mod.rs](services/api/src/job_runner/ocr_flow/mod.rs)
 
 当前额外约束：
 
@@ -133,7 +133,7 @@ provider transport
 
 文件：
 
-- [lifecycle.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/lifecycle.rs)
+- [lifecycle.rs](services/api/src/job_runner/lifecycle.rs)
 
 职责：
 
@@ -163,9 +163,9 @@ provider transport
 
 文件：
 
-- [worker_command.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/worker_command.rs)
-- [worker_command/stage_specs.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/worker_command/stage_specs.rs)
-- [worker_command/entrypoints.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/worker_command/entrypoints.rs)
+- [worker_command.rs](services/api/src/worker_command.rs)
+- [worker_command/stage_specs.rs](services/api/src/worker_command/stage_specs.rs)
+- [worker_command/entrypoints.rs](services/api/src/worker_command/entrypoints.rs)
 
 职责：
 
@@ -177,7 +177,7 @@ provider transport
 
 文件：
 
-- [worker_process.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/worker_process.rs)
+- [worker_process.rs](services/api/src/job_runner/worker_process.rs)
 
 职责：
 
@@ -189,13 +189,13 @@ provider transport
 
 文件：
 
-- [process_runner.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/process_runner.rs)
-- [process_runner/startup.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/process_runner/startup.rs)
-- [process_runner/execution.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/process_runner/execution.rs)
-- [process_runner/result_support.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/process_runner/result_support.rs)
-- [process_runner/timeout_support.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/process_runner/timeout_support.rs)
-- [process_runner/failure_ai_diagnosis.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/process_runner/failure_ai_diagnosis.rs)
-- [process_runner/io_support.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/process_runner/io_support.rs)
+- [process_runner.rs](services/api/src/job_runner/process_runner.rs)
+- [process_runner/startup.rs](services/api/src/job_runner/process_runner/startup.rs)
+- [process_runner/execution.rs](services/api/src/job_runner/process_runner/execution.rs)
+- [process_runner/result_support.rs](services/api/src/job_runner/process_runner/result_support.rs)
+- [process_runner/timeout_support.rs](services/api/src/job_runner/process_runner/timeout_support.rs)
+- [process_runner/failure_ai_diagnosis.rs](services/api/src/job_runner/process_runner/failure_ai_diagnosis.rs)
+- [process_runner/io_support.rs](services/api/src/job_runner/process_runner/io_support.rs)
 
 职责：
 
@@ -218,7 +218,7 @@ provider transport
 
 文件：
 
-- [runtime_state.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/runtime_state.rs)
+- [runtime_state.rs](services/api/src/job_runner/runtime_state.rs)
 
 职责：
 
@@ -261,7 +261,7 @@ Python worker 通过 stdout 回传运行线索。
 
 当前重要标签在：
 
-- [stdout_parser/mod.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/stdout_parser/mod.rs)
+- [stdout_parser/mod.rs](services/api/src/job_runner/stdout_parser/mod.rs)
 
 例如：
 
@@ -290,8 +290,8 @@ Python worker 通过 stdout 回传运行线索。
 
 模块：
 
-- [cancel_registry.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/cancel_registry.rs)
-- [worker_process.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/worker_process.rs)
+- [cancel_registry.rs](services/api/src/job_runner/cancel_registry.rs)
+- [worker_process.rs](services/api/src/job_runner/worker_process.rs)
 
 语义：
 
@@ -327,7 +327,7 @@ Python worker 通过 stdout 回传运行线索。
 
 这部分规则集中在：
 
-- [process_runner.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/process_runner.rs)
+- [process_runner.rs](services/api/src/job_runner/process_runner.rs)
 
 ## 9. artifacts contract
 
@@ -350,8 +350,8 @@ Python worker 通过 stdout 回传运行线索。
 - stage 切换时，尽量通过 artifacts 传递下游输入
 - 不要让下游重新猜路径
 - Rust 侧 readiness 判断集中在：
-  - [stage_contract.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/stage_contract.rs)
-  - [process_contract.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/process_contract.rs)
+  - [stage_contract.rs](services/api/src/job_runner/stage_contract.rs)
+  - [process_contract.rs](services/api/src/job_runner/process_contract.rs)
 - `stage_contract.rs` 决定跨 stage 是否可以继续：
   - OCR -> translate 需要 `source_pdf`、`normalized_document_json`
   - translate -> render 需要 `source_pdf`、`translations_dir`、`translation-manifest.json`

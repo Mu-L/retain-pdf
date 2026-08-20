@@ -39,7 +39,7 @@
 
 import { X } from "lucide-react";
 import { Dialog as DialogPrimitive, Tabs as TabsPrimitive } from "radix-ui";
-import { useDialogReturnFocus } from "../../../../shared/react/use-dialog-return-focus.js";
+import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
 import { StageHistoryList } from "./StageHistoryList.jsx";
 import { EventsList, eventsStatusText } from "./EventsList.jsx";
 import { TranslationDebugTab } from "./TranslationDebugTab.jsx";
@@ -47,7 +47,7 @@ import { useStatusDetailOverview } from "./useStatusDetailOverview.js";
 import { useRerunAction } from "./useRerunAction.js";
 import { STATUS_DETAIL_DIALOG_IDS, STATUS_DETAIL_MARKDOWN_BUNDLE_ID } from "./status-detail-dom-ids.js";
 import { useHomeServices } from "../../home-services-context.js";
-import { useStoreSnapshot } from "../../../../shared/react/use-store.js";
+import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useArtifactDownloadBusy } from "../../state/use-artifact-download-busy.js";
 import { Button } from "../../../../components/Button.jsx";
 

@@ -20,7 +20,7 @@ import { Button as ButtonBase } from "../../../../components/Button.jsx";
 const Button = ButtonBase as any;
 import { useHomeServices } from "../../home-services-context.js";
 import { useDialogState } from "../../state/use-dialog-state.js";
-import { useDialogReturnFocus } from "../../../../shared/react/use-dialog-return-focus.js";
+import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
 
 export function CollectionManageDialog() {
   const services = useHomeServices();

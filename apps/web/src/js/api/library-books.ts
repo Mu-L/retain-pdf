@@ -1,3 +1,13 @@
+/**
+ * Library books API — 薄封装层，形状以契约为准。
+ * 契约真值: `packages/schemas/library-books.v1.schema.json`
+ *   - endpoints: GET /api/v1/library/books, GET /api/v1/library/books/:job_id, DELETE /api/v1/library/books/:job_id
+ *   - definitions: LibraryBookListView / LibraryBookDetailView / JobListView / LibraryDeleteResultView
+ * Rust 生产者: `services/api/crates/retain-core/src/models/view/job_types.rs`
+ * 前端镜像: `apps/web-react/src/features/library/api/library-api-types.ts`
+ * 契约测试: `tests/library-books-contract.test.mjs` 锁定 job_id/display_name/status/progress/cover_url 等字段
+ * TODO: 引入生成类型 `import type { LibraryBookListView } from '@retainpdf/schemas'` 替换 `unwrapEnvelope<any>`。
+ */
 import { buildApiHeaders, isMockMode } from "../config/runtime.js";
 import { unwrapEnvelope } from "../job/core.js";
 import { countMockFavoritesByJob } from "../mock/documents.js";

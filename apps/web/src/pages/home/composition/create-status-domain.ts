@@ -1,9 +1,8 @@
 // statusCard / statusDetail / artifact-download busy。
 
+import { API_PREFIX } from "./external/config.js";
+import { PROTECTED_ARTIFACT_SELECTOR } from "./external/state.js";
 import {
-  API_PREFIX,
-  currentJobStoreFor,
-  secondaryResourceStoreFor,
   fetchJobPayload,
   fetchJobEvents,
   fetchJobDiagnostics,
@@ -13,8 +12,11 @@ import {
   fetchTranslationItems,
   fetchTranslationItem,
   replayTranslationItem,
-  PROTECTED_ARTIFACT_SELECTOR,
-} from "./external.js";
+} from "./external/api.js";
+import {
+  currentJobStoreFor,
+  secondaryResourceStoreFor,
+} from "./external/features.js";
 import { createArtifactDownloadBusyStore } from "../state/artifact-download-busy-store.js";
 import { createStatusCardStore, createStatusCardPresenter } from "../features/status/status-card-store.js";
 import { createStatusDetailStore } from "../features/status-detail/status-detail-store.js";
@@ -90,6 +92,11 @@ export function createStatusDomain({
     setCancelDisabled: (disabled: boolean) => statusCardStore.actions.setCancelDisabled(disabled),
   };
 
+  // 取消当前任务的业务内聚到 status 域，不再由 build-home-services 拼闭包
+  const statusCardController = {
+    cancelCurrentJob: () => (features.jobRuntimeFeature as { cancelCurrentJob?: () => unknown } | undefined)?.cancelCurrentJob?.(),
+  };
+
   const artifactDownloadBusyStore = createArtifactDownloadBusyStore();
   const artifactDownloadsViewPort = {
     bindProtectedLinks(handler: (event: Event, link: Element) => void) {
@@ -114,6 +121,7 @@ export function createStatusDomain({
     jobRuntimeState,
     statusCardStore,
     statusCardPresenter,
+    statusCardController,
     statusDetailStore,
     statusDetailDialogStore,
     statusDetailController,

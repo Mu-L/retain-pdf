@@ -42,6 +42,7 @@
 @import "../components.utilities.css";
 @import "../dialog-shell.css";
 @import "../core/download-toast.css";
+@import "../pages/home/home-dialog-overlays.css";
 
 /* —— home-only（主页领域；勿再塞 reader/detail）—— */
 @import "../pages/home/components.utilities.css";
@@ -62,3 +63,4 @@
 @import "../pages/home/credential-settings.css";
 @import "../pages/home/status-card.css";
 @import "../pages/home/book-detail.css" layer(pages);
+@import "../pages/home/mojia-ornaments.css" layer(pages);

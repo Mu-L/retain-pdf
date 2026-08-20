@@ -1,7 +1,7 @@
 // 术语表列表面板(对照 glossary-manager-dialog-template.js 的
 // .glossary-list-panel 区块 + view.js:renderGlossaryList 逐节点镜像)。
 
-import { EmptyState } from "../../../../shared/icons/EmptyState.jsx";
+import { EmptyState } from "@/shared/icons/EmptyState.jsx";
 import { GLOSSARY_DOM_IDS } from "./glossaries-dom-ids.js";
 
 export function GlossaryList({ items, selectedId, onSelect, onCreateNew }) {

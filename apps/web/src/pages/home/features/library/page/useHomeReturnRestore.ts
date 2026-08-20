@@ -9,7 +9,7 @@ import {
   consumeHomeReturnState,
   peekHomeReturnState,
   type HomeReturnState,
-} from "../../../../../shared/navigation/home-return-state.js";
+} from "@/shared/navigation/home-return-state.js";
 
 export function readInitialLibraryTabFromReturn(): string {
   const state = peekHomeReturnState();

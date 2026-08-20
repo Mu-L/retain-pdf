@@ -3,7 +3,7 @@
 
 import { useHomeServices } from "../../../home-services-context.js";
 import { useDialogState } from "../../../state/use-dialog-state.js";
-import { useDialogReturnFocus } from "../../../../../shared/react/use-dialog-return-focus.js";
+import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
 import { useRecentJobCover } from "../display/useRecentJobCover.js";
 import { BookDetailShell } from "./shell/BookDetailShell.jsx";
 import { CoverActionsPanel } from "./panels/CoverActionsPanel.jsx";
@@ -18,7 +18,7 @@ import { useBookDetailDocument } from "./use-book-detail-document.js";
 import { useBookDetailTranslate } from "./use-book-detail-translate.js";
 import { useBookDetailCover } from "./use-book-detail-cover.js";
 import { useBookDetailTab } from "./use-book-detail-tab.js";
-import { useStoreSnapshot } from "../../../../../shared/react/use-store.js";
+import { useStoreSnapshot } from "@/shared/react/use-store.js";
 
 export function BookDetailDialog() {
   const services = useHomeServices();

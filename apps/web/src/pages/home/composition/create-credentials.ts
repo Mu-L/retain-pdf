@@ -8,14 +8,18 @@ import {
   saveBrowserStoredConfig,
   savePersistedBrowserStoredConfig,
   savePersistedDeveloperStoredConfig,
+} from "./external/config.js";
+import {
   getDeveloperConfig,
   setDeveloperConfig,
   setDesktopConfigured,
+} from "./external/state.js";
+import {
   readHiddenCredentialDomInputs,
   createCredentialRuntimeEnvPort,
   mountBrowserCredentialsFeature,
-  validatePaddleToken,
-} from "./external.js";
+} from "./external/features.js";
+import { validatePaddleToken } from "./external/api.js";
 import { createCredentialsViewFeature } from "../features/credentials/credentials-view-store.js";
 import { createCredentialsDialogStore } from "../features/credentials/credentials-dialog-store.js";
 import { createSettingsHubDialogStore } from "../features/settings/settings-hub-dialog-store.js";

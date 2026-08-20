@@ -8,7 +8,7 @@ import {
   listThemesBySeries,
   setTheme,
   type ThemeId,
-} from "../../../../shared/theme/theme.js";
+} from "@/shared/theme/theme.js";
 
 export function ThemeAppearancePanel() {
   const [active, setActive] = useState<ThemeId>(() => getTheme());

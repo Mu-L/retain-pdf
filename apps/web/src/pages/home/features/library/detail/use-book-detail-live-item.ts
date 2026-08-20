@@ -3,8 +3,8 @@
 // 避免 startPolling 首帧把已完成书盖成「排队中」。
 
 import { useMemo } from "react";
-import { useStoreSnapshot } from "../../../../../shared/react/use-store.js";
-import { isPollingBootstrapPlaceholder } from "../../status/merge-snapshot-with-fallback.js";
+import { useStoreSnapshot } from "@/shared/react/use-store.js";
+import { isPollingBootstrapPlaceholder } from "../../shared/job-helpers.js";
 
 /**
  * @param {object} services useHomeServices()

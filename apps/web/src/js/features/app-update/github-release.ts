@@ -1,6 +1,30 @@
 import { APP_VERSION, GITHUB_REPO } from "../../generated/app-version.js";
 
-const GITHUB_LATEST_RELEASE_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
+export const GITHUB_LATEST_RELEASE_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
+
+// FETCH BOUNDARY: GitHub API — isolated behind a port so callers (controller, tests)
+// can inject a stub and so the external origin is explicit. This fetch intentionally
+// bypasses API_PREFIX/buildApiEndpoint and hits https://api.github.com directly.
+// See github-release-port contract below; default impl is global fetch.
+export type GithubReleaseFetchPort = (url: string, init?: RequestInit) => Promise<Response>;
+
+export const defaultGithubReleaseFetch: GithubReleaseFetchPort = (url, init) => fetch(url, init);
+
+export function createGithubReleasePort({
+  fetchImpl = defaultGithubReleaseFetch,
+  url = GITHUB_LATEST_RELEASE_URL,
+}: {
+  fetchImpl?: GithubReleaseFetchPort;
+  url?: string;
+} = {}) {
+  return Object.freeze({
+    fetchLatest: () => fetchImpl(url, { headers: { Accept: "application/vnd.github+json" } }),
+    fetchImpl,
+    url,
+  });
+}
+
+export const defaultGithubReleasePort = createGithubReleasePort();
 
 function normalizeVersion(value = "") {
   return `${value || ""}`.trim().replace(/^v/i, "");
@@ -76,8 +100,14 @@ export function isNewerVersion(latest = "", current = APP_VERSION) {
   return compareVersions(latest, current) > 0;
 }
 
-export async function fetchLatestGithubRelease() {
-  const resp = await fetch(GITHUB_LATEST_RELEASE_URL, {
+export async function fetchLatestGithubRelease(
+  options: { fetchImpl?: GithubReleaseFetchPort; url?: string } | GithubReleaseFetchPort = {},
+) {
+  // Allow fetchLatestGithubRelease(fetchFn) shorthand for legacy callers / tests
+  const opts = typeof options === "function" ? { fetchImpl: options } : options;
+  const fetchImpl = opts.fetchImpl ?? defaultGithubReleaseFetch;
+  const url = opts.url ?? GITHUB_LATEST_RELEASE_URL;
+  const resp = await fetchImpl(url, {
     headers: {
       Accept: "application/vnd.github+json",
     },

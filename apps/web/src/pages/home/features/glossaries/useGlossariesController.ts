@@ -15,10 +15,10 @@
 // try/catch → setStatus 错误提示)。
 
 import { useEffect, useRef } from "react";
-import { useStoreSnapshot } from "../../../../shared/react/use-store.js";
+import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useHomeServices } from "../../home-services-context.js";
 import { useDialogState } from "../../state/use-dialog-state.js";
-import { useAppEvent } from "../../../../shared/react/use-app-event.js";
+import { useAppEvent } from "@/shared/react/use-app-event.js";
 import { APP_EVENTS } from "../../composition/external.js";
 
 export function useGlossariesController() {

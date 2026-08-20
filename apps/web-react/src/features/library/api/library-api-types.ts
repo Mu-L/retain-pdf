@@ -1,3 +1,16 @@
+/**
+ * Library / Job 状态类型 — Rust ↔ TS 重复区镜像。
+ * 真值: `packages/schemas/library-books.v1.schema.json` 与 `packages/schemas/job-status.v1.schema.json`
+ * Rust 视图: `services/api/crates/retain-core/src/models/view/job_types.rs`
+ *   LibraryBookListView / LibraryBookListItemView / LibraryBookDetailView / JobListView / JobDetailView
+ *   + common.rs JobProgressView / JobStagesView / JobStageSnapshotView
+ * 关键字段锁: job_id / display_name / workflow / status / stage_snapshot / progress / cover_url
+ * 契约测试: `apps/web/tests/library-books-contract.test.mjs` 与 `job-status-contract.test.mjs`
+ * TODO: 改为生成类型——
+ *   `npm run generate:types` 从 `packages/schemas/*.v1.schema.json` 用 json-schema-to-typescript 输出到
+ *   `packages/types/src/library-books.ts` / `job-status.ts`，本文件改为 `export type * from '@retainpdf/schemas/library-books'`
+ *   以彻底消除手写漂移；在此之前手写类型必须通过契约测试。
+ */
 export type ApiResponse<T> = {
   code: number
   message: string

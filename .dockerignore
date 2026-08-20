@@ -7,11 +7,11 @@
 python
 node_modules
 front_docker/node_modules
-rust_api/target
-rust_api/uploads
-rust_api/downloads
-rust_api/output
-rust_api/jobs.db
+services/api/target
+services/api/uploads
+services/api/downloads
+services/api/output
+services/api/jobs.db
 output
 uploads
 downloads

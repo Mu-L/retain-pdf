@@ -5,6 +5,8 @@ import {
   resolveJobMarkdownContract,
   resolveResourceUrl,
 } from "../job/artifacts.js";
+import { API_PREFIX } from "../config/api-constants.js";
+import { buildApiEndpoint } from "../api/http.js";
 import { firstNonEmpty } from "./core.js";
 
 function artifactDisplayItem(job, ...keys) {
@@ -186,7 +188,7 @@ export function resolveJobSourcePdfAction(job, manifestPayload = null) {
   const artifacts = job?.artifacts || {};
   const manifestUrl = resolveManifestArtifactUrl(manifestPayload, "source_pdf");
   const fallbackUrl = job?.job_id
-    ? `/api/v1/jobs/${encodeURIComponent(job.job_id)}/artifacts/source_pdf`
+    ? buildApiEndpoint(API_PREFIX, `jobs/${encodeURIComponent(job.job_id)}/artifacts/source_pdf`)
     : "";
   const url = resolveResourceUrl(firstNonEmpty(
     manifestUrl,

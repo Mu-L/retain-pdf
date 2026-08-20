@@ -1,4 +1,5 @@
 // 组装 HomeServices 对外 bag（HomeApp / useHomeServices 消费）。
+// Hide Store behind read-only selectors; 业务内聚到 domain 工厂（不再在此拼闭包）。
 
 import type {
   HomeBridge,
@@ -6,6 +7,11 @@ import type {
   HomeServices,
   HomeServicesDomains,
   HomeServicesViews,
+  LibraryPort,
+  StatusCardPort,
+  UploadPort,
+  TextPort,
+  WorkflowPort,
 } from "./types.js";
 
 export function buildHomeServices({
@@ -33,25 +39,75 @@ export function buildHomeServices({
     library,
   } = domains;
 
+  // 仅读 stores（对外类型隐藏 actions，运行时仍为原 store 以兼容旧测试的 actions 访问）
+  const stores = {
+    dialog: ports.dialogStatePort.store as unknown as HomeServices["stores"]["dialog"],
+    homeState: ports.homeStatePort.store as unknown as HomeServices["stores"]["homeState"],
+    statusArea: views.statusArea.store as unknown as HomeServices["stores"]["statusArea"],
+    text: views.textStore.store as unknown as HomeServices["stores"]["text"],
+    uploadView: views.uploadView.store as unknown as HomeServices["stores"]["uploadView"],
+    workflowView: views.workflowView.store as unknown as HomeServices["stores"]["workflowView"],
+    credentialsView: credentials.credentialsView.store as unknown as HomeServices["stores"]["credentialsView"],
+  };
+
+  // Domain 窄端口：业务内聚到各自工厂，composition 仅转发
+  const statusCard: StatusCardPort = {
+    store: status.statusCardStore as unknown as StatusCardPort["store"],
+    // cancel 业务已内聚到 status 域的 statusCardController（而非在此直接调 feature）
+    cancelCurrentJob: () =>
+      (status as any).statusCardController?.cancelCurrentJob?.() ??
+      (features.jobRuntimeFeature as any)?.cancelCurrentJob?.(),
+  };
+
+  const libraryPort: LibraryPort = {
+    viewPort: library.recentJobsViewPort,
+    recentJobsStore: library.recentJobsStatePort.store as unknown as LibraryPort["recentJobsStore"],
+    actions: {
+      ...library.recentJobActions,
+      // selectJob 业务已内聚到 LibraryController（findItem 不再由 composition 拼）
+      selectJob: (library.libraryController as any).selectJob
+        ? (jobId: string) => (library.libraryController as any).selectJob(jobId)
+        : (jobId: string) => (library.libraryController as any).selectJobForDetail(jobId, {} as any),
+      openSourceReader: library.libraryController.openSourceReader,
+      translateDocument: library.libraryController.translateDocument,
+      deleteDocument: library.libraryController.deleteDocument,
+      deleteDocuments: library.libraryController.deleteDocuments,
+      deleteCard: library.libraryController.deleteCard,
+      openBookDetail: library.libraryController.openBookDetail,
+      updateDocument: library.libraryController.updateDocument,
+      storeOnly: library.libraryController.storeOnly,
+      attachJobProgress: library.libraryController.attachJobProgress,
+    },
+  };
+
+  const uploadPort: UploadPort = {
+    domRefs: views.uploadView.domRefs,
+    viewActions: { patch: views.uploadView.patch },
+    store: views.uploadView.store as unknown as UploadPort["store"],
+  };
+
+  const textPort: TextPort = {
+    store: views.textStore.store as unknown as TextPort["store"],
+    textOf: views.textStore.textOf,
+  };
+
+  const workflowPort: WorkflowPort = {
+    store: views.workflowView.store as unknown as WorkflowPort["store"],
+    viewActions: { setSelectedGlossaryId: views.workflowView.setSelectedGlossaryId },
+    dialog: views.workflowDialog,
+  };
+
   return {
     bridge,
     dispose,
     features,
     initialize,
     ports,
-    stores: {
-      dialog: ports.dialogStatePort.store,
-      homeState: ports.homeStatePort.store,
-      statusArea: views.statusArea.store,
-      text: views.textStore.store,
-      uploadView: views.uploadView.store,
-      workflowView: views.workflowView.store,
-      credentialsView: credentials.credentialsView.store,
-    },
+    stores: stores as HomeServices["stores"],
     statusArea: views.statusArea,
     credentials: {
       feature: features.browserCredentialsFeature,
-      view: credentials.credentialsView,
+      view: credentials.credentialsView as any,
       dialogStore: credentials.credentialsDialogStore,
     },
     settingsHub: {
@@ -59,43 +115,16 @@ export function buildHomeServices({
     },
     glossaries: {
       feature: features.glossariesFeature,
-      view: glossaries.glossariesView,
+      view: glossaries.glossariesView as any,
       dialogStore: glossaries.glossariesDialogStore,
     },
     appUpdate: {
       feature: features.appUpdateFeature,
-      view: appUpdate.appUpdateView,
+      view: appUpdate.appUpdateView as any,
       handlersRef: appUpdate.appUpdateView.handlersRef,
     },
-    library: {
-      viewPort: library.recentJobsViewPort,
-      recentJobsStore: library.recentJobsStatePort.store,
-      actions: {
-        ...library.recentJobActions,
-        // 网格选任务 → 详情翻译 Tab（永不弹 #translation-workflow-dialog）
-        selectJob: (jobId: string) => {
-          library.libraryController.selectJobForDetail(jobId, {
-            findItem: (id) => {
-              const items = library.recentJobsStatePort.getSnapshot().items || [];
-              return (
-                items.find((row) => `${row?.job_id || ""}`.trim() === id)
-                || items.find((row) => `${row?.active_job_id || ""}`.trim() === id)
-                || null
-              );
-            },
-          });
-        },
-        openSourceReader: library.libraryController.openSourceReader,
-        translateDocument: library.libraryController.translateDocument,
-        deleteDocument: library.libraryController.deleteDocument,
-        deleteDocuments: library.libraryController.deleteDocuments,
-        deleteCard: library.libraryController.deleteCard,
-        openBookDetail: library.libraryController.openBookDetail,
-        updateDocument: library.libraryController.updateDocument,
-        storeOnly: library.libraryController.storeOnly,
-        attachJobProgress: library.libraryController.attachJobProgress,
-      },
-    },
+    library: libraryPort,
+    libraryPort,
     bookDetail: {
       dialogStore: library.bookDetailStore,
     },
@@ -107,10 +136,8 @@ export function buildHomeServices({
     artifactDownloads: {
       busyStore: status.artifactDownloadBusyStore,
     },
-    statusCard: {
-      store: status.statusCardStore,
-      cancelCurrentJob: () => features.jobRuntimeFeature.cancelCurrentJob(),
-    },
+    statusCard,
+    statusCardPort: statusCard,
     statusDetail: {
       store: status.statusDetailStore,
       dialogStore: status.statusDetailDialogStore,
@@ -119,6 +146,10 @@ export function buildHomeServices({
     reader: {
       openReader: library.recentJobsReaderPort.openReader,
     },
+    // narrow ports
+    uploadPort,
+    textPort,
+    workflowPort,
     textOf: views.textStore.textOf,
     uploadDomRefs: views.uploadView.domRefs,
     uploadViewActions: {
@@ -128,5 +159,5 @@ export function buildHomeServices({
       setSelectedGlossaryId: views.workflowView.setSelectedGlossaryId,
     },
     workflowDialog: views.workflowDialog,
-  };
+  } as HomeServices;
 }

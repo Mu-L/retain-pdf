@@ -12,7 +12,7 @@ import {
   OCR_PROVIDER_DEFINITIONS,
   TRANSLATION_PROVIDER_DEFINITION,
 } from "../../composition/external.js";
-import { validationIcon } from "../../../../shared/credentials/validation-icon.js";
+import { validationIcon } from "@/shared/credentials/validation-icon.js";
 
 const { browser: BROWSER_IDS } = CREDENTIAL_DOM_IDS;
 

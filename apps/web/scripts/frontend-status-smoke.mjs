@@ -30,8 +30,8 @@ Options:
   --x-api-key <key>          X-API-Key header, default from apps/web/runtime-config.local.js
   --workflow <name>          book | translate, default book
   --ocr-provider <name>      paddle | mineru, default paddle
-  --ocr-token <token>        OCR provider token, default from env or backend/scripts/.env
-  --model-api-key <key>      Translation API key, default from env or backend/scripts/.env/deepseek.env
+  --ocr-token <token>        OCR provider token, default from env or services/pipeline/.env
+  --model-api-key <key>      Translation API key, default from env or services/pipeline/.env/deepseek.env
   --model <name>             Default deepseek-v4-flash
   --base-url <url>           Default https://api.deepseek.com/v1
   --page-ranges <ranges>     Optional page ranges, e.g. 1-3
@@ -138,11 +138,20 @@ function envFileCandidatesForKey(key) {
     case "xApiKey":
       return [];
     case "paddleToken":
-      return [path.join(REPO_ROOT, "backend/scripts/.env/paddle.env")];
+      return [
+        path.join(REPO_ROOT, "services/pipeline/.env/paddle.env"),
+        path.join(REPO_ROOT, "backend/scripts/.env/paddle.env"),
+      ];
     case "mineruToken":
-      return [path.join(REPO_ROOT, "backend/scripts/.env/mineru.env")];
+      return [
+        path.join(REPO_ROOT, "services/pipeline/.env/mineru.env"),
+        path.join(REPO_ROOT, "backend/scripts/.env/mineru.env"),
+      ];
     case "deepseekApiKey":
-      return [path.join(REPO_ROOT, "backend/scripts/.env/deepseek.env")];
+      return [
+        path.join(REPO_ROOT, "services/pipeline/.env/deepseek.env"),
+        path.join(REPO_ROOT, "backend/scripts/.env/deepseek.env"),
+      ];
     default:
       return [];
   }

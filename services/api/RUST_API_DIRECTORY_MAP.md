@@ -31,11 +31,11 @@
 - 进入条件：
   只有在改全局资源、启动逻辑、路由挂载时才进这里。
 - 关键文件：
-  - [`src/app/state.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/app/state.rs)
+  - [`src/app/state.rs`](services/api/src/app/state.rs)
     `AppState` 和全局资源初始化。
-  - [`src/app/router.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/app/router.rs)
+  - [`src/app/router.rs`](services/api/src/app/router.rs)
     axum 路由总挂载点。
-  - [`src/app/jobs.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/app/jobs.rs)
+  - [`src/app/jobs.rs`](services/api/src/app/jobs.rs)
     jobs facade 组合根。这里负责把 `AppState` 装成 `JobsFacade`，`routes` 不再直接碰 `job_runner`。
 
 ### `src/config.rs` + `src/config/*`
@@ -192,7 +192,7 @@
 - 快速判断：
   改 stage 执行顺序、并发槽位、进程控制、运行态同步时进这里。
 - 详细边界：
-  [`doc/core/rust_api/12-job_runner 边界.md`](/home/wxyhgk/tmp/Code/doc/core/rust_api/12-job_runner%20%E8%BE%B9%E7%95%8C.md)
+  [`../../doc/core/rust_api/12-job_runner 边界.md`](../../doc/core/rust_api/12-job_runner%20%E8%BE%B9%E7%95%8C.md)
 - 当前目录地图：
   - `mod.rs`
     runner facade、公共 deps、对外导出；这里的 `ProcessRuntimeDeps` 只给 orchestrator 用，`JobPersistDeps` 是叶子 helper 的持久化资源边界。
@@ -284,15 +284,15 @@
 
 如果第一次进这个后端，建议按这个顺序看：
 
-1. [`src/app/router.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/app/router.rs)
+1. [`src/app/router.rs`](services/api/src/app/router.rs)
    先知道有哪些 HTTP 入口。
-2. [`src/app/jobs.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/app/jobs.rs)
+2. [`src/app/jobs.rs`](services/api/src/app/jobs.rs)
    再看 jobs 相关依赖是怎么装起来的。
-3. [`src/routes/jobs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/routes/jobs)
+3. [`src/routes/jobs`](services/api/src/routes/jobs)
    看 route 只是怎么转发。
-4. [`src/services/jobs/facade`](/home/wxyhgk/tmp/Code/backend/rust_api/src/services/jobs/facade)
+4. [`src/services/jobs/facade`](services/api/src/services/jobs/facade)
    看 command/query 用例入口。
-5. [`src/services/jobs/creation`](/home/wxyhgk/tmp/Code/backend/rust_api/src/services/jobs/creation)
+5. [`src/services/jobs/creation`](services/api/src/services/jobs/creation)
    看创建链路的准备、快照、提交、bundle。
-6. [`src/job_runner`](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner)
+6. [`src/job_runner`](services/api/src/job_runner)
    最后再进 runtime 执行层。

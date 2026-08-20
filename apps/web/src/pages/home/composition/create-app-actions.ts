@@ -3,13 +3,17 @@
 import {
   API_PREFIX,
   openDesktopOutputDirectory,
+} from "./external/config.js";
+import {
   mountAppActionsFeature,
   defaultAppActionsConfigPort,
   createAppActionsRuntimeEnvPort,
-  submitJobRequest,
   syncCurrentJobSnapshot,
+} from "./external/features.js";
+import {
   buildApiEndpoint,
-} from "./external.js";
+  submitJobRequest,
+} from "./external/api.js";
 import type {
   AppActionsFeature,
   HomeBridge,

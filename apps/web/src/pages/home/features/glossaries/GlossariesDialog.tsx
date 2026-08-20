@@ -24,7 +24,7 @@
 
 import { X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
-import { useDialogReturnFocus } from "../../../../shared/react/use-dialog-return-focus.js";
+import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
 import { GLOSSARY_DOM_IDS } from "./glossaries-dom-ids.js";
 import { useGlossariesController } from "./useGlossariesController.js";
 import { GlossaryList } from "./GlossaryList.jsx";

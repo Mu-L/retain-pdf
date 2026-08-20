@@ -8,7 +8,7 @@ import {
   SOFT_READER_OPEN_EVENT,
   closeSoftReaderOnHost,
   isSoftReaderHistoryState,
-} from "../../../../shared/navigation/soft-reader.js";
+} from "@/shared/navigation/soft-reader.js";
 
 export function SoftReaderHost() {
   const [frame, setFrame] = useState<{ url: string; nonce: number } | null>(null);

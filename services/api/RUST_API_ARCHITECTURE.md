@@ -9,19 +9,19 @@
 相关文档：
 
 - 文档总入口：
-  [`README.md`](/home/wxyhgk/tmp/Code/backend/rust_api/README.md)
+  [`README.md`](services/api/README.md)
 - 目录地图：
-  [`RUST_API_DIRECTORY_MAP.md`](/home/wxyhgk/tmp/Code/backend/rust_api/RUST_API_DIRECTORY_MAP.md)
+  [`RUST_API_DIRECTORY_MAP.md`](services/api/RUST_API_DIRECTORY_MAP.md)
 - 当前运行主链：
-  [`CURRENT_API_MAP.md`](/home/wxyhgk/tmp/Code/backend/rust_api/CURRENT_API_MAP.md)
+  [`CURRENT_API_MAP.md`](CURRENT_API_MAP.md)
 - OCR provider 边界：
-  [`OCR_PROVIDER_CONTRACT.md`](/home/wxyhgk/tmp/Code/backend/rust_api/OCR_PROVIDER_CONTRACT.md)
+  [`OCR_PROVIDER_CONTRACT.md`](services/api/OCR_PROVIDER_CONTRACT.md)
 - stage 运行时契约：
-  [`STAGE_EXECUTION_CONTRACT.md`](/home/wxyhgk/tmp/Code/backend/rust_api/STAGE_EXECUTION_CONTRACT.md)
+  [`STAGE_EXECUTION_CONTRACT.md`](services/api/STAGE_EXECUTION_CONTRACT.md)
 - Rust 侧 artifact boundary：
-  [`doc/core/rust_api/10-Rust 侧 Artifact Boundary.md`](/home/wxyhgk/tmp/Code/doc/core/rust_api/10-Rust%20%E4%BE%A7%20Artifact%20Boundary.md)
+  [`../../doc/core/rust_api/10-Rust 侧 Artifact Boundary.md`](../../doc/core/rust_api/10-Rust%20%E4%BE%A7%20Artifact%20Boundary.md)
 - 外部 API 协议：
-  [`API_SPEC.md`](/home/wxyhgk/tmp/Code/backend/rust_api/API_SPEC.md)
+  [`API_SPEC.md`](services/api/API_SPEC.md)
 
 ## 1. 总体分层
 
@@ -186,7 +186,7 @@ app -> routes -> application services -> internal services -> job_runner / ocr_p
 这套边界不只靠文档约定，还靠硬性检查：
 
 - 本地命令：
-  `python3 backend/rust_api/scripts/check_architecture.py`
+  `python3 services/api/scripts/check_architecture.py`
 - CI workflow：
   `.github/workflows/rust-api-architecture.yml`
 
@@ -228,13 +228,13 @@ provider raw -> normalized -> published artifact -> download API
 
 Rust 侧关键落点：
 
-- [src/storage_paths.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/storage_paths.rs)
+- [src/storage_paths.rs](services/api/src/storage_paths.rs)
   facade；现在已拆成 `constants / job_paths / path_ops / resolvers / registry`
-- [src/services/artifacts/mod.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/services/artifacts/mod.rs)
+- [src/services/artifacts/mod.rs](services/api/src/services/artifacts/mod.rs)
   artifact facade；现在已拆成 `registry / bundle / response`
-- [src/routes/download_response.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/routes/download_response.rs)
+- [src/routes/download_response.rs](services/api/src/routes/download_response.rs)
   负责文件下载、markdown、preview、cover、thumbnail 的 HTTP 响应出口
-- [src/routes/jobs/json_response](/home/wxyhgk/tmp/Code/backend/rust_api/src/routes/jobs/json_response)
+- [src/routes/jobs/json_response](services/api/src/routes/jobs/json_response)
   负责 jobs JSON 查询 / 调试 / 控制 / retry 类 HTTP 响应出口
 
 边界规则：
@@ -303,10 +303,10 @@ Rust 侧关键落点：
 
 文件：
 
-- [src/app/mod.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/app/mod.rs)
-- [src/app/state.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/app/state.rs)
-- [src/app/router.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/app/router.rs)
-- [src/app/server.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/app/server.rs)
+- [src/app/mod.rs](services/api/src/app/mod.rs)
+- [src/app/state.rs](services/api/src/app/state.rs)
+- [src/app/router.rs](services/api/src/app/router.rs)
+- [src/app/server.rs](services/api/src/app/server.rs)
 
 职责：
 
@@ -325,7 +325,7 @@ Rust 侧关键落点：
 
 目录：
 
-- [src/routes](/home/wxyhgk/tmp/Code/backend/rust_api/src/routes)
+- [src/routes](services/api/src/routes)
 
 职责：
 
@@ -459,9 +459,9 @@ routes/library*.rs, collections.rs
 
 文件：
 
-- [src/services/jobs/facade.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/services/jobs/facade.rs)
-- [src/services/jobs/facade/command](/home/wxyhgk/tmp/Code/backend/rust_api/src/services/jobs/facade/command)
-- [src/services/jobs/facade/query](/home/wxyhgk/tmp/Code/backend/rust_api/src/services/jobs/facade/query)
+- [src/services/jobs/facade.rs](services/api/src/services/jobs/facade.rs)
+- [src/services/jobs/facade/command](services/api/src/services/jobs/facade/command)
+- [src/services/jobs/facade/query](services/api/src/services/jobs/facade/query)
 
 职责：
 
@@ -480,7 +480,7 @@ routes/library*.rs, collections.rs
 
 目录：
 
-- [src/services/jobs/creation](/home/wxyhgk/tmp/Code/backend/rust_api/src/services/jobs/creation)
+- [src/services/jobs/creation](services/api/src/services/jobs/creation)
 
 职责：
 
@@ -505,7 +505,7 @@ routes/library*.rs, collections.rs
 
 目录：
 
-- [src/services/jobs/presentation](/home/wxyhgk/tmp/Code/backend/rust_api/src/services/jobs/presentation)
+- [src/services/jobs/presentation](services/api/src/services/jobs/presentation)
 
 职责：
 
@@ -526,7 +526,7 @@ routes/library*.rs, collections.rs
 
 目录：
 
-- [src/job_runner](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner)
+- [src/job_runner](services/api/src/job_runner)
 
 职责：
 
@@ -587,7 +587,7 @@ routes/library*.rs, collections.rs
 
 目录：
 
-- [src/worker_command](/home/wxyhgk/tmp/Code/backend/rust_api/src/worker_command)
+- [src/worker_command](services/api/src/worker_command)
 
 职责：
 
@@ -597,7 +597,7 @@ routes/library*.rs, collections.rs
   选 Python 脚本入口，拼入口参数
 - `command_builder.rs`
   只做命令行构建细节
-- [src/worker_command.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/worker_command.rs)
+- [src/worker_command.rs](services/api/src/worker_command.rs)
   只保留对外 `build_*` facade
 
 规则：
@@ -610,13 +610,13 @@ routes/library*.rs, collections.rs
 
 文件：
 
-- [src/job_runner/process_runner.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/process_runner.rs)
-- [src/job_runner/process_runner/startup.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/process_runner/startup.rs)
-- [src/job_runner/process_runner/execution.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/process_runner/execution.rs)
-- [src/job_runner/process_runner/completion.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/process_runner/completion.rs)
-- [src/job_runner/process_runner/timeout_support.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/process_runner/timeout_support.rs)
-- [src/job_runner/process_runner/failure_ai_diagnosis.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/process_runner/failure_ai_diagnosis.rs)
-- [src/job_runner/process_runner/io_support.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/process_runner/io_support.rs)
+- [src/job_runner/process_runner.rs](services/api/src/job_runner/process_runner.rs)
+- [src/job_runner/process_runner/startup.rs](services/api/src/job_runner/process_runner/startup.rs)
+- [src/job_runner/process_runner/execution.rs](services/api/src/job_runner/process_runner/execution.rs)
+- [src/job_runner/process_runner/completion.rs](services/api/src/job_runner/process_runner/completion.rs)
+- [src/job_runner/process_runner/timeout_support.rs](services/api/src/job_runner/process_runner/timeout_support.rs)
+- [src/job_runner/process_runner/failure_ai_diagnosis.rs](services/api/src/job_runner/process_runner/failure_ai_diagnosis.rs)
+- [src/job_runner/process_runner/io_support.rs](services/api/src/job_runner/process_runner/io_support.rs)
 
 职责：
 
@@ -658,10 +658,10 @@ routes/library*.rs, collections.rs
 
 文件：
 
-- [src/job_runner/translation_flow.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/translation_flow.rs)
-- [src/job_runner/translation_flow_child.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/translation_flow_child.rs)
-- [src/job_runner/translation_flow_stage.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/translation_flow_stage.rs)
-- [src/job_runner/translation_flow_support.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/translation_flow_support.rs)
+- [src/job_runner/translation_flow.rs](services/api/src/job_runner/translation_flow.rs)
+- [src/job_runner/translation_flow_child.rs](services/api/src/job_runner/translation_flow_child.rs)
+- [src/job_runner/translation_flow_stage.rs](services/api/src/job_runner/translation_flow_stage.rs)
+- [src/job_runner/translation_flow_support.rs](services/api/src/job_runner/translation_flow_support.rs)
 
 职责：
 
@@ -684,8 +684,8 @@ routes/library*.rs, collections.rs
 
 文件：
 
-- [src/job_runner/ocr_flow/mod.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/ocr_flow/mod.rs)
-- [src/job_runner/ocr_flow/support.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/ocr_flow/support.rs)
+- [src/job_runner/ocr_flow/mod.rs](services/api/src/job_runner/ocr_flow/mod.rs)
+- [src/job_runner/ocr_flow/support.rs](services/api/src/job_runner/ocr_flow/support.rs)
 - 以及 `transport / polling / mineru / paddle / artifacts / provider_result / workspace / markdown_bundle / bundle_download / status / page_subset / mineru_retry / mineru_polling / paddle_markdown`
 
 职责：
@@ -701,12 +701,12 @@ routes/library*.rs, collections.rs
 
 文件：
 
-- [src/job_runner/stdout_parser/mod.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/stdout_parser/mod.rs)
-- [src/job_runner/stdout_parser/labels.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/stdout_parser/labels.rs)
-- [src/job_runner/stdout_parser/state.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/stdout_parser/state.rs)
-- [src/job_runner/stdout_parser/stage_rules.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/stdout_parser/stage_rules.rs)
-- [src/job_runner/stdout_parser/artifact_rules.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/stdout_parser/artifact_rules.rs)
-- [src/job_runner/stdout_parser/failure.rs](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/stdout_parser/failure.rs)
+- [src/job_runner/stdout_parser/mod.rs](services/api/src/job_runner/stdout_parser/mod.rs)
+- [src/job_runner/stdout_parser/labels.rs](services/api/src/job_runner/stdout_parser/labels.rs)
+- [src/job_runner/stdout_parser/state.rs](services/api/src/job_runner/stdout_parser/state.rs)
+- [src/job_runner/stdout_parser/stage_rules.rs](services/api/src/job_runner/stdout_parser/stage_rules.rs)
+- [src/job_runner/stdout_parser/artifact_rules.rs](services/api/src/job_runner/stdout_parser/artifact_rules.rs)
+- [src/job_runner/stdout_parser/failure.rs](services/api/src/job_runner/stdout_parser/failure.rs)
 
 职责：
 
@@ -727,7 +727,7 @@ routes/library*.rs, collections.rs
 
 目录：
 
-- [src/ocr_provider](/home/wxyhgk/tmp/Code/backend/rust_api/src/ocr_provider)
+- [src/ocr_provider](services/api/src/ocr_provider)
 
 职责：
 
@@ -862,5 +862,5 @@ routes/library*.rs, collections.rs
 
 相关补充文档：
 
-- [`STAGE_EXECUTION_CONTRACT.md`](/home/wxyhgk/tmp/Code/backend/rust_api/STAGE_EXECUTION_CONTRACT.md)
-- [`OCR_PROVIDER_CONTRACT.md`](/home/wxyhgk/tmp/Code/backend/rust_api/OCR_PROVIDER_CONTRACT.md)
+- [`STAGE_EXECUTION_CONTRACT.md`](services/api/STAGE_EXECUTION_CONTRACT.md)
+- [`OCR_PROVIDER_CONTRACT.md`](services/api/OCR_PROVIDER_CONTRACT.md)

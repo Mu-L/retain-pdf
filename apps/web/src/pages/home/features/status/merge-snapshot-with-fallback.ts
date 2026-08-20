@@ -5,6 +5,10 @@
 // 本函数把书架 item 的终态/进度补回 snapshot，详情与主流程共用一处。
 
 import type { StatusCardJobRecord, StatusCardSnapshot } from "./status-card-store.js";
+import { isPollingBootstrapPlaceholder } from "../shared/job-helpers.js";
+
+// 保持向后兼容：旧路径仍可 import isPollingBootstrapPlaceholder（迁移期）
+export { isPollingBootstrapPlaceholder } from "../shared/job-helpers.js";
 
 /** 书架 live 行（library item）上与进度合并相关的字段 */
 export type StatusCardFallbackItem = {
@@ -137,11 +141,4 @@ export function mergeSnapshotWithFallback(
   }
 
   return snapshot;
-}
-
-/** 书架 live 行是否为 startPolling 首帧占位（Dialog 层与 snapshot 层共用） */
-export function isPollingBootstrapPlaceholder(item: StatusCardFallbackItem = {}): boolean {
-  const status = `${item.status || ""}`.trim();
-  const detail = `${item.stage_detail || item.detail || ""}`;
-  return status === "queued" && detail.includes("正在读取任务状态");
 }

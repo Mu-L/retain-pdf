@@ -1,6 +1,9 @@
 import { DEFAULT_BASE_URL, DEFAULT_MODEL } from "./model-constants.js";
 import { normalizeOcrProvider } from "./providers.js";
 
+export const DEFAULT_FALLBACK_BASE = "http://127.0.0.1:41000";
+const DEFAULT_FALLBACK_PORT = 41000;
+
 export let runtimeConfig = {
   ...((typeof window !== "undefined" ? (window as any).__FRONT_RUNTIME_CONFIG__ : null) || {}),
 };
@@ -52,14 +55,14 @@ export function apiBase() {
     return runtimeConfig.apiBase.trim().replace(/\/+$/, "").replace(new RegExp(`${API_V1_SUFFIX}$`), "");
   }
   if (typeof window === "undefined") {
-    return "http://127.0.0.1:41000";
+    return DEFAULT_FALLBACK_BASE;
   }
   if (!isFileProtocol() && window.location.protocol === "https:") {
     return window.location.origin;
   }
   const host = window.location.hostname || "127.0.0.1";
   const protocol = window.location.protocol === "https:" ? "https:" : "http:";
-  return `${protocol}//${host}:41000`;
+  return `${protocol}//${host}:${DEFAULT_FALLBACK_PORT}`;
 }
 
 export function buildApiUrl(apiPrefix = "", relativePath = "") {

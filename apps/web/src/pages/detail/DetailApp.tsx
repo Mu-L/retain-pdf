@@ -22,7 +22,7 @@ import {
   StageHistoryModal,
   StageHistoryTriggerCard,
 } from "./components/EventsTimeline.jsx";
-import { DownloadToastHost } from "../../shared/react/DownloadToastHost.jsx";
+import { DownloadToastHost } from "@/shared/react/DownloadToastHost.jsx";
 import {
   normalizeJobPayload,
   getJobIdFromQuery,

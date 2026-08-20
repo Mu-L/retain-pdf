@@ -9,19 +9,19 @@
 ## 快速导航
 
 - 文档总入口：
-  [`README.md`](/home/wxyhgk/tmp/Code/backend/rust_api/README.md)
+  [`README.md`](README.md)
 - 只看当前运行主链：
-  [`CURRENT_API_MAP.md`](/home/wxyhgk/tmp/Code/backend/rust_api/CURRENT_API_MAP.md)
+  [`CURRENT_API_MAP.md`](CURRENT_API_MAP.md)
 - 只看 Rust 模块边界：
-  [`RUST_API_ARCHITECTURE.md`](/home/wxyhgk/tmp/Code/backend/rust_api/RUST_API_ARCHITECTURE.md)
+  [`RUST_API_ARCHITECTURE.md`](RUST_API_ARCHITECTURE.md)
 - 只看 OCR provider 边界：
-  [`OCR_PROVIDER_CONTRACT.md`](/home/wxyhgk/tmp/Code/backend/rust_api/OCR_PROVIDER_CONTRACT.md)
+  [`OCR_PROVIDER_CONTRACT.md`](OCR_PROVIDER_CONTRACT.md)
 - 只看 stage 运行时契约：
-  [`STAGE_EXECUTION_CONTRACT.md`](/home/wxyhgk/tmp/Code/backend/rust_api/STAGE_EXECUTION_CONTRACT.md)
+  [`STAGE_EXECUTION_CONTRACT.md`](STAGE_EXECUTION_CONTRACT.md)
 - 只看外部 API 协议：
-  [`API_SPEC.md`](/home/wxyhgk/tmp/Code/backend/rust_api/API_SPEC.md)
+  [`API_SPEC.md`](API_SPEC.md)
 - 只看渲染参数规范：
-  [`RENDER_OPTIONS_CONTRACT.md`](/home/wxyhgk/tmp/Code/backend/rust_api/RENDER_OPTIONS_CONTRACT.md)
+  [`RENDER_OPTIONS_CONTRACT.md`](RENDER_OPTIONS_CONTRACT.md)
 
 ## 1. 当前系统分层
 
@@ -40,9 +40,9 @@
 
 代码主入口：
 
-- [`src/routes/jobs/mod.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/routes/jobs/mod.rs)
-- [`src/services/jobs/*`](/home/wxyhgk/tmp/Code/backend/rust_api/src/services/jobs)
-- [`src/job_runner/*`](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner)
+- [`src/routes/jobs/mod.rs`](src/routes/jobs/mod.rs)
+- [`src/services/jobs/*`](src/services/jobs)
+- [`src/job_runner/*`](src/job_runner)
 
 ### Python 层
 
@@ -56,11 +56,11 @@
 
 代码主入口：
 
-- [`backend/scripts/entrypoints/run_provider_case.py`](/home/wxyhgk/tmp/Code/backend/scripts/entrypoints/run_provider_case.py)
-- [`backend/scripts/entrypoints/run_provider_ocr.py`](/home/wxyhgk/tmp/Code/backend/scripts/entrypoints/run_provider_ocr.py)
-- [`backend/scripts/entrypoints/run_normalize_ocr.py`](/home/wxyhgk/tmp/Code/backend/scripts/entrypoints/run_normalize_ocr.py)
-- [`backend/scripts/entrypoints/run_translate_only.py`](/home/wxyhgk/tmp/Code/backend/scripts/entrypoints/run_translate_only.py)
-- [`backend/scripts/entrypoints/run_render_only.py`](/home/wxyhgk/tmp/Code/backend/scripts/entrypoints/run_render_only.py)
+- [`services/pipeline/entrypoints/run_provider_case.py`](../../services/pipeline/entrypoints/run_provider_case.py)
+- [`services/pipeline/entrypoints/run_provider_ocr.py`](../../services/pipeline/entrypoints/run_provider_ocr.py)
+- [`services/pipeline/entrypoints/run_normalize_ocr.py`](../../services/pipeline/entrypoints/run_normalize_ocr.py)
+- [`services/pipeline/entrypoints/run_translate_only.py`](../../services/pipeline/entrypoints/run_translate_only.py)
+- [`services/pipeline/entrypoints/run_render_only.py`](../../services/pipeline/entrypoints/run_render_only.py)
 
 ## 2. 当前正式 workflow
 
@@ -103,9 +103,9 @@
 关键代码：
 
 - Rust 写 spec：
-  - [`src/worker_command.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/worker_command.rs)
+  - [`src/worker_command.rs`](src/worker_command.rs)
 - Python 按 provider 分发：
-  - [`backend/scripts/services/ocr_provider/provider_pipeline.py`](/home/wxyhgk/tmp/Code/backend/scripts/services/ocr_provider/provider_pipeline.py)
+  - [`services/pipeline/services/ocr_provider/provider_pipeline.py`](../../services/pipeline/services/ocr_provider/provider_pipeline.py)
 
 注意：生产主链的 `book` job 不再以 `run_provider_case.py` 作为初始命令。`book` job 创建时只保存
 `book-workflow-rust-orchestrated` 占位命令，真正执行由 Rust `job_runner` 串联 OCR child、normalize、
@@ -132,7 +132,7 @@ legacy/local helper stage：
 
 对应 Python loader：
 
-- [`backend/scripts/foundation/shared/stage_specs.py`](/home/wxyhgk/tmp/Code/backend/scripts/foundation/shared/stage_specs.py)
+- [`services/pipeline/foundation/shared/stage_specs.py`](../../services/pipeline/foundation/shared/stage_specs.py)
 
 ## 5. Rust 到 Python 的真实执行链
 
@@ -146,8 +146,8 @@ legacy/local helper stage：
 
 Rust 路由：
 
-- [`src/routes/jobs/create.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/routes/jobs/create.rs)
-- [`src/services/jobs/facade.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/services/jobs/facade.rs)
+- [`src/routes/jobs/create.rs`](src/routes/jobs/create.rs)
+- [`src/services/jobs/facade.rs`](src/services/jobs/facade.rs)
 
 ### 第二步：Rust 创建 job
 
@@ -160,9 +160,9 @@ Rust 路由：
 
 主要代码：
 
-- [`src/services/jobs/creation`](/home/wxyhgk/tmp/Code/backend/rust_api/src/services/jobs/creation)
-- [`src/services/job_snapshot_factory.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/services/job_snapshot_factory.rs)
-- [`src/services/job_launcher.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/services/job_launcher.rs)
+- [`src/services/jobs/creation`](src/services/jobs/creation)
+- [`src/services/job_snapshot_factory.rs`](src/services/job_snapshot_factory.rs)
+- [`src/services/job_launcher.rs`](src/services/job_launcher.rs)
 
 注意：
 
@@ -181,10 +181,10 @@ Rust 根据 workflow 选择运行计划：
 
 主要代码：
 
-- [`src/job_runner/lifecycle.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/lifecycle.rs)
-- [`src/job_runner/translation_flow.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/translation_flow.rs)
-- [`src/job_runner/ocr_flow/mod.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/ocr_flow/mod.rs)
-- [`src/job_runner/render_flow.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/render_flow.rs)
+- [`src/job_runner/lifecycle.rs`](src/job_runner/lifecycle.rs)
+- [`src/job_runner/translation_flow.rs`](src/job_runner/translation_flow.rs)
+- [`src/job_runner/ocr_flow/mod.rs`](src/job_runner/ocr_flow/mod.rs)
+- [`src/job_runner/render_flow.rs`](src/job_runner/render_flow.rs)
 
 ### 第四步：Rust 按 stage 写 spec 并启动 worker
 
@@ -209,9 +209,9 @@ Rust 根据 workflow 选择运行计划：
 
 当前真实入口：
 
-- [`src/app/jobs.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/app/jobs.rs)
+- [`src/app/jobs.rs`](src/app/jobs.rs)
   把 `AppState` 压缩成 `ProcessRuntimeDeps`
-- [`src/job_runner/lifecycle.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/lifecycle.rs)
+- [`src/job_runner/lifecycle.rs`](src/job_runner/lifecycle.rs)
   负责 queued、执行槽位、workflow 分发
 
 ### 第六步：Rust 启动 Python worker
@@ -224,10 +224,10 @@ Rust 根据 workflow 选择运行计划：
 
 主要代码：
 
-- [`src/job_runner/process_runner.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/process_runner.rs)
-- [`src/job_runner/process_runner/startup.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/process_runner/startup.rs)
-- [`src/job_runner/process_runner/execution.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/process_runner/execution.rs)
-- [`src/job_runner/worker_process.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/job_runner/worker_process.rs)
+- [`src/job_runner/process_runner.rs`](src/job_runner/process_runner.rs)
+- [`src/job_runner/process_runner/startup.rs`](src/job_runner/process_runner/startup.rs)
+- [`src/job_runner/process_runner/execution.rs`](src/job_runner/process_runner/execution.rs)
+- [`src/job_runner/worker_process.rs`](src/job_runner/worker_process.rs)
 
 ### 第七步：Python stage worker 执行
 
@@ -379,19 +379,19 @@ Rust API 生产主链入口。
 
 ### 看 API 请求长什么样
 
-- [`API_SPEC.md`](/home/wxyhgk/tmp/Code/backend/rust_api/API_SPEC.md)
+- [`API_SPEC.md`](API_SPEC.md)
 
 ### 看 Rust 到底起了哪个 Python 脚本
 
-- [`src/worker_command.rs`](/home/wxyhgk/tmp/Code/backend/rust_api/src/worker_command.rs)
+- [`src/worker_command.rs`](src/worker_command.rs)
 
 ### 看 Python provider 总入口怎么分发
 
-- [`backend/scripts/services/ocr_provider/provider_pipeline.py`](/home/wxyhgk/tmp/Code/backend/scripts/services/ocr_provider/provider_pipeline.py)
+- [`services/pipeline/services/ocr_provider/provider_pipeline.py`](../../services/pipeline/services/ocr_provider/provider_pipeline.py)
 
 ### 看 stage spec 长什么样
 
-- [`backend/scripts/foundation/shared/stage_specs.py`](/home/wxyhgk/tmp/Code/backend/scripts/foundation/shared/stage_specs.py)
+- [`services/pipeline/foundation/shared/stage_specs.py`](../../services/pipeline/foundation/shared/stage_specs.py)
 
 ### 看最终主链结果
 

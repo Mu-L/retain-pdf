@@ -1,0 +1,25 @@
+/* home-specific dialog overlays — extracted from dialog-shell.css for boundary purity
+ * dialog-shell.css is shared across home/detail/reader (tokens/base/pages).
+ * These two utilities are home-only (StatusDetailDialog z-110, BookDetailDialog)
+ * and must not leak into reader/detail bundles.
+ * Imported only by src/styles/entries/home.css
+ */
+
+@utility status-detail-dialog-overlay {
+  /* StatusDetailDialog 专属背板 — z-index 110 (高于 desktop-dialog-overlay 100),
+     确保嵌套在 TranslationWorkflowDialog 之上时正确覆盖 */
+  @apply fixed inset-0 z-[110];
+  background: var(--dialog-scrim);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  &[data-state='open'] { animation: dialog-overlay-in 200ms var(--ease-out); }
+  &[data-state='closed'] { animation: dialog-overlay-out 200ms var(--ease-out) forwards; }
+}
+
+/* BookDetailDialog 用的是自己那套原始 Tailwind 类(照搬 PDF_MD_lib 视觉),
+   没有走 desktop-dialog 工具类,单独补同一套进出场关键帧。 */
+@utility book-detail-dialog-content {
+  &[data-state='open'] { animation: dialog-content-in 200ms var(--ease-out); }
+  &[data-state='closed'] { animation: dialog-content-out 200ms var(--ease-out) forwards; }
+}

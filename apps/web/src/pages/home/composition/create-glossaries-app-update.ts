@@ -1,11 +1,11 @@
 // glossaries + app-update。
 
+import { API_PREFIX } from "./external/config.js";
 import {
-  API_PREFIX,
   mountGlossariesFeature,
   mountAppUpdateFeature,
   normalizeReleaseInfo,
-} from "./external.js";
+} from "./external/features.js";
 import { createGlossariesViewFeature } from "../features/glossaries/glossaries-store.js";
 import { createGlossariesDialogStore } from "../features/glossaries/glossaries-dialog-store.js";
 import { createAppUpdateViewFeature } from "../features/app-update/app-update-store.js";
