@@ -64,4 +64,4 @@ export const CREDENTIAL_DOM_DATASETS = {
 // src/js/components/dialogs/app-settings-dialog-contract.js)。
 // Decoupled: source of truth moved to features/shared/settings-dialog-ids.ts
 // (settings → credentials coupling removed). Re-export for backward-compat.
-export { APP_SETTINGS_DIALOG_IDS, APP_SETTINGS_DIALOG_DATASETS } from "../shared/settings-dialog-ids.js";
+export { APP_SETTINGS_DIALOG_IDS, APP_SETTINGS_DIALOG_DATASETS } from "@/pages/home/features/shared/settings-dialog-ids.js";

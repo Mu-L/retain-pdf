@@ -32,8 +32,34 @@ jobs:
       - name: Cargo Workspace Tests
         run: cargo test --workspace --manifest-path services/api/Cargo.toml
 
+  packages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.0"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install (root workspaces)
+        run: npm install
+
+      - name: Build @retainpdf/ui
+        run: npm --prefix packages/ui run build
+
+      - name: Build @retainpdf/api
+        run: npm --prefix packages/api run build
+
+      - name: Build @retainpdf/reader
+        run: npm --prefix packages/reader run build
+
   frontend:
     runs-on: ubuntu-latest
+    needs: packages
     steps:
       - name: Checkout
         uses: actions/checkout@v4

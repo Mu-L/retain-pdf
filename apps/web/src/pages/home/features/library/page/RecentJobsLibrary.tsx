@@ -312,4 +312,4 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
 // onSearch/query 通道,避免出现两条平行实现。
 // — Decoupled: canonical implementation lives in features/shared/use-library-search-binding.js;
 //   AppBottomBar now imports from shared, not from library (removes app-shell → library coupling).
-export { useLibrarySearchBinding } from "../../shared/use-library-search-binding.js";
+export { useLibrarySearchBinding } from "@/pages/home/features/shared/use-library-search-binding.js";

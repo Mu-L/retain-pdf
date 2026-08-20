@@ -1,7 +1,7 @@
 // 书架工具栏(照搬 PDF_MD_lib 的 LibraryCollectionContextBar):左侧上下文标签 +
 // 数量;右侧排序下拉 + 网格/列表切换(筛选按钮在后续阶段接)。
 
-import { cn } from "@/lib/utils";
+import { cn } from "@retainpdf/ui/lib/utils";
 
 const SORT_OPTIONS = [
   { value: "updated", label: "最近更新" },

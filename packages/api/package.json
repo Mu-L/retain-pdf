@@ -24,11 +24,11 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "dev": "tsc --watch -p tsconfig.json"
   },
-  "dependencies": {
-    "@retainpdf/schemas": "workspace:*"
-  },
   "peerDependencies": {
     "zod": "^3.22.0"
+  },
+  "peerDependenciesMeta": {
+    "zod": { "optional": true }
   },
   "devDependencies": {
     "typescript": "^7.0.2"

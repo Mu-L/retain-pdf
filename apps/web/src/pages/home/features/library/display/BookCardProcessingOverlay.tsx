@@ -1,6 +1,6 @@
 // 封面中央「处理中」加载层：排队/OCR/翻译/渲染时用，不在角标写过程文案。
 
-import { cn } from "@/lib/utils";
+import { cn } from "@retainpdf/ui/lib/utils";
 
 type BookCardProcessingOverlayProps = {
   /** 列表缩略图用更小尺寸 */

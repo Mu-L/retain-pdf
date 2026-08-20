@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 VERSION_TAG="${1:-}"
 
 if [[ -z "${VERSION_TAG}" ]]; then
@@ -42,14 +42,14 @@ WEB_LATEST_IMAGE="${WEB_REPO}:latest"
 docker build \
   "${build_arg_flags[@]}" \
   --build-arg "TYPST_VERSION=${TYPST_VERSION}" \
-  -f "${ROOT_DIR}/docker/Dockerfile.app" \
+  -f "${ROOT_DIR}/infra/docker/Dockerfile.app" \
   -t "${APP_VERSION_IMAGE}" \
   "${ROOT_DIR}"
 
 docker build \
   "${build_arg_flags[@]}" \
   --build-arg "RETAIN_PDF_VERSION=${VERSION_TAG#v}" \
-  -f "${ROOT_DIR}/docker/Dockerfile.web" \
+  -f "${ROOT_DIR}/infra/docker/Dockerfile.web" \
   -t "${WEB_VERSION_IMAGE}" \
   "${ROOT_DIR}"
 

@@ -2,7 +2,7 @@
 // 弹窗——满载测试下少一个重型 modal 更稳):按状态 + 标签筛选,客户端过滤已加载项。
 
 import { useEffect, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@retainpdf/ui/lib/utils";
 
 export const STATUS_FILTERS = [
   { value: "all", label: "全部" },

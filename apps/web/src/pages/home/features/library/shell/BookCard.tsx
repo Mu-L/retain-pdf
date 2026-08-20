@@ -14,7 +14,7 @@
 // 加按钮 = 调用方拼更大的 actions 数组,不必改本文件。
 
 import { memo } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@retainpdf/ui/lib/utils";
 import { isLibraryCardProcessing, libraryCardBadge } from "../display/library-card-badge.js";
 import { BadgeIcon } from "../display/library-card-badge-icon.jsx";
 import { BookCardProcessingOverlay } from "../display/BookCardProcessingOverlay.jsx";

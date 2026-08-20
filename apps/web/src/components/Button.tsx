@@ -21,8 +21,8 @@
 //   <Button className="app-button" onClick={...}>保存</Button>            // 沿用现状视觉
 //   <Button variant="ghost" size="icon" aria-label="关闭">×</Button>       // 走 shadcn 皮肤
 
-import { cn } from "@/lib/utils";
-import { buttonVariants } from "@/components/ui/button.jsx";
+import { cn } from "@retainpdf/ui/lib/utils";
+import { buttonVariants } from "@retainpdf/ui/components/ui/button";
 
 const SHADCN_VARIANTS = new Set(["default", "destructive", "outline", "secondary", "ghost", "link"]);
 

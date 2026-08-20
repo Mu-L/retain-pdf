@@ -3,9 +3,21 @@ FROM node:22-alpine AS frontend-builder
 ARG RETAIN_PDF_VERSION=""
 ENV RETAIN_PDF_VERSION="${RETAIN_PDF_VERSION}"
 
-WORKDIR /app/frontend
+WORKDIR /app
 
-COPY apps/web/package.json apps/web/package-lock.json ./
+# workspace packages needed for @retainpdf/* file: deps (reader/ui/api)
+COPY package.json ./
+COPY packages/reader/package.json ./packages/reader/package.json
+COPY packages/ui/package.json ./packages/ui/package.json
+COPY packages/api/package.json ./packages/api/package.json
+COPY apps/web/package.json apps/web/package-lock.json ./apps/web/
+COPY packages/reader/ ./packages/reader/
+COPY packages/ui/ ./packages/ui/
+COPY packages/api/ ./packages/api/
+# strip scripts that need local node_modules (prevent npm ci from running package prepare)
+RUN rm -rf ./packages/reader/node_modules ./packages/ui/node_modules || true
+
+WORKDIR /app/apps/web
 RUN npm ci
 
 COPY apps/desktop/package.json /app/apps/desktop/package.json

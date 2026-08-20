@@ -13,9 +13,18 @@ import {
 import {
   fetchJobEvents,
 } from "../api/jobs-events.js";
-import {
-  fetchJobPayload,
-} from "../api/jobs-query.js";
+// Pilot: migrated from src/js/api/jobs-query.ts to @retainpdf/api (source of truth).
+// Mock-aware wrapper preserves previous isMockMode behavior.
+import { isMockMode } from "../config/runtime.js";
+import { getMockJobPayload } from "../mock/index.js";
+import { fetchJobPayload as _fetchJobPayload } from "@retainpdf/api/jobs";
+async function fetchJobPayload(jobId: string, apiPrefix?: string): Promise<any> {
+  if (isMockMode()) {
+    void apiPrefix;
+    return getMockJobPayload(jobId);
+  }
+  return (_fetchJobPayload as any)(jobId, apiPrefix);
+}
 import { fetchProtected } from "../api/http.js";
 
 export function createJobDetailDataPort({

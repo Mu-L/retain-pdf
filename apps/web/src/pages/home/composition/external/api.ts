@@ -1,6 +1,8 @@
 // composition/external/api — api barrel (http, jobs-*, library, ai, glossaries)
+// Source of truth for jobs/library-books is now @retainpdf/api; this barrel keeps
+// the public import surface (pages/home/* stays `from "./external/api.js"`), but
+// delegates to @retainpdf/api with mock + header adapters so behaviors (mock, X-API-Key) stay identical.
 
-// —— api ——
 export {
   buildApiEndpoint,
   buildJobDetailEndpoint,
@@ -8,10 +10,63 @@ export {
   submitJson,
   submitUploadRequest as submitUploadRequestHttp,
 } from "../../../../js/api/http.js";
-export {
-  fetchJobList,
-  fetchJobPayload,
-} from "../../../../js/api/jobs-query.js";
+
+// jobs + library-books — migrated to @retainpdf/api (pilot: source of truth)
+import { isMockMode } from "../../../../js/config/runtime.js";
+import { getMockJobList, getMockJobPayload } from "../../../../js/mock/index.js";
+import { countMockFavoritesByJob } from "../../../../js/mock/documents.js";
+import {
+  fetchJobList as _fetchJobList,
+  fetchJobPayload as _fetchJobPayload,
+} from "@retainpdf/api/jobs";
+import {
+  fetchLibraryBookList as _fetchLibraryBookList,
+  deleteLibraryBook as _deleteLibraryBook,
+} from "@retainpdf/api/library-books";
+
+// Keep original (jobId, apiPrefix) / (apiPrefix, opts) signatures so downstream controllers need no change.
+// Use `export const` form so architecture-boundaries test (`export const|function`) detects these symbols.
+export const fetchJobPayload = async (jobId: string, apiPrefix?: string): Promise<any> => {
+  if (isMockMode()) {
+    void apiPrefix;
+    return getMockJobPayload(jobId);
+  }
+  // @retainpdf/api supports both (jobId, apiPrefix) and (apiPrefix, jobId); call in web order.
+  return (_fetchJobPayload as any)(jobId, apiPrefix);
+};
+
+export const fetchJobList = async (apiPrefix: string, opts: any = {}): Promise<any> => {
+  if (isMockMode()) {
+    void apiPrefix;
+    void opts;
+    return getMockJobList();
+  }
+  return (_fetchJobList as any)(apiPrefix, opts);
+};
+
+export const fetchLibraryBookList = async (apiPrefix: string, opts: any = {}): Promise<any> => {
+  if (isMockMode()) {
+    const jobIds = Array.isArray(opts?.jobIds) ? opts.jobIds : [];
+    return getMockJobList({ jobIds });
+  }
+  return (_fetchLibraryBookList as any)(apiPrefix, opts);
+};
+
+export const deleteLibraryBook = async (apiPrefix: string, jobId: string, opts: any = {}): Promise<any> => {
+  const normalizedJobId = `${jobId || ""}`.trim().replace(/-ocr$/, "");
+  if (!normalizedJobId) throw new Error("删除失败: 缺少 job_id");
+  if (isMockMode()) {
+    const referenced = countMockFavoritesByJob(normalizedJobId);
+    if (referenced > 0 && !opts?.force) {
+      const conflict = new Error(`该 job 被 ${referenced} 条收藏引用(409)`) as Error & { status?: number };
+      (conflict as any).status = 409;
+      throw conflict;
+    }
+    return { job_id: normalizedJobId };
+  }
+  return (_deleteLibraryBook as any)(apiPrefix, jobId, opts);
+};
+
 export { fetchJobEvents } from "../../../../js/api/jobs-events.js";
 export { fetchJobArtifactsManifest } from "../../../../js/api/jobs-artifacts.js";
 export {
@@ -22,10 +77,6 @@ export {
   retryJobStage,
 } from "../../../../js/api/jobs-actions.js";
 export { submitJobRequest } from "../../../../js/api/jobs-submit.js";
-export {
-  fetchLibraryBookList,
-  deleteLibraryBook,
-} from "../../../../js/api/library-books.js";
 export {
   fetchDocumentList,
   fetchDocument,

@@ -1,6 +1,16 @@
 // 代理 @retainpdf/reader 共享真值，注入 RetainPDF 真实依赖
 import { API_PREFIX } from "../../../js/config/api-constants.js";
-import { fetchJobPayload } from "../../../js/api/jobs-query.js";
+// Pilot: migrated from src/js/api/jobs-query.ts to @retainpdf/api
+import { isMockMode } from "../../../js/config/runtime.js";
+import { getMockJobPayload } from "../../../js/mock/index.js";
+import { fetchJobPayload as _fetchJobPayload } from "@retainpdf/api/jobs";
+async function fetchJobPayload(jobId: string, apiPrefix?: string): Promise<any> {
+  if (isMockMode()) {
+    void apiPrefix;
+    return getMockJobPayload(jobId);
+  }
+  return (_fetchJobPayload as any)(jobId, apiPrefix);
+}
 import {
   fetchJobArtifactsManifest,
   fetchJobMarkdown,

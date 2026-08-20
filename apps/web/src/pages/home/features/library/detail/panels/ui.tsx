@@ -1,7 +1,7 @@
 // 详情弹窗 panel 共用小工具（样式 / 图标），无业务。
 
-import { cn } from "@/lib/utils";
-import { buttonVariants } from "@/components/ui/button.jsx";
+import { cn } from "@retainpdf/ui/lib/utils";
+import { buttonVariants } from "@retainpdf/ui/components/ui/button";
 
 export const btn = (variant, extra = "") =>
   cn(buttonVariants({ variant, size: "sm" }), "h-8 text-xs rounded-md", extra);

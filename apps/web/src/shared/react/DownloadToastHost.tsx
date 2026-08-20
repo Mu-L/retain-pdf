@@ -24,7 +24,7 @@
 
 import { useCallback } from "react";
 import { toast } from "sonner";
-import { Toaster } from "@/components/ui/sonner.jsx";
+import { Toaster } from "@retainpdf/ui";
 
 declare module "react" {
   namespace JSX {

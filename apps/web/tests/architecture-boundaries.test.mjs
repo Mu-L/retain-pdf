@@ -777,3 +777,45 @@ test("composition/external re-exports cover all symbols imported by home feature
     `以下符号被 home features 从 composition/external 导入，但在 external barrels 中未 re-export，请补到 external/*:\n  ${missing.join("\n  ")}`,
   );
 });
+
+test("@/lib/utils proxies to @retainpdf/ui (not duplicated cn impl)", () => {
+  const utilsPath = join(PROJECT_ROOT, "src/lib/utils.ts");
+  const uiUtilsPath = join(PROJECT_ROOT, "../../packages/ui/src/lib/utils.ts");
+  assert.equal(existsSync(utilsPath), true, "src/lib/utils.ts must exist");
+  assert.equal(existsSync(uiUtilsPath), true, "packages/ui/src/lib/utils.ts must exist");
+  const proxySource = readFileSync(utilsPath, "utf8");
+  // sole export should re-export from @retainpdf/ui, no local clsx/twMerge impl
+  assert.match(proxySource, /from\s+["']@retainpdf\/ui\/lib\/utils["']/, "src/lib/utils.ts should proxy to @retainpdf/ui/lib/utils");
+  assert.equal(proxySource.includes("clsx"), false, "proxy must not duplicate clsx impl");
+  assert.equal(proxySource.includes("twMerge"), false, "proxy must not duplicate twMerge impl");
+  const uiSource = readFileSync(uiUtilsPath, "utf8");
+  assert.match(uiSource, /clsx/, "packages/ui/src/lib/utils.ts should own clsx/twMerge impl");
+  assert.match(uiSource, /twMerge/, "packages/ui/src/lib/utils.ts should own clsx/twMerge impl");
+  // tsconfig + esbuild + jsx-loader must resolve @retainpdf/* to packages/*
+  const tsconfigRaw = readFileSync(join(PROJECT_ROOT, "tsconfig.json"), "utf8");
+  assert.match(tsconfigRaw, /"@retainpdf\/ui"/, "@retainpdf/ui must be mapped in tsconfig paths");
+  assert.match(tsconfigRaw, /"@retainpdf\/ui\/\*"/, "@retainpdf/ui/* must be mapped in tsconfig paths");
+  assert.match(tsconfigRaw, /"@retainpdf\/api"/, "@retainpdf/api must be mapped in tsconfig paths");
+  const bundle = readFileSync(join(PROJECT_ROOT, "scripts/build-js-bundle.mjs"), "utf8");
+  assert.match(bundle, /@retainpdf\/ui/, "build-js-bundle.mjs must alias @retainpdf/ui to packages/ui");
+  assert.match(bundle, /@retainpdf\/api/, "build-js-bundle.mjs must alias @retainpdf/api to packages/api");
+  const loader = readFileSync(join(PROJECT_ROOT, "tests/helpers/jsx-loader.mjs"), "utf8");
+  assert.match(loader, /@retainpdf\//, "jsx-loader.mjs must resolve @retainpdf/* for tests");
+});
+
+test("@retainpdf/ui and @retainpdf/api packages expose expected entries", () => {
+  for (const pkg of ["ui", "api"]) {
+    const pkgJson = JSON.parse(readFileSync(join(PROJECT_ROOT, `../../packages/${pkg}/package.json`), "utf8"));
+    assert.equal(pkgJson.name, `@retainpdf/${pkg}`, `packages/${pkg}/package.json name must be @retainpdf/${pkg}`);
+    assert.ok(pkgJson.exports?.["."], `packages/${pkg} must export "."`);
+    assert.ok(pkgJson.scripts?.build, `packages/${pkg} must have build script`);
+    assert.ok(pkgJson.scripts?.typecheck, `packages/${pkg} must have typecheck script`);
+  }
+  // ui exports styles.css must resolve to existing built artifact after build
+  const uiPkg = JSON.parse(readFileSync(join(PROJECT_ROOT, "../../packages/ui/package.json"), "utf8"));
+  assert.ok(uiPkg.exports?.["./styles.css"], "@retainpdf/ui must export ./styles.css");
+  // api exports library-books / jobs subpaths
+  const apiPkg = JSON.parse(readFileSync(join(PROJECT_ROOT, "../../packages/api/package.json"), "utf8"));
+  assert.ok(apiPkg.exports?.["./library-books"], "@retainpdf/api must export ./library-books");
+  assert.ok(apiPkg.exports?.["./jobs"], "@retainpdf/api must export ./jobs");
+});

@@ -5,10 +5,10 @@
 // 本函数把书架 item 的终态/进度补回 snapshot，详情与主流程共用一处。
 
 import type { StatusCardJobRecord, StatusCardSnapshot } from "./status-card-store.js";
-import { isPollingBootstrapPlaceholder } from "../shared/job-helpers.js";
+import { isPollingBootstrapPlaceholder } from "@/pages/home/features/shared/job-helpers.js";
 
 // 保持向后兼容：旧路径仍可 import isPollingBootstrapPlaceholder（迁移期）
-export { isPollingBootstrapPlaceholder } from "../shared/job-helpers.js";
+export { isPollingBootstrapPlaceholder } from "@/pages/home/features/shared/job-helpers.js";
 
 /** 书架 live 行（library item）上与进度合并相关的字段 */
 export type StatusCardFallbackItem = {
