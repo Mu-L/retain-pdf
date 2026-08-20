@@ -15,7 +15,7 @@ export interface BindRecentJobsCommandHandlersOptions {
   commandPort?: Pick<RecentJobsCommandPort, "subscribe">;
   fetchJobPayload?: (
     jobId: string,
-    apiPrefix?: string,
+    options?: { apiPrefix?: string } | string,
   ) => Promise<LibraryJobItem | Record<string, unknown> | null | undefined>;
   libraryBooksResource?: { invalidate?: () => void } | null;
   runtimePatches?: Pick<RecentJobsRuntimePatches, "update" | "insert">;

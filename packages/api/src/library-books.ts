@@ -1,6 +1,8 @@
 // Library books API — standalone, wraps @retainpdf/schemas/library-books.v1
 // No apps/web deps; browser-aware (reads window.__FRONT_RUNTIME_CONFIG__ for apiBase / X-API-Key if present).
 
+import { stripOcrSuffix } from "./utils/strip-ocr.js";
+
 const API_PREFIX = "/api/v1";
 const API_V1_SUFFIX = "/api/v1";
 const DEFAULT_FALLBACK_BASE = "http://127.0.0.1:41000";
@@ -75,7 +77,7 @@ export async function fetchLibraryBookList(
 }
 
 export async function deleteLibraryBook(apiPrefix: string, jobId: string, { force = false } = {}) {
-  const normalizedJobId = `${jobId || ""}`.trim().replace(/-ocr$/, "");
+  const normalizedJobId = stripOcrSuffix(`${jobId || ""}`);
   if (!normalizedJobId) throw new Error("删除失败: 缺少 job_id");
   const params = force ? "?force=true" : "";
   const resp = await fetch(

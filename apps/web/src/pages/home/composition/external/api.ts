@@ -23,16 +23,36 @@ import {
   fetchLibraryBookList as _fetchLibraryBookList,
   deleteLibraryBook as _deleteLibraryBook,
 } from "@retainpdf/api/library-books";
+import { stripOcrSuffix } from "@retainpdf/api/utils/strip-ocr";
 
-// Keep original (jobId, apiPrefix) / (apiPrefix, opts) signatures so downstream controllers need no change.
-// Use `export const` form so architecture-boundaries test (`export const|function`) detects these symbols.
-export const fetchJobPayload = async (jobId: string, apiPrefix?: string): Promise<any> => {
+// Canonical: (jobId, { apiPrefix }). Legacy string / swapped forms kept with deprecation warning.
+export const fetchJobPayload = async (
+  jobId: string,
+  options?: { apiPrefix?: string } | string,
+): Promise<any> => {
+  let normalizedJobId = jobId;
+  let apiPrefix: string | undefined;
+  if (
+    typeof jobId === "string" &&
+    jobId.startsWith("/") &&
+    typeof options === "string" &&
+    options != null &&
+    !options.startsWith("/")
+  ) {
+    console.warn("[deprecated] fetchJobPayload(apiPrefix, jobId) is deprecated, use fetchJobPayload(jobId, { apiPrefix })");
+    apiPrefix = jobId;
+    normalizedJobId = options;
+  } else if (typeof options === "string") {
+    console.warn("[deprecated] fetchJobPayload(jobId, apiPrefix) string form is deprecated, use fetchJobPayload(jobId, { apiPrefix })");
+    apiPrefix = options;
+  } else if (options && typeof options === "object") {
+    apiPrefix = (options as { apiPrefix?: string }).apiPrefix;
+  }
   if (isMockMode()) {
     void apiPrefix;
-    return getMockJobPayload(jobId);
+    return getMockJobPayload(normalizedJobId);
   }
-  // @retainpdf/api supports both (jobId, apiPrefix) and (apiPrefix, jobId); call in web order.
-  return (_fetchJobPayload as any)(jobId, apiPrefix);
+  return (_fetchJobPayload as any)(normalizedJobId, apiPrefix ? { apiPrefix } : undefined);
 };
 
 export const fetchJobList = async (apiPrefix: string, opts: any = {}): Promise<any> => {
@@ -53,7 +73,7 @@ export const fetchLibraryBookList = async (apiPrefix: string, opts: any = {}): P
 };
 
 export const deleteLibraryBook = async (apiPrefix: string, jobId: string, opts: any = {}): Promise<any> => {
-  const normalizedJobId = `${jobId || ""}`.trim().replace(/-ocr$/, "");
+  const normalizedJobId = stripOcrSuffix(`${jobId || ""}`);
   if (!normalizedJobId) throw new Error("删除失败: 缺少 job_id");
   if (isMockMode()) {
     const referenced = countMockFavoritesByJob(normalizedJobId);

@@ -6,6 +6,7 @@ import {
 } from "../../app-framework/store.js";
 import { dedupeRecentJobs } from "./pagination.js";
 import type { LibraryJobItem, StageAdapterPort } from "./runtime-item.js";
+import { stripOcrSuffix } from "@retainpdf/api/utils/strip-ocr";
 
 export type { LibraryJobItem, StageAdapterPort };
 
@@ -143,7 +144,7 @@ export function createRecentJobsStore(
         };
       },
       removeJobFamily(currentState, jobId) {
-        const rootJobId = normalizedJobId(jobId).replace(/-ocr$/, "");
+        const rootJobId = stripOcrSuffix(normalizedJobId(jobId));
         if (!rootJobId) {
           return currentState;
         }

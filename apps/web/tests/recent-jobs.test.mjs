@@ -1290,7 +1290,8 @@ test("recent jobs command handlers invalidate list resource before patching and 
         return { destroy() {} };
       },
     },
-    fetchJobPayload: async (jobId, apiPrefix) => {
+    fetchJobPayload: async (jobId, options) => {
+      const apiPrefix = typeof options === "string" ? options : options?.apiPrefix;
       fetches.push([jobId, apiPrefix]);
       return { job_id: jobId, status: "running", hydrated: true };
     },
@@ -1686,12 +1687,15 @@ test("created recent job hydration fetches full payload and patches the card", a
   const payload = await hydrateCreatedRecentJob({
     job: { job_id: "job-created" },
     apiPrefix: "/api",
-    fetchJobPayload: async (jobId, apiPrefix) => ({
-      job_id: jobId,
-      apiPrefix,
-      cover_url: `/api/v1/jobs/${jobId}/cover`,
-      progress: { current: 1, total: 9 },
-    }),
+    fetchJobPayload: async (jobId, options) => {
+      const apiPrefix = typeof options === "string" ? options : options?.apiPrefix;
+      return {
+        job_id: jobId,
+        apiPrefix,
+        cover_url: `/api/v1/jobs/${jobId}/cover`,
+        progress: { current: 1, total: 9 },
+      };
+    },
     runtimePatches: {
       update: (job) => updates.push(job),
     },

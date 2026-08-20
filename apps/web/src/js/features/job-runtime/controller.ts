@@ -93,7 +93,7 @@ export function mountJobRuntimeFeature({
     }
     let payload;
     try {
-      payload = await fetchJobPayload(jobId, apiPrefix);
+      payload = await fetchJobPayload(jobId, { apiPrefix });
     } finally {
       pollingPort.finishPoll(generation);
     }

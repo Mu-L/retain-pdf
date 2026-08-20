@@ -1,4 +1,5 @@
 import type { ApiResponse, JobDetailView, JobListView, LibraryDeleteResultView } from './library-api-types'
+import { stripOcrSuffix } from '@retainpdf/api/utils/strip-ocr'
 
 type RuntimeConfig = {
   apiBase?: string
@@ -111,7 +112,7 @@ export function getLibraryJob(jobId: string) {
 }
 
 function libraryBookId(jobId: string) {
-  return jobId.endsWith('-ocr') ? jobId.slice(0, -4) : jobId
+  return stripOcrSuffix(jobId)
 }
 
 export async function deleteLibraryBook(jobId: string, options: { force?: boolean } = {}) {

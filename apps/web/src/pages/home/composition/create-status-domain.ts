@@ -61,7 +61,7 @@ export function createStatusDomain({
     apiPrefix: API_PREFIX,
     fetchJobPayload: fetchJobPayload as (
       jobId: string,
-      apiPrefix?: string,
+      options?: { apiPrefix?: string } | string,
     ) => Promise<import("../../../js/job/types.js").JobLike | import("../../../js/job/types.js").JobPayload | null | undefined>,
     fetchJobEvents: fetchJobEvents as (
       jobId: string,

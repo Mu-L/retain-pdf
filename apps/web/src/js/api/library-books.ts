@@ -13,6 +13,7 @@ import { unwrapEnvelope } from "../job/core.js";
 import { countMockFavoritesByJob } from "../mock/documents.js";
 import { getMockJobList } from "../mock/index.js";
 import { buildApiEndpoint } from "./http.js";
+import { stripOcrSuffix } from "@retainpdf/api/utils/strip-ocr";
 
 export async function fetchLibraryBookList(apiPrefix, { limit = 40, offset = 0, q = "", jobIds = [] } = {}) {
   if (isMockMode()) {
@@ -37,7 +38,7 @@ export async function fetchLibraryBookList(apiPrefix, { limit = 40, offset = 0, 
 }
 
 export async function deleteLibraryBook(apiPrefix, jobId, { force = false } = {}) {
-  const normalizedJobId = `${jobId || ""}`.trim().replace(/-ocr$/, "");
+  const normalizedJobId = stripOcrSuffix(`${jobId || ""}`);
   if (!normalizedJobId) {
     throw new Error("删除失败: 缺少 job_id");
   }

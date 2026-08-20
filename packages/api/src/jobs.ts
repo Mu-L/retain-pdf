@@ -1,75 +1,56 @@
 // Jobs API — standalone, wraps job-status.v1
 // No apps/web deps; browser-aware (reads window.__FRONT_RUNTIME_CONFIG__ for apiBase / X-API-Key if present).
 
-const API_PREFIX = "/api/v1";
-const API_V1_SUFFIX = "/api/v1";
-const DEFAULT_FALLBACK_BASE = "http://127.0.0.1:41000";
-const DEFAULT_FALLBACK_PORT = 41000;
+import { API_PREFIX, buildApiHeaders, buildApiUrl, unwrapEnvelope } from "./internal/runtime.js";
 
-function getRuntimeConfig(): any {
-  if (typeof window !== "undefined" && (window as any).__FRONT_RUNTIME_CONFIG__) return (window as any).__FRONT_RUNTIME_CONFIG__;
-  return {};
-}
-function isFileProtocol(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.location.protocol === "file:";
-}
-function apiBase(): string {
-  const cfg = getRuntimeConfig();
-  if (typeof cfg.apiBase === "string" && cfg.apiBase.trim()) {
-    return cfg.apiBase.trim().replace(/\/+$/, "").replace(new RegExp(`${API_V1_SUFFIX}$`), "");
-  }
-  if (typeof window === "undefined") return DEFAULT_FALLBACK_BASE;
-  if (!isFileProtocol() && window.location.protocol === "https:") return window.location.origin;
-  const host = window.location.hostname || "127.0.0.1";
-  const protocol = window.location.protocol === "https:" ? "https:" : "http:";
-  return `${protocol}//${host}:${DEFAULT_FALLBACK_PORT}`;
-}
-function buildApiUrl(apiPrefix: string | undefined, relativePath: string): string {
-  const normalizedPrefix = `${apiPrefix || ""}`.trim().replace(/^\/+/, "").replace(/\/+$/, "");
-  const normalizedPath = `${relativePath || ""}`.trim().replace(/^\/+/, "");
-  const segments = [apiBase(), normalizedPrefix].filter(Boolean) as string[];
-  if (normalizedPath) segments.push(normalizedPath);
-  return segments.join("/");
-}
 function buildJobsEndpoint(apiPrefix: string | undefined, scope = "jobs"): string {
   return buildApiUrl(apiPrefix, scope === "ocr" ? "ocr/jobs" : "jobs");
 }
 function buildJobDetailEndpoint(jobId: string, apiPrefix: string | undefined): string {
   return `${buildJobsEndpoint(apiPrefix, "jobs")}/${encodeURIComponent(jobId)}`;
 }
-function frontendApiKey(): string {
-  const cfg = getRuntimeConfig();
-  const fromModule = typeof cfg.xApiKey === "string" ? cfg.xApiKey.trim() : "";
-  if (fromModule) return fromModule;
-  if (typeof window !== "undefined") {
-    const live = (window as any).__FRONT_RUNTIME_CONFIG__?.xApiKey;
-    return typeof live === "string" ? live.trim() : "";
-  }
-  return "";
-}
-function buildApiHeaders(headers: Record<string, string> = {}): Record<string, string> {
-  const out: Record<string, string> = { ...headers };
-  const apiKey = frontendApiKey();
-  if (apiKey) out["X-API-Key"] = apiKey;
-  return out;
-}
-function unwrapEnvelope<T>(envelope: any): T {
-  if (envelope && typeof envelope === "object" && "data" in envelope) return envelope.data as T;
-  return envelope as T;
-}
 
-// Support both (jobId, apiPrefix) [web order] and (apiPrefix, jobId) [api package doc order] via runtime detection.
-function normalizeJobPayloadArgs(a: string, b?: string): { jobId: string; apiPrefix: string | undefined } {
-  if (a != null && typeof a === "string" && a.startsWith("/") && b != null && typeof b === "string" && !b.startsWith("/")) {
+export type FetchJobPayloadOptions = { apiPrefix?: string };
+
+function normalizeJobPayloadArgs(
+  a: string,
+  b?: string | FetchJobPayloadOptions,
+): { jobId: string; apiPrefix: string | undefined } {
+  // Deprecated swapped order: (apiPrefix, jobId) heuristics via a.startsWith("/")
+  if (
+    typeof a === "string" &&
+    a.startsWith("/") &&
+    typeof b === "string" &&
+    b != null &&
+    !b.startsWith("/")
+  ) {
+    if (typeof console !== "undefined" && console.warn) {
+      console.warn(
+        "[deprecated] fetchJobPayload(apiPrefix, jobId) is deprecated, use fetchJobPayload(jobId, { apiPrefix })",
+      );
+    }
     return { apiPrefix: a, jobId: b };
   }
-  return { jobId: a, apiPrefix: b };
+  if (typeof b === "string") {
+    if (typeof console !== "undefined" && console.warn) {
+      console.warn(
+        "[deprecated] fetchJobPayload(jobId, apiPrefix) string form is deprecated, use fetchJobPayload(jobId, { apiPrefix })",
+      );
+    }
+    return { jobId: a, apiPrefix: b };
+  }
+  if (b && typeof b === "object") {
+    return { jobId: a, apiPrefix: (b as FetchJobPayloadOptions).apiPrefix };
+  }
+  return { jobId: a, apiPrefix: undefined };
 }
 
+export async function fetchJobPayload(jobId: string, options?: FetchJobPayloadOptions): Promise<any>;
+/** @deprecated string form: use fetchJobPayload(jobId, { apiPrefix }) */
 export async function fetchJobPayload(jobId: string, apiPrefix?: string): Promise<any>;
+/** @deprecated swapped order: use fetchJobPayload(jobId, { apiPrefix }) */
 export async function fetchJobPayload(apiPrefix: string, jobId: string): Promise<any>;
-export async function fetchJobPayload(a: string, b?: string): Promise<any> {
+export async function fetchJobPayload(a: string, b?: string | FetchJobPayloadOptions): Promise<any> {
   const { jobId, apiPrefix } = normalizeJobPayloadArgs(a, b);
   const normalizedJobId = `${jobId || ""}`.trim();
   if (!normalizedJobId) throw new Error("读取任务失败: 缺少 job_id");

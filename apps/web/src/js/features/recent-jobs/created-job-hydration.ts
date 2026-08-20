@@ -9,7 +9,7 @@ export async function hydrateCreatedRecentJob({
     return null;
   }
   try {
-    const payload = await fetchJobPayload(jobId, apiPrefix);
+    const payload = await fetchJobPayload(jobId, { apiPrefix });
     runtimePatches?.update?.(payload);
     return payload;
   } catch {

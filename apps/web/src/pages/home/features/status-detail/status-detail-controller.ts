@@ -57,7 +57,7 @@ export interface StatusDetailOverviewRenderContext {
 export interface StatusDetailControllerDeps {
   runtimePort: StatusDetailRuntimePort;
   apiPrefix?: string;
-  fetchJobPayload?: (jobId: string, apiPrefix?: string) => Promise<unknown>;
+  fetchJobPayload?: (jobId: string, options?: { apiPrefix?: string } | string) => Promise<unknown>;
   fetchJobEvents?: (
     jobId: string,
     apiPrefix?: string,

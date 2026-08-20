@@ -49,7 +49,7 @@ export interface CreateRecentJobsRuntimeOptions {
   ) => Promise<unknown>;
   fetchJobPayload?: (
     jobId: string,
-    apiPrefix?: string,
+    options?: { apiPrefix?: string } | string,
   ) => Promise<LibraryJobItem | Record<string, unknown> | null | undefined>;
   fetchLibraryBookList?: (
     apiPrefix?: string,

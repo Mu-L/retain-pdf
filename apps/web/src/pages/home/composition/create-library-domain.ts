@@ -11,6 +11,7 @@ import {
   fetchLibraryBookList as _fetchLibraryBookList,
   deleteLibraryBook as _deleteLibraryBook,
 } from "@retainpdf/api/library-books";
+import { stripOcrSuffix } from "@retainpdf/api/utils/strip-ocr";
 
 async function fetchLibraryBookList(apiPrefix: string, opts: any = {}): Promise<any> {
   if (isMockMode()) {
@@ -20,7 +21,7 @@ async function fetchLibraryBookList(apiPrefix: string, opts: any = {}): Promise<
   return (_fetchLibraryBookList as any)(apiPrefix, opts);
 }
 async function deleteLibraryBook(apiPrefix: string, jobId: string, opts: any = {}): Promise<any> {
-  const normalizedJobId = `${jobId || ""}`.trim().replace(/-ocr$/, "");
+  const normalizedJobId = stripOcrSuffix(`${jobId || ""}`);
   if (!normalizedJobId) throw new Error("删除失败: 缺少 job_id");
   if (isMockMode()) {
     const referenced = countMockFavoritesByJob(normalizedJobId);

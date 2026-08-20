@@ -16,6 +16,14 @@
     "./jobs": {
       "types": "./dist/jobs.d.ts",
       "import": "./dist/jobs.js"
+    },
+    "./utils/strip-ocr": {
+      "types": "./dist/utils/strip-ocr.d.ts",
+      "import": "./dist/utils/strip-ocr.js"
+    },
+    "./internal/runtime": {
+      "types": "./dist/internal/runtime.d.ts",
+      "import": "./dist/internal/runtime.js"
     }
   },
   "files": ["dist"],

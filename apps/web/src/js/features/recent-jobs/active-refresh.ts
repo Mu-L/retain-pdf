@@ -52,7 +52,7 @@ export function createActiveLibraryRefreshLoop({
       if (!jobId) {
         return;
       }
-      const payload = await fetchJobPayload(jobId, apiPrefix);
+      const payload = await fetchJobPayload(jobId, { apiPrefix });
       updateFromRuntime(payload);
     }));
   }

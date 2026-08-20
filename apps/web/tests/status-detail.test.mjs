@@ -230,7 +230,8 @@ test("job detail data port owns overview markdown and action API calls", async (
   const calls = [];
   const port = createJobDetailDataPort({
     apiPrefix: "/detail-api",
-    loadJob: async (jobId, apiPrefix) => {
+    loadJob: async (jobId, options) => {
+      const apiPrefix = typeof options === "string" ? options : options?.apiPrefix;
       calls.push(["job", jobId, apiPrefix]);
       return { job_id: jobId };
     },
@@ -712,7 +713,8 @@ test("status detail overview coordinator renders cached snapshot before fresh pa
   const coordinator = createStatusDetailOverviewCoordinator({
     runtimePort,
     apiPrefix: "/api/v1",
-    fetchJobPayload: async (jobId, apiPrefix) => {
+    fetchJobPayload: async (jobId, options) => {
+      const apiPrefix = typeof options === "string" ? options : options?.apiPrefix;
       assert.equal(jobId, "job-overview");
       assert.equal(apiPrefix, "/api/v1");
       return {

@@ -6,12 +6,32 @@ import {
 } from "../mock/index.js";
 import { buildJobDetailEndpoint, buildJobsEndpoint } from "./http.js";
 
-export async function fetchJobPayload(jobId, apiPrefix) {
+export async function fetchJobPayload(jobId, options) {
+  let apiPrefix;
+  let normalizedJobId = jobId;
+  if (
+    typeof jobId === "string" &&
+    jobId.startsWith("/") &&
+    typeof options === "string" &&
+    options != null &&
+    !options.startsWith("/")
+  ) {
+    console.warn("[deprecated] fetchJobPayload(apiPrefix, jobId) is deprecated, use fetchJobPayload(jobId, { apiPrefix })");
+    apiPrefix = jobId;
+    normalizedJobId = options;
+  } else if (typeof options === "string") {
+    if (options !== undefined) {
+      console.warn("[deprecated] fetchJobPayload(jobId, apiPrefix) string form is deprecated, use fetchJobPayload(jobId, { apiPrefix })");
+    }
+    apiPrefix = options;
+  } else if (options && typeof options === "object") {
+    apiPrefix = options.apiPrefix;
+  }
   if (isMockMode()) {
     void apiPrefix;
-    return getMockJobPayload(jobId);
+    return getMockJobPayload(normalizedJobId);
   }
-  const resp = await fetch(buildJobDetailEndpoint(jobId, apiPrefix), {
+  const resp = await fetch(buildJobDetailEndpoint(normalizedJobId, apiPrefix), {
     headers: buildApiHeaders(),
   });
   if (!resp.ok) {

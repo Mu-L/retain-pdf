@@ -13,18 +13,7 @@ import {
 import {
   fetchJobEvents,
 } from "../api/jobs-events.js";
-// Pilot: migrated from src/js/api/jobs-query.ts to @retainpdf/api (source of truth).
-// Mock-aware wrapper preserves previous isMockMode behavior.
-import { isMockMode } from "../config/runtime.js";
-import { getMockJobPayload } from "../mock/index.js";
-import { fetchJobPayload as _fetchJobPayload } from "@retainpdf/api/jobs";
-async function fetchJobPayload(jobId: string, apiPrefix?: string): Promise<any> {
-  if (isMockMode()) {
-    void apiPrefix;
-    return getMockJobPayload(jobId);
-  }
-  return (_fetchJobPayload as any)(jobId, apiPrefix);
-}
+import { fetchJobPayload } from "../../pages/home/composition/external/api.js";
 import { fetchProtected } from "../api/http.js";
 
 export function createJobDetailDataPort({
@@ -42,7 +31,7 @@ export function createJobDetailDataPort({
 } = {}) {
   async function loadOverview(jobId) {
     const [payloadRaw, manifestPayload, diagnosticsPayload, resumePlan] = await Promise.all([
-      loadJob(jobId, apiPrefix),
+      loadJob(jobId, { apiPrefix }),
       loadManifest(jobId, apiPrefix),
       loadDiagnostics(jobId, apiPrefix).catch(() => null),
       loadResumePlan(jobId, apiPrefix).catch(() => null),
