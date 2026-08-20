@@ -22,7 +22,10 @@
   },
   "peerDependencies": {
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "lucide-react": "^0.400.0",
+    "@assistant-ui/react": "^0.10.0",
+    "sonner": "^2.0.0"
   },
   "dependencies": {
     "react-pdf": "^9.2.1",

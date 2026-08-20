@@ -10,7 +10,7 @@ export default defineConfig({
       formats: ["es"],
     },
     rollupOptions: {
-      external: ["react", "react-dom", "react/jsx-runtime", "pdfjs-dist", "react-pdf", "mathjax-full", /^mathjax-full\/.*/],
+      external: ["react", "react-dom", "react/jsx-runtime", "pdfjs-dist", "react-pdf", "mathjax-full", /^mathjax-full\/.*/, "lucide-react", "@assistant-ui/react", "sonner"],
       output: {
         globals: {
           react: "React",

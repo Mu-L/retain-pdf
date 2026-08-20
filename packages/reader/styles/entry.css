@@ -9,34 +9,25 @@
  * （?engine=legacy 时由 entry.tsx 动态注入）。
  * 本文件由 apps/web/src/styles/entries/reader.css 代理导入。
  */
-@import "../../../apps/web/src/styles/core/tailwind-theme.css";
+@import "./core/tailwind-theme.css";
 
-@source "../../../apps/web/reader.html";
-@source "../../../apps/web/src/pages/reader/**/*.{js,jsx,ts,tsx}";
-@source "../../../apps/web/src/shared/**/*.{js,jsx,ts,tsx}";
-@source "../../../apps/web/src/components/**/*.{js,jsx,ts,tsx}";
-@source "../../../apps/web/src/lib/**/*.{js,jsx,ts,tsx}";
-@source "../../../apps/web/src/js/reader/**/*.{js,ts}";
-@source "../../../apps/web/src/js/features/reader-dialog/**/*.{js,ts}";
-@source "../../../apps/web/src/js/utils/**/*.{js,ts}";
-@source "../../../apps/web/src/js/config/**/*.{js,ts}";
 @source "../src/**/*.{js,jsx,ts,tsx}";
 @source inline("progress-bar download-toast-card");
 
 @layer tokens, base, pages;
 
-@import "../../../apps/web/src/styles/tokens.css" layer(tokens);
-@import "../../../apps/web/src/styles/shadcn-theme.css" layer(tokens);
-@import "../../../apps/web/src/styles/base.css" layer(base);
+@import "./tokens.css" layer(tokens);
+@import "./shadcn-theme.css" layer(tokens);
+@import "./base.css" layer(base);
 /* 阅读器也吃氛围底（PDF 区仍是自己的 --reader-page） */
-@import "../../../apps/web/src/styles/core/ambient-surface.css";
+@import "./core/ambient-surface.css";
 
 /* 阅读器只需最小共享：下载 toast；不用整包主页 components.utilities */
-@import "../../../apps/web/src/styles/core/download-toast.css";
-@import "../../../apps/web/src/styles/dialog-shell.css";
+@import "./core/download-toast.css";
+@import "./dialog-shell.css";
 
 /* —— 默认 react-pdf 路径（无 legacy 残留） —— */
-@import "../../../apps/web/src/styles/reader.utilities.css";
+@import "./reader.utilities.css";
 @import "./layout.css" layer(pages);
 @import "./chrome.css" layer(pages);
 @import "./content.css" layer(pages);
