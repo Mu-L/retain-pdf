@@ -1,44 +1,46 @@
-// composition/external/api — api barrel (http, jobs-*, library, ai, glossaries)
-// Source of truth for jobs/library-books is now @retainpdf/api; this barrel keeps
+// composition/external/api — canonical barrel, re-exports from @retainpdf/api
+// Source of truth for ALL API clients is now @retainpdf/api; this barrel keeps
 // the public import surface (pages/home/* stays `from "./external/api.js"`), but
-// delegates to @retainpdf/api with mock + header adapters so behaviors (mock, X-API-Key) stay identical.
+// delegates to @retainpdf/api. Mock adapters remain here so mock mode stays identical;
 
+// http primitives — canonical (no mock branching)
 export {
   buildApiEndpoint,
   buildJobDetailEndpoint,
-  fetchProtected,
-  submitJson,
-  submitUploadRequest as submitUploadRequestHttp,
-} from "../../../../js/api/http.js";
-
-// jobs + library-books — migrated to @retainpdf/api (pilot: source of truth)
+} from "@retainpdf/api/http";
 import { isMockMode } from "../../../../js/config/runtime.js";
+import { fetchMockProtected } from "../../../../js/mock/index.js";
+import { fetchProtected as _canonFetchProtected, submitJson as _canonSubmitJson, submitUploadRequest as _canonSubmitUploadRequest } from "@retainpdf/api/http";
+import { fetchProtected as _legacyFetchProtected, submitJson as _legacySubmitJson, submitUploadRequest as _legacySubmitUploadRequest } from "../../../../js/api/http.js";
+
+// Wrap mock-aware http helpers so mock:// and mock job submissions still work in tests
+export const fetchProtected = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  if (isMockMode() && `${url || ""}`.startsWith("mock://")) return fetchMockProtected(url);
+  // legacy and canonical are identical for non-mock; prefer canonical
+  void _legacyFetchProtected;
+  return _canonFetchProtected(url, options);
+};
+export const submitJson = async (url: string, payload: unknown): Promise<any> => {
+  if (isMockMode()) return _legacySubmitJson(url, payload);
+  return _canonSubmitJson(url, payload);
+};
+export const submitUploadRequest = (url: string, form: FormData, onProgress?: (a:number,b:number)=>void): Promise<any> => {
+  if (isMockMode()) return _legacySubmitUploadRequest(url, form, onProgress);
+  return _canonSubmitUploadRequest(url, form, onProgress);
+};
+export const submitUploadRequestHttp = submitUploadRequest;
+
+// jobs + library-books — with mock adapters
 import { getMockJobList, getMockJobPayload } from "../../../../js/mock/index.js";
 import { countMockFavoritesByJob } from "../../../../js/mock/documents.js";
-import {
-  fetchJobList as _fetchJobList,
-  fetchJobPayload as _fetchJobPayload,
-} from "@retainpdf/api/jobs";
-import {
-  fetchLibraryBookList as _fetchLibraryBookList,
-  deleteLibraryBook as _deleteLibraryBook,
-} from "@retainpdf/api/library-books";
+import { fetchJobList as _fetchJobList, fetchJobPayload as _fetchJobPayload } from "@retainpdf/api/jobs";
+import { fetchLibraryBookList as _fetchLibraryBookList, deleteLibraryBook as _deleteLibraryBook } from "@retainpdf/api/library-books";
 import { stripOcrSuffix } from "@retainpdf/api/utils/strip-ocr";
 
-// Canonical: (jobId, { apiPrefix }). Legacy string / swapped forms kept with deprecation warning.
-export const fetchJobPayload = async (
-  jobId: string,
-  options?: { apiPrefix?: string } | string,
-): Promise<any> => {
+export const fetchJobPayload = async (jobId: string, options?: { apiPrefix?: string } | string): Promise<any> => {
   let normalizedJobId = jobId;
   let apiPrefix: string | undefined;
-  if (
-    typeof jobId === "string" &&
-    jobId.startsWith("/") &&
-    typeof options === "string" &&
-    options != null &&
-    !options.startsWith("/")
-  ) {
+  if (typeof jobId === "string" && jobId.startsWith("/") && typeof options === "string" && options != null && !options.startsWith("/")) {
     console.warn("[deprecated] fetchJobPayload(apiPrefix, jobId) is deprecated, use fetchJobPayload(jobId, { apiPrefix })");
     apiPrefix = jobId;
     normalizedJobId = options;
@@ -48,27 +50,17 @@ export const fetchJobPayload = async (
   } else if (options && typeof options === "object") {
     apiPrefix = (options as { apiPrefix?: string }).apiPrefix;
   }
-  if (isMockMode()) {
-    void apiPrefix;
-    return getMockJobPayload(normalizedJobId);
-  }
+  if (isMockMode()) { void apiPrefix; return getMockJobPayload(normalizedJobId); }
   return (_fetchJobPayload as any)(normalizedJobId, apiPrefix ? { apiPrefix } : undefined);
 };
 
 export const fetchJobList = async (apiPrefix: string, opts: any = {}): Promise<any> => {
-  if (isMockMode()) {
-    void apiPrefix;
-    void opts;
-    return getMockJobList();
-  }
+  if (isMockMode()) { void apiPrefix; void opts; return getMockJobList(); }
   return (_fetchJobList as any)(apiPrefix, opts);
 };
 
 export const fetchLibraryBookList = async (apiPrefix: string, opts: any = {}): Promise<any> => {
-  if (isMockMode()) {
-    const jobIds = Array.isArray(opts?.jobIds) ? opts.jobIds : [];
-    return getMockJobList({ jobIds });
-  }
+  if (isMockMode()) { const jobIds = Array.isArray(opts?.jobIds) ? opts.jobIds : []; return getMockJobList({ jobIds }); }
   return (_fetchLibraryBookList as any)(apiPrefix, opts);
 };
 
@@ -87,62 +79,276 @@ export const deleteLibraryBook = async (apiPrefix: string, jobId: string, opts: 
   return (_deleteLibraryBook as any)(apiPrefix, jobId, opts);
 };
 
-export { fetchJobEvents } from "../../../../js/api/jobs-events.js";
-export { fetchJobArtifactsManifest } from "../../../../js/api/jobs-artifacts.js";
-export {
-  fetchJobDiagnostics,
-  fetchJobStageActions,
-  fetchResumePlan,
-  rerunJob,
-  retryJobStage,
-} from "../../../../js/api/jobs-actions.js";
-export { submitJobRequest } from "../../../../js/api/jobs-submit.js";
-export {
-  fetchDocumentList,
-  fetchDocument,
-  translateDocument,
-  deleteDocument,
-  patchDocument,
-} from "../../../../js/api/documents.js";
-export {
-  listCollections,
-  createCollection,
-  patchCollection,
-  deleteCollection,
-  addDocumentsToCollection,
-  removeDocumentFromCollection,
-} from "../../../../js/api/collections.js";
-export {
-  fetchFavorites,
-  createFavorite,
-  deleteFavorite,
-} from "../../../../js/api/favorites.js";
-export {
-  validateDeepSeekToken,
-  queryDeepSeekBalance,
-  validatePaddleToken,
-} from "../../../../js/api/providers.js";
-export {
-  fetchGlossaries as fetchGlossariesApi,
-  fetchGlossary as fetchGlossaryApi,
-  createGlossary as createGlossaryApi,
-  updateGlossary as updateGlossaryApi,
-  deleteGlossary as deleteGlossaryApi,
-  exportGlossaryCsv as exportGlossaryCsvApi,
-  parseGlossaryCsv as parseGlossaryCsvApi,
-} from "../../../../js/api/glossaries.js";
-export {
-  fetchTranslationDiagnostics,
-  fetchTranslationItems,
-  fetchTranslationItem,
-  replayTranslationItem,
-} from "../../../../js/api/translation-debug.js";
-export { askLibraryAi, AiAskError } from "../../../../js/api/ai.js";
-export {
-  deleteConversation,
-  getConversation,
-  listConversations,
-  patchConversation,
-  type ConversationRecord,
-} from "../../../../js/api/conversations.js";
-export type { DocumentRecord } from "../../../../js/api/documents.js";
+// --- Remaining API groups: mock-aware wrappers delegating to @retainpdf/api for real network ---
+// Import legacy (mock-aware) and canonical (pure) side-by-side; wrapper picks based on isMockMode.
+import * as LegacyJobsEvents from "../../../../js/api/jobs-events.js";
+import { fetchJobEvents as _canonFetchJobEvents } from "@retainpdf/api/jobs-events";
+export const fetchJobEvents = async (...args: Parameters<typeof _canonFetchJobEvents>): Promise<any> => {
+  if (isMockMode()) return (LegacyJobsEvents as any).fetchJobEvents(...args);
+  return (_canonFetchJobEvents as any)(...args);
+};
+
+import * as LegacyJobsArtifacts from "../../../../js/api/jobs-artifacts.js";
+import { fetchJobArtifactsManifest as _canonFetchJobArtifactsManifest, fetchJobMarkdown as _canonFetchJobMarkdown, fetchJobMarkdownDocument as _canonFetchJobMarkdownDocument } from "@retainpdf/api/jobs-artifacts";
+export const fetchJobArtifactsManifest = async (...args: Parameters<typeof _canonFetchJobArtifactsManifest>): Promise<any> => {
+  if (isMockMode()) return (LegacyJobsArtifacts as any).fetchJobArtifactsManifest(...args);
+  return (_canonFetchJobArtifactsManifest as any)(...args);
+};
+export const fetchJobMarkdown = async (...args: Parameters<typeof _canonFetchJobMarkdown>): Promise<any> => {
+  if (isMockMode()) return (LegacyJobsArtifacts as any).fetchJobMarkdown(...args);
+  return (_canonFetchJobMarkdown as any)(...args);
+};
+export const fetchJobMarkdownDocument = async (...args: Parameters<typeof _canonFetchJobMarkdownDocument>): Promise<any> => {
+  if (isMockMode()) return (LegacyJobsArtifacts as any).fetchJobMarkdownDocument(...args);
+  return (_canonFetchJobMarkdownDocument as any)(...args);
+};
+
+import * as LegacyJobsActions from "../../../../js/api/jobs-actions.js";
+import { fetchJobDiagnostics as _canonFetchJobDiagnostics, fetchJobStageActions as _canonFetchJobStageActions, fetchResumePlan as _canonFetchResumePlan, resumeJob as _canonResumeJob, rerunJob as _canonRerunJob, retryJobStage as _canonRetryJobStage } from "@retainpdf/api/jobs-actions";
+export const fetchJobDiagnostics = async (...args: Parameters<typeof _canonFetchJobDiagnostics>): Promise<any> => {
+  if (isMockMode()) return (LegacyJobsActions as any).fetchJobDiagnostics(...args);
+  return (_canonFetchJobDiagnostics as any)(...args);
+};
+export const fetchJobStageActions = async (...args: Parameters<typeof _canonFetchJobStageActions>): Promise<any> => {
+  if (isMockMode()) return (LegacyJobsActions as any).fetchJobStageActions(...args);
+  return (_canonFetchJobStageActions as any)(...args);
+};
+export const fetchResumePlan = async (...args: Parameters<typeof _canonFetchResumePlan>): Promise<any> => {
+  if (isMockMode()) return (LegacyJobsActions as any).fetchResumePlan(...args);
+  return (_canonFetchResumePlan as any)(...args);
+};
+export const resumeJob = async (...args: Parameters<typeof _canonResumeJob>): Promise<any> => {
+  if (isMockMode()) return (LegacyJobsActions as any).resumeJob(...args);
+  return (_canonResumeJob as any)(...args);
+};
+export const rerunJob = async (...args: Parameters<typeof _canonRerunJob>): Promise<any> => {
+  if (isMockMode()) return (LegacyJobsActions as any).rerunJob(...args);
+  return (_canonRerunJob as any)(...args);
+};
+export const retryJobStage = async (...args: Parameters<typeof _canonRetryJobStage>): Promise<any> => {
+  if (isMockMode()) return (LegacyJobsActions as any).retryJobStage(...args);
+  return (_canonRetryJobStage as any)(...args);
+};
+
+import * as LegacyJobsSubmit from "../../../../js/api/jobs-submit.js";
+import { submitJobRequest as _canonSubmitJobRequest } from "@retainpdf/api/jobs-submit";
+export const submitJobRequest = async (...args: Parameters<typeof _canonSubmitJobRequest>): Promise<any> => {
+  // jobs-submit has no mock branch; just delegate to canonical (legacy identical)
+  void LegacyJobsSubmit;
+  return (_canonSubmitJobRequest as any)(...args);
+};
+
+import * as LegacyDocuments from "../../../../js/api/documents.js";
+import { fetchDocumentList as _canonFetchDocumentList, fetchDocument as _canonFetchDocument, fetchDocumentByJobId as _canonFetchDocumentByJobId, translateDocument as _canonTranslateDocument, deleteDocument as _canonDeleteDocument, patchDocument as _canonPatchDocument } from "@retainpdf/api/documents";
+export const fetchDocumentList = async (...args: Parameters<typeof _canonFetchDocumentList>): Promise<any> => {
+  if (isMockMode()) return (LegacyDocuments as any).fetchDocumentList(...args);
+  return (_canonFetchDocumentList as any)(...args);
+};
+export const fetchDocumentByJobId = async (...args: Parameters<typeof _canonFetchDocumentByJobId>): Promise<any> => {
+  if (isMockMode()) return (LegacyDocuments as any).fetchDocumentByJobId(...args);
+  return (_canonFetchDocumentByJobId as any)(...args);
+};
+export const fetchDocument = async (...args: Parameters<typeof _canonFetchDocument>): Promise<any> => {
+  if (isMockMode()) return (LegacyDocuments as any).fetchDocument(...args);
+  return (_canonFetchDocument as any)(...args);
+};
+export const translateDocument = async (...args: Parameters<typeof _canonTranslateDocument>): Promise<any> => {
+  if (isMockMode()) return (LegacyDocuments as any).translateDocument(...args);
+  return (_canonTranslateDocument as any)(...args);
+};
+export const deleteDocument = async (...args: Parameters<typeof _canonDeleteDocument>): Promise<any> => {
+  if (isMockMode()) return (LegacyDocuments as any).deleteDocument(...args);
+  return (_canonDeleteDocument as any)(...args);
+};
+export const patchDocument = async (...args: Parameters<typeof _canonPatchDocument>): Promise<any> => {
+  if (isMockMode()) return (LegacyDocuments as any).patchDocument(...args);
+  return (_canonPatchDocument as any)(...args);
+};
+
+import * as LegacyCollections from "../../../../js/api/collections.js";
+import { listCollections as _canonListCollections, createCollection as _canonCreateCollection, patchCollection as _canonPatchCollection, deleteCollection as _canonDeleteCollection, addDocumentsToCollection as _canonAddDocumentsToCollection, removeDocumentFromCollection as _canonRemoveDocumentFromCollection } from "@retainpdf/api/collections";
+export const listCollections = async (...args: Parameters<typeof _canonListCollections>): Promise<any> => {
+  if (isMockMode()) return (LegacyCollections as any).listCollections(...args);
+  return (_canonListCollections as any)(...args);
+};
+export const createCollection = async (...args: Parameters<typeof _canonCreateCollection>): Promise<any> => {
+  if (isMockMode()) return (LegacyCollections as any).createCollection(...args);
+  return (_canonCreateCollection as any)(...args);
+};
+export const patchCollection = async (...args: Parameters<typeof _canonPatchCollection>): Promise<any> => {
+  if (isMockMode()) return (LegacyCollections as any).patchCollection(...args);
+  return (_canonPatchCollection as any)(...args);
+};
+export const deleteCollection = async (...args: Parameters<typeof _canonDeleteCollection>): Promise<any> => {
+  if (isMockMode()) return (LegacyCollections as any).deleteCollection(...args);
+  return (_canonDeleteCollection as any)(...args);
+};
+export const addDocumentsToCollection = async (...args: Parameters<typeof _canonAddDocumentsToCollection>): Promise<any> => {
+  if (isMockMode()) return (LegacyCollections as any).addDocumentsToCollection(...args);
+  return (_canonAddDocumentsToCollection as any)(...args);
+};
+export const removeDocumentFromCollection = async (...args: Parameters<typeof _canonRemoveDocumentFromCollection>): Promise<any> => {
+  if (isMockMode()) return (LegacyCollections as any).removeDocumentFromCollection(...args);
+  return (_canonRemoveDocumentFromCollection as any)(...args);
+};
+
+import * as LegacyFavorites from "../../../../js/api/favorites.js";
+import { fetchFavorites as _canonFetchFavorites, createFavorite as _canonCreateFavorite, deleteFavorite as _canonDeleteFavorite } from "@retainpdf/api/favorites";
+export const fetchFavorites = async (...args: Parameters<typeof _canonFetchFavorites>): Promise<any> => {
+  if (isMockMode()) return (LegacyFavorites as any).fetchFavorites(...args);
+  return (_canonFetchFavorites as any)(...args);
+};
+export const createFavorite = async (...args: Parameters<typeof _canonCreateFavorite>): Promise<any> => {
+  if (isMockMode()) return (LegacyFavorites as any).createFavorite(...args);
+  return (_canonCreateFavorite as any)(...args);
+};
+export const deleteFavorite = async (...args: Parameters<typeof _canonDeleteFavorite>): Promise<any> => {
+  if (isMockMode()) return (LegacyFavorites as any).deleteFavorite(...args);
+  return (_canonDeleteFavorite as any)(...args);
+};
+
+import * as LegacyProviders from "../../../../js/api/providers.js";
+import { validateDeepSeekToken as _canonValidateDeepSeekToken, queryDeepSeekBalance as _canonQueryDeepSeekBalance, validatePaddleToken as _canonValidatePaddleToken } from "@retainpdf/api/providers";
+export const validateDeepSeekToken = async (...args: Parameters<typeof _canonValidateDeepSeekToken>): Promise<any> => {
+  if (isMockMode()) return (LegacyProviders as any).validateDeepSeekToken(...args);
+  return (_canonValidateDeepSeekToken as any)(...args);
+};
+export const queryDeepSeekBalance = async (...args: Parameters<typeof _canonQueryDeepSeekBalance>): Promise<any> => {
+  if (isMockMode()) return (LegacyProviders as any).queryDeepSeekBalance(...args);
+  return (_canonQueryDeepSeekBalance as any)(...args);
+};
+export const validatePaddleToken = async (...args: Parameters<typeof _canonValidatePaddleToken>): Promise<any> => {
+  if (isMockMode()) return (LegacyProviders as any).validatePaddleToken(...args);
+  return (_canonValidatePaddleToken as any)(...args);
+};
+
+import * as LegacyGlossaries from "../../../../js/api/glossaries.js";
+import { fetchGlossaries as _canonFetchGlossaries, fetchGlossary as _canonFetchGlossary, createGlossary as _canonCreateGlossary, updateGlossary as _canonUpdateGlossary, deleteGlossary as _canonDeleteGlossary, exportGlossaryCsv as _canonExportGlossaryCsv, parseGlossaryCsv as _canonParseGlossaryCsv } from "@retainpdf/api/glossaries";
+export const fetchGlossariesApi = async (...args: Parameters<typeof _canonFetchGlossaries>): Promise<any> => {
+  if (isMockMode()) return (LegacyGlossaries as any).fetchGlossaries(...args);
+  return (_canonFetchGlossaries as any)(...args);
+};
+export const fetchGlossaryApi = async (...args: Parameters<typeof _canonFetchGlossary>): Promise<any> => {
+  if (isMockMode()) return (LegacyGlossaries as any).fetchGlossary(...args);
+  return (_canonFetchGlossary as any)(...args);
+};
+export const createGlossaryApi = async (...args: Parameters<typeof _canonCreateGlossary>): Promise<any> => {
+  if (isMockMode()) return (LegacyGlossaries as any).createGlossary(...args);
+  return (_canonCreateGlossary as any)(...args);
+};
+export const updateGlossaryApi = async (...args: Parameters<typeof _canonUpdateGlossary>): Promise<any> => {
+  if (isMockMode()) return (LegacyGlossaries as any).updateGlossary(...args);
+  return (_canonUpdateGlossary as any)(...args);
+};
+export const deleteGlossaryApi = async (...args: Parameters<typeof _canonDeleteGlossary>): Promise<any> => {
+  if (isMockMode()) return (LegacyGlossaries as any).deleteGlossary(...args);
+  return (_canonDeleteGlossary as any)(...args);
+};
+export const exportGlossaryCsvApi = async (...args: Parameters<typeof _canonExportGlossaryCsv>): Promise<any> => {
+  if (isMockMode()) return (LegacyGlossaries as any).exportGlossaryCsv(...args);
+  return (_canonExportGlossaryCsv as any)(...args);
+};
+export const parseGlossaryCsvApi = async (...args: Parameters<typeof _canonParseGlossaryCsv>): Promise<any> => {
+  if (isMockMode()) return (LegacyGlossaries as any).parseGlossaryCsv(...args);
+  return (_canonParseGlossaryCsv as any)(...args);
+};
+
+import * as LegacyTranslationDebug from "../../../../js/api/translation-debug.js";
+import { fetchTranslationDiagnostics as _canonFetchTranslationDiagnostics, fetchTranslationItems as _canonFetchTranslationItems, fetchTranslationItem as _canonFetchTranslationItem, replayTranslationItem as _canonReplayTranslationItem } from "@retainpdf/api/translation-debug";
+export const fetchTranslationDiagnostics = async (...args: Parameters<typeof _canonFetchTranslationDiagnostics>): Promise<any> => {
+  if (isMockMode()) return (LegacyTranslationDebug as any).fetchTranslationDiagnostics(...args);
+  return (_canonFetchTranslationDiagnostics as any)(...args);
+};
+export const fetchTranslationItems = async (...args: Parameters<typeof _canonFetchTranslationItems>): Promise<any> => {
+  if (isMockMode()) return (LegacyTranslationDebug as any).fetchTranslationItems(...args);
+  return (_canonFetchTranslationItems as any)(...args);
+};
+export const fetchTranslationItem = async (...args: Parameters<typeof _canonFetchTranslationItem>): Promise<any> => {
+  if (isMockMode()) return (LegacyTranslationDebug as any).fetchTranslationItem(...args);
+  return (_canonFetchTranslationItem as any)(...args);
+};
+export const replayTranslationItem = async (...args: Parameters<typeof _canonReplayTranslationItem>): Promise<any> => {
+  if (isMockMode()) return (LegacyTranslationDebug as any).replayTranslationItem(...args);
+  return (_canonReplayTranslationItem as any)(...args);
+};
+
+import * as LegacyAi from "../../../../js/api/ai.js";
+import { askLibraryAi as _canonAskLibraryAi, readAiAskStream as _canonReadAiAskStream, AiAskError as _CanonAiAskError } from "@retainpdf/api/ai";
+export const askLibraryAi = async (...args: Parameters<typeof _canonAskLibraryAi>): Promise<any> => {
+  if (isMockMode()) return (LegacyAi as any).askLibraryAi(...args);
+  return (_canonAskLibraryAi as any)(...args);
+};
+export const readAiAskStream = _canonReadAiAskStream;
+export const AiAskError = _CanonAiAskError;
+
+import * as LegacyConversations from "../../../../js/api/conversations.js";
+import { deleteConversation as _canonDeleteConversation, getConversation as _canonGetConversation, listConversations as _canonListConversations, patchConversation as _canonPatchConversation, createConversation as _canonCreateConversation, appendConversationMessage as _canonAppendConversationMessage, forkConversationFromPath as _canonForkConversationFromPath } from "@retainpdf/api/conversations";
+export const deleteConversation = async (...args: Parameters<typeof _canonDeleteConversation>): Promise<any> => {
+  if (isMockMode()) return (LegacyConversations as any).deleteConversation(...args);
+  return (_canonDeleteConversation as any)(...args);
+};
+export const getConversation = async (...args: Parameters<typeof _canonGetConversation>): Promise<any> => {
+  if (isMockMode()) return (LegacyConversations as any).getConversation(...args);
+  return (_canonGetConversation as any)(...args);
+};
+export const listConversations = async (...args: Parameters<typeof _canonListConversations>): Promise<any> => {
+  if (isMockMode()) return (LegacyConversations as any).listConversations(...args);
+  return (_canonListConversations as any)(...args);
+};
+export const patchConversation = async (...args: Parameters<typeof _canonPatchConversation>): Promise<any> => {
+  if (isMockMode()) return (LegacyConversations as any).patchConversation(...args);
+  return (_canonPatchConversation as any)(...args);
+};
+export const createConversation = async (...args: Parameters<typeof _canonCreateConversation>): Promise<any> => {
+  if (isMockMode()) return (LegacyConversations as any).createConversation(...args);
+  return (_canonCreateConversation as any)(...args);
+};
+export const appendConversationMessage = async (...args: Parameters<typeof _canonAppendConversationMessage>): Promise<any> => {
+  if (isMockMode()) return (LegacyConversations as any).appendConversationMessage(...args);
+  return (_canonAppendConversationMessage as any)(...args);
+};
+export const forkConversationFromPath = async (...args: Parameters<typeof _canonForkConversationFromPath>): Promise<any> => {
+  if (isMockMode()) return (LegacyConversations as any).forkConversationFromPath(...args);
+  return (_canonForkConversationFromPath as any)(...args);
+};
+export { baseConversationTitle, nextForkConversationTitle, messagesToBranchItems } from "@retainpdf/api/conversations";
+export type { ConversationRecord, MessageRecord, ConversationDetail } from "@retainpdf/api/conversations";
+export type { DocumentRecord } from "@retainpdf/api/documents";
+
+import * as LegacySearch from "../../../../js/api/search.js";
+import { searchLibrary as _canonSearchLibrary } from "@retainpdf/api/search";
+export const searchLibrary = async (...args: Parameters<typeof _canonSearchLibrary>): Promise<any> => {
+  if (isMockMode()) return (LegacySearch as any).searchLibrary(...args);
+  return (_canonSearchLibrary as any)(...args);
+};
+
+import * as LegacyReader from "../../../../js/api/reader.js";
+import { fetchReaderRegions as _canonFetchReaderRegions, fetchReaderMetadata as _canonFetchReaderMetadata, fetchReaderAiChat as _canonFetchReaderAiChat } from "@retainpdf/api/reader";
+export const fetchReaderRegions = async (...args: Parameters<typeof _canonFetchReaderRegions>): Promise<any> => {
+  if (isMockMode()) return (LegacyReader as any).fetchReaderRegions(...args);
+  return (_canonFetchReaderRegions as any)(...args);
+};
+export const fetchReaderMetadata = async (...args: Parameters<typeof _canonFetchReaderMetadata>): Promise<any> => {
+  if (isMockMode()) return (LegacyReader as any).fetchReaderMetadata(...args);
+  return (_canonFetchReaderMetadata as any)(...args);
+};
+export const fetchReaderAiChat = async (...args: Parameters<typeof _canonFetchReaderAiChat>): Promise<any> => {
+  if (isMockMode()) return (LegacyReader as any).fetchReaderAiChat(...args);
+  return (_canonFetchReaderAiChat as any)(...args);
+};
+
+import * as LegacyJobImages from "../../../../js/api/job-images.js";
+import { buildJobImageCandidateUrls as _canonBuildJobImageCandidateUrls, normalizeJobImageUrl as _canonNormalizeJobImageUrl, fetchJobImageBlob as _canonFetchJobImageBlob } from "@retainpdf/api/job-images";
+export const buildJobImageCandidateUrls = (...args: Parameters<typeof _canonBuildJobImageCandidateUrls>): any => {
+  // no mock branch for image URLs, just delegate to canonical (legacy identical)
+  void LegacyJobImages;
+  return (_canonBuildJobImageCandidateUrls as any)(...args);
+};
+export const normalizeJobImageUrl = (...args: Parameters<typeof _canonNormalizeJobImageUrl>): any => {
+  void LegacyJobImages;
+  return (_canonNormalizeJobImageUrl as any)(...args);
+};
+export const fetchJobImageBlob = async (...args: Parameters<typeof _canonFetchJobImageBlob>): Promise<any> => {
+  void LegacyJobImages;
+  return (_canonFetchJobImageBlob as any)(...args);
+};

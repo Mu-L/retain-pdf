@@ -1,0 +1,31 @@
+{
+  "name": "@retainpdf/domain",
+  "version": "0.1.0",
+  "private": false,
+  "description": "RetainPDF pure domain — framework-agnostic job / job-status view-models (extracted from apps/web/src/js/job*).",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./job": {
+      "types": "./dist/job/index.d.ts",
+      "import": "./dist/job/index.js"
+    },
+    "./job-status": {
+      "types": "./dist/job-status/index.d.ts",
+      "import": "./dist/job-status/index.js"
+    }
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "dev": "tsc --watch -p tsconfig.json"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}

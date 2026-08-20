@@ -99,6 +99,8 @@ function bundleOptions({ entry, outfile }) {
       "@retainpdf/ui/*": path.join(frontendRoot, "../../packages/ui/src"),
       "@retainpdf/api": path.join(frontendRoot, "../../packages/api/src"),
       "@retainpdf/api/*": path.join(frontendRoot, "../../packages/api/src"),
+      "@retainpdf/domain": path.join(frontendRoot, "../../packages/domain/src"),
+      "@retainpdf/domain/*": path.join(frontendRoot, "../../packages/domain/src"),
     },
     // packages/reader/src 内的 import "react" 需回落到 apps/web 的 node_modules
     nodePaths: [path.join(frontendRoot, "node_modules")],

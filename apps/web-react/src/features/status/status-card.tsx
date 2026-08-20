@@ -10,18 +10,29 @@ import { StatusSubstageFlow } from './components/status-substage-flow'
 import { cn } from '@/lib/utils'
 import type { StageKey, StatusSnapshot } from './types'
 
+type StatusAnimationProps = {
+  lottieRef?: React.RefObject<HTMLDivElement | null>
+  hasStageAnimation?: boolean
+  isFallback?: boolean
+  visualStageKey?: string
+}
+
 type StatusCardProps = {
   snapshot: StatusSnapshot
   className?: string
   onSelectStage?: (stage: StageKey) => void
+  lottie?: StatusAnimationProps
+  /** Controlled selectedStage — when provided, Zustand store is the source of truth */
+  selectedStage?: StageKey
 }
 
-export function StatusCard({ snapshot, className, onSelectStage }: StatusCardProps) {
+export function StatusCard({ snapshot, className, onSelectStage, lottie, selectedStage: controlledSelected }: StatusCardProps) {
   const [localSelectedStage, setLocalSelectedStage] = useState<StageKey>()
-  const selectedStage = localSelectedStage ?? snapshot.selectedStage
+  const selectedStage = controlledSelected ?? localSelectedStage ?? snapshot.selectedStage
   const selectedProgress = snapshot.stageProgress[selectedStage]
 
   function handleSelectStage(stage: StageKey) {
+    // Keep local fallback for uncontrolled usage (composition still works)
     setLocalSelectedStage(stage === snapshot.selectedStage ? undefined : stage)
     onSelectStage?.(stage)
   }
@@ -40,7 +51,13 @@ export function StatusCard({ snapshot, className, onSelectStage }: StatusCardPro
           <StatusStageFlow activeStage={snapshot.activeStage} selectedStage={selectedStage} onSelectStage={handleSelectStage} />
 
           <div className="grid min-h-0 place-items-center gap-3">
-            <StatusAnimationPanel errorText={snapshot.errorText} />
+            <StatusAnimationPanel
+              errorText={snapshot.errorText}
+              lottieRef={lottie?.lottieRef}
+              hasStageAnimation={lottie?.hasStageAnimation}
+              isFallback={lottie?.isFallback}
+              visualStageKey={lottie?.visualStageKey}
+            />
 
             {selectedStage === 'translate' ? <StatusSubstageFlow activeSubstage={selectedProgress?.substageKey} /> : null}
 

@@ -1,5 +1,6 @@
 import type { ApiResponse, JobDetailView, JobListView, LibraryDeleteResultView } from './library-api-types'
 import { stripOcrSuffix } from '@retainpdf/api/utils/strip-ocr'
+import { API_PREFIX } from '@retainpdf/api/internal/runtime'
 
 type RuntimeConfig = {
   apiBase?: string
@@ -12,68 +13,51 @@ declare global {
   }
 }
 
-const API_V1_SUFFIX = '/api/v1'
+const API_V1_SUFFIX = API_PREFIX
 
-function runtimeConfig() {
-  return window.__FRONT_RUNTIME_CONFIG__ ?? {}
+function runtimeConfig(): RuntimeConfig {
+  return (window as any).__FRONT_RUNTIME_CONFIG__ ?? {}
 }
 
-export function libraryApiBase() {
+export function libraryApiBase(): string {
   const envBase = import.meta.env.VITE_RETAIN_API_BASE_URL as string | undefined
   const configured = envBase?.trim() || runtimeConfig().apiBase?.trim()
-
-  if (configured) {
-    return configured.replace(/\/+$/, '').replace(new RegExp(`${API_V1_SUFFIX}$`), '')
-  }
-
+  if (configured) return configured.replace(/\/+$/, '').replace(new RegExp(`${API_V1_SUFFIX}$`), '')
   return ''
 }
 
-function libraryApiKey() {
+function libraryApiKey(): string {
   const envKey = import.meta.env.VITE_RETAIN_API_KEY as string | undefined
   return envKey?.trim() || runtimeConfig().xApiKey?.trim() || ''
 }
 
-function buildApiUrl(path: string) {
+function buildApiUrl(path: string): string {
   return `${libraryApiBase()}${API_V1_SUFFIX}/${path.replace(/^\/+/, '')}`
 }
 
-export function libraryApiUrl(path: string) {
+export function libraryApiUrl(path: string): string {
   return buildApiUrl(path)
 }
 
-export function libraryResourceUrl(pathOrUrl: string) {
+export function libraryResourceUrl(pathOrUrl: string): string {
   if (/^https?:\/\//i.test(pathOrUrl)) {
     const url = new URL(pathOrUrl)
-
-    if ((url.hostname === '127.0.0.1' || url.hostname === 'localhost') && url.pathname.startsWith(API_V1_SUFFIX)) {
-      return `${url.pathname}${url.search}`
-    }
-
+    if ((url.hostname === '127.0.0.1' || url.hostname === 'localhost') && url.pathname.startsWith(API_V1_SUFFIX)) return `${url.pathname}${url.search}`
     return pathOrUrl
   }
-
   const path = pathOrUrl.replace(/^\/+/, '')
-
-  if (path.startsWith('api/v1/')) {
-    return `${libraryApiBase()}/${path}`
-  }
-
+  if (path.startsWith('api/v1/')) return `${libraryApiBase()}/${path}`
   return buildApiUrl(path)
 }
 
-function buildHeaders() {
+function buildHeaders(): Record<string, string> {
   const headers: Record<string, string> = { Accept: 'application/json' }
   const apiKey = libraryApiKey()
-
-  if (apiKey) {
-    headers['X-API-Key'] = apiKey
-  }
-
+  if (apiKey) headers['X-API-Key'] = apiKey
   return headers
 }
 
-export function libraryRequestHeaders() {
+export function libraryRequestHeaders(): Record<string, string> {
   return buildHeaders()
 }
 

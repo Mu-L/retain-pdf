@@ -17,6 +17,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@retainpdf/api': fileURLToPath(new URL('../../packages/api/src', import.meta.url)),
+      '@retainpdf/domain': fileURLToPath(new URL('../../packages/domain/src', import.meta.url)),
     },
   },
 })

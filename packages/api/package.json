@@ -17,6 +17,74 @@
       "types": "./dist/jobs.d.ts",
       "import": "./dist/jobs.js"
     },
+    "./http": {
+      "types": "./dist/http.d.ts",
+      "import": "./dist/http.js"
+    },
+    "./jobs-query": {
+      "types": "./dist/jobs-query.d.ts",
+      "import": "./dist/jobs-query.js"
+    },
+    "./jobs-artifacts": {
+      "types": "./dist/jobs-artifacts.d.ts",
+      "import": "./dist/jobs-artifacts.js"
+    },
+    "./jobs-events": {
+      "types": "./dist/jobs-events.d.ts",
+      "import": "./dist/jobs-events.js"
+    },
+    "./jobs-actions": {
+      "types": "./dist/jobs-actions.d.ts",
+      "import": "./dist/jobs-actions.js"
+    },
+    "./jobs-submit": {
+      "types": "./dist/jobs-submit.d.ts",
+      "import": "./dist/jobs-submit.js"
+    },
+    "./translation-debug": {
+      "types": "./dist/translation-debug.d.ts",
+      "import": "./dist/translation-debug.js"
+    },
+    "./ai": {
+      "types": "./dist/ai.d.ts",
+      "import": "./dist/ai.js"
+    },
+    "./documents": {
+      "types": "./dist/documents.d.ts",
+      "import": "./dist/documents.js"
+    },
+    "./collections": {
+      "types": "./dist/collections.d.ts",
+      "import": "./dist/collections.js"
+    },
+    "./favorites": {
+      "types": "./dist/favorites.d.ts",
+      "import": "./dist/favorites.js"
+    },
+    "./glossaries": {
+      "types": "./dist/glossaries.d.ts",
+      "import": "./dist/glossaries.js"
+    },
+    "./conversations": {
+      "types": "./dist/conversations.d.ts",
+      "import": "./dist/conversations.js"
+    },
+    "./providers": {
+      "types": "./dist/providers.d.ts",
+      "import": "./dist/providers.js"
+    },
+    "./reader": {
+      "types": "./dist/reader.d.ts",
+      "import": "./dist/reader.js"
+    },
+    "./search": {
+      "types": "./dist/search.d.ts",
+      "import": "./dist/search.js"
+    },
+    "./job-images": {
+      "types": "./dist/job-images.d.ts",
+      "import": "./dist/job-images.js"
+    },
     "./utils/strip-ocr": {
       "types": "./dist/utils/strip-ocr.d.ts",
       "import": "./dist/utils/strip-ocr.js"
