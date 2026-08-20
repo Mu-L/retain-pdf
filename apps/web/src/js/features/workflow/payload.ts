@@ -14,6 +14,8 @@ export interface WorkflowDeveloperConfig {
   compileWorkers?: number;
   timeoutSeconds?: number;
   translateTitles?: boolean;
+  typstFontFamily?: string;
+  typst_font_family?: string;
   [key: string]: unknown;
 }
 
@@ -120,11 +122,28 @@ export function buildTranslationPayload({
   };
 }
 
+function resolveStoredFontFamily(fallback: unknown): string {
+  const fb = `${fallback || ""}`.trim();
+  const fromConfig = "";
+  void fromConfig;
+  try {
+    if (typeof localStorage !== "undefined") {
+      const stored = `${localStorage.getItem("retainpdf.render.typst_font_family") || ""}`.trim();
+      if (stored) return stored;
+    }
+  } catch {}
+  return fb;
+}
+
 export function buildRenderPayload({ developerConfig, constants }: BuildRenderPayloadOptions) {
+  const cfg = developerConfig as WorkflowDeveloperConfig;
+  const cfgFont = `${(cfg.typstFontFamily as string) || (cfg.typst_font_family as string) || ""}`.trim();
+  const storedFont = resolveStoredFontFamily(constants.DEFAULT_TYPST_FONT_FAMILY);
+  const typstFont = cfgFont || storedFont || `${constants.DEFAULT_TYPST_FONT_FAMILY || ""}`.trim() || "Source Han Serif SC";
   return {
     render_mode: constants.DEFAULT_RENDER_MODE,
     compile_workers: developerConfig.compileWorkers,
-    typst_font_family: constants.DEFAULT_TYPST_FONT_FAMILY,
+    typst_font_family: typstFont,
     pdf_compress_dpi: constants.DEFAULT_PDF_COMPRESS_DPI,
     translated_pdf_name: constants.DEFAULT_TRANSLATED_PDF_NAME,
     body_font_size_factor: constants.DEFAULT_BODY_FONT_SIZE_FACTOR,

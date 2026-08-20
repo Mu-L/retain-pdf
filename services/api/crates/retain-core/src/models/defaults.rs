@@ -17,7 +17,11 @@ pub(crate) fn default_render_mode() -> String {
     "typst".to_string()
 }
 pub(crate) fn default_typst_font_family() -> String {
-    "Source Han Serif SC".to_string()
+    std::env::var("RETAIN_PDF_TYPST_FONT_FAMILY")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "Source Han Serif SC".to_string())
 }
 pub(crate) fn default_pdf_compress_dpi() -> i64 {
     0

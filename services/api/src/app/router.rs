@@ -7,6 +7,7 @@ use tower_http::trace::TraceLayer;
 
 use crate::app::AppState;
 use crate::auth;
+use crate::routes::fonts;
 use crate::routes::glossaries;
 use crate::routes::health;
 use crate::routes::jobs;
@@ -286,6 +287,11 @@ pub fn build_app(state: AppState) -> Router {
         .route(
             "/api/v1/providers/deepseek/balance",
             post(providers::query_deepseek_balance),
+        )
+        .route("/api/v1/fonts", get(fonts::list_fonts))
+        .route(
+            "/api/v1/fonts/upload",
+            post(fonts::upload_font).layer(DefaultBodyLimit::disable()),
         )
         .route_layer(middleware::from_fn_with_state(
             state.clone(),

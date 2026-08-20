@@ -16,6 +16,7 @@ export * from "./providers.js";
 export * from "./reader.js";
 export * from "./search.js";
 export * from "./job-images.js";
+export * from "./fonts.js";
 export type * from "./types.js";
 export { stripOcrSuffix } from "./utils/strip-ocr.js";
 export { stripOcrSuffix as stripOcrSuffixRuntime } from "./internal/runtime.js";

@@ -150,11 +150,23 @@ def _run_typst_compile(
 
 def _resolved_font_paths(font_paths: list[Path] | None = None) -> list[Path]:
     resolved: list[Path] = []
-    if fonts.BACKEND_FONTS_DIR.exists():
-        resolved.append(fonts.BACKEND_FONTS_DIR)
-    raw = os.environ.get("RETAIN_PDF_TYPST_FONT_DIRS", "").strip()
-    if raw:
-        for item in raw.split(os.pathsep):
+    # Prefer BACKEND_FONTS_DIRS (multiple dirs via RETAIN_PDF_FONTS_DIR), fallback to single BACKEND_FONTS_DIR
+    backend_dirs: list[Path] = []
+    if hasattr(fonts, "BACKEND_FONTS_DIRS"):
+        backend_dirs = list(fonts.BACKEND_FONTS_DIRS)  # type: ignore[attr-defined]
+    elif hasattr(fonts, "BACKEND_FONTS_DIR"):
+        backend_dirs = [fonts.BACKEND_FONTS_DIR]  # type: ignore[attr-defined]
+    for path in backend_dirs:
+        if path not in resolved:
+            resolved.append(Path(path))
+    # RETAIN_PDF_TYPST_FONT_DIRS uses os.pathsep; also accept comma via RETAIN_PDF_FONTS_DIR for symmetry
+    for env_name in ("RETAIN_PDF_TYPST_FONT_DIRS", "RETAIN_PDF_FONTS_DIR"):
+        raw = os.environ.get(env_name, "").strip()
+        if not raw:
+            continue
+        # Normalize both comma and pathsep to a common separator
+        normalized = raw.replace(",", os.pathsep)
+        for item in normalized.split(os.pathsep):
             value = item.strip()
             if value:
                 path = Path(value)
