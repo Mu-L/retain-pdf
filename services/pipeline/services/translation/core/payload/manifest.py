@@ -86,6 +86,17 @@ def write_translation_manifest(
     if summary:
         payload.update(summary)
     _atomic_write_json(manifest_path, payload)
+    # Prune overflow page payloads that are no longer in manifest (e.g., rerun with smaller page range)
+    try:
+        allowed = {p.resolve() for p in translation_paths.values()}
+        for path in translations_dir.glob("page-*.json"):
+            try:
+                if path.resolve() not in allowed:
+                    path.unlink()
+            except Exception:
+                pass
+    except Exception:
+        pass
     return manifest_path
 
 

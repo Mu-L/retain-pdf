@@ -1,7 +1,7 @@
 use anyhow::Result;
 use tracing::error;
 
-use crate::job_events::{persist_job_with_resources, persist_runtime_job_with_resources};
+use crate::job_events::cas_persist_job_with_resources;
 use crate::models::domain::{now_iso, JobRuntimeState, JobSnapshot, JobStatusKind, WorkflowKind};
 
 use super::{
@@ -52,12 +52,17 @@ fn persist_queued_job(deps: &ProcessRuntimeDeps, job: &mut JobSnapshot) -> Resul
     job.updated_at = now_iso();
     job.sync_runtime_state();
     job.replace_failure_info(None);
-    persist_job_with_resources(
+    let updated = cas_persist_job_with_resources(
         deps.db.as_ref(),
         &deps.persist.data_root,
         &deps.persist.output_root,
         job,
+        &["queued", "running"],
     )?;
+    if !updated {
+        // Already terminal (e.g., canceled between should_skip and here), do not clobber
+        return Ok(());
+    }
     Ok(())
 }
 
@@ -88,11 +93,12 @@ fn persist_failed_job(
     job.finished_at = Some(now_iso());
     job.sync_runtime_state();
     job.replace_failure_info(crate::job_failure::classify_job_failure(&job));
-    persist_job_with_resources(
+    let _ = cas_persist_job_with_resources(
         deps.db.as_ref(),
         &deps.persist.data_root,
         &deps.persist.output_root,
         &job,
+        &["queued", "running"],
     )?;
     Ok(())
 }
@@ -122,12 +128,18 @@ async fn run_job(deps: ProcessRuntimeDeps, job_id: String) -> Result<()> {
     }
     let finished_job =
         dispatch_workflow(deps.clone(), deps.db.get_job(&job_id)?.into_runtime()).await?;
-    persist_runtime_job_with_resources(
+    let updated = crate::job_events::cas_persist_job_with_resources(
         deps.db.as_ref(),
         &deps.persist.data_root,
         &deps.persist.output_root,
-        &finished_job,
+        &finished_job.snapshot(),
+        &["queued", "running"],
     )?;
+    if !updated {
+        // Already terminal (e.g., canceled), do not overwrite with Succeeded/Failed
+        clear_job_cancel_request(&deps, &job_id).await;
+        return Ok(());
+    }
     update_document_after_job(&deps, &finished_job);
     clear_job_cancel_request(&deps, &job_id).await;
     Ok(())

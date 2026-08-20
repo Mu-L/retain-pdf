@@ -17,6 +17,21 @@ impl<'a> JobsFacade<'a> {
     ) -> Result<JobSubmissionView, AppError> {
         let source_job = load_job_or_404(self.command.db, source_job_id)?;
         if resume_plan(&source_job).resume_workflow == Some(WorkflowKind::Render) {
+            let job_id = source_job.job_id.clone();
+            let ocr_child_id = format!("{}-ocr", job_id);
+            // Clean up any previous OCR child that is now orphaned due to in-place rerender
+            let _ = self.command.db.delete_job(&ocr_child_id);
+            let ocr_child_dir = self.command.submit.data_root.join("jobs").join(&ocr_child_id);
+            let _ = std::fs::remove_dir_all(&ocr_child_dir);
+            // Also clear any stale rendered output on disk that would otherwise make
+            // completion's Path::exists() treat old PDF as success
+            let rendered_dir = self
+                .command
+                .submit
+                .output_root
+                .join(&job_id)
+                .join("rendered");
+            let _ = std::fs::remove_dir_all(&rendered_dir);
             let job = prepare_in_place_render_job(source_job)?;
             let job = start_job_execution(&self.command.submit.launcher, job)?;
             return Ok(self.build_submission_view(
@@ -63,6 +78,13 @@ pub(super) fn prepare_in_place_render_job(mut job: JobSnapshot) -> Result<JobSna
     job.runtime = None;
     job.replace_failure_info(None);
     reset_render_artifacts(&mut job);
+    // Also clear stale OCR child linkage that would otherwise point to a now-orphaned *-ocr job
+    if let Some(artifacts) = job.artifacts.as_mut() {
+        artifacts.ocr_job_id = None;
+        artifacts.ocr_status = None;
+        artifacts.ocr_trace_id = None;
+        artifacts.ocr_provider_trace_id = None;
+    }
     job.sync_runtime_state();
     Ok(job)
 }

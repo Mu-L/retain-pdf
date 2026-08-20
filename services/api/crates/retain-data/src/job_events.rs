@@ -30,6 +30,23 @@ pub fn persist_job_with_resources(
     Ok(())
 }
 
+pub fn cas_persist_job_with_resources(
+    db: &Db,
+    data_root: &Path,
+    output_root: &Path,
+    job: &JobSnapshot,
+    expected_statuses: &[&str],
+) -> Result<bool> {
+    let previous = db.get_job(&job.job_id).ok();
+    let mut current = job.clone();
+    current.sync_runtime_state();
+    let updated = db.cas_save_job(&current, expected_statuses)?;
+    if updated {
+        emit_job_events_best_effort(db, data_root, output_root, previous.as_ref(), &current);
+    }
+    Ok(updated)
+}
+
 pub fn persist_runtime_job_with_resources(
     db: &Db,
     data_root: &Path,

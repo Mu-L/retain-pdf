@@ -29,6 +29,7 @@ export function setCachedProtectedPdf(url: string, file: ProtectedPdfFile) {
 export async function loadProtectedPdfFile(
   url: string,
   fetchResource: typeof fetchProtected = fetchProtected,
+  options: { signal?: AbortSignal } = {},
 ): Promise<ProtectedPdfFile | null> {
   const normalized = `${url || ""}`.trim();
   if (!normalized) {
@@ -38,7 +39,7 @@ export async function loadProtectedPdfFile(
   if (cached) {
     return cached;
   }
-  const response = await fetchResource(normalized);
+  const response = await fetchResource(normalized, { signal: options.signal } as RequestInit);
   if (!response.ok) {
     const err = new Error(`读取 PDF 失败 (${response.status})`) as Error & { status?: number };
     err.status = response.status;

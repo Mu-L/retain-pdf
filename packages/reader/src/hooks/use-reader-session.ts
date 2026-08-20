@@ -140,10 +140,20 @@ function setBootProgress(
 }
 
 export function useReaderSession(): ReaderSessionState {
-  const jobId = useMemo(() => resolveReaderJobId(defaultReaderPageConfigPort), []);
+  const [locationKey, setLocationKey] = useState(() => globalThis.location?.search || "");
+  useEffect(() => {
+    const handler = () => setLocationKey(globalThis.location?.search || "");
+    window.addEventListener("popstate", handler);
+    window.addEventListener("hashchange", handler);
+    return () => {
+      window.removeEventListener("popstate", handler);
+      window.removeEventListener("hashchange", handler);
+    };
+  }, []);
+  const jobId = useMemo(() => resolveReaderJobId(defaultReaderPageConfigPort), [locationKey]);
   const documentId = useMemo(
     () => (jobId ? "" : resolveReaderDocumentId()),
-    [jobId],
+    [locationKey, jobId],
   );
   const sourceOnly = Boolean(documentId) && !jobId;
 
@@ -183,6 +193,7 @@ export function useReaderSession(): ReaderSessionState {
   }, [sourceOnly, mode]);
 
   useEffect(() => {
+    const abort = new AbortController();
     let cancelled = false;
 
     async function downloadOne(
@@ -194,9 +205,14 @@ export function useReaderSession(): ReaderSessionState {
       if (!url) {
         return null;
       }
+      if (abort.signal.aborted || cancelled) {
+        return null;
+      }
       setBootProgress(setBoot, percentStart, label, "download");
-      const file = await loadProtectedPdfFile(url, defaultReaderDataPort.fetchProtected);
-      if (cancelled) {
+      const file = await loadProtectedPdfFile(url, defaultReaderDataPort.fetchProtected, {
+        signal: abort.signal,
+      });
+      if (abort.signal.aborted || cancelled) {
         return null;
       }
       setBootProgress(setBoot, percentEnd, label, "download");
@@ -337,7 +353,9 @@ export function useReaderSession(): ReaderSessionState {
         postProgress({ percent: 100, text: READER_PROGRESS_COPY.ready, stage: "ready" });
         // URL 锚点跳页见 useUrlAnchorJump（react-pdf 控制器）
       } catch (err) {
-        if (cancelled) return;
+        if (cancelled || abort.signal.aborted) return;
+        // AbortError from fetch is not a real failure
+        if ((err as Error)?.name === "AbortError") return;
         const text = err instanceof Error ? err.message : READER_PROGRESS_COPY.failed;
         setBoot({
           loading: false,
@@ -353,8 +371,9 @@ export function useReaderSession(): ReaderSessionState {
     void load();
     return () => {
       cancelled = true;
+      abort.abort();
     };
-  }, [jobId, documentId, sourceOnly]);
+  }, [jobId, documentId, sourceOnly, locationKey]);
 
   const download = useMemo<ReaderDownloadContext>(
     () => ({

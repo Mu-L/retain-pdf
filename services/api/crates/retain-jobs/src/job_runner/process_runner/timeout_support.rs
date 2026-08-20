@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::path::Path;
 use std::time::Instant;
 
-use crate::job_events::persist_job_with_resources;
+use crate::job_events::cas_persist_job_with_resources;
 use crate::models::domain::{now_iso, JobRuntimeState, JobSnapshot, JobStatusKind, ProcessResult};
 
 use super::super::JobPersistDeps;
@@ -69,6 +69,13 @@ pub(super) fn persist_timeout_failure(
     stderr_text: String,
 ) -> Result<JobRuntimeState> {
     let mut timed_out_job = persist.db.get_job(&stdout_job.job_id)?;
+    // If already canceled, do not overwrite with timeout failure
+    if matches!(
+        timed_out_job.status,
+        crate::models::domain::JobStatusKind::Canceled
+    ) {
+        return Ok(timed_out_job.into_runtime());
+    }
     append_timeout_stderr_tail(&mut timed_out_job, &stderr_text);
     attach_timeout_process_result(
         &mut timed_out_job,
@@ -78,11 +85,18 @@ pub(super) fn persist_timeout_failure(
         project_root,
     );
     apply_timeout_failure(&mut timed_out_job, now_iso());
-    persist_job_with_resources(
+    let updated = cas_persist_job_with_resources(
         persist.db.as_ref(),
         &persist.data_root,
         &persist.output_root,
         &timed_out_job,
+        &["queued", "running"],
     )?;
+    if !updated {
+        // Already terminal (e.g., canceled), do not overwrite
+        if let Ok(current) = persist.db.get_job(&stdout_job.job_id) {
+            return Ok(current.into_runtime());
+        }
+    }
     Ok(timed_out_job.into_runtime())
 }

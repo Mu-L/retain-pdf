@@ -95,7 +95,7 @@ export function mountJobRuntimeFeature({
     try {
       payload = await fetchJobPayload(jobId, apiPrefix);
     } finally {
-      pollingPort.finishPoll();
+      pollingPort.finishPoll(generation);
     }
     if (!pollingPort.isCurrentGeneration(jobId, generation)) {
       return;
@@ -209,7 +209,11 @@ export function mountJobRuntimeFeature({
     fetchJob(jobId).catch((err) => {
       setText("error-box", err.message);
     });
+    const timerGeneration = pollingPort.getSnapshot?.()?.generation ?? 0;
     pollingPort.startTimer(() => {
+      if (pollingPort.isCurrentGeneration && !pollingPort.isCurrentGeneration(jobId, timerGeneration)) {
+        return;
+      }
       fetchJob(jobId).catch((err) => {
         setText("error-box", err.message);
       });

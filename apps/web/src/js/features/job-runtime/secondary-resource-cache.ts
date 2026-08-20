@@ -326,7 +326,8 @@ export function createSecondaryResourceStatePort(
       );
     },
     clearInFlightForCurrentJob(type, jobId) {
-      if (host?.currentJobId === jobId) {
+      const record = store.getSnapshot()[type as SecondaryResourceType];
+      if (record?.jobId === jobId) {
         return this.setInFlight(type, false);
       }
       return store.getSnapshot();
@@ -355,7 +356,7 @@ export function createSecondaryResourceStatePort(
       this.cache(type, jobId, payload);
       return this.cachedFor(type, jobId);
     },
-    reset({ preserveInFlight = true }: SecondaryResourceResetOptions = {}) {
+    reset({ preserveInFlight = false }: SecondaryResourceResetOptions = {}) {
       const current = store.getSnapshot();
       const next = Object.fromEntries(
         SECONDARY_RESOURCE_TYPES.map((type) => [

@@ -177,7 +177,13 @@ export function createRuntimePollingStatePort(
       const snapshot = applyRuntimePollingAction(state, (currentStore) => currentStore.actions.beginPoll());
       return snapshot.generation;
     },
-    finishPoll() {
+    finishPoll(generation?: unknown) {
+      if (generation !== undefined && generation !== null) {
+        const current = store.getSnapshot();
+        if (Number(generation) !== Number(current.generation || 0)) {
+          return current;
+        }
+      }
       return applyRuntimePollingAction(state, (currentStore) => currentStore.actions.finishPoll());
     },
     isCurrentGeneration(jobId, generation) {

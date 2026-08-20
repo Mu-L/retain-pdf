@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 
 use crate::db::Db;
 use crate::error::AppError;
-use crate::job_events::persist_job_with_resources;
+use crate::job_events::cas_persist_job_with_resources;
 use crate::models::domain::{now_iso, JobSnapshot, JobStatusKind, WorkflowKind};
 use crate::services::runtime_gateway::terminate_runtime_process;
 
@@ -95,7 +95,16 @@ pub(crate) async fn cancel_job(
             job.pid = None;
             job.sync_runtime_state();
             job.replace_failure_info(None);
-            persist_job_with_resources(deps.db, deps.data_root, deps.output_root, &job)?;
+            let updated = cas_persist_job_with_resources(
+                deps.db,
+                deps.data_root,
+                deps.output_root,
+                &job,
+                &["queued", "running"],
+            )?;
+            if !updated {
+                return Ok(load_job_or_404(deps.db, job_id)?);
+            }
         }
         return Ok(job);
     }
@@ -107,7 +116,16 @@ pub(crate) async fn cancel_job(
     job.pid = None;
     job.sync_runtime_state();
     job.replace_failure_info(None);
-    persist_job_with_resources(deps.db, deps.data_root, deps.output_root, &job)?;
+    let updated = cas_persist_job_with_resources(
+        deps.db,
+        deps.data_root,
+        deps.output_root,
+        &job,
+        &["queued", "running"],
+    )?;
+    if !updated {
+        return Ok(load_job_or_404(deps.db, job_id)?);
+    }
     Ok(job)
 }
 

@@ -28,8 +28,6 @@ const KNOWN_ORPHANS = {
     // 模板生成的类,src/styles 中没有对应规则(无样式 div)
     "detail-artifact-meta",
   ]),
-  // 旧引擎已全量删除（src/js/reader 仅保留共享 ports 及 block-key 抽离），无孤儿
-  "src/js/reader": Object.freeze([]),
 };
 
 const PAGES = [
@@ -41,14 +39,6 @@ const PAGES = [
     // (id/class)改由 React 树渲染:归属校验需要扫描新世界 JSX 的
     // id="..." 与 className="..."(保留的旧纯逻辑仍按 id 写这些节点)。
     jsxDir: "src/pages/detail",
-  },
-  {
-    jsDir: "src/js/reader",
-    prefix: "reader",
-    htmlFile: "reader.html",
-    // Phase 2b cutover 后 reader.html 只剩 #reader-root 挂载点,页面骨架
-    // (id/class)改由 React 树渲染(照 detail 先例扫描新世界 JSX)。
-    jsxDir: "src/pages/reader",
   },
 ];
 
@@ -157,7 +147,6 @@ for (const page of PAGES) {
 
   test(`${page.jsDir} 的 ${page.prefix}-* 引用在 ${page.htmlFile}/样式/模板中有归属`, () => {
     const { literals, ownership } = analyzePage(page);
-    if (page.jsDir === "src/js/reader" && literals.size === 0) return; // 已抽至 shared，无字面量属正常
     assert.ok(literals.size > 0, `未在 ${page.jsDir} 中找到任何 ${page.prefix}-* 字面量,检查扫描逻辑`);
     const orphans = [];
     for (const [literal, file] of literals) {
