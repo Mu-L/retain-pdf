@@ -1,7 +1,6 @@
 // BookDetailDialog —— 容器：组合 hooks + shell/tabs。
 // 业务状态见 use-book-detail-*.js；UI 见 shell / tabs / panels。
 
-import { useEffect, useState } from "react";
 import { useHomeServices } from "../../../home-services-context.js";
 import { useDialogState } from "../../../state/use-dialog-state.js";
 import { useDialogReturnFocus } from "../../../../../shared/react/use-dialog-return-focus.js";
@@ -17,23 +16,9 @@ import {
 import { useBookDetailLiveItem } from "./use-book-detail-live-item.js";
 import { useBookDetailDocument } from "./use-book-detail-document.js";
 import { useBookDetailTranslate } from "./use-book-detail-translate.js";
-import { isLibraryCardProcessing } from "../display/library-card-badge.js";
+import { useBookDetailCover } from "./use-book-detail-cover.js";
+import { useBookDetailTab } from "./use-book-detail-tab.js";
 import { useStoreSnapshot } from "../../../../../shared/react/use-store.js";
-import {
-  isRecentJobActive,
-  recentJobStageLabel,
-  recentJobStatusLabel,
-  isLibraryOnlyItem,
-} from "../../../composition/external.js";
-
-function statusOf(item) {
-  if (isLibraryOnlyItem(item)) return { label: "未翻译", tone: "muted" };
-  if (isRecentJobActive(item)) return { label: recentJobStageLabel(item), tone: "active" };
-  const status = `${item.status || ""}`.trim();
-  if (status === "succeeded") return { label: "已完成", tone: "done" };
-  if (status === "failed") return { label: "失败", tone: "failed" };
-  return { label: recentJobStatusLabel(status), tone: "muted" };
-}
 
 export function BookDetailDialog() {
   const services = useHomeServices();
@@ -48,34 +33,20 @@ export function BookDetailDialog() {
 
   const item = useBookDetailLiveItem(services, payloadItem);
   const statusCardState = useStoreSnapshot(services.statusCard.store);
-  const cardStatus = `${statusCardState?.snapshot?.status || ""}`.trim().toLowerCase();
-  const cardJobId = `${statusCardState?.snapshot?.jobId || ""}`.trim();
   const documentId = `${item.document_id || ""}`.trim();
+  const { status, coverProcessing, readerAvailable, canTranslate, isActive, cardJobId } =
+    useBookDetailCover({ item, statusCardState });
   const jobId = `${item.job_id || item.active_job_id || cardJobId || ""}`.trim();
-  const libraryOnly = isLibraryOnlyItem(item);
-  const status = statusOf(item);
   const coverUrl = useRecentJobCover(item);
-  const readerAvailable = `${item.status || ""}`.trim() === "succeeded"
-    && !["running", "queued", "pending"].includes(cardStatus);
-  const canTranslate = libraryOnly || `${item.status || ""}`.trim() === "failed";
-  const isActive = isRecentJobActive(item)
-    || ["running", "queued", "pending"].includes(cardStatus);
-  // 封面转圈：书架 live 行 + statusCard 正在跑（重试后 payload 可能仍是旧 succeeded）
-  const coverProcessing = isActive
-    || isLibraryCardProcessing(item)
-    || (Boolean(cardJobId) && ["running", "queued", "pending"].includes(cardStatus));
 
   // 点「翻译整本」/ 网格选中活跃任务：强制翻译 Tab，进度在 bd-job-status-inner
-  const [preferTranslateTab, setPreferTranslateTab] = useState(false);
-  useEffect(() => {
-    if (!open) {
-      setPreferTranslateTab(false);
-      return;
-    }
-    if (payloadItem?.prefer_translate_tab) {
-      setPreferTranslateTab(true);
-    }
-  }, [open, documentId, payloadItem?.prefer_translate_tab]);
+  const { preferTranslateTab, defaultTab, setPreferTranslateTab } = useBookDetailTab({
+    open,
+    payloadItem,
+    item,
+    readerAvailable,
+    isActive,
+  });
 
   const close = () => dialogStore.close();
 
@@ -102,13 +73,6 @@ export function BookDetailDialog() {
   const handleOpenChange = (next) => {
     if (!next) close();
   };
-
-  const defaultTab = (
-    preferTranslateTab
-    || readerAvailable
-    || isActive
-    || `${item.status || ""}`.trim() === "failed"
-  ) ? "translate" : "overview";
 
   return (
     <BookDetailShell

@@ -1,7 +1,7 @@
 // 详情「翻译」Tab：页码范围 + 发起翻译 + 静默 attachJobProgress。
 // 进度只在 bd-job-status-inner，不打开工作流弹窗。
 
-import { useEffect, useState } from "react";
+import { usePageRange } from "./use-page-range.js";
 
 /**
  * @param {object} options
@@ -22,39 +22,25 @@ export function useBookDetailTranslate({
   setError,
   onTranslateStarted,
 }: any) {
-  const [rangeOn, setRangeOn] = useState(false);
-  const [startPage, setStartPage] = useState("1");
-  const [endPage, setEndPage] = useState("");
-
-  useEffect(() => {
-    if (!open) {
-      setRangeOn(false);
-      setStartPage("1");
-      setEndPage("");
-    }
-  }, [open, documentId]);
-
-  useEffect(() => {
-    if (pageCount && !endPage) {
-      setEndPage(`${pageCount}`);
-    }
-  }, [pageCount, endPage]);
+  const {
+    rangeOn,
+    startPage,
+    endPage,
+    setRangeOn,
+    setStartPage,
+    setEndPage,
+    validateRange,
+  } = usePageRange({ open, documentId, pageCount });
 
   async function handleTranslate() {
     const payload: any = {};
     if (rangeOn) {
-      const s = Number(startPage);
-      const e = Number(endPage);
-      if (
-        !Number.isInteger(s)
-        || !Number.isInteger(e)
-        || s < 1
-        || e < s
-        || (pageCount && e > pageCount)
-      ) {
-        setError(`页码范围不合法（1–${pageCount || "总页数"}）`);
+      const checked = validateRange();
+      if (!checked.valid) {
+        setError(checked.error);
         return;
       }
+      const { s, e } = checked as { s: number; e: number };
       payload.ocr = { page_ranges: `${s}-${e}` };
       payload.translation = { start_page: s, end_page: e };
     }
