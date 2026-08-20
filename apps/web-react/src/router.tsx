@@ -10,8 +10,8 @@
  *   tabs (activeLibraryTab useState) → <Link> navigation
  *   AppTopBar / AppBottomBar / home-paper-stage → persistent shell + <Outlet />
  *
- * Enable via VITE_USE_SPA=true (see src/app-flags.ts). Keep legacy App.tsx
- * as fallback so build stays green while SPA is scaffolded.
+ * Enabled by default via VITE_USE_SPA !== 'false' (see src/app-flags.ts).
+ * Legacy App.tsx kept as opt-out fallback (VITE_USE_SPA=false); archived at src/_archived/App.legacy.tsx.
  */
 import { createRouter } from '@tanstack/react-router'
 import { rootRoute } from '@/routes/__root'

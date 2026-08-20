@@ -1,7 +1,9 @@
 /**
- * @deprecated Legacy shell — archived. Default is now TanStack Router (see src/router.tsx).
- * Kept as fallback when VITE_USE_SPA=false. Archived copy: src/_archived/App.legacy.tsx
- * Remove after rollback window closes.
+ * Archived legacy shell — snapshot of src/App.tsx at SPA-default cutover (2026-08-20).
+ * Original manual hash/path routing (pre-TanStack Router). Do not edit.
+ * Active fallback remains at src/App.tsx (VITE_USE_SPA=false); this file is reference-only.
+ * @see src/app-flags.ts — USE_SPA defaults true
+ * @see src/router.tsx — current default shell
  */
 import { useEffect, useState } from 'react'
 import { LibraryRoute } from '@/features/library'
