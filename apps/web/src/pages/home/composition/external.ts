@@ -129,6 +129,13 @@ export {
 // —— runtime ——
 export { resolveLottieVendorUrl } from "../../../js/runtime/vendor-url.js";
 
+// —— utils ——
+export {
+  buildErrorDiagnostic,
+  messageForErrorBox,
+} from "../../../js/utils/error-diagnostics.js";
+export { copyText } from "../../../js/utils/clipboard.js";
+
 // —— api ——
 export {
   buildApiEndpoint,

@@ -5,9 +5,8 @@
 // 保留 <inline-error-box> 标签与 log/error-box/inline-error-box 类(CSS 平权)。
 
 import { useState } from "react";
-import { messageForErrorBox } from "../../../js/utils/error-diagnostics.js";
-import { copyText } from "../../../js/utils/clipboard.js";
-import { useStoreSnapshot } from "../../../shared/react/use-store.js";
+import { copyText, messageForErrorBox } from "../composition/external.js";
+import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useHomeServices } from "../home-services-context.js";
 
 const selectErrorBoxValue = (snapshot) => snapshot?.texts?.["error-box"];

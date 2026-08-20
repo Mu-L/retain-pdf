@@ -2,7 +2,7 @@
 // Main 与 Embedded 只消费本 hook 的返回值，不各自再拼一遍。
 
 import { useMemo } from "react";
-import { useStoreSnapshot } from "../../../../shared/react/use-store.js";
+import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useHomeServices } from "../../home-services-context.js";
 import { useStageSelection } from "./useStageSelection.js";
 import { useElapsedTicker } from "./useElapsedTicker.js";

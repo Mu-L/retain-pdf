@@ -7,7 +7,7 @@
 // viewPort.bindEvents(...)捕获的处理函数(save/validateOcr/validateDeepSeek/
 // changeProvider/resetXxxValidation 等)——见 credentials-view-store.js 头注释。
 
-import { useStoreSnapshot } from "../../../../shared/react/use-store.js";
+import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useHomeServices } from "../../home-services-context.js";
 import { useDialogState } from "../../state/use-dialog-state.js";
 

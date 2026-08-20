@@ -13,8 +13,8 @@
 // 断言分类 tab 下 #library-search-input 不存在),只留添加/设置。
 
 import { useHomeServices } from "../../home-services-context.js";
-import { useStoreSnapshot } from "../../../../shared/react/use-store.js";
-import { useLibrarySearchBinding } from "../library/page/RecentJobsLibrary.jsx";
+import { useStoreSnapshot } from "@/shared/react/use-store.js";
+import { useLibrarySearchBinding } from "../shared/use-library-search-binding.js";
 import { TRANSLATION_WORKFLOW_DIALOG } from "../../composition/external.js";
 
 export function AppBottomBar({ showSearch = true, hidden = false }) {

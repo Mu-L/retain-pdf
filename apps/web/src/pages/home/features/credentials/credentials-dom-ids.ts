@@ -62,19 +62,6 @@ export const CREDENTIAL_DOM_DATASETS = {
 
 // SettingsHubDialog(蓝图 §0.4,拷贝自
 // src/js/components/dialogs/app-settings-dialog-contract.js)。
-export const APP_SETTINGS_DIALOG_IDS = {
-  dialog: "app-settings-dialog",
-  openButton: "app-settings-btn",
-  closeButton: "app-settings-close-btn",
-  /** 已退役（设置 v2：API 区内嵌 CredentialsWorkbench，无二层弹窗入口）。
-   *  保留常量仅供历史对照，勿再新增消费点。 */
-  credentialsButton: "credentials-btn",
-  // 词表/更新两个 tab 本阶段只占位(蓝图 §0.4);id 先落地供后续 agent 对齐。
-  glossaryButton: "glossary-btn",
-  appUpdateButton: "app-update-btn",
-};
-
-export const APP_SETTINGS_DIALOG_DATASETS = {
-  settingsTab: "settingsTab",
-  settingsPanel: "settingsPanel",
-};
+// Decoupled: source of truth moved to features/shared/settings-dialog-ids.ts
+// (settings → credentials coupling removed). Re-export for backward-compat.
+export { APP_SETTINGS_DIALOG_IDS, APP_SETTINGS_DIALOG_DATASETS } from "../shared/settings-dialog-ids.js";

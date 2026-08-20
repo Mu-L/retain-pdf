@@ -41,8 +41,8 @@
 
 import { X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
-import { useAppEvent } from "../../../../shared/react/use-app-event.js";
-import { useDialogReturnFocus } from "../../../../shared/react/use-dialog-return-focus.js";
+import { useAppEvent } from "@/shared/react/use-app-event.js";
+import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
 import { useHomeServices } from "../../home-services-context.js";
 import { CREDENTIAL_DOM_IDS } from "./credentials-dom-ids.js";
 import { useCredentialsController } from "./useCredentialsController.js";

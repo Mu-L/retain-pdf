@@ -6,14 +6,17 @@
 //   (3a 为 preventDefault 占位;隐藏凭据 input 由 credentials 域的
 //   HiddenCredentialInputs 接管,渲染唯一一份,不重复制造 DOM id)
 // - 上传瓦片/动作组/行内错误盒分别由 upload 域组件与 InlineErrorBox 落位
+//
+// Decoupled: HiddenCredentialInputs 不再由 workflow 直接 import(曾是
+// workflow → credentials 跨域耦合),改为由 HomeApp/TranslationWorkflowDialog
+// 经 props/slot 注入(hiddenInputsSlot)。workflow 域只管渲染 slot。
 
-import { useStoreSnapshot } from "../../../../shared/react/use-store.js";
+import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useHomeServices } from "../../home-services-context.js";
 import { HeroUpload } from "./components/UploadTile.jsx";
 import { InlineErrorBox } from "../../components/InlineErrorBox.jsx";
-import { HiddenCredentialInputs } from "../credentials/HiddenCredentialInputs.jsx";
 
-export function WorkflowPanel() {
+export function WorkflowPanel({ hiddenInputsSlot = null }: { hiddenInputsSlot?: React.ReactNode | null }) {
   const services = useHomeServices();
   const workflow = useStoreSnapshot(services.stores.workflowView);
 
@@ -29,7 +32,7 @@ export function WorkflowPanel() {
         noValidate
         onSubmit={(event) => services.bridge.submitForm(event)}
       >
-        <HiddenCredentialInputs />
+        {hiddenInputsSlot}
 
         <HeroUpload />
         <InlineErrorBox />

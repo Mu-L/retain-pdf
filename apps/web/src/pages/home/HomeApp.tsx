@@ -9,7 +9,7 @@
 // 占位自定义元素标签(<recent-jobs-dialog> 等)在新世界不注册定义,惰性无副作用。
 
 import { useState } from "react";
-import { HomeServicesProvider } from "./home-services-context.js";
+import { HomeServicesProvider, useHomeServices } from "./home-services-context.js";
 import type { HomeServices } from "./composition/types.js";
 import { AppTopBar } from "./features/app-shell/AppTopBar.jsx";
 import { AppBottomBar } from "./features/app-shell/AppBottomBar.jsx";
@@ -22,6 +22,11 @@ import {
   FavoritesView,
   BookDetailDialog,
 } from "./features/library/index.js";
+import { HiddenCredentialInputs } from "./features/credentials/HiddenCredentialInputs.jsx";
+import { StatusCard } from "./features/status/StatusCard.jsx";
+import { CredentialsWorkbench } from "./features/credentials/CredentialsWorkbench.jsx";
+import { AppUpdateBanner } from "./features/app-update/AppUpdateBanner.jsx";
+import { useStoreSnapshot } from "@/shared/react/use-store.js";
 // CategoriesView 为历史别名（同 CollectionsView），保留在 library/index 兼容导出
 import { HomeAskView } from "./features/home-ask/HomeAskView.js";
 import { CredentialsDialog } from "./features/credentials/CredentialsDialog.jsx";
@@ -31,7 +36,7 @@ import { StatusDetailDialog } from "./features/status-detail/StatusDetailDialog.
 import { ReaderDialog } from "./features/reader/ReaderDialog.jsx";
 import { SoftReaderHost } from "./features/reader/SoftReaderHost.jsx";
 import { CollectionManageDialog } from "./features/collections/CollectionManageDialog.jsx";
-import { DownloadToastHost } from "../../shared/react/DownloadToastHost.jsx";
+import { DownloadToastHost } from "@/shared/react/DownloadToastHost.jsx";
 import {
   readInitialLibraryTabFromReturn,
   useHomeReturnRestore,
@@ -58,6 +63,15 @@ function HomeShell() {
 
   // 合集/收藏/AI tab：视图挂载即可尝试恢复 panel 滚动（图书馆由 RecentJobsLibrary 在有列表后恢复）
   useHomeReturnRestore(isCategoriesTab || isFavoritesTab || isAskTab);
+
+  // Decoupled composition: HomeApp (composition root) wires cross-feature slots.
+  // Previously:
+  //   WorkflowPanel → HiddenCredentialInputs (workflow → credentials)
+  //   TranslationWorkflowDialog → StatusCard (workflow → status)
+  //   SettingsHubDialog → CredentialsWorkbench / AppUpdateBanner / credentials-dom-ids
+  // Now each consumer receives its dependency via props from here (no sibling imports).
+  const services = useHomeServices();
+  const statusAreaSnap = useStoreSnapshot(services.stores.statusArea);
 
   return (
     <>
@@ -90,8 +104,21 @@ function HomeShell() {
         <button id="open-query-btn" type="button" className="secondary hidden" aria-hidden="true">最近任务</button>
         {/* 3b 占位:最近任务对话框 */}
         <recent-jobs-dialog></recent-jobs-dialog>
-        <SettingsHubDialog />
-        <TranslationWorkflowDialog />
+        <SettingsHubDialog
+          credentialsWorkbenchSlot={<CredentialsWorkbench />}
+          appUpdateBannerSlot={<AppUpdateBanner />}
+        />
+        <TranslationWorkflowDialog
+          hiddenInputsSlot={<HiddenCredentialInputs />}
+          statusCardSlot={
+            <StatusCard
+              visible={Boolean(statusAreaSnap.visible)}
+              showResultActions
+              showHiddenContract
+              rootId="job-status-card"
+            />
+          }
+        />
       </main>
       {/* dialogs.html 区块:upload 域的专业翻译对话框 + credentials 域已 React 化,其余占位(3b) */}
       <CredentialsDialog />

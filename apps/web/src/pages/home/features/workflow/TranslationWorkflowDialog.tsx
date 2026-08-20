@@ -56,17 +56,27 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
-import { useStoreSnapshot } from "../../../../shared/react/use-store.js";
+import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useHomeServices } from "../../home-services-context.js";
-import { useDialogReturnFocus } from "../../../../shared/react/use-dialog-return-focus.js";
+import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
 import { WorkflowPanel } from "./WorkflowPanel.jsx";
-import { StatusCard } from "../status/StatusCard.jsx";
 import {
   TRANSLATION_WORKFLOW_DIALOG,
   TRANSLATION_WORKFLOW_MODES,
 } from "../../composition/external.js";
 
-export function TranslationWorkflowDialog() {
+// Decoupled: workflow → status 横向依赖改为经 HomeApp 注入(slot/prop)。
+// - statusCardSlot: 由 HomeApp 传入 <StatusCard ... /> (原先直接 import StatusCard)
+// - hiddenInputsSlot: 透传给 WorkflowPanel 的隐藏凭据 inputs (原先 WorkflowPanel 直接 import HiddenCredentialInputs)
+// 保持向后兼容:若 slot 未注入则退化为不渲染(不用在 workflow 域内再 import status/credentials)。
+
+export function TranslationWorkflowDialog({
+  statusCardSlot = null,
+  hiddenInputsSlot = null,
+}: {
+  statusCardSlot?: React.ReactNode | null;
+  hiddenInputsSlot?: React.ReactNode | null;
+} = {}) {
   const services = useHomeServices();
   const dialog = useStoreSnapshot(services.stores.dialog);
   const statusArea = useStoreSnapshot(services.stores.statusArea);
@@ -140,19 +150,13 @@ export function TranslationWorkflowDialog() {
                 </button>
               </DialogPrimitive.Close>
             </div>
-            <WorkflowPanel />
+            <WorkflowPanel hiddenInputsSlot={hiddenInputsSlot} />
             <section
               id="status-section"
               className={`translation-status-panel${statusArea.visible ? "" : " hidden"}`}
               aria-label="任务进度"
             >
-              {/* status 侧 props 默认值在另一批收紧;此处补齐调用侧以满足当前签名 */}
-              <StatusCard
-                visible={statusArea.visible}
-                showResultActions
-                showHiddenContract
-                rootId="job-status-card"
-              />
+              {statusCardSlot}
             </section>
           </div>
         </DialogPrimitive.Content>

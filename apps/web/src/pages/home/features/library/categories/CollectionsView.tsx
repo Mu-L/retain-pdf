@@ -11,8 +11,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useHomeServices } from "../../../home-services-context.js";
-import { useStoreSnapshot } from "../../../../../shared/react/use-store.js";
-import { EmptyState } from "../../../../../shared/icons/EmptyState.jsx";
+import { useStoreSnapshot } from "@/shared/react/use-store.js";
+import { EmptyState } from "@/shared/icons/EmptyState.jsx";
 import { BookCard, buildDefaultBookCardActions } from "../shell/BookCard.jsx";
 import { useRecentJobCover } from "../display/useRecentJobCover.js";
 

@@ -11,9 +11,9 @@
 
 import { X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
-import { useStoreSnapshot } from "../../../../../shared/react/use-store.js";
+import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useHomeServices } from "../../../home-services-context.js";
-import { useDialogReturnFocus } from "../../../../../shared/react/use-dialog-return-focus.js";
+import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
 
 export function PageRangeDialog() {
   const services = useHomeServices();

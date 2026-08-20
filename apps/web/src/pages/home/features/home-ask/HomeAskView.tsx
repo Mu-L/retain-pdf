@@ -6,7 +6,7 @@ import {
   CREDENTIALS_CHANGED_EVENT,
   hasModelApiKey,
 } from "../../composition/external.js";
-import { useStoreSnapshot } from "../../../../shared/react/use-store.js";
+import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useHomeServices } from "../../home-services-context.js";
 import { HomeAskComposer } from "./HomeAskComposer.js";
 import { HomeAskSidebar } from "./HomeAskSidebar.js";

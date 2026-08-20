@@ -9,7 +9,7 @@
 // - #credential-gate-action → openBrowserCredentials（非 setupMode → 设置 → API）
 
 import { useCallback } from "react";
-import { useStoreSnapshot } from "../../../../../shared/react/use-store.js";
+import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useHomeServices } from "../../../home-services-context.js";
 import { APP_EVENTS } from "../../../composition/external.js";
 

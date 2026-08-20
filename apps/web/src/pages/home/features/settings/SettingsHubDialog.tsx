@@ -25,11 +25,15 @@ import { Dialog as DialogPrimitive, Tabs as TabsPrimitive } from "radix-ui";
 import { useHomeServices } from "../../home-services-context.js";
 import { useDialogState } from "../../state/use-dialog-state.js";
 import { useDialogReturnFocus } from "../../../../shared/react/use-dialog-return-focus.js";
-import { APP_SETTINGS_DIALOG_IDS } from "../credentials/credentials-dom-ids.js";
-import { AppUpdateBanner } from "../app-update/AppUpdateBanner.jsx";
-import { CredentialsWorkbench } from "../credentials/CredentialsWorkbench.jsx";
+import { APP_SETTINGS_DIALOG_IDS } from "../shared/settings-dialog-ids.js";
 import { ThemeAppearancePanel } from "./ThemeAppearancePanel.jsx";
 import { Button as ButtonBase } from "../../../../components/Button.jsx";
+
+// Decoupled: settings → credentials / app-update 横向依赖改为经 HomeApp 注入(slot)。
+// - credentialsWorkbenchSlot: 由 HomeApp 传入 <CredentialsWorkbench />
+// - appUpdateBannerSlot: 由 HomeApp 传入 <AppUpdateBanner />
+// 原先直接 import CredentialsWorkbench / AppUpdateBanner / credentials-dom-ids 导致
+// settings 域强耦合 credentials 域；现仅依赖 shared/settings-dialog-ids (无状态常量)。
 
 // Button.size 在未注解源文件里被推断为必填;unstyled 路径运行时不用 size。
 const Button = ButtonBase as any;
@@ -93,7 +97,13 @@ function PaneHead({ tab }: { tab: keyof typeof PANE_HEADS }) {
   );
 }
 
-export function SettingsHubDialog() {
+export function SettingsHubDialog({
+  credentialsWorkbenchSlot = null,
+  appUpdateBannerSlot = null,
+}: {
+  credentialsWorkbenchSlot?: React.ReactNode | null;
+  appUpdateBannerSlot?: React.ReactNode | null;
+} = {}) {
   const services = useHomeServices();
   const { dialogStore } = services.settingsHub;
   const dialogState = useDialogState(dialogStore);
@@ -188,9 +198,7 @@ export function SettingsHubDialog() {
                   data-settings-panel="api"
                 >
                   <PaneHead tab="api" />
-                  {/* 凭据工作台直接内嵌（无二层弹窗）；与首次配置门共用
-                      CredentialsWorkbench，状态同源。 */}
-                  <CredentialsWorkbench />
+                  {credentialsWorkbenchSlot}
                 </TabsPrimitive.Content>
 
                 <TabsPrimitive.Content
@@ -231,9 +239,7 @@ export function SettingsHubDialog() {
                   data-settings-panel="update"
                 >
                   <PaneHead tab="update" />
-                  {/* AppUpdateBanner:按钮 + 详情 dialog 合并一体(蓝图 §5)。
-                      挂载生命周期与后台自检解耦的结论见文件头注释。 */}
-                  <AppUpdateBanner />
+                  {appUpdateBannerSlot}
                 </TabsPrimitive.Content>
               </div>
             </TabsPrimitive.Root>

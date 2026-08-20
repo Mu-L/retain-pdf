@@ -310,16 +310,6 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
 // 骨架里——图书馆网格与底部搜索栏是同级兄弟节点,不是父子关系(镜像
 // partials/main-content.html)。导出这个 hook 供 HomeApp.jsx 复用同一条
 // onSearch/query 通道,避免出现两条平行实现。
-export function useLibrarySearchBinding() {
-  const services = useHomeServices();
-  const { viewPort } = services.library;
-  const view = useStoreSnapshot(viewPort.store);
-
-  function onSearchChange(event) {
-    const value = event.target.value;
-    viewPort.store.actions.setQuery(value);
-    viewPort.handlersRef.current.onSearch?.(value);
-  }
-
-  return { query: view.query, onSearchChange };
-}
+// — Decoupled: canonical implementation lives in features/shared/use-library-search-binding.js;
+//   AppBottomBar now imports from shared, not from library (removes app-shell → library coupling).
+export { useLibrarySearchBinding } from "../../shared/use-library-search-binding.js";

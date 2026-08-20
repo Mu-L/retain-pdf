@@ -31,7 +31,12 @@ export {
 export { RecentJobsLibrary, useLibrarySearchBinding } from "./page/RecentJobsLibrary.jsx";
 export { createRecentJobsReactViewPort } from "./page/recent-jobs-react-port.js";
 export { createLibraryViewStore } from "./page/library-view-store.js";
-export { LibraryTopTabs } from "../app-shell/tabs/LibraryTopTabs.jsx";
+// Decoupled: LibraryTopTabs 归属 app-shell, 不再经 library/index 转出口(曾导致
+// library → app-shell 潜在 cycle)。请直接:
+//   import { LibraryTopTabs } from "../app-shell/tabs/LibraryTopTabs.jsx"
+// 或经由 features/app-shell 索引。保留兼容再出口时需显式走 shared/barrel 中转, 不直连。
+// TODO[decouple-library-appShell]: 已移除 library/index 对 LibraryTopTabs 的重出口; 若需跨域复用, 迁至
+// features/shared 或 app-shell 公开索引, 并更新所有 `from ".../library" import LibraryTopTabs` 调用。
 
 export { CollectionsView } from "./categories/CollectionsView.jsx";
 export { CollectionsView as CategoriesView } from "./categories/CollectionsView.jsx";
