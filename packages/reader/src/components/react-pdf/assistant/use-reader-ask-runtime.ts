@@ -566,17 +566,22 @@ export function useReaderAskRuntime(options: {
     return map;
   }, [items, streamEpoch]);
 
-  const messageRepository = useMemo(
-    () =>
-      ExportedMessageRepository.fromBranchableArray(
-        items.map((item) => ({
-          message: toThreadMessageLike(item.message),
-          parentId: item.parentId,
-        })),
-        { headId },
-      ),
-    [items, headId],
-  );
+  const messageRepository = useMemo(() => {
+    const repo: any = ExportedMessageRepository as any;
+    const fn = repo?.fromBranchableArray || repo?.fromArray;
+    if (typeof fn !== "function") {
+      console.error("ExportedMessageRepository missing fromBranchableArray/fromArray", repo);
+      return { messages: [], headId } as any;
+    }
+    return fn.call(
+      repo,
+      items.map((item) => ({
+        message: toThreadMessageLike(item.message),
+        parentId: item.parentId,
+      })),
+      { headId },
+    );
+  }, [items, headId]);
 
   const patchAssistant = useCallback((
     assistantId: string,
