@@ -13,11 +13,11 @@ name: Publish Current Web Image
       - master
     paths:
       - ".github/workflows/publish-current-web.yml"
-      - "docker/Dockerfile.web"
-      - "docker/entrypoint-web.sh"
-      - "docker/nginx-mjs.types.conf"
-      - "docker/nginx.conf.template"
-      - "frontend/**"
+      - "infra/docker/Dockerfile.web"
+      - "infra/docker/entrypoint-web.sh"
+      - "infra/docker/nginx-mjs.types.conf"
+      - "infra/docker/nginx.conf.template"
+      - "apps/web/**"
 
 jobs:
   publish-web:
@@ -79,7 +79,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: docker/Dockerfile.web
+          file: infra/docker/Dockerfile.web
           platforms: ${{ inputs.platforms || 'linux/amd64,linux/arm64' }}
           push: true
           build-args: |

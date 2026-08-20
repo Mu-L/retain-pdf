@@ -6,13 +6,13 @@
 
 - `rust_api/`：Rust API 服务源码。Docker、桌面端和系统服务都会通过 `RUST_API_ROOT` 或固定路径找到它。
 - `scripts/`：Python OCR、翻译、渲染流水线源码。GitHub Actions、Docker、桌面端打包和本地测试都直接引用这个路径。
-- `fonts/`：打包和 Docker 会复制的中文字体资源，目前是正式发布资源，不是缓存。
+- `fonts/` → `../infra/fonts` 兼容 symlink：打包和 Docker 会复制的中文字体资源，已迁移至 `infra/fonts`，`backend/fonts` 仅为过渡期兼容链接。
 
 ## 本地或平台运行时产物
 
 - `rust_api/target/`：Rust 构建产物，体积很大，已被 `.gitignore` 忽略，可以安全删除后重新编译。
 - `python/`：Windows 桌面端打包用的 Python runtime，已被 `.gitignore` 忽略。后续如果重构，建议迁移到根目录的 `local-runtime/windows/python/` 或桌面端专用 runtime 目录，并同步更新 `desktop/scripts/prepare-app.mjs`。
-- `typst-win32/bin/`：Windows Typst 可执行文件目录，已被 `.gitignore` 忽略。`typst-win32/.crates.toml` 和 `.crates2.json` 当前仍是可见文件，后续建议跟随 Typst runtime 一起归档。
+- `typst-win32/` → `../infra/typst/win32` 兼容 symlink：Windows Typst 可执行文件目录，已迁移至 `infra/typst/win32`。`infra/typst/win32/bin/` 被 `.gitignore` 忽略，`.crates.toml` 和 `.crates2.json` 随 runtime 一起归档。
 - `workspace/`：历史/本地临时工作区，不应作为源码入口继续扩展。
 - `.ipynb_checkpoints/`、`.pytest_cache/`、`__pycache__/`：编辑器和 Python 缓存，可以删除。
 - `scripts/.env/*.env`、`rust_api/auth.local.json`：本地密钥配置，不能提交。

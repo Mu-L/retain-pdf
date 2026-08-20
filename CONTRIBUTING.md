@@ -34,7 +34,7 @@
 后端：
 
 ```bash
-cd backend/rust_api
+cd services/api
 # Prefer absolute DATA_ROOT/SCRIPTS_DIR so DB path storage never sees "../../data/...".
 # Relative values still work after startup absolutization, but absolute is clearest.
 RUST_API_BIND_HOST=0.0.0.0 \
