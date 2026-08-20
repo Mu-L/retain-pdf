@@ -1,4 +1,3 @@
-import { X } from "lucide-react";
 // 术语表编辑器表格(对照 glossary-manager-dialog-template.js 的
 // .glossary-editor-panel 表格区块 + view.js:appendGlossaryEntryRow 逐列镜像)。
 //
@@ -6,6 +5,7 @@ import { X } from "lucide-react";
 // glossaries-store.js 的 draft.entries,每格是受控 input/select,onChange 直接
 // 写 store(updateEntryField),不再手写行级 DOM 增删。
 
+import { X } from "lucide-react";
 import { EmptyState } from "../../../../shared/icons/EmptyState.jsx";
 import { GLOSSARY_DOM_IDS, ENTRY_LEVEL_OPTIONS, MATCH_MODE_OPTIONS } from "./glossaries-dom-ids.js";
 

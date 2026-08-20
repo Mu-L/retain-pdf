@@ -37,6 +37,7 @@
 // fresh Playwright 验证(见 status-detail-dialog-component.test.mjs 与阶段 B/C
 // 报告)。
 
+import { X } from "lucide-react";
 import { Dialog as DialogPrimitive, Tabs as TabsPrimitive } from "radix-ui";
 import { useDialogReturnFocus } from "../../../../shared/react/use-dialog-return-focus.js";
 import { StageHistoryList } from "./StageHistoryList.jsx";

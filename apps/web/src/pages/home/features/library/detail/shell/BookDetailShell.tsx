@@ -38,7 +38,7 @@ export function BookDetailShell({
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="desktop-dialog-overlay" />
-          <DialogPrimitive.Content
+        <DialogPrimitive.Content
           id="book-detail-dialog"
           className={`book-detail-dialog-content fixed inset-0 z-[101] m-auto h-fit w-[min(1040px,96vw)] max-h-[90vh] overflow-hidden rounded-[20px] border border-border/60 bg-paper shadow-[0_32px_80px_color-mix(in_srgb,var(--shadow-color)_24%,transparent)] ${contentClassName}`.trim()}
           onCloseAutoFocus={onCloseAutoFocus}
