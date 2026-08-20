@@ -115,6 +115,7 @@
 /* 合集管理弹窗宽度略收 */
 @utility collection-manage-dialog {
   width: min(480px, calc(100vw - 24px));
+  width: min(480px, calc(100dvw - 24px));
 }
 
 @utility collection-manage-body {

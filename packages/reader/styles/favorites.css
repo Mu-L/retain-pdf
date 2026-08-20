@@ -520,6 +520,7 @@
 @media (max-width: 720px) {
   .reader-favorites-drawer {
     --reader-side-drawer-width: 100vw;
+    --reader-side-drawer-width: 100dvw;
     top: auto;
     right: 50%;
     bottom: 58px;
@@ -541,6 +542,7 @@
     align-content: center;
     justify-content: center;
     max-width: calc(100vw - 32px);
+    max-width: calc(100dvw - 32px);
     overflow-x: auto;
     overflow-y: hidden;
     padding: 10px 12px;
@@ -601,6 +603,7 @@
   .reader-favorite-server-section:not(.is-empty) {
     display: grid;
     max-width: calc(100vw - 32px);
+    max-width: calc(100dvw - 32px);
     max-height: 28vh;
   }
 

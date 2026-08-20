@@ -179,7 +179,7 @@
 
 
 @utility icon-button {
-  @apply inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border bg-white p-0 shadow-none;
+  @apply inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border bg-[var(--paper)] p-0 shadow-none;
   border-color: var(--line);
   color: var(--ink);
 

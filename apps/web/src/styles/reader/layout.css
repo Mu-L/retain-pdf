@@ -24,8 +24,10 @@
 
 .reader-page {
   min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
   padding-top: 48px;
+  padding-top: var(--reader-topbar-offset, 48px);
 }
 
 .reader-panel {
@@ -39,11 +41,13 @@
 
 .reader-viewer-wrap {
   min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
 }
 
 .reader-empty {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;

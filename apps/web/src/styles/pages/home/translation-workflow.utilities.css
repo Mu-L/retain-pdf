@@ -12,6 +12,7 @@
 
      真实踩坑记录(比上面的 z-index 更隐蔽、影响更大的一个结构性坑):旧世界
      这个 div 身兼二职,靠 `display:grid;place-items:center;width:100vw;
+     这个 div 身兼二职,靠 `display:grid;place-items:center;width:100dvw;
      height:100vh` 把自己撑满整个视口再把 .translation-workflow-shell 卡片
      居中——迁移时如果照抄这套写法直接套到 Content 上,Content 自己的 DOM
      包围盒就是整个视口,点击卡片外的"空白背板"区域,从 DOM 命中检测的角度看
@@ -29,15 +30,20 @@
   z-index: 101;
   /* 上传入口：更紧凑，避免半屏空白大弹窗 */
   width: min(420px, calc(100vw - 28px));
+  width: min(420px, calc(100dvw - 28px));
   max-height: min(480px, calc(100vh - 32px));
+  max-height: min(480px, calc(100dvh - 32px));
   overflow: hidden;
   border-radius: 18px;
 
   &.is-status-mode {
     --status-card-scale: 1;
     width: min(720px, calc(100vw - 24px));
+    width: min(720px, calc(100dvw - 24px));
     height: min(560px, calc(100vh - 24px));
+    height: min(560px, calc(100dvh - 24px));
     max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
   }
 
   &.is-status-mode .translation-workflow-card {
@@ -247,6 +253,7 @@
 
 @utility page-range-dialog {
   width: min(460px, calc(100vw - 24px));
+  width: min(460px, calc(100dvw - 24px));
 
   & .desktop-shell {
     border-radius: 24px;

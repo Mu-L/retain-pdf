@@ -2,6 +2,7 @@
   box-shadow: 0 12px 34px color-mix(in srgb, var(--shadow-color) 5%, transparent);
   @apply mx-auto w-full;
   max-width: min(620px, calc(100vw - 2rem));
+  max-width: min(620px, calc(100dvw - 2rem));
 }
 
 @utility translation-workflow-card {

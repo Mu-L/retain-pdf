@@ -25,7 +25,9 @@
 @utility desktop-dialog {
   @apply fixed inset-0 z-[101] m-auto overflow-visible border-0 bg-transparent p-0;
   width: min(720px, calc(100vw - 24px));
+  width: min(720px, calc(100dvw - 24px));
   max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
   border-radius: var(--panel-radius);
 
   /* 模态居中显示,transform-origin 用默认 center(不像 popover 要跟随触发点)。

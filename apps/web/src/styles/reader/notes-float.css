@@ -9,6 +9,7 @@
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   width: min(360px, calc(100vw - 24px));
+  width: min(360px, calc(100dvw - 24px));
   max-height: min(72vh, 560px);
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
@@ -260,4 +261,3 @@
   display: flex;
   gap: 8px;
 }
-

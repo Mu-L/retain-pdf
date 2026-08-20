@@ -307,19 +307,21 @@
   }
 
   & .recent-job-delete-confirm {
-    @apply border-[var(--ink)] bg-[var(--ink)] text-white;
+    @apply border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)];
   }
 }
 
 @utility recent-job-delete-confirm {
   .recent-job-delete-actions & {
-    @apply border-[var(--ink)] bg-[var(--ink)] text-white;
+    @apply border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)];
   }
 }
 
 @utility recent-jobs-dialog {
   width: calc(100vw - 4px);
+  width: calc(100dvw - 4px);
   height: calc(100vh - 4px);
+  height: calc(100dvh - 4px);
   max-width: none;
   max-height: none;
   padding: 0;
@@ -329,7 +331,9 @@
 
   @media (max-width: 767px) {
     width: 100vw;
+    width: 100dvw;
     height: 100vh;
+    height: 100dvh;
     max-height: none;
   }
 }
@@ -411,7 +415,9 @@
      SettingsHub/AppUpdate,留出余量以防万一同时打开)。 */
   z-index: 111;
   width: min(960px, calc(100vw - 32px));
+  width: min(960px, calc(100dvw - 32px));
   height: min(760px, calc(100vh - 48px));
+  height: min(760px, calc(100dvh - 48px));
   max-width: none;
   max-height: none;
   border: none;
@@ -443,7 +449,9 @@
 
   @media (max-width: 767px) {
     width: 100vw;
+    width: 100dvw;
     height: 100vh;
+    height: 100dvh;
     border-radius: 0;
 
     & .desktop-shell {

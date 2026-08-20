@@ -29,6 +29,7 @@
 
 @utility detail-timeline-dialog {
   width: min(920px, calc(100vw - 24px));
+  width: min(920px, calc(100dvw - 24px));
   max-height: min(82vh, 920px);
   border-radius: 28px;
 

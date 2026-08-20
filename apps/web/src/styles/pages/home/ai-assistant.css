@@ -1,11 +1,13 @@
 @utility ai-assistant-dialog {
   width: min(640px, calc(100vw - 24px));
+  width: min(640px, calc(100dvw - 24px));
 }
 
 @utility ai-assistant-shell {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   max-height: min(680px, calc(100vh - 24px));
+  max-height: min(680px, calc(100dvh - 24px));
 }
 
 @utility ai-assistant-head {
@@ -172,4 +174,3 @@
     box-shadow: none;
   }
 }
-

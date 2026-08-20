@@ -8,6 +8,7 @@
   display: grid;
   gap: 8px;
   width: min(228px, calc(100vw - 24px));
+  width: min(228px, calc(100dvw - 24px));
   padding: 10px;
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--paper) 55%, transparent);
@@ -180,4 +181,3 @@
   background: color-mix(in srgb, var(--paper) 18%, transparent);
   color: var(--paper);
 }
-

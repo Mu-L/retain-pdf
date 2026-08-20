@@ -9,7 +9,9 @@
 
 @utility app-shell {
   height: 100vh;
+  height: 100dvh;
   min-height: 100vh;
+  min-height: 100dvh;
   justify-content: flex-start;
   max-width: none;
   gap: 0;
@@ -37,6 +39,7 @@
   inset: 0;
   z-index: 10050;
   width: 100vw;
+  width: 100dvw;
   height: 100vh;
   height: 100dvh;
   background: var(--bg);
@@ -680,10 +683,12 @@ body.is-soft-reader-open {
   bottom: 16px;
   z-index: 20;
   width: min(420px, calc(100vw - 56px));
+  width: min(420px, calc(100dvw - 56px));
   transform: translateX(-50%);
 
   @media (max-width: 767px) {
     width: calc(100vw - 28px);
+    width: calc(100dvw - 28px);
   }
 }
 
@@ -745,6 +750,7 @@ body.is-soft-reader-open {
   align-items: center;
   gap: 8px;
   max-width: calc(100vw - 24px);
+  max-width: calc(100dvw - 24px);
   padding: 8px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--paper) 82%, transparent);
@@ -771,6 +777,7 @@ body.is-soft-reader-open {
 @utility library-bottom-search {
   flex: 0 0 auto;
   width: min(440px, calc(100vw - 148px));
+  width: min(440px, calc(100dvw - 148px));
   min-width: 0;
   display: flex;
 
@@ -979,7 +986,7 @@ body.is-soft-reader-open {
 }
 
 @utility home-action-btn {
-  @apply rounded-full border border-[var(--line)] bg-white text-[13px] font-semibold leading-none text-[var(--ink)] shadow-none;
+  @apply rounded-full border border-[var(--line)] bg-[var(--paper)] text-[13px] font-semibold leading-none text-[var(--ink)] shadow-none;
   appearance: auto;
   min-height: 38px;
   padding: 0 16px;
@@ -1011,7 +1018,7 @@ body.is-soft-reader-open {
 
 @utility recent-jobs-more-row {
   & #load-more-jobs-btn {
-    @apply rounded-full border border-[var(--line)] bg-white text-[13px] font-semibold leading-none text-[var(--ink)] shadow-none;
+    @apply rounded-full border border-[var(--line)] bg-[var(--paper)] text-[13px] font-semibold leading-none text-[var(--ink)] shadow-none;
     appearance: auto;
     min-height: 38px;
     padding: 0 16px;
@@ -1146,6 +1153,7 @@ body.is-soft-reader-open {
    但 .app-shell 选择器归本文件所有） */
 .app-shell:has(#home-ask-view) {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }

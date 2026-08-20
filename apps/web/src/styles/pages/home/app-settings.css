@@ -7,6 +7,7 @@
 
 @utility app-settings-dialog {
   width: min(860px, calc(100vw - 24px));
+  width: min(860px, calc(100dvw - 24px));
   /* inset-0 + m-auto 的居中要求宽高皆定值：不写 height 时元素纵向撑满、
      壳贴顶（"弹窗不在中间"的根因）。fit-content 让 m-auto 真正双轴居中。 */
   height: fit-content;
@@ -14,7 +15,9 @@
 
 @utility app-settings-shell {
   height: min(640px, calc(100vh - 24px));
+  height: min(640px, calc(100dvh - 24px));
   max-height: min(640px, calc(100vh - 24px));
+  max-height: min(640px, calc(100dvh - 24px));
 }
 
 @utility app-settings-layout {

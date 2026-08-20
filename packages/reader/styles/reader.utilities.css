@@ -8,6 +8,7 @@
 
 @utility reader-page {
   min-height: 100vh;
+  min-height: 100dvh;
   max-width: none;
   margin: 0 auto;
   padding: 16px;
@@ -115,6 +116,7 @@
 
 @utility reader-grid {
   min-height: calc(100vh - 120px);
+  min-height: calc(100dvh - 120px);
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 14px;

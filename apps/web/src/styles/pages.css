@@ -6,6 +6,7 @@
 
 .detail-page {
   width: min(1120px, calc(100vw - 32px));
+  width: min(1120px, calc(100dvw - 32px));
   margin: 0 auto;
   padding: 20px 0 40px;
   display: grid;

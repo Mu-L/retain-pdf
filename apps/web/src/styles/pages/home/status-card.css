@@ -59,7 +59,7 @@
 }
 
 @utility status-card-shell {
-  @apply block h-full w-full overflow-hidden rounded-2xl border border-[var(--line)] bg-white;
+  @apply block h-full w-full overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--paper)];
   container: status-card / size;
   box-shadow: 0 10px 28px color-mix(in srgb, var(--shadow-color) 4.5%, transparent);
 }
@@ -211,7 +211,7 @@
 }
 
 @utility status-action-btn {
-  @apply inline-flex items-center justify-center whitespace-nowrap rounded-full border border-[var(--line)] bg-white text-[var(--ink)] no-underline shadow-none;
+  @apply inline-flex items-center justify-center whitespace-nowrap rounded-full border border-[var(--line)] bg-[var(--paper)] text-[var(--ink)] no-underline shadow-none;
   min-height: var(--status-button-height, 32px);
   padding: 0 var(--status-button-padding, 13px);
   font-size: var(--status-button-font-size, 12px);
@@ -555,12 +555,12 @@
 }
 
 @utility status-substage-step {
-  @apply inline-flex min-w-0 shrink items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap rounded-full border border-[var(--line)] bg-white px-2 font-semibold leading-none text-[var(--muted)];
+  @apply inline-flex min-w-0 shrink items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap rounded-full border border-[var(--line)] bg-[var(--paper)] px-2 font-semibold leading-none text-[var(--muted)];
   height: 20px;
   font-size: var(--status-substage-font-size, 10px);
 
   &.is-active {
-    @apply border-[var(--ink)] bg-[var(--ink)] text-white;
+    @apply border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)];
     font-weight: 760;
   }
 
