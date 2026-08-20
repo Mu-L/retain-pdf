@@ -12,18 +12,39 @@ export type ProtectedPdfState = {
   error: string;
 };
 
+const MAX_FILE_CACHE = 2;
 const fileCache = new Map<string, ProtectedPdfFile>();
+
+function touchFileCache(key: string, value: ProtectedPdfFile): void {
+  fileCache.delete(key);
+  fileCache.set(key, value);
+}
+
+function evictIfNeeded(excludeKey?: string): void {
+  if (fileCache.size < MAX_FILE_CACHE) return;
+  if (excludeKey && fileCache.has(excludeKey)) return;
+  const oldest = fileCache.keys().next().value as string | undefined;
+  if (oldest) fileCache.delete(oldest);
+}
 
 export function getCachedProtectedPdf(url: string): ProtectedPdfFile | null {
   const key = `${url || ""}`.trim();
-  return key ? fileCache.get(key) || null : null;
+  if (!key || !fileCache.has(key)) return null;
+  const hit = fileCache.get(key)!;
+  // LRU: move to end
+  touchFileCache(key, hit);
+  return hit;
 }
 
 export function setCachedProtectedPdf(url: string, file: ProtectedPdfFile) {
   const key = `${url || ""}`.trim();
-  if (key) {
-    fileCache.set(key, file);
+  if (!key) return;
+  if (fileCache.has(key)) {
+    touchFileCache(key, file);
+    return;
   }
+  evictIfNeeded();
+  fileCache.set(key, file);
 }
 
 export async function loadProtectedPdfFile(
@@ -35,8 +56,9 @@ export async function loadProtectedPdfFile(
   if (!normalized) {
     return null;
   }
-  const cached = fileCache.get(normalized);
-  if (cached) {
+  if (fileCache.has(normalized)) {
+    const cached = fileCache.get(normalized)!;
+    touchFileCache(normalized, cached);
     return cached;
   }
   const response = await fetchResource(normalized, { signal: options.signal } as RequestInit);
@@ -47,7 +69,12 @@ export async function loadProtectedPdfFile(
   }
   const buffer = await response.arrayBuffer();
   const file = { data: new Uint8Array(buffer) };
-  fileCache.set(normalized, file);
+  if (fileCache.has(normalized)) {
+    touchFileCache(normalized, file);
+  } else {
+    evictIfNeeded();
+    fileCache.set(normalized, file);
+  }
   return file;
 }
 

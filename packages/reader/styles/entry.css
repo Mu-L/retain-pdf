@@ -19,8 +19,8 @@
 @import "./tokens.css" layer(tokens);
 @import "./shadcn-theme.css" layer(tokens);
 @import "./base.css" layer(base);
-/* 阅读器也吃氛围底（PDF 区仍是自己的 --reader-page） */
-@import "./core/ambient-surface.css";
+/* 阅读器也吃氛围底（PDF 区仍是自己的 --reader-page）— 仅 reader variant，无主页纸台 */
+@import "./core/ambient-surface-reader.css";
 
 /* 阅读器只需最小共享：下载 toast；不用整包主页 components.utilities */
 @import "./core/download-toast.css";

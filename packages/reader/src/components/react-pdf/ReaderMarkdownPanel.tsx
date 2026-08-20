@@ -59,16 +59,27 @@ export function ReaderMarkdownPanel({
   const [status, setStatus] = useState("尚未加载");
   const objectUrlsRef = useRef<string[]>([]);
 
+  const revokeAll = () => {
+    for (const url of objectUrlsRef.current) {
+      try { URL.revokeObjectURL(url); } catch { /* ignore */ }
+    }
+    objectUrlsRef.current = [];
+  };
+
   useEffect(() => {
     return () => {
-      for (const url of objectUrlsRef.current) URL.revokeObjectURL(url);
-      objectUrlsRef.current = [];
+      revokeAll();
     };
   }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      revokeAll();
+      return;
+    }
     let cancelled = false;
+    // 每次重新加载前回收上一轮 blob，避免 jobId 切换/重开时泄漏
+    revokeAll();
 
     async function load() {
       if (sourceOnly || !jobId) {
@@ -116,13 +127,19 @@ export function ReaderMarkdownPanel({
         let failed = 0;
         await Promise.allSettled(images.map(async (img) => {
           const src = img.getAttribute("data-reader-md-src") || "";
+          if (cancelled) return;
           try {
             const response = await fetchProtected(src);
             if (!response?.ok) throw new Error(`HTTP ${response?.status || 0}`);
             const objectUrl = URL.createObjectURL(await response.blob());
+            if (cancelled) {
+              try { URL.revokeObjectURL(objectUrl); } catch { /* ignore */ }
+              return;
+            }
             objectUrlsRef.current.push(objectUrl);
             (img as HTMLImageElement).src = objectUrl;
           } catch {
+            if (cancelled) return;
             failed += 1;
             const fallback = img.ownerDocument.createElement("span");
             fallback.className = "reader-markdown-image-missing";
@@ -143,6 +160,8 @@ export function ReaderMarkdownPanel({
     void load();
     return () => {
       cancelled = true;
+      // 中途取消时，若已创建了 blob 也需回收；下一轮 load 开头的 revokeAll 会兜底
+      // 这里不直接 revoke，避免与正在进行的 Promise 竞争，依赖 cancelled 检查回收
     };
   }, [open, jobId, sourceOnly]);
 

@@ -22,6 +22,49 @@ export type PdfPageSlotProps = {
   onMetrics?: () => void;
 };
 
+type SharedObserverEntry = {
+  observer: IntersectionObserver;
+  elements: Map<Element, (isIntersecting: boolean) => void>;
+};
+
+const sharedObserverMap = new Map<HTMLElement | null, SharedObserverEntry>();
+
+function getSharedObserver(
+  root: HTMLElement | null,
+  onIntersect: (isIntersecting: boolean) => void,
+  el: Element,
+): SharedObserverEntry {
+  let entry = sharedObserverMap.get(root);
+  if (!entry) {
+    const elements = new Map<Element, (isIntersecting: boolean) => void>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const ent of entries) {
+          const cb = elements.get(ent.target);
+          if (cb) cb(ent.isIntersecting);
+        }
+      },
+      { root, rootMargin: ROOT_MARGIN, threshold: 0 },
+    );
+    entry = { observer, elements };
+    sharedObserverMap.set(root, entry);
+  }
+  entry.elements.set(el, onIntersect);
+  entry.observer.observe(el);
+  return entry;
+}
+
+function releaseSharedObserver(root: HTMLElement | null, el: Element) {
+  const entry = sharedObserverMap.get(root);
+  if (!entry) return;
+  entry.observer.unobserve(el);
+  entry.elements.delete(el);
+  if (entry.elements.size === 0) {
+    entry.observer.disconnect();
+    sharedObserverMap.delete(root);
+  }
+}
+
 function PdfPageSlotInner({
   pageNumber,
   width,
@@ -42,16 +85,30 @@ function PdfPageSlotInner({
       setActive(true);
       return;
     }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          setActive(true);
+    // hysteresis: keep active for a short grace period when leaving viewport
+    let deactivateTimer: ReturnType<typeof setTimeout> | null = null;
+    const onIntersect = (isIntersecting: boolean) => {
+      if (isIntersecting) {
+        if (deactivateTimer) {
+          clearTimeout(deactivateTimer);
+          deactivateTimer = null;
         }
-      },
-      { root: scrollRoot, rootMargin: ROOT_MARGIN, threshold: 0 },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+        setActive(true);
+      } else {
+        // hysteresis to avoid rapid toggle on edge
+        if (deactivateTimer) clearTimeout(deactivateTimer);
+        deactivateTimer = setTimeout(() => {
+          setActive(false);
+        }, 120);
+      }
+    };
+    const entry = getSharedObserver(scrollRoot, onIntersect, el);
+    return () => {
+      if (deactivateTimer) clearTimeout(deactivateTimer);
+      releaseSharedObserver(scrollRoot, el);
+      // keep observer shared; do not disconnect globally if still has elements
+      void entry;
+    };
   }, [scrollRoot, pageNumber]);
 
   // 旧引擎 page 固定 height = viewport * scale

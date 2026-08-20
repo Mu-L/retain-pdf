@@ -21,6 +21,7 @@ import { pageWidthFromShell } from "./reader-zoom.js";
 import { PdfPageSlot } from "./PdfPageSlot.js";
 import type { PageRowHeights } from "./usePageRowSync.js";
 import type { ReaderPaneId } from "./reader-dom-contract.js";
+import { resolvePdfjsVendorUrl } from "../external.js";
 
 /**
  * 页宽按「shell 全宽 × zoom%」计算，与当前栏宽无关。
@@ -82,40 +83,40 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
     const widthTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastWidthRef = useRef(0);
     const dpr = useMemo(() => readerDevicePixelRatio(), []);
+    const documentOptions = useMemo(() => ({
+      cMapUrl: resolvePdfjsVendorUrl("cmaps/"),
+      cMapPacked: true,
+      standardFontDataUrl: resolvePdfjsVendorUrl("standard_fonts/"),
+    }), []);
 
     useImperativeHandle(ref, () => paneEl as HTMLElement, [paneEl]);
 
-    // 页宽只跟 shell 全宽 + zoom 走，禁止用本栏 clientWidth（对照会变成 25%）
+    // 单一 width 同步：初始 + ResizeObserver，避免双 effect 重复计算
     useEffect(() => {
-      const w = pageWidthOverride && pageWidthOverride >= 80
+      const syncWidth = (w: number) => {
+        if (!Number.isFinite(w) || w < 80) return;
+        if (Math.abs(w - lastWidthRef.current) < 8) return;
+        lastWidthRef.current = w;
+        setPaneWidth(w);
+      };
+      const initialW = pageWidthOverride && pageWidthOverride >= 80
         ? pageWidthOverride
         : (scrollRoot?.clientWidth || 0);
-      if (!Number.isFinite(w) || w < 80) return;
-      if (Math.abs(w - lastWidthRef.current) < 8) return;
-      lastWidthRef.current = w;
-      setPaneWidth(w);
-    }, [pageWidthOverride, scrollRoot, visible]);
-
-    // shell 尺寸变化时同步
-    useEffect(() => {
+      syncWidth(initialW);
       if (!scrollRoot || typeof ResizeObserver === "undefined") return;
       if (pageWidthOverride && pageWidthOverride >= 80) return;
       const ro = new ResizeObserver((entries) => {
         const w = entries[0]?.contentRect?.width ?? scrollRoot.clientWidth;
         if (!Number.isFinite(w) || w < 80) return;
         if (widthTimerRef.current) clearTimeout(widthTimerRef.current);
-        widthTimerRef.current = setTimeout(() => {
-          if (Math.abs(w - lastWidthRef.current) < 8) return;
-          lastWidthRef.current = w;
-          setPaneWidth(w);
-        }, 80);
+        widthTimerRef.current = setTimeout(() => syncWidth(w), 80);
       });
       ro.observe(scrollRoot);
       return () => {
         ro.disconnect();
         if (widthTimerRef.current) clearTimeout(widthTimerRef.current);
       };
-    }, [scrollRoot, pageWidthOverride]);
+    }, [pageWidthOverride, scrollRoot, visible]);
 
     const pageWidth = useMemo(
       () => pageWidthFromShell(paneWidth, userZoom),
@@ -176,9 +177,11 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
         {file && !fetchError ? (
           <div className="reader-viewer-wrap reader-react-pdf-wrap">
             <Document
+              key={url}
               file={file}
               loading={null}
               error={null}
+              options={documentOptions}
               onLoadSuccess={handleLoadSuccess}
               onLoadError={handleLoadError}
               className="reader-react-pdf-document"

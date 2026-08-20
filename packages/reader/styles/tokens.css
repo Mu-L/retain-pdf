@@ -19,4 +19,15 @@
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* z-index 层级契约（阅读器）：避免硬编码散落 */
+  --z-ambient: 1;
+  --z-chrome: 35;
+  --z-hud: 36;
+  --z-dialog: 40;
+  --z-notes-float: 48;
+  --z-selection-pop: 55;
+  --z-fab: 70;
+  --z-region-popover: 80;
+  --reader-topbar-offset: 48px;
 }

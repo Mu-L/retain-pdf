@@ -27,6 +27,9 @@ export function useReaderTextSelection(
     sel?.removeAllRanges?.();
   }, []);
 
+  // rootRef.current may be stale; derive shellEl for correct scroll subscription
+  const shellEl = (rootRef as RefObject<HTMLElement | null>).current ?? null;
+
   useEffect(() => {
     if (!enabled) {
       return;
@@ -73,22 +76,39 @@ export function useReaderTextSelection(
         return;
       }
 
+      // viewport clamp for toolbar: keep rect within visible viewport with padding
+      const vw = typeof window !== "undefined" ? window.innerWidth : 800;
+      const vh = typeof window !== "undefined" ? window.innerHeight : 600;
+      const pad = 16;
+      const clampedLeft = Math.min(Math.max(pad, last.left), vw - pad);
+      const clampedTop = Math.min(Math.max(pad, last.top), vh - pad);
+
       setSelection({
         quote,
         page,
         pane,
         rect: {
-          left: last.left,
-          top: last.top,
+          left: clampedLeft,
+          top: clampedTop,
           width: last.width,
           height: last.height,
         },
       });
     };
 
+    const scheduleRead = () => {
+      window.setTimeout(readSelection, 0);
+    };
     const onMouseUp = () => {
       // 等浏览器完成选区
-      window.setTimeout(readSelection, 0);
+      scheduleRead();
+    };
+    const onPointerUp = () => scheduleRead();
+    const onTouchEnd = () => scheduleRead();
+    const onSelectionChange = () => {
+      // selectionchange fires frequently; defer to next frame to avoid thrash
+      // only act when enabled and selection is within root
+      scheduleRead();
     };
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -101,15 +121,25 @@ export function useReaderTextSelection(
     };
 
     document.addEventListener("mouseup", onMouseUp);
+    document.addEventListener("pointerup", onPointerUp);
+    document.addEventListener("touchend", onTouchEnd);
+    document.addEventListener("selectionchange", onSelectionChange);
     document.addEventListener("keyup", onKeyUp);
-    rootRef.current?.addEventListener("scroll", onScroll, { passive: true });
+    const targetEl: HTMLElement | null = shellEl ?? rootRef.current;
+    targetEl?.addEventListener("scroll", onScroll, { passive: true });
+    // also listen window scroll as fallback for shellEl overflow
+    window.addEventListener("scroll", onScroll, { passive: true, capture: true } as AddEventListenerOptions);
 
     return () => {
       document.removeEventListener("mouseup", onMouseUp);
+      document.removeEventListener("pointerup", onPointerUp);
+      document.removeEventListener("touchend", onTouchEnd);
+      document.removeEventListener("selectionchange", onSelectionChange);
       document.removeEventListener("keyup", onKeyUp);
-      rootRef.current?.removeEventListener("scroll", onScroll);
+      targetEl?.removeEventListener("scroll", onScroll);
+      window.removeEventListener("scroll", onScroll, true as unknown as EventListenerOptions);
     };
-  }, [enabled, rootRef, clearSelection]);
+  }, [enabled, shellEl, clearSelection]);
 
   return { selection, clearSelection };
 }

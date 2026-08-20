@@ -27,7 +27,9 @@ export function ReaderSelectionToolbar({
   const vw = typeof window !== "undefined" ? window.innerWidth : 800;
   const vh = typeof window !== "undefined" ? window.innerHeight : 600;
   const midX = selection.rect.left + selection.rect.width / 2;
-  const left = Math.min(Math.max(16, midX), vw - 16);
+  // viewport clamp: toolbar approx 260px wide, keep 16px margin both sides
+  const TOOLBAR_HALF = 130;
+  const left = Math.min(Math.max(16 + TOOLBAR_HALF, midX), vw - 16 - TOOLBAR_HALF);
 
   // 优先选区上方；空间不够则翻到下方
   const preferAbove = selection.rect.top > 72;

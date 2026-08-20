@@ -1,14 +1,8 @@
-/* 氛围与纸心：材质 + 进深 + 比例，不是传统符号。
+/* 氛围与纸心：材质 + 进深 — 阅读器 variant（无主页纸台）
  *
- * 可见：
- *  - 院落地面 vs 堂心纸面的明度差（纸心抬起）
- *  - 极淡「纤维」材质（纸/地面），不是密点阵也不是插画
- *  - 宽屏两侧廊道压暗（空间，不是翅膀贴图）
- * 不可见目标：梅枝、亭、印、水墨剪贴
- *
- * 拆分说明：本文件为阅读器 bundle 用（仅 #reader-root，无主页纸台）；
- * 主页纸台样式已移至 ambient-surface-home.css，显式 reader variant 见
- * ambient-surface-reader.css（与本文件同内容，entry.css 优先引用 reader variant）。
+ * 从 core/ambient-surface.css 拆分：阅读器包仅需此文件。
+ * 已移除 #home-root / #detail-root / .home-paper-stage（主页专用，见 ambient-surface-home.css）。
+ * html 材质与窄屏弱化保留；body 高度已改为 dvh 回退。
  */
 
 html {

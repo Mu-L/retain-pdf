@@ -120,7 +120,8 @@ function resolveDownloadUrls(ctx: ReaderDownloadContext) {
     return {
       source,
       translated,
-      sideBySide: source && translated ? source : "",
+      // sideBySide requires dedicated artifact; no fallback to source url
+      sideBySide: "",
     };
   }
   return resolveReaderDownloadUrls({
@@ -139,7 +140,7 @@ export function ReaderFab({
 }: ReaderFabProps) {
   const [pos, setPos] = useState<FabPos>(() => loadPos());
   const [open, setOpen] = useState(false);
-  const [busyAction, setBusyAction] = useState("");
+  const [busyActions, setBusyActions] = useState<Set<DownloadAction>>(() => new Set());
   const rootRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
     pointerId: number;
@@ -190,7 +191,7 @@ export function ReaderFab({
   const handleDownload = useCallback(
     async (action: DownloadAction) => {
       const url = trimReaderDownloadString(urls[action]);
-      if (!url || busyAction) return;
+      if (!url || busyActions.has(action)) return;
       try {
         const filename = download.jobId
           ? resolveReaderDownloadName(action, {
@@ -205,15 +206,24 @@ export function ReaderFab({
           filename,
           filename,
           null,
-          (busy: boolean) => setBusyAction(busy ? action : ""),
+          (busy: boolean) => setBusyActions((prev) => {
+            const next = new Set(prev);
+            if (busy) next.add(action);
+            else next.delete(action);
+            return next;
+          }),
         );
       } catch (err) {
         const message = err instanceof Error ? err.message : "下载失败";
         failDownloadToast(message);
-        setBusyAction("");
+        setBusyActions((prev) => {
+          const next = new Set(prev);
+          next.delete(action);
+          return next;
+        });
       }
     },
-    [urls, busyAction, download],
+    [urls, busyActions, download],
   );
 
   const onPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -343,9 +353,9 @@ export function ReaderFab({
               {downloadItems.map((action, index) => {
                 const meta = READER_DOWNLOAD_ACTIONS[action];
                 const url = trimReaderDownloadString(urls[action]);
-                const enabled = Boolean(url) && busyAction !== action;
+                const busy = busyActions.has(action);
+                const enabled = Boolean(url) && !busy;
                 const reason = enabled ? "" : readerDownloadDisabledReason(action, urls);
-                const busy = busyAction === action;
                 const Icon = DOWNLOAD_ICONS[action];
                 return (
                   <button

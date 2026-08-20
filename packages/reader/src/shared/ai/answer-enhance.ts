@@ -313,7 +313,8 @@ export function revokeHydratedImageUrls(container: ParentNode | null | undefined
   if (!container) return;
   const images = [...((container as Element).querySelectorAll?.("img.is-hydrated") || [])];
   for (const img of images) {
-    const src = (img as HTMLImageElement).src || "";
+    const el = img as HTMLImageElement;
+    const src = el.src || "";
     if (src.startsWith("blob:")) {
       try {
         URL.revokeObjectURL(src);
@@ -321,17 +322,26 @@ export function revokeHydratedImageUrls(container: ParentNode | null | undefined
         /* ignore */
       }
     }
+    // 清理标记，避免二次 revoke 时误判
+    el.classList.remove("is-hydrated");
+    // 避免悬垂 blob src 残留
+    if (src.startsWith("blob:")) {
+      el.removeAttribute("src");
+    }
   }
 }
 
 /** 受保护 API 图片 → blob（回答正文里的 md 图）。 */
 export async function hydrateProtectedImages(
   container: ParentNode,
-  { fetchImpl = _fetchProtected, resolveResourceUrl: resolveUrl = resolveResourceUrl }: { fetchImpl?: FetchImpl; resolveResourceUrl?: (v: unknown) => string } = {},
+  { fetchImpl = _fetchProtected, resolveResourceUrl: resolveUrl = resolveResourceUrl, signal }: { fetchImpl?: FetchImpl; resolveResourceUrl?: (v: unknown) => string; signal?: AbortSignal } = {},
 ): Promise<void> {
   const images = [...(container as Element).querySelectorAll?.("img[src], img[data-ai-src]") || []];
   await Promise.allSettled(images.map(async (img) => {
     const el = img as HTMLImageElement;
+    if (signal?.aborted) return;
+    // 元素已脱离 DOM 则跳过，避免孤儿 blob
+    if (!el.isConnected) return;
     const raw = el.getAttribute("data-ai-src") || el.getAttribute("src") || "";
     if (!raw || raw.startsWith("blob:") || raw.startsWith("data:") || raw.startsWith("mock:")) {
       return;
@@ -341,9 +351,24 @@ export async function hydrateProtectedImages(
     const url = (() => { try { return resolveUrl(raw) || raw; } catch { return raw; } })();
     el.setAttribute("data-ai-src", url);
     try {
-      const response = await fetchImpl(url);
+      const response = await fetchImpl(url, signal ? { signal } as RequestInit : undefined as any);
+      if (signal?.aborted || !el.isConnected) {
+        // 已取消或已卸载：立即回收刚创建的 blob（若有）
+        try {
+          const blob = await (response as any)?.blob?.();
+          if (blob) {
+            const tmp = URL.createObjectURL(blob);
+            URL.revokeObjectURL(tmp);
+          }
+        } catch { /* ignore */ }
+        return;
+      }
       if (!response?.ok) throw new Error(`HTTP ${(response as any)?.status || 0}`);
       const objectUrl = URL.createObjectURL(await (response as any).blob());
+      if (signal?.aborted || !el.isConnected) {
+        try { URL.revokeObjectURL(objectUrl); } catch { /* ignore */ }
+        return;
+      }
       // 同一 img 重复 hydrate（引用/内容变化触发重渲染）时回收旧 blob
       const previous = el.src || "";
       if (previous.startsWith("blob:")) {
@@ -355,7 +380,9 @@ export async function hydrateProtectedImages(
       }
       el.src = objectUrl;
       el.classList.add("is-hydrated");
+      el.classList.remove("is-missing");
     } catch {
+      if (signal?.aborted || !el.isConnected) return;
       el.classList.add("is-missing");
       el.alt = el.alt || "图片暂不可用";
     }

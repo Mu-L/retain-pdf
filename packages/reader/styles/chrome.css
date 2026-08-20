@@ -7,10 +7,12 @@
   top: 12px;
   left: 50%;
   z-index: 35;
+  z-index: var(--z-chrome, 35);
   display: flex;
   align-items: center;
   justify-content: center;
   width: min(430px, calc(100vw - 48px));
+  width: min(430px, calc(100dvw - 48px));
   min-height: 36px;
   padding: 4px;
   border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
@@ -71,6 +73,7 @@
   top: 12px;
   right: clamp(12px, 2.2vw, 28px);
   z-index: 36;
+  z-index: var(--z-hud, 36);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -125,6 +128,7 @@
   position: fixed;
   inset: 0;
   z-index: 40;
+  z-index: var(--z-dialog, 40);
   display: grid;
   place-items: center;
   background: var(--reader-page-bg);
@@ -138,6 +142,7 @@
   display: grid;
   gap: 12px;
   width: min(320px, calc(100vw - 40px));
+  width: min(320px, calc(100dvw - 40px));
 }
 
 .reader-boot-loading-text {

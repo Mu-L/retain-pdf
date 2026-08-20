@@ -186,23 +186,26 @@ export function useReaderReactController(): ReaderReactController {
   // tools 对象引用稳定到 active 变化时
   const toolsApi = useMemo(() => tools, [tools.active, tools.open, tools.close, tools.toggle, tools.isOpen]);
 
-  return {
+  const shellMemo = useMemo(() => ({ bindShell, shellEl, shellWidth, compareColWidth, shellRef }), [bindShell, shellEl, shellWidth, compareColWidth, shellRef]);
+  const sessionFilesMemo = useMemo(() => ({
+    sourceUrl: session.sourceUrl,
+    translatedUrl: session.translatedUrl,
+    sourceFile: session.sourceFile,
+    translatedFile: session.translatedFile,
+  }), [session.sourceUrl, session.translatedUrl, session.sourceFile, session.translatedFile]);
+
+  // 将频繁变化的 currentPage 隔离：主体 shell/panes/tools 等保持稳定，避免滚动时全量重渲染
+  const stablePart = useMemo(() => ({
     session,
     boot: session.boot,
     sourceOnly: session.sourceOnly,
     mode: session.mode,
     userZoom,
     onZoomChange,
-    shell: { bindShell, shellEl, shellWidth, compareColWidth, shellRef },
+    shell: shellMemo,
     panes,
-    sessionFiles: {
-      sourceUrl: session.sourceUrl,
-      translatedUrl: session.translatedUrl,
-      sourceFile: session.sourceFile,
-      translatedFile: session.translatedFile,
-    },
+    sessionFiles: sessionFilesMemo,
     rowHeights,
-    currentPage,
     goToPage,
     setModeKeepingPage,
     download: session.download,
@@ -214,5 +217,10 @@ export function useReaderReactController(): ReaderReactController {
     addNoteFromSelection,
     jumpToNote,
     documentTitle: session.title || "",
-  };
+  }), [session, shellMemo, panes, sessionFilesMemo, rowHeights, goToPage, setModeKeepingPage, showHud, toolsApi, notes, selection, clearSelection, addNoteFromSelection, jumpToNote, userZoom, onZoomChange]);
+
+  return useMemo(() => ({
+    ...stablePart,
+    currentPage,
+  }), [stablePart, currentPage]);
 }

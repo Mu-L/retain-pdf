@@ -6,6 +6,7 @@
   position: fixed;
   /* 始终在批注悬浮窗(48) / 选区浮条(55) 之上，避免被挡住 */
   z-index: 70;
+  z-index: var(--z-fab, 70);
   width: 52px;
   height: 52px;
   touch-action: none;

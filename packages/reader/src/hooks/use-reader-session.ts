@@ -140,14 +140,49 @@ function setBootProgress(
 }
 
 export function useReaderSession(): ReaderSessionState {
-  const [locationKey, setLocationKey] = useState(() => globalThis.location?.search || "");
+  const [locationKey, setLocationKey] = useState(() => globalThis.location?.search || globalThis.location?.href || "");
   useEffect(() => {
-    const handler = () => setLocationKey(globalThis.location?.search || "");
+    const handler = () => setLocationKey(globalThis.location?.search || globalThis.location?.href || "");
+    // pushState/replaceState do not fire popstate; monkeypatch to detect SPA navigation
+    const origPush = globalThis.history?.pushState?.bind(globalThis.history);
+    const origReplace = globalThis.history?.replaceState?.bind(globalThis.history);
+    let patched = false;
+    if (origPush && origReplace) {
+      try {
+        const wrap = (orig: typeof origPush) => function (this: History, ...args: Parameters<History["pushState"]>) {
+          const ret = (orig as unknown as (...a: unknown[]) => unknown).apply(this, args);
+          handler();
+          globalThis.dispatchEvent(new Event("pushstate"));
+          globalThis.dispatchEvent(new Event("replacestate"));
+          globalThis.dispatchEvent(new Event("locationchange"));
+          return ret;
+        };
+        (globalThis.history.pushState as unknown) = wrap(origPush);
+        (globalThis.history.replaceState as unknown) = wrap(origReplace);
+        patched = true;
+      } catch {
+        /* ignore patch failure */
+      }
+    }
     window.addEventListener("popstate", handler);
     window.addEventListener("hashchange", handler);
+    window.addEventListener("pushstate", handler as EventListener);
+    window.addEventListener("replacestate", handler as EventListener);
+    window.addEventListener("locationchange", handler as EventListener);
     return () => {
       window.removeEventListener("popstate", handler);
       window.removeEventListener("hashchange", handler);
+      window.removeEventListener("pushstate", handler as EventListener);
+      window.removeEventListener("replacestate", handler as EventListener);
+      window.removeEventListener("locationchange", handler as EventListener);
+      if (patched && origPush && origReplace) {
+        try {
+          globalThis.history.pushState = origPush as unknown as typeof history.pushState;
+          globalThis.history.replaceState = origReplace as unknown as typeof history.replaceState;
+        } catch {
+          /* ignore */
+        }
+      }
     };
   }, []);
   const jobId = useMemo(() => resolveReaderJobId(defaultReaderPageConfigPort), [locationKey]);

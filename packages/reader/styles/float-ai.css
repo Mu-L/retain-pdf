@@ -4,7 +4,9 @@
  */
 .reader-float-ai {
   max-height: min(92vh, 860px);
+  max-height: min(92dvh, 860px);
   height: min(88vh, 820px);
+  height: min(88dvh, 820px);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   border-radius: 16px;
@@ -62,6 +64,7 @@
   position: absolute;
   inset: 0;
   z-index: 40;
+  z-index: var(--z-float-ai-shield, 40);
   cursor: progress;
   background: transparent;
   pointer-events: auto;
@@ -78,6 +81,7 @@
   background: var(--paper);
   position: relative;
   z-index: 5;
+  z-index: var(--z-float-ai-bar, 5);
 }
 .reader-float-ai .aui-session-row {
   display: flex;
@@ -129,10 +133,12 @@
 .reader-float-ai .aui-session-list {
   position: relative;
   z-index: 6;
+  z-index: var(--z-float-ai-dropdown, 6);
   margin: 0;
   padding: 4px;
   list-style: none;
   max-height: min(36vh, 240px);
+  max-height: min(36dvh, 240px);
   overflow: auto;
   overscroll-behavior: contain;
   border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);

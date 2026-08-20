@@ -23,7 +23,9 @@
 .reader-region-markdown-popover {
   position: fixed;
   z-index: 80;
+  z-index: var(--z-region-popover, 80);
   max-height: min(420px, calc(100vh - 24px));
+  max-height: min(420px, calc(100dvh - 24px));
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
   border-radius: 14px;
