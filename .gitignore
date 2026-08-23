@@ -35,6 +35,9 @@ data/downloads/
 backend/rust_api/target/
 backend/rust_api/auth.local.json
 backend/scripts/.env/*.env
+secrets/
+docker/delivery/docker-compose.override.yml
+output/mcp-downloads/
 frontend/node_modules/
 frontend/desktop_app/src-tauri/target/
 untitled.txt
