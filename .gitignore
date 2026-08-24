@@ -52,6 +52,7 @@ infra/typst/*/bin/
 VERSION
 .codex
 .codex/
+.backend/
 
 # macOS
 .DS_Store

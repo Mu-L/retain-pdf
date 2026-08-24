@@ -139,6 +139,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify pinned backend source
+        run: python3 .github/scripts/resolve_backend_source.py
+
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
         with:
@@ -146,6 +149,9 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Test backend source resolver
+        run: uv run --project services python -m pytest .github/scripts/tests/test_resolve_backend_source.py -q
 
       - name: Check backend contract mirror parity
         run: python3 services/contracts/check_parity.py --require-upstream
