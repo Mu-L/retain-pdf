@@ -66,6 +66,20 @@ def run_document_operation() -> int:
     return main()
 
 
+def run_side_by_side_pdf() -> int:
+    from retainpdf_pipeline.services.rendering.tools.side_by_side_pdf import main
+
+    main()
+    return 0
+
+
+def run_diagnose_failure() -> int:
+    from retainpdf_pipeline.entrypoints.diagnose_failure_with_ai import main
+
+    main()
+    return 0
+
+
 COMMANDS: dict[str, tuple[Callable[[], int], str]] = {
     "book": (run_book, "normalize, translate, and render a document"),
     "provider-ocr": (run_provider_ocr, "run the configured OCR provider only"),
@@ -80,6 +94,14 @@ COMMANDS: dict[str, tuple[Callable[[], int], str]] = {
     "document-operation": (
         run_document_operation,
         "execute a restricted backend-prepared page program",
+    ),
+    "side-by-side-pdf": (
+        run_side_by_side_pdf,
+        "build a left/right source-vs-translated PDF",
+    ),
+    "diagnose-failure": (
+        run_diagnose_failure,
+        "run best-effort AI diagnosis for a failed job",
     ),
 }
 

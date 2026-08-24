@@ -5,7 +5,7 @@ use crate::models::domain::JobSnapshot;
 
 use super::{cached_output_is_fresh, job_artifacts_dir, DerivedArtifactDeps};
 
-const SIDE_BY_SIDE_SCRIPT: &str = "services/rendering/tools/side_by_side_pdf.py";
+const SIDE_BY_SIDE_SCRIPT: &str = "retainpdf_pipeline/services/rendering/tools/side_by_side_pdf.py";
 
 pub(crate) fn ensure_side_by_side_pdf(
     deps: DerivedArtifactDeps<'_>,
@@ -28,11 +28,10 @@ fn build_side_by_side_pdf(
     translated_pdf: &Path,
     output_pdf: &Path,
 ) -> Result<(), AppError> {
-    let script = deps.scripts_dir.join(SIDE_BY_SIDE_SCRIPT);
     let tmp_pdf = output_pdf.with_extension("pdf.tmp");
     let _ = std::fs::remove_file(&tmp_pdf);
-    let status = std::process::Command::new(deps.python_bin)
-        .arg(&script)
+    let mut command = side_by_side_command(deps);
+    let status = command
         .arg("--source-pdf")
         .arg(source_pdf)
         .arg("--translated-pdf")
@@ -51,4 +50,53 @@ fn build_side_by_side_pdf(
     }
     std::fs::rename(&tmp_pdf, output_pdf)?;
     Ok(())
+}
+
+fn side_by_side_command(deps: DerivedArtifactDeps<'_>) -> std::process::Command {
+    match deps.python_entrypoint_mode {
+        crate::config::PythonWorkerEntrypointMode::Script => {
+            let mut command = std::process::Command::new(deps.python_bin);
+            command.arg(deps.scripts_dir.join(SIDE_BY_SIDE_SCRIPT));
+            command
+        }
+        crate::config::PythonWorkerEntrypointMode::Console => {
+            let mut command = std::process::Command::new(deps.pipeline_command);
+            command.arg("side-by-side-pdf");
+            command
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn console_mode_uses_the_installed_pipeline_command() {
+        let deps = DerivedArtifactDeps::with_pipeline_command(
+            Path::new("/missing/source-tree"),
+            "python3",
+            "/opt/retainpdf/bin/retainpdf-pipeline",
+            crate::config::PythonWorkerEntrypointMode::Console,
+        );
+        let command = side_by_side_command(deps);
+        assert_eq!(command.get_program(), "/opt/retainpdf/bin/retainpdf-pipeline");
+        assert_eq!(
+            command.get_args().collect::<Vec<_>>(),
+            vec![std::ffi::OsStr::new("side-by-side-pdf")]
+        );
+    }
+
+    #[test]
+    fn script_mode_uses_the_namespaced_source_entrypoint() {
+        let deps = DerivedArtifactDeps::new(Path::new("/pipeline"), "python3");
+        let command = side_by_side_command(deps);
+        assert_eq!(command.get_program(), "python3");
+        assert_eq!(
+            command.get_args().collect::<Vec<_>>(),
+            vec![std::ffi::OsStr::new(
+                "/pipeline/retainpdf_pipeline/services/rendering/tools/side_by_side_pdf.py"
+            )]
+        );
+    }
 }

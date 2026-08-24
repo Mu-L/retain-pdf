@@ -50,7 +50,9 @@ pub(super) async fn maybe_attach_ai_failure_diagnosis(
         return;
     }
     let script_path = config.script_path;
-    if !script_path.exists() {
+    if config.python_entrypoint_mode == crate::config::PythonWorkerEntrypointMode::Script
+        && !script_path.exists()
+    {
         return;
     }
 
@@ -93,10 +95,8 @@ pub(super) async fn maybe_attach_ai_failure_diagnosis(
         return;
     }
 
-    let mut command = Command::new(config.python_bin);
+    let mut command = failure_ai_diagnosis_command(config);
     command
-        .arg("-u")
-        .arg(script_path)
         .arg("--input-json")
         .arg(&request_path)
         .arg("--model")
@@ -174,4 +174,51 @@ pub(super) async fn maybe_attach_ai_failure_diagnosis(
         "AI 辅助诊断已生成",
         Some(event_payload),
     );
+}
+
+fn failure_ai_diagnosis_command(
+    config: &crate::config::FailureAiDiagnosisRuntimeConfig<'_>,
+) -> Command {
+    match config.python_entrypoint_mode {
+        crate::config::PythonWorkerEntrypointMode::Script => {
+            let mut command = Command::new(config.python_bin);
+            command.arg("-u").arg(config.script_path);
+            command
+        }
+        crate::config::PythonWorkerEntrypointMode::Console => {
+            let mut command = Command::new(config.pipeline_command);
+            command.arg("diagnose-failure");
+            command
+        }
+    }
+}
+
+#[cfg(test)]
+mod command_tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn console_mode_does_not_require_the_source_wrapper() {
+        let config = crate::config::FailureAiDiagnosisRuntimeConfig {
+            python_bin: "python3",
+            pipeline_command: "/opt/retainpdf/bin/retainpdf-pipeline",
+            python_entrypoint_mode: crate::config::PythonWorkerEntrypointMode::Console,
+            script_path: Path::new("/missing/diagnose_failure_with_ai.py"),
+            project_root: Path::new("/app"),
+            data_root: Path::new("/data"),
+            output_root: Path::new("/data/jobs"),
+            timeout_secs: 60,
+        };
+        let command = failure_ai_diagnosis_command(&config);
+        let command = command.as_std();
+        assert_eq!(
+            command.get_program(),
+            "/opt/retainpdf/bin/retainpdf-pipeline"
+        );
+        assert_eq!(
+            command.get_args().collect::<Vec<_>>(),
+            vec![std::ffi::OsStr::new("diagnose-failure")]
+        );
+    }
 }

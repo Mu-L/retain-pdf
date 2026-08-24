@@ -282,6 +282,8 @@ pub struct JobSnapshotRuntimeConfig<'a> {
 #[derive(Clone, Copy, Debug)]
 pub struct FailureAiDiagnosisRuntimeConfig<'a> {
     pub python_bin: &'a str,
+    pub pipeline_command: &'a str,
+    pub python_entrypoint_mode: PythonWorkerEntrypointMode,
     pub script_path: &'a Path,
     pub project_root: &'a Path,
     pub data_root: &'a Path,
@@ -337,6 +339,8 @@ impl AppConfig {
     pub fn failure_ai_diagnosis_runtime(&self) -> FailureAiDiagnosisRuntimeConfig<'_> {
         FailureAiDiagnosisRuntimeConfig {
             python_bin: &self.python_bin,
+            pipeline_command: &self.pipeline_command,
+            python_entrypoint_mode: self.python_entrypoint_mode,
             script_path: &self.run_failure_ai_diagnosis_script,
             project_root: &self.project_root,
             data_root: &self.data_root,
