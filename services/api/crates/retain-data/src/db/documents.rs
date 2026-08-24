@@ -3,8 +3,8 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 
-use crate::models::domain::{now_iso, UploadRecord};
 use crate::models::api::{BlockSearchHit, DocumentRecord, FavoriteRecord, FtsBlockRow};
+use crate::models::domain::{now_iso, UploadRecord};
 use crate::storage_paths::resolve_data_path;
 
 use super::Db;
@@ -214,7 +214,12 @@ impl Db {
                        developer_mode, content_hash
                 FROM uploads
                 WHERE content_hash = ?1 AND content_hash <> ''
-                ORDER BY uploaded_at DESC
+                ORDER BY
+                    CASE WHEN upload_id = 'version-upload-' || COALESCE(
+                        (SELECT active_version_id FROM documents WHERE document_id = ?1),
+                        ''
+                    ) THEN 0 ELSE 1 END,
+                    uploaded_at DESC
                 LIMIT 1
                 "#,
                 params![document_id],
@@ -296,7 +301,10 @@ impl Db {
 
     pub fn delete_upload(&self, upload_id: &str) -> Result<bool> {
         let conn = self.connect()?;
-        let changed = conn.execute("DELETE FROM uploads WHERE upload_id = ?1", params![upload_id])?;
+        let changed = conn.execute(
+            "DELETE FROM uploads WHERE upload_id = ?1",
+            params![upload_id],
+        )?;
         Ok(changed > 0)
     }
 
@@ -325,8 +333,9 @@ impl Db {
         Ok(changed > 0)
     }
 
-    /// 修复悬空的 active_job_id:若它指向的 job 已不存在,重指该文档下最新的
-    /// 成功 book job;没有则置 NULL(降级为干净馆藏)。删 job 后必调,防僵尸卡。
+    /// 修复悬空的 active_job_id:若它指向的 job 已不存在,优先重指该文档下
+    /// 最新的非 OCR 成功任务；只有 OCR 成功任务时回退到 OCR。完全没有则
+    /// 置 NULL(降级为干净馆藏)。删 job 后必调,防僵尸卡。
     pub fn reconcile_document_active_job(&self, document_id: &str) -> Result<()> {
         let conn = self.connect()?;
         conn.execute(
@@ -334,9 +343,8 @@ impl Db {
             UPDATE documents SET active_job_id = (
                 SELECT j.job_id FROM jobs j
                 WHERE j.document_id = documents.document_id
-                  AND j.workflow <> '"ocr"'
                   AND j.status_json = '"succeeded"'
-                ORDER BY j.finished_at DESC
+                ORDER BY CASE WHEN j.workflow = '"ocr"' THEN 1 ELSE 0 END, j.finished_at DESC
                 LIMIT 1
             ), updated_at = ?2
             WHERE documents.document_id = ?1
@@ -469,8 +477,7 @@ impl Db {
                 LIMIT ?3
                 "#,
             )?;
-            let rows =
-                stmt.query_map(params![pattern, doc_id, limit as i64], row_to_search_hit)?;
+            let rows = stmt.query_map(params![pattern, doc_id, limit as i64], row_to_search_hit)?;
             for row in rows {
                 hits.push(row?);
             }
@@ -723,8 +730,7 @@ impl Db {
                 SELECT j.job_id FROM jobs j
                 WHERE j.document_id = documents.document_id
                   AND j.status_json = '"succeeded"'
-                  AND j.workflow <> '"ocr"'
-                ORDER BY j.finished_at DESC
+                ORDER BY CASE WHEN j.workflow = '"ocr"' THEN 1 ELSE 0 END, j.finished_at DESC
                 LIMIT 1
             )
             WHERE documents.active_job_id IS NULL
@@ -838,16 +844,21 @@ fn row_to_favorite(row: &rusqlite::Row<'_>) -> rusqlite::Result<FavoriteRecord> 
 }
 
 /// 从任务产物目录构建某文档的 FTS 行:
-/// - `ocr/normalized/document.v1.json` 提供 source_text 与规范 block_id;
+/// - `ocr/normalized/document.v1.json` 提供 source_text、规范 block_id，
+///   以及空文本资产块已有的 caption/search metadata;
 /// - `translated/page-*.json` 提供 translated_text,按 (page_idx, block_idx)
 ///   数字索引对齐(译文 item_id 与规范 block_id 的零填充位数不同,不能按
 ///   字符串对齐)。
 /// 译文缺失时只索引原文。
 pub fn build_fts_rows_from_job_dir(job_root: &Path) -> Result<Vec<FtsBlockRow>> {
-    let normalized_path = job_root.join("ocr").join("normalized").join("document.v1.json");
+    let normalized_path = job_root
+        .join("ocr")
+        .join("normalized")
+        .join("document.v1.json");
     let raw = std::fs::read_to_string(&normalized_path)
         .with_context(|| format!("read {}", normalized_path.display()))?;
     let document: serde_json::Value = serde_json::from_str(&raw)?;
+    let asset_catalog = document.get("assets").and_then(|value| value.as_object());
 
     let mut translated: std::collections::HashMap<(i64, i64), String> =
         std::collections::HashMap::new();
@@ -901,11 +912,7 @@ pub fn build_fts_rows_from_job_dir(job_root: &Path) -> Result<Vec<FtsBlockRow>> 
                 .and_then(|value| value.as_str())
                 .unwrap_or("")
                 .to_string();
-            let source_text = block
-                .get("text")
-                .and_then(|value| value.as_str())
-                .unwrap_or("")
-                .to_string();
+            let source_text = searchable_block_text(block, asset_catalog);
             let translated_text = translated
                 .get(&(page_idx, block_idx as i64))
                 .cloned()
@@ -925,6 +932,70 @@ pub fn build_fts_rows_from_job_dir(job_root: &Path) -> Result<Vec<FtsBlockRow>> 
     Ok(rows)
 }
 
+fn searchable_block_text(
+    block: &serde_json::Value,
+    asset_catalog: Option<&serde_json::Map<String, serde_json::Value>>,
+) -> String {
+    let text = block
+        .get("text")
+        .and_then(|value| value.as_str())
+        .unwrap_or("")
+        .trim();
+    if !text.is_empty() {
+        return text.to_string();
+    }
+    let content = block.get("content").and_then(|value| value.as_object());
+    for key in ["search_text", "caption", "summary"] {
+        let value = content
+            .and_then(|item| item.get(key))
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .trim();
+        if !value.is_empty() {
+            return value.to_string();
+        }
+    }
+    let Some(asset_catalog) = asset_catalog else {
+        return String::new();
+    };
+    let mut asset_ids = Vec::new();
+    if let Some(asset_id) = content
+        .and_then(|item| item.get("asset_id"))
+        .and_then(|value| value.as_str())
+    {
+        push_unique_text(&mut asset_ids, asset_id);
+    }
+    if let Some(values) = content
+        .and_then(|item| item.get("asset_ids"))
+        .and_then(|value| value.as_array())
+    {
+        for value in values {
+            if let Some(asset_id) = value.as_str() {
+                push_unique_text(&mut asset_ids, asset_id);
+            }
+        }
+    }
+    let mut descriptions = Vec::new();
+    for asset_id in asset_ids {
+        let Some(asset) = asset_catalog.get(&asset_id) else {
+            continue;
+        };
+        for key in ["caption", "summary", "alt", "title"] {
+            if let Some(value) = asset.get(key).and_then(|value| value.as_str()) {
+                push_unique_text(&mut descriptions, value);
+            }
+        }
+    }
+    descriptions.join(" ")
+}
+
+fn push_unique_text(values: &mut Vec<String>, value: &str) {
+    let value = value.trim();
+    if !value.is_empty() && !values.iter().any(|existing| existing == value) {
+        values.push(value.to_string());
+    }
+}
+
 fn value_as_i64(value: Option<&serde_json::Value>) -> Option<i64> {
     let value = value?;
     if let Some(number) = value.as_i64() {
@@ -939,6 +1010,7 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
+    use crate::models::domain::{JobStatusKind, WorkflowKind};
 
     struct TestDbFs {
         root: PathBuf,
@@ -1007,6 +1079,41 @@ mod tests {
         }
     }
 
+    fn insert_succeeded_job(
+        db: &Db,
+        document_id: &str,
+        job_id: &str,
+        workflow: WorkflowKind,
+        finished_at: &str,
+    ) {
+        let conn = db.connect().expect("connect");
+        conn.execute(
+            r#"
+            INSERT INTO jobs (
+                job_id, workflow, status_json, created_at, updated_at, finished_at,
+                command_json, request_json, log_tail_json, document_id
+            ) VALUES (?1, ?2, ?3, ?4, ?4, ?4, '[]', '{}', '[]', ?5)
+            "#,
+            params![
+                job_id,
+                serde_json::to_string(&workflow).expect("workflow json"),
+                serde_json::to_string(&JobStatusKind::Succeeded).expect("status json"),
+                finished_at,
+                document_id,
+            ],
+        )
+        .expect("insert succeeded job");
+    }
+
+    fn seed_document(db: &Db, upload_id: &str, bytes: &[u8]) -> String {
+        let document_id = sha256_hex(bytes);
+        let upload = upload_with_hash(upload_id, &document_id);
+        db.save_upload(&upload).expect("save upload");
+        db.upsert_document_from_upload(&upload)
+            .expect("upsert document");
+        document_id
+    }
+
     #[test]
     fn versioned_migrations_are_idempotent() {
         let fs = TestDbFs::new("migrations");
@@ -1043,6 +1150,69 @@ mod tests {
     }
 
     #[test]
+    fn reconcile_active_job_prefers_non_ocr_success_over_newer_ocr_job() {
+        let fs = TestDbFs::new("reconcile-prefers-non-ocr");
+        let db = fs.db();
+        db.init().expect("init");
+        let document_id = seed_document(&db, "up-reconcile", b"reconcile workflow priority");
+        insert_succeeded_job(
+            &db,
+            &document_id,
+            "job-book",
+            WorkflowKind::Book,
+            "2026-01-01T00:00:00Z",
+        );
+        insert_succeeded_job(
+            &db,
+            &document_id,
+            "job-ocr",
+            WorkflowKind::Ocr,
+            "2026-02-01T00:00:00Z",
+        );
+        db.set_document_active_job(&document_id, "job-missing", None)
+            .expect("set stale active job");
+
+        db.reconcile_document_active_job(&document_id)
+            .expect("reconcile active job");
+
+        let document = db.get_document(&document_id).expect("get document");
+        assert_eq!(document.active_job_id.as_deref(), Some("job-book"));
+
+        db.delete_job("job-book").expect("delete book job");
+        db.reconcile_document_active_job(&document_id)
+            .expect("fallback reconcile to ocr");
+        let document = db.get_document(&document_id).expect("get document");
+        assert_eq!(document.active_job_id.as_deref(), Some("job-ocr"));
+    }
+
+    #[test]
+    fn active_job_backfill_prefers_non_ocr_success_over_newer_ocr_job() {
+        let fs = TestDbFs::new("backfill-prefers-non-ocr");
+        let db = fs.db();
+        db.init().expect("init");
+        let document_id = seed_document(&db, "up-backfill", b"backfill workflow priority");
+        insert_succeeded_job(
+            &db,
+            &document_id,
+            "job-book",
+            WorkflowKind::Book,
+            "2026-01-01T00:00:00Z",
+        );
+        insert_succeeded_job(
+            &db,
+            &document_id,
+            "job-ocr",
+            WorkflowKind::Ocr,
+            "2026-02-01T00:00:00Z",
+        );
+
+        db.backfill_active_jobs().expect("backfill active jobs");
+
+        let document = db.get_document(&document_id).expect("get document");
+        assert_eq!(document.active_job_id.as_deref(), Some("job-book"));
+    }
+
+    #[test]
     fn document_delete_cascades_favorites() {
         let fs = TestDbFs::new("cascade");
         let db = fs.db();
@@ -1050,13 +1220,66 @@ mod tests {
         let hash = sha256_hex(b"cascade doc");
         db.upsert_document_from_upload(&upload_with_hash("up-1", &hash))
             .expect("upsert");
+        insert_succeeded_job(
+            &db,
+            &hash,
+            "job-1",
+            WorkflowKind::Book,
+            "2026-01-01T00:00:00Z",
+        );
         db.save_favorite(&favorite_for(&hash, "job-1", "fav-1"))
             .expect("save favorite");
         assert_eq!(db.favorites_referencing_job("job-1").expect("count"), 1);
         let conn = db.connect().expect("connect");
-        conn.execute("DELETE FROM documents WHERE document_id = ?1", params![hash])
-            .expect("delete document");
+        conn.execute(
+            "DELETE FROM documents WHERE document_id = ?1",
+            params![hash],
+        )
+        .expect("delete document");
         assert_eq!(db.list_favorites(None).expect("list").len(), 0);
+    }
+
+    #[test]
+    fn fts_rows_use_exact_asset_caption_for_empty_image_block() {
+        let fs = TestDbFs::new("fts-asset-caption");
+        let job_root = fs.root.join("job-asset-caption");
+        let normalized = job_root.join("ocr/normalized/document.v1.json");
+        std::fs::create_dir_all(normalized.parent().expect("normalized parent"))
+            .expect("normalized dir");
+        std::fs::write(
+            &normalized,
+            serde_json::to_vec(&serde_json::json!({
+                "assets": {
+                    "asset-figure": {
+                        "uri": "md/images/page-1/imgs/figure.png",
+                        "caption": "Absorption spectrum under applied field"
+                    }
+                },
+                "pages": [{
+                    "page_index": 0,
+                    "blocks": [{
+                        "block_id": "p001-b0004",
+                        "text": "",
+                        "type": "image",
+                        "content": {
+                            "kind": "image",
+                            "asset_ids": ["asset-figure"]
+                        }
+                    }]
+                }]
+            }))
+            .expect("normalized json"),
+        )
+        .expect("write normalized");
+
+        let rows = build_fts_rows_from_job_dir(&job_root).expect("build fts rows");
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].block_id, "p001-b0004");
+        assert_eq!(
+            rows[0].source_text,
+            "Absorption spectrum under applied field"
+        );
     }
 
     #[test]
@@ -1107,7 +1330,9 @@ mod tests {
             }],
         )
         .expect("fts rebuild");
-        let rebuilt = db.search_blocks("光学光谱", 10, None).expect("search rebuilt");
+        let rebuilt = db
+            .search_blocks("光学光谱", 10, None)
+            .expect("search rebuilt");
         assert_eq!(rebuilt.len(), 1);
         assert_eq!(rebuilt[0].job_id, "job-2");
     }

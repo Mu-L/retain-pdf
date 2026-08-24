@@ -6,6 +6,9 @@ from services.document_schema.providers import PROVIDER_PADDLE
 from services.document_schema.provider_adapters.common import build_document_record
 from services.document_schema.provider_adapters.common import build_page_record
 from services.document_schema.provider_adapters.paddle.column_signals import summarize_document_column_signals
+from services.document_schema.provider_adapters.paddle.caption_asset_relations import (
+    attach_adjacent_caption_asset_relations,
+)
 from services.document_schema.provider_adapters.paddle.continuation import assign_paddle_continuation_hints
 from services.document_schema.provider_adapters.paddle.payload_reader import iter_page_specs
 
@@ -26,6 +29,7 @@ def build_paddle_document(
 ) -> dict:
     pages = [build_page_record(page_spec) for page_spec in iter_page_specs(payload)]
     assign_paddle_continuation_hints(pages)
+    attach_adjacent_caption_asset_relations(pages)
     document = build_document_record(
         document_id=document_id,
         provider=PROVIDER_PADDLE,
@@ -36,6 +40,11 @@ def build_paddle_document(
     )
     document.setdefault("derived", {})
     document["derived"]["provider_signals"] = summarize_document_column_signals(pages)
+    document["derived"]["provider_payload_meta"] = dict(payload.get("_meta") or {})
+    data_info = dict(payload.get("dataInfo") or {})
+    document["derived"]["provider_data_info"] = {
+        key: value for key, value in data_info.items() if key != "pages"
+    }
     return document
 
 

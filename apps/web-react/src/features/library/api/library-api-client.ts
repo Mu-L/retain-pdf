@@ -1,6 +1,16 @@
-import type { ApiResponse, JobDetailView, JobListView, LibraryDeleteResultView } from './library-api-types'
+import type {
+  LibraryBookDetailView,
+  LibraryBookListView,
+  LibraryDeleteResultView,
+} from '@retainpdf/contracts/library-books'
 import { stripOcrSuffix } from '@retainpdf/api/utils/strip-ocr'
-import { API_PREFIX } from '@retainpdf/api/internal/runtime'
+import { API_PREFIX } from '@retainpdf/api/runtime'
+
+type ApiResponse<T> = {
+  code: number
+  message: string
+  data: T
+}
 
 type RuntimeConfig = {
   apiBase?: string
@@ -16,7 +26,7 @@ declare global {
 const API_V1_SUFFIX = API_PREFIX
 
 function runtimeConfig(): RuntimeConfig {
-  return (window as any).__FRONT_RUNTIME_CONFIG__ ?? {}
+  return window.__FRONT_RUNTIME_CONFIG__ ?? {}
 }
 
 export function libraryApiBase(): string {
@@ -88,11 +98,11 @@ async function getJson<T>(path: string): Promise<T> {
 }
 
 export function listLibraryJobs(limit = 100) {
-  return getJson<JobListView>(`library/books?limit=${limit}`)
+  return getJson<LibraryBookListView>(`library/books?limit=${limit}`)
 }
 
 export function getLibraryJob(jobId: string) {
-  return getJson<JobDetailView>(`library/books/${encodeURIComponent(jobId)}`)
+  return getJson<LibraryBookDetailView>(`library/books/${encodeURIComponent(jobId)}`)
 }
 
 function libraryBookId(jobId: string) {

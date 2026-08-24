@@ -1,5 +1,5 @@
 import { $ } from "../dom/query.js";
-import { summarizeRuntimeField } from "../job/formatters.js";
+import { summarizeRuntimeField } from "@retainpdf/domain/job";
 
 function escapeHtml(value) {
   return `${value ?? ""}`

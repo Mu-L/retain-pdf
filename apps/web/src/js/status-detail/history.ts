@@ -8,7 +8,7 @@ import {
   resolveStageHistory,
   resolveStageHistoryDuration,
   stageHistoryDisplay,
-} from "../job/stage-history.js";
+} from "@retainpdf/domain/job";
 
 export function buildStageHistoryPresentation(job, durationOptions = {}) {
   const history = resolveStageHistory(job);

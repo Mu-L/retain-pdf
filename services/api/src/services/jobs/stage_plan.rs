@@ -1,5 +1,12 @@
+use std::path::Path;
+
 use crate::models::api::RetryStageKind;
-use crate::models::domain::{JobArtifacts, JobSnapshot, JobStatusKind, WorkflowKind};
+use crate::models::domain::{JobSnapshot, JobStatusKind, WorkflowKind};
+use crate::services::jobs::translation_request_recovery::load_translation_request_recovery;
+use crate::services::runtime_gateway::{
+    translation_artifacts_are_ready, translation_checkpoint_candidate_is_ready,
+};
+use crate::storage_paths::resolve_data_path;
 
 #[derive(Debug, Clone)]
 pub(crate) struct JobStagePlan {
@@ -23,16 +30,20 @@ pub(crate) struct JobResumePlan {
     pub reason: Option<String>,
 }
 
-pub(crate) fn stage_plans(job: &JobSnapshot) -> Vec<JobStagePlan> {
+pub(crate) fn stage_plans(job: &JobSnapshot, data_root: &Path) -> Vec<JobStagePlan> {
     vec![
-        stage_plan(job, RetryStageKind::Ocr),
-        stage_plan(job, RetryStageKind::Translation),
-        stage_plan(job, RetryStageKind::Render),
+        stage_plan(job, RetryStageKind::Ocr, data_root),
+        stage_plan(job, RetryStageKind::Translation, data_root),
+        stage_plan(job, RetryStageKind::Render, data_root),
     ]
 }
 
-pub(crate) fn stage_plan(job: &JobSnapshot, stage: RetryStageKind) -> JobStagePlan {
-    let availability = StageArtifactAvailability::from_job(job);
+pub(crate) fn stage_plan(
+    job: &JobSnapshot,
+    stage: RetryStageKind,
+    data_root: &Path,
+) -> JobStagePlan {
+    let availability = StageArtifactAvailability::from_job(job, data_root);
     let running = matches!(job.status, JobStatusKind::Queued | JobStatusKind::Running);
     let mut plan = base_stage_plan(stage, &availability);
 
@@ -46,8 +57,18 @@ pub(crate) fn stage_plan(job: &JobSnapshot, stage: RetryStageKind) -> JobStagePl
     plan
 }
 
-pub(crate) fn resume_plan(job: &JobSnapshot) -> JobResumePlan {
-    let availability = StageArtifactAvailability::from_job(job);
+pub(crate) fn resume_plan(job: &JobSnapshot, data_root: &Path) -> JobResumePlan {
+    if matches!(job.status, JobStatusKind::Queued | JobStatusKind::Running) {
+        return JobResumePlan {
+            can_resume: false,
+            from_stage: None,
+            resume_workflow: None,
+            reuses_artifacts: Vec::new(),
+            reruns_stages: Vec::new(),
+            reason: Some("job is queued or running; cancel it before resuming".to_string()),
+        };
+    }
+    let availability = StageArtifactAvailability::from_job(job, data_root);
     if availability.translations_available {
         return JobResumePlan {
             can_resume: true,
@@ -62,16 +83,38 @@ pub(crate) fn resume_plan(job: &JobSnapshot) -> JobResumePlan {
             reason: None,
         };
     }
-    if availability.ocr_available {
+    if availability.ocr_available && availability.translation_retry_requires_confirmation {
         return JobResumePlan {
-            can_resume: true,
+            can_resume: false,
             from_stage: Some("translate".to_string()),
             resume_workflow: Some(WorkflowKind::Book),
             reuses_artifacts: vec![
                 "source_pdf".to_string(),
                 "normalized_document_json".to_string(),
-                "normalization_report_json".to_string(),
+                "translation_request_journal_jsonl".to_string(),
             ],
+            reruns_stages: vec!["translation".to_string(), "rendering".to_string()],
+            reason: Some(
+                "translation request outcome is ambiguous; use retry-stage with explicit duplicate-risk acceptance"
+                    .to_string(),
+            ),
+        };
+    }
+    if availability.ocr_available {
+        let mut reuses_artifacts = vec![
+            "source_pdf".to_string(),
+            "normalized_document_json".to_string(),
+            "normalization_report_json".to_string(),
+        ];
+        if availability.translation_checkpoint_available {
+            reuses_artifacts.push("translation_checkpoint_json".to_string());
+            reuses_artifacts.push("translation_request_journal_jsonl".to_string());
+        }
+        return JobResumePlan {
+            can_resume: true,
+            from_stage: Some("translate".to_string()),
+            resume_workflow: Some(WorkflowKind::Book),
+            reuses_artifacts,
             reruns_stages: vec!["translation".to_string(), "rendering".to_string()],
             reason: None,
         };
@@ -122,11 +165,22 @@ fn base_stage_plan(
             stage,
             label: "重试翻译".to_string(),
             can_retry: availability.ocr_available,
-            disabled_reason: String::new(),
-            will_reuse: vec!["source_pdf".to_string(), "ocr_result".to_string()],
+            disabled_reason: if availability.translation_retry_requires_confirmation {
+                "request outcome is ambiguous; retry requires explicit duplicate-risk acceptance"
+                    .to_string()
+            } else {
+                String::new()
+            },
+            will_reuse: {
+                let mut artifacts = vec!["source_pdf".to_string(), "ocr_result".to_string()];
+                if availability.translation_request_journal_available {
+                    artifacts.push("translation_request_journal_jsonl".to_string());
+                }
+                artifacts
+            },
             will_rerun: vec!["translation".to_string(), "render".to_string()],
             retry_workflow: WorkflowKind::Book,
-            danger: false,
+            danger: availability.translation_retry_requires_confirmation,
         },
         RetryStageKind::Render => JobStagePlan {
             stage,
@@ -178,33 +232,49 @@ struct StageArtifactAvailability {
     source_available: bool,
     source_retryable_from_request: bool,
     ocr_available: bool,
+    translation_checkpoint_available: bool,
     translations_available: bool,
+    translation_request_journal_available: bool,
+    translation_retry_requires_confirmation: bool,
 }
 
 impl StageArtifactAvailability {
-    fn from_job(job: &JobSnapshot) -> Self {
+    fn from_job(job: &JobSnapshot, data_root: &Path) -> Self {
         let artifacts = job.artifacts.as_ref();
         let has_request_source = has_request_source(job);
-        let source_artifact_available = has_artifact(artifacts, |item| &item.source_pdf);
+        let source_artifact_available = artifact_is_file(
+            data_root,
+            artifacts.and_then(|item| item.source_pdf.as_deref()),
+        );
         let source_available = has_request_source || source_artifact_available;
+        let normalized_document_available = artifact_is_file(
+            data_root,
+            artifacts.and_then(|item| item.normalized_document_json.as_deref()),
+        );
+        let translation_checkpoint_available = artifacts.is_some_and(|item| {
+            translation_checkpoint_candidate_is_ready(item, data_root, &job.job_id)
+        });
+        let translations_available = artifacts
+            .is_some_and(|item| translation_artifacts_are_ready(item, data_root, &job.job_id));
+        let translation_request_recovery = load_translation_request_recovery(job, data_root);
+        let translation_request_journal_available = translation_request_recovery.is_some();
+        let translation_retry_requires_confirmation =
+            translation_request_recovery.is_some_and(|state| state.requires_confirmation);
         Self {
             has_request_source,
             source_available,
             source_retryable_from_request: source_available && has_request_source,
-            ocr_available: source_artifact_available
-                && has_artifact(artifacts, |item| &item.normalized_document_json),
-            translations_available: source_artifact_available
-                && has_artifact(artifacts, |item| &item.translations_dir),
+            ocr_available: source_artifact_available && normalized_document_available,
+            translation_checkpoint_available,
+            translations_available,
+            translation_request_journal_available,
+            translation_retry_requires_confirmation,
         }
     }
 }
 
-fn has_artifact(
-    artifacts: Option<&JobArtifacts>,
-    pick: impl Fn(&JobArtifacts) -> &Option<String>,
-) -> bool {
-    artifacts
-        .and_then(|item| pick(item).as_deref())
-        .map(str::trim)
-        .is_some_and(|item| !item.is_empty())
+fn artifact_is_file(data_root: &Path, raw: Option<&str>) -> bool {
+    raw.filter(|value| !value.trim().is_empty())
+        .and_then(|value| resolve_data_path(data_root, value).ok())
+        .is_some_and(|path| path.is_file())
 }

@@ -1,9 +1,11 @@
 use crate::error::AppError;
 use crate::models::api::{
-    RetryStageKind, RetryStageRequest, RetryStageSubmissionView, StageActionsView,
+    AmbiguousRequestPolicy, RetryStageKind, RetryStageRequest, RetryStageSubmissionView,
+    StageActionsView,
 };
 use crate::services::job_launcher::start_job_execution;
 use crate::services::jobs::stage_plan::stage_plan;
+use crate::services::jobs::translation_request_recovery::load_translation_request_recovery;
 
 use super::super::super::creation::create_translation_job;
 use super::super::super::query::load_job_or_404;
@@ -20,7 +22,11 @@ impl<'a> JobsFacade<'a> {
         job_id: &str,
     ) -> Result<StageActionsView, AppError> {
         let job = load_job_or_404(self.command.db, job_id)?;
-        Ok(build_stage_actions_view(base_url, &job))
+        Ok(build_stage_actions_view(
+            base_url,
+            &job,
+            self.command.control.data_root,
+        ))
     }
 
     pub fn retry_stage_submission(
@@ -37,9 +43,32 @@ impl<'a> JobsFacade<'a> {
         }
 
         let source_job = load_job_or_404(self.command.db, source_job_id)?;
-        let plan = stage_plan(&source_job, request.stage.clone());
+        let plan = stage_plan(
+            &source_job,
+            request.stage.clone(),
+            self.command.control.data_root,
+        );
         if !plan.can_retry {
             return Err(AppError::bad_request(plan.disabled_reason));
+        }
+        if matches!(request.stage, RetryStageKind::Translation) {
+            if let Some(state) =
+                load_translation_request_recovery(&source_job, self.command.control.data_root)
+            {
+                if state.status == "corrupt" {
+                    return Err(AppError::conflict(
+                        "translation request journal is corrupt; retry remains paused because duplicate-risk acceptance cannot repair control-state corruption",
+                    ));
+                }
+                if state.requires_confirmation
+                    && request.ambiguous_request_policy
+                        != AmbiguousRequestPolicy::AcceptDuplicateRisk
+                {
+                    return Err(AppError::conflict(
+                        "translation request outcome is ambiguous; retry is paused. Resubmit retry-stage with ambiguous_request_policy=accept_duplicate_risk to acknowledge possible duplicate upstream work or billing",
+                    ));
+                }
+            }
         }
 
         let request_input = if request.create_new_job {
@@ -58,6 +87,7 @@ impl<'a> JobsFacade<'a> {
                 plan.will_reuse,
                 plan.will_rerun,
                 plan.retry_workflow,
+                request.ambiguous_request_policy,
             ));
         } else {
             return Err(AppError::bad_request(
@@ -67,6 +97,8 @@ impl<'a> JobsFacade<'a> {
 
         let mut request_input = request_input;
         apply_retry_overrides(&mut request_input, &request.overrides)?;
+        request_input.translation.accepted_ambiguous_request_risk =
+            request.ambiguous_request_policy == AmbiguousRequestPolicy::AcceptDuplicateRisk;
         let workflow = request_input.workflow.clone();
         let job = create_translation_job(&self.command.submit, &request_input)?;
         Ok(build_retry_stage_submission_view(
@@ -77,6 +109,7 @@ impl<'a> JobsFacade<'a> {
             plan.will_reuse,
             plan.will_rerun,
             workflow,
+            request.ambiguous_request_policy,
         ))
     }
 }

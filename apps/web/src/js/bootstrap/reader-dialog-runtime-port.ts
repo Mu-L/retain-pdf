@@ -4,11 +4,11 @@ import {
   resolveResourceUrl,
   resolveSourcePdfDownloadName,
   resolveTranslatedPdfDownloadName,
-} from "../job/artifacts.js";
+} from "@retainpdf/domain/job";
 import {
   resolveJobActions,
   resolveJobSourcePdfAction,
-} from "../job/actions.js";
+} from "@retainpdf/domain/job";
 import {
   currentJobId,
   currentJobSnapshot,

@@ -4,6 +4,8 @@ pub mod api;
 mod common;
 #[path = "models/defaults.rs"]
 pub mod defaults;
+#[path = "models/document_operation.rs"]
+mod document_operation;
 #[path = "models/domain.rs"]
 pub mod domain;
 #[path = "models/glossary.rs"]
@@ -34,6 +36,12 @@ pub use glossary::{
     GlossaryCsvExportView, GlossaryCsvParseInput, GlossaryCsvParseView, GlossaryDetailView,
     GlossaryListView, GlossaryRecord, GlossarySummaryView, GlossaryUpsertInput,
 };
+pub use document_operation::{
+    validate_operation_id, DocumentOperationDispatchReceipt, DocumentOperationLimits,
+    DocumentOperationStatus, DocumentOperationWorkspaceManifest, DocumentOperationWorkspaceState,
+    DOCUMENT_OPERATION_MANIFEST_SCHEMA, DOCUMENT_OPERATION_SCHEMA_VERSION,
+    DOCUMENT_OPERATION_STATE_SCHEMA,
+};
 pub use input::{
     CreateJobInput, GlossaryEntryInput, JobSourceInput, OcrInput, RenderInput, ResolvedJobSpec,
     ResolvedSourceSpec, RuntimeInput, TranslationInput, DEFAULT_SOURCE_CLEANUP_STRATEGY,
@@ -59,7 +67,7 @@ pub use redaction::{redact_json_value, redact_optional_text, redact_text, sensit
 pub use view::{
     build_artifact_links, build_artifact_manifest, build_job_actions, build_job_links,
     build_job_links_with_workflow, summarize_list_invocation, to_absolute_url, upload_to_response,
-    ActionLinkView, ArtifactDisplayItemView, ArtifactDownloadQuery, ArtifactLinksView,
+    ActionLinkView, AmbiguousRequestPolicy, ArtifactDisplayItemView, ArtifactDownloadQuery, ArtifactLinksView,
     BookSummaryView, DocumentDeleteResultView, GlossaryUsageSummaryView, InvocationSummaryView,
     JobActionsView, JobArtifactItemView, JobArtifactManifestView, JobContractsView, JobDetailView,
     JobDiagnosticsView, JobEventListView, JobEventProgressView, JobEventRawView, JobEventRecord,
@@ -77,6 +85,7 @@ pub use view::{
     ReaderPageMetadataView, ReaderRegionBoxView, ReaderRegionItemView, ReaderRegionsView,
     ResourceLinkView, RetryStageKind, RetryStageRequest, RetryStageSubmissionView,
     StageActionsView, StageRetryActionLinkView, StageRetryActionView, TranslationDebugIndexView,
+    TranslationRequestRecoveryView,
     TranslationDebugItemView, TranslationDebugListItemView, TranslationDebugListView,
     TranslationDiagnosticsView, TranslationReplayView,
 };

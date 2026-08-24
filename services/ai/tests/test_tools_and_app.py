@@ -10,7 +10,7 @@ from retainpdf_ai.agent import AskResult, Citation, RetrievalAgent
 from retainpdf_ai.app import build_app
 from retainpdf_ai.blocks import read_page_blocks
 from retainpdf_ai.config import Settings
-from retainpdf_ai.tools import build_default_registry
+from retainpdf_ai.tools import _markdown_asset_url, build_default_registry
 
 
 class FakeRust:
@@ -34,7 +34,7 @@ class FakeRust:
                 "document_id": "doc-a",
                 "job_id": "job-1",
                 "page_idx": 2,
-                "block_id": "p003-b0001",
+                "block_id": "p003-b0002",
                 "source_snippet": "spectra",
                 "translated_snippet": f"关于{query}的片段",
             },
@@ -146,12 +146,49 @@ def _write_job_dir(root: Path):
     (normalized / "document.v1.json").write_text(
         json.dumps(
             {
+                "assets": {
+                    "page-3/imgs/figure.jpg": {
+                        "uri": "md/images/page-3/imgs/figure.jpg"
+                    },
+                    "page-3/imgs/figure-detail.jpg": {
+                        "uri": "md/images/page-3/imgs/figure-detail.jpg"
+                    },
+                },
                 "pages": [
                     {
                         "page_index": 2,
                         "blocks": [
-                            {"block_id": "p003-b0000", "text": "first block"},
-                            {"block_id": "p003-b0001", "text": "second block"},
+                            {
+                                "block_id": "p003-b0000",
+                                "text": "first block",
+                                "bbox": [10, 20, 110, 40],
+                                "geometry": {"bbox": [10, 20, 110, 40]},
+                                "type": "text",
+                                "content": {"kind": "text"},
+                            },
+                            {
+                                "block_id": "p003-b0001",
+                                "text": "second block",
+                                "bbox": [10, 50, 180, 80],
+                                "geometry": {"bbox": [20, 100, 360, 160]},
+                                "type": "text",
+                                "content": {"kind": "text"},
+                            },
+                            {
+                                "block_id": "p003-b0002",
+                                "text": "",
+                                "bbox": [20, 100, 220, 260],
+                                "geometry": {"bbox": [20, 100, 220, 260]},
+                                "type": "image",
+                                "content": {
+                                    "kind": "image",
+                                    "asset_id": "page-3/imgs/figure.jpg",
+                                    "asset_ids": [
+                                        "page-3/imgs/figure.jpg",
+                                        "page-3/imgs/figure-detail.jpg",
+                                    ],
+                                },
+                            },
                         ],
                     }
                 ]
@@ -169,26 +206,86 @@ def _write_job_dir(root: Path):
         ),
         encoding="utf-8",
     )
+    image_dir = job_root / "md" / "images" / "page-3" / "imgs"
+    image_dir.mkdir(parents=True)
+    (job_root / "md" / "full.md").write_text(
+        "# 光谱计算方法\n\n本文使用 density functional theory 计算吸收光谱。\n\n"
+        "## 主要结论\n\n共轭效应提高了反应选择性。\n\n"
+        "![反应图](images/page-3/imgs/figure%20detail.jpg)\n",
+        encoding="utf-8",
+    )
+    (image_dir / "figure.jpg").write_bytes(b"test-image")
+    (image_dir / "figure-detail.jpg").write_bytes(b"test-image-detail")
+    (image_dir / "figure detail.jpg").write_bytes(b"test-image-space")
+    (image_dir / "unrelated.jpg").write_bytes(b"must-not-be-guessed")
     return job_root
 
 
 def test_read_page_blocks_aligns_translation_by_numeric_index(tmp_path):
     job_root = _write_job_dir(tmp_path)
     blocks = read_page_blocks(job_root, 2)
-    assert [block.block_id for block in blocks] == ["p003-b0000", "p003-b0001"]
+    assert [block.block_id for block in blocks] == ["p003-b0000", "p003-b0001", "p003-b0002"]
     assert blocks[1].translated_text == "第二个块的译文"
+    assert blocks[1].bbox == (10.0, 50.0, 180.0, 80.0)
+    assert blocks[2].asset_id == "page-3/imgs/figure.jpg"
+    assert blocks[2].asset_ids == (
+        "page-3/imgs/figure.jpg",
+        "page-3/imgs/figure-detail.jpg",
+    )
+    assert blocks[2].asset_uris == (
+        "md/images/page-3/imgs/figure.jpg",
+        "md/images/page-3/imgs/figure-detail.jpg",
+    )
     windowed = read_page_blocks(job_root, 2, around_block_id="p003-b0001", max_blocks=1)
     assert [block.block_id for block in windowed] == ["p003-b0001"]
 
 
+def test_markdown_asset_url_accepts_canonical_and_legacy_page_local_ids(tmp_path):
+    job_root = _write_job_dir(tmp_path)
+    canonical = _markdown_asset_url(job_root, "job-1", 2, "page-3/imgs/figure.jpg")
+    legacy = _markdown_asset_url(job_root, "job-1", 2, "imgs/figure.jpg")
+    catalog_uri = _markdown_asset_url(
+        job_root,
+        "job-1",
+        2,
+        "opaque-provider-id",
+        "md/images/page-3/imgs/figure.jpg",
+    )
+
+    assert canonical == legacy == catalog_uri
+    assert canonical.endswith("page-3/imgs/figure.jpg")
+    encoded_once = _markdown_asset_url(
+        job_root, "job-1", 2, "images/page-3/imgs/figure%20detail.jpg"
+    )
+    assert encoded_once.endswith("page-3/imgs/figure%20detail.jpg")
+    assert "%2520" not in encoded_once
+    assert _markdown_asset_url(job_root, "job-1", 2, "../secret.png") == ""
+    assert (
+        _markdown_asset_url(
+            job_root,
+            "job-1",
+            2,
+            "opaque-provider-id",
+            "../../outside.png",
+        )
+        == ""
+    )
+
+
 def test_default_registry_tools_return_anchored_results(tmp_path):
-    _write_job_dir(tmp_path)
+    job_root = _write_job_dir(tmp_path)
     settings = Settings(data_root=tmp_path)
     registry = build_default_registry(settings, FakeRust())
 
     hits = registry.invoke("search_fulltext", {"query": "光谱"})["hits"]
     assert len(hits) == 2
-    assert hits[0]["block_id"] == "p003-b0001"
+    assert hits[0]["block_id"] == "p003-b0002"
+    assert hits[0]["asset_ids"] == [
+        "page-3/imgs/figure.jpg",
+        "page-3/imgs/figure-detail.jpg",
+    ]
+    assert len(hits[0]["image_urls"]) == 2
+    assert all("unrelated.jpg" not in url for url in hits[0]["image_urls"])
 
     # 整本：document_id 过滤掉其它文档
     scoped = registry.invoke(
@@ -215,12 +312,89 @@ def test_default_registry_tools_return_anchored_results(tmp_path):
     blocks = registry.invoke("read_blocks", {"document_id": "doc-a", "page_idx": 2})
     assert blocks["job_id"] == "job-1"
     assert blocks["blocks"][1]["translated_text"] == "第二个块的译文"
+    assert blocks["blocks"][1]["bbox"] == [10.0, 50.0, 180.0, 80.0]
+    assert blocks["blocks"][2]["block_type"] == "image"
+    assert blocks["blocks"][2]["image_url"].endswith("page-3/imgs/figure.jpg")
+    assert len(blocks["blocks"][2]["asset_image_urls"]) == 2
+    assert blocks["blocks"][1]["source_text_length"] == len("second block")
+
+    paged = registry.invoke(
+        "read_blocks",
+        {
+            "document_id": "doc-a",
+            "page_idx": 2,
+            "around_block_id": "p003-b0001",
+            "max_blocks": 1,
+            "char_start": 3,
+            "char_limit": 200,
+        },
+    )
+    assert paged["blocks"][0]["source_text"] == "ond block"
+    assert paged["blocks"][0]["char_start"] == 3
 
     favorites = registry.invoke("search_favorites", {"keyword": "速率"})["favorites"]
     assert favorites[0]["favorite_id"] == "fav-1"
     assert registry.invoke("search_favorites", {"keyword": "不存在"})["favorites"] == []
 
     assert "query must not be empty" in registry.invoke("search_fulltext", {})["error"]
+
+    # 旧任务若缺 normalized block 关系，不能退化成同页图片枚举。
+    (job_root / "ocr" / "normalized" / "document.v1.json").unlink()
+    legacy_hits = registry.invoke("search_fulltext", {"query": "光谱"})["hits"]
+    assert "image_urls" not in legacy_hits[0]
+
+
+def test_default_registry_markdown_tools_only_read_full_markdown(tmp_path):
+    job_root = _write_job_dir(tmp_path)
+    registry = build_default_registry(Settings(data_root=tmp_path), FakeRust())
+
+    searched = registry.invoke(
+        "search_markdown",
+        {"query": "共轭效应", "document_id": "doc-a", "job_id": "job-1"},
+    )
+    assert searched["document_id"] == "doc-a"
+    assert searched["job_id"] == "job-1"
+    assert searched["hits"][0]["block_id"].startswith("md-")
+    assert searched["hits"][0]["source"] == "markdown"
+    assert "反应选择性" in searched["hits"][0]["source_snippet"]
+    assert "figure%20detail" not in searched["hits"][0]["source_snippet"]
+    assert searched["hits"][0]["page_idx"] is None
+    assert searched["hits"][0]["assets"] == [
+        {
+            "image_url": "/api/v1/jobs/job-1/markdown/images/page-3/imgs/figure%20detail.jpg",
+            "alt": "反应图",
+        }
+    ]
+
+    chunk_id = searched["hits"][0]["chunk_id"]
+    read = registry.invoke(
+        "read_markdown_chunk",
+        {"chunk_id": chunk_id, "document_id": "doc-a", "job_id": "job-1"},
+    )
+    assert read["blocks"][0]["block_id"] == chunk_id
+    assert read["blocks"][0]["heading"] == "光谱计算方法 > 主要结论"
+    assert "共轭效应" in read["blocks"][0]["source_text"]
+    assert read["page_idx"] is None
+    assert read["blocks"][0]["assets"] == searched["hits"][0]["assets"]
+
+    unknown_job = registry.invoke(
+        "search_markdown",
+        {"query": "光谱", "document_id": "doc-a", "job_id": "job-missing"},
+    )
+    assert "accessible document" in unknown_job["error"]
+
+    (job_root / "md" / "full.md").unlink()
+    missing = registry.invoke(
+        "search_markdown",
+        {"query": "光谱", "document_id": "doc-a", "job_id": "job-1"},
+    )
+    assert "Markdown not found" in missing["error"]
+
+    mismatch = registry.invoke(
+        "search_markdown",
+        {"query": "光谱", "document_id": "doc-other", "job_id": "job-1"},
+    )
+    assert "do not refer to the same document" in mismatch["error"]
 
 
 class FakeAgent(RetrievalAgent):
@@ -467,6 +641,65 @@ def test_persist_failure_surfaces_in_done_payload():
         headers={"X-API-Key": "test-key"},
     )
     assert ok.json()["data"]["persisted"] is True
+
+
+def test_fx_request_message_is_durable_before_runtime_and_not_duplicated():
+    rust = FakeRust()
+    observed: dict = {}
+
+    class RecordingFxRuntime:
+        runtime_id = "vercel-fx-acp-v1"
+
+        def ask(
+            self,
+            question,
+            *,
+            conversation_id="",
+            document_id="",
+            job_id="",
+            request_message_id="",
+            confirmed=False,
+            on_event=None,
+            chat_fn=None,
+            history=None,
+        ):
+            del job_id, on_event, chat_fn, history
+            detail = rust.get_conversation(conversation_id)
+            observed["messages_during_runtime"] = list(detail["messages"])
+            observed["request_message_id"] = request_message_id
+            observed["document_id"] = document_id
+            observed["confirmed"] = confirmed
+            return AskResult(answer=f"fx:{question}", citations=[], tool_trace=[], rounds=1)
+
+    settings = Settings(
+        api_keys=frozenset({"test-key"}),
+        fx_gateway_api_key="gateway-test-key",
+    )
+    client = TestClient(
+        build_app(settings, rust=rust, runtime=RecordingFxRuntime())
+    )
+    response = client.post(
+        "/v1/ask",
+        json={
+            "question": "创建一个候选版本",
+            "document_id": "doc-a",
+            "user_message_id": "msg-stable-a",
+            "confirm_document_operation": True,
+        },
+        headers={"X-API-Key": "test-key"},
+    )
+
+    assert response.status_code == 200
+    assert observed["request_message_id"] == "msg-stable-a"
+    assert observed["document_id"] == "doc-a"
+    assert observed["confirmed"] is True
+    assert [message["role"] for message in observed["messages_during_runtime"]] == [
+        "user"
+    ]
+    conversation_id = response.json()["data"]["conversation_id"]
+    final_messages = rust.get_conversation(conversation_id)["messages"]
+    assert [message["role"] for message in final_messages] == ["user", "assistant"]
+    assert sum(message["message_id"] == "msg-stable-a" for message in final_messages) == 1
 
 
 def test_ask_force_compress_emits_compress_event_and_summary():

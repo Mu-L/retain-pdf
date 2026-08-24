@@ -22,6 +22,43 @@ def _write_source_pdf(path: Path) -> None:
     doc.close()
 
 
+def test_ocr_summary_preserves_transport_level_incomplete_validation(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    normalized_path = tmp_path / "document.v1.json"
+    normalized_path.write_text("{}", encoding="utf-8")
+    report_path = tmp_path / "document.v1.report.json"
+    report_path.write_text(
+        json.dumps(
+            {
+                "validation": {
+                    "valid": True,
+                    "complete": False,
+                    "warnings": ["page-level geometry only"],
+                    "geometry_precision": "page_bbox",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        provider_pipeline,
+        "validate_saved_document_path",
+        lambda _path: {"valid": True, "complete": True, "warnings": []},
+    )
+
+    validation = provider_pipeline._schema_validation_for_summary(
+        normalized_json_path=normalized_path,
+        normalization_report_path=report_path,
+    )
+
+    assert validation["valid"] is True
+    assert validation["complete"] is False
+    assert validation["geometry_precision"] == "page_bbox"
+    assert validation["warnings"] == ["page-level geometry only"]
+
+
 def test_provider_pipeline_dispatches_to_paddle_and_writes_standard_artifacts(
     tmp_path: Path,
     monkeypatch,
@@ -241,6 +278,11 @@ def test_provider_pipeline_dispatches_to_paddle_and_writes_standard_artifacts(
         )
 
     monkeypatch.setattr(provider_pipeline, "get_paddle_token", lambda **_: "paddle-token")
+    monkeypatch.setattr(
+        provider_pipeline,
+        "get_api_key",
+        lambda *_args, **_kwargs: "test-deepseek-key",
+    )
     monkeypatch.setattr(provider_pipeline, "submit_local_paddle_file", lambda **_: ("job-1", "trace-1"))
     def _fake_poll_paddle_until_done(**kwargs: object) -> tuple[dict, str]:
         progress_callback = kwargs.get("progress_callback")
@@ -316,6 +358,8 @@ def test_provider_pipeline_dispatches_to_paddle_and_writes_standard_artifacts(
 
     normalized_payload = json.loads(normalized_json_path.read_text(encoding="utf-8"))
     assert normalized_payload["source"]["provider"] == "paddle"
+    provider_payload = json.loads(provider_result_path.read_text(encoding="utf-8"))
+    assert provider_payload["_meta"]["transport"] == "official_http"
     summary_payload = json.loads(summary_path.read_text(encoding="utf-8"))
     events_payload = [
         json.loads(line)
@@ -512,6 +556,11 @@ target.write_text(json.dumps({
     importlib.reload(provider_config)
     importlib.reload(drivers)
     monkeypatch.setattr(provider_pipeline, "run_book_pipeline", _fake_run_book_pipeline)
+    monkeypatch.setattr(
+        provider_pipeline,
+        "get_api_key",
+        lambda *_args, **_kwargs: "test-deepseek-key",
+    )
     monkeypatch.setattr(provider_pipeline, "write_pipeline_summary", _fake_write_pipeline_summary)
     monkeypatch.setattr(provider_pipeline, "print_pipeline_summary", lambda **_: None)
     monkeypatch.setattr(provider_pipeline, "enable_job_log_capture", lambda *_args, **_kwargs: None)

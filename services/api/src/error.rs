@@ -9,6 +9,8 @@ pub enum AppError {
     #[error("{0}")]
     Unauthorized(String),
     #[error("{0}")]
+    Forbidden(String),
+    #[error("{0}")]
     BadRequest(String),
     #[error("{0}")]
     NotFound(String),
@@ -33,6 +35,10 @@ struct ErrorBody {
 impl AppError {
     pub fn unauthorized(msg: impl Into<String>) -> Self {
         Self::Unauthorized(msg.into())
+    }
+
+    pub fn forbidden(msg: impl Into<String>) -> Self {
+        Self::Forbidden(msg.into())
     }
 
     pub fn bad_request(msg: impl Into<String>) -> Self {
@@ -68,6 +74,7 @@ impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status, code) = match &self {
             AppError::Unauthorized(_) => (StatusCode::UNAUTHORIZED, 40100),
+            AppError::Forbidden(_) => (StatusCode::FORBIDDEN, 40300),
             AppError::BadRequest(_) => (StatusCode::BAD_REQUEST, 40000),
             AppError::NotFound(_) => (StatusCode::NOT_FOUND, 40400),
             AppError::Conflict(_) => (StatusCode::CONFLICT, 40900),

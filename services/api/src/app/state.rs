@@ -5,10 +5,11 @@ use anyhow::Result;
 use tokio::sync::{Mutex, RwLock, Semaphore};
 use tracing::warn;
 
-use super::state_recovery::reconcile_stale_running_jobs;
+use super::jobs::reconcile_owned_runtime;
 use crate::config::AppConfig;
 use crate::db::Db;
 use crate::services::runtime_gateway::JobRuntime;
+use crate::services::agent_capabilities::AgentCapabilityAuthority;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -19,6 +20,8 @@ pub struct AppState {
     pub job_slots: Arc<Semaphore>,
     /// 任务运行时落点（ADR-002）：进程内或远端 jobsd，装配一次此后只读。
     pub job_runtime: Arc<JobRuntime>,
+    /// Per-process signing authority for short-lived, least-privilege agent capabilities.
+    pub agent_capabilities: Arc<AgentCapabilityAuthority>,
 }
 
 pub fn build_state(config: Arc<AppConfig>) -> Result<AppState> {
@@ -33,7 +36,7 @@ pub fn build_state(config: Arc<AppConfig>) -> Result<AppState> {
             "startup cleanup migrated {cleaned_legacy_workflows} legacy workflow row(s) from mineru to book"
         );
     }
-    reconcile_stale_running_jobs(config.as_ref(), db.as_ref())?;
+    reconcile_owned_runtime(config.as_ref(), db.as_ref())?;
 
     let canceled_jobs = Arc::new(RwLock::new(HashSet::new()));
     let job_runtime = Arc::new(if config.jobs_service.is_remote() {
@@ -55,6 +58,7 @@ pub fn build_state(config: Arc<AppConfig>) -> Result<AppState> {
         canceled_jobs,
         job_slots: Arc::new(Semaphore::new(config.max_running_jobs)),
         job_runtime,
+        agent_capabilities: Arc::new(AgentCapabilityAuthority::new_random()?),
     })
 }
 
@@ -214,6 +218,27 @@ mod tests {
                 .expect("count running"),
             0
         );
+    }
+
+    #[test]
+    fn build_state_remote_mode_leaves_running_jobs_to_jobsd() {
+        let fs = TestStateFs::new("remote-runtime-owner");
+        let db = fs.db();
+        db.init().expect("init db");
+        db.save_job(&sample_running_job("job-owned-by-jobsd", None))
+            .expect("save job");
+
+        let mut config = fs.config().as_ref().clone();
+        config.jobs_service.mode = crate::config::JobsRuntimeMode::Remote;
+        let state = build_state(Arc::new(config)).expect("build remote shell state");
+        let job = state
+            .db
+            .get_job("job-owned-by-jobsd")
+            .expect("get job");
+
+        assert_eq!(job.status, JobStatusKind::Running);
+        assert_eq!(job.stage.as_deref(), Some("translation_prepare"));
+        assert!(job.failure.is_none());
     }
 
     #[cfg(unix)]

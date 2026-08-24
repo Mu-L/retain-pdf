@@ -424,6 +424,9 @@ mod tests {
             .get("paddle_model")
             .map(|option| option.aliases.contains_key("paddleocr-vl"))
             .unwrap_or(false));
+        let transport = paddle.options.get("transport").expect("transport option");
+        assert_eq!(transport.default, serde_json::json!("official_http"));
+        assert_eq!(transport.choices, vec!["official_http", "official_cli"]);
     }
 
     #[test]

@@ -2,7 +2,7 @@
  * Credentials API — thin wrappers over @retainpdf/api providers.
  * Keeps apps/web MPA untouched; web-react uses TanStack mutations.
  */
-import { API_PREFIX } from '@retainpdf/api/internal/runtime'
+import { API_PREFIX } from '@retainpdf/api/runtime'
 import { queryDeepSeekBalance as apiQueryDeepSeekBalance, validateDeepSeekToken as apiValidateDeepSeekToken, validatePaddleToken as apiValidatePaddleToken } from '@retainpdf/api/providers'
 
 export async function validateOcrToken(

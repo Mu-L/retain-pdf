@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchLibraryBookList } from '@retainpdf/api/library-books'
-import { API_PREFIX } from '@retainpdf/api/internal/runtime'
+import { API_PREFIX } from '@retainpdf/api/runtime'
 
 import { getLibraryJob, jobDetailToLibraryBook, jobListToLibraryBooks } from '../api'
 import { libraryKeys } from '../api/library-queries'

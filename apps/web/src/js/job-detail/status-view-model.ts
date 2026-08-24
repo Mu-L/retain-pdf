@@ -1,21 +1,17 @@
 import {
   resolveDisplayedStagePresentation,
-} from "../job-status/job-stage-presentation.js";
-import {
   normalizedStageEventRecord,
-} from "../job-status/job-stage-event-record.js";
-import {
   adaptJobEventStageSnapshot,
-} from "../job-status/job-stage-contract-adapter.js";
+} from "@retainpdf/domain/job-status";
 import {
   summarizeRuntimeField,
-} from "../job/formatters.js";
-import type { JobLike } from "../job/types.js";
+} from "@retainpdf/domain/job";
+import type { JobLike } from "@retainpdf/domain/job";
 import type {
   EventsPayload,
   PublicStagePresentation,
   StageEvent,
-} from "../job-status/types.js";
+} from "@retainpdf/domain/job-status";
 
 function firstNonEmptyText(...values: unknown[]): string {
   for (const value of values) {

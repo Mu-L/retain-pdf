@@ -1,6 +1,6 @@
 // Composes full react-pdf reader logic (session → shell → panes → tools → HUD).
 
-import { useCallback, useEffect, useMemo, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useReaderSession } from "./use-reader-session.js";
 import { useReaderKeyboard } from "./use-reader-keyboard.js";
 import { useReaderShell } from "./use-reader-shell.js";
@@ -21,6 +21,17 @@ import type { ReaderPaneModel } from "./use-reader-pane-model.js";
 import type { ReaderAnnotationsApi } from "./use-reader-annotations.js";
 import type { ReaderTextSelection } from "./use-reader-text-selection.js";
 import type { ReaderNote } from "../annotations/types.js";
+import {
+  findReaderRegion,
+  regionBoxForPane,
+  type ReaderRegion,
+} from "../shared/data/reader-regions.js";
+
+export type ReaderAnchorTarget = number | {
+  page_idx?: number;
+  page?: number;
+  block_id?: string;
+};
 
 export type ReaderReactController = {
   session: ReaderSessionState;
@@ -46,6 +57,8 @@ export type ReaderReactController = {
   rowHeights: PageRowHeights;
   currentPage: number;
   goToPage: (page: number) => void;
+  activeRegion: ReaderRegion | null;
+  jumpToAnchor: (target: ReaderAnchorTarget) => void;
   setModeKeepingPage: (next: ReaderMode) => void;
   showHud: boolean;
   tools: ReaderToolsApi;
@@ -118,11 +131,55 @@ export function useReaderReactController(): ReaderReactController {
     goToPageWithTotal(page, total);
   }, [goToPageWithTotal, panes.hudNumPages, panes.primaryNumPages, panes.numPagesByPane]);
 
+  const [activeRegion, setActiveRegion] = useState<ReaderRegion | null>(null);
+  const clearRegionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activateRegion = useCallback((region: ReaderRegion | null) => {
+    if (clearRegionTimerRef.current) clearTimeout(clearRegionTimerRef.current);
+    setActiveRegion(region);
+    if (region) {
+      clearRegionTimerRef.current = setTimeout(() => setActiveRegion(null), 6000);
+    }
+  }, []);
+  useEffect(() => () => {
+    if (clearRegionTimerRef.current) clearTimeout(clearRegionTimerRef.current);
+  }, []);
+
+  const resolveBlockPage = useCallback((blockId: string) => {
+    const region = findReaderRegion(session.regions, blockId);
+    return region ? regionBoxForPane(region, panes.primaryPane).page : null;
+  }, [session.regions, panes.primaryPane]);
+
+  const jumpToAnchor = useCallback((target: ReaderAnchorTarget) => {
+    const blockId = typeof target === "object" && target
+      ? `${target.block_id || ""}`.trim()
+      : "";
+    const region = findReaderRegion(session.regions, blockId);
+    let page: number | null = region
+      ? regionBoxForPane(region, panes.primaryPane).page
+      : null;
+    if (page == null) {
+      const raw = typeof target === "number"
+        ? target
+        : target?.page_idx ?? target?.page;
+      if (raw !== undefined && raw !== null && `${raw}`.trim() !== "") {
+        const pageIdx = Number(raw);
+        if (Number.isFinite(pageIdx) && pageIdx >= 0) page = Math.floor(pageIdx) + 1;
+      }
+    }
+    if (page == null || page < 1) return;
+    activateRegion(region);
+    goToPage(page);
+  }, [activateRegion, goToPage, panes.primaryPane, session.regions]);
+
   // 收藏 / 搜索回跳：URL ?page_idx= → 页码（0 基 → 1 基）
   useUrlAnchorJump({
     enabled: !session.boot.loading && !session.boot.failed && session.assetsReady,
     numPages: panes.hudNumPages || 0,
     goToPage,
+    resolveBlockPage,
+    onAnchorApplied: (anchor) => {
+      activateRegion(findReaderRegion(session.regions, anchor.blockId));
+    },
   });
 
   const { setModeKeepingPage } = useReaderModeNavigation({
@@ -207,6 +264,8 @@ export function useReaderReactController(): ReaderReactController {
     sessionFiles: sessionFilesMemo,
     rowHeights,
     goToPage,
+    activeRegion,
+    jumpToAnchor,
     setModeKeepingPage,
     download: session.download,
     showHud,
@@ -217,7 +276,7 @@ export function useReaderReactController(): ReaderReactController {
     addNoteFromSelection,
     jumpToNote,
     documentTitle: session.title || "",
-  }), [session, shellMemo, panes, sessionFilesMemo, rowHeights, goToPage, setModeKeepingPage, showHud, toolsApi, notes, selection, clearSelection, addNoteFromSelection, jumpToNote, userZoom, onZoomChange]);
+  }), [session, shellMemo, panes, sessionFilesMemo, rowHeights, goToPage, activeRegion, jumpToAnchor, setModeKeepingPage, showHud, toolsApi, notes, selection, clearSelection, addNoteFromSelection, jumpToNote, userZoom, onZoomChange]);
 
   return useMemo(() => ({
     ...stablePart,

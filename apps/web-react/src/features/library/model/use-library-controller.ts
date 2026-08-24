@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { API_PREFIX } from '@retainpdf/api/internal/runtime'
+import { API_PREFIX } from '@retainpdf/api/runtime'
 import { deleteLibraryBook as apiDeleteLibraryBook } from '@retainpdf/api/library-books'
 import { deleteDocument as apiDeleteDocument, patchDocument as apiPatchDocument, translateDocument as apiTranslateDocument } from '@retainpdf/api/documents'
 

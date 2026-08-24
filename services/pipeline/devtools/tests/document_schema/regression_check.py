@@ -188,7 +188,7 @@ def _check_paddle_semantics(path: Path) -> dict:
     _require(str(algorithm_blocks[0].get("metadata", {}).get("content_format", "") or "") == "code_like_text", "paddle_semantics: algorithm content_format mismatch")
     _require(image_blocks[0].get("metadata", {}).get("asset_resolved") is True, "paddle_semantics: image asset not resolved")
     _require(bool(str(image_blocks[0].get("metadata", {}).get("asset_key", "") or "")), "paddle_semantics: image asset_key missing")
-    _require(bool(str(image_blocks[0].get("metadata", {}).get("asset_url", "") or "")), "paddle_semantics: image asset_url missing")
+    _require(bool(str(image_blocks[0].get("metadata", {}).get("asset_path", "") or "")), "paddle_semantics: image asset_path missing")
     _require(any(block.get("metadata", {}).get("markdown_match_found") for block in image_captions + table_captions + algorithm_blocks + formulas), "paddle_semantics: markdown matching did not hit any key blocks")
 
     formula_segments = formulas[0].get("segments", [])

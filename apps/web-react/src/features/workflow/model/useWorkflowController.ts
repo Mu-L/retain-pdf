@@ -14,7 +14,7 @@
  */
 import { useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { API_PREFIX } from '@retainpdf/api/internal/runtime'
+import { API_PREFIX } from '@retainpdf/api/runtime'
 import { fetchGlossaries } from '@retainpdf/api/glossaries'
 
 import { resolveTranslationBudgetState } from './budget'

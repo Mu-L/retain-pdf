@@ -27,3 +27,57 @@ pub(super) fn seed_ocr_checkpoint_files(state: &crate::AppState, job: &JobSnapsh
         fs::write(path, br#"{"pages":[]}"#).expect("normalized file");
     }
 }
+
+pub(super) fn seed_translation_result_files(state: &crate::AppState, job: &JobSnapshot) {
+    seed_ocr_checkpoint_files(state, job);
+    let artifacts = job.artifacts.as_ref().expect("job artifacts");
+    let translated_dir = artifacts
+        .translations_dir
+        .as_deref()
+        .map(|path| state.config.data_root.join(path))
+        .expect("translations dir artifact");
+    fs::create_dir_all(&translated_dir).expect("translations dir");
+    fs::write(
+        translated_dir.join("translation-manifest.json"),
+        br#"{"schema":"translation_manifest_v1","schema_version":1,"status":"complete"}"#,
+    )
+    .expect("translation manifest");
+}
+
+pub(super) fn seed_partial_translation_checkpoint(state: &crate::AppState, job: &JobSnapshot) {
+    seed_ocr_checkpoint_files(state, job);
+    let artifacts = job.artifacts.as_ref().expect("job artifacts");
+    let checkpoint = artifacts
+        .translation_checkpoint_json
+        .as_deref()
+        .map(|path| state.config.data_root.join(path))
+        .expect("translation checkpoint artifact");
+    let translated_dir = checkpoint.parent().expect("checkpoint parent");
+    fs::create_dir_all(translated_dir).expect("translated dir");
+    fs::write(translated_dir.join("page-001-deepseek.json"), br#"[]"#).expect("translation page");
+    fs::write(
+        checkpoint,
+        br#"{"schema":"translation_checkpoint_v1","schema_version":1,"status":"in_progress","fingerprint":"test-fingerprint","pages":[{"path":"page-001-deepseek.json"}]}"#,
+    )
+    .expect("translation checkpoint");
+}
+
+pub(super) fn seed_ambiguous_translation_request_journal(
+    state: &crate::AppState,
+    job: &JobSnapshot,
+) {
+    let job_root = job
+        .artifacts
+        .as_ref()
+        .and_then(|artifacts| artifacts.job_root.as_deref())
+        .map(|path| state.config.data_root.join(path))
+        .expect("job root artifact");
+    let translated_dir = job_root.join("translated");
+    fs::create_dir_all(&translated_dir).expect("translated dir");
+    fs::write(
+        translated_dir.join("translation-request-journal.v1.jsonl"),
+        br#"{"schema":"translation_request_journal_v1","schema_version":1,"event":"dispatch","request_token":"token-a","request_key":"key-a"}
+"#,
+    )
+    .expect("request journal");
+}

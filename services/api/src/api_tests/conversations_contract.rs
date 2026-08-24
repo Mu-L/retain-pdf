@@ -78,7 +78,10 @@ fn output_views_serialize_exactly_to_contract_fields() {
     let contract = contract();
 
     let conv = serde_json::to_value(sample_conversation()).unwrap();
-    assert_eq!(value_keys(&conv), schema_keys(&contract, "ConversationRecord"));
+    assert_eq!(
+        value_keys(&conv),
+        schema_keys(&contract, "ConversationRecord")
+    );
 
     let msg = serde_json::to_value(sample_message()).unwrap();
     assert_eq!(value_keys(&msg), schema_keys(&contract, "MessageRecord"));
@@ -87,7 +90,10 @@ fn output_views_serialize_exactly_to_contract_fields() {
         conversations: vec![sample_conversation()],
     })
     .unwrap();
-    assert_eq!(value_keys(&list), schema_keys(&contract, "ConversationListView"));
+    assert_eq!(
+        value_keys(&list),
+        schema_keys(&contract, "ConversationListView")
+    );
 
     // DetailView = ConversationRecord 平铺 + messages（契约 flatten_of 语义）
     let detail = serde_json::to_value(ConversationDetailView {
@@ -134,12 +140,21 @@ fn inputs_accept_contract_shaped_payloads() {
         Value::Object(obj)
     }
 
-    serde_json::from_value::<CreateConversationInput>(full_payload(&contract, "CreateConversationInput"))
-        .expect("CreateConversationInput full payload");
-    serde_json::from_value::<ListConversationsQuery>(full_payload(&contract, "ListConversationsQuery"))
-        .expect("ListConversationsQuery full payload");
-    serde_json::from_value::<PatchConversationInput>(full_payload(&contract, "PatchConversationInput"))
-        .expect("PatchConversationInput full payload");
+    serde_json::from_value::<CreateConversationInput>(full_payload(
+        &contract,
+        "CreateConversationInput",
+    ))
+    .expect("CreateConversationInput full payload");
+    serde_json::from_value::<ListConversationsQuery>(full_payload(
+        &contract,
+        "ListConversationsQuery",
+    ))
+    .expect("ListConversationsQuery full payload");
+    serde_json::from_value::<PatchConversationInput>(full_payload(
+        &contract,
+        "PatchConversationInput",
+    ))
+    .expect("PatchConversationInput full payload");
     serde_json::from_value::<AppendMessageInput>(full_payload(&contract, "AppendMessageInput"))
         .expect("AppendMessageInput full payload");
     // fork 新增：单条 + 批量

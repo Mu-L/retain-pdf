@@ -22,10 +22,8 @@
   overflow: hidden;
   animation: reader-notes-float-in 200ms var(--ease-out) both;
 }
-/* left/top 由 inline style 控制（--float 标记类） */
-.reader-notes-panel--float {
-  touch-action: none;
-}
+/* left/top 由 inline style 控制（--float 标记类）。拖拽仅绑定标题栏；
+ * 不能在整个面板禁用 touch action，否则 textarea 在触屏/触控板路径下无法正常取焦。 */
 .reader-notes-panel.is-dragging {
   animation: none;
   cursor: grabbing;

@@ -1,18 +1,16 @@
 /**
  * @retainpdf/domain — pure, framework-agnostic domain layer.
  *
- * Verbatim copy of apps/web/src/js/job (15 files) + apps/web/src/js/job-status (46 files).
+ * Shared implementation of the former apps/web job and job-status domains.
  * No React, no DOM, no fetch — only view-models, adapters, and formatters.
  * Purpose: share job/job-status logic between apps/web (MPA+React islands) and apps/web-react (Vite SPA).
  *
- * Backward compat: apps/web keeps importing via
- *   apps/web/src/pages/home/composition/external/job.ts (wraps src/js/job*).
- * New path (preferred for web-react and new code):
+ * All applications consume the package through its public entry points:
  *   import { buildJobStatusSummaryViewModel } from "@retainpdf/domain";
  *   import { normalizeJobPayload } from "@retainpdf/domain/job";
  *
- * Internal shims (src/internal/*) vendor minimal pure helpers that were previously
- * in app-framework/config/api — now isolated so domain stays dependency-free.
+ * Host-specific runtime state and URL configuration are injected through ports,
+ * keeping this package framework- and transport-independent.
  */
 
 // — convenience re-exports matching composition/external/job.ts barrel —
@@ -72,6 +70,6 @@ export type { LibraryCardLike, TranslateDocumentPayload } from "./library/index.
 // — example proof-of-pattern (used in README/tests) —
 export { currentStageProgressViewModel } from "./job-status/stage-progress-view-model.js";
 
-// — internal (not part of public API, but re-exported for testing/ports) —
+// — host configuration ports —
 export { createArtifactRuntimePort, defaultArtifactRuntimePort } from "./job/artifact-runtime-port.js";
 export { createArtifactUrlConfigPort, defaultArtifactUrlConfigPort } from "./job/artifact-url-config.js";

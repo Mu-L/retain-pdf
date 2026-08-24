@@ -30,6 +30,7 @@ TRANSLATION_WORKFLOW_ALLOWED_DIRS = {
     "__pycache__",
     ".ipynb_checkpoints",
     "batching",
+    "checkpoint",
     "legacy",
     "phases",
     "scheduling",
@@ -51,6 +52,13 @@ TRANSLATION_WORKFLOW_ALLOWED_FILES = {
     "workers.py",
 }
 TRANSLATION_WORKFLOW_SUBPACKAGE_RULES: dict[str, tuple[str, ...]] = {
+    "checkpoint": (
+        "services.translation.workflow.checkpoint",
+        "services.translation.workflow.execution",
+        "services.translation.workflow.execution_plan",
+        "services.translation.core.engine_identity",
+        "services.translation.core.payload.parts.units",
+    ),
     "phases": (
         "services.translation.workflow.phases",
         "services.translation.workflow.batching.pending_units",

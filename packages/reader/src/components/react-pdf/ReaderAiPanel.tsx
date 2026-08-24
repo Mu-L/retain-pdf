@@ -1,7 +1,6 @@
-// AI 问答悬浮窗：assistant-ui 线程 + 会话窗口 + 分支开窗
+// Notion AI 式右侧栏：Markdown 线程 + 会话窗口 + 分支开窗
 
 import { useCallback, useState } from "react";
-import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { Sparkles } from "lucide-react";
 import {
   isReaderAiNavigationLocked,
@@ -15,22 +14,23 @@ import { useReaderAskRuntime } from "./assistant/use-reader-ask-runtime.js";
 export type ReaderAiPanelProps = {
   open: boolean;
   jobId: string;
-  sourceOnly: boolean;
   onClose: () => void;
   /** page_idx 为 0 基；由阅读器 goToPage(page_idx+1) */
   onJumpCitation: (citation: AiCitationLike) => void;
+  layout?: "floating" | "docked";
 };
 
 export function ReaderAiPanel({
   open,
   jobId,
-  sourceOnly,
   onClose,
   onJumpCitation,
+  layout = "floating",
 }: ReaderAiPanelProps) {
-  const enabled = open && !sourceOnly && Boolean(jobId);
+  // 当前问答是 Markdown-only：是否存在译文与 AI 无关。
+  // 只要 OCR job 已解析出 Markdown，就应允许输入和问答。
+  const enabled = open && Boolean(jobId);
   const {
-    runtime,
     citationsByMessageId,
     progressByMessageId,
     contentByMessageId,
@@ -40,6 +40,10 @@ export function ReaderAiPanel({
     activeConversationId,
     sessionBusy,
     sessionError,
+    messages,
+    submitQuestion,
+    retryAnswer,
+    cancelAnswer,
     newSession,
     switchSession,
     removeSession,
@@ -73,20 +77,21 @@ export function ReaderAiPanel({
     <ReaderFloatShell
       id="reader-ai-panel"
       open={open}
-      title="AI 问答"
-      subtitle="基于当前文档"
+      title="RetainPDF AI"
+      subtitle="当前文档"
       titleIcon={<Sparkles size={14} strokeWidth={2.1} aria-hidden />}
-      storageKey="retainpdf.reader.ai-float.pos.v1"
+      storageKey="retainpdf.reader.ai-float.pos.v2"
       ariaLabel="阅读问答"
-      width={400}
-      className={`reader-float-ai${sessionBusy ? " is-session-busy" : ""}`}
+      width={420}
+      placement={layout === "docked" ? "dock-right" : "floating"}
+      className={`reader-float-ai is-${layout}${sessionBusy ? " is-session-busy" : ""}`}
       onClose={onClose}
     >
-      {sourceOnly || !jobId ? (
+      {!jobId ? (
         <div className="reader-float-ai-empty">
           <Sparkles size={22} strokeWidth={1.75} aria-hidden />
-          <p>源文档只读模式不提供 AI 问答</p>
-          <span>请从任务入口打开阅读器后再试</span>
+          <p>当前文档还没有可用于问答的 Markdown</p>
+          <span>请先完成 OCR 文档解析</span>
         </div>
       ) : (
         <div className="reader-float-ai-body">
@@ -105,34 +110,22 @@ export function ReaderAiPanel({
               {branchNotice}
             </div>
           ) : null}
-          <div className="reader-float-ai-thread-wrap">
-            {sessionBusy ? (
-              <div
-                className="aui-branch-pointer-shield"
-                aria-hidden
-                onPointerDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-              />
-            ) : null}
-            <AssistantRuntimeProvider runtime={runtime}>
-              <ReaderAssistantThread
-                jobId={jobId}
-                citationsByMessageId={citationsByMessageId}
-                progressByMessageId={progressByMessageId}
-                contentByMessageId={contentByMessageId}
-                streamingAssistantId={streamingAssistantId}
-                isRunning={isRunning}
-                onJumpCitation={safeJumpCitation}
-                onBranchFromAnswer={handleBranch}
-                branchBusy={sessionBusy}
-              />
-            </AssistantRuntimeProvider>
+          <div className="reader-float-ai-thread-wrap" aria-busy={sessionBusy || undefined}>
+            <ReaderAssistantThread
+              jobId={jobId}
+              messages={messages}
+              citationsByMessageId={citationsByMessageId}
+              progressByMessageId={progressByMessageId}
+              contentByMessageId={contentByMessageId}
+              streamingAssistantId={streamingAssistantId}
+              isRunning={isRunning}
+              onSubmit={submitQuestion}
+              onRetry={retryAnswer}
+              onCancel={cancelAnswer}
+              onJumpCitation={safeJumpCitation}
+              onBranchFromAnswer={handleBranch}
+              branchBusy={sessionBusy}
+            />
           </div>
         </div>
       )}

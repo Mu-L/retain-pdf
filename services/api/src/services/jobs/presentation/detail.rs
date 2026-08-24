@@ -10,6 +10,7 @@ use crate::models::domain::JobSnapshot;
 use crate::services::artifacts::list_registry_for_job;
 
 use super::super::job_readiness;
+use super::super::translation_request_recovery::load_translation_request_recovery;
 use super::detail_projection::{
     build_artifact_projection, build_core_projection, build_failure_projection,
     build_live_projection, build_summary_projection, detail_readiness,
@@ -61,6 +62,7 @@ pub fn build_job_detail_view(
         normalization_summary: summary.normalization,
         glossary_summary: summary.glossary,
         invocation: summary.invocation,
+        translation_request_recovery: load_translation_request_recovery(job, data_root),
         log_tail: failure.log_tail,
     }
 }

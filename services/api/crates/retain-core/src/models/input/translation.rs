@@ -66,6 +66,8 @@ pub struct TranslationInput {
     pub batch_size: i64,
     #[serde(default)]
     pub workers: i64,
+    #[serde(default)]
+    pub accepted_ambiguous_request_risk: bool,
 }
 
 impl Default for TranslationInput {
@@ -93,6 +95,7 @@ impl Default for TranslationInput {
             end_page: default_end_page(),
             batch_size: default_batch_size(),
             workers: 0,
+            accepted_ambiguous_request_risk: false,
         }
     }
 }

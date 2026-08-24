@@ -24,8 +24,8 @@ use tokio::sync::{RwLock, Semaphore};
 use retain_core::config::AppConfig;
 use retain_data::db::Db;
 use retain_jobs::job_runner::{
-    clear_cancel_request_with_registry, request_cancel_with_registry, spawn_job,
-    terminate_job_process_tree, ProcessRuntimeDeps,
+    clear_cancel_request_with_registry, reconcile_stale_running_jobs,
+    request_cancel_with_registry, spawn_job, terminate_job_process_tree, ProcessRuntimeDeps,
 };
 
 #[cfg(test)]
@@ -160,6 +160,15 @@ async fn main() -> Result<()> {
         .init();
 
     let config = Arc::new(AppConfig::from_env().context("load config")?);
+    let port = config.jobs_service.port;
+    let bind_host = config.jobs_service.bind_host.clone();
+    // Acquire the runtime-owner lease before touching running jobs. If a
+    // second jobsd is started accidentally, it must fail on bind without
+    // reconciling workers owned by the existing instance.
+    let listener = tokio::net::TcpListener::bind((bind_host.as_str(), port))
+        .await
+        .with_context(|| format!("bind {bind_host}:{port}"))?;
+
     let db = Arc::new(Db::new(
         config.jobs_db_path.clone(),
         config.data_root.clone(),
@@ -167,9 +176,9 @@ async fn main() -> Result<()> {
     // 建表由壳负责（它是先起来的那个）；这里只确保 schema 就绪即可，
     // WAL 下多进程各自 init 是幂等的。
     db.init().context("init db")?;
+    reconcile_stale_running_jobs(config.as_ref(), db.as_ref())
+        .context("reconcile stale jobsd workers")?;
 
-    let port = config.jobs_service.port;
-    let bind_host = config.jobs_service.bind_host.clone();
     let state = JobsdState {
         api_keys: Arc::new(config.api_keys.clone()),
         job_slots: Arc::new(Semaphore::new(config.max_running_jobs)),
@@ -178,9 +187,6 @@ async fn main() -> Result<()> {
         config,
     };
 
-    let listener = tokio::net::TcpListener::bind((bind_host.as_str(), port))
-        .await
-        .with_context(|| format!("bind {bind_host}:{port}"))?;
     tracing::info!("retain-jobsd listening on {bind_host}:{port}");
     axum::serve(listener, build_router(state))
         .await

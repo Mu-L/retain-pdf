@@ -6,8 +6,13 @@ from typing import Callable
 from services.document_schema import DocumentSchemaValidationError
 from services.document_schema import adapt_path_to_document_v1_with_report
 from services.document_schema import build_validation_report
-from services.document_schema.provider_adapters.paddle.content_extract import build_lines as build_paddle_lines
-from services.document_schema.provider_adapters.paddle.content_extract import tighten_text_bbox as tighten_paddle_text_bbox
+from services.document_schema.provider_adapters.paddle.content_extract import (
+    build_lines as build_paddle_lines,
+)
+from services.document_schema.provider_adapters.paddle.content_extract import inherit_missing_segment_bboxes
+from services.document_schema.provider_adapters.paddle.content_extract import (
+    tighten_text_bbox as tighten_paddle_text_bbox,
+)
 from services.document_schema.reporting import build_normalization_summary
 from services.document_schema.providers import PROVIDER_PADDLE
 from services.document_schema.toc import build_toc_entries
@@ -60,6 +65,7 @@ def save_normalized_document_for_paddle(
         raise RuntimeError(
             f"normalized document schema validation failed: path={normalized_json_path} error={exc}"
         ) from exc
+    report["coordinate_space"] = "pdf_point"
     normalization_report["validation"] = report
     save_json_file(normalized_json_path, normalized_document, compact=True)
     save_json_file(normalized_report_json_path, normalization_report)
@@ -109,8 +115,12 @@ def rescale_document_geometry_to_pdf(document: dict, source_pdf_path: Path) -> d
             scale_y = pdf_h / raw_h
             page["width"] = pdf_w
             page["height"] = pdf_h
+            page["unit"] = "pt"
             for block in page.get("blocks", []) or []:
                 block["bbox"] = scale_bbox(block.get("bbox", []), scale_x, scale_y)
+                geometry = block.get("geometry") or {}
+                if geometry:
+                    geometry["bbox"] = scale_bbox(geometry.get("bbox", []), scale_x, scale_y)
                 for line in block.get("lines", []) or []:
                     line["bbox"] = scale_bbox(line.get("bbox", []), scale_x, scale_y)
                     for span in line.get("spans", []) or []:
@@ -118,17 +128,7 @@ def rescale_document_geometry_to_pdf(document: dict, source_pdf_path: Path) -> d
                 for segment in block.get("segments", []) or []:
                     if isinstance(segment, dict):
                         segment["bbox"] = scale_bbox(segment.get("bbox", []), scale_x, scale_y)
-                source = block.get("source") or {}
-                if source:
-                    source["raw_bbox"] = scale_bbox(source.get("raw_bbox", []), scale_x, scale_y)
-                metadata = block.get("metadata") or {}
-                if metadata:
-                    metadata["raw_polygon"] = scale_point_list(metadata.get("raw_polygon", []), scale_x, scale_y)
-                    metadata["layout_det_polygon"] = scale_point_list(
-                        metadata.get("layout_det_polygon", []),
-                        scale_x,
-                        scale_y,
-                    )
+            document.setdefault("derived", {})["coordinate_space"] = "pdf_point"
     finally:
         pdf.close()
     return document
@@ -145,18 +145,6 @@ def scale_bbox(value: list[float], scale_x: float, scale_y: float) -> list[float
     ]
 
 
-def scale_point_list(value: list, scale_x: float, scale_y: float) -> list:
-    if not isinstance(value, list):
-        return value
-    scaled = []
-    for item in value:
-        if isinstance(item, (list, tuple)) and len(item) == 2:
-            scaled.append([round(float(item[0]) * scale_x, 3), round(float(item[1]) * scale_y, 3)])
-        else:
-            scaled.append(item)
-    return scaled
-
-
 def post_rescale_rebuild_paddle_text_geometry(
     document: dict,
     *,
@@ -170,17 +158,29 @@ def post_rescale_rebuild_paddle_text_geometry(
             text = str(block.get("text", "") or "")
             raw_label = str((block.get("source") or {}).get("raw_type", "") or "")
             original_bbox = list(block.get("bbox", []) or [])
-            tightened_bbox = tighten_text_bbox(
-                bbox=original_bbox,
-                text=text,
-                block_type=block_type,
-                sub_type=sub_type,
+            # Provider layout geometry is more precise than our text-height
+            # heuristic.  A second post-scale tightening pass must not move the
+            # canonical block edge across an already matched formula segment.
+            has_provider_segment_bbox = any(
+                isinstance(segment, dict)
+                and str(segment.get("bbox_precision", "") or "") == "provider_layout"
+                for segment in block.get("segments", []) or []
+            )
+            tightened_bbox = (
+                original_bbox
+                if has_provider_segment_bbox
+                else tighten_text_bbox(
+                    bbox=original_bbox,
+                    text=text,
+                    block_type=block_type,
+                    sub_type=sub_type,
+                )
             )
             if tightened_bbox != original_bbox:
                 block["bbox"] = tightened_bbox
-                source_payload = block.get("source") or {}
-                if source_payload:
-                    source_payload["raw_bbox"] = tightened_bbox
+                geometry = block.get("geometry") or {}
+                if geometry:
+                    geometry["bbox"] = list(tightened_bbox)
                 metadata = block.get("metadata") or {}
                 metadata["provider_bbox_tightened"] = True
                 metadata["provider_bbox_original"] = original_bbox
@@ -194,6 +194,11 @@ def post_rescale_rebuild_paddle_text_geometry(
                 sub_type=sub_type,
             )
             if rebuilt_lines:
+                inherit_missing_segment_bboxes(
+                    bbox=block.get("bbox", []),
+                    segments=block.get("segments", []) or [],
+                    lines=rebuilt_lines,
+                )
                 block["lines"] = rebuilt_lines
                 content = block.get("content") or {}
                 if str(block.get("structure_role", "") or "").strip().lower() == "table_of_contents":

@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Result};
 
 use crate::models::domain::{JobArtifacts, JobRuntimeState};
+#[cfg(test)]
 use crate::storage_paths::TRANSLATION_MANIFEST_FILE_NAME;
 
 use super::artifact_requirements::{required_existing_dir, required_existing_file};
@@ -72,15 +73,7 @@ fn validate_translation_outputs(job: &JobRuntimeState, data_root: &Path) -> Resu
         "translations_dir",
         &job.job_id,
     )?;
-    let manifest_path = translations_dir.join(TRANSLATION_MANIFEST_FILE_NAME);
-    if !manifest_path.is_file() {
-        return Err(anyhow!(
-            "{} missing after successful translate worker for {}: {}",
-            TRANSLATION_MANIFEST_FILE_NAME,
-            job.job_id,
-            manifest_path.display()
-        ));
-    }
+    super::stage_contract::ensure_translations_dir_ready(&translations_dir, &job.job_id)?;
     require_worker_file(
         data_root,
         artifacts.summary.as_deref(),

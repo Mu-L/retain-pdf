@@ -179,17 +179,20 @@ pub fn fork_conversation(
         ));
     }
 
-    let (conversation, messages) =
-        deps.db
-            .fork_conversation(&conversation_id, &title, document_id_opt, &tuples)
-            .map_err(|e| {
-                let msg = format!("{e}");
-                if msg.contains("parent_id not in path") || msg.contains("UNIQUE") || msg.contains("PRIMARY") {
-                    AppError::bad_request(msg)
-                } else {
-                    AppError::internal(msg)
-                }
-            })?;
+    let (conversation, messages) = deps
+        .db
+        .fork_conversation(&conversation_id, &title, document_id_opt, &tuples)
+        .map_err(|e| {
+            let msg = format!("{e}");
+            if msg.contains("parent_id not in path")
+                || msg.contains("UNIQUE")
+                || msg.contains("PRIMARY")
+            {
+                AppError::bad_request(msg)
+            } else {
+                AppError::internal(msg)
+            }
+        })?;
     Ok(ConversationDetailView {
         conversation,
         messages,
@@ -267,9 +270,5 @@ fn resolve_head_id(
     }
     // 旧数据无 head_id:取 seq 最大的一条作为当前叶
     let all = deps.db.list_messages(conversation_id, 2000)?;
-    Ok(all
-        .last()
-        .map(|m| m.message_id.clone())
-        .unwrap_or_default())
+    Ok(all.last().map(|m| m.message_id.clone()).unwrap_or_default())
 }
-

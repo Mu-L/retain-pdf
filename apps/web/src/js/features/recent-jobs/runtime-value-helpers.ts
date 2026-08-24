@@ -1,7 +1,7 @@
 export {
   isJobTerminal,
   isTerminalStatus,
-} from "../../job/core.js";
+} from "@retainpdf/domain/job";
 
 export function numberOrNull(value) {
   const num = Number(value);

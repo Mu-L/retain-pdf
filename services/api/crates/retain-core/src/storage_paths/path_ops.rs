@@ -105,6 +105,7 @@ pub fn normalize_job_artifacts_for_storage(
     normalize_optional_path(data_root, &mut artifacts.provider_raw_dir)?;
     normalize_optional_path(data_root, &mut artifacts.provider_zip)?;
     normalize_optional_path(data_root, &mut artifacts.provider_summary_json)?;
+    normalize_optional_path(data_root, &mut artifacts.translation_checkpoint_json)?;
     normalize_optional_path(data_root, &mut artifacts.translations_dir)?;
     normalize_optional_path(data_root, &mut artifacts.output_pdf)?;
     normalize_optional_path(data_root, &mut artifacts.cover_image_path)?;
@@ -156,6 +157,7 @@ pub fn job_uses_legacy_path_storage(job: &JobSnapshot) -> bool {
         artifacts.provider_raw_dir.as_deref(),
         artifacts.provider_zip.as_deref(),
         artifacts.provider_summary_json.as_deref(),
+        artifacts.translation_checkpoint_json.as_deref(),
         artifacts.translations_dir.as_deref(),
         artifacts.output_pdf.as_deref(),
         artifacts.cover_image_path.as_deref(),

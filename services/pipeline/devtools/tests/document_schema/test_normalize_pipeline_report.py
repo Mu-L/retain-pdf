@@ -100,3 +100,146 @@ def test_refresh_report_for_final_document_uses_final_validation_counts() -> Non
     assert refreshed["validation"]["block_count"] == 2
     assert refreshed["defaults"]["pages_seen"] == 1
     assert refreshed["defaults"]["blocks_seen"] == 2
+
+
+def test_validation_asset_link_counts_only_image_blocks() -> None:
+    from services.document_schema.validator import build_validation_report
+
+    document = {
+        "schema": "normalized_document_v1",
+        "schema_version": "1.1",
+        "document_id": "asset-count-doc",
+        "page_count": 1,
+        "source": {"provider": "paddle"},
+        "derived": {},
+        "markers": {},
+        "assets": {
+            "asset-table": {"kind": "image", "uri": "table.png", "source": "paddle"},
+        },
+        "pages": [
+            {
+                "page_index": 0,
+                "page": 1,
+                "width": 320.0,
+                "height": 480.0,
+                "unit": "pt",
+                "blocks": [
+                    _validation_block(
+                        block_id="p001-b001",
+                        order=0,
+                        kind="table",
+                        asset_id="asset-table",
+                    ),
+                    _validation_block(
+                        block_id="p001-b002",
+                        order=1,
+                        kind="image",
+                        asset_id="",
+                    ),
+                ],
+            }
+        ],
+    }
+
+    report = build_validation_report(document)
+
+    assert report["asset_block_count"] == 1
+    assert report["linked_asset_block_count"] == 0
+    assert report["unlinked_asset_block_count"] == 1
+    assert report["complete"] is False
+
+
+def test_validation_report_detects_orphan_and_uncovered_provider_assets() -> None:
+    from services.document_schema.validator import build_validation_report
+
+    document = {
+        "schema": "normalized_document_v1",
+        "schema_version": "1.1",
+        "document_id": "asset-coverage",
+        "page_count": 1,
+        "source": {"provider": "paddle"},
+        "derived": {},
+        "markers": {},
+        "assets": {
+            "linked.png": {
+                "kind": "image",
+                "uri": "md/images/page-1/linked.png",
+                "source": "paddle",
+            },
+            "orphan.png": {
+                "kind": "image",
+                "uri": "md/images/page-1/orphan.png",
+                "source": "paddle",
+            },
+        },
+        "pages": [
+            {
+                "page_index": 0,
+                "page": 1,
+                "width": 320.0,
+                "height": 480.0,
+                "unit": "pt",
+                "metadata": {
+                    "markdown": {
+                        "images": {
+                            "linked.png": "md/images/page-1/linked.png",
+                            "missing.png": "md/images/page-1/missing.png",
+                        }
+                    }
+                },
+                "blocks": [
+                    _validation_block(
+                        block_id="p001-b001",
+                        order=0,
+                        kind="table",
+                        asset_id="linked.png",
+                    )
+                ],
+            }
+        ],
+    }
+
+    report = build_validation_report(document)
+
+    assert report["referenced_asset_count"] == 1
+    assert report["unreferenced_asset_count"] == 1
+    assert report["provider_markdown_image_count"] == 2
+    assert report["covered_provider_markdown_image_count"] == 1
+    assert report["uncovered_provider_markdown_image_count"] == 1
+    assert report["complete"] is False
+    assert len(report["warnings"]) == 2
+
+
+def _validation_block(*, block_id: str, order: int, kind: str, asset_id: str) -> dict:
+    content = {"kind": kind, "text": ""}
+    if asset_id:
+        content["asset_id"] = asset_id
+    return {
+        "block_id": block_id,
+        "page_index": 0,
+        "order": order,
+        "reading_order": order,
+        "geometry": {"bbox": [10.0, 10.0 + order * 30, 100.0, 30.0 + order * 30]},
+        "content": content,
+        "layout_role": "unknown",
+        "semantic_role": "unknown",
+        "structure_role": "",
+        "policy": {"translate": False, "translate_reason": "non-text"},
+        "provenance": {
+            "provider": "paddle",
+            "raw_label": kind,
+            "raw_sub_type": "",
+            "raw_bbox": [10.0, 10.0, 100.0, 30.0],
+            "raw_path": "layoutParsingResults[0]",
+        },
+        "continuation_hint": {
+            "source": "",
+            "group_id": "",
+            "role": "single",
+            "scope": "",
+            "reading_order": order,
+            "confidence": 0.0,
+        },
+        "metadata": {},
+        "source": {"provider": "paddle"},
+    }

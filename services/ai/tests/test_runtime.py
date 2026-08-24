@@ -1,0 +1,354 @@
+import json
+import stat
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from retainpdf_ai.config import Settings
+from retainpdf_ai.runtime import FX_RUNTIME_ID, FxAcpRuntime
+
+
+class FakeRustRuntimeSessions:
+    def __init__(self):
+        self.records: dict[str, dict] = {}
+        self.capability_calls: list[dict] = []
+
+    def get_agent_runtime_session(self, conversation_id: str) -> dict:
+        return self.records.setdefault(
+            conversation_id,
+            {
+                "conversation_id": conversation_id,
+                "runtime_id": "",
+                "session_cursor": "",
+                "revision": 0,
+                "updated_at": "",
+            },
+        ).copy()
+
+    def put_agent_runtime_session(
+        self,
+        conversation_id: str,
+        *,
+        runtime_id: str,
+        session_cursor: str,
+        expected_revision: int,
+    ) -> dict:
+        current = self.get_agent_runtime_session(conversation_id)
+        if current["revision"] != expected_revision:
+            raise RuntimeError("revision conflict")
+        current.update(
+            {
+                "runtime_id": runtime_id,
+                "session_cursor": session_cursor,
+                "revision": expected_revision + 1,
+            }
+        )
+        self.records[conversation_id] = current
+        return current.copy()
+
+    def issue_agent_capability(self, **kwargs) -> dict:
+        self.capability_calls.append(kwargs)
+        return {"capability": "host-only-test-capability"}
+
+
+def _write_fake_fx(path: Path, *, version: str = "0.0.5") -> Path:
+    script = f"""#!{sys.executable}
+import json
+import sys
+
+def send(value):
+    sys.stdout.write(json.dumps(value, separators=(\",\", \":\")) + \"\\n\")
+    sys.stdout.flush()
+
+for raw in sys.stdin:
+    message = json.loads(raw)
+    method = message.get(\"method\")
+    request_id = message.get(\"id\")
+    if method == \"initialize\":
+        send({{"jsonrpc": \"2.0\", "id": request_id, "result": {{
+            "protocolVersion": 1,
+            "agentCapabilities": {{"loadSession": True}},
+            "agentInfo": {{"name": "fx", "version": "{version}"}}
+        }}}})
+    elif method == \"session/new\":
+        send({{"jsonrpc": "2.0", "id": request_id, "result": {{"sessionId": "fx-test-session"}}}})
+    elif method == \"session/load\":
+        if message.get("params", {{}}).get("sessionId") == "missing-session":
+            send({{"jsonrpc": "2.0", "id": request_id, "error": {{"code": -32000, "message": "not found"}}}})
+        else:
+            send({{"jsonrpc": "2.0", "id": request_id, "result": {{"sessionId": message.get("params", {{}}).get("sessionId")}}}})
+    elif method == \"session/set_config_option\":
+        send({{"jsonrpc": "2.0", "id": request_id, "result": {{
+            "configOptions": [{{"id": "mode", "currentValue": message.get("params", {{}}).get("value")}}]
+        }}}})
+    elif method == \"session/prompt\":
+        send({{
+            "jsonrpc": "2.0",
+            "id": 900,
+            "method": "session/request_permission",
+            "params": {{
+                "toolCall": {{"toolCallId": "blocked", "kind": "execute", "rawInput": {{"command": "uname"}}}},
+                "options": [
+                    {{"optionId": "allow_once"}},
+                    {{"optionId": "reject_once"}}
+                ]
+            }}
+        }})
+        permission = json.loads(next(sys.stdin))
+        option = permission.get("result", {{}}).get("outcome", {{}}).get("optionId")
+        if option != "reject_once":
+            sys.exit(9)
+        send({{
+            "jsonrpc": "2.0",
+            "method": "session/update",
+            "params": {{
+                "sessionId": "fx-test-session",
+                "update": {{
+                    "sessionUpdate": "tool_call_update",
+                    "toolCallId": "blocked",
+                    "title": "blocked by host",
+                    "kind": "execute",
+                    "status": "failed"
+                }}
+            }}
+        }})
+        send({{
+            "jsonrpc": "2.0",
+            "method": "session/update",
+            "params": {{
+                "sessionId": "fx-test-session",
+                "update": {{
+                    "sessionUpdate": "agent_message_chunk",
+                    "content": {{"type": "text", "text": "safe fx answer"}}
+                }}
+            }}
+        }})
+        send({{"jsonrpc": "2.0", "id": request_id, "result": {{"stopReason": "end_turn"}}}})
+"""
+    path.write_text(script, encoding="utf-8")
+    path.chmod(path.stat().st_mode | stat.S_IXUSR)
+    return path
+
+
+def _settings(tmp_path: Path, command: Path, **overrides) -> Settings:
+    values = {
+        "agent_runtime": "fx",
+        "fx_command": str(command),
+        "fx_expected_version": "0.0.5",
+        "fx_gateway_api_key": "test-gateway-key",
+        "fx_state_root": tmp_path / "fx-state",
+        "fx_startup_timeout_s": 2.0,
+        "fx_turn_timeout_s": 2.0,
+    }
+    values.update(overrides)
+    return Settings(**values)
+
+
+def _write_fake_cli(path: Path) -> Path:
+    script = f'''#!{sys.executable}
+import json
+import os
+import sys
+print(json.dumps({{
+    "ok": True,
+    "capability_present": bool(os.environ.get("RETAINPDF_AGENT_CAPABILITY")),
+    "api_key_present": bool(os.environ.get("RETAINPDF_AGENT_API_KEY")),
+    "argv": sys.argv[1:],
+}}, separators=(",", ":")))
+'''
+    path.write_text(script, encoding="utf-8")
+    path.chmod(path.stat().st_mode | stat.S_IXUSR)
+    return path
+
+
+def _write_broker_using_fx(path: Path) -> Path:
+    script = f'''#!{sys.executable}
+import json
+import subprocess
+import sys
+
+def send(value):
+    sys.stdout.write(json.dumps(value, separators=(",", ":")) + "\\n")
+    sys.stdout.flush()
+
+for raw in sys.stdin:
+    message = json.loads(raw)
+    method = message.get("method")
+    request_id = message.get("id")
+    if method == "initialize":
+        send({{"jsonrpc": "2.0", "id": request_id, "result": {{
+            "protocolVersion": 1,
+            "agentCapabilities": {{"loadSession": True}},
+            "agentInfo": {{"name": "fx", "version": "0.0.5"}}
+        }}}})
+    elif method == "session/new":
+        send({{"jsonrpc": "2.0", "id": request_id, "result": {{"sessionId": "fx-broker-session"}}}})
+    elif method == "session/load":
+        send({{"jsonrpc": "2.0", "id": request_id, "result": {{"sessionId": "fx-broker-session"}}}})
+    elif method == "session/set_config_option":
+        send({{"jsonrpc": "2.0", "id": request_id, "result": {{
+            "configOptions": [{{"id": "mode", "currentValue": "ask"}}]
+        }}}})
+    elif method == "session/prompt":
+        command = "retainpdf-agent document inspect"
+        send({{
+            "jsonrpc": "2.0",
+            "id": 901,
+            "method": "session/request_permission",
+            "params": {{
+                "toolCall": {{"toolCallId": "inspect", "kind": "execute", "rawInput": {{"command": command}}}},
+                "options": [
+                    {{"optionId": "allow_once", "kind": "allow_once"}},
+                    {{"optionId": "reject_once", "kind": "reject_once"}}
+                ]
+            }}
+        }})
+        permission = json.loads(next(sys.stdin))
+        option = permission.get("result", {{}}).get("outcome", {{}}).get("optionId")
+        if option != "allow_once":
+            sys.exit(11)
+        completed = subprocess.run(command, shell=True, capture_output=True, text=True, check=False)
+        if completed.returncode != 0:
+            sys.stderr.write(completed.stderr)
+            sys.exit(12)
+        send({{
+            "jsonrpc": "2.0",
+            "method": "session/update",
+            "params": {{"update": {{
+                "sessionUpdate": "tool_call_update",
+                "toolCallId": "inspect",
+                "title": "RetainPDF document inspect",
+                "kind": "execute",
+                "status": "completed"
+            }}}}
+        }})
+        send({{
+            "jsonrpc": "2.0",
+            "method": "session/update",
+            "params": {{"update": {{
+                "sessionUpdate": "agent_message_chunk",
+                "content": {{"type": "text", "text": completed.stdout.strip()}}
+            }}}}
+        }})
+        send({{"jsonrpc": "2.0", "id": request_id, "result": {{"stopReason": "end_turn"}}}})
+'''
+    path.write_text(script, encoding="utf-8")
+    path.chmod(path.stat().st_mode | stat.S_IXUSR)
+    return path
+
+
+def test_fx_acp_runtime_persists_cursor_streams_and_denies_permissions(tmp_path):
+    command = _write_fake_fx(tmp_path / "fake-fx")
+    rust = FakeRustRuntimeSessions()
+    runtime = FxAcpRuntime(_settings(tmp_path, command), rust)  # type: ignore[arg-type]
+    events: list[dict] = []
+
+    result = runtime.ask(
+        "operate on the PDF",
+        conversation_id="conv-a",
+        history=[{"role": "user", "content": "earlier request"}],
+        on_event=events.append,
+    )
+
+    assert result.answer == "safe fx answer"
+    assert result.tool_trace == [
+        {
+            "session_update": "tool_call_update",
+            "tool_call_id": "blocked",
+            "title": "blocked by host",
+            "kind": "execute",
+            "status": "failed",
+        }
+    ]
+    assert [event["type"] for event in events] == ["agent_tool", "answer_delta"]
+    stored = rust.get_agent_runtime_session("conv-a")
+    assert stored["runtime_id"] == FX_RUNTIME_ID
+    assert stored["session_cursor"] == "fx-test-session"
+    assert stored["revision"] == 1
+
+    # A replacement adapter loads the durable cursor instead of creating a
+    # second authoritative mapping.
+    replacement = FxAcpRuntime(_settings(tmp_path, command), rust)  # type: ignore[arg-type]
+    assert replacement.ask("continue", conversation_id="conv-a").answer == "safe fx answer"
+    assert rust.get_agent_runtime_session("conv-a")["revision"] == 1
+
+
+def test_fx_acp_runtime_executes_only_through_host_broker(tmp_path):
+    fx = _write_broker_using_fx(tmp_path / "fake-fx")
+    cli = _write_fake_cli(tmp_path / "real-retainpdf-agent")
+    rust = FakeRustRuntimeSessions()
+    runtime = FxAcpRuntime(
+        _settings(tmp_path, fx, fx_agent_cli_command=str(cli)),
+        rust,  # type: ignore[arg-type]
+    )
+
+    result = runtime.ask(
+        "Inspect the current PDF",
+        conversation_id="conv-a",
+        document_id="doc-a",
+        request_message_id="msg-a",
+    )
+
+    payload = json.loads(result.answer)
+    assert payload["ok"] is True
+    assert payload["capability_present"] is True
+    assert payload["api_key_present"] is False
+    assert payload["argv"] == ["document", "inspect", "--document-id", "doc-a"]
+    assert rust.capability_calls == [
+        {
+            "conversation_id": "conv-a",
+            "document_id": "doc-a",
+            "actions": ["document.inspect"],
+            "ttl_seconds": 60,
+        }
+    ]
+
+
+def test_fx_acp_runtime_rebuilds_when_local_session_is_missing(tmp_path):
+    command = _write_fake_fx(tmp_path / "fake-fx")
+    rust = FakeRustRuntimeSessions()
+    rust.records["conv-lost"] = {
+        "conversation_id": "conv-lost",
+        "runtime_id": FX_RUNTIME_ID,
+        "session_cursor": "missing-session",
+        "revision": 4,
+        "updated_at": "",
+    }
+    runtime = FxAcpRuntime(_settings(tmp_path, command), rust)  # type: ignore[arg-type]
+
+    result = runtime.ask(
+        "recover",
+        conversation_id="conv-lost",
+        history=[{"role": "assistant", "content": "durable transcript"}],
+    )
+
+    assert result.answer == "safe fx answer"
+    stored = rust.get_agent_runtime_session("conv-lost")
+    assert stored["session_cursor"] == "fx-test-session"
+    assert stored["revision"] == 5
+
+
+def test_fx_acp_runtime_fails_closed_on_version_mismatch(tmp_path):
+    command = _write_fake_fx(tmp_path / "fake-fx", version="0.0.6")
+    runtime = FxAcpRuntime(
+        _settings(tmp_path, command), FakeRustRuntimeSessions()  # type: ignore[arg-type]
+    )
+
+    capability = runtime.probe()
+    assert capability.available is False
+    assert capability.actual_version == "0.0.6"
+    with pytest.raises(RuntimeError, match="version mismatch"):
+        runtime.ask("hello", conversation_id="conv-version")
+
+
+def test_fx_acp_runtime_requires_private_gateway_key(tmp_path):
+    command = _write_fake_fx(tmp_path / "fake-fx")
+    runtime = FxAcpRuntime(
+        _settings(tmp_path, command, fx_gateway_api_key=""),
+        FakeRustRuntimeSessions(),  # type: ignore[arg-type]
+    )
+    with pytest.raises(RuntimeError, match="FX_GATEWAY_API_KEY"):
+        runtime.ask("hello", conversation_id="conv-no-key")

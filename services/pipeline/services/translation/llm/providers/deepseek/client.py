@@ -1,4 +1,5 @@
 from __future__ import annotations
+import hashlib
 import json
 import os
 import re
@@ -27,6 +28,10 @@ STREAM_RESPONSES_ENV = "PDF_TRANSLATOR_DEEPSEEK_STREAM"
 HTTP_RETRY_ATTEMPTS = transport.HTTP_RETRY_ATTEMPTS
 DNS_RETRY_MIN_ATTEMPTS = transport.DNS_RETRY_MIN_ATTEMPTS
 HTTP_RATE_LIMIT_WAIT_MAX_SECS = transport.HTTP_RATE_LIMIT_WAIT_MAX_SECS
+TRANSPORT_RECOVERY_ATTEMPTS_ENV = "RETAIN_TRANSLATION_TRANSPORT_RECOVERY_ATTEMPTS"
+TRANSPORT_RECOVERY_SECONDS_ENV = "RETAIN_TRANSLATION_TRANSPORT_RECOVERY_SECONDS"
+DEFAULT_TRANSPORT_RECOVERY_ATTEMPTS = 4
+DEFAULT_TRANSPORT_RECOVERY_SECONDS = 60
 
 
 def _env_int(name: str, default: int, *, minimum: int = 1) -> int:
@@ -68,6 +73,24 @@ def _message_chars(messages: list[dict[str, str]]) -> int:
 
 def _body_bytes(body: dict[str, Any]) -> int:
     return len(json.dumps(body, ensure_ascii=False).encode("utf-8"))
+
+
+def _request_journal_key(*, base_url: str, body: dict[str, Any]) -> str:
+    canonical = json.dumps(
+        {"endpoint": chat_completions_url(base_url), "body": body},
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _request_journal_outcome(exc: Exception) -> str:
+    if isinstance(exc, requests.HTTPError) and exc.response is not None:
+        return "rejected"
+    if isinstance(exc, (ValueError, KeyError, json.JSONDecodeError)):
+        return "invalid_response"
+    return "ambiguous"
 
 
 def _response_text_excerpt(response: requests.Response, *, max_chars: int = 800) -> str:
@@ -269,6 +292,20 @@ def request_chat_content(
 
     attempt_limit = max(1, int(max_attempts or HTTP_RETRY_ATTEMPTS))
     dns_retry_limit = max(attempt_limit, DNS_RETRY_MIN_ATTEMPTS)
+    transport_recovery_attempt_limit = max(
+        attempt_limit,
+        _env_int(
+            TRANSPORT_RECOVERY_ATTEMPTS_ENV,
+            DEFAULT_TRANSPORT_RECOVERY_ATTEMPTS,
+            minimum=1,
+        ),
+    )
+    transport_recovery_seconds = _env_int(
+        TRANSPORT_RECOVERY_SECONDS_ENV,
+        DEFAULT_TRANSPORT_RECOVERY_SECONDS,
+        minimum=0,
+    )
+    transport_recovery_started_at: float | None = None
     attempt = 1
     while attempt <= attempt_limit:
         started = time.perf_counter()
@@ -285,6 +322,29 @@ def request_chat_content(
                     attempt=attempt,
                 )
             _prewarm_dns(base_url, request_label=request_label)
+            if diagnostics is not None and diagnostics_request_id is not None:
+                try:
+                    diagnostics.record_request_dispatch(
+                        diagnostics_request_id,
+                        request_key=_request_journal_key(base_url=base_url, body=body),
+                    )
+                except BaseException:  # a request must never leave without its durable dispatch record
+                    elapsed_ms = int(round((time.perf_counter() - started) * 1000))
+                    if slot_acquired:
+                        diagnostics.release_request_slot(
+                            success=False,
+                            elapsed_ms=elapsed_ms,
+                            error_class="RequestJournalError",
+                        )
+                        slot_acquired = False
+                    diagnostics.record_request_end(
+                        diagnostics_request_id,
+                        success=False,
+                        elapsed_ms=elapsed_ms,
+                        error_class="RequestJournalError",
+                    )
+                    diagnostics_request_id = None
+                    raise
             if request_label:
                 print(
                     f"{request_label}: http attempt {attempt}/{attempt_limit} -> {model} {chat_completions_url(base_url)} timeout={timeout}s stream={use_stream}",
@@ -317,22 +377,32 @@ def request_chat_content(
             if request_label:
                 elapsed = time.perf_counter() - started
                 print(f"{request_label}: http ok in {elapsed:.2f}s", flush=True)
+            if diagnostics is not None and slot_acquired:
+                diagnostics.release_request_slot(
+                    success=True,
+                    elapsed_ms=int(round((time.perf_counter() - started) * 1000)),
+                )
+                slot_acquired = False
             if diagnostics is not None and diagnostics_request_id is not None:
                 diagnostics.record_request_end(
                     diagnostics_request_id,
                     success=True,
                     elapsed_ms=int(round((time.perf_counter() - started) * 1000)),
-                )
-            if diagnostics is not None and slot_acquired:
-                diagnostics.release_request_slot(
-                    success=True,
-                    elapsed_ms=int(round((time.perf_counter() - started) * 1000)),
+                    journal_outcome="succeeded",
                 )
             return content
         except (requests.RequestException, ValueError, KeyError, json.JSONDecodeError, socket.gaierror) as exc:
             last_error = exc
             elapsed = time.perf_counter() - started
             status_code = exc.response.status_code if isinstance(exc, requests.HTTPError) and exc.response is not None else None
+            if diagnostics is not None and slot_acquired:
+                diagnostics.release_request_slot(
+                    success=False,
+                    elapsed_ms=int(round(elapsed * 1000)),
+                    status_code=status_code,
+                    error_class=type(exc).__name__,
+                )
+                slot_acquired = False
             if diagnostics is not None and diagnostics_request_id is not None:
                 diagnostics.record_request_end(
                     diagnostics_request_id,
@@ -340,13 +410,7 @@ def request_chat_content(
                     elapsed_ms=int(round(elapsed * 1000)),
                     status_code=status_code,
                     error_class=type(exc).__name__,
-                )
-            if diagnostics is not None and slot_acquired:
-                diagnostics.release_request_slot(
-                    success=False,
-                    elapsed_ms=int(round(elapsed * 1000)),
-                    status_code=status_code,
-                    error_class=type(exc).__name__,
+                    journal_outcome=_request_journal_outcome(exc),
                 )
             if request_label:
                 print(
@@ -372,6 +436,16 @@ def request_chat_content(
             dns_failure = is_dns_resolution_error(exc)
             if dns_failure and attempt_limit < dns_retry_limit:
                 attempt_limit = dns_retry_limit
+            retryable_transport = _is_retryable_http_error(exc) and is_transport_error(exc)
+            if retryable_transport and transport_recovery_seconds > 0:
+                if transport_recovery_started_at is None:
+                    transport_recovery_started_at = time.perf_counter()
+                recovery_elapsed = time.perf_counter() - transport_recovery_started_at
+                if (
+                    attempt < transport_recovery_attempt_limit
+                    and recovery_elapsed < transport_recovery_seconds
+                ):
+                    attempt_limit = max(attempt_limit, attempt + 1)
             if attempt >= attempt_limit or not _is_retryable_http_error(exc):
                 raise
             if _should_drop_session_after_error(exc):

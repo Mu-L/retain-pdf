@@ -16,7 +16,7 @@ from services.document_schema.validator import build_validation_report
 from services.document_schema.reporting import build_normalization_summary
 from services.ocr_provider.paddle_normalize import post_rescale_rebuild_paddle_text_geometry
 from services.ocr_provider.paddle_normalize import rescale_document_geometry_to_pdf
-from services.pipeline_shared.io import save_json
+from services.pipeline_shared.io import save_json_atomic
 
 
 def parse_args() -> argparse.Namespace:
@@ -62,16 +62,58 @@ def _refresh_report_for_final_document(report: dict, document: dict) -> dict:
     defaults_report["pages_seen"] = len(pages)
     defaults_report["blocks_seen"] = sum(len(page.get("blocks", []) or []) for page in pages)
     refreshed["defaults"] = defaults_report
-    refreshed["validation"] = build_validation_report(document)
+    validation = build_validation_report(document)
+    validation["coordinate_space"] = "pdf_point"
+    refreshed["validation"] = validation
     return refreshed
+
+
+def build_normalized_artifacts(spec: NormalizeStageSpec) -> tuple[dict, dict]:
+    """Build and validate the canonical artifacts without touching the filesystem."""
+    provider = spec.inputs.provider.strip().lower()
+    normalized_document, normalization_report = adapt_path_to_document_v1_with_report(
+        source_json_path=spec.inputs.source_json,
+        document_id=spec.job_dirs.root.name,
+        provider=provider,
+        provider_version=spec.inputs.provider_version,
+    )
+    normalized_document = rescale_document_geometry_to_pdf(
+        normalized_document,
+        spec.inputs.source_pdf,
+    )
+    normalized_document = post_rescale_rebuild_paddle_text_geometry(normalized_document)
+    normalization_report = _refresh_report_for_final_document(
+        normalization_report,
+        normalized_document,
+    )
+    return normalized_document, normalization_report
+
+
+def normalized_artifact_paths(spec: NormalizeStageSpec) -> tuple[Path, Path]:
+    normalized_dir = spec.job_dirs.ocr_dir / "normalized"
+    return (
+        normalized_dir / "document.v1.json",
+        normalized_dir / DOCUMENT_SCHEMA_REPORT_FILE_NAME,
+    )
+
+
+def write_normalized_artifacts(
+    spec: NormalizeStageSpec,
+    document: dict,
+    report: dict,
+) -> tuple[Path, Path]:
+    normalized_json_path, normalized_report_json_path = normalized_artifact_paths(spec)
+    save_json_atomic(normalized_json_path, document, compact=True)
+    save_json_atomic(normalized_report_json_path, report)
+    return normalized_json_path, normalized_report_json_path
 
 
 def main() -> None:
     args = parse_args()
     if not args.spec.strip():
         raise RuntimeError("normalize worker now requires --spec <normalize.spec.json>")
-    args = _args_from_spec(NormalizeStageSpec.load(Path(args.spec)))
-    provider = args.provider.strip().lower()
+    spec = NormalizeStageSpec.load(Path(args.spec))
+    args = _args_from_spec(spec)
     source_json_path = Path(args.source_json).resolve()
     source_pdf_path = Path(args.source_pdf).resolve()
     if not source_json_path.exists():
@@ -81,21 +123,12 @@ def main() -> None:
 
     job_dirs = job_dirs_from_explicit_args(args)
     ocr_dir = job_dirs.ocr_dir
-    normalized_dir = ocr_dir / "normalized"
-    normalized_json_path = normalized_dir / "document.v1.json"
-    normalized_report_json_path = normalized_dir / DOCUMENT_SCHEMA_REPORT_FILE_NAME
-
-    normalized_document, normalization_report = adapt_path_to_document_v1_with_report(
-        source_json_path=source_json_path,
-        document_id=job_dirs.root.name,
-        provider=provider,
-        provider_version=str(args.provider_version or ""),
+    normalized_document, normalization_report = build_normalized_artifacts(spec)
+    normalized_json_path, normalized_report_json_path = write_normalized_artifacts(
+        spec,
+        normalized_document,
+        normalization_report,
     )
-    normalized_document = rescale_document_geometry_to_pdf(normalized_document, source_pdf_path)
-    normalized_document = post_rescale_rebuild_paddle_text_geometry(normalized_document)
-    normalization_report = _refresh_report_for_final_document(normalization_report, normalized_document)
-    save_json(normalized_json_path, normalized_document, compact=True)
-    save_json(normalized_report_json_path, normalization_report)
 
     # _refresh_report_for_final_document already validated the final document;
     # reuse its report instead of re-reading and re-validating the saved file.

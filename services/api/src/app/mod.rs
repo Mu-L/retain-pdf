@@ -3,7 +3,6 @@ mod jobs;
 mod router;
 mod server;
 mod state;
-mod state_recovery;
 
 pub use cleanup::{
     log_startup_settings, log_startup_settings_with_interval, run_cleanup_once,

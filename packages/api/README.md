@@ -1,10 +1,14 @@
 # @retainpdf/api
 
-Typed API clients wrapping `@retainpdf/schemas` (`library-books.v1`, `job-status.v1`).
+Typed API clients using generated wire DTOs from `@retainpdf/contracts`.
 
 - `library-books.ts` → `fetchLibraryBookList` etc. (from `apps/web/src/js/api/library-books.ts`)
 - `jobs.ts` → `fetchJobPayload` etc.
-- `types.ts` → `JobStatusKind`, `LibraryBookListItemView`, `ApiResponse` (future: generated from JSON Schema)
+- `types.ts` → generated Job/library DTO re-exports plus the generic `ApiResponse` envelope
 
 Build: `npm --prefix packages/api run build` → `dist/`
 Usage: `import { fetchLibraryBookList } from "@retainpdf/api/library-books"`
+
+Browser-aware runtime configuration helpers are public at `@retainpdf/api/runtime`.
+The old `@retainpdf/api/internal/runtime` entry remains available only as a
+compatibility path for existing consumers.

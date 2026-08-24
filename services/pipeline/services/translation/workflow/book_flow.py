@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from services.translation.workflow.stages import run_continuation_review
 from services.translation.workflow.stages import run_agent_repair_stage
@@ -18,6 +19,9 @@ from services.translation.services.continuation.orchestrator import finalize_orc
 from services.translation.llm.shared.control_context import TranslationControlContext
 from services.translation.services.policy import TranslationPolicyConfig
 from services.translation.core.payload import load_translations
+
+if TYPE_CHECKING:
+    from services.translation.workflow.checkpoint import TranslationCheckpointSession
 
 
 def translate_book_with_global_continuations(
@@ -39,6 +43,7 @@ def translate_book_with_global_continuations(
     domain_guidance: str = "",
     translation_context: TranslationControlContext | None = None,
     run_diagnostics: TranslationRunDiagnostics | None = None,
+    checkpoint: TranslationCheckpointSession | None = None,
 ) -> tuple[dict[int, list[dict]], list[dict]]:
     if translation_context is not None:
         domain_guidance = translation_context.merged_guidance
@@ -51,6 +56,8 @@ def translate_book_with_global_continuations(
         page_indices=page_indices,
         math_mode=(policy_config.math_mode if policy_config is not None else "placeholder"),
     )
+    if checkpoint is not None:
+        checkpoint.update("preparing", page_payloads, translation_paths)
     run_initial_continuation_pass(
         page_payloads=page_payloads,
         translation_paths=translation_paths,
@@ -88,6 +95,8 @@ def translate_book_with_global_continuations(
     if context_window_updates:
         print(f"book: translation context windows updated={context_window_updates}", flush=True)
     save_pages(page_payloads, translation_paths)
+    if checkpoint is not None:
+        checkpoint.update("policy_ready", page_payloads, translation_paths)
     run_translation_batch_stage(
         page_payloads=page_payloads,
         translation_paths=translation_paths,
@@ -100,8 +109,14 @@ def translate_book_with_global_continuations(
         mode=mode,
         translation_context=translation_context,
         run_diagnostics=run_diagnostics,
-        flush_callback=None,
+        flush_callback=(
+            lambda _pages: checkpoint.update("translating", page_payloads, translation_paths)
+            if checkpoint is not None
+            else None
+        ),
     )
+    if checkpoint is not None:
+        checkpoint.update("repairing", page_payloads, translation_paths)
 
     run_garbled_reconstruction_stage(
         page_payloads=page_payloads,
@@ -112,6 +127,8 @@ def translate_book_with_global_continuations(
         workers=workers,
         run_diagnostics=run_diagnostics,
     )
+    if checkpoint is not None:
+        checkpoint.update("repairing", page_payloads, translation_paths)
 
     run_agent_repair_stage(
         page_payloads=page_payloads,
@@ -122,6 +139,8 @@ def translate_book_with_global_continuations(
         translation_context=translation_context,
         run_diagnostics=run_diagnostics,
     )
+    if checkpoint is not None:
+        checkpoint.update("repairing", page_payloads, translation_paths)
 
     run_final_untranslated_recovery_stage(
         page_payloads=page_payloads,
@@ -132,6 +151,8 @@ def translate_book_with_global_continuations(
         translation_context=translation_context,
         workers=workers,
     )
+    if checkpoint is not None:
+        checkpoint.update("validating", page_payloads, translation_paths)
     translated_pages_map = {page_idx: load_translations(translation_paths[page_idx]) for page_idx in sorted(page_payloads)}
     summaries = build_page_summaries(
         translated_pages_map=translated_pages_map,

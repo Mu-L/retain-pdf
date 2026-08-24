@@ -62,13 +62,13 @@ export function createStatusDomain({
     fetchJobPayload: fetchJobPayload as (
       jobId: string,
       options?: { apiPrefix?: string } | string,
-    ) => Promise<import("../../../js/job/types.js").JobLike | import("../../../js/job/types.js").JobPayload | null | undefined>,
+    ) => Promise<import("@retainpdf/domain/job").JobLike | import("@retainpdf/domain/job").JobPayload | null | undefined>,
     fetchJobEvents: fetchJobEvents as (
       jobId: string,
       apiPrefix?: string,
       limit?: number,
       offset?: number,
-    ) => Promise<import("../../../js/job-status/types.js").EventsPayload | null | undefined>,
+    ) => Promise<import("@retainpdf/domain/job-status").EventsPayload | null | undefined>,
     fetchJobDiagnostics,
     fetchResumePlan,
     fetchTranslationDiagnostics,

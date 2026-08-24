@@ -17,7 +17,7 @@ frontend/src/
 │   ├── api/           # HTTP / 后端契约
 │   ├── features/      # 命令式领域逻辑（mount*、ports、state）
 │   ├── reader/        # 旧 pdf.js 引擎 + 少量被新引擎复用的 ports
-│   ├── job-status/ job/ job-detail/ status-detail/  # 任务展示纯逻辑
+│   ├── job-detail/ status-detail/  # web 宿主任务详情逻辑
 │   ├── state/ config/ mock/ islands/ …
 └── styles/ components/ shared/ partials/
 ```
@@ -102,7 +102,9 @@ frontend/src/
 | 目录 | 用途 |
 |------|------|
 | `api/` | 后端 API 客户端 |
-| `job-status/`、`job/`、`job-detail/` | 任务阶段 / 产物 / 详情页逻辑（detail + home status 共用） |
+| `@retainpdf/domain/job-status` | 任务阶段 / 进度 / 状态卡纯领域逻辑（正式 package 入口） |
+| `@retainpdf/domain/job` | 任务归一化 / 产物 / 时间与诊断纯逻辑（正式 package 入口） |
+| `job-detail/` | web 宿主的任务详情页逻辑 |
 | `status-detail/` | 状态详情 presenter（偏旧路径；与 `js/features/status-detail` 并存时以实际 import 为准） |
 | `state/`、`config/` | 全局 store 切片、runtime 配置 |
 | `islands/` | 可挂到旧 HTML 的小岛（如 library-search、reader-annotations） |

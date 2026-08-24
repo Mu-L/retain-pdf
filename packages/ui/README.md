@@ -1,10 +1,34 @@
 # @retainpdf/ui
 
-Shared UI primitives extracted from `apps/web` (`lib/utils` `components/ui/*`) for `apps/web` + `apps/web-react` + `packages/reader`.
+Shared UI primitives for `apps/web`, `apps/web-react`, and `packages/reader`.
 
-- `cn` → `lib/utils.ts:1`
-- `Button` → `components/ui/button.tsx:1`
-- `Dialog/Tabs/Sonner` etc.
+## Usage
 
-Build: `npm --prefix packages/ui run build` → `dist/`
-Usage: `import { cn, Button } from "@retainpdf/ui"`
+Import the package's declared entry points. Do not alias or import
+`packages/ui/src` from an application.
+
+```tsx
+import { Button, Dialog, cn } from "@retainpdf/ui";
+import "@retainpdf/ui/styles.css";
+```
+
+The stylesheet contains the Tailwind utilities used by the primitives. The host
+application remains responsible for defining its design-token CSS variables,
+including `--background`, `--foreground`, `--primary`, `--border`, and `--ring`.
+
+Explicit component subpaths are also public, for example:
+
+```ts
+import { buttonVariants } from "@retainpdf/ui/components/ui/button";
+```
+
+## Development
+
+```sh
+npm --prefix packages/ui run typecheck
+npm --prefix packages/ui run build
+npm pack ./packages/ui --dry-run
+```
+
+`npm pack` rebuilds the package first. Only `dist` is published; source paths
+are intentionally not exported.

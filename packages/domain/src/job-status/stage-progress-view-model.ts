@@ -3,8 +3,8 @@ import {
   compositeRenderPageProgress,
   compositeRenderPrepareProgress,
   compositeRenderPrewarmProgress,
-} from "./job-stage-render-progress.js";
-import { compositeTranslationProgressFromRecord } from "./job-stage-translation-progress.js";
+} from "./progress/job-stage-render-progress.js";
+import { compositeTranslationProgressFromRecord } from "./progress/job-stage-translation-progress.js";
 import type { ProgressRecord, StageProgressViewSnapshot } from "./types.js";
 
 function finiteNumber(value: unknown): number {

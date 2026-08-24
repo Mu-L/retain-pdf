@@ -1,6 +1,6 @@
 import { buildApiHeaders, isMockMode } from "../config/runtime.js";
 import { API_PREFIX } from "../config/api-constants.js";
-import { unwrapEnvelope } from "../job/core.js";
+import { unwrapEnvelope } from "@retainpdf/domain/job";
 import { buildApiEndpoint } from "./http.js";
 
 // 图书馆 AI 问答(POST /api/v1/ai/ask,SSE 流式)。

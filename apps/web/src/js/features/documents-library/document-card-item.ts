@@ -10,7 +10,7 @@
 //   不被"空 job_id 直接丢弃"的逻辑滤掉;卡片靠 library_only 布尔分支馆藏态
 //   (禁用对照阅读、显示"未翻译"、走翻译/读原文),不去解析这个合成 id。
 
-import { flattenStageSnapshot } from "../../job/stage-snapshot-flatten.js";
+import { flattenStageSnapshot } from "@retainpdf/domain/job";
 
 export const LIBRARY_ONLY_JOB_PREFIX = "doc:";
 

@@ -22,6 +22,11 @@ import { DEFAULT_ASPECT, PdfPageSlot } from "./PdfPageSlot.js";
 import type { PageRowHeights } from "./usePageRowSync.js";
 import { READER_PAGE_SLOT_CLASS, type ReaderPaneId } from "./reader-dom-contract.js";
 import { resolvePdfjsVendorUrl } from "../external.js";
+import {
+  resolveReaderRegionHighlight,
+  type ReaderMetadata,
+  type ReaderRegion,
+} from "../shared/data/reader-regions.js";
 
 const OVERSCAN = 5;
 
@@ -56,6 +61,8 @@ export type PdfDocumentPaneProps = {
   onLoadSuccess?: (info: { numPages: number; pane: ReaderPaneId }) => void;
   onLoadError?: (error: Error, pane: ReaderPaneId) => void;
   onNumPagesChange?: (numPages: number, pane: ReaderPaneId) => void;
+  activeRegion?: ReaderRegion | null;
+  readerMetadata?: ReaderMetadata | null;
 };
 
 const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
@@ -74,6 +81,8 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
       onLoadSuccess,
       onLoadError,
       onNumPagesChange,
+      activeRegion = null,
+      readerMetadata = null,
     },
     ref,
   ) {
@@ -242,6 +251,10 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
       () => (numPages > 0 ? Array.from({ length: numPages }, (_, i) => i + 1) : []),
       [numPages],
     );
+    const regionHighlight = useMemo(
+      () => resolveReaderRegionHighlight(activeRegion, readerMetadata, pane),
+      [activeRegion, readerMetadata, pane],
+    );
 
     const windowedSet = useMemo(() => {
       if (numPages === 0) return new Set<number>();
@@ -314,6 +327,7 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
                       cachedAspect={aspectCache.get(pageNumber)}
                       onAspectChange={handleAspectChange}
                       sentinelRef={(el) => registerSentinel(pageNumber, el)}
+                      regionHighlight={regionHighlight?.box.page === pageNumber ? regionHighlight : null}
                     />
                   );
                 }

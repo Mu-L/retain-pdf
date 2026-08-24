@@ -8,21 +8,22 @@ export {
 export { copyText } from "../../../../js/utils/clipboard.js";
 
 // —— 主页 AI 问答（home-ask）——
+export { AiMarkdownAnswer } from "@retainpdf/reader/ai";
 export {
   injectCitationMarkers,
   isAgenticCitation,
   neutralizeMarkdownAnchors,
   renderCitationFooter,
   type AiCitationLike,
-} from "@/shared/reader/ai/answer-enhance.js";
+} from "@/shared/reader/host/ai.js";
 export {
   renderFinalAnswerHtml,
   renderStreamingPreviewHtml,
-} from "@/shared/reader/ai/render-answer-html.js";
+} from "@/shared/reader/host/ai.js";
 export {
   CREDENTIALS_CHANGED_EVENT,
   hasModelApiKey,
   MISSING_MODEL_API_KEY_MESSAGE,
   resolveReaderAiConfig,
-} from "@/shared/reader/ai/config.js";
-export { sanitizeAssistantAnswer } from "@/shared/reader/ai/sanitize-answer.js";
+} from "@/shared/reader/host/ai.js";
+export { sanitizeAssistantAnswer } from "@/shared/reader/host/ai.js";

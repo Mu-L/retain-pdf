@@ -539,7 +539,13 @@ mod tests {
             downloads_lock: Arc::new(Mutex::new(())),
             canceled_jobs: Arc::new(RwLock::new(HashSet::new())),
             job_slots: Arc::new(Semaphore::new(1)),
-            job_runtime: Arc::new(crate::services::runtime_gateway::JobRuntime::in_process(Arc::new(RwLock::new(HashSet::new())))),
+            job_runtime: Arc::new(crate::services::runtime_gateway::JobRuntime::in_process(
+                Arc::new(RwLock::new(HashSet::new())),
+            )),
+            agent_capabilities: Arc::new(
+                crate::services::agent_capabilities::AgentCapabilityAuthority::new_random()
+                    .expect("agent capability authority"),
+            ),
         }
     }
 

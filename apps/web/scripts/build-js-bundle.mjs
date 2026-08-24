@@ -90,20 +90,23 @@ function bundleOptions({ entry, outfile }) {
     format: "esm",
     platform: "browser",
     target: ["es2022"],
+    // Markstream 的图表/增强代码块运行时是 optional peers。本产品当前只启用
+    // KaTeX + plain <pre>，未安装的可选模块保持动态 external，不能为了让
+    // esbuild 解析成功而把 Mermaid/D2/Infographic 整套塞进基础包。
+    external: [
+      "@antv/infographic",
+      "@terrastruct/d2",
+      "mermaid",
+      "stream-diffs",
+    ],
     jsx: "automatic",
     alias: {
       "@": path.join(frontendRoot, "src"),
-      "@retainpdf/reader": path.join(frontendRoot, "../../packages/reader/src"),
-      "@retainpdf/reader/*": path.join(frontendRoot, "../../packages/reader/src"),
-      "@retainpdf/ui": path.join(frontendRoot, "../../packages/ui/src"),
-      "@retainpdf/ui/*": path.join(frontendRoot, "../../packages/ui/src"),
-      "@retainpdf/api": path.join(frontendRoot, "../../packages/api/src"),
-      "@retainpdf/api/*": path.join(frontendRoot, "../../packages/api/src"),
-      "@retainpdf/domain": path.join(frontendRoot, "../../packages/domain/src"),
-      "@retainpdf/domain/*": path.join(frontendRoot, "../../packages/domain/src"),
     },
-    // packages/reader/src 内的 import "react" 需回落到 apps/web 的 node_modules
+    // Workspace package peers resolve through the host's installed dependency tree.
     nodePaths: [path.join(frontendRoot, "node_modules")],
+    // Reader 与其它 workspace 包一样只通过 package.json exports 消费；
+    // 禁止在宿主构建里维护第二份 subpath→源码路径映射。
     plugins: [jsToTsResolvePlugin()],
     define: {
       PACKAGE_VERSION: JSON.stringify(resolveMathJaxPackageVersion()),

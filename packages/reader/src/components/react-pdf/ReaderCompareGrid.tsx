@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import { PdfDocumentPane } from "../../pdf/PdfDocumentPane.js";
 import type { ProtectedPdfFile } from "../../pdf/useProtectedPdfFile.js";
 import type { PageRowHeights } from "../../pdf/usePageRowSync.js";
@@ -5,6 +6,7 @@ import {
   READER_SCROLL_SHELL_CLASS,
   READER_SCROLL_SHELL_ID,
 } from "../../pdf/reader-dom-contract.js";
+import type { ReaderMetadata, ReaderRegion } from "../../shared/data/reader-regions.js";
 
 export type ReaderCompareGridProps = {
   mode: string; // ReaderMode
@@ -28,9 +30,35 @@ export type ReaderCompareGridProps = {
   translatedFile: ProtectedPdfFile | null;
   onMetrics: () => void;
   onNumPagesChange: (pages: number, pane: "source" | "translated") => void;
+  activeRegion?: ReaderRegion | null;
+  readerMetadata?: ReaderMetadata | null;
+  markdownSplit?: boolean;
+  assistantSplit?: boolean;
 };
 
-export function ReaderCompareGrid(props: ReaderCompareGridProps): JSX.Element {
+export function resolveReaderGridPresentation({
+  mode,
+  compareMode,
+  showSource,
+  showTranslated,
+  markdownSplit,
+}: Pick<ReaderCompareGridProps, "mode" | "compareMode" | "showSource" | "showTranslated"> & {
+  markdownSplit: boolean;
+}) {
+  const splitSourceCompare = markdownSplit && mode === "compare";
+  return {
+    mode: splitSourceCompare ? "source" : mode,
+    compareMode: compareMode && !markdownSplit,
+    showSource: splitSourceCompare ? true : showSource,
+    showTranslated: splitSourceCompare ? false : showTranslated,
+  };
+}
+
+export function resolveReaderPageWidthBasis(shellWidth: number, sidePanelSplit: boolean): number {
+  return sidePanelSplit ? shellWidth * 2 : shellWidth;
+}
+
+export function ReaderCompareGrid(props: ReaderCompareGridProps): ReactElement {
   const {
     mode,
     bindShell,
@@ -50,7 +78,25 @@ export function ReaderCompareGrid(props: ReaderCompareGridProps): JSX.Element {
     translatedFile,
     onMetrics,
     onNumPagesChange,
+    activeRegion,
+    readerMetadata,
+    markdownSplit = false,
+    assistantSplit = false,
   } = props;
+
+  const presentation = resolveReaderGridPresentation({
+    mode,
+    compareMode,
+    showSource,
+    showTranslated,
+    markdownSplit,
+  });
+  // zoom 的产品语义一直相对完整阅读器宽度：Markdown / AI 分栏后 shell
+  // 只有半屏，因此用双倍基准保持 50% 恰好铺满左栏。
+  const pageWidthBasis = resolveReaderPageWidthBasis(
+    shellWidth,
+    markdownSplit || assistantSplit,
+  );
 
   return (
     <div
@@ -60,8 +106,8 @@ export function ReaderCompareGrid(props: ReaderCompareGridProps): JSX.Element {
       data-reader-scroll-shell="true"
     >
       <main
-        className={`reader-react-grid reader-mode-${mode}`}
-        data-reader-mode={mode}
+        className={`reader-react-grid reader-mode-${presentation.mode}`}
+        data-reader-mode={markdownSplit ? "markdown-split" : assistantSplit ? "assistant-split" : mode}
       >
         {mountSource ? (
           <PdfDocumentPane
@@ -69,10 +115,10 @@ export function ReaderCompareGrid(props: ReaderCompareGridProps): JSX.Element {
             url={sourceUrl}
             preloadedFile={sourceFile}
             userZoom={userZoom}
-            visible={showSource}
+            visible={presentation.showSource}
             scrollRoot={shellEl}
-            pageWidthOverride={shellWidth}
-            rowHeights={compareMode ? rowHeights : undefined}
+            pageWidthOverride={pageWidthBasis}
+            rowHeights={presentation.compareMode ? rowHeights : undefined}
             onMetrics={onMetrics}
             emptyLabel={
               sourceOnly
@@ -80,6 +126,8 @@ export function ReaderCompareGrid(props: ReaderCompareGridProps): JSX.Element {
                 : "暂无原文 PDF"
             }
             onNumPagesChange={onNumPagesChange}
+            activeRegion={activeRegion}
+            readerMetadata={readerMetadata}
           />
         ) : null}
         {mountTranslated ? (
@@ -88,13 +136,15 @@ export function ReaderCompareGrid(props: ReaderCompareGridProps): JSX.Element {
             url={translatedUrl}
             preloadedFile={translatedFile}
             userZoom={userZoom}
-            visible={showTranslated}
+            visible={presentation.showTranslated}
             scrollRoot={shellEl}
-            pageWidthOverride={shellWidth}
-            rowHeights={compareMode ? rowHeights : undefined}
+            pageWidthOverride={pageWidthBasis}
+            rowHeights={presentation.compareMode ? rowHeights : undefined}
             onMetrics={onMetrics}
             emptyLabel="暂无译文 PDF"
             onNumPagesChange={onNumPagesChange}
+            activeRegion={activeRegion}
+            readerMetadata={readerMetadata}
           />
         ) : null}
       </main>

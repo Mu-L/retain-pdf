@@ -19,9 +19,11 @@ pub use constants::{
     ARTIFACT_KEY_PROVIDER_RESULT_JSON, ARTIFACT_KEY_RENDER_CONFIG_JSON, ARTIFACT_KEY_SOURCE_PDF,
     ARTIFACT_KEY_TRANSLATED_PDF, ARTIFACT_KEY_TRANSLATIONS_DIR,
     ARTIFACT_KEY_TRANSLATION_DEBUG_INDEX_JSON, ARTIFACT_KEY_TRANSLATION_DIAGNOSTICS_JSON,
-    ARTIFACT_KEY_TRANSLATION_MANIFEST_JSON, ARTIFACT_KEY_TYPST_PDF, ARTIFACT_KEY_TYPST_SOURCE,
-    ARTIFACT_KIND_DIR, ARTIFACT_KIND_FILE, LEGACY_JOB_UNSUPPORTED_MESSAGE,
-    TRANSLATION_MANIFEST_FILE_NAME,
+    ARTIFACT_KEY_TRANSLATION_CHECKPOINT_JSON, ARTIFACT_KEY_TRANSLATION_MANIFEST_JSON,
+    ARTIFACT_KEY_TRANSLATION_REQUEST_JOURNAL_JSONL,
+    ARTIFACT_KEY_TYPST_PDF, ARTIFACT_KEY_TYPST_SOURCE, ARTIFACT_KIND_DIR, ARTIFACT_KIND_FILE,
+    LEGACY_JOB_UNSUPPORTED_MESSAGE, TRANSLATION_CHECKPOINT_FILE_NAME,
+    TRANSLATION_MANIFEST_FILE_NAME, TRANSLATION_REQUEST_JOURNAL_FILE_NAME,
 };
 pub use job_paths::{attach_job_paths, build_job_paths, JobPaths};
 pub use path_ops::{
@@ -36,7 +38,7 @@ pub use resolvers::{
     resolve_normalized_document, resolve_output_pdf, resolve_pipeline_summary,
     resolve_registered_artifact_path, resolve_source_pdf, resolve_translation_debug_index,
     resolve_translation_diagnostics, resolve_translation_manifest, resolve_typst_pdf,
-    resolve_typst_source,
+    resolve_translation_request_journal, resolve_typst_source,
 };
 
 #[cfg(test)]
@@ -169,6 +171,7 @@ mod tests {
         fs::create_dir_all(job_root.join("ocr/normalized")).expect("normalized dir");
         fs::create_dir_all(job_root.join("artifacts")).expect("artifacts dir");
         fs::create_dir_all(job_root.join("logs")).expect("logs dir");
+        fs::create_dir_all(job_root.join("translated")).expect("translated dir");
         fs::write(job_root.join("source/in.pdf"), b"pdf").expect("source pdf");
         fs::write(job_root.join("rendered/out.pdf"), b"pdf").expect("output pdf");
         fs::write(
@@ -179,6 +182,16 @@ mod tests {
         fs::write(job_root.join("md/full.md"), b"# doc").expect("markdown");
         fs::write(job_root.join("ocr/normalized/document.v1.json"), b"{}").expect("json");
         fs::write(job_root.join("artifacts/render_config.json"), b"{}").expect("render config");
+        fs::write(
+            job_root.join("translated/translation-checkpoint.v1.json"),
+            b"{}",
+        )
+        .expect("translation checkpoint");
+        fs::write(
+            job_root.join("translated/translation-request-journal.v1.jsonl"),
+            b"{\"schema\":\"translation_request_journal_v1\",\"schema_version\":1}\n",
+        )
+        .expect("translation request journal");
         fs::write(
             job_root.join("logs/events.jsonl"),
             b"{\"event\":\"job_created\"}\n",
@@ -211,6 +224,12 @@ mod tests {
                     .to_string_lossy()
                     .to_string(),
             ),
+            translation_checkpoint_json: Some(
+                job_root
+                    .join("translated/translation-checkpoint.v1.json")
+                    .to_string_lossy()
+                    .to_string(),
+            ),
             ..JobArtifacts::default()
         });
 
@@ -233,6 +252,12 @@ mod tests {
         assert!(items
             .iter()
             .any(|item| item.artifact_key == ARTIFACT_KEY_RENDER_CONFIG_JSON));
+        assert!(items.iter().any(|item| {
+            item.artifact_key == ARTIFACT_KEY_TRANSLATION_REQUEST_JOURNAL_JSONL
+        }));
+        assert!(items
+            .iter()
+            .any(|item| item.artifact_key == ARTIFACT_KEY_TRANSLATION_CHECKPOINT_JSON));
         assert!(items
             .iter()
             .any(|item| item.artifact_key == ARTIFACT_KEY_EVENTS_JSONL));

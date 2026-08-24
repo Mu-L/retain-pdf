@@ -1,19 +1,22 @@
 import fs from "fs";
+import { createRequire } from "module";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const frontendRoot = path.resolve(__dirname, "..");
-const nodeModulesRoot = path.join(frontendRoot, "node_modules");
 const vendorRoot = path.join(frontendRoot, "vendor");
+const require = createRequire(import.meta.url);
 
 function ensureDependencyRoot(packageName) {
-  const packageRoot = path.join(nodeModulesRoot, packageName);
-  if (!fs.existsSync(packageRoot)) {
-    throw new Error(`Missing frontend runtime dependency: ${packageRoot}`);
+  try {
+    return path.dirname(require.resolve(`${packageName}/package.json`));
+  } catch (error) {
+    throw new Error(`Missing frontend runtime dependency: ${packageName}`, {
+      cause: error,
+    });
   }
-  return packageRoot;
 }
 
 function copyPackageAssets(packageName, entries, targetDirName = packageName) {

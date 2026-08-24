@@ -83,6 +83,7 @@ pub(super) fn build_book_summary(
         target_language: None,
         source_file_name: source_file_name(db, job),
         cover_url: cover_url(job, data_root, base_url),
+        thumbnail_url: thumbnail_url(job, data_root, base_url),
         file_size_bytes: upload_size,
     }
 }

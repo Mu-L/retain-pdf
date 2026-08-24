@@ -35,8 +35,9 @@ function ensureOverlay(): HTMLDivElement | null {
     zIndex: "2147483000",
     cursor: "progress",
     background: "transparent",
-    pointerEvents: "auto",
-    touchAction: "none",
+    // 只作为切会话期间的状态标记，不再成为全屏命中目标。
+    // 真正需要阻止的是引用/链接导航；编辑器、按钮和文本选择必须可用。
+    pointerEvents: "none",
   } as CSSStyleDeclaration);
   const block = (event: Event) => {
     event.preventDefault();
@@ -105,11 +106,12 @@ export function armReaderAiClickShield(
       return;
     }
     const target = event.target;
-    // 会话条 / 答案操作条（开新对话按钮）放行，避免 pointerdown 上锁后点不中
+    // 会话条 / 答案操作条 / composer 始终放行。此前全屏 overlay 会让
+    // textarea 看起来正常却无法取得焦点，尤其在会话 hydrate / 切换期间。
     if (
       target instanceof Element
       && target.closest(
-        "[data-reader-ai-sessions], [data-reader-ai-actions], .aui-action-btn-branch",
+        "[data-reader-ai-sessions], [data-reader-ai-actions], [data-reader-ai-composer], .aui-composer, input, textarea, select, [contenteditable='true']",
       )
     ) {
       return;

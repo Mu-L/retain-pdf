@@ -172,9 +172,28 @@ def _build_content(block: dict, *, page_index: int, order: int) -> dict:
     metadata = block.get("metadata", {}) or {}
     asset_key = str(metadata.get("asset_key", "") or "").strip()
     asset_url = str(metadata.get("asset_url", "") or "").strip()
-    if asset_key or asset_url:
-        asset_id = asset_key or f"page_{page_index + 1:03d}_asset_{order:04d}"
-        content["asset_id"] = asset_id
+    metadata_asset_keys = metadata.get("asset_keys", [])
+    asset_ids = (
+        [str(value).strip() for value in metadata_asset_keys if str(value).strip()]
+        if isinstance(metadata_asset_keys, list)
+        else []
+    )
+    existing_asset_ids = existing.get("asset_ids", [])
+    if not asset_ids and isinstance(existing_asset_ids, list):
+        asset_ids = [str(value).strip() for value in existing_asset_ids if str(value).strip()]
+    if asset_key and asset_key not in asset_ids:
+        asset_ids.insert(0, asset_key)
+    if not asset_ids and asset_url:
+        asset_ids = [f"page_{page_index + 1:03d}_asset_{order:04d}"]
+    if str(metadata.get("asset_kind", "") or "").strip() == "markdown_image":
+        page_prefix = f"page-{page_index + 1}/"
+        asset_ids = [
+            asset_id if asset_id.startswith(page_prefix) else f"{page_prefix}{asset_id.lstrip('/')}"
+            for asset_id in asset_ids
+        ]
+    if asset_ids:
+        content["asset_id"] = asset_ids[0]
+        content["asset_ids"] = list(dict.fromkeys(asset_ids))
     if existing:
         content.update({k: deepcopy(v) for k, v in existing.items() if k not in content})
     return content
@@ -214,6 +233,8 @@ def _build_provenance(block: dict) -> dict:
             "raw_label": str(explicit.get("raw_label", "") or ""),
             "raw_sub_type": str(explicit.get("raw_sub_type", "") or ""),
             "raw_bbox": raw_bbox,
+            "raw_unit": str(explicit.get("raw_unit", "") or ""),
+            "raw_origin": str(explicit.get("raw_origin", "") or ""),
             "raw_path": str(explicit.get("raw_path", "") or ""),
         }
     source = dict(block.get("source", {}) or {})
@@ -222,29 +243,108 @@ def _build_provenance(block: dict) -> dict:
         "raw_label": str(source.get("raw_type", source.get("raw_label", "")) or ""),
         "raw_sub_type": str(source.get("raw_sub_type", "") or ""),
         "raw_bbox": _normalize_bbox(source.get("raw_bbox", block.get("bbox"))),
+        "raw_unit": str(source.get("raw_unit", "") or ""),
+        "raw_origin": str(source.get("raw_origin", "") or ""),
         "raw_path": str(source.get("raw_path", "") or ""),
     }
 
 
 def _collect_assets(pages: list[dict]) -> dict:
     assets: dict[str, dict] = {}
-    for page in pages:
+    for page_index, page in enumerate(pages):
         for block in page.get("blocks", []) or []:
             content = dict(block.get("content", {}) or {})
             asset_id = str(content.get("asset_id", "") or "").strip()
-            if not asset_id:
+            raw_asset_ids = content.get("asset_ids", [])
+            asset_ids = (
+                [str(value).strip() for value in raw_asset_ids if str(value).strip()]
+                if isinstance(raw_asset_ids, list)
+                else []
+            )
+            if asset_id and asset_id not in asset_ids:
+                asset_ids.insert(0, asset_id)
+            if not asset_ids:
                 continue
             metadata = dict(block.get("metadata", {}) or {})
-            uri = str(metadata.get("asset_url", metadata.get("asset_path", "")) or "").strip()
-            if not uri:
-                continue
-            if asset_id in assets:
-                continue
-            assets[asset_id] = {
-                "kind": "image",
-                "uri": uri,
-                "source": str(metadata.get("asset_kind", "") or ""),
-            }
+            asset_kind = str(metadata.get("asset_kind", "") or "").strip()
+            asset_path = str(metadata.get("asset_path", "") or "").strip()
+            raw_asset_paths = metadata.get("asset_paths", [])
+            asset_paths = (
+                [str(value).strip() for value in raw_asset_paths]
+                if isinstance(raw_asset_paths, list)
+                else []
+            )
+            for asset_index, current_asset_id in enumerate(asset_ids):
+                current_asset_path = (
+                    asset_paths[asset_index]
+                    if asset_index < len(asset_paths) and asset_paths[asset_index]
+                    else (asset_path if current_asset_id == asset_id else current_asset_id)
+                )
+                if asset_kind == "markdown_image" and current_asset_path:
+                    uri = f"md/images/page-{page_index + 1}/{current_asset_path.lstrip('/')}"
+                else:
+                    uri = str(metadata.get("asset_url") or current_asset_path or "").strip()
+                if not uri:
+                    continue
+                asset = assets.setdefault(
+                    current_asset_id,
+                    {
+                        "kind": "image",
+                        "uri": uri,
+                        "source": asset_kind,
+                    },
+                )
+                caption = str(content.get("caption", "") or "").strip()
+                raw_captions = content.get("captions", [])
+                captions = (
+                    [str(value).strip() for value in raw_captions if str(value).strip()]
+                    if isinstance(raw_captions, list)
+                    else []
+                )
+                if caption and caption not in captions:
+                    captions.insert(0, caption)
+                raw_caption_block_ids = content.get("caption_block_ids", [])
+                caption_block_ids = (
+                    [str(value).strip() for value in raw_caption_block_ids if str(value).strip()]
+                    if isinstance(raw_caption_block_ids, list)
+                    else []
+                )
+                if not captions and str(metadata.get("caption_target_block_id", "") or "").strip():
+                    related_caption = str(content.get("text", "") or "").strip()
+                    if related_caption:
+                        captions = [related_caption]
+                    related_caption_id = str(block.get("block_id", "") or "").strip()
+                    if related_caption_id:
+                        caption_block_ids = [related_caption_id]
+                if captions:
+                    existing_captions = asset.get("captions", [])
+                    asset["captions"] = list(
+                        dict.fromkeys(
+                            [
+                                *(
+                                    [str(value).strip() for value in existing_captions if str(value).strip()]
+                                    if isinstance(existing_captions, list)
+                                    else []
+                                ),
+                                *captions,
+                            ]
+                        )
+                    )
+                    asset["caption"] = str(asset.get("caption", "") or asset["captions"][0])
+                if caption_block_ids:
+                    existing_caption_ids = asset.get("caption_block_ids", [])
+                    asset["caption_block_ids"] = list(
+                        dict.fromkeys(
+                            [
+                                *(
+                                    [str(value).strip() for value in existing_caption_ids if str(value).strip()]
+                                    if isinstance(existing_caption_ids, list)
+                                    else []
+                                ),
+                                *caption_block_ids,
+                            ]
+                        )
+                    )
     return assets
 
 

@@ -2,7 +2,10 @@ use std::path::{Path, PathBuf};
 
 use crate::models::api::{JobContractsView, JobStageContractArtifactView, JobStageContractView};
 use crate::models::domain::JobSnapshot;
-use crate::storage_paths::{resolve_data_path, TRANSLATION_MANIFEST_FILE_NAME};
+use crate::storage_paths::{
+    resolve_data_path, TRANSLATION_CHECKPOINT_FILE_NAME, TRANSLATION_MANIFEST_FILE_NAME,
+    TRANSLATION_REQUEST_JOURNAL_FILE_NAME,
+};
 
 const CONTRACT_SCHEMA_VERSION: &str = "job_stage_contracts.v1";
 
@@ -57,6 +60,22 @@ pub fn build_job_contracts_view(job: &JobSnapshot, data_root: &Path) -> JobContr
                         artifact_path(job, "translations_dir"),
                         true,
                         ArtifactKind::Dir,
+                    ),
+                    artifact(
+                        job,
+                        data_root,
+                        "translation_checkpoint_json",
+                        translation_checkpoint_path(job, data_root),
+                        false,
+                        ArtifactKind::File,
+                    ),
+                    artifact(
+                        job,
+                        data_root,
+                        "translation_request_journal_jsonl",
+                        translation_request_journal_path(job, data_root),
+                        false,
+                        ArtifactKind::File,
                     ),
                     artifact(
                         job,
@@ -185,11 +204,26 @@ fn artifact_path(job: &JobSnapshot, artifact_key: &str) -> Option<String> {
         "source_pdf" => artifacts.source_pdf.clone(),
         "normalized_document_json" => artifacts.normalized_document_json.clone(),
         "layout_json" => artifacts.layout_json.clone(),
+        "translation_checkpoint_json" => artifacts.translation_checkpoint_json.clone(),
         "translations_dir" => artifacts.translations_dir.clone(),
         "output_pdf" => artifacts.output_pdf.clone(),
         "summary" => artifacts.summary.clone(),
         _ => None,
     }
+}
+
+fn translation_checkpoint_path(job: &JobSnapshot, data_root: &Path) -> Option<String> {
+    if let Some(path) = artifact_path(job, "translation_checkpoint_json") {
+        return Some(path);
+    }
+    let job_root = job.artifacts.as_ref()?.job_root.as_ref()?;
+    let root = resolve_data_path(data_root, job_root).ok()?;
+    to_relative_data_path_lossy(
+        data_root,
+        &root
+            .join("translated")
+            .join(TRANSLATION_CHECKPOINT_FILE_NAME),
+    )
 }
 
 fn translation_manifest_path(job: &JobSnapshot, data_root: &Path) -> Option<String> {
@@ -204,6 +238,17 @@ fn translation_manifest_path(job: &JobSnapshot, data_root: &Path) -> Option<Stri
                 .to_string(),
         )
     })
+}
+
+fn translation_request_journal_path(job: &JobSnapshot, data_root: &Path) -> Option<String> {
+    let job_root = job.artifacts.as_ref()?.job_root.as_ref()?;
+    let root = resolve_data_path(data_root, job_root).ok()?;
+    to_relative_data_path_lossy(
+        data_root,
+        &root
+            .join("translated")
+            .join(TRANSLATION_REQUEST_JOURNAL_FILE_NAME),
+    )
 }
 
 fn to_relative_data_path_lossy(data_root: &Path, path: &Path) -> Option<String> {

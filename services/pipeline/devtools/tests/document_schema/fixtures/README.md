@@ -35,6 +35,35 @@
 当前 fixture：
 
 - `generic_flat_ocr.minimal.json`
+- `paddle_complex_ocr.golden.json`
+
+## Paddle Complex Offline Golden
+
+`paddle_complex_ocr.golden.json` 是不联网、不调用 Paddle/LLM 的端到端回归样本。
+它由 `generate_paddle_complex_ocr_golden.py` 生成，覆盖：
+
+- 标题、章节标题与长正文
+- 双栏布局和 provider reading order
+- 行内公式及 provider layout bbox
+- 块级公式
+- 表格、表题与双向 caption relation
+- 两张图片、两个图注，其中一张使用 HTML `<img>`，另一张使用标准 Markdown 图片语法
+- `document.v1` 的 block id、page index、bbox、asset id，以及 Reader region / AI citation 所需的源侧定位字段
+
+重新生成和验收：
+
+```bash
+cd services/pipeline
+python devtools/tests/document_schema/fixtures/generate_paddle_complex_ocr_golden.py
+python -m pytest -q devtools/tests/document_schema/test_paddle_ocr_only_golden.py
+```
+
+测试会从 synthetic Paddle raw 走真实 OCR runner，生成并验证 raw JSON、
+`document.v1.json`、normalization report、`md/full.md` 和图片资产。测试中的
+provider submit/poll/download 均为内存 stub，不需要 token，也不会消耗额度。
+
+这个离线用例有意不覆盖 Rust API 的 `/reader/regions` 响应组装、浏览器中的
+PDF overlay、citation 点击滚动、高亮绘制和鉴权图片请求；这些需要独立的 API / 浏览器 E2E。
 
 ## Fixture 侧 Checklist
 

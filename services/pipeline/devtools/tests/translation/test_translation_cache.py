@@ -65,6 +65,8 @@ def test_translation_cache_key_includes_target_language() -> None:
 
 
 def test_translation_cache_key_includes_policy_version(monkeypatch) -> None:
+    from services.translation.core import engine_identity
+
     item = {
         "item_id": "p001-b001",
         "translation_unit_protected_source_text": "Default: 0",
@@ -76,7 +78,7 @@ def test_translation_cache_key_includes_policy_version(monkeypatch) -> None:
         base_url="https://api.deepseek.com/v1",
         mode="sci",
     )
-    monkeypatch.setattr(cache, "TRANSLATION_POLICY_VERSION", "policy-test-version")
+    monkeypatch.setattr(engine_identity, "TRANSLATION_POLICY_VERSION", "policy-test-version")
     after = cache.cache_key_for_item(
         item,
         model="deepseek-v4-flash",
@@ -121,6 +123,31 @@ def test_translation_cache_sanitizes_reasoning_leak_on_load(monkeypatch, tmp_pat
 
     assert result["translated_text"] == "时间有序响应必须与推迟响应函数加以区分，"
     assert healed["translated_text"] == "时间有序响应必须与推迟响应函数加以区分，"
+
+
+def test_translation_cache_persists_validated_item_atomically(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(cache.paths, "TRANSLATION_UNIT_CACHE_DIR", tmp_path)
+    item = {
+        "item_id": "p001-b001",
+        "translation_unit_protected_source_text": "A durable intermediate result.",
+    }
+    cache.store_cached_translation(
+        item,
+        {"decision": "translate", "translated_text": "一个持久的中间结果。"},
+        model="deepseek-v4-flash",
+        base_url="https://api.deepseek.com/v1",
+        mode="sci",
+    )
+
+    restored = cache.load_cached_translation(
+        item,
+        model="deepseek-v4-flash",
+        base_url="https://api.deepseek.com/v1",
+        mode="sci",
+    )
+
+    assert restored["translated_text"] == "一个持久的中间结果。"
+    assert not list(tmp_path.rglob("*.tmp"))
 
 
 def test_unit_cache_prunes_expired_entries_once(tmp_path, monkeypatch) -> None:

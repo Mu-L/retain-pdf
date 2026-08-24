@@ -1,59 +1,32 @@
-# @retainpdf/domain — Phase 0 pure domain package
+# @retainpdf/domain
 
-Framework-agnostic view-models extracted verbatim from `apps/web/src/js/job` (15 files) + `apps/web/src/js/job-status` (46 files). No React, no fetch, no DOM.
+Framework-agnostic RetainPDF job, job-status, and library domain logic. The package has no React or transport dependency and publishes standard ESM JavaScript plus TypeScript declarations from `dist`.
 
-## Why
-Unify `apps/web` (MPA + React islands, esbuild) and `apps/web-react` (Vite SPA) on a single source of truth for job lifecycle. Keeps backward compat: `apps/web` can still import via `composition/external/job.ts`, but new code may import from `@retainpdf/domain`.
+## Public entry points
 
-## What was copied
-```
-packages/domain/src/job/*              ← apps/web/src/js/job/*.ts (15)
-packages/domain/src/job-status/*       ← apps/web/src/js/job-status/*.ts (46)
-packages/domain/src/internal/*         ← minimal pure shims for 4 impure imports:
-  api-constants.ts  — API_PREFIX
-  http.ts           — buildApiEndpoint (pure, delegates to runtime.buildApiUrl)
-  runtime.ts        — apiBase / buildApiUrl (no window in tests)
-  selector.ts       — vendored createSelector (pure memoization)
-  upload-state.ts   — getUploadState stub (real state injected via port)
-```
-
-Patches (only import rewrites, zero logic change):
-- `job/actions.ts`: `../config/api-constants` → `../internal/api-constants`, `../api/http` → `../internal/http`
-- `job/artifact-url-config.ts`: `../config/runtime` → `../internal/runtime`
-- `job/artifact-runtime-port.ts`: `../features/upload/state` → `../internal/upload-state`
-- `job-status/status-card-context.ts`: `../app-framework/selector` → `../internal/selector`
-
-## Usage
+Only the explicit package entry points below are public:
 
 ```ts
-// Preferred (both apps)
-import { buildJobStatusSummaryViewModel, currentStageProgressViewModel } from "@retainpdf/domain";
-import { normalizeJobPayload } from "@retainpdf/domain/job";
-
-// web-react Vite alias + tsconfig paths already point @retainpdf/domain → packages/domain/src
-// web esbuild alias also configured in apps/web/scripts/build-js-bundle.mjs
-
-// Example — proves pattern (stage-progress-view-model)
-import { currentStageProgressViewModel } from "@retainpdf/domain";
-const progress = currentStageProgressViewModel(snapshot, { normalizeSelectedProgress });
+import { buildElapsedViewModel } from '@retainpdf/domain'
+import { normalizeJobPayload } from '@retainpdf/domain/job'
+import { buildJobStatusViewModel } from '@retainpdf/domain/job-status'
+import { assembleTranslatePayload } from '@retainpdf/domain/library'
 ```
 
-## Backward compat
-`apps/web/src/pages/home/composition/external/job.ts` still re-exports from `src/js/job*`. It can be swapped to `@retainpdf/domain` incrementally without breaking existing imports.
+Source paths and individual implementation files are intentionally not exported. Add a deliberate barrel entry when a new public boundary is needed instead of importing `src` or relying on wildcard subpaths.
 
-## Build & alias wiring
-- `apps/web/tsconfig.json` paths: `@retainpdf/domain` → `../../packages/domain/src`
-- `apps/web/scripts/build-js-bundle.mjs` alias: `@retainpdf/domain` → `packages/domain/src`
-- `apps/web-react/tsconfig.app.json` paths + `vite.config.ts` alias: `@retainpdf/domain` → `../../packages/domain/src`
-- `apps/web-react/package.json` deps can add `@retainpdf/domain` (workspaces resolves it)
+## Consumer setup
 
-## Verify
+Declare `@retainpdf/domain` as a workspace dependency and let the package manager resolve it. Consumers should not alias `@retainpdf/domain` to `packages/domain/src` in Vite or TypeScript configuration. Build this package before a consumer build so its `dist` artifacts exist.
+
+## Development
+
 ```bash
-npx tsc --noEmit -p packages/domain/tsconfig.json
-npm --prefix apps/web test            # 721 pass, unchanged
-npm --prefix apps/web run build       # esbuild still bundles
-npx tsc -b --noEmit && vite build --prefix apps/web-react
+npm run typecheck --prefix packages/domain
+npm run build --prefix packages/domain
+npm run test:types --prefix packages/domain
+npm run test:imports --prefix packages/domain
+npm run test:pack --prefix packages/domain
 ```
 
-## Next phases
-Phase 1+ will gradually move `status-detail/snapshot` + `job/stage-history` consumers to domain and add Zod schema guards from `packages/schemas`.
+`npm test --prefix packages/domain` runs the complete sequence. `build` removes the previous `dist` first so renamed or deleted modules cannot survive as stale package artifacts. `prepack` rebuilds the package, and the pack verification confirms that every exported type and JavaScript target is present while `src` remains unpublished.

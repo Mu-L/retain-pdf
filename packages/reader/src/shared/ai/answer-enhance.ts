@@ -83,6 +83,29 @@ export function resolveCitationPageNumber(citation: AiCitationLike | null | unde
   return idx + 1;
 }
 
+/** Normalize API/history citations before they enter the assistant message store. */
+export function normalizeAiCitations(raw: unknown): AiCitationLike[] {
+  if (!Array.isArray(raw)) return [];
+  const citations: AiCitationLike[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const citation = item as AiCitationLike;
+    const blockId = `${citation.block_id || ""}`.trim();
+    if (!blockId) continue;
+    const pageIdx = resolveCitationPageIdx(citation);
+    citations.push({
+      ...citation,
+      block_id: blockId,
+      ref: citation.ref,
+      page_idx: pageIdx === null ? undefined : pageIdx,
+      job_id: `${citation.job_id || ""}`.trim(),
+      document_id: `${citation.document_id || ""}`.trim(),
+      snippet: `${citation.snippet || ""}`.trim(),
+    });
+  }
+  return citations;
+}
+
 export function clipSnippet(text = "", maxLength = 72): string {
   const normalized = `${text}`.replace(/\s+/g, " ").trim();
   if (normalized.length <= maxLength) return normalized;
@@ -147,13 +170,85 @@ export function buildPagePreviewUrl(jobId: string, pageIdx0: number, kind: "tran
 export function buildMarkdownImageApiUrl(jobId: string, relativePath: string, adapters: { resolveResourceUrl?: (v: unknown) => string } = {}): string {
   const resolver = adapters.resolveResourceUrl ?? resolveResourceUrl;
   const job = `${jobId || ""}`.trim();
-  let rel = `${relativePath || ""}`.replace(/\\/g, "/").replace(/^\.\//, "");
+  let rel = `${relativePath || ""}`.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+  if (!job || !rel || rel.startsWith("/") || rel.startsWith("//") || /^[a-z][a-z\d+.-]*:/i.test(rel)) {
+    return "";
+  }
   while (rel.startsWith("images/")) {
     rel = rel.slice("images/".length);
   }
-  if (!job || !rel) return "";
-  const path = `/api/v1/jobs/${encodeURIComponent(job)}/markdown/images/${rel.split("/").map(encodeURIComponent).join("/")}`;
+  const encodedParts: string[] = [];
+  for (const rawPart of rel.split("/")) {
+    if (!rawPart) continue;
+    let part = rawPart;
+    try { part = decodeURIComponent(rawPart); } catch { return ""; }
+    if (!part || part === "." || part === ".." || /[\\/]/.test(part)) return "";
+    encodedParts.push(encodeURIComponent(part));
+  }
+  if (!encodedParts.length || !/^page-\d+$/i.test(decodeURIComponent(encodedParts[0]))) return "";
+  const path = `/api/v1/jobs/${encodeURIComponent(job)}/markdown/images/${encodedParts.join("/")}`;
   try { return resolver(path) || path; } catch { return path; }
+}
+
+/**
+ * AI 回答图片只允许当前 job 的 Markdown 资产。外链、data/blob/file、其它 job
+ * 一律 fail closed；绝不把鉴权 fetch 发往模型提供的任意 URL。
+ */
+export function resolveAnswerImageUrl(
+  rawValue: string,
+  jobId: string,
+  adapters: { resolveResourceUrl?: (v: unknown) => string } = {},
+): string {
+  const raw = `${rawValue || ""}`.trim();
+  const job = `${jobId || ""}`.trim();
+  if (!raw || !job || raw.startsWith("//")) return "";
+  if (/^(?:\.\/)?(?:images\/)?page-\d+\//i.test(raw)) {
+    return buildMarkdownImageApiUrl(job, raw, adapters);
+  }
+  let url: URL;
+  try {
+    url = new URL(raw, globalThis.location?.href || "http://localhost/");
+  } catch {
+    return "";
+  }
+  const match = url.pathname.match(/^\/api\/v1\/jobs\/([^/]+)\/markdown\/images\/(.+)$/i);
+  if (!match) return "";
+  let pathJob = "";
+  try { pathJob = decodeURIComponent(match[1]); } catch { return ""; }
+  if (pathJob !== job) return "";
+  return buildMarkdownImageApiUrl(job, match[2], adapters);
+}
+
+/** Mount sanitized answer HTML without ever attaching a raw model-provided img src. */
+export function mountAnswerHtml(
+  root: HTMLElement,
+  html: string,
+  { jobId, documentRef = root.ownerDocument }: { jobId: string; documentRef?: Document },
+): number {
+  const template = documentRef.createElement("template");
+  template.innerHTML = `${html || ""}`;
+  let accepted = 0;
+  template.content.querySelectorAll("img").forEach((img) => {
+    const raw = img.getAttribute("data-ai-src") || img.getAttribute("src") || "";
+    const safe = resolveAnswerImageUrl(raw, jobId);
+    img.removeAttribute("src");
+    img.removeAttribute("srcset");
+    if (!safe) {
+      const fallback = documentRef.createElement("span");
+      fallback.className = "aui-image-blocked";
+      fallback.textContent = img.getAttribute("alt")?.trim()
+        ? `[图片不可用：${img.getAttribute("alt")!.trim()}]`
+        : "[图片不可用]";
+      img.replaceWith(fallback);
+      return;
+    }
+    img.setAttribute("data-ai-src", safe);
+    img.setAttribute("loading", "lazy");
+    img.setAttribute("decoding", "async");
+    accepted += 1;
+  });
+  root.replaceChildren(template.content);
+  return accepted;
 }
 
 /**
@@ -334,22 +429,16 @@ export function revokeHydratedImageUrls(container: ParentNode | null | undefined
 /** 受保护 API 图片 → blob（回答正文里的 md 图）。 */
 export async function hydrateProtectedImages(
   container: ParentNode,
-  { fetchImpl = _fetchProtected, resolveResourceUrl: resolveUrl = resolveResourceUrl, signal }: { fetchImpl?: FetchImpl; resolveResourceUrl?: (v: unknown) => string; signal?: AbortSignal } = {},
+  { fetchImpl = _fetchProtected, signal }: { fetchImpl?: FetchImpl; signal?: AbortSignal } = {},
 ): Promise<void> {
-  const images = [...(container as Element).querySelectorAll?.("img[src], img[data-ai-src]") || []];
+  const images = [...(container as Element).querySelectorAll?.("img[data-ai-src]") || []];
   await Promise.allSettled(images.map(async (img) => {
     const el = img as HTMLImageElement;
     if (signal?.aborted) return;
     // 元素已脱离 DOM 则跳过，避免孤儿 blob
     if (!el.isConnected) return;
-    const raw = el.getAttribute("data-ai-src") || el.getAttribute("src") || "";
-    if (!raw || raw.startsWith("blob:") || raw.startsWith("data:") || raw.startsWith("mock:")) {
-      return;
-    }
-    const isApi = /\/api\/v1\//i.test(raw) || raw.startsWith("/") || !/^[a-z]+:/i.test(raw);
-    if (!isApi) return;
-    const url = (() => { try { return resolveUrl(raw) || raw; } catch { return raw; } })();
-    el.setAttribute("data-ai-src", url);
+    const url = el.getAttribute("data-ai-src") || "";
+    if (!url) return;
     try {
       const response = await fetchImpl(url, signal ? { signal } as RequestInit : undefined as any);
       if (signal?.aborted || !el.isConnected) {

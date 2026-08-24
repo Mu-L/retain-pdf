@@ -5,7 +5,7 @@ import {
   frontendApiKey,
   isMockMode,
 } from "../config/runtime.js";
-import { unwrapEnvelope } from "../job/core.js";
+import { unwrapEnvelope } from "@retainpdf/domain/job";
 import { fetchMockProtected, submitMockJob, submitMockUpload } from "../mock/index.js";
 
 /** HTTP 请求失败时挂载 status/url 的宽松错误类型 */
@@ -99,9 +99,12 @@ export async function submitJson(url, payload) {
 
 export function submitUploadRequest(url, form, onProgress) {
   if (isMockMode()) {
-    void url;
     void form;
     onProgress?.(1, 1);
+    if (/\/ocr\/jobs(?:$|\?)/.test(url)) {
+      return Promise.resolve(submitMockJob());
+    }
+    void url;
     return Promise.resolve(submitMockUpload());
   }
   return new Promise((resolve, reject) => {

@@ -165,7 +165,8 @@ export async function materializeMarkdownMathHtml(
     engine = null;
   }
 
-  let out = `${html ?? ""}`;
+  const replacements = new Map<string, string>();
+  let processed = 0;
   for (const slot of slots) {
     let replacement: string;
     if (engine) {
@@ -177,9 +178,39 @@ export async function materializeMarkdownMathHtml(
     } else {
       replacement = renderMathFallbackHtml(slot.tex, slot.display);
     }
-    out = out.split(slot.token).join(replacement);
+    replacements.set(slot.token, replacement);
+    processed += 1;
+    // Large OCR Markdown can contain thousands of formulas. Yield periodically
+    // so React can paint the fast fallback instead of presenting a blank panel.
+    if (processed % 24 === 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    }
   }
-  return out;
+  return replaceMathTokens(`${html ?? ""}`, slots, replacements);
+}
+
+function replaceMathTokens(
+  html: string,
+  slots: MarkdownMathSlot[],
+  replacements: Map<string, string>,
+): string {
+  if (!slots.length) return html;
+  const tokenPattern = new RegExp(
+    slots.map((slot) => slot.token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"),
+    "g",
+  );
+  return html.replace(tokenPattern, (token) => replacements.get(token) || token);
+}
+
+/** Fast first paint: keep every formula visible without waiting for MathJax. */
+export function materializeMarkdownMathFallbackHtml(
+  html: string,
+  slots: MarkdownMathSlot[],
+): string {
+  const replacements = new Map(
+    slots.map((slot) => [slot.token, renderMathFallbackHtml(slot.tex, slot.display)]),
+  );
+  return replaceMathTokens(`${html ?? ""}`, slots, replacements);
 }
 
 /** 完整管线：保护公式 → marked.parse → 还原 SVG。 */

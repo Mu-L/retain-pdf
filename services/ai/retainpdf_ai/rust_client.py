@@ -153,3 +153,77 @@ class RustApiClient:
             f"/api/v1/ai/conversations/{conversation_id}",
             payload,
         )
+
+    def get_agent_runtime_session(self, conversation_id: str) -> dict[str, Any]:
+        return self._get(
+            f"/api/v1/internal/agent/runtime-sessions/{conversation_id}"
+        )
+
+    def put_agent_runtime_session(
+        self,
+        conversation_id: str,
+        *,
+        runtime_id: str,
+        session_cursor: str,
+        expected_revision: int,
+    ) -> dict[str, Any]:
+        response = self._client.put(
+            f"{self._base}/api/v1/internal/agent/runtime-sessions/{conversation_id}",
+            json={
+                "schema": "agent_runtime_session_put_v1",
+                "runtime_id": runtime_id,
+                "session_cursor": session_cursor,
+                "expected_revision": expected_revision,
+            },
+        )
+        response.raise_for_status()
+        body = response.json()
+        if body.get("code") != 0:
+            raise RuntimeError(
+                "rust api error while storing agent runtime session: "
+                f"{body.get('message')}"
+            )
+        return body.get("data") or {}
+
+    def clear_agent_runtime_session(
+        self,
+        conversation_id: str,
+        *,
+        expected_revision: int,
+    ) -> dict[str, Any]:
+        response = self._client.request(
+            "DELETE",
+            f"{self._base}/api/v1/internal/agent/runtime-sessions/{conversation_id}",
+            json={
+                "schema": "agent_runtime_session_clear_v1",
+                "expected_revision": expected_revision,
+            },
+        )
+        response.raise_for_status()
+        body = response.json()
+        if body.get("code") != 0:
+            raise RuntimeError(
+                "rust api error while clearing agent runtime session: "
+                f"{body.get('message')}"
+            )
+        return body.get("data") or {}
+
+    def issue_agent_capability(
+        self,
+        *,
+        conversation_id: str,
+        document_id: str,
+        actions: list[str],
+        ttl_seconds: int = 60,
+    ) -> dict[str, Any]:
+        """Mint one short-lived capability for the host-side agent CLI."""
+        return self._post(
+            "/api/v1/internal/agent/capabilities",
+            {
+                "schema": "agent_capability_issue_v1",
+                "conversation_id": conversation_id,
+                "document_id": document_id,
+                "actions": actions,
+                "ttl_seconds": ttl_seconds,
+            },
+        )

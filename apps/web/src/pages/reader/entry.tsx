@@ -1,4 +1,6 @@
-// 薄包装：真值已迁 @retainpdf/reader，此文件仅代理以保持 apps/web MPA 构建兼容
-// 先注入宿主 adapters，再启动 packages/reader 真值
+// 宿主先注册 RetainPDF adapters，再通过公开 boot 入口显式启动 Reader。
+import "@/js/bootstrap/job-domain-adapters.js";
 import "./adapters/retainpdf.js";
-import "../../../../../packages/reader/src/entry.js";
+import { bootReader } from "@retainpdf/reader/boot";
+
+bootReader();

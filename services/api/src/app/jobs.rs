@@ -1,6 +1,10 @@
 use std::sync::Arc;
 
-use crate::job_runner::{spawn_job, ProcessRuntimeDeps};
+use anyhow::Result;
+
+use crate::config::AppConfig;
+use crate::db::Db;
+use crate::job_runner::{reconcile_stale_running_jobs, spawn_job, ProcessRuntimeDeps};
 use crate::services::job_launcher::JobLaunchDeps;
 use crate::services::jobs::{
     build_jobs_facade, CommandJobsDeps, ControlDeps, JobSubmitDeps, JobsFacade, QueryJobsDeps,
@@ -9,6 +13,15 @@ use crate::services::jobs::{
 use crate::services::runtime_gateway::JobRuntimeLauncher;
 
 use super::state::AppState;
+
+pub(super) fn reconcile_owned_runtime(config: &AppConfig, db: &Db) -> Result<usize> {
+    if config.jobs_service.is_remote() {
+        // Remote jobs are owned by retain-jobsd. A shell restart must not
+        // reinterpret jobsd-owned workers as orphaned processes.
+        return Ok(0);
+    }
+    reconcile_stale_running_jobs(config, db)
+}
 
 fn build_process_runtime_deps(state: &AppState) -> ProcessRuntimeDeps {
     ProcessRuntimeDeps::new(

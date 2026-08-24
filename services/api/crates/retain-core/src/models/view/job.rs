@@ -10,7 +10,7 @@ pub use builders::{
 #[cfg(test)]
 pub use builders::{job_to_detail, job_to_list_item};
 pub use types::{
-    ArtifactDisplayItemView, ArtifactLinksView, BookSummaryView, DocumentDeleteResultView,
+    AmbiguousRequestPolicy, ArtifactDisplayItemView, ArtifactLinksView, BookSummaryView, DocumentDeleteResultView,
     GlossaryUsageSummaryView, InvocationSummaryView, JobArtifactItemView, JobArtifactManifestView,
     JobContractsView,
     JobDetailView, JobDiagnosticsView, JobFailureDiagnosticView, JobListInvocationSummaryView,
@@ -22,4 +22,5 @@ pub use types::{
     ReaderMetadataView, ReaderPageMetadataView, ReaderRegionBoxView, ReaderRegionItemView,
     ReaderRegionsView, ResourceLinkView, RetryStageKind, RetryStageRequest,
     RetryStageSubmissionView, StageActionsView, StageRetryActionLinkView, StageRetryActionView,
+    TranslationRequestRecoveryView,
 };

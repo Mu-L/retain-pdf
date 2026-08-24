@@ -3,6 +3,8 @@ from .aggregator import classify_provider_family
 from .aggregator import get_active_translation_run_diagnostics
 from .aggregator import infer_stage_from_request_label
 from .aggregator import translation_run_diagnostics_scope
+from .request_journal import TRANSLATION_REQUEST_JOURNAL_FILE_NAME
+from .request_journal import TranslationRequestJournal
 from .models import ErrorTaxonomy
 from .models import FinalStatus
 from .models import TranslationDiagnostic
@@ -21,6 +23,8 @@ __all__ = [
     "TranslationDiagnostic",
     "TranslationDiagnosticsCollector",
     "TranslationRunDiagnostics",
+    "TranslationRequestJournal",
+    "TRANSLATION_REQUEST_JOURNAL_FILE_NAME",
     "blocking_untranslated_items",
     "classify_provider_family",
     "get_active_translation_run_diagnostics",

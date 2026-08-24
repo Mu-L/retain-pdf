@@ -1,1 +1,5 @@
-{}
+{
+  "src/pages/home/features/workflow/WorkflowPanel.tsx": 3,
+  "src/pages/home/features/workflow/components/PageRangeDialog.tsx": 15,
+  "src/pages/home/features/workflow/components/UploadTile.tsx": 1
+}

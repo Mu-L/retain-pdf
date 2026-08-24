@@ -2,13 +2,12 @@
 // DetailApp / components 禁止直接 import ../../js/**；缺符号只改本文件。
 
 // —— job ——
-export { normalizeJobPayload } from "../../js/job/normalize.js";
-export { isJobTerminal } from "../../js/job/core.js";
+export { normalizeJobPayload, isJobTerminal } from "@retainpdf/domain/job";
 export {
   formatEventTimestamp,
   formatRuntimeDuration,
-} from "../../js/job/formatters.js";
-export { stageHistoryDisplay } from "../../js/job/stage-history.js";
+  stageHistoryDisplay,
+} from "@retainpdf/domain/job";
 
 // —— job-detail ——
 export { getJobIdFromQuery } from "../../js/job-detail/routing.js";

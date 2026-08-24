@@ -20,15 +20,7 @@
     "noFallthroughCasesInSwitch": true,
     "allowJs": false,
     "paths": {
-      "@/*": ["./src/*"],
-      "@retainpdf/reader": ["../../packages/reader/src/index.ts"],
-      "@retainpdf/reader/*": ["../../packages/reader/src/*"],
-      "@retainpdf/ui": ["../../packages/ui/src/index.ts"],
-      "@retainpdf/ui/*": ["../../packages/ui/src/*"],
-      "@retainpdf/api": ["../../packages/api/src/index.ts"],
-      "@retainpdf/api/*": ["../../packages/api/src/*"],
-      "@retainpdf/domain": ["../../packages/domain/src/index.ts"],
-      "@retainpdf/domain/*": ["../../packages/domain/src/*"]
+      "@/*": ["./src/*"]
     },
     "types": ["node"]
   },

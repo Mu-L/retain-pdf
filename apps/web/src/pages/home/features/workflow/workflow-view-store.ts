@@ -61,6 +61,7 @@ export type WorkflowViewState = {
   selectedGlossaryId: string;
   developerDialog: WorkflowDeveloperDialog;
   developerFormState: Record<string, unknown>;
+  ocrOnly: boolean;
 };
 
 export type WorkflowViewActions = {
@@ -107,6 +108,7 @@ export function createWorkflowViewStore(): WorkflowViewStore {
       selectedGlossaryId: "",
       developerDialog: {},
       developerFormState: {},
+      ocrOnly: false,
     },
     actions: {
       patch(currentState, payload = {}) {
@@ -143,6 +145,14 @@ export function createWorkflowViewFeature({
 
   function setJobWarningVisible(visible: boolean) {
     patch({ jobWarningVisible: Boolean(visible) });
+  }
+
+  function isOcrOnly() {
+    return Boolean(store.getSnapshot().ocrOnly);
+  }
+
+  function setOcrOnly(value: boolean | unknown) {
+    patch({ ocrOnly: Boolean(value) });
   }
 
   // ---- features/workflow/view.js 镜像 ----
@@ -294,6 +304,8 @@ export function createWorkflowViewFeature({
   return {
     patch,
     selectedGlossaryId,
+    isOcrOnly,
+    setOcrOnly,
     setJobWarningVisible,
     setSelectedGlossaryId,
     setSubmitBusy,

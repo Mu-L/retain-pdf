@@ -20,6 +20,7 @@ from runtime.pipeline.render_preprocess import start_ocr_render_preprocess
 from services.document_schema import adapt_path_to_document_v1_with_report
 from services.document_schema import DOCUMENT_SCHEMA_REPORT_FILE_NAME
 from services.document_schema import validate_saved_document_path
+from services.document_schema.markdown_fallback import materialize_document_markdown_fallback
 from services.document_schema.provider_adapters.paddle.content_extract import build_lines as build_paddle_lines
 from services.document_schema.provider_adapters.paddle.content_extract import tighten_text_bbox as tighten_paddle_text_bbox
 from services.document_schema.reporting import build_normalization_summary
@@ -85,6 +86,7 @@ def _args_from_spec(spec: ProviderStageSpec) -> SimpleNamespace:
     provider_token = resolve_credential_ref(spec.ocr.credential_ref)
     ocr_options = dict(spec.ocr.options or {})
     return SimpleNamespace(
+        workflow=spec.job.workflow,
         provider=provider,
         file_url=spec.source.file_url,
         file_path=str(spec.source.file_path or ""),
@@ -233,15 +235,40 @@ def run_paddle_to_job_dir(args: SimpleNamespace) -> tuple[Path, Path, Path, Path
 def run_paddle_provider(args: SimpleNamespace) -> OcrProviderResult:
     _job_root, source_pdf_path, provider_result_json_path, normalized_json_path = run_paddle_to_job_dir(args)
     normalized_report_json_path = normalized_json_path.with_name(DOCUMENT_SCHEMA_REPORT_FILE_NAME)
+    provider_payload = json.loads(provider_result_json_path.read_text(encoding="utf-8"))
+    meta = dict(provider_payload.get("_meta") or {}) if isinstance(provider_payload, dict) else {}
+    cli_raw_payload = str(meta.get("cliRawPayload", "") or "").strip()
+    cli_resources = str(meta.get("cliResources", "") or "").strip()
+    raw_main_payload_path = Path(cli_raw_payload) if cli_raw_payload else provider_result_json_path
+    provider_raw_dir = raw_main_payload_path.parent if cli_raw_payload else provider_result_json_path.parent / "paddle_raw"
     return OcrProviderResult(
         job_dirs=job_dirs_from_explicit_args(args),
         source_pdf_path=source_pdf_path,
         provider_result_json_path=provider_result_json_path,
         normalized_json_path=normalized_json_path,
         normalized_report_json_path=normalized_report_json_path,
-        provider_raw_dir=provider_result_json_path.parent / "paddle_raw",
-        raw_main_payload_path=provider_result_json_path,
+        provider_raw_dir=provider_raw_dir,
+        raw_main_payload_path=raw_main_payload_path,
+        image_dir=Path(cli_resources) if cli_resources else None,
     )
+
+
+def _schema_validation_for_summary(
+    *,
+    normalized_json_path: Path,
+    normalization_report_path: Path,
+) -> dict:
+    """Keep transport-level completeness semantics in the public summary."""
+
+    structural_validation = validate_saved_document_path(normalized_json_path)
+    try:
+        report = json.loads(normalization_report_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return structural_validation
+    report_validation = report.get("validation") if isinstance(report, dict) else None
+    if not isinstance(report_validation, dict):
+        return structural_validation
+    return {**structural_validation, **report_validation}
 
 
 def _finish_ocr_only_provider_job(
@@ -255,7 +282,14 @@ def _finish_ocr_only_provider_job(
     provider: str,
     stage_spec_schema_version: str,
 ) -> None:
-    validation = validate_saved_document_path(normalized_json_path)
+    validation = _schema_validation_for_summary(
+        normalized_json_path=normalized_json_path,
+        normalization_report_path=normalization_report_path,
+    )
+    markdown_path = materialize_document_markdown_fallback(
+        normalized_json_path=normalized_json_path,
+        job_root=job_dirs.root,
+    )
     summary_path = job_dirs.artifacts_dir / PIPELINE_SUMMARY_FILE_NAME
     save_json(
         summary_path,
@@ -265,6 +299,7 @@ def _finish_ocr_only_provider_job(
             "layout_json": str(layout_json_path),
             "normalized_document_json": str(normalized_json_path),
             "normalization_report_json": str(normalization_report_path),
+            "markdown": str(markdown_path) if markdown_path is not None else "",
             "schema_validation": validation,
             "events_jsonl": str(event_writer.path),
             "invocation": build_stage_invocation_metadata(
@@ -297,6 +332,13 @@ def _finish_ocr_only_provider_job(
         stage="saving",
         message="标准化报告已发布",
     )
+    if markdown_path is not None:
+        emit_artifact_published(
+            artifact_key="markdown_raw",
+            path=markdown_path,
+            stage="saving",
+            message="Markdown 已发布",
+        )
     emit_artifact_published(
         artifact_key="pipeline_summary_json",
         path=summary_path,

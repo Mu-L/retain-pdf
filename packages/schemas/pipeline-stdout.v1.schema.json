@@ -1,5 +1,6 @@
 {
-  "$id": "retainpdf.contracts.pipeline-stdout.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "retainpdf/contracts/pipeline-stdout/v1",
   "title": "rust_api ↔ pipeline workers stdout 行协议",
   "description": "rust_api 逐行解析 pipeline 子进程 stdout 来驱动任务状态机。本文件是该行协议的单一真值：生产者（backend/pipeline 各 worker）与消费者（rust_api job_runner/stdout_parser）各配一侧锁测试，改协议必须先改这里、两端测试同步变绿。行分五类：带标签工件行、结构化 artifact_published JSONL 事件、指标行、provider 状态行、阶段前缀行。",
   "labeled_line_format": "<label>: <value>",
@@ -48,8 +49,9 @@
       "events_jsonl": ["pipeline_events_jsonl"]
     },
     "example": "{\"event_type\": \"artifact_published\", \"payload\": {\"artifact_key\": \"output_pdf\", \"path\": \"/data/jobs/j1/out.pdf\"}}",
-    "emit_only_keys": {
-      "translation_diagnostics_json": "rust 经 storage_paths::resolve_translation_diagnostics 按约定解析路径，不消费此事件",
+  "emit_only_keys": {
+    "markdown_raw": "rust 经 storage_paths::ARTIFACT_KEY_MARKDOWN_RAW 与约定 md/full.md 解析，不写入 JobArtifacts 字段",
+    "translation_diagnostics_json": "rust 经 storage_paths::resolve_translation_diagnostics 按约定解析路径，不消费此事件",
       "translation_debug_index_json": "rust 经 storage_paths::resolve_translation_debug_index 按约定解析路径，不消费此事件",
       "translation_review_json": "翻译审阅工件，rust 不消费；仅记录于 pipeline_events.jsonl 供检视"
     }

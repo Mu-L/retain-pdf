@@ -21,6 +21,8 @@ export type ReaderFloatShellProps = {
   className?: string;
   /** 默认宽（px），会 min 到视口 */
   width?: number;
+  /** dock-right 用于 PDF / Markdown 等稳定双栏，不启用拖拽定位。 */
+  placement?: "floating" | "dock-right";
   onClose: () => void;
   toolbar?: ReactNode;
   children: ReactNode;
@@ -81,10 +83,12 @@ export function ReaderFloatShell({
   ariaLabel,
   className = "",
   width = 360,
+  placement = "floating",
   onClose,
   toolbar,
   children,
 }: ReaderFloatShellProps) {
+  const docked = placement === "dock-right";
   const [pos, setPos] = useState<PanelPos>(() => loadPos(storageKey, width));
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef<{
@@ -97,16 +101,16 @@ export function ReaderFloatShell({
   } | null>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || docked) return;
     setPos((p) => clampPos(p.x, p.y, width));
-  }, [open, width]);
+  }, [docked, open, width]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || docked) return;
     const onResize = () => setPos((p) => clampPos(p.x, p.y, width));
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [open, width]);
+  }, [docked, open, width]);
 
   useEffect(() => {
     if (!open) return;
@@ -122,6 +126,7 @@ export function ReaderFloatShell({
   }, [open, onClose]);
 
   const onPointerDown = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    if (docked) return;
     if (event.button !== 0) return;
     if ((event.target as HTMLElement)?.closest?.("button")) return;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -134,7 +139,7 @@ export function ReaderFloatShell({
       moved: false,
     };
     setDragging(true);
-  }, [pos.x, pos.y]);
+  }, [docked, pos.x, pos.y]);
 
   const onPointerMove = useCallback((event: ReactPointerEvent<HTMLElement>) => {
     const drag = dragRef.current;
@@ -170,8 +175,8 @@ export function ReaderFloatShell({
   return (
     <aside
       id={id}
-      className={`reader-notes-panel reader-notes-panel--float${dragging ? " is-dragging" : ""} ${className}`.trim()}
-      style={{ left: pos.x, top: pos.y, width: Math.min(width, typeof window !== "undefined" ? window.innerWidth - 24 : width) }}
+      className={`reader-notes-panel reader-notes-panel--${docked ? "docked" : "float"}${dragging ? " is-dragging" : ""} ${className}`.trim()}
+      style={docked ? undefined : { left: pos.x, top: pos.y, width: Math.min(width, typeof window !== "undefined" ? window.innerWidth - 24 : width) }}
       aria-label={ariaLabel}
       role="dialog"
       aria-modal="false"
@@ -183,9 +188,11 @@ export function ReaderFloatShell({
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
       >
-        <div className="reader-notes-panel-drag" aria-hidden="true">
-          <GripHorizontal size={14} strokeWidth={2.25} />
-        </div>
+        {docked ? null : (
+          <div className="reader-notes-panel-drag" aria-hidden="true">
+            <GripHorizontal size={14} strokeWidth={2.25} />
+          </div>
+        )}
         <div className="reader-notes-panel-head-text">
           <strong>
             {titleIcon}

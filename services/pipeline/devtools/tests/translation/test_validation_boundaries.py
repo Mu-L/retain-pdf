@@ -9,6 +9,7 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 from services.translation.llm.shared import cache
+from services.translation.core import engine_identity
 from services.translation.llm.validation.protocol_shell import looks_like_protocol_shell_output
 
 
@@ -36,15 +37,15 @@ def test_translation_cache_hash_includes_all_active_prompt_files() -> None:
         mode="sci",
     )
 
-    original_load_prompt = cache.load_prompt
+    original_load_prompt = engine_identity.load_prompt
 
     def fake_load_prompt(name: str) -> str:
         text = original_load_prompt(name)
-        if name in cache.TRANSLATION_PROMPT_FILES:
+        if name in engine_identity.TRANSLATION_PROMPT_FILES:
             return f"{text}\nCACHE TEST MUTATION {name}"
         return text
 
-    with mock.patch.object(cache, "load_prompt", side_effect=fake_load_prompt):
+    with mock.patch.object(engine_identity, "load_prompt", side_effect=fake_load_prompt):
         cache._PROMPT_HASHES.clear()
         after = cache.cache_key_for_item(
             item,

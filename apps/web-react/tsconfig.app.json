@@ -9,11 +9,7 @@
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@retainpdf/api": ["../../packages/api/src/index.ts"],
-      "@retainpdf/api/*": ["../../packages/api/src/*"],
-      "@retainpdf/domain": ["../../packages/domain/src/index.ts"],
-      "@retainpdf/domain/*": ["../../packages/domain/src/*"]
+      "@/*": ["./src/*"]
     },
 
     /* Bundler mode */

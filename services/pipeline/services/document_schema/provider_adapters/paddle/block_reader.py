@@ -7,6 +7,8 @@ from services.document_schema.provider_adapters.common import normalize_bbox
 from services.document_schema.provider_adapters.paddle.content_extract import build_lines
 from services.document_schema.provider_adapters.paddle.content_extract import build_segments
 from services.document_schema.provider_adapters.paddle.content_extract import tighten_text_bbox
+from services.document_schema.provider_adapters.paddle.content_extract import inherit_missing_segment_bboxes
+from services.document_schema.provider_adapters.paddle.content_extract import assign_inline_formula_bboxes
 from services.document_schema.provider_adapters.paddle.context import PaddleBlockContext
 from services.document_schema.provider_adapters.paddle.context import PaddlePageContext
 from services.document_schema.provider_adapters.paddle.page_trace import attach_layout_trace
@@ -70,7 +72,12 @@ _TEXT_ROLE_BY_SUBTYPE = {
     ),
     "caption": PaddleTextRoleRule(layout_role="caption", structure_role="caption"),
     "image_caption": PaddleTextRoleRule(layout_role="caption", structure_role="caption"),
-    "table_caption": PaddleTextRoleRule(layout_role="caption", structure_role="caption"),
+    "table_caption": PaddleTextRoleRule(
+        layout_role="caption",
+        structure_role="table_caption",
+        translate=True,
+        translate_reason="provider_caption_whitelist:table_caption",
+    ),
     "code_caption": PaddleTextRoleRule(structure_role="caption"),
     "footnote": PaddleTextRoleRule(layout_role="footnote", structure_role="footnote"),
     "image_footnote": PaddleTextRoleRule(
@@ -150,6 +157,8 @@ def _build_provenance(*, source: dict, raw_label: str) -> dict:
         "raw_label": raw_label,
         "raw_sub_type": str(source.get("raw_sub_type", "") or ""),
         "raw_bbox": list(source.get("raw_bbox", [0, 0, 0, 0]) or [0, 0, 0, 0]),
+        "raw_unit": str(source.get("raw_unit", "px") or "px"),
+        "raw_origin": str(source.get("raw_origin", "top_left") or "top_left"),
         "raw_path": str(source.get("raw_path", "") or ""),
     }
 
@@ -207,6 +216,7 @@ def build_block_metadata(
         metadata=metadata,
         raw_label=block_context["raw_label"],
         text=block_context["text"],
+        bbox=block_context["bbox"],
         markdown_images=block_context["page"]["markdown_images"],
         markdown_text=block_context["page"]["markdown_text"],
     )
@@ -235,6 +245,15 @@ def build_block_spec(
         sub_type=sub_type,
     )
     segments = build_segments(block_context["text"], block_context["raw_label"])
+    formula_bbox_trace = assign_inline_formula_bboxes(
+        segments=segments,
+        # Match against the final canonical block rectangle.  The provider
+        # rectangle may be larger than the text rectangle after conservative
+        # tightening; accepting a formula outside the final block would make
+        # the document geometry internally inconsistent.
+        block_bbox=bbox,
+        layout_box_lookup=page_context["layout_box_lookup"],
+    )
     lines = build_lines(
         bbox=bbox,
         segments=segments,
@@ -243,17 +262,21 @@ def build_block_spec(
         block_type=block_type,
         sub_type=sub_type,
     )
+    inherit_missing_segment_bboxes(bbox=bbox, segments=segments, lines=lines)
     explicit_line_texts = [line.strip() for line in block_context["text"].splitlines() if line.strip()]
     line_texts = explicit_line_texts if len(explicit_line_texts) >= 2 else line_texts_from_lines(lines)
     metadata = build_block_metadata(
         block_context=block_context,
         kind_metadata=kind_metadata,
     )
+    metadata.update(formula_bbox_trace)
     source = build_source(
         block=block_context["block"],
         page_index=page_context["page_index"],
         raw_label=block_context["raw_label"],
-        bbox=bbox,
+        # Provenance must preserve the provider rectangle, even when the
+        # canonical text bbox is tightened for rendering/selection.
+        bbox=block_context["bbox"],
         text=block_context["text"],
         order=order,
     )

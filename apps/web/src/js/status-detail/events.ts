@@ -1,5 +1,5 @@
 import { escapeHtml, formatEventTimestamp } from "./utils.js";
-import { normalizedStageEventRecord } from "../job-status/job-stage-event-record.js";
+import { normalizedStageEventRecord } from "@retainpdf/domain/job-status";
 
 function eventBadgeTone(item) {
   if (item.level === "error" || item.event === "failure_classified" || item.event === "job_terminal") {

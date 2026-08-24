@@ -1,8 +1,10 @@
 import importlib.util
 import copy
+import json
 import sys
 import threading
 import time
+import tempfile
 import types
 import unittest
 from pathlib import Path
@@ -16,6 +18,7 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 from foundation.shared.structured_errors import classify_exception
 from services.translation.artifacts import TranslationRunDiagnostics
+from services.translation.artifacts import TranslationRequestJournal
 from services.translation.artifacts import classify_provider_family
 from services.translation.artifacts import infer_stage_from_request_label
 from services.translation.artifacts import translation_run_diagnostics_scope
@@ -58,6 +61,11 @@ class _FakeResponse:
         return self._payload
 
 
+class _FakeSession:
+    def post(self, *args, **kwargs):
+        return _FakeResponse({"choices": [{"message": {"content": "ok"}}]})
+
+
 class _SchemaRejectingResponse:
     status_code = 400
     url = "https://example.com/v1/chat/completions"
@@ -95,6 +103,17 @@ class _DnsRetryingSession:
                 "'api.deepseek.com' ([Errno -3] Temporary failure in name resolution)\"))"
             )
         return _FakeResponse({"choices": [{"message": {"content": "ok"}}]})
+
+
+class _TransportRecoverySession:
+    def __init__(self):
+        self.calls = 0
+
+    def post(self, *args, **kwargs):
+        self.calls += 1
+        if self.calls < 3:
+            raise requests.ConnectionError("network temporarily unavailable")
+        return _FakeResponse({"choices": [{"message": {"content": "recovered"}}]})
 
 
 class _SchemaFallbackSession:
@@ -281,6 +300,84 @@ class TranslationRunDiagnosticsTests(unittest.TestCase):
         self.assertEqual(summary["request_counts"]["succeeded_attempts"], 1)
         self.assertEqual(summary["retry_summary"]["max_http_attempt"], 2)
         self.assertEqual(summary["adaptive_concurrency"]["current_limit"], 16)
+
+    def test_request_chat_content_persists_dispatch_and_terminal_without_secrets(self):
+        deepseek_client = load_deepseek_client()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            journal_path = Path(temp_dir) / "translation-request-journal.v1.jsonl"
+            journal = TranslationRequestJournal(journal_path, attempt_id="attempt-a")
+            run = TranslationRunDiagnostics(
+                provider_family="deepseek_official",
+                model="deepseek-chat",
+                base_url="https://api.deepseek.com/v1",
+                configured_workers=1,
+                configured_batch_size=1,
+                configured_classify_batch_size=1,
+                request_journal=journal,
+            )
+            with translation_run_diagnostics_scope(run):
+                with patch.object(deepseek_client, "get_session", return_value=_FakeSession()):
+                    content = deepseek_client.request_chat_content(
+                        [{"role": "user", "content": "raw secret prompt"}],
+                        api_key="sk-sensitive-api-key",
+                        model="deepseek-chat",
+                        base_url="https://api.deepseek.com/v1",
+                        request_label="safe-label",
+                        max_attempts=1,
+                    )
+            journal.close()
+            persisted = journal_path.read_text()
+            events = [json.loads(line) for line in persisted.splitlines()]
+            self.assertEqual(content, "ok")
+            self.assertEqual([event["event"] for event in events], ["dispatch", "terminal"])
+            self.assertEqual(events[-1]["outcome"], "succeeded")
+            self.assertNotIn("raw secret prompt", persisted)
+            self.assertNotIn("sk-sensitive-api-key", persisted)
+            self.assertNotIn("safe-label", persisted)
+
+    def test_request_chat_content_uses_bounded_transport_recovery_budget(self):
+        deepseek_client = load_deepseek_client()
+        session = _TransportRecoverySession()
+        recovery_env = {
+            "RETAIN_TRANSLATION_TRANSPORT_RECOVERY_ATTEMPTS": "3",
+            "RETAIN_TRANSLATION_TRANSPORT_RECOVERY_SECONDS": "60",
+        }
+        with patch.dict(deepseek_client.os.environ, recovery_env, clear=False):
+            with patch.object(deepseek_client, "get_session", return_value=session):
+                with patch.object(deepseek_client, "_drop_session", return_value=None):
+                    with patch.object(deepseek_client.time, "sleep", return_value=None):
+                        content = deepseek_client.request_chat_content(
+                            [{"role": "user", "content": "hello"}],
+                            api_key="token",
+                            model="deepseek-chat",
+                            base_url="https://api.deepseek.com/v1",
+                            timeout=120,
+                            request_label="transport-recovery-test",
+                            max_attempts=1,
+                        )
+        self.assertEqual(content, "recovered")
+        self.assertEqual(session.calls, 3)
+
+    def test_transport_recovery_budget_can_be_disabled(self):
+        deepseek_client = load_deepseek_client()
+        session = _TransportRecoverySession()
+        recovery_env = {
+            "RETAIN_TRANSLATION_TRANSPORT_RECOVERY_ATTEMPTS": "4",
+            "RETAIN_TRANSLATION_TRANSPORT_RECOVERY_SECONDS": "0",
+        }
+        with patch.dict(deepseek_client.os.environ, recovery_env, clear=False):
+            with patch.object(deepseek_client, "get_session", return_value=session):
+                with self.assertRaises(requests.ConnectionError):
+                    deepseek_client.request_chat_content(
+                        [{"role": "user", "content": "hello"}],
+                        api_key="token",
+                        model="deepseek-chat",
+                        base_url="https://api.deepseek.com/v1",
+                        timeout=120,
+                        request_label="transport-recovery-disabled-test",
+                        max_attempts=1,
+                    )
+        self.assertEqual(session.calls, 1)
 
     def test_deepseek_session_pool_uses_small_per_thread_pool(self):
         deepseek_client = load_deepseek_client()

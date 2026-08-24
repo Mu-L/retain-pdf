@@ -153,7 +153,7 @@
 
 其中：
 
-- `ocr/unpacked/` 或 provider raw 目录保留 OCR provider 原始产物；MinerU 常见为 `layout.json`，Paddle 常见为 `paddle_result.json` / `paddle_raw`
+- `ocr/unpacked/` 或 provider raw 目录保留 OCR provider 原始产物；MinerU 常见为 `layout.json`，Paddle HTTP 常见为 `paddle_result.json` / `paddle_raw`，可选 CLI transport 保存在 `ocr/paddle_cli/run-*/`
 - `ocr/normalized/document.v1.json` 是当前翻译/渲染主链路使用的统一 OCR 输入
 - `ocr/normalized/document.v1.report.json` 记录 adapter/provider 探测、defaults 默认补齐和 schema 校验摘要
 - `translated/translation-manifest.json` 与其引用的逐页 payload 是翻译阶段正式产物
@@ -213,6 +213,49 @@
 - `services/translation/from_ocr_pipeline.py` -> `book.stage.v1`
 - `entrypoints/run_book.py` -> `book.stage.v1`
 
+历史任务需要按当前转换规则重建 `document.v1.json` 时，使用同一条 normalize
+构建链路的回填工具：
+
+```bash
+# 默认只读检查；输出哪些任务会变化，不写任务目录或数据库
+python services/pipeline/devtools/backfill_normalized_documents.py \
+  --jobs-root data/jobs \
+  --require-complete \
+  --report /tmp/normalized-backfill-dry-run.json
+
+# 先限定一个 succeeded 任务写入；document/report 成对备份回滚，
+# Markdown 只在缺失时生成，FTS 使用自己的 SQLite transaction
+python services/pipeline/devtools/backfill_normalized_documents.py \
+  --jobs-root data/jobs \
+  --job-id <job-id> \
+  --require-complete \
+  --write \
+  --report /tmp/normalized-backfill-write.json
+```
+
+安全约定：
+
+- 没有 `--write` 时永远不改 `data/jobs` 或 `jobs.db`
+- 工具只使用已下载的 provider payload 和本地产物，不调用 Paddle、其他 OCR 服务或 LLM
+- 默认只处理数据库中 `succeeded` 的任务；failed/running/orphan 必须显式传
+  `--include-non-succeeded`，数据库缺失时也只允许 dry-run
+- 只有校验通过且（启用 `--require-complete` 时）无完整性警告才写入
+- `document.v1.json` 与 report 在写入前成对备份；任一写失败都会恢复旧版本
+- 已存在的 `md/full.md` 被视为 provider 权威产物，永不覆盖；只有缺失时才调用
+  `materialize_document_markdown_fallback`
+- `translation-manifest.json` 使用正式 loader 校验 schema、相对路径、引用文件和 JSON array；
+  缺失或损坏但仍有逐页翻译 payload 时标记 `incomplete`，绝不猜测补写 manifest
+- Reader regions 和 PDF metadata 是 Rust API 请求时即时派生的 view，没有独立文件可回填；
+  CLI 只验证 document bbox、manifest page payload 和 source PDF 是否足以派生
+- 只刷新 `documents.active_job_id` 对应任务的 FTS；历史非 active job 不覆盖当前索引
+- FTS 使用独立 SQLite transaction；它不与 document/Markdown 文件写入宣称跨介质原子性，
+  失败会在单任务结果中单独报告，整次批处理最后汇总失败任务
+- `--skip-fts` 可显式跳过数据库刷新；数据库不存在时仍可 dry-run，写入则必须显式传
+  `--include-non-succeeded` 表明接受未注册任务风险
+- Paddle 旧 JSONL 的 `dataInfo` 完整性推断会写入报告，但工具不修改 provider raw；
+  official CLI `doc_parsing` 的 page-only geometry 也继续保持 `complete=false`
+- `--report` 必须放在 jobs root 之外，避免运维报告覆盖 provider raw 或任务产物
+
 也就是说，当前“最上层整个流程”的真实执行口径是：
 
 - 本地：`run_book.py --spec .../book.spec.json`
@@ -234,13 +277,13 @@
 修改依赖后统一执行：
 
 ```bash
-python backend/pipeline/devtools/sync_python_requirements.py --repo-root .
+python services/pipeline/devtools/sync_python_requirements.py --repo-root .
 ```
 
 只检查是否漂移：
 
 ```bash
-python backend/pipeline/devtools/sync_python_requirements.py --repo-root . --check
+python services/pipeline/devtools/sync_python_requirements.py --repo-root . --check
 ```
 
 兼容说明：
@@ -276,8 +319,8 @@ python backend/pipeline/devtools/sync_python_requirements.py --repo-root . --che
 
 日常改动建议至少跑这两条：
 
-- `python3 backend/rust_api/scripts/check_architecture.py`
-- `python3 backend/pipeline/devtools/check_pipeline_architecture.py`
+- `python3 services/api/scripts/check_architecture.py`
+- `PYTHONPATH=services/pipeline python3 services/pipeline/devtools/check_pipeline_architecture.py`
 
 第二条负责卡住 Python 主链最容易回退的边界：
 

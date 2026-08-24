@@ -179,6 +179,74 @@ provider 层产物一旦落盘，下一步只做一件事：
 5. 补 fixture 和回归
 6. 最后才允许进入 translation/rendering 主线
 
+## PaddleOCR 官方 HTTP / 可选 CLI transport
+
+PaddleOCR 3.7 同时提供 CLI、Python SDK 和它们底层共同使用的官方 HTTP API。
+RetainPDF 选择直接调用官方 HTTP API：
+
+- 提交：`POST /api/v2/ocr/jobs`
+- 查询：`GET /api/v2/ocr/jobs/{jobId}`
+- 结果：下载任务返回的 JSONL
+
+默认 transport 仍是 `official_http`。它保留官方 JSONL 的完整 page object，
+因此仍是需要块级 bbox、Reader region、AI 引用定位和翻译渲染时的正式路径。
+
+轻量 transport 位于 `paddle_api.py`。它不重组每一页，而是完整保留 JSONL
+中的原始 page object，再交给当前 adapter 消费：
+
+- `layoutParsingResults`
+- `dataInfo`
+- `prunedResult`、Markdown、图片/导出资源和未知的 provider 扩展字段
+- `_meta.source = paddle_jsonl`
+
+transport 的正式名称为 `official_http`，也是默认值。旧 stage spec 中的
+`legacy` 会继续映射到同一实现：
+
+```json
+{
+  "transport": "official_http"
+}
+```
+
+`official_cli` 是显式 opt-in 的 OCR-only 适配器。它用受控 subprocess 调用
+外部安装的 `paddleocr api`：`shell=False`、固定 job 输出目录、双层超时，
+token 只通过子进程的 `PADDLEOCR_ACCESS_TOKEN` 环境变量传递，不进入 argv 或日志。
+基础 Python 依赖仍不安装 `paddleocr` / `paddlex`。
+
+```json
+{
+  "transport": "official_cli",
+  "cli_model_type": "doc_parsing",
+  "cli_request_timeout": 300,
+  "cli_poll_timeout": 1800,
+  "cli_timeout": 2130
+}
+```
+
+CLI 原始 JSON、stdout/stderr 与 `--save_resources` 下载内容保存在
+`ocr/paddle_cli/run-*/`；转换后的 `ocr/result.json` 再进入现有 Paddle
+`document_schema` adapter，并复用 OCR-only Markdown fallback。
+
+必须注意 CLI 的公开 JSON 契约比 HTTP JSONL 窄：
+
+- `doc_parsing` 只导出 Markdown/图片，不导出内部 `prunedResult`。RetainPDF
+  只会把文本标成 `geometry_precision=page_bbox`，表示“位于本页”，绝不宣称
+  是精确块框。
+- 需要真实文本行 bbox 时，可显式使用 `cli_model_type=ocr`，同时把
+  `paddle_model` 设为 `PP-OCRv6`（或 CLI 支持的其他 PP-OCR 模型）；此时
+  `rec_boxes`/`rec_polys` 会转换为 `document.v1` block bbox。
+- `official_cli` 会拒绝 book/translate workflow，避免页级粗定位悄悄进入
+  翻译和 PDF 渲染。此类任务必须继续使用 `official_http`。
+
+可用 `RETAIN_PADDLE_CLI_PATH` 指定外部 CLI，`RETAIN_PADDLE_CLI_TIMEOUT_SECONDS`
+设置总超时。不要把这些配置理解为新的 provider；它仍是 `paddle` 内部 transport。
+
+生产依赖不安装 `paddleocr`/`paddlex`。2026-08-22 本机测得最小独立 CLI
+环境约 384 MB，其中约 173 MB 来自 OpenCV。相同的一页合成 PDF A/B 中，
+轻量 HTTP 与官方 SDK 返回的 `layoutParsingResults`、`dataInfo` 完全相等；
+两份 `document.v1` 也仅在 `source.raw_files.source_json` 的测试文件名上不同。
+因此没有必要为了云端 API 客户端把 OCR 图像处理依赖装进服务镜像。
+
 如果第 4 步之前就让 provider 原始 JSON 进入主流程，后面一定继续耦合。
 
 ## 对 MinerU 文档的工程化结论

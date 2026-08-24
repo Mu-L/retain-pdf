@@ -8,6 +8,7 @@ use serde::Serialize;
 
 use crate::error::AppError;
 use crate::models::api::ApiResponse;
+use crate::routes::common::build_fonts_route_deps;
 use crate::AppState;
 
 #[derive(Debug, Clone, Serialize)]
@@ -80,10 +81,15 @@ fn family_from_filename(path: &Path) -> String {
         .unwrap_or_default()
         .to_string();
     // Strip style suffix like -Bold, -Regular etc.
-    let style_re = ["-Bold", "-Regular", "-Medium", "-Light", "-Heavy", "-Thin", "-Black"];
+    let style_re = [
+        "-Bold", "-Regular", "-Medium", "-Light", "-Heavy", "-Thin", "-Black",
+    ];
     let mut base = stem.clone();
     for suffix in style_re {
-        if base.to_ascii_lowercase().ends_with(&suffix.to_ascii_lowercase()) {
+        if base
+            .to_ascii_lowercase()
+            .ends_with(&suffix.to_ascii_lowercase())
+        {
             base = base[..base.len() - suffix.len()].to_string();
             break;
         }
@@ -146,7 +152,12 @@ fn scan_fonts(dirs: &[PathBuf]) -> Vec<FontInfo> {
                 if family_part.is_empty() || file_part.is_empty() {
                     continue;
                 }
-                let family = family_part.split(',').next().unwrap_or(family_part).trim().to_string();
+                let family = family_part
+                    .split(',')
+                    .next()
+                    .unwrap_or(family_part)
+                    .trim()
+                    .to_string();
                 for d in dirs {
                     if file_part.starts_with(d.to_string_lossy().as_ref()) {
                         family_to_files
@@ -166,7 +177,10 @@ fn scan_fonts(dirs: &[PathBuf]) -> Vec<FontInfo> {
             continue;
         }
         // Walk recursively (non-recursive walk if deeply nested, but use walkdir)
-        let walker = walkdir::WalkDir::new(dir).max_depth(4).into_iter().filter_map(|e| e.ok());
+        let walker = walkdir::WalkDir::new(dir)
+            .max_depth(4)
+            .into_iter()
+            .filter_map(|e| e.ok());
         for entry in walker {
             let path = entry.path();
             if !path.is_file() {
@@ -236,7 +250,8 @@ fn scan_fonts(dirs: &[PathBuf]) -> Vec<FontInfo> {
 pub async fn list_fonts(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<Vec<FontInfo>>>, AppError> {
-    let dirs = resolve_font_dirs(&state.config.project_root, &state.config.data_root);
+    let deps = build_fonts_route_deps(&state);
+    let dirs = resolve_font_dirs(deps.project_root, deps.data_root);
     let fonts = scan_fonts(&dirs);
     Ok(Json(ApiResponse::ok(fonts)))
 }
@@ -268,7 +283,8 @@ pub async fn upload_font(
         }
     }
 
-    let filename = file_name.ok_or_else(|| AppError::bad_request("missing multipart field: file"))?;
+    let filename =
+        file_name.ok_or_else(|| AppError::bad_request("missing multipart field: file"))?;
     let bytes = file_bytes.ok_or_else(|| AppError::bad_request("empty upload"))?;
 
     // Validate extension
@@ -290,13 +306,17 @@ pub async fn upload_font(
         .and_then(|n| n.to_str())
         .unwrap_or("upload.otf")
         .replace(['/', '\\'], "_");
-    let data_fonts_dir = state.config.data_root.join("fonts");
+    let deps = build_fonts_route_deps(&state);
+    let data_fonts_dir = deps.data_root.join("fonts");
     std::fs::create_dir_all(&data_fonts_dir).map_err(|e| AppError::internal(e.to_string()))?;
     let dest = data_fonts_dir.join(&sanitized);
     std::fs::write(&dest, &bytes).map_err(|e| AppError::internal(e.to_string()))?;
 
     // Refresh fontconfig cache for this dir (best-effort)
-    let _ = Command::new("fc-cache").arg("-f").arg(&data_fonts_dir).output();
+    let _ = Command::new("fc-cache")
+        .arg("-f")
+        .arg(&data_fonts_dir)
+        .output();
 
     let family = family_from_file(&dest).unwrap_or_else(|| family_from_filename(&dest));
     let info = FontInfo {

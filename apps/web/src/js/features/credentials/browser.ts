@@ -24,7 +24,7 @@ import {
 import { createCredentialRuntimeEnvPort } from "./runtime-env-port.js";
 import { createCredentialUploadReadinessPort } from "./upload-readiness-port.js";
 import { savePersistedBrowserStoredConfig } from "../../config/persisted-config.js";
-import { notifyCredentialsChanged } from "@/shared/reader/ai/config.js";
+import { notifyCredentialsChanged } from "@/shared/reader/host/ai.js";
 import type {
   CredentialsFields,
   CredentialsStatePort,
@@ -104,6 +104,7 @@ export interface EnsureOcrCredentialsReadyOptions {
 export interface UpdateCredentialGateOptions {
   workflowNeedsCredentials?: () => boolean;
   workflowNeedsUpload?: () => boolean;
+  hasCredentials?: () => boolean;
   refreshSubmitControls?: () => void;
 }
 
@@ -222,7 +223,7 @@ export function mountBrowserCredentialsFeature({
   }
 
   function readCurrentCredentials() {
-    return credentialsStatePort.getCredentials?.() || readHiddenCredentialInputs();
+    return credentialsStatePort.getCredentials();
   }
 
   function syncBrowserDialogFromCredentialState() {
@@ -242,6 +243,12 @@ export function mountBrowserCredentialsFeature({
 
   function hasBrowserCredentials() {
     return Boolean(credentialsStatePort.hasComplete?.({
+      defaultPaddleToken,
+    }));
+  }
+
+  function hasOcrCredentials() {
+    return Boolean(credentialsStatePort.getOcrToken?.({
       defaultPaddleToken,
     }));
   }
@@ -301,6 +308,7 @@ export function mountBrowserCredentialsFeature({
   function updateCredentialGate({
     workflowNeedsCredentials,
     workflowNeedsUpload,
+    hasCredentials,
     refreshSubmitControls,
   }: UpdateCredentialGateOptions) {
     const uploadEnabled = workflowNeedsUpload();
@@ -318,7 +326,8 @@ export function mountBrowserCredentialsFeature({
       refreshSubmitControls();
       return;
     }
-    const show = workflowNeedsCredentials() && !hasBrowserCredentials();
+    const credentialsReady = hasCredentials?.() ?? hasBrowserCredentials();
+    const show = workflowNeedsCredentials() && !credentialsReady;
     if (!viewPort.updateCredentialGate({
       desktopMode: false,
       show,
@@ -486,6 +495,7 @@ export function mountBrowserCredentialsFeature({
     activateCredentialTab,
     ensureOcrCredentialsReady,
     hasBrowserCredentials,
+    hasOcrCredentials,
     openBrowserCredentialsDialog,
     prepareCredentialsPanels,
     refreshDeepSeekBalance,

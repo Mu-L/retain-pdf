@@ -15,7 +15,7 @@ import {
   parseGlossaryCsv as apiParseGlossaryCsv,
   updateGlossary as apiUpdateGlossary,
 } from '@retainpdf/api/glossaries'
-import { API_PREFIX } from '@retainpdf/api/internal/runtime'
+import { API_PREFIX } from '@retainpdf/api/runtime'
 
 export const glossariesKeys = {
   all: ['glossaries'] as const,

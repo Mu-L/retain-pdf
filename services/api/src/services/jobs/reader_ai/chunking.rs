@@ -179,8 +179,9 @@ mod tests {
         // ensure defaults when env unset
         with_env("RUST_API_RAG_MAX_CHUNK_CHARS", None, || {
             with_env("RUST_API_RAG_SNIPPET_CHARS", None, || {
-                let chunks =
-                    chunk_markdown("# Intro\n\nFirst paragraph.\n\nSecond paragraph.\n# Methods\nBody");
+                let chunks = chunk_markdown(
+                    "# Intro\n\nFirst paragraph.\n\nSecond paragraph.\n# Methods\nBody",
+                );
                 assert_eq!(chunks.len(), 3);
                 assert_eq!(chunks[0].title, "Intro");
                 assert_eq!(chunks[2].title, "Methods");

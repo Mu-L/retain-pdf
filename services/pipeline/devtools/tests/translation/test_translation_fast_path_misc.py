@@ -244,7 +244,9 @@ def test_long_normal_body_paragraph_does_not_fast_path_keep_origin() -> None:
 
 
 def test_translation_cache_prompt_hash_includes_plain_text_prompt_files() -> None:
-    original_load_prompt = cache.load_prompt
+    from services.translation.core import engine_identity
+
+    original_load_prompt = engine_identity.load_prompt
 
     def fake_load_prompt(name: str) -> str:
         text = original_load_prompt(name)
@@ -262,7 +264,7 @@ def test_translation_cache_prompt_hash_includes_plain_text_prompt_files() -> Non
         base_url="https://api.deepseek.com/v1",
         mode="sci",
     )
-    with mock.patch.object(cache, "load_prompt", side_effect=fake_load_prompt):
+    with mock.patch.object(engine_identity, "load_prompt", side_effect=fake_load_prompt):
         cache._PROMPT_HASHES.clear()
         after = cache.cache_key_for_item(
             item,

@@ -12,10 +12,8 @@ use super::{FileDownload, MarkdownDownload, QueryJobsDeps};
 const MARKDOWN_IMAGE_LINK_RE: &str =
     r#"!\[([^\]]*)\]\(\s*<?((?:\./)?images/[^)>\n]+)>?(?:[ \t]+(?:"[^"]*"|'[^']*'))?\s*\)"#;
 // HTML: 分单/双引号（regex crate 不支持 backref）
-const HTML_IMAGE_SRC_DQ_RE: &str =
-    r#"(?i)(<img\b[^>]*?\bsrc\s*=\s*")((?:\./)?images/[^"]+)(")"#;
-const HTML_IMAGE_SRC_SQ_RE: &str =
-    r#"(?i)(<img\b[^>]*?\bsrc\s*=\s*')((?:\./)?images/[^']+)(')"#;
+const HTML_IMAGE_SRC_DQ_RE: &str = r#"(?i)(<img\b[^>]*?\bsrc\s*=\s*")((?:\./)?images/[^"]+)(")"#;
+const HTML_IMAGE_SRC_SQ_RE: &str = r#"(?i)(<img\b[^>]*?\bsrc\s*=\s*')((?:\./)?images/[^']+)(')"#;
 
 pub(crate) async fn markdown_download(
     deps: &QueryJobsDeps<'_>,
@@ -172,7 +170,10 @@ fn absolute_markdown_image_url(raw_path: &str, job_id: &str, base_url: &str) -> 
 
 /// 归一化 markdown 图片相对路径 → 相对 images 目录的路径（不含 images/ 前缀）
 fn normalize_markdown_image_rel(raw: &str) -> String {
-    let mut path = raw.trim().trim_matches(|c| c == '<' || c == '>').to_string();
+    let mut path = raw
+        .trim()
+        .trim_matches(|c| c == '<' || c == '>')
+        .to_string();
     // 去掉可选 title：仅当 `path "title"` / `path 'title'` 时截断
     // 文件名本身可含空格（chart a.png），不能见空白就截
     if let Some(idx) = path.find(" \"") {
@@ -199,8 +200,13 @@ fn url_path_escape(path: &str) -> String {
 }
 
 fn percent_encode_path_segment(segment: &str) -> String {
+    // Provider Markdown may already contain URL-encoded filenames. Decode one
+    // layer before canonical encoding so ``chart%20a.png`` does not become
+    // ``chart%2520a.png``. Invalid escapes remain literal and are safely
+    // encoded below.
+    let decoded = percent_decode_path_segment_once(segment);
     let mut encoded = String::new();
-    for byte in segment.as_bytes() {
+    for byte in decoded.as_bytes() {
         let ch = *byte as char;
         if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.' | '~') {
             encoded.push(ch);
@@ -209,4 +215,33 @@ fn percent_encode_path_segment(segment: &str) -> String {
         }
     }
     encoded
+}
+
+fn percent_decode_path_segment_once(segment: &str) -> String {
+    let input = segment.as_bytes();
+    let mut output = Vec::with_capacity(input.len());
+    let mut index = 0;
+    while index < input.len() {
+        if input[index] == b'%' && index + 2 < input.len() {
+            if let (Some(high), Some(low)) =
+                (hex_value(input[index + 1]), hex_value(input[index + 2]))
+            {
+                output.push((high << 4) | low);
+                index += 3;
+                continue;
+            }
+        }
+        output.push(input[index]);
+        index += 1;
+    }
+    String::from_utf8(output).unwrap_or_else(|_| segment.to_string())
+}
+
+fn hex_value(value: u8) -> Option<u8> {
+    match value {
+        b'0'..=b'9' => Some(value - b'0'),
+        b'a'..=b'f' => Some(value - b'a' + 10),
+        b'A'..=b'F' => Some(value - b'A' + 10),
+        _ => None,
+    }
 }

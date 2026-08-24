@@ -1,15 +1,10 @@
 // 主页 AI 消息列表：轻量 markdown 预览 + 引用跳阅读器
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { BookOpen, FlaskConical, ListTree, Loader2, Sparkles } from "lucide-react";
 import {
-  injectCitationMarkers,
-  isAgenticCitation,
-  neutralizeMarkdownAnchors,
-  renderCitationFooter,
+  AiMarkdownAnswer,
   type AiCitationLike,
-  renderFinalAnswerHtml,
-  renderStreamingPreviewHtml,
   buildFrontendPageUrl,
 } from "../../composition/external.js";
 import { navigateToReader } from "../reader/navigate-to-reader.js";
@@ -45,7 +40,8 @@ export const HOME_ASK_SUGGESTIONS: Array<{
 function openCitation(citation: HomeAskCitation) {
   const jobId = `${citation.job_id || ""}`.trim();
   if (!jobId) return;
-  const pageIdx = Number.isFinite(Number(citation.page_idx))
+  const rawPageIdx = citation.page_idx;
+  const pageIdx = rawPageIdx !== null && rawPageIdx !== undefined && `${rawPageIdx}`.trim() !== "" && Number.isFinite(Number(rawPageIdx))
     ? Math.max(0, Math.floor(Number(citation.page_idx)))
     : undefined;
   const blockId = `${citation.block_id || ""}`.trim();
@@ -61,86 +57,21 @@ function AssistantBody({
 }: {
   message: HomeAskMessage;
 }) {
-  const rootRef = useRef<HTMLDivElement | null>(null);
   const streaming = message.status === "streaming";
   const bodyText = `${message.content || ""}`;
   const citations = (message.citations || []) as AiCitationLike[];
-  const [finalHtml, setFinalHtml] = useState<string | null>(null);
-
-  const citationByRef = useMemo(() => {
-    const map = new Map<string, AiCitationLike>();
-    for (const c of citations) {
-      if (isAgenticCitation(c)) map.set(`${c.ref}`, c);
-    }
-    return map;
-  }, [citations]);
-
-  const streamingHtml = useMemo(
-    () => (streaming && bodyText ? renderStreamingPreviewHtml(bodyText) : ""),
-    [streaming, bodyText],
+  return (
+    <AiMarkdownAnswer
+      content={bodyText}
+      streaming={streaming}
+      citations={citations}
+      className="home-ask-md"
+      streamingClassName="home-ask-md-streaming"
+      pendingClassName="home-ask-md-pending"
+      finalClassName="home-ask-md-final"
+      onJumpCitation={(citation) => openCitation(citation as HomeAskCitation)}
+    />
   );
-
-  useEffect(() => {
-    if (streaming) {
-      setFinalHtml(null);
-      return;
-    }
-    if (!bodyText.trim()) {
-      setFinalHtml("");
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const html = await renderFinalAnswerHtml(bodyText);
-        if (!cancelled) setFinalHtml(html);
-      } catch {
-        if (!cancelled) setFinalHtml(renderStreamingPreviewHtml(bodyText));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [streaming, bodyText]);
-
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root || streaming || finalHtml == null || !finalHtml) return;
-    root.innerHTML = finalHtml;
-    neutralizeMarkdownAnchors(root, { onOpen: () => true });
-    injectCitationMarkers(root, citationByRef, (c) => openCitation(c as HomeAskCitation));
-    const bubble = root.closest(".home-ask-msg-bubble");
-    if (bubble instanceof HTMLElement) {
-      renderCitationFooter(bubble, citations, {
-        onJump: (c) => openCitation(c as HomeAskCitation),
-        answerText: bodyText,
-        max: 5,
-      });
-    }
-  }, [streaming, finalHtml, citationByRef, citations, bodyText]);
-
-  if (streaming) {
-    if (!bodyText.trim()) return null;
-    return (
-      <div
-        className="home-ask-md home-ask-md-streaming"
-        // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{ __html: streamingHtml }}
-      />
-    );
-  }
-
-  if (!bodyText.trim()) return null;
-  if (finalHtml == null) {
-    return (
-      <div
-        className="home-ask-md home-ask-md-pending"
-        // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{ __html: renderStreamingPreviewHtml(bodyText) }}
-      />
-    );
-  }
-  return <div ref={rootRef} className="home-ask-md home-ask-md-final" />;
 }
 
 export type HomeAskThreadProps = {

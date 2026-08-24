@@ -1,5 +1,5 @@
 import { buildApiHeaders, isMockMode } from "../config/runtime.js";
-import { unwrapEnvelope } from "../job/core.js";
+import { unwrapEnvelope } from "@retainpdf/domain/job";
 import { currentMockScenario } from "../mock/scenario.js";
 import {
   buildLiveMockJobPayload,
@@ -10,6 +10,14 @@ import {
   getMockDocumentByJobId,
 } from "../mock/documents.js";
 import { buildJobDetailEndpoint, submitJson } from "./http.js";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function recordOf(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {};
+}
 
 export async function fetchJobDiagnostics(jobId, apiPrefix) {
   if (isMockMode()) {
@@ -106,7 +114,7 @@ export async function retryJobStage(jobId, apiPrefix, stage, payload = {}) {
   }
   if (isMockMode()) {
     // 从指定阶段起跑；务必绑回原 document，否则书架会多一张「job_id 空壳卡」
-    const bookMeta = payload && typeof payload === "object" ? payload : {};
+    const bookMeta = recordOf(payload);
     // snapshot 常缺 document_id：用源 job → 文档表反查
     const linkedDoc = getMockDocumentByJobId(jobId);
     const documentId = `${bookMeta.document_id || linkedDoc?.document_id || ""}`.trim();
@@ -121,7 +129,7 @@ export async function retryJobStage(jobId, apiPrefix, stage, payload = {}) {
     const docBound = documentId
       ? bindMockDocumentActiveJob(documentId, live.jobId, { previousJobId: jobId })
       : null;
-    const snapshot = buildLiveMockJobPayload(live.jobId) || {};
+    const snapshot = recordOf(buildLiveMockJobPayload(live.jobId));
     return {
       job_id: live.jobId,
       source_job_id: jobId,
@@ -143,12 +151,12 @@ export async function retryJobStage(jobId, apiPrefix, stage, payload = {}) {
       rerun_from_stage: normalizedStage,
     };
   }
-  const result = await submitJson(`${buildJobDetailEndpoint(jobId, apiPrefix)}/retry-stage`, {
+  const bookMeta = recordOf(payload);
+  const result = recordOf(await submitJson(`${buildJobDetailEndpoint(jobId, apiPrefix)}/retry-stage`, {
     stage: normalizedStage,
-    ...payload,
-  });
+    ...bookMeta,
+  }));
   // 真实后端不回书目字段：补上 source/document/标题，避免书架插 job_id 空壳卡
-  const bookMeta = payload && typeof payload === "object" ? payload : {};
   const nextJobId = `${result?.job_id || result?.id || jobId}`.trim();
   return {
     ...result,

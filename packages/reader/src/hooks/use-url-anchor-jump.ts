@@ -5,7 +5,7 @@
 // void resolveReaderAnchor()，等于没跳。本 hook 在 PDF 就绪且总页数可知后
 // 跳到 page_idx+1，并用短延迟重试以等页槽布局。
 //
-// block_id：react-pdf 尚无 region 层，仅做页级跳转。
+// block_id 优先由 regions 映射到页；无 region 时退化到 page_idx。
 
 import { useEffect, useRef } from "react";
 import { resolveReaderAnchor } from "../external.js";
@@ -18,8 +18,15 @@ export type UrlReaderAnchor = {
 /** page_idx (0-based) → 阅读器页码 (1-based)；无效返回 null */
 export function pageNumberFromUrlAnchor(
   anchor: UrlReaderAnchor | null | undefined,
+  resolveBlockPage?: (blockId: string) => number | null,
 ): number | null {
   if (!anchor) return null;
+  if (anchor.blockId && resolveBlockPage) {
+    const regionPage = resolveBlockPage(anchor.blockId);
+    if (regionPage != null && Number.isFinite(regionPage) && regionPage >= 1) {
+      return Math.floor(regionPage);
+    }
+  }
   // 勿 Number(null)===0，否则「仅有 block_id」会被误当成第 1 页
   if (anchor.pageIdx === null || anchor.pageIdx === undefined) return null;
   const raw = Number(anchor.pageIdx);
@@ -38,11 +45,17 @@ export function useUrlAnchorJump(options: {
   enabled: boolean;
   numPages: number;
   goToPage: (page: number) => void;
+  resolveBlockPage?: (blockId: string) => number | null;
+  onAnchorApplied?: (anchor: UrlReaderAnchor, page: number) => void;
 }) {
-  const { enabled, numPages, goToPage } = options;
+  const { enabled, numPages, goToPage, resolveBlockPage, onAnchorApplied } = options;
   const appliedKeyRef = useRef("");
   const goToPageRef = useRef(goToPage);
   goToPageRef.current = goToPage;
+  const resolveBlockPageRef = useRef(resolveBlockPage);
+  resolveBlockPageRef.current = resolveBlockPage;
+  const onAnchorAppliedRef = useRef(onAnchorApplied);
+  onAnchorAppliedRef.current = onAnchorApplied;
 
   useEffect(() => {
     if (!enabled || !Number.isFinite(numPages) || numPages < 1) {
@@ -50,11 +63,11 @@ export function useUrlAnchorJump(options: {
     }
 
     const anchor = resolveReaderAnchor() as UrlReaderAnchor | null;
-    const page = pageNumberFromUrlAnchor(anchor);
+    const page = pageNumberFromUrlAnchor(anchor, resolveBlockPageRef.current);
     // 无有效页码：视为已处理，避免后续反复读 URL
     const key = page == null
       ? `none:${anchor?.blockId || ""}`
-      : `p:${page}`;
+      : `p:${page}:b:${anchor?.blockId || ""}`;
     if (appliedKeyRef.current === key) {
       return;
     }
@@ -64,6 +77,7 @@ export function useUrlAnchorJump(options: {
     }
 
     appliedKeyRef.current = key;
+    if (anchor) onAnchorAppliedRef.current?.(anchor, page);
     const timers: ReturnType<typeof setTimeout>[] = [];
     for (const delay of JUMP_DELAYS_MS) {
       timers.push(

@@ -4,55 +4,30 @@ import hashlib
 import json
 import os
 import re
+import tempfile
 import threading
 import time
 from pathlib import Path
 
-from foundation.shared.prompt_loader import load_prompt
 from foundation.config import paths
 
+from services.translation.core.engine_identity import _PROMPT_HASHES
+from services.translation.core.engine_identity import FORMULA_SEGMENT_STRATEGY_VERSION
+from services.translation.core.engine_identity import PLAIN_TEXT_STRATEGY_VERSION
+from services.translation.core.engine_identity import TRANSLATION_POLICY_VERSION
+from services.translation.core.engine_identity import TRANSLATION_PROMPT_FILES
+from services.translation.core.engine_identity import TRANSLATION_PROTOCOL_VERSION
+from services.translation.core.engine_identity import translation_engine_identity
 from services.translation.core.payload.parts.result_entries import with_sanitized_translation
 from services.translation.llm.shared.provider_runtime import extract_single_item_translation_text
 from services.translation.llm.shared.provider_runtime import normalize_base_url
 
 
-# Cache writes need no process-wide lock: each writer uses a pid+thread-unique
-# temp file and os.replace is atomic, so concurrent writers cannot corrupt an
-# entry — the last replace simply wins.
-_PROMPT_HASHES: dict[str, str] = {}
-FORMULA_SEGMENT_STRATEGY_VERSION = "formula_segments_v2"
-PLAIN_TEXT_STRATEGY_VERSION = "plain_text_v2"
-TRANSLATION_PROTOCOL_VERSION = "translation_control_v5_no_reasoning_content"
-TRANSLATION_POLICY_VERSION = "policy_hints_v2_memory_context_v1"
+# Cache writes need no process-wide lock: each writer uses a unique temporary
+# file and os.replace is atomic, so concurrent writers cannot corrupt an entry.
+# The file and shard directory are fsynced because this cache is also the
+# finest-grained recovery layer between page checkpoint flushes.
 UNESCAPED_INLINE_DOLLAR_RE = re.compile(r"(?<!\\)\$")
-TRANSLATION_PROMPT_FILES = (
-    "translation_system.txt",
-    "translation_system_plain_text.txt",
-    "translation_task.txt",
-    "translation_task_plain_text.txt",
-    "translation_direct_typst_guidance.txt",
-    "translation_output_json.txt",
-    "translation_output_plain_text.txt",
-    "translation_output_single_json.txt",
-    "translation_output_tagged.txt",
-)
-
-
-def _prompt_hash(mode: str = "fast") -> str:
-    cache_key = mode.strip() or "fast"
-    cached = _PROMPT_HASHES.get(cache_key)
-    if cached:
-        return cached
-    digest = hashlib.sha256()
-    for prompt_name in TRANSLATION_PROMPT_FILES:
-        digest.update(f"\n--- {prompt_name} ---\n".encode("utf-8"))
-        digest.update(load_prompt(prompt_name).encode("utf-8"))
-    if cache_key == "sci":
-        digest.update(b"\n---\n")
-        digest.update(b"SCI_LOCAL_DECISION_PLAIN_TEXT_V1")
-    result = digest.hexdigest()
-    _PROMPT_HASHES[cache_key] = result
-    return result
 
 
 def _unit_source_text(item: dict) -> str:
@@ -85,6 +60,7 @@ def cache_key_for_item(
     target_lang: str = "zh-CN",
     target_language_name: str = "简体中文",
 ) -> str:
+    engine_identity = translation_engine_identity(mode=mode)
     payload = {
         "model": model.strip(),
         "base_url": normalize_base_url(base_url),
@@ -92,9 +68,7 @@ def cache_key_for_item(
         "mode": mode.strip() or "fast",
         "target_lang": (target_lang or "zh-CN").strip() or "zh-CN",
         "target_language_name": (target_language_name or "简体中文").strip() or "简体中文",
-        "prompt_hash": _prompt_hash(mode=mode),
-        "translation_protocol_version": TRANSLATION_PROTOCOL_VERSION,
-        "translation_policy_version": TRANSLATION_POLICY_VERSION,
+        **engine_identity,
         "strategy_signature": _strategy_signature(item),
         "translation_style_hint": str(item.get("translation_style_hint", "") or "").strip(),
         "translation_structure_kind": str(item.get("translation_structure_kind", "") or "").strip(),
@@ -121,6 +95,37 @@ def _ensure_shard_dir(path: Path) -> None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     _ENSURED_SHARD_DIRS.add(shard)
+
+
+def _atomic_write_cache_payload(path: Path, payload: dict[str, str]) -> None:
+    _ensure_shard_dir(path)
+    fd, temp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+        text=True,
+    )
+    temp_path = Path(temp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, path)
+        try:
+            dir_fd = os.open(path.parent, os.O_RDONLY)
+        except OSError:
+            return
+        try:
+            os.fsync(dir_fd)
+        finally:
+            os.close(dir_fd)
+    except Exception:
+        try:
+            temp_path.unlink()
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def _unit_cache_ttl_seconds() -> float:
@@ -210,9 +215,7 @@ def load_cached_translation(
             "decision": decision,
             "translated_text": translated_text,
         }
-        temp_path = path.with_name(f"{path.name}.tmp-{os.getpid()}-{threading.get_ident()}")
-        temp_path.write_text(json.dumps(healed_payload, ensure_ascii=False), encoding="utf-8")
-        temp_path.replace(path)
+        _atomic_write_cache_payload(path, healed_payload)
     return {
         "decision": decision,
         "translated_text": translated_text,
@@ -247,15 +250,12 @@ def store_cached_translation(
     )
     _prune_expired_cache_entries_once()
     path = _cache_path(cache_key)
-    _ensure_shard_dir(path)
     payload = {
         "cache_key": cache_key,
         "decision": decision,
         "translated_text": translated_text,
     }
-    temp_path = path.with_name(f"{path.name}.tmp-{os.getpid()}-{threading.get_ident()}")
-    temp_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-    temp_path.replace(path)
+    _atomic_write_cache_payload(path, payload)
 
 
 def split_cached_batch(

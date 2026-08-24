@@ -12,10 +12,17 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
-from .blocks import read_page_blocks
+from .blocks import Block, load_job_blocks, read_page_blocks
 from .config import Settings
+from .markdown import (
+    MarkdownChunk,
+    find_markdown_chunk,
+    load_markdown_chunks,
+    markdown_text_for_model,
+    search_markdown_chunks,
+)
 from .rust_client import RustApiClient
 
 # job_id 白名单：字母数字开头 + [-._] 组成，禁止路径分隔符/..。
@@ -31,30 +38,83 @@ def _safe_job_root(settings: Settings, job_id: str) -> Path | None:
     return settings.data_root / "jobs" / job_id
 
 
-def _list_markdown_image_urls(job_root: Path, job_id: str, page_idx: int, *, limit: int = 8) -> list[str]:
-    """列出该页 OCR Markdown 图片,返回可鉴权拉取的 API 相对路径。
-
-    磁盘: jobs/<job>/md/images/page-<1-based>/...
-    API:  /api/v1/jobs/<job>/markdown/images/<rel-without-images-prefix>
-    """
-    page_dir = job_root / "md" / "images" / f"page-{int(page_idx) + 1}"
-    if not page_dir.is_dir():
-        return []
-    urls: list[str] = []
-    for path in sorted(page_dir.rglob("*")):
-        if not path.is_file():
-            continue
-        if path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp"}:
-            continue
-        try:
-            rel = path.relative_to(job_root / "md" / "images").as_posix()
-        except ValueError:
-            continue
-        encoded = "/".join(quote(part, safe="") for part in rel.split("/"))
-        urls.append(f"/api/v1/jobs/{job_id}/markdown/images/{encoded}")
-        if len(urls) >= limit:
+def _markdown_asset_url(
+    job_root: Path,
+    job_id: str,
+    page_idx: int,
+    asset_id: str,
+    asset_uri: str = "",
+) -> str:
+    """Resolve one normalized asset ID to its authenticated Markdown image URL."""
+    normalized = str(asset_uri or asset_id or "").replace("\\", "/").lstrip("/")
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    for prefix in ("md/images/", "images/"):
+        if normalized.startswith(prefix):
+            normalized = normalized[len(prefix) :]
             break
+    encoded_parts = [part for part in normalized.split("/") if part]
+    try:
+        parts = [unquote(part) for part in encoded_parts]
+    except (TypeError, ValueError):
+        return ""
+    if not parts or any(
+        part in {".", ".."} or "/" in part or "\\" in part or "\x00" in part
+        for part in parts
+    ):
+        return ""
+    images_root = job_root / "md" / "images"
+    if re.fullmatch(r"page-\d+", parts[0], flags=re.IGNORECASE):
+        path = images_root / Path(*parts)
+    else:
+        # Compatibility with document.v1 <= 1.1 artifacts whose IDs were only
+        # relative to their page-local image directory.
+        path = images_root / f"page-{int(page_idx) + 1}" / Path(*parts)
+    try:
+        rel = path.resolve().relative_to(images_root.resolve()).as_posix()
+    except (OSError, ValueError):
+        return ""
+    if not path.is_file():
+        return ""
+    encoded = "/".join(quote(part, safe="") for part in rel.split("/"))
+    return f"/api/v1/jobs/{job_id}/markdown/images/{encoded}"
+
+
+def _markdown_chunk_assets(
+    job_root: Path, job_id: str, chunk: MarkdownChunk
+) -> list[dict[str, str]]:
+    assets: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for image in chunk.images:
+        url = _markdown_asset_url(job_root, job_id, 0, image.path, image.path)
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        assets.append({"image_url": url, "alt": image.alt})
+    return assets
+
+
+def _block_asset_urls(job_root: Path, job_id: str, block: Block) -> list[str]:
+    urls: list[str] = []
+    for index, asset_id in enumerate(block.asset_ids):
+        asset_uri = block.asset_uris[index] if index < len(block.asset_uris) else ""
+        url = _markdown_asset_url(
+            job_root,
+            job_id,
+            block.page_idx,
+            asset_id,
+            asset_uri,
+        )
+        if url and url not in urls:
+            urls.append(url)
     return urls
+
+
+def _canonical_block_id(value: str) -> str:
+    match = re.fullmatch(r"(p\d+)-b(\d+)", str(value or "").strip(), flags=re.IGNORECASE)
+    if match is None:
+        return str(value or "").strip()
+    return f"{match.group(1).lower()}-b{int(match.group(2)):04d}"
 
 
 @dataclass(frozen=True)
@@ -93,6 +153,111 @@ class ToolRegistry:
 
 
 def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegistry:
+    def markdown_scope(arguments: dict[str, Any]) -> tuple[str, str, Path] | dict[str, Any]:
+        document_id = str(arguments.get("document_id") or "").strip()
+        job_id = str(arguments.get("job_id") or "").strip()
+        if not job_id and document_id:
+            document = rust.get_document(document_id)
+            job_id = str(document.get("active_job_id") or "").strip()
+        if job_id:
+            document = rust.get_document_by_job(job_id)
+            if not isinstance(document, dict) or not document:
+                return {"error": "job_id does not belong to an accessible document"}
+            resolved_document_id = str(
+                document.get("document_id") or ""
+            ).strip()
+            if not resolved_document_id:
+                return {"error": "job_id is missing its document association"}
+            if document_id and resolved_document_id and document_id != resolved_document_id:
+                return {"error": "document_id and job_id do not refer to the same document"}
+            if resolved_document_id:
+                document_id = resolved_document_id
+        if not job_id:
+            return {"error": "当前文档没有可读取的 Markdown job"}
+        job_root = _safe_job_root(settings, job_id)
+        if job_root is None:
+            return {"error": f"invalid job_id: {job_id!r}"}
+        return document_id, job_id, job_root
+
+    def search_markdown(arguments: dict[str, Any]) -> dict[str, Any]:
+        query = str(arguments.get("query") or "").strip()
+        if not query:
+            return {"error": "query must not be empty"}
+        scope = markdown_scope(arguments)
+        if isinstance(scope, dict):
+            return scope
+        document_id, job_id, job_root = scope
+        chunks = load_markdown_chunks(job_root)
+        ranked = search_markdown_chunks(
+            chunks,
+            query,
+            limit=max(1, min(int(arguments.get("limit") or 8), 12)),
+        )
+        hits = []
+        for chunk, score in ranked:
+            assets = _markdown_chunk_assets(job_root, job_id, chunk)
+            hits.append({
+                "document_id": document_id,
+                "job_id": job_id,
+                "page_idx": None,
+                "block_id": chunk.chunk_id,
+                "chunk_id": chunk.chunk_id,
+                "heading": chunk.heading,
+                "char_start": chunk.char_start,
+                "char_end": chunk.char_end,
+                "source_snippet": markdown_text_for_model(chunk.text)[:1200],
+                "assets": assets,
+                "score": score,
+                "source": "markdown",
+            })
+        payload: dict[str, Any] = {
+            "document_id": document_id,
+            "job_id": job_id,
+            "hits": hits,
+        }
+        if not hits:
+            payload["hint"] = (
+                "当前 Markdown 中没有匹配片段。可换用文献中的英文术语或更短关键词；"
+                "仍无结果时请明确说明 Markdown 未提供证据。"
+            )
+        return payload
+
+    def read_markdown_chunk(arguments: dict[str, Any]) -> dict[str, Any]:
+        chunk_id = str(arguments.get("chunk_id") or "").strip()
+        if not chunk_id:
+            return {"error": "chunk_id is required"}
+        scope = markdown_scope(arguments)
+        if isinstance(scope, dict):
+            return scope
+        document_id, job_id, job_root = scope
+        chunk = find_markdown_chunk(load_markdown_chunks(job_root), chunk_id)
+        if chunk is None:
+            return {"error": f"Markdown chunk not found: {chunk_id}"}
+        max_chars = max(400, min(int(arguments.get("max_chars") or 4000), 8000))
+        return {
+            "document_id": document_id,
+            "job_id": job_id,
+            "page_idx": None,
+            # Reuse the anchored block result shape so the existing citation
+            # pipeline remains stable while its evidence is Markdown-only.
+            "blocks": [
+                {
+                    "block_id": chunk.chunk_id,
+                    "chunk_id": chunk.chunk_id,
+                    "heading": chunk.heading,
+                    "source_text": markdown_text_for_model(chunk.text)[:max_chars],
+                    "assets": _markdown_chunk_assets(job_root, job_id, chunk),
+                    "translated_text": "",
+                    "char_start": chunk.char_start,
+                    "source_text_length": len(chunk.text),
+                    "translated_text_length": 0,
+                    "source_has_more": len(chunk.text) > max_chars,
+                    "translated_has_more": False,
+                    "source": "markdown",
+                }
+            ],
+        }
+
     def search_fulltext(arguments: dict[str, Any]) -> dict[str, Any]:
         query = str(arguments.get("query") or "").strip()
         if not query:
@@ -104,21 +269,43 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
             limit=max(1, min(limit, 30)),
             document_id=document_id,
         )
-        # 给命中页挂上 Markdown 图路径,便于模型在回答里用 ![alt](url) 插图
+        # 只使用命中 block 在 document.v1 中的精确资产关系。无法解析关系时
+        # 宁可不返回图片，也不按页枚举并把同页无关图片挂到命中上。
         enriched_hits: list[dict[str, Any]] = []
+        block_cache: dict[str, dict[str, Block]] = {}
         for hit in hits:
             if not isinstance(hit, dict):
                 continue
             item = dict(hit)
             hit_job_id = str(item.get("job_id") or "").strip()
-            try:
-                hit_page = int(item.get("page_idx") or 0)
-            except (TypeError, ValueError):
-                hit_page = 0
             if hit_job_id:
                 job_root = _safe_job_root(settings, hit_job_id)
                 if job_root is not None:
-                    images = _list_markdown_image_urls(job_root, hit_job_id, hit_page, limit=4)
+                    block_map = block_cache.get(hit_job_id)
+                    if block_map is None:
+                        try:
+                            block_map = {
+                                _canonical_block_id(block.block_id): block
+                                for block in load_job_blocks(job_root)
+                            }
+                        except (OSError, ValueError, TypeError):
+                            block_map = {}
+                        block_cache[hit_job_id] = block_map
+                    block = block_map.get(_canonical_block_id(str(item.get("block_id") or "")))
+                    images: list[str] = []
+                    if block is not None:
+                        images = _block_asset_urls(job_root, hit_job_id, block)
+                        item.update(
+                            {
+                                "bbox": list(block.bbox) if block.bbox is not None else None,
+                                "bbox_unit": "pdf_point",
+                                "bbox_origin": "top_left",
+                                "block_type": block.block_type,
+                                "asset_id": block.asset_id or None,
+                                "asset_ids": list(block.asset_ids),
+                                "asset_image_urls": images,
+                            }
+                        )
                     if images:
                         item["image_urls"] = images
             enriched_hits.append(item)
@@ -192,7 +379,16 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
             around_block_id=str(arguments.get("around_block_id") or ""),
             max_blocks=int(arguments.get("max_blocks") or 12),
         )
-        image_urls = _list_markdown_image_urls(job_root, job_id, page_i, limit=8)
+        char_start = max(0, int(arguments.get("char_start") or 0))
+        char_limit = max(200, min(int(arguments.get("char_limit") or 2000), 8000))
+        block_asset_urls = {
+            block.block_id: _block_asset_urls(job_root, job_id, block) for block in blocks
+        }
+        exact_image_urls: list[str] = []
+        for block in blocks:
+            for image_url in block_asset_urls[block.block_id]:
+                if image_url not in exact_image_urls:
+                    exact_image_urls.append(image_url)
         return {
             "document_id": document_id,
             "job_id": job_id,
@@ -200,12 +396,25 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
             "blocks": [
                 {
                     "block_id": block.block_id,
-                    "source_text": block.source_text[:600],
-                    "translated_text": block.translated_text[:600],
+                    "source_text": block.source_text[char_start : char_start + char_limit],
+                    "translated_text": block.translated_text[char_start : char_start + char_limit],
+                    "char_start": char_start,
+                    "source_text_length": len(block.source_text),
+                    "translated_text_length": len(block.translated_text),
+                    "source_has_more": len(block.source_text) > char_start + char_limit,
+                    "translated_has_more": len(block.translated_text) > char_start + char_limit,
+                    "bbox": list(block.bbox) if block.bbox is not None else None,
+                    "bbox_unit": "pdf_point",
+                    "bbox_origin": "top_left",
+                    "block_type": block.block_type,
+                    "asset_id": block.asset_id or None,
+                    "asset_ids": list(block.asset_ids),
+                    "image_url": (block_asset_urls[block.block_id] or [None])[0],
+                    "asset_image_urls": block_asset_urls[block.block_id],
                 }
                 for block in blocks
             ],
-            "image_urls": image_urls,
+            "image_urls": exact_image_urls,
         }
 
     def search_favorites(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -239,6 +448,42 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
     return ToolRegistry(
         [
             Tool(
+                name="search_markdown",
+                description=(
+                    "只检索当前文档的 md/full.md，按 Markdown 标题和段落返回相关片段。"
+                    "这是回答文档内容时的唯一搜索工具；若中文无命中，请改用文献中的英文术语。"
+                ),
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "关键词、短语或英文术语"},
+                        "document_id": {"type": "string"},
+                        "job_id": {"type": "string"},
+                        "limit": {"type": "integer", "minimum": 1, "maximum": 12},
+                    },
+                    "required": ["query"],
+                },
+                handler=search_markdown,
+            ),
+            Tool(
+                name="read_markdown_chunk",
+                description=(
+                    "读取 search_markdown 返回的一个 Markdown chunk 完整上下文。"
+                    "只能读取当前文档 md/full.md 中的片段。"
+                ),
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "chunk_id": {"type": "string", "description": "例如 md-0003"},
+                        "document_id": {"type": "string"},
+                        "job_id": {"type": "string"},
+                        "max_chars": {"type": "integer", "minimum": 400, "maximum": 8000},
+                    },
+                    "required": ["chunk_id"],
+                },
+                handler=read_markdown_chunk,
+            ),
+            Tool(
                 name="list_documents",
                 description="列出图书馆中的文档(标题、标签、阅读状态)。回答涉及'哪篇文档/我的库里'时先用它确认范围。",
                 parameters={
@@ -259,7 +504,7 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
                 name="search_fulltext",
                 description=(
                     "全文检索(中英文均可),返回带 (document_id, job_id, page_idx, block_id) 锚点的命中片段;"
-                    "命中页若有 OCR 图会附 image_urls(可嵌入回答的 Markdown 图片路径)。"
+                    "命中块若关联 OCR 资产会附精确 asset_ids/image_urls(可嵌入回答的 Markdown 图片路径)。"
                     "这是找证据的主要工具,可多次换关键词调用。"
                     "若会话已限定文档,请务必传 document_id,只在该文档内检索。"
                 ),
@@ -280,7 +525,7 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
             Tool(
                 name="read_blocks",
                 description=(
-                    "读取某文档某页的原文与译文块,并附带该页 Markdown 图片 image_urls。"
+                    "读取某文档某页的原文与译文块,并附带返回块精确关联的 asset_ids/image_urls。"
                     "用于查看检索命中处的完整上下文(传 around_block_id 以命中块为中心取窗口);"
                     "回答图表相关问题时用 image_urls 嵌入 Markdown 图片。"
                 ),
@@ -295,6 +540,17 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
                         },
                         "around_block_id": {"type": "string", "description": "以此块为中心取上下文,可选"},
                         "max_blocks": {"type": "integer", "minimum": 1, "maximum": 30},
+                        "char_start": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "每个块从此字符偏移开始读取,用于继续读取长块",
+                        },
+                        "char_limit": {
+                            "type": "integer",
+                            "minimum": 200,
+                            "maximum": 8000,
+                            "description": "每个块最多返回字符数,默认 2000",
+                        },
                     },
                     "required": ["document_id", "page_idx"],
                 },

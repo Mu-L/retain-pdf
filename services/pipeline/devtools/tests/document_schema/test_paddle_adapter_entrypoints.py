@@ -5,7 +5,6 @@ from pathlib import Path
 
 
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
-REPO_ROOT = REPO_SCRIPTS_ROOT.parent
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 from services.document_schema import adapt_path_to_document_v1_with_report
@@ -21,11 +20,12 @@ from services.document_schema.provider_adapters.paddle.relations import classify
 from services.translation.core.ocr.json_extractor import extract_text_items
 from foundation.shared.job_dirs import ensure_job_dirs
 from foundation.shared.job_dirs import resolve_job_dirs
+from devtools.tests.document_schema.fixtures.registry import PADDLE_FIXTURES_ROOT
 
 
-PADDLE_FIXTURE_JSON = REPO_ROOT / "rust_api" / "src" / "ocr_provider" / "paddle" / "json_full.json"
-PADDLE_SCI_FIXTURE_JSON = REPO_ROOT / "rust_api" / "src" / "ocr_provider" / "paddle" / "json_sci.json"
-PADDLE_FIXTURE_PDF = REPO_ROOT / "rust_api" / "src" / "ocr_provider" / "paddle" / "paddle_ocr_json_split.pdf"
+PADDLE_FIXTURE_JSON = PADDLE_FIXTURES_ROOT / "json_full.json"
+PADDLE_SCI_FIXTURE_JSON = PADDLE_FIXTURES_ROOT / "json_sci.json"
+PADDLE_FIXTURE_PDF = PADDLE_FIXTURES_ROOT / "paddle_ocr_json_split.pdf"
 NORMALIZE_ENTRYPOINT = REPO_SCRIPTS_ROOT / "entrypoints" / "run_normalize_ocr.py"
 
 def test_paddle_adapter_builds_document_v1_from_sample() -> None:
@@ -116,5 +116,4 @@ def test_run_normalize_ocr_supports_paddle_provider(tmp_path: Path) -> None:
     assert normalized_payload["page_count"] >= 1
     assert normalized_report_payload["provider"] == "paddle"
     assert "schema version: document.v1" in completed.stdout
-
 

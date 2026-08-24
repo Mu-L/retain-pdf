@@ -2,30 +2,15 @@
  * Route: "/reader/$jobId" — Reader view.
  *
  * Loader uses @retainpdf/api (fetchJobPayload + job artifact helpers) and
- * @retainpdf/domain (artifact names, stage helpers). Component lazy-loads
- * @retainpdf/reader so the scaffold compiles even when peer deps are missing
- * (same pattern as features/reader/components/ReaderPage.tsx).
+ * @retainpdf/domain (artifact names, stage helpers). The component consumes
+ * @retainpdf/reader through the shared ReaderPage host component.
  */
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams, createRoute } from '@tanstack/react-router'
 import { fetchJobPayload } from '@retainpdf/api/jobs'
 import { resolveTranslatedPdfDownloadName, resolveSourcePdfDownloadName } from '@retainpdf/domain/job'
+import { ReaderPage } from '@/features/reader'
 import type { rootRoute } from './__root'
-
-const LazyReader = lazy(async () => {
-  try {
-    const mod = await import('@retainpdf/reader')
-    const Comp = (mod as any).ReaderAppReactPdf || (mod as any).ReaderApp || (mod as any).default
-    if (Comp) return { default: Comp as React.ComponentType }
-  } catch {}
-  const Placeholder = () => (
-    <div className="rounded border border-dashed p-6 text-sm text-neutral-600">
-      <p>Reader via @retainpdf/reader is available. Install peer deps (react-pdf, @assistant-ui/react, sonner) to render.</p>
-      <p className="mt-1 text-xs text-neutral-500">Import: {"import { ReaderAppReactPdf } from '@retainpdf/reader'"}</p>
-    </div>
-  )
-  return { default: Placeholder }
-})
 
 export const readerLoader = async ({ params }: { params: { jobId: string } }) => {
   const jobId = `${params.jobId || ''}`.trim()
@@ -94,10 +79,7 @@ function ReaderJobIdComponent() {
       </div>
 
       <div className="min-h-[60vh] rounded-2xl border bg-white p-2 shadow-sm">
-        <Suspense fallback={<div className="p-6 text-sm text-neutral-500">Loading reader…</div>}>
-          <LazyReader />
-        </Suspense>
-        {jobId ? <div className="sr-only" data-job-id={jobId} /> : null}
+        <ReaderPage jobId={jobId} />
       </div>
     </div>
   )

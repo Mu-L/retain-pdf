@@ -18,7 +18,10 @@ async fn markdown_document_route_returns_content_and_direct_image_links() {
     fs::write(images_dir.join("chart a.png"), b"fake png").expect("write image");
     fs::write(
         markdown_dir.join("full.md"),
-        "hello\n\n![Image](images/page-1/imgs/chart a.png)\n",
+        concat!(
+            "hello\n\n![Image](images/page-1/imgs/chart a.png)\n",
+            "![Encoded](images/page-1/imgs/chart%20a.png)\n",
+        ),
     )
     .expect("write markdown");
 
@@ -53,7 +56,10 @@ async fn markdown_document_route_returns_content_and_direct_image_links() {
     assert_eq!(payload["data"]["ready"], true);
     assert_eq!(
         payload["data"]["content"],
-        "hello\n\n![Image](images/page-1/imgs/chart a.png)\n"
+        concat!(
+            "hello\n\n![Image](images/page-1/imgs/chart a.png)\n",
+            "![Encoded](images/page-1/imgs/chart%20a.png)\n",
+        )
     );
     let abs_md = payload["data"]["content_with_absolute_image_urls"]
         .as_str()
@@ -66,6 +72,8 @@ async fn markdown_document_route_returns_content_and_direct_image_links() {
     );
     // 不得出现双 images 前缀
     assert!(!abs_md.contains("/markdown/images/images/"));
+    assert!(!abs_md.contains("chart%2520a.png"));
+    assert_eq!(abs_md.matches("chart%20a.png").count(), 2);
     assert_eq!(
         payload["data"]["raw_path"],
         "/api/v1/jobs/markdown-document-job/markdown?raw=true"
@@ -135,6 +143,9 @@ async fn markdown_document_rewrites_html_img_and_titled_markdown_links() {
         .expect("absolute markdown");
     let expected = "http://127.0.0.1:41000/api/v1/jobs/markdown-html-img-job/markdown/images/page-2/imgs/fig.png";
     assert!(abs.contains(expected), "html img rewritten: {abs}");
-    assert!(abs.contains(&format!("![cap]({expected})")), "titled md rewritten: {abs}");
+    assert!(
+        abs.contains(&format!("![cap]({expected})")),
+        "titled md rewritten: {abs}"
+    );
     assert!(!abs.contains("/markdown/images/images/"));
 }

@@ -133,8 +133,7 @@ export const retryJobStage = async (...args: Parameters<typeof _canonRetryJobSta
 import * as LegacyJobsSubmit from "../../../../js/api/jobs-submit.js";
 import { submitJobRequest as _canonSubmitJobRequest } from "@retainpdf/api/jobs-submit";
 export const submitJobRequest = async (...args: Parameters<typeof _canonSubmitJobRequest>): Promise<any> => {
-  // jobs-submit has no mock branch; just delegate to canonical (legacy identical)
-  void LegacyJobsSubmit;
+  if (isMockMode()) return (LegacyJobsSubmit as any).submitJobRequest(...args);
   return (_canonSubmitJobRequest as any)(...args);
 };
 

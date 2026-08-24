@@ -81,7 +81,6 @@ def load_page_payloads(
         ensure_translation_template(items, translation_path, page_idx=page_idx, math_mode=math_mode)
         translation_paths[page_idx] = translation_path
         page_payloads[page_idx] = load_translations(translation_path)
-    write_translation_manifest(output_dir, translation_paths)
     return translation_paths, page_payloads
 
 

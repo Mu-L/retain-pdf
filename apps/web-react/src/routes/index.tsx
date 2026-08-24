@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { createRoute } from '@tanstack/react-router'
 import { fetchLibraryBookList } from '@retainpdf/api/library-books'
-import { API_PREFIX } from '@retainpdf/api/internal/runtime'
+import { API_PREFIX } from '@retainpdf/api/runtime'
 import { jobListToLibraryBooks } from '@/features/library/api/library-api-adapter'
 import type { rootRoute } from './__root'
 

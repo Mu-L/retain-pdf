@@ -175,6 +175,15 @@
         "bbox": {
           "$ref": "#/$defs/bbox"
         },
+        "bbox_precision": {
+          "type": "string",
+          "enum": [
+            "provider_layout",
+            "block_fallback",
+            "synthetic_newline",
+            "synthetic_wrap"
+          ]
+        },
         "spans": {
           "type": "array",
           "items": {
@@ -219,6 +228,15 @@
         "asset_id": {
           "type": "string",
           "minLength": 1
+        },
+        "asset_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },

@@ -22,7 +22,7 @@ pub use super::view::{
     build_artifact_links, build_artifact_manifest, build_job_actions,
     build_job_links_with_workflow, summarize_list_invocation, to_absolute_url, upload_to_response,
     ArtifactDisplayItemView, ArtifactDownloadQuery, ArtifactLinksView, BookSummaryView,
-    DocumentDeleteResultView, GlossaryUsageSummaryView, InvocationSummaryView, JobActionsView,
+    AmbiguousRequestPolicy, DocumentDeleteResultView, GlossaryUsageSummaryView, InvocationSummaryView, JobActionsView,
     JobArtifactManifestView,
     JobContractsView, JobDetailView, JobDiagnosticsView, JobEventListView, JobEventProgressView,
     JobEventRawView, JobEventRecord, JobFailureDiagnosticView, JobLinksView, JobListItemView,
@@ -39,6 +39,7 @@ pub use super::view::{
     ReaderPageMetadataView, ReaderRegionBoxView, ReaderRegionItemView, ReaderRegionsView,
     RetryStageKind, RetryStageRequest, RetryStageSubmissionView, StageActionsView,
     StageRetryActionLinkView, StageRetryActionView, TranslationDebugIndexView,
+    TranslationRequestRecoveryView,
     TranslationDebugItemView, TranslationDebugListItemView, TranslationDebugListView,
     TranslationDiagnosticsView, TranslationReplayView,
 };

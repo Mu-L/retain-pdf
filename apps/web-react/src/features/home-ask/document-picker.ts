@@ -1,4 +1,4 @@
-import { API_PREFIX } from "@retainpdf/api/internal/runtime";
+import { API_PREFIX } from "@retainpdf/api/runtime";
 import { fetchDocumentList } from "@retainpdf/api/documents";
 import { listCollections } from "@retainpdf/api/collections";
 import type { HomeAskCollectionScope, HomeAskDocScope, HomeAskScope } from "./types.ts";

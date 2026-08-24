@@ -15,13 +15,9 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
-      '@retainpdf/api': fileURLToPath(new URL('../../packages/api/src', import.meta.url)),
-      '@retainpdf/domain': fileURLToPath(new URL('../../packages/domain/src', import.meta.url)),
-      '@retainpdf/reader': fileURLToPath(new URL('../../packages/reader/src', import.meta.url)),
-      '@retainpdf/ui': fileURLToPath(new URL('../../packages/ui/src', import.meta.url)),
-    },
+    alias: [
+      { find: '@', replacement: fileURLToPath(new URL('./src', import.meta.url)) },
+    ],
     dedupe: ['react', 'react-dom', 'pdfjs-dist'],
   },
 })

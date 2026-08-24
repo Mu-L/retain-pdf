@@ -1,5 +1,5 @@
 import { buildApiHeaders, isMockMode } from "../config/runtime.js";
-import { unwrapEnvelope } from "../job/core.js";
+import { unwrapEnvelope } from "@retainpdf/domain/job";
 import { buildApiEndpoint, submitJson } from "./http.js";
 
 export async function fetchGlossaries(apiPrefix) {

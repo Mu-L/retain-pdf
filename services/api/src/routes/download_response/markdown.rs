@@ -16,7 +16,13 @@ pub async fn markdown_response(
     query: &MarkdownQuery,
 ) -> Result<Response, AppError> {
     let markdown = jobs_facade_ref(deps).markdown_document(job_id).await?;
-    markdown_download_response(headers, markdown, query.raw, deps.default_port, &deps.bind_host)
+    markdown_download_response(
+        headers,
+        markdown,
+        query.raw,
+        deps.default_port,
+        &deps.bind_host,
+    )
 }
 
 pub async fn markdown_document_response(

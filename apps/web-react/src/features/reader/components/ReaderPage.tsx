@@ -1,23 +1,20 @@
-import { lazy, Suspense } from 'react'
+import { useEffect } from 'react'
+import { ReaderAppReactPdf } from '@retainpdf/reader'
+import readerStyles from '@retainpdf/reader/styles.css?raw'
+import { setReaderHostJobId } from '../reader-host-adapters'
 
-// Lazy-load @retainpdf/reader to keep initial bundle light and allow graceful fallback if peer deps missing.
-const LazyReader = lazy(async () => {
-  try {
-    const mod = await import('@retainpdf/reader')
-    // Prefer ReaderAppReactPdf, fallback to ReaderApp
-    const Comp = (mod as any).ReaderAppReactPdf || (mod as any).ReaderApp || (mod as any).default
-    if (Comp) return { default: Comp as React.ComponentType }
-  } catch (e) {
-    // fall through to placeholder
-  }
-  const Placeholder = () => (
-    <div className="p-6 text-sm text-neutral-600">
-      <p>Reader via @retainpdf/reader is available. Install peer deps (react-pdf, @assistant-ui/react, sonner) to render.</p>
-      <p className="mt-1 text-xs text-neutral-500">Import: {"import { ReaderAppReactPdf } from '@retainpdf/reader'"}</p>
-    </div>
-  )
-  return { default: Placeholder }
-})
+const READER_STYLE_ID = 'retainpdf-reader-package-styles'
+
+function useReaderPackageStyles() {
+  useEffect(() => {
+    if (document.getElementById(READER_STYLE_ID)) return
+    const style = document.createElement('style')
+    style.id = READER_STYLE_ID
+    style.textContent = readerStyles
+    document.head.appendChild(style)
+    return () => style.remove()
+  }, [])
+}
 
 function getReaderJobId(): string {
   if (typeof window === 'undefined') return ''
@@ -27,15 +24,12 @@ function getReaderJobId(): string {
 
 export function ReaderPage({ jobId: jobIdProp }: { jobId?: string }) {
   const jobId = `${jobIdProp || getReaderJobId() || ''}`.trim()
+  useReaderPackageStyles()
+  setReaderHostJobId(jobId)
   return (
     <div className="reader-route min-h-screen bg-white" data-reader-route="true">
-      <Suspense fallback={<div className="p-6 text-sm text-neutral-500">正在加载阅读器…</div>}>
-        <LazyReader />
-      </Suspense>
+      <ReaderAppReactPdf key={jobId} />
       {jobId ? <div className="sr-only" data-job-id={jobId} /> : null}
     </div>
   )
 }
-
-// Proof that @retainpdf/reader is usable in web-react — re-export via lazy boundary above.
-// Direct named re-exports are available via `import { ReaderAppReactPdf } from '@retainpdf/reader'` in any feature.

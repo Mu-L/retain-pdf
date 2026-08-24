@@ -18,6 +18,11 @@ name: Publish Current Web Image
       - "infra/docker/nginx-mjs.types.conf"
       - "infra/docker/nginx.conf.template"
       - "apps/web/**"
+      - "packages/api/**"
+      - "packages/domain/**"
+      - "packages/reader/**"
+      - "packages/schemas/**"
+      - "packages/ui/**"
 
 jobs:
   publish-web:

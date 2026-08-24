@@ -6,7 +6,7 @@
  * Mock-freedom: no window.mock branching, pure fetch.
  */
 
-import { API_PREFIX, buildApiUrl } from '@retainpdf/api/internal/runtime'
+import { API_PREFIX, buildApiUrl } from '@retainpdf/api/runtime'
 import { submitUploadRequest as apiSubmitUploadRequest } from '@retainpdf/api/http'
 
 export type UploadResponsePayload = {

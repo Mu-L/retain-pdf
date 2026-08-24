@@ -24,9 +24,32 @@
   overflow: hidden;
   animation: reader-notes-float-in 200ms var(--ease-out) both;
 }
-/* left/top 由 inline style 控制（--float 标记类） */
-.reader-notes-panel--float {
-  touch-action: none;
+/* left/top 由 inline style 控制（--float 标记类）。拖拽仅绑定标题栏；
+ * 不在整个面板禁用 touch action，保证 textarea 和可编辑控件正常取焦。 */
+.reader-notes-panel--docked {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: 50vw;
+  width: 50dvw;
+  max-height: none;
+  border-width: 0 0 0 1px;
+  border-radius: 0;
+  background: var(--paper);
+  box-shadow: -12px 0 32px color-mix(in srgb, var(--ink) 9%, transparent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.reader-notes-panel--docked .reader-notes-panel-head {
+  cursor: default;
+  touch-action: auto;
+}
+
+@media (max-width: 899px) {
+  .reader-notes-panel--docked {
+    width: 100vw;
+    width: 100dvw;
+    border-left: 0;
+  }
 }
 .reader-notes-panel.is-dragging {
   animation: none;
@@ -263,4 +286,3 @@
   display: flex;
   gap: 8px;
 }
-

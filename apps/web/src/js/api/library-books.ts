@@ -4,12 +4,12 @@
  *   - endpoints: GET /api/v1/library/books, GET /api/v1/library/books/:job_id, DELETE /api/v1/library/books/:job_id
  *   - definitions: LibraryBookListView / LibraryBookDetailView / JobListView / LibraryDeleteResultView
  * Rust 生产者: `services/api/crates/retain-core/src/models/view/job_types.rs`
- * 前端镜像: `apps/web-react/src/features/library/api/library-api-types.ts`
- * 契约测试: `tests/library-books-contract.test.mjs` 锁定 job_id/display_name/status/progress/cover_url 等字段
- * TODO: 引入生成类型 `import type { LibraryBookListView } from '@retainpdf/schemas'` 替换 `unwrapEnvelope<any>`。
+ * Wire DTO: `@retainpdf/contracts/library-books`；真实网络客户端由
+ * `@retainpdf/api/library-books` 提供。本文件只保留 Web mock-aware 兼容边界。
+ * 契约测试: `tests/contracts/library-books-contract.test.mjs`。
  */
 import { buildApiHeaders, isMockMode } from "../config/runtime.js";
-import { unwrapEnvelope } from "../job/core.js";
+import { unwrapEnvelope } from "@retainpdf/domain/job";
 import { countMockFavoritesByJob } from "../mock/documents.js";
 import { getMockJobList } from "../mock/index.js";
 import { buildApiEndpoint } from "./http.js";

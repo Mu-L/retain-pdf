@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { API_PREFIX } from '@retainpdf/api/internal/runtime'
+import { API_PREFIX } from '@retainpdf/api/runtime'
 
 import { getGlossariesStore } from './glossaries-store'
 import { glossaryDetailQueryOptions, glossariesApi, glossariesKeys, glossariesListQueryOptions } from '../api/glossaries-queries'

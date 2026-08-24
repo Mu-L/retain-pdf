@@ -3,7 +3,7 @@ import {
   MOCK_MARKDOWN_CONTENT,
 } from "./constants.js";
 import { currentMockScenario, isoOffsetMinutes } from "./scenario.js";
-import type { JobLike, StageHistoryEntry } from "../job/types.js";
+import type { JobLike, StageHistoryEntry } from "@retainpdf/domain/job";
 
 export function buildMockStageHistory(scenario: string): StageHistoryEntry[] {
   const stages = [

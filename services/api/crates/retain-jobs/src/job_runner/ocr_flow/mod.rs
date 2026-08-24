@@ -1,5 +1,8 @@
 use crate::models::domain::{now_iso, JobRuntimeState, JobStatusKind};
-use crate::ocr_provider::{is_configured_command_provider, parse_provider_kind, OcrProviderKind};
+use crate::ocr_provider::{
+    is_configured_command_provider, parse_provider_kind, uses_paddle_official_cli,
+    OcrProviderKind,
+};
 use crate::worker_command::{build_ocr_command, build_worker_stage_command, WorkerStageCommand};
 use anyhow::Result;
 
@@ -39,6 +42,10 @@ use support::{fail_missing_source_pdf, fail_ocr_transport, save_ocr_job};
 use transport::resolve_local_upload_path;
 use workspace::OcrWorkspace;
 
+fn uses_provider_worker(ocr: &crate::models::request::OcrInput) -> bool {
+    is_configured_command_provider(&ocr.provider) || uses_paddle_official_cli(ocr)
+}
+
 pub async fn execute_ocr_job(
     deps: ProcessRuntimeDeps,
     mut job: JobRuntimeState,
@@ -46,6 +53,7 @@ pub async fn execute_ocr_job(
     parent_job_id: Option<String>,
 ) -> Result<JobRuntimeState> {
     let is_command_provider = is_configured_command_provider(&job.request_payload.ocr.provider);
+    let run_provider_worker = uses_provider_worker(&job.request_payload.ocr);
     let provider_kind = if is_command_provider {
         OcrProviderKind::Local
     } else {
@@ -77,7 +85,7 @@ pub async fn execute_ocr_job(
     )?;
     save_ocr_job(&deps, &job, parent_job_id.as_deref()).await?;
 
-    if is_command_provider {
+    if run_provider_worker {
         return execute_process_job(deps, job, &[]).await;
     }
 
@@ -145,6 +153,26 @@ mod tests {
     use super::*;
     use crate::models::domain::JobSnapshot;
     use crate::models::request::CreateJobInput;
+    use serde_json::Value;
+
+    #[test]
+    fn paddle_official_cli_uses_provider_worker_but_http_does_not() {
+        let mut input = CreateJobInput::default();
+        input.ocr.provider = "paddle".to_string();
+        assert!(!uses_provider_worker(&input.ocr));
+
+        input.ocr.options.insert(
+            "transport".to_string(),
+            Value::String("official_http".to_string()),
+        );
+        assert!(!uses_provider_worker(&input.ocr));
+
+        input.ocr.options.insert(
+            "transport".to_string(),
+            Value::String("official_cli".to_string()),
+        );
+        assert!(uses_provider_worker(&input.ocr));
+    }
 
     #[test]
     fn fail_missing_source_pdf_marks_job_failed_with_clear_detail() {

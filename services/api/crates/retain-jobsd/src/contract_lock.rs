@@ -99,3 +99,27 @@ fn contract_binds_loopback_only() {
         "JobsServiceConfig 默认 bind_host 必须为 127.0.0.1（仅回环）"
     );
 }
+
+#[test]
+fn jobsd_startup_owns_remote_worker_reconciliation() {
+    let source = include_str!("main.rs");
+    assert!(
+        source.contains("reconcile_stale_running_jobs(config.as_ref(), db.as_ref())"),
+        "jobsd must reconcile its own stale workers before accepting launch requests"
+    );
+}
+
+#[test]
+fn jobsd_acquires_listener_before_reconciling_workers() {
+    let source = include_str!("main.rs");
+    let bind = source
+        .find("TcpListener::bind")
+        .expect("jobsd listener bind");
+    let reconcile = source
+        .find("reconcile_stale_running_jobs(config.as_ref(), db.as_ref())")
+        .expect("jobsd startup recovery");
+    assert!(
+        bind < reconcile,
+        "jobsd must acquire its exclusive listener before reconciling running workers"
+    );
+}

@@ -81,10 +81,7 @@ pub async fn create_conversation_route(
     Json(payload): Json<CreateConversationInput>,
 ) -> Result<Json<ApiResponse<ConversationRecord>>, AppError> {
     let deps = build_library_route_deps(&state);
-    Ok(ok_json(create_conversation_view(
-        &deps.library,
-        &payload,
-    )?))
+    Ok(ok_json(create_conversation_view(&deps.library, &payload)?))
 }
 
 pub async fn list_conversations_route(

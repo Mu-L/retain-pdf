@@ -58,12 +58,11 @@ assertExists("styles.css");
 assertExists("dist/css/home.css");
 assertExists("dist/css/reader.css");
 
-// Source modules still shipped for desktop rewrites / smoke (TypeScript after cutover)
+// Desktop-only source modules copied for runtime rewrites / smoke. Reader source
+// truth now lives in @retainpdf/reader and is verified through its production bundle.
 assertExists("src/js/runtime/vendor-url.ts");
-assertExists("src/js/reader/pdf-document.ts");
 assertExists("src/js/features/upload/pdf-page-count.ts");
 assertExists("src/js/desktop/index.ts");
-assertExists("src/js/reader/ai/config.ts");
 
 // Vendor copies used by packaged file:// loads
 assertExists("vendor/pdfjs-dist/build/pdf.mjs");
@@ -107,18 +106,12 @@ if (!uploadPdfPageCount.includes("runtime/vendor-url")) {
   fail("Desktop upload/pdf-page-count.ts is missing runtime vendor resolver");
 }
 
-const readerPdfDocument = readFile("src/js/reader/pdf-document.ts");
-if (!readerPdfDocument.includes("runtime/vendor-url")) {
-  fail("Desktop reader/pdf-document.ts is missing runtime vendor resolver");
+const readerBundleJs = readFile("dist/reader.bundle.js");
+if (!readerBundleJs.includes("credentials-changed")) {
+  fail("Desktop reader bundle missing credentials-changed gate refresh");
 }
-
-// AI key gate: settings-only (not runtime secret fallback)
-const readerAiConfig = readFile("src/js/reader/ai/config.ts");
-if (!readerAiConfig.includes("readSettingsModelApiKey")) {
-  fail("Desktop reader AI config missing settings-only model key helper");
-}
-if (!readerAiConfig.includes("CREDENTIALS_CHANGED_EVENT")) {
-  fail("Desktop reader AI config missing credentials-changed event");
+if (!readerBundleJs.includes("is-markdown-split")) {
+  fail("Desktop reader bundle missing PDF / Markdown split layout");
 }
 
 const appBundleJs = readFile("dist/app.bundle.js");

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 import { getTheme, listThemesBySeries, setTheme, type ThemeId } from "./theme"
 import { getStoredFontFamily, setStoredFontFamily, RENDER_FONT_STORAGE_KEY } from "@/features/fonts/font"
 import { listFonts, type FontInfo } from "@retainpdf/api/fonts"
-import { API_PREFIX } from "@retainpdf/api/internal/runtime"
+import { API_PREFIX } from "@retainpdf/api/runtime"
 
 const FALLBACK_FONTS: FontInfo[] = [
   { family: "Source Han Serif SC", files: [], available: true },

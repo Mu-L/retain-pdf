@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+import math
 
 from services.document_schema.version import DOCUMENT_SCHEMA_FILE_NAME
 from services.document_schema.version import DOCUMENT_SCHEMA_NAME
@@ -31,6 +32,27 @@ def _validate_bbox(path: str, bbox) -> None:
     for index, value in enumerate(bbox):
         if not isinstance(value, (int, float)):
             _fail(f"{path}[{index}]", f"expected number, got {type(value).__name__}")
+        if not math.isfinite(float(value)):
+            _fail(f"{path}[{index}]", "expected finite number")
+
+
+def _bbox_has_positive_area(bbox: list) -> bool:
+    return len(bbox) == 4 and float(bbox[2]) > float(bbox[0]) and float(bbox[3]) > float(bbox[1])
+
+
+def _validate_bbox_within(path: str, bbox: list, container: list, *, container_name: str) -> None:
+    # A zero bbox is an explicit completeness problem reported separately; it
+    # remains schema-valid. Any usable bbox must stay inside its owning region.
+    if not _bbox_has_positive_area(bbox):
+        return
+    tolerance = 1e-3
+    if (
+        float(bbox[0]) < float(container[0]) - tolerance
+        or float(bbox[1]) < float(container[1]) - tolerance
+        or float(bbox[2]) > float(container[2]) + tolerance
+        or float(bbox[3]) > float(container[3]) + tolerance
+    ):
+        _fail(path, f"must stay within {container_name} bbox {container}")
 
 
 def _validate_geometry(path: str, geometry: dict) -> None:
@@ -38,6 +60,9 @@ def _validate_geometry(path: str, geometry: dict) -> None:
     if "bbox" not in geometry:
         _fail(path, "missing key 'bbox'")
     _validate_bbox(f"{path}.bbox", geometry["bbox"])
+    x0, y0, x1, y1 = (float(value) for value in geometry["bbox"])
+    if x1 <= x0 or y1 <= y0:
+        _fail(f"{path}.bbox", "expected a positive-area rectangle")
 
 
 def _validate_content(path: str, content: dict) -> None:
@@ -61,6 +86,21 @@ def _validate_content(path: str, content: dict) -> None:
         _expect_type(f"{path}.asset_id", content["asset_id"], str)
         if not content["asset_id"]:
             _fail(f"{path}.asset_id", "expected non-empty string")
+    if "asset_ids" in content:
+        _expect_type(f"{path}.asset_ids", content["asset_ids"], list)
+        if not content["asset_ids"]:
+            _fail(f"{path}.asset_ids", "expected at least one asset id")
+        seen_asset_ids: set[str] = set()
+        for index, asset_id in enumerate(content["asset_ids"]):
+            _expect_type(f"{path}.asset_ids[{index}]", asset_id, str)
+            if not asset_id:
+                _fail(f"{path}.asset_ids[{index}]", "expected non-empty string")
+            if asset_id in seen_asset_ids:
+                _fail(f"{path}.asset_ids[{index}]", f"duplicate asset id '{asset_id}'")
+            seen_asset_ids.add(asset_id)
+        primary_asset_id = str(content.get("asset_id", "") or "")
+        if primary_asset_id and primary_asset_id != content["asset_ids"][0]:
+            _fail(f"{path}.asset_ids[0]", "must match primary asset_id")
     if "toc_entries" in content:
         _expect_type(f"{path}.toc_entries", content["toc_entries"], list)
         for index, entry in enumerate(content["toc_entries"]):
@@ -177,17 +217,48 @@ def _validate_segment(path: str, segment: dict) -> None:
         _fail(f"{path}.score", f"expected number|null, got {type(segment['score']).__name__}")
 
 
-def _validate_line(path: str, line: dict) -> None:
+def _validate_line(path: str, line: dict, *, block_bbox: list) -> None:
     _expect_type(path, line, dict)
     if "bbox" not in line or "spans" not in line:
         _fail(path, "missing key 'bbox' or 'spans'")
     _validate_bbox(f"{path}.bbox", line["bbox"])
+    _validate_bbox_within(
+        f"{path}.bbox",
+        line["bbox"],
+        block_bbox,
+        container_name="block",
+    )
+    if "bbox_precision" in line:
+        _expect_type(f"{path}.bbox_precision", line["bbox_precision"], str)
+        if line["bbox_precision"] not in {
+            "provider_layout",
+            "block_fallback",
+            "synthetic_newline",
+            "synthetic_wrap",
+        }:
+            _fail(
+                f"{path}.bbox_precision",
+                f"unexpected line bbox precision '{line['bbox_precision']}'",
+            )
     _expect_type(f"{path}.spans", line["spans"], list)
     for index, span in enumerate(line["spans"]):
         _validate_segment(f"{path}.spans[{index}]", span)
+        _validate_bbox_within(
+            f"{path}.spans[{index}].bbox",
+            span["bbox"],
+            line["bbox"],
+            container_name="line",
+        )
 
 
-def _validate_block(path: str, block: dict, *, page_index: int) -> None:
+def _validate_block(
+    path: str,
+    block: dict,
+    *,
+    page_index: int,
+    page_width: float,
+    page_height: float,
+) -> None:
     _expect_type(path, block, dict)
     required = (
         "block_id",
@@ -213,6 +284,13 @@ def _validate_block(path: str, block: dict, *, page_index: int) -> None:
         _fail(f"{path}.page_index", f"expected {page_index}, got {block['page_index']}")
     _expect_type(f"{path}.order", block["order"], int)
     _validate_geometry(f"{path}.geometry", block["geometry"])
+    x0, y0, x1, y1 = (float(value) for value in block["geometry"]["bbox"])
+    tolerance = 1e-3
+    if x0 < -tolerance or y0 < -tolerance or x1 > page_width + tolerance or y1 > page_height + tolerance:
+        _fail(
+            f"{path}.geometry.bbox",
+            f"must stay within page bounds [0, 0, {page_width}, {page_height}]",
+        )
     _validate_content(f"{path}.content", block["content"])
     layout_role = _validate_role_string(f"{path}.layout_role", block["layout_role"])
     if layout_role not in {"title", "heading", "paragraph", "list_item", "caption", "header", "footer", "footnote", "page_number", "toc", "unknown"}:
@@ -242,16 +320,29 @@ def _validate_block(path: str, block: dict, *, page_index: int) -> None:
         _expect_type(f"{path}.sub_type", block["sub_type"], str)
     if "bbox" in block:
         _validate_bbox(f"{path}.bbox", block["bbox"])
+        geometry_bbox = block["geometry"]["bbox"]
+        if any(abs(float(left) - float(right)) > 1e-6 for left, right in zip(block["bbox"], geometry_bbox)):
+            _fail(f"{path}.geometry.bbox", "must match block.bbox in the canonical PDF-point coordinate space")
     if "text" in block:
         _expect_type(f"{path}.text", block["text"], str)
     if "lines" in block:
         _expect_type(f"{path}.lines", block["lines"], list)
         for index, line in enumerate(block["lines"]):
-            _validate_line(f"{path}.lines[{index}]", line)
+            _validate_line(
+                f"{path}.lines[{index}]",
+                line,
+                block_bbox=block["geometry"]["bbox"],
+            )
     if "segments" in block:
         _expect_type(f"{path}.segments", block["segments"], list)
         for index, segment in enumerate(block["segments"]):
             _validate_segment(f"{path}.segments[{index}]", segment)
+            _validate_bbox_within(
+                f"{path}.segments[{index}].bbox",
+                segment["bbox"],
+                block["geometry"]["bbox"],
+                container_name="block",
+            )
     if "tags" in block:
         _expect_type(f"{path}.tags", block["tags"], list)
         for index, tag in enumerate(block["tags"]):
@@ -283,7 +374,13 @@ def _validate_page(path: str, page: dict, *, page_index: int) -> None:
         _fail(f"{path}.unit", f"expected 'pt', got '{page['unit']}'")
     _expect_type(f"{path}.blocks", page["blocks"], list)
     for index, block in enumerate(page["blocks"]):
-        _validate_block(f"{path}.blocks[{index}]", block, page_index=page_index)
+        _validate_block(
+            f"{path}.blocks[{index}]",
+            block,
+            page_index=page_index,
+            page_width=float(page["width"]),
+            page_height=float(page["height"]),
+        )
 
 
 def validate_document_payload(data: dict) -> None:
@@ -315,6 +412,21 @@ def validate_document_payload(data: dict) -> None:
         _fail("$.page_count", f"expected {len(data['pages'])}, got {data['page_count']}")
     for index, page in enumerate(data["pages"]):
         _validate_page(f"$.pages[{index}]", page, page_index=index)
+    assets = data.get("assets", {}) or {}
+    for page_index, page in enumerate(data["pages"]):
+        for block_index, block in enumerate(page.get("blocks", []) or []):
+            content = block.get("content", {}) or {}
+            raw_asset_ids = content.get("asset_ids", [])
+            asset_ids = list(raw_asset_ids) if isinstance(raw_asset_ids, list) else []
+            primary_asset_id = str(content.get("asset_id", "") or "").strip()
+            if primary_asset_id and primary_asset_id not in asset_ids:
+                asset_ids.insert(0, primary_asset_id)
+            for asset_index, asset_id in enumerate(asset_ids):
+                if asset_id and asset_id not in assets:
+                    _fail(
+                        f"$.pages[{page_index}].blocks[{block_index}].content.asset_ids[{asset_index}]",
+                        f"references missing top-level asset '{asset_id}'",
+                    )
     reference_start = data["markers"].get("reference_start")
     if reference_start is not None:
         _expect_type("$.markers.reference_start", reference_start, dict)
@@ -335,13 +447,135 @@ def validate_document_path(path: Path) -> dict:
 def build_validation_report(data: dict) -> dict:
     validate_document_payload(data)
     page_count = len(data.get("pages", []) or [])
-    block_count = sum(len(page.get("blocks", []) or []) for page in data.get("pages", []) or [])
+    blocks = [
+        block
+        for page in data.get("pages", []) or []
+        for block in page.get("blocks", []) or []
+    ]
+    block_count = len(blocks)
+    asset_blocks = [
+        block
+        for block in blocks
+        if str((block.get("content", {}) or {}).get("kind", "") or "").lower()
+        in {"image", "chart"}
+    ]
+    asset_block_count = len(asset_blocks)
+    linked_asset_block_count = sum(
+        1
+        for block in asset_blocks
+        if str((block.get("content", {}) or {}).get("asset_id", "") or "").strip()
+    )
+    unlinked_asset_block_count = max(0, asset_block_count - linked_asset_block_count)
+    assets = data.get("assets", {}) or {}
+    referenced_asset_ids: set[str] = set()
+    for block in blocks:
+        content = block.get("content", {}) or {}
+        primary_asset_id = str(content.get("asset_id", "") or "").strip()
+        raw_asset_ids = content.get("asset_ids", [])
+        if primary_asset_id:
+            referenced_asset_ids.add(primary_asset_id)
+        if isinstance(raw_asset_ids, list):
+            referenced_asset_ids.update(
+                str(asset_id).strip()
+                for asset_id in raw_asset_ids
+                if str(asset_id).strip()
+            )
+    unreferenced_asset_ids = sorted(set(assets) - referenced_asset_ids)
+
+    provider_markdown_image_uris: set[str] = set()
+    for page in data.get("pages", []) or []:
+        markdown = ((page.get("metadata", {}) or {}).get("markdown", {}) or {})
+        images = markdown.get("images", {})
+        if isinstance(images, dict):
+            provider_markdown_image_uris.update(
+                str(uri).strip()
+                for uri in images.values()
+                if str(uri).strip()
+            )
+    normalized_asset_uris = {
+        str(asset.get("uri", "") or "").strip()
+        for asset in assets.values()
+        if isinstance(asset, dict) and str(asset.get("uri", "") or "").strip()
+    }
+    uncovered_provider_image_uris = sorted(provider_markdown_image_uris - normalized_asset_uris)
+    zero_segment_bbox_count = sum(
+        1
+        for block in blocks
+        for segment in block.get("segments", []) or []
+        if segment.get("bbox") in (None, [], [0, 0, 0, 0])
+    )
+    approximate_segment_bbox_count = sum(
+        1
+        for block in blocks
+        for segment in block.get("segments", []) or []
+        if str(segment.get("bbox_precision", "") or "") in {"block", "line"}
+    )
+    provider_segment_bbox_count = sum(
+        1
+        for block in blocks
+        for segment in block.get("segments", []) or []
+        if str(segment.get("bbox_precision", "") or "") == "provider_layout"
+    )
+    formula_segments = [
+        segment
+        for block in blocks
+        for segment in block.get("segments", []) or []
+        if str(segment.get("type", "") or "") == "formula"
+    ]
+    provider_formula_segment_bbox_count = sum(
+        1
+        for segment in formula_segments
+        if str(segment.get("bbox_precision", "") or "") == "provider_layout"
+    )
+    approximate_formula_segment_bbox_count = sum(
+        1
+        for segment in formula_segments
+        if str(segment.get("bbox_precision", "") or "") in {"block", "line"}
+    )
+    line_bbox_precision_counts: dict[str, int] = {}
+    for block in blocks:
+        for line in block.get("lines", []) or []:
+            precision = str(line.get("bbox_precision", "unspecified") or "unspecified")
+            line_bbox_precision_counts[precision] = line_bbox_precision_counts.get(precision, 0) + 1
+    warnings = []
+    if unlinked_asset_block_count:
+        warnings.append(f"{unlinked_asset_block_count} image/chart blocks have no asset_id")
+    if unreferenced_asset_ids:
+        warnings.append(f"{len(unreferenced_asset_ids)} top-level assets are not referenced by any block")
+    if uncovered_provider_image_uris:
+        warnings.append(
+            f"{len(uncovered_provider_image_uris)} provider Markdown images are absent from top-level assets"
+        )
+    if zero_segment_bbox_count:
+        warnings.append(f"{zero_segment_bbox_count} segments have no usable bbox")
     return {
         "valid": True,
+        "complete": not warnings,
+        "warnings": warnings,
         "schema": data.get("schema", ""),
         "schema_version": data.get("schema_version", ""),
         "page_count": page_count,
         "block_count": block_count,
+        "asset_count": len(assets),
+        "referenced_asset_count": len(referenced_asset_ids),
+        "unreferenced_asset_count": len(unreferenced_asset_ids),
+        "provider_markdown_image_count": len(provider_markdown_image_uris),
+        "covered_provider_markdown_image_count": len(
+            provider_markdown_image_uris & normalized_asset_uris
+        ),
+        "uncovered_provider_markdown_image_count": len(uncovered_provider_image_uris),
+        "asset_block_count": asset_block_count,
+        "linked_asset_block_count": linked_asset_block_count,
+        "unlinked_asset_block_count": unlinked_asset_block_count,
+        "zero_segment_bbox_count": zero_segment_bbox_count,
+        "approximate_segment_bbox_count": approximate_segment_bbox_count,
+        "provider_segment_bbox_count": provider_segment_bbox_count,
+        "formula_segment_count": len(formula_segments),
+        "provider_formula_segment_bbox_count": provider_formula_segment_bbox_count,
+        "approximate_formula_segment_bbox_count": approximate_formula_segment_bbox_count,
+        "line_bbox_precision_counts": line_bbox_precision_counts,
+        "geometry_bbox_consistent": True,
+        "segment_bbox_within_block": True,
     }
 
 

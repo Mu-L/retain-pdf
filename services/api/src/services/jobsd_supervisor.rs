@@ -82,7 +82,10 @@ fn spawn_child(app: &AppConfig) -> std::io::Result<Child> {
 
 async fn terminate_child(child: &mut Child, grace_secs: u64, poll_ms: u64) {
     if let Some(pid) = child.id() {
-        if terminate_job_process_tree(pid, grace_secs, poll_ms).await.is_ok() {
+        if terminate_job_process_tree(pid, grace_secs, poll_ms)
+            .await
+            .is_ok()
+        {
             let _ = child.wait().await;
             return;
         }

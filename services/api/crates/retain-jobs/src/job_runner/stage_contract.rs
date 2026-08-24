@@ -3,7 +3,9 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Result};
 
 use crate::models::domain::{JobArtifacts, JobRuntimeState};
-use crate::storage_paths::TRANSLATION_MANIFEST_FILE_NAME;
+use crate::storage_paths::{
+    TRANSLATION_CHECKPOINT_FILE_NAME, TRANSLATION_MANIFEST_FILE_NAME,
+};
 
 use super::artifact_requirements::{
     optional_existing_file, required_existing_dir, required_existing_file,
@@ -71,6 +73,92 @@ pub(super) fn translation_ready_inputs_for_render(
     })
 }
 
+pub fn translation_artifacts_are_ready(
+    artifacts: &JobArtifacts,
+    data_root: &Path,
+    source_job_id: &str,
+) -> bool {
+    translation_ready_inputs_for_render(artifacts, data_root, source_job_id).is_ok()
+}
+
+pub fn translation_checkpoint_candidate_is_ready(
+    artifacts: &JobArtifacts,
+    data_root: &Path,
+    source_job_id: &str,
+) -> bool {
+    translation_checkpoint_candidate(artifacts, data_root, source_job_id).is_ok()
+}
+
+fn translation_checkpoint_candidate(
+    artifacts: &JobArtifacts,
+    data_root: &Path,
+    source_job_id: &str,
+) -> Result<()> {
+    let checkpoint_path = required_file(
+        data_root,
+        artifacts.translation_checkpoint_json.as_deref(),
+        "translation_checkpoint_json",
+        source_job_id,
+    )?;
+    let payload: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&checkpoint_path)?).map_err(|error| {
+            anyhow!(
+                "invalid {} for {source_job_id}: {error}",
+                TRANSLATION_CHECKPOINT_FILE_NAME
+            )
+        })?;
+    if payload.get("schema").and_then(serde_json::Value::as_str)
+        != Some("translation_checkpoint_v1")
+        || payload
+            .get("schema_version")
+            .and_then(serde_json::Value::as_u64)
+            != Some(1)
+        || !matches!(
+            payload.get("status").and_then(serde_json::Value::as_str),
+            Some("in_progress" | "complete")
+        )
+        || payload
+            .get("fingerprint")
+            .and_then(serde_json::Value::as_str)
+            .is_none_or(str::is_empty)
+    {
+        return Err(anyhow!(
+            "unsupported translation checkpoint candidate for {source_job_id}: {}",
+            checkpoint_path.display()
+        ));
+    }
+    let pages = payload
+        .get("pages")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| anyhow!("translation checkpoint pages missing for {source_job_id}"))?;
+    let parent = checkpoint_path
+        .parent()
+        .ok_or_else(|| anyhow!("translation checkpoint has no parent for {source_job_id}"))?;
+    for page in pages {
+        let relative = page
+            .get("path")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| anyhow!("translation checkpoint page path missing for {source_job_id}"))?;
+        let relative_path = Path::new(relative);
+        let file_name = relative_path.file_name().and_then(|value| value.to_str());
+        if relative_path.components().count() != 1
+            || file_name.is_none_or(|value| {
+                !value.starts_with("page-") || !value.ends_with(".json")
+            })
+        {
+            return Err(anyhow!(
+                "unsafe translation checkpoint page path for {source_job_id}: {relative}"
+            ));
+        }
+        if !parent.join(relative_path).is_file() {
+            return Err(anyhow!(
+                "translation checkpoint page file missing for {source_job_id}: {relative}"
+            ));
+        }
+    }
+    Ok(())
+}
+
 pub(super) fn ensure_translations_dir_ready(
     translations_dir: &Path,
     source_label: &str,
@@ -131,6 +219,80 @@ fn require_translation_manifest(translations_dir: &Path, source_label: &str) -> 
         return Err(anyhow!(
             "{} not found for {source_label}: {}",
             TRANSLATION_MANIFEST_FILE_NAME,
+            manifest_path.display()
+        ));
+    }
+    require_completed_checkpoint_if_present(translations_dir, &manifest_path, source_label)
+}
+
+fn require_completed_checkpoint_if_present(
+    translations_dir: &Path,
+    manifest_path: &Path,
+    source_label: &str,
+) -> Result<()> {
+    let checkpoint_path = translations_dir.join(TRANSLATION_CHECKPOINT_FILE_NAME);
+    if !checkpoint_path.exists() {
+        // Completed jobs created before checkpoint.v1 remain renderable.
+        return Ok(());
+    }
+    if !checkpoint_path.is_file() {
+        return Err(anyhow!(
+            "{} is not a regular file for {source_label}: {}",
+            TRANSLATION_CHECKPOINT_FILE_NAME,
+            checkpoint_path.display()
+        ));
+    }
+    let checkpoint: serde_json::Value = serde_json::from_slice(&std::fs::read(&checkpoint_path)?)
+        .map_err(|error| {
+            anyhow!(
+                "invalid {} for {source_label}: {error}",
+                TRANSLATION_CHECKPOINT_FILE_NAME
+            )
+        })?;
+    if checkpoint.get("schema").and_then(serde_json::Value::as_str)
+        != Some("translation_checkpoint_v1")
+        || checkpoint
+            .get("schema_version")
+            .and_then(serde_json::Value::as_u64)
+            != Some(1)
+    {
+        return Err(anyhow!(
+            "unsupported {} contract for {source_label}",
+            TRANSLATION_CHECKPOINT_FILE_NAME
+        ));
+    }
+    if checkpoint.get("status").and_then(serde_json::Value::as_str) != Some("complete")
+        || checkpoint
+            .get("phase")
+            .and_then(serde_json::Value::as_str)
+            != Some("committed")
+        || checkpoint
+            .get("final_manifest")
+            .and_then(serde_json::Value::as_str)
+            != Some(TRANSLATION_MANIFEST_FILE_NAME)
+        || checkpoint
+            .get("fingerprint")
+            .and_then(serde_json::Value::as_str)
+            .is_none_or(str::is_empty)
+    {
+        return Err(anyhow!(
+            "translation checkpoint is not committed for {source_label}: {}",
+            checkpoint_path.display()
+        ));
+    }
+
+    let manifest: serde_json::Value = serde_json::from_slice(&std::fs::read(manifest_path)?)
+        .map_err(|error| anyhow!("invalid translation manifest for {source_label}: {error}"))?;
+    if manifest.get("schema").and_then(serde_json::Value::as_str)
+        != Some("translation_manifest_v1")
+        || manifest
+            .get("schema_version")
+            .and_then(serde_json::Value::as_u64)
+            != Some(1)
+        || manifest.get("status").and_then(serde_json::Value::as_str) != Some("complete")
+    {
+        return Err(anyhow!(
+            "translation manifest is not complete for {source_label}: {}",
             manifest_path.display()
         ));
     }
@@ -212,5 +374,44 @@ mod tests {
             translation_ready_inputs_for_render(&artifacts, &root, "job-test").expect("ready");
         assert_eq!(inputs.source_pdf_path, source_pdf);
         assert_eq!(inputs.translations_dir, translated_dir);
+
+        std::fs::write(
+            translated_dir.join(TRANSLATION_CHECKPOINT_FILE_NAME),
+            br#"{
+                "schema":"translation_checkpoint_v1",
+                "schema_version":1,
+                "status":"in_progress",
+                "phase":"validating",
+                "fingerprint":"fingerprint-a",
+                "final_manifest":null
+            }"#,
+        )
+        .expect("in-progress checkpoint");
+        assert!(translation_ready_inputs_for_render(&artifacts, &root, "job-test").is_err());
+
+        std::fs::write(
+            translated_dir.join(TRANSLATION_MANIFEST_FILE_NAME),
+            br#"{
+                "schema":"translation_manifest_v1",
+                "schema_version":1,
+                "status":"complete",
+                "pages":[]
+            }"#,
+        )
+        .expect("completed manifest");
+        std::fs::write(
+            translated_dir.join(TRANSLATION_CHECKPOINT_FILE_NAME),
+            br#"{
+                "schema":"translation_checkpoint_v1",
+                "schema_version":1,
+                "status":"complete",
+                "phase":"committed",
+                "fingerprint":"fingerprint-a",
+                "final_manifest":"translation-manifest.json"
+            }"#,
+        )
+        .expect("completed checkpoint");
+        translation_ready_inputs_for_render(&artifacts, &root, "job-test")
+            .expect("completed checkpoint is renderable");
     }
 }

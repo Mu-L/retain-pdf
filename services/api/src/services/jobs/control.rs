@@ -177,13 +177,7 @@ mod tests {
         let job_runtime =
             crate::services::runtime_gateway::JobRuntime::in_process(canceled_jobs.clone());
 
-        let deps = ControlDeps::new(
-            &db,
-            &job_runner,
-            &data_root,
-            &output_root,
-            &job_runtime,
-        );
+        let deps = ControlDeps::new(&db, &job_runner, &data_root, &output_root, &job_runtime);
 
         // Hold the registry write lock so that cancel_job's
         // `deps.runtime.request_cancel(job_id).await` call is forced to

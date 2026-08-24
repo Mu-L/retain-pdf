@@ -164,6 +164,11 @@ fn legacy_provider_definitions() -> serde_json::Map<String, Value> {
                 "required_for": ["remote_url", "local_upload"]
             },
             "options": {
+                "transport": {
+                    "type": "string",
+                    "default": "official_http",
+                    "choices": ["official_http", "official_cli"]
+                },
                 "paddle_api_url": {"type": "string", "default": ""},
                 "paddle_model": {
                     "type": "string",

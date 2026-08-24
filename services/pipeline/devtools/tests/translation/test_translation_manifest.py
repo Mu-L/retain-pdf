@@ -50,6 +50,7 @@ def test_translation_manifest_round_trip() -> None:
         manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
 
         assert loaded == {0: payload_path}
+        assert manifest_payload["status"] == "complete"
         assert manifest_payload["pages"][0]["path"] == "custom-page-001.json"
 
 

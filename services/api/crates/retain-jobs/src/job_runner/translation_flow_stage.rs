@@ -9,6 +9,7 @@ use crate::models::domain::{
     job_stage_detail, job_stage_str, now_iso, JobRuntimeState, JobStage, JobStatusKind,
 };
 use crate::storage_paths::JobPaths;
+use crate::storage_paths::TRANSLATION_CHECKPOINT_FILE_NAME;
 use crate::worker_command::{build_worker_stage_command, WorkerStageCommand};
 
 use crate::job_runner::{
@@ -81,6 +82,15 @@ fn prepare_translation_stage(
     source_pdf_path: &Path,
     layout_json_path: Option<&Path>,
 ) -> Result<()> {
+    let checkpoint_path = parent_job_paths
+        .translated_dir
+        .join(TRANSLATION_CHECKPOINT_FILE_NAME)
+        .to_string_lossy()
+        .to_string();
+    parent_job
+        .artifacts
+        .get_or_insert_with(Default::default)
+        .translation_checkpoint_json = Some(checkpoint_path);
     parent_job.command = build_worker_stage_command(
         &deps.worker_command_runtime(),
         &parent_job.request_payload,

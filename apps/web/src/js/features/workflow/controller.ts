@@ -81,6 +81,7 @@ export interface WorkflowConstants extends WorkflowPayloadConstants {
   WORKFLOW_BOOK: string;
   WORKFLOW_TRANSLATE: string;
   WORKFLOW_RENDER: string;
+  WORKFLOW_OCR?: string;
 }
 
 export interface MountWorkflowFeatureOptions {
@@ -116,11 +117,13 @@ export interface MountWorkflowFeatureOptions {
   updateCredentialGate?: (options?: {
     workflowNeedsCredentials?: () => boolean;
     workflowNeedsUpload?: () => boolean;
+    hasCredentials?: () => boolean;
     refreshSubmitControls?: () => void;
   }) => void;
   fetchGlossaries?: (apiPrefix?: string) => Promise<{ items?: unknown[] } | unknown>;
   apiPrefix?: string;
   setText?: (id: string, value?: string) => void;
+  isOcrOnly?: () => boolean;
 }
 
 export interface WorkflowRunPayload {
@@ -163,6 +166,7 @@ export function mountWorkflowFeature({
   fetchGlossaries,
   apiPrefix,
   setText,
+  isOcrOnly,
 }: MountWorkflowFeatureOptions) {
   const {
     DEFAULT_WORKERS,
@@ -174,6 +178,11 @@ export function mountWorkflowFeature({
     WORKFLOW_TRANSLATE,
     WORKFLOW_RENDER,
   } = constants;
+  const WORKFLOW_OCR = (constants as any).WORKFLOW_OCR || "ocr";
+
+  function isOcrOnlyMode() {
+    return Boolean(isOcrOnly?.());
+  }
 
   let refreshSubmitControlsRef = null;
   let applyWorkflowModeRef = null;
@@ -231,14 +240,17 @@ export function mountWorkflowFeature({
   }
 
   function workflowSubmitLabel(workflow = currentWorkflow()) {
+    if (isOcrOnlyMode()) return "仅做 OCR";
     return resolveWorkflowSubmitLabel(workflow, constants);
   }
 
   function workflowUsesTranslation(workflow = currentWorkflow()) {
+    if (isOcrOnlyMode()) return false;
     return workflow === WORKFLOW_BOOK || workflow === WORKFLOW_TRANSLATE;
   }
 
   function workflowHeadline(workflow = currentWorkflow()) {
+    if (isOcrOnlyMode()) return "仅做 OCR：上传后只做版面与文本提取，不进行翻译与渲染。";
     return resolveWorkflowHeadline(workflow, constants);
   }
 
@@ -252,26 +264,35 @@ export function mountWorkflowFeature({
   }
 
   function refreshSubmitControls() {
-    const workflow = currentWorkflow();
+    const workflow = isOcrOnlyMode() ? WORKFLOW_OCR : currentWorkflow();
     const uploadState = getUploadState();
     const budget = currentBudgetState(workflow);
+    const hasCreds = hasBrowserCredentials?.();
     const submitState = resolveSubmitControlState({
       workflow,
       isMock: configPort.isMock(),
       desktopMode: isDesktopMode(),
       uploadId: uploadState.uploadId,
       renderSourceJobId: currentRenderSourceJobId(),
-      hasBrowserCredentials: Boolean(hasBrowserCredentials?.()),
-      budgetBlocking: budget.blocking,
+      hasBrowserCredentials: Boolean(hasCreds),
+      budgetBlocking: Boolean(budget.blocking),
       workflowNeedsUpload,
       workflowNeedsCredentials,
       workflowSubmitLabel,
     });
-    viewPort.renderBudgetNote(budget);
+    // OCR-only 隐藏翻译预算提示
+    if (isOcrOnlyMode()) {
+      viewPort.renderBudgetNote({ visible: false, blocking: false, message: "", tone: "", topUpUrl: "" });
+    } else {
+      viewPort.renderBudgetNote(budget);
+    }
     viewPort.setSubmitControls(submitState);
   }
 
   function currentBudgetState(workflow = currentWorkflow()) {
+    if (isOcrOnlyMode()) {
+      return { visible: false, blocking: false, tone: "", message: "", topUpUrl: "" } as any;
+    }
     const uploadState = getUploadState();
     const balanceState = getDeepSeekBalanceState();
     return resolveTranslationBudgetState({
@@ -287,9 +308,11 @@ export function mountWorkflowFeature({
     if (configPort.isMock()) {
       return;
     }
+    const workflow = isOcrOnlyMode() ? WORKFLOW_OCR : currentWorkflow();
     updateCredentialGatePort?.({
-      workflowNeedsCredentials: () => workflowNeedsCredentials(currentWorkflow()),
-      workflowNeedsUpload: () => workflowNeedsUpload(currentWorkflow()),
+      workflowNeedsCredentials: () => workflowNeedsCredentials(workflow),
+      workflowNeedsUpload: () => workflowNeedsUpload(workflow),
+      hasCredentials: () => Boolean(hasBrowserCredentials?.()),
       refreshSubmitControls,
     });
   }
@@ -402,6 +425,11 @@ export function mountWorkflowFeature({
   function buildTranslateJobConfig(pageRanges = "") {
     const developerConfig = developerConfigWithDefaults();
     const submitValues = currentWorkflowSubmitValues();
+    if (isOcrOnlyMode()) {
+      return {
+        ocr: buildOcrPayload(pageRanges, submitValues),
+      };
+    }
     return {
       ocr: buildOcrPayload(pageRanges, submitValues),
       translation: buildTranslationPayload(developerConfig, submitValues),
@@ -411,22 +439,28 @@ export function mountWorkflowFeature({
   function collectRunPayload(): WorkflowRunPayload {
     const pageRanges = currentPageRanges();
     const developerConfig = developerConfigWithDefaults();
-    const workflow = developerConfig.workflow;
+    const ocrOnly = isOcrOnlyMode();
+    const workflow = ocrOnly ? WORKFLOW_OCR : developerConfig.workflow;
     const uploadState = getUploadState();
     const submitValues = currentWorkflowSubmitValues();
+    const effectiveNeedsUpload = ocrOnly ? () => true : workflowNeedsUpload;
     const payload: WorkflowRunPayload = {
       workflow,
       source: buildSourcePayloadRequest({
         workflow,
         developerConfig,
         uploadId: uploadState.uploadId,
-        workflowNeedsUpload,
+        workflowNeedsUpload: effectiveNeedsUpload,
       }),
       runtime: {
         job_id: "",
         timeout_seconds: developerConfig.timeoutSeconds,
       },
     };
+    if (ocrOnly) {
+      payload.ocr = buildOcrPayload(pageRanges, submitValues);
+      return payload;
+    }
     if (workflow === WORKFLOW_BOOK || workflow === WORKFLOW_TRANSLATE) {
       payload.ocr = buildOcrPayload(pageRanges, submitValues);
       payload.translation = buildTranslationPayload(developerConfig, submitValues);
@@ -445,6 +479,7 @@ export function mountWorkflowFeature({
     currentWorkflow,
     currentBudgetState,
     developerConfigWithDefaults,
+    isOcrOnly: isOcrOnlyMode,
     loadGlossaryOptions,
     refreshSubmitControls,
     resetDeveloperDialog,

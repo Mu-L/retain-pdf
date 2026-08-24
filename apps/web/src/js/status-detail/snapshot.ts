@@ -1,21 +1,21 @@
-import { resolveDisplayedStagePresentation } from "../job-status/job-stage-presentation.js";
+import { resolveDisplayedStagePresentation } from "@retainpdf/domain/job-status";
 import { buildEventsPresentation } from "./events.js";
 import { buildStageHistoryPresentation } from "./history.js";
-import { isJobTerminal } from "../job/core.js";
+import { isJobTerminal } from "@retainpdf/domain/job";
 import {
   resolveJobActions,
-} from "../job/actions.js";
+} from "@retainpdf/domain/job";
 import {
   summarizeInvocationProtocol,
   summarizeInvocationSchemaVersion,
   summarizeRuntimeField,
-} from "../job/formatters.js";
+} from "@retainpdf/domain/job";
 import {
   formatEventTimestamp,
   resolveLiveDurations,
 } from "./utils.js";
-import { summarizeStageName } from "../job/stage-history.js";
-import type { JobLike, JobPayload } from "../job/types.js";
+import { summarizeStageName } from "@retainpdf/domain/job";
+import type { JobLike, JobPayload } from "@retainpdf/domain/job";
 
 /** Options forwarded to resolveLiveDurations / stage history. */
 export interface StatusDetailDurationOptions {

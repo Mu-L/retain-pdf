@@ -55,8 +55,13 @@ Translation 阶段的正式输入和输出固定为：
 
 当前默认翻译产物协议：
 
+- `translation-checkpoint.v1.json`
+  翻译开始即创建，记录输入指纹、attempt、当前 phase、页级 pending item 和持久化进度。
+  每次 dirty-page flush 后原子更新；它是恢复协议，不代表产物已经可以渲染。
+- `translation-request-journal.v1.jsonl`
+  独立于 checkpoint 的请求级 write-ahead journal。每次 LLM 调用在发出前持久化 `dispatch`，收到响应或明确失败后持久化 `terminal`；只记录请求哈希、阶段和结果类别，不保存 prompt、响应、API key 或 provider URL。
 - `translation-manifest.json`
-记录页索引到翻译 payload 文件的稳定映射，供渲染阶段优先读取
+  只在未翻译条目校验通过后提交，记录页索引到翻译 payload 文件的稳定映射，供渲染阶段读取
   还会附带轻量元数据，例如 glossary 摘要、诊断摘要，以及 `invocation` 字段
   当前正式路径统一标记为 `stage_spec`
 - 逐页 translation payload
@@ -93,9 +98,17 @@ Translation 阶段的正式输入和输出固定为：
 - 新逻辑不要再把 `metadata.layout_role`、`metadata.semantic_role`、`metadata.structure_role` 当正式语义入口
 - 如果后续 block 语义变更，优先只改 `document.v1 -> TextItem -> payload` 这条 contract 投影，不要让下游模块各自再翻 `metadata`
 
-兼容约定：
+恢复与兼容约定：
 
-- 新任务目录应生成 `translation-manifest.json`
+- 新任务先生成 `translation-checkpoint.v1.json`；通过导出校验后原子写 manifest，再把 checkpoint 提交为 `complete/committed`，渲染入口只接受二者同时完成
+- worker 使用进程级文件锁保证同一 attempt 同时只有一个 checkpoint writer；进程崩溃后锁由操作系统释放
+- 新 retry attempt 只读复制旧 attempt 的 checkpoint 和页 payload；输入指纹不匹配时显式放弃副本并从空目录开始，旧 attempt 保持不变
+- 输入指纹同时包含 prompt hash、翻译协议/策略版本和路由策略版本；部署改变翻译语义后不会混用旧 attempt 的页结果
+- checkpoint 的 phase 只能沿 `preparing -> policy_ready -> translating -> repairing -> validating -> committed` 前进，已经完成的 item 不允许重新退回 pending
+- 通过校验的逐条译文会原子写入 unit cache 并 fsync；它是页级 flush 之间更细粒度的恢复层，但不能消除“上游已处理、响应在断线途中丢失”造成的重复请求歧义
+- retry attempt 会一并复制 `translation-request-journal.v1.jsonl`；没有配对 terminal 的 dispatch 会被标为历史歧义，同一请求哈希再次发送时明确记录 `prior_ambiguous=true`。这能审计断网窗口，但在 provider 没有正式幂等协议时不能保证去重或避免重复计费
+- Rust API 会把 journal 注册为 `translation_request_journal_jsonl` artifact，并在 Job Detail / diagnostics 返回 `translation_request_recovery`。活动歧义或 journal 损坏时，普通 rerun 和默认 translation retry 都会暂停；只有显式提交 `ambiguous_request_policy=accept_duplicate_risk` 才创建恢复任务，该接受记录会持久化到新任务的 `request_payload.translation.accepted_ambiguous_request_risk`
+- 没有 checkpoint 的历史成功任务仍按旧 manifest 协议读取
 - 翻译产物协议固定为 `translation-manifest.json` + 每页 payload，渲染阶段不再兼容旧的逐页 JSON 直扫模式
 - 默认加载口径已经是 strict contract；缺少上述顶层字段的 payload 会直接报错
 - Rust 主工作流调用的 `translate-only` worker 现在要求 `--spec`
@@ -393,7 +406,9 @@ repair profile：
 
 - DeepSeek 官方 API 的默认翻译 workers 由 Rust API 解析为 `1000`。请求体里的 `translation.workers` 仍然可以覆盖。
 - Python HTTP 连接池会按 `configured_workers` 放大，默认上限 `1000`；可用 `RETAIN_TRANSLATION_HTTP_POOL_MAX` 临时压低。
-- 主翻译通道默认只做 1 次 HTTP attempt。timeout、429、5xx、连接错误会尽快让出 worker，进入尾部 transport retry 队列，避免一个失败项卡住后续段落。
+- 主翻译通道的普通预算仍按调用路径设置；timeout、429、5xx、连接错误会进入有界 transport recovery，默认最多 4 次 attempt、从首次 transport failure 起最多等待 60 秒。
+- 可用 `RETAIN_TRANSLATION_TRANSPORT_RECOVERY_ATTEMPTS=N` 和 `RETAIN_TRANSLATION_TRANSPORT_RECOVERY_SECONDS=N` 调整；将 seconds 设为 `0` 可关闭这层断网恢复。
+- transport attempt 在真正发送前必须先 fsync 请求 journal；并发 dispatch 使用约 5ms 的 group commit 窗口合并 fsync，journal 持久化失败会阻止请求离开进程。
 - 尾部 transport retry 会在主队列之后执行，默认允许 2 次 HTTP attempt，并使用更长 timeout。
 
 ## 模式说明

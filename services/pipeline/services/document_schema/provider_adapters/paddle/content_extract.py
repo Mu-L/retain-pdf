@@ -13,6 +13,13 @@ MIN_PSEUDO_LINE_PITCH_PT = 11.0
 TARGET_PSEUDO_LINE_PITCH_PT = 12.0
 PSEUDO_TEXT_HEIGHT_SLACK_RATIO = 1.08
 BODYLIKE_SUBTYPES = {"body", "heading"}
+DOLLAR_MATH_RE = re.compile(
+    r"(?<!\\)(?:"
+    r"\$\$(?P<display>.+?)(?<!\\)\$\$"
+    r"|\$(?!\$)(?P<inline>[^$\n]+?)(?<!\\)\$(?!\$)"
+    r")",
+    flags=re.DOTALL,
+)
 
 
 def _segment_record(*, text: str, raw_label: str, segment_type: str) -> dict:
@@ -26,6 +33,43 @@ def _segment_record(*, text: str, raw_label: str, segment_type: str) -> dict:
 
 
 def _split_text_with_inline_formulas(text: str, raw_label: str) -> list[dict]:
+    dollar_matches = list(DOLLAR_MATH_RE.finditer(text))
+    if dollar_matches:
+        segments: list[dict] = []
+        cursor = 0
+        for match in dollar_matches:
+            if match.start() > cursor:
+                chunk = text[cursor : match.start()]
+                if chunk.strip():
+                    segments.append(
+                        _segment_record(
+                            text=chunk.strip(),
+                            raw_label=raw_label,
+                            segment_type="text",
+                        )
+                    )
+            formula_text = str(match.group("display") or match.group("inline") or "").strip()
+            if formula_text:
+                segments.append(
+                    _segment_record(
+                        text=formula_text,
+                        raw_label=raw_label,
+                        segment_type="formula",
+                    )
+                )
+            cursor = match.end()
+        tail = text[cursor:]
+        if tail.strip():
+            segments.append(
+                _segment_record(
+                    text=tail.strip(),
+                    raw_label=raw_label,
+                    segment_type="text",
+                )
+            )
+        if segments:
+            return segments
+
     protected_text, formula_map = protect_inline_formulas(text)
     if not formula_map:
         return build_text_segments(text, raw_type=raw_label, segment_type="text")
@@ -54,9 +98,10 @@ def build_segments(text: str, raw_label: str) -> list[dict]:
     label = raw_label.strip().lower()
     if label in {"display_formula", "formula"}:
         return build_text_segments(text, raw_type=raw_label, segment_type="formula")
-    if label == "text":
-        return _split_text_with_inline_formulas(text, raw_label)
-    return build_text_segments(text, raw_type=raw_label, segment_type="text")
+    # Paddle uses semantic labels such as abstract/reference/figure_title for
+    # textual blocks. Inline math must be detected for all of them, not only
+    # blocks whose raw label happens to be the literal "text".
+    return _split_text_with_inline_formulas(text, raw_label)
 
 
 def _bbox_width(bbox: list[float]) -> float:
@@ -178,6 +223,7 @@ def _build_pseudo_lines(*, bbox: list[float], text: str, raw_label: str) -> list
         lines.append(
             {
                 "bbox": [x0, round(line_y0, 3), x1, round(line_y1, 3)],
+                "bbox_precision": "synthetic_wrap",
                 "spans": build_segments(chunk, raw_label),
             }
         )
@@ -198,6 +244,7 @@ def _build_explicit_text_lines(*, bbox: list[float], text: str, raw_label: str) 
         lines.append(
             {
                 "bbox": [x0, round(line_y0, 3), x1, round(line_y1, 3)],
+                "bbox_precision": "synthetic_newline",
                 "spans": build_segments(chunk, raw_label),
             }
         )
@@ -227,3 +274,82 @@ def build_lines(
         if pseudo_lines:
             return pseudo_lines
     return build_line_records(bbox, segments)
+
+
+def inherit_missing_segment_bboxes(*, bbox: list[float], segments: list[dict], lines: list[dict]) -> None:
+    """Attach the narrowest truthful containing region when Paddle has no glyph boxes.
+
+    `bbox_precision` makes the approximation explicit: top-level segments inherit
+    their block, while line spans inherit their generated/observed line region.
+    """
+    for segment in segments:
+        if segment.get("bbox") in (None, [], [0, 0, 0, 0]) or segment.get("bbox_precision") in {
+            "block",
+            "line",
+        }:
+            segment["bbox"] = list(bbox)
+            segment["bbox_precision"] = "block"
+    for line in lines:
+        line_bbox = list(line.get("bbox", bbox) or bbox)
+        for span in line.get("spans", []) or []:
+            if span.get("bbox") in (None, [], [0, 0, 0, 0]) or span.get("bbox_precision") in {
+                "block",
+                "line",
+            }:
+                span["bbox"] = line_bbox
+                span["bbox_precision"] = "line"
+
+
+def assign_inline_formula_bboxes(
+    *,
+    segments: list[dict],
+    block_bbox: list[float],
+    layout_box_lookup: dict[tuple[float, float, float, float], dict],
+) -> dict:
+    """Use Paddle layout boxes only when formula-to-box pairing is unambiguous.
+
+    The layout detector does not expose recognized formula text, so a partial
+    positional match could attach the wrong box. We therefore assign provider
+    geometry only when the number of formula segments exactly equals the
+    number of contained ``inline_formula`` boxes; otherwise the normal block
+    or line approximation remains explicit.
+    """
+
+    formula_segments = [segment for segment in segments if segment.get("type") == "formula"]
+    candidates: list[tuple[list[float], dict]] = []
+    if len(block_bbox) == 4:
+        x0, y0, x1, y1 = (float(value) for value in block_bbox)
+        for raw_box in layout_box_lookup.values():
+            if str(raw_box.get("label", "") or "").strip().lower() != "inline_formula":
+                continue
+            coordinate = raw_box.get("coordinate")
+            if not isinstance(coordinate, list) or len(coordinate) != 4:
+                continue
+            candidate = [float(value or 0) for value in coordinate]
+            if candidate[2] <= candidate[0] or candidate[3] <= candidate[1]:
+                continue
+            if (
+                candidate[0] >= x0
+                and candidate[1] >= y0
+                and candidate[2] <= x1
+                and candidate[3] <= y1
+            ):
+                candidates.append((candidate, raw_box))
+    candidates.sort(key=lambda item: (item[0][1], item[0][0], item[0][3], item[0][2]))
+
+    matched_count = 0
+    if formula_segments and len(formula_segments) == len(candidates):
+        for segment, (candidate, raw_box) in zip(formula_segments, candidates):
+            segment["bbox"] = candidate
+            segment["bbox_precision"] = "provider_layout"
+            score = raw_box.get("score")
+            if isinstance(score, (int, float)):
+                segment["score"] = float(score)
+            matched_count += 1
+    return {
+        "provider_inline_formula_segment_count": len(formula_segments),
+        "provider_inline_formula_candidate_count": len(candidates),
+        "provider_inline_formula_bbox_count": matched_count,
+        "provider_inline_formula_bbox_complete": bool(formula_segments)
+        and matched_count == len(formula_segments),
+    }

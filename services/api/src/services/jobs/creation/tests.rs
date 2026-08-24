@@ -83,7 +83,13 @@ fn test_state(test_name: &str) -> AppState {
         downloads_lock: Arc::new(Mutex::new(())),
         canceled_jobs: Arc::new(RwLock::new(HashSet::new())),
         job_slots: Arc::new(Semaphore::new(1)),
-        job_runtime: Arc::new(crate::services::runtime_gateway::JobRuntime::in_process(Arc::new(RwLock::new(HashSet::new())))),
+        job_runtime: Arc::new(crate::services::runtime_gateway::JobRuntime::in_process(
+            Arc::new(RwLock::new(HashSet::new())),
+        )),
+        agent_capabilities: Arc::new(
+            crate::services::agent_capabilities::AgentCapabilityAuthority::new_random()
+                .expect("agent capability authority"),
+        ),
     }
 }
 
@@ -293,6 +299,64 @@ fn create_translation_job_allows_translate_workflow_from_existing_artifact_job()
         job.command,
         vec!["translate-workflow-pending-ocr".to_string()]
     );
+}
+
+#[test]
+fn create_translation_job_rejects_paddle_cli_artifact_source() {
+    let state = test_state("translate-paddle-cli-artifact-source");
+    seed_ocr_checkpoint_source_job(&state, "paddle-cli-source-job");
+    let mut source_job = state
+        .db
+        .get_job("paddle-cli-source-job")
+        .expect("load source job");
+    source_job.request_payload.ocr.provider = "paddle".to_string();
+    source_job.request_payload.ocr.options.insert(
+        "transport".to_string(),
+        serde_json::Value::String("official_cli".to_string()),
+    );
+    state.db.save_job(&source_job).expect("save CLI source job");
+
+    let mut input = base_translation_input(WorkflowKind::Translate);
+    input.source.artifact_job_id = "paddle-cli-source-job".to_string();
+    let err = create_translation_job(&submit_context(&state), &input)
+        .expect_err("CLI OCR artifact must not feed translation/render");
+
+    match err {
+        AppError::BadRequest(message) => {
+            assert!(message.contains("PaddleOCR official_cli"));
+            assert!(message.contains("bbox/prunedResult"));
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+fn build_render_job_rejects_paddle_cli_artifact_source() {
+    let state = test_state("render-paddle-cli-artifact-source");
+    seed_ocr_checkpoint_source_job(&state, "paddle-cli-render-source");
+    let mut source_job = state
+        .db
+        .get_job("paddle-cli-render-source")
+        .expect("load source job");
+    source_job.request_payload.ocr.provider = "paddle".to_string();
+    source_job.request_payload.ocr.options.insert(
+        "transport".to_string(),
+        serde_json::Value::String("official_cli".to_string()),
+    );
+    state.db.save_job(&source_job).expect("save CLI source job");
+
+    let mut input = base_translation_input(WorkflowKind::Render);
+    input.source.artifact_job_id = "paddle-cli-render-source".to_string();
+    let err = build_translation_job_snapshot(&snapshot_context(&state), &input)
+        .expect_err("CLI OCR artifact must not feed render");
+
+    match err {
+        AppError::BadRequest(message) => {
+            assert!(message.contains("PaddleOCR official_cli"));
+            assert!(message.contains("bbox/prunedResult"));
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
 }
 
 #[test]
@@ -594,4 +658,35 @@ fn build_ocr_job_snapshot_supports_source_url_without_upload() {
         job.request_payload.source.source_url,
         "https://example.com/input.pdf"
     );
+}
+
+#[test]
+fn build_ocr_job_snapshot_supports_upload_id_without_file() {
+    let state = test_state("ocr-upload-id");
+    let upload = seed_upload(&state, "upload-ocr-id");
+    let mut input = base_translation_input(WorkflowKind::Ocr);
+    input.source.upload_id = upload.upload_id.clone();
+    // 前端仅 OCR 时通过 upload_id 复用已上传文件，后端应吸怪：无需 file 字节也能建任务
+    let job = build_ocr_job_snapshot(&snapshot_context(&state), &input, None)
+        .expect("build ocr snapshot from upload_id");
+
+    assert_eq!(job.workflow, WorkflowKind::Ocr);
+    assert_eq!(job.request_payload.source.upload_id, upload.upload_id);
+    assert_eq!(job.command, vec!["ocr-workflow-pending-provider"]);
+}
+
+#[test]
+fn build_ocr_job_snapshot_rejects_missing_file_and_source() {
+    let state = test_state("ocr-missing-source");
+    let input = base_translation_input(WorkflowKind::Ocr);
+
+    let err = build_ocr_job_snapshot(&snapshot_context(&state), &input, None)
+        .expect_err("missing file/upload_id/source_url should fail");
+    match err {
+        AppError::BadRequest(msg) => assert!(
+            msg.contains("either file, upload_id, or source_url is required"),
+            "unexpected message: {msg}"
+        ),
+        other => panic!("unexpected error: {other:?}"),
+    }
 }

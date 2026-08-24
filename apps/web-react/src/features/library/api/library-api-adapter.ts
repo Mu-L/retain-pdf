@@ -1,8 +1,12 @@
 import type { StageKey, StatusSnapshot } from '@/features/status'
+import type {
+  ArtifactDisplayItemView,
+  LibraryBookDetailView,
+  LibraryBookListItemView,
+} from '@retainpdf/contracts/library-books'
 
 import type { LibraryBook, LibraryBookArtifact, LibraryBookStatus } from '../types'
 import { libraryResourceUrl } from './library-api-client'
-import type { JobArtifactDisplayView, JobDetailView, JobListItemView } from './library-api-types'
 
 const stageMap: Record<string, StageKey> = {
   ocr: 'ocr',
@@ -21,45 +25,61 @@ const stageMap: Record<string, StageKey> = {
   finished: 'done',
 }
 
-export function jobListToLibraryBooks(items: JobListItemView[]): LibraryBook[] {
+type LibraryProgressSource = {
+  status: string
+  stage?: string | null
+  stage_detail?: string | null
+  progress?: {
+    current?: number | null
+    total?: number | null
+  } | null
+}
+
+export function jobListToLibraryBooks(items: LibraryBookListItemView[]): LibraryBook[] {
   return items
     .filter((item) => !item.job_id.endsWith('-ocr'))
     .map(jobListItemToLibraryBook)
 }
 
-export function jobDetailToLibraryBook(detail: JobDetailView, previous?: LibraryBook): LibraryBook {
-  const base = jobListItemToLibraryBook(detail)
-  const summary = detail.book_summary
-  const title = summary?.title?.trim() || base.title
-  const authors = summary?.authors?.trim() || previous?.authors || base.authors
-  const pages = summary?.page_count ?? base.pages
-  const detailArtifacts = detail.artifacts_display ?? detail.artifacts
+export function jobDetailToLibraryBook(detail: LibraryBookDetailView, previous?: LibraryBook): LibraryBook {
+  const status = mapJobStatus(detail.status)
+  const stage = mapStage(detail.stage, status)
+  const progressText = progressLabel(detail)
+  const artifacts = buildDetailArtifacts(detail.artifacts, previous?.detail?.artifacts)
 
   return {
-    ...base,
-    title,
-    authors,
-    pages,
-    coverTone: previous?.coverTone ?? base.coverTone,
-    coverUrl: normalizeOptionalResourceUrl(summary?.cover_url || detail.cover_url) || base.coverUrl || previous?.coverUrl,
-    thumbnailUrl: normalizeOptionalResourceUrl(summary?.thumbnail_url || detail.thumbnail_url) || base.thumbnailUrl || previous?.thumbnailUrl,
+    id: detail.job_id,
+    title: detail.title?.trim() || detail.source_file_name?.trim() || previous?.title || detail.job_id,
+    authors: detail.authors?.trim() || previous?.authors || '',
+    pages: detail.page_count ?? previous?.pages ?? 0,
+    status,
+    updatedAt: previous?.updatedAt || '',
+    progressLabel: progressText,
+    coverTone: previous?.coverTone ?? coverToneForJob(detail.job_id),
+    coverUrl: normalizeOptionalResourceUrl(detail.cover_url) || previous?.coverUrl,
+    thumbnailUrl: normalizeOptionalResourceUrl(detail.thumbnail_url) || previous?.thumbnailUrl,
     detail: {
-      ...base.detail,
-      sourceLanguage: summary?.source_language?.trim() || detail.source_language?.trim() || base.detail?.sourceLanguage || '',
-      targetLanguage: summary?.target_language?.trim() || detail.target_language?.trim() || base.detail?.targetLanguage || '',
-      workflow: detail.workflow || base.detail?.workflow || '',
+      sourceLanguage: detail.source_language?.trim() || previous?.detail?.sourceLanguage || '',
+      targetLanguage: detail.target_language?.trim() || previous?.detail?.targetLanguage || '',
+      // The library detail wire contract intentionally omits list-only metadata.
+      // Preserve it from the existing UI view model instead of inventing values.
+      workflow: previous?.detail?.workflow || '',
       ocrProvider: previous?.detail?.ocrProvider ?? '',
       translationEngine: previous?.detail?.translationEngine ?? '',
-      fileSize: formatBytes(summary?.file_size_bytes ?? detail.file_size_bytes) || base.detail?.fileSize || '',
-      createdAt: base.detail?.createdAt || '',
-      description: detail.stage_detail || previous?.detail?.description || base.detail?.description || '',
+      fileSize: formatBytes(detail.file_size_bytes) || previous?.detail?.fileSize || '',
+      createdAt: previous?.detail?.createdAt || '',
+      description: progressText || previous?.detail?.description || '',
       tags: buildDetailTags(detail, previous),
-      artifacts: buildDetailArtifacts(detailArtifacts, detail),
+      artifacts,
     },
+    snapshot: buildSnapshot(detail, stage, {
+      pdfReady: artifactIsReady(artifacts, ['pdf', 'output_pdf', 'translated_pdf', 'result_pdf']) || previous?.snapshot.pdfReady,
+      readerReady: artifactIsReady(artifacts, ['markdown', 'markdown_raw']) || previous?.snapshot.readerReady,
+    }),
   }
 }
 
-function jobListItemToLibraryBook(item: JobListItemView): LibraryBook {
+function jobListItemToLibraryBook(item: LibraryBookListItemView): LibraryBook {
   const pages = item.page_count ?? 0
   const status = mapJobStatus(item.status)
   const stage = mapStage(item.stage, status)
@@ -68,7 +88,7 @@ function jobListItemToLibraryBook(item: JobListItemView): LibraryBook {
   return {
     id: item.job_id,
     title: item.title || item.display_name || item.source_file_name || item.job_id,
-    authors: item.authors || item.workflow || '',
+    authors: item.authors || '',
     pages,
     status,
     updatedAt: formatUpdatedAt(item.updated_at),
@@ -79,13 +99,13 @@ function jobListItemToLibraryBook(item: JobListItemView): LibraryBook {
     detail: {
       sourceLanguage: '',
       targetLanguage: '',
-      workflow: item.workflow || '',
+      workflow: '',
       ocrProvider: '',
       translationEngine: '',
       fileSize: '',
       createdAt: formatUpdatedAt(item.created_at),
       description: item.stage_detail || progressText,
-      tags: [item.workflow, item.status].filter((tag): tag is string => Boolean(tag)),
+      tags: [item.status],
       artifacts: buildListArtifacts(item),
     },
     snapshot: buildListSnapshot(item, stage),
@@ -117,13 +137,23 @@ function mapStage(stage: string | null | undefined, status: LibraryBookStatus): 
   return stageMap[normalized] ?? 'translate'
 }
 
-function buildListSnapshot(item: JobListItemView, activeStage: StageKey): StatusSnapshot {
+function buildListSnapshot(item: LibraryBookListItemView, activeStage: StageKey): StatusSnapshot {
+  return buildSnapshot(item, activeStage, {
+    pdfReady: item.output_pdf_ready,
+    readerReady: item.markdown_ready,
+  })
+}
+
+function buildSnapshot(
+  item: LibraryProgressSource,
+  activeStage: StageKey,
+  readiness: Pick<StatusSnapshot, 'pdfReady' | 'readerReady'>,
+): StatusSnapshot {
   return {
     activeStage,
     selectedStage: activeStage,
     elapsedText: item.status === 'succeeded' ? '完成' : item.status === 'queued' ? '排队中' : '处理中',
-    pdfReady: item.output_pdf_ready,
-    readerReady: item.markdown_ready,
+    ...readiness,
     stageProgress: {
       [activeStage]: {
         current: item.progress?.current,
@@ -135,7 +165,7 @@ function buildListSnapshot(item: JobListItemView, activeStage: StageKey): Status
   }
 }
 
-function progressLabel(item: JobListItemView) {
+function progressLabel(item: LibraryProgressSource) {
   if (item.stage_detail?.trim()) {
     return item.stage_detail
   }
@@ -145,7 +175,7 @@ function progressLabel(item: JobListItemView) {
   return item.status === 'queued' ? '等待开始' : item.status === 'succeeded' ? '已完成' : '处理中'
 }
 
-function buildListArtifacts(item: JobListItemView): LibraryBookArtifact[] {
+function buildListArtifacts(item: LibraryBookListItemView): LibraryBookArtifact[] {
   return [
     { key: 'pdf', label: '译文 PDF', state: item.output_pdf_ready ? 'ready' : 'processing', detail: item.output_pdf_ready ? '可下载' : '等待生成' },
     { key: 'markdown', label: 'Markdown', state: item.markdown_ready ? 'ready' : 'processing', detail: item.markdown_ready ? '可查看' : '等待生成' },
@@ -153,9 +183,12 @@ function buildListArtifacts(item: JobListItemView): LibraryBookArtifact[] {
   ]
 }
 
-function buildDetailArtifacts(artifacts: JobArtifactDisplayView[] | null | undefined, fallback: JobListItemView): LibraryBookArtifact[] {
+function buildDetailArtifacts(
+  artifacts: ArtifactDisplayItemView[],
+  fallback: LibraryBookArtifact[] = [],
+): LibraryBookArtifact[] {
   if (!artifacts?.length) {
-    return buildListArtifacts(fallback)
+    return fallback
   }
 
   return artifacts.map((artifact) => ({
@@ -170,14 +203,17 @@ function buildDetailArtifacts(artifacts: JobArtifactDisplayView[] | null | undef
   }))
 }
 
-function buildDetailTags(detail: JobDetailView, previous?: LibraryBook) {
+function buildDetailTags(detail: LibraryBookDetailView, previous?: LibraryBook) {
   return [
-    detail.workflow,
     detail.status,
-    detail.book_summary?.source_language,
-    detail.book_summary?.target_language,
+    detail.source_language,
+    detail.target_language,
     ...(previous?.detail?.tags ?? []),
   ].filter((tag, index, tags): tag is string => Boolean(tag?.trim()) && tags.indexOf(tag) === index)
+}
+
+function artifactIsReady(artifacts: LibraryBookArtifact[], keys: string[]) {
+  return artifacts.some((artifact) => keys.includes(artifact.key) && artifact.state === 'ready')
 }
 
 function formatBytes(value?: number | null) {

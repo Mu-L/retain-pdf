@@ -1,4 +1,3 @@
-import { getUploadState } from "../internal/upload-state.js";
 import type {
   ArtifactRuntimePortDeps,
   ArtifactRuntimeState,
@@ -54,11 +53,7 @@ function cachedManifestFor(
 }
 
 function uploadSnapshot(state?: ArtifactRuntimeState | null): UploadSnapshot {
-  const snapshot = getUploadState();
-  // 单例为主真值;纯快照对象(测试/静态构造)在单例为空时按字段名直读
-  const source = !snapshot.uploadId && state && ("uploadId" in state || "uploadedFileName" in state) && !(Symbol.for("retainpdf.currentJobStore") in (state || {}))
-    ? state
-    : snapshot;
+  const source = state || {};
   return {
     uploadId: source.uploadId || "",
     uploadedFileName: source.uploadedFileName || "",
@@ -68,6 +63,8 @@ function uploadSnapshot(state?: ArtifactRuntimeState | null): UploadSnapshot {
     submitBusy: Boolean(source.submitBusy),
   };
 }
+
+let defaultDeps: ArtifactRuntimePortDeps = {};
 
 export function createArtifactRuntimePort({
   getCurrentJobId = currentJobId,
@@ -83,4 +80,26 @@ export function createArtifactRuntimePort({
   });
 }
 
-export const defaultArtifactRuntimePort = createArtifactRuntimePort();
+// Keep a stable object: artifacts.ts captures this port at module evaluation,
+// while the host configures its dependencies during application boot.
+export const defaultArtifactRuntimePort = Object.freeze({
+  currentJobId: (state?: ArtifactRuntimeState | null) => (
+    defaultDeps.getCurrentJobId || currentJobId
+  )(state),
+  currentJobSnapshot: (state?: ArtifactRuntimeState | null) => (
+    defaultDeps.getCurrentJobSnapshot || currentJobSnapshot
+  )(state),
+  cachedManifestFor: (state: ArtifactRuntimeState | null | undefined, jobId: string) => (
+    defaultDeps.getCachedManifestFor || cachedManifestFor
+  )(state, jobId),
+  uploadSnapshot: (state?: ArtifactRuntimeState | null) => (
+    defaultDeps.getUploadSnapshot || uploadSnapshot
+  )(state),
+});
+
+export function configureDefaultArtifactRuntimePort(
+  deps: ArtifactRuntimePortDeps = {},
+) {
+  defaultDeps = { ...deps };
+  return defaultArtifactRuntimePort;
+}

@@ -48,6 +48,7 @@ export type WorkflowFeature = {
   currentWorkflow: () => string;
   currentBudgetState: (workflow?: string) => unknown;
   developerConfigWithDefaults: () => Record<string, unknown>;
+  isOcrOnly?: () => boolean;
   loadGlossaryOptions: (options?: unknown) => unknown;
   refreshSubmitControls: () => void;
   resetDeveloperDialog: () => void;
@@ -76,7 +77,9 @@ export type BrowserCredentialsFeature = {
   activateCredentialTab: (tabName?: string) => void;
   ensureOcrCredentialsReady: (options?: unknown) => Promise<boolean> | boolean | unknown;
   hasBrowserCredentials: () => boolean;
+  hasOcrCredentials: () => boolean;
   openBrowserCredentialsDialog: (options?: unknown) => void;
+  prepareCredentialsPanels: () => void;
   refreshDeepSeekBalance: (options?: unknown) => Promise<unknown> | unknown;
   setDialogStatus: (message?: string, tone?: string) => void;
   updateCredentialGate: (options?: unknown) => void;
@@ -110,7 +113,7 @@ export type JobRuntimeFeature = {
   cancelCurrentJob: () => unknown;
   currentJobId: () => string;
   fetchJob: (jobId?: string) => Promise<unknown> | unknown;
-  retryStage: (stage: string) => unknown;
+  retryStage: (stage: string, options?: { jobId?: string }) => unknown;
   returnToHome: () => void;
   startPolling: (jobId: string, options?: StartPollingOptions) => unknown;
   stopPolling: () => void;
@@ -382,6 +385,8 @@ export type UploadViewActions = {
 
 export type WorkflowViewActions = {
   setSelectedGlossaryId: (id: string) => unknown;
+  setOcrOnly: (value: boolean) => unknown;
+  isOcrOnly: () => boolean;
 };
 
 export type WorkflowDialogRuntime = {
@@ -511,6 +516,8 @@ export type HomeServicesViews = {
   workflowView: {
     store: AppStore;
     setSelectedGlossaryId: (id: string) => unknown;
+    setOcrOnly: (value: boolean) => unknown;
+    isOcrOnly: () => boolean;
   };
   statusArea: StatusAreaBag;
   workflowDialog: WorkflowDialogRuntime;
@@ -563,7 +570,7 @@ export type CreateHomeCompositionOptions = {
   fetchGlossaries?: AsyncFn;
   submitUploadRequest?: AsyncFn;
   loadPersistedDeveloperConfig?: () => Record<string, unknown>;
-  loadPersistedBrowserConfig?: () => Record<string, unknown>;
+  loadPersistedBrowserConfig?: () => Partial<ReturnType<CredentialsStatePort["getCredentials"]>>;
   validateOcrToken?: AsyncFn | null;
   validateDeepSeekToken?: AsyncFn;
   queryDeepSeekBalance?: AsyncFn;

@@ -79,6 +79,7 @@ def write_translation_manifest(
     payload = {
         "schema": TRANSLATION_MANIFEST_SCHEMA,
         "schema_version": TRANSLATION_MANIFEST_SCHEMA_VERSION,
+        "status": "complete",
         "pages": pages,
     }
     if glossary:

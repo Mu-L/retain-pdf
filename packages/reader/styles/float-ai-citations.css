@@ -1,23 +1,23 @@
 /* AI 悬浮窗 · 正文 [n] 角标与精简来源条 */
 
-/* 正文内 [n] 角标 — 轻量角标，少描边 */
+/* 正文内 [n] 角标：像论文脚注，不做成灰色输入框。 */
 .reader-float-ai .reader-ai-citation-ref {
-  display: inline;
-  margin: 0 1px;
-  padding: 0 4px;
+  display: inline-block;
+  margin: 0 0.08em;
+  padding: 0 0.12em;
   border: 0;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--ink) 6%, var(--paper));
-  color: color-mix(in srgb, var(--ink) 70%, var(--muted));
-  font-size: 10px;
-  font-weight: 650;
-  line-height: 1.45;
+  border-radius: 3px;
+  background: transparent;
+  color: color-mix(in srgb, var(--accent) 82%, var(--ink));
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
   cursor: pointer;
-  vertical-align: baseline;
+  vertical-align: super;
   transition: background 120ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)), color 120ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
 }
 .reader-float-ai .reader-ai-citation-ref:hover {
-  background: color-mix(in srgb, var(--ink) 10%, var(--paper));
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
   color: var(--ink);
 }
 /* 精简来源条 */

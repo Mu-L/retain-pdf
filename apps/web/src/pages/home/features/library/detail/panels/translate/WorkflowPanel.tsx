@@ -10,7 +10,7 @@
 import { cn } from "@/lib/utils";
 import { BookTranslateProgressPanel } from "./TranslateProgress.jsx";
 import { BookTranslateLaunchForm } from "./TranslateForm.jsx";
-import type { LibraryCardItem } from "../../types.js";
+import type { LibraryCardItem } from "../../../types.js";
 
 export type BookTranslationWorkflowPanelProps = {
   item?: LibraryCardItem;

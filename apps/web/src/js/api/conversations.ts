@@ -2,7 +2,7 @@
 
 import { API_PREFIX } from "../config/api-constants.js";
 import { buildApiHeaders, isMockMode } from "../config/runtime.js";
-import { unwrapEnvelope } from "../job/core.js";
+import { unwrapEnvelope } from "@retainpdf/domain/job";
 import { buildApiEndpoint } from "./http.js";
 
 export type ConversationRecord = {

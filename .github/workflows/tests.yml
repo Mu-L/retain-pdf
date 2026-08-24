@@ -46,13 +46,27 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install (root workspaces)
-        run: npm install
+        run: npm ci
+
+      - name: Test and build @retainpdf/contracts
+        run: |
+          npm --prefix packages/schemas test
+          npm --prefix packages/schemas run typecheck
+          npm --prefix packages/schemas run build
+
+      - name: Typecheck and build @retainpdf/domain
+        run: |
+          npm --prefix packages/domain run typecheck
+          npm --prefix packages/domain run build
 
       - name: Build @retainpdf/ui
         run: npm --prefix packages/ui run build
 
       - name: Build @retainpdf/api
         run: npm --prefix packages/api run build
+
+      - name: Typecheck @retainpdf/reader
+        run: npm --prefix packages/reader run typecheck
 
       - name: Build @retainpdf/reader
         run: npm --prefix packages/reader run build
@@ -69,14 +83,25 @@ jobs:
         with:
           node-version: "22.22.0"
           cache: npm
-          cache-dependency-path: apps/web/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install
-        working-directory: apps/web
+      - name: Install (root workspaces)
         run: npm ci
+
+      - name: Build frontend package dependencies
+        run: |
+          npm --prefix packages/schemas run build
+          npm --prefix packages/domain run build
+          npm --prefix packages/ui run build
+          npm --prefix packages/api run build
+          npm --prefix packages/reader run build
 
       - name: Frontend Tests
         working-directory: apps/web
+        run: npm test
+
+      - name: React Frontend Tests
+        working-directory: apps/web-react
         run: npm test
 
   ai-service:

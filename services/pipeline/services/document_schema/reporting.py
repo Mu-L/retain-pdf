@@ -37,8 +37,27 @@ def build_normalization_summary(report: dict | None) -> dict:
         "defaulted_block_fields": _sum_default_hits(block_defaults),
         "any_defaults_applied": bool(document_defaults or page_defaults or block_defaults),
         "valid": bool(validation.get("valid", False)),
+        "complete": bool(validation.get("complete", False)),
+        "warnings": list(validation.get("warnings", []) or []),
         "page_count": int(validation.get("page_count", 0) or 0),
         "block_count": int(validation.get("block_count", 0) or 0),
+        "asset_count": int(validation.get("asset_count", 0) or 0),
+        "referenced_asset_count": int(validation.get("referenced_asset_count", 0) or 0),
+        "unreferenced_asset_count": int(validation.get("unreferenced_asset_count", 0) or 0),
+        "provider_markdown_image_count": int(validation.get("provider_markdown_image_count", 0) or 0),
+        "covered_provider_markdown_image_count": int(
+            validation.get("covered_provider_markdown_image_count", 0) or 0
+        ),
+        "uncovered_provider_markdown_image_count": int(
+            validation.get("uncovered_provider_markdown_image_count", 0) or 0
+        ),
+        "asset_block_count": int(validation.get("asset_block_count", 0) or 0),
+        "linked_asset_block_count": int(validation.get("linked_asset_block_count", 0) or 0),
+        "unlinked_asset_block_count": int(validation.get("unlinked_asset_block_count", 0) or 0),
+        "zero_segment_bbox_count": int(validation.get("zero_segment_bbox_count", 0) or 0),
+        "approximate_segment_bbox_count": int(validation.get("approximate_segment_bbox_count", 0) or 0),
+        "coordinate_space": str(validation.get("coordinate_space", "") or ""),
+        "geometry_bbox_consistent": bool(validation.get("geometry_bbox_consistent", False)),
         "detection_matched": bool(detection.get("matched", False)),
         "detection_attempts": len(detection.get("attempts", []) or []),
     }

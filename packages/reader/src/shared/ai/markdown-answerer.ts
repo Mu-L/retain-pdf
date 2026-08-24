@@ -1,8 +1,10 @@
 // 共享真值（原 apps/web/src/js/reader/ai/markdown-answerer.ts），已抽离为 standalone
 // 纯 Markdown 切段检索，无宿主依赖
 
+import { normalizeMarkdownPayload } from "../data/markdown-payload.js";
+
 function markdownContent(payload: any = null): string {
-  return `${payload?.content_with_absolute_image_urls || payload?.content || payload?.markdown || ""}`.trim();
+  return normalizeMarkdownPayload(payload).content.trim();
 }
 
 function normalizeText(text = ""): string {

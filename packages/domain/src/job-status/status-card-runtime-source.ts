@@ -1,7 +1,7 @@
 import {
   buildStatusCardPatchPayload,
   buildStatusCardRenderModel,
-} from "./status-card-context.js";
+} from "./status-card/status-card-context.js";
 import type { JobLike, JobPayload, ManifestPayload } from "../job/types.js";
 import type { EventsPayload, PublicStagePresentation } from "./types.js";
 

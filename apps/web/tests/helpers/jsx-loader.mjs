@@ -39,24 +39,6 @@ function resolveWithTsFallback(filePath) {
 }
 
 export async function resolve(specifier, context, nextResolve) {
-  // @retainpdf/* alias → packages/*
-  if (specifier.startsWith("@retainpdf/")) {
-    const sub = specifier.slice("@retainpdf/".length);
-    const pkg = sub.split("/")[0];
-    const rest = sub.slice(pkg.length).replace(/^\//, "");
-    const base = rest ? `../../../../packages/${pkg}/src/${rest}` : `../../../../packages/${pkg}/src/index.ts`;
-    const basePath = fileURLToPath(new URL(base, import.meta.url));
-    const hit = resolveWithTsFallback(basePath);
-    if (hit) {
-      return { url: pathToFileURL(hit).href, shortCircuit: true };
-    }
-    // fallback to package root (for @retainpdf/reader bare)
-    if (!rest) {
-      const pkgRoot = fileURLToPath(new URL(`../../../../packages/${pkg}/src/index.ts`, import.meta.url));
-      const hit2 = resolveWithTsFallback(pkgRoot);
-      if (hit2) return { url: pathToFileURL(hit2).href, shortCircuit: true };
-    }
-  }
   // @/ alias
   if (specifier.startsWith("@/")) {
     const basePath = fileURLToPath(new URL(specifier.slice(2), SRC_ROOT));
@@ -81,19 +63,6 @@ export async function resolve(specifier, context, nextResolve) {
     if (hit) {
       return { url: pathToFileURL(hit).href, shortCircuit: true };
     }
-  }
-
-  // Bare specifiers imported from packages/ui/* should resolve via apps/web/node_modules
-  // (e.g. sonner, lucide-react, radix-ui, class-variance-authority need web's deps;
-  //  transitive deps like react-remove-scroll inside packages/ui/node_modules also need fallback)
-  if (
-    context.parentURL &&
-    context.parentURL.includes("/packages/ui/")
-  ) {
-    try {
-      const webParent = new URL("../../package.json", import.meta.url).href;
-      return await nextResolve(specifier, { ...context, parentURL: webParent });
-    } catch {}
   }
 
   return nextResolve(specifier, context);

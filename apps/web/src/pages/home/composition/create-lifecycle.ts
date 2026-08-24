@@ -12,6 +12,14 @@ import {
 
 import type { HomeBridge, HomeFeatures } from "./types.js";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function hasRecordDetail(event: Event): event is CustomEvent<Record<string, unknown>> {
+  return "detail" in event && isRecord(event.detail);
+}
+
 type CreateLifecycleArgs = {
   features: HomeFeatures;
   bridge: HomeBridge;
@@ -48,9 +56,9 @@ export function createLifecycle({
 
   function bindDocumentEvents() {
     const onRetryStage = (event: Event) => {
-      const detail = (event as CustomEvent)?.detail || {};
-      const stage = `${detail?.stage || ""}`.trim();
-      const jobId = `${detail?.jobId || detail?.job_id || ""}`.trim();
+      const detail = hasRecordDetail(event) ? event.detail : {};
+      const stage = `${detail.stage || ""}`.trim();
+      const jobId = `${detail.jobId || detail.job_id || ""}`.trim();
       if (stage) features.jobRuntimeFeature.retryStage(stage, jobId ? { jobId } : {});
     };
     const onReturnHome = () => features.jobRuntimeFeature.returnToHome();

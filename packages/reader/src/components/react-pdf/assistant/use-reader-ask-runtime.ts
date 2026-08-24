@@ -1,14 +1,6 @@
-// assistant-ui ExternalStore：进度/正文分离 + 消息分支树 + 本地快照。
+// Reader 问答编排：会话、流式回答与本地快照。
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ExportedMessageRepository,
-  useExternalStoreRuntime,
-  type AppendMessage,
-  type ThreadMessage,
-  type ThreadMessageLike,
-} from "@assistant-ui/react";
-import { describeToolEvent } from "../../../shared/ai/tool-labels.js";
 import {
   armReaderAiClickShield,
   clearThreadBranchSnapshot,
@@ -25,270 +17,30 @@ import {
   messagesToBranchItems,
   nextForkConversationTitle,
   patchConversation,
-  sanitizeAssistantAnswer,
   saveThreadBranchSnapshot,
   type AiCitationLike,
   type ConversationRecord,
-  type ThreadBranchItem,
-  type ThreadBranchMessage,
-  type ThreadBranchSnapshot,
 } from "../../../external.js";
-
-export type ReaderAskStoreMessage = ThreadBranchMessage & {
-  citations?: AiCitationLike[];
-  status?: ThreadMessageLike["status"];
-};
-
-type TreeItem = {
-  parentId: string | null;
-  message: ReaderAskStoreMessage;
-};
-
-const SUGGESTIONS = [
-  { prompt: "这篇文献的主要结论是什么？" },
-  { prompt: "作者用了什么方法或模型？" },
-  { prompt: "有哪些关键结果或数据？" },
-];
-
-function textFromAppend(message: AppendMessage): string {
-  const content = message.content as unknown;
-  if (typeof content === "string") return content.trim();
-  if (!Array.isArray(content)) return "";
-  return content
-    .map((part) => {
-      if (part && typeof part === "object" && (part as { type?: string }).type === "text") {
-        return `${(part as { text?: string }).text || ""}`;
-      }
-      return "";
-    })
-    .join("")
-    .trim();
-}
-
-function toThreadMessageLike(message: ReaderAskStoreMessage): ThreadMessageLike {
-  // 注意：fromThreadMessageLike 会丢掉 trim 为空的 text part；
-  // 流式占位用可见点，避免 content=[] 时气泡不挂载 Parts。
-  const raw = message.content;
-  const isAssistant = message.role === "assistant";
-  const content = raw.trim()
-    ? raw
-    : isAssistant && message.status?.type === "running"
-      ? "…"
-      : raw;
-  // assistant-ui fromBranchableArray：status 只能出现在 assistant，否则
-  // Uncaught Error: status is only supported for assistant messages
-  return {
-    id: message.id,
-    role: message.role,
-    content: [{ type: "text", text: content || "" }],
-    ...(isAssistant && message.status ? { status: message.status } : {}),
-    metadata: {
-      custom: {
-        citations: message.citations || [],
-        progress: message.progress || "",
-        storeId: message.id,
-      },
-    },
-  };
-}
-
-function shouldFallbackToLocal(error: unknown): boolean {
-  const status = Number((error as { status?: number })?.status) || 0;
-  const msg = `${(error as Error)?.message || ""}`;
-  return status === 502 || /\b502\b/.test(msg);
-}
+import {
+  findMessage,
+  pathForBranch,
+  snapshotFromTree,
+  treeFromSnapshot,
+  treeItemsFromBranchItems,
+  visibleMessages,
+  type ReaderAskStoreMessage,
+  type ReaderAskTreeItem,
+} from "./reader-ask-tree.js";
+import {
+  chatMessageToStore,
+  lastAssistantMessage,
+  storeMessagesToChat,
+  useReaderChat,
+} from "./use-reader-chat.js";
+export type { ReaderAskStoreMessage } from "./reader-ask-tree.js";
 
 function makeId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function normalizeCitations(raw: unknown): AiCitationLike[] {
-  if (!Array.isArray(raw)) return [];
-  const out: AiCitationLike[] = [];
-  for (const item of raw) {
-    if (!item || typeof item !== "object") continue;
-    const c = item as AiCitationLike;
-    const blockId = `${c.block_id || ""}`.trim();
-    if (!blockId) continue;
-    let pageIdx: number | undefined;
-    const rawPage = c.page_idx ?? c.page;
-    if (rawPage !== undefined && rawPage !== null && `${rawPage}`.trim() !== "") {
-      const n = Number(rawPage);
-      if (Number.isFinite(n) && n >= 0) pageIdx = Math.floor(n);
-    }
-    if (pageIdx === undefined) {
-      const m = blockId.match(/(?:^|[^0-9])p0*([1-9]\d*)(?:-|_|\b)/i);
-      if (m) pageIdx = Math.max(0, Number(m[1]) - 1);
-    }
-    out.push({
-      ...c,
-      block_id: blockId,
-      ref: c.ref,
-      page_idx: pageIdx,
-      job_id: `${c.job_id || ""}`.trim(),
-      document_id: `${c.document_id || ""}`.trim(),
-      snippet: `${c.snippet || ""}`.trim(),
-    });
-  }
-  return out;
-}
-
-function snapshotFromTree(
-  items: readonly TreeItem[],
-  headId: string | null,
-): ThreadBranchSnapshot {
-  return {
-    version: 1,
-    headId,
-    items: items.map((item) => ({
-      parentId: item.parentId,
-      message: {
-        id: item.message.id,
-        role: item.message.role,
-        content: item.message.content,
-        ...(item.message.progress ? { progress: item.message.progress } : {}),
-        ...(item.message.citations?.length
-          ? { citations: item.message.citations }
-          : {}),
-        ...(item.message.status
-          ? {
-            status: {
-              type: item.message.status.type,
-              ...("reason" in item.message.status && item.message.status.reason
-                ? { reason: `${item.message.status.reason}` }
-                : {}),
-            },
-          }
-          : {}),
-      },
-    })) as ThreadBranchItem[],
-  };
-}
-
-function treeFromSnapshot(snapshot: ThreadBranchSnapshot): {
-  items: TreeItem[];
-  headId: string | null;
-} {
-  const items: TreeItem[] = snapshot.items.map((item) => ({
-    parentId: item.parentId,
-    message: {
-      ...item.message,
-      citations: (item.message.citations || []) as AiCitationLike[],
-      status: item.message.status as ReaderAskStoreMessage["status"],
-    },
-  }));
-  return { items, headId: snapshot.headId };
-}
-
-function visibleMessages(
-  items: readonly TreeItem[],
-  headId: string | null,
-): ReaderAskStoreMessage[] {
-  if (!items.length) return [];
-  const byId = new Map(items.map((i) => [i.message.id, i]));
-  const head = (headId && byId.get(headId)) || items[items.length - 1];
-  if (!head) return [];
-  const chain: ReaderAskStoreMessage[] = [];
-  let cur: TreeItem | undefined = head;
-  const guard = new Set<string>();
-  while (cur && !guard.has(cur.message.id)) {
-    guard.add(cur.message.id);
-    chain.push(cur.message);
-    cur = cur.parentId ? byId.get(cur.parentId) : undefined;
-  }
-  return chain.reverse();
-}
-
-function findMessage(
-  items: readonly TreeItem[],
-  id: string | null | undefined,
-): ReaderAskStoreMessage | null {
-  if (!id) return null;
-  return items.find((i) => i.message.id === id)?.message ?? null;
-}
-
-/** 从任意消息沿 parent 回溯到根，得到路径上的 TreeItem 序列（根→叶）。 */
-function pathItemsToMessage(
-  items: readonly TreeItem[],
-  targetId: string,
-): TreeItem[] {
-  const byId = new Map(items.map((i) => [i.message.id, i]));
-  let cur = byId.get(targetId);
-  if (!cur) return [];
-  const chain: TreeItem[] = [];
-  const guard = new Set<string>();
-  while (cur && !guard.has(cur.message.id)) {
-    guard.add(cur.message.id);
-    chain.push(cur);
-    cur = cur.parentId ? byId.get(cur.parentId) : undefined;
-  }
-  return chain.reverse();
-}
-
-/**
- * 分支用路径：优先 parent 链；链断/缺 parent 时退化为「可见路径截到目标答案」。
- * 避免只 fork 出半截（甚至只有一条 assistant）导致「分支不像新对话/无上文」。
- */
-function pathForBranch(
-  items: readonly TreeItem[],
-  targetId: string,
-  headId: string | null,
-): TreeItem[] {
-  const tid = `${targetId || ""}`.trim();
-  if (!tid || !items.length) return [];
-
-  // aui 有时用自己的 id；优先精确匹配，再回退到当前 head / 最近 assistant
-  let resolvedId = tid;
-  if (!items.some((i) => i.message.id === resolvedId)) {
-    if (headId && items.some((i) => i.message.id === headId)) {
-      resolvedId = headId;
-    } else {
-      const lastAssist = [...items].reverse().find((i) => i.message.role === "assistant");
-      if (lastAssist) resolvedId = lastAssist.message.id;
-    }
-  }
-
-  let path = pathItemsToMessage(items, resolvedId);
-  // parent 链完整：至少含 user+assistant
-  if (path.length >= 2 && path[path.length - 1].message.role === "assistant") {
-    return path;
-  }
-  if (path.length === 1 && path[0].message.role === "user") {
-    path = [];
-  }
-
-  // Fallback：按当前可见线性顺序，从根截到 target（含）
-  const visible = visibleMessages(items, headId || resolvedId);
-  let idx = visible.findIndex((m) => m.id === resolvedId);
-  if (idx < 0) {
-    // 再退：整条可见路径（以 head 为叶）
-    idx = visible.length - 1;
-  }
-  if (idx < 0) return path;
-  const byId = new Map(items.map((i) => [i.message.id, i]));
-  const linear: TreeItem[] = [];
-  for (let i = 0; i <= idx; i += 1) {
-    const row = byId.get(visible[i].id);
-    if (row) linear.push(row);
-  }
-  // 确保以 assistant 结尾
-  while (linear.length && linear[linear.length - 1].message.role !== "assistant") {
-    linear.pop();
-  }
-  return linear.length ? linear : path;
-}
-
-function treeItemsFromBranchItems(
-  branchItems: ReturnType<typeof messagesToBranchItems>,
-): TreeItem[] {
-  return branchItems.map((item) => ({
-    parentId: item.parentId,
-    message: {
-      ...item.message,
-      citations: (item.message.citations || []) as AiCitationLike[],
-      status: item.message.status as ReaderAskStoreMessage["status"],
-    },
-  }));
 }
 
 export type ReaderAskSessionSummary = {
@@ -304,29 +56,15 @@ export function useReaderAskRuntime(options: {
   enabled: boolean;
 }) {
   const { jobId, enabled } = options;
-  const [items, setItems] = useState<TreeItem[]>([]);
+  const [items, setItems] = useState<ReaderAskTreeItem[]>([]);
   const [headId, setHeadId] = useState<string | null>(null);
-  const [isRunning, setIsRunning] = useState(false);
   const [sessions, setSessions] = useState<ConversationRecord[]>([]);
   const [activeConversationId, setActiveConversationId] = useState("");
   const [sessionBusy, setSessionBusy] = useState(false);
   const [sessionError, setSessionError] = useState("");
-  const runningRef = useRef(false);
-  // 贯穿单次 runAssistant 的取消把手：onCancel/切会话/新会话/连发前 abort。
-  // 审计 P0-2/3/4 的共同根因就是此前没有它——停止不断流、完成流复活已取消
-  // 消息、旧流回写会话粘性，全靠这一个 controller 消掉。
-  const runAbortRef = useRef<AbortController | null>(null);
   const itemsRef = useRef(items);
   const headIdRef = useRef(headId);
   const activeConversationIdRef = useRef(activeConversationId);
-  const streamRafRef = useRef<number | null>(null);
-  const pendingContentRef = useRef("");
-  const streamAssistantIdRef = useRef("");
-  /** 流式正文旁路（不依赖 aui Parts / status），保证 token 到即刷 */
-  const streamContentRef = useRef<Record<string, string>>({});
-  const [streamEpoch, setStreamEpoch] = useState(0);
-  const [streamingAssistantId, setStreamingAssistantId] = useState("");
-  const answerStartedRef = useRef(false);
   const persistReadyRef = useRef(false);
   const lastJobRef = useRef("");
   const documentIdRef = useRef("");
@@ -340,6 +78,26 @@ export function useReaderAskRuntime(options: {
     if (!enabled || !jobId) return null;
     return createReaderAskAnswerer({ jobId });
   }, [enabled, jobId]);
+
+  const localAnswerer = useMemo(() => {
+    if (!enabled || !jobId) return null;
+    return createReaderMarkdownAnswerer({
+      loadMarkdownPayload: defaultReaderDataPort.loadMarkdownPayload,
+    });
+  }, [enabled, jobId]);
+
+  const {
+    error: chatError,
+    messages: chatMessages,
+    regenerate: regenerateChat,
+    sendMessage,
+    setMessages: setChatMessages,
+    status: chatStatus,
+    stop: stopChat,
+  } = useReaderChat({ jobId, remoteAnswerer, localAnswerer });
+  const isRunning = chatStatus === "submitted" || chatStatus === "streaming";
+  const runningRef = useRef(isRunning);
+  runningRef.current = isRunning;
 
   const refreshSessions = useCallback(async (documentId = "") => {
     const doc = `${documentId || documentIdRef.current || ""}`.trim();
@@ -360,13 +118,13 @@ export function useReaderAskRuntime(options: {
     head?: string | null,
   ) => {
     const tree = treeItemsFromBranchItems(branchItems);
-    setItems(tree);
-    setHeadId(
-      `${head || ""}`.trim()
+    const nextHead = `${head || ""}`.trim()
       || tree[tree.length - 1]?.message.id
-      || null,
-    );
-  }, []);
+      || null;
+    setItems(tree);
+    setHeadId(nextHead);
+    setChatMessages(storeMessagesToChat(visibleMessages(tree, nextHead)));
+  }, [setChatMessages]);
 
   // job 切换 / 面板打开：拉会话列表 + hydrate 消息树
   // 注意：面板关闭时 enabled=false 也会跑 effect；不能用 lastJobRef 在 enabled 翻转时直接 return，
@@ -377,6 +135,7 @@ export function useReaderAskRuntime(options: {
       setHeadId(null);
       setSessions([]);
       setActiveConversationId("");
+      setChatMessages([]);
       activeConversationIdRef.current = "";
       lastJobRef.current = "";
       documentIdRef.current = "";
@@ -388,10 +147,9 @@ export function useReaderAskRuntime(options: {
     if (jobChanged) {
       lastJobRef.current = jobId;
       persistReadyRef.current = false;
-      runningRef.current = false;
-      setIsRunning(false);
       setItems([]);
       setHeadId(null);
+      setChatMessages([]);
       setSessions([]);
       setActiveConversationId("");
       activeConversationIdRef.current = "";
@@ -489,9 +247,11 @@ export function useReaderAskRuntime(options: {
         const tree = treeFromSnapshot(saved);
         setItems(tree.items);
         setHeadId(tree.headId);
+        setChatMessages(storeMessagesToChat(visibleMessages(tree.items, tree.headId)));
       } else {
         setItems([]);
         setHeadId(null);
+        setChatMessages([]);
       }
       requestAnimationFrame(() => {
         if (!cancelled) persistReadyRef.current = true;
@@ -501,7 +261,7 @@ export function useReaderAskRuntime(options: {
     return () => {
       cancelled = true;
     };
-  }, [jobId, enabled, remoteAnswerer, refreshSessions, applyConversationTree]);
+  }, [jobId, enabled, remoteAnswerer, refreshSessions, applyConversationTree, setChatMessages]);
 
   // 防抖持久化全量树（按会话隔离）
   useEffect(() => {
@@ -516,13 +276,6 @@ export function useReaderAskRuntime(options: {
     }, 280);
     return () => window.clearTimeout(timer);
   }, [jobId, items, headId, activeConversationId]);
-
-  const localAnswerer = useMemo(() => {
-    if (!enabled || !jobId) return null;
-    return createReaderMarkdownAnswerer({
-      loadMarkdownPayload: defaultReaderDataPort.loadMarkdownPayload,
-    });
-  }, [enabled, jobId]);
 
   const messages = useMemo(
     () => visibleMessages(items, headId),
@@ -551,261 +304,56 @@ export function useReaderAskRuntime(options: {
     return map;
   }, [items]);
 
-  /** 流式正文旁路：store + 进行中的 streamContent（streamEpoch 强制刷新） */
   const contentByMessageId = useMemo(() => {
     const map: Record<string, string> = {};
     for (const item of items) {
       const m = item.message;
       if (m.content) map[m.id] = m.content;
     }
-    // 覆盖为最新流式缓冲（可能比 items 里多半帧）
-    for (const [id, text] of Object.entries(streamContentRef.current)) {
-      if (text) map[id] = text;
-    }
-    void streamEpoch;
     return map;
-  }, [items, streamEpoch]);
+  }, [items]);
 
-  const messageRepository = useMemo(() => {
-    const repo: any = ExportedMessageRepository as any;
-    const fn = repo?.fromBranchableArray || repo?.fromArray;
-    if (typeof fn !== "function") {
-      console.error("ExportedMessageRepository missing fromBranchableArray/fromArray", repo);
-      return { messages: [], headId } as any;
-    }
-    return fn.call(
-      repo,
-      items.map((item) => ({
-        message: toThreadMessageLike(item.message),
-        parentId: item.parentId,
-      })),
-      { headId },
-    );
-  }, [items, headId]);
+  // AI SDK owns the streaming message. Mirror only the current linear branch
+  // into RetainPDF's persisted tree so branching/session features stay intact.
+  useEffect(() => {
+    if (!chatMessages.length) return;
+    const byId = new Map(chatMessages.map((message) => [message.id, message]));
+    setItems((previous) => previous.map((item) => {
+      const chatMessage = byId.get(item.message.id);
+      if (!chatMessage) return item;
+      const next = chatMessageToStore(chatMessage);
+      return { ...item, message: { ...item.message, ...next } };
+    }));
+  }, [chatMessages]);
 
-  const patchAssistant = useCallback((
-    assistantId: string,
-    patch: Partial<ReaderAskStoreMessage>,
-  ) => {
-    setItems((prev) =>
-      prev.map((item) =>
-        item.message.id === assistantId
-          ? { ...item, message: { ...item.message, ...patch } }
-          : item,
-      ),
-    );
-  }, []);
-
-  // 流式清洗降频：sanitize 从"每 token 一次"移到"每帧一次"（rAF flush 内），
-  // 长答案不再对全文反复跑 5 条正则（审计 P1-7 O(n²)）。
-  // 语义不变：清洗后为空则回退原文，保证可见增量。
-  const sanitizeStreamText = useCallback((raw: string) => {
-    const cleaned = sanitizeAssistantAnswer(raw || "", []);
-    return cleaned.trim() ? cleaned : `${raw || ""}`;
-  }, []);
-
-  const scheduleAnswerText = useCallback((assistantId: string, text: string) => {
-    const next = `${text || ""}`;
-    pendingContentRef.current = next;
-    answerStartedRef.current = true;
-    streamAssistantIdRef.current = assistantId;
-
-    // 首包：同步上屏（旁路 + store），避免等 rAF / aui status
-    const cur = itemsRef.current.find((i) => i.message.id === assistantId);
-    if (!cur?.message.content?.trim()) {
-      if (streamRafRef.current != null) {
-        cancelAnimationFrame(streamRafRef.current);
-        streamRafRef.current = null;
-      }
-      const shown = sanitizeStreamText(next);
-      streamContentRef.current[assistantId] = shown;
-      setStreamEpoch((n) => n + 1);
-      patchAssistant(assistantId, {
-        content: shown,
-        progress: "",
-        status: { type: "running" },
-      });
-      return;
-    }
-
-    // 后续：每帧最多 flush 一次旁路；store 也更新以免切消息丢字
-    if (streamRafRef.current != null) return;
-    streamRafRef.current = requestAnimationFrame(() => {
-      streamRafRef.current = null;
-      // 陈旧守卫：取消/连发后 pendingContentRef 已属于新流，
-      // 旧 rAF 不许把它写进旧气泡（审计 P0-3 串流）
-      if (streamAssistantIdRef.current !== assistantId) return;
-      const latest = sanitizeStreamText(pendingContentRef.current);
-      streamContentRef.current[assistantId] = latest;
-      setStreamEpoch((n) => n + 1);
-      patchAssistant(assistantId, {
-        content: latest,
-        progress: "",
-        status: { type: "running" },
-      });
-    });
-  }, [patchAssistant, sanitizeStreamText]);
-
-  // 卸载（关浮窗/离开页面）时断掉在飞请求，不留幽灵 SSE
-  useEffect(() => () => {
-    runAbortRef.current?.abort();
-    runAbortRef.current = null;
-  }, []);
-
-  const runAssistant = useCallback(async (
-    assistantId: string,
-    question: string,
-    opts: {
-      parentId?: string | null;
-      userMessageId?: string;
-      regenerate?: boolean;
-    } = {},
-  ) => {
-    if (!remoteAnswerer && !localAnswerer) {
-      patchAssistant(assistantId, {
-        content: "问答暂不可用：请确认已打开任务阅读器。",
-        progress: "",
-        status: { type: "incomplete", reason: "error" },
-      });
-      return;
-    }
-
-    // 连发保护：终止上一在飞请求，再开新 controller
-    runAbortRef.current?.abort();
-    const controller = new AbortController();
-    runAbortRef.current = controller;
-
-    runningRef.current = true;
-    answerStartedRef.current = false;
-    pendingContentRef.current = "";
-    streamAssistantIdRef.current = assistantId;
-    streamContentRef.current[assistantId] = "";
-    setStreamingAssistantId(assistantId);
-    setStreamEpoch((n) => n + 1);
-    setIsRunning(true);
-    // 占位 running，确保 UI 走流式路径
-    patchAssistant(assistantId, {
-      content: "",
-      progress: "正在检索文档…",
-      status: { type: "running" },
-    });
-
-    try {
-      await remoteAnswerer?.ensureLoaded?.(jobId);
-      let usedFallback = false;
-      let result: { answer?: string; citations?: unknown[] };
-      try {
-        result = await remoteAnswerer!.answer({
-          question,
-          scope: "document",
-          parentId: opts.parentId || "",
-          regenerate: Boolean(opts.regenerate),
-          userMessageId: opts.userMessageId || "",
-          assistantMessageId: assistantId,
-          onToolEvent: (event) => {
-            const line = describeToolEvent(event);
-            if (!line || answerStartedRef.current) return;
-            patchAssistant(assistantId, {
-              progress: line,
-              status: { type: "running" },
-            });
+  useEffect(() => {
+    if (!chatError || chatStatus !== "error") return;
+    setItems((previous) => previous.map((item) => (
+      item.message.status?.type === "running"
+        ? {
+          ...item,
+          message: {
+            ...item.message,
+            content: item.message.content.trim() || chatError.message || "生成回答失败，请重试。",
+            progress: "",
+            citations: [],
+            status: { type: "incomplete" as const, reason: "error" as const },
           },
-          onAnswerDelta: (fullText: string) => {
-            if (controller.signal.aborted) return;
-            // 原文直接入队，清洗在 scheduleAnswerText 的帧级 flush 里做
-            //（每 token 全文 sanitize 是 O(n²)，审计 P1-7）
-            if (fullText) scheduleAnswerText(assistantId, fullText);
-          },
-          onCompress: (event: unknown) => {
-            const info = event as { dropped_turns?: number; summary_chars?: number; policy?: string };
-            console.debug("[reader-ai] compress", info);
-            if (info?.dropped_turns) {
-              patchAssistant(assistantId, {
-                progress: `已压缩 ${info.dropped_turns} 轮早期对话`,
-                status: { type: "running" },
-              });
-            }
-          },
-          signal: controller.signal,
-        });
-      } catch (error) {
-        // 主动取消：不降级、不报错，气泡状态已由 onCancel 定格
-        if (controller.signal.aborted) return;
-        if (!localAnswerer || !shouldFallbackToLocal(error)) throw error;
-        usedFallback = true;
-        if (!answerStartedRef.current) {
-          patchAssistant(assistantId, {
-            progress: "在线服务暂不可用，改用本地检索…",
-            status: { type: "running" },
-          });
         }
-        await localAnswerer.ensureLoaded?.(jobId);
-        result = await localAnswerer.answer({ question, scope: "document" });
-      }
+        : item
+    )));
+  }, [chatError, chatStatus]);
 
-      // 完成前最后一道闸：已取消的运行禁止用完整答案覆盖"已取消"气泡
-      if (controller.signal.aborted) return;
-      if (streamRafRef.current != null) {
-        cancelAnimationFrame(streamRafRef.current);
-        streamRafRef.current = null;
-      }
-      const citations = normalizeCitations(result?.citations);
-      let answer = sanitizeAssistantAnswer(
-        `${result?.answer || pendingContentRef.current || ""}`.trim() || "没有找到可用回答。",
-        citations,
-      );
-      if (usedFallback) {
-        answer = `${answer}\n\n_在线服务暂不可用，以上来自本地文档检索。_`;
-      }
-      if ((result as { persisted?: boolean })?.persisted === false) {
-        // 审计 C2:回写失败不再静默——用户至少知道该复制保存
-        answer = `${answer}\n\n_⚠️ 本轮回答未能写入历史记录（存储暂时不可用），刷新后可能丢失。_`;
-      }
-      delete streamContentRef.current[assistantId];
-      streamAssistantIdRef.current = "";
-      setStreamingAssistantId("");
-      setStreamEpoch((n) => n + 1);
-      patchAssistant(assistantId, {
-        content: answer,
-        progress: "",
-        citations,
-        status: { type: "complete", reason: "stop" },
-      });
-    } catch (error) {
-      // 主动取消抛出的 AbortError 不算失败，气泡已由 onCancel 定格
-      if (controller.signal.aborted) return;
-      if (streamRafRef.current != null) {
-        cancelAnimationFrame(streamRafRef.current);
-        streamRafRef.current = null;
-      }
-      delete streamContentRef.current[assistantId];
-      streamAssistantIdRef.current = "";
-      setStreamingAssistantId("");
-      setStreamEpoch((n) => n + 1);
-      const msg = error instanceof Error ? error.message : "生成回答失败，请重试。";
-      patchAssistant(assistantId, {
-        content: msg,
-        progress: "",
-        citations: [],
-        status: { type: "incomplete", reason: "error" },
-      });
-    } finally {
-      // 只有"仍是当前运行"才复位全局标志：旧 run 的 finally 不许踩新 run
-      if (runAbortRef.current === controller) {
-        runAbortRef.current = null;
-        runningRef.current = false;
-        setIsRunning(false);
-      }
-    }
-  }, [jobId, localAnswerer, patchAssistant, remoteAnswerer, scheduleAnswerText]);
+  const streamingAssistantId = isRunning
+    ? `${lastAssistantMessage(chatMessages)?.id || ""}`
+    : "";
 
-  const onNew = useCallback(async (message: AppendMessage) => {
+  const submitQuestion = useCallback(async (questionInput: string) => {
     if (runningRef.current) return;
-    const question = textFromAppend(message);
+    const question = `${questionInput || ""}`.trim();
     if (!question) return;
 
-    // 优先 append 自带的 parentId：从某条答案「分支」时 parent = 该 assistant id
-    const parentId = message.parentId ?? headIdRef.current;
+    const parentId = headIdRef.current;
     const userId = makeId("u");
     const assistantId = makeId("a");
 
@@ -825,17 +373,32 @@ export function useReaderAskRuntime(options: {
       },
     ]);
     setHeadId(assistantId);
-    await runAssistant(assistantId, question, {
-      parentId,
-      userMessageId: userId,
-      regenerate: false,
-    });
-  }, [runAssistant]);
+    await sendMessage(
+      {
+        id: userId,
+        role: "user",
+        parts: [{ type: "text", text: question }],
+      },
+      {
+        body: {
+          assistantMessageId: assistantId,
+          parentId,
+          question,
+          regenerate: false,
+          userMessageId: userId,
+        },
+      },
+    );
+  }, [sendMessage]);
 
   /** 重新生成：parentId 为被替换助手消息的父节点（通常是 user）。 */
-  const onReload = useCallback(async (parentId: string | null) => {
+  const retryAnswer = useCallback(async (assistantMessageId: string) => {
     if (runningRef.current) return;
     const tree = itemsRef.current;
+    const assistantItem = tree.find(
+      (item) => item.message.id === assistantMessageId && item.message.role === "assistant",
+    );
+    const parentId = assistantItem?.parentId ?? null;
     const parent = parentId ? findMessage(tree, parentId) : null;
     let question = "";
     let userId = parentId;
@@ -871,58 +434,21 @@ export function useReaderAskRuntime(options: {
       },
     ]);
     setHeadId(assistantId);
-    await runAssistant(assistantId, question, {
-      parentId: branchParent,
-      regenerate: true,
-    });
-  }, [runAssistant]);
-
-  /** 编辑用户消息：在 parentId 下长出新 user 兄弟分支并重跑。 */
-  const onEdit = useCallback(async (message: AppendMessage) => {
-    if (runningRef.current) return;
-    const question = textFromAppend(message);
-    if (!question) return;
-
-    const parentId = message.parentId ?? null;
-    const userId = makeId("u");
-    const assistantId = makeId("a");
-
-    setItems((prev) => [
-      ...prev,
-      { parentId, message: { id: userId, role: "user", content: question } },
-      {
-        parentId: userId,
-        message: {
-          id: assistantId,
-          role: "assistant",
-          content: "",
-          progress: "正在检索文档…",
-          status: { type: "running" },
-          citations: [],
-        },
+    setChatMessages(storeMessagesToChat(visibleMessages(tree, assistantMessageId)));
+    await regenerateChat({
+      messageId: assistantMessageId,
+      body: {
+        assistantMessageId: assistantId,
+        parentId: branchParent,
+        question,
+        regenerate: true,
+        userMessageId: userId || "",
       },
-    ]);
-    setHeadId(assistantId);
-    await runAssistant(assistantId, question, {
-      parentId,
-      userMessageId: userId,
-      regenerate: false,
     });
-  }, [runAssistant]);
+  }, [regenerateChat, setChatMessages]);
 
-  const onCancel = useCallback(async () => {
-    // 真取消：断 SSE（省网络/token），并掐灭 pending rAF 防止把状态打回 running
-    runAbortRef.current?.abort();
-    runAbortRef.current = null;
-    if (streamRafRef.current != null) {
-      cancelAnimationFrame(streamRafRef.current);
-      streamRafRef.current = null;
-    }
-    streamAssistantIdRef.current = "";
-    setStreamingAssistantId("");
-    setStreamEpoch((n) => n + 1);
-    runningRef.current = false;
-    setIsRunning(false);
+  const cancelAnswer = useCallback(async () => {
+    await stopChat();
     setItems((prev) =>
       prev.map((item) =>
         item.message.status?.type === "running"
@@ -938,43 +464,13 @@ export function useReaderAskRuntime(options: {
           : item,
       ),
     );
-  }, []);
-
-  /** 分支切换：runtime 传入当前可见 ThreadMessage 路径，只改 head。 */
-  const setMessages = useCallback((next: readonly ThreadMessage[]) => {
-    const last = next[next.length - 1];
-    setHeadId(last?.id ?? null);
-  }, []);
-
-  const unstable_onBranchChange = useCallback((
-    event: { headId: string | null },
-  ) => {
-    setHeadId(event.headId);
-    // 同步服务端 head，跨端/刷新保持可见分支
-    const convId =
-      remoteAnswerer?.getConversationId?.()
-      || loadStoredConversationId({ jobId });
-    const head = `${event.headId || ""}`.trim();
-    if (convId && head) {
-      void patchConversation(convId, { head_id: head }).catch(() => {
-        // 离线/404 忽略，本地树仍可用
-      });
-    }
-  }, [jobId, remoteAnswerer]);
-
-  const onImport = useCallback((imported: readonly ThreadMessage[]) => {
-    const last = imported[imported.length - 1];
-    if (last?.id) setHeadId(last.id);
-  }, []);
+  }, [stopChat]);
 
   /** 新对话窗口：清空气泡，下次 ask 会 auto-create 新 conversation。 */
   const newSession = useCallback(async () => {
     if (sessionBusy) return;
-    // 生成中也允许开新窗：真 abort 在飞请求，防旧流写进新窗口
-    runAbortRef.current?.abort();
-    runAbortRef.current = null;
-    runningRef.current = false;
-    setIsRunning(false);
+    // AI SDK 统一持有取消控制器；切窗前停止旧流，避免回写新会话。
+    if (runningRef.current) await stopChat();
     armReaderAiClickShield(900);
     lockReaderAiNavigation(900);
     setSessionBusy(true);
@@ -993,6 +489,7 @@ export function useReaderAskRuntime(options: {
       activeConversationIdRef.current = "";
       setItems([]);
       setHeadId(null);
+      setChatMessages([]);
       clearThreadBranchSnapshot(jobId);
       if (docId) await refreshSessions(docId);
     } catch (error) {
@@ -1001,7 +498,7 @@ export function useReaderAskRuntime(options: {
     } finally {
       if (token === switchTokenRef.current) setSessionBusy(false);
     }
-  }, [jobId, remoteAnswerer, refreshSessions, sessionBusy]);
+  }, [jobId, remoteAnswerer, refreshSessions, sessionBusy, setChatMessages, stopChat]);
 
   /** 切换已有会话窗口。 */
   const switchSession = useCallback(async (conversationId: string) => {
@@ -1012,12 +509,7 @@ export function useReaderAskRuntime(options: {
       || "";
     if (!id || id === current || sessionBusy) return;
 
-    // 生成中也允许切走：真 abort 在飞请求——旧流的 done 若继续，会把
-    // conversation_id 粘回旧会话、下一问落错线程（审计 P0-4）
-    runAbortRef.current?.abort();
-    runAbortRef.current = null;
-    runningRef.current = false;
-    setIsRunning(false);
+    if (runningRef.current) await stopChat();
 
     // 短时隔离即可；过长会像「点了没反应 / 乱跳」
     armReaderAiClickShield(1200);
@@ -1031,11 +523,7 @@ export function useReaderAskRuntime(options: {
     activeConversationIdRef.current = id;
     setItems([]);
     setHeadId(null);
-
-    const viewport = globalThis.document?.querySelector?.(
-      "[data-reader-ai-viewport]",
-    ) as HTMLElement | null;
-    if (viewport) viewport.dataset.suppressAutoscroll = "1";
+    setChatMessages([]);
 
     try {
       await new Promise<void>((r) => {
@@ -1065,15 +553,15 @@ export function useReaderAskRuntime(options: {
 
       // 本地快照与服务端对齐（按会话隔离）
       if (branchItems.length) {
+        const snapshotItems = treeItemsFromBranchItems(branchItems);
         saveThreadBranchSnapshot(
           jobId,
-          {
-            version: 1,
-            headId: `${detail.head_id || ""}`.trim()
-              || branchItems[branchItems.length - 1]?.message.id
+          snapshotFromTree(
+            snapshotItems,
+            `${detail.head_id || ""}`.trim()
+              || snapshotItems.at(-1)?.message.id
               || null,
-            items: branchItems as ThreadBranchItem[],
-          },
+          ),
           id,
         );
       } else {
@@ -1082,20 +570,9 @@ export function useReaderAskRuntime(options: {
 
       if (docId) await refreshSessions(docId);
 
-      // 只滚 AI 面板，不碰 PDF
-      requestAnimationFrame(() => {
-        const vp = globalThis.document?.querySelector?.(
-          "[data-reader-ai-viewport]",
-        ) as HTMLElement | null;
-        if (vp) {
-          vp.scrollTop = vp.scrollHeight;
-          window.setTimeout(() => {
-            delete vp.dataset.suppressAutoscroll;
-          }, 200);
-        }
-        armReaderAiClickShield(350);
-        lockReaderAiNavigation(350);
-      });
+      // assistant-ui ThreadPrimitive.Viewport 管理滚动；这里不再直接操作 DOM。
+      armReaderAiClickShield(350);
+      lockReaderAiNavigation(350);
     } catch (error) {
       console.warn("[reader-ai] switch session failed", error);
       if (token === switchTokenRef.current) {
@@ -1113,6 +590,8 @@ export function useReaderAskRuntime(options: {
     remoteAnswerer,
     refreshSessions,
     sessionBusy,
+    setChatMessages,
+    stopChat,
   ]);
 
   /**
@@ -1133,8 +612,7 @@ export function useReaderAskRuntime(options: {
       return false;
     }
     if (runningRef.current) {
-      runningRef.current = false;
-      setIsRunning(false);
+      await stopChat();
     }
 
     const path = pathForBranch(itemsRef.current, forkId, headIdRef.current);
@@ -1214,6 +692,7 @@ export function useReaderAskRuntime(options: {
       // 切到新会话：原会话仍在列表里可切回
       setItems(nextItems);
       setHeadId(nextHead);
+      setChatMessages(storeMessagesToChat(visibleMessages(nextItems, nextHead)));
       setActiveConversationId(nextConvId);
       activeConversationIdRef.current = nextConvId;
       remoteAnswerer?.setConversationId?.(nextConvId, docId);
@@ -1240,16 +719,6 @@ export function useReaderAskRuntime(options: {
       );
       await refreshSessions(docId);
 
-      // 新对话：滚到末尾，方便接着问
-      requestAnimationFrame(() => {
-        const vp = globalThis.document?.querySelector?.(
-          "[data-reader-ai-viewport]",
-        ) as HTMLElement | null;
-        if (vp) {
-          delete vp.dataset.suppressAutoscroll;
-          vp.scrollTop = vp.scrollHeight;
-        }
-      });
       return true;
     } catch (error) {
       console.warn("[reader-ai] branch from answer failed", error);
@@ -1258,14 +727,13 @@ export function useReaderAskRuntime(options: {
     } finally {
       setSessionBusy(false);
     }
-  }, [jobId, remoteAnswerer, refreshSessions, sessionBusy, sessions]);
+  }, [jobId, remoteAnswerer, refreshSessions, sessionBusy, sessions, setChatMessages, stopChat]);
 
   /** 删除会话（服务端 + 本地快照）；删当前则切到最近一条或空窗。 */
   const removeSession = useCallback(async (conversationId: string) => {
     const id = `${conversationId || ""}`.trim();
     if (!id || sessionBusy) return;
-    runningRef.current = false;
-    setIsRunning(false);
+    if (runningRef.current) await stopChat();
     setSessionBusy(true);
     setSessionError("");
     const token = ++switchTokenRef.current;
@@ -1296,6 +764,7 @@ export function useReaderAskRuntime(options: {
         activeConversationIdRef.current = "";
         setItems([]);
         setHeadId(null);
+        setChatMessages([]);
         clearThreadBranchSnapshot(jobId);
 
         const list = docId
@@ -1333,7 +802,7 @@ export function useReaderAskRuntime(options: {
     } finally {
       if (token === switchTokenRef.current) setSessionBusy(false);
     }
-  }, [applyConversationTree, jobId, remoteAnswerer, refreshSessions, sessionBusy]);
+  }, [applyConversationTree, jobId, remoteAnswerer, refreshSessions, sessionBusy, setChatMessages, stopChat]);
 
   /** 重命名会话标题。 */
   const renameSession = useCallback(async (conversationId: string, title: string) => {
@@ -1372,21 +841,6 @@ export function useReaderAskRuntime(options: {
     prevRunning.current = isRunning;
   }, [isRunning, remoteAnswerer, refreshSessions]);
 
-  const runtime = useExternalStoreRuntime({
-    isRunning,
-    // 切会话/分支时不要整线程 isDisabled（会闪禁用态像刷新）；按钮侧用 branchBusy 锁
-    isDisabled: !enabled,
-    messageRepository,
-    setMessages,
-    unstable_onBranchChange,
-    onNew,
-    onReload,
-    onEdit,
-    onCancel,
-    onImport,
-    suggestions: messages.length === 0 ? SUGGESTIONS : [],
-  });
-
   const sessionSummaries: ReaderAskSessionSummary[] = useMemo(() => {
     const active = activeConversationId
       || remoteAnswerer?.getConversationId?.()
@@ -1401,7 +855,6 @@ export function useReaderAskRuntime(options: {
   }, [sessions, activeConversationId, remoteAnswerer]);
 
   return {
-    runtime,
     citationsByMessageId,
     progressByMessageId,
     contentByMessageId,
@@ -1414,6 +867,9 @@ export function useReaderAskRuntime(options: {
       || "",
     sessionBusy,
     sessionError,
+    submitQuestion,
+    retryAnswer,
+    cancelAnswer,
     newSession,
     switchSession,
     removeSession,

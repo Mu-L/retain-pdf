@@ -6,7 +6,7 @@ use crate::models::domain::{OcrProviderKind, UploadRecord, SOURCE_CLEANUP_STRATE
 use crate::models::request::CreateJobInput;
 use crate::ocr_provider::{
     parse_provider_kind, provider_display_name, provider_token, provider_token_field_name,
-    require_supported_provider,
+    require_supported_provider, PADDLE_OFFICIAL_CLI_TRANSPORT, PADDLE_OFFICIAL_HTTP_TRANSPORT,
 };
 
 const RENDER_MODES: &[&str] = &["auto", "overlay", "typst", "typst_visual", "dual"];
@@ -15,6 +15,7 @@ const FONT_UNIFY_MODES: &[&str] = &["role_min", "off"];
 pub fn validate_provider_credentials(input: &CreateJobInput) -> Result<(), AppError> {
     let provider_kind = require_supported_provider(input.ocr.provider.trim())
         .map_err(|err| AppError::bad_request(err.to_string()))?;
+    validate_paddle_transport(input, false)?;
     validate_provider_token(input, &provider_kind)?;
     validate_translation_credentials(input)
 }
@@ -127,6 +128,7 @@ pub fn validate_ocr_provider_request(input: &CreateJobInput) -> Result<(), AppEr
     }
     let provider_kind = require_supported_provider(provider)
         .map_err(|err| AppError::bad_request(err.to_string()))?;
+    validate_paddle_transport(input, true)?;
     validate_provider_token(input, &provider_kind)?;
     if !input.source.source_url.trim().is_empty()
         && !(input.source.source_url.starts_with("http://")
@@ -142,6 +144,40 @@ pub fn validate_ocr_provider_request(input: &CreateJobInput) -> Result<(), AppEr
         ));
     }
     Ok(())
+}
+
+fn validate_paddle_transport(
+    input: &CreateJobInput,
+    allow_official_cli: bool,
+) -> Result<(), AppError> {
+    if !matches!(
+        parse_provider_kind(&input.ocr.provider),
+        OcrProviderKind::Paddle
+    ) {
+        return Ok(());
+    }
+    let Some(raw_transport) = input.ocr.options.get("transport") else {
+        return Ok(());
+    };
+    let Some(transport) = raw_transport.as_str().map(str::trim) else {
+        return Err(AppError::bad_request(
+            "ocr.options.transport must be a string",
+        ));
+    };
+    if transport.is_empty() || transport.eq_ignore_ascii_case(PADDLE_OFFICIAL_HTTP_TRANSPORT) {
+        return Ok(());
+    }
+    if transport.eq_ignore_ascii_case(PADDLE_OFFICIAL_CLI_TRANSPORT) {
+        if allow_official_cli {
+            return Ok(());
+        }
+        return Err(AppError::bad_request(
+            "ocr.options.transport=official_cli is only supported for workflow=ocr because the CLI result does not provide the bbox/prunedResult contract required by translation and render",
+        ));
+    }
+    Err(AppError::bad_request(format!(
+        "ocr.options.transport must be one of: {PADDLE_OFFICIAL_HTTP_TRANSPORT}, {PADDLE_OFFICIAL_CLI_TRANSPORT}"
+    )))
 }
 
 pub fn validate_mineru_upload_limits(
@@ -330,6 +366,54 @@ mod tests {
             &default_limits()
         )
         .is_ok());
+    }
+
+    #[test]
+    fn paddle_cli_transport_is_allowed_for_ocr_only_requests() {
+        let mut input = paddle_input();
+        input.ocr.paddle_token = "paddle-secret".to_string();
+        input.ocr.options.insert(
+            "transport".to_string(),
+            serde_json::Value::String("official_cli".to_string()),
+        );
+        assert!(validate_ocr_provider_request(&input).is_ok());
+    }
+
+    #[test]
+    fn paddle_cli_transport_is_rejected_for_translation_pipeline() {
+        let mut input = paddle_input();
+        input.ocr.paddle_token = "paddle-secret".to_string();
+        input.translation.api_key = "sk-test".to_string();
+        input.ocr.options.insert(
+            "transport".to_string(),
+            serde_json::Value::String("official_cli".to_string()),
+        );
+        let err = validate_provider_credentials(&input)
+            .expect_err("CLI transport must not feed translation/render");
+        assert!(err.to_string().contains("only supported for workflow=ocr"));
+    }
+
+    #[test]
+    fn paddle_transport_rejects_unknown_or_non_string_values() {
+        let mut input = paddle_input();
+        input.ocr.paddle_token = "paddle-secret".to_string();
+        input.ocr.options.insert(
+            "transport".to_string(),
+            serde_json::Value::String("local_model".to_string()),
+        );
+        assert!(validate_ocr_provider_request(&input)
+            .expect_err("unknown transport should fail")
+            .to_string()
+            .contains("must be one of"));
+
+        input
+            .ocr
+            .options
+            .insert("transport".to_string(), serde_json::Value::Bool(true));
+        assert!(validate_ocr_provider_request(&input)
+            .expect_err("non-string transport should fail")
+            .to_string()
+            .contains("must be a string"));
     }
 
     #[test]

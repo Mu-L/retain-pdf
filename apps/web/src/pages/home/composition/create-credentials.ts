@@ -90,8 +90,10 @@ export function createCredentials({
     _providerId: unknown,
     token: unknown,
   ) {
-    return validatePaddleToken(apiPrefixArg, {
-      paddle_token: token,
+    const resolvedApiPrefix = typeof apiPrefixArg === "string" ? apiPrefixArg : API_PREFIX;
+    const resolvedToken = typeof token === "string" ? token : "";
+    return validatePaddleToken(resolvedApiPrefix, {
+      paddle_token: resolvedToken,
       base_url: "https://paddleocr.aistudio-app.com",
     });
   }

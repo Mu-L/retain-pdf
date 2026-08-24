@@ -43,7 +43,8 @@ pub(crate) fn build_library_book_detail_view(
 ) -> LibraryBookDetailView {
     let display_name = derive_display_name(db, job);
     let summary = build_book_summary(db, job, data_root, base_url, &display_name)
-        .with_cover_url(library_image_url(job, data_root, base_url, "cover"));
+        .with_cover_url(library_image_url(job, data_root, base_url, "cover"))
+        .with_thumbnail_url(library_image_url(job, data_root, base_url, "thumbnail"));
     let live = build_live_projection(db, job, data_root);
     let (pdf_ready, markdown_ready, bundle_ready) = job_readiness(job, data_root);
     let artifacts = build_artifact_links(
@@ -68,7 +69,7 @@ pub(crate) fn build_library_book_detail_view(
         stage: live.stage,
         progress: live.progress,
         cover_url: summary.cover_url,
-        thumbnail_url: library_image_url(job, data_root, base_url, "thumbnail"),
+        thumbnail_url: summary.thumbnail_url,
         artifacts: build_artifacts_display(&artifacts),
     }
 }

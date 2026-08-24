@@ -4,11 +4,11 @@ import {
   summarizeInvocationProtocol,
   summarizeInvocationSchemaVersion,
   summarizeRuntimeField,
-} from "../job/formatters.js";
+} from "@retainpdf/domain/job";
 import {
   summarizePublicError,
   summarizeStatus,
-} from "../job/diagnostics.js";
+} from "@retainpdf/domain/job";
 import { firstNonEmptyText } from "./routing.js";
 
 export function summarizeMathMode(job) {

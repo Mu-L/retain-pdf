@@ -4,7 +4,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from retainpdf_ai.agent import RetrievalAgent
+from retainpdf_ai.agent import (
+    Citation,
+    RetrievalAgent,
+    _assign_refs,
+    _public_tool_payload,
+    _referenced_citations,
+    _tool_specs_for_scope,
+)
 from retainpdf_ai.tools import Tool, ToolRegistry
 
 
@@ -40,6 +47,68 @@ HITS = [
         "translated_snippet": "选择性来自共轭效应",
     },
 ]
+
+
+def test_referenced_citations_keeps_every_ref_used_by_the_answer():
+    citations = {
+        ref: Citation(
+            ref=ref,
+            document_id="doc-a",
+            job_id="job-1",
+            page_idx=ref - 1,
+            block_id=f"p{ref:03d}-b0001",
+            snippet=f"evidence {ref}",
+        )
+        for ref in range(1, 13)
+    }
+    answer = " ".join(f"结论 {ref} [{ref}]。" for ref in range(1, 13))
+
+    selected = _referenced_citations(answer, citations)
+
+    assert [citation.ref for citation in selected] == list(range(1, 13))
+
+
+def test_public_read_blocks_payload_keeps_coordinates_assets_and_full_slice() -> None:
+    raw = {
+        "document_id": "doc-a",
+        "job_id": "job-1",
+        "page_idx": 2,
+        "blocks": [
+            {
+                "block_id": "p003-b0002",
+                "source_text": "complete source slice",
+                "translated_text": "完整译文",
+                "bbox": [20.0, 100.0, 220.0, 260.0],
+                "bbox_unit": "pdf_point",
+                "bbox_origin": "top_left",
+                "block_type": "image",
+                "asset_id": "imgs/figure.jpg",
+                "asset_ids": ["imgs/figure.jpg", "imgs/figure-detail.jpg"],
+                "image_url": "/api/v1/jobs/job-1/markdown/images/page-3/imgs/figure.jpg",
+                "asset_image_urls": [
+                    "/api/v1/jobs/job-1/markdown/images/page-3/imgs/figure.jpg",
+                    "/api/v1/jobs/job-1/markdown/images/page-3/imgs/figure-detail.jpg",
+                ],
+                "char_start": 0,
+                "source_text_length": 21,
+                "translated_text_length": 4,
+                "source_has_more": False,
+                "translated_has_more": False,
+            }
+        ],
+    }
+    citations = {}
+    _assign_refs(raw, citations, 1)
+
+    block = _public_tool_payload(raw)["blocks"][0]
+
+    assert block["bbox"] == [20.0, 100.0, 220.0, 260.0]
+    assert block["block_type"] == "image"
+    assert block["asset_id"] == "imgs/figure.jpg"
+    assert block["asset_ids"] == ["imgs/figure.jpg", "imgs/figure-detail.jpg"]
+    assert block["image_url"].endswith("page-3/imgs/figure.jpg")
+    assert len(block["asset_image_urls"]) == 2
+    assert block["source_text"] == "complete source slice"
 
 
 def _tool_call(name, arguments, call_id="call-1"):
@@ -108,6 +177,145 @@ def test_agent_forces_document_id_into_search_tools():
     assert seen_args[0]["query"] == "选择性"
     assert seen_args[0]["document_id"] == "doc-a"
     assert result.tool_trace[0]["arguments"]["document_id"] == "doc-a"
+
+
+def test_default_tool_surface_exposes_only_markdown_and_forces_current_job():
+    seen_args = []
+    seen_specs = []
+
+    def markdown_search(arguments):
+        seen_args.append(dict(arguments))
+        return {
+            "document_id": "doc-a",
+            "job_id": "job-1",
+            "hits": [
+                {
+                    "document_id": "doc-a",
+                    "job_id": "job-1",
+                    "page_idx": None,
+                    "block_id": "md-0001",
+                    "chunk_id": "md-0001",
+                    "heading": "结论",
+                    "source_snippet": "Markdown evidence",
+                    "assets": [
+                        {
+                            "image_url": "/api/v1/jobs/job-1/markdown/images/page-3/imgs/chart.png",
+                            "alt": "chart",
+                        },
+                        {"image_url": "https://tracker.invalid/pixel.png", "alt": "bad"},
+                    ],
+                    "source": "markdown",
+                }
+            ],
+        }
+
+    registry = ToolRegistry(
+        [
+            Tool(
+                name="search_markdown",
+                description="search md",
+                parameters={"type": "object", "properties": {"query": {"type": "string"}}},
+                handler=markdown_search,
+            ),
+            Tool(
+                name="read_markdown_chunk",
+                description="read md",
+                parameters={"type": "object", "properties": {}},
+                handler=lambda arguments: {"blocks": []},
+            ),
+            _search_tool(HITS),
+        ]
+    )
+    script = iter(
+        [
+            {"content": "", "tool_calls": [_tool_call("search_markdown", {"query": "evidence"})]},
+            {"content": "Markdown 结论 [1]。", "tool_calls": []},
+        ]
+    )
+
+    def fake_chat(messages, tools):
+        seen_specs.append(
+            [str((tool.get("function") or {}).get("name") or "") for tool in tools]
+        )
+        return next(script)
+
+    result = RetrievalAgent(registry, fake_chat).ask(
+        "结论?", document_id="doc-a", job_id="job-1"
+    )
+
+    assert seen_specs[0] == ["search_markdown", "read_markdown_chunk"]
+    assert seen_args == [
+        {
+            "query": "evidence",
+            "document_id": "doc-a",
+            "job_id": "job-1",
+        }
+    ]
+    assert result.citations[0].block_id == "md-0001"
+    assert result.citations[0].page_idx is None
+    public = _public_tool_payload(
+        {
+            "document_id": "doc-a",
+            "hits": [
+                {
+                    "ref": 1,
+                    "page_idx": None,
+                    "block_id": "md-0001",
+                    "chunk_id": "md-0001",
+                    "heading": "结论",
+                    "source_snippet": "Markdown evidence",
+                    "assets": [
+                        {
+                            "image_url": "/api/v1/jobs/job-1/markdown/images/page-3/imgs/chart.png",
+                            "alt": "chart",
+                        },
+                        {"image_url": "https://tracker.invalid/pixel.png"},
+                    ],
+                    "source": "markdown",
+                }
+            ],
+        }
+    )
+    assert public["hits"][0]["heading"] == "结论"
+    assert public["hits"][0]["source"] == "markdown"
+    assert "page" not in public["hits"][0]
+    assert public["hits"][0]["assets"] == [
+        {
+            "image_url": "/api/v1/jobs/job-1/markdown/images/page-3/imgs/chart.png",
+            "alt": "chart",
+        }
+    ]
+    assert "page" not in public["how_to_cite"]
+
+
+def test_markdown_registry_blocks_hallucinated_hidden_legacy_tool():
+    called = []
+    registry = ToolRegistry(
+        [
+            Tool(
+                name="search_markdown",
+                description="search md",
+                parameters={"type": "object", "properties": {}},
+                handler=lambda arguments: {"hits": []},
+            ),
+            Tool(
+                name="search_fulltext",
+                description="legacy",
+                parameters={"type": "object", "properties": {}},
+                handler=lambda arguments: called.append(arguments) or {"hits": []},
+            ),
+        ]
+    )
+    script = iter(
+        [
+            {"content": "", "tool_calls": [_tool_call("search_fulltext", {"query": "x"})]},
+            {"content": "Markdown-only 模式无法调用该工具。", "tool_calls": []},
+        ]
+    )
+    result = RetrievalAgent(registry, lambda m, t: next(script)).ask("q")
+    assert called == []
+    assert result.answer.startswith("Markdown-only")
+    assert result.tool_trace[0]["arguments"] == {"skipped": True}
 
 
 def test_agent_falls_back_to_all_citations_when_answer_has_no_markers():

@@ -3,31 +3,32 @@ import type { JobLike, JobPayload, JobProgress } from "../job/types.js";
 import {
   publicProgressOf,
   progressWithPercent,
-} from "./job-stage-progress-adapter.js";
+} from "./progress/job-stage-progress-adapter.js";
 import {
   jobProgressRecord,
-} from "./job-stage-job-progress.js";
+} from "./progress/job-stage-job-progress.js";
 import {
   collectLatestCurrentStageProgress,
-} from "./job-stage-progress-records.js";
+} from "./progress/job-stage-progress-records.js";
 import {
   substageMatchesStage,
   visualStageKeyForPresentation,
-} from "./job-stage-presentation-helpers.js";
+} from "./presentation/job-stage-presentation-helpers.js";
 import {
   normalizeDisplayStage,
-} from "./job-stage-presentation-utils.js";
+} from "./presentation/job-stage-presentation-utils.js";
 import {
   normalizeSubstageKey,
   substageDetail,
-} from "./job-stage-substage-contract.js";
+} from "./contract/job-stage-substage-contract.js";
 import {
+  successDetailForWorkflow,
   summarizeStageDetail,
   summarizeStageLabel,
-} from "./job-status-summary.js";
+} from "./summary/job-status-summary.js";
 import {
   progressTextForStageProgress,
-} from "./job-status-summary-progress.js";
+} from "./summary/job-status-summary-progress.js";
 import type {
   EventsPayload,
   ProgressRecord,
@@ -324,7 +325,7 @@ function detailForStage(
   progress: ProgressRecord | Record<string, unknown> = {},
 ): string {
   if (stageKey === "done") {
-    return "翻译 PDF 已生成";
+    return successDetailForWorkflow(job);
   }
   if (stageKey === "failed") {
     return "任务失败，请查看详情";

@@ -93,7 +93,9 @@ def build_page_spec(
         for order, _block in enumerate(page_context["parsing_res_list"])
     ]
     metadata = build_page_trace(
+        page_index=page_context["page_index"],
         page_payload=page_context["page_payload"],
+        page_meta=page_context["page_meta"],
         pruned=page_context["pruned"],
         preprocessed_image=page_context["preprocessed_image"],
         column_signals=page_context["column_signals"],

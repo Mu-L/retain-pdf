@@ -5,8 +5,9 @@ from __future__ import annotations
 import json
 import queue
 import threading
+from collections.abc import Iterator
 from dataclasses import asdict, replace
-from typing import Any, Iterator
+from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -16,6 +17,12 @@ from . import __version__
 from .agent import RetrievalAgent, build_deepseek_chat_fn
 from .config import Settings, load_settings
 from .memory import assemble_history, maybe_compress_transcript
+from .runtime import (
+    FX_RUNTIME_ID,
+    AgentRuntime,
+    PythonAgentRuntime,
+    build_agent_runtime,
+)
 from .rust_client import RustApiClient
 from .tools import build_default_registry
 
@@ -40,6 +47,8 @@ class AskInput(BaseModel):
     stream: bool = False
     # B2: 强制触发抽取式压缩（测试/调试）
     force_compress: bool = False
+    # run / commit 属于显式确认动作；模型不能自行把这项设为 true。
+    confirm_document_operation: bool = False
     # 前端按请求传入的 LLM 凭据:留空则回退启动期 env 配置
     llm_api_key: str = ""
     llm_base_url: str = ""
@@ -50,9 +59,10 @@ def build_app(
     settings: Settings | None = None,
     agent: RetrievalAgent | None = None,
     rust: RustApiClient | None = None,
+    runtime: AgentRuntime | None = None,
 ) -> FastAPI:
     settings = settings or load_settings()
-    if agent is None:
+    if runtime is None and agent is None:
         # LLM key 不再强制:允许留空 env,由前端按请求传入(见 AskInput.llm_api_key)
         if not settings.rust_api_key:
             raise RuntimeError("RETAIN_AI_RUST_API_KEY is required")
@@ -62,6 +72,22 @@ def build_app(
             build_deepseek_chat_fn(settings),
             max_tool_rounds=settings.max_tool_rounds,
         )
+    if runtime is None:
+        if agent is None:
+            raise RuntimeError("agent runtime initialization failed")
+        selected_runtime = settings.agent_runtime.strip().lower()
+        if selected_runtime == "fx":
+            rust = rust or RustApiClient(settings)
+            runtime = build_agent_runtime(settings, rust, agent)
+        elif selected_runtime == "python":
+            runtime = PythonAgentRuntime(agent)
+        else:
+            raise RuntimeError(
+                f"unsupported RETAIN_AI_RUNTIME={settings.agent_runtime!r}; "
+                "expected python or fx"
+            )
+
+    runtime_id = runtime.runtime_id
 
     app = FastAPI(title="retainpdf-ai", version=__version__)
 
@@ -226,6 +252,7 @@ def build_app(
         result: Any,
         *,
         chain_parent_id: str = "",
+        prepersisted_user_id: str = "",
     ) -> None:
         """尽力而为的历史回写:失败只记日志,不影响返回。
 
@@ -245,7 +272,11 @@ def build_app(
                 [asdict(citation) for citation in result.citations], ensure_ascii=False
             )
             tool_trace_json = json.dumps(result.tool_trace, ensure_ascii=False)
-            model = payload.llm_model or settings.llm_model
+            model = (
+                settings.fx_model or "fx"
+                if runtime_id == FX_RUNTIME_ID
+                else payload.llm_model or settings.llm_model
+            )
             if payload.regenerate:
                 # 重试: parent_id 必须是 user 消息
                 user_parent = parent_hint
@@ -261,15 +292,17 @@ def build_app(
                     set_head=True,
                 )
                 return True
-            user_msg = rust.append_conversation_message(
-                conversation_id,
-                role="user",
-                content=payload.question.strip(),
-                parent_id=parent_hint,
-                message_id=payload.user_message_id.strip(),
-                set_head=True,
-            )
-            user_id = str((user_msg or {}).get("message_id") or "").strip()
+            user_id = prepersisted_user_id.strip()
+            if not user_id:
+                user_msg = rust.append_conversation_message(
+                    conversation_id,
+                    role="user",
+                    content=payload.question.strip(),
+                    parent_id=parent_hint,
+                    message_id=payload.user_message_id.strip(),
+                    set_head=True,
+                )
+                user_id = str((user_msg or {}).get("message_id") or "").strip()
             rust.append_conversation_message(
                 conversation_id,
                 role="assistant",
@@ -286,6 +319,52 @@ def build_app(
             print(f"[retainpdf-ai] persist conversation turn failed: {exc}", flush=True)
             return False
 
+    def persist_fx_request_message(
+        conversation_id: str,
+        payload: AskInput,
+        *,
+        chain_parent_id: str = "",
+    ) -> tuple[str, bool]:
+        """Persist the user request before fx can create a document operation."""
+        if runtime_id != FX_RUNTIME_ID:
+            return "", True
+        parent_hint = chain_parent_id.strip() or payload.parent_id.strip()
+        if payload.regenerate:
+            return parent_hint, bool(parent_hint)
+        if not conversation_id or rust is None:
+            return "", False
+        requested_id = payload.user_message_id.strip()
+        try:
+            user_msg = rust.append_conversation_message(
+                conversation_id,
+                role="user",
+                content=payload.question.strip(),
+                parent_id=parent_hint,
+                message_id=requested_id,
+                set_head=True,
+            )
+            message_id = str((user_msg or {}).get("message_id") or "").strip()
+            return message_id, bool(message_id)
+        except Exception as exc:  # noqa: BLE001 - retry must cover transport ambiguity
+            # A client retry may repeat a stable message_id after the first
+            # request reached Rust but its response was lost. Reuse only an
+            # exact user/content match; never guess by sequence or head.
+            if requested_id:
+                try:
+                    detail = rust.get_conversation(conversation_id) or {}
+                    for message in detail.get("messages") or []:
+                        if (
+                            str(message.get("message_id") or "") == requested_id
+                            and str(message.get("role") or "") == "user"
+                            and str(message.get("content") or "").strip()
+                            == payload.question.strip()
+                        ):
+                            return requested_id, True
+                except Exception:  # noqa: BLE001, S110 - preserve the original failure
+                    pass
+            print(f"[retainpdf-ai] pre-persist fx request failed: {exc}", flush=True)
+            return "", False
+
     def require_api_key(request: Request) -> None:
         if not settings.api_keys:
             raise HTTPException(status_code=500, detail="RETAIN_AI_API_KEYS is not configured")
@@ -295,7 +374,7 @@ def build_app(
 
     @app.get("/healthz")
     def healthz() -> dict[str, Any]:
-        return {"ok": True, "version": __version__}
+        return {"ok": True, "version": __version__, "agent_runtime": runtime_id}
 
     def _result_payload(
         result: Any,
@@ -310,6 +389,7 @@ def build_app(
             "tool_trace": result.tool_trace,
             "rounds": result.rounds,
             "persisted": persisted,
+            "agent_runtime": runtime_id,
         }
         if conversation_id:
             payload["conversation_id"] = conversation_id
@@ -318,6 +398,16 @@ def build_app(
         return payload
 
     def _resolve_llm_settings(payload: AskInput) -> Settings:
+        if runtime_id == FX_RUNTIME_ID:
+            if not settings.fx_gateway_api_key:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "fx runtime 缺少 RETAIN_AI_FX_GATEWAY_API_KEY；"
+                        "不会把现有 Rust API key 或普通 DeepSeek key 交给 fx。"
+                    ),
+                )
+            return settings
         # 前端按请求携带 LLM key/base/model 时覆盖启动期配置;三者留空则回退 env。
         # 缺 key 直接报错,避免打到上游才 401。
         api_key = (payload.llm_api_key or settings.llm_api_key).strip()
@@ -331,6 +421,9 @@ def build_app(
         )
 
     def _request_chat_fn(payload: AskInput):
+        if runtime_id == FX_RUNTIME_ID:
+            _resolve_llm_settings(payload)
+            return None
         # 非流式路径:请求未覆盖任何 LLM 参数时回退启动期 chat_fn(返回 None)。
         resolved = _resolve_llm_settings(payload)  # 顺带做缺 key 守卫
         if not payload.llm_api_key and not payload.llm_base_url and not payload.llm_model:
@@ -356,24 +449,50 @@ def build_app(
             stop_at=memory_stop,
         )
         # SSE 路径总是用带 on_delta 的流式 chat_fn:增量文本进事件队列。
-        chat_fn = build_deepseek_chat_fn(
-            resolved,
-            on_delta=lambda text: events.put({"type": "answer_delta", "text": text}),
+        chat_fn = (
+            None
+            if runtime_id == FX_RUNTIME_ID
+            else build_deepseek_chat_fn(
+                resolved,
+                on_delta=lambda text: events.put(
+                    {"type": "answer_delta", "text": text}
+                ),
+            )
         )
 
         def run() -> None:
             try:
                 if compress_event:
                     events.put(compress_event)
-                result = agent.ask(
+                request_message_id, request_persisted = persist_fx_request_message(
+                    conversation_id,
+                    payload,
+                    chain_parent_id=summary_id,
+                )
+                result = runtime.ask(
                     payload.question,
+                    conversation_id=conversation_id,
                     document_id=document_id,
                     job_id=payload.job_id.strip(),
                     on_event=events.put,
                     chat_fn=chat_fn,
                     history=history,
+                    **(
+                        {
+                            "request_message_id": request_message_id,
+                            "confirmed": bool(payload.confirm_document_operation),
+                        }
+                        if runtime_id == FX_RUNTIME_ID
+                        else {}
+                    ),
                 )
-                persisted = persist_turn(conversation_id, payload, result, chain_parent_id=summary_id)
+                persisted = request_persisted and persist_turn(
+                    conversation_id,
+                    payload,
+                    result,
+                    chain_parent_id=summary_id,
+                    prepersisted_user_id=request_message_id,
+                )
                 events.put(
                     {
                         "type": "done",
@@ -423,14 +542,34 @@ def build_app(
             force_compress=bool(payload.force_compress),
             stop_at=memory_stop,
         )
-        result = agent.ask(
+        request_message_id, request_persisted = persist_fx_request_message(
+            conversation_id,
+            payload,
+            chain_parent_id=summary_id,
+        )
+        result = runtime.ask(
             payload.question,
+            conversation_id=conversation_id,
             document_id=document_id,
             job_id=payload.job_id.strip(),
             chat_fn=chat_fn,
             history=history,
+            **(
+                {
+                    "request_message_id": request_message_id,
+                    "confirmed": bool(payload.confirm_document_operation),
+                }
+                if runtime_id == FX_RUNTIME_ID
+                else {}
+            ),
         )
-        persisted = persist_turn(conversation_id, payload, result, chain_parent_id=summary_id)
+        persisted = request_persisted and persist_turn(
+            conversation_id,
+            payload,
+            result,
+            chain_parent_id=summary_id,
+            prepersisted_user_id=request_message_id,
+        )
         return {
             "code": 0,
             "message": "ok",

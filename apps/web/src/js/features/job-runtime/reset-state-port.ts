@@ -1,4 +1,4 @@
-import type { JobLike, JobPayload, ManifestPayload } from "../../job/types.js";
+import type { JobLike, JobPayload, ManifestPayload } from "@retainpdf/domain/job";
 
 /**
  * Host-state fields mutated by job-runtime reset helpers

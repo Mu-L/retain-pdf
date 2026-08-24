@@ -4,10 +4,10 @@ import {
   resolveManifestArtifactUrl,
   resolveJobMarkdownContract,
   resolveResourceUrl,
-} from "../job/artifacts.js";
-import { API_PREFIX } from "../internal/api-constants.js";
-import { buildApiEndpoint } from "../internal/http.js";
+} from "./artifacts.js";
 import { firstNonEmpty } from "./core.js";
+
+const API_PREFIX = "/api/v1";
 
 function artifactDisplayItem(job, ...keys) {
   const items = Array.isArray(job?.artifacts_display) ? job.artifacts_display : [];
@@ -188,7 +188,7 @@ export function resolveJobSourcePdfAction(job, manifestPayload = null) {
   const artifacts = job?.artifacts || {};
   const manifestUrl = resolveManifestArtifactUrl(manifestPayload, "source_pdf");
   const fallbackUrl = job?.job_id
-    ? buildApiEndpoint(API_PREFIX, `jobs/${encodeURIComponent(job.job_id)}/artifacts/source_pdf`)
+    ? `${API_PREFIX}/jobs/${encodeURIComponent(job.job_id)}/artifacts/source_pdf`
     : "";
   const url = resolveResourceUrl(firstNonEmpty(
     manifestUrl,

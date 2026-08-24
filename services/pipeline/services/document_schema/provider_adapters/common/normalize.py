@@ -37,6 +37,10 @@ def build_line_records(bbox: list[float], segments: list[dict]) -> list[dict]:
     return [
         {
             "bbox": bbox,
-            "spans": segments,
+            "bbox_precision": "block_fallback",
+            # Lines and top-level segments are scaled/rebuilt independently.
+            # Sharing the same dict objects makes the rescale pass apply the
+            # page transform twice to single-line spans.
+            "spans": [dict(segment) for segment in segments],
         }
     ]

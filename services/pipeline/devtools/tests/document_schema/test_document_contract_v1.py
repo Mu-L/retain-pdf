@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 import sys
 
 
@@ -9,7 +10,7 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 from services.document_schema.adapters import adapt_payload_to_document_v1
 from services.document_schema.providers import PROVIDER_GENERIC_FLAT_OCR
-from services.document_schema.validator import validate_document_payload
+from services.document_schema.validator import DocumentSchemaValidationError, validate_document_payload
 
 
 def _build_generic_payload() -> dict:
@@ -103,8 +104,26 @@ def test_document_contract_v1_fields_are_present_and_valid() -> None:
     assert abstract_block["policy"] == {"translate": True, "translate_reason": "provider_body_whitelist:abstract"}
 
     image_block = page["blocks"][2]
-    assert image_block["content"] == {"kind": "image", "asset_id": "img_001", "text": ""}
+    assert image_block["content"] == {
+        "kind": "image",
+        "asset_id": "img_001",
+        "asset_ids": ["img_001"],
+        "text": "",
+    }
     assert image_block["layout_role"] == "unknown"
     assert image_block["semantic_role"] == "unknown"
     assert image_block["structure_role"] == ""
     assert image_block["policy"] == {"translate": False, "translate_reason": "provider_non_text:image"}
+
+
+def test_document_contract_rejects_conflicting_compatibility_and_geometry_bbox() -> None:
+    document = adapt_payload_to_document_v1(
+        payload=_build_generic_payload(),
+        provider=PROVIDER_GENERIC_FLAT_OCR,
+        document_id="bbox-contract-doc",
+        source_json_path=Path("/tmp/bbox-contract-doc.json"),
+    )
+    document["pages"][0]["blocks"][0]["geometry"]["bbox"] = [1, 2, 3, 4]
+
+    with pytest.raises(DocumentSchemaValidationError, match="must match block.bbox"):
+        validate_document_payload(document)

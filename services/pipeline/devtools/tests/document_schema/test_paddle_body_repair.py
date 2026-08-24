@@ -3,18 +3,18 @@ from pathlib import Path
 
 
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
-REPO_ROOT = REPO_SCRIPTS_ROOT.parent
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 from services.document_schema.provider_adapters.paddle.column_signals import (
     analyze_page_column_signals,
 )
 from services.document_schema.provider_adapters.paddle.body_repair import repair_body_cross_column_blocks
+from devtools.tests.document_schema.fixtures.registry import PADDLE_FIXTURES_ROOT
 
 
-PADDLE_FIXTURE_JSON = REPO_ROOT / "rust_api" / "src" / "ocr_provider" / "paddle" / "json_full.json"
-PADDLE_SCI_FIXTURE_JSON = REPO_ROOT / "rust_api" / "src" / "ocr_provider" / "paddle" / "json_sci.json"
-PADDLE_FIXTURE_PDF = REPO_ROOT / "rust_api" / "src" / "ocr_provider" / "paddle" / "paddle_ocr_json_split.pdf"
+PADDLE_FIXTURE_JSON = PADDLE_FIXTURES_ROOT / "json_full.json"
+PADDLE_SCI_FIXTURE_JSON = PADDLE_FIXTURES_ROOT / "json_sci.json"
+PADDLE_FIXTURE_PDF = PADDLE_FIXTURES_ROOT / "paddle_ocr_json_split.pdf"
 NORMALIZE_ENTRYPOINT = REPO_SCRIPTS_ROOT / "entrypoints" / "run_normalize_ocr.py"
 
 
@@ -188,4 +188,3 @@ def test_paddle_body_repair_ignores_front_matter_text_before_body_heading() -> N
     assert repaired_blocks[4]["block_content"] == ""
     assert repair_metadata == {}
     assert repair_summary["body_repair_pair_count"] == 0
-

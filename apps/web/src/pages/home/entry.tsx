@@ -9,6 +9,7 @@
 // 与 detail/reader 先例一致:不开 StrictMode(composition 含一次性事件绑定,
 // 双调用会重复 dispatch;命令式复用件与 StrictMode 解耦是三页统一约定)。
 
+import "@/js/bootstrap/job-domain-adapters.js";
 import { createRoot } from "react-dom/client";
 import { bootTheme } from "@/shared/theme/theme.js";
 import { DecorStage } from "@/shared/decor/DecorStage.jsx";

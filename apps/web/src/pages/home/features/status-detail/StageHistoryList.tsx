@@ -2,7 +2,7 @@
 // (字符串模板拼接)的 JSX 重写,类名/结构照搬(蓝图 §1.1 判决表:history.js
 // markup 拼接部分不用,改读原始数据数组;逐条断言取代 markup 断言)。
 //
-// 耗时/时间戳计算复用保留的纯逻辑 job/stage-history.js + status-detail/utils.js
+// 耗时/时间戳计算复用 @retainpdf/domain/job + status-detail/utils.js
 // (与 detail 页 EventsTimeline.jsx 的先例一致,不重新发明这部分公式)。
 
 import { STATUS_DETAIL_DIALOG_IDS } from "./status-detail-dom-ids.js";

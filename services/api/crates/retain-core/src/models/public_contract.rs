@@ -67,6 +67,7 @@ pub struct PublicTranslationInput {
     pub end_page: i64,
     pub batch_size: i64,
     pub workers: i64,
+    pub accepted_ambiguous_request_risk: bool,
 }
 
 pub fn public_request_payload(spec: &ResolvedJobSpec) -> PublicResolvedJobSpec {
@@ -120,6 +121,9 @@ pub fn public_request_payload(spec: &ResolvedJobSpec) -> PublicResolvedJobSpec {
             end_page: spec.translation.end_page,
             batch_size: spec.translation.batch_size,
             workers: spec.translation.workers,
+            accepted_ambiguous_request_risk: spec
+                .translation
+                .accepted_ambiguous_request_risk,
         },
         render: spec.render.clone(),
         runtime: spec.runtime.clone(),

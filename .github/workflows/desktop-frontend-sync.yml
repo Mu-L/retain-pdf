@@ -10,6 +10,11 @@ name: Desktop Frontend Sync
       - "apps/desktop/scripts/prepare-app.mjs"
       - "apps/desktop/scripts/check-frontend-bundle.mjs"
       - "apps/web/**"
+      - "packages/api/**"
+      - "packages/domain/**"
+      - "packages/reader/**"
+      - "packages/schemas/**"
+      - "packages/ui/**"
   push:
     branches:
       - main
@@ -22,6 +27,11 @@ name: Desktop Frontend Sync
       - "apps/desktop/scripts/prepare-app.mjs"
       - "apps/desktop/scripts/check-frontend-bundle.mjs"
       - "apps/web/**"
+      - "packages/api/**"
+      - "packages/domain/**"
+      - "packages/reader/**"
+      - "packages/schemas/**"
+      - "packages/ui/**"
   workflow_dispatch: {}
 
 jobs:

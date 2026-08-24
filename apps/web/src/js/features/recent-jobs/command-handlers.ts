@@ -1,6 +1,6 @@
 import { invalidateLibraryBooksResource } from "./library-books-resource.js";
 import { hydrateCreatedRecentJob } from "./created-job-hydration.js";
-import { isTerminalStatus } from "../../job/core.js";
+import { isTerminalStatus } from "@retainpdf/domain/job";
 import type {
   RecentJobsCommandPort,
   RecentJobsCommandSubscription,

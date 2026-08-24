@@ -2,7 +2,7 @@ import {
   buildStatusDetailSnapshot,
   type StatusDetailSnapshotOptions,
 } from "./snapshot.js";
-import type { JobLike, JobPayload } from "../job/types.js";
+import type { JobLike, JobPayload } from "@retainpdf/domain/job";
 
 export type StatusDetailSnapshot = ReturnType<typeof buildStatusDetailSnapshot>;
 

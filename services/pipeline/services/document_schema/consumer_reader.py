@@ -91,6 +91,20 @@ def block_asset_id(block: dict) -> str:
     return str(content.get("asset_id", "") or "").strip()
 
 
+def block_asset_ids(block: dict) -> list[str]:
+    content = block.get("content", {}) or {}
+    raw_asset_ids = content.get("asset_ids", [])
+    asset_ids = (
+        [str(value).strip() for value in raw_asset_ids if str(value).strip()]
+        if isinstance(raw_asset_ids, list)
+        else []
+    )
+    primary = block_asset_id(block)
+    if primary and primary not in asset_ids:
+        asset_ids.insert(0, primary)
+    return asset_ids
+
+
 def block_reading_order(block: dict) -> int:
     value = block.get("reading_order", block.get("order", 0))
     if isinstance(value, int) and not isinstance(value, bool):
@@ -132,6 +146,7 @@ def block_sub_type(block: dict, data: dict | None = None) -> str:
 
 __all__ = [
     "block_asset_id",
+    "block_asset_ids",
     "block_bbox",
     "block_children",
     "block_kind",

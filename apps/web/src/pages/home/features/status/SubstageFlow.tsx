@@ -1,5 +1,5 @@
 // 子阶段流程条(蓝图 §2 features/status/;数据源 buildSubstageViewModel 是
-// job-status/substage-view-model.js 纯 VM,原样 import——镜像
+// @retainpdf/domain/job-status 的纯 VM,经 composition 正式入口复用——镜像
 // job-status-card-substages.js 的 syncStageSubstageStates DOM 结构,
 // --status-substage-count CSS 变量契约保留)。
 

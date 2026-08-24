@@ -13,6 +13,8 @@ mod assets;
 mod collections;
 #[path = "db/conversations.rs"]
 mod conversations;
+#[path = "db/document_operations.rs"]
+mod document_operations;
 #[path = "db/documents.rs"]
 pub mod documents;
 #[path = "db/events.rs"]
@@ -69,6 +71,26 @@ pub struct JobProcessRecord {
     pub stage: Option<String>,
     pub updated_at: String,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AgentRuntimeSessionRecord {
+    pub conversation_id: String,
+    pub runtime_id: String,
+    pub session_cursor: String,
+    pub revision: u64,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PutAgentRuntimeSessionResult {
+    Updated(AgentRuntimeSessionRecord),
+    RevisionConflict(AgentRuntimeSessionRecord),
+}
+
+pub use document_operations::{
+    CommitDocumentCandidateResult, DocumentOperationEventRecord, DocumentVersionRecord,
+    StoredDocumentOperation, StoredDocumentOperationAttempt,
+};
 
 impl Db {
     pub fn new(path: PathBuf, data_root: PathBuf) -> Self {

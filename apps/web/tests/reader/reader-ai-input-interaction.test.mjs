@@ -1,0 +1,185 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { JSDOM } from "jsdom";
+
+const wait = (ms = 30) => new Promise((resolve) => setTimeout(resolve, ms));
+
+test("AI 会话隔离不再吞掉 composer 的点击与输入焦点", async () => {
+  const dom = new JSDOM(
+    "<!doctype html><html><body><form data-reader-ai-composer><textarea class='aui-input'></textarea></form><button id='page-action'>page</button></body></html>",
+    { url: "http://localhost/reader.html", pretendToBeVisual: true },
+  );
+  for (const key of ["window", "document", "Element", "HTMLElement", "Event", "Node"]) {
+    Object.defineProperty(globalThis, key, {
+      value: dom.window[key],
+      writable: true,
+      configurable: true,
+    });
+  }
+
+  const {
+    armReaderAiClickShield,
+    clearReaderAiNavigationLock,
+  } = await import(
+    `../../../../packages/reader/src/shared/ai/ui-interaction-lock.ts?input-test=${Date.now()}`
+  );
+  const input = document.querySelector("textarea");
+  const pageAction = document.getElementById("page-action");
+  let inputClicks = 0;
+  let pageClicks = 0;
+  input.addEventListener("click", () => {
+    inputClicks += 1;
+    input.focus();
+  });
+  pageAction.addEventListener("click", () => {
+    pageClicks += 1;
+  });
+
+  armReaderAiClickShield(500);
+  const marker = document.querySelector("[data-reader-ai-pointer-shield='1']");
+  assert.ok(marker, "切换期仍应保留可观测状态标记");
+  assert.equal(marker.style.pointerEvents, "none", "状态标记不能覆盖 composer");
+
+  assert.equal(input.dispatchEvent(new dom.window.MouseEvent("click", {
+    bubbles: true,
+    cancelable: true,
+  })), true);
+  assert.equal(inputClicks, 1);
+  assert.equal(document.activeElement, input);
+
+  assert.equal(pageAction.dispatchEvent(new dom.window.MouseEvent("click", {
+    bubbles: true,
+    cancelable: true,
+  })), false, "切换期仍应阻止阅读页上的误操作");
+  assert.equal(pageClicks, 0);
+
+  clearReaderAiNavigationLock();
+  dom.window.close();
+});
+
+test("Markdown-only AI composer 不受翻译状态影响并保持可输入", async () => {
+  const [appSource, threadSource, surfaceSource, panelSource, floatCss, notesCss, reactPdfCss] = await Promise.all([
+    readFile(new URL("../../../../packages/reader/src/ReaderAppReactPdf.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../../packages/reader/src/components/react-pdf/assistant/ReaderAssistantThread.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../../packages/reader/src/components/react-pdf/assistant/ReaderAssistantSurface.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../../packages/reader/src/components/react-pdf/ReaderAiPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../../packages/reader/styles/float-ai.css", import.meta.url), "utf8"),
+    readFile(new URL("../../../../packages/reader/styles/notes-float.css", import.meta.url), "utf8"),
+    readFile(new URL("../../../../packages/reader/styles/react-pdf.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(surfaceSource, /data-reader-ai-composer/);
+  assert.match(surfaceSource, /<ComposerPrimitive\.Input[\s\S]*?autoFocus/);
+  assert.match(surfaceSource, /<ThreadPrimitive\.ViewportFooter/);
+  assert.match(surfaceSource, /turnAnchor="top"/);
+  assert.match(threadSource, /@assistant-ui\/react/);
+  assert.match(surfaceSource, /data-chat-ui="assistant-ui-official-thread"/);
+  assert.doesNotMatch(threadSource, /MutationObserver|useViewportStickBottom/);
+  assert.doesNotMatch(surfaceSource, /MutationObserver|useViewportStickBottom/);
+  assert.doesNotMatch(threadSource, /components\/ai-elements/);
+  assert.match(panelSource, /const enabled = open && Boolean\(jobId\)/);
+  assert.match(panelSource, /placement=\{layout === "docked" \? "dock-right" : "floating"\}/);
+  assert.match(panelSource, /is-\$\{layout\}/);
+  assert.doesNotMatch(panelSource, /!sourceOnly|sourceOnly \|\| !jobId/);
+  assert.match(appSource, /is-ai-split/);
+  assert.match(appSource, /assistantSplit=\{aiSplitOpen\}/);
+  assert.match(appSource, /mode === "compare" \? "floating" : "docked"/);
+  assert.doesNotMatch(appSource, /retainpdf\.reader\.ai-layout/);
+  assert.doesNotMatch(panelSource, /onLayoutChange|reader-ai-layout-toggle/);
+  assert.match(appSource, /<ReaderAiPanel key=\{session\.jobId \|\| "reader-ai-pending"\}/);
+  assert.doesNotMatch(appSource, /<ReaderAiPanel[^>]*sourceOnly=/);
+  assert.doesNotMatch(panelSource, /aui-branch-pointer-shield/);
+  assert.doesNotMatch(floatCss, /\.aui-branch-pointer-shield/);
+  assert.match(floatCss, /\.reader-float-ai\.reader-notes-panel--docked/);
+  assert.match(floatCss, /@media \(max-width: 899px\)[\s\S]*?\.reader-float-ai\.is-floating[\s\S]*?inset:\s*0 !important/);
+  assert.match(reactPdfCss, /--reader-ai-split-width:\s*50vw/);
+  assert.match(reactPdfCss, /\.reader-react-root\.is-ai-split \.reader-react-scroll-shell[\s\S]*?right:\s*var\(--reader-ai-split-width\)/);
+  assert.doesNotMatch(notesCss, /\.reader-notes-panel--float\s*\{\s*touch-action:\s*none/);
+});
+
+test("assistant-ui Composer can type and submit in an OCR-only Reader", async () => {
+  const dom = new JSDOM("<!doctype html><html><body><div id='root'></div></body></html>", {
+    url: "http://localhost/reader.html",
+    pretendToBeVisual: true,
+  });
+  for (const key of [
+    "window",
+    "document",
+    "location",
+    "Element",
+    "HTMLElement",
+    "HTMLTextAreaElement",
+    "Event",
+    "KeyboardEvent",
+    "MouseEvent",
+    "MutationObserver",
+    "Node",
+    "NodeFilter",
+  ]) {
+    Object.defineProperty(globalThis, key, {
+      value: dom.window[key],
+      writable: true,
+      configurable: true,
+    });
+  }
+  globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
+  globalThis.requestAnimationFrame = (callback) => setTimeout(() => callback(Date.now()), 0);
+  globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
+  dom.window.HTMLElement.prototype.scrollTo = function scrollTo(options) {
+    this.scrollTop = typeof options === "number" ? options : Number(options?.top || 0);
+  };
+  globalThis.ResizeObserver = class ResizeObserver {
+    constructor(callback) { this.callback = callback; }
+    observe(target) { this.callback([{ target, contentRect: { height: 100 } }]); }
+    disconnect() {}
+  };
+  globalThis.IS_REACT_ACT_ENVIRONMENT = false;
+
+  const React = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const { setReaderAdapters } = await import("../../../../packages/reader/src/adapters.ts");
+  const { ReaderAssistantThread } = await import(
+    "../../../../packages/reader/src/components/react-pdf/assistant/ReaderAssistantThread.tsx"
+  );
+  setReaderAdapters({
+    credentialsPort: { getCredentials: () => ({ modelApiKey: "test" }) },
+  });
+  const submitted = [];
+  const root = createRoot(document.getElementById("root"));
+
+  try {
+    root.render(React.createElement(ReaderAssistantThread, {
+      jobId: "ocr-only-job",
+      onSubmit(question) { submitted.push(question); },
+      onRetry() {},
+      onCancel() {},
+    }));
+    await wait(50);
+
+    const input = document.querySelector("textarea.aui-input");
+    assert.ok(input, "OCR-only Reader 应直接渲染 assistant-ui Composer");
+    input.focus();
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      dom.window.HTMLTextAreaElement.prototype,
+      "value",
+    ).set;
+    valueSetter.call(input, "只根据 Markdown 回答");
+    input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    await wait();
+    assert.equal(input.value, "只根据 Markdown 回答");
+
+    input.dispatchEvent(new dom.window.KeyboardEvent("keydown", {
+      key: "Enter",
+      bubbles: true,
+      cancelable: true,
+    }));
+    await wait();
+    assert.deepEqual(submitted, ["只根据 Markdown 回答"]);
+    assert.equal(input.value, "", "提交成功后应清空受控输入");
+  } finally {
+    root.unmount();
+    setReaderAdapters(null);
+    dom.window.close();
+  }
+});

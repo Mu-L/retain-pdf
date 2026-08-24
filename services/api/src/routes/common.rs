@@ -10,6 +10,7 @@ use crate::db::Db;
 use crate::models::api::ApiResponse;
 use crate::services::jobs::JobsFacade;
 use crate::services::library::LibraryDeps;
+use crate::services::agent_capabilities::AgentCapabilityAuthority;
 
 pub fn ok_json<T>(value: T) -> Json<ApiResponse<T>> {
     Json(ApiResponse::ok(value))
@@ -112,6 +113,30 @@ pub fn build_glossary_route_deps(state: &AppState) -> GlossaryRouteDeps<'_> {
     }
 }
 
+pub struct DocumentOperationRouteDeps<'a> {
+    pub db: &'a Db,
+    pub config: &'a crate::config::AppConfig,
+}
+
+pub fn build_document_operation_route_deps(state: &AppState) -> DocumentOperationRouteDeps<'_> {
+    DocumentOperationRouteDeps {
+        db: state.db.as_ref(),
+        config: state.config.as_ref(),
+    }
+}
+
+pub struct AgentCapabilityRouteDeps<'a> {
+    pub db: &'a Db,
+    pub authority: &'a AgentCapabilityAuthority,
+}
+
+pub fn build_agent_capability_route_deps(state: &AppState) -> AgentCapabilityRouteDeps<'_> {
+    AgentCapabilityRouteDeps {
+        db: state.db.as_ref(),
+        authority: state.agent_capabilities.as_ref(),
+    }
+}
+
 pub struct LibraryRouteDeps<'a> {
     pub library: LibraryDeps<'a>,
     /// Jobs creation path for document translate-from-library (and future library→job flows).
@@ -153,6 +178,18 @@ pub struct AuthRouteDeps<'a> {
 pub fn build_auth_route_deps(state: &AppState) -> AuthRouteDeps<'_> {
     AuthRouteDeps {
         api_keys: &state.config.api_keys,
+    }
+}
+
+pub struct FontsRouteDeps<'a> {
+    pub project_root: &'a Path,
+    pub data_root: &'a Path,
+}
+
+pub fn build_fonts_route_deps(state: &AppState) -> FontsRouteDeps<'_> {
+    FontsRouteDeps {
+        project_root: &state.config.project_root,
+        data_root: &state.config.data_root,
     }
 }
 

@@ -99,6 +99,10 @@ pub struct ReaderRegionItemView {
     pub markdown: Option<String>,
     pub region_type: String,
     pub status: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub asset_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub asset_urls: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Clone, PartialEq)]
@@ -185,6 +189,7 @@ pub struct JobDetailView {
     pub normalization_summary: Option<NormalizationSummaryView>,
     pub glossary_summary: Option<GlossaryUsageSummaryView>,
     pub invocation: Option<InvocationSummaryView>,
+    pub translation_request_recovery: Option<TranslationRequestRecoveryView>,
     pub log_tail: Vec<String>,
 }
 
@@ -207,12 +212,18 @@ pub struct BookSummaryView {
     pub target_language: Option<String>,
     pub source_file_name: Option<String>,
     pub cover_url: Option<String>,
+    pub thumbnail_url: Option<String>,
     pub file_size_bytes: Option<u64>,
 }
 
 impl BookSummaryView {
     pub fn with_cover_url(mut self, cover_url: Option<String>) -> Self {
         self.cover_url = cover_url;
+        self
+    }
+
+    pub fn with_thumbnail_url(mut self, thumbnail_url: Option<String>) -> Self {
+        self.thumbnail_url = thumbnail_url;
         self
     }
 }
@@ -240,6 +251,20 @@ pub struct JobDiagnosticsView {
     pub resume_available: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub render_diagnostics: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub translation_request_recovery: Option<TranslationRequestRecoveryView>,
+}
+
+#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+pub struct TranslationRequestRecoveryView {
+    pub status: String,
+    pub journal_ready: bool,
+    pub unresolved_dispatches: u64,
+    pub active_ambiguous_request_keys: u64,
+    pub historical_ambiguous_request_keys: u64,
+    pub requires_confirmation: bool,
+    pub supported_retry_policies: Vec<String>,
+    pub detail: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -259,6 +284,14 @@ pub enum RetryStageKind {
     Ocr,
     Translation,
     Render,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AmbiguousRequestPolicy {
+    #[default]
+    Block,
+    AcceptDuplicateRisk,
 }
 
 #[derive(Debug, Serialize)]
@@ -296,6 +329,8 @@ pub struct RetryStageRequest {
     pub create_new_job: bool,
     #[serde(default)]
     pub overrides: Value,
+    #[serde(default)]
+    pub ambiguous_request_policy: AmbiguousRequestPolicy,
 }
 
 fn default_retry_stage_mode() -> String {
@@ -315,6 +350,7 @@ pub struct RetryStageSubmissionView {
     pub rerun_from_stage: RetryStageKind,
     pub reused_artifacts: Vec<String>,
     pub rerun_stages: Vec<String>,
+    pub ambiguous_request_policy: AmbiguousRequestPolicy,
     pub links: JobLinksView,
     pub actions: JobActionsView,
 }

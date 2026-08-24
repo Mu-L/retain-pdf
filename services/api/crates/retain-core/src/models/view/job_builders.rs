@@ -338,6 +338,7 @@ pub fn job_to_detail(
             target_language: None,
             source_file_name: None,
             cover_url: None,
+            thumbnail_url: None,
             file_size_bytes: None,
         },
         contracts: JobContractsView {
@@ -356,6 +357,7 @@ pub fn job_to_detail(
         normalization_summary: load_normalization_summary(job, data_root),
         glossary_summary: load_glossary_summary(job, data_root),
         invocation: load_invocation_summary(job, data_root),
+        translation_request_recovery: None,
         log_tail: job.log_tail.clone(),
     }
 }

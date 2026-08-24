@@ -93,7 +93,11 @@ export function buildHomeServices({
 
   const workflowPort: WorkflowPort = {
     store: views.workflowView.store as unknown as WorkflowPort["store"],
-    viewActions: { setSelectedGlossaryId: views.workflowView.setSelectedGlossaryId },
+    viewActions: {
+      setSelectedGlossaryId: views.workflowView.setSelectedGlossaryId,
+      setOcrOnly: (views.workflowView as any).setOcrOnly,
+      isOcrOnly: (views.workflowView as any).isOcrOnly,
+    } as unknown as WorkflowPort["viewActions"],
     dialog: views.workflowDialog,
   };
 
@@ -157,7 +161,9 @@ export function buildHomeServices({
     },
     workflowViewActions: {
       setSelectedGlossaryId: views.workflowView.setSelectedGlossaryId,
-    },
+      setOcrOnly: (views.workflowView as any).setOcrOnly,
+      isOcrOnly: (views.workflowView as any).isOcrOnly,
+    } as any,
     workflowDialog: views.workflowDialog,
   } as HomeServices;
 }

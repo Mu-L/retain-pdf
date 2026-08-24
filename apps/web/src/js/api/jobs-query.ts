@@ -1,5 +1,5 @@
 import { buildApiHeaders, isMockMode } from "../config/runtime.js";
-import { unwrapEnvelope } from "../job/core.js";
+import { unwrapEnvelope } from "@retainpdf/domain/job";
 import {
   getMockJobList,
   getMockJobPayload,

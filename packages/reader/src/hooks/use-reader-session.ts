@@ -22,6 +22,12 @@ import {
   resolveReaderTranslatedPdfUrl,
   READER_PROGRESS_COPY,
 } from "../external.js";
+import {
+  normalizeReaderMetadata,
+  normalizeReaderRegions,
+  type ReaderMetadata,
+  type ReaderRegion,
+} from "../shared/data/reader-regions.js";
 
 export type ReaderMode = "source" | "translated" | "compare";
 
@@ -59,6 +65,8 @@ export type ReaderSessionState = {
   };
   // display title; react chrome currently does not render it
   title: string;
+  regions: ReaderRegion[];
+  readerMetadata: ReaderMetadata;
   download: ReaderDownloadContext;
 };
 
@@ -190,7 +198,15 @@ export function useReaderSession(): ReaderSessionState {
     () => (jobId ? "" : resolveReaderDocumentId()),
     [locationKey, jobId],
   );
-  const sourceOnly = Boolean(documentId) && !jobId;
+  const [resolvedDocumentJob, setResolvedDocumentJob] = useState({
+    documentId: "",
+    jobId: "",
+  });
+  const documentJobId = resolvedDocumentJob.documentId === documentId
+    ? resolvedDocumentJob.jobId
+    : "";
+  const sessionJobId = jobId || documentJobId;
+  const sourceOnly = Boolean(documentId) && !sessionJobId;
 
   const [mode, setModeState] = useState<ReaderMode>(sourceOnly ? "source" : "compare");
   const [sourceUrl, setSourceUrl] = useState("");
@@ -201,6 +217,11 @@ export function useReaderSession(): ReaderSessionState {
   const [title, setTitle] = useState("");
   const [jobPayload, setJobPayload] = useState<Record<string, unknown> | null>(null);
   const [manifestPayload, setManifestPayload] = useState<Record<string, unknown> | null>(null);
+  const [regions, setRegions] = useState<ReaderRegion[]>([]);
+  const [readerMetadata, setReaderMetadata] = useState<ReaderMetadata>(() => ({
+    source: null,
+    translated: null,
+  }));
   const [boot, setBoot] = useState<ReaderSessionState["boot"]>({
     loading: true,
     percent: 4,
@@ -258,10 +279,33 @@ export function useReaderSession(): ReaderSessionState {
       setAssetsReady(false);
       setSourceFile(null);
       setTranslatedFile(null);
+      setRegions([]);
+      setReaderMetadata({ source: null, translated: null });
       setBootProgress(setBoot, 8, READER_PROGRESS_COPY.metadata, "metadata");
 
       try {
         if (sourceOnly) {
+          // OCR 吸怪：document_id 直开时，若文档已有 active_job_id（OCR-only 已回填），则按 job 链路加载以提供 Markdown/译文
+          let effectiveJobId: string | null = null;
+          try {
+            const docResp = await defaultReaderDataPort.fetchProtected(
+              resolveResourceUrl(`/api/v1/documents/${encodeURIComponent(documentId)}`),
+            );
+            if (docResp?.ok) {
+              const docJson: any = await docResp.json().catch(() => null);
+              const docData: any = docJson?.data ?? docJson;
+              const active = `${docData?.active_job_id || ""}`.trim();
+              if (active && !active.startsWith("doc:")) effectiveJobId = active;
+            }
+          } catch {
+            /* ignore, fallback to pure source */
+          }
+          if (effectiveJobId && !cancelled) {
+            // 记录实际 job 后重新进入统一 job 加载分支。session 对外也必须暴露
+            // 这个 id，否则 Markdown/AI/下载仍会把馆藏入口误判为纯源文档。
+            setResolvedDocumentJob({ documentId, jobId: effectiveJobId });
+            return;
+          }
           const url = isMockMode()
             ? MOCK_DOCUMENT_SOURCE_PDF_URL
             : resolveResourceUrl(`/api/v1/documents/${encodeURIComponent(documentId)}/source.pdf`);
@@ -298,7 +342,7 @@ export function useReaderSession(): ReaderSessionState {
           return;
         }
 
-        if (!jobId) {
+        if (!sessionJobId) {
           setBoot({
             loading: false,
             percent: 100,
@@ -310,21 +354,28 @@ export function useReaderSession(): ReaderSessionState {
           return;
         }
 
-        const payload = await defaultReaderDataPort.loadReaderPayload(jobId);
+        const payload = await defaultReaderDataPort.loadReaderPayload(sessionJobId);
         if (cancelled) return;
 
         const source = resolveReaderSourcePdf(payload.manifestPayload);
         const translated = resolveReaderTranslatedPdfUrl(payload.jobPayload, payload.manifestPayload);
-        const sourceFinal = typeof source === "string"
+        const resolvedSourceFinal = typeof source === "string"
           ? source
           : resolveReaderArtifactUrl(source);
+        // OCR-only job 未必生成 PDF artifact；从 document_id 进入时继续使用
+        // 馆藏源文件，同时保留真实 jobId 供 Markdown/AI 使用。
+        const sourceFinal = resolvedSourceFinal || (documentId
+          ? resolveResourceUrl(`/api/v1/documents/${encodeURIComponent(documentId)}/source.pdf`)
+          : "");
         const translatedFinal = translated || "";
 
         setSourceUrl(sourceFinal || "");
         setTranslatedUrl(translatedFinal);
-        setTitle(pickDisplayTitle(payload.jobPayload as Record<string, unknown>, jobId));
+        setTitle(pickDisplayTitle(payload.jobPayload as Record<string, unknown>, sessionJobId));
         setJobPayload((payload.jobPayload as Record<string, unknown>) || null);
         setManifestPayload((payload.manifestPayload as Record<string, unknown>) || null);
+        setRegions(normalizeReaderRegions(payload.regionsPayload));
+        setReaderMetadata(normalizeReaderMetadata(payload.readerMetadata));
 
         if (!sourceFinal && !translatedFinal) {
           setBoot({
@@ -408,23 +459,23 @@ export function useReaderSession(): ReaderSessionState {
       cancelled = true;
       abort.abort();
     };
-  }, [jobId, documentId, sourceOnly, locationKey]);
+  }, [sessionJobId, documentId, sourceOnly, locationKey]);
 
   const download = useMemo<ReaderDownloadContext>(
     () => ({
       fetchProtected: defaultReaderDataPort.fetchProtected,
-      jobId,
+      jobId: sessionJobId,
       jobPayload,
       manifestPayload,
       sourceUrl,
       translatedUrl,
       sourceOnly,
     }),
-    [jobId, jobPayload, manifestPayload, sourceUrl, translatedUrl, sourceOnly],
+    [sessionJobId, jobPayload, manifestPayload, sourceUrl, translatedUrl, sourceOnly],
   );
 
   return {
-    jobId,
+    jobId: sessionJobId,
     documentId,
     sourceOnly,
     mode,
@@ -436,6 +487,8 @@ export function useReaderSession(): ReaderSessionState {
     assetsReady,
     boot,
     title,
+    regions,
+    readerMetadata,
     download,
   };
 }

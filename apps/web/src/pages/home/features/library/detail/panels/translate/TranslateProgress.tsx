@@ -8,7 +8,7 @@ import { useHomeServices } from "../../../../../home-services-context.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { StatusCard } from "../../../../status/StatusCard.jsx";
 import { StageFlow } from "../../../../status/StageFlow.jsx";
-import type { LibraryCardItem } from "../../types.js";
+import type { LibraryCardItem } from "../../../types.js";
 import { isLibraryOnlyItem } from "../../../../../composition/external.js";
 
 function resolveJobId(item: LibraryCardItem = {}) {

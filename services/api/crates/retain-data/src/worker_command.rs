@@ -518,6 +518,48 @@ mod tests {
     }
 
     #[test]
+    fn provider_stage_defaults_paddle_transport_to_official_http() {
+        let config = test_config();
+        let mut request = build_request(WorkflowKind::Ocr);
+        request.job_id = "job-paddle-http-default".to_string();
+        request.ocr.provider = "paddle".to_string();
+        let job_paths = build_paths(config.as_ref());
+        let cmd = build_ocr_command(
+            &config.worker_command_runtime(),
+            Some(Path::new("/tmp/source.pdf")),
+            &request,
+            &job_paths,
+        )
+        .expect("build OCR command");
+        let payload = read_spec_from_command(&cmd);
+
+        assert_eq!(payload["ocr"]["options"]["transport"], "official_http");
+    }
+
+    #[test]
+    fn provider_stage_preserves_paddle_cli_transport_override() {
+        let config = test_config();
+        let mut request = build_request(WorkflowKind::Ocr);
+        request.job_id = "job-paddle-cli-override".to_string();
+        request.ocr.provider = "paddle".to_string();
+        request.ocr.options.insert(
+            "transport".to_string(),
+            serde_json::Value::String("official_cli".to_string()),
+        );
+        let job_paths = build_paths(config.as_ref());
+        let cmd = build_ocr_command(
+            &config.worker_command_runtime(),
+            Some(Path::new("/tmp/source.pdf")),
+            &request,
+            &job_paths,
+        )
+        .expect("build OCR command");
+        let payload = read_spec_from_command(&cmd);
+
+        assert_eq!(payload["ocr"]["options"]["transport"], "official_cli");
+    }
+
+    #[test]
     fn ocr_command_uses_provider_ocr_script() {
         let config = test_config();
         let request = build_request(WorkflowKind::Ocr);

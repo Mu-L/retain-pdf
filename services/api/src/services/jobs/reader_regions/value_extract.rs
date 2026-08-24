@@ -95,6 +95,7 @@ pub(super) fn region_type_from_item(item: &Value) -> String {
             "semantic_role",
             "structure_role",
             "block_type",
+            "type",
         ],
     )
     .unwrap_or_else(|| "paragraph".to_string())

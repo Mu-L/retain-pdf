@@ -1,7 +1,7 @@
 import type { JobLike } from "../job/types.js";
 import {
   canonicalStageOf,
-} from "./job-stage-presentation-utils.js";
+} from "./presentation/job-stage-presentation-utils.js";
 import {
   eventIdentity,
   eventLaneOf,
@@ -11,14 +11,14 @@ import {
   normalizeUserStage,
   progressUnitOf,
   structuredPublicStageOf,
-} from "./job-stage-event-contract.js";
+} from "./contract/job-stage-event-contract.js";
 import {
   progressFromEvent,
   progressPercentFromEvent,
-} from "./job-stage-event-progress.js";
+} from "./progress/job-stage-event-progress.js";
 import {
   progressTextForStageProgress,
-} from "./job-status-summary-progress.js";
+} from "./summary/job-status-summary-progress.js";
 import type { StageEvent, StageEventRecord } from "./types.js";
 
 function firstNonEmptyText(...values: unknown[]): string {

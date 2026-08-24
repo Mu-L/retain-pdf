@@ -30,6 +30,7 @@ import {
 export const WORKFLOW_BOOK = "book";
 export const WORKFLOW_TRANSLATE = "translate";
 export const WORKFLOW_RENDER = "render";
+export const WORKFLOW_OCR = "ocr";
 
 export function workflowConstants() {
   return {
@@ -55,6 +56,7 @@ export function workflowConstants() {
     WORKFLOW_BOOK,
     WORKFLOW_TRANSLATE,
     WORKFLOW_RENDER,
+    WORKFLOW_OCR,
   };
 }
 

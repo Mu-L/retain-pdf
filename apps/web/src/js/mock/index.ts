@@ -10,7 +10,7 @@ import {
   registerLiveMockJob,
 } from "./live-jobs.js";
 import { getMockDocumentByJobId } from "./documents.js";
-import type { JobLike } from "../job/types.js";
+import type { JobLike } from "@retainpdf/domain/job";
 import type { LibraryCardItem } from "../../pages/home/features/library/types.js";
 export { getMockJobMarkdown } from "./markdown.js";
 export { fetchMockProtected } from "./responses.js";

@@ -16,6 +16,7 @@ import {
   createHomeStatePort,
   createUploadStatePort,
   defaultCredentialsStatePort,
+  defaultOcrProvider,
   validateDeepSeekToken,
   queryDeepSeekBalance,
   createTranslationWorkflowDialogStatePort,
@@ -62,7 +63,11 @@ export function createHomeComposition({
   fetchGlossaries = fetchGlossariesApi,
   submitUploadRequest = submitUploadRequestHttp,
   loadPersistedDeveloperConfig = () => safeLoad(loadDeveloperStoredConfig, {}),
-  loadPersistedBrowserConfig = () => safeLoad(loadBrowserStoredConfig, {}),
+  loadPersistedBrowserConfig = () => safeLoad(loadBrowserStoredConfig, {
+    ocrProvider: defaultOcrProvider(),
+    paddleToken: "",
+    modelApiKey: "",
+  }),
   validateOcrToken: validateOcrTokenOverride = null,
   validateDeepSeekToken: validateDeepSeekTokenOverride = validateDeepSeekToken,
   queryDeepSeekBalance: queryDeepSeekBalanceOverride = queryDeepSeekBalance,
@@ -93,10 +98,9 @@ export function createHomeComposition({
 
   const textStore = createHomeTextStore();
   const uploadView = createUploadViewFeature();
-  // 下层 view/runtime 工厂的默认参 `= {}` 会让 TS 丢掉无默认字段；运行时入参正确，此处放宽。
   const workflowView = createWorkflowViewFeature({
     uploadTilePort: uploadView.uploadTilePort,
-  } as any);
+  });
   const statusArea = createStatusAreaFeature({ documentRef });
   const dialogStatePort = createTranslationWorkflowDialogStatePort({ homeStatePort });
   const workflowDialog = createTranslationWorkflowDialogRuntime({
@@ -106,7 +110,7 @@ export function createHomeComposition({
       resetUploadSession: () => features.uploadFeature.resetUploadSession(),
     },
     documentRef,
-  } as any);
+  });
 
   // bridge 需要 statusDetail holder（后续 createStatusDomain 写入）
   const statusDetailHolder: StatusDetailHolder = { store: null, dialogStore: null };

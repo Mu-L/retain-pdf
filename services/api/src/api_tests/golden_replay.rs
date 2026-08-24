@@ -15,8 +15,8 @@ fn fixture_root() -> PathBuf {
 }
 
 fn load_json(path: &PathBuf) -> serde_json::Value {
-    let raw = std::fs::read_to_string(path)
-        .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    let raw =
+        std::fs::read_to_string(path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
     serde_json::from_str(&raw).unwrap_or_else(|e| panic!("parse {}: {e}", path.display()))
 }
 
@@ -32,7 +32,11 @@ fn golden_fixture_exists_and_has_expected_layout() {
     ] {
         let p = root.join(rel);
         assert!(p.exists(), "missing fixture file: {}", p.display());
-        assert!(p.metadata().unwrap().len() > 0, "empty fixture file: {}", p.display());
+        assert!(
+            p.metadata().unwrap().len() > 0,
+            "empty fixture file: {}",
+            p.display()
+        );
     }
     for i in 1..=10 {
         let p = root.join(format!("translated/page-{i:03}-deepseek.json"));
@@ -48,7 +52,12 @@ fn golden_manifest_pages_match_document_and_summary() {
         .get("pages")
         .and_then(|v| v.as_array())
         .expect("manifest.pages must be array");
-    assert_eq!(pages.len(), 10, "manifest pages should be 10, got {}", pages.len());
+    assert_eq!(
+        pages.len(),
+        10,
+        "manifest pages should be 10, got {}",
+        pages.len()
+    );
 
     for entry in pages {
         let rel = entry
@@ -97,7 +106,12 @@ fn golden_manifest_pages_match_document_and_summary() {
 #[test]
 fn golden_specs_have_no_absolute_paths() {
     let root = fixture_root();
-    for name in ["render.spec.json", "translate.spec.json", "normalize.spec.json", "provider.spec.json"] {
+    for name in [
+        "render.spec.json",
+        "translate.spec.json",
+        "normalize.spec.json",
+        "provider.spec.json",
+    ] {
         let p = root.join("specs").join(name);
         if !p.exists() {
             continue;

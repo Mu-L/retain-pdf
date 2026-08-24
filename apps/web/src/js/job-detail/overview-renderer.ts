@@ -1,6 +1,5 @@
 import { $ } from "../dom/query.js";
-import { resolveJobActions } from "../job/actions.js";
-import { resolveLiveDurations } from "../job/durations.js";
+import { resolveJobActions, resolveLiveDurations } from "@retainpdf/domain/job";
 import { renderArtifactsManifest } from "./artifacts.js";
 import { applyDiagnostics, renderFailureDebugContext } from "./failure.js";
 import { renderJobDetailActionLinks } from "./action-links.js";

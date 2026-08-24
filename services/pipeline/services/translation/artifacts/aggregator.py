@@ -10,6 +10,8 @@ from dataclasses import field
 from statistics import mean
 from typing import Any
 
+from .request_journal import TranslationRequestJournal
+
 
 _ACTIVE_RUN_LOCK = threading.RLock()
 _ACTIVE_RUN: "TranslationRunDiagnostics | None" = None
@@ -81,6 +83,7 @@ class TranslationRunDiagnostics:
     configured_workers: int
     configured_batch_size: int
     configured_classify_batch_size: int
+    request_journal: TranslationRequestJournal | None = field(default=None, repr=False)
     run_started_at: float = field(default_factory=time.perf_counter)
     _lock: threading.RLock = field(default_factory=threading.RLock, init=False, repr=False)
     _request_seq: int = field(default=0, init=False, repr=False)
@@ -326,6 +329,29 @@ class TranslationRunDiagnostics:
             }
             return request_id
 
+    def record_request_dispatch(self, request_id: int, *, request_key: str) -> None:
+        journal = self.request_journal
+        if journal is None:
+            return
+        with self._lock:
+            meta = self._request_index.get(request_id)
+            if meta is None:
+                return
+            stage = str(meta["stage"])
+            request_label = str(meta["request_label"])
+            attempt = int(meta["attempt"])
+        request_token = journal.record_dispatch(
+            request_key=request_key,
+            stage=stage,
+            request_label=request_label,
+            http_attempt=attempt,
+        )
+        with self._lock:
+            current = self._request_index.get(request_id)
+            if current is not None:
+                current["journal_request_token"] = request_token
+                current["journal_request_key"] = request_key
+
     def acquire_request_slot(self) -> None:
         with self._adaptive_condition:
             while self._adaptive_inflight >= self._adaptive_limit:
@@ -433,7 +459,9 @@ class TranslationRunDiagnostics:
         elapsed_ms: int,
         status_code: int | None = None,
         error_class: str = "",
+        journal_outcome: str = "",
     ) -> None:
+        journal_terminal: tuple[str, str] | None = None
         with self._lock:
             meta = self._request_index.pop(request_id, None)
             if meta is None:
@@ -467,6 +495,19 @@ class TranslationRunDiagnostics:
             if error_class:
                 slow_sample["error_class"] = error_class
             self._remember_slow_request(slow_sample)
+            request_token = str(meta.get("journal_request_token") or "")
+            request_key = str(meta.get("journal_request_key") or "")
+            if request_token and request_key:
+                journal_terminal = (request_token, request_key)
+        if self.request_journal is not None and journal_terminal is not None:
+            request_token, request_key = journal_terminal
+            self.request_journal.record_terminal(
+                request_token=request_token,
+                request_key=request_key,
+                outcome=journal_outcome or ("succeeded" if success else "ambiguous"),
+                status_code=status_code,
+                error_class=error_class,
+            )
 
     def record_token_usage(self, usage: dict[str, Any]) -> None:
         # Accumulates the provider-reported `usage` block (OpenAI-compatible),
@@ -529,7 +570,7 @@ class TranslationRunDiagnostics:
     def build_summary(self) -> dict[str, Any]:
         with self._lock:
             retrying_labels = sum(1 for attempts in self._request_label_retry_counts.values() if attempts > 1)
-            return {
+            summary = {
                 "provider_family": self.provider_family,
                 "model": self.model,
                 "base_url": self.base_url,
@@ -567,6 +608,9 @@ class TranslationRunDiagnostics:
                 "slow_request_samples": list(self._slow_requests),
                 "recommendations": self._recommendations(),
             }
+        if self.request_journal is not None:
+            summary["request_journal"] = self.request_journal.summary()
+        return summary
 
 
 def _percentile(values: list[int], percentile: int) -> int:

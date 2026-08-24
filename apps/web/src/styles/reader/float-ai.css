@@ -57,16 +57,6 @@
   display: flex;
   flex-direction: column;
 }
-/* 透明吞事件层：不要半透明压暗 */
-.reader-float-ai .aui-branch-pointer-shield {
-  position: absolute;
-  inset: 0;
-  z-index: 40;
-  cursor: progress;
-  background: transparent;
-  pointer-events: auto;
-}
-
 /* —— 会话条：安静、像 Notion 顶栏下拉 —— */
 .reader-float-ai .aui-session-bar {
   display: flex;

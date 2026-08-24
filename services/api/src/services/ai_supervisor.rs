@@ -95,7 +95,10 @@ fn spawn_child(app: &AppConfig, ai: &AiServiceConfig) -> std::io::Result<Child> 
 
 async fn terminate_child(child: &mut Child, grace_secs: u64, poll_ms: u64) {
     if let Some(pid) = child.id() {
-        if terminate_job_process_tree(pid, grace_secs, poll_ms).await.is_ok() {
+        if terminate_job_process_tree(pid, grace_secs, poll_ms)
+            .await
+            .is_ok()
+        {
             let _ = child.wait().await;
             return;
         }
@@ -287,8 +290,7 @@ mod tests {
             health_probe_timeout: std::time::Duration::from_secs(2),
         };
         let (tx, rx) = tokio::sync::watch::channel(false);
-        let handle =
-            spawn_ai_supervisor(std::sync::Arc::new(app), rx).expect("supervise enabled");
+        let handle = spawn_ai_supervisor(std::sync::Arc::new(app), rx).expect("supervise enabled");
 
         // 跑过至少一轮 启动超时→重启:状态应停在 starting/unhealthy,绝不 healthy
         tokio::time::sleep(std::time::Duration::from_millis(900)).await;

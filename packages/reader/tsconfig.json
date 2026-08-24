@@ -12,9 +12,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "declaration": true,
-    "emitDeclarationOnly": false,
-    "outDir": "dist",
+    "noEmit": true,
     "rootDir": "src"
   },
   "include": [

@@ -1,7 +1,7 @@
 // 可推进的 mock 翻译任务：提交后随墙钟时间走完阶段。
 // 支持 fromStage：点「重新 OCR/翻译/渲染」时从该阶段起跑，前面阶段视为已完成。
 
-import type { JobLike } from "../job/types.js";
+import type { JobLike } from "@retainpdf/domain/job";
 
 export type LiveMockFromStage = "upload" | "ocr" | "translate" | "render" | "translation";
 

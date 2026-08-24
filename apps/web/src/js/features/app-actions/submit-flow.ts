@@ -456,9 +456,10 @@ export async function runSubmitFlow({
       handleMissingUploadError?.();
       return { status: "missing_upload", error: err };
     }
+    const isOcr = `${workflow || (collectRunPayload?.() as any)?.workflow || ""}`.trim() === "ocr";
     setText("error-box", buildErrorDiagnostic(err, {
       operation: "提交 PDF 任务",
-      url: `${apiPrefix || ""}/jobs`,
+      url: `${apiPrefix || ""}${isOcr ? "/ocr/jobs" : "/jobs"}`,
       details: {
         workflow,
         upload_id: uploadId,

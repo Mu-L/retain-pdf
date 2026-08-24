@@ -60,6 +60,7 @@ def build_metadata(block: dict, kind_metadata: dict) -> dict:
         "raw_global_group_id": block.get("global_group_id"),
         "raw_block_order": block.get("block_order"),
         "raw_polygon": normalize_polygon(block.get("block_polygon_points")),
+        "provider_geometry_precision": str(block.get("_cli_geometry_precision", "") or ""),
         **kind_metadata,
     }
 
@@ -79,6 +80,8 @@ def build_source(
         "raw_type": raw_label,
         "raw_sub_type": "",
         "raw_bbox": bbox,
+        "raw_unit": "px",
+        "raw_origin": "top_left",
         "raw_text_excerpt": text[:200],
         "raw_block_id": block.get("block_id"),
         "raw_path": f"/layoutParsingResults/{page_index}/prunedResult/parsing_res_list/{order}",

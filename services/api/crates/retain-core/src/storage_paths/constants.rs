@@ -34,6 +34,9 @@ pub const ARTIFACT_KEY_NORMALIZED_DOCUMENT_JSON: &str = "normalized_document_jso
 pub const ARTIFACT_KEY_NORMALIZATION_REPORT_JSON: &str = "normalization_report_json";
 pub const ARTIFACT_KEY_LAYOUT_JSON: &str = "layout_json";
 pub const ARTIFACT_KEY_TRANSLATION_MANIFEST_JSON: &str = "translation_manifest_json";
+pub const ARTIFACT_KEY_TRANSLATION_CHECKPOINT_JSON: &str = "translation_checkpoint_json";
+pub const ARTIFACT_KEY_TRANSLATION_REQUEST_JOURNAL_JSONL: &str =
+    "translation_request_journal_jsonl";
 pub const ARTIFACT_KEY_TRANSLATION_DIAGNOSTICS_JSON: &str = "translation_diagnostics_json";
 pub const ARTIFACT_KEY_TRANSLATION_DEBUG_INDEX_JSON: &str = "translation_debug_index_json";
 pub const ARTIFACT_KEY_PROVIDER_BUNDLE_ZIP: &str = "provider_bundle_zip";
@@ -44,3 +47,5 @@ pub const ARTIFACT_KEY_RENDER_CONFIG_JSON: &str = "render_config_json";
 pub const ARTIFACT_KEY_TRANSLATIONS_DIR: &str = "translations_dir";
 pub const ARTIFACT_KEY_EVENTS_JSONL: &str = "events_jsonl";
 pub const TRANSLATION_MANIFEST_FILE_NAME: &str = "translation-manifest.json";
+pub const TRANSLATION_CHECKPOINT_FILE_NAME: &str = "translation-checkpoint.v1.json";
+pub const TRANSLATION_REQUEST_JOURNAL_FILE_NAME: &str = "translation-request-journal.v1.jsonl";

@@ -11,8 +11,8 @@ from services.mineru.contracts import MINERU_LAYOUT_JSON_FILE_NAME
 
 REPO_ROOT = Path(__file__).resolve().parents[6]
 MINERU_REGRESSION_ROOT = REPO_ROOT / "data" / "jobs" / "20260414164126-41e3ea" / "ocr" / "unpacked"
-DOCUMENT_SCHEMA_FIXTURES_ROOT = REPO_ROOT / "backend" / "scripts" / "devtools" / "tests" / "document_schema" / "fixtures"
-PADDLE_FIXTURES_ROOT = REPO_ROOT / "backend" / "rust_api" / "src" / "ocr_provider" / "paddle"
+DOCUMENT_SCHEMA_FIXTURES_ROOT = REPO_ROOT / "services" / "pipeline" / "devtools" / "tests" / "document_schema" / "fixtures"
+PADDLE_FIXTURES_ROOT = REPO_ROOT / "services" / "api" / "crates" / "retain-data" / "src" / "ocr_provider" / "paddle"
 
 
 # Single source of truth for provider fixtures consumed by regression_check.py.

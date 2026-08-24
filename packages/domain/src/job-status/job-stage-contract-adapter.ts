@@ -8,22 +8,22 @@ import {
   normalizeDisplayStage,
   normalizeUserStage,
   publicStageOf,
-} from "./job-stage-presentation-utils.js";
+} from "./presentation/job-stage-presentation-utils.js";
 import {
   summarizeStageDetail,
   summarizeStageKey,
-} from "./job-status-summary.js";
+} from "./summary/job-status-summary.js";
 import {
   progressWithPercent,
   publicProgressOf,
-} from "./job-stage-progress-adapter.js";
+} from "./progress/job-stage-progress-adapter.js";
 import {
   normalizeSubstageKey,
   substageDetail,
-} from "./job-stage-substage-contract.js";
+} from "./contract/job-stage-substage-contract.js";
 import {
   substageMatchesStage,
-} from "./job-stage-presentation-helpers.js";
+} from "./presentation/job-stage-presentation-helpers.js";
 import type {
   AdaptedStageSnapshot,
   StageEvent,

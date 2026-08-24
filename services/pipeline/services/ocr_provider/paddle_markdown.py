@@ -11,6 +11,9 @@ from services.network.retry import request_with_retry
 _MARKDOWN_IMAGE_SESSION = direct_session(pool_connections=4, pool_maxsize=4)
 _PAGE_PREFIX_RE = re.compile(r"^page-\d+(/|$)")
 _IMG_SRC_RE = re.compile(r"""(<img\b[^>]*\bsrc=["'])([^"']+)(["'])""", re.IGNORECASE)
+_MARKDOWN_IMG_SRC_RE = re.compile(
+    r"""(!\[[^\]\n]*\]\(\s*<?)([^\s)>]+)(>?\s*(?:["'][^"']*["']\s*)?\))"""
+)
 _IMG_TAG_RE = re.compile(r"""<img\b([^>]*)>""", re.IGNORECASE)
 _CENTERED_IMG_DIV_RE = re.compile(
     r"""<div\s+style=["']text-align:\s*center;?["']\s*>\s*(<img\b[^>]*>)\s*</div>""",
@@ -47,9 +50,13 @@ def paddle_markdown_rel_src_path(src: str, *, page_index: int) -> str:
 
 
 def rewrite_paddle_markdown_image_srcs(text: str, *, page_index: int) -> str:
-    return _IMG_SRC_RE.sub(
+    rewritten = _IMG_SRC_RE.sub(
         lambda match: f"{match.group(1)}{paddle_markdown_rel_src_path(match.group(2), page_index=page_index)}{match.group(3)}",
         text,
+    )
+    return _MARKDOWN_IMG_SRC_RE.sub(
+        lambda match: f"{match.group(1)}{paddle_markdown_rel_src_path(match.group(2), page_index=page_index)}{match.group(3)}",
+        rewritten,
     )
 
 
@@ -161,6 +168,10 @@ def _target_rel_path_for_image_key(rel_path: str, markdown_text: str, *, page_in
     if _PAGE_PREFIX_RE.match(normalized):
         return Path(normalized)
     for match in _IMG_SRC_RE.finditer(markdown_text):
+        src = match.group(2).strip().lstrip("/").replace("\\", "/")
+        if _PAGE_PREFIX_RE.match(src) and src.endswith(normalized):
+            return Path(src)
+    for match in _MARKDOWN_IMG_SRC_RE.finditer(markdown_text):
         src = match.group(2).strip().lstrip("/").replace("\\", "/")
         if _PAGE_PREFIX_RE.match(src) and src.endswith(normalized):
             return Path(src)

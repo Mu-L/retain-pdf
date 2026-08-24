@@ -5,7 +5,6 @@ from pathlib import Path
 
 
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
-REPO_ROOT = REPO_SCRIPTS_ROOT.parent
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 from services.document_schema import adapt_path_to_document_v1_with_report
@@ -16,17 +15,54 @@ from services.document_schema.provider_adapters.paddle.column_signals import (
 from services.document_schema.provider_adapters.paddle.body_repair import repair_body_cross_column_blocks
 from services.document_schema.provider_adapters.paddle.content_extract import build_lines
 from services.document_schema.provider_adapters.paddle.page_reader import build_page_spec
+from services.document_schema.provider_adapters.paddle.payload_reader import (
+    data_info_is_complete,
+    iter_page_specs,
+)
 from services.document_schema.provider_adapters.paddle.adapter import build_paddle_document
 from services.document_schema.provider_adapters.paddle.relations import classify_page_blocks
 from services.translation.core.ocr.json_extractor import extract_text_items
 from foundation.shared.job_dirs import ensure_job_dirs
 from foundation.shared.job_dirs import resolve_job_dirs
+from devtools.tests.document_schema.fixtures.registry import PADDLE_FIXTURES_ROOT
 
 
-PADDLE_FIXTURE_JSON = REPO_ROOT / "rust_api" / "src" / "ocr_provider" / "paddle" / "json_full.json"
-PADDLE_SCI_FIXTURE_JSON = REPO_ROOT / "rust_api" / "src" / "ocr_provider" / "paddle" / "json_sci.json"
-PADDLE_FIXTURE_PDF = REPO_ROOT / "rust_api" / "src" / "ocr_provider" / "paddle" / "paddle_ocr_json_split.pdf"
+PADDLE_FIXTURE_JSON = PADDLE_FIXTURES_ROOT / "json_full.json"
+PADDLE_SCI_FIXTURE_JSON = PADDLE_FIXTURES_ROOT / "json_sci.json"
+PADDLE_FIXTURE_PDF = PADDLE_FIXTURES_ROOT / "paddle_ocr_json_split.pdf"
 NORMALIZE_ENTRYPOINT = REPO_SCRIPTS_ROOT / "entrypoints" / "run_normalize_ocr.py"
+
+
+def test_legacy_jsonl_infers_incomplete_page_metadata_from_count_mismatch() -> None:
+    payload = {
+        "_meta": {"source": "paddle_jsonl"},
+        "dataInfo": {"pages": [{"width": 999, "height": 999}]},
+        "layoutParsingResults": [
+            {"prunedResult": {"width": 1200, "height": 1600, "parsing_res_list": []}},
+            {"prunedResult": {"width": 1400, "height": 1800, "parsing_res_list": []}},
+        ],
+    }
+
+    assert data_info_is_complete(payload) is False
+    page_specs = iter_page_specs(payload)
+    assert [(page["width"], page["height"]) for page in page_specs] == [
+        (1200.0, 1600.0),
+        (1400.0, 1800.0),
+    ]
+
+
+def test_legacy_jsonl_keeps_page_metadata_when_counts_match() -> None:
+    payload = {
+        "_meta": {"source": "paddle_jsonl"},
+        "dataInfo": {"pages": [{"width": 1191, "height": 1684}]},
+        "layoutParsingResults": [
+            {"prunedResult": {"width": 1200, "height": 1600, "parsing_res_list": []}},
+        ],
+    }
+
+    assert data_info_is_complete(payload) is True
+    [page_spec] = iter_page_specs(payload)
+    assert (page_spec["width"], page_spec["height"]) == (1191.0, 1684.0)
 
 def test_paddle_column_signals_ignore_header_footer_false_positives() -> None:
     signals = analyze_page_column_signals(
@@ -347,4 +383,3 @@ def test_paddle_body_numbered_line_block_preserves_text_flow() -> None:
         "4. University of Michigan",
     ]
     assert block["content"]["text_flow"] == "preserve_lines"
-

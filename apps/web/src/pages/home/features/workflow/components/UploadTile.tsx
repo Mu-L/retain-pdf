@@ -9,6 +9,7 @@
 // - #credential-gate-action → openBrowserCredentials（非 setupMode → 设置 → API）
 
 import { useCallback } from "react";
+import { ScanSearch, Languages, Loader2 } from "lucide-react";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useHomeServices } from "../../../home-services-context.js";
 import { APP_EVENTS } from "../../../composition/external.js";
@@ -115,6 +116,7 @@ export function HeroUpload() {
   const services = useHomeServices();
   const upload = useStoreSnapshot(services.stores.uploadView);
   const workflow = useStoreSnapshot(services.stores.workflowView);
+  const ocrOnly = Boolean((workflow as any).ocrOnly);
 
   const fileInputRef = useCallback((node) => {
     services.uploadDomRefs.fileInput = node;
@@ -196,8 +198,29 @@ export function HeroUpload() {
           onPatch={services.uploadViewActions.patch}
           onConstrain={(source) => services.features.uploadFeature?.constrainPageRanges({ source })}
         />
-        <TranslationBudgetNote budget={workflow.budget} />
+        {/* 预算/术语表仅翻译模式可见，OCR 时通过高度动画隐藏 */}
+        <div
+          aria-hidden={ocrOnly}
+          style={{
+            overflow: "hidden",
+            maxHeight: ocrOnly ? 0 : 80,
+            opacity: ocrOnly ? 0 : 1,
+            transition: "max-height 260ms cubic-bezier(0.32,0.72,0,1), opacity 180ms ease",
+            width: "100%",
+            display: "grid",
+            placeItems: "center",
+          }}
+        >
+          <TranslationBudgetNote budget={workflow.budget} />
+        </div>
       </div>
+
+      {ocrOnly ? (
+        <div className="ocr-only-upload-hint" style={{ fontSize: 12, color: "var(--color-text-secondary, #6b7280)", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+          <ScanSearch className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          OCR 模式下无需翻译预算检测，已隐藏术语表等翻译配置。
+        </div>
+      ) : null}
 
       {/* 上传完成后给出明确二选一：直接翻译（提交 job）/ 仅收藏（关对话框入库） */}
       <div
@@ -205,7 +228,11 @@ export function HeroUpload() {
         className={`upload-ready-hint${upload.ready ? "" : " hidden"}`}
         aria-live="polite"
       >
-        文件已就绪：可<strong>直接翻译</strong>，或<strong>仅收藏</strong>到书架稍后再翻。
+        {ocrOnly ? (
+          <>文件已就绪：可<strong>开始 OCR</strong>，或<strong>仅收藏</strong>到书架稍后处理。</>
+        ) : (
+          <>文件已就绪：可<strong>直接翻译</strong>，或<strong>仅收藏</strong>到书架稍后再翻。</>
+        )}
       </div>
 
       <div id="upload-action-slot" className={`upload-action-slot${upload.actionSlotVisible ? "" : " hidden"}`}>
@@ -213,10 +240,15 @@ export function HeroUpload() {
           <button
             id="page-range-btn"
             type="button"
-            className={`page-range-mini secondary${workflow.pageRangeButtonVisible ? "" : " hidden"}`}
+            className={`page-range-mini secondary${workflow.pageRangeButtonVisible ? "" : " hidden"}${ocrOnly ? " hidden" : ""}`}
             aria-label="专业翻译设置"
-            title="页码范围等专业选项"
-            onClick={() => services.features.uploadFeature?.openPageRangeDialog()}
+            title={ocrOnly ? "OCR 模式下无需专业翻译设置" : "页码范围等专业选项"}
+            disabled={ocrOnly}
+            aria-disabled={ocrOnly ? "true" : "false"}
+            onClick={() => {
+              if (ocrOnly) return;
+              services.features.uploadFeature?.openPageRangeDialog();
+            }}
           >
             选项
           </button>
@@ -235,9 +267,25 @@ export function HeroUpload() {
             type="submit"
             disabled={workflow.submitDisabled || workflow.submitBusy}
             {...(workflow.submitBusy ? { "data-busy": "1" } : {})}
-            title="上传完成后立即发起翻译任务"
+            title={ocrOnly ? "上传完成后立即开始 OCR" : "上传完成后立即发起翻译任务"}
+            className="inline-flex items-center justify-center gap-1.5"
           >
-            {workflow.submitBusy ? "提交中…" : (workflow.submitLabel || "直接翻译")}
+            {workflow.submitBusy ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                提交中…
+              </>
+            ) : ocrOnly ? (
+              <>
+                <ScanSearch className="h-4 w-4" aria-hidden="true" />
+                开始 OCR
+              </>
+            ) : (
+              <>
+                <Languages className="h-4 w-4" aria-hidden="true" />
+                {workflow.submitLabel || "直接翻译"}
+              </>
+            )}
           </button>
         </div>
       </div>

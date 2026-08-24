@@ -4,6 +4,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from services.translation.artifacts import TranslationRunDiagnostics
+from services.translation.artifacts import TRANSLATION_REQUEST_JOURNAL_FILE_NAME
+from services.translation.artifacts import TranslationRequestJournal
+from services.translation.artifacts import translation_run_diagnostics_scope
 from services.translation.artifacts import classify_provider_family
 from services.translation.llm.shared.control_context import TranslationControlContext
 from services.translation.core.ocr.json_extractor import get_page_count
@@ -42,19 +45,33 @@ def build_translation_execution_plan(request: TranslationExecutionRequest) -> Tr
         raise RuntimeError("No pages found in OCR JSON.")
 
     start, stop = resolve_page_range(page_count, request.start_page, request.end_page)
-    policy_config = build_book_translation_policy_config(
-        data=data,
-        mode=request.mode,
-        math_mode=request.math_mode,
-        skip_title_translation=request.skip_title_translation,
-        source_pdf_path=request.source_pdf_path,
-        api_key=request.api_key,
+    provider_family = classify_provider_family(base_url=request.base_url, model=request.model)
+    run_diagnostics = TranslationRunDiagnostics(
+        provider_family=provider_family,
         model=request.model,
         base_url=request.base_url,
-        output_dir=request.output_dir,
-        rule_profile_name=request.rule_profile_name,
-        custom_rules_text=request.custom_rules_text,
+        configured_workers=max(1, request.workers),
+        configured_batch_size=max(1, request.batch_size),
+        configured_classify_batch_size=max(1, request.classify_batch_size),
+        request_journal=TranslationRequestJournal(
+            request.output_dir / TRANSLATION_REQUEST_JOURNAL_FILE_NAME,
+            attempt_id=request.output_dir.parent.name,
+        ),
     )
+    with translation_run_diagnostics_scope(run_diagnostics):
+        policy_config = build_book_translation_policy_config(
+            data=data,
+            mode=request.mode,
+            math_mode=request.math_mode,
+            skip_title_translation=request.skip_title_translation,
+            source_pdf_path=request.source_pdf_path,
+            api_key=request.api_key,
+            model=request.model,
+            base_url=request.base_url,
+            output_dir=request.output_dir,
+            rule_profile_name=request.rule_profile_name,
+            custom_rules_text=request.custom_rules_text,
+        )
     if policy_config.domain_context.get("domain") or policy_config.domain_context.get("translation_guidance"):
         print(
             f"sci domain: {policy_config.domain_context.get('domain', '').strip() or 'unknown'}",
@@ -72,15 +89,6 @@ def build_translation_execution_plan(request: TranslationExecutionRequest) -> Tr
         context_mode=request.context_mode,
         glossary_mode=request.glossary_mode,
         memory_mode=request.memory_mode,
-    )
-    provider_family = classify_provider_family(base_url=request.base_url, model=request.model)
-    run_diagnostics = TranslationRunDiagnostics(
-        provider_family=provider_family,
-        model=request.model,
-        base_url=request.base_url,
-        configured_workers=max(1, request.workers),
-        configured_batch_size=max(1, request.batch_size),
-        configured_classify_batch_size=max(1, request.classify_batch_size),
     )
     effective_workers = max(1, request.workers)
     initial_concurrency_limit = provider_adaptive_initial_limit(

@@ -1,15 +1,15 @@
 /* AI 悬浮窗 · Notion 式一体圆角输入卡 */
 
 .reader-float-ai .aui-scroll-bottom-btn {
-  position: sticky;
-  bottom: 8px;
+  position: absolute;
+  top: -34px;
   left: 50%;
   transform: translateX(-50%);
   display: grid;
   place-items: center;
   width: 30px;
   height: 30px;
-  margin: 0 auto;
+  margin: 0;
   border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--paper) 96%, transparent);
@@ -30,9 +30,9 @@
 .reader-float-ai .aui-composer {
   display: grid;
   gap: 8px;
-  padding: 10px 14px 14px;
+  padding: 0;
   border-top: 0;
-  background: var(--paper);
+  background: transparent;
 }
 
 /* 无模型 Key：不渲染可编辑输入 */
@@ -56,30 +56,31 @@
 .reader-float-ai .aui-composer-shell {
   display: grid;
   gap: 0;
-  padding: 10px 12px 8px;
-  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
-  border-radius: 16px;
+  padding: 8px 10px 7px;
+  border: 1px solid color-mix(in srgb, var(--ink) 9%, transparent);
+  border-radius: 20px;
   background: var(--paper);
   box-shadow:
-    0 1px 2px color-mix(in srgb, var(--ink) 3%, transparent),
-    0 6px 20px color-mix(in srgb, var(--ink) 5%, transparent);
+    0 1px 2px color-mix(in srgb, var(--ink) 4%, transparent),
+    0 8px 24px color-mix(in srgb, var(--ink) 5%, transparent);
   transition:
     border-color 160ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)),
     box-shadow 160ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
 }
 .reader-float-ai .aui-composer-shell:focus-within {
-  border-color: color-mix(in srgb, var(--ink) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--ink));
   box-shadow:
     0 1px 2px color-mix(in srgb, var(--ink) 4%, transparent),
-    0 8px 24px color-mix(in srgb, var(--ink) 7%, transparent);
+    0 0 0 3px color-mix(in srgb, var(--accent) 8%, transparent),
+    0 12px 30px color-mix(in srgb, var(--ink) 8%, transparent);
 }
 
 .reader-float-ai .aui-input {
   width: 100%;
-  min-height: 44px;
+  min-height: 38px;
   max-height: 140px;
   resize: none;
-  padding: 2px 2px 6px;
+  padding: 5px 4px 4px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -177,7 +178,7 @@
 .reader-float-ai .aui-hint {
   margin: 0;
   padding: 0 2px;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 450;
   color: color-mix(in srgb, var(--muted) 90%, transparent);
   text-align: center;

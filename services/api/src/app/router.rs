@@ -7,12 +7,15 @@ use tower_http::trace::TraceLayer;
 
 use crate::app::AppState;
 use crate::auth;
+use crate::routes::agent_runtime_sessions;
+use crate::routes::agent_capabilities;
+use crate::routes::ai_proxy;
+use crate::routes::collections;
+use crate::routes::document_operations;
 use crate::routes::fonts;
 use crate::routes::glossaries;
 use crate::routes::health;
 use crate::routes::jobs;
-use crate::routes::ai_proxy;
-use crate::routes::collections;
 use crate::routes::library;
 use crate::routes::library_data;
 use crate::routes::library_extras;
@@ -82,10 +85,7 @@ pub fn build_app(state: AppState) -> Router {
             "/api/v1/glossaries/:glossary_id/export.csv",
             get(glossaries::export_glossary_csv_route),
         )
-        .route(
-            "/api/v1/documents",
-            get(library_data::list_documents_route),
-        )
+        .route("/api/v1/documents", get(library_data::list_documents_route))
         .route(
             "/api/v1/documents/:document_id",
             get(library_data::get_document_route)
@@ -162,6 +162,36 @@ pub fn build_app(state: AppState) -> Router {
         .route(
             "/api/v1/collections/:collection_id/documents/:document_id",
             axum::routing::delete(collections::remove_collection_document_route),
+        )
+        .route(
+            "/api/v1/internal/agent/capabilities",
+            post(agent_capabilities::issue_agent_capability_route),
+        )
+        .route(
+            "/api/v1/internal/agent/operations",
+            post(document_operations::create_document_operation_route),
+        )
+        .route(
+            "/api/v1/internal/agent/operations/:operation_id",
+            get(document_operations::get_document_operation_route),
+        )
+        .route(
+            "/api/v1/internal/agent/operations/:operation_id/run",
+            post(document_operations::run_document_operation_route),
+        )
+        .route(
+            "/api/v1/internal/agent/operations/:operation_id/commit",
+            post(document_operations::commit_document_operation_route),
+        )
+        .route(
+            "/api/v1/internal/agent/operations/:operation_id/cancel",
+            post(document_operations::cancel_document_operation_route),
+        )
+        .route(
+            "/api/v1/internal/agent/runtime-sessions/:conversation_id",
+            get(agent_runtime_sessions::get_agent_runtime_session_route)
+                .put(agent_runtime_sessions::put_agent_runtime_session_route)
+                .delete(agent_runtime_sessions::clear_agent_runtime_session_route),
         )
         .route("/api/v1/library/books", get(library::list_books))
         .route("/api/v1/library/books/delete", post(library::delete_books))

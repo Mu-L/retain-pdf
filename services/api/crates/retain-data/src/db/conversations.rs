@@ -4,7 +4,7 @@ use rusqlite::{params, OptionalExtension};
 use crate::models::api::{ConversationRecord, MessageRecord};
 use crate::models::domain::now_iso;
 
-use super::Db;
+use super::{AgentRuntimeSessionRecord, Db, PutAgentRuntimeSessionResult};
 
 const CONVERSATION_COLUMNS: &str =
     "c.conversation_id, c.title, c.document_id, c.created_at, c.updated_at,
@@ -16,6 +16,135 @@ const MESSAGE_COLUMNS: &str = "message_id, conversation_id, seq, role, content,
                    COALESCE(parent_id, '')";
 
 impl Db {
+    pub fn get_agent_runtime_session(
+        &self,
+        conversation_id: &str,
+    ) -> Result<Option<AgentRuntimeSessionRecord>> {
+        let conn = self.connect()?;
+        conn.query_row(
+            r#"
+            SELECT conversation_id, agent_runtime_id, agent_session_cursor,
+                   agent_session_revision, agent_session_updated_at
+            FROM ai_conversations
+            WHERE conversation_id = ?1
+            "#,
+            params![conversation_id],
+            |row| {
+                Ok(AgentRuntimeSessionRecord {
+                    conversation_id: row.get(0)?,
+                    runtime_id: row.get(1)?,
+                    session_cursor: row.get(2)?,
+                    revision: row.get::<_, i64>(3)?.max(0) as u64,
+                    updated_at: row.get(4)?,
+                })
+            },
+        )
+        .optional()
+        .map_err(Into::into)
+    }
+
+    pub fn put_agent_runtime_session(
+        &self,
+        conversation_id: &str,
+        runtime_id: &str,
+        session_cursor: &str,
+        expected_revision: u64,
+    ) -> Result<Option<PutAgentRuntimeSessionResult>> {
+        let mut conn = self.connect()?;
+        let tx = conn.transaction()?;
+        let current = tx
+            .query_row(
+                r#"
+                SELECT conversation_id, agent_runtime_id, agent_session_cursor,
+                       agent_session_revision, agent_session_updated_at
+                FROM ai_conversations
+                WHERE conversation_id = ?1
+                "#,
+                params![conversation_id],
+                |row| {
+                    Ok(AgentRuntimeSessionRecord {
+                        conversation_id: row.get(0)?,
+                        runtime_id: row.get(1)?,
+                        session_cursor: row.get(2)?,
+                        revision: row.get::<_, i64>(3)?.max(0) as u64,
+                        updated_at: row.get(4)?,
+                    })
+                },
+            )
+            .optional()?;
+        let Some(current) = current else {
+            return Ok(None);
+        };
+        if current.revision != expected_revision {
+            return Ok(Some(PutAgentRuntimeSessionResult::RevisionConflict(
+                current,
+            )));
+        }
+        let updated_at = now_iso();
+        let next_revision = expected_revision
+            .checked_add(1)
+            .context("agent runtime session revision overflow")?;
+        let expected_revision_i64 = i64::try_from(expected_revision)
+            .context("agent runtime session revision exceeds SQLite integer range")?;
+        let next_revision_i64 = i64::try_from(next_revision)
+            .context("agent runtime session revision exceeds SQLite integer range")?;
+        let changed = tx.execute(
+            r#"
+            UPDATE ai_conversations
+            SET agent_runtime_id = ?1,
+                agent_session_cursor = ?2,
+                agent_session_revision = ?3,
+                agent_session_updated_at = ?4
+            WHERE conversation_id = ?5 AND agent_session_revision = ?6
+            "#,
+            params![
+                runtime_id,
+                session_cursor,
+                next_revision_i64,
+                updated_at,
+                conversation_id,
+                expected_revision_i64,
+            ],
+        )?;
+        if changed != 1 {
+            let latest = tx.query_row(
+                r#"
+                SELECT conversation_id, agent_runtime_id, agent_session_cursor,
+                       agent_session_revision, agent_session_updated_at
+                FROM ai_conversations WHERE conversation_id = ?1
+                "#,
+                params![conversation_id],
+                |row| {
+                    Ok(AgentRuntimeSessionRecord {
+                        conversation_id: row.get(0)?,
+                        runtime_id: row.get(1)?,
+                        session_cursor: row.get(2)?,
+                        revision: row.get::<_, i64>(3)?.max(0) as u64,
+                        updated_at: row.get(4)?,
+                    })
+                },
+            )?;
+            return Ok(Some(PutAgentRuntimeSessionResult::RevisionConflict(latest)));
+        }
+        let record = AgentRuntimeSessionRecord {
+            conversation_id: conversation_id.to_string(),
+            runtime_id: runtime_id.to_string(),
+            session_cursor: session_cursor.to_string(),
+            revision: next_revision,
+            updated_at,
+        };
+        tx.commit()?;
+        Ok(Some(PutAgentRuntimeSessionResult::Updated(record)))
+    }
+
+    pub fn clear_agent_runtime_session(
+        &self,
+        conversation_id: &str,
+        expected_revision: u64,
+    ) -> Result<Option<PutAgentRuntimeSessionResult>> {
+        self.put_agent_runtime_session(conversation_id, "", "", expected_revision)
+    }
+
     pub fn create_conversation(
         &self,
         conversation_id: &str,

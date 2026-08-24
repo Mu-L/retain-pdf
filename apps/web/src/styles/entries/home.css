@@ -18,8 +18,6 @@
 /* 主页仍经 composition 消费的 js 域（勿用 ../../js/** 全量扫） */
 @source "../../js/features/**/*.{js,jsx,ts,tsx}";
 @source "../../js/islands/**/*.{js,jsx,ts,tsx}";
-@source "../../js/job/**/*.{js,ts}";
-@source "../../js/job-status/**/*.{js,ts}";
 @source "../../js/api/**/*.{js,ts}";
 @source "../../js/config/**/*.{js,ts}";
 @source "../../js/contracts/**/*.{js,ts}";
@@ -29,6 +27,8 @@
 @source inline("app-settings-panel credential-provider-panel credential-tabs credential-top-up-link glossary-list-item progress-bar recent-job-cover status-result-actions status-substage-flow status-substage-step");
 
 @layer tokens, base, pages;
+
+@import "@retainpdf/reader/ai.css" layer(pages);
 
 @import "../tokens.css" layer(tokens);
 @import "../shadcn-theme.css" layer(tokens);

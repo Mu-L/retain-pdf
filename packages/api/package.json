@@ -2,8 +2,9 @@
   "name": "@retainpdf/api",
   "version": "0.1.0",
   "private": false,
-  "description": "RetainPDF typed API clients — library-books, jobs, status (wraps @retainpdf/schemas)",
+  "description": "RetainPDF typed API clients backed by @retainpdf/contracts wire DTOs.",
   "type": "module",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -20,6 +21,10 @@
     "./http": {
       "types": "./dist/http.d.ts",
       "import": "./dist/http.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime.d.ts",
+      "import": "./dist/runtime.js"
     },
     "./jobs-query": {
       "types": "./dist/jobs-query.d.ts",
@@ -102,7 +107,13 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "dev": "tsc --watch -p tsconfig.json"
+    "dev": "tsc --watch -p tsconfig.json",
+    "verify:package": "node ./scripts/verify-package.mjs",
+    "test": "npm run build && npm run verify:package",
+    "prepack": "npm run build && npm run verify:package"
+  },
+  "dependencies": {
+    "@retainpdf/contracts": "0.1.0"
   },
   "peerDependencies": {
     "zod": "^3.22.0"
@@ -112,5 +123,8 @@
   },
   "devDependencies": {
     "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

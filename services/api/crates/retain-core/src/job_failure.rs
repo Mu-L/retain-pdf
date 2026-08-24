@@ -18,6 +18,21 @@ use self::job_failure_support::{
 
 pub const STRUCTURED_FAILURE_LABEL: &str = "structured failure json";
 
+fn contains_http_status(haystack: &str, status: &str) -> bool {
+    haystack.match_indices(status).any(|(start, _)| {
+        let before_is_digit = haystack[..start]
+            .chars()
+            .next_back()
+            .is_some_and(|value| value.is_ascii_digit());
+        let end = start + status.len();
+        let after_is_digit = haystack[end..]
+            .chars()
+            .next()
+            .is_some_and(|value| value.is_ascii_digit());
+        !before_is_digit && !after_is_digit
+    })
+}
+
 pub fn classify_job_failure(job: &JobSnapshot) -> Option<JobFailureInfo> {
     if !matches!(job.status, JobStatusKind::Failed) {
         return None;
@@ -203,8 +218,8 @@ pub fn classify_job_failure(job: &JobSnapshot) -> Option<JobFailureInfo> {
         ));
     }
 
-    if haystack.contains("401")
-        || haystack.contains("403")
+    if contains_http_status(&haystack, "401")
+        || contains_http_status(&haystack, "403")
         || haystack.contains("missing or invalid X-API-Key")
         || haystack.contains("Unauthorized")
     {
@@ -228,7 +243,7 @@ pub fn classify_job_failure(job: &JobSnapshot) -> Option<JobFailureInfo> {
         ));
     }
 
-    if haystack.contains("429")
+    if contains_http_status(&haystack, "429")
         || haystack.contains("rate limit")
         || haystack.contains("Too Many Requests")
     {
@@ -543,5 +558,39 @@ mod tests {
                 .and_then(|item| item.raw_exception_type.as_deref()),
             Some("CustomWorkerError")
         );
+    }
+
+    #[test]
+    fn classify_job_failure_does_not_read_provider_task_id_as_http_429() {
+        let mut job = JobSnapshot::new(
+            "job-provider-task-id".to_string(),
+            CreateJobInput::default(),
+            vec!["python".to_string()],
+        );
+        job.status = JobStatusKind::Failed;
+        job.stage = Some("failed".to_string());
+        job.error = Some("Paddle 任务执行失败".to_string());
+        job.log_tail = vec![
+            "paddle task 84874297000996864: state=failed".to_string(),
+            "Paddle 轮询失败: 系统错误-拆页".to_string(),
+        ];
+
+        let failure = classify_job_failure(&job).expect("failure");
+        assert_eq!(failure.category, "unknown");
+    }
+
+    #[test]
+    fn classify_job_failure_still_maps_bounded_http_429() {
+        let mut job = JobSnapshot::new(
+            "job-http-429".to_string(),
+            CreateJobInput::default(),
+            vec!["python".to_string()],
+        );
+        job.status = JobStatusKind::Failed;
+        job.stage = Some("failed".to_string());
+        job.error = Some("provider returned HTTP 429 Too Many Requests".to_string());
+
+        let failure = classify_job_failure(&job).expect("failure");
+        assert_eq!(failure.category, "rate_limited");
     }
 }

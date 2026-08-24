@@ -22,6 +22,9 @@ use tokio::sync::RwLock;
 use crate::config::{JobRunnerConfig, JobsServiceConfig};
 use crate::error::AppError;
 use crate::job_runner::{clear_cancel_request_with_registry, request_cancel_with_registry};
+pub(crate) use crate::job_runner::{
+    translation_artifacts_are_ready, translation_checkpoint_candidate_is_ready,
+};
 use crate::process::terminate_job_process_tree;
 
 /// 内部 HTTP 客户端：把接缝操作转发给 retain-jobsd。
@@ -139,11 +142,7 @@ impl JobRuntime {
         }
     }
 
-    async fn terminate_process(
-        &self,
-        pid: u32,
-        config: &JobRunnerConfig,
-    ) -> Result<(), AppError> {
+    async fn terminate_process(&self, pid: u32, config: &JobRunnerConfig) -> Result<(), AppError> {
         match self {
             Self::InProcess { .. } => terminate_job_process_tree(
                 pid,

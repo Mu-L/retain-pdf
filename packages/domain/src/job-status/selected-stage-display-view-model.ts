@@ -1,6 +1,6 @@
-import { buildStatusCardPrimaryActions } from "./status-card-actions-view-model.js";
-import { buildStatusCardErrorState } from "./status-card-error-view-model.js";
-import { resolveSelectedStageContext } from "./selected-stage-view-model.js";
+import { buildStatusCardPrimaryActions } from "./status-card/status-card-actions-view-model.js";
+import { buildStatusCardErrorState } from "./status-card/status-card-error-view-model.js";
+import { resolveSelectedStageContext } from "./presentation/selected-stage-view-model.js";
 
 export function buildSelectedStageDisplay({
   snapshot = null,

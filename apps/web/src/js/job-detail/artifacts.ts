@@ -3,7 +3,7 @@ import {
   collectMarkdownImageRefs,
   resolveJobMarkdownContract,
   resolveMarkdownAssetUrl,
-} from "../job/artifacts.js";
+} from "@retainpdf/domain/job";
 
 function escapeHtml(value) {
   return `${value ?? ""}`

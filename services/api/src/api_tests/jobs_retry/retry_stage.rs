@@ -7,7 +7,188 @@ use crate::api_tests::jobs_common::{read_json, test_state};
 use crate::app::build_app;
 use crate::models::{JobArtifacts, JobStatusKind};
 
-use super::common::{seed_ocr_checkpoint_files, source_job_with_artifacts};
+use super::common::{
+    seed_ambiguous_translation_request_journal, seed_ocr_checkpoint_files,
+    seed_translation_result_files, source_job_with_artifacts,
+};
+
+#[tokio::test]
+async fn translation_retry_requires_explicit_duplicate_risk_acceptance() {
+    let state = test_state("retry-stage-ambiguous-translation");
+    let source_job_id = "job-retry-stage-ambiguous-translation";
+    let mut source_job = source_job_with_artifacts(
+        source_job_id,
+        JobArtifacts {
+            job_root: Some(format!("jobs/{source_job_id}")),
+            source_pdf: Some("jobs/source/source/input.pdf".to_string()),
+            normalized_document_json: Some("jobs/source/ocr/document.v1.json".to_string()),
+            ..JobArtifacts::default()
+        },
+    );
+    source_job.status = JobStatusKind::Failed;
+    seed_ocr_checkpoint_files(&state, &source_job);
+    seed_ambiguous_translation_request_journal(&state, &source_job);
+    state.db.save_job(&source_job).expect("save source job");
+
+    let diagnostics = build_app(state.clone())
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/v1/jobs/{source_job_id}/diagnostics"))
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("diagnostics request"),
+        )
+        .await
+        .expect("diagnostics response");
+    assert_eq!(diagnostics.status(), StatusCode::OK);
+    let diagnostics_payload = read_json(diagnostics).await;
+    let recovery = &diagnostics_payload["data"]["translation_request_recovery"];
+    assert_eq!(recovery["status"], "ambiguous");
+    assert_eq!(recovery["unresolved_dispatches"], 1);
+    assert_eq!(recovery["requires_confirmation"], true);
+    assert_eq!(diagnostics_payload["data"]["resume_available"], false);
+
+    let detail = build_app(state.clone())
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/v1/jobs/{source_job_id}"))
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("detail request"),
+        )
+        .await
+        .expect("detail response");
+    assert_eq!(detail.status(), StatusCode::OK);
+    let detail_payload = read_json(detail).await;
+    assert_eq!(
+        detail_payload["data"]["translation_request_recovery"]["requires_confirmation"],
+        true
+    );
+
+    let actions = build_app(state.clone())
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/v1/jobs/{source_job_id}/stage-actions"))
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("stage actions request"),
+        )
+        .await
+        .expect("stage actions response");
+    let actions_payload = read_json(actions).await;
+    let translation_action = actions_payload["data"]["stages"]
+        .as_array()
+        .expect("stage actions")
+        .iter()
+        .find(|item| item["stage"] == "translation")
+        .expect("translation action");
+    assert_eq!(translation_action["danger"], true);
+    assert_eq!(
+        translation_action["action"]["body"]["ambiguous_request_policy"],
+        "block"
+    );
+
+    let blocked = build_app(state.clone())
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/v1/jobs/{source_job_id}/retry-stage"))
+                .header("X-API-Key", "test-key")
+                .header("Content-Type", "application/json")
+                .body(Body::from(json!({ "stage": "translation" }).to_string()))
+                .expect("blocked retry request"),
+        )
+        .await
+        .expect("blocked retry response");
+    assert_eq!(blocked.status(), StatusCode::CONFLICT);
+    let blocked_payload = read_json(blocked).await;
+    assert!(blocked_payload["message"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("accept_duplicate_risk"));
+
+    let generic_rerun = build_app(state.clone())
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/v1/jobs/{source_job_id}/rerun"))
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("generic rerun request"),
+        )
+        .await
+        .expect("generic rerun response");
+    assert_eq!(generic_rerun.status(), StatusCode::CONFLICT);
+
+    let accepted = build_app(state.clone())
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/v1/jobs/{source_job_id}/retry-stage"))
+                .header("X-API-Key", "test-key")
+                .header("Content-Type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "stage": "translation",
+                        "ambiguous_request_policy": "accept_duplicate_risk"
+                    })
+                    .to_string(),
+                ))
+                .expect("accepted retry request"),
+        )
+        .await
+        .expect("accepted retry response");
+    assert_eq!(accepted.status(), StatusCode::OK);
+    let accepted_payload = read_json(accepted).await;
+    assert_eq!(
+        accepted_payload["data"]["ambiguous_request_policy"],
+        "accept_duplicate_risk"
+    );
+    let accepted_job_id = accepted_payload["data"]["job_id"]
+        .as_str()
+        .expect("accepted job id");
+    let accepted_job = state.db.get_job(accepted_job_id).expect("accepted job");
+    assert!(
+        accepted_job
+            .request_payload
+            .translation
+            .accepted_ambiguous_request_risk
+    );
+
+    let source_root = state
+        .config
+        .data_root
+        .join("jobs")
+        .join(source_job_id)
+        .join("translated");
+    std::fs::write(
+        source_root.join("translation-request-journal.v1.jsonl"),
+        b"{not-json}\n",
+    )
+    .expect("corrupt source journal");
+    let corrupt_retry = build_app(state.clone())
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/v1/jobs/{source_job_id}/retry-stage"))
+                .header("X-API-Key", "test-key")
+                .header("Content-Type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "stage": "translation",
+                        "ambiguous_request_policy": "accept_duplicate_risk"
+                    })
+                    .to_string(),
+                ))
+                .expect("corrupt retry request"),
+        )
+        .await
+        .expect("corrupt retry response");
+    assert_eq!(corrupt_retry.status(), StatusCode::CONFLICT);
+}
 
 #[tokio::test]
 async fn retry_stage_route_creates_translation_recovery_job_with_overrides() {
@@ -87,6 +268,7 @@ async fn retry_stage_route_creates_render_job_by_default() {
         },
     );
     source_job.status = JobStatusKind::Succeeded;
+    seed_translation_result_files(&state, &source_job);
     state.db.save_job(&source_job).expect("save source job");
 
     let response = build_app(state.clone())
@@ -130,6 +312,7 @@ async fn retry_stage_route_allows_in_place_render_when_requested() {
         },
     );
     source_job.status = JobStatusKind::Succeeded;
+    seed_translation_result_files(&state, &source_job);
     state.db.save_job(&source_job).expect("save source job");
 
     let response = build_app(state.clone())
@@ -186,6 +369,7 @@ async fn retry_stage_route_applies_overrides_for_in_place_render() {
     source_job.request_payload.render.compile_workers = 1;
     source_job.request_payload.render.render_mode = "overlay".to_string();
     source_job.request_payload.runtime.timeout_seconds = 10;
+    seed_translation_result_files(&state, &source_job);
     state.db.save_job(&source_job).expect("save source job");
 
     let response = build_app(state.clone())

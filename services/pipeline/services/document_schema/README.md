@@ -543,6 +543,8 @@ adapter 产出的当前版 `document.v1.json` 在进入主线前，会统一补�
   稳定几何字段，当前至少包含 `bbox`
 - `content: dict`
   稳定内容字段，当前至少包含 `kind` 和 `text`
+  - `asset_id` 是向后兼容的主资源 id
+  - `asset_ids` 保存块关联的完整资源列表，首项必须等于 `asset_id`
 - `layout_role: str`
   显式版面角色
 - `semantic_role: str`

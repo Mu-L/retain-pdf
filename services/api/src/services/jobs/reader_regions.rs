@@ -1,3 +1,4 @@
+use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 
 use serde_json::Value;
@@ -10,7 +11,9 @@ mod artifacts;
 mod metadata;
 mod value_extract;
 
-use artifacts::{load_source_region_map, load_translation_manifest_pages};
+use artifacts::{
+    has_translation_manifest, load_source_region_map, load_translation_manifest_pages, SourceRegion,
+};
 pub(crate) use metadata::load_reader_metadata_view;
 use value_extract::{
     bbox_from_value, canonical_item_id, markdown_from_item, region_type_from_item,
@@ -22,7 +25,13 @@ pub(crate) fn load_reader_regions_view(
     job: &JobSnapshot,
 ) -> Result<ReaderRegionsView, AppError> {
     let source_regions = load_source_region_map(data_root, job)?;
+    if !has_translation_manifest(data_root, job) {
+        return Ok(ReaderRegionsView {
+            items: source_only_items(source_regions, &HashSet::new()),
+        });
+    }
     let mut items = Vec::new();
+    let mut translated_source_block_ids = HashSet::new();
     for (fallback_page_idx, page_items) in load_translation_manifest_pages(data_root, job)? {
         for item in page_items {
             let item_id = value_string(item.get("item_id"));
@@ -44,11 +53,22 @@ pub(crate) fn load_reader_regions_view(
                 .get(&item_id)
                 .cloned()
                 .or_else(|| source_regions.get(&canonical_item_id(&item_id)).cloned());
+            if let Some(region) = source_region.as_ref() {
+                translated_source_block_ids.insert(region.block_id.clone());
+            }
             let region_type = source_region
                 .as_ref()
                 .map(|region| region.region_type.clone())
                 .filter(|value| !value.is_empty())
                 .unwrap_or_else(|| region_type_from_item(&item));
+            let asset_ids = source_region
+                .as_ref()
+                .map(|region| region.asset_ids.clone())
+                .unwrap_or_default();
+            let asset_urls = source_region
+                .as_ref()
+                .map(|region| region.asset_urls.clone())
+                .unwrap_or_default();
             let source = source_region
                 .map(|region| ReaderRegionBoxView {
                     page: region.page,
@@ -77,8 +97,53 @@ pub(crate) fn load_reader_regions_view(
                 markdown,
                 region_type,
                 status,
+                asset_ids,
+                asset_urls,
             });
         }
     }
+    items.extend(source_only_items(
+        source_regions,
+        &translated_source_block_ids,
+    ));
     Ok(ReaderRegionsView { items })
+}
+
+fn source_only_items(
+    source_regions: std::collections::HashMap<String, SourceRegion>,
+    excluded_block_ids: &HashSet<String>,
+) -> Vec<ReaderRegionItemView> {
+    let mut unique = BTreeMap::new();
+    for region in source_regions.into_values() {
+        unique.entry(region.block_id.clone()).or_insert(region);
+    }
+    unique
+        .into_values()
+        .filter(|region| !excluded_block_ids.contains(&region.block_id))
+        .map(|region| {
+            let source = ReaderRegionBoxView {
+                page: region.page,
+                bbox: region.bbox.clone(),
+                unit: "pdf_point".to_string(),
+                origin: "top_left".to_string(),
+                text: region.text.clone(),
+            };
+            ReaderRegionItemView {
+                item_id: region.block_id,
+                source,
+                translated: ReaderRegionBoxView {
+                    page: region.page,
+                    bbox: region.bbox,
+                    unit: "pdf_point".to_string(),
+                    origin: "top_left".to_string(),
+                    text: None,
+                },
+                markdown: region.text,
+                region_type: region.region_type,
+                status: "source_only".to_string(),
+                asset_ids: region.asset_ids,
+                asset_urls: region.asset_urls,
+            }
+        })
+        .collect()
 }

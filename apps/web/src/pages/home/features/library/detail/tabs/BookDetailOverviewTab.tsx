@@ -5,6 +5,26 @@
 import { IconLayers } from "../panels/ui.jsx";
 import { TitleMetaPanel } from "../panels/overview/TitleMetaPanel.jsx";
 
+export type BookDetailOverviewTabProps = {
+  pageCount?: number | null;
+  bytes?: number | null;
+  addedAt?: string | null;
+  memberCollections?: string[];
+  editing: boolean;
+  titleText: string;
+  tagsText: string;
+  tags: string[];
+  authors: string[];
+  year: string | number | null | undefined;
+  displayTitle: string;
+  busy: string;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: () => void;
+  onTitleChange: (value: string) => void;
+  onTagsTextChange: (value: string) => void;
+};
+
 function formatBytes(bytes) {
   const n = Number(bytes);
   if (!Number.isFinite(n) || n <= 0) return "";
@@ -41,7 +61,7 @@ export function BookDetailOverviewTab({
   addedAt,
   memberCollections = [],
   ...titleMetaProps
-}) {
+}: BookDetailOverviewTabProps) {
   const sizeText = formatBytes(bytes);
   const dateText = formatDate(addedAt);
   return (

@@ -95,6 +95,7 @@ export function createAppActions({
   const workflow = () => features.workflowFeature;
   const upload = () => features.uploadFeature;
   const jobRuntime = () => features.jobRuntimeFeature;
+  const isOcrOnly = () => Boolean((workflow() as any)?.isOcrOnly?.());
 
   // apiBase 可由 configPort 替代；下层签名仍标成必填。
   const appActionsFeature = mountAppActionsFeature({
@@ -113,15 +114,21 @@ export function createAppActions({
       openSetupDialog: () => creds().openBrowserCredentialsDialog({ setupMode: true }),
       renderJob: statusCardPresenter.renderMain,
       submitJobRequest,
-      currentWorkflow: () => workflow().currentWorkflow(),
+      currentWorkflow: () => (isOcrOnly() ? "ocr" : workflow().currentWorkflow()),
       workflowNeedsCredentials: (w?: string) => workflow().workflowNeedsCredentials(w),
       workflowNeedsUpload: (w?: string) => workflow().workflowNeedsUpload(w),
       currentRenderSourceJobId: () => workflow().currentRenderSourceJobId(),
-      currentBudgetState: (w?: string) => workflow().currentBudgetState(w),
+      currentBudgetState: (w?: string) => {
+        if (isOcrOnly()) return { visible: false, blocking: false, tone: "", message: "", topUpUrl: "" } as any;
+        return workflow().currentBudgetState(w) as any;
+      },
       collectRunPayload: () => workflow().collectRunPayload(),
       validateBeforeSubmit: () => upload().validatePageRanges() ?? true,
       ensureOcrCredentialsReady: (options?: unknown) => creds().ensureOcrCredentialsReady(options),
-      hasBrowserCredentials: () => Boolean(creds().hasBrowserCredentials()),
+      hasBrowserCredentials: () => {
+        if (isOcrOnly()) return creds().hasOcrCredentials();
+        return Boolean(creds().hasBrowserCredentials());
+      },
       openBrowserCredentialsDialog: (options?: unknown) => {
         const opts = (options && typeof options === "object" ? options : {}) as { setupMode?: boolean };
         if (opts.setupMode) {

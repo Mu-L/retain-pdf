@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "retainpdf/contracts/job-status/v1",
   "title": "任务状态与阶段进度契约（Job Status / Stage Progress Bundle）",
-  "description": "Rust ↔ TS 任务状态单一真值（含 stage_snapshot / progress / cover_url 等重复高发区）。生产者：services/api crates/retain-core models/view/job_types.rs（JobDetailView / JobListView / JobStageSnapshotView / JobProgressView）与 models/view/common.rs（JobStagesView 等）；消费者：apps/web src/js/job/types.ts & src/js/job-status/types.ts（normalize / public-stage-engine / progress adapters）与 apps/web-react src/features/library/api/library-api-types.ts & src/features/status/types.ts。所有响应为 {code, message, data} 信封，本契约描述 data。改契约先改本文件，再让两端测试变绿；后续由本文件生成 TS 类型替换手写 duplication。",
+  "description": "Rust ↔ TS 任务状态单一真值（含 stage_snapshot / progress / cover_url 等重复高发区）。生产者：services/api crates/retain-core models/view/job_types.rs（JobDetailView / JobListView / JobStageSnapshotView / JobProgressView）与 models/view/common.rs（JobStagesView 等）；消费者：@retainpdf/contracts/job-status 生成 DTO、packages/domain 的 job/job-status 归一化模型，以及 apps/web-react 的 library/status 类型层。所有响应为 {code, message, data} 信封，本契约描述 data。改契约先改本文件，再重新生成 DTO 并让两端测试变绿。",
   "base_path": "/api/v1/jobs",
   "endpoints": [
     {
@@ -42,6 +42,365 @@
     "WorkflowKind": {
       "type": "string",
       "enum": ["book", "ocr", "translate", "render"]
+    },
+    "JsonValue": {
+      "description": "可安全跨线传输的任意 JSON 值；用于 provider 扩展 options 与事件 payload。",
+      "tsType": "null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }",
+      "anyOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string" },
+        { "type": "array", "items": { "$ref": "#/definitions/JsonValue" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/definitions/JsonValue" } }
+      ]
+    },
+    "ResolvedSourceSpec": {
+      "type": "object",
+      "description": "public_contract.rs :: PublicResolvedJobSpec.source",
+      "required": ["upload_id", "source_url", "artifact_job_id"],
+      "additionalProperties": false,
+      "properties": {
+        "upload_id": { "type": "string" },
+        "source_url": { "type": "string" },
+        "artifact_job_id": { "type": "string" }
+      }
+    },
+    "PublicOcrInput": {
+      "type": "object",
+      "description": "public_contract.rs :: PublicOcrInput。凭据正文恒为空，仅暴露 configured 标记。",
+      "required": ["provider", "mineru_token", "mineru_token_configured", "model_version", "paddle_token", "paddle_token_configured", "paddle_api_url", "paddle_model", "is_ocr", "disable_formula", "disable_table", "language", "page_ranges", "data_id", "no_cache", "cache_tolerance", "extra_formats", "poll_interval", "poll_timeout", "options"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "type": "string" },
+        "mineru_token": { "type": "string" },
+        "mineru_token_configured": { "type": "boolean" },
+        "model_version": { "type": "string" },
+        "paddle_token": { "type": "string" },
+        "paddle_token_configured": { "type": "boolean" },
+        "paddle_api_url": { "type": "string" },
+        "paddle_model": { "type": "string" },
+        "is_ocr": { "type": "boolean" },
+        "disable_formula": { "type": "boolean" },
+        "disable_table": { "type": "boolean" },
+        "language": { "type": "string" },
+        "page_ranges": { "type": "string" },
+        "data_id": { "type": "string" },
+        "no_cache": { "type": "boolean" },
+        "cache_tolerance": { "type": "integer" },
+        "extra_formats": { "type": "string" },
+        "poll_interval": { "type": "integer" },
+        "poll_timeout": { "type": "integer" },
+        "options": { "type": "object", "additionalProperties": { "$ref": "#/definitions/JsonValue" } }
+      }
+    },
+    "GlossaryEntryInput": {
+      "type": "object",
+      "required": ["source", "target", "note", "level", "match_mode", "context"],
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string" },
+        "target": { "type": "string" },
+        "note": { "type": "string" },
+        "level": { "type": "string" },
+        "match_mode": { "type": "string" },
+        "context": { "type": "string" }
+      }
+    },
+    "PublicTranslationInput": {
+      "type": "object",
+      "description": "public_contract.rs :: PublicTranslationInput。api_key 恒为空，仅暴露 configured 标记。",
+      "required": ["mode", "math_mode", "skip_title_translation", "classify_batch_size", "rule_profile_name", "custom_rules_text", "glossary_id", "glossary_name", "glossary_resource_entry_count", "glossary_inline_entry_count", "glossary_overridden_entry_count", "glossary_entries", "context_mode", "glossary_mode", "memory_mode", "api_key", "api_key_configured", "model", "base_url", "start_page", "end_page", "batch_size", "workers"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "type": "string" },
+        "math_mode": { "type": "string" },
+        "skip_title_translation": { "type": "boolean" },
+        "classify_batch_size": { "type": "integer" },
+        "rule_profile_name": { "type": "string" },
+        "custom_rules_text": { "type": "string" },
+        "glossary_id": { "type": "string" },
+        "glossary_name": { "type": "string" },
+        "glossary_resource_entry_count": { "type": "integer" },
+        "glossary_inline_entry_count": { "type": "integer" },
+        "glossary_overridden_entry_count": { "type": "integer" },
+        "glossary_entries": { "type": "array", "items": { "$ref": "#/definitions/GlossaryEntryInput" } },
+        "context_mode": { "type": "string" },
+        "glossary_mode": { "type": "string" },
+        "memory_mode": { "type": "string" },
+        "api_key": { "type": "string" },
+        "api_key_configured": { "type": "boolean" },
+        "model": { "type": "string" },
+        "base_url": { "type": "string" },
+        "start_page": { "type": "integer" },
+        "end_page": { "type": "integer" },
+        "batch_size": { "type": "integer" },
+        "workers": { "type": "integer" },
+        "accepted_ambiguous_request_risk": { "type": "boolean" }
+      }
+    },
+    "RenderInput": {
+      "type": "object",
+      "required": ["render_mode", "compile_workers", "typst_font_family", "pdf_compress_dpi", "translated_pdf_name", "body_font_size_factor", "body_leading_factor", "inner_bbox_shrink_x", "inner_bbox_shrink_y", "inner_bbox_dense_shrink_x", "inner_bbox_dense_shrink_y", "font_unify_mode", "source_cleanup_strategy"],
+      "additionalProperties": false,
+      "properties": {
+        "render_mode": { "type": "string" },
+        "compile_workers": { "type": "integer" },
+        "typst_font_family": { "type": "string" },
+        "pdf_compress_dpi": { "type": "integer" },
+        "translated_pdf_name": { "type": "string" },
+        "body_font_size_factor": { "type": "number" },
+        "body_leading_factor": { "type": "number" },
+        "inner_bbox_shrink_x": { "type": "number" },
+        "inner_bbox_shrink_y": { "type": "number" },
+        "inner_bbox_dense_shrink_x": { "type": "number" },
+        "inner_bbox_dense_shrink_y": { "type": "number" },
+        "font_unify_mode": { "type": "string" },
+        "source_cleanup_strategy": { "type": "string" }
+      }
+    },
+    "RuntimeInput": {
+      "type": "object",
+      "required": ["job_id", "timeout_seconds"],
+      "additionalProperties": false,
+      "properties": {
+        "job_id": { "type": "string" },
+        "timeout_seconds": { "type": "integer" }
+      }
+    },
+    "PublicResolvedJobSpec": {
+      "type": "object",
+      "description": "public_contract.rs :: PublicResolvedJobSpec。JobDetailView.request_payload 的脱敏线格式。",
+      "required": ["workflow", "job_id", "source", "ocr", "translation", "render", "runtime"],
+      "additionalProperties": false,
+      "properties": {
+        "workflow": { "$ref": "#/definitions/WorkflowKind" },
+        "job_id": { "type": "string" },
+        "source": { "$ref": "#/definitions/ResolvedSourceSpec" },
+        "ocr": { "$ref": "#/definitions/PublicOcrInput" },
+        "translation": { "$ref": "#/definitions/PublicTranslationInput" },
+        "render": { "$ref": "#/definitions/RenderInput" },
+        "runtime": { "$ref": "#/definitions/RuntimeInput" }
+      }
+    },
+    "OcrProviderKind": {
+      "type": "string",
+      "enum": ["mineru", "paddle", "local", "unknown"]
+    },
+    "OcrTaskState": {
+      "type": "string",
+      "enum": ["queued", "waiting_upload", "running", "converting", "succeeded", "failed", "unknown"]
+    },
+    "OcrTaskHandle": {
+      "type": "object",
+      "required": ["batch_id", "task_id", "file_name"],
+      "additionalProperties": false,
+      "properties": {
+        "batch_id": { "type": ["string", "null"] },
+        "task_id": { "type": ["string", "null"] },
+        "file_name": { "type": ["string", "null"] }
+      }
+    },
+    "OcrProviderCapabilities": {
+      "type": "object",
+      "required": ["supports_remote_url_submit", "supports_local_file_upload", "supports_polling", "supports_download_bundle", "supports_extra_formats", "supports_formula_toggle", "supports_table_toggle"],
+      "additionalProperties": false,
+      "properties": {
+        "supports_remote_url_submit": { "type": "boolean" },
+        "supports_local_file_upload": { "type": "boolean" },
+        "supports_polling": { "type": "boolean" },
+        "supports_download_bundle": { "type": "boolean" },
+        "supports_extra_formats": { "type": "boolean" },
+        "supports_formula_toggle": { "type": "boolean" },
+        "supports_table_toggle": { "type": "boolean" }
+      }
+    },
+    "OcrProviderErrorInfo": {
+      "type": "object",
+      "required": ["category", "provider_code", "provider_message", "operator_hint", "trace_id", "http_status"],
+      "additionalProperties": false,
+      "properties": {
+        "category": { "type": "string" },
+        "provider_code": { "type": ["string", "null"] },
+        "provider_message": { "type": ["string", "null"] },
+        "operator_hint": { "type": ["string", "null"] },
+        "trace_id": { "type": ["string", "null"] },
+        "http_status": { "type": ["integer", "null"], "minimum": 100, "maximum": 599 }
+      }
+    },
+    "OcrTaskStatus": {
+      "type": "object",
+      "required": ["provider", "handle", "state", "raw_state", "stage", "detail", "provider_message", "trace_id"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "$ref": "#/definitions/OcrProviderKind" },
+        "handle": { "$ref": "#/definitions/OcrTaskHandle" },
+        "state": { "$ref": "#/definitions/OcrTaskState" },
+        "raw_state": { "type": ["string", "null"] },
+        "stage": { "type": ["string", "null"] },
+        "detail": { "type": ["string", "null"] },
+        "provider_message": { "type": ["string", "null"] },
+        "trace_id": { "type": ["string", "null"] }
+      }
+    },
+    "OcrArtifactSet": {
+      "type": "object",
+      "required": ["full_zip_url", "provider_result_json", "provider_bundle_zip", "layout_json", "normalized_document_json", "normalization_report_json"],
+      "additionalProperties": false,
+      "properties": {
+        "full_zip_url": { "type": ["string", "null"] },
+        "provider_result_json": { "type": ["string", "null"] },
+        "provider_bundle_zip": { "type": ["string", "null"] },
+        "layout_json": { "type": ["string", "null"] },
+        "normalized_document_json": { "type": ["string", "null"] },
+        "normalization_report_json": { "type": ["string", "null"] }
+      }
+    },
+    "OcrProviderDiagnostics": {
+      "type": "object",
+      "required": ["provider", "capabilities", "handle", "last_status", "last_error", "artifacts"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "$ref": "#/definitions/OcrProviderKind" },
+        "capabilities": { "anyOf": [{ "$ref": "#/definitions/OcrProviderCapabilities" }, { "type": "null" }] },
+        "handle": { "$ref": "#/definitions/OcrTaskHandle" },
+        "last_status": { "anyOf": [{ "$ref": "#/definitions/OcrTaskStatus" }, { "type": "null" }] },
+        "last_error": { "anyOf": [{ "$ref": "#/definitions/OcrProviderErrorInfo" }, { "type": "null" }] },
+        "artifacts": { "$ref": "#/definitions/OcrArtifactSet" }
+      }
+    },
+    "JobStageTiming": {
+      "type": "object",
+      "required": ["stage", "detail", "enter_at", "exit_at", "duration_ms", "terminal_status"],
+      "additionalProperties": false,
+      "properties": {
+        "stage": { "type": "string" },
+        "detail": { "type": ["string", "null"] },
+        "enter_at": { "type": "string" },
+        "exit_at": { "type": ["string", "null"] },
+        "duration_ms": { "type": ["integer", "null"] },
+        "terminal_status": { "anyOf": [{ "$ref": "#/definitions/JobStatusKind" }, { "type": "null" }] }
+      }
+    },
+    "JobRuntimeInfo": {
+      "type": "object",
+      "required": ["current_stage", "stage_started_at", "last_stage_transition_at", "terminal_reason", "last_error_at", "total_elapsed_ms", "active_stage_elapsed_ms", "retry_count", "last_retry_at", "stage_history", "final_failure_category", "final_failure_summary"],
+      "additionalProperties": false,
+      "properties": {
+        "current_stage": { "type": ["string", "null"] },
+        "stage_started_at": { "type": ["string", "null"] },
+        "last_stage_transition_at": { "type": ["string", "null"] },
+        "terminal_reason": { "type": ["string", "null"] },
+        "last_error_at": { "type": ["string", "null"] },
+        "total_elapsed_ms": { "type": ["integer", "null"] },
+        "active_stage_elapsed_ms": { "type": ["integer", "null"] },
+        "retry_count": { "type": "integer", "minimum": 0 },
+        "last_retry_at": { "type": ["string", "null"] },
+        "stage_history": { "type": "array", "items": { "$ref": "#/definitions/JobStageTiming" } },
+        "final_failure_category": { "type": ["string", "null"] },
+        "final_failure_summary": { "type": ["string", "null"] }
+      }
+    },
+    "JobRawDiagnostic": {
+      "type": "object",
+      "required": ["structured_error_type", "raw_exception_type", "raw_exception_message", "traceback"],
+      "additionalProperties": false,
+      "properties": {
+        "structured_error_type": { "type": ["string", "null"] },
+        "raw_exception_type": { "type": ["string", "null"] },
+        "raw_exception_message": { "type": ["string", "null"] },
+        "traceback": { "type": ["string", "null"] }
+      }
+    },
+    "JobAiDiagnostic": {
+      "type": "object",
+      "required": ["summary", "root_cause", "suggestion", "confidence", "observed_signals"],
+      "additionalProperties": false,
+      "properties": {
+        "summary": { "type": "string" },
+        "root_cause": { "type": ["string", "null"] },
+        "suggestion": { "type": ["string", "null"] },
+        "confidence": { "type": ["string", "null"] },
+        "observed_signals": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "JobFailureInfo": {
+      "type": "object",
+      "required": ["stage", "category", "code", "summary", "root_cause", "retryable", "upstream_host", "provider", "suggestion", "last_log_line", "raw_error_excerpt", "raw_diagnostic", "ai_diagnostic"],
+      "additionalProperties": false,
+      "properties": {
+        "stage": { "type": "string" },
+        "category": { "type": "string" },
+        "code": { "type": ["string", "null"] },
+        "failed_stage": { "type": "string" },
+        "failure_code": { "type": "string" },
+        "failure_category": { "type": "string" },
+        "provider_stage": { "type": "string" },
+        "provider_code": { "type": "string" },
+        "summary": { "type": "string" },
+        "root_cause": { "type": ["string", "null"] },
+        "retryable": { "type": "boolean" },
+        "upstream_host": { "type": ["string", "null"] },
+        "provider": { "type": ["string", "null"] },
+        "suggestion": { "type": ["string", "null"] },
+        "last_log_line": { "type": ["string", "null"] },
+        "raw_excerpt": { "type": "string" },
+        "raw_error_excerpt": { "type": ["string", "null"] },
+        "raw_diagnostic": { "anyOf": [{ "$ref": "#/definitions/JobRawDiagnostic" }, { "type": "null" }] },
+        "ai_diagnostic": { "anyOf": [{ "$ref": "#/definitions/JobAiDiagnostic" }, { "type": "null" }] }
+      }
+    },
+    "JobFailureDiagnosticView": {
+      "type": "object",
+      "required": ["failed_stage", "error_kind", "summary", "root_cause", "retryable", "upstream_host", "suggestion", "last_log_line"],
+      "additionalProperties": false,
+      "properties": {
+        "failed_stage": { "type": "string" },
+        "error_kind": { "type": "string" },
+        "summary": { "type": "string" },
+        "root_cause": { "type": ["string", "null"] },
+        "retryable": { "type": "boolean" },
+        "upstream_host": { "type": ["string", "null"] },
+        "suggestion": { "type": ["string", "null"] },
+        "last_log_line": { "type": ["string", "null"] }
+      }
+    },
+    "NormalizationSummaryView": {
+      "type": "object",
+      "required": ["provider", "detected_provider", "provider_was_explicit", "pages_seen", "blocks_seen", "document_defaults", "page_defaults", "block_defaults", "schema", "schema_version", "page_count", "block_count"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "type": "string" },
+        "detected_provider": { "type": "string" },
+        "provider_was_explicit": { "type": "boolean" },
+        "pages_seen": { "type": ["integer", "null"] },
+        "blocks_seen": { "type": ["integer", "null"] },
+        "document_defaults": { "type": "integer", "minimum": 0 },
+        "page_defaults": { "type": "integer", "minimum": 0 },
+        "block_defaults": { "type": "integer", "minimum": 0 },
+        "schema": { "type": "string" },
+        "schema_version": { "type": "string" },
+        "page_count": { "type": ["integer", "null"] },
+        "block_count": { "type": ["integer", "null"] }
+      }
+    },
+    "GlossaryUsageSummaryView": {
+      "type": "object",
+      "required": ["enabled", "glossary_id", "glossary_name", "entry_count", "resource_entry_count", "inline_entry_count", "overridden_entry_count", "source_hit_entry_count", "target_hit_entry_count", "unused_entry_count", "unapplied_source_hit_entry_count"],
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "glossary_id": { "type": "string" },
+        "glossary_name": { "type": "string" },
+        "entry_count": { "type": "integer" },
+        "resource_entry_count": { "type": "integer" },
+        "inline_entry_count": { "type": "integer" },
+        "overridden_entry_count": { "type": "integer" },
+        "source_hit_entry_count": { "type": "integer" },
+        "target_hit_entry_count": { "type": "integer" },
+        "unused_entry_count": { "type": "integer" },
+        "unapplied_source_hit_entry_count": { "type": "integer" }
+      }
     },
     "JobProgressView": {
       "type": "object",
@@ -317,6 +676,24 @@
         "invocation_summary": { "$ref": "#/definitions/JobListInvocationSummaryView" }
       }
     },
+    "TranslationRequestRecoveryView": {
+      "type": "object",
+      "required": ["status", "journal_ready", "unresolved_dispatches", "active_ambiguous_request_keys", "historical_ambiguous_request_keys", "requires_confirmation", "supported_retry_policies", "detail"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "type": "string", "enum": ["clean", "ambiguous", "corrupt"] },
+        "journal_ready": { "type": "boolean" },
+        "unresolved_dispatches": { "type": "integer", "minimum": 0 },
+        "active_ambiguous_request_keys": { "type": "integer", "minimum": 0 },
+        "historical_ambiguous_request_keys": { "type": "integer", "minimum": 0 },
+        "requires_confirmation": { "type": "boolean" },
+        "supported_retry_policies": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["block", "accept_duplicate_risk"] }
+        },
+        "detail": { "type": ["string", "null"] }
+      }
+    },
     "JobDetailView": {
       "type": "object",
       "description": "job_types.rs :: JobDetailView。关键重复字段：job_id, workflow, status, stage_snapshot(含 progress), cover_url(经 book_summary.cover_url) 均上锁。",
@@ -325,7 +702,7 @@
         "job_id": { "type": "string" },
         "workflow": { "$ref": "#/definitions/WorkflowKind" },
         "status": { "$ref": "#/definitions/JobStatusKind" },
-        "request_payload": { "type": "object" },
+        "request_payload": { "$ref": "#/definitions/PublicResolvedJobSpec" },
         "trace_id": { "type": ["string", "null"] },
         "provider_trace_id": { "type": ["string", "null"] },
         "stage_snapshot": { "anyOf": [{ "$ref": "#/definitions/JobStageSnapshotView" }, { "type": "null" }] },
@@ -339,22 +716,78 @@
         "book_summary": { "$ref": "#/definitions/BookSummaryView" },
         "contracts": { "$ref": "#/definitions/JobContractsView" },
         "ocr_job": { "anyOf": [{ "$ref": "#/definitions/OcrJobSummaryView" }, { "type": "null" }] },
-        "ocr_provider_diagnostics": { "type": ["object", "null"] },
-        "runtime": { "type": ["object", "null"] },
-        "failure": { "type": ["object", "null"] },
+        "ocr_provider_diagnostics": { "anyOf": [{ "$ref": "#/definitions/OcrProviderDiagnostics" }, { "type": "null" }] },
+        "runtime": { "anyOf": [{ "$ref": "#/definitions/JobRuntimeInfo" }, { "type": "null" }] },
+        "failure": { "anyOf": [{ "$ref": "#/definitions/JobFailureInfo" }, { "type": "null" }] },
         "error": { "type": ["string", "null"] },
-        "failure_diagnostic": { "type": ["object", "null"] },
-        "normalization_summary": { "type": ["object", "null"] },
-        "glossary_summary": { "type": ["object", "null"] },
+        "failure_diagnostic": { "anyOf": [{ "$ref": "#/definitions/JobFailureDiagnosticView" }, { "type": "null" }] },
+        "normalization_summary": { "anyOf": [{ "$ref": "#/definitions/NormalizationSummaryView" }, { "type": "null" }] },
+        "glossary_summary": { "anyOf": [{ "$ref": "#/definitions/GlossaryUsageSummaryView" }, { "type": "null" }] },
         "invocation": { "anyOf": [{ "$ref": "#/definitions/InvocationSummaryView" }, { "type": "null" }] },
+        "translation_request_recovery": { "anyOf": [{ "$ref": "#/definitions/TranslationRequestRecoveryView" }, { "type": "null" }] },
         "log_tail": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "JobEventProgressView": {
+      "type": "object",
+      "description": "translation.rs :: JobEventProgressView。字段为可选，因为未知进度可序列化为空对象。",
+      "additionalProperties": false,
+      "properties": {
+        "unit": { "type": "string" },
+        "current": { "type": "integer" },
+        "total": { "type": "integer" },
+        "percent": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "JobEventRawView": {
+      "type": "object",
+      "description": "事件进入 API 归一化之前的来源追踪字段。",
+      "additionalProperties": false,
+      "properties": {
+        "source_kind": { "type": "string" },
+        "source_seq": { "type": "integer" },
+        "stage": { "type": "string" },
+        "user_stage": { "type": "string" },
+        "event_type": { "type": "string" }
+      }
+    },
+    "JobEventRecord": {
+      "type": "object",
+      "description": "translation.rs :: JobEventRecord 的公开序列化形状。payload 保留递归 JSON 类型，不再退化为 {}。",
+      "required": ["job_id", "seq", "ts", "level", "lane", "stage", "substage", "stage_detail", "provider", "provider_stage", "event", "event_type", "raw_event_type", "message", "retry_count", "elapsed_ms", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "job_id": { "type": "string" },
+        "seq": { "type": "integer" },
+        "ts": { "type": "string", "format": "date-time" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "level": { "type": "string" },
+        "lane": { "type": ["string", "null"] },
+        "display_stage": { "type": "string" },
+        "stage": { "type": ["string", "null"] },
+        "substage": { "type": ["string", "null"] },
+        "stage_detail": { "type": ["string", "null"] },
+        "provider": { "type": ["string", "null"] },
+        "provider_stage": { "type": ["string", "null"] },
+        "event": { "type": "string" },
+        "event_type": { "type": ["string", "null"] },
+        "raw_event_type": { "type": ["string", "null"] },
+        "raw": { "$ref": "#/definitions/JobEventRawView" },
+        "progress": { "$ref": "#/definitions/JobEventProgressView" },
+        "message": { "type": "string" },
+        "retry_count": { "type": ["integer", "null"] },
+        "elapsed_ms": { "type": ["integer", "null"] },
+        "payload": { "$ref": "#/definitions/JsonValue" }
       }
     },
     "JobEventListView": {
       "type": "object",
-      "required": ["items"],
+      "required": ["items", "limit", "offset"],
+      "additionalProperties": false,
       "properties": {
-        "items": { "type": "array", "items": { "type": "object" } }
+        "items": { "type": "array", "items": { "$ref": "#/definitions/JobEventRecord" } },
+        "limit": { "type": "integer", "minimum": 1 },
+        "offset": { "type": "integer", "minimum": 0 }
       }
     },
     "ListJobsQuery": {

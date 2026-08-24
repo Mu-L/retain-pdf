@@ -1,5 +1,5 @@
 import { createStore, type Store } from "../../app-framework/store.js";
-import type { JobLike, JobPayload } from "../../job/types.js";
+import type { JobLike, JobPayload } from "@retainpdf/domain/job";
 export {
   currentJobEventsFor,
   currentJobManifest,

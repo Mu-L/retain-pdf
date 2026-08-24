@@ -1,7 +1,7 @@
 import {
   substageCardLabel,
   substagesForStage,
-} from "./job-stage-substage-contract.js";
+} from "./contract/job-stage-substage-contract.js";
 
 export function translationSubstageKeyForSnapshot(snapshot = null) {
   const explicitSubstage = `${snapshot?.substageKey || ""}`.trim();

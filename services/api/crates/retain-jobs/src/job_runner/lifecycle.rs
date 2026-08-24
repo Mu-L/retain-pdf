@@ -163,9 +163,8 @@ fn update_document_after_job(deps: &ProcessRuntimeDeps, job: &JobRuntimeState) {
     if job.status != JobStatusKind::Succeeded {
         return;
     }
-    if matches!(job.workflow, WorkflowKind::Ocr) {
-        return;
-    }
+    // OCR-only 吸怪：允许 OCR 任务在无其他成功任务时成为 active_job，避免“OCR 后刷新消失”
+    // 非 OCR 仍优先，但 OCR 也不再直接 return
     if let Err(error) = deps.db.set_document_active_job(&document_id, &job.job_id, None) {
         error!("library: set active job for {document_id} failed: {error}");
     }

@@ -182,7 +182,11 @@ mod tests {
         std::env::remove_var("RUST_API_ASSET_ALLOWED_MIMES");
         let data = vec![1u8; 512];
         let result = store_asset(&deps, "image/png", &data);
-        assert!(result.is_ok(), "512B should pass with 1KB limit: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "512B should pass with 1KB limit: {:?}",
+            result
+        );
         std::env::remove_var("RUST_API_ASSET_MAX_BYTES");
         let _ = fs::remove_dir_all(&root);
     }
@@ -197,10 +201,7 @@ mod tests {
         std::env::remove_var("RUST_API_ASSET_ALLOWED_MIMES");
         std::env::remove_var("RUST_API_ASSET_MAX_BYTES");
         let default_result = store_asset(&deps, "image/svg+xml", svg);
-        assert!(
-            default_result.is_err(),
-            "svg should be rejected by default"
-        );
+        assert!(default_result.is_err(), "svg should be rejected by default");
         let default_message = format!("{}", default_result.unwrap_err());
         assert!(
             default_message.contains("unsupported asset mime"),
@@ -226,7 +227,11 @@ mod tests {
             .join("assets")
             .join(&record.asset_id[..2])
             .join(format!("{}.svg", record.asset_id));
-        assert!(expected_path.exists(), "svg file should exist at {:?}", expected_path);
+        assert!(
+            expected_path.exists(),
+            "svg file should exist at {:?}",
+            expected_path
+        );
 
         std::env::remove_var("RUST_API_ASSET_ALLOWED_MIMES");
         let _ = fs::remove_dir_all(&root);

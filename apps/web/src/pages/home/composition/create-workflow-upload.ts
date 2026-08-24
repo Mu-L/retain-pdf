@@ -43,6 +43,7 @@ import type {
 
 type WorkflowViewPort = {
   selectedGlossaryId: () => string;
+  isOcrOnly?: () => boolean;
   viewPort: unknown;
 };
 
@@ -105,6 +106,8 @@ export function createWorkflowAndUpload({
     };
   }
 
+  const isOcrOnly = () => Boolean((workflowView as any).isOcrOnly?.() ?? false);
+
   const workflowFeature = mountWorkflowFeature({
     configPort: defaultWorkflowConfigPort,
     saveDeveloperStoredConfig: savePersistedDeveloperStoredConfig,
@@ -128,11 +131,18 @@ export function createWorkflowAndUpload({
     viewPort: workflowView.viewPort as import("../../../js/features/workflow/controller.js").WorkflowViewPortLike,
     readSubmitValues,
     renderPageRangeSummary: () => features.uploadFeature.renderPageRangeSummary(),
-    hasBrowserCredentials: () => Boolean(features.browserCredentialsFeature.hasBrowserCredentials()),
+    hasBrowserCredentials: () => {
+      if (isOcrOnly()) {
+        const token = credentialsStatePort.getOcrToken({ defaultPaddleToken: () => defaultPaddleToken() }) || "";
+        return Boolean(token);
+      }
+      return Boolean(features.browserCredentialsFeature.hasBrowserCredentials());
+    },
     updateCredentialGate: (options?: unknown) => features.browserCredentialsFeature.updateCredentialGate(options),
     fetchGlossaries,
     apiPrefix: API_PREFIX,
     setText,
+    isOcrOnly,
   }) as WorkflowFeature;
 
   // mountUploadFeature 签名要求 state，但 uploadStatePort 在运行时已足够；下层 nocheck 签名未放宽。

@@ -194,18 +194,22 @@ def submit_local_file(
     file_path: Path,
     model: str,
     optional_payload: dict[str, Any],
+    page_ranges: str = "",
     base_url: str = "",
 ) -> tuple[str, str]:
     resolved_base = (base_url or PADDLE_BASE_URL).strip().rstrip("/")
     file_bytes = file_path.read_bytes()
+    form_data = {
+        "model": model,
+        "optionalPayload": json.dumps(optional_payload, ensure_ascii=False),
+    }
+    if page_ranges.strip():
+        form_data["pageRanges"] = page_ranges.strip()
     response = _request_with_retry(
         "post",
         f"{resolved_base}/api/v2/ocr/jobs",
         headers=build_headers(token),
-        data={
-            "model": model,
-            "optionalPayload": json.dumps(optional_payload, ensure_ascii=False),
-        },
+        data=form_data,
         files={"file": (file_path.name, file_bytes)},
         timeout=120,
     )
@@ -223,18 +227,22 @@ def submit_remote_url(
     source_url: str,
     model: str,
     optional_payload: dict[str, Any],
+    page_ranges: str = "",
     base_url: str = "",
 ) -> tuple[str, str]:
     resolved_base = (base_url or PADDLE_BASE_URL).strip().rstrip("/")
+    body = {
+        "fileUrl": source_url,
+        "model": model,
+        "optionalPayload": optional_payload,
+    }
+    if page_ranges.strip():
+        body["pageRanges"] = page_ranges.strip()
     response = _request_with_retry(
         "post",
         f"{resolved_base}/api/v2/ocr/jobs",
         headers={**build_headers(token), "Content-Type": "application/json"},
-        json={
-            "fileUrl": source_url,
-            "model": model,
-            "optionalPayload": optional_payload,
-        },
+        json=body,
         timeout=120,
     )
     envelope = _check_envelope(response.json(), stage="submit")
@@ -257,11 +265,76 @@ def query_job(*, token: str, job_id: str, base_url: str = "") -> dict[str, Any]:
     return dict(envelope.get("data") or {})
 
 
+def _merge_data_info(
+    current: dict[str, Any],
+    incoming: dict[str, Any],
+    *,
+    chunk_layout_count: int,
+    total_layout_count: int,
+) -> dict[str, Any]:
+    """Merge per-line Paddle metadata without dropping later page records.
+
+    The official endpoint emits JSONL chunks.  Depending on the model/version,
+    ``dataInfo.pages`` is either chunk-local or a repeated complete snapshot.
+    Scalars are therefore filled non-destructively, while page lists are
+    appended only until the advertised total is reached.
+    """
+
+    merged = dict(current)
+    incoming_pages = incoming.get("pages")
+    for key, value in incoming.items():
+        if key == "pages":
+            continue
+        if key not in merged or merged.get(key) in (None, "", [], {}):
+            merged[key] = value
+
+    if not isinstance(incoming_pages, list):
+        return merged
+
+    current_pages = merged.get("pages")
+    pages = list(current_pages) if isinstance(current_pages, list) else []
+    expected_values = [
+        value
+        for value in (current.get("numPages"), incoming.get("numPages"))
+        if isinstance(value, (int, float)) and value >= 0
+    ]
+    expected = max((int(value) for value in expected_values), default=0)
+    if expected:
+        merged["numPages"] = expected
+
+    if not pages:
+        pages = list(incoming_pages)
+    elif total_layout_count and len(incoming_pages) == total_layout_count:
+        # Cumulative snapshot: replace prior chunk-local metadata.
+        pages = list(incoming_pages)
+    elif chunk_layout_count and len(incoming_pages) == chunk_layout_count:
+        # Chunk-local metadata: append even when page dictionaries are equal;
+        # equal-sized PDF pages commonly have identical metadata.
+        pages.extend(incoming_pages)
+    elif expected and len(incoming_pages) >= expected:
+        # A complete snapshot is more authoritative than prior chunk-local
+        # fragments and must not be appended repeatedly.
+        pages = list(incoming_pages[:expected])
+    elif len(incoming_pages) > len(pages) and incoming_pages[: len(pages)] == pages:
+        # Cumulative metadata can arrive ahead of its matching layout chunk.
+        pages = list(incoming_pages)
+    elif not expected or len(pages) < expected:
+        remaining = expected - len(pages) if expected else len(incoming_pages)
+        pages.extend(incoming_pages[:remaining])
+
+    merged["pages"] = pages[:expected] if expected else pages
+    return merged
+
+
 def download_jsonl_result(*, jsonl_url: str) -> dict[str, Any]:
     response = _request_with_retry("get", jsonl_url, timeout=300)
     layout_results: list[Any] = []
     data_info: dict[str, Any] = {}
+    provider_result_extras: list[dict[str, Any]] = []
+    provider_envelope_extras: list[dict[str, Any]] = []
+    provider_data_info_records: list[dict[str, Any]] = []
     line_count = 0
+    data_info_line_count = 0
     for raw_line in response.text.splitlines():
         line = raw_line.strip()
         if not line:
@@ -269,17 +342,64 @@ def download_jsonl_result(*, jsonl_url: str) -> dict[str, Any]:
         line_count += 1
         payload = json.loads(line)
         result = dict(payload.get("result") or {})
+        envelope_extras = {key: value for key, value in payload.items() if key != "result"}
+        result_extras = {
+            key: value
+            for key, value in result.items()
+            if key not in {"layoutParsingResults", "dataInfo"}
+        }
+        provider_envelope_extras.append(envelope_extras)
+        provider_result_extras.append(result_extras)
         items = result.get("layoutParsingResults") or []
+        chunk_layout_count = len(items) if isinstance(items, list) else 0
         if isinstance(items, list):
             layout_results.extend(items)
-        if not data_info and isinstance(result.get("dataInfo"), dict):
-            data_info = dict(result.get("dataInfo") or {})
+        if isinstance(result.get("dataInfo"), dict):
+            data_info_line_count += 1
+            incoming_data_info = dict(result.get("dataInfo") or {})
+            provider_data_info_records.append(incoming_data_info)
+            data_info = _merge_data_info(
+                data_info,
+                incoming_data_info,
+                chunk_layout_count=chunk_layout_count,
+                total_layout_count=len(layout_results),
+            )
+    data_info_pages = data_info.get("pages")
+    data_info_page_count = len(data_info_pages) if isinstance(data_info_pages, list) else 0
+    if layout_results and data_info_page_count == len(layout_results):
+        data_info["numPages"] = len(layout_results)
     return {
         "layoutParsingResults": layout_results,
         "dataInfo": data_info,
+        # Preserve new/unknown JSONL fields at the raw transport boundary so a
+        # future adapter can consume them without another OCR request.
+        "providerResultExtras": provider_result_extras,
+        "providerEnvelopeExtras": provider_envelope_extras,
+        "providerDataInfoRecords": provider_data_info_records,
         "_meta": {
             "source": "paddle_jsonl",
             "lineCount": line_count,
+            "layoutPageCount": len(layout_results),
+            "dataInfoLineCount": data_info_line_count,
+            "dataInfoPageCount": data_info_page_count,
+            "dataInfoComplete": data_info_page_count == len(layout_results),
+            "dataInfoConflictKeys": sorted(
+                key
+                for key in {
+                    key
+                    for record in provider_data_info_records
+                    for key in record
+                    if key != "pages"
+                }
+                if len(
+                    {
+                        json.dumps(record.get(key), ensure_ascii=False, sort_keys=True)
+                        for record in provider_data_info_records
+                        if key in record
+                    }
+                )
+                > 1
+            ),
         },
     }
 

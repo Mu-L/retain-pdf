@@ -20,6 +20,39 @@ npm --prefix packages/reader run build   # -> dist/retain-reader.js
 npm --prefix apps/web run build:js       # 仍产 dist/reader.bundle.js，经本包代理可复用
 ```
 
+## Markdown 渲染链路
+
+AI 回答与整篇文档预览使用不同的负载策略：
+
+- `AiMarkdownAnswer`（Reader、MPA 首页、React SPA 共用）使用
+  `markstream-react@2` 流式渲染，数学公式由 KaTeX 处理。
+- AI 原始 HTML 使用 Markstream `htmlPolicy="escape"`；Markdown 图片和链接由
+  RetainPDF scoped custom nodes 接管。图片只允许当前 job 的
+  `/api/v1/jobs/<job>/markdown/images/...`，并在回答完成后经 `fetchProtected`
+  转为 blob；外链和其他 job 图片 fail closed。
+- 代码块暂时固定为轻量 `<pre><code>`，不安装 `stream-diffs`、Mermaid、D2、
+  Infographic 等可选运行时。需要这些能力时应逐项启用并单独做安全/体积验收。
+
+- `shared/data/markdown-payload.ts` 是 payload 字段与结构化/legacy 回退的单一真值；
+  `content_with_absolute_image_urls`、`content`、`markdown` 以及 API envelope 均在这里收口。
+- `ReaderMarkdownPanel` 先同步显示 marked 正文与可读公式 fallback，再分批升级为
+  MathJax SVG，避免大文档在公式全部完成前保持空白。
+- MathJax 每处理 24 个公式主动让出主线程；正文首屏路径只执行公式抽取、marked
+  与 fallback，不把完整公式渲染时间算入首屏。
+- Markdown 图片进入阅读视口前后 600px 才请求，最多 4 路并发。只有同源或本机
+  `/api/v1/jobs/<job>/markdown/images/...` 使用带凭据的 `fetchProtected`；第三方图片
+  使用普通图片加载，禁止向外部站点发送 `X-API-Key`。
+- 正文渲染完成后生成去重标题锚点和折叠目录；搜索仅标记命中的正文块，不重写
+  MathJax DOM，避免搜索与公式升级互相破坏。
+- 回归测试位于 `apps/web/tests/reader/{markdown-payload,markdown-math,reader-markdown-panel}.test.mjs`。
+
+## 宿主运行时边界
+
+宿主不得 alias 或相对导入 `packages/reader/src`。非 React 能力按领域从以下
+正式出口消费：`@retainpdf/reader/runtime/ai`、`runtime/config`、
+`runtime/content`、`runtime/data`、`runtime/state`。这些出口只提供纯函数、
+工厂、状态类型和显式注入点；宿主 API、凭据与下载实现仍由 adapters 注入。
+
 ## 样式真值（已迁入本包 `styles/`，`apps/web` 保留代理）
 
 | 入口 | 产物 | 说明 |

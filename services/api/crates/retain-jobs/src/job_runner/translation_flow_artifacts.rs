@@ -8,6 +8,7 @@ use crate::storage_paths::build_job_paths;
 
 use crate::job_runner::stage_contract::ocr_ready_inputs_for_translation;
 use crate::job_runner::{attach_job_paths, ProcessRuntimeDeps};
+use super::translation_checkpoint_resume::import_translation_checkpoint_candidate;
 
 pub(super) async fn prepare_job_from_ocr_artifacts(
     deps: &ProcessRuntimeDeps,
@@ -27,6 +28,12 @@ pub(super) async fn prepare_job_from_ocr_artifacts(
     let layout_json_path = ocr_inputs.layout_json_path;
 
     let job_paths = build_job_paths(&deps.persist.output_root, &job.job_id)?;
+    import_translation_checkpoint_candidate(
+        &deps.persist.output_root,
+        &source_job.job_id,
+        &source_job.status,
+        &job_paths.translated_dir,
+    )?;
     attach_job_paths(&mut job, &job_paths);
     copy_ocr_checkpoint_artifacts(&mut job, &source_job_id, source_artifacts);
     if let Some(artifacts) = job.artifacts.as_mut() {

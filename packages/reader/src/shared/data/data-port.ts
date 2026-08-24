@@ -1,6 +1,8 @@
 // 共享真值（原 apps/web/src/js/reader/data-port.ts），已抽离为纯函数 + 可注入依赖
 // 不直接 import apps/web 的 api/http，改为参数注入，默认用 window/fetch 或空实现
 
+import { loadMarkdownPayloadWithFallback } from "./markdown-payload.js";
+
 const DEFAULT_API_PREFIX = "/api/v1";
 
 function defaultLoadJob(): Promise<unknown> {
@@ -77,15 +79,10 @@ export function createReaderDataPort({
   }
 
   async function loadMarkdownPayload(jobId: string) {
-    try {
-      const documentPayload = await loadMarkdownDocument(jobId, apiPrefix);
-      if (documentPayload) {
-        return documentPayload;
-      }
-    } catch (_err) {
-      /* fall through */
-    }
-    return loadMarkdown(jobId, apiPrefix);
+    return loadMarkdownPayloadWithFallback(
+      () => loadMarkdownDocument(jobId, apiPrefix),
+      () => loadMarkdown(jobId, apiPrefix),
+    );
   }
 
   function submitAiChat(jobId: string, payload: unknown) {

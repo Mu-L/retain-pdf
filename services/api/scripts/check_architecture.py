@@ -101,6 +101,15 @@ ROUTE_SERVICE_IMPORT_ALLOWLIST = {
     Path("src/routes/glossaries.rs"): (
         "crate::services::glossary_api::",
     ),
+    Path("src/routes/document_operations.rs"): (
+        "crate::services::document_operation_api::",
+    ),
+    Path("src/routes/agent_runtime_sessions.rs"): (
+        "crate::services::agent_runtime_sessions::",
+    ),
+    Path("src/routes/agent_capabilities.rs"): (
+        "crate::services::agent_capability_api::",
+    ),
     Path("src/routes/library.rs"): (
         "crate::services::library_api::",
     ),
@@ -120,6 +129,7 @@ ROUTE_SERVICE_IMPORT_ALLOWLIST = {
     ),
     Path("src/routes/common.rs"): (
         "crate::app::{build_jobs_facade_from_state, AppState}",
+        "crate::services::agent_capabilities::AgentCapabilityAuthority",
         "crate::services::jobs::JobsFacade",
         "crate::services::library::LibraryDeps",
     ),

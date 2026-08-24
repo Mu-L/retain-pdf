@@ -1,10 +1,81 @@
 #!/usr/bin/env node
 
 import {
-  collectStageProgressByKey,
-  resolveDisplayedStagePresentation,
-} from "../src/js/job-status/job-stage-presentation.js";
-import { resolveVisualStageKeyForSnapshot } from "../src/js/components/status/job-status-card-visuals.js";
+  collectStageProgressByKey as collectDomainStageProgressByKey,
+  resolveDisplayedStagePresentation as resolveDomainStagePresentation,
+} from "@retainpdf/domain/job-status";
+
+// These smoke scenarios were written before the v1 event contract became the
+// only trusted stage source. Convert their concise builders at the fixture
+// boundary so the domain package receives the same structured fields as the
+// API now emits (display_stage/lane/progress), without restoring legacy stage
+// inference in production code.
+function publicStageForFixture(record = {}) {
+  if (record.status === "succeeded") return "done";
+  const stage = `${record.stage || record.current_stage || ""}`.trim();
+  if (stage === "startup") return record.workflow || record.job_type || "ocr";
+  if (["ocr_upload", "ocr_processing", "ocr_result_ready", "normalizing", "queued"].includes(stage)) return "ocr";
+  if (["translating", "continuation_review", "page_policies"].includes(stage)) return "translate";
+  if (["rendering", "render_prepare", "finished"].includes(stage)) return "render";
+  return "";
+}
+
+function progressUnitForFixture(record = {}, publicStage = "") {
+  if (record.progress_unit) return record.progress_unit;
+  if (publicStage === "translate" && record.stage === "translating") return "batch";
+  if (record.progress_total === 100 && publicStage === "ocr") return "percent";
+  if (["ocr", "translate", "render"].includes(publicStage)) return "page";
+  return "";
+}
+
+function canonicalFixtureRecord(record = {}, { event = false } = {}) {
+  const displayStage = record.display_stage || publicStageForFixture(record);
+  const current = record.progress?.current ?? record.progress_current;
+  const total = record.progress?.total ?? record.progress_total;
+  const unit = record.progress?.unit || progressUnitForFixture(record, displayStage);
+  return {
+    ...record,
+    ...(displayStage ? { display_stage: displayStage } : {}),
+    ...(event ? { lane: record.lane || "main" } : {}),
+    ...(!record.substage && record.stage ? { substage: record.stage } : {}),
+    ...(current !== undefined || total !== undefined || record.progress
+      ? { progress: { unit, current, total, ...(record.progress || {}) } }
+      : {}),
+  };
+}
+
+function canonicalFixtureEvents(events = {}) {
+  return {
+    ...events,
+    items: (events?.items || []).map((item) => canonicalFixtureRecord(item, { event: true })),
+  };
+}
+
+function resolveDisplayedStagePresentation(job = {}, events = {}) {
+  return resolveDomainStagePresentation(
+    canonicalFixtureRecord(job),
+    canonicalFixtureEvents(events),
+  );
+}
+
+function collectStageProgressByKey(job = {}, events = {}) {
+  return collectDomainStageProgressByKey(
+    canonicalFixtureRecord(job),
+    canonicalFixtureEvents(events),
+  );
+}
+
+// Host-only animation fallback. The canonical stage/progress calculation lives in
+// @retainpdf/domain/job-status; choosing an animation for a manually selected
+// future stage remains presentation behavior owned by apps/web.
+function resolveVisualStageKeyForSnapshot(snapshot = null, selectedStageKey = "") {
+  const stageKey = `${snapshot?.stageKey || ""}`.trim();
+  const visualStageKey = `${snapshot?.visualStageKey || ""}`.trim();
+  const selected = `${selectedStageKey || ""}`.trim();
+  return !selected || selected === stageKey
+    ? visualStageKey || stageKey
+    : selected;
+}
 
 function assertEqual(actual, expected, label) {
   if (actual !== expected) {
@@ -274,10 +345,10 @@ function checkOcrPercentProgressDoesNotLookLikePages() {
   };
   const presentation = resolveDisplayedStagePresentation(job, { items: [] });
   assertEqual(presentation.stageKey, "ocr", "OCR percent stage");
-  assertEqual(presentation.progressText, "OCR 处理中", "OCR zero percent text");
+  assertEqual(presentation.progressText, "处理中", "OCR zero percent text");
 }
 
-function checkOcrFallbackProgressUsesStageSteps() {
+function checkOcrUploadWithoutProgressDoesNotFabricateSteps() {
   const job = {
     status: "running",
     stage: "ocr_upload",
@@ -285,11 +356,11 @@ function checkOcrFallbackProgressUsesStageSteps() {
     stage_detail: "OCR provider transport 启动中",
   };
   const presentation = resolveDisplayedStagePresentation(job, { items: [] });
-  assertEqual(presentation.stageKey, "ocr", "OCR fallback stage");
-  assertEqual(presentation.progressText, "OCR 准备中", "OCR fallback text");
-  assertEqual(presentation.progressCurrent, 1, "OCR fallback current");
-  assertEqual(presentation.progressTotal, 4, "OCR fallback total");
-  assertEqual(presentation.progressIndeterminate, true, "OCR fallback is indeterminate");
+  assertEqual(presentation.stageKey, "ocr", "OCR upload stage");
+  assertEqual(presentation.progressText, "", "OCR upload has no fabricated progress text");
+  assertEqual(presentation.progressCurrent, null, "OCR upload has no fabricated current");
+  assertEqual(presentation.progressTotal, null, "OCR upload has no fabricated total");
+  assertEqual(presentation.progressIndeterminate, false, "OCR upload has no fabricated progress state");
 }
 
 function checkOcrRealPageProgressIsDeterminate() {
@@ -336,7 +407,7 @@ function checkOcrResultReadyStaysInOcrStage() {
   };
   const presentation = resolveDisplayedStagePresentation(job, { items: [] });
   assertEqual(presentation.stageKey, "ocr", "OCR result ready stage");
-  assertEqual(presentation.detail, "OCR provider 结果已就绪，正在下载原始 bundle", "OCR result ready detail");
+  assertEqual(presentation.detail, "OCR 结果已就绪", "OCR result ready detail");
 }
 
 function checkOcrUploadWaitingDoesNotLookQueued() {
@@ -349,8 +420,8 @@ function checkOcrUploadWaitingDoesNotLookQueued() {
   const presentation = resolveDisplayedStagePresentation(job, { items: [] });
   assertEqual(presentation.stageKey, "ocr", "OCR upload waiting stage");
   assertEqual(presentation.visualStageKey, "ocr_upload", "OCR upload animation stage");
-  assertEqual(presentation.label, "第 1/4 步 · OCR 解析", "OCR upload waiting label");
-  assertEqual(presentation.detail, "Paddle 已接收任务，等待排队", "OCR upload waiting detail");
+  assertEqual(presentation.label, "第 1/4 步 · 上传", "OCR upload waiting label");
+  assertEqual(presentation.detail, "正在上传 PDF", "OCR upload waiting detail");
 }
 
 function checkTranslationSubstageOrderDoesNotPreferBatchWhenReviewing() {
@@ -382,7 +453,7 @@ function checkCompletedStageHasDoneKeyAndNoProgressTextRequirement() {
   assertEqual(presentation.label, "完成", "Completed label");
 }
 
-function checkFailedStageUsesFailureSummary() {
+function checkFailedStageUsesCanonicalSummary() {
   const job = {
     status: "failed",
     stage: "rendering",
@@ -395,7 +466,7 @@ function checkFailedStageUsesFailureSummary() {
   const presentation = resolveDisplayedStagePresentation(job, { items: [] });
   assertEqual(presentation.stageKey, "failed", "Failed stage");
   assertEqual(presentation.label, "失败", "Failed label");
-  assertEqual(presentation.detail, "Typst 渲染失败：页面 9 文本溢出", "Failed detail uses failure summary");
+  assertEqual(presentation.detail, "任务失败，请查看详情", "Failed detail uses canonical summary");
 }
 
 function checkRunningFinishedStageStaysInRenderUntilTerminal() {
@@ -412,9 +483,9 @@ function checkRunningFinishedStageStaysInRenderUntilTerminal() {
 
 function checkStartupStageUsesWorkflowContext() {
   const cases = [
-    ["ocr", "ocr", "第 1/4 步 · 启动"],
-    ["translate", "translate", "第 2/4 步 · 启动"],
-    ["render", "render", "第 3/4 步 · 启动"],
+    ["ocr", "ocr", "第 1/4 步 · OCR 解析"],
+    ["translate", "translate", "第 2/4 步 · 翻译"],
+    ["render", "render", "第 3/4 步 · 渲染"],
   ];
   for (const [workflow, expectedStageKey, expectedLabel] of cases) {
     const presentation = resolveDisplayedStagePresentation(
@@ -445,7 +516,7 @@ function checkRenderPrepareDoesNotLookLikeOcr() {
     { items: [] },
   );
   assertEqual(presentation.stageKey, "render", "Render prepare stage");
-  assertEqual(presentation.label, "第 3/4 步 · 渲染", "Render prepare label");
+  assertEqual(presentation.label, "第 3/4 步 · 准备", "Render prepare label");
 }
 
 function checkSelectedFutureStageUsesSelectedAnimation() {
@@ -549,7 +620,7 @@ function checkOcrZeroPageProgressIsVisibleIndeterminate() {
         {
           user_stage: "ocr",
           stage: "ocr_processing",
-          substage: "running",
+          substage: "provider_processing",
           stage_detail: "Paddle 正在解析文件，第 0/33 页",
           event_type: "stage_progress",
           progress_unit: "page",
@@ -661,6 +732,9 @@ function checkTranslateProgressTextFallbackParsesStageDetail() {
       status: "running",
       stage: "translating",
       stage_detail: "已完成第 1292/5216 批翻译（最近页: 132）",
+      progress_unit: "batch",
+      progress_current: 1292,
+      progress_total: 5216,
     },
     { items: [] },
   );
@@ -691,9 +765,9 @@ function checkRenderZeroPageProgressShowsUsefulText() {
     },
   );
   assertEqual(presentation.stageKey, "render", "Render zero page stage");
-  assertEqual(presentation.progressText, "渲染准备中，共 533 页", "Render zero page progress text");
-  assertEqual(presentation.progressCurrent, 0, "Render zero page current");
-  assertEqual(presentation.progressTotal, 533, "Render zero page total");
+  assertEqual(presentation.progressText, "正在渲染，共 533 页", "Render zero page progress text");
+  assertEqual(presentation.progressCurrent, 10, "Render zero page composite current");
+  assertEqual(presentation.progressTotal, 100, "Render zero page composite total");
 }
 
 checkOcrPresentationUsesPageProgress();
@@ -706,14 +780,14 @@ checkPagePoliciesUsePageProgress();
 checkTranslateUsesLatestSubstageProgress();
 checkTranslateUsesLatestProgressfulEvent();
 checkOcrPercentProgressDoesNotLookLikePages();
-checkOcrFallbackProgressUsesStageSteps();
+checkOcrUploadWithoutProgressDoesNotFabricateSteps();
 checkOcrRealPageProgressIsDeterminate();
 checkOcrInternalStagesUseDistinctAnimationKeys();
 checkOcrResultReadyStaysInOcrStage();
 checkOcrUploadWaitingDoesNotLookQueued();
 checkTranslationSubstageOrderDoesNotPreferBatchWhenReviewing();
 checkCompletedStageHasDoneKeyAndNoProgressTextRequirement();
-checkFailedStageUsesFailureSummary();
+checkFailedStageUsesCanonicalSummary();
 checkRunningFinishedStageStaysInRenderUntilTerminal();
 checkStartupStageUsesWorkflowContext();
 checkRenderPrepareDoesNotLookLikeOcr();

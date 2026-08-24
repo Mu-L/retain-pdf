@@ -17,7 +17,7 @@
  */
 import { useCallback, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { API_PREFIX } from '@retainpdf/api/internal/runtime'
+import { API_PREFIX } from '@retainpdf/api/runtime'
 
 import {
   buildUploadUrl,

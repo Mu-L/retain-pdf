@@ -48,6 +48,8 @@ pub struct JobArtifacts {
     pub schema_version: Option<String>,
     pub trace_id: Option<String>,
     pub provider_trace_id: Option<String>,
+    #[serde(default)]
+    pub translation_checkpoint_json: Option<String>,
     pub translations_dir: Option<String>,
     pub output_pdf: Option<String>,
     #[serde(default)]

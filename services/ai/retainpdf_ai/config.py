@@ -32,6 +32,20 @@ class Settings:
     memory_window_turns: int = 6
     memory_compress_after_turns: int = 12
     memory_max_chars: int = 24000
+    # Agent harness selection. `python` preserves the current retrieval loop;
+    # `fx` enables the experimental, version-pinned ACP adapter.
+    agent_runtime: str = "python"
+    fx_command: str = "fx"
+    # Real backend CLI. fx sees only a generated broker wrapper with this name.
+    fx_agent_cli_command: str = "retainpdf-agent"
+    fx_expected_version: str = "0.0.5"
+    fx_gateway_api_key: str = ""
+    fx_model: str = ""
+    fx_startup_timeout_s: float = 10.0
+    fx_turn_timeout_s: float = 120.0
+    fx_state_root: Path = field(
+        default_factory=lambda: _repo_root() / "data" / "agent-runtime" / "fx"
+    )
     # 任务产物根目录(data/jobs/<job_id>/...)
     data_root: Path = field(default_factory=lambda: _repo_root() / "data")
 
@@ -59,5 +73,28 @@ def load_settings() -> Settings:
         memory_window_turns=int(os.environ.get("RETAIN_AI_MEMORY_WINDOW_TURNS", "6")),
         memory_compress_after_turns=int(os.environ.get("RETAIN_AI_MEMORY_COMPRESS_AFTER_TURNS", "12")),
         memory_max_chars=int(os.environ.get("RETAIN_AI_MEMORY_MAX_CHARS", "24000")),
+        agent_runtime=os.environ.get("RETAIN_AI_RUNTIME", "python").strip().lower(),
+        fx_command=os.environ.get("RETAIN_AI_FX_COMMAND", "fx").strip() or "fx",
+        fx_agent_cli_command=os.environ.get(
+            "RETAIN_AI_FX_AGENT_CLI_COMMAND", "retainpdf-agent"
+        ).strip()
+        or "retainpdf-agent",
+        fx_expected_version=os.environ.get(
+            "RETAIN_AI_FX_EXPECTED_VERSION", "0.0.5"
+        ).strip(),
+        fx_gateway_api_key=os.environ.get(
+            "RETAIN_AI_FX_GATEWAY_API_KEY", ""
+        ).strip(),
+        fx_model=os.environ.get("RETAIN_AI_FX_MODEL", "").strip(),
+        fx_startup_timeout_s=float(
+            os.environ.get("RETAIN_AI_FX_STARTUP_TIMEOUT_SECS", "10")
+        ),
+        fx_turn_timeout_s=float(
+            os.environ.get("RETAIN_AI_FX_TURN_TIMEOUT_SECS", "120")
+        ),
+        fx_state_root=Path(
+            os.environ.get("RETAIN_AI_FX_STATE_ROOT", "").strip()
+            or (_repo_root() / "data" / "agent-runtime" / "fx")
+        ),
         data_root=Path(data_root) if data_root else _repo_root() / "data",
     )

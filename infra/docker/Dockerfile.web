@@ -5,23 +5,27 @@ ENV RETAIN_PDF_VERSION="${RETAIN_PDF_VERSION}"
 
 WORKDIR /app
 
-# workspace packages needed for @retainpdf/* file: deps (reader/ui/api)
-COPY package.json ./
-COPY packages/reader/package.json ./packages/reader/package.json
-COPY packages/ui/package.json ./packages/ui/package.json
+# Install from the monorepo lock. Running npm ci from apps/web while a workspace
+# root package.json exists makes npm resolve /app as the install root, so the
+# root lock and every workspace manifest must be present in this cache layer.
+COPY package.json package-lock.json ./
+COPY apps/desktop/package.json ./apps/desktop/package.json
+COPY apps/web/package.json ./apps/web/package.json
+COPY apps/web-react/package.json ./apps/web-react/package.json
 COPY packages/api/package.json ./packages/api/package.json
-COPY apps/web/package.json apps/web/package-lock.json ./apps/web/
+COPY packages/domain/package.json ./packages/domain/package.json
+COPY packages/reader/package.json ./packages/reader/package.json
+COPY packages/schemas/package.json ./packages/schemas/package.json
+COPY packages/ui/package.json ./packages/ui/package.json
+RUN npm ci --ignore-scripts
+
 COPY packages/reader/ ./packages/reader/
 COPY packages/ui/ ./packages/ui/
 COPY packages/api/ ./packages/api/
-# strip scripts that need local node_modules (prevent npm ci from running package prepare)
-RUN rm -rf ./packages/reader/node_modules ./packages/ui/node_modules || true
-
+COPY packages/domain/ ./packages/domain/
+COPY packages/schemas/ ./packages/schemas/
+COPY apps/web/ ./apps/web/
 WORKDIR /app/apps/web
-RUN npm ci
-
-COPY apps/desktop/package.json /app/apps/desktop/package.json
-COPY apps/web/ ./
 RUN npm run build && \
   : > ./runtime-config.local.js
 

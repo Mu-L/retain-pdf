@@ -14,7 +14,20 @@ pub(super) fn apply_multipart_request_field(
 ) -> Result<(), AppError> {
     match name {
         "developer_mode" => *developer_mode = parse_bool_like(value),
-        "workflow" => {}
+        "workflow" => {
+            // 后端吸怪：显式接收 workflow，便于日志/校验与未来多工作流复用；未知值保持原值，由 job_builders 再强制为 Ocr
+            let normalized = value.trim().to_lowercase();
+            let parsed = match normalized.as_str() {
+                "ocr" => Some(crate::models::domain::WorkflowKind::Ocr),
+                "book" => Some(crate::models::domain::WorkflowKind::Book),
+                "translate" => Some(crate::models::domain::WorkflowKind::Translate),
+                "render" => Some(crate::models::domain::WorkflowKind::Render),
+                _ => None,
+            };
+            if let Some(kind) = parsed {
+                request.workflow = kind;
+            }
+        }
         "upload_id" => request.source.upload_id = value.to_string(),
         "source_url" => request.source.source_url = value.to_string(),
         "artifact_job_id" => request.source.artifact_job_id = value.to_string(),

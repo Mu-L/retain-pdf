@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { BookOpen, FlaskConical, ListTree, Loader2, Sparkles } from "lucide-react";
+import { AiMarkdownAnswer } from "@retainpdf/reader/ai";
+import "@retainpdf/reader/ai.css";
 import type { HomeAskMessage } from "./types.ts";
 
 export const HOME_ASK_SUGGESTIONS: Array<{
@@ -13,30 +15,20 @@ export const HOME_ASK_SUGGESTIONS: Array<{
   { prompt: "用几句话总结图书馆里一篇核心论文。", label: "快速总结一篇", icon: Sparkles },
 ];
 
-function escapeHtml(value: string): string {
-  return `${value}`.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
-}
-
-function renderStreamingPreviewHtml(text: string): string {
-  const escaped = escapeHtml(text || "");
-  return escaped
-    .replace(/`([^`\n]+)`/g, "<code>$1</code>")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/\n/g, "<br />");
-}
-
 function AssistantBody({ message }: { message: HomeAskMessage }) {
   const streaming = message.status === "streaming";
   const bodyText = `${message.content || ""}`;
-  const streamingHtml = useMemo(() => (streaming && bodyText ? renderStreamingPreviewHtml(bodyText) : ""), [streaming, bodyText]);
-
-  if (streaming) {
-    if (!bodyText.trim()) return null;
-    return <div className="prose prose-sm max-w-none text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: streamingHtml }} />;
-  }
-  if (!bodyText.trim()) return null;
-  // For non-streaming, simple escaped rendering. Could integrate marked but keep lightweight.
-  return <div className="prose prose-sm max-w-none whitespace-pre-wrap text-sm leading-relaxed">{bodyText}</div>;
+  return (
+    <AiMarkdownAnswer
+      content={bodyText}
+      streaming={streaming}
+      citations={message.citations || []}
+      className="prose prose-sm max-w-none text-sm leading-relaxed"
+      streamingClassName="whitespace-pre-wrap"
+      pendingClassName="whitespace-pre-wrap"
+      finalClassName="whitespace-normal"
+    />
+  );
 }
 
 export type HomeAskThreadProps = {

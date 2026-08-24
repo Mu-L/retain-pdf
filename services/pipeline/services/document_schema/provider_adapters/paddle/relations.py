@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from html import unescape
 import re
 
 from services.document_schema.provider_adapters.common import classify_with_previous_anchor
@@ -81,7 +82,10 @@ def resolve_figure_title(
     text: str,
     previous_anchor: tuple[str, int] | None,
 ) -> tuple[str, str, list[str], dict]:
-    del text, previous_anchor
+    del previous_anchor
+    plain_text = " ".join(unescape(re.sub(r"<[^>]+>", " ", text or "")).split())
+    if re.match(r"^(?:table\b|表(?:格)?\s*\d)", plain_text, flags=re.IGNORECASE):
+        return "text", "table_caption", ["caption", "table_caption"], {"caption_target": "table"}
     return "text", "figure_caption", ["caption", "figure_caption"], {"caption_target": "figure"}
 
 

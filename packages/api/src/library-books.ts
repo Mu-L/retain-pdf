@@ -1,8 +1,12 @@
-// Library books API — standalone, wraps @retainpdf/schemas/library-books.v1
+// Library books API — standalone, typed by @retainpdf/contracts/library-books
 // No apps/web deps; browser-aware (reads window.__FRONT_RUNTIME_CONFIG__ for apiBase / X-API-Key if present).
 
 import { buildApiHeaders, buildApiUrl, unwrapEnvelope } from "./internal/runtime.js";
 import { stripOcrSuffix } from "./utils/strip-ocr.js";
+import type {
+  LibraryBookListView,
+  LibraryDeleteResultView,
+} from "@retainpdf/contracts/library-books";
 
 function buildApiEndpoint(apiPrefix: string | undefined, path: string): string {
   return buildApiUrl(apiPrefix, path);
@@ -11,7 +15,7 @@ function buildApiEndpoint(apiPrefix: string | undefined, path: string): string {
 export async function fetchLibraryBookList(
   apiPrefix: string,
   { limit = 40, offset = 0, q = "", jobIds = [] as string[] } = {},
-) {
+): Promise<LibraryBookListView> {
   const params = new URLSearchParams();
   params.set("limit", `${limit}`);
   params.set("offset", `${offset}`);
@@ -23,10 +27,14 @@ export async function fetchLibraryBookList(
     headers: buildApiHeaders(),
   });
   if (!resp.ok) throw new Error(`读取图书馆失败，请稍后重试。(${resp.status})`);
-  return unwrapEnvelope(await resp.json());
+  return unwrapEnvelope<LibraryBookListView>(await resp.json());
 }
 
-export async function deleteLibraryBook(apiPrefix: string, jobId: string, { force = false } = {}) {
+export async function deleteLibraryBook(
+  apiPrefix: string,
+  jobId: string,
+  { force = false } = {},
+): Promise<LibraryDeleteResultView> {
   const normalizedJobId = stripOcrSuffix(`${jobId || ""}`);
   if (!normalizedJobId) throw new Error("删除失败: 缺少 job_id");
   const params = force ? "?force=true" : "";
@@ -35,10 +43,11 @@ export async function deleteLibraryBook(apiPrefix: string, jobId: string, { forc
     { method: "DELETE", headers: buildApiHeaders() },
   );
   if (!resp.ok) {
-    const envelope: any = await resp.json().catch(() => null);
-    const error = new Error(`${envelope?.message || "删除任务失败，请稍后重试。"}(${resp.status})`) as Error & { status?: number };
+    const envelope = await resp.json().catch(() => null) as { message?: unknown } | null;
+    const message = typeof envelope?.message === "string" ? envelope.message : "删除任务失败，请稍后重试。";
+    const error = new Error(`${message}(${resp.status})`) as Error & { status?: number };
     error.status = resp.status;
     throw error;
   }
-  return unwrapEnvelope(await resp.json());
+  return unwrapEnvelope<LibraryDeleteResultView>(await resp.json());
 }

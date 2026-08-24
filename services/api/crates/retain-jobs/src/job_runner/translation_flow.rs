@@ -6,6 +6,8 @@ use crate::storage_paths::build_job_paths;
 
 #[path = "translation_flow_artifacts.rs"]
 mod translation_flow_artifacts;
+#[path = "translation_checkpoint_resume.rs"]
+mod translation_checkpoint_resume;
 #[path = "translation_flow_child.rs"]
 mod translation_flow_child;
 #[path = "translation_flow_executor.rs"]

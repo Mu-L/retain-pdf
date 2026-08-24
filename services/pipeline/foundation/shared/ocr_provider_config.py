@@ -183,9 +183,19 @@ def _legacy_provider_definitions() -> dict[str, dict[str, Any]]:
     }
 
 
-@lru_cache(maxsize=1)
 def _ocr_provider_config() -> dict[str, Any]:
-    path = _config_path()
+    return _load_ocr_provider_config(str(_config_path()))
+
+
+@lru_cache(maxsize=8)
+def _load_ocr_provider_config(path_text: str) -> dict[str, Any]:
+    """Cache each configured source independently.
+
+    Tests and embedded hosts may temporarily switch RETAIN_OCR_PROVIDER_CONFIG.
+    Keying the cache by resolved path prevents one temporary provider registry
+    from leaking into later normalization jobs after the environment is restored.
+    """
+    path = Path(path_text)
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except Exception:

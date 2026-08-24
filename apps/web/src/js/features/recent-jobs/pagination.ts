@@ -1,4 +1,4 @@
-import { flattenStageSnapshot } from "../../job/stage-snapshot-flatten.js";
+import { flattenStageSnapshot } from "@retainpdf/domain/job";
 
 export const RECENT_JOBS_PAGE_SIZE = 24;
 

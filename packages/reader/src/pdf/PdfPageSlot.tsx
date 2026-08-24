@@ -7,6 +7,10 @@ import {
   READER_PAGE_SLOT_CLASS,
   type ReaderPaneId,
 } from "./reader-dom-contract.js";
+import {
+  projectReaderRegion,
+  type ReaderRegionHighlight,
+} from "../shared/data/reader-regions.js";
 
 export const DEFAULT_ASPECT = 1.414;
 const ROOT_MARGIN = "120% 0px";
@@ -25,6 +29,7 @@ export type PdfPageSlotProps = {
   onAspectChange?: (pageNumber: number, aspect: number) => void;
   /** pane-level windowing sentinel registration (shared observer also handles windowing) */
   sentinelRef?: (el: HTMLDivElement | null) => void;
+  regionHighlight?: ReaderRegionHighlight | null;
 };
 
 type SharedObserverEntry = {
@@ -81,6 +86,7 @@ function PdfPageSlotInner({
   cachedAspect,
   onAspectChange,
   sentinelRef,
+  regionHighlight = null,
 }: PdfPageSlotProps) {
   const slotRef = useRef<HTMLDivElement | null>(null);
   const [active, setActive] = useState(false);
@@ -137,6 +143,7 @@ function PdfPageSlotInner({
   // 旧引擎 page 固定 height = viewport * scale
   const naturalHeight = Math.max(120, Math.floor(width * aspect));
   const boxHeight = Math.max(naturalHeight, Math.ceil(syncedMinHeight || 0));
+  const regionRect = projectReaderRegion(regionHighlight, width, naturalHeight);
 
   // notify pane of aspect so placeholder heights stay correct when windowed out
   const handleAspect = (next: number) => {
@@ -200,6 +207,14 @@ function PdfPageSlotInner({
           aria-hidden
         />
       )}
+      {regionRect ? (
+        <div
+          className="reader-react-pdf-region-highlight"
+          data-reader-region-id={regionHighlight?.itemId}
+          style={regionRect}
+          aria-hidden="true"
+        />
+      ) : null}
     </div>
   );
 }

@@ -99,3 +99,49 @@ def test_materialize_paddle_markdown_artifacts_rewrites_page_prefixed_src_with_u
     assert "![Image](images/page-5/imgs/img_in_image_box_657_704_1045_962.jpg)" in content
     assert "<img" not in content
     assert (job_root / "md" / "images" / "page-5" / "imgs" / "img_in_image_box_657_704_1045_962.jpg").exists()
+
+
+def test_materialize_paddle_markdown_artifacts_rewrites_markdown_image_src(tmp_path: Path) -> None:
+    job_root = tmp_path / "job-root"
+    payload = {
+        "layoutParsingResults": [
+            {
+                "markdown": {
+                    "text": "![Pipeline chart](imgs/chart.png)",
+                    "images": {"imgs/chart.png": PNG_1X1_BASE64},
+                }
+            }
+        ]
+    }
+
+    full_md_path = provider_pipeline.materialize_paddle_markdown_artifacts(
+        payload=payload,
+        job_root=job_root,
+    )
+
+    content = full_md_path.read_text(encoding="utf-8")
+    assert "![Pipeline chart](images/page-1/imgs/chart.png)" in content
+    assert (job_root / "md" / "images" / "page-1" / "imgs" / "chart.png").exists()
+
+
+def test_materialize_paddle_markdown_artifacts_preserves_external_markdown_image(tmp_path: Path) -> None:
+    job_root = tmp_path / "job-root"
+    payload = {
+        "layoutParsingResults": [
+            {
+                "markdown": {
+                    "text": "![External](https://example.test/chart.png)",
+                    "images": {},
+                }
+            }
+        ]
+    }
+
+    full_md_path = provider_pipeline.materialize_paddle_markdown_artifacts(
+        payload=payload,
+        job_root=job_root,
+    )
+
+    assert full_md_path.read_text(encoding="utf-8") == (
+        "![External](https://example.test/chart.png)\n"
+    )

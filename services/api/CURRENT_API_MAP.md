@@ -99,6 +99,7 @@
 - `ocr.provider` 决定 OCR 用哪个 provider
 - `GET /api/v1/providers/ocr` 是前端和外部集成方发现 provider credential/options/capabilities 的入口
 - provider-specific 非密钥参数统一放在 `ocr.options`；multipart helper 使用 JSON 字符串字段 `ocr_options`
+- Paddle 默认 transport 仍是 `ocr.options.transport=official_http`；可选 `official_cli` 只允许 `workflow=ocr` 的 Markdown/粗粒度提取，不进入依赖 `bbox`/`prunedResult` 的翻译和渲染链
 
 关键代码：
 
@@ -396,3 +397,73 @@ Rust API 生产主链入口。
 ### 看最终主链结果
 
 - `DATA_ROOT/jobs/<job_id>/artifacts/pipeline_summary.json`
+
+## 12. 当前本地 Agent document-operation 链
+
+后端已经有一条不经过 MCP、也不经过前端的本地控制链：
+
+```text
+retainpdf-agent CLI
+  <- RETAINPDF_AGENT_CAPABILITY (1..300 秒，conversation/document/action scoped)
+  -> /api/v1/internal/agent/operations/*
+  -> Rust document_operations service
+  -> SQLite operation/attempt/event/version tables
+  -> restricted_page_program_v1 executor
+  -> validated immutable candidate.pdf
+```
+
+模型可以提交 `retainpdf_page_program_v1`，按顺序组合 `select_pages` 与
+`rotate_pages`，实现整页删除、重排、复制和旋转。Rust 会持久化不可变源文件、
+规范化程序及 dispatch identity；固定 Python worker 只解释这套封闭数据协议，
+生成的 candidate 还会逐页按批准的页面映射和旋转规则进行 PyMuPDF 栅格化
+（整页等比例缩放，最长边最大 512px）；
+预期页与输出页的 RGB 像素必须一致。Rust 会复核 compact visual report 的 hash、
+页面计划、几何摘要和零 mismatch 结论，再结合大小、文件数、非 symlink、PDF
+可读性与页数验证，之后才进入 `result_ready`。任意 Python、Typst、Ghostscript
+等生成代码仍未开放，
+必须等独立 OS/container 隔离完成后再接入。
+
+`operation.run` 现在也承担显式重试，但不会增加一个新的模型工具：`failed`
+会保留旧 attempt 并创建新 attempt；`ambiguous` 只有在请求明确携带
+`accept_duplicate_risk=true` 时才允许。新 attempt 持久化 retry idempotency
+key，因此断网后重复同一请求只会回放原 attempt；活动文档版本已变化则 409
+拒绝，避免在过期 base 上继续执行。
+
+Rust 已实现 `POST /api/v1/internal/agent/capabilities`。完整 API key 只在可信
+后端签发阶段使用；CLI 优先发送短期 capability。token 不入库，API 重启或
+过期即失效，并且不能访问 runtime-session、不能再次签发、不能越过绑定的
+conversation/document/action。fx 进程仍拿不到 token；宿主命令中介会验证命令
+并代执行，不能把 capability 放进 fx 的环境变量或命令参数。每次实际调用只
+签发一个 action、60 秒的 capability，并在 fx 外启动真实 CLI。
+
+关键代码：
+
+- [`src/bin/retainpdf-agent.rs`](src/bin/retainpdf-agent.rs)
+- [`src/routes/document_operations.rs`](src/routes/document_operations.rs)
+- [`src/services/document_operations`](src/services/document_operations)
+- [`crates/retain-data/src/db/document_operations.rs`](crates/retain-data/src/db/document_operations.rs)
+
+fx runtime 链已经通过受限宿主中介接入 CLI：
+
+```text
+/v1/ask
+  -> AgentRuntime (python default / fx explicit)
+  -> fx acp 0.0.5, private HOME/workspace, no MCP
+  -> exact argv permission + single-use Unix-socket wrapper
+  -> host-issued capability + real retainpdf-agent subprocess
+  -> Rust runtime-session cursor API (revision CAS)
+```
+
+对应内部 cursor 接口：
+
+```text
+GET/PUT/DELETE /api/v1/internal/agent/runtime-sessions/:conversation_id
+```
+
+除严格匹配的 `document inspect` 和 operation lifecycle 命令外，fx permission
+仍全部 fail closed。当前用户消息会在启动 fx 前先写入 Rust 对话，模型无法
+伪造 document/conversation/message scope；run/commit 还需要请求级显式确认。
+这使模型可以管理并执行 durable 的受限整页变换，但仍不能直接执行任意 PDF
+代码。浏览器断线不取消 operation；API 重启后会从 run index、terminal result
+和 SQLite 事件恢复。candidate 只会在显式 commit 后成为文档的 active source，
+下一次文档操作和翻译都会以该版本为基础。

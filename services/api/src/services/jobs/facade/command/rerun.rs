@@ -3,6 +3,7 @@ use crate::models::api::JobSubmissionView;
 use crate::models::domain::{now_iso, JobSnapshot, JobStatusKind, WorkflowKind};
 use crate::models::request::{CreateJobInput, JobSourceInput};
 use crate::services::jobs::stage_plan::resume_plan;
+use crate::services::jobs::translation_request_recovery::load_translation_request_recovery;
 
 use super::super::super::creation::create_translation_job;
 use super::super::super::query::load_job_or_404;
@@ -16,12 +17,18 @@ impl<'a> JobsFacade<'a> {
         source_job_id: &str,
     ) -> Result<JobSubmissionView, AppError> {
         let source_job = load_job_or_404(self.command.db, source_job_id)?;
-        if resume_plan(&source_job).resume_workflow == Some(WorkflowKind::Render) {
+        let plan = resume_plan(&source_job, self.command.control.data_root);
+        if plan.resume_workflow == Some(WorkflowKind::Render) {
             let job_id = source_job.job_id.clone();
             let ocr_child_id = format!("{}-ocr", job_id);
             // Clean up any previous OCR child that is now orphaned due to in-place rerender
             let _ = self.command.db.delete_job(&ocr_child_id);
-            let ocr_child_dir = self.command.control.data_root.join("jobs").join(&ocr_child_id);
+            let ocr_child_dir = self
+                .command
+                .control
+                .data_root
+                .join("jobs")
+                .join(&ocr_child_id);
             let _ = std::fs::remove_dir_all(&ocr_child_dir);
             // Also clear any stale rendered output on disk that would otherwise make
             // completion's Path::exists() treat old PDF as success
@@ -41,7 +48,14 @@ impl<'a> JobsFacade<'a> {
                 WorkflowKind::Render,
             ));
         }
-        let request = build_rerun_request(&source_job)?;
+        if load_translation_request_recovery(&source_job, self.command.control.data_root)
+            .is_some_and(|state| state.requires_confirmation)
+        {
+            return Err(AppError::conflict(
+                "translation request outcome is ambiguous; generic rerun is paused. Use retry-stage with stage=translation and ambiguous_request_policy=accept_duplicate_risk",
+            ));
+        }
+        let request = build_rerun_request(&source_job, self.command.control.data_root)?;
         let workflow = request.workflow.clone();
         let job = create_translation_job(&self.command.submit, &request)?;
         Ok(self.build_submission_view(base_url, &job, JobStatusKind::Queued, workflow))
@@ -102,8 +116,11 @@ fn reset_render_artifacts(job: &mut JobSnapshot) {
     artifacts.total_time_seconds = None;
 }
 
-fn build_rerun_request(source_job: &JobSnapshot) -> Result<CreateJobInput, AppError> {
-    let plan = resume_plan(source_job);
+fn build_rerun_request(
+    source_job: &JobSnapshot,
+    data_root: &std::path::Path,
+) -> Result<CreateJobInput, AppError> {
+    let plan = resume_plan(source_job, data_root);
     let workflow = plan.resume_workflow.ok_or_else(|| {
         AppError::bad_request(
             plan.reason

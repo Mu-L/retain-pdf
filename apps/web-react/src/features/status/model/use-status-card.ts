@@ -34,7 +34,7 @@ export type UseStatusCardOptions = {
 
 export function useStatusCard({ jobId, apiPrefix, enabled = true }: UseStatusCardOptions) {
   const query = useStatusJobQuery(jobId, { apiPrefix, enabled })
-  const job = query.data as Record<string, unknown> | null | undefined
+  const job = query.data
 
   // Build domain snapshot — replaces buildRuntimeStatusCardSnapshot + createStatusCardPresenter
   const snapshot = useMemo(() => {

@@ -9,22 +9,62 @@
   height: min(88dvh, 820px);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  border-radius: 16px;
-  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
-  background: var(--paper);
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--ink) 9%, transparent);
+  background: color-mix(in srgb, var(--paper) 98%, var(--ink));
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--ink) 2%, transparent),
-    0 12px 40px color-mix(in srgb, var(--ink) 10%, transparent),
-    0 2px 8px color-mix(in srgb, var(--ink) 4%, transparent);
+    0 24px 64px color-mix(in srgb, var(--ink) 14%, transparent),
+    0 4px 14px color-mix(in srgb, var(--ink) 6%, transparent);
   overflow: hidden;
 }
+.reader-float-ai.is-floating {
+  height: min(76vh, 700px);
+  height: min(76dvh, 700px);
+  max-height: min(82vh, 740px);
+  max-height: min(82dvh, 740px);
+  border-radius: 16px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--ink) 2%, transparent),
+    0 18px 54px color-mix(in srgb, var(--ink) 13%, transparent),
+    0 3px 10px color-mix(in srgb, var(--ink) 5%, transparent);
+}
+.reader-float-ai.reader-notes-panel--docked {
+  inset: 0 0 0 auto;
+  width: var(--reader-ai-split-width, 50vw);
+  height: 100vh;
+  height: 100dvh;
+  max-height: none;
+  border: 0;
+  border-left: 1px solid color-mix(in srgb, var(--ink) 9%, transparent);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--paper) 98%, var(--ink));
+  box-shadow: -8px 0 28px color-mix(in srgb, var(--ink) 7%, transparent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  animation: reader-ai-split-in 180ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)) both;
+}
+@keyframes reader-ai-split-in {
+  from { opacity: 0; transform: translateX(18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
 .reader-float-ai .reader-notes-panel-head {
-  padding: 10px 12px 10px 14px;
-  border-bottom: 1px solid color-mix(in srgb, var(--ink) 5%, transparent);
-  background: var(--paper);
+  min-height: 56px;
+  padding: 11px 12px 10px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--ink) 6%, transparent);
+  background: color-mix(in srgb, var(--paper) 96%, var(--ink));
+}
+.reader-float-ai.reader-notes-panel--docked .reader-notes-panel-head {
+  align-items: center;
+  cursor: default;
+  touch-action: auto;
+}
+.reader-float-ai.reader-notes-panel--docked .reader-notes-panel-head-text {
+  display: grid;
+  gap: 1px;
 }
 .reader-float-ai .reader-notes-panel-head strong {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 650;
   letter-spacing: -0.01em;
   gap: 6px;
@@ -34,8 +74,26 @@
 }
 .reader-float-ai .reader-notes-panel-head .reader-notes-panel-sub {
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 500;
+}
+
+@media (max-width: 899px) {
+  .reader-float-ai.is-floating {
+    inset: 0 !important;
+    width: 100vw !important;
+    width: 100dvw !important;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+  .reader-float-ai.reader-notes-panel--docked {
+    width: 100vw;
+    width: 100dvw;
+    border-left: 0;
+  }
 }
 .reader-float-ai .reader-notes-panel-body {
   padding: 0;
@@ -43,42 +101,33 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: var(--paper);
+  background: color-mix(in srgb, var(--paper) 98%, var(--ink));
 }
 .reader-float-ai-body {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   position: relative;
+  overflow: hidden;
 }
 .reader-float-ai-thread-wrap {
   position: relative;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
-/* 透明吞事件层：不要半透明压暗 */
-.reader-float-ai .aui-branch-pointer-shield {
-  position: absolute;
-  inset: 0;
-  z-index: 40;
-  z-index: var(--z-float-ai-shield, 40);
-  cursor: progress;
-  background: transparent;
-  pointer-events: auto;
-}
-
 /* —— 会话条：安静、像 Notion 顶栏下拉 —— */
 .reader-float-ai .aui-session-bar {
   display: flex;
   flex-direction: column;
   gap: 6px;
   flex: 0 0 auto;
-  padding: 8px 12px 8px;
+  padding: 9px 12px;
   border-bottom: 1px solid color-mix(in srgb, var(--ink) 5%, transparent);
-  background: var(--paper);
+  background: color-mix(in srgb, var(--paper) 96%, var(--ink));
   position: relative;
   z-index: 5;
   z-index: var(--z-float-ai-bar, 5);
@@ -97,9 +146,9 @@
   min-width: 0;
   min-height: 30px;
   padding: 0 10px;
-  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
-  border-radius: 8px;
-  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--ink) 7%, transparent);
+  border-radius: 10px;
+  background: var(--paper);
   color: var(--ink);
   font-size: 12px;
   font-weight: 550;
@@ -202,8 +251,8 @@
   min-height: 30px;
   padding: 0 10px;
   border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
-  border-radius: 8px;
-  background: transparent;
+  border-radius: 10px;
+  background: var(--paper);
   color: var(--ink);
   font-size: 12px;
   font-weight: 550;

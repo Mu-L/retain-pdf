@@ -13,6 +13,7 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 from services.pipeline_shared.io import load_json
 from services.pipeline_shared.io import save_json
+from services.pipeline_shared.io import save_json_atomic
 
 
 def test_save_json_pretty_roundtrip(tmp_path: Path) -> None:
@@ -63,6 +64,16 @@ def test_save_json_does_not_use_write_text_dumps(tmp_path: Path, monkeypatch: py
     assert write_text_calls == [], f"Path.write_text should not be used, got {write_text_calls}"
     loaded = load_json(path)
     assert len(loaded["pages"]) == 50
+
+
+def test_save_json_atomic_replaces_target_and_cleans_temporary_file(tmp_path: Path) -> None:
+    path = tmp_path / "document.v1.json"
+    save_json(path, {"version": "old"}, compact=True)
+
+    save_json_atomic(path, {"version": "new", "text": "完整"}, compact=True)
+
+    assert load_json(path) == {"version": "new", "text": "完整"}
+    assert list(tmp_path.glob(".document.v1.json.*.tmp")) == []
 
 
 def test_validate_document_path_streams_file(tmp_path: Path) -> None:

@@ -2,6 +2,7 @@
 
 /* —— react-pdf engine (R1) —— */
 .reader-react-root {
+  --reader-ai-split-width: 50vw;
   position: relative;
   width: 100%;
   width: 100dvw;
@@ -46,6 +47,88 @@
   background: var(--bg, var(--reader-page-bg));
   scrollbar-width: none;
   -ms-overflow-style: none;
+  transition: right 180ms ease;
+}
+
+/* Markdown 工具打开时，PDF 与 Markdown 各自拥有独立滚动的左右半栏。 */
+.reader-react-root.is-markdown-split .reader-react-scroll-shell {
+  right: 50vw;
+  right: 50dvw;
+}
+.reader-react-root.is-markdown-split .reader-topbar,
+.reader-react-root.is-markdown-split .reader-react-hud {
+  left: 25vw;
+  left: 25dvw;
+}
+.reader-react-root.is-markdown-split .reader-close-home-btn {
+  right: calc(50vw + clamp(12px, 2.2vw, 28px));
+  right: calc(50dvw + clamp(12px, 2.2dvw, 28px));
+}
+
+/* AI 阅读：文档与问答各占一半，与对照阅读的双栏比例一致。 */
+.reader-react-root.is-ai-split .reader-react-scroll-shell {
+  right: var(--reader-ai-split-width);
+  transition: none;
+}
+.reader-react-root.is-ai-split .reader-topbar,
+.reader-react-root.is-ai-split .reader-react-hud {
+  left: calc((100vw - var(--reader-ai-split-width)) / 2);
+  left: calc((100dvw - var(--reader-ai-split-width)) / 2);
+}
+.reader-react-root.is-ai-split .reader-close-home-btn {
+  right: calc(var(--reader-ai-split-width) + clamp(12px, 2.2vw, 28px));
+}
+.reader-react-root.is-ai-split .reader-fab {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.92);
+}
+.reader-ai-split-resizer {
+  position: fixed !important;
+  inset: 0;
+  z-index: 52;
+  pointer-events: none;
+  background: transparent;
+}
+.reader-ai-split-resizer [data-panel] {
+  pointer-events: none;
+}
+.reader-ai-split-separator {
+  position: relative;
+  width: 1px;
+  flex: 0 0 1px;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: col-resize;
+  outline: none;
+  background: color-mix(in srgb, var(--ink) 10%, var(--line));
+  transition: background 120ms ease;
+}
+.reader-ai-split-separator::before {
+  content: "";
+  position: absolute;
+  inset: 0 -6px;
+}
+.reader-ai-split-separator > span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 44px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 24%, var(--paper));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--paper) 78%, transparent);
+  transform: translate(-50%, -50%);
+  transition: width 120ms ease, background 120ms ease;
+}
+.reader-ai-split-separator:hover,
+.reader-ai-split-separator:focus-visible {
+  background: color-mix(in srgb, var(--accent) 55%, var(--line));
+}
+.reader-ai-split-separator:hover > span,
+.reader-ai-split-separator:focus-visible > span {
+  width: 7px;
+  background: color-mix(in srgb, var(--accent) 70%, var(--paper));
 }
 .reader-react-scroll-shell::-webkit-scrollbar {
   width: 0;
@@ -112,13 +195,64 @@
   border-left: 1px solid var(--line);
 }
 
+@media (max-width: 899px) {
+  .reader-ai-split-resizer {
+    display: none !important;
+  }
+  .reader-react-root.is-markdown-split .reader-react-scroll-shell {
+    right: 0;
+  }
+  .reader-react-root.is-markdown-split .reader-topbar,
+  .reader-react-root.is-markdown-split .reader-react-hud {
+    left: 50%;
+  }
+  .reader-react-root.is-markdown-split .reader-close-home-btn {
+    right: clamp(12px, 2.2vw, 28px);
+  }
+  .reader-react-root.is-ai-split .reader-react-scroll-shell {
+    right: 0;
+  }
+  .reader-react-root.is-ai-split .reader-topbar,
+  .reader-react-root.is-ai-split .reader-react-hud {
+    left: 50%;
+  }
+  .reader-react-root.is-ai-split .reader-close-home-btn {
+    right: clamp(12px, 2.2vw, 28px);
+  }
+}
+
 /* 页槽：父级 flex 居中；只留底边距做页间距 */
 .reader-react-pdf-page-slot {
   display: block;
+  position: relative;
   margin: 0 0 12px;
   flex-shrink: 0;
   box-sizing: border-box;
   background: transparent;
+}
+
+.reader-react-pdf-region-highlight {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  box-sizing: border-box;
+  border: 2px solid color-mix(in srgb, var(--warn) 78%, var(--ink));
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--warn) 28%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--paper) 78%, transparent),
+    0 4px 18px color-mix(in srgb, var(--warn) 24%, transparent);
+  animation: reader-region-focus 680ms ease-out both;
+}
+
+@keyframes reader-region-focus {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .reader-react-pdf-page-slot .reader-react-pdf-page,

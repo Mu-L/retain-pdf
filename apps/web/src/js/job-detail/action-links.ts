@@ -1,4 +1,4 @@
-import { hasReadyManifestArtifact } from "../job/artifacts.js";
+import { hasReadyManifestArtifact } from "@retainpdf/domain/job";
 import { buildReaderPageUrl } from "./routing.js";
 
 export function isReaderActionEnabled({ actions = {}, job = {}, manifestPayload = null }: any = {}) {
