@@ -9,7 +9,17 @@ import pytest
 
 
 SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = SCRIPTS_ROOT.parents[1]
 sys.path.insert(0, str(SCRIPTS_ROOT))
+
+BACKEND_WORKFLOWS = (
+    "tests.yml",
+    "release-docker.yml",
+    "release-desktop.yml",
+    "rust-api-architecture.yml",
+    "translation-replay.yml",
+    "translate-sample-pdf.yml",
+)
 
 from resolve_backend_source import (
     REQUIRED_PATHS,
@@ -252,3 +262,46 @@ def test_rejects_unsafe_checkout_path(
 
     with pytest.raises(RuntimeError, match="safe repository-relative path"):
         resolve_backend_source(repo_root)
+
+
+@pytest.mark.parametrize("workflow_name", BACKEND_WORKFLOWS)
+def test_backend_workflows_prepare_the_locked_source(workflow_name: str) -> None:
+    workflow = (REPO_ROOT / ".github" / "workflows" / workflow_name).read_text(
+        encoding="utf-8"
+    )
+
+    assert "uses: ./.github/actions/prepare-backend-source" in workflow
+    assert "secrets.BACKEND_REPOSITORY_TOKEN || github.token" in workflow
+
+
+@pytest.mark.parametrize("workflow_name", BACKEND_WORKFLOWS)
+def test_backend_workflow_commands_do_not_bypass_the_source_lock(
+    workflow_name: str,
+) -> None:
+    workflow = (REPO_ROOT / ".github" / "workflows" / workflow_name).read_text(
+        encoding="utf-8"
+    )
+
+    hardcoded_backend_lines = []
+    for line in workflow.splitlines():
+        stripped = line.strip()
+        if stripped.startswith('- "services/'):
+            # During the dual-track migration, embedded-source path filters remain
+            # necessary so product PRs that touch services still trigger CI.
+            continue
+        if any(path in line for path in ("services/api", "services/ai", "services/pipeline")):
+            hardcoded_backend_lines.append(stripped)
+
+    assert hardcoded_backend_lines == []
+
+
+def test_local_backend_entrypoints_resolve_the_locked_source() -> None:
+    package = json.loads((REPO_ROOT / "package.json").read_text(encoding="utf-8"))
+    api_test = package["scripts"]["test:api"]
+    assert ".github/scripts/run_with_backend_source.py" in api_test
+    assert "{backend}/api/Cargo.toml" in api_test
+
+    for relative in ("infra/docker/release-images.sh", "infra/docker/build-arm64.sh"):
+        script = (REPO_ROOT / relative).read_text(encoding="utf-8")
+        assert ".github/scripts/resolve_backend_source.py" in script
+        assert '${SERVICES_ROOT}/docker/Dockerfile.app' in script
