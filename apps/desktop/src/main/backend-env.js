@@ -37,6 +37,7 @@ function buildBackendEnv(options = {}) {
     RUST_API_NORMAL_MAX_BYTES: String(200 * 1024 * 1024),
     RUST_API_NORMAL_MAX_PAGES: "300",
     RUST_API_PROJECT_ROOT: backendRoot,
+    RETAIN_OCR_PROVIDER_CONFIG: path.join(backendRoot, "config", "ocr_providers.json"),
     RUST_API_SCRIPTS_DIR: scriptsDir,
     RUST_API_PYTHON_ENTRYPOINT_MODE: "script",
     // 前端 /api/v1/ai/* 由 Rust 反代到 retainpdf-ai

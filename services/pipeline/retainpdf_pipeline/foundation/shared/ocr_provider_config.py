@@ -208,24 +208,32 @@ def _config_path() -> Path:
     if override:
         return Path(override).expanduser().resolve()
     file_path = Path(__file__).resolve()
-    # Source checkout compatibility: prefer the shared repository registry.
+    # The backend workspace owns the registry at <services-root>/config.
+    # Keep the older monorepo layouts readable while downstream bundles migrate.
     for parent in file_path.parents:
-        pkg = parent / "packages" / "config" / "ocr_providers.json"
-        if pkg.exists():
-            return pkg
-        legacy = parent / "backend" / "config" / "ocr_providers.json"
-        if legacy.exists():
-            return legacy
-        svc = parent / "services" / "config" / "ocr_providers.json"
-        if svc.exists():
-            return svc
+        for candidate in (
+            parent / "config" / "ocr_providers.json",
+            parent / "services" / "config" / "ocr_providers.json",
+            parent / "packages" / "config" / "ocr_providers.json",
+            parent / "backend" / "config" / "ocr_providers.json",
+        ):
+            if candidate.exists():
+                return candidate
     for env_name in ("RETAIN_PDF_PROJECT_ROOT", "RUST_API_PROJECT_ROOT"):
         project_root = os.environ.get(env_name, "").strip()
         if project_root:
-            return Path(project_root).expanduser().resolve() / "packages" / "config" / "ocr_providers.json"
+            root = Path(project_root).expanduser().resolve()
+            for candidate in (
+                root / "config" / "ocr_providers.json",
+                root / "services" / "config" / "ocr_providers.json",
+                root / "packages" / "config" / "ocr_providers.json",
+                root / "backend" / "config" / "ocr_providers.json",
+            ):
+                if candidate.exists():
+                    return candidate
     # Installed wheels intentionally do not guess from site-packages. The
     # explicit config env is authoritative; cwd keeps local CLI use convenient.
-    return Path.cwd().resolve() / "packages" / "config" / "ocr_providers.json"
+    return Path.cwd().resolve() / "config" / "ocr_providers.json"
 
 
 __all__ = [

@@ -14,6 +14,7 @@ const infraRoot = path.join(repoRoot, "infra");
 const servicesApiRoot = path.join(repoRoot, "services/api");
 const servicesPipelineRoot = path.join(repoRoot, "services/pipeline");
 const servicesAiRoot = path.join(repoRoot, "services/ai");
+const servicesConfigRoot = path.join(repoRoot, "services/config");
 const desktopSrcRoot = path.join(desktopRoot, "src");
 const desktopRuntimeRoot = path.join(desktopSrcRoot, "runtime");
 const targetPlatform = process.env.RETAIN_PDF_DESKTOP_PLATFORM || process.platform;
@@ -733,6 +734,13 @@ if (!frontendOnly) {
     recursive: true,
     force: true,
   });
+  if (!fs.existsSync(path.join(servicesConfigRoot, "ocr_providers.json"))) {
+    throw new Error(`missing backend provider config at ${servicesConfigRoot}`);
+  }
+  fs.cpSync(servicesConfigRoot, path.join(outputBackendRoot, "config"), {
+    recursive: true,
+    force: true,
+  });
   // retainpdf-ai 已迁 services/ai，兼容旧 backend/ai_service
   const aiServiceSrc = fs.existsSync(servicesAiRoot)
     ? servicesAiRoot
@@ -857,6 +865,9 @@ if (!frontendOnly) {
     targetPlatformName,
     rustApiBinaryBundled: fs.existsSync(path.join(outputBackendRoot, "bin", rustApiBinary.fileName)),
     rustApiBinaryName: rustApiBinary.fileName,
+    providerConfigBundled: fs.existsSync(
+      path.join(outputBackendRoot, "config", "ocr_providers.json"),
+    ),
     pythonBundled,
     bundledPythonExecutable: bundledPythonDiagnostics ? path.relative(outputBackendRoot, bundledPythonDiagnostics.pythonCommand) : null,
     bundledPythonHome: bundledPythonDiagnostics && bundledPythonDiagnostics.pythonHome

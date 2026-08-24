@@ -66,6 +66,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     RUST_API_DATA_ROOT=/data \
     OUTPUT_ROOT=/data/jobs \
     PYTHON_BIN=python3 \
+    RETAIN_OCR_PROVIDER_CONFIG=/app/services/config/ocr_providers.json \
     TYPST_BIN=/usr/local/bin/typst \
     TYPST_PACKAGE_PATH=/app/backend/typst-packages \
     TYPST_PACKAGE_CACHE_PATH=/data/typst-package-cache \
@@ -105,6 +106,7 @@ RUN pip install --no-cache-dir -r /tmp/requirements-app.txt
 
 COPY --from=builder /build/services/api/target/release/rust_api /usr/local/bin/rust_api
 COPY --from=builder /build/services/api/target/release/retain-jobsd /usr/local/bin/retain-jobsd
+COPY services/config /app/services/config
 COPY services/pipeline /app/services/pipeline
 RUN pip install --no-cache-dir --no-deps /app/services/pipeline
 # 兼容旧路径（过渡期）

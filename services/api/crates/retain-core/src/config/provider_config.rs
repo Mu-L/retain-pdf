@@ -4,10 +4,10 @@ use std::path::PathBuf;
 
 use serde_json::Value;
 
-const OCR_PROVIDER_CONFIG_ENV: &str = "RUST_API_OCR_PROVIDER_CONFIG";
-const OCR_PROVIDER_CONFIG_COMPAT_ENV: &str = "RETAIN_OCR_PROVIDER_CONFIG";
-const PADDLE_DEFAULT_MODEL_ENV: &str = "RUST_API_PADDLE_DEFAULT_MODEL";
-const PADDLE_DEFAULT_MODEL_COMPAT_ENV: &str = "RETAIN_PADDLE_DEFAULT_MODEL";
+const OCR_PROVIDER_CONFIG_ENV: &str = "RETAIN_OCR_PROVIDER_CONFIG";
+const OCR_PROVIDER_CONFIG_COMPAT_ENV: &str = "RUST_API_OCR_PROVIDER_CONFIG";
+const PADDLE_DEFAULT_MODEL_ENV: &str = "RETAIN_PADDLE_DEFAULT_MODEL";
+const PADDLE_DEFAULT_MODEL_COMPAT_ENV: &str = "RUST_API_PADDLE_DEFAULT_MODEL";
 const PADDLE_DEFAULT_MODEL_FALLBACK: &str = "PaddleOCR-VL-1.6";
 
 pub fn paddle_default_model() -> String {
@@ -201,62 +201,32 @@ fn config_path() -> Option<PathBuf> {
         .or_else(|| env_override(OCR_PROVIDER_CONFIG_COMPAT_ENV))
         .map(PathBuf::from)
         .or_else(|| {
-            // Phase3-2: 主真值已迁移至 packages/config (跨 services/api + services/pipeline 共享)
-            // 兼容路径：backend/config -> ../packages/config (本地 symlink, 已 gitignore)
-            // Monorepo 整理前：CARGO_MANIFEST_DIR = <repo>/backend/rust_api/crates/retain-core → 3 级到 <repo>/backend
-            // 整理后：<repo>/services/api/crates/retain-core → 4 级到 <repo>，再拼接 packages/config
+            // The backend workspace owns the registry at <services-root>/config.
+            // Search ancestors so both an isolated services checkout and the
+            // legacy monorepo layouts keep working during the migration.
             let core_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-            if let Some(repo_root) = core_root.ancestors().nth(4) {
-                let candidates = [
-                    repo_root
-                        .join("packages")
+            for root in core_root.ancestors() {
+                for candidate in [
+                    root.join("config").join("ocr_providers.json"),
+                    root.join("services")
                         .join("config")
                         .join("ocr_providers.json"),
-                    repo_root.join("backend").join("config").join("ocr_providers.json"),
-                    repo_root
-                        .join("services")
+                    root.join("packages")
                         .join("config")
                         .join("ocr_providers.json"),
-                ];
-                for candidate in &candidates {
+                    root.join("backend")
+                        .join("config")
+                        .join("ocr_providers.json"),
+                ] {
                     if candidate.exists() {
-                        return Some(candidate.clone());
+                        return Some(candidate);
                     }
                 }
-                // 默认走 packages/config（缺文件时返回 Null 由上层 fallback）
-                return Some(
-                    repo_root
-                        .join("packages")
-                        .join("config")
-                        .join("ocr_providers.json"),
-                );
             }
-            core_root.ancestors().nth(3).map(|root| {
-                // 兼容旧 backend/rust_api 布局：nth(3) 为 <repo>/backend，此处仍需兼容 packages/config
-                if root.file_name().and_then(|n| n.to_str()) == Some("backend") {
-                    if let Some(repo_root) = root.parent() {
-                        let pkg = repo_root
-                            .join("packages")
-                            .join("config")
-                            .join("ocr_providers.json");
-                        if pkg.exists() {
-                            return pkg;
-                        }
-                    }
-                }
-                if root.file_name().and_then(|n| n.to_str()) == Some("services") {
-                    if let Some(repo_root) = root.parent() {
-                        let pkg = repo_root
-                            .join("packages")
-                            .join("config")
-                            .join("ocr_providers.json");
-                        if pkg.exists() {
-                            return pkg;
-                        }
-                    }
-                }
-                root.join("config").join("ocr_providers.json")
-            })
+            core_root
+                .ancestors()
+                .nth(3)
+                .map(|root| root.join("config").join("ocr_providers.json"))
         })
 }
 
@@ -274,6 +244,15 @@ mod tests {
     #[test]
     fn paddle_default_model_reads_shared_config() {
         assert_eq!(paddle_default_model(), "PaddleOCR-VL-1.6");
+        let core_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let backend_root = core_root
+            .ancestors()
+            .nth(3)
+            .expect("retain-core must live below the backend root");
+        let expected = backend_root.join("config").join("ocr_providers.json");
+        let actual = config_path().expect("backend provider config path");
+        assert_eq!(actual, expected);
+        assert!(actual.is_file());
     }
 
     #[test]

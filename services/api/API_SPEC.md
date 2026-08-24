@@ -230,9 +230,9 @@ Provider HTTP and retry:
 - `RUST_API_MINERU_BUNDLE_READY_TIMEOUT_CAP_SECS`: default `120`
 - `RUST_API_MINERU_BUNDLE_RETRY_MAX_DELAY_SECS`: default `12`
 - `RUST_API_MINERU_WAITING_FILE_GRACE_SECS`: default `90`
-- `RUST_API_OCR_PROVIDER_CONFIG`: default `packages/config/ocr_providers.json` (compat `backend/config` symlink)
+- `RUST_API_OCR_PROVIDER_CONFIG`: default `services/config/ocr_providers.json` (compat `backend/config` symlink)
 - `RUST_API_PADDLE_BASE_URL`: default `https://paddleocr.aistudio-app.com`
-- `RUST_API_PADDLE_DEFAULT_MODEL`: default from `packages/config/ocr_providers.json`
+- `RUST_API_PADDLE_DEFAULT_MODEL`: default from `services/config/ocr_providers.json`
 - `RUST_API_PADDLE_REQUEST_TIMEOUT_SECS`: default `120`
 - `RUST_API_PADDLE_DOWNLOAD_TIMEOUT_SECS`: default `300`
 - `RUST_API_PADDLE_REQUEST_RETRY_ATTEMPTS`: default `3`
@@ -580,7 +580,7 @@ OCR provider options:
 - `official_cli` uses the externally installed official `paddleocr api` client and is only accepted by `/api/v1/ocr/jobs`. It is a Markdown/coarse document extraction path; its result does not provide the `bbox`/`prunedResult` contract required by translation and render, so `book` and `translate` requests must use `official_http`.
 - Selecting `official_cli` does not install PaddleOCR or add it to the server base image. A missing executable is reported as a provider worker failure.
 - Legacy fields such as `paddle_model` and `paddle_api_url` remain accepted for current built-in providers; new command providers should prefer `ocr.options`.
-- Dynamic providers declared in `packages/config/ocr_providers.json` (compat `backend/config`) with `kind=local_command` or `kind=remote_command` are discoverable through `/api/v1/providers/ocr` and are executed through `provider.stage.v1`.
+- Dynamic providers declared in `services/config/ocr_providers.json` (compat `backend/config`) with `kind=local_command` or `kind=remote_command` are discoverable through `/api/v1/providers/ocr` and are executed through `provider.stage.v1`.
 - `remote_command` means the external command owns the remote API submit/poll/download state machine. The backend passes `source.file_url`, optional local file path, provider options, and credential env, then consumes only the resulting source PDF plus `document.v1.json`.
 - Configured command provider credentials can be supplied through `ocr.options.credential`, `ocr.options.token`, `ocr.options.api_key`, or through the provider config `credential.env`. The worker exposes the resolved secret to the command as `RETAIN_OCR_CREDENTIAL`.
 

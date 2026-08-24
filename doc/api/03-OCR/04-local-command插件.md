@@ -35,8 +35,8 @@ RetainPDF job
 配置文件（Phase3-2 起主真值）：
 
 ```text
-packages/config/ocr_providers.json
-# 兼容路径：backend/config -> ../packages/config (本地 symlink, 已 gitignore)
+services/config/ocr_providers.json
+# 兼容路径：backend/config -> ../services/config (本地 symlink, 已 gitignore)
 ```
 
 最小配置：

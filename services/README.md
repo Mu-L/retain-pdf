@@ -9,6 +9,7 @@ The workspace contains:
 - `api/`: Rust API and job runtime workspace.
 - `ai/`: Python AI conversation service.
 - `pipeline/`: Python OCR, translation, and rendering package.
+- `config/`: backend-owned runtime configuration shared by Rust and Python.
 
 ## Local verification
 
@@ -30,8 +31,7 @@ files from the parent checkout:
 python3 services/scripts/check_standalone.py
 ```
 
-`contracts`, shared OCR configuration, backend deployment assets, and golden
-test data are still owned outside this directory. The standalone smoke test
-therefore checks package installation and compilation, not the contract tests
-that read those external fixtures. Those assets are the next extraction
-boundary to move inward.
+`contracts`, backend deployment assets, and golden test data are still owned
+outside this directory. The standalone smoke test therefore checks package
+installation and compilation, not the contract tests that read those external
+fixtures. Those assets are the next extraction boundary to move inward.
