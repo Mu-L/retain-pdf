@@ -17,7 +17,7 @@ COPY services/api/crates ./services/api/crates
 COPY services/api/src ./services/api/src
 
 WORKDIR /build/services/api
-RUN cargo build --release
+RUN cargo build --release --locked --workspace --bins
 
 FROM python:3.11-slim-bookworm AS typstsrc
 
@@ -106,6 +106,7 @@ RUN pip install --no-cache-dir -r /tmp/requirements-app.txt
 
 COPY --from=builder /build/services/api/target/release/rust_api /usr/local/bin/rust_api
 COPY --from=builder /build/services/api/target/release/retain-jobsd /usr/local/bin/retain-jobsd
+COPY --from=builder /build/services/api/target/release/retainpdf-agent /usr/local/bin/retainpdf-agent
 COPY services/config /app/services/config
 COPY services/pipeline /app/services/pipeline
 RUN pip install --no-cache-dir --no-deps /app/services/pipeline

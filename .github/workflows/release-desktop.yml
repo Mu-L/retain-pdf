@@ -63,7 +63,7 @@ jobs:
 
       - name: Build Rust API for Windows
         shell: pwsh
-        run: cargo build --release --target x86_64-pc-windows-msvc --manifest-path services/api/Cargo.toml
+        run: cargo build --release --locked --workspace --bins --target x86_64-pc-windows-msvc --manifest-path services/api/Cargo.toml
 
       - name: Assemble bundled Typst runtime
         shell: pwsh
@@ -247,7 +247,7 @@ jobs:
 
       - name: Build Rust API for Linux
         shell: bash
-        run: cargo build --release --manifest-path services/api/Cargo.toml
+        run: cargo build --release --locked --workspace --bins --manifest-path services/api/Cargo.toml
 
       - name: Install Linux packaging dependencies
         shell: bash
@@ -480,7 +480,7 @@ jobs:
 
       - name: Build Rust API for macOS
         shell: bash
-        run: cargo build --release --manifest-path services/api/Cargo.toml
+        run: cargo build --release --locked --workspace --bins --manifest-path services/api/Cargo.toml
 
       - name: Assemble bundled Typst runtime
         shell: bash
@@ -899,6 +899,8 @@ jobs:
           expected_arch="$(uname -m)"
           required_bins=(
             "$backend_root/bin/rust_api"
+            "$backend_root/bin/retain-jobsd"
+            "$backend_root/bin/retainpdf-agent"
             "$backend_root/typst/bin/typst"
             "$backend_root/python/bin/python3"
           )

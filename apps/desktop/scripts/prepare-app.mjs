@@ -383,6 +383,33 @@ function resolveJobsdBinary() {
   };
 }
 
+function resolveAgentBinary() {
+  const overridePath = process.env.RETAINPDF_AGENT_BINARY
+    ? path.resolve(process.env.RETAINPDF_AGENT_BINARY)
+    : "";
+  const fileName = targetPlatform === "win32" ? "retainpdf-agent.exe" : "retainpdf-agent";
+  const candidates = [overridePath];
+
+  if (targetPlatform === "win32") {
+    candidates.push(
+      path.join(servicesApiRoot, "target", "x86_64-pc-windows-msvc", "release", fileName),
+      path.join(servicesApiRoot, "target", "i686-pc-windows-msvc", "release", fileName),
+      path.join(servicesApiRoot, "target", "release", fileName),
+    );
+  } else if (targetPlatform === "darwin") {
+    candidates.push(
+      path.join(servicesApiRoot, "target", "release", fileName),
+      path.join(servicesApiRoot, "target", "x86_64-apple-darwin", "release", fileName),
+      path.join(servicesApiRoot, "target", "aarch64-apple-darwin", "release", fileName),
+    );
+  } else {
+    candidates.push(path.join(servicesApiRoot, "target", "release", fileName));
+  }
+
+  const match = candidates.find((candidate) => candidate && fs.existsSync(candidate));
+  return { path: match || candidates[1] || "", fileName };
+}
+
 function hasBundledPosixPython(root) {
   return fs.existsSync(path.join(root, "bin", "python3"))
     || fs.existsSync(path.join(root, "bin", "python"));
@@ -535,6 +562,7 @@ function verifyBundledPythonRuntime(root) {
 
 const rustApiBinary = resolveRustApiBinary();
 const jobsdBinary = resolveJobsdBinary();
+const agentBinary = resolveAgentBinary();
 if (desktopPackage.version !== releaseVersion) {
   desktopPackage.version = releaseVersion;
   fs.writeFileSync(`${desktopPackagePath}.tmp`, `${JSON.stringify(desktopPackage, null, 2)}\n`, "utf8");
@@ -777,6 +805,12 @@ if (!frontendOnly && fs.existsSync(jobsdBinary.path)) {
     force: true,
   });
 }
+if (!frontendOnly && fs.existsSync(agentBinary.path)) {
+  fs.mkdirSync(path.join(outputBackendRoot, "bin"), { recursive: true });
+  fs.cpSync(agentBinary.path, path.join(outputBackendRoot, "bin", agentBinary.fileName), {
+    force: true,
+  });
+}
 
 if (!frontendOnly && targetPlatform === "win32" && fs.existsSync(path.join(embeddedPythonRoot, "python.exe"))) {
   copyRuntimeTree(embeddedPythonRoot, path.join(outputBackendRoot, "python"));
@@ -865,6 +899,10 @@ if (!frontendOnly) {
     targetPlatformName,
     rustApiBinaryBundled: fs.existsSync(path.join(outputBackendRoot, "bin", rustApiBinary.fileName)),
     rustApiBinaryName: rustApiBinary.fileName,
+    jobsdBinaryBundled: fs.existsSync(path.join(outputBackendRoot, "bin", jobsdBinary.fileName)),
+    jobsdBinaryName: jobsdBinary.fileName,
+    agentBinaryBundled: fs.existsSync(path.join(outputBackendRoot, "bin", agentBinary.fileName)),
+    agentBinaryName: agentBinary.fileName,
     providerConfigBundled: fs.existsSync(
       path.join(outputBackendRoot, "config", "ocr_providers.json"),
     ),

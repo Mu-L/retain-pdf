@@ -89,6 +89,23 @@ def typst_executable(backend_root: Path, payload: dict[str, object]) -> Path:
     return candidate
 
 
+def validate_backend_binary(
+    backend_root: Path,
+    payload: dict[str, object],
+    *,
+    bundled_field: str,
+    name_field: str,
+    label: str,
+) -> None:
+    require(payload.get(bundled_field) is True, f"bundle manifest missing {label}")
+    name = str(payload.get(name_field) or "").strip()
+    require(bool(name) and Path(name).name == name, f"bundle manifest has invalid {label} name")
+    binary = backend_root / "bin" / name
+    require(binary.is_file(), f"bundled {label} missing: {binary}")
+    if not is_windows_bundle(payload):
+        require(os.access(binary, os.X_OK), f"bundled {label} is not executable: {binary}")
+
+
 def validate_typst_bundle(backend_root: Path, payload: dict[str, object]) -> None:
     typst_bin = typst_executable(backend_root, payload)
     fonts_root = backend_root / "fonts"
@@ -137,7 +154,32 @@ def main() -> None:
     backend_root = manifest_path.parent
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
 
-    require(payload.get("rustApiBinaryBundled") is True, "bundle manifest missing Rust API binary")
+    validate_backend_binary(
+        backend_root,
+        payload,
+        bundled_field="rustApiBinaryBundled",
+        name_field="rustApiBinaryName",
+        label="Rust API binary",
+    )
+    validate_backend_binary(
+        backend_root,
+        payload,
+        bundled_field="jobsdBinaryBundled",
+        name_field="jobsdBinaryName",
+        label="jobsd binary",
+    )
+    validate_backend_binary(
+        backend_root,
+        payload,
+        bundled_field="agentBinaryBundled",
+        name_field="agentBinaryName",
+        label="agent binary",
+    )
+    require(payload.get("providerConfigBundled") is True, "bundle manifest missing provider config")
+    require(
+        (backend_root / "config" / "ocr_providers.json").is_file(),
+        "bundled provider config missing",
+    )
     require(payload.get("pythonBundled") is True, "bundle manifest missing bundled Python runtime")
     require(payload.get("typstBundled") is True, "bundle manifest missing Typst runtime")
     require(payload.get("typstPackagesBundled") is True, "bundle manifest missing Typst packages")

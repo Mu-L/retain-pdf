@@ -26,6 +26,11 @@ function buildBackendEnv(options = {}) {
   const jobsPort = options.jobsPort || 41002;
   const jobsMode = options.jobsMode || process.env.RUST_API_JOBS_MODE || "";
   const jobsSupervise = options.jobsSupervise ?? process.env.RUST_API_JOBS_SUPERVISE;
+  const bundledAgentCommand = path.join(
+    backendRoot,
+    "bin",
+    process.platform === "win32" ? "retainpdf-agent.exe" : "retainpdf-agent",
+  );
   const env = {
     ...process.env,
     RUST_API_BIND_HOST: "127.0.0.1",
@@ -65,6 +70,8 @@ function buildBackendEnv(options = {}) {
     RETAIN_AI_RUST_API_KEY: desktopApiKey,
     RETAIN_AI_RUST_API_BASE: `http://127.0.0.1:${apiPort}`,
     RETAIN_AI_DATA_ROOT: dataRoot,
+    RETAIN_AI_FX_AGENT_CLI_COMMAND:
+      process.env.RETAIN_AI_FX_AGENT_CLI_COMMAND || bundledAgentCommand,
     // retain-jobsd (ADR-002 Phase 3: 壳监督 jobsd，改壳不杀任务)
     ...(jobsMode ? { RUST_API_JOBS_MODE: jobsMode } : {}),
     RUST_API_JOBS_PORT: String(jobsPort),
