@@ -2,7 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-SERVICES_ROOT="${RETAIN_PDF_SERVICES_ROOT:-${ROOT_DIR}/services}"
+SERVICES_ROOT="$(python3 "${ROOT_DIR}/.github/scripts/resolve_backend_source.py" \
+  --repo-root "${ROOT_DIR}" --print-path)"
 
 TAG="${1:-latest}"
 

@@ -28,12 +28,8 @@ jobs:
       matrix:
         target:
           - name: app
-            context: services
-            file: services/docker/Dockerfile.app
             repo: retainpdf-app
           - name: web
-            context: .
-            file: infra/docker/Dockerfile.web
             repo: retainpdf-web
 
     steps:
@@ -42,6 +38,25 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+
+      - name: Prepare pinned backend source
+        if: matrix.target.name == 'app'
+        id: backend
+        uses: ./.github/actions/prepare-backend-source
+        with:
+          token: ${{ secrets.BACKEND_REPOSITORY_TOKEN || github.token }}
+
+      - name: Resolve image build source
+        id: build-source
+        shell: bash
+        run: |
+          if [ "${{ matrix.target.name }}" = "app" ]; then
+            echo "context=${{ steps.backend.outputs.path }}" >> "$GITHUB_OUTPUT"
+            echo "file=${{ steps.backend.outputs.path }}/docker/Dockerfile.app" >> "$GITHUB_OUTPUT"
+          else
+            echo "context=$GITHUB_WORKSPACE" >> "$GITHUB_OUTPUT"
+            echo "file=$GITHUB_WORKSPACE/infra/docker/Dockerfile.web" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -108,8 +123,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: ${{ matrix.target.context }}
-          file: ${{ matrix.target.file }}
+          context: ${{ steps.build-source.outputs.context }}
+          file: ${{ steps.build-source.outputs.file }}
           platforms: ${{ inputs.platforms || 'linux/amd64,linux/arm64' }}
           push: ${{ inputs.push || github.event_name == 'push' }}
           build-args: ${{ steps.build-args.outputs.args }}
