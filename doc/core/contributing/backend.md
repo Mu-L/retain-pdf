@@ -30,10 +30,13 @@ models 不反向依赖 routes 或 services
 ## 常用检查
 
 ```bash
-cargo fmt --manifest-path backend/rust_api/Cargo.toml --check
-cargo test --manifest-path backend/rust_api/Cargo.toml
-cd backend/rust_api && python3 scripts/check_architecture.py
+BACKEND_ROOT="$(python3 .github/scripts/resolve_backend_source.py --print-path)"
+cargo fmt --manifest-path "$BACKEND_ROOT/api/Cargo.toml" --check
+cargo test --locked --workspace --manifest-path "$BACKEND_ROOT/api/Cargo.toml"
+python3 "$BACKEND_ROOT/api/scripts/check_architecture.py"
 ```
+
+后端可能来自产品仓库内嵌目录，也可能来自锁定的独立 checkout；选择和校验规则见[后端源码锁与独立仓库接入](./backend-source.md)。
 
 ## PR 说明
 

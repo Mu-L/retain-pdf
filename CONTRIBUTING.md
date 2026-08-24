@@ -18,6 +18,7 @@
 - [Rust API 贡献指南](doc/core/contributing/backend.md)
 - [数据库与持久化贡献指南](doc/core/contributing/database.md)
 - [Python 流水线贡献指南](doc/core/contributing/python-pipeline.md)
+- [后端源码锁与独立仓库接入](doc/core/contributing/backend-source.md)
 - [测试贡献指南](doc/core/contributing/testing.md)
 - [AI 辅助开发指南](doc/core/contributing/ai-development.md)
 - [Issue、PR、代码风格与发布说明](doc/core/contributing/process-and-style.md)
@@ -34,11 +35,13 @@
 后端：
 
 ```bash
-cd services/api
+PRODUCT_ROOT="$(pwd)"
+BACKEND_ROOT="$(python3 .github/scripts/resolve_backend_source.py --print-path)"
+cd "$BACKEND_ROOT/api"
 # Prefer absolute DATA_ROOT/SCRIPTS_DIR so DB path storage never sees "../../data/...".
 # Relative values still work after startup absolutization, but absolute is clearest.
 RUST_API_BIND_HOST=0.0.0.0 \
-RUST_API_DATA_ROOT="$(cd ../../data && pwd)" \
+RUST_API_DATA_ROOT="$PRODUCT_ROOT/data" \
 RUST_API_SCRIPTS_DIR="$(cd ../scripts && pwd)" \
 cargo run
 ```

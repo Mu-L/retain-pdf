@@ -32,24 +32,29 @@ entrypoints -> runtime/pipeline -> services/* -> foundation
 Python 翻译相关：
 
 ```bash
-python3 -m compileall -q backend/scripts/services/translation
-PYTHONPATH=backend/scripts python3 -m pytest backend/scripts/devtools/tests/translation -q
-python3 backend/scripts/devtools/check_pipeline_architecture.py
+BACKEND_ROOT="$(python3 .github/scripts/resolve_backend_source.py --print-path)"
+python3 -m compileall -q "$BACKEND_ROOT/pipeline/retainpdf_pipeline/services/translation"
+uv run --project "$BACKEND_ROOT" python -m pytest "$BACKEND_ROOT/pipeline/devtools/tests/translation" -q
+python3 "$BACKEND_ROOT/pipeline/devtools/check_pipeline_architecture.py"
 ```
 
 Python document schema / provider 相关：
 
 ```bash
-PYTHONPATH=backend/scripts python3 -m pytest backend/scripts/devtools/tests/document_schema -q
-python3 backend/scripts/devtools/check_pipeline_architecture.py
+BACKEND_ROOT="$(python3 .github/scripts/resolve_backend_source.py --print-path)"
+uv run --project "$BACKEND_ROOT" python -m pytest "$BACKEND_ROOT/pipeline/devtools/tests/document_schema" -q
+python3 "$BACKEND_ROOT/pipeline/devtools/check_pipeline_architecture.py"
 ```
 
 渲染相关：
 
 ```bash
-PYTHONPATH=backend/scripts python3 -m pytest backend/scripts/devtools/tests/rendering -q
-python3 backend/scripts/devtools/check_pipeline_architecture.py
+BACKEND_ROOT="$(python3 .github/scripts/resolve_backend_source.py --print-path)"
+uv run --project "$BACKEND_ROOT" python -m pytest "$BACKEND_ROOT/pipeline/devtools/tests/rendering" -q
+python3 "$BACKEND_ROOT/pipeline/devtools/check_pipeline_architecture.py"
 ```
+
+后端源码位置由锁文件决定，详见[后端源码锁与独立仓库接入](./backend-source.md)。
 
 ## PR 说明
 
