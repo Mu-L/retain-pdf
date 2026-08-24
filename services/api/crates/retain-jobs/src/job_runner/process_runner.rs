@@ -497,7 +497,8 @@ print(json.dumps({
 print(json.dumps({{
   "translation": os.environ.get("RETAIN_TRANSLATION_API_KEY", ""),
   "paddle": os.environ.get({paddle_env:?}, ""),
-  "mineru": os.environ.get({mineru_env:?}, "")
+  "mineru": os.environ.get({mineru_env:?}, ""),
+  "provider_config": os.environ.get("RETAIN_OCR_PROVIDER_CONFIG", "")
 }}, ensure_ascii=False))"#
                 ),
             ],
@@ -534,5 +535,11 @@ print(json.dumps({{
         assert!(result.stdout.contains("\"translation\": \"[REDACTED]\""));
         assert!(result.stdout.contains("\"paddle\": \"[REDACTED]\""));
         assert!(result.stdout.contains("\"mineru\": \"\""));
+        let provider_config_path = state
+            .config
+            .provider_runtime
+            .ocr_provider_config_path
+            .to_string_lossy();
+        assert!(result.stdout.contains(provider_config_path.as_ref()));
     }
 }

@@ -24,6 +24,10 @@ pub(super) fn spawn_worker_process(
         .env("RUST_API_DATA_ROOT", config.data_root)
         .env("RUST_API_OUTPUT_ROOT", config.output_root)
         .env("OUTPUT_ROOT", config.output_root)
+        .env(
+            "RETAIN_OCR_PROVIDER_CONFIG",
+            config.ocr_provider_config_path,
+        )
         .env("PYTHONUNBUFFERED", "1")
         .current_dir(config.project_root)
         .stdout(Stdio::piped())

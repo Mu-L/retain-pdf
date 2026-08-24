@@ -230,9 +230,11 @@ Provider HTTP and retry:
 - `RUST_API_MINERU_BUNDLE_READY_TIMEOUT_CAP_SECS`: default `120`
 - `RUST_API_MINERU_BUNDLE_RETRY_MAX_DELAY_SECS`: default `12`
 - `RUST_API_MINERU_WAITING_FILE_GRACE_SECS`: default `90`
-- `RUST_API_OCR_PROVIDER_CONFIG`: default `services/config/ocr_providers.json` (compat `backend/config` symlink)
+- `RETAIN_OCR_PROVIDER_CONFIG`: canonical shared Rust/Python registry path; default `services/config/ocr_providers.json`
+- `RUST_API_OCR_PROVIDER_CONFIG`: compatibility alias used only when the shared variable is unset
 - `RUST_API_PADDLE_BASE_URL`: default `https://paddleocr.aistudio-app.com`
-- `RUST_API_PADDLE_DEFAULT_MODEL`: default from `services/config/ocr_providers.json`
+- `RETAIN_PADDLE_DEFAULT_MODEL`: canonical shared Rust/Python override; default from `services/config/ocr_providers.json`
+- `RUST_API_PADDLE_DEFAULT_MODEL`: compatibility alias used only when the shared variable is unset
 - `RUST_API_PADDLE_REQUEST_TIMEOUT_SECS`: default `120`
 - `RUST_API_PADDLE_DOWNLOAD_TIMEOUT_SECS`: default `300`
 - `RUST_API_PADDLE_REQUEST_RETRY_ATTEMPTS`: default `3`

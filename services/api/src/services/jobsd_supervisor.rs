@@ -71,6 +71,10 @@ fn spawn_child(app: &AppConfig) -> std::io::Result<Child> {
     if !args.is_empty() {
         cmd.args(&args);
     }
+    cmd.env(
+        "RETAIN_OCR_PROVIDER_CONFIG",
+        &app.provider_runtime.ocr_provider_config_path,
+    );
     configure_child_process(&mut cmd);
     if let Some(cwd) = &app.jobs_service.cwd {
         cmd.current_dir(cwd);

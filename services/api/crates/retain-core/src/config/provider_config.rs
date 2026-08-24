@@ -10,6 +10,10 @@ const PADDLE_DEFAULT_MODEL_ENV: &str = "RETAIN_PADDLE_DEFAULT_MODEL";
 const PADDLE_DEFAULT_MODEL_COMPAT_ENV: &str = "RUST_API_PADDLE_DEFAULT_MODEL";
 const PADDLE_DEFAULT_MODEL_FALLBACK: &str = "PaddleOCR-VL-1.6";
 
+pub fn ocr_provider_config_path() -> PathBuf {
+    config_path().expect("retain-core must resolve a backend provider config path")
+}
+
 pub fn paddle_default_model() -> String {
     env_override(PADDLE_DEFAULT_MODEL_ENV)
         .or_else(|| env_override(PADDLE_DEFAULT_MODEL_COMPAT_ENV))
@@ -200,6 +204,7 @@ fn config_path() -> Option<PathBuf> {
     env_override(OCR_PROVIDER_CONFIG_ENV)
         .or_else(|| env_override(OCR_PROVIDER_CONFIG_COMPAT_ENV))
         .map(PathBuf::from)
+        .map(absolutize_path)
         .or_else(|| {
             // The backend workspace owns the registry at <services-root>/config.
             // Search ancestors so both an isolated services checkout and the
@@ -228,6 +233,15 @@ fn config_path() -> Option<PathBuf> {
                 .nth(3)
                 .map(|root| root.join("config").join("ocr_providers.json"))
         })
+}
+
+fn absolutize_path(path: PathBuf) -> PathBuf {
+    if path.is_absolute() {
+        return path;
+    }
+    env::current_dir()
+        .map(|cwd| cwd.join(&path))
+        .unwrap_or(path)
 }
 
 fn env_override(name: &str) -> Option<String> {

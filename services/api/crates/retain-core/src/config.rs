@@ -267,6 +267,7 @@ pub struct WorkerProcessRuntimeConfig<'a> {
     pub project_root: &'a Path,
     pub data_root: &'a Path,
     pub output_root: &'a Path,
+    pub ocr_provider_config_path: &'a Path,
     pub worker_terminate_grace_secs: u64,
     pub worker_terminate_poll_ms: u64,
 }
@@ -322,6 +323,7 @@ impl AppConfig {
             project_root: &self.project_root,
             data_root: &self.data_root,
             output_root: &self.output_root,
+            ocr_provider_config_path: &self.provider_runtime.ocr_provider_config_path,
             worker_terminate_grace_secs: self.job_runner.worker_terminate_grace_secs,
             worker_terminate_poll_ms: self.job_runner.worker_terminate_poll_ms,
         }

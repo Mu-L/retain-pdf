@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use super::env_vars::{env_bool, env_string, env_u16, env_u32, env_u64, env_usize};
 
 /// Shared escape hatch for self-hosted/local OCR & LLM endpoints (e.g. Ollama on
@@ -16,6 +18,7 @@ pub struct ProviderLimitsConfig {
 
 #[derive(Clone, Debug)]
 pub struct ProviderRuntimeConfig {
+    pub ocr_provider_config_path: PathBuf,
     pub mineru: MineruRuntimeConfig,
     pub paddle: PaddleRuntimeConfig,
     pub deepseek: DeepSeekRuntimeConfig,
@@ -79,6 +82,7 @@ impl Default for ProviderLimitsConfig {
 impl ProviderRuntimeConfig {
     pub fn from_env() -> Self {
         Self {
+            ocr_provider_config_path: super::provider_config::ocr_provider_config_path(),
             mineru: MineruRuntimeConfig::from_env(),
             paddle: PaddleRuntimeConfig::from_env(),
             deepseek: DeepSeekRuntimeConfig::from_env(),
