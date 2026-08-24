@@ -5,6 +5,9 @@ name: Rust API Architecture
     paths:
       - "services/api/**"
       - "services/pipeline/**"
+      - "backend-source.lock.json"
+      - ".github/actions/prepare-backend-source/**"
+      - ".github/scripts/resolve_backend_source.py"
       - "doc/adr/**"
       - "doc/core/python/**"
       - ".github/workflows/rust-api-architecture.yml"
@@ -15,6 +18,9 @@ name: Rust API Architecture
     paths:
       - "services/api/**"
       - "services/pipeline/**"
+      - "backend-source.lock.json"
+      - ".github/actions/prepare-backend-source/**"
+      - ".github/scripts/resolve_backend_source.py"
       - "doc/adr/**"
       - "doc/core/python/**"
       - ".github/workflows/rust-api-architecture.yml"
@@ -26,11 +32,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare pinned backend source
+        id: backend
+        uses: ./.github/actions/prepare-backend-source
+        with:
+          token: ${{ secrets.BACKEND_REPOSITORY_TOKEN || github.token }}
+
       # 纯静态架构检查（秒级）。全量测试在 tests.yml——此前这里挂着
       # 两个定点冒烟测试，但 cargo 名字筛选匹配 0 个时照样绿，先后因
       # 重构改名/crate 拆分变成"静默跑 0"。定点筛选是反模式，勿再用。
       - name: Architecture Check
-        run: python3 services/api/scripts/check_architecture.py
+        run: python3 "$RETAIN_PDF_SERVICES_ROOT/api/scripts/check_architecture.py"
 
       - name: Python Pipeline Architecture Check
-        run: python3 services/pipeline/devtools/check_pipeline_architecture.py
+        run: python3 "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/check_pipeline_architecture.py"
