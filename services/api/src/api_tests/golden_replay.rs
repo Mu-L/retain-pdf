@@ -6,10 +6,10 @@ use std::path::PathBuf;
 /// pipeline_summary 关键字段、spec 占位符已脱敏。
 ///
 /// 不触网、不调 Python，CI 常绿；真实渲染由
-/// `backend/pipeline/devtools/golden_harness.py --render` 覆盖。
+/// `pipeline/devtools/golden_harness.py --render` 覆盖。
 fn fixture_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../resources/fixtures/golden-jobs/chem-6ada81-10p")
+        .join("../testdata/golden-jobs/chem-6ada81-10p")
         .canonicalize()
         .expect("golden fixture dir must exist — did Step 1 run?")
 }

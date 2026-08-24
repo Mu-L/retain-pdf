@@ -5,7 +5,7 @@
 `entrypoints/run_render_only.py` 做真实渲染（需本地有 source PDF 或
 container 内已有）。
 
-Fixture 目录约定（见 resources/fixtures/golden-jobs/chem-6ada81-10p/README.md）：
+Fixture 目录约定（见 services/testdata/golden-jobs/chem-6ada81-10p/README.md）：
   specs/{normalize,provider,translate,render}.spec.json  # 占位符已替换为 {JOB_ROOT}
   ocr/normalized/document.v1.json
   translated/{translation-manifest.json, page-*.json}
@@ -25,9 +25,10 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = BACKEND_ROOT.parent if BACKEND_ROOT.name == "services" else BACKEND_ROOT
 PIPELINE_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_FIXTURE = REPO_ROOT / "resources" / "fixtures" / "golden-jobs" / "chem-6ada81-10p"
+DEFAULT_FIXTURE = BACKEND_ROOT / "testdata" / "golden-jobs" / "chem-6ada81-10p"
 RENDER_ENTRYPOINT_MODULE = "retainpdf_pipeline.entrypoints.run_render_only"
 
 

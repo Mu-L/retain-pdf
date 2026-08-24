@@ -7,6 +7,7 @@ set -euo pipefail
 #  改 shell 只重启 shell，jobsd/workers 不受影响
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+BACKEND_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # Monorepo 整理：新路径 services/api + services/pipeline + services/ai（兼容旧 backend/*）
 if [ -d "$ROOT/services/api" ]; then RUST_API_ROOT_NEW="$ROOT/services/api"; else RUST_API_ROOT_NEW="$ROOT/backend/rust_api"; fi
 if [ -d "$ROOT/services/pipeline" ]; then PIPELINE_ROOT="$ROOT/services/pipeline"; else PIPELINE_ROOT="$ROOT/backend/pipeline"; fi
@@ -114,7 +115,7 @@ fi
 echo "[dev-remote] all started. Ctrl+C to stop."
 echo "[dev-remote] shell http://127.0.0.1:$SHELL_PORT  health http://127.0.0.1:$SHELL_PORT/api/v1/health"
 if [ "$GOLDEN_SMOKE" = 1 ]; then
-  FIXTURE="${GOLDEN_FIXTURE:-$ROOT/resources/fixtures/golden-jobs/chem-6ada81-10p}"
+  FIXTURE="${GOLDEN_FIXTURE:-$BACKEND_ROOT/testdata/golden-jobs/chem-6ada81-10p}"
   echo "[dev-remote] --golden-smoke: running offline harness against $FIXTURE"
   if python3 "$PIPELINE_ROOT/devtools/golden_harness.py" --fixture "$FIXTURE" 2>&1; then
     echo "[dev-remote] golden-smoke (structural) ok"
