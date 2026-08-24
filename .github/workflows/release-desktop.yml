@@ -12,6 +12,7 @@ env:
   TYPST_VERSION: "0.14.2"
   CMARKER_VERSION: "0.1.8"
   MITEX_VERSION: "0.2.6"
+  RETAIN_PDF_SERVICES_ROOT: ${{ github.workspace }}/services
 
 jobs:
   build-windows-release:
@@ -54,7 +55,7 @@ jobs:
 
       - name: Verify generated Python requirement snapshots
         shell: pwsh
-        run: python .github/scripts/sync_backend_python_requirements.py --repo-root . --services-root services --check
+        run: python .github/scripts/sync_backend_python_requirements.py --repo-root . --check
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -63,7 +64,7 @@ jobs:
 
       - name: Build Rust API for Windows
         shell: pwsh
-        run: cargo build --release --locked --workspace --bins --target x86_64-pc-windows-msvc --manifest-path services/api/Cargo.toml
+        run: cargo build --release --locked --workspace --bins --target x86_64-pc-windows-msvc --manifest-path "$env:RETAIN_PDF_SERVICES_ROOT/api/Cargo.toml"
 
       - name: Assemble bundled Typst runtime
         shell: pwsh
@@ -240,14 +241,14 @@ jobs:
 
       - name: Verify generated Python requirement snapshots
         shell: bash
-        run: python .github/scripts/sync_backend_python_requirements.py --repo-root . --services-root services --check
+        run: python .github/scripts/sync_backend_python_requirements.py --repo-root . --check
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build Rust API for Linux
         shell: bash
-        run: cargo build --release --locked --workspace --bins --manifest-path services/api/Cargo.toml
+        run: cargo build --release --locked --workspace --bins --manifest-path "$RETAIN_PDF_SERVICES_ROOT/api/Cargo.toml"
 
       - name: Install Linux packaging dependencies
         shell: bash
@@ -473,14 +474,14 @@ jobs:
 
       - name: Verify generated Python requirement snapshots
         shell: bash
-        run: python .github/scripts/sync_backend_python_requirements.py --repo-root . --services-root services --check
+        run: python .github/scripts/sync_backend_python_requirements.py --repo-root . --check
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build Rust API for macOS
         shell: bash
-        run: cargo build --release --locked --workspace --bins --manifest-path services/api/Cargo.toml
+        run: cargo build --release --locked --workspace --bins --manifest-path "$RETAIN_PDF_SERVICES_ROOT/api/Cargo.toml"
 
       - name: Assemble bundled Typst runtime
         shell: bash

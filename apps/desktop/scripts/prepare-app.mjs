@@ -11,10 +11,14 @@ const versionFile = path.join(repoRoot, "VERSION");
 const frontendRoot = path.join(repoRoot, "apps/web");
 const backendRoot = path.join(repoRoot, "backend");
 const infraRoot = path.join(repoRoot, "infra");
-const servicesApiRoot = path.join(repoRoot, "services/api");
-const servicesPipelineRoot = path.join(repoRoot, "services/pipeline");
-const servicesAiRoot = path.join(repoRoot, "services/ai");
-const servicesConfigRoot = path.join(repoRoot, "services/config");
+const servicesRoot = path.resolve(
+  process.env.RETAIN_PDF_SERVICES_ROOT || path.join(repoRoot, "services"),
+);
+const servicesApiRoot = path.join(servicesRoot, "api");
+const servicesPipelineRoot = path.join(servicesRoot, "pipeline");
+const servicesAiRoot = path.join(servicesRoot, "ai");
+const servicesConfigRoot = path.join(servicesRoot, "config");
+const servicesFontsRoot = path.join(servicesRoot, "fonts");
 const desktopSrcRoot = path.join(desktopRoot, "src");
 const desktopRuntimeRoot = path.join(desktopSrcRoot, "runtime");
 const targetPlatform = process.env.RETAIN_PDF_DESKTOP_PLATFORM || process.platform;
@@ -87,6 +91,7 @@ function resolveSharedRuntimePath(relativePath) {
   const legacyCandidates = {
     "typst-packages": path.join(backendRoot, "typst-packages"),
     "fonts": [
+      servicesFontsRoot,
       path.join(infraRoot, "fonts"),
       path.join(backendRoot, "fonts"),
       path.join(desktopRoot, "assets", "fonts"),
@@ -108,6 +113,7 @@ function resolveSharedRuntimePaths(relativePath) {
   }
   if (relativePath === "fonts") {
     for (const candidate of [
+      servicesFontsRoot,
       path.join(infraRoot, "fonts"),
       path.join(backendRoot, "fonts"),
       path.join(desktopRoot, "assets", "fonts"),
@@ -280,6 +286,14 @@ function resolveGitVersion() {
   return "";
 }
 
+function resolveGitRevision(root) {
+  const revision = spawnSync("git", ["rev-parse", "HEAD"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  return revision.status === 0 ? revision.stdout.trim() : "";
+}
+
 const releaseVersion = (process.env.RETAIN_PDF_VERSION || "").trim()
   || (desktopPackage.version || "").trim()
   || resolveGitVersion()
@@ -290,6 +304,8 @@ if (!releaseVersion) {
     `Missing release version; fallback sources RETAIN_PDF_VERSION, git describe, ${versionFile}, and package.json are all empty`,
   );
 }
+
+const servicesSourceRevision = resolveGitRevision(servicesRoot);
 
 function resolveRustApiBinary() {
   const overridePath = process.env.RUST_API_BINARY
@@ -883,6 +899,7 @@ const requiredBundledFonts = [
   "DroidSansFallbackFull.ttf",
   "SourceHanSerifSC-Regular.otf",
   "SourceHanSerifSC-Bold.otf",
+  "LICENSE-OFL-1.1.txt",
 ];
 if (!frontendOnly) {
   for (const fileName of requiredBundledFonts) {
@@ -895,6 +912,7 @@ if (!frontendOnly) {
   const manifest = {
     generatedAt: new Date().toISOString(),
     version: releaseVersion,
+    servicesSourceRevision,
     targetPlatform,
     targetPlatformName,
     rustApiBinaryBundled: fs.existsSync(path.join(outputBackendRoot, "bin", rustApiBinary.fileName)),

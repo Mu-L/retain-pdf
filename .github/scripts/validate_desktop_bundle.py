@@ -111,6 +111,10 @@ def validate_typst_bundle(backend_root: Path, payload: dict[str, object]) -> Non
     fonts_root = backend_root / "fonts"
     packages_root = backend_root / "typst-packages"
     require(fonts_root.is_dir(), f"bundled fonts directory missing: {fonts_root}")
+    require(
+        (fonts_root / "LICENSE-OFL-1.1.txt").is_file(),
+        "bundled Source Han Serif license missing",
+    )
     require(packages_root.is_dir(), f"bundled Typst packages directory missing: {packages_root}")
 
     env = os.environ.copy()
@@ -176,6 +180,10 @@ def main() -> None:
         label="agent binary",
     )
     require(payload.get("providerConfigBundled") is True, "bundle manifest missing provider config")
+    require(
+        bool(str(payload.get("servicesSourceRevision") or "").strip()),
+        "bundle manifest missing backend source revision",
+    )
     require(
         (backend_root / "config" / "ocr_providers.json").is_file(),
         "bundled provider config missing",

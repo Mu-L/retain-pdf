@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SERVICES_ROOT="${RETAIN_PDF_SERVICES_ROOT:-${ROOT_DIR}/services}"
 VERSION_TAG="${1:-}"
 
 if [[ -z "${VERSION_TAG}" ]]; then
@@ -42,9 +43,9 @@ WEB_LATEST_IMAGE="${WEB_REPO}:latest"
 docker build \
   "${build_arg_flags[@]}" \
   --build-arg "TYPST_VERSION=${TYPST_VERSION}" \
-  -f "${ROOT_DIR}/services/docker/Dockerfile.app" \
+  -f "${SERVICES_ROOT}/docker/Dockerfile.app" \
   -t "${APP_VERSION_IMAGE}" \
-  "${ROOT_DIR}/services"
+  "${SERVICES_ROOT}"
 
 docker build \
   "${build_arg_flags[@]}" \

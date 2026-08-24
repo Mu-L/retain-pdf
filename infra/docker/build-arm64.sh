@@ -2,14 +2,15 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SERVICES_ROOT="${RETAIN_PDF_SERVICES_ROOT:-${ROOT_DIR}/services}"
 
 TAG="${1:-latest}"
 
 echo "=== Build retainpdf-app (ARM64) ==="
 docker build \
-  -f "${ROOT_DIR}/services/docker/Dockerfile.app" \
+  -f "${SERVICES_ROOT}/docker/Dockerfile.app" \
   -t "retainpdf-app:${TAG}" \
-  "${ROOT_DIR}/services"
+  "${SERVICES_ROOT}"
 
 echo "=== Build retainpdf-web (ARM64) ==="
 docker build \
