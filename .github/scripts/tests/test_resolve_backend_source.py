@@ -11,7 +11,11 @@ import pytest
 SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS_ROOT))
 
-from resolve_backend_source import REQUIRED_PATHS, resolve_backend_source
+from resolve_backend_source import (
+    REQUIRED_PATHS,
+    backend_checkout_metadata,
+    resolve_backend_source,
+)
 
 
 def _git(root: Path, *args: str) -> str:
@@ -88,8 +92,19 @@ def test_resolves_verified_embedded_backend(tmp_path: Path, monkeypatch) -> None
         "tree": source_tree,
     }
 
+    assert backend_checkout_metadata(repo_root) == {
+        "external": "false",
+        "repository": "",
+        "revision": "",
+        "checkout_path": ".backend/retainpdf-services",
+        "source_tree": source_tree,
+    }
 
-def test_prefers_verified_checkout(tmp_path: Path, monkeypatch) -> None:
+
+def test_null_lock_ignores_stale_checkout_and_uses_embedded(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
     repo_root, source_tree = _product_repo(tmp_path)
     checkout = repo_root / ".backend" / "retainpdf-services"
     _write_backend_layout(checkout)
@@ -98,9 +113,49 @@ def test_prefers_verified_checkout(tmp_path: Path, monkeypatch) -> None:
 
     resolved = resolve_backend_source(repo_root)
 
+    assert resolved["kind"] == "embedded"
+    assert resolved["path"] == str((repo_root / "services").resolve())
+    assert resolved["tree"] == source_tree
+
+
+def test_external_lock_requires_and_resolves_exact_checkout(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo_root, source_tree = _product_repo(tmp_path)
+    checkout = repo_root / ".backend" / "retainpdf-services"
+    _write_backend_layout(checkout)
+    _commit_repo(checkout)
+    revision = _git(checkout, "rev-parse", "HEAD")
+    _rewrite_lock(
+        repo_root,
+        repository="retainpdf/backend",
+        revision=revision,
+    )
+    monkeypatch.delenv("RETAIN_PDF_SERVICES_ROOT", raising=False)
+
+    resolved = resolve_backend_source(repo_root)
+
     assert resolved["kind"] == "checkout"
     assert resolved["path"] == str(checkout.resolve())
+    assert resolved["revision"] == revision
     assert resolved["tree"] == source_tree
+
+
+def test_external_lock_does_not_fall_back_to_embedded(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo_root, _source_tree = _product_repo(tmp_path)
+    _rewrite_lock(
+        repo_root,
+        repository="retainpdf/backend",
+        revision="a" * 40,
+    )
+    monkeypatch.delenv("RETAIN_PDF_SERVICES_ROOT", raising=False)
+
+    with pytest.raises(RuntimeError, match="backend source directory is unavailable"):
+        resolve_backend_source(repo_root)
 
 
 def test_rejects_override_at_unlocked_tree(tmp_path: Path, monkeypatch) -> None:
@@ -165,6 +220,24 @@ def test_rejects_checkout_at_different_commit_with_same_tree(
 
     with pytest.raises(RuntimeError, match="checkout revision does not match"):
         resolve_backend_source(repo_root)
+
+
+def test_emits_validated_external_checkout_metadata(tmp_path: Path) -> None:
+    repo_root, source_tree = _product_repo(tmp_path)
+    revision = "a" * 40
+    _rewrite_lock(
+        repo_root,
+        repository="retainpdf/backend",
+        revision=revision,
+    )
+
+    assert backend_checkout_metadata(repo_root) == {
+        "external": "true",
+        "repository": "retainpdf/backend",
+        "revision": revision,
+        "checkout_path": ".backend/retainpdf-services",
+        "source_tree": source_tree,
+    }
 
 
 @pytest.mark.parametrize("unsafe_path", ["../backend", "/tmp/backend", "a\\backend"])

@@ -81,14 +81,36 @@ def _load_lock(repo_root: Path) -> dict[str, Any]:
     return payload
 
 
+def backend_checkout_metadata(repo_root: Path) -> dict[str, str]:
+    """Return validated lock fields consumed before an optional CI checkout."""
+    lock = _load_lock(repo_root.resolve())
+    repository = lock.get("repository")
+    revision = lock.get("revision")
+    return {
+        "external": "true" if repository is not None else "false",
+        "repository": str(repository or ""),
+        "revision": str(revision or ""),
+        "checkout_path": str(lock["checkout_path"]),
+        "source_tree": str(lock["source_tree"]),
+    }
+
+
+def _append_github_output(path: Path, values: dict[str, str]) -> None:
+    with path.open("a", encoding="utf-8") as output:
+        for key, value in values.items():
+            if "\n" in value or "\r" in value:
+                raise RuntimeError(f"backend source output {key} contains a newline")
+            output.write(f"{key}={value}\n")
+
+
 def _candidate(repo_root: Path, lock: dict[str, Any]) -> tuple[Path, str]:
     override = os.environ.get("RETAIN_PDF_SERVICES_ROOT", "").strip()
     if override:
         path = Path(override).expanduser()
         return (path if path.is_absolute() else repo_root / path).resolve(), "environment"
 
-    checkout = (repo_root / str(lock["checkout_path"])).resolve()
-    if checkout.is_dir():
+    if lock.get("repository") is not None:
+        checkout = (repo_root / str(lock["checkout_path"])).resolve()
         return checkout, "checkout"
 
     return (repo_root / str(lock["embedded_path"])).resolve(), "embedded"
@@ -177,7 +199,19 @@ def main() -> int:
     output = parser.add_mutually_exclusive_group()
     output.add_argument("--print-path", action="store_true")
     output.add_argument("--json", action="store_true")
+    output.add_argument(
+        "--github-output",
+        type=Path,
+        help="Append validated pre-checkout lock metadata to a GitHub Actions output file.",
+    )
     args = parser.parse_args()
+
+    if args.github_output is not None:
+        _append_github_output(
+            args.github_output,
+            backend_checkout_metadata(args.repo_root),
+        )
+        return 0
 
     resolved = resolve_backend_source(args.repo_root, allow_dirty=args.allow_dirty)
     if args.print_path:

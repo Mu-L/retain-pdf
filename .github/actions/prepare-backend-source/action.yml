@@ -1,0 +1,74 @@
+name: Prepare pinned backend source
+description: Checkout and verify the backend revision locked by the product repository.
+
+inputs:
+  token:
+    description: Read-only token used only when the lock selects an external repository.
+    required: true
+
+outputs:
+  path:
+    description: Absolute path to the verified backend source.
+    value: ${{ steps.resolve.outputs.path }}
+  kind:
+    description: "Backend source kind: embedded or checkout."
+    value: ${{ steps.resolve.outputs.kind }}
+  revision:
+    description: Verified external backend revision, empty for embedded source.
+    value: ${{ steps.resolve.outputs.revision }}
+  tree:
+    description: Verified backend Git tree.
+    value: ${{ steps.resolve.outputs.tree }}
+
+runs:
+  using: composite
+  steps:
+    - name: Read validated backend lock
+      id: lock
+      shell: bash
+      run: >-
+        python3 "$GITHUB_WORKSPACE/.github/scripts/resolve_backend_source.py"
+        --repo-root "$GITHUB_WORKSPACE"
+        --github-output "$GITHUB_OUTPUT"
+
+    - name: Checkout locked external backend
+      if: steps.lock.outputs.external == 'true'
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ steps.lock.outputs.repository }}
+        ref: ${{ steps.lock.outputs.revision }}
+        path: ${{ steps.lock.outputs.checkout_path }}
+        token: ${{ inputs.token }}
+        fetch-depth: 1
+        fetch-tags: false
+        persist-credentials: false
+
+    - name: Verify resolved backend source
+      id: resolve
+      shell: bash
+      run: |
+        resolved_json="$(python3 "$GITHUB_WORKSPACE/.github/scripts/resolve_backend_source.py" \
+          --repo-root "$GITHUB_WORKSPACE" --json)"
+        python3 - "$resolved_json" "$GITHUB_ENV" "$GITHUB_OUTPUT" <<'PY'
+        import json
+        from pathlib import Path
+        import sys
+
+        resolved = json.loads(sys.argv[1])
+        env_path = Path(sys.argv[2])
+        output_path = Path(sys.argv[3])
+        values = {
+            "path": resolved["path"],
+            "kind": resolved["kind"],
+            "revision": resolved["revision"],
+            "tree": resolved["tree"],
+        }
+        for key, value in values.items():
+            if "\n" in value or "\r" in value:
+                raise SystemExit(f"backend source output {key} contains a newline")
+        with env_path.open("a", encoding="utf-8") as env_file:
+            env_file.write(f"RETAIN_PDF_SERVICES_ROOT={values['path']}\n")
+        with output_path.open("a", encoding="utf-8") as output_file:
+            for key, value in values.items():
+                output_file.write(f"{key}={value}\n")
+        PY
