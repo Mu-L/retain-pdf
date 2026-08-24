@@ -28,9 +28,11 @@ jobs:
       matrix:
         target:
           - name: app
-            file: infra/docker/Dockerfile.app
+            context: services
+            file: services/docker/Dockerfile.app
             repo: retainpdf-app
           - name: web
+            context: .
             file: infra/docker/Dockerfile.web
             repo: retainpdf-web
 
@@ -106,7 +108,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ${{ matrix.target.context }}
           file: ${{ matrix.target.file }}
           platforms: ${{ inputs.platforms || 'linux/amd64,linux/arm64' }}
           push: ${{ inputs.push || github.event_name == 'push' }}

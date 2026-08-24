@@ -53,22 +53,20 @@ fn resolve_font_dirs(project_root: &Path, data_root: &Path) -> Vec<PathBuf> {
         }
     }
 
-    // Always include data/fonts for uploaded fonts if exists or as candidate
+    // Keep the backend-owned fonts first, with monorepo and legacy layouts as
+    // compatibility fallbacks. Uploaded fonts remain runtime data.
+    let backend_fonts = project_root.join("fonts");
+    let monorepo_backend_fonts = project_root.join("services").join("fonts");
+    let legacy_infra_fonts = project_root.join("infra").join("fonts");
     let data_fonts = data_root.join("fonts");
-    // Include project infra/fonts fallback
-    let infra_fonts = project_root.join("infra").join("fonts");
 
-    if dirs.is_empty() {
-        push_dir(infra_fonts.clone(), &mut dirs, &mut seen);
-        // also include data_fonts as secondary
-        push_dir(data_fonts.clone(), &mut dirs, &mut seen);
-    } else {
-        if !dirs.iter().any(|p| p == &infra_fonts) {
-            push_dir(infra_fonts, &mut dirs, &mut seen);
-        }
-        if !dirs.iter().any(|p| p == &data_fonts) {
-            push_dir(data_fonts, &mut dirs, &mut seen);
-        }
+    for candidate in [
+        backend_fonts,
+        monorepo_backend_fonts,
+        legacy_infra_fonts,
+        data_fonts,
+    ] {
+        push_dir(candidate, &mut dirs, &mut seen);
     }
 
     dirs

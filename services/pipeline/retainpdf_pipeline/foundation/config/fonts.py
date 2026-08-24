@@ -11,12 +11,24 @@ def _default_fonts_dir() -> Path:
     for env_name in ("RETAIN_PDF_PROJECT_ROOT", "RUST_API_PROJECT_ROOT"):
         value = os.environ.get(env_name, "").strip()
         if value:
-            return Path(value).expanduser().resolve() / "infra" / "fonts"
+            root = Path(value).expanduser().resolve()
+            for candidate in (
+                root / "fonts",
+                root / "services" / "fonts",
+                root / "infra" / "fonts",
+            ):
+                if candidate.is_dir():
+                    return candidate
+            return root / "fonts"
     for parent in Path(__file__).resolve().parents:
-        candidate = parent / "infra" / "fonts"
-        if candidate.is_dir():
-            return candidate
-    return Path.cwd().resolve() / "infra" / "fonts"
+        for candidate in (
+            parent / "fonts",
+            parent / "services" / "fonts",
+            parent / "infra" / "fonts",
+        ):
+            if candidate.is_dir():
+                return candidate
+    return Path.cwd().resolve() / "fonts"
 
 
 _DEFAULT_FONTS_DIR = _default_fonts_dir()
@@ -35,7 +47,7 @@ def _parse_font_dirs() -> list[Path]:
     if not dirs:
         dirs.append(_DEFAULT_FONTS_DIR)
     else:
-        # Always keep fallback infra/fonts as last resort if not already listed
+        # Always keep the bundled backend fonts as a final fallback.
         if _DEFAULT_FONTS_DIR not in dirs:
             dirs.append(_DEFAULT_FONTS_DIR)
     # Deduplicate preserving order
@@ -182,7 +194,7 @@ def listFontFamilies(extra_dirs: list[Path] | None = None) -> list[dict]:
     family_to_files: dict[str, list[str]] = {}
 
     # Strategy 1: fc-list with file/family for system fonts within our dirs
-    # We still do filesystem scan regardless because infra/fonts may not be in fontconfig cache.
+    # Filesystem scan remains authoritative because bundled fonts may not be in fontconfig cache.
     fc_list = shutil.which("fc-list")
     if fc_list:
         try:

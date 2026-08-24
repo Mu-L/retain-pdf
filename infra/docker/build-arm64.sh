@@ -7,9 +7,9 @@ TAG="${1:-latest}"
 
 echo "=== Build retainpdf-app (ARM64) ==="
 docker build \
-  -f "${ROOT_DIR}/infra/docker/Dockerfile.app" \
+  -f "${ROOT_DIR}/services/docker/Dockerfile.app" \
   -t "retainpdf-app:${TAG}" \
-  "${ROOT_DIR}"
+  "${ROOT_DIR}/services"
 
 echo "=== Build retainpdf-web (ARM64) ==="
 docker build \

@@ -12,12 +12,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-COPY services/api/Cargo.toml services/api/Cargo.lock services/api/build.rs ./services/api/
-COPY services/api/crates ./services/api/crates
-COPY services/api/src ./services/api/src
+COPY api/Cargo.toml api/Cargo.lock api/build.rs ./api/
+COPY api/crates ./api/crates
+COPY api/src ./api/src
 
-WORKDIR /build/services/api
+WORKDIR /build/api
 RUN cargo build --release --locked --workspace --bins
+
+FROM python:3.11-slim-bookworm AS python-lock
+
+COPY --from=ghcr.io/astral-sh/uv:0.11.19 /uv /uvx /bin/
+
+WORKDIR /workspace
+
+COPY pyproject.toml uv.lock ./
+COPY ai/pyproject.toml ai/pyproject.toml
+COPY pipeline/pyproject.toml pipeline/pyproject.toml
+
+RUN uv export \
+    --locked \
+    --no-dev \
+    --no-emit-workspace \
+    --format requirements-txt \
+    --output-file /requirements-backend.txt
 
 FROM python:3.11-slim-bookworm AS typstsrc
 
@@ -59,6 +76,9 @@ RUN set -eux; \
 
 FROM python:3.11-slim-bookworm AS runtime
 
+ARG CMARKER_VERSION=0.1.8
+ARG MITEX_VERSION=0.2.6
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PROJECT_ROOT=/app \
@@ -74,6 +94,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     RETAIN_PDF_TITLE_BOLD_FONT_PATH=/usr/local/share/fonts/source-han-serif/SourceHanSerifSC-Bold.otf \
     RETAIN_PDF_TYPST_FONT_DIRS=/usr/local/share/fonts/source-han-serif \
     RETAIN_PDF_TYPST_FONT_FAMILY="Source Han Serif SC" \
+    RUST_API_AI_SUPERVISE=1 \
+    RUST_API_AI_COMMAND=python3 \
+    RUST_API_AI_ARGS="-m retainpdf_ai" \
+    RUST_API_AI_CWD=/app/services/ai \
+    RETAIN_AI_FX_AGENT_CLI_COMMAND=/usr/local/bin/retainpdf-agent \
+    CMARKER_VERSION=${CMARKER_VERSION} \
+    MITEX_VERSION=${MITEX_VERSION} \
     RUST_API_BIND_HOST=0.0.0.0 \
     RUST_API_PORT=41000 \
     RUST_API_SIMPLE_PORT=42000
@@ -93,27 +120,27 @@ COPY --from=typstsrc /opt/typst-packages /app/backend/typst-packages
 
 RUN mkdir -p /usr/local/share/fonts/source-han-serif
 
-COPY infra/fonts/SourceHanSerifSC-Regular.otf /usr/local/share/fonts/source-han-serif/SourceHanSerifSC-Regular.otf
-COPY infra/fonts/SourceHanSerifSC-Bold.otf /usr/local/share/fonts/source-han-serif/SourceHanSerifSC-Bold.otf
-COPY infra/docker/fontconfig/65-source-han-serif-alias.conf /etc/fonts/conf.d/65-source-han-serif-alias.conf
+COPY fonts /usr/local/share/fonts/source-han-serif
+COPY docker/fontconfig/65-source-han-serif-alias.conf /etc/fonts/conf.d/65-source-han-serif-alias.conf
 
 RUN fc-scan /usr/local/share/fonts/source-han-serif/SourceHanSerifSC-Regular.otf >/dev/null \
     && fc-scan /usr/local/share/fonts/source-han-serif/SourceHanSerifSC-Bold.otf >/dev/null \
     && fc-cache -f
 
-COPY infra/docker/requirements-app.txt /tmp/requirements-app.txt
-RUN pip install --no-cache-dir -r /tmp/requirements-app.txt
+COPY --from=python-lock /requirements-backend.txt /tmp/requirements-backend.txt
+RUN pip install --no-cache-dir --require-hashes -r /tmp/requirements-backend.txt
 
-COPY --from=builder /build/services/api/target/release/rust_api /usr/local/bin/rust_api
-COPY --from=builder /build/services/api/target/release/retain-jobsd /usr/local/bin/retain-jobsd
-COPY --from=builder /build/services/api/target/release/retainpdf-agent /usr/local/bin/retainpdf-agent
-COPY services/config /app/services/config
-COPY services/pipeline /app/services/pipeline
-RUN pip install --no-cache-dir --no-deps /app/services/pipeline
+COPY --from=builder /build/api/target/release/rust_api /usr/local/bin/rust_api
+COPY --from=builder /build/api/target/release/retain-jobsd /usr/local/bin/retain-jobsd
+COPY --from=builder /build/api/target/release/retainpdf-agent /usr/local/bin/retainpdf-agent
+COPY config /app/services/config
+COPY pipeline /app/services/pipeline
+COPY ai /app/services/ai
+RUN pip install --no-cache-dir --no-deps /app/services/pipeline /app/services/ai
 # 兼容旧路径（过渡期）
 RUN mkdir -p /app/backend/scripts && cp -r /app/services/pipeline/* /app/backend/scripts/ 2>/dev/null || true
-COPY services/api/auth.local.example.json /app/services/api/auth.local.example.json
-COPY infra/docker/entrypoint-app.sh /entrypoint.sh
+COPY api/auth.local.example.json /app/services/api/auth.local.example.json
+COPY docker/entrypoint-app.sh /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh \
     && mkdir -p /app/services/api /app/backend/scripts /data/uploads /data/downloads /data/db /data/jobs /data/typst-package-cache

@@ -11,6 +11,8 @@ The workspace contains:
 - `pipeline/`: Python OCR, translation, and rendering package.
 - `config/`: backend-owned runtime configuration shared by Rust and Python.
 - `contracts/`: backend-local JSON contract mirror plus monorepo parity check.
+- `fonts/`: backend-owned default rendering fonts and their redistribution license.
+- `docker/`: the self-contained backend application image definition.
 
 ## Local verification
 
@@ -35,5 +37,18 @@ python3 services/contracts/check_parity.py --require-upstream
 
 Contracts and golden regression data now live under `contracts/` and
 `testdata/`, so an isolated backend checkout can validate both without reaching
-into the parent monorepo. Fonts and backend deployment assets remain external
-boundaries.
+into the parent monorepo. The bundled font assets and app image are also owned
+by this workspace; web delivery and desktop packaging remain product-level
+consumers in the parent repository.
+
+## Backend container
+
+Build the backend image with this directory as the complete Docker context:
+
+```bash
+docker build -f docker/Dockerfile.app -t retainpdf-app:local .
+```
+
+The image contains `rust_api`, `retain-jobsd`, `retainpdf-agent`, the Python
+pipeline, and the Python AI service. `rust_api` supervises the AI service inside
+the container, so `/api/v1/ai/*` does not require a separately managed process.

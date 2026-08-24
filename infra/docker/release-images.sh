@@ -42,9 +42,9 @@ WEB_LATEST_IMAGE="${WEB_REPO}:latest"
 docker build \
   "${build_arg_flags[@]}" \
   --build-arg "TYPST_VERSION=${TYPST_VERSION}" \
-  -f "${ROOT_DIR}/infra/docker/Dockerfile.app" \
+  -f "${ROOT_DIR}/services/docker/Dockerfile.app" \
   -t "${APP_VERSION_IMAGE}" \
-  "${ROOT_DIR}"
+  "${ROOT_DIR}/services"
 
 docker build \
   "${build_arg_flags[@]}" \
