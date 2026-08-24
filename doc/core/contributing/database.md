@@ -13,7 +13,7 @@
 
 ## 代码边界
 
-数据库访问统一收敛在 `backend/rust_api/src/db.rs` 及其子模块：
+数据库访问统一收敛在后端源码的 `api/crates/retain-data/src/db.rs` 及其子模块：
 
 - `src/db.rs`：`Db` facade，对外提供 job、artifact、event、glossary 等持久化能力。
 - `src/db/schema.rs`：建表、schema 检查和兼容初始化。
@@ -42,11 +42,12 @@
 ## 常用检查
 
 ```bash
-cargo test --manifest-path backend/rust_api/Cargo.toml
-cd backend/rust_api && python3 scripts/check_architecture.py
+BACKEND_ROOT="$(python3 .github/scripts/resolve_backend_source.py --print-path)"
+cargo test --locked --workspace --manifest-path "$BACKEND_ROOT/api/Cargo.toml"
+python3 "$BACKEND_ROOT/api/scripts/check_architecture.py"
 ```
 
-新增数据库行为时，优先补 `backend/rust_api/src/db.rs` 或相关 service 的最小单元测试。
+新增数据库行为时，优先补 `api/crates/retain-data/src/db.rs`、对应数据库子模块或相关 service 的最小单元测试。
 
 ## PR 说明
 

@@ -89,14 +89,14 @@ sudo xattr -r -d com.apple.quarantine /Applications/RetainPDF.app
 
 当前仓库提供了 Docker 交付目录：
 
-- [docker/delivery/README.md](docker/delivery/README.md)
-- [docker/delivery/docker-compose.yml](docker/delivery/docker-compose.yml)
+- [infra/docker/delivery/README.md](infra/docker/delivery/README.md)
+- [infra/docker/delivery/docker-compose.yml](infra/docker/delivery/docker-compose.yml)
 
 基本步骤：
 
 ```bash
 git clone https://github.com/wxyhgk/retain-pdf.git
-cd retain-pdf/docker/delivery
+cd retain-pdf/infra/docker/delivery
 docker compose up -d
 ```
 
@@ -117,7 +117,7 @@ http://127.0.0.1:40001
 如果只是更新到最新镜像版本：
 
 ```bash
-cd retain-pdf/docker/delivery
+cd retain-pdf/infra/docker/delivery
 docker compose pull
 docker compose up -d
 ```
@@ -125,7 +125,7 @@ docker compose up -d
 如果你要切换到指定镜像版本，也可以这样：
 
 ```bash
-cd retain-pdf/docker/delivery
+cd retain-pdf/infra/docker/delivery
 APP_IMAGE=wxyhgk/retainpdf-app:<version> \
 WEB_IMAGE=wxyhgk/retainpdf-web:<version> \
 docker compose up -d
@@ -164,11 +164,11 @@ docker compose ps
 - [主线文档](doc/core/README.md)
 - [参考资料](doc/reference/README.md)
 - [运维与过程记录](doc/ops/README.md)
-- [Pipeline 阶段契约](backend/scripts/runtime/pipeline/README.md)
+- [Pipeline 阶段契约](services/pipeline/retainpdf_pipeline/runtime/pipeline/README.md)（当前内嵌后端；源码选择规则见[后端源码锁](doc/core/contributing/backend-source.md)）
 
 ### 代码与子模块说明
 
-- [后端脚本说明](backend/scripts/README.md)
+- [后端源码说明](services/README.md)（当前内嵌后端）
 - `apps/web/`：当前生产使用的前端，也是桌面端 bundle 的输入目录；index/reader/detail 三页均已迁移为 React SPA（`src/pages/` 是新世界入口，esbuild 打包，`src/js/` 保留纯逻辑核心）。
 - `frontend-react/`：另一条 React 前端迁移区（独立技术栈：Vite + TypeScript），当前不直接替代 `apps/web/`。
 - `desktop/`：Electron 桌面端打包与运行壳。
@@ -181,9 +181,9 @@ docker compose ps
   另一条 React 前端迁移区（独立技术栈）。
 - `desktop/`
   Electron 桌面端打包、运行壳和桌面端前端 bundle。
-- `backend/`
-  Rust API、Python 脚本、嵌入式 Python、历史工作区。
-- `docker/`
+- `services/`
+  当前内嵌的 Rust API、AI service 和 Python pipeline；实际消费位置由 `backend-source.lock.json` 决定。
+- `infra/docker/`
   Dockerfile、发布脚本、交付用 compose 配置。
 - `experiments/`
   独立实验、验证记录和临时 POC。

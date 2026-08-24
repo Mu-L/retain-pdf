@@ -5,10 +5,12 @@
 从仓库根目录启动：
 
 ```bash
-cd /path/to/retain-pdf/backend/rust_api
+PRODUCT_ROOT="$(pwd)"
+BACKEND_ROOT="$(python3 .github/scripts/resolve_backend_source.py --print-path)"
+cd "$BACKEND_ROOT/api"
 RUST_API_BIND_HOST=0.0.0.0 \
-RUST_API_DATA_ROOT=../../data \
-RUST_API_SCRIPTS_DIR=../scripts \
+RUST_API_DATA_ROOT="$PRODUCT_ROOT/data" \
+RUST_API_SCRIPTS_DIR="$BACKEND_ROOT/scripts" \
 cargo run
 ```
 
@@ -42,10 +44,10 @@ X-API-Key: your-rust-api-key
 
 本地 key 来源：
 
-- `backend/rust_api/auth.local.json`
+- `$BACKEND_ROOT/api/auth.local.json`
 - 环境变量 `RUST_API_KEYS`
 
-Docker 中 `docker/delivery/docker/auth.local.json` 的 `api_keys` 必须和 `docker/delivery/docker/web.env` 里的 `FRONT_X_API_KEY` 对上。
+Docker 中 `infra/docker/delivery/docker/auth.local.json` 的 `api_keys` 必须和 `infra/docker/delivery/docker/web.env` 里的 `FRONT_X_API_KEY` 对上。
 
 ## 常用环境变量
 
@@ -66,8 +68,8 @@ Docker 中 `docker/delivery/docker/auth.local.json` 的 `api_keys` 必须和 `do
 
 Compose 实际读取的是：
 
-- `docker/delivery/docker/app.env`
-- `docker/delivery/docker/web.env`
-- `docker/delivery/docker/auth.local.json`
+- `infra/docker/delivery/docker/app.env`
+- `infra/docker/delivery/docker/web.env`
+- `infra/docker/delivery/docker/auth.local.json`
 
 不是仓库根目录下的 `docker/*.env`。

@@ -60,16 +60,17 @@
 Rust API：
 
 ```bash
-cargo test --manifest-path backend/rust_api/Cargo.toml
+npm run test:api
 ```
 
 Python：
 
 ```bash
-PYTHONPATH=backend/scripts python3 -m pytest backend/scripts/devtools/tests/translation -q
-PYTHONPATH=backend/scripts python3 -m pytest backend/scripts/devtools/tests/document_schema -q
-PYTHONPATH=backend/scripts python3 -m pytest backend/scripts/devtools/tests/rendering -q
-python3 backend/scripts/devtools/check_pipeline_architecture.py
+BACKEND_ROOT="$(python3 .github/scripts/resolve_backend_source.py --print-path)"
+uv run --project "$BACKEND_ROOT" python -m pytest "$BACKEND_ROOT/pipeline/devtools/tests/translation" -q
+uv run --project "$BACKEND_ROOT" python -m pytest "$BACKEND_ROOT/pipeline/devtools/tests/document_schema" -q
+uv run --project "$BACKEND_ROOT" python -m pytest "$BACKEND_ROOT/pipeline/devtools/tests/rendering" -q
+python3 "$BACKEND_ROOT/pipeline/devtools/check_pipeline_architecture.py"
 ```
 
 前端与桌面端：

@@ -21,8 +21,9 @@ AI 可以提高效率，但不能替代边界判断、测试验证和最终责�
 
 应包含：
 
-- 项目根目录：`/home/wxyhgk/tmp/Code`
-- 主要模块：`backend/rust_api/`、`backend/scripts/`、`frontend/`、`frontend-react/`、`desktop/`、`docker/`、`doc/`
+- 项目根目录：当前产品仓库根目录，不写死本机绝对路径。
+- 后端源码：先运行 `.github/scripts/resolve_backend_source.py --json`，可能是内嵌目录，也可能是锁定的独立 checkout。
+- 主要后端模块：`api/`、`ai/`、`pipeline/`、`contracts/`、`docker/`；产品集成位于 `.github/`、`infra/docker/` 和 `backend-source.lock.json`。
 - 核心规则：不要回滚无关脏改；手动编辑用 patch；改前先读相邻代码；按模块跑测试。
 - 文档入口：根目录 `CONTRIBUTING.md` 和 `doc/core/contributing/README.md`
 
@@ -41,9 +42,10 @@ AI 可以提高效率，但不能替代边界判断、测试验证和最终责�
 常用检查：
 
 ```bash
-cargo fmt --manifest-path backend/rust_api/Cargo.toml --check
-cargo test --manifest-path backend/rust_api/Cargo.toml
-cd backend/rust_api && python3 scripts/check_architecture.py
+BACKEND_ROOT="$(python3 .github/scripts/resolve_backend_source.py --print-path)"
+cargo fmt --manifest-path "$BACKEND_ROOT/api/Cargo.toml" --check
+cargo test --locked --workspace --manifest-path "$BACKEND_ROOT/api/Cargo.toml"
+python3 "$BACKEND_ROOT/api/scripts/check_architecture.py"
 ```
 
 ### Python 流水线边界检查
@@ -60,9 +62,10 @@ cd backend/rust_api && python3 scripts/check_architecture.py
 常用检查：
 
 ```bash
-python3 backend/scripts/devtools/check_pipeline_architecture.py
-PYTHONPATH=backend/scripts python3 -m pytest backend/scripts/devtools/tests/translation -q
-PYTHONPATH=backend/scripts python3 -m pytest backend/scripts/devtools/tests/rendering -q
+BACKEND_ROOT="$(python3 .github/scripts/resolve_backend_source.py --print-path)"
+python3 "$BACKEND_ROOT/pipeline/devtools/check_pipeline_architecture.py"
+uv run --project "$BACKEND_ROOT" python -m pytest "$BACKEND_ROOT/pipeline/devtools/tests/translation" -q
+uv run --project "$BACKEND_ROOT" python -m pytest "$BACKEND_ROOT/pipeline/devtools/tests/rendering" -q
 ```
 
 ### 前端与桌面端同步

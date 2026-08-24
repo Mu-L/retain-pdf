@@ -41,8 +41,8 @@ PR 描述建议包含：
 
 ## 验证
 
-- [ ] cargo test --manifest-path backend/rust_api/Cargo.toml
-- [ ] python3 backend/scripts/devtools/check_pipeline_architecture.py
+- [ ] npm run test:api
+- [ ] BACKEND_ROOT="$(python3 .github/scripts/resolve_backend_source.py --print-path)" && python3 "$BACKEND_ROOT/pipeline/devtools/check_pipeline_architecture.py"
 - [ ] npm --prefix desktop run verify-frontend-sync
 
 ## 风险
