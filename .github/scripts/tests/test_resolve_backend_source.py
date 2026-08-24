@@ -68,6 +68,13 @@ def _product_repo(tmp_path: Path) -> tuple[Path, str]:
     return repo_root, source_tree
 
 
+def _rewrite_lock(repo_root: Path, **updates: object) -> None:
+    lock_path = repo_root / "backend-source.lock.json"
+    payload = json.loads(lock_path.read_text(encoding="utf-8"))
+    payload.update(updates)
+    lock_path.write_text(json.dumps(payload), encoding="utf-8")
+
+
 def test_resolves_verified_embedded_backend(tmp_path: Path, monkeypatch) -> None:
     repo_root, source_tree = _product_repo(tmp_path)
     monkeypatch.delenv("RETAIN_PDF_SERVICES_ROOT", raising=False)
@@ -77,6 +84,7 @@ def test_resolves_verified_embedded_backend(tmp_path: Path, monkeypatch) -> None
     assert resolved == {
         "path": str((repo_root / "services").resolve()),
         "kind": "embedded",
+        "revision": "",
         "tree": source_tree,
     }
 
@@ -116,3 +124,58 @@ def test_rejects_dirty_tracked_backend_by_default(tmp_path: Path, monkeypatch) -
         resolve_backend_source(repo_root)
 
     assert resolve_backend_source(repo_root, allow_dirty=True)["tree"] == source_tree
+
+
+def test_rejects_repository_without_revision(tmp_path: Path, monkeypatch) -> None:
+    repo_root, _source_tree = _product_repo(tmp_path)
+    _rewrite_lock(repo_root, repository="retainpdf/backend")
+    monkeypatch.delenv("RETAIN_PDF_SERVICES_ROOT", raising=False)
+
+    with pytest.raises(RuntimeError, match="must both be set or null"):
+        resolve_backend_source(repo_root)
+
+
+def test_rejects_checkout_at_different_commit_with_same_tree(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo_root, source_tree = _product_repo(tmp_path)
+    checkout = repo_root / ".backend" / "retainpdf-services"
+    _write_backend_layout(checkout)
+    _commit_repo(checkout)
+    locked_revision = _git(checkout, "rev-parse", "HEAD")
+    _git(
+        checkout,
+        "-c",
+        "user.name=RetainPDF Test",
+        "-c",
+        "user.email=test@example.invalid",
+        "commit",
+        "--allow-empty",
+        "-qm",
+        "different commit with the same tree",
+    )
+    assert _git(checkout, "rev-parse", "HEAD^{tree}") == source_tree
+    _rewrite_lock(
+        repo_root,
+        repository="retainpdf/backend",
+        revision=locked_revision,
+    )
+    monkeypatch.delenv("RETAIN_PDF_SERVICES_ROOT", raising=False)
+
+    with pytest.raises(RuntimeError, match="checkout revision does not match"):
+        resolve_backend_source(repo_root)
+
+
+@pytest.mark.parametrize("unsafe_path", ["../backend", "/tmp/backend", "a\\backend"])
+def test_rejects_unsafe_checkout_path(
+    tmp_path: Path,
+    monkeypatch,
+    unsafe_path: str,
+) -> None:
+    repo_root, _source_tree = _product_repo(tmp_path)
+    _rewrite_lock(repo_root, checkout_path=unsafe_path)
+    monkeypatch.delenv("RETAIN_PDF_SERVICES_ROOT", raising=False)
+
+    with pytest.raises(RuntimeError, match="safe repository-relative path"):
+        resolve_backend_source(repo_root)

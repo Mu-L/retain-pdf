@@ -7,6 +7,8 @@ import argparse
 import json
 import os
 from pathlib import Path
+from pathlib import PurePosixPath
+import re
 import subprocess
 import sys
 from typing import Any
@@ -21,6 +23,9 @@ REQUIRED_PATHS = (
     "config/ocr_providers.json",
     "docker/Dockerfile.app",
 )
+
+GIT_REVISION_PATTERN = re.compile(r"[0-9a-f]{40}")
+GITHUB_REPOSITORY_PATTERN = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")
 
 
 def _git(*args: str, cwd: Path) -> str:
@@ -41,6 +46,38 @@ def _load_lock(repo_root: Path) -> dict[str, Any]:
     for field in ("source_tree", "embedded_path", "checkout_path"):
         if not str(payload.get(field) or "").strip():
             raise RuntimeError(f"backend source lock is missing {field}: {lock_path}")
+    if not GIT_REVISION_PATTERN.fullmatch(str(payload["source_tree"])):
+        raise RuntimeError(f"backend source lock has invalid source_tree: {lock_path}")
+
+    repository = payload.get("repository")
+    revision = payload.get("revision")
+    if (repository is None) != (revision is None):
+        raise RuntimeError(
+            f"backend source lock repository and revision must both be set or null: {lock_path}"
+        )
+    if repository is not None:
+        if not isinstance(repository, str) or not GITHUB_REPOSITORY_PATTERN.fullmatch(repository):
+            raise RuntimeError(
+                f"backend source lock repository must be an owner/name GitHub slug: {lock_path}"
+            )
+        if not isinstance(revision, str) or not GIT_REVISION_PATTERN.fullmatch(revision):
+            raise RuntimeError(
+                f"backend source lock revision must be a full 40-character SHA: {lock_path}"
+            )
+
+    for field in ("embedded_path", "checkout_path"):
+        raw_path = str(payload[field])
+        relative = PurePosixPath(raw_path)
+        if (
+            relative.is_absolute()
+            or ".." in relative.parts
+            or not relative.parts
+            or raw_path in {"", "."}
+            or "\\" in raw_path
+        ):
+            raise RuntimeError(
+                f"backend source lock {field} must be a safe repository-relative path: {lock_path}"
+            )
     return payload
 
 
@@ -57,11 +94,16 @@ def _candidate(repo_root: Path, lock: dict[str, Any]) -> tuple[Path, str]:
     return (repo_root / str(lock["embedded_path"])).resolve(), "embedded"
 
 
-def _tree_for_source(source_root: Path) -> tuple[str, Path, str]:
+def _git_source(source_root: Path) -> tuple[str, str, Path, str]:
     git_root = Path(_git("rev-parse", "--show-toplevel", cwd=source_root)).resolve()
     relative = source_root.relative_to(git_root)
     treeish = "HEAD^{tree}" if relative == Path(".") else f"HEAD:{relative.as_posix()}"
-    return _git("rev-parse", treeish, cwd=git_root), git_root, relative.as_posix()
+    return (
+        _git("rev-parse", "HEAD", cwd=git_root),
+        _git("rev-parse", treeish, cwd=git_root),
+        git_root,
+        relative.as_posix(),
+    )
 
 
 def resolve_backend_source(
@@ -81,13 +123,21 @@ def resolve_backend_source(
             f"backend source layout is incomplete at {source_root}: {', '.join(missing)}"
         )
 
-    actual_tree, git_root, relative = _tree_for_source(source_root)
+    actual_revision, actual_tree, git_root, relative = _git_source(source_root)
     expected_tree = str(lock["source_tree"])
     if actual_tree != expected_tree:
         raise RuntimeError(
             "backend source tree does not match backend-source.lock.json: "
             f"expected {expected_tree}, got {actual_tree} at {source_root}"
         )
+
+    expected_revision = lock.get("revision")
+    if source_kind != "embedded" and expected_revision is not None:
+        if actual_revision != expected_revision:
+            raise RuntimeError(
+                "backend checkout revision does not match backend-source.lock.json: "
+                f"expected {expected_revision}, got {actual_revision} at {source_root}"
+            )
 
     pathspec = "." if relative == "." else relative
     dirty = _git(
@@ -106,6 +156,7 @@ def resolve_backend_source(
     return {
         "path": str(source_root),
         "kind": source_kind,
+        "revision": actual_revision if source_kind != "embedded" else "",
         "tree": actual_tree,
     }
 
