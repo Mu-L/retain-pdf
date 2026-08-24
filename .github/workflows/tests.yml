@@ -20,6 +20,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare pinned backend source
+        id: backend
+        uses: ./.github/actions/prepare-backend-source
+        with:
+          token: ${{ secrets.BACKEND_REPOSITORY_TOKEN || github.token }}
+
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
         with:
@@ -27,7 +33,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install locked Python workspace for executor tests
-        run: uv sync --project services --locked --all-extras
+        run: uv sync --project "$RETAIN_PDF_SERVICES_ROOT" --locked --all-extras
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -35,12 +41,12 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: services/api
+          workspaces: ${{ steps.backend.outputs.path }}/api
 
       # 必须 --workspace：裸 cargo test 只跑主 crate，会漏掉
       # retain-core/retain-data/retain-jobs 三个子 crate 的测试
       - name: Cargo Workspace Tests
-        run: cargo test --workspace --manifest-path services/api/Cargo.toml
+        run: cargo test --locked --workspace --manifest-path "$RETAIN_PDF_SERVICES_ROOT/api/Cargo.toml"
 
   packages:
     runs-on: ubuntu-latest
@@ -120,27 +126,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare pinned backend source
+        id: backend
+        uses: ./.github/actions/prepare-backend-source
+        with:
+          token: ${{ secrets.BACKEND_REPOSITORY_TOKEN || github.token }}
+
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.11"
 
       - name: Install
-        run: uv sync --project services --locked --all-extras
+        run: uv sync --project "$RETAIN_PDF_SERVICES_ROOT" --locked --all-extras
 
       - name: Check generated dependency manifests
-        run: uv run --project services python .github/scripts/sync_backend_python_requirements.py --repo-root . --services-root services --check
+        run: uv run --project "$RETAIN_PDF_SERVICES_ROOT" python .github/scripts/sync_backend_python_requirements.py --repo-root . --services-root "$RETAIN_PDF_SERVICES_ROOT" --check
 
       - name: Check installed command contracts
         run: |
-          uv run --project services retainpdf-pipeline --help
-          uv run --project services python -c "import retainpdf_ai, retainpdf_pipeline"
+          uv run --project "$RETAIN_PDF_SERVICES_ROOT" retainpdf-pipeline --help
+          uv run --project "$RETAIN_PDF_SERVICES_ROOT" python -c "import retainpdf_ai, retainpdf_pipeline"
 
       - name: AI Service Tests
-        run: uv run --project services python -m pytest services/ai/tests -q
+        run: uv run --project "$RETAIN_PDF_SERVICES_ROOT" python -m pytest "$RETAIN_PDF_SERVICES_ROOT/ai/tests" -q
 
       - name: Pipeline package entrypoint tests
-        run: uv run --project services python -m pytest services/pipeline/devtools/tests/entrypoints/test_console.py -q
+        run: uv run --project "$RETAIN_PDF_SERVICES_ROOT" python -m pytest "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/entrypoints/test_console.py" -q
 
   backend-standalone:
     runs-on: ubuntu-latest
@@ -148,8 +160,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify pinned backend source
-        run: python3 .github/scripts/resolve_backend_source.py
+      - name: Prepare pinned backend source
+        id: backend
+        uses: ./.github/actions/prepare-backend-source
+        with:
+          token: ${{ secrets.BACKEND_REPOSITORY_TOKEN || github.token }}
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
@@ -159,23 +174,31 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install locked backend test environment
+        run: uv sync --project "$RETAIN_PDF_SERVICES_ROOT" --locked --all-extras
+
       - name: Test backend source resolver
-        run: uv run --project services python -m pytest .github/scripts/tests/test_resolve_backend_source.py -q
+        run: uv run --project "$RETAIN_PDF_SERVICES_ROOT" python -m pytest .github/scripts/tests/test_resolve_backend_source.py -q
 
       - name: Check backend contract mirror parity
-        run: python3 services/contracts/check_parity.py --require-upstream
+        run: |
+          python3 "$RETAIN_PDF_SERVICES_ROOT/contracts/check_parity.py"
+          for backend_schema in "$RETAIN_PDF_SERVICES_ROOT"/contracts/*.schema.json; do
+            product_schema="$GITHUB_WORKSPACE/packages/schemas/$(basename "$backend_schema")"
+            diff -- "$backend_schema" "$product_schema"
+          done
 
       - name: Verify isolated backend workspace
-        run: python3 services/scripts/check_standalone.py --compile-rust
+        run: python3 "$RETAIN_PDF_SERVICES_ROOT/scripts/check_standalone.py" --compile-rust
 
       - name: Build backend source archive
-        run: python3 services/scripts/build_source_archive.py
+        run: python3 "$RETAIN_PDF_SERVICES_ROOT/scripts/build_source_archive.py"
 
       - name: Upload backend source archive
         uses: actions/upload-artifact@v4
         with:
-          name: retainpdf-backend-source-${{ github.sha }}
+          name: retainpdf-backend-source-${{ steps.backend.outputs.tree }}
           path: |
-            services/dist/*.tar.gz
-            services/dist/*.sha256
+            ${{ steps.backend.outputs.path }}/dist/*.tar.gz
+            ${{ steps.backend.outputs.path }}/dist/*.sha256
           if-no-files-found: error
