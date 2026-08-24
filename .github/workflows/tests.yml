@@ -20,6 +20,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.19"
+          python-version: "3.11"
+
+      - name: Install locked Python workspace for executor tests
+        run: uv sync --project services --locked --all-extras
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
