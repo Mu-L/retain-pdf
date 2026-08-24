@@ -405,7 +405,7 @@ wheels = [
 [[package]]
 name = "retainpdf-ai-service"
 version = "0.1.0"
-source = { editable = "services/ai" }
+source = { editable = "ai" }
 dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
@@ -445,17 +445,17 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "retainpdf-ai-service", editable = "services/ai" },
-    { name = "retainpdf-ai-service", extras = ["test"], marker = "extra == 'test'", editable = "services/ai" },
-    { name = "retainpdf-pipeline", editable = "services/pipeline" },
-    { name = "retainpdf-pipeline", extras = ["test"], marker = "extra == 'test'", editable = "services/pipeline" },
+    { name = "retainpdf-ai-service", editable = "ai" },
+    { name = "retainpdf-ai-service", extras = ["test"], marker = "extra == 'test'", editable = "ai" },
+    { name = "retainpdf-pipeline", editable = "pipeline" },
+    { name = "retainpdf-pipeline", extras = ["test"], marker = "extra == 'test'", editable = "pipeline" },
 ]
 provides-extras = ["test"]
 
 [[package]]
 name = "retainpdf-pipeline"
 version = "4.1.0b8"
-source = { editable = "services/pipeline" }
+source = { editable = "pipeline" }
 dependencies = [
     { name = "pikepdf" },
     { name = "pillow" },

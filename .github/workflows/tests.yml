@@ -111,26 +111,41 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.11"
 
       - name: Install
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install "./services/ai[test]" "./services/pipeline[test]"
+        run: uv sync --project services --locked --all-extras
 
       - name: Check generated dependency manifests
-        run: python services/pipeline/devtools/sync_python_requirements.py --repo-root . --check
+        run: uv run --project services python services/pipeline/devtools/sync_python_requirements.py --repo-root . --check
 
       - name: Check installed command contracts
         run: |
-          retainpdf-pipeline --help
-          python -c "import retainpdf_ai, retainpdf_pipeline"
+          uv run --project services retainpdf-pipeline --help
+          uv run --project services python -c "import retainpdf_ai, retainpdf_pipeline"
 
       - name: AI Service Tests
-        run: python -m pytest services/ai/tests -q
+        run: uv run --project services python -m pytest services/ai/tests -q
 
       - name: Pipeline package entrypoint tests
-        run: python -m pytest services/pipeline/devtools/tests/entrypoints/test_console.py -q
+        run: uv run --project services python -m pytest services/pipeline/devtools/tests/entrypoints/test_console.py -q
+
+  backend-standalone:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Verify isolated backend workspace
+        run: python3 services/scripts/check_standalone.py --compile-rust

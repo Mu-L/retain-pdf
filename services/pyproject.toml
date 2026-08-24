@@ -20,8 +20,8 @@ retainpdf-pipeline = { workspace = true }
 
 [tool.uv.workspace]
 members = [
-  "services/ai",
-  "services/pipeline",
+  "ai",
+  "pipeline",
 ]
 
 [tool.retain_pdf.external-binaries]
