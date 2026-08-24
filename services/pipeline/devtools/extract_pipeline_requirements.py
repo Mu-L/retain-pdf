@@ -33,7 +33,7 @@ class ImportHit:
 def parse_args() -> argparse.Namespace:
     default_output_dir = Path("doc") / "python"
     parser = argparse.ArgumentParser(
-        description="Extract Python/runtime dependency signals from backend/pipeline.",
+        description="Extract Python/runtime dependency signals from services/pipeline.",
     )
     parser.add_argument(
         "--repo-root",
@@ -170,7 +170,7 @@ def _scan_external_commands(scripts_root: Path) -> dict[str, list[str]]:
 
 
 def _build_report(repo_root: Path) -> dict[str, object]:
-    scripts_root = repo_root / "backend" / "scripts"
+    scripts_root = repo_root / "services" / "pipeline"
     raw_hits = _scan_imports(scripts_root)
     packages: list[dict[str, object]] = []
     runtime_packages: list[str] = []
@@ -200,10 +200,10 @@ def _build_report(repo_root: Path) -> dict[str, object]:
     runtime_packages = sorted(dict.fromkeys(runtime_packages))
     test_only_packages = sorted(dict.fromkeys(test_only_packages))
     requirement_files = [
-        "docker/requirements-app.txt",
-        "desktop/requirements-desktop-posix.txt",
-        "desktop/requirements-desktop-windows.txt",
-        "desktop/requirements-desktop-macos.txt",
+        "infra/docker/requirements-app.txt",
+        "apps/desktop/requirements-desktop-posix.txt",
+        "apps/desktop/requirements-desktop-windows.txt",
+        "apps/desktop/requirements-desktop-macos.txt",
     ]
     return {
         "repo_root": str(repo_root),
@@ -225,9 +225,9 @@ def _render_markdown(report: dict[str, object]) -> str:
     lines = [
         "# Python Pipeline Dependencies",
         "",
-        "This file is generated from static import scanning under `backend/pipeline`.",
+        "This file is generated from static import scanning under `services/pipeline`.",
         "Regenerate with:",
-        "`python backend/pipeline/devtools/extract_pipeline_requirements.py --repo-root . --json-out doc/core/python/pipeline_dependencies.json --markdown-out doc/core/python/pipeline_dependencies.md --runtime-req-out doc/core/python/pipeline_runtime_requirements.in --test-req-out doc/core/python/pipeline_test_requirements.in`",
+        "`python services/pipeline/devtools/extract_pipeline_requirements.py --repo-root . --json-out doc/core/python/pipeline_dependencies.json --markdown-out doc/core/python/pipeline_dependencies.md --runtime-req-out doc/core/python/pipeline_runtime_requirements.in --test-req-out doc/core/python/pipeline_test_requirements.in`",
         "",
         "## Runtime Python Packages",
         "",

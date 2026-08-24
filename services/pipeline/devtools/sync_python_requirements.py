@@ -10,11 +10,6 @@ except ModuleNotFoundError:  # pragma: no cover
     tomllib = None
 
 
-HEADER = [
-    "# Generated from pyproject.toml by services/pipeline/devtools/sync_python_requirements.py.",
-    "# Do not edit manually.",
-]
-
 DESKTOP_MACOS_EXTRA_HEADER = [
     "# Legacy compatibility copy. CI should stay aligned with requirements-desktop-posix.txt.",
 ]
@@ -94,8 +89,16 @@ def _load_dependency_groups_fallback(text: str, pyproject_path: Path) -> tuple[l
     return runtime, test
 
 
-def _render_requirements(lines: list[str], *, extra_header: list[str] | None = None) -> str:
-    header = list(HEADER)
+def _render_requirements(
+    lines: list[str],
+    *,
+    source: str,
+    extra_header: list[str] | None = None,
+) -> str:
+    header = [
+        f"# Generated from {source} by services/pipeline/devtools/sync_python_requirements.py.",
+        "# Do not edit manually.",
+    ]
     if extra_header:
         header.extend(extra_header)
     return "\n".join(header + [""] + lines) + "\n"
@@ -118,33 +121,37 @@ def _sync_file(path: Path, expected: str, *, check_only: bool) -> bool:
 def main() -> None:
     args = parse_args()
     repo_root = args.repo_root.resolve()
-    pyproject_path = repo_root / "pyproject.toml"
-    runtime, test = _load_dependency_groups(pyproject_path)
-    runtime_with_test = runtime + test
+    pipeline_source = "services/pipeline/pyproject.toml"
+    ai_source = "services/ai/pyproject.toml"
+    pipeline_runtime, pipeline_test = _load_dependency_groups(repo_root / pipeline_source)
+    ai_runtime, _ai_test = _load_dependency_groups(repo_root / ai_source)
+    pipeline_with_test = pipeline_runtime + pipeline_test
 
     targets = {
-        repo_root / "infra" / "docker" / "requirements-app.txt": _render_requirements(runtime),
+        repo_root / "infra" / "docker" / "requirements-app.txt": _render_requirements(
+            pipeline_runtime,
+            source=pipeline_source,
+        ),
         repo_root / "infra" / "docker" / "requirements-test.txt": _render_requirements(
-            runtime_with_test
+            pipeline_with_test,
+            source=pipeline_source,
         ),
         repo_root / "apps" / "desktop" / "requirements-desktop-posix.txt": _render_requirements(
-            runtime
+            pipeline_runtime,
+            source=pipeline_source,
         ),
         repo_root / "apps" / "desktop" / "requirements-desktop-windows.txt": _render_requirements(
-            runtime
+            pipeline_runtime,
+            source=pipeline_source,
         ),
         repo_root / "apps" / "desktop" / "requirements-desktop-macos.txt": _render_requirements(
-            runtime,
+            pipeline_runtime,
+            source=pipeline_source,
             extra_header=DESKTOP_MACOS_EXTRA_HEADER,
         ),
-        # 兼容旧路径（过渡期，旧 CI/脚本仍读 docker/* 与 desktop/*）
-        repo_root / "docker" / "requirements-app.txt": _render_requirements(runtime),
-        repo_root / "docker" / "requirements-test.txt": _render_requirements(runtime_with_test),
-        repo_root / "desktop" / "requirements-desktop-posix.txt": _render_requirements(runtime),
-        repo_root / "desktop" / "requirements-desktop-windows.txt": _render_requirements(runtime),
-        repo_root / "desktop" / "requirements-desktop-macos.txt": _render_requirements(
-            runtime,
-            extra_header=DESKTOP_MACOS_EXTRA_HEADER,
+        repo_root / "apps" / "desktop" / "requirements-ai-service.txt": _render_requirements(
+            ai_runtime,
+            source=ai_source,
         ),
     }
 

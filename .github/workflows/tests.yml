@@ -3,7 +3,8 @@ name: Tests
 # 全量测试门禁：rust workspace + 前端（含棘轮/边界门禁）+ ai_service（含契约锁）。
 # 此前这三套只在本地跑，CI 无人站岗——门禁存在但拦不住绕过（先例：v4.1.9
 # home-ask 带着 4 类门禁违规发布）。python pipeline 聚合 suite 依赖重
-#（PyMuPDF/pikepdf 等），暂由 translation-replay 覆盖其子集，未纳入本 workflow。
+#（PyMuPDF/pikepdf 等），暂由 translation-replay 覆盖其子集；本 workflow
+# 只验证其可安装性、命令契约和包边界。
 
 "on":
   pull_request:
@@ -104,7 +105,7 @@ jobs:
         working-directory: apps/web-react
         run: npm test
 
-  ai-service:
+  python-services:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -118,8 +119,18 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r desktop/requirements-ai-service.txt pytest
+          python -m pip install "./services/ai[test]" "./services/pipeline[test]"
+
+      - name: Check generated dependency manifests
+        run: python services/pipeline/devtools/sync_python_requirements.py --repo-root . --check
+
+      - name: Check installed command contracts
+        run: |
+          retainpdf-pipeline --help
+          python -c "import retainpdf_ai, foundation, runtime, services"
 
       - name: AI Service Tests
-        working-directory: services/ai
-        run: python -m pytest tests -q
+        run: python -m pytest services/ai/tests -q
+
+      - name: Pipeline package entrypoint tests
+        run: python -m pytest services/pipeline/devtools/tests/entrypoints/test_console.py -q

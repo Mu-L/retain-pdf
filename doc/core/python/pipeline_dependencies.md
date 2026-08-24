@@ -1,8 +1,8 @@
 # Python Pipeline Dependencies
 
-This file is generated from static import scanning under `backend/scripts`.
+This file is generated from static import scanning under `services/pipeline`.
 Regenerate with:
-`python backend/scripts/devtools/extract_pipeline_requirements.py --repo-root . --json-out doc/core/python/pipeline_dependencies.json --markdown-out doc/core/python/pipeline_dependencies.md --runtime-req-out doc/core/python/pipeline_runtime_requirements.in --test-req-out doc/core/python/pipeline_test_requirements.in`
+`python services/pipeline/devtools/extract_pipeline_requirements.py --repo-root . --json-out doc/core/python/pipeline_dependencies.json --markdown-out doc/core/python/pipeline_dependencies.md --runtime-req-out doc/core/python/pipeline_runtime_requirements.in --test-req-out doc/core/python/pipeline_test_requirements.in`
 
 ## Runtime Python Packages
 
@@ -36,10 +36,10 @@ Regenerate with:
 
 ## Existing Requirement Files
 
-- `docker/requirements-app.txt`
-- `desktop/requirements-desktop-posix.txt`
-- `desktop/requirements-desktop-windows.txt`
-- `desktop/requirements-desktop-macos.txt`
+- `infra/docker/requirements-app.txt`
+- `apps/desktop/requirements-desktop-posix.txt`
+- `apps/desktop/requirements-desktop-windows.txt`
+- `apps/desktop/requirements-desktop-macos.txt`
 
 ## Generated Outputs
 

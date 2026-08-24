@@ -12,8 +12,10 @@ ENTRYPOINTS_ROOT = SCRIPTS_ROOT / "entrypoints"
 STAGE_SPEC_CONTRACT_CHECK = SCRIPTS_ROOT / "devtools" / "check_stage_specs_contract.py"
 
 ENTRYPOINT_IMPORT_ALLOWLIST: dict[Path, tuple[str, ...]] = {
+    Path("__init__.py"): (),
     Path("console.py"): (
         "from collections.abc import",
+        "from entrypoints.run_document_operation import",
         "from foundation.shared.structured_errors import",
         "from services.document_schema.normalize_pipeline import",
         "from services.ocr_provider.provider_pipeline import",
@@ -34,6 +36,10 @@ ENTRYPOINT_IMPORT_ALLOWLIST: dict[Path, tuple[str, ...]] = {
     Path("run_document_flow.py"): (
         "from runtime.pipeline.book_pipeline import",
         "from services.translation.public import",
+    ),
+    Path("run_document_operation.py"): (
+        "from services.document_operations.page_program import",
+        "from services.document_operations.visual_validation import",
     ),
     Path("run_normalize_ocr.py"): ("from services.document_schema.normalize_pipeline import main",),
     Path("run_provider_case.py"): ("from services.ocr_provider.provider_pipeline import main",),

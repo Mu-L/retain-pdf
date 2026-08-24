@@ -304,9 +304,11 @@ def test_official_http_remains_default_and_cli_is_explicit_opt_in(
 
 
 def test_backend_dependencies_do_not_pull_the_paddleocr_sdk() -> None:
-    project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
-        "project"
-    ]
+    project = tomllib.loads(
+        (REPO_ROOT / "services" / "pipeline" / "pyproject.toml").read_text(
+            encoding="utf-8"
+        )
+    )["project"]
     declared = list(project.get("dependencies", []))
     for dependencies in dict(project.get("optional-dependencies", {})).values():
         declared.extend(dependencies)

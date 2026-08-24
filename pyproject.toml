@@ -1,19 +1,27 @@
 [project]
-name = "retain-pdf-backend"
+name = "retainpdf-backend-workspace"
 version = "4.1.0-beta8"
-description = "Retain PDF backend pipeline dependencies and tooling"
+description = "RetainPDF backend Python workspace"
 requires-python = ">=3.11,<3.12"
 dependencies = [
-  "Pillow==10.4.0",
-  "PyMuPDF==1.26.5",
-  "pikepdf==7.2.0",
-  "requests==2.32.5",
-  "urllib3==2.5.0",
+  "retainpdf-ai-service",
+  "retainpdf-pipeline",
 ]
 
 [project.optional-dependencies]
 test = [
-  "pytest==9.0.3",
+  "retainpdf-ai-service[test]",
+  "retainpdf-pipeline[test]",
+]
+
+[tool.uv.sources]
+retainpdf-ai-service = { workspace = true }
+retainpdf-pipeline = { workspace = true }
+
+[tool.uv.workspace]
+members = [
+  "services/ai",
+  "services/pipeline",
 ]
 
 [tool.retain_pdf.external-binaries]

@@ -106,6 +106,7 @@ RUN pip install --no-cache-dir -r /tmp/requirements-app.txt
 COPY --from=builder /build/services/api/target/release/rust_api /usr/local/bin/rust_api
 COPY --from=builder /build/services/api/target/release/retain-jobsd /usr/local/bin/retain-jobsd
 COPY services/pipeline /app/services/pipeline
+RUN pip install --no-cache-dir --no-deps /app/services/pipeline
 # 兼容旧路径（过渡期）
 RUN mkdir -p /app/backend/scripts && cp -r /app/services/pipeline/* /app/backend/scripts/ 2>/dev/null || true
 COPY services/api/auth.local.example.json /app/services/api/auth.local.example.json

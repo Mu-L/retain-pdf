@@ -262,17 +262,20 @@ python services/pipeline/devtools/backfill_normalized_documents.py \
 - Rust API：创建 job，由 Rust 生成 `specs/*.spec.json` 并依次启动 worker
 - 测试脚本：只做回归，不代表主执行路径
 
-## Python 依赖真相源
+## Python 包与依赖真相源
 
-当前 Python 依赖已经收敛到仓库根目录的 [`pyproject.toml`](/home/wxyhgk/tmp/Code/pyproject.toml)。
+Pipeline 是可独立安装的 `retainpdf-pipeline` 包，依赖真相源是本目录的
+[`pyproject.toml`](./pyproject.toml)。仓库根 `pyproject.toml` 只负责组合
+`services/pipeline` 与 `services/ai` 两个 workspace 成员。
 
 不要直接手改这些 requirements 文件：
 
-- [`docker/requirements-app.txt`](/home/wxyhgk/tmp/Code/docker/requirements-app.txt)
-- [`docker/requirements-test.txt`](/home/wxyhgk/tmp/Code/docker/requirements-test.txt)
-- [`desktop/requirements-desktop-posix.txt`](/home/wxyhgk/tmp/Code/desktop/requirements-desktop-posix.txt)
-- [`desktop/requirements-desktop-windows.txt`](/home/wxyhgk/tmp/Code/desktop/requirements-desktop-windows.txt)
-- [`desktop/requirements-desktop-macos.txt`](/home/wxyhgk/tmp/Code/desktop/requirements-desktop-macos.txt)
+- `infra/docker/requirements-app.txt`
+- `infra/docker/requirements-test.txt`
+- `apps/desktop/requirements-desktop-posix.txt`
+- `apps/desktop/requirements-desktop-windows.txt`
+- `apps/desktop/requirements-desktop-macos.txt`
+- `apps/desktop/requirements-ai-service.txt`
 
 修改依赖后统一执行：
 
@@ -285,6 +288,15 @@ python services/pipeline/devtools/sync_python_requirements.py --repo-root .
 ```bash
 python services/pipeline/devtools/sync_python_requirements.py --repo-root . --check
 ```
+
+安装后可通过稳定入口运行，例如：
+
+```bash
+retainpdf-pipeline translate-only --spec /path/to/translation.spec.json
+retainpdf-pipeline render-only --spec /path/to/render.spec.json
+```
+
+过渡期内原有 `entrypoints/run_*.py` 文件仍保留，Rust API 和已存在部署不会被迫同时迁移。
 
 兼容说明：
 

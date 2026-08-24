@@ -33,8 +33,8 @@ agent 不会把它们暴露给模型，模型即使幻觉调用也会被拒绝�
 RETAIN_AI_API_KEYS=dev-local-key \
 RETAIN_AI_RUST_API_KEY=dev-local-key \
 RETAIN_AI_LLM_API_KEY=sk-... \
-python3 -m retainpdf_ai
-# 默认 127.0.0.1:41100;在 services/ai 目录下运行（兼容旧 backend/ai_service）
+retainpdf-ai
+# 等价兼容入口：python3 -m retainpdf_ai
 ```
 
 环境变量(均有默认值,凭证除外):
@@ -89,7 +89,6 @@ curl -s -X POST http://127.0.0.1:41100/v1/ask \
 ## 测试
 
 ```bash
-cd services/ai && python3 -m pytest tests/ -q
-# 兼容旧路径（symlink）：
-# PYTHONPATH=services/ai python3 -m pytest backend/ai_service/tests -q
+python3 -m pip install "./services/ai[test]"
+python3 -m pytest services/ai/tests/ -q
 ```

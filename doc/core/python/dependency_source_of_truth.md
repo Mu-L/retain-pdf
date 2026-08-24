@@ -1,13 +1,15 @@
 # Python 依赖单一事实来源
 
-当前仓库的 Python 依赖真相源已经收敛到根目录的 [`pyproject.toml`](../../pyproject.toml)。
+Python 后端按可部署单元维护依赖：
+
+- Pipeline：[`services/pipeline/pyproject.toml`](../../../services/pipeline/pyproject.toml)
+- AI 服务：[`services/ai/pyproject.toml`](../../../services/ai/pyproject.toml)
+- 根 [`pyproject.toml`](../../../pyproject.toml) 只组合 uv workspace，不再重复声明第三方依赖
 
 ## 现在怎么维护
 
-- 运行时依赖：
-  `project.dependencies`
-- 测试依赖：
-  `project.optional-dependencies.test`
+- 各服务运行时依赖：对应成员的 `project.dependencies`
+- 各服务测试依赖：对应成员的 `project.optional-dependencies.test`
 - Python 版本：
   `project.requires-python`
 - 非 Python 二进制依赖：
@@ -15,24 +17,23 @@
 
 不要再直接手改这些生成产物：
 
-- [`docker/requirements-app.txt`](../../docker/requirements-app.txt)
-- [`docker/requirements-test.txt`](../../docker/requirements-test.txt)
-- [`desktop/requirements-desktop-posix.txt`](../../desktop/requirements-desktop-posix.txt)
-- [`desktop/requirements-desktop-windows.txt`](../../desktop/requirements-desktop-windows.txt)
-- [`desktop/requirements-desktop-macos.txt`](../../desktop/requirements-desktop-macos.txt)
+- `infra/docker/requirements-app.txt`
+- `infra/docker/requirements-test.txt`
+- `apps/desktop/requirements-desktop-*.txt`
+- `apps/desktop/requirements-ai-service.txt`
 
 ## 更新方式
 
-修改完 [`pyproject.toml`](../../pyproject.toml) 后，执行：
+修改成员 `pyproject.toml` 后，执行：
 
 ```bash
-python backend/scripts/devtools/sync_python_requirements.py --repo-root .
+python services/pipeline/devtools/sync_python_requirements.py --repo-root .
 ```
 
 如果只想检查是否漂移：
 
 ```bash
-python backend/scripts/devtools/sync_python_requirements.py --repo-root . --check
+python services/pipeline/devtools/sync_python_requirements.py --repo-root . --check
 ```
 
 ## 当前口径
@@ -48,6 +49,7 @@ python backend/scripts/devtools/sync_python_requirements.py --repo-root . --chec
 测试额外包：
 
 - `pytest`
+- `python-docx`（Word export 测试）
 
 非 Python 二进制依赖：
 

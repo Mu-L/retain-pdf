@@ -726,8 +726,8 @@ fs.writeFileSync(desktopIndexPath, desktopIndexHtml, "utf8");
 
 if (!frontendOnly) {
   // pipeline scripts 已迁 services/pipeline，兼容旧 backend/scripts
-  const pipelineScriptsRoot = fs.existsSync(path.join(servicesPipelineRoot, "scripts"))
-    ? path.join(servicesPipelineRoot, "scripts")
+  const pipelineScriptsRoot = fs.existsSync(path.join(servicesPipelineRoot, "pyproject.toml"))
+    ? servicesPipelineRoot
     : path.join(backendRoot, "scripts");
   fs.cpSync(pipelineScriptsRoot, path.join(outputBackendRoot, "scripts"), {
     recursive: true,
