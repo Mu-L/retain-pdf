@@ -138,7 +138,8 @@ def main() -> int:
     output.parent.mkdir(parents=True, exist_ok=True)
 
     revision = _git("rev-parse", "HEAD", cwd=git_root)
-    tree = _git("rev-parse", f"{treeish}^{{tree}}", cwd=git_root)
+    tree_spec = "HEAD^{tree}" if treeish == "HEAD" else treeish
+    tree = _git("rev-parse", tree_spec, cwd=git_root)
     prefix = f"retainpdf-backend-{safe_version}/"
     provenance = {
         "schema": "retainpdf_backend_source_v1",
