@@ -33,13 +33,13 @@ class ImportHit:
 def parse_args() -> argparse.Namespace:
     default_output_dir = Path("doc") / "python"
     parser = argparse.ArgumentParser(
-        description="Extract Python/runtime dependency signals from services/pipeline.",
+        description="Extract Python/runtime dependency signals from the backend pipeline.",
     )
     parser.add_argument(
-        "--repo-root",
+        "--services-root",
         type=Path,
-        default=Path(__file__).resolve().parents[3],
-        help="Repository root path.",
+        default=Path(__file__).resolve().parents[2],
+        help="Standalone backend workspace root.",
     )
     parser.add_argument(
         "--json-out",
@@ -169,8 +169,8 @@ def _scan_external_commands(scripts_root: Path) -> dict[str, list[str]]:
     return results
 
 
-def _build_report(repo_root: Path) -> dict[str, object]:
-    scripts_root = repo_root / "services" / "pipeline"
+def _build_report(services_root: Path) -> dict[str, object]:
+    scripts_root = services_root / "pipeline"
     raw_hits = _scan_imports(scripts_root)
     packages: list[dict[str, object]] = []
     runtime_packages: list[str] = []
@@ -199,20 +199,20 @@ def _build_report(repo_root: Path) -> dict[str, object]:
             test_only_packages.append(package_name)
     runtime_packages = sorted(dict.fromkeys(runtime_packages))
     test_only_packages = sorted(dict.fromkeys(test_only_packages))
-    requirement_files = [
-        "infra/docker/requirements-app.txt",
-        "apps/desktop/requirements-desktop-posix.txt",
-        "apps/desktop/requirements-desktop-windows.txt",
-        "apps/desktop/requirements-desktop-macos.txt",
+    dependency_sources = [
+        "pyproject.toml",
+        "uv.lock",
+        "pipeline/pyproject.toml",
+        "ai/pyproject.toml",
     ]
     return {
-        "repo_root": str(repo_root),
+        "services_root": str(services_root),
         "scripts_root": str(scripts_root),
         "runtime_python_packages": runtime_packages,
         "test_only_python_packages": test_only_packages,
         "external_commands": _scan_external_commands(scripts_root),
         "packages": packages,
-        "existing_requirement_files": requirement_files,
+        "dependency_sources": dependency_sources,
         "notes": [
             "runtime_required=true means imported from runtime or devtool code, not just tests",
             "external_commands are non-Python binary dependencies detected by marker scan",
@@ -227,7 +227,7 @@ def _render_markdown(report: dict[str, object]) -> str:
         "",
         "This file is generated from static import scanning under `services/pipeline`.",
         "Regenerate with:",
-        "`python services/pipeline/devtools/extract_pipeline_requirements.py --repo-root . --json-out doc/core/python/pipeline_dependencies.json --markdown-out doc/core/python/pipeline_dependencies.md --runtime-req-out doc/core/python/pipeline_runtime_requirements.in --test-req-out doc/core/python/pipeline_test_requirements.in`",
+        "`python pipeline/devtools/extract_pipeline_requirements.py --services-root . --json-out doc/python/pipeline_dependencies.json --markdown-out doc/python/pipeline_dependencies.md --runtime-req-out doc/python/pipeline_runtime_requirements.in --test-req-out doc/python/pipeline_test_requirements.in`",
         "",
         "## Runtime Python Packages",
         "",
@@ -278,11 +278,11 @@ def _render_markdown(report: dict[str, object]) -> str:
     lines.extend(
         [
             "",
-            "## Existing Requirement Files",
+            "## Dependency Sources",
             "",
         ]
     )
-    for path in report["existing_requirement_files"]:
+    for path in report["dependency_sources"]:
         lines.append(f"- `{path}`")
     lines.extend(
         [
@@ -305,8 +305,8 @@ def _render_requirements(packages: list[str]) -> str:
 
 def main() -> None:
     args = parse_args()
-    repo_root = args.repo_root.resolve()
-    report = _build_report(repo_root)
+    services_root = args.services_root.resolve()
+    report = _build_report(services_root)
     if args.json_out:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

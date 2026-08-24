@@ -54,7 +54,7 @@ jobs:
 
       - name: Verify generated Python requirement snapshots
         shell: pwsh
-        run: python services/pipeline/devtools/sync_python_requirements.py --repo-root . --check
+        run: python .github/scripts/sync_backend_python_requirements.py --repo-root . --services-root services --check
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -240,7 +240,7 @@ jobs:
 
       - name: Verify generated Python requirement snapshots
         shell: bash
-        run: python services/pipeline/devtools/sync_python_requirements.py --repo-root . --check
+        run: python .github/scripts/sync_backend_python_requirements.py --repo-root . --services-root services --check
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -473,7 +473,7 @@ jobs:
 
       - name: Verify generated Python requirement snapshots
         shell: bash
-        run: python services/pipeline/devtools/sync_python_requirements.py --repo-root . --check
+        run: python .github/scripts/sync_backend_python_requirements.py --repo-root . --services-root services --check
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable

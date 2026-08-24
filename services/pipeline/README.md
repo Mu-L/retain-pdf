@@ -268,26 +268,16 @@ monorepo 根不再持有 Python workspace 真相源。
 wheel 只发布 `retainpdf_pipeline.*`；不会再安装通用顶层包名
 `services`、`foundation`、`runtime` 或 `entrypoints`。
 
-不要直接手改这些 requirements 文件：
-
-- `infra/docker/requirements-app.txt`
-- `infra/docker/requirements-test.txt`
-- `apps/desktop/requirements-desktop-posix.txt`
-- `apps/desktop/requirements-desktop-windows.txt`
-- `apps/desktop/requirements-desktop-macos.txt`
-- `apps/desktop/requirements-ai-service.txt`
-
-修改依赖后统一执行：
+修改依赖后，从后端 workspace 根更新并检查锁文件：
 
 ```bash
-python services/pipeline/devtools/sync_python_requirements.py --repo-root .
+uv lock
+uv lock --check
 ```
 
-只检查是否漂移：
-
-```bash
-python services/pipeline/devtools/sync_python_requirements.py --repo-root . --check
-```
+独立后端仓只维护 workspace `pyproject.toml`、成员包 `pyproject.toml` 与
+`uv.lock`。Docker 直接从锁文件导出依赖；desktop 等产品级消费者如需快照，
+由各自仓库的集成脚本生成，后端工具不会反向写入消费端目录。
 
 安装后可通过稳定入口运行，例如：
 

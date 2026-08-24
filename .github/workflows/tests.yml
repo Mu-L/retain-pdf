@@ -120,7 +120,7 @@ jobs:
         run: uv sync --project services --locked --all-extras
 
       - name: Check generated dependency manifests
-        run: uv run --project services python services/pipeline/devtools/sync_python_requirements.py --repo-root . --check
+        run: uv run --project services python .github/scripts/sync_backend_python_requirements.py --repo-root . --services-root services --check
 
       - name: Check installed command contracts
         run: |

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -22,8 +23,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--repo-root",
         type=Path,
-        default=Path(__file__).resolve().parents[3],
-        help="Repository root path.",
+        default=Path(__file__).resolve().parents[2],
+        help="Product repository root that owns the generated consumer files.",
+    )
+    parser.add_argument(
+        "--services-root",
+        type=Path,
+        default=None,
+        help=(
+            "Backend services checkout. Defaults to RETAIN_PDF_SERVICES_ROOT or "
+            "<repo-root>/services."
+        ),
     )
     parser.add_argument(
         "--check",
@@ -96,7 +106,7 @@ def _render_requirements(
     extra_header: list[str] | None = None,
 ) -> str:
     header = [
-        f"# Generated from {source} by services/pipeline/devtools/sync_python_requirements.py.",
+        f"# Generated from {source} by .github/scripts/sync_backend_python_requirements.py.",
         "# Do not edit manually.",
     ]
     if extra_header:
@@ -121,10 +131,22 @@ def _sync_file(path: Path, expected: str, *, check_only: bool) -> bool:
 def main() -> None:
     args = parse_args()
     repo_root = args.repo_root.resolve()
+    raw_services_root = args.services_root or Path(
+        os.environ.get("RETAIN_PDF_SERVICES_ROOT", "services")
+    )
+    services_root = (
+        raw_services_root
+        if raw_services_root.is_absolute()
+        else repo_root / raw_services_root
+    ).resolve()
+    pipeline_path = services_root / "pipeline" / "pyproject.toml"
+    ai_path = services_root / "ai" / "pyproject.toml"
+    # Keep generated headers stable even when the backend is checked out beside
+    # the product repository rather than underneath it.
     pipeline_source = "services/pipeline/pyproject.toml"
     ai_source = "services/ai/pyproject.toml"
-    pipeline_runtime, pipeline_test = _load_dependency_groups(repo_root / pipeline_source)
-    ai_runtime, _ai_test = _load_dependency_groups(repo_root / ai_source)
+    pipeline_runtime, pipeline_test = _load_dependency_groups(pipeline_path)
+    ai_runtime, _ai_test = _load_dependency_groups(ai_path)
     pipeline_with_test = pipeline_runtime + pipeline_test
 
     targets = {

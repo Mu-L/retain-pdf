@@ -1,4 +1,4 @@
-# Generated from services/ai/pyproject.toml by services/pipeline/devtools/sync_python_requirements.py.
+# Generated from services/ai/pyproject.toml by .github/scripts/sync_backend_python_requirements.py.
 # Do not edit manually.
 
 fastapi>=0.115.0,<1

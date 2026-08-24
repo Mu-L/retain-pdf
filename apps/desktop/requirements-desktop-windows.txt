@@ -1,4 +1,4 @@
-# Generated from services/pipeline/pyproject.toml by services/pipeline/devtools/sync_python_requirements.py.
+# Generated from services/pipeline/pyproject.toml by .github/scripts/sync_backend_python_requirements.py.
 # Do not edit manually.
 
 Pillow==10.4.0

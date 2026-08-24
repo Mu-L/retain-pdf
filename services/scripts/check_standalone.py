@@ -107,6 +107,7 @@ def _require_layout(root: Path) -> None:
         "uv.lock",
         "ai/pyproject.toml",
         "pipeline/pyproject.toml",
+        "pipeline/devtools/extract_pipeline_requirements.py",
         "api/Cargo.toml",
         "api/Cargo.lock",
         "config/ocr_providers.json",
@@ -167,6 +168,26 @@ def main() -> int:
         env["UV_PROJECT_ENVIRONMENT"] = str(temp_root / "venv")
         env["CARGO_TARGET_DIR"] = str(temp_root / "cargo-target")
 
+        reports = temp_root / "dependency-reports"
+        _run(
+            [
+                "python3",
+                "pipeline/devtools/extract_pipeline_requirements.py",
+                "--services-root",
+                ".",
+                "--json-out",
+                str(reports / "pipeline_dependencies.json"),
+                "--markdown-out",
+                str(reports / "pipeline_dependencies.md"),
+                "--runtime-req-out",
+                str(reports / "pipeline_runtime_requirements.in"),
+                "--test-req-out",
+                str(reports / "pipeline_test_requirements.in"),
+            ],
+            cwd=snapshot,
+            env=env,
+            suppress_stdout=True,
+        )
         _run(["python3", "contracts/check_parity.py"], cwd=snapshot, env=env)
         _run(["uv", "sync", "--locked", "--all-extras"], cwd=snapshot, env=env)
         _run(
