@@ -298,6 +298,16 @@ retainpdf-pipeline render-only --spec /path/to/render.spec.json
 
 过渡期内原有 `entrypoints/run_*.py` 文件仍保留，Rust API 和已存在部署不会被迫同时迁移。
 
+Rust API 默认采用自动模式：如果 `PATH` 中能够找到 `retainpdf-pipeline`，worker
+命令会保存为 `retainpdf-pipeline <subcommand> --spec ...`；否则回退到
+`python entrypoints/run_*.py --spec ...`。可以通过以下环境变量显式控制：
+
+- `RUST_API_PYTHON_ENTRYPOINT_MODE=auto|console|script`
+- `RUST_API_PIPELINE_COMMAND=/absolute/path/to/retainpdf-pipeline`
+
+Docker 镜像安装 pipeline 包并固定使用 `console` 模式；尚未安装包的桌面兼容目录
+继续使用脚本模式。
+
 兼容说明：
 
 - 旧任务目录如果还是 `originPDF/jsonPDF/transPDF/typstPDF`，当前后端会直接拒绝详情/下载接口，请重新跑任务生成标准 schema

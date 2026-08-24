@@ -13,7 +13,8 @@ pub(super) fn provider_case_command(
         config.python_entrypoint_mode,
         &PythonEntrypoint::new(
             config.run_provider_case_script,
-            "retainpdf-run-provider-case",
+            config.pipeline_command,
+            "provider-case",
         ),
         true,
     );
@@ -28,7 +29,11 @@ pub(super) fn provider_ocr_command(
     let mut cmd = CommandBuilder::new(
         config.python_bin,
         config.python_entrypoint_mode,
-        &PythonEntrypoint::new(config.run_provider_ocr_script, "retainpdf-run-provider-ocr"),
+        &PythonEntrypoint::new(
+            config.run_provider_ocr_script,
+            config.pipeline_command,
+            "provider-ocr",
+        ),
         true,
     );
     cmd.path_arg("--spec", spec_path);
@@ -44,7 +49,8 @@ pub(super) fn translate_only_command(
         config.python_entrypoint_mode,
         &PythonEntrypoint::new(
             config.run_translate_only_script,
-            "retainpdf-run-translate-only",
+            config.pipeline_command,
+            "translate-only",
         ),
         true,
     );
@@ -59,7 +65,11 @@ pub(super) fn render_only_command(
     let mut cmd = CommandBuilder::new(
         config.python_bin,
         config.python_entrypoint_mode,
-        &PythonEntrypoint::new(config.run_render_only_script, "retainpdf-run-render-only"),
+        &PythonEntrypoint::new(
+            config.run_render_only_script,
+            config.pipeline_command,
+            "render-only",
+        ),
         true,
     );
     cmd.path_arg("--spec", spec_path);
@@ -75,7 +85,8 @@ pub(super) fn normalize_ocr_command(
         config.python_entrypoint_mode,
         &PythonEntrypoint::new(
             config.run_normalize_ocr_script,
-            "retainpdf-run-normalize-ocr",
+            config.pipeline_command,
+            "normalize-ocr",
         ),
         false,
     );

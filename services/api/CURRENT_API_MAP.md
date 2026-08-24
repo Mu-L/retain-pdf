@@ -234,9 +234,12 @@ Rust 根据 workflow 选择运行计划：
 
 当前生产主链使用这些 stage worker：
 
-- `run_normalize_ocr.py --spec specs/normalize.spec.json`
-- `run_translate_only.py --spec specs/translate.spec.json`
-- `run_render_only.py --spec specs/render.spec.json`
+- `retainpdf-pipeline normalize-ocr --spec specs/normalize.spec.json`
+- `retainpdf-pipeline translate-only --spec specs/translate.spec.json`
+- `retainpdf-pipeline render-only --spec specs/render.spec.json`
+
+未安装 `retainpdf-pipeline` 时，自动回退为对应的 `entrypoints/run_*.py`；两种启动方式
+消费同一份 stage spec，产物校验不依赖物理脚本路径。
 
 `run_provider_case.py` 仍保留为 legacy/local wrapper，用于本地一次性验证 provider-backed 全流程；不要把它当成
 Rust API 生产主链入口。

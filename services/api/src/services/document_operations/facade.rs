@@ -592,11 +592,15 @@ fn executor_for(
 ) -> Result<Box<dyn DocumentOperationExecutor>, AppError> {
     match profile {
         CONTROL_PLANE_PREVIEW_PROFILE => Ok(Box::new(ControlPlanePreviewExecutor)),
-        RESTRICTED_PAGE_PROGRAM_PROFILE => Ok(Box::new(RestrictedPageProgramExecutor::new(
-            &config.data_root,
-            &config.scripts_dir,
-            &config.python_bin,
-        ))),
+        RESTRICTED_PAGE_PROGRAM_PROFILE => Ok(Box::new(
+            RestrictedPageProgramExecutor::new_with_entrypoint(
+                &config.data_root,
+                &config.scripts_dir,
+                &config.python_bin,
+                &config.pipeline_command,
+                config.python_entrypoint_mode,
+            ),
+        )),
         _ => Err(AppError::conflict(format!(
             "document operation executor profile is unavailable: {profile}"
         ))),

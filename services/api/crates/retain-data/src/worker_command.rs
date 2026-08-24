@@ -81,6 +81,7 @@ mod tests {
             jobs_db_path: data_root.join("db").join("jobs.db"),
             output_root,
             python_bin: "python".to_string(),
+            pipeline_command: "retainpdf-pipeline".to_string(),
             python_entrypoint_mode: PythonWorkerEntrypointMode::Script,
             bind_host: "127.0.0.1".to_string(),
             port: 41000,
@@ -383,10 +384,8 @@ mod tests {
             Path::new("/tmp/translated"),
         );
 
-        assert_eq!(
-            cmd.first().map(String::as_str),
-            Some("retainpdf-run-render-only")
-        );
+        assert_eq!(cmd.first().map(String::as_str), Some("retainpdf-pipeline"));
+        assert_eq!(cmd.get(1).map(String::as_str), Some("render-only"));
         assert!(!contains(&cmd, "python"));
         assert!(!contains(
             &cmd,

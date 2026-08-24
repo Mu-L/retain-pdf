@@ -4,7 +4,10 @@ use anyhow::{anyhow, Result};
 
 use crate::models::domain::{JobArtifacts, JobRuntimeState};
 #[cfg(test)]
-use crate::storage_paths::TRANSLATION_MANIFEST_FILE_NAME;
+use crate::{
+    models::{domain::JobSnapshot, request::CreateJobInput},
+    storage_paths::TRANSLATION_MANIFEST_FILE_NAME,
+};
 
 use super::artifact_requirements::{required_existing_dir, required_existing_file};
 
@@ -19,21 +22,63 @@ pub(super) enum WorkerContract {
 
 impl WorkerContract {
     pub(super) fn from_command(command: &[String]) -> Self {
-        let script = command.get(1).map(Path::new);
-        let Some(file_name) = script
-            .and_then(Path::file_name)
-            .and_then(|name| name.to_str())
-        else {
-            return WorkerContract::Unknown;
-        };
-        match file_name {
-            "run_normalize_ocr.py" => WorkerContract::Normalize,
-            "run_translate_only.py" => WorkerContract::Translate,
-            "run_render_only.py" => WorkerContract::Render,
-            "run_provider_ocr.py" => WorkerContract::Provider,
-            _ => WorkerContract::Unknown,
+        if let Some(contract) = command.get(1).and_then(|value| match value.as_str() {
+            "normalize-ocr" => Some(WorkerContract::Normalize),
+            "translate-only" => Some(WorkerContract::Translate),
+            "render-only" => Some(WorkerContract::Render),
+            "provider-ocr" => Some(WorkerContract::Provider),
+            _ => None,
+        }) {
+            return contract;
         }
+        command
+            .iter()
+            .take_while(|value| value.as_str() != "--spec")
+            .find_map(|value| {
+                Path::new(value)
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .and_then(|file_name| match file_name {
+                        "run_normalize_ocr.py" => Some(WorkerContract::Normalize),
+                        "run_translate_only.py" => Some(WorkerContract::Translate),
+                        "run_render_only.py" => Some(WorkerContract::Render),
+                        "run_provider_ocr.py" => Some(WorkerContract::Provider),
+                        _ => None,
+                    })
+            })
+            .unwrap_or(WorkerContract::Unknown)
     }
+}
+
+#[cfg(test)]
+fn build_console_job(subcommand: &str) -> JobRuntimeState {
+    JobSnapshot::new(
+        "job-test".to_string(),
+        CreateJobInput::default(),
+        vec![
+            "retainpdf-pipeline".to_string(),
+            subcommand.to_string(),
+            "--spec".to_string(),
+            "/tmp/spec.json".to_string(),
+        ],
+    )
+    .into_runtime()
+}
+
+#[cfg(test)]
+fn build_unbuffered_script_job(command_script: &str) -> JobRuntimeState {
+    JobSnapshot::new(
+        "job-test".to_string(),
+        CreateJobInput::default(),
+        vec![
+            "python".to_string(),
+            "-u".to_string(),
+            format!("/tmp/scripts/{command_script}"),
+            "--spec".to_string(),
+            "/tmp/spec.json".to_string(),
+        ],
+    )
+    .into_runtime()
 }
 
 pub(super) fn validate_successful_worker_outputs(
@@ -183,6 +228,20 @@ mod tests {
         assert_eq!(
             WorkerContract::from_command(&build_job("custom.py").command),
             WorkerContract::Unknown
+        );
+        assert_eq!(
+            WorkerContract::from_command(
+                &build_unbuffered_script_job("run_translate_only.py").command
+            ),
+            WorkerContract::Translate
+        );
+        assert_eq!(
+            WorkerContract::from_command(&build_console_job("normalize-ocr").command),
+            WorkerContract::Normalize
+        );
+        assert_eq!(
+            WorkerContract::from_command(&build_console_job("render-only").command),
+            WorkerContract::Render
         );
     }
 

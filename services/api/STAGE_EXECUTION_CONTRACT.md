@@ -47,6 +47,10 @@
 - `translate.stage.v1`
 - `render.stage.v1`
 
+正式安装入口为 `retainpdf-pipeline normalize-ocr|translate-only|render-only`。
+脚本入口仅作为未安装包环境的兼容回退；`process_contract` 同时识别两种命令形态，
+因此成功产物校验不会因为启动方式变化而被绕过。
+
 `provider.stage.v1` 仍保留给 legacy/local `run_provider_case.py` wrapper；当前生产主链的 OCR provider
 transport 由 Rust `ocr_flow` 直接编排，然后只把 normalize 交给 Python worker。
 

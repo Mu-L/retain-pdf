@@ -22,7 +22,10 @@ impl CommandBuilder {
                 parts.push(entrypoint.script_path.to_string_lossy().to_string());
                 parts
             }
-            PythonWorkerEntrypointMode::Console => vec![entrypoint.console_command.to_string()],
+            PythonWorkerEntrypointMode::Console => vec![
+                entrypoint.pipeline_command.to_string(),
+                entrypoint.console_subcommand.to_string(),
+            ],
         };
         Self { parts }
     }
@@ -43,14 +46,20 @@ impl CommandBuilder {
 
 pub(super) struct PythonEntrypoint<'a> {
     script_path: &'a Path,
-    console_command: &'static str,
+    pipeline_command: &'a str,
+    console_subcommand: &'static str,
 }
 
 impl<'a> PythonEntrypoint<'a> {
-    pub(super) fn new(script_path: &'a Path, console_command: &'static str) -> Self {
+    pub(super) fn new(
+        script_path: &'a Path,
+        pipeline_command: &'a str,
+        console_subcommand: &'static str,
+    ) -> Self {
         Self {
             script_path,
-            console_command,
+            pipeline_command,
+            console_subcommand,
         }
     }
 }

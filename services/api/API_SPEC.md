@@ -24,11 +24,15 @@ Its backend is now split into two layers:
   - Typst rendering
   - PDF merge/post-processing
 
-Current Python entrypoints used by the Rust layer:
+Current installed Python entrypoints used by the Rust layer:
 
-- `scripts/entrypoints/run_normalize_ocr.py`
-- `scripts/entrypoints/run_translate_only.py`
-- `scripts/entrypoints/run_render_only.py`
+- `retainpdf-pipeline normalize-ocr`
+- `retainpdf-pipeline translate-only`
+- `retainpdf-pipeline render-only`
+
+When the package command is unavailable, auto mode falls back to the compatible
+`services/pipeline/entrypoints/run_*.py` scripts. The stage spec and stdout
+contracts are identical in both modes.
 
 Legacy/local wrappers retained for manual runs:
 
@@ -63,7 +67,7 @@ but they are no longer the primary runtime contract between normalization and tr
 
 Current worker contract:
 
-- Rust now launches these worker entrypoints through `--spec <job_root>/specs/*.spec.json`
+- Rust launches these worker entrypoints through `--spec <job_root>/specs/*.spec.json`
 - the worker layer no longer relies on legacy long CLI flag assembly
 - both Rust-owned workers and the maintained local job entrypoints are now treated as spec-driven execution paths
 
