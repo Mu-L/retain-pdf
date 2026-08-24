@@ -152,3 +152,15 @@ jobs:
 
       - name: Verify isolated backend workspace
         run: python3 services/scripts/check_standalone.py --compile-rust
+
+      - name: Build backend source archive
+        run: python3 services/scripts/build_source_archive.py
+
+      - name: Upload backend source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: retainpdf-backend-source-${{ github.sha }}
+          path: |
+            services/dist/*.tar.gz
+            services/dist/*.sha256
+          if-no-files-found: error

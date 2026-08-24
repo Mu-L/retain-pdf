@@ -121,6 +121,7 @@ def _require_layout(root: Path) -> None:
         "docker/Dockerfile.app",
         "docker/entrypoint-app.sh",
         "docker/fontconfig/65-source-han-serif-alias.conf",
+        "scripts/build_source_archive.py",
         "fonts/LICENSE-OFL-1.1.txt",
         "fonts/README.md",
         *FONT_SHA256,

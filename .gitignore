@@ -30,6 +30,7 @@ data/uploads/
 data/jobs/
 data/downloads/
 services/api/target/
+services/dist/
 services/api/auth.local.json
 services/pipeline/.env/*.env
 apps/web/node_modules/

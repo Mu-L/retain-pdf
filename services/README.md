@@ -52,3 +52,15 @@ docker build -f docker/Dockerfile.app -t retainpdf-app:local .
 The image contains `rust_api`, `retain-jobsd`, `retainpdf-agent`, the Python
 pipeline, and the Python AI service. `rust_api` supervises the AI service inside
 the container, so `/api/v1/ai/*` does not require a separately managed process.
+
+## Source archive
+
+Create a provenance-stamped archive containing only the tracked backend tree:
+
+```bash
+python3 scripts/build_source_archive.py
+```
+
+The command refuses dirty tracked backend state by default, validates the
+archive layout, embeds `SOURCE.json` with the Git revision and services tree
+hash, and writes a matching `.sha256` sidecar.
