@@ -10,7 +10,7 @@ from pikepdf import Name
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.rendering.source_cleanup.pdf.xobject_ops import _clone_form_xobject
+from retainpdf_pipeline.services.rendering.source_cleanup.pdf.xobject_ops import _clone_form_xobject
 
 
 # 一个 form xobject 带 `/StampId null`(出版社图章 form 的真实形态)。

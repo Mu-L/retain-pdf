@@ -7,12 +7,12 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.translation.llm.shared.control_context import EngineProfile
-from services.translation.llm.shared.control_context import FallbackPolicy
-from services.translation.llm.shared.control_context import build_translation_control_context
-from services.translation.llm.shared.orchestration.batched_plain import translate_items_plain_text
-from services.translation.services.terms import GlossaryEntry
-from services.translation.workflow.batching.pending_units import _translate_batch_or_keep_origin
+from retainpdf_pipeline.services.translation.llm.shared.control_context import EngineProfile
+from retainpdf_pipeline.services.translation.llm.shared.control_context import FallbackPolicy
+from retainpdf_pipeline.services.translation.llm.shared.control_context import build_translation_control_context
+from retainpdf_pipeline.services.translation.llm.shared.orchestration.batched_plain import translate_items_plain_text
+from retainpdf_pipeline.services.translation.services.terms import GlossaryEntry
+from retainpdf_pipeline.services.translation.workflow.batching.pending_units import _translate_batch_or_keep_origin
 
 
 def _item(item_id: str, text: str, **overrides):

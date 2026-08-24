@@ -15,19 +15,19 @@ import fitz
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SCRIPTS_ROOT = REPO_ROOT / "backend" / "scripts"
-if str(SCRIPTS_ROOT) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS_ROOT))
+PIPELINE_ROOT = Path(__file__).resolve().parents[1]
+if str(PIPELINE_ROOT) not in sys.path:
+    sys.path.insert(0, str(PIPELINE_ROOT))
 
-from foundation.shared.job_dirs import create_job_dirs
-from services.translation.artifacts.io import aggregate_payload_diagnostics
+from retainpdf_pipeline.foundation.shared.job_dirs import create_job_dirs
+from retainpdf_pipeline.services.translation.artifacts.io import aggregate_payload_diagnostics
 
 
 DEFAULT_SAMPLE = REPO_ROOT / "resources" / "samples" / "golden-pdfs" / "1.pdf"
 GOLDEN_SAMPLE_ROOT = REPO_ROOT / "resources" / "samples" / "golden-pdfs"
 GOLDEN_MANIFEST = GOLDEN_SAMPLE_ROOT / "manifest.csv"
-PROVIDER_ENTRYPOINT = SCRIPTS_ROOT / "entrypoints" / "run_provider_case.py"
-RENDER_ENTRYPOINT = SCRIPTS_ROOT / "entrypoints" / "run_render_only.py"
+PROVIDER_ENTRYPOINT_MODULE = "retainpdf_pipeline.entrypoints.run_provider_case"
+RENDER_ENTRYPOINT_MODULE = "retainpdf_pipeline.entrypoints.run_render_only"
 
 
 def parse_args() -> argparse.Namespace:
@@ -250,7 +250,7 @@ def _single_pdf(path: Path) -> Path:
 
 def _run(cmd: list[str], *, env: dict[str, str] | None = None) -> None:
     print("+ " + " ".join(cmd), flush=True)
-    subprocess.run(cmd, cwd=REPO_ROOT, env=env, check=True)
+    subprocess.run(cmd, cwd=PIPELINE_ROOT, env=env, check=True)
 
 
 def _translated_pages(job_root: Path) -> dict[int, list[dict]]:
@@ -358,12 +358,12 @@ def main() -> None:
             (job_root / subdir).mkdir(parents=True, exist_ok=True)
         provider_spec = specs_dir / "provider.golden.spec.json"
         _save_json(provider_spec, _provider_spec(args, job_root, source_pdf))
-        _run([sys.executable, str(PROVIDER_ENTRYPOINT), "--spec", str(provider_spec)], env=os.environ.copy())
+        _run([sys.executable, "-m", PROVIDER_ENTRYPOINT_MODULE, "--spec", str(provider_spec)], env=os.environ.copy())
 
     if args.render_only:
         render_spec = specs_dir / "render.golden.spec.json"
         _save_json(render_spec, _render_spec(args, job_root))
-        _run([sys.executable, str(RENDER_ENTRYPOINT), "--spec", str(render_spec)], env=os.environ.copy())
+        _run([sys.executable, "-m", RENDER_ENTRYPOINT_MODULE, "--spec", str(render_spec)], env=os.environ.copy())
 
     summary = _verify_unresolved(job_root)
     source_for_check = _single_pdf(job_root / "source") if (job_root / "source").exists() else source_pdf

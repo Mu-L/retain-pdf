@@ -15,15 +15,15 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from foundation.shared.stage_specs import TranslateStageSpec
-from foundation.shared.stage_specs import resolve_credential_ref
-from services.pipeline_shared.io import save_json
-from services.translation.services.agents.repair import RepairAgent
-from services.translation.services.agents.repair import TranslationRepairRequest
-from services.translation.artifacts.review import TRANSLATION_REVIEW_FILE_NAME
-from services.translation.llm.shared.provider_runtime import request_chat_content
-from services.translation.core.payload import load_translation_manifest_file
-from services.translation.services.quality import TranslationQualityIssue
+from retainpdf_pipeline.foundation.shared.stage_specs import TranslateStageSpec
+from retainpdf_pipeline.foundation.shared.stage_specs import resolve_credential_ref
+from retainpdf_pipeline.services.pipeline_shared.io import save_json
+from retainpdf_pipeline.services.translation.services.agents.repair import RepairAgent
+from retainpdf_pipeline.services.translation.services.agents.repair import TranslationRepairRequest
+from retainpdf_pipeline.services.translation.artifacts.review import TRANSLATION_REVIEW_FILE_NAME
+from retainpdf_pipeline.services.translation.llm.shared.provider_runtime import request_chat_content
+from retainpdf_pipeline.services.translation.core.payload import load_translation_manifest_file
+from retainpdf_pipeline.services.translation.services.quality import TranslationQualityIssue
 
 
 TRANSLATION_REPAIR_PLAN_FILE_NAME = "translation_repair_plan.json"

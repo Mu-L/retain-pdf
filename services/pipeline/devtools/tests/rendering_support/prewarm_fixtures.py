@@ -4,8 +4,8 @@ from pathlib import Path
 
 import fitz
 
-from services.rendering.analysis.document import build_render_document_analysis
-from services.rendering.contracts import RenderDocumentAnalysis
+from retainpdf_pipeline.services.rendering.analysis.document import build_render_document_analysis
+from retainpdf_pipeline.services.rendering.contracts import RenderDocumentAnalysis
 
 
 def write_source_pdf(path: Path) -> None:

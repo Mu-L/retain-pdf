@@ -8,7 +8,7 @@ from typing import Any
 
 import fitz
 
-from services.rendering.source_cleanup.planning.coordinate_resolver import PageBBoxResolver
+from retainpdf_pipeline.services.rendering.source_cleanup.planning.coordinate_resolver import PageBBoxResolver
 
 
 def main() -> None:

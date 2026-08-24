@@ -6,15 +6,15 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.llm.placeholder_guard import TranslationProtocolError
-from services.translation.llm.placeholder_guard import canonicalize_batch_result
-from services.translation.llm.placeholder_guard import MathDelimiterError
-from services.translation.llm.placeholder_guard import result_entry
-from services.translation.llm.placeholder_guard import validate_batch_result
-from services.translation.llm.validation.errors import EmptyTranslationError
-from services.translation.llm.shared.control_context import build_translation_control_context
-from services.translation.llm.shared.orchestration.direct_typst import translate_direct_typst_plain_text_with_retries
-from services.translation.llm.shared.orchestration.direct_typst_salvage import extract_direct_typst_protocol_text
+from retainpdf_pipeline.services.translation.llm.placeholder_guard import TranslationProtocolError
+from retainpdf_pipeline.services.translation.llm.placeholder_guard import canonicalize_batch_result
+from retainpdf_pipeline.services.translation.llm.placeholder_guard import MathDelimiterError
+from retainpdf_pipeline.services.translation.llm.placeholder_guard import result_entry
+from retainpdf_pipeline.services.translation.llm.placeholder_guard import validate_batch_result
+from retainpdf_pipeline.services.translation.llm.validation.errors import EmptyTranslationError
+from retainpdf_pipeline.services.translation.llm.shared.control_context import build_translation_control_context
+from retainpdf_pipeline.services.translation.llm.shared.orchestration.direct_typst import translate_direct_typst_plain_text_with_retries
+from retainpdf_pipeline.services.translation.llm.shared.orchestration.direct_typst_salvage import extract_direct_typst_protocol_text
 
 
 def _body_item() -> dict:

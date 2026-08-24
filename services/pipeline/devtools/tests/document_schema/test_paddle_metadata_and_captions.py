@@ -7,34 +7,34 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.document_schema import adapt_path_to_document_v1_with_report
-from services.document_schema.adapters import adapt_payload_to_document_v1
-from services.document_schema.providers import PROVIDER_PADDLE
-from services.document_schema.provider_adapters.paddle import looks_like_paddle_layout
-from services.document_schema.provider_adapters.paddle.column_signals import (
+from retainpdf_pipeline.services.document_schema import adapt_path_to_document_v1_with_report
+from retainpdf_pipeline.services.document_schema.adapters import adapt_payload_to_document_v1
+from retainpdf_pipeline.services.document_schema.providers import PROVIDER_PADDLE
+from retainpdf_pipeline.services.document_schema.provider_adapters.paddle import looks_like_paddle_layout
+from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.column_signals import (
     analyze_page_column_signals,
 )
-from services.document_schema.provider_adapters.paddle.body_repair import repair_body_cross_column_blocks
-from services.document_schema.provider_adapters.paddle.content_extract import (
+from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.body_repair import repair_body_cross_column_blocks
+from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.content_extract import (
     assign_inline_formula_bboxes,
     build_lines,
     build_segments,
     inherit_missing_segment_bboxes,
 )
-from services.document_schema.provider_adapters.paddle.page_reader import build_page_spec
-from services.document_schema.provider_adapters.paddle.adapter import build_paddle_document
-from services.document_schema.provider_adapters.paddle.relations import classify_page_blocks
-from services.ocr_provider.paddle_normalize import rescale_document_geometry_to_pdf
-from services.translation.core.ocr.json_extractor import extract_text_items
-from foundation.shared.job_dirs import ensure_job_dirs
-from foundation.shared.job_dirs import resolve_job_dirs
+from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.page_reader import build_page_spec
+from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.adapter import build_paddle_document
+from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.relations import classify_page_blocks
+from retainpdf_pipeline.services.ocr_provider.paddle_normalize import rescale_document_geometry_to_pdf
+from retainpdf_pipeline.services.translation.core.ocr.json_extractor import extract_text_items
+from retainpdf_pipeline.foundation.shared.job_dirs import ensure_job_dirs
+from retainpdf_pipeline.foundation.shared.job_dirs import resolve_job_dirs
 from devtools.tests.document_schema.fixtures.registry import PADDLE_FIXTURES_ROOT
 
 
 PADDLE_FIXTURE_JSON = PADDLE_FIXTURES_ROOT / "json_full.json"
 PADDLE_SCI_FIXTURE_JSON = PADDLE_FIXTURES_ROOT / "json_sci.json"
 PADDLE_FIXTURE_PDF = PADDLE_FIXTURES_ROOT / "paddle_ocr_json_split.pdf"
-NORMALIZE_ENTRYPOINT = REPO_SCRIPTS_ROOT / "entrypoints" / "run_normalize_ocr.py"
+NORMALIZE_ENTRYPOINT = REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "entrypoints" / "run_normalize_ocr.py"
 
 def test_paddle_json_sci_empty_text_slots_stay_on_text_only_repair_path() -> None:
     payload = json.loads(PADDLE_SCI_FIXTURE_JSON.read_text(encoding="utf-8"))
@@ -241,7 +241,7 @@ def test_paddle_figure_title_is_translatable() -> None:
         "dataInfo": {"pages": [{"width": 1200, "height": 1600}], "type": "paddle"},
     }
 
-    from services.document_schema.provider_adapters.paddle.page_reader import build_page_spec
+    from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.page_reader import build_page_spec
 
     block = build_page_spec(page_payload=payload["layoutParsingResults"][0], page_index=0, page_meta={}, preprocessed_image="")["blocks"][0]
     assert block.get("sub_type") == "figure_caption"
@@ -716,7 +716,7 @@ def test_paddle_figure_caption_enters_translation_items() -> None:
         "dataInfo": {"pages": [{"width": 1200, "height": 1600}], "type": "paddle"},
     }
 
-    from services.document_schema.provider_adapters.paddle.page_reader import build_page_spec
+    from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.page_reader import build_page_spec
     page_spec = build_page_spec(page_payload=payload["layoutParsingResults"][0], page_index=0, page_meta={}, preprocessed_image="")
     assert page_spec["blocks"][0]["sub_type"] == "figure_caption"
     assert page_spec["blocks"][0]["policy"]["translate"] is True

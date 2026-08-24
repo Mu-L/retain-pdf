@@ -11,14 +11,14 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.rendering.source.cleanup.vector_text_cleanup import collect_vector_text_rects
-from services.rendering.source.cleanup.vector_text_cleanup import cleanup_vector_text_drawings
-from services.rendering.source_cleanup import plan_source_cleanup
-from services.rendering.source_cleanup.planning import geometry
-from services.rendering.source_cleanup.planning import test_support
-from services.rendering.source_cleanup.planning.drawing_classifier import bboxlog_path_blocks_text_strip
-from services.rendering.source_cleanup.planning.drawing_classifier import drawing_blocks_text_strip
-from services.rendering.source_cleanup.planning.planner import plan_source_cleanup_page
+from retainpdf_pipeline.services.rendering.source.cleanup.vector_text_cleanup import collect_vector_text_rects
+from retainpdf_pipeline.services.rendering.source.cleanup.vector_text_cleanup import cleanup_vector_text_drawings
+from retainpdf_pipeline.services.rendering.source_cleanup import plan_source_cleanup
+from retainpdf_pipeline.services.rendering.source_cleanup.planning import geometry
+from retainpdf_pipeline.services.rendering.source_cleanup.planning import test_support
+from retainpdf_pipeline.services.rendering.source_cleanup.planning.drawing_classifier import bboxlog_path_blocks_text_strip
+from retainpdf_pipeline.services.rendering.source_cleanup.planning.drawing_classifier import drawing_blocks_text_strip
+from retainpdf_pipeline.services.rendering.source_cleanup.planning.planner import plan_source_cleanup_page
 
 
 def test_collect_vector_text_rects_detects_black_filled_glyph_drawings() -> None:
@@ -75,13 +75,13 @@ def test_cleanup_vector_text_drawings_uses_background_covers_instead_of_redactio
     vector_rect = fitz.Rect(252, 46, 430, 55)
 
     with patch(
-        "services.rendering.source.cleanup.vector_text_cleanup.collect_vector_text_rects",
+        "retainpdf_pipeline.services.rendering.source.cleanup.vector_text_cleanup.collect_vector_text_rects",
         return_value=[vector_rect],
     ), patch(
-        "services.rendering.source.cleanup.vector_text_cleanup.prepare_background_covers",
+        "retainpdf_pipeline.services.rendering.source.cleanup.vector_text_cleanup.prepare_background_covers",
         return_value=["cover"],
     ) as prepare_mock, patch(
-        "services.rendering.source.cleanup.vector_text_cleanup.apply_prepared_background_covers",
+        "retainpdf_pipeline.services.rendering.source.cleanup.vector_text_cleanup.apply_prepared_background_covers",
     ) as apply_mock:
         count = cleanup_vector_text_drawings(page, [target_rect])
 

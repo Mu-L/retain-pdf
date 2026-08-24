@@ -23,20 +23,20 @@ PAYLOAD_FIELD_WRITER_ALLOWLIST: dict[str, frozenset[str]] = {
     # ---- policy 决策字段:owner = core/payload/parts/policy_state.py ----
     "should_translate": frozenset(
         {
-            "services/translation/core/payload/parts/policy_state.py",  # owner
-            "services/translation/core/payload/template_sync.py",  # frozen-debt: 模板同步回填
+            "retainpdf_pipeline/services/translation/core/payload/parts/policy_state.py",  # owner
+            "retainpdf_pipeline/services/translation/core/payload/template_sync.py",  # frozen-debt: 模板同步回填
         }
     ),
     "skip_reason": frozenset(
         {
-            "services/translation/core/payload/parts/policy_state.py",  # owner
-            "services/translation/core/payload/parts/common.py",  # frozen-debt: seed 补缺(只补不覆盖)
+            "retainpdf_pipeline/services/translation/core/payload/parts/policy_state.py",  # owner
+            "retainpdf_pipeline/services/translation/core/payload/parts/common.py",  # frozen-debt: seed 补缺(只补不覆盖)
         }
     ),
     "classification_label": frozenset(
         {
-            "services/translation/core/payload/parts/policy_state.py",  # owner
-            "services/translation/core/payload/template_sync.py",  # frozen-debt: 模板同步回填
+            "retainpdf_pipeline/services/translation/core/payload/parts/policy_state.py",  # owner
+            "retainpdf_pipeline/services/translation/core/payload/template_sync.py",  # frozen-debt: 模板同步回填
         }
     ),
     # ---- 最终状态:payload item 上唯一赋值点 = final_status.py::set_final_status ----
@@ -44,20 +44,20 @@ PAYLOAD_FIELD_WRITER_ALLOWLIST: dict[str, frozenset[str]] = {
     # 属结果链路;一并冻结,防止新文件再引入同名写入。
     "final_status": frozenset(
         {
-            "services/translation/core/payload/parts/final_status.py",  # owner: set_final_status 漏斗
-            "services/translation/core/payload/parts/result_status.py",  # diagnostics dict
-            "services/translation/core/payload/parts/apply.py",  # result metadata(邻段泄漏降级)
-            "services/translation/core/payload/parts/result_entries.py",  # result metadata
-            "services/translation/core/payload/template_contract.py",  # frozen-debt
-            "services/translation/artifacts/io.py",  # frozen-debt: 诊断产物
-            "services/translation/artifacts/status.py",  # frozen-debt: 诊断产物
-            "services/translation/llm/placeholder_transform.py",  # result metadata
-            "services/translation/llm/result_canonicalizer.py",  # result metadata
-            "services/translation/llm/result_payload.py",  # result metadata
-            "services/translation/llm/shared/orchestration/metadata.py",  # result metadata
-            "services/translation/llm/shared/orchestration/sentence_level.py",  # result metadata
-            "services/translation/llm/shared/orchestration/terminal_payloads.py",  # result metadata
-            "services/translation/services/postprocess/garbled_reconstruction.py",  # diagnostics dict
+            "retainpdf_pipeline/services/translation/core/payload/parts/final_status.py",  # owner: set_final_status 漏斗
+            "retainpdf_pipeline/services/translation/core/payload/parts/result_status.py",  # diagnostics dict
+            "retainpdf_pipeline/services/translation/core/payload/parts/apply.py",  # result metadata(邻段泄漏降级)
+            "retainpdf_pipeline/services/translation/core/payload/parts/result_entries.py",  # result metadata
+            "retainpdf_pipeline/services/translation/core/payload/template_contract.py",  # frozen-debt
+            "retainpdf_pipeline/services/translation/artifacts/io.py",  # frozen-debt: 诊断产物
+            "retainpdf_pipeline/services/translation/artifacts/status.py",  # frozen-debt: 诊断产物
+            "retainpdf_pipeline/services/translation/llm/placeholder_transform.py",  # result metadata
+            "retainpdf_pipeline/services/translation/llm/result_canonicalizer.py",  # result metadata
+            "retainpdf_pipeline/services/translation/llm/result_payload.py",  # result metadata
+            "retainpdf_pipeline/services/translation/llm/shared/orchestration/metadata.py",  # result metadata
+            "retainpdf_pipeline/services/translation/llm/shared/orchestration/sentence_level.py",  # result metadata
+            "retainpdf_pipeline/services/translation/llm/shared/orchestration/terminal_payloads.py",  # result metadata
+            "retainpdf_pipeline/services/translation/services/postprocess/garbled_reconstruction.py",  # diagnostics dict
         }
     ),
     # ---- 诊断:owner = core/payload/parts/diagnostics.py(顶层 merge + history 追加) ----
@@ -65,60 +65,60 @@ PAYLOAD_FIELD_WRITER_ALLOWLIST: dict[str, frozenset[str]] = {
     # 初次产生诊断的路径,冻结待后续按 stage 身份逐步迁移。
     "translation_diagnostics": frozenset(
         {
-            "services/translation/core/payload/parts/diagnostics.py",  # owner: record_translation_diagnostics
-            "services/translation/core/payload/parts/final_status.py",  # owner: 违规面包屑
-            "services/translation/core/payload/parts/apply.py",  # frozen-debt: 回填初次写入
-            "services/translation/core/payload/parts/result_entries.py",  # result metadata
-            "services/translation/core/payload/parts/result_status.py",  # frozen-debt
-            "services/translation/llm/shared/orchestration/direct_typst_long_text.py",  # result metadata
-            "services/translation/llm/shared/orchestration/heavy_formula.py",  # result metadata
-            "services/translation/llm/shared/orchestration/metadata.py",  # result metadata
-            "services/translation/llm/shared/orchestration/sentence_level.py",  # result metadata
-            "services/translation/llm/shared/orchestration/terminal_payloads.py",  # result metadata
-            "services/translation/services/fast_path/keep_origin.py",  # frozen-debt
-            "services/translation/services/finalization/untranslated.py",  # result payload(经 apply 回填)
-            "services/translation/services/results/applier.py",  # frozen-debt
+            "retainpdf_pipeline/services/translation/core/payload/parts/diagnostics.py",  # owner: record_translation_diagnostics
+            "retainpdf_pipeline/services/translation/core/payload/parts/final_status.py",  # owner: 违规面包屑
+            "retainpdf_pipeline/services/translation/core/payload/parts/apply.py",  # frozen-debt: 回填初次写入
+            "retainpdf_pipeline/services/translation/core/payload/parts/result_entries.py",  # result metadata
+            "retainpdf_pipeline/services/translation/core/payload/parts/result_status.py",  # frozen-debt
+            "retainpdf_pipeline/services/translation/llm/shared/orchestration/direct_typst_long_text.py",  # result metadata
+            "retainpdf_pipeline/services/translation/llm/shared/orchestration/heavy_formula.py",  # result metadata
+            "retainpdf_pipeline/services/translation/llm/shared/orchestration/metadata.py",  # result metadata
+            "retainpdf_pipeline/services/translation/llm/shared/orchestration/sentence_level.py",  # result metadata
+            "retainpdf_pipeline/services/translation/llm/shared/orchestration/terminal_payloads.py",  # result metadata
+            "retainpdf_pipeline/services/translation/services/fast_path/keep_origin.py",  # frozen-debt
+            "retainpdf_pipeline/services/translation/services/finalization/untranslated.py",  # result payload(经 apply 回填)
+            "retainpdf_pipeline/services/translation/services/results/applier.py",  # frozen-debt
         }
     ),
     # ---- 译文字段:owner = core/payload/parts/apply.py ----
     "translated_text": frozenset(
         {
-            "services/translation/core/payload/parts/apply.py",  # owner
-            "services/translation/core/payload/parts/policy_state.py",  # owner: clear/preserve
-            "services/translation/llm/shared/orchestration/metadata.py",  # result metadata
+            "retainpdf_pipeline/services/translation/core/payload/parts/apply.py",  # owner
+            "retainpdf_pipeline/services/translation/core/payload/parts/policy_state.py",  # owner: clear/preserve
+            "retainpdf_pipeline/services/translation/llm/shared/orchestration/metadata.py",  # result metadata
         }
     ),
     "protected_translated_text": frozenset(
         {
-            "services/translation/core/payload/parts/apply.py",  # owner
-            "services/translation/core/payload/parts/policy_state.py",  # owner: clear/preserve
-            "services/translation/core/payload/template_sync.py",  # frozen-debt: 模板同步回填
+            "retainpdf_pipeline/services/translation/core/payload/parts/apply.py",  # owner
+            "retainpdf_pipeline/services/translation/core/payload/parts/policy_state.py",  # owner: clear/preserve
+            "retainpdf_pipeline/services/translation/core/payload/template_sync.py",  # frozen-debt: 模板同步回填
         }
     ),
     "translation_unit_translated_text": frozenset(
         {
-            "services/translation/core/payload/parts/apply.py",  # owner
-            "services/translation/core/payload/parts/policy_state.py",  # owner: clear/preserve
+            "retainpdf_pipeline/services/translation/core/payload/parts/apply.py",  # owner
+            "retainpdf_pipeline/services/translation/core/payload/parts/policy_state.py",  # owner: clear/preserve
         }
     ),
     "translation_unit_protected_translated_text": frozenset(
         {
-            "services/translation/core/payload/parts/apply.py",  # owner
-            "services/translation/core/payload/parts/policy_state.py",  # owner: clear/preserve
+            "retainpdf_pipeline/services/translation/core/payload/parts/apply.py",  # owner
+            "retainpdf_pipeline/services/translation/core/payload/parts/policy_state.py",  # owner: clear/preserve
         }
     ),
     "group_translated_text": frozenset(
         {
-            "services/translation/core/payload/parts/apply.py",  # owner
-            "services/translation/core/payload/parts/translation_units.py",  # owner: 分组 reset
-            "services/translation/core/payload/template_sync.py",  # frozen-debt: 模板同步回填
+            "retainpdf_pipeline/services/translation/core/payload/parts/apply.py",  # owner
+            "retainpdf_pipeline/services/translation/core/payload/parts/translation_units.py",  # owner: 分组 reset
+            "retainpdf_pipeline/services/translation/core/payload/template_sync.py",  # frozen-debt: 模板同步回填
         }
     ),
     "group_protected_translated_text": frozenset(
         {
-            "services/translation/core/payload/parts/apply.py",  # owner
-            "services/translation/core/payload/parts/translation_units.py",  # owner: 分组 reset
-            "services/translation/core/payload/template_sync.py",  # frozen-debt: 模板同步回填
+            "retainpdf_pipeline/services/translation/core/payload/parts/apply.py",  # owner
+            "retainpdf_pipeline/services/translation/core/payload/parts/translation_units.py",  # owner: 分组 reset
+            "retainpdf_pipeline/services/translation/core/payload/template_sync.py",  # frozen-debt: 模板同步回填
         }
     ),
 }

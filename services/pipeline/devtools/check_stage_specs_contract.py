@@ -7,11 +7,11 @@ from typing import Callable
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from foundation.shared.stage_specs import BookStageSpec
-from foundation.shared.stage_specs import NormalizeStageSpec
-from foundation.shared.stage_specs import ProviderStageSpec
-from foundation.shared.stage_specs import RenderStageSpec
-from foundation.shared.stage_specs import TranslateStageSpec
+from retainpdf_pipeline.foundation.shared.stage_specs import BookStageSpec
+from retainpdf_pipeline.foundation.shared.stage_specs import NormalizeStageSpec
+from retainpdf_pipeline.foundation.shared.stage_specs import ProviderStageSpec
+from retainpdf_pipeline.foundation.shared.stage_specs import RenderStageSpec
+from retainpdf_pipeline.foundation.shared.stage_specs import TranslateStageSpec
 
 
 SPEC_LOADERS: dict[str, Callable[[Path], object]] = {

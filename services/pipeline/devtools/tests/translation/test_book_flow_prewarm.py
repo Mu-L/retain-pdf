@@ -7,7 +7,7 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.translation.workflow import book_flow
+from retainpdf_pipeline.services.translation.workflow import book_flow
 
 
 def test_book_flow_does_not_start_render_prewarm_during_translation(monkeypatch, tmp_path: Path) -> None:

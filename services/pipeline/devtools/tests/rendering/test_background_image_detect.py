@@ -10,9 +10,9 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.rendering.source.background.detect import page_has_large_background_image
-from services.rendering.source.background.detect import page_has_tiled_background_images
-from services.rendering.source.background.detect import pick_primary_background_image
+from retainpdf_pipeline.services.rendering.source.background.detect import page_has_large_background_image
+from retainpdf_pipeline.services.rendering.source.background.detect import page_has_tiled_background_images
+from retainpdf_pipeline.services.rendering.source.background.detect import pick_primary_background_image
 
 
 def test_tiled_background_images_are_detected(tmp_path) -> None:

@@ -9,10 +9,10 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from runtime.pipeline.render_inputs import resolve_render_inputs
-from runtime.pipeline.render_stage import run_render_stage
-from runtime.pipeline.translation_loader import load_translated_pages
-from services.translation.core.payload.manifest import write_translation_manifest
+from retainpdf_pipeline.runtime.pipeline.render_inputs import resolve_render_inputs
+from retainpdf_pipeline.runtime.pipeline.render_stage import run_render_stage
+from retainpdf_pipeline.runtime.pipeline.translation_loader import load_translated_pages
+from retainpdf_pipeline.services.translation.core.payload.manifest import write_translation_manifest
 
 
 def _write_payload(path: Path, translated_text: str) -> None:
@@ -126,9 +126,9 @@ def test_run_render_stage_uses_manifest_backed_pdf_inputs() -> None:
         manifest_path = write_translation_manifest(translations_dir, {0: payload_path})
 
         with mock.patch(
-            "runtime.pipeline.render_stage.build_render_plan",
+            "retainpdf_pipeline.runtime.pipeline.render_stage.build_render_plan",
         ) as build_plan_mock, mock.patch(
-            "runtime.pipeline.render_stage.execute_render_plan",
+            "retainpdf_pipeline.runtime.pipeline.render_stage.execute_render_plan",
             return_value=1,
         ) as execute_mock:
             build_plan_mock.return_value.effective_render_mode = "overlay"
@@ -174,9 +174,9 @@ def test_run_render_stage_no_cache_disables_render_prewarm_manifest(monkeypatch)
         monkeypatch.setenv("RETAINPDF_RENDER_NO_CACHE", "1")
 
         with mock.patch(
-            "runtime.pipeline.render_stage.build_render_plan",
+            "retainpdf_pipeline.runtime.pipeline.render_stage.build_render_plan",
         ) as build_plan_mock, mock.patch(
-            "runtime.pipeline.render_stage.execute_render_plan",
+            "retainpdf_pipeline.runtime.pipeline.render_stage.execute_render_plan",
             return_value=1,
         ) as execute_mock:
             build_plan_mock.return_value.effective_render_mode = "overlay"

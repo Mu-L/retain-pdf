@@ -10,14 +10,14 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.rendering.visual_profile import build_page_visual_profile
-from services.rendering.visual_profile import merge_visual_profile_colors
-from services.rendering.visual_profile import write_document_visual_profile
-from services.rendering.visual_profile.manifest import document_visual_profile_from_manifest
-from services.rendering.visual_profile.manifest import document_visual_profile_to_manifest
-from services.rendering.visual_profile.contracts import DocumentVisualProfile
-from services.rendering.visual_profile.contracts import VISUAL_PROFILE_ALGORITHM_VERSION
-from services.rendering.visual_profile.runtime import load_visual_profile_runtime
+from retainpdf_pipeline.services.rendering.visual_profile import build_page_visual_profile
+from retainpdf_pipeline.services.rendering.visual_profile import merge_visual_profile_colors
+from retainpdf_pipeline.services.rendering.visual_profile import write_document_visual_profile
+from retainpdf_pipeline.services.rendering.visual_profile.manifest import document_visual_profile_from_manifest
+from retainpdf_pipeline.services.rendering.visual_profile.manifest import document_visual_profile_to_manifest
+from retainpdf_pipeline.services.rendering.visual_profile.contracts import DocumentVisualProfile
+from retainpdf_pipeline.services.rendering.visual_profile.contracts import VISUAL_PROFILE_ALGORITHM_VERSION
+from retainpdf_pipeline.services.rendering.visual_profile.runtime import load_visual_profile_runtime
 
 
 def test_visual_profile_samples_editable_span_color_and_background() -> None:

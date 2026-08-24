@@ -11,9 +11,9 @@ import pytest
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.pipeline_shared.io import load_json
-from services.pipeline_shared.io import save_json
-from services.pipeline_shared.io import save_json_atomic
+from retainpdf_pipeline.services.pipeline_shared.io import load_json
+from retainpdf_pipeline.services.pipeline_shared.io import save_json
+from retainpdf_pipeline.services.pipeline_shared.io import save_json_atomic
 
 
 def test_save_json_pretty_roundtrip(tmp_path: Path) -> None:
@@ -77,7 +77,7 @@ def test_save_json_atomic_replaces_target_and_cleans_temporary_file(tmp_path: Pa
 
 
 def test_validate_document_path_streams_file(tmp_path: Path) -> None:
-    from services.document_schema.validator import validate_document_path
+    from retainpdf_pipeline.services.document_schema.validator import validate_document_path
 
     # Minimal valid document.v1 skeleton (only structure required by validator may be richer;
     # if validation fails on schema, we still assert load path does not use read_text+loads).

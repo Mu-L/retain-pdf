@@ -7,13 +7,13 @@ from types import SimpleNamespace
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from foundation.shared.job_dirs import ensure_job_dirs
-from foundation.shared.job_dirs import resolve_job_dirs
-from services.ocr_provider.drivers import list_registered_ocr_provider_drivers
-from services.ocr_provider.drivers import register_ocr_provider_driver
-from services.ocr_provider.drivers import run_registered_ocr_provider
-from services.ocr_provider.types import OcrProviderResult
-from services.ocr_provider.provider_config import OCR_PROVIDER_CONFIG_ENV
+from retainpdf_pipeline.foundation.shared.job_dirs import ensure_job_dirs
+from retainpdf_pipeline.foundation.shared.job_dirs import resolve_job_dirs
+from retainpdf_pipeline.services.ocr_provider.drivers import list_registered_ocr_provider_drivers
+from retainpdf_pipeline.services.ocr_provider.drivers import register_ocr_provider_driver
+from retainpdf_pipeline.services.ocr_provider.drivers import run_registered_ocr_provider
+from retainpdf_pipeline.services.ocr_provider.types import OcrProviderResult
+from retainpdf_pipeline.services.ocr_provider.provider_config import OCR_PROVIDER_CONFIG_ENV
 
 
 def test_ocr_provider_registry_accepts_custom_driver(tmp_path: Path) -> None:
@@ -77,8 +77,8 @@ def test_ocr_provider_registry_discovers_configured_local_provider(
     # The registry is process-global. Force a module reload so config discovery
     # observes this test-specific config without leaking across tests.
     import importlib
-    import foundation.shared.ocr_provider_config as provider_config
-    import services.ocr_provider.drivers as drivers
+    import retainpdf_pipeline.foundation.shared.ocr_provider_config as provider_config
+    import retainpdf_pipeline.services.ocr_provider.drivers as drivers
 
     importlib.reload(provider_config)
     drivers = importlib.reload(drivers)

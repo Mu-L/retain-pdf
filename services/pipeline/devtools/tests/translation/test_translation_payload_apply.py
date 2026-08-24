@@ -7,9 +7,9 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.core.payload.parts.apply import apply_translated_text_map
-from services.translation.core.payload.translations import load_translations
-from services.translation.services.results.page_io import save_pages
+from retainpdf_pipeline.services.translation.core.payload.parts.apply import apply_translated_text_map
+from retainpdf_pipeline.services.translation.core.payload.translations import load_translations
+from retainpdf_pipeline.services.translation.services.results.page_io import save_pages
 
 
 def test_apply_translated_text_map_unwraps_json_string_result() -> None:

@@ -725,11 +725,11 @@ desktopIndexHtml = desktopIndexHtml.replace('\n    <script src="./runtime-config
 fs.writeFileSync(desktopIndexPath, desktopIndexHtml, "utf8");
 
 if (!frontendOnly) {
-  // pipeline scripts 已迁 services/pipeline，兼容旧 backend/scripts
+  // Keep the bundled layout aligned with main.js and RUST_API_SCRIPTS_DIR.
   const pipelineScriptsRoot = fs.existsSync(path.join(servicesPipelineRoot, "pyproject.toml"))
     ? servicesPipelineRoot
     : path.join(backendRoot, "scripts");
-  fs.cpSync(pipelineScriptsRoot, path.join(outputBackendRoot, "scripts"), {
+  fs.cpSync(pipelineScriptsRoot, path.join(outputBackendRoot, "pipeline"), {
     recursive: true,
     force: true,
   });

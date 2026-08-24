@@ -4,8 +4,8 @@ from pathlib import Path
 
 
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
-TRANSLATE_ONLY_PIPELINE = REPO_SCRIPTS_ROOT / "services" / "translation" / "entrypoints" / "translate_only_pipeline.py"
-FROM_OCR_PIPELINE = REPO_SCRIPTS_ROOT / "services" / "translation" / "entrypoints" / "from_ocr_pipeline.py"
+TRANSLATE_ONLY_PIPELINE = REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "entrypoints" / "translate_only_pipeline.py"
+FROM_OCR_PIPELINE = REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "entrypoints" / "from_ocr_pipeline.py"
 
 
 def test_translate_only_pipeline_keeps_events_and_diagnostics_protocol() -> None:

@@ -6,7 +6,7 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 REPO_ROOT = REPO_SCRIPTS_ROOT.parent
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.document_schema.provider_adapters.paddle.adapter import build_paddle_document
+from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.adapter import build_paddle_document
 
 
 PADDLE_FIXTURE_JSON = REPO_ROOT / "rust_api" / "src" / "ocr_provider" / "paddle" / "json_full.json"

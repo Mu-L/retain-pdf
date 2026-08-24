@@ -13,60 +13,60 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.rendering.source.background.stage import build_clean_background_pdf
-from foundation.config import fonts
-from services.rendering.layout.payload.blocks import build_render_blocks
-from services.rendering.layout.payload.body_pipeline import apply_body_payload_pipeline
-from services.rendering.layout.payload.collision import mark_adjacent_collision_risk
-from services.rendering.layout.payload.emit import payload_to_render_block
-from services.rendering.layout.payload.first_line_indent import detect_first_line_indent_pt
-from services.rendering.layout.payload.line_structure import maybe_preserve_structured_line_breaks
-from services.rendering.layout.model.models import RenderLayoutBlock
-from services.rendering.layout.model.models import RenderPageSpec
-from services.rendering.layout.page_specs import build_render_page_specs
-from services.rendering.layout.payload.continuation_split import split_protected_text_for_boxes
-from services.rendering.layout.payload.prepare import prepare_render_payloads_by_page
-from services.rendering.source.items import get_item_translated_text
-from services.rendering.source.dev_overlay.text_draw import _build_direct_draw_tokens
-from services.rendering.source.dev_overlay.text_draw import _fit_segment_layout
-from services.rendering.layout.payload.suspicious_ocr import detect_and_drop_suspicious_ocr_glued_blocks
-from services.rendering.output.typst.book_renderer import _compile_render_pages_pdf_resilient
-from services.rendering.output.typst.block_renderer import build_typst_block
-from services.rendering.output.typst.overlay_ops import overlay_translated_pages_on_doc
-from services.rendering.output.typst.book_support import prepare_translated_pages_for_render
-from services.rendering.output.typst.compiler import _resolved_font_paths
-from services.rendering.output.typst.compiler import _resolved_common_root
-from services.rendering.output.typst.compiler import TypstCompileError
-from services.rendering.output.typst.compiler import compile_typst_book_background_pdf
-from services.rendering.output.typst.compiler import compile_typst_overlay_pdf
-from services.rendering.output.typst.compiler import compile_typst_render_pages_pdf
-from services.rendering.output.typst.emitter import build_typst_source_from_page_specs
-from services.rendering.output.typst.source_builder import build_typst_overlay_source
-from services.rendering.policy import apply_render_page_policy_fields
-from services.rendering.policy import build_render_page_policy
-from services.rendering.policy import formula_neighbor_text_item_ids
-from services.rendering.policy import item_render_policy
-from services.rendering.policy import item_render_policy_reason
-from services.rendering.policy import item_requires_visual_cover_only
-from services.rendering.policy import item_uses_white_overlay_fill
-from services.rendering.policy import protect_formula_regions_in_redaction_items
-from services.rendering.output.typst.source_page_overlay import apply_source_page_overlay
-from services.rendering.output.typst.overlay_diagnostics import apply_redaction_diagnostics
-from services.rendering.output.typst.overlay_diagnostics import new_overlay_merge_diagnostics
-from services.rendering.source.background.redaction_items import redaction_items_from_layout_blocks
-from services.rendering.source.cleanup.item_rects import cover_rects_from_valid_items
-from services.rendering.output.typst.source_page_overlay import overlay_pages_from_single_pdf
-from services.rendering.output.typst.source_page_overlay import redaction_items_from_render_blocks
-from services.rendering.output.typst.sanitize import sanitize_items_for_typst_compile
-from services.rendering.output.typst.overlay_ops import _extract_failed_overlay_indices
-from services.rendering.output.typst.overlay_ops import _can_use_pikepdf_book_overlay
-from services.rendering.workflow.cover_fallback import cover_fallback_page_indices
-from services.rendering.workflow.context import RenderExecutionContext
-from services.rendering.workflow.modes import _compress_final_pdf_if_needed
-from services.rendering.document.pikepdf_overlay import overlay_pdf_pages_with_pikepdf
-from services.rendering.document.pikepdf_overlay import overlay_page_pdfs_with_pikepdf
-from services.rendering.document.pikepdf_pages import extract_pages_with_pikepdf
-from services.rendering.layout.inline_content.core.markdown import build_direct_typst_passthrough_text
+from retainpdf_pipeline.services.rendering.source.background.stage import build_clean_background_pdf
+from retainpdf_pipeline.foundation.config import fonts
+from retainpdf_pipeline.services.rendering.layout.payload.blocks import build_render_blocks
+from retainpdf_pipeline.services.rendering.layout.payload.body_pipeline import apply_body_payload_pipeline
+from retainpdf_pipeline.services.rendering.layout.payload.collision import mark_adjacent_collision_risk
+from retainpdf_pipeline.services.rendering.layout.payload.emit import payload_to_render_block
+from retainpdf_pipeline.services.rendering.layout.payload.first_line_indent import detect_first_line_indent_pt
+from retainpdf_pipeline.services.rendering.layout.payload.line_structure import maybe_preserve_structured_line_breaks
+from retainpdf_pipeline.services.rendering.layout.model.models import RenderLayoutBlock
+from retainpdf_pipeline.services.rendering.layout.model.models import RenderPageSpec
+from retainpdf_pipeline.services.rendering.layout.page_specs import build_render_page_specs
+from retainpdf_pipeline.services.rendering.layout.payload.continuation_split import split_protected_text_for_boxes
+from retainpdf_pipeline.services.rendering.layout.payload.prepare import prepare_render_payloads_by_page
+from retainpdf_pipeline.services.rendering.source.items import get_item_translated_text
+from retainpdf_pipeline.services.rendering.source.dev_overlay.text_draw import _build_direct_draw_tokens
+from retainpdf_pipeline.services.rendering.source.dev_overlay.text_draw import _fit_segment_layout
+from retainpdf_pipeline.services.rendering.layout.payload.suspicious_ocr import detect_and_drop_suspicious_ocr_glued_blocks
+from retainpdf_pipeline.services.rendering.output.typst.book_renderer import _compile_render_pages_pdf_resilient
+from retainpdf_pipeline.services.rendering.output.typst.block_renderer import build_typst_block
+from retainpdf_pipeline.services.rendering.output.typst.overlay_ops import overlay_translated_pages_on_doc
+from retainpdf_pipeline.services.rendering.output.typst.book_support import prepare_translated_pages_for_render
+from retainpdf_pipeline.services.rendering.output.typst.compiler import _resolved_font_paths
+from retainpdf_pipeline.services.rendering.output.typst.compiler import _resolved_common_root
+from retainpdf_pipeline.services.rendering.output.typst.compiler import TypstCompileError
+from retainpdf_pipeline.services.rendering.output.typst.compiler import compile_typst_book_background_pdf
+from retainpdf_pipeline.services.rendering.output.typst.compiler import compile_typst_overlay_pdf
+from retainpdf_pipeline.services.rendering.output.typst.compiler import compile_typst_render_pages_pdf
+from retainpdf_pipeline.services.rendering.output.typst.emitter import build_typst_source_from_page_specs
+from retainpdf_pipeline.services.rendering.output.typst.source_builder import build_typst_overlay_source
+from retainpdf_pipeline.services.rendering.policy import apply_render_page_policy_fields
+from retainpdf_pipeline.services.rendering.policy import build_render_page_policy
+from retainpdf_pipeline.services.rendering.policy import formula_neighbor_text_item_ids
+from retainpdf_pipeline.services.rendering.policy import item_render_policy
+from retainpdf_pipeline.services.rendering.policy import item_render_policy_reason
+from retainpdf_pipeline.services.rendering.policy import item_requires_visual_cover_only
+from retainpdf_pipeline.services.rendering.policy import item_uses_white_overlay_fill
+from retainpdf_pipeline.services.rendering.policy import protect_formula_regions_in_redaction_items
+from retainpdf_pipeline.services.rendering.output.typst.source_page_overlay import apply_source_page_overlay
+from retainpdf_pipeline.services.rendering.output.typst.overlay_diagnostics import apply_redaction_diagnostics
+from retainpdf_pipeline.services.rendering.output.typst.overlay_diagnostics import new_overlay_merge_diagnostics
+from retainpdf_pipeline.services.rendering.source.background.redaction_items import redaction_items_from_layout_blocks
+from retainpdf_pipeline.services.rendering.source.cleanup.item_rects import cover_rects_from_valid_items
+from retainpdf_pipeline.services.rendering.output.typst.source_page_overlay import overlay_pages_from_single_pdf
+from retainpdf_pipeline.services.rendering.output.typst.source_page_overlay import redaction_items_from_render_blocks
+from retainpdf_pipeline.services.rendering.output.typst.sanitize import sanitize_items_for_typst_compile
+from retainpdf_pipeline.services.rendering.output.typst.overlay_ops import _extract_failed_overlay_indices
+from retainpdf_pipeline.services.rendering.output.typst.overlay_ops import _can_use_pikepdf_book_overlay
+from retainpdf_pipeline.services.rendering.workflow.cover_fallback import cover_fallback_page_indices
+from retainpdf_pipeline.services.rendering.workflow.context import RenderExecutionContext
+from retainpdf_pipeline.services.rendering.workflow.modes import _compress_final_pdf_if_needed
+from retainpdf_pipeline.services.rendering.document.pikepdf_overlay import overlay_pdf_pages_with_pikepdf
+from retainpdf_pipeline.services.rendering.document.pikepdf_overlay import overlay_page_pdfs_with_pikepdf
+from retainpdf_pipeline.services.rendering.document.pikepdf_pages import extract_pages_with_pikepdf
+from retainpdf_pipeline.services.rendering.layout.inline_content.core.markdown import build_direct_typst_passthrough_text
 from devtools.tests.rendering_support.page_specs import sample_page_spec as _page_spec
 
 
@@ -147,7 +147,7 @@ def test_direct_typst_continuation_split_keeps_inline_math_atomic() -> None:
 
 
 def test_preserved_line_split_keeps_direct_typst_inline_math_atomic() -> None:
-    from services.rendering.layout.payload.line_structure import split_text_by_source_line_weights
+    from retainpdf_pipeline.services.rendering.layout.payload.line_structure import split_text_by_source_line_weights
 
     text = (
         r"a. $ \text{H}^{79}\text{Br} $ 或 $ \text{D}^{80}\text{Br} $　"
@@ -172,8 +172,8 @@ def test_preserved_line_split_keeps_direct_typst_inline_math_atomic() -> None:
 
 
 def test_preserved_line_typst_allows_dense_math_lines_to_shrink() -> None:
-    from services.rendering.layout.model.models import RenderBlock, RenderLineBox
-    from services.rendering.output.typst.block_renderer import build_typst_block
+    from retainpdf_pipeline.services.rendering.layout.model.models import RenderBlock, RenderLineBox
+    from retainpdf_pipeline.services.rendering.output.typst.block_renderer import build_typst_block
 
     block = RenderBlock(
         block_id="p035-b005",
@@ -206,7 +206,7 @@ def test_preserved_line_typst_allows_dense_math_lines_to_shrink() -> None:
 
 
 def test_preserved_line_marker_split_requires_increasing_source_markers() -> None:
-    from services.rendering.layout.payload.line_structure import _split_text_by_source_line_markers
+    from retainpdf_pipeline.services.rendering.layout.payload.line_structure import _split_text_by_source_line_markers
 
     chunks = _split_text_by_source_line_markers(
         "c. 第三项 a. 第一项",
@@ -220,7 +220,7 @@ def test_preserved_line_marker_split_requires_increasing_source_markers() -> Non
 
 
 def test_preserved_line_marker_split_rejects_mixed_marker_styles() -> None:
-    from services.rendering.layout.payload.line_structure import split_text_by_source_line_weights
+    from retainpdf_pipeline.services.rendering.layout.payload.line_structure import split_text_by_source_line_weights
 
     text = "1. 第一项 b. 第二项"
 

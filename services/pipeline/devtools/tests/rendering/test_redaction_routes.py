@@ -10,12 +10,12 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.rendering.source.cleanup import routes
-from services.rendering.source.cleanup import standard
-from services.rendering.visual_profile.contracts import DocumentVisualProfile
-from services.rendering.visual_profile.contracts import ItemVisualProfile
-from services.rendering.visual_profile.contracts import PageVisualProfile
-from services.rendering.visual_profile.runtime import VisualProfileRuntime
+from retainpdf_pipeline.services.rendering.source.cleanup import routes
+from retainpdf_pipeline.services.rendering.source.cleanup import standard
+from retainpdf_pipeline.services.rendering.visual_profile.contracts import DocumentVisualProfile
+from retainpdf_pipeline.services.rendering.visual_profile.contracts import ItemVisualProfile
+from retainpdf_pipeline.services.rendering.visual_profile.contracts import PageVisualProfile
+from retainpdf_pipeline.services.rendering.visual_profile.runtime import VisualProfileRuntime
 
 
 class _FakePage:

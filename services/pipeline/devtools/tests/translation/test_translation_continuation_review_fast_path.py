@@ -7,19 +7,19 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.services.continuation import pairs as continuation_pairs
-from services.translation.services.continuation import rules as continuation_rules
-from services.translation.services.continuation import orchestrator
+from retainpdf_pipeline.services.translation.services.continuation import pairs as continuation_pairs
+from retainpdf_pipeline.services.translation.services.continuation import rules as continuation_rules
+from retainpdf_pipeline.services.translation.services.continuation import orchestrator
 
 
 def _install_minimal_continuation_stub() -> None:
-    module = types.ModuleType("services.translation.services.continuation")
+    module = types.ModuleType("retainpdf_pipeline.services.translation.services.continuation")
     module.apply_candidate_pair_joins = continuation_pairs.apply_candidate_pair_joins
     module.candidate_continuation_pairs = continuation_pairs.candidate_continuation_pairs
     module.pair_break_score = continuation_rules.pair_break_score
     module.pair_join_score = continuation_rules.pair_join_score
     module.review_candidate_pairs = lambda *args, **kwargs: {}
-    sys.modules["services.translation.services.continuation"] = module
+    sys.modules["retainpdf_pipeline.services.translation.services.continuation"] = module
 
 
 def test_continuation_review_short_circuits_high_confidence_pairs() -> None:

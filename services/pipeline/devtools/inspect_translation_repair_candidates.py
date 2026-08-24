@@ -12,12 +12,12 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.translation.core.item_reader import item_policy_translate
-from services.translation.core.payload import load_translation_manifest_file
-from services.translation.core.payload import load_translations
-from services.translation.services.agents import TranslationAgentCoordinator
-from services.translation.services.agents.repair_pipeline import _has_blocking_issue
-from services.translation.services.agents.repair_pipeline import _repairable_review_issues
+from retainpdf_pipeline.services.translation.core.item_reader import item_policy_translate
+from retainpdf_pipeline.services.translation.core.payload import load_translation_manifest_file
+from retainpdf_pipeline.services.translation.core.payload import load_translations
+from retainpdf_pipeline.services.translation.services.agents import TranslationAgentCoordinator
+from retainpdf_pipeline.services.translation.services.agents.repair_pipeline import _has_blocking_issue
+from retainpdf_pipeline.services.translation.services.agents.repair_pipeline import _repairable_review_issues
 
 
 def _job_root_from_arg(value: str) -> Path:

@@ -22,9 +22,9 @@ from common import preview_text
 from common import read_fixture_rows
 from common import resolve_job_root
 from common import write_fixture_rows
-from foundation.shared.stage_specs import TranslateStageSpec
+from retainpdf_pipeline.foundation.shared.stage_specs import TranslateStageSpec
 from devtools.replay_translation_item import replay_translation_item
-from services.translation.core.payload import load_translations
+from retainpdf_pipeline.services.translation.core.payload import load_translations
 
 
 def parse_args() -> argparse.Namespace:

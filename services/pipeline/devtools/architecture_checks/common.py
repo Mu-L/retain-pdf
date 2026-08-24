@@ -6,6 +6,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SCRIPTS_ROOT = REPO_ROOT / "services" / "pipeline"
+PACKAGE_ROOT = SCRIPTS_ROOT / "retainpdf_pipeline"
 
 
 class ArchitectureCheckSyntaxError(Exception):
@@ -80,6 +81,7 @@ def module_allowed(module: str, allowed_prefixes: tuple[str, ...]) -> bool:
 
 __all__ = [
     "ArchitectureCheckSyntaxError",
+    "PACKAGE_ROOT",
     "REPO_ROOT",
     "SCRIPTS_ROOT",
     "imported_from_symbols",

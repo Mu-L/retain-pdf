@@ -14,17 +14,17 @@ import pytest
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.translation.core.payload import load_translations
-from services.translation.core.payload import pending_translation_items
-from services.translation.core.payload import save_translations
-from services.translation.core.payload import write_translation_manifest
-from services.translation.workflow.checkpoint import TRANSLATION_CHECKPOINT_FILE_NAME
-from services.translation.workflow.checkpoint import ResumeCandidateFingerprintMismatch
-from services.translation.workflow.checkpoint import TranslationCheckpointSession
-from services.translation.workflow.checkpoint import discard_copied_resume_candidate
-from services.translation.workflow.checkpoint.store import CheckpointStore
-from services.translation.workflow.checkpoint.identity import build_translation_identity
-from services.translation.workflow.execution import TranslationExecutionRequest
+from retainpdf_pipeline.services.translation.core.payload import load_translations
+from retainpdf_pipeline.services.translation.core.payload import pending_translation_items
+from retainpdf_pipeline.services.translation.core.payload import save_translations
+from retainpdf_pipeline.services.translation.core.payload import write_translation_manifest
+from retainpdf_pipeline.services.translation.workflow.checkpoint import TRANSLATION_CHECKPOINT_FILE_NAME
+from retainpdf_pipeline.services.translation.workflow.checkpoint import ResumeCandidateFingerprintMismatch
+from retainpdf_pipeline.services.translation.workflow.checkpoint import TranslationCheckpointSession
+from retainpdf_pipeline.services.translation.workflow.checkpoint import discard_copied_resume_candidate
+from retainpdf_pipeline.services.translation.workflow.checkpoint.store import CheckpointStore
+from retainpdf_pipeline.services.translation.workflow.checkpoint.identity import build_translation_identity
+from retainpdf_pipeline.services.translation.workflow.execution import TranslationExecutionRequest
 
 
 def _request(source_json: Path, output_dir: Path, *, model: str = "test-model") -> TranslationExecutionRequest:
@@ -149,7 +149,7 @@ def test_checkpoint_identity_tracks_translation_engine_version(tmp_path: Path, m
 
     first = build_translation_identity(request, _plan())
     monkeypatch.setattr(
-        "services.translation.workflow.checkpoint.identity.translation_engine_identity",
+        "retainpdf_pipeline.services.translation.workflow.checkpoint.identity.translation_engine_identity",
         lambda **_kwargs: {
             "prompt_hash": "changed-prompt",
             "translation_protocol_version": "changed-protocol",

@@ -6,9 +6,9 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.document_schema.toc import build_toc_entries
-from services.document_schema.toc import order_toc_lines_by_geometry
-from services.document_schema.toc import parse_toc_line
+from retainpdf_pipeline.services.document_schema.toc import build_toc_entries
+from retainpdf_pipeline.services.document_schema.toc import order_toc_lines_by_geometry
+from retainpdf_pipeline.services.document_schema.toc import parse_toc_line
 
 
 def test_parse_toc_line_accepts_numbered_title_page_without_dot_leader() -> None:

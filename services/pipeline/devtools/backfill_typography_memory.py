@@ -14,10 +14,10 @@ SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS_ROOT))
 
 
-from runtime.pipeline.translation_loader import load_translated_pages
-from services.rendering.layout.payload.blocks import build_render_blocks
-from services.rendering.output.typst.book_support import prepare_translated_pages_for_render
-from services.translation.public import TRANSLATION_MANIFEST_FILE_NAME
+from retainpdf_pipeline.runtime.pipeline.translation_loader import load_translated_pages
+from retainpdf_pipeline.services.rendering.layout.payload.blocks import build_render_blocks
+from retainpdf_pipeline.services.rendering.output.typst.book_support import prepare_translated_pages_for_render
+from retainpdf_pipeline.services.translation.public import TRANSLATION_MANIFEST_FILE_NAME
 
 
 def main() -> None:

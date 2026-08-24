@@ -4,15 +4,15 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.translation.workflow.batching.plan import _allocate_translation_queue_workers
-from services.translation.workflow.batching.plan import _build_translation_batches
-from services.translation.workflow.batching.plan import _classify_translation_batches
-from services.translation.workflow.batching.plan import _effective_translation_batch_size
-from services.translation.workflow.batching.plan import _adaptive_initial_limit
-from services.translation.workflow.batching.plan import _provider_adaptive_initial_limit
-from services.translation.workflow.batching.plan import TranslationBatchRunStats
-from services.translation.llm.shared.control_context import build_translation_control_context
-from services.translation.llm.shared.control_context import resolve_engine_profile
+from retainpdf_pipeline.services.translation.workflow.batching.plan import _allocate_translation_queue_workers
+from retainpdf_pipeline.services.translation.workflow.batching.plan import _build_translation_batches
+from retainpdf_pipeline.services.translation.workflow.batching.plan import _classify_translation_batches
+from retainpdf_pipeline.services.translation.workflow.batching.plan import _effective_translation_batch_size
+from retainpdf_pipeline.services.translation.workflow.batching.plan import _adaptive_initial_limit
+from retainpdf_pipeline.services.translation.workflow.batching.plan import _provider_adaptive_initial_limit
+from retainpdf_pipeline.services.translation.workflow.batching.plan import TranslationBatchRunStats
+from retainpdf_pipeline.services.translation.llm.shared.control_context import build_translation_control_context
+from retainpdf_pipeline.services.translation.llm.shared.control_context import resolve_engine_profile
 
 
 def _item(item_id: str, text: str, **overrides):

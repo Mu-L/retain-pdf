@@ -9,7 +9,7 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.rendering.source.intermediate_paths import intermediate_pdf_path
+from retainpdf_pipeline.services.rendering.source.intermediate_paths import intermediate_pdf_path
 
 
 def test_short_stem_keeps_readable_name(tmp_path: Path) -> None:
@@ -47,11 +47,11 @@ def test_long_stem_uses_hash_when_full_path_too_long(tmp_path: Path, monkeypatch
 
     # Tighten full-path budget so preferred long name is rejected on any OS.
     monkeypatch.setattr(
-        "services.rendering.source.intermediate_paths._SAFE_FULL_PATH_BYTES_POSIX",
+        "retainpdf_pipeline.services.rendering.source.intermediate_paths._SAFE_FULL_PATH_BYTES_POSIX",
         200,
     )
     monkeypatch.setattr(
-        "services.rendering.source.intermediate_paths._SAFE_FULL_PATH_BYTES_WINDOWS",
+        "retainpdf_pipeline.services.rendering.source.intermediate_paths._SAFE_FULL_PATH_BYTES_WINDOWS",
         200,
     )
 

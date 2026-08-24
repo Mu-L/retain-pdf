@@ -6,7 +6,7 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.document_schema.normalize_pipeline import _refresh_report_for_final_document
+from retainpdf_pipeline.services.document_schema.normalize_pipeline import _refresh_report_for_final_document
 
 
 def test_refresh_report_for_final_document_uses_final_validation_counts() -> None:
@@ -103,7 +103,7 @@ def test_refresh_report_for_final_document_uses_final_validation_counts() -> Non
 
 
 def test_validation_asset_link_counts_only_image_blocks() -> None:
-    from services.document_schema.validator import build_validation_report
+    from retainpdf_pipeline.services.document_schema.validator import build_validation_report
 
     document = {
         "schema": "normalized_document_v1",
@@ -150,7 +150,7 @@ def test_validation_asset_link_counts_only_image_blocks() -> None:
 
 
 def test_validation_report_detects_orphan_and_uncovered_provider_assets() -> None:
-    from services.document_schema.validator import build_validation_report
+    from retainpdf_pipeline.services.document_schema.validator import build_validation_report
 
     document = {
         "schema": "normalized_document_v1",

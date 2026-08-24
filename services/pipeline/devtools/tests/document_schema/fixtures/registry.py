@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from services.document_schema.providers import PROVIDER_GENERIC_FLAT_OCR
-from services.document_schema.providers import PROVIDER_MINERU
-from services.document_schema.providers import PROVIDER_MINERU_CONTENT_LIST_V2
-from services.document_schema.providers import PROVIDER_PADDLE
-from services.mineru.contracts import MINERU_CONTENT_LIST_V2_FILE_NAME
-from services.mineru.contracts import MINERU_LAYOUT_JSON_FILE_NAME
+from retainpdf_pipeline.services.document_schema.providers import PROVIDER_GENERIC_FLAT_OCR
+from retainpdf_pipeline.services.document_schema.providers import PROVIDER_MINERU
+from retainpdf_pipeline.services.document_schema.providers import PROVIDER_MINERU_CONTENT_LIST_V2
+from retainpdf_pipeline.services.document_schema.providers import PROVIDER_PADDLE
+from retainpdf_pipeline.services.mineru.contracts import MINERU_CONTENT_LIST_V2_FILE_NAME
+from retainpdf_pipeline.services.mineru.contracts import MINERU_LAYOUT_JSON_FILE_NAME
 
 REPO_ROOT = Path(__file__).resolve().parents[6]
 MINERU_REGRESSION_ROOT = REPO_ROOT / "data" / "jobs" / "20260414164126-41e3ea" / "ocr" / "unpacked"

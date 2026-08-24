@@ -10,7 +10,7 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.rendering.source_cleanup.planning import segments
+from retainpdf_pipeline.services.rendering.source_cleanup.planning import segments
 
 
 def test_split_rect_around_inline_formula_keeps_left_and_right_segments() -> None:

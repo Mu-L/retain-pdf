@@ -6,13 +6,13 @@ from pathlib import Path
 import fitz
 import pikepdf
 import pytest
-from services.document_operations.page_program import (
+from retainpdf_pipeline.services.document_operations.page_program import (
     build_page_plan,
     canonical_program_bytes,
     execute_page_program,
     validate_page_program,
 )
-from services.document_operations.visual_validation import validate_page_program_visuals
+from retainpdf_pipeline.services.document_operations.visual_validation import validate_page_program_visuals
 
 
 def _source_pdf(path: Path, pages: int = 4) -> Path:

@@ -8,9 +8,9 @@ from unittest import mock
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.translation.llm.shared import cache
-from services.translation.core import engine_identity
-from services.translation.llm.validation.protocol_shell import looks_like_protocol_shell_output
+from retainpdf_pipeline.services.translation.llm.shared import cache
+from retainpdf_pipeline.services.translation.core import engine_identity
+from retainpdf_pipeline.services.translation.llm.validation.protocol_shell import looks_like_protocol_shell_output
 
 
 def test_protocol_shell_detection_accepts_legitimate_source_text_requests_inside_sentence() -> None:

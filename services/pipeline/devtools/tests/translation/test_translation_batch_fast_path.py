@@ -8,8 +8,8 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.workflow.batching.plan import _build_translation_batches
-from services.translation.llm.shared.control_context import build_translation_control_context
+from retainpdf_pipeline.services.translation.workflow.batching.plan import _build_translation_batches
+from retainpdf_pipeline.services.translation.llm.shared.control_context import build_translation_control_context
 
 
 def _item(item_id: str, text: str, **overrides):

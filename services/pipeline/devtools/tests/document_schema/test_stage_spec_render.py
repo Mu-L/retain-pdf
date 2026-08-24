@@ -7,21 +7,21 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from foundation.shared.job_dirs import ensure_job_dirs
-from foundation.shared.job_dirs import resolve_job_dirs
-from foundation.shared.stage_specs import NormalizeStageSpec
-from foundation.shared.stage_specs import build_stage_invocation_metadata
-from foundation.shared.stage_specs import BookStageSpec
-from foundation.shared.stage_specs import BOOK_STAGE_SCHEMA_VERSION
-from foundation.shared.stage_specs import NORMALIZE_STAGE_SCHEMA_VERSION
-from foundation.shared.stage_specs import ProviderStageSpec
-from foundation.shared.stage_specs import PROVIDER_STAGE_SCHEMA_VERSION
-from foundation.shared.stage_specs import resolve_credential_ref
-from foundation.shared.stage_specs import TranslateStageSpec
-from foundation.shared.stage_specs import TRANSLATE_STAGE_SCHEMA_VERSION
-from foundation.shared.stage_specs import RenderStageSpec
-from foundation.shared.stage_specs import RENDER_STAGE_SCHEMA_VERSION
-from foundation.config import fonts
+from retainpdf_pipeline.foundation.shared.job_dirs import ensure_job_dirs
+from retainpdf_pipeline.foundation.shared.job_dirs import resolve_job_dirs
+from retainpdf_pipeline.foundation.shared.stage_specs import NormalizeStageSpec
+from retainpdf_pipeline.foundation.shared.stage_specs import build_stage_invocation_metadata
+from retainpdf_pipeline.foundation.shared.stage_specs import BookStageSpec
+from retainpdf_pipeline.foundation.shared.stage_specs import BOOK_STAGE_SCHEMA_VERSION
+from retainpdf_pipeline.foundation.shared.stage_specs import NORMALIZE_STAGE_SCHEMA_VERSION
+from retainpdf_pipeline.foundation.shared.stage_specs import ProviderStageSpec
+from retainpdf_pipeline.foundation.shared.stage_specs import PROVIDER_STAGE_SCHEMA_VERSION
+from retainpdf_pipeline.foundation.shared.stage_specs import resolve_credential_ref
+from retainpdf_pipeline.foundation.shared.stage_specs import TranslateStageSpec
+from retainpdf_pipeline.foundation.shared.stage_specs import TRANSLATE_STAGE_SCHEMA_VERSION
+from retainpdf_pipeline.foundation.shared.stage_specs import RenderStageSpec
+from retainpdf_pipeline.foundation.shared.stage_specs import RENDER_STAGE_SCHEMA_VERSION
+from retainpdf_pipeline.foundation.config import fonts
 
 def test_render_stage_spec_loads_and_resolves_paths(tmp_path: Path) -> None:
     job_root = tmp_path / "20260414-renderjob"

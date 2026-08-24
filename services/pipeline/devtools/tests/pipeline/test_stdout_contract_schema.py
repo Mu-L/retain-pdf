@@ -17,7 +17,7 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.pipeline_shared import contracts  # noqa: E402
+from retainpdf_pipeline.services.pipeline_shared import contracts  # noqa: E402
 
 REPO_ROOT = REPO_SCRIPTS_ROOT.parents[1]
 SCHEMA_ROOT = REPO_ROOT / "packages" / "schemas"
@@ -26,7 +26,7 @@ SCHEMA = json.loads(
 )
 
 # 发射点扫描范围：真实 worker 代码（devtools 工具脚本不算协议生产者）
-EMIT_SCAN_DIRS = [REPO_SCRIPTS_ROOT / "services", REPO_SCRIPTS_ROOT / "entrypoints"]
+EMIT_SCAN_DIRS = [REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services", REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "entrypoints"]
 
 
 def _iter_emit_sources():

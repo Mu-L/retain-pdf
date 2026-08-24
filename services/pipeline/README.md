@@ -2,16 +2,12 @@
 
 `pipeline/` 是整套“PDF -> OCR -> 翻译 -> 保留排版渲染”的脚本工程目录。
 
-现在顶层按职责分成五层：
+安装后的唯一 Python 命名空间是 `retainpdf_pipeline`。源码树顶层分成三部分：
 
-- `runtime/`
-  运行时编排层，只放 pipeline。
-- `services/`
-  OCR、MinerU、翻译、渲染等具体实现层。
-- `foundation/`
-  配置、共享工具和提示词资源。
+- `retainpdf_pipeline/`
+  canonical package；内部包含 `runtime/`、`services/`、`foundation/` 和正式 `entrypoints/`。
 - `entrypoints/`
-  人工执行入口。
+  只保留 Rust/桌面 script mode 需要的源码兼容包装器，不进入 wheel。
 - `devtools/`
   实验、迁移、示例、测试探针、诊断脚本。
 
@@ -268,6 +264,9 @@ Pipeline 是可独立安装的 `retainpdf-pipeline` 包，依赖真相源是本�
 [`pyproject.toml`](./pyproject.toml)。仓库根 `pyproject.toml` 只负责组合
 `services/pipeline` 与 `services/ai` 两个 workspace 成员。
 
+wheel 只发布 `retainpdf_pipeline.*`；不会再安装通用顶层包名
+`services`、`foundation`、`runtime` 或 `entrypoints`。
+
 不要直接手改这些 requirements 文件：
 
 - `infra/docker/requirements-app.txt`
@@ -316,17 +315,14 @@ Docker 镜像安装 pipeline 包并固定使用 `console` 模式；尚未安装�
 ## 子目录文档
 
 - [PIPELINE_DIRECTORY_MAP.md](./PIPELINE_DIRECTORY_MAP.md)
-- [foundation/config/README.md](./foundation/config/README.md)
-- [foundation/shared/README.md](./foundation/shared/README.md)
-- [runtime/pipeline/README.md](./runtime/pipeline/README.md)
-- [services/README.md](./services/README.md)
-- [services/ocr_provider/README.md](./services/ocr_provider/README.md)
-- [services/translation/README.md](./services/translation/README.md)
-- [services/translation/orchestration/README.md](./services/translation/orchestration/README.md)
-- [services/translation/continuation/README.md](./services/translation/continuation/README.md)
-- [services/translation/policy/README.md](./services/translation/policy/README.md)
-- [services/rendering/README.md](./services/rendering/README.md)
-- [services/mineru/README.md](./services/mineru/README.md)
+- [foundation/config/README.md](./retainpdf_pipeline/foundation/config/README.md)
+- [foundation/shared/README.md](./retainpdf_pipeline/foundation/shared/README.md)
+- [runtime/pipeline/README.md](./retainpdf_pipeline/runtime/pipeline/README.md)
+- [services/README.md](./retainpdf_pipeline/services/README.md)
+- [services/ocr_provider/README.md](./retainpdf_pipeline/services/ocr_provider/README.md)
+- [services/translation/README.md](./retainpdf_pipeline/services/translation/README.md)
+- [services/rendering/README.md](./retainpdf_pipeline/services/rendering/README.md)
+- [services/mineru/README.md](./retainpdf_pipeline/services/mineru/README.md)
 
 ## 设计边界
 

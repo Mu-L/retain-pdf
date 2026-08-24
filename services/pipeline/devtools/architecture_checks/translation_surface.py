@@ -63,8 +63,8 @@ def check_translation_worker_protocol(errors: list[str]) -> None:
 def check_translation_pipeline_facade_boundary(errors: list[str]) -> None:
     text = read_text(TRANSLATION_STAGE_PIPELINE)
     required = (
-        "from services.translation.public import TranslationExecutionRequest",
-        "from services.translation.public import execute_translation_request",
+        "from retainpdf_pipeline.services.translation.public import TranslationExecutionRequest",
+        "from retainpdf_pipeline.services.translation.public import execute_translation_request",
     )
     for item in required:
         if item not in text:
@@ -72,13 +72,13 @@ def check_translation_pipeline_facade_boundary(errors: list[str]) -> None:
                 f"runtime/pipeline/translation_stage.py: must call translation public facade via '{item}'"
             )
     forbidden = (
-        "from services.translation.workflow import",
-        "from services.translation.services.policy import",
-        "from services.translation.services.context.session_context import",
-        "from services.translation.artifacts import",
-        "from services.translation.core import",
-        "from services.translation.llm import",
-        "from runtime.pipeline.book_translation_flow import",
+        "from retainpdf_pipeline.services.translation.workflow import",
+        "from retainpdf_pipeline.services.translation.services.policy import",
+        "from retainpdf_pipeline.services.translation.services.context.session_context import",
+        "from retainpdf_pipeline.services.translation.artifacts import",
+        "from retainpdf_pipeline.services.translation.core import",
+        "from retainpdf_pipeline.services.translation.llm import",
+        "from retainpdf_pipeline.runtime.pipeline.book_translation_flow import",
     )
     for item in forbidden:
         if item in text:
@@ -96,15 +96,15 @@ def check_translation_public_surface_usage(errors: list[str]) -> None:
         RENDERING_ROOT,
     )
     allowed_prefixes = (
-        "services.translation.public",
-        "services.translation.entrypoints",
+        "retainpdf_pipeline.services.translation.public",
+        "retainpdf_pipeline.services.translation.entrypoints",
     )
     forbidden_prefixes = (
-        "services.translation.artifacts",
-        "services.translation.core",
-        "services.translation.llm",
-        "services.translation.services",
-        "services.translation.workflow",
+        "retainpdf_pipeline.services.translation.artifacts",
+        "retainpdf_pipeline.services.translation.core",
+        "retainpdf_pipeline.services.translation.llm",
+        "retainpdf_pipeline.services.translation.services",
+        "retainpdf_pipeline.services.translation.workflow",
     )
     for root in guarded_roots:
         for path in scan_py_files(root):
@@ -120,11 +120,11 @@ def check_translation_public_surface_usage(errors: list[str]) -> None:
 
 def check_devtools_translation_internal_usage(errors: list[str]) -> None:
     forbidden_prefixes = (
-        "services.translation.artifacts",
-        "services.translation.core",
-        "services.translation.llm",
-        "services.translation.services",
-        "services.translation.workflow",
+        "retainpdf_pipeline.services.translation.artifacts",
+        "retainpdf_pipeline.services.translation.core",
+        "retainpdf_pipeline.services.translation.llm",
+        "retainpdf_pipeline.services.translation.services",
+        "retainpdf_pipeline.services.translation.workflow",
     )
     for path in scan_py_files(DEVTOOLS_ROOT):
         rel_path = path.relative_to(DEVTOOLS_ROOT)
@@ -149,7 +149,7 @@ def check_translation_rendering_separation(errors: list[str]) -> None:
     for path in scan_py_files(TRANSLATION_ROOT):
         exception_prefixes = TRANSLATION_RENDERING_IMPORT_EXCEPTIONS.get(path.relative_to(TRANSLATION_ROOT), ())
         for module in imported_modules(path):
-            if not module.startswith("services.rendering"):
+            if not module.startswith("retainpdf_pipeline.services.rendering"):
                 continue
             if module_allowed(module, exception_prefixes):
                 continue

@@ -127,7 +127,7 @@ jobs:
       - name: Check installed command contracts
         run: |
           retainpdf-pipeline --help
-          python -c "import retainpdf_ai, foundation, runtime, services"
+          python -c "import retainpdf_ai, retainpdf_pipeline"
 
       - name: AI Service Tests
         run: python -m pytest services/ai/tests -q

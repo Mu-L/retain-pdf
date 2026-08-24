@@ -6,12 +6,12 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.rendering.layout.typography_memory.features import build_typography_feature
-from services.rendering.layout.payload.block_seed_metrics import collect_page_seed_metrics
-from services.rendering.layout.payload.block_seed_payload_factory import build_seed_payload_for_item
-from services.rendering.layout.payload import block_seed_payload_factory
-from services.rendering.layout.typography_memory.store import TypographyMemory
-from services.rendering.layout.typography_memory.store import TypographyMemoryDecision
+from retainpdf_pipeline.services.rendering.layout.typography_memory.features import build_typography_feature
+from retainpdf_pipeline.services.rendering.layout.payload.block_seed_metrics import collect_page_seed_metrics
+from retainpdf_pipeline.services.rendering.layout.payload.block_seed_payload_factory import build_seed_payload_for_item
+from retainpdf_pipeline.services.rendering.layout.payload import block_seed_payload_factory
+from retainpdf_pipeline.services.rendering.layout.typography_memory.store import TypographyMemory
+from retainpdf_pipeline.services.rendering.layout.typography_memory.store import TypographyMemoryDecision
 
 
 def _item() -> dict:

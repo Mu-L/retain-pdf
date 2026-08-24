@@ -38,6 +38,7 @@ function buildBackendEnv(options = {}) {
     RUST_API_NORMAL_MAX_PAGES: "300",
     RUST_API_PROJECT_ROOT: backendRoot,
     RUST_API_SCRIPTS_DIR: scriptsDir,
+    RUST_API_PYTHON_ENTRYPOINT_MODE: "script",
     // 前端 /api/v1/ai/* 由 Rust 反代到 retainpdf-ai
     RUST_API_AI_SERVICE_BASE: `http://127.0.0.1:${aiServicePort}`,
     PYTHON_BIN: pythonRuntime.command,

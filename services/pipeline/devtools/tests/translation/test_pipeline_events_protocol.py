@@ -8,11 +8,11 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.pipeline_shared.events import emit_artifact_published
-from services.pipeline_shared.events import emit_stage_progress
-from services.pipeline_shared.events import emit_stage_transition
-from services.pipeline_shared.events import PipelineEventWriter
-from services.pipeline_shared.events import pipeline_event_writer_scope
+from retainpdf_pipeline.services.pipeline_shared.events import emit_artifact_published
+from retainpdf_pipeline.services.pipeline_shared.events import emit_stage_progress
+from retainpdf_pipeline.services.pipeline_shared.events import emit_stage_transition
+from retainpdf_pipeline.services.pipeline_shared.events import PipelineEventWriter
+from retainpdf_pipeline.services.pipeline_shared.events import pipeline_event_writer_scope
 
 
 def test_pipeline_event_writer_emits_structured_jsonl(tmp_path: Path) -> None:

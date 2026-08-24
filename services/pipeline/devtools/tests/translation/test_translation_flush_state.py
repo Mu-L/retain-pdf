@@ -7,8 +7,8 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.translation.services.results import flush as flush_module
-from services.translation.services.results.flush import TranslationFlushState
+from retainpdf_pipeline.services.translation.services.results import flush as flush_module
+from retainpdf_pipeline.services.translation.services.results.flush import TranslationFlushState
 
 
 def test_translation_batch_flush_skips_full_unit_refresh(monkeypatch, tmp_path: Path) -> None:

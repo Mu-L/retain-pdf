@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from services.rendering.analysis.profile.geometry import PageGeometryProfile
-from services.rendering.analysis.profile.image_background import ImageBackgroundProfile
-from services.rendering.analysis.profile.models import RenderPageKind
-from services.rendering.analysis.profile.models import RenderPageProfile
-from services.rendering.analysis.profile.ocr_blocks import OcrBlockProfile
-from services.rendering.analysis.profile.text_layer import TextLayerProfile
-from services.rendering.analysis.profile.vector_layer import VectorLayerProfile
+from retainpdf_pipeline.services.rendering.analysis.profile.geometry import PageGeometryProfile
+from retainpdf_pipeline.services.rendering.analysis.profile.image_background import ImageBackgroundProfile
+from retainpdf_pipeline.services.rendering.analysis.profile.models import RenderPageKind
+from retainpdf_pipeline.services.rendering.analysis.profile.models import RenderPageProfile
+from retainpdf_pipeline.services.rendering.analysis.profile.ocr_blocks import OcrBlockProfile
+from retainpdf_pipeline.services.rendering.analysis.profile.text_layer import TextLayerProfile
+from retainpdf_pipeline.services.rendering.analysis.profile.vector_layer import VectorLayerProfile
 
 
 def sample_render_page_profile(kind: RenderPageKind) -> RenderPageProfile:

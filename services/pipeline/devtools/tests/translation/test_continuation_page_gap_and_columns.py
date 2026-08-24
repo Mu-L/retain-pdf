@@ -14,11 +14,11 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 def _ensure_package_stubs() -> None:
     package_paths = {
-        "services": REPO_SCRIPTS_ROOT / "services",
-        "services.translation": REPO_SCRIPTS_ROOT / "services" / "translation",
-        "services.translation.core": REPO_SCRIPTS_ROOT / "services" / "translation" / "core",
-        "services.translation.services": REPO_SCRIPTS_ROOT / "services" / "translation" / "services",
-        "services.translation.services.continuation": REPO_SCRIPTS_ROOT
+        "retainpdf_pipeline.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services",
+        "retainpdf_pipeline.services.translation": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation",
+        "retainpdf_pipeline.services.translation.core": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "core",
+        "retainpdf_pipeline.services.translation.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "services",
+        "retainpdf_pipeline.services.translation.services.continuation": REPO_SCRIPTS_ROOT
         / "services"
         / "translation"
         / "services"
@@ -45,19 +45,19 @@ def _load_module(name: str, path: Path):
 def _load_continuation_modules():
     # item_reader is imported by rules.eligible
     try:
-        import services.translation.core.item_reader  # noqa: F401
+        import retainpdf_pipeline.services.translation.core.item_reader  # noqa: F401
     except Exception:
         _load_module(
-            "services.translation.core.item_reader",
-            REPO_SCRIPTS_ROOT / "services" / "translation" / "core" / "item_reader.py",
+            "retainpdf_pipeline.services.translation.core.item_reader",
+            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "core" / "item_reader.py",
         )
     rules = _load_module(
-        "services.translation.services.continuation.rules",
-        REPO_SCRIPTS_ROOT / "services" / "translation" / "services" / "continuation" / "rules.py",
+        "retainpdf_pipeline.services.translation.services.continuation.rules",
+        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "services" / "continuation" / "rules.py",
     )
     state = _load_module(
-        "services.translation.services.continuation.state",
-        REPO_SCRIPTS_ROOT / "services" / "translation" / "services" / "continuation" / "state.py",
+        "retainpdf_pipeline.services.translation.services.continuation.state",
+        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "services" / "continuation" / "state.py",
     )
     return rules, state
 

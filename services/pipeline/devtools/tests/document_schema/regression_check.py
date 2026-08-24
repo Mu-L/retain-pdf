@@ -10,17 +10,17 @@ sys.path.append(str(Path(__file__).resolve().parents[3]))
 from devtools.tests.document_schema.fixtures.registry import expected_fixture_providers
 from devtools.tests.document_schema.fixtures.registry import fixture_names
 from devtools.tests.document_schema.fixtures.registry import PROVIDER_FIXTURES
-from services.document_schema.providers import PROVIDER_MINERU
-from services.document_schema import adapt_path_to_document_v1
-from services.document_schema import adapt_path_to_document_v1_with_report
-from services.document_schema import build_normalization_summary
-from services.document_schema import build_validation_report
-from services.document_schema import list_registered_ocr_adapters
-from services.document_schema import validate_document_path
-from services.document_schema import validate_document_payload
-from services.document_schema.providers import PROVIDER_PADDLE
-from services.translation.core.ocr.json_extractor import extract_text_items
-from services.translation.core.payload.translations import _default_translation_flags
+from retainpdf_pipeline.services.document_schema.providers import PROVIDER_MINERU
+from retainpdf_pipeline.services.document_schema import adapt_path_to_document_v1
+from retainpdf_pipeline.services.document_schema import adapt_path_to_document_v1_with_report
+from retainpdf_pipeline.services.document_schema import build_normalization_summary
+from retainpdf_pipeline.services.document_schema import build_validation_report
+from retainpdf_pipeline.services.document_schema import list_registered_ocr_adapters
+from retainpdf_pipeline.services.document_schema import validate_document_path
+from retainpdf_pipeline.services.document_schema import validate_document_payload
+from retainpdf_pipeline.services.document_schema.providers import PROVIDER_PADDLE
+from retainpdf_pipeline.services.translation.core.ocr.json_extractor import extract_text_items
+from retainpdf_pipeline.services.translation.core.payload.translations import _default_translation_flags
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 

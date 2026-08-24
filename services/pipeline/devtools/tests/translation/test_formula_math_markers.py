@@ -4,18 +4,18 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.rendering.layout.inline_content.core.markdown import build_markdown_from_direct_text
-from services.rendering.layout.inline_content.core.markdown import build_direct_typst_passthrough_text
-from services.rendering.layout.inline_content.fallback.placeholder_markdown import build_markdown_from_parts
-from services.rendering.layout.inline_content.fallback.placeholder_markdown import formula_map_lookup
-from services.rendering.layout.inline_content.fallback.placeholder_markdown import split_protected_text
-from services.rendering.layout.inline_content.fallback.png_renderer import convert_latexish_to_typst
-from services.rendering.layout.inline_content.core.inline_math import build_direct_typst_passthrough_markdown
-from services.rendering.layout.inline_content.core.inline_math import sanitize_direct_typst_inline_math
-from services.rendering.layout.inline_content.mode_router import build_item_render_markdown
-from services.rendering.layout.inline_content.mode_router import build_render_markdown
-from services.rendering.layout.inline_content.mode_router import is_direct_typst_math_mode
-from services.rendering.layout.inline_content.mode_router import item_render_math_mode
+from retainpdf_pipeline.services.rendering.layout.inline_content.core.markdown import build_markdown_from_direct_text
+from retainpdf_pipeline.services.rendering.layout.inline_content.core.markdown import build_direct_typst_passthrough_text
+from retainpdf_pipeline.services.rendering.layout.inline_content.fallback.placeholder_markdown import build_markdown_from_parts
+from retainpdf_pipeline.services.rendering.layout.inline_content.fallback.placeholder_markdown import formula_map_lookup
+from retainpdf_pipeline.services.rendering.layout.inline_content.fallback.placeholder_markdown import split_protected_text
+from retainpdf_pipeline.services.rendering.layout.inline_content.fallback.png_renderer import convert_latexish_to_typst
+from retainpdf_pipeline.services.rendering.layout.inline_content.core.inline_math import build_direct_typst_passthrough_markdown
+from retainpdf_pipeline.services.rendering.layout.inline_content.core.inline_math import sanitize_direct_typst_inline_math
+from retainpdf_pipeline.services.rendering.layout.inline_content.mode_router import build_item_render_markdown
+from retainpdf_pipeline.services.rendering.layout.inline_content.mode_router import build_render_markdown
+from retainpdf_pipeline.services.rendering.layout.inline_content.mode_router import is_direct_typst_math_mode
+from retainpdf_pipeline.services.rendering.layout.inline_content.mode_router import item_render_math_mode
 
 
 def test_typst_markdown_supports_typed_formula_placeholders() -> None:

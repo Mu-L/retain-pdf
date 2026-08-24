@@ -1,17 +1,13 @@
-"""Top-level OCR-only provider entry for local use.
-
-This is the generic local entrypoint name for the OCR-only provider flow.
-It stops after provider download/unpack plus document_schema normalization.
-"""
+"""Compatibility wrapper for the namespaced pipeline entrypoint."""
 
 from pathlib import Path
 import sys
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+PIPELINE_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PIPELINE_ROOT))
 
-from foundation.shared.structured_errors import run_with_structured_failure
-from services.ocr_provider.provider_pipeline import main
+from retainpdf_pipeline.entrypoints.run_provider_ocr import main
 
 
 if __name__ == "__main__":
-    run_with_structured_failure(main, default_stage="provider", provider="ocr")
+    raise SystemExit(main())

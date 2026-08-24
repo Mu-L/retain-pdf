@@ -10,10 +10,10 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.rendering.pdf_structure_profile import build_pdf_structure_page_profile
-from services.rendering.pdf_structure_profile.manifest import pdf_structure_profile_from_manifest
-from services.rendering.pdf_structure_profile.manifest import pdf_structure_profile_to_manifest
-from services.rendering.pdf_structure_profile.contracts import PdfStructureDocumentProfile
+from retainpdf_pipeline.services.rendering.pdf_structure_profile import build_pdf_structure_page_profile
+from retainpdf_pipeline.services.rendering.pdf_structure_profile.manifest import pdf_structure_profile_from_manifest
+from retainpdf_pipeline.services.rendering.pdf_structure_profile.manifest import pdf_structure_profile_to_manifest
+from retainpdf_pipeline.services.rendering.pdf_structure_profile.contracts import PdfStructureDocumentProfile
 
 
 def test_pdf_structure_profile_collects_pdf_native_boxes() -> None:

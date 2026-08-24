@@ -22,18 +22,15 @@ test = [
 ]
 
 [project.scripts]
-retainpdf-pipeline = "entrypoints.console:main"
+retainpdf-pipeline = "retainpdf_pipeline.entrypoints.console:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = [
-  "entrypoints*",
-  "foundation*",
-  "runtime*",
-  "services*",
+  "retainpdf_pipeline*",
 ]
 namespaces = true
 
 [tool.setuptools.package-data]
-"foundation.prompts" = ["*.txt", "*.md"]
-"services.document_schema" = ["*.json"]
+"retainpdf_pipeline.foundation.prompts" = ["*.txt", "*.md"]
+"retainpdf_pipeline.services.document_schema" = ["*.json"]

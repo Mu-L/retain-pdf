@@ -6,9 +6,9 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.artifacts.io import aggregate_payload_diagnostics
-from services.translation.artifacts.status import enforce_no_blocking_untranslated
-from services.translation.public import blocking_untranslated_items
+from retainpdf_pipeline.services.translation.artifacts.io import aggregate_payload_diagnostics
+from retainpdf_pipeline.services.translation.artifacts.status import enforce_no_blocking_untranslated
+from retainpdf_pipeline.services.translation.public import blocking_untranslated_items
 
 
 def test_aggregate_payload_diagnostics_keeps_items_with_final_status_only() -> None:

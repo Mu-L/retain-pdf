@@ -11,10 +11,10 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.ocr_provider import paddle_api
-from services.ocr_provider import paddle_markdown
-from services.mineru import mineru_api
-from services.network import retry as network_retry
+from retainpdf_pipeline.services.ocr_provider import paddle_api
+from retainpdf_pipeline.services.ocr_provider import paddle_markdown
+from retainpdf_pipeline.services.mineru import mineru_api
+from retainpdf_pipeline.services.network import retry as network_retry
 
 
 class _Response:

@@ -8,11 +8,11 @@ import time
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.translation.llm.shared.control_context import build_translation_control_context
-from services.translation.llm.shared.tail_retry_queue import TranslationTailItem
-from services.translation.services.results.applier import TranslationResultApplier
-from services.translation.workflow import batch_runner
-from services.translation.workflow.scheduling import tail_retry
+from retainpdf_pipeline.services.translation.llm.shared.control_context import build_translation_control_context
+from retainpdf_pipeline.services.translation.llm.shared.tail_retry_queue import TranslationTailItem
+from retainpdf_pipeline.services.translation.services.results.applier import TranslationResultApplier
+from retainpdf_pipeline.services.translation.workflow import batch_runner
+from retainpdf_pipeline.services.translation.workflow.scheduling import tail_retry
 
 
 class _FlushState:

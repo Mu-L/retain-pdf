@@ -10,7 +10,7 @@ import pytest
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.mineru import artifacts
+from retainpdf_pipeline.services.mineru import artifacts
 
 
 def _write_zip(path: Path, *, file_count: int = 1) -> None:
@@ -77,6 +77,6 @@ def test_unpack_zip_refuses_to_extract_when_over_limit(
 
 
 def test_mineru_job_reuses_shared_guarded_unpack_zip() -> None:
-    from services.mineru import mineru_job
+    from retainpdf_pipeline.services.mineru import mineru_job
 
     assert mineru_job.unpack_zip is artifacts.unpack_zip

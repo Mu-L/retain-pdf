@@ -16,23 +16,23 @@ import requests
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from foundation.shared.structured_errors import classify_exception
-from services.translation.artifacts import TranslationRunDiagnostics
-from services.translation.artifacts import TranslationRequestJournal
-from services.translation.artifacts import classify_provider_family
-from services.translation.artifacts import infer_stage_from_request_label
-from services.translation.artifacts import translation_run_diagnostics_scope
+from retainpdf_pipeline.foundation.shared.structured_errors import classify_exception
+from retainpdf_pipeline.services.translation.artifacts import TranslationRunDiagnostics
+from retainpdf_pipeline.services.translation.artifacts import TranslationRequestJournal
+from retainpdf_pipeline.services.translation.artifacts import classify_provider_family
+from retainpdf_pipeline.services.translation.artifacts import infer_stage_from_request_label
+from retainpdf_pipeline.services.translation.artifacts import translation_run_diagnostics_scope
 
 
 def load_deepseek_client():
     package_paths = {
-        "services": REPO_SCRIPTS_ROOT / "services",
-        "services.translation": REPO_SCRIPTS_ROOT / "services" / "translation",
-        "services.translation.llm": REPO_SCRIPTS_ROOT / "services" / "translation" / "llm",
-        "services.translation.llm.providers": REPO_SCRIPTS_ROOT / "services" / "translation" / "llm" / "providers",
-        "services.translation.llm.providers.deepseek": REPO_SCRIPTS_ROOT / "services" / "translation" / "llm" / "providers" / "deepseek",
-        "services.translation.services.policy": REPO_SCRIPTS_ROOT / "services" / "translation" / "policy",
-        "services.document_schema": REPO_SCRIPTS_ROOT / "services" / "document_schema",
+        "retainpdf_pipeline.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services",
+        "retainpdf_pipeline.services.translation": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation",
+        "retainpdf_pipeline.services.translation.llm": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm",
+        "retainpdf_pipeline.services.translation.llm.providers": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "providers",
+        "retainpdf_pipeline.services.translation.llm.providers.deepseek": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "providers" / "deepseek",
+        "retainpdf_pipeline.services.translation.services.policy": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "policy",
+        "retainpdf_pipeline.services.document_schema": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "document_schema",
     }
     for name, path in package_paths.items():
         module = sys.modules.get(name)
@@ -41,8 +41,8 @@ def load_deepseek_client():
             module.__path__ = [str(path)]
             sys.modules[name] = module
     spec = importlib.util.spec_from_file_location(
-        "services.translation.llm.providers.deepseek.client",
-        REPO_SCRIPTS_ROOT / "services" / "translation" / "llm" / "providers" / "deepseek" / "client.py",
+        "retainpdf_pipeline.services.translation.llm.providers.deepseek.client",
+        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "providers" / "deepseek" / "client.py",
     )
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module

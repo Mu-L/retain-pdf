@@ -19,26 +19,26 @@ from devtools.tests.rendering_support.prewarm_fixtures import translated_page_pa
 from devtools.tests.rendering_support.prewarm_fixtures import write_document_v1 as _document_v1
 from devtools.tests.rendering_support.prewarm_fixtures import write_pseudo_editable_scan_pdf as _pseudo_editable_scan_pdf
 from devtools.tests.rendering_support.prewarm_fixtures import write_source_pdf as _source_pdf
-from runtime.pipeline.render_plan import RenderPlan
-from runtime.pipeline.render_inputs import RenderInputs
-from foundation.config import layout
-from services.rendering.source.prewarm import RenderPrewarmSpec
-from services.rendering.source.prewarm import PAYLOAD_RENDER_ALGORITHM_VERSION
-from services.rendering.source.prewarm import build_render_prewarm_fingerprint
-from services.rendering.source.prewarm import prewarm_manifest_path_from_artifacts_dir
-from services.rendering.source.prewarm import start_render_source_prewarm
-from services.rendering.source.prewarm import try_load_render_payload_prewarm
-from services.rendering.source.prewarm import try_load_prewarmed_render_source_pdf
-from services.rendering.source.prewarm import _pages_for_prewarm_mode_probe
-from services.rendering.source.prewarm_payload import collect_first_line_indent_lookup
-from services.rendering.source.prewarm_payload import first_line_indent_from_item_lines
-from services.rendering.source.prewarm_payload import build_payload_prewarm
-from services.rendering.source.prewarm_page_specs import render_page_specs_from_manifest
-from services.rendering.pdf_structure_profile import pdf_structure_profile_path_from_prewarm_manifest
-from services.rendering.visual_profile import visual_profile_path_from_prewarm_manifest
-from services.rendering.visual_profile.contracts import VISUAL_PROFILE_ALGORITHM_VERSION
-from services.rendering.workflow.executor import execute_render_plan
-from runtime.pipeline.render_preprocess import run_ocr_render_preprocess
+from retainpdf_pipeline.runtime.pipeline.render_plan import RenderPlan
+from retainpdf_pipeline.runtime.pipeline.render_inputs import RenderInputs
+from retainpdf_pipeline.foundation.config import layout
+from retainpdf_pipeline.services.rendering.source.prewarm import RenderPrewarmSpec
+from retainpdf_pipeline.services.rendering.source.prewarm import PAYLOAD_RENDER_ALGORITHM_VERSION
+from retainpdf_pipeline.services.rendering.source.prewarm import build_render_prewarm_fingerprint
+from retainpdf_pipeline.services.rendering.source.prewarm import prewarm_manifest_path_from_artifacts_dir
+from retainpdf_pipeline.services.rendering.source.prewarm import start_render_source_prewarm
+from retainpdf_pipeline.services.rendering.source.prewarm import try_load_render_payload_prewarm
+from retainpdf_pipeline.services.rendering.source.prewarm import try_load_prewarmed_render_source_pdf
+from retainpdf_pipeline.services.rendering.source.prewarm import _pages_for_prewarm_mode_probe
+from retainpdf_pipeline.services.rendering.source.prewarm_payload import collect_first_line_indent_lookup
+from retainpdf_pipeline.services.rendering.source.prewarm_payload import first_line_indent_from_item_lines
+from retainpdf_pipeline.services.rendering.source.prewarm_payload import build_payload_prewarm
+from retainpdf_pipeline.services.rendering.source.prewarm_page_specs import render_page_specs_from_manifest
+from retainpdf_pipeline.services.rendering.pdf_structure_profile import pdf_structure_profile_path_from_prewarm_manifest
+from retainpdf_pipeline.services.rendering.visual_profile import visual_profile_path_from_prewarm_manifest
+from retainpdf_pipeline.services.rendering.visual_profile.contracts import VISUAL_PROFILE_ALGORITHM_VERSION
+from retainpdf_pipeline.services.rendering.workflow.executor import execute_render_plan
+from retainpdf_pipeline.runtime.pipeline.render_preprocess import run_ocr_render_preprocess
 
 
 def test_first_line_indent_from_item_lines_uses_structured_line_bboxes() -> None:
@@ -97,7 +97,7 @@ def test_pixmap_first_line_indent_defaults_disabled_for_larger_prewarm(monkeypat
     sink: dict[str, float] = {}
 
     with mock.patch(
-        "services.rendering.source.prewarm_payload.detect_first_line_indent_pt_with_displaylist",
+        "retainpdf_pipeline.services.rendering.source.prewarm_payload.detect_first_line_indent_pt_with_displaylist",
         side_effect=AssertionError("pixmap indent should be opt-in for larger documents"),
     ):
         collect_first_line_indent_lookup(
@@ -132,7 +132,7 @@ def test_pixmap_first_line_indent_env_opt_in_runs_detector(monkeypatch) -> None:
     sink: dict[str, float] = {}
 
     with mock.patch(
-        "services.rendering.source.prewarm_payload.detect_first_line_indent_pt_with_displaylist",
+        "retainpdf_pipeline.services.rendering.source.prewarm_payload.detect_first_line_indent_pt_with_displaylist",
         return_value=12.5,
     ) as detector:
         collect_first_line_indent_lookup(
@@ -168,7 +168,7 @@ def test_pixmap_first_line_indent_auto_enabled_for_tiny_documents(monkeypatch) -
     sink: dict[str, float] = {}
 
     with mock.patch(
-        "services.rendering.source.prewarm_payload.detect_first_line_indent_pt_with_displaylist",
+        "retainpdf_pipeline.services.rendering.source.prewarm_payload.detect_first_line_indent_pt_with_displaylist",
         return_value=9.25,
     ):
         collect_first_line_indent_lookup(
@@ -231,10 +231,10 @@ def test_render_source_prewarm_manifest_is_reused_without_temp_cleanup() -> None
             return 1, {"route": "prewarm-test"}
 
         with mock.patch(
-            "services.rendering.workflow.executor.build_render_source_pdf",
+            "retainpdf_pipeline.services.rendering.workflow.executor.build_render_source_pdf",
             side_effect=AssertionError("synchronous render source prep should not run"),
         ), mock.patch(
-            "services.rendering.workflow.executor.run_overlay_render",
+            "retainpdf_pipeline.services.rendering.workflow.executor.run_overlay_render",
             side_effect=_fake_overlay,
         ):
             pages = execute_render_plan(
@@ -333,10 +333,10 @@ def test_render_plan_persists_sync_overlay_source_cleanup_for_next_render() -> N
             return original_build_render_source_pdf(**kwargs)
 
         with mock.patch(
-            "services.rendering.workflow.executor.build_render_source_pdf",
+            "retainpdf_pipeline.services.rendering.workflow.executor.build_render_source_pdf",
             side_effect=_spy_build_render_source_pdf,
         ), mock.patch(
-            "services.rendering.workflow.executor.run_overlay_render",
+            "retainpdf_pipeline.services.rendering.workflow.executor.run_overlay_render",
             side_effect=_fake_overlay,
         ):
             pages = execute_render_plan(
@@ -370,10 +370,10 @@ def test_render_plan_persists_sync_overlay_source_cleanup_for_next_render() -> N
         assert payload_prewarm.bbox_text_strip_candidates.candidate_source == "manifest"
 
         with mock.patch(
-            "services.rendering.workflow.executor.build_render_source_pdf",
+            "retainpdf_pipeline.services.rendering.workflow.executor.build_render_source_pdf",
             side_effect=AssertionError("persisted sync render source should be reused"),
         ), mock.patch(
-            "services.rendering.workflow.executor.run_overlay_render",
+            "retainpdf_pipeline.services.rendering.workflow.executor.run_overlay_render",
             side_effect=_fake_overlay,
         ):
             pages = execute_render_plan(
@@ -418,7 +418,7 @@ def test_render_plan_reuses_source_prewarm_without_sync_document_analysis() -> N
             return 1, {"route": "sync-cache-test"}
 
         with mock.patch(
-            "services.rendering.workflow.executor.run_overlay_render",
+            "retainpdf_pipeline.services.rendering.workflow.executor.run_overlay_render",
             side_effect=_fake_overlay,
         ):
             execute_render_plan(
@@ -432,13 +432,13 @@ def test_render_plan_reuses_source_prewarm_without_sync_document_analysis() -> N
             )
 
         with mock.patch(
-            "services.rendering.analysis.document.builder.build_render_document_analysis",
+            "retainpdf_pipeline.services.rendering.analysis.document.builder.build_render_document_analysis",
             side_effect=AssertionError("cached render source should not trigger document analysis scan"),
         ), mock.patch(
-            "services.rendering.workflow.executor.build_render_source_pdf",
+            "retainpdf_pipeline.services.rendering.workflow.executor.build_render_source_pdf",
             side_effect=AssertionError("persisted sync render source should be reused"),
         ), mock.patch(
-            "services.rendering.workflow.executor.run_overlay_render",
+            "retainpdf_pipeline.services.rendering.workflow.executor.run_overlay_render",
             side_effect=_fake_overlay,
         ):
             pages = execute_render_plan(
@@ -567,7 +567,7 @@ def test_sync_source_prewarm_preserves_existing_payload_prewarm() -> None:
             return 1, {"route": "sync-cache-payload-preserve"}
 
         with mock.patch(
-            "services.rendering.workflow.executor.run_overlay_render",
+            "retainpdf_pipeline.services.rendering.workflow.executor.run_overlay_render",
             side_effect=_fake_overlay,
         ):
             pages = execute_render_plan(
@@ -797,7 +797,7 @@ def test_second_prewarm_reuses_existing_source_and_refreshes_payload() -> None:
         manifest_path = first_handle.wait()
 
         with mock.patch(
-            "services.rendering.source.prewarm.build_render_source_pdf",
+            "retainpdf_pipeline.services.rendering.source.prewarm.build_render_source_pdf",
             side_effect=AssertionError("existing prewarmed source should be reused"),
         ):
             second_handle = start_render_source_prewarm(
@@ -1254,7 +1254,7 @@ def test_execute_typst_visual_uses_prewarmed_background_page_specs() -> None:
             return 1, {"route": "prewarmed-background-specs"}
 
         with mock.patch(
-            "services.rendering.workflow.executor.run_background_typst_render",
+            "retainpdf_pipeline.services.rendering.workflow.executor.run_background_typst_render",
             side_effect=_fake_background,
         ):
             pages = execute_render_plan(

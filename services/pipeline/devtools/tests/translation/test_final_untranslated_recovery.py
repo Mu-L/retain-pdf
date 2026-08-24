@@ -7,10 +7,10 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.artifacts import blocking_untranslated_items
-from services.translation.services.finalization import recover_blocking_untranslated_items
-from services.translation.workflow import stages
-from services.translation.workflow.phases import repair as repair_phase
+from retainpdf_pipeline.services.translation.artifacts import blocking_untranslated_items
+from retainpdf_pipeline.services.translation.services.finalization import recover_blocking_untranslated_items
+from retainpdf_pipeline.services.translation.workflow import stages
+from retainpdf_pipeline.services.translation.workflow.phases import repair as repair_phase
 
 
 def _failed_item(item_id: str, source_text: str) -> dict:

@@ -9,9 +9,9 @@ import fitz
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from foundation.shared.job_dirs import ensure_job_dirs
-from foundation.shared.job_dirs import resolve_job_dirs
-from services.ocr_provider import provider_pipeline
+from retainpdf_pipeline.foundation.shared.job_dirs import ensure_job_dirs
+from retainpdf_pipeline.foundation.shared.job_dirs import resolve_job_dirs
+from retainpdf_pipeline.services.ocr_provider import provider_pipeline
 
 
 def _write_source_pdf(path: Path) -> None:
@@ -550,8 +550,8 @@ target.write_text(json.dumps({
 
     monkeypatch.setenv("RETAIN_OCR_PROVIDER_CONFIG", str(config_path))
     import importlib
-    import foundation.shared.ocr_provider_config as provider_config
-    import services.ocr_provider.drivers as drivers
+    import retainpdf_pipeline.foundation.shared.ocr_provider_config as provider_config
+    import retainpdf_pipeline.services.ocr_provider.drivers as drivers
 
     importlib.reload(provider_config)
     importlib.reload(drivers)
@@ -778,8 +778,8 @@ target.write_text(json.dumps({
     monkeypatch.setenv("RETAIN_OCR_PROVIDER_CONFIG", str(config_path))
     monkeypatch.setenv("RETAIN_REMOTE_FAST_TOKEN", "remote-token")
     import importlib
-    import foundation.shared.ocr_provider_config as provider_config
-    import services.ocr_provider.drivers as drivers
+    import retainpdf_pipeline.foundation.shared.ocr_provider_config as provider_config
+    import retainpdf_pipeline.services.ocr_provider.drivers as drivers
 
     importlib.reload(provider_config)
     importlib.reload(drivers)

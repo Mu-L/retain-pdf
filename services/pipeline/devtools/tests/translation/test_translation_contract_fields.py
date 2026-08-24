@@ -8,17 +8,17 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.core.item_reader import item_layout_role
-from services.translation.core.item_reader import item_is_algorithm_like
-from services.translation.core.item_reader import item_is_reference_heading_like
-from services.translation.core.item_reader import item_policy_translate
-from services.translation.core.item_reader import item_semantic_role
-from services.translation.core.item_reader import item_structure_role
-from services.translation.core.ocr.models import TextItem
-import services.translation.core.payload.translations as translations_module
-from services.translation.core.payload.translations import ensure_translation_template
-from services.translation.core.payload.translations import export_translation_template
-from services.translation.core.payload.translations import load_translations
+from retainpdf_pipeline.services.translation.core.item_reader import item_layout_role
+from retainpdf_pipeline.services.translation.core.item_reader import item_is_algorithm_like
+from retainpdf_pipeline.services.translation.core.item_reader import item_is_reference_heading_like
+from retainpdf_pipeline.services.translation.core.item_reader import item_policy_translate
+from retainpdf_pipeline.services.translation.core.item_reader import item_semantic_role
+from retainpdf_pipeline.services.translation.core.item_reader import item_structure_role
+from retainpdf_pipeline.services.translation.core.ocr.models import TextItem
+import retainpdf_pipeline.services.translation.core.payload.translations as translations_module
+from retainpdf_pipeline.services.translation.core.payload.translations import ensure_translation_template
+from retainpdf_pipeline.services.translation.core.payload.translations import export_translation_template
+from retainpdf_pipeline.services.translation.core.payload.translations import load_translations
 
 
 def _text_item(item_id: str, text: str = "Body paragraph") -> TextItem:

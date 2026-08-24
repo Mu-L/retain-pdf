@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from services.translation.services.results.applier import TranslationResultApplier
+from retainpdf_pipeline.services.translation.services.results.applier import TranslationResultApplier
 
 
 class _MemoryUpdater:

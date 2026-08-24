@@ -8,11 +8,11 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from runtime.pipeline.translation_loader import load_translated_pages
-import services.translation.core.payload.manifest as manifest_module
-from services.translation.core.payload.manifest import load_translation_manifest
-from services.translation.core.payload.manifest import load_translation_manifest_file
-from services.translation.core.payload.manifest import write_translation_manifest
+from retainpdf_pipeline.runtime.pipeline.translation_loader import load_translated_pages
+import retainpdf_pipeline.services.translation.core.payload.manifest as manifest_module
+from retainpdf_pipeline.services.translation.core.payload.manifest import load_translation_manifest
+from retainpdf_pipeline.services.translation.core.payload.manifest import load_translation_manifest_file
+from retainpdf_pipeline.services.translation.core.payload.manifest import write_translation_manifest
 
 
 def _write_payload(path: Path, translated_text: str) -> None:

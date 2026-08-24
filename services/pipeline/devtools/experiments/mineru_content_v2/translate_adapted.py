@@ -7,11 +7,11 @@ import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[3]))
 
-from services.translation.core.payload import protect_inline_formulas_in_segments
-from services.translation.core.payload import apply_translated_text_map
-from services.translation.core.payload import pending_translation_items
-from services.translation.services.policy.flow import apply_translation_policies
-from services.translation.llm import translate_batch
+from retainpdf_pipeline.services.translation.core.payload import protect_inline_formulas_in_segments
+from retainpdf_pipeline.services.translation.core.payload import apply_translated_text_map
+from retainpdf_pipeline.services.translation.core.payload import pending_translation_items
+from retainpdf_pipeline.services.translation.services.policy.flow import apply_translation_policies
+from retainpdf_pipeline.services.translation.llm import translate_batch
 
 
 def parse_args() -> argparse.Namespace:

@@ -14,10 +14,10 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.ocr_provider import paddle_api
-from services.ocr_provider.paddle_runner import PADDLE_TRANSPORT_OFFICIAL_HTTP
-from services.ocr_provider.paddle_runner import PADDLE_TRANSPORT_OFFICIAL_CLI
-from services.ocr_provider.paddle_runner import resolve_paddle_transport
+from retainpdf_pipeline.services.ocr_provider import paddle_api
+from retainpdf_pipeline.services.ocr_provider.paddle_runner import PADDLE_TRANSPORT_OFFICIAL_HTTP
+from retainpdf_pipeline.services.ocr_provider.paddle_runner import PADDLE_TRANSPORT_OFFICIAL_CLI
+from retainpdf_pipeline.services.ocr_provider.paddle_runner import resolve_paddle_transport
 
 
 class _JsonlResponse:

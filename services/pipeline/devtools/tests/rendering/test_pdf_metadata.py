@@ -10,9 +10,9 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.rendering.document.metadata import copy_toc
-from services.rendering.document.metadata import copy_toc_for_page_map
-from services.rendering.document.page_map import RenderPageMap
+from retainpdf_pipeline.services.rendering.document.metadata import copy_toc
+from retainpdf_pipeline.services.rendering.document.metadata import copy_toc_for_page_map
+from retainpdf_pipeline.services.rendering.document.page_map import RenderPageMap
 
 
 def _make_doc_with_toc() -> fitz.Document:

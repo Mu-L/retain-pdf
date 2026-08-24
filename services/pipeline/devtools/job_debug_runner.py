@@ -8,17 +8,18 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT / "backend" / "scripts") not in sys.path:
-    sys.path.append(str(REPO_ROOT / "backend" / "scripts"))
+PIPELINE_ROOT = Path(__file__).resolve().parents[1]
+if str(PIPELINE_ROOT) not in sys.path:
+    sys.path.append(str(PIPELINE_ROOT))
 
-from foundation.shared.stage_specs import RENDER_STAGE_SCHEMA_VERSION
-from foundation.shared.stage_specs import TRANSLATE_STAGE_SCHEMA_VERSION
-from services.translation.workflow.batching.batching import _is_low_risk_batchable_item
-from services.translation.services.context.execution_context import context_with_memory_guidance
-from services.translation.services.fast_path.keep_origin import _is_fast_path_keep_origin_item
-from services.translation.services.fast_path.keep_origin import _plan_item_view
-from services.translation.llm.shared.control_context import build_translation_control_context
-from services.translation.services.memory import JobMemoryStore
+from retainpdf_pipeline.foundation.shared.stage_specs import RENDER_STAGE_SCHEMA_VERSION
+from retainpdf_pipeline.foundation.shared.stage_specs import TRANSLATE_STAGE_SCHEMA_VERSION
+from retainpdf_pipeline.services.translation.workflow.batching.batching import _is_low_risk_batchable_item
+from retainpdf_pipeline.services.translation.services.context.execution_context import context_with_memory_guidance
+from retainpdf_pipeline.services.translation.services.fast_path.keep_origin import _is_fast_path_keep_origin_item
+from retainpdf_pipeline.services.translation.services.fast_path.keep_origin import _plan_item_view
+from retainpdf_pipeline.services.translation.llm.shared.control_context import build_translation_control_context
+from retainpdf_pipeline.services.translation.services.memory import JobMemoryStore
 
 
 def _job_root_from_arg(value: str) -> Path:
@@ -386,24 +387,26 @@ def retranslate_job(
     )
     command = [
         sys.executable,
-        str((REPO_ROOT / "backend" / "scripts" / "services" / "translation" / "translate_only_pipeline.py").resolve()),
+        "-m",
+        "retainpdf_pipeline.entrypoints.run_translate_only",
         "--spec",
         str(spec_path),
     ]
     print("running:", " ".join(command))
-    return subprocess.run(command, cwd=str(REPO_ROOT), check=False).returncode
+    return subprocess.run(command, cwd=str(PIPELINE_ROOT), check=False).returncode
 
 
 def rerender_job(job_root: Path, *, translated_pdf_name: str, render_mode: str) -> int:
     spec_path = _build_render_spec(job_root, translated_pdf_name=translated_pdf_name, render_mode=render_mode)
     command = [
         sys.executable,
-        str((REPO_ROOT / "backend" / "scripts" / "services" / "rendering" / "render_only_pipeline.py").resolve()),
+        "-m",
+        "retainpdf_pipeline.entrypoints.run_render_only",
         "--spec",
         str(spec_path),
     ]
     print("running:", " ".join(command))
-    return subprocess.run(command, cwd=str(REPO_ROOT), check=False).returncode
+    return subprocess.run(command, cwd=str(PIPELINE_ROOT), check=False).returncode
 
 
 def parse_args() -> argparse.Namespace:

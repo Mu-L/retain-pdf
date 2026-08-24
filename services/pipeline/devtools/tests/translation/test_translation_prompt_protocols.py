@@ -10,10 +10,10 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.llm.providers.deepseek import client as deepseek_client
-from services.translation.llm.providers.deepseek import translation_client
-from services.translation.core.context import build_item_context
-from services.translation.llm.shared.prompt_protocols import group_member_json_user_prompt
+from retainpdf_pipeline.services.translation.llm.providers.deepseek import client as deepseek_client
+from retainpdf_pipeline.services.translation.llm.providers.deepseek import translation_client
+from retainpdf_pipeline.services.translation.core.context import build_item_context
+from retainpdf_pipeline.services.translation.llm.shared.prompt_protocols import group_member_json_user_prompt
 
 
 def test_translate_single_item_plain_text_uses_plain_text_protocol() -> None:
@@ -640,7 +640,7 @@ def test_group_members_salvages_aggregate_text_from_broken_json() -> None:
 
 
 def test_context_bleed_downgraded_to_warning_for_continuation_items() -> None:
-    from services.translation.llm.validation.quality import review_translation_item
+    from retainpdf_pipeline.services.translation.llm.validation.quality import review_translation_item
 
     # 连续段片段按设计无终止标点,后文公式泄漏由 apply 层机械修剪,
     # 不应触发昂贵的错误级重试。

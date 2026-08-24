@@ -6,12 +6,12 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.services.policy.config import build_translation_policy_config
-from services.translation.services.policy.flow import apply_translation_policies
-from services.translation.services.policy.structured_technical_blocks import (
+from retainpdf_pipeline.services.translation.services.policy.config import build_translation_policy_config
+from retainpdf_pipeline.services.translation.services.policy.flow import apply_translation_policies
+from retainpdf_pipeline.services.translation.services.policy.structured_technical_blocks import (
     collect_structured_technical_hints,
 )
-from services.translation.services.policy.structured_technical_blocks import (
+from retainpdf_pipeline.services.translation.services.policy.structured_technical_blocks import (
     looks_like_structured_technical_block,
 )
 

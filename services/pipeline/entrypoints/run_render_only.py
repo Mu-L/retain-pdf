@@ -1,13 +1,13 @@
-"""Render from source PDF and translation artifacts only."""
+"""Compatibility wrapper for the namespaced pipeline entrypoint."""
 
 from pathlib import Path
 import sys
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+PIPELINE_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PIPELINE_ROOT))
 
-from foundation.shared.structured_errors import run_with_structured_failure
-from services.rendering.workflow.render_only import main
+from retainpdf_pipeline.entrypoints.run_render_only import main
 
 
 if __name__ == "__main__":
-    run_with_structured_failure(main, default_stage="rendering", provider="rendering")
+    raise SystemExit(main())

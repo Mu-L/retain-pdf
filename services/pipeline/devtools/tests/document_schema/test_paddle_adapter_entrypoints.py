@@ -7,26 +7,26 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.document_schema import adapt_path_to_document_v1_with_report
-from services.document_schema.provider_adapters.paddle import looks_like_paddle_layout
-from services.document_schema.provider_adapters.paddle.column_signals import (
+from retainpdf_pipeline.services.document_schema import adapt_path_to_document_v1_with_report
+from retainpdf_pipeline.services.document_schema.provider_adapters.paddle import looks_like_paddle_layout
+from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.column_signals import (
     analyze_page_column_signals,
 )
-from services.document_schema.provider_adapters.paddle.body_repair import repair_body_cross_column_blocks
-from services.document_schema.provider_adapters.paddle.content_extract import build_lines
-from services.document_schema.provider_adapters.paddle.page_reader import build_page_spec
-from services.document_schema.provider_adapters.paddle.adapter import build_paddle_document
-from services.document_schema.provider_adapters.paddle.relations import classify_page_blocks
-from services.translation.core.ocr.json_extractor import extract_text_items
-from foundation.shared.job_dirs import ensure_job_dirs
-from foundation.shared.job_dirs import resolve_job_dirs
+from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.body_repair import repair_body_cross_column_blocks
+from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.content_extract import build_lines
+from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.page_reader import build_page_spec
+from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.adapter import build_paddle_document
+from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.relations import classify_page_blocks
+from retainpdf_pipeline.services.translation.core.ocr.json_extractor import extract_text_items
+from retainpdf_pipeline.foundation.shared.job_dirs import ensure_job_dirs
+from retainpdf_pipeline.foundation.shared.job_dirs import resolve_job_dirs
 from devtools.tests.document_schema.fixtures.registry import PADDLE_FIXTURES_ROOT
 
 
 PADDLE_FIXTURE_JSON = PADDLE_FIXTURES_ROOT / "json_full.json"
 PADDLE_SCI_FIXTURE_JSON = PADDLE_FIXTURES_ROOT / "json_sci.json"
 PADDLE_FIXTURE_PDF = PADDLE_FIXTURES_ROOT / "paddle_ocr_json_split.pdf"
-NORMALIZE_ENTRYPOINT = REPO_SCRIPTS_ROOT / "entrypoints" / "run_normalize_ocr.py"
+NORMALIZE_ENTRYPOINT_MODULE = "retainpdf_pipeline.entrypoints.run_normalize_ocr"
 
 def test_paddle_adapter_builds_document_v1_from_sample() -> None:
     payload = json.loads(PADDLE_FIXTURE_JSON.read_text(encoding="utf-8"))
@@ -96,9 +96,10 @@ def test_run_normalize_ocr_supports_paddle_provider(tmp_path: Path) -> None:
     )
 
     completed = subprocess.run(
-        [sys.executable, str(NORMALIZE_ENTRYPOINT), "--spec", str(spec_path)],
+        [sys.executable, "-m", NORMALIZE_ENTRYPOINT_MODULE, "--spec", str(spec_path)],
         check=True,
         capture_output=True,
+        cwd=REPO_SCRIPTS_ROOT,
         text=True,
     )
 
@@ -116,4 +117,3 @@ def test_run_normalize_ocr_supports_paddle_provider(tmp_path: Path) -> None:
     assert normalized_payload["page_count"] >= 1
     assert normalized_report_payload["provider"] == "paddle"
     assert "schema version: document.v1" in completed.stdout
-

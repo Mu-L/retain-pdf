@@ -24,7 +24,7 @@ def test_pipeline_architecture_rejects_removed_bbox_preparation_import(tmp_path:
     source_root.mkdir(parents=True)
     offender = source_root / "bad_import.py"
     offender.write_text(
-        "from services.rendering.source.preparation.bbox_text_strip_engine import run\n",
+        "from retainpdf_pipeline.services.rendering.source.preparation.bbox_text_strip_engine import run\n",
         encoding="utf-8",
     )
 
@@ -71,8 +71,8 @@ def test_pipeline_architecture_rejects_source_cleanup_next_mainline_import(tmp_p
     source_cleanup_root.mkdir(parents=True)
     offender = source_cleanup_root / "bad_import.py"
     offender.write_text(
-        "from services.rendering.source_cleanup import build_source_cleanup_plan\n"
-        "from services.rendering.source_cleanup.planning.decision_builder import build_decision\n",
+        "from retainpdf_pipeline.services.rendering.source_cleanup import build_source_cleanup_plan\n"
+        "from retainpdf_pipeline.services.rendering.source_cleanup.planning.decision_builder import build_decision\n",
         encoding="utf-8",
     )
 

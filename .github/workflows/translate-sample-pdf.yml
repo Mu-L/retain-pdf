@@ -144,6 +144,7 @@ jobs:
           python -m pip install --upgrade pip
           python services/pipeline/devtools/sync_python_requirements.py --repo-root . --check
           python -m pip install -r infra/docker/requirements-app.txt
+          python -m pip install --no-deps ./services/pipeline
 
       - name: Setup Typst runtime
         shell: bash
@@ -259,9 +260,9 @@ jobs:
         shell: bash
         run: |
           if [ "${{ steps.prepare.outputs.mode }}" = "book" ]; then
-            python services/pipeline/services/translation/from_ocr_pipeline.py --spec "${{ steps.prepare.outputs.spec_path }}"
+            retainpdf-pipeline book --spec "${{ steps.prepare.outputs.spec_path }}"
           else
-            python services/pipeline/services/mineru/mineru_pipeline.py --spec "${{ steps.prepare.outputs.spec_path }}"
+            retainpdf-pipeline provider-case --spec "${{ steps.prepare.outputs.spec_path }}"
           fi
 
       - name: Publish run summary

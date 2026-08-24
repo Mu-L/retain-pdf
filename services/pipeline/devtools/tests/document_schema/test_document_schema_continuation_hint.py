@@ -4,12 +4,12 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.document_schema.defaults import apply_document_defaults
-from services.document_schema.defaults import default_block_continuation_hint
-from services.document_schema.contract_v1 import enrich_document_contract_v1
-from services.document_schema.provider_adapters.paddle.continuation import assign_paddle_continuation_hints
-from services.document_schema.validator import DocumentSchemaValidationError
-from services.document_schema.validator import validate_document_payload
+from retainpdf_pipeline.services.document_schema.defaults import apply_document_defaults
+from retainpdf_pipeline.services.document_schema.defaults import default_block_continuation_hint
+from retainpdf_pipeline.services.document_schema.contract_v1 import enrich_document_contract_v1
+from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.continuation import assign_paddle_continuation_hints
+from retainpdf_pipeline.services.document_schema.validator import DocumentSchemaValidationError
+from retainpdf_pipeline.services.document_schema.validator import validate_document_payload
 
 
 def _minimal_document(*, schema_version: str = "1.1") -> dict:

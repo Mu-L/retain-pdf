@@ -11,12 +11,12 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.llm import placeholder_guard
-from services.translation.llm.providers.deepseek import client as deepseek_client
-from services.translation.llm.shared import structured_models
-from services.translation.llm.shared import structured_output
-from services.translation.llm.shared import structured_parsers
-from services.translation.llm.shared.orchestration import segment_routing
+from retainpdf_pipeline.services.translation.llm import placeholder_guard
+from retainpdf_pipeline.services.translation.llm.providers.deepseek import client as deepseek_client
+from retainpdf_pipeline.services.translation.llm.shared import structured_models
+from retainpdf_pipeline.services.translation.llm.shared import structured_output
+from retainpdf_pipeline.services.translation.llm.shared import structured_parsers
+from retainpdf_pipeline.services.translation.llm.shared.orchestration import segment_routing
 
 
 def test_single_item_extractor_returns_plain_text_when_not_json() -> None:

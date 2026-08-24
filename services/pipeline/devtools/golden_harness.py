@@ -26,9 +26,9 @@ from datetime import datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SCRIPTS_ROOT = REPO_ROOT / "backend" / "pipeline"
+PIPELINE_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FIXTURE = REPO_ROOT / "resources" / "fixtures" / "golden-jobs" / "chem-6ada81-10p"
-RENDER_ENTRYPOINT = REPO_ROOT / "backend" / "pipeline" / "entrypoints" / "run_render_only.py"
+RENDER_ENTRYPOINT_MODULE = "retainpdf_pipeline.entrypoints.run_render_only"
 
 
 def parse_args() -> argparse.Namespace:
@@ -272,12 +272,12 @@ def _run_render(job_root: Path) -> dict:
         spec_path = job_root / "specs" / "render.golden.spec.json"
         spec_path.write_text(json.dumps(spec, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    cmd = [sys.executable, str(RENDER_ENTRYPOINT), "--spec", str(spec_path)]
+    cmd = [sys.executable, "-m", RENDER_ENTRYPOINT_MODULE, "--spec", str(spec_path)]
     env = dict(**{k: v for k, v in __import__("os").environ.items()})  # 传递现有 env
     # 确保 pipeline 可 import
-    env["PYTHONPATH"] = str(SCRIPTS_ROOT) + (":" + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+    env["PYTHONPATH"] = str(PIPELINE_ROOT) + (":" + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120, env=env, cwd=str(REPO_ROOT))
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120, env=env, cwd=str(PIPELINE_ROOT))
         ok = result.returncode == 0
         # 收集关键输出
         summary_p = job_root / "artifacts" / "pipeline_summary.json"

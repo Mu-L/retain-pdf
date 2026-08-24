@@ -19,18 +19,18 @@ REPO_ROOT = SCRIPTS_ROOT.parents[1]
 sys.path.insert(0, str(SCRIPTS_ROOT))
 
 
-from services.rendering.source_cleanup import SourceCleanupOptions
-from services.rendering.source_cleanup import SourceCleanupRequest
-from services.rendering.source_cleanup import execute_source_cleanup
-from services.rendering.source_cleanup.pdf.document import strip_bbox_text_rects_from_pdf_copy
-from services.rendering.source_cleanup.types import BBOX_TEXT_STRIP_CANDIDATE_SOURCE_MANIFEST
-from services.rendering.source_cleanup.types import BBoxTextStripCandidates
-from services.rendering.source.prewarm_manifest import int_list
-from services.rendering.source.prewarm_manifest import rect_tuple_from_value
-from services.rendering.source.prewarm_manifest_io import bbox_candidates_from_manifest
-from services.rendering.source.prewarm import RenderPrewarmSpec
-from services.rendering.source.prewarm import start_render_source_prewarm
-from services.rendering.source.prewarm_payload import build_payload_prewarm
+from retainpdf_pipeline.services.rendering.source_cleanup import SourceCleanupOptions
+from retainpdf_pipeline.services.rendering.source_cleanup import SourceCleanupRequest
+from retainpdf_pipeline.services.rendering.source_cleanup import execute_source_cleanup
+from retainpdf_pipeline.services.rendering.source_cleanup.pdf.document import strip_bbox_text_rects_from_pdf_copy
+from retainpdf_pipeline.services.rendering.source_cleanup.types import BBOX_TEXT_STRIP_CANDIDATE_SOURCE_MANIFEST
+from retainpdf_pipeline.services.rendering.source_cleanup.types import BBoxTextStripCandidates
+from retainpdf_pipeline.services.rendering.source.prewarm_manifest import int_list
+from retainpdf_pipeline.services.rendering.source.prewarm_manifest import rect_tuple_from_value
+from retainpdf_pipeline.services.rendering.source.prewarm_manifest_io import bbox_candidates_from_manifest
+from retainpdf_pipeline.services.rendering.source.prewarm import RenderPrewarmSpec
+from retainpdf_pipeline.services.rendering.source.prewarm import start_render_source_prewarm
+from retainpdf_pipeline.services.rendering.source.prewarm_payload import build_payload_prewarm
 
 
 DEFAULT_SOURCE_PDF = REPO_ROOT / "data" / "temPDF" / "test3.pdf"

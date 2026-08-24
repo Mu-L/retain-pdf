@@ -8,9 +8,9 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.translation.core.payload.parts.policy_state import mark_policy_skip
-from services.translation.core.payload.parts.policy_state import mark_translation_required
-from services.translation.core.payload.parts.common import seed_orchestration_metadata
+from retainpdf_pipeline.services.translation.core.payload.parts.policy_state import mark_policy_skip
+from retainpdf_pipeline.services.translation.core.payload.parts.policy_state import mark_translation_required
+from retainpdf_pipeline.services.translation.core.payload.parts.common import seed_orchestration_metadata
 
 
 def test_mark_policy_skip_clears_translation_and_sets_keep_origin_state() -> None:

@@ -13,65 +13,65 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from services.rendering.source.background.stage import build_clean_background_pdf
-from foundation.config import fonts
-from services.rendering.layout.payload.blocks import build_render_blocks
-from services.rendering.layout.payload.body_pipeline import apply_body_payload_pipeline
-from services.rendering.layout.payload.collision import mark_adjacent_collision_risk
-from services.rendering.layout.payload.emit import payload_to_render_block
-from services.rendering.layout.payload.first_line_indent import detect_first_line_indent_pt
-from services.rendering.layout.payload.line_structure import maybe_preserve_structured_line_breaks
-from services.rendering.layout.model.models import RenderLayoutBlock
-from services.rendering.layout.model.models import RenderPageSpec
-from services.rendering.layout.page_specs import build_render_page_specs
-from services.rendering.layout.payload.continuation_split import split_protected_text_for_boxes
-from services.rendering.layout.payload.prepare import prepare_render_payloads_by_page
-from services.rendering.source.items import get_item_translated_text
-from services.rendering.source.dev_overlay.text_draw import _build_direct_draw_tokens
-from services.rendering.source.dev_overlay.text_draw import _fit_segment_layout
-from services.rendering.layout.payload.suspicious_ocr import detect_and_drop_suspicious_ocr_glued_blocks
-from services.rendering.output.typst.book_renderer import _compile_render_pages_pdf_resilient
-from services.rendering.output.typst.block_renderer import build_typst_block
-from services.rendering.output.typst.overlay_ops import overlay_translated_pages_on_doc
-from services.rendering.output.typst.book_support import prepare_translated_pages_for_render
-from services.rendering.output.typst.compiler import _resolved_font_paths
-from services.rendering.output.typst.compiler import _resolved_common_root
-from services.rendering.output.typst.compiler import TypstCompileError
-from services.rendering.output.typst.compiler import compile_typst_book_background_pdf
-from services.rendering.output.typst.compiler import compile_typst_overlay_pdf
-from services.rendering.output.typst.compiler import compile_typst_render_pages_pdf
-from services.rendering.output.typst.emitter import build_typst_source_from_page_specs
-from services.rendering.output.typst.source_builder import build_typst_overlay_source
-from services.rendering.policy import apply_render_page_policy_fields
-from services.rendering.policy import build_render_page_policy
-from services.rendering.policy import formula_neighbor_text_item_ids
-from services.rendering.policy import item_render_policy
-from services.rendering.policy import item_render_policy_reason
-from services.rendering.policy import item_requires_visual_cover_only
-from services.rendering.policy import item_uses_white_overlay_fill
-from services.rendering.policy import protect_formula_regions_in_redaction_items
-from services.rendering.output.typst.source_page_overlay import apply_source_page_overlay
-from services.rendering.output.typst.overlay_diagnostics import apply_redaction_diagnostics
-from services.rendering.output.typst.overlay_diagnostics import new_overlay_merge_diagnostics
-from services.rendering.source.background.redaction_items import redaction_items_from_layout_blocks
-from services.rendering.source.cleanup.item_rects import cover_rects_from_valid_items
-from services.rendering.output.typst.source_page_overlay import overlay_pages_from_single_pdf
-from services.rendering.output.typst.source_page_overlay import redaction_items_from_render_blocks
-from services.rendering.output.typst.sanitize import sanitize_items_for_typst_compile
-from services.rendering.output.typst.overlay_ops import _extract_failed_overlay_indices
-from services.rendering.output.typst.overlay_ops import _can_use_pikepdf_book_overlay
-from services.rendering.workflow.cover_fallback import cover_fallback_page_indices
-from services.rendering.workflow.context import RenderExecutionContext
-from services.rendering.workflow.modes import _compress_final_pdf_if_needed
-from services.rendering.document.pikepdf_overlay import overlay_pdf_pages_with_pikepdf
-from services.rendering.document.pikepdf_overlay import overlay_page_pdfs_with_pikepdf
-from services.rendering.document.pikepdf_pages import extract_pages_with_pikepdf
-from services.rendering.layout.inline_content.core.markdown import build_direct_typst_passthrough_text
+from retainpdf_pipeline.services.rendering.source.background.stage import build_clean_background_pdf
+from retainpdf_pipeline.foundation.config import fonts
+from retainpdf_pipeline.services.rendering.layout.payload.blocks import build_render_blocks
+from retainpdf_pipeline.services.rendering.layout.payload.body_pipeline import apply_body_payload_pipeline
+from retainpdf_pipeline.services.rendering.layout.payload.collision import mark_adjacent_collision_risk
+from retainpdf_pipeline.services.rendering.layout.payload.emit import payload_to_render_block
+from retainpdf_pipeline.services.rendering.layout.payload.first_line_indent import detect_first_line_indent_pt
+from retainpdf_pipeline.services.rendering.layout.payload.line_structure import maybe_preserve_structured_line_breaks
+from retainpdf_pipeline.services.rendering.layout.model.models import RenderLayoutBlock
+from retainpdf_pipeline.services.rendering.layout.model.models import RenderPageSpec
+from retainpdf_pipeline.services.rendering.layout.page_specs import build_render_page_specs
+from retainpdf_pipeline.services.rendering.layout.payload.continuation_split import split_protected_text_for_boxes
+from retainpdf_pipeline.services.rendering.layout.payload.prepare import prepare_render_payloads_by_page
+from retainpdf_pipeline.services.rendering.source.items import get_item_translated_text
+from retainpdf_pipeline.services.rendering.source.dev_overlay.text_draw import _build_direct_draw_tokens
+from retainpdf_pipeline.services.rendering.source.dev_overlay.text_draw import _fit_segment_layout
+from retainpdf_pipeline.services.rendering.layout.payload.suspicious_ocr import detect_and_drop_suspicious_ocr_glued_blocks
+from retainpdf_pipeline.services.rendering.output.typst.book_renderer import _compile_render_pages_pdf_resilient
+from retainpdf_pipeline.services.rendering.output.typst.block_renderer import build_typst_block
+from retainpdf_pipeline.services.rendering.output.typst.overlay_ops import overlay_translated_pages_on_doc
+from retainpdf_pipeline.services.rendering.output.typst.book_support import prepare_translated_pages_for_render
+from retainpdf_pipeline.services.rendering.output.typst.compiler import _resolved_font_paths
+from retainpdf_pipeline.services.rendering.output.typst.compiler import _resolved_common_root
+from retainpdf_pipeline.services.rendering.output.typst.compiler import TypstCompileError
+from retainpdf_pipeline.services.rendering.output.typst.compiler import compile_typst_book_background_pdf
+from retainpdf_pipeline.services.rendering.output.typst.compiler import compile_typst_overlay_pdf
+from retainpdf_pipeline.services.rendering.output.typst.compiler import compile_typst_render_pages_pdf
+from retainpdf_pipeline.services.rendering.output.typst.emitter import build_typst_source_from_page_specs
+from retainpdf_pipeline.services.rendering.output.typst.source_builder import build_typst_overlay_source
+from retainpdf_pipeline.services.rendering.policy import apply_render_page_policy_fields
+from retainpdf_pipeline.services.rendering.policy import build_render_page_policy
+from retainpdf_pipeline.services.rendering.policy import formula_neighbor_text_item_ids
+from retainpdf_pipeline.services.rendering.policy import item_render_policy
+from retainpdf_pipeline.services.rendering.policy import item_render_policy_reason
+from retainpdf_pipeline.services.rendering.policy import item_requires_visual_cover_only
+from retainpdf_pipeline.services.rendering.policy import item_uses_white_overlay_fill
+from retainpdf_pipeline.services.rendering.policy import protect_formula_regions_in_redaction_items
+from retainpdf_pipeline.services.rendering.output.typst.source_page_overlay import apply_source_page_overlay
+from retainpdf_pipeline.services.rendering.output.typst.overlay_diagnostics import apply_redaction_diagnostics
+from retainpdf_pipeline.services.rendering.output.typst.overlay_diagnostics import new_overlay_merge_diagnostics
+from retainpdf_pipeline.services.rendering.source.background.redaction_items import redaction_items_from_layout_blocks
+from retainpdf_pipeline.services.rendering.source.cleanup.item_rects import cover_rects_from_valid_items
+from retainpdf_pipeline.services.rendering.output.typst.source_page_overlay import overlay_pages_from_single_pdf
+from retainpdf_pipeline.services.rendering.output.typst.source_page_overlay import redaction_items_from_render_blocks
+from retainpdf_pipeline.services.rendering.output.typst.sanitize import sanitize_items_for_typst_compile
+from retainpdf_pipeline.services.rendering.output.typst.overlay_ops import _extract_failed_overlay_indices
+from retainpdf_pipeline.services.rendering.output.typst.overlay_ops import _can_use_pikepdf_book_overlay
+from retainpdf_pipeline.services.rendering.workflow.cover_fallback import cover_fallback_page_indices
+from retainpdf_pipeline.services.rendering.workflow.context import RenderExecutionContext
+from retainpdf_pipeline.services.rendering.workflow.modes import _compress_final_pdf_if_needed
+from retainpdf_pipeline.services.rendering.document.pikepdf_overlay import overlay_pdf_pages_with_pikepdf
+from retainpdf_pipeline.services.rendering.document.pikepdf_overlay import overlay_page_pdfs_with_pikepdf
+from retainpdf_pipeline.services.rendering.document.pikepdf_pages import extract_pages_with_pikepdf
+from retainpdf_pipeline.services.rendering.layout.inline_content.core.markdown import build_direct_typst_passthrough_text
 from devtools.tests.rendering_support.page_specs import sample_page_spec as _page_spec
 
 
 def test_background_book_source_draws_sampled_block_fill() -> None:
-    from services.rendering.output.typst.source_builder import build_typst_book_background_source
+    from retainpdf_pipeline.services.rendering.output.typst.source_builder import build_typst_book_background_source
 
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
@@ -109,7 +109,7 @@ def test_background_book_source_draws_sampled_block_fill() -> None:
 
 
 def test_old_overlay_prebuilt_source_without_render_version_is_not_reused() -> None:
-    from services.rendering.output.typst.overlay_source_cache import prebuilt_source_matches_page_specs
+    from retainpdf_pipeline.services.rendering.output.typst.overlay_source_cache import prebuilt_source_matches_page_specs
 
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "book-overlay.typ.prebuilt"
@@ -122,8 +122,8 @@ def test_old_overlay_prebuilt_source_without_render_version_is_not_reused() -> N
 
 
 def test_overlay_prebuilt_source_cover_fill_mode_does_not_reuse_plain_source() -> None:
-    from services.rendering.output.typst.overlay_source_cache import PREBUILT_SOURCE_RENDER_VERSION
-    from services.rendering.output.typst.overlay_source_cache import prebuilt_source_matches_page_specs
+    from retainpdf_pipeline.services.rendering.output.typst.overlay_source_cache import PREBUILT_SOURCE_RENDER_VERSION
+    from retainpdf_pipeline.services.rendering.output.typst.overlay_source_cache import prebuilt_source_matches_page_specs
 
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "book-overlay.typ.prebuilt"
@@ -142,8 +142,8 @@ def test_overlay_prebuilt_source_cover_fill_mode_does_not_reuse_plain_source() -
 
 
 def test_render_color_profile_preserves_tuple_cover_fill() -> None:
-    from services.rendering.source.prewarm_color_profile import round_color
-    from services.rendering.source.prewarm_manifest import color_tuple
+    from retainpdf_pipeline.services.rendering.source.prewarm_color_profile import round_color
+    from retainpdf_pipeline.services.rendering.source.prewarm_manifest import color_tuple
 
     assert round_color((1.0, 0.9490196078431372, 0.8156862745098039)) == [1.0, 0.94902, 0.81569]
     assert color_tuple((1.0, 0.9490196078431372, 0.8156862745098039), default=(0.0, 0.0, 0.0)) == (
@@ -154,10 +154,10 @@ def test_render_color_profile_preserves_tuple_cover_fill() -> None:
 
 
 def test_prewarm_color_adapt_uses_full_visual_profile_without_resampling() -> None:
-    from services.rendering.source import prewarm_color_profile
-    from services.rendering.visual_profile.contracts import DocumentVisualProfile
-    from services.rendering.visual_profile.contracts import ItemVisualProfile
-    from services.rendering.visual_profile.contracts import PageVisualProfile
+    from retainpdf_pipeline.services.rendering.source import prewarm_color_profile
+    from retainpdf_pipeline.services.rendering.visual_profile.contracts import DocumentVisualProfile
+    from retainpdf_pipeline.services.rendering.visual_profile.contracts import ItemVisualProfile
+    from retainpdf_pipeline.services.rendering.visual_profile.contracts import PageVisualProfile
 
     pages = {
         0: [
@@ -214,7 +214,7 @@ def test_prewarm_color_adapt_uses_full_visual_profile_without_resampling() -> No
 
 
 def test_overlay_color_adapt_samples_local_gray_fill_without_page_background_image() -> None:
-    from services.rendering.output.typst.color_adapt import apply_adaptive_overlay_colors
+    from retainpdf_pipeline.services.rendering.output.typst.color_adapt import apply_adaptive_overlay_colors
 
     doc = fitz.open()
     try:
@@ -246,7 +246,7 @@ def test_overlay_color_adapt_samples_local_gray_fill_without_page_background_ima
 
 
 def test_overlay_color_adapt_batch_sampler_uses_rect_area_compatibility() -> None:
-    from services.rendering.output.typst.color_adapt import apply_adaptive_overlay_colors
+    from retainpdf_pipeline.services.rendering.output.typst.color_adapt import apply_adaptive_overlay_colors
 
     doc = fitz.open()
     try:
@@ -283,7 +283,7 @@ def test_overlay_color_adapt_batch_sampler_uses_rect_area_compatibility() -> Non
 
 
 def test_overlay_color_adapt_prefers_inner_colored_panel_over_white_neighbors() -> None:
-    from services.rendering.output.typst.color_adapt import apply_adaptive_overlay_colors
+    from retainpdf_pipeline.services.rendering.output.typst.color_adapt import apply_adaptive_overlay_colors
 
     panel = (248 / 255.0, 240 / 255.0, 208 / 255.0)
     doc = fitz.open()
@@ -316,7 +316,7 @@ def test_overlay_color_adapt_prefers_inner_colored_panel_over_white_neighbors() 
 
 
 def test_overlay_color_adapt_uses_visual_title_text_color_only_for_titles() -> None:
-    from services.rendering.output.typst.color_adapt import apply_adaptive_overlay_colors
+    from retainpdf_pipeline.services.rendering.output.typst.color_adapt import apply_adaptive_overlay_colors
 
     doc = fitz.open()
     try:
@@ -354,7 +354,7 @@ def test_overlay_color_adapt_uses_visual_title_text_color_only_for_titles() -> N
 
 
 def test_overlay_color_adapt_skips_local_sampling_for_plain_body_blocks() -> None:
-    from services.rendering.output.typst.color_adapt import apply_adaptive_overlay_colors
+    from retainpdf_pipeline.services.rendering.output.typst.color_adapt import apply_adaptive_overlay_colors
 
     doc = fitz.open()
     try:
@@ -371,7 +371,7 @@ def test_overlay_color_adapt_skips_local_sampling_for_plain_body_blocks() -> Non
         ]
 
         with mock.patch(
-            "services.rendering.output.typst.color_adapt.sample_local_background_fill",
+            "retainpdf_pipeline.services.rendering.output.typst.color_adapt.sample_local_background_fill",
             return_value=(0.7, 0.7, 0.7),
         ) as sampler:
             adapted = apply_adaptive_overlay_colors(page, items)
@@ -384,7 +384,7 @@ def test_overlay_color_adapt_skips_local_sampling_for_plain_body_blocks() -> Non
 
 
 def test_overlay_color_adapt_samples_cover_fill_blocks_only_when_title_has_text_color() -> None:
-    from services.rendering.output.typst.color_adapt import apply_adaptive_overlay_colors
+    from retainpdf_pipeline.services.rendering.output.typst.color_adapt import apply_adaptive_overlay_colors
 
     doc = fitz.open()
     try:
@@ -416,11 +416,11 @@ def test_overlay_color_adapt_samples_cover_fill_blocks_only_when_title_has_text_
         ]
 
         with mock.patch(
-            "services.rendering.output.typst.color_adapt.sample_local_background_fill",
+            "retainpdf_pipeline.services.rendering.output.typst.color_adapt.sample_local_background_fill",
             return_value=(0.7, 0.7, 0.7),
         ) as sampler:
             with mock.patch(
-                "services.rendering.output.typst.color_adapt.title_text_color_from_visual_components",
+                "retainpdf_pipeline.services.rendering.output.typst.color_adapt.title_text_color_from_visual_components",
                 return_value=None,
             ):
                 adapted = apply_adaptive_overlay_colors(page, items)
@@ -434,7 +434,7 @@ def test_overlay_color_adapt_samples_cover_fill_blocks_only_when_title_has_text_
 
 
 def test_overlay_color_adapt_reads_title_color_from_text_spans_before_visual_sampling() -> None:
-    from services.rendering.output.typst.color_adapt import apply_adaptive_overlay_colors
+    from retainpdf_pipeline.services.rendering.output.typst.color_adapt import apply_adaptive_overlay_colors
 
     doc = fitz.open()
     try:
@@ -442,7 +442,7 @@ def test_overlay_color_adapt_reads_title_color_from_text_spans_before_visual_sam
         page.insert_text((24, 48), "Colored Title", fontsize=24, color=(0.8, 0.04, 0.02))
 
         with mock.patch(
-            "services.rendering.output.typst.color_adapt.title_text_color_from_visual_components",
+            "retainpdf_pipeline.services.rendering.output.typst.color_adapt.title_text_color_from_visual_components",
             return_value=(0.0, 0.0, 1.0),
         ) as visual_sampler:
             adapted = apply_adaptive_overlay_colors(
@@ -468,13 +468,13 @@ def test_overlay_color_adapt_reads_title_color_from_text_spans_before_visual_sam
 
 
 def test_overlay_color_adapt_keeps_white_policy_fast_path() -> None:
-    from services.rendering.output.typst.color_adapt import apply_adaptive_overlay_colors
+    from retainpdf_pipeline.services.rendering.output.typst.color_adapt import apply_adaptive_overlay_colors
 
     doc = fitz.open()
     try:
         page = doc.new_page(width=260, height=180)
         with mock.patch(
-            "services.rendering.output.typst.color_adapt.sample_local_background_fill",
+            "retainpdf_pipeline.services.rendering.output.typst.color_adapt.sample_local_background_fill",
             return_value=(0.7, 0.7, 0.7),
         ) as sampler:
             adapted = apply_adaptive_overlay_colors(

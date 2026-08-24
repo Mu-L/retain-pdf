@@ -8,8 +8,8 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.document_schema.markdown_fallback import materialize_document_markdown_fallback
-from services.document_schema.markdown_fallback import render_document_markdown
+from retainpdf_pipeline.services.document_schema.markdown_fallback import materialize_document_markdown_fallback
+from retainpdf_pipeline.services.document_schema.markdown_fallback import render_document_markdown
 
 
 def _document() -> dict:

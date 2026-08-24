@@ -7,11 +7,11 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SCRIPTS_ROOT = REPO_ROOT / "backend" / "scripts"
-if str(SCRIPTS_ROOT) not in sys.path:
-    sys.path.append(str(SCRIPTS_ROOT))
+PIPELINE_ROOT = Path(__file__).resolve().parents[1]
+if str(PIPELINE_ROOT) not in sys.path:
+    sys.path.append(str(PIPELINE_ROOT))
 
-from services.document_schema import adapt_path_to_document_v1_with_report
+from retainpdf_pipeline.services.document_schema import adapt_path_to_document_v1_with_report
 
 
 def parse_args() -> argparse.Namespace:

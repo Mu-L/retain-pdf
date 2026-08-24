@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 
-from entrypoints import console
+from retainpdf_pipeline.entrypoints import console
 
 
 def test_help_lists_stable_commands(capsys) -> None:

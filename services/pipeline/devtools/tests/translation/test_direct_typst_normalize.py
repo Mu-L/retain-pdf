@@ -6,9 +6,9 @@ import pytest
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from services.pipeline_shared.direct_typst_math import has_balanced_unescaped_dollars
-from services.pipeline_shared.direct_typst_math import normalize_direct_typst_translation
-from services.translation.llm.result_canonicalizer import canonicalize_batch_result
+from retainpdf_pipeline.services.pipeline_shared.direct_typst_math import has_balanced_unescaped_dollars
+from retainpdf_pipeline.services.pipeline_shared.direct_typst_math import normalize_direct_typst_translation
+from retainpdf_pipeline.services.translation.llm.result_canonicalizer import canonicalize_batch_result
 
 
 NORMALIZE_CASES = [
