@@ -3,7 +3,7 @@
 //! 默认 `InProcess` —— 与拆分前逐字节同行为，单进程跑，测试与桌面现状不受
 //! 任何影响。设 `RUST_API_JOBS_MODE=remote` 后，壳把 launch/cancel/terminate
 //! 四个操作经内部 HTTP 交给 retain-jobsd 进程执行（契约见
-//! packages/schemas/jobs-control.v1.schema.json）。
+//! backend-root/contracts/jobs-control.v1.schema.json）。
 //!
 //! 拆开的收益是**开发粒度**：改路由/服务只重启壳，jobsd 与其 worker 子进程
 //! 不受影响，正在跑的翻译任务继续。

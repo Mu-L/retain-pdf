@@ -104,6 +104,14 @@ def _require_layout(root: Path) -> None:
         "api/Cargo.toml",
         "api/Cargo.lock",
         "config/ocr_providers.json",
+        "contracts/check_parity.py",
+        "contracts/ai-ask.v1.schema.json",
+        "contracts/ai-conversations.v1.schema.json",
+        "contracts/job-status.v1.schema.json",
+        "contracts/jobs-control.v1.schema.json",
+        "contracts/library-books.v1.schema.json",
+        "contracts/pipeline-stdout.v1.schema.json",
+        "testdata/golden-jobs/chem-6ada81-10p/artifacts/pipeline_summary.json",
     )
     missing = [relative for relative in required if not (root / relative).is_file()]
     if missing:
@@ -143,6 +151,7 @@ def main() -> int:
         env["UV_PROJECT_ENVIRONMENT"] = str(temp_root / "venv")
         env["CARGO_TARGET_DIR"] = str(temp_root / "cargo-target")
 
+        _run(["python3", "contracts/check_parity.py"], cwd=snapshot, env=env)
         _run(["uv", "sync", "--locked", "--all-extras"], cwd=snapshot, env=env)
         _run(
             [
@@ -201,7 +210,7 @@ def main() -> int:
             )
 
     print("isolated backend source workspace smoke passed")
-    print("remaining boundary: contracts, testdata, fonts, and deploy assets")
+    print("remaining boundary: fonts and deploy assets")
     return 0
 
 

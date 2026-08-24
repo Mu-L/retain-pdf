@@ -1,6 +1,6 @@
 """pipeline-stdout.v1 契约锁（生产者侧）。
 
-单一真值在 packages/schemas/pipeline-stdout.v1.schema.json；本测试保证
+后端测试镜像在 backend-root/contracts/pipeline-stdout.v1.schema.json；本测试保证
 python worker 的发射面与契约一致：常量文件与 schema 双向对齐、每个契约
 标签在源码里有真实发射点、artifact_published 的 key 不超出契约。
 消费者侧锁在 rust_api crates/retain-jobs stdout_parser/contract_lock.rs。
@@ -19,8 +19,8 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 from retainpdf_pipeline.services.pipeline_shared import contracts  # noqa: E402
 
-REPO_ROOT = REPO_SCRIPTS_ROOT.parents[1]
-SCHEMA_ROOT = REPO_ROOT / "packages" / "schemas"
+BACKEND_ROOT = REPO_SCRIPTS_ROOT.parent
+SCHEMA_ROOT = BACKEND_ROOT / "contracts"
 SCHEMA = json.loads(
     (SCHEMA_ROOT / "pipeline-stdout.v1.schema.json").read_text(encoding="utf-8")
 )

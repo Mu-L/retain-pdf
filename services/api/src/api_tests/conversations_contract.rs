@@ -1,6 +1,6 @@
 //! ai-conversations.v1 契约锁（生产者侧）。
 //!
-//! 单一真值在 packages/schemas/ai-conversations.v1.schema.json。本测试保证
+//! 后端测试镜像在 backend-root/contracts/ai-conversations.v1.schema.json。本测试保证
 //! rust 的视图/输入结构体与契约逐字段一致（序列化键集合相等、输入按契约
 //! 示例可反序列化、必填缺失即拒绝），且七个端点路径真实挂载在 router。
 //! 消费者侧锁：ai_service tests/test_conversations_contract.py、
@@ -18,12 +18,11 @@ use crate::models::api::{
 };
 
 fn contract() -> Value {
-    // rust_api → backend
+    // api → backend-root
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .expect("repo root")
-        .join("packages/schemas/ai-conversations.v1.schema.json");
+        .parent()
+        .expect("backend root")
+        .join("contracts/ai-conversations.v1.schema.json");
     serde_json::from_str(&std::fs::read_to_string(path).expect("read contract"))
         .expect("parse contract")
 }

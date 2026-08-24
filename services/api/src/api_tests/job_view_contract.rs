@@ -1,6 +1,6 @@
 //! job-status/library-books 生产者契约锁。
 //!
-//! 通过真实 router 获取 serde JSON，再按 packages/schemas 中的定义验证。
+//! 通过真实 router 获取 serde JSON，再按 backend-root/contracts 中的定义验证。
 //! 这里有意不复制 Rust DTO 构造器，避免测试与生产者同时漂移。
 
 use std::collections::BTreeSet;
@@ -19,10 +19,9 @@ use super::jobs_common::{read_json, test_state};
 
 fn contract(file_name: &str) -> Value {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .expect("repo root")
-        .join("packages/schemas")
+        .parent()
+        .expect("backend root")
+        .join("contracts")
         .join(file_name);
     serde_json::from_str(&std::fs::read_to_string(path).expect("read contract"))
         .expect("parse contract")

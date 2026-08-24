@@ -1,6 +1,6 @@
 """ai-conversations.v1 契约锁（消费者侧：ai_service）。
 
-单一真值在 packages/schemas/ai-conversations.v1.schema.json。ai_service
+后端测试镜像在 backend-root/contracts/ai-conversations.v1.schema.json。ai_service
 访问会话 API 的唯一咽喉是 rust_client.py——本测试源码扫描它：请求路径
 必须是契约端点、写入载荷的键必须 ⊆ 契约输入字段。生产侧锁在 rust_api
 src/api_tests/conversations_contract.rs，前端锁在
@@ -14,13 +14,9 @@ import re
 from pathlib import Path
 
 AI_SERVICE_ROOT = Path(__file__).resolve().parents[1]
-# 已迁 services/ai；契约真值在 packages/schemas，通过仓库根解析，兼容旧 backend/contracts symlink
-REPO_ROOT = Path(__file__).resolve().parents[3]
-SCHEMA_CANDIDATES = [
-    REPO_ROOT / "packages" / "schemas" / "ai-conversations.v1.schema.json",
-    REPO_ROOT / "backend" / "contracts" / "ai-conversations.v1.schema.json",
-]
-SCHEMA_PATH = next((p for p in SCHEMA_CANDIDATES if p.exists()), SCHEMA_CANDIDATES[0])
+# services/ai/tests -> backend root; this remains stable in an extracted services repo.
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+SCHEMA_PATH = BACKEND_ROOT / "contracts" / "ai-conversations.v1.schema.json"
 SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
 CLIENT_SOURCE = (AI_SERVICE_ROOT / "retainpdf_ai" / "rust_client.py").read_text(encoding="utf-8")
 

@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "retainpdf/contracts/pipeline-stdout/v1",
+  "title": "rust_api ↔ pipeline workers stdout 行协议",
+  "description": "rust_api 逐行解析 pipeline 子进程 stdout 来驱动任务状态机。本文件是该行协议的单一真值：生产者（backend/pipeline 各 worker）与消费者（rust_api job_runner/stdout_parser）各配一侧锁测试，改协议必须先改这里、两端测试同步变绿。行分五类：带标签工件行、结构化 artifact_published JSONL 事件、指标行、provider 状态行、阶段前缀行。",
+  "labeled_line_format": "<label>: <value>",
+  "artifact_labels": {
+    "job root": { "artifact_field": "job_root" },
+    "source pdf": { "artifact_field": "source_pdf" },
+    "layout json": { "artifact_field": "layout_json" },
+    "normalized document json": { "artifact_field": "normalized_document_json" },
+    "normalization report json": {
+      "artifact_field": "normalization_report_json",
+      "note": "OCR 阶段收到此行会把 stage 推进为 normalizing"
+    },
+    "provider raw dir": { "artifact_field": "provider_raw_dir" },
+    "provider zip": { "artifact_field": "provider_zip" },
+    "provider summary json": { "artifact_field": "provider_summary_json" },
+    "schema version": {
+      "artifact_field": "schema_version",
+      "expected_value": "document.v1"
+    },
+    "translations dir": { "artifact_field": "translations_dir" },
+    "output pdf": { "artifact_field": "output_pdf" },
+    "summary": { "artifact_field": "summary" },
+    "events jsonl": { "artifact_field": "events_jsonl" },
+    "batch_id": { "artifact_field": "provider_batch_id" },
+    "task_id": { "artifact_field": "provider_task_id" },
+    "full_zip_url": { "artifact_field": "provider_full_zip_url" }
+  },
+  "emit_only_labels": {
+    "source json used": "python 侧作为日志行发射；rust 不解析该标签行，仅在 artifact_published 事件里认 source_json_used 这个 key（映射到 normalized_document_json）"
+  },
+  "artifact_event": {
+    "event_type": "artifact_published",
+    "required_payload_fields": ["artifact_key", "path"],
+    "artifact_keys": {
+      "job_root": [],
+      "source_pdf": [],
+      "layout_json": [],
+      "normalized_document_json": ["source_json_used"],
+      "normalization_report_json": [],
+      "provider_raw_dir": [],
+      "provider_zip": ["provider_bundle_zip"],
+      "provider_summary_json": ["provider_result_json"],
+      "translations_dir": [],
+      "output_pdf": ["translated_pdf"],
+      "summary": ["pipeline_summary", "pipeline_summary_json"],
+      "events_jsonl": ["pipeline_events_jsonl"]
+    },
+    "example": "{\"event_type\": \"artifact_published\", \"payload\": {\"artifact_key\": \"output_pdf\", \"path\": \"/data/jobs/j1/out.pdf\"}}",
+  "emit_only_keys": {
+    "markdown_raw": "rust 经 storage_paths::ARTIFACT_KEY_MARKDOWN_RAW 与约定 md/full.md 解析，不写入 JobArtifacts 字段",
+    "translation_diagnostics_json": "rust 经 storage_paths::resolve_translation_diagnostics 按约定解析路径，不消费此事件",
+      "translation_debug_index_json": "rust 经 storage_paths::resolve_translation_debug_index 按约定解析路径，不消费此事件",
+      "translation_review_json": "翻译审阅工件，rust 不消费；仅记录于 pipeline_events.jsonl 供检视"
+    }
+  },
+  "metric_lines": [
+    {
+      "metric": "pages_processed",
+      "pattern": "^pages processed:\\s*(\\d+)$",
+      "example": "pages processed: 12"
+    },
+    {
+      "metric": "translated_items",
+      "pattern": "^translated items:\\s*(\\d+)$",
+      "example": "translated items: 240"
+    },
+    {
+      "metric": "translate_render_time_seconds",
+      "pattern": "^translation time:\\s*([0-9.]+)s$",
+      "example": "translation time: 8.52s"
+    },
+    {
+      "metric": "save_time_seconds",
+      "pattern": "^(?:render\\+save time|save time):\\s*([0-9.]+)s$",
+      "example": "save time: 1.20s"
+    },
+    {
+      "metric": "total_time_seconds",
+      "pattern": "^total time:\\s*([0-9.]+)s$",
+      "example": "total time: 9.72s"
+    }
+  ],
+  "provider_state_lines": {
+    "prefixes": ["batch ", "task "],
+    "separator": ": state=",
+    "examples": ["batch b-42: state=running", "task t-7: state=done"]
+  },
+  "stage_prefix_rules": [
+    {
+      "prefix": "upload done: ",
+      "effect": "provider 阶段推进为上传完成",
+      "example": "upload done: /tmp/in.pdf"
+    }
+  ]
+}

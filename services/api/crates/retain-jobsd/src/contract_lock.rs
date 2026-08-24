@@ -1,6 +1,6 @@
 //! jobs-control.v1 契约锁（生产者侧：jobsd）。
 //!
-//! 单一真值在 packages/schemas/jobs-control.v1.schema.json。本测试保证 jobsd
+//! 后端测试镜像在 backend-root/contracts/jobs-control.v1.schema.json。本测试保证 jobsd
 //! 真实挂载的路由与契约端点集合**双向相等**——多挂一个（未入契约的私货）
 //! 或少挂一个（壳会打到 404）都红。消费者侧锁在
 //! rust_api src/api_tests/jobs_control_contract.rs。
@@ -11,12 +11,12 @@ use std::path::PathBuf;
 use serde_json::Value;
 
 fn contract() -> Value {
-    // crates/retain-jobsd → crates → api → services → repo
+    // crates/retain-jobsd → crates → api → backend-root
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
-        .nth(4)
-        .expect("repo root")
-        .join("packages/schemas/jobs-control.v1.schema.json");
+        .nth(3)
+        .expect("backend root")
+        .join("contracts/jobs-control.v1.schema.json");
     serde_json::from_str(&std::fs::read_to_string(path).expect("read jobs-control contract"))
         .expect("parse jobs-control contract")
 }

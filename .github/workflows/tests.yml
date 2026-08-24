@@ -147,5 +147,8 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Check backend contract mirror parity
+        run: python3 services/contracts/check_parity.py --require-upstream
+
       - name: Verify isolated backend workspace
         run: python3 services/scripts/check_standalone.py --compile-rust

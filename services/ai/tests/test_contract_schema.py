@@ -1,4 +1,4 @@
-"""生产者契约测试:ai_service 的实现必须与 packages/schemas/ai-ask.v1.schema.json 一致。
+"""生产者契约测试:ai_service 的实现必须与 backend-root/contracts/ai-ask.v1.schema.json 一致。
 
 契约文件是三方(frontend/rust 透传/python)的单一真值——本测试锁住 python 生产侧,
 frontend/tests/ai-ask-contract.test.mjs 锁消费侧。改契约先改 schema,再让两端测试变绿。
@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from retainpdf_ai.agent import Citation
 from retainpdf_ai.app import AskInput
 
-CONTRACT_PATH = Path(__file__).resolve().parents[3] / "packages" / "schemas" / "ai-ask.v1.schema.json"
+CONTRACT_PATH = Path(__file__).resolve().parents[2] / "contracts" / "ai-ask.v1.schema.json"
 
 
 def _load_contract():

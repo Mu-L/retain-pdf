@@ -1,6 +1,6 @@
 //! jobs-control.v1 契约锁（消费者侧：壳）。
 //!
-//! 单一真值在 packages/schemas/jobs-control.v1.schema.json。壳发往 jobsd 的
+//! 后端测试镜像在 backend-root/contracts/jobs-control.v1.schema.json。壳发往 jobsd 的
 //! 路径集合必须与契约端点**双向相等**——壳打了契约外的路径（jobsd 返 404）
 //! 或契约里有壳从不使用的端点（死接口）都红。生产者侧锁在
 //! crates/retain-jobsd/src/contract_lock.rs。
@@ -12,10 +12,9 @@ use serde_json::Value;
 
 fn contract() -> Value {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .expect("repo root")
-        .join("packages/schemas/jobs-control.v1.schema.json");
+        .parent()
+        .expect("backend root")
+        .join("contracts/jobs-control.v1.schema.json");
     serde_json::from_str(&std::fs::read_to_string(path).expect("read jobs-control contract"))
         .expect("parse jobs-control contract")
 }

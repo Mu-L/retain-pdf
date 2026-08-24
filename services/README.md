@@ -10,6 +10,7 @@ The workspace contains:
 - `ai/`: Python AI conversation service.
 - `pipeline/`: Python OCR, translation, and rendering package.
 - `config/`: backend-owned runtime configuration shared by Rust and Python.
+- `contracts/`: backend-local JSON contract mirror plus monorepo parity check.
 
 ## Local verification
 
@@ -29,9 +30,10 @@ files from the parent checkout:
 
 ```bash
 python3 services/scripts/check_standalone.py
+python3 services/contracts/check_parity.py --require-upstream
 ```
 
-`contracts`, backend deployment assets, and golden test data are still owned
-outside this directory. The standalone smoke test therefore checks package
-installation and compilation, not the contract tests that read those external
-fixtures. Those assets are the next extraction boundary to move inward.
+Contracts and golden regression data now live under `contracts/` and
+`testdata/`, so an isolated backend checkout can validate both without reaching
+into the parent monorepo. Fonts and backend deployment assets remain external
+boundaries.

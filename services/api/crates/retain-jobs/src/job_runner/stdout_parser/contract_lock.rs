@@ -1,6 +1,6 @@
 //! pipeline-stdout.v1 契约锁（消费者侧）。
 //!
-//! 单一真值在 packages/schemas/pipeline-stdout.v1.schema.json；本测试保证
+//! 后端测试镜像在 backend-root/contracts/pipeline-stdout.v1.schema.json；本测试保证
 //! rust 解析器与契约逐项一致：标签集合相等、artifact_published key 集合相等、
 //! 指标/状态/前缀行的契约示例真的能驱动解析器落值。改协议先改 schema，
 //! 两端（此处 + scripts/devtools/tests/pipeline）测试同步变绿才算完成。
@@ -16,12 +16,12 @@ use crate::models::domain::JobSnapshot;
 use crate::models::request::CreateJobInput;
 
 fn contract_path() -> PathBuf {
-    // crates/retain-jobs → crates → api → services → repo
+    // crates/retain-jobs → crates → api → backend-root
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
-        .nth(4)
-        .expect("repo root")
-        .join("packages/schemas/pipeline-stdout.v1.schema.json")
+        .nth(3)
+        .expect("backend root")
+        .join("contracts/pipeline-stdout.v1.schema.json")
 }
 
 fn load_contract() -> Value {
