@@ -12,7 +12,7 @@
     "build:web": "npm --prefix apps/web run build",
     "build:reader": "npm --prefix packages/reader run build",
     "test:web": "npm --prefix apps/web test",
-    "test:api": "cargo test --manifest-path services/api/Cargo.toml"
+    "test:api": "python3 .github/scripts/run_with_backend_source.py -- cargo test --locked --workspace --manifest-path {backend}/api/Cargo.toml"
   },
   "engines": {
     "node": ">=20"
