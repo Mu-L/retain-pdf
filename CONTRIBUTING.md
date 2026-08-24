@@ -18,7 +18,7 @@
 - [Rust API 贡献指南](doc/core/contributing/backend.md)
 - [数据库与持久化贡献指南](doc/core/contributing/database.md)
 - [Python 流水线贡献指南](doc/core/contributing/python-pipeline.md)
-- [后端源码锁与独立仓库接入](doc/core/contributing/backend-source.md)
+- [内嵌后端 Package](doc/core/contributing/backend-package.md)
 - [测试贡献指南](doc/core/contributing/testing.md)
 - [AI 辅助开发指南](doc/core/contributing/ai-development.md)
 - [Issue、PR、代码风格与发布说明](doc/core/contributing/process-and-style.md)

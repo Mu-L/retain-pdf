@@ -36,7 +36,7 @@ cargo test --locked --workspace --manifest-path "$BACKEND_ROOT/api/Cargo.toml"
 python3 "$BACKEND_ROOT/api/scripts/check_architecture.py"
 ```
 
-后端可能来自产品仓库内嵌目录，也可能来自锁定的独立 checkout；选择和校验规则见[后端源码锁与独立仓库接入](./backend-source.md)。
+后端是产品仓库中的自包含 package；路径和校验规则见[内嵌后端 Package](./backend-package.md)。
 
 ## PR 说明
 

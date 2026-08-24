@@ -31,7 +31,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help=(
-            "Backend services checkout. Defaults to RETAIN_PDF_SERVICES_ROOT or "
+            "Embedded backend package. Defaults to RETAIN_PDF_SERVICES_ROOT or "
             "<repo-root>/services."
         ),
     )
@@ -142,7 +142,7 @@ def main() -> None:
     pipeline_path = services_root / "pipeline" / "pyproject.toml"
     ai_path = services_root / "ai" / "pyproject.toml"
     # Keep generated headers stable even when the backend is checked out beside
-    # the product repository rather than underneath it.
+    # the product repository rather than inside the backend package.
     pipeline_source = "services/pipeline/pyproject.toml"
     ai_source = "services/ai/pyproject.toml"
     pipeline_runtime, pipeline_test = _load_dependency_groups(pipeline_path)

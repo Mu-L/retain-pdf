@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SERVICES_ROOT="$(python3 "${ROOT_DIR}/.github/scripts/resolve_backend_source.py" \
-  --repo-root "${ROOT_DIR}" --print-path)"
+  --repo-root "${ROOT_DIR}" --allow-dirty --print-path)"
 
 TAG="${1:-latest}"
 

@@ -39,12 +39,10 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Prepare pinned backend source
+      - name: Prepare embedded backend package
         if: matrix.target.name == 'app'
         id: backend
         uses: ./.github/actions/prepare-backend-source
-        with:
-          token: ${{ secrets.BACKEND_REPOSITORY_TOKEN || github.token }}
 
       - name: Resolve image build source
         id: build-source

@@ -5,7 +5,7 @@ name: Rust API Architecture
     paths:
       - "services/api/**"
       - "services/pipeline/**"
-      - "backend-source.lock.json"
+      - "backend-package.json"
       - ".github/actions/prepare-backend-source/**"
       - ".github/scripts/resolve_backend_source.py"
       - "doc/adr/**"
@@ -18,7 +18,7 @@ name: Rust API Architecture
     paths:
       - "services/api/**"
       - "services/pipeline/**"
-      - "backend-source.lock.json"
+      - "backend-package.json"
       - ".github/actions/prepare-backend-source/**"
       - ".github/scripts/resolve_backend_source.py"
       - "doc/adr/**"
@@ -32,11 +32,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare pinned backend source
+      - name: Prepare embedded backend package
         id: backend
         uses: ./.github/actions/prepare-backend-source
-        with:
-          token: ${{ secrets.BACKEND_REPOSITORY_TOKEN || github.token }}
 
       # 纯静态架构检查（秒级）。全量测试在 tests.yml——此前这里挂着
       # 两个定点冒烟测试，但 cargo 名字筛选匹配 0 个时照样绿，先后因

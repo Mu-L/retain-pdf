@@ -21,11 +21,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare pinned backend source
+      - name: Prepare embedded backend package
         id: backend
         uses: ./.github/actions/prepare-backend-source
-        with:
-          token: ${{ secrets.BACKEND_REPOSITORY_TOKEN || github.token }}
 
       - name: Derive version
         id: version
@@ -212,11 +210,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare pinned backend source
+      - name: Prepare embedded backend package
         id: backend
         uses: ./.github/actions/prepare-backend-source
-        with:
-          token: ${{ secrets.BACKEND_REPOSITORY_TOKEN || github.token }}
 
       - name: Derive version
         id: version
@@ -451,11 +447,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare pinned backend source
+      - name: Prepare embedded backend package
         id: backend
         uses: ./.github/actions/prepare-backend-source
-        with:
-          token: ${{ secrets.BACKEND_REPOSITORY_TOKEN || github.token }}
 
       - name: Derive version
         id: version

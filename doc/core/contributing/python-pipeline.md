@@ -54,7 +54,7 @@ uv run --project "$BACKEND_ROOT" python -m pytest "$BACKEND_ROOT/pipeline/devtoo
 python3 "$BACKEND_ROOT/pipeline/devtools/check_pipeline_architecture.py"
 ```
 
-后端源码位置由锁文件决定，详见[后端源码锁与独立仓库接入](./backend-source.md)。
+后端源码位置由 package manifest 决定，详见[内嵌后端 Package](./backend-package.md)。
 
 ## PR 说明
 

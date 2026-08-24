@@ -8,7 +8,7 @@
 - [Rust API](./backend.md)
 - [数据库与持久化](./database.md)
 - [Python 流水线](./python-pipeline.md)
-- [后端源码锁与独立仓库接入](./backend-source.md)
+- [内嵌后端 Package](./backend-package.md)
 - [测试贡献](./testing.md)
 - [AI 辅助开发](./ai-development.md)
 - [Issue、PR、代码风格与发布说明](./process-and-style.md)
