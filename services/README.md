@@ -14,6 +14,40 @@ The workspace contains:
 - `fonts/`: backend-owned default rendering fonts and their redistribution license.
 - `docker/`: the self-contained backend application image definition.
 
+## Start the backend locally
+
+From the monorepo root, the authoritative launcher prepares the locked Python
+environment and Rust binaries, starts `rust_api`, and lets Rust supervise jobsd
+and the AI service:
+
+```bash
+python3 services/scripts/dev_stack.py --runtime python
+```
+
+Startup succeeds only after `http://127.0.0.1:41000/ready` reports that the
+database and supervised services are ready. `Ctrl+C` stops the complete process
+tree. Use `--no-sync --no-build` for a prepared checkout, or `--prepare-only`
+to install/build without starting services.
+
+The FX runtime requires FX `0.0.5` and `RETAIN_AI_FX_GATEWAY_API_KEY` in the
+local environment:
+
+```bash
+python3 services/scripts/dev_stack.py --runtime fx
+```
+
+Credentials are checked as present or missing but are never printed. Inspect
+the Agent integration or run the offline real-PDF smoke with:
+
+```bash
+python3 services/scripts/agent_e2e.py doctor --probe-live
+python3 services/scripts/agent_e2e.py smoke
+```
+
+`/health` is a liveness/diagnostic endpoint. `/ready` is the startup gate for
+the database and locally supervised backend children. The legacy
+`services/api/scripts/dev-remote.sh` entrypoint forwards to the same launcher.
+
 ## Local verification
 
 Run Python commands from this directory, or pass `--project services` from the

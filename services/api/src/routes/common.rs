@@ -8,9 +8,9 @@ use crate::app::{build_jobs_facade_from_state, AppState};
 use crate::config::{DeepSeekRuntimeConfig, MineruRuntimeConfig, PaddleRuntimeConfig};
 use crate::db::Db;
 use crate::models::api::ApiResponse;
+use crate::services::agent_capabilities::AgentCapabilityAuthority;
 use crate::services::jobs::JobsFacade;
 use crate::services::library::LibraryDeps;
-use crate::services::agent_capabilities::AgentCapabilityAuthority;
 
 pub fn ok_json<T>(value: T) -> Json<ApiResponse<T>> {
     Json(ApiResponse::ok(value))
@@ -163,11 +163,16 @@ pub fn build_library_route_deps(state: &AppState) -> LibraryRouteDeps<'_> {
 
 pub struct HealthRouteDeps<'a> {
     pub db: &'a Db,
+    pub ai_supervised: bool,
+    pub jobsd_supervised: bool,
 }
 
 pub fn build_health_route_deps(state: &AppState) -> HealthRouteDeps<'_> {
     HealthRouteDeps {
         db: state.db.as_ref(),
+        ai_supervised: state.config.ai_service.supervise,
+        jobsd_supervised: state.config.jobs_service.is_remote()
+            && state.config.jobs_service.supervise,
     }
 }
 

@@ -7,8 +7,8 @@ use tower_http::trace::TraceLayer;
 
 use crate::app::AppState;
 use crate::auth;
-use crate::routes::agent_runtime_sessions;
 use crate::routes::agent_capabilities;
+use crate::routes::agent_runtime_sessions;
 use crate::routes::ai_proxy;
 use crate::routes::collections;
 use crate::routes::document_operations;
@@ -330,6 +330,7 @@ pub fn build_app(state: AppState) -> Router {
 
     Router::new()
         .route("/health", get(health::health))
+        .route("/ready", get(health::ready))
         .merge(api_routes)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
@@ -337,8 +338,7 @@ pub fn build_app(state: AppState) -> Router {
 }
 
 pub fn build_simple_app(state: AppState) -> Router {
-    Router::new()
-        .route("/health", get(health::health))
+    let api_routes = Router::new()
         .route(
             "/api/v1/translate/bundle",
             post(jobs::translate_bundle).layer(DefaultBodyLimit::disable()),
@@ -346,7 +346,12 @@ pub fn build_simple_app(state: AppState) -> Router {
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             auth::require_api_key,
-        ))
+        ));
+
+    Router::new()
+        .route("/health", get(health::health))
+        .route("/ready", get(health::ready))
+        .merge(api_routes)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(state)

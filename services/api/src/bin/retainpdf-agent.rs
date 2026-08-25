@@ -15,6 +15,7 @@ const MAX_REQUEST_BYTES: u64 = 1024 * 1024;
 
 #[derive(Debug)]
 enum AgentCommand {
+    Version,
     Get { path: String },
     Post { path: String, request_file: PathBuf },
 }
@@ -75,7 +76,7 @@ async fn main() -> ExitCode {
             print_json(&CliEnvelope {
                 schema: CLI_RESPONSE_SCHEMA,
                 ok: true,
-                http_status: Some(status.as_u16()),
+                http_status: status.map(|status| status.as_u16()),
                 response: Some(response),
                 error: None,
             });
@@ -97,8 +98,11 @@ async fn main() -> ExitCode {
     }
 }
 
-async fn run() -> Result<(StatusCode, Value), CliFailure> {
+async fn run() -> Result<(Option<StatusCode>, Value), CliFailure> {
     let command = parse_command(env::args().skip(1).collect())?;
+    if matches!(command, AgentCommand::Version) {
+        return Ok((None, version_response()));
+    }
     let api_url =
         env::var("RETAINPDF_AGENT_API_URL").unwrap_or_else(|_| DEFAULT_API_URL.to_string());
     let api_url = validate_api_url(&api_url)?;
@@ -108,6 +112,7 @@ async fn run() -> Result<(StatusCode, Value), CliFailure> {
     )?;
 
     let (method, path, body) = match command {
+        AgentCommand::Version => unreachable!("version returns before backend setup"),
         AgentCommand::Get { path } => (Method::GET, path, None),
         AgentCommand::Post { path, request_file } => {
             let body = read_request_file(&request_file)?;
@@ -160,7 +165,14 @@ async fn run() -> Result<(StatusCode, Value), CliFailure> {
             response: Some(payload),
         });
     }
-    Ok((status, payload))
+    Ok((Some(status), payload))
+}
+
+fn version_response() -> Value {
+    serde_json::json!({
+        "schema": CLI_RESPONSE_SCHEMA,
+        "version": env!("CARGO_PKG_VERSION"),
+    })
 }
 
 fn select_credential(
@@ -187,6 +199,13 @@ fn parse_command(args: Vec<String>) -> Result<AgentCommand, CliFailure> {
         return Err(CliFailure::usage(usage()));
     };
     match area {
+        "version" | "--version" => {
+            if args.len() == 1 {
+                Ok(AgentCommand::Version)
+            } else {
+                Err(CliFailure::usage("version does not accept arguments"))
+            }
+        }
         "document" => parse_document_command(&args[1..]),
         "operation" => parse_operation_command(&args[1..]),
         "help" | "--help" | "-h" => Err(CliFailure::usage(usage())),
@@ -368,7 +387,7 @@ fn read_request_file(path: &Path) -> Result<Value, CliFailure> {
 }
 
 fn usage() -> &'static str {
-    "usage:\n  retainpdf-agent document inspect --document-id <id>\n  retainpdf-agent operation create --request <relative.json>\n  retainpdf-agent operation get --operation-id <id>\n  retainpdf-agent operation run --operation-id <id> --request <relative.json>\n  retainpdf-agent operation commit --operation-id <id> --request <relative.json>\n  retainpdf-agent operation cancel --operation-id <id> --request <relative.json>"
+    "usage:\n  retainpdf-agent version\n  retainpdf-agent document inspect --document-id <id>\n  retainpdf-agent operation create --request <relative.json>\n  retainpdf-agent operation get --operation-id <id>\n  retainpdf-agent operation run --operation-id <id> --request <relative.json>\n  retainpdf-agent operation commit --operation-id <id> --request <relative.json>\n  retainpdf-agent operation cancel --operation-id <id> --request <relative.json>"
 }
 
 fn print_json(value: &impl Serialize) {
@@ -388,6 +407,22 @@ fn eprint_json(value: &impl Serialize) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn version_is_a_local_command_with_a_stable_schema_and_version() {
+        assert!(matches!(
+            parse_command(vec!["version".to_string()]).expect("parse version"),
+            AgentCommand::Version
+        ));
+        assert_eq!(
+            version_response(),
+            serde_json::json!({
+                "schema": "retainpdf_agent_cli_response_v1",
+                "version": env!("CARGO_PKG_VERSION"),
+            })
+        );
+        assert!(parse_command(vec!["version".to_string(), "extra".to_string()]).is_err());
+    }
 
     #[test]
     fn parses_only_the_fixed_operation_command_grammar() {

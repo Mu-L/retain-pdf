@@ -1,9 +1,10 @@
-mod agent_runtime_sessions;
 mod agent_capabilities;
+mod agent_runtime_sessions;
 mod conversations_contract;
 mod document_operations;
 mod glossaries;
 mod golden_replay;
+mod health;
 mod http_contract;
 mod job_view_contract;
 mod jobs_common;

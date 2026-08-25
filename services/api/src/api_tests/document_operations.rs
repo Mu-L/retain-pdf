@@ -87,12 +87,25 @@ fn real_executor_state(test_name: &str) -> crate::AppState {
         .to_path_buf();
     let mut config = (*state.config).clone();
     config.scripts_dir = repo_root.join("services").join("pipeline");
-    let venv_python = repo_root.join(".venv").join("bin").join("python");
-    config.python_bin = if venv_python.is_file() {
-        venv_python.to_string_lossy().to_string()
-    } else {
-        "python3".to_string()
-    };
+    let python_candidates = [
+        repo_root.join("services/.venv/bin/python"),
+        repo_root.join("services/.venv/bin/python3"),
+        repo_root.join("services/.venv/Scripts/python.exe"),
+        repo_root.join(".venv/bin/python"),
+        repo_root.join(".venv/bin/python3"),
+        repo_root.join(".venv/Scripts/python.exe"),
+    ];
+    config.python_bin = python_candidates
+        .into_iter()
+        .find(|candidate| candidate.is_file())
+        .map(|candidate| candidate.to_string_lossy().to_string())
+        .unwrap_or_else(|| {
+            if cfg!(windows) {
+                "python".to_string()
+            } else {
+                "python3".to_string()
+            }
+        });
     crate::AppState {
         config: Arc::new(config),
         ..state
