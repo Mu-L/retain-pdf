@@ -11,4 +11,3 @@ from retainpdf_pipeline.services.rendering.source.background.patch import (
     rewrite_background_image,
     rewrite_raw_stream_image,
 )
-

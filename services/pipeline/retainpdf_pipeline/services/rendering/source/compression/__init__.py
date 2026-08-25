@@ -6,4 +6,3 @@ from retainpdf_pipeline.services.rendering.source.compression.analysis import (
 )
 from retainpdf_pipeline.services.rendering.source.compression.ghostscript import compress_pdf_with_ghostscript_file
 from retainpdf_pipeline.services.rendering.source.compression.image_pipeline import compress_pdf_images_only_impl
-

@@ -25,4 +25,3 @@ python services/contracts/check_parity.py --require-upstream
 In an extracted backend repository, the upstream directory is intentionally
 absent. The same command without `--require-upstream` validates that all local
 contract files exist and contain valid JSON, then skips upstream parity.
-
