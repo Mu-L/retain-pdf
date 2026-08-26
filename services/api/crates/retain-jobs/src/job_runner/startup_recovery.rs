@@ -1,4 +1,5 @@
 use anyhow::Result;
+use std::path::Path;
 use tracing::warn;
 
 use crate::config::AppConfig;
@@ -70,41 +71,77 @@ pub fn reconcile_stale_running_jobs(config: &AppConfig, db: &Db) -> Result<usize
             ),
         };
         let timestamp = now_iso();
+        let resumable = db.has_running_pipeline_attempt(&job_record.job_id)?;
         match db.get_job(&job_record.job_id) {
             Ok(mut job) => {
-                job.append_log(&format!("ERROR: {detail}"));
-                job.status = JobStatusKind::Failed;
-                job.stage = Some("failed".to_string());
-                job.stage_detail = Some("runtime startup stale running job recovered".to_string());
-                job.error = Some(detail.clone());
                 job.updated_at = timestamp.clone();
-                job.finished_at = Some(timestamp.clone());
                 job.pid = None;
+                let committed_render_output = restore_committed_render_output(
+                    &mut job,
+                    committed_render_output_path(db, &job_record.job_id)?,
+                );
+                if committed_render_output {
+                    job.append_log(&format!("WARN: {detail}"));
+                    job.append_log(
+                        "INFO: committed render output recovered; task completed without rerender",
+                    );
+                    job.status = JobStatusKind::Succeeded;
+                    job.stage = Some("finished".to_string());
+                    job.stage_detail =
+                        Some("runtime restart recovered committed render output".to_string());
+                    job.error = None;
+                    job.finished_at = Some(timestamp.clone());
+                    job.replace_failure_info(None);
+                } else if resumable {
+                    job.append_log(&format!("WARN: {detail}"));
+                    job.append_log(
+                        "INFO: durable pipeline checkpoint found; job requeued for automatic resume",
+                    );
+                    job.status = JobStatusKind::Queued;
+                    job.stage_detail = Some(
+                        "runtime restart recovered durable checkpoint; waiting to resume"
+                            .to_string(),
+                    );
+                    job.error = None;
+                    job.finished_at = None;
+                    job.replace_failure_info(None);
+                } else {
+                    job.append_log(&format!("ERROR: {detail}"));
+                    job.status = JobStatusKind::Failed;
+                    job.stage = Some("failed".to_string());
+                    job.stage_detail =
+                        Some("runtime startup stale running job recovered".to_string());
+                    job.error = Some(detail.clone());
+                    job.finished_at = Some(timestamp.clone());
+                    job.replace_failure_info(Some(JobFailureInfo {
+                        stage: "startup_recovery".to_string(),
+                        category: failure_category.to_string(),
+                        code: None,
+                        failed_stage: Some("startup_recovery".to_string()),
+                        failure_code: Some(failure_code.to_string()),
+                        failure_category: Some("internal".to_string()),
+                        provider_stage: None,
+                        provider_code: None,
+                        summary: "任务运行时启动时回收了遗留 running 任务".to_string(),
+                        root_cause: Some(detail.clone()),
+                        retryable: true,
+                        upstream_host: None,
+                        provider: None,
+                        suggestion: Some(
+                            "该任务对应的 worker 已不在运行；请重新提交或手动重试".to_string(),
+                        ),
+                        last_log_line: Some(detail.clone()),
+                        raw_excerpt: Some(detail.clone()),
+                        raw_error_excerpt: Some(detail.clone()),
+                        raw_diagnostic: None,
+                        ai_diagnostic: None,
+                    }));
+                }
                 job.sync_runtime_state();
-                job.replace_failure_info(Some(JobFailureInfo {
-                    stage: "startup_recovery".to_string(),
-                    category: failure_category.to_string(),
-                    code: None,
-                    failed_stage: Some("startup_recovery".to_string()),
-                    failure_code: Some(failure_code.to_string()),
-                    failure_category: Some("internal".to_string()),
-                    provider_stage: None,
-                    provider_code: None,
-                    summary: "任务运行时启动时回收了遗留 running 任务".to_string(),
-                    root_cause: Some(detail.clone()),
-                    retryable: true,
-                    upstream_host: None,
-                    provider: None,
-                    suggestion: Some(
-                        "该任务对应的 worker 已不在运行；请重新提交或手动重试".to_string(),
-                    ),
-                    last_log_line: Some(detail.clone()),
-                    raw_excerpt: Some(detail.clone()),
-                    raw_error_excerpt: Some(detail.clone()),
-                    raw_diagnostic: None,
-                    ai_diagnostic: None,
-                }));
                 persist_job_with_resources(db, &config.data_root, &config.output_root, &job)?;
+                if committed_render_output {
+                    db.finish_latest_pipeline_attempt(&job_record.job_id, "succeeded")?;
+                }
             }
             Err(error) => {
                 warn!(
@@ -116,7 +153,7 @@ pub fn reconcile_stale_running_jobs(config: &AppConfig, db: &Db) -> Result<usize
         }
         reconciled += 1;
         warn!(
-            "recovered stale running job during runtime startup: {}",
+            "recovered stale running job during runtime startup: {} resumable={resumable}",
             job_record.job_id
         );
     }
@@ -124,4 +161,107 @@ pub fn reconcile_stale_running_jobs(config: &AppConfig, db: &Db) -> Result<usize
         warn!("runtime startup reconciliation recovered {reconciled} stale running job(s)");
     }
     Ok(reconciled)
+}
+
+fn committed_render_output_path(db: &Db, job_id: &str) -> Result<Option<String>> {
+    let Some(stage) = db.running_pipeline_stage_state(job_id)? else {
+        return Ok(None);
+    };
+    if stage.stage_key != "render" || stage.status != "completed" {
+        return Ok(None);
+    }
+    let units = db.list_pipeline_units(job_id, stage.attempt, "render")?;
+    Ok(units.into_iter().rev().find_map(|unit| {
+        (unit.unit_key == "output-pdf"
+            && unit
+                .payload
+                .get("unit_kind")
+                .and_then(serde_json::Value::as_str)
+                == Some("render_output"))
+        .then(|| {
+            unit.payload
+                .get("path")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string)
+        })
+        .flatten()
+    }))
+}
+
+fn restore_committed_render_output(
+    job: &mut crate::models::domain::JobSnapshot,
+    committed_output_path: Option<String>,
+) -> bool {
+    let Some(output_path) = committed_output_path else {
+        return false;
+    };
+    job.artifacts
+        .get_or_insert_with(Default::default)
+        .output_pdf = Some(output_path);
+    render_artifacts_are_ready(job)
+}
+
+fn render_artifacts_are_ready(job: &crate::models::domain::JobSnapshot) -> bool {
+    let Some(artifacts) = job.artifacts.as_ref() else {
+        return false;
+    };
+    let outputs = artifacts.render_outputs();
+    outputs
+        .output_pdf
+        .as_deref()
+        .map(Path::new)
+        .is_some_and(Path::is_file)
+        && outputs
+            .summary
+            .as_deref()
+            .map(Path::new)
+            .is_some_and(Path::is_file)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::{render_artifacts_are_ready, restore_committed_render_output};
+    use crate::models::domain::JobSnapshot;
+    use crate::models::request::CreateJobInput;
+
+    #[test]
+    fn committed_render_recovery_requires_output_and_summary_files() {
+        let root = std::env::temp_dir().join(format!(
+            "retain-render-recovery-{}-{}",
+            std::process::id(),
+            fastrand::u64(..)
+        ));
+        fs::create_dir_all(&root).expect("fixture root");
+        let output = root.join("output.pdf");
+        let summary = root.join("pipeline_summary.json");
+        let mut job = JobSnapshot::new(
+            "job-1".to_string(),
+            CreateJobInput::default(),
+            vec!["python".to_string()],
+        );
+        let artifacts = job.artifacts.get_or_insert_with(Default::default);
+        artifacts.output_pdf = Some(output.to_string_lossy().into_owned());
+        artifacts.summary = Some(summary.to_string_lossy().into_owned());
+
+        fs::write(&output, b"pdf").expect("output");
+        assert!(!render_artifacts_are_ready(&job));
+        fs::write(&summary, b"{}").expect("summary");
+        assert!(render_artifacts_are_ready(&job));
+
+        job.artifacts.as_mut().expect("artifacts").output_pdf = None;
+        assert!(restore_committed_render_output(
+            &mut job,
+            Some(output.to_string_lossy().into_owned())
+        ));
+        assert_eq!(
+            job.artifacts
+                .as_ref()
+                .and_then(|artifacts| artifacts.output_pdf.as_deref()),
+            Some(output.to_string_lossy().as_ref())
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
 }

@@ -5,8 +5,8 @@ mod reader;
 mod translation_debug;
 
 pub use actions::{
-    cancel_job_response, rerun_job_response, resume_job_response, retry_stage_response,
-    stage_actions_response,
+    cancel_job_response, rerun_job_response, resolve_ocr_ambiguity_response, resume_job_response,
+    retry_stage_response, stage_actions_response,
 };
 pub use diagnostics::{job_diagnostics_response, resume_plan_response};
 pub use read::{

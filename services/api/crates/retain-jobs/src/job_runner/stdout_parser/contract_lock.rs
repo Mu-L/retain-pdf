@@ -10,8 +10,8 @@ use std::path::PathBuf;
 
 use serde_json::Value;
 
-use super::artifact_fields::{artifact_field_from_key, ARTIFACT_LABEL_RULES};
 use super::apply_line;
+use super::artifact_fields::{artifact_field_from_key, ARTIFACT_LABEL_RULES};
 use crate::models::domain::JobSnapshot;
 use crate::models::request::CreateJobInput;
 
@@ -50,7 +50,10 @@ fn label_set_matches_contract_exactly() {
         .keys()
         .map(String::as_str)
         .collect();
-    let rust_labels: BTreeSet<&str> = ARTIFACT_LABEL_RULES.iter().map(|(label, _)| *label).collect();
+    let rust_labels: BTreeSet<&str> = ARTIFACT_LABEL_RULES
+        .iter()
+        .map(|(label, _)| *label)
+        .collect();
     assert_eq!(
         rust_labels, schema_labels,
         "rust 标签表与契约不一致：改一侧必须同步另一侧与 schema"
@@ -209,4 +212,33 @@ fn provider_state_and_stage_prefix_examples_drive_state_machine() {
             "阶段前缀行示例未推动 stage：{example}"
         );
     }
+}
+
+#[test]
+fn checkpoint_event_example_is_accepted_by_durable_parser() {
+    let contract = load_contract();
+    let example = contract["checkpoint_event"]["example"]
+        .as_str()
+        .expect("checkpoint event example");
+    let parsed = super::parse_pipeline_checkpoint_line(example)
+        .expect("checkpoint contract example must parse");
+    assert_eq!(parsed.schema, "pipeline_checkpoint_v1");
+    assert_eq!(parsed.stage, "translate");
+    assert!(parsed
+        .page_hash
+        .as_deref()
+        .is_some_and(|value| value.len() == 64));
+}
+
+#[test]
+fn stage_observation_example_is_accepted_by_durable_parser() {
+    let contract = load_contract();
+    let example = contract["stage_observation_event"]["example"]
+        .as_str()
+        .expect("stage observation example");
+    let parsed = super::parse_pipeline_stage_observation_line(example)
+        .expect("stage observation contract example must parse");
+    assert_eq!(parsed.schema, "pipeline_stage_observation_v1");
+    assert_eq!(parsed.event_type, "stage_progress");
+    assert_eq!(parsed.user_stage, "translation");
 }

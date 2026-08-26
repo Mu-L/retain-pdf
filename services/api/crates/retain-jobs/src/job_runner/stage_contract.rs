@@ -1,15 +1,21 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Result};
+use sha2::{Digest, Sha256};
 
 use crate::models::domain::{JobArtifacts, JobRuntimeState};
-use crate::storage_paths::{
-    TRANSLATION_CHECKPOINT_FILE_NAME, TRANSLATION_MANIFEST_FILE_NAME,
-};
+use crate::storage_paths::{TRANSLATION_CHECKPOINT_FILE_NAME, TRANSLATION_MANIFEST_FILE_NAME};
 
 use super::artifact_requirements::{
     optional_existing_file, required_existing_dir, required_existing_file,
 };
+
+pub(super) fn sha256_hex(bytes: impl AsRef<[u8]>) -> String {
+    Sha256::digest(bytes.as_ref())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
 
 pub(super) struct OcrReadyInputs {
     pub(super) normalized_path: PathBuf,
@@ -100,8 +106,8 @@ fn translation_checkpoint_candidate(
         "translation_checkpoint_json",
         source_job_id,
     )?;
-    let payload: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(&checkpoint_path)?).map_err(|error| {
+    let payload: serde_json::Value = serde_json::from_slice(&std::fs::read(&checkpoint_path)?)
+        .map_err(|error| {
             anyhow!(
                 "invalid {} for {source_job_id}: {error}",
                 TRANSLATION_CHECKPOINT_FILE_NAME
@@ -127,33 +133,61 @@ fn translation_checkpoint_candidate(
             checkpoint_path.display()
         ));
     }
-    let pages = payload
-        .get("pages")
-        .and_then(serde_json::Value::as_array)
-        .ok_or_else(|| anyhow!("translation checkpoint pages missing for {source_job_id}"))?;
     let parent = checkpoint_path
         .parent()
         .ok_or_else(|| anyhow!("translation checkpoint has no parent for {source_job_id}"))?;
+    validate_checkpoint_pages(&payload, parent, source_job_id, true)?;
+    Ok(())
+}
+
+fn validate_checkpoint_pages(
+    payload: &serde_json::Value,
+    parent: &Path,
+    source_label: &str,
+    pages_required: bool,
+) -> Result<()> {
+    let Some(pages) = payload.get("pages").and_then(serde_json::Value::as_array) else {
+        if pages_required {
+            return Err(anyhow!(
+                "translation checkpoint pages missing for {source_label}"
+            ));
+        }
+        return Ok(());
+    };
     for page in pages {
         let relative = page
             .get("path")
             .and_then(serde_json::Value::as_str)
-            .ok_or_else(|| anyhow!("translation checkpoint page path missing for {source_job_id}"))?;
+            .ok_or_else(|| {
+                anyhow!("translation checkpoint page path missing for {source_label}")
+            })?;
         let relative_path = Path::new(relative);
         let file_name = relative_path.file_name().and_then(|value| value.to_str());
         if relative_path.components().count() != 1
-            || file_name.is_none_or(|value| {
-                !value.starts_with("page-") || !value.ends_with(".json")
-            })
+            || file_name
+                .is_none_or(|value| !value.starts_with("page-") || !value.ends_with(".json"))
         {
             return Err(anyhow!(
-                "unsafe translation checkpoint page path for {source_job_id}: {relative}"
+                "unsafe translation checkpoint page path for {source_label}: {relative}"
             ));
         }
-        if !parent.join(relative_path).is_file() {
+        let page_path = parent.join(relative_path);
+        if !page_path.is_file() {
             return Err(anyhow!(
-                "translation checkpoint page file missing for {source_job_id}: {relative}"
+                "translation checkpoint page file missing for {source_label}: {relative}"
             ));
+        }
+        if let Some(expected_hash) = page
+            .get("page_hash")
+            .and_then(serde_json::Value::as_str)
+            .filter(|value| !value.is_empty())
+        {
+            let actual_hash = sha256_hex(std::fs::read(&page_path)?);
+            if expected_hash != actual_hash {
+                return Err(anyhow!(
+                    "translation checkpoint page hash mismatch for {source_label}: {relative}"
+                ));
+            }
         }
     }
     Ok(())
@@ -244,11 +278,11 @@ fn require_completed_checkpoint_if_present(
     }
     let checkpoint: serde_json::Value = serde_json::from_slice(&std::fs::read(&checkpoint_path)?)
         .map_err(|error| {
-            anyhow!(
-                "invalid {} for {source_label}: {error}",
-                TRANSLATION_CHECKPOINT_FILE_NAME
-            )
-        })?;
+        anyhow!(
+            "invalid {} for {source_label}: {error}",
+            TRANSLATION_CHECKPOINT_FILE_NAME
+        )
+    })?;
     if checkpoint.get("schema").and_then(serde_json::Value::as_str)
         != Some("translation_checkpoint_v1")
         || checkpoint
@@ -262,10 +296,7 @@ fn require_completed_checkpoint_if_present(
         ));
     }
     if checkpoint.get("status").and_then(serde_json::Value::as_str) != Some("complete")
-        || checkpoint
-            .get("phase")
-            .and_then(serde_json::Value::as_str)
-            != Some("committed")
+        || checkpoint.get("phase").and_then(serde_json::Value::as_str) != Some("committed")
         || checkpoint
             .get("final_manifest")
             .and_then(serde_json::Value::as_str)
@@ -280,11 +311,11 @@ fn require_completed_checkpoint_if_present(
             checkpoint_path.display()
         ));
     }
+    validate_checkpoint_pages(&checkpoint, translations_dir, source_label, false)?;
 
     let manifest: serde_json::Value = serde_json::from_slice(&std::fs::read(manifest_path)?)
         .map_err(|error| anyhow!("invalid translation manifest for {source_label}: {error}"))?;
-    if manifest.get("schema").and_then(serde_json::Value::as_str)
-        != Some("translation_manifest_v1")
+    if manifest.get("schema").and_then(serde_json::Value::as_str) != Some("translation_manifest_v1")
         || manifest
             .get("schema_version")
             .and_then(serde_json::Value::as_u64)
@@ -413,5 +444,26 @@ mod tests {
         .expect("completed checkpoint");
         translation_ready_inputs_for_render(&artifacts, &root, "job-test")
             .expect("completed checkpoint is renderable");
+    }
+
+    #[test]
+    fn checkpoint_page_hash_rejects_file_ahead_of_commit_marker() {
+        let root = temp_root("page-hash");
+        let page = root.join("page-001-deepseek.json");
+        std::fs::write(&page, b"committed").expect("committed page");
+        let committed_hash = sha256_hex(b"committed");
+        let checkpoint = serde_json::json!({
+            "pages": [{
+                "path": "page-001-deepseek.json",
+                "page_hash": committed_hash,
+            }]
+        });
+        validate_checkpoint_pages(&checkpoint, &root, "job-test", true)
+            .expect("matching page hash");
+
+        std::fs::write(&page, b"saved after last checkpoint").expect("uncommitted page save");
+        let error = validate_checkpoint_pages(&checkpoint, &root, "job-test", true)
+            .expect_err("page ahead of checkpoint must be rejected");
+        assert!(error.to_string().contains("page hash mismatch"));
     }
 }

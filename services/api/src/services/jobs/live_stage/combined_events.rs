@@ -17,7 +17,9 @@ pub(crate) fn list_combined_job_events(
 ) -> Result<Vec<JobEventRecord>, AppError> {
     let mut items = db.list_job_events(&job.job_id, 10_000, 0)?;
     let base_seq = items.iter().map(|item| item.seq).max().unwrap_or(0);
-    let mut file_items = load_pipeline_event_records(job, data_root, base_seq);
+    let durable_state_authority = db.has_pipeline_attempt(&job.job_id)?;
+    let mut file_items =
+        load_pipeline_event_records(job, data_root, base_seq, durable_state_authority);
     items.append(&mut file_items);
     append_ocr_child_events(db, data_root, job, &mut items)?;
     items.sort_by(|left, right| {
@@ -60,8 +62,13 @@ fn append_ocr_child_events(
     };
     let base_seq = items.iter().map(|item| item.seq).max().unwrap_or(0);
     let mut child_items = db.list_job_events(ocr_job_id, 10_000, 0)?;
-    let mut child_file_items =
-        load_pipeline_event_records(&ocr_job, data_root, base_seq + child_items.len() as i64);
+    let child_has_durable_authority = db.has_pipeline_attempt(ocr_job_id)?;
+    let mut child_file_items = load_pipeline_event_records(
+        &ocr_job,
+        data_root,
+        base_seq + child_items.len() as i64,
+        child_has_durable_authority,
+    );
     child_items.append(&mut child_file_items);
     items.extend(
         child_items

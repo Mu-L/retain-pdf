@@ -6,6 +6,7 @@ use anyhow::Result;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
+use super::jobs::resume_requeued_pipeline_jobs;
 use crate::app::cleanup::{
     log_startup_settings_with_interval, run_cleanup_once, spawn_periodic_cleanup_with_interval,
     RetentionSettings,
@@ -34,6 +35,10 @@ async fn serve_with_shutdown(
     shutdown: impl std::future::Future<Output = ()> + Send + 'static,
 ) -> Result<()> {
     let state = build_state(config.clone())?;
+    let resumed = resume_requeued_pipeline_jobs(&state)?;
+    if resumed > 0 {
+        tracing::warn!("startup requeued {resumed} durable pipeline job(s) for resume");
+    }
 
     // Retention/cleanup is operational maintenance, not startup correctness
     // (unlike `reconcile_stale_running_jobs`/`cleanup_legacy_workflows`
@@ -46,8 +51,11 @@ async fn serve_with_shutdown(
     if let Err(error) = run_cleanup_once(&retention_settings, state.db.as_ref()) {
         tracing::warn!("startup retention cleanup sweep failed: {error:#}");
     }
-    let _cleanup_handle =
-        spawn_periodic_cleanup_with_interval(retention_settings, state.db.clone(), config.cleanup.interval);
+    let _cleanup_handle = spawn_periodic_cleanup_with_interval(
+        retention_settings,
+        state.db.clone(),
+        config.cleanup.interval,
+    );
 
     let app = build_app(state.clone());
     let simple_app = build_simple_app(state);
@@ -78,8 +86,10 @@ async fn serve_with_shutdown(
     });
 
     // Phase 2（ADR-001）：RUST_API_AI_SUPERVISE=1 时 rust 监督 ai_service 生命周期
-    let ai_supervisor_handle =
-        crate::services::ai_supervisor::spawn_ai_supervisor(config.clone(), shutdown_rx_watch.clone());
+    let ai_supervisor_handle = crate::services::ai_supervisor::spawn_ai_supervisor(
+        config.clone(),
+        shutdown_rx_watch.clone(),
+    );
     if ai_supervisor_handle.is_some() {
         tracing::info!("ai_supervisor enabled: managing retainpdf-ai lifecycle");
     }

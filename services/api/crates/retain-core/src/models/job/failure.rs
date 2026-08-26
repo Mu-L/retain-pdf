@@ -252,6 +252,7 @@ fn infer_failure_category(failure_code: &str, failed_stage: &str) -> Option<Stri
     let category = match code.as_str() {
         "auth_failed" => "auth",
         "dns_resolution_failed" => "network",
+        "ocr_request_ambiguous" => "provider",
         "upstream_timeout" => "timeout",
         "rate_limited" => "provider",
         "source_pdf_missing" => "input",

@@ -3,6 +3,7 @@ use std::path::Path;
 use anyhow::{anyhow, Result};
 use serde_json::Value;
 
+use crate::job_runner::stage_contract::sha256_hex;
 use crate::models::domain::JobStatusKind;
 use crate::storage_paths::{
     build_job_paths, TRANSLATION_CHECKPOINT_FILE_NAME, TRANSLATION_MANIFEST_FILE_NAME,
@@ -17,7 +18,10 @@ pub(super) fn import_translation_checkpoint_candidate(
     source_status: &JobStatusKind,
     target_translated_dir: &Path,
 ) -> Result<bool> {
-    if !matches!(source_status, JobStatusKind::Failed | JobStatusKind::Canceled) {
+    if !matches!(
+        source_status,
+        JobStatusKind::Failed | JobStatusKind::Canceled
+    ) {
         return Ok(false);
     }
     let target_checkpoint = target_translated_dir.join(TRANSLATION_CHECKPOINT_FILE_NAME);
@@ -64,17 +68,26 @@ pub(super) fn import_translation_checkpoint_candidate(
         .ok_or_else(|| anyhow!("translation checkpoint pages missing for {source_job_id}"))?;
     std::fs::create_dir_all(target_translated_dir)?;
     for page in pages {
-        let relative = page
-            .get("path")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("translation checkpoint page path missing for {source_job_id}"))?;
+        let relative = page.get("path").and_then(Value::as_str).ok_or_else(|| {
+            anyhow!("translation checkpoint page path missing for {source_job_id}")
+        })?;
         let file_name = safe_checkpoint_page_name(relative).ok_or_else(|| {
             anyhow!("unsafe translation checkpoint page path for {source_job_id}: {relative}")
         })?;
-        copy_checkpoint_file(
-            &source_paths.translated_dir.join(file_name),
-            &target_translated_dir.join(file_name),
-        )?;
+        let source_page = source_paths.translated_dir.join(file_name);
+        if let Some(expected_hash) = page
+            .get("page_hash")
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+        {
+            let actual_hash = sha256_hex(std::fs::read(&source_page)?);
+            if actual_hash != expected_hash {
+                return Err(anyhow!(
+                    "translation checkpoint page hash mismatch for {source_job_id}: {relative}"
+                ));
+            }
+        }
+        copy_checkpoint_file(&source_page, &target_translated_dir.join(file_name))?;
     }
     let source_domain_context = source_paths.translated_dir.join(DOMAIN_CONTEXT_FILE_NAME);
     if source_domain_context.is_file() {
@@ -230,9 +243,7 @@ mod tests {
         let source_paths = build_job_paths(&root, "source-job").expect("source paths");
         let target_paths = build_job_paths(&root, "target-job").expect("target paths");
         std::fs::write(
-            source_paths
-                .translated_dir
-                .join("page-001-deepseek.json"),
+            source_paths.translated_dir.join("page-001-deepseek.json"),
             b"[]",
         )
         .expect("write source page");
@@ -294,7 +305,11 @@ mod tests {
         let root = test_root("path-escape");
         let source_paths = build_job_paths(&root, "source-job").expect("source paths");
         let target_paths = build_job_paths(&root, "target-job").expect("target paths");
-        write_checkpoint(&source_paths.translated_dir, "in_progress", "../escape.json");
+        write_checkpoint(
+            &source_paths.translated_dir,
+            "in_progress",
+            "../escape.json",
+        );
 
         let error = import_translation_checkpoint_candidate(
             &root,
@@ -303,7 +318,9 @@ mod tests {
             &target_paths.translated_dir,
         )
         .expect_err("reject path escape");
-        assert!(error.to_string().contains("unsafe translation checkpoint page path"));
+        assert!(error
+            .to_string()
+            .contains("unsafe translation checkpoint page path"));
 
         let _ = std::fs::remove_dir_all(root);
     }

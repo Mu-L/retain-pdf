@@ -3,7 +3,8 @@ use axum::Json;
 
 use crate::error::AppError;
 use crate::models::api::{
-    ApiResponse, JobSubmissionView, RetryStageRequest, RetryStageSubmissionView, StageActionsView,
+    ApiResponse, JobSubmissionView, OcrAmbiguityResolutionRequest, OcrAmbiguityResolutionView,
+    RetryStageRequest, RetryStageSubmissionView, StageActionsView,
 };
 
 use crate::routes::common::{jobs_facade, ok_json, request_base_url, JobsRouteDeps};
@@ -61,5 +62,17 @@ pub fn retry_stage_response(
     let base_url = request_base_url(headers, deps.default_port, &deps.bind_host);
     Ok(ok_json(
         jobs_facade(deps).retry_stage_submission(&base_url, job_id, request)?,
+    ))
+}
+
+pub fn resolve_ocr_ambiguity_response(
+    deps: JobsRouteDeps<'_>,
+    headers: &HeaderMap,
+    job_id: &str,
+    request: OcrAmbiguityResolutionRequest,
+) -> Result<Json<ApiResponse<OcrAmbiguityResolutionView>>, AppError> {
+    let base_url = request_base_url(headers, deps.default_port, &deps.bind_host);
+    Ok(ok_json(
+        jobs_facade(deps).resolve_ocr_ambiguity_submission(&base_url, job_id, request)?,
     ))
 }

@@ -4,10 +4,10 @@ use crate::job_events::persist_runtime_job_with_resources;
 use crate::models::domain::{now_iso, JobRuntimeState, JobStatusKind};
 use crate::storage_paths::build_job_paths;
 
-#[path = "translation_flow_artifacts.rs"]
-mod translation_flow_artifacts;
 #[path = "translation_checkpoint_resume.rs"]
 mod translation_checkpoint_resume;
+#[path = "translation_flow_artifacts.rs"]
+mod translation_flow_artifacts;
 #[path = "translation_flow_child.rs"]
 mod translation_flow_child;
 #[path = "translation_flow_executor.rs"]
@@ -29,6 +29,43 @@ use super::ocr_flow::{execute_ocr_job, sync_parent_with_ocr_child};
 use super::pipeline_plan::PipelinePlan;
 use super::ProcessRuntimeDeps;
 use translation_flow_executor::run_after_translation_stage;
+
+pub(super) async fn resume_translation_stage_from_durable_state(
+    deps: ProcessRuntimeDeps,
+    job: JobRuntimeState,
+    render_after_translation: bool,
+) -> Result<JobRuntimeState> {
+    let job_paths = build_job_paths(&deps.persist.output_root, &job.job_id)?;
+    let translation_stage = run_translation_stage(&deps, job, &job_paths).await?;
+    let translated_job = translation_stage.job;
+    if !matches!(translated_job.status, JobStatusKind::Succeeded) || !render_after_translation {
+        return Ok(translated_job);
+    }
+    run_render_stage_after_translation(
+        deps,
+        translated_job,
+        &job_paths,
+        &translation_stage.source_pdf_path,
+    )
+    .await
+}
+
+pub(super) async fn resume_render_stage_from_durable_state(
+    deps: ProcessRuntimeDeps,
+    job: JobRuntimeState,
+) -> Result<JobRuntimeState> {
+    let job_paths = build_job_paths(&deps.persist.output_root, &job.job_id)?;
+    let artifacts = job
+        .artifacts
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("durable render resume is missing job artifacts"))?;
+    let render_inputs = crate::job_runner::stage_contract::translation_ready_inputs_for_render(
+        artifacts,
+        &deps.persist.data_root,
+        &job.job_id,
+    )?;
+    run_render_stage_after_translation(deps, job, &job_paths, &render_inputs.source_pdf_path).await
+}
 
 pub(super) async fn run_translation_job_with_ocr(
     deps: ProcessRuntimeDeps,

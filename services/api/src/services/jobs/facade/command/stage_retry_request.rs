@@ -7,10 +7,6 @@ pub(super) fn build_retry_request(
     source_job: &JobSnapshot,
     stage: &RetryStageKind,
 ) -> Result<CreateJobInput, AppError> {
-    let artifacts = source_job
-        .artifacts
-        .as_ref()
-        .ok_or_else(|| AppError::bad_request("source job has no reusable artifacts"))?;
     let workflow = match stage {
         RetryStageKind::Ocr => WorkflowKind::Book,
         RetryStageKind::Translation => WorkflowKind::Book,
@@ -31,6 +27,10 @@ pub(super) fn build_retry_request(
             require_request_source(&request)?;
         }
         RetryStageKind::Translation => {
+            let artifacts = source_job
+                .artifacts
+                .as_ref()
+                .ok_or_else(|| AppError::bad_request("source job has no reusable artifacts"))?;
             require_artifact(
                 artifacts.normalized_document_json.as_ref(),
                 "normalized_document_json",
@@ -39,6 +39,10 @@ pub(super) fn build_retry_request(
             request.source.artifact_job_id = source_job.job_id.clone();
         }
         RetryStageKind::Render => {
+            let artifacts = source_job
+                .artifacts
+                .as_ref()
+                .ok_or_else(|| AppError::bad_request("source job has no reusable artifacts"))?;
             require_artifact(artifacts.translations_dir.as_ref(), "translations_dir")?;
             require_artifact(artifacts.source_pdf.as_ref(), "source_pdf")?;
             request.source.artifact_job_id = source_job.job_id.clone();

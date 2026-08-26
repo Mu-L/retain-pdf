@@ -12,6 +12,10 @@ use crate::models::domain::{event_progress_unit, job_user_stage, normalize_event
 #[derive(Debug, Deserialize)]
 struct PipelineEventJsonlRecord {
     #[serde(default)]
+    schema: Option<String>,
+    #[serde(default)]
+    schema_version: Option<u32>,
+    #[serde(default)]
     job_id: Option<String>,
     #[serde(default)]
     ts: Option<String>,
@@ -170,6 +174,14 @@ fn push_pipeline_event_line(
     if let Value::Object(map) = &mut payload {
         map.entry("raw_source_kind".to_string())
             .or_insert_with(|| Value::String("pipeline_jsonl".to_string()));
+        if let Some(schema) = parsed.schema.as_ref() {
+            map.entry("raw_schema".to_string())
+                .or_insert_with(|| Value::String(schema.clone()));
+        }
+        if let Some(schema_version) = parsed.schema_version {
+            map.entry("raw_schema_version".to_string())
+                .or_insert_with(|| Value::Number(schema_version.into()));
+        }
     }
     records.push(JobEventRecord {
         job_id: job_id.to_string(),

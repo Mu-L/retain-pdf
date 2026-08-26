@@ -80,6 +80,29 @@ pub fn classify_job_failure(job: &JobSnapshot) -> Option<JobFailureInfo> {
         return Some(provider_failure);
     }
 
+    if haystack.contains("OCR provider request outcome is ambiguous") {
+        return Some(build_failure(
+            failed_stage,
+            "ocr_request_ambiguous",
+            None,
+            "OCR 请求结果不明确，已阻止自动重发",
+            Some(
+                "服务在提交 OCR 请求后、持久化 provider 任务标识前中断，无法确认上游是否已接收请求"
+                    .to_string(),
+            ),
+            false,
+            extract_upstream_host(&haystack),
+            provider_name(diagnostics),
+            Some(
+                "请先在 OCR provider 控制台确认是否已创建任务，再决定恢复现有任务或显式重新提交"
+                    .to_string(),
+            ),
+            select_relevant_log_line(job, error, &["OCR provider request outcome is ambiguous"]),
+            first_error_excerpt(error, &haystack),
+            raw_diagnostic.clone(),
+        ));
+    }
+
     if haystack.contains("Failed to resolve")
         || haystack.contains("NameResolutionError")
         || haystack.contains("Temporary failure in name resolution")
@@ -385,6 +408,26 @@ mod tests {
         let failure = classify_job_failure(&job).expect("failure");
         assert_eq!(failure.category, "placeholder_unstable");
         assert_eq!(failure.stage, "translation");
+    }
+
+    #[test]
+    fn classify_job_failure_blocks_automatic_retry_for_ambiguous_ocr_submit() {
+        let mut job = JobSnapshot::new(
+            "job-ambiguous-ocr-submit".to_string(),
+            CreateJobInput::default(),
+            vec!["native-ocr".to_string()],
+        );
+        job.status = JobStatusKind::Failed;
+        job.stage = Some("ocr".to_string());
+        job.error = Some(
+            "OCR provider request outcome is ambiguous; automatic resubmit blocked: service restarted before receipt"
+                .to_string(),
+        );
+
+        let failure = classify_job_failure(&job).expect("failure");
+        assert_eq!(failure.category, "ocr_request_ambiguous");
+        assert_eq!(failure.failure_category.as_deref(), Some("provider"));
+        assert!(!failure.retryable);
     }
 
     #[test]

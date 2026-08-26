@@ -8,8 +8,8 @@ use tracing::warn;
 use super::jobs::reconcile_owned_runtime;
 use crate::config::AppConfig;
 use crate::db::Db;
-use crate::services::runtime_gateway::JobRuntime;
 use crate::services::agent_capabilities::AgentCapabilityAuthority;
+use crate::services::runtime_gateway::JobRuntime;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -153,11 +153,11 @@ mod tests {
                 ai_service: crate::config::AiServiceConfig::default(),
                 jobs_service: crate::config::JobsServiceConfig::default(),
                 asset: crate::config::AssetConfig::default(),
-            cleanup: crate::config::CleanupConfig::default(),
-            db: crate::config::DbConfig::default(),
-            ai_proxy: crate::config::AiProxyConfig::default(),
-            reader_llm: crate::config::ReaderLlmConfig::default(),
-            rag: crate::config::RagConfig::default(),
+                cleanup: crate::config::CleanupConfig::default(),
+                db: crate::config::DbConfig::default(),
+                ai_proxy: crate::config::AiProxyConfig::default(),
+                reader_llm: crate::config::ReaderLlmConfig::default(),
+                rag: crate::config::RagConfig::default(),
             })
         }
 
@@ -222,6 +222,120 @@ mod tests {
     }
 
     #[test]
+    fn build_state_requeues_running_job_with_durable_pipeline_attempt() {
+        let fs = TestStateFs::new("durable-restart");
+        let db = fs.db();
+        db.init().expect("init db");
+        db.save_job(&sample_running_job("job-durable", None))
+            .expect("save job");
+        let cursor = db
+            .acquire_pipeline_attempt("job-durable", "worker-before-restart", "translate", 1)
+            .expect("seed durable attempt");
+        db.commit_pipeline_unit(
+            &cursor,
+            &crate::db::PipelineUnitCommit {
+                unit_key: "p1-u1".to_string(),
+                unit_order: 1,
+                page_index: Some(0),
+                page_hash: "a".repeat(64),
+                producer_generation: Some(1),
+                payload: serde_json::json!({"phase":"translating"}),
+            },
+        )
+        .expect("seed committed unit");
+
+        let state = build_state(fs.config()).expect("build state");
+        let job = state.db.get_job("job-durable").expect("get job");
+        assert_eq!(job.status, JobStatusKind::Queued);
+        assert_eq!(job.pid, None);
+        assert!(job.error.is_none());
+        assert!(job.failure.is_none());
+        assert_eq!(
+            state
+                .db
+                .list_resumable_pipeline_job_ids()
+                .expect("resumable jobs"),
+            vec!["job-durable".to_string()]
+        );
+    }
+
+    #[test]
+    fn service_restart_preserves_bound_ocr_receipt_recovery() {
+        let fs = TestStateFs::new("bound-ocr-receipt-restart");
+        let db = fs.db();
+        db.init().expect("init db");
+        let mut source = JobSnapshot::new(
+            "job-ocr-source".to_string(),
+            CreateJobInput::default(),
+            vec!["native-ocr".to_string()],
+        );
+        source.status = JobStatusKind::Failed;
+        db.save_job(&source).expect("source job");
+        let intent = crate::db::PipelineDispatchIntent {
+            dispatch_key: "ocr-submit".to_string(),
+            provider: "mineru".to_string(),
+            operation: "create_extract_task".to_string(),
+            request_hash: "a".repeat(64),
+        };
+        let cursor = db
+            .acquire_pipeline_attempt("job-ocr-source", "worker-before-crash", "ocr", 0)
+            .expect("source attempt");
+        db.begin_pipeline_dispatch(&cursor, &intent)
+            .expect("source dispatch intent");
+        let restarted = db
+            .acquire_pipeline_attempt("job-ocr-source", "worker-after-crash", "ocr", 0)
+            .expect("restart claim");
+        assert!(matches!(
+            db.begin_pipeline_dispatch(&restarted, &intent)
+                .expect("ambiguous source"),
+            crate::db::PipelineDispatchBegin::Ambiguous { .. }
+        ));
+        db.finish_latest_pipeline_attempt("job-ocr-source", "failed")
+            .expect("close source attempt");
+        let source_dispatch = db
+            .latest_pipeline_dispatch("job-ocr-source", "ocr-submit")
+            .expect("source dispatch")
+            .expect("source record");
+        let recovery = JobSnapshot::new(
+            "job-ocr-recovery".to_string(),
+            CreateJobInput::default(),
+            vec!["native-ocr".to_string()],
+        );
+        db.create_ocr_recovery_job_state(
+            &source_dispatch,
+            &recovery,
+            "bind_existing_receipt",
+            Some(&serde_json::json!({
+                "kind": "mineru_task",
+                "task_id": "provider-task-existing"
+            })),
+        )
+        .expect("atomic recovery state");
+        drop(db);
+
+        let state = build_state(fs.config()).expect("restart state");
+        assert_eq!(
+            state
+                .db
+                .list_resumable_pipeline_job_ids()
+                .expect("restart candidates"),
+            vec!["job-ocr-recovery".to_string()]
+        );
+        let claimed = state
+            .db
+            .acquire_pipeline_attempt("job-ocr-recovery", "worker-after-service-restart", "ocr", 0)
+            .expect("claim recovery");
+        assert!(matches!(
+            state
+                .db
+                .begin_pipeline_dispatch(&claimed, &intent)
+                .expect("resume existing task"),
+            crate::db::PipelineDispatchBegin::Resume { receipt, .. }
+                if receipt["task_id"] == "provider-task-existing"
+        ));
+    }
+
+    #[test]
     fn build_state_remote_mode_leaves_running_jobs_to_jobsd() {
         let fs = TestStateFs::new("remote-runtime-owner");
         let db = fs.db();
@@ -232,10 +346,7 @@ mod tests {
         let mut config = fs.config().as_ref().clone();
         config.jobs_service.mode = crate::config::JobsRuntimeMode::Remote;
         let state = build_state(Arc::new(config)).expect("build remote shell state");
-        let job = state
-            .db
-            .get_job("job-owned-by-jobsd")
-            .expect("get job");
+        let job = state.db.get_job("job-owned-by-jobsd").expect("get job");
 
         assert_eq!(job.status, JobStatusKind::Running);
         assert_eq!(job.stage.as_deref(), Some("translation_prepare"));

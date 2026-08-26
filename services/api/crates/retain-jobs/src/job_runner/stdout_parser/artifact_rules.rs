@@ -5,6 +5,12 @@ use crate::models::domain::JobSnapshot;
 use super::artifact_fields::{artifact_field_from_key, ArtifactField, ARTIFACT_LABEL_RULES};
 use super::{job_artifacts_mut, ocr_provider_diagnostics_mut, parse_labeled_value};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PublishedArtifactLine {
+    pub artifact_key: String,
+    pub path: String,
+}
+
 pub(super) fn apply_artifact_line(job: &mut JobSnapshot, line: &str) {
     if apply_structured_artifact_event(job, line) {
         return;
@@ -17,8 +23,19 @@ pub(super) fn apply_artifact_line(job: &mut JobSnapshot, line: &str) {
 }
 
 fn apply_structured_artifact_event(job: &mut JobSnapshot, line: &str) -> bool {
-    let Ok(value) = serde_json::from_str::<Value>(line) else {
+    let Some(artifact) = parse_artifact_published_line(line) else {
         return false;
+    };
+    let Some(field) = artifact_field_from_key(&artifact.artifact_key) else {
+        return false;
+    };
+    apply_artifact_field(job, field, &artifact.path);
+    true
+}
+
+pub(crate) fn parse_artifact_published_line(line: &str) -> Option<PublishedArtifactLine> {
+    let Ok(value) = serde_json::from_str::<Value>(line) else {
+        return None;
     };
     if value
         .get("event_type")
@@ -26,10 +43,10 @@ fn apply_structured_artifact_event(job: &mut JobSnapshot, line: &str) -> bool {
         .map(str::trim)
         != Some("artifact_published")
     {
-        return false;
+        return None;
     }
     let Some(payload) = value.get("payload").and_then(Value::as_object) else {
-        return false;
+        return None;
     };
     let Some(artifact_key) = payload
         .get("artifact_key")
@@ -37,7 +54,7 @@ fn apply_structured_artifact_event(job: &mut JobSnapshot, line: &str) -> bool {
         .map(str::trim)
         .filter(|item| !item.is_empty())
     else {
-        return false;
+        return None;
     };
     let Some(path) = payload
         .get("path")
@@ -45,13 +62,12 @@ fn apply_structured_artifact_event(job: &mut JobSnapshot, line: &str) -> bool {
         .map(str::trim)
         .filter(|item| !item.is_empty())
     else {
-        return false;
+        return None;
     };
-    let Some(field) = artifact_field_from_key(artifact_key) else {
-        return false;
-    };
-    apply_artifact_field(job, field, path);
-    true
+    Some(PublishedArtifactLine {
+        artifact_key: artifact_key.to_string(),
+        path: path.to_string(),
+    })
 }
 
 fn apply_artifact_field(job: &mut JobSnapshot, field: ArtifactField, value: &str) {

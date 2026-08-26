@@ -10,17 +10,17 @@ pub use builders::{
 #[cfg(test)]
 pub use builders::{job_to_detail, job_to_list_item};
 pub use types::{
-    AmbiguousRequestPolicy, ArtifactDisplayItemView, ArtifactLinksView, BookSummaryView, DocumentDeleteResultView,
-    GlossaryUsageSummaryView, InvocationSummaryView, JobArtifactItemView, JobArtifactManifestView,
-    JobContractsView,
-    JobDetailView, JobDiagnosticsView, JobFailureDiagnosticView, JobListInvocationSummaryView,
-    JobListItemView, JobListView, JobResumePlanView, JobStageContractArtifactView,
-    JobStageContractView, JobStageSnapshotView, LibraryBatchDeleteInput,
-    LibraryBatchDeleteResultView, LibraryBookDetailView, LibraryBookListItemView,
-    LibraryBookListView, LibraryDeleteQuery, LibraryDeleteResultView, MarkdownArtifactView,
-    NormalizationSummaryView, OcrJobSummaryView, PagePreviewQuery, ReaderDocumentMetadataView,
-    ReaderMetadataView, ReaderPageMetadataView, ReaderRegionBoxView, ReaderRegionItemView,
-    ReaderRegionsView, ResourceLinkView, RetryStageKind, RetryStageRequest,
+    AmbiguousRequestPolicy, ArtifactDisplayItemView, ArtifactLinksView, BookSummaryView,
+    DocumentDeleteResultView, GlossaryUsageSummaryView, InvocationSummaryView, JobArtifactItemView,
+    JobArtifactManifestView, JobContractsView, JobDetailView, JobDiagnosticsView,
+    JobFailureDiagnosticView, JobListInvocationSummaryView, JobListItemView, JobListView,
+    JobResumePlanView, JobStageContractArtifactView, JobStageContractView, JobStageSnapshotView,
+    LibraryBatchDeleteInput, LibraryBatchDeleteResultView, LibraryBookDetailView,
+    LibraryBookListItemView, LibraryBookListView, LibraryDeleteQuery, LibraryDeleteResultView,
+    MarkdownArtifactView, NormalizationSummaryView, OcrAmbiguityResolutionKind,
+    OcrAmbiguityResolutionRequest, OcrAmbiguityResolutionView, OcrJobSummaryView, PagePreviewQuery,
+    ReaderDocumentMetadataView, ReaderMetadataView, ReaderPageMetadataView, ReaderRegionBoxView,
+    ReaderRegionItemView, ReaderRegionsView, ResourceLinkView, RetryStageKind, RetryStageRequest,
     RetryStageSubmissionView, StageActionsView, StageRetryActionLinkView, StageRetryActionView,
     TranslationRequestRecoveryView,
 };

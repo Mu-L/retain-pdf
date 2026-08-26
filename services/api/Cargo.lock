@@ -1327,6 +1327,7 @@ dependencies = [
  "retain-proc",
  "serde",
  "serde_json",
+ "sha2",
  "tokio",
  "tracing",
 ]
@@ -1342,6 +1343,7 @@ dependencies = [
  "retain-jobs",
  "serde",
  "serde_json",
+ "sha2",
  "tokio",
  "tracing",
  "tracing-subscriber",

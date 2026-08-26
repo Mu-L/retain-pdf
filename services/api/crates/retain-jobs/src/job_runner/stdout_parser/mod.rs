@@ -4,12 +4,18 @@ mod artifact_fields;
 mod artifact_rules;
 #[cfg(test)]
 mod contract_lock;
+mod durable_rules;
 mod failure;
 mod labels;
 mod metric_rules;
 mod stage_rules;
 mod state;
 
+pub(crate) use artifact_rules::{parse_artifact_published_line, PublishedArtifactLine};
+pub(crate) use durable_rules::{
+    parse_pipeline_checkpoint_line, parse_pipeline_stage_observation_line,
+    PipelineCheckpointObservation, PipelineStageObservationLine,
+};
 pub use failure::attach_provider_failure;
 pub use labels::{
     STDOUT_LABEL_EVENTS_JSONL, STDOUT_LABEL_JOB_ROOT, STDOUT_LABEL_LAYOUT_JSON,
@@ -136,6 +142,18 @@ mod tests {
             artifacts.translations_dir.as_deref(),
             Some("/tmp/translated")
         );
+    }
+
+    #[test]
+    fn parses_published_artifact_for_durable_commit() {
+        let artifact = parse_artifact_published_line(
+            r#"{"event_type":"artifact_published","payload":{"artifact_key":"output_pdf","path":"/tmp/output.pdf"}}"#,
+        )
+        .expect("published artifact");
+
+        assert_eq!(artifact.artifact_key, "output_pdf");
+        assert_eq!(artifact.path, "/tmp/output.pdf");
+        assert!(parse_artifact_published_line("output pdf: /tmp/output.pdf").is_none());
     }
 
     #[test]

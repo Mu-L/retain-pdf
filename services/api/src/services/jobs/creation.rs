@@ -15,5 +15,7 @@ mod tests;
 mod upload;
 
 pub(crate) use bundle::create_translation_bundle_job;
-pub(crate) use submit::{create_ocr_job_from_upload, create_translation_job};
+pub(crate) use submit::{
+    create_ocr_ambiguity_recovery_job, create_ocr_job_from_upload, create_translation_job,
+};
 pub use upload::{store_pdf_upload, UploadedPdfInput};

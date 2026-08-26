@@ -5,11 +5,15 @@ use std::path::Path;
 use crate::models::domain::{now_iso, JobRuntimeState};
 use crate::ocr_provider::paddle::{
     map_task_status as map_paddle_task_status, normalize_model_name, PaddleClient,
-    PaddleProviderError,
+    PaddleProviderError, PaddleTrace,
 };
 use crate::ocr_provider::OcrTaskHandle;
 
 use super::artifacts::persist_provider_result;
+use super::dispatch_journal::{
+    begin_ocr_dispatch, receipt_ocr_dispatch, receipt_optional_string, receipt_string,
+    OcrDispatchDecision,
+};
 use super::paddle_errors::attach_paddle_runtime_error;
 use super::paddle_markdown::materialize_paddle_markdown_artifacts;
 use super::paddle_payload::build_paddle_optional_payload;
@@ -31,14 +35,38 @@ pub(super) async fn run_local_ocr_transport_paddle(
     log_paddle_unsupported_options(job);
     let model_name = normalize_model_name(&job.request_payload.ocr.paddle_model);
     job.request_payload.ocr.paddle_model = model_name.clone();
-    let created = client
-        .submit_local_file(
-            upload_path,
-            &model_name,
-            &build_paddle_optional_payload(&model_name, deps.paddle_runtime().max_input_images),
-        )
-        .await
-        .map_err(|err| attach_paddle_runtime_error(job, err, "submit"))?;
+    let optional_payload =
+        build_paddle_optional_payload(&model_name, deps.paddle_runtime().max_input_images);
+    let request_identity = json!({
+        "source_kind": "local_upload",
+        "upload_id": job.request_payload.source.upload_id,
+        "file_name": upload_path.file_name().and_then(|value| value.to_str()),
+        "model": model_name,
+        "optional_payload": optional_payload,
+    });
+    let created =
+        match begin_ocr_dispatch(deps, job, "paddle", "submit_local_file", &request_identity)? {
+            OcrDispatchDecision::Send { cursor } => {
+                let created = client
+                    .submit_local_file(upload_path, &model_name, &optional_payload)
+                    .await
+                    .map_err(|err| attach_paddle_runtime_error(job, err, "submit"))?;
+                receipt_ocr_dispatch(
+                    deps,
+                    &cursor,
+                    &json!({
+                        "kind": "paddle_task",
+                        "task_id": created.data,
+                        "trace_id": created.trace_id,
+                    }),
+                )?;
+                created
+            }
+            OcrDispatchDecision::Resume { receipt } => PaddleTrace {
+                data: receipt_string(&receipt, "task_id")?,
+                trace_id: receipt_optional_string(&receipt, "trace_id"),
+            },
+        };
     run_paddle_poll_loop(
         deps,
         job,
@@ -63,14 +91,41 @@ pub(super) async fn run_remote_ocr_transport_paddle(
     log_paddle_unsupported_options(job);
     let model_name = normalize_model_name(&job.request_payload.ocr.paddle_model);
     job.request_payload.ocr.paddle_model = model_name.clone();
-    let created = client
-        .submit_remote_url(
-            &job.request_payload.source.source_url,
-            &model_name,
-            &build_paddle_optional_payload(&model_name, deps.paddle_runtime().max_input_images),
-        )
-        .await
-        .map_err(|err| attach_paddle_runtime_error(job, err, "submit"))?;
+    let optional_payload =
+        build_paddle_optional_payload(&model_name, deps.paddle_runtime().max_input_images);
+    let request_identity = json!({
+        "source_kind": "remote_url",
+        "source_url": job.request_payload.source.source_url,
+        "model": model_name,
+        "optional_payload": optional_payload,
+    });
+    let created =
+        match begin_ocr_dispatch(deps, job, "paddle", "submit_remote_url", &request_identity)? {
+            OcrDispatchDecision::Send { cursor } => {
+                let created = client
+                    .submit_remote_url(
+                        &job.request_payload.source.source_url,
+                        &model_name,
+                        &optional_payload,
+                    )
+                    .await
+                    .map_err(|err| attach_paddle_runtime_error(job, err, "submit"))?;
+                receipt_ocr_dispatch(
+                    deps,
+                    &cursor,
+                    &json!({
+                        "kind": "paddle_task",
+                        "task_id": created.data,
+                        "trace_id": created.trace_id,
+                    }),
+                )?;
+                created
+            }
+            OcrDispatchDecision::Resume { receipt } => PaddleTrace {
+                data: receipt_string(&receipt, "task_id")?,
+                trace_id: receipt_optional_string(&receipt, "trace_id"),
+            },
+        };
     run_paddle_poll_loop(
         deps,
         job,

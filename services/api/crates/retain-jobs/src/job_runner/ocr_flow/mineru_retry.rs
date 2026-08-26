@@ -3,86 +3,16 @@ use std::time::Instant;
 use anyhow::Result;
 use tokio::time::{sleep, Duration};
 
+use super::save_ocr_job;
 use crate::job_events::record_custom_runtime_event_with_resources;
 use crate::job_runner::{register_job_retry, ProcessRuntimeDeps};
 use crate::models::domain::{now_iso, JobRuntimeState};
-use crate::ocr_provider::mineru::{client::MineruUploadTarget, MineruClient};
-
-use super::save_ocr_job;
 
 pub(super) fn mineru_error_chain_text(err: &anyhow::Error) -> String {
     err.chain()
         .map(|cause| cause.to_string().to_ascii_lowercase())
         .collect::<Vec<_>>()
         .join("\n")
-}
-
-pub(super) async fn acquire_upload_target_with_retry(
-    deps: &ProcessRuntimeDeps,
-    job: &mut JobRuntimeState,
-    client: &MineruClient,
-    file_name: &str,
-    timeout_secs: u64,
-    parent_job_id: Option<&str>,
-) -> Result<MineruUploadTarget> {
-    let runtime = deps.mineru_runtime();
-    let started = Instant::now();
-    let mut attempt = 0usize;
-    loop {
-        match client
-            .apply_upload_url(
-                file_name,
-                &job.request_payload.ocr.model_version,
-                &job.request_payload.ocr.page_ranges,
-                &job.request_payload.ocr.data_id,
-            )
-            .await
-        {
-            Ok(target) => return Ok(target),
-            Err(err) => {
-                attempt += 1;
-                if !should_retry_mineru_poll_error(&err)
-                    || started.elapsed().as_secs() >= timeout_secs
-                    || attempt >= runtime.poll_retry_limit
-                {
-                    return Err(err);
-                }
-                let delay_secs = std::cmp::min(
-                    runtime.poll_retry_base_delay_secs * attempt as u64,
-                    runtime.poll_retry_max_delay_secs,
-                );
-                job.append_log(&format!(
-                    "MinerU apply upload url retry {attempt}/{}: {file_name} after error: {}",
-                    runtime.poll_retry_limit, err
-                ));
-                job.stage = Some("ocr_upload".to_string());
-                job.stage_detail = Some(format!(
-                    "OCR provider 上传地址申请异常，{delay_secs}s 后重试（第 {attempt}/{} 次）",
-                    runtime.poll_retry_limit
-                ));
-                job.updated_at = now_iso();
-                register_job_retry(job);
-                record_custom_runtime_event_with_resources(
-                    deps.db.as_ref(),
-                    &deps.persist.data_root,
-                    &deps.persist.output_root,
-                    &job.snapshot(),
-                    "warn",
-                    "retry_scheduled",
-                    "OCR provider 上传地址申请进入重试",
-                    Some(serde_json::json!({
-                        "scope": "mineru_apply_upload_url",
-                        "attempt": attempt,
-                        "max_attempts": runtime.poll_retry_limit,
-                        "delay_seconds": delay_secs,
-                        "reason": err.to_string(),
-                    })),
-                );
-                save_ocr_job(deps, job, parent_job_id).await?;
-                sleep(Duration::from_secs(delay_secs)).await;
-            }
-        }
-    }
 }
 
 pub(super) async fn query_with_retry<T, F, Fut>(

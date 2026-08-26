@@ -1,7 +1,8 @@
 use std::fs;
 
 use crate::api_tests::jobs_common::minimal_pdf_bytes;
-use crate::models::{CreateJobInput, JobArtifacts, JobSnapshot};
+use crate::db::{PipelineDispatchBegin, PipelineDispatchIntent};
+use crate::models::{now_iso, CreateJobInput, JobArtifacts, JobSnapshot, UploadRecord};
 
 pub(super) fn source_job_with_artifacts(job_id: &str, artifacts: JobArtifacts) -> JobSnapshot {
     let mut input = CreateJobInput::default();
@@ -12,6 +13,65 @@ pub(super) fn source_job_with_artifacts(job_id: &str, artifacts: JobArtifacts) -
     let mut job = JobSnapshot::new(job_id.to_string(), input, vec!["python".to_string()]);
     job.artifacts = Some(artifacts);
     job
+}
+
+pub(super) fn seed_ocr_upload(state: &crate::AppState, upload_id: &str) -> UploadRecord {
+    let upload_dir = state.config.uploads_dir.join(upload_id);
+    fs::create_dir_all(&upload_dir).expect("upload dir");
+    let upload_path = upload_dir.join("input.pdf");
+    fs::write(&upload_path, minimal_pdf_bytes(595, 842)).expect("upload pdf");
+    let upload = UploadRecord {
+        upload_id: upload_id.to_string(),
+        filename: "input.pdf".to_string(),
+        stored_path: upload_path.to_string_lossy().into_owned(),
+        bytes: fs::metadata(&upload_path).expect("upload metadata").len(),
+        page_count: 1,
+        uploaded_at: now_iso(),
+        developer_mode: false,
+        content_hash: String::new(),
+    };
+    state.db.save_upload(&upload).expect("save upload");
+    upload
+}
+
+pub(super) fn seed_ambiguous_ocr_dispatch(
+    state: &crate::AppState,
+    job_id: &str,
+    provider: &str,
+    operation: &str,
+) {
+    let cursor = state
+        .db
+        .acquire_pipeline_attempt(job_id, "worker-before-crash", "ocr", 0)
+        .expect("OCR attempt");
+    let intent = PipelineDispatchIntent {
+        dispatch_key: "ocr-submit".to_string(),
+        provider: provider.to_string(),
+        operation: operation.to_string(),
+        request_hash: "a".repeat(64),
+    };
+    assert!(matches!(
+        state
+            .db
+            .begin_pipeline_dispatch(&cursor, &intent)
+            .expect("dispatch intent"),
+        PipelineDispatchBegin::Send { .. }
+    ));
+    let recovered = state
+        .db
+        .acquire_pipeline_attempt(job_id, "worker-after-crash", "ocr", 0)
+        .expect("restart claim");
+    assert!(matches!(
+        state
+            .db
+            .begin_pipeline_dispatch(&recovered, &intent)
+            .expect("ambiguous dispatch"),
+        PipelineDispatchBegin::Ambiguous { .. }
+    ));
+    state
+        .db
+        .finish_latest_pipeline_attempt(job_id, "failed")
+        .expect("close source attempt");
 }
 
 pub(super) fn seed_ocr_checkpoint_files(state: &crate::AppState, job: &JobSnapshot) {

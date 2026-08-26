@@ -294,6 +294,35 @@ pub enum AmbiguousRequestPolicy {
     AcceptDuplicateRisk,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum OcrAmbiguityResolutionKind {
+    BindExistingReceipt,
+    AcceptDuplicateRisk,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OcrAmbiguityResolutionRequest {
+    pub resolution: OcrAmbiguityResolutionKind,
+    #[serde(default)]
+    pub task_id: String,
+    #[serde(default)]
+    pub batch_id: String,
+    #[serde(default)]
+    pub upload_url: String,
+    #[serde(default)]
+    pub trace_id: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OcrAmbiguityResolutionView {
+    pub resolution: OcrAmbiguityResolutionKind,
+    pub provider: String,
+    pub operation: String,
+    pub submission: RetryStageSubmissionView,
+}
+
 #[derive(Debug, Serialize)]
 pub struct StageRetryActionLinkView {
     pub method: String,

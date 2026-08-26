@@ -6,9 +6,9 @@ use crate::job_events::persist_runtime_job_with_resources;
 use crate::models::domain::{JobArtifacts, JobRuntimeState};
 use crate::storage_paths::build_job_paths;
 
+use super::translation_checkpoint_resume::import_translation_checkpoint_candidate;
 use crate::job_runner::stage_contract::ocr_ready_inputs_for_translation;
 use crate::job_runner::{attach_job_paths, ProcessRuntimeDeps};
-use super::translation_checkpoint_resume::import_translation_checkpoint_candidate;
 
 pub(super) async fn prepare_job_from_ocr_artifacts(
     deps: &ProcessRuntimeDeps,

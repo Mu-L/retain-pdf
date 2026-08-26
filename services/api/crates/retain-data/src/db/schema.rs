@@ -7,6 +7,7 @@ use rusqlite::Connection;
 /// 任务系统的表;平台新表(documents/favorites/...)从这里走版本化
 /// 迁移,后续破坏性变更只能追加新版本,不允许改历史条目。
 /// 迁移阶梯当前版本数——测试用它做幂等断言，加迁移时无需再手改测试。
+#[cfg(test)]
 pub(crate) fn versioned_migration_count() -> i64 {
     VERSIONED_MIGRATIONS.len() as i64
 }
@@ -231,6 +232,108 @@ const VERSIONED_MIGRATIONS: &[&str] = &[
     CREATE UNIQUE INDEX IF NOT EXISTS idx_document_operation_attempt_retry_key
         ON document_operation_attempts(operation_id, retry_idempotency_key)
         WHERE retry_idempotency_key <> '';
+    "#,
+    // v8: authoritative durable pipeline state. A generation is a fencing
+    // token: every accepted transition advances it, so a worker superseded by
+    // restart or a concurrent claimant cannot publish stale checkpoints.
+    r#"
+    CREATE TABLE IF NOT EXISTS pipeline_attempts (
+        job_id          TEXT NOT NULL REFERENCES jobs(job_id) ON DELETE CASCADE,
+        attempt         INTEGER NOT NULL,
+        generation      INTEGER NOT NULL,
+        status          TEXT NOT NULL,
+        worker_id       TEXT NOT NULL,
+        current_stage   TEXT,
+        created_at      TEXT NOT NULL,
+        updated_at      TEXT NOT NULL,
+        finished_at     TEXT,
+        PRIMARY KEY(job_id, attempt)
+    );
+    CREATE INDEX IF NOT EXISTS idx_pipeline_attempt_generation
+        ON pipeline_attempts(job_id, attempt, generation);
+    CREATE INDEX IF NOT EXISTS idx_pipeline_attempt_status
+        ON pipeline_attempts(status, updated_at);
+
+    CREATE TABLE IF NOT EXISTS pipeline_stages (
+        job_id                    TEXT NOT NULL,
+        attempt                   INTEGER NOT NULL,
+        stage_key                 TEXT NOT NULL,
+        stage_order               INTEGER NOT NULL,
+        generation                INTEGER NOT NULL,
+        status                    TEXT NOT NULL,
+        last_committed_unit_key   TEXT,
+        last_committed_unit_order INTEGER,
+        last_page_hash            TEXT,
+        created_at                TEXT NOT NULL,
+        updated_at                TEXT NOT NULL,
+        finished_at               TEXT,
+        PRIMARY KEY(job_id, attempt, stage_key),
+        FOREIGN KEY(job_id, attempt)
+            REFERENCES pipeline_attempts(job_id, attempt) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_pipeline_stage_status
+        ON pipeline_stages(job_id, attempt, status, stage_order);
+
+    CREATE TABLE IF NOT EXISTS pipeline_units (
+        job_id              TEXT NOT NULL,
+        attempt             INTEGER NOT NULL,
+        stage_key           TEXT NOT NULL,
+        unit_key            TEXT NOT NULL,
+        unit_order          INTEGER NOT NULL,
+        generation          INTEGER NOT NULL,
+        producer_generation INTEGER,
+        status              TEXT NOT NULL,
+        page_index          INTEGER,
+        page_hash           TEXT NOT NULL,
+        payload_json        TEXT NOT NULL DEFAULT '{}',
+        committed_at        TEXT NOT NULL,
+        updated_at          TEXT NOT NULL,
+        PRIMARY KEY(job_id, attempt, stage_key, unit_key),
+        FOREIGN KEY(job_id, attempt, stage_key)
+            REFERENCES pipeline_stages(job_id, attempt, stage_key) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_pipeline_unit_order
+        ON pipeline_units(job_id, attempt, stage_key, unit_order);
+    "#,
+    // v9: the durable stage row also owns the latest worker observation.
+    // Public progress events are emitted from this update transaction; the
+    // worker JSONL remains a legacy/debug projection rather than state truth.
+    r#"
+    ALTER TABLE pipeline_stages ADD COLUMN raw_stage TEXT;
+    ALTER TABLE pipeline_stages ADD COLUMN substage TEXT;
+    ALTER TABLE pipeline_stages ADD COLUMN stage_detail TEXT;
+    ALTER TABLE pipeline_stages ADD COLUMN progress_current INTEGER;
+    ALTER TABLE pipeline_stages ADD COLUMN progress_total INTEGER;
+    ALTER TABLE pipeline_stages ADD COLUMN progress_unit TEXT;
+    ALTER TABLE pipeline_stages ADD COLUMN producer_seq INTEGER;
+    ALTER TABLE pipeline_stages ADD COLUMN observation_payload_json TEXT NOT NULL DEFAULT '{}';
+    "#,
+    // v10: external provider dispatch journal. The intent is committed before
+    // a non-idempotent OCR submit; a provider handle is a separate receipt.
+    // A surviving intent without a receipt is ambiguous and must not be
+    // automatically replayed after runtime restart.
+    r#"
+    CREATE TABLE IF NOT EXISTS pipeline_dispatches (
+        job_id              TEXT NOT NULL,
+        attempt             INTEGER NOT NULL,
+        stage_key           TEXT NOT NULL,
+        dispatch_key        TEXT NOT NULL,
+        generation          INTEGER NOT NULL,
+        provider            TEXT NOT NULL,
+        operation           TEXT NOT NULL,
+        request_hash        TEXT NOT NULL,
+        status              TEXT NOT NULL,
+        receipt_json        TEXT,
+        ambiguity_reason    TEXT,
+        created_at          TEXT NOT NULL,
+        updated_at          TEXT NOT NULL,
+        receipted_at        TEXT,
+        PRIMARY KEY(job_id, attempt, dispatch_key),
+        FOREIGN KEY(job_id, attempt)
+            REFERENCES pipeline_attempts(job_id, attempt) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_pipeline_dispatch_status
+        ON pipeline_dispatches(job_id, attempt, status, stage_key);
     "#,
 ];
 

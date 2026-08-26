@@ -7,9 +7,10 @@ use crate::services::job_launcher::start_job_execution;
 use crate::services::jobs::stage_plan::stage_plan;
 use crate::services::jobs::translation_request_recovery::load_translation_request_recovery;
 
-use super::super::super::creation::create_translation_job;
+use super::super::super::creation::{create_ocr_ambiguity_recovery_job, create_translation_job};
 use super::super::super::query::load_job_or_404;
 use super::super::JobsFacade;
+use super::ocr_ambiguity::ambiguous_ocr_dispatch;
 use super::rerun::prepare_in_place_render_job;
 use super::stage_retry_overrides::{apply_retry_overrides, apply_retry_overrides_to_resolved_spec};
 use super::stage_retry_request::build_retry_request;
@@ -43,6 +44,18 @@ impl<'a> JobsFacade<'a> {
         }
 
         let source_job = load_job_or_404(self.command.db, source_job_id)?;
+        let ambiguous_ocr = if matches!(request.stage, RetryStageKind::Ocr) {
+            ambiguous_ocr_dispatch(self.command.db, source_job_id)?
+        } else {
+            None
+        };
+        if ambiguous_ocr.is_some()
+            && request.ambiguous_request_policy != AmbiguousRequestPolicy::AcceptDuplicateRisk
+        {
+            return Err(AppError::conflict(
+                "OCR request outcome is ambiguous; retry is paused. Use the OCR ambiguity resolution endpoint to bind an existing provider task, or retry-stage with ambiguous_request_policy=accept_duplicate_risk",
+            ));
+        }
         let plan = stage_plan(
             &source_job,
             request.stage.clone(),
@@ -100,7 +113,16 @@ impl<'a> JobsFacade<'a> {
         request_input.translation.accepted_ambiguous_request_risk =
             request.ambiguous_request_policy == AmbiguousRequestPolicy::AcceptDuplicateRisk;
         let workflow = request_input.workflow.clone();
-        let job = create_translation_job(&self.command.submit, &request_input)?;
+        let job = match ambiguous_ocr.as_ref() {
+            Some(dispatch) => create_ocr_ambiguity_recovery_job(
+                &self.command.submit,
+                &request_input,
+                dispatch,
+                "accept_duplicate_risk",
+                None,
+            )?,
+            None => create_translation_job(&self.command.submit, &request_input)?,
+        };
         Ok(build_retry_stage_submission_view(
             base_url,
             source_job_id,

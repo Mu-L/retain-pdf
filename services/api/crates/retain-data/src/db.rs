@@ -25,6 +25,8 @@ mod glossaries;
 mod job_writes;
 #[path = "db/jobs.rs"]
 mod jobs;
+#[path = "db/pipeline_state.rs"]
+mod pipeline_state;
 #[path = "db/retention.rs"]
 mod retention;
 #[path = "db/rows.rs"]
@@ -90,6 +92,11 @@ pub enum PutAgentRuntimeSessionResult {
 pub use document_operations::{
     CommitDocumentCandidateResult, DocumentOperationEventRecord, DocumentVersionRecord,
     StoredDocumentOperation, StoredDocumentOperationAttempt,
+};
+pub use pipeline_state::{
+    PipelineAttemptCursor, PipelineCheckpoint, PipelineDispatchBegin, PipelineDispatchIntent,
+    PipelineDispatchRecord, PipelineStageObservation, PipelineStageState, PipelineUnitCommit,
+    PipelineUnitRecord,
 };
 
 impl Db {

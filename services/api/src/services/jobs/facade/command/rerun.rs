@@ -8,6 +8,7 @@ use crate::services::jobs::translation_request_recovery::load_translation_reques
 use super::super::super::creation::create_translation_job;
 use super::super::super::query::load_job_or_404;
 use super::super::JobsFacade;
+use super::ocr_ambiguity::ambiguous_ocr_dispatch;
 use crate::services::job_launcher::start_job_execution;
 
 impl<'a> JobsFacade<'a> {
@@ -46,6 +47,11 @@ impl<'a> JobsFacade<'a> {
                 &job,
                 JobStatusKind::Queued,
                 WorkflowKind::Render,
+            ));
+        }
+        if ambiguous_ocr_dispatch(self.command.db, source_job_id)?.is_some() {
+            return Err(AppError::conflict(
+                "OCR request outcome is ambiguous; generic rerun is paused. Use the OCR ambiguity resolution endpoint to bind an existing provider task or explicitly accept duplicate request risk",
             ));
         }
         if load_translation_request_recovery(&source_job, self.command.control.data_root)

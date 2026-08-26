@@ -78,24 +78,20 @@ impl PaddleClient {
             .with_context(|| format!("failed to read upload file {}", file_path.display()))?;
         let optional_payload_json = serde_json::to_string(optional_payload)?;
         let url = format!("{}/api/v2/ocr/jobs", self.base_url);
-        let file_name_for_retry = file_name.clone();
-        let file_bytes_for_retry = file_bytes.clone();
-        let optional_payload_for_retry = optional_payload_json.clone();
-        let model_for_retry = model.to_string();
+        let file_part = multipart::Part::bytes(file_bytes).file_name(file_name);
+        let form = multipart::Form::new()
+            .text("model", model.to_string())
+            .text("optionalPayload", optional_payload_json)
+            .part("file", file_part);
         let response = self
-            .send_with_retry("submit", move || {
-                let file_part = multipart::Part::bytes(file_bytes_for_retry.clone())
-                    .file_name(file_name_for_retry.clone());
-                let form = multipart::Form::new()
-                    .text("model", model_for_retry.clone())
-                    .text("optionalPayload", optional_payload_for_retry.clone())
-                    .part("file", file_part);
+            .send_once(
+                "submit",
                 self.http
                     .post(&url)
                     .header(AUTHORIZATION, self.auth_header())
                     .multipart(form)
-                    .send()
-            })
+                    .send(),
+            )
             .await?;
         let envelope = parse_json_response::<PaddleSubmitEnvelope>("submit", response).await?;
         if envelope.error_code != 0 {
@@ -139,14 +135,15 @@ impl PaddleClient {
         });
         let url = format!("{}/api/v2/ocr/jobs", self.base_url);
         let response = self
-            .send_with_retry("submit", || {
+            .send_once(
+                "submit",
                 self.http
                     .post(&url)
                     .header(AUTHORIZATION, self.auth_header())
                     .header(CONTENT_TYPE, "application/json")
                     .json(&payload)
-                    .send()
-            })
+                    .send(),
+            )
             .await?;
         let envelope = parse_json_response::<PaddleSubmitEnvelope>("submit", response).await?;
         if envelope.error_code != 0 {
@@ -288,6 +285,15 @@ impl PaddleClient {
 
     fn auth_header(&self) -> String {
         format!("bearer {}", self.token.trim())
+    }
+
+    async fn send_once<Fut>(&self, stage: &'static str, action: Fut) -> Result<Response>
+    where
+        Fut: Future<Output = StdResult<Response, reqwest::Error>>,
+    {
+        action.await.map_err(|err| {
+            anyhow::Error::new(PaddleProviderError::request_failed(stage, &err, None))
+        })
     }
 
     async fn send_with_retry<F, Fut>(&self, stage: &'static str, mut action: F) -> Result<Response>

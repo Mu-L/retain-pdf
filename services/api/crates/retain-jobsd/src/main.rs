@@ -24,8 +24,8 @@ use tokio::sync::{RwLock, Semaphore};
 use retain_core::config::AppConfig;
 use retain_data::db::Db;
 use retain_jobs::job_runner::{
-    clear_cancel_request_with_registry, reconcile_stale_running_jobs,
-    request_cancel_with_registry, spawn_job, terminate_job_process_tree, ProcessRuntimeDeps,
+    clear_cancel_request_with_registry, reconcile_stale_running_jobs, request_cancel_with_registry,
+    spawn_job, terminate_job_process_tree, ProcessRuntimeDeps,
 };
 
 #[cfg(test)]
@@ -186,6 +186,14 @@ async fn main() -> Result<()> {
         db,
         config,
     };
+    let resumable_job_ids = state
+        .db
+        .list_resumable_pipeline_job_ids()
+        .context("list resumable pipeline jobs")?;
+    for job_id in resumable_job_ids {
+        tracing::warn!("jobsd startup resuming durable pipeline job {job_id}");
+        spawn_job(state.runtime_deps(), job_id);
+    }
 
     tracing::info!("retain-jobsd listening on {bind_host}:{port}");
     axum::serve(listener, build_router(state))

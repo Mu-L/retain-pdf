@@ -163,8 +163,12 @@ mod tests {
         assert!(!spec.job_id.trim().is_empty());
         assert_eq!(spec.source.upload_id, "upload-1");
         assert_eq!(spec.resolved_workers(), 1000);
-        if let Some(v) = prev_deepseek { std::env::set_var("RUST_API_DEFAULT_DEEPSEEK_WORKERS", v); }
-        if let Some(v) = prev_generic { std::env::set_var("RUST_API_DEFAULT_GENERIC_WORKERS", v); }
+        if let Some(v) = prev_deepseek {
+            std::env::set_var("RUST_API_DEFAULT_DEEPSEEK_WORKERS", v);
+        }
+        if let Some(v) = prev_generic {
+            std::env::set_var("RUST_API_DEFAULT_GENERIC_WORKERS", v);
+        }
     }
 }
 #[path = "input/translation.rs"]

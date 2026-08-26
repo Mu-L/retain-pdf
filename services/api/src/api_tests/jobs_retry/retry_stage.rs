@@ -8,9 +8,199 @@ use crate::app::build_app;
 use crate::models::{JobArtifacts, JobStatusKind};
 
 use super::common::{
-    seed_ambiguous_translation_request_journal, seed_ocr_checkpoint_files,
-    seed_translation_result_files, source_job_with_artifacts,
+    seed_ambiguous_ocr_dispatch, seed_ambiguous_translation_request_journal,
+    seed_ocr_checkpoint_files, seed_ocr_upload, seed_translation_result_files,
+    source_job_with_artifacts,
 };
+
+#[tokio::test]
+async fn ambiguous_ocr_requires_explicit_resolution_and_can_bind_existing_receipt() {
+    let state = test_state("retry-stage-ambiguous-ocr");
+    let source_job_id = "job-retry-stage-ambiguous-ocr";
+    let upload = seed_ocr_upload(&state, "upload-ambiguous-ocr");
+    let mut source_job = source_job_with_artifacts(source_job_id, JobArtifacts::default());
+    source_job.status = JobStatusKind::Failed;
+    source_job.request_payload.source.upload_id = upload.upload_id;
+    source_job.request_payload.ocr.provider = "mineru".to_string();
+    source_job.request_payload.ocr.mineru_token = "mineru-test-token".to_string();
+    state.db.save_job(&source_job).expect("save source job");
+    seed_ambiguous_ocr_dispatch(&state, source_job_id, "mineru", "apply_upload_url");
+
+    let blocked = build_app(state.clone())
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/v1/jobs/{source_job_id}/retry-stage"))
+                .header("X-API-Key", "test-key")
+                .header("Content-Type", "application/json")
+                .body(Body::from(json!({ "stage": "ocr" }).to_string()))
+                .expect("blocked OCR retry"),
+        )
+        .await
+        .expect("blocked response");
+    assert_eq!(blocked.status(), StatusCode::CONFLICT);
+
+    let upload_url = "https://signed.example/upload?token=must-not-leak";
+    let bound = build_app(state.clone())
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!(
+                    "/api/v1/jobs/{source_job_id}/ocr/resolve-ambiguity"
+                ))
+                .header("X-API-Key", "test-key")
+                .header("Content-Type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "resolution": "bind_existing_receipt",
+                        "batch_id": "batch-from-provider-console",
+                        "upload_url": upload_url,
+                        "trace_id": "trace-operator"
+                    })
+                    .to_string(),
+                ))
+                .expect("bind receipt request"),
+        )
+        .await
+        .expect("bind receipt response");
+    assert_eq!(bound.status(), StatusCode::OK);
+    let payload = read_json(bound).await;
+    assert_eq!(payload["data"]["resolution"], "bind_existing_receipt");
+    assert_eq!(payload["data"]["provider"], "mineru");
+    assert_eq!(payload["data"]["operation"], "apply_upload_url");
+    let recovery_job_id = payload["data"]["submission"]["job_id"]
+        .as_str()
+        .expect("recovery job id");
+    let receipt = state
+        .db
+        .latest_pipeline_dispatch(recovery_job_id, "ocr-submit")
+        .expect("recovery dispatch")
+        .expect("seeded dispatch");
+    assert_eq!(receipt.status, "receipted");
+    assert_eq!(
+        receipt
+            .receipt
+            .as_ref()
+            .and_then(|value| value["batch_id"].as_str()),
+        Some("batch-from-provider-console")
+    );
+    let public_events = state
+        .db
+        .list_job_events(recovery_job_id, 100, 0)
+        .expect("recovery events");
+    assert!(!serde_json::to_string(&public_events)
+        .expect("events json")
+        .contains("must-not-leak"));
+}
+
+#[tokio::test]
+async fn ambiguous_ocr_duplicate_risk_is_explicit_audited_and_single_use() {
+    let state = test_state("retry-stage-ambiguous-ocr-duplicate-risk");
+    let source_job_id = "job-retry-stage-ambiguous-ocr-duplicate-risk";
+    let upload = seed_ocr_upload(&state, "upload-ambiguous-ocr-duplicate-risk");
+    let mut source_job = source_job_with_artifacts(source_job_id, JobArtifacts::default());
+    source_job.status = JobStatusKind::Failed;
+    source_job.request_payload.source.upload_id = upload.upload_id;
+    source_job.request_payload.ocr.provider = "mineru".to_string();
+    source_job.request_payload.ocr.mineru_token = "mineru-test-token".to_string();
+    state.db.save_job(&source_job).expect("save source job");
+    seed_ambiguous_ocr_dispatch(&state, source_job_id, "mineru", "apply_upload_url");
+
+    let invalid = build_app(state.clone())
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!(
+                    "/api/v1/jobs/{source_job_id}/ocr/resolve-ambiguity"
+                ))
+                .header("X-API-Key", "test-key")
+                .header("Content-Type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "resolution": "accept_duplicate_risk",
+                        "task_id": "must-not-be-accepted"
+                    })
+                    .to_string(),
+                ))
+                .expect("invalid duplicate risk request"),
+        )
+        .await
+        .expect("invalid response");
+    assert_eq!(invalid.status(), StatusCode::BAD_REQUEST);
+
+    let accepted = build_app(state.clone())
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!(
+                    "/api/v1/jobs/{source_job_id}/ocr/resolve-ambiguity"
+                ))
+                .header("X-API-Key", "test-key")
+                .header("Content-Type", "application/json")
+                .body(Body::from(
+                    json!({"resolution": "accept_duplicate_risk"}).to_string(),
+                ))
+                .expect("duplicate risk request"),
+        )
+        .await
+        .expect("accepted response");
+    assert_eq!(accepted.status(), StatusCode::OK);
+    let payload = read_json(accepted).await;
+    assert_eq!(payload["data"]["resolution"], "accept_duplicate_risk");
+    assert_eq!(
+        payload["data"]["submission"]["ambiguous_request_policy"],
+        "accept_duplicate_risk"
+    );
+    let recovery_job_id = payload["data"]["submission"]["job_id"]
+        .as_str()
+        .expect("recovery job id");
+    assert!(state
+        .db
+        .has_running_pipeline_attempt(recovery_job_id)
+        .expect("recovery attempt"));
+    assert_eq!(
+        state
+            .db
+            .latest_pipeline_dispatch(source_job_id, "ocr-submit")
+            .expect("source dispatch")
+            .expect("source record")
+            .status,
+        "resolved"
+    );
+    let source_events = state
+        .db
+        .list_job_events(source_job_id, 100, 0)
+        .expect("source events");
+    let resolution_event = source_events
+        .iter()
+        .find(|event| event.event == "ocr_ambiguity_resolved")
+        .expect("resolution audit event");
+    assert_eq!(
+        resolution_event
+            .payload
+            .as_ref()
+            .and_then(|value| value["resolution"].as_str()),
+        Some("accept_duplicate_risk")
+    );
+
+    let repeated = build_app(state.clone())
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!(
+                    "/api/v1/jobs/{source_job_id}/ocr/resolve-ambiguity"
+                ))
+                .header("X-API-Key", "test-key")
+                .header("Content-Type", "application/json")
+                .body(Body::from(
+                    json!({"resolution": "accept_duplicate_risk"}).to_string(),
+                ))
+                .expect("repeated resolution"),
+        )
+        .await
+        .expect("repeated response");
+    assert_eq!(repeated.status(), StatusCode::CONFLICT);
+}
 
 #[tokio::test]
 async fn translation_retry_requires_explicit_duplicate_risk_acceptance() {

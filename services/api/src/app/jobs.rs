@@ -23,6 +23,17 @@ pub(super) fn reconcile_owned_runtime(config: &AppConfig, db: &Db) -> Result<usi
     reconcile_stale_running_jobs(config, db)
 }
 
+pub(super) fn resume_requeued_pipeline_jobs(state: &AppState) -> Result<usize> {
+    if state.config.jobs_service.is_remote() {
+        return Ok(0);
+    }
+    let job_ids = state.db.list_resumable_pipeline_job_ids()?;
+    for job_id in &job_ids {
+        spawn_job(build_process_runtime_deps(state), job_id.clone());
+    }
+    Ok(job_ids.len())
+}
+
 fn build_process_runtime_deps(state: &AppState) -> ProcessRuntimeDeps {
     ProcessRuntimeDeps::new(
         state.config.clone(),

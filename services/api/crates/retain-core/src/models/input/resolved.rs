@@ -9,11 +9,17 @@ pub const DEFAULT_DEEPSEEK_TRANSLATION_WORKERS: i64 = 1000;
 pub const DEFAULT_GENERIC_TRANSLATION_WORKERS: i64 = 4;
 
 pub fn default_deepseek_workers() -> i64 {
-    env_workers("RUST_API_DEFAULT_DEEPSEEK_WORKERS", DEFAULT_DEEPSEEK_TRANSLATION_WORKERS)
+    env_workers(
+        "RUST_API_DEFAULT_DEEPSEEK_WORKERS",
+        DEFAULT_DEEPSEEK_TRANSLATION_WORKERS,
+    )
 }
 
 pub fn default_generic_workers() -> i64 {
-    env_workers("RUST_API_DEFAULT_GENERIC_WORKERS", DEFAULT_GENERIC_TRANSLATION_WORKERS)
+    env_workers(
+        "RUST_API_DEFAULT_GENERIC_WORKERS",
+        DEFAULT_GENERIC_TRANSLATION_WORKERS,
+    )
 }
 
 fn env_workers(name: &str, fallback: i64) -> i64 {
@@ -143,9 +149,13 @@ mod tests {
         with_env("RUST_API_DEFAULT_DEEPSEEK_WORKERS", Some("0"), || {
             assert_eq!(default_deepseek_workers(), 1000);
         });
-        with_env("RUST_API_DEFAULT_DEEPSEEK_WORKERS", Some("not_a_number"), || {
-            assert_eq!(default_deepseek_workers(), 1000);
-        });
+        with_env(
+            "RUST_API_DEFAULT_DEEPSEEK_WORKERS",
+            Some("not_a_number"),
+            || {
+                assert_eq!(default_deepseek_workers(), 1000);
+            },
+        );
         with_env("RUST_API_DEFAULT_GENERIC_WORKERS", Some("-5"), || {
             assert_eq!(default_generic_workers(), 4);
         });
