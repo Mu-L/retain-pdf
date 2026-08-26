@@ -44,6 +44,18 @@ python3 services/scripts/agent_e2e.py doctor --probe-live
 python3 services/scripts/agent_e2e.py smoke
 ```
 
+Run the real Gateway-backed acceptance flow from a hidden local environment or
+prompt. It uploads a three-page fixture into an isolated data root and requires
+FX to create, run, and commit a two-page PDF candidate before reporting success:
+
+```bash
+python3 services/scripts/agent_live_e2e.py --prompt-gateway-key
+```
+
+Temporary state is deleted only after success. Failures preserve their isolated
+data root and a private stack log for diagnosis; `--keep-data` also preserves a
+successful run.
+
 `/health` is a liveness/diagnostic endpoint. `/ready` is the startup gate for
 the database and locally supervised backend children. The legacy
 `services/api/scripts/dev-remote.sh` entrypoint forwards to the same launcher.

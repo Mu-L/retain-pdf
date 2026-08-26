@@ -113,6 +113,7 @@ def test_runtime_env_uses_absolute_commands_and_rust_supervision(tmp_path: Path)
     assert env["RUST_API_AI_SUPERVISE"] == "1"
     assert env["RUST_API_AI_COMMAND"] == str(paths.venv_python)
     assert env["RUST_API_AI_CWD"] == str(paths.ai)
+    assert env["RUST_API_AI_SERVICE_BASE"] == "http://127.0.0.1:43100"
     assert env["PYTHON_BIN"] == str(paths.venv_python)
     assert env["RUST_API_PIPELINE_COMMAND"] == str(paths.pipeline_command)
     assert env["RUST_API_PYTHON_ENTRYPOINT_MODE"] == "console"

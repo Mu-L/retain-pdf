@@ -306,6 +306,7 @@ def build_runtime_env(
             "RUST_API_JOBSD_CWD": str(paths.api),
             "RUST_API_AI_HOST": "127.0.0.1",
             "RUST_API_AI_PORT": str(options.ai_port),
+            "RUST_API_AI_SERVICE_BASE": f"http://127.0.0.1:{options.ai_port}",
             "RUST_API_AI_SUPERVISE": "1",
             "RUST_API_AI_COMMAND": str(paths.venv_python),
             "RUST_API_AI_ARGS": "-m retainpdf_ai",
