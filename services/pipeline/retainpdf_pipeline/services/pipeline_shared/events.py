@@ -61,6 +61,9 @@ _ACTIVE_PROGRESS_SNAPSHOT: ContextVar[dict[tuple[str, str, str], int] | None] = 
     default=None,
 )
 
+PIPELINE_STAGE_OBSERVATION_SCHEMA = "pipeline_stage_observation_v1"
+PIPELINE_STAGE_OBSERVATION_SCHEMA_VERSION = 1
+
 
 def semantic_event_type(event_type: str) -> str:
     normalized = str(event_type or "").strip()
@@ -213,9 +216,17 @@ class PipelineEventWriter:
             "elapsed_ms": elapsed_ms,
             "payload": payload_value,
         }
+        if record["event_type"] in {"stage_transition", "stage_progress"}:
+            record["schema"] = PIPELINE_STAGE_OBSERVATION_SCHEMA
+            record["schema_version"] = PIPELINE_STAGE_OBSERVATION_SCHEMA_VERSION
         with self.path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(record, ensure_ascii=False))
             handle.write("\n")
+        # Stage observations cross the process boundary through stdout. Rust
+        # commits them under generation fencing before exposing their event
+        # projection. The JSONL file remains a diagnostic/legacy projection.
+        if record["event_type"] in {"stage_transition", "stage_progress"}:
+            print(json.dumps(record, ensure_ascii=False), flush=True)
         return record
 
 

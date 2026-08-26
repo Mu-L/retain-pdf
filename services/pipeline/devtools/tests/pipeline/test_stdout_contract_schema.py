@@ -101,6 +101,32 @@ def test_artifact_event_keys_subset_of_contract() -> None:
     assert not unknown, f"emit_artifact_published 使用了契约之外的 artifact_key: {sorted(unknown)}"
 
 
+def test_checkpoint_event_has_real_producer() -> None:
+    checkpoint_contract = SCHEMA["checkpoint_event"]
+    assert checkpoint_contract["event_type"] == "pipeline_checkpoint"
+    session_source = (
+        REPO_SCRIPTS_ROOT
+        / "retainpdf_pipeline/services/translation/workflow/checkpoint/session.py"
+    ).read_text(encoding="utf-8")
+    assert '"event_type": "pipeline_checkpoint"' in session_source
+    for field in checkpoint_contract["required_payload_fields"]:
+        assert f'"{field}"' in session_source, f"checkpoint producer missing `{field}`"
+
+
+def test_stage_observation_event_has_real_producer() -> None:
+    stage_contract = SCHEMA["stage_observation_event"]
+    assert stage_contract["schema"] == "pipeline_stage_observation_v1"
+    events_source = (
+        REPO_SCRIPTS_ROOT
+        / "retainpdf_pipeline/services/pipeline_shared/events.py"
+    ).read_text(encoding="utf-8")
+    assert "PIPELINE_STAGE_OBSERVATION_SCHEMA" in events_source
+    for event_type in stage_contract["event_types"]:
+        assert f'"{event_type}"' in events_source
+    for field in stage_contract["required_fields"]:
+        assert f'"{field}"' in events_source, f"stage producer missing `{field}`"
+
+
 def test_metric_and_state_lines_have_emit_sites() -> None:
     sources = list(_iter_emit_sources())
 

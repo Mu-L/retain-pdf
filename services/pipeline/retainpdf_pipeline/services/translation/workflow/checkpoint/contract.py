@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +54,10 @@ def new_checkpoint(
         "attempt_id": attempt_id,
         "created_at": str((previous or {}).get("created_at", "") or timestamp),
         "updated_at": timestamp,
+        # Monotonic producer generation. Rust owns the authoritative fencing
+        # generation; this value lets it reject/replay worker checkpoint rows
+        # deterministically without changing the v1 compatibility envelope.
+        "generation": int((previous or {}).get("generation", 0) or 0),
         **identity,
         "pages": list((previous or {}).get("pages", [])),
         "progress": dict((previous or {}).get("progress", {})),
@@ -93,6 +98,7 @@ def project_progress(
     completed_total = 0
     item_total = 0
     resolved_output_dir = Path(output_dir).resolve()
+    unit_order = 0
     for page_idx in sorted(page_payloads):
         items = [item for item in page_payloads[page_idx] if isinstance(item, dict)]
         item_ids = [str(item.get("item_id", "") or "") for item in items]
@@ -106,6 +112,19 @@ def project_progress(
             .relative_to(resolved_output_dir)
             .as_posix()
         )
+        page_path = Path(translation_paths[page_idx])
+        page_hash = hashlib.sha256(page_path.read_bytes()).hexdigest()
+        completed_units: list[dict[str, Any]] = []
+        for item_id in item_ids:
+            current_order = unit_order
+            unit_order += 1
+            if item_id and item_id not in pending_ids:
+                completed_units.append(
+                    {
+                        "unit_key": item_id,
+                        "unit_order": current_order,
+                    }
+                )
         pages.append(
             {
                 "page_index": page_idx,
@@ -113,6 +132,8 @@ def project_progress(
                 "item_count": len(item_ids),
                 "completed_item_count": completed,
                 "pending_item_ids": pending_page_ids,
+                "page_hash": page_hash,
+                "last_committed_unit": completed_units[-1] if completed_units else None,
             }
         )
     return pages, {
@@ -162,6 +183,20 @@ def advance_checkpoint(
             "pages": pages,
             "progress": progress,
         }
+    )
+    committed = [
+        {
+            **unit,
+            "page_index": int(page["page_index"]),
+            "page_hash": str(page["page_hash"]),
+        }
+        for page in pages
+        if isinstance(page, dict)
+        for unit in [page.get("last_committed_unit")]
+        if isinstance(unit, dict)
+    ]
+    payload["last_committed_unit"] = (
+        max(committed, key=lambda item: int(item["unit_order"])) if committed else None
     )
     return payload
 

@@ -15,7 +15,7 @@ from retainpdf_pipeline.services.pipeline_shared.events import PipelineEventWrit
 from retainpdf_pipeline.services.pipeline_shared.events import pipeline_event_writer_scope
 
 
-def test_pipeline_event_writer_emits_structured_jsonl(tmp_path: Path) -> None:
+def test_pipeline_event_writer_emits_structured_jsonl(tmp_path: Path, capsys) -> None:
     logs_dir = tmp_path / "logs"
     writer = PipelineEventWriter(
         job_id="job-1",
@@ -69,6 +69,19 @@ def test_pipeline_event_writer_emits_structured_jsonl(tmp_path: Path) -> None:
     assert rows[1]["elapsed_ms"] == 1234
     assert rows[2]["payload"]["artifact_key"] == "pipeline_summary_json"
     assert rows[2]["payload"]["path"] == str(artifact_path.resolve())
+
+    stdout_rows = [
+        json.loads(line)
+        for line in capsys.readouterr().out.splitlines()
+        if line.strip()
+    ]
+    assert [row["event_type"] for row in stdout_rows] == [
+        "stage_transition",
+        "stage_progress",
+        "artifact_published",
+    ]
+    assert stdout_rows[0]["schema"] == "pipeline_stage_observation_v1"
+    assert stdout_rows[0]["schema_version"] == 1
 
 
 def test_artifact_published_prints_structured_stdout_event(tmp_path: Path, capsys) -> None:

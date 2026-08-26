@@ -124,6 +124,62 @@ def test_worker_crash_preserves_flush_and_releases_lease(tmp_path: Path) -> None
         assert [item["item_id"] for item in pending_translation_items(resumed)] == ["pending"]
 
 
+def test_page_saved_after_checkpoint_is_rolled_back_on_restart(tmp_path: Path) -> None:
+    source_json = tmp_path / "document.v1.json"
+    source_json.write_text("{}", encoding="utf-8")
+    output_dir = tmp_path / "job-page-gap" / "translated"
+    page = output_dir / "page-001-deepseek.json"
+    committed = [_item("stable", "已提交")]
+
+    with TranslationCheckpointSession.acquire(
+        _request(source_json, output_dir), _plan()
+    ) as checkpoint:
+        save_translations(page, committed)
+        checkpoint.update("translating", {0: committed}, {0: page})
+
+    # Crash point: repair saved a page, then the process died before the
+    # checkpoint marker and stdout observation were published.
+    uncommitted = [_item("stable", "未提交 repair")]
+    save_translations(page, uncommitted)
+
+    with TranslationCheckpointSession.acquire(
+        _request(source_json, output_dir), _plan()
+    ):
+        restored = load_translations(page)
+        assert restored[0]["translated_text"] == "已提交"
+
+
+def test_checkpoint_projects_generation_unit_and_page_hash(
+    tmp_path: Path, capsys
+) -> None:
+    source_json = tmp_path / "document.v1.json"
+    source_json.write_text("{}", encoding="utf-8")
+    output_dir = tmp_path / "job-projection" / "translated"
+    page = output_dir / "page-001-deepseek.json"
+    payload = [_item("p1-u1", "已完成")]
+
+    with TranslationCheckpointSession.acquire(
+        _request(source_json, output_dir), _plan()
+    ) as checkpoint:
+        save_translations(page, payload)
+        checkpoint.update("translating", {0: payload}, {0: page})
+
+    projection = json.loads(
+        (output_dir / TRANSLATION_CHECKPOINT_FILE_NAME).read_text(encoding="utf-8")
+    )
+    assert projection["schema"] == "translation_checkpoint_v1"
+    assert projection["generation"] >= 2
+    assert projection["last_committed_unit"]["unit_key"] == "p1-u1"
+    assert len(projection["last_committed_unit"]["page_hash"]) == 64
+    stdout_records = [
+        json.loads(line)
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith("{")
+    ]
+    assert stdout_records[-1]["event_type"] == "pipeline_checkpoint"
+    assert stdout_records[-1]["payload"]["unit_key"] == "p1-u1"
+
+
 def test_fingerprint_mismatch_releases_checkpoint_lease(tmp_path: Path) -> None:
     source_json = tmp_path / "document.v1.json"
     source_json.write_text("{}", encoding="utf-8")
