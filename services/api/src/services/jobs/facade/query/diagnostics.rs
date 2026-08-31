@@ -1,18 +1,32 @@
 use crate::error::AppError;
 use crate::job_failure::classify_job_failure;
-use crate::models::api::{JobDiagnosticsView, JobResumePlanView};
+use crate::models::api::{JobDiagnosticsView, JobResumePlanView, OcrAmbiguityView};
 use crate::models::domain::{JobFailureInfo, JobSnapshot, JobStatusKind};
 use crate::services::jobs::stage_plan::resume_plan;
 use crate::services::jobs::translation_request_recovery::load_translation_request_recovery;
 use crate::storage_paths::resolve_pipeline_summary;
 
 use super::super::super::query::load_supported_job;
+use super::super::command::ocr_ambiguity::build_ocr_ambiguity_view;
 use super::super::JobsFacade;
 
 impl<'a> JobsFacade<'a> {
     pub fn job_diagnostics_view(&self, job_id: &str) -> Result<JobDiagnosticsView, AppError> {
         let job = load_supported_job(self.query.db, self.query.data_root, job_id)?;
-        Ok(build_job_diagnostics_view(&job, self.query.data_root))
+        let ocr_ambiguity = if matches!(job.status, JobStatusKind::Failed) {
+            self.query
+                .db
+                .latest_pipeline_dispatch(job_id, "ocr-submit")?
+                .as_ref()
+                .and_then(build_ocr_ambiguity_view)
+        } else {
+            None
+        };
+        Ok(build_job_diagnostics_view(
+            &job,
+            self.query.data_root,
+            ocr_ambiguity,
+        ))
     }
 
     pub fn resume_plan_view(&self, job_id: &str) -> Result<JobResumePlanView, AppError> {
@@ -24,6 +38,7 @@ impl<'a> JobsFacade<'a> {
 fn build_job_diagnostics_view(
     job: &JobSnapshot,
     data_root: &std::path::Path,
+    ocr_ambiguity: Option<OcrAmbiguityView>,
 ) -> JobDiagnosticsView {
     let failure = resolved_failure(job);
     let resume_plan = build_resume_plan_view(job, data_root);
@@ -31,6 +46,14 @@ fn build_job_diagnostics_view(
     let translation_request_recovery = load_translation_request_recovery(job, data_root);
     match failure {
         Some(failure) => JobDiagnosticsView {
+            failure_code: Some(
+                if ocr_ambiguity.is_some() {
+                    "ocr_request_ambiguous"
+                } else {
+                    failure.failure_code_value()
+                }
+                .to_string(),
+            ),
             failed_stage: Some(failure.failed_stage_value().to_string()),
             failed_substage: failure.provider_stage.clone(),
             summary: failure.summary.clone(),
@@ -45,8 +68,12 @@ fn build_job_diagnostics_view(
             resume_available: resume_plan.can_resume,
             render_diagnostics,
             translation_request_recovery,
+            ocr_ambiguity,
         },
         None => JobDiagnosticsView {
+            failure_code: ocr_ambiguity
+                .as_ref()
+                .map(|_| "ocr_request_ambiguous".to_string()),
             failed_stage: job.stage.clone(),
             failed_substage: None,
             summary: if matches!(job.status, JobStatusKind::Failed) {
@@ -63,6 +90,7 @@ fn build_job_diagnostics_view(
             resume_available: resume_plan.can_resume,
             render_diagnostics,
             translation_request_recovery,
+            ocr_ambiguity,
         },
     }
 }

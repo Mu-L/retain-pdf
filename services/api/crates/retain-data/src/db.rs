@@ -25,8 +25,10 @@ mod glossaries;
 mod job_writes;
 #[path = "db/jobs.rs"]
 mod jobs;
-#[path = "db/pipeline_state.rs"]
-mod pipeline_state;
+#[path = "db/ocr_recovery.rs"]
+mod ocr_recovery;
+#[path = "db/pipeline/mod.rs"]
+mod pipeline;
 #[path = "db/retention.rs"]
 mod retention;
 #[path = "db/rows.rs"]
@@ -93,7 +95,7 @@ pub use document_operations::{
     CommitDocumentCandidateResult, DocumentOperationEventRecord, DocumentVersionRecord,
     StoredDocumentOperation, StoredDocumentOperationAttempt,
 };
-pub use pipeline_state::{
+pub use pipeline::{
     PipelineAttemptCursor, PipelineCheckpoint, PipelineDispatchBegin, PipelineDispatchIntent,
     PipelineDispatchRecord, PipelineStageObservation, PipelineStageState, PipelineUnitCommit,
     PipelineUnitRecord,

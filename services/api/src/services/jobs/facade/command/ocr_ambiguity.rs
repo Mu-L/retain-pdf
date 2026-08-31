@@ -3,8 +3,9 @@ use serde_json::{json, Map, Value};
 use crate::db::{Db, PipelineDispatchRecord};
 use crate::error::AppError;
 use crate::models::api::{
-    AmbiguousRequestPolicy, OcrAmbiguityResolutionKind, OcrAmbiguityResolutionRequest,
-    OcrAmbiguityResolutionView, RetryStageKind, RetryStageRequest,
+    AmbiguousRequestPolicy, OcrAmbiguityReceiptFieldView, OcrAmbiguityResolutionKind,
+    OcrAmbiguityResolutionRequest, OcrAmbiguityResolutionView, OcrAmbiguityView, RetryStageKind,
+    RetryStageRequest,
 };
 use crate::services::jobs::stage_plan::stage_plan;
 
@@ -24,8 +25,21 @@ impl<'a> JobsFacade<'a> {
         request: OcrAmbiguityResolutionRequest,
     ) -> Result<OcrAmbiguityResolutionView, AppError> {
         let source_job = load_job_or_404(self.command.db, source_job_id)?;
+        if !matches!(
+            source_job.status,
+            crate::models::domain::JobStatusKind::Failed
+        ) {
+            return Err(AppError::conflict(
+                "job is no longer failed and its OCR ambiguity cannot be resolved",
+            ));
+        }
         let source_dispatch = ambiguous_ocr_dispatch(self.command.db, source_job_id)?
             .ok_or_else(|| AppError::conflict("job has no durable OCR dispatch to resolve"))?;
+        if request.resolution_revision != source_dispatch.generation {
+            return Err(AppError::conflict(
+                "OCR ambiguity resolution revision is stale; reload diagnostics",
+            ));
+        }
 
         let resolution = request.resolution;
         let submission = match resolution {
@@ -87,13 +101,66 @@ impl<'a> JobsFacade<'a> {
     }
 }
 
-pub(super) fn ambiguous_ocr_dispatch(
+pub(crate) fn ambiguous_ocr_dispatch(
     db: &Db,
     job_id: &str,
 ) -> Result<Option<PipelineDispatchRecord>, AppError> {
     Ok(db
         .latest_pipeline_dispatch(job_id, OCR_SUBMIT_DISPATCH_KEY)?
         .filter(|dispatch| dispatch.stage_key == "ocr" && dispatch.status == "ambiguous"))
+}
+
+pub(crate) fn build_ocr_ambiguity_view(
+    dispatch: &PipelineDispatchRecord,
+) -> Option<OcrAmbiguityView> {
+    if dispatch.stage_key != "ocr" || dispatch.status != "ambiguous" {
+        return None;
+    }
+    let receipt_fields = receipt_field_contract(&dispatch.provider, &dispatch.operation)?;
+    Some(OcrAmbiguityView {
+        status: "ambiguous".to_string(),
+        provider: dispatch.provider.clone(),
+        operation: dispatch.operation.clone(),
+        resolution_revision: dispatch.generation,
+        allowed_resolutions: vec![
+            OcrAmbiguityResolutionKind::BindExistingReceipt,
+            OcrAmbiguityResolutionKind::AcceptDuplicateRisk,
+        ],
+        receipt_fields,
+    })
+}
+
+fn receipt_field_contract(
+    provider: &str,
+    operation: &str,
+) -> Option<Vec<OcrAmbiguityReceiptFieldView>> {
+    let mut fields = match (provider, operation) {
+        ("mineru", "apply_upload_url") => vec![
+            receipt_field("batch_id", "Batch ID", true, false),
+            receipt_field("upload_url", "Upload URL", true, true),
+        ],
+        ("mineru", "create_extract_task")
+        | ("paddle", "submit_local_file" | "submit_remote_url") => {
+            vec![receipt_field("task_id", "Task ID", true, false)]
+        }
+        _ => return None,
+    };
+    fields.push(receipt_field("trace_id", "Trace ID", false, false));
+    Some(fields)
+}
+
+fn receipt_field(
+    name: &str,
+    label: &str,
+    required: bool,
+    secret: bool,
+) -> OcrAmbiguityReceiptFieldView {
+    OcrAmbiguityReceiptFieldView {
+        name: name.to_string(),
+        label: label.to_string(),
+        required,
+        secret,
+    }
 }
 
 fn build_bound_receipt(
@@ -202,6 +269,7 @@ mod tests {
     fn request() -> OcrAmbiguityResolutionRequest {
         OcrAmbiguityResolutionRequest {
             resolution: OcrAmbiguityResolutionKind::BindExistingReceipt,
+            resolution_revision: 3,
             task_id: String::new(),
             batch_id: String::new(),
             upload_url: String::new(),
@@ -239,9 +307,60 @@ mod tests {
         assert!(
             serde_json::from_value::<OcrAmbiguityResolutionRequest>(json!({
                 "resolution": "bind_existing_receipt",
+                "resolution_revision": 3,
                 "provider_job_id": "misspelled-or-unsupported"
             }))
             .is_err()
         );
+    }
+
+    #[test]
+    fn diagnostics_contract_derives_receipt_fields_from_dispatch_identity() {
+        let cases = [
+            (
+                "paddle",
+                "submit_local_file",
+                json!([
+                    {"name": "task_id", "label": "Task ID", "required": true, "secret": false},
+                    {"name": "trace_id", "label": "Trace ID", "required": false, "secret": false}
+                ]),
+            ),
+            (
+                "paddle",
+                "submit_remote_url",
+                json!([
+                    {"name": "task_id", "label": "Task ID", "required": true, "secret": false},
+                    {"name": "trace_id", "label": "Trace ID", "required": false, "secret": false}
+                ]),
+            ),
+            (
+                "mineru",
+                "create_extract_task",
+                json!([
+                    {"name": "task_id", "label": "Task ID", "required": true, "secret": false},
+                    {"name": "trace_id", "label": "Trace ID", "required": false, "secret": false}
+                ]),
+            ),
+            (
+                "mineru",
+                "apply_upload_url",
+                json!([
+                    {"name": "batch_id", "label": "Batch ID", "required": true, "secret": false},
+                    {"name": "upload_url", "label": "Upload URL", "required": true, "secret": true},
+                    {"name": "trace_id", "label": "Trace ID", "required": false, "secret": false}
+                ]),
+            ),
+        ];
+
+        for (provider, operation, expected_fields) in cases {
+            let view = build_ocr_ambiguity_view(&dispatch(provider, operation))
+                .expect("supported dispatch contract");
+            assert_eq!(view.resolution_revision, 3);
+            assert_eq!(
+                serde_json::to_value(view.receipt_fields).expect("receipt fields JSON"),
+                expected_fields
+            );
+        }
+        assert!(build_ocr_ambiguity_view(&dispatch("unknown", "submit")).is_none());
     }
 }

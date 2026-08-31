@@ -1,6 +1,6 @@
 mod control;
 mod creation;
-mod ocr_ambiguity;
+pub(crate) mod ocr_ambiguity;
 mod rerun;
 mod stage_retry;
 mod stage_retry_overrides;

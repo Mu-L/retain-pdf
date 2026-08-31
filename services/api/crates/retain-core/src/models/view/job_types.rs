@@ -242,6 +242,7 @@ pub struct JobFailureDiagnosticView {
 
 #[derive(Debug, Serialize)]
 pub struct JobDiagnosticsView {
+    pub failure_code: Option<String>,
     pub failed_stage: Option<String>,
     pub failed_substage: Option<String>,
     pub summary: String,
@@ -253,6 +254,25 @@ pub struct JobDiagnosticsView {
     pub render_diagnostics: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub translation_request_recovery: Option<TranslationRequestRecoveryView>,
+    pub ocr_ambiguity: Option<OcrAmbiguityView>,
+}
+
+#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+pub struct OcrAmbiguityReceiptFieldView {
+    pub name: String,
+    pub label: String,
+    pub required: bool,
+    pub secret: bool,
+}
+
+#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+pub struct OcrAmbiguityView {
+    pub status: String,
+    pub provider: String,
+    pub operation: String,
+    pub resolution_revision: u64,
+    pub allowed_resolutions: Vec<OcrAmbiguityResolutionKind>,
+    pub receipt_fields: Vec<OcrAmbiguityReceiptFieldView>,
 }
 
 #[derive(Debug, Serialize, Clone, PartialEq, Eq)]
@@ -305,6 +325,7 @@ pub enum OcrAmbiguityResolutionKind {
 #[serde(deny_unknown_fields)]
 pub struct OcrAmbiguityResolutionRequest {
     pub resolution: OcrAmbiguityResolutionKind,
+    pub resolution_revision: u64,
     #[serde(default)]
     pub task_id: String,
     #[serde(default)]

@@ -26,6 +26,60 @@ async fn ambiguous_ocr_requires_explicit_resolution_and_can_bind_existing_receip
     state.db.save_job(&source_job).expect("save source job");
     seed_ambiguous_ocr_dispatch(&state, source_job_id, "mineru", "apply_upload_url");
 
+    let diagnostics = build_app(state.clone())
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/v1/jobs/{source_job_id}/diagnostics"))
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("OCR ambiguity diagnostics request"),
+        )
+        .await
+        .expect("OCR ambiguity diagnostics response");
+    assert_eq!(diagnostics.status(), StatusCode::OK);
+    let diagnostics_payload = read_json(diagnostics).await;
+    assert_eq!(
+        diagnostics_payload["data"]["failure_code"],
+        "ocr_request_ambiguous"
+    );
+    assert_eq!(
+        diagnostics_payload["data"]["ocr_ambiguity"],
+        json!({
+            "status": "ambiguous",
+            "provider": "mineru",
+            "operation": "apply_upload_url",
+            "resolution_revision": 4,
+            "allowed_resolutions": [
+                "bind_existing_receipt",
+                "accept_duplicate_risk"
+            ],
+            "receipt_fields": [
+                {
+                    "name": "batch_id",
+                    "label": "Batch ID",
+                    "required": true,
+                    "secret": false
+                },
+                {
+                    "name": "upload_url",
+                    "label": "Upload URL",
+                    "required": true,
+                    "secret": true
+                },
+                {
+                    "name": "trace_id",
+                    "label": "Trace ID",
+                    "required": false,
+                    "secret": false
+                }
+            ]
+        })
+    );
+    let diagnostics_json = serde_json::to_string(&diagnostics_payload).expect("diagnostics json");
+    assert!(!diagnostics_json.contains(&"a".repeat(64)));
+    assert!(!diagnostics_json.contains("mineru-test-token"));
+
     let blocked = build_app(state.clone())
         .oneshot(
             Request::builder()
@@ -41,6 +95,33 @@ async fn ambiguous_ocr_requires_explicit_resolution_and_can_bind_existing_receip
     assert_eq!(blocked.status(), StatusCode::CONFLICT);
 
     let upload_url = "https://signed.example/upload?token=must-not-leak";
+    let stale = build_app(state.clone())
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!(
+                    "/api/v1/jobs/{source_job_id}/ocr/resolve-ambiguity"
+                ))
+                .header("X-API-Key", "test-key")
+                .header("Content-Type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "resolution": "bind_existing_receipt",
+                        "resolution_revision": 3,
+                        "batch_id": "stale-batch",
+                        "upload_url": upload_url
+                    })
+                    .to_string(),
+                ))
+                .expect("stale receipt request"),
+        )
+        .await
+        .expect("stale receipt response");
+    assert_eq!(stale.status(), StatusCode::CONFLICT);
+    assert!(!serde_json::to_string(&read_json(stale).await)
+        .expect("stale response json")
+        .contains("must-not-leak"));
+
     let bound = build_app(state.clone())
         .oneshot(
             Request::builder()
@@ -53,6 +134,7 @@ async fn ambiguous_ocr_requires_explicit_resolution_and_can_bind_existing_receip
                 .body(Body::from(
                     json!({
                         "resolution": "bind_existing_receipt",
+                        "resolution_revision": 4,
                         "batch_id": "batch-from-provider-console",
                         "upload_url": upload_url,
                         "trace_id": "trace-operator"
@@ -91,6 +173,45 @@ async fn ambiguous_ocr_requires_explicit_resolution_and_can_bind_existing_receip
     assert!(!serde_json::to_string(&public_events)
         .expect("events json")
         .contains("must-not-leak"));
+    let source_events = state
+        .db
+        .list_job_events(source_job_id, 100, 0)
+        .expect("source events");
+    assert!(!serde_json::to_string(&source_events)
+        .expect("source events JSON")
+        .contains(&"a".repeat(64)));
+    let resolution_event = source_events
+        .iter()
+        .find(|event| event.event == "ocr_ambiguity_resolved")
+        .expect("resolution event");
+    assert_eq!(
+        resolution_event
+            .payload
+            .as_ref()
+            .map(|value| &value["receipt_fields"]),
+        Some(&json!(["batch_id", "trace_id", "upload_url"]))
+    );
+    let audit_json = serde_json::to_string(resolution_event).expect("audit json");
+    assert!(!audit_json.contains("must-not-leak"));
+    assert!(!audit_json.contains("batch-from-provider-console"));
+    assert!(!audit_json.contains("trace-operator"));
+
+    let resolved_diagnostics = build_app(state.clone())
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/v1/jobs/{source_job_id}/diagnostics"))
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("resolved diagnostics request"),
+        )
+        .await
+        .expect("resolved diagnostics response");
+    let resolved_payload = read_json(resolved_diagnostics).await;
+    assert_eq!(
+        resolved_payload["data"]["ocr_ambiguity"],
+        serde_json::Value::Null
+    );
 }
 
 #[tokio::test]
@@ -118,6 +239,7 @@ async fn ambiguous_ocr_duplicate_risk_is_explicit_audited_and_single_use() {
                 .body(Body::from(
                     json!({
                         "resolution": "accept_duplicate_risk",
+                        "resolution_revision": 4,
                         "task_id": "must-not-be-accepted"
                     })
                     .to_string(),
@@ -138,7 +260,11 @@ async fn ambiguous_ocr_duplicate_risk_is_explicit_audited_and_single_use() {
                 .header("X-API-Key", "test-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(
-                    json!({"resolution": "accept_duplicate_risk"}).to_string(),
+                    json!({
+                        "resolution": "accept_duplicate_risk",
+                        "resolution_revision": 4
+                    })
+                    .to_string(),
                 ))
                 .expect("duplicate risk request"),
         )
@@ -193,7 +319,11 @@ async fn ambiguous_ocr_duplicate_risk_is_explicit_audited_and_single_use() {
                 .header("X-API-Key", "test-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(
-                    json!({"resolution": "accept_duplicate_risk"}).to_string(),
+                    json!({
+                        "resolution": "accept_duplicate_risk",
+                        "resolution_revision": 4
+                    })
+                    .to_string(),
                 ))
                 .expect("repeated resolution"),
         )
