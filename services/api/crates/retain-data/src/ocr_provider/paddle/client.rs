@@ -335,7 +335,14 @@ fn build_http_client(runtime: &PaddleRuntimeConfig) -> Client {
 }
 
 fn is_retryable_transport_error(err: &reqwest::Error) -> bool {
-    err.is_connect() || err.is_timeout() || err.is_body()
+    err.is_connect()
+        || err.is_timeout()
+        || err.is_body()
+        // Hyper reports a connection closed before any response headers as a
+        // request error (for example IncompleteMessage), not a connect/body
+        // error. This path is only used by idempotent poll/probe/download
+        // calls; non-idempotent submit continues to use send_once.
+        || (err.is_request() && err.status().is_none())
 }
 
 pub fn normalize_model_name(model: &str) -> String {
