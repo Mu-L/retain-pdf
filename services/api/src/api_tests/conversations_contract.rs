@@ -87,6 +87,10 @@ fn output_views_serialize_exactly_to_contract_fields() {
 
     let list = serde_json::to_value(ConversationListView {
         conversations: vec![sample_conversation()],
+        total: 1,
+        limit: 50,
+        offset: 0,
+        has_more: false,
     })
     .unwrap();
     assert_eq!(

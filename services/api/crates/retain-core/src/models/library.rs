@@ -265,6 +265,10 @@ pub struct ListConversationsQuery {
 #[derive(Debug, Serialize)]
 pub struct ConversationListView {
     pub conversations: Vec<ConversationRecord>,
+    pub total: u64,
+    pub limit: u32,
+    pub offset: u32,
+    pub has_more: bool,
 }
 
 #[derive(Debug, Serialize)]

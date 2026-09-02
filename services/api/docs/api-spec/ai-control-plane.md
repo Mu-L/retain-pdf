@@ -70,8 +70,9 @@ Appending without `parent_id` attaches to the current head. Stable client
 response. A document-scoped conversation must reference an existing document.
 
 Conversation listing accepts `limit`, `offset`, and optional `document_id`.
-The default limit is `50`, clamped to `1..200`, and the response currently
-contains only `conversations`; it does not expose `total` or `has_more`.
+The default limit is `50`, clamped to `1..200`. The response contains
+`conversations`, `total`, the effective `limit`, `offset`, and `has_more`;
+counts use the same optional document scope as the returned page.
 
 The operation-capable AI path durably appends the user message before invoking
 the runtime. That message id becomes the operation's `request_message_id`, so a
