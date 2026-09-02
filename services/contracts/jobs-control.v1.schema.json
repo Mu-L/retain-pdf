@@ -55,6 +55,6 @@
   },
   "health": {
     "path": "/healthz",
-    "semantics": "监督探活；与 ai_service 同形，便于复用 ai_supervisor 模式"
+    "semantics": "监督探活；与 retainpdf-ai sidecar 同形，便于复用 supervisor 模式"
   }
 }

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "retainpdf/contracts/ai-conversations/v1",
   "title": "AI 会话 CRUD 契约",
-  "description": "会话与消息树（parent_id 分支 / head_id 可见叶）的单一真值。生产者：rust_api（SQLite 唯一写者，routes/library_extras.rs + models/library.rs）。消费者：ai_service（rust_client.py，问答落库）与前端（src/js/api/conversations.ts，会话列表/历史/分支切换）。改契约先改本文件，三端锁测试同步变绿才算完成。所有响应为 {code, message, data} 信封，code=0 成功；本契约描述 data 部分。",
+  "description": "会话与消息树（parent_id 分支 / head_id 可见叶）的单一真值。生产者：services/api（SQLite 唯一写者，library conversation service）。消费者：services/ai/retainpdf_ai/rust_client.py 与 apps/web/packages API。改契约必须同步上游 schema、后端镜像、生产者和消费者测试。所有响应采用 {code, message, data} 信封，code=0 成功；本契约描述 data 部分。",
   "base_path": "/api/v1/ai/conversations",
   "endpoints": [
     {

@@ -20,25 +20,25 @@
 
 明确不负责：
 
-1. 不改翻译层 `services/translation/*`
-2. 不改渲染层 `services/rendering/*`
-3. 不在 `runtime/pipeline/*` 里写 Paddle 私有特判
+1. 不改翻译层 `services/pipeline/retainpdf_pipeline/services/translation/*`
+2. 不改渲染层 `services/pipeline/retainpdf_pipeline/services/rendering/*`
+3. 不在 `services/pipeline/retainpdf_pipeline/runtime/pipeline/*` 里写 Paddle 私有特判
 4. 不让下游直接读取 Paddle raw JSON
 
 ## 当前代码入口
 
 - provider 注册入口：
-  `backend/scripts/services/document_schema/adapters.py`
+  `services/pipeline/retainpdf_pipeline/services/document_schema/adapters.py`
 - provider 常量：
-  `backend/scripts/services/document_schema/providers.py`
+  `services/pipeline/retainpdf_pipeline/services/document_schema/providers.py`
 - Paddle adapter 入口：
-  `backend/scripts/services/document_schema/provider_adapters/paddle/adapter.py`
+  `services/pipeline/retainpdf_pipeline/services/document_schema/provider_adapters/paddle/adapter.py`
 - Paddle page reader：
-  `backend/scripts/services/document_schema/provider_adapters/paddle/page_reader.py`
+  `services/pipeline/retainpdf_pipeline/services/document_schema/provider_adapters/paddle/page_reader.py`
 - Paddle block reader：
-  `backend/scripts/services/document_schema/provider_adapters/paddle/block_reader.py`
+  `services/pipeline/retainpdf_pipeline/services/document_schema/provider_adapters/paddle/block_reader.py`
 - 通用契约说明：
-  `backend/scripts/services/document_schema/README.md`
+  `services/pipeline/retainpdf_pipeline/services/document_schema/README.md`
 
 ## 阅读顺序
 

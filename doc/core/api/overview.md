@@ -16,9 +16,10 @@ Docker Web 默认 `FRONT_API_BASE=` 为空，前端走同源 `/api/` 代理到�
 
 1. `POST /api/v1/uploads` 上传 PDF。
 2. `POST /api/v1/jobs` 创建主任务。
-3. 主任务创建 OCR 子任务 `{job_id}-ocr`。
-4. OCR 完成后生成标准化 `document.v1`。
-5. 进入翻译和渲染。
+3. 没有 `source.artifact_job_id` 时，主任务创建 OCR 子任务 `{job_id}-ocr`；
+   指定可复用 OCR 产物时，后端校验通过后直接跳过 OCR。
+4. OCR 新产物或复用产物提供标准化 `document.v1` 与布局数据。
+5. 根据 workflow 进入翻译和/或渲染。
 6. 通过任务详情、actions、artifacts 或 manifest 下载产物。
 
 正式任务 JSON 只使用分组结构：

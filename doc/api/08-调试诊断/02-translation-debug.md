@@ -47,7 +47,7 @@ Replay 是一次即时调试调用：
 - 不创建新 job。
 - 不进入队列。
 - 不修改原任务状态。
-- 后端同步调用 `backend/scripts/devtools/replay_translation_item.py`。
+- 后端同步调用 `services/pipeline/devtools/replay_translation_item.py`。
 - 可使用当前 job 的翻译 API key。
 
 ## 脱敏规则

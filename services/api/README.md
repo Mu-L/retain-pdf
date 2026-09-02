@@ -24,9 +24,13 @@
    [`../doc/core/rust_api/12-job_runner 边界.md`](../../doc/core/rust_api/12-job_runner%20%E8%BE%B9%E7%95%8C.md)
 9. OCR provider 边界：
    [`OCR_PROVIDER_CONTRACT.md`](OCR_PROVIDER_CONTRACT.md)
-10. Paddle OCR 异步 API 摘要：
-   [`src/ocr_provider/paddle/API_SUMMARY.md`](src/ocr_provider/paddle/API_SUMMARY.md)
-11. Paddle Markdown / artifact 边界：
+10. AI 问答、会话与公开 operation 控制面：
+   [`docs/api-spec/ai-control-plane.md`](docs/api-spec/ai-control-plane.md)
+11. Backend-only Agent capability / broker / executor：
+   [`docs/api-spec/agent-document-operations.md`](docs/api-spec/agent-document-operations.md)
+12. Paddle OCR 异步 API 摘要：
+   [`crates/retain-data/src/ocr_provider/paddle/API_SUMMARY.md`](crates/retain-data/src/ocr_provider/paddle/API_SUMMARY.md)
+13. Paddle Markdown / artifact 边界：
    [`../doc/core/paddle_ocr_api/06_job_artifact_boundary.md`](../../doc/core/paddle_ocr_api/06_job_artifact_boundary.md)
 
 ## 每篇文档解决什么问题
@@ -51,7 +55,7 @@
   只看运行态执行层边界，重点回答“改 job_runner 时逻辑应该放在哪个模块”。
 - [`OCR_PROVIDER_CONTRACT.md`](OCR_PROVIDER_CONTRACT.md)
   只看 provider adapter 边界，重点回答“MinerU / Paddle 在哪一层分发和收口”。
-- [`src/ocr_provider/paddle/API_SUMMARY.md`](src/ocr_provider/paddle/API_SUMMARY.md)
+- [`crates/retain-data/src/ocr_provider/paddle/API_SUMMARY.md`](crates/retain-data/src/ocr_provider/paddle/API_SUMMARY.md)
   只看 Paddle OCR 异步接口协议，重点回答“submit / poll / result download 到底怎么走”。
 - [`../doc/core/paddle_ocr_api/06_job_artifact_boundary.md`](../../doc/core/paddle_ocr_api/06_job_artifact_boundary.md)
   只看 Markdown 发布边界，重点回答“provider raw 为什么不能直接当 job markdown artifact”。

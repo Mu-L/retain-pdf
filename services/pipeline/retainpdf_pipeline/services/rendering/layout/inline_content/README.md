@@ -193,18 +193,18 @@ layout/inline_content/
    放 `mode_router.py`
 4. 这是测试坏例吗？
    放到
-   [`devtools/tests/translation/test_formula_math_markers.py`](/home/wxyhgk/tmp/Code/backend/scripts/devtools/tests/translation/test_formula_math_markers.py)
+   [`devtools/tests/translation/test_formula_math_markers.py`](../../../../../devtools/tests/translation/test_formula_math_markers.py)
 
 ## 当前你最该看的文件
 
 如果你想快速理解这里，阅读顺序建议是：
 
-1. [`mode_router.py`](/home/wxyhgk/tmp/Code/backend/scripts/services/rendering/layout/inline_content/mode_router.py)
-2. [`core/markdown.py`](/home/wxyhgk/tmp/Code/backend/scripts/services/rendering/layout/inline_content/core/markdown.py)
-3. [`core/inline_math.py`](/home/wxyhgk/tmp/Code/backend/scripts/services/rendering/layout/inline_content/core/inline_math.py)
-4. [`fallback/placeholder_markdown.py`](/home/wxyhgk/tmp/Code/backend/scripts/services/rendering/layout/inline_content/fallback/placeholder_markdown.py)
-5. [`fallback/latex_normalizer.py`](/home/wxyhgk/tmp/Code/backend/scripts/services/rendering/layout/inline_content/fallback/latex_normalizer.py)
-6. [`fallback/png_renderer.py`](/home/wxyhgk/tmp/Code/backend/scripts/services/rendering/layout/inline_content/fallback/png_renderer.py)
+1. [`mode_router.py`](mode_router.py)
+2. [`core/markdown.py`](core/markdown.py)
+3. [`core/inline_math.py`](core/inline_math.py)
+4. [`fallback/placeholder_markdown.py`](fallback/placeholder_markdown.py)
+5. [`fallback/latex_normalizer.py`](fallback/latex_normalizer.py)
+6. [`fallback/png_renderer.py`](fallback/png_renderer.py)
 
 ## 当前状态
 

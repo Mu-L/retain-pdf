@@ -9,12 +9,12 @@
 
 ## 范围
 
-这次只改 `rust_api`。
+这次只改 Rust API workspace。
 
 允许改动：
 
-- `rust_api/src/**`
-- 必要时补 `rust_api/api.md` / `rust_api/API_SPEC.md`
+- `services/api/crates/retain-data/src/ocr_provider/**`
+- 必要时补 `services/api/API_SPEC.md` 或对应领域文档
 
 不要改：
 
@@ -24,7 +24,8 @@
 
 ## 目录目标
 
-在 `rust_api/src/` 下新增独立 provider 层，建议形态：
+在 `services/api/crates/retain-data/src/ocr_provider/` 下维护独立 provider 层，
+建议形态：
 
 - `ocr_provider/mod.rs`
 - `ocr_provider/types.rs`

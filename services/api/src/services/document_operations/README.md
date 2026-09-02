@@ -16,8 +16,8 @@ P0 currently includes core manifest/state/receipt contracts, versioned SQLite
 tables for operations/attempts/events/document versions, idempotent dispatch
 reconciliation, durable new-attempt retry, candidate publication,
 compare-and-swap commit, a backend-only HTTP adapter, and the local
-`retainpdf-agent` CLI. An experimental fx ACP
-runtime now reaches the CLI through a host-owned, exact-argv command broker.
+`retainpdf-agent` CLI. The OpenAI-compatible and experimental FX ACP operation
+runtimes reach the CLI through a shared host-owned, exact-argv command broker.
 Real page selection, deletion, reordering, duplication, and rotation produce a
 validated candidate without adding one model tool per PDF feature.
 
@@ -53,9 +53,9 @@ retainpdf-agent operation cancel --operation-id <id> --request requests/cancel.j
 It accepts only an explicit loopback HTTP origin, reads regular non-symlink
 JSON request files from the current workspace, rejects traversal and unknown
 flags, and emits a versioned JSON envelope. A trusted backend may authenticate
-with `RETAINPDF_AGENT_API_KEY`; fx uses a single-action, 60-second capability
-only inside the host-owned real CLI subprocess. Neither fx nor its wrapper
-receives that credential.
+with `RETAINPDF_AGENT_API_KEY`; operation runtimes use a single-action,
+60-second capability only inside the host-owned real CLI subprocess. Neither
+the model runtime nor its wrapper receives that credential.
 
 Create requests without program content remain on `control_plane_preview_v1`
 for compatibility. A validated `retainpdf_page_program_v1` is frozen into the
@@ -121,9 +121,10 @@ It does not own:
 - direct writes to source PDFs or committed artifacts;
 - silently promoting a result to the active document version.
 
-The selected experimental agent-harness adapter is documented in
-`services/ai/fx_runtime/README.md`. fx may plan and call the coarse lifecycle
-tools, but this Rust module remains authoritative for operation state,
+The FX adapter is documented in `services/ai/fx_runtime/README.md`; the shared
+AI runtime boundaries are documented in `services/ai/README.md`. Models may
+plan and call the coarse lifecycle tools, but this Rust module remains
+authoritative for operation state,
 dispatch recovery, candidate publication, and commit/CAS.
 
 ## Workspace bundle
@@ -224,14 +225,19 @@ DocumentOperation
 The model-facing tools remain coarse:
 
 ```text
-create_document_workspace
-run_document_workspace
-get_document_workspace
-commit_document_candidate
-cancel_document_workspace
+retainpdf_document_inspect
+retainpdf_operation_create
+retainpdf_operation_get
+retainpdf_operation_run
+retainpdf_operation_commit
+retainpdf_operation_cancel
 ```
 
 These are lifecycle capabilities, not a catalog of PDF product features.
+Browser clients use the redacted `/api/v1/ai/operations/*` projection and CAS
+actions documented in
+[`docs/api-spec/ai-control-plane.md`](../../../docs/api-spec/ai-control-plane.md),
+not these model tools or internal capability routes.
 
 ## Execution boundary
 

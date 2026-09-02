@@ -42,7 +42,7 @@
 
 - [`src/routes/jobs/mod.rs`](src/routes/jobs/mod.rs)
 - [`src/services/jobs/*`](src/services/jobs)
-- [`src/job_runner/*`](src/job_runner)
+- [`crates/retain-jobs/src/job_runner/*`](crates/retain-jobs/src/job_runner)
 
 ### Python 层
 
@@ -56,11 +56,11 @@
 
 代码主入口：
 
-- [`services/pipeline/entrypoints/run_provider_case.py`](../../services/pipeline/entrypoints/run_provider_case.py)
-- [`services/pipeline/entrypoints/run_provider_ocr.py`](../../services/pipeline/entrypoints/run_provider_ocr.py)
-- [`services/pipeline/entrypoints/run_normalize_ocr.py`](../../services/pipeline/entrypoints/run_normalize_ocr.py)
-- [`services/pipeline/entrypoints/run_translate_only.py`](../../services/pipeline/entrypoints/run_translate_only.py)
-- [`services/pipeline/entrypoints/run_render_only.py`](../../services/pipeline/entrypoints/run_render_only.py)
+- [`services/pipeline/entrypoints/run_provider_case.py`](../pipeline/entrypoints/run_provider_case.py)
+- [`services/pipeline/entrypoints/run_provider_ocr.py`](../pipeline/entrypoints/run_provider_ocr.py)
+- [`services/pipeline/entrypoints/run_normalize_ocr.py`](../pipeline/entrypoints/run_normalize_ocr.py)
+- [`services/pipeline/entrypoints/run_translate_only.py`](../pipeline/entrypoints/run_translate_only.py)
+- [`services/pipeline/entrypoints/run_render_only.py`](../pipeline/entrypoints/run_render_only.py)
 
 ## 2. 当前正式 workflow
 
@@ -104,9 +104,9 @@
 关键代码：
 
 - Rust 写 spec：
-  - [`src/worker_command.rs`](src/worker_command.rs)
+  - [`crates/retain-data/src/worker_command.rs`](crates/retain-data/src/worker_command.rs)
 - Python 按 provider 分发：
-  - [`services/pipeline/services/ocr_provider/provider_pipeline.py`](../../services/pipeline/services/ocr_provider/provider_pipeline.py)
+  - [`services/pipeline/retainpdf_pipeline/services/ocr_provider/provider_pipeline.py`](../pipeline/retainpdf_pipeline/services/ocr_provider/provider_pipeline.py)
 
 注意：生产主链的 `book` job 不再以 `run_provider_case.py` 作为初始命令。`book` job 创建时只保存
 `book-workflow-rust-orchestrated` 占位命令，真正执行由 Rust `job_runner` 串联 OCR child、normalize、
@@ -133,7 +133,7 @@ legacy/local helper stage：
 
 对应 Python loader：
 
-- [`services/pipeline/foundation/shared/stage_specs.py`](../../services/pipeline/foundation/shared/stage_specs.py)
+- [`services/pipeline/retainpdf_pipeline/foundation/shared/stage_specs.py`](../pipeline/retainpdf_pipeline/foundation/shared/stage_specs.py)
 
 ## 5. Rust 到 Python 的真实执行链
 
@@ -182,10 +182,10 @@ Rust 根据 workflow 选择运行计划：
 
 主要代码：
 
-- [`src/job_runner/lifecycle.rs`](src/job_runner/lifecycle.rs)
-- [`src/job_runner/translation_flow.rs`](src/job_runner/translation_flow.rs)
-- [`src/job_runner/ocr_flow/mod.rs`](src/job_runner/ocr_flow/mod.rs)
-- [`src/job_runner/render_flow.rs`](src/job_runner/render_flow.rs)
+- [`crates/retain-jobs/src/job_runner/lifecycle.rs`](crates/retain-jobs/src/job_runner/lifecycle.rs)
+- [`crates/retain-jobs/src/job_runner/translation_flow.rs`](crates/retain-jobs/src/job_runner/translation_flow.rs)
+- [`crates/retain-jobs/src/job_runner/ocr_flow/mod.rs`](crates/retain-jobs/src/job_runner/ocr_flow/mod.rs)
+- [`crates/retain-jobs/src/job_runner/render_flow.rs`](crates/retain-jobs/src/job_runner/render_flow.rs)
 
 ### 第四步：Rust 按 stage 写 spec 并启动 worker
 
@@ -212,7 +212,7 @@ Rust 根据 workflow 选择运行计划：
 
 - [`src/app/jobs.rs`](src/app/jobs.rs)
   把 `AppState` 压缩成 `ProcessRuntimeDeps`
-- [`src/job_runner/lifecycle.rs`](src/job_runner/lifecycle.rs)
+- [`crates/retain-jobs/src/job_runner/lifecycle.rs`](crates/retain-jobs/src/job_runner/lifecycle.rs)
   负责 queued、执行槽位、workflow 分发
 
 ### 第六步：Rust 启动 Python worker
@@ -225,10 +225,10 @@ Rust 根据 workflow 选择运行计划：
 
 主要代码：
 
-- [`src/job_runner/process_runner.rs`](src/job_runner/process_runner.rs)
-- [`src/job_runner/process_runner/startup.rs`](src/job_runner/process_runner/startup.rs)
-- [`src/job_runner/process_runner/execution.rs`](src/job_runner/process_runner/execution.rs)
-- [`src/job_runner/worker_process.rs`](src/job_runner/worker_process.rs)
+- [`crates/retain-jobs/src/job_runner/process_runner.rs`](crates/retain-jobs/src/job_runner/process_runner.rs)
+- [`crates/retain-jobs/src/job_runner/process_runner/startup.rs`](crates/retain-jobs/src/job_runner/process_runner/startup.rs)
+- [`crates/retain-jobs/src/job_runner/process_runner/execution.rs`](crates/retain-jobs/src/job_runner/process_runner/execution.rs)
+- [`crates/retain-jobs/src/job_runner/worker_process.rs`](crates/retain-jobs/src/job_runner/worker_process.rs)
 
 ### 第七步：Python stage worker 执行
 
@@ -387,15 +387,15 @@ Rust API 生产主链入口。
 
 ### 看 Rust 到底起了哪个 Python 脚本
 
-- [`src/worker_command.rs`](src/worker_command.rs)
+- [`crates/retain-data/src/worker_command.rs`](crates/retain-data/src/worker_command.rs)
 
 ### 看 Python provider 总入口怎么分发
 
-- [`services/pipeline/services/ocr_provider/provider_pipeline.py`](../../services/pipeline/services/ocr_provider/provider_pipeline.py)
+- [`services/pipeline/retainpdf_pipeline/services/ocr_provider/provider_pipeline.py`](../pipeline/retainpdf_pipeline/services/ocr_provider/provider_pipeline.py)
 
 ### 看 stage spec 长什么样
 
-- [`services/pipeline/foundation/shared/stage_specs.py`](../../services/pipeline/foundation/shared/stage_specs.py)
+- [`services/pipeline/retainpdf_pipeline/foundation/shared/stage_specs.py`](../pipeline/retainpdf_pipeline/foundation/shared/stage_specs.py)
 
 ### 看最终主链结果
 
@@ -435,26 +435,34 @@ key，因此断网后重复同一请求只会回放原 attempt；活动文档版
 Rust 已实现 `POST /api/v1/internal/agent/capabilities`。完整 API key 只在可信
 后端签发阶段使用；CLI 优先发送短期 capability。token 不入库，API 重启或
 过期即失效，并且不能访问 runtime-session、不能再次签发、不能越过绑定的
-conversation/document/action。fx 进程仍拿不到 token；宿主命令中介会验证命令
-并代执行，不能把 capability 放进 fx 的环境变量或命令参数。每次实际调用只
-签发一个 action、60 秒的 capability，并在 fx 外启动真实 CLI。
+conversation/document/action。OpenAI-compatible / FX 模型进程都拿不到 token；
+共享宿主 broker 会验证精确命令并代执行，不能把 capability 放进模型环境变量
+或命令参数。每次实际调用只签发一个 action、60 秒的 capability，并在模型
+运行时之外启动真实 CLI。
 
 关键代码：
 
 - [`src/bin/retainpdf-agent.rs`](src/bin/retainpdf-agent.rs)
+- [`src/app/router/internal_agent.rs`](src/app/router/internal_agent.rs)
+- [`src/app/router/ai.rs`](src/app/router/ai.rs)
 - [`src/routes/document_operations.rs`](src/routes/document_operations.rs)
+- [`src/routes/public_document_operations.rs`](src/routes/public_document_operations.rs)
 - [`src/services/document_operations`](src/services/document_operations)
+- [`src/services/public_document_operations.rs`](src/services/public_document_operations.rs)
 - [`crates/retain-data/src/db/document_operations.rs`](crates/retain-data/src/db/document_operations.rs)
 
-fx runtime 链已经通过受限宿主中介接入 CLI：
+对外入口与实际 runtime 链如下：
 
 ```text
-/v1/ask
-  -> AgentRuntime (python default / fx explicit)
-  -> fx acp 0.0.5, private HOME/workspace, no MCP
-  -> exact argv permission + single-use Unix-socket wrapper
-  -> host-issued capability + real retainpdf-agent subprocess
-  -> Rust runtime-session cursor API (revision CAS)
+POST /api/v1/ai/ask
+  -> Rust byte-stream proxy -> AI /v1/ask
+  -> AskOrchestrator selects python / openai / fx for this request
+     -> python: Markdown reading only
+     -> openai: host chat transport + shared exact-grammar broker
+     -> fx ACP: private HOME/workspace + single-use Unix-socket wrapper
+  -> host broker mints one-action capability and runs retainpdf-agent
+  -> Rust persists operation / attempt / event / candidate version
+  -> FX only: Rust runtime-session cursor API (revision CAS)
 ```
 
 对应内部 cursor 接口：
@@ -463,10 +471,18 @@ fx runtime 链已经通过受限宿主中介接入 CLI：
 GET/PUT/DELETE /api/v1/internal/agent/runtime-sessions/:conversation_id
 ```
 
-除严格匹配的 `document inspect` 和 operation lifecycle 命令外，fx permission
-仍全部 fail closed。当前用户消息会在启动 fx 前先写入 Rust 对话，模型无法
-伪造 document/conversation/message scope；run/commit 还需要请求级显式确认。
+除严格匹配的 `document inspect` 和 operation lifecycle 命令外，broker
+仍全部 fail closed。当前用户消息会在启动 operation-capable runtime 前先写入
+Rust 对话，模型无法伪造 document/conversation/message scope；默认 explicit
+模式下 run/commit/retry 还需要请求级显式确认。
 这使模型可以管理并执行 durable 的受限整页变换，但仍不能直接执行任意 PDF
 代码。浏览器断线不取消 operation；API 重启后会从 run index、terminal result
 和 SQLite 事件恢复。candidate 只会在显式 commit 后成为文档的 active source，
 下一次文档操作和翻译都会以该版本为基础。
+
+浏览器不直接调用 internal capability/operation 路由。公开控制面使用
+`/api/v1/ai/conversations/:conversation_id/operations` 和
+`/api/v1/ai/operations/:operation_id/*`：查询只返回安全投影，run/retry/cancel/
+commit 请求必须回传最后观察到的 status、attempt、program SHA-256 和稳定
+idempotency key；状态被其他请求推进时返回 409。详细字段见
+[`docs/api-spec/ai-control-plane.md`](docs/api-spec/ai-control-plane.md)。

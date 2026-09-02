@@ -2,7 +2,7 @@
 
 这份文档只回答一个问题：
 
-**改 `backend/rust_api/src/job_runner` 时，逻辑应该放在哪里。**
+**改 `services/api/crates/retain-jobs/src/job_runner` 时，逻辑应该放在哪里。**
 
 `job_runner` 是运行态执行层，不是 HTTP API 层，也不是 view/presentation 层。它负责把已经创建好的 job 真正跑起来：排队、分派 workflow、启动 Python worker、消费 stdout/stderr、同步运行态、处理 OCR provider transport、处理失败/取消/超时。
 
@@ -295,10 +295,10 @@ services/jobs -> job_runner -> worker_command / ocr_provider / db facade
 改 `job_runner` 后至少跑：
 
 ```bash
-cargo test --manifest-path backend/rust_api/Cargo.toml ocr_flow -- --nocapture
-cargo test --manifest-path backend/rust_api/Cargo.toml stdout_parser -- --nocapture
-cargo test --manifest-path backend/rust_api/Cargo.toml process_runner -- --nocapture
-cargo test --manifest-path backend/rust_api/Cargo.toml
+cargo test --manifest-path services/api/Cargo.toml ocr_flow -- --nocapture
+cargo test --manifest-path services/api/Cargo.toml stdout_parser -- --nocapture
+cargo test --manifest-path services/api/Cargo.toml process_runner -- --nocapture
+cargo test --manifest-path services/api/Cargo.toml
 ```
 
 如果只改某个小模块，可以先跑对应 filter，但收口前建议跑全量 Rust API 测试。

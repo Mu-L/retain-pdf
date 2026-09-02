@@ -1,9 +1,8 @@
-# 前端对接说明:图书馆数据层 API
+# 前端对接说明：图书馆数据层 API
 
-> 后端提交:`9b22e26`(图书馆数据层:documents 一等公民 + 锚点收藏 + FTS5 全文检索)
->
-> 现有 `/api/v1/library/books` 接口**原样保留**,图书馆页面可以按节奏迁移,不迁移也不会坏。
-> 所有新接口和现有接口一样走 `X-API-Key` 认证,响应统一 `{code, message, data}` 包装。
+> 当前实现说明，更新于 2026-09-02。现有 `/api/v1/library/books` 兼容接口保留；
+> 所有业务接口使用 `X-API-Key` 认证，JSON 响应统一采用
+> `{code, message, data}` 包装。
 
 ## 核心概念(前端需要理解的唯一模型变化)
 
@@ -47,7 +46,7 @@ POST /api/v1/favorites
      → data: FavoriteRecord(含生成的 favorite_id、解析出的 document_id 和实际锚定的 job_id)
 
 GET  /api/v1/favorites?document_id=xxx
-     → data.favorites[](按页码排序;不传参数 = 全部收藏,按时间倒序)
+     → `data.favorites[]`（按页码排序；不传参数 = 全部收藏，按时间倒序）
 
 PATCH /api/v1/favorites/:favorite_id
      body: { note }                          ← 原子更新笔记,favorite_id 不变
@@ -74,50 +73,54 @@ GET /api/v1/search?q=光学光谱&limit=20
 - 任意长度的 `q` 都能查(≥3 字符走 FTS5 全文索引,更短自动回退模糊匹配);
 - `limit` 上限 100。
 
-### 4. AI 问答(agentic 检索,带可跳转引用)
+### 4. AI 问答与 PDF Agent
 
-> 前端只访问 Rust API 这一个入口:`/api/v1/ai/ask` 是到 retainpdf-ai 服务的
-> 反向代理,认证仍是同一个 X-API-Key,无需任何新配置。
+> 前端只访问 Rust API：`/api/v1/ai/ask` 反向代理到 `retainpdf-ai`，认证仍使用
+> `X-API-Key`。不要直连 Python 服务，也不要解析模型文案来推断操作状态。
 
-```
+```text
 POST /api/v1/ai/ask
-     body: { question: string, document_id?: string, job_id?: string, stream?: boolean,
-             conversation_id?: string,             ← 多轮对话,见第 6 节
-             llm_api_key?: string, llm_base_url?: string, llm_model?: string }
 ```
 
-- `job_id`(含历史 run)可替代 `document_id`:服务端解析所属文档后限定检索范围;
-- `llm_*` 三个字段来自前端凭据设置,按请求覆盖服务端 env 配置;缺 key 返回
-  400「请在前端凭据设置中填写模型 API Key」。
+请求除 `question`、`document_id` / `job_id` 和 `conversation_id` 外，还支持：
 
-**非流式**(`stream` 缺省 false):等待完整回答(agent 多轮检索,通常 10-30 秒)
-```json
-{ "code": 0, "data": {
-    "answer": "…回答文本,事实句带 [n] 引用标注…",
-    "citations": [ { "ref": 1, "document_id": "…", "job_id": "…",
-                     "page_idx": 3, "block_id": "p004-b0002", "snippet": "…" } ],
-    "tool_trace": [ { "round": 1, "tool": "search_fulltext", "arguments": {…} } ],
-    "rounds": 4
-} }
-```
+- `parent_id`、`regenerate`：在消息树上续写或重新生成分支；
+- `user_message_id`、`assistant_message_id`：客户端稳定 ID，网络重试时保持不变；
+- `assistant_mode`：`reading | operations | auto`；
+- `confirm_document_operation`：本次请求是否包含用户对 run/commit 的明确授权；
+- `stream`：是否返回 SSE；
+- `llm_api_key`、`llm_base_url`、`llm_model`：兼容的单请求模型覆盖。
 
-**流式**(`stream: true`):SSE(`text/event-stream`),每行 `data: {json}`,事件类型:
+运行模式和长期凭据通过 `GET|PUT /api/v1/ai/runtime-config` 管理。密钥只允许写入，
+查询和错误响应都不会返回明文。
 
-| type | 字段 | 说明 |
-|---|---|---|
-| `tool` | round, tool, arguments | agent 每次调用工具时实时推送——渲染成"正在检索:xxx"的过程提示 |
-| `answer_delta` | text | 最终回答的逐 token 增量,边到边渲染 |
-| `done` | answer, citations, tool_trace, rounds | 最终结果(结构同非流式 data) |
-| `error` | message | 失败 |
+非流式 `data` 除 `answer/citations/tool_trace/rounds` 外，还包含
+`persisted`、`conversation_id`、`agent_runtime`、`operation_refs` 和
+`confirmation_requests`。`persisted=false` 时必须提示用户本轮历史可能没有保存。
 
-前端渲染要点:
-- 回答文本里的 `[n]` 对应 `citations[].ref`,渲染成可点击引用;点击用
-  `job_id + page_idx + block_id` 跳阅读器——**与收藏跳转是同一套锚点逻辑**;
-- `document_id` 传入时限定单文档问答(阅读器内的"问这篇文档"),不传则全库检索;
-- 过程事件建议展示 `tool` 的语义化文案:`search_fulltext`→"全文检索"、
-  `read_blocks`→"阅读原文上下文"、`list_documents`→"浏览图书馆"、
-  `search_favorites`→"查找收藏";
-- AI 服务未启动时反代返回 502,提示"AI 服务未运行"。
+流式事件包括：
+
+| `type` | 说明 |
+| --- | --- |
+| `agent_session` | 会话 ID、实际 runtime 和确认模式 |
+| `tool` / `agent_tool` | 阅读工具或 Agent 工具的安全过程投影 |
+| `agent_operation` | operation 身份和状态刷新提示 |
+| `agent_confirmation_required` | 后端生成的结构化待确认动作 |
+| `answer_delta` | 增量文本片段，不是累积全文 |
+| `compress` | 对话历史发生压缩 |
+| `done` | 最终载荷，包含 `persisted` |
+| `error` | 本轮失败 |
+
+前端渲染要点：
+
+- `[n]` 对应 `citations[].ref`，使用 `job_id + page_idx + block_id` 跳转；
+- 默认确认模式下只渲染后端的 `confirmation_requests`，不要把“确认”自然语言
+  再发给模型猜测；
+- SSE 断线后重新查询 conversation 和 operation。SSE 本身不是可重放状态真源；
+- AI 服务未启动时反代返回 502，可提示“AI 服务未运行”。
+
+完整契约见 [`ai-ask.v1.schema.json`](../services/contracts/ai-ask.v1.schema.json)，
+接入与恢复说明见 [AI 问答与文档操作 API](../doc/core/api/reader-ai-chat.md)。
 
 
 ### 5. 资产(收藏截图等图片附件)
@@ -133,24 +136,25 @@ GET  /api/v1/assets/:asset_id          ← 文件本体;内容寻址,响应带 i
   `asset_id`(建议 `kind: "figure"`)和 `rect_json`(剪裁矩形几何原样存,换设备可还原);
 - favorites 记录现在返回 `asset_id` / `rect_json` 字段,空串 = 纯文字收藏。
 
-### 6. AI 问答会话(历史存储 + 多轮对话)
+### 6. AI 问答会话（消息树 + durable operation）
 
 ```
 POST   /api/v1/ai/conversations                      body: { title?, document_id? }
-GET    /api/v1/ai/conversations?limit=50&offset=0    → data.conversations[](含 message_count,按更新倒序)
-GET    /api/v1/ai/conversations/:id                  → 会话字段 + messages[](seq 正序)
+GET    /api/v1/ai/conversations?document_id=&limit=50&offset=0
+POST   /api/v1/ai/conversations/fork
+GET    /api/v1/ai/conversations/:id                  → 会话字段 + `messages[]`（seq 正序）
+PATCH  /api/v1/ai/conversations/:id                  body: { title?, head_id? }
 DELETE /api/v1/ai/conversations/:id                  级联删消息
-POST   /api/v1/ai/conversations/:id/messages         body: { role, content, citations_json?, tool_trace_json?, model? }
+POST   /api/v1/ai/conversations/:id/messages
+GET    /api/v1/ai/conversations/:id/operations
 ```
 
-- **前端接多轮对话只需一步**:先建会话拿 `conversation_id`,之后每次 `/api/v1/ai/ask`
-  带上它——服务端自动注入既往轮次做上下文、回答完成后自动把 user/assistant 两条
-  写进历史(**前端不需要调 messages 接口**,那是 AI 服务回写用的);
-- 消息里的 `citations_json` 是锚点快照数组(结构同 ask 返回的 citations),渲染历史
-  时同样可点击跳转;
-- **软锚点语义**:问答引用不阻止 job 删除(与收藏的 409 保护不同),job 删除后跳转
-  失效但 snippet 文字仍在——渲染时跳转失败请优雅降级为仅展示文字;
-- 会话标题自动取首问前 40 字,可通过创建时的 `title` 覆盖。
+- 消息通过 `parent_id` 组成树，conversation 的 `head_id` 决定当前可见分支；
+- `/ai/ask` 自动写入本轮 user/assistant 消息，前端不要再调用 messages 重复写入；
+- `citations_json` 是软锚点快照：job 删除后保留 snippet，但跳转应降级；
+- PDF 操作必须从 operation 查询接口恢复。`agent_operation` SSE 只是刷新提示；
+- run/retry/cancel/commit 请求必须带稳定幂等键和最新的状态、attempt、program hash，
+  过期提交返回 409 后应立即刷新。
 
 ### 7. 分类(合集):建文件夹给 PDF 分组
 
@@ -160,7 +164,7 @@ POST   /api/v1/ai/conversations/:id/messages         body: { role, content, cita
 
 ```
 POST   /api/v1/collections                body: { name, parent_id? }
-GET    /api/v1/collections                → data.collections[](按 sort_order 排序,含 document_count)
+GET    /api/v1/collections                → `data.collections[]`（按 sort_order 排序，含 document_count）
 PATCH  /api/v1/collections/:id             body: { name?, sort_order? }
 DELETE /api/v1/collections/:id             ← 只删文件夹本身,文档不受影响
 

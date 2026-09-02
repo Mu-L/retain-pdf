@@ -3,7 +3,8 @@
 This directory is the backend-local mirror of the JSON contracts consumed by
 the Rust API, `retain-jobsd`, the Python AI service, and the Python pipeline.
 Backend code and tests must resolve contracts from `<backend-root>/contracts`
-so a `services/` archive remains testable as an independent repository.
+where the current backend root is `services/`, so an extracted backend package
+remains testable without the parent monorepo.
 
 The mirrored files are:
 
@@ -19,7 +20,7 @@ frontend consumers. Every mirrored JSON file must remain byte-for-byte equal to
 its upstream counterpart. Run:
 
 ```bash
-python services/contracts/check_parity.py --require-upstream
+python3 services/contracts/check_parity.py --require-upstream
 ```
 
 In an extracted backend repository, the upstream directory is intentionally

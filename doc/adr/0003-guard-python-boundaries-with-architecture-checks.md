@@ -1,12 +1,16 @@
 # 0003 用架构检查守住 Python 模块边界
 
+> 当前状态：决策仍有效。本文决策时的 `backend/scripts` 已迁移为
+> `services/pipeline`；当前门禁脚本位于
+> `services/pipeline/devtools/check_pipeline_architecture.py`。
+
 ## 背景
 
 随着 OCR、翻译、渲染、桌面端和 Rust API 持续增长，单纯靠人工记忆无法长期维护模块边界。文件数量本身不是问题，真正的问题是跨层 import、循环依赖和 provider 私有字段泄漏。
 
 ## 决策
 
-短期先使用仓库已有的 `backend/scripts/devtools/check_pipeline_architecture.py` 固化 Python 后端核心边界，并接入 CI。
+使用仓库的 `services/pipeline/devtools/check_pipeline_architecture.py` 固化 Python 后端核心边界，并接入 CI。
 
 长期可以评估引入 `tach`、`import-linter` 或 `grimp`，但不会在没有收益验证前增加新依赖。
 

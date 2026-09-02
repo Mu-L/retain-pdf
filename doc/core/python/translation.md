@@ -7,7 +7,7 @@
 翻译层位于：
 
 ```text
-backend/scripts/services/translation/
+services/pipeline/retainpdf_pipeline/services/translation/
 ```
 
 它只负责把标准化 OCR 文档变成可渲染的翻译产物：
@@ -31,11 +31,11 @@ document.v1.json
 
 外部和 stage worker 不应直接拼翻译内部模块，优先走这些入口：
 
-- `backend/scripts/services/translation/translate_only_pipeline.py`
+- `services/pipeline/retainpdf_pipeline/entrypoints/run_translate_only.py`
   `translate.stage.v1` worker，要求 `--spec <job_root>/specs/translate.spec.json`。
-- `backend/scripts/services/translation/from_ocr_pipeline.py`
+- `services/pipeline/retainpdf_pipeline/entrypoints/run_translate_from_ocr.py`
   provider/normalize 后继续翻译和渲染的入口之一。
-- `backend/scripts/services/translation/workflow`
+- `services/pipeline/retainpdf_pipeline/services/translation/workflow`
   翻译层内部 facade，`runtime/pipeline/translation_stage.py` 通过这里进入翻译执行。
 
 当前 stage spec 里的 `start_page` / `end_page` 是 0 基页码，`end_page=0` 表示只处理第一页，不能被当成未设置值。
@@ -63,7 +63,8 @@ document.v1.json
 | `fast_path/` | 明确无需模型翻译的 keep-origin 快路径。 |
 | `postprocess/` | 翻译后轻量修复，例如乱码候选恢复。 |
 
-`backend/scripts/runtime/pipeline/book_translation_*.py` 兼容 shim 已删除。新代码不要再依赖 `runtime.pipeline.book_translation_*`。
+历史路径 `backend/scripts/runtime/pipeline/book_translation_*.py` 的兼容 shim
+已删除。新代码不要再依赖 `runtime.pipeline.book_translation_*`。
 
 ## 数据契约
 
@@ -183,16 +184,16 @@ data/jobs/<job_id>/logs/pipeline_events.jsonl
 翻译层改动后至少跑：
 
 ```bash
-python3 -m compileall -q backend/scripts/services/translation
-PYTHONPATH=backend/scripts python3 -m pytest backend/scripts/devtools/tests/translation -q
-python3 backend/scripts/devtools/check_pipeline_architecture.py
+uv run --project services python -m compileall -q services/pipeline/retainpdf_pipeline/services/translation
+PYTHONPATH=services/pipeline uv run --project services python -m pytest services/pipeline/devtools/tests/translation -q
+PYTHONPATH=services/pipeline uv run --project services python services/pipeline/devtools/check_pipeline_architecture.py
 ```
 
 如果改了 stage spec、页范围或 provider-backed workflow，还要跑：
 
 ```bash
-PYTHONPATH=backend/scripts python3 -m pytest backend/scripts/devtools/tests/document_schema/test_normalize_stage_spec.py -q
-python3 backend/scripts/devtools/check_stage_specs_contract.py data/jobs
+PYTHONPATH=services/pipeline uv run --project services python -m pytest services/pipeline/devtools/tests/document_schema/test_normalize_stage_spec.py -q
+PYTHONPATH=services/pipeline uv run --project services python services/pipeline/devtools/check_stage_specs_contract.py data/jobs
 ```
 
 ## 边界规则
@@ -206,7 +207,7 @@ python3 backend/scripts/devtools/check_stage_specs_contract.py data/jobs
 新增代码应优先放进已有分层目录。架构边界以：
 
 ```text
-backend/scripts/devtools/check_pipeline_architecture.py
+services/pipeline/devtools/check_pipeline_architecture.py
 ```
 
 为准。

@@ -9,7 +9,8 @@ executor.
 
 Use fx for:
 
-- model turns, tool selection, streamed agent events, and cancellation;
+- model turns, tool selection, streamed agent events, and bounded process
+  supervision;
 - loading a small RetainPDF agent instruction set;
 - invoking a narrow local `retainpdf-agent` CLI for RetainPDF lifecycle
   operations;
@@ -42,21 +43,21 @@ store.
 
 ## Why ACP plus a local CLI
 
-The first spike should launch the native `fx acp` process from a private,
-nearly empty per-session workspace. ACP is only the host-to-agent session
-protocol. RetainPDF operations are reached through one bundled local CLI, so
-the product does not need an MCP server, MCP discovery, or another network
-service lifecycle.
+The implemented adapter launches the native `fx acp` process from a private,
+nearly empty per-conversation workspace for each active turn. ACP is only the
+host-to-agent session protocol. RetainPDF operations are reached through one
+bundled local CLI, so the product does not need an MCP server, MCP discovery,
+or another network service lifecycle.
 
 This gives the host control over:
 
 - the active session and prompt lifecycle;
 - permission requests and streamed events;
 - the exact local command admitted to a conversation;
-- cancellation and process supervision;
+- timeout handling and process supervision;
 - the mapping between a RetainPDF conversation and an fx session cursor.
 
-The CLI should initially expose only these coarse commands:
+The broker currently admits only these coarse public commands:
 
 ```text
 retainpdf-agent document inspect
@@ -78,7 +79,7 @@ tool.
 fx is a coding-agent harness, so its built-in filesystem and command tools must
 not be treated as RetainPDF capabilities.
 
-For the spike:
+The current P0 adapter enforces:
 
 1. Start fx with an empty, operation-independent primary workspace.
 2. Do not add the repository, data root, document store, or credential
@@ -129,8 +130,10 @@ conversation; never infer document state from an fx transcript.
 
 Recovery rules:
 
-- Browser or SSE disconnect: the backend turn and any accepted operation keep
-  running; the client reconnects through RetainPDF event APIs.
+- Browser or SSE disconnect: the host worker and any accepted operation keep
+  running, but AI answer deltas are not replayed and the client cannot reattach
+  to the same turn stream. Recover conversation and operation state through
+  the Rust APIs.
 - AI Gateway disconnect before a CLI effect: retry or rebuild the fx turn from
   the canonical conversation snapshot.
 - Disconnect after a CLI effect: query the Rust operation by its idempotency
@@ -174,14 +177,17 @@ it sends no Gateway key, creates no billable request, and does not claim that a
 provider/model is healthy. The real live test remains responsible for proving
 that fx posts model traffic to `<base>/v3/ai/language-model`.
 
-## Implemented P0 adapter
+## Current P0 adapter
 
 `retainpdf_ai.runtimes.fx.FxAcpRuntime`（并由 `retainpdf_ai.runtime` 兼容导出）
-会为每个 active turn 启动一个私有 `fx acp` 进程；
-for one active turn. It reserves stdout for bounded ACP JSON-RPC, suppresses
-raw stderr, uses an empty private workspace and HOME, sends no MCP servers,
-pins ACP protocol 1 and fx `0.0.5`, and explicitly changes the session to
-`ask` through `session/set_config_option` before every prompt.
+为每个 active turn 启动一个私有 `fx acp` 进程。该进程只在 stdout 传输有界
+ACP JSON-RPC，丢弃原始 stderr，使用私有 workspace 与 HOME，不配置 MCP server，
+固定 ACP protocol 1 和 fx `0.0.5`，并在每次 prompt 前通过
+`session/set_config_option` 明确切换到 `ask` 模式。
+
+Turns for the same conversation are single-flight in-process and across host
+processes through a private POSIX file lock. Different conversations run with
+bounded parallelism (`RETAIN_AI_FX_MAX_CONCURRENT_TURNS`, default `4`).
 
 Rust stores the opaque `conversation -> fx sessionId` mapping through
 `/api/v1/internal/agent/runtime-sessions/:conversation_id`. Updates use
@@ -209,15 +215,16 @@ program is instead a closed `retainpdf_page_program_v1` JSON grammar interpreted
 by a fixed backend worker; arbitrary generated code still requires a separately
 confined Executor.
 
-## First implementation slice
+## Implementation status and remaining gates
 
 1. **Partial:** the adapter requires fx `0.0.5`; packaged releases must also
    pin the platform artifact digest instead of following latest.
 2. **Implemented:** `AgentRuntime` wraps the existing Python agent and the fx
    ACP adapter.
 3. **Implemented for P0:** one `fx acp` process is leased to one active turn;
-   stdout is reserved for bounded ACP JSON-RPC and the process is always
-   reaped. A process pool is intentionally deferred.
+   same-conversation turns are serialized, cross-conversation concurrency is
+   bounded, stdout is reserved for bounded ACP JSON-RPC, and the process is
+   always reaped. A process pool is intentionally deferred.
 4. **Implemented:** bundle `retainpdf-agent` as a strict loopback HTTP client
    backed only by the Rust document-operation service. The CLI prefers a
    1..300-second Rust-signed capability scoped to conversation, document, and
@@ -226,11 +233,13 @@ confined Executor.
    revision CAS and rebuild after cursor/local-session loss.
 6. **Implemented:** host-owned, single-use command broker with exact argv
    grammar, request-scope injection, least-privilege capability minting, and
-   explicit run/commit confirmation. Cooperative turn cancellation remains
-   pending at the ACP turn level; operation worker cancellation is implemented.
+   explicit run/commit confirmation. Browser disconnect does not propagate
+   cooperative cancellation into an active synchronous ACP/LLM turn; operation
+   worker cancellation is a separate implemented control-plane capability.
 7. **Implemented for restricted page programs:** fixed worker execution,
    resource limits, durable terminal results, Rust validation, candidate
    publication, restart recovery, and explicit commit. Arbitrary code remains
    disabled.
-8. Evaluate the spike before packaging fx or removing the current Python agent
-   loop.
+8. **Pending:** pin packaged platform artifact digests, add true client-to-turn
+   cancellation, and evaluate the adapter before making fx a required runtime
+   or removing the Python reading runtime.

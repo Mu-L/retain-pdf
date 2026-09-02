@@ -1,28 +1,27 @@
 # resources
 
-这个目录用于放仓库级资源，避免把 logo、动画、示例文件和本地运行时继续散落到 `backend/`、`frontend/`、`desktop/` 等源码目录里。
+此目录保存仓库级的品牌、动画、样例和设计参考资源，不是后端源码或 runtime
+目录。
 
 ## 分类
 
-- `brand/`：logo、二维码、品牌图、发布展示图。
-- `animations/`：动效素材、演示动画、加载动画源文件。
-- `samples/`：示例 PDF、测试输入文件、可公开的小样本。
-- `runtime/`：本地运行时或平台二进制的归档入口。`backend/fonts`、`backend/typst-win32` 已迁移至 `infra/fonts`、`infra/typst/win32`（`backend/` 下保留兼容 symlink），`backend/python` 迁移前仍需同步更新打包脚本。
-- `misc/`：暂时无法归类的资源。定期清理，避免长期堆积。
+- `brand/`：Logo、二维码和发布展示图。
+- `animations/`：加载和阶段动效素材。
+- `samples/`：可公开的小型测试输入。
+- `claude_design/`：设计参考稿，不作为生产前端入口。
+- `runtime/`：预留的资源归档入口；不要在这里提交凭据或可再生成的大型二进制。
+- `misc/`：尚未归类的资源。
 
-## 不建议放这里
+## 当前源码与运行资源位置
 
-- 源码：继续放在 `backend/`、`frontend/`、`desktop/`。
-- 任务数据：继续放在 `data/jobs`、`data/uploads`、`data/downloads`。
-- 密钥文件：不要放入仓库。
-- 大体积构建产物：优先忽略或放到发布制品，不要提交。
+- 后端源码：[`services/`](../services/README.md)
+- Web 应用：`apps/web/`
+- Reader 包：`packages/reader/`
+- Docker / 发布基础设施：`infra/` 与 `services/docker/`
+- 字体：`services/fonts/`
+- Windows Typst runtime 元数据：`infra/typst/win32/`
+- 任务数据：默认位于 `services/data/`，实际部署以 `DATA_ROOT` 为准
 
-## backend 整理建议
-
-`backend/` 里真正可疑的不是源码，而是本地运行时和构建产物：
-
-- `backend/rust_api/target/` 是 Rust 构建产物，可以删除后重新编译。
-- `backend/python/` 是 Windows 桌面端 Python runtime，当前被打包脚本引用，迁移前要改 `desktop/scripts/prepare-app.mjs`。
-- `backend/typst-win32/` 已迁移至 `infra/typst/win32`（`backend/typst-win32` 为兼容 symlink），`backend/python` 仍需同步桌面端打包逻辑。
-
-因此短期只新增 `resources/` 入口，不直接搬 `backend/scripts` 或 `backend/rust_api`。
+不要把源码重新放入 `backend/` 或旧 `frontend/` 路径。后端构建产物例如
+`services/api/target/` 可以重新生成，应保持忽略；运行数据和模型/OCR 密钥也不应
+提交到 `resources/`。

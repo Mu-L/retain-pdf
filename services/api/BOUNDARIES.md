@@ -11,7 +11,8 @@ Files under `src/routes/**` should only:
 - extract Axum state, headers, path params, query params, and JSON bodies;
 - compute HTTP-only context such as `base_url`;
 - call application facades (`JobsFacade`, `library_api`, `glossary_api`,
-  `upload_api`) through deps builders in `routes/common.rs`;
+  `upload_api`, `ai_proxy_api`, `public_document_operations_api`, and the
+  backend-only Agent APIs) through deps builders in `routes/common.rs`;
 - wrap results in `ApiResponse` or stream files via `stream_file` /
   `download_response`.
 
@@ -33,6 +34,18 @@ Create routes are the intentional input-side exception: they parse JSON or
 multipart request bodies before delegating to `JobsFacade`, then still return a
 typed `ApiResponse`. Library asset upload is the same pattern: multipart stays
 in the route; persistence goes through `library_api::store_asset_view`.
+
+AI routes follow the same boundary:
+
+- `routes/ai_proxy.rs` streams ask bytes or buffers runtime config through
+  `ai_proxy_api`; it does not interpret the AI payload;
+- `routes/public_document_operations.rs` delegates browser-safe queries and CAS
+  actions to `public_document_operations_api`;
+- `routes/document_operations.rs`, `agent_capabilities.rs`, and
+  `agent_runtime_sessions.rs` are internal CLI/host adapters and delegate to
+  their corresponding application APIs;
+- public routes must never mint Agent capabilities or expose internal operation
+  manifests, cursor endpoints, workspace paths, or credentials.
 
 ## Library Facade
 
@@ -114,11 +127,13 @@ depend on job view internals.
 
 ## Persistence
 
-`src/db/**` should stay focused on SQLite rows and records. It should not know
-about HTTP view contracts, route URLs, or frontend display decisions.
+`crates/retain-data/src/db/**` should stay focused on SQLite rows and records.
+It should not know about HTTP view contracts, route URLs, or frontend display
+decisions.
 
 ## Models
 
-`src/models/**` contains serializable input, job records, and public view types.
-Model helpers can build plain data structures, but service decisions such as
-file readiness, route scope, and event-source merging should remain in services.
+`crates/retain-core/src/models/**` contains serializable input, job records, and
+public view types. Model helpers can build plain data structures, but service
+decisions such as file readiness, route scope, and event-source merging should
+remain in services.

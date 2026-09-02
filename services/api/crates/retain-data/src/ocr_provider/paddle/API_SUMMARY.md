@@ -9,13 +9,13 @@
 相关资料：
 
 - Paddle 官方异步接口示例：
-  [`AsyncParse.md`](services/api/src/ocr_provider/paddle/AsyncParse.md)
+  [`AsyncParse.md`](AsyncParse.md)
 - Rust client：
-  [`client.rs`](services/api/src/ocr_provider/paddle/client.rs)
+  [`client.rs`](client.rs)
 - Python client：
-  [`services/pipeline/services/ocr_provider/paddle_api.py`](services/pipeline/services/ocr_provider/paddle_api.py)
+  [`services/pipeline/retainpdf_pipeline/services/ocr_provider/paddle_api.py`](../../../../../../pipeline/retainpdf_pipeline/services/ocr_provider/paddle_api.py)
 - provider 边界：
-  [`PROVIDER_BOUNDARY.md`](services/api/src/ocr_provider/paddle/PROVIDER_BOUNDARY.md)
+  [`PROVIDER_BOUNDARY.md`](PROVIDER_BOUNDARY.md)
 
 ## 1. 我们当前用的是哪套接口
 
@@ -32,9 +32,9 @@
 当前代码入口：
 
 - Rust：
-  [`client.rs`](services/api/src/ocr_provider/paddle/client.rs)
+  [`client.rs`](client.rs)
 - Python：
-  [`paddle_api.py`](services/pipeline/services/ocr_provider/paddle_api.py)
+  [`paddle_api.py`](../../../../../../pipeline/retainpdf_pipeline/services/ocr_provider/paddle_api.py)
 
 ## 2. 鉴权方式
 
@@ -52,7 +52,7 @@ Accept: application/json
 
 Python 读取口：
 
-- [`get_paddle_token(...)`](services/pipeline/services/ocr_provider/paddle_api.py)
+- [`get_paddle_token(...)`](../../../../../../pipeline/retainpdf_pipeline/services/ocr_provider/paddle_api.py)
 
 ## 3. 三段式协议
 
@@ -110,7 +110,7 @@ Python 读取口：
 
 对应实现：
 
-- [`status.rs`](services/api/src/ocr_provider/paddle/status.rs)
+- [`status.rs`](status.rs)
 
 ## 3.3 download result
 
@@ -130,9 +130,9 @@ Python 读取口：
 对应实现：
 
 - Rust：
-  [`client.rs`](services/api/src/ocr_provider/paddle/client.rs)
+  [`client.rs`](client.rs)
 - Python：
-  [`paddle_api.py`](services/pipeline/services/ocr_provider/paddle_api.py)
+  [`paddle_api.py`](../../../../../../pipeline/retainpdf_pipeline/services/ocr_provider/paddle_api.py)
 
 ## 4. 当前我们实际传的关键参数
 
@@ -144,7 +144,7 @@ Python 读取口：
 
 默认值来自共享配置：
 
-- [`services/config/ocr_providers.json`](../../../../../../config/ocr_providers.json) (compat `backend/config` symlink)
+- [`services/config/ocr_providers.json`](../../../../../../config/ocr_providers.json)
 
 兼容归一化：
 
@@ -164,7 +164,7 @@ Python 读取口：
 
 对应实现：
 
-- [`build_optional_payload(...)`](services/pipeline/services/ocr_provider/paddle_api.py)
+- [`build_optional_payload(...)`](../../../../../../pipeline/retainpdf_pipeline/services/ocr_provider/paddle_api.py)
 
 ## 5. 错误口径
 
@@ -180,7 +180,7 @@ Python 读取口：
 
 Rust 统一错误映射：
 
-- [`errors.rs`](services/api/src/ocr_provider/paddle/errors.rs)
+- [`errors.rs`](errors.rs)
 
 ## 6. 与 `document.v1` 的边界
 

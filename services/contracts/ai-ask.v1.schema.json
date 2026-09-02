@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "retainpdf/contracts/ai-ask/v1",
   "title": "AI 问答链路契约（单一真值）",
-  "description": "frontend ↔ rust_api(透传代理) ↔ ai_service 三方共用的 /v1/ask 契约。生产者：ai_service（Python）；消费者：frontend api/ai.ts。rust ai_proxy 按字节透传不解析。双端契约测试：backend/ai_service/tests/test_contract_schema.py 与 frontend/tests/ai-ask-contract.test.mjs 各自加载本文件断言实现一致——改契约必须三处同步，先改这里。",
+  "description": "apps/web ↔ services/api（透传代理）↔ services/ai 三方共用的 /v1/ask 契约。生产者：services/ai（Python）；消费者：packages/api 与 apps/web。Rust ai_proxy 按字节透传、不解析问答载荷。双端契约测试：services/ai/tests/test_contract_schema.py 与 apps/web/tests/contracts/ai-ask-contract.test.mjs 分别加载后端镜像和上游 schema；改契约必须同步实现与两份字节级镜像。",
   "definitions": {
     "Citation": {
       "type": "object",
@@ -19,7 +19,7 @@
     },
     "AskInput": {
       "type": "object",
-      "description": "POST /v1/ask 请求体（ai_service AskInput pydantic 模型的镜像）",
+      "description": "POST /v1/ask 请求体（services/ai 的 AskInput Pydantic 模型镜像）",
       "required": ["question"],
       "properties": {
         "question": { "type": "string", "minLength": 1, "maxLength": 4000 },

@@ -9,5 +9,5 @@
 
 相关代码主要在：
 
-- `backend/scripts/services/rendering/layout/payload/`
-- `backend/scripts/services/rendering/layout/typography/`
+- `services/pipeline/retainpdf_pipeline/services/rendering/layout/payload/`
+- `services/pipeline/retainpdf_pipeline/services/rendering/layout/typography/`

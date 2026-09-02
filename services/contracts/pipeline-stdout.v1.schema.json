@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "retainpdf/contracts/pipeline-stdout/v1",
-  "title": "rust_api ↔ pipeline workers stdout 行协议",
-  "description": "rust_api 逐行解析 pipeline 子进程 stdout 来驱动任务状态机。本文件是该行协议的单一真值：生产者（backend/pipeline 各 worker）与消费者（rust_api job_runner/stdout_parser）各配一侧锁测试，改协议必须先改这里、两端测试同步变绿。行分七类：带标签工件行、结构化 artifact_published JSONL 事件、durable stage 观察、durable checkpoint 观察、指标行、provider 状态行、阶段前缀行。",
+  "title": "services/api ↔ services/pipeline workers stdout 行协议",
+  "description": "services/api 的 retain-jobs 逐行解析 pipeline 子进程 stdout 来驱动任务状态机。本文件是该行协议的单一真值：生产者（services/pipeline workers）与消费者（services/api/crates/retain-jobs 的 job_runner/stdout_parser）各配一侧契约测试；改协议必须同步上游 schema、后端镜像和两端实现。行分七类：带标签工件行、结构化 artifact_published JSONL 事件、durable stage 观察、durable checkpoint 观察、指标行、provider 状态行、阶段前缀行。",
   "labeled_line_format": "<label>: <value>",
   "artifact_labels": {
     "job root": { "artifact_field": "job_root" },

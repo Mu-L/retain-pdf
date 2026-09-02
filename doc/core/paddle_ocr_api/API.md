@@ -1,4 +1,10 @@
 # 同步解析代码
+
+> 历史来源说明：以下内容是 PaddleOCR 官方服务化示例的仓库内归档，不是
+> RetainPDF 当前 pipeline 的运行入口。现行 adapter 与调用实现位于
+> `services/pipeline/retainpdf_pipeline/services/`，请勿把示例中的 URL、模型或
+> 文件输出布局当作本项目的稳定契约。
+
 # Please make sure the requests library is installed
 # pip install requests
 import base64

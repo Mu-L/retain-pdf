@@ -1,6 +1,6 @@
 # Python 后端架构边界
 
-这份文档描述 `backend/scripts` 的长期维护边界。目标不是减少文件数量，而是保证代码增长后仍能定位、测试和修改。
+这份文档描述 `services/pipeline/retainpdf_pipeline` 的长期维护边界。目标不是减少文件数量，而是保证代码增长后仍能定位、测试和修改。
 
 ## 总体分层
 
@@ -139,7 +139,7 @@ ocr_provider / mineru
 
 - 本文档。
 - 对应目录 README。
-- `backend/scripts/devtools/check_pipeline_architecture.py`。
+- `services/pipeline/devtools/check_pipeline_architecture.py`。
 
 ## 什么时候才继续拆文件
 

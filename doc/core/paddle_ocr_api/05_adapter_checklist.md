@@ -22,17 +22,17 @@
 允许修改：
 
 - `doc/core/paddle_ocr_api/*`
-- `backend/scripts/services/document_schema/provider_adapters/paddle/*`
-- `backend/scripts/services/document_schema/adapters.py`
-- `backend/scripts/services/document_schema/providers.py`
-- `backend/scripts/devtools/tests/document_schema/fixtures/*`
-- `backend/scripts/devtools/tests/document_schema/regression_check.py`
+- `services/pipeline/retainpdf_pipeline/services/document_schema/provider_adapters/paddle/*`
+- `services/pipeline/retainpdf_pipeline/services/document_schema/adapters.py`
+- `services/pipeline/retainpdf_pipeline/services/document_schema/providers.py`
+- `services/pipeline/devtools/tests/document_schema/fixtures/*`
+- `services/pipeline/devtools/tests/document_schema/regression_check.py`
 
 不要修改：
 
-- `backend/scripts/services/translation/*`
-- `backend/scripts/services/rendering/*`
-- `backend/scripts/runtime/pipeline/*`
+- `services/pipeline/retainpdf_pipeline/services/translation/*`
+- `services/pipeline/retainpdf_pipeline/services/rendering/*`
+- `services/pipeline/retainpdf_pipeline/runtime/pipeline/*`
 
 例外：
 
@@ -52,10 +52,14 @@
 
 ## 验收命令
 
+当前可执行回归入口是 pytest suite；`regression_check.py` 仍是 fixture/适配器诊断
+工具，但它引用了已移除的 translation 私有 helper，修复前不作为验收门禁。
+
 ```bash
-PYTHONPATH=backend/scripts python backend/scripts/devtools/tests/document_schema/regression_check.py
-PYTHONPATH=backend/scripts python -m pytest backend/scripts/devtools/tests/document_schema -q
-PYTHONPATH=backend/scripts python -m pytest backend/scripts/devtools/tests/translation -q
+PYTHONPATH=services/pipeline uv run --project services \
+  python -m pytest services/pipeline/devtools/tests/document_schema -q
+PYTHONPATH=services/pipeline uv run --project services \
+  python -m pytest services/pipeline/devtools/tests/translation -q
 ```
 
 ## 必查项

@@ -1,6 +1,9 @@
 # prunedResult 结构与 normalized_document_v1 值映射
 
-该 README 针对 `rust_api/src/ocr_provider/paddle/json_full.json` 中 `layoutParsingResults[*].prunedResult` 的输出而写，供 adapter 实现者快速定位 key 字段、理解语义与归一化时的映射思路；同时指明哪些字段适合作为 trace/debug 保留。
+该 README 针对 `services/api/crates/retain-data/src/ocr_provider/paddle/json_full.json`
+中 `layoutParsingResults[*].prunedResult` 的输出而写，供 adapter 实现者快速定位
+key 字段、理解语义与归一化时的映射思路；同时指明哪些字段适合作为
+trace/debug 保留。
 
 ## JSON 层级
 

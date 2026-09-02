@@ -14,13 +14,13 @@
   [`src/services/library_api.rs`](src/services/library_api.rs) +
   [`src/services/library`](src/services/library)
 - 改 worker 运行链路：
-  [`src/job_runner`](src/job_runner)
+  [`crates/retain-jobs/src/job_runner`](crates/retain-jobs/src/job_runner)
 - 改 OCR provider 分发和适配：
-  [`src/ocr_provider`](src/ocr_provider)
+  [`crates/retain-data/src/ocr_provider`](crates/retain-data/src/ocr_provider)
 - 改后端运行参数、provider 超时/重试、路径和认证配置：
-  [`src/config`](src/config)
+  [`crates/retain-core/src/config`](crates/retain-core/src/config)
 - 改 Python worker 入口命令或 stage spec：
-  [`src/worker_command`](src/worker_command)
+  [`crates/retain-data/src/worker_command`](crates/retain-data/src/worker_command)
 
 ## 目录地图
 
@@ -31,17 +31,18 @@
 - 进入条件：
   只有在改全局资源、启动逻辑、路由挂载时才进这里。
 - 关键文件：
-  - [`src/app/state.rs`](services/api/src/app/state.rs)
+  - [`src/app/state.rs`](src/app/state.rs)
     `AppState` 和全局资源初始化。
-  - [`src/app/router.rs`](services/api/src/app/router.rs)
+  - [`src/app/router.rs`](src/app/router.rs)
     axum 路由总挂载点。
-  - [`src/app/jobs.rs`](services/api/src/app/jobs.rs)
+  - [`src/app/jobs.rs`](src/app/jobs.rs)
     jobs facade 组合根。这里负责把 `AppState` 装成 `JobsFacade`，`routes` 不再直接碰 `job_runner`。
 
-### `src/config.rs` + `src/config/*`
+### `crates/retain-core/src/config.rs` + `config/*`
 
 - 作用：
-  运行时配置入口。`config.rs` 是兼容 facade，继续暴露原来的 `AppConfig` 字段；`src/config/*` 才是实际配置分组。
+  运行时配置入口。API crate 通过 `crate::config` re-export 保持调用兼容，
+  实际配置分组位于 `retain-core`。
 - 进入条件：
   改 env、部署参数、provider timeout/retry、路径、auth、上传限制、worker 运行参数时进这里。
 - 当前子边界：
@@ -92,6 +93,17 @@
 - `collections.rs`
   合集 CRUD 与成员关系；只调 `library_api`。
 - deps：`routes/common.rs::build_library_route_deps`（`LibraryDeps` + `JobsFacade`）。
+
+#### `src/routes` AI / Agent 面
+
+- `ai_proxy.rs`
+  `/api/v1/ai/ask` 与 runtime-config 代理；只调 `ai_proxy_api`。
+- `public_document_operations.rs`
+  面向浏览器的 operation 查询、CAS 动作与 candidate 下载；只调
+  `public_document_operations_api`。
+- `document_operations.rs` / `agent_capabilities.rs` /
+  `agent_runtime_sessions.rs`
+  backend-only CLI/host 路由；不允许被前端当作公开操作接口。
 
 #### `src/routes/download_response`
 
@@ -166,8 +178,16 @@
   job 持久化与启动边界。
 - [`src/services/runtime_gateway.rs`](src/services/runtime_gateway.rs)
   services 访问 runtime 能力的收口层。
+- [`src/services/ai_proxy_api.rs`](src/services/ai_proxy_api.rs)
+  Rust 到受监督 AI sidecar 的 HTTP 代理入口。
+- [`src/services/public_document_operations_api.rs`](src/services/public_document_operations_api.rs)
+  浏览器安全 operation 投影、显式动作 CAS 与 candidate 读取入口。
+- [`src/services/document_operation_api.rs`](src/services/document_operation_api.rs)
+  internal CLI operation lifecycle 入口。
+- [`src/services/agent_runtime_session_api.rs`](src/services/agent_runtime_session_api.rs)
+  opaque runtime cursor revision CAS 入口。
 
-### `src/worker_command.rs` + `src/worker_command/*`
+### `crates/retain-data/src/worker_command.rs` + `worker_command/*`
 
 - 作用：
   Python worker 命令、worker 入口脚本和 stage spec 文件构造。
@@ -185,7 +205,7 @@
   - `worker_command/command_builder.rs`
     命令行拼装细节。
 
-### `src/job_runner`
+### `crates/retain-jobs/src/job_runner`
 
 - 作用：
   任务排队、worker 启动、stdout/stderr 消费、失败归因、取消、超时。
@@ -211,14 +231,14 @@
   - `worker_process.rs`
     子进程启动、env 注入、进程树终止；现在只拿 `WorkerProcessRuntimeConfig + job`，不再依赖整包 runtime deps。
 
-### `src/ocr_provider`
+### `crates/retain-data/src/ocr_provider`
 
 - 作用：
   OCR provider 分发、provider 特定协议转换、provider 输出收口。
 - 快速判断：
   改 MinerU / Paddle 接入细节时进这里。
 
-### `src/storage_paths.rs` + `src/storage_paths/*`
+### `crates/retain-core/src/storage_paths.rs` + `storage_paths/*`
 
 - 作用：
   artifact key、路径归一化、路径解析、artifact registry 收集。
@@ -234,7 +254,7 @@
   - `registry.rs`
     把任务文件投影成 artifact entry 列表。
 
-### `src/db.rs` + `src/db/*`
+### `crates/retain-data/src/db.rs` + `db/*`
 
 - 作用：
   SQLite 持久化入口。
@@ -253,7 +273,11 @@
 - “这是 jobs 用例编排变化吗？”
   先看 `src/services/jobs/facade` 和 `src/services/jobs/creation`
 - “这是 worker / Python 执行变化吗？”
-  先看 `src/job_runner`
+  先看 `crates/retain-jobs/src/job_runner`
+- “这是 AI 对话、runtime 或 PDF operation 变化吗？”
+  先分清 `src/services/ai_proxy_api.rs`、
+  `public_document_operations_api.rs` 和 backend-only
+  `document_operation_api.rs` 三个边界
 
 ## 一张更直观的目录地图
 
@@ -265,9 +289,9 @@
    jobs 用例总入口，route 只和 facade 说话。
 3. `src/services/jobs/creation` / `src/services/jobs/presentation`
    前者负责创建与提交，后者负责 detail/list/events 对外投影。
-4. `src/job_runner`
+4. `crates/retain-jobs/src/job_runner`
    运行态编排、子进程、OCR flow、translation/render flow。
-5. `src/ocr_provider`
+5. `crates/retain-data/src/ocr_provider`
    provider 协议和 provider 输出归一化。
 
 新人如果只想快速定位修改入口，可以先问自己是在改：
@@ -284,15 +308,15 @@
 
 如果第一次进这个后端，建议按这个顺序看：
 
-1. [`src/app/router.rs`](services/api/src/app/router.rs)
+1. [`src/app/router.rs`](src/app/router.rs)
    先知道有哪些 HTTP 入口。
-2. [`src/app/jobs.rs`](services/api/src/app/jobs.rs)
+2. [`src/app/jobs.rs`](src/app/jobs.rs)
    再看 jobs 相关依赖是怎么装起来的。
-3. [`src/routes/jobs`](services/api/src/routes/jobs)
+3. [`src/routes/jobs`](src/routes/jobs)
    看 route 只是怎么转发。
-4. [`src/services/jobs/facade`](services/api/src/services/jobs/facade)
+4. [`src/services/jobs/facade`](src/services/jobs/facade)
    看 command/query 用例入口。
-5. [`src/services/jobs/creation`](services/api/src/services/jobs/creation)
+5. [`src/services/jobs/creation`](src/services/jobs/creation)
    看创建链路的准备、快照、提交、bundle。
-6. [`src/job_runner`](services/api/src/job_runner)
+6. [`crates/retain-jobs/src/job_runner`](crates/retain-jobs/src/job_runner)
    最后再进 runtime 执行层。

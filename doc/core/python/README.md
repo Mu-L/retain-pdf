@@ -17,4 +17,5 @@
 - 依赖真相源按服务拆分到 `services/pipeline/pyproject.toml` 与 `services/ai/pyproject.toml`。
 - requirements 文件应由脚本生成，不直接手改。
 - Docker、桌面端和 CI 应共享同一套依赖口径。
-- 模块边界以 [architecture.md](./architecture.md) 和 `backend/scripts/devtools/check_pipeline_architecture.py` 为准。
+- 模块边界以 [architecture.md](./architecture.md) 和
+  `services/pipeline/devtools/check_pipeline_architecture.py` 为准。

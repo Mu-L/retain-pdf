@@ -1,112 +1,171 @@
-# Reader AI Chat API
+# AI 问答与文档操作 API
 
-RetainPDF 后端提供一个最小但可扩展的阅读问答接口。前端不传模型密钥；后端只读取服务端环境变量。
+RetainPDF 的推荐 AI 入口是 Rust API 代理：
 
-## Endpoint
+```text
+POST /api/v1/ai/ask
+```
 
-`POST /api/v1/jobs/{job_id}/reader/ai/chat`
+Rust 保持统一的 `X-API-Key` 鉴权，并将请求代理给 `retainpdf-ai`。客户端不应
+直连 Python 服务，也不应通过解析模型文案来判断操作是否已经执行。
 
-## Request
+旧接口 `POST /api/v1/jobs/{job_id}/reader/ai/chat` 仍保留兼容，但只支持已完成
+任务上的一次性 Markdown 阅读问答；新功能不得继续基于它开发。
+
+## 请求
+
+最小阅读请求：
 
 ```json
 {
-  "message": "这篇文章的核心贡献是什么？",
-  "scope": "document",
-  "provider": "deepseek",
-  "model": "deepseek-chat",
-  "api_key": "sk-...",
-  "base_url": "https://api.deepseek.com/v1",
-  "context": {
-    "page": 3,
-    "selection": {
-      "page": 3,
-      "rect": { "left": 120, "top": 240, "width": 300, "height": 180 }
-    },
-    "mode": "compare"
-  },
-  "history": [
-    { "role": "user", "content": "先总结一下" },
-    { "role": "assistant", "content": "..." }
-  ]
+  "question": "这篇文章的核心贡献是什么？",
+  "document_id": "sha256-document-id",
+  "assistant_mode": "reading",
+  "stream": true
 }
 ```
 
-当前第一版只支持 `scope=document`。`context` 和 `history` 可选；`context.page` / `selection.page` 会作为检索加权线索。
-
-模型配置字段可选：
-
-- `provider`: 可选，默认 `deepseek`，支持 `deepseek` / `openai`。
-- `model`: 可选，DeepSeek 默认 `deepseek-chat`。
-- `api_key`: 可选，前端直接传入时优先使用。后端不会写入 job snapshot、events 或返回体。
-- `base_url`: 可选，DeepSeek 默认 `https://api.deepseek.com/v1`。
-
-## Response
+文档操作请求使用同一个入口：
 
 ```json
 {
-  "code": 0,
-  "message": "ok",
-  "data": {
-    "answer": "这篇文章主要提出了...",
-    "citations": [
-      {
-        "title": "Introduction",
-        "page": 1,
-        "snippet": "..."
-      }
-    ],
-    "used_context": {
-      "source": "markdown",
-      "scope": "document"
-    }
-  }
+  "question": "把第 4 页旋转 180 度",
+  "document_id": "sha256-document-id",
+  "conversation_id": "conv-id",
+  "user_message_id": "client-user-message-id",
+  "assistant_message_id": "client-assistant-message-id",
+  "assistant_mode": "operations",
+  "stream": true
 }
 ```
 
-## Backend Behavior
+主要字段：
 
-第一版流程：
+- `document_id` 或 `job_id`：限定当前文档。操作模式必须能解析到文档身份。
+- `conversation_id`：续接持久化会话；省略时服务端可以创建会话并在响应中返回。
+- `parent_id`：从指定消息节点继续，用于分支对话。
+- `regenerate`：从既有父节点重新生成另一个回答分支。
+- `user_message_id` / `assistant_message_id`：客户端稳定消息 ID。重试请求应复用
+  原 ID，便于后端识别已经持久化但响应丢失的写入。
+- `assistant_mode`：`reading` 只开放检索，`operations` 开放受限 PDF 操作，
+  `auto` 使用服务端默认选择。
+- `confirm_document_operation`：仅表示用户对本次 `run` 或 `commit` 的明确授权；
+  模型不能自行设置此权限。
+- `llm_api_key` / `llm_base_url` / `llm_model`：兼容的单请求覆盖字段。常规产品
+  配置应优先使用 runtime config；任何响应都不会回显密钥。
 
-1. 根据 `job_id` 优先读取本地结构化翻译产物：`jobs/{job_id}/translated/translation-manifest.json` 以及它引用的逐页 payload。
-2. 从逐页 payload 提取 `page_idx/page_number`、标题角色和 `render_markdown/translated_text` 生成 page-aware chunks。
-3. 如果结构化翻译产物不存在或为空，再 fallback 到已发布 Markdown：`jobs/{job_id}/md/full.md`，按标题和段落切 chunk。
-4. 根据用户问题选择检索策略：
-   - 普通问题：轻量关键词检索，取 top 8 chunk。
-   - 泛总结问题：从 Abstract / Introduction / Methods / Results / Discussion / Conclusion 等章节优先取代表 chunk，并对全文做均匀采样，避免只命中第一页。
-5. 将 chunk、用户问题和有限历史发送给阅读问答模型。
-6. 返回模型答案和后端检索到的引用片段。
+完整字段和事件枚举以
+[`ai-ask.v1.schema.json`](../../../services/contracts/ai-ask.v1.schema.json) 为准。
 
-注意：优先使用 `translation-manifest.json` 时，`citations[].page` 来自逐页 payload 的 `page_number` 或 `page_idx + 1`。只有 fallback 到 `full.md` 时，页码才需要从 Markdown 文本中尝试推导，无法推导则为 `null`。
+## 响应与 SSE
 
-## Configuration
+非流式响应的 `data` 至少包含：
 
-前端可以在请求体直接传 `api_key`。如果请求体没有传，后端再读取服务端环境变量：
-
-```bash
-RETAINPDF_AI_PROVIDER=deepseek
-RETAINPDF_AI_MODEL=deepseek-chat
-DEEPSEEK_API_KEY=...
+```json
+{
+  "answer": "……[1]",
+  "citations": [],
+  "tool_trace": [],
+  "rounds": 2,
+  "persisted": true,
+  "conversation_id": "conv-id",
+  "agent_runtime": "python",
+  "operation_refs": [],
+  "confirmation_requests": []
+}
 ```
 
-可选：
+`persisted=false` 表示回答已经返回，但本轮历史没有可靠写入；客户端应明确提示
+用户，不要把屏幕上的内容误认为 durable history。
 
-```bash
-RETAINPDF_AI_BASE_URL=https://api.deepseek.com/v1
-RETAINPDF_AI_API_KEY=...
+流式请求返回 `text/event-stream`。每条 `data:` JSON 的 `type` 可能是：
+
+| `type` | 用途 |
+| --- | --- |
+| `agent_session` | 尽早返回会话 ID、实际 runtime 和确认模式 |
+| `tool` | Python 阅读 Agent 的检索过程 |
+| `agent_tool` | OpenAI / FX runtime 的安全工具投影 |
+| `agent_operation` | operation 身份与状态刷新提示 |
+| `agent_confirmation_required` | 后端生成的结构化待确认动作 |
+| `answer_delta` | 回答的增量文本片段，不是累积全文 |
+| `compress` | 本轮发生了对话历史压缩 |
+| `done` | 最终权威回答载荷；持久化在发送前完成 |
+| `error` | 本轮失败 |
+
+SSE 是通知通道，不是 operation 状态真源。断线或刷新后，应通过 conversation 和
+operation 查询接口恢复状态，不能只依赖已经接收过的事件。
+
+## 会话与分支
+
+```text
+POST   /api/v1/ai/conversations
+GET    /api/v1/ai/conversations?document_id=&limit=50&offset=0
+POST   /api/v1/ai/conversations/fork
+GET    /api/v1/ai/conversations/{conversation_id}
+PATCH  /api/v1/ai/conversations/{conversation_id}
+DELETE /api/v1/ai/conversations/{conversation_id}
+POST   /api/v1/ai/conversations/{conversation_id}/messages
 ```
 
-优先级：
+会话消息是树而不是只追加的线性数组。`parent_id` 表示父节点，conversation 的
+`head_id` 表示当前可见分支叶节点。切换分支应 `PATCH` 新的 `head_id`；服务端会
+据此重建从根到 head 的可见路径。正常问答由 AI 服务自动写入 user/assistant
+消息，客户端不需要额外调用 messages 接口复制一份。
 
-1. 请求体里的 `provider/model/api_key/base_url`
-2. 服务端环境变量 `RETAINPDF_AI_PROVIDER/RETAINPDF_AI_MODEL/RETAINPDF_AI_API_KEY/RETAINPDF_AI_BASE_URL`
-3. provider 默认值
+引用是消息快照中的软锚点：它不阻止 job 删除，目标不存在时客户端应保留
+snippet，但禁用跳转。
 
-默认 provider 是 `deepseek`，也支持 `openai`。`RETAINPDF_AI_API_KEY` 是通用环境变量覆盖项；不设置时，`deepseek` 读取 `DEEPSEEK_API_KEY`，`openai` 读取 `OPENAI_API_KEY`。
+## 文档 operation
 
-## Error Codes
+Agent 创建 operation 后，客户端通过公共查询与动作接口驱动 UI：
 
-- `404`: job 不存在，或 Markdown 不存在/不可读。
-- `409`: 任务还未完成，Markdown 未 ready。
-- `429`: 模型服务限流。
-- `502`: 模型服务失败或返回无效响应。
-- `500`: 后端内部错误，例如 AI provider 未配置。
+```text
+GET  /api/v1/ai/conversations/{conversation_id}/operations
+GET  /api/v1/ai/operations/{operation_id}
+POST /api/v1/ai/operations/{operation_id}/run
+POST /api/v1/ai/operations/{operation_id}/retry
+POST /api/v1/ai/operations/{operation_id}/cancel
+POST /api/v1/ai/operations/{operation_id}/commit
+GET  /api/v1/ai/operations/{operation_id}/candidate.pdf
+```
+
+动作请求必须携带稳定 `idempotency_key`，并带上刚查询到的
+`expected_status`、`expected_attempt` 和 `expected_program_sha256`。状态已变化时
+后端返回 409，客户端应刷新 operation，而不是用旧状态继续提交。
+
+默认 `explicit` 模式下，`run` 与 `commit` 必须来自明确的结构化确认。
+`green_light` 只省略这一步人工授权，不会绕过固定命令语法、能力令牌、幂等、
+候选校验和 commit 的并发保护。候选 PDF 生成后仍要单独 commit 才成为文档活动版本。
+
+详细状态机和安全边界见
+[`agent-document-operations.md`](../../../services/api/docs/api-spec/agent-document-operations.md)。
+
+## Runtime 配置
+
+```text
+GET /api/v1/ai/runtime-config
+PUT /api/v1/ai/runtime-config
+```
+
+可选 runtime：
+
+- `python`：本地 Markdown/结构化文档检索问答。
+- `openai`：OpenAI-compatible 文档 Agent，可配置远程 `llm_base_url`。
+- `fx`：FX Gateway Agent。FX CLI 0.0.5 的自定义 Gateway URL 只允许带端口的
+  loopback HTTP 薄桥接地址；远程 DeepSeek/OpenAI-compatible 地址应使用
+  `openai` runtime。
+
+更新接口支持 `expected_revision` 的 compare-and-swap。查询响应只返回
+`*_configured` 等状态，不回显任何 API key。部分变更需要进程重启；客户端应同时
+观察 configured revision、active revision 和 readiness 诊断。
+
+实现与恢复语义见
+[`AI_RUNTIME.md`](../../../docs/ai-runtime/AI_RUNTIME.md) 和
+[`SESSION_AND_MEMORY.md`](../../../docs/ai-runtime/SESSION_AND_MEMORY.md)。
+
+## 旧接口兼容范围
+
+`POST /api/v1/jobs/{job_id}/reader/ai/chat` 只接受旧的 `message/scope/context/history`
+结构，要求 job 已成功，并从翻译 manifest 或 `md/full.md` 检索后调用单一模型。
+它没有持久化会话、分支、结构化确认、durable operation、SSE 恢复或 runtime
+切换能力。现有调用方可以渐进迁移，但新调用方应直接使用 `/api/v1/ai/ask`。

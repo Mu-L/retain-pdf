@@ -58,8 +58,8 @@ Python 原始事件必须稳定带：
 
 新增子阶段时，需要同步更新 Rust 映射：
 
-- `backend/rust_api/src/models/job/stage.rs`
-- `backend/rust_api/src/services/jobs/presentation/live_stage/canonical_events.rs`
+- `services/api/crates/retain-core/src/models/job/stage.rs`
+- `services/api/src/services/jobs/live_stage/canonical_events.rs`
 
 更完整的协议见：
 

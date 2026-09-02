@@ -1,8 +1,8 @@
 # RetainPDF backend workspace
 
-`services/` is the source and build root for the RetainPDF backend. It is
-designed to become an independent repository without changing its internal
-layout.
+`services/` is the self-contained source and build root for the RetainPDF
+backend package. The package boundary is tested from a clean extracted tree;
+it does not require or imply a separate Git repository.
 
 The workspace contains:
 
@@ -28,6 +28,12 @@ Startup succeeds only after `http://127.0.0.1:41000/ready` reports that the
 database and supervised services are ready. `Ctrl+C` stops the complete process
 tree. Use `--no-sync --no-build` for a prepared checkout, or `--prepare-only`
 to install/build without starting services.
+
+The launcher uses the full API on `41000`, the internal jobs service on
+loopback `41002`, the internal AI service on loopback `41100`, and the
+single-route multipart bundle listener on `42000`. Raw Rust configuration
+still defaults to in-process jobs and disabled child supervision; the launcher
+explicitly selects `remote + supervised` for the complete development stack.
 
 The FX runtime requires FX `0.0.5` and `RETAIN_AI_FX_GATEWAY_API_KEY` in the
 local environment:
@@ -73,6 +79,9 @@ uv sync --locked --all-extras
 uv run retainpdf-pipeline --help
 uv run python -c "import retainpdf_ai, retainpdf_pipeline"
 cargo test --locked --workspace --manifest-path api/Cargo.toml
+python3 api/scripts/check_architecture.py
+PYTHONPATH=pipeline uv run python pipeline/devtools/check_pipeline_architecture.py
+uv run python -m pytest ai/tests pipeline/devtools/tests -q
 ```
 
 From the monorepo root, the extraction smoke test builds a clean Git snapshot
@@ -101,6 +110,19 @@ docker build -f docker/Dockerfile.app -t retainpdf-app:local .
 The image contains `rust_api`, `retain-jobsd`, `retainpdf-agent`, the Python
 pipeline, and the Python AI service. `rust_api` supervises the AI service inside
 the container, so `/api/v1/ai/*` does not require a separately managed process.
+The current container leaves the jobs runtime in its default in-process mode;
+the included `retain-jobsd` binary is used only when deployment configuration
+explicitly selects remote jobs mode and supervision.
+
+## Durable state ownership
+
+The Rust backend owns durable documents, conversations, credentials, job and
+pipeline state, PDF operations, candidates, and commits. `retainpdf-ai`
+orchestrates turns and memory preparation but persists conversation messages
+and reads operation state through the Rust API. Pipeline workers own artifact
+and checkpoint file production; Rust records lifecycle, attempts, units, and
+events. Frontends treat Rust projections as authoritative and use AI/SSE events
+only as refresh hints.
 
 ## Source archive
 

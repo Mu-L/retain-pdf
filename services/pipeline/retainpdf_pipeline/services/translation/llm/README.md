@@ -163,8 +163,8 @@
   `shared/structured_output.py`
   `shared/structured_parsers.py`
 - 调试与 replay：
-  `backend/scripts/devtools/replay_translation_item.py`
-  `backend/scripts/devtools/tests/translation/`
+  `services/pipeline/devtools/replay_translation_item.py`
+  `services/pipeline/devtools/tests/translation/`
 
 ## 后续约定
 

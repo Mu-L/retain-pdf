@@ -1,71 +1,42 @@
-# backend 目录说明
+# `backend/` 兼容目录
 
-`backend/` 现在同时放了后端源码、打包资源和本地运行时产物。整理时不要把它当成一个纯源码目录直接移动。
+`backend/` 已不再是 RetainPDF 后端源码根目录。当前后端统一位于
+[`services/`](../services/README.md)：
 
-## 应保留在 backend 的内容
+- Rust API、jobs daemon 和数据 crate：[`services/api/`](../services/api/README.md)
+- Python OCR / 翻译 / 渲染流水线：[`services/pipeline/`](../services/pipeline/README.md)
+- AI 问答和 PDF Agent：[`services/ai/`](../services/ai/README.md)
+- 后端本地契约镜像：[`services/contracts/`](../services/contracts/README.md)
+- Docker 后端入口：[`services/docker/`](../services/docker/README.md)
 
-- `rust_api/`：Rust API 服务源码。Docker、桌面端和系统服务都会通过 `RUST_API_ROOT` 或固定路径找到它。
-- `scripts/`：Python OCR、翻译、渲染流水线源码。GitHub Actions、Docker、桌面端打包和本地测试都直接引用这个路径。
-- `fonts/` → `../infra/fonts` 兼容 symlink：打包和 Docker 会复制的中文字体资源，已迁移至 `infra/fonts`，`backend/fonts` 仅为过渡期兼容链接。
+本目录目前只剩 `python-tests/` 迁移遗留和本地系统文件。不得在这里新增后端
+源码、runtime、密钥或构建产物，也不要再把 `backend/rust_api`、
+`backend/scripts` 写进新文档和自动化。
 
-## 本地或平台运行时产物
-
-- `rust_api/target/`：Rust 构建产物，体积很大，已被 `.gitignore` 忽略，可以安全删除后重新编译。
-- `python/`：Windows 桌面端打包用的 Python runtime，已被 `.gitignore` 忽略。后续如果重构，建议迁移到根目录的 `local-runtime/windows/python/` 或桌面端专用 runtime 目录，并同步更新 `desktop/scripts/prepare-app.mjs`。
-- `typst-win32/` → `../infra/typst/win32` 兼容 symlink：Windows Typst 可执行文件目录，已迁移至 `infra/typst/win32`。`infra/typst/win32/bin/` 被 `.gitignore` 忽略，`.crates.toml` 和 `.crates2.json` 随 runtime 一起归档。
-- `workspace/`：历史/本地临时工作区，不应作为源码入口继续扩展。
-- `.ipynb_checkpoints/`、`.pytest_cache/`、`__pycache__/`：编辑器和 Python 缓存，可以删除。
-- `scripts/.env/*.env`、`rust_api/auth.local.json`：本地密钥配置，不能提交。
-
-## 推荐整理方向
-
-不要先移动 `scripts/` 或 `rust_api/`。更稳的方式是新增根目录级运行时归档入口，例如 `local-runtime/`，专门收纳本地二进制、平台 runtime 和大体积可再生成文件。
-
-目标结构可以是：
-
-```text
-backend/
-  rust_api/        # Rust API 源码
-  scripts/         # Python pipeline 源码
-  fonts/           # 发布字体资源
-
-local-runtime/
-  windows/python/  # Windows Python runtime
-  windows/typst/   # Windows Typst runtime
-  README.md
-```
-
-真正迁移前必须同步更新：
-
-- `desktop/scripts/prepare-app.mjs`
-- `.github/workflows/release-desktop.yml`
-- `docker/Dockerfile.app`
-- 相关 README 和测试里的固定路径
-
-## 当前拆分边界
-
-后端解耦状态以主线文档和架构门禁为准。当前稳定边界是：
-
-- Rust API 负责任务状态、stage spec、事件、artifact 引用和进程编排。
-- Python `backend/scripts/runtime/pipeline/` 只做阶段编排，不直接消费 OCR provider 原始结构。
-- Python 翻译入口走 `services.translation.workflow` facade。
-- Python 渲染源 PDF 预处理走 `services.rendering.source.render_source` 和 `services.rendering.source.preparation.*`，不要把 hidden-text strip / compression 细节写回 runtime pipeline。
-- OCR provider 原始产物必须先进入 `document.v1.json`，翻译和渲染只消费 normalized document 与 translation artifacts。
-
-新增跨层依赖前，先跑：
+## 当前验证入口
 
 ```bash
-python3 backend/scripts/devtools/check_pipeline_architecture.py
-python3 backend/scripts/devtools/check_stage_specs_contract.py data/jobs
+# Rust API workspace
+cargo test --manifest-path services/api/Cargo.toml --workspace
+
+# Python 后端依赖与测试
+uv sync --project services --extra test
+uv run --project services python -m pytest services/ai/tests services/scripts/tests
+
+# Python pipeline 架构门禁
+uv run --project services python services/pipeline/devtools/check_pipeline_architecture.py
+
+# 后端契约镜像
+python3 services/contracts/check_parity.py --require-upstream
 ```
 
-## 立即可做的安全清理
+更完整的命令和边界见根目录
+[`CONTRIBUTING.md`](../CONTRIBUTING.md) 与
+[`docs/backend/ARCHITECTURE.md`](../docs/backend/ARCHITECTURE.md)。
 
-如果只是想释放空间，可以删除这些 ignored 目录，不会影响 Git 历史：
+## `python-tests/` 状态
 
-```bash
-rm -rf backend/rust_api/target
-find backend -type d \( -name '__pycache__' -o -name '.pytest_cache' -o -name '.ipynb_checkpoints' \) -prune -exec rm -rf {} +
-```
-
-删除后需要重新编译 Rust API。
+`backend/python-tests/` 是目录迁移前的旧 runner，并仍包含旧
+`backend/pipeline` 默认路径。它不再是正式测试入口；新增测试应进入对应的
+`services/ai/tests`、`services/scripts/tests`、`services/pipeline/**/tests` 或 Rust
+crate。清理该 runner 需要单独的代码迁移，不属于文档更新。

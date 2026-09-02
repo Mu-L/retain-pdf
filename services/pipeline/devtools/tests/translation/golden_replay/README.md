@@ -14,7 +14,7 @@
 优先使用已有工具：
 
 ```bash
-python3 backend/scripts/devtools/replay_translation_item.py --case <case-json>
+python3 services/pipeline/devtools/replay_translation_item.py --case <case-json>
 ```
 
 如果样本来自真实 job，先用 promptfoo capture 工具脱敏保存成 case artifact，再加入本目录 manifest。不要在本目录提交 `sk-*`、PaddleOCR token、完整用户文件或未脱敏 job 数据。

@@ -13,7 +13,7 @@
 
 当前最小识别条件见：
 
-- `backend/scripts/services/document_schema/provider_adapters/paddle/adapter.py`
+- `services/pipeline/retainpdf_pipeline/services/document_schema/provider_adapters/paddle/adapter.py`
 
 ## 页级结构
 
@@ -63,8 +63,8 @@
 
 代码入口：
 
-- `backend/scripts/services/document_schema/provider_adapters/paddle/payload_reader.py`
-- `backend/scripts/services/document_schema/provider_adapters/paddle/page_reader.py`
+- `services/pipeline/retainpdf_pipeline/services/document_schema/provider_adapters/paddle/payload_reader.py`
+- `services/pipeline/retainpdf_pipeline/services/document_schema/provider_adapters/paddle/page_reader.py`
 
 ## 文档维护建议
 

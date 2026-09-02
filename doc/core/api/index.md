@@ -59,7 +59,8 @@
 3. `GET /api/v1/jobs/{job_id}`
 4. `GET /api/v1/jobs/{job_id}/events`
 5. 根据 `actions` / `artifacts` / `artifacts_display` 下载产物
-6. 已完成任务的阅读问答使用 `POST /api/v1/jobs/{job_id}/reader/ai/chat`
+6. 阅读问答和受限 PDF 操作统一使用 `POST /api/v1/ai/ask`；旧的
+   `/api/v1/jobs/{job_id}/reader/ai/chat` 只保留兼容
 
 ## 3. 图书馆接口
 
@@ -708,7 +709,38 @@ CSV 表头支持英文和中文别名：
 - `network_error`
 - `provider_error`
 
-## 12. Simple App 入口
+## 12. AI 问答、会话与文档操作
+
+推荐入口：
+
+```text
+POST /api/v1/ai/ask
+```
+
+该接口同时承载带引用的阅读问答和受限 PDF Agent 操作。`assistant_mode` 可取
+`reading | operations | auto`。流式响应使用 SSE，`answer_delta.text` 是增量片段；
+客户端必须在 `done.persisted` 为 `true` 后，才把本轮视为已经写入持久历史。
+
+相关公共接口：
+
+- `GET|PUT /api/v1/ai/runtime-config`
+- `POST|GET /api/v1/ai/conversations`
+- `POST /api/v1/ai/conversations/fork`
+- `GET|PATCH|DELETE /api/v1/ai/conversations/{conversation_id}`
+- `POST /api/v1/ai/conversations/{conversation_id}/messages`
+- `GET /api/v1/ai/conversations/{conversation_id}/operations`
+- `GET /api/v1/ai/operations/{operation_id}`
+- `POST /api/v1/ai/operations/{operation_id}/{run|retry|cancel|commit}`
+- `GET /api/v1/ai/operations/{operation_id}/candidate.pdf`
+
+SSE 只负责通知；会话、消息树和 operation 查询结果才是断线重连后的权威状态。
+默认 `explicit` 模式下，客户端应渲染后端返回的
+`agent_confirmation_required` / `confirmation_requests`，不得根据模型文字猜测确认。
+
+完整请求、事件、会话分支、operation 并发保护和旧接口迁移说明见
+[AI 问答与文档操作 API](./reader-ai-chat.md)。
+
+## 13. Simple App 入口
 
 `POST /api/v1/translate/bundle`
 
@@ -716,7 +748,7 @@ CSV 表头支持英文和中文别名：
 
 该接口返回 `ApiResponse<JobSubmissionView>`，不会等待 Python OCR / 翻译 / 渲染完成，也不会同步返回 ZIP。
 
-## 13. 存储与所有权
+## 14. 存储与所有权
 
 后端是书籍、PDF、产物和封面的唯一真源。前端不持久化真实文件。
 
@@ -735,13 +767,14 @@ SQLite 主要表：
 - `job_artifact_entries`：规范化产物 manifest
 - `events`：完整历史进度流
 
-## 14. 专题文档
+## 15. 专题文档
 
 - [本地启动与配置](./local-dev.md)
 - [存储结构](./storage.md)
 - [错误排查](./troubleshooting.md)
+- [AI 问答与文档操作](./reader-ai-chat.md)
 - [Rust API 架构边界](../rust_api/README.md)
-- [当前运行主链](../../../backend/rust_api/CURRENT_API_MAP.md)
-- [Stage 执行契约](../../../backend/rust_api/STAGE_EXECUTION_CONTRACT.md)
-- [OCR Provider 契约](../../../backend/rust_api/OCR_PROVIDER_CONTRACT.md)
-- [渲染参数契约](../../../backend/rust_api/RENDER_OPTIONS_CONTRACT.md)
+- [当前运行主链](../../../services/api/CURRENT_API_MAP.md)
+- [Stage 执行契约](../../../services/api/STAGE_EXECUTION_CONTRACT.md)
+- [OCR Provider 契约](../../../services/api/OCR_PROVIDER_CONTRACT.md)
+- [渲染参数契约](../../../services/api/RENDER_OPTIONS_CONTRACT.md)

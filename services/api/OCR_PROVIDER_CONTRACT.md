@@ -7,13 +7,13 @@
 相关文档：
 
 - 总体架构边界：
-  [`RUST_API_ARCHITECTURE.md`](services/api/RUST_API_ARCHITECTURE.md)
+  [`RUST_API_ARCHITECTURE.md`](RUST_API_ARCHITECTURE.md)
 - 当前运行主链：
-  [`CURRENT_API_MAP.md`](services/api/CURRENT_API_MAP.md)
+  [`CURRENT_API_MAP.md`](CURRENT_API_MAP.md)
 - stage 运行时契约：
-  [`STAGE_EXECUTION_CONTRACT.md`](services/api/STAGE_EXECUTION_CONTRACT.md)
+  [`STAGE_EXECUTION_CONTRACT.md`](STAGE_EXECUTION_CONTRACT.md)
 - Paddle OCR API 摘要：
-  [`src/ocr_provider/paddle/API_SUMMARY.md`](services/api/src/ocr_provider/paddle/API_SUMMARY.md)
+  [`crates/retain-data/src/ocr_provider/paddle/API_SUMMARY.md`](crates/retain-data/src/ocr_provider/paddle/API_SUMMARY.md)
 
 ## 1. 目标
 
@@ -34,11 +34,11 @@
 
 ## 2. 当前目录
 
-- [src/ocr_provider/mod.rs](services/api/src/ocr_provider/mod.rs)
-- [src/ocr_provider/types.rs](services/api/src/ocr_provider/types.rs)
-- [src/ocr_provider/catalog.rs](services/api/src/ocr_provider/catalog.rs)
-- [src/ocr_provider/mineru](services/api/src/ocr_provider/mineru)
-- [src/ocr_provider/paddle](services/api/src/ocr_provider/paddle)
+- [crates/retain-data/src/ocr_provider/mod.rs](crates/retain-data/src/ocr_provider/mod.rs)
+- [crates/retain-data/src/ocr_provider/types.rs](crates/retain-data/src/ocr_provider/types.rs)
+- [crates/retain-data/src/ocr_provider/catalog.rs](crates/retain-data/src/ocr_provider/catalog.rs)
+- [crates/retain-data/src/ocr_provider/mineru](crates/retain-data/src/ocr_provider/mineru)
+- [crates/retain-data/src/ocr_provider/paddle](crates/retain-data/src/ocr_provider/paddle)
 
 ## 3. 分工
 
@@ -143,7 +143,7 @@ ocr_provider -> translation/render logic
 
 如果以后接第三个 provider，最小步骤应该是：
 
-1. 新建 `src/ocr_provider/<provider>/`
+1. 新建 `crates/retain-data/src/ocr_provider/<provider>/`
 2. 实现：
    - `client.rs`
    - `status.rs`
@@ -200,4 +200,4 @@ provider 能力声明只能有一个注册口，不能到处 `match kind`.
 
 当前这个注册口就是：
 
-- [catalog.rs](services/api/src/ocr_provider/catalog.rs)
+- [catalog.rs](crates/retain-data/src/ocr_provider/catalog.rs)

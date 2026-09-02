@@ -7,7 +7,7 @@
 Run the repository code counter from the project root:
 
 ```bash
-python backend/scripts/devtools/count_code.py
+python services/pipeline/devtools/count_code.py
 ```
 
 Useful options:

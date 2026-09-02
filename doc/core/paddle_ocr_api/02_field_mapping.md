@@ -49,7 +49,7 @@
 
 当前主要规则见：
 
-- `backend/scripts/services/document_schema/provider_adapters/paddle/block_labels.py`
+- `services/pipeline/retainpdf_pipeline/services/document_schema/provider_adapters/paddle/block_labels.py`
 
 已实现映射示例：
 
@@ -70,7 +70,7 @@
 
 当前 `derived` 主要由 provider 规则生成，见：
 
-- `backend/scripts/services/document_schema/provider_adapters/paddle/trace.py`
+- `services/pipeline/retainpdf_pipeline/services/document_schema/provider_adapters/paddle/trace.py`
 
 典型规则：
 

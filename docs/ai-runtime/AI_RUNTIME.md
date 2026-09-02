@@ -57,6 +57,7 @@ app.py
 | `ask_orchestration.py` | runtime 路由、请求级 LLM 设置、同步/SSE turn、结果投影 |
 | `conversation_state.py` | 会话创建、历史读取、摘要提交、消息预写与最终回写 |
 | `conversation_tree.py` | 纯可见分支算法；兼容无 `message_id/parent_id` 的旧记录 |
+| `agent_confirmations.py` | 根据权威 operation ref 生成宿主确认请求；不解析模型文案 |
 | `runtime_config_api.py` | runtime-config GET/PUT、revision CAS、自检与 `/readyz` |
 | `runtime.py` | 旧 import 兼容 façade |
 | `runtimes/contracts.py` | `AgentRuntime`、capabilities、`AskResult`、`Citation` |

@@ -138,8 +138,8 @@ Rust API 的完整 provider-backed workflow 也按这个边界串联：
 常用检查命令：
 
 ```bash
-PYTHONPATH=backend/scripts python -m pytest backend/scripts/devtools/tests -q
-cd backend/rust_api && cargo test -q
+PYTHONPATH=services/pipeline python -m pytest services/pipeline/devtools/tests -q
+cargo test --manifest-path services/api/Cargo.toml -q
 ```
 
 ## 协作规矩

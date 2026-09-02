@@ -1,37 +1,17 @@
-# Python Tests
+# Legacy Python test runner
 
-`backend/python-tests` is the package-oriented test entrypoint for the
-RetainPDF Python backend.
+This directory predates the backend extraction into `services/`. Its runner
+still names removed `backend/pipeline` paths and is not the supported test
+entrypoint. It remains only so a later cleanup can migrate or delete the runner
+and its self-tests deliberately instead of silently losing history.
 
-During the packaging transition, tests live in both `backend/python-tests` and
-`backend/scripts/devtools/tests`. This directory provides the stable command
-surface for running them after installing `retainpdf-core` and
-`retainpdf-devtools`.
-
-Install editable packages:
+Use the current service-owned suites:
 
 ```bash
-python -m pip install -e backend/packages/retainpdf-core
-python -m pip install -e backend/packages/retainpdf-devtools --no-build-isolation
+uv sync --project services --extra test
+uv run --project services python -m pytest services/ai/tests services/scripts/tests
 ```
 
-Run tests through this entrypoint:
-
-```bash
-python backend/python-tests/run_python_tests.py
-python backend/python-tests/run_python_tests.py backend/scripts/devtools/tests/rendering/test_render_mode.py
-```
-
-By default, the runner collects both `backend/python-tests` and
-`backend/scripts/devtools/tests`. If you pass an explicit test path, the runner
-passes your selection through to pytest without adding the default roots.
-
-Migration rule:
-
-- New Python backend tests should be added under `backend/python-tests/<area>/`.
-- Existing tests under `backend/scripts/devtools/tests` should move here by
-  area once their imports no longer need local `sys.path` shims.
-- Product tests should import installed packages (`foundation`, `runtime`,
-  `services`) instead of editing `sys.path` in each test file.
-- Devtools tests should import `devtools.*`; `devtools` remains outside the
-  production `retainpdf-core` wheel.
+Pipeline tests live with their modules under `services/pipeline/**/tests` and
+Rust tests run from `services/api/Cargo.toml`. New tests must be added beside
+their owning service, not under `backend/python-tests/`.

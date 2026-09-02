@@ -2,7 +2,7 @@
 
 这套文档面向前端、桌面端和第三方集成方，描述 RetainPDF 后端对外 HTTP API 的稳定契约。
 
-`backend/rust_api/API_SPEC.md` 仍然保留为后端工程规格和实现备忘；本目录按使用场景拆分，作为联调和接入时优先阅读的 Wiki。
+`services/api/API_SPEC.md` 保留为后端工程规格和实现备忘；本目录按使用场景拆分，作为联调和接入时优先阅读的 Wiki。
 
 ## 基础信息
 

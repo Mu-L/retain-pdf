@@ -51,3 +51,8 @@ the safe document-level Agent candidate/commit history. Each item includes the
 version and operation identity, status, active flag, content hash, timestamps,
 and an authenticated `download_path` / `download_url`. Internal `artifact_key`
 and filesystem paths are never returned.
+
+This endpoint is version history, not live operation state. To render and act
+on the current draft/run/validation lifecycle, clients use the conversation
+operation list and public CAS actions described in the
+[AI control-plane contract](ai-control-plane.md#public-operation-projection-and-actions).

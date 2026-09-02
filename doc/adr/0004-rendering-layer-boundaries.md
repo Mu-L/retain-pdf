@@ -1,5 +1,8 @@
 # 0004 渲染层按 workflow/analysis/source/layout/output 分层
 
+> 当前状态：决策仍有效。原始重构发生在历史 `backend/scripts` 布局；当前实现与
+> 验证入口均位于 `services/pipeline`，下方命令已更新为当前可执行路径。
+
 ## 背景
 
 渲染层同时处理页面画像、原 PDF 清理、背景重建、译文排版、Typst 生成和 PDF 写出。旧结构按技术文件自然增长，导致 `source`、`layout`、`output` 之间出现桥接逻辑堆叠，后续修字体、删除策略或 overlay 时容易互相影响。
@@ -35,7 +38,7 @@
 
 ## 后果
 
-- 新代码不能随意跨层 import，必须通过 `backend/scripts/devtools/check_pipeline_architecture.py`。
+- 新代码不能随意跨层 import，必须通过 `services/pipeline/devtools/check_pipeline_architecture.py`。
 - `legacy/` 只能 re-export 或兼容旧调用方，不应承载新逻辑。
 - `source` 可以操作 PDF 页面对象，但不应知道 Typst 输出细节，也不应自己构建 layout payload。
 - `layout` 只产出排版模型，不直接清理 PDF 或生成 Typst。
@@ -47,21 +50,21 @@
 当前基础验证：
 
 ```bash
-python3 -m pytest backend/scripts/devtools/tests/rendering -q
-python3 -m pytest backend/scripts/devtools/tests/text_layout -q
-python3 -m compileall -q backend/scripts
-python3 backend/scripts/devtools/check_pipeline_architecture.py
+PYTHONPATH=services/pipeline uv run --project services python -m pytest services/pipeline/devtools/tests/rendering -q
+PYTHONPATH=services/pipeline uv run --project services python -m pytest services/pipeline/devtools/tests/text_layout -q
+uv run --project services python -m compileall -q services/pipeline/retainpdf_pipeline
+PYTHONPATH=services/pipeline uv run --project services python services/pipeline/devtools/check_pipeline_architecture.py
 ```
 
 真实 PDF render-only 回归：
 
 ```bash
-python3 backend/scripts/devtools/run_golden_flow.py \
+PYTHONPATH=services/pipeline uv run --project services python services/pipeline/devtools/run_golden_flow.py \
   --job-root data/jobs/golden-fullflow-book-20260511170519 \
   --render-only \
   --bbox-item p001-b013
 
-python3 backend/scripts/devtools/run_golden_flow.py \
+PYTHONPATH=services/pipeline uv run --project services python services/pipeline/devtools/run_golden_flow.py \
   --job-root data/jobs/golden-pseudo-20260512-full \
   --render-only \
   --bbox-item p001-b013

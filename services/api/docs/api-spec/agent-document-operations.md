@@ -1,11 +1,14 @@
 # Backend-only Agent Document Operations
 
-[API spec index](../../API_SPEC.md)
+[API spec index](../../API_SPEC.md) ·
+[public AI control plane](ai-control-plane.md)
 
 ## Operation Capability and Execution Contract
 
-These routes are for the bundled local `retainpdf-agent` CLI. They are not a
-frontend contract. A create request may carry a closed
+These routes are for the bundled local `retainpdf-agent` CLI and trusted AI
+host. They are not a frontend contract; browsers use the
+[public operation projection and actions](ai-control-plane.md#public-operation-projection-and-actions).
+A create request may carry a closed
 `retainpdf_page_program_v1` data program; the backend executes only fixed page
 operators and never model-generated Python, shell, paths, packages, or binary
 selection.
@@ -133,12 +136,13 @@ conversation/document with the request payload or stored operation before any
 effect runs. Full API-key authentication remains supported for trusted
 bootstrap and administration.
 
-The fx adapter never receives this capability. Its host command broker admits
-only the exact `retainpdf-agent` argv grammar, then mints a 60-second capability
-for that single action and executes the real CLI outside the fx environment.
+The model runtime never receives this capability. The shared host command
+broker used by the OpenAI-compatible and FX operation runtimes admits only the
+exact `retainpdf-agent` argv grammar, then mints a 60-second capability for that
+single action and executes the real CLI outside the model runtime.
 The host injects conversation, document, request-message, and idempotency scope.
-In the default `explicit` confirmation mode, `operation.run` and
-`operation.commit` additionally require the `/v1/ask` request field
+In the default `explicit` confirmation mode, `operation.run`,
+`operation.commit`, and retry additionally require the `/v1/ask` request field
 `confirm_document_operation: true`; this field represents an independent user
 confirmation and is not model-controlled. The AI response projects pending
 actions as `confirmation_requests`, and streaming responses emit
@@ -147,7 +151,9 @@ model prose. Backend runtime config may explicitly select `green_light`; that
 mode supplies host confirmation automatically but does not broaden the exact
 CLI grammar, scoped capability, idempotency, state, or candidate-validation
 boundaries. The current user message is persisted before the Agent turn so its
-id remains a durable operation foreign key across client disconnects.
+id remains a durable operation foreign key across client disconnects. Direct
+browser actions do not call these internal routes: they send the last observed
+status, attempt, and program hash to the public CAS endpoints instead.
 
 The restricted executor writes a durable run index before the API returns from
 dispatch and an atomic terminal result when the worker finishes. A later GET

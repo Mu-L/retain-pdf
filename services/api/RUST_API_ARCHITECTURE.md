@@ -9,19 +9,19 @@
 相关文档：
 
 - 文档总入口：
-  [`README.md`](services/api/README.md)
+  [`README.md`](README.md)
 - 目录地图：
-  [`RUST_API_DIRECTORY_MAP.md`](services/api/RUST_API_DIRECTORY_MAP.md)
+  [`RUST_API_DIRECTORY_MAP.md`](RUST_API_DIRECTORY_MAP.md)
 - 当前运行主链：
   [`CURRENT_API_MAP.md`](CURRENT_API_MAP.md)
 - OCR provider 边界：
-  [`OCR_PROVIDER_CONTRACT.md`](services/api/OCR_PROVIDER_CONTRACT.md)
+  [`OCR_PROVIDER_CONTRACT.md`](OCR_PROVIDER_CONTRACT.md)
 - stage 运行时契约：
-  [`STAGE_EXECUTION_CONTRACT.md`](services/api/STAGE_EXECUTION_CONTRACT.md)
+  [`STAGE_EXECUTION_CONTRACT.md`](STAGE_EXECUTION_CONTRACT.md)
 - Rust 侧 artifact boundary：
   [`../../doc/core/rust_api/10-Rust 侧 Artifact Boundary.md`](../../doc/core/rust_api/10-Rust%20%E4%BE%A7%20Artifact%20Boundary.md)
 - 外部 API 协议：
-  [`API_SPEC.md`](services/api/API_SPEC.md)
+  [`API_SPEC.md`](API_SPEC.md)
 
 ## 1. 总体分层
 
@@ -165,7 +165,8 @@ app -> routes -> application services -> internal services -> job_runner / ocr_p
 
 ## 1.3 配置层边界
 
-`src/config.rs` 是兼容 facade，保留当前 `AppConfig` 字段给既有调用方使用。真实配置分组在 `src/config/*`：
+`crates/retain-core/src/config.rs` 是配置 facade，API crate 通过 `crate::config`
+re-export 保持调用方兼容。真实配置分组在 `crates/retain-core/src/config/*`：
 
 - `paths.rs`
   只处理 root/data/scripts/jobs/uploads/downloads 这类路径和 runtime 目录创建。
@@ -253,13 +254,13 @@ provider raw -> normalized -> published artifact -> download API
 
 Rust 侧关键落点：
 
-- [src/storage_paths.rs](services/api/src/storage_paths.rs)
+- [crates/retain-core/src/storage_paths.rs](crates/retain-core/src/storage_paths.rs)
   facade；现在已拆成 `constants / job_paths / path_ops / resolvers / registry`
-- [src/services/artifacts/mod.rs](services/api/src/services/artifacts/mod.rs)
+- [src/services/artifacts/mod.rs](src/services/artifacts/mod.rs)
   artifact facade；现在已拆成 `registry / bundle / response`
-- [src/routes/download_response.rs](services/api/src/routes/download_response.rs)
+- [src/routes/download_response.rs](src/routes/download_response.rs)
   负责文件下载、markdown、preview、cover、thumbnail 的 HTTP 响应出口
-- [src/routes/jobs/json_response](services/api/src/routes/jobs/json_response)
+- [src/routes/jobs/json_response](src/routes/jobs/json_response)
   负责 jobs JSON 查询 / 调试 / 控制 / retry 类 HTTP 响应出口
 
 边界规则：
@@ -267,7 +268,8 @@ Rust 侧关键落点：
 - `storage_paths.rs` 和 `services/artifacts/*`
   只处理文件、artifact key、稳定资源，不解释 provider raw 内部 JSON 结构
 - `db.rs`
-  现在也只保留 `Db` facade；row decode 和 schema 检查分别下沉到 `src/db/rows.rs`、`src/db/schema.rs`
+  现在也只保留 `Db` facade；row decode 和 schema 检查分别下沉到
+  `crates/retain-data/src/db/rows.rs`、`crates/retain-data/src/db/schema.rs`
 - `routes/jobs/download.rs`
   只暴露稳定下载入口，不承诺 provider 私有字段语义
 - `normalized-document` / `normalization-report`
@@ -328,10 +330,12 @@ Rust 侧关键落点：
 
 文件：
 
-- [src/app/mod.rs](services/api/src/app/mod.rs)
-- [src/app/state.rs](services/api/src/app/state.rs)
-- [src/app/router.rs](services/api/src/app/router.rs)
-- [src/app/server.rs](services/api/src/app/server.rs)
+- [src/app/mod.rs](src/app/mod.rs)
+- [src/app/state.rs](src/app/state.rs)
+- [src/app/router.rs](src/app/router.rs)
+- [src/app/server.rs](src/app/server.rs)
+- [src/app/router/ai.rs](src/app/router/ai.rs)
+- [src/app/router/internal_agent.rs](src/app/router/internal_agent.rs)
 
 职责：
 
@@ -350,7 +354,7 @@ Rust 侧关键落点：
 
 目录：
 
-- [src/routes](services/api/src/routes)
+- [src/routes](src/routes)
 
 职责：
 
@@ -372,6 +376,13 @@ Rust 侧关键落点：
 - glossaries → [src/services/glossary_api.rs](src/services/glossary_api.rs)
   → `services/glossaries/{records,entries,csv}.rs`
 - uploads → [src/services/upload_api.rs](src/services/upload_api.rs)
+- AI proxy → [src/services/ai_proxy_api.rs](src/services/ai_proxy_api.rs)
+- public Agent operation actions →
+  [src/services/public_document_operations_api.rs](src/services/public_document_operations_api.rs)
+- internal Agent operation lifecycle →
+  [src/services/document_operation_api.rs](src/services/document_operation_api.rs)
+- runtime cursor CAS →
+  [src/services/agent_runtime_session_api.rs](src/services/agent_runtime_session_api.rs)
 
 也就是：
 
@@ -389,6 +400,14 @@ Rust 侧关键落点：
   只调 `services/glossary_api.rs`
 - `routes/uploads.rs`
   只调 `services/upload_api.rs`
+- `routes/ai_proxy.rs`
+  只调 `services/ai_proxy_api.rs`，问答保持流式字节代理，runtime config 禁止缓存
+- `routes/public_document_operations.rs`
+  只调 `services/public_document_operations_api.rs`，输出浏览器安全投影并要求
+  status / attempt / program hash CAS
+- `routes/document_operations.rs` / `agent_runtime_sessions.rs` /
+  `agent_capabilities.rs`
+  是 backend-only Agent HTTP 边界；分别只调对应 application API
 
 **Library route 文件分工（HTTP 边界，业务不进 route）：**
 
@@ -398,6 +417,10 @@ Rust 侧关键落点：
 | `library_data.rs` | documents CRUD/media/translate、favorites、search |
 | `library_extras.rs` | assets、conversations |
 | `collections.rs` | 合集 CRUD 与文档成员 |
+| `ai_proxy.rs` | `/api/v1/ai/ask` 与 runtime-config 反向代理 |
+| `public_document_operations.rs` | conversation operation 查询、确认动作、candidate 下载 |
+| `document_operations.rs` | internal CLI operation lifecycle |
+| `agent_runtime_sessions.rs` | internal runtime cursor revision CAS |
 
 快速判断：
 
@@ -423,6 +446,10 @@ Rust 侧关键落点：
 - [src/services/library_api.rs](src/services/library_api.rs)
 - [src/services/glossary_api.rs](src/services/glossary_api.rs)
 - [src/services/upload_api.rs](src/services/upload_api.rs)
+- [src/services/ai_proxy_api.rs](src/services/ai_proxy_api.rs)
+- [src/services/public_document_operations_api.rs](src/services/public_document_operations_api.rs)
+- [src/services/document_operation_api.rs](src/services/document_operation_api.rs)
+- [src/services/agent_runtime_session_api.rs](src/services/agent_runtime_session_api.rs)
 
 词汇表应用入口使用 `GlossaryApiDeps` 隐藏 `Db`，HTTP route 只能持有该窄依赖；
 内部实现按职责拆为 `records.rs`（持久化 CRUD）、`entries.rs`（任务合并与规范化）
@@ -490,9 +517,9 @@ routes/library*.rs, collections.rs
 
 文件：
 
-- [src/services/jobs/facade.rs](services/api/src/services/jobs/facade.rs)
-- [src/services/jobs/facade/command](services/api/src/services/jobs/facade/command)
-- [src/services/jobs/facade/query](services/api/src/services/jobs/facade/query)
+- [src/services/jobs/facade.rs](src/services/jobs/facade.rs)
+- [src/services/jobs/facade/command](src/services/jobs/facade/command)
+- [src/services/jobs/facade/query](src/services/jobs/facade/query)
 
 职责：
 
@@ -511,7 +538,7 @@ routes/library*.rs, collections.rs
 
 目录：
 
-- [src/services/jobs/creation](services/api/src/services/jobs/creation)
+- [src/services/jobs/creation](src/services/jobs/creation)
 
 职责：
 
@@ -536,7 +563,7 @@ routes/library*.rs, collections.rs
 
 目录：
 
-- [src/services/jobs/presentation](services/api/src/services/jobs/presentation)
+- [src/services/jobs/presentation](src/services/jobs/presentation)
 
 职责：
 
@@ -557,7 +584,7 @@ routes/library*.rs, collections.rs
 
 目录：
 
-- [src/job_runner](services/api/src/job_runner)
+- [crates/retain-jobs/src/job_runner](crates/retain-jobs/src/job_runner)
 
 职责：
 
@@ -618,7 +645,7 @@ routes/library*.rs, collections.rs
 
 目录：
 
-- [src/worker_command](services/api/src/worker_command)
+- [crates/retain-data/src/worker_command](crates/retain-data/src/worker_command)
 
 职责：
 
@@ -628,7 +655,7 @@ routes/library*.rs, collections.rs
   选 Python 脚本入口，拼入口参数
 - `command_builder.rs`
   只做命令行构建细节
-- [src/worker_command.rs](services/api/src/worker_command.rs)
+- [crates/retain-data/src/worker_command.rs](crates/retain-data/src/worker_command.rs)
   只保留对外 `build_*` facade
 
 规则：
@@ -641,13 +668,13 @@ routes/library*.rs, collections.rs
 
 文件：
 
-- [src/job_runner/process_runner.rs](services/api/src/job_runner/process_runner.rs)
-- [src/job_runner/process_runner/startup.rs](services/api/src/job_runner/process_runner/startup.rs)
-- [src/job_runner/process_runner/execution.rs](services/api/src/job_runner/process_runner/execution.rs)
-- [src/job_runner/process_runner/completion.rs](services/api/src/job_runner/process_runner/completion.rs)
-- [src/job_runner/process_runner/timeout_support.rs](services/api/src/job_runner/process_runner/timeout_support.rs)
-- [src/job_runner/process_runner/failure_ai_diagnosis.rs](services/api/src/job_runner/process_runner/failure_ai_diagnosis.rs)
-- [src/job_runner/process_runner/io_support.rs](services/api/src/job_runner/process_runner/io_support.rs)
+- [crates/retain-jobs/src/job_runner/process_runner.rs](crates/retain-jobs/src/job_runner/process_runner.rs)
+- [crates/retain-jobs/src/job_runner/process_runner/startup.rs](crates/retain-jobs/src/job_runner/process_runner/startup.rs)
+- [crates/retain-jobs/src/job_runner/process_runner/execution.rs](crates/retain-jobs/src/job_runner/process_runner/execution.rs)
+- [crates/retain-jobs/src/job_runner/process_runner/completion.rs](crates/retain-jobs/src/job_runner/process_runner/completion.rs)
+- [crates/retain-jobs/src/job_runner/process_runner/timeout_support.rs](crates/retain-jobs/src/job_runner/process_runner/timeout_support.rs)
+- [crates/retain-jobs/src/job_runner/process_runner/failure_ai_diagnosis.rs](crates/retain-jobs/src/job_runner/process_runner/failure_ai_diagnosis.rs)
+- [crates/retain-jobs/src/job_runner/process_runner/io_support.rs](crates/retain-jobs/src/job_runner/process_runner/io_support.rs)
 
 职责：
 
@@ -689,10 +716,10 @@ routes/library*.rs, collections.rs
 
 文件：
 
-- [src/job_runner/translation_flow.rs](services/api/src/job_runner/translation_flow.rs)
-- [src/job_runner/translation_flow_child.rs](services/api/src/job_runner/translation_flow_child.rs)
-- [src/job_runner/translation_flow_stage.rs](services/api/src/job_runner/translation_flow_stage.rs)
-- [src/job_runner/translation_flow_support.rs](services/api/src/job_runner/translation_flow_support.rs)
+- [crates/retain-jobs/src/job_runner/translation_flow.rs](crates/retain-jobs/src/job_runner/translation_flow.rs)
+- [crates/retain-jobs/src/job_runner/translation_flow_child.rs](crates/retain-jobs/src/job_runner/translation_flow_child.rs)
+- [crates/retain-jobs/src/job_runner/translation_flow_stage.rs](crates/retain-jobs/src/job_runner/translation_flow_stage.rs)
+- [crates/retain-jobs/src/job_runner/translation_flow_support.rs](crates/retain-jobs/src/job_runner/translation_flow_support.rs)
 
 职责：
 
@@ -715,8 +742,8 @@ routes/library*.rs, collections.rs
 
 文件：
 
-- [src/job_runner/ocr_flow/mod.rs](services/api/src/job_runner/ocr_flow/mod.rs)
-- [src/job_runner/ocr_flow/support.rs](services/api/src/job_runner/ocr_flow/support.rs)
+- [crates/retain-jobs/src/job_runner/ocr_flow/mod.rs](crates/retain-jobs/src/job_runner/ocr_flow/mod.rs)
+- [crates/retain-jobs/src/job_runner/ocr_flow/support.rs](crates/retain-jobs/src/job_runner/ocr_flow/support.rs)
 - 以及 `transport / polling / mineru / paddle / artifacts / provider_result / workspace / markdown_bundle / bundle_download / status / page_subset / mineru_retry / mineru_polling / paddle_markdown`
 
 职责：
@@ -732,12 +759,12 @@ routes/library*.rs, collections.rs
 
 文件：
 
-- [src/job_runner/stdout_parser/mod.rs](services/api/src/job_runner/stdout_parser/mod.rs)
-- [src/job_runner/stdout_parser/labels.rs](services/api/src/job_runner/stdout_parser/labels.rs)
-- [src/job_runner/stdout_parser/state.rs](services/api/src/job_runner/stdout_parser/state.rs)
-- [src/job_runner/stdout_parser/stage_rules.rs](services/api/src/job_runner/stdout_parser/stage_rules.rs)
-- [src/job_runner/stdout_parser/artifact_rules.rs](services/api/src/job_runner/stdout_parser/artifact_rules.rs)
-- [src/job_runner/stdout_parser/failure.rs](services/api/src/job_runner/stdout_parser/failure.rs)
+- [crates/retain-jobs/src/job_runner/stdout_parser/mod.rs](crates/retain-jobs/src/job_runner/stdout_parser/mod.rs)
+- [crates/retain-jobs/src/job_runner/stdout_parser/labels.rs](crates/retain-jobs/src/job_runner/stdout_parser/labels.rs)
+- [crates/retain-jobs/src/job_runner/stdout_parser/state.rs](crates/retain-jobs/src/job_runner/stdout_parser/state.rs)
+- [crates/retain-jobs/src/job_runner/stdout_parser/stage_rules.rs](crates/retain-jobs/src/job_runner/stdout_parser/stage_rules.rs)
+- [crates/retain-jobs/src/job_runner/stdout_parser/artifact_rules.rs](crates/retain-jobs/src/job_runner/stdout_parser/artifact_rules.rs)
+- [crates/retain-jobs/src/job_runner/stdout_parser/failure.rs](crates/retain-jobs/src/job_runner/stdout_parser/failure.rs)
 
 职责：
 
@@ -758,7 +785,7 @@ routes/library*.rs, collections.rs
 
 目录：
 
-- [src/ocr_provider](services/api/src/ocr_provider)
+- [crates/retain-data/src/ocr_provider](crates/retain-data/src/ocr_provider)
 
 职责：
 
@@ -893,5 +920,5 @@ routes/library*.rs, collections.rs
 
 相关补充文档：
 
-- [`STAGE_EXECUTION_CONTRACT.md`](services/api/STAGE_EXECUTION_CONTRACT.md)
-- [`OCR_PROVIDER_CONTRACT.md`](services/api/OCR_PROVIDER_CONTRACT.md)
+- [`STAGE_EXECUTION_CONTRACT.md`](STAGE_EXECUTION_CONTRACT.md)
+- [`OCR_PROVIDER_CONTRACT.md`](OCR_PROVIDER_CONTRACT.md)

@@ -3,7 +3,8 @@
 [API spec index](../../API_SPEC.md)
 
 
-`rust_api` is the new external service layer for the PDF translation pipeline.
+`retainpdf-api` is the external service layer for the PDF translation pipeline
+and AI control plane.
 
 Doc index:
 [`README.md`](../../README.md)
@@ -87,7 +88,12 @@ Current internal boundary conventions:
 - `routes/*` only adapts HTTP requests/responses
 - `services/jobs/*` owns job query, presentation, creation orchestration, and control logic
 - `services/job_snapshot_factory` owns job snapshot assembly; `worker_command` owns Python worker command/spec construction
-- `job_runner/*` owns runtime execution, process lifecycle, OCR-child chaining, and cancellation
+- `crates/retain-jobs/src/job_runner/*` owns runtime execution, process lifecycle,
+  OCR-child chaining, and cancellation
+- `services/ai_proxy_api.rs` owns the Rust-to-AI HTTP proxy boundary;
+  `services/library_api.rs` owns conversation persistence;
+  `services/public_document_operations_api.rs` owns the browser-safe operation
+  projection and CAS actions
 - `AppState` should stay at route entrypoints and runtime coordination layers; pure assembly helpers should prefer `&Db`, narrow config projections, and explicit arguments
 
 Current scope:
@@ -105,13 +111,18 @@ Current scope:
 - Download combined bundle
 - Fetch artifact manifest
 - Fetch normalized OCR artifacts
+- Proxy AI ask/SSE and runtime configuration
+- Persist conversation/message trees and FX runtime cursors
+- Query and confirm safe public document-operation actions
 
 Planned but not fully implemented in this first pass:
 
 - callback/webhook
 - RBAC / tenant quota
 - public/private artifact signing
-- SSE push updates
+- general job-status SSE push updates (`/api/v1/jobs/{job_id}/events` remains a
+  paginated JSON history endpoint; AI ask SSE and live-translation SSE already
+  exist)
 - stronger cancel semantics
 
 ## Reading Guide
@@ -169,17 +180,19 @@ Current precedence contract is:
 ## Runtime Knobs
 
 These values are deployment/provider knobs, not API protocol constants. Defaults are owned by
-`services/api/src/config/*` and can be overridden by environment variables.
+`services/api/crates/retain-core/src/config/*` and can be overridden by environment variables.
 
 Config source map:
 
-- `src/config/paths.rs`: project/data/scripts/jobs/uploads/downloads paths
-- `src/config/auth.rs`: `auth.local.json`, API keys, job concurrency, simple API port
-- `src/config/server.rs`: bind host, API port, Python binary
-- `src/config/upload.rs`: global upload size/page gates
-- `src/config/provider.rs`: MinerU / Paddle / DeepSeek runtime and provider limits
-- `src/config/job_runner.rs`: queue polling, worker termination, failure diagnosis, sync wait knobs
-- `src/config.rs`: compatibility facade exposing the current `AppConfig` fields
+- `crates/retain-core/src/config/paths.rs`: project/data/scripts/jobs/uploads/downloads paths
+- `crates/retain-core/src/config/auth.rs`: `auth.local.json`, API keys, job concurrency, simple API port
+- `crates/retain-core/src/config/server.rs`: bind host, API port, Python binary
+- `crates/retain-core/src/config/upload.rs`: global upload size/page gates
+- `crates/retain-core/src/config/provider.rs`: MinerU / Paddle / DeepSeek runtime and provider limits
+- `crates/retain-core/src/config/ai_service.rs` and `ai_proxy.rs`: supervised
+  AI sidecar address, startup command, and proxy timeouts
+- `crates/retain-core/src/config/job_runner.rs`: queue polling, worker termination, failure diagnosis, sync wait knobs
+- `crates/retain-core/src/config.rs`: config facade exposing the current `AppConfig` fields
 
 Provider upload gates:
 

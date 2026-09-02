@@ -38,7 +38,7 @@ When a page is classified as visual background or otherwise unsuitable for exact
 The newer pdf-structure-profile / item-decision cleanup design is not part of the current mainline. Its tests live under:
 
 ```text
-backend/scripts/devtools/experiments/source_cleanup_next/
+services/pipeline/devtools/experiments/source_cleanup_next/
 ```
 
 Do not reintroduce `build_source_cleanup_plan`, `decision_builder`, `deletion_contract`, `formula_adjacency`, `document_pages`, or `document_parallel` into the mainline unless the cleanup engine is explicitly switched away from beta10 behavior.

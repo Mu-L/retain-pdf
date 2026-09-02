@@ -213,7 +213,10 @@ OCR provider options:
 - `official_cli` uses the externally installed official `paddleocr api` client and is only accepted by `/api/v1/ocr/jobs`. It is a Markdown/coarse document extraction path; its result does not provide the `bbox`/`prunedResult` contract required by translation and render, so `book` and `translate` requests must use `official_http`.
 - Selecting `official_cli` does not install PaddleOCR or add it to the server base image. A missing executable is reported as a provider worker failure.
 - Legacy fields such as `paddle_model` and `paddle_api_url` remain accepted for current built-in providers; new command providers should prefer `ocr.options`.
-- Dynamic providers declared in `services/config/ocr_providers.json` (compat `backend/config`) with `kind=local_command` or `kind=remote_command` are discoverable through `/api/v1/providers/ocr` and are executed through `provider.stage.v1`.
+- Dynamic providers declared in `services/config/ocr_providers.json` with
+  `kind=local_command` or `kind=remote_command` are discoverable through
+  `/api/v1/providers/ocr` and are executed through `provider.stage.v1`.
+  The removed `backend/config` compatibility path is not a supported source.
 - `remote_command` means the external command owns the remote API submit/poll/download state machine. The backend passes `source.file_url`, optional local file path, provider options, and credential env, then consumes only the resulting source PDF plus `document.v1.json`.
 - Configured command provider credentials can be supplied through `ocr.options.credential`, `ocr.options.token`, `ocr.options.api_key`, or through the provider config `credential.env`. The worker exposes the resolved secret to the command as `RETAIN_OCR_CREDENTIAL`.
 

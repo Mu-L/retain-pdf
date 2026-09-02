@@ -57,7 +57,7 @@ scripts/services/rendering/
 
 `translation JSON -> layout/payload -> output/typst -> PDF`
 
-上层通常通过 [render_stage.py](/home/wxyhgk/tmp/Code/backend/scripts/runtime/pipeline/render_stage.py) 调用这里的能力。
+上层通常通过 [render_stage.py](../../runtime/pipeline/render_stage.py) 调用这里的能力。
 
 输入边界：
 
@@ -194,18 +194,19 @@ render-only 阶段必须同时复用这两类产物。特别注意：同步刷�
 
 ## 真实 PDF 回归
 
-真实样本放在 [resources/samples/golden-pdfs](/home/wxyhgk/tmp/Code/resources/samples/golden-pdfs)。
+真实样本放在
+[resources/samples/golden-pdfs](../../../../../resources/samples/golden-pdfs)。
 
 常用命令：
 
 ```bash
-python3 backend/scripts/devtools/run_golden_flow.py --check-manifest
-python3 backend/scripts/devtools/run_golden_flow.py --list-samples
-python3 backend/scripts/devtools/run_golden_flow.py \
+python3 services/pipeline/devtools/run_golden_flow.py --check-manifest
+python3 services/pipeline/devtools/run_golden_flow.py --list-samples
+python3 services/pipeline/devtools/run_golden_flow.py \
   --job-root data/jobs/golden-fullflow-book-20260511170519 \
   --render-only \
   --bbox-item p001-b013
-python3 backend/scripts/devtools/run_golden_flow.py \
+python3 services/pipeline/devtools/run_golden_flow.py \
   --job-root data/jobs/golden-pseudo-20260512-full \
   --render-only \
   --bbox-item p001-b013
@@ -234,13 +235,13 @@ python3 backend/scripts/devtools/run_golden_flow.py \
 
 ## 推荐入口
 
-- [render_stage.py](/home/wxyhgk/tmp/Code/backend/scripts/runtime/pipeline/render_stage.py)
-- [services/rendering/workflow](/home/wxyhgk/tmp/Code/backend/scripts/services/rendering/workflow)
+- [render_stage.py](../../runtime/pipeline/render_stage.py)
+- [services/rendering/workflow](workflow)
 
 ## 公式回归
 
 如果新增了一条公式归一化规则，直接把坏例子补到
-[`devtools/tests/translation/test_formula_math_markers.py`](/home/wxyhgk/tmp/Code/backend/scripts/devtools/tests/translation/test_formula_math_markers.py)
+[`devtools/tests/translation/test_formula_math_markers.py`](../../../devtools/tests/translation/test_formula_math_markers.py)
 里的参数化回归测试。
 
 ## 协作规矩

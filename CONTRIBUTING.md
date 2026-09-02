@@ -35,29 +35,28 @@
 后端：
 
 ```bash
-PRODUCT_ROOT="$(pwd)"
-BACKEND_ROOT="$(python3 .github/scripts/resolve_backend_source.py --print-path)"
-cd "$BACKEND_ROOT/api"
-# Prefer absolute DATA_ROOT/SCRIPTS_DIR so DB path storage never sees "../../data/...".
-# Relative values still work after startup absolutization, but absolute is clearest.
-RUST_API_BIND_HOST=0.0.0.0 \
-RUST_API_DATA_ROOT="$PRODUCT_ROOT/data" \
-RUST_API_SCRIPTS_DIR="$(cd ../scripts && pwd)" \
-cargo run
+python3 services/scripts/dev_stack.py --runtime python
 ```
+
+该入口准备 `services/.venv` 与 Rust binaries，并以
+`remote + supervised` 模式启动 `rust_api`、`retain-jobsd` 和
+`retainpdf-ai`。已经准备好的 checkout 可追加 `--no-sync --no-build`。
 
 前端：
 
 ```bash
-cd frontend
-python3 -m http.server 40001 --bind 0.0.0.0
+npm --prefix apps/web run build
+python3 -m http.server 40001 --bind 0.0.0.0 --directory apps/web
 ```
 
 默认端口：
 
 - Rust API：`41000`
-- multipart 异步提交 API：`42000`
+- `/api/v1/translate/bundle` multipart 提交入口：`42000`
 - Web 前端：`40001`
+
+本地 launcher 还使用两个仅供后端内部通信的回环端口：
+`retain-jobsd` 为 `41002`，`retainpdf-ai` 为 `41100`。
 
 Docker 交付也默认使用同一组端口。如果本机已经启动 Docker Web，本地静态前端可以临时换成其他未占用端口；换端口只影响浏览器访问入口，不改变 Rust API 默认端口。
 

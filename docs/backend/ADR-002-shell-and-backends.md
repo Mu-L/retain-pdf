@@ -3,6 +3,10 @@
 > 状态：已采纳（2026-07-24）。**部分推翻 ADR-001** 中"不增加常驻进程数"一条。
 > 触发痛点：改一行 API 代码要重启整个后端，正在跑的翻译任务被杀
 > （`state_recovery` 把孤儿 worker 终止并标记 `worker_orphaned_after_restart`）。
+>
+> 当前实现注记（2026-09-02）：后端源码已经迁入 `services/`，主程序名仍为
+> `rust_api`；权威开发入口是 `python3 services/scripts/dev_stack.py`。本文中的
+> 固定测试数量和性能数字是 ADR 形成时的历史快照，不是当前验收门槛。
 
 ## 为什么推翻 ADR-001 的那一条
 
@@ -22,7 +26,7 @@ ADR-001 的判断针对**部署形态**（单机单用户不需要按服务伸�
 
 ```
 desktop (Electron)
-  └─ retain-shell :41000      ← HTTP 网关 + 图书馆/文档 CRUD + AI 代理 + 监督
+  └─ rust_api :41000          ← HTTP 网关 + 图书馆/文档 CRUD + AI 代理 + 监督
        ├─ retain-jobsd :41002 ← 任务调度 + worker 监督（内部 HTTP，仅监听 127.0.0.1）
        │    └─ pipeline workers（子进程，进程组隔离）
        └─ ai_service :41100   ← Python AI agent
@@ -44,7 +48,7 @@ desktop (Electron)
 
 ## 内部契约：jobs-control.v1
 
-`backend/contracts/jobs-control.v1.schema.json`，四个操作一一对应现有接缝：
+`services/contracts/jobs-control.v1.schema.json`，四个操作一一对应现有接缝：
 
 | 操作 | 端点 | 语义 |
 |---|---|---|
@@ -110,10 +114,18 @@ desktop (Electron)
   - 验收：`cargo test --workspace` 331/331，进程工具的 2 个测试随代码迁入
     retain-proc（未丢失）；架构检查通过。
 - **Phase 3——已落地（2026-08-18）**：
-  - **dev 脚本**：`backend/rust_api/scripts/dev-remote.sh` 一键拉起 `shell:41000 + jobsd:41002 + ai:41100`，支持 `cargo watch` 热重载（有则用，无则 `cargo run`）。`RUST_API_JOBS_MODE=remote + SUPERVISE=0` 下三进程独立，便于各自重启验证“改壳不杀任务”。已验证 `healthz` 探活与 `cargo test --workspace` / 架构门禁全绿。
-  - **桌面端监督接线**：`backend/rust_api/src/services/jobsd_supervisor.rs` 复用 `ai_supervisor` 模式（`RUST_API_JOBS_SUPERVISE=1 + remote` 时壳监督 jobsd，指数退避重启、组杀回收、`watch` 优雅退出）。`desktop/src/main/backend-env.js` + `desktop/main.js` 打包版默认 `remote + supervise=1`（开发版保持 `InProcess` 除非显式设 env），避免双进程；`desktop/scripts/prepare-app.mjs` 同步打包 `retain-jobsd` 二进制，`docker/Dockerfile.app` 同步构建/拷贝双二进制并修正 `pipeline/` 路径。
-  - **健康与可观测**：`routes/health.rs` 新增 `jobsd` 字段（与 `ai_service` 同级），`/api/v1/health` 可直接观察三进程拓扑。
-  - **验收**：`cargo check --workspace` 绿、`cargo test --workspace` 333/333、`check_architecture.py` / `check_pipeline_architecture.py` 绿。
+  - **dev 脚本**：当前权威入口是 `services/scripts/dev_stack.py`，一键拉起
+    `rust_api:41000 + retain-jobsd:41002 + ai_service:41100`。它显式启用
+    `remote + supervised`；`services/api/scripts/dev-remote.sh` 仅作为兼容转发入口。
+    原始 Rust 配置不经过该启动器时仍默认 `InProcess`。
+  - **桌面端监督接线**：`services/api/src/services/jobsd_supervisor.rs` 复用
+    `ai_supervisor` 模式。桌面装配位于 `apps/desktop/src/main/backend-env.js`、
+    `apps/desktop/main.js` 和 `apps/desktop/scripts/prepare-app.mjs`；容器装配位于
+    `services/docker/Dockerfile.app`。
+  - **健康与可观测**：公开探针是 `/health` 与 `/ready`；健康视图同时报告
+    `jobsd` 和 `ai_service`。41002、41100 是内部回环端口，不是公开 API。
+  - **验收**：当前应运行 workspace 测试和架构门禁，不以本文记录的历史固定
+    测试数作为成功条件。
   - **剩余**：真实 PDF 端到端（上传→OCR→翻译→渲染）在 `remote + supervised` 下需真凭据手动跑一轮；为后续可选的 B 方案留口。
 
 ## 与既有欠账的关系
@@ -123,3 +135,12 @@ desktop (Electron)
   重启后按偏移续读 + 退出码经协议回传）。实测确认 B 需重写 stdio/退出码/
   超时/失败判定四条父子耦合，风险高于本 ADR 一个量级，故后置。
 - 桌面端 `RUST_API_AI_SUPERVISE=1` 切换与本 ADR 的 jobsd 监督可一并做（Phase 3）。
+
+## 当前恢复边界
+
+- `remote` jobsd 让 HTTP 壳重启不直接杀死其 worker，但 jobsd/worker 自身故障仍需
+  依靠 SQLite 中的 attempt、unit、event 和流水线 checkpoint 恢复。
+- 只有已经 durable commit 的页/单元可以复用；worker 内存态和未提交输出不属于
+  可恢复状态。
+- provider dispatch 已发出但回执不明确时必须进入显式歧义解决流程，不能静默重复
+  提交远端 OCR 请求。

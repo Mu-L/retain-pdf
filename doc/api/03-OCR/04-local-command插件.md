@@ -36,7 +36,7 @@ RetainPDF job
 
 ```text
 services/config/ocr_providers.json
-# 兼容路径：backend/config -> ../services/config (本地 symlink, 已 gitignore)
+# 历史开发环境曾使用 backend/config symlink；当前仓库不提供该路径
 ```
 
 最小配置：
@@ -155,7 +155,9 @@ RETAIN_OCR_RAW_PROVIDER
 $RETAIN_OCR_NORMALIZED_DOCUMENT_JSON
 ```
 
-文件内容必须是 `document.v1.json`。详细字段以 [Document Schema 说明](../../../backend/scripts/services/document_schema/README.md) 为准。
+文件内容必须是 `document.v1.json`。详细字段以
+[Document Schema 说明](../../../services/pipeline/retainpdf_pipeline/services/document_schema/README.md)
+为准。
 
 这种方式最稳定，但接入成本最高。适合要深度接入的 OCR provider。
 
@@ -379,7 +381,7 @@ RetainPDF 后续还会检查：
 只有当 `generic_flat_ocr` 表达不了你的 provider 输出时，才需要新增：
 
 ```text
-backend/scripts/services/document_schema/provider_adapters/<your_provider>/
+services/pipeline/retainpdf_pipeline/services/document_schema/provider_adapters/<your_provider>/
 ```
 
 新增 adapter 后，把 `raw_provider` 指向你的 adapter 名称即可。主流程仍然只消费 `document.v1.json`。

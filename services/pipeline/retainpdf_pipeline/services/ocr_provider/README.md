@@ -288,8 +288,8 @@ CLI 原始 JSON、stdout/stderr 与 `--save_resources` 下载内容保存在
 - `provider_pipeline.py` 负责 stage/provider 分发和稳定兼容面
 - `drivers.py` 负责 Python provider registry；新增 provider 先挂这里，不要把分发逻辑写回主流程
 - `types.py` 定义 provider driver 的稳定输入/输出契约，`OcrProviderResult.artifact_manifest` 是 provider 产物边界
-- Rust API 侧 provider 产物路径由 `backend/rust_api/src/ocr_provider/catalog.rs` 的 artifact layout 声明，任务编排不要在 workspace 里写 provider 文件名
-- Rust API 侧 provider transport 由 `backend/rust_api/src/job_runner/ocr_flow/provider_transport.rs` 的 transport registry 分发，新增内置 provider 时先注册 transport handler
+- Rust API 侧 provider 产物路径由 `services/api/crates/retain-data/src/ocr_provider/catalog.rs` 的 artifact layout 声明，任务编排不要在 workspace 里写 provider 文件名
+- Rust API 侧 provider transport 由 `services/api/crates/retain-jobs/src/job_runner/ocr_flow/provider_transport.rs` 分发，新增内置 provider 时先注册 transport handler
 - 新增的纯实现优先下沉到独立模块，不直接堆回 `provider_pipeline.py`
 - 如果测试需要 monkeypatch，patch 点应保留在 `provider_pipeline.py`
 - `services/ocr_provider/__init__.py` 必须显式导出 `provider_pipeline`
@@ -298,11 +298,11 @@ CLI 原始 JSON、stdout/stderr 与 `--save_resources` 下载内容保存在
 - `paddle_normalize.py` 只处理 normalized document 和几何修正，不碰 provider transport
 - `local_command_driver.py` 是本地 OCR 模型的最小接入口；它不关心模型实现，只校验落盘契约
 - `services/document_schema/adapters.py` 只做 adapter registry，不直接 import `services/mineru/*`；MinerU 走 `services/document_schema/provider_adapters/mineru/`
-- Paddle 默认模型和 alias 配在 `services/config/ocr_providers.json` (compat `backend/config` symlink)，不要在 Python/Rust 里硬编码版本号
+- Paddle 默认模型和 alias 配在 `services/config/ocr_providers.json`；历史开发环境的 `backend/config` symlink 不属于当前仓库，不要在 Python/Rust 里硬编码版本号
 
 这些约束已经进入：
 
-- `backend/scripts/devtools/check_pipeline_architecture.py`
+- `services/pipeline/devtools/check_pipeline_architecture.py`
 
 也就是说，后面如果有人把 `ocr_provider` 重新连回翻译/渲染层，或者把稳定入口改成隐式导出/深层直连，本地架构检查会直接失败。
 
@@ -402,7 +402,7 @@ Paddle 模型版本不要写死在调用层。默认模型和 alias 统一来自
 
 ```text
 services/config/ocr_providers.json
-# 兼容路径：backend/config -> ../services/config
+# 历史开发环境曾使用 backend/config symlink；当前仓库不提供该路径
 ```
 
 当前默认：
@@ -431,7 +431,7 @@ OCR provider 的可见契约统一放在：
 
 ```text
 services/config/ocr_providers.json
-# 兼容路径：backend/config -> ../services/config
+# 历史开发环境曾使用 backend/config symlink；当前仓库不提供该路径
 ```
 
 前端和外部集成方不要硬编码“某个 provider 需要填哪些字段”，而是读取：
