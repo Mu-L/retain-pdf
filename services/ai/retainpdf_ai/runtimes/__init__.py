@@ -16,6 +16,8 @@ _LAZY_EXPORTS = {
     "FX_RUNTIME_ID",
     "FxAcpRuntime",
     "FxCapability",
+    "OPENAI_AGENT_RUNTIME_ID",
+    "OpenAICompatibleAgentRuntime",
     "PythonAgentRuntime",
     "build_agent_runtime",
     "probe_fx_gateway_endpoint",
@@ -39,6 +41,13 @@ def __getattr__(name: str) -> Any:
         from .python import PythonAgentRuntime
 
         return PythonAgentRuntime
+    if name in {"OPENAI_AGENT_RUNTIME_ID", "OpenAICompatibleAgentRuntime"}:
+        from .openai import OPENAI_AGENT_RUNTIME_ID, OpenAICompatibleAgentRuntime
+
+        return {
+            "OPENAI_AGENT_RUNTIME_ID": OPENAI_AGENT_RUNTIME_ID,
+            "OpenAICompatibleAgentRuntime": OpenAICompatibleAgentRuntime,
+        }[name]
     if name == "probe_fx_gateway_endpoint":
         from .fx_gateway import probe_fx_gateway_endpoint
 
@@ -52,12 +61,14 @@ def __dir__() -> list[str]:
 
 __all__ = [
     "FX_RUNTIME_ID",
+    "OPENAI_AGENT_RUNTIME_ID",
     "AgentRuntime",
     "AskResult",
     "ChatFn",
     "Citation",
     "FxAcpRuntime",
     "FxCapability",
+    "OpenAICompatibleAgentRuntime",
     "PythonAgentRuntime",
     "RuntimeCapabilities",
     "build_agent_runtime",

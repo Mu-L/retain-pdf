@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from ..agent import RetrievalAgent
 from ..config import Settings
-from ..openai_agent_runtime import OpenAICompatibleAgentRuntime
 from ..rust_client import RustApiClient
 from .contracts import AgentRuntime
 from .fx import FxAcpRuntime
+from .openai import OpenAICompatibleAgentRuntime
 from .python import PythonAgentRuntime
 
 

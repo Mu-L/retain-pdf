@@ -428,7 +428,10 @@ def test_ask_endpoint_requires_api_key_and_returns_citations():
     app = build_app(settings, agent=FakeAgent())
     client = TestClient(app)
 
-    assert client.get("/healthz").json()["ok"] is True
+    health = client.get("/healthz").json()
+    assert health["ok"] is True
+    assert health["capabilities"]["document_reading"] is True
+    assert health["capabilities"]["document_operations"] is False
 
     denied = client.post("/v1/ask", json={"question": "q"})
     assert denied.status_code == 401
@@ -768,10 +771,18 @@ def test_fx_request_message_is_durable_before_runtime_and_not_duplicated():
 
     settings = Settings(
         api_keys=frozenset({"test-key"}),
+        llm_api_key="llm-test-key",
+        llm_model="reading-model",
         fx_gateway_api_key="gateway-test-key",
+        fx_model="fx-model",
     )
     client = TestClient(
-        build_app(settings, rust=rust, runtime=RecordingFxRuntime())
+        build_app(
+            settings,
+            agent=FakeAgent(),
+            rust=rust,
+            runtime=RecordingFxRuntime(),
+        )
     )
     response = client.post(
         "/v1/ask",
@@ -816,6 +827,21 @@ def test_fx_request_message_is_durable_before_runtime_and_not_duplicated():
     final_messages = rust.get_conversation(conversation_id)["messages"]
     assert [message["role"] for message in final_messages] == ["user", "assistant"]
     assert sum(message["message_id"] == "msg-stable-a" for message in final_messages) == 1
+    assert final_messages[-1]["model"] == "fx-model"
+
+    reading = client.post(
+        "/v1/ask",
+        json={
+            "question": "总结正文",
+            "document_id": "doc-a",
+            "assistant_mode": "reading",
+        },
+        headers={"X-API-Key": "test-key"},
+    )
+    assert reading.status_code == 200
+    reading_conversation = reading.json()["data"]["conversation_id"]
+    reading_messages = rust.get_conversation(reading_conversation)["messages"]
+    assert reading_messages[-1]["model"] == "reading-model"
 
 
 def test_fx_auto_with_document_scope_fails_closed_before_runtime_call():

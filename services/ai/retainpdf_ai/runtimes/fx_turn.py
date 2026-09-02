@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..fx_command_broker import FxCommandBroker
+from ..agent_command_broker import AgentCommandBroker
 
 
 def recovery_prompt(question: str, history: list[dict[str, str]]) -> str:
@@ -27,7 +27,7 @@ def turn_prompt(
     history: list[dict[str, str]],
     *,
     rebuilt: bool,
-    broker: FxCommandBroker | None,
+    broker: AgentCommandBroker | None,
     operation_context: str = "[]",
 ) -> str:
     value = recovery_prompt(question, history) if rebuilt else question.strip()

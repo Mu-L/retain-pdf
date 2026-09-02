@@ -8,8 +8,8 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any
 
+from ..agent_command_broker import AgentCommandBroker, BrokerScope
 from ..config import Settings, normalize_fx_gateway_base_url
-from ..fx_command_broker import BrokerScope, FxCommandBroker
 from ..operation_context import load_operation_context
 from ..prompts import build_operation_context_block
 from ..rust_client import RustApiClient
@@ -149,7 +149,7 @@ class FxAcpRuntime:
             emit(event)
 
         broker_context = (
-            FxCommandBroker(
+            AgentCommandBroker(
                 state_root=self._settings.fx_state_root,
                 cli_command=(
                     self._settings.agent_cli_command
@@ -273,7 +273,7 @@ class FxAcpRuntime:
 
     def _start_client(
         self,
-        broker: FxCommandBroker | None = None,
+        broker: AgentCommandBroker | None = None,
         *,
         session_key: str = "",
     ) -> FxAcpClient:

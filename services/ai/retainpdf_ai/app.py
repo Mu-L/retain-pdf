@@ -468,7 +468,12 @@ def build_app(
 
     @app.get("/healthz")
     def healthz() -> dict[str, Any]:
-        return {"ok": True, "version": __version__, "agent_runtime": runtime_id}
+        return {
+            "ok": True,
+            "version": __version__,
+            "agent_runtime": runtime_id,
+            "capabilities": runtime.capabilities.public_view(),
+        }
 
     def configured_settings() -> Settings:
         stored = load_runtime_credentials(settings.data_root)
@@ -508,6 +513,7 @@ def build_app(
                 "ok": True,
                 "version": __version__,
                 "agent_runtime": runtime_id,
+                "capabilities": runtime.capabilities.public_view(),
                 "active_revision": settings.runtime_config_revision,
                 "configured_revision": configured.runtime_config_revision,
             }
@@ -757,7 +763,7 @@ def build_app(
             raise HTTPException(
                 status_code=409,
                 detail=(
-                    "当前 FX Agent 不能读取文档正文；请明确选择 reading 使用文档问答，"
+                    "当前 Agent 运行时不能读取文档正文；请明确选择 reading 使用文档问答，"
                     "或选择 operations 执行 PDF 操作。"
                 ),
             )

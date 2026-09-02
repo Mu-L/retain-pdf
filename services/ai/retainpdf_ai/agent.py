@@ -275,12 +275,12 @@ class RetrievalAgent:
                         tool_trace=trace,
                         rounds=round_index,
                     )
-                answer = _sanitize_answer_text(
+                answer = sanitize_answer_text(
                     str(message.get("content") or "").strip(), citations
                 )
                 return AskResult(
                     answer=answer,
-                    citations=_referenced_citations(answer, citations),
+                    citations=referenced_citations(answer, citations),
                     tool_trace=trace,
                     rounds=round_index,
                 )
@@ -318,7 +318,7 @@ class RetrievalAgent:
                     arguments = {}
                 if not isinstance(arguments, dict):
                     arguments = {}
-                arguments = _scope_tool_arguments(
+                arguments = scope_tool_arguments(
                     name,
                     arguments,
                     document_id=scoped_document_id,
@@ -328,7 +328,7 @@ class RetrievalAgent:
                     searched_markdown = True
                 emit({"type": "tool", "round": round_index, "tool": name, "arguments": arguments})
                 result = self._registry.invoke(name, arguments)
-                next_ref = _assign_refs(result, citations, next_ref)
+                next_ref = assign_refs(result, citations, next_ref)
                 trace.append({"round": round_index, "tool": name, "arguments": arguments})
                 # 给模型的 payload 去掉 block_id 等内部字段,避免它抄成 [p002-b0004]
                 messages.append(
@@ -336,7 +336,7 @@ class RetrievalAgent:
                         "role": "tool",
                         "tool_call_id": call.get("id", ""),
                         "content": json.dumps(
-                            _public_tool_payload(result), ensure_ascii=False
+                            public_tool_payload(result), ensure_ascii=False
                         ),
                     }
                 )
@@ -352,16 +352,16 @@ class RetrievalAgent:
         # 传 key 的部署形态下 self._chat 是 _missing_key——跑满工具轮的问题
         # 会在收尾轮误报"缺少 LLM API Key"（审计 A1）。
         message = chat(messages, [])
-        answer = _sanitize_answer_text(str(message.get("content") or "").strip(), citations)
+        answer = sanitize_answer_text(str(message.get("content") or "").strip(), citations)
         return AskResult(
             answer=answer,
-            citations=_referenced_citations(answer, citations),
+            citations=referenced_citations(answer, citations),
             tool_trace=trace,
             rounds=self._max_tool_rounds,
         )
 
 
-def _scope_tool_arguments(
+def scope_tool_arguments(
     name: str,
     arguments: dict[str, Any],
     *,
@@ -409,7 +409,7 @@ def _tool_specs_for_scope(registry: ToolRegistry, document_id: str = "") -> list
     return filtered
 
 
-def _assign_refs(result: dict[str, Any], citations: dict[int, Citation], next_ref: int) -> int:
+def assign_refs(result: dict[str, Any], citations: dict[int, Citation], next_ref: int) -> int:
     """给带锚点的工具结果编引用号,并把编号写回结果(内部仍保留 block_id 供 Citation)。"""
     anchored: list[dict[str, Any]] = []
     anchored.extend(result.get("hits") or [])
@@ -535,7 +535,7 @@ def _public_anchor(entry: dict[str, Any]) -> dict[str, Any] | None:
     return public
 
 
-def _public_tool_payload(result: dict[str, Any]) -> dict[str, Any]:
+def public_tool_payload(result: dict[str, Any]) -> dict[str, Any]:
     """工具原始结果 → 模型上下文。剥离 block_id/job_id 等,避免抄进回答。"""
     if not isinstance(result, dict):
         return {"error": "invalid tool result"}
@@ -615,7 +615,7 @@ def _public_tool_payload(result: dict[str, Any]) -> dict[str, Any]:
     return public
 
 
-def _sanitize_answer_text(answer: str, citations: dict[int, Citation]) -> str:
+def sanitize_answer_text(answer: str, citations: dict[int, Citation]) -> str:
     """把正文里的 [p002-b0004] / 裸 block_id 映射成 [n] 或删掉。"""
     if not answer:
         return answer
@@ -645,7 +645,7 @@ def _sanitize_answer_text(answer: str, citations: dict[int, Citation]) -> str:
     return cleaned.strip()
 
 
-def _referenced_citations(answer: str, citations: dict[int, Citation]) -> list[Citation]:
+def referenced_citations(answer: str, citations: dict[int, Citation]) -> list[Citation]:
     # 按正文出现顺序保留 [n]，避免 sorted 打乱阅读顺序
     ordered_refs: list[int] = []
     seen: set[int] = set()
@@ -678,3 +678,11 @@ def _referenced_citations(answer: str, citations: dict[int, Citation]) -> list[C
     # 才能把内联 [n] 变成可点击锚点；在这里截断会留下看似正常、实际
     # 无法定位的“死引用”。展示层可以自行限制脚注数量，但数据契约不能丢。
     return selected
+
+
+# Compatibility aliases for callers that imported the original private helpers.
+_assign_refs = assign_refs
+_public_tool_payload = public_tool_payload
+_referenced_citations = referenced_citations
+_sanitize_answer_text = sanitize_answer_text
+_scope_tool_arguments = scope_tool_arguments

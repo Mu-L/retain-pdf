@@ -7,8 +7,8 @@ import shutil
 import sys
 from pathlib import Path
 
+from ..agent_command_broker import AgentCommandBroker
 from ..config import Settings, fx_gateway_chat_url, normalize_fx_gateway_base_url
-from ..fx_command_broker import FxCommandBroker
 from ..prompts import build_fx_workspace_instructions
 from .fx_acp import FxAcpClient
 from .fx_coordination import conversation_namespace
@@ -16,7 +16,7 @@ from .fx_coordination import conversation_namespace
 
 def start_fx_client(
     settings: Settings,
-    broker: FxCommandBroker | None = None,
+    broker: AgentCommandBroker | None = None,
     *,
     session_key: str = "",
 ) -> FxAcpClient:
