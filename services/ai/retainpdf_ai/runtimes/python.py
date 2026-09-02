@@ -5,11 +5,19 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from ..agent import AskResult, ChatFn, RetrievalAgent
+from ..agent import RetrievalAgent
+from .contracts import AskResult, ChatFn, RuntimeCapabilities
 
 
 class PythonAgentRuntime:
     runtime_id = "python-retrieval-v1"
+    capabilities = RuntimeCapabilities(
+        document_reading=True,
+        document_operations=False,
+        streaming=True,
+        durable_sessions=False,
+        model_transport="host_chat",
+    )
 
     def __init__(self, agent: RetrievalAgent) -> None:
         self._agent = agent

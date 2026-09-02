@@ -10,13 +10,13 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
 
 from .config import Settings
 from .prompts import build_reading_system_prompt
+from .runtimes.contracts import AskResult, ChatFn, Citation
 from .tools import ToolRegistry
 
 SYSTEM_PROMPT = build_reading_system_prompt()
@@ -29,28 +29,6 @@ BLOCK_ID_BRACKET_RE = re.compile(r"\[\s*(p\d+[-_]b\d+)\s*\]", re.IGNORECASE)
 BLOCK_ID_BARE_RE = re.compile(r"(?<![\w/])(p\d+[-_]b\d+)(?![\w/])", re.IGNORECASE)
 MARKDOWN_ID_BRACKET_RE = re.compile(r"\[\s*(md-\d+)\s*\]", re.IGNORECASE)
 MARKDOWN_ID_BARE_RE = re.compile(r"(?<![\w/])(md-\d+)(?![\w/])", re.IGNORECASE)
-
-
-@dataclass
-class Citation:
-    ref: int
-    document_id: str
-    job_id: str
-    page_idx: int | None
-    block_id: str
-    snippet: str
-
-
-@dataclass
-class AskResult:
-    answer: str
-    citations: list[Citation] = field(default_factory=list)
-    tool_trace: list[dict[str, Any]] = field(default_factory=list)
-    rounds: int = 0
-    operation_refs: list[dict[str, Any]] = field(default_factory=list)
-
-
-ChatFn = Callable[[list[dict[str, Any]], list[dict[str, Any]]], dict[str, Any]]
 
 
 def assemble_streaming_message(

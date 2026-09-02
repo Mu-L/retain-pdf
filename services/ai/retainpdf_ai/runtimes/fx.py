@@ -8,13 +8,14 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any
 
-from ..agent import AskResult, ChatFn
 from ..config import Settings, normalize_fx_gateway_base_url
 from ..fx_command_broker import BrokerScope, FxCommandBroker
 from ..operation_context import load_operation_context
 from ..prompts import build_operation_context_block
 from ..rust_client import RustApiClient
+from .contracts import AskResult, ChatFn, RuntimeCapabilities
 from .fx_acp import FxAcpClient
+from .fx_coordination import coordinator_for
 from .fx_gateway import probe_fx_gateway_endpoint
 from .fx_process import start_fx_client
 from .fx_turn import safe_tool_event, turn_prompt
@@ -46,11 +47,22 @@ class FxAcpRuntime:
     """
 
     runtime_id = FX_RUNTIME_ID
+    capabilities = RuntimeCapabilities(
+        document_reading=False,
+        document_operations=True,
+        streaming=True,
+        durable_sessions=True,
+        model_transport="runtime_managed",
+        confirmation_modes=frozenset({"explicit", "green_light"}),
+    )
 
     def __init__(self, settings: Settings, rust: RustApiClient) -> None:
         self._settings = settings
         self._rust = rust
-        self._lock = threading.Lock()
+        self._coordinator = coordinator_for(
+            settings.fx_state_root,
+            settings.fx_max_concurrent_turns,
+        )
 
     def probe(self) -> FxCapability:
         if not self._settings.fx_gateway_api_key:
@@ -66,7 +78,10 @@ class FxAcpRuntime:
                 self._settings.fx_gateway_base_url,
                 timeout=min(self._settings.fx_startup_timeout_s, 2.0),
             )
-            with self._start_client() as client:
+            with (
+                self._coordinator.turn("__probe__"),
+                self._start_client(session_key="__probe__") as client,
+            ):
                 actual = client.initialize()
             if actual != self._settings.fx_expected_version:
                 return FxCapability(
@@ -157,7 +172,11 @@ class FxAcpRuntime:
             if document_id and request_message_id
             else nullcontext(None)
         )
-        with self._lock, broker_context as broker, self._start_client(broker) as client:
+        with (
+            self._coordinator.turn(conversation_id),
+            broker_context as broker,
+            self._start_client(broker, session_key=conversation_id) as client,
+        ):
             actual_version = client.initialize()
             if actual_version != self._settings.fx_expected_version:
                 raise RuntimeError(
@@ -179,15 +198,18 @@ class FxAcpRuntime:
                 operation_context=build_operation_context_block(operations),
             )
             answer_parts: list[str] = []
+            answer_chars = 0
             tool_trace: list[dict[str, Any]] = []
 
             def on_update(update: dict[str, Any]) -> None:
+                nonlocal answer_chars
                 kind = str(update.get("sessionUpdate") or "")
                 if kind == "agent_message_chunk":
                     content = update.get("content") or {}
                     text = str(content.get("text") or "")
                     if text:
-                        if sum(len(part) for part in answer_parts) + len(text) > _MAX_ANSWER_CHARS:
+                        answer_chars += len(text)
+                        if answer_chars > _MAX_ANSWER_CHARS:
                             raise RuntimeError("fx answer exceeded the backend output limit")
                         answer_parts.append(text)
                         emit({"type": "answer_delta", "text": text})
@@ -249,5 +271,10 @@ class FxAcpRuntime:
                 return latest_cursor, False
             raise
 
-    def _start_client(self, broker: FxCommandBroker | None = None) -> FxAcpClient:
-        return start_fx_client(self._settings, broker)
+    def _start_client(
+        self,
+        broker: FxCommandBroker | None = None,
+        *,
+        session_key: str = "",
+    ) -> FxAcpClient:
+        return start_fx_client(self._settings, broker, session_key=session_key)

@@ -11,16 +11,23 @@ from ..config import Settings, fx_gateway_chat_url, normalize_fx_gateway_base_ur
 from ..fx_command_broker import FxCommandBroker
 from ..prompts import build_fx_workspace_instructions
 from .fx_acp import FxAcpClient
+from .fx_coordination import conversation_namespace
 
 
 def start_fx_client(
     settings: Settings,
     broker: FxCommandBroker | None = None,
+    *,
+    session_key: str = "",
 ) -> FxAcpClient:
     if sys.platform not in {"darwin", "linux"}:
         raise RuntimeError("fx 0.0.5 has no supported native runtime for this platform")
     executable = resolve_executable(settings.fx_command)
-    state_root = settings.fx_state_root.resolve()
+    state_root = (
+        settings.fx_state_root.resolve()
+        / "sessions"
+        / conversation_namespace(session_key)
+    )
     home = state_root / "home"
     workspace = state_root / "workspace"
     tmp = state_root / "tmp"

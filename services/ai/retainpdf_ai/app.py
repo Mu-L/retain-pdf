@@ -28,9 +28,7 @@ from .config import (
     normalize_fx_gateway_base_url,
 )
 from .memory import assemble_history, maybe_compress_transcript
-from .openai_agent_runtime import OPENAI_AGENT_RUNTIME_ID
 from .runtime import (
-    FX_RUNTIME_ID,
     AgentRuntime,
     PythonAgentRuntime,
     build_agent_runtime,
@@ -178,9 +176,8 @@ def build_app(
             )
 
     runtime_id = runtime.runtime_id
-    document_operation_runtime_ids = {FX_RUNTIME_ID, OPENAI_AGENT_RUNTIME_ID}
     reading_runtime = PythonAgentRuntime(agent) if agent is not None else (
-        runtime if runtime_id == PythonAgentRuntime.runtime_id else None
+        runtime if runtime.capabilities.document_reading else None
     )
     restart_runtime = restart_callback or _schedule_process_restart
 
@@ -345,10 +342,11 @@ def build_app(
         conversation_id: str,
         payload: AskInput,
         result: Any,
+        request_runtime: AgentRuntime,
         *,
         chain_parent_id: str = "",
         prepersisted_user_id: str = "",
-    ) -> None:
+    ) -> bool:
         """尽力而为的历史回写:失败只记日志,不影响返回。
 
         正常轮: user(parent=chain_parent_id|payload.parent_id|head) + assistant(parent=user)。
@@ -368,8 +366,8 @@ def build_app(
             )
             tool_trace_json = json.dumps(result.tool_trace, ensure_ascii=False)
             model = (
-                settings.fx_model or "fx"
-                if runtime_id == FX_RUNTIME_ID
+                settings.fx_model or request_runtime.runtime_id
+                if request_runtime.capabilities.model_transport == "runtime_managed"
                 else payload.llm_model or settings.llm_model
             )
             if payload.regenerate:
@@ -417,11 +415,12 @@ def build_app(
     def persist_agent_request_message(
         conversation_id: str,
         payload: AskInput,
+        request_runtime: AgentRuntime,
         *,
         chain_parent_id: str = "",
     ) -> tuple[str, bool]:
         """Persist the user request before an Agent can create an operation."""
-        if runtime_id not in document_operation_runtime_ids:
+        if not request_runtime.capabilities.document_operations:
             return "", True
         parent_hint = chain_parent_id.strip() or payload.parent_id.strip()
         if payload.regenerate:
@@ -743,12 +742,25 @@ def build_app(
                 )
             return reading_runtime, reading_runtime.runtime_id
         if mode == "operations":
-            if runtime_id not in document_operation_runtime_ids:
+            if not runtime.capabilities.document_operations:
                 raise HTTPException(
                     status_code=409,
                     detail="当前 AI Agent 未启用 PDF 操作模式，请先在 API 设置中选择 OpenAI Agent 或 FX Agent。",
                 )
             return runtime, runtime_id
+        has_document_scope = bool(payload.document_id.strip() or payload.job_id.strip())
+        if (
+            has_document_scope
+            and runtime.capabilities.document_operations
+            and not runtime.capabilities.document_reading
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "当前 FX Agent 不能读取文档正文；请明确选择 reading 使用文档问答，"
+                    "或选择 operations 执行 PDF 操作。"
+                ),
+            )
         return runtime, runtime_id
 
     def _result_payload(
@@ -779,8 +791,11 @@ def build_app(
             payload["memory"] = memory
         return payload
 
-    def _resolve_llm_settings(payload: AskInput, request_runtime_id: str) -> Settings:
-        if request_runtime_id == FX_RUNTIME_ID:
+    def _resolve_llm_settings(
+        payload: AskInput,
+        request_runtime: AgentRuntime,
+    ) -> Settings:
+        if request_runtime.capabilities.model_transport == "runtime_managed":
             if not settings.fx_gateway_api_key:
                 raise HTTPException(
                     status_code=400,
@@ -802,12 +817,12 @@ def build_app(
             llm_model=payload.llm_model or settings.llm_model,
         )
 
-    def _request_chat_fn(payload: AskInput, request_runtime_id: str):
-        if request_runtime_id == FX_RUNTIME_ID:
-            _resolve_llm_settings(payload, request_runtime_id)
+    def _request_chat_fn(payload: AskInput, request_runtime: AgentRuntime):
+        if request_runtime.capabilities.model_transport == "runtime_managed":
+            _resolve_llm_settings(payload, request_runtime)
             return None
         # 非流式路径:请求未覆盖任何 LLM 参数时回退启动期 chat_fn(返回 None)。
-        resolved = _resolve_llm_settings(payload, request_runtime_id)  # 顺带做缺 key 守卫
+        resolved = _resolve_llm_settings(payload, request_runtime)  # 顺带做缺 key 守卫
         if not payload.llm_api_key and not payload.llm_base_url and not payload.llm_model:
             return None
         return build_deepseek_chat_fn(resolved)
@@ -838,7 +853,7 @@ def build_app(
         # SSE 路径总是用带 on_delta 的流式 chat_fn:增量文本进事件队列。
         chat_fn = (
             None
-            if request_runtime_id == FX_RUNTIME_ID
+            if request_runtime.capabilities.model_transport == "runtime_managed"
             else build_deepseek_chat_fn(
                 resolved,
                 on_delta=lambda text: events.put(
@@ -854,6 +869,7 @@ def build_app(
                 request_message_id, request_persisted = persist_agent_request_message(
                     conversation_id,
                     payload,
+                    request_runtime,
                     chain_parent_id=summary_id,
                 )
                 events.put(
@@ -864,8 +880,9 @@ def build_app(
                         or payload.user_message_id.strip(),
                         "agent_runtime": request_runtime_id,
                         "capabilities": {
+                            **request_runtime.capabilities.public_view(),
                             "document_operations": bool(
-                                request_runtime_id in document_operation_runtime_ids
+                                request_runtime.capabilities.document_operations
                                 and document_id
                                 and request_message_id
                             ),
@@ -889,7 +906,7 @@ def build_app(
                             "confirmed": bool(payload.confirm_document_operation)
                             or settings.agent_confirmation_mode == "green_light",
                         }
-                        if request_runtime_id in document_operation_runtime_ids
+                        if request_runtime.capabilities.document_operations
                         else {}
                     ),
                 )
@@ -906,6 +923,7 @@ def build_app(
                     conversation_id,
                     payload,
                     result,
+                    request_runtime,
                     chain_parent_id=summary_id,
                     prepersisted_user_id=request_message_id,
                 )
@@ -941,13 +959,13 @@ def build_app(
         request_runtime, request_runtime_id = _request_runtime(payload)
         if payload.stream:
             # 生成器内抛 HTTPException 无法转成 400,故先在此校验并解析出 settings
-            resolved = _resolve_llm_settings(payload, request_runtime_id)
+            resolved = _resolve_llm_settings(payload, request_runtime)
             return StreamingResponse(
                 _sse_events(payload, resolved, request_runtime, request_runtime_id),
                 media_type="text/event-stream",
                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
             )
-        chat_fn = _request_chat_fn(payload, request_runtime_id)
+        chat_fn = _request_chat_fn(payload, request_runtime)
         document_id = resolve_document_id(payload)
         conversation_id = ensure_conversation_id(payload, document_id)
         memory_stop = (
@@ -963,6 +981,7 @@ def build_app(
         request_message_id, request_persisted = persist_agent_request_message(
             conversation_id,
             payload,
+            request_runtime,
             chain_parent_id=summary_id,
         )
         result = request_runtime.ask(
@@ -978,7 +997,7 @@ def build_app(
                     "confirmed": bool(payload.confirm_document_operation)
                     or settings.agent_confirmation_mode == "green_light",
                 }
-                if request_runtime_id in document_operation_runtime_ids
+                if request_runtime.capabilities.document_operations
                 else {}
             ),
         )
@@ -986,6 +1005,7 @@ def build_app(
             conversation_id,
             payload,
             result,
+            request_runtime,
             chain_parent_id=summary_id,
             prepersisted_user_id=request_message_id,
         )

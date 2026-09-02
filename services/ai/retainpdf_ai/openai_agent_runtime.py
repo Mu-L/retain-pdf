@@ -15,9 +15,6 @@ from typing import Any
 
 from .agent import (
     MARKDOWN_TOOL_NAMES,
-    AskResult,
-    ChatFn,
-    Citation,
     _assign_refs,
     _public_tool_payload,
     _referenced_citations,
@@ -29,6 +26,7 @@ from .agent_command_broker import AgentCommandBroker, BrokerScope
 from .config import Settings
 from .operation_context import load_operation_context
 from .prompts import build_operation_system_prompt
+from .runtimes.contracts import AskResult, ChatFn, Citation, RuntimeCapabilities
 from .rust_client import RustApiClient
 from .tools import ToolRegistry
 
@@ -176,6 +174,14 @@ class OpenAICompatibleAgentRuntime:
         self._rust = rust
         self._reading_registry = reading_registry
         self._chat = build_deepseek_chat_fn(settings)
+        self.capabilities = RuntimeCapabilities(
+            document_reading=reading_registry is not None,
+            document_operations=True,
+            streaming=True,
+            durable_sessions=False,
+            model_transport="host_chat",
+            confirmation_modes=frozenset({"explicit", "green_light"}),
+        )
 
     def ask(
         self,

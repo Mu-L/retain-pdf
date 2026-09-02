@@ -46,13 +46,16 @@ class FxAcpClient:
             kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
         self._process = subprocess.Popen(**kwargs)
         self._lines: queue.Queue[str | None] = queue.Queue(maxsize=256)
+        self._closed = threading.Event()
         self._stderr_seen = False
         self._next_id = 1
         self._permission_handler = permission_handler
         self._startup_timeout = max(1.0, startup_timeout)
         self._turn_timeout = max(1.0, turn_timeout)
-        threading.Thread(target=self._read_stdout, daemon=True).start()
-        threading.Thread(target=self._read_stderr, daemon=True).start()
+        self._stdout_thread = threading.Thread(target=self._read_stdout, daemon=True)
+        self._stderr_thread = threading.Thread(target=self._read_stderr, daemon=True)
+        self._stdout_thread.start()
+        self._stderr_thread.start()
 
     def __enter__(self) -> Self:
         return self
@@ -132,35 +135,50 @@ class FxAcpClient:
 
     def close(self) -> None:
         process = self._process
-        if process.poll() is not None:
-            return
-        if process.stdin is not None:
+        self._closed.set()
+        if process.poll() is None and process.stdin is not None:
             try:
                 process.stdin.close()
             except OSError:
                 pass
-        try:
-            process.wait(timeout=2)
+        if process.poll() is None:
+            try:
+                process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                self._terminate_process(signal.SIGTERM)
+        if process.poll() is None:
+            try:
+                process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                self._terminate_process(signal.SIGKILL)
+                try:
+                    process.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    pass
+        self._stdout_thread.join(timeout=1)
+        self._stderr_thread.join(timeout=1)
+
+    def _terminate_process(self, sig: signal.Signals) -> None:
+        process = self._process
+        if process.poll() is not None:
             return
-        except subprocess.TimeoutExpired:
-            pass
         if os.name == "posix" and process.pid:
             try:
-                os.killpg(process.pid, signal.SIGTERM)
+                os.killpg(process.pid, sig)
             except ProcessLookupError:
                 return
-        else:
+        elif sig == signal.SIGTERM:
             process.terminate()
-        try:
-            process.wait(timeout=2)
-        except subprocess.TimeoutExpired:
-            if os.name == "posix" and process.pid:
-                try:
-                    os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-            else:
-                process.kill()
+        else:
+            process.kill()
+
+    def _put_line(self, line: str | None) -> None:
+        while not self._closed.is_set():
+            try:
+                self._lines.put(line, timeout=0.1)
+                return
+            except queue.Full:
+                continue
 
     def _request(
         self,
@@ -256,11 +274,14 @@ class FxAcpClient:
     def _read_stdout(self) -> None:
         stream = self._process.stdout
         if stream is None:
-            self._lines.put(None)
+            self._put_line(None)
             return
-        for line in stream:
-            self._lines.put(line.rstrip("\r\n"))
-        self._lines.put(None)
+        while not self._closed.is_set():
+            line = stream.readline(_MAX_ACP_LINE_BYTES + 1)
+            if not line:
+                break
+            self._put_line(line.rstrip("\r\n"))
+        self._put_line(None)
 
     def _read_stderr(self) -> None:
         stream = self._process.stderr

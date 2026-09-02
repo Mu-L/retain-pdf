@@ -9,6 +9,7 @@ from retainpdf_ai.agent import AskResult, Citation, RetrievalAgent
 from retainpdf_ai.app import _confirmation_requests, build_app
 from retainpdf_ai.blocks import read_page_blocks
 from retainpdf_ai.config import Settings
+from retainpdf_ai.runtime import RuntimeCapabilities
 from retainpdf_ai.tools import _markdown_asset_url, build_default_registry
 
 
@@ -464,8 +465,13 @@ def test_ask_endpoint_streams_sse_events():
     assert events[0]["type"] == "agent_session"
     assert events[0]["agent_runtime"] == "python-retrieval-v1"
     assert events[0]["capabilities"] == {
+        "confirmation_modes": [],
+        "document_reading": True,
         "document_operations": False,
         "document_operation_confirmation_mode": "explicit",
+        "durable_sessions": False,
+        "model_transport": "host_chat",
+        "streaming": True,
     }
     assert events[1]["type"] == "tool"
     assert events[1]["tool"] == "search_fulltext"
@@ -479,6 +485,14 @@ def test_ask_routes_reading_and_operations_without_changing_global_runtime():
 
     class FakeOperationRuntime:
         runtime_id = "openai-compatible-agent-v1"
+        capabilities = RuntimeCapabilities(
+            document_reading=True,
+            document_operations=True,
+            streaming=True,
+            durable_sessions=False,
+            model_transport="host_chat",
+            confirmation_modes=frozenset({"explicit", "green_light"}),
+        )
 
         def ask(
             self,
@@ -709,6 +723,14 @@ def test_fx_request_message_is_durable_before_runtime_and_not_duplicated():
 
     class RecordingFxRuntime:
         runtime_id = "vercel-fx-acp-v1"
+        capabilities = RuntimeCapabilities(
+            document_reading=False,
+            document_operations=True,
+            streaming=True,
+            durable_sessions=True,
+            model_transport="runtime_managed",
+            confirmation_modes=frozenset({"explicit", "green_light"}),
+        )
 
         def ask(
             self,
@@ -758,6 +780,7 @@ def test_fx_request_message_is_durable_before_runtime_and_not_duplicated():
             "document_id": "doc-a",
             "user_message_id": "msg-stable-a",
             "confirm_document_operation": True,
+            "assistant_mode": "operations",
         },
         headers={"X-API-Key": "test-key"},
     )
@@ -793,6 +816,47 @@ def test_fx_request_message_is_durable_before_runtime_and_not_duplicated():
     final_messages = rust.get_conversation(conversation_id)["messages"]
     assert [message["role"] for message in final_messages] == ["user", "assistant"]
     assert sum(message["message_id"] == "msg-stable-a" for message in final_messages) == 1
+
+
+def test_fx_auto_with_document_scope_fails_closed_before_runtime_call():
+    called = False
+
+    class RecordingFxRuntime:
+        runtime_id = "vercel-fx-acp-v1"
+        capabilities = RuntimeCapabilities(
+            document_reading=False,
+            document_operations=True,
+            streaming=True,
+            durable_sessions=True,
+            model_transport="runtime_managed",
+            confirmation_modes=frozenset({"explicit", "green_light"}),
+        )
+
+        def ask(self, _question, **_kwargs):
+            nonlocal called
+            called = True
+            return AskResult(answer="unexpected")
+
+    client = TestClient(
+        build_app(
+            Settings(
+                api_keys=frozenset({"test-key"}),
+                fx_gateway_api_key="gateway-test-key",
+            ),
+            rust=FakeRust(),
+            runtime=RecordingFxRuntime(),
+        )
+    )
+
+    response = client.post(
+        "/v1/ask",
+        json={"question": "这份文档讲什么？", "document_id": "doc-a"},
+        headers={"X-API-Key": "test-key"},
+    )
+
+    assert response.status_code == 409
+    assert "不能读取文档正文" in response.json()["detail"]
+    assert called is False
 
 
 def test_confirmation_projection_is_structured_and_green_light_suppresses_it():

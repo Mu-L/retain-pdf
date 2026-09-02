@@ -107,6 +107,7 @@ class Settings:
     fx_model: str = ""
     fx_startup_timeout_s: float = 10.0
     fx_turn_timeout_s: float = 120.0
+    fx_max_concurrent_turns: int = 4
     fx_state_root: Path = field(
         default_factory=lambda: _repo_root() / "data" / "agent-runtime" / "fx"
     )
@@ -222,6 +223,10 @@ def load_settings() -> Settings:
         ),
         fx_turn_timeout_s=float(
             os.environ.get("RETAIN_AI_FX_TURN_TIMEOUT_SECS", "120")
+        ),
+        fx_max_concurrent_turns=max(
+            1,
+            int(os.environ.get("RETAIN_AI_FX_MAX_CONCURRENT_TURNS", "4")),
         ),
         fx_state_root=Path(
             os.environ.get("RETAIN_AI_FX_STATE_ROOT", "").strip()

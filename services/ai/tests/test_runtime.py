@@ -9,7 +9,20 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from retainpdf_ai.config import Settings
-from retainpdf_ai.runtime import FX_RUNTIME_ID, FxAcpRuntime
+from retainpdf_ai.openai_agent_runtime import OpenAICompatibleAgentRuntime as OpenAIImpl
+from retainpdf_ai.runtime import (
+    FX_RUNTIME_ID,
+    OPENAI_AGENT_RUNTIME_ID,
+    FxAcpRuntime,
+    OpenAICompatibleAgentRuntime,
+    RuntimeCapabilities,
+)
+
+
+def test_runtime_facade_preserves_public_runtime_exports():
+    assert OpenAICompatibleAgentRuntime is OpenAIImpl
+    assert OPENAI_AGENT_RUNTIME_ID == "openai-compatible-agent-v1"
+    assert RuntimeCapabilities.__module__.endswith("runtimes.contracts")
 
 
 class FakeRustRuntimeSessions:
@@ -129,6 +142,19 @@ for raw in sys.stdin:
         }})
         send({{"jsonrpc": "2.0", "id": request_id, "result": {{"stopReason": "end_turn"}}}})
 """
+    path.write_text(script, encoding="utf-8")
+    path.chmod(path.stat().st_mode | stat.S_IXUSR)
+    return path
+
+
+def _write_oversized_fx(path: Path) -> Path:
+    script = f'''#!{sys.executable}
+import sys
+
+for _raw in sys.stdin:
+    sys.stdout.write("x" * (1024 * 1024 + 1))
+    sys.stdout.flush()
+'''
     path.write_text(script, encoding="utf-8")
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
     return path
@@ -375,6 +401,19 @@ def test_fx_acp_runtime_fails_closed_on_version_mismatch(tmp_path):
     assert capability.actual_version == "0.0.6"
     with pytest.raises(RuntimeError, match="version mismatch"):
         runtime.ask("hello", conversation_id="conv-version")
+
+
+def test_fx_acp_runtime_rejects_oversized_frame_without_unbounded_read(tmp_path):
+    command = _write_oversized_fx(tmp_path / "oversized-fx")
+    runtime = FxAcpRuntime(
+        _settings(tmp_path, command),
+        FakeRustRuntimeSessions(),  # type: ignore[arg-type]
+    )
+
+    capability = runtime.probe()
+
+    assert capability.available is False
+    assert "frame exceeded" in capability.detail
 
 
 def test_fx_acp_runtime_requires_private_gateway_key(tmp_path):
