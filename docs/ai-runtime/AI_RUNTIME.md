@@ -171,9 +171,9 @@ OpenAI-compatible 流式解析会暂存最初 64 个字符用于判断当前轮�
 `RuntimeConfigUpdate` 的公开字段是 runtime/confirmation mode、普通 LLM 的
 base URL/model/key、FX Gateway 的 base URL/key/model、两个显式清除开关和
 `expected_revision`。空密码表示保留旧值，清除开关不能与同一个新密码同时提交。
-当前 Pydantic 请求模型为前向兼容会忽略未知字段，因此客户端不能把“HTTP 200”当成
-未知配置已经生效；应以返回的 `RuntimeConfigView` 为准。该 view 是封闭投影，永远
-不含 `llm_api_key` 或 `fx_gateway_api_key` 原值。
+请求模型拒绝未知字段，字段拼写错误不会形成返回成功但配置未生效的静默 no-op；
+客户端仍应以返回的 `RuntimeConfigView` 为准。该 view 是封闭投影，永远不含
+`llm_api_key` 或 `fx_gateway_api_key` 原值。
 
 OpenAI runtime 使用普通 `llm_base_url/model/api_key`。FX 0.0.5 的自定义 Gateway
 仅支持带端口的 loopback HTTP bridge；远程 DeepSeek/OpenAI-compatible 地址应选择
