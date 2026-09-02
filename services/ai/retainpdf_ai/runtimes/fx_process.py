@@ -9,6 +9,7 @@ from pathlib import Path
 
 from ..agent_command_broker import AgentCommandBroker
 from ..config import Settings, fx_gateway_chat_url, normalize_fx_gateway_base_url
+from ..credential_vault import resolve_credential
 from ..prompts import build_fx_workspace_instructions
 from .fx_acp import FxAcpClient
 from .fx_coordination import conversation_namespace
@@ -47,6 +48,13 @@ def start_fx_client(
     command_path = str(executable.parent)
     if broker is not None:
         command_path = f"{broker.bin_dir}{os.pathsep}{command_path}"
+    gateway_api_key = settings.fx_gateway_api_key
+    if settings.fx_gateway_credential_ref:
+        gateway_api_key = resolve_credential(
+            settings.data_root,
+            settings.fx_gateway_credential_ref,
+            "fx_gateway_api_key",
+        )
     env = {
         "HOME": str(home),
         "TMPDIR": str(tmp),
@@ -54,7 +62,7 @@ def start_fx_client(
         "NO_COLOR": "1",
         "FX_AUTO_UPGRADE": "0",
         "FX_PERMISSION_MODE": "ask",
-        "AI_GATEWAY_API_KEY": settings.fx_gateway_api_key,
+        "AI_GATEWAY_API_KEY": gateway_api_key,
     }
     if settings.fx_model:
         env["FX_MODEL"] = settings.fx_model

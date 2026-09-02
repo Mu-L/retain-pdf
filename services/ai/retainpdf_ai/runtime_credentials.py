@@ -34,9 +34,11 @@ STRING_FIELDS = {
     "llm_base_url",
     "llm_model",
     "llm_api_key",
+    "llm_credential_ref",
     "fx_gateway_base_url",
     "fx_gateway_base_url_mode",
     "fx_gateway_api_key",
+    "fx_gateway_credential_ref",
     "fx_model",
 }
 _WRITE_LOCK = threading.Lock()
@@ -80,6 +82,12 @@ def _validate_record(value: Any) -> dict[str, Any]:
         result["fx_gateway_base_url_mode"] = mode
     if mode not in FX_GATEWAY_BASE_URL_MODES:
         raise RuntimeCredentialError("AI runtime credential file has an invalid FX URL mode")
+    if result["llm_api_key"] and result["llm_credential_ref"]:
+        raise RuntimeCredentialError(
+            "AI runtime model credential sources are ambiguous"
+        )
+    if result["fx_gateway_api_key"] and result["fx_gateway_credential_ref"]:
+        raise RuntimeCredentialError("AI runtime FX credential sources are ambiguous")
     return result
 
 

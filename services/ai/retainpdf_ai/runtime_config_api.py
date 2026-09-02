@@ -21,11 +21,18 @@ from .config import (
     normalize_agent_confirmation_mode,
     normalize_fx_gateway_base_url,
 )
+from .credential_vault import CredentialReferenceError, credential_usage_lock
 from .runtime import AgentRuntime, build_agent_runtime, probe_fx_gateway_endpoint
+from .runtime_credential_refs import (
+    RuntimeCredentialInputError,
+    runtime_credential_persistence_fields,
+    runtime_credential_view_fields,
+    select_runtime_credentials,
+)
 from .runtime_credentials import (
     RuntimeCredentialConflict,
+    RuntimeCredentialError,
     load_runtime_credentials,
-    masked_secret,
     save_runtime_credentials,
 )
 from .rust_client import RustApiClient
@@ -71,21 +78,28 @@ def register_runtime_config_routes(
             "restart_state": "pending" if restart_required else "active",
             "llm_base_url": candidate.llm_base_url,
             "llm_model": candidate.llm_model,
-            "llm_api_key_configured": bool(candidate.llm_api_key.strip()),
-            "llm_api_key_masked": masked_secret(candidate.llm_api_key),
+            **runtime_credential_view_fields(candidate),
             "fx_gateway_base_url": candidate.fx_gateway_base_url,
             "fx_gateway_mode": candidate.fx_gateway_base_url_mode,
             "fx_gateway_effective_base_url": effective_fx_base_url,
             "fx_gateway_effective_chat_url": effective_fx_chat_url,
-            "fx_gateway_api_key_configured": bool(candidate.fx_gateway_api_key.strip()),
-            "fx_gateway_api_key_masked": masked_secret(candidate.fx_gateway_api_key),
             "fx_model": candidate.fx_model,
             "restart_required": restart_required,
         }
 
     @app.get("/readyz")
     def readyz() -> JSONResponse:
-        configured = configured_settings()
+        try:
+            configured = configured_settings()
+        except (CredentialReferenceError, RuntimeCredentialError):
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "ok": False,
+                    "reason": "credential_reference_unavailable",
+                    "active_revision": active_settings.runtime_config_revision,
+                },
+            )
         if (
             configured.runtime_config_revision
             != active_settings.runtime_config_revision
@@ -131,10 +145,12 @@ def register_runtime_config_routes(
 
     @app.get("/v1/runtime-config", dependencies=[Depends(require_api_key)])
     def get_runtime_config() -> dict[str, Any]:
-        return {"data": runtime_config_view()}
+        try:
+            return {"data": runtime_config_view()}
+        except (CredentialReferenceError, RuntimeCredentialError) as exc:
+            raise _credential_config_unavailable() from exc
 
-    @app.put("/v1/runtime-config", dependencies=[Depends(require_api_key)])
-    def update_runtime_config(
+    def update_runtime_config_locked(
         payload: RuntimeConfigUpdate,
         background_tasks: BackgroundTasks,
     ) -> dict[str, Any]:
@@ -165,15 +181,14 @@ def register_runtime_config_routes(
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        if payload.clear_llm_api_key and (payload.llm_api_key or "").strip():
-            raise HTTPException(status_code=400, detail="模型 key 不能同时保存和清除。")
-        if (
-            payload.clear_fx_gateway_api_key
-            and (payload.fx_gateway_api_key or "").strip()
-        ):
-            raise HTTPException(
-                status_code=400, detail="Gateway key 不能同时保存和清除。"
+        try:
+            credentials = select_runtime_credentials(
+                current,
+                payload,
+                active_settings.data_root,
             )
+        except RuntimeCredentialInputError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         llm_base_url = current.llm_base_url
         if payload.llm_base_url is not None:
@@ -183,17 +198,6 @@ def register_runtime_config_routes(
             llm_model = payload.llm_model.strip()
             if not llm_model:
                 raise HTTPException(status_code=400, detail="模型名称不能为空。")
-        llm_api_key = current.llm_api_key
-        if payload.clear_llm_api_key:
-            llm_api_key = ""
-        elif (payload.llm_api_key or "").strip():
-            llm_api_key = (payload.llm_api_key or "").strip()
-
-        fx_gateway_api_key = current.fx_gateway_api_key
-        if payload.clear_fx_gateway_api_key:
-            fx_gateway_api_key = ""
-        elif (payload.fx_gateway_api_key or "").strip():
-            fx_gateway_api_key = (payload.fx_gateway_api_key or "").strip()
         fx_gateway_base_url = current.fx_gateway_base_url
         fx_gateway_base_url_mode = current.fx_gateway_base_url_mode
         if payload.fx_gateway_base_url is not None:
@@ -216,10 +220,12 @@ def register_runtime_config_routes(
             agent_confirmation_mode=agent_confirmation_mode,
             llm_base_url=llm_base_url,
             llm_model=llm_model,
-            llm_api_key=llm_api_key,
+            llm_api_key=credentials.llm_api_key,
+            llm_credential_ref=credentials.llm_credential_ref,
             fx_gateway_base_url=fx_gateway_base_url,
             fx_gateway_base_url_mode=fx_gateway_base_url_mode,
-            fx_gateway_api_key=fx_gateway_api_key,
+            fx_gateway_api_key=credentials.fx_gateway_api_key,
+            fx_gateway_credential_ref=credentials.fx_gateway_credential_ref,
             fx_model=fx_model,
         )
         _validate_candidate(candidate, rust=rust, agent=agent)
@@ -231,9 +237,12 @@ def register_runtime_config_routes(
                 candidate.llm_base_url != current.llm_base_url,
                 candidate.llm_model != current.llm_model,
                 candidate.llm_api_key != current.llm_api_key,
+                candidate.llm_credential_ref != current.llm_credential_ref,
                 candidate.fx_gateway_base_url != current.fx_gateway_base_url,
                 candidate.fx_gateway_base_url_mode != current.fx_gateway_base_url_mode,
                 candidate.fx_gateway_api_key != current.fx_gateway_api_key,
+                candidate.fx_gateway_credential_ref
+                != current.fx_gateway_credential_ref,
                 candidate.fx_model != current.fx_model,
             )
         )
@@ -247,10 +256,9 @@ def register_runtime_config_routes(
                     "agent_confirmation_mode": candidate.agent_confirmation_mode,
                     "llm_base_url": candidate.llm_base_url,
                     "llm_model": candidate.llm_model,
-                    "llm_api_key": candidate.llm_api_key,
+                    **runtime_credential_persistence_fields(candidate),
                     "fx_gateway_base_url": candidate.fx_gateway_base_url,
                     "fx_gateway_base_url_mode": candidate.fx_gateway_base_url_mode,
-                    "fx_gateway_api_key": candidate.fx_gateway_api_key,
                     "fx_model": candidate.fx_model,
                 },
                 expected_revision=current.runtime_config_revision,
@@ -268,6 +276,24 @@ def register_runtime_config_routes(
         saved = configured_settings()
         background_tasks.add_task(restart_runtime)
         return {"data": runtime_config_view(saved)}
+
+    @app.put("/v1/runtime-config", dependencies=[Depends(require_api_key)])
+    def update_runtime_config(
+        payload: RuntimeConfigUpdate,
+        background_tasks: BackgroundTasks,
+    ) -> dict[str, Any]:
+        try:
+            with credential_usage_lock(active_settings.data_root):
+                return update_runtime_config_locked(payload, background_tasks)
+        except (CredentialReferenceError, RuntimeCredentialError) as exc:
+            raise _credential_config_unavailable() from exc
+
+
+def _credential_config_unavailable() -> HTTPException:
+    return HTTPException(
+        status_code=503,
+        detail="AI runtime credential reference is unavailable.",
+    )
 
 
 def _validate_base_url(value: str) -> str:

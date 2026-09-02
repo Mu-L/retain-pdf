@@ -22,9 +22,13 @@ the in-process mutation lock and atomic replacement behavior.
 `DELETE /api/v1/credentials/:credential_ref` accepts `expected_revision` and
 an optional `force` query flag. By default, deletion is rejected while any
 persisted job request references the credential, including terminal jobs: retry
-and rerun can still need that reference. After explicitly accepting that
-recovery impact, a caller may repeat the request with `force=true`. The conflict
-response never discloses referencing job IDs, counts, or credential values.
+and rerun can still need that reference. Agent runtime configuration references
+(`llm_credential_ref` and `fx_gateway_credential_ref`) are protected as well.
+The matching AI startup environment references are also checked when the Rust
+API and AI sidecar share their normal launch environment.
+After explicitly accepting that recovery impact, a caller may repeat the request
+with `force=true`. The conflict response never discloses referencing job IDs,
+counts, runtime fields, or credential values.
 Credential-backed task creation holds a shared lifecycle lock from reference
 validation through durable job persistence, while deletion holds the exclusive
 lock. This coordination applies within a process on every platform and across
@@ -43,8 +47,8 @@ translation replay output are scrubbed with the resolved runtime secret before
 being persisted or returned. Retry overrides can switch between the temporary
 inline compatibility field and `credential_ref` without retaining both.
 
-Current adoption is translation-only. OCR and Agent payload migration to
-credential references remains separate work.
+Current adoption covers translation jobs and Agent runtime configuration. OCR
+provider payload migration to credential references remains separate work.
 
 ## Credential Errors
 

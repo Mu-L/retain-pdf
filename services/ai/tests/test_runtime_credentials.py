@@ -8,9 +8,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pytest
 from fastapi.testclient import TestClient
+
+from retainpdf_ai.api_contracts import AskInput
 from retainpdf_ai.app import build_app
+from retainpdf_ai.ask_orchestration import AskOrchestrator
 from retainpdf_ai.config import (
     Settings,
+    apply_runtime_credentials,
     fx_gateway_chat_url,
     load_settings,
     normalize_agent_confirmation_mode,
@@ -23,11 +27,42 @@ from retainpdf_ai.runtime_credentials import (
     runtime_credential_path,
     save_runtime_credentials,
 )
+from retainpdf_ai.runtimes.contracts import RuntimeCapabilities
 
 
 class UnusedAgent:
     def ask(self, *_args, **_kwargs):  # pragma: no cover - settings routes only
         raise AssertionError("agent should not run")
+
+
+class HostChatRuntime:
+    runtime_id = "test-host-chat"
+    capabilities = RuntimeCapabilities(
+        document_reading=True,
+        document_operations=False,
+        streaming=True,
+        durable_sessions=False,
+        model_transport="host_chat",
+    )
+
+
+def _write_shared_credential_vault(tmp_path, credentials):
+    directory = tmp_path / "secrets"
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    path = directory / "credentials.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema": "retainpdf_credential_vault_v1",
+                "revision": 1,
+                "credentials": credentials,
+            }
+        ),
+        encoding="utf-8",
+    )
+    if os.name == "posix":
+        directory.chmod(0o700)
+        path.chmod(0o600)
 
 
 def test_runtime_credentials_are_private_and_overlay_environment(tmp_path, monkeypatch):
@@ -61,6 +96,32 @@ def test_runtime_credentials_are_private_and_overlay_environment(tmp_path, monke
     assert loaded.fx_gateway_base_url == "http://127.0.0.1:43231/gateway"
     assert loaded.fx_gateway_api_key == "gateway-private-value"
     assert loaded.fx_model == "fx-model-a"
+
+
+def test_environment_credential_refs_are_resolved_without_runtime_config(
+    tmp_path, monkeypatch
+):
+    _write_shared_credential_vault(
+        tmp_path,
+        {
+            "cred_agent_from_env": {
+                "kind": "agent_llm_api_key",
+                "provider": "deepseek",
+                "label": "Environment reference",
+                "secret": "sk-resolved-from-env-ref",
+                "created_at": "2026-09-02T00:00:00Z",
+                "updated_at": "2026-09-02T00:00:00Z",
+            }
+        },
+    )
+    monkeypatch.setenv("RETAIN_AI_DATA_ROOT", str(tmp_path))
+    monkeypatch.setenv("RETAIN_AI_LLM_CREDENTIAL_REF", "cred_agent_from_env")
+    monkeypatch.delenv("RETAIN_AI_LLM_API_KEY", raising=False)
+
+    loaded = load_settings()
+
+    assert loaded.llm_credential_ref == "cred_agent_from_env"
+    assert loaded.llm_api_key == "sk-resolved-from-env-ref"
 
 
 def test_runtime_credentials_reject_group_readable_file(tmp_path):
@@ -119,6 +180,197 @@ def test_runtime_config_endpoint_never_returns_raw_secrets(tmp_path):
     assert stored["llm_api_key"] == "sk-new-private-value"
     assert stored["llm_base_url"] == "https://models.example/v1"
     assert stored["fx_gateway_base_url"] == "http://localhost:43231/gateway"
+
+
+def test_runtime_config_uses_shared_credential_refs_without_copying_secrets(tmp_path):
+    llm_ref = "cred_agent_llm"
+    fx_ref = "cred_fx_gateway"
+    _write_shared_credential_vault(
+        tmp_path,
+        {
+            llm_ref: {
+                "kind": "agent_llm_api_key",
+                "provider": "deepseek",
+                "label": "Agent model",
+                "secret": "sk-shared-agent-secret",
+                "created_at": "2026-09-02T00:00:00Z",
+                "updated_at": "2026-09-02T00:00:00Z",
+            },
+            fx_ref: {
+                "kind": "fx_gateway_api_key",
+                "provider": "vercel",
+                "label": "FX Gateway",
+                "secret": "fx-shared-gateway-secret",
+                "created_at": "2026-09-02T00:00:00Z",
+                "updated_at": "2026-09-02T00:00:00Z",
+            },
+        },
+    )
+    settings = Settings(
+        api_keys=frozenset({"test-key"}),
+        llm_api_key="legacy-startup-key",
+        data_root=tmp_path,
+    )
+    client = TestClient(
+        build_app(settings, agent=UnusedAgent(), restart_callback=lambda: None)
+    )
+
+    response = client.put(
+        "/v1/runtime-config",
+        headers={"X-API-Key": "test-key"},
+        json={
+            "llm_credential_ref": llm_ref,
+            "fx_gateway_credential_ref": fx_ref,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    view = response.json()["data"]
+    assert view["llm_credential_ref"] == llm_ref
+    assert view["fx_gateway_credential_ref"] == fx_ref
+    assert view["llm_api_key_masked"] == "••••"
+    assert view["fx_gateway_api_key_masked"] == "••••"
+    assert "sk-shared-agent-secret" not in response.text
+    assert "fx-shared-gateway-secret" not in response.text
+    stored = load_runtime_credentials(tmp_path)
+    assert stored["llm_credential_ref"] == llm_ref
+    assert stored["fx_gateway_credential_ref"] == fx_ref
+    assert stored["llm_api_key"] == ""
+    assert stored["fx_gateway_api_key"] == ""
+    loaded = apply_runtime_credentials(settings, stored)
+    assert loaded.llm_api_key == "sk-shared-agent-secret"
+    assert loaded.fx_gateway_api_key == "fx-shared-gateway-secret"
+
+
+def test_runtime_config_rejects_wrong_kind_and_ambiguous_credential_sources(tmp_path):
+    _write_shared_credential_vault(
+        tmp_path,
+        {
+            "cred_translation_only": {
+                "kind": "translation_api_key",
+                "provider": "deepseek",
+                "label": "Translation only",
+                "secret": "sk-wrong-kind",
+                "created_at": "2026-09-02T00:00:00Z",
+                "updated_at": "2026-09-02T00:00:00Z",
+            }
+        },
+    )
+    client = TestClient(
+        build_app(
+            Settings(
+                api_keys=frozenset({"test-key"}),
+                llm_api_key="startup-key",
+                data_root=tmp_path,
+            ),
+            agent=UnusedAgent(),
+            restart_callback=lambda: None,
+        )
+    )
+    headers = {"X-API-Key": "test-key"}
+
+    wrong_kind = client.put(
+        "/v1/runtime-config",
+        headers=headers,
+        json={"llm_credential_ref": "cred_translation_only"},
+    )
+    ambiguous = client.put(
+        "/v1/runtime-config",
+        headers=headers,
+        json={
+            "llm_api_key": "sk-inline",
+            "llm_credential_ref": "cred_translation_only",
+        },
+    )
+
+    assert wrong_kind.status_code == 400
+    assert wrong_kind.json()["detail"] == "credential kind does not match runtime field"
+    assert ambiguous.status_code == 400
+    assert "不能同时设置" in ambiguous.json()["detail"]
+    assert not runtime_credential_path(tmp_path).exists()
+
+
+def test_each_host_chat_turn_resolves_the_latest_referenced_secret(tmp_path):
+    credential_ref = "cred_rotating_agent"
+
+    def write_secret(secret):
+        _write_shared_credential_vault(
+            tmp_path,
+            {
+                credential_ref: {
+                    "kind": "agent_llm_api_key",
+                    "provider": "deepseek",
+                    "label": "Rotating Agent key",
+                    "secret": secret,
+                    "created_at": "2026-09-02T00:00:00Z",
+                    "updated_at": "2026-09-02T00:00:00Z",
+                }
+            },
+        )
+
+    write_secret("sk-before-rotation")
+    runtime = HostChatRuntime()
+    orchestrator = AskOrchestrator(
+        settings=Settings(
+            llm_api_key="sk-stale-in-memory",
+            llm_credential_ref=credential_ref,
+            data_root=tmp_path,
+        ),
+        runtime=runtime,  # type: ignore[arg-type]
+        reading_runtime=None,
+        conversation_state=None,  # type: ignore[arg-type]
+        chat_fn_builder=lambda _settings: None,
+        confirmation_projector=lambda _result, _conversation_id: [],
+    )
+    write_secret("sk-after-rotation")
+
+    prepared = orchestrator.prepare(AskInput(question="use latest key"))
+
+    assert prepared.settings.llm_api_key == "sk-after-rotation"
+
+
+def test_missing_referenced_credential_has_diagnostic_readiness_and_config_errors(
+    tmp_path,
+):
+    save_runtime_credentials(
+        tmp_path,
+        {
+            "agent_runtime": "python",
+            "llm_credential_ref": "cred_force_deleted",
+        },
+    )
+    client = TestClient(
+        build_app(
+            Settings(
+                api_keys=frozenset({"test-key"}),
+                llm_api_key="startup-key",
+                data_root=tmp_path,
+            ),
+            agent=UnusedAgent(),
+            restart_callback=lambda: None,
+        ),
+        raise_server_exceptions=False,
+    )
+
+    ready = client.get("/readyz")
+    configured = client.get(
+        "/v1/runtime-config",
+        headers={"X-API-Key": "test-key"},
+    )
+    updated = client.put(
+        "/v1/runtime-config",
+        headers={"X-API-Key": "test-key"},
+        json={"llm_model": "must-not-save"},
+    )
+
+    assert ready.status_code == 503
+    assert ready.json()["reason"] == "credential_reference_unavailable"
+    assert configured.status_code == 503
+    assert configured.json()["detail"] == (
+        "AI runtime credential reference is unavailable."
+    )
+    assert updated.status_code == 503
+    assert load_runtime_credentials(tmp_path)["revision"] == 1
 
 
 def test_runtime_config_partial_updates_preserve_latest_persisted_values(tmp_path):

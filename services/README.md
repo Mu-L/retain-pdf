@@ -145,9 +145,9 @@ important children are:
 - `uploads/` and `downloads/`: managed ingress and derived downloads.
 - `secrets/credentials.json`: the Rust-owned credential vault, stored outside
   SQLite with restrictive file permissions and never returned as plaintext.
-- `secrets/ai-runtime.json`: the backend-only AI runtime/model configuration and
-  provider credential file, written with restrictive permissions and never
-  returned as plaintext when the runtime settings API is used.
+- `secrets/ai-runtime.json`: the backend-only AI runtime/model configuration.
+  New configurations store opaque references into `credentials.json`; legacy
+  inline provider keys remain readable during the compatibility window.
 - `agent-runtime/fx/`: optional FX subprocess state when
   `RETAIN_AI_FX_STATE_ROOT` points here. The development launcher configures
   this explicitly; it is separate from the authoritative Rust conversation and

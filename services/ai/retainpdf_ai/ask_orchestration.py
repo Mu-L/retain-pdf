@@ -14,6 +14,7 @@ from fastapi import HTTPException
 from .api_contracts import AskInput
 from .config import Settings
 from .conversation_state import ConversationState
+from .credential_vault import CredentialReferenceError, resolve_credential
 from .runtimes.contracts import AgentRuntime
 
 ChatFnBuilder = Callable[..., Any]
@@ -251,7 +252,10 @@ class AskOrchestrator:
         request_runtime: AgentRuntime,
     ) -> Settings:
         if request_runtime.capabilities.model_transport == "runtime_managed":
-            if not self._settings.fx_gateway_api_key:
+            if not (
+                self._settings.fx_gateway_api_key
+                or self._settings.fx_gateway_credential_ref
+            ):
                 raise HTTPException(
                     status_code=400,
                     detail=(
@@ -260,7 +264,18 @@ class AskOrchestrator:
                     ),
                 )
             return self._settings
-        api_key = (payload.llm_api_key or self._settings.llm_api_key).strip()
+        api_key = payload.llm_api_key.strip()
+        if not api_key and self._settings.llm_credential_ref:
+            try:
+                api_key = resolve_credential(
+                    self._settings.data_root,
+                    self._settings.llm_credential_ref,
+                    "agent_llm_api_key",
+                )
+            except CredentialReferenceError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if not api_key:
+            api_key = self._settings.llm_api_key.strip()
         if not api_key:
             raise HTTPException(
                 status_code=400,
@@ -282,6 +297,7 @@ class AskOrchestrator:
             not payload.llm_api_key
             and not payload.llm_base_url
             and not payload.llm_model
+            and not prepared.settings.llm_credential_ref
         ):
             return None
         return self._chat_fn_builder(prepared.settings)

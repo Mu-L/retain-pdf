@@ -38,6 +38,8 @@ SSE 另提供 `agent_session`、`agent_operation`，`done.operation_refs` 作为
 | `conversation_state.py` | 会话创建、历史读取、摘要提交、消息预写和最终回写 |
 | `conversation_tree.py` | 纯消息树可见分支投影；兼容旧线性消息 |
 | `runtime_config_api.py` | runtime 配置查询/更新、CAS revision、自检和 `/readyz` |
+| `credential_vault.py` | 读取 Rust 凭据库、校验 kind，并用共享锁保护引用生命周期 |
+| `runtime_credential_refs.py` | runtime key/ref 互斥选择、脱敏响应和无 secret 持久化投影 |
 | `runtime.py` | 兼容 façade；实现位于 `runtimes/` |
 | `agent.py` | 检索 Agent 兼容 façade |
 | `retrieval_agent.py` | bounded function-calling 检索循环和 document/job scope |
@@ -77,6 +79,7 @@ retainpdf-ai
 | `RETAIN_AI_RUST_API_KEY` | 必填 | 调用 Rust API 的 key |
 | `RETAIN_AI_HOST` | `127.0.0.1` | AI 服务监听地址 |
 | `RETAIN_AI_LLM_API_KEY` | 空 | 启动期回退；`python/openai` 也可使用已保存或请求级 Key |
+| `RETAIN_AI_LLM_CREDENTIAL_REF` | 空 | Rust 凭据库中 `kind=agent_llm_api_key` 的启动期引用；优先于 LLM key |
 | `RETAIN_AI_RUST_API_BASE` | `http://127.0.0.1:41000` | Rust API 地址 |
 | `RETAIN_AI_LLM_BASE_URL` | `https://api.deepseek.com/v1` | LLM 端点 |
 | `RETAIN_AI_LLM_MODEL` | `deepseek-v4-flash` | 模型 |
@@ -94,6 +97,7 @@ retainpdf-ai
 | `RETAIN_AI_FX_EXPECTED_VERSION` | `0.0.5` | ACP 初始化必须精确匹配的 fx 版本 |
 | `RETAIN_AI_FX_GATEWAY_BASE_URL` | 空（FX 官方 Gateway） | FX 0.0.5 自定义 Gateway；仅支持带端口的回环 HTTP |
 | `RETAIN_AI_FX_GATEWAY_API_KEY` | 空 | 仅 fx 子进程使用，不复用 Rust API key |
+| `RETAIN_AI_FX_GATEWAY_CREDENTIAL_REF` | 空 | Rust 凭据库中 `kind=fx_gateway_api_key` 的启动期引用；优先于 Gateway key |
 | `RETAIN_AI_FX_MODEL` | 空 | 后端配置的 fx 模型；HTTP 请求不能指定 |
 | `RETAIN_AI_FX_STATE_ROOT` | `<repo>/data/agent-runtime/fx` | 私有 HOME、workspace 与 session 状态根；不会自动跟随自定义 `RETAIN_AI_DATA_ROOT` |
 | `RETAIN_AI_FX_STARTUP_TIMEOUT_SECS` | `10` | ACP 启动/初始化超时 |
@@ -118,19 +122,27 @@ FX 0.0.5 没有公开的任意远程 endpoint 参数。它只接受环境变量�
 官方地址。需要远程自定义域名时应升级或修改 FX；普通 OpenAI-compatible 地址继续
 使用 `openai` 模式。
 
-主页“设置 → API 设置 → AI Agent”可一次性录入模型 Key、FX Gateway URL 或 FX
-Gateway Key。浏览器只发送本次输入，不回填 Key、不写 localStorage；AI 服务把配置写到
-`$RETAIN_AI_DATA_ROOT/secrets/ai-runtime.json`，目录权限为 `0700`、文件权限为
-`0600`，GET 接口只返回配置状态和掩码。配置文件使用单调 revision、进程内锁、
+推荐先通过 Rust `POST /api/v1/credentials` 创建 `agent_llm_api_key` 或
+`fx_gateway_api_key`，再把返回的不透明引用写入 runtime-config 的
+`llm_credential_ref` 或 `fx_gateway_credential_ref`。AI 服务只把引用写到
+`$RETAIN_AI_DATA_ROOT/secrets/ai-runtime.json`，实际模型调用或 FX subprocess 启动前
+才从 Rust 凭据库解析 secret。GET 会返回引用和 configured 状态，但引用模式的掩码
+固定为 `••••`，不会泄露 secret 后四位。配置文件目录权限为 `0700`、文件权限为
+`0600`。配置文件使用单调 revision、进程内锁、
 跨进程文件锁和 compare-and-swap，避免两个局部更新互相覆盖；写入完成后还会
 fsync 文件及父目录。保存前会校验 URL、必需 Key、FX ACP 能力，并对自定义本地
 Gateway 做有界 TCP 可达性检查；保存成功后由 Rust 监督器重启 AI 子进程。
 `/readyz` 只有在新进程载入同一 configured revision 且自定义 Gateway 仍可达时
 才返回 200，`/healthz` 只表示进程存活。环境变量仍作为未创建安全配置文件时的
 启动回退；显式保存空 FX URL 表示官方默认 Gateway，不会重新落回环境变量 URL。
-该文件是权限保护的本地明文 JSON，不是系统钥匙串或加密保险库；不要把它加入版本
-控制或诊断输出。持久配置产生 revision 后，显式清空的模型/FX key 也不会再从环境
-变量回填。
+旧客户端提交的 `llm_api_key` / `fx_gateway_api_key` 暂时仍兼容，并继续写入这个权限
+保护的本地明文 JSON；新客户端应只提交引用。引用与对应的旧 key 字段互斥。AI 配置
+写入会持有 Rust 凭据生命周期共享锁，删除凭据会持有独占锁并检查 Agent 引用，避免
+“引用校验成功后、配置落盘前”被并发删除。普通问答每个 turn、FX 每次 subprocess
+启动都会重新解析引用，因此凭据轮换不会继续长期使用进程启动时的旧 secret。
+引用不存在、类型错误或保险库不可安全读取时，`/readyz` 返回
+`503 credential_reference_unavailable`；runtime-config GET/PUT 返回安全的 503，
+不会把文件路径、记录内容或 secret 带入诊断。
 
 对应的受鉴权入口经 Rust API 暴露为：
 
@@ -142,9 +154,10 @@ AI sidecar 的直接路径是 `GET/PUT /v1/runtime-config`。两者的 `data` �
 则分别由 `ai-ask.v1.schema.json` 和 `public-document-operation.v1.schema.json`
 锁定。
 
-响应绝不包含原始 Key。空密码输入表示沿用已保存值；显式清除使用
+响应绝不包含原始 Key。空输入表示沿用已保存值；显式清除使用
 `clear_llm_api_key` / `clear_fx_gateway_api_key`，并继续受当前模式的必需凭据
-校验约束。客户端可把 GET 返回的 `configured_revision` 作为 PUT 的
+校验约束；清除只解除 runtime-config 的引用，不删除 Rust 凭据记录。客户端可把
+GET 返回的 `configured_revision` 作为 PUT 的
 `expected_revision`；过期写入返回 409。GET 同时返回 `active_revision`、
 `restart_state` 和实际派生的 FX base/chat URL，因而无需靠轮询猜测重启是否完成。
 无变化的 PUT 不增加 revision，也不触发重启。`RuntimeConfigUpdate` 拒绝未知字段，

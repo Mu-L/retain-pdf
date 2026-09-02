@@ -34,8 +34,10 @@ class RuntimeConfigUpdate(BaseModel):
     llm_base_url: str | None = Field(default=None, max_length=2048)
     llm_model: str | None = Field(default=None, max_length=256)
     llm_api_key: str | None = Field(default=None, max_length=8192)
+    llm_credential_ref: str | None = Field(default=None, max_length=64)
     clear_llm_api_key: bool = False
     fx_gateway_base_url: str | None = Field(default=None, max_length=2048)
     fx_gateway_api_key: str | None = Field(default=None, max_length=8192)
+    fx_gateway_credential_ref: str | None = Field(default=None, max_length=64)
     clear_fx_gateway_api_key: bool = False
     fx_model: str | None = Field(default=None, max_length=256)

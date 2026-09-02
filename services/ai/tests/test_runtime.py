@@ -1,4 +1,5 @@
 import json
+import os
 import socket
 import stat
 import sys
@@ -68,10 +69,18 @@ class FakeRustRuntimeSessions:
         return {"capability": "host-only-test-capability"}
 
 
-def _write_fake_fx(path: Path, *, version: str = "0.0.5") -> Path:
+def _write_fake_fx(
+    path: Path,
+    *,
+    version: str = "0.0.5",
+    expected_gateway_key: str = "",
+) -> Path:
     script = f"""#!{sys.executable}
 import json
+import os
 import sys
+
+assert os.environ.get("AI_GATEWAY_API_KEY") == {expected_gateway_key!r} or not {bool(expected_gateway_key)!r}
 
 def send(value):
     sys.stdout.write(json.dumps(value, separators=(\",\", \":\")) + \"\\n\")
@@ -172,6 +181,36 @@ def _settings(tmp_path: Path, command: Path, **overrides) -> Settings:
     }
     values.update(overrides)
     return Settings(**values)
+
+
+def _write_fx_credential_vault(tmp_path: Path, secret: str) -> str:
+    credential_ref = "cred_fx_runtime"
+    directory = tmp_path / "secrets"
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    path = directory / "credentials.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema": "retainpdf_credential_vault_v1",
+                "revision": 1,
+                "credentials": {
+                    credential_ref: {
+                        "kind": "fx_gateway_api_key",
+                        "provider": "vercel",
+                        "label": "FX Gateway",
+                        "secret": secret,
+                        "created_at": "2026-09-02T00:00:00Z",
+                        "updated_at": "2026-09-02T00:00:00Z",
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    if os.name == "posix":
+        directory.chmod(0o700)
+        path.chmod(0o600)
+    return credential_ref
 
 
 def _write_fake_cli(path: Path) -> Path:
@@ -424,6 +463,29 @@ def test_fx_acp_runtime_requires_private_gateway_key(tmp_path):
     )
     with pytest.raises(RuntimeError, match="FX_GATEWAY_API_KEY"):
         runtime.ask("hello", conversation_id="conv-no-key")
+
+
+def test_fx_subprocess_resolves_gateway_credential_ref_at_launch(tmp_path):
+    secret = "gateway-key-from-shared-vault"
+    credential_ref = _write_fx_credential_vault(tmp_path, secret)
+    command = _write_fake_fx(
+        tmp_path / "fake-fx",
+        expected_gateway_key=secret,
+    )
+    runtime = FxAcpRuntime(
+        _settings(
+            tmp_path,
+            command,
+            fx_gateway_api_key="",
+            fx_gateway_credential_ref=credential_ref,
+            data_root=tmp_path,
+        ),
+        FakeRustRuntimeSessions(),  # type: ignore[arg-type]
+    )
+
+    capability = runtime.probe()
+
+    assert capability.available is True
 
 
 def test_fx_acp_runtime_passes_base_and_actual_chat_url_to_subprocess(tmp_path):

@@ -65,7 +65,10 @@ class FxAcpRuntime:
         )
 
     def probe(self) -> FxCapability:
-        if not self._settings.fx_gateway_api_key:
+        if not (
+            self._settings.fx_gateway_api_key
+            or self._settings.fx_gateway_credential_ref
+        ):
             return FxCapability(
                 available=False,
                 runtime_id=self.runtime_id,
@@ -126,7 +129,10 @@ class FxAcpRuntime:
         request_message_id = request_message_id.strip()
         if not conversation_id:
             raise RuntimeError("fx runtime requires a durable RetainPDF conversation")
-        if not self._settings.fx_gateway_api_key:
+        if not (
+            self._settings.fx_gateway_api_key
+            or self._settings.fx_gateway_credential_ref
+        ):
             raise RuntimeError(
                 "fx runtime is enabled but RETAIN_AI_FX_GATEWAY_API_KEY is missing"
             )

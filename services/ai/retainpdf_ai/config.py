@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from .credential_vault import resolve_credential
 from .runtime_credentials import load_runtime_credentials
 
 FX_DEFAULT_GATEWAY_BASE_URL = "https://ai-gateway.vercel.sh"
@@ -78,6 +79,7 @@ class Settings:
     llm_base_url: str = "https://api.deepseek.com/v1"
     llm_model: str = "deepseek-v4-flash"
     llm_api_key: str = ""
+    llm_credential_ref: str = ""
     llm_timeout_s: float = 60.0
     # agent 循环护栏
     max_tool_rounds: int = 6
@@ -104,6 +106,7 @@ class Settings:
     fx_gateway_base_url_mode: str = "inherit_env"
     fx_gateway_base_url_env: str = ""
     fx_gateway_api_key: str = ""
+    fx_gateway_credential_ref: str = ""
     fx_model: str = ""
     fx_startup_timeout_s: float = 10.0
     fx_turn_timeout_s: float = 120.0
@@ -118,11 +121,6 @@ class Settings:
 def apply_runtime_credentials(
     settings: Settings, stored: Mapping[str, Any]
 ) -> Settings:
-    if not any(
-        name in stored
-        for name in ("agent_runtime", "agent_confirmation_mode", "llm_base_url")
-    ):
-        return settings
     mode = str(stored.get("fx_gateway_base_url_mode") or "inherit_env")
     inherited_fx_url = settings.fx_gateway_base_url_env or (
         settings.fx_gateway_base_url
@@ -140,16 +138,38 @@ def apply_runtime_credentials(
     else:
         raise ValueError("FX Gateway URL 配置模式无效。")
     has_persisted_revision = int(stored.get("revision") or 0) > 0
+    llm_credential_ref = (
+        str(stored.get("llm_credential_ref") or "")
+        if has_persisted_revision
+        else settings.llm_credential_ref
+    )
     llm_api_key = (
         str(stored.get("llm_api_key") or "")
         if has_persisted_revision
         else settings.llm_api_key
+    )
+    fx_gateway_credential_ref = (
+        str(stored.get("fx_gateway_credential_ref") or "")
+        if has_persisted_revision
+        else settings.fx_gateway_credential_ref
     )
     fx_gateway_api_key = (
         str(stored.get("fx_gateway_api_key") or "")
         if has_persisted_revision
         else settings.fx_gateway_api_key
     )
+    if llm_credential_ref:
+        llm_api_key = resolve_credential(
+            settings.data_root,
+            llm_credential_ref,
+            "agent_llm_api_key",
+        )
+    if fx_gateway_credential_ref:
+        fx_gateway_api_key = resolve_credential(
+            settings.data_root,
+            fx_gateway_credential_ref,
+            "fx_gateway_api_key",
+        )
     return replace(
         settings,
         runtime_config_revision=int(stored.get("revision") or 0),
@@ -163,7 +183,9 @@ def apply_runtime_credentials(
         llm_base_url=str(stored.get("llm_base_url") or settings.llm_base_url).rstrip("/"),
         llm_model=str(stored.get("llm_model") or settings.llm_model),
         llm_api_key=llm_api_key,
+        llm_credential_ref=llm_credential_ref,
         fx_gateway_api_key=fx_gateway_api_key,
+        fx_gateway_credential_ref=fx_gateway_credential_ref,
         fx_gateway_base_url=fx_gateway_base_url,
         fx_gateway_base_url_mode=mode,
         fx_model=str(stored.get("fx_model") or settings.fx_model),
@@ -191,6 +213,7 @@ def load_settings() -> Settings:
         llm_base_url=os.environ.get("RETAIN_AI_LLM_BASE_URL", "https://api.deepseek.com/v1").rstrip("/"),
         llm_model=os.environ.get("RETAIN_AI_LLM_MODEL", "deepseek-v4-flash"),
         llm_api_key=os.environ.get("RETAIN_AI_LLM_API_KEY", "").strip(),
+        llm_credential_ref=os.environ.get("RETAIN_AI_LLM_CREDENTIAL_REF", "").strip(),
         llm_timeout_s=float(os.environ.get("RETAIN_AI_LLM_TIMEOUT_S", "60")),
         max_tool_rounds=int(os.environ.get("RETAIN_AI_MAX_TOOL_ROUNDS", "6")),
         memory_window_turns=int(os.environ.get("RETAIN_AI_MEMORY_WINDOW_TURNS", "6")),
@@ -216,6 +239,9 @@ def load_settings() -> Settings:
         fx_gateway_base_url_env=fx_gateway_base_url_env,
         fx_gateway_api_key=os.environ.get(
             "RETAIN_AI_FX_GATEWAY_API_KEY", ""
+        ).strip(),
+        fx_gateway_credential_ref=os.environ.get(
+            "RETAIN_AI_FX_GATEWAY_CREDENTIAL_REF", ""
         ).strip(),
         fx_model=os.environ.get("RETAIN_AI_FX_MODEL", "").strip(),
         fx_startup_timeout_s=float(

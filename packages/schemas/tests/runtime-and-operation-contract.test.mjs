@@ -20,9 +20,11 @@ test("runtime config keeps the update and redacted view boundaries explicit", ()
     "expected_revision",
     "fx_gateway_api_key",
     "fx_gateway_base_url",
+    "fx_gateway_credential_ref",
     "fx_model",
     "llm_api_key",
     "llm_base_url",
+    "llm_credential_ref",
     "llm_model",
   ]);
   assert.equal(Object.hasOwn(update, "required"), false);
@@ -33,6 +35,8 @@ test("runtime config keeps the update and redacted view boundaries explicit", ()
   assert.equal(view.additionalProperties, false);
   assert.equal(Object.hasOwn(view.properties, "llm_api_key"), false);
   assert.equal(Object.hasOwn(view.properties, "fx_gateway_api_key"), false);
+  assert.equal(Object.hasOwn(view.properties, "llm_credential_ref"), true);
+  assert.equal(Object.hasOwn(view.properties, "fx_gateway_credential_ref"), true);
 });
 
 test("public operation action mirrors Rust CAS and deny-unknown constraints", () => {
