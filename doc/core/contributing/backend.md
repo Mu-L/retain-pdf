@@ -5,17 +5,20 @@
 默认依赖方向：
 
 ```text
-routes -> services -> job_snapshot_factory / job_launcher / runtime_gateway / db
-job_runner -> db / config / runtime state
-models 不反向依赖 routes 或 services
+rust_api app/router -> routes -> services/facades
+services/facades -> retain-core + retain-data
+retain-jobs -> retain-core + retain-data + retain-proc
+retain-jobsd -> retain-jobs + retain-data
 ```
 
 基本规则：
 
-- `routes/*` 只做 HTTP adapter，请求解析、鉴权后入口和响应包装。
-- `services/jobs/*` 放任务域业务逻辑，包括 query、presentation、creation、control。
-- `job_runner/*` 放运行态执行、进程拉起、取消、OCR 子任务衔接和阶段推进。
-- `models/*` 只放 DTO、输入输出模型、持久化模型，不放业务编排或文件系统读取。
+- `src/app/router/*` 只装配路由；`src/routes/*` 只做 HTTP adapter、提取器和响应包装。
+- `src/services/*` 放应用用例、facade 和安全 projection，不直接拥有 worker 生命周期。
+- `crates/retain-core` 只放跨 crate 的领域类型、配置和稳定 DTO，不反向依赖 HTTP、SQLite 或 runner。
+- `crates/retain-data` 拥有 SQLite、artifact/credential 读取以及 provider 数据边界。
+- `crates/retain-jobs` 拥有队列、stage 编排、进程拉起、取消、OCR dispatch 和恢复。
+- `crates/retain-proc` 只提供通用子进程安全原语；`retain-jobsd` 是独立任务监督入口。
 - 不要为了省事把 `AppState` 传进只需要 `Db`、`AppConfig`、`Path` 或 semaphore 的 helper。
 
 更细规则见 [Rust API 协同开发约定](../rust_api/09-协同开发约定.md)。
@@ -26,6 +29,8 @@ models 不反向依赖 routes 或 services
 - 新增或改变接口、事件、产物 manifest、reader metadata、diagnostics、resume 行为时，更新 [API 文档](../api/index.md) 或对应 rust_api 文档。
 - API 返回字段优先从 view/projection 层输出，不要在 route 里临时拼 JSON。
 - 下载、预览、Range、ETag、reader regions 这类前端强依赖接口，应保持字段稳定和向后兼容。
+- 改共享线协议时，同时更新 `services/contracts`、`packages/schemas` 和 producer/consumer 契约测试。
+- 公共凭据只用 `credential_ref`；响应、日志、事件和 stage spec 都不得出现原始 secret。
 
 ## 常用检查
 

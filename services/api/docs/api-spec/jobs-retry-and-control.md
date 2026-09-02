@@ -146,6 +146,72 @@ Execution semantics:
   replaces render artifacts in place. This is the only in-place retry currently
   supported.
 
+## Resume Plan, Resume, and Generic Rerun
+
+```text
+GET  /api/v1/jobs/{job_id}/resume-plan
+POST /api/v1/jobs/{job_id}/resume
+POST /api/v1/jobs/{job_id}/rerun
+```
+
+`resume-plan` is read-only and returns `can_resume`, `from_stage`,
+`resume_workflow`, `reuses_artifacts`, `reruns_stages`, and a disabling
+`reason`. `resume` is currently an alias of `rerun`; both execute the
+server-selected plan rather than accepting client overrides. Use
+`retry-stage` when the caller needs to select a stage, change allowed options,
+or explicitly accept an ambiguous translation-request risk.
+
+If committed translations are available, generic rerun performs an in-place
+render using the same job id. If only reusable OCR artifacts are available, it
+creates a new recovery job and can seed a compatible translation checkpoint.
+Queued/running jobs cannot be resumed. A durable ambiguous OCR dispatch or
+translation request blocks generic rerun with `409`; the caller must use the
+explicit recovery route described below or `retry-stage` with the documented
+duplicate-risk policy.
+
+## OCR Dispatch Ambiguity
+
+`GET /api/v1/jobs/{job_id}/diagnostics` returns `ocr_ambiguity` only while the
+job is failed and its latest `ocr-submit` dispatch is still ambiguous. The
+projection contains the authoritative `provider`, `operation`,
+`resolution_revision`, `allowed_resolutions`, and backend-derived
+`receipt_fields`. An absent or resolved ambiguity is returned as `null`.
+
+Supported receipt shapes are:
+
+- Paddle `submit_local_file` / `submit_remote_url`: required `task_id`, optional
+  `trace_id`;
+- MinerU `create_extract_task`: required `task_id`, optional `trace_id`;
+- MinerU `apply_upload_url`: required `batch_id` and secret `upload_url`,
+  optional `trace_id`.
+
+Resolve through `POST /api/v1/jobs/{job_id}/ocr/resolve-ambiguity`:
+
+```json
+{
+  "resolution": "bind_existing_receipt",
+  "resolution_revision": 3,
+  "batch_id": "provider-batch-id",
+  "upload_url": "<secret-upload-target>",
+  "trace_id": "optional-provider-trace"
+}
+```
+
+`bind_existing_receipt` accepts only the fields declared by diagnostics and
+continues from provider polling without resubmitting. `accept_duplicate_risk`
+must not include receipt fields and creates a new OCR retry with explicit
+duplicate-submit acceptance. The job must still be failed, the dispatch must
+still be ambiguous, and `resolution_revision` must equal the dispatch
+generation; otherwise the backend returns `409` so stale UI state cannot bind
+the wrong dispatch.
+
+The response contains only `resolution`, `provider`, `operation`, and the new
+retry `submission`. It never echoes receipt values. In particular,
+`upload_url`, request hashes, existing receipt JSON, provider credentials, and
+raw requests are not returned by diagnostics or the resolution response.
+Durable audit events record only the names of bound receipt fields, never their
+values.
+
 ## Cancel Job
 
 `POST /api/v1/jobs/{job_id}/cancel`

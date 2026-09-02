@@ -88,11 +88,11 @@ The current P0 adapter enforces:
    `retainpdf-agent` command whose executable, subcommand, flags, and identifier
    arguments match the backend-owned grammar.
 4. Deny other command execution, file mutation, skill installation, external
-   tool-server configuration, and workspace expansion except for the exact
-   RetainPDF CLI call and its designated request files.
-5. Connect the CLI to Rust through backend-owned local IPC. Authenticate the
-   IPC with OS peer checks or a short-lived capability scoped to one user,
-   conversation, and document. Do not give fx the Rust service API key.
+   tool-server configuration, and workspace expansion; only the exact
+   RetainPDF CLI wrapper call is admitted.
+5. Let the host run the real CLI against the configured Rust API with a
+   short-lived capability scoped to one conversation, document, and action.
+   Do not give fx the capability or Rust service API key.
 6. Require an idempotency key on every effectful CLI call.
 7. Treat all model, document, CLI, and fx output as untrusted input at the Rust
    boundary.
@@ -101,9 +101,11 @@ The adapter must not use a wildcard permission such as
 `retainpdf-agent *`. The model supplies a command string, so the host must
 reject shell separators, substitutions, redirections, unknown flags, absolute
 paths, parent traversal, and identifiers outside the contract before approving
-the call. Free-form intent and generated programs should be written only to
-fixed workspace-relative request files and ingested by the CLI with no-follow,
-size, and hash checks.
+the call. The current closed page program is transported from fx as size-bounded
+inline JSON or base64url, then parsed, canonicalized and hashed again by the
+host. The host writes the resulting backend-owned payload to a fixed no-follow
+request file for the real CLI; there is no model-chosen path or general
+request-file channel.
 
 There are two different classes of local CLI:
 
@@ -125,8 +127,9 @@ boundary remains responsible for that second problem.
 ## Durable state and recovery
 
 Rust remains authoritative for conversations and document operations. Persist
-only an adapter cursor such as `fx_session_id` alongside the RetainPDF
-conversation; never infer document state from an fx transcript.
+only the opaque `runtime_id` / `session_cursor` mapping and its CAS `revision`
+alongside the RetainPDF conversation; never infer document state from an fx
+transcript.
 
 Recovery rules:
 
@@ -136,15 +139,16 @@ Recovery rules:
   the Rust APIs.
 - AI Gateway disconnect before a CLI effect: retry or rebuild the fx turn from
   the canonical conversation snapshot.
-- Disconnect after a CLI effect: query the Rust operation by its idempotency
-  key; do not ask the model to repeat the effect blindly.
+- Disconnect after a CLI effect: replay only the identical host-broker action
+  whose deterministic idempotency key is unchanged, then query the returned
+  operation ID; do not ask the model to invent a replacement effect.
 - fx process crash: restart the adapter and load the fx session when available;
   otherwise create a new fx session from a bounded RetainPDF conversation
   snapshot.
 - API or executor crash: reconcile through the durable dispatch intent,
   receipt, and operation event log. fx does not participate in this decision.
-- Candidate ready while chat is offline: preserve `result_ready`; require the
-  normal explicit commit/CAS path after reconnection.
+- Candidate ready while chat is offline: preserve `result_ready`; use the
+  configured confirmation policy and normal CAS commit path after reconnection.
 
 This separation means losing an fx session can reduce conversational quality,
 but it cannot lose, duplicate, or silently commit a document operation.
@@ -157,10 +161,11 @@ fallback requires JSPI and omits subagents, skills, OS sandboxing, native
 processes, and web search. Removing MCP simplifies our integration but does not
 remove this platform gap.
 
-Therefore fx is behind the `RETAIN_AI_RUNTIME=fx` backend feature flag and an
-exact ACP version check. The first adapter is a macOS/Linux development spike,
-not a required desktop runtime. Windows continues using the existing Python
-runtime. Enabling fx is explicit: a missing binary, missing Gateway key, or
+Therefore fx is selected only by the explicit `RETAIN_AI_RUNTIME=fx` backend
+configuration and an exact ACP version check. The first adapter is a
+macOS/Linux development spike, not a required desktop runtime. Windows may use
+the Python or OpenAI-compatible runtime, but the native FX runtime fails closed
+there. Enabling fx is explicit: a missing binary, missing Gateway key, or
 version mismatch fails closed and never weakens document execution isolation.
 
 fx 0.0.5 admits endpoint overrides only for explicit loopback HTTP URLs with a
@@ -177,6 +182,16 @@ it sends no Gateway key, creates no billable request, and does not claim that a
 provider/model is healthy. The real live test remains responsible for proving
 that fx posts model traffic to `<base>/v3/ai/language-model`.
 
+With an installed fx `0.0.5`, the transport proof is:
+
+```bash
+uv run --project services python -m pytest \
+  services/ai/tests/test_fx_gateway_live.py -q
+```
+
+It uses a dummy key and loopback capture server, records only whether an
+authorization header was present, and skips when the exact binary is absent.
+
 ## Current P0 adapter
 
 `retainpdf_ai.runtimes.fx.FxAcpRuntime`（并由 `retainpdf_ai.runtime` 兼容导出）
@@ -188,6 +203,9 @@ ACP JSON-RPC，丢弃原始 stderr，使用私有 workspace 与 HOME，不配置
 Turns for the same conversation are single-flight in-process and across host
 processes through a private POSIX file lock. Different conversations run with
 bounded parallelism (`RETAIN_AI_FX_MAX_CONCURRENT_TURNS`, default `4`).
+`RETAIN_AI_FX_STATE_ROOT` defaults to `<repo>/data/agent-runtime/fx`; it does not
+automatically follow a custom `RETAIN_AI_DATA_ROOT`, so deployments that need
+both roots co-located must configure it explicitly.
 
 Rust stores the opaque `conversation -> fx sessionId` mapping through
 `/api/v1/internal/agent/runtime-sessions/:conversation_id`. Updates use
@@ -208,9 +226,11 @@ capability-shaped output is redacted before it returns to fx.
 
 The current user message is persisted to the canonical Rust conversation before
 fx starts, so operation creation can bind a durable `request_message_id` even if
-the browser disconnects during the turn. `run` and `commit` are rejected unless
-the inbound request independently carries explicit user confirmation. `ask`
-mode remains only a permission policy—not an OS sandbox. The first executable
+the browser disconnects during the turn. In `explicit` mode, `run`, `commit`
+and retry are rejected unless the inbound request independently carries user
+confirmation; an ambiguous retry additionally requires the exact duplicate-risk
+flag. `green_light` supplies the host grant without changing the command grammar.
+`ask` mode remains only a permission policy—not an OS sandbox. The first executable
 program is instead a closed `retainpdf_page_program_v1` JSON grammar interpreted
 by a fixed backend worker; arbitrary generated code still requires a separately
 confined Executor.
@@ -233,7 +253,8 @@ confined Executor.
    revision CAS and rebuild after cursor/local-session loss.
 6. **Implemented:** host-owned, single-use command broker with exact argv
    grammar, request-scope injection, least-privilege capability minting, and
-   explicit run/commit confirmation. Browser disconnect does not propagate
+   explicit run/commit/retry confirmation or configured green-light grant.
+   Browser disconnect does not propagate
    cooperative cancellation into an active synchronous ACP/LLM turn; operation
    worker cancellation is a separate implemented control-plane capability.
 7. **Implemented for restricted page programs:** fixed worker execution,

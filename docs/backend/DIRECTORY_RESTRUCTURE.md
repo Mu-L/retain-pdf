@@ -16,6 +16,7 @@ services/
   fonts/        # 渲染字体
   docker/       # 容器构建与启动装配
   scripts/      # 后端开发/运维入口
+  testdata/     # 可随独立后端包分发的 golden job fixture
 ```
 
 根目录 `backend/` 目前不是后端源码根；其中残留内容只可视为历史兼容资料或旧测试

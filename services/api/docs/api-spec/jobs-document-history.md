@@ -41,6 +41,10 @@ addition to `items` and `invocation_summary`, this projection returns:
 - `limit` / `offset`: the effective page request
 - `has_more`: whether another page exists
 
+The omitted `limit` defaults to `20`; the effective value is clamped to
+`1..500`. Ordering is `updated_at DESC, job_id DESC`, so equal timestamps do
+not move records between repeated page reads.
+
 Every `JobListItemView` exposes durable retry metadata from `runtime_json`:
 `attempt` (one-based), `retry_count`, and `last_retry_at`. Artifact-manifest
 items expose the same one-based `attempt`; clients must not infer it from event
@@ -51,6 +55,14 @@ the safe document-level Agent candidate/commit history. Each item includes the
 version and operation identity, status, active flag, content hash, timestamps,
 and an authenticated `download_path` / `download_url`. Internal `artifact_key`
 and filesystem paths are never returned.
+
+For Agent versions, omitted `limit` defaults to `50` and is clamped to
+`1..100`; `offset` defaults to zero. Ordering is
+`created_at DESC, version_id DESC`. The response contains `versions`,
+`active_version_id`, `total`, the effective `limit`, `offset`, and `has_more`.
+The path is usable only while the owning operation is `result_ready` or
+`committed`; callers should use the public operation projection's
+`candidate_available` / `allowed_actions` before offering a download.
 
 This endpoint is version history, not live operation state. To render and act
 on the current draft/run/validation lifecycle, clients use the conversation

@@ -17,6 +17,7 @@
 | citations/tool trace | assistant message 的 JSON 字段 | 每轮生成快照并持久化 |
 | operation/candidate | Rust operation 状态机 | 只引用 operation ID，不从聊天文本推断状态 |
 | FX session cursor | Rust runtime-session 映射 | FX runtime CAS 更新；丢失时重建 |
+| FX 本地 session 文件 | 私有 `RETAIN_AI_FX_STATE_ROOT` | fx 的不透明缓存；不是业务真值，可丢失后重建 |
 
 实现入口：
 
@@ -83,7 +84,9 @@ Rust 返回完整 messages 和 `head_id`。AI 服务按以下规则构造本轮 
 ## 4. 会话创建与 turn 写入
 
 请求未提供 `conversation_id` 时，AI 服务会通过 Rust 创建会话，并在同步结果或
-SSE `agent_session/done` 中返回 ID。标题取首个问题的单行前 48 个字符。
+SSE `agent_session/done` 中返回 ID。标题取首个问题的单行前 48 个字符。自动创建是
+best effort：Rust conversation API 不可用时会返回空 ID；Python/OpenAI 仍可能生成
+非持久回答，但 FX 要求 durable conversation，不能在空 ID 下执行 turn。
 
 普通阅读 turn：
 
@@ -105,12 +108,17 @@ SSE `agent_session/done` 中返回 ID。标题取首个问题的单行前 48 个
 operation 路径必须预写 user message，因为 capability 和幂等身份都包含
 `conversation_id/document_id/request_message_id`。若客户端携带稳定
 `user_message_id` 重试，写入异常后只复用 ID、role 与 content 全部匹配的既有消息。
+预写失败时 operation broker 不获得完整 scope；即使后续回答可用，最终
+`persisted` 仍保持 false。若 runtime 随后失败，conversation 中可能只留下已经
+durable 的 user message，恢复时应以 Rust 返回的消息树为准。
 
 regenerate 不再重复写 user，只追加一个以指定 user message 为 parent 的 assistant
 兄弟节点，并把新节点设为 head。
 
 最终消息写入失败不会抹掉已经生成的回答；结果返回 `persisted=false`，调用方必须
-明确提示该轮可能无法在刷新或重启后恢复。
+明确提示该轮可能无法在刷新或重启后恢复。当前实现没有 conversation/store 时把
+持久化步骤视作 no-op success，因此 `persisted=true` 必须与非空
+`conversation_id` 一起判断，不能单独作为 durable 证明。
 
 ## 5. `extractive_v1` 压缩
 
@@ -166,8 +174,10 @@ regenerate 不再重复写 user，只追加一个以指定 user message 为 pare
 - 已创建的 operation/candidate 不依赖 AI 进程内存；重新查询 Rust API 即可恢复。
 - SSE 是通知通道，不是日志。断线后不按浏览器最后的事件重放状态。
 - 模型 token、Python queue 和 worker thread 是临时态；进程崩溃时未写入的回答会丢失。
-- `persisted=false` 表示本轮回答已经返回，但 durable conversation 写入失败。
-- FX session cursor 丢失只影响对话连续性，不改变 Rust 中 document/operation 真值。
+- `persisted=false` 表示本轮回答已经返回，但 request 或 final durable 写入不完整。
+- 空 `conversation_id` 时，即使 `persisted=true` 也没有可恢复的 conversation。
+- FX cursor 或本地 session 文件丢失只影响对话连续性，不改变 Rust 中
+  document/operation 真值。
 
 恢复流程：
 
@@ -199,6 +209,7 @@ python services/contracts/check_parity.py --require-upstream
 - 请求消息预写失败与传输歧义恢复。
 - SSE `compress` 在 `agent_session` 之前，`done` 在最终 durable 写入之后。
 - 历史写入失败返回 `persisted=false`。
+- 空 conversation 与 `persisted` 的组合不会被误判成已持久化。
 
 ## 9. 尚未实现
 

@@ -482,8 +482,22 @@ routes/library*.rs, collections.rs
 - [src/services/library/](src/services/library/)
   内部实现；`LibraryDeps` 持有 `db + data_root + output_root + downloads_dir + scripts_dir + python_bin`
 - 从馆藏发起翻译：`library/translate.rs` 绑定文档 upload 后只调用
-  `JobsFacade::create_submission`，不绕过 job 创建管线
+  `JobsFacade::create_submission`，不绕过 job 创建管线；传入
+  `source.artifact_job_id` 时由 `ocr_artifact_reuse.rs` 验证文档归属、
+  成功 OCR 阶段、必需产物、provider 兼容性和页码覆盖，失败不会
+  静默退回重新 OCR
 - 文件流式响应仍在 route：`stream_file` / download response；service 只返回路径或字节
+
+其他跨域正确性边界：
+
+- live translation 由 `services/jobs/live_translation.rs` 从已提交的
+  `pipeline_units` 选择 immutable checkpoint；SSE 只是刷新提示，route
+  不能直接把 worker 可变文件当权威译文
+- public operation 列表/详情只返回 `public_document_operations.rs`
+  的脱敏投影；动作必须校验 status / attempt / program hash，internal
+  manifest、workspace 路径和 capability 不得透到浏览器
+- 统一错误形状由 `AppError` 与安全 extractor 边界生成；route 不得
+  回显 Serde/Axum 解析细节、secret、签名 URL 或绝对文件路径
 
 ### 2.4 `services/` 中的内部实现
 

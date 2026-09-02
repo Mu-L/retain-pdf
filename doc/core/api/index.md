@@ -1,12 +1,16 @@
 # RetainPDF 后端 API 总入口
 
-这份文档是前端接入、第三方调用和后端联调用的唯一入口。其它 API 文档只作为专题页或历史兼容入口。
+这份文档是前端接入和第三方调用的公共入口。字段级 JSON Schema 以
+[`packages/schemas`](../../../packages/schemas/README.md) 为准；Rust 编排、恢复和
+内部 Agent 契约以 [`services/api/API_SPEC.md`](../../../services/api/API_SPEC.md)
+及其分领域页面为准。其它 API 文档只作为专题页或历史兼容入口。
 
 ## 1. 基础约定
 
 - 完整 API 默认端口：`41000`
 - multipart 异步提交 API 默认端口：`42000`
 - 健康检查：`GET /health`
+- 就绪检查：`GET /ready`
 - 业务前缀：`/api/v1`
 - 除 `GET /health` 外，业务 API 默认需要 `X-API-Key`
 
@@ -140,6 +144,25 @@
 - 默认不删除 `uploads` 源文件
 - `queued` / `running` 默认拒绝删除，除非传 `force=true`
 
+### 文档身份与文档级任务历史
+
+图书馆的兼容 `book/job` 视图之外，AI 会话、版本和继续处理统一使用稳定的
+`document_id`：
+
+- `GET /api/v1/documents`
+- `GET|PATCH|DELETE /api/v1/documents/{document_id}`
+- `GET /api/v1/documents/{document_id}/source.pdf`
+- `GET /api/v1/documents/{document_id}/cover`
+- `GET /api/v1/documents/{document_id}/thumbnail`
+- `POST /api/v1/documents/{document_id}/ocr`
+- `POST /api/v1/documents/{document_id}/translate`
+- `GET /api/v1/documents/{document_id}/jobs`
+- `GET /api/v1/documents/{document_id}/agent-versions`
+
+文档级任务列表是刷新页面后恢复当前 OCR、翻译和渲染状态的权威入口；不要只保留
+浏览器内存中的最后一个 `job_id`。Agent 版本列表投影 candidate/committed 版本元数据
+和当前 active version，不暴露内部 workspace 或 artifact 路径。
+
 ## 4. 上传接口
 
 `POST /api/v1/uploads`
@@ -182,7 +205,7 @@
     "math_mode": "direct_typst",
     "model": "deepseek-v4-flash",
     "base_url": "https://api.deepseek.com/v1",
-    "api_key": "sk-xxxx",
+    "credential_ref": "cred_translation_primary",
     "batch_size": 1,
     "workers": 50
   },
@@ -196,6 +219,16 @@
 }
 ```
 
+推荐先通过 `POST /api/v1/credentials` 创建 `translation_api_key` 凭据，再把返回的
+`credential_ref` 放进任务。`GET /api/v1/credentials` 和任务详情只返回元数据，
+不会返回凭据值。`translation.api_key` 仍是兼容输入，但不能和 `credential_ref`
+同时提交，也不应作为新客户端的持久化方案。
+
+凭据管理接口为：
+
+- `GET|POST /api/v1/credentials`
+- `GET|PUT|DELETE /api/v1/credentials/{credential_ref}`
+
 `workflow`：
 
 - `book`：OCR -> Normalize -> Translate -> Render
@@ -204,6 +237,7 @@
 
 阶段恢复：
 
+- `POST /api/v1/jobs/{job_id}/cancel`
 - `POST /api/v1/jobs/{job_id}/rerun`
 - `GET /api/v1/jobs/{job_id}/stage-actions`
 - `POST /api/v1/jobs/{job_id}/retry-stage`
@@ -274,11 +308,15 @@
 - `GET /api/v1/jobs?limit=20&offset=0&status=&workflow=&provider=`
 - `GET /api/v1/jobs/{job_id}`
 
+列表项直接返回 `attempt`、`retry_count` 和 `last_retry_at`，用于稳定展示重试状态。
+详情中的重试时间线继续位于 `runtime` 投影。
+
 详情重点字段：
 
 - `job_id`
 - `workflow`
 - `status`
+- `ocr_reused` / `source_artifact_job_id`
 - `stage`
 - `stage_detail`
 - `progress`
@@ -429,6 +467,15 @@
 包含渲染诊断时返回。它用于排查物理删除失败后哪些页或 block
 走了 Typst 白底兜底，不表示任务失败。
 
+OCR dispatch 结果不确定时，诊断响应会带脱敏的 `ocr_ambiguity` 描述，其中包含
+provider、operation、`resolution_revision`、允许的解决方式和需要填写的字段定义。
+提交回执或接受重复风险使用：
+
+`POST /api/v1/jobs/{job_id}/ocr/resolve-ambiguity`
+
+请求必须带诊断接口返回的 `resolution_revision`。状态已被其他请求解决或 revision
+变化时返回 `409`；响应、日志和审计事件均不得回显 `upload_url` 等敏感字段值。
+
 断点恢复计划：
 
 `GET /api/v1/jobs/{job_id}/resume-plan`
@@ -451,6 +498,16 @@
 
 响应同 `POST /api/v1/jobs/{job_id}/rerun`，返回 `JobSubmissionView`。
 
+实时翻译覆盖层只读取已经 durable commit 的页面快照：
+
+- `GET /api/v1/jobs/{job_id}/live-translation/layout`
+- `GET /api/v1/jobs/{job_id}/live-translation/pages/{page_idx}`
+- `GET /api/v1/jobs/{job_id}/live-events?after_seq={seq}`
+
+`live-events` 是可重放的 SSE 通知，不直接携带非持久化模型 token。客户端收到
+`translation_units_committed` 后，再读取对应页面的权威快照；断线后用最后确认的
+`seq` 重连。布局、页面快照和事件身份必须匹配同一 `attempt/generation/page_hash`。
+
 ## 7. 产物与下载
 
 产物接口：
@@ -459,6 +516,9 @@
 - `GET /api/v1/jobs/{job_id}/artifacts-manifest`
 - `GET /api/v1/jobs/{job_id}/artifacts/{artifact_key}`
 - `GET /api/v1/jobs/{job_id}/pdf`
+- `GET /api/v1/jobs/{job_id}/pdf/side-by-side`
+- `GET /api/v1/jobs/{job_id}/cover`
+- `GET /api/v1/jobs/{job_id}/thumbnail`
 - `GET /api/v1/jobs/{job_id}/markdown`
 - `GET /api/v1/jobs/{job_id}/markdown/document`
 - `GET /api/v1/jobs/{job_id}/markdown?raw=true`
@@ -579,6 +639,22 @@ PDF 元数据：
 
 某一侧 PDF 尚未就绪时，该侧返回 `null`。
 
+图书馆和 Reader 的附加资源入口：
+
+- `GET /api/v1/search`
+- `GET|POST /api/v1/favorites`
+- `PATCH|DELETE /api/v1/favorites/{favorite_id}`
+- `GET|POST /api/v1/collections`
+- `PATCH|DELETE /api/v1/collections/{collection_id}`
+- `POST /api/v1/collections/{collection_id}/documents`
+- `DELETE /api/v1/collections/{collection_id}/documents/{document_id}`
+- `POST /api/v1/assets`
+- `GET /api/v1/assets/{asset_id}`
+- `GET /api/v1/fonts`
+- `POST /api/v1/fonts/upload`
+
+查询和关系接口只返回持久化 ID 与安全投影；客户端不得把本地文件路径作为资源 ID。
+
 ## 9. OCR-only 接口
 
 - `POST /api/v1/ocr/jobs`
@@ -600,6 +676,8 @@ PDF 元数据：
 - `GET /api/v1/glossaries/{glossary_id}`
 - `PUT /api/v1/glossaries/{glossary_id}`
 - `DELETE /api/v1/glossaries/{glossary_id}`
+- `POST /api/v1/glossaries/import`
+- `GET /api/v1/glossaries/{glossary_id}/export.csv`
 
 术语表用于前端做“自定义词汇表”：
 
@@ -696,6 +774,7 @@ CSV 表头支持英文和中文别名：
 
 ## 11. Provider 校验
 
+- `GET /api/v1/providers/ocr`
 - `POST /api/v1/providers/mineru/validate-token`
 - `POST /api/v1/providers/paddle/validate-token`
 - `POST /api/v1/providers/deepseek/validate-token`
@@ -719,7 +798,8 @@ POST /api/v1/ai/ask
 
 该接口同时承载带引用的阅读问答和受限 PDF Agent 操作。`assistant_mode` 可取
 `reading | operations | auto`。流式响应使用 SSE，`answer_delta.text` 是增量片段；
-客户端必须在 `done.persisted` 为 `true` 后，才把本轮视为已经写入持久历史。
+客户端必须同时看到非空 `conversation_id` 和 `done.persisted=true`，才能把本轮视为
+可在刷新后恢复的持久历史。
 
 相关公共接口：
 
@@ -728,7 +808,7 @@ POST /api/v1/ai/ask
 - `POST /api/v1/ai/conversations/fork`
 - `GET|PATCH|DELETE /api/v1/ai/conversations/{conversation_id}`
 - `POST /api/v1/ai/conversations/{conversation_id}/messages`
-- `GET /api/v1/ai/conversations/{conversation_id}/operations`
+- `GET /api/v1/ai/conversations/{conversation_id}/operations?limit=50&offset=0`
 - `GET /api/v1/ai/operations/{operation_id}`
 - `POST /api/v1/ai/operations/{operation_id}/{run|retry|cancel|commit}`
 - `GET /api/v1/ai/operations/{operation_id}/candidate.pdf`
@@ -736,9 +816,16 @@ POST /api/v1/ai/ask
 SSE 只负责通知；会话、消息树和 operation 查询结果才是断线重连后的权威状态。
 默认 `explicit` 模式下，客户端应渲染后端返回的
 `agent_confirmation_required` / `confirmation_requests`，不得根据模型文字猜测确认。
+operation 列表响应包含 `operations`、`total`、`limit`、`offset` 和 `has_more`；同一
+页按 `updated_at DESC, operation_id DESC` 稳定排序。
 
 完整请求、事件、会话分支、operation 并发保护和旧接口迁移说明见
-[AI 问答与文档操作 API](./reader-ai-chat.md)。
+[AI 问答与文档操作 API](./reader-ai-chat.md)。公开 operation 与 runtime 配置字段
+分别以
+[`public-document-operation.v1.schema.json`](../../../packages/schemas/public-document-operation.v1.schema.json)
+和
+[`runtime-config.v1.schema.json`](../../../packages/schemas/runtime-config.v1.schema.json)
+为准。
 
 ## 13. Simple App 入口
 

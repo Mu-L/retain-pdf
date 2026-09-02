@@ -158,11 +158,20 @@ Rust API layer stores:
 - uploads in `DATA_ROOT/uploads/`
 - downloads in `DATA_ROOT/downloads/`
 - metadata in `DATA_ROOT/db/jobs.db`
-- SQLite logical split:
-  - `jobs` table for core job state
-  - `artifacts` table for artifact index payload
-  - `events` table for structured timeline
+- SQLite logical families:
+  - `uploads`, `jobs`, `artifacts`, `job_artifact_entries`, and `events` for
+    core job state, published artifacts, and historical timelines
+  - `pipeline_attempts`, `pipeline_stages`, `pipeline_units`, and
+    `pipeline_dispatches` for durable generation-fenced execution state and
+    external-provider dispatch receipts
+  - `documents`, `favorites`, `collections`, `collection_documents`,
+    `document_tags`, and `blocks_fts` for the library projection
+  - `ai_conversations` / `ai_messages` for the durable message tree
+  - `document_operations`, immutable attempts/events, and `document_versions`
+    for Agent operation execution and compare-and-swap publication
 - job workspaces in `DATA_ROOT/jobs/<job_id>/`
+- document-operation workspaces in `DATA_ROOT/operations/<operation_id>/`
+- the credential vault in the protected `DATA_ROOT/secrets/` subtree
 
 Current standard job workspace layout:
 

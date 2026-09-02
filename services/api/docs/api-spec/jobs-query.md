@@ -16,6 +16,10 @@ Stable list item fields:
 - `display_name`
 - `workflow`
 - `status`
+- `attempt`: one-based durable execution attempt
+- `retry_count`
+- `last_retry_at`: timestamp of the last accepted retry, or `null`
+- `trace_id`
 - `stage_snapshot`: current main stage snapshot, or `null` for terminal jobs
 - `background_snapshots`: background stage snapshots such as `render_prewarm`
 - `stages`: stage-state object for `ocr`, `translation`, and `render`
@@ -37,6 +41,10 @@ Example item:
   "display_name": "paper.pdf",
   "workflow": "book",
   "status": "running",
+  "attempt": 1,
+  "retry_count": 0,
+  "last_retry_at": null,
+  "trace_id": null,
   "stage_snapshot": {
     "display_stage": "translation",
     "stage": "translating",
@@ -66,7 +74,12 @@ Example item:
 
 `GET /api/v1/jobs/{job_id}`
 
-Response:
+The detail projection always includes `ocr_reused` and
+`source_artifact_job_id`. When OCR was reused, `stages.ocr.state` is `reused`;
+clients must not infer reuse from event absence or from the current stage.
+
+Abbreviated response (the complete DTO also contains the request, artifact,
+contract, diagnostics, runtime, failure, and log projections described below):
 
 ```json
 {
@@ -76,6 +89,8 @@ Response:
     "job_id": "20260327190500-ef3456",
     "workflow": "book",
     "status": "running",
+    "ocr_reused": false,
+    "source_artifact_job_id": null,
     "stage_snapshot": {
       "display_stage": "translation",
       "stage": "translating",
@@ -376,6 +391,10 @@ Response:
         "display_name": "paper.pdf",
         "workflow": "book",
         "status": "running",
+        "attempt": 1,
+        "retry_count": 0,
+        "last_retry_at": null,
+        "trace_id": null,
         "stage_snapshot": {
           "display_stage": "translation",
           "stage": "translating",

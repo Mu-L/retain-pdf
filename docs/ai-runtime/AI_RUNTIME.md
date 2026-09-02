@@ -22,11 +22,14 @@
 2. 浏览器、模型输出和 SSE 都不是权威状态。operation 事件只负责提示刷新，最终
    状态必须重新查询 Rust public API。
 3. 用户消息、历史、摘要、Markdown 和工具结果均是不可信数据，不能提升权限。
-4. `run`/`commit` 只能由请求级显式确认或已配置的 `green_light` 授权。
+4. `run`、`commit` 和基于 `run` 的 retry 只能由请求级显式确认或已配置的
+   `green_light` 授权；`ambiguous` retry 还必须独立接受重复执行风险。
 5. LLM、FX 和生成的 wrapper 均不能获得 Rust API key。实际操作使用单 action、
    短 TTL capability。
-6. `/v1/ask` 的字段、SSE 类型和 done payload 由
-   `services/contracts/ai-ask.v1.schema.json` 约束。
+6. `/v1/ask`、runtime config 和浏览器安全 operation 投影分别由
+   `services/contracts/ai-ask.v1.schema.json`、
+   `services/contracts/runtime-config.v1.schema.json` 与
+   `services/contracts/public-document-operation.v1.schema.json` 约束。
 
 ## 2. 当前调用链
 
@@ -59,17 +62,21 @@ app.py
 | `conversation_tree.py` | 纯可见分支算法；兼容无 `message_id/parent_id` 的旧记录 |
 | `agent_confirmations.py` | 根据权威 operation ref 生成宿主确认请求；不解析模型文案 |
 | `runtime_config_api.py` | runtime-config GET/PUT、revision CAS、自检与 `/readyz` |
+| `runtime_credentials.py` | 私有配置文件校验、跨进程锁、原子写入和密钥掩码 |
 | `runtime.py` | 旧 import 兼容 façade |
 | `runtimes/contracts.py` | `AgentRuntime`、capabilities、`AskResult`、`Citation` |
 | `runtimes/python.py` | Markdown 检索运行时适配 |
 | `runtimes/openai.py` | OpenAI-compatible function-calling Agent |
+| `runtimes/openai_operations.py` | operation tool schema、参数转 argv 与同轮 commit 约束 |
 | `runtimes/fx.py` | FX ACP turn 编排；其余 FX 细节位于相邻模块 |
+| `runtimes/fx_*.py` | ACP、进程隔离、Gateway 探测、并发锁和 turn 投影 |
 | `agent.py` | 旧检索 Agent import 兼容 façade |
 | `retrieval_agent.py` | bounded Markdown tool loop 与 scope 注入 |
 | `agent_llm.py` | OpenAI-compatible HTTP/SSE transport、错误映射 |
 | `agent_evidence.py` | 引用编号、模型可见安全投影、答案清洗 |
 | `agent_command_broker.py` | broker 生命周期、capability 和真实 CLI 子进程 |
 | `agent_broker_*.py` | broker 契约、精确命令语法、事件投影、socket framing |
+| `prompts/agent.py` | 版本化阅读/operation/FX workspace 系统提示词 |
 | `tools.py` | 工具注册表与 RetainPDF 只读工具实现 |
 | `rust_client.py` | AI 服务访问 Rust 权威 API 的客户端 |
 
@@ -93,8 +100,10 @@ re-export，不应重新吸收业务逻辑。
 - `auto`：使用进程默认 runtime；如果文档请求落到“能操作但不能阅读”的 FX，返回
   409，要求调用方明确选择 `reading` 或 `operations`，不猜测用户意图。
 
-Python 阅读模式只向模型暴露 `search_markdown` 与 `read_markdown_chunk`。注册表里
-保留的旧 FTS/blocks/favorites handler 当前不会暴露给该模型。
+Python 阅读模式只向模型暴露 `search_markdown` 与 `read_markdown_chunk`。OpenAI
+runtime 有文档或 job scope 时也使用这两个 Markdown 工具；没有文档 scope 时才会
+使用 `list_documents`、`search_fulltext`、`read_blocks` 和
+`search_favorites` 做全库只读检索。FX runtime 不具备正文读取 capability。
 
 ## 5. 一次 turn 的 durable 顺序
 
@@ -107,13 +116,14 @@ Python 阅读模式只向模型暴露 `search_markdown` 与 `read_markdown_chunk
 6. operation runtime 在执行前先 durable 写入本轮 user message
 7. 执行 runtime；工具/SSE 仅发安全投影
 8. 生成宿主 confirmation_requests
-9. durable 写入 assistant 结果和 citations/tool trace
+9. 尝试 durable 写入 assistant 结果和 citations/tool trace
 10. 最后发送 done；写入失败时 done.persisted=false
 ```
 
 第 6 步保证 operation 的 `request_message_id` 一定对应权威会话消息。客户端使用稳定
 `user_message_id` 重试时，若第一次写入成功但响应丢失，AI 服务只会复用 ID、role、
-content 全部匹配的既有消息。
+content 全部匹配的既有消息。若预写失败，operation 工具不会获得完整 broker scope，
+本轮最多只能回答，不能声称已经执行文档操作。
 
 ## 6. SSE 契约
 
@@ -154,9 +164,24 @@ OpenAI-compatible 流式解析会暂存最初 64 个字符用于判断当前轮�
 监督器重启 AI 服务。`/healthz` 表示进程存活，`/readyz` 还验证配置 revision 已生效
 以及自定义 FX Gateway 可达。
 
+该文件是 `0600` 权限保护的本地 JSON，不是系统钥匙串或加密保险库；原始 key 仍存在
+磁盘上。AI 服务不把它们写入 conversation、SSE 或 runtime-config response。配置文件
+一旦有持久 revision，显式清空 key 也不会再从环境变量悄悄补回。
+
+`RuntimeConfigUpdate` 的公开字段是 runtime/confirmation mode、普通 LLM 的
+base URL/model/key、FX Gateway 的 base URL/key/model、两个显式清除开关和
+`expected_revision`。空密码表示保留旧值，清除开关不能与同一个新密码同时提交。
+当前 Pydantic 请求模型为前向兼容会忽略未知字段，因此客户端不能把“HTTP 200”当成
+未知配置已经生效；应以返回的 `RuntimeConfigView` 为准。该 view 是封闭投影，永远
+不含 `llm_api_key` 或 `fx_gateway_api_key` 原值。
+
 OpenAI runtime 使用普通 `llm_base_url/model/api_key`。FX 0.0.5 的自定义 Gateway
 仅支持带端口的 loopback HTTP bridge；远程 DeepSeek/OpenAI-compatible 地址应选择
 `openai` runtime。
+
+`/v1/ask` 仍接受一次性的 `llm_base_url`、`llm_model`、`llm_api_key` 覆盖；它们只
+用于当前 Python/OpenAI turn，不写入 runtime credential 文件或 conversation。
+runtime-managed FX 忽略这组三个请求字段，必须使用已加载的 FX 配置。
 
 ## 8. PDF operation 安全边界
 
@@ -166,8 +191,15 @@ capability。真实 CLI 在独立子进程运行，stdin 关闭，环境变量�
 有大小限制并执行 capability 脱敏。
 
 当前 page program 只支持 `select_pages` 与 `rotate_pages`。`create` 只产生 draft，
-`run` 产生 candidate，`commit` 才切换活动版本。`explicit` 模式要求宿主确认；
-`green_light` 也不会放开 shell、任意路径或任意程序。
+`run` 产生 candidate，`commit` 才切换活动版本。`explicit` 模式会把 draft/
+awaiting_confirmation、result_ready、failed、ambiguous 分别投影为 run、commit、
+retry、带重复风险确认的 retry；`green_light` 不返回这些人工确认请求，但也不会放开
+shell、任意路径或任意程序。
+
+浏览器直接执行卡片动作时使用 `document_operation_action_v1` CAS envelope，复制最近
+权威 view 的 status、attempt 和 program hash；通过新一轮 `/v1/ask` 执行时则由
+`confirm_document_operation=true` 提供本轮宿主授权。两条路径都不能把聊天里的
+“确认”文本当成权限。
 
 ## 9. 状态恢复
 
@@ -178,6 +210,8 @@ capability。真实 CLI 在独立子进程运行，stdin 关闭，环境变量�
 - AI 进程内 queue、worker thread 和模型 token：非 durable，不作为恢复依据。
 
 因此重启或断网后的原则是“重新读取权威快照”，不是重放浏览器最后看到的文本事件。
+`done.persisted=false` 明确表示 durable 写入不完整；反过来，只有响应同时带有非空
+`conversation_id` 时，`persisted=true` 才能作为这轮可从 conversation 恢复的信号。
 
 ## 10. 验证
 
@@ -191,9 +225,11 @@ uv run --project services ruff check \
   services/ai/retainpdf_ai/retrieval_agent.py \
   services/ai/retainpdf_ai/conversation_state.py \
   services/ai/retainpdf_ai/conversation_tree.py \
-  services/ai/tests/test_contract_schema.py
+  services/ai/tests/test_contract_schema.py \
+  services/ai/tests/test_runtime_config_contract.py
 uv run --project services python -m pytest services/ai/tests -q
 python services/contracts/check_parity.py --require-upstream
+npm --prefix packages/schemas test
 ```
 
 契约测试会扫描真正产生 SSE/done payload 的 `ask_orchestration.py`，而不是只扫描

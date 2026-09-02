@@ -34,12 +34,26 @@ and document-history rules are maintained in the pages below.
 
 ```text
 POST /api/v1/uploads
+POST /api/v1/translate/bundle
 POST /api/v1/jobs
 GET  /api/v1/jobs
 GET  /api/v1/jobs/{job_id}
+GET  /api/v1/jobs/{job_id}/events
+GET  /api/v1/jobs/{job_id}/diagnostics
+GET  /api/v1/jobs/{job_id}/resume-plan
 GET  /api/v1/jobs/{job_id}/stage-actions
+POST /api/v1/jobs/{job_id}/resume
+POST /api/v1/jobs/{job_id}/rerun
 POST /api/v1/jobs/{job_id}/retry-stage
+POST /api/v1/jobs/{job_id}/ocr/resolve-ambiguity
 POST /api/v1/jobs/{job_id}/cancel
+POST /api/v1/ocr/jobs
+GET  /api/v1/ocr/jobs
+GET  /api/v1/ocr/jobs/{job_id}
+GET  /api/v1/ocr/jobs/{job_id}/events
+POST /api/v1/ocr/jobs/{job_id}/cancel
+POST /api/v1/documents/:document_id/translate
+POST /api/v1/documents/:document_id/ocr
 GET  /api/v1/documents/:document_id/jobs
 GET  /api/v1/documents/:document_id/agent-versions
 ```

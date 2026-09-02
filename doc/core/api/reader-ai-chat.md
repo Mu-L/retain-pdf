@@ -120,7 +120,7 @@ snippet，但禁用跳转。
 Agent 创建 operation 后，客户端通过公共查询与动作接口驱动 UI：
 
 ```text
-GET  /api/v1/ai/conversations/{conversation_id}/operations
+GET  /api/v1/ai/conversations/{conversation_id}/operations?limit=50&offset=0
 GET  /api/v1/ai/operations/{operation_id}
 POST /api/v1/ai/operations/{operation_id}/run
 POST /api/v1/ai/operations/{operation_id}/retry
@@ -132,6 +132,11 @@ GET  /api/v1/ai/operations/{operation_id}/candidate.pdf
 动作请求必须携带稳定 `idempotency_key`，并带上刚查询到的
 `expected_status`、`expected_attempt` 和 `expected_program_sha256`。状态已变化时
 后端返回 409，客户端应刷新 operation，而不是用旧状态继续提交。
+
+operation 列表返回 `operations`、`total`、`limit`、`offset` 和 `has_more`，并按
+`updated_at DESC, operation_id DESC` 稳定排序。公开字段以
+[`public-document-operation.v1.schema.json`](../../../packages/schemas/public-document-operation.v1.schema.json)
+为准；浏览器不应依赖内部 manifest、workspace 或 dispatch 回执。
 
 默认 `explicit` 模式下，`run` 与 `commit` 必须来自明确的结构化确认。
 `green_light` 只省略这一步人工授权，不会绕过固定命令语法、能力令牌、幂等、
@@ -158,6 +163,10 @@ PUT /api/v1/ai/runtime-config
 更新接口支持 `expected_revision` 的 compare-and-swap。查询响应只返回
 `*_configured` 等状态，不回显任何 API key。部分变更需要进程重启；客户端应同时
 观察 configured revision、active revision 和 readiness 诊断。
+
+更新请求和脱敏视图以
+[`runtime-config.v1.schema.json`](../../../packages/schemas/runtime-config.v1.schema.json)
+为准。该契约不包含原始模型 Key 或 Gateway Key。
 
 实现与恢复语义见
 [`AI_RUNTIME.md`](../../../docs/ai-runtime/AI_RUNTIME.md) 和

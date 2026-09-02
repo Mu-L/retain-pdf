@@ -138,8 +138,13 @@ Workflow contract:
 
 - `workflow=book`: current provider-backed OCR -> Normalize -> Translate -> Render chain
 - `workflow=translate`: OCR -> Normalize -> Translate; no render step
+- `POST /api/v1/jobs` accepts `source.artifact_job_id` for both `book` and
+  `translate`. The generic endpoint validates a reusable successful OCR stage,
+  required source/normalized/layout files, provider compatibility, and page
+  coverage before it skips the OCR child. It has no document path scope, so it
+  cannot enforce document membership.
 - `POST /api/v1/documents/{document_id}/translate` is document-scoped. When
-  `source.artifact_job_id` is supplied it validates ownership, succeeded state,
+  `source.artifact_job_id` is supplied it additionally validates ownership,
   normalized/source/layout artifacts, provider compatibility, and page coverage,
   then runs Translate -> Render without creating an OCR child. This endpoint
   sets the internal `runtime.render_after_translation` policy while preserving
@@ -199,11 +204,15 @@ Endpoint boundary:
 
 Required provider fields:
 
-- `ocr.mineru_token` when `ocr.provider=mineru`
-- `ocr.paddle_token` when `ocr.provider=paddle`
+- `ocr.mineru_token` when a request will run OCR with `ocr.provider=mineru`
+- `ocr.paddle_token` when a request will run OCR with `ocr.provider=paddle`
 - `translation.base_url`, `translation.model`, and exactly one of
   `translation.credential_ref` or compatibility field `translation.api_key`
   when translation is required
+
+A validated OCR-reuse request does not dispatch the OCR provider and therefore
+does not require a Paddle or MinerU token; only the translation credential is
+validated for that path.
 
 OCR provider options:
 
@@ -294,6 +303,9 @@ Render options:
 
 Validation:
 
+- non-empty `translation.page_ranges` contains one-based document page numbers
+  and takes precedence over the legacy zero-based inclusive
+  `translation.start_page` / `translation.end_page` range
 - `ocr.mineru_token` must not be a URL-like string
 - `translation.base_url` must start with `http://` or `https://`
 - `translation.api_key` must not be a URL-like string
@@ -326,6 +338,11 @@ Glossary v1 contract:
 
 Response:
 
+The submission view always contains `ocr_reused`,
+`source_artifact_job_id`, and the three-stage projection. A reuse request is
+therefore visible immediately without waiting for job detail. The example below
+shows a normal non-reuse submission; `links` and `actions` are abbreviated.
+
 ```json
 {
   "code": 0,
@@ -334,6 +351,13 @@ Response:
     "job_id": "20260327190500-ef3456",
     "status": "queued",
     "workflow": "book",
+    "ocr_reused": false,
+    "source_artifact_job_id": null,
+    "stages": {
+      "ocr": {"state": "pending", "progress": {"current": null, "total": null, "percent": null}},
+      "translation": {"state": "pending", "progress": {"current": null, "total": null, "percent": null}},
+      "render": {"state": "pending", "progress": {"current": null, "total": null, "percent": null}}
+    },
     "links": {
       "self_path": "/api/v1/jobs/20260327190500-ef3456",
       "self_url": "http://127.0.0.1:41000/api/v1/jobs/20260327190500-ef3456",
@@ -361,14 +385,19 @@ Response:
 
 Execution model for `/api/v1/jobs`:
 
-1. create parent translation job
-2. create OCR child job `{job_id}-ocr`
-3. OCR child completes provider transport + normalization
-4. parent job reuses:
+1. create the parent job and persist its resolved request
+2. without `source.artifact_job_id`, create OCR child job `{job_id}-ocr`
+3. the OCR child completes provider transport + normalization
+4. the parent reuses:
    - `normalized_document_json`
    - `normalization_report_json`
    - `layout_json`
    - `provider_raw_dir`
    - `provider_zip`
    - `provider_summary_json`
-5. parent job enters translation/render
+5. the parent enters translation/render
+
+With a validated `source.artifact_job_id`, steps 2–4 are replaced by copying
+the reusable OCR artifact references into the new job; no OCR child is created.
+The submission and later detail view then expose `ocr_reused=true`, the source
+job id, and `stages.ocr.state="reused"`.

@@ -26,5 +26,13 @@ python3 services/contracts/check_parity.py --require-upstream
 ```
 
 In an extracted backend repository, the upstream directory is intentionally
-absent. The same command without `--require-upstream` validates that all local
-contract files exist and contain valid JSON, then skips upstream parity.
+absent. From the extracted `services/` root, run:
+
+```bash
+python3 contracts/check_parity.py
+```
+
+This validates that all eight local contract files exist and contain valid
+JSON, then explicitly skips upstream parity. In the monorepo, schema changes
+start in `packages/schemas`, are copied byte-for-byte here, and must pass the
+`--require-upstream` gate.

@@ -2,6 +2,10 @@
 
 本目录是 **RetainPDF 跨进程契约的唯一真相源**（JSON Schema）。
 
+这里锁定 wire payload 的结构，不替代完整 HTTP 协议文档。路由、认证、错误、
+下载、恢复和 SSE 行为仍以 `services/api/API_SPEC.md`、
+`services/api/docs/api-spec/` 及对应实现契约测试为准。
+
 | 文件 | 作用 | 消费者 | 生产者 |
 |------|------|--------|--------|
 | `ai-ask.v1.schema.json` | `/v1/ask` SSE 协议 | `apps/web/tests/contracts/ai-ask-contract.test.mjs` | `services/ai/tests/test_contract_schema.py` |

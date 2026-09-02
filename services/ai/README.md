@@ -23,7 +23,7 @@ POST /v1/ask
                   ├── fx acp 0.0.5（无 MCP，私有 HOME/workspace）
                   └── host broker → retainpdf-agent → Rust operation API
 
-返回:answer + citations[](document/job + Markdown chunk 兼容锚点)+ tool_trace；
+返回：`answer + citations[]`（document/job + Markdown chunk 兼容锚点）+ `tool_trace`；
 SSE 另提供 `agent_session`、`agent_operation`，`done.operation_refs` 作为断线前的
 发现提示。浏览器收到提示后仍必须查询 Rust public operation API 获取权威状态。
 ```
@@ -50,9 +50,10 @@ SSE 另提供 `agent_session`、`agent_operation`，`done.operation_refs` 作为
 业务状态。Rust 仍是 conversation、document、operation 和 candidate 的唯一
 持久化写入者。
 
-旧的 `list_documents` / `search_fulltext` / `read_blocks` /
-`search_favorites` handler 暂留在内部注册表，便于未来做显式模式切换；当前
-agent 不会把它们暴露给模型，模型即使幻觉调用也会被拒绝。`md/full.md`
+默认 Python retrieval 与有 document/job scope 的 OpenAI Agent 只暴露
+`search_markdown` / `read_markdown_chunk`。OpenAI Agent 没有文档 scope 时会显式
+切换到 `list_documents` / `search_fulltext` / `read_blocks` /
+`search_favorites` 做全库只读检索；这些工具不会出现在文档限定模式。`md/full.md`
 缺失时直接返回工具错误，不会静默回退到 JSON 或 FTS。
 
 刻意不用 agent 框架:单 provider、单用户本地服务,裸循环全权掌控超时/
@@ -72,12 +73,14 @@ retainpdf-ai
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
-| `RETAIN_AI_API_KEYS` | 必填 | 本服务的 X-API-Key 集合(逗号分隔) |
+| `RETAIN_AI_API_KEYS` | 回退 `RETAIN_API_KEYS` | 本服务的 X-API-Key 集合(逗号分隔)；两者都空时鉴权入口返回 500 |
 | `RETAIN_AI_RUST_API_KEY` | 必填 | 调用 Rust API 的 key |
+| `RETAIN_AI_HOST` | `127.0.0.1` | AI 服务监听地址 |
 | `RETAIN_AI_LLM_API_KEY` | 空 | 启动期回退；`python/openai` 也可使用已保存或请求级 Key |
 | `RETAIN_AI_RUST_API_BASE` | `http://127.0.0.1:41000` | Rust API 地址 |
 | `RETAIN_AI_LLM_BASE_URL` | `https://api.deepseek.com/v1` | LLM 端点 |
 | `RETAIN_AI_LLM_MODEL` | `deepseek-v4-flash` | 模型 |
+| `RETAIN_AI_LLM_TIMEOUT_S` | `60` | 普通 OpenAI-compatible 请求超时秒数 |
 | `RETAIN_AI_PORT` | `41100` | 监听端口 |
 | `RETAIN_AI_MAX_TOOL_ROUNDS` | `6` | agent 工具轮数上限 |
 | `RETAIN_AI_MEMORY_WINDOW_TURNS` | `6` | 近期保留对话轮数 |
@@ -92,13 +95,19 @@ retainpdf-ai
 | `RETAIN_AI_FX_GATEWAY_BASE_URL` | 空（FX 官方 Gateway） | FX 0.0.5 自定义 Gateway；仅支持带端口的回环 HTTP |
 | `RETAIN_AI_FX_GATEWAY_API_KEY` | 空 | 仅 fx 子进程使用，不复用 Rust API key |
 | `RETAIN_AI_FX_MODEL` | 空 | 后端配置的 fx 模型；HTTP 请求不能指定 |
-| `RETAIN_AI_FX_STATE_ROOT` | `data/agent-runtime/fx` | 私有 HOME、workspace 与 session 状态根 |
+| `RETAIN_AI_FX_STATE_ROOT` | `<repo>/data/agent-runtime/fx` | 私有 HOME、workspace 与 session 状态根；不会自动跟随自定义 `RETAIN_AI_DATA_ROOT` |
+| `RETAIN_AI_FX_STARTUP_TIMEOUT_SECS` | `10` | ACP 启动/初始化超时 |
+| `RETAIN_AI_FX_TURN_TIMEOUT_SECS` | `120` | 单次 ACP prompt 超时 |
+| `RETAIN_AI_FX_MAX_CONCURRENT_TURNS` | `4` | 不同 conversation 的进程内并发上限；最小为 1 |
 | `RETAIN_AI_FX_AGENT_CLI_COMMAND` | `retainpdf-agent` | 仅由宿主中介启动的真实控制 CLI 路径/名称 |
 
 `openai` 使用 `RETAIN_AI_LLM_BASE_URL`、`RETAIN_AI_LLM_MODEL` 和
 `RETAIN_AI_LLM_API_KEY`，因此可接入任意支持 Chat Completions function calling
 的 OpenAI-compatible 模型端点。它与 FX 共用 host-owned broker、短期 capability、
-显式 run/commit 确认、候选版本和 Rust 恢复状态；模型不会直接接触 Rust API key。
+显式 run/commit/retry 确认、候选版本和 Rust 恢复状态；模型不会直接接触 Rust API key。
+`/v1/ask` 的 `llm_base_url`、`llm_model`、`llm_api_key` 只覆盖当前 Python/OpenAI
+turn，不写入安全配置文件或 conversation；FX 是 runtime-managed transport，会
+忽略这组三个请求字段。
 
 FX 0.0.5 没有公开的任意远程 endpoint 参数。它只接受环境变量形式的本地测试
 覆盖，而且只信任 `http://127.0.0.1:<port>`、`http://localhost:<port>` 或
@@ -119,28 +128,41 @@ Gateway 做有界 TCP 可达性检查；保存成功后由 Rust 监督器重启 
 `/readyz` 只有在新进程载入同一 configured revision 且自定义 Gateway 仍可达时
 才返回 200，`/healthz` 只表示进程存活。环境变量仍作为未创建安全配置文件时的
 启动回退；显式保存空 FX URL 表示官方默认 Gateway，不会重新落回环境变量 URL。
+该文件是权限保护的本地明文 JSON，不是系统钥匙串或加密保险库；不要把它加入版本
+控制或诊断输出。持久配置产生 revision 后，显式清空的模型/FX key 也不会再从环境
+变量回填。
 
 对应的受鉴权入口经 Rust API 暴露为：
 
 - `GET /api/v1/ai/runtime-config`
 - `PUT /api/v1/ai/runtime-config`
 
+AI sidecar 的直接路径是 `GET/PUT /v1/runtime-config`。两者的 `data` 字段由
+`services/contracts/runtime-config.v1.schema.json` 锁定；问答/SSE 与公开 operation
+则分别由 `ai-ask.v1.schema.json` 和 `public-document-operation.v1.schema.json`
+锁定。
+
 响应绝不包含原始 Key。空密码输入表示沿用已保存值；显式清除使用
 `clear_llm_api_key` / `clear_fx_gateway_api_key`，并继续受当前模式的必需凭据
 校验约束。客户端可把 GET 返回的 `configured_revision` 作为 PUT 的
 `expected_revision`；过期写入返回 409。GET 同时返回 `active_revision`、
 `restart_state` 和实际派生的 FX base/chat URL，因而无需靠轮询猜测重启是否完成。
+无变化的 PUT 不增加 revision，也不触发重启。当前 `RuntimeConfigUpdate` 为前向兼容
+会忽略未知字段；客户端只能依据返回 view 判断配置是否实际生效。
 
-fx 只批准经过精确 argv 语法验证的 `retainpdf-agent` 控制命令。每次调用由
+FX 和 OpenAI operation runtime 都只批准经过精确 argv 语法验证的
+`retainpdf-agent` 控制命令。每次调用由
 宿主签发单 action、60 秒的 document/conversation scoped capability，并在
-独立子进程里执行真实 CLI；fx 环境和生成的 wrapper 都拿不到 capability 或
-Rust API key。默认 `explicit` 模式下，`operation run/commit` 还要求本次 HTTP
+独立子进程里执行真实 CLI；模型环境和生成的 wrapper 都拿不到 capability 或
+Rust API key。默认 `explicit` 模式下，`operation run/commit/retry` 还要求本次 HTTP
 请求带有用户侧 `confirm_document_operation: true`，模型无法自行提升确认状态；
 未确认时响应会包含 `confirmation_requests`，流式请求还会产生
 `agent_confirmation_required`，前端不应解析模型的“确认”文案。
 
-`green_light` 模式把受限 PDF operation 的 run/commit 视为宿主已授权，允许 Agent
-在状态机许可时直接生成并提交候选版本。它不会开放 shell、文件路径或任意程序：精确
+`confirmation_requests` 覆盖 run、commit 和 retry；`ambiguous` retry 另外标记
+`requires_risk_acceptance=true`。`green_light` 模式把这些受限 effect 视为宿主
+已授权，允许 Agent 在状态机许可时直接生成并提交候选版本。它不会开放 shell、
+文件路径或任意程序：精确
 命令语法、当前文档/会话范围、短期 capability、幂等键、Rust 状态校验和 candidate
 验证全部保留。该模式默认关闭，可通过 runtime-config 的
 `agent_confirmation_mode` 持久化修改，修改后需按 revision 机制重启生效。
@@ -169,4 +191,6 @@ curl -s -X POST http://127.0.0.1:41100/v1/ask \
 ```bash
 uv sync --project services --extra test
 uv run --project services python -m pytest services/ai/tests -q
+python services/contracts/check_parity.py --require-upstream
+npm --prefix packages/schemas test
 ```

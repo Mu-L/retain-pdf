@@ -23,6 +23,17 @@ Rust 的原始配置默认使用进程内 jobs runtime，并关闭两个子服�
 `remote + supervised`，由 `rust_api` 监督 jobsd 与 AI 服务。当前 Docker 镜像
 监督 AI 服务，但 jobs runtime 保持默认进程内模式，除非部署者明确开启 remote。
 
+| 启动形态 | jobs runtime | AI 服务 | 说明 |
+| --- | --- | --- | --- |
+| 直接运行 `rust_api` | 默认 in-process | 默认不监督 | 由环境变量显式改变 |
+| `services/scripts/dev_stack.py` | remote，Rust 监督 jobsd | Rust 监督 | 当前权威开发入口 |
+| 打包 Electron | remote，Rust 监督 jobsd | Rust 监督 | desktop main 为 packaged 模式注入配置 |
+| `services/docker/Dockerfile.app` | 默认 in-process | Rust 监督 | jobsd 二进制已打包，但默认不启动 |
+
+`/health` 始终提供诊断视图；`/ready` 只把数据库和当前配置为“受监督”的子服务
+列为必需组件。41002、41100 必须保持回环地址。任何非回环 API 部署都必须显式
+配置强随机 `RUST_API_KEYS`，不能使用开发启动器的默认 key。
+
 ## 目录与职责
 
 | 目录 | 职责 |
@@ -57,6 +68,23 @@ Rust 的原始配置默认使用进程内 jobs runtime，并关闭两个子服�
 - 页面翻译只在 checkpoint 文件 hash 与 durable committed unit 一致时可见；
   worker 内存、尚未提交文件和模型 token 流都不是可恢复状态。
 
+### 数据根布局
+
+`RUST_API_DATA_ROOT` 是运行数据的共同根。开发启动器默认使用仓库根 `data/`，
+Docker 使用 `/data`，桌面端传入应用数据目录；`services/data/` 不是通用运行真值。
+
+| 路径 | 所有者与语义 |
+| --- | --- |
+| `db/jobs.db` | Rust/retain-data 的 SQLite 权威状态；remote jobsd 通过 WAL 访问同一库 |
+| `jobs/<job_id>/` | stage spec、provider 快照、checkpoint 与发布产物 |
+| `uploads/`、`downloads/` | 受管理的输入和派生下载 |
+| `secrets/credentials.json` | Rust 管理的凭据 vault；位于 SQLite 外，要求受限权限且不回显明文 |
+| `secrets/ai-runtime.json` | AI runtime/模型配置及 provider 凭据；监督模式与 Rust 共用 data root，文件权限受限 |
+| `agent-runtime/fx/` | 仅在 `RETAIN_AI_FX_STATE_ROOT` 指向此处时保存 FX 子进程状态；开发启动器会显式设置，不替代 Rust conversation/operation 真值 |
+
+恢复需要数据库状态和匹配的 job/checkpoint 文件，因此备份或迁移必须覆盖整个数据根，
+不能只复制 `jobs.db`。
+
 这套边界允许 API 壳重启而不终止 remote jobsd 中的 worker，也允许服务重启后
 从 durable attempt/unit 与匹配的 translation checkpoint 恢复。未提交的模型
 输出不会被伪装成已完成状态；远程 provider 请求处于不确定状态时仍需显式解决
@@ -73,6 +101,8 @@ Rust 的原始配置默认使用进程内 jobs runtime，并关闭两个子服�
 | Rust ↔ pipeline stdout | `pipeline-stdout.v1.schema.json` | retain-jobs 与 pipeline 双端 contract tests |
 | Rust ↔ pipeline stage input | versioned stage spec 与对应 Rust/Python模型 | stage-spec checks 与 worker tests |
 | AI ↔ Rust operations | Rust capability、public operation API 与 broker grammar | Rust operation tests、AI broker/runtime tests |
+| 浏览器安全 PDF operation | `public-document-operation.v1.schema.json` | schema test、Rust public operation contract test |
+| AI runtime 配置 | `runtime-config.v1.schema.json` | schema test、Python runtime config contract test |
 
 修改 schema 时先更新 `packages/schemas`，同步 `services/contracts` 镜像，再让
 生产者、消费者和 parity 门禁全部通过。API 细节不能只靠 schema 推断；路径、

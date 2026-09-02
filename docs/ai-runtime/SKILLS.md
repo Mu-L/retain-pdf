@@ -59,7 +59,8 @@ model:
 
 ### prompt.md
 
-- 现有 `SYSTEM_PROMPT` 主体迁入  
+- 从当前 `prompts/agent.py::build_reading_system_prompt` 迁入；`agent.py` 导出的
+  `SYSTEM_PROMPT` 只是兼容面
 - 占位符（装配时替换）：
 
 ```text

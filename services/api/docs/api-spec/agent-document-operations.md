@@ -47,6 +47,7 @@ operation routes below. Runtime-session access and capability re-issuance
 still require the full API key.
 
 ```text
+GET  /api/v1/documents/{document_id}
 POST /api/v1/internal/agent/operations
 GET  /api/v1/internal/agent/operations/{operation_id}
 POST /api/v1/internal/agent/operations/{operation_id}/run

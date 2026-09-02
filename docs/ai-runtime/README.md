@@ -40,6 +40,10 @@ POST /v1/ask → AskOrchestrator
 `app.py` 和 `agent.py` 已是兼容 façade/薄装配层。Rust 继续拥有业务状态与权限；
 Python AI 服务负责请求编排、模型 transport 和安全工具调用。
 
+共享 wire 契约位于 `services/contracts/`：`ai-ask.v1` 锁定问答/SSE，
+`runtime-config.v1` 锁定配置更新与脱敏 view，`public-document-operation.v1` 锁定
+Rust 面向浏览器的 operation 查询和 CAS action。AI 文档不另行定义第二套字段。
+
 ---
 
 ## 实施顺序（建议）

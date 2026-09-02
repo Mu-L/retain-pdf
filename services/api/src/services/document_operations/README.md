@@ -27,12 +27,18 @@ The internal routes are protected by the existing API authentication layer and
 are not a frontend contract:
 
 ```text
+POST /api/v1/internal/agent/capabilities
 POST /api/v1/internal/agent/operations
 GET  /api/v1/internal/agent/operations/:operation_id
 POST /api/v1/internal/agent/operations/:operation_id/run
 POST /api/v1/internal/agent/operations/:operation_id/commit
 POST /api/v1/internal/agent/operations/:operation_id/cancel
 ```
+
+A capability carrying `document.inspect` may also authorize only
+`GET /api/v1/documents/:document_id` for its bound document. It does not
+authorize source-PDF/media downloads, mutation routes, capability re-issuance,
+or runtime-session access.
 
 Every request uses a versioned JSON schema. Create derives a stable operation
 and dispatch identity from the conversation/document scope plus its
@@ -238,6 +244,11 @@ Browser clients use the redacted `/api/v1/ai/operations/*` projection and CAS
 actions documented in
 [`docs/api-spec/ai-control-plane.md`](../../../docs/api-spec/ai-control-plane.md),
 not these model tools or internal capability routes.
+The conversation-scoped public list accepts `limit` plus `offset` and returns
+`operations`, `total`, the effective page, and `has_more`; its stable order is
+`updated_at DESC, operation_id DESC`. The public `allowed_actions` projection
+is the UI authority, while every action still submits the last observed
+status, attempt, and program hash for compare-and-swap validation.
 
 ## Execution boundary
 

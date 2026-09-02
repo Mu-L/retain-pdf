@@ -67,6 +67,10 @@ Appending without `parent_id` attaches to the current head. Stable client
 `message_id` values make a request retry safe after an uncertain network
 response. A document-scoped conversation must reference an existing document.
 
+Conversation listing accepts `limit`, `offset`, and optional `document_id`.
+The default limit is `50`, clamped to `1..200`, and the response currently
+contains only `conversations`; it does not expose `total` or `has_more`.
+
 The operation-capable AI path durably appends the user message before invoking
 the runtime. That message id becomes the operation's `request_message_id`, so a
 browser disconnect cannot leave a created operation attached only to transient

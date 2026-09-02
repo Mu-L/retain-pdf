@@ -13,6 +13,8 @@ The workspace contains:
 - `contracts/`: backend-local JSON contract mirror plus monorepo parity check.
 - `fonts/`: backend-owned default rendering fonts and their redistribution license.
 - `docker/`: the self-contained backend application image definition.
+- `scripts/`: development launcher, extraction check, Agent smoke, and source archive tools.
+- `testdata/`: backend-owned golden job fixtures used by isolated verification.
 
 ## Start the backend locally
 
@@ -23,6 +25,10 @@ and the AI service:
 ```bash
 python3 services/scripts/dev_stack.py --runtime python
 ```
+
+For the default loopback launch, the script injects a development key when
+`RUST_API_KEYS` is unset. Set an explicit, non-default key before using
+`--host 0.0.0.0` or any other non-loopback bind address.
 
 Startup succeeds only after `http://127.0.0.1:41000/ready` reports that the
 database and supervised services are ready. `Ctrl+C` stops the complete process
@@ -123,6 +129,33 @@ and reads operation state through the Rust API. Pipeline workers own artifact
 and checkpoint file production; Rust records lifecycle, attempts, units, and
 events. Frontends treat Rust projections as authoritative and use AI/SSE events
 only as refresh hints.
+
+## Runtime data root
+
+`RUST_API_DATA_ROOT` is the single runtime storage root. The development
+launcher defaults it to the product-level `data/` directory; the container
+uses `/data`; desktop packaging supplies its application-data directory. The
+important children are:
+
+- `db/jobs.db`: SQLite authority for documents, conversations, jobs, pipeline
+  attempts/units/events, operation/version metadata, and commit state. Candidate
+  bytes remain in the managed operation workspace.
+- `jobs/<job_id>/`: stage specs, provider snapshots, checkpoints, and published
+  artifacts.
+- `uploads/` and `downloads/`: managed ingress and derived downloads.
+- `secrets/credentials.json`: the Rust-owned credential vault, stored outside
+  SQLite with restrictive file permissions and never returned as plaintext.
+- `secrets/ai-runtime.json`: the backend-only AI runtime/model configuration and
+  provider credential file, written with restrictive permissions and never
+  returned as plaintext when the runtime settings API is used.
+- `agent-runtime/fx/`: optional FX subprocess state when
+  `RETAIN_AI_FX_STATE_ROOT` points here. The development launcher configures
+  this explicitly; it is separate from the authoritative Rust conversation and
+  operation state.
+
+Do not treat `services/data/` or a worker's memory as an authoritative runtime
+location. Recovery and live views may expose only committed database state and
+matching durable checkpoint files.
 
 ## Source archive
 

@@ -46,7 +46,7 @@
 - [`../doc/core/api/index.md`](../../doc/core/api/index.md)
   只看外部 HTTP 行为，重点回答“接口怎么调、返回什么、哪些字段是正式契约”。
 - [`API_SPEC.md`](API_SPEC.md)
-  保留为历史和实现参考，不再作为前端首读文档。
+  Rust API 的实现契约索引；不是前端首读文档，但也不是历史快照。
 - [`STAGE_EXECUTION_CONTRACT.md`](STAGE_EXECUTION_CONTRACT.md)
   只看 stage worker 的 spec 协议，重点回答“Rust 如何给 Python 传执行输入”。
 - [`../doc/core/rust_api/11-阶段事件与失败协议.md`](../../doc/core/rust_api/11-%E9%98%B6%E6%AE%B5%E4%BA%8B%E4%BB%B6%E4%B8%8E%E5%A4%B1%E8%B4%A5%E5%8D%8F%E8%AE%AE.md)

@@ -101,7 +101,8 @@ Current scope:
 - Upload PDF
 - Create `book` / `translate` / `render` jobs under `/api/v1/jobs`
 - Create `ocr` jobs under `/api/v1/ocr/jobs`
-- Internally create OCR child job first for `book` and `translate`
+- Internally create an OCR child first for `book` and `translate` only when the
+  request does not reuse a validated `source.artifact_job_id`
 - Poll job status
 - Fetch structured job events
 - List jobs
@@ -163,7 +164,8 @@ Config:
 Notes:
 
 - `X-API-Key` is for accessing the Rust API itself
-- request body `api_key` is still the downstream model provider credential
+- request body `translation.api_key` is the temporary inline downstream-model
+  credential; new translation calls should use `translation.credential_ref`
 - browsers may issue `OPTIONS` preflight for CORS; these are allowed through middleware
 - if `auth.local.json` exists, it overrides key and concurrency settings from env
 
@@ -311,12 +313,14 @@ Read-only structured event APIs:
 
 Query parameters:
 
-- `limit`
-- `offset`
+- `limit` (default `100`, clamped to `1..500`)
+- `offset` (default `0`)
 
 Behavior:
 
 - events are returned in ascending `seq` order
+- the JSON response contains `items`, the effective `limit`, and `offset`; it
+  does not currently contain `total` or `has_more`
 - `GET /api/v1/jobs/{job_id}/events` is the historical progress and debugging stream
 - runtime merges DB events, `DATA_ROOT/jobs/<job_id>/logs/pipeline_events.jsonl`, and OCR child events from `{job_id}-ocr`
 - OCR child events are mapped back to the parent `job_id`
