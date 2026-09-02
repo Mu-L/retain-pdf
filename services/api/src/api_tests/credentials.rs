@@ -99,4 +99,22 @@ async fn credential_api_persists_only_safe_metadata_in_responses() {
         !persisted.contains(secret),
         "deleted secrets must leave the vault"
     );
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let secrets_dir = state.config.data_root.join("secrets");
+        let lock_metadata = std::fs::metadata(secrets_dir.join(".credentials.lock"))
+            .expect("credential vault process lock");
+        assert_eq!(lock_metadata.permissions().mode() & 0o777, 0o600);
+        assert_eq!(
+            std::fs::metadata(secrets_dir)
+                .expect("credential vault directory")
+                .permissions()
+                .mode()
+                & 0o777,
+            0o700
+        );
+    }
 }

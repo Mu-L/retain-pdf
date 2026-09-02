@@ -45,8 +45,8 @@
     },
     "RuntimeConfigUpdate": {
       "type": "object",
-      "description": "RuntimeConfigUpdate 的线格式。全部字段可省略；null 表示不修改对应可空输入。agent_runtime 与 agent_confirmation_mode 在服务端 trim + lowercase 后按规范枚举校验。Pydantic 当前对未知字段采用默认 ignore 行为，因此这里显式允许附加字段。",
-      "additionalProperties": true,
+      "description": "RuntimeConfigUpdate 的线格式。全部字段可省略；null 表示不修改对应可空输入。agent_runtime 与 agent_confirmation_mode 在服务端 trim + lowercase 后按规范枚举校验。未知字段会被拒绝，避免拼写错误形成返回成功但未生效的静默 no-op。",
+      "additionalProperties": false,
       "properties": {
         "expected_revision": {
           "type": ["integer", "null"],

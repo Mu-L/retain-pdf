@@ -147,8 +147,8 @@ AI sidecar 的直接路径是 `GET/PUT /v1/runtime-config`。两者的 `data` �
 校验约束。客户端可把 GET 返回的 `configured_revision` 作为 PUT 的
 `expected_revision`；过期写入返回 409。GET 同时返回 `active_revision`、
 `restart_state` 和实际派生的 FX base/chat URL，因而无需靠轮询猜测重启是否完成。
-无变化的 PUT 不增加 revision，也不触发重启。当前 `RuntimeConfigUpdate` 为前向兼容
-会忽略未知字段；客户端只能依据返回 view 判断配置是否实际生效。
+无变化的 PUT 不增加 revision，也不触发重启。`RuntimeConfigUpdate` 拒绝未知字段，
+避免拼写错误被静默吞掉；客户端仍应依据返回 view 判断配置是否实际生效。
 
 FX 和 OpenAI operation runtime 都只批准经过精确 argv 语法验证的
 `retainpdf-agent` 控制命令。每次调用由

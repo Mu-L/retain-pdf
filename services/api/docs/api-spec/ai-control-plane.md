@@ -27,6 +27,8 @@ The ask payload and SSE/result fields are defined by
 [`services/contracts/ai-ask.v1.schema.json`](../../../contracts/ai-ask.v1.schema.json).
 Runtime configuration updates and redacted views are defined by
 [`services/contracts/runtime-config.v1.schema.json`](../../../contracts/runtime-config.v1.schema.json).
+Runtime-config update bodies reject unknown fields so misspelled settings cannot
+silently return success without taking effect.
 Important state rules are:
 
 - `assistant_mode=reading` selects document retrieval without operation tools;

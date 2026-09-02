@@ -14,6 +14,10 @@ Create/update accepts a secret once and returns only metadata plus an opaque
 masked value. Mutations support `expected_revision` compare-and-swap; stale
 writes return `409`. The vault is atomically persisted below the configured
 data root with `0700` directory and `0600` file permissions on POSIX systems.
+On POSIX systems, mutations are serialized across backend processes through a
+private file lock; publishing fsyncs both the replacement file and its parent
+directory before the request is reported as successful. Other platforms retain
+the in-process mutation lock and atomic replacement behavior.
 
 Translation jobs and document-scoped translation now accept
 `translation.credential_ref`. The backend validates the reference at task

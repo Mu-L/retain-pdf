@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AskInput(BaseModel):
@@ -26,6 +26,8 @@ class AskInput(BaseModel):
 
 
 class RuntimeConfigUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     expected_revision: int | None = Field(default=None, ge=0)
     agent_runtime: str | None = None
     agent_confirmation_mode: str | None = None

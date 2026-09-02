@@ -150,3 +150,6 @@ desktop (Electron)
   可恢复状态。
 - provider dispatch 已发出但回执不明确时必须进入显式歧义解决流程，不能静默重复
   提交远端 OCR 请求。
+- workspace 的数据库、API 和 jobsd 进程级恢复测试共同锁定核心不变量：durable
+  committed units 在重新排队后继续保留，新 worker 接管时推进 generation，旧
+  worker 的提交被 fencing 拒绝；没有 durable attempt 的遗留 running 任务明确失败。

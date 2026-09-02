@@ -26,7 +26,7 @@ test("runtime config keeps the update and redacted view boundaries explicit", ()
     "llm_model",
   ]);
   assert.equal(Object.hasOwn(update, "required"), false);
-  assert.equal(update.additionalProperties, true);
+  assert.equal(update.additionalProperties, false);
   assert.deepEqual(contract.definitions.ConfiguredRuntime.enum, ["python", "openai", "fx"]);
   assert.deepEqual(contract.definitions.AgentConfirmationMode.enum, ["explicit", "green_light"]);
   assert.deepEqual(new Set(view.required), new Set(Object.keys(view.properties)));

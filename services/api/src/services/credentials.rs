@@ -11,9 +11,31 @@ use crate::error::AppError;
 use crate::models::domain::now_iso;
 
 const VAULT_SCHEMA: &str = "retainpdf_credential_vault_v1";
+const VAULT_LOCK_NAME: &str = ".credentials.lock";
 const MAX_VAULT_BYTES: u64 = 256 * 1024;
 const MAX_SECRET_BYTES: usize = 8192;
 static VAULT_WRITE_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+
+struct VaultMutationLock {
+    file: fs::File,
+}
+
+#[cfg(unix)]
+impl Drop for VaultMutationLock {
+    fn drop(&mut self) {
+        use std::os::fd::AsRawFd;
+
+        // SAFETY: `file` remains open for the lifetime of this guard and flock
+        // only reads the descriptor value. Unlock failure cannot be recovered
+        // during Drop; closing the descriptor releases the lock as a fallback.
+        let _ = unsafe { libc::flock(self.file.as_raw_fd(), libc::LOCK_UN) };
+    }
+}
+
+#[cfg(not(unix))]
+impl Drop for VaultMutationLock {
+    fn drop(&mut self) {}
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct StoredCredential {
@@ -219,6 +241,7 @@ pub fn delete_credential(
     let _guard = VAULT_WRITE_LOCK
         .lock()
         .map_err(|_| AppError::internal("credential vault lock is poisoned"))?;
+    let _file_guard = acquire_vault_mutation_lock(data_root)?;
     let mut vault = load_vault(data_root)?;
     require_revision(&vault, expected_revision)?;
     if vault.credentials.remove(credential_ref).is_none() {
@@ -244,6 +267,7 @@ where
     let _guard = VAULT_WRITE_LOCK
         .lock()
         .map_err(|_| AppError::internal("credential vault lock is poisoned"))?;
+    let _file_guard = acquire_vault_mutation_lock(data_root)?;
     let mut vault = load_vault(data_root)?;
     require_revision(&vault, expected_revision)?;
     let (credential_ref, credential) = mutation(&mut vault)?;
@@ -321,22 +345,9 @@ fn load_vault(data_root: &Path) -> Result<CredentialVault, AppError> {
 
 fn save_vault(data_root: &Path, vault: &CredentialVault) -> Result<(), AppError> {
     let path = vault_path(data_root);
-    let directory = path
-        .parent()
-        .ok_or_else(|| AppError::internal("credential vault path is invalid"))?;
-    fs::create_dir_all(directory)
-        .map_err(|_| AppError::internal("credential vault directory cannot be created"))?;
-    let directory_metadata = fs::symlink_metadata(directory)
-        .map_err(|_| AppError::internal("credential vault directory is unreadable"))?;
-    if directory_metadata.file_type().is_symlink() || !directory_metadata.is_dir() {
-        return Err(AppError::internal("credential vault directory is unsafe"));
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(directory, fs::Permissions::from_mode(0o700))
-            .map_err(|_| AppError::internal("credential vault directory cannot be secured"))?;
-    }
+    let directory = prepare_vault_directory(data_root)?;
+    debug_assert_eq!(path.parent(), Some(directory.as_path()));
+    let directory = directory.as_path();
     let encoded = serde_json::to_vec(vault)
         .map_err(|_| AppError::internal("credential vault cannot be encoded"))?;
     if encoded.len() as u64 > MAX_VAULT_BYTES {
@@ -352,7 +363,7 @@ fn save_vault(data_root: &Path, vault: &CredentialVault) -> Result<(), AppError>
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
+        options.mode(0o600).custom_flags(libc::O_NOFOLLOW);
     }
     let result = (|| -> Result<(), AppError> {
         let mut file = options
@@ -368,6 +379,11 @@ fn save_vault(data_root: &Path, vault: &CredentialVault) -> Result<(), AppError>
             use std::os::unix::fs::PermissionsExt;
             fs::set_permissions(&path, fs::Permissions::from_mode(0o600))
                 .map_err(|_| AppError::internal("credential vault cannot be secured"))?;
+            let directory_handle = fs::File::open(directory)
+                .map_err(|_| AppError::internal("credential vault directory cannot be synced"))?;
+            directory_handle
+                .sync_all()
+                .map_err(|_| AppError::internal("credential vault directory cannot be synced"))?;
         }
         Ok(())
     })();
@@ -375,6 +391,63 @@ fn save_vault(data_root: &Path, vault: &CredentialVault) -> Result<(), AppError>
         let _ = fs::remove_file(&temporary);
     }
     result
+}
+
+fn prepare_vault_directory(data_root: &Path) -> Result<PathBuf, AppError> {
+    let directory = vault_path(data_root)
+        .parent()
+        .ok_or_else(|| AppError::internal("credential vault path is invalid"))?
+        .to_path_buf();
+    fs::create_dir_all(&directory)
+        .map_err(|_| AppError::internal("credential vault directory cannot be created"))?;
+    let directory_metadata = fs::symlink_metadata(&directory)
+        .map_err(|_| AppError::internal("credential vault directory is unreadable"))?;
+    if directory_metadata.file_type().is_symlink() || !directory_metadata.is_dir() {
+        return Err(AppError::internal("credential vault directory is unsafe"));
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&directory, fs::Permissions::from_mode(0o700))
+            .map_err(|_| AppError::internal("credential vault directory cannot be secured"))?;
+    }
+    Ok(directory)
+}
+
+fn acquire_vault_mutation_lock(data_root: &Path) -> Result<VaultMutationLock, AppError> {
+    let directory = prepare_vault_directory(data_root)?;
+    let lock_path = directory.join(VAULT_LOCK_NAME);
+    let mut options = OpenOptions::new();
+    options.read(true).write(true).create(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600).custom_flags(libc::O_NOFOLLOW);
+    }
+    let file = options
+        .open(&lock_path)
+        .map_err(|_| AppError::internal("credential vault lock cannot be opened"))?;
+    let metadata = fs::symlink_metadata(&lock_path)
+        .map_err(|_| AppError::internal("credential vault lock is unreadable"))?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err(AppError::internal("credential vault lock path is unsafe"));
+    }
+    #[cfg(unix)]
+    {
+        use std::os::fd::AsRawFd;
+        use std::os::unix::fs::PermissionsExt;
+
+        fs::set_permissions(&lock_path, fs::Permissions::from_mode(0o600))
+            .map_err(|_| AppError::internal("credential vault lock cannot be secured"))?;
+        // SAFETY: the descriptor is valid and retained by `VaultMutationLock`
+        // until the critical section finishes.
+        if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) } != 0 {
+            return Err(AppError::internal(
+                "credential vault lock cannot be acquired",
+            ));
+        }
+    }
+    Ok(VaultMutationLock { file })
 }
 
 fn validate_credential_ref(value: &str) -> Result<(), AppError> {
