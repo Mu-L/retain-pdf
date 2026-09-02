@@ -2,6 +2,15 @@ name: Translation Replay
 
 "on":
   workflow_dispatch: {}
+  pull_request:
+    paths:
+      - "services/pipeline/devtools/promptfoo/**"
+      - "services/pipeline/devtools/tests/translation/test_promptfoo_*.py"
+      - "services/pipeline/devtools/tests/translation/test_translation_debug_tools.py"
+      - ".github/workflows/translation-replay.yml"
+
+permissions:
+  contents: read
 
 concurrency:
   group: translation-replay-${{ github.workflow }}-${{ github.ref }}
@@ -15,19 +24,19 @@ jobs:
       RETAIN_TRANSLATION_API_KEY: ${{ secrets.RETAIN_TRANSLATION_API_KEY }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Prepare embedded backend package
         id: backend
         uses: ./.github/actions/prepare-backend-source
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "22.22.0"
 
@@ -70,7 +79,7 @@ jobs:
 
       - name: Upload promptfoo artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: translation-replay-${{ github.run_id }}
           if-no-files-found: ignore

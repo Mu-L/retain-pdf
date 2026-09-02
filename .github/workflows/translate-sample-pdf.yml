@@ -117,7 +117,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Prepare embedded backend package
         id: backend
@@ -142,7 +142,7 @@ jobs:
           fi
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -299,7 +299,7 @@ jobs:
 
       - name: Upload translated PDF and job artifacts
         if: always() && steps.prepare.outputs.job_id != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: translated-sample-${{ steps.prepare.outputs.job_id }}
           if-no-files-found: warn

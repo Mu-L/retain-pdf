@@ -1,10 +1,9 @@
 name: Tests
 
-# 全量测试门禁：rust workspace + 前端（含棘轮/边界门禁）+ ai_service（含契约锁）。
+# 全量测试门禁：rust workspace + 前端（含棘轮/边界门禁）+ Python 服务。
 # 此前这三套只在本地跑，CI 无人站岗——门禁存在但拦不住绕过（先例：v4.1.9
-# home-ask 带着 4 类门禁违规发布）。python pipeline 聚合 suite 依赖重
-#（PyMuPDF/pikepdf 等），暂由 translation-replay 覆盖其子集；本 workflow
-# 只验证其可安装性、命令契约和包边界。
+# home-ask 带着 4 类门禁违规发布）。pipeline 当前覆盖命令契约、包边界，
+# 以及最容易影响断点续跑的 translation/document_operations 单元测试。
 
 "on":
   pull_request:
@@ -13,19 +12,27 @@ name: Tests
       - main
       - master
 
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   rust-workspace:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Prepare embedded backend package
         id: backend
         uses: ./.github/actions/prepare-backend-source
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v9
         with:
           version: "0.11.19"
           python-version: "3.11"
@@ -48,12 +55,13 @@ jobs:
 
   packages:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "22.22.0"
           cache: npm
@@ -87,13 +95,14 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: packages
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "22.22.0"
           cache: npm
@@ -120,16 +129,17 @@ jobs:
 
   python-services:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Prepare embedded backend package
         id: backend
         uses: ./.github/actions/prepare-backend-source
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v9
         with:
           python-version: "3.11"
 
@@ -150,18 +160,36 @@ jobs:
       - name: Pipeline package entrypoint tests
         run: uv run --project "$RETAIN_PDF_SERVICES_ROOT" python -m pytest "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/entrypoints/test_console.py" -q
 
+      - name: Pipeline durable translation tests
+        run: |
+          uv run --project "$RETAIN_PDF_SERVICES_ROOT" python -m pytest -q \
+            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/document_operations" \
+            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/pipeline" \
+            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_book_translation_batch_results.py" \
+            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_final_untranslated_recovery.py" \
+            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_provider_runtime_contract.py" \
+            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_translation_agent_runtime.py" \
+            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_translation_checkpoint.py" \
+            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_translation_checkpoint_commit.py" \
+            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_translation_flush_state.py" \
+            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_translation_policy_state.py" \
+            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_translation_request_journal.py" \
+            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_translation_result_applier_memory.py" \
+            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_translation_result_cache_policy.py"
+
   backend-standalone:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Prepare embedded backend package
         id: backend
         uses: ./.github/actions/prepare-backend-source
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v9
         with:
           python-version: "3.11"
 
@@ -172,7 +200,7 @@ jobs:
         run: uv sync --project "$RETAIN_PDF_SERVICES_ROOT" --locked --all-extras
 
       - name: Test backend source resolver
-        run: uv run --project "$RETAIN_PDF_SERVICES_ROOT" python -m pytest .github/scripts/tests/test_resolve_backend_source.py -q
+        run: uv run --project "$RETAIN_PDF_SERVICES_ROOT" python -m pytest .github/scripts/tests -q
 
       - name: Check backend contract mirror parity
         run: |
@@ -189,7 +217,7 @@ jobs:
         run: python3 "$RETAIN_PDF_SERVICES_ROOT/scripts/build_source_archive.py"
 
       - name: Upload backend source archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: retainpdf-backend-source-${{ steps.backend.outputs.tree }}
           path: |

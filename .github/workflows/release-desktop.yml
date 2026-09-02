@@ -3,10 +3,15 @@ name: Release Desktop
 "on":
   push:
     tags:
-      - "v*"
+      - "v[0-9]*.[0-9]*.[0-9]*"
+      - "[0-9]*.[0-9]*.[0-9]*"
 
 permissions:
   contents: write
+
+concurrency:
+  group: release-desktop-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   TYPST_VERSION: "0.14.2"
@@ -16,10 +21,11 @@ env:
 jobs:
   build-windows-release:
     runs-on: windows-latest
+    timeout-minutes: 90
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Prepare embedded backend package
         id: backend
@@ -28,30 +34,19 @@ jobs:
       - name: Derive version
         id: version
         shell: pwsh
-        run: |
-          $refName = "${{ github.ref_name }}"
-          if ([string]::IsNullOrWhiteSpace($refName) -or -not $refName.StartsWith("v")) {
-            throw "release workflow must be triggered by a version tag"
-          }
-          $version = $refName.TrimStart("v")
-          if ([string]::IsNullOrWhiteSpace($version)) {
-            throw "release version is empty"
-          }
-          $tag = "v$version"
-          "tag=$tag" >> $env:GITHUB_OUTPUT
-          "version=$version" >> $env:GITHUB_OUTPUT
+        run: python .github/scripts/resolve_release_version.py --tag "${{ github.ref_name }}" --github-output "$env:GITHUB_OUTPUT"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "22.22.0"
           cache: "npm"
           cache-dependency-path: |
             apps/desktop/package-lock.json
             apps/web/package-lock.json
 
       - name: Setup Python runtime for desktop bundle
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           architecture: "x64"
@@ -197,18 +192,20 @@ jobs:
         run: npm --prefix apps/desktop run smoke:frontend-bundle
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
+          prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
           files: |
             desktop/win/RetainPDF-Windows-${{ steps.version.outputs.version }}-Setup.exe
 
   build-linux-release:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Prepare embedded backend package
         id: backend
@@ -217,32 +214,19 @@ jobs:
       - name: Derive version
         id: version
         shell: bash
-        run: |
-          ref_name="${{ github.ref_name }}"
-          if [ -z "$ref_name" ] || [[ "$ref_name" != v* ]]; then
-            echo "release workflow must be triggered by a version tag" >&2
-            exit 1
-          fi
-          version="${ref_name#v}"
-          if [ -z "$version" ]; then
-            echo "release version is empty" >&2
-            exit 1
-          fi
-          tag="v$version"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+        run: python3 .github/scripts/resolve_release_version.py --tag "${{ github.ref_name }}" --github-output "$GITHUB_OUTPUT"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "22.22.0"
           cache: "npm"
           cache-dependency-path: |
             apps/desktop/package-lock.json
             apps/web/package-lock.json
 
       - name: Setup Python runtime for desktop bundle
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -434,18 +418,20 @@ jobs:
           fi
 
       - name: Upload Linux release assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
+          prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
           files: |
             desktop/linux/RetainPDF-Linux-${{ steps.version.outputs.version }}.deb
 
   build-macos-release:
     runs-on: macos-latest
+    timeout-minutes: 120
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Prepare embedded backend package
         id: backend
@@ -454,32 +440,19 @@ jobs:
       - name: Derive version
         id: version
         shell: bash
-        run: |
-          ref_name="${{ github.ref_name }}"
-          if [ -z "$ref_name" ] || [[ "$ref_name" != v* ]]; then
-            echo "release workflow must be triggered by a version tag" >&2
-            exit 1
-          fi
-          version="${ref_name#v}"
-          if [ -z "$version" ]; then
-            echo "release version is empty" >&2
-            exit 1
-          fi
-          tag="v$version"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+        run: python3 .github/scripts/resolve_release_version.py --tag "${{ github.ref_name }}" --github-output "$GITHUB_OUTPUT"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "22.22.0"
           cache: "npm"
           cache-dependency-path: |
             apps/desktop/package-lock.json
             apps/web/package-lock.json
 
       - name: Setup Python runtime for desktop bundle
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -1019,8 +992,9 @@ jobs:
         run: npm --prefix apps/desktop run smoke:frontend-bundle
 
       - name: Upload macOS release assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
+          prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
           files: |
             desktop/mac/RetainPDF-Mac-${{ steps.version.outputs.version }}.dmg

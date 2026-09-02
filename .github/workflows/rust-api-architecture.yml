@@ -25,12 +25,20 @@ name: Rust API Architecture
       - "doc/core/python/**"
       - ".github/workflows/rust-api-architecture.yml"
 
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-api-architecture-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   rust-api-architecture:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Prepare embedded backend package
         id: backend
