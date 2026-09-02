@@ -1,8 +1,11 @@
-# RetainPDF AI Runtime（设计文档索引）
+# RetainPDF AI Runtime（文档索引）
 
-**状态：** 设计草案（C 架构 + B Session/压缩）  
-**日期：** 2026-07-21  
-**代码现状：** `backend/ai_service` 为无状态薄循环（`RetrievalAgent` + `ToolRegistry`）  
+**状态：** 当前实现 + 后续路线图
+
+**更新：** 2026-09-02
+
+**代码位置：** `services/ai`
+
 **产品入口：** 阅读器整本问答 → Rust 代理 `POST /api/v1/ai/ask` → retainpdf-ai `:41100`
 
 ---
@@ -11,8 +14,8 @@
 
 | 文档 | 内容 |
 |------|------|
-| **[AI_RUNTIME.md](./AI_RUNTIME.md)** | 目标架构：Transport / Session / Orchestrator / Runtime / Skills / Evidence |
-| **[SESSION_AND_MEMORY.md](./SESSION_AND_MEMORY.md)** | 多轮会话协议、上下文压缩、API 与数据形状（B 的详细草案） |
+| **[AI_RUNTIME.md](./AI_RUNTIME.md)** | 当前 Transport / Orchestrator / Runtime / broker 架构与安全边界 |
+| **[SESSION_AND_MEMORY.md](./SESSION_AND_MEMORY.md)** | 当前消息树、上下文压缩、durable 写入和恢复语义 |
 | **[SKILLS.md](./SKILLS.md)** | Skill 包格式、与 Tool 的边界、首个 `literature-qa` 示例 |
 
 ---
@@ -23,30 +26,28 @@
 
 ---
 
-## 与现状的关系
+## 当前调用链
 
 ```
-现状（MVP）
-  POST /v1/ask → RetrievalAgent 裸循环 → 4 个 tools → answer + citations
-
-目标（可扩展 runtime）
-  POST /v1/runs  → Orchestrator
-                    ├─ Session/Memory（窗口 + 摘要 + evidence 包）
-                    ├─ Skill(s)（literature-qa / …）
-                    ├─ Agent loop(s)（检索 / 分析 / 可选 critic）
-                    └─ Evidence（锚点、图、可跳转引用）
+POST /v1/ask → AskOrchestrator
+               ├─ ConversationState（消息树 + 摘要 + durable 写入）
+               └─ AgentRuntime
+                   ├─ Python Markdown retrieval
+                   ├─ OpenAI-compatible PDF Agent
+                   └─ FX ACP PDF Agent
 ```
 
-迁移策略：默认 skill 仍是今天的整本检索问答；新能力以 skill/tool 增加，**不先绑死** LangGraph/Crew 等重框架。
+`app.py` 和 `agent.py` 已是兼容 façade/薄装配层。Rust 继续拥有业务状态与权限；
+Python AI 服务负责请求编排、模型 transport 和安全工具调用。
 
 ---
 
 ## 实施顺序（建议）
 
-1. **文档冻结接口** ✅（C + B 草案）  
-2. **Session 贯通（B1）** ✅ auto-create + 前端粘性 + done 回传  
-3. **Memory 压缩（B2）** ✅ 窗口 + extractive 摘要 + SSE `compress`  
-4. Skill 加载器 + 收口 `literature-qa`  
-5. Orchestrator + 第二 agent（可选）  
+1. **Session 贯通（B1）** ✅ auto-create + 消息树 + done 回传
+2. **Memory 压缩（B2）** ✅ 窗口 + extractive 摘要 + SSE `compress`
+3. **Runtime/Agent/broker 模块化** ✅ 兼容 façade + 单向依赖
+4. **OpenAI/FX durable PDF operation** ✅ capability + confirmation + candidate
+5. Skill 加载器、跨轮 evidence 与第二 agent（可选）
 
 每步都应可单独合并、可回滚，不阻断现有 `/v1/ask`。

@@ -176,7 +176,8 @@ that fx posts model traffic to `<base>/v3/ai/language-model`.
 
 ## Implemented P0 adapter
 
-`retainpdf_ai.runtime.FxAcpRuntime` now launches one private `fx acp` process
+`retainpdf_ai.runtimes.fx.FxAcpRuntime`（并由 `retainpdf_ai.runtime` 兼容导出）
+会为每个 active turn 启动一个私有 `fx acp` 进程；
 for one active turn. It reserves stdout for bounded ACP JSON-RPC, suppresses
 raw stderr, uses an empty private workspace and HOME, sends no MCP servers,
 pins ACP protocol 1 and fx `0.0.5`, and explicitly changes the session to
@@ -189,7 +190,10 @@ adapter creates a new session and supplies a bounded snapshot of the canonical
 RetainPDF conversation as untrusted recovery context.
 
 The adapter rejects every ACP permission request except an exact command in the
-backend-owned grammar above. For an admitted request it exposes a generated,
+backend-owned grammar above. `agent_command_broker.py` owns lifecycle and real
+CLI execution; `agent_broker_commands.py` owns the grammar; contracts, safe
+event projection and Unix-socket framing live in the other `agent_broker_*`
+modules. For an admitted request it exposes a generated,
 one-turn wrapper over a private Unix socket. The host reparses the argv, consumes
 the approval once, injects document/message scope and idempotency keys, mints a
 single-action 60-second capability, and runs the real CLI in a separate process.

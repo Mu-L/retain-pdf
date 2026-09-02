@@ -8,21 +8,47 @@
 ## 架构
 
 ```
-POST /v1/ask ──▶ AgentRuntime
-                    ├── python-retrieval-v1 (默认)
-                    ├── openai-compatible-agent-v1
-                    │    └── 自定义 URL/模型/Key → host broker → Rust operation API
-                    └── vercel-fx-acp-v1 (实验开关)
-                         ├── fx acp 0.0.5 (无 MCP，私有 HOME/workspace)
-                         └── 宿主命令中介 → retainpdf-agent → Rust operation API
-                  RetrievalAgent(薄循环,DeepSeek function calling)
-                    │  工具注册表(与主流 agent SDK 同构的 name+schema+handler)
-                    ├── search_markdown       → data/jobs/<job>/md/full.md
-                    └── read_markdown_chunk   → 读取一个确定的 Markdown 片段
+POST /v1/ask
+  └── app.py                         HTTP 鉴权、路由装配
+      └── AskOrchestrator            请求预校验、同步/SSE 编排
+          ├── ConversationState      会话树、摘要、durable 消息写入
+          └── AgentRuntime
+              ├── python-retrieval-v1（默认）
+              │   └── RetrievalAgent
+              │       ├── search_markdown
+              │       └── read_markdown_chunk
+              ├── openai-compatible-agent-v1
+              │   └── 自定义 URL/模型/Key → host broker → Rust operation API
+              └── vercel-fx-acp-v1
+                  ├── fx acp 0.0.5（无 MCP，私有 HOME/workspace）
+                  └── host broker → retainpdf-agent → Rust operation API
+
 返回:answer + citations[](document/job + Markdown chunk 兼容锚点)+ tool_trace；
 SSE 另提供 `agent_session`、`agent_operation`，`done.operation_refs` 作为断线前的
 发现提示。浏览器收到提示后仍必须查询 Rust public operation API 获取权威状态。
 ```
+
+当前模块边界：
+
+| 模块 | 唯一职责 |
+|---|---|
+| `app.py` | FastAPI 初始化、鉴权和薄路由；保留历史兼容导出 |
+| `api_contracts.py` | `/v1/ask` 与 runtime-config 的 Pydantic 请求模型 |
+| `ask_orchestration.py` | runtime 选择、凭据预校验、同步/SSE turn 编排与结果投影 |
+| `conversation_state.py` | 会话创建、历史读取、摘要提交、消息预写和最终回写 |
+| `conversation_tree.py` | 纯消息树可见分支投影；兼容旧线性消息 |
+| `runtime_config_api.py` | runtime 配置查询/更新、CAS revision、自检和 `/readyz` |
+| `runtime.py` | 兼容 façade；实现位于 `runtimes/` |
+| `agent.py` | 检索 Agent 兼容 façade |
+| `retrieval_agent.py` | bounded function-calling 检索循环和 document/job scope |
+| `agent_llm.py` | OpenAI-compatible HTTP/SSE transport 与用户可行动错误映射 |
+| `agent_evidence.py` | 引用编号、安全工具结果投影和回答清洗 |
+| `agent_command_broker.py` | broker 生命周期、capability 签发与受限 CLI 执行 |
+| `agent_broker_*.py` | broker 契约、命令语法、事件投影和 Unix socket framing |
+
+依赖方向保持单向：HTTP 装配 → 请求编排 → 状态/runtime；兼容 façade 不承载
+业务状态。Rust 仍是 conversation、document、operation 和 candidate 的唯一
+持久化写入者。
 
 旧的 `list_documents` / `search_fulltext` / `read_blocks` /
 `search_favorites` handler 暂留在内部注册表，便于未来做显式模式切换；当前
@@ -48,7 +74,7 @@ retainpdf-ai
 |---|---|---|
 | `RETAIN_AI_API_KEYS` | 必填 | 本服务的 X-API-Key 集合(逗号分隔) |
 | `RETAIN_AI_RUST_API_KEY` | 必填 | 调用 Rust API 的 key |
-| `RETAIN_AI_LLM_API_KEY` | 必填 | DeepSeek(或兼容端点)key |
+| `RETAIN_AI_LLM_API_KEY` | 空 | 启动期回退；`python/openai` 也可使用已保存或请求级 Key |
 | `RETAIN_AI_RUST_API_BASE` | `http://127.0.0.1:41000` | Rust API 地址 |
 | `RETAIN_AI_LLM_BASE_URL` | `https://api.deepseek.com/v1` | LLM 端点 |
 | `RETAIN_AI_LLM_MODEL` | `deepseek-v4-flash` | 模型 |
@@ -141,6 +167,6 @@ curl -s -X POST http://127.0.0.1:41100/v1/ask \
 ## 测试
 
 ```bash
-python3 -m pip install "./services/ai[test]"
-python3 -m pytest services/ai/tests/ -q
+uv sync --project services --extra test
+uv run --project services python -m pytest services/ai/tests -q
 ```

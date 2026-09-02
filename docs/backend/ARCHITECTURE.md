@@ -29,19 +29,23 @@ desktop (Electron)
 | 边界 | 协议 | 契约真值 | 门禁 |
 |---|---|---|---|
 | frontend ↔ rust_api | HTTP/JSON + SSE | 部分隐式 | 前端各 *-contract 测试 |
-| rust_api ↔ ai_service | HTTP（ai_proxy 透传 /v1/ask、转发 conversations CRUD） | `backend/contracts/ai-ask.v1.schema.json` | 双端契约测试（见下） |
+| rust_api ↔ ai_service | HTTP（ai_proxy 透传 /v1/ask、转发 conversations CRUD） | `services/contracts/ai-ask.v1.schema.json`（与 `packages/schemas` 字节级同步） | 双端契约测试（见下） |
 | rust_api ↔ pipeline | 子进程 stdout 行协议 | `job_runner/process_contract.rs` + `stage_contract.rs`（代码即契约） | rust 单测 |
 
 ### 契约规则（Phase 1 已生效）
 
-1. `backend/contracts/*.schema.json` 是跨服务 schema 的**单一真值**。
+1. `packages/schemas/*.schema.json` 是 monorepo 上游真值；
+   `services/contracts/*.schema.json` 是可独立打包后端使用的字节级镜像。
 2. 每份契约配**双端测试**：生产者侧
-   `backend/ai_service/tests/test_contract_schema.py`、消费者侧
-   `frontend/tests/ai-ask-contract.test.mjs`——改契约先改 schema，两端测试
-   同步变绿才算完成。
+   `services/ai/tests/test_contract_schema.py`、消费者侧对应的 web contract
+   测试；`services/contracts/check_parity.py --require-upstream` 额外锁定两份
+   schema 镜像一致。改契约必须让生产者、消费者和 parity 同步变绿。
 3. **一份逻辑一个主人**：跨语言双实现视为缺陷。先例：Rust
    `visible_path_messages`（全仓无调用方、与 Python 版语义漂移）已删除，
-   可见路径算法的唯一主人是 ai_service `app.py::_visible_path`。
+   可见路径算法的唯一主人是 AI 服务
+   `retainpdf_ai/conversation_tree.py::visible_path`；会话读写与摘要提交由
+   `retainpdf_ai/conversation_state.py::ConversationState` 协调，`app.py`
+   不再持有状态算法。
 4. **配置单源**：`RETAIN_AI_API_KEYS` 缺省回退 `RETAIN_API_KEYS`，单机部署
    一把钥匙；显式设置仍优先。
 

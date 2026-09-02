@@ -1,457 +1,209 @@
-# Session 与上下文压缩（B 草案）
+# Session 与上下文状态
 
-**状态：** API / 数据形状草案 v0.1 · **B1 + B2 已落地**  
-**日期：** 2026-07-21  
-**依赖：** [AI_RUNTIME.md](./AI_RUNTIME.md)  
-**目标：** 多轮真正可用；长聊不爆上下文；证据（引用/图）跨轮可复用  
+**状态：** B1 会话贯通与 B2 抽取式压缩已实现
 
-### B1 落地摘要（实现）
+**更新：** 2026-09-02
 
-| 项 | 位置 |
-|----|------|
-| AI auto-create + `done.conversation_id` | `retainpdf_ai/app.py` |
-| Rust create 客户端 | `retainpdf_ai/rust_client.py` |
-| 前端粘性存储 | `frontend/src/js/reader/ai/conversation-store.ts` |
-| ask 传/收 conversationId | `api/ai.ts` + `ask-answerer.ts` |
+**目标：** 说明当前 durable 状态、消息树、压缩和断线恢复语义
 
-### B2 落地摘要（实现）
+## 1. 状态由谁拥有
 
-| 项 | 位置 |
-|----|------|
-| 抽取式压缩 `extractive_v1` | `retainpdf_ai/memory/compress.py` |
-| 窗口组装 | `retainpdf_ai/memory/assemble.py` |
-| SSE `compress` + `done.memory` | `retainpdf_ai/app.py` |
-| 配置 | `RETAIN_AI_MEMORY_WINDOW_TURNS` 等（见 config.py） |
-| 摘要落库 | assistant 消息，正文以 `【对话摘要】` 开头 |
+| 状态 | 权威来源 | AI 服务职责 |
+|---|---|---|
+| conversation 与 message | Rust SQLite / conversation API | 读取、追加，不直接写数据库 |
+| 当前可见分支 | `head_id`、`message_id`、`parent_id` | `conversation_tree.py` 投影根到叶路径 |
+| 本轮 MemoryView | AI 进程内 | 从权威分支组装；可以裁剪，不是持久化真值 |
+| extractive summary | Rust 中的 assistant message | AI 生成并通过 Rust API 提交 |
+| citations/tool trace | assistant message 的 JSON 字段 | 每轮生成快照并持久化 |
+| operation/candidate | Rust operation 状态机 | 只引用 operation ID，不从聊天文本推断状态 |
+| FX session cursor | Rust runtime-session 映射 | FX runtime CAS 更新；丢失时重建 |
 
+实现入口：
 
----
+| 模块 | 职责 |
+|---|---|
+| `conversation_tree.py` | 纯可见分支与 transcript 投影 |
+| `conversation_state.py` | 会话创建、读取、摘要提交、消息预写和最终回写 |
+| `memory/compress.py` | `extractive_v1` 压缩策略 |
+| `memory/assemble.py` | 有界 history 组装和粗略 token 估算 |
+| `ask_orchestration.py` | 决定上述状态动作在同步/SSE turn 中的顺序 |
+| `rust_client.py` | conversation/runtime-session HTTP 客户端 |
 
-## 1. 现状与缺口
+`app.py` 只装配这些组件，不再拥有会话状态算法。
 
-### 1.1 已有
+## 2. Rust conversation 契约
 
-| 能力 | 位置 |
-|------|------|
-| Rust 会话 CRUD | `/api/v1/ai/conversations` |
-| 消息追加 | `.../messages`（user/assistant + citations_json + tool_trace_json） |
-| AI 读历史 | `load_history` → **最近 12 条** `role+content` |
-| AI 回写 | `persist_turn` 写 user + assistant |
+当前单一真值是 `services/contracts/ai-conversations.v1.schema.json`。
 
-### 1.2 缺口
-
-1. 前端阅读器 **常不传 / 不创建 `conversation_id`** → 实际多轮无状态。  
-2. 历史 **只塞原文**，无摘要、无 evidence 包 → 长了既贵又丢结构。  
-3. `tool_trace` 落库但 **不回灌模型**（正确，但需要别的形式保留证据）。  
-4. 无 **压缩事件**，用户不知道「早期轮次被摘要了」。  
-5. 无统一 **memory 视图**（给 runtime 的 `messages[]` 与给存储的 transcript 未分层）。
-
----
-
-## 2. 概念分层
-
-```text
-Transcript（持久化，Rust）
-  = 用户可见的完整对话记录（可含 summary 消息）
-
-MemoryView（运行时，AI 内存中拼装）
-  = 本轮喂给 LLM 的 messages[]
-  = f(Transcript, EvidenceStore, CompressPolicy)
-
-EvidenceStore（运行时 + 可选快照落库）
-  = 本会话累积的 EvidenceItem（按 ref 或按 content hash）
-```
-
-原则：
-
-- **Transcript 求真**（可回放 UI）  
-- **MemoryView 求省**（可截断、可替换为 summary）  
-- **Evidence 求稳**（[ n ] 与锚点跨轮尽量稳定）
-
----
-
-## 3. 数据形状
-
-### 3.1 Conversation（Rust，已有可扩展）
+Conversation 的关键字段：
 
 ```json
 {
   "conversation_id": "conv_...",
+  "title": "...",
   "document_id": "doc_...",
-  "job_id": "2026...",
-  "title": "可选自动标题",
-  "skill_id": "literature-qa",
-  "created_at": "...",
-  "updated_at": "..."
+  "message_count": 4,
+  "head_id": "msg_..."
 }
 ```
 
-扩展字段（建议）：
-
-| 字段 | 说明 |
-|------|------|
-| `document_id` / `job_id` | 会话默认 scope（阅读器创建时写入） |
-| `skill_id` | 默认 skill |
-| `memory_json` | 可选：压缩状态 `{ "summary": "...", "through_message_id": "..." }` |
-
-### 3.2 Message（Rust）
-
-现有大致：`role`, `content`, `citations_json`, `tool_trace_json`, `model`, timestamps。
-
-**建议扩展 `metadata_json`（对象序列化）**：
+Message 的关键字段：
 
 ```json
 {
-  "kind": "turn | summary | system_note",
-  "run_id": "run_...",
-  "skill_id": "literature-qa",
-  "evidence_refs": [1, 2, 5],
-  "usage": { "prompt_tokens": 0, "completion_tokens": 0 },
-  "compress": {
-    "covers_message_ids": ["m1", "m2"],
-    "policy": "extractive_v1"
-  }
+  "message_id": "msg_...",
+  "conversation_id": "conv_...",
+  "seq": 4,
+  "role": "assistant",
+  "content": "...",
+  "citations_json": "[]",
+  "tool_trace_json": "[]",
+  "model": "...",
+  "parent_id": "msg_..."
 }
 ```
 
-| kind | role 建议 | 用途 |
-|------|-----------|------|
-| `turn` | user / assistant | 正常问答（默认） |
-| `summary` | `assistant` 或专用 `system` | 压缩后的历史摘要（UI 可折叠显示「已压缩 N 轮」） |
-| `system_note` | system | 调试/策略说明，默认不对用户展示 |
+当前没有 `skill_id`、`memory_json` 或 `metadata_json`。摘要使用普通 assistant
+message，正文以 `【对话摘要】` 开头；不要把路线图里的扩展字段当作现有 API。
 
-**兼容：** 无 `metadata_json` 的旧消息视为 `kind=turn`。
+## 3. 可见消息树
 
-### 3.3 EvidenceSnapshot（可嵌在 assistant metadata 或独立表）
+Rust 返回完整 messages 和 `head_id`。AI 服务按以下规则构造本轮 transcript：
 
-```json
-{
-  "items": [
-    {
-      "ref": 1,
-      "kind": "text",
-      "document_id": "doc_x",
-      "job_id": "job_y",
-      "page_idx": 3,
-      "block_id": "p004-b0012",
-      "snippet": "……",
-      "image_urls": ["/api/v1/jobs/job_y/markdown/images/page-4/imgs/..."]
-    }
-  ],
-  "ref_counter": 6
-}
-```
+1. 按 `seq` 排序。
+2. 从 `head_id` 沿 `parent_id` 回溯到根，再反转为根到叶。
+3. regenerate 时以请求的 `parent_id` 作为 `stop_at`，只读取该 user 节点之前的
+   可见路径。
+4. 旧消息如果没有 `message_id/parent_id`，使用合成 ID 按 `seq` 串为线性链。
+5. 非 user/assistant 或空内容不进入 MemoryView。
 
-同一会话内 **ref 单调递增不回收**（避免「[2] 上轮是 A 这轮是 B」）。  
-若必须回收，UI 只展示本轮 `citations`，历史气泡绑定当时 snapshot。
+算法唯一实现位于 `conversation_tree.py::visible_path`。前端可以切换 `head_id`，
+但不应自己实现另一套“可见消息”规则来决定发给模型的历史。
 
----
+## 4. 会话创建与 turn 写入
 
-## 4. Memory 组装算法（B2 核心）
+请求未提供 `conversation_id` 时，AI 服务会通过 Rust 创建会话，并在同步结果或
+SSE `agent_session/done` 中返回 ID。标题取首个问题的单行前 48 个字符。
 
-### 4.1 输入
+普通阅读 turn：
 
 ```text
-assemble_memory(
-  transcript: Message[],
-  scope: { document_id, job_id },
-  skill: Skill,
-  budget: TokenBudget,
-) -> { messages: ChatMessage[], evidence: EvidenceItem[], debug }
+读取可见分支 → 组装/压缩 history → 执行 runtime
+              → append user → append assistant(set_head=true) → done
 ```
 
-### 4.2 策略 `extractive_v1`（默认，不依赖 LLM 摘要）
+具有 document operation 能力的 turn：
 
 ```text
-1. 分离：
-   - summaries = kind==summary 的消息（按时间）
-   - turns = kind==turn 的 user/assistant 对
-
-2. 取「最新 summary」S（若有），它覆盖 through 某 message_id 之前的内容。
-
-3. 近期窗口 W：
-   - 取 S 之后的 turns，再截断为最近 K 轮（默认 K=6 轮 = 12 条消息）
-   - 单条 content 超长则 clip（user 2k / assistant 3k 字符硬顶）
-
-4. Evidence 包 E：
-   - 合并 W 内 assistant 的 citations / evidence_snapshot
-   - 上限 max_evidence_items（默认 24）
-   - 优先保留：被最近一轮引用到的 ref > 较新 > 有 image_urls 的
-
-5. 拼 messages：
-   [ system = skill.system_prompt + scope_lock_text ]
-   [ developer? = skill.developer ]
-   if S: [ {role:user, content: "以下是更早对话的摘要，请当作已知背景：\n"+S.content } ]
-          [ {role:assistant, content: "好的，我将基于摘要与新问题继续。" } ]  # 可选稳定前缀
-   for m in W: append role/content
-   if E:  append 一条隐藏/user 工具式上下文？ → 否；
-          改为在 system 尾部附 "已知证据表"：
-          "E1 [1] p.4 block … snippet"
-          （控制在 ~2k 字符）
-
-6. 若估算 tokens > budget：
-   - 先减 K（窗口）
-   - 再缩短 snippet
-   - 再触发 compress_now() 生成新 summary（见 4.3）
+读取/压缩 history
+  → append user(set_head=true)
+  → 使用该 durable message_id 创建/运行 operation
+  → append assistant(set_head=true)
+  → done
 ```
 
-### 4.3 何时压缩 `compress_now`
+operation 路径必须预写 user message，因为 capability 和幂等身份都包含
+`conversation_id/document_id/request_message_id`。若客户端携带稳定
+`user_message_id` 重试，写入异常后只复用 ID、role 与 content 全部匹配的既有消息。
 
-触发条件（任一）：
+regenerate 不再重复写 user，只追加一个以指定 user message 为 parent 的 assistant
+兄弟节点，并把新节点设为 head。
 
-- `len(turns) > 2K`（例如 12 轮）  
-- 估算 prompt tokens > `0.55 * context_window`  
-- 显式请求 `force_compress: true`
+最终消息写入失败不会抹掉已经生成的回答；结果返回 `persisted=false`，调用方必须
+明确提示该轮可能无法在刷新或重启后恢复。
 
-**extractive 摘要内容模板：**
+## 5. `extractive_v1` 压缩
 
-```text
-【对话摘要】
-- 用户关注：…
-- 已确认结论：…（附 [n] 若有）
-- 未解决问题：…
-- 重要证据：
-  [1] p.3 … 
-  [2] p.7 …
-```
+默认配置：
 
-生成方式 v1：
+| 变量 | 默认 | 作用 |
+|---|---:|---|
+| `RETAIN_AI_MEMORY_WINDOW_TURNS` | `6` | history 保留的近期 user turn 数 |
+| `RETAIN_AI_MEMORY_COMPRESS_AFTER_TURNS` | `12` | 超过后压缩早期 turn |
+| `RETAIN_AI_MEMORY_MAX_CHARS` | `24000` | 组装后 history 的字符护栏 |
 
-1. 从被折叠的 turns 抽取：所有 user 问题（截断）、所有带 [n] 的 assistant 句、全部 citations  
-2. 规则拼接，**不调用 LLM**（稳、便宜、可测）  
-3. v2 可选：LLM 摘要 skill，失败回退 v1  
+压缩不调用 LLM：
 
-压缩后：
+1. 找到可见分支中的最新摘要。
+2. 统计摘要之后的 user turn。
+3. 折叠窗口之外的早期消息，抽取用户关注、带 `[n]` 的结论和 citation snippet。
+4. 生成以 `【对话摘要】` 开头、默认不超过 1800 字符的 assistant message。
+5. 先通过 Rust durable 写入摘要；成功后才发 `compress` 事件。
+6. 本轮 history 使用摘要加近期窗口，并受单消息 clip 与总字符上限保护。
+7. 本轮 user/assistant 挂到新摘要形成的分支上，避免摘要成为永远读不到的兄弟节点。
 
-1. 向 Rust append `kind=summary` 消息  
-2. 更新 `conversation.memory_json.through_message_id`  
-3. SSE 发 `compress` 事件  
+`force_compress=true` 只用于测试或调试；窗口没有可折叠内容时仍不会伪造压缩事件。
 
-### 4.4 Token 估算
-
-v1 使用廉价估算：`tokens ≈ chars / 3`（中英混合偏保守可 `/2.5`）。  
-不强制 tiktoken，避免 AI 服务重依赖。
-
----
-
-## 5. API 形状
-
-### 5.1 保持兼容：`POST /v1/ask`（retainpdf-ai）
-
-```json
-{
-  "question": "……",
-  "document_id": "doc_…",
-  "job_id": "job_…",
-  "conversation_id": "conv_…",
-  "stream": true,
-  "skill_id": "literature-qa",
-  "force_compress": false,
-  "llm_api_key": "",
-  "llm_base_url": "",
-  "llm_model": ""
-}
-```
-
-| 字段 | 现状 | B 后 |
-|------|------|------|
-| `conversation_id` | 可选 | **阅读器应总是带**（无则后端可 auto-create 并在 done 返回） |
-| `skill_id` | 无 | 可选，默认 `literature-qa` |
-| `force_compress` | 无 | 可选 |
-| `history` 客户端直传 | 无 | **不鼓励**；以服务端读 Rust 为准（防双源） |
-
-### 5.2 `done` 扩展（可选字段）
-
-```json
-{
-  "type": "done",
-  "answer": "……",
-  "citations": [ /* Evidence 子集 */ ],
-  "tool_trace": [ /* 本 run */ ],
-  "rounds": 3,
-  "conversation_id": "conv_…",
-  "run_id": "run_…",
-  "memory": {
-    "window_turns": 6,
-    "had_summary": true,
-    "evidence_count": 8,
-    "compressed": false
-  },
-  "usage": {
-    "prompt_tokens_est": 4200,
-    "completion_tokens_est": 600
-  }
-}
-```
-
-### 5.3 新 SSE：`compress`
+`compress` 事件形状：
 
 ```json
 {
   "type": "compress",
   "dropped_turns": 8,
   "summary_chars": 900,
-  "kept_evidence": 12,
-  "policy": "extractive_v1"
+  "kept_evidence": 4,
+  "policy": "extractive_v1",
+  "window_turns": 6
 }
 ```
 
-### 5.4 Rust：创建会话（阅读器打开 AI 或首问时）
+`done.memory` 是可忽略的调试视图，当前包含 `window_turns`、`had_summary`、
+`history_messages`、`prompt_tokens_est`、`total_chars`、`compressed` 和
+`evidence_count`。它不是新的持久化状态源。
 
-```http
-POST /api/v1/ai/conversations
-{
-  "document_id": "doc_…",
-  "job_id": "job_…",
-  "title": "",
-  "skill_id": "literature-qa"
-}
-→ { "conversation_id": "conv_…" }
-```
+## 6. 引用与证据
 
-### 5.5 Rust：追加消息（扩展）
+当前 citation 编号在单个 turn 内从 1 开始。assistant 消息保存本轮
+`citations_json` 和 `tool_trace_json`，旧气泡因此仍可展示和跳转；但是编号不会在
+多个 turn 之间单调延续，历史 evidence 也不会自动重新注入模型。
 
-```http
-POST /api/v1/ai/conversations/{id}/messages
-{
-  "role": "assistant",
-  "content": "……",
-  "citations_json": "[…]",
-  "tool_trace_json": "[…]",
-  "model": "…",
-  "metadata_json": "{ \"kind\": \"turn\", \"run_id\": \"…\" }"
-}
-```
+跨 turn evidence snapshot、持久化 `ref_counter` 和基于证据的长期记忆仍是路线图，
+当前尚未实现。
 
-Summary 消息：
+## 7. 断网、刷新与重启
 
-```json
-{
-  "role": "assistant",
-  "content": "【对话摘要】…",
-  "metadata_json": "{\"kind\":\"summary\",\"compress\":{\"policy\":\"extractive_v1\",\"covers_message_ids\":[…]}}"
-}
-```
+- 已写入 Rust 的 conversation/message/summary 可在刷新和服务重启后恢复。
+- 已创建的 operation/candidate 不依赖 AI 进程内存；重新查询 Rust API 即可恢复。
+- SSE 是通知通道，不是日志。断线后不按浏览器最后的事件重放状态。
+- 模型 token、Python queue 和 worker thread 是临时态；进程崩溃时未写入的回答会丢失。
+- `persisted=false` 表示本轮回答已经返回，但 durable conversation 写入失败。
+- FX session cursor 丢失只影响对话连续性，不改变 Rust 中 document/operation 真值。
 
-### 5.6 前端阅读器流程（目标）
+恢复流程：
 
 ```text
-open AI panel
-  if !conversationId for (jobId|documentId):
-      create conversation → store in memory/localStorage key
-ask(question):
-  POST ask with conversation_id + job_id + document_id
-  on compress → 可选 toast「已压缩早期对话」
-  on done → 渲染 answer + citations；记住 conversation_id
+重新获取 conversation detail/head
+  → 按唯一 tree 算法恢复可见分支
+  → 查询 operation 列表/详情
+  → 发起下一轮 ask
 ```
 
-存储键建议：`retainpdf.reader.ai.conversation.v1:{jobId}`。
+## 8. 测试与契约门禁
 
----
+```bash
+uv run --project services python -m pytest \
+  services/ai/tests/test_memory.py \
+  services/ai/tests/test_tools_and_app.py \
+  services/ai/tests/test_streaming.py -q
 
-## 6. Runtime 伪代码
-
-```python
-def ask(question, *, conversation_id, scope, skill_id, budget, force_compress=False):
-    skill = load_skill(skill_id)
-    transcript = rust.list_messages(conversation_id, limit=200)
-
-    if force_compress or should_compress(transcript, budget):
-        summary_msg = build_extractive_summary(transcript, budget)
-        rust.append_message(conversation_id, summary_msg)
-        emit({"type": "compress", ...})
-        transcript = rust.list_messages(conversation_id, limit=200)
-
-    mem = assemble_memory(transcript, scope, skill, budget)
-    result = run_tool_loop(
-        messages=mem.messages,
-        tools=skill.tools,
-        budget=budget,
-        evidence_seed=mem.evidence,
-        on_event=emit,
-    )
-    rust.append_message(user)
-    rust.append_message(assistant + citations + metadata)
-    emit({"type": "done", **result, "conversation_id": conversation_id, "memory": mem.debug})
-    return result
+uv run --project services python -m pytest services/ai/tests -q
+python services/contracts/check_parity.py --require-upstream
 ```
 
----
+必须覆盖：
 
-## 7. 与引用编号的关系
+- 自动创建 conversation 并回传 ID。
+- 第二轮注入第一轮可见历史。
+- regenerate 产生兄弟 assistant 分支。
+- summary 位于新 head 的祖先路径上。
+- 请求消息预写失败与传输歧义恢复。
+- SSE `compress` 在 `agent_session` 之前，`done` 在最终 durable 写入之后。
+- 历史写入失败返回 `persisted=false`。
 
-| 规则 | 说明 |
-|------|------|
-| 单 run 内 | 与现 ` _assign_refs` 相同，从 1 或从 `ref_counter+1` 起 |
-| 跨 run | **继续递增**（读上次 snapshot 的 `ref_counter`） |
-| 回答中的 [n] | 必须落在本 run 可见 evidence 或已知证据表 |
-| 压缩后 | 摘要里保留 [n] 与 snippet；旧气泡 UI 仍显示当时 citations |
+## 9. 尚未实现
 
----
-
-## 8. 测试计划（B）
-
-| 用例 | 期望 |
-|------|------|
-| 无 conversation_id | 行为与现网一致（单轮）；或 auto-create 并在 done 返回 |
-| 有 conversation_id 连问 2 轮 | 第二轮 memory 含第一轮 user/assistant |
-| 15 轮后触发压缩 | 出现 summary 消息；assemble 不再含全部早期原文 |
-| evidence 上限 | 超过 max 时丢最旧未引用项 |
-| scope 锁 | memory 的 system 含 document_id；工具参数被注入 |
-| 字符 clip | 超长 assistant 被截断且不炸 JSON |
-
----
-
-## 9. 分阶段实现清单
-
-### B1 — Session 贯通（小、优先）
-
-- [ ] 前端：创建/复用 `conversation_id` 并随 ask 上传  
-- [ ] 后端：done 回显 `conversation_id`  
-- [ ] Rust：conversation 支持 `document_id`/`job_id`/`skill_id`（若尚无）  
-- [ ] 文档 + 单测：history 注入条数  
-
-### B2 — Memory 压缩
-
-- [ ] `memory/assemble.py` + `memory/compress.py`  
-- [ ] `metadata_json` 读写  
-- [ ] SSE `compress`  
-- [ ] 估算 token 与 budget 配置项  
-- [ ] 单测：压缩前后 messages 长度  
-
-### B3 — Evidence 跨轮
-
-- [ ] snapshot 落库 / 回灌「已知证据表」  
-- [ ] ref_counter 持久化  
-
----
-
-## 10. 配置项（建议 env）
-
-| 变量 | 默认 | 说明 |
-|------|------|------|
-| `RETAIN_AI_MEMORY_WINDOW_TURNS` | `6` | 近期保留轮数 |
-| `RETAIN_AI_MEMORY_MAX_CHARS` | `24000` | MemoryView 粗上限 |
-| `RETAIN_AI_MEMORY_COMPRESS_AFTER_TURNS` | `12` | 超过则压缩 |
-| `RETAIN_AI_MEMORY_MAX_EVIDENCE` | `24` | 证据条数 |
-| `RETAIN_AI_MEMORY_POLICY` | `extractive_v1` | 压缩策略名 |
-
----
-
-## 11. 开放决策
-
-| ID | 问题 | 建议 |
-|----|------|------|
-| M1 | 无 conversation_id 时 auto-create？ | **是**（减少前端状态机），done 必须回传 |
-| M2 | summary 是否在 UI 展示？ | 默认折叠一行「已总结前 N 轮」 |
-| M3 | tool_trace 是否进 memory？ | **否**；只进 evidence 与本 run trace |
-| M4 | 是否允许客户端传 history？ | v1 **忽略**客户端 history，避免分叉 |
-
----
-
-## 12. 验收标准（B 完成时）
-
-1. 同一阅读任务连续追问 5 次，第 5 次回答能引用第 1 次结论或证据。  
-2. 人为加长历史至 20 轮后，请求仍成功；SSE 至少出现一次 `compress` 或存在 summary 消息。  
-3. 压缩后 citations 跳转仍正确（page_idx 0 基）。  
-4. 旧前端不传新字段时行为不回退到 5xx。  
+- `metadata_json`/专用 summary message kind。
+- 跨 turn evidence snapshot 与稳定引用编号。
+- 面向 token 而非字符估算的模型级预算。
+- 客户端取消向运行中的同步 LLM/tool call 传播。
+- 多 Agent 共享 memory/evidence 的 durable 协议。

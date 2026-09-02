@@ -87,8 +87,9 @@ separate public model tools.
 
 ## Existing foundations
 
-- `services/ai` already provides conversation, memory, tool calling, and SSE,
-  but its current product tool set is read-only and Markdown-only.
+- `services/ai` provides Markdown reading plus OpenAI/FX document-operation
+  runtimes. `AskOrchestrator` coordinates the turn, while the host broker keeps
+  effectful execution behind the exact grammar and Rust capability boundary.
 - Rust is the single writer for documents, conversations, jobs, and artifact
   references.
 - `JobsFacade` and the job runner already provide asynchronous execution,
