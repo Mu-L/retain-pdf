@@ -9,9 +9,10 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from urllib.parse import quote, unquote
 
 from .blocks import Block, load_job_blocks, read_page_blocks
@@ -139,8 +140,12 @@ class ToolRegistry:
     def __init__(self, tools: list[Tool]) -> None:
         self._tools = {tool.name: tool for tool in tools}
 
-    def specs(self) -> list[dict[str, Any]]:
-        return [tool.as_openai_tool() for tool in self._tools.values()]
+    def specs(self, names: set[str] | frozenset[str] | None = None) -> list[dict[str, Any]]:
+        return [
+            tool.as_openai_tool()
+            for tool in self._tools.values()
+            if names is None or tool.name in names
+        ]
 
     def invoke(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         tool = self._tools.get(name)

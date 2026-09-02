@@ -10,7 +10,7 @@ from retainpdf_ai.agent import (
     _assign_refs,
     _public_tool_payload,
     _referenced_citations,
-    _tool_specs_for_scope,
+    _sanitize_answer_text,
 )
 from retainpdf_ai.tools import Tool, ToolRegistry
 
@@ -309,13 +309,22 @@ def test_markdown_registry_blocks_hallucinated_hidden_legacy_tool():
     script = iter(
         [
             {"content": "", "tool_calls": [_tool_call("search_fulltext", {"query": "x"})]},
-            {"content": "Markdown-only 模式无法调用该工具。", "tool_calls": []},
+            {"content": "", "tool_calls": [_tool_call("search_markdown", {"query": "x"})]},
+            {"content": "Markdown-only 模式已完成安全检索。", "tool_calls": []},
         ]
     )
     result = RetrievalAgent(registry, lambda m, t: next(script)).ask("q")
     assert called == []
     assert result.answer.startswith("Markdown-only")
     assert result.tool_trace[0]["arguments"] == {"skipped": True}
+
+
+def test_markdown_internal_id_is_mapped_to_public_citation() -> None:
+    citations = {
+        1: Citation(1, "doc", "job", None, "md-0004", "evidence"),
+    }
+
+    assert _sanitize_answer_text("结论来自 md-0004。", citations) == "结论来自 [1]。"
 
 
 def test_agent_falls_back_to_all_citations_when_answer_has_no_markers():

@@ -34,7 +34,15 @@ def _contract_path_patterns() -> list[re.Pattern[str]]:
 
 
 def test_client_paths_are_contract_endpoints() -> None:
-    used_paths = re.findall(r"[\"'](/api/v1/ai/conversations[^\"']*)[\"']", CLIENT_SOURCE)
+    used_paths = [
+        path
+        for path in re.findall(
+            r"[\"'](/api/v1/ai/conversations[^\"']*)[\"']", CLIENT_SOURCE
+        )
+        # Conversation-scoped operations belong to the document-operation
+        # contract, not ai-conversations.v1.
+        if not path.endswith("/operations")
+    ]
     assert used_paths, "rust_client.py 中未找到会话 API 路径——扫描逻辑可能失效"
 
     patterns = _contract_path_patterns()
@@ -42,6 +50,10 @@ def test_client_paths_are_contract_endpoints() -> None:
         assert any(p.match(path) for p in patterns), (
             f"rust_client.py 使用了契约之外的路径: {path}"
         )
+
+
+def test_operation_context_uses_the_public_conversation_scoped_projection() -> None:
+    assert "/api/v1/ai/conversations/{normalized}/operations" in CLIENT_SOURCE
 
 
 def _payload_keys_near(function_name: str) -> set[str]:

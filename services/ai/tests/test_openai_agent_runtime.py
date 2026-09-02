@@ -11,15 +11,21 @@ from retainpdf_ai.openai_agent_runtime import (
     OpenAICompatibleAgentRuntime,
 )
 from retainpdf_ai.runtime import build_agent_runtime
+from retainpdf_ai.tools import Tool, ToolRegistry
 
 
 class FakeRust:
     def __init__(self):
         self.capability_calls: list[dict] = []
+        self.operations: list[dict] = []
 
     def issue_agent_capability(self, **kwargs) -> dict:
         self.capability_calls.append(kwargs)
         return {"capability": "host-only-capability"}
+
+    def list_agent_operations(self, conversation_id: str, *, limit: int = 20) -> list[dict]:
+        del conversation_id
+        return self.operations[:limit]
 
 
 class UnusedRetrievalAgent:
@@ -284,6 +290,84 @@ def test_openai_runtime_requires_preview_turn_between_run_and_commit(tmp_path):
     assert "预览候选版本" in result.answer
     assert [call["actions"] for call in rust.capability_calls] == [["operation.run"]]
     assert [item["status"] for item in result.tool_trace] == ["completed", "failed"]
+
+
+def test_openai_runtime_combines_reading_and_operation_tools(tmp_path):
+    rust = FakeRust()
+    rust.operations = [
+        {
+            "operation_id": "op-existing",
+            "document_id": "doc-a",
+            "status": "draft",
+            "current_attempt": 1,
+            "latest_event_seq": 4,
+            "affected_pages": [2],
+            "allowed_actions": ["run"],
+        }
+    ]
+    registry = ToolRegistry(
+        [
+            Tool(
+                name="search_markdown",
+                description="search current markdown",
+                parameters={
+                    "type": "object",
+                    "properties": {"query": {"type": "string"}},
+                    "required": ["query"],
+                },
+                handler=lambda arguments: {
+                    "hits": [
+                        {
+                            "document_id": arguments["document_id"],
+                            "job_id": arguments["job_id"],
+                            "block_id": "md-0001",
+                            "chunk_id": "md-0001",
+                            "source_snippet": "可靠证据",
+                        }
+                    ]
+                },
+            )
+        ]
+    )
+    cli = _write_operation_cli(tmp_path / "retainpdf-agent")
+    runtime = OpenAICompatibleAgentRuntime(
+        _settings(tmp_path, cli),
+        rust,  # type: ignore[arg-type]
+        reading_registry=registry,
+    )
+    calls = 0
+
+    def chat(messages, tools):
+        nonlocal calls
+        calls += 1
+        names = {tool["function"]["name"] for tool in tools}
+        assert "search_markdown" in names
+        assert "retainpdf_operation_create" in names
+        assert "op-existing" in messages[0]["content"]
+        if calls == 1:
+            return {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    _call("tool-search", "search_markdown", {"query": "证据"})
+                ],
+            }
+        return {"role": "assistant", "content": "结论来自 md-0001。"}
+
+    result = runtime.ask(
+        "先阅读，再按需要操作",
+        conversation_id="conv-a",
+        document_id="doc-a",
+        job_id="job-a",
+        request_message_id="msg-a",
+        chat_fn=chat,
+    )
+
+    assert result.answer == "结论来自 [1]。"
+    assert [citation.block_id for citation in result.citations] == ["md-0001"]
+    assert result.tool_trace == [
+        {"round": 1, "tool": "search_markdown", "status": "completed"}
+    ]
 
 
 def test_runtime_factory_selects_openai_agent_without_gateway_key(tmp_path):

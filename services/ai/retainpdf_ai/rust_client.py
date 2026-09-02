@@ -92,6 +92,22 @@ class RustApiClient:
                 return None
             raise
 
+    def list_agent_operations(
+        self,
+        conversation_id: str,
+        *,
+        limit: int = 20,
+    ) -> list[dict[str, Any]]:
+        """Read the browser-safe authoritative operation projection for a chat."""
+        normalized = conversation_id.strip()
+        if not normalized:
+            return []
+        data = self._get(
+            f"/api/v1/ai/conversations/{normalized}/operations",
+            {"limit": max(1, min(int(limit), 100))},
+        )
+        return [item for item in list(data.get("operations") or []) if isinstance(item, dict)]
+
     def create_conversation(
         self,
         *,
