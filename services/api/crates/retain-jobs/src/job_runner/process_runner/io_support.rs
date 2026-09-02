@@ -19,9 +19,9 @@ use super::super::cancel_registry::is_cancel_requested_any;
 use super::super::runtime_state::apply_job_stdout_line;
 use super::super::stdout_parser::{
     parse_artifact_published_line, parse_pipeline_checkpoint_line,
-    parse_pipeline_stage_observation_line, PipelineCheckpointObservation,
-    PipelineStageObservationLine, PublishedArtifactLine,
+    parse_pipeline_stage_observation_line, PipelineStageObservationLine, PublishedArtifactLine,
 };
+use super::checkpoint_commit::apply_durable_checkpoint;
 
 pub(super) async fn read_stream<R>(reader: R, secrets: Vec<String>) -> Result<String>
 where
@@ -228,82 +228,6 @@ fn durable_stage_key_for_observation(
 fn optional_text(value: String) -> Option<String> {
     let value = value.trim();
     (!value.is_empty()).then(|| value.to_string())
-}
-
-fn apply_durable_checkpoint(
-    db: &crate::db::Db,
-    cursor: &mut PipelineAttemptCursor,
-    job: &mut JobRuntimeState,
-    observation: PipelineCheckpointObservation,
-) -> Result<()> {
-    if observation.stage.trim() != cursor.stage_key {
-        anyhow::bail!(
-            "pipeline checkpoint stage mismatch for job {}: worker={} authoritative={}",
-            cursor.job_id,
-            observation.stage,
-            cursor.stage_key
-        );
-    }
-    let unit_fields = (
-        observation.unit_key.as_deref(),
-        observation.unit_order,
-        observation.page_index,
-        observation.page_hash.as_deref(),
-    );
-    let present_unit_fields = [
-        unit_fields.0.is_some(),
-        unit_fields.1.is_some(),
-        unit_fields.2.is_some(),
-        unit_fields.3.is_some(),
-    ]
-    .into_iter()
-    .filter(|present| *present)
-    .count();
-    if present_unit_fields != 0 && present_unit_fields != 4 {
-        anyhow::bail!(
-            "pipeline checkpoint has a partial committed-unit identity for job {}",
-            cursor.job_id
-        );
-    }
-    let mut authoritative_transition = false;
-    if let (Some(unit_key), Some(unit_order), Some(page_index), Some(page_hash)) = unit_fields {
-        let checkpoint = db.commit_pipeline_unit(
-            cursor,
-            &PipelineUnitCommit {
-                unit_key: unit_key.to_string(),
-                unit_order,
-                page_index: Some(page_index),
-                page_hash: page_hash.to_string(),
-                producer_generation: Some(observation.producer_generation),
-                payload: serde_json::json!({
-                    "phase": observation.phase.clone(),
-                    "status": observation.status.clone(),
-                    "progress": observation.progress.clone(),
-                }),
-            },
-        )?;
-        cursor.generation = checkpoint.generation;
-        authoritative_transition = true;
-    }
-    if observation.status == "complete" {
-        let checkpoint = db.complete_pipeline_stage(cursor)?;
-        cursor.generation = checkpoint.generation;
-        authoritative_transition = true;
-    }
-    // JobSnapshot is only a compatibility projection. Never let a raw
-    // checkpoint line with no accepted durable transition drive public
-    // progress; stage observations and committed units own that state.
-    if authoritative_transition {
-        if let Some(progress) = observation.progress.as_object() {
-            job.progress_current = progress
-                .get("completed_item_count")
-                .and_then(serde_json::Value::as_i64);
-            job.progress_total = progress
-                .get("item_count")
-                .and_then(serde_json::Value::as_i64);
-        }
-    }
-    Ok(())
 }
 
 fn durable_stage_key(stage: Option<&str>) -> &'static str {

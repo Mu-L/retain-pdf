@@ -73,8 +73,19 @@
       "page_index",
       "page_hash"
     ],
+    "committed_pages_field": {
+      "name": "committed_pages",
+      "description": "可选的多页原子提交数组；每项包含 unit_key、unit_order、page_index、page_hash 和 changed_item_ids。不得与顶层 committed_unit_fields 同时出现。Rust 以一个权威 generation 原子提交整批页面。",
+      "item_fields": [
+        "unit_key",
+        "unit_order",
+        "page_index",
+        "page_hash",
+        "changed_item_ids"
+      ]
+    },
     "page_hash": "lowercase sha256 of the atomically saved page JSON",
-    "example": "{\"event_type\":\"pipeline_checkpoint\",\"payload\":{\"schema\":\"pipeline_checkpoint_v1\",\"schema_version\":1,\"stage\":\"translate\",\"phase\":\"translating\",\"status\":\"in_progress\",\"producer_generation\":4,\"unit_key\":\"p1-u7\",\"unit_order\":7,\"page_index\":0,\"page_hash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"progress\":{\"completed_item_count\":8,\"item_count\":20}}}"
+    "example": "{\"event_type\":\"pipeline_checkpoint\",\"payload\":{\"schema\":\"pipeline_checkpoint_v1\",\"schema_version\":1,\"stage\":\"translate\",\"phase\":\"translating\",\"status\":\"in_progress\",\"producer_generation\":4,\"committed_pages\":[{\"unit_key\":\"p1-u7\",\"unit_order\":7,\"page_index\":0,\"page_hash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"changed_item_ids\":[\"p1-u6\",\"p1-u7\"]}],\"progress\":{\"completed_item_count\":8,\"item_count\":20}}}"
   },
   "stage_observation_event": {
     "schema": "pipeline_stage_observation_v1",

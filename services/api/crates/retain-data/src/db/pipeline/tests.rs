@@ -166,6 +166,48 @@ fn repair_updates_same_committed_unit_without_regressing_order() {
 }
 
 #[test]
+fn repair_can_refresh_an_earlier_page_without_moving_stage_cursor_backwards() {
+    let fixture = Fixture::new("repair-earlier-page");
+    let mut cursor = fixture
+        .db
+        .acquire_pipeline_attempt("job-1", "worker-a", "translate", 1)
+        .expect("acquire");
+    cursor.generation = fixture
+        .db
+        .commit_pipeline_unit(&cursor, &unit(1, "p001-b1", 'a'))
+        .expect("first page")
+        .generation;
+    let mut second = unit(2, "p002-b1", 'b');
+    second.producer_generation = Some(13);
+    cursor.generation = fixture
+        .db
+        .commit_pipeline_unit(&cursor, &second)
+        .expect("second page")
+        .generation;
+
+    let mut repaired_first = unit(1, "p001-b1", 'c');
+    repaired_first.producer_generation = Some(14);
+    let repaired = fixture
+        .db
+        .commit_pipeline_unit(&cursor, &repaired_first)
+        .expect("repair earlier page");
+
+    assert_eq!(repaired.last_committed_unit_key.as_deref(), Some("p002-b1"));
+    assert_eq!(repaired.last_committed_unit_order, Some(2));
+    assert_eq!(
+        repaired.last_page_hash.as_deref(),
+        Some("b".repeat(64).as_str())
+    );
+    let first_page = fixture
+        .db
+        .latest_pipeline_unit_for_page("job-1", "translate", 1)
+        .expect("query page")
+        .expect("page unit");
+    assert_eq!(first_page.page_hash, "c".repeat(64));
+    assert_eq!(first_page.generation, repaired.generation);
+}
+
+#[test]
 fn restart_fences_the_previous_worker() {
     let fixture = Fixture::new("restart");
     let old = fixture
@@ -242,6 +284,96 @@ fn events_are_inserted_only_after_authoritative_commit() {
     assert!(!events
         .iter()
         .any(|event| event.message.contains("raw stdout")));
+}
+
+#[test]
+fn multi_page_checkpoint_commits_atomically_in_one_generation() {
+    let fixture = Fixture::new("multi-page-checkpoint");
+    let mut cursor = fixture
+        .db
+        .acquire_pipeline_attempt("job-1", "worker-a", "translate", 1)
+        .expect("acquire");
+    let mut first = unit(1, "p001-b2", 'a');
+    first.page_index = Some(0);
+    first.producer_generation = Some(21);
+    first.payload = json!({"changed_item_ids": ["p001-b1", "p001-b2"]});
+    let mut second = unit(4, "p002-b1", 'b');
+    second.page_index = Some(1);
+    second.producer_generation = Some(21);
+    second.payload = json!({"changed_item_ids": ["p002-b1"]});
+
+    let checkpoint = fixture
+        .db
+        .commit_pipeline_units(&cursor, &[first.clone(), second.clone()])
+        .expect("commit batch");
+    assert_eq!(checkpoint.generation, cursor.generation + 1);
+    assert_eq!(
+        checkpoint.last_committed_unit_key.as_deref(),
+        Some("p002-b1")
+    );
+    let units = fixture
+        .db
+        .list_pipeline_units("job-1", cursor.attempt, "translate")
+        .expect("units");
+    assert_eq!(units.len(), 2);
+    assert_eq!(units[0].generation, units[1].generation);
+    assert_eq!(units[0].producer_generation, Some(21));
+
+    let events = fixture
+        .db
+        .list_translation_commit_events_after("job-1", 0, 10)
+        .expect("commit events");
+    assert_eq!(events.len(), 2);
+    assert_eq!(
+        events[0].payload["changed_item_ids"],
+        json!(["p001-b1", "p001-b2"])
+    );
+
+    cursor.generation = checkpoint.generation;
+    let duplicate = fixture
+        .db
+        .commit_pipeline_units(&cursor, &[first, second])
+        .expect("idempotent retransmission");
+    assert_eq!(duplicate.generation, checkpoint.generation);
+    assert_eq!(
+        fixture
+            .db
+            .list_translation_commit_events_after("job-1", 0, 10)
+            .expect("commit events")
+            .len(),
+        2
+    );
+}
+
+#[test]
+fn invalid_multi_page_checkpoint_does_not_partially_commit() {
+    let fixture = Fixture::new("invalid-multi-page-checkpoint");
+    let cursor = fixture
+        .db
+        .acquire_pipeline_attempt("job-1", "worker-a", "translate", 1)
+        .expect("acquire");
+    let first = unit(1, "p001-b1", 'a');
+    let mut invalid = unit(2, "p002-b1", 'b');
+    invalid.page_hash = "not-a-hash".to_string();
+
+    fixture
+        .db
+        .commit_pipeline_units(&cursor, &[first, invalid])
+        .expect_err("invalid batch");
+    assert!(fixture
+        .db
+        .list_pipeline_units("job-1", cursor.attempt, "translate")
+        .expect("units")
+        .is_empty());
+    assert_eq!(
+        fixture
+            .db
+            .pipeline_checkpoint("job-1", cursor.attempt, "translate")
+            .expect("checkpoint")
+            .expect("stage")
+            .generation,
+        cursor.generation
+    );
 }
 
 #[test]

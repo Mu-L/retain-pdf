@@ -5,6 +5,7 @@ use anyhow::Result;
 
 use super::ProcessRuntimeDeps;
 
+mod checkpoint_commit;
 mod completion;
 mod completion_pipeline;
 mod execution;

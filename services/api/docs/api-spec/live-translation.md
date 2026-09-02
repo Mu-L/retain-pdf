@@ -41,12 +41,19 @@ service restart therefore cannot expose translation text that later vanishes.
 
 Producer integration requirement: every page made visible to the overlay must
 have its own committed `translate` pipeline unit carrying that page's exact
-snapshot hash. A checkpoint that reports only the global
+snapshot hash. A checkpoint that reports only the legacy global
 `last_committed_unit` does not authorize other dirty pages, even if their files
 exist on disk; those page reads deliberately return
-`LIVE_TRANSLATION_PAGE_NOT_COMMITTED`. For a multi-page batch, the producer and
-Rust consumer must project every changed page and its exact changed item IDs
-into authoritative commits before emitting the refresh notification.
+`LIVE_TRANSLATION_PAGE_NOT_COMMITTED`.
+
+For a multi-page flush, the producer should send the optional
+`committed_pages` array in `pipeline_checkpoint_v1`. Each item contains
+`unit_key`, `unit_order`, `page_index`, `page_hash`, and `changed_item_ids`.
+Rust validates and commits the entire array in one SQLite transaction and one
+authority generation, then creates one durable refresh event per page. The
+legacy top-level unit fields remain accepted for old workers, but they cannot
+be mixed with `committed_pages` in one observation. A malformed page prevents
+the whole batch from becoming visible.
 
 Live-translation failures use string codes:
 

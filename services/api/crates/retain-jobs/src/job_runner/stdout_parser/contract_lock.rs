@@ -224,10 +224,9 @@ fn checkpoint_event_example_is_accepted_by_durable_parser() {
         .expect("checkpoint contract example must parse");
     assert_eq!(parsed.schema, "pipeline_checkpoint_v1");
     assert_eq!(parsed.stage, "translate");
-    assert!(parsed
-        .page_hash
-        .as_deref()
-        .is_some_and(|value| value.len() == 64));
+    assert_eq!(parsed.committed_pages.len(), 1);
+    assert_eq!(parsed.committed_pages[0].page_hash.len(), 64);
+    assert!(!parsed.committed_pages[0].changed_item_ids.is_empty());
 }
 
 #[test]

@@ -2,6 +2,16 @@ use serde::Deserialize;
 use serde_json::Value;
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
+pub(crate) struct PipelineCheckpointPageObservation {
+    pub(crate) unit_key: String,
+    pub(crate) unit_order: u64,
+    pub(crate) page_index: u32,
+    pub(crate) page_hash: String,
+    #[serde(default)]
+    pub(crate) changed_item_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub(crate) struct PipelineCheckpointObservation {
     pub(crate) schema: String,
     pub(crate) schema_version: u32,
@@ -13,6 +23,8 @@ pub(crate) struct PipelineCheckpointObservation {
     pub(crate) unit_order: Option<u64>,
     pub(crate) page_index: Option<u32>,
     pub(crate) page_hash: Option<String>,
+    #[serde(default)]
+    pub(crate) committed_pages: Vec<PipelineCheckpointPageObservation>,
     #[serde(default)]
     pub(crate) progress: Value,
 }
@@ -94,6 +106,19 @@ mod tests {
         assert_eq!(parsed.unit_key.as_deref(), Some("p1-u7"));
         assert_eq!(parsed.unit_order, Some(7));
         assert_eq!(parsed.producer_generation, 4);
+        assert!(parsed.committed_pages.is_empty());
+    }
+
+    #[test]
+    fn parses_checkpoint_with_multiple_committed_pages() {
+        let line = r#"{"event_type":"pipeline_checkpoint","payload":{"schema":"pipeline_checkpoint_v1","schema_version":1,"stage":"translate","phase":"translating","status":"in_progress","producer_generation":5,"committed_pages":[{"unit_key":"p001-b4","unit_order":4,"page_index":0,"page_hash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","changed_item_ids":["p001-b3","p001-b4"]},{"unit_key":"p002-b2","unit_order":8,"page_index":1,"page_hash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","changed_item_ids":["p002-b2"]}],"progress":{"completed_item_count":9,"item_count":20}}}"#;
+        let parsed = parse_pipeline_checkpoint_line(line).expect("checkpoint observation");
+        assert_eq!(parsed.committed_pages.len(), 2);
+        assert_eq!(parsed.committed_pages[0].page_index, 0);
+        assert_eq!(
+            parsed.committed_pages[0].changed_item_ids,
+            ["p001-b3", "p001-b4"]
+        );
     }
 
     #[test]

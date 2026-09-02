@@ -492,7 +492,9 @@ routes/library*.rs, collections.rs
 
 - live translation 由 `services/jobs/live_translation.rs` 从已提交的
   `pipeline_units` 选择 immutable checkpoint；SSE 只是刷新提示，route
-  不能直接把 worker 可变文件当权威译文
+  不能直接把 worker 可变文件当权威译文；多页 flush 通过
+  `pipeline_checkpoint_v1.committed_pages` 在一个 SQLite transaction 和
+  authority generation 内整批提交，任一页无效时不得部分可见
 - public operation 列表/详情只返回 `public_document_operations.rs`
   的脱敏投影；动作必须校验 status / attempt / program hash，internal
   manifest、workspace 路径和 capability 不得透到浏览器
