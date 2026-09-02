@@ -1396,6 +1396,7 @@ dependencies = [
  "chrono",
  "csv",
  "fastrand",
+ "futures-util",
  "getrandom 0.2.17",
  "hmac",
  "libc",

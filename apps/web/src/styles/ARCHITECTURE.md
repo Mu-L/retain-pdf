@@ -2,59 +2,34 @@
 
 ## Goal
 
-Three independent page bundles — no cross-page domain leakage.
+Keep three independent page bundles with explicit ownership and no cross-page domain leakage.
 
-| HTML | Entry | Output |
-|------|--------|--------|
-| `index.html` | `entries/home.css` | `dist/css/home.css` |
-| `detail.html` | `entries/detail.css` | `dist/css/detail.css` |
-| `reader.html` | `entries/reader.css` | `dist/css/reader.css` |
-| (legacy engine) | `entries/reader-legacy.css` | `dist/css/reader-legacy.css` |
+| HTML | Web entry | Source of truth | Output |
+|------|-----------|-----------------|--------|
+| `index.html` | `entries/home.css` | `apps/web/src/styles` | `dist/css/home.css` |
+| `detail.html` | `entries/detail.css` | `apps/web/src/styles` | `dist/css/detail.css` |
+| `reader.html` | `entries/reader.css` | `packages/reader/styles/entry.css` | `dist/css/reader.css` |
 
-## Allowed shared layer
+The Reader entry in `apps/web` is a thin proxy. Reader components and styles are owned by `@retainpdf/reader`; edit `packages/reader/styles`, not the retained files under `apps/web/src/styles/reader`.
 
-Only these may appear in more than one entry:
-
-- `tokens.css` / `shadcn-theme.css` / `base.css` / `core/tailwind-theme.css`
-- `components.css` + `components.utilities.css` (generic UI)
-- `dialog-shell.css`
-- `core/download-toast.css`
-- `reader/markdown.css` (default float + legacy drawer both use content classes)
-
-Everything else is **page-owned**.
+The current build has no legacy Reader entry. `dist/css/reader-legacy.css`, if present in a checkout, is a historical artifact and is not generated or loaded by the current application.
 
 ## Rules
 
-- Entry A must not `@import` domain CSS that belongs to page B.
-- New styles go next to the page domain (`pages/home|detail|reader` or existing reader/*), never into a “global dump”.
-- Prefer page prefix: `library-*`, `bd-*`, `detail-*`, `reader-*`.
-- After CSS or JS build changes, run `npm run build:css` (JS build must not wipe `dist/css/`).
+- Home and detail page-specific styles must stay in their page-owned entry graph.
+- Shared Web styles are limited to tokens, base, generic components, dialog shell, ambient surface, and download feedback where the consuming entries explicitly import them.
+- App dialogs use `src/components/ui/dialog.tsx` plus the `app-dialog-*` contract in `dialog-shell.css`. Feature CSS may own inner layouts but not modal overlays, positioning, radii, close controls, or z-index levels.
+- Reader styles are assembled by `packages/reader/styles/entry.css` and consumed through `entries/reader.css`.
+- Do not add new imports to the retained `apps/web/src/styles/reader` mirror.
+- JavaScript builds must preserve `dist/css`; CSS builds own the three CSS outputs.
+- Run architecture tests after changing entry ownership or selector namespaces.
 
-## Reader packages
+## Verification
 
-**Default (`entries/reader.css`)** — react-pdf only:
+```bash
+npm --prefix apps/web run build:css
+npm --prefix apps/web test -- 'tests/architecture/*.test.mjs'
+npm --prefix apps/web run visual:check
+```
 
-- `layout.css` / `chrome.css` / `content.css` (shared shell, no three-column)
-- `react-pdf.css` / `hud.css`
-- `fab*.css` / `selection-pop.css` / `notes-float.css` / `float-markdown.css`
-- `float-ai*.css` (assistant-ui; no legacy chat skin)
-- `markdown.css`
-
-**Legacy (`entries/reader-legacy.css`)** — `?engine=legacy` only:
-
-- `layout-legacy.css` / `chrome-legacy.css`
-- `side-drawer` / `favorites` / `selection` / `ai` / `annotations` / `region-popover`
-- re-imports `markdown.css`
-
-## Done (selected)
-
-- P0–P4: home/detail/reader split; iframe host removed; components.utilities peeled.
-- P3/P5: reader default slim; content/AI/FAB modularized.
-- **P6 residual purge**: removed dead `reader.css` / `reader-page.css` stubs; dropped
-  `float-ai-legacy-chat.css` and default-entry `ai.css`; peeled three-column / download
-  menu / chrome-muted into `layout-legacy.css` + `chrome-legacy.css`.
-
-## Next
-
-1. Optionally prune dead `@utility` in `pages/home/components.utilities.css`.
-2. When `?engine=legacy` is retired, delete `entries/reader-legacy.css` and `reader/*-legacy.css` / drawer modules.
+Only update visual baselines after confirming the rendered change is intentional.

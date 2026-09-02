@@ -8,7 +8,7 @@ import { JSDOM } from "jsdom";
 // 状态区可见性 → 对话框模式同步、3b 回调桥接口定型。
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/index.html" });
-for (const key of ["window", "document", "HTMLElement", "HTMLInputElement", "CustomEvent", "Event", "KeyboardEvent", "MouseEvent", "Node", "MutationObserver", "NodeFilter"]) {
+for (const key of ["window", "document", "DocumentFragment", "HTMLElement", "HTMLButtonElement", "HTMLFormElement", "HTMLInputElement", "CustomEvent", "Event", "KeyboardEvent", "MouseEvent", "Node", "MutationObserver", "NodeFilter"]) {
   Object.defineProperty(globalThis, key, {
     value: dom.window[key] ?? dom.window,
     writable: true,
@@ -145,6 +145,8 @@ test("HomeApp：契约 id、idle 链、工作流对话框事件契约与交互",
   assert.equal(dialog.dataset.open, "1");
   assert.equal(dialog.classList.contains("is-upload-mode"), true);
   assert.equal(byId("translation-workflow-title").textContent, "添加 PDF");
+  assert.equal(byId("translation-workflow-title").classList.contains("sr-only"), true, "上传标题只供无障碍读取");
+  assert.equal(byId("translation-workflow-desc"), null, "上传副标题不再渲染");
   assert.equal(dom.window.document.documentElement.classList.contains("translation-workflow-open"), true);
   await waitFor(() => byId("library-add-pdf-btn").getAttribute("aria-expanded") === "true", "触发按钮 aria 同步");
   assert.equal(byId("library-add-pdf-btn").dataset.workflowOpen, "1");
@@ -153,44 +155,52 @@ test("HomeApp：契约 id、idle 链、工作流对话框事件契约与交互",
   //      过才存在于 DOM) ----
   const workflowContractIds = [
     "translation-workflow-close-btn", "job-warning",
-    "job-form", "ocr_provider", "paddle_token", "api_key",
+    "job-form", "ocr_provider", "paddle_token",
     "file", "upload-fill", "credential-gate", "credential-gate-title", "credential-gate-help", "credential-gate-action",
     "upload-glyph", "file-label", "upload-help", "upload-status", "upload-progress-panel", "upload-progress-text",
-    "inline-page-range", "page-range-start", "page-range-end", "translation-budget-note",
-    "upload-action-slot", "page-range-btn", "submit-btn", "error-box-inline",
+    "translation-budget-note",
+    "ocr-only-toggle", "upload-action-slot",
+    "page-range-btn", "store-only-btn", "submit-btn", "error-box-inline",
     "status-section", "job-status-card",
   ];
   for (const id of workflowContractIds) {
     assert.ok(byId(id), `契约 id 缺失：#${id}`);
   }
 
-  // ---- 专业翻译对话框(PageRangeDialog,阶段 C 收官批换 Radix,不
-  //      forceMount,只有点开过才挂载于 DOM):点击 #page-range-btn 打开,
-  //      契约 id 逐一存在,关闭按钮点击后卸载。背板点击/Esc 的纯关闭语义
-  //      统一(顺手修的真实 bug:原来背板点击会触发 applyPageRanges(),Esc
-  //      走另一条只清 flag 的路径,两者不一致)靠 fresh Playwright 实测验证——
-  //      jsdom 下 Radix DismissableLayer 的 outside-pointerdown 检测不可靠,
-  //      同其余已迁移对话框的既有测试先例(credentials-dialog-component.test.mjs
-  //      等同样只在这里测挂载/关闭按钮,不测背板/Esc)。 ----
+  // ---- 翻译选项是主弹窗内的可展开面板，不再打开第二层 Dialog。点击
+  //      #page-range-btn 后挂载，收起按钮点击后卸载。 ----
   assert.equal(byId("page-range-dialog"), null, "初始未打开时不挂载");
   click(byId("page-range-btn"));
-  await waitFor(() => byId("page-range-dialog") !== null, "专业翻译对话框打开");
+  await waitFor(() => byId("page-range-dialog") !== null, "行内翻译选项展开");
   for (const id of [
-    "page-range-title", "page-range-limit-text", "job-glossary-id",
+    "page-range-title", "page-range-limit-text", "page-range-start", "page-range-end", "job-glossary-id",
     "page-range-close-btn", "page-range-clear-btn", "page-range-apply-btn",
   ]) {
     assert.ok(byId(id), `契约 id 缺失：#${id}`);
   }
   click(byId("page-range-close-btn"));
-  await waitFor(() => byId("page-range-dialog") === null, "关闭按钮点击后对话框卸载");
+  await waitFor(() => byId("page-range-dialog") === null, "收起按钮点击后选项卸载");
 
   // ---- idle 复位链:上传瓦片回到默认态,提交按钮置灰 ----
   assert.equal(byId("file-label").textContent, "点击选择文件或拖到这里");
-  assert.equal(byId("upload-help").textContent, "选择 PDF 后，可直接翻译或仅收藏到书架。");
+  assert.equal(byId("upload-help").textContent, "选择 PDF 后，可选择仅收藏、仅 OCR 或翻译。");
   assert.equal(byId("submit-btn").disabled, true);
-  assert.equal(byId("submit-btn").textContent, "直接翻译");
+  assert.equal(byId("submit-btn").textContent.trim(), "直接翻译");
   assert.equal(byId("job-warning").classList.contains("hidden"), true);
   assert.equal(byId("status-section").classList.contains("hidden"), true);
+
+  // ---- 模式切换只改变工作流，不替换上传说明。长短不同的说明会让
+  //      上传卡和外层 Dialog 在翻译 / OCR 间发生 18px 高度抖动。 ----
+  const translateModeTab = dom.window.document.querySelector('[role="tab"][aria-label="翻译模式"]');
+  const ocrModeTab = dom.window.document.querySelector('[role="tab"][aria-label="仅 OCR 模式"]');
+  assert.ok(translateModeTab);
+  assert.ok(ocrModeTab);
+  click(ocrModeTab);
+  await waitFor(() => byId("submit-btn").textContent.trim() === "开始 OCR", "切换到仅 OCR 模式");
+  assert.equal(byId("upload-help").textContent, "选择 PDF 后，可选择仅收藏、仅 OCR 或翻译。");
+  click(translateModeTab);
+  await waitFor(() => byId("submit-btn").textContent.trim() === "直接翻译", "切回翻译模式");
+  assert.equal(byId("upload-help").textContent, "选择 PDF 后，可选择仅收藏、仅 OCR 或翻译。");
 
   // ---- setText("error-box") 通道:inline-error-box 显隐(对话框仍处于打开
   //      状态,元素挂载中) ----
@@ -200,10 +210,11 @@ test("HomeApp：契约 id、idle 链、工作流对话框事件契约与交互",
   services.bridge.setText("error-box", "-");
   await waitFor(() => byId("error-box-inline").classList.contains("hidden") === true, "错误盒隐藏");
 
-  // ---- 页码区间:上传态就位后可见,输入越界被约束(对话框仍处于打开状态) ----
+  // ---- 页码区间:上传态就位后展开翻译选项,输入越界被约束 ----
   services.ports.uploadStatePort.setUpload({ uploadId: "u-1", uploadedPageCount: 10 });
   services.features.uploadFeature.renderPageRangeSummary();
-  await waitFor(() => byId("inline-page-range").classList.contains("hidden") === false, "页码区间显示");
+  click(byId("page-range-btn"));
+  await waitFor(() => byId("page-range-start") !== null, "页码区间显示");
   typeInput(byId("page-range-start"), "99");
   await waitFor(() => byId("page-range-start").value === "10", "起始页被约束到总页数");
 
@@ -213,6 +224,7 @@ test("HomeApp：契约 id、idle 链、工作流对话框事件契约与交互",
   await waitFor(() => byId("status-section").classList.contains("hidden") === false, "状态区显示");
   await waitFor(() => dialog.classList.contains("is-status-mode"), "对话框切到状态模式");
   assert.equal(byId("translation-workflow-title").textContent, "任务进度");
+  assert.equal(byId("translation-workflow-title").classList.contains("sr-only"), false, "任务进度标题保持可见");
   services.bridge.setWorkflowSections(null);
   await waitFor(() => byId("status-section").classList.contains("hidden") === true, "状态区隐藏");
   await waitFor(() => dialog.classList.contains("is-upload-mode"), "对话框回到上传模式");
@@ -253,7 +265,7 @@ test("HomeApp：契约 id、idle 链、工作流对话框事件契约与交互",
   host.remove();
 });
 
-test("HomeApp：顶部图书馆/合集/收藏分栏 + 分类管理对话框", async () => {
+test("HomeApp：顶部图书馆/合集/收藏/AI 分栏 + 分类管理对话框", async () => {
   const host = dom.window.document.createElement("div");
   host.id = "home-root-categories";
   dom.window.document.body.appendChild(host);
@@ -266,14 +278,16 @@ test("HomeApp：顶部图书馆/合集/收藏分栏 + 分类管理对话框", as
   await waitFor(() => byId("app-shell"), "HomeApp 首帧渲染");
   await wait(0);
 
-  // ---- 分栏契约:四个 tab 都在,默认落在图书馆 ----
+  // ---- 分栏契约:四个 tab 都在,任务入口已移除,默认落在图书馆 ----
   assert.ok(byId("library-top-tab-library"), "契约 id 缺失：#library-top-tab-library");
   assert.ok(byId("library-top-tab-categories"), "契约 id 缺失：#library-top-tab-categories");
   assert.ok(byId("library-top-tab-favorites"), "契约 id 缺失：#library-top-tab-favorites");
+  assert.equal(byId("library-top-tab-tasks"), null, "主页顶栏不应再显示任务 tab");
   assert.ok(byId("library-top-tab-ask"), "契约 id 缺失：#library-top-tab-ask");
   assert.ok(byId("library-view"), "默认应停在图书馆视图");
   assert.equal(byId("categories-view"), null, "默认不挂载合集视图");
   assert.equal(byId("favorites-view"), null, "默认不挂载收藏视图");
+  assert.equal(byId("task-center-view"), null, "默认不挂载任务中心");
   assert.equal(byId("home-ask-view"), null, "默认不挂载 AI 问答视图");
   assert.ok(byId("library-search-input"), "图书馆 tab 下搜索框应可见");
 
@@ -312,6 +326,7 @@ test("HomeApp：顶部图书馆/合集/收藏分栏 + 分类管理对话框", as
   click(byId("library-top-tab-ask"));
   await waitFor(() => byId("home-ask-view") !== null, "AI 问答视图挂载");
   assert.equal(byId("favorites-view"), null, "AI tab 下收藏视图应卸载");
+  assert.equal(byId("task-center-view"), null, "AI tab 下任务中心应卸载");
   assert.equal(byId("library-view"), null, "AI tab 下图书馆视图应卸载");
   assert.equal(byId("library-search-input"), null, "AI tab 下搜索框应隐藏");
 

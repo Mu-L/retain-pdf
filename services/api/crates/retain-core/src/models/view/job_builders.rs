@@ -231,6 +231,11 @@ pub fn build_artifact_manifest(
     base_url: &str,
     items: &[JobArtifactRecord],
 ) -> JobArtifactManifestView {
+    let attempt = job
+        .runtime
+        .as_ref()
+        .map(|runtime| runtime.retry_count.saturating_add(1))
+        .unwrap_or(1);
     JobArtifactManifestView {
         job_id: job.job_id.clone(),
         items: items
@@ -247,6 +252,7 @@ pub fn build_artifact_manifest(
                 checksum: item.checksum.clone(),
                 source_stage: item.source_stage.clone(),
                 updated_at: item.updated_at.clone(),
+                attempt,
                 resource_path: artifact_resource_path(job, &item.artifact_key),
                 resource_url: artifact_resource_path(job, &item.artifact_key)
                     .map(|path| to_absolute_url(base_url, &path)),
@@ -299,6 +305,15 @@ pub fn job_to_detail(
         job_id: job.job_id.clone(),
         workflow: job.workflow.clone(),
         status: job.status.clone(),
+        ocr_reused: !job.request_payload.source.artifact_job_id.trim().is_empty(),
+        source_artifact_job_id: Some(
+            job.request_payload
+                .source
+                .artifact_job_id
+                .trim()
+                .to_string(),
+        )
+        .filter(|value| !value.is_empty()),
         request_payload: public_request_payload(&job.request_payload),
         trace_id: job
             .artifacts
@@ -380,6 +395,20 @@ pub fn job_to_list_item(
         display_name,
         workflow: job.workflow.clone(),
         status: job.status.clone(),
+        attempt: job
+            .runtime
+            .as_ref()
+            .map(|runtime| runtime.retry_count.saturating_add(1))
+            .unwrap_or(1),
+        retry_count: job
+            .runtime
+            .as_ref()
+            .map(|runtime| runtime.retry_count)
+            .unwrap_or(0),
+        last_retry_at: job
+            .runtime
+            .as_ref()
+            .and_then(|runtime| runtime.last_retry_at.clone()),
         trace_id: job
             .artifacts
             .as_ref()

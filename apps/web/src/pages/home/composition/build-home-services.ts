@@ -70,6 +70,10 @@ export function buildHomeServices({
         : (jobId: string) => (library.libraryController as any).selectJobForDetail(jobId, {} as any),
       openSourceReader: library.libraryController.openSourceReader,
       translateDocument: library.libraryController.translateDocument,
+      ocrDocument: library.libraryController.ocrDocument,
+      getDocumentJobs: library.libraryController.getDocumentJobs,
+      getJobStageActions: library.libraryController.getJobStageActions,
+      retryJobStage: library.libraryController.retryJobStage,
       deleteDocument: library.libraryController.deleteDocument,
       deleteDocuments: library.libraryController.deleteDocuments,
       deleteCard: library.libraryController.deleteCard,
@@ -139,6 +143,9 @@ export function buildHomeServices({
     },
     artifactDownloads: {
       busyStore: status.artifactDownloadBusyStore,
+    },
+    jobRuntime: {
+      store: status.currentJobStore as unknown as HomeServices["jobRuntime"]["store"],
     },
     statusCard,
     statusCardPort: statusCard,

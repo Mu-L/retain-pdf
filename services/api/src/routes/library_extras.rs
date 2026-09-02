@@ -6,7 +6,9 @@
 //!
 //! All handlers go through library_api (PR5).
 
-use axum::extract::{Multipart, Path as AxumPath, Query, State};
+use std::num::NonZeroU64;
+
+use axum::extract::State;
 use axum::http::header;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
@@ -17,7 +19,10 @@ use crate::models::api::{
     ConversationMutationResult, ConversationRecord, CreateConversationInput, ForkConversationInput,
     ListConversationsQuery, MessageRecord, PatchConversationInput,
 };
-use crate::routes::common::{build_library_route_deps, ok_json};
+use crate::routes::common::{
+    build_library_route_deps, ok_json, read_multipart_field_limited, safe_multipart_error, ApiJson,
+    ApiMultipart, ApiPath, ApiQuery,
+};
 use crate::services::library_api::{
     append_message_view, create_conversation_view, delete_conversation_view,
     fork_conversation_view, get_conversation_view, list_conversations_view, load_asset_view,
@@ -27,38 +32,35 @@ use crate::AppState;
 
 pub async fn upload_asset_route(
     State(state): State<AppState>,
-    mut multipart: Multipart,
+    ApiMultipart(mut multipart): ApiMultipart,
 ) -> Result<Json<ApiResponse<AssetRecord>>, AppError> {
+    let deps = build_library_route_deps(&state);
     let mut bytes: Option<(String, Vec<u8>)> = None;
-    while let Some(field) = multipart
-        .next_field()
-        .await
-        .map_err(|error| AppError::bad_request(format!("invalid multipart: {error}")))?
-    {
+    while let Some(field) = multipart.next_field().await.map_err(safe_multipart_error)? {
         if field.name() != Some("file") {
             continue;
         }
+        let max_bytes = u64::try_from(deps.library.asset_config.max_bytes)
+            .ok()
+            .and_then(NonZeroU64::new)
+            .ok_or_else(|| AppError::payload_too_large("request body is too large"))?;
         let mime = field
             .content_type()
             .unwrap_or("application/octet-stream")
             .to_string();
-        let data = field
-            .bytes()
-            .await
-            .map_err(|error| AppError::bad_request(format!("read upload failed: {error}")))?;
+        let data = read_multipart_field_limited(field, max_bytes).await?;
         bytes = Some((mime, data.to_vec()));
         break;
     }
     let Some((mime, data)) = bytes else {
         return Err(AppError::bad_request("multipart field 'file' is required"));
     };
-    let deps = build_library_route_deps(&state);
     Ok(ok_json(store_asset_view(&deps.library, &mime, &data)?))
 }
 
 pub async fn download_asset_route(
     State(state): State<AppState>,
-    AxumPath(asset_id): AxumPath<String>,
+    ApiPath(asset_id): ApiPath<String>,
 ) -> Result<Response, AppError> {
     let deps = build_library_route_deps(&state);
     let asset = load_asset_view(&deps.library, &asset_id)?;
@@ -78,7 +80,7 @@ pub async fn download_asset_route(
 
 pub async fn create_conversation_route(
     State(state): State<AppState>,
-    Json(payload): Json<CreateConversationInput>,
+    ApiJson(payload): ApiJson<CreateConversationInput>,
 ) -> Result<Json<ApiResponse<ConversationRecord>>, AppError> {
     let deps = build_library_route_deps(&state);
     Ok(ok_json(create_conversation_view(&deps.library, &payload)?))
@@ -86,7 +88,7 @@ pub async fn create_conversation_route(
 
 pub async fn list_conversations_route(
     State(state): State<AppState>,
-    Query(query): Query<ListConversationsQuery>,
+    ApiQuery(query): ApiQuery<ListConversationsQuery>,
 ) -> Result<Json<ApiResponse<ConversationListView>>, AppError> {
     let deps = build_library_route_deps(&state);
     Ok(ok_json(list_conversations_view(&deps.library, &query)?))
@@ -94,7 +96,7 @@ pub async fn list_conversations_route(
 
 pub async fn get_conversation_route(
     State(state): State<AppState>,
-    AxumPath(conversation_id): AxumPath<String>,
+    ApiPath(conversation_id): ApiPath<String>,
 ) -> Result<Json<ApiResponse<ConversationDetailView>>, AppError> {
     let deps = build_library_route_deps(&state);
     Ok(ok_json(get_conversation_view(
@@ -105,7 +107,7 @@ pub async fn get_conversation_route(
 
 pub async fn delete_conversation_route(
     State(state): State<AppState>,
-    AxumPath(conversation_id): AxumPath<String>,
+    ApiPath(conversation_id): ApiPath<String>,
 ) -> Result<Json<ApiResponse<ConversationMutationResult>>, AppError> {
     let deps = build_library_route_deps(&state);
     Ok(ok_json(delete_conversation_view(
@@ -116,8 +118,8 @@ pub async fn delete_conversation_route(
 
 pub async fn patch_conversation_route(
     State(state): State<AppState>,
-    AxumPath(conversation_id): AxumPath<String>,
-    Json(payload): Json<PatchConversationInput>,
+    ApiPath(conversation_id): ApiPath<String>,
+    ApiJson(payload): ApiJson<PatchConversationInput>,
 ) -> Result<Json<ApiResponse<ConversationRecord>>, AppError> {
     let deps = build_library_route_deps(&state);
     Ok(ok_json(patch_conversation_view(
@@ -129,8 +131,8 @@ pub async fn patch_conversation_route(
 
 pub async fn append_message_route(
     State(state): State<AppState>,
-    AxumPath(conversation_id): AxumPath<String>,
-    Json(payload): Json<AppendMessageInput>,
+    ApiPath(conversation_id): ApiPath<String>,
+    ApiJson(payload): ApiJson<AppendMessageInput>,
 ) -> Result<Json<ApiResponse<MessageRecord>>, AppError> {
     let deps = build_library_route_deps(&state);
     Ok(ok_json(append_message_view(
@@ -142,7 +144,7 @@ pub async fn append_message_route(
 
 pub async fn fork_conversation_route(
     State(state): State<AppState>,
-    Json(payload): Json<ForkConversationInput>,
+    ApiJson(payload): ApiJson<ForkConversationInput>,
 ) -> Result<Json<ApiResponse<ConversationDetailView>>, AppError> {
     let deps = build_library_route_deps(&state);
     Ok(ok_json(fork_conversation_view(&deps.library, &payload)?))

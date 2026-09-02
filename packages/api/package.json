@@ -54,6 +54,14 @@
       "types": "./dist/ai.d.ts",
       "import": "./dist/ai.js"
     },
+    "./document-operations": {
+      "types": "./dist/document-operations.d.ts",
+      "import": "./dist/document-operations.js"
+    },
+    "./agent-runtime-settings": {
+      "types": "./dist/agent-runtime-settings.d.ts",
+      "import": "./dist/agent-runtime-settings.js"
+    },
     "./documents": {
       "types": "./dist/documents.d.ts",
       "import": "./dist/documents.js"
@@ -93,6 +101,10 @@
     "./fonts": {
       "types": "./dist/fonts.d.ts",
       "import": "./dist/fonts.js"
+    },
+    "./credentials": {
+      "types": "./dist/credentials.d.ts",
+      "import": "./dist/credentials.js"
     },
     "./utils/strip-ocr": {
       "types": "./dist/utils/strip-ocr.d.ts",

@@ -17,6 +17,10 @@ import type {
   StatusDetailDialogStore,
 } from "./status-detail-dialog-store.js";
 import type { DialogState } from "../../state/dialog-store.js";
+import type {
+  OcrReceiptValues,
+  OcrRecoveryOutcome,
+} from "./ocr-ambiguity-recovery.js";
 
 /** controller 表面（JSX 直接调用的方法） */
 export type StatusDetailControllerApi = {
@@ -29,6 +33,12 @@ export type StatusDetailControllerApi = {
   replayTranslationItem?: (...args: unknown[]) => unknown;
   replayCurrentItem?: (...args: unknown[]) => unknown;
   rerunCurrentJob?: () => Promise<unknown> | unknown;
+  acceptOcrDuplicateRiskAndRecover?: () => Promise<OcrRecoveryOutcome> | OcrRecoveryOutcome;
+  bindExistingOcrReceiptAndRecover?: (
+    values: OcrReceiptValues,
+  ) => Promise<OcrRecoveryOutcome> | OcrRecoveryOutcome;
+  retryOcrNow?: () => Promise<unknown> | unknown;
+  copyFailureTraceId?: () => Promise<unknown> | unknown;
   ensureOverviewData?: (options?: { force?: boolean }) => Promise<unknown> | unknown;
   ensureTranslationData?: (options?: { force?: boolean }) => Promise<unknown> | unknown;
   syncRerunAction?: (statusText?: string) => unknown;
@@ -42,6 +52,7 @@ export type StatusDetailOverviewHook = {
   overview: StatusDetailOverview;
   translation: StatusDetailTranslation;
   rerunPending: boolean;
+  ocrAmbiguityPending: boolean;
   controller: StatusDetailControllerApi;
   dialogStore: StatusDetailDialogStore;
 };
@@ -62,6 +73,7 @@ export function useStatusDetailOverview(): StatusDetailOverviewHook {
     overview: snapshot.overview,
     translation: snapshot.translation,
     rerunPending: Boolean(snapshot.rerunPending),
+    ocrAmbiguityPending: Boolean(snapshot.ocrAmbiguityPending),
     controller,
     dialogStore,
   };

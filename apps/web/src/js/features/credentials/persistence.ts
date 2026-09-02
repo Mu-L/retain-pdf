@@ -43,13 +43,12 @@ export async function persistDesktopCredentialsFromDialog({
 }: any) {
   const provider = currentOcrProvider();
   const paddleToken = values.paddleToken;
-  // 与浏览器一致：只存用户在设置里填的 Key，不从 runtime 静默回填
-  void defaultModelApiKey;
-  const modelApiKey = `${values.modelApiKey || ""}`.trim();
+  const modelApiKey = `${values.modelApiKey || defaultModelApiKey?.() || ""}`.trim();
   await saveDesktopConfig?.(
     {
       ocrProvider: provider,
       paddleToken,
+      translationCredentialRef: `${values.translationCredentialRef || ""}`.trim(),
       modelApiKey,
       markConfigured: setupModePort.currentSetupMode(),
     },

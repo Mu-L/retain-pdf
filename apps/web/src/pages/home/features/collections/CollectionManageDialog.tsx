@@ -1,6 +1,5 @@
-// 新建/管理合集对话框(shadcn 改造后新增的第 10 个对话框,和其余 9 个同一套
-// 路:DialogPrimitive.Root/Portal/Overlay/Content + desktop-dialog/
-// desktop-shell + useDialogReturnFocus)。
+// 新建/管理合集对话框。外层走共享 AppDialog，内部保留名称与书目勾选表单，
+// 焦点归还继续由 useDialogReturnFocus 负责。
 //
 // 交互借鉴参考项目 PDF_MD_lib 的 FolderManageModal(名称输入 + 从书库勾选),
 // 简化成单栏勾选(不做手动排序——本次不做拖拽/排序,见调研计划「不做的事」)。
@@ -12,8 +11,15 @@
 // 这里 bump 一次,CollectionsView 订阅到变化就重新拉取列表。
 
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
-import { Dialog as DialogPrimitive } from "radix-ui";
+import {
+  Dialog,
+  DialogBody,
+  DialogCloseButton,
+  DialogContent,
+  DialogHeader,
+  DialogShell,
+  DialogTitle,
+} from "@/components/ui/dialog.js";
 import { Button as ButtonBase } from "../../../../components/Button.jsx";
 
 // Button.size 在未注解源文件里被推断为必填;unstyled 路径运行时不用 size。
@@ -149,24 +155,21 @@ export function CollectionManageDialog() {
   }
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={handleOpenChange}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="desktop-dialog-overlay" />
-        <DialogPrimitive.Content
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent
           id="collection-manage-dialog"
-          className="desktop-dialog collection-manage-dialog"
+          className="collection-manage-dialog"
           onCloseAutoFocus={onCloseAutoFocus}
+          showCloseButton={false}
         >
-          <div className="desktop-shell">
-            <div className="desktop-head">
-              <DialogPrimitive.Title asChild>
+          <DialogShell className="desktop-shell">
+            <DialogHeader className="desktop-head">
+              <DialogTitle asChild>
                 <h2>{isCreate ? "新建合集" : "管理合集"}</h2>
-              </DialogPrimitive.Title>
-              <DialogPrimitive.Close asChild>
-                <button id="collection-manage-close-btn" type="button" className="dialog-close-btn" aria-label="关闭"><X className="h-4 w-4" /></button>
-              </DialogPrimitive.Close>
-            </div>
-            <div className="desktop-body collection-manage-body">
+              </DialogTitle>
+              <DialogCloseButton id="collection-manage-close-btn" />
+            </DialogHeader>
+            <DialogBody className="desktop-body collection-manage-body">
               <label className="collection-name-field">
                 <span>名称</span>
                 <input
@@ -202,7 +205,7 @@ export function CollectionManageDialog() {
                 )}
               </div>
               {error ? <p className="collection-manage-error">{error}</p> : null}
-            </div>
+            </DialogBody>
             <div className="collection-manage-actions">
               {!isCreate ? (
                 <Button
@@ -223,9 +226,8 @@ export function CollectionManageDialog() {
                 {saving ? "保存中…" : "保存"}
               </Button>
             </div>
-          </div>
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+          </DialogShell>
+        </DialogContent>
+    </Dialog>
   );
 }

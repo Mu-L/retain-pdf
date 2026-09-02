@@ -2,7 +2,7 @@
 
 import { API_PREFIX } from "./external/config.js";
 import { APP_EVENTS, createStore } from "./external/state.js";
-import { fetchDocumentList } from "./external/api.js";
+import { fetchDocumentList, fetchJobPayload } from "./external/api.js";
 // Pilot: library-books migrated to @retainpdf/api (direct). Keep fetchDocumentList from external barrel.
 import { isMockMode } from "../../../js/config/runtime.js";
 import { getMockJobList } from "../../../js/mock/index.js";
@@ -82,6 +82,7 @@ export function createLibraryDomain({ features, documentRef, statusArea }: Creat
   const documentLibraryResource = createDocumentLibraryResource({
     fetchDocumentList,
     fetchLibraryBookList,
+    fetchJobPayload,
     apiPrefix: API_PREFIX,
   });
 
@@ -170,6 +171,7 @@ export function createLibraryDomain({ features, documentRef, statusArea }: Creat
       await recentJobActions.deleteJob(jobId);
     },
     buildTranslateConfig: (pageRanges?: string) => features.workflowFeature.buildTranslateJobConfig(pageRanges),
+    buildOcrConfig: (pageRanges?: string) => features.workflowFeature.buildOcrJobConfig(pageRanges),
     startPolling: (jobId: string, options?: { silent?: boolean }) => {
       features.jobRuntimeFeature.startPolling(jobId, options);
     },

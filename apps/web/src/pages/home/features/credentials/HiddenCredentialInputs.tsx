@@ -1,8 +1,7 @@
-// 4 个隐藏凭据 input(蓝图风险 1 的核心接线点)——3a HeroUpload/WorkflowPanel
-// 的上传表单读取这些 DOM 节点的 .value 提交任务;3b 本域负责让它们跟
-// default-state-port.js 单例双向同步。
+// OCR 仍保留两个兼容旧上传链路的隐藏 input；翻译密钥已迁移到后端 vault，
+// 页面和任务请求只持有 credential_ref，因此这里不再渲染翻译 API Key。
 //
-// 只在这一处渲染(WorkflowPanel.jsx 已把原先的 4 个静态占位 input 换成本
+// 只在这一处渲染(WorkflowPanel.jsx 已把原先的静态占位 input 换成本
 // 组件,注释里写明"隐藏凭据 input 由 3b credentials 域接管镜像")——全码库
 // 只允许这一份,重复渲染会制造重复 DOM id。
 //
@@ -38,7 +37,6 @@ export function HiddenCredentialInputs() {
     <>
       <input id={HIDDEN_IDS.ocrProvider} name="ocr_provider" type="hidden" value={credentials.ocrProvider || "paddle"} readOnly />
       <input id={HIDDEN_IDS.paddleToken} name="paddle_token" type="hidden" value={credentials.paddleToken || ""} readOnly />
-      <input id={HIDDEN_IDS.modelApiKey} name="api_key" type="hidden" value={credentials.modelApiKey || ""} readOnly />
     </>
   );
 }

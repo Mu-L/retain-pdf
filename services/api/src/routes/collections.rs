@@ -3,7 +3,7 @@
 //!
 //! All handlers go through library_api (PR5).
 
-use axum::extract::{Path as AxumPath, State};
+use axum::extract::State;
 use axum::Json;
 
 use crate::error::AppError;
@@ -11,7 +11,7 @@ use crate::models::api::{
     AddCollectionDocumentsInput, ApiResponse, CollectionListView, CollectionMutationResult,
     CollectionRecord, CreateCollectionInput, PatchCollectionInput,
 };
-use crate::routes::common::{build_library_route_deps, ok_json};
+use crate::routes::common::{build_library_route_deps, ok_json, ApiJson, ApiPath};
 use crate::services::library_api::{
     add_collection_documents_view, create_collection_view, delete_collection_view,
     list_collections_view, patch_collection_view, remove_collection_document_view,
@@ -20,7 +20,7 @@ use crate::AppState;
 
 pub async fn create_collection_route(
     State(state): State<AppState>,
-    Json(payload): Json<CreateCollectionInput>,
+    ApiJson(payload): ApiJson<CreateCollectionInput>,
 ) -> Result<Json<ApiResponse<CollectionRecord>>, AppError> {
     let deps = build_library_route_deps(&state);
     Ok(ok_json(create_collection_view(&deps.library, &payload)?))
@@ -35,8 +35,8 @@ pub async fn list_collections_route(
 
 pub async fn patch_collection_route(
     State(state): State<AppState>,
-    AxumPath(collection_id): AxumPath<String>,
-    Json(payload): Json<PatchCollectionInput>,
+    ApiPath(collection_id): ApiPath<String>,
+    ApiJson(payload): ApiJson<PatchCollectionInput>,
 ) -> Result<Json<ApiResponse<CollectionRecord>>, AppError> {
     let deps = build_library_route_deps(&state);
     Ok(ok_json(patch_collection_view(
@@ -48,7 +48,7 @@ pub async fn patch_collection_route(
 
 pub async fn delete_collection_route(
     State(state): State<AppState>,
-    AxumPath(collection_id): AxumPath<String>,
+    ApiPath(collection_id): ApiPath<String>,
 ) -> Result<Json<ApiResponse<CollectionMutationResult>>, AppError> {
     let deps = build_library_route_deps(&state);
     Ok(ok_json(delete_collection_view(
@@ -59,8 +59,8 @@ pub async fn delete_collection_route(
 
 pub async fn add_collection_documents_route(
     State(state): State<AppState>,
-    AxumPath(collection_id): AxumPath<String>,
-    Json(payload): Json<AddCollectionDocumentsInput>,
+    ApiPath(collection_id): ApiPath<String>,
+    ApiJson(payload): ApiJson<AddCollectionDocumentsInput>,
 ) -> Result<Json<ApiResponse<CollectionRecord>>, AppError> {
     let deps = build_library_route_deps(&state);
     Ok(ok_json(add_collection_documents_view(
@@ -72,7 +72,7 @@ pub async fn add_collection_documents_route(
 
 pub async fn remove_collection_document_route(
     State(state): State<AppState>,
-    AxumPath((collection_id, document_id)): AxumPath<(String, String)>,
+    ApiPath((collection_id, document_id)): ApiPath<(String, String)>,
 ) -> Result<Json<ApiResponse<CollectionMutationResult>>, AppError> {
     let deps = build_library_route_deps(&state);
     Ok(ok_json(remove_collection_document_view(

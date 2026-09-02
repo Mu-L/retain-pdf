@@ -4,6 +4,7 @@ mod debug;
 mod downloads;
 mod facade;
 pub(super) mod live_stage;
+mod live_translation;
 mod presentation;
 mod query;
 mod reader_ai;

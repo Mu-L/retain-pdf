@@ -65,7 +65,7 @@ ALLOWED_APPSTATE_FILES = {
     Path("src/routes/jobs/translation_debug.rs"),
     Path("src/routes/providers.rs"),
     Path("src/routes/uploads.rs"),
-    Path("src/services/glossaries.rs"),
+    Path("src/services/glossaries/tests.rs"),
     Path("src/services/jobs/creation/context.rs"),
     Path("src/services/jobs/facade.rs"),
     Path("src/services/jobs/creation/tests.rs"),
@@ -93,22 +93,48 @@ ROUTE_RUNNER_IMPORT_ALLOWLIST = {
     Path("src/routes/common.rs"),
 }
 
+ROUTE_RAW_EXTRACTOR_ALLOWLIST = {
+    Path("src/routes/common/extractors.rs"),
+    # Job multipart parsers consume the already-authorized inner Multipart.
+    Path("src/routes/job_requests/multipart.rs"),
+}
+
 ROUTE_STATE_RESOURCE_ALLOWLIST = {
-    Path("src/routes/common.rs"),
+    Path("src/routes/common/agent_capabilities.rs"),
+    Path("src/routes/common/agent_runtime_sessions.rs"),
+    Path("src/routes/common/auth.rs"),
+    Path("src/routes/common/credentials.rs"),
+    Path("src/routes/common/document_operations.rs"),
+    Path("src/routes/common/fonts.rs"),
+    Path("src/routes/common/glossaries.rs"),
+    Path("src/routes/common/health.rs"),
+    Path("src/routes/common/jobs.rs"),
+    Path("src/routes/common/library.rs"),
+    Path("src/routes/common/providers.rs"),
+    Path("src/routes/common/uploads.rs"),
 }
 
 ROUTE_SERVICE_IMPORT_ALLOWLIST = {
     Path("src/routes/glossaries.rs"): (
         "crate::services::glossary_api::",
     ),
+    Path("src/routes/health.rs"): (
+        "crate::services::health_api::",
+    ),
+    Path("src/routes/credentials.rs"): (
+        "crate::services::credentials_api::",
+    ),
     Path("src/routes/document_operations.rs"): (
         "crate::services::document_operation_api::",
     ),
     Path("src/routes/agent_runtime_sessions.rs"): (
-        "crate::services::agent_runtime_sessions::",
+        "crate::services::agent_runtime_session_api::",
     ),
     Path("src/routes/agent_capabilities.rs"): (
         "crate::services::agent_capability_api::",
+    ),
+    Path("src/routes/public_document_operations.rs"): (
+        "crate::services::public_document_operations_api::",
     ),
     Path("src/routes/library.rs"): (
         "crate::services::library_api::",
@@ -127,9 +153,24 @@ ROUTE_SERVICE_IMPORT_ALLOWLIST = {
     Path("src/routes/uploads.rs"): (
         "crate::services::upload_api::",
     ),
-    Path("src/routes/common.rs"): (
-        "crate::app::{build_jobs_facade_from_state, AppState}",
+    Path("src/routes/common/agent_capabilities.rs"): (
         "crate::services::agent_capabilities::AgentCapabilityAuthority",
+    ),
+    Path("src/routes/common/agent_runtime_sessions.rs"): (
+        "crate::services::agent_runtime_session_api::AgentRuntimeSessionApiDeps",
+    ),
+    Path("src/routes/common/glossaries.rs"): (
+        "crate::services::glossary_api::GlossaryApiDeps",
+    ),
+    Path("src/routes/common/health.rs"): (
+        "crate::services::health_api::HealthApiDeps",
+    ),
+    Path("src/routes/common/jobs.rs"): (
+        "crate::app::{build_jobs_facade_from_state, AppState}",
+        "crate::services::jobs::JobsFacade",
+    ),
+    Path("src/routes/common/library.rs"): (
+        "crate::app::{build_jobs_facade_from_state, AppState}",
         "crate::services::jobs::JobsFacade",
         "crate::services::library::LibraryDeps",
     ),
@@ -147,8 +188,25 @@ ROUTE_SERVICE_IMPORT_ALLOWLIST = {
         "crate::services::jobs::{FileDownload, MarkdownDownload}",
     ),
     Path("src/routes/providers.rs"): (
-        "crate::services::provider_probe::",
+        "crate::services::provider_api::",
     ),
+    Path("src/routes/ai_proxy.rs"): (
+        "crate::services::ai_proxy_api",
+    ),
+    Path("src/routes/fonts.rs"): (
+        "crate::services::font_api::",
+    ),
+    Path("src/routes/common/providers.rs"): (
+        "crate::services::provider_api::ProviderApiDeps",
+    ),
+    Path("src/routes/common/fonts.rs"): (
+        "crate::services::font_api::FontApiDeps",
+    ),
+}
+
+ROUTE_QUALIFIED_SERVICE_ACCESS_ALLOWLIST = {
+    # Download response assembly retains a typed JobsFacade compatibility helper.
+    Path("src/routes/download_response/files.rs"),
 }
 
 ARTIFACT_BOUNDARY_FILES = {
@@ -217,6 +275,43 @@ def check_route_runner_dependency(errors: list[str]) -> None:
             errors.append(f"{rel_path}: routes must not depend directly on crate::job_runner")
 
 
+def check_route_input_extractors(errors: list[str]) -> None:
+    raw_extractors = ("Json", "Query", "Path", "Multipart")
+    for path in scan_rs_files(SRC_ROOT / "routes"):
+        rel_path = rel(path)
+        if rel_path in ROUTE_RAW_EXTRACTOR_ALLOWLIST:
+            continue
+        text = route_source_without_tests(path)
+        direct = set(
+            re.findall(
+                r"axum::extract::(?:rejection::)?(Json|Query|Path|Multipart)\b",
+                text,
+            )
+        )
+        for import_body in re.findall(r"use\s+axum::extract::\{(.*?)\};", text, re.DOTALL):
+            for extractor in raw_extractors:
+                if re.search(rf"\b{extractor}\b", import_body):
+                    direct.add(extractor)
+        if direct:
+            names = ", ".join(sorted(direct))
+            errors.append(
+                f"{rel_path}: raw Axum input extractor(s) {names} bypass the JSON error contract; use ApiJson/ApiQuery/ApiPath/ApiMultipart"
+            )
+
+
+def check_multipart_field_buffering(errors: list[str]) -> None:
+    """Keep multipart payload limits at the stream boundary, before allocation."""
+    for path in scan_rs_files(SRC_ROOT / "routes"):
+        rel_path = rel(path)
+        if rel_path == Path("src/routes/common/extractors.rs"):
+            continue
+        text = route_source_without_tests(path)
+        if re.search(r"\bfield\s*\.\s*(?:bytes|text)\s*\(", text):
+            errors.append(
+                f"{rel_path}: multipart fields must use the bounded helpers in routes/common/extractors.rs; direct field.bytes()/field.text() buffering is forbidden"
+            )
+
+
 def check_jobs_route_deps_dedup(errors: list[str]) -> None:
     jobs_dir = SRC_ROOT / "routes" / "jobs"
     for path in scan_rs_files(jobs_dir):
@@ -241,9 +336,13 @@ def check_route_state_resource_access(errors: list[str]) -> None:
         if rel_path in ROUTE_STATE_RESOURCE_ALLOWLIST:
             continue
         text = route_source_without_tests(path)
-        if "state.db" in text or "state.config" in text:
+        if (
+            "state.db" in text
+            or "state.config" in text
+            or re.search(r"\bdeps\.[A-Za-z_][A-Za-z0-9_]*\.db\b", text)
+        ):
             errors.append(
-                f"{rel_path}: routes must not access state.db/state.config directly; use route deps builders"
+                f"{rel_path}: routes must not access database/config resources directly; use route deps builders and application facades"
             )
 
 
@@ -253,8 +352,6 @@ def check_route_service_imports(errors: list[str]) -> None:
         rel_path = rel(path)
         text = route_source_without_tests(path)
         imports = pattern.findall(text)
-        if not imports:
-            continue
         allowed_prefixes = ROUTE_SERVICE_IMPORT_ALLOWLIST.get(rel_path, ())
         for item in imports:
             service_path = item.removeprefix("use ").strip()
@@ -262,6 +359,15 @@ def check_route_service_imports(errors: list[str]) -> None:
                 continue
             errors.append(
                 f"{rel_path}: routes must not import internal services directly ({service_path})"
+            )
+
+        if rel_path in ROUTE_QUALIFIED_SERVICE_ACCESS_ALLOWLIST:
+            continue
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            if "crate::services::" not in line or line.lstrip().startswith("use "):
+                continue
+            errors.append(
+                f"{rel_path}:{line_number}: fully-qualified service access bypasses the route facade allowlist; import an approved application facade"
             )
 
 
@@ -840,6 +946,8 @@ def main() -> int:
     errors: list[str] = []
     check_appstate_boundaries(errors)
     check_route_runner_dependency(errors)
+    check_route_input_extractors(errors)
+    check_multipart_field_buffering(errors)
     check_jobs_route_deps_dedup(errors)
     check_route_state_resource_access(errors)
     check_route_service_imports(errors)

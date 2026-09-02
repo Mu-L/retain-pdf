@@ -2,21 +2,13 @@
 // 视图为 src/js/job-detail/events.js 字符串模板的 JSX 重写(类名/结构照搬);
 // 事件条目视图模型复用保留的纯逻辑 status-view-model.js 与 job/ 层格式化函数。
 //
-// Dialog 渲染层(阶段 C 收官批,shadcn 改造):两个模态从 bespoke
-// <section className="detail-modal"><div role="dialog" aria-modal="true">
-// 换成 Radix Dialog(DialogPrimitive.Root/Portal/Overlay/Content),统一到
-// home 页那套 desktop-dialog/desktop-shell/desktop-head/desktop-body 视觉
-// 骨架,不再维持 detail 页独立的 .detail-modal/.detail-modal-panel/
+// 两个模态统一走共享 AppDialog 的 wide 尺寸与标准视觉骨架，不再维持
+// detail 页独立的 .detail-modal/.detail-modal-panel/
 // .detail-modal-head 结构(这三个类的 CSS 已随之从
 // src/styles/pages/detail/modal.css 删除)。detail-modal-title/-subtitle/
 // -close/-status 这几个纯排版类名原样保留(挂载点从旧结构的子级换成
-// desktop-head/desktop-body 的子级,视觉不变,内容也不共享,不值得再统一成
-// 跨对话框共用的 dialog-close-btn 等——尤其 detail-modal-close 的描边色
-// #d5d7dd 和 dialog-close-btn 的 #d2d2d7 字面值不同,贸然合并会引入肉眼难辨
-// 但 pixelmatch 可能捕捉到的差异)。新增的 detail-timeline-dialog/
-// detail-timeline-overlay 覆盖类复刻旧 .detail-modal/.detail-modal-panel 的
-// 像素级视觉(920px 宽上限/82vh 高上限/28px 圆角/#e5e7eb 描边/更深的阴影),
-// 定义见 pages/detail/modal.css。
+// 共享 header/body 的子级；detail-timeline-dialog 仅保留时间线内容区的高度与
+// 滚动覆盖，定义见 pages/detail/modal.css。
 //
 // open 状态仍然是 DetailApp.jsx 的 stageHistoryOpen/eventsOpen 两个 useState
 // (铁律:不改状态管理本身,只换渲染层),onOpenChange(false) 统一路由到
@@ -35,8 +27,15 @@
 // (只要一个打开,遮罩 + focus trap 就会让另一个的触发卡片不可达),不会出现
 // 两套机制同时争抢 body 样式的场景。
 
-import { X } from "lucide-react";
-import { Dialog as DialogPrimitive } from "radix-ui";
+import {
+  Dialog,
+  DialogBody,
+  DialogCloseButton,
+  DialogContent,
+  DialogHeader,
+  DialogShell,
+  DialogTitle,
+} from "@/components/ui/dialog.js";
 import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
 import {
   formatEventTimestamp,
@@ -128,34 +127,31 @@ function DetailModal({ modalId, titleId, title, subtitle, closeButtonId, open, o
   }
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={handleOpenChange}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="detail-timeline-overlay" />
-        <DialogPrimitive.Content
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent
           id={modalId}
-          className="desktop-dialog detail-timeline-dialog"
+          className="detail-timeline-dialog"
           aria-labelledby={titleId}
           onCloseAutoFocus={onCloseAutoFocus}
+          showCloseButton={false}
+          size="wide"
         >
-          <div className="desktop-shell">
-            <div className="desktop-head">
+          <DialogShell className="desktop-shell">
+            <DialogHeader className="desktop-head">
               <div>
-                <DialogPrimitive.Title asChild>
+                <DialogTitle asChild>
                   <h2 id={titleId} className="detail-modal-title">{title}</h2>
-                </DialogPrimitive.Title>
+                </DialogTitle>
                 <p className="detail-modal-subtitle">{subtitle}</p>
               </div>
-              <DialogPrimitive.Close asChild>
-                <button id={closeButtonId} type="button" className="detail-modal-close" aria-label="关闭"><X className="h-4 w-4" /></button>
-              </DialogPrimitive.Close>
-            </div>
-            <div className="desktop-body">
+              <DialogCloseButton id={closeButtonId} />
+            </DialogHeader>
+            <DialogBody className="desktop-body">
               {children}
-            </div>
-          </div>
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+            </DialogBody>
+          </DialogShell>
+        </DialogContent>
+    </Dialog>
   );
 }
 

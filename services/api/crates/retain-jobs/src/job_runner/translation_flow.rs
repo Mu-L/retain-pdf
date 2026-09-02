@@ -103,6 +103,7 @@ async fn run_translate_only_job_from_artifacts(
     deps: ProcessRuntimeDeps,
     job: JobRuntimeState,
 ) -> Result<JobRuntimeState> {
+    let render_after_translation = job.request_payload.runtime.render_after_translation;
     let source_job_id = job
         .request_payload
         .source
@@ -117,9 +118,18 @@ async fn run_translate_only_job_from_artifacts(
     )
     .await?;
     let job_paths = build_job_paths(&deps.persist.output_root, &job.job_id)?;
-    run_translation_stage(&deps, job, &job_paths)
-        .await
-        .map(|result| result.job)
+    let translation_stage = run_translation_stage(&deps, job, &job_paths).await?;
+    let translated_job = translation_stage.job;
+    if !render_after_translation || !matches!(translated_job.status, JobStatusKind::Succeeded) {
+        return Ok(translated_job);
+    }
+    run_render_stage_after_translation(
+        deps,
+        translated_job,
+        &job_paths,
+        &translation_stage.source_pdf_path,
+    )
+    .await
 }
 
 async fn run_book_job_from_artifacts(

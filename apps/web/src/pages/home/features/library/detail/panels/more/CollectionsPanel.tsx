@@ -1,6 +1,7 @@
 // 右栏：合集成员切换。
 
 import { cn } from "@/lib/utils";
+import { Layers3 } from "lucide-react";
 
 /**
  * @param {object} props
@@ -12,13 +13,16 @@ export function CollectionsPanel({ collections, collectionsBusy, onToggle }) {
   if (!collections?.length) return null;
 
   return (
-    <div className="space-y-1.5 border-t border-border/30 pt-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">合集</p>
+    <div className="book-detail-collections-panel space-y-1.5 border-t border-border/30 pt-3">
+      <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <Layers3 className="h-3.5 w-3.5" aria-hidden="true" />合集
+      </p>
       <div className="flex flex-wrap gap-2">
         {collections.map((c) => (
           <button
             key={c.collection_id}
             type="button"
+            aria-pressed={c.member}
             disabled={collectionsBusy === c.collection_id}
             onClick={() => onToggle(c.collection_id, !c.member)}
             className={cn(

@@ -1,5 +1,7 @@
 import { createStore } from "../../composition/external.js";
 import type { Store } from "../../composition/external.js";
+import type { OcrAmbiguityView } from "../../composition/external/api.js";
+import type { FailureRecoveryModel } from "../../composition/external.js";
 
 // StatusDetailDialog 的读面 store(蓝图 §1 "新 store"清单)。
 //
@@ -20,6 +22,8 @@ export type StatusDetailHeadline = {
   iconMarkup: string;
   jobId: string;
   note: string;
+  statusLabel: string;
+  tone: "neutral" | "running" | "success" | "failed";
 };
 
 export type StatusDetailRuntime = {
@@ -49,6 +53,13 @@ export type StatusDetailRerun = {
   status: string;
 };
 
+export type StatusDetailOcrAmbiguity = {
+  required: boolean;
+  status: string;
+  jobId: string;
+  descriptor: OcrAmbiguityView | null;
+};
+
 /** 原始 job 载荷（StageHistoryList 等直接消费；API 形状宽） */
 export type StatusDetailJobPayload = Record<string, unknown>;
 
@@ -64,6 +75,8 @@ export type StatusDetailOverview = {
   runtime: StatusDetailRuntime;
   failure: StatusDetailFailure;
   rerun: StatusDetailRerun;
+  ocrAmbiguity: StatusDetailOcrAmbiguity;
+  failureRecovery: FailureRecoveryModel;
   job: StatusDetailJobPayload | null;
   eventsPayload: StatusDetailEventsPayload | null;
   finishedAtFallback: string;
@@ -148,6 +161,7 @@ export type StatusDetailState = {
   overview: StatusDetailOverview;
   translation: StatusDetailTranslation;
   rerunPending: boolean;
+  ocrAmbiguityPending: boolean;
 };
 
 export type StatusDetailActions = {
@@ -162,12 +176,22 @@ export type StatusDetailActions = {
   ) => StatusDetailState;
   resetTranslation: (state: StatusDetailState) => StatusDetailState;
   setRerunPending: (state: StatusDetailState, pending?: boolean) => StatusDetailState;
+  setOcrAmbiguityPending: (
+    state: StatusDetailState,
+    pending?: boolean,
+  ) => StatusDetailState;
 };
 
 export type StatusDetailStore = Store<StatusDetailState, StatusDetailActions>;
 
 const EMPTY_OVERVIEW: StatusDetailOverview = Object.freeze({
-  headline: { iconMarkup: "", jobId: "-", note: "" },
+  headline: {
+    iconMarkup: "",
+    jobId: "-",
+    note: "",
+    statusLabel: "准备中",
+    tone: "neutral" as const,
+  },
   runtime: {
     currentStage: "-",
     stageElapsed: "-",
@@ -189,6 +213,31 @@ const EMPTY_OVERVIEW: StatusDetailOverview = Object.freeze({
     retryable: "-",
   },
   rerun: { enabled: false, status: "" },
+  ocrAmbiguity: { required: false, status: "", jobId: "", descriptor: null },
+  failureRecovery: {
+    kind: "generic" as const,
+    provider: "",
+    providerCode: "",
+    traceId: "",
+    attempt: null,
+    maxAttempts: null,
+    retryAtMs: null,
+    retryAfterSource: "",
+    retryOcr: {
+      available: false,
+      enabled: false,
+      method: "" as const,
+      url: "",
+      body: {},
+      reason: "",
+      requiresDuplicateRisk: false,
+    },
+    checkpointArtifacts: [],
+    preservesSourcePdf: false,
+    statusText: "",
+    preservationText: "",
+    backendGaps: [],
+  },
   job: null,
   eventsPayload: null,
   finishedAtFallback: "",
@@ -220,6 +269,7 @@ export function createStatusDetailStore(): StatusDetailStore {
       overview: EMPTY_OVERVIEW,
       translation: EMPTY_TRANSLATION,
       rerunPending: false,
+      ocrAmbiguityPending: false,
     },
     actions: {
       setOverview(state, overview = {}) {
@@ -236,6 +286,9 @@ export function createStatusDetailStore(): StatusDetailStore {
       },
       setRerunPending(state, pending = false) {
         return { ...state, rerunPending: Boolean(pending) };
+      },
+      setOcrAmbiguityPending(state, pending = false) {
+        return { ...state, ocrAmbiguityPending: Boolean(pending) };
       },
     },
   });

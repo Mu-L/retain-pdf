@@ -88,7 +88,9 @@ pub(crate) fn write_translate_stage_spec(
 ) -> Result<PathBuf> {
     ensure_specs_dir(job_paths)?;
     let spec_path = translate_stage_spec_path(job_paths);
-    let credential_ref = if request.translation.api_key.trim().is_empty() {
+    let credential_ref = if request.translation.api_key.trim().is_empty()
+        && request.translation.credential_ref.trim().is_empty()
+    {
         String::new()
     } else {
         format!("env:{TRANSLATION_API_KEY_ENV_NAME}")
@@ -155,7 +157,9 @@ pub(crate) fn write_render_stage_spec(
 ) -> Result<PathBuf> {
     ensure_specs_dir(job_paths)?;
     let spec_path = render_stage_spec_path(job_paths);
-    let credential_ref = if request.translation.api_key.trim().is_empty() {
+    let credential_ref = if request.translation.api_key.trim().is_empty()
+        && request.translation.credential_ref.trim().is_empty()
+    {
         String::new()
     } else {
         format!("env:{TRANSLATION_API_KEY_ENV_NAME}")
@@ -211,7 +215,9 @@ pub(crate) fn write_provider_stage_spec(
         .context("resolve OCR provider for provider stage spec")?;
     let provider_credential_ref =
         provider_credential_ref_for_stage(&request.ocr.provider, &provider_kind, &request.ocr)?;
-    let translation_credential_ref = if request.translation.api_key.trim().is_empty() {
+    let translation_credential_ref = if request.translation.api_key.trim().is_empty()
+        && request.translation.credential_ref.trim().is_empty()
+    {
         String::new()
     } else {
         format!("env:{TRANSLATION_API_KEY_ENV_NAME}")

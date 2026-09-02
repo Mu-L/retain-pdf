@@ -1,96 +1,26 @@
-//! retainpdf-ai 服务的反向代理。
-//!
-//! 前端保持单一入口(Rust API)与单一 X-API-Key:本路由把请求转发到
-//! 常驻 AI 服务并透传客户端的 X-API-Key(两个服务共享同一 key 集合即可,
-//! 零新增前端配置)。SSE 流式响应按字节流透传。
+//! HTTP adapters for the retainpdf-ai reverse proxy.
 
-use axum::body::Body;
-use axum::extract::Json;
-use axum::http::{HeaderMap, StatusCode};
-use axum::response::{IntoResponse, Response};
-use once_cell::sync::Lazy;
+use axum::http::HeaderMap;
+use axum::response::Response;
 
 use crate::error::AppError;
-
-fn ai_proxy_connect_timeout() -> std::time::Duration {
-    // Single source of truth is `retain_core::config::AiProxyConfig`
-    // (env `RUST_API_AI_PROXY_CONNECT_TIMEOUT_SECS` default 3), but we also
-    // support a direct env read here so the Lazy client can initialize
-    // without requiring AppConfig to be threaded through the route.
-    std::env::var("RUST_API_AI_PROXY_CONNECT_TIMEOUT_SECS")
-        .ok()
-        .and_then(|value| value.trim().parse::<u64>().ok())
-        .filter(|value| *value > 0)
-        .map(std::time::Duration::from_secs)
-        .unwrap_or_else(|| retain_core::config::AiProxyConfig::from_env().connect_timeout)
-}
-
-static PROXY_CLIENT: Lazy<reqwest::Client> = Lazy::new(|| {
-    reqwest::Client::builder()
-        // 上游 agent 循环最长可跑数分钟;连接超时短、整体不设上限,
-        // 由上游自身的轮数/超时护栏兜底。
-        .connect_timeout(ai_proxy_connect_timeout())
-        .build()
-        .expect("build ai proxy client")
-});
-
-fn ai_service_base() -> String {
-    std::env::var("RUST_API_AI_SERVICE_BASE")
-        .ok()
-        .map(|value| value.trim().trim_end_matches('/').to_string())
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| crate::config::AiServiceConfig::default().base_url())
-}
+use crate::routes::common::ApiJson;
+use crate::services::ai_proxy_api;
 
 pub async fn ask_proxy(
     headers: HeaderMap,
-    Json(payload): Json<serde_json::Value>,
+    ApiJson(payload): ApiJson<serde_json::Value>,
 ) -> Result<Response, AppError> {
-    // Phase 2 快速失败：监督器已判定 ai_service 不健康时不再发起上游连接，
-    // 立即返回结构化 503（重启退避期间的请求不用等 connect 超时）。
-    // starting 放行——刚拉起可能已在 listening，connect 失败自然报错；
-    // unsupervised（默认/开发模式）行为与历史完全一致。
-    if crate::services::ai_supervisor::ai_service_status()
-        == crate::services::ai_supervisor::AI_STATUS_UNHEALTHY
-    {
-        return Err(AppError::service_unavailable(
-            "AI 服务暂不可用（监督器正在重启它），请稍后重试",
-        ));
-    }
-    let api_key = headers
-        .get("X-API-Key")
-        .and_then(|value| value.to_str().ok())
-        .unwrap_or("")
-        .to_string();
-    let upstream = PROXY_CLIENT
-        .post(format!("{}/v1/ask", ai_service_base()))
-        .header("X-API-Key", api_key)
-        .json(&payload)
-        .send()
-        .await
-        .map_err(|error| {
-            AppError::bad_gateway(format!(
-                "AI service unreachable at {}: {error}",
-                ai_service_base()
-            ))
-        })?;
+    ai_proxy_api::ask(&headers, payload).await
+}
 
-    let status =
-        StatusCode::from_u16(upstream.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
-    let content_type = upstream
-        .headers()
-        .get(reqwest::header::CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .unwrap_or("application/json")
-        .to_string();
-    let body = Body::from_stream(upstream.bytes_stream());
-    Ok((
-        status,
-        [
-            (axum::http::header::CONTENT_TYPE, content_type),
-            (axum::http::header::CACHE_CONTROL, "no-cache".to_string()),
-        ],
-        body,
-    )
-        .into_response())
+pub async fn get_runtime_config_proxy(headers: HeaderMap) -> Result<Response, AppError> {
+    ai_proxy_api::get_runtime_config(&headers).await
+}
+
+pub async fn update_runtime_config_proxy(
+    headers: HeaderMap,
+    ApiJson(payload): ApiJson<serde_json::Value>,
+) -> Result<Response, AppError> {
+    ai_proxy_api::update_runtime_config(&headers, payload).await
 }

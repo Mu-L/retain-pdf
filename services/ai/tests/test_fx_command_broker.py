@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from retainpdf_ai.fx_command_broker import (
     BrokerScope,
     FxCommandBroker,
+    _safe_operation_event,
     parse_broker_command,
 )
 
@@ -27,13 +28,14 @@ class FakeCapabilityIssuer:
         return {"capability": "secret-host-only-capability"}
 
 
-def _scope(*, confirmed: bool = False) -> BrokerScope:
+def _scope(*, confirmed: bool = False, green_light: bool = False) -> BrokerScope:
     return BrokerScope(
         conversation_id="conv-a",
         document_id="doc-a",
         request_message_id="msg-a",
         intent_summary="Rotate the requested pages",
         confirmed=confirmed,
+        green_light=green_light,
     )
 
 
@@ -137,6 +139,45 @@ def test_parser_is_an_exact_shell_free_grammar():
             parse_broker_command(command, scope)
 
 
+def test_cli_operation_response_projects_only_safe_sse_identity():
+    command = parse_broker_command(
+        f"retainpdf-agent operation create --program-sha256 {'a' * 64}",
+        _scope(),
+    )
+    stdout = json.dumps(
+        {
+            "schema": "retainpdf_agent_cli_response_v1",
+            "ok": True,
+            "response": {
+                "code": 0,
+                "data": {
+                    "operation_id": "op-safe-1",
+                    "conversation_id": "conv-a",
+                    "request_message_id": "msg-a",
+                    "status": "draft",
+                    "current_attempt": 1,
+                    "events": [{"seq": 2}, {"seq": 4}],
+                    "manifest": {"artifact_key": "must-not-leak"},
+                    "state": {"stderr": "must-not-leak"},
+                },
+            },
+        }
+    )
+    assert _safe_operation_event(command, stdout, _scope()) == {
+        "type": "agent_operation",
+        "event_id": "op-safe-1:1:4:draft",
+        "operation_id": "op-safe-1",
+        "conversation_id": "conv-a",
+        "request_message_id": "msg-a",
+        "status": "draft",
+        "current_attempt": 1,
+        "latest_event_seq": 4,
+    }
+    malformed = json.loads(stdout)
+    malformed["response"]["data"]["current_attempt"] = "not-a-number"
+    assert _safe_operation_event(command, json.dumps(malformed), _scope()) is None
+
+
 def test_run_and_commit_require_request_level_confirmation():
     command = "retainpdf-agent operation run --operation-id op-safe"
     with pytest.raises(ValueError, match="confirmation"):
@@ -144,6 +185,18 @@ def test_run_and_commit_require_request_level_confirmation():
     allowed = parse_broker_command(command, _scope(confirmed=True))
     assert allowed.request_payload["confirmed"] is True
     assert allowed.action == "operation.run"
+
+    green_light = parse_broker_command(
+        command, _scope(confirmed=False, green_light=True)
+    )
+    assert green_light.request_payload["confirmed"] is True
+    assert "outside the listed grammar" in FxCommandBroker(
+        state_root=Path("/tmp/retainpdf-test-unused"),
+        cli_command="retainpdf-agent",
+        rust_api_url="http://127.0.0.1:41000",
+        rust=FakeCapabilityIssuer(),
+        scope=_scope(green_light=True),
+    ).instructions
 
 
 def test_run_retry_keeps_one_tool_and_requires_explicit_ambiguous_risk():

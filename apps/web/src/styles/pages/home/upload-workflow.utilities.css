@@ -11,7 +11,7 @@
   max-width: none;
   min-height: 0;
   overflow: auto;
-  padding: 10px 12px 12px;
+  padding: 20px 24px 24px;
   justify-items: center;
   border: 0;
   border-radius: 0;
@@ -20,7 +20,7 @@
 
   & .form {
     display: grid;
-    gap: 10px;
+    gap: 12px;
     width: 100%;
   }
 
@@ -28,8 +28,6 @@
     min-height: 168px;
     aspect-ratio: auto;
     padding: 16px 14px;
-    /* 拖放区：白底大圆角（原灰底大块在白弹窗里像未加载的占位），
-       虚线安静，hover 才用 accent 撑起"可交互"感 */
     border: 1.5px dashed color-mix(in srgb, var(--muted) 40%, var(--line));
     border-radius: 18px;
     background: var(--paper);
@@ -77,27 +75,6 @@
   }
 }
 
-@utility upload-ready-hint {
-  width: 100%;
-  margin: 0;
-  padding: 8px 10px;
-  border-radius: 10px;
-  border: 1px solid color-mix(in oklab, var(--ok) 22%, transparent);
-  background: color-mix(in oklab, var(--ok) 8%, white);
-  color: var(--ok);
-  font-size: 12px;
-  line-height: 1.45;
-  text-align: center;
-
-  &.hidden {
-    display: none !important;
-  }
-
-  & strong {
-    font-weight: 700;
-  }
-}
-
 @utility form {
   .translation-workflow-card & {
     display: grid;
@@ -106,30 +83,83 @@
   }
 }
 
-@utility upload-tile {
-  .translation-workflow-card & {
-    min-height: 168px;
-    aspect-ratio: auto;
-    padding: 16px 14px;
-    /* 拖放区：白底大圆角（原灰底大块在白弹窗里像未加载的占位），
-       虚线安静，hover 才用 accent 撑起"可交互"感 */
-    border: 1.5px dashed color-mix(in srgb, var(--muted) 40%, var(--line));
-    border-radius: 18px;
+@utility upload-workflow {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  min-height: 0;
+}
+
+@utility upload-workflow-mode-tabs {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+@utility upload-workflow-mode-tabs-list {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--bg);
+}
+
+@utility upload-workflow-mode-tab {
+  display: inline-flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: none;
+
+  &[data-state='active'] {
     background: var(--paper);
-    box-shadow: none;
-    gap: 8px;
-    transition:
-      border-color 180ms var(--ease-out),
-      background 180ms var(--ease-out),
-      transform 180ms var(--ease-out);
+    color: var(--ink);
+    box-shadow: 0 2px 6px color-mix(in srgb, var(--shadow-color) 10%, transparent);
   }
 
-  .translation-workflow-card &:hover {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 3%, var(--paper));
-    box-shadow: none;
-    transform: translateY(-1px);
+  & > svg {
+    width: 17px;
+    height: 17px;
   }
+}
+
+@utility upload-dropzone-stack {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 22px;
+  width: 100%;
+  min-height: 0;
+}
+
+@utility upload-format-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 34px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+
+  & i {
+    font-style: normal;
+  }
+}
+
+@utility upload-tile {
   position: relative;
   display: grid;
   gap: 10px;
@@ -174,23 +204,6 @@
     border-color: var(--ink);
     transform: translateY(-1px);
     box-shadow: 0 16px 32px color-mix(in srgb, var(--shadow-color) 5%, transparent);
-  }
-
-  &.is-uploading .upload-fill::after {
-    content: '';
-    position: absolute;
-    top: -10%;
-    left: -18%;
-    width: 42%;
-    height: 100%;
-    background: linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--paper) 0%, transparent) 0%,
-      color-mix(in srgb, var(--paper) 52%, transparent) 50%,
-      color-mix(in srgb, var(--paper) 0%, transparent) 100%
-    );
-    transform: skewX(-24deg);
-    animation: uploadSweep 1s linear infinite;
   }
 
   & input[type='file'] {
@@ -242,21 +255,14 @@
     line-height: 1.5;
   }
 
-  &.is-ready #upload-glyph {
-    opacity: 0.28;
-    transform: scale(0.98);
-    transition:
-      opacity 0.18s ease,
-      transform 0.18s ease;
-  }
+}
 
-  &.is-ready .upload-meta-inline {
-    opacity: 0.28;
-    transform: scale(0.98);
-    transition:
-      opacity 0.18s ease,
-      transform 0.18s ease;
-  }
+@utility upload-primary-copy {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  width: 100%;
+  min-width: 0;
 }
 
 @utility upload-glyph {
@@ -273,6 +279,19 @@
   background: var(--bg);
   position: relative;
   box-shadow: inset 0 0 0 1px var(--line);
+}
+
+@utility upload-ready-file-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--ink);
+}
+
+@utility upload-idle-file-icon {
+  width: 34px;
+  height: 34px;
+  color: var(--ink);
+  stroke-width: 1.6;
 }
 
 @utility upload-meta {
@@ -318,76 +337,15 @@
 @utility upload-fill {
   position: absolute;
   left: 0;
-  top: 0;
   bottom: 0;
+  height: 4px;
   width: 0%;
   border-radius: inherit;
-  background:
-    repeating-linear-gradient(
-      120deg,
-      color-mix(in srgb, var(--ink) 6%, transparent) 0px,
-      color-mix(in srgb, var(--ink) 6%, transparent) 16px,
-      color-mix(in srgb, var(--ink) 14%, transparent) 16px,
-      color-mix(in srgb, var(--ink) 14%, transparent) 32px
-    ),
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--ink) 8%, transparent) 0%,
-      color-mix(in srgb, var(--ink) 18%, transparent) 100%
-    );
+  background: var(--ink);
   transition: width 0.2s ease;
   pointer-events: none;
   z-index: 0;
   overflow: hidden;
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--paper) 22%, transparent) 0%,
-      color-mix(in srgb, var(--paper) 0%, transparent) 34%,
-      color-mix(in srgb, var(--paper) 8%, transparent) 100%
-    );
-    opacity: 0.9;
-  }
-
-  .upload-tile.is-uploading &::after {
-    content: '';
-    position: absolute;
-    top: -10%;
-    left: -18%;
-    width: 42%;
-    height: 100%;
-    background: linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--paper) 0%, transparent) 0%,
-      color-mix(in srgb, var(--paper) 52%, transparent) 50%,
-      color-mix(in srgb, var(--paper) 0%, transparent) 100%
-    );
-    transform: skewX(-24deg);
-    animation: uploadSweep 1s linear infinite;
-  }
-}
-
-@utility is-uploading {
-  &.upload-tile .upload-fill::after {
-    content: '';
-    position: absolute;
-    top: -10%;
-    left: -18%;
-    width: 42%;
-    height: 100%;
-    background: linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--paper) 0%, transparent) 0%,
-      color-mix(in srgb, var(--paper) 52%, transparent) 50%,
-      color-mix(in srgb, var(--paper) 0%, transparent) 100%
-    );
-    transform: skewX(-24deg);
-    animation: uploadSweep 1s linear infinite;
-  }
 }
 
 @utility upload-glyph-h {
@@ -415,30 +373,40 @@
 }
 
 @utility credential-gate {
-  position: absolute;
-  inset: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2;
+  position: relative;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg) 58%, var(--paper));
 }
 
 @utility credential-gate-panel {
   display: grid;
-  gap: 8px;
-  width: min(100%, 336px);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 12px;
+  width: 100%;
   padding: 12px 14px;
-  text-align: center;
+  text-align: left;
 
   & strong {
     @apply block text-[1.02rem] font-semibold;
+    grid-column: 2;
+    align-self: end;
     letter-spacing: -0.03em;
   }
 
   & em {
-    @apply mx-auto max-w-[260px] text-[12px] not-italic;
+    @apply text-[12px] not-italic;
+    grid-column: 2;
+    align-self: start;
     color: var(--muted);
     line-height: 1.45;
+  }
+
+  & .credential-gate-action {
+    grid-column: 3;
+    grid-row: 1 / 3;
   }
 }
 
@@ -446,9 +414,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
-  margin: 0 auto 4px;
+  grid-column: 1;
+  grid-row: 1 / 3;
+  width: 42px;
+  height: 42px;
+  margin: 0;
   border-radius: 999px;
   background: var(--paper);
   border: 1px solid var(--line);
@@ -456,8 +426,8 @@
   box-shadow: 0 10px 24px color-mix(in srgb, var(--shadow-color) 6%, transparent);
 
   & svg {
-    width: 25px;
-    height: 25px;
+    width: 20px;
+    height: 20px;
   }
 }
 
@@ -532,53 +502,176 @@
 @utility upload-action-slot {
   position: relative;
   z-index: 3;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  gap: 12px;
   width: 100%;
   padding: 2px 0 0;
   pointer-events: auto;
 }
 
-@utility inline-page-range {
-  position: relative;
-  z-index: 3;
+@utility upload-action-stack {
+  display: grid;
+  gap: 20px;
+  width: 100%;
+}
+
+@utility upload-process-choice-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 2px 2px 0;
+
+  & > strong {
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 650;
+  }
+
+  & > span {
+    color: var(--muted);
+    font-size: 11px;
+  }
+}
+
+@utility upload-process-choice-grid {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  width: min(100%, 312px);
-  pointer-events: auto;
+  gap: 38px;
+  width: fit-content;
+  margin: 0 auto;
+}
 
-  & label {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    min-width: 0;
-    color: var(--muted);
-    font-size: 10.5px;
-    font-weight: 600;
-    white-space: nowrap;
+@utility upload-process-choice-card {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  min-width: 54px;
+  height: 54px;
+  min-height: 54px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: none;
+  transition:
+    border-color 160ms var(--ease-out),
+    background 160ms var(--ease-out),
+    transform 160ms var(--ease-out);
+
+  &:hover:not(:disabled) {
+    border-color: var(--line);
+    background: color-mix(in srgb, var(--ink) 7%, var(--paper));
+    transform: translateY(-1px);
   }
 
-  & input {
-    width: 70px;
-    height: 28px;
-    min-height: 28px;
-    border: 1px solid var(--line);
-    border-radius: 7px;
-    background: var(--paper);
+  &.is-selected {
+    border-color: color-mix(in srgb, var(--ink) 26%, var(--line));
+    background: color-mix(in srgb, var(--ink) 9%, var(--paper));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 5%, transparent);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.42;
+  }
+
+  & > svg {
+    width: 22px;
+    height: 22px;
+    stroke-width: 1.8;
+  }
+}
+
+@utility upload-budget-slot {
+  display: grid;
+  place-items: center;
+  width: 100%;
+}
+
+@utility upload-options-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 48px;
+  padding: 7px 8px 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+
+  & > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  & strong {
     color: var(--ink);
-    padding: 0 7px;
-    font-size: 11px;
-    box-shadow: none;
-    text-align: center;
+    font-weight: 600;
+  }
+
+  & i {
+    color: var(--line-strong);
+    font-style: normal;
+  }
+
+  & #page-range-btn {
+    flex: 0 0 auto;
+    min-height: 34px;
+    padding: 0 11px;
+    border: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 620px) {
+  .translation-workflow-card {
+    padding: 14px;
+  }
+
+  .translation-workflow-card .upload-tile.is-ready {
+    grid-template-columns: auto minmax(0, 1fr);
+    min-height: 124px;
+    padding: 18px;
+  }
+
+  .upload-process-choice-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .upload-process-choice-card {
+    min-height: 58px;
+  }
+
+  .upload-options-trigger {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+    padding: 11px;
+  }
+
+  .upload-options-trigger #page-range-btn {
+    width: 100%;
   }
 }
 
 @utility upload-action-group {
   position: relative;
-  @apply inline-flex flex-wrap items-center justify-center gap-2;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
   max-width: 100%;
   padding: 0;
@@ -589,51 +682,54 @@
   pointer-events: auto;
 
   & > button {
+    display: inline-flex;
     flex: 1 1 auto;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     width: auto;
     min-width: 0;
-    max-width: none;
     min-height: 36px;
     padding: 0 12px;
     border-radius: 10px;
     font-size: 12.5px;
     font-weight: 650;
     box-shadow: none;
+
+    & > svg {
+      width: 16px;
+      height: 16px;
+    }
   }
 
   & #page-range-btn {
     order: 0;
     flex: 0 0 auto;
-    min-width: 56px;
+    min-width: 76px;
+    border: 1px solid var(--line);
     background: var(--paper);
     color: var(--ink);
-    border: 1px solid var(--line);
   }
 
   & #store-only-btn {
     order: 1;
     flex: 1 1 0;
+    border: 1px solid var(--line);
     background: var(--paper);
     color: var(--ink);
-    border: 1px solid var(--line);
   }
 
   & #submit-btn {
     order: 2;
     flex: 1 1 0;
+    border: 1px solid var(--ink);
     background: var(--ink);
     color: var(--paper);
-    border-color: var(--ink);
   }
+}
 
-  @media (max-width: 720px) {
-    gap: 8px;
-
-    & > button {
-      min-height: 38px;
-      font-size: 12px;
-    }
-  }
+@utility upload-primary-action {
+  width: 100%;
 }
 
 @utility math-mode-inline {
@@ -740,24 +836,6 @@
   &.translation-budget-note {
     border-color: var(--danger);
     color: var(--danger);
-  }
-}
-
-@utility is-ready {
-  &.upload-tile #upload-glyph {
-    opacity: 0.28;
-    transform: scale(0.98);
-    transition:
-      opacity 0.18s ease,
-      transform 0.18s ease;
-  }
-
-  & .upload-tile .upload-meta-inline {
-    opacity: 0.28;
-    transform: scale(0.98);
-    transition:
-      opacity 0.18s ease,
-      transform 0.18s ease;
   }
 }
 

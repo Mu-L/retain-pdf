@@ -41,6 +41,7 @@ export interface RecentJobActionsPort {
   selectJob?: (jobId?: string) => void;
   deleteJob?: (jobId?: string) => void | Promise<void>;
   openJobReader?: (jobId?: string) => void;
+  recoverActiveJob?: (items?: LibraryJobItem[]) => void;
 }
 
 export interface ActiveRefreshLoopPort {
@@ -167,6 +168,9 @@ export function commitRecentJobsPage({
   } else {
     activeRefreshLoop()?.stop();
   }
+  // localStorage 不可用或没有记录时，以首屏服务端列表作为冷启动兜底。
+  // recoverActiveJob 内部只执行一次，且使用 silent polling，不会自动打开任务弹窗。
+  recentJobActions?.recoverActiveJob?.(nextItems);
   if (!storeDrivenRendering) {
     viewPort.renderList({
       items: renderItems,

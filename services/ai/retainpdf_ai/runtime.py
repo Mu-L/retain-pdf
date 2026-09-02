@@ -11,6 +11,7 @@ import os
 import queue
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -21,16 +22,44 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
 from typing import Any, Protocol, Self
+from urllib.parse import urlsplit
 
 from .agent import AskResult, ChatFn, RetrievalAgent
-from .config import Settings
+from .config import Settings, fx_gateway_chat_url, normalize_fx_gateway_base_url
 from .fx_command_broker import BrokerScope, FxCommandBroker
+from .openai_agent_runtime import OpenAICompatibleAgentRuntime
 from .rust_client import RustApiClient
 
 FX_RUNTIME_ID = "vercel-fx-acp-v1"
 _MAX_ACP_LINE_BYTES = 1024 * 1024
 _MAX_ANSWER_CHARS = 1024 * 1024
 _MAX_TOOL_EVENTS = 2048
+
+
+def probe_fx_gateway_endpoint(base_url: str, *, timeout: float) -> None:
+    """Prove that an fx 0.0.5 custom loopback bridge is accepting TCP.
+
+    The official Gateway is intentionally not contacted here: that would turn
+    startup/readiness into a billable or internet-dependent model operation.
+    A custom endpoint is a local bridge by contract, so a bounded TCP connect
+    is a useful no-credential readiness check.
+    """
+
+    normalized = normalize_fx_gateway_base_url(base_url)
+    if not normalized:
+        return
+    parsed = urlsplit(normalized)
+    host = parsed.hostname
+    port = parsed.port
+    if host is None or port is None:  # normalize already rejects this; defensive.
+        raise RuntimeError("FX Gateway custom endpoint is invalid")
+    try:
+        with socket.create_connection((host, port), timeout=max(0.05, timeout)):
+            pass
+    except OSError as exc:
+        raise RuntimeError(
+            f"FX Gateway custom endpoint is unreachable at {host}:{port}"
+        ) from exc
 
 
 class AgentRuntime(Protocol):
@@ -118,6 +147,11 @@ class FxAcpRuntime:
                 detail="RETAIN_AI_FX_GATEWAY_API_KEY is missing",
             )
         try:
+            normalize_fx_gateway_base_url(self._settings.fx_gateway_base_url)
+            probe_fx_gateway_endpoint(
+                self._settings.fx_gateway_base_url,
+                timeout=min(self._settings.fx_startup_timeout_s, 2.0),
+            )
             with self._start_client() as client:
                 actual = client.initialize()
             if actual != self._settings.fx_expected_version:
@@ -168,10 +202,30 @@ class FxAcpRuntime:
                 "fx runtime is enabled but RETAIN_AI_FX_GATEWAY_API_KEY is missing"
             )
         emit = on_event or (lambda _event: None)
+        operation_refs: dict[str, dict[str, Any]] = {}
+        operation_refs_lock = threading.Lock()
+
+        def on_operation_event(event: dict[str, Any]) -> None:
+            operation_id = str(event.get("operation_id") or "").strip()
+            if not operation_id:
+                return
+            ref = {
+                "operation_id": operation_id,
+                "status": str(event.get("status") or ""),
+                "current_attempt": int(event.get("current_attempt") or 0),
+                "latest_event_seq": int(event.get("latest_event_seq") or 0),
+            }
+            with operation_refs_lock:
+                operation_refs[operation_id] = ref
+            emit(event)
+
         broker_context = (
             FxCommandBroker(
                 state_root=self._settings.fx_state_root,
-                cli_command=self._settings.fx_agent_cli_command,
+                cli_command=(
+                    self._settings.agent_cli_command
+                    or self._settings.fx_agent_cli_command
+                ),
                 rust_api_url=self._settings.rust_api_base,
                 rust=self._rust,
                 scope=BrokerScope(
@@ -180,7 +234,11 @@ class FxAcpRuntime:
                     request_message_id=request_message_id,
                     intent_summary=question,
                     confirmed=confirmed,
+                    green_light=(
+                        self._settings.agent_confirmation_mode == "green_light"
+                    ),
                 ),
+                on_operation_event=on_operation_event,
             )
             if document_id and request_message_id
             else nullcontext(None)
@@ -232,6 +290,7 @@ class FxAcpRuntime:
                 citations=[],
                 tool_trace=tool_trace,
                 rounds=1,
+                operation_refs=list(operation_refs.values()),
             )
 
     def _open_or_create_session(
@@ -323,6 +382,15 @@ class FxAcpRuntime:
         }
         if self._settings.fx_model:
             env["FX_MODEL"] = self._settings.fx_model
+        if self._settings.fx_gateway_base_url:
+            base_url = normalize_fx_gateway_base_url(
+                self._settings.fx_gateway_base_url
+            )
+            env["FX_GATEWAY_BASE_URL"] = base_url
+            # fx 0.0.5 does not derive its completion endpoint from the base
+            # URL.  Both variables are required or model turns still use the
+            # public Gateway while catalog requests use the custom URL.
+            env["FX_GATEWAY_CHAT_URL"] = fx_gateway_chat_url(base_url)
         return _FxAcpClient(
             executable,
             workspace,
@@ -689,6 +757,9 @@ def build_agent_runtime(
                 f"{capability.detail or capability.actual_version or 'unavailable'}"
             )
         return candidate
+    if runtime == "openai":
+        return OpenAICompatibleAgentRuntime(settings, rust)
     raise RuntimeError(
-        f"unsupported RETAIN_AI_RUNTIME={settings.agent_runtime!r}; expected python or fx"
+        f"unsupported RETAIN_AI_RUNTIME={settings.agent_runtime!r}; "
+        "expected python, openai, or fx"
     )

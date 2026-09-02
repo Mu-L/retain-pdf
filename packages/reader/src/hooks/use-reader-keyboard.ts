@@ -1,6 +1,6 @@
 // 阅读器键盘快捷键（输入框内不抢键）。
 // j/↓/PageDown 下页 · k/↑/PageUp 上页 · Home/End 首末页
-// +/- 缩放 · 0 重置模式默认缩放 · 1/2/3 原文/译文/对照
+// +/- 缩放 · 0 重置模式默认缩放 · 1/2/3 源文件/对照/翻译文件
 
 import { useEffect } from "react";
 import type { ReaderMode } from "./use-reader-session.js";
@@ -36,6 +36,17 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
 }
 
+export function resolveReaderModeShortcut(
+  key: string,
+  sourceOnly: boolean,
+): ReaderMode | null {
+  if (key === "1") return "source";
+  if (sourceOnly) return null;
+  if (key === "2") return "compare";
+  if (key === "3") return "translated";
+  return null;
+}
+
 export function useReaderKeyboard(api: ReaderKeyboardApi) {
   const {
     mode,
@@ -66,19 +77,10 @@ export function useReaderKeyboard(api: ReaderKeyboardApi) {
       const lower = key.length === 1 ? key.toLowerCase() : key;
 
       // 模式
-      if (lower === "1") {
+      const shortcutMode = resolveReaderModeShortcut(lower, sourceOnly);
+      if (shortcutMode) {
         event.preventDefault();
-        setMode("source");
-        return;
-      }
-      if (lower === "2" && !sourceOnly) {
-        event.preventDefault();
-        setMode("translated");
-        return;
-      }
-      if (lower === "3" && !sourceOnly) {
-        event.preventDefault();
-        setMode("compare");
+        setMode(shortcutMode);
         return;
       }
 

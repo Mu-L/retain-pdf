@@ -5,6 +5,7 @@ use std::process::Stdio;
 #[cfg(windows)]
 use anyhow::anyhow;
 use anyhow::{Context, Result};
+use retain_data::credentials::resolve_credential;
 use tokio::process::{Child, Command};
 
 use crate::config::WorkerProcessRuntimeConfig;
@@ -17,7 +18,7 @@ use crate::ocr_provider::{
 pub(super) fn spawn_worker_process(
     config: &WorkerProcessRuntimeConfig<'_>,
     job: &JobRuntimeState,
-) -> Result<Child> {
+) -> Result<(Child, Vec<String>)> {
     let mut command = Command::new(&job.command[0]);
     command
         .args(&job.command[1..])
@@ -32,47 +33,76 @@ pub(super) fn spawn_worker_process(
         .current_dir(config.project_root)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    apply_job_credentials(&mut command, job);
+    let runtime_secrets = apply_job_credentials(&mut command, config.data_root, job)?;
     configure_child_process(&mut command);
 
     let program = job.command.first().cloned().unwrap_or_default();
-    command
+    let child = command
         .spawn()
-        .with_context(|| format!("failed to spawn python worker: {program}"))
+        .with_context(|| format!("failed to spawn python worker: {program}"))?;
+    Ok((child, runtime_secrets))
 }
 
-fn apply_job_credentials(command: &mut Command, job: &JobRuntimeState) {
-    if !job.request_payload.translation.api_key.trim().is_empty() {
-        command.env(
-            "RETAIN_TRANSLATION_API_KEY",
-            job.request_payload.translation.api_key.trim(),
-        );
+fn apply_job_credentials(
+    command: &mut Command,
+    data_root: &std::path::Path,
+    job: &JobRuntimeState,
+) -> Result<Vec<String>> {
+    let mut runtime_secrets = Vec::new();
+    if let Some(api_key) = resolve_translation_api_key(data_root, job)? {
+        command.env("RETAIN_TRANSLATION_API_KEY", &api_key);
+        runtime_secrets.push(api_key);
     }
     if let Ok(provider_kind) = require_supported_provider(&job.request_payload.ocr.provider) {
         if is_configured_command_provider(&job.request_payload.ocr.provider) {
-            apply_configured_provider_credential(command, job);
-            return;
+            if let Some(token) = apply_configured_provider_credential(command, job) {
+                runtime_secrets.push(token);
+            }
+            return Ok(runtime_secrets);
         }
         let token = provider_token(&provider_kind, &job.request_payload.ocr);
         if !token.is_empty() {
             if let Some(env_name) = provider_token_env_name(&provider_kind) {
                 command.env(env_name, token);
+                runtime_secrets.push(token.to_string());
             }
         }
     }
+    Ok(runtime_secrets)
 }
 
-fn apply_configured_provider_credential(command: &mut Command, job: &JobRuntimeState) {
+fn resolve_translation_api_key(
+    data_root: &std::path::Path,
+    job: &JobRuntimeState,
+) -> Result<Option<String>> {
+    let inline = job.request_payload.translation.api_key.trim();
+    if !inline.is_empty() {
+        return Ok(Some(inline.to_string()));
+    }
+    let credential_ref = job.request_payload.translation.credential_ref.trim();
+    if credential_ref.is_empty() {
+        return Ok(None);
+    }
+    let resolved = resolve_credential(data_root, credential_ref, "translation_api_key")
+        .with_context(|| format!("resolve translation credential_ref {credential_ref}"))?;
+    Ok(Some(resolved.secret))
+}
+
+fn apply_configured_provider_credential(
+    command: &mut Command,
+    job: &JobRuntimeState,
+) -> Option<String> {
     let Some(env_name) = configured_provider_credential_env(&job.request_payload.ocr.provider)
     else {
-        return;
+        return None;
     };
     let token = configured_provider_token(job);
     if token.is_empty() {
-        return;
+        return None;
     }
     command.env(&env_name, &token);
-    command.env("RETAIN_OCR_CREDENTIAL", token);
+    command.env("RETAIN_OCR_CREDENTIAL", &token);
+    Some(token)
 }
 
 fn configured_provider_token(job: &JobRuntimeState) -> String {

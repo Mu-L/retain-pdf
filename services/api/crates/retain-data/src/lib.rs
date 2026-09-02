@@ -5,6 +5,7 @@
 
 pub use retain_core::{config, job_failure, models, storage_paths};
 
+pub mod credentials;
 pub mod db;
 pub mod job_events;
 pub mod ocr_provider;

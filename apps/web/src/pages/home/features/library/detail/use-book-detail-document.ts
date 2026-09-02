@@ -52,6 +52,7 @@ export function useBookDetailDocument({
     tags: meta.tags,
     setTitleText: meta.setTitleText,
     setTagsText: meta.setTagsText,
+    refreshDocument: meta.refresh,
     startEdit: meta.startEdit,
     handleSaveEdit: meta.handleSaveEdit,
     handleReadingStatus: meta.handleReadingStatus,

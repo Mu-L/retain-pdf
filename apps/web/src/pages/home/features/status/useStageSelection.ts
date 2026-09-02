@@ -11,7 +11,7 @@
 //   currentStageKey 校验是否仍可选,不可选则回退跟随当前阶段——
 //   isSelectableStatusStage 语义:只能选"已到达或正在进行"的阶段)。
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { resolveSelectedStatusStage } from "../../composition/external.js";
 
 type StageSelectionState = {
@@ -30,53 +30,54 @@ const INITIAL_STATE: StageSelectionState = {
 
 export function useStageSelection({ jobId = "", currentStageKey = "" } = {}) {
   const [state, setState] = useState<StageSelectionState>(INITIAL_STATE);
+  const normalizedJobId = `${jobId || ""}`.trim();
+  const normalizedStageKey = `${currentStageKey || ""}`.trim();
 
-  useEffect(() => {
-    setState((prev) => {
-      const normalizedJobId = `${jobId || ""}`.trim();
-      const normalizedStageKey = `${currentStageKey || ""}`.trim();
-      const jobChanged = Boolean(normalizedJobId && normalizedJobId !== prev.currentJobId);
-      const base = jobChanged
-        ? { ...prev, currentJobId: normalizedJobId, selectedStageKey: "", manualStageSelection: false }
-        : prev;
-      const previousStageKey = base.currentStageKey;
-      const stageAdvanced = Boolean(previousStageKey && previousStageKey !== normalizedStageKey);
-      const manualStageSelection = stageAdvanced ? false : base.manualStageSelection;
-      const resolved = resolveSelectedStatusStage({
-        currentStageKey: normalizedStageKey,
-        selectedStageKey: base.selectedStageKey,
-        manualStageSelection,
-      });
-      return {
-        currentJobId: base.currentJobId,
-        currentStageKey: normalizedStageKey,
-        selectedStageKey: resolved.selectedStageKey,
-        manualStageSelection: resolved.manualStageSelection,
-      };
+  // 任务轮询、乐观提交与终态对账可能在一帧内交替提供不同阶段。
+  // 这些外部变化只参与派生，不能通过 effect 再写本地 state；否则外部
+  // snapshot 与本地 selection 会互相推动，最终触发 React update depth 185。
+  const resolvedState = useMemo(() => {
+    const jobChanged = normalizedJobId !== state.currentJobId;
+    const stageChanged = normalizedStageKey !== state.currentStageKey;
+    const manualStageSelection = jobChanged || stageChanged
+      ? false
+      : state.manualStageSelection;
+    const resolved = resolveSelectedStatusStage({
+      currentStageKey: normalizedStageKey,
+      selectedStageKey: jobChanged ? "" : state.selectedStageKey,
+      manualStageSelection,
     });
-  }, [jobId, currentStageKey]);
+    return {
+      currentJobId: normalizedJobId,
+      currentStageKey: normalizedStageKey,
+      selectedStageKey: resolved.selectedStageKey,
+      manualStageSelection: resolved.manualStageSelection,
+    };
+  }, [normalizedJobId, normalizedStageKey, state]);
 
   const selectStage = useCallback((stageKey) => {
-    setState((prev) => {
+    setState(() => {
       const resolved = resolveSelectedStatusStage({
-        currentStageKey: prev.currentStageKey,
+        currentStageKey: normalizedStageKey,
         selectedStageKey: stageKey,
         manualStageSelection: true,
       });
       return {
-        ...prev,
+        currentJobId: normalizedJobId,
+        currentStageKey: normalizedStageKey,
         selectedStageKey: resolved.selectedStageKey,
         manualStageSelection: resolved.manualStageSelection,
       };
     });
-  }, []);
+  }, [normalizedJobId, normalizedStageKey]);
 
-  const selectedIsCurrent = !state.selectedStageKey || state.selectedStageKey === state.currentStageKey;
+  const selectedIsCurrent = !resolvedState.selectedStageKey
+    || resolvedState.selectedStageKey === resolvedState.currentStageKey;
 
   return {
-    currentStageKey: state.currentStageKey,
-    selectedStageKey: state.selectedStageKey,
-    manualStageSelection: state.manualStageSelection,
+    currentStageKey: resolvedState.currentStageKey,
+    selectedStageKey: resolvedState.selectedStageKey,
+    manualStageSelection: resolvedState.manualStageSelection,
     selectedIsCurrent,
     selectStage,
   };

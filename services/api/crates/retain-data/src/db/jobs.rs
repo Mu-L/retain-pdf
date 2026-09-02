@@ -68,6 +68,39 @@ impl Db {
         Ok(jobs)
     }
 
+    pub fn list_jobs_for_document(
+        &self,
+        document_id: &str,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Vec<JobSnapshot>> {
+        let conn = self.connect()?;
+        let query = format!(
+            "{JOB_SELECT_SQL} WHERE jobs.document_id = ?1 \
+             ORDER BY jobs.updated_at DESC, jobs.job_id DESC LIMIT ?2 OFFSET ?3"
+        );
+        let mut stmt = conn.prepare(&query)?;
+        let rows = stmt.query_map(
+            params![document_id, i64::from(limit), i64::from(offset)],
+            row_to_job_snapshot,
+        )?;
+        let mut jobs = Vec::new();
+        for row in rows {
+            jobs.push(row?);
+        }
+        Ok(jobs)
+    }
+
+    pub fn count_jobs_for_document(&self, document_id: &str) -> Result<u64> {
+        let conn = self.connect()?;
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM jobs WHERE document_id = ?1",
+            params![document_id],
+            |row| row.get(0),
+        )?;
+        Ok(count.max(0) as u64)
+    }
+
     pub fn list_jobs_with_status(&self, status: &JobStatusKind) -> Result<Vec<JobSnapshot>> {
         let conn = self.connect()?;
         let status_json = serde_json::to_string(status)?;

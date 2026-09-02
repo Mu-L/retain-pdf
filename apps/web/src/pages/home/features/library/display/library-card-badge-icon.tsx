@@ -22,6 +22,16 @@ const PATHS = {
       <path d="M14 18h6" />
     </>
   ),
+  // OCR 完成: scan-text
+  "scan-text": (
+    <>
+      <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+      <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+      <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+      <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+      <path d="M7 8h8M7 12h10M7 16h6" />
+    </>
+  ),
   // 处理中:loader-circle(转圈,配 animate-spin)
   loader: <path d="M21 12a9 9 0 1 1-6.219-8.56" />,
   // 失败:circle-alert

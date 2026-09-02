@@ -42,7 +42,6 @@
 @import "../components.utilities.css";
 @import "../dialog-shell.css";
 @import "../core/download-toast.css";
-@import "../pages/home/home-dialog-overlays.css";
 
 /* —— home-only（主页领域；勿再塞 reader/detail）—— */
 @import "../pages/home/components.utilities.css";
@@ -62,5 +61,9 @@
 @import "../pages/home/job-dialogs.utilities.css";
 @import "../pages/home/credential-settings.css";
 @import "../pages/home/status-card.css";
-@import "../pages/home/book-detail.css" layer(pages);
+/* 书籍详情按职责拆分：壳层 → 概览 → 处理 → 文件产物。 */
+@import "../pages/home/book-detail-shell.css" layer(pages);
+@import "../pages/home/book-detail-overview.css" layer(pages);
+@import "../pages/home/book-detail-processing.css" layer(pages);
+@import "../pages/home/book-detail-artifacts.css" layer(pages);
 @import "../pages/home/mojia-ornaments.css" layer(pages);

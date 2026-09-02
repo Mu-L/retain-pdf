@@ -3,7 +3,7 @@ use std::path::Path;
 use anyhow::{anyhow, Result};
 use serde_json::Value;
 
-use crate::job_runner::stage_contract::sha256_hex;
+use crate::job_runner::stage_contract::resolve_checkpoint_page_source;
 use crate::models::domain::JobStatusKind;
 use crate::storage_paths::{
     build_job_paths, TRANSLATION_CHECKPOINT_FILE_NAME, TRANSLATION_MANIFEST_FILE_NAME,
@@ -68,26 +68,25 @@ pub(super) fn import_translation_checkpoint_candidate(
         .ok_or_else(|| anyhow!("translation checkpoint pages missing for {source_job_id}"))?;
     std::fs::create_dir_all(target_translated_dir)?;
     for page in pages {
-        let relative = page.get("path").and_then(Value::as_str).ok_or_else(|| {
-            anyhow!("translation checkpoint page path missing for {source_job_id}")
-        })?;
-        let file_name = safe_checkpoint_page_name(relative).ok_or_else(|| {
-            anyhow!("unsafe translation checkpoint page path for {source_job_id}: {relative}")
-        })?;
-        let source_page = source_paths.translated_dir.join(file_name);
-        if let Some(expected_hash) = page
-            .get("page_hash")
-            .and_then(Value::as_str)
-            .filter(|value| !value.is_empty())
-        {
-            let actual_hash = sha256_hex(std::fs::read(&source_page)?);
-            if actual_hash != expected_hash {
-                return Err(anyhow!(
-                    "translation checkpoint page hash mismatch for {source_job_id}: {relative}"
-                ));
-            }
+        let committed = resolve_checkpoint_page_source(
+            page,
+            &source_paths.translated_dir,
+            source_job_id,
+            true,
+        )?;
+        if let Some(snapshot_relative) = committed.snapshot_relative.as_ref() {
+            let target_snapshot = target_translated_dir.join(snapshot_relative);
+            std::fs::create_dir_all(
+                target_snapshot
+                    .parent()
+                    .ok_or_else(|| anyhow!("translation checkpoint snapshot has no parent"))?,
+            )?;
+            copy_checkpoint_file(&committed.source_path, &target_snapshot)?;
         }
-        copy_checkpoint_file(&source_page, &target_translated_dir.join(file_name))?;
+        copy_checkpoint_file(
+            &committed.source_path,
+            &target_translated_dir.join(&committed.file_name),
+        )?;
     }
     let source_domain_context = source_paths.translated_dir.join(DOMAIN_CONTEXT_FILE_NAME);
     if source_domain_context.is_file() {
@@ -111,18 +110,6 @@ fn copy_request_journal_if_present(source_dir: &Path, target_dir: &Path) -> Resu
         copy_checkpoint_file(&source, &target)?;
     }
     Ok(())
-}
-
-fn safe_checkpoint_page_name(relative: &str) -> Option<&str> {
-    let path = Path::new(relative);
-    let file_name = path.file_name()?.to_str()?;
-    if path.components().count() != 1
-        || !file_name.starts_with("page-")
-        || !file_name.ends_with(".json")
-    {
-        return None;
-    }
-    Some(file_name)
 }
 
 fn copy_checkpoint_file(source: &Path, target: &Path) -> Result<()> {
@@ -234,6 +221,66 @@ mod tests {
         )
         .expect("do not overwrite target checkpoint"));
 
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn imports_committed_snapshot_instead_of_uncommitted_working_page() {
+        let root = test_root("committed-snapshot");
+        let source_paths = build_job_paths(&root, "source-job").expect("source paths");
+        let target_paths = build_job_paths(&root, "target-job").expect("target paths");
+        let page_name = "page-001-deepseek.json";
+        let snapshot_relative = Path::new(".translation-checkpoints")
+            .join("generation-2")
+            .join(page_name);
+        let source_snapshot = source_paths.translated_dir.join(&snapshot_relative);
+        std::fs::create_dir_all(source_snapshot.parent().expect("snapshot parent"))
+            .expect("snapshot dir");
+        std::fs::write(&source_snapshot, b"committed").expect("snapshot");
+        std::fs::write(
+            source_paths.translated_dir.join(page_name),
+            b"uncommitted continuation metadata",
+        )
+        .expect("working page");
+        std::fs::write(
+            source_paths
+                .translated_dir
+                .join(TRANSLATION_CHECKPOINT_FILE_NAME),
+            serde_json::to_vec_pretty(&serde_json::json!({
+                "schema": "translation_checkpoint_v1",
+                "schema_version": 1,
+                "status": "in_progress",
+                "phase": "preparing",
+                "attempt_id": "source-job",
+                "fingerprint": "fingerprint-a",
+                "pages": [{
+                    "page_index": 0,
+                    "path": page_name,
+                    "page_hash": crate::job_runner::stage_contract::sha256_hex(b"committed"),
+                    "snapshot_path": snapshot_relative.to_string_lossy(),
+                }],
+            }))
+            .expect("checkpoint json"),
+        )
+        .expect("checkpoint");
+
+        assert!(import_translation_checkpoint_candidate(
+            &root,
+            "source-job",
+            &JobStatusKind::Failed,
+            &target_paths.translated_dir,
+        )
+        .expect("import committed snapshot"));
+
+        assert_eq!(
+            std::fs::read(target_paths.translated_dir.join(page_name)).expect("target page"),
+            b"committed"
+        );
+        assert_eq!(
+            std::fs::read(target_paths.translated_dir.join(snapshot_relative))
+                .expect("target snapshot"),
+            b"committed"
+        );
         let _ = std::fs::remove_dir_all(root);
     }
 

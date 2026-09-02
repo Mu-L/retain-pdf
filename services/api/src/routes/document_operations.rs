@@ -1,9 +1,9 @@
-use axum::extract::{Extension, Path as AxumPath, State};
+use axum::extract::{Extension, State};
 use axum::Json;
 
 use crate::error::AppError;
 use crate::models::api::ApiResponse;
-use crate::routes::common::build_document_operation_route_deps;
+use crate::routes::common::{build_document_operation_route_deps, ApiJson, ApiPath};
 use crate::services::document_operation_api::{
     authorize_create_scope, authorize_operation_scope, cancel_document_operation,
     commit_document_operation, create_document_operation, get_document_operation_view,
@@ -16,7 +16,7 @@ use crate::AppState;
 pub async fn create_document_operation_route(
     State(state): State<AppState>,
     capability: Option<Extension<AgentCapabilityClaims>>,
-    Json(input): Json<CreateDocumentOperationInput>,
+    ApiJson(input): ApiJson<CreateDocumentOperationInput>,
 ) -> Result<Json<ApiResponse<DocumentOperationView>>, AppError> {
     let deps = build_document_operation_route_deps(&state);
     authorize_create_scope(
@@ -34,7 +34,7 @@ pub async fn create_document_operation_route(
 pub async fn get_document_operation_route(
     State(state): State<AppState>,
     capability: Option<Extension<AgentCapabilityClaims>>,
-    AxumPath(operation_id): AxumPath<String>,
+    ApiPath(operation_id): ApiPath<String>,
 ) -> Result<Json<ApiResponse<DocumentOperationView>>, AppError> {
     let deps = build_document_operation_route_deps(&state);
     authorize_operation_scope(
@@ -53,8 +53,8 @@ pub async fn get_document_operation_route(
 pub async fn run_document_operation_route(
     State(state): State<AppState>,
     capability: Option<Extension<AgentCapabilityClaims>>,
-    AxumPath(operation_id): AxumPath<String>,
-    Json(input): Json<RunDocumentOperationInput>,
+    ApiPath(operation_id): ApiPath<String>,
+    ApiJson(input): ApiJson<RunDocumentOperationInput>,
 ) -> Result<Json<ApiResponse<DocumentOperationView>>, AppError> {
     let deps = build_document_operation_route_deps(&state);
     authorize_operation_scope(
@@ -73,8 +73,8 @@ pub async fn run_document_operation_route(
 pub async fn cancel_document_operation_route(
     State(state): State<AppState>,
     capability: Option<Extension<AgentCapabilityClaims>>,
-    AxumPath(operation_id): AxumPath<String>,
-    Json(input): Json<CancelDocumentOperationInput>,
+    ApiPath(operation_id): ApiPath<String>,
+    ApiJson(input): ApiJson<CancelDocumentOperationInput>,
 ) -> Result<Json<ApiResponse<DocumentOperationView>>, AppError> {
     let deps = build_document_operation_route_deps(&state);
     authorize_operation_scope(
@@ -93,8 +93,8 @@ pub async fn cancel_document_operation_route(
 pub async fn commit_document_operation_route(
     State(state): State<AppState>,
     capability: Option<Extension<AgentCapabilityClaims>>,
-    AxumPath(operation_id): AxumPath<String>,
-    Json(input): Json<CommitDocumentOperationInput>,
+    ApiPath(operation_id): ApiPath<String>,
+    ApiJson(input): ApiJson<CommitDocumentOperationInput>,
 ) -> Result<Json<ApiResponse<DocumentOperationView>>, AppError> {
     let deps = build_document_operation_route_deps(&state);
     authorize_operation_scope(

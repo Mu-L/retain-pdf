@@ -43,6 +43,9 @@ export function SoftReaderHost() {
     function onMessage(event: MessageEvent) {
       if (event.origin !== window.location.origin) return;
       if (event.data?.type !== SOFT_READER_CLOSE_MESSAGE) return;
+      // 子页已经建立 closing 栅栏；父页同步结束 iframe 生命周期，避免
+      // 等待 history popstate 期间仍显示任何迟到的 Reader 状态。
+      setFrame(null);
       closeSoftReaderOnHost();
     }
 

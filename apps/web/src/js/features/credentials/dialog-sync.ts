@@ -13,6 +13,7 @@ export function syncCredentialDialogFields({
     apiKeyInput,
     modelBaseUrlInput,
     modelNameInput,
+    translationWorkersInput,
     mathModeSelect,
   } = elementsPort.elements();
 
@@ -20,15 +21,17 @@ export function syncCredentialDialogFields({
     paddleInput.value = credentials.paddleToken || "";
   }
   if (apiKeyInput) {
-    // 只展示设置里已存的 Key，不从 runtime 回填（避免「设置空白却仍能问答」）
-    void defaultModelApiKey;
-    apiKeyInput.value = `${credentials.modelApiKey || ""}`.trim();
+    apiKeyInput.value = credentials.modelApiKey || defaultModelApiKey?.() || "";
   }
   if (modelBaseUrlInput) {
     modelBaseUrlInput.value = taskOptions.baseUrl || defaultModelBaseUrl?.() || "";
+    elementsPort.syncTranslationProvider?.(modelBaseUrlInput.value);
   }
   if (modelNameInput) {
     modelNameInput.value = taskOptions.model || "";
+  }
+  if (translationWorkersInput) {
+    translationWorkersInput.value = `${taskOptions.workers || 50}`;
   }
   if (mathModeSelect) {
     mathModeSelect.value = taskOptions.mathMode === "placeholder" ? "placeholder" : "direct_typst";

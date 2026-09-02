@@ -83,6 +83,17 @@ def test_no_sync_no_build_skips_preparation_commands(tmp_path: Path) -> None:
     run.assert_not_called()
 
 
+def test_openai_runtime_is_a_supported_launcher_mode(tmp_path: Path) -> None:
+    paths = make_paths(tmp_path)
+    opts = options(paths, "--runtime", "openai", "--no-sync", "--no-build")
+    env = dev_stack.build_runtime_env(paths, opts, {"PATH": "/usr/bin"})
+
+    assert opts.runtime == "openai"
+    assert env["RETAIN_AI_RUNTIME"] == "openai"
+    assert env["RETAIN_AI_AGENT_CLI_COMMAND"] == str(paths.agent)
+    assert env["RETAIN_AI_FX_AGENT_CLI_COMMAND"] == str(paths.agent)
+
+
 def test_runtime_env_uses_absolute_commands_and_rust_supervision(tmp_path: Path) -> None:
     paths = make_paths(tmp_path)
     secret = "top-secret-development-key"
@@ -116,6 +127,7 @@ def test_runtime_env_uses_absolute_commands_and_rust_supervision(tmp_path: Path)
     assert env["PYTHON_BIN"] == str(paths.venv_python)
     assert env["RUST_API_PIPELINE_COMMAND"] == str(paths.pipeline_command)
     assert env["RUST_API_PYTHON_ENTRYPOINT_MODE"] == "console"
+    assert env["RETAIN_AI_AGENT_CLI_COMMAND"] == str(paths.agent)
     assert env["RETAIN_AI_FX_AGENT_CLI_COMMAND"] == str(paths.agent)
     assert env["RETAIN_AI_FX_COMMAND"] == "/fixed/fx"
     assert env["RETAIN_AI_RUNTIME"] == "fx"
@@ -244,6 +256,26 @@ def test_fx_preflight_error_never_includes_key() -> None:
     ):
         dev_stack.preflight_fx({"RETAIN_AI_FX_GATEWAY_API_KEY": secret})
     assert secret not in str(error.value)
+
+
+def test_fx_preflight_accepts_only_the_endpoint_policy_supported_by_fx_005() -> None:
+    completed = subprocess.CompletedProcess(["/bin/fx", "--version"], 0, "0.0.5\n", "")
+    base = {
+        "RETAIN_AI_FX_GATEWAY_API_KEY": "secret",
+        "RETAIN_AI_FX_GATEWAY_BASE_URL": "http://localhost:43231/gateway",
+    }
+    with (
+        mock.patch.object(dev_stack.shutil, "which", return_value="/bin/fx"),
+        mock.patch.object(dev_stack.subprocess, "run", return_value=completed),
+    ):
+        assert dev_stack.preflight_fx(base) == str(Path("/bin/fx").resolve())
+        with pytest.raises(dev_stack.StackError, match="explicit loopback HTTP"):
+            dev_stack.preflight_fx(
+                {
+                    **base,
+                    "RETAIN_AI_FX_GATEWAY_BASE_URL": "https://gateway.example",
+                }
+            )
 
 
 def test_prepare_only_does_not_launch(tmp_path: Path) -> None:

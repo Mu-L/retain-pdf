@@ -86,7 +86,7 @@ export function createWorkflowAndUpload({
   function readSubmitValues({
     defaultOcrProvider: ocrProviderFallback,
     defaultPaddleToken: paddleTokenFallback,
-    defaultModelApiKey: modelApiKeyFallback,
+    defaultModelApiKey: _modelApiKeyFallback,
   }: {
     defaultOcrProvider?: string;
     defaultPaddleToken?: string;
@@ -101,7 +101,7 @@ export function createWorkflowAndUpload({
     return {
       ocrProvider,
       ocrToken,
-      modelApiKey: credentials?.modelApiKey || modelApiKeyFallback,
+      translationCredentialRef: credentials?.translationCredentialRef || "",
       selectedGlossaryId: workflowView.selectedGlossaryId(),
     };
   }

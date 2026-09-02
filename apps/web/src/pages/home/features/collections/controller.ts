@@ -6,6 +6,7 @@ import {
   patchCollection,
   removeDocumentFromCollection,
   fetchDocumentList,
+  fetchJobPayload,
   fetchLibraryBookList,
   shapeDocumentsWithBooks,
 } from "../../composition/external.js";
@@ -50,7 +51,11 @@ export function createCollectionsController({ apiPrefix }) {
     // bug),收口到统一编排后不会再发散。
     async fetchFolderBooks(collectionId) {
       const { documents = [] } = await fetchDocumentList(apiPrefix, { collectionId, limit: 500 });
-      return shapeDocumentsWithBooks(documents, { fetchLibraryBookList, apiPrefix });
+      return shapeDocumentsWithBooks(documents, {
+        fetchLibraryBookList,
+        fetchJobPayload,
+        apiPrefix,
+      });
     },
   };
 }

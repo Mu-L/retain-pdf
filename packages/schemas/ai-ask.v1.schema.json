@@ -33,10 +33,85 @@
         "stream": { "type": "boolean" },
         "force_compress": { "type": "boolean" },
         "confirm_document_operation": { "type": "boolean", "description": "本次请求是否由用户显式确认 run/commit；模型不能自行提升此值" },
+        "assistant_mode": { "type": "string", "enum": ["auto", "reading", "operations"], "description": "本轮能力面：阅读检索、PDF 操作或服务端默认" },
         "llm_api_key": { "type": "string" },
         "llm_base_url": { "type": "string" },
         "llm_model": { "type": "string" }
       }
+    },
+    "AgentOperationStatus": {
+      "type": "string",
+      "enum": ["draft", "awaiting_confirmation", "queued", "running", "validating", "result_ready", "committed", "failed", "cancelled", "ambiguous"]
+    },
+    "AgentOperationRef": {
+      "type": "object",
+      "required": ["operation_id"],
+      "properties": {
+        "operation_id": { "type": "string", "minLength": 1 },
+        "status": { "$ref": "#/definitions/AgentOperationStatus" },
+        "current_attempt": { "type": "integer", "minimum": 1 },
+        "latest_event_seq": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "AgentSessionEvent": {
+      "type": "object",
+      "description": "SSE 会话元数据；用于在回答完成前暴露 conversation 与实际 Agent runtime。",
+      "required": ["type", "conversation_id", "agent_runtime"],
+      "properties": {
+        "type": { "const": "agent_session" },
+        "conversation_id": { "type": "string", "minLength": 1 },
+        "request_message_id": { "type": "string" },
+        "agent_runtime": { "type": "string", "minLength": 1 },
+        "capabilities": {
+          "type": "object",
+          "properties": {
+            "document_operations": { "type": "boolean" },
+            "document_operation_confirmation_mode": {
+              "type": "string",
+              "enum": ["explicit", "green_light"]
+            }
+          }
+        }
+      }
+    },
+    "AgentOperationEvent": {
+      "type": "object",
+      "description": "SSE operation 通知；它只负责发现和刷新提示，operation 查询接口仍是权威状态。",
+      "required": ["type", "operation_id", "conversation_id", "request_message_id", "status", "current_attempt", "latest_event_seq"],
+      "properties": {
+        "type": { "const": "agent_operation" },
+        "event_id": { "type": "string" },
+        "operation_id": { "type": "string", "minLength": 1 },
+        "conversation_id": { "type": "string", "minLength": 1 },
+        "request_message_id": { "type": "string" },
+        "status": { "$ref": "#/definitions/AgentOperationStatus" },
+        "current_attempt": { "type": "integer", "minimum": 1 },
+        "latest_event_seq": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "AgentConfirmationRequest": {
+      "type": "object",
+      "description": "宿主产生的待确认动作；前端应基于此结构展示操作，不解析模型文案。",
+      "required": ["schema", "operation_id", "action", "status", "current_attempt", "latest_event_seq", "requires_risk_acceptance"],
+      "properties": {
+        "schema": { "const": "retainpdf_agent_confirmation_v1" },
+        "operation_id": { "type": "string", "minLength": 1 },
+        "action": { "type": "string", "enum": ["run", "commit", "retry"] },
+        "status": { "$ref": "#/definitions/AgentOperationStatus" },
+        "current_attempt": { "type": "integer", "minimum": 1 },
+        "latest_event_seq": { "type": "integer", "minimum": 0 },
+        "requires_risk_acceptance": { "type": "boolean" }
+      }
+    },
+    "AgentConfirmationRequiredEvent": {
+      "allOf": [
+        { "$ref": "#/definitions/AgentConfirmationRequest" },
+        {
+          "type": "object",
+          "required": ["type"],
+          "properties": { "type": { "const": "agent_confirmation_required" } }
+        }
+      ]
     },
     "DonePayload": {
       "type": "object",
@@ -49,13 +124,17 @@
         "rounds": { "type": "integer", "minimum": 0 },
         "persisted": { "type": "boolean", "description": "历史回写是否成功（审计 C2）；false 时前端提示本轮可能丢失" },
         "conversation_id": { "type": "string", "description": "auto-create 时回传" },
+        "agent_runtime": { "type": "string", "description": "本轮实际使用的 runtime 标识；旧服务可省略" },
+        "operation_refs": { "type": "array", "items": { "$ref": "#/definitions/AgentOperationRef" }, "description": "本轮创建或触达的 durable operation 引用" },
+        "confirmation_mode": { "type": "string", "enum": ["explicit", "green_light"] },
+        "confirmation_requests": { "type": "array", "items": { "$ref": "#/definitions/AgentConfirmationRequest" } },
         "memory": { "type": "object", "description": "记忆装配调试信息（had_summary 等），前端可忽略" }
       }
     },
     "SseEventType": {
       "type": "string",
-      "enum": ["tool", "answer_delta", "compress", "done", "error"],
-      "description": "SSE data 行的 type 枚举。前端当前消费 tool/answer_delta/done/error；compress 允许忽略但不允许报错。"
+      "enum": ["tool", "agent_tool", "agent_session", "agent_operation", "agent_confirmation_required", "answer_delta", "compress", "done", "error"],
+      "description": "SSE data 行的 type 枚举。agent_session/agent_operation 是结构化 Agent 闭环事件；agent_tool 保留安全投影后的执行过程。"
     }
   }
 }

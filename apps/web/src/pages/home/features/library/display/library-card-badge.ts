@@ -7,6 +7,7 @@ import {
   stageKeyForRecentJobLabel,
   isLibraryOnlyItem,
 } from "../../../composition/external.js";
+import { isOcrOnlyItem } from "./library-card-semantics.js";
 
 /**
  * @returns 终态/馆藏徽标；进行中返回 null（用中央 loading 代替）
@@ -45,6 +46,13 @@ export function libraryCardBadge(item: LibraryCardItem = {}): LibraryCardBadge |
 
   // 已完成
   if (status === "succeeded" || stageKey === "done") {
+    if (isOcrOnlyItem(item)) {
+      return {
+        label: "OCR 完成",
+        icon: "scan-text",
+        cls: "bg-secondary text-secondary-foreground",
+      };
+    }
     return {
       label: "已翻译",
       icon: "languages",
@@ -59,6 +67,13 @@ export function libraryCardBadge(item: LibraryCardItem = {}): LibraryCardBadge |
 
   // 兜底：有 done 阶段
   if (stageKey === "done") {
+    if (isOcrOnlyItem(item)) {
+      return {
+        label: "OCR 完成",
+        icon: "scan-text",
+        cls: "bg-secondary text-secondary-foreground",
+      };
+    }
     return {
       label: "已翻译",
       icon: "languages",
@@ -74,6 +89,11 @@ export function isLibraryCardProcessing(item: LibraryCardItem = {}): boolean {
   if (isLibraryOnlyItem(item)) return false;
   const status = `${item.status || ""}`.trim().toLowerCase();
   if (status === "failed" || status === "canceled" || status === "cancelled") {
+    return false;
+  }
+  // OCR-only 的公共终态仍可能停在 display_stage=ocr / ocr_result_ready；
+  // workflow + succeeded 才是权威终态，不能套用翻译任务的重试脏态规则。
+  if (status === "succeeded" && isOcrOnlyItem(item)) {
     return false;
   }
   // 明确运行中

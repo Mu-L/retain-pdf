@@ -1,3 +1,4 @@
+export type ReaderAssistantMode = "reading" | "operations";
 export declare function buildScopedQuestion({ question, scope, context, resolveQuote }?: {
     question?: string;
     scope?: string;

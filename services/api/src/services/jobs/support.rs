@@ -1,3 +1,4 @@
+use super::stage_view::build_job_stage_view;
 use crate::error::AppError;
 use crate::models::api::{build_job_actions, build_job_links_with_workflow, JobSubmissionView};
 use crate::models::domain::{JobSnapshot, JobStatusKind, WorkflowKind};
@@ -9,10 +10,20 @@ pub(crate) fn build_submission_view(
 ) -> JobSubmissionView {
     let mut view_job = job.clone();
     view_job.workflow = workflow.clone();
+    let source_artifact_job_id = job
+        .request_payload
+        .source
+        .artifact_job_id
+        .trim()
+        .to_string();
+    let ocr_reused = !source_artifact_job_id.is_empty();
     JobSubmissionView {
         job_id: job.job_id.clone(),
         status,
         workflow: workflow.clone(),
+        ocr_reused,
+        source_artifact_job_id: ocr_reused.then_some(source_artifact_job_id),
+        stages: build_job_stage_view(&view_job, None).stages,
         links: build_job_links_with_workflow(&job.job_id, &workflow, base_url),
         actions: build_job_actions(&view_job, base_url, false, false, false),
     }

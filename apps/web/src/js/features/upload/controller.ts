@@ -331,12 +331,12 @@ export function mountUploadFeature({
       });
       updateAppliedPageRange(currentPageRanges());
       viewPort.markUploadReady(!!snapshot.uploadId);
-      viewPort.showUploadStatus("上传完成：可直接翻译，或仅收藏。");
+      viewPort.showUploadStatus("上传完成：请选择仅收藏、仅 OCR 或翻译。");
       clearFileInputValue();
       renderPageRangeSummary();
       refreshSubmitControls();
       if (refreshDeepSeekBalance) {
-        viewPort.showUploadStatus("上传完成，正在检测余额…");
+        viewPort.showUploadStatus("上传完成，正在检查翻译接口…");
         void withTimeout(
           refreshDeepSeekBalance({ silent: true }),
           BALANCE_CHECK_TIMEOUT_MS,
@@ -345,13 +345,13 @@ export function mountUploadFeature({
           .then((result) => {
             const status = `${(result as { status?: string } | null | undefined)?.status || ""}`;
             if (status === "network_error" || status === "missing_key") {
-              viewPort.showUploadStatus("上传完成，余额未确认，提交前会再次检测。");
+              viewPort.showUploadStatus("上传完成，翻译接口状态未确认，提交前会再次检查。");
               return;
             }
             viewPort.showUploadStatus("上传完成，可以开始任务。");
           })
           .catch(() => {
-            viewPort.showUploadStatus("上传完成，余额未确认，提交前会再次检测。");
+            viewPort.showUploadStatus("上传完成，翻译接口状态未确认，提交前会再次检查。");
           })
           .finally(() => {
             refreshSubmitControls();

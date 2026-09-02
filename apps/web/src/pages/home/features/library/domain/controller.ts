@@ -22,19 +22,27 @@ import type {
   LibraryControllerDeps,
   ReloadRecentJobsOptions,
   TranslateDocumentPayload,
+  OcrDocumentPayload,
   UpdateDocumentPayload,
 } from "../types.js";
 import {
   translateDocument,
+  ocrDocument,
+  fetchDocumentJobs,
+  fetchJobStageActions,
+  retryJobStage,
   deleteDocument,
   patchDocument,
   API_PREFIX,
   APP_EVENTS,
 } from "../../../composition/external.js";
+import { mergeTranslatePayload } from "./translation-ocr-reuse.js";
 
 type ErrorLike = {
   message?: string;
   status?: number;
+  errorCode?: string;
+  reason?: string;
 } | string | null | undefined;
 
 export function createLibraryController({
@@ -45,12 +53,14 @@ export function createLibraryController({
   patchLibraryDocumentItem,
   deleteJob,
   buildTranslateConfig,
+  buildOcrConfig,
   startPolling,
   hideStatusArea,
   recentJobsStatePort,
 }: LibraryControllerDeps = {}): LibraryController {
   const bookDetailStore = createBookDetailDialogStore();
   const translatingDocumentIds = new Set<string>();
+  const ocrDocumentIds = new Set<string>();
 
   function dispatchAppEvent(name: string, detail?: unknown) {
     if (documentRef?.dispatchEvent && typeof globalThis.CustomEvent === "function") {
@@ -86,12 +96,24 @@ export function createLibraryController({
   // 翻译失败的友好文案:后端最常见的失败是"没配 OCR/翻译凭据"
   // (如 paddle_token is required),原文对用户没意义,给一句可操作提示;其余
   // 错误至少把后端消息透出来(不再静默)。
-  function friendlyTranslateError(error: ErrorLike) {
+  function friendlyTranslateError(error: ErrorLike, { reusingOcr = false } = {}) {
     const message = typeof error === "string" ? error : `${error?.message || error || ""}`;
+    const errorCode = typeof error === "object" && error
+      ? `${error.errorCode || error.reason || ""}`.trim()
+      : "";
+    const structured = `${errorCode} ${message}`;
+    if (/OCR_PAGE_COVERAGE_MISMATCH/i.test(structured)) {
+      return "现有 OCR 未覆盖所选页码，未自动重新识别。请先为缺失页码执行 OCR。";
+    }
+    if (/OCR_(?:JOB_NOT_FOUND|JOB_NOT_SUCCEEDED|ARTIFACT_MISSING|ARTIFACT_NOT_REUSABLE)/i.test(structured)) {
+      return "现有 OCR 产物暂时无法复用，未自动重新识别。请重新执行 OCR 后再试。";
+    }
     const credentialish = /(token|key|凭据|令牌|密钥|credential)/i.test(message);
     const missing = /(required|需要|缺|未配置|not configured|missing)/i.test(message);
     if (credentialish && missing) {
-      return "翻译需要先在「设置」里配置 OCR / 翻译凭据后再试。";
+      return reusingOcr
+        ? "翻译需要先在「设置」里配置翻译 API 后再试。"
+        : "翻译需要先在「设置」里配置 OCR / 翻译凭据后再试。";
     }
     return message || "发起翻译失败，请稍后重试。";
   }
@@ -106,19 +128,27 @@ export function createLibraryController({
   // OCR 凭据时的真实 bug)。
   // 组装真正发给后端的 job 配置:先从已配置凭据拼出完整的 ocr(PaddleOCR)+
   // translation(DeepSeek)基座(buildTranslateConfig),再把弹窗传来的页码范围
-  // (payload.ocr.page_ranges / payload.translation.start_page-end_page)叠上去。
+  // (普通流程用 ocr.page_ranges + translation.start/end；OCR 复用流程用
+  // translation.page_ranges 一基数组)叠上去。
   // 不带凭据的话后端收不到 provider,会默认到已废弃的 OCR provider 而失败。
   function assembleTranslatePayload(overrides: TranslateDocumentPayload = {}): TranslateDocumentPayload {
     const pageRanges = `${overrides?.ocr?.page_ranges || ""}`.trim();
     const base = (buildTranslateConfig?.(pageRanges) || {}) as TranslateDocumentPayload;
+    return mergeTranslatePayload(base, overrides);
+  }
+
+  function assembleOcrPayload(overrides: OcrDocumentPayload = {}): OcrDocumentPayload {
+    const pageRanges = `${overrides?.ocr?.page_ranges || ""}`.trim();
+    const base = (buildOcrConfig?.(pageRanges) || {}) as OcrDocumentPayload;
     return {
-      ...(base.ocr ? { ocr: { ...base.ocr, ...(overrides.ocr || {}) } } : (overrides.ocr ? { ocr: overrides.ocr } : {})),
-      ...(base.translation ? { translation: { ...base.translation, ...(overrides.translation || {}) } } : (overrides.translation ? { translation: overrides.translation } : {})),
+      ...base,
+      workflow: "ocr",
+      ocr: { ...(base.ocr || {}), ...(overrides.ocr || {}) },
     };
   }
 
   /**
-   * 静默接入任务进度（书籍详情翻译 Tab → bd-job-status-inner）。
+   * 静默接入任务进度（书籍详情处理 Tab → bd-job-status-inner）。
    * - silent startPolling：只写 statusCardStore，不抬工作流区、不广播 create
    * - 绝不 dispatch openTranslationWorkflow（进度主场在详情，不在弹窗）
    * - 强制 hide 主状态区，避免 #status-section / 主 StatusCard 抢戏
@@ -135,7 +165,7 @@ export function createLibraryController({
 
   /**
    * 翻译成功后的即时反馈（不等整页重载）:
-   * 1) 详情 payload 立刻挂上真实 job_id → 翻译 Tab 切到 StatusCard
+   * 1) 详情 payload 立刻挂上真实 job_id → 处理 Tab 切到 StatusCard
    * 2) attachJobProgress → 进度环/阶段流马上动
    * 3) publishJobUpdated 按 document_id 就地更新原卡（禁止插第二张）
    * 4) 后台 silent 刷新对齐服务端，不闪 loading
@@ -152,6 +182,14 @@ export function createLibraryController({
     const base = (dialogState.payload || {}) as LibraryCardItem;
     const status = `${result?.status || "queued"}`.trim() || "queued";
     const stage = `${result?.stage || result?.display_stage || "queued"}`.trim() || "queued";
+    const workflow = `${result?.workflow || ""}`.trim();
+    const reuseProjection = {
+      ...(typeof result?.ocr_reused === "boolean" ? { ocr_reused: result.ocr_reused } : {}),
+      ...(result?.source_artifact_job_id
+        ? { source_artifact_job_id: result.source_artifact_job_id }
+        : {}),
+      ...(result?.stages ? { stages: result.stages } : {}),
+    };
 
     if (dialogState.open && `${base.document_id || ""}`.trim() === documentId) {
       bookDetailStore.open({
@@ -162,6 +200,8 @@ export function createLibraryController({
         status,
         stage,
         display_stage: `${result?.display_stage || stage}`,
+        ...(workflow ? { workflow, job_type: workflow } : {}),
+        ...reuseProjection,
       });
     }
 
@@ -176,6 +216,8 @@ export function createLibraryController({
       status,
       stage,
       display_stage: `${result?.display_stage || stage}`,
+      ...(workflow ? { workflow, job_type: workflow } : {}),
+      ...reuseProjection,
       title: base.title,
       display_name: base.display_name || base.title,
       page_count: base.page_count,
@@ -195,6 +237,7 @@ export function createLibraryController({
     }
     translatingDocumentIds.add(normalizedId);
     let result: JobSubmissionView | null = null;
+    const reusingOcr = Boolean(`${payload.source?.artifact_job_id || ""}`.trim());
     try {
       result = (await translateDocument(
         API_PREFIX,
@@ -202,7 +245,7 @@ export function createLibraryController({
         assembleTranslatePayload(payload),
       )) as JobSubmissionView;
     } catch (error) {
-      throw new Error(friendlyTranslateError(error as ErrorLike));
+      throw new Error(friendlyTranslateError(error as ErrorLike, { reusingOcr }));
     } finally {
       translatingDocumentIds.delete(normalizedId);
     }
@@ -210,6 +253,87 @@ export function createLibraryController({
     // 立刻接进度 + 更新详情/网格；不再整页 reload（运行中由单卡 patch 推进）
     promoteDocumentToJob(normalizedId, result);
     return result;
+  }
+
+  async function ocrLibraryDocument(
+    documentId?: string | null,
+    payload: OcrDocumentPayload = {},
+  ): Promise<JobSubmissionView | null> {
+    const normalizedId = `${documentId || ""}`.trim();
+    if (!normalizedId || ocrDocumentIds.has(normalizedId)) return null;
+    ocrDocumentIds.add(normalizedId);
+    let result: JobSubmissionView | null = null;
+    try {
+      result = (await ocrDocument(
+        API_PREFIX,
+        normalizedId,
+        assembleOcrPayload(payload),
+      )) as JobSubmissionView;
+    } catch (error) {
+      const message = typeof error === "string" ? error : `${(error as Error)?.message || error || ""}`;
+      if (/(token|key|凭据|令牌|密钥|credential)/i.test(message)) {
+        throw new Error("OCR 需要先在「设置」里配置 OCR 凭据后再试。");
+      }
+      throw new Error(message || "发起 OCR 失败，请稍后重试。");
+    } finally {
+      ocrDocumentIds.delete(normalizedId);
+    }
+    promoteDocumentToJob(normalizedId, { ...result, workflow: "ocr" });
+    return result;
+  }
+
+  async function getDocumentJobs(documentId?: string | null) {
+    const normalizedId = `${documentId || ""}`.trim();
+    if (!normalizedId) return { items: [] };
+    return fetchDocumentJobs(API_PREFIX, normalizedId) as Promise<any>;
+  }
+
+  async function getJobStageActions(jobId?: string | null) {
+    const normalizedId = `${jobId || ""}`.trim();
+    if (!normalizedId || normalizedId.startsWith("doc:")) return null;
+    return fetchJobStageActions(normalizedId, API_PREFIX);
+  }
+
+  async function retryDocumentJobStage(
+    jobId?: string | null,
+    stage?: string | null,
+    overrides: Record<string, unknown> = {},
+  ): Promise<JobSubmissionView | null> {
+    const normalizedJobId = `${jobId || ""}`.trim();
+    const normalizedStage = `${stage || ""}`.trim();
+    if (!normalizedJobId || !normalizedStage) return null;
+    const dialogState = bookDetailStore.getState();
+    const base = (dialogState.payload || {}) as LibraryCardItem;
+    const documentId = `${overrides.document_id || base.document_id || ""}`.trim();
+    const currentTranslation = normalizedStage === "translation"
+      ? ((buildTranslateConfig?.("") as TranslateDocumentPayload | undefined)?.translation || {})
+      : null;
+    const requestedOverrides = overrides.overrides && typeof overrides.overrides === "object"
+      ? overrides.overrides as Record<string, unknown>
+      : {};
+    const stageOverrides = currentTranslation
+      ? {
+          ...requestedOverrides,
+          translation: {
+            ...((requestedOverrides.translation && typeof requestedOverrides.translation === "object")
+              ? requestedOverrides.translation as Record<string, unknown>
+              : {}),
+            ...currentTranslation,
+          },
+        }
+      : requestedOverrides;
+    const result = await retryJobStage(normalizedJobId, API_PREFIX, normalizedStage, {
+      document_id: documentId,
+      title: base.title,
+      display_name: base.display_name || base.title,
+      cover_url: base.cover_url,
+      thumbnail_url: base.thumbnail_url,
+      page_count: base.page_count,
+      ...overrides,
+      ...(Object.keys(stageOverrides).length ? { overrides: stageOverrides } : {}),
+    }) as JobSubmissionView;
+    if (result && documentId) promoteDocumentToJob(documentId, result);
+    return result || null;
   }
 
   // 文档级删除(后端补了 DELETE /documents/:id 之后):删掉 document + 名下所有
@@ -274,21 +398,11 @@ export function createLibraryController({
   }
 
   function shouldPreferTranslateTab(item?: LibraryCardItem | null) {
-    if (item?.prefer_translate_tab) return true;
-    const status = `${item?.status || ""}`.trim().toLowerCase();
-    if (status === "failed" || status === "running" || status === "queued" || status === "pending") {
-      return true;
-    }
-    const jobId = `${item?.job_id || item?.active_job_id || ""}`.trim();
-    // 有真实 job 且非馆藏合成 id → 默认看翻译 Tab 进度
-    if (jobId && !jobId.startsWith("doc:") && !item?.library_only) {
-      return true;
-    }
-    return false;
+    return Boolean(item?.prefer_translate_tab);
   }
 
-  // 书籍详情弹窗：点卡片打开。运行中/失败默认落翻译 Tab + silent 进度，
-  // 绝不打开 #translation-workflow-dialog。
+  // 书籍详情弹窗：点击卡片统一落概览；任务轮询仍静默接入。
+  // 只有 selectJobForDetail 等明确处理入口才携带 prefer_translate_tab。
   function openBookDetail(item?: LibraryCardItem | null) {
     if (!item) return;
     const documentId = `${item.document_id || ""}`.trim();
@@ -308,7 +422,7 @@ export function createLibraryController({
   }
 
   /**
-   * 网格「选中任务」：一律进详情翻译 Tab + silent 进度。
+   * 网格「选中任务」：一律进详情处理 Tab + silent 进度。
    * 不再 fallback 到 openTranslationWorkflow（旧弹窗只留给底部「添加」）。
    */
   function selectJobForDetail(
@@ -376,7 +490,7 @@ export function createLibraryController({
   }
 
   /**
-   * 网格选任务 → 详情翻译 Tab（永不弹 #translation-workflow-dialog）。
+   * 网格选任务 → 详情处理 Tab（永不弹 #translation-workflow-dialog）。
    * 业务内聚到 controller：findItem 直接读 recentJobsStatePort，不再由外层 composition 拼闭包。
    */
   function selectJob(jobId: string) {
@@ -400,6 +514,10 @@ export function createLibraryController({
     openSourceReader,
     storeOnly: storeUploadedDocumentOnly,
     translateDocument: translateLibraryDocument,
+    ocrDocument: ocrLibraryDocument,
+    getDocumentJobs,
+    getJobStageActions,
+    retryJobStage: retryDocumentJobStage,
     deleteDocument: deleteLibraryDocument,
     deleteDocuments: deleteLibraryDocuments,
     deleteCard,

@@ -5,6 +5,17 @@ import assert from "node:assert/strict";
 globalThis.window = globalThis.window || { location: { search: "", protocol: "http:", hostname: "127.0.0.1" } };
 
 const { AiAskError, askLibraryAi, readAiAskStream } = await import("../../src/js/api/ai.js");
+const { readAiAskStream: readCanonicalAiAskStream } = await import("@retainpdf/api/ai");
+const {
+  buildAgentOperationCandidateUrl,
+  cancelAgentOperation,
+  commitAgentOperation,
+  fetchAgentOperationCandidate,
+  getAgentOperation,
+  listAgentOperations,
+  retryAgentOperation,
+  runAgentOperation,
+} = await import("@retainpdf/api/document-operations");
 const { setRuntimeConfig } = await import("../../src/js/config/runtime.js");
 const { buildScopedQuestion, createReaderAskAnswerer } = await import("../../src/shared/reader/host/ai.js");
 
@@ -51,6 +62,85 @@ test("readAiAskStream:tool 事件按序回调,done 事件返回归一化结果",
     snippet: "命中片段",
   });
   assert.equal(result.toolTrace.length, 1);
+});
+
+test("readAiAskStream:结构化 Agent 事件回调并汇总 runtime/operation refs", async () => {
+  const legacyTools = [];
+  const agentTools = [];
+  const sessions = [];
+  const operations = [];
+  const result = await readAiAskStream(sseStream([
+    'data: {"type":"agent_session","conversation_id":"conv-agent","request_message_id":"msg-1","agent_runtime":"fx","capabilities":{"document_operations":true}}\n\n',
+    'data: {"type":"agent_tool","runtime":"fx","title":"创建候选版本","status":"running"}\n\n',
+    'data: {"type":"agent_operation","event_id":"op-1:4","operation_id":"op-1","conversation_id":"conv-agent","request_message_id":"msg-1","status":"running","current_attempt":2,"latest_event_seq":4}\n\n',
+    'data: {"type":"agent_operation","event_id":"op-1:5","operation_id":"op-1","conversation_id":"conv-agent","request_message_id":"msg-1","status":"result_ready","current_attempt":2,"latest_event_seq":5}\n\n',
+    'data: {"type":"done","answer":"已创建操作。","citations":[],"tool_trace":[],"rounds":1,"persisted":true}\n\n',
+  ]), {
+    onToolEvent: (event) => legacyTools.push(event),
+    onAgentToolEvent: (event) => agentTools.push(event),
+    onAgentSessionEvent: (event) => sessions.push(event),
+    onAgentOperationEvent: (event) => operations.push(event),
+  });
+
+  assert.equal(legacyTools.length, 1, "agent_tool 应兼容已有过程提示回调");
+  assert.equal(agentTools.length, 1);
+  assert.equal(sessions[0].agent_runtime, "fx");
+  assert.deepEqual(operations.map((event) => event.status), ["running", "result_ready"]);
+  assert.equal(result.agentRuntime, "fx");
+  assert.deepEqual(result.operationRefs, [{
+    operation_id: "op-1",
+    status: "result_ready",
+    current_attempt: 2,
+    latest_event_seq: 5,
+  }]);
+});
+
+test("readAiAskStream:结构化确认 SSE 与 done 请求都作为刷新提示透出", async () => {
+  const confirmations = [];
+  const request = {
+    schema: "retainpdf_agent_confirmation_v1",
+    operation_id: "op-confirm",
+    action: "run",
+    status: "awaiting_confirmation",
+    current_attempt: 1,
+    latest_event_seq: 3,
+    requires_risk_acceptance: false,
+  };
+  const result = await readAiAskStream(sseStream([
+    `data: ${JSON.stringify({ type: "agent_confirmation_required", ...request })}\n\n`,
+    `data: ${JSON.stringify({
+      type: "done",
+      answer: "等待确认。",
+      citations: [],
+      tool_trace: [],
+      rounds: 1,
+      confirmation_mode: "explicit",
+      confirmation_requests: [request],
+    })}\n\n`,
+  ]), {
+    onAgentConfirmationRequiredEvent: (event) => confirmations.push(event),
+  });
+
+  assert.equal(result.confirmationMode, "explicit");
+  assert.deepEqual(result.confirmationRequests, [request]);
+  assert.deepEqual(confirmations, [
+    { type: "agent_confirmation_required", ...request },
+    { type: "agent_confirmation_required", ...request },
+  ], "SSE 和 done 都应触发刷新提示；业务层按 operation/action/attempt 去重");
+});
+
+test("canonical readAiAskStream:保留结构化 Agent 事件兼容", async () => {
+  const operations = [];
+  const result = await readCanonicalAiAskStream(sseStream([
+    'data: {"type":"agent_session","conversation_id":"conv-canonical","agent_runtime":"fx"}\n\n',
+    'data: {"type":"agent_operation","operation_id":"op-canonical","conversation_id":"conv-canonical","request_message_id":"msg-canonical","status":"draft","current_attempt":1,"latest_event_seq":0}\n\n',
+    'data: {"type":"done","answer":"ok","citations":[],"tool_trace":[],"rounds":1,"persisted":true}\n\n',
+  ]), {
+    onAgentOperationEvent: (event) => operations.push(event),
+  });
+  assert.equal(operations[0].operation_id, "op-canonical");
+  assert.equal(result.agentRuntime, "fx");
+  assert.equal(result.operationRefs[0].operation_id, "op-canonical");
 });
 
 test("readAiAskStream:error 事件抛出 AiAskError", async () => {
@@ -114,6 +204,133 @@ test("askLibraryAi:携带 X-API-Key,body 含 question/document_id/job_id/stream"
   });
 });
 
+test("askLibraryAi:只有显式授权时发送 confirm_document_operation", async () => {
+  const bodies = [];
+  const fetchImpl = async (_url, options) => {
+    bodies.push(JSON.parse(options.body));
+    return {
+      ok: true,
+      headers: { get: () => "application/json" },
+      json: async () => ({
+        code: 0,
+        data: { answer: "ok", citations: [], tool_trace: [], rounds: 1, persisted: true },
+      }),
+    };
+  };
+  await askLibraryAi({ question: "普通问答", fetchImpl });
+  await askLibraryAi({ question: "确认执行", confirmDocumentOperation: true, fetchImpl });
+  assert.equal(Object.hasOwn(bodies[0], "confirm_document_operation"), false);
+  assert.equal(bodies[1].confirm_document_operation, true);
+});
+
+test("askLibraryAi:按请求显式区分辅助阅读与 PDF 操作", async () => {
+  const bodies = [];
+  const fetchImpl = async (_url, options) => {
+    bodies.push(JSON.parse(options.body));
+    return {
+      ok: true,
+      headers: { get: () => "application/json" },
+      json: async () => ({
+        code: 0,
+        data: { answer: "ok", citations: [], tool_trace: [], rounds: 1, persisted: true },
+      }),
+    };
+  };
+
+  await askLibraryAi({ question: "总结本文", assistantMode: "reading", fetchImpl });
+  await askLibraryAi({ question: "旋转第一页", assistantMode: "operations", fetchImpl });
+  await askLibraryAi({ question: "保持兼容", fetchImpl });
+
+  assert.equal(bodies[0].assistant_mode, "reading");
+  assert.equal(bodies[1].assistant_mode, "operations");
+  assert.equal(Object.hasOwn(bodies[2], "assistant_mode"), false);
+});
+
+test("document operations:公开 facade URL 与 CAS action body 稳定", async () => {
+  const calls = [];
+  const operation = {
+    operation_id: "op-1",
+    conversation_id: "conv-1",
+    request_message_id: "msg-1",
+    document_id: "doc-1",
+    intent_summary: "旋转第 2 页",
+    status: "draft",
+    current_attempt: 1,
+    program_sha256: "abc",
+    candidate_available: false,
+    candidate: null,
+    latest_event_seq: 1,
+    allowed_actions: ["run", "cancel"],
+    events: [],
+    created_at: "2026-08-29T00:00:00Z",
+    updated_at: "2026-08-29T00:00:00Z",
+  };
+  const fetchImpl = async (url, options) => {
+    calls.push({ url, options });
+    const data = url.includes("/conversations/") ? { operations: [operation] } : operation;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ code: 0, data }),
+    };
+  };
+  const transport = { apiPrefix: "/api/v1", fetchImpl };
+  const action = {
+    idempotency_key: "idem-1",
+    expected_status: "draft",
+    expected_attempt: 1,
+    expected_program_sha256: "abc",
+  };
+
+  assert.equal((await listAgentOperations({ conversationId: "conv-1", ...transport })).operations.length, 1);
+  await getAgentOperation("op-1", transport);
+  await runAgentOperation("op-1", action, transport);
+  await retryAgentOperation("op-1", { ...action, accept_duplicate_risk: true }, transport);
+  await cancelAgentOperation("op-1", { ...action, reason: "用户拒绝" }, transport);
+  await commitAgentOperation("op-1", action, transport);
+
+  assert.match(calls[0].url, /\/api\/v1\/ai\/conversations\/conv-1\/operations$/);
+  assert.deepEqual(calls.slice(1).map(({ url, options }) => [new URL(url, "http://local").pathname, options.method]), [
+    ["/api/v1/ai/operations/op-1", "GET"],
+    ["/api/v1/ai/operations/op-1/run", "POST"],
+    ["/api/v1/ai/operations/op-1/retry", "POST"],
+    ["/api/v1/ai/operations/op-1/cancel", "POST"],
+    ["/api/v1/ai/operations/op-1/commit", "POST"],
+  ]);
+  assert.deepEqual(JSON.parse(calls[2].options.body), {
+    schema: "document_operation_action_v1",
+    ...action,
+  });
+  assert.match(buildAgentOperationCandidateUrl("op-1", "/api/v1"), /\/api\/v1\/ai\/operations\/op-1\/candidate\.pdf$/);
+});
+
+test("document operation candidate uses authenticated API fetch instead of a relative link", async () => {
+  const previous = globalThis.window.__FRONT_RUNTIME_CONFIG__;
+  globalThis.window.__FRONT_RUNTIME_CONFIG__ = {
+    ...(previous || {}),
+    apiBase: "http://127.0.0.1:41000",
+    xApiKey: "frontend-test-key",
+  };
+  const calls = [];
+  try {
+    const blob = await fetchAgentOperationCandidate("op-auth", {
+      apiPrefix: "/api/v1",
+      fetchImpl: async (url, options) => {
+        calls.push({ url, options });
+        return new Response(new Blob(["pdf"], { type: "application/pdf" }), {
+          status: 200,
+          headers: { "Content-Type": "application/pdf" },
+        });
+      },
+    });
+    assert.equal(blob.type, "application/pdf");
+    assert.equal(new URL(calls[0].url).port, "41000");
+    assert.equal(calls[0].options.headers["X-API-Key"], "frontend-test-key");
+  } finally {
+    globalThis.window.__FRONT_RUNTIME_CONFIG__ = previous;
+  }
+});
+
 test("askLibraryAi:502 抛出带 status 的 AI 服务未运行错误", async () => {
   await assert.rejects(
     askLibraryAi({
@@ -169,6 +386,41 @@ test("askLibraryAi:非流式 JSON envelope 兜底解包", async () => {
   });
   assert.equal(result.answer, "非流式");
   assert.equal(result.rounds, 2);
+});
+
+test("askLibraryAi:非流式 done 保留确认契约并触发刷新提示", async () => {
+  const confirmations = [];
+  const request = {
+    schema: "retainpdf_agent_confirmation_v1",
+    operation_id: "op-json-confirm",
+    action: "retry",
+    status: "ambiguous",
+    current_attempt: 3,
+    latest_event_seq: 12,
+    requires_risk_acceptance: true,
+  };
+  const result = await askLibraryAi({
+    question: "继续处理",
+    onAgentConfirmationRequiredEvent: (event) => confirmations.push(event),
+    fetchImpl: async () => ({
+      ok: true,
+      headers: { get: () => "application/json" },
+      json: async () => ({
+        code: 0,
+        data: {
+          answer: "需要确认风险。",
+          citations: [],
+          tool_trace: [],
+          rounds: 1,
+          confirmation_mode: "explicit",
+          confirmation_requests: [request],
+        },
+      }),
+    }),
+  });
+  assert.equal(result.confirmationMode, "explicit");
+  assert.deepEqual(result.confirmationRequests, [request]);
+  assert.deepEqual(confirmations, [{ type: "agent_confirmation_required", ...request }]);
 });
 
 // ===== ask-answerer:document_id 反查缓存与 scope 前缀 =====
@@ -349,7 +601,7 @@ test("ask answerer:反查不到 document 时 fail closed，不静默全库", asy
   assert.equal(askCalls.length, 0);
 });
 
-test("ask answerer:无模型 Key 时不查文档、不发 ask", async () => {
+test("ask answerer:无浏览器模型 Key 时使用后端运行配置", async () => {
   const listCalls = [];
   const askCalls = [];
   const answerer = createReaderAskAnswerer({
@@ -361,15 +613,14 @@ test("ask answerer:无模型 Key 时不查文档、不发 ask", async () => {
     },
     ask: async (payload) => {
       askCalls.push(payload);
-      return { answer: "不应调用", citations: [], toolTrace: [], rounds: 0 };
+      return { answer: "后端配置可用", citations: [], toolTrace: [], rounds: 0 };
     },
   });
-  await assert.rejects(
-    answerer.answer({ question: "hi", scope: "document" }),
-    /缺少模型 API Key/,
-  );
-  assert.equal(listCalls.length, 0, "缺 Key 不得先查文档");
-  assert.equal(askCalls.length, 0, "缺 Key 不得发 ask");
+  const result = await answerer.answer({ question: "hi", scope: "document" });
+  assert.equal(result.answer, "后端配置可用");
+  assert.equal(listCalls.length, 1);
+  assert.equal(askCalls.length, 1);
+  assert.equal(askCalls[0].llmApiKey, "", "不把翻译凭据引用误作 Agent Key");
 });
 
 test("askLibraryAi 携带 llm_api_key/base/model,仅非空字段进 payload", async () => {

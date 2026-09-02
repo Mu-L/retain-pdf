@@ -18,10 +18,10 @@ pub use constants::{
     ARTIFACT_KEY_PIPELINE_SUMMARY, ARTIFACT_KEY_PROVIDER_BUNDLE_ZIP, ARTIFACT_KEY_PROVIDER_RAW_DIR,
     ARTIFACT_KEY_PROVIDER_RESULT_JSON, ARTIFACT_KEY_RENDER_CONFIG_JSON, ARTIFACT_KEY_SOURCE_PDF,
     ARTIFACT_KEY_TRANSLATED_PDF, ARTIFACT_KEY_TRANSLATIONS_DIR,
-    ARTIFACT_KEY_TRANSLATION_DEBUG_INDEX_JSON, ARTIFACT_KEY_TRANSLATION_DIAGNOSTICS_JSON,
-    ARTIFACT_KEY_TRANSLATION_CHECKPOINT_JSON, ARTIFACT_KEY_TRANSLATION_MANIFEST_JSON,
-    ARTIFACT_KEY_TRANSLATION_REQUEST_JOURNAL_JSONL,
-    ARTIFACT_KEY_TYPST_PDF, ARTIFACT_KEY_TYPST_SOURCE, ARTIFACT_KIND_DIR, ARTIFACT_KIND_FILE,
+    ARTIFACT_KEY_TRANSLATION_CHECKPOINT_JSON, ARTIFACT_KEY_TRANSLATION_DEBUG_INDEX_JSON,
+    ARTIFACT_KEY_TRANSLATION_DIAGNOSTICS_JSON, ARTIFACT_KEY_TRANSLATION_MANIFEST_JSON,
+    ARTIFACT_KEY_TRANSLATION_REQUEST_JOURNAL_JSONL, ARTIFACT_KEY_TYPST_PDF,
+    ARTIFACT_KEY_TYPST_SOURCE, ARTIFACT_KIND_DIR, ARTIFACT_KIND_FILE,
     LEGACY_JOB_UNSUPPORTED_MESSAGE, TRANSLATION_CHECKPOINT_FILE_NAME,
     TRANSLATION_MANIFEST_FILE_NAME, TRANSLATION_REQUEST_JOURNAL_FILE_NAME,
 };
@@ -37,8 +37,8 @@ pub use resolvers::{
     resolve_markdown_images_dir, resolve_markdown_path, resolve_normalization_report,
     resolve_normalized_document, resolve_output_pdf, resolve_pipeline_summary,
     resolve_registered_artifact_path, resolve_source_pdf, resolve_translation_debug_index,
-    resolve_translation_diagnostics, resolve_translation_manifest, resolve_typst_pdf,
-    resolve_translation_request_journal, resolve_typst_source,
+    resolve_translation_diagnostics, resolve_translation_manifest,
+    resolve_translation_request_journal, resolve_typst_pdf, resolve_typst_source,
 };
 
 #[cfg(test)]
@@ -117,8 +117,8 @@ mod tests {
             rel_root.display()
         );
 
-        let relative =
-            to_relative_data_path(&rel_root, &rel_upload).expect("relative path under relative DATA_ROOT");
+        let relative = to_relative_data_path(&rel_root, &rel_upload)
+            .expect("relative path under relative DATA_ROOT");
         assert_eq!(relative, "uploads/job-1/paper.pdf");
         let _ = fs::remove_dir_all(&temp);
     }
@@ -252,9 +252,9 @@ mod tests {
         assert!(items
             .iter()
             .any(|item| item.artifact_key == ARTIFACT_KEY_RENDER_CONFIG_JSON));
-        assert!(items.iter().any(|item| {
-            item.artifact_key == ARTIFACT_KEY_TRANSLATION_REQUEST_JOURNAL_JSONL
-        }));
+        assert!(items
+            .iter()
+            .any(|item| { item.artifact_key == ARTIFACT_KEY_TRANSLATION_REQUEST_JOURNAL_JSONL }));
         assert!(items
             .iter()
             .any(|item| item.artifact_key == ARTIFACT_KEY_TRANSLATION_CHECKPOINT_JSON));

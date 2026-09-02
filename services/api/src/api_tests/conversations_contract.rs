@@ -189,7 +189,7 @@ fn inputs_accept_contract_shaped_payloads() {
 #[test]
 fn all_contract_endpoints_are_mounted_in_router() {
     let contract = contract();
-    let router_source = include_str!("../app/router.rs");
+    let router_source = include_str!("../app/router/ai.rs");
     for endpoint in contract["endpoints"].as_array().unwrap() {
         let path = endpoint["path"].as_str().unwrap();
         assert!(

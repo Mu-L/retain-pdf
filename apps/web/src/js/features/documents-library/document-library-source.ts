@@ -13,6 +13,10 @@
 // f2-document-centric-grid-design)。
 
 import { shapeDocumentsWithBooks } from "./shape-documents-with-books.js";
+import {
+  libraryCardIdentity,
+  libraryCardIdentityAliases,
+} from "../recent-jobs/library-card-identity.js";
 
 const SEARCH_FETCH_LIMIT = 200;
 
@@ -20,9 +24,18 @@ function normalizedJobId(value) {
   return `${value || ""}`.trim();
 }
 
+function normalizedExistingCardIdentity(value) {
+  const normalized = normalizedJobId(value);
+  if (!normalized) return "";
+  return normalized.startsWith("document:") || normalized.startsWith("job:")
+    ? normalized
+    : `job:${normalized}`;
+}
+
 export async function collectDocumentLibraryPage({
   fetchDocumentList,
   fetchLibraryBookList,
+  fetchJobPayload,
   apiPrefix,
   startOffset = 0,
   pageSize,
@@ -31,9 +44,13 @@ export async function collectDocumentLibraryPage({
 }: any) {
   const trimmedQuery = `${query || ""}`.trim().toLowerCase();
   const searching = trimmedQuery.length > 0;
-  const seen = existingJobIds instanceof Set
-    ? new Set(existingJobIds)
-    : new Set((Array.isArray(existingJobIds) ? existingJobIds : []).map(normalizedJobId).filter(Boolean));
+  const seenCardIdentities = new Set(
+    Array.from(existingJobIds instanceof Set
+      ? existingJobIds
+      : (Array.isArray(existingJobIds) ? existingJobIds : []))
+      .map(normalizedExistingCardIdentity)
+      .filter(Boolean),
+  );
 
   const limit = searching ? Math.max(pageSize, SEARCH_FETCH_LIMIT) : pageSize;
   const offset = searching ? 0 : startOffset;
@@ -44,12 +61,17 @@ export async function collectDocumentLibraryPage({
 
   // 文档 → 卡片的映射走统一编排(shapeDocumentsWithBooks);去重/搜索过滤这些
   // 分页数据源自己的关切留在下面。
-  const shaped = await shapeDocumentsWithBooks(documents, { fetchLibraryBookList, apiPrefix });
+  const shaped = await shapeDocumentsWithBooks(documents, {
+    fetchLibraryBookList,
+    fetchJobPayload,
+    apiPrefix,
+  });
 
   const collected = [];
   for (const item of shaped) {
-    const key = normalizedJobId(item.job_id);
-    if (!key || seen.has(key)) {
+    const identity = libraryCardIdentity(item);
+    const aliases = libraryCardIdentityAliases(item);
+    if (!identity || aliases.some((alias) => seenCardIdentities.has(alias))) {
       continue;
     }
     if (searching) {
@@ -58,7 +80,7 @@ export async function collectDocumentLibraryPage({
         continue;
       }
     }
-    seen.add(key);
+    aliases.forEach((alias) => seenCardIdentities.add(alias));
     collected.push(item);
   }
 

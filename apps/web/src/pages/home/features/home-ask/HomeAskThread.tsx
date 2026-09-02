@@ -9,6 +9,14 @@ import {
 } from "../../composition/external.js";
 import { navigateToReader } from "../reader/navigate-to-reader.js";
 import type { HomeAskCitation, HomeAskMessage } from "./types.js";
+import { AgentOperationCard } from "./operations/AgentOperationCard.js";
+import type {
+  AgentOperationAction,
+  AgentOperationEntry,
+  AgentOperationPerformOptions,
+  AgentOperationView,
+  AgentConfirmationMode,
+} from "./operations/types.js";
 
 export const HOME_ASK_SUGGESTIONS: Array<{
   prompt: string;
@@ -77,15 +85,52 @@ function AssistantBody({
 export type HomeAskThreadProps = {
   messages: HomeAskMessage[];
   isRunning?: boolean;
+  operationsByRequestMessage?: Record<string, AgentOperationEntry[]>;
+  loadCandidate?: (operation: AgentOperationView) => Promise<Blob>;
+  confirmationMode?: AgentConfirmationMode;
+  onOperationAction?: (
+    action: AgentOperationAction,
+    operation: AgentOperationView,
+    options?: AgentOperationPerformOptions,
+  ) => void | Promise<void>;
 };
 
-export function HomeAskThread({ messages, isRunning = false }: HomeAskThreadProps) {
+export function HomeAskThread({
+  messages,
+  isRunning = false,
+  operationsByRequestMessage = {},
+  loadCandidate = async () => new Blob(),
+  confirmationMode = "explicit",
+  onOperationAction = () => {},
+}: HomeAskThreadProps) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const empty = messages.length === 0;
+  const operationEntries = (() => {
+    const seen = new Set<string>();
+    const entries: AgentOperationEntry[] = [];
+    for (const group of Object.values(operationsByRequestMessage)) {
+      for (const entry of group) {
+        const operationId = `${entry.remote.operation_id || ""}`.trim();
+        if (!operationId || seen.has(operationId)) continue;
+        seen.add(operationId);
+        entries.push(entry);
+      }
+    }
+    return entries;
+  })();
+  const operationRenderKey = operationEntries
+    .map((entry) => [
+      entry.remote.operation_id,
+      entry.remote.status,
+      entry.remote.current_attempt,
+      entry.remote.latest_event_seq || 0,
+      entry.pendingAction || "",
+    ].join(":"))
+    .join("|");
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
-  }, [messages, isRunning]);
+  }, [messages, isRunning, operationRenderKey]);
 
   // 空态由 HomeAskView 的 hero 区渲染（Notion：问候 + 居中输入 + 建议）
   if (empty) {
@@ -128,6 +173,16 @@ export function HomeAskThread({ messages, isRunning = false }: HomeAskThreadProp
           </div>
         );
       })}
+      {operationEntries.map((entry) => (
+        <div key={entry.remote.operation_id} className="home-ask-msg home-ask-msg-operation">
+          <AgentOperationCard
+            entry={entry}
+            loadCandidate={loadCandidate}
+            confirmationMode={confirmationMode}
+            onAction={onOperationAction}
+          />
+        </div>
+      ))}
       <div ref={bottomRef} />
     </div>
   );

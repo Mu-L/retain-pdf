@@ -59,7 +59,12 @@ export function navigateReaderToHome() {
   window.location.assign(homeIndexUrl());
 }
 
-export function ReaderCloseHome() {
+export function ReaderCloseHome({ onBeforeClose }: { onBeforeClose?: () => void } = {}) {
+  const close = () => {
+    onBeforeClose?.();
+    navigateReaderToHome();
+  };
+
   return (
     <button
       id="reader-close-home-btn"
@@ -67,7 +72,7 @@ export function ReaderCloseHome() {
       className="reader-close-home-btn"
       aria-label="返回主页"
       title="返回主页"
-      onClick={navigateReaderToHome}
+      onClick={close}
     >
       <X className="reader-close-home-icon" size={18} strokeWidth={2.25} aria-hidden />
       <span className="reader-close-home-label">关闭</span>

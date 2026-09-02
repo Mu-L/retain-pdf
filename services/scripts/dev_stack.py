@@ -16,6 +16,7 @@ import sys
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -105,7 +106,11 @@ def parse_args(
     parser = argparse.ArgumentParser(
         description="Prepare and run the RetainPDF backend development stack."
     )
-    parser.add_argument("--runtime", choices=("python", "fx"), default="python")
+    parser.add_argument(
+        "--runtime",
+        choices=("python", "openai", "fx"),
+        default="python",
+    )
     parser.add_argument("--no-sync", action="store_true", help="skip uv sync")
     parser.add_argument("--no-build", action="store_true", help="skip cargo build")
     parser.add_argument(
@@ -257,6 +262,27 @@ def preflight_fx(environ: Mapping[str, str]) -> str:
                 errors.append(f"fx {FX_VERSION} is required")
     if not environ.get("RETAIN_AI_FX_GATEWAY_API_KEY", "").strip():
         errors.append("RETAIN_AI_FX_GATEWAY_API_KEY is missing")
+    raw_base_url = environ.get("RETAIN_AI_FX_GATEWAY_BASE_URL", "").strip().rstrip("/")
+    if raw_base_url:
+        try:
+            parsed = urllib.parse.urlsplit(raw_base_url)
+            port = parsed.port
+        except ValueError:
+            parsed = None
+            port = None
+        if parsed is None or (
+            parsed.scheme.lower() != "http"
+            or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}
+            or port is None
+            or parsed.username
+            or parsed.password
+            or parsed.query
+            or parsed.fragment
+        ):
+            errors.append(
+                "RETAIN_AI_FX_GATEWAY_BASE_URL must be explicit loopback HTTP "
+                "with a port for fx 0.0.5"
+            )
     if errors:
         raise StackError("fx preflight failed: " + "; ".join(errors))
     assert fx_command is not None
@@ -284,6 +310,7 @@ def build_runtime_env(
             "RETAIN_API_KEYS": api_keys,
             "RETAIN_AI_RUNTIME": options.runtime,
             "RETAIN_AI_DATA_ROOT": str(options.data_root),
+            "RETAIN_AI_AGENT_CLI_COMMAND": str(paths.agent),
             "RETAIN_AI_FX_AGENT_CLI_COMMAND": str(paths.agent),
             "RETAIN_AI_FX_STATE_ROOT": str(options.data_root / "agent-runtime" / "fx"),
             "RETAIN_PDF_PROJECT_ROOT": str(paths.product),

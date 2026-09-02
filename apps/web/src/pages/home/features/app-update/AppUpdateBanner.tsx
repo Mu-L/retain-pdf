@@ -7,10 +7,8 @@
 // 子节点。dialog 只会在用户点击本组件自己的按钮时才打开(此时"更新"
 // tab 必然是激活态、祖先没有 hidden),不存在"父级隐藏时误开 dialog"的场景。
 //
-// Dialog 渲染层(阶段 C,shadcn 改造):详情 dialog 从原生 <dialog>+
-// showModal/close 换成 radix-ui 的 Dialog 原语,不经 src/components/ui/dialog.jsx
-// 默认皮肤(className 继续用 desktop-dialog/desktop-shell/app-update-* 这套
-// bespoke CSS)。open 受控于本地 useAppUpdateDialogOpen(纯 UI 瞬态,不进
+// 更新详情使用共享 AppDialog 外壳；app-update-* 只保留发布说明内容区布局。
+// open 受控于本地 useAppUpdateDialogOpen(纯 UI 瞬态,不进
 // store——这条既有决策不变),onOpenChange 在 next===false 时统一调用
 // setDialogOpen(false),Escape/背板点击/关闭按钮三条路径都走这一个回调。
 // 不 forceMount(同 CredentialsDialog.jsx 头注释的结论,避免 hideOthers 永久
@@ -20,8 +18,16 @@
 // AppShellHeader.jsx 不再残留 app-update-dialog 模板骨架(3a 遗留,已清理,
 // 避免 id 重复违反视觉基线/门禁)。
 
-import { X } from "lucide-react";
-import { Dialog as DialogPrimitive } from "radix-ui";
+import {
+  Dialog,
+  DialogBody,
+  DialogCloseButton,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogShell,
+  DialogTitle,
+} from "@/components/ui/dialog.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useHomeServices } from "../../home-services-context.js";
 import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
@@ -83,31 +89,28 @@ export function AppUpdateBanner() {
         检查更新
         <span className="app-update-dot" aria-hidden="true"></span>
       </Button>
-      <DialogPrimitive.Root open={dialogOpen} onOpenChange={handleOpenChange}>
-        <DialogPrimitive.Portal>
-          <DialogPrimitive.Overlay className="desktop-dialog-overlay app-update-overlay" />
-          <DialogPrimitive.Content
+      <Dialog open={dialogOpen} onOpenChange={handleOpenChange}>
+          <DialogContent
             id={APP_UPDATE_IDS.dialog}
-            className="desktop-dialog app-update-dialog"
+            className="app-update-dialog"
             onCloseAutoFocus={onCloseAutoFocus}
+            showCloseButton={false}
           >
-            <div className="desktop-shell app-update-shell">
-              <div className="app-update-head">
+            <DialogShell className="app-update-shell">
+              <DialogHeader className="app-update-head">
                 <div>
-                  <DialogPrimitive.Title asChild>
+                  <DialogTitle asChild>
                     <h2>{panel.title}</h2>
-                  </DialogPrimitive.Title>
+                  </DialogTitle>
                   <p>{versionText}</p>
                 </div>
-                <DialogPrimitive.Close asChild>
-                  <Button className="desktop-close app-update-close" aria-label="关闭"><X className="h-4 w-4" /></Button>
-                </DialogPrimitive.Close>
-              </div>
-              <div className="app-update-body">
+                <DialogCloseButton />
+              </DialogHeader>
+              <DialogBody className="app-update-body">
                 <div id={APP_UPDATE_IDS.status} className={`app-update-status${statusText ? "" : " hidden"}`}>{statusText}</div>
                 <div className="app-update-notes">{notesText}</div>
-              </div>
-              <div className="app-update-foot">
+              </DialogBody>
+              <DialogFooter className="app-update-foot">
                 <Button
                   id={APP_UPDATE_IDS.checkButton}
                   className="home-action-btn secondary"
@@ -123,11 +126,10 @@ export function AppUpdateBanner() {
                 >
                   打开 Release
                 </a>
-              </div>
-            </div>
-          </DialogPrimitive.Content>
-        </DialogPrimitive.Portal>
-      </DialogPrimitive.Root>
+              </DialogFooter>
+            </DialogShell>
+          </DialogContent>
+      </Dialog>
     </>
   );
 }

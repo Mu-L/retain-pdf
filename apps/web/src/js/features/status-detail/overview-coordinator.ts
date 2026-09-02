@@ -5,6 +5,7 @@ export function createStatusDetailOverviewCoordinator({
   fetchJobEvents,
   fetchJobDiagnostics,
   fetchResumePlan,
+  fetchJobStageActions,
   renderJob,
   renderOverviewSnapshot,
   setErrorText,
@@ -25,11 +26,12 @@ export function createStatusDetailOverviewCoordinator({
   }
 
   async function loadFreshContext(jobId, previousContext) {
-    const [payload, eventsPayload, diagnosticsPayload, resumePlan] = await Promise.all([
+    const [payload, eventsPayload, diagnosticsPayload, resumePlan, stageActionsPayload] = await Promise.all([
       fetchJobPayload ? fetchJobPayload(jobId, { apiPrefix }) : Promise.resolve(previousContext.job),
       fetchJobEvents ? fetchJobEvents(jobId, apiPrefix, 200, 0).catch(() => previousContext.events) : Promise.resolve(previousContext.events),
       fetchJobDiagnostics ? fetchJobDiagnostics(jobId, apiPrefix).catch(() => null) : Promise.resolve(null),
       fetchResumePlan ? fetchResumePlan(jobId, apiPrefix).catch(() => null) : Promise.resolve(null),
+      fetchJobStageActions ? fetchJobStageActions(jobId, apiPrefix).catch(() => null) : Promise.resolve(null),
     ]);
     if (!runtimePort.isCurrentJob(jobId)) {
       return null;
@@ -39,6 +41,7 @@ export function createStatusDetailOverviewCoordinator({
       eventsPayload,
       diagnosticsPayload,
       resumePlan,
+      stageActionsPayload,
       fallbackJobId: jobId,
     });
   }

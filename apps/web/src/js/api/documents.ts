@@ -6,6 +6,8 @@ import {
   getMockDocumentByJobId,
   getMockDocumentList,
   patchMockDocument,
+  getMockDocumentJobs,
+  ocrMockDocument,
   translateMockDocument,
   type MockDocumentListResult,
   type MockDocumentPatch,
@@ -16,6 +18,34 @@ import { buildApiEndpoint } from "./http.js";
 
 /** Document record returned by documents API (media URLs included). */
 export type DocumentRecord = MockDocumentWithMedia;
+
+type DocumentRequestError = Error & {
+  status?: number;
+  errorCode?: string;
+  reason?: string;
+  canFallbackToOcr?: boolean;
+};
+
+function documentRequestError(
+  fallback: string,
+  status: number,
+  payload: any,
+): DocumentRequestError {
+  const details = payload?.details && typeof payload.details === "object"
+    ? payload.details
+    : payload?.data && typeof payload.data === "object"
+      ? payload.data
+      : {};
+  const error = new Error(`${payload?.message || details?.message || fallback}(${status})`) as DocumentRequestError;
+  error.status = status;
+  const errorCode = `${payload?.error_code || details?.error_code || details?.code || (typeof payload?.code === "string" ? payload.code : "")}`.trim();
+  if (errorCode) error.errorCode = errorCode;
+  const reason = `${payload?.reason || details?.reason || ""}`.trim();
+  if (reason) error.reason = reason;
+  const canFallback = payload?.can_fallback_to_ocr ?? details?.can_fallback_to_ocr;
+  if (typeof canFallback === "boolean") error.canFallbackToOcr = canFallback;
+  return error;
+}
 
 export async function fetchDocumentList(
   apiPrefix: string,
@@ -188,7 +218,58 @@ export async function translateDocument(
   );
   if (!resp.ok) {
     const envelope = await resp.json().catch(() => null);
-    throw new Error(`${envelope?.message || "发起翻译失败，请稍后重试。"}(${resp.status})`);
+    throw documentRequestError("发起翻译失败，请稍后重试。", resp.status, envelope);
   }
   return unwrapEnvelope<JobSubmissionView>(await resp.json());
+}
+
+export async function ocrDocument(
+  apiPrefix: string,
+  documentId: string,
+  payload: Record<string, unknown> = {},
+): Promise<JobSubmissionView> {
+  const normalized = `${documentId || ""}`.trim();
+  if (!normalized) throw new Error("缺少 document_id。");
+  if (isMockMode()) return ocrMockDocument(normalized);
+  const resp = await fetch(buildApiEndpoint(apiPrefix, `documents/${encodeURIComponent(normalized)}/ocr`), {
+    method: "POST",
+    headers: { ...buildApiHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!resp.ok) {
+    const envelope = await resp.json().catch(() => null);
+    throw new Error(`${envelope?.message || "发起 OCR 失败，请稍后重试。"}(${resp.status})`);
+  }
+  return unwrapEnvelope<JobSubmissionView>(await resp.json());
+}
+
+export async function fetchDocumentJobs(
+  apiPrefix: string,
+  documentId: string,
+  { limit = 50, offset = 0 }: { limit?: number; offset?: number } = {},
+): Promise<any> {
+  const normalized = `${documentId || ""}`.trim();
+  if (!normalized) return { items: [] };
+  if (isMockMode()) {
+    const payload = getMockDocumentJobs(normalized);
+    const allItems = Array.isArray(payload?.items) ? payload.items : [];
+    const items = allItems.slice(offset, offset + limit);
+    return {
+      ...payload,
+      items,
+      total: allItems.length,
+      limit,
+      offset,
+      has_more: offset + items.length < allItems.length,
+    };
+  }
+  const params = new URLSearchParams();
+  params.set("limit", `${limit}`);
+  params.set("offset", `${offset}`);
+  const resp = await fetch(`${buildApiEndpoint(apiPrefix, `documents/${encodeURIComponent(normalized)}/jobs`)}?${params.toString()}`, {
+    headers: buildApiHeaders(),
+  });
+  if (!resp.ok) throw new Error(`读取文档任务失败，请稍后重试。(${resp.status})`);
+  const payload = unwrapEnvelope<any>(await resp.json());
+  return { ...payload, items: Array.isArray(payload?.items) ? payload.items : [] };
 }

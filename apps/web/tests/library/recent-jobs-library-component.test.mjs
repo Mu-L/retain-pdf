@@ -16,7 +16,7 @@ function makeDom(search = "") {
   const dom = new JSDOM("<!doctype html><html><body></body></html>", {
     url: `http://localhost/index.html${search}`,
   });
-  for (const key of ["window", "document", "HTMLElement", "HTMLInputElement", "CustomEvent", "Event", "KeyboardEvent", "MouseEvent", "Node", "MutationObserver", "NodeFilter"]) {
+  for (const key of ["window", "document", "DocumentFragment", "HTMLElement", "HTMLButtonElement", "HTMLFormElement", "HTMLInputElement", "CustomEvent", "Event", "KeyboardEvent", "MouseEvent", "Node", "MutationObserver", "NodeFilter"]) {
     Object.defineProperty(globalThis, key, {
       value: dom.window[key] ?? dom.window,
       writable: true,
@@ -128,7 +128,7 @@ test("RecentJobsLibrary：初始加载(mock=parallel)渲染网格 + DOM 契约",
   host.remove();
 });
 
-test("RecentJobsLibrary：卡片交互(select / reader / delete 确认与取消 / 确认删除)", async () => {
+test("RecentJobsLibrary：卡片交互(select / reader)", async () => {
   const dom = makeDom("?mock=parallel");
   const { services, root, host } = await bootHomeApp(dom);
 
@@ -161,6 +161,147 @@ test("RecentJobsLibrary：卡片交互(select / reader / delete 确认与取消 
   const readerButton = cardOf("job-2").querySelector(".recent-job-reader");
   click(dom, readerButton);
   await waitFor(() => readerDetail?.jobId === "job-2", "reader 按钮触发 openReaderRequested");
+
+  root.unmount();
+  services.dispose();
+  host.remove();
+});
+
+test("RecentJobsLibrary：批量删除使用应用确认弹窗，支持取消与确认", async () => {
+  const dom = makeDom("?mock=parallel");
+  const { services, root, host } = await bootHomeApp(dom);
+
+  const items = [
+    makeItem(1, { document_id: "doc-1" }),
+    makeItem(2, { document_id: "doc-2" }),
+  ];
+  services.library.recentJobsStore.actions.setItems(items);
+  await waitFor(() => byId(dom, "recent-jobs-list").querySelectorAll(".recent-job-item").length === 2, "两张卡片就位");
+
+  let deletedIds = null;
+  services.library.actions.deleteDocuments = async (ids) => {
+    deletedIds = [...ids];
+    return { confirmed: ids.length, failed: 0 };
+  };
+
+  const enterBatchMode = () => click(dom, dom.window.document.querySelector('button[aria-label="批量操作"]'));
+  const selectFirstCard = () => click(dom, byId(dom, "recent-jobs-list").querySelector('[data-document-id="doc-1"]'));
+  const clickBatchDelete = () => {
+    const toolbar = dom.window.document.querySelector('[aria-label="批量操作工具栏"]');
+    const deleteButton = [...toolbar.querySelectorAll("button")].find((button) => button.textContent.trim() === "删除");
+    assert.ok(deleteButton, "批量工具栏必须有删除按钮");
+    click(dom, deleteButton);
+  };
+
+  enterBatchMode();
+  await waitFor(() => dom.window.document.querySelector('[aria-label="批量操作工具栏"]'), "进入批量模式");
+  selectFirstCard();
+  await waitFor(() => dom.window.document.querySelector('[aria-label="批量操作工具栏"]')?.textContent.includes("已选 1"), "选中一篇文档");
+  clickBatchDelete();
+  await waitFor(() => byId(dom, "batch-delete-confirm-dialog"), "应用确认弹窗出现");
+  assert.match(byId(dom, "batch-delete-confirm-dialog").textContent, /1 篇文档/);
+  assert.equal(deletedIds, null, "打开确认弹窗时不能直接删除");
+
+  const cancelButton = [...byId(dom, "batch-delete-confirm-dialog").querySelectorAll("button")]
+    .find((button) => button.textContent.trim() === "取消");
+  assert.ok(cancelButton, "确认弹窗必须有取消按钮");
+  click(dom, cancelButton);
+  await waitFor(() => !byId(dom, "batch-delete-confirm-dialog"), "取消后关闭确认弹窗");
+  assert.equal(deletedIds, null, "取消后不能删除");
+
+  clickBatchDelete();
+  await waitFor(() => byId(dom, "batch-delete-confirm-dialog-confirm"), "再次打开确认弹窗");
+  click(dom, byId(dom, "batch-delete-confirm-dialog-confirm"));
+  await waitFor(() => Array.isArray(deletedIds), "确认后调用批量删除");
+  assert.deepEqual(deletedIds, ["doc-1"]);
+  await waitFor(() => !byId(dom, "batch-delete-confirm-dialog"), "删除完成后关闭确认弹窗");
+
+  root.unmount();
+  services.dispose();
+  host.remove();
+});
+
+test("RecentJobsLibrary：同一 document_id 刷新 job 时网格与列表复用稳定卡片身份", async () => {
+  const dom = makeDom("?mock=parallel");
+  const { services, root, host } = await bootHomeApp(dom);
+
+  const first = makeItem(1, { document_id: "doc-stable" });
+  services.library.recentJobsStore.actions.setItems([first]);
+  await waitFor(() => byId(dom, "recent-jobs-list").querySelector('[data-document-id="doc-stable"]'), "网格卡片就位");
+  const gridCardBefore = byId(dom, "recent-jobs-list").querySelector('[data-document-id="doc-stable"]');
+
+  services.library.recentJobsStore.actions.setItems([
+    makeItem(2, { document_id: "doc-stable", title: "同一文档的新任务" }),
+  ]);
+  await waitFor(
+    () => byId(dom, "recent-jobs-list").querySelector('[data-document-id="doc-stable"]')?.dataset.jobId === "job-2",
+    "网格卡片接收新 job",
+  );
+  assert.equal(
+    byId(dom, "recent-jobs-list").querySelector('[data-document-id="doc-stable"]'),
+    gridCardBefore,
+    "网格模式应以 document_id 复用同一张卡片 DOM",
+  );
+
+  click(dom, dom.window.document.querySelector('button[aria-label="列表视图"]'));
+  await waitFor(() => dom.window.document.querySelector('button[aria-label="列表视图"]')?.getAttribute("aria-pressed") === "true", "切换列表视图");
+  const listRowBefore = byId(dom, "recent-jobs-list").querySelector('[data-document-id="doc-stable"]');
+
+  services.library.recentJobsStore.actions.setItems([
+    makeItem(3, { document_id: "doc-stable", title: "同一文档的第三个任务" }),
+  ]);
+  await waitFor(
+    () => byId(dom, "recent-jobs-list").querySelector('[data-document-id="doc-stable"]')?.dataset.jobId === "job-3",
+    "列表行接收新 job",
+  );
+  assert.equal(
+    byId(dom, "recent-jobs-list").querySelector('[data-document-id="doc-stable"]'),
+    listRowBefore,
+    "列表模式也应以 document_id 复用同一行 DOM",
+  );
+
+  root.unmount();
+  services.dispose();
+  host.remove();
+});
+
+test("RecentJobsLibrary：筛选和 items 刷新会清理不可操作的批量选择", async () => {
+  const dom = makeDom("?mock=parallel");
+  const { services, root, host } = await bootHomeApp(dom);
+
+  const first = makeItem(1, { document_id: "doc-1", tags: ["alpha"] });
+  const second = makeItem(2, { document_id: "doc-2", tags: ["beta"] });
+  services.library.recentJobsStore.actions.setItems([first, second]);
+  await waitFor(() => byId(dom, "recent-jobs-list").querySelectorAll(".recent-job-item").length === 2, "两张可选卡片就位");
+
+  click(dom, dom.window.document.querySelector('button[aria-label="批量操作"]'));
+  await waitFor(() => dom.window.document.querySelector('[aria-label="批量操作工具栏"]'), "进入批量模式");
+  click(dom, byId(dom, "recent-jobs-list").querySelector('[data-document-id="doc-1"]'));
+  const batchToolbar = () => dom.window.document.querySelector('[aria-label="批量操作工具栏"]');
+  const deleteButton = () => [...batchToolbar().querySelectorAll("button")]
+    .find((button) => button.textContent.trim() === "删除");
+  await waitFor(() => batchToolbar()?.textContent.includes("已选 1 / 2"), "选中第一篇文档");
+
+  click(dom, byId(dom, "library-filter-trigger"));
+  await waitFor(() => byId(dom, "library-filter-surface"), "打开筛选面板");
+  const betaFilter = [...byId(dom, "library-filter-surface").querySelectorAll("button")]
+    .find((button) => button.textContent.trim() === "beta");
+  assert.ok(betaFilter, "标签筛选必须包含 beta");
+  click(dom, betaFilter);
+  await waitFor(() => batchToolbar()?.textContent.includes("已选 0 / 1"), "筛选后清理隐藏选择");
+  assert.equal(deleteButton().disabled, true, "不可见选择不能继续启用批量删除");
+
+  const activeBetaFilter = [...byId(dom, "library-filter-surface").querySelectorAll("button")]
+    .find((button) => button.textContent.trim() === "beta");
+  assert.ok(activeBetaFilter, "筛选后仍可取消 beta 标签");
+  click(dom, activeBetaFilter);
+  await waitFor(() => batchToolbar()?.textContent.includes("已选 0 / 2"), "恢复全部标签后幽灵选择不应回来");
+  click(dom, byId(dom, "recent-jobs-list").querySelector('[data-document-id="doc-2"]'));
+  await waitFor(() => batchToolbar()?.textContent.includes("已选 1 / 2"), "选中第二篇文档");
+
+  services.library.recentJobsStore.actions.setItems([first]);
+  await waitFor(() => batchToolbar()?.textContent.includes("已选 0 / 1"), "items 删除后清理已移除文档选择");
+  assert.equal(deleteButton().disabled, true, "已移除文档不能残留为可执行批量选择");
 
   root.unmount();
   services.dispose();
@@ -263,7 +404,7 @@ test("书籍详情弹窗:馆藏点翻译 → 立刻接进度 + 网格静默更�
 
   click(dom, byId(dom, "recent-jobs-list").querySelector('.recent-job-item[data-library-only="true"]'));
   await waitFor(() => byId(dom, "book-detail-dialog"), "详情弹窗打开");
-  click(dom, byId(dom, "book-detail-tab-translate"));
+  click(dom, byId(dom, "book-detail-tab-processing"));
   await waitFor(() => byId(dom, "book-detail-translate-btn"), "详情弹窗翻译按钮就位");
   click(dom, byId(dom, "book-detail-translate-btn"));
 
@@ -273,7 +414,7 @@ test("书籍详情弹窗:馆藏点翻译 → 立刻接进度 + 网格静默更�
     "translateDocument 给文档挂上 active_job_id",
   );
 
-  // 详情 payload 立刻挂真实 job（翻译 Tab 可嵌 StatusCard）
+  // 详情 payload 立刻挂真实 job（处理 Tab 可嵌 StatusCard）
   await waitFor(() => {
     const payload = services.bookDetail.dialogStore.getState().payload;
     const jobId = `${payload?.job_id || ""}`.trim();
@@ -281,7 +422,7 @@ test("书籍详情弹窗:馆藏点翻译 → 立刻接进度 + 网格静默更�
   }, "详情 payload 立刻有真实 job_id");
 
   // 进度卡应出现在详情内 bd-job-status-inner（不需等整页重载）
-  await waitFor(() => byId(dom, "book-detail-job-status-card"), "翻译 Tab 立刻出现 StatusCard");
+  await waitFor(() => byId(dom, "book-detail-job-status-card"), "处理 Tab 立刻出现 StatusCard");
   const statusCard = byId(dom, "book-detail-job-status-card");
   assert.ok(
     statusCard.querySelector(".bd-job-status-inner"),

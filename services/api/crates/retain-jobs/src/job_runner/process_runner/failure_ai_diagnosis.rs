@@ -1,12 +1,15 @@
 use std::process::Stdio;
 
+use retain_data::credentials::resolve_credential;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::process::Command;
 use tokio::time::{timeout, Duration};
 
 use crate::job_events::record_custom_runtime_event_with_resources;
-use crate::models::api::{public_request_payload, PublicResolvedJobSpec};
+use crate::models::api::{
+    public_request_payload, redact_text, sensitive_values, PublicResolvedJobSpec,
+};
 use crate::models::domain::{
     now_iso, JobAiDiagnostic, JobFailureInfo, JobRuntimeInfo, JobRuntimeState, JobStatusKind,
     WorkflowKind,
@@ -110,11 +113,28 @@ pub(super) async fn maybe_attach_ai_failure_diagnosis(
         .current_dir(config.project_root)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    if !job.request_payload.translation.api_key.trim().is_empty() {
-        command.env(
-            "RETAIN_TRANSLATION_API_KEY",
-            job.request_payload.translation.api_key.trim(),
-        );
+    let runtime_secret = if !job.request_payload.translation.api_key.trim().is_empty() {
+        Some(job.request_payload.translation.api_key.trim().to_string())
+    } else if !job
+        .request_payload
+        .translation
+        .credential_ref
+        .trim()
+        .is_empty()
+    {
+        let Ok(credential) = resolve_credential(
+            config.data_root,
+            job.request_payload.translation.credential_ref.trim(),
+            "translation_api_key",
+        ) else {
+            return;
+        };
+        Some(credential.secret)
+    } else {
+        None
+    };
+    if let Some(secret) = runtime_secret.as_deref() {
+        command.env("RETAIN_TRANSLATION_API_KEY", secret);
     }
 
     let output = match timeout(Duration::from_secs(config.timeout_secs), command.output()).await {
@@ -122,8 +142,12 @@ pub(super) async fn maybe_attach_ai_failure_diagnosis(
         _ => return,
     };
 
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let mut secrets = sensitive_values(&job.request_payload);
+    if let Some(secret) = runtime_secret {
+        secrets.push(secret);
+    }
+    let stdout = redact_text(String::from_utf8_lossy(&output.stdout).trim(), &secrets);
+    let stderr = redact_text(String::from_utf8_lossy(&output.stderr).trim(), &secrets);
     let response_record = json!({
         "status_code": output.status.code(),
         "stdout": stdout,

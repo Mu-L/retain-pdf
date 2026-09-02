@@ -16,6 +16,7 @@ pub use download::{
 };
 pub use query::{
     get_job, get_job_artifacts, get_job_artifacts_manifest, get_job_diagnostics, get_job_events,
+    get_live_translation_events, get_live_translation_layout, get_live_translation_page,
     get_ocr_job, get_ocr_job_artifacts, get_ocr_job_artifacts_manifest, get_ocr_job_events,
     get_reader_metadata, get_reader_regions, get_resume_plan, get_stage_actions, list_jobs,
     list_ocr_jobs, reader_ai_chat, rerun_job, resolve_ocr_ambiguity, resume_job, retry_stage,

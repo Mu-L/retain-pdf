@@ -15,7 +15,6 @@ import { AppTopBar } from "./features/app-shell/AppTopBar.jsx";
 import { AppBottomBar } from "./features/app-shell/AppBottomBar.jsx";
 import { MockModeBanner } from "./features/app-shell/MockModeBanner.jsx";
 import { TranslationWorkflowDialog } from "./features/workflow/TranslationWorkflowDialog.jsx";
-import { PageRangeDialog } from "./features/workflow/components/PageRangeDialog.jsx";
 import {
   RecentJobsLibrary,
   CollectionsView,
@@ -121,12 +120,11 @@ function HomeShell() {
           }
         />
       </main>
-      {/* dialogs.html 区块:upload 域的专业翻译对话框 + credentials 域已 React 化,其余占位(3b) */}
+      {/* dialogs.html 区块:credentials 域已 React 化,其余占位(3b) */}
       <CredentialsDialog />
       <GlossariesDialog />
       <developer-auth-dialog></developer-auth-dialog>
       <developer-settings-dialog></developer-settings-dialog>
-      <PageRangeDialog />
       <StatusDetailDialog />
       <ReaderDialog />
       {/* 软打开阅读器：全屏层，主页不卸载（关 × 不刷新） */}

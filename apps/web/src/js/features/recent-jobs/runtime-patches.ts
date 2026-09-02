@@ -19,6 +19,7 @@ import {
   numberOrNull,
 } from "./runtime-value-helpers.js";
 import type { RecentJobsStatePort } from "./state.js";
+import { findLibraryCardIndex } from "./library-card-identity.js";
 
 /** Runtime job patch: library item plus optional flat progress fields from polling. */
 export interface RuntimeJobPatch extends LibraryJobItem {
@@ -39,7 +40,7 @@ export interface RecentJobsRuntimePatchesDeps {
   stageAdapterPort?: StageAdapterPort;
   statePort: Pick<
     RecentJobsStatePort,
-    "getSnapshot" | "replaceItem" | "prependItem" | "setHasMore" | "setItems"
+    "getSnapshot" | "replaceItem" | "prependItem" | "setHasMore"
   >;
   storeDrivenRendering?: boolean;
 }
@@ -53,6 +54,24 @@ export interface RecentJobsRuntimePatches {
 
 const IGNORED_SNAPSHOT_SOURCES = new Set(["legacy-stage", "canonical-empty-stage"]);
 const PATCH_STAGE_KEYS = new Set(["ocr", "translate", "render", "done"]);
+
+/**
+ * 书架以 document 为身份，不能把只有 job_id 的提交首帧当成一本新书。
+ * `/jobs` 的创建响应目前不保证返回 document_id；真正的文档投影会由
+ * `/documents` 的 soft refresh 补齐。在此之前只缓存运行补丁，不渲染空壳卡。
+ */
+function hasStableLibraryIdentity(job: RuntimeJobPatch | LibraryJobItem = {}) {
+  const jobId = `${job?.job_id || ""}`.trim();
+  const documentId = `${job?.document_id || ""}`.trim();
+  const title = firstNonEmpty(job?.title, job?.display_name, job?.source_file_name);
+  return Boolean(
+    documentId
+    && title
+    && title !== jobId
+    && title !== `${jobId}.pdf`
+    && !/^mock-/i.test(title),
+  );
+}
 
 function normalizedPatchStage(value = "") {
   const normalized = normalizeRuntimeDisplayStage(value);
@@ -230,29 +249,17 @@ export function createRecentJobsRuntimePatches({
   const runtimeCreatedJobIds = new Set<string>();
 
   function apply(items: LibraryJobItem[] | null | undefined) {
-    // 先把 patches 按 document_id 并进列表项（重试换 job_id 时不丢原卡）
+    // 先把 patches 按统一卡片 identity 并进列表项（重试换 job_id 时不丢原卡）
     const mergedItems = mergeRuntimePatches(items, runtimeJobPatches, { stageAdapterPort });
-    const presentJobIds = new Set(
-      mergedItems
-        .map((item) => `${item?.job_id || ""}`.trim())
-        .filter(Boolean),
-    );
-    const presentDocumentIds = new Set(
-      mergedItems
-        .map((item) => `${item?.document_id || ""}`.trim())
-        .filter(Boolean),
-    );
     // 仅「全新文档」才 prepend；同一 document 已在列表里绝不再插第二张。
     // 带 source_job_id 的是阶段重试血缘，绝不能当新书插（否则主页多一张 job_id 空壳）。
     const missingCreatedItems = Array.from(runtimeCreatedJobIds)
       .filter((createdJobId: string) => {
-        if (presentJobIds.has(createdJobId)) return false;
         const patch = runtimeJobPatches.get(createdJobId);
         if (!patch) return false;
-        const docId = `${patch?.document_id || ""}`.trim();
-        if (docId && presentDocumentIds.has(docId)) return false;
+        if (findLibraryCardIndex(mergedItems, patch) >= 0) return false;
         if (`${(patch as RuntimeJobPatch)?.source_job_id || ""}`.trim()) return false;
-        return true;
+        return hasStableLibraryIdentity(patch);
       })
       .map((createdJobId) => createLibraryJobItemFromRuntime(runtimeJobPatches.get(createdJobId), { stageAdapterPort }))
       .filter(Boolean);
@@ -266,26 +273,8 @@ export function createRecentJobsRuntimePatches({
   function findItemIndex(
     items: LibraryJobItem[],
     job: RuntimeJobPatch | LibraryJobItem,
-    jobId: string,
   ) {
-    const byJob = items.findIndex((item) => `${item?.job_id || ""}`.trim() === jobId);
-    if (byJob >= 0) return byJob;
-    // 阶段重试会换新 job_id：用 source_job_id / document_id / active_job_id 找回原书卡片
-    const sourceJobId = `${(job as RuntimeJobPatch)?.source_job_id || ""}`.trim();
-    if (sourceJobId) {
-      const bySource = items.findIndex((item) => {
-        const itemJob = `${item?.job_id || ""}`.trim();
-        const itemActive = `${item?.active_job_id || ""}`.trim();
-        return itemJob === sourceJobId || itemActive === sourceJobId;
-      });
-      if (bySource >= 0) return bySource;
-    }
-    const documentId = `${job?.document_id || ""}`.trim();
-    if (documentId) {
-      const byDoc = items.findIndex((item) => `${item?.document_id || ""}`.trim() === documentId);
-      if (byDoc >= 0) return byDoc;
-    }
-    return -1;
+    return findLibraryCardIndex(items, job);
   }
 
   /** 补丁必须带上原卡书目身份，否则终态 refresh 会把「换 id 的重试」当成新建空壳卡 prepend */
@@ -322,7 +311,7 @@ export function createRecentJobsRuntimePatches({
       return;
     }
     const state = statePort.getSnapshot();
-    const index = findItemIndex(state.items, job, jobId);
+    const index = findItemIndex(state.items, job);
     const previousJobId = index >= 0
       ? `${state.items[index]?.job_id || ""}`.trim()
       : "";
@@ -366,13 +355,8 @@ export function createRecentJobsRuntimePatches({
     // 再写回补丁，保证 refresh 合并时有 document_id/真书名
     runtimeJobPatches.set(jobId, stampBookIdentity(patch, nextItem, job));
     invalidateRecentJobImages(previousItem || {}, nextItem);
-    // job_id 变更时 replaceItem 按新 id 匹配会失败，必须整表替换该行
-    if (previousJobId && previousJobId !== jobId && typeof statePort.setItems === "function") {
-      const nextItems = state.items.map((item, i) => (i === index ? nextItem : item));
-      statePort.setItems(nextItems);
-    } else {
-      statePort.replaceItem(nextItem);
-    }
+    // replaceItem 与运行时补丁共用同一 identity，重试换 id 不再绕过 store 整表回写。
+    statePort.replaceItem(nextItem);
     if (!storeDrivenRendering && !replaceRecentJobCard(nextItem)) {
       renderCurrentRecentJobs({ reset: true });
     }
@@ -389,7 +373,7 @@ export function createRecentJobsRuntimePatches({
     }
     // 核心：有 document_id / source_job_id 且书架已有该书 → 就地 update，绝不 prepend 新卡
     const state = statePort.getSnapshot();
-    const existingIndex = findItemIndex(state.items, job, jobId);
+    const existingIndex = findItemIndex(state.items, job);
     if (existingIndex >= 0) {
       const previousJobId = `${state.items[existingIndex]?.job_id || ""}`.trim();
       update({
@@ -399,29 +383,17 @@ export function createRecentJobsRuntimePatches({
       });
       return;
     }
-    // 馆藏合成 id `doc:<documentId>`：按 document 再找一次
-    const documentId = `${job?.document_id || ""}`.trim();
-    if (documentId) {
-      const syntheticId = `doc:${documentId}`;
-      const bySynthetic = state.items.findIndex(
-        (item) => `${item?.job_id || ""}`.trim() === syntheticId
-          || `${item?.document_id || ""}`.trim() === documentId,
-      );
-      if (bySynthetic >= 0) {
-        update({
-          ...job,
-          source_job_id: `${state.items[bySynthetic]?.job_id || ""}`.trim() || undefined,
-          document_id: documentId,
-        });
-        return;
-      }
-    }
-
     const nextItem = createLibraryJobItemFromRuntime(job, { stageAdapterPort });
     if (!nextItem) {
       return;
     }
+    // 首帧无 document_id 时仍保留补丁：文档列表刷新并带上同一 active job 后，
+    // apply() 会把这份进度合并回原书；但这里绝不能 prepend job_id 空壳。
     runtimeJobPatches.set(nextItem.job_id, job);
+    if (!hasStableLibraryIdentity(nextItem)) {
+      scheduleActiveRefresh?.({ resetTimer: false });
+      return;
+    }
     runtimeCreatedJobIds.add(nextItem.job_id);
     statePort.prependItem(nextItem);
     statePort.setHasMore(state.hasMore);

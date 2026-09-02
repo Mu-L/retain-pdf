@@ -76,6 +76,7 @@ export {
 } from "../../../../js/features/recent-jobs/card-presenter.js";
 export { loadFirstRecentJobImage } from "../../../../js/features/recent-jobs/image-loader.js";
 export { buildRecentJobsSummaryViewModel } from "../../../../js/features/recent-jobs/summary-view-model.js";
+export { libraryCardIdentity } from "../../../../js/features/recent-jobs/library-card-identity.js";
 export { createDocumentLibraryResource } from "../../../../js/features/documents-library/document-library-resource.js";
 export { isLibraryOnlyItem } from "../../../../js/features/documents-library/document-card-item.js";
 export { shapeDocumentsWithBooks } from "../../../../js/features/documents-library/shape-documents-with-books.js";
@@ -101,6 +102,7 @@ export {
 } from "../../../../js/features/reader-dialog/routing.js";
 
 // status-detail (domain helpers used by pages/home/features/status-detail)
+export { copyText } from "../../../../js/utils/clipboard.js";
 export { defaultStatusDetailConfigPort } from "../../../../js/features/status-detail/config-port.js";
 export {
   boolLabel,
@@ -119,6 +121,17 @@ export {
   summarizeTranslationFilter,
 } from "../../../../js/features/status-detail/formatters.js";
 export { createStatusDetailOverviewCoordinator } from "../../../../js/features/status-detail/overview-coordinator.js";
+export {
+  buildFailureRecoveryModel,
+  createFailureRecoveryController,
+  queueFullTitle,
+  retryCountdownSeconds,
+} from "../../../../js/features/status-detail/failure-recovery.js";
+export type {
+  FailureRecoveryAction,
+  FailureRecoveryKind,
+  FailureRecoveryModel,
+} from "../../../../js/features/status-detail/failure-recovery.js";
 export {
   rerunCurrentJob,
   syncRerunAction,

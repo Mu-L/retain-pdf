@@ -9,7 +9,7 @@ import { JSDOM } from "jsdom";
 // 词表/更新两个 tab 的占位 id 契约。
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/index.html" });
-for (const key of ["window", "document", "HTMLElement", "HTMLInputElement", "CustomEvent", "Event", "KeyboardEvent", "MouseEvent", "Node", "MutationObserver", "NodeFilter"]) {
+for (const key of ["window", "document", "DocumentFragment", "HTMLElement", "HTMLButtonElement", "HTMLFormElement", "HTMLInputElement", "CustomEvent", "Event", "KeyboardEvent", "MouseEvent", "Node", "MutationObserver", "NodeFilter"]) {
   Object.defineProperty(globalThis, key, {
     value: dom.window[key] ?? dom.window,
     writable: true,
@@ -100,6 +100,8 @@ function mockValidators(overrides = {}) {
 
 function createServices(overrides = {}) {
   const { validateOcrToken, validateDeepSeekToken, queryDeepSeekBalance, ...rest } = mockValidators(overrides.validators);
+  let vaultRevision = 0;
+  let translationCredential = null;
   return createHomeComposition({
     fetchGlossaries: async () => ({ items: [] }),
     loadPersistedDeveloperConfig: () => ({}),
@@ -107,6 +109,36 @@ function createServices(overrides = {}) {
     validateOcrToken,
     validateDeepSeekToken,
     queryDeepSeekBalance,
+    listCredentials: async () => ({
+      credentials: translationCredential ? [translationCredential] : [],
+      revision: vaultRevision,
+    }),
+    createCredential: async (_apiPrefix, payload) => {
+      vaultRevision += 1;
+      translationCredential = {
+        credential_ref: "cred_test_translation",
+        kind: payload.kind,
+        provider: payload.provider,
+        label: payload.label,
+        configured: true,
+        created_at: "2026-09-02T00:00:00Z",
+        updated_at: "2026-09-02T00:00:00Z",
+      };
+      return { credential: translationCredential, revision: vaultRevision };
+    },
+    updateCredential: async (_apiPrefix, credentialRef, payload) => {
+      vaultRevision += 1;
+      translationCredential = {
+        ...(translationCredential || {}),
+        credential_ref: credentialRef,
+        kind: payload.kind || "translation_api_key",
+        provider: payload.provider || "deepseek",
+        label: payload.label || "翻译 API",
+        configured: true,
+        updated_at: "2026-09-02T00:00:01Z",
+      };
+      return { credential: translationCredential, revision: vaultRevision };
+    },
     ...rest,
     ...overrides,
   });
@@ -142,7 +174,7 @@ test("CredentialsDialog：常规入口走设置 API；setupMode 仍开独立首�
   services.settingsHub.dialogStore.close();
   await waitFor(() => byId("app-settings-dialog") === null, "关闭设置");
 
-  // ---- setupMode 首次配置态:独立弹窗，tabs 隐藏,标题/保存文案切换 ----
+  // ---- setupMode 首次配置态：独立弹窗，标题/保存文案切换 ----
   dom.window.document.dispatchEvent(new dom.window.CustomEvent(APP_EVENTS.openBrowserCredentials, {
     detail: { setupMode: true },
   }));
@@ -151,16 +183,24 @@ test("CredentialsDialog：常规入口走设置 API；setupMode 仍开独立首�
 
   for (const id of [
     "browser-credentials-title", "browser-credentials-close-btn", "browser-credentials-status",
-    "browser-credentials-tabs", "browser-credential-tab-api", "browser-credential-tab-task",
     "browser-credentials-save-btn", "browser-paddle-token", "browser-paddle-validate-btn",
     "browser-paddle-validation", "browser-api-key", "browser-deepseek-validate-btn",
-    "browser-deepseek-validation", "browser-deepseek-top-up-link", "browser-job-math-mode",
+    "browser-deepseek-validation", "browser-deepseek-top-up-link",
   ]) {
     assert.ok(byId(id), `契约 id 缺失：#${id}`);
   }
 
   assert.equal(byId("browser-credentials-save-btn").textContent, "保存并启动");
-  assert.equal(byId("browser-credentials-tabs").classList.contains("hidden"), true);
+  assert.equal(byId("browser-credentials-tabs"), null, "首次配置也不显示多余的二级 Tab");
+  assert.equal(
+    dom.window.document.querySelector(".credential-agent-card"),
+    null,
+    "首次配置不展示另行保存的 Agent 表单",
+  );
+  assert.match(
+    dom.window.document.querySelector(".credential-agent-setup-note").textContent,
+    /稍后在设置中配置/,
+  );
   assert.equal(byId("browser-credentials-dialog").dataset.setupMode, "1");
 
   root.unmount();
@@ -176,8 +216,85 @@ test("凭据入口：设置 API 区内嵌工作台；#credential-gate-action 也
   // #credentials-btn 退役),不再弹 browser-credentials-dialog。
   click(byId("app-settings-btn"));
   await waitFor(() => byId("app-settings-dialog") !== null, "设置对话框打开");
-  await waitFor(() => byId("browser-credentials-tabs") !== null, "API 区内嵌凭据工作台(tabs 挂载)");
+  await waitFor(() => byId("browser-api-key") !== null, "API 区内嵌凭据工作台挂载");
   assert.ok(byId("browser-credentials-save-btn"), "内嵌工作台带保存按钮");
+  assert.equal(byId("browser-credentials-tabs"), null, "API 页面不再嵌套二级 Tab");
+  assert.equal(byId("browser-credentials-save-btn").textContent, "保存接口");
+  assert.equal(byId("browser-job-math-mode"), null, "API 页面不再展示公式处理方式");
+  const translationKeyInput = byId("browser-api-key");
+  const showTranslationKey = dom.window.document.querySelector('[aria-label="显示翻译 API Key"]');
+  assert.ok(showTranslationKey, "翻译 Key 默认提供显示按钮");
+  assert.equal(
+    translationKeyInput.nextElementSibling,
+    showTranslationKey,
+    "小眼睛按钮应紧跟输入框并显示在右侧",
+  );
+  assert.equal(translationKeyInput.type, "password");
+  typeInput(translationKeyInput, "visibility-check");
+  click(showTranslationKey);
+  await waitFor(() => translationKeyInput.type === "text", "显示翻译 Key");
+  assert.equal(translationKeyInput.value, "visibility-check", "切换可见性不能清空用户输入");
+  const hideTranslationKey = dom.window.document.querySelector('[aria-label="隐藏翻译 API Key"]');
+  assert.ok(hideTranslationKey, "显示后按钮切换为隐藏状态");
+  assert.equal(hideTranslationKey.getAttribute("aria-pressed"), "true");
+  click(hideTranslationKey);
+  await waitFor(() => translationKeyInput.type === "password", "重新隐藏翻译 Key");
+  const apiCards = [...dom.window.document.querySelectorAll(".credential-api-grid > .credential-card")];
+  assert.deepEqual(
+    apiCards.map((card) => [
+      card.classList.contains("credential-ocr-card"),
+      card.classList.contains("credential-translation-card"),
+    ]),
+    [[true, false], [false, true]],
+    "接口页按 OCR、翻译的纵向顺序排列",
+  );
+  assert.ok(dom.window.document.querySelector(".credential-agent-section > .credential-agent-card"));
+  assert.match(
+    dom.window.document.querySelector(".credential-agent-beta")?.textContent || "",
+    /Beta/i,
+    "AI Agent 标题显示测试阶段徽标",
+  );
+  assert.equal(
+    dom.window.document.querySelector(".credential-agent-save-button").classList.contains("secondary"),
+    true,
+    "Agent 保存使用次级按钮，避免与文档接口保存混淆",
+  );
+  assert.equal(
+    dom.window.document.querySelector(".credential-save-note"),
+    null,
+    "接口页不重复说明保存范围",
+  );
+  const agentModeSelect = dom.window.document.querySelector('[aria-label="AI Agent 运行模式"]');
+  assert.ok(
+    dom.window.document.querySelector('[aria-label="显示模型 API Key"]'),
+    "AI Agent 模型 Key 使用相同的双态显示控件",
+  );
+  assert.deepEqual(
+    [...agentModeSelect.options].map((option) => [option.value, option.textContent]),
+    [
+      ["python", "Markdown 检索问答"],
+      ["openai", "OpenAI 兼容 Agent"],
+      ["fx", "FX Gateway Agent"],
+    ],
+  );
+  agentModeSelect.value = "fx";
+  agentModeSelect.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+  await waitFor(
+    () => dom.window.document.querySelector('[aria-label="FX Gateway URL"]'),
+    "FX 模式显示自定义 Gateway URL",
+  );
+  assert.ok(
+    dom.window.document.querySelector('[aria-label="显示 FX Gateway Key"]'),
+    "FX Gateway Key 使用相同的双态显示控件",
+  );
+  assert.match(
+    dom.window.document.querySelector(".credential-agent-fx-url-note").textContent,
+    /仅支持本机 HTTP \+ 端口/,
+  );
+  assert.match(
+    dom.window.document.querySelector(".credential-agent-fx-url-note").textContent,
+    /远程地址请使用 OpenAI 模式/,
+  );
   assert.equal(byId("credentials-btn"), null, "门厅按钮已退役");
   assert.equal(byId("browser-credentials-dialog"), null, "设置内不再弹二层凭据对话框");
 
@@ -229,7 +346,7 @@ test("CredentialsDialog：OCR/DeepSeek 校验三态(缺失/错误/通过)", asyn
   // Key"分支直接 return,不写校验徽标(与 OCR 分支的语义不同,这是既有
   // 业务逻辑,不是本域重写的行为)——缺失态改由保存按钮的守卫触发验证。
   click(byId("browser-credentials-save-btn"));
-  await waitFor(() => byId("browser-deepseek-validation").title === "请先填写 DeepSeek Key。", "DeepSeek 缺失态(经保存守卫触发)");
+  await waitFor(() => byId("browser-deepseek-validation").title === "请先填写翻译 API Key。", "翻译 API 缺失态(经保存守卫触发)");
   assert.equal(byId("browser-deepseek-validation").classList.contains("is-error"), true);
   assert.notEqual(byId("app-settings-dialog"), null, "缺字段时保存应被拦截,设置对话框不关闭");
 
@@ -266,22 +383,164 @@ test("CredentialsDialog：保存(浏览器模式)——写隐藏 input、同步 
   await waitFor(() => byId("app-settings-dialog") !== null, "打开设置");
   await waitFor(() => byId("browser-api-key") !== null, "API 工作台就绪");
 
+  assert.equal(byId("browser-model-base-url").type, "url", "翻译 API 地址保持 URL 输入语义");
+  assert.ok(byId("browser-translation-provider"), "翻译 API 使用服务商下拉选择");
+  assert.match(byId("browser-translation-provider").textContent, /DeepSeek/);
+  assert.equal(byId("browser-model-base-url").readOnly, true, "DeepSeek 预设地址不可直接修改");
+  assert.equal(byId("browser-model-name").value, "deepseek-v4-flash");
+  assert.equal(byId("browser-translation-workers").value, "50");
+  assert.equal(byId("browser-translation-workers").max, "100");
+  typeInput(byId("browser-api-key"), "deepseek-profile-key");
+
+  services.credentials.view.handlersRef.current.changeTranslationProvider("qwen");
+  await waitFor(
+    () => byId("browser-model-base-url").value === "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "选择 Qwen 后写入官方地址",
+  );
+  assert.equal(byId("browser-model-base-url").readOnly, true, "Qwen 官方地址不可修改");
+  assert.match(byId("browser-translation-provider").textContent, /Qwen/);
+  assert.equal(byId("browser-model-name").value, "qwen3.8-flash", "Qwen 使用独立默认模型");
+  assert.equal(byId("browser-api-key").value, "", "Qwen 不复用 DeepSeek Key");
+  assert.equal(byId("browser-translation-workers").value, "20");
+  assert.equal(byId("browser-translation-workers").max, "50");
+  typeInput(byId("browser-api-key"), "qwen-profile-key");
+  typeInput(byId("browser-translation-workers"), "51");
+  click(byId("browser-credentials-save-btn"));
+  await waitFor(
+    () => byId("browser-deepseek-validation").title === "翻译并发数请输入 1–50 的整数",
+    "Qwen 并发不得超过 50",
+  );
+  typeInput(byId("browser-translation-workers"), "20");
+  assert.equal(
+    dom.window.document.querySelector('.credential-card-link[href="https://platform.qianwenai.com/home/billing/overview"]')?.textContent.trim(),
+    "Qwen 充值",
+  );
+  assert.match(
+    byId("browser-translation-provider").querySelector("img")?.getAttribute("src") || "",
+    /providers\/qwen\.svg$/,
+    "Qwen 选项使用本地品牌图标",
+  );
+
+  services.credentials.view.handlersRef.current.changeTranslationProvider("anthropic");
+  await waitFor(() => byId("browser-model-base-url").value === "https://api.anthropic.com/v1", "选择 Anthropic 后写入官方地址");
+  assert.equal(byId("browser-model-name").value, "claude-sonnet-5");
+  assert.equal(byId("browser-api-key").value, "", "Anthropic 不复用 Qwen Key");
+  assert.equal(byId("browser-translation-workers").value, "50");
+  assert.equal(byId("browser-translation-workers").max, "100");
+  typeInput(byId("browser-api-key"), "anthropic-profile-key");
+
+  services.credentials.view.handlersRef.current.changeTranslationProvider("openai");
+  await waitFor(() => byId("browser-model-base-url").value === "https://api.openai.com/v1", "选择 OpenAI 后写入官方地址");
+  assert.equal(byId("browser-model-name").value, "gpt-5.6-luna");
+  assert.equal(byId("browser-api-key").value, "", "OpenAI 不复用 Anthropic Key");
+  assert.equal(byId("browser-translation-workers").value, "50");
+  assert.equal(byId("browser-translation-workers").max, "100");
+  typeInput(byId("browser-api-key"), "openai-profile-key");
+
+  services.credentials.view.handlersRef.current.changeTranslationProvider("zhipu");
+  await waitFor(() => byId("browser-model-base-url").value === "https://open.bigmodel.cn/api/paas/v4", "选择智谱后写入官方地址");
+  assert.equal(byId("browser-model-name").value, "GLM-5.3-Flash");
+  assert.equal(byId("browser-api-key").value, "", "智谱不复用 OpenAI Key");
+  assert.equal(byId("browser-translation-workers").value, "5");
+  assert.equal(byId("browser-translation-workers").max, "50");
+  assert.equal(
+    dom.window.document.querySelector('.credential-card-link[href="https://bigmodel.cn/usercenter/proj-mgmt/apikeys"]')?.textContent.trim(),
+    "智谱 API Key",
+  );
+  assert.equal(
+    dom.window.document.querySelector('.credential-card-link[href="https://bigmodel.cn/finance-center/finance/pay"]')?.textContent.trim(),
+    "智谱充值",
+  );
+  typeInput(byId("browser-api-key"), "zhipu-profile-key");
+
+  services.credentials.view.handlersRef.current.changeTranslationProvider("custom");
+  await waitFor(() => byId("browser-model-base-url").readOnly === false, "自定义 API 地址恢复可编辑");
+  assert.equal(byId("browser-model-name").value, "", "自定义 API 不复用预设模型");
+  assert.equal(byId("browser-api-key").value, "", "自定义 API 不复用 Qwen Key");
+  assert.equal(byId("browser-translation-workers").value, "5");
+  assert.equal(byId("browser-translation-workers").max, "100");
+  assert.match(dom.window.document.querySelector(".credential-custom-api-warning")?.textContent || "", /不超过 5/);
+  typeInput(byId("browser-model-base-url"), "https://translation.example/v1");
+  services.credentials.view.handlersRef.current.changeTranslationProvider("deepseek");
+  await waitFor(() => byId("browser-model-base-url").value === "https://api.deepseek.com/v1", "切回 DeepSeek 官方地址");
+  assert.equal(byId("browser-api-key").value, "deepseek-profile-key", "切回 DeepSeek 恢复独立 Key");
+  assert.match(
+    byId("browser-translation-provider").querySelector("img")?.getAttribute("src") || "",
+    /providers\/deepseek\.svg$/,
+    "DeepSeek 选项使用本地品牌图标",
+  );
+  services.credentials.view.handlersRef.current.changeTranslationProvider("custom");
+  await waitFor(
+    () => byId("browser-model-base-url").value === "https://translation.example/v1",
+    "切回自定义 API 时恢复先前输入",
+  );
+  assert.equal(byId("browser-model-name").type, "text", "第三方翻译模型必须公开可编辑");
+  assert.equal(byId("browser-translation-workers").type, "number", "翻译并发数必须公开可编辑");
+  assert.equal(byId("browser-translation-workers").min, "1");
+  assert.equal(byId("browser-translation-workers").max, "100");
   typeInput(byId("browser-paddle-token"), "paddle-secret");
   typeInput(byId("browser-api-key"), "deepseek-secret");
+  typeInput(byId("browser-model-base-url"), "https://translation.example/v1");
+  typeInput(byId("browser-model-name"), "translation-model-v2");
+  typeInput(byId("browser-translation-workers"), "24");
+  assert.equal(byId("browser-model-base-url").value, "https://translation.example/v1");
+  assert.equal(byId("browser-model-name").value, "translation-model-v2");
+  assert.equal(services.credentials.view.elementsRef.modelBaseUrlInput.value, "https://translation.example/v1");
+  assert.equal(services.credentials.view.elementsRef.modelNameInput.value, "translation-model-v2");
+  assert.equal(services.credentials.view.elementsRef.translationWorkersInput.value, "24");
 
   click(byId("browser-credentials-save-btn"));
   await waitFor(
-    () => defaultCredentialsStatePort.getCredentials().modelApiKey === "deepseek-secret",
+    () => defaultCredentialsStatePort.getCredentials().translationCredentialRef === "cred_test_translation",
     "保存后 credentialsStatePort 更新",
   );
 
   assert.equal(byId("paddle_token").value, "paddle-secret", "隐藏 input 桥接:paddle_token");
-  assert.equal(byId("api_key").value, "deepseek-secret", "隐藏 input 桥接:api_key");
+  assert.equal(byId("api_key"), null, "翻译 Key 不得进入隐藏 DOM");
   assert.equal(byId("ocr_provider").value, "paddle");
 
   const credentials = defaultCredentialsStatePort.getCredentials();
   assert.equal(credentials.paddleToken, "paddle-secret");
   assert.equal(credentials.modelApiKey, "deepseek-secret");
+  assert.equal(credentials.translationCredentialRef, "cred_test_translation");
+  assert.equal(byId("browser-api-key").type, "password", "保存后默认继续遮蔽 Key");
+  assert.equal(byId("browser-api-key").value, "deepseek-secret", "保存后保留可查看的 Key");
+  const persistedValues = Array.from({ length: dom.window.localStorage.length }, (_, index) => (
+    dom.window.localStorage.getItem(dom.window.localStorage.key(index)) || ""
+  ));
+  assert.equal(
+    persistedValues.some((value) => value.includes("deepseek-secret")),
+    true,
+    "翻译 Key 应写入本机前端配置，供下次打开设置时查看",
+  );
+  await waitFor(
+    () => services.features.workflowFeature.developerConfigWithDefaults().baseUrl === "https://translation.example/v1",
+    "第三方翻译 API 配置保存完成",
+  );
+  const translationConfig = services.features.workflowFeature.developerConfigWithDefaults();
+  assert.equal(translationConfig.baseUrl, "https://translation.example/v1");
+  assert.equal(translationConfig.model, "translation-model-v2");
+  assert.equal(translationConfig.workers, 24);
+  assert.equal(translationConfig.translationProvider, "custom");
+  assert.equal(translationConfig.translationProfiles.deepseek.apiKey, "deepseek-profile-key");
+  assert.equal(translationConfig.translationProfiles.deepseek.workers, 50);
+  assert.equal(translationConfig.translationProfiles.qwen.apiKey, "qwen-profile-key");
+  assert.equal(translationConfig.translationProfiles.qwen.model, "qwen3.8-flash");
+  assert.equal(translationConfig.translationProfiles.qwen.workers, 20);
+  assert.equal(translationConfig.translationProfiles.anthropic.apiKey, "anthropic-profile-key");
+  assert.equal(translationConfig.translationProfiles.anthropic.model, "claude-sonnet-5");
+  assert.equal(translationConfig.translationProfiles.openai.apiKey, "openai-profile-key");
+  assert.equal(translationConfig.translationProfiles.openai.model, "gpt-5.6-luna");
+  assert.equal(translationConfig.translationProfiles.zhipu.apiKey, "zhipu-profile-key");
+  assert.equal(translationConfig.translationProfiles.zhipu.model, "GLM-5.3-Flash");
+  assert.equal(translationConfig.translationProfiles.zhipu.workers, 5);
+  assert.equal(translationConfig.translationProfiles.custom.apiKey, "deepseek-secret");
+  assert.equal(translationConfig.translationProfiles.custom.workers, 24);
+  assert.equal(
+    services.features.workflowFeature.buildTranslateJobConfig("").translation.workers,
+    24,
+    "文档翻译与 OCR 复用翻译都使用已保存的并发数",
+  );
 
   root.unmount();
   services.dispose();
@@ -315,8 +574,15 @@ test("CredentialsDialog：保存(桌面模式)——走 saveDesktopConfig 分支
   typeInput(byId("browser-api-key"), "deepseek-desktop");
 
   click(byId("browser-credentials-save-btn"));
+  await wait(20);
+  assert.equal(
+    byId("browser-credentials-status")?.textContent || "",
+    "",
+    "桌面模式默认翻译 API 配置不应阻塞首次保存",
+  );
   await waitFor(() => desktopCalls.length === 1, "saveDesktopConfig 被调用");
   assert.equal(desktopCalls[0].browserConfig.modelApiKey, "deepseek-desktop");
+  assert.equal(desktopCalls[0].browserConfig.translationCredentialRef, "cred_test_translation");
   assert.equal(desktopCalls[0].browserConfig.paddleToken, "paddle-desktop");
   assert.equal(desktopCalls[0].browserConfig.markConfigured, true, "setupMode 下应标记首次配置完成");
   await waitFor(() => byId("browser-credentials-dialog") === null, "保存成功后对话框关闭");
@@ -349,10 +615,10 @@ test("CredentialsDialog：隐藏 input 与 credentialsStatePort 单向受控同�
   defaultCredentialsStatePort.setCredentials({
     ocrProvider: "paddle",
     paddleToken: "from-store",
-    modelApiKey: "from-store-key",
+    translationCredentialRef: "cred_from_store",
   });
   await waitFor(() => byId("paddle_token").value === "from-store", "store → 隐藏 input 投影");
-  assert.equal(byId("api_key").value, "from-store-key");
+  assert.equal(byId("api_key"), null, "翻译 Key 不得渲染进隐藏 DOM");
 
   // 外部直接改 DOM(模拟浏览器自动填充等非受控写入路径)不经过 store,
   // 不会被采纳为"真值"——下一次任意 credentials 变更触发的重渲染都会把

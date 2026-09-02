@@ -1,7 +1,7 @@
 // 详情 meta 子域：doc 全量、authors/pageCount、阅读状态、标题/标签编辑、删除。
 // 由 useBookDetailDocument 门面组合，保持 BookDetailDialog 调用不变。
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchDocument, API_PREFIX } from "../../../composition/external.js";
 
 function parseAuthors(authorsJson: unknown): string[] {
@@ -37,9 +37,46 @@ export function useDocumentMeta({
   const [titleText, setTitleText] = useState("");
   const [tagsText, setTagsText] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  const requestGenerationRef = useRef(0);
+  const scopeRef = useRef({ open, documentId });
+  scopeRef.current = { open, documentId };
+
+  const refresh = useCallback(async () => {
+    const scope = scopeRef.current;
+    if (!scope.open || !scope.documentId) return null;
+
+    const generation = ++requestGenerationRef.current;
+    try {
+      const full: any = await fetchDocument(API_PREFIX, scope.documentId);
+      const currentScope = scopeRef.current;
+      if (
+        generation !== requestGenerationRef.current
+        || !currentScope.open
+        || currentScope.documentId !== scope.documentId
+      ) {
+        return null;
+      }
+      const detail = full as {
+        reading_status?: string;
+        title?: string;
+        source_filename?: string;
+        tags?: string[];
+      };
+      setDoc(full);
+      setReadingStatus(detail.reading_status || "unread");
+      setTitleText(detail.title || detail.source_filename || "");
+      const fullTags = Array.isArray(detail.tags) ? detail.tags : [];
+      setTags(fullTags);
+      setTagsText(fullTags.join("、"));
+      return full;
+    } catch {
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
     if (!open || !documentId) {
+      requestGenerationRef.current += 1;
       setDoc(null);
       setError("");
       setConfirmingDelete(false);
@@ -47,34 +84,17 @@ export function useDocumentMeta({
       setBusy("");
       return undefined;
     }
-    let cancelled = false;
     // item 切但 documentId 不变时同步 readingStatus/title/tags，避免残留
     const initialTags: string[] = Array.isArray(item?.tags) ? item.tags : [];
     setReadingStatus(item?.reading_status || "unread");
     setTitleText(item?.title || item?.display_name || "");
     setTags(initialTags);
     setTagsText(initialTags.join("、"));
-    fetchDocument(API_PREFIX, documentId)
-      .then((full: any) => {
-        if (cancelled) return;
-        const detail = full as {
-          reading_status?: string;
-          title?: string;
-          source_filename?: string;
-          tags?: string[];
-        };
-        setDoc(full);
-        setReadingStatus(detail.reading_status || "unread");
-        setTitleText(detail.title || detail.source_filename || "");
-        const fullTags = Array.isArray(detail.tags) ? detail.tags : [];
-        setTags(fullTags);
-        setTagsText(fullTags.join("、"));
-      })
-      .catch(() => {});
+    void refresh();
     return () => {
-      cancelled = true;
+      requestGenerationRef.current += 1;
     };
-  }, [open, documentId, item]);
+  }, [open, documentId, item, refresh]);
 
   const authors = useMemo(() => parseAuthors(doc?.authors_json), [doc?.authors_json]);
   const pageCount = doc?.page_count || item?.page_count || 0;
@@ -171,6 +191,7 @@ export function useDocumentMeta({
     setTagsText,
     tags,
     setTags,
+    refresh,
     startEdit,
     handleSaveEdit,
     handleReadingStatus,

@@ -80,7 +80,10 @@ mod tests {
             crate::config::PythonWorkerEntrypointMode::Console,
         );
         let command = side_by_side_command(deps);
-        assert_eq!(command.get_program(), "/opt/retainpdf/bin/retainpdf-pipeline");
+        assert_eq!(
+            command.get_program(),
+            "/opt/retainpdf/bin/retainpdf-pipeline"
+        );
         assert_eq!(
             command.get_args().collect::<Vec<_>>(),
             vec![std::ffi::OsStr::new("side-by-side-pdf")]

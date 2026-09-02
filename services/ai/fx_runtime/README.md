@@ -160,6 +160,20 @@ not a required desktop runtime. Windows continues using the existing Python
 runtime. Enabling fx is explicit: a missing binary, missing Gateway key, or
 version mismatch fails closed and never weakens document execution isolation.
 
+fx 0.0.5 admits endpoint overrides only for explicit loopback HTTP URLs with a
+port. The backend maps `RETAIN_AI_FX_GATEWAY_BASE_URL` to both
+`FX_GATEWAY_BASE_URL` and `<base>/v3/ai/language-model` via
+`FX_GATEWAY_CHAT_URL`; setting only the former does not move model completion
+traffic. Empty preserves the public Vercel Gateway. Remote HTTPS, LAN hosts,
+embedded credentials, queries, and fragments fail before fx starts because fx
+would otherwise ignore them and silently use its public default.
+
+For a custom bridge, runtime capability probing and `/readyz` also require its
+loopback TCP port to accept connections. This is deliberately not a model turn:
+it sends no Gateway key, creates no billable request, and does not claim that a
+provider/model is healthy. The real live test remains responsible for proving
+that fx posts model traffic to `<base>/v3/ai/language-model`.
+
 ## Implemented P0 adapter
 
 `retainpdf_ai.runtime.FxAcpRuntime` now launches one private `fx acp` process

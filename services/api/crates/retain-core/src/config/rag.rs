@@ -1,4 +1,4 @@
-use super::env_vars::{env_usize};
+use super::env_vars::env_usize;
 
 const DEFAULT_MAX_CHUNK_CHARS: usize = 1_600;
 const DEFAULT_SNIPPET_CHARS: usize = 240;

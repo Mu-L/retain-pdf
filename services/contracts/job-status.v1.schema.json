@@ -110,7 +110,7 @@
     "PublicTranslationInput": {
       "type": "object",
       "description": "public_contract.rs :: PublicTranslationInput。api_key 恒为空，仅暴露 configured 标记。",
-      "required": ["mode", "math_mode", "skip_title_translation", "classify_batch_size", "rule_profile_name", "custom_rules_text", "glossary_id", "glossary_name", "glossary_resource_entry_count", "glossary_inline_entry_count", "glossary_overridden_entry_count", "glossary_entries", "context_mode", "glossary_mode", "memory_mode", "api_key", "api_key_configured", "model", "base_url", "start_page", "end_page", "batch_size", "workers"],
+      "required": ["mode", "math_mode", "skip_title_translation", "classify_batch_size", "rule_profile_name", "custom_rules_text", "glossary_id", "glossary_name", "glossary_resource_entry_count", "glossary_inline_entry_count", "glossary_overridden_entry_count", "glossary_entries", "context_mode", "glossary_mode", "memory_mode", "api_key", "api_key_configured", "credential_ref", "model", "base_url", "start_page", "end_page", "page_ranges", "batch_size", "workers"],
       "additionalProperties": false,
       "properties": {
         "mode": { "type": "string" },
@@ -130,10 +130,12 @@
         "memory_mode": { "type": "string" },
         "api_key": { "type": "string" },
         "api_key_configured": { "type": "boolean" },
+        "credential_ref": { "type": "string" },
         "model": { "type": "string" },
         "base_url": { "type": "string" },
         "start_page": { "type": "integer" },
         "end_page": { "type": "integer" },
+        "page_ranges": { "type": "array", "items": { "type": "integer", "minimum": 1 } },
         "batch_size": { "type": "integer" },
         "workers": { "type": "integer" },
         "accepted_ambiguous_request_risk": { "type": "boolean" }
@@ -161,11 +163,12 @@
     },
     "RuntimeInput": {
       "type": "object",
-      "required": ["job_id", "timeout_seconds"],
+      "required": ["job_id", "timeout_seconds", "render_after_translation"],
       "additionalProperties": false,
       "properties": {
         "job_id": { "type": "string" },
-        "timeout_seconds": { "type": "integer" }
+        "timeout_seconds": { "type": "integer" },
+        "render_after_translation": { "type": "boolean" }
       }
     },
     "PublicResolvedJobSpec": {
@@ -428,7 +431,7 @@
     },
     "JobStageStateView": {
       "type": "string",
-      "enum": ["pending", "in_progress", "completed", "failed", "skipped"]
+      "enum": ["reused", "queued", "pending", "in_progress", "completed", "failed", "skipped"]
     },
     "JobStageRuntimeView": {
       "type": "object",
@@ -636,12 +639,15 @@
     "JobListItemView": {
       "type": "object",
       "description": "job_types.rs :: JobListItemView — 列表卡用；关键字段 job_id / display_name / workflow / status / stage_snapshot / progress(经 stage_snapshot.progress) / cover_url 均在契约内。",
-      "required": ["job_id", "display_name", "workflow", "status", "stage_snapshot", "background_snapshots", "stages", "output_pdf_ready", "markdown_ready", "bundle_ready", "created_at", "updated_at", "detail_path", "detail_url"],
+      "required": ["job_id", "display_name", "workflow", "status", "attempt", "retry_count", "last_retry_at", "stage_snapshot", "background_snapshots", "stages", "output_pdf_ready", "markdown_ready", "bundle_ready", "created_at", "updated_at", "detail_path", "detail_url"],
       "properties": {
         "job_id": { "type": "string" },
         "display_name": { "type": "string" },
         "workflow": { "$ref": "#/definitions/WorkflowKind" },
         "status": { "$ref": "#/definitions/JobStatusKind" },
+        "attempt": { "type": "integer", "minimum": 1 },
+        "retry_count": { "type": "integer", "minimum": 0 },
+        "last_retry_at": { "type": ["string", "null"], "format": "date-time" },
         "trace_id": { "type": ["string", "null"] },
         "stage_snapshot": { "anyOf": [{ "$ref": "#/definitions/JobStageSnapshotView" }, { "type": "null" }] },
         "background_snapshots": { "type": "array", "items": { "$ref": "#/definitions/JobStageSnapshotView" } },
@@ -697,11 +703,13 @@
     "JobDetailView": {
       "type": "object",
       "description": "job_types.rs :: JobDetailView。关键重复字段：job_id, workflow, status, stage_snapshot(含 progress), cover_url(经 book_summary.cover_url) 均上锁。",
-      "required": ["job_id", "workflow", "status", "request_payload", "stages", "timestamps", "links", "actions", "artifacts", "artifacts_display", "book_summary", "contracts", "log_tail"],
+      "required": ["job_id", "workflow", "status", "ocr_reused", "source_artifact_job_id", "request_payload", "stages", "timestamps", "links", "actions", "artifacts", "artifacts_display", "book_summary", "contracts", "log_tail"],
       "properties": {
         "job_id": { "type": "string" },
         "workflow": { "$ref": "#/definitions/WorkflowKind" },
         "status": { "$ref": "#/definitions/JobStatusKind" },
+        "ocr_reused": { "type": "boolean" },
+        "source_artifact_job_id": { "type": ["string", "null"] },
         "request_payload": { "$ref": "#/definitions/PublicResolvedJobSpec" },
         "trace_id": { "type": ["string", "null"] },
         "provider_trace_id": { "type": ["string", "null"] },

@@ -1,9 +1,10 @@
-"""Host-owned command broker for the fx ACP runtime.
+"""Host-owned command broker for document-capable Agent runtimes.
 
-fx can execute only the generated ``retainpdf-agent`` wrapper. The wrapper has
-no Rust credential; it forwards a strictly parsed argv vector over a private
-Unix socket. This module mints a one-action capability and runs the real CLI in
-a separate host-owned subprocess.
+fx can execute only the generated ``retainpdf-agent`` wrapper. OpenAI-compatible
+function-calling runtimes invoke the same exact argv grammar directly through
+the host. Neither path receives a Rust credential: this module mints a
+single-action capability and runs the real CLI in a separate host-owned
+subprocess.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ import subprocess
 import sys
 import threading
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
@@ -36,6 +38,18 @@ _SAFE_OPERATION_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _SHA256 = re.compile(r"^[0-9a-fA-F]{64}$")
 _CANCEL_REASONS = {"agent_abort", "superseded", "user_cancelled"}
 _BASE64URL = re.compile(r"^[A-Za-z0-9_-]+$")
+_OPERATION_STATUSES = {
+    "draft",
+    "awaiting_confirmation",
+    "queued",
+    "running",
+    "validating",
+    "result_ready",
+    "committed",
+    "failed",
+    "cancelled",
+    "ambiguous",
+}
 
 
 class CapabilityIssuer(Protocol):
@@ -56,6 +70,11 @@ class BrokerScope:
     request_message_id: str
     intent_summary: str
     confirmed: bool = False
+    green_light: bool = False
+
+    @property
+    def effects_allowed(self) -> bool:
+        return self.confirmed or self.green_light
 
 
 @dataclass(frozen=True)
@@ -75,12 +94,14 @@ class FxCommandBroker:
         rust_api_url: str,
         rust: CapabilityIssuer,
         scope: BrokerScope,
+        on_operation_event: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         self._state_root = state_root.resolve()
         self._cli_command = cli_command
         self._rust_api_url = rust_api_url.rstrip("/")
         self._rust = rust
         self._scope = scope
+        self._on_operation_event = on_operation_event
         self._turn_id = secrets.token_urlsafe(18)
         self._root = self._state_root / "brokers" / self._turn_id
         self._bin_dir = self._root / "bin"
@@ -105,11 +126,20 @@ class FxCommandBroker:
 
     @property
     def instructions(self) -> str:
-        confirmation = (
-            "The user explicitly confirmed run/commit for this turn."
-            if self._scope.confirmed
-            else "The user did not confirm run/commit; those commands will be rejected."
-        )
+        if self._scope.green_light:
+            confirmation = (
+                "RetainPDF green-light mode is enabled. You may run and commit operations "
+                "needed by the current user request without asking for manual confirmation. "
+                "This does not permit any command outside the listed grammar."
+            )
+        elif self._scope.confirmed:
+            confirmation = "The host supplied explicit run/commit confirmation for this turn."
+        else:
+            confirmation = (
+                "The host did not confirm run/commit; those commands will be rejected. "
+                "Tell the user to use the operation card action. Never claim that typing an "
+                "exact phrase in chat will grant confirmation."
+            )
         return (
             "The only host tool is retainpdf-agent. Supported commands are exactly:\n"
             "retainpdf-agent document inspect\n"
@@ -206,6 +236,22 @@ class FxCommandBroker:
             self._approved[command.public_argv] += 1
         return True
 
+    def execute_host_argv(self, argv: tuple[str, ...]) -> dict[str, Any]:
+        """Execute one structured model tool call through the shared broker.
+
+        Unlike the fx ACP path this method does not consume an ACP permission
+        ticket: the host already parsed a named function call into an argv
+        tuple.  It still passes through the same exact grammar, confirmation
+        checks, per-turn call limit, capability minting, subprocess isolation,
+        output bounding, redaction, and operation-event projection.
+        """
+        command = parse_broker_argv(argv, self._scope)
+        with self._approved_lock:
+            if self._call_count >= _MAX_CALLS_PER_TURN:
+                return _failure("broker call limit reached")
+            self._call_count += 1
+        return self._execute(command)
+
     def _serve(self) -> None:
         listener = self._listener
         if listener is None:
@@ -297,6 +343,13 @@ class FxCommandBroker:
         )
         stdout = stdout.replace(capability, "[REDACTED]")
         stderr = stderr.replace(capability, "[REDACTED]")
+        if completed.returncode == 0 and self._on_operation_event is not None:
+            event = _safe_operation_event(command, stdout, self._scope)
+            if event is not None:
+                try:
+                    self._on_operation_event(event)
+                except Exception:  # noqa: BLE001, S110 - discovery must not fail the command
+                    pass
         return {
             "exit_code": int(completed.returncode),
             "stdout": stdout,
@@ -316,6 +369,59 @@ class FxCommandBroker:
             os.close(descriptor)
         wrapper.chmod(stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
 
+
+def _safe_operation_event(
+    command: BrokerCommand,
+    stdout: str,
+    scope: BrokerScope,
+) -> dict[str, Any] | None:
+    """Project a successful CLI response into the public SSE discovery shape."""
+    if not command.action.startswith("operation.") or len(stdout) > _MAX_BROKER_FRAME_BYTES:
+        return None
+    try:
+        envelope = json.loads(stdout)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    if not isinstance(envelope, dict) or envelope.get("ok") is not True:
+        return None
+    response = envelope.get("response")
+    if not isinstance(response, dict):
+        return None
+    view = response.get("data", response)
+    if not isinstance(view, dict):
+        return None
+    operation_id = str(view.get("operation_id") or "").strip()
+    status = str(view.get("status") or "").strip()
+    if not _SAFE_OPERATION_ID.fullmatch(operation_id) or status not in _OPERATION_STATUSES:
+        return None
+    try:
+        attempt = int(view.get("current_attempt") or 0)
+    except (TypeError, ValueError):
+        return None
+    if attempt < 1:
+        return None
+    events = view.get("events")
+    latest_event_seq = 0
+    if isinstance(events, list):
+        for item in events:
+            if not isinstance(item, dict):
+                continue
+            try:
+                latest_event_seq = max(latest_event_seq, int(item.get("seq") or 0))
+            except (TypeError, ValueError):
+                continue
+    return {
+        "type": "agent_operation",
+        "event_id": f"{operation_id}:{attempt}:{latest_event_seq}:{status}",
+        "operation_id": operation_id,
+        "conversation_id": str(view.get("conversation_id") or scope.conversation_id).strip(),
+        "request_message_id": str(
+            view.get("request_message_id") or scope.request_message_id
+        ).strip(),
+        "status": status,
+        "current_attempt": attempt,
+        "latest_event_seq": latest_event_seq,
+    }
 
 def parse_broker_command(raw_command: str, scope: BrokerScope) -> BrokerCommand:
     if (
@@ -390,7 +496,7 @@ def parse_broker_argv(argv: tuple[str, ...], scope: BrokerScope) -> BrokerComman
             argv, "operation.get", ("operation", "get", "--operation-id", operation_id)
         )
     if action in {"run", "commit"}:
-        if not scope.confirmed:
+        if not scope.effects_allowed:
             raise ValueError("explicit confirmation is required")
         retry = False
         accept_duplicate_risk = False

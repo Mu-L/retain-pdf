@@ -45,15 +45,6 @@
   display: grid;
   gap: 8px;
   padding: 10px 10px 9px;
-  border-radius: 16px;
-  border: 1px solid color-mix(in srgb, var(--paper) 65%, transparent);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--paper) 96%, transparent) 0%, color-mix(in srgb, color-mix(in srgb, var(--bg) 50%, var(--paper)) 94%, transparent) 100%);
-  backdrop-filter: blur(18px) saturate(170%);
-  -webkit-backdrop-filter: blur(18px) saturate(170%);
-  box-shadow:
-    0 1px 0 color-mix(in srgb, var(--paper) 90%, transparent) inset,
-    0 0 0 1px color-mix(in srgb, var(--ink) 4%, transparent);
 }
 
 .reader-sel-pop-quote {
@@ -191,4 +182,3 @@
     transition: none;
   }
 }
-

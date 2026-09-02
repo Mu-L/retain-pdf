@@ -802,6 +802,15 @@ async fn restricted_page_program_produces_validates_and_commits_a_real_pdf() {
         .expect("committed source exists");
     assert_eq!(PathBuf::from(active_upload.stored_path), candidate_path);
     assert_eq!(active_upload.page_count, 2);
+    let document_response =
+        get_json(app.clone(), &format!("/api/v1/documents/{document_id}")).await;
+    assert_eq!(document_response.status(), StatusCode::OK);
+    let document_body = read_json(document_response).await;
+    assert_eq!(
+        document_body["data"]["active_version_id"],
+        committed_body["data"]["candidate_version"]["version_id"],
+        "Reader must be able to distinguish the committed document source from the immutable job artifact"
+    );
 
     let next_program = json!({
         "schema": "retainpdf_page_program_v1",

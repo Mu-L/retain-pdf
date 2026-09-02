@@ -99,6 +99,23 @@ mod tests {
     }
 
     #[test]
+    fn create_job_input_accepts_translation_credential_reference() {
+        let input = CreateJobInput::from_api_value(json!({
+            "workflow": "translate",
+            "source": { "artifact_job_id": "ocr-job" },
+            "translation": {
+                "model": "deepseek-chat",
+                "base_url": "https://api.deepseek.com/v1",
+                "credential_ref": "cred_translation_primary"
+            }
+        }))
+        .expect("parse credential reference");
+
+        assert!(input.translation.api_key.is_empty());
+        assert_eq!(input.translation.credential_ref, "cred_translation_primary");
+    }
+
+    #[test]
     fn create_job_input_accepts_all_canonical_workflows() {
         let mineru = CreateJobInput::from_api_value(json!({
             "workflow": "book",

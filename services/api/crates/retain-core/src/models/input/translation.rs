@@ -55,6 +55,8 @@ pub struct TranslationInput {
     #[serde(default)]
     pub api_key: String,
     #[serde(default)]
+    pub credential_ref: String,
+    #[serde(default)]
     pub model: String,
     #[serde(default)]
     pub base_url: String,
@@ -62,6 +64,10 @@ pub struct TranslationInput {
     pub start_page: i64,
     #[serde(default = "default_end_page")]
     pub end_page: i64,
+    /// Optional explicit, one-based document page numbers. An empty list keeps
+    /// the legacy start_page/end_page selection semantics.
+    #[serde(default)]
+    pub page_ranges: Vec<u32>,
     #[serde(default = "default_batch_size")]
     pub batch_size: i64,
     #[serde(default)]
@@ -89,10 +95,12 @@ impl Default for TranslationInput {
             glossary_mode: default_translation_glossary_mode(),
             memory_mode: default_translation_memory_mode(),
             api_key: String::new(),
+            credential_ref: String::new(),
             model: String::new(),
             base_url: String::new(),
             start_page: 0,
             end_page: default_end_page(),
+            page_ranges: Vec::new(),
             batch_size: default_batch_size(),
             workers: 0,
             accepted_ambiguous_request_risk: false,

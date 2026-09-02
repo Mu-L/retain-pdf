@@ -65,11 +65,27 @@ function statusDetailNote(job: StatusDetailJob = {}): string {
       : "查看任务概览、失败原因与事件流";
 }
 
+function headlineStatus(job: StatusDetailJob = {}) {
+  const status = `${job?.status || ""}`.trim().toLowerCase();
+  if (status === "failed") return { statusLabel: "失败", tone: "failed" as const };
+  if (status === "succeeded" && isJobTerminal(job)) {
+    return { statusLabel: "已完成", tone: "success" as const };
+  }
+  if (["running", "validating"].includes(status)) {
+    return { statusLabel: "处理中", tone: "running" as const };
+  }
+  if (["queued", "pending"].includes(status)) {
+    return { statusLabel: "排队中", tone: "neutral" as const };
+  }
+  return { statusLabel: "准备中", tone: "neutral" as const };
+}
+
 function buildHeadline(job: StatusDetailJob, stageText: string | undefined) {
   return {
     iconMarkup: stageIconMarkup(job, stageText),
     jobId: job?.job_id || "-",
     note: statusDetailNote(job),
+    ...headlineStatus(job),
   };
 }
 

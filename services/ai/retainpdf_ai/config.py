@@ -3,8 +3,61 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from collections.abc import Mapping
+from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import Any
+from urllib.parse import urlsplit
+
+from .runtime_credentials import load_runtime_credentials
+
+FX_DEFAULT_GATEWAY_BASE_URL = "https://ai-gateway.vercel.sh"
+FX_GATEWAY_CHAT_PATH = "/v3/ai/language-model"
+AGENT_CONFIRMATION_MODES = {"explicit", "green_light"}
+
+
+def normalize_agent_confirmation_mode(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized not in AGENT_CONFIRMATION_MODES:
+        raise ValueError("Agent 确认模式只能是 explicit 或 green_light。")
+    return normalized
+
+
+def normalize_fx_gateway_base_url(value: str) -> str:
+    """Validate the endpoint override actually admitted by fx 0.0.5.
+
+    fx 0.0.5 silently ignores every custom origin except explicit loopback
+    HTTP with a port.  Reject those values before process startup so a typo or
+    remote URL cannot fall back to the public Vercel Gateway unnoticed.
+    """
+
+    normalized = value.strip().rstrip("/")
+    if not normalized:
+        return ""
+    try:
+        parsed = urlsplit(normalized)
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("FX Gateway URL 端口无效。") from exc
+    if (
+        parsed.scheme.lower() != "http"
+        or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}
+        or port is None
+        or parsed.username
+        or parsed.password
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError(
+            "FX 0.0.5 的自定义 Gateway 仅支持带端口的回环 HTTP 地址"
+            "（127.0.0.1、localhost 或 [::1]），且不能包含凭据、查询或片段。"
+        )
+    return normalized
+
+
+def fx_gateway_chat_url(base_url: str) -> str:
+    normalized = normalize_fx_gateway_base_url(base_url)
+    return f"{normalized}{FX_GATEWAY_CHAT_PATH}" if normalized else ""
 
 
 def _repo_root() -> Path:
@@ -32,13 +85,24 @@ class Settings:
     memory_window_turns: int = 6
     memory_compress_after_turns: int = 12
     memory_max_chars: int = 24000
-    # Agent harness selection. `python` preserves the current retrieval loop;
+    # Agent harness selection. `python` preserves the retrieval-only loop;
+    # `openai` adds durable document tools over any OpenAI-compatible endpoint;
     # `fx` enables the experimental, version-pinned ACP adapter.
     agent_runtime: str = "python"
+    # explicit requires a host-owned confirmation action. green_light skips
+    # that human gate but never expands the broker command grammar.
+    agent_confirmation_mode: str = "explicit"
+    runtime_config_revision: int = 0
+    # Shared host-side control CLI. The fx-prefixed field remains as a
+    # compatibility fallback for older launchers and tests.
+    agent_cli_command: str = ""
     fx_command: str = "fx"
     # Real backend CLI. fx sees only a generated broker wrapper with this name.
     fx_agent_cli_command: str = "retainpdf-agent"
     fx_expected_version: str = "0.0.5"
+    fx_gateway_base_url: str = ""
+    fx_gateway_base_url_mode: str = "inherit_env"
+    fx_gateway_base_url_env: str = ""
     fx_gateway_api_key: str = ""
     fx_model: str = ""
     fx_startup_timeout_s: float = 10.0
@@ -50,6 +114,61 @@ class Settings:
     data_root: Path = field(default_factory=lambda: _repo_root() / "data")
 
 
+def apply_runtime_credentials(
+    settings: Settings, stored: Mapping[str, Any]
+) -> Settings:
+    if not any(
+        name in stored
+        for name in ("agent_runtime", "agent_confirmation_mode", "llm_base_url")
+    ):
+        return settings
+    mode = str(stored.get("fx_gateway_base_url_mode") or "inherit_env")
+    inherited_fx_url = settings.fx_gateway_base_url_env or (
+        settings.fx_gateway_base_url
+        if settings.fx_gateway_base_url_mode == "inherit_env"
+        else ""
+    )
+    if mode == "custom":
+        fx_gateway_base_url = normalize_fx_gateway_base_url(
+            str(stored.get("fx_gateway_base_url") or "")
+        )
+    elif mode == "official_default":
+        fx_gateway_base_url = ""
+    elif mode == "inherit_env":
+        fx_gateway_base_url = inherited_fx_url
+    else:
+        raise ValueError("FX Gateway URL 配置模式无效。")
+    has_persisted_revision = int(stored.get("revision") or 0) > 0
+    llm_api_key = (
+        str(stored.get("llm_api_key") or "")
+        if has_persisted_revision
+        else settings.llm_api_key
+    )
+    fx_gateway_api_key = (
+        str(stored.get("fx_gateway_api_key") or "")
+        if has_persisted_revision
+        else settings.fx_gateway_api_key
+    )
+    return replace(
+        settings,
+        runtime_config_revision=int(stored.get("revision") or 0),
+        agent_runtime=str(stored.get("agent_runtime") or settings.agent_runtime),
+        agent_confirmation_mode=normalize_agent_confirmation_mode(
+            str(
+                stored.get("agent_confirmation_mode")
+                or settings.agent_confirmation_mode
+            )
+        ),
+        llm_base_url=str(stored.get("llm_base_url") or settings.llm_base_url).rstrip("/"),
+        llm_model=str(stored.get("llm_model") or settings.llm_model),
+        llm_api_key=llm_api_key,
+        fx_gateway_api_key=fx_gateway_api_key,
+        fx_gateway_base_url=fx_gateway_base_url,
+        fx_gateway_base_url_mode=mode,
+        fx_model=str(stored.get("fx_model") or settings.fx_model),
+    )
+
+
 def load_settings() -> Settings:
     # 钥匙单源：单机部署一把钥匙就够。RETAIN_AI_API_KEYS 缺省时回退
     # RETAIN_API_KEYS（rust_api 的钥匙集）——此前双 env 必须人肉保持同步，
@@ -59,7 +178,10 @@ def load_settings() -> Settings:
     )
     api_keys = frozenset(key.strip() for key in raw_keys.split(",") if key.strip())
     data_root = os.environ.get("RETAIN_AI_DATA_ROOT", "").strip()
-    return Settings(
+    fx_gateway_base_url_env = os.environ.get(
+        "RETAIN_AI_FX_GATEWAY_BASE_URL", ""
+    ).strip()
+    settings = Settings(
         host=os.environ.get("RETAIN_AI_HOST", "127.0.0.1"),
         port=int(os.environ.get("RETAIN_AI_PORT", "41100")),
         api_keys=api_keys,
@@ -74,6 +196,13 @@ def load_settings() -> Settings:
         memory_compress_after_turns=int(os.environ.get("RETAIN_AI_MEMORY_COMPRESS_AFTER_TURNS", "12")),
         memory_max_chars=int(os.environ.get("RETAIN_AI_MEMORY_MAX_CHARS", "24000")),
         agent_runtime=os.environ.get("RETAIN_AI_RUNTIME", "python").strip().lower(),
+        agent_confirmation_mode=normalize_agent_confirmation_mode(
+            os.environ.get("RETAIN_AI_AGENT_CONFIRMATION_MODE", "explicit")
+        ),
+        agent_cli_command=os.environ.get(
+            "RETAIN_AI_AGENT_CLI_COMMAND",
+            os.environ.get("RETAIN_AI_FX_AGENT_CLI_COMMAND", ""),
+        ).strip(),
         fx_command=os.environ.get("RETAIN_AI_FX_COMMAND", "fx").strip() or "fx",
         fx_agent_cli_command=os.environ.get(
             "RETAIN_AI_FX_AGENT_CLI_COMMAND", "retainpdf-agent"
@@ -82,6 +211,8 @@ def load_settings() -> Settings:
         fx_expected_version=os.environ.get(
             "RETAIN_AI_FX_EXPECTED_VERSION", "0.0.5"
         ).strip(),
+        fx_gateway_base_url=fx_gateway_base_url_env,
+        fx_gateway_base_url_env=fx_gateway_base_url_env,
         fx_gateway_api_key=os.environ.get(
             "RETAIN_AI_FX_GATEWAY_API_KEY", ""
         ).strip(),
@@ -98,3 +229,5 @@ def load_settings() -> Settings:
         ),
         data_root=Path(data_root) if data_root else _repo_root() / "data",
     )
+    stored = load_runtime_credentials(settings.data_root)
+    return apply_runtime_credentials(settings, stored)

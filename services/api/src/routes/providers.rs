@@ -4,11 +4,10 @@ use axum::Json;
 use crate::error::AppError;
 use crate::models::api::ApiResponse;
 use crate::ocr_provider::{provider_public_definitions, OcrProviderPublicDefinition};
-use crate::routes::common::build_provider_route_deps;
-use crate::services::provider_probe::{
-    query_deepseek_balance_view, validate_deepseek_token_view, validate_mineru_token_view,
-    validate_paddle_token_view, DeepSeekBalanceView, DeepSeekTokenValidationRequest,
-    MineruTokenValidationRequest, MineruTokenValidationView, PaddleTokenValidationRequest,
+use crate::routes::common::{build_provider_route_deps, ApiJson};
+use crate::services::provider_api::{
+    self, DeepSeekBalanceView, DeepSeekTokenValidationRequest, MineruTokenValidationRequest,
+    MineruTokenValidationView, PaddleTokenValidationRequest,
 };
 use crate::AppState;
 
@@ -19,36 +18,36 @@ pub async fn list_ocr_providers(
 
 pub async fn validate_mineru_token(
     State(state): State<AppState>,
-    Json(payload): Json<MineruTokenValidationRequest>,
+    ApiJson(payload): ApiJson<MineruTokenValidationRequest>,
 ) -> Result<Json<ApiResponse<MineruTokenValidationView>>, AppError> {
     let deps = build_provider_route_deps(&state);
-    let view = validate_mineru_token_view(payload, deps.mineru_runtime).await?;
+    let view = provider_api::validate_mineru_token(&deps, payload).await?;
     Ok(Json(ApiResponse::ok(view)))
 }
 
 pub async fn validate_paddle_token(
     State(state): State<AppState>,
-    Json(payload): Json<PaddleTokenValidationRequest>,
+    ApiJson(payload): ApiJson<PaddleTokenValidationRequest>,
 ) -> Result<Json<ApiResponse<MineruTokenValidationView>>, AppError> {
     let deps = build_provider_route_deps(&state);
-    let view = validate_paddle_token_view(payload, deps.paddle_runtime).await?;
+    let view = provider_api::validate_paddle_token(&deps, payload).await?;
     Ok(Json(ApiResponse::ok(view)))
 }
 
 pub async fn validate_deepseek_token(
     State(state): State<AppState>,
-    Json(payload): Json<DeepSeekTokenValidationRequest>,
+    ApiJson(payload): ApiJson<DeepSeekTokenValidationRequest>,
 ) -> Result<Json<ApiResponse<MineruTokenValidationView>>, AppError> {
     let deps = build_provider_route_deps(&state);
-    let view = validate_deepseek_token_view(payload, deps.deepseek_runtime).await?;
+    let view = provider_api::validate_deepseek_token(&deps, payload).await?;
     Ok(Json(ApiResponse::ok(view)))
 }
 
 pub async fn query_deepseek_balance(
     State(state): State<AppState>,
-    Json(payload): Json<DeepSeekTokenValidationRequest>,
+    ApiJson(payload): ApiJson<DeepSeekTokenValidationRequest>,
 ) -> Result<Json<ApiResponse<DeepSeekBalanceView>>, AppError> {
     let deps = build_provider_route_deps(&state);
-    let view = query_deepseek_balance_view(payload, deps.deepseek_runtime).await?;
+    let view = provider_api::query_deepseek_balance(&deps, payload).await?;
     Ok(Json(ApiResponse::ok(view)))
 }

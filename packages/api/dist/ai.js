@@ -11,6 +11,51 @@ export class AiAskError extends Error {
         this.status = status;
     }
 }
+function normalizeOperationRefs(value) {
+    if (!Array.isArray(value))
+        return [];
+    return value.filter((item) => {
+        if (typeof item === "string")
+            return !!item.trim();
+        return !!item && typeof item === "object" && !!`${item.operation_id || ""}`.trim();
+    });
+}
+function normalizeConfirmationMode(value) {
+    return value === "explicit" || value === "green_light" ? value : "";
+}
+function normalizeConfirmationRequest(value) {
+    if (!value || typeof value !== "object")
+        return null;
+    const request = value;
+    const operationId = `${request.operation_id || ""}`.trim();
+    const action = `${request.action || ""}`;
+    const status = `${request.status || ""}`;
+    const currentAttempt = Number(request.current_attempt);
+    const latestEventSeq = Number(request.latest_event_seq);
+    if (request.schema !== "retainpdf_agent_confirmation_v1"
+        || !operationId
+        || !["run", "commit", "retry"].includes(action)
+        || !status
+        || !Number.isFinite(currentAttempt)
+        || !Number.isFinite(latestEventSeq)
+        || currentAttempt < 1
+        || latestEventSeq < 0)
+        return null;
+    return {
+        schema: "retainpdf_agent_confirmation_v1",
+        operation_id: operationId,
+        action: action,
+        status,
+        current_attempt: currentAttempt,
+        latest_event_seq: latestEventSeq,
+        requires_risk_acceptance: request.requires_risk_acceptance === true,
+    };
+}
+function normalizeConfirmationRequests(value) {
+    if (!Array.isArray(value))
+        return [];
+    return value.map(normalizeConfirmationRequest).filter((item) => !!item);
+}
 function normalizeDonePayload(payload = {}) {
     return {
         answer: `${payload?.answer || ""}`,
@@ -18,6 +63,10 @@ function normalizeDonePayload(payload = {}) {
         toolTrace: Array.isArray(payload?.tool_trace) ? payload.tool_trace : [],
         rounds: Number(payload?.rounds) || 0,
         conversationId: `${payload?.conversation_id || payload?.conversationId || ""}`.trim(),
+        agentRuntime: `${payload?.agent_runtime || payload?.["agentRuntime"] || ""}`.trim(),
+        operationRefs: normalizeOperationRefs(payload?.operation_refs || payload?.["operationRefs"]),
+        confirmationMode: normalizeConfirmationMode(payload?.confirmation_mode || payload?.["confirmationMode"]),
+        confirmationRequests: normalizeConfirmationRequests(payload?.confirmation_requests || payload?.["confirmationRequests"]),
         persisted: payload?.persisted !== false,
     };
 }
@@ -35,7 +84,7 @@ function parseSseEvent(line = "") {
         return null;
     }
 }
-export async function readAiAskStream(body, { onToolEvent = null, onAnswerDelta = null, onCompress = null } = {}) {
+export async function readAiAskStream(body, { onToolEvent = null, onAgentToolEvent = null, onAgentOperationEvent = null, onAgentConfirmationRequiredEvent = null, onAgentSessionEvent = null, onAnswerDelta = null, onCompress = null, } = {}) {
     if (!body || typeof body.getReader !== "function")
         throw new AiAskError("AI 服务响应格式异常,请重试。");
     const reader = body.getReader();
@@ -43,12 +92,52 @@ export async function readAiAskStream(body, { onToolEvent = null, onAnswerDelta 
     let buffer = "";
     let result = null;
     let streamedAnswer = "";
+    let streamedAgentRuntime = "";
+    const streamedOperationRefs = [];
     function handleLine(line) {
         const event = parseSseEvent(line);
         if (!event || typeof event !== "object")
             return;
         if (event.type === "tool") {
             onToolEvent?.(event);
+            return;
+        }
+        if (event.type === "agent_tool") {
+            onAgentToolEvent?.(event);
+            onToolEvent?.(event);
+            return;
+        }
+        if (event.type === "agent_session") {
+            streamedAgentRuntime = `${event.agent_runtime || event.runtime || ""}`.trim();
+            onAgentSessionEvent?.(event);
+            return;
+        }
+        if (event.type === "agent_operation") {
+            const operationId = `${event.operation_id || ""}`.trim();
+            if (operationId) {
+                const ref = {
+                    operation_id: operationId,
+                    ...(event.status ? { status: `${event.status}` } : {}),
+                    ...(Number.isFinite(Number(event.current_attempt)) ? { current_attempt: Number(event.current_attempt) } : {}),
+                    ...(Number.isFinite(Number(event.latest_event_seq)) ? { latest_event_seq: Number(event.latest_event_seq) } : {}),
+                };
+                const index = streamedOperationRefs.findIndex((item) => typeof item === "string" ? item === operationId : item.operation_id === operationId);
+                if (index >= 0)
+                    streamedOperationRefs[index] = ref;
+                else
+                    streamedOperationRefs.push(ref);
+            }
+            onAgentOperationEvent?.(event);
+            return;
+        }
+        if (event.type === "agent_confirmation_required") {
+            const confirmation = normalizeConfirmationRequest(event);
+            if (confirmation) {
+                onAgentConfirmationRequiredEvent?.({
+                    type: "agent_confirmation_required",
+                    ...confirmation,
+                });
+            }
             return;
         }
         if (event.type === "answer_delta") {
@@ -60,7 +149,22 @@ export async function readAiAskStream(body, { onToolEvent = null, onAnswerDelta 
             return;
         }
         if (event.type === "done") {
-            result = normalizeDonePayload({ ...event, answer: event.answer || streamedAnswer });
+            result = normalizeDonePayload({
+                ...event,
+                answer: event.answer || streamedAnswer,
+                agent_runtime: event.agent_runtime || streamedAgentRuntime,
+                operation_refs: Array.isArray(event.operation_refs)
+                    ? event.operation_refs
+                    : Array.isArray(event.operationRefs)
+                        ? event.operationRefs
+                        : streamedOperationRefs,
+            });
+            for (const confirmation of result.confirmationRequests) {
+                onAgentConfirmationRequiredEvent?.({
+                    type: "agent_confirmation_required",
+                    ...confirmation,
+                });
+            }
             return;
         }
         if (event.type === "error")
@@ -124,7 +228,7 @@ async function extractErrorMessage(resp) {
         return `${text || ""}`.replace(/\s+/g, " ").trim().slice(0, 240);
     }
 }
-export async function askLibraryAi({ question = "", documentId = "", jobId = "", conversationId = "", parentId = "", regenerate = false, userMessageId = "", assistantMessageId = "", onToolEvent = null, onAnswerDelta = null, onCompress = null, signal = null, apiPrefix = API_PREFIX, fetchImpl = fetch, llmApiKey = "", llmBaseUrl = "", llmModel = "", } = {}) {
+export async function askLibraryAi({ question = "", documentId = "", jobId = "", conversationId = "", parentId = "", regenerate = false, userMessageId = "", assistantMessageId = "", onToolEvent = null, onAgentToolEvent = null, onAgentOperationEvent = null, onAgentConfirmationRequiredEvent = null, onAgentSessionEvent = null, onAnswerDelta = null, onCompress = null, signal = null, apiPrefix = API_PREFIX, fetchImpl = fetch, llmApiKey = "", llmBaseUrl = "", llmModel = "", confirmDocumentOperation = false, assistantMode = "auto", } = {}) {
     const trimmed = `${question}`.trim();
     if (!trimmed)
         throw new AiAskError("请输入问题。", 400);
@@ -149,6 +253,11 @@ export async function askLibraryAi({ question = "", documentId = "", jobId = "",
         payload.user_message_id = uid;
     if (aid)
         payload.assistant_message_id = aid;
+    if (confirmDocumentOperation === true)
+        payload.confirm_document_operation = true;
+    if (assistantMode === "reading" || assistantMode === "operations") {
+        payload.assistant_mode = assistantMode;
+    }
     const key = `${llmApiKey || ""}`.trim();
     if (key)
         payload.llm_api_key = key.replace(/^Bearer\s+/i, "").trim();
@@ -176,7 +285,23 @@ export async function askLibraryAi({ question = "", documentId = "", jobId = "",
         throw new AiAskError(`${message || "AI 问答请求失败,请稍后重试。"}(${resp.status})`, resp.status);
     }
     const contentType = `${resp.headers?.get?.("content-type") || ""}`.toLowerCase();
-    if (contentType.includes("application/json"))
-        return normalizeDonePayload(unwrapEnvelope(await resp.json()));
-    return readAiAskStream(resp.body, { onToolEvent, onAnswerDelta, onCompress });
+    if (contentType.includes("application/json")) {
+        const result = normalizeDonePayload(unwrapEnvelope(await resp.json()));
+        for (const confirmation of result.confirmationRequests) {
+            onAgentConfirmationRequiredEvent?.({
+                type: "agent_confirmation_required",
+                ...confirmation,
+            });
+        }
+        return result;
+    }
+    return readAiAskStream(resp.body, {
+        onToolEvent,
+        onAgentToolEvent,
+        onAgentOperationEvent,
+        onAgentConfirmationRequiredEvent,
+        onAgentSessionEvent,
+        onAnswerDelta,
+        onCompress,
+    });
 }

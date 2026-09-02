@@ -140,6 +140,8 @@ export {
 
 // —— 服务端收藏 ——
 export const API_PREFIX = "/api/v1";
+export const fetchDocumentByJobId = (...args: [string, string]) =>
+  requireAdapter("fetchDocumentByJobId")(...args);
 export const fetchFavorites = (
   apiPrefix = API_PREFIX,
   options: { documentId?: string } = {},

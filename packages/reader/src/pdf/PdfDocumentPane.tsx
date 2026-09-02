@@ -13,6 +13,7 @@ import {
 } from "react";
 import { Document } from "react-pdf";
 import {
+  cloneProtectedPdfFileForWorker,
   useProtectedPdfFile,
   type ProtectedPdfFile,
 } from "./useProtectedPdfFile.js";
@@ -87,6 +88,10 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
     ref,
   ) {
     const { file, loading, error: fetchError } = useProtectedPdfFile(url, preloadedFile);
+    const documentFile = useMemo(
+      () => cloneProtectedPdfFileForWorker(file),
+      [file, url],
+    );
     const [numPages, setNumPages] = useState(0);
     const [docError, setDocError] = useState("");
     const [paneEl, setPaneEl] = useState<HTMLElement | null>(null);
@@ -299,11 +304,11 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
             正在加载 PDF…
           </div>
         ) : null}
-        {file && !fetchError ? (
+        {documentFile && !fetchError ? (
           <div className="reader-viewer-wrap reader-react-pdf-wrap">
             <Document
               key={url}
-              file={file}
+              file={documentFile}
               loading={null}
               error={null}
               options={documentOptions}

@@ -171,7 +171,7 @@ export async function runDeepSeekConnectivityCheck({
     return { ok: false, status: 0 };
   }
   if (showResult) {
-    setDeepSeekValidationMessage("正在检测 DeepSeek 接口…");
+    setDeepSeekValidationMessage("正在检测翻译接口…");
   }
   try {
     const result = asValidationResult(await validateDeepSeekToken(apiPrefix, {

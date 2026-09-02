@@ -15,6 +15,63 @@ export class AiAskError extends Error {
   }
 }
 
+export type AiAssistantMode = "auto" | "reading" | "operations";
+
+function normalizeOperationRefs(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((item) => {
+    if (typeof item === "string") {
+      return !!item.trim();
+    }
+    return !!item && typeof item === "object" && !!`${item.operation_id || ""}`.trim();
+  });
+}
+
+function normalizeConfirmationMode(value) {
+  return value === "explicit" || value === "green_light" ? value : "";
+}
+
+function normalizeConfirmationRequest(value) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const operationId = `${value.operation_id || ""}`.trim();
+  const action = `${value.action || ""}`;
+  const status = `${value.status || ""}`;
+  const currentAttempt = Number(value.current_attempt);
+  const latestEventSeq = Number(value.latest_event_seq);
+  if (
+    value.schema !== "retainpdf_agent_confirmation_v1"
+    || !operationId
+    || !["run", "commit", "retry"].includes(action)
+    || !status
+    || !Number.isFinite(currentAttempt)
+    || !Number.isFinite(latestEventSeq)
+    || currentAttempt < 1
+    || latestEventSeq < 0
+  ) {
+    return null;
+  }
+  return {
+    schema: "retainpdf_agent_confirmation_v1",
+    operation_id: operationId,
+    action,
+    status,
+    current_attempt: currentAttempt,
+    latest_event_seq: latestEventSeq,
+    requires_risk_acceptance: value.requires_risk_acceptance === true,
+  };
+}
+
+function normalizeConfirmationRequests(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map(normalizeConfirmationRequest).filter(Boolean);
+}
+
 function normalizeDonePayload(payload: any = {}) {
   return {
     answer: `${payload?.answer || ""}`,
@@ -22,6 +79,12 @@ function normalizeDonePayload(payload: any = {}) {
     toolTrace: Array.isArray(payload?.tool_trace) ? payload.tool_trace : [],
     rounds: Number(payload?.rounds) || 0,
     conversationId: `${payload?.conversation_id || payload?.conversationId || ""}`.trim(),
+    agentRuntime: `${payload?.agent_runtime || payload?.["agentRuntime"] || ""}`.trim(),
+    operationRefs: normalizeOperationRefs(payload?.operation_refs || payload?.["operationRefs"]),
+    confirmationMode: normalizeConfirmationMode(payload?.confirmation_mode || payload?.["confirmationMode"]),
+    confirmationRequests: normalizeConfirmationRequests(
+      payload?.confirmation_requests || payload?.["confirmationRequests"],
+    ),
     // 审计 C2:后端历史回写失败时 done.persisted=false,上层提示"未存入历史"。
     // 旧后端无此字段 → 视为已持久化(不误报)。
     persisted: payload?.persisted !== false,
@@ -46,7 +109,15 @@ function parseSseEvent(line = "") {
 
 // 消费 /ai/ask 的 SSE body:按行切分 `data: {json}`,tool 事件回调,
 // compress 透出给上层做可观测提示,done 事件返回最终结果,error 事件抛 AiAskError。
-export async function readAiAskStream(body, { onToolEvent = null, onAnswerDelta = null, onCompress = null } = {}) {
+export async function readAiAskStream(body, {
+  onToolEvent = null,
+  onAgentToolEvent = null,
+  onAgentOperationEvent = null,
+  onAgentConfirmationRequiredEvent = null,
+  onAgentSessionEvent = null,
+  onAnswerDelta = null,
+  onCompress = null,
+} = {}) {
   if (!body || typeof body.getReader !== "function") {
     throw new AiAskError("AI 服务响应格式异常,请重试。");
   }
@@ -55,6 +126,8 @@ export async function readAiAskStream(body, { onToolEvent = null, onAnswerDelta 
   let buffer = "";
   let result = null;
   let streamedAnswer = "";
+  let streamedAgentRuntime = "";
+  const streamedOperationRefs = [];
 
   function handleLine(line) {
     const event = parseSseEvent(line);
@@ -63,6 +136,44 @@ export async function readAiAskStream(body, { onToolEvent = null, onAnswerDelta 
     }
     if (event.type === "tool") {
       onToolEvent?.(event);
+      return;
+    }
+    if (event.type === "agent_tool") {
+      onAgentToolEvent?.(event);
+      onToolEvent?.(event);
+      return;
+    }
+    if (event.type === "agent_session") {
+      streamedAgentRuntime = `${event.agent_runtime || event.runtime || ""}`.trim();
+      onAgentSessionEvent?.(event);
+      return;
+    }
+    if (event.type === "agent_operation") {
+      const operationId = `${event.operation_id || ""}`.trim();
+      if (operationId) {
+        const ref = {
+          operation_id: operationId,
+          ...(event.status ? { status: `${event.status}` } : {}),
+          ...(Number.isFinite(Number(event.current_attempt)) ? { current_attempt: Number(event.current_attempt) } : {}),
+          ...(Number.isFinite(Number(event.latest_event_seq)) ? { latest_event_seq: Number(event.latest_event_seq) } : {}),
+        };
+        const index = streamedOperationRefs.findIndex((item) => (
+          typeof item === "string" ? item === operationId : item.operation_id === operationId
+        ));
+        if (index >= 0) streamedOperationRefs[index] = ref;
+        else streamedOperationRefs.push(ref);
+      }
+      onAgentOperationEvent?.(event);
+      return;
+    }
+    if (event.type === "agent_confirmation_required") {
+      const confirmation = normalizeConfirmationRequest(event);
+      if (confirmation) {
+        onAgentConfirmationRequiredEvent?.({
+          type: "agent_confirmation_required",
+          ...confirmation,
+        });
+      }
       return;
     }
     if (event.type === "answer_delta") {
@@ -79,7 +190,15 @@ export async function readAiAskStream(body, { onToolEvent = null, onAnswerDelta 
       result = normalizeDonePayload({
         ...event,
         answer: event.answer || streamedAnswer,
+        agent_runtime: event.agent_runtime || streamedAgentRuntime,
+        operation_refs: event.operation_refs || event.operationRefs || streamedOperationRefs,
       });
+      for (const confirmation of result.confirmationRequests) {
+        onAgentConfirmationRequiredEvent?.({
+          type: "agent_confirmation_required",
+          ...confirmation,
+        });
+      }
       return;
     }
     if (event.type === "error") {
@@ -217,6 +336,10 @@ export async function askLibraryAi({
   userMessageId = "",
   assistantMessageId = "",
   onToolEvent = null,
+  onAgentToolEvent = null,
+  onAgentOperationEvent = null,
+  onAgentConfirmationRequiredEvent = null,
+  onAgentSessionEvent = null,
   onAnswerDelta = null,
   onCompress = null,
   signal = null,
@@ -225,6 +348,8 @@ export async function askLibraryAi({
   llmApiKey = "",
   llmBaseUrl = "",
   llmModel = "",
+  confirmDocumentOperation = false,
+  assistantMode = "auto",
 } = {}) {
   const trimmed = `${question}`.trim();
   if (!trimmed) {
@@ -233,7 +358,15 @@ export async function askLibraryAi({
   if (isMockMode()) {
     // 忠实模拟真实 SSE 流:tool 事件 → answer_delta 逐块 → done 带引用,
     // 让 markdown 渲染 / 流式 / 引用跳转三条链路都能在 mock 下端到端复现。
-    return readAiAskStream(buildMockAskStream(trimmed), { onToolEvent, onAnswerDelta, onCompress });
+    return readAiAskStream(buildMockAskStream(trimmed), {
+      onToolEvent,
+      onAgentToolEvent,
+      onAgentOperationEvent,
+      onAgentConfirmationRequiredEvent,
+      onAgentSessionEvent,
+      onAnswerDelta,
+      onCompress,
+    });
   }
   const payload: Record<string, any> = { question: trimmed, stream: true };
   const normalizedDocumentId = `${documentId || ""}`.trim();
@@ -259,6 +392,10 @@ export async function askLibraryAi({
   const aid = `${assistantMessageId || ""}`.trim();
   if (uid) payload.user_message_id = uid;
   if (aid) payload.assistant_message_id = aid;
+  if (confirmDocumentOperation === true) payload.confirm_document_operation = true;
+  if (["reading", "operations"].includes(`${assistantMode}`)) {
+    payload.assistant_mode = assistantMode;
+  }
   // 按请求携带 LLM 凭据:必须非空,禁止带出空 Authorization: Bearer
   const key = `${llmApiKey || ""}`.trim();
   if (key) {
@@ -303,7 +440,22 @@ export async function askLibraryAi({
   const contentType = `${resp.headers?.get?.("content-type") || ""}`.toLowerCase();
   if (contentType.includes("application/json")) {
     // 后端未按流式返回时,兼容一次性 JSON envelope
-    return normalizeDonePayload(unwrapEnvelope(await resp.json()));
+    const result = normalizeDonePayload(unwrapEnvelope(await resp.json()));
+    for (const confirmation of result.confirmationRequests) {
+      onAgentConfirmationRequiredEvent?.({
+        type: "agent_confirmation_required",
+        ...confirmation,
+      });
+    }
+    return result;
   }
-  return readAiAskStream(resp.body, { onToolEvent, onAnswerDelta, onCompress });
+  return readAiAskStream(resp.body, {
+    onToolEvent,
+    onAgentToolEvent,
+    onAgentOperationEvent,
+    onAgentConfirmationRequiredEvent,
+    onAgentSessionEvent,
+    onAnswerDelta,
+    onCompress,
+  });
 }

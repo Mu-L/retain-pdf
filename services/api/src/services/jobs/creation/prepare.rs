@@ -5,9 +5,10 @@ use crate::ocr_provider::uses_paddle_official_cli;
 use crate::services::glossaries::resolve_task_glossary_request;
 use crate::services::job_validation::{
     validate_mineru_upload_limits, validate_ocr_provider_request, validate_provider_credentials,
-    validate_render_options, validate_translation_credentials,
+    validate_render_options, validate_translation_credential_reference,
+    validate_translation_credentials,
 };
-use crate::storage_paths::resolve_data_path;
+use crate::services::ocr_artifact_reuse::validate_ocr_artifact_reuse;
 
 use super::context::SnapshotBuildDeps;
 use super::upload::load_upload_or_404;
@@ -34,13 +35,16 @@ pub(super) fn prepare_full_pipeline_input(
 ) -> Result<PreparedTranslationUpload, AppError> {
     let input = resolve_task_glossary_request(ctx.db, input)?;
     validate_render_options(&input)?;
+    validate_translation_credential_reference(&input, ctx.config.data_root)?;
     if !input.source.artifact_job_id.trim().is_empty() {
         validate_translation_credentials(&input)?;
-        let source_job = load_artifact_job(ctx, &input.source.artifact_job_id)?;
-        ensure_ocr_artifacts_ready_for_translation(ctx, &source_job)?;
-        return Ok(PreparedTranslationUpload {
-            spec: ResolvedJobSpec::from_input(input),
-        });
+        let page_count = artifact_document_page_count(ctx, &input.source.artifact_job_id)?;
+        let selection =
+            validate_ocr_artifact_reuse(ctx.db, ctx.config.data_root, &input, None, page_count)?;
+        let mut spec = ResolvedJobSpec::from_input(input);
+        spec.translation.start_page = selection.start_page;
+        spec.translation.end_page = selection.end_page;
+        return Ok(PreparedTranslationUpload { spec });
     }
     let _ = require_translation_upload(ctx, &input)?;
     Ok(PreparedTranslationUpload {
@@ -54,12 +58,19 @@ pub(super) fn prepare_translate_only_input(
 ) -> Result<PreparedTranslateOnlyInput, AppError> {
     let input = resolve_task_glossary_request(ctx.db, input)?;
     validate_render_options(&input)?;
+    validate_translation_credential_reference(&input, ctx.config.data_root)?;
     if input.source.artifact_job_id.trim().is_empty() {
         let _ = require_translation_upload(ctx, &input)?;
     } else {
         validate_translation_credentials(&input)?;
-        let source_job = load_artifact_job(ctx, &input.source.artifact_job_id)?;
-        ensure_ocr_artifacts_ready_for_translation(ctx, &source_job)?;
+        let page_count = artifact_document_page_count(ctx, &input.source.artifact_job_id)?;
+        let selection =
+            validate_ocr_artifact_reuse(ctx.db, ctx.config.data_root, &input, None, page_count)?;
+        let mut spec = ResolvedJobSpec::from_input(input);
+        spec.workflow = WorkflowKind::Translate;
+        spec.translation.start_page = selection.start_page;
+        spec.translation.end_page = selection.end_page;
+        return Ok(PreparedTranslateOnlyInput { spec });
     }
     let mut spec = ResolvedJobSpec::from_input(input);
     spec.workflow = WorkflowKind::Translate;
@@ -83,6 +94,7 @@ pub(super) fn prepare_render_input(
     })?;
     reject_paddle_cli_artifact(&source_job)?;
     validate_render_options(input)?;
+    validate_translation_credential_reference(input, ctx.config.data_root)?;
     let mut spec = ResolvedJobSpec::from_input(input.clone());
     spec.workflow = WorkflowKind::Render;
     Ok(PreparedRenderInput { spec })
@@ -142,40 +154,14 @@ fn require_translation_upload(
     Ok(upload)
 }
 
-fn load_artifact_job(
+fn artifact_document_page_count(
     ctx: &SnapshotBuildDeps<'_>,
     artifact_job_id: &str,
-) -> Result<JobSnapshot, AppError> {
-    ctx.db
-        .get_job(artifact_job_id)
-        .map_err(|_| AppError::not_found(format!("artifact job not found: {artifact_job_id}")))
-}
-
-fn ensure_ocr_artifacts_ready_for_translation(
-    ctx: &SnapshotBuildDeps<'_>,
-    source_job: &JobSnapshot,
-) -> Result<(), AppError> {
-    let source_label = &source_job.job_id;
-    reject_paddle_cli_artifact(source_job)?;
-    let artifacts = source_job.artifacts.as_ref().ok_or_else(|| {
-        AppError::bad_request(format!("artifact job has no artifacts: {source_label}"))
-    })?;
-    require_artifact_file(
-        ctx,
-        artifacts.normalized_document_json.as_deref(),
-        "normalized_document_json",
-        source_label,
-    )?;
-    require_artifact_file(
-        ctx,
-        artifacts.source_pdf.as_deref(),
-        "source_pdf",
-        source_label,
-    )?;
-    if let Some(layout_json) = artifacts.layout_json.as_deref() {
-        require_artifact_file(ctx, Some(layout_json), "layout_json", source_label)?;
-    }
-    Ok(())
+) -> Result<Option<u32>, AppError> {
+    Ok(ctx
+        .db
+        .get_document_by_job_id(artifact_job_id)?
+        .map(|document| document.page_count))
 }
 
 fn reject_paddle_cli_artifact(source_job: &JobSnapshot) -> Result<(), AppError> {
@@ -183,29 +169,6 @@ fn reject_paddle_cli_artifact(source_job: &JobSnapshot) -> Result<(), AppError> 
         return Err(AppError::bad_request(format!(
             "artifact job {} was produced by PaddleOCR official_cli and cannot be used for translation or render because it does not provide the required bbox/prunedResult contract",
             source_job.job_id
-        )));
-    }
-    Ok(())
-}
-
-fn require_artifact_file(
-    ctx: &SnapshotBuildDeps<'_>,
-    raw: Option<&str>,
-    artifact_key: &str,
-    source_label: &str,
-) -> Result<(), AppError> {
-    let raw = raw.ok_or_else(|| {
-        AppError::bad_request(format!("{source_label} is missing {artifact_key}"))
-    })?;
-    let path = resolve_data_path(ctx.config.data_root, raw).map_err(|err| {
-        AppError::bad_request(format!(
-            "invalid {artifact_key} path for {source_label}: {err}"
-        ))
-    })?;
-    if !path.is_file() {
-        return Err(AppError::bad_request(format!(
-            "{artifact_key} not found for {source_label}: {}",
-            path.display()
         )));
     }
     Ok(())

@@ -2,7 +2,81 @@
 import { buildApiHeaders, unwrapEnvelope } from "./internal/runtime.js";
 import { buildJobDetailEndpoint, submitJson } from "./http.js";
 
-export async function fetchJobDiagnostics(jobId: string, apiPrefix?: string): Promise<any> {
+export type OcrAmbiguityResolutionKind = "bind_existing_receipt" | "accept_duplicate_risk";
+
+export interface OcrAmbiguityResolutionRequest {
+  resolution: OcrAmbiguityResolutionKind;
+  resolution_revision: number;
+  task_id?: string;
+  batch_id?: string;
+  upload_url?: string;
+  trace_id?: string;
+}
+
+export interface OcrAmbiguityReceiptField {
+  name: "task_id" | "batch_id" | "upload_url" | "trace_id";
+  label: string;
+  required: boolean;
+  secret: boolean;
+}
+
+export interface OcrAmbiguityView {
+  status: "ambiguous";
+  provider: "paddle" | "mineru";
+  operation:
+    | "submit_local_file"
+    | "submit_remote_url"
+    | "create_extract_task"
+    | "apply_upload_url";
+  resolution_revision: number;
+  allowed_resolutions: OcrAmbiguityResolutionKind[];
+  receipt_fields: OcrAmbiguityReceiptField[];
+}
+
+export interface JobDiagnosticsView {
+  failure_code: string | null;
+  ocr_ambiguity: OcrAmbiguityView | null;
+  [key: string]: unknown;
+}
+
+export interface OcrAmbiguityResolutionView {
+  resolution: OcrAmbiguityResolutionKind;
+  provider: string;
+  operation: string;
+  submission: {
+    job_id: string;
+    source_job_id: string;
+    status: string;
+    workflow: string;
+    rerun_from_stage: string;
+    [key: string]: unknown;
+  };
+}
+
+export type JobRetryStage = "ocr" | "translation" | "render";
+
+export interface JobStageRetryActionView {
+  stage: JobRetryStage;
+  label: string;
+  can_retry: boolean;
+  reason?: string;
+  disabled_reason?: string;
+  will_reuse?: string[];
+  will_rerun?: string[];
+  danger?: boolean;
+  action?: {
+    method?: string;
+    url?: string;
+    body?: Record<string, unknown>;
+  } | null;
+}
+
+export interface JobStageActionsView {
+  job_id: string;
+  stages: JobStageRetryActionView[];
+}
+
+export async function fetchJobDiagnostics(jobId: string, apiPrefix?: string): Promise<JobDiagnosticsView | null> {
   const resp = await fetch(`${buildJobDetailEndpoint(jobId, apiPrefix)}/diagnostics`, { headers: buildApiHeaders() });
   if (!resp.ok) {
     if (resp.status === 404) return null;
@@ -24,13 +98,33 @@ export async function resumeJob(jobId: string, apiPrefix?: string): Promise<any>
   return submitJson(`${buildJobDetailEndpoint(jobId, apiPrefix)}/resume`, {});
 }
 
-export async function fetchJobStageActions(jobId: string, apiPrefix?: string): Promise<any> {
+export async function cancelJob(jobId: string, apiPrefix?: string): Promise<any> {
+  return submitJson(`${buildJobDetailEndpoint(jobId, apiPrefix)}/cancel`, {});
+}
+
+export async function cancelOcrJob(jobId: string, apiPrefix?: string): Promise<any> {
+  const endpoint = buildJobDetailEndpoint(jobId, apiPrefix).replace(/\/jobs\//, "/ocr/jobs/");
+  return submitJson(`${endpoint}/cancel`, {});
+}
+
+export async function resolveOcrAmbiguity(
+  jobId: string,
+  apiPrefix: string | undefined,
+  request: OcrAmbiguityResolutionRequest,
+): Promise<OcrAmbiguityResolutionView> {
+  return submitJson(
+    `${buildJobDetailEndpoint(jobId, apiPrefix)}/ocr/resolve-ambiguity`,
+    request,
+  );
+}
+
+export async function fetchJobStageActions(jobId: string, apiPrefix?: string): Promise<JobStageActionsView | null> {
   const resp = await fetch(`${buildJobDetailEndpoint(jobId, apiPrefix)}/stage-actions`, { headers: buildApiHeaders() });
   if (!resp.ok) {
     if (resp.status === 404) return null;
     throw new Error(`读取阶段操作失败，请稍后重试。(${resp.status})`);
   }
-  return unwrapEnvelope(await resp.json());
+  return unwrapEnvelope<JobStageActionsView>(await resp.json());
 }
 
 export async function retryJobStage(jobId: string, apiPrefix: string | undefined, stage: string, payload: Record<string, unknown> = {}): Promise<any> {

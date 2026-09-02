@@ -84,6 +84,44 @@ export async function resumeJob(jobId, apiPrefix) {
   return submitJson(`${buildJobDetailEndpoint(jobId, apiPrefix)}/resume`, {});
 }
 
+export async function cancelJob(jobId, apiPrefix) {
+  if (isMockMode()) {
+    return { job_id: jobId, status: "canceled" };
+  }
+  return submitJson(`${buildJobDetailEndpoint(jobId, apiPrefix)}/cancel`, {});
+}
+
+export async function cancelOcrJob(jobId, apiPrefix) {
+  if (isMockMode()) {
+    return { job_id: jobId, status: "canceled", workflow: "ocr" };
+  }
+  const endpoint = buildJobDetailEndpoint(jobId, apiPrefix).replace(/\/jobs\//, "/ocr/jobs/");
+  return submitJson(`${endpoint}/cancel`, {});
+}
+
+export async function resolveOcrAmbiguity(jobId, apiPrefix, request) {
+  if (isMockMode()) {
+    const live = registerLiveMockJob({ title: "Mock OCR 恢复", pageCount: 12 });
+    const snapshot = buildLiveMockJobPayload(live.jobId) || {};
+    return {
+      resolution: request?.resolution || "accept_duplicate_risk",
+      provider: "paddle",
+      operation: "submit_local_file",
+      submission: {
+        ...snapshot,
+        job_id: live.jobId,
+        source_job_id: jobId,
+        workflow: "ocr",
+        rerun_from_stage: "ocr",
+      },
+    };
+  }
+  return submitJson(
+    `${buildJobDetailEndpoint(jobId, apiPrefix)}/ocr/resolve-ambiguity`,
+    request,
+  );
+}
+
 export async function fetchJobStageActions(jobId, apiPrefix) {
   if (isMockMode()) {
     return {
@@ -148,6 +186,7 @@ export async function retryJobStage(jobId, apiPrefix, stage, payload = {}) {
       timestamps: snapshot.timestamps,
       library_only: false,
       active_job_id: live.jobId,
+      workflow: normalizedStage === "render" ? "render" : "book",
       rerun_from_stage: normalizedStage,
     };
   }

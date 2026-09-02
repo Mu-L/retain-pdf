@@ -6,6 +6,7 @@ import {
   normalizeRuntimeDisplayStage,
   numberOrNull,
 } from "./runtime-value-helpers.js";
+import { sameLibraryCard } from "./library-card-identity.js";
 
 export interface StageProgress {
   current?: number | null;
@@ -40,6 +41,9 @@ export interface RuntimeStatus {
 /** 图书馆 / recent-jobs 卡片条目(运行时合并态) */
 export interface LibraryJobItem {
   job_id?: string;
+  document_id?: string;
+  active_job_id?: string;
+  source_job_id?: string;
   id?: string;
   status?: string;
   stage?: string;
@@ -67,6 +71,9 @@ export interface LibraryJobItem {
     [key: string]: unknown;
   };
   library_only?: boolean;
+  output_pdf_ready?: boolean;
+  markdown_ready?: boolean;
+  bundle_ready?: boolean;
   [key: string]: unknown;
 }
 
@@ -312,6 +319,12 @@ export function mergeLibraryJobItem(
   const nextLibraryOnly = Object.prototype.hasOwnProperty.call(job, "library_only")
     ? Boolean(job.library_only)
     : previousItem.library_only;
+  const previousArtifacts = previousItem.artifacts && typeof previousItem.artifacts === "object"
+    ? previousItem.artifacts as Record<string, unknown>
+    : {};
+  const nextArtifacts = job.artifacts && typeof job.artifacts === "object"
+    ? job.artifacts as Record<string, unknown>
+    : null;
 
   return {
     ...previousItem,
@@ -353,6 +366,18 @@ export function mergeLibraryJobItem(
     stage_detail: stageDetail,
     workflow: firstNonEmpty(job.workflow, job.job_type, previousItem.workflow),
     job_type: firstNonEmpty(job.job_type, job.workflow, previousItem.job_type),
+    // Keep canonical readiness and OCR artifact links fresh across polling.
+    // OCR-only completion is represented by artifacts.normalized_document.ready,
+    // not by output_pdf_ready.
+    output_pdf_ready: valueOrPrevious(job.output_pdf_ready, previousItem.output_pdf_ready),
+    markdown_ready: valueOrPrevious(job.markdown_ready, previousItem.markdown_ready),
+    bundle_ready: valueOrPrevious(job.bundle_ready, previousItem.bundle_ready),
+    artifacts: nextArtifacts
+      ? { ...previousArtifacts, ...nextArtifacts }
+      : previousItem.artifacts,
+    artifacts_display: Array.isArray(job.artifacts_display)
+      ? job.artifacts_display
+      : previousItem.artifacts_display,
     // 书目元数据：轮询/重试补丁若带 job_id 或 "Mock 重试…" 当标题，不盖真书名；
     // 真·改名补丁（title 与 job_id 不同）仍可更新。
     title: pickBookTitle(previousItem, job, jobId),
@@ -404,21 +429,9 @@ export function mergeRuntimePatches(
   { stageAdapterPort = {} }: RuntimeItemOptions = {},
 ): LibraryJobItem[] {
   const list = Array.isArray(items) ? items : [];
-  // 按 job_id 索引；另建 document_id → 最新 patch（重试换 id 时用）
-  const patchByDocumentId = new Map<string, LibraryJobItem>();
-  for (const patch of patches.values()) {
-    const docId = firstNonEmpty(patch?.document_id);
-    if (docId) {
-      patchByDocumentId.set(docId, patch);
-    }
-  }
+  const patchList = Array.from(patches.values());
   return list.map((item) => {
-    const jobId = firstNonEmpty(item?.job_id);
-    const documentId = firstNonEmpty(item?.document_id);
-    let patch = jobId ? patches.get(jobId) : null;
-    if (!patch && documentId) {
-      patch = patchByDocumentId.get(documentId) || null;
-    }
+    const patch = patchList.find((candidate) => sameLibraryCard(candidate, item)) || null;
     if (!patch) {
       return item;
     }

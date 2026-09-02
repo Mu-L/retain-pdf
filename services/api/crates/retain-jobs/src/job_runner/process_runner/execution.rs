@@ -33,6 +33,7 @@ pub(super) async fn collect_process_execution(
     worker_runtime: &WorkerProcessRuntimeConfig<'_>,
     mut child: tokio::process::Child,
     job: JobRuntimeState,
+    runtime_secrets: Vec<String>,
     extra_cancel_job_ids: &[String],
 ) -> Result<ProcessExecution> {
     let stdout = child.stdout.take().context("missing stdout pipe")?;
@@ -44,9 +45,10 @@ pub(super) async fn collect_process_execution(
         canceled_jobs.clone(),
         job,
         stdout,
+        runtime_secrets.clone(),
         extra_cancel_job_ids.to_vec(),
     ));
-    let stderr_handle = tokio::spawn(read_stream(stderr));
+    let stderr_handle = tokio::spawn(read_stream(stderr, runtime_secrets));
     let started = Instant::now();
 
     let status = if timeout_secs > 0 {

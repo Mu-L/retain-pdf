@@ -68,7 +68,10 @@ export type ReaderDownloadAdapters = {
 };
 export type ReaderFavoritesAdapters = {
   apiPrefix?: string;
-  fetchDocumentByJobId: (apiPrefix: string, jobId: string) => Promise<{ document_id?: string } | null>;
+  fetchDocumentByJobId: (apiPrefix: string, jobId: string) => Promise<{
+    document_id?: string;
+    active_version_id?: string | null;
+  } | null>;
   createFavorite: (apiPrefix: string, payload: Record<string, unknown>) => Promise<any>;
   fetchFavorites: (apiPrefix: string, options?: { documentId?: string }) => Promise<{ favorites?: any[] }>;
   deleteFavorite: (apiPrefix: string, favoriteId: string) => Promise<unknown>;

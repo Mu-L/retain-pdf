@@ -124,6 +124,7 @@ export interface PublicTranslationInput {
   memory_mode: string;
   api_key: string;
   api_key_configured: boolean;
+  credential_ref: string;
   model: string;
   base_url: string;
   start_page: number;

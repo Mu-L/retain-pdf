@@ -7,17 +7,27 @@ import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js"
 import { useRecentJobCover } from "../display/useRecentJobCover.js";
 import { BookDetailShell } from "./shell/BookDetailShell.jsx";
 import { CoverActionsPanel } from "./panels/CoverActionsPanel.jsx";
+import { ArtifactQuickDownloads } from "./panels/ArtifactQuickDownloads.js";
 import {
   BookDetailRightTabs,
   BookDetailOverviewTab,
-  BookDetailTranslateTab,
-  BookDetailMoreTab,
+  BookDetailProcessingTab,
+  BookDetailArtifactsTab,
+  BookDetailManageTab,
 } from "./tabs/index.js";
 import { useBookDetailLiveItem } from "./use-book-detail-live-item.js";
 import { useBookDetailDocument } from "./use-book-detail-document.js";
 import { useBookDetailTranslate } from "./use-book-detail-translate.js";
+import { useBookDetailOcr } from "./use-book-detail-ocr.js";
+import { useBookDetailStageActions } from "./use-book-detail-stage-actions.js";
+import {
+  documentJobPresentation,
+  isDocumentJobActive,
+  useDocumentJobs,
+} from "./use-document-jobs.js";
 import { useBookDetailCover } from "./use-book-detail-cover.js";
 import { useBookDetailTab } from "./use-book-detail-tab.js";
+import { useBookDetailArtifactCenter } from "./use-book-detail-artifact-center.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
 
 export function BookDetailDialog() {
@@ -34,12 +44,19 @@ export function BookDetailDialog() {
   const item = useBookDetailLiveItem(services, payloadItem);
   const statusCardState = useStoreSnapshot(services.statusCard.store);
   const documentId = `${item.document_id || ""}`.trim();
-  const { status, coverProcessing, readerAvailable, canTranslate, isActive, cardJobId } =
+  const {
+    coverProcessing,
+    readPresentation,
+    readerAvailable,
+    canTranslate,
+    isActive,
+    cardJobId,
+  } =
     useBookDetailCover({ item, statusCardState });
   const jobId = `${item.job_id || item.active_job_id || cardJobId || ""}`.trim();
   const coverUrl = useRecentJobCover(item);
 
-  // 点「翻译整本」/ 网格选中活跃任务：强制翻译 Tab，进度在 bd-job-status-inner
+  // 点「翻译整本」/ 网格选中活跃任务：强制处理 Tab，进度在 bd-job-status-inner
   const { preferTranslateTab, defaultTab, setPreferTranslateTab } = useBookDetailTab({
     open,
     payloadItem,
@@ -60,6 +77,16 @@ export function BookDetailDialog() {
     onClose: close,
   });
 
+  const documentJobs = useDocumentJobs({
+    open,
+    documentId,
+    actions,
+    initialJob: item,
+    runtimeStore: services.jobRuntime.store,
+    onJobSucceeded: () => {
+      void docState.refreshDocument?.();
+    },
+  });
   const translateState = useBookDetailTranslate({
     open,
     documentId,
@@ -68,10 +95,66 @@ export function BookDetailDialog() {
     withBusy: docState.withBusy,
     setError: docState.setError,
     onTranslateStarted: () => setPreferTranslateTab(true),
+    onJobSubmitted: documentJobs.upsert,
+    reusableOcrJob: documentJobs.reusableOcr,
+  });
+
+  const ocrState = useBookDetailOcr({
+    open,
+    documentId,
+    pageCount: docState.pageCount,
+    actions,
+    onStarted: documentJobs.upsert,
+  });
+  const latestTranslation: any = documentJobs.latestTranslation;
+  const overviewOcrStatus = documentJobPresentation(documentJobs.ocrStatusJob, "尚未执行");
+  const translationActive = isDocumentJobActive(latestTranslation);
+  const translationStatus = documentJobPresentation(latestTranslation, "尚未翻译");
+  const translationSucceeded = `${latestTranslation?.status || ""}`.toLowerCase() === "succeeded";
+  const translationItem = latestTranslation
+    ? { ...item, ...latestTranslation, library_only: false }
+    : {
+        ...item,
+        job_id: "",
+        active_job_id: "",
+        workflow: "",
+        job_type: "",
+        status: "",
+        library_only: true,
+      };
+  const stageActionState = useBookDetailStageActions({
+    open,
+    job: latestTranslation,
+    actions,
+    onJobSubmitted: documentJobs.upsert,
+    // OCR 完成可能发生在失败翻译任务之后；此时 translation job_id 不变，
+    // 但可重试能力已经变化，必须清除旧 409 并重新读取 stage-actions。
+    refreshKey: [
+      documentJobs.reusableOcr?.job_id || documentJobs.reusableOcr?.id || "",
+      documentJobs.reusableOcr?.status || "",
+      documentJobs.reusableOcr?.updated_at || "",
+    ].join(":"),
+  });
+  const artifactCenter = useBookDetailArtifactCenter({
+    active: open,
+    documentId,
+    refreshRevision: documentJobs.succeededRevision,
+    source: {
+      filename: docState.doc?.source_filename || item.source_filename || item.title,
+      url: docState.doc?.source_pdf_url || item.source_pdf_url,
+      sizeBytes: docState.doc?.bytes ?? item.bytes,
+      generatedAt: docState.doc?.added_at || item.added_at || item.created_at,
+    },
+    jobs: documentJobs.jobs,
   });
 
   const handleOpenChange = (next) => {
     if (!next) close();
+  };
+
+  const openSource = () => {
+    actions.openSourceReader(documentId);
+    close();
   };
 
   return (
@@ -79,21 +162,33 @@ export function BookDetailDialog() {
       open={open}
       onOpenChange={handleOpenChange}
       onCloseAutoFocus={onCloseAutoFocus}
+      title={`${docState.doc?.title || item.title || "文档"} · 书籍详情`}
       left={(
         <CoverActionsPanel
           coverUrl={coverUrl}
+          title={docState.doc?.title || docState.titleText || item.title}
+          authors={docState.authors}
+          year={docState.doc?.year || item.year}
+          pageCount={docState.pageCount}
+          readingStatus={docState.readingStatus}
           readerAvailable={readerAvailable}
+          readerActionLabel={readPresentation.label}
           documentId={documentId}
           busy={docState.busy}
           processing={coverProcessing}
           onCompare={() => {
-            actions.openJobReader(jobId);
+            actions.openJobReader(readPresentation.jobId || jobId);
             close();
           }}
-          onReadSource={() => {
-            actions.openSourceReader(documentId);
-            close();
-          }}
+          onReadSource={openSource}
+          quickDownloadsSlot={(
+            <ArtifactQuickDownloads
+              sections={artifactCenter.sections}
+              loading={artifactCenter.loading}
+              downloadingId={artifactCenter.downloadingId}
+              onDownload={(artifact) => void artifactCenter.download(artifact)}
+            />
+          )}
         />
       )}
       right={(
@@ -101,7 +196,7 @@ export function BookDetailDialog() {
           open={open}
           resetKey={documentId}
           defaultTab={defaultTab}
-          overviewTab={(
+          overviewTab={({ selectTab }) => (
             <BookDetailOverviewTab
               pageCount={docState.pageCount}
               bytes={docState.doc?.bytes}
@@ -115,45 +210,87 @@ export function BookDetailDialog() {
               year={docState.doc?.year}
               displayTitle={docState.doc?.title || docState.titleText}
               busy={docState.busy}
+              ocrStatus={overviewOcrStatus}
+              translationStatus={translationStatus}
+              jobs={documentJobs.jobs}
+              onOpenProcessing={() => selectTab("processing")}
+              onOpenArtifacts={() => selectTab("artifacts")}
               onStartEdit={docState.startEdit}
               onCancelEdit={() => docState.setEditing(false)}
               onSave={docState.handleSaveEdit}
               onTitleChange={docState.setTitleText}
               onTagsTextChange={docState.setTagsText}
+              management={(
+                <BookDetailManageTab
+                  readingStatus={docState.readingStatus}
+                  busy={docState.busy}
+                  onReadingStatusChange={docState.handleReadingStatus}
+                  collections={docState.collections}
+                  collectionsBusy={docState.collectionsBusy}
+                  onToggleCollection={docState.toggleCollection}
+                  error={docState.error}
+                  confirmingDelete={docState.confirmingDelete}
+                  onDelete={docState.handleDelete}
+                />
+              )}
             />
           )}
-          translateTab={({ activeTab }) => (
-            <BookDetailTranslateTab
-              item={item}
-              status={status}
-              isActive={isActive}
-              canTranslate={canTranslate}
-              readerAvailable={readerAvailable}
-              dialogOpen={open}
-              tabActive={activeTab === "translate"}
-              rangeOn={translateState.rangeOn}
-              startPage={translateState.startPage}
-              endPage={translateState.endPage}
-              pageCount={docState.pageCount}
-              busy={docState.busy}
-              error={docState.error}
-              onRangeOnChange={translateState.setRangeOn}
-              onStartPageChange={translateState.setStartPage}
-              onEndPageChange={translateState.setEndPage}
-              onTranslate={translateState.handleTranslate}
+          processingTab={({ activeTab }) => (
+            <BookDetailProcessingTab
+              loading={documentJobs.loading}
+              error={documentJobs.error}
+              ocr={{
+                job: documentJobs.ocrStatusJob,
+                rangeOn: ocrState.rangeOn,
+                startPage: ocrState.startPage,
+                endPage: ocrState.endPage,
+                pageCount: docState.pageCount,
+                pending: ocrState.pending,
+                error: ocrState.error,
+                onRangeOnChange: ocrState.setRangeOn,
+                onStartPageChange: ocrState.setStartPage,
+                onEndPageChange: ocrState.setEndPage,
+                onOcr: ocrState.handleOcr,
+              }}
+              translation={{
+                item: translationItem,
+                status: translationStatus,
+                isActive: translationActive,
+                canTranslate: !latestTranslation && !translationActive && canTranslate,
+                readerAvailable: translationSucceeded || readerAvailable,
+                dialogOpen: open,
+                tabActive: activeTab === "processing",
+                rangeOn: translateState.rangeOn,
+                startPage: translateState.startPage,
+                endPage: translateState.endPage,
+                pageCount: docState.pageCount,
+                busy: docState.busy,
+                error: docState.error,
+                stageActions: stageActionState.stageActions,
+                stageActionsLoading: stageActionState.loading,
+                stageActionPending: stageActionState.pendingStage,
+                stageActionError: stageActionState.error,
+                ocrReuse: documentJobs.reusableOcr
+                  ? { jobId: `${documentJobs.reusableOcr.job_id || documentJobs.reusableOcr.id || ""}` }
+                  : null,
+                onRangeOnChange: translateState.setRangeOn,
+                onStartPageChange: translateState.setStartPage,
+                onEndPageChange: translateState.setEndPage,
+                onTranslate: async () => {
+                  await translateState.handleTranslate();
+                },
+                onRetryStage: stageActionState.retry,
+              }}
             />
           )}
-          moreTab={(
-            <BookDetailMoreTab
-              readingStatus={docState.readingStatus}
-              busy={docState.busy}
-              onReadingStatusChange={docState.handleReadingStatus}
-              collections={docState.collections}
-              collectionsBusy={docState.collectionsBusy}
-              onToggleCollection={docState.toggleCollection}
-              error={docState.error}
-              confirmingDelete={docState.confirmingDelete}
-              onDelete={docState.handleDelete}
+          artifactsTab={() => (
+            <BookDetailArtifactsTab
+              onOpenSource={openSource}
+              artifactCenter={artifactCenter}
+              onOpenJob={(artifactJobId) => {
+                actions.openJobReader(artifactJobId);
+                close();
+              }}
             />
           )}
         />

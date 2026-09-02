@@ -12,7 +12,9 @@ from retainpdf_pipeline.services.document_operations.page_program import (
     execute_page_program,
     validate_page_program,
 )
-from retainpdf_pipeline.services.document_operations.visual_validation import validate_page_program_visuals
+from retainpdf_pipeline.services.document_operations.visual_validation import (
+    validate_page_program_visuals,
+)
 
 
 def _source_pdf(path: Path, pages: int = 4) -> Path:
@@ -36,6 +38,22 @@ def _visible_source_pdf(path: Path) -> Path:
         )
         if index == 2:
             page.set_rotation(90)
+    document.save(path)
+    document.close()
+    return path
+
+
+def _fractional_visible_source_pdf(path: Path) -> Path:
+    """Match real-world A4 geometry whose raster origin rounds by one pixel."""
+
+    document = fitz.open()
+    page = document.new_page(width=595.2760009765625, height=841.8899536132812)
+    page.insert_text((47.25, 83.75), "FRACTIONAL A4 PAGE", fontsize=21)
+    page.draw_rect(
+        fitz.Rect(31.125, 127.375, 557.875, 799.625),
+        color=(0.1, 0.4, 0.8),
+        fill=(0.9, 0.75, 0.2),
+    )
     document.save(path)
     document.close()
     return path
@@ -110,6 +128,26 @@ def test_visual_validation_proves_reorder_duplicate_and_rotation_semantics(tmp_p
     assert report["dropped_source_pages"] == 1
     assert report["duplicated_output_pages"] == 1
     assert report["rotated_output_pages"] == 2
+
+
+def test_visual_validation_accepts_exact_180_rotation_with_fractional_page_geometry(
+    tmp_path,
+):
+    source = _fractional_visible_source_pdf(tmp_path / "fractional-source.pdf")
+    candidate = tmp_path / "candidate.pdf"
+    program = {
+        "schema": "retainpdf_page_program_v1",
+        "steps": [{"op": "rotate_pages", "pages": [1], "degrees": 180}],
+    }
+    execute_page_program(source, program, candidate)
+
+    report = validate_page_program_visuals(
+        source, candidate, program, max_dimension=512
+    )
+
+    assert report["valid"] is True
+    assert report["mismatch_count"] == 0
+    assert report["expected_pixels_sha256"] == report["candidate_pixels_sha256"]
 
 
 def test_visual_validation_detects_content_tampering_with_same_page_count(tmp_path):

@@ -94,6 +94,87 @@ test("有 active_job_id 但 book 缺失:保留真实 job_id,非馆藏,状态空"
   assert.equal(item.status, "");
 });
 
+test("OCR-only active job falls back to canonical job payload and keeps readiness", async () => {
+  const calls = [];
+  const page = await collectDocumentLibraryPage({
+    fetchDocumentList: async () => ({
+      documents: [{
+        document_id: "doc-ocr",
+        active_job_id: "job-ocr-root",
+        title: "OCR source",
+        source_filename: "ocr-source.pdf",
+        page_count: 12,
+      }],
+      total: 1,
+    }),
+    fetchLibraryBookList: async (_apiPrefix, { jobIds }) => {
+      calls.push(["books", jobIds]);
+      return { items: [] };
+    },
+    fetchJobPayload: async (jobId, options) => {
+      calls.push(["job", jobId, options]);
+      return {
+        job_id: jobId,
+        workflow: "ocr",
+        status: "succeeded",
+        stage_snapshot: {
+          source: "display-stage",
+          publicStage: "done",
+          stageKey: "done",
+          progress: { current: 12, total: 12, percent: 100, unit: "page" },
+        },
+        output_pdf_ready: false,
+        markdown_ready: true,
+        artifacts: {
+          normalized_document: {
+            ready: true,
+            url: `/api/v1/jobs/${jobId}/normalized-document`,
+          },
+        },
+      };
+    },
+    apiPrefix: "/api/v1",
+    startOffset: 0,
+    pageSize: 24,
+    existingJobIds: new Set(),
+  });
+
+  assert.equal(page.collected.length, 1, "one document remains one card");
+  const [item] = page.collected;
+  assert.equal(item.document_id, "doc-ocr");
+  assert.equal(item.job_id, "job-ocr-root");
+  assert.equal(item.library_only, false);
+  assert.equal(item.workflow, "ocr");
+  assert.equal(item.status, "succeeded");
+  assert.equal(item.markdown_ready, true);
+  assert.equal(item.artifacts.normalized_document.ready, true);
+  assert.deepEqual(calls, [
+    ["books", ["job-ocr-root"]],
+    ["job", "job-ocr-root", { apiPrefix: "/api/v1" }],
+  ]);
+});
+
+test("OCR-only job fallback is best effort", async () => {
+  const page = await collectDocumentLibraryPage({
+    fetchDocumentList: async () => ({
+      documents: [{ document_id: "doc-ocr-missing", active_job_id: "job-ocr-missing" }],
+      total: 1,
+    }),
+    fetchLibraryBookList: async () => ({ items: [] }),
+    fetchJobPayload: async () => {
+      throw new Error("temporary unavailable");
+    },
+    apiPrefix: "/api/v1",
+    startOffset: 0,
+    pageSize: 24,
+    existingJobIds: new Set(),
+  });
+
+  assert.equal(page.collected.length, 1);
+  assert.equal(page.collected[0].job_id, "job-ocr-missing");
+  assert.equal(page.collected[0].status, "");
+});
+
 // ===== collectDocumentLibraryPage:分页 + 合并 + 去重 + 搜索 =====
 
 function makeFetchers({ documents, total, books }) {
@@ -161,6 +242,25 @@ test("跨页去重:existingJobIds 命中的(含合成 id)不重复收集", async
   });
   assert.equal(page.collected.length, 0, "两条都已在既有集合里");
   assert.equal(page.hasMore, false);
+});
+
+test("跨页去重接受稳定 document identity", async () => {
+  const { fetchDocumentList, fetchLibraryBookList } = makeFetchers({
+    documents: [{ document_id: "d1", active_job_id: "job-retry", title: "a" }],
+    total: 1,
+    books: [{ job_id: "job-retry", status: "running" }],
+  });
+  const page = await collectDocumentLibraryPage({
+    fetchDocumentList,
+    fetchLibraryBookList,
+    apiPrefix: "/api/v1",
+    startOffset: 0,
+    pageSize: 10,
+    existingJobIds: new Set(["document:d1"]),
+    query: "",
+  });
+
+  assert.deepEqual(page.collected, []);
 });
 
 test("搜索:客户端按标题过滤,hasMore 关闭", async () => {

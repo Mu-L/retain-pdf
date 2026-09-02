@@ -1,11 +1,6 @@
-// 阅读器「新引擎 / 共享层」对 src/js/* 的出口。
-//
-// 仅供 pages/reader 非 legacy 路径使用：
-//   hooks/、pdf/、annotations/、components/react-pdf/、ReaderAppReactPdf
-// 缺符号只改本文件。
-//
-// legacy/** 与 ?engine=legacy 继续直接 import js/reader 命令式引擎
-// （pdf-controller / selection-favorites / regions…）——不要把它们塞进这里。
+// @retainpdf/reader 对 RetainPDF Web 宿主能力的单一出口。
+// Reader 实现通过公开 package exports 消费这里注入的 API、配置、下载、
+// 收藏与 AI 能力；缺少宿主符号时只扩展本文件和 adapters/retainpdf.ts。
 
 // —— config / mock / messaging ——
 export { isMockMode } from "../../js/config/runtime.js";
@@ -14,14 +9,13 @@ export { READER_DIALOG_MESSAGES } from "../../js/features/reader-dialog/contract
 
 // —— job / http / vendor ——
 export { resolveResourceUrl } from "@retainpdf/domain/job";
-export { fetchProtected } from "../../js/api/http.js";
+export { fetchProtected } from "@/shared/reader/host/data.js";
 export {
   resolvePdfjsVendorUrl,
   resolveMarkedVendorUrl,
 } from "../../js/runtime/vendor-url.js";
 
-// —— js/reader 共享 ports（新引擎允许依赖的子集）——
-// 已清零：直连 shared/*，不再经 js/reader 中转
+// —— Reader 宿主 ports：直连 shared/*，不经历史中转层 ——
 export { defaultReaderDataPort } from "@/shared/reader/host/data.js";
 export {
   defaultReaderPageConfigPort,
@@ -36,7 +30,7 @@ export {
 } from "@/shared/reader/host/data.js";
 export { READER_PROGRESS_COPY } from "@/shared/reader/host/state.js";
 
-// —— 下载（与 legacy 共用解析 / 受保护下载）——
+// —— 下载解析 / 受保护下载 ——
 export {
   READER_DOWNLOAD_ACTIONS,
   disabledReason as readerDownloadDisabledReason,

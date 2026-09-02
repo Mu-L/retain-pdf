@@ -2,6 +2,10 @@
 // 进度只在 bd-job-status-inner，不打开工作流弹窗。
 
 import { usePageRange } from "./use-page-range.js";
+import {
+  inclusivePageNumbers,
+  reusableOcrJobId,
+} from "../domain/translation-ocr-reuse.js";
 
 /**
  * @param {object} options
@@ -11,7 +15,8 @@ import { usePageRange } from "./use-page-range.js";
  * @param {object} options.actions library.actions（含 attachJobProgress / translateDocument）
  * @param {(key: string, fn: Function, fail: string) => Promise<void>} options.withBusy
  * @param {(msg: string) => void} options.setError
- * @param {() => void} [options.onTranslateStarted] 成功提交后切到翻译 Tab 等
+ * @param {() => void} [options.onTranslateStarted] 成功提交后切到处理 Tab 等
+ * @param {(job: object) => void} [options.onJobSubmitted] 立即写入文档任务状态
  */
 export function useBookDetailTranslate({
   open,
@@ -21,6 +26,8 @@ export function useBookDetailTranslate({
   withBusy,
   setError,
   onTranslateStarted,
+  onJobSubmitted,
+  reusableOcrJob,
 }: any) {
   const {
     rangeOn,
@@ -34,6 +41,12 @@ export function useBookDetailTranslate({
 
   async function handleTranslate() {
     const payload: any = {};
+    const artifactJobId = reusableOcrJobId(reusableOcrJob);
+    if (artifactJobId) {
+      payload.workflow = "translate";
+      payload.source = { artifact_job_id: artifactJobId };
+      payload.translation = { page_ranges: [] };
+    }
     if (rangeOn) {
       const checked = validateRange();
       if (!checked.valid) {
@@ -41,17 +54,28 @@ export function useBookDetailTranslate({
         return;
       }
       const { s, e } = checked as { s: number; e: number };
-      payload.ocr = { page_ranges: `${s}-${e}` };
-      payload.translation = { start_page: s, end_page: e };
+      if (artifactJobId) {
+        payload.translation = { page_ranges: inclusivePageNumbers(s, e) };
+      } else {
+        payload.ocr = { page_ranges: `${s}-${e}` };
+        payload.translation = { start_page: s, end_page: e };
+      }
     }
-    // 先切到翻译 Tab，保证 bd-job-status-inner 在视口内再接进度
+    // 先切到处理 Tab，保证 bd-job-status-inner 在视口内再接进度
     onTranslateStarted?.();
     await withBusy(
       "translate",
       async () => {
         // promoteDocumentToJob：改详情 payload + silent attachJobProgress
         // 不 openTranslationWorkflow
-        await actions.translateDocument(documentId, payload);
+        const result = await actions.translateDocument(documentId, payload);
+        if (result) {
+          onJobSubmitted?.({
+            ...result,
+            document_id: result.document_id || documentId,
+            workflow: result.workflow || payload.workflow || "book",
+          });
+        }
         onTranslateStarted?.();
       },
       "发起翻译失败",

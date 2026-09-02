@@ -37,6 +37,14 @@ export type ReaderSessionState = {
     regions: ReaderRegion[];
     readerMetadata: ReaderMetadata;
     download: ReaderDownloadContext;
+    /** Agent 提交新文档版本后，切换到文档当前源文件并重新下载。 */
+    refreshCommittedDocument: (input: {
+        documentId: string;
+        revision: string;
+    }) => void;
+    /** 关闭导航前建立取消栅栏，禁止迟到请求再写入 Reader UI。 */
+    prepareClose: () => void;
 };
+export declare function buildCommittedDocumentSourceUrl(documentId: string, revision: string): string;
 export declare function useReaderSession(): ReaderSessionState;
 //# sourceMappingURL=use-reader-session.d.ts.map

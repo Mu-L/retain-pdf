@@ -27,6 +27,36 @@ export function useBookDetailLiveItem(services: any, payloadItem: any = {}) {
     if (!live) return payloadItem;
 
     const payloadStatus = `${payloadItem.status || ""}`.trim();
+    const payloadWorkflow = `${payloadItem.workflow || payloadItem.job_type || ""}`.trim();
+    const liveWorkflow = `${live.workflow || live.job_type || ""}`.trim();
+    const liveJobId = `${live.job_id || live.active_job_id || ""}`.trim();
+    // 详情内刚提交 retry 时，payload 已经是新 job B，但 recentJobs 事件可能
+    // 还停留在旧 job A。此时 document_id 命中不能反过来用 A 覆盖 B；
+    // payload 是这次用户动作的直接回执，应保留其任务身份和运行状态。
+    if (jobId && liveJobId && liveJobId !== jobId) {
+      return {
+        ...live,
+        ...payloadItem,
+        document_id: payloadItem.document_id || live.document_id,
+        library_only: payloadItem.library_only ?? live.library_only,
+      };
+    }
+    // job_id 标识一次不可变的任务提交；列表刷新只能更新其运行状态，不能把
+    // OCR 任务改写成翻译任务。若后端确实创建了新任务，它必须带新的 job_id。
+    if (
+      jobId
+      && liveJobId === jobId
+      && payloadWorkflow
+      && liveWorkflow
+      && liveWorkflow !== payloadWorkflow
+    ) {
+      return {
+        ...live,
+        ...payloadItem,
+        document_id: live.document_id || payloadItem.document_id,
+        library_only: live.library_only ?? payloadItem.library_only,
+      };
+    }
     if (
       isPollingBootstrapPlaceholder(live)
       && (payloadStatus === "succeeded" || payloadStatus === "failed")

@@ -1,5 +1,4 @@
-use axum::extract::Query;
-use axum::extract::{Path as AxumPath, State};
+use axum::extract::State;
 use axum::http::header;
 use axum::response::IntoResponse;
 use axum::Json;
@@ -9,7 +8,7 @@ use crate::models::api::{
     ApiResponse, GlossaryCsvParseInput, GlossaryCsvParseView, GlossaryDetailView, GlossaryListView,
     GlossaryUpsertInput, ListGlossariesQuery,
 };
-use crate::routes::common::{build_glossary_route_deps, ok_json};
+use crate::routes::common::{build_glossary_route_deps, ok_json, ApiJson, ApiPath, ApiQuery};
 use crate::services::glossary_api::{
     create_glossary_view, delete_glossary_view, export_glossary_csv_view, get_glossary_view,
     import_glossary_view, list_glossaries_view, parse_glossary_csv_view, update_glossary_view,
@@ -18,36 +17,36 @@ use crate::AppState;
 
 pub async fn create_glossary_route(
     State(state): State<AppState>,
-    Json(payload): Json<GlossaryUpsertInput>,
+    ApiJson(payload): ApiJson<GlossaryUpsertInput>,
 ) -> Result<Json<ApiResponse<GlossaryDetailView>>, AppError> {
     let deps = build_glossary_route_deps(&state);
-    Ok(ok_json(create_glossary_view(deps.db, &payload)?))
+    Ok(ok_json(create_glossary_view(&deps, &payload)?))
 }
 
 pub async fn list_glossaries_route(
     State(state): State<AppState>,
-    Query(query): Query<ListGlossariesQuery>,
+    ApiQuery(query): ApiQuery<ListGlossariesQuery>,
 ) -> Result<Json<ApiResponse<GlossaryListView>>, AppError> {
     let deps = build_glossary_route_deps(&state);
-    Ok(ok_json(list_glossaries_view(deps.db, &query)?))
+    Ok(ok_json(list_glossaries_view(&deps, &query)?))
 }
 
 pub async fn get_glossary_route(
     State(state): State<AppState>,
-    AxumPath(glossary_id): AxumPath<String>,
+    ApiPath(glossary_id): ApiPath<String>,
 ) -> Result<Json<ApiResponse<GlossaryDetailView>>, AppError> {
     let deps = build_glossary_route_deps(&state);
-    Ok(ok_json(get_glossary_view(deps.db, &glossary_id)?))
+    Ok(ok_json(get_glossary_view(&deps, &glossary_id)?))
 }
 
 pub async fn update_glossary_route(
     State(state): State<AppState>,
-    AxumPath(glossary_id): AxumPath<String>,
-    Json(payload): Json<GlossaryUpsertInput>,
+    ApiPath(glossary_id): ApiPath<String>,
+    ApiJson(payload): ApiJson<GlossaryUpsertInput>,
 ) -> Result<Json<ApiResponse<GlossaryDetailView>>, AppError> {
     let deps = build_glossary_route_deps(&state);
     Ok(ok_json(update_glossary_view(
-        deps.db,
+        &deps,
         &glossary_id,
         &payload,
     )?))
@@ -55,26 +54,26 @@ pub async fn update_glossary_route(
 
 pub async fn delete_glossary_route(
     State(state): State<AppState>,
-    AxumPath(glossary_id): AxumPath<String>,
+    ApiPath(glossary_id): ApiPath<String>,
 ) -> Result<Json<ApiResponse<GlossaryDetailView>>, AppError> {
     let deps = build_glossary_route_deps(&state);
-    Ok(ok_json(delete_glossary_view(deps.db, &glossary_id)?))
+    Ok(ok_json(delete_glossary_view(&deps, &glossary_id)?))
 }
 
 pub async fn import_glossary_route(
     State(state): State<AppState>,
-    Json(payload): Json<GlossaryUpsertInput>,
+    ApiJson(payload): ApiJson<GlossaryUpsertInput>,
 ) -> Result<Json<ApiResponse<GlossaryDetailView>>, AppError> {
     let deps = build_glossary_route_deps(&state);
-    Ok(ok_json(import_glossary_view(deps.db, &payload)?))
+    Ok(ok_json(import_glossary_view(&deps, &payload)?))
 }
 
 pub async fn export_glossary_csv_route(
     State(state): State<AppState>,
-    AxumPath(glossary_id): AxumPath<String>,
+    ApiPath(glossary_id): ApiPath<String>,
 ) -> Result<axum::response::Response, AppError> {
     let deps = build_glossary_route_deps(&state);
-    let export = export_glossary_csv_view(deps.db, &glossary_id)?;
+    let export = export_glossary_csv_view(&deps, &glossary_id)?;
     Ok((
         [(header::CONTENT_TYPE, "text/csv; charset=utf-8")],
         export.csv_text,
@@ -83,7 +82,7 @@ pub async fn export_glossary_csv_route(
 }
 
 pub async fn parse_glossary_csv_route(
-    Json(payload): Json<GlossaryCsvParseInput>,
+    ApiJson(payload): ApiJson<GlossaryCsvParseInput>,
 ) -> Result<Json<ApiResponse<GlossaryCsvParseView>>, AppError> {
     Ok(ok_json(parse_glossary_csv_view(&payload)?))
 }

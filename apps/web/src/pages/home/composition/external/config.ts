@@ -31,8 +31,11 @@ export {
 export { openDesktopOutputDirectory } from "../../../../js/config/desktop-persistence.js";
 export { DEFAULT_MODEL_VERSION } from "../../../../js/config/model-constants.js";
 export {
+  getTranslationProviderDefinition,
+  inferTranslationProvider,
   OCR_PROVIDER_DEFINITIONS,
   TRANSLATION_PROVIDER_DEFINITION,
+  TRANSLATION_PROVIDER_OPTIONS,
 } from "../../../../js/config/providers.js";
 export {
   DEFAULT_BATCH_SIZE,

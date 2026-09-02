@@ -1,5 +1,7 @@
 use crate::config::ProviderLimitsConfig;
 use crate::error::AppError;
+use axum::http::StatusCode;
+use retain_data::credentials::{resolve_credential, CredentialResolveError};
 use std::path::Path;
 
 use crate::models::domain::{OcrProviderKind, UploadRecord, SOURCE_CLEANUP_STRATEGIES};
@@ -32,10 +34,18 @@ pub fn validate_translation_credentials(input: &CreateJobInput) -> Result<(), Ap
     }
 
     let api_key = input.translation.api_key.trim();
-    if api_key.is_empty() {
-        return Err(AppError::bad_request("api_key is required"));
+    let credential_ref = input.translation.credential_ref.trim();
+    if api_key.is_empty() && credential_ref.is_empty() {
+        return Err(AppError::bad_request(
+            "translation.api_key or translation.credential_ref is required",
+        ));
     }
-    if looks_like_url(api_key) {
+    if !api_key.is_empty() && !credential_ref.is_empty() {
+        return Err(AppError::bad_request(
+            "translation.api_key and translation.credential_ref are mutually exclusive",
+        ));
+    }
+    if !api_key.is_empty() && looks_like_url(api_key) {
         return Err(AppError::bad_request(
             "api_key looks like a URL, not a model API key; check whether frontend fields were mixed up",
         ));
@@ -44,6 +54,46 @@ pub fn validate_translation_credentials(input: &CreateJobInput) -> Result<(), Ap
         return Err(AppError::bad_request("model is required"));
     }
     Ok(())
+}
+
+pub fn validate_translation_credential_reference(
+    input: &CreateJobInput,
+    data_root: &Path,
+) -> Result<(), AppError> {
+    let credential_ref = input.translation.credential_ref.trim();
+    if credential_ref.is_empty() {
+        return Ok(());
+    }
+    resolve_credential(data_root, credential_ref, "translation_api_key")
+        .map(|_| ())
+        .map_err(map_credential_reference_error)
+}
+
+fn map_credential_reference_error(error: CredentialResolveError) -> AppError {
+    match error {
+        CredentialResolveError::InvalidReference => AppError::credential_reference(
+            StatusCode::BAD_REQUEST,
+            "CREDENTIAL_REF_INVALID",
+            error.to_string(),
+        ),
+        CredentialResolveError::NotFound => AppError::credential_reference(
+            StatusCode::NOT_FOUND,
+            "CREDENTIAL_REF_NOT_FOUND",
+            error.to_string(),
+        ),
+        CredentialResolveError::KindMismatch { .. } => AppError::credential_reference(
+            StatusCode::BAD_REQUEST,
+            "CREDENTIAL_KIND_MISMATCH",
+            error.to_string(),
+        ),
+        CredentialResolveError::VaultUnreadable
+        | CredentialResolveError::VaultUnsafe
+        | CredentialResolveError::VaultInvalid => AppError::credential_reference(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "CREDENTIAL_VAULT_UNAVAILABLE",
+            error.to_string(),
+        ),
+    }
 }
 
 pub fn validate_render_options(input: &CreateJobInput) -> Result<(), AppError> {
@@ -414,6 +464,41 @@ mod tests {
             .expect_err("non-string transport should fail")
             .to_string()
             .contains("must be a string"));
+    }
+
+    #[test]
+    fn translation_credentials_accept_exactly_one_secret_source() {
+        let mut input = CreateJobInput::default();
+        input.translation.base_url = "https://api.deepseek.com/v1".to_string();
+        input.translation.model = "deepseek-chat".to_string();
+        input.translation.credential_ref = "cred_translation_primary".to_string();
+        assert!(validate_translation_credentials(&input).is_ok());
+
+        input.translation.api_key = "sk-inline".to_string();
+        let error = validate_translation_credentials(&input)
+            .expect_err("inline key and credential_ref must be exclusive");
+        assert!(error.to_string().contains("mutually exclusive"));
+    }
+
+    #[test]
+    fn translation_credential_reference_reports_structured_not_found() {
+        let root = std::env::temp_dir().join(format!(
+            "rust-api-missing-credential-{:016x}",
+            fastrand::u64(..)
+        ));
+        let mut input = CreateJobInput::default();
+        input.translation.credential_ref = "cred_missing".to_string();
+
+        let error = validate_translation_credential_reference(&input, &root)
+            .expect_err("missing credential must fail");
+        assert!(matches!(
+            error,
+            AppError::CredentialReference {
+                status: StatusCode::NOT_FOUND,
+                code: "CREDENTIAL_REF_NOT_FOUND",
+                ..
+            }
+        ));
     }
 
     #[test]

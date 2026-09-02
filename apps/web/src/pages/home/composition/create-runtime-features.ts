@@ -3,8 +3,8 @@
 
 import { API_PREFIX } from "./external/config.js";
 import {
-  buildJobDetailEndpoint,
-  submitJson,
+  cancelJob,
+  cancelOcrJob,
   fetchJobPayload,
   fetchJobEvents,
   fetchJobArtifactsManifest,
@@ -130,13 +130,13 @@ export function createRuntimeFeatures({
   const jobRuntimeFeature = mountJobRuntimeFeature({
     state: jobRuntimeState,
     apiPrefix: API_PREFIX,
-    buildJobDetailEndpoint,
+    cancelJob,
+    cancelOcrJob,
     fetchJobPayload,
     fetchJobEvents,
     fetchJobArtifactsManifest,
     fetchJobStageActions,
     retryJobStage,
-    submitJson,
     renderJob: statusCardPresenter.renderMain,
     renderJobSecondaryPatch: statusCardPresenter.renderPatch,
     setText: bridge.setText,

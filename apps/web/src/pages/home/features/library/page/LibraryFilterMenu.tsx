@@ -3,14 +3,43 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@retainpdf/ui/lib/utils";
+import { isOcrOnlyItem } from "../display/library-card-semantics.js";
 
 export const STATUS_FILTERS = [
   { value: "all", label: "全部" },
+  { value: "untranslated", label: "仅收藏" },
+  { value: "ocr", label: "仅 OCR" },
   { value: "done", label: "已翻译" },
-  { value: "untranslated", label: "未翻译" },
-  { value: "active", label: "翻译中" },
+  { value: "active", label: "处理中" },
   { value: "failed", label: "失败" },
 ];
+
+const EMPTY_STATUS_COUNTS = Object.freeze({
+  done: 0,
+  untranslated: 0,
+  ocr: 0,
+  active: 0,
+  failed: 0,
+});
+
+export function libraryStatusFilterOf(item, { isLibraryOnly, isActive }) {
+  if (isLibraryOnly(item)) return "untranslated";
+  if (isActive(item)) return "active";
+
+  const status = `${item?.status || ""}`.trim().toLowerCase();
+  if (status === "failed") return "failed";
+  if (status === "succeeded") return isOcrOnlyItem(item) ? "ocr" : "done";
+  return "";
+}
+
+export function countLibraryStatusFilters(items = [], dependencies) {
+  const counts = { ...EMPTY_STATUS_COUNTS };
+  for (const item of Array.isArray(items) ? items : []) {
+    const kind = libraryStatusFilterOf(item, dependencies);
+    if (kind && Object.hasOwn(counts, kind)) counts[kind] += 1;
+  }
+  return counts;
+}
 
 export function LibraryFilterMenu({
   statusFilter, setStatusFilter,
@@ -29,8 +58,15 @@ export function LibraryFilterMenu({
         setOpen(false);
       }
     }
+    function onKeyDown(event) {
+      if (event.key === "Escape") setOpen(false);
+    }
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [open]);
 
   function Pill({ active, onClick, children }) {
@@ -49,7 +85,11 @@ export function LibraryFilterMenu({
   return (
     <div className="relative" ref={ref}>
       <button
+        id="library-filter-trigger"
         type="button"
+        aria-controls="library-filter-surface"
+        aria-expanded={open}
+        aria-haspopup="dialog"
         onClick={() => setOpen((v) => !v)}
         className={cn(
           "inline-flex h-8 items-center gap-1 rounded-full px-3 text-xs transition active:scale-95",
@@ -64,8 +104,13 @@ export function LibraryFilterMenu({
         // 非 Radix 的轻量 popover(满载测试下比重型 modal 稳),没有 Presence 卸载延迟,
         // 关闭只能瞬间收起——但至少进场要有生命感:从触发按钮所在的右上角
         // 展开(origin-top-right),不从 scale(0) 凭空出现(emil-design-eng skill)。
-        <div className="absolute right-0 z-30 mt-2 w-64 origin-top-right rounded-2xl border border-border bg-paper p-4 shadow-[0_16px_40px_color-mix(in_srgb,var(--shadow-color)_16%,transparent)] transition-[opacity,transform] duration-150 ease-[var(--ease-out)] starting:scale-95 starting:opacity-0">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">翻译状态</p>
+        <div
+          id="library-filter-surface"
+          className="app-floating-surface absolute right-0 z-30 mt-2 w-64 origin-top-right p-4"
+          role="dialog"
+          aria-label="筛选书库"
+        >
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">处理状态</p>
           <div className="flex flex-wrap gap-2">
             {STATUS_FILTERS.map((s) => (
               <Pill key={s.value} active={statusFilter === s.value} onClick={() => setStatusFilter(s.value)}>
@@ -107,13 +152,5 @@ export function matchesLibraryFilter(item, statusFilter, tagFilter, { isLibraryO
   if (statusFilter === "all") {
     return true;
   }
-  const lib = isLibraryOnly(item);
-  const status = `${item.status || ""}`.trim();
-  switch (statusFilter) {
-    case "untranslated": return lib;
-    case "done": return !lib && status === "succeeded";
-    case "active": return !lib && isActive(item);
-    case "failed": return !lib && status === "failed";
-    default: return true;
-  }
+  return libraryStatusFilterOf(item, { isLibraryOnly, isActive }) === statusFilter;
 }

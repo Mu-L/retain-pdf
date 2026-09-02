@@ -35,25 +35,29 @@ export function ReaderAppReactPdf() {
   const markdownSplitOpen = tools.isOpen("markdown");
   const aiLayout = resolveReaderAiLayout(c.mode);
   const aiSplitOpen = tools.isOpen("ai") && aiLayout === "docked";
+  const sourceViewOnly = c.sourceOnly || !sessionFiles.translatedUrl;
   const closeTool = useCallback(() => { tools.close(); }, [tools]);
   const jumpCitation = useCallback((citation: { page_idx?: number; page?: number; block_id?: string; } | number) => {
     if (isReaderAiNavigationLocked()) return;
     c.jumpToAnchor(citation);
   }, [c.jumpToAnchor]);
+  const refreshCommittedDocument = useCallback((input: { documentId: string; revision: string }) => {
+    session.refreshCommittedDocument(input);
+  }, [session.refreshCommittedDocument]);
 
   return (
     <div className={`reader-react-root${markdownSplitOpen ? " is-markdown-split" : ""}${aiSplitOpen ? " is-ai-split" : ""}`} data-reader-engine="react-pdf">
       <ReaderReactBoot loading={boot.loading} failed={boot.failed} text={boot.text} percent={boot.percent} />
-      <ReaderCloseHome />
-      <ReaderModeTabs mode={c.mode} sourceOnly={c.sourceOnly} onModeChange={c.setModeKeepingPage} />
+      <ReaderCloseHome onBeforeClose={session.prepareClose} />
+      <ReaderModeTabs mode={c.mode} sourceOnly={sourceViewOnly} onModeChange={c.setModeKeepingPage} />
       {c.showHud ? <ReaderFab activeTool={tools.active} notesCount={notes.count} sourceOnly={c.sourceOnly} onToggleTool={tools.toggle} download={c.download} /> : null}
-      <ReaderCompareGrid mode={c.mode} bindShell={shell.bindShell} shellEl={shell.shellEl} userZoom={c.userZoom} compareMode={panes.compareMode} shellWidth={shell.shellWidth} compareColWidth={shell.compareColWidth} rowHeights={c.rowHeights} mountSource={panes.mountSource} mountTranslated={panes.mountTranslated} showSource={panes.showSource} showTranslated={panes.showTranslated} sourceOnly={c.sourceOnly} sourceUrl={sessionFiles.sourceUrl} translatedUrl={sessionFiles.translatedUrl} sourceFile={sessionFiles.sourceFile} translatedFile={sessionFiles.translatedFile} activeRegion={c.activeRegion} readerMetadata={session.readerMetadata} markdownSplit={markdownSplitOpen} assistantSplit={aiSplitOpen} onMetrics={panes.onMetrics} onNumPagesChange={panes.onNumPages} />
+      <ReaderCompareGrid mode={c.mode} bindShell={shell.bindShell} shellEl={shell.shellEl} userZoom={c.userZoom} compareMode={panes.compareMode} shellWidth={shell.shellWidth} compareColWidth={shell.compareColWidth} rowHeights={c.rowHeights} mountSource={panes.mountSource} mountTranslated={panes.mountTranslated} showSource={panes.showSource} showTranslated={panes.showTranslated} sourceOnly={sourceViewOnly} sourceUrl={sessionFiles.sourceUrl} translatedUrl={sessionFiles.translatedUrl} sourceFile={sessionFiles.sourceFile} translatedFile={sessionFiles.translatedFile} activeRegion={c.activeRegion} readerMetadata={session.readerMetadata} markdownSplit={markdownSplitOpen} assistantSplit={aiSplitOpen} onMetrics={panes.onMetrics} onNumPagesChange={panes.onNumPages} />
       {c.showHud ? <ReaderZoomHud userZoom={c.userZoom} onZoomChange={c.onZoomChange} currentPage={c.currentPage} numPages={panes.hudNumPages} mode={c.mode} onGoToPage={c.goToPage} /> : null}
       <Suspense fallback={null}>
         <ReaderNotesPanel open={tools.isOpen("notes")} groups={notes.groups} count={notes.count} onClose={closeTool} onJump={c.jumpToNote} onUpdateNote={notes.updateNote} onRemove={notes.remove} onExport={() => notes.exportMarkdown(c.documentTitle)} />
         <ReaderFavoritesPanel open={tools.isOpen("favorites")} jobId={session.jobId} documentId={session.documentId} onClose={closeTool} onJumpPage={c.goToPage} />
         <ReaderMarkdownPanel open={markdownSplitOpen} jobId={session.jobId} sourceOnly={c.sourceOnly} layout="docked" onClose={closeTool} />
-        <ReaderAiPanel key={session.jobId || "reader-ai-pending"} open={tools.isOpen("ai")} jobId={session.jobId} layout={aiLayout} onClose={closeTool} onJumpCitation={jumpCitation} />
+        <ReaderAiPanel key={session.jobId || "reader-ai-pending"} open={tools.isOpen("ai")} jobId={session.jobId} layout={aiLayout} onClose={closeTool} onJumpCitation={jumpCitation} onDocumentCommitted={refreshCommittedDocument} />
         {aiSplitOpen ? <ReaderAiSplitResizeHandle /> : null}
       </Suspense>
       <ReaderSelectionToolbar selection={c.selection} onAddNote={c.addNoteFromSelection} onDismiss={c.clearSelection} />

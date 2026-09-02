@@ -1,8 +1,9 @@
-pub mod agent_runtime_sessions;
 pub mod agent_capabilities;
+pub mod agent_runtime_sessions;
 pub mod ai_proxy;
 pub mod collections;
 pub mod common;
+pub mod credentials;
 pub mod document_operations;
 pub(crate) mod download_response;
 pub mod fonts;
@@ -15,4 +16,5 @@ pub mod library;
 pub mod library_data;
 pub mod library_extras;
 pub mod providers;
+pub mod public_document_operations;
 pub mod uploads;

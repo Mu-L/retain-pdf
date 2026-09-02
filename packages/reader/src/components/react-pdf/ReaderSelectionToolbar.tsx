@@ -48,7 +48,7 @@ export function ReaderSelectionToolbar({
       role="toolbar"
       aria-label="选区操作"
     >
-      <div className="reader-sel-pop-card">
+      <div className="reader-sel-pop-card reader-floating-surface">
         <div className="reader-sel-pop-quote" title={selection.quote}>
           <span className="reader-sel-pop-mark" aria-hidden="true">“</span>
           <span className="reader-sel-pop-quote-text">{quote}</span>

@@ -16,6 +16,9 @@ pub struct DocumentRecord {
     pub page_count: u32,
     pub bytes: u64,
     pub active_job_id: Option<String>,
+    /// 当前已提交的 Agent 文档版本；为空表示仍使用原始上传。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub active_version_id: Option<String>,
     pub reading_status: String,
     pub added_at: String,
     pub last_opened_at: Option<String>,

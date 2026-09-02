@@ -1,5 +1,5 @@
-// 详情右栏 Tab 切换壳：图标 + 短文案；选中黑底白字。
-// 样式见 library-shell.css（.book-detail-right-tab.is-active）。
+// 详情右栏 Tab 切换壳：简介 / 处理 / 文件。
+// 壳与导航样式见 book-detail-shell.css（.book-detail-right-tab.is-active）。
 
 import { useEffect, useState } from "react";
 import { Tabs as TabsPrimitive } from "radix-ui";
@@ -13,7 +13,7 @@ function IconBook(props) {
     </svg>
   );
 }
-function IconTranslate(props) {
+function IconProcessing(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" width="13" height="13" aria-hidden="true" {...props}>
       <path d="m5 8 6 6" strokeLinecap="round" />
@@ -25,21 +25,19 @@ function IconTranslate(props) {
     </svg>
   );
 }
-function IconMore(props) {
+function IconFile(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" width="13" height="13" aria-hidden="true" {...props}>
-      <circle cx="12" cy="12" r="1" fill="currentColor" />
-      <circle cx="19" cy="12" r="1" fill="currentColor" />
-      <circle cx="5" cy="12" r="1" fill="currentColor" />
+      <path d="M6 2h8l4 4v16H6z" strokeLinejoin="round" />
+      <path d="M14 2v5h5M9 12h6M9 16h6" strokeLinecap="round" />
     </svg>
   );
 }
-
 // shortLabel 用于按钮显示，避免挤占关闭钮；title 完整名称给悬停/无障碍
 export const BOOK_DETAIL_TABS = Object.freeze([
-  { id: "overview", label: "简介", title: "书籍简介", Icon: IconBook },
-  { id: "translate", label: "翻译", title: "翻译", Icon: IconTranslate },
-  { id: "more", label: "更多", title: "其他操作", Icon: IconMore },
+  { id: "overview", label: "概览", title: "文档概览", Icon: IconBook },
+  { id: "processing", label: "处理", title: "文档处理", Icon: IconProcessing },
+  { id: "artifacts", label: "文件", title: "文件与产物", Icon: IconFile },
 ]);
 
 /**
@@ -47,9 +45,9 @@ export const BOOK_DETAIL_TABS = Object.freeze([
  * @param {boolean} props.open
  * @param {string} [props.resetKey]
  * @param {string} [props.defaultTab]
- * @param {import("react").ReactNode | ((ctx: { activeTab: string }) => import("react").ReactNode)} props.overviewTab
- * @param {import("react").ReactNode | ((ctx: { activeTab: string }) => import("react").ReactNode)} props.translateTab
- * @param {import("react").ReactNode | ((ctx: { activeTab: string }) => import("react").ReactNode)} props.moreTab
+ * @param {import("react").ReactNode | ((ctx: { activeTab: string, selectTab: (tab: string) => void }) => import("react").ReactNode)} props.overviewTab
+ * @param {import("react").ReactNode | ((ctx: { activeTab: string, selectTab: (tab: string) => void }) => import("react").ReactNode)} props.processingTab
+ * @param {import("react").ReactNode | ((ctx: { activeTab: string, selectTab: (tab: string) => void }) => import("react").ReactNode)} props.artifactsTab
  * @param {(tab: string) => void} [props.onTabChange]
  */
 export function BookDetailRightTabs({
@@ -57,8 +55,8 @@ export function BookDetailRightTabs({
   resetKey = "",
   defaultTab = "overview",
   overviewTab,
-  translateTab,
-  moreTab,
+  processingTab,
+  artifactsTab,
   onTabChange,
 }: any) {
   const [activeTab, setActiveTab] = useState(defaultTab || "overview");
@@ -67,26 +65,26 @@ export function BookDetailRightTabs({
     if (open) {
       setActiveTab(defaultTab || "overview");
     }
-  }, [open, resetKey, defaultTab]);
+  }, [open, resetKey]);
 
   function handleTabChange(next) {
     setActiveTab(next);
     onTabChange?.(next);
   }
 
-  const tabCtx = { activeTab };
+  const tabCtx = { activeTab, selectTab: handleTabChange };
   const overviewNode = typeof overviewTab === "function" ? overviewTab(tabCtx) : overviewTab;
-  const translateNode = typeof translateTab === "function" ? translateTab(tabCtx) : translateTab;
-  const moreNode = typeof moreTab === "function" ? moreTab(tabCtx) : moreTab;
+  const processingNode = typeof processingTab === "function" ? processingTab(tabCtx) : processingTab;
+  const artifactsNode = typeof artifactsTab === "function" ? artifactsTab(tabCtx) : artifactsTab;
 
   return (
     <TabsPrimitive.Root
-      className="book-detail-right-tabs flex min-h-0 flex-col gap-4"
+      className="book-detail-right-tabs"
       value={activeTab}
       onValueChange={handleTabChange}
     >
       <TabsPrimitive.List
-        className="book-detail-right-tabs-list flex items-center gap-1.5 rounded-full bg-muted/60 p-1"
+        className="book-detail-right-tabs-list"
         aria-label="书籍详情分区"
       >
         {BOOK_DETAIL_TABS.map((tab) => {
@@ -99,12 +97,7 @@ export function BookDetailRightTabs({
               id={`book-detail-tab-${tab.id}`}
               title={tab.title}
               aria-label={tab.title}
-              className={cn(
-                "book-detail-right-tab inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-foreground text-background shadow-sm"
-                  : "text-muted-foreground hover:bg-paper hover:text-foreground",
-              )}
+              className={cn("book-detail-right-tab", isActive && "is-active")}
               data-active={isActive ? "true" : "false"}
             >
               <Icon className="book-detail-right-tab-icon h-3.5 w-3.5" />
@@ -114,7 +107,7 @@ export function BookDetailRightTabs({
         })}
       </TabsPrimitive.List>
 
-      {/* forceMount：面板始终在 DOM（用 CSS 隐藏），便于测试定位 + 保留表单状态 */}
+      {/* forceMount 保留表单状态；副作用组件必须同时检查 activeTab。 */}
       <TabsPrimitive.Content
         value="overview"
         forceMount
@@ -125,22 +118,23 @@ export function BookDetailRightTabs({
       </TabsPrimitive.Content>
 
       <TabsPrimitive.Content
-        value="translate"
+        value="processing"
         forceMount
-        id="book-detail-panel-translate"
+        id="book-detail-panel-processing"
         className="book-detail-right-panel outline-none data-[state=inactive]:hidden"
       >
-        {translateNode}
+        {processingNode}
       </TabsPrimitive.Content>
 
       <TabsPrimitive.Content
-        value="more"
+        value="artifacts"
         forceMount
-        id="book-detail-panel-more"
+        id="book-detail-panel-artifacts"
         className="book-detail-right-panel outline-none data-[state=inactive]:hidden"
       >
-        {moreNode}
+        {artifactsNode}
       </TabsPrimitive.Content>
+
     </TabsPrimitive.Root>
   );
 }

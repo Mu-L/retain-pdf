@@ -2,7 +2,7 @@
 //!
 //! rust_api 作为 ai_service 的唯一 supervisor：
 //! - 拉起子进程并注入互通所需 env（钥匙单源：直接下发 rust 的 key 集合）
-//! - 轮询 /healthz 等就绪；就绪后周期探活
+//! - 轮询 /readyz 等就绪；就绪后周期探活
 //! - 子进程退出 / 连续探活失败 → 指数退避重启（有上限，探活成功即复位）
 //! - rust 优雅退出时回收整棵进程树（复用 job_runner 的 terminate 工具）
 //!
@@ -169,7 +169,7 @@ async fn run_once(
             break;
         }
         if tokio::time::Instant::now() >= deadline {
-            tracing::warn!("ai_supervisor: healthz not ready within startup timeout");
+            tracing::warn!("ai_supervisor: readyz not ready within startup timeout");
             set_status(AI_STATUS_UNHEALTHY);
             terminate_child(&mut child, grace, poll).await;
             return RunOutcome::Restart;

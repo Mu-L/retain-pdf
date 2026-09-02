@@ -42,6 +42,7 @@ _EXPORTS = {
     "load_translation_manifest": ("retainpdf_pipeline.services.translation.core.payload", "load_translation_manifest"),
     "load_translation_manifest_file": ("retainpdf_pipeline.services.translation.core.payload", "load_translation_manifest_file"),
     "load_translations": ("retainpdf_pipeline.services.translation.core.payload", "load_translations"),
+    "migrate_translations": ("retainpdf_pipeline.services.translation.core.payload", "migrate_translations"),
     "ensure_translation_template": ("retainpdf_pipeline.services.translation.core.payload", "ensure_translation_template"),
     "PROTECTED_TOKEN_RE": ("retainpdf_pipeline.services.translation.core.payload", "PROTECTED_TOKEN_RE"),
     "protect_inline_formulas": ("retainpdf_pipeline.services.translation.core.payload", "protect_inline_formulas"),

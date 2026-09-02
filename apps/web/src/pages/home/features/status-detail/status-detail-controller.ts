@@ -24,6 +24,8 @@ import type { StatusDetailStore, StatusDetailTranslation } from "./status-detail
 import type { StatusDetailDialogStore } from "./status-detail-dialog-store.js";
 import {
   buildStatusDetailSnapshot,
+  buildFailureRecoveryModel,
+  createFailureRecoveryController,
   resolveJobActions,
   createStatusDetailOverviewCoordinator,
   rerunCurrentJob as rerunCurrentJobAction,
@@ -38,6 +40,16 @@ import type {
   JobPayload,
   EventsPayload,
 } from "../../composition/external.js";
+import type {
+  OcrAmbiguityResolutionKind,
+  OcrAmbiguityResolutionRequest,
+} from "../../composition/external/api.js";
+import {
+  resolveOcrAmbiguityRecovery,
+  readOcrAmbiguityView,
+  requiresOcrAmbiguityResolution,
+} from "./ocr-ambiguity-recovery.js";
+import type { OcrReceiptValues } from "./ocr-ambiguity-recovery.js";
 
 export type JobActionResolver = typeof resolveJobActions;
 
@@ -66,6 +78,7 @@ export interface StatusDetailControllerDeps {
   ) => Promise<unknown>;
   fetchJobDiagnostics?: (jobId: string, apiPrefix?: string) => Promise<unknown>;
   fetchResumePlan?: (jobId: string, apiPrefix?: string) => Promise<unknown>;
+  fetchJobStageActions?: (jobId: string, apiPrefix?: string) => Promise<unknown>;
   fetchTranslationDiagnostics: (jobId: string, apiPrefix?: string) => Promise<unknown>;
   fetchTranslationItems: (
     jobId: string,
@@ -74,7 +87,19 @@ export interface StatusDetailControllerDeps {
   ) => Promise<unknown>;
   fetchTranslationItem: (jobId: string, itemId: string, apiPrefix?: string) => Promise<unknown>;
   replayTranslationItem: (jobId: string, itemId: string, apiPrefix?: string) => Promise<unknown>;
+  resolveOcrAmbiguity: (
+    jobId: string,
+    apiPrefix: string | undefined,
+    request: OcrAmbiguityResolutionRequest,
+  ) => Promise<unknown>;
   rerunJob: (actionUrl: string) => Promise<unknown>;
+  retryJobStage?: (
+    jobId: string,
+    apiPrefix: string | undefined,
+    stage: string,
+    payload?: Record<string, unknown>,
+  ) => Promise<unknown>;
+  copyText?: (value: string) => Promise<unknown>;
   renderJob?: (context?: StatusDetailOverviewRenderContext | null) => void;
   startPolling?: (jobId: string) => void;
   setText?: (id: string, message: string) => void;
@@ -90,11 +115,15 @@ export function createStatusDetailController({
   fetchJobEvents,
   fetchJobDiagnostics,
   fetchResumePlan,
+  fetchJobStageActions,
   fetchTranslationDiagnostics,
   fetchTranslationItems,
   fetchTranslationItem,
   replayTranslationItem,
+  resolveOcrAmbiguity,
   rerunJob,
+  retryJobStage,
+  copyText,
   renderJob,
   startPolling,
   setText,
@@ -136,6 +165,39 @@ export function createStatusDetailController({
     });
   }
 
+  async function resolveOcrAmbiguityAndRecover(
+    resolution: OcrAmbiguityResolutionKind,
+    values: OcrReceiptValues = {},
+  ) {
+    return resolveOcrAmbiguityRecovery({
+      job: runtimePort.currentJobSnapshot(),
+      descriptor: store.getSnapshot().overview.ocrAmbiguity.descriptor,
+      resolution,
+      values,
+      apiPrefix,
+      resolveOcrAmbiguity,
+      refreshDiagnostics: () => ensureOverviewData({ force: true }),
+      startPolling,
+      closeDialog: () => dialogStore.close(),
+      setPending: (pending) => store.actions.setOcrAmbiguityPending(pending),
+      setStatus: (status) => store.actions.setOverview({
+        ocrAmbiguity: {
+          ...store.getSnapshot().overview.ocrAmbiguity,
+          status,
+        },
+      }),
+      setGlobalError: (message) => setText?.("error-box", message),
+    });
+  }
+
+  function acceptOcrDuplicateRiskAndRecover() {
+    return resolveOcrAmbiguityAndRecover("accept_duplicate_risk");
+  }
+
+  function bindExistingOcrReceiptAndRecover(values: OcrReceiptValues) {
+    return resolveOcrAmbiguityAndRecover("bind_existing_receipt", values);
+  }
+
   // ---- overview(overview-coordinator.js 保留;renderOverviewSnapshot 落到
   //      store,job/eventsPayload 存原始值——蓝图 §1 判决表:history.js/
   //      events.js 的 markup 拼接部分不用,StageHistoryList/EventsList 从这
@@ -147,14 +209,35 @@ export function createStatusDetailController({
       return;
     }
     const finishedAtFallback = runtimePort.currentJobFinishedAt();
+    const descriptor = readOcrAmbiguityView(job);
+    const jobRecord = job as Record<string, unknown>;
+    const jobId = `${jobRecord.job_id || context?.jobId || ""}`.trim();
+    const previousAmbiguity = store.getSnapshot().overview.ocrAmbiguity;
+    const sameResolution = previousAmbiguity.jobId === jobId
+      && previousAmbiguity.descriptor?.resolution_revision === descriptor?.resolution_revision;
     const snapshot = buildStatusDetailSnapshot(job, eventsPayload, {
       durationOptions: { finishedAtFallback },
+    });
+    const jobWithDiagnostics = job as Record<string, unknown>;
+    const failureRecovery = buildFailureRecoveryModel({
+      job,
+      diagnostics: jobWithDiagnostics.diagnostics,
+      stageActions: context?.stageActions,
+      resumePlan: runtimePort.currentResumePlan(),
+      eventsPayload,
     });
     store.actions.setOverview({
       headline: snapshot.headline,
       runtime: snapshot.runtime,
       failure: snapshot.failure,
       rerun: snapshot.rerun,
+      ocrAmbiguity: {
+        required: requiresOcrAmbiguityResolution(job),
+        status: sameResolution ? previousAmbiguity.status : "",
+        jobId,
+        descriptor,
+      },
+      failureRecovery,
       job: job as Record<string, unknown>,
       eventsPayload: eventsPayload as { items?: unknown[]; [key: string]: unknown } | null,
       finishedAtFallback,
@@ -169,6 +252,7 @@ export function createStatusDetailController({
     fetchJobEvents,
     fetchJobDiagnostics,
     fetchResumePlan,
+    fetchJobStageActions,
     renderJob,
     renderOverviewSnapshot,
     setErrorText: (message: string) => setText?.("error-box", message),
@@ -176,6 +260,29 @@ export function createStatusDetailController({
 
   async function ensureOverviewData({ force = false }: { force?: boolean } = {}) {
     await overviewTab.ensureLoaded({ force });
+  }
+
+  const failureRecoveryActions = createFailureRecoveryController({
+    retryStage: retryJobStage
+      ? (jobId, stage, payload) => retryJobStage(jobId, apiPrefix, stage, payload)
+      : undefined,
+    copyTrace: copyText,
+  });
+
+  async function retryOcrNow() {
+    const jobId = getCurrentJobId();
+    const model = store.getSnapshot().overview.failureRecovery;
+    const payload = await failureRecoveryActions.retryOcrNow(jobId, model) as Record<string, unknown>;
+    const nextJobId = `${payload?.job_id || payload?.id || ""}`.trim();
+    if (!nextJobId) throw new Error("OCR 重试已提交，但响应中没有 job_id。");
+    dialogStore.close();
+    setText?.("error-box", `已创建 OCR 恢复任务 ${nextJobId}，开始轮询。`);
+    startPolling?.(nextJobId);
+    return payload;
+  }
+
+  async function copyFailureTraceId() {
+    return failureRecoveryActions.copyTraceId(store.getSnapshot().overview.failureRecovery);
   }
 
   // ---- translation(translation-data-port.js + translation-tab-coordinator.js
@@ -282,6 +389,10 @@ export function createStatusDetailController({
     selectTranslationItem,
     replayCurrentItem,
     rerunCurrentJob,
+    acceptOcrDuplicateRiskAndRecover,
+    bindExistingOcrReceiptAndRecover,
+    retryOcrNow,
+    copyFailureTraceId,
     syncRerunAction,
   };
 }

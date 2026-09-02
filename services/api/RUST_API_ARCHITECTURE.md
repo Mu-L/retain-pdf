@@ -82,6 +82,24 @@ app -> routes -> application services -> internal services -> job_runner / ocr_p
   - `build_glossary_route_deps` / `build_upload_route_deps` / `build_health_route_deps`
 - `routes/download_response.rs` / `routes/download_response/**`
   负责文件下载、markdown、preview、cover、thumbnail 的 response boundary
+- `services/provider_api.rs`
+  负责 provider 凭据探测的 application facade；route 只接触窄化后的
+  `ProviderApiDeps` 和公开 DTO，不直接依赖 provider client / probe 实现
+- `services/provider_probe.rs` / `services/provider_probe/*`
+  是 crate 内部实现边界，按 `types / url_policy / ocr / deepseek` 分离；
+  新 provider 不应把 URL 策略、HTTP 分类和公开 DTO 重新堆回单文件
+- `services/font_api.rs` / `services/fonts.rs`
+  分别负责字体 application facade 与内部扫描/持久化；`routes/fonts.rs`
+  只保留有界 multipart 消费和 HTTP envelope，不执行 fontconfig 或文件业务
+- `services/ai_proxy_api.rs` / `services/ai_proxy.rs`
+  分别负责 AI 代理的 HTTP application facade 与内部 sidecar gateway；
+  `routes/ai_proxy.rs` 不读取环境变量、不管理 HTTP client、也不查询 supervisor
+- `services/agent_runtime_session_api.rs`
+  是 Agent session cursor 的 application facade；它拥有独立窄依赖，不能再
+  借用 document-operation route deps 或让 route 直接持有数据库引用
+- `services/health_api.rs`
+  负责 liveness/readiness 投影和 supervisor 状态聚合；公共 health route
+  只做 HTTP 状态码映射，不直接读取数据库或 supervisor 全局状态
 - `routes/jobs/json_response/**`
   负责 jobs JSON 查询 / 调试 / 控制 / retry 的 response boundary
 - `app/jobs.rs::build_process_runtime_deps(...)`
@@ -194,7 +212,14 @@ app -> routes -> application services -> internal services -> job_runner / ocr_p
 
 - `AppState` 不允许回流到 `services/job_runner/ocr_provider` 主链
 - `routes` 不允许直接依赖 `job_runner`
+- `routes` 不允许用 `crate::services::*` 全限定调用绕过 application facade allowlist
 - `routes/jobs/*` 不允许重复定义局部 `route_deps(...)`
+- 业务 route 不允许直接使用 Axum `Json` / `Query` / `Path` / `Multipart`
+  输入 extractor；必须通过 `routes/common/extractors.rs` 的安全包装，
+  确保 handler 前的 rejection 也返回统一 JSON 错误契约
+- Multipart 文件和文本字段必须通过 `routes/common/extractors.rs` 的有界
+  流式读取 helper 消费；禁止直接调用 `field.bytes()` / `field.text()`，避免
+  在业务大小校验前先把整个字段分配到内存
 - artifact / download 边界层不允许开始理解 provider raw 内部字段
 - published markdown artifact 不允许重新从 `provider_raw_dir/full.md` 或 `provider_raw_dir/images` 反推
 
@@ -345,6 +370,7 @@ Rust 侧关键落点：
 - jobs → [src/services/jobs/facade.rs](src/services/jobs/facade.rs)
 - library → [src/services/library_api.rs](src/services/library_api.rs)
 - glossaries → [src/services/glossary_api.rs](src/services/glossary_api.rs)
+  → `services/glossaries/{records,entries,csv}.rs`
 - uploads → [src/services/upload_api.rs](src/services/upload_api.rs)
 
 也就是：
@@ -353,7 +379,8 @@ Rust 侧关键落点：
 - `routes/library.rs` / `library_data.rs` / `library_extras.rs` / `collections.rs`
   只调 `services/library_api.rs`（经 `build_library_route_deps`）
 - `routes/common.rs`
-  只保留 route 侧公共 deps builder、base URL 和统一 HTTP envelope helper
+  作为稳定导出入口；`routes/common/**` 按领域保留 deps builder、
+  base URL、统一 HTTP envelope 和安全输入 extractor
 - `routes/download_response/**`
   只保留文件响应出口
 - `routes/jobs/json_response/**`
@@ -396,6 +423,10 @@ Rust 侧关键落点：
 - [src/services/library_api.rs](src/services/library_api.rs)
 - [src/services/glossary_api.rs](src/services/glossary_api.rs)
 - [src/services/upload_api.rs](src/services/upload_api.rs)
+
+词汇表应用入口使用 `GlossaryApiDeps` 隐藏 `Db`，HTTP route 只能持有该窄依赖；
+内部实现按职责拆为 `records.rs`（持久化 CRUD）、`entries.rs`（任务合并与规范化）
+和 `csv.rs`（导入解析），避免路由、存储与文本解析再次聚回单文件。
 
 规则：
 

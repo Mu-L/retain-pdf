@@ -61,6 +61,11 @@ pub struct JobArtifacts {
     pub render_config_json: Option<String>,
     pub events_jsonl: Option<String>,
     pub pages_processed: Option<i64>,
+    /// One-based source-document pages represented by this OCR checkpoint.
+    /// Kept separately because providers receive a subset PDF and therefore
+    /// may legitimately see a cleared `ocr.page_ranges` value.
+    #[serde(default)]
+    pub ocr_page_numbers: Vec<u32>,
     pub translated_items: Option<i64>,
     pub translate_render_time_seconds: Option<f64>,
     pub save_time_seconds: Option<f64>,
@@ -108,6 +113,7 @@ impl JobArtifacts {
         self.normalized_document_json = checkpoint.normalized_document_json.map(str::to_string);
         self.normalization_report_json = checkpoint.normalization_report_json.map(str::to_string);
         self.schema_version = checkpoint.schema_version.map(str::to_string);
+        self.ocr_page_numbers = source.ocr_page_numbers.clone();
     }
 
     pub fn copy_ocr_checkpoint_from(&mut self, source_job_id: &str, source: &JobArtifacts) {
@@ -116,7 +122,12 @@ impl JobArtifacts {
             .ocr_job_id
             .clone()
             .or_else(|| Some(source_job_id.to_string()));
-        self.ocr_status = source.ocr_status.clone();
+        // OCR child artifacts do not carry a nested `ocr_status`.  Keep the
+        // status already mirrored from the child job instead of erasing it
+        // while copying the child's artifact paths into the parent.
+        if source.ocr_status.is_some() {
+            self.ocr_status = source.ocr_status.clone();
+        }
         self.ocr_trace_id = source.ocr_trace_id.clone().or(source.trace_id.clone());
         self.ocr_provider_trace_id = source
             .ocr_provider_trace_id
@@ -133,6 +144,7 @@ impl JobArtifacts {
         self.provider_zip = checkpoint.provider_zip.map(str::to_string);
         self.provider_summary_json = checkpoint.provider_summary_json.map(str::to_string);
         self.schema_version = checkpoint.schema_version.map(str::to_string);
+        self.ocr_page_numbers = source.ocr_page_numbers.clone();
         self.trace_id = self.trace_id.clone().or(source.trace_id.clone());
         self.provider_trace_id = source.provider_trace_id.clone();
         self.ocr_provider_diagnostics = source.ocr_provider_diagnostics.clone();
@@ -163,6 +175,7 @@ mod tests {
     #[test]
     fn copy_ocr_checkpoint_preserves_parent_trace_and_copies_ocr_outputs() {
         let mut target = JobArtifacts {
+            ocr_status: Some(JobStatusKind::Succeeded),
             trace_id: Some("parent-trace".to_string()),
             ..JobArtifacts::default()
         };
@@ -184,6 +197,7 @@ mod tests {
             Some("provider-trace")
         );
         assert_eq!(target.trace_id.as_deref(), Some("parent-trace"));
+        assert_eq!(target.ocr_status, Some(JobStatusKind::Succeeded));
         assert_eq!(target.source_pdf.as_deref(), Some("/tmp/source.pdf"));
         assert_eq!(
             target.normalized_document_json.as_deref(),

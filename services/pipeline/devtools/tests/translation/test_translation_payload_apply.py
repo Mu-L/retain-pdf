@@ -9,6 +9,7 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 from retainpdf_pipeline.services.translation.core.payload.parts.apply import apply_translated_text_map
 from retainpdf_pipeline.services.translation.core.payload.translations import load_translations
+from retainpdf_pipeline.services.translation.core.payload.translations import migrate_translations
 from retainpdf_pipeline.services.translation.services.results.page_io import save_pages
 
 
@@ -375,7 +376,7 @@ def test_apply_translated_text_map_applies_single_result_without_collapsing_pres
     assert payload[0]["translated_text"] == "修复后的单成员文本"
 
 
-def test_load_translations_sanitizes_persisted_json_shell(tmp_path) -> None:
+def test_load_translations_is_byte_preserving_for_legacy_payload(tmp_path) -> None:
     path = tmp_path / "page-030-deepseek.json"
     path.write_text(
         """
@@ -390,7 +391,29 @@ def test_load_translations_sanitizes_persisted_json_shell(tmp_path) -> None:
         encoding="utf-8",
     )
 
+    original = path.read_bytes()
     payload = load_translations(path, strict_contract=False)
+
+    assert payload[0]["translated_text"].startswith('{"translations"')
+    assert path.read_bytes() == original
+
+
+def test_migrate_translations_sanitizes_persisted_json_shell(tmp_path) -> None:
+    path = tmp_path / "page-030-deepseek.json"
+    path.write_text(
+        """
+        [
+          {
+            "item_id": "p030-b010",
+            "translated_text": "{\\"translations\\":[{\\"item_id\\":\\"p030-b010\\",\\"translated_text\\":\\"(1) 计算效率、成本与精度。\\"}]}",
+            "protected_translated_text": "{\\"translated_text\\":\\"(1) 计算效率、成本与精度。\\"}"
+          }
+        ]
+        """,
+        encoding="utf-8",
+    )
+
+    payload = migrate_translations(path, strict_contract=False)
 
     assert payload[0]["translated_text"] == "(1) 计算效率、成本与精度。"
     assert payload[0]["protected_translated_text"] == "(1) 计算效率、成本与精度。"

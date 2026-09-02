@@ -10,6 +10,7 @@ use tokio::sync::RwLock;
 
 use crate::db::{PipelineAttemptCursor, PipelineStageObservation, PipelineUnitCommit};
 use crate::job_events::persist_runtime_job_with_resources;
+use crate::models::api::{redact_text, sensitive_values};
 use crate::models::domain::{job_user_stage, now_iso, JobRuntimeState};
 
 use crate::job_runner::JobPersistDeps;
@@ -22,14 +23,14 @@ use super::super::stdout_parser::{
     PipelineStageObservationLine, PublishedArtifactLine,
 };
 
-pub(super) async fn read_stream<R>(reader: R) -> Result<String>
+pub(super) async fn read_stream<R>(reader: R, secrets: Vec<String>) -> Result<String>
 where
     R: tokio::io::AsyncRead + Unpin,
 {
     let mut lines = BufReader::new(reader).lines();
     let mut out = String::new();
     while let Some(line) = lines.next_line().await? {
-        out.push_str(&line);
+        out.push_str(&redact_text(&line, &secrets));
         out.push('\n');
     }
     Ok(out)
@@ -40,9 +41,12 @@ pub(super) async fn read_stdout(
     canceled_jobs: Arc<RwLock<HashSet<String>>>,
     mut job: JobRuntimeState,
     stdout: tokio::process::ChildStdout,
+    runtime_secrets: Vec<String>,
     extra_cancel_job_ids: Vec<String>,
 ) -> Result<(String, JobRuntimeState)> {
     let mut out = String::new();
+    let mut secrets = sensitive_values(&job.request_payload);
+    secrets.extend(runtime_secrets);
     let mut lines = BufReader::new(stdout).lines();
     let stage_key = durable_stage_key(job.stage.as_deref());
     let worker_id = format!(
@@ -58,7 +62,8 @@ pub(super) async fn read_stdout(
         stage_key,
         durable_stage_order(stage_key),
     )?;
-    while let Some(line) = lines.next_line().await? {
+    while let Some(raw_line) = lines.next_line().await? {
+        let line = redact_text(&raw_line, &secrets);
         if is_cancel_requested_any(&canceled_jobs, &job.job_id, &extra_cancel_job_ids).await
             && !should_continue_after_cancel(&job)
         {

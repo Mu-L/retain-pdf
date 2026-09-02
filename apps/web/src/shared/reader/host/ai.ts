@@ -3,7 +3,6 @@ import { resolveResourceUrl } from "@retainpdf/domain/job";
 import * as readerAi from "@retainpdf/reader/runtime/ai";
 import { askLibraryAi } from "../../../js/api/ai.js";
 import { fetchDocumentByJobId } from "../../../js/api/documents.js";
-import { fetchProtected } from "../../../js/api/http.js";
 import { API_PREFIX } from "../../../js/config/api-constants.js";
 import {
   defaultModelBaseUrl,
@@ -14,6 +13,7 @@ import {
   loadDeveloperStoredConfig,
 } from "../../../js/config/persisted-config.js";
 import { defaultCredentialsStatePort } from "../../../js/features/credentials/default-state-port.js";
+import { fetchProtected } from "./data.js";
 
 readerAi.setReaderAiConfigAdapters({
   credentialsPort: defaultCredentialsStatePort as any,

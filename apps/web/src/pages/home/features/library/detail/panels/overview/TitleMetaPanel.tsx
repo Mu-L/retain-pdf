@@ -1,6 +1,7 @@
 // 右栏：标题 / 作者 / 标签 + 编辑表单。
 
 import { btn } from "../ui.jsx";
+import { Check, Pencil, X } from "lucide-react";
 
 /**
  * @param {object} props
@@ -59,7 +60,7 @@ export function TitleMetaPanel({
             </div>
             <div className="flex justify-end gap-2">
               <button className={btn("outline")} disabled={busy === "meta"} onClick={onCancelEdit}>
-                取消
+                <X className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />取消
               </button>
               <button
                 id="book-detail-save-btn"
@@ -67,6 +68,7 @@ export function TitleMetaPanel({
                 disabled={busy === "meta"}
                 onClick={onSave}
               >
+                <Check className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                 {busy === "meta" ? "保存中…" : "保存"}
               </button>
             </div>
@@ -102,7 +104,7 @@ export function TitleMetaPanel({
           onClick={onStartEdit}
           className="shrink-0 rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         >
-          编辑
+          <Pencil className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />编辑
         </button>
       ) : null}
     </div>

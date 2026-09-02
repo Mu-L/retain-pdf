@@ -22,7 +22,7 @@ pub(super) use tx::validate_identity;
 mod types;
 
 pub use types::{
-    PipelineAttemptCursor, PipelineCheckpoint, PipelineDispatchBegin, PipelineDispatchIntent,
-    PipelineDispatchRecord, PipelineStageObservation, PipelineStageState, PipelineUnitCommit,
-    PipelineUnitRecord,
+    PipelineAttemptCursor, PipelineCheckpoint, PipelineCommitEventRecord, PipelineDispatchBegin,
+    PipelineDispatchIntent, PipelineDispatchRecord, PipelineStageObservation, PipelineStageState,
+    PipelineUnitCommit, PipelineUnitRecord,
 };

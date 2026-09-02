@@ -8,6 +8,9 @@ import {
   type ReaderChatMessage,
   type ReaderChatMetadata,
 } from "./retainpdf-chat-transport.js";
+import type { AgentConfirmationMode } from "@retainpdf/api/agent-runtime-settings";
+import type { ReaderAgentOperationSignal } from "./use-reader-agent-operations.js";
+import type { ReaderAssistantMode } from "../../../shared/ai/ask-answerer.js";
 
 type ReaderAnswerer = ConstructorParameters<typeof RetainPdfChatTransport>[0] extends {
   getRemoteAnswerer: () => infer ANSWERER;
@@ -61,11 +64,20 @@ export function useReaderChat(options: {
   jobId: string;
   remoteAnswerer: ReaderAnswerer;
   localAnswerer: ReaderAnswerer;
+  assistantMode: ReaderAssistantMode;
+  onAgentOperationSignal?: (signal: Omit<ReaderAgentOperationSignal, "nonce">) => void;
+  onConfirmationMode?: (mode: AgentConfirmationMode) => void;
 }) {
   const remoteRef = useRef(options.remoteAnswerer);
   const localRef = useRef(options.localAnswerer);
+  const operationSignalRef = useRef(options.onAgentOperationSignal);
+  const confirmationModeRef = useRef(options.onConfirmationMode);
+  const assistantModeRef = useRef(options.assistantMode);
   remoteRef.current = options.remoteAnswerer;
   localRef.current = options.localAnswerer;
+  operationSignalRef.current = options.onAgentOperationSignal;
+  confirmationModeRef.current = options.onConfirmationMode;
+  assistantModeRef.current = options.assistantMode;
 
   const chat = useMemo(() => new Chat<ReaderChatMessage>({
     id: `reader-${options.jobId || "idle"}`,
@@ -73,6 +85,9 @@ export function useReaderChat(options: {
       jobId: options.jobId,
       getRemoteAnswerer: () => remoteRef.current,
       getLocalAnswerer: () => localRef.current,
+      getAssistantMode: () => assistantModeRef.current,
+      onAgentOperationSignal: (signal) => operationSignalRef.current?.(signal),
+      onConfirmationMode: (mode) => confirmationModeRef.current?.(mode),
     }),
   }), [options.jobId]);
 

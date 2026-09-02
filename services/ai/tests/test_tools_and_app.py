@@ -5,9 +5,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from fastapi.testclient import TestClient
-
 from retainpdf_ai.agent import AskResult, Citation, RetrievalAgent
-from retainpdf_ai.app import build_app
+from retainpdf_ai.app import _confirmation_requests, build_app
 from retainpdf_ai.blocks import read_page_blocks
 from retainpdf_ai.config import Settings
 from retainpdf_ai.tools import _markdown_asset_url, build_default_registry
@@ -462,11 +461,72 @@ def test_ask_endpoint_streams_sse_events():
         for line in response.iter_lines():
             if line.startswith("data: "):
                 events.append(json.loads(line[len("data: "):]))
-    assert events[0]["type"] == "tool"
-    assert events[0]["tool"] == "search_fulltext"
+    assert events[0]["type"] == "agent_session"
+    assert events[0]["agent_runtime"] == "python-retrieval-v1"
+    assert events[0]["capabilities"] == {
+        "document_operations": False,
+        "document_operation_confirmation_mode": "explicit",
+    }
+    assert events[1]["type"] == "tool"
+    assert events[1]["tool"] == "search_fulltext"
     assert events[-1]["type"] == "done"
     assert events[-1]["answer"].startswith("回答:")
     assert events[-1]["citations"][0]["block_id"] == "p003-b0001"
+
+
+def test_ask_routes_reading_and_operations_without_changing_global_runtime():
+    observed: list[str] = []
+
+    class FakeOperationRuntime:
+        runtime_id = "openai-compatible-agent-v1"
+
+        def ask(
+            self,
+            question,
+            *,
+            conversation_id="",
+            document_id="",
+            job_id="",
+            request_message_id="",
+            confirmed=False,
+            on_event=None,
+            chat_fn=None,
+            history=None,
+        ):
+            del conversation_id, document_id, job_id, request_message_id
+            del confirmed, on_event, chat_fn, history
+            observed.append(question)
+            return AskResult(answer=f"operation:{question}", rounds=1)
+
+    settings = Settings(api_keys=frozenset({"test-key"}), llm_api_key="env-llm-key")
+    client = TestClient(
+        build_app(
+            settings,
+            agent=FakeAgent(),
+            rust=FakeRust(),
+            runtime=FakeOperationRuntime(),
+        )
+    )
+    headers = {"X-API-Key": "test-key"}
+
+    reading = client.post(
+        "/v1/ask",
+        json={"question": "总结本文", "assistant_mode": "reading"},
+        headers=headers,
+    )
+    operations = client.post(
+        "/v1/ask",
+        json={"question": "旋转第一页", "assistant_mode": "operations"},
+        headers=headers,
+    )
+
+    assert reading.status_code == 200
+    assert reading.json()["data"]["answer"].startswith("回答:总结本文")
+    assert reading.json()["data"]["agent_runtime"] == "python-retrieval-v1"
+    assert operations.status_code == 200
+    assert operations.json()["data"]["answer"] == "operation:旋转第一页"
+    assert operations.json()["data"]["agent_runtime"] == "openai-compatible-agent-v1"
+    assert observed == ["旋转第一页"]
 
 
 def test_ask_endpoint_requires_llm_key_from_env_or_request():
@@ -669,7 +729,20 @@ def test_fx_request_message_is_durable_before_runtime_and_not_duplicated():
             observed["request_message_id"] = request_message_id
             observed["document_id"] = document_id
             observed["confirmed"] = confirmed
-            return AskResult(answer=f"fx:{question}", citations=[], tool_trace=[], rounds=1)
+            return AskResult(
+                answer=f"fx:{question}",
+                citations=[],
+                tool_trace=[],
+                rounds=1,
+                operation_refs=[
+                    {
+                        "operation_id": "op-recorded-a",
+                        "status": "draft",
+                        "current_attempt": 1,
+                        "latest_event_seq": 1,
+                    }
+                ],
+            )
 
     settings = Settings(
         api_keys=frozenset({"test-key"}),
@@ -693,6 +766,26 @@ def test_fx_request_message_is_durable_before_runtime_and_not_duplicated():
     assert observed["request_message_id"] == "msg-stable-a"
     assert observed["document_id"] == "doc-a"
     assert observed["confirmed"] is True
+    assert response.json()["data"]["operation_refs"] == [
+        {
+            "operation_id": "op-recorded-a",
+            "status": "draft",
+            "current_attempt": 1,
+            "latest_event_seq": 1,
+        }
+    ]
+    assert response.json()["data"]["confirmation_mode"] == "explicit"
+    assert response.json()["data"]["confirmation_requests"] == [
+        {
+            "schema": "retainpdf_agent_confirmation_v1",
+            "operation_id": "op-recorded-a",
+            "action": "run",
+            "status": "draft",
+            "current_attempt": 1,
+            "latest_event_seq": 1,
+            "requires_risk_acceptance": False,
+        }
+    ]
     assert [message["role"] for message in observed["messages_during_runtime"]] == [
         "user"
     ]
@@ -700,6 +793,48 @@ def test_fx_request_message_is_durable_before_runtime_and_not_duplicated():
     final_messages = rust.get_conversation(conversation_id)["messages"]
     assert [message["role"] for message in final_messages] == ["user", "assistant"]
     assert sum(message["message_id"] == "msg-stable-a" for message in final_messages) == 1
+
+
+def test_confirmation_projection_is_structured_and_green_light_suppresses_it():
+    result = AskResult(
+        answer="",
+        operation_refs=[
+            {
+                "operation_id": "op-a",
+                "status": "result_ready",
+                "current_attempt": 2,
+                "latest_event_seq": 9,
+            },
+            {
+                "operation_id": "op-b",
+                "status": "ambiguous",
+                "current_attempt": 1,
+                "latest_event_seq": 4,
+            },
+        ],
+    )
+
+    assert _confirmation_requests(result, "explicit") == [
+        {
+            "schema": "retainpdf_agent_confirmation_v1",
+            "operation_id": "op-a",
+            "action": "commit",
+            "status": "result_ready",
+            "current_attempt": 2,
+            "latest_event_seq": 9,
+            "requires_risk_acceptance": False,
+        },
+        {
+            "schema": "retainpdf_agent_confirmation_v1",
+            "operation_id": "op-b",
+            "action": "retry",
+            "status": "ambiguous",
+            "current_attempt": 1,
+            "latest_event_seq": 4,
+            "requires_risk_acceptance": True,
+        },
+    ]
+    assert _confirmation_requests(result, "green_light") == []
 
 
 def test_ask_force_compress_emits_compress_event_and_summary():

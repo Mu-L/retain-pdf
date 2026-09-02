@@ -2,7 +2,7 @@
 //!
 //! 默认关闭（`RUST_API_AI_SUPERVISE` 未开时保持现状：开发模式手动跑
 //! ai_service / 桌面端自己拉起）。开启后 rust_api 成为 ai_service 的唯一
-//! supervisor：拉起、healthz 探活、崩溃退避重启、随服务优雅退出回收——
+//! supervisor：拉起、readyz 探活、崩溃退避重启、随服务优雅退出回收——
 //! 桌面端只需拉 rust 一个进程。
 
 use std::path::PathBuf;
@@ -24,7 +24,7 @@ pub struct AiServiceConfig {
     pub bind_host: String,
     /// ai_service 监听端口（RUST_API_AI_PORT，默认 41100，与 ai_proxy 缺省一致）
     pub port: u16,
-    /// healthz 就绪等待上限
+    /// readyz 就绪等待上限
     pub startup_timeout: Duration,
     /// 探活间隔
     pub health_interval: Duration,
@@ -59,7 +59,10 @@ impl AiServiceConfig {
             .map(PathBuf::from)
             .filter(|p| p.is_dir())
             .or_else(|| {
-                let fallback_candidates = [project_root.join("services").join("ai"), project_root.join("backend").join("ai_service")];
+                let fallback_candidates = [
+                    project_root.join("services").join("ai"),
+                    project_root.join("backend").join("ai_service"),
+                ];
                 fallback_candidates.into_iter().find(|p| p.is_dir())
             });
         Self {
@@ -91,7 +94,7 @@ impl AiServiceConfig {
     }
 
     pub fn health_url(&self) -> String {
-        format!("{}/healthz", self.base_url())
+        format!("{}/readyz", self.base_url())
     }
 }
 
@@ -128,6 +131,7 @@ mod tests {
         assert_eq!(config.port, 41100);
         assert_eq!(config.command, "python3");
         assert_eq!(config.args, vec!["-m", "retainpdf_ai"]);
+        assert_eq!(config.health_url(), "http://127.0.0.1:41100/readyz");
         assert!(config.backoff_initial < config.backoff_max);
         assert!(config.health_fail_threshold >= 1);
     }

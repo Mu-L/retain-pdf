@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use lopdf::Document;
+use retain_core::config::effective_upload_max_bytes;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
@@ -54,10 +55,13 @@ pub async fn store_pdf_upload(
         return Err(AppError::bad_request("uploaded file must be a PDF"));
     }
     let byte_count = upload.bytes.len() as u64;
+    if byte_count > effective_upload_max_bytes(upload_max_bytes).get() {
+        return Err(AppError::payload_too_large("request body is too large"));
+    }
+    let safe_filename = sanitize_upload_filename(&upload.filename)?;
     let upload_id = build_job_id();
     let upload_dir = uploads_dir.join(&upload_id);
     tokio::fs::create_dir_all(&upload_dir).await?;
-    let safe_filename = sanitize_upload_filename(&upload.filename)?;
     let upload_path: PathBuf = upload_dir.join(&safe_filename);
     let mut f = tokio::fs::File::create(&upload_path).await?;
     f.write_all(&upload.bytes).await?;
@@ -65,12 +69,6 @@ pub async fn store_pdf_upload(
 
     let page_count = load_pdf_page_count_or_repair(&upload_path, python_bin).await?;
 
-    if upload_max_bytes > 0 && byte_count > upload_max_bytes {
-        return Err(AppError::bad_request(format!(
-            "当前服务限制：PDF 文件大小必须不超过 {:.2}MB",
-            upload_max_bytes as f64 / 1024.0 / 1024.0
-        )));
-    }
     if upload_max_pages > 0 && page_count > upload_max_pages {
         return Err(AppError::bad_request(format!(
             "当前服务限制：PDF 页数必须不超过 {} 页",

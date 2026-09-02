@@ -1,8 +1,8 @@
 // 通用对话框开合状态工厂(蓝图 §0.3)——CredentialsDialog/GlossariesDialog/
-// AppUpdate 详情/SettingsHubDialog 等常驻挂载的原生 <dialog> 共用同一套语义。
+// AppUpdate 详情/SettingsHubDialog 等常驻挂载的 AppDialog 共用同一套语义。
 //
-// 参照 src/pages/reader/legacy/state/drawer-store.js 的模式(open/subscribe 契约),
-// 但对话框不是"多选一互斥"而是"单个开合 + 可选负载"(setupMode、初始 tab 等),
+// 使用轻量 open/subscribe 契约。对话框不是"多选一互斥"，而是
+// "单个开合 + 可选负载"(setupMode、初始 tab 等),
 // 所以状态形状是 { open, payload } 而不是 drawer 的单一 active 字符串。
 //
 // getState() 返回的对象引用只在 open()/close() 调用时才更新(不是每次读取都

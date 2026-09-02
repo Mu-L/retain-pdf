@@ -1,4 +1,4 @@
-import { buildJobImageCandidateUrls } from "../../api/job-images.js";
+import { buildJobImageCandidateUrls } from "@retainpdf/api/job-images";
 import {
   clampRuntimeStageKeyForJob,
   isJobTerminal,

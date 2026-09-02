@@ -1,8 +1,5 @@
-// home 页 React 入口(Phase 3a 骨架期)。
-//
-// 当前 index.html 仍指向旧世界 dist/app.bundle.js;本入口只经临时开发页
-// home-react-dev.html(dist/home-react-dev.bundle.js)加载,供双轨对照。
-// cutover(3b 完成后)时 index.html 换 dist/home.bundle.js 指向此文件。
+// home 页生产 React 入口。
+// index.html 加载 dist/app.bundle.js；该产物由 build-js-bundle.mjs 从本文件构建。
 //
 // 顺序保证(蓝图 §4):composition 先建、事件桥先绑、idle 视图先落 store,
 // 再 createRoot().render —— useSyncExternalStore 首读即拿现值,不闪空壳。
@@ -21,8 +18,7 @@ bootTheme();
 
 // appUpdateAutoCheckEnabled: true——create-home-composition.js 默认关闭 app-update 的后台
 // GitHub 自检(测试隔离,见 create-home-composition.js 头注释),生产入口这里显式打开,
-// 与旧世界 bootstrap/core-app-update-runtime-port.js 的 isAppUpdateEnabled
-// port 行为等价。
+// 生产入口显式启用后台更新检查，测试装配默认保持关闭。
 const services = createHomeComposition({ appUpdateAutoCheckEnabled: true });
 services.initialize();
 

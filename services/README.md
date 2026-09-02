@@ -36,6 +36,21 @@ local environment:
 python3 services/scripts/dev_stack.py --runtime fx
 ```
 
+FX 0.0.5 can redirect Gateway traffic only to a local loopback HTTP bridge.
+Set `RETAIN_AI_FX_GATEWAY_BASE_URL=http://127.0.0.1:<port>` when using one;
+the launcher rejects remote or malformed overrides instead of allowing FX to
+silently fall back to its default Gateway.
+
+The document-capable OpenAI-compatible runtime uses the normal model URL,
+model, and key while sharing the same durable Rust operation broker:
+
+```bash
+RETAIN_AI_LLM_BASE_URL=https://models.example/v1 \
+RETAIN_AI_LLM_MODEL=model-name \
+RETAIN_AI_LLM_API_KEY=... \
+python3 services/scripts/dev_stack.py --runtime openai
+```
+
 Credentials are checked as present or missing but are never printed. Inspect
 the Agent integration or run the offline real-PDF smoke with:
 

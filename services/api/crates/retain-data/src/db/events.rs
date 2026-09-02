@@ -2,11 +2,10 @@ use anyhow::Result;
 use rusqlite::params;
 use serde_json::Value;
 
+use super::rows::row_to_job_event;
+use super::{Db, PipelineCommitEventRecord};
 use crate::models::api::JobEventRecord;
 use crate::models::domain::{event_progress_unit, job_user_stage, now_iso};
-
-use super::rows::row_to_job_event;
-use super::Db;
 
 impl Db {
     pub fn append_event(
@@ -124,5 +123,38 @@ impl Db {
             events.push(row?);
         }
         Ok(events)
+    }
+
+    /// Returns the authoritative event rows created in the same transaction as
+    /// a committed translation unit. Unlike the presentation event list, these
+    /// sequence numbers are never synthesized or reordered.
+    pub fn list_translation_commit_events_after(
+        &self,
+        job_id: &str,
+        after_seq: i64,
+        limit: u32,
+    ) -> Result<Vec<PipelineCommitEventRecord>> {
+        let conn = self.connect()?;
+        let mut stmt = conn.prepare(
+            r#"
+            SELECT seq, payload_json
+            FROM events
+            WHERE job_id = ?1 AND seq > ?2
+              AND event = 'pipeline_unit_committed' AND stage = 'translate'
+            ORDER BY seq ASC
+            LIMIT ?3
+            "#,
+        )?;
+        let rows = stmt.query_map(params![job_id, after_seq.max(0), limit as i64], |row| {
+            let payload_json: Option<String> = row.get(1)?;
+            Ok(PipelineCommitEventRecord {
+                seq: row.get(0)?,
+                payload: payload_json
+                    .and_then(|value| serde_json::from_str(&value).ok())
+                    .unwrap_or(Value::Null),
+            })
+        })?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(Into::into)
     }
 }

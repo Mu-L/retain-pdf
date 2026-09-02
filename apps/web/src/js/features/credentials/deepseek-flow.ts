@@ -1,4 +1,9 @@
-import { TRANSLATION_PROVIDER_DEFINITION } from "../../config/providers.js";
+import {
+  getTranslationProviderDefinition,
+  inferTranslationProvider,
+  isOfficialDeepSeekBaseUrl,
+  TRANSLATION_PROVIDER_DEFINITION,
+} from "../../config/providers.js";
 import {
   runDeepSeekBalanceCheck,
   runDeepSeekConnectivityCheck,
@@ -7,6 +12,14 @@ import {
 import { defaultCredentialsStatePort } from "./default-state-port.js";
 
 const DEEPSEEK_LOW_BALANCE_THRESHOLD = 2;
+
+function translationApiLabel(baseUrl = "") {
+  if (!`${baseUrl || ""}`.trim()) return "DeepSeek";
+  const provider = inferTranslationProvider(baseUrl);
+  return provider === "custom"
+    ? "翻译接口"
+    : getTranslationProviderDefinition(provider).label;
+}
 
 function deepSeekBalanceAmount(result) {
   const infos = Array.isArray(result?.balance_infos) ? result.balance_infos : [];
@@ -33,19 +46,25 @@ export async function handleBrowserDeepSeekValidate({
     modelBaseUrlInput,
   } = viewPort.elements();
   const storedCredentials = credentialsStatePort.getCredentials?.() || {};
-  const modelApiKey = apiKeyInput?.value?.trim() || storedCredentials.modelApiKey || defaultModelApiKey?.() || "";
-  if (apiKeyInput && !apiKeyInput.value && modelApiKey) {
-    apiKeyInput.value = modelApiKey;
-  }
+  const modelApiKey = apiKeyInput?.value?.trim()
+    || `${storedCredentials.modelApiKey || ""}`.trim()
+    || defaultModelApiKey?.()
+    || "";
   const baseUrl = modelBaseUrlInput?.value?.trim() || "";
+  const providerLabel = translationApiLabel(baseUrl);
   credentialsStatePort.resetDeepSeekBalance?.();
   onBalanceChange?.();
   if (!modelApiKey) {
+    if (!silent && storedCredentials.translationCredentialRef) {
+      viewPort.setValidationMessage("请输入 API Key 后再检测");
+    }
     return { ok: false, status: "missing_key" };
   }
   viewPort.setTopUpVisible(false);
   if (!silent) {
-    viewPort.setValidationMessage("正在检测 DeepSeek 和余额…");
+    viewPort.setValidationMessage(
+      providerLabel === "DeepSeek" ? "正在检测 DeepSeek 和余额…" : "正在检测翻译接口…",
+    );
   }
   const result = await runDeepSeekConnectivityCheck({
     apiPrefix,
@@ -56,6 +75,16 @@ export async function handleBrowserDeepSeekValidate({
     showResult: false,
   });
   if (result.ok) {
+    if (!isOfficialDeepSeekBaseUrl(baseUrl)) {
+      viewPort.setTopUpVisible(false);
+      if (!silent) {
+        viewPort.setValidationMessage(
+          providerLabel === "翻译接口" ? "翻译接口可用" : `${providerLabel} 可用`,
+          "valid",
+        );
+      }
+      return { ...result, status: "unsupported_provider" };
+    }
     const balance = await runDeepSeekBalanceCheck({
       apiPrefix,
       apiKey: modelApiKey,
@@ -64,13 +93,13 @@ export async function handleBrowserDeepSeekValidate({
     });
     if (balance.status === "unsupported_provider") {
       if (!silent) {
-        viewPort.setValidationMessage("DeepSeek 可用", "valid");
+        viewPort.setValidationMessage(`${providerLabel} 可用`, "valid");
       }
       return balance;
     }
     if (balance.status === "network_error") {
       if (!silent) {
-        viewPort.setValidationMessage("DeepSeek 可用，余额查询失败", "valid");
+        viewPort.setValidationMessage(`${providerLabel} 可用，余额查询失败`, "valid");
       }
       return balance;
     }
@@ -81,7 +110,7 @@ export async function handleBrowserDeepSeekValidate({
     const shouldTopUp = balanceAmount < DEEPSEEK_LOW_BALANCE_THRESHOLD;
     viewPort.setTopUpVisible(shouldTopUp);
     viewPort.setValidationMessage(
-      `DeepSeek 可用，${balanceSummary}${shouldTopUp ? "，余额低于 2 元" : ""}`,
+      `${providerLabel} 可用，${balanceSummary}${shouldTopUp ? "，余额低于 2 元" : ""}`,
       balance.is_available ? "valid" : "error",
     );
     return balance;

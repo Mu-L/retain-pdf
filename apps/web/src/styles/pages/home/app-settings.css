@@ -6,23 +6,23 @@
  * 模式，会波及全站同名 class）——v2 改回嵌套写法，短名不再外泄。 */
 
 @utility app-settings-dialog {
-  width: min(860px, calc(100vw - 24px));
-  width: min(860px, calc(100dvw - 24px));
+  width: min(1040px, calc(100vw - 24px));
+  width: min(1040px, calc(100dvw - 24px));
   /* inset-0 + m-auto 的居中要求宽高皆定值：不写 height 时元素纵向撑满、
      壳贴顶（"弹窗不在中间"的根因）。fit-content 让 m-auto 真正双轴居中。 */
   height: fit-content;
 }
 
 @utility app-settings-shell {
-  height: min(640px, calc(100vh - 24px));
-  height: min(640px, calc(100dvh - 24px));
-  max-height: min(640px, calc(100vh - 24px));
-  max-height: min(640px, calc(100dvh - 24px));
+  height: min(700px, calc(100vh - 24px));
+  height: min(700px, calc(100dvh - 24px));
+  max-height: min(700px, calc(100vh - 24px));
+  max-height: min(700px, calc(100dvh - 24px));
 }
 
 @utility app-settings-layout {
   display: grid;
-  grid-template-columns: 188px minmax(0, 1fr);
+  grid-template-columns: 196px minmax(0, 1fr);
   height: 100%;
   min-height: 0;
 }
@@ -34,14 +34,14 @@
   flex-direction: column;
   gap: 10px;
   min-height: 0;
-  padding: 18px 12px;
+  padding: 16px 11px;
   border-right: 1px solid var(--line);
   background: color-mix(in srgb, var(--bg) 72%, var(--paper));
 
   & h2 {
     margin: 0 10px 6px;
     color: var(--ink);
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
     letter-spacing: 0.01em;
   }
@@ -56,13 +56,13 @@
     display: flex;
     align-items: center;
     gap: 9px;
-    min-height: 34px;
+    min-height: 32px;
     padding: 0 10px;
     border: 0;
     border-radius: 9px;
     background: transparent;
     color: var(--muted);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     line-height: 1;
     text-align: left;
@@ -89,6 +89,11 @@
     transform: scale(0.98);
   }
 
+  & button:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+
   & button.is-active {
     color: var(--ink);
     background: var(--paper);
@@ -104,7 +109,7 @@
   position: relative;
   min-height: 0;
   overflow-y: auto;
-  padding: 22px 26px 26px;
+  padding: 16px 20px 20px;
   background: var(--paper);
 }
 
@@ -125,7 +130,7 @@
 }
 
 @utility app-settings-pane-head {
-  margin: 0 0 18px;
+  margin: 0 0 10px;
   padding-right: 40px; /* 给右上关闭钮让位 */
 
   & h3 {
@@ -138,8 +143,46 @@
   & p {
     margin: 4px 0 0;
     color: var(--muted);
-    font-size: 12.5px;
-    line-height: 1.6;
+    font-size: 10.5px;
+    line-height: 1.45;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .app-settings-rail {
+    gap: 0;
+    padding: 10px 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .app-settings-rail h2 {
+    display: none;
+  }
+
+  .app-settings-nav {
+    flex-direction: row;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .app-settings-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .app-settings-nav button {
+    flex: 0 0 auto;
+    min-height: 40px;
+  }
+
+  .app-settings-pane {
+    padding: 16px 14px 20px;
   }
 }
 

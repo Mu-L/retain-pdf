@@ -54,7 +54,10 @@ pub fn is_configured_command_provider(value: &str) -> bool {
 }
 
 pub fn paddle_transport(input: &OcrInput) -> Option<&str> {
-    if !matches!(parse_provider_kind(&input.provider), OcrProviderKind::Paddle) {
+    if !matches!(
+        parse_provider_kind(&input.provider),
+        OcrProviderKind::Paddle
+    ) {
         return None;
     }
     input

@@ -1,56 +1,63 @@
-# 阅读器样式真值 — packages/reader/styles
+# `@retainpdf/reader` 样式真值
 
-> **真值已迁**：`apps/web/src/styles/reader/*` → `packages/reader/styles/*`，`apps/web/src/styles/entries/reader.css` → `packages/reader/styles/entry.css`。
-> `apps/web/src/styles/entries/reader.css` 仅保留代理 `@import "../../../../../packages/reader/styles/entry.css"`（薄包装），编辑请改本目录。
+Reader 的生产样式由 `packages/reader/styles/entry.css` 统一装配。`apps/web/src/styles/entries/reader.css` 只是 Web MPA 的薄代理，新的 Reader 样式不要写回 `apps/web/src/styles/reader`。
+
+## 消费链
+
+Web MPA：
+
+```text
+apps/web/src/styles/entries/reader.css
+  → packages/reader/styles/entry.css
+  → apps/web/dist/css/reader.css
+```
+
+Reader 包：
+
+```text
+packages/reader/scripts/styles.css
+  → packages/reader/styles/entry.css
+  → packages/reader/dist/styles.css
+```
+
+AI 回答相关样式还通过 `scripts/ai.css` 单独构建为 `dist/ai.css`，供 `@retainpdf/reader/ai.css` 消费。
 
 ## 结构
 
-```
+```text
 packages/reader/styles/
-├── entry.css                # 入口（原 apps/web/src/styles/entries/reader.css，@import/ @source 已重算为相对路径）
-├── layout.css               # 布局共享（body/panel/viewer-wrap，三栏等见 layout-legacy.css）
-├── chrome.css               # 顶栏 tabs/boot/关闭回主页
-├── content.css              # 内容区
-├── react-pdf.css            # react-pdf 引擎
-├── fab.css / fab-menu.css / fab-downloads.css
-├── selection-pop.css / selection.css
-├── notes-float.css / float-markdown.css / float-ai*.css / hud.css / markdown.css
-├── ai.css / annotations.css / favorites.css / side-drawer.css / region-popover.css # legacy 共用/仅 legacy 包引用
-├── chrome-legacy.css / layout-legacy.css / markdown-legacy.css # legacy-only（仅 reader-legacy.css 引用）
-└── README.md
+├── entry.css               # Reader 完整样式入口
+├── ai.css                  # AI Markdown/流式回答样式入口
+├── tokens.css              # Reader 主题 token
+├── themes/                 # classic/jiangnan/mojia/night/seacliff
+├── core/                   # Tailwind theme、氛围底与下载反馈
+├── layout.css / chrome.css / content.css / react-pdf.css
+├── fab*.css / selection-pop.css / notes-float.css
+├── float-markdown.css / float-ai*.css / hud.css / markdown.css
+└── dialog-shell.css / reader.utilities.css
 ```
 
-- 26 个 `reader/*.css` 已全量复制（`ai/annotations/chrome-legacy/layout-legacy/markdown-legacy/favorites/selection/side-drawer/region-popover` 等 legacy 文件亦在列，保持与 `apps/web/src/styles/reader/` 一致，便于 `reader-legacy.css` 仍可按需引用；默认 `entry.css` 仅引 react-pdf 路径，未引入 legacy）。
-- `reader.utilities.css` 仍在 `apps/web/src/styles/reader.utilities.css`（共享工具类，未迁入本包；`entry.css` 以 `../../../apps/web/src/styles/reader.utilities.css` 引用）。
-- `entry.css` 保留原 `@import` / `@source` / `@layer` 结构，路径已调整：
-  - 共享依赖（`tokens/shadcn-theme/base/ambient-surface/download-toast/dialog-shell/tailwind-theme/reader.utilities`）→ `../../../apps/web/src/styles/...`
-  - 阅读器分片（`layout/chrome/content/react-pdf/fab*…`）→ `./*.css`（本地真值）
-  - `@source`（`reader.html` / `src/pages/reader` / `shared/components/lib/js/**`）→ `../../../apps/web/...`，并新增 `@source "../src/**/*.{js,jsx,ts,tsx}"` 扫描本包源码。
+目录中仍有若干名称带 `legacy` 的历史 CSS 文件，以及旧抽屉/收藏等未进入当前入口的分片。它们不代表受支持的 `?engine=legacy` 运行时，也不由当前 `entry.css` 导入。清理这些文件应作为独立任务，并在删除前确认没有测试、文档工具或外部消费者依赖。
 
-## 代理关系
+`apps/web/src/styles/reader/*` 是迁移后残留的旧镜像，已经与本目录发生差异，不应继续双写或用作对照真值。
 
-- **真值**：`packages/reader/styles/entry.css`（及同目录下各 `*.css`）
-- **代理**：`apps/web/src/styles/entries/reader.css` → `@import "../../../../../packages/reader/styles/entry.css"`
-  - 相对路径为 `apps/web/src/styles/entries` → `packages/reader/styles/entry.css` 的 `../../../../../packages/...`（5 级 `../` 到仓库根）。
-  - 任务描述中的 `../../../packages/...` 为示意，实际按仓库根计算需 5 级，已在代理文件中纠正并可构建验证。
-- `apps/web/src/styles/reader/*.css` 仍保留在原位（未删除），但视为**只读镜像**；后续改动以本目录为准，可定期 `diff` 同步或删除原目录（待全量验证后）。
+## 归属规则
 
-## 构建验证
+- Reader 组件、工具、主题和内容呈现样式写在本目录。
+- 不引入书架、上传、状态卡、凭据等 `apps/web` 主页领域样式。
+- 新选择器使用 `reader-*` 或 Reader 组件明确拥有的命名空间。
+- 需要宿主通用能力时，优先在包内提供稳定样式，而不是反向 import `apps/web` 页面样式。
+- `entry.css` 是完整 Reader 入口；`ai.css` 是可被主页软宿主单独加载的 AI 子集。
+- 当前 Reader 非模态浮层统一从 `dialog-shell.css` 获取 `reader-floating-surface` 与 `reader-floating-close`；业务分片只负责定位、尺寸和内部内容。
+
+## 验证
 
 ```bash
+npm --prefix packages/reader run build
 npm --prefix apps/web run build:css
-# → apps/web/dist/css/reader.css (≈200KB)，apps/web/dist/css/reader-legacy.css 同步产出
-# 代理链：entries/reader.css → packages/reader/styles/entry.css → ./layout.css 等（本地）+ ../../../apps/web/src/styles/*（共享）
+npm --prefix apps/web test -- 'tests/reader/*.test.mjs'
+npm --prefix apps/web test -- 'tests/architecture/*.test.mjs'
+npm --prefix apps/web run visual:check
 ```
 
-- `apps/web/scripts/build-css.mjs` 仍以 `src/styles/entries/reader.css` 为 `tailwindcss -i` 入口，经代理链解析到本包真值，验证改样式后 `dist/css/reader.css` 内容更新（含新样式）。
-- `reader-legacy.css` 仍独立打包（`src/styles/entries/reader-legacy.css` → `dist/css/reader-legacy.css`），未迁入本包；其 `@import "../reader/layout-legacy.css"` 等仍指向 `apps/web/src/styles/reader/*`（与本包镜像一致）。
-
-## 不动范围
-
-- 未动 `apps/web/src/pages/reader/entry.tsx` / `ReaderApp*` / `legacy/**`（仅样式）。
-- 未改 `apps/web/src/styles/entries/reader-legacy.css` 入口与 `apps/web/scripts/build-css.mjs`。
-
-## 后续清理（可选）
-
-- 确认 `npm --prefix apps/web run build:css` 与视觉回归通过后，可删除 `apps/web/src/styles/reader/` 原文件，仅保留代理；或保留双写并以本包为真值定期同步。
+只有确认实际渲染变化符合预期后才更新视觉基线。

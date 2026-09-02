@@ -1,4 +1,4 @@
-import { fetchJobImageBlob, normalizeJobImageUrl } from "../../api/job-images.js";
+import { fetchJobImageBlob, normalizeJobImageUrl } from "@retainpdf/api/job-images";
 
 const recentJobImageCache = new Map();
 

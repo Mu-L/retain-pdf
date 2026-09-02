@@ -7,9 +7,9 @@ const MODES: {
   label: string;
   Icon: typeof FileText;
 }[] = [
-  { id: "source", label: "原文", Icon: FileText },
-  { id: "translated", label: "译文", Icon: Languages },
-  { id: "compare", label: "对照阅读", Icon: Columns2 },
+  { id: "source", label: "源文件", Icon: FileText },
+  { id: "compare", label: "对照", Icon: Columns2 },
+  { id: "translated", label: "翻译文件", Icon: Languages },
 ];
 
 export type ReaderModeTabsProps = {
@@ -24,7 +24,9 @@ export function ReaderModeTabs({
   onModeChange,
 }: ReaderModeTabsProps): ReactElement {
   return (
-    <header className="reader-topbar reader-react-topbar">
+    <header
+      className={`reader-topbar reader-react-topbar${sourceOnly ? " is-source-only" : ""}`}
+    >
       <div className="reader-tabs" role="tablist" aria-label="阅读模式">
         {MODES.map((item) => {
           if (sourceOnly && item.id !== "source") {
@@ -36,7 +38,7 @@ export function ReaderModeTabs({
             <button
               key={item.id}
               type="button"
-              className={`reader-tab reader-tab-icon${active ? " is-active" : ""}`}
+              className={`reader-tab reader-tab-mode${active ? " is-active" : ""}`}
               role="tab"
               aria-selected={active}
               aria-label={item.label}
@@ -45,7 +47,7 @@ export function ReaderModeTabs({
               onClick={() => onModeChange(item.id)}
             >
               <Icon className="reader-tab-lucide" size={16} strokeWidth={2.25} aria-hidden />
-              <span className="sr-only">{item.label}</span>
+              <span className="reader-tab-label">{item.label}</span>
             </button>
           );
         })}

@@ -15,6 +15,7 @@ import type {
   DeleteDocumentsResult,
   JobSubmissionView,
   LibraryCardItem,
+  LibraryJobItem,
   LibraryController,
   RecentJobsReactViewPort,
   TranslateDocumentPayload,
@@ -42,6 +43,7 @@ export type ReadOnlySelector<T> = ReadOnlyStore<T>;
 
 export type WorkflowFeature = {
   applyWorkflowMode: () => void;
+  buildOcrJobConfig: (pageRanges?: string) => Record<string, unknown>;
   buildTranslateJobConfig: (pageRanges?: string) => TranslateDocumentPayload | Record<string, unknown>;
   collectRunPayload: () => unknown;
   currentRenderSourceJobId: () => string;
@@ -186,6 +188,7 @@ export type CredentialsElementsRef = {
   apiKeyInput: HTMLInputElement | null;
   modelBaseUrlInput: HTMLInputElement | null;
   modelNameInput: HTMLInputElement | null;
+  translationWorkersInput: HTMLInputElement | null;
   mathModeSelect: HTMLSelectElement | null;
   tokenInputs: Record<string, HTMLInputElement | null | undefined>;
 };
@@ -243,6 +246,10 @@ export type RecentJobActions = {
 export type LibraryActions = RecentJobActions & {
   openSourceReader: LibraryController["openSourceReader"];
   translateDocument: LibraryController["translateDocument"];
+  ocrDocument: LibraryController["ocrDocument"];
+  getDocumentJobs: LibraryController["getDocumentJobs"];
+  getJobStageActions: LibraryController["getJobStageActions"];
+  retryJobStage: LibraryController["retryJobStage"];
   deleteDocument: LibraryController["deleteDocument"];
   /** 选择集可能是 unknown[]（view state），参数放宽 */
   deleteDocuments: (
@@ -324,6 +331,16 @@ export type HomeArtifactDownloads = {
 export type HomeStatusCard = {
   store: ReadOnlyStore<{ snapshot: unknown; cancelDisabled: boolean }>;
   cancelCurrentJob: () => unknown;
+};
+
+/** 1 秒 job runtime 轮询写入的 canonical 当前任务状态。 */
+export type HomeJobRuntime = {
+  store: ReadOnlyStore<{
+    jobId?: string;
+    snapshot?: LibraryJobItem | null;
+    startedAt?: string;
+    finishedAt?: string;
+  }>;
 };
 
 export type StatusDetailStoreActions = {
@@ -470,6 +487,7 @@ export type HomeDomainServices = {
   bookDetail: HomeBookDetail;
   collections: HomeCollections;
   artifactDownloads: HomeArtifactDownloads;
+  jobRuntime: HomeJobRuntime;
   statusCard: StatusCardPort;
   statusDetail: HomeStatusDetail;
   reader: HomeReader;
@@ -543,6 +561,7 @@ export type HomeServicesDomains = {
     appUpdateView: AppUpdateViewBag;
   };
   status: {
+    currentJobStore: AppStore;
     statusCardStore: AppStore;
     statusCardController?: { cancelCurrentJob: () => unknown };
     statusDetailStore: StatusDetailStore;
@@ -574,6 +593,9 @@ export type CreateHomeCompositionOptions = {
   validateOcrToken?: AsyncFn | null;
   validateDeepSeekToken?: AsyncFn;
   queryDeepSeekBalance?: AsyncFn;
+  listCredentials?: AsyncFn;
+  createCredential?: AsyncFn;
+  updateCredential?: AsyncFn;
   checkApiConnectivity?: AsyncFn | null;
   saveDesktopConfig?: AsyncFn | null;
   initialDesktopMode?: boolean;

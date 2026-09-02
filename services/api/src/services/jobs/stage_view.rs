@@ -186,8 +186,17 @@ fn stage_state(
     job: &JobSnapshot,
     stage_snapshot: Option<&JobStageSnapshotView>,
 ) -> JobStageStateView {
-    if !workflow_includes_stage(&job.workflow, stage_name) {
+    if stage_name == "ocr" && !job.request_payload.source.artifact_job_id.trim().is_empty() {
+        return JobStageStateView::Reused;
+    }
+    if !workflow_includes_stage(job, stage_name) {
         return JobStageStateView::Skipped;
+    }
+    if stage_name == "translation"
+        && matches!(job.status, JobStatusKind::Queued)
+        && !job.request_payload.source.artifact_job_id.trim().is_empty()
+    {
+        return JobStageStateView::Queued;
     }
     if matches!(
         stage_snapshot.and_then(|snapshot| snapshot.display_stage.as_deref()),
@@ -268,10 +277,13 @@ fn empty_progress_for_stage(
     }
 }
 
-fn workflow_includes_stage(workflow: &WorkflowKind, stage_name: &str) -> bool {
-    match workflow {
+fn workflow_includes_stage(job: &JobSnapshot, stage_name: &str) -> bool {
+    match &job.workflow {
         WorkflowKind::Book => matches!(stage_name, "ocr" | "translation" | "render"),
-        WorkflowKind::Translate => matches!(stage_name, "ocr" | "translation"),
+        WorkflowKind::Translate => {
+            matches!(stage_name, "ocr" | "translation")
+                || (stage_name == "render" && job.request_payload.runtime.render_after_translation)
+        }
         WorkflowKind::Render => stage_name == "render",
         WorkflowKind::Ocr => stage_name == "ocr",
     }
@@ -280,8 +292,17 @@ fn workflow_includes_stage(workflow: &WorkflowKind, stage_name: &str) -> bool {
 fn failed_public_stage(job: &JobSnapshot) -> Option<&'static str> {
     job.failure
         .as_ref()
-        .and_then(|failure| public_stage_for_raw_stage(Some(failure.failed_stage_value())))
+        .and_then(|failure| normalize_public_stage(failure.failed_stage_value()))
         .or_else(|| public_stage_for_raw_stage(job.stage.as_deref()))
+}
+
+fn normalize_public_stage(stage: &str) -> Option<&'static str> {
+    match stage.trim() {
+        "ocr" => Some("ocr"),
+        "translation" => Some("translation"),
+        "render" => Some("render"),
+        raw_stage => public_stage_for_raw_stage(Some(raw_stage)),
+    }
 }
 
 fn stage_precedes(left: &str, right: &str) -> bool {
@@ -302,4 +323,33 @@ fn is_terminal_status(status: &JobStatusKind) -> bool {
         status,
         JobStatusKind::Succeeded | JobStatusKind::Failed | JobStatusKind::Canceled
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_job_stage_view;
+    use crate::models::api::JobStageStateView;
+    use crate::models::domain::{CreateJobInput, JobFailureInfo, JobSnapshot, JobStatusKind};
+
+    #[test]
+    fn canonical_translation_failure_keeps_completed_ocr_and_pending_render() {
+        let mut job = JobSnapshot::new(
+            "book-failed-after-ocr".to_string(),
+            CreateJobInput::default(),
+            vec!["translate".to_string()],
+        );
+        job.status = JobStatusKind::Failed;
+        job.stage = Some("failed".to_string());
+        job.failure = Some(JobFailureInfo {
+            stage: "translation".to_string(),
+            failed_stage: Some("translation".to_string()),
+            ..JobFailureInfo::default()
+        });
+
+        let stages = build_job_stage_view(&job, None).stages;
+
+        assert_eq!(stages.ocr.state, JobStageStateView::Completed);
+        assert_eq!(stages.translation.state, JobStageStateView::Failed);
+        assert_eq!(stages.render.state, JobStageStateView::Pending);
+    }
 }

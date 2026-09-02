@@ -2,11 +2,9 @@
 // components/dialogs/glossary-manager-dialog-template.js 逐 id 镜像 +
 // features/glossaries/controller.js(kept 控制器)的开合/读取/保存编排)。
 //
-// Dialog 渲染层(阶段 C,shadcn 改造):从原生 <dialog>+showModal/close 换成
-// radix-ui 的 Dialog 原语(DialogPrimitive.Root/Portal/Overlay/Content),不经
-// src/components/ui/dialog.jsx 那层默认皮肤(className 继续用现有的
-// desktop-dialog/desktop-shell/glossary-manager-* 这套 bespoke CSS)。open 受控
-// 于 glossariesDialogStore(useGlossariesController 的 open),onOpenChange 在
+// Dialog 渲染层统一走 src/components/ui/dialog.tsx 的 AppDialog 契约；
+// 业务类只保留术语表内部的双栏编辑布局。open 受控于
+// glossariesDialogStore(useGlossariesController 的 open),onOpenChange 在
 // next===false 时统一调用 dialogStore.close()——Escape、点击背板、点击关闭
 // 按钮三条路径都走这一个回调,不再需要手写 handleBackdropClick/keydown 监听。
 //
@@ -22,8 +20,15 @@
 // 迁移 effect(见 useGlossariesController.js)把这次打开接回 controller.js 的
 // open(),补上"打开即刷新列表"的旧语义。
 
-import { X } from "lucide-react";
-import { Dialog as DialogPrimitive } from "radix-ui";
+import {
+  Dialog,
+  DialogBody,
+  DialogCloseButton,
+  DialogContent,
+  DialogHeader,
+  DialogShell,
+  DialogTitle,
+} from "@/components/ui/dialog.js";
 import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
 import { GLOSSARY_DOM_IDS } from "./glossaries-dom-ids.js";
 import { useGlossariesController } from "./useGlossariesController.js";
@@ -64,32 +69,23 @@ export function GlossariesDialog() {
   ].filter(Boolean).join(" ");
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={handleOpenChange}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="desktop-dialog-overlay" />
-        <DialogPrimitive.Content
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent
           id={GLOSSARY_DOM_IDS.dialog}
-          className="desktop-dialog glossary-manager-dialog"
+          className="glossary-manager-dialog"
           onCloseAutoFocus={onCloseAutoFocus}
+          showCloseButton={false}
         >
-          <div className="desktop-shell glossary-manager-shell">
-            <div className="desktop-head">
+          <DialogShell className="desktop-shell glossary-manager-shell">
+            <DialogHeader className="desktop-head">
               <div className="credential-dialog-head">
-                <DialogPrimitive.Title asChild>
+                <DialogTitle asChild>
                   <h2>术语表</h2>
-                </DialogPrimitive.Title>
+                </DialogTitle>
               </div>
-              <DialogPrimitive.Close asChild>
-                <Button
-                  id={GLOSSARY_DOM_IDS.closeButton}
-                  className="dialog-close-btn"
-                  aria-label="关闭"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </DialogPrimitive.Close>
-            </div>
-            <div className="desktop-body glossary-manager-body">
+              <DialogCloseButton id={GLOSSARY_DOM_IDS.closeButton} />
+            </DialogHeader>
+            <DialogBody className="desktop-body glossary-manager-body">
               <GlossaryList
                 items={view.items}
                 selectedId={view.selectedId}
@@ -134,10 +130,9 @@ export function GlossariesDialog() {
                   <Button id={GLOSSARY_DOM_IDS.saveButton} className="app-button" onClick={() => handlers?.save?.()}>保存</Button>
                 </div>
               </section>
-            </div>
-          </div>
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+            </DialogBody>
+          </DialogShell>
+        </DialogContent>
+    </Dialog>
   );
 }

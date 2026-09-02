@@ -5,6 +5,11 @@ import {
   type StoreListener,
 } from "../../app-framework/store.js";
 import { dedupeRecentJobs } from "./pagination.js";
+import {
+  libraryCardIdentity,
+  replaceLibraryCard,
+  upsertLibraryCard,
+} from "./library-card-identity.js";
 import type { LibraryJobItem, StageAdapterPort } from "./runtime-item.js";
 import { stripOcrSuffix } from "@retainpdf/api/utils/strip-ocr";
 
@@ -94,7 +99,9 @@ export function createRecentJobsStore(
       offset: Number(initialState.offset ?? initialState.recentJobsOffset) || 0,
       hasMore: initialState.hasMore ?? initialState.recentJobsHasMore ?? true,
       invocationSummary: asInvocationSummary(initialState.invocationSummary ?? null),
-      items: asJobItems(initialState.items ?? initialState.recentJobsItems),
+      items: dedupeRecentJobs(
+        asJobItems(initialState.items ?? initialState.recentJobsItems),
+      ) as LibraryJobItem[],
     },
     actions: {
       setOffset(currentState, value) {
@@ -112,7 +119,7 @@ export function createRecentJobsStore(
       setItems(currentState, items) {
         return {
           ...currentState,
-          items: asJobItems(items),
+          items: dedupeRecentJobs(asJobItems(items)) as LibraryJobItem[],
         };
       },
       setInvocationSummary(currentState, invocationSummary = null) {
@@ -122,25 +129,21 @@ export function createRecentJobsStore(
         };
       },
       replaceItem(currentState, item) {
-        const jobId = normalizedJobId(item?.job_id);
-        if (!jobId || !item) {
+        if (!item || !libraryCardIdentity(item)) {
           return currentState;
         }
         return {
           ...currentState,
-          items: currentState.items.map((currentItem) => (
-            normalizedJobId(currentItem?.job_id) === jobId ? item : currentItem
-          )),
+          items: replaceLibraryCard(currentState.items, item),
         };
       },
       prependItem(currentState, item) {
-        const jobId = normalizedJobId(item?.job_id);
-        if (!jobId || !item) {
+        if (!item || !libraryCardIdentity(item)) {
           return currentState;
         }
         return {
           ...currentState,
-          items: dedupeRecentJobs([item, ...currentState.items]) as LibraryJobItem[],
+          items: upsertLibraryCard(currentState.items, item) as LibraryJobItem[],
         };
       },
       removeJobFamily(currentState, jobId) {

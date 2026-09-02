@@ -4,6 +4,10 @@
 import { useMemo } from "react";
 import { isLibraryCardProcessing } from "../display/library-card-badge.js";
 import {
+  isOcrOnlyItem,
+  resolveLibraryReadPresentation,
+} from "../display/library-card-semantics.js";
+import {
   isLibraryOnlyItem,
   isRecentJobActive,
   recentJobStageLabel,
@@ -14,7 +18,11 @@ function statusOf(item: any) {
   if (isLibraryOnlyItem(item)) return { label: "未翻译", tone: "muted" };
   if (isRecentJobActive(item)) return { label: recentJobStageLabel(item), tone: "active" };
   const status = `${item.status || ""}`.trim();
-  if (status === "succeeded") return { label: "已完成", tone: "done" };
+  if (status === "succeeded") {
+    return isOcrOnlyItem(item)
+      ? { label: "OCR 完成", tone: "done" }
+      : { label: "已完成", tone: "done" };
+  }
   if (status === "failed") return { label: "失败", tone: "failed" };
   return { label: recentJobStatusLabel(status), tone: "muted" };
 }
@@ -26,41 +34,66 @@ export type UseBookDetailCoverOptions = {
   isActive?: boolean;
 };
 
+/**
+ * 详情左栏和处理 Tab 共用的纯派生状态。
+ *
+ * 成功只表示一次 job 已结束，不能直接等同于“已翻译”：OCR-only 仍可继续
+ * 翻译，主阅读动作则保留 OCR job 上下文。
+ */
+export function deriveBookDetailCoverState({
+  item = {},
+  statusCardState = null,
+  isActive: isActiveProp,
+}: UseBookDetailCoverOptions = {}) {
+  const snapshot = statusCardState?.snapshot ?? statusCardState ?? {};
+  const cardStatus = `${snapshot?.status ?? statusCardState?.status ?? ""}`.trim().toLowerCase();
+  const cardJobId = `${snapshot?.jobId ?? snapshot?.job_id ?? statusCardState?.jobId ?? ""}`.trim();
+
+  const status = statusOf(item);
+  const libraryOnly = isLibraryOnlyItem(item);
+  const itemStatus = `${item.status || ""}`.trim().toLowerCase();
+  const readPresentation = resolveLibraryReadPresentation(item);
+  const readerAvailable =
+    readPresentation.target === "job" &&
+    !["running", "queued", "pending"].includes(cardStatus);
+  const canTranslate =
+    Boolean(libraryOnly) ||
+    itemStatus === "failed" ||
+    (isOcrOnlyItem(item) && itemStatus === "succeeded");
+  const isActive =
+    typeof isActiveProp === "boolean"
+      ? isActiveProp
+      : isRecentJobActive(item) || ["running", "queued", "pending"].includes(cardStatus);
+  // 封面转圈：书架 live 行 + statusCard 正在跑（重试后 payload 可能仍是旧 succeeded）
+  const coverProcessing =
+    isActive ||
+    isLibraryCardProcessing(item) ||
+    (Boolean(cardJobId) && ["running", "queued", "pending"].includes(cardStatus));
+
+  return {
+    status,
+    libraryOnly,
+    cardStatus,
+    cardJobId,
+    readPresentation,
+    readerAvailable,
+    canTranslate,
+    isActive,
+    coverProcessing,
+  };
+}
+
 export function useBookDetailCover({
   item = {},
   statusCardState = null,
   isActive: isActiveProp,
 }: UseBookDetailCoverOptions) {
-  return useMemo(() => {
-    const snapshot = statusCardState?.snapshot ?? statusCardState ?? {};
-    const cardStatus = `${snapshot?.status ?? statusCardState?.status ?? ""}`.trim().toLowerCase();
-    const cardJobId = `${snapshot?.jobId ?? snapshot?.job_id ?? statusCardState?.jobId ?? ""}`.trim();
-
-    const status = statusOf(item);
-    const libraryOnly = isLibraryOnlyItem(item);
-    const readerAvailable =
-      `${item.status || ""}`.trim() === "succeeded" &&
-      !["running", "queued", "pending"].includes(cardStatus);
-    const canTranslate = Boolean(libraryOnly) || `${item.status || ""}`.trim() === "failed";
-    const isActive =
-      typeof isActiveProp === "boolean"
-        ? isActiveProp
-        : isRecentJobActive(item) || ["running", "queued", "pending"].includes(cardStatus);
-    // 封面转圈：书架 live 行 + statusCard 正在跑（重试后 payload 可能仍是旧 succeeded）
-    const coverProcessing =
-      isActive ||
-      isLibraryCardProcessing(item) ||
-      (Boolean(cardJobId) && ["running", "queued", "pending"].includes(cardStatus));
-
-    return {
-      status,
-      libraryOnly,
-      cardStatus,
-      cardJobId,
-      readerAvailable,
-      canTranslate,
-      isActive,
-      coverProcessing,
-    };
-  }, [item, statusCardState, isActiveProp]);
+  return useMemo(
+    () => deriveBookDetailCoverState({
+      item,
+      statusCardState,
+      isActive: isActiveProp,
+    }),
+    [item, statusCardState, isActiveProp],
+  );
 }

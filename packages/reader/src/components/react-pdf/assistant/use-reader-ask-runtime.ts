@@ -37,6 +37,12 @@ import {
   storeMessagesToChat,
   useReaderChat,
 } from "./use-reader-chat.js";
+import type { AgentConfirmationMode } from "@retainpdf/api/agent-runtime-settings";
+import type { ReaderAssistantMode } from "../../../shared/ai/ask-answerer.js";
+import {
+  useReaderAgentOperations,
+  type ReaderAgentOperationSignal,
+} from "./use-reader-agent-operations.js";
 export type { ReaderAskStoreMessage } from "./reader-ask-tree.js";
 
 function makeId(prefix: string) {
@@ -54,14 +60,18 @@ export type ReaderAskSessionSummary = {
 export function useReaderAskRuntime(options: {
   jobId: string;
   enabled: boolean;
+  onDocumentCommitted?: (input: { documentId: string; revision: string }) => void;
 }) {
-  const { jobId, enabled } = options;
+  const { jobId, enabled, onDocumentCommitted } = options;
   const [items, setItems] = useState<ReaderAskTreeItem[]>([]);
   const [headId, setHeadId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ConversationRecord[]>([]);
   const [activeConversationId, setActiveConversationId] = useState("");
   const [sessionBusy, setSessionBusy] = useState(false);
   const [sessionError, setSessionError] = useState("");
+  const [agentOperationSignal, setAgentOperationSignal] = useState<ReaderAgentOperationSignal | null>(null);
+  const [agentConfirmationModeHint, setAgentConfirmationModeHint] = useState<AgentConfirmationMode>();
+  const [assistantMode, setAssistantMode] = useState<ReaderAssistantMode>("reading");
   const itemsRef = useRef(items);
   const headIdRef = useRef(headId);
   const activeConversationIdRef = useRef(activeConversationId);
@@ -94,10 +104,31 @@ export function useReaderAskRuntime(options: {
     setMessages: setChatMessages,
     status: chatStatus,
     stop: stopChat,
-  } = useReaderChat({ jobId, remoteAnswerer, localAnswerer });
+  } = useReaderChat({
+    jobId,
+    remoteAnswerer,
+    localAnswerer,
+    assistantMode,
+    onAgentOperationSignal: (signal) => {
+      setAgentOperationSignal({ ...signal, nonce: Date.now() + Math.random() });
+    },
+    onConfirmationMode: setAgentConfirmationModeHint,
+  });
   const isRunning = chatStatus === "submitted" || chatStatus === "streaming";
   const runningRef = useRef(isRunning);
   runningRef.current = isRunning;
+
+  const operationConversationId = activeConversationId
+    || agentOperationSignal?.conversationId
+    || `${remoteAnswerer?.getConversationId?.() || ""}`.trim();
+  const agentOperations = useReaderAgentOperations({
+    conversationId: operationConversationId,
+    enabled,
+    discovering: isRunning,
+    signal: agentOperationSignal,
+    confirmationModeHint: agentConfirmationModeHint,
+    onDocumentCommitted,
+  });
 
   const refreshSessions = useCallback(async (documentId = "") => {
     const doc = `${documentId || documentIdRef.current || ""}`.trim();
@@ -140,12 +171,15 @@ export function useReaderAskRuntime(options: {
       lastJobRef.current = "";
       documentIdRef.current = "";
       persistReadyRef.current = false;
+      setAgentOperationSignal(null);
+      setAgentConfirmationModeHint(undefined);
       return;
     }
 
     const jobChanged = lastJobRef.current !== jobId;
     if (jobChanged) {
       lastJobRef.current = jobId;
+      setAssistantMode("reading");
       persistReadyRef.current = false;
       setItems([]);
       setHeadId(null);
@@ -154,6 +188,7 @@ export function useReaderAskRuntime(options: {
       setActiveConversationId("");
       activeConversationIdRef.current = "";
       documentIdRef.current = "";
+      setAgentOperationSignal(null);
     }
 
     // 面板未打开：只记 job，等 enabled 再拉网
@@ -366,7 +401,7 @@ export function useReaderAskRuntime(options: {
           id: assistantId,
           role: "assistant",
           content: "",
-          progress: "正在检索文档…",
+          progress: assistantMode === "reading" ? "正在检索文档…" : "正在规划 PDF 操作…",
           status: { type: "running" },
           citations: [],
         },
@@ -389,7 +424,7 @@ export function useReaderAskRuntime(options: {
         },
       },
     );
-  }, [sendMessage]);
+  }, [assistantMode, sendMessage]);
 
   /** 重新生成：parentId 为被替换助手消息的父节点（通常是 user）。 */
   const retryAnswer = useCallback(async (assistantMessageId: string) => {
@@ -485,6 +520,7 @@ export function useReaderAskRuntime(options: {
         || `${(await remoteAnswerer?.getDocumentId?.()) || ""}`.trim();
       documentIdRef.current = docId;
       remoteAnswerer?.clearConversationId?.(docId);
+      setAgentOperationSignal(null);
       setActiveConversationId("");
       activeConversationIdRef.current = "";
       setItems([]);
@@ -875,5 +911,8 @@ export function useReaderAskRuntime(options: {
     removeSession,
     renameSession,
     branchFromAnswer,
+    agentOperations,
+    assistantMode,
+    setAssistantMode,
   };
 }

@@ -161,6 +161,7 @@ impl Db {
         let rows = stmt.query_map(params![job_id, attempt, stage_key], |row| {
             let payload_json: String = row.get(6)?;
             Ok(PipelineUnitRecord {
+                attempt,
                 unit_key: row.get(0)?,
                 unit_order: row.get::<_, i64>(1)? as u64,
                 generation: row.get::<_, i64>(2)? as u64,
@@ -172,6 +173,42 @@ impl Db {
         })?;
         rows.collect::<std::result::Result<Vec<_>, _>>()
             .map_err(Into::into)
+    }
+
+    pub fn latest_pipeline_unit_for_page(
+        &self,
+        job_id: &str,
+        stage_key: &str,
+        page_index: u32,
+    ) -> Result<Option<PipelineUnitRecord>> {
+        let conn = self.connect()?;
+        conn.query_row(
+            r#"
+            SELECT attempt, unit_key, unit_order, generation, producer_generation,
+                   page_index, page_hash, payload_json
+            FROM pipeline_units
+            WHERE job_id = ?1 AND stage_key = ?2 AND page_index = ?3
+              AND status = 'committed'
+            ORDER BY attempt DESC, generation DESC
+            LIMIT 1
+            "#,
+            params![job_id, stage_key, page_index],
+            |row| {
+                let payload_json: String = row.get(7)?;
+                Ok(PipelineUnitRecord {
+                    attempt: row.get::<_, i64>(0)? as u32,
+                    unit_key: row.get(1)?,
+                    unit_order: row.get::<_, i64>(2)? as u64,
+                    generation: row.get::<_, i64>(3)? as u64,
+                    producer_generation: row.get::<_, Option<i64>>(4)?.map(|v| v as u64),
+                    page_index: row.get::<_, Option<i64>>(5)?.map(|v| v as u32),
+                    page_hash: row.get(6)?,
+                    payload: serde_json::from_str(&payload_json).unwrap_or(Value::Null),
+                })
+            },
+        )
+        .optional()
+        .map_err(Into::into)
     }
 
     pub fn pipeline_stage_state(

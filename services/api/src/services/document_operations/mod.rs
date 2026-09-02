@@ -28,7 +28,8 @@ pub use facade::{
     cancel_document_operation, commit_document_operation, create_document_operation,
     get_document_operation_view, run_document_operation,
 };
-pub use program::{canonical_program_sha256, RetainPdfPageProgram};
+pub use program::{canonical_program_sha256, RetainPdfPageProgram, RetainPdfPageProgramStep};
+pub use workspace::OperationWorkspacePaths;
 
 #[cfg(test)]
 pub(crate) use executor::DeterministicExecutor;

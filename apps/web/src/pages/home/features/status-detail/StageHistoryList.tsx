@@ -26,10 +26,12 @@ function StageHistoryItem({ entry, index, job, finishedAtFallback }) {
       <div className="stage-history-main">
         <span className="stage-history-index">{index + 1}</span>
         <div className="stage-history-copy">
-          <div className="stage-history-title">{display.title}</div>
-          {display.stage && display.stage !== display.title
-            ? <div className="stage-history-stage">{display.stage}</div>
-            : null}
+          <div className="stage-history-heading">
+            <div className="stage-history-title">{display.title}</div>
+            {display.stage && display.stage !== display.title
+              ? <div className="stage-history-stage">{display.stage}</div>
+              : null}
+          </div>
           <div className="stage-history-meta">{`${enterAt} → ${exitAt}${terminalText}`}</div>
         </div>
       </div>

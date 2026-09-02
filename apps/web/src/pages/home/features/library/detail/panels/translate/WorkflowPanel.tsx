@@ -7,10 +7,12 @@
 // 书已在馆：不需要 WorkflowPanel 上传表单；发起翻译用 BookTranslateLaunchForm。
 // 进度主场永远在本面板，绝不打开 #translation-workflow-dialog。
 
-import { cn } from "@/lib/utils";
 import { BookTranslateProgressPanel } from "./TranslateProgress.jsx";
 import { BookTranslateLaunchForm } from "./TranslateForm.jsx";
+import { TranslationProcessOverview } from "./TranslationProcessOverview.jsx";
+import { TranslationStageActions } from "./TranslationStageActions.jsx";
 import type { LibraryCardItem } from "../../../types.js";
+import type { JobRetryStage, JobStageRetryActionView } from "../../../../../composition/external/api.js";
 
 export type BookTranslationWorkflowPanelProps = {
   item?: LibraryCardItem;
@@ -26,10 +28,19 @@ export type BookTranslationWorkflowPanelProps = {
   pageCount?: number;
   busy?: string;
   error?: string;
+  stageActions?: JobStageRetryActionView[];
+  stageActionsLoading?: boolean;
+  stageActionPending?: JobRetryStage | "";
+  stageActionError?: string;
+  ocrReuse?: { jobId: string } | null;
   onRangeOnChange: (value: boolean) => void;
   onStartPageChange: (value: string) => void;
   onEndPageChange: (value: string) => void;
   onTranslate: () => void;
+  onRetryStage: (
+    stage: JobRetryStage,
+    options?: { acceptDuplicateRisk?: boolean },
+  ) => Promise<unknown>;
 };
 
 /**
@@ -50,43 +61,41 @@ export function BookTranslationWorkflowPanel({
   pageCount,
   busy = "",
   error = "",
+  stageActions = [],
+  stageActionsLoading = false,
+  stageActionPending = "",
+  stageActionError = "",
+  ocrReuse = null,
   onRangeOnChange,
   onStartPageChange,
   onEndPageChange,
   onTranslate,
+  onRetryStage,
 }: BookTranslationWorkflowPanelProps) {
-  const toneText =
-    status.tone === "done"
-      ? "text-foreground"
-      : status.tone === "active"
-        ? "text-primary"
-        : status.tone === "failed"
-          ? "text-destructive"
-          : "text-muted-foreground";
+  const jobId = `${item.job_id || item.active_job_id || ""}`.trim();
+  const hasRealJob = Boolean(jobId) && !jobId.startsWith("doc:");
+  const showCompactProcess = hasRealJob && !isActive;
 
   return (
     <div
-      className="book-translation-workflow space-y-4"
+      className="book-translation-workflow space-y-3"
       data-book-translation-workflow="true"
     >
-      <div className="flex items-center gap-2">
-        <span className={cn("book-detail-status text-sm font-medium", toneText)}>
-          {status.label}
-        </span>
-      </div>
+      {showCompactProcess ? <TranslationProcessOverview item={item} /> : null}
 
-      {/* 迁移自 #status-section / .translation-status-panel */}
-      <section
-        id="book-detail-status-section"
-        className="book-translation-status-panel"
-        aria-label="任务进度"
-      >
-        <BookTranslateProgressPanel
-          item={item}
-          active={tabActive}
-          dialogOpen={dialogOpen}
-        />
-      </section>
+      {isActive || status.tone === "failed" ? (
+        <section
+          id="book-detail-status-section"
+          className="book-translation-status-panel"
+          aria-label="任务进度"
+        >
+          <BookTranslateProgressPanel
+            item={item}
+            active={tabActive}
+            dialogOpen={dialogOpen}
+          />
+        </section>
+      ) : null}
 
       <BookTranslateLaunchForm
         canTranslate={canTranslate}
@@ -99,11 +108,22 @@ export function BookTranslationWorkflowPanel({
         pageCount={pageCount}
         busy={busy}
         error={error}
+        ocrReuse={ocrReuse}
         onRangeOnChange={onRangeOnChange}
         onStartPageChange={onStartPageChange}
         onEndPageChange={onEndPageChange}
         onTranslate={onTranslate}
       />
+
+      {hasRealJob && !isActive ? (
+        <TranslationStageActions
+          actions={stageActions}
+          loading={stageActionsLoading}
+          pendingStage={stageActionPending}
+          error={stageActionError}
+          onRetry={onRetryStage}
+        />
+      ) : null}
     </div>
   );
 }

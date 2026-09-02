@@ -22,8 +22,9 @@ const MAX_SCOPES = 4;
 export type HomeAskComposerProps = {
   disabled?: boolean;
   isRunning?: boolean;
-  /** 未配置模型 Key 时禁用发送并提示 */
-  missingLlmKey?: boolean;
+  /** 当前 Agent 运行模式缺少对应凭据或仍在加载时禁用发送 */
+  credentialBlocked?: boolean;
+  credentialMessage?: string;
   scopes: HomeAskScope[];
   onScopesChange: (next: HomeAskScope[]) => void;
   onSend: (question: string) => void;
@@ -35,7 +36,8 @@ export type HomeAskComposerProps = {
 export function HomeAskComposer({
   disabled = false,
   isRunning = false,
-  missingLlmKey = false,
+  credentialBlocked = false,
+  credentialMessage = "请先完成 AI Agent 配置",
   scopes,
   onScopesChange,
   onSend,
@@ -119,13 +121,13 @@ export function HomeAskComposer({
 
   const handleSend = () => {
     const q = text.trim();
-    if (!q || disabled || isRunning || missingLlmKey) return;
+    if (!q || disabled || isRunning || credentialBlocked) return;
     onSend(q);
     setText("");
     closePicker();
   };
 
-  const inputDisabled = disabled || missingLlmKey;
+  const inputDisabled = disabled || credentialBlocked;
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
     if (pickerOpen && filtered.length > 0) {
@@ -168,10 +170,10 @@ export function HomeAskComposer({
     return () => document.removeEventListener("pointerdown", onDoc, true);
   }, [closePicker, pickerOpen]);
 
-  const canSend = Boolean(text.trim()) && !disabled && !isRunning && !missingLlmKey;
+  const canSend = Boolean(text.trim()) && !disabled && !isRunning && !credentialBlocked;
 
   const scopeHint = (() => {
-    if (missingLlmKey) return "请先在设置 → API 设置中填写模型 API Key";
+    if (credentialBlocked) return credentialMessage;
     if (!scopes.length) return "全库 · @ 文章或合集";
     const cols = scopes.filter((s) => s.kind === "collection").length;
     const docs = scopes.filter((s) => s.kind === "document").length;
@@ -182,10 +184,10 @@ export function HomeAskComposer({
   })();
 
   return (
-    <div className={`home-ask-composer home-ask-composer-${variant}${missingLlmKey ? " is-locked" : ""}`}>
-      {missingLlmKey ? (
+    <div className={`home-ask-composer home-ask-composer-${variant}${credentialBlocked ? " is-locked" : ""}`}>
+      {credentialBlocked ? (
         <div className="home-ask-key-banner" role="alert">
-          <p>未配置模型 API Key，无法输入或提问。</p>
+          <p>{credentialMessage}</p>
           <button
             type="button"
             className="home-ask-key-banner-btn"
@@ -229,9 +231,9 @@ export function HomeAskComposer({
         </div>
       ) : null}
 
-      <div className="home-ask-composer-shell" aria-disabled={missingLlmKey || undefined}>
+      <div className="home-ask-composer-shell" aria-disabled={credentialBlocked || undefined}>
         {/* 锁定层：挡住一切输入（比仅 disabled 更稳） */}
-        {missingLlmKey ? (
+        {credentialBlocked ? (
           <div
             className="home-ask-composer-lock"
             aria-hidden
@@ -245,14 +247,14 @@ export function HomeAskComposer({
           ref={textareaRef}
           className="home-ask-input"
           rows={2}
-          value={missingLlmKey ? "" : text}
+          value={credentialBlocked ? "" : text}
           disabled={inputDisabled}
-          readOnly={missingLlmKey}
-          tabIndex={missingLlmKey ? -1 : 0}
-          aria-disabled={missingLlmKey}
+          readOnly={credentialBlocked}
+          tabIndex={credentialBlocked ? -1 : 0}
+          aria-disabled={credentialBlocked}
           placeholder={
-            missingLlmKey
-              ? "请先配置模型 API Key…"
+            credentialBlocked
+              ? credentialMessage
               : scopes.length
                 ? "继续提问… @ 可再指定文章或合集"
                 : variant === "hero"
@@ -260,19 +262,19 @@ export function HomeAskComposer({
                   : "继续提问… 输入 @ 指定文章或合集"
           }
           onChange={(e) => {
-            if (missingLlmKey) return;
+            if (credentialBlocked) return;
             const value = e.target.value;
             setText(value);
             syncAtState(value, e.target.selectionStart ?? value.length);
           }}
           onBeforeInput={(e) => {
-            if (missingLlmKey) e.preventDefault();
+            if (credentialBlocked) e.preventDefault();
           }}
           onPaste={(e) => {
-            if (missingLlmKey) e.preventDefault();
+            if (credentialBlocked) e.preventDefault();
           }}
           onClick={(e) => {
-            if (missingLlmKey) {
+            if (credentialBlocked) {
               e.preventDefault();
               return;
             }
@@ -280,14 +282,14 @@ export function HomeAskComposer({
             syncAtState(t.value, t.selectionStart ?? t.value.length);
           }}
           onKeyUp={(e) => {
-            if (missingLlmKey) return;
+            if (credentialBlocked) return;
             const t = e.currentTarget;
             if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) {
               syncAtState(t.value, t.selectionStart ?? t.value.length);
             }
           }}
           onKeyDown={(e) => {
-            if (missingLlmKey) {
+            if (credentialBlocked) {
               e.preventDefault();
               return;
             }
@@ -296,7 +298,7 @@ export function HomeAskComposer({
         />
 
         {pickerOpen ? (
-          <div className="home-ask-picker" role="listbox" id={listId} aria-label="选择文档或合集">
+          <div className="home-ask-picker app-floating-surface" role="listbox" id={listId} aria-label="选择文档或合集">
             {loadingOpts && !optionsLoaded ? (
               <div className="home-ask-picker-empty">
                 <Loader2 className="home-ask-spin" size={14} aria-hidden />

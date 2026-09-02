@@ -17,7 +17,7 @@ export function readHiddenCredentialDomInputs(): CredentialsFields {
   return normalizeBrowserStoredConfig({
     ocrProvider: hiddenInputValue(HIDDEN_CREDENTIAL_IDS.ocrProvider) || DEFAULT_OCR_PROVIDER,
     paddleToken: hiddenInputValue(HIDDEN_CREDENTIAL_IDS.paddleToken),
-    modelApiKey: hiddenInputValue(HIDDEN_CREDENTIAL_IDS.modelApiKey),
+    translationCredentialRef: "",
   }) as CredentialsFields;
 }
 
@@ -30,7 +30,8 @@ export function normalizeHiddenCredentialPayload(
     : {
         ocrProvider: DEFAULT_OCR_PROVIDER,
         paddleToken: "",
-        modelApiKey: legacyModelApiKey,
+        translationCredentialRef: "",
+        modelApiKey: "",
       };
 }
 
@@ -44,19 +45,14 @@ export function mirrorCredentialsToHiddenInputs(
   const credentials = normalizeHiddenCredentialPayload(credentialsOrLegacy, legacyModelApiKey);
   const ocrProvider = normalizeOcrProvider(credentials.ocrProvider);
   const paddleToken = credentials.paddleToken || "";
-  const modelApiKey = credentials.modelApiKey || "";
 
   const providerInput = $(HIDDEN_CREDENTIAL_IDS.ocrProvider) as HTMLInputElement | null;
   const paddleInput = $(HIDDEN_CREDENTIAL_IDS.paddleToken) as HTMLInputElement | null;
-  const apiKeyInput = $(HIDDEN_CREDENTIAL_IDS.modelApiKey) as HTMLInputElement | null;
   if (providerInput) {
     providerInput.value = ocrProvider;
   }
   if (paddleInput) {
     paddleInput.value = paddleToken;
-  }
-  if (apiKeyInput) {
-    apiKeyInput.value = modelApiKey;
   }
 }
 
@@ -75,5 +71,4 @@ export function bindHiddenCredentialInputPersistence({
   };
   $(HIDDEN_CREDENTIAL_IDS.ocrProvider)?.addEventListener("input", saveCurrentBrowserCredentials);
   $(HIDDEN_CREDENTIAL_IDS.paddleToken)?.addEventListener("input", saveCurrentBrowserCredentials);
-  $(HIDDEN_CREDENTIAL_IDS.modelApiKey)?.addEventListener("input", saveCurrentBrowserCredentials);
 }

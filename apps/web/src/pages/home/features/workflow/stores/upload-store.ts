@@ -162,7 +162,16 @@ export function createUploadViewFeature({
   }
 
   function setUploadTileReady(ready: boolean) {
-    patch({ ready: Boolean(ready), uploading: false });
+    const isReady = Boolean(ready);
+    patch({
+      ready: isReady,
+      uploading: false,
+      ...(isReady ? {
+        progressVisible: false,
+        progressPercent: 0,
+        progressText: "上传中",
+      } : {}),
+    });
   }
 
   function setUploadActionSlotVisible(visible: boolean) {

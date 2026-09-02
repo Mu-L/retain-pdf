@@ -1,4 +1,5 @@
 import json
+import socket
 import stat
 import sys
 from pathlib import Path
@@ -240,6 +241,38 @@ for raw in sys.stdin:
     return path
 
 
+def _write_gateway_env_asserting_fx(
+    path: Path, *, expected_base_url: str | None, expected_chat_url: str | None
+) -> Path:
+    script = f'''#!{sys.executable}
+import json
+import os
+import sys
+
+if os.environ.get("FX_GATEWAY_BASE_URL") != {expected_base_url!r}:
+    sys.exit(21)
+if os.environ.get("FX_GATEWAY_CHAT_URL") != {expected_chat_url!r}:
+    sys.exit(22)
+
+for raw in sys.stdin:
+    message = json.loads(raw)
+    if message.get("method") == "initialize":
+        sys.stdout.write(json.dumps({{
+            "jsonrpc": "2.0",
+            "id": message.get("id"),
+            "result": {{
+                "protocolVersion": 1,
+                "agentCapabilities": {{"loadSession": True}},
+                "agentInfo": {{"name": "fx", "version": "0.0.5"}}
+            }}
+        }}) + "\\n")
+        sys.stdout.flush()
+'''
+    path.write_text(script, encoding="utf-8")
+    path.chmod(path.stat().st_mode | stat.S_IXUSR)
+    return path
+
+
 def test_fx_acp_runtime_persists_cursor_streams_and_denies_permissions(tmp_path):
     command = _write_fake_fx(tmp_path / "fake-fx")
     rust = FakeRustRuntimeSessions()
@@ -352,3 +385,93 @@ def test_fx_acp_runtime_requires_private_gateway_key(tmp_path):
     )
     with pytest.raises(RuntimeError, match="FX_GATEWAY_API_KEY"):
         runtime.ask("hello", conversation_id="conv-no-key")
+
+
+def test_fx_acp_runtime_passes_base_and_actual_chat_url_to_subprocess(tmp_path):
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen()
+        port = listener.getsockname()[1]
+        base_url = f"http://127.0.0.1:{port}/gateway"
+        command = _write_gateway_env_asserting_fx(
+            tmp_path / "fake-fx",
+            expected_base_url=base_url,
+            expected_chat_url=f"{base_url}/v3/ai/language-model",
+        )
+        runtime = FxAcpRuntime(
+            _settings(tmp_path, command, fx_gateway_base_url=f"{base_url}/"),
+            FakeRustRuntimeSessions(),  # type: ignore[arg-type]
+        )
+
+        capability = runtime.probe()
+
+    assert capability.available is True
+    assert capability.actual_version == "0.0.5"
+
+
+def test_fx_acp_runtime_rejects_unreachable_custom_gateway_before_fx_start(tmp_path):
+    with socket.socket() as reserved:
+        reserved.bind(("127.0.0.1", 0))
+        port = reserved.getsockname()[1]
+    marker = tmp_path / "fx-started"
+    command = tmp_path / "fake-fx"
+    command.write_text(
+        f"#!{sys.executable}\nfrom pathlib import Path\nPath({str(marker)!r}).touch()\n",
+        encoding="utf-8",
+    )
+    command.chmod(command.stat().st_mode | stat.S_IXUSR)
+    runtime = FxAcpRuntime(
+        _settings(
+            tmp_path,
+            command,
+            fx_gateway_base_url=f"http://127.0.0.1:{port}/gateway",
+        ),
+        FakeRustRuntimeSessions(),  # type: ignore[arg-type]
+    )
+
+    capability = runtime.probe()
+
+    assert capability.available is False
+    assert "unreachable" in capability.detail
+    assert marker.exists() is False
+
+
+def test_fx_acp_runtime_leaves_fx_default_gateway_when_url_is_empty(tmp_path):
+    command = _write_gateway_env_asserting_fx(
+        tmp_path / "fake-fx",
+        expected_base_url=None,
+        expected_chat_url=None,
+    )
+    runtime = FxAcpRuntime(
+        _settings(tmp_path, command, fx_gateway_base_url=""),
+        FakeRustRuntimeSessions(),  # type: ignore[arg-type]
+    )
+
+    capability = runtime.probe()
+
+    assert capability.available is True
+    assert capability.actual_version == "0.0.5"
+
+
+def test_fx_acp_runtime_rejects_remote_url_before_subprocess_start(tmp_path):
+    marker = tmp_path / "fx-started"
+    command = tmp_path / "fake-fx"
+    command.write_text(
+        f"#!{sys.executable}\nfrom pathlib import Path\nPath({str(marker)!r}).touch()\n",
+        encoding="utf-8",
+    )
+    command.chmod(command.stat().st_mode | stat.S_IXUSR)
+    runtime = FxAcpRuntime(
+        _settings(
+            tmp_path,
+            command,
+            fx_gateway_base_url="https://gateway.example",
+        ),
+        FakeRustRuntimeSessions(),  # type: ignore[arg-type]
+    )
+
+    capability = runtime.probe()
+
+    assert capability.available is False
+    assert "FX 0.0.5" in capability.detail
+    assert marker.exists() is False

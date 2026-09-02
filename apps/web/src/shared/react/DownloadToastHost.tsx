@@ -47,7 +47,7 @@ function DownloadToastCard({
     ? Math.max(4, Math.min(100, Number(percent) || 0))
     : 18;
   return (
-    <div className="download-toast-card" data-tone={tone} aria-live="polite">
+    <div className="download-toast-card app-floating-surface" data-tone={tone} aria-live="polite">
       <div className="download-toast-head">
         <div id="download-toast-title" className="download-toast-title">{title}</div>
         <div id="download-toast-status" className="download-toast-status">{status}</div>

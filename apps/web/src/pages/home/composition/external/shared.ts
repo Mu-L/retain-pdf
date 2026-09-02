@@ -6,6 +6,11 @@ export {
   messageForErrorBox,
 } from "../../../../js/utils/error-diagnostics.js";
 export { copyText } from "../../../../js/utils/clipboard.js";
+export {
+  fileNameFromDisposition,
+  prepareDownloadTarget,
+  saveResponseDownload,
+} from "../../../../js/utils/downloads.js";
 
 // —— 主页 AI 问答（home-ask）——
 export { AiMarkdownAnswer } from "@retainpdf/reader/ai";

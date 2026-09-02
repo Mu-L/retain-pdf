@@ -1,12 +1,46 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { loadProtectedPdfFile } from "../../../../packages/reader/src/pdf/useProtectedPdfFile.ts";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import {
+  cloneProtectedPdfFileForWorker,
+  loadProtectedPdfFile,
+} from "../../../../packages/reader/src/pdf/useProtectedPdfFile.ts";
 import {
   resolveReaderGridPresentation,
   resolveReaderPageWidthBasis,
 } from "../../../../packages/reader/src/components/react-pdf/ReaderCompareGrid.tsx";
 import { resolveReaderAiLayout } from "../../../../packages/reader/src/ReaderAppReactPdf.tsx";
+import { ReaderModeTabs } from "../../../../packages/reader/src/components/react-pdf/ReaderModeTabs.tsx";
+import { resolveReaderModeShortcut } from "../../../../packages/reader/src/hooks/use-reader-keyboard.ts";
+
+test("reader mode tabs follow source, compare, translated order", () => {
+  const markup = renderToStaticMarkup(createElement(ReaderModeTabs, {
+    mode: "compare",
+    sourceOnly: false,
+    onModeChange() {},
+  }));
+
+  const sourceIndex = markup.indexOf('data-reader-mode="source"');
+  const compareIndex = markup.indexOf('data-reader-mode="compare"');
+  const translatedIndex = markup.indexOf('data-reader-mode="translated"');
+
+  assert.ok(sourceIndex >= 0 && sourceIndex < compareIndex);
+  assert.ok(compareIndex < translatedIndex);
+  assert.match(markup, />源文件</);
+  assert.match(markup, />对照</);
+  assert.match(markup, />翻译文件</);
+  assert.match(markup, /aria-selected="true"[^>]*data-reader-mode="compare"/);
+});
+
+test("reader mode number shortcuts match the visible tab order", () => {
+  assert.equal(resolveReaderModeShortcut("1", false), "source");
+  assert.equal(resolveReaderModeShortcut("2", false), "compare");
+  assert.equal(resolveReaderModeShortcut("3", false), "translated");
+  assert.equal(resolveReaderModeShortcut("2", true), null);
+  assert.equal(resolveReaderModeShortcut("3", true), null);
+});
 
 test("Reader AI layout follows reading mode without creating a third fixed column", () => {
   assert.equal(resolveReaderAiLayout("source"), "docked");
@@ -79,6 +113,20 @@ test("loadProtectedPdfFile uses fetchProtected and returns data bytes", async ()
   assert.ok(file);
   assert.equal(file.data[0], 0x25);
   assert.equal(file.data.length, 4);
+});
+
+test("PDF.js receives a disposable byte copy so panel remounts keep cached bytes intact", () => {
+  const cached = { data: new Uint8Array([0x25, 0x50, 0x44, 0x46]) };
+  const firstWorkerFile = cloneProtectedPdfFileForWorker(cached);
+  const secondWorkerFile = cloneProtectedPdfFileForWorker(cached);
+  assert.ok(firstWorkerFile);
+  assert.ok(secondWorkerFile);
+  assert.notEqual(firstWorkerFile.data.buffer, cached.data.buffer);
+  assert.notEqual(secondWorkerFile.data.buffer, cached.data.buffer);
+  assert.notEqual(firstWorkerFile.data.buffer, secondWorkerFile.data.buffer);
+  firstWorkerFile.data[0] = 0;
+  assert.equal(cached.data[0], 0x25);
+  assert.equal(secondWorkerFile.data[0], 0x25);
 });
 
 test("loadProtectedPdfFile throws on non-ok response", async () => {

@@ -50,6 +50,7 @@ pub(super) fn apply_multipart_request_field(
         "glossary_mode" => request.translation.glossary_mode = value.to_string(),
         "memory_mode" => request.translation.memory_mode = value.to_string(),
         "api_key" => request.translation.api_key = value.to_string(),
+        "credential_ref" => request.translation.credential_ref = value.to_string(),
         "model" => request.translation.model = value.to_string(),
         "base_url" => request.translation.base_url = value.to_string(),
         "render_mode" => request.render.render_mode = value.to_string(),
@@ -137,6 +138,13 @@ mod tests {
         .expect("base_url");
         apply_multipart_request_field(&mut request, &mut developer_mode, "api_key", "sk-test")
             .expect("api_key");
+        apply_multipart_request_field(
+            &mut request,
+            &mut developer_mode,
+            "credential_ref",
+            "cred-translation",
+        )
+        .expect("credential_ref");
         apply_multipart_request_field(&mut request, &mut developer_mode, "render_mode", "auto")
             .expect("render_mode");
         apply_multipart_request_field(&mut request, &mut developer_mode, "timeout_seconds", "600")
@@ -150,6 +158,7 @@ mod tests {
         assert_eq!(request.ocr.paddle_token, "paddle-secret");
         assert_eq!(request.translation.base_url, "https://api.deepseek.com/v1");
         assert_eq!(request.translation.api_key, "sk-test");
+        assert_eq!(request.translation.credential_ref, "cred-translation");
         assert_eq!(request.render.render_mode, "auto");
         assert_eq!(request.runtime.timeout_seconds, 600);
     }

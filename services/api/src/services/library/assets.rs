@@ -2,7 +2,6 @@
 
 use std::path::PathBuf;
 
-use crate::config::AssetConfig;
 use crate::db::documents::sha256_hex;
 use crate::error::AppError;
 use crate::models::api::AssetRecord;
@@ -63,18 +62,21 @@ pub fn store_asset(
     mime: &str,
     data: &[u8],
 ) -> Result<AssetRecord, AppError> {
-    let config = AssetConfig::from_env();
+    let config = deps.asset_config;
     if !config.is_allowed(mime) {
         return Err(AppError::bad_request(format!(
             "unsupported asset mime: {mime} (allowed: {})",
             format_allowed_label(&config.allowed_mimes)
         )));
     }
-    if data.is_empty() || data.len() > config.max_bytes {
+    if data.is_empty() {
         return Err(AppError::bad_request(format!(
             "asset size must be 1B..{}",
             format_max_label(config.max_bytes)
         )));
+    }
+    if data.len() > config.max_bytes {
+        return Err(AppError::payload_too_large("request body is too large"));
     }
     let asset_id = sha256_hex(data);
     let path = asset_path(deps, &asset_id, mime);
@@ -117,15 +119,12 @@ pub fn load_asset(deps: &LibraryDeps<'_>, asset_id: &str) -> Result<AssetDownloa
 mod tests {
     use std::fs;
     use std::path::PathBuf;
-    use std::sync::Mutex;
 
     use super::*;
+    use crate::config::AssetConfig;
     use crate::db::Db;
 
-    // env vars are process-global; serialize tests that mutate them.
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
-
-    fn test_deps(test_name: &str) -> (LibraryDeps<'static>, PathBuf) {
+    fn test_deps(test_name: &str, asset_config: AssetConfig) -> (LibraryDeps<'static>, PathBuf) {
         let root = std::env::temp_dir().join(format!(
             "retain-asset-test-{test_name}-{}-{}",
             std::process::id(),
@@ -143,6 +142,7 @@ mod tests {
         fs::create_dir_all(&*scripts_dir).expect("create scripts_dir");
         fs::create_dir_all(jobs_db_path.parent().unwrap()).expect("create db dir");
         let db = Box::leak(Box::new(Db::new(jobs_db_path.clone(), data_root.clone())));
+        let asset_config = Box::leak(Box::new(asset_config));
         db.init().expect("init db");
         let deps = LibraryDeps {
             db,
@@ -151,35 +151,31 @@ mod tests {
             downloads_dir,
             scripts_dir,
             python_bin: "python3",
+            asset_config,
         };
         (deps, root)
     }
 
+    fn png_config(max_bytes: usize) -> AssetConfig {
+        AssetConfig {
+            max_bytes,
+            allowed_mimes: vec!["image/png".to_string()],
+        }
+    }
+
     #[test]
     fn rejects_when_over_custom_max_bytes() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        let (deps, root) = test_deps("over-max");
-        std::env::set_var("RUST_API_ASSET_MAX_BYTES", "10");
-        std::env::remove_var("RUST_API_ASSET_ALLOWED_MIMES");
+        let (deps, root) = test_deps("over-max", png_config(10));
         // 20 bytes > 10 bytes => should be rejected
         let data = vec![0u8; 20];
         let result = store_asset(&deps, "image/png", &data);
-        assert!(result.is_err(), "expected over-limit to be rejected");
-        let message = format!("{}", result.unwrap_err());
-        assert!(
-            message.contains("asset size must be 1B"),
-            "error should mention size limit, got: {message}"
-        );
-        std::env::remove_var("RUST_API_ASSET_MAX_BYTES");
+        assert!(matches!(result, Err(AppError::PayloadTooLarge(_))));
         let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
     fn passes_within_custom_max_bytes() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        let (deps, root) = test_deps("within-max");
-        std::env::set_var("RUST_API_ASSET_MAX_BYTES", "1024");
-        std::env::remove_var("RUST_API_ASSET_ALLOWED_MIMES");
+        let (deps, root) = test_deps("within-max", png_config(1024));
         let data = vec![1u8; 512];
         let result = store_asset(&deps, "image/png", &data);
         assert!(
@@ -187,20 +183,15 @@ mod tests {
             "512B should pass with 1KB limit: {:?}",
             result
         );
-        std::env::remove_var("RUST_API_ASSET_MAX_BYTES");
         let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
-    fn svg_rejected_by_default_and_allowed_when_env_extended() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        let (deps, root) = test_deps("svg-env");
+    fn svg_rejected_or_allowed_by_config_snapshot() {
         let svg = b"<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>";
 
-        // Default env (no override) should reject svg
-        std::env::remove_var("RUST_API_ASSET_ALLOWED_MIMES");
-        std::env::remove_var("RUST_API_ASSET_MAX_BYTES");
-        let default_result = store_asset(&deps, "image/svg+xml", svg);
+        let (rejected_deps, rejected_root) = test_deps("svg-rejected", png_config(1024));
+        let default_result = store_asset(&rejected_deps, "image/svg+xml", svg);
         assert!(default_result.is_err(), "svg should be rejected by default");
         let default_message = format!("{}", default_result.unwrap_err());
         assert!(
@@ -208,12 +199,14 @@ mod tests {
             "got: {default_message}"
         );
 
-        // With env extended to include svg, upload should succeed
-        std::env::set_var(
-            "RUST_API_ASSET_ALLOWED_MIMES",
-            "image/png,image/jpeg,image/webp,image/svg+xml",
+        let (allowed_deps, allowed_root) = test_deps(
+            "svg-allowed",
+            AssetConfig {
+                max_bytes: 1024,
+                allowed_mimes: vec!["image/png".to_string(), "image/svg+xml".to_string()],
+            },
         );
-        let allowed_result = store_asset(&deps, "image/svg+xml", svg);
+        let allowed_result = store_asset(&allowed_deps, "image/svg+xml", svg);
         assert!(
             allowed_result.is_ok(),
             "svg should be allowed after env override: {:?}",
@@ -222,7 +215,7 @@ mod tests {
         let record = allowed_result.unwrap();
         assert_eq!(record.mime, "image/svg+xml");
         // Verify file written with .svg extension
-        let expected_path = deps
+        let expected_path = allowed_deps
             .data_root
             .join("assets")
             .join(&record.asset_id[..2])
@@ -233,16 +226,13 @@ mod tests {
             expected_path
         );
 
-        std::env::remove_var("RUST_API_ASSET_ALLOWED_MIMES");
-        let _ = fs::remove_dir_all(&root);
+        let _ = fs::remove_dir_all(&rejected_root);
+        let _ = fs::remove_dir_all(&allowed_root);
     }
 
     #[test]
     fn empty_data_always_rejected() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        let (deps, root) = test_deps("empty");
-        std::env::remove_var("RUST_API_ASSET_ALLOWED_MIMES");
-        std::env::remove_var("RUST_API_ASSET_MAX_BYTES");
+        let (deps, root) = test_deps("empty", png_config(1024));
         let result = store_asset(&deps, "image/png", b"");
         assert!(result.is_err());
         let _ = fs::remove_dir_all(&root);

@@ -70,6 +70,9 @@ test("Markdown-only AI composer 不受翻译状态影响并保持可输入", asy
   ]);
 
   assert.match(surfaceSource, /data-reader-ai-composer/);
+  assert.match(surfaceSource, /aria-label="AI 能力模式"/);
+  assert.match(surfaceSource, /PDF 操作/);
+  assert.match(panelSource, /assistantMode=\{assistantMode\}/);
   assert.match(surfaceSource, /<ComposerPrimitive\.Input[\s\S]*?autoFocus/);
   assert.match(surfaceSource, /<ThreadPrimitive\.ViewportFooter/);
   assert.match(surfaceSource, /turnAnchor="top"/);

@@ -40,6 +40,10 @@ export { appendConversationMessage, baseConversationTitle, createConversation, d
 export type { ConversationDetail, ConversationRecord, MessageRecord, } from "@retainpdf/api/conversations";
 export { clearStoredConversationId, loadStoredConversationId, saveStoredConversationId, } from "./shared/ai/conversation-store.js";
 export declare const API_PREFIX = "/api/v1";
+export declare const fetchDocumentByJobId: (...args: [string, string]) => Promise<{
+    document_id?: string;
+    active_version_id?: string | null;
+}>;
 export declare const fetchFavorites: (apiPrefix?: string, options?: {
     documentId?: string;
 }) => Promise<{

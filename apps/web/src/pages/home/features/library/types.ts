@@ -137,16 +137,40 @@ export type LibraryCardBadge = {
 // ─── 文档 API payload ────────────────────────────────────────────
 
 export type TranslateDocumentPayload = {
+  workflow?: "book" | "translate" | string;
+  source?: {
+    artifact_job_id?: string;
+    upload_id?: string;
+    [key: string]: unknown;
+  };
   ocr?: {
     page_ranges?: string;
     [key: string]: unknown;
   };
   translation?: {
+    /** 一基文档页码；空数组表示整本或沿用旧范围语义。 */
+    page_ranges?: number[];
+    /** 旧任务兼容字段；OCR 复用请求优先使用 page_ranges。 */
     start_page?: number;
     end_page?: number;
     [key: string]: unknown;
   };
   [key: string]: unknown;
+};
+
+export type OcrDocumentPayload = {
+  workflow?: "ocr" | string;
+  ocr?: {
+    page_ranges?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+};
+
+export type DocumentJobSummary = LibraryCardItem & {
+  job_id: string;
+  workflow: string;
+  status: string;
 };
 
 /** POST /documents/:id/translate 返回（JobSubmissionView） */
@@ -155,6 +179,15 @@ export type JobSubmissionView = {
   id?: string;
   document_id?: string;
   status?: string;
+  workflow?: string;
+  ocr_reused?: boolean;
+  source_artifact_job_id?: string;
+  stages?: {
+    ocr?: { state?: string; [key: string]: unknown };
+    translation?: { state?: string; [key: string]: unknown };
+    render?: { state?: string; [key: string]: unknown };
+    [key: string]: unknown;
+  };
   [key: string]: unknown;
 };
 
@@ -214,6 +247,9 @@ export type LibraryControllerDeps = {
   buildTranslateConfig?: (
     pageRanges?: string,
   ) => TranslateDocumentPayload | Record<string, unknown>;
+  buildOcrConfig?: (
+    pageRanges?: string,
+  ) => OcrDocumentPayload | Record<string, unknown>;
   startPolling?: (
     jobId: string,
     options?: { silent?: boolean; publishLibrary?: boolean; showWorkflow?: boolean },
@@ -231,6 +267,19 @@ export type LibraryController = {
     documentId?: string | null,
     payload?: TranslateDocumentPayload,
   ) => Promise<JobSubmissionView | null>;
+  ocrDocument: (
+    documentId?: string | null,
+    payload?: OcrDocumentPayload,
+  ) => Promise<JobSubmissionView | null>;
+  getDocumentJobs: (
+    documentId?: string | null,
+  ) => Promise<{ items: DocumentJobSummary[] }>;
+  getJobStageActions: (jobId?: string | null) => Promise<unknown>;
+  retryJobStage: (
+    jobId?: string | null,
+    stage?: string | null,
+    payload?: Record<string, unknown>,
+  ) => Promise<JobSubmissionView | null>;
   deleteDocument: (documentId?: string | null) => Promise<void>;
   deleteDocuments: (
     documentIds?: Array<string | null | undefined>,
@@ -238,7 +287,7 @@ export type LibraryController = {
   deleteCard: (target?: DeleteCardTarget) => void;
   openBookDetail: (item?: LibraryCardItem | null) => void;
   /**
-   * 网格选中任务：有 document_id → 详情翻译 Tab + silent 进度；
+   * 网格选中任务：有 document_id → 详情处理 Tab + silent 进度；
    * 否则 fallbackSelectJob（旧工作流弹窗）。
    */
   selectJobForDetail: (

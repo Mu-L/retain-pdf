@@ -7,6 +7,9 @@ import type { AiCitationLike } from "../../../shared/ai/answer-enhance.js";
 import { normalizeAiCitations } from "../../../shared/ai/answer-enhance.js";
 import { sanitizeAssistantAnswer } from "../../../shared/ai/sanitize-answer.js";
 import { describeToolEvent } from "../../../shared/ai/tool-labels.js";
+import type { AgentConfirmationMode } from "@retainpdf/api/agent-runtime-settings";
+import type { ReaderAgentOperationSignal } from "./use-reader-agent-operations.js";
+import type { ReaderAssistantMode } from "../../../shared/ai/ask-answerer.js";
 
 export type ReaderChatMetadata = {
   citations?: AiCitationLike[];
@@ -23,6 +26,10 @@ type ReaderAnswerer = {
     answer?: string;
     citations?: unknown[];
     persisted?: boolean;
+    conversationId?: string;
+    confirmationMode?: AgentConfirmationMode | "";
+    operationRefs?: Array<string | { operation_id?: string }>;
+    confirmationRequests?: Array<{ operation_id?: string }>;
   }>;
 };
 
@@ -76,6 +83,9 @@ export class RetainPdfChatTransport implements ChatTransport<ReaderChatMessage> 
     jobId: string;
     getRemoteAnswerer: () => ReaderAnswerer | null;
     getLocalAnswerer?: () => ReaderAnswerer | null;
+    getAssistantMode?: () => ReaderAssistantMode;
+    onAgentOperationSignal?: (signal: Omit<ReaderAgentOperationSignal, "nonce">) => void;
+    onConfirmationMode?: (mode: AgentConfirmationMode) => void;
   }) {}
 
   async sendMessages({
@@ -126,15 +136,35 @@ export class RetainPdfChatTransport implements ChatTransport<ReaderChatMessage> 
             let answerer = remoteAnswerer || localAnswerer!;
             let usedFallback = false;
             let result: Awaited<ReturnType<ReaderAnswerer["answer"]>>;
+            const assistantMode = this.options.getAssistantMode?.() || "reading";
 
             try {
               result = await answerer.answer({
                 question,
+                assistantMode,
                 scope: "document",
                 parentId: `${request.parentId || ""}`.trim(),
                 regenerate: request.regenerate ?? trigger === "regenerate-message",
                 userMessageId: `${request.userMessageId || ""}`.trim(),
                 assistantMessageId,
+                onAgentSessionEvent: (event: unknown) => {
+                  const mode = (event as any)?.capabilities?.document_operation_confirmation_mode;
+                  if (mode === "explicit" || mode === "green_light") {
+                    this.options.onConfirmationMode?.(mode);
+                  }
+                },
+                onAgentOperationEvent: (event: unknown) => {
+                  const operationId = `${(event as any)?.operation_id || ""}`.trim();
+                  if (!operationId) return;
+                  this.options.onAgentOperationSignal?.({
+                    operationId,
+                    conversationId: `${(event as any)?.conversation_id || ""}`.trim() || undefined,
+                  });
+                },
+                onAgentConfirmationRequiredEvent: (event: unknown) => {
+                  const operationId = `${(event as any)?.operation_id || ""}`.trim();
+                  if (operationId) this.options.onAgentOperationSignal?.({ operationId });
+                },
                 onToolEvent: (event: unknown) => {
                   if (streamedAnswer || abortSignal?.aborted) return;
                   const progress = describeToolEvent(event as any);
@@ -155,7 +185,12 @@ export class RetainPdfChatTransport implements ChatTransport<ReaderChatMessage> 
               });
             } catch (error) {
               if (abortSignal?.aborted) throw error;
-              if (!remoteAnswerer || !localAnswerer || !shouldFallbackToLocal(error)) throw error;
+              if (
+                assistantMode !== "reading"
+                || !remoteAnswerer
+                || !localAnswerer
+                || !shouldFallbackToLocal(error)
+              ) throw error;
               usedFallback = true;
               updateMetadata({ progress: "在线服务暂不可用，改用本地检索…" });
               await localAnswerer.ensureLoaded?.(this.options.jobId);
@@ -167,6 +202,28 @@ export class RetainPdfChatTransport implements ChatTransport<ReaderChatMessage> 
               updateMetadata({ progress: "", status: "cancelled" });
               enqueue({ type: "abort", reason: "cancelled" });
               return;
+            }
+
+            const mode = result?.confirmationMode;
+            if (mode === "explicit" || mode === "green_light") {
+              this.options.onConfirmationMode?.(mode);
+            }
+            const conversationId = `${result?.conversationId || ""}`.trim() || undefined;
+            const operationIds = new Set<string>();
+            for (const ref of result?.operationRefs || []) {
+              const id = typeof ref === "string" ? ref : `${ref?.operation_id || ""}`;
+              if (id.trim()) operationIds.add(id.trim());
+            }
+            for (const request of result?.confirmationRequests || []) {
+              const id = `${request?.operation_id || ""}`.trim();
+              if (id) operationIds.add(id);
+            }
+            for (const operationId of operationIds) {
+              this.options.onAgentOperationSignal?.({
+                operationId,
+                conversationId,
+                confirmationMode: mode || undefined,
+              });
             }
 
             const citations = normalizeAiCitations(result?.citations);

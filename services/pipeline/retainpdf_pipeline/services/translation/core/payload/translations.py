@@ -62,6 +62,18 @@ def export_translation_template(
 
 
 def load_translations(translation_path: Path, *, strict_contract: bool = True) -> list[dict]:
+    """Read a translation payload without modifying either data or disk state."""
+
+    with translation_path.open("r", encoding="utf-8") as f:
+        payload = json.load(f)
+    if strict_contract:
+        validate_translation_payload_contract(payload, translation_path=translation_path)
+    return payload
+
+
+def migrate_translations(translation_path: Path, *, strict_contract: bool = True) -> list[dict]:
+    """Explicitly normalize a persisted payload and atomically save any changes."""
+
     with translation_path.open("r", encoding="utf-8") as f:
         payload = json.load(f)
     changed = False
@@ -70,10 +82,10 @@ def load_translations(translation_path: Path, *, strict_contract: bool = True) -
             changed = sanitize_loaded_translation_record(record) or changed
     if refresh_payload_translation_units(payload, preserve_external_groups=True):
         changed = True
-    if changed:
-        save_translations(translation_path, payload)
     if strict_contract:
         validate_translation_payload_contract(payload, translation_path=translation_path)
+    if changed:
+        save_translations(translation_path, payload)
     return payload
 
 
@@ -94,7 +106,7 @@ def ensure_translation_template(
         return output_path
 
     try:
-        payload = load_translations(output_path)
+        payload = migrate_translations(output_path)
     except json.JSONDecodeError:
         export_translation_template(items, output_path, page_idx=page_idx, math_mode=math_mode)
         return output_path

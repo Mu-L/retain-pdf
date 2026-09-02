@@ -104,3 +104,54 @@ test("AI SDK stop aborts the existing RetainPDF request and keeps partial text",
   assert.equal(chat.status, "ready");
   assert.equal(readerChatMessageText(chat.messages.at(-1)), "已经生成");
 });
+
+test("Reader transport forwards operation hints and green-light mode to the operation controller", async () => {
+  const signals = [];
+  const modes = [];
+  const answerer = {
+    async answer(options) {
+      options.onAgentSessionEvent({
+        type: "agent_session",
+        capabilities: { document_operation_confirmation_mode: "green_light" },
+      });
+      options.onAgentOperationEvent({
+        type: "agent_operation",
+        operation_id: "op-stream",
+        conversation_id: "conv-reader",
+        status: "running",
+      });
+      return {
+        answer: "正在处理 PDF",
+        citations: [],
+        conversationId: "conv-reader",
+        confirmationMode: "green_light",
+        operationRefs: [{ operation_id: "op-done" }],
+        confirmationRequests: [{ operation_id: "op-confirm" }],
+      };
+    },
+  };
+  const chat = new Chat({
+    id: "chat-agent-operations",
+    transport: new RetainPdfChatTransport({
+      jobId: "job-agent-operations",
+      getRemoteAnswerer: () => answerer,
+      onAgentOperationSignal: (signal) => signals.push(signal),
+      onConfirmationMode: (mode) => modes.push(mode),
+    }),
+  });
+
+  await chat.sendMessage({
+    id: "u-agent-operations",
+    role: "user",
+    parts: [{ type: "text", text: "旋转第四页" }],
+  }, { body: { assistantMessageId: "a-agent-operations" } });
+
+  assert.deepEqual(new Set(signals.map((signal) => signal.operationId)), new Set([
+    "op-stream",
+    "op-done",
+    "op-confirm",
+  ]));
+  assert.equal(signals.find((signal) => signal.operationId === "op-stream").conversationId, "conv-reader");
+  assert.equal(signals.find((signal) => signal.operationId === "op-done").confirmationMode, "green_light");
+  assert.deepEqual(modes, ["green_light", "green_light"]);
+});

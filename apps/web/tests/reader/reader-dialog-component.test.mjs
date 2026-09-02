@@ -11,7 +11,10 @@ function makeDom(search = "") {
   for (const key of [
     "window",
     "document",
+    "DocumentFragment",
     "HTMLElement",
+    "HTMLButtonElement",
+    "HTMLFormElement",
     "CustomEvent",
     "Event",
     "Node",

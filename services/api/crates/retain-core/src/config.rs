@@ -10,9 +10,9 @@ mod auth;
 mod cleanup;
 mod db;
 pub mod env_vars;
-pub mod limits;
 mod job_runner;
 mod jobs_service;
+pub mod limits;
 mod paths;
 mod provider;
 pub mod provider_config;
@@ -21,10 +21,10 @@ mod reader_llm;
 mod server;
 mod upload;
 
-use auth::AuthRuntimeConfig;
 pub use ai_proxy::AiProxyConfig;
 pub use ai_service::AiServiceConfig;
 pub use asset::AssetConfig;
+use auth::AuthRuntimeConfig;
 pub use cleanup::CleanupConfig;
 pub use db::DbConfig;
 pub use job_runner::JobRunnerConfig;
@@ -37,7 +37,7 @@ pub use provider::{
 pub use rag::RagConfig;
 pub use reader_llm::ReaderLlmConfig;
 use server::ServerRuntimeConfig;
-use upload::UploadRuntimeConfig;
+pub use upload::{effective_upload_max_bytes, UploadRuntimeConfig, DEFAULT_UPLOAD_MAX_BYTES};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PythonWorkerEntrypointMode {
@@ -385,7 +385,7 @@ impl AppConfig {
             paths,
             auth,
             server: ServerRuntimeConfig::from_desktop(python_bin, port),
-            upload: UploadRuntimeConfig::unlimited(),
+            upload: UploadRuntimeConfig::desktop_defaults(),
             provider_limits: ProviderLimitsConfig::from_env(),
             provider_runtime: ProviderRuntimeConfig::from_env(),
             job_runner: JobRunnerConfig::from_env(),

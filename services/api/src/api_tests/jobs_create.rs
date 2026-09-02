@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::body::{to_bytes, Body};
 use axum::http::{header, Request, StatusCode};
 use lopdf::content::{Content, Operation};
@@ -6,7 +8,7 @@ use serde_json::Value;
 use tower::util::ServiceExt;
 
 use super::jobs_common::test_state;
-use crate::app::build_simple_app;
+use crate::app::{build_app, build_simple_app};
 
 fn build_test_pdf_bytes() -> Vec<u8> {
     let dir = std::env::temp_dir().join(format!("rust-api-create-route-pdf-{}", fastrand::u64(..)));
@@ -137,4 +139,87 @@ async fn translate_bundle_route_returns_async_job_submission_json() {
     assert_eq!(payload["data"]["status"], "queued");
     assert_eq!(payload["data"]["workflow"], "book");
     assert!(payload["data"]["job_id"].as_str().unwrap_or("").len() > 8);
+}
+
+const UPLOAD_BOUNDARY: &str = "retainpdf-upload-route-test";
+
+fn upload_file_field(filename: &str, value: &str) -> String {
+    format!(
+        "--{UPLOAD_BOUNDARY}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{filename}\"\r\nContent-Type: application/pdf\r\n\r\n{value}\r\n"
+    )
+}
+
+fn upload_request(body: String) -> Request<Body> {
+    Request::builder()
+        .method("POST")
+        .uri("/api/v1/uploads")
+        .header("X-API-Key", "test-key")
+        .header(
+            header::CONTENT_TYPE,
+            format!("multipart/form-data; boundary={UPLOAD_BOUNDARY}"),
+        )
+        .body(Body::from(body))
+        .unwrap()
+}
+
+async fn response_json(response: axum::response::Response) -> Value {
+    serde_json::from_slice(
+        &to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read response body"),
+    )
+    .expect("parse response JSON")
+}
+
+#[tokio::test]
+async fn upload_route_enforces_configured_stream_limit_without_content_length() {
+    let mut state = test_state("upload-route-stream-limit");
+    let mut config = (*state.config).clone();
+    config.upload_max_bytes = 4;
+    let uploads_dir = config.uploads_dir.clone();
+    state.config = Arc::new(config);
+    let body = format!(
+        "{}--{UPLOAD_BOUNDARY}--\r\n",
+        upload_file_field("input.pdf", "12345")
+    );
+
+    let response = build_app(state)
+        .oneshot(upload_request(body))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    let payload = response_json(response).await;
+    assert_eq!(payload["code"], 41300);
+    assert_eq!(payload["message"], "request body is too large");
+    assert_eq!(payload["error"]["code"], "PAYLOAD_TOO_LARGE");
+    let entries = std::fs::read_dir(uploads_dir)
+        .expect("read uploads directory")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("collect uploads directory");
+    assert!(entries.is_empty(), "oversize route upload created files");
+}
+
+#[tokio::test]
+async fn upload_route_rejects_duplicate_file_before_reading_second_body() {
+    let mut state = test_state("upload-route-duplicate-file");
+    let mut config = (*state.config).clone();
+    config.upload_max_bytes = 4;
+    state.config = Arc::new(config);
+    let body = format!(
+        "{}{}--{UPLOAD_BOUNDARY}--\r\n",
+        upload_file_field("first.pdf", "1234"),
+        upload_file_field("second.pdf", "12345")
+    );
+
+    let response = build_app(state)
+        .oneshot(upload_request(body))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let payload = response_json(response).await;
+    assert_eq!(payload["code"], 40000);
+    assert_eq!(payload["message"], "duplicate multipart field: file");
+    assert_eq!(payload["error"]["code"], "BAD_REQUEST");
 }

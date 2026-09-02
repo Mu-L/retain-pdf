@@ -11,6 +11,7 @@ from retainpdf_pipeline.services.translation.core.payload.ops import summarize_p
 from retainpdf_pipeline.services.translation.core.payload.translations import ensure_translation_template
 from retainpdf_pipeline.services.translation.core.payload.translations import export_translation_template
 from retainpdf_pipeline.services.translation.core.payload.translations import load_translations
+from retainpdf_pipeline.services.translation.core.payload.translations import migrate_translations
 from retainpdf_pipeline.services.translation.core.payload.translations import save_translations
 from retainpdf_pipeline.services.translation.core.payload.manifest import load_translation_manifest
 from retainpdf_pipeline.services.translation.core.payload.manifest import load_translation_manifest_file
@@ -24,6 +25,7 @@ __all__ = [
     "ensure_translation_template",
     "export_translation_template",
     "load_translations",
+    "migrate_translations",
     "load_translation_manifest",
     "load_translation_manifest_file",
     "pending_translation_items",

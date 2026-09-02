@@ -16,7 +16,7 @@ function makeDom(search) {
   const dom = new JSDOM("<!doctype html><html><body></body></html>", {
     url: `http://localhost/index.html${search}`,
   });
-  for (const key of ["window", "document", "HTMLElement", "HTMLInputElement", "CustomEvent", "Event", "KeyboardEvent", "MouseEvent", "Node", "MutationObserver", "NodeFilter"]) {
+  for (const key of ["window", "document", "DocumentFragment", "HTMLElement", "HTMLButtonElement", "HTMLFormElement", "HTMLInputElement", "CustomEvent", "Event", "KeyboardEvent", "MouseEvent", "Node", "MutationObserver", "NodeFilter"]) {
     Object.defineProperty(globalThis, key, {
       value: dom.window[key] ?? dom.window,
       writable: true,

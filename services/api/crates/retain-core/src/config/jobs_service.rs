@@ -94,19 +94,13 @@ impl JobsServiceConfig {
                 "RUST_API_JOBSD_STARTUP_TIMEOUT_SECS",
                 30,
             )),
-            health_interval: Duration::from_secs(env_u64(
-                "RUST_API_JOBSD_HEALTH_INTERVAL_SECS",
-                5,
-            )),
+            health_interval: Duration::from_secs(env_u64("RUST_API_JOBSD_HEALTH_INTERVAL_SECS", 5)),
             health_fail_threshold: env_u32("RUST_API_JOBSD_HEALTH_FAIL_THRESHOLD", 3),
             backoff_initial: Duration::from_millis(env_u64(
                 "RUST_API_JOBSD_BACKOFF_INITIAL_MS",
                 500,
             )),
-            backoff_max: Duration::from_millis(env_u64(
-                "RUST_API_JOBSD_BACKOFF_MAX_MS",
-                30_000,
-            )),
+            backoff_max: Duration::from_millis(env_u64("RUST_API_JOBSD_BACKOFF_MAX_MS", 30_000)),
             health_probe_connect_timeout: Duration::from_secs(env_u64(
                 "RUST_API_JOBSD_HEALTH_PROBE_CONNECT_TIMEOUT_SECS",
                 1,

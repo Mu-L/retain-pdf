@@ -19,9 +19,15 @@
 // 周期说明见旧版头注释结论：后台自检由 composition 的纯逻辑控制器驱动，
 // 与本组件是否挂载无关。
 
-import { X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Dialog as DialogPrimitive, Tabs as TabsPrimitive } from "radix-ui";
+import { Tabs as TabsPrimitive } from "radix-ui";
+import {
+  Dialog,
+  DialogCloseButton,
+  DialogContent,
+  DialogShell,
+  DialogTitle,
+} from "@/components/ui/dialog.js";
 import { useHomeServices } from "../../home-services-context.js";
 import { useDialogState } from "../../state/use-dialog-state.js";
 import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
@@ -81,7 +87,7 @@ const TABS = [
 ];
 
 const PANE_HEADS = {
-  api: { title: "API 设置", desc: "配置 OCR Token、DeepSeek Key、模型地址和任务选项，保存后立即生效。" },
+  api: { title: "API 设置", desc: "" },
   glossary: { title: "术语表", desc: "维护固定译法、保留词和专业术语偏好。" },
   appearance: { title: "外观", desc: "选择界面配色，立即生效并记住本机选择。" },
   update: { title: "更新", desc: "查看当前版本，并从 GitHub Releases 重新检查更新。" },
@@ -92,7 +98,7 @@ function PaneHead({ tab }: { tab: keyof typeof PANE_HEADS }) {
   return (
     <header className="app-settings-pane-head">
       <h3>{head.title}</h3>
-      <p>{head.desc}</p>
+      {head.desc ? <p>{head.desc}</p> : null}
     </header>
   );
 }
@@ -145,15 +151,15 @@ export function SettingsHubDialog({
   }
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={handleOpenChange}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="desktop-dialog-overlay" />
-        <DialogPrimitive.Content
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent
           id={APP_SETTINGS_DIALOG_IDS.dialog}
-          className="desktop-dialog app-settings-dialog"
+          className="app-settings-dialog"
           onCloseAutoFocus={onCloseAutoFocus}
+          showCloseButton={false}
+          size="wide"
         >
-          <div className="desktop-shell app-settings-shell">
+          <DialogShell className="desktop-shell app-settings-shell">
             <TabsPrimitive.Root
               className="app-settings-layout"
               orientation="vertical"
@@ -161,9 +167,9 @@ export function SettingsHubDialog({
               onValueChange={setActiveTab}
             >
               <aside className="app-settings-rail">
-                <DialogPrimitive.Title asChild>
+                <DialogTitle asChild>
                   <h2>设置</h2>
-                </DialogPrimitive.Title>
+                </DialogTitle>
                 <TabsPrimitive.List className="app-settings-nav" aria-label="设置分类">
                   {TABS.map(({ id, label, Icon }) => (
                     <TabsPrimitive.Trigger
@@ -180,15 +186,10 @@ export function SettingsHubDialog({
               </aside>
 
               <div className="app-settings-pane">
-                <DialogPrimitive.Close asChild>
-                  <Button
-                    id={APP_SETTINGS_DIALOG_IDS.closeButton}
-                    className="dialog-close-btn app-settings-close"
-                    aria-label="关闭"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </DialogPrimitive.Close>
+                <DialogCloseButton
+                  id={APP_SETTINGS_DIALOG_IDS.closeButton}
+                  className="app-settings-close"
+                />
 
                 <TabsPrimitive.Content
                   value="api"
@@ -243,9 +244,8 @@ export function SettingsHubDialog({
                 </TabsPrimitive.Content>
               </div>
             </TabsPrimitive.Root>
-          </div>
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+          </DialogShell>
+        </DialogContent>
+    </Dialog>
   );
 }

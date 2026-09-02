@@ -93,6 +93,33 @@ fn job_detail_view_contains_request_payload() {
 }
 
 #[test]
+fn job_detail_view_exposes_credential_reference_without_secret() {
+    let mut input = CreateJobInput::default();
+    input.translation.credential_ref = "cred_translation_primary".to_string();
+    let job = JobSnapshot::new(
+        "job-credential-ref-view".to_string(),
+        input,
+        vec!["python".to_string()],
+    );
+
+    let detail = job_to_detail(
+        &job,
+        "http://127.0.0.1:41000",
+        std::path::Path::new("/tmp"),
+        false,
+        false,
+        false,
+    );
+
+    assert_eq!(
+        detail.request_payload.translation.credential_ref,
+        "cred_translation_primary"
+    );
+    assert!(detail.request_payload.translation.api_key.is_empty());
+    assert!(detail.request_payload.translation.api_key_configured);
+}
+
+#[test]
 fn redact_helpers_remove_structured_and_inline_secrets() {
     let mut input = CreateJobInput::default();
     input.translation.api_key = "sk-secret".to_string();
@@ -187,6 +214,9 @@ fn summarize_list_invocation_counts_stage_spec_and_unknown() {
             display_name: "a.pdf".to_string(),
             workflow: WorkflowKind::Translate,
             status: JobStatusKind::Succeeded,
+            attempt: 1,
+            retry_count: 0,
+            last_retry_at: None,
             trace_id: None,
             stage_snapshot: None,
             background_snapshots: Vec::new(),
@@ -213,6 +243,9 @@ fn summarize_list_invocation_counts_stage_spec_and_unknown() {
             display_name: "b.pdf".to_string(),
             workflow: WorkflowKind::Book,
             status: JobStatusKind::Queued,
+            attempt: 1,
+            retry_count: 0,
+            last_retry_at: None,
             trace_id: None,
             stage_snapshot: None,
             background_snapshots: Vec::new(),

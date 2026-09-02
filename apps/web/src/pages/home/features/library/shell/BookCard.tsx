@@ -53,6 +53,8 @@ export function cardSignatureOf(item: LibraryCardItem = {}) {
   return [
     item.job_id,
     item.document_id,
+    item.workflow,
+    item.job_type,
     item.library_only ? "lib" : "",
     item.reading_status,
     item.updated_at,

@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Result};
 
 use crate::db::Db;
+use crate::job_runner::job_artifacts_mut;
 use crate::models::domain::JobRuntimeState;
 use crate::ocr_provider::OcrProviderKind;
 
@@ -35,6 +36,7 @@ pub(super) fn prepare_local_upload_source(
         source_dir,
         &job.request_payload.ocr.page_ranges,
     )?;
+    job_artifacts_mut(job).ocr_page_numbers = prepared_source.selected_pages.clone();
     if prepared_source.is_subset() {
         job.append_log(&format!(
             "prepared subset source pdf: {} pages {:?}/{}",

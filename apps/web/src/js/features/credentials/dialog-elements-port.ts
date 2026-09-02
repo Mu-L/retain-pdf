@@ -6,9 +6,11 @@ import {
 export function createCredentialDialogElementsPort({
   elements = browserCredentialElements,
   syncOcrProviderControls = syncOcrProviderControlsView,
+  syncTranslationProvider = () => {},
 }: any = {}) {
   return {
     elements,
     syncOcrProviderControls,
+    syncTranslationProvider,
   };
 }

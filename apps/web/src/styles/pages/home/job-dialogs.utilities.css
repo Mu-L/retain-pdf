@@ -401,99 +401,91 @@
 }
 
 @utility status-detail-dialog {
-  /* 阶段 C(shadcn 改造):z-index 从共享的 desktop-dialog(101)提到 111——
-     StatusDetailDialog 的唯一打开入口(StatusCard 的"详情"按钮)必然嵌在已经
-     打开的 TranslationWorkflowDialog(Content z-101/Overlay z-100)内部,两者
-     都换成 Radix Dialog(常规 DOM 层叠,不再是原生 <dialog> 的浏览器 top-layer
-     promotion)后,若沿用相同的 101/100,StatusDetailDialog 自己的背板
-     (Overlay z-100)会因为 z-index 小于 TranslationWorkflowDialog 的 Content
-     (101)而盖不住它,导致"嵌套打开时背景应叠加变暗"这个原生 <dialog> 免费带来
-     的视觉效果丢失(fresh Playwright + 12 条视觉基线复现过:status-dialog-failed/
-     status-dialog-translation 差异一度达到 40%)。这里连同下面新增的
-     status-detail-dialog-overlay 一起垫高层级,确保永远盖过
-     TranslationWorkflowDialog(以及其余仍是 101/100 的 Credentials/Glossaries/
-     SettingsHub/AppUpdate,留出余量以防万一同时打开)。 */
-  z-index: 111;
-  width: min(960px, calc(100vw - 32px));
-  width: min(960px, calc(100dvw - 32px));
-  height: min(760px, calc(100vh - 48px));
-  height: min(760px, calc(100dvh - 48px));
+  /* width/z-index/遮罩/圆角由 AppDialog 的 wide + nested 变体提供。 */
+  width: min(860px, calc(100vw - 32px));
+  width: min(860px, calc(100dvw - 32px));
+  height: min(560px, calc(100vh - 40px));
+  height: min(560px, calc(100dvh - 40px));
   max-width: none;
   max-height: none;
-  border: none;
-  border-radius: 24px;
-  padding: 0;
-  background: transparent;
 
   & .desktop-shell {
     width: 100%;
     height: 100%;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
-    border-radius: 24px;
-    overflow: hidden;
-    background: var(--bg);
   }
 
   & .desktop-head {
-    padding: 14px 18px 10px;
+    padding: 10px 16px;
     border-bottom: 1px solid var(--line);
-    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    background: color-mix(in srgb, var(--paper) 94%, transparent);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
   }
 
   & .desktop-body {
-    padding: 14px 18px 18px;
+    padding: 0 16px 14px;
   }
 
   @media (max-width: 767px) {
+    --app-dialog-radius: 0px;
     width: 100vw;
     width: 100dvw;
     height: 100vh;
     height: 100dvh;
-    border-radius: 0;
-
-    & .desktop-shell {
-      border-radius: 0;
-    }
   }
 }
 
 @utility status-detail-headline {
-  @apply flex items-start gap-3;
+  @apply flex min-w-0 items-center gap-3;
+  flex: 1 1 auto;
 
   & h2 {
-    @apply text-[1.05rem] font-semibold;
+    @apply text-[1rem] font-semibold;
     color: var(--ink);
     letter-spacing: -0.02em;
   }
 }
 
 @utility status-detail-head-copy {
-  @apply grid gap-1;
+  display: flex;
+  align-items: center;
   min-width: 0;
   flex: 1 1 auto;
 }
 
-@utility status-detail-head-top {
-  @apply flex items-center justify-between gap-3;
-  flex-wrap: wrap;
+@utility status-detail-head-title-row {
+  @apply flex items-center gap-2.5;
+  min-width: 0;
+}
+
+@utility status-detail-head-meta-row {
+  @apply flex min-w-0 items-center gap-3;
+
+  & > .status-panel-note {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
   @media (max-width: 767px) {
     align-items: flex-start;
     flex-direction: column;
+    gap: 6px;
   }
 }
 
 @utility status-detail-job-meta {
-  @apply inline-flex items-center gap-2 rounded-full px-3 py-1;
+  @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1;
   margin: 0;
-  background: var(--bg);
-  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  border: 0;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 @utility status-detail-job-id {
@@ -502,56 +494,108 @@
 }
 
 @utility status-detail-head-icon {
-  @apply flex h-11 w-11 items-center justify-center rounded-full;
-  background: var(--bg);
+  @apply flex h-8 w-8 items-center justify-center rounded-[9px];
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
   color: var(--ink);
   flex: 0 0 auto;
 
   & svg {
-    width: 22px;
-    height: 22px;
+    width: 18px;
+    height: 18px;
+  }
+
+  &.is-failed {
+    background: color-mix(in srgb, var(--danger) 10%, transparent);
+    color: var(--danger);
+  }
+
+  &.is-success {
+    background: color-mix(in srgb, var(--ok) 10%, transparent);
+    color: var(--ok);
+  }
+}
+
+@utility status-detail-state-badge {
+  @apply inline-flex min-h-6 items-center rounded-full px-2.5 text-[12px] font-medium;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  color: var(--muted);
+
+  &.is-running {
+    color: var(--ink);
+  }
+
+  &.is-success {
+    background: color-mix(in srgb, var(--ok) 10%, transparent);
+    color: var(--ok);
+  }
+
+  &.is-failed {
+    background: color-mix(in srgb, var(--danger) 10%, transparent);
+    color: var(--danger);
   }
 }
 
 @utility status-detail-body {
-  gap: 14px;
+  display: block;
   min-height: 0;
   height: 100%;
+  overflow: hidden;
+}
+
+@utility status-detail-tabs-root {
+  display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  height: 100%;
 }
 
 @utility detail-tabs {
-  @apply inline-flex items-center gap-2 rounded-full p-1;
+  @apply inline-flex items-center gap-1 rounded-[11px];
+  padding: 3px;
   width: fit-content;
-  background: var(--bg);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
 }
 
-@utility detail-tab {
-  @apply inline-flex min-h-9 items-center justify-center rounded-full px-4 text-[13px] font-medium;
+@utility status-detail-navigation {
+  @apply flex items-center;
+  padding-block: 6px;
+}
+
+.detail-tab {
+  @apply inline-flex items-center justify-center rounded-[8px] font-medium;
+  min-height: 30px;
+  padding-inline: 11px;
+  font-size: 12.5px;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   color: var(--muted);
   background: transparent;
   border: none;
   box-shadow: none;
-
-  &.is-active {
-    background: var(--ink);
-    color: var(--paper);
-  }
 }
 
-@utility is-active {
-  &.detail-tab {
-    background: var(--ink);
-    color: var(--paper);
-  }
+.detail-tab > svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+}
+
+.detail-tab.is-active,
+.detail-tab[data-state="active"] {
+  background: var(--ink);
+  color: var(--paper);
 }
 
 @utility detail-tab-advanced {
-  opacity: 0.72;
+  color: color-mix(in srgb, var(--muted) 82%, transparent);
 }
 
 @utility detail-tab-panels {
-  height: 100%;
+  height: auto;
   min-height: 0;
   overflow: hidden;
 
@@ -572,10 +616,14 @@
   }
 }
 
-@utility detail-tab-panel {
+.detail-tab-panel {
   height: 100%;
+  min-height: 0;
   overflow-y: auto;
-  padding-right: 6px;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding-right: 5px;
+  padding-top: 0;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--ink) 22%, transparent) transparent;
 

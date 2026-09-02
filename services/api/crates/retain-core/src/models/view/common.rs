@@ -9,6 +9,9 @@ pub struct JobSubmissionView {
     pub job_id: String,
     pub status: JobStatusKind,
     pub workflow: WorkflowKind,
+    pub ocr_reused: bool,
+    pub source_artifact_job_id: Option<String>,
+    pub stages: JobStagesView,
     pub links: JobLinksView,
     pub actions: JobActionsView,
 }
@@ -25,6 +28,8 @@ pub struct JobProgressView {
 #[derive(Debug, Serialize, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum JobStageStateView {
+    Reused,
+    Queued,
     Pending,
     InProgress,
     Completed,
@@ -107,6 +112,17 @@ pub struct ListJobsQuery {
     /// 转成图书馆卡片数据——不传时行为与现状完全一致。
     #[serde(default)]
     pub job_ids: Option<String>,
+}
+
+/// Pagination for one document's complete OCR/translation task history.
+/// Keep this deliberately narrower than `ListJobsQuery`: document scope is
+/// supplied by the path and must not be overridable by list filters.
+#[derive(Debug, Deserialize, Clone)]
+pub struct ListDocumentJobsQuery {
+    #[serde(default = "default_limit")]
+    pub limit: u32,
+    #[serde(default)]
+    pub offset: u32,
 }
 
 #[derive(Debug, Deserialize, Clone)]

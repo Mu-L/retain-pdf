@@ -6,6 +6,17 @@ import { fetchProtected } from "../external.js";
 
 export type ProtectedPdfFile = { data: Uint8Array };
 
+/**
+ * PDF.js 会把传入的 ArrayBuffer 转移给 Worker，原 buffer 随后会 detached。
+ * 缓存/会话持有的原始字节不能直接交给 Document，否则分栏切换导致重挂载时
+ * 无法再次解析。每个 Document 实例只消费自己的副本。
+ */
+export function cloneProtectedPdfFileForWorker(
+  file: ProtectedPdfFile | null,
+): ProtectedPdfFile | null {
+  return file ? { data: file.data.slice() } : null;
+}
+
 export type ProtectedPdfState = {
   file: ProtectedPdfFile | null;
   loading: boolean;

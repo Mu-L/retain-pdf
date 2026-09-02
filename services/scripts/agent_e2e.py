@@ -11,6 +11,7 @@ from pathlib import Path
 import platform
 import re
 import shutil
+import socket
 import subprocess
 import sys
 from typing import Any, Callable, Mapping, Sequence
@@ -21,10 +22,21 @@ from urllib.request import Request, urlopen
 
 SERVICES_ROOT = Path(__file__).resolve().parents[1]
 PRODUCT_ROOT = SERVICES_ROOT.parent
+AI_ROOT = SERVICES_ROOT / "ai"
+if str(AI_ROOT) not in sys.path:
+    sys.path.insert(0, str(AI_ROOT))
+
+from retainpdf_ai.runtime_credentials import (  # noqa: E402
+    RuntimeCredentialError,
+    load_runtime_credentials,
+    runtime_credential_path,
+)
+
 EXPECTED_FX_VERSION = "0.0.5"
+DEFAULT_FX_GATEWAY_BASE_URL = "https://ai-gateway.vercel.sh"
 DOCTOR_SCHEMA = "retainpdf_agent_doctor_v1"
 DEFAULT_RUST_HEALTH_URL = "http://127.0.0.1:41000/ready"
-DEFAULT_AI_HEALTH_URL = "http://127.0.0.1:41100/healthz"
+DEFAULT_AI_HEALTH_URL = "http://127.0.0.1:41100/readyz"
 DEFAULT_TIMEOUT_SECONDS = 300
 MAX_DIAGNOSTIC_CHARS = 4_000
 SENSITIVE_NAME_PARTS = ("KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL")
@@ -46,6 +58,70 @@ def _present(value: str | None) -> str:
     return "present" if value and value.strip() else "missing"
 
 
+def _effective_environment(
+    environ: Mapping[str, str], *, load_persisted: bool
+) -> tuple[dict[str, str], dict[str, Any]]:
+    """Overlay the private page-saved config without exposing any raw key."""
+
+    effective = dict(environ)
+    data_root = Path(
+        environ.get("RETAIN_AI_DATA_ROOT", "").strip() or PRODUCT_ROOT / "data"
+    )
+    check: dict[str, Any] = {
+        "status": "not_checked",
+        "source": "environment",
+        "revision": 0,
+        "path": str(runtime_credential_path(data_root)),
+    }
+    if not load_persisted:
+        return effective, check
+    try:
+        stored = load_runtime_credentials(data_root)
+    except RuntimeCredentialError:
+        check["status"] = "invalid"
+        return effective, check
+    revision = int(stored.get("revision") or 0)
+    check.update(
+        {
+            "status": "ok",
+            "source": "persisted" if revision else "environment",
+            "revision": revision,
+        }
+    )
+    if not revision:
+        return effective, check
+
+    field_to_env = {
+        "agent_runtime": "RETAIN_AI_RUNTIME",
+        "llm_base_url": "RETAIN_AI_LLM_BASE_URL",
+        "llm_model": "RETAIN_AI_LLM_MODEL",
+        "fx_model": "RETAIN_AI_FX_MODEL",
+    }
+    for field, env_name in field_to_env.items():
+        value = str(stored.get(field) or "")
+        if value:
+            effective[env_name] = value
+    for field, env_name in (
+        ("llm_api_key", "RETAIN_AI_LLM_API_KEY"),
+        ("fx_gateway_api_key", "RETAIN_AI_FX_GATEWAY_API_KEY"),
+    ):
+        value = str(stored.get(field) or "")
+        if value:
+            effective[env_name] = value
+        else:
+            effective.pop(env_name, None)
+    mode = str(stored.get("fx_gateway_base_url_mode") or "inherit_env")
+    if mode == "custom":
+        effective["RETAIN_AI_FX_GATEWAY_BASE_URL"] = str(
+            stored.get("fx_gateway_base_url") or ""
+        )
+    elif mode == "official_default":
+        effective.pop("RETAIN_AI_FX_GATEWAY_BASE_URL", None)
+    elif mode != "inherit_env":
+        check["status"] = "invalid"
+    return effective, check
+
+
 def _credential_checks(environ: Mapping[str, str]) -> dict[str, str]:
     service_key = (
         environ.get("RETAIN_AI_API_KEYS", "").strip()
@@ -61,6 +137,66 @@ def _credential_checks(environ: Mapping[str, str]) -> dict[str, str]:
         "rust_api_key": _present(rust_api_key),
         "llm_api_key": _present(environ.get("RETAIN_AI_LLM_API_KEY")),
     }
+
+
+def _fx_gateway_check(environ: Mapping[str, str]) -> dict[str, Any]:
+    raw = environ.get("RETAIN_AI_FX_GATEWAY_BASE_URL", "").strip().rstrip("/")
+    if not raw:
+        return {
+            "status": "default",
+            "base_url": DEFAULT_FX_GATEWAY_BASE_URL,
+            "chat_url": f"{DEFAULT_FX_GATEWAY_BASE_URL}/v3/ai/language-model",
+        }
+    try:
+        parsed = urlsplit(raw)
+        port = parsed.port
+    except ValueError:
+        return {
+            "status": "invalid",
+            "base_url": None,
+            "chat_url": None,
+            "detail": "fx 0.0.5 admits only explicit loopback HTTP URLs with a port",
+        }
+    if (
+        parsed.scheme.lower() != "http"
+        or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}
+        or port is None
+        or parsed.username
+        or parsed.password
+        or parsed.query
+        or parsed.fragment
+    ):
+        return {
+            "status": "invalid",
+            "base_url": None,
+            "chat_url": None,
+            "detail": "fx 0.0.5 admits only explicit loopback HTTP URLs with a port",
+        }
+    return {
+        "status": "ok",
+        "base_url": raw,
+        "chat_url": f"{raw}/v3/ai/language-model",
+    }
+
+
+def _probe_fx_gateway_socket(
+    check: dict[str, Any], *, timeout: float
+) -> dict[str, Any]:
+    if check.get("status") != "ok":
+        return check
+    parsed = urlsplit(str(check["base_url"]))
+    try:
+        with socket.create_connection(
+            (str(parsed.hostname), int(parsed.port)), timeout=timeout
+        ):
+            pass
+    except OSError:
+        return {
+            **check,
+            "status": "unreachable",
+            "detail": "custom loopback Gateway is not accepting connections",
+        }
+    return check
 
 
 def _resolve_command_path(raw: str, which: WhichCallable) -> Path | None:
@@ -161,7 +297,9 @@ def _fx_check(
 def _agent_check(
     environ: Mapping[str, str], *, which: WhichCallable
 ) -> dict[str, Any]:
-    override = environ.get("RETAIN_AI_FX_AGENT_CLI_COMMAND", "").strip()
+    override = environ.get("RETAIN_AI_AGENT_CLI_COMMAND", "").strip() or environ.get(
+        "RETAIN_AI_FX_AGENT_CLI_COMMAND", ""
+    ).strip()
     override_path = _resolve_command_path(override, which) if override else None
     debug_path = SERVICES_ROOT / "api" / "target" / "debug" / "retainpdf-agent"
     release_path = SERVICES_ROOT / "api" / "target" / "release" / "retainpdf-agent"
@@ -266,12 +404,18 @@ def collect_doctor_report(
     which: WhichCallable | None = None,
     open_url: UrlopenCallable | None = None,
 ) -> dict[str, Any]:
-    env = os.environ if environ is None else environ
+    raw_env = os.environ if environ is None else environ
+    env, runtime_config_check = _effective_environment(
+        raw_env,
+        load_persisted=(
+            environ is None or bool(raw_env.get("RETAIN_AI_DATA_ROOT", "").strip())
+        ),
+    )
     command_runner = subprocess.run if run is None else run
     command_finder = shutil.which if which is None else which
     url_opener = urlopen if open_url is None else open_url
     runtime = env.get("RETAIN_AI_RUNTIME", "python").strip().lower() or "python"
-    runtime_ok = runtime in {"python", "fx"}
+    runtime_ok = runtime in {"python", "openai", "fx"}
     credentials = _credential_checks(env)
     python_check = _backend_python_check(run=command_runner)
     checks: dict[str, Any] = {
@@ -282,8 +426,10 @@ def collect_doctor_report(
         },
         "python": python_check,
         "fx": _fx_check(env, run=command_runner, which=command_finder),
+        "fx_gateway": _fx_gateway_check(env),
         "retainpdf_agent": _agent_check(env, which=command_finder),
         "runtime": {"status": "ok" if runtime_ok else "unsupported", "value": runtime},
+        "runtime_config": runtime_config_check,
         "credentials": credentials,
         "endpoints": {
             "rust": {"status": "not_checked", "http_status": None, "url": rust_health_url},
@@ -291,6 +437,9 @@ def collect_doctor_report(
         },
     }
     if probe_live:
+        checks["fx_gateway"] = _probe_fx_gateway_socket(
+            checks["fx_gateway"], timeout=probe_timeout
+        )
         checks["endpoints"] = {
             "rust": _probe_endpoint(
                 rust_health_url, timeout=probe_timeout, open_url=url_opener
@@ -303,6 +452,7 @@ def collect_doctor_report(
         runtime_ok,
         credentials["service_api_key"] == "present",
         credentials["rust_api_key"] == "present",
+        runtime_config_check["status"] != "invalid",
     ]
     if runtime == "fx":
         required_ok.extend(
@@ -310,6 +460,14 @@ def collect_doctor_report(
                 checks["fx"]["status"] == "ok",
                 checks["retainpdf_agent"]["status"] == "ok",
                 credentials["fx_gateway_api_key"] == "present",
+                checks["fx_gateway"]["status"] in {"default", "ok"},
+            )
+        )
+    elif runtime == "openai":
+        required_ok.extend(
+            (
+                checks["retainpdf_agent"]["status"] == "ok",
+                credentials["llm_api_key"] == "present",
             )
         )
     elif runtime == "python":
@@ -337,9 +495,20 @@ def _print_doctor_human(report: Mapping[str, Any]) -> None:
         f"  fx: {checks['fx']['status']} "
         f"({checks['fx']['version'] or 'unknown'}, {checks['fx']['path'] or 'not found'})"
     )
+    print(
+        "  fx gateway: "
+        f"{checks['fx_gateway']['status']} "
+        f"({checks['fx_gateway']['base_url'] or 'invalid custom URL'})"
+    )
     agent = checks["retainpdf_agent"]
     print(f"  retainpdf-agent: {agent['status']} ({agent['path'] or 'not found'})")
     print(f"  runtime: {checks['runtime']['status']} ({checks['runtime']['value']})")
+    print(
+        "  runtime config: "
+        f"{checks['runtime_config']['status']} "
+        f"({checks['runtime_config']['source']}, "
+        f"revision {checks['runtime_config']['revision']})"
+    )
     print("  credentials:")
     for name, status in checks["credentials"].items():
         print(f"    {name}: {status}")

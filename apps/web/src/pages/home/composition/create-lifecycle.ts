@@ -8,6 +8,7 @@ import {
   requestedReaderJobIdFromLocation,
   initializeIdleAppView,
   defaultAppShellConfigPort,
+  readActiveJobId,
 } from "./external/features.js";
 
 import type { HomeBridge, HomeFeatures } from "./types.js";
@@ -73,8 +74,14 @@ export function createLifecycle({
   function applyStartupRoute() {
     const fromReader = requestedReaderJobIdFromLocation();
     const fromQuery = `${new URLSearchParams(globalThis.location?.search || "").get("job_id") || ""}`.trim();
-    const jobId = fromReader || fromQuery;
-    if (jobId) features.jobRuntimeFeature.startPolling(jobId);
+    const fromActiveSession = readActiveJobId();
+    const jobId = fromReader || fromQuery || fromActiveSession;
+    if (!jobId) return;
+    // 普通首页刷新没有 job_id 查询参数。此时必须从持久化的活动任务恢复
+    // currentJobStore，否则后台仍在执行，详情页却会表现成“任务断开”。
+    features.jobRuntimeFeature.startPolling(jobId, fromActiveSession && !fromReader && !fromQuery
+      ? { silent: true, showWorkflow: false, publishLibrary: false }
+      : undefined);
   }
 
   function initialize() {

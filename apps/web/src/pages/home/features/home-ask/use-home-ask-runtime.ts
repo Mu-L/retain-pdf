@@ -4,17 +4,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   askLibraryAi,
   AiAskError,
+  createConversation,
   deleteConversation,
   getConversation,
   listConversations,
   patchConversation,
   type ConversationRecord,
-  hasModelApiKey,
-  MISSING_MODEL_API_KEY_MESSAGE,
   resolveReaderAiConfig,
   sanitizeAssistantAnswer,
 } from "../../composition/external.js";
 import { resolveCollectionDocuments } from "./document-picker.js";
+import { buildHomeAskModelRequestOverrides } from "./home-ask-request-config.js";
 import type { HomeAskCitation, HomeAskDocScope, HomeAskMessage, HomeAskScope } from "./types.js";
 
 const CONV_STORAGE_KEY = "retainpdf.home.ai.conversation.v1";
@@ -25,6 +25,13 @@ export type HomeAskSession = {
   updatedAt: string;
   messageCount: number;
   documentId?: string;
+};
+
+export type HomeAgentOperationSignal = {
+  operationId: string;
+  conversationId: string;
+  revision: number;
+  dedupeKey: string;
 };
 
 function loadConversationId(): string {
@@ -191,12 +198,43 @@ export function useHomeAskRuntime() {
   const [sessions, setSessions] = useState<HomeAskSession[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [sessionBusy, setSessionBusy] = useState(false);
+  const [agentRuntime, setAgentRuntime] = useState("");
+  const [operationSignals, setOperationSignals] = useState<HomeAgentOperationSignal[]>([]);
   const runningRef = useRef(false);
   const conversationIdRef = useRef(conversationId);
   const abortRef = useRef<AbortController | null>(null);
+  const operationSignalKeysRef = useRef(new Set<string>());
+  const operationSignalRevisionRef = useRef(0);
   /** 当前流式 assistant 消息 id，停止时用于收尾文案 */
   const streamingAssistantIdRef = useRef("");
   conversationIdRef.current = conversationId;
+
+  const enqueueOperationSignal = useCallback(({
+    operationId,
+    conversationId: signalConversationId,
+    dedupeKey,
+  }: {
+    operationId: string;
+    conversationId: string;
+    dedupeKey: string;
+  }) => {
+    const normalizedOperationId = `${operationId || ""}`.trim();
+    const normalizedConversationId = `${signalConversationId || ""}`.trim();
+    const normalizedKey = `${dedupeKey || ""}`.trim();
+    if (!normalizedOperationId || !normalizedConversationId || !normalizedKey) return;
+    if (operationSignalKeysRef.current.has(normalizedKey)) return;
+    operationSignalKeysRef.current.add(normalizedKey);
+    operationSignalRevisionRef.current += 1;
+    const next: HomeAgentOperationSignal = {
+      operationId: normalizedOperationId,
+      conversationId: normalizedConversationId,
+      revision: operationSignalRevisionRef.current,
+      dedupeKey: normalizedKey,
+    };
+    // A single Agent turn may create or touch multiple operations in one React
+    // tick. Keep a small signal journal instead of a last-write-wins scalar.
+    setOperationSignals((current) => [...current, next].slice(-64));
+  }, []);
 
   const patchMessage = useCallback((id: string, patch: Partial<HomeAskMessage>) => {
     setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
@@ -267,6 +305,9 @@ export function useHomeAskRuntime() {
     }
     setMessages([]);
     setConversationId("");
+    setAgentRuntime("");
+    setOperationSignals([]);
+    operationSignalKeysRef.current.clear();
     conversationIdRef.current = "";
     saveConversationId("");
   }, []);
@@ -279,6 +320,7 @@ export function useHomeAskRuntime() {
     try {
       const detail = await getConversation(next);
       setConversationId(next);
+      setAgentRuntime("");
       conversationIdRef.current = next;
       saveConversationId(next);
       setMessages(messagesFromDetail(detail));
@@ -299,6 +341,7 @@ export function useHomeAskRuntime() {
       if (conversationIdRef.current === next) {
         setMessages([]);
         setConversationId("");
+        setAgentRuntime("");
         conversationIdRef.current = "";
         saveConversationId("");
       }
@@ -335,21 +378,10 @@ export function useHomeAskRuntime() {
     const question = `${rawQuestion || ""}`.trim();
     if (!question || runningRef.current) return;
 
-    // 门禁：无 LLM Key 不发起任何检索/会话写，避免「先忙活再报错」
+    // 运行配置及密钥以本机后端的 runtime-config 为权威。浏览器里的旧配置
+    // 只作为本次请求的可选覆盖；为空时让后端使用安全保存的凭据。
     const config = resolveReaderAiConfig();
-    const apiKey = `${config.apiKey || ""}`.trim();
-    if (!apiKey) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: makeId("a"),
-          role: "assistant",
-          content: MISSING_MODEL_API_KEY_MESSAGE,
-          status: "error",
-        },
-      ]);
-      return;
-    }
+    const modelRequestOverrides = buildHomeAskModelRequestOverrides(config);
 
     const userId = makeId("u");
     const assistantId = makeId("a");
@@ -397,24 +429,62 @@ export function useHomeAskRuntime() {
         return;
       }
 
+      // 首轮请求必须先拿到 durable conversation_id。过去依赖 /ai/ask 在
+      // done 才回传自动创建的会话；若 Agent 已创建 operation、但浏览器在
+      // done 前断线，前端连按哪个 conversation 恢复都不知道。
+      let requestConversationId = conversationIdRef.current;
+      if (!requestConversationId) {
+        const created = await createConversation({
+          title: question.replace(/\s+/g, " ").trim().slice(0, 80),
+          document_id: primaryDoc?.id || "",
+        });
+        requestConversationId = `${created?.conversation_id || ""}`.trim();
+        if (!requestConversationId) throw new Error("创建 AI 会话失败，请重试。");
+        setConversationId(requestConversationId);
+        conversationIdRef.current = requestConversationId;
+        saveConversationId(requestConversationId);
+      }
+
       const scopedQuestion = buildScopedQuestion(question, scopes, resolvedDocs);
       let answerStarted = false;
       const result = await askLibraryAi({
         question: scopedQuestion,
         documentId: primaryDoc?.id || "",
         jobId: primaryDoc?.job_id || "",
-        conversationId: conversationIdRef.current,
+        conversationId: requestConversationId,
         userMessageId: userId,
         assistantMessageId: assistantId,
-        llmApiKey: apiKey,
-        llmBaseUrl: config.baseUrl,
-        llmModel: config.model,
+        ...modelRequestOverrides,
         signal: abort.signal,
         onToolEvent: (event) => {
           if (abort.signal.aborted || answerStarted) return;
           patchMessage(assistantId, {
             progress: describeToolEvent(event),
             status: "streaming",
+          });
+        },
+        onAgentSessionEvent: (event) => {
+          const runtime = `${event?.agent_runtime || event?.runtime || ""}`.trim();
+          if (runtime) setAgentRuntime(runtime);
+        },
+        onAgentOperationEvent: (event) => {
+          const operationId = `${event?.operation_id || ""}`.trim();
+          if (!operationId) return;
+          const attempt = Number(event?.current_attempt) || 0;
+          const latestSeq = Number(event?.latest_event_seq) || 0;
+          enqueueOperationSignal({
+            operationId,
+            conversationId: `${event?.conversation_id || requestConversationId}`.trim(),
+            dedupeKey: `${event?.event_id || `${operationId}:state:${attempt}:${latestSeq}:${event?.status || ""}`}`,
+          });
+        },
+        onAgentConfirmationRequiredEvent: (event) => {
+          const operationId = `${event?.operation_id || ""}`.trim();
+          if (!operationId) return;
+          enqueueOperationSignal({
+            operationId,
+            conversationId: requestConversationId,
+            dedupeKey: `${operationId}:${event?.action || "refresh"}:${Number(event?.current_attempt) || 0}`,
           });
         },
         onAnswerDelta: (fullText: string) => {
@@ -442,6 +512,33 @@ export function useHomeAskRuntime() {
         citations,
       );
       const nextConv = `${result?.conversationId || ""}`.trim();
+      const resultRuntime = `${result?.agentRuntime || ""}`.trim();
+      if (resultRuntime) setAgentRuntime(resultRuntime);
+      for (const ref of Array.isArray(result?.operationRefs) ? result.operationRefs : []) {
+        const operationId = typeof ref === "string"
+          ? ref.trim()
+          : `${ref?.operation_id || ""}`.trim();
+        if (!operationId) continue;
+        const attempt = typeof ref === "string" ? 0 : Number(ref?.current_attempt) || 0;
+        const latestSeq = typeof ref === "string" ? 0 : Number(ref?.latest_event_seq) || 0;
+        enqueueOperationSignal({
+          operationId,
+          conversationId: requestConversationId,
+          dedupeKey: `${operationId}:done:${attempt}:${latestSeq}`,
+        });
+      }
+      // Non-streaming JSON responses do not pass through SSE callbacks.
+      for (const request of Array.isArray(result?.confirmationRequests)
+        ? result.confirmationRequests
+        : []) {
+        const operationId = `${request?.operation_id || ""}`.trim();
+        if (!operationId) continue;
+        enqueueOperationSignal({
+          operationId,
+          conversationId: requestConversationId,
+          dedupeKey: `${operationId}:${request?.action || "refresh"}:${Number(request?.current_attempt) || 0}`,
+        });
+      }
       if (nextConv) {
         setConversationId(nextConv);
         conversationIdRef.current = nextConv;
@@ -498,7 +595,7 @@ export function useHomeAskRuntime() {
       runningRef.current = false;
       setIsRunning(false);
     }
-  }, [patchMessage, refreshSessions]);
+  }, [enqueueOperationSignal, patchMessage, refreshSessions]);
 
   return {
     messages,
@@ -507,8 +604,8 @@ export function useHomeAskRuntime() {
     sessions,
     sessionsLoading,
     sessionBusy,
-    /** 是否已配置模型 Key（门禁；每次调用现读 storage） */
-    hasLlmKey: hasModelApiKey,
+    agentRuntime,
+    operationSignals,
     send,
     stop,
     newSession,

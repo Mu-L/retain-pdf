@@ -146,6 +146,16 @@ impl JobInit {
         }
     }
 
+    pub fn translate_from_ocr_artifact() -> Self {
+        Self {
+            use_ocr_trace_id: false,
+            trace_id: None,
+            schema_version: None,
+            stage: Some("queued"),
+            stage_detail: Some("OCR 产物已复用，等待翻译阶段"),
+        }
+    }
+
     pub fn book_default() -> Self {
         Self {
             use_ocr_trace_id: false,

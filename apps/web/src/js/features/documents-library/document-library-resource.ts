@@ -20,6 +20,7 @@ function normalizeExistingJobIds(value) {
 export function createDocumentLibraryResource({
   fetchDocumentList,
   fetchLibraryBookList,
+  fetchJobPayload,
   apiPrefix,
 }: any = {}) {
   return createResource({
@@ -43,6 +44,7 @@ export function createDocumentLibraryResource({
     } = {}) => collectDocumentLibraryPage({
       fetchDocumentList,
       fetchLibraryBookList,
+      fetchJobPayload,
       apiPrefix,
       startOffset,
       pageSize,

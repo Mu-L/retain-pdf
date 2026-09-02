@@ -9,6 +9,7 @@ use crate::config::AppConfig;
 use crate::db::Db;
 use crate::error::AppError;
 use crate::models::{now_iso, CreateJobInput, JobSnapshot, UploadRecord, WorkflowKind};
+use crate::services::credentials::{create_credential, CreateCredentialInput};
 use crate::services::job_launcher::JobLaunchDeps;
 use crate::services::runtime_gateway::JobRuntimeLauncher;
 use crate::AppState;
@@ -242,19 +243,23 @@ fn seed_ocr_checkpoint_source_job(state: &AppState, job_id: &str) {
     let source_pdf = source_root.join("source/input.pdf");
     let normalized_json = source_root.join("ocr/normalized/document.v1.json");
     let report_json = source_root.join("ocr/normalized/document.v1.report.json");
+    let layout_json = source_root.join("ocr/layout.json");
     std::fs::create_dir_all(source_pdf.parent().unwrap()).expect("source dir");
     std::fs::create_dir_all(normalized_json.parent().unwrap()).expect("normalized dir");
     std::fs::write(&source_pdf, build_test_pdf_bytes()).expect("write source pdf");
     std::fs::write(&normalized_json, b"{}").expect("write normalized json");
     std::fs::write(&report_json, b"{}").expect("write report json");
+    std::fs::write(&layout_json, b"{}").expect("write layout json");
 
     let mut input = base_translation_input(WorkflowKind::Ocr);
     input.runtime.job_id = job_id.to_string();
     let mut job = JobSnapshot::new(job_id.to_string(), input, vec!["noop".to_string()]);
+    job.status = crate::models::JobStatusKind::Succeeded;
     if let Some(artifacts) = job.artifacts.as_mut() {
         artifacts.source_pdf = Some(source_pdf.to_string_lossy().to_string());
         artifacts.normalized_document_json = Some(normalized_json.to_string_lossy().to_string());
         artifacts.normalization_report_json = Some(report_json.to_string_lossy().to_string());
+        artifacts.layout_json = Some(layout_json.to_string_lossy().to_string());
     }
     state.db.save_job(&job).expect("save source job");
 }
@@ -263,6 +268,7 @@ fn seed_ocr_checkpoint_source_job_with_missing_files(state: &AppState, job_id: &
     let mut input = base_translation_input(WorkflowKind::Ocr);
     input.runtime.job_id = job_id.to_string();
     let mut job = JobSnapshot::new(job_id.to_string(), input, vec!["noop".to_string()]);
+    job.status = crate::models::JobStatusKind::Succeeded;
     if let Some(artifacts) = job.artifacts.as_mut() {
         artifacts.source_pdf = Some(format!("jobs/{job_id}/source/input.pdf"));
         artifacts.normalized_document_json =
@@ -303,6 +309,41 @@ fn create_translation_job_allows_translate_workflow_from_existing_artifact_job()
 }
 
 #[test]
+fn create_translation_job_persists_reference_instead_of_translation_secret() {
+    let state = test_state("translate-credential-reference");
+    seed_ocr_checkpoint_source_job(&state, "ocr-source-job");
+    let secret = "sk-vault-only";
+    let created = create_credential(
+        &state.config.data_root,
+        CreateCredentialInput {
+            kind: "translation_api_key".to_string(),
+            provider: "deepseek".to_string(),
+            label: "test".to_string(),
+            secret: secret.to_string(),
+            expected_revision: Some(0),
+        },
+    )
+    .expect("create credential");
+    let credential_ref = created.credential.credential_ref;
+    let mut input = base_translation_input(WorkflowKind::Translate);
+    input.source.artifact_job_id = "ocr-source-job".to_string();
+    input.translation.api_key.clear();
+    input.translation.credential_ref = credential_ref.clone();
+
+    let job = create_translation_job(&submit_context(&state), &input)
+        .expect("create translate job with credential reference");
+
+    assert_eq!(
+        job.request_payload.translation.credential_ref,
+        credential_ref
+    );
+    assert!(job.request_payload.translation.api_key.is_empty());
+    let persisted = state.db.get_job(&job.job_id).expect("persisted job");
+    let encoded = serde_json::to_string(&persisted).expect("encode persisted job");
+    assert!(!encoded.contains(secret));
+}
+
+#[test]
 fn create_translation_job_rejects_paddle_cli_artifact_source() {
     let state = test_state("translate-paddle-cli-artifact-source");
     seed_ocr_checkpoint_source_job(&state, "paddle-cli-source-job");
@@ -323,9 +364,9 @@ fn create_translation_job_rejects_paddle_cli_artifact_source() {
         .expect_err("CLI OCR artifact must not feed translation/render");
 
     match err {
-        AppError::BadRequest(message) => {
-            assert!(message.contains("PaddleOCR official_cli"));
-            assert!(message.contains("bbox/prunedResult"));
+        AppError::OcrArtifactReuse { code, reason, .. } => {
+            assert_eq!(code, "OCR_ARTIFACT_NOT_REUSABLE");
+            assert_eq!(reason, "unsupported_provider_artifact");
         }
         other => panic!("unexpected error: {other:?}"),
     }
@@ -370,9 +411,10 @@ fn create_translation_job_rejects_artifact_job_with_missing_ocr_files() {
     let err = create_translation_job(&submit_context(&state), &input)
         .expect_err("missing OCR files should fail before launch");
     match err {
-        AppError::BadRequest(message) => assert!(
-            message.contains("normalized_document_json not found for missing-ocr-source-job")
-        ),
+        AppError::OcrArtifactReuse { code, reason, .. } => {
+            assert_eq!(code, "OCR_ARTIFACT_MISSING");
+            assert_eq!(reason, "missing_normalized_document_json");
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -416,6 +458,41 @@ async fn store_pdf_upload_rejects_non_pdf_filename() {
         }
         other => panic!("unexpected error: {other:?}"),
     }
+}
+
+#[tokio::test]
+async fn store_pdf_upload_rejects_oversize_before_creating_upload_directory() {
+    let state = test_state("store-upload-oversize-before-write");
+    let upload_bytes = build_test_pdf_bytes();
+    let err = store_pdf_upload(
+        state.db.as_ref(),
+        &state.config.uploads_dir,
+        8,
+        0,
+        &state.config.python_bin,
+        UploadedPdfInput {
+            filename: "oversize.pdf".to_string(),
+            bytes: upload_bytes,
+            developer_mode: false,
+        },
+    )
+    .await
+    .expect_err("oversize upload must fail before writing");
+    match err {
+        AppError::PayloadTooLarge(message) => {
+            assert_eq!(message, "request body is too large")
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+
+    let entries = std::fs::read_dir(&state.config.uploads_dir)
+        .expect("read uploads directory")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("list uploads directory");
+    assert!(
+        entries.is_empty(),
+        "oversize upload created filesystem artifacts"
+    );
 }
 
 #[tokio::test]

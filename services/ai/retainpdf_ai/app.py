@@ -3,25 +3,44 @@
 from __future__ import annotations
 
 import json
+import os
 import queue
+import signal
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import asdict, replace
-from typing import Any
+from typing import Any, Literal
+from urllib.parse import urlsplit
 
-from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from . import __version__
 from .agent import RetrievalAgent, build_deepseek_chat_fn
-from .config import Settings, load_settings
+from .config import (
+    FX_DEFAULT_GATEWAY_BASE_URL,
+    Settings,
+    apply_runtime_credentials,
+    fx_gateway_chat_url,
+    load_settings,
+    normalize_agent_confirmation_mode,
+    normalize_fx_gateway_base_url,
+)
 from .memory import assemble_history, maybe_compress_transcript
+from .openai_agent_runtime import OPENAI_AGENT_RUNTIME_ID
 from .runtime import (
     FX_RUNTIME_ID,
     AgentRuntime,
     PythonAgentRuntime,
     build_agent_runtime,
+    probe_fx_gateway_endpoint,
+)
+from .runtime_credentials import (
+    RuntimeCredentialConflict,
+    load_runtime_credentials,
+    masked_secret,
+    save_runtime_credentials,
 )
 from .rust_client import RustApiClient
 from .tools import build_default_registry
@@ -49,10 +68,80 @@ class AskInput(BaseModel):
     force_compress: bool = False
     # run / commit 属于显式确认动作；模型不能自行把这项设为 true。
     confirm_document_operation: bool = False
+    # 按请求选择能力面。Reader 默认 reading，避免全局 Agent runtime
+    # 把“文档问答”误路由成仅支持页面操作的工具循环。
+    assistant_mode: Literal["auto", "reading", "operations"] = "auto"
     # 前端按请求传入的 LLM 凭据:留空则回退启动期 env 配置
     llm_api_key: str = ""
     llm_base_url: str = ""
     llm_model: str = ""
+
+
+class RuntimeConfigUpdate(BaseModel):
+    expected_revision: int | None = Field(default=None, ge=0)
+    agent_runtime: str | None = None
+    agent_confirmation_mode: str | None = None
+    llm_base_url: str | None = Field(default=None, max_length=2048)
+    llm_model: str | None = Field(default=None, max_length=256)
+    llm_api_key: str | None = Field(default=None, max_length=8192)
+    clear_llm_api_key: bool = False
+    fx_gateway_base_url: str | None = Field(default=None, max_length=2048)
+    fx_gateway_api_key: str | None = Field(default=None, max_length=8192)
+    clear_fx_gateway_api_key: bool = False
+    fx_model: str | None = Field(default=None, max_length=256)
+
+
+def _schedule_process_restart() -> None:
+    timer = threading.Timer(0.2, lambda: os.kill(os.getpid(), signal.SIGTERM))
+    timer.daemon = True
+    timer.start()
+
+
+_CONFIRMATION_ACTIONS: dict[str, tuple[str, bool]] = {
+    "draft": ("run", False),
+    "awaiting_confirmation": ("run", False),
+    "result_ready": ("commit", False),
+    "failed": ("retry", False),
+    "ambiguous": ("retry", True),
+}
+
+
+def _confirmation_requests(result: Any, confirmation_mode: str) -> list[dict[str, Any]]:
+    """Project touched operation refs into a model-independent UI contract."""
+    if confirmation_mode == "green_light":
+        return []
+    requests: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, int]] = set()
+    for ref in list(getattr(result, "operation_refs", []) or []):
+        if not isinstance(ref, dict):
+            continue
+        operation_id = str(ref.get("operation_id") or "").strip()
+        status = str(ref.get("status") or "").strip()
+        action_spec = _CONFIRMATION_ACTIONS.get(status)
+        try:
+            current_attempt = int(ref.get("current_attempt") or 0)
+            latest_event_seq = int(ref.get("latest_event_seq") or 0)
+        except (TypeError, ValueError):
+            continue
+        if not operation_id or current_attempt < 1 or action_spec is None:
+            continue
+        action, requires_risk_acceptance = action_spec
+        key = (operation_id, action, current_attempt)
+        if key in seen:
+            continue
+        seen.add(key)
+        requests.append(
+            {
+                "schema": "retainpdf_agent_confirmation_v1",
+                "operation_id": operation_id,
+                "action": action,
+                "status": status,
+                "current_attempt": current_attempt,
+                "latest_event_seq": max(0, latest_event_seq),
+                "requires_risk_acceptance": requires_risk_acceptance,
+            }
+        )
+    return requests
 
 
 def build_app(
@@ -60,6 +149,7 @@ def build_app(
     agent: RetrievalAgent | None = None,
     rust: RustApiClient | None = None,
     runtime: AgentRuntime | None = None,
+    restart_callback: Callable[[], None] | None = None,
 ) -> FastAPI:
     settings = settings or load_settings()
     if runtime is None and agent is None:
@@ -76,7 +166,7 @@ def build_app(
         if agent is None:
             raise RuntimeError("agent runtime initialization failed")
         selected_runtime = settings.agent_runtime.strip().lower()
-        if selected_runtime == "fx":
+        if selected_runtime in {"fx", "openai"}:
             rust = rust or RustApiClient(settings)
             runtime = build_agent_runtime(settings, rust, agent)
         elif selected_runtime == "python":
@@ -84,10 +174,15 @@ def build_app(
         else:
             raise RuntimeError(
                 f"unsupported RETAIN_AI_RUNTIME={settings.agent_runtime!r}; "
-                "expected python or fx"
+                "expected python, openai, or fx"
             )
 
     runtime_id = runtime.runtime_id
+    document_operation_runtime_ids = {FX_RUNTIME_ID, OPENAI_AGENT_RUNTIME_ID}
+    reading_runtime = PythonAgentRuntime(agent) if agent is not None else (
+        runtime if runtime_id == PythonAgentRuntime.runtime_id else None
+    )
+    restart_runtime = restart_callback or _schedule_process_restart
 
     app = FastAPI(title="retainpdf-ai", version=__version__)
 
@@ -97,7 +192,7 @@ def build_app(
             return document_id
         try:
             document = rust.get_document_by_job(payload.job_id.strip())
-        except Exception:
+        except Exception:  # noqa: BLE001 - lookup failure falls back to no document scope
             return ""
         return str((document or {}).get("document_id") or "")
 
@@ -116,7 +211,7 @@ def build_app(
         try:
             created = rust.create_conversation(title=title, document_id=document_id or "")
             return str((created or {}).get("conversation_id") or "").strip()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - conversation storage is optional here
             print(f"[retainpdf-ai] auto-create conversation failed: {exc}", flush=True)
             return ""
 
@@ -173,7 +268,7 @@ def build_app(
             return []
         try:
             detail = rust.get_conversation(conversation_id) or {}
-        except Exception:
+        except Exception:  # noqa: BLE001 - unavailable history degrades to an empty transcript
             return []
         messages = list(detail.get("messages") or [])
         head_id = str(detail.get("head_id") or "").strip()
@@ -231,7 +326,7 @@ def build_app(
                 )
                 summary_id = str((summary_msg or {}).get("message_id") or "").strip()
                 compress_event = compress.event
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - memory persistence must not fail the turn
                 print(f"[retainpdf-ai] persist summary failed: {exc}", flush=True)
                 # 持久化失败仍用内存 working 视图完成本轮
         assembled = assemble_history(
@@ -315,18 +410,18 @@ def build_app(
                 set_head=True,
             )
             return True
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - answer remains usable if history write fails
             print(f"[retainpdf-ai] persist conversation turn failed: {exc}", flush=True)
             return False
 
-    def persist_fx_request_message(
+    def persist_agent_request_message(
         conversation_id: str,
         payload: AskInput,
         *,
         chain_parent_id: str = "",
     ) -> tuple[str, bool]:
-        """Persist the user request before fx can create a document operation."""
-        if runtime_id != FX_RUNTIME_ID:
+        """Persist the user request before an Agent can create an operation."""
+        if runtime_id not in document_operation_runtime_ids:
             return "", True
         parent_hint = chain_parent_id.strip() or payload.parent_id.strip()
         if payload.regenerate:
@@ -362,7 +457,7 @@ def build_app(
                             return requested_id, True
                 except Exception:  # noqa: BLE001, S110 - preserve the original failure
                     pass
-            print(f"[retainpdf-ai] pre-persist fx request failed: {exc}", flush=True)
+            print(f"[retainpdf-ai] pre-persist Agent request failed: {exc}", flush=True)
             return "", False
 
     def require_api_key(request: Request) -> None:
@@ -376,20 +471,307 @@ def build_app(
     def healthz() -> dict[str, Any]:
         return {"ok": True, "version": __version__, "agent_runtime": runtime_id}
 
+    def configured_settings() -> Settings:
+        stored = load_runtime_credentials(settings.data_root)
+        return apply_runtime_credentials(settings, stored)
+
+    @app.get("/readyz")
+    def readyz() -> JSONResponse:
+        configured = configured_settings()
+        if configured.runtime_config_revision != settings.runtime_config_revision:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "ok": False,
+                    "reason": "runtime_config_restart_pending",
+                    "active_revision": settings.runtime_config_revision,
+                    "configured_revision": configured.runtime_config_revision,
+                },
+            )
+        if settings.agent_runtime == "fx" and settings.fx_gateway_base_url:
+            try:
+                probe_fx_gateway_endpoint(
+                    settings.fx_gateway_base_url,
+                    timeout=min(settings.fx_startup_timeout_s, 1.5),
+                )
+            except RuntimeError:
+                return JSONResponse(
+                    status_code=503,
+                    content={
+                        "ok": False,
+                        "reason": "fx_gateway_unreachable",
+                        "active_revision": settings.runtime_config_revision,
+                        "configured_revision": configured.runtime_config_revision,
+                    },
+                )
+        return JSONResponse(
+            content={
+                "ok": True,
+                "version": __version__,
+                "agent_runtime": runtime_id,
+                "active_revision": settings.runtime_config_revision,
+                "configured_revision": configured.runtime_config_revision,
+            }
+        )
+
+    def runtime_config_view(candidate: Settings | None = None) -> dict[str, Any]:
+        candidate = candidate or configured_settings()
+        restart_required = (
+            candidate.runtime_config_revision != settings.runtime_config_revision
+        )
+        effective_fx_base_url = (
+            candidate.fx_gateway_base_url or FX_DEFAULT_GATEWAY_BASE_URL
+        )
+        effective_fx_chat_url = (
+            fx_gateway_chat_url(candidate.fx_gateway_base_url)
+            if candidate.fx_gateway_base_url
+            else f"{FX_DEFAULT_GATEWAY_BASE_URL}/v3/ai/language-model"
+        )
+        return {
+            "schema": "retainpdf_ai_runtime_config_view_v1",
+            "active_runtime": runtime_id,
+            "configured_runtime": candidate.agent_runtime,
+            "agent_confirmation_mode": candidate.agent_confirmation_mode,
+            "configured_revision": candidate.runtime_config_revision,
+            "active_revision": settings.runtime_config_revision,
+            "restart_state": "pending" if restart_required else "active",
+            "llm_base_url": candidate.llm_base_url,
+            "llm_model": candidate.llm_model,
+            "llm_api_key_configured": bool(candidate.llm_api_key.strip()),
+            "llm_api_key_masked": masked_secret(candidate.llm_api_key),
+            "fx_gateway_base_url": candidate.fx_gateway_base_url,
+            "fx_gateway_mode": candidate.fx_gateway_base_url_mode,
+            "fx_gateway_effective_base_url": effective_fx_base_url,
+            "fx_gateway_effective_chat_url": effective_fx_chat_url,
+            "fx_gateway_api_key_configured": bool(
+                candidate.fx_gateway_api_key.strip()
+            ),
+            "fx_gateway_api_key_masked": masked_secret(
+                candidate.fx_gateway_api_key
+            ),
+            "fx_model": candidate.fx_model,
+            "restart_required": restart_required,
+        }
+
+    def validate_base_url(value: str) -> str:
+        normalized = value.strip().rstrip("/")
+        parsed = urlsplit(normalized)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.username
+            or parsed.password
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="模型 API URL 必须是无内嵌凭据的 http(s) 地址。",
+            )
+        return normalized
+
+    @app.get("/v1/runtime-config", dependencies=[Depends(require_api_key)])
+    def get_runtime_config() -> dict[str, Any]:
+        return {"data": runtime_config_view()}
+
+    @app.put("/v1/runtime-config", dependencies=[Depends(require_api_key)])
+    def update_runtime_config(
+        payload: RuntimeConfigUpdate,
+        background_tasks: BackgroundTasks,
+    ) -> dict[str, Any]:
+        current = configured_settings()
+        if (
+            payload.expected_revision is not None
+            and payload.expected_revision != current.runtime_config_revision
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="AI 配置已被其他请求更新；请刷新后重试。",
+            )
+        selected_runtime = (
+            payload.agent_runtime.strip().lower()
+            if payload.agent_runtime is not None
+            else current.agent_runtime
+        )
+        if selected_runtime not in {"python", "openai", "fx"}:
+            raise HTTPException(
+                status_code=400,
+                detail="运行模式只能是 python、openai 或 fx。",
+            )
+        try:
+            agent_confirmation_mode = normalize_agent_confirmation_mode(
+                payload.agent_confirmation_mode
+                if payload.agent_confirmation_mode is not None
+                else current.agent_confirmation_mode
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if payload.clear_llm_api_key and (payload.llm_api_key or "").strip():
+            raise HTTPException(status_code=400, detail="模型 key 不能同时保存和清除。")
+        if payload.clear_fx_gateway_api_key and (
+            payload.fx_gateway_api_key or ""
+        ).strip():
+            raise HTTPException(status_code=400, detail="Gateway key 不能同时保存和清除。")
+
+        llm_base_url = current.llm_base_url
+        if payload.llm_base_url is not None:
+            llm_base_url = validate_base_url(payload.llm_base_url)
+        llm_model = current.llm_model
+        if payload.llm_model is not None:
+            llm_model = payload.llm_model.strip()
+            if not llm_model:
+                raise HTTPException(status_code=400, detail="模型名称不能为空。")
+        llm_api_key = current.llm_api_key
+        if payload.clear_llm_api_key:
+            llm_api_key = ""
+        elif (payload.llm_api_key or "").strip():
+            llm_api_key = (payload.llm_api_key or "").strip()
+
+        fx_gateway_api_key = current.fx_gateway_api_key
+        if payload.clear_fx_gateway_api_key:
+            fx_gateway_api_key = ""
+        elif (payload.fx_gateway_api_key or "").strip():
+            fx_gateway_api_key = (payload.fx_gateway_api_key or "").strip()
+        fx_gateway_base_url = current.fx_gateway_base_url
+        fx_gateway_base_url_mode = current.fx_gateway_base_url_mode
+        if payload.fx_gateway_base_url is not None:
+            try:
+                fx_gateway_base_url = normalize_fx_gateway_base_url(
+                    payload.fx_gateway_base_url
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            fx_gateway_base_url_mode = (
+                "custom" if fx_gateway_base_url else "official_default"
+            )
+        fx_model = current.fx_model
+        if payload.fx_model is not None:
+            fx_model = payload.fx_model.strip()
+
+        candidate = replace(
+            current,
+            agent_runtime=selected_runtime,
+            agent_confirmation_mode=agent_confirmation_mode,
+            llm_base_url=llm_base_url,
+            llm_model=llm_model,
+            llm_api_key=llm_api_key,
+            fx_gateway_base_url=fx_gateway_base_url,
+            fx_gateway_base_url_mode=fx_gateway_base_url_mode,
+            fx_gateway_api_key=fx_gateway_api_key,
+            fx_model=fx_model,
+        )
+        if selected_runtime in {"python", "openai"} and not candidate.llm_api_key:
+            mode = "OpenAI-compatible Agent" if selected_runtime == "openai" else "普通问答"
+            raise HTTPException(status_code=400, detail=f"{mode}模式需要模型 API Key。")
+        if selected_runtime == "fx":
+            if not candidate.fx_gateway_api_key:
+                raise HTTPException(status_code=400, detail="FX Agent 模式需要 Gateway Key。")
+            if rust is None or agent is None:
+                raise HTTPException(status_code=503, detail="FX Agent 运行环境不可用。")
+            try:
+                build_agent_runtime(candidate, rust, agent)
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"FX Agent 自检失败：{exc}",
+                ) from exc
+        if selected_runtime == "openai":
+            if rust is None or agent is None:
+                raise HTTPException(
+                    status_code=503,
+                    detail="OpenAI-compatible Agent 运行环境不可用。",
+                )
+            try:
+                build_agent_runtime(candidate, rust, agent)
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"OpenAI-compatible Agent 自检失败：{exc}",
+                ) from exc
+
+        changed = any(
+            (
+                candidate.agent_runtime != current.agent_runtime,
+                candidate.agent_confirmation_mode != current.agent_confirmation_mode,
+                candidate.llm_base_url != current.llm_base_url,
+                candidate.llm_model != current.llm_model,
+                candidate.llm_api_key != current.llm_api_key,
+                candidate.fx_gateway_base_url != current.fx_gateway_base_url,
+                candidate.fx_gateway_base_url_mode
+                != current.fx_gateway_base_url_mode,
+                candidate.fx_gateway_api_key != current.fx_gateway_api_key,
+                candidate.fx_model != current.fx_model,
+            )
+        )
+        if not changed:
+            return {"data": runtime_config_view(current)}
+        try:
+            save_runtime_credentials(
+                settings.data_root,
+                {
+                    "agent_runtime": candidate.agent_runtime,
+                    "agent_confirmation_mode": candidate.agent_confirmation_mode,
+                    "llm_base_url": candidate.llm_base_url,
+                    "llm_model": candidate.llm_model,
+                    "llm_api_key": candidate.llm_api_key,
+                    "fx_gateway_base_url": candidate.fx_gateway_base_url,
+                    "fx_gateway_base_url_mode": candidate.fx_gateway_base_url_mode,
+                    "fx_gateway_api_key": candidate.fx_gateway_api_key,
+                    "fx_model": candidate.fx_model,
+                },
+                expected_revision=current.runtime_config_revision,
+            )
+        except RuntimeCredentialConflict as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="AI 配置已被其他请求更新；请刷新后重试。",
+            ) from exc
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"安全保存 AI 配置失败：{exc}",
+            ) from exc
+        saved = configured_settings()
+        background_tasks.add_task(restart_runtime)
+        return {"data": runtime_config_view(saved)}
+
+    def _request_runtime(payload: AskInput) -> tuple[AgentRuntime, str]:
+        mode = payload.assistant_mode
+        if mode == "reading":
+            if reading_runtime is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="当前 AI 服务没有可用的文档阅读运行时，请重启后再试。",
+                )
+            return reading_runtime, reading_runtime.runtime_id
+        if mode == "operations":
+            if runtime_id not in document_operation_runtime_ids:
+                raise HTTPException(
+                    status_code=409,
+                    detail="当前 AI Agent 未启用 PDF 操作模式，请先在 API 设置中选择 OpenAI Agent 或 FX Agent。",
+                )
+            return runtime, runtime_id
+        return runtime, runtime_id
+
     def _result_payload(
         result: Any,
         *,
+        request_runtime_id: str,
         conversation_id: str = "",
         memory: dict[str, Any] | None = None,
         persisted: bool = True,
     ) -> dict[str, Any]:
+        confirmation_requests = _confirmation_requests(
+            result, settings.agent_confirmation_mode
+        )
         payload: dict[str, Any] = {
             "answer": result.answer,
             "citations": [asdict(citation) for citation in result.citations],
             "tool_trace": result.tool_trace,
             "rounds": result.rounds,
             "persisted": persisted,
-            "agent_runtime": runtime_id,
+            "agent_runtime": request_runtime_id,
+            "operation_refs": list(getattr(result, "operation_refs", []) or []),
+            "confirmation_mode": settings.agent_confirmation_mode,
+            "confirmation_requests": confirmation_requests,
         }
         if conversation_id:
             payload["conversation_id"] = conversation_id
@@ -397,8 +779,8 @@ def build_app(
             payload["memory"] = memory
         return payload
 
-    def _resolve_llm_settings(payload: AskInput) -> Settings:
-        if runtime_id == FX_RUNTIME_ID:
+    def _resolve_llm_settings(payload: AskInput, request_runtime_id: str) -> Settings:
+        if request_runtime_id == FX_RUNTIME_ID:
             if not settings.fx_gateway_api_key:
                 raise HTTPException(
                     status_code=400,
@@ -420,17 +802,22 @@ def build_app(
             llm_model=payload.llm_model or settings.llm_model,
         )
 
-    def _request_chat_fn(payload: AskInput):
-        if runtime_id == FX_RUNTIME_ID:
-            _resolve_llm_settings(payload)
+    def _request_chat_fn(payload: AskInput, request_runtime_id: str):
+        if request_runtime_id == FX_RUNTIME_ID:
+            _resolve_llm_settings(payload, request_runtime_id)
             return None
         # 非流式路径:请求未覆盖任何 LLM 参数时回退启动期 chat_fn(返回 None)。
-        resolved = _resolve_llm_settings(payload)  # 顺带做缺 key 守卫
+        resolved = _resolve_llm_settings(payload, request_runtime_id)  # 顺带做缺 key 守卫
         if not payload.llm_api_key and not payload.llm_base_url and not payload.llm_model:
             return None
         return build_deepseek_chat_fn(resolved)
 
-    def _sse_events(payload: AskInput, resolved: Settings) -> Iterator[str]:
+    def _sse_events(
+        payload: AskInput,
+        resolved: Settings,
+        request_runtime: AgentRuntime,
+        request_runtime_id: str,
+    ) -> Iterator[str]:
         # agent 循环是同步阻塞的,放到工作线程,经队列推事件——
         # 前端在首个工具调用(~2s)就能看到"正在检索…"的过程感;
         # 最终回答轮经 on_delta 逐 token 推 answer_delta。
@@ -451,7 +838,7 @@ def build_app(
         # SSE 路径总是用带 on_delta 的流式 chat_fn:增量文本进事件队列。
         chat_fn = (
             None
-            if runtime_id == FX_RUNTIME_ID
+            if request_runtime_id == FX_RUNTIME_ID
             else build_deepseek_chat_fn(
                 resolved,
                 on_delta=lambda text: events.put(
@@ -464,12 +851,31 @@ def build_app(
             try:
                 if compress_event:
                     events.put(compress_event)
-                request_message_id, request_persisted = persist_fx_request_message(
+                request_message_id, request_persisted = persist_agent_request_message(
                     conversation_id,
                     payload,
                     chain_parent_id=summary_id,
                 )
-                result = runtime.ask(
+                events.put(
+                    {
+                        "type": "agent_session",
+                        "conversation_id": conversation_id,
+                        "request_message_id": request_message_id
+                        or payload.user_message_id.strip(),
+                        "agent_runtime": request_runtime_id,
+                        "capabilities": {
+                            "document_operations": bool(
+                                request_runtime_id in document_operation_runtime_ids
+                                and document_id
+                                and request_message_id
+                            ),
+                            "document_operation_confirmation_mode": (
+                                settings.agent_confirmation_mode
+                            ),
+                        },
+                    }
+                )
+                result = request_runtime.ask(
                     payload.question,
                     conversation_id=conversation_id,
                     document_id=document_id,
@@ -480,12 +886,22 @@ def build_app(
                     **(
                         {
                             "request_message_id": request_message_id,
-                            "confirmed": bool(payload.confirm_document_operation),
+                            "confirmed": bool(payload.confirm_document_operation)
+                            or settings.agent_confirmation_mode == "green_light",
                         }
-                        if runtime_id == FX_RUNTIME_ID
+                        if request_runtime_id in document_operation_runtime_ids
                         else {}
                     ),
                 )
+                for confirmation in _confirmation_requests(
+                    result, settings.agent_confirmation_mode
+                ):
+                    events.put(
+                        {
+                            "type": "agent_confirmation_required",
+                            **confirmation,
+                        }
+                    )
                 persisted = request_persisted and persist_turn(
                     conversation_id,
                     payload,
@@ -498,13 +914,14 @@ def build_app(
                         "type": "done",
                         **_result_payload(
                             result,
+                            request_runtime_id=request_runtime_id,
                             conversation_id=conversation_id,
                             memory=memory_debug,
                             persisted=persisted,
                         ),
                     }
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - serialize runtime failures as SSE errors
                 # RuntimeError 是我们自己产的用户可读文案（如 _friendly_llm_error），
                 # 直出不带异常类名；其余异常保留类名便于定位
                 message = str(exc) if isinstance(exc, RuntimeError) else f"{type(exc).__name__}: {exc}"
@@ -521,15 +938,16 @@ def build_app(
 
     @app.post("/v1/ask", dependencies=[Depends(require_api_key)])
     def ask(payload: AskInput) -> Any:
+        request_runtime, request_runtime_id = _request_runtime(payload)
         if payload.stream:
             # 生成器内抛 HTTPException 无法转成 400,故先在此校验并解析出 settings
-            resolved = _resolve_llm_settings(payload)
+            resolved = _resolve_llm_settings(payload, request_runtime_id)
             return StreamingResponse(
-                _sse_events(payload, resolved),
+                _sse_events(payload, resolved, request_runtime, request_runtime_id),
                 media_type="text/event-stream",
                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
             )
-        chat_fn = _request_chat_fn(payload)
+        chat_fn = _request_chat_fn(payload, request_runtime_id)
         document_id = resolve_document_id(payload)
         conversation_id = ensure_conversation_id(payload, document_id)
         memory_stop = (
@@ -542,12 +960,12 @@ def build_app(
             force_compress=bool(payload.force_compress),
             stop_at=memory_stop,
         )
-        request_message_id, request_persisted = persist_fx_request_message(
+        request_message_id, request_persisted = persist_agent_request_message(
             conversation_id,
             payload,
             chain_parent_id=summary_id,
         )
-        result = runtime.ask(
+        result = request_runtime.ask(
             payload.question,
             conversation_id=conversation_id,
             document_id=document_id,
@@ -557,9 +975,10 @@ def build_app(
             **(
                 {
                     "request_message_id": request_message_id,
-                    "confirmed": bool(payload.confirm_document_operation),
+                    "confirmed": bool(payload.confirm_document_operation)
+                    or settings.agent_confirmation_mode == "green_light",
                 }
-                if runtime_id == FX_RUNTIME_ID
+                if request_runtime_id in document_operation_runtime_ids
                 else {}
             ),
         )
@@ -575,6 +994,7 @@ def build_app(
             "message": "ok",
             "data": _result_payload(
                 result,
+                request_runtime_id=request_runtime_id,
                 conversation_id=conversation_id,
                 persisted=persisted,
                 memory=memory_debug,

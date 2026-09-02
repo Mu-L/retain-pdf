@@ -22,15 +22,15 @@ pub use cancel_registry::{clear_cancel_request_with_registry, request_cancel_wit
 pub use lifecycle::spawn_job;
 pub(crate) use process_runner::execute_process_job;
 pub use runtime_deps::{JobPersistDeps, ProcessRuntimeDeps};
-pub use startup_recovery::reconcile_stale_running_jobs;
-pub use stage_contract::{
-    translation_artifacts_are_ready, translation_checkpoint_candidate_is_ready,
-};
 pub(crate) use runtime_state::{
     attach_job_paths, attach_job_provider_failure, clear_canceled_runtime_artifacts,
     clear_job_failure, job_artifacts_mut, ocr_provider_diagnostics_mut, refresh_job_failure,
     register_job_retry, sync_runtime_state,
 };
+pub use stage_contract::{
+    translation_artifacts_are_ready, translation_checkpoint_candidate_is_ready,
+};
+pub use startup_recovery::reconcile_stale_running_jobs;
 pub use worker_process::terminate_job_process_tree;
 pub use worker_process::{
     configure_child_process, terminate_job_process_tree_blocking, worker_process_exists,

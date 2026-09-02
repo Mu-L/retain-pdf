@@ -1,5 +1,7 @@
+import type { ReactNode } from "react";
 import { type AiCitationLike } from "../../../external.js";
 import type { ReaderAskStoreMessage } from "./reader-ask-tree.js";
+import type { ReaderAssistantMode } from "../../../shared/ai/ask-answerer.js";
 export type ReaderAssistantSurfaceProps = {
     jobId: string;
     messages: readonly ReaderAskStoreMessage[];
@@ -9,8 +11,12 @@ export type ReaderAssistantSurfaceProps = {
     isRunning: boolean;
     missingLlmKey: boolean;
     branchBusy: boolean;
+    agentRequestBlocked?: boolean;
+    agentOperationPanel?: ReactNode;
+    assistantMode?: ReaderAssistantMode;
+    onAssistantModeChange?: (mode: ReaderAssistantMode) => void;
     onJumpCitation?: (citation: AiCitationLike) => void;
     onBranchFromAnswer?: (assistantMessageId: string) => void | Promise<boolean | void>;
 };
-export declare function ReaderAssistantSurface({ jobId, messages, citationsByMessageId, progressByMessageId, streamingAssistantId, isRunning, missingLlmKey, branchBusy, onJumpCitation, onBranchFromAnswer, }: ReaderAssistantSurfaceProps): import("react").JSX.Element;
+export declare function ReaderAssistantSurface({ jobId, messages, citationsByMessageId, progressByMessageId, streamingAssistantId, isRunning, missingLlmKey, branchBusy, agentRequestBlocked, agentOperationPanel, assistantMode, onAssistantModeChange, onJumpCitation, onBranchFromAnswer, }: ReaderAssistantSurfaceProps): import("react").JSX.Element;
 //# sourceMappingURL=ReaderAssistantSurface.d.ts.map

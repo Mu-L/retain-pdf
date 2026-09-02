@@ -1354,13 +1354,13 @@ test("job runtime controller routes cancel button state through shell view port"
   const feature = mountJobRuntimeFeature({
     state,
     apiPrefix: "/api/v1",
-    buildJobDetailEndpoint: (jobId, apiPrefix) => `${apiPrefix}/jobs/${jobId}`,
+    cancelJob: async (jobId, apiPrefix) => calls.push(["cancel", jobId, apiPrefix]),
+    cancelOcrJob: async (jobId, apiPrefix) => calls.push(["cancel-ocr", jobId, apiPrefix]),
     fetchJobPayload: async (jobId) => ({ job_id: jobId, status: "cancelled" }),
     fetchJobEvents: async () => ({ items: [] }),
     fetchJobArtifactsManifest: async () => ({ artifacts: [] }),
     fetchJobStageActions: async () => ({ actions: [] }),
     retryJobStage: async () => ({}),
-    submitJson: async (url) => calls.push(["submit", url]),
     renderJob: () => calls.push(["render"]),
     renderJobSecondaryPatch: () => {},
     setText: (...args) => calls.push(["text", ...args]),
@@ -1407,8 +1407,59 @@ test("job runtime controller routes cancel button state through shell view port"
 
   assert.deepEqual(calls.slice(0, 2), [
     ["cancel-disabled", true],
-    ["submit", "/api/v1/jobs/job-cancel/cancel"],
+    ["cancel", "job-cancel", "/api/v1"],
   ]);
+});
+
+test("job runtime routes OCR-only cancellation to the OCR endpoint client", async () => {
+  const calls = [];
+  const feature = mountJobRuntimeFeature({
+    state: createInitialState(),
+    apiPrefix: "/api/v1",
+    cancelJob: async (...args) => calls.push(["cancel", ...args]),
+    cancelOcrJob: async (...args) => calls.push(["cancel-ocr", ...args]),
+    fetchJobPayload: async (jobId) => ({ job_id: jobId, status: "cancelled", workflow: "ocr" }),
+    fetchJobEvents: async () => ({ items: [] }),
+    fetchJobArtifactsManifest: async () => ({ artifacts: [] }),
+    fetchJobStageActions: async () => ({ actions: [] }),
+    retryJobStage: async () => ({}),
+    renderJob: () => {},
+    renderJobSecondaryPatch: () => {},
+    setText: () => {},
+    setWorkflowSections: () => {},
+    resetUploadProgress: () => {},
+    resetUploadedFile: () => {},
+    applyWorkflowMode: () => {},
+    clearPageRanges: () => {},
+    updateJobWarning: () => {},
+    activateDetailTab: () => {},
+    libraryEventPort: { publishJobUpdated() {}, requestRefresh() {} },
+    pollingPort: {
+      beginPoll: () => 1,
+      finishPoll() {},
+      isCurrentGeneration: () => true,
+      startJob: () => ({ startedAt: "2026-06-16T00:00:00Z" }),
+      startTimer() {},
+      stop() {},
+    },
+    currentJobPort: {
+      jobId: () => "job-ocr-cancel",
+      snapshot: () => ({ job_id: "job-ocr-cancel", workflow: "ocr" }),
+    },
+    secondaryResourcePort: { cachedFor: () => null },
+    renderContextPort: { applySnapshot: (input) => ({ job: input.payload, jobId: input.payload.job_id }) },
+    secondaryResourceSchedulerPort: { schedule() {} },
+    shellViewPort: {
+      closeDialogs() {},
+      isReaderOpen: () => false,
+      resetEvents() {},
+      setCancelDisabled() {},
+    },
+  });
+
+  await feature.cancelCurrentJob();
+
+  assert.deepEqual(calls[0], ["cancel-ocr", "job-ocr-cancel", "/api/v1"]);
 });
 
 test("secondary event refresh uses patch renderer instead of full job render", async () => {

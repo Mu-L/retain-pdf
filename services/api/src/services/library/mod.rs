@@ -9,11 +9,13 @@ mod conversations;
 mod documents;
 mod favorites;
 mod media;
+mod ocr;
 mod search;
 mod translate;
 
 use std::path::Path;
 
+use crate::config::AssetConfig;
 use crate::db::Db;
 
 pub use assets::{load_asset, store_asset, AssetDownload};
@@ -29,6 +31,7 @@ pub use conversations::{
 pub use documents::{delete_document, get_document, list_documents, patch_document};
 pub use favorites::{create_favorite, delete_favorite, list_favorites, patch_favorite};
 pub use media::{document_cover, document_source_pdf, document_thumbnail, DocumentFileDownload};
+pub use ocr::ocr_document;
 pub use search::search_blocks;
 pub use translate::translate_document;
 
@@ -40,4 +43,5 @@ pub struct LibraryDeps<'a> {
     /// Used for document cover/thumbnail generation via derived_artifacts.
     pub scripts_dir: &'a Path,
     pub python_bin: &'a str,
+    pub asset_config: &'a AssetConfig,
 }

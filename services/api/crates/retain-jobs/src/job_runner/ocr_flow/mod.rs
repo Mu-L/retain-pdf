@@ -1,7 +1,6 @@
 use crate::models::domain::{now_iso, JobRuntimeState, JobStatusKind};
 use crate::ocr_provider::{
-    is_configured_command_provider, parse_provider_kind, uses_paddle_official_cli,
-    OcrProviderKind,
+    is_configured_command_provider, parse_provider_kind, uses_paddle_official_cli, OcrProviderKind,
 };
 use crate::worker_command::{build_ocr_command, build_worker_stage_command, WorkerStageCommand};
 use anyhow::Result;

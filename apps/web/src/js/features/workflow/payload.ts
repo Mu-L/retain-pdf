@@ -56,7 +56,7 @@ export interface BuildOcrPayloadOptions {
 
 export interface BuildTranslationPayloadOptions {
   developerConfig: WorkflowDeveloperConfig;
-  modelApiKey?: string;
+  translationCredentialRef?: string;
   selectedGlossaryId?: string;
   constants: WorkflowPayloadConstants;
 }
@@ -101,7 +101,7 @@ export function buildOcrPayload({
 
 export function buildTranslationPayload({
   developerConfig,
-  modelApiKey,
+  translationCredentialRef,
   selectedGlossaryId,
   constants,
 }: BuildTranslationPayloadOptions) {
@@ -110,7 +110,7 @@ export function buildTranslationPayload({
     math_mode: developerConfig.mathMode,
     model: developerConfig.model,
     base_url: developerConfig.baseUrl,
-    api_key: modelApiKey || "",
+    credential_ref: `${translationCredentialRef || ""}`.trim(),
     workers: developerConfig.workers,
     batch_size: developerConfig.batchSize,
     classify_batch_size: developerConfig.classifyBatchSize,

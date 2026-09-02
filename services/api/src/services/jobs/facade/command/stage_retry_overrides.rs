@@ -16,10 +16,16 @@ pub(super) fn apply_retry_overrides(
             Ok(())
         },
         |patch| {
+            let switch = translation_secret_source_switch(&patch);
             let patched = merge_json(to_json_value(&input.translation)?, patch)?;
             input.translation = serde_json::from_value(patched).map_err(|err| {
                 AppError::bad_request(format!("invalid translation overrides: {err}"))
             })?;
+            apply_translation_secret_source_switch(
+                &mut input.translation.api_key,
+                &mut input.translation.credential_ref,
+                switch,
+            );
             Ok(())
         },
         |patch| {
@@ -52,10 +58,16 @@ pub(super) fn apply_retry_overrides_to_resolved_spec(
             Ok(())
         },
         |patch| {
+            let switch = translation_secret_source_switch(&patch);
             let patched = merge_json(to_json_value(&spec.translation)?, patch)?;
             spec.translation = serde_json::from_value(patched).map_err(|err| {
                 AppError::bad_request(format!("invalid translation overrides: {err}"))
             })?;
+            apply_translation_secret_source_switch(
+                &mut spec.translation.api_key,
+                &mut spec.translation.credential_ref,
+                switch,
+            );
             Ok(())
         },
         |patch| {
@@ -72,6 +84,48 @@ pub(super) fn apply_retry_overrides_to_resolved_spec(
             Ok(())
         },
     )
+}
+
+#[derive(Clone, Copy)]
+enum TranslationSecretSourceSwitch {
+    Keep,
+    Inline,
+    Reference,
+}
+
+fn translation_secret_source_switch(patch: &Value) -> TranslationSecretSourceSwitch {
+    let Some(object) = patch.as_object() else {
+        return TranslationSecretSourceSwitch::Keep;
+    };
+    let inline = object
+        .get("api_key")
+        .and_then(Value::as_str)
+        .is_some_and(|value| !value.trim().is_empty());
+    let reference = object
+        .get("credential_ref")
+        .and_then(Value::as_str)
+        .is_some_and(|value| !value.trim().is_empty());
+    match (inline, reference) {
+        (true, false) if !object.contains_key("credential_ref") => {
+            TranslationSecretSourceSwitch::Inline
+        }
+        (false, true) if !object.contains_key("api_key") => {
+            TranslationSecretSourceSwitch::Reference
+        }
+        _ => TranslationSecretSourceSwitch::Keep,
+    }
+}
+
+fn apply_translation_secret_source_switch(
+    api_key: &mut String,
+    credential_ref: &mut String,
+    switch: TranslationSecretSourceSwitch,
+) {
+    match switch {
+        TranslationSecretSourceSwitch::Keep => {}
+        TranslationSecretSourceSwitch::Inline => credential_ref.clear(),
+        TranslationSecretSourceSwitch::Reference => api_key.clear(),
+    }
 }
 
 fn apply_retry_overrides_to_sections(
@@ -121,4 +175,45 @@ fn merge_json(mut base: Value, patch: Value) -> Result<Value, AppError> {
         base_object.insert(key.clone(), value.clone());
     }
     Ok(base)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn retry_override_can_migrate_inline_secret_to_credential_reference() {
+        let mut input = CreateJobInput::default();
+        input.translation.api_key = "sk-legacy".to_string();
+
+        apply_retry_overrides(
+            &mut input,
+            &serde_json::json!({
+                "translation": {
+                    "credential_ref": "cred_translation_primary",
+                    "model": "deepseek-chat",
+                    "base_url": "https://api.deepseek.com/v1"
+                }
+            }),
+        )
+        .expect("apply retry overrides");
+
+        assert!(input.translation.api_key.is_empty());
+        assert_eq!(input.translation.credential_ref, "cred_translation_primary");
+    }
+
+    #[test]
+    fn retry_override_can_temporarily_fall_back_to_inline_secret() {
+        let mut input = CreateJobInput::default();
+        input.translation.credential_ref = "cred_translation_primary".to_string();
+
+        apply_retry_overrides(
+            &mut input,
+            &serde_json::json!({"translation": {"api_key": "sk-temporary"}}),
+        )
+        .expect("apply retry overrides");
+
+        assert_eq!(input.translation.api_key, "sk-temporary");
+        assert!(input.translation.credential_ref.is_empty());
+    }
 }

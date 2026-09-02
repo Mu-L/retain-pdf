@@ -1,12 +1,10 @@
-/* 阅读器 CSS 入口（真值） → apps/web/dist/css/reader.css
- * 真值已迁至 @retainpdf/reader：packages/reader/styles/entry.css
- * 仅 reader.html 加载；默认引擎 react-pdf（ReaderAppReactPdf）。
+/* 阅读器 CSS 入口（真值）。
+ * apps/web 的代理构建为 dist/css/reader.css；包构建为 dist/styles.css。
+ * 当前运行时只使用 react-pdf ReaderApp。
  *
  * 边界：禁止 import library-* / status-* / book-detail / credential-* 等主页域。
  * 共享仅限 tokens / base / dialog-shell / download-toast。
  *
- * Legacy-only（三栏 / 抽屉 / 旧 AI / 框选）见 apps/web/src/styles/entries/reader-legacy.css
- * （?engine=legacy 时由 entry.tsx 动态注入）。
  * 本文件由 apps/web/src/styles/entries/reader.css 代理导入。
  */
 @import "./core/tailwind-theme.css";
@@ -30,7 +28,7 @@
 @import "./core/download-toast.css";
 @import "./dialog-shell.css";
 
-/* —— 默认 react-pdf 路径（无 legacy 残留） —— */
+/* —— 当前 react-pdf Reader —— */
 @import "./reader.utilities.css";
 @import "./layout.css" layer(pages);
 @import "./chrome.css" layer(pages);
@@ -47,6 +45,7 @@
 @import "./float-ai-md.css" layer(pages);
 @import "./float-ai-citations.css" layer(pages);
 @import "./float-ai-composer.css" layer(pages);
+@import "./float-ai-operations.css" layer(pages);
 @import "./hud.css" layer(pages);
-/* Markdown 悬浮预览（含 MathJax）；默认引擎与 legacy 共用类名 */
+/* Markdown 悬浮预览（含 MathJax） */
 @import "./markdown.css" layer(pages);

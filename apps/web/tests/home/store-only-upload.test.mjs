@@ -2,13 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 
-// 上传弹窗：完成后二选一——直接翻译 / 仅收藏（不自动关窗入库）。
+// 上传弹窗：先选择翻译 / 仅 OCR 模式，再上传并执行当前模式或仅收藏。
 
 function makeDom(search = "") {
   const dom = new JSDOM("<!doctype html><html><body></body></html>", {
     url: `http://localhost/index.html${search}`,
   });
-  for (const key of ["window", "document", "HTMLElement", "HTMLInputElement", "CustomEvent", "Event", "KeyboardEvent", "MouseEvent", "Node", "MutationObserver", "NodeFilter"]) {
+  for (const key of ["window", "document", "DocumentFragment", "HTMLElement", "HTMLButtonElement", "HTMLFormElement", "HTMLInputElement", "CustomEvent", "Event", "KeyboardEvent", "MouseEvent", "Node", "MutationObserver", "NodeFilter"]) {
     Object.defineProperty(globalThis, key, {
       value: dom.window[key] ?? dom.window,
       writable: true,
@@ -67,7 +67,7 @@ async function bootHomeApp(dom) {
   return { services, root, host };
 }
 
-test("上传弹窗：标题提示 + 就绪后出现直接翻译/仅收藏", async () => {
+test("上传弹窗：恢复顶部模式切换 + 就绪后执行当前模式或仅收藏", async () => {
   const dom = makeDom("?mock=parallel");
   const byId = (id) => dom.window.document.getElementById(id);
   const { services, root, host } = await bootHomeApp(dom);
@@ -75,14 +75,23 @@ test("上传弹窗：标题提示 + 就绪后出现直接翻译/仅收藏", asyn
   click(dom, byId("library-add-pdf-btn"));
   await waitFor(() => byId("translation-workflow-dialog") !== null, "添加对话框打开");
   assert.equal(byId("translation-workflow-title").textContent, "添加 PDF");
-  assert.match(byId("translation-workflow-desc").textContent, /直接翻译|收藏/);
+  assert.equal(byId("translation-workflow-title").classList.contains("sr-only"), true);
+  assert.equal(byId("translation-workflow-desc"), null);
+  assert.ok(byId("ocr-only-toggle"), "顶部模式切换存在");
+  assert.equal(byId("file-label").textContent, "点击选择文件或拖到这里");
 
   // 模拟上传完成
   services.uploadViewActions.patch({ ready: true, actionSlotVisible: true });
-  await waitFor(() => byId("store-only-btn") && !byId("store-only-btn").classList.contains("hidden"), "仅收藏可见");
-  await waitFor(() => byId("upload-ready-hint") && !byId("upload-ready-hint").classList.contains("hidden"), "就绪提示可见");
-  assert.ok(byId("submit-btn"), "直接翻译按钮存在");
-  assert.match(byId("submit-btn").textContent, /直接翻译|提交/);
+  await waitFor(() => !byId("store-only-btn").disabled, "仅收藏动作可用");
+  await waitFor(() => dom.window.document.querySelector(".upload-tile.is-ready"), "上传区进入就绪态");
+  assert.ok(byId("page-range-btn"), "文件就绪后显示翻译选项入口");
+  assert.equal(byId("store-only-btn").textContent.trim(), "仅收藏");
+  assert.match(byId("submit-btn").textContent.trim(), /翻译/);
+
+  const ocrModeTab = dom.window.document.querySelector('[aria-label="仅 OCR 模式"]');
+  assert.ok(ocrModeTab, "仅 OCR 模式入口存在");
+  click(dom, ocrModeTab);
+  await waitFor(() => byId("submit-btn").textContent.trim() === "开始 OCR", "切换为 OCR 主动作");
 
   // 对话框仍打开（不自动关）
   assert.ok(byId("translation-workflow-dialog"), "就绪后不自动关闭");
@@ -105,7 +114,7 @@ test("仅收藏：关闭对话框且不提交翻译 job", async () => {
   dom.window.document.addEventListener(APP_EVENTS.libraryJobCreated, () => { jobSubmitted = true; });
 
   services.uploadViewActions.patch({ ready: true, actionSlotVisible: true });
-  await waitFor(() => byId("store-only-btn") && !byId("store-only-btn").classList.contains("hidden"), "仅收藏可见");
+  await waitFor(() => !byId("store-only-btn").disabled, "仅收藏可选择");
   click(dom, byId("store-only-btn"));
 
   await waitFor(() => byId("translation-workflow-dialog") === null, "仅收藏后关闭对话框");

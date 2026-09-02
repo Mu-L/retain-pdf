@@ -25,6 +25,16 @@ export type StatusCardFallbackItem = {
     total?: number;
     unit?: string;
   } | null;
+  stage_snapshot?: {
+    display_stage?: string;
+    stage_detail?: string;
+    progress?: {
+      percent?: number;
+      current?: number;
+      total?: number;
+      unit?: string;
+    } | null;
+  } | null;
   [key: string]: unknown;
 };
 
@@ -44,40 +54,77 @@ export function mergeSnapshotWithFallback(
   if (!itemJob) {
     return snapshot;
   }
-  if (snapJob && snapJob !== itemJob && !snapJob.startsWith("doc:")) {
-    const snapStatus = `${snapshot?.status || ""}`.trim();
-    if (snapStatus && snapStatus !== "queued") {
-      return snapshot;
-    }
-  }
+  const snapshotMatches = !snapJob || snapJob === itemJob || snapJob.startsWith("doc:");
 
   const itemStatus = `${fallbackItem.status || ""}`.trim().toLowerCase();
+  const isolatedSnapshot = snapshotMatches ? snapshot : {
+    ...snapshot!,
+    jobId: itemJob,
+    status: itemStatus,
+    label: itemStatus === "failed" ? "失败" : itemStatus === "succeeded" ? "完成" : "等待中",
+    value: itemStatus === "failed" ? "任务失败" : "准备中",
+    detail: "",
+    stageKey: "",
+    visualStageKey: "",
+    substageKey: "",
+    displayPercent: null,
+    progressPercent: Number.NaN,
+    progressCurrent: Number.NaN,
+    progressTotal: Number.NaN,
+    progressFallbackText: "",
+    progressText: "",
+    progressUnit: "",
+    progressIndeterminate: false,
+    stageProgressByKey: {},
+    stageRetryActions: {},
+    pdfReady: false,
+    pdfUrl: "",
+    markdownBundleReady: false,
+    markdownBundleUrl: "",
+    readerReady: false,
+    readerUrl: "",
+    sourcePdfReady: false,
+    sourcePdfUrl: "",
+    cancelEnabled: false,
+    backgroundStages: [],
+    job: { job_id: itemJob, status: itemStatus },
+    summary: null,
+    stagePresentation: null,
+  } as StatusCardSnapshot;
   const snapStatus = `${snapshot?.status || ""}`.trim().toLowerCase();
   const snapIsWeak =
     !snapStatus
     || snapStatus === "queued"
     || !snapJob
+    || !snapshotMatches
     || `${snapshot?.detail || ""}`.includes("正在读取")
     || `${snapshot?.value || ""}`.includes("准备");
 
-  const progress = fallbackItem.progress && typeof fallbackItem.progress === "object"
-    ? fallbackItem.progress
+  const stageSnapshot = fallbackItem.stage_snapshot && typeof fallbackItem.stage_snapshot === "object"
+    ? fallbackItem.stage_snapshot
     : {};
+  const progress = stageSnapshot.progress && typeof stageSnapshot.progress === "object"
+    ? stageSnapshot.progress
+    : fallbackItem.progress && typeof fallbackItem.progress === "object"
+      ? fallbackItem.progress
+      : {};
+  const fallbackDetail = `${stageSnapshot.stage_detail || fallbackItem.stage_detail || ""}`.trim();
+  const fallbackStage = `${stageSnapshot.display_stage || ""}`.trim();
   const itemPercent = Number(progress.percent);
   const itemCurrent = Number(progress.current);
   const itemTotal = Number(progress.total);
 
   if (itemStatus === "succeeded" && (snapIsWeak || snapStatus !== "succeeded")) {
-    const snapJobRecord = snapshot?.job as StatusCardJobRecord | null | undefined;
+    const snapJobRecord = isolatedSnapshot?.job as StatusCardJobRecord | null | undefined;
     const jobMatches = snapJobRecord
-      && `${snapJobRecord.job_id || snapshot?.jobId || ""}`.trim() === itemJob;
+      && `${snapJobRecord.job_id || isolatedSnapshot?.jobId || ""}`.trim() === itemJob;
     const succeededJob: StatusCardJobRecord = jobMatches && snapJobRecord
       ? snapJobRecord
       : {
           job_id: itemJob,
           status: "succeeded",
           stage: "finished",
-          stage_detail: (fallbackItem.stage_detail as string) || "任务完成",
+          stage_detail: fallbackDetail || "任务完成",
           progress: {
             percent: 100,
             current: itemCurrent || 100,
@@ -90,13 +137,13 @@ export function mergeSnapshotWithFallback(
           },
         };
     return {
-      ...snapshot!,
+      ...isolatedSnapshot!,
       jobId: itemJob,
       status: "succeeded",
       stageKey: "done",
       label: "完成",
       value: "翻译 PDF 已生成",
-      detail: `${fallbackItem.stage_detail || "任务完成"}`.trim(),
+      detail: fallbackDetail || "任务完成",
       displayPercent: 100,
       progressPercent: 100,
       progressCurrent: Number.isFinite(itemCurrent) ? itemCurrent : 100,
@@ -106,6 +153,8 @@ export function mergeSnapshotWithFallback(
       progressUnit: "percent",
       progressIndeterminate: false,
       visualStageKey: "done",
+      stageProgressByKey: {},
+      stageRetryActions: {},
       cancelEnabled: false,
       readerReady: true,
       pdfReady: Boolean(fallbackItem.output_pdf_ready ?? true),
@@ -114,31 +163,62 @@ export function mergeSnapshotWithFallback(
   }
 
   if (itemStatus === "failed" && snapIsWeak) {
+    const failedJob: StatusCardJobRecord = {
+      job_id: itemJob,
+      status: "failed",
+      stage: fallbackStage || "failed",
+      stage_detail: fallbackDetail || "任务失败",
+      progress: { percent: 0, current: 0, total: 0 },
+      timestamps: {
+        started_at: (fallbackItem.created_at as string) || "",
+        finished_at: (fallbackItem.updated_at as string) || "",
+      },
+    };
     return {
-      ...snapshot!,
+      ...isolatedSnapshot!,
       jobId: itemJob,
       status: "failed",
       label: "失败",
       value: "任务失败",
-      detail: `${fallbackItem.stage_detail || ""}`.trim(),
+      detail: fallbackDetail,
+      stageKey: fallbackStage,
+      visualStageKey: fallbackStage,
+      displayPercent: 0,
+      progressPercent: 0,
+      progressCurrent: 0,
+      progressTotal: 0,
+      progressFallbackText: "",
+      progressText: "",
+      progressUnit: "",
+      progressIndeterminate: false,
+      stageProgressByKey: {},
+      stageRetryActions: {},
+      pdfReady: false,
+      pdfUrl: "",
+      markdownBundleReady: false,
+      markdownBundleUrl: "",
+      readerReady: false,
+      readerUrl: "",
       cancelEnabled: false,
+      job: failedJob,
+      summary: null,
     };
   }
 
-  if ((itemStatus === "running" || itemStatus === "queued") && snapIsWeak) {
+  if (["running", "queued", "pending", "validating"].includes(itemStatus) && snapIsWeak) {
     return {
-      ...snapshot!,
+      ...isolatedSnapshot!,
       jobId: itemJob,
       status: itemStatus,
-      stageKey: snapshot?.stageKey || "ocr",
-      label: snapshot?.label || (itemStatus === "queued" ? "排队中" : "处理中"),
-      detail: `${fallbackItem.stage_detail || snapshot?.detail || ""}`.trim(),
-      displayPercent: Number.isFinite(itemPercent) ? itemPercent : snapshot?.displayPercent ?? null,
-      progressPercent: Number.isFinite(itemPercent) ? itemPercent : (snapshot?.progressPercent ?? NaN),
-      progressCurrent: Number.isFinite(itemCurrent) ? itemCurrent : (snapshot?.progressCurrent ?? NaN),
-      progressTotal: Number.isFinite(itemTotal) ? itemTotal : (snapshot?.progressTotal ?? NaN),
+      stageKey: fallbackStage || isolatedSnapshot?.stageKey || "ocr",
+      label: isolatedSnapshot?.label || (itemStatus === "queued" ? "排队中" : "处理中"),
+      detail: fallbackDetail || `${isolatedSnapshot?.detail || ""}`.trim(),
+      displayPercent: Number.isFinite(itemPercent) ? itemPercent : isolatedSnapshot?.displayPercent ?? null,
+      progressPercent: Number.isFinite(itemPercent) ? itemPercent : (isolatedSnapshot?.progressPercent ?? NaN),
+      progressCurrent: Number.isFinite(itemCurrent) ? itemCurrent : (isolatedSnapshot?.progressCurrent ?? NaN),
+      progressTotal: Number.isFinite(itemTotal) ? itemTotal : (isolatedSnapshot?.progressTotal ?? NaN),
     };
   }
 
-  return snapshot;
+  return isolatedSnapshot;
 }

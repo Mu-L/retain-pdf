@@ -3,7 +3,7 @@
 // 2) 整文件下载完原文/译文 PDF（遮罩不关）
 // 3) 再展示阅读器；可见页渲染等优化在显示之后进行
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   loadProtectedPdfFile,
   type ProtectedPdfFile,
@@ -68,7 +68,30 @@ export type ReaderSessionState = {
   regions: ReaderRegion[];
   readerMetadata: ReaderMetadata;
   download: ReaderDownloadContext;
+  /** Agent 提交新文档版本后，切换到文档当前源文件并重新下载。 */
+  refreshCommittedDocument: (input: {
+    documentId: string;
+    revision: string;
+  }) => void;
+  /** 关闭导航前建立取消栅栏，禁止迟到请求再写入 Reader UI。 */
+  prepareClose: () => void;
 };
+
+type CommittedDocumentSource = {
+  documentId: string;
+  revision: string;
+};
+
+export function buildCommittedDocumentSourceUrl(
+  documentId: string,
+  revision: string,
+): string {
+  const path = `/api/v1/documents/${encodeURIComponent(documentId)}/source.pdf`;
+  const normalizedRevision = `${revision || ""}`.trim();
+  return resolveResourceUrl(normalizedRevision
+    ? `${path}?version=${encodeURIComponent(normalizedRevision)}`
+    : path);
+}
 
 /** Keep body `reader-mode-*` in sync (legacy CSS + chrome). */
 function applyBodyReaderMode(mode: ReaderMode) {
@@ -148,6 +171,8 @@ function setBootProgress(
 }
 
 export function useReaderSession(): ReaderSessionState {
+  const closingRef = useRef(false);
+  const activeLoadAbortRef = useRef<AbortController | null>(null);
   const [locationKey, setLocationKey] = useState(() => globalThis.location?.search || globalThis.location?.href || "");
   useEffect(() => {
     const handler = () => setLocationKey(globalThis.location?.search || globalThis.location?.href || "");
@@ -207,8 +232,12 @@ export function useReaderSession(): ReaderSessionState {
     : "";
   const sessionJobId = jobId || documentJobId;
   const sourceOnly = Boolean(documentId) && !sessionJobId;
+  const [committedDocumentSource, setCommittedDocumentSource] = useState<CommittedDocumentSource | null>(null);
+  // sourceOnly 表示“没有任务 job”，用于判断 Markdown/AI 能力。
+  // sourceViewOnly 只表示当前没有可安全并排的译文，两者不能混用。
+  const sourceViewOnly = sourceOnly || Boolean(committedDocumentSource?.documentId);
 
-  const [mode, setModeState] = useState<ReaderMode>(sourceOnly ? "source" : "compare");
+  const [mode, setModeState] = useState<ReaderMode>(sourceViewOnly ? "source" : "compare");
   const [sourceUrl, setSourceUrl] = useState("");
   const [translatedUrl, setTranslatedUrl] = useState("");
   const [sourceFile, setSourceFile] = useState<ProtectedPdfFile | null>(null);
@@ -231,26 +260,58 @@ export function useReaderSession(): ReaderSessionState {
   });
 
   const setMode = useCallback((next: ReaderMode) => {
-    if (sourceOnly && next !== "source") {
+    if (sourceViewOnly && next !== "source") {
       return;
     }
     setModeState(next);
     applyBodyReaderMode(next);
-  }, [sourceOnly]);
+  }, [sourceViewOnly]);
+
+  const refreshCommittedDocument = useCallback((input: {
+    documentId: string;
+    revision: string;
+  }) => {
+    const nextDocumentId = `${input.documentId || ""}`.trim();
+    if (!nextDocumentId) return;
+    const nextRevision = `${input.revision || ""}`.trim() || `${Date.now()}`;
+    setCommittedDocumentSource({
+      documentId: nextDocumentId,
+      revision: nextRevision,
+    });
+    setModeState("source");
+    applyBodyReaderMode("source");
+  }, []);
+
+  const prepareClose = useCallback(() => {
+    closingRef.current = true;
+    activeLoadAbortRef.current?.abort();
+  }, []);
 
   useEffect(() => {
-    if (sourceOnly) {
+    if (sourceViewOnly) {
       document.documentElement.classList.add("reader-source-only");
     }
     applyBodyReaderMode(mode);
     return () => {
       document.documentElement.classList.remove("reader-source-only");
     };
-  }, [sourceOnly, mode]);
+  }, [sourceViewOnly, mode]);
 
   useEffect(() => {
     const abort = new AbortController();
     let cancelled = false;
+    activeLoadAbortRef.current = abort;
+    const isInactive = () => cancelled || closingRef.current || abort.signal.aborted;
+
+    if (closingRef.current) {
+      abort.abort();
+      return () => {
+        cancelled = true;
+        if (activeLoadAbortRef.current === abort) {
+          activeLoadAbortRef.current = null;
+        }
+      };
+    }
 
     async function downloadOne(
       url: string,
@@ -261,14 +322,14 @@ export function useReaderSession(): ReaderSessionState {
       if (!url) {
         return null;
       }
-      if (abort.signal.aborted || cancelled) {
+      if (isInactive()) {
         return null;
       }
       setBootProgress(setBoot, percentStart, label, "download");
       const file = await loadProtectedPdfFile(url, defaultReaderDataPort.fetchProtected, {
         signal: abort.signal,
       });
-      if (abort.signal.aborted || cancelled) {
+      if (isInactive()) {
         return null;
       }
       setBootProgress(setBoot, percentEnd, label, "download");
@@ -300,23 +361,28 @@ export function useReaderSession(): ReaderSessionState {
           } catch {
             /* ignore, fallback to pure source */
           }
-          if (effectiveJobId && !cancelled) {
+          if (effectiveJobId && !isInactive()) {
             // 记录实际 job 后重新进入统一 job 加载分支。session 对外也必须暴露
             // 这个 id，否则 Markdown/AI/下载仍会把馆藏入口误判为纯源文档。
             setResolvedDocumentJob({ documentId, jobId: effectiveJobId });
             return;
           }
-          const url = isMockMode()
+          const url = committedDocumentSource?.documentId
+            ? buildCommittedDocumentSourceUrl(
+              committedDocumentSource.documentId,
+              committedDocumentSource.revision,
+            )
+            : isMockMode()
             ? MOCK_DOCUMENT_SOURCE_PDF_URL
             : resolveResourceUrl(`/api/v1/documents/${encodeURIComponent(documentId)}/source.pdf`);
-          if (cancelled) return;
+          if (isInactive()) return;
           setSourceUrl(url);
           setTranslatedUrl("");
           setTitle("");
           setJobPayload(null);
           setManifestPayload(null);
           const file = await downloadOne(url, "正在下载原文 PDF…", 30, 85);
-          if (cancelled) return;
+          if (isInactive()) return;
           if (!file) {
             setBoot({
               loading: false,
@@ -354,8 +420,13 @@ export function useReaderSession(): ReaderSessionState {
           return;
         }
 
+        // 显式 job_id 表示流水线的不可变阅读快照。即使所属文档后来被
+        // Agent 修改，也必须继续加载该 job 自己配套的原文和译文；否则
+        // 历史翻译任务会因为 document.active_version_id 而失去对照阅读。
+        // Reader 当前会话内完成 Agent 提交时，refreshCommittedDocument
+        // 会显式设置 committedDocumentSource，并切换到新的文档源版本。
         const payload = await defaultReaderDataPort.loadReaderPayload(sessionJobId);
-        if (cancelled) return;
+        if (isInactive()) return;
 
         const source = resolveReaderSourcePdf(payload.manifestPayload);
         const translated = resolveReaderTranslatedPdfUrl(payload.jobPayload, payload.manifestPayload);
@@ -364,18 +435,27 @@ export function useReaderSession(): ReaderSessionState {
           : resolveReaderArtifactUrl(source);
         // OCR-only job 未必生成 PDF artifact；从 document_id 进入时继续使用
         // 馆藏源文件，同时保留真实 jobId 供 Markdown/AI 使用。
-        const sourceFinal = resolvedSourceFinal || (documentId
+        const sourceFinal = committedDocumentSource?.documentId
+          ? buildCommittedDocumentSourceUrl(
+            committedDocumentSource.documentId,
+            committedDocumentSource.revision,
+          )
+          : resolvedSourceFinal || (documentId
           ? resolveResourceUrl(`/api/v1/documents/${encodeURIComponent(documentId)}/source.pdf`)
           : "");
-        const translatedFinal = translated || "";
+        // 文档操作产生的是新的源版本；旧 job 的译文、region 与 metadata
+        // 仍对应旧页序，不能继续和新源文件并排显示。
+        const translatedFinal = committedDocumentSource ? "" : translated || "";
 
         setSourceUrl(sourceFinal || "");
         setTranslatedUrl(translatedFinal);
         setTitle(pickDisplayTitle(payload.jobPayload as Record<string, unknown>, sessionJobId));
         setJobPayload((payload.jobPayload as Record<string, unknown>) || null);
         setManifestPayload((payload.manifestPayload as Record<string, unknown>) || null);
-        setRegions(normalizeReaderRegions(payload.regionsPayload));
-        setReaderMetadata(normalizeReaderMetadata(payload.readerMetadata));
+        setRegions(committedDocumentSource ? [] : normalizeReaderRegions(payload.regionsPayload));
+        setReaderMetadata(committedDocumentSource
+          ? { source: null, translated: null }
+          : normalizeReaderMetadata(payload.readerMetadata));
 
         if (!sourceFinal && !translatedFinal) {
           setBoot({
@@ -410,7 +490,7 @@ export function useReaderSession(): ReaderSessionState {
           );
         }
         await Promise.all(tasks);
-        if (cancelled) return;
+        if (isInactive()) return;
 
         const needSource = Boolean(sourceFinal);
         const needTranslated = Boolean(translatedFinal);
@@ -439,7 +519,7 @@ export function useReaderSession(): ReaderSessionState {
         postProgress({ percent: 100, text: READER_PROGRESS_COPY.ready, stage: "ready" });
         // URL 锚点跳页见 useUrlAnchorJump（react-pdf 控制器）
       } catch (err) {
-        if (cancelled || abort.signal.aborted) return;
+        if (isInactive()) return;
         // AbortError from fetch is not a real failure
         if ((err as Error)?.name === "AbortError") return;
         const text = err instanceof Error ? err.message : READER_PROGRESS_COPY.failed;
@@ -458,8 +538,11 @@ export function useReaderSession(): ReaderSessionState {
     return () => {
       cancelled = true;
       abort.abort();
+      if (activeLoadAbortRef.current === abort) {
+        activeLoadAbortRef.current = null;
+      }
     };
-  }, [sessionJobId, documentId, sourceOnly, locationKey]);
+  }, [sessionJobId, documentId, sourceOnly, locationKey, committedDocumentSource]);
 
   const download = useMemo<ReaderDownloadContext>(
     () => ({
@@ -469,9 +552,9 @@ export function useReaderSession(): ReaderSessionState {
       manifestPayload,
       sourceUrl,
       translatedUrl,
-      sourceOnly,
+      sourceOnly: sourceViewOnly,
     }),
-    [sessionJobId, jobPayload, manifestPayload, sourceUrl, translatedUrl, sourceOnly],
+    [sessionJobId, jobPayload, manifestPayload, sourceUrl, translatedUrl, sourceViewOnly],
   );
 
   return {
@@ -490,5 +573,7 @@ export function useReaderSession(): ReaderSessionState {
     regions,
     readerMetadata,
     download,
+    refreshCommittedDocument,
+    prepareClose,
   };
 }

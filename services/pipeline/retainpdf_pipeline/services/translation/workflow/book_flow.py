@@ -62,6 +62,13 @@ def translate_book_with_global_continuations(
         page_payloads=page_payloads,
         translation_paths=translation_paths,
     )
+    # The initial continuation pass rewrites every page with deterministic
+    # layout/continuation metadata. Commit that state before any provider call
+    # so an upstream failure cannot leave all working pages ahead of the last
+    # durable checkpoint.
+    if checkpoint is not None:
+        save_pages(page_payloads, translation_paths)
+        checkpoint.update("preparing", page_payloads, translation_paths)
     if policy_config is None or policy_config.enable_candidate_continuation_review:
         run_continuation_review(
             page_payloads=page_payloads,
@@ -72,6 +79,9 @@ def translate_book_with_global_continuations(
             workers=workers,
             run_diagnostics=run_diagnostics,
         )
+        if checkpoint is not None:
+            save_pages(page_payloads, translation_paths)
+            checkpoint.update("preparing", page_payloads, translation_paths)
 
     run_page_policy_stage(
         page_payloads=page_payloads,

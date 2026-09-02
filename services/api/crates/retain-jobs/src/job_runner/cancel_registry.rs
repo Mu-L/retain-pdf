@@ -2,10 +2,7 @@ use std::collections::HashSet;
 
 use tokio::sync::RwLock;
 
-pub async fn request_cancel_with_registry(
-    canceled_jobs: &RwLock<HashSet<String>>,
-    job_id: &str,
-) {
+pub async fn request_cancel_with_registry(canceled_jobs: &RwLock<HashSet<String>>, job_id: &str) {
     let mut canceled_jobs = canceled_jobs.write().await;
     canceled_jobs.insert(job_id.to_string());
 }

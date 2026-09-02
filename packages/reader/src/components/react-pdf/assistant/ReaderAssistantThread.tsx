@@ -15,12 +15,23 @@ import {
   type AiCitationLike,
 } from "../../../external.js";
 import { ReaderAssistantSurface } from "./ReaderAssistantSurface.js";
+import { ReaderAgentOperationPanel } from "./ReaderAgentOperationPanel.js";
+import type { useReaderAgentOperations } from "./use-reader-agent-operations.js";
 import type { ReaderAskStoreMessage } from "./reader-ask-tree.js";
+import type { ReaderAssistantMode } from "../../../shared/ai/ask-answerer.js";
 
 const identityMessageConverter = (message: ThreadMessageLike): ThreadMessageLike => message;
 const EMPTY_MESSAGES: readonly ReaderAskStoreMessage[] = Object.freeze([]);
 const EMPTY_CITATIONS: Record<string, AiCitationLike[]> = Object.freeze({});
 const EMPTY_TEXT_BY_MESSAGE: Record<string, string> = Object.freeze({});
+const EMPTY_AGENT_OPERATIONS = Object.freeze({
+  entries: [],
+  confirmationMode: "explicit" as const,
+  runtimeRestarting: false,
+  runtimeCredentialConfigured: false,
+  perform: async () => {},
+  loadCandidate: async () => new Blob(),
+});
 
 export type ReaderAssistantThreadProps = {
   jobId?: string;
@@ -36,6 +47,9 @@ export type ReaderAssistantThreadProps = {
   onJumpCitation?: (citation: AiCitationLike) => void;
   onBranchFromAnswer?: (assistantMessageId: string) => void | Promise<boolean | void>;
   branchBusy?: boolean;
+  agentOperations?: ReturnType<typeof useReaderAgentOperations>;
+  assistantMode?: ReaderAssistantMode;
+  onAssistantModeChange?: (mode: ReaderAssistantMode) => void;
 };
 
 function messageText(message: AppendMessage): string {
@@ -80,6 +94,9 @@ export function ReaderAssistantThread({
   onJumpCitation,
   onBranchFromAnswer,
   branchBusy = false,
+  agentOperations = EMPTY_AGENT_OPERATIONS,
+  assistantMode = "reading",
+  onAssistantModeChange,
 }: ReaderAssistantThreadProps) {
   const [, setCredentialEpoch] = useState(0);
 
@@ -95,7 +112,7 @@ export function ReaderAssistantThread({
     };
   }, []);
 
-  const missingLlmKey = !hasModelApiKey();
+  const missingLlmKey = !hasModelApiKey() && !agentOperations.runtimeCredentialConfigured;
   const runtimeMessages = useMemo<ThreadMessageLike[]>(() => messages.map((message) => ({
     id: message.id,
     role: message.role,
@@ -115,9 +132,9 @@ export function ReaderAssistantThread({
 
   const handleNewMessage = useCallback(async (message: AppendMessage) => {
     const question = messageText(message);
-    if (!question || isRunning || branchBusy || missingLlmKey) return;
+    if (!question || isRunning || branchBusy || agentOperations.runtimeRestarting || missingLlmKey) return;
     await onSubmit(question);
-  }, [branchBusy, isRunning, missingLlmKey, onSubmit]);
+  }, [agentOperations.runtimeRestarting, branchBusy, isRunning, missingLlmKey, onSubmit]);
 
   const handleCancel = useCallback(async () => {
     await onCancel();
@@ -126,12 +143,13 @@ export function ReaderAssistantThread({
   const runtimeStore = useMemo(() => ({
     messages: runtimeMessages,
     isRunning,
-    isDisabled: branchBusy || missingLlmKey,
+    isDisabled: branchBusy || agentOperations.runtimeRestarting || missingLlmKey,
     convertMessage: identityMessageConverter,
     onNew: handleNewMessage,
     onReload: retryFromParent,
     onCancel: handleCancel,
   }), [
+    agentOperations.runtimeRestarting,
     branchBusy,
     handleCancel,
     handleNewMessage,
@@ -154,6 +172,22 @@ export function ReaderAssistantThread({
         isRunning={isRunning}
         missingLlmKey={missingLlmKey}
         branchBusy={branchBusy}
+        agentRequestBlocked={agentOperations.runtimeRestarting}
+        assistantMode={assistantMode}
+        onAssistantModeChange={onAssistantModeChange}
+        agentOperationPanel={(
+          assistantMode === "operations"
+          || agentOperations.entries.length > 0
+          || agentOperations.runtimeRestarting
+        ) ? (
+          <ReaderAgentOperationPanel
+            entries={agentOperations.entries}
+            confirmationMode={agentOperations.confirmationMode}
+            runtimeRestarting={agentOperations.runtimeRestarting}
+            loadCandidate={agentOperations.loadCandidate}
+            onAction={agentOperations.perform}
+          />
+        ) : null}
         onJumpCitation={onJumpCitation}
         onBranchFromAnswer={onBranchFromAnswer}
       />

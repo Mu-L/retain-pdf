@@ -110,7 +110,7 @@
     "PublicTranslationInput": {
       "type": "object",
       "description": "public_contract.rs :: PublicTranslationInput。api_key 恒为空，仅暴露 configured 标记。",
-      "required": ["mode", "math_mode", "skip_title_translation", "classify_batch_size", "rule_profile_name", "custom_rules_text", "glossary_id", "glossary_name", "glossary_resource_entry_count", "glossary_inline_entry_count", "glossary_overridden_entry_count", "glossary_entries", "context_mode", "glossary_mode", "memory_mode", "api_key", "api_key_configured", "model", "base_url", "start_page", "end_page", "batch_size", "workers"],
+      "required": ["mode", "math_mode", "skip_title_translation", "classify_batch_size", "rule_profile_name", "custom_rules_text", "glossary_id", "glossary_name", "glossary_resource_entry_count", "glossary_inline_entry_count", "glossary_overridden_entry_count", "glossary_entries", "context_mode", "glossary_mode", "memory_mode", "api_key", "api_key_configured", "credential_ref", "model", "base_url", "start_page", "end_page", "batch_size", "workers"],
       "additionalProperties": false,
       "properties": {
         "mode": { "type": "string" },
@@ -130,6 +130,7 @@
         "memory_mode": { "type": "string" },
         "api_key": { "type": "string" },
         "api_key_configured": { "type": "boolean" },
+        "credential_ref": { "type": "string" },
         "model": { "type": "string" },
         "base_url": { "type": "string" },
         "start_page": { "type": "integer" },

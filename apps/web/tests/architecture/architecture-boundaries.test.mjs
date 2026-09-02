@@ -43,7 +43,9 @@ const APP_FRAMEWORK_BARREL_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+app-framework
 const FEATURE_UI_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+ui\//;
 const FEATURE_UPLOAD_CONSTANTS_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+config\/upload-constants\.js["']/;
 const WEBAWESOME_USAGE_PATTERN = /@awesome\.me\/webawesome|<wa-|wa-(?:button|dialog|progress|badge|card|progress-ring|progress-bar)\b|WebAwesome|Web Awesome/;
-const SHARED_DIALOG_SHELL_SELECTOR_PATTERN = /^\s*\.(?:desktop-dialog|desktop-shell|desktop-head|desktop-body|dialog-close-btn)(?:\s|[,{:#.])/m;
+const SHARED_DIALOG_SHELL_SELECTOR_PATTERN = /^\s*\.(?:app-(?:dialog|confirm|floating)-[\w-]+|desktop-dialog|desktop-shell|desktop-head|desktop-body|dialog-close-btn)(?:\s|[,{:#.])/m;
+const RAW_RADIX_DIALOG_IMPORT_PATTERN = /import\s*\{[^}]*\bDialog\s+as\s+DialogPrimitive\b[^}]*\}\s*from\s*["']radix-ui["']/s;
+const BROWSER_BLOCKING_DIALOG_PATTERN = /\b(?:window\.)?(?:alert|confirm|prompt)\s*\(/;
 const APP_UPDATE_SELECTOR_PATTERN = /^\s*\.app-update-[\w-]+(?:\s|[,{:#.])/m;
 const LIBRARY_SHELL_SELECTOR_PATTERN = /^\s*(?:\.(?:page|app-shell|topbar|app-shell-header|library-[\w-]+|home-action-btn|brand-[\w-]+|hero(?:-[\w-]+)?)(?:\s|[,{:#.])|#recent-jobs-list\.library-grid\b|\.recent-jobs-more-row\s+#load-more-jobs-btn\b)/m;
 const API_PREFIX_FROM_ROOT_CONSTANTS_PATTERN = /import\s*{[^}]*API_PREFIX[^}]*}\s*from\s+["'](?:\.\.\/)+constants\.js["']/s;
@@ -216,11 +218,74 @@ test("runtime frontend does not depend on WebAwesome", () => {
   assert.deepEqual(offenders, []);
 });
 
+test("upload workflow presentation components stay independent from home services", () => {
+  const presentationRoot = join(
+    PROJECT_ROOT,
+    "src/pages/home/features/workflow/components/upload",
+  );
+  const offenders = walkFiles(presentationRoot)
+    .filter((file) => /\.(?:ts|tsx)$/.test(file))
+    .filter((file) => /useHomeServices|home-services-context|composition\//.test(readFileSync(file, "utf8")))
+    .map((file) => relativeToProject(file));
+
+  assert.deepEqual(offenders, []);
+});
+
+test("book detail tab and artifact components stay independent from APIs and home services", () => {
+  const detailRoot = join(
+    PROJECT_ROOT,
+    "src/pages/home/features/library/detail",
+  );
+  const presentationFiles = filesUnder(
+    join(detailRoot, "tabs"),
+    join(detailRoot, "artifacts"),
+  );
+  const offenders = presentationFiles
+    .filter((file) => /useHomeServices|home-services-context|composition\/|@retainpdf\/api|domain\/controller/.test(readFileSync(file, "utf8")))
+    .map((file) => relativeToProject(file));
+
+  assert.deepEqual(offenders, []);
+  assert.equal(existsSync(join(detailRoot, "tabs/BookDetailTranslateTab.tsx")), false);
+  assert.equal(existsSync(join(detailRoot, "tabs/BookDetailMoreTab.tsx")), false);
+});
+
+test("agent operation presentation components stay independent from APIs and home services", () => {
+  const presentationRoot = join(
+    PROJECT_ROOT,
+    "src/pages/home/features/home-ask/operations",
+  );
+  const offenders = walkFiles(presentationRoot)
+    .filter((file) => /Agent[^/]*\.tsx$/.test(file))
+    .filter((file) => /useHomeServices|home-services-context|composition\/|@retainpdf\/api/.test(readFileSync(file, "utf8")))
+    .map((file) => relativeToProject(file));
+
+  assert.deepEqual(offenders, []);
+});
+
 test("shared dialog shell styles stay in dialog-shell css", () => {
   const styleSources = allPathsUnder(join(PROJECT_ROOT, "src/styles"))
     .filter((filePath) => filePath.endsWith(".css"))
     .filter((filePath) => filePath !== join(PROJECT_ROOT, "src/styles/dialog-shell.css"));
   const offenders = findMatchingSources(styleSources, SHARED_DIALOG_SHELL_SELECTOR_PATTERN);
+
+  assert.deepEqual(offenders, []);
+});
+
+test("application dialogs use the shared dialog component boundary", () => {
+  const sharedDialog = join(PROJECT_ROOT, "src/components/ui/dialog.tsx");
+  const offenders = findMatchingSources(
+    walkFiles(join(PROJECT_ROOT, "src")).filter((filePath) => filePath !== sharedDialog),
+    RAW_RADIX_DIALOG_IMPORT_PATTERN,
+  );
+
+  assert.deepEqual(offenders, []);
+});
+
+test("production React UI does not use browser blocking dialogs", () => {
+  const offenders = findMatchingSources(
+    filesUnder(join(PROJECT_ROOT, "src/pages"), join(PROJECT_ROOT, "src/components")),
+    BROWSER_BLOCKING_DIALOG_PATTERN,
+  );
 
   assert.deepEqual(offenders, []);
 });
@@ -827,4 +892,61 @@ test("@retainpdf/ui and @retainpdf/api packages expose expected entries", () => 
   const apiPkg = JSON.parse(readFileSync(join(PROJECT_ROOT, "../../packages/api/package.json"), "utf8"));
   assert.ok(apiPkg.exports?.["./library-books"], "@retainpdf/api must export ./library-books");
   assert.ok(apiPkg.exports?.["./jobs"], "@retainpdf/api must export ./jobs");
+  assert.ok(apiPkg.exports?.["./job-images"], "@retainpdf/api must export ./job-images");
+  assert.ok(apiPkg.exports?.["./reader"], "@retainpdf/api must export ./reader");
+  assert.ok(apiPkg.exports?.["./search"], "@retainpdf/api must export ./search");
+});
+
+test("reader, search, and recent-job images use the canonical API package", () => {
+  const readerData = readFileSync(
+    join(PROJECT_ROOT, "src/shared/reader/host/data.ts"),
+    "utf8",
+  );
+  for (const entry of ["http", "jobs-artifacts", "jobs", "reader", "translation-debug"]) {
+    assert.match(
+      readerData,
+      new RegExp(`from ["']@retainpdf/api/${entry}["']`),
+      `Reader data port must consume @retainpdf/api/${entry}`,
+    );
+  }
+  assert.doesNotMatch(
+    readerData,
+    /from\s+["'][^"']*js\/api\/(?:http|jobs-artifacts|reader|translation-debug)\.js["']/,
+  );
+  assert.doesNotMatch(readerData, /loadAiChat\s*:/, "deprecated Reader AI chat must not be wired");
+
+  const legacySearchAdapter = readFileSync(join(PROJECT_ROOT, "src/js/api/search.ts"), "utf8");
+  assert.match(legacySearchAdapter, /from\s+["']@retainpdf\/api\/search["']/);
+  assert.doesNotMatch(legacySearchAdapter, /\bfetch\s*\(/, "search adapter must not duplicate HTTP logic");
+
+  for (const file of [
+    "src/js/components/recent-jobs/recent-job-card-presenter.ts",
+    "src/js/components/recent-jobs/recent-job-card-image-loader.ts",
+  ]) {
+    const source = readFileSync(join(PROJECT_ROOT, file), "utf8");
+    assert.match(source, /from\s+["']@retainpdf\/api\/job-images["']/);
+    assert.doesNotMatch(source, /api\/job-images\.js/);
+  }
+  assert.equal(existsSync(join(PROJECT_ROOT, "src/js/api/job-images.ts")), false);
+  assert.equal(existsSync(join(PROJECT_ROOT, "src/js/api/reader.ts")), false);
+});
+
+test("job cancellation and OCR ambiguity recovery use canonical endpoint clients", () => {
+  const runtimeController = readFileSync(
+    join(PROJECT_ROOT, "src/js/features/job-runtime/controller.ts"),
+    "utf8",
+  );
+  assert.match(runtimeController, /cancelOcrJob/);
+  assert.match(runtimeController, /cancelJob/);
+  assert.doesNotMatch(runtimeController, /submitJson/);
+  assert.doesNotMatch(runtimeController, /buildJobDetailEndpoint/);
+
+  const apiActions = readFileSync(
+    join(PROJECT_ROOT, "../../packages/api/src/jobs-actions.ts"),
+    "utf8",
+  );
+  assert.match(apiActions, /export async function cancelJob/);
+  assert.match(apiActions, /export async function cancelOcrJob/);
+  assert.match(apiActions, /export async function resolveOcrAmbiguity/);
+  assert.match(apiActions, /\/ocr\/resolve-ambiguity/);
 });

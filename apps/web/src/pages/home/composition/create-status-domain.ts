@@ -6,14 +6,18 @@ import {
   fetchJobPayload,
   fetchJobEvents,
   fetchJobDiagnostics,
+  fetchJobStageActions,
   fetchResumePlan,
   rerunJob,
   fetchTranslationDiagnostics,
   fetchTranslationItems,
   fetchTranslationItem,
   replayTranslationItem,
+  resolveOcrAmbiguity,
+  retryJobStage,
 } from "./external/api.js";
 import {
+  copyText,
   currentJobStoreFor,
   secondaryResourceStoreFor,
 } from "./external/features.js";
@@ -71,10 +75,14 @@ export function createStatusDomain({
     ) => Promise<import("@retainpdf/domain/job-status").EventsPayload | null | undefined>,
     fetchJobDiagnostics,
     fetchResumePlan,
+    fetchJobStageActions,
     fetchTranslationDiagnostics,
     fetchTranslationItems,
     fetchTranslationItem,
     replayTranslationItem,
+    resolveOcrAmbiguity,
+    retryJobStage,
+    copyText,
     rerunJob,
     renderJob: statusCardPresenter.renderMain,
     startPolling: (jobId: string) => features.jobRuntimeFeature?.startPolling(jobId),
@@ -119,6 +127,7 @@ export function createStatusDomain({
 
   return {
     jobRuntimeState,
+    currentJobStore,
     statusCardStore,
     statusCardPresenter,
     statusCardController,

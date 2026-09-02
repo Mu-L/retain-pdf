@@ -10,5 +10,6 @@ export type ReaderKeyboardApi = {
     goToPage: (page: number) => void;
     enabled?: boolean;
 };
+export declare function resolveReaderModeShortcut(key: string, sourceOnly: boolean): ReaderMode | null;
 export declare function useReaderKeyboard(api: ReaderKeyboardApi): void;
 //# sourceMappingURL=use-reader-keyboard.d.ts.map

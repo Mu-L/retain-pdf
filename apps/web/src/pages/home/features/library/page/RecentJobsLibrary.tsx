@@ -17,16 +17,22 @@ import { useHomeServices } from "../../../home-services-context.js";
 import { BookCard, buildDefaultBookCardActions } from "../shell/BookCard.jsx";
 import { BookListRow } from "../shell/BookListRow.jsx";
 import { LibraryToolbar } from "./LibraryToolbar.jsx";
-import { LibraryFilterMenu, matchesLibraryFilter } from "./LibraryFilterMenu.jsx";
+import {
+  countLibraryStatusFilters,
+  LibraryFilterMenu,
+  matchesLibraryFilter,
+} from "./LibraryFilterMenu.jsx";
 import { LibraryBatchToolbar } from "./LibraryBatchToolbar.jsx";
 import { useLibraryAutoLoad } from "./useLibraryAutoLoad.js";
 import { useHomeReturnRestore } from "./useHomeReturnRestore.js";
+import { deriveLibraryPageState } from "./library-page-state.js";
 import { EmptyState } from "@/shared/icons/EmptyState.jsx";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog.js";
 import {
   buildRecentJobsSummaryViewModel,
-  HOME_LOADING_STATES,
   isLibraryOnlyItem,
   isRecentJobActive,
+  libraryCardIdentity,
 } from "../../../composition/external.js";
 
 // 客户端排序(只排已加载的这几页;/documents 无 sort 参数,和参考项目一样在前端排)。
@@ -47,8 +53,6 @@ function sortItems(items, sortMode) {
 const VIEW_TEXT = Object.freeze({
   loadMore: "更多",
   loadMoreLoading: "加载中…",
-  empty: "暂无最近任务",
-  emptySearch: "没有匹配的书籍",
 });
 
 export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
@@ -71,6 +75,7 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
   const [batchMode, setBatchModeState] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set<string>());
   const [batchBusy, setBatchBusy] = useState(false);
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null);
   const [collections, setCollections] = useState([]);
 
   function setBatchMode(next) {
@@ -104,16 +109,16 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
   // 标签列表 + 各状态计数(供筛选面板显示,基于已加载项)。
   const { tags, statusCounts } = useMemo(() => {
     const tagSet = new Set<string>();
-    const counts = { done: 0, untranslated: 0, active: 0, failed: 0 };
     for (const item of items) {
       (Array.isArray(item.tags) ? item.tags : []).forEach((t: any) => t && tagSet.add(`${t}`));
-      if (isLibraryOnlyItem(item)) { counts.untranslated += 1; continue; }
-      const s = `${item.status || ""}`.trim();
-      if (isRecentJobActive(item)) counts.active += 1;
-      else if (s === "succeeded") counts.done += 1;
-      else if (s === "failed") counts.failed += 1;
     }
-    return { tags: [...tagSet].sort((a: string, b: string) => a.localeCompare(b, "zh-CN")), statusCounts: counts };
+    return {
+      tags: [...tagSet].sort((a: string, b: string) => a.localeCompare(b, "zh-CN")),
+      statusCounts: countLibraryStatusFilters(items, {
+        isLibraryOnly: isLibraryOnlyItem,
+        isActive: isRecentJobActive,
+      }),
+    };
   }, [items]);
 
   const visibleItems = useMemo(() => {
@@ -129,16 +134,44 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
     () => visibleItems.map((item) => `${item.document_id || ""}`.trim()).filter(Boolean),
     [visibleItems],
   );
-  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
+  const selectableIdSet = useMemo(() => new Set(selectableIds), [selectableIds]);
+  const effectiveSelectedIds = useMemo(() => {
+    const next = new Set<string>();
+    for (const id of selectedIds) {
+      if (selectableIdSet.has(id)) next.add(id);
+    }
+    return next;
+  }, [selectedIds, selectableIdSet]);
+
+  // 删除、整页刷新或筛选都会改变当前可操作集合。同步清掉已不可见的选择，
+  // 避免工具栏计数和后续批量命令继续携带“幽灵” document_id。
+  useEffect(() => {
+    setSelectedIds((previous) => {
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of previous) {
+        if (selectableIdSet.has(id)) next.add(id);
+        else changed = true;
+      }
+      return changed ? next : previous;
+    });
+  }, [selectableIdSet]);
+
+  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => effectiveSelectedIds.has(id));
 
   function handleSelectAllToggle() {
     setSelectedIds(allSelected ? new Set() : new Set(selectableIds));
   }
 
-  async function handleBatchDelete() {
-    const ids = [...selectedIds];
+  function handleBatchDelete() {
+    const ids = [...effectiveSelectedIds];
     if (!ids.length || batchBusy) return;
-    if (!window.confirm(`确定删除选中的 ${ids.length} 篇文档？此操作不可恢复。`)) return;
+    setPendingDeleteIds(ids);
+  }
+
+  async function confirmBatchDelete() {
+    const ids = pendingDeleteIds || [];
+    if (!ids.length || batchBusy) return;
     setBatchBusy(true);
     try {
       const { confirmed, failed } = await actions.deleteDocuments(ids);
@@ -150,11 +183,12 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
       toast.error(err?.message || "删除失败，请稍后重试");
     } finally {
       setBatchBusy(false);
+      setPendingDeleteIds(null);
     }
   }
 
   async function handleBatchAddToCollection(collectionId) {
-    const ids = [...selectedIds];
+    const ids = [...effectiveSelectedIds];
     if (!ids.length || batchBusy) return;
     setBatchBusy(true);
     try {
@@ -168,15 +202,20 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
     }
   }
 
-  const hasItems = items.length > 0;
-  const isLoading = homeState.recentJobsLoadingState === HOME_LOADING_STATES.LOADING;
-  const isErrorState = !hasItems
-    && (homeState.recentJobsLoadingState === HOME_LOADING_STATES.ERROR || view.mode === "error");
-
-  const mode = hasItems ? "list" : (isLoading ? "loading" : (isErrorState ? "error" : "empty"));
-  const loadMoreLoading = hasItems && isLoading;
-  const emptyMessage = view.query.trim() ? VIEW_TEXT.emptySearch : VIEW_TEXT.empty;
-  const errorMessage = view.mode === "error" && view.message ? view.message : (homeState.recentJobsError || VIEW_TEXT.empty);
+  const {
+    mode,
+    loadMoreLoading,
+    emptyMessage,
+    errorMessage,
+  } = deriveLibraryPageState({
+    items,
+    loadingState: homeState.recentJobsLoadingState,
+    error: homeState.recentJobsError,
+    query: view.query,
+    viewMode: view.mode,
+    viewMessage: view.message,
+  });
+  const hasItems = mode === "list";
 
   const summary = buildRecentJobsSummaryViewModel(recentJobs.invocationSummary, items);
 
@@ -248,19 +287,19 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
             {visibleItems.map((item) => (
               viewMode === "list" ? (
                 <BookListRow
-                  key={item.job_id}
+                  key={libraryCardIdentity(item)}
                   item={item}
                   onSelect={actions.selectJob}
                   onReader={actions.openJobReader}
                   onReadSource={actions.openSourceReader}
                   onOpenDetail={actions.openBookDetail}
                   batchMode={batchMode}
-                  selected={selectedIds.has(`${item.document_id || ""}`.trim())}
+                  selected={effectiveSelectedIds.has(`${item.document_id || ""}`.trim())}
                   onToggleSelect={toggleSelect}
                 />
               ) : (
                 <BookCard
-                  key={item.job_id}
+                  key={libraryCardIdentity(item)}
                   item={item}
                   // 壳 + 按钮:默认只有「快速阅读」;要加翻译等在此 concat 即可
                   actions={buildDefaultBookCardActions(item, {
@@ -270,7 +309,7 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
                   onSelect={actions.selectJob}
                   onOpenDetail={actions.openBookDetail}
                   batchMode={batchMode}
-                  selected={selectedIds.has(`${item.document_id || ""}`.trim())}
+                  selected={effectiveSelectedIds.has(`${item.document_id || ""}`.trim())}
                   onToggleSelect={toggleSelect}
                 />
               )
@@ -291,7 +330,7 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
       </div>
       {batchMode ? (
         <LibraryBatchToolbar
-          count={selectedIds.size}
+          count={effectiveSelectedIds.size}
           totalSelectable={selectableIds.length}
           allSelected={allSelected}
           onSelectAll={handleSelectAllToggle}
@@ -302,6 +341,19 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
           busy={batchBusy}
         />
       ) : null}
+      <ConfirmDialog
+        id="batch-delete-confirm-dialog"
+        open={Boolean(pendingDeleteIds)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setPendingDeleteIds(null);
+        }}
+        title="删除所选文档？"
+        description={`将永久删除选中的 ${pendingDeleteIds?.length || 0} 篇文档，此操作无法撤销。`}
+        confirmLabel="确认删除"
+        pending={batchBusy}
+        tone="danger"
+        onConfirm={confirmBatchDelete}
+      />
     </section>
   );
 }

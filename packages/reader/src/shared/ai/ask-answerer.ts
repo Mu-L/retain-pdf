@@ -1,10 +1,7 @@
 // 共享真值（原 apps/web/src/js/reader/ai/ask-answerer.ts），已抽离为可注入依赖
 // 不直接 import apps/web 的 api/config，改为参数注入，默认用空实现
 
-import {
-  MISSING_MODEL_API_KEY_MESSAGE,
-  resolveReaderAiConfig,
-} from "./config.js";
+import { resolveReaderAiConfig } from "./config.js";
 import {
   clearStoredConversationId,
   loadStoredConversationId,
@@ -26,6 +23,8 @@ function defaultDocumentByJobId(): Promise<any> {
 }
 
 const QUOTE_MAX_LENGTH = 240;
+
+export type ReaderAssistantMode = "reading" | "operations";
 
 function clipQuoteText(text = "", maxLength = QUOTE_MAX_LENGTH): string {
   const normalized = `${text}`.replace(/\s+/g, " ").trim();
@@ -104,12 +103,16 @@ export function createReaderAskAnswerer({
     scope = "document",
     context = null,
     onToolEvent = null,
+    onAgentOperationEvent = null,
+    onAgentConfirmationRequiredEvent = null,
+    onAgentSessionEvent = null,
     onAnswerDelta = null,
     onCompress = null,
     parentId = "",
     regenerate = false,
     userMessageId = "",
     assistantMessageId = "",
+    assistantMode = "reading",
     /** 取消信号：中止 SSE；aborted 后不回写会话粘性（防旧流污染新会话） */
     signal = null,
   }: {
@@ -117,24 +120,26 @@ export function createReaderAskAnswerer({
     scope?: string;
     context?: any;
     onToolEvent?: ((e: any) => void) | null;
+    onAgentOperationEvent?: ((e: any) => void) | null;
+    onAgentConfirmationRequiredEvent?: ((e: any) => void) | null;
+    onAgentSessionEvent?: ((e: any) => void) | null;
     onAnswerDelta?: ((a: string, c: string) => void) | null;
     onCompress?: ((e: any) => void) | null;
     parentId?: string;
     regenerate?: boolean;
     userMessageId?: string;
     assistantMessageId?: string;
+    assistantMode?: ReaderAssistantMode;
     signal?: AbortSignal | null;
   } = {}): Promise<any> {
     const scopedQuestion = buildScopedQuestion({ context, question, resolveQuote, scope });
     if (!scopedQuestion) {
       throw new Error("请输入问题。");
     }
-    // 凭据门禁必须在任何网络请求之前：否则用户会先看到「检索中」再报缺 Key
+    // Browser overrides are optional. The AI service owns its configured
+    // runtime credential and is authoritative when this value is empty.
     const config = typeof llmConfig === "function" ? (llmConfig as () => any)() : (llmConfig || {});
     const apiKey = `${config.apiKey || ""}`.trim();
-    if (!apiKey) {
-      throw new Error(MISSING_MODEL_API_KEY_MESSAGE);
-    }
     const documentId = await resolveDocumentId();
     // 阅读器默认整本问答:反查不到文档时 fail closed,禁止静默变全库检索
     if (!documentId && `${jobId || ""}`.trim()) {
@@ -153,7 +158,11 @@ export function createReaderAskAnswerer({
       regenerate: Boolean(regenerate),
       userMessageId: `${userMessageId || ""}`.trim(),
       assistantMessageId: `${assistantMessageId || ""}`.trim(),
+      assistantMode,
       onToolEvent,
+      onAgentOperationEvent,
+      onAgentConfirmationRequiredEvent,
+      onAgentSessionEvent,
       onAnswerDelta,
       onCompress,
       llmApiKey: apiKey,

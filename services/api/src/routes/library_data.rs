@@ -3,27 +3,28 @@
 //!
 //! All handlers go through library_api (PR2–PR4).
 
-use axum::extract::Query;
-use axum::extract::{Path as AxumPath, State};
+use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::response::Response;
 use axum::Json;
 
 use crate::error::AppError;
 use crate::models::api::{
-    ApiResponse, CreateFavoriteInput, DocumentDeleteResultView, DocumentListView, DocumentRecord,
-    FavoriteListView, FavoriteMutationResult, FavoriteRecord, JobSubmissionView,
-    LibraryDeleteQuery, ListDocumentsQuery, ListFavoritesQuery, PatchDocumentInput,
-    PatchFavoriteInput, SearchQuery, SearchResultView,
+    ApiResponse, CreateFavoriteInput, DocumentDeleteResultView, DocumentJobListView,
+    DocumentListView, DocumentRecord, FavoriteListView, FavoriteMutationResult, FavoriteRecord,
+    JobSubmissionView, LibraryDeleteQuery, ListDocumentJobsQuery, ListDocumentsQuery,
+    ListFavoritesQuery, PatchDocumentInput, PatchFavoriteInput, SearchQuery, SearchResultView,
 };
 use crate::models::request::CreateJobInput;
-use crate::routes::common::{build_library_route_deps, ok_json, request_base_url};
+use crate::routes::common::{
+    build_library_route_deps, ok_json, request_base_url, ApiJson, ApiPath, ApiQuery,
+};
 use crate::routes::job_helpers::stream_file;
 use crate::services::library_api::{
     create_favorite_view, delete_document_view, delete_favorite_view, document_cover_download,
     document_source_pdf_download, document_thumbnail_download, get_document_view,
-    list_documents_view, list_favorites_view, patch_document_view, patch_favorite_view,
-    search_blocks_view, translate_document_view,
+    list_document_jobs_view, list_documents_view, list_favorites_view, ocr_document_view,
+    patch_document_view, patch_favorite_view, search_blocks_view, translate_document_view,
 };
 use crate::AppState;
 
@@ -32,7 +33,7 @@ use crate::AppState;
 pub async fn list_documents_route(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Query(query): Query<ListDocumentsQuery>,
+    ApiQuery(query): ApiQuery<ListDocumentsQuery>,
 ) -> Result<Json<ApiResponse<DocumentListView>>, AppError> {
     let deps = build_library_route_deps(&state);
     let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
@@ -46,7 +47,7 @@ pub async fn list_documents_route(
 pub async fn get_document_route(
     State(state): State<AppState>,
     headers: HeaderMap,
-    AxumPath(document_id): AxumPath<String>,
+    ApiPath(document_id): ApiPath<String>,
 ) -> Result<Json<ApiResponse<DocumentRecord>>, AppError> {
     let deps = build_library_route_deps(&state);
     let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
@@ -61,7 +62,7 @@ pub async fn get_document_route(
 pub async fn download_document_source_pdf_route(
     State(state): State<AppState>,
     headers: HeaderMap,
-    AxumPath(document_id): AxumPath<String>,
+    ApiPath(document_id): ApiPath<String>,
 ) -> Result<Response, AppError> {
     let deps = build_library_route_deps(&state);
     let file = document_source_pdf_download(&deps.library, &document_id)?;
@@ -78,7 +79,7 @@ pub async fn download_document_source_pdf_route(
 pub async fn download_document_cover_route(
     State(state): State<AppState>,
     headers: HeaderMap,
-    AxumPath(document_id): AxumPath<String>,
+    ApiPath(document_id): ApiPath<String>,
 ) -> Result<Response, AppError> {
     let deps = build_library_route_deps(&state);
     let file = document_cover_download(&deps.library, &document_id)?;
@@ -95,7 +96,7 @@ pub async fn download_document_cover_route(
 pub async fn download_document_thumbnail_route(
     State(state): State<AppState>,
     headers: HeaderMap,
-    AxumPath(document_id): AxumPath<String>,
+    ApiPath(document_id): ApiPath<String>,
 ) -> Result<Response, AppError> {
     let deps = build_library_route_deps(&state);
     let file = document_thumbnail_download(&deps.library, &document_id)?;
@@ -111,8 +112,8 @@ pub async fn download_document_thumbnail_route(
 pub async fn patch_document_route(
     State(state): State<AppState>,
     headers: HeaderMap,
-    AxumPath(document_id): AxumPath<String>,
-    Json(payload): Json<PatchDocumentInput>,
+    ApiPath(document_id): ApiPath<String>,
+    ApiJson(payload): ApiJson<PatchDocumentInput>,
 ) -> Result<Json<ApiResponse<DocumentRecord>>, AppError> {
     let deps = build_library_route_deps(&state);
     let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
@@ -128,8 +129,8 @@ pub async fn patch_document_route(
 /// 被收藏引用 → 409;运行中 job 需 ?force=true。
 pub async fn delete_document_route(
     State(state): State<AppState>,
-    AxumPath(document_id): AxumPath<String>,
-    Query(query): Query<LibraryDeleteQuery>,
+    ApiPath(document_id): ApiPath<String>,
+    ApiQuery(query): ApiQuery<LibraryDeleteQuery>,
 ) -> Result<Json<ApiResponse<DocumentDeleteResultView>>, AppError> {
     let deps = build_library_route_deps(&state);
     Ok(ok_json(delete_document_view(
@@ -146,8 +147,8 @@ pub async fn delete_document_route(
 pub async fn translate_document_route(
     State(state): State<AppState>,
     headers: HeaderMap,
-    AxumPath(document_id): AxumPath<String>,
-    Json(request): Json<CreateJobInput>,
+    ApiPath(document_id): ApiPath<String>,
+    ApiJson(request): ApiJson<CreateJobInput>,
 ) -> Result<Json<ApiResponse<JobSubmissionView>>, AppError> {
     let deps = build_library_route_deps(&state);
     let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
@@ -160,11 +161,45 @@ pub async fn translate_document_route(
     )?))
 }
 
+/// POST /api/v1/documents/:id/ocr
+/// Reuse the document's stored source PDF and create an OCR-only job.
+pub async fn ocr_document_route(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    ApiPath(document_id): ApiPath<String>,
+    ApiJson(request): ApiJson<CreateJobInput>,
+) -> Result<Json<ApiResponse<JobSubmissionView>>, AppError> {
+    let deps = build_library_route_deps(&state);
+    let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
+    Ok(ok_json(
+        ocr_document_view(&deps.library, &deps.jobs, &document_id, request, &base_url).await?,
+    ))
+}
+
+/// GET /api/v1/documents/:id/jobs
+/// Return all OCR/translation runs associated with the document, newest first.
+pub async fn list_document_jobs_route(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    ApiPath(document_id): ApiPath<String>,
+    ApiQuery(query): ApiQuery<ListDocumentJobsQuery>,
+) -> Result<Json<ApiResponse<DocumentJobListView>>, AppError> {
+    let deps = build_library_route_deps(&state);
+    let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
+    Ok(ok_json(list_document_jobs_view(
+        &deps.library,
+        &deps.jobs,
+        &document_id,
+        &query,
+        &base_url,
+    )?))
+}
+
 // --- favorites ---
 
 pub async fn create_favorite_route(
     State(state): State<AppState>,
-    Json(payload): Json<CreateFavoriteInput>,
+    ApiJson(payload): ApiJson<CreateFavoriteInput>,
 ) -> Result<Json<ApiResponse<FavoriteRecord>>, AppError> {
     let deps = build_library_route_deps(&state);
     Ok(ok_json(create_favorite_view(&deps.library, payload)?))
@@ -172,7 +207,7 @@ pub async fn create_favorite_route(
 
 pub async fn list_favorites_route(
     State(state): State<AppState>,
-    Query(query): Query<ListFavoritesQuery>,
+    ApiQuery(query): ApiQuery<ListFavoritesQuery>,
 ) -> Result<Json<ApiResponse<FavoriteListView>>, AppError> {
     let deps = build_library_route_deps(&state);
     Ok(ok_json(list_favorites_view(&deps.library, &query)?))
@@ -180,8 +215,8 @@ pub async fn list_favorites_route(
 
 pub async fn patch_favorite_route(
     State(state): State<AppState>,
-    AxumPath(favorite_id): AxumPath<String>,
-    Json(payload): Json<PatchFavoriteInput>,
+    ApiPath(favorite_id): ApiPath<String>,
+    ApiJson(payload): ApiJson<PatchFavoriteInput>,
 ) -> Result<Json<ApiResponse<FavoriteMutationResult>>, AppError> {
     let deps = build_library_route_deps(&state);
     Ok(ok_json(patch_favorite_view(
@@ -193,7 +228,7 @@ pub async fn patch_favorite_route(
 
 pub async fn delete_favorite_route(
     State(state): State<AppState>,
-    AxumPath(favorite_id): AxumPath<String>,
+    ApiPath(favorite_id): ApiPath<String>,
 ) -> Result<Json<ApiResponse<FavoriteMutationResult>>, AppError> {
     let deps = build_library_route_deps(&state);
     Ok(ok_json(delete_favorite_view(&deps.library, &favorite_id)?))
@@ -203,7 +238,7 @@ pub async fn delete_favorite_route(
 
 pub async fn search_blocks_route(
     State(state): State<AppState>,
-    Query(query): Query<SearchQuery>,
+    ApiQuery(query): ApiQuery<SearchQuery>,
 ) -> Result<Json<ApiResponse<SearchResultView>>, AppError> {
     let deps = build_library_route_deps(&state);
     Ok(ok_json(search_blocks_view(&deps.library, &query)?))

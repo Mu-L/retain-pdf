@@ -1,6 +1,26 @@
 // documents — pure
 import { buildApiHeaders, unwrapEnvelope } from "./internal/runtime.js";
 import { buildApiEndpoint } from "./http.js";
+function documentRequestError(fallback, status, payload) {
+    const details = payload?.details && typeof payload.details === "object"
+        ? payload.details
+        : payload?.data && typeof payload.data === "object"
+            ? payload.data
+            : {};
+    const message = `${payload?.message || details?.message || fallback}`;
+    const error = new Error(`${message}(${status})`);
+    error.status = status;
+    const errorCode = `${payload?.error_code || details?.error_code || details?.code || (typeof payload?.code === "string" ? payload.code : "")}`.trim();
+    if (errorCode)
+        error.errorCode = errorCode;
+    const reason = `${payload?.reason || details?.reason || ""}`.trim();
+    if (reason)
+        error.reason = reason;
+    const canFallback = payload?.can_fallback_to_ocr ?? details?.can_fallback_to_ocr;
+    if (typeof canFallback === "boolean")
+        error.canFallbackToOcr = canFallback;
+    return error;
+}
 export async function fetchDocumentList(apiPrefix, { limit = 50, offset = 0, readingStatus = "", tag = "", collectionId = "" } = {}) {
     const params = new URLSearchParams();
     params.set("limit", `${limit}`);
@@ -78,7 +98,38 @@ export async function translateDocument(apiPrefix, documentId, payload = {}) {
     });
     if (!resp.ok) {
         const envelope = await resp.json().catch(() => null);
-        throw new Error(`${envelope?.message || "发起翻译失败，请稍后重试。"}(${resp.status})`);
+        throw documentRequestError("发起翻译失败，请稍后重试。", resp.status, envelope);
     }
     return unwrapEnvelope(await resp.json());
+}
+export async function ocrDocument(apiPrefix, documentId, payload = {}) {
+    const normalized = `${documentId || ""}`.trim();
+    if (!normalized)
+        throw new Error("缺少 document_id。");
+    const resp = await fetch(buildApiEndpoint(apiPrefix, `documents/${encodeURIComponent(normalized)}/ocr`), {
+        method: "POST",
+        headers: { ...buildApiHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
+    if (!resp.ok) {
+        const envelope = await resp.json().catch(() => null);
+        throw new Error(`${envelope?.message || "发起 OCR 失败，请稍后重试。"}(${resp.status})`);
+    }
+    return unwrapEnvelope(await resp.json());
+}
+export async function fetchDocumentJobs(apiPrefix, documentId, { limit = 50, offset = 0 } = {}) {
+    const normalized = `${documentId || ""}`.trim();
+    if (!normalized)
+        return { items: [] };
+    const params = new URLSearchParams();
+    params.set("limit", `${limit}`);
+    params.set("offset", `${offset}`);
+    const resp = await fetch(`${buildApiEndpoint(apiPrefix, `documents/${encodeURIComponent(normalized)}/jobs`)}?${params.toString()}`, { headers: buildApiHeaders() });
+    if (!resp.ok)
+        throw new Error(`读取文档任务失败，请稍后重试。(${resp.status})`);
+    const payload = unwrapEnvelope(await resp.json());
+    return {
+        ...payload,
+        items: Array.isArray(payload?.items) ? payload.items : [],
+    };
 }

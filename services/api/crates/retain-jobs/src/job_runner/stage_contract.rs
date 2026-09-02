@@ -136,8 +136,14 @@ fn translation_checkpoint_candidate(
     let parent = checkpoint_path
         .parent()
         .ok_or_else(|| anyhow!("translation checkpoint has no parent for {source_job_id}"))?;
-    validate_checkpoint_pages(&payload, parent, source_job_id, true)?;
+    validate_checkpoint_pages(&payload, parent, source_job_id, true, true)?;
     Ok(())
+}
+
+pub(super) struct CheckpointPageSource {
+    pub(super) file_name: String,
+    pub(super) source_path: PathBuf,
+    pub(super) snapshot_relative: Option<PathBuf>,
 }
 
 fn validate_checkpoint_pages(
@@ -145,6 +151,7 @@ fn validate_checkpoint_pages(
     parent: &Path,
     source_label: &str,
     pages_required: bool,
+    allow_committed_snapshot: bool,
 ) -> Result<()> {
     let Some(pages) = payload.get("pages").and_then(serde_json::Value::as_array) else {
         if pages_required {
@@ -155,42 +162,108 @@ fn validate_checkpoint_pages(
         return Ok(());
     };
     for page in pages {
-        let relative = page
-            .get("path")
-            .and_then(serde_json::Value::as_str)
-            .ok_or_else(|| {
-                anyhow!("translation checkpoint page path missing for {source_label}")
-            })?;
-        let relative_path = Path::new(relative);
-        let file_name = relative_path.file_name().and_then(|value| value.to_str());
-        if relative_path.components().count() != 1
-            || file_name
-                .is_none_or(|value| !value.starts_with("page-") || !value.ends_with(".json"))
-        {
-            return Err(anyhow!(
-                "unsafe translation checkpoint page path for {source_label}: {relative}"
-            ));
-        }
-        let page_path = parent.join(relative_path);
-        if !page_path.is_file() {
-            return Err(anyhow!(
-                "translation checkpoint page file missing for {source_label}: {relative}"
-            ));
-        }
-        if let Some(expected_hash) = page
-            .get("page_hash")
-            .and_then(serde_json::Value::as_str)
-            .filter(|value| !value.is_empty())
-        {
-            let actual_hash = sha256_hex(std::fs::read(&page_path)?);
-            if expected_hash != actual_hash {
-                return Err(anyhow!(
-                    "translation checkpoint page hash mismatch for {source_label}: {relative}"
-                ));
-            }
-        }
+        resolve_checkpoint_page_source(page, parent, source_label, allow_committed_snapshot)?;
     }
     Ok(())
+}
+
+pub(super) fn resolve_checkpoint_page_source(
+    page: &serde_json::Value,
+    parent: &Path,
+    source_label: &str,
+    allow_committed_snapshot: bool,
+) -> Result<CheckpointPageSource> {
+    let relative = page
+        .get("path")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| anyhow!("translation checkpoint page path missing for {source_label}"))?;
+    let file_name = safe_checkpoint_page_name(relative).ok_or_else(|| {
+        anyhow!("unsafe translation checkpoint page path for {source_label}: {relative}")
+    })?;
+    let snapshot_relative = if allow_committed_snapshot {
+        page.get("snapshot_path")
+            .and_then(serde_json::Value::as_str)
+            .filter(|value| !value.is_empty())
+            .map(|snapshot| {
+                safe_checkpoint_snapshot_path(snapshot, &file_name).ok_or_else(|| {
+                    anyhow!(
+                        "unsafe translation checkpoint snapshot path for {source_label}: {snapshot}"
+                    )
+                })
+            })
+            .transpose()?
+    } else {
+        None
+    };
+    let source_path = snapshot_relative
+        .as_ref()
+        .map(|snapshot| parent.join(snapshot))
+        .unwrap_or_else(|| parent.join(&file_name));
+    let metadata = std::fs::symlink_metadata(&source_path).map_err(|_| {
+        let kind = if snapshot_relative.is_some() {
+            "snapshot"
+        } else {
+            "page file"
+        };
+        anyhow!("translation checkpoint {kind} missing for {source_label}: {relative}")
+    })?;
+    if !metadata.file_type().is_file() {
+        return Err(anyhow!(
+            "translation checkpoint source is not a regular file for {source_label}: {relative}"
+        ));
+    }
+    if let Some(expected_hash) = page
+        .get("page_hash")
+        .and_then(serde_json::Value::as_str)
+        .filter(|value| !value.is_empty())
+    {
+        let actual_hash = sha256_hex(std::fs::read(&source_path)?);
+        if expected_hash != actual_hash {
+            let kind = if snapshot_relative.is_some() {
+                "snapshot hash mismatch"
+            } else {
+                "page hash mismatch"
+            };
+            return Err(anyhow!(
+                "translation checkpoint {kind} for {source_label}: {relative}"
+            ));
+        }
+    }
+    Ok(CheckpointPageSource {
+        file_name,
+        source_path,
+        snapshot_relative,
+    })
+}
+
+fn safe_checkpoint_page_name(relative: &str) -> Option<String> {
+    let path = Path::new(relative);
+    let file_name = path.file_name()?.to_str()?;
+    if path.components().count() != 1
+        || !file_name.starts_with("page-")
+        || !file_name.ends_with(".json")
+    {
+        return None;
+    }
+    Some(file_name.to_string())
+}
+
+fn safe_checkpoint_snapshot_path(relative: &str, page_name: &str) -> Option<PathBuf> {
+    let path = Path::new(relative);
+    let mut components = path.components();
+    let root = components.next()?.as_os_str().to_str()?;
+    let generation = components.next()?.as_os_str().to_str()?;
+    let file_name = components.next()?.as_os_str().to_str()?;
+    if components.next().is_some()
+        || root != ".translation-checkpoints"
+        || generation
+            .strip_prefix("generation-")
+            .is_none_or(|value| value.is_empty() || !value.chars().all(|ch| ch.is_ascii_digit()))
+        || file_name != page_name
+    {
+        return None;
+    }
+    Some(path.to_path_buf())
 }
 
 pub(super) fn ensure_translations_dir_ready(
@@ -311,7 +384,7 @@ fn require_completed_checkpoint_if_present(
             checkpoint_path.display()
         ));
     }
-    validate_checkpoint_pages(&checkpoint, translations_dir, source_label, false)?;
+    validate_checkpoint_pages(&checkpoint, translations_dir, source_label, false, false)?;
 
     let manifest: serde_json::Value = serde_json::from_slice(&std::fs::read(manifest_path)?)
         .map_err(|error| anyhow!("invalid translation manifest for {source_label}: {error}"))?;
@@ -458,12 +531,39 @@ mod tests {
                 "page_hash": committed_hash,
             }]
         });
-        validate_checkpoint_pages(&checkpoint, &root, "job-test", true)
+        validate_checkpoint_pages(&checkpoint, &root, "job-test", true, false)
             .expect("matching page hash");
 
         std::fs::write(&page, b"saved after last checkpoint").expect("uncommitted page save");
-        let error = validate_checkpoint_pages(&checkpoint, &root, "job-test", true)
+        let error = validate_checkpoint_pages(&checkpoint, &root, "job-test", true, false)
             .expect_err("page ahead of checkpoint must be rejected");
+        assert!(error.to_string().contains("page hash mismatch"));
+    }
+
+    #[test]
+    fn checkpoint_resume_uses_committed_snapshot_when_working_page_is_ahead() {
+        let root = temp_root("page-snapshot");
+        let page_name = "page-001-deepseek.json";
+        let page = root.join(page_name);
+        let snapshot_relative = Path::new(".translation-checkpoints")
+            .join("generation-2")
+            .join(page_name);
+        let snapshot = root.join(&snapshot_relative);
+        std::fs::create_dir_all(snapshot.parent().expect("snapshot parent")).expect("mkdir");
+        std::fs::write(&snapshot, b"committed").expect("committed snapshot");
+        std::fs::write(&page, b"saved after last checkpoint").expect("working page");
+        let checkpoint = serde_json::json!({
+            "pages": [{
+                "path": page_name,
+                "page_hash": sha256_hex(b"committed"),
+                "snapshot_path": snapshot_relative.to_string_lossy(),
+            }]
+        });
+
+        validate_checkpoint_pages(&checkpoint, &root, "job-test", true, true)
+            .expect("committed snapshot is the resumable source");
+        let error = validate_checkpoint_pages(&checkpoint, &root, "job-test", true, false)
+            .expect_err("completed artifacts still validate their public page file");
         assert!(error.to_string().contains("page hash mismatch"));
     }
 }

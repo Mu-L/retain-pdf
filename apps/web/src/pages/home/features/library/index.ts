@@ -47,8 +47,9 @@ export { BookDetailShell } from "./detail/shell/BookDetailShell.jsx";
 export {
   BookDetailRightTabs,
   BookDetailOverviewTab,
-  BookDetailTranslateTab,
-  BookDetailMoreTab,
+  BookDetailProcessingTab,
+  BookDetailArtifactsTab,
+  BookDetailManageTab,
   BOOK_DETAIL_TABS,
 } from "./detail/tabs/index.js";
 export { createBookDetailDialogStore } from "./detail/book-detail-dialog-store.js";

@@ -1,297 +1,89 @@
-// 上传瓦片家族(对照 partials/main-content.html 的 .upload-tile-hero 区块逐 id 镜像)。
+// 上传工作流容器。
 //
-// 视图状态全部来自 upload/workflow 两个视图 store(纯逻辑控制器写入);
-// 交互镜像旧 bindMainShellEvents + bindUploadTilePicker:
-// - 瓦片空白处点击 → 触发文件选择(按钮/链接/输入除外)
-// - #file click → prepareFilePicker(清空 value,保证重选同名文件也触发 change)
-// - #file change → uploadFeature.handleFileSelected()
-// - 页码区间 input → uploadFeature.constrainPageRanges({source})
-// - #credential-gate-action → openBrowserCredentials（非 setupMode → 设置 → API）
+// 本文件只负责把 home services/store 映射为视图 props 与业务回调；上传卡、
+// 凭据/预算提示、处理方式选择均为无 services 依赖的展示组件。这样视觉调整
+// 不再直接碰 composition、DOM ref 或提交端口。
 
-import { useCallback } from "react";
-import { ScanSearch, Languages, Loader2 } from "lucide-react";
+import { useCallback, type MouseEvent as ReactMouseEvent } from "react";
+
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
-import { useHomeServices } from "../../../home-services-context.js";
 import { APP_EVENTS } from "../../../composition/external.js";
-
-function CredentialGate({ visible }) {
-  function handleGateAction(event) {
-    event.preventDefault();
-    document.dispatchEvent(new CustomEvent(APP_EVENTS.openBrowserCredentials));
-  }
-
-  return (
-    <div id="credential-gate" className={`credential-gate${visible ? "" : " hidden"}`}>
-      <div className="credential-gate-panel" aria-live="polite">
-        <span className="credential-gate-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M8 11V8a4 4 0 1 1 8 0v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            <rect x="5" y="11" width="14" height="10" rx="3" stroke="currentColor" strokeWidth="1.5" />
-            <circle cx="12" cy="16" r="1.2" fill="currentColor" />
-          </svg>
-        </span>
-        <strong id="credential-gate-title">请先完成 API 设置</strong>
-        <em id="credential-gate-help">在设置 → API 设置中填写 OCR Token 和 DeepSeek Key 后即可上传 PDF。</em>
-        <button id="credential-gate-action" type="button" className="credential-gate-action" onClick={handleGateAction}>
-          打开设置
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function InlinePageRange({ upload, onConstrain, onPatch }) {
-  const maxAttr = upload.pageRangeMax > 0 ? { max: `${upload.pageRangeMax}` } : {};
-
-  function handleInput(source) {
-    return (event) => {
-      onPatch(source === "start"
-        ? { pageRangeStart: event.target.value }
-        : { pageRangeEnd: event.target.value });
-      onConstrain(source);
-    };
-  }
-
-  return (
-    <div
-      id="inline-page-range"
-      className={`inline-page-range${upload.inlinePageRangeVisible ? "" : " hidden"}`}
-      aria-label="翻译页码范围"
-    >
-      <label>
-        <span>起始页</span>
-        <input
-          id="page-range-start"
-          type="number"
-          min="1"
-          step="1"
-          inputMode="numeric"
-          autoComplete="off"
-          placeholder="1"
-          {...maxAttr}
-          value={upload.pageRangeStart}
-          onInput={handleInput("start")}
-        />
-      </label>
-      <label>
-        <span>结束页</span>
-        <input
-          id="page-range-end"
-          type="number"
-          min="1"
-          step="1"
-          inputMode="numeric"
-          autoComplete="off"
-          placeholder="总页数"
-          {...maxAttr}
-          value={upload.pageRangeEnd}
-          onInput={handleInput("end")}
-        />
-      </label>
-    </div>
-  );
-}
-
-function TranslationBudgetNote({ budget }) {
-  const classes = [
-    "translation-budget-note",
-    budget.visible ? "" : "hidden",
-    budget.tone === "error" ? "is-error" : "",
-    budget.tone === "valid" ? "is-valid" : "",
-  ].filter(Boolean).join(" ");
-  return (
-    <div id="translation-budget-note" className={classes} aria-live="polite">
-      {budget.visible ? budget.message : null}
-      {budget.visible && budget.blocking ? (
-        <>
-          {" · "}
-          <a href={budget.topUpUrl} target="_blank" rel="noopener noreferrer">去充值</a>
-        </>
-      ) : null}
-    </div>
-  );
-}
+import { useHomeServices } from "../../../home-services-context.js";
+import { TranslationOptionsPanel } from "./PageRangeDialog.jsx";
+import { ProcessingChoicePanel } from "./upload/ProcessingChoicePanel.jsx";
+import { UploadDropzone } from "./upload/UploadDropzone.jsx";
+import {
+  CredentialGateNotice,
+  TranslationBudgetNote,
+  UploadBudgetSlot,
+} from "./upload/UploadWorkflowNotices.jsx";
 
 export function HeroUpload() {
   const services = useHomeServices();
   const upload = useStoreSnapshot(services.stores.uploadView);
   const workflow = useStoreSnapshot(services.stores.workflowView);
-  const ocrOnly = Boolean((workflow as any).ocrOnly);
+  const credentialsView = useStoreSnapshot(services.stores.credentialsView);
 
-  const fileInputRef = useCallback((node) => {
+  const fileInputRef = useCallback((node: HTMLInputElement | null) => {
     services.uploadDomRefs.fileInput = node;
   }, [services]);
 
-  // 镜像 bindUploadTilePicker:空白处点击代理到文件选择
-  function handleTileClick(event) {
+  function handleTileClick(event: ReactMouseEvent<HTMLDivElement>) {
     const target = event.target;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-    if (target.closest("button") || target.closest("a") || target.closest("input")) {
-      return;
-    }
-    const fileInput = services.uploadDomRefs.fileInput;
-    if (!fileInput || fileInput.disabled) {
-      return;
-    }
-    fileInput.click();
+    if (!(target instanceof HTMLElement)) return;
+    if (target.closest("button") || target.closest("a") || target.closest("input")) return;
+
+    const input = services.uploadDomRefs.fileInput;
+    if (input && !input.disabled) input.click();
   }
 
-  const tileClasses = [
-    "upload-tile",
-    "upload-tile-hero",
-    upload.tileLocked ? "is-locked" : "",
-    upload.ready ? "is-ready" : "",
-    upload.uploading ? "is-uploading" : "",
-  ].filter(Boolean).join(" ");
+  function toggleTranslationOptions() {
+    if (upload.pageRangeDialogOpen) {
+      services.uploadViewActions.patch({ pageRangeDialogOpen: false });
+      return;
+    }
+    services.features.uploadFeature?.openPageRangeDialog();
+  }
 
   return (
-    <>
-      <div className={tileClasses} onClick={handleTileClick}>
-        <input
-          id="file"
-          name="file"
-          type="file"
-          accept="application/pdf,.pdf"
-          ref={fileInputRef}
-          disabled={!upload.tileEnabled}
-          onClick={() => services.uploadDomRefs.fileInput && (services.uploadDomRefs.fileInput.value = "")}
-          onChange={() => void services.features.uploadFeature?.handleFileSelected()}
-        />
-        <span
-          id="upload-fill"
-          className="upload-fill"
-          aria-hidden="true"
-          style={{ width: `${upload.progressPercent}%` }}
-        ></span>
-        <CredentialGate visible={upload.credentialGateVisible} />
-        <span id="upload-glyph" className={`upload-glyph${upload.tileEnabled ? "" : " hidden"}`} aria-hidden="true">
-          <span className="upload-glyph-h"></span>
-          <span className="upload-glyph-v"></span>
-        </span>
-        <strong
-          id="file-label"
-          className={upload.labelVisible ? "" : "hidden"}
-          title={upload.labelTitle}
-        >
-          {upload.label}
-        </strong>
-        <em id="upload-help" className={upload.helpVisible ? "" : "hidden"}>{upload.help}</em>
-        <div className={`upload-meta upload-meta-inline${upload.tileEnabled ? "" : " hidden"}`}>
-          <span>单个 PDF</span>
-          <span>最大 50MB</span>
-          <span>最多 999 页</span>
-        </div>
-        <div id="upload-status" className={`upload-status${upload.statusVisible ? "" : " hidden"}`}>
-          {upload.status}
-        </div>
-        <div
-          id="upload-progress-panel"
-          className={`upload-progress-panel${upload.progressVisible ? "" : " hidden"}`}
-          aria-live="polite"
-        >
-          <span id="upload-progress-text">{upload.progressText}</span>
-        </div>
-        <InlinePageRange
-          upload={upload}
-          onPatch={services.uploadViewActions.patch}
-          onConstrain={(source) => services.features.uploadFeature?.constrainPageRanges({ source })}
-        />
-        {/* 预算/术语表仅翻译模式可见，OCR 时通过高度动画隐藏 */}
-        <div
-          aria-hidden={ocrOnly}
-          style={{
-            overflow: "hidden",
-            maxHeight: ocrOnly ? 0 : 80,
-            opacity: ocrOnly ? 0 : 1,
-            transition: "max-height 260ms cubic-bezier(0.32,0.72,0,1), opacity 180ms ease",
-            width: "100%",
-            display: "grid",
-            placeItems: "center",
-          }}
-        >
-          <TranslationBudgetNote budget={workflow.budget} />
-        </div>
-      </div>
-
-      {ocrOnly ? (
-        <div className="ocr-only-upload-hint" style={{ fontSize: 12, color: "var(--color-text-secondary, #6b7280)", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
-          <ScanSearch className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          OCR 模式下无需翻译预算检测，已隐藏术语表等翻译配置。
-        </div>
-      ) : null}
-
-      {/* 上传完成后给出明确二选一：直接翻译（提交 job）/ 仅收藏（关对话框入库） */}
-      <div
-        id="upload-ready-hint"
-        className={`upload-ready-hint${upload.ready ? "" : " hidden"}`}
-        aria-live="polite"
-      >
-        {ocrOnly ? (
-          <>文件已就绪：可<strong>开始 OCR</strong>，或<strong>仅收藏</strong>到书架稍后处理。</>
-        ) : (
-          <>文件已就绪：可<strong>直接翻译</strong>，或<strong>仅收藏</strong>到书架稍后再翻。</>
+    <div className="upload-workflow">
+      <UploadDropzone
+        upload={upload}
+        uploadedPageCount={Number(upload.pageRangeMax || upload.pageRangeEnd || 0)}
+        fileInputRef={fileInputRef}
+        onFileInputClick={() => {
+          if (services.uploadDomRefs.fileInput) services.uploadDomRefs.fileInput.value = "";
+        }}
+        onFileChange={() => void services.features.uploadFeature?.handleFileSelected()}
+        onTileClick={handleTileClick}
+        budgetSlot={(
+          <UploadBudgetSlot>
+            <TranslationBudgetNote budget={workflow.budget} />
+          </UploadBudgetSlot>
         )}
-      </div>
+      />
 
-      <div id="upload-action-slot" className={`upload-action-slot${upload.actionSlotVisible ? "" : " hidden"}`}>
-        <div className="upload-action-group">
-          <button
-            id="page-range-btn"
-            type="button"
-            className={`page-range-mini secondary${workflow.pageRangeButtonVisible ? "" : " hidden"}${ocrOnly ? " hidden" : ""}`}
-            aria-label="专业翻译设置"
-            title={ocrOnly ? "OCR 模式下无需专业翻译设置" : "页码范围等专业选项"}
-            disabled={ocrOnly}
-            aria-disabled={ocrOnly ? "true" : "false"}
-            onClick={() => {
-              if (ocrOnly) return;
-              services.features.uploadFeature?.openPageRangeDialog();
-            }}
-          >
-            选项
-          </button>
-          <button
-            id="store-only-btn"
-            type="button"
-            className={`secondary${upload.ready ? "" : " hidden"}`}
-            disabled={!upload.ready || workflow.submitBusy}
-            title="只加入书架，不开始翻译"
-            onClick={() => services.library.actions.storeOnly?.()}
-          >
-            仅收藏
-          </button>
-          <button
-            id="submit-btn"
-            type="submit"
-            disabled={workflow.submitDisabled || workflow.submitBusy}
-            {...(workflow.submitBusy ? { "data-busy": "1" } : {})}
-            title={ocrOnly ? "上传完成后立即开始 OCR" : "上传完成后立即发起翻译任务"}
-            className="inline-flex items-center justify-center gap-1.5"
-          >
-            {workflow.submitBusy ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                提交中…
-              </>
-            ) : ocrOnly ? (
-              <>
-                <ScanSearch className="h-4 w-4" aria-hidden="true" />
-                开始 OCR
-              </>
-            ) : (
-              <>
-                <Languages className="h-4 w-4" aria-hidden="true" />
-                {workflow.submitLabel || "直接翻译"}
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </>
+      <CredentialGateNotice
+        visible={Boolean((credentialsView as any)?.credentialGate?.show)}
+        onOpenSettings={() => document.dispatchEvent(new CustomEvent(APP_EVENTS.openBrowserCredentials))}
+      />
+
+      <ProcessingChoicePanel
+        visible={upload.actionSlotVisible}
+        uploadReady={upload.ready}
+        submitBusy={workflow.submitBusy}
+        submitDisabled={workflow.submitDisabled}
+        submitLabel={workflow.submitLabel}
+        ocrOnly={workflow.ocrOnly}
+        pageRangeButtonVisible={workflow.pageRangeButtonVisible}
+        pageRangeOpen={upload.pageRangeDialogOpen}
+        onToggleTranslationOptions={toggleTranslationOptions}
+        onStoreOnly={() => services.library.actions.storeOnly?.()}
+        translationOptionsSlot={<TranslationOptionsPanel />}
+      />
+    </div>
   );
 }
 
-// 别名：任务要求的新文件名 UploadTile，对外仍兼容 HeroUpload
+// 保留既有导出名，外部 feature 无需感知组件拆分。
 export const UploadTile = HeroUpload;

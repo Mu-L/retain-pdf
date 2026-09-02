@@ -40,7 +40,7 @@ pub(crate) async fn execute_process_job(
     extra_cancel_job_ids: &[String],
 ) -> Result<JobRuntimeState> {
     let worker_runtime = deps.worker_process_runtime();
-    let (job, child) = spawn_started_process(
+    let (job, child, runtime_secrets) = spawn_started_process(
         &deps.persist,
         &deps.canceled_jobs,
         &worker_runtime,
@@ -54,6 +54,7 @@ pub(crate) async fn execute_process_job(
         &worker_runtime,
         child,
         job,
+        runtime_secrets,
         extra_cancel_job_ids,
     )
     .await?;
@@ -484,6 +485,36 @@ print(json.dumps({
     #[tokio::test]
     async fn execute_process_job_injects_provider_and_translation_envs() {
         let state = test_state("provider-envs");
+        let credential_ref = "cred_translation_env";
+        let translation_secret = "sk-env-test";
+        let secrets_dir = state.config.data_root.join("secrets");
+        fs::create_dir_all(&secrets_dir).expect("create secrets directory");
+        let vault_path = secrets_dir.join("credentials.json");
+        fs::write(
+            &vault_path,
+            serde_json::json!({
+                "schema": "retainpdf_credential_vault_v1",
+                "revision": 1,
+                "credentials": {
+                    (credential_ref): {
+                        "kind": "translation_api_key",
+                        "provider": "deepseek",
+                        "label": "test",
+                        "secret": translation_secret,
+                        "created_at": "now",
+                        "updated_at": "now"
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect("write credential vault");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&vault_path, fs::Permissions::from_mode(0o600))
+                .expect("secure credential vault");
+        }
         let paddle_env = provider_token_env_name(&OcrProviderKind::Paddle).expect("paddle env");
         let mineru_env = provider_token_env_name(&OcrProviderKind::Mineru).expect("mineru env");
         let mut job = JobSnapshot::new(
@@ -505,7 +536,8 @@ print(json.dumps({{
         )
         .into_runtime();
         job.request_payload.runtime.job_id = job.job_id.clone();
-        job.request_payload.translation.api_key = "sk-env-test".to_string();
+        job.request_payload.translation.api_key.clear();
+        job.request_payload.translation.credential_ref = credential_ref.to_string();
         job.request_payload.ocr.provider = "paddle".to_string();
         job.request_payload.ocr.paddle_token = "paddle-env-test".to_string();
         job.request_payload.ocr.mineru_token = String::new();
@@ -535,6 +567,11 @@ print(json.dumps({{
         assert!(result.stdout.contains("\"translation\": \"[REDACTED]\""));
         assert!(result.stdout.contains("\"paddle\": \"[REDACTED]\""));
         assert!(result.stdout.contains("\"mineru\": \"\""));
+        assert_eq!(
+            finished.request_payload.translation.credential_ref,
+            credential_ref
+        );
+        assert!(finished.request_payload.translation.api_key.is_empty());
         let provider_config_path = state
             .config
             .provider_runtime

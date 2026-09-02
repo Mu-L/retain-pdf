@@ -1,10 +1,11 @@
 // BookCard「翻译」动作 —— 独立模块，改翻译入口只动本文件。
 //
 // 默认不上卡片；由调用方显式 concat。
-// 展示条件：馆藏未翻译 或 job 失败，且有 document_id + onTranslate。
+// 展示条件：馆藏未翻译、OCR-only 已完成或 job 失败，且有 document_id + onTranslate。
 
 import type { BookCardAction, BookCardActionHandlers, LibraryCardItem } from "../types.js";
 import { isLibraryOnlyItem } from "../../../composition/external.js";
+import { isOcrOnlyItem } from "../display/library-card-semantics.js";
 
 export const BOOK_CARD_ACTION_TRANSLATE = "translate";
 
@@ -21,8 +22,11 @@ export function buildTranslateBookCardAction(
   if (!documentId || !onTranslate) {
     return [];
   }
+  const status = `${item.status || ""}`.trim().toLowerCase();
   const canTranslate =
-    isLibraryOnlyItem(item) || `${item.status || ""}`.trim() === "failed";
+    isLibraryOnlyItem(item) ||
+    status === "failed" ||
+    (isOcrOnlyItem(item) && status === "succeeded");
   if (!canTranslate) {
     return [];
   }

@@ -15,6 +15,7 @@ import {
   BookOpen,
   Copy,
   FlaskConical,
+  FileText,
   GitBranch,
   ListTree,
   Loader2,
@@ -22,6 +23,7 @@ import {
   Sparkles,
   Square,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import {
   MISSING_MODEL_API_KEY_MESSAGE,
   armReaderAiClickShield,
@@ -30,6 +32,7 @@ import {
 } from "../../../external.js";
 import { AiMarkdownAnswer } from "../../ai/AiMarkdownAnswer.js";
 import type { ReaderAskStoreMessage } from "./reader-ask-tree.js";
+import type { ReaderAssistantMode } from "../../../shared/ai/ask-answerer.js";
 
 const SUGGESTIONS = [
   { prompt: "用几句话总结这篇文献的核心内容。", label: "总结本文", icon: BookOpen },
@@ -47,6 +50,10 @@ export type ReaderAssistantSurfaceProps = {
   isRunning: boolean;
   missingLlmKey: boolean;
   branchBusy: boolean;
+  agentRequestBlocked?: boolean;
+  agentOperationPanel?: ReactNode;
+  assistantMode?: ReaderAssistantMode;
+  onAssistantModeChange?: (mode: ReaderAssistantMode) => void;
   onJumpCitation?: (citation: AiCitationLike) => void;
   onBranchFromAnswer?: (assistantMessageId: string) => void | Promise<boolean | void>;
 };
@@ -68,7 +75,8 @@ function ThinkingRow({ label }: { label: string }) {
   );
 }
 
-function ThreadWelcome({ disabled }: { disabled: boolean }) {
+function ThreadWelcome({ disabled, mode }: { disabled: boolean; mode: ReaderAssistantMode }) {
+  const operationMode = mode === "operations";
   return (
     <div className="aui-empty">
       <div className="aui-empty-mascot" aria-hidden>
@@ -76,10 +84,15 @@ function ThreadWelcome({ disabled }: { disabled: boolean }) {
           <Sparkles size={21} strokeWidth={1.9} />
         </span>
       </div>
-      <h2 className="aui-empty-title">有什么可以帮你？</h2>
-      <p className="aui-empty-sub">仅根据当前文档的 Markdown 回答，引用可以直接跳页</p>
+      <h2 className="aui-empty-title">{operationMode ? "想怎样处理 PDF？" : "想了解这篇文档的什么？"}</h2>
+      <p className="aui-empty-sub">
+        {operationMode ? "创建候选版本后由你预览和确认" : "根据当前文档内容回答，引用可以直接跳页"}
+      </p>
       <div className="aui-suggestions" role="group" aria-label="推荐问题">
-        {SUGGESTIONS.map((item) => {
+        {(operationMode ? [
+          { prompt: "把第 1 页旋转 90 度。", label: "旋转页面", icon: FileText },
+          { prompt: "删除最后一页。", label: "删除页面", icon: FileText },
+        ] : SUGGESTIONS).map((item) => {
           const Icon = item.icon;
           return (
             <ThreadPrimitive.Suggestion
@@ -186,24 +199,51 @@ function AssistantMessage({
   );
 }
 
-function Composer({ isRunning, branchBusy }: { isRunning: boolean; branchBusy: boolean }) {
+function Composer({
+  isRunning,
+  branchBusy,
+  mode,
+  onModeChange,
+}: {
+  isRunning: boolean;
+  branchBusy: boolean;
+  mode: ReaderAssistantMode;
+  onModeChange?: (mode: ReaderAssistantMode) => void;
+}) {
   return (
     <ComposerPrimitive.Root className="aui-composer" data-reader-ai-composer="">
       <div className="aui-composer-shell">
         <ComposerPrimitive.Input
           className="aui-input"
           rows={1}
-          placeholder="询问当前文档…"
-          aria-label="向当前文档提问"
+          placeholder={mode === "reading" ? "询问当前文档…" : "描述要执行的 PDF 操作…"}
+          aria-label={mode === "reading" ? "向当前文档提问" : "描述 PDF 操作"}
           autoFocus
           enterKeyHint="send"
           disabled={branchBusy}
           submitMode="enter"
         />
         <div className="aui-composer-toolbar">
-          <span className="aui-composer-chip" title="检索范围">
-            <BookOpen size={12} strokeWidth={2.2} aria-hidden />当前文档
-          </span>
+          <div className="aui-assistant-mode" role="group" aria-label="AI 能力模式">
+            <button
+              type="button"
+              className={mode === "reading" ? "is-active" : ""}
+              aria-pressed={mode === "reading"}
+              disabled={isRunning || branchBusy}
+              onClick={() => onModeChange?.("reading")}
+            >
+              <BookOpen size={12} strokeWidth={2.2} aria-hidden />阅读
+            </button>
+            <button
+              type="button"
+              className={mode === "operations" ? "is-active" : ""}
+              aria-pressed={mode === "operations"}
+              disabled={isRunning || branchBusy}
+              onClick={() => onModeChange?.("operations")}
+            >
+              <FileText size={12} strokeWidth={2.2} aria-hidden />PDF 操作
+            </button>
+          </div>
           <div className="aui-composer-actions">
             {isRunning ? (
               <ComposerPrimitive.Cancel className="aui-send aui-send-stop" aria-label="停止生成">
@@ -240,6 +280,10 @@ export function ReaderAssistantSurface({
   isRunning,
   missingLlmKey,
   branchBusy,
+  agentRequestBlocked = false,
+  agentOperationPanel,
+  assistantMode = "reading",
+  onAssistantModeChange,
   onJumpCitation,
   onBranchFromAnswer,
 }: ReaderAssistantSurfaceProps) {
@@ -257,7 +301,7 @@ export function ReaderAssistantSurface({
         autoScroll
       >
         <div className={`aui-thread-inner${empty ? " is-empty" : ""}`}>
-          {empty ? <ThreadWelcome disabled={branchBusy || missingLlmKey} /> : null}
+          {empty ? <ThreadWelcome mode={assistantMode} disabled={branchBusy || agentRequestBlocked || missingLlmKey} /> : null}
           <div className="aui-message-group" data-slot="aui_message-group">
             <ThreadPrimitive.Messages>
               {({ message }) => {
@@ -280,6 +324,7 @@ export function ReaderAssistantSurface({
               }}
             </ThreadPrimitive.Messages>
           </div>
+          {agentOperationPanel}
 
           <ThreadPrimitive.ViewportFooter className="aui-thread-viewport-footer">
             {!empty && !branchBusy ? (
@@ -291,7 +336,12 @@ export function ReaderAssistantSurface({
               </ThreadPrimitive.ScrollToBottom>
             ) : null}
             {missingLlmKey ? <LockedComposer /> : (
-              <Composer isRunning={isRunning} branchBusy={branchBusy} />
+              <Composer
+                isRunning={isRunning}
+                branchBusy={branchBusy || agentRequestBlocked}
+                mode={assistantMode}
+                onModeChange={onAssistantModeChange}
+              />
             )}
           </ThreadPrimitive.ViewportFooter>
         </div>

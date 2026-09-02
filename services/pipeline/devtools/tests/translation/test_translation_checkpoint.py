@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import multiprocessing
 import os
@@ -178,6 +179,45 @@ def test_checkpoint_projects_generation_unit_and_page_hash(
     ]
     assert stdout_records[-1]["event_type"] == "pipeline_checkpoint"
     assert stdout_records[-1]["payload"]["unit_key"] == "p1-u1"
+
+
+def test_read_after_validating_checkpoint_cannot_change_page_hash(tmp_path: Path) -> None:
+    source_json = tmp_path / "document.v1.json"
+    source_json.write_text("{}", encoding="utf-8")
+    output_dir = tmp_path / "job-read-only" / "translated"
+    page = output_dir / "page-001-deepseek.json"
+    member_ids = ["p1-u1", "p1-u2", "external-u3"]
+    payload = [_item("p1-u1", "已完成"), _item("p1-u2", "已完成")]
+    for item in payload:
+        item.update(
+            {
+                "continuation_group": "cross-page-group",
+                "translation_unit_id": "__cg__:cross-page-group",
+                "translation_unit_kind": "group",
+                "translation_unit_member_ids": list(member_ids),
+                "translation_unit_protected_translated_text": "已完成",
+                "group_protected_translated_text": "已完成",
+            }
+        )
+
+    with TranslationCheckpointSession.acquire(
+        _request(source_json, output_dir), _plan()
+    ) as checkpoint:
+        save_translations(page, payload)
+        checkpoint.update("validating", {0: payload}, {0: page})
+        checkpoint_hash = hashlib.sha256(page.read_bytes()).hexdigest()
+
+        loaded = load_translations(page, strict_contract=False)
+
+        assert loaded[0]["translation_unit_member_ids"] == member_ids
+        assert hashlib.sha256(page.read_bytes()).hexdigest() == checkpoint_hash
+        manifest_path = write_translation_manifest(output_dir, {0: page})
+        checkpoint.complete(manifest_path)
+
+    committed = json.loads(
+        (output_dir / TRANSLATION_CHECKPOINT_FILE_NAME).read_text(encoding="utf-8")
+    )
+    assert committed["status"] == "complete"
 
 
 def test_fingerprint_mismatch_releases_checkpoint_lease(tmp_path: Path) -> None:

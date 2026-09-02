@@ -26,6 +26,7 @@ export interface StatusDetailOverviewPayloadOptions {
   eventsPayload?: EventsPayload | null;
   diagnosticsPayload?: unknown;
   resumePlan?: unknown;
+  stageActionsPayload?: unknown;
   fallbackJobId?: string;
 }
 
@@ -73,6 +74,7 @@ export function createStatusDetailRuntimePort(state: object) {
       eventsPayload = null,
       diagnosticsPayload = null,
       resumePlan = null,
+      stageActionsPayload = null,
       fallbackJobId = "",
     }: StatusDetailOverviewPayloadOptions = {}) {
       const context = renderContextPort.applySnapshot({
@@ -81,6 +83,7 @@ export function createStatusDetailRuntimePort(state: object) {
           job_id: payload?.job_id || fallbackJobId,
         },
         eventsPayload,
+        stageActionsPayload,
       });
       currentJobPort.cacheDiagnostics(context.jobId, diagnosticsPayload);
       currentJobPort.cacheResumePlan(context.jobId, resumePlan);

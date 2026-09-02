@@ -1,5 +1,8 @@
 import type { ChatTransport, UIMessage, UIMessageChunk } from "ai";
 import type { AiCitationLike } from "../../../shared/ai/answer-enhance.js";
+import type { AgentConfirmationMode } from "@retainpdf/api/agent-runtime-settings";
+import type { ReaderAgentOperationSignal } from "./use-reader-agent-operations.js";
+import type { ReaderAssistantMode } from "../../../shared/ai/ask-answerer.js";
 export type ReaderChatMetadata = {
     citations?: AiCitationLike[];
     progress?: string;
@@ -13,6 +16,14 @@ type ReaderAnswerer = {
         answer?: string;
         citations?: unknown[];
         persisted?: boolean;
+        conversationId?: string;
+        confirmationMode?: AgentConfirmationMode | "";
+        operationRefs?: Array<string | {
+            operation_id?: string;
+        }>;
+        confirmationRequests?: Array<{
+            operation_id?: string;
+        }>;
     }>;
 };
 export type ReaderChatRequest = {
@@ -34,6 +45,9 @@ export declare class RetainPdfChatTransport implements ChatTransport<ReaderChatM
         jobId: string;
         getRemoteAnswerer: () => ReaderAnswerer | null;
         getLocalAnswerer?: () => ReaderAnswerer | null;
+        getAssistantMode?: () => ReaderAssistantMode;
+        onAgentOperationSignal?: (signal: Omit<ReaderAgentOperationSignal, "nonce">) => void;
+        onConfirmationMode?: (mode: AgentConfirmationMode) => void;
     });
     sendMessages({ abortSignal, body, messages, trigger, }: Parameters<ChatTransport<ReaderChatMessage>["sendMessages"]>[0]): Promise<ReadableStream<UIMessageChunk>>;
     reconnectToStream(): Promise<ReadableStream<UIMessageChunk> | null>;

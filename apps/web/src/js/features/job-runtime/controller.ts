@@ -26,13 +26,13 @@ import { createJobRuntimeResetStatePort } from "./reset-state-port.js";
 export function mountJobRuntimeFeature({
   state,
   apiPrefix,
-  buildJobDetailEndpoint,
+  cancelJob,
+  cancelOcrJob,
   fetchJobPayload,
   fetchJobEvents,
   fetchJobArtifactsManifest,
   fetchJobStageActions,
   retryJobStage,
-  submitJson,
   renderJob,
   renderJobSecondaryPatch,
   setText,
@@ -246,7 +246,15 @@ export function mountJobRuntimeFeature({
     }
     shellViewPort.setCancelDisabled(true);
     try {
-      await submitJson(`${buildJobDetailEndpoint(jobId, apiPrefix)}/cancel`, {});
+      const snapshot = currentJobPort.snapshot?.() || {};
+      const job = snapshot?.job && typeof snapshot.job === "object" ? snapshot.job : snapshot;
+      const raw = job?.raw_response && typeof job.raw_response === "object" ? job.raw_response : job;
+      const workflow = `${snapshot?.workflow || job?.workflow || raw?.workflow || ""}`.trim();
+      const cancel = workflow === "ocr" ? cancelOcrJob : cancelJob;
+      if (typeof cancel !== "function") {
+        throw new Error("任务取消接口未注入");
+      }
+      await cancel(jobId, apiPrefix);
       await fetchJob(jobId);
     } catch (err) {
       setText("error-box", err.message);

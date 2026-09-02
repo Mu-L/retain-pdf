@@ -19,6 +19,7 @@ import type { HomeStatePort } from "../home/state.js";
 import type { LibraryJobItem } from "./runtime-item.js";
 import type { RecentJobsRuntimePatches } from "./runtime-patches.js";
 import type { RecentJobsStatePort } from "./state.js";
+import { libraryCardIdentityAliases } from "./library-card-identity.js";
 
 export interface LoadRecentJobsOptions {
   reset?: boolean;
@@ -177,7 +178,7 @@ export function createRecentJobsLoader({
       const { offset, items: previousItems } = recentJobsStatePort.getSnapshot();
       const existingJobIds = new Set(
         (reset ? [] : previousItems)
-          .map((item) => `${item?.job_id || ""}`.trim())
+          .flatMap((item) => libraryCardIdentityAliases(item))
           .filter(Boolean),
       );
       const {

@@ -22,6 +22,16 @@ export async function fetchResumePlan(jobId, apiPrefix) {
 export async function resumeJob(jobId, apiPrefix) {
     return submitJson(`${buildJobDetailEndpoint(jobId, apiPrefix)}/resume`, {});
 }
+export async function cancelJob(jobId, apiPrefix) {
+    return submitJson(`${buildJobDetailEndpoint(jobId, apiPrefix)}/cancel`, {});
+}
+export async function cancelOcrJob(jobId, apiPrefix) {
+    const endpoint = buildJobDetailEndpoint(jobId, apiPrefix).replace(/\/jobs\//, "/ocr/jobs/");
+    return submitJson(`${endpoint}/cancel`, {});
+}
+export async function resolveOcrAmbiguity(jobId, apiPrefix, request) {
+    return submitJson(`${buildJobDetailEndpoint(jobId, apiPrefix)}/ocr/resolve-ambiguity`, request);
+}
 export async function fetchJobStageActions(jobId, apiPrefix) {
     const resp = await fetch(`${buildJobDetailEndpoint(jobId, apiPrefix)}/stage-actions`, { headers: buildApiHeaders() });
     if (!resp.ok) {

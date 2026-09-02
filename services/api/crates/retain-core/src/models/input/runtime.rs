@@ -9,6 +9,11 @@ pub struct RuntimeInput {
     pub job_id: String,
     #[serde(default = "default_timeout_seconds")]
     pub timeout_seconds: i64,
+    /// Internal execution policy used by the document translation endpoint.
+    /// The public `translate` workflow normally stops after translation, while
+    /// a document-scoped translation must also produce a rendered candidate.
+    #[serde(default)]
+    pub render_after_translation: bool,
 }
 
 impl Default for RuntimeInput {
@@ -16,6 +21,7 @@ impl Default for RuntimeInput {
         Self {
             job_id: String::new(),
             timeout_seconds: default_timeout_seconds(),
+            render_after_translation: false,
         }
     }
 }

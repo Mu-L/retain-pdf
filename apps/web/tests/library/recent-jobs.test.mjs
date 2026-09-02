@@ -29,6 +29,7 @@ import {
 } from "../../src/js/features/recent-jobs/library-books-resource.js";
 import {
   collectRecentJobsPage,
+  isPrimaryRecentJob,
 } from "../../src/js/features/recent-jobs/pagination.js";
 import { createRecentJobsLoader } from "../../src/js/features/recent-jobs/loader.js";
 import {
@@ -79,7 +80,7 @@ import { createRecentJobsStoreRenderer } from "../../src/js/features/recent-jobs
 import {
   buildJobImageCandidateUrls,
   normalizeJobImageUrl,
-} from "../../src/js/api/job-images.js";
+} from "@retainpdf/api/job-images";
 import { adaptJobStageSnapshot } from "@retainpdf/domain/job-status";
 import {
   RECENT_JOBS_IDS,
@@ -697,6 +698,7 @@ test("recent jobs pagination prefers the documented jobs list over legacy librar
         items: [
           { job_id: "job-list-1", workflow: "book" },
           { job_id: "job-list-1-ocr", workflow: "ocr" },
+          { job_id: "job-ocr-root", workflow: "ocr" },
           { job_id: "job-list-2", workflow: "book" },
         ],
         has_more: false,
@@ -708,7 +710,13 @@ test("recent jobs pagination prefers the documented jobs list over legacy librar
     },
   });
 
-  assert.deepEqual(result.collected.map((item) => item.job_id), ["job-list-1", "job-list-2"]);
+  assert.deepEqual(result.collected.map((item) => item.job_id), [
+    "job-list-1",
+    "job-ocr-root",
+    "job-list-2",
+  ]);
+  assert.equal(isPrimaryRecentJob({ job_id: "job-ocr-root", workflow: "ocr" }), true);
+  assert.equal(isPrimaryRecentJob({ job_id: "job-parent-ocr", workflow: "ocr" }), false);
   assert.equal(result.hasMore, false);
   assert.deepEqual(calls, [
     ["jobs", "/api/v1", { limit: 24, offset: 0, q: "" }],
@@ -766,7 +774,7 @@ test("library books resource invalidation helper tolerates missing resources", (
   assert.doesNotThrow(() => invalidateLibraryBooksResource({}));
 });
 
-test("recent jobs page commit refreshes active cards without auto-opening jobs", () => {
+test("recent jobs page commit refreshes cards and silently recovers the active job", () => {
   // 旧 DOM 直写 viewPort(createRecentJobsViewPort() 默认值)已随 cutover 删除
   // (controller/runtime/loader/commit/bindings 5 处默认参数改必传;view.js 等
   // 视图层随之物理删除)。这里改用最小 stub 直接捕获 renderList 的 items,
@@ -820,7 +828,7 @@ test("recent jobs page commit refreshes active cards without auto-opening jobs",
 
   assert.deepEqual(result.nextItems.map((item) => item.job_id), ["job-running"]);
   assert.deepEqual(rendered, ["job-running"]);
-  assert.deepEqual(recovered, []);
+  assert.deepEqual(recovered, [["job-running"]]);
   assert.deepEqual(refreshCalls, ["schedule"]);
   assert.deepEqual(autoLoads, ["auto"]);
   assert.equal(statePort.getSnapshot().offset, 24);
@@ -1182,6 +1190,8 @@ test("recent jobs loader preserves runtime patches that arrive during load-more"
   await new Promise((resolve) => setImmediate(resolve));
   runtimePatches.insert({
     job_id: "job-created-during-load",
+    document_id: "doc-created-during-load",
+    title: "created-during-load.pdf",
     status: "running",
     display_stage: "ocr",
     progress: { current: 1, total: 10, unit: "page" },
@@ -1680,6 +1690,52 @@ test("recent jobs runtime patches do not prepend retry job_id shell after soft r
   assert.equal(afterRefresh.length, 1, "must not prepend orphan shell");
   assert.equal(afterRefresh[0].title, "multipole-expansion-of-atomic.pdf");
   assert.notEqual(afterRefresh[0].title, afterRefresh[0].job_id);
+});
+
+test("recent jobs runtime patches keep job-only submit frames out of the document library", () => {
+  const statePort = createRecentJobsStatePort({
+    recentJobsItems: [
+      {
+        job_id: "doc:doc-quindics",
+        document_id: "doc-quindics",
+        title: "ijsrp-p3679",
+        status: "succeeded",
+      },
+    ],
+  });
+  const patches = createRecentJobsRuntimePatches({
+    statePort,
+    replaceRecentJobCard: () => true,
+    renderCurrentRecentJobs() {},
+    scheduleActiveRefresh() {},
+    storeDrivenRendering: true,
+    stageAdapterPort: recentJobsStageAdapterPort,
+  });
+
+  // `/jobs` 创建首帧没有 document_id/title，不能在书架生成 job_id 空壳卡。
+  patches.insert({
+    job_id: "20260901234509-3a4c2d",
+    status: "running",
+    display_stage: "translation",
+  });
+  assert.deepEqual(statePort.getSnapshot().items.map((item) => item.title), ["ijsrp-p3679"]);
+
+  // `/documents` 随后的权威投影会带 active job，缓存补丁在原书卡上继续显示进度。
+  const refreshed = patches.apply([
+    {
+      job_id: "20260901234509-3a4c2d",
+      active_job_id: "20260901234509-3a4c2d",
+      document_id: "doc-quindics",
+      title: "ijsrp-p3679",
+      status: "running",
+      display_stage: "translation",
+    },
+  ]);
+  assert.equal(refreshed.length, 1);
+  assert.equal(refreshed[0].document_id, "doc-quindics");
+  assert.equal(refreshed[0].title, "ijsrp-p3679");
+  assert.equal(refreshed[0].job_id, "20260901234509-3a4c2d");
+  assert.equal(refreshed[0].status, "running");
 });
 
 test("created recent job hydration fetches full payload and patches the card", async () => {
@@ -2351,6 +2407,8 @@ test("recent jobs runtime patches keep active created jobs across reset refreshe
 
   patches.insert({
     job_id: "job-created-active",
+    document_id: "doc-created-active",
+    title: "created-active.pdf",
     status: "running",
     display_stage: "ocr",
     progress: { current: 1, total: 10, unit: "page" },
@@ -2444,6 +2502,8 @@ test("recent jobs runtime patches keep completed created jobs until backend list
 
   patches.insert({
     job_id: "job-created-fast-complete",
+    document_id: "doc-created-fast-complete",
+    title: "created-fast-complete.pdf",
     status: "running",
     display_stage: "translation",
     progress: { current: 9, total: 10, unit: "batch" },
@@ -2496,6 +2556,8 @@ test("recent jobs runtime patches drive active cover overlay from created job to
 
   patches.insert({
     job_id: "job-created-overlay",
+    document_id: "doc-created-overlay",
+    title: "created-overlay.pdf",
     status: "running",
     display_stage: "ocr",
     progress: { current: 1, total: 10, percent: 10, unit: "page" },
@@ -2567,6 +2629,69 @@ test("recent jobs runtime patches ignore ocr child jobs when inserting created c
   ]);
 });
 
+test("recent jobs runtime patches insert standalone ocr root jobs", () => {
+  const statePort = createRecentJobsStatePort({
+    recentJobsItems: [],
+    recentJobsHasMore: true,
+  });
+  const patches = createRecentJobsRuntimePatches({
+    statePort,
+    replaceRecentJobCard: () => true,
+    renderCurrentRecentJobs() {},
+    scheduleActiveRefresh() {},
+    stageAdapterPort: recentJobsStageAdapterPort,
+    storeDrivenRendering: true,
+  });
+
+  patches.insert({
+    job_id: "job-ocr-root",
+    document_id: "doc-ocr-root",
+    workflow: "ocr",
+    title: "OCR source.pdf",
+    status: "running",
+    display_stage: "ocr",
+    progress: { current: 1, total: 10, percent: 10, unit: "page" },
+  });
+
+  assert.equal(statePort.getSnapshot().items.length, 1);
+  assert.equal(statePort.getSnapshot().items[0].job_id, "job-ocr-root");
+  assert.equal(statePort.getSnapshot().items[0].workflow, "ocr");
+});
+
+test("recent jobs runtime merge accepts OCR readiness and artifact updates", () => {
+  const previous = {
+    job_id: "job-ocr-ready",
+    document_id: "doc-ocr-ready",
+    workflow: "ocr",
+    status: "running",
+    artifacts: {
+      normalized_document: { ready: false, url: "" },
+    },
+  };
+  const merged = mergeLibraryJobItem(previous, {
+    job_id: "job-ocr-ready",
+    workflow: "ocr",
+    status: "succeeded",
+    output_pdf_ready: false,
+    markdown_ready: true,
+    bundle_ready: true,
+    artifacts: {
+      normalized_document: {
+        ready: true,
+        url: "/api/v1/jobs/job-ocr-ready/normalized-document",
+      },
+    },
+    artifacts_display: [{ key: "normalized_document", ready: true }],
+  });
+
+  assert.equal(merged.workflow, "ocr");
+  assert.equal(merged.output_pdf_ready, false);
+  assert.equal(merged.markdown_ready, true);
+  assert.equal(merged.bundle_ready, true);
+  assert.equal(merged.artifacts.normalized_document.ready, true);
+  assert.equal(merged.artifacts_display[0].ready, true);
+});
+
 test("recent jobs runtime patches do not let queued placeholders downgrade created running cards", () => {
   const statePort = createRecentJobsStatePort({
     recentJobsItems: [],
@@ -2583,6 +2708,8 @@ test("recent jobs runtime patches do not let queued placeholders downgrade creat
 
   patches.insert({
     job_id: "job-created-placeholder",
+    document_id: "doc-created-placeholder",
+    title: "real-book.pdf",
     status: "running",
     display_stage: "translation",
     source_file_name: "real-book.pdf",

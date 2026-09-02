@@ -12,7 +12,8 @@
 | **detail/** | 详情容器 + store + hooks | 卡片壳 |
 | **detail/shell/** | `BookDetailShell`（Dialog 开合 / 双栏槽） | 业务逻辑 |
 | **detail/panels/** | 细粒度区块（封面、标题表单、翻译工作台…） | Tab 组装 |
-| **detail/tabs/** | 三个 Tab 组件 + Tab 导航壳 | 领域 API |
+| **detail/artifacts/** | 文件与任务产物展示组件 | 请求编排、任务状态 |
+| **detail/tabs/** | 概览/处理/文件/管理 Tab + 导航壳 | 领域 API |
 | **detail/use-book-detail-*.js** | live item / document / translate hooks | UI 组件 |
 | **domain/** | `controller`（翻译/删除/入库/静默接进度…） | 纯 UI |
 
@@ -23,7 +24,7 @@
 | `selectJob(jobId)` | recent-jobs actions | **打开工作流弹窗** + 开始轮询 |
 | `attachJobProgress(jobId)` | **library domain/controller** | **只**开始轮询，接进 statusCardStore；不弹窗、关掉主状态区 |
 
-书籍详情「翻译」Tab 只用 `attachJobProgress`。
+书籍详情「处理」Tab 只用 `attachJobProgress`。
 
 对外请用 `import { … } from "./features/library/index.js"`。
 
@@ -35,7 +36,11 @@ App
                       └─ shell/BookDetailShell
                            ├─ left:  CoverActionsPanel
                            └─ right: BookDetailRightTabs
-                                ├─ BookDetailOverviewTab   书籍简介
-                                ├─ BookDetailTranslateTab  翻译
-                                └─ BookDetailMoreTab       其他操作（含占位）
+                                ├─ BookDetailOverviewTab    书籍简介
+                                ├─ BookDetailProcessingTab  OCR/翻译处理边界
+                                ├─ BookDetailArtifactsTab   源文件与任务产物
+                                └─ BookDetailManageTab      阅读状态/合集/删除
 ```
+
+详情内部的稳定边界和下一阶段 OCR 接口要求见
+[`detail/ARCHITECTURE.md`](./detail/ARCHITECTURE.md)。

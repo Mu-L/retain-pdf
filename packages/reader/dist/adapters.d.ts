@@ -55,6 +55,7 @@ export type ReaderFavoritesAdapters = {
     apiPrefix?: string;
     fetchDocumentByJobId: (apiPrefix: string, jobId: string) => Promise<{
         document_id?: string;
+        active_version_id?: string | null;
     } | null>;
     createFavorite: (apiPrefix: string, payload: Record<string, unknown>) => Promise<any>;
     fetchFavorites: (apiPrefix: string, options?: {

@@ -175,7 +175,7 @@ export function ReaderFloatShell({
   return (
     <aside
       id={id}
-      className={`reader-notes-panel reader-notes-panel--${docked ? "docked" : "float"}${dragging ? " is-dragging" : ""} ${className}`.trim()}
+      className={`reader-notes-panel reader-notes-panel--${docked ? "docked" : "float"}${docked ? "" : " reader-floating-surface"}${dragging ? " is-dragging" : ""} ${className}`.trim()}
       style={docked ? undefined : { left: pos.x, top: pos.y, width: Math.min(width, typeof window !== "undefined" ? window.innerWidth - 24 : width) }}
       aria-label={ariaLabel}
       role="dialog"
@@ -200,7 +200,7 @@ export function ReaderFloatShell({
           </strong>
           {subtitle ? <span>{subtitle}</span> : null}
         </div>
-        <button type="button" className="reader-notes-close" aria-label={`关闭${title}`} onClick={onClose}>
+        <button type="button" className="reader-notes-close reader-floating-close" aria-label={`关闭${title}`} onClick={onClose}>
           <X size={14} strokeWidth={2.5} aria-hidden />
         </button>
       </header>

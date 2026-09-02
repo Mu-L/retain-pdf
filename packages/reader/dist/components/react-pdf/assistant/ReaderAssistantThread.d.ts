@@ -1,5 +1,7 @@
 import { type AiCitationLike } from "../../../external.js";
+import type { useReaderAgentOperations } from "./use-reader-agent-operations.js";
 import type { ReaderAskStoreMessage } from "./reader-ask-tree.js";
+import type { ReaderAssistantMode } from "../../../shared/ai/ask-answerer.js";
 export type ReaderAssistantThreadProps = {
     jobId?: string;
     messages?: readonly ReaderAskStoreMessage[];
@@ -14,6 +16,9 @@ export type ReaderAssistantThreadProps = {
     onJumpCitation?: (citation: AiCitationLike) => void;
     onBranchFromAnswer?: (assistantMessageId: string) => void | Promise<boolean | void>;
     branchBusy?: boolean;
+    agentOperations?: ReturnType<typeof useReaderAgentOperations>;
+    assistantMode?: ReaderAssistantMode;
+    onAssistantModeChange?: (mode: ReaderAssistantMode) => void;
 };
-export declare function ReaderAssistantThread({ jobId, messages, citationsByMessageId, progressByMessageId, contentByMessageId, streamingAssistantId, isRunning, onSubmit, onRetry, onCancel, onJumpCitation, onBranchFromAnswer, branchBusy, }: ReaderAssistantThreadProps): import("react").JSX.Element;
+export declare function ReaderAssistantThread({ jobId, messages, citationsByMessageId, progressByMessageId, contentByMessageId, streamingAssistantId, isRunning, onSubmit, onRetry, onCancel, onJumpCitation, onBranchFromAnswer, branchBusy, agentOperations, assistantMode, onAssistantModeChange, }: ReaderAssistantThreadProps): import("react").JSX.Element;
 //# sourceMappingURL=ReaderAssistantThread.d.ts.map

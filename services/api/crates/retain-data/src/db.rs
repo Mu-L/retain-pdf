@@ -96,9 +96,9 @@ pub use document_operations::{
     StoredDocumentOperation, StoredDocumentOperationAttempt,
 };
 pub use pipeline::{
-    PipelineAttemptCursor, PipelineCheckpoint, PipelineDispatchBegin, PipelineDispatchIntent,
-    PipelineDispatchRecord, PipelineStageObservation, PipelineStageState, PipelineUnitCommit,
-    PipelineUnitRecord,
+    PipelineAttemptCursor, PipelineCheckpoint, PipelineCommitEventRecord, PipelineDispatchBegin,
+    PipelineDispatchIntent, PipelineDispatchRecord, PipelineStageObservation, PipelineStageState,
+    PipelineUnitCommit, PipelineUnitRecord,
 };
 
 impl Db {

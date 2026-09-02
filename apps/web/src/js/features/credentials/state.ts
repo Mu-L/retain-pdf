@@ -10,6 +10,7 @@ import { normalizeBrowserStoredConfig } from "../../config/storage.js";
 export interface CredentialsFields {
   ocrProvider: string;
   paddleToken: string;
+  translationCredentialRef: string;
   modelApiKey: string;
 }
 
@@ -107,6 +108,7 @@ function normalizeCredentials(payload: Partial<CredentialsFields> = {}): Credent
   return normalizeBrowserStoredConfig({
     ocrProvider: payload.ocrProvider || DEFAULT_OCR_PROVIDER,
     paddleToken: payload.paddleToken,
+    translationCredentialRef: payload.translationCredentialRef,
     modelApiKey: payload.modelApiKey,
   }) as CredentialsFields;
 }
@@ -228,7 +230,10 @@ export function hasCompleteCredentials(
   credentials: Partial<CredentialsFields> = {},
   options: OcrTokenOptions = {},
 ): boolean {
-  return Boolean(ocrTokenFromCredentials(credentials, options) && credentials.modelApiKey);
+  return Boolean(
+    ocrTokenFromCredentials(credentials, options)
+    && credentials.translationCredentialRef,
+  );
 }
 
 export function createCredentialsStatePort({

@@ -72,6 +72,8 @@ pub struct JobArtifactItemView {
     pub checksum: Option<String>,
     pub source_stage: Option<String>,
     pub updated_at: String,
+    /// One-based durable pipeline attempt which produced this projection.
+    pub attempt: u32,
     pub resource_path: Option<String>,
     pub resource_url: Option<String>,
 }
@@ -167,6 +169,8 @@ pub struct JobDetailView {
     pub job_id: String,
     pub workflow: WorkflowKind,
     pub status: JobStatusKind,
+    pub ocr_reused: bool,
+    pub source_artifact_job_id: Option<String>,
     pub request_payload: PublicResolvedJobSpec,
     pub trace_id: Option<String>,
     pub provider_trace_id: Option<String>,
@@ -463,6 +467,12 @@ pub struct JobListItemView {
     pub display_name: String,
     pub workflow: WorkflowKind,
     pub status: JobStatusKind,
+    /// One-based execution attempt (`retry_count + 1`).
+    pub attempt: u32,
+    /// Number of retries durably recorded by the job runtime.
+    pub retry_count: u32,
+    /// Stable timestamp of the most recently accepted retry, if any.
+    pub last_retry_at: Option<String>,
     pub trace_id: Option<String>,
     pub stage_snapshot: Option<JobStageSnapshotView>,
     pub background_snapshots: Vec<JobStageSnapshotView>,
@@ -501,6 +511,16 @@ pub struct OcrJobSummaryView {
 pub struct JobListView {
     pub items: Vec<JobListItemView>,
     pub invocation_summary: JobListInvocationSummaryView,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DocumentJobListView {
+    pub items: Vec<JobListItemView>,
+    pub invocation_summary: JobListInvocationSummaryView,
+    pub total: u64,
+    pub limit: u32,
+    pub offset: u32,
+    pub has_more: bool,
 }
 
 #[derive(Debug, Serialize)]

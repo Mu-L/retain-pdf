@@ -1,6 +1,7 @@
 // 右栏：阅读状态（未读 / 在读 / 读完）。
 
 import { cn } from "@/lib/utils";
+import { BookOpen } from "lucide-react";
 
 export const READING_STATUSES = [
   { value: "unread", label: "未读" },
@@ -16,13 +17,16 @@ export const READING_STATUSES = [
  */
 export function ReadingStatusPanel({ value, busy, onChange }) {
   return (
-    <div className="space-y-1.5 border-t border-border/30 pt-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">阅读状态</p>
+    <div className="book-detail-reading-status-panel space-y-1.5">
+      <p className="book-detail-reading-status-label flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />阅读状态
+      </p>
       <div className="inline-flex overflow-hidden rounded-md border border-border" role="group" aria-label="阅读状态">
         {READING_STATUSES.map((s) => (
           <button
             key={s.value}
             type="button"
+            aria-pressed={value === s.value}
             disabled={busy === "reading"}
             onClick={() => onChange(s.value)}
             className={cn(

@@ -6,6 +6,10 @@ import {
   CREDENTIALS_CHANGED_EVENT,
   hasModelApiKey,
 } from "../../composition/external.js";
+import {
+  fetchAgentRuntimeConfig,
+  type AgentRuntimeConfigView,
+} from "../../composition/external/api.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useHomeServices } from "../../home-services-context.js";
 import { HomeAskComposer } from "./HomeAskComposer.js";
@@ -13,6 +17,12 @@ import { HomeAskSidebar } from "./HomeAskSidebar.js";
 import { HomeAskThread, HOME_ASK_SUGGESTIONS } from "./HomeAskThread.js";
 import { useHomeAskRuntime } from "./use-home-ask-runtime.js";
 import type { HomeAskScope } from "./types.js";
+import { useAgentOperations } from "./operations/use-agent-operations.js";
+import {
+  activeAgentRuntimeMode,
+  agentRuntimeModeLabel,
+  resolveAgentRuntimeCredentialGate,
+} from "./agent-runtime-gate.js";
 
 const SIDEBAR_COLLAPSED_KEY = "retainpdf.home.ai.sidebar-collapsed.v1";
 
@@ -41,6 +51,8 @@ export function HomeAskView() {
     sessions,
     sessionsLoading,
     sessionBusy,
+    agentRuntime,
+    operationSignals,
     send,
     stop,
     newSession,
@@ -50,6 +62,16 @@ export function HomeAskView() {
   } = useHomeAskRuntime();
   const [scopes, setScopes] = useState<HomeAskScope[]>([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
+  const [runtimeConfig, setRuntimeConfig] = useState<AgentRuntimeConfigView | null>(null);
+  const [runtimeConfigLoading, setRuntimeConfigLoading] = useState(true);
+  const [runtimeConfigError, setRuntimeConfigError] = useState("");
+  const confirmationMode = runtimeConfig?.agent_confirmation_mode || "explicit";
+  const agentOperations = useAgentOperations(
+    conversationId,
+    isRunning,
+    operationSignals,
+    confirmationMode,
+  );
   // 凭据保存后立刻重算门禁：订阅 credentials store + 自定义事件
   const [credTick, setCredTick] = useState(0);
   const credentialsSnap = useStoreSnapshot(services.ports.credentialsStatePort.store);
@@ -72,9 +94,53 @@ export function HomeAskView() {
       document.removeEventListener(CREDENTIALS_CHANGED_EVENT, bump);
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    let requestRevision = 0;
+    const refresh = () => {
+      const revision = ++requestRevision;
+      setRuntimeConfigLoading(true);
+      fetchAgentRuntimeConfig()
+        .then((next) => {
+          if (!active || revision !== requestRevision) return;
+          setRuntimeConfig(next);
+          setRuntimeConfigError("");
+        })
+        .catch((error) => {
+          if (!active || revision !== requestRevision) return;
+          setRuntimeConfigError(
+            (error as Error)?.message || "无法读取 AI Agent 配置，请检查本机服务后重试。",
+          );
+        })
+        .finally(() => {
+          if (active && revision === requestRevision) setRuntimeConfigLoading(false);
+        });
+    };
+    const refreshWhenVisible = () => {
+      if (document.visibilityState !== "hidden") refresh();
+    };
+    refresh();
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    document.addEventListener(CREDENTIALS_CHANGED_EVENT, refresh);
+    return () => {
+      active = false;
+      requestRevision += 1;
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      document.removeEventListener(CREDENTIALS_CHANGED_EVENT, refresh);
+    };
+  }, []);
   void credTick;
   void credentialsSnap;
-  const missingLlmKey = !hasModelApiKey();
+  const credentialGate = resolveAgentRuntimeCredentialGate({
+    config: runtimeConfig,
+    loading: runtimeConfigLoading,
+    error: runtimeConfigError,
+    legacyModelKeyConfigured: hasModelApiKey(),
+  });
+  const displayedRuntime = agentRuntime || runtimeConfig?.active_runtime || "";
 
   return (
     <section
@@ -105,6 +171,11 @@ export function HomeAskView() {
       />
 
       <div className="home-ask-main">
+        {displayedRuntime ? (
+          <div className="home-ask-runtime-badge" role="status">
+            {agentRuntimeModeLabel(activeAgentRuntimeMode(displayedRuntime))}
+          </div>
+        ) : null}
         {empty ? (
           <div className="home-ask-hero">
             <div className="home-ask-empty-mascot" aria-hidden>
@@ -113,7 +184,8 @@ export function HomeAskView() {
             <h2 className="home-ask-empty-title">随时待命，有什么可以帮你？</h2>
             <HomeAskComposer
               isRunning={isRunning}
-              missingLlmKey={missingLlmKey}
+              credentialBlocked={credentialGate.blocked}
+              credentialMessage={credentialGate.message}
               scopes={scopes}
               onScopesChange={setScopes}
               onSend={(q) => {
@@ -130,9 +202,9 @@ export function HomeAskView() {
                     key={item.prompt}
                     type="button"
                     className="home-ask-suggestion"
-                    disabled={missingLlmKey || isRunning}
+                    disabled={credentialGate.blocked || isRunning}
                     onClick={() => {
-                      if (missingLlmKey) return;
+                      if (credentialGate.blocked) return;
                       void send(item.prompt, scopes);
                     }}
                   >
@@ -146,11 +218,21 @@ export function HomeAskView() {
         ) : (
           <>
             <div className="home-ask-scroll">
-              <HomeAskThread messages={messages} isRunning={isRunning} />
+              <HomeAskThread
+                messages={messages}
+                isRunning={isRunning}
+                operationsByRequestMessage={agentOperations.byRequestMessage}
+                loadCandidate={agentOperations.loadCandidate}
+                confirmationMode={confirmationMode}
+                onOperationAction={(action, operation, options) => (
+                  agentOperations.perform(action, operation, options)
+                )}
+              />
             </div>
             <HomeAskComposer
               isRunning={isRunning}
-              missingLlmKey={missingLlmKey}
+              credentialBlocked={credentialGate.blocked}
+              credentialMessage={credentialGate.message}
               scopes={scopes}
               onScopesChange={setScopes}
               onSend={(q) => {

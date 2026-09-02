@@ -19,7 +19,12 @@ import {
   createCredentialRuntimeEnvPort,
   mountBrowserCredentialsFeature,
 } from "./external/features.js";
-import { validatePaddleToken } from "./external/api.js";
+import {
+  createCredential,
+  listCredentials,
+  updateCredential,
+  validatePaddleToken,
+} from "./external/api.js";
 import { createCredentialsViewFeature } from "../features/credentials/credentials-view-store.js";
 import { createCredentialsDialogStore } from "../features/credentials/credentials-dialog-store.js";
 import { createSettingsHubDialogStore } from "../features/settings/settings-hub-dialog-store.js";
@@ -41,6 +46,9 @@ type CreateCredentialsArgs = {
   validateOcrTokenOverride?: AsyncFn | null;
   validateDeepSeekTokenOverride?: AsyncFn;
   queryDeepSeekBalanceOverride?: AsyncFn;
+  listCredentialsOverride?: AsyncFn;
+  createCredentialOverride?: AsyncFn;
+  updateCredentialOverride?: AsyncFn;
   checkApiConnectivityOverride?: AsyncFn | null;
   saveDesktopConfigOverride?: AsyncFn | null;
 };
@@ -53,6 +61,9 @@ export function createCredentials({
   validateOcrTokenOverride,
   validateDeepSeekTokenOverride,
   queryDeepSeekBalanceOverride,
+  listCredentialsOverride,
+  createCredentialOverride,
+  updateCredentialOverride,
   checkApiConnectivityOverride,
   saveDesktopConfigOverride,
 }: CreateCredentialsArgs): {
@@ -116,9 +127,12 @@ export function createCredentials({
     validateOcrToken: validateOcrTokenOverride || validateCredentialOcrToken,
     validateDeepSeekToken: validateDeepSeekTokenOverride,
     queryDeepSeekBalance: queryDeepSeekBalanceOverride,
+    listCredentials: listCredentialsOverride || listCredentials,
+    createCredential: createCredentialOverride || createCredential,
+    updateCredential: updateCredentialOverride || updateCredential,
     onCredentialStateChange: () => {
       features.workflowFeature.applyWorkflowMode();
-      // 通知 AI 输入门禁等：仅认设置里的 modelApiKey
+      // 通知依赖凭据状态的界面刷新；AI Runtime 自己的后端凭据仍是独立真值。
       try {
         // dynamic import path avoided — event is fire-and-forget string
         document.dispatchEvent(new CustomEvent("retainpdf:credentials-changed"));

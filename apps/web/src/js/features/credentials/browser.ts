@@ -1,7 +1,11 @@
 import {
   getOcrProviderDefinition,
+  getTranslationProviderDefinition,
+  inferTranslationProvider,
   normalizeOcrProvider,
+  normalizeTranslationProvider,
   TRANSLATION_PROVIDER_DEFINITION,
+  TRANSLATION_PROVIDER_OPTIONS,
 } from "../../config/providers.js";
 import {
   runOcrTokenValidation,
@@ -9,6 +13,7 @@ import {
 } from "./validation.js";
 import { handleBrowserDeepSeekValidate as runBrowserDeepSeekValidate } from "./deepseek-flow.js";
 import {
+  buildTaskOptionsFromDialogValues,
   ocrTokenFromDialogValues,
   readCredentialDialogValues,
 } from "./dialog-values.js";
@@ -41,12 +46,14 @@ export interface CredentialDialogElements {
   apiKeyInput?: HTMLInputElement | null;
   modelBaseUrlInput?: HTMLInputElement | null;
   modelNameInput?: HTMLInputElement | null;
+  translationWorkersInput?: HTMLInputElement | null;
   mathModeSelect?: HTMLSelectElement | null;
 }
 
 export interface CredentialDialogElementsPort {
   elements: () => CredentialDialogElements;
   syncOcrProviderControls?: (providerId?: string) => void;
+  syncTranslationProvider?: (baseUrl?: string) => void;
 }
 
 export interface CredentialsViewPort {
@@ -56,6 +63,7 @@ export interface CredentialsViewPort {
   dialogElements?: () => CredentialDialogElements;
   openDialog?: () => void;
   setDeepSeekTopUpVisible?: (visible?: boolean) => void;
+  setTranslationProvider?: (provider?: string) => void;
   setDeepSeekValidationMessage?: (message?: string, tone?: string) => void;
   setDialogMode?: (options?: {
     setupMode?: boolean;
@@ -75,6 +83,71 @@ export interface CredentialsRuntimeEnvPort {
 export interface CredentialsUploadStatePort {
   getSnapshot?: () => {
     uploadId?: string;
+  };
+}
+
+function translationConfigError(baseUrl = "", model = "") {
+  const normalizedBaseUrl = `${baseUrl || ""}`.trim();
+  if (!normalizedBaseUrl) return "请填写翻译 API URL";
+  try {
+    const parsed = new URL(normalizedBaseUrl);
+    if (!["http:", "https:"].includes(parsed.protocol) || !parsed.host) {
+      return "翻译 API URL 必须是有效的 http(s) 地址";
+    }
+    if (parsed.username || parsed.password) {
+      return "翻译 API URL 不能包含用户名或密码";
+    }
+  } catch {
+    return "翻译 API URL 必须是有效的 http(s) 地址";
+  }
+  if (!`${model || ""}`.trim()) return "请填写翻译模型名称";
+  return "";
+}
+
+function translationWorkersError(value: unknown, providerId = "custom") {
+  const workers = Number(value);
+  const definition = getTranslationProviderDefinition(providerId);
+  const maxWorkers = Number(definition.maxWorkers) || 100;
+  if (!Number.isInteger(workers) || workers < 1 || workers > maxWorkers) {
+    return `翻译并发数请输入 1–${maxWorkers} 的整数`;
+  }
+  return "";
+}
+
+type TranslationProfile = {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+  workers: number;
+};
+
+function translationProfileDefaults(providerId = "custom"): TranslationProfile {
+  const definition = getTranslationProviderDefinition(providerId);
+  return {
+    apiKey: "",
+    baseUrl: definition.baseUrl || "",
+    model: definition.defaultModel || "",
+    workers: Number(definition.defaultWorkers) || 5,
+  };
+}
+
+function normalizeTranslationProfile(
+  providerId = "custom",
+  candidate: Record<string, unknown> = {},
+): TranslationProfile {
+  const defaults = translationProfileDefaults(providerId);
+  const definition = getTranslationProviderDefinition(providerId);
+  const workers = Number(candidate.workers);
+  const maxWorkers = Number(definition.maxWorkers) || 100;
+  return {
+    apiKey: typeof candidate.apiKey === "string" ? candidate.apiKey : defaults.apiKey,
+    baseUrl: providerId === "custom"
+      ? `${candidate.baseUrl || defaults.baseUrl}`.trim()
+      : defaults.baseUrl,
+    model: `${candidate.model || defaults.model}`.trim(),
+    workers: Number.isInteger(workers) && workers > 0 && workers <= maxWorkers
+      ? workers
+      : defaults.workers,
   };
 }
 
@@ -141,6 +214,13 @@ export interface MountBrowserCredentialsFeatureOptions {
     apiPrefix?: unknown,
     payload?: unknown,
   ) => Promise<ProviderValidationResult | unknown> | ProviderValidationResult | unknown;
+  listCredentials?: (apiPrefix?: string) => Promise<any>;
+  createCredential?: (apiPrefix: string | undefined, payload: Record<string, unknown>) => Promise<any>;
+  updateCredential?: (
+    apiPrefix: string | undefined,
+    credentialRef: string,
+    payload: Record<string, unknown>,
+  ) => Promise<any>;
   onCredentialStateChange?: () => void;
   uploadStatePort?: CredentialsUploadStatePort;
   credentialsStatePort?: CredentialsStatePort;
@@ -177,6 +257,9 @@ export function mountBrowserCredentialsFeature({
   validateOcrToken,
   validateDeepSeekToken,
   queryDeepSeekBalance,
+  listCredentials,
+  createCredential,
+  updateCredential,
   onCredentialStateChange,
   uploadStatePort,
   credentialsStatePort = defaultCredentialsStatePort,
@@ -200,6 +283,137 @@ export function mountBrowserCredentialsFeature({
   const balanceState = balanceStatePort || {
     resetDeepSeekBalance: () => credentialsStatePort.resetDeepSeekBalance?.(),
   };
+  let credentialVaultRevision: number | undefined;
+  let lastCustomTranslationBaseUrl = "";
+  let currentTranslationProvider = "deepseek";
+  let translationProfiles: Record<string, TranslationProfile> = Object.fromEntries(
+    TRANSLATION_PROVIDER_OPTIONS.map((provider) => [
+      provider.id,
+      translationProfileDefaults(provider.id),
+    ]),
+  );
+
+  function hydrateTranslationProfiles(
+    credentials: Record<string, unknown> = {},
+    taskOptions: Record<string, unknown> = {},
+  ) {
+    const storedProfiles = taskOptions.translationProfiles
+      && typeof taskOptions.translationProfiles === "object"
+      ? taskOptions.translationProfiles as Record<string, Record<string, unknown>>
+      : {};
+    translationProfiles = Object.fromEntries(
+      TRANSLATION_PROVIDER_OPTIONS.map((provider) => [
+        provider.id,
+        normalizeTranslationProfile(provider.id, storedProfiles[provider.id] || {}),
+      ]),
+    );
+    const inferredProvider = inferTranslationProvider(`${taskOptions.baseUrl || ""}`);
+    currentTranslationProvider = normalizeTranslationProvider(
+      `${taskOptions.translationProvider || inferredProvider}`,
+    );
+    if (!storedProfiles[currentTranslationProvider]) {
+      translationProfiles[currentTranslationProvider] = normalizeTranslationProfile(
+        currentTranslationProvider,
+        {
+          apiKey: `${credentials.modelApiKey || ""}`,
+          baseUrl: `${taskOptions.baseUrl || ""}`,
+          model: `${taskOptions.model || ""}`,
+          workers: taskOptions.workers,
+        },
+      );
+    }
+    lastCustomTranslationBaseUrl = translationProfiles.custom?.baseUrl || "";
+  }
+
+  function captureCurrentTranslationProfile() {
+    const elements = dialogElementsPort.elements();
+    translationProfiles[currentTranslationProvider] = normalizeTranslationProfile(
+      currentTranslationProvider,
+      {
+        apiKey: elements.apiKeyInput?.value || "",
+        baseUrl: elements.modelBaseUrlInput?.value || "",
+        model: elements.modelNameInput?.value || "",
+        workers: elements.translationWorkersInput?.value || "",
+      },
+    );
+    if (currentTranslationProvider === "custom") {
+      lastCustomTranslationBaseUrl = translationProfiles.custom.baseUrl;
+    }
+  }
+
+  function applyTranslationProfile(providerId = "custom") {
+    const provider = normalizeTranslationProvider(providerId);
+    const definition = getTranslationProviderDefinition(provider);
+    const profile = translationProfiles[provider] || translationProfileDefaults(provider);
+    const elements = dialogElementsPort.elements();
+    currentTranslationProvider = provider;
+    if (elements.apiKeyInput) elements.apiKeyInput.value = profile.apiKey;
+    if (elements.modelBaseUrlInput) {
+      elements.modelBaseUrlInput.value = provider === "custom"
+        ? (profile.baseUrl || lastCustomTranslationBaseUrl)
+        : definition.baseUrl;
+    }
+    if (elements.modelNameInput) elements.modelNameInput.value = profile.model;
+    if (elements.translationWorkersInput) elements.translationWorkersInput.value = `${profile.workers}`;
+    viewPort.setTranslationProvider?.(provider);
+  }
+
+  function translationProvider(baseUrl = "") {
+    const provider = inferTranslationProvider(baseUrl);
+    return provider === "custom" ? "openai_compatible" : provider;
+  }
+
+  async function refreshTranslationCredentialReference({ persist = true } = {}) {
+    if (!listCredentials) return null;
+    const result = await listCredentials(apiPrefix);
+    credentialVaultRevision = Number.isFinite(Number(result?.revision))
+      ? Number(result.revision)
+      : undefined;
+    const candidates = Array.isArray(result?.credentials)
+      ? result.credentials.filter((item) => item?.kind === "translation_api_key" && item?.configured !== false)
+      : [];
+    const existingRef = `${readCurrentCredentials()?.translationCredentialRef || ""}`.trim();
+    const selected = candidates.find((item) => item?.credential_ref === existingRef)
+      || candidates.sort((a, b) => `${b?.updated_at || ""}`.localeCompare(`${a?.updated_at || ""}`))[0]
+      || null;
+    const translationCredentialRef = `${selected?.credential_ref || ""}`.trim();
+    credentialsStatePort.patchCredentials?.({
+      translationCredentialRef,
+    });
+    if (persist && translationCredentialRef !== existingRef) {
+      await savePersistedBrowserStoredConfig(readCurrentCredentials());
+    }
+    return selected;
+  }
+
+  async function storeTranslationCredential({ secret, baseUrl }: { secret: string; baseUrl: string }) {
+    const normalizedSecret = `${secret || ""}`.trim();
+    let existingRef = `${readCurrentCredentials()?.translationCredentialRef || ""}`.trim();
+    if (!normalizedSecret) return existingRef;
+    if (!createCredential || !updateCredential || !listCredentials) {
+      throw new Error("当前前端未接入安全凭据服务，请刷新后重试");
+    }
+    if (credentialVaultRevision === undefined) {
+      await refreshTranslationCredentialReference({ persist: false });
+    }
+    existingRef = `${readCurrentCredentials()?.translationCredentialRef || ""}`.trim();
+    const payload = {
+      kind: "translation_api_key",
+      provider: translationProvider(baseUrl),
+      label: "翻译 API",
+      secret: normalizedSecret,
+      ...(credentialVaultRevision === undefined
+        ? {}
+        : { expected_revision: credentialVaultRevision }),
+    };
+    const result = existingRef
+      ? await updateCredential(apiPrefix, existingRef, payload)
+      : await createCredential(apiPrefix, payload);
+    credentialVaultRevision = Number.isFinite(Number(result?.revision))
+      ? Number(result.revision)
+      : credentialVaultRevision;
+    return `${result?.credential?.credential_ref || existingRef}`.trim();
+  }
 
   function readUploadState() {
     return uploadState.getSnapshot?.() || {};
@@ -227,13 +441,24 @@ export function mountBrowserCredentialsFeature({
   }
 
   function syncBrowserDialogFromCredentialState() {
+    const credentials = readCurrentCredentials();
+    const taskOptions = (getTaskOptions?.() || {}) as Record<string, unknown>;
+    hydrateTranslationProfiles(credentials as unknown as Record<string, unknown>, taskOptions);
+    const profile = translationProfiles[currentTranslationProvider]
+      || translationProfileDefaults(currentTranslationProvider);
     syncCredentialDialogFields({
-      credentials: readCurrentCredentials(),
-      taskOptions: getTaskOptions?.() || {},
+      credentials: { ...credentials, modelApiKey: profile.apiKey },
+      taskOptions: {
+        ...taskOptions,
+        baseUrl: profile.baseUrl,
+        model: profile.model,
+        workers: profile.workers,
+      },
       defaultModelBaseUrl,
       defaultModelApiKey,
       elementsPort: dialogElementsPort,
     });
+    viewPort.setTranslationProvider?.(currentTranslationProvider);
     viewPort.setOcrValidationMessage("", "", "paddle");
     viewPort.setDeepSeekValidationMessage("", "");
     viewPort.setDeepSeekTopUpVisible(false);
@@ -386,35 +611,73 @@ export function mountBrowserCredentialsFeature({
   async function handleBrowserCredentialSave() {
     const definition = getOcrProviderDefinition(currentOcrProvider());
     const existing = readCurrentCredentials();
+    captureCurrentTranslationProfile();
     const raw = readCredentialDialogValues({ elementsPort: dialogElementsPort });
-    // 密码框未回填/被清空时：空串表示「沿用已保存值」，避免把 localStorage 冲掉
+    const existingTaskOptions = (getTaskOptions?.() || {}) as Record<string, unknown>;
+    // 输入框被清空时沿用当前值，避免保存其他设置时误删 API Key。
     const values = {
       ...raw,
       paddleToken: `${raw.paddleToken || ""}`.trim() || `${existing.paddleToken || ""}`.trim(),
-      modelApiKey: `${raw.modelApiKey || ""}`.trim() || `${existing.modelApiKey || ""}`.trim(),
+      modelApiKey: `${raw.modelApiKey || ""}`.trim(),
+      modelBaseUrl: `${raw.modelBaseUrl || ""}`.trim()
+        || `${existingTaskOptions.baseUrl || ""}`.trim()
+        || `${defaultModelBaseUrl?.() || ""}`.trim(),
+      modelName: `${raw.modelName || ""}`.trim()
+        || `${existingTaskOptions.model || ""}`.trim(),
+      translationWorkers: `${raw.translationWorkers || ""}`.trim()
+        || `${existingTaskOptions.workers || getTranslationProviderDefinition(currentTranslationProvider).defaultWorkers || 5}`,
     };
     const ocrToken = ocrTokenFromDialogValues(values);
     const modelApiKey = `${values.modelApiKey || ""}`.trim();
-    if (!ocrToken || !modelApiKey) {
+    const translationError = translationConfigError(values.modelBaseUrl, values.modelName);
+    const workersError = translationWorkersError(values.translationWorkers, currentTranslationProvider);
+    if (!ocrToken || !modelApiKey || translationError || workersError) {
       if (!ocrToken) {
         viewPort.setOcrValidationMessage(definition.validationMissingMessage, "error", definition.id);
       }
       if (!modelApiKey) {
         viewPort.setDeepSeekValidationMessage(TRANSLATION_PROVIDER_DEFINITION.validationMissingMessage, "error");
+      } else if (translationError || workersError) {
+        viewPort.setDeepSeekValidationMessage(translationError || workersError, "error");
       }
-      viewPort.setDialogStatus("请填写 OCR Token 与模型 API Key 后再保存", "error");
+      viewPort.setDialogStatus(
+        translationError || workersError || "请填写 OCR Token 与翻译 API Key 后再保存",
+        "error",
+      );
       return;
     }
 
-    const nextCredentials = {
-      ocrProvider: currentOcrProvider(),
-      paddleToken: ocrToken,
-      modelApiKey,
+    translationProfiles[currentTranslationProvider] = normalizeTranslationProfile(
+      currentTranslationProvider,
+      {
+        apiKey: values.modelApiKey,
+        baseUrl: values.modelBaseUrl,
+        model: values.modelName,
+        workers: values.translationWorkers,
+      },
+    );
+    const nextTaskOptions = {
+      ...buildTaskOptionsFromDialogValues({
+        values,
+        defaultModelBaseUrl,
+      }),
+      translationProvider: currentTranslationProvider,
+      translationProfiles,
     };
 
     // 保存只做落盘；联网校验留给「检测」按钮。
     // 必须 await 完整持久化（含桌面 snapshot），再通知 AI 门禁刷新。
     try {
+      const translationCredentialRef = await storeTranslationCredential({
+        secret: modelApiKey,
+        baseUrl: values.modelBaseUrl,
+      });
+      const nextCredentials = {
+        ocrProvider: currentOcrProvider(),
+        paddleToken: ocrToken,
+        translationCredentialRef,
+        modelApiKey,
+      };
       credentialsStatePort.setCredentials?.(nextCredentials);
       // 统一走 savePersisted*：localStorage + 桌面 snapshot/IPC 一次写齐
       await savePersistedBrowserStoredConfig(nextCredentials);
@@ -424,7 +687,7 @@ export function mountBrowserCredentialsFeature({
           currentOcrProvider,
           defaultModelApiKey,
           defaultModelBaseUrl,
-          saveTaskOptions,
+          saveTaskOptions: undefined,
           saveDesktopConfig,
           checkApiConnectivity: async () => {
             try {
@@ -433,7 +696,12 @@ export function mountBrowserCredentialsFeature({
               /* ignore connectivity on save */
             }
           },
-          values: { ...values, paddleToken: ocrToken, modelApiKey },
+          values: {
+            ...values,
+            paddleToken: ocrToken,
+            modelApiKey,
+            translationCredentialRef,
+          },
           setupModePort,
         });
       } else {
@@ -442,11 +710,17 @@ export function mountBrowserCredentialsFeature({
           currentOcrProvider,
           defaultModelApiKey,
           defaultModelBaseUrl,
-          saveTaskOptions,
+          saveTaskOptions: undefined,
           saveBrowserStoredConfig,
-          values: { ...values, paddleToken: ocrToken, modelApiKey },
+          values: {
+            ...values,
+            paddleToken: ocrToken,
+            modelApiKey,
+            translationCredentialRef,
+          },
         });
       }
+      saveTaskOptions?.(nextTaskOptions);
       // 再次保证内存态与刚写入的 next 一致
       credentialsStatePort.setCredentials?.(nextCredentials);
     } catch (error) {
@@ -489,6 +763,20 @@ export function mountBrowserCredentialsFeature({
       viewPort.setHiddenOcrProvider(provider);
       syncOcrProviderControls(provider);
     },
+    changeTranslationProvider: (providerId) => {
+      captureCurrentTranslationProfile();
+      applyTranslationProfile(`${providerId || "custom"}`);
+      viewPort.setDeepSeekValidationMessage("", "");
+      viewPort.setDeepSeekTopUpVisible(false);
+      balanceState.resetDeepSeekBalance();
+      onCredentialStateChange?.();
+    },
+  });
+
+  // Resolve the backend-owned translation credential on mount. This also
+  // repairs a missing local reference without ever returning the secret.
+  void refreshTranslationCredentialReference().catch(() => {
+    // Keep startup non-blocking; save will surface actionable vault errors.
   });
 
   return {

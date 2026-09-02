@@ -1,78 +1,94 @@
-# 前端 CSS 架构（按页拆分）
+# `apps/web` CSS 架构
 
-三页**不再共用一份**全站 `styles.css`。构建产出三份独立包：
+三页分别加载独立 CSS，不再共用一份全站样式包：
 
-| HTML | 入口源码 | 产物 |
-|------|----------|------|
-| `index.html` | `entries/home.css` | `dist/css/home.css` |
-| `detail.html` | `entries/detail.css` | `dist/css/detail.css` |
-| `reader.html` | `entries/reader.css` | `dist/css/reader.css` |
-| `?engine=legacy` | `entries/reader-legacy.css` | `dist/css/reader-legacy.css`（动态注入） |
+| HTML | Web 入口 | 样式真值 | 产物 |
+|------|----------|----------|------|
+| `index.html` | `entries/home.css` | `apps/web/src/styles/**` | `dist/css/home.css` |
+| `detail.html` | `entries/detail.css` | `apps/web/src/styles/**` | `dist/css/detail.css` |
+| `reader.html` | `entries/reader.css` | `packages/reader/styles/entry.css` | `dist/css/reader.css` |
 
-兼容：`styles.css` = `home.css` 副本（旧文档/脚本）；**HTML 已改指向 `dist/css/*`**。
+`styles.css` 是 `home.css` 的兼容副本；HTML 已直接引用 `dist/css/*`。
+
+当前构建不包含 `reader-legacy.css`，Reader 也不再支持 `?engine=legacy`。仓库中若仍存在旧的 `dist/css/reader-legacy.css`，它只是历史产物，不是 `build:css` 的输出或运行时依赖。
 
 ## 目录
 
 ```text
-src/styles/
-  entries/           # 页面入口（谁 import 什么 = 耦合边界）
-    home.css
-    detail.css
-    reader.css          # 默认 react-pdf
-    reader-legacy.css   # ?engine=legacy 附加包
-  core/              # 跨页最小共享
-    tailwind-theme.css
-    download-toast.css
-  tokens.css / base.css / shadcn-theme.css / dialog-shell.css
-  components*.css    # 共享 UI（button-link/label/mono…；阅读器尽量不引整包）
-  pages/home/*       # 主页领域（components.utilities 拆出 + library/status/upload…）
-  pages.css + pages/detail/*
-  reader/ + reader.utilities.css
+apps/web/src/styles/
+├── entries/
+│   ├── home.css          # 主页入口
+│   ├── detail.css        # 详情页入口
+│   └── reader.css        # 指向 packages/reader/styles/entry.css 的薄代理
+├── core/                 # Web 跨页基础样式
+├── pages/home/           # 主页领域样式
+├── pages/detail/         # 详情页领域样式
+├── tokens.css / base.css / shadcn-theme.css
+├── components*.css / dialog-shell.css
+└── reader/               # 迁移后保留的旧镜像，不是当前 Reader 构建真值
 ```
 
-## 耦合规则
+Reader 样式请修改 `packages/reader/styles/*`。不要继续双写 `apps/web/src/styles/reader/*`；该旧镜像应在独立清理和视觉验证后删除。
 
-1. **页面专属样式只进对应 entry**  
-   - 主页：书架、上传工作流、状态卡、凭据、合集…  
-   - 详情：`pages.css` + `pages/detail/*`  
-   - 阅读默认：`reader/layout|chrome|content|react-pdf|fab*|float-ai*|hud…`  
-   - 阅读 legacy：`layout-legacy|chrome-legacy|side-drawer|favorites|selection|ai|annotations…`  
-2. **跨页只放 `core/` + tokens/base/dialog-shell**（以及确有必要时的 components）  
-3. **禁止**再把全站 import 塞回 `src/input.css`  
-4. 新增样式：先判断属于哪一页 → 写进该域文件 → 确认已由对应 `entries/*.css` import  
-5. 门禁：`tests/css-page-namespace.test.mjs`（reader/detail 选择器前缀）
+### 书籍详情样式边界
+
+书籍详情不再由单个 `book-detail.css` 承担全部职责，主页入口按下面的稳定顺序装配：
+
+| 文件 | 负责范围 |
+|------|----------|
+| `book-detail-shell.css` | 弹窗双栏、封面区、顶部 Tabs 与滚动容器 |
+| `book-detail-overview.css` | 概览主视觉、元信息、阅读与活动 |
+| `book-detail-processing.css` | OCR、翻译、阶段进度与内嵌任务状态 |
+| `book-detail-artifacts.css` | 文件分组、产物卡片、预览和下载动作 |
+
+跨 Tab 的结构规则只放入 shell；业务卡片只能修改自己的文件，避免重新形成相互覆盖的巨型样式表。
+
+## 归属规则
+
+1. 页面专属样式只进入对应 entry：
+   - 主页：书架、上传、工作流、状态、凭据、合集与设置；
+   - 详情：详情壳、事件、产物和模态框；
+   - Reader：由 `packages/reader/styles/entry.css` 统一装配。
+2. Web 跨页基础能力放在 `core/`、tokens/base、通用 components 或 `dialog-shell.css`。
+3. 不要把全站 import 重新塞回 `src/input.css` 或兼容 `styles.css`。
+4. 新样式先判断页面/包归属，再确认它被正确 entry 引入。
+5. 页面选择器与 import 边界由 `tests/architecture/css-page-namespace.test.mjs` 等门禁检查。
+6. 弹窗与非模态浮层的外层样式只写在 `dialog-shell.css` 的 `app-dialog-*`、`app-confirm-*`、`app-floating-*` 契约中；页面文件只能覆盖业务内容布局，不得另造遮罩、纸面、圆角、关闭按钮或层级。
 
 ## 构建
 
 ```bash
-npm run build:css          # → dist/css/{home,detail,reader,reader-legacy}.css
-npm run watch:css          # 各入口并行 --watch
+npm --prefix apps/web run build:css
+# → dist/css/home.css
+# → dist/css/detail.css
+# → dist/css/reader.css
+
+npm --prefix apps/web run watch:css
 ```
 
-`scripts/stamp-cache-version.mjs` 按页给 HTML 引用的 `dist/css/*.css` 打 `?v=hash`  
-（`reader-legacy.css` 由 JS 动态注入，一般无 HTML 引用、不参与 stamp）。
+`scripts/stamp-cache-version.mjs` 会给 HTML 中引用的三份 CSS 添加内容哈希查询参数。Reader 的代理链为：
 
-## 体量（minify 后约）
+```text
+apps/web/src/styles/entries/reader.css
+  → packages/reader/styles/entry.css
+  → packages/reader/styles/*.css
+```
 
-| 包 | 量级 | 说明 |
-|----|------|------|
-| home | ~175KB | 主页域最多 |
-| reader | 默认 react-pdf 精简包 | 无书架/工作流、无 legacy 抽屉 |
-| reader-legacy | 附加包 | 仅 `?engine=legacy` |
-| detail | ~86KB | 最轻 |
+## 共享符号位置
 
-阅读页不再加载 `library-view` / `translation-workflow-*` 等主页规则。
-
-## desktop / button-link
-
-| 符号 | 基准位置 |
+| 符号 | 真值位置 |
 |------|----------|
-| `desktop-shell/head/body/dialog` | `dialog-shell.css`（唯一 `@utility`） |
-| `button-link` / `label` / `mono` | `components.utilities.css`（home+detail 共享） |
-| status-card / app-button / inline-error… | `pages/home/components.utilities.css`（仅 home） |
-| 下载 toast | `core/download-toast.css` |
+| `app-dialog-{overlay,content,shell,header,body,footer,close}` | `dialog-shell.css` |
+| `app-confirm-*` / `app-floating-{surface,close}` | `dialog-shell.css` |
+| `button-link` / `label` / `mono` | `components.utilities.css` |
+| status-card / app-button / inline-error | `pages/home/components.utilities.css` |
+| Web 下载 toast | `core/download-toast.css` |
+| Reader UI 与主题 | `packages/reader/styles/*` |
 
 ## 相关
 
-- `scripts/build-css.mjs` · `scripts/stamp-cache-version.mjs`  
-- `src/FEATURES.md` · `frontend/README.md`
+- `scripts/build-css.mjs`
+- `scripts/stamp-cache-version.mjs`
+- `packages/reader/styles/README.md`
+- `src/FEATURES.md`
+- `apps/web/README.md`

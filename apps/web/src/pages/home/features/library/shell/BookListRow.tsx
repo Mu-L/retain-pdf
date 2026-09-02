@@ -8,6 +8,7 @@ import { isLibraryCardProcessing, libraryCardBadge } from "../display/library-ca
 import { BadgeIcon } from "../display/library-card-badge-icon.jsx";
 import { BookCardProcessingOverlay } from "../display/BookCardProcessingOverlay.jsx";
 import { useRecentJobCover } from "../display/useRecentJobCover.js";
+import { resolveLibraryReadPresentation } from "../display/library-card-semantics.js";
 import type { LibraryCardItem } from "../types.js";
 import { recentJobTitle } from "../../../composition/external.js";
 
@@ -79,7 +80,7 @@ function BookListRowImpl({
   const title = recentJobTitle(item);
   const fullTitle = item.title || item.display_name || item.job_id || "-";
   const pageCount = item.page_count || "-";
-  const readerAvailable = `${item.status || ""}`.trim() === "succeeded";
+  const readPresentation = resolveLibraryReadPresentation(item);
   const badge = libraryCardBadge(item);
   const processing = isLibraryCardProcessing(item);
   const coverUrl = useRecentJobCover(item);
@@ -89,7 +90,7 @@ function BookListRowImpl({
       if (documentId) onToggleSelect?.(documentId);
       return;
     }
-    // 优先详情弹窗（翻译 Tab 内嵌进度）；不走旧工作流弹窗
+    // 优先详情弹窗（处理 Tab 内嵌进度）；不走旧工作流弹窗
     if (onOpenDetail && (documentId || jobId)) {
       onOpenDetail(item);
       return;
@@ -110,8 +111,13 @@ function BookListRowImpl({
   function handleEye(event) {
     event.preventDefault();
     event.stopPropagation();
-    if (readerAvailable) { onReader?.(jobId); return; }
-    if (documentId) { onReadSource?.(documentId); }
+    if (readPresentation.target === "job") {
+      onReader?.(readPresentation.jobId);
+      return;
+    }
+    if (readPresentation.target === "source") {
+      onReadSource?.(readPresentation.documentId);
+    }
   }
 
   return (
@@ -169,8 +175,8 @@ function BookListRowImpl({
           <button
             type="button"
             className="recent-job-reader flex h-9 w-9 items-center justify-center rounded-xl bg-muted/50 text-foreground transition hover:bg-muted active:scale-90"
-            title={readerAvailable ? "对照阅读" : "读原文"}
-            aria-label={readerAvailable ? "对照阅读" : "读原文"}
+            title={readPresentation.label}
+            aria-label={readPresentation.label}
             onClick={handleEye}
           >
             <IconEye />

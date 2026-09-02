@@ -289,7 +289,7 @@ export function ReaderFab({
       {open ? (
         <div
           id={menuId}
-          className="reader-fab-menu"
+          className="reader-fab-menu reader-floating-surface"
           role="menu"
           aria-label="阅读工具"
         >
@@ -300,7 +300,7 @@ export function ReaderFab({
             </div>
             <button
               type="button"
-              className="reader-fab-menu-close"
+              className="reader-fab-menu-close reader-floating-close"
               aria-label="关闭菜单"
               onClick={() => setOpen(false)}
             >

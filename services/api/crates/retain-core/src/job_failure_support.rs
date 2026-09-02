@@ -1,5 +1,5 @@
-use crate::models::domain::{JobFailureInfo, JobRawDiagnostic, JobSnapshot};
 use crate::models::domain::OcrProviderDiagnostics;
+use crate::models::domain::{JobFailureInfo, JobRawDiagnostic, JobSnapshot};
 
 use super::PythonStructuredFailure;
 

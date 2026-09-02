@@ -55,10 +55,16 @@ export async function submitJson(url: string, payload: unknown): Promise<any> {
     const contentType = resp.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
       const errorPayload: any = await resp.json();
-      throw new Error(`提交失败: ${resp.status} ${errorPayload.message || JSON.stringify(errorPayload)}${requestContext}`);
+      const error = new Error(`提交失败: ${resp.status} ${errorPayload.message || JSON.stringify(errorPayload)}${requestContext}`) as HttpError;
+      error.status = resp.status;
+      error.url = url;
+      throw error;
     }
     const text = await resp.text();
-    throw new Error(`提交失败: ${resp.status} ${text}${requestContext}`);
+    const error = new Error(`提交失败: ${resp.status} ${text}${requestContext}`) as HttpError;
+    error.status = resp.status;
+    error.url = url;
+    throw error;
   }
   if (resp.status === 204) return { ok: true };
   const contentType = (resp.headers.get("content-type") || "").toLowerCase();

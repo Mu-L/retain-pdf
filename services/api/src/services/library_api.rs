@@ -7,12 +7,12 @@ use crate::models::api::{
     AddCollectionDocumentsInput, AppendMessageInput, AssetRecord, CollectionListView,
     CollectionMutationResult, CollectionRecord, ConversationDetailView, ConversationListView,
     ConversationMutationResult, ConversationRecord, CreateCollectionInput, CreateConversationInput,
-    CreateFavoriteInput, DocumentDeleteResultView, DocumentListView, DocumentRecord,
-    FavoriteListView, FavoriteMutationResult, FavoriteRecord, JobSubmissionView,
+    CreateFavoriteInput, DocumentDeleteResultView, DocumentJobListView, DocumentListView,
+    DocumentRecord, FavoriteListView, FavoriteMutationResult, FavoriteRecord, JobSubmissionView,
     LibraryBatchDeleteInput, LibraryBatchDeleteResultView, LibraryBookDetailView,
-    LibraryBookListView, LibraryDeleteResultView, ListConversationsQuery, ListDocumentsQuery,
-    ListFavoritesQuery, ListJobsQuery, MessageRecord, PatchCollectionInput, PatchConversationInput,
-    PatchDocumentInput, PatchFavoriteInput, SearchQuery, SearchResultView,
+    LibraryBookListView, LibraryDeleteResultView, ListConversationsQuery, ListDocumentJobsQuery,
+    ListDocumentsQuery, ListFavoritesQuery, ListJobsQuery, MessageRecord, PatchCollectionInput,
+    PatchConversationInput, PatchDocumentInput, PatchFavoriteInput, SearchQuery, SearchResultView,
 };
 use crate::models::request::CreateJobInput;
 use crate::services::jobs::JobsFacade;
@@ -23,7 +23,7 @@ use super::library::{
     delete_library_book, delete_library_books, document_cover, document_source_pdf,
     document_thumbnail, get_conversation, get_document, get_library_book, list_collections,
     list_conversations, list_documents, list_favorites, list_library_books, load_asset,
-    patch_collection, patch_conversation, patch_document, patch_favorite,
+    ocr_document, patch_collection, patch_conversation, patch_document, patch_favorite,
     remove_collection_document, search_blocks, store_asset, translate_document, AssetDownload,
     DocumentFileDownload, LibraryDeps,
 };
@@ -96,6 +96,19 @@ pub fn delete_document_view(
     delete_document(deps, document_id, force)
 }
 
+pub fn list_document_jobs_view(
+    deps: &LibraryDeps<'_>,
+    jobs: &JobsFacade<'_>,
+    document_id: &str,
+    query: &ListDocumentJobsQuery,
+    base_url: &str,
+) -> Result<DocumentJobListView, AppError> {
+    deps.db
+        .get_document(document_id)
+        .map_err(|_| AppError::not_found(format!("document not found: {document_id}")))?;
+    jobs.document_jobs_view(base_url, document_id, query)
+}
+
 // --- media ---
 
 pub fn document_source_pdf_download(
@@ -129,6 +142,16 @@ pub fn translate_document_view(
     base_url: &str,
 ) -> Result<JobSubmissionView, AppError> {
     translate_document(deps, jobs, document_id, request, base_url)
+}
+
+pub async fn ocr_document_view(
+    deps: &LibraryDeps<'_>,
+    jobs: &JobsFacade<'_>,
+    document_id: &str,
+    request: CreateJobInput,
+    base_url: &str,
+) -> Result<JobSubmissionView, AppError> {
+    ocr_document(deps, jobs, document_id, request, base_url).await
 }
 
 // --- favorites ---

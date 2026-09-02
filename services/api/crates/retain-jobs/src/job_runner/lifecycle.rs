@@ -81,7 +81,18 @@ async fn dispatch_workflow(
             return resume_translation_stage_from_durable_state(deps, job, true).await;
         }
         (WorkflowKind::Translate, Some("translate")) => {
-            return resume_translation_stage_from_durable_state(deps, job, false).await;
+            let render_after_translation = job.request_payload.runtime.render_after_translation;
+            return resume_translation_stage_from_durable_state(
+                deps,
+                job,
+                render_after_translation,
+            )
+            .await;
+        }
+        (WorkflowKind::Translate, Some("render"))
+            if job.request_payload.runtime.render_after_translation =>
+        {
+            return resume_render_stage_from_durable_state(deps, job).await;
         }
         _ => {}
     }

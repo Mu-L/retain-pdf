@@ -24,9 +24,9 @@ const SHORTCUT_GROUPS: { title: string; items: { keys: string; desc: string }[] 
   {
     title: "模式",
     items: [
-      { keys: "1", desc: "原文" },
-      { keys: "2", desc: "译文" },
-      { keys: "3", desc: "对照阅读" },
+      { keys: "1", desc: "源文件" },
+      { keys: "2", desc: "对照" },
+      { keys: "3", desc: "翻译文件" },
     ],
   },
 ];
@@ -102,7 +102,7 @@ export function ReaderShortcutsHelp() {
       {open ? (
         <div
           id={panelId}
-          className="reader-react-shortcuts-panel"
+          className="reader-react-shortcuts-panel reader-floating-surface"
           role="dialog"
           aria-label="阅读器快捷键"
         >
@@ -110,7 +110,7 @@ export function ReaderShortcutsHelp() {
             <strong>快捷键</strong>
             <button
               type="button"
-              className="reader-react-shortcuts-close"
+              className="reader-react-shortcuts-close reader-floating-close"
               aria-label="关闭"
               onClick={() => setOpen(false)}
             >

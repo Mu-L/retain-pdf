@@ -14,7 +14,7 @@ import type {
   CredentialsElementsRef,
   HandlersBag,
 } from "../../composition/types.js";
-import { createStore } from "../../composition/external.js";
+import { createStore, inferTranslationProvider } from "../../composition/external.js";
 import type { Store } from "../../composition/external.js";
 
 export type CredentialsMessage = {
@@ -36,6 +36,7 @@ export type CredentialsViewState = {
   validations: Record<string, CredentialsMessage>;
   deepSeek: CredentialsMessage;
   deepSeekTopUpVisible: boolean;
+  translationProvider: string;
   dialogStatus: CredentialsMessage;
   /** 只读态,供 UploadTile 订阅决定上传瓦片锁定/credential-gate 可见性 */
   credentialGate: CredentialGateState;
@@ -53,6 +54,7 @@ export type CredentialsViewActions = {
     payload?: { message?: string; tone?: string },
   ): CredentialsViewState;
   setDeepSeekTopUpVisible(state: CredentialsViewState, visible?: boolean): CredentialsViewState;
+  setTranslationProvider(state: CredentialsViewState, provider?: string): CredentialsViewState;
   setDialogStatus(
     state: CredentialsViewState,
     payload?: { message?: string; tone?: string },
@@ -78,6 +80,7 @@ export function createCredentialsViewFeature({
       validations: {},
       deepSeek: { message: "", tone: "" },
       deepSeekTopUpVisible: false,
+      translationProvider: "deepseek",
       dialogStatus: { message: "", tone: "" },
       // 只读态,供 UploadTile 订阅决定上传瓦片锁定/credential-gate 可见性
       // (蓝图 §2.2「upload 按钮锁定态移交 3a」——本域只写这份快照,不直接
@@ -112,6 +115,9 @@ export function createCredentialsViewFeature({
       setDeepSeekTopUpVisible(currentState, visible = false) {
         return { ...currentState, deepSeekTopUpVisible: Boolean(visible) };
       },
+      setTranslationProvider(currentState, provider = "custom") {
+        return { ...currentState, translationProvider: `${provider || "custom"}` };
+      },
       setDialogStatus(currentState, { message = "", tone = "" } = {}) {
         return { ...currentState, dialogStatus: { message, tone } };
       },
@@ -132,6 +138,7 @@ export function createCredentialsViewFeature({
     apiKeyInput: null,
     modelBaseUrlInput: null,
     modelNameInput: null,
+    translationWorkersInput: null,
     mathModeSelect: null,
     tokenInputs: {}, // { [providerId]: HTMLInputElement }
   };
@@ -142,6 +149,7 @@ export function createCredentialsViewFeature({
       apiKeyInput: elementsRef.apiKeyInput,
       modelBaseUrlInput: elementsRef.modelBaseUrlInput,
       modelNameInput: elementsRef.modelNameInput,
+      translationWorkersInput: elementsRef.translationWorkersInput,
       mathModeSelect: elementsRef.mathModeSelect,
     };
   }
@@ -158,6 +166,9 @@ export function createCredentialsViewFeature({
     // credentialsStatePort(credentials.ocrProvider)渲染;不需要
     // dialog-sync.js 原本那种命令式二次同步,no-op。
     syncOcrProviderControls: () => {},
+    syncTranslationProvider: (baseUrl = "") => {
+      store.actions.setTranslationProvider(inferTranslationProvider(baseUrl));
+    },
   };
 
   // browser.js 在 mountBrowserCredentialsFeature() 内同步调用一次
@@ -177,6 +188,7 @@ export function createCredentialsViewFeature({
     dialogElements: () => ({ dialog: true, ...elements() }),
     openDialog: () => dialogStore.open(),
     setDeepSeekTopUpVisible: (visible = false) => store.actions.setDeepSeekTopUpVisible(visible),
+    setTranslationProvider: (provider = "custom") => store.actions.setTranslationProvider(provider),
     setDeepSeekValidationMessage: (message = "", tone = "") => store.actions.setDeepSeek({ message, tone }),
     setDialogMode: ({
       setupMode = false,

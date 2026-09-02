@@ -4,8 +4,9 @@
 //   BookTranslationWorkflowPanel（#book-detail-status-section）
 // 勿再把已有 document 的进度抬进本弹窗；selectJob 有 document_id 时会打开详情。
 //
-// Dialog 渲染层(阶段 C 第二批,shadcn 改造):从 bespoke <div role="dialog">
-// 换成 radix-ui 的 Dialog 原语(DialogPrimitive.Root/Portal/Overlay/Content)。
+// Dialog 渲染层统一走共享 AppDialog；上传态与状态态都使用 standard 尺寸，
+// 为大号拖放区与行内翻译选项保留足够空间。内部工作流卡片与状态卡仍由本
+// feature 负责。
 // 相比阶段 C 第一批(CredentialsDialog 等 4 个,dialog-store.js 工厂 + 单态
 // 关闭语义)结构上有三处不同,逐一说明:
 //
@@ -54,8 +55,14 @@
 // use-dialog-return-focus.js(同 CredentialsDialog 等的先例)。
 
 import { useEffect } from "react";
-import { X } from "lucide-react";
-import { Dialog as DialogPrimitive } from "radix-ui";
+import {
+  Dialog,
+  DialogCloseButton,
+  DialogContent,
+  DialogHeader,
+  DialogShell,
+  DialogTitle,
+} from "@/components/ui/dialog.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useHomeServices } from "../../home-services-context.js";
 import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
@@ -101,7 +108,7 @@ export function TranslationWorkflowDialog({
 
   // Escape(见头注释第 3 点，这里只 preventDefault，实际关闭由既有 document
   // 监听器处理)/ 背板点击(DismissableLayer 的 outside-click 检测)/ 关闭按钮
-  // (DialogPrimitive.Close)最终都统一路由到 requestClose() 的两段式关闭判断
+  // (DialogCloseButton)最终都统一路由到 requestClose() 的两段式关闭判断
   // (状态可见先 returnHome，否则才真正 close)，不直接调
   // dialogStatePort/dialogStore 的 close()。
   function handleOpenChange(nextOpen) {
@@ -111,45 +118,38 @@ export function TranslationWorkflowDialog({
   }
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={handleOpenChange}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="translation-workflow-overlay" />
-        <DialogPrimitive.Content
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent
           id={TRANSLATION_WORKFLOW_DIALOG.ids.dialog}
           className={contentClasses}
           data-open={TRANSLATION_WORKFLOW_DIALOG.datasetValues.open}
           onCloseAutoFocus={onCloseAutoFocus}
           onEscapeKeyDown={(event) => event.preventDefault()}
+          aria-labelledby={TRANSLATION_WORKFLOW_DIALOG.ids.title}
+          showCloseButton={false}
+          size="standard"
         >
-          <div className="desktop-shell translation-workflow-shell">
-            <div className="translation-workflow-head">
-              <div className="translation-workflow-head-copy">
-                <DialogPrimitive.Title asChild>
-                  <h2 id={TRANSLATION_WORKFLOW_DIALOG.ids.title}>
-                    {statusMode
-                      ? TRANSLATION_WORKFLOW_DIALOG.copy.statusTitle
-                      : TRANSLATION_WORKFLOW_DIALOG.copy.uploadTitle}
+          <DialogShell className="desktop-shell translation-workflow-shell">
+            <DialogHeader className={`translation-workflow-head${statusMode ? "" : " is-upload-head"}`}>
+              {statusMode ? (
+                <div className="translation-workflow-head-copy">
+                  <DialogTitle asChild>
+                    <h2 id={TRANSLATION_WORKFLOW_DIALOG.ids.title}>
+                      {TRANSLATION_WORKFLOW_DIALOG.copy.statusTitle}
+                    </h2>
+                  </DialogTitle>
+                </div>
+              ) : (
+                <DialogTitle asChild>
+                  <h2 id={TRANSLATION_WORKFLOW_DIALOG.ids.title} className="sr-only">
+                    {TRANSLATION_WORKFLOW_DIALOG.copy.uploadTitle}
                   </h2>
-                </DialogPrimitive.Title>
-                {!statusMode ? (
-                  <DialogPrimitive.Description asChild>
-                    <p id="translation-workflow-desc" className="translation-workflow-desc">
-                      {TRANSLATION_WORKFLOW_DIALOG.copy.uploadDescription}
-                    </p>
-                  </DialogPrimitive.Description>
-                ) : null}
-              </div>
-              <DialogPrimitive.Close asChild>
-                <button
-                  id={TRANSLATION_WORKFLOW_DIALOG.ids.closeButton}
-                  type="button"
-                  className="dialog-close-btn"
-                  aria-label="关闭"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </DialogPrimitive.Close>
-            </div>
+                </DialogTitle>
+              )}
+              <DialogCloseButton
+                id={TRANSLATION_WORKFLOW_DIALOG.ids.closeButton}
+              />
+            </DialogHeader>
             <WorkflowPanel hiddenInputsSlot={hiddenInputsSlot} />
             <section
               id="status-section"
@@ -158,9 +158,8 @@ export function TranslationWorkflowDialog({
             >
               {statusCardSlot}
             </section>
-          </div>
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+          </DialogShell>
+        </DialogContent>
+    </Dialog>
   );
 }

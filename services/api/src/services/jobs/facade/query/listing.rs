@@ -1,18 +1,33 @@
 use crate::error::AppError;
 use crate::models::api::{
-    ArtifactLinksView, JobArtifactManifestView, JobDetailView, JobEventListView, JobListView,
-    ListJobEventsQuery, ListJobsQuery,
+    ArtifactLinksView, DocumentJobListView, JobArtifactManifestView, JobDetailView,
+    JobEventListView, JobListView, ListDocumentJobsQuery, ListJobEventsQuery, ListJobsQuery,
 };
 use crate::models::domain::JobSnapshot;
 
 use super::super::super::presentation::{
-    build_job_artifact_links_view, build_job_artifact_manifest_view, build_job_detail_view,
-    build_job_events_view, build_job_list_view,
+    build_document_job_list_view, build_job_artifact_links_view, build_job_artifact_manifest_view,
+    build_job_detail_view, build_job_events_view, build_job_list_view,
 };
 use super::super::super::query::{load_ocr_job_with_supported_layout, load_supported_job};
 use super::super::JobsFacade;
 
 impl<'a> JobsFacade<'a> {
+    pub fn document_jobs_view(
+        &self,
+        base_url: &str,
+        document_id: &str,
+        query: &ListDocumentJobsQuery,
+    ) -> Result<DocumentJobListView, AppError> {
+        build_document_job_list_view(
+            self.query.db,
+            self.query.data_root,
+            document_id,
+            query,
+            base_url,
+        )
+    }
+
     pub fn list_jobs_view(
         &self,
         base_url: &str,

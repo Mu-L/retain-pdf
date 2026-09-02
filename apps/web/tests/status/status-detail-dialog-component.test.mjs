@@ -15,7 +15,7 @@ function makeDom(search) {
   const dom = new JSDOM("<!doctype html><html><body></body></html>", {
     url: `http://localhost/index.html${search}`,
   });
-  for (const key of ["window", "document", "HTMLElement", "HTMLInputElement", "HTMLSelectElement", "CustomEvent", "Event", "KeyboardEvent", "MouseEvent", "Node", "MutationObserver", "NodeFilter"]) {
+  for (const key of ["window", "document", "navigator", "DocumentFragment", "HTMLElement", "HTMLButtonElement", "HTMLFormElement", "HTMLInputElement", "HTMLSelectElement", "CustomEvent", "Event", "KeyboardEvent", "MouseEvent", "Node", "MutationObserver", "NodeFilter"]) {
     Object.defineProperty(globalThis, key, {
       value: dom.window[key] ?? dom.window,
       writable: true,
@@ -192,6 +192,114 @@ test("StatusDetailDialog：overview 首屏占位（同步）→ 刷新两段渲�
   host.remove();
 });
 
+test("StatusDetailDialog：Paddle QueueFull 提供结构化恢复、Trace 复制和立即 OCR 重试", async () => {
+  const dom = makeDom("?mock=failed");
+  const copied = [];
+  Object.defineProperty(dom.window.navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: async (value) => copied.push(value) },
+  });
+  Object.defineProperty(dom.window, "isSecureContext", {
+    configurable: true,
+    value: true,
+  });
+  const { services, root, host } = await bootHomeApp(dom);
+  const originalJobId = await openStatusDetailDialog(dom, services);
+  await waitFor(
+    () => services.statusDetail.store.getSnapshot().overview.failure.summary === "任务失败，但这是前端 mock 场景。",
+    "失败概览数据就绪",
+  );
+  click(dom, byId(dom, "detail-tab-failure"));
+  await waitFor(() => byId(dom, "detail-panel-failure").hidden === false, "切到失败 tab");
+  services.statusDetail.store.actions.setOverview({
+    failureRecovery: {
+      kind: "queue_full",
+      provider: "paddle",
+      providerCode: "10010",
+      traceId: "trace-queue-10010",
+      attempt: 2,
+      maxAttempts: 4,
+      retryAtMs: Date.now() + 30_000,
+      retryAfterSource: "diagnostics.retry_after",
+      retryOcr: {
+        available: true,
+        enabled: true,
+        method: "POST",
+        url: `mock://jobs/${originalJobId}/retry-stage`,
+        body: { stage: "ocr", ambiguous_request_policy: "block" },
+        reason: "",
+        requiresDuplicateRisk: false,
+      },
+      checkpointArtifacts: ["source_pdf"],
+      preservesSourcePdf: true,
+      statusText: "OCR 服务队列繁忙，等待自动重试（第 2/4 次）",
+      preservationText: "原 PDF 会保留并用于重新 OCR。",
+      backendGaps: [],
+    },
+  });
+  assert.equal(services.statusDetail.store.getSnapshot().overview.failureRecovery.kind, "queue_full");
+  assert.equal(services.statusDetail.store.getSnapshot().overview.ocrAmbiguity.required, false);
+
+  await waitFor(() => byId(dom, "failure-queue-card"), "QueueFull 恢复卡出现");
+  assert.match(byId(dom, "failure-queue-card").textContent, /Paddle OCR 队列繁忙/);
+  assert.match(byId(dom, "failure-queue-countdown").textContent, /秒后自动重试/);
+  assert.match(byId(dom, "failure-preservation").textContent, /原 PDF 会保留/);
+
+  click(dom, byId(dom, "failure-copy-trace-btn"));
+  await waitFor(() => byId(dom, "failure-trace-feedback").textContent.includes("已复制"), "Trace ID 复制反馈");
+  assert.deepEqual(copied, ["trace-queue-10010"]);
+
+  click(dom, byId(dom, "failure-retry-ocr-btn"));
+  await waitFor(() => byId(dom, "status-detail-dialog") === null, "立即重试 OCR 后关闭详情");
+  await waitFor(
+    () => services.features.jobRuntimeFeature.currentJobId() !== originalJobId,
+    "立即重试 OCR 后轮询新任务",
+  );
+  assert.match(services.features.jobRuntimeFeature.currentJobId(), /^mock-ocr-retry-/);
+
+  root.unmount();
+  services.dispose();
+  host.remove();
+});
+
+test("StatusDetailDialog：切换 OCR 服务只打开 API 设置，不自动修改 provider", async () => {
+  const dom = makeDom("?mock=failed");
+  const { services, root, host } = await bootHomeApp(dom);
+  const originalJobId = await openStatusDetailDialog(dom, services);
+  await waitFor(
+    () => services.statusDetail.store.getSnapshot().overview.failure.summary === "任务失败，但这是前端 mock 场景。",
+    "失败概览数据就绪",
+  );
+  click(dom, byId(dom, "detail-tab-failure"));
+  await waitFor(() => byId(dom, "detail-panel-failure").hidden === false, "切到失败 tab");
+  services.statusDetail.store.actions.setOverview({
+    failureRecovery: {
+      ...services.statusDetail.store.getSnapshot().overview.failureRecovery,
+      kind: "queue_full",
+      provider: "paddle",
+      providerCode: "10010",
+      statusText: "OCR 服务队列繁忙，等待服务自动重试；也可立即重试",
+      preservationText: "原 PDF 会保留并用于重新 OCR。",
+    },
+  });
+  assert.equal(services.statusDetail.store.getSnapshot().overview.failureRecovery.kind, "queue_full");
+  await waitFor(() => byId(dom, "failure-switch-provider-btn"), "切换 OCR 服务入口出现");
+
+  click(dom, byId(dom, "failure-switch-provider-btn"));
+  await waitFor(() => byId(dom, "status-detail-dialog") === null, "任务详情关闭");
+  await waitFor(() => byId(dom, "app-settings-dialog"), "API 设置打开");
+  assert.equal(
+    services.statusDetail.store.getSnapshot().overview.failureRecovery.provider,
+    "paddle",
+    "入口只导航，不改写 provider",
+  );
+  assert.equal(services.features.jobRuntimeFeature.currentJobId(), originalJobId);
+
+  root.unmount();
+  services.dispose();
+  host.remove();
+});
+
 test("StatusDetailDialog：StageHistoryList/EventsList 结构化 JSX 逐条渲染", async () => {
   const dom = makeDom("?mock=failed");
   const { services, root, host } = await bootHomeApp(dom);
@@ -242,6 +350,110 @@ test("StatusDetailDialog：失败 tab 重放（rerun）成功 → 关闭对话�
     "rerun 成功后 startPolling 切换到新 job",
   );
   assert.match(services.features.jobRuntimeFeature.currentJobId(), /^mock-rerun-/);
+
+  root.unmount();
+  services.dispose();
+  host.remove();
+});
+
+test("StatusDetailDialog：OCR 请求不明确时二次确认风险并切换到恢复任务", async () => {
+  const dom = makeDom("?mock=failed");
+  const { services, root, host } = await bootHomeApp(dom);
+  const originalJobId = await openStatusDetailDialog(dom, services);
+
+  click(dom, byId(dom, "detail-tab-failure"));
+  await waitFor(() => byId(dom, "detail-panel-failure").hidden === false, "切到失败 tab");
+  services.statusDetail.store.actions.setOverview({
+    ocrAmbiguity: {
+      required: true,
+      status: "",
+      jobId: originalJobId,
+      descriptor: {
+        status: "ambiguous",
+        provider: "mineru",
+        operation: "apply_upload_url",
+        resolution_revision: 4,
+        allowed_resolutions: ["bind_existing_receipt", "accept_duplicate_risk"],
+        receipt_fields: [
+          { name: "batch_id", label: "Batch ID", required: true, secret: false },
+          { name: "upload_url", label: "Upload URL", required: true, secret: true },
+          { name: "trace_id", label: "Trace ID", required: false, secret: false },
+        ],
+      },
+    },
+  });
+  await waitFor(() => byId(dom, "failure-ocr-ambiguity-btn"), "OCR ambiguity 恢复入口出现");
+  assert.match(byId(dom, "failure-ocr-ambiguity-status").textContent, /MinerU 返回结果不明确/);
+
+  click(dom, byId(dom, "failure-ocr-ambiguity-btn"));
+  await waitFor(() => byId(dom, "failure-ocr-ambiguity-confirm"), "风险确认弹窗出现");
+  assert.match(byId(dom, "failure-ocr-ambiguity-confirm").textContent, /可能造成重复处理或计费/);
+
+  click(dom, byId(dom, "failure-ocr-ambiguity-confirm-confirm"));
+  await waitFor(() => byId(dom, "status-detail-dialog") === null, "恢复任务创建后关闭详情");
+  await waitFor(
+    () => services.features.jobRuntimeFeature.currentJobId() !== originalJobId,
+    "恢复成功后切换轮询任务",
+  );
+  assert.match(services.features.jobRuntimeFeature.currentJobId(), /^mock-live-/);
+
+  root.unmount();
+  services.dispose();
+  host.remove();
+});
+
+test("StatusDetailDialog：按后端 receipt_fields 渲染绑定表单且关闭后清除敏感输入", async () => {
+  const dom = makeDom("?mock=failed");
+  const { services, root, host } = await bootHomeApp(dom);
+  const originalJobId = await openStatusDetailDialog(dom, services);
+
+  click(dom, byId(dom, "detail-tab-failure"));
+  await waitFor(() => byId(dom, "detail-panel-failure").hidden === false, "切到失败 tab");
+  services.statusDetail.store.actions.setOverview({
+    ocrAmbiguity: {
+      required: true,
+      status: "",
+      jobId: originalJobId,
+      descriptor: {
+        status: "ambiguous",
+        provider: "mineru",
+        operation: "apply_upload_url",
+        resolution_revision: 4,
+        allowed_resolutions: ["bind_existing_receipt", "accept_duplicate_risk"],
+        receipt_fields: [
+          { name: "batch_id", label: "Batch ID", required: true, secret: false },
+          { name: "upload_url", label: "Upload URL", required: true, secret: true },
+          { name: "trace_id", label: "Trace ID", required: false, secret: false },
+        ],
+      },
+    },
+  });
+  await waitFor(() => byId(dom, "failure-ocr-bind-btn"), "绑定已有任务入口出现");
+  click(dom, byId(dom, "failure-ocr-bind-btn"));
+  await waitFor(() => byId(dom, "failure-ocr-bind-dialog"), "绑定回执弹窗出现");
+
+  const batchInput = byId(dom, "failure-ocr-bind-dialog-batch_id");
+  const uploadInput = byId(dom, "failure-ocr-bind-dialog-upload_url");
+  assert.equal(uploadInput.type, "password", "后端标记 secret 的字段使用遮罩输入");
+  assert.equal(byId(dom, "failure-ocr-bind-dialog-task_id"), null, "不渲染后端未声明字段");
+  typeInput(dom, batchInput, "batch-private");
+  typeInput(dom, uploadInput, "https://signed.example/private");
+
+  click(dom, byId(dom, "failure-ocr-bind-dialog").querySelector('[data-slot="dialog-close-button"]'));
+  await waitFor(() => byId(dom, "failure-ocr-bind-dialog") === null, "关闭绑定弹窗");
+  click(dom, byId(dom, "failure-ocr-bind-btn"));
+  await waitFor(() => byId(dom, "failure-ocr-bind-dialog"), "重新打开绑定弹窗");
+  assert.equal(byId(dom, "failure-ocr-bind-dialog-batch_id").value, "");
+  assert.equal(byId(dom, "failure-ocr-bind-dialog-upload_url").value, "");
+
+  typeInput(dom, byId(dom, "failure-ocr-bind-dialog-batch_id"), "batch-ready");
+  typeInput(dom, byId(dom, "failure-ocr-bind-dialog-upload_url"), "https://signed.example/ready");
+  click(dom, byId(dom, "failure-ocr-bind-dialog-submit"));
+  await waitFor(() => byId(dom, "status-detail-dialog") === null, "绑定成功后关闭详情");
+  await waitFor(
+    () => services.features.jobRuntimeFeature.currentJobId() !== originalJobId,
+    "绑定成功后切换到恢复任务",
+  );
 
   root.unmount();
   services.dispose();

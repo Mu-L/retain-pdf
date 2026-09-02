@@ -1,27 +1,23 @@
 import { flattenStageSnapshot } from "@retainpdf/domain/job";
+import {
+  dedupeLibraryCards,
+  libraryCardIdentity,
+  libraryCardIdentityAliases,
+} from "./library-card-identity.js";
+import type { LibraryJobItem } from "./runtime-item.js";
 
 export const RECENT_JOBS_PAGE_SIZE = 24;
 
-export function dedupeRecentJobs(items) {
-  const seen = new Set();
-  const result = [];
-  for (const item of Array.isArray(items) ? items : []) {
-    const jobId = `${item?.job_id || ""}`.trim();
-    if (!jobId || seen.has(jobId)) {
-      continue;
-    }
-    seen.add(jobId);
-    result.push(item);
-  }
-  return result;
+export function dedupeRecentJobs(
+  items: LibraryJobItem[] | null | undefined,
+): LibraryJobItem[] {
+  return dedupeLibraryCards(items);
 }
 
 export function isPrimaryRecentJob(item) {
-  const workflow = `${item?.workflow || item?.job_type || ""}`.trim();
   const jobId = `${item?.job_id || ""}`.trim();
-  if (workflow === "ocr") {
-    return false;
-  }
+  // Translation workflows create a canonical `<parent>-ocr` child. Standalone
+  // OCR jobs are document roots and must remain visible in the library.
   if (jobId.endsWith("-ocr")) {
     return false;
   }
@@ -39,7 +35,16 @@ export async function collectRecentJobsPage({
 }: any) {
   const fetchLimit = Math.max(pageSize, 20);
   const collected = [];
-  const seenJobIds = new Set(existingJobIds);
+  const seenCardIdentities = new Set(
+    Array.from(existingJobIds || [])
+      .map((value) => `${value || ""}`.trim())
+      .filter(Boolean)
+      .map((value) => (
+        value.startsWith("document:") || value.startsWith("job:")
+          ? value
+          : `job:${value}`
+      )),
+  );
   let latestInvocationSummary = null;
   let nextOffset = startOffset;
   let hasMore = true;
@@ -66,11 +71,12 @@ export async function collectRecentJobsPage({
       if (!isPrimaryRecentJob(item)) {
         continue;
       }
-      const jobId = `${item?.job_id || ""}`.trim();
-      if (!jobId || seenJobIds.has(jobId)) {
+      const identity = libraryCardIdentity(item);
+      const aliases = libraryCardIdentityAliases(item);
+      if (!identity || aliases.some((alias) => seenCardIdentities.has(alias))) {
         continue;
       }
-      seenJobIds.add(jobId);
+      aliases.forEach((alias) => seenCardIdentities.add(alias));
       collected.push(flattenStageSnapshot(item));
       if (collected.length >= pageSize) {
         break;

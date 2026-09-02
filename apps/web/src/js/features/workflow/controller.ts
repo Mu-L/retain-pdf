@@ -22,11 +22,12 @@ import {
 import { resolveSubmitControlState } from "./submit-controls.js";
 import { resolveTranslationBudgetState } from "./budget.js";
 import { defaultWorkflowConfigPort } from "./config-port.js";
+import { isOfficialDeepSeekBaseUrl } from "../../config/providers.js";
 
 export interface WorkflowSubmitValues {
   ocrProvider?: string;
   ocrToken?: string;
-  modelApiKey?: string;
+  translationCredentialRef?: string;
   selectedGlossaryId?: string;
 }
 
@@ -250,7 +251,9 @@ export function mountWorkflowFeature({
   }
 
   function workflowHeadline(workflow = currentWorkflow()) {
-    if (isOcrOnlyMode()) return "仅做 OCR：上传后只做版面与文本提取，不进行翻译与渲染。";
+    // 上传区只解释“先选择文件”这一步。当前处理模式已经由上方的
+    // 分段控件明确表达，不在这里重复切换一段长短不同的说明，避免
+    // 翻译 / OCR 切换时上传卡和外层 Dialog 一起发生高度抖动。
     return resolveWorkflowHeadline(workflow, constants);
   }
 
@@ -291,6 +294,15 @@ export function mountWorkflowFeature({
 
   function currentBudgetState(workflow = currentWorkflow()) {
     if (isOcrOnlyMode()) {
+      return { visible: false, blocking: false, tone: "", message: "", topUpUrl: "" } as any;
+    }
+    const developerConfig = getDeveloperConfig() || {};
+    const modelBaseUrl = `${
+      (developerConfig as { baseUrl?: unknown }).baseUrl
+      || defaultModelBaseUrl()
+      || ""
+    }`;
+    if (!isOfficialDeepSeekBaseUrl(modelBaseUrl)) {
       return { visible: false, blocking: false, tone: "", message: "", topUpUrl: "" } as any;
     }
     const uploadState = getUploadState();
@@ -400,7 +412,7 @@ export function mountWorkflowFeature({
   ) {
     return buildTranslationPayloadRequest({
       developerConfig,
-      modelApiKey: submitValues.modelApiKey,
+      translationCredentialRef: submitValues.translationCredentialRef,
       selectedGlossaryId: submitValues.selectedGlossaryId,
       constants,
     });
@@ -433,6 +445,15 @@ export function mountWorkflowFeature({
     return {
       ocr: buildOcrPayload(pageRanges, submitValues),
       translation: buildTranslationPayload(developerConfig, submitValues),
+    };
+  }
+
+  // 馆藏文档 OCR-only：只复用 OCR 凭据，不携带翻译模型配置。
+  // source.upload_id 由文档级后端接口安全注入。
+  function buildOcrJobConfig(pageRanges = "") {
+    return {
+      workflow: WORKFLOW_OCR,
+      ocr: buildOcrPayload(pageRanges, currentWorkflowSubmitValues()),
     };
   }
 
@@ -473,6 +494,7 @@ export function mountWorkflowFeature({
 
   return {
     applyWorkflowMode,
+    buildOcrJobConfig,
     buildTranslateJobConfig,
     collectRunPayload,
     currentRenderSourceJobId,

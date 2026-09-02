@@ -40,6 +40,10 @@ export function loadBrowserStoredConfig() {
   return normalizeBrowserStoredConfig({
     ocrProvider: fromSnap.ocrProvider || fromStorage.ocrProvider,
     paddleToken: preferNonEmpty(fromSnap.paddleToken, fromStorage.paddleToken),
+    translationCredentialRef: preferNonEmpty(
+      fromSnap.translationCredentialRef,
+      fromStorage.translationCredentialRef,
+    ),
     modelApiKey: preferNonEmpty(fromSnap.modelApiKey, fromStorage.modelApiKey),
   });
 }

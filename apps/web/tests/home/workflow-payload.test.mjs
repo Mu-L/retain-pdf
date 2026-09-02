@@ -57,15 +57,16 @@ function developerConfig(overrides = {}) {
   };
 }
 
-test("buildTranslationPayload uses injected glossary and model key without DOM", () => {
+test("buildTranslationPayload uses injected glossary and credential ref without DOM", () => {
   const payload = buildTranslationPayload({
     developerConfig: developerConfig(),
-    modelApiKey: "model-key",
+    translationCredentialRef: "cred_translation",
     selectedGlossaryId: "glossary-selected",
     constants,
   });
 
-  assert.equal(payload.api_key, "model-key");
+  assert.equal(payload.credential_ref, "cred_translation");
+  assert.equal("api_key" in payload, false);
   assert.equal(payload.glossary_id, "glossary-selected");
   assert.equal(payload.model, "deepseek-chat");
   assert.equal(payload.base_url, "https://api.deepseek.com");
@@ -75,7 +76,7 @@ test("buildTranslationPayload uses injected glossary and model key without DOM",
 test("buildTranslationPayload falls back to developer glossary id", () => {
   const payload = buildTranslationPayload({
     developerConfig: developerConfig({ glossaryId: "glossary-fallback", translateTitles: false }),
-    modelApiKey: "model-key",
+    translationCredentialRef: "cred_translation",
     selectedGlossaryId: "",
     constants,
   });
@@ -136,7 +137,7 @@ function mountWorkflowHarness({
   submitValues = {
     ocrProvider: "paddle",
     ocrToken: "ocr-token",
-    modelApiKey: "model-key",
+    translationCredentialRef: "cred_translation",
     selectedGlossaryId: "glossary-selected",
   },
 } = {}) {
@@ -209,7 +210,8 @@ test("collectRunPayload builds book submit payload from resolved workflow inputs
   assert.equal(payload.ocr.provider, "paddle");
   assert.equal(payload.ocr.paddle_token, "ocr-token");
   assert.equal(payload.ocr.page_ranges, "2-4");
-  assert.equal(payload.translation.api_key, "model-key");
+  assert.equal(payload.translation.credential_ref, "cred_translation");
+  assert.equal("api_key" in payload.translation, false);
   assert.equal(payload.translation.glossary_id, "glossary-selected");
   assert.equal(payload.render.compile_workers, 5);
 });
@@ -248,7 +250,7 @@ test("workflow controller routes UI side effects through view port", async () =>
     readSubmitValues: () => ({
       ocrProvider: "paddle",
       ocrToken: "ocr-token",
-      modelApiKey: "model-key",
+      translationCredentialRef: "cred_translation",
       selectedGlossaryId: "glossary-selected",
     }),
     renderBudgetNote: (budget) => calls.push(["budget", budget.visible]),

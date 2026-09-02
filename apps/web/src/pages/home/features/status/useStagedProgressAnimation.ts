@@ -13,7 +13,7 @@
 // 又不触发渲染"的方案)。真正需要触发渲染的只有 renderOptions(通过独立的
 // useState 输出,交给 ProgressBlock.jsx 渲染)。
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   buildProgressOptions,
   shouldAnimateRenderPageProgress,
@@ -21,10 +21,52 @@ import {
 
 const TICK_DELAY_MS = 120;
 
+function progressNumber(value) {
+  if (value === null || value === undefined || value === "") return Number.NaN;
+  return Number(value);
+}
+
 export function useStagedProgressAnimation({ selected, selectedIsCurrent, snapshot, selectedProgress, jobId }) {
   const displayedProgressByStageRef = useRef({});
   const timerRef = useRef(null);
-  const [renderOptions, setRenderOptions] = useState(null);
+  const normalizedJobId = `${jobId || ""}`.trim();
+  const normalizedSelected = `${selected || ""}`.trim();
+  const [animationFrame, setAnimationFrame] = useState(null);
+  // embedded 状态卡每次 render 都可能重新组装 snapshot/selectedProgress 对象。
+  // effect 只应跟随真正参与进度展示的标量；若依赖对象引用，内部 setState
+  // 会再次 render 并拿到新对象，最终触发 React #185（Maximum update depth）。
+  const snapshotStatus = `${snapshot?.status || ""}`.trim();
+  const snapshotProgressPercent = progressNumber(snapshot?.progressPercent);
+  const snapshotProgressFallbackText = `${snapshot?.progressFallbackText || ""}`;
+  const selectedCurrent = progressNumber(selectedProgress?.current);
+  const selectedTotal = progressNumber(selectedProgress?.total);
+  const selectedProgressUnit = `${selectedProgress?.progressUnit || ""}`;
+  const selectedDisplayPercent = selectedProgress?.displayPercent === null
+    || selectedProgress?.displayPercent === undefined
+    ? null
+    : Number(selectedProgress.displayPercent);
+  const selectedProgressText = `${selectedProgress?.progressText || ""}`;
+  const selectedIndeterminate = Boolean(selectedProgress?.indeterminate);
+  const stableSnapshot = useMemo(() => ({
+    status: snapshotStatus,
+    progressPercent: snapshotProgressPercent,
+    progressFallbackText: snapshotProgressFallbackText,
+  }), [snapshotProgressFallbackText, snapshotProgressPercent, snapshotStatus]);
+  const stableSelectedProgress = useMemo(() => ({
+    current: selectedCurrent,
+    total: selectedTotal,
+    progressUnit: selectedProgressUnit,
+    displayPercent: selectedDisplayPercent,
+    progressText: selectedProgressText,
+    indeterminate: selectedIndeterminate,
+  }), [
+    selectedCurrent,
+    selectedDisplayPercent,
+    selectedIndeterminate,
+    selectedProgressText,
+    selectedProgressUnit,
+    selectedTotal,
+  ]);
 
   function clear() {
     if (timerRef.current) {
@@ -46,22 +88,29 @@ export function useStagedProgressAnimation({ selected, selectedIsCurrent, snapsh
   useEffect(() => {
     clear();
     displayedProgressByStageRef.current = {};
+    setAnimationFrame((current) => (current === null ? current : null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobId]);
+  }, [normalizedJobId]);
 
   useEffect(() => {
-    const previous = displayedProgressByStageRef.current[selected];
+    const previous = displayedProgressByStageRef.current[normalizedSelected];
     const {
       previousCurrent,
       shouldAnimate,
       targetCurrent,
       targetTotal,
-    } = shouldAnimateRenderPageProgress({ selected, selectedIsCurrent, snapshot, selectedProgress, previous });
+    } = shouldAnimateRenderPageProgress({
+      selected: normalizedSelected,
+      selectedIsCurrent,
+      snapshot: stableSnapshot,
+      selectedProgress: stableSelectedProgress,
+      previous,
+    });
 
     if (!shouldAnimate) {
       clear();
-      rememberProgress(selected, targetCurrent, targetTotal);
-      setRenderOptions(buildProgressOptions({ selected, selectedIsCurrent, snapshot, selectedProgress }));
+      rememberProgress(normalizedSelected, targetCurrent, targetTotal);
+      setAnimationFrame((current) => (current === null ? current : null));
       return undefined;
     }
 
@@ -69,23 +118,63 @@ export function useStagedProgressAnimation({ selected, selectedIsCurrent, snapsh
     let displayedCurrent = previousCurrent;
     const tick = () => {
       displayedCurrent = Math.min(targetCurrent, displayedCurrent + 1);
-      rememberProgress(selected, displayedCurrent, targetTotal);
-      setRenderOptions(buildProgressOptions({
-        selected, selectedIsCurrent, snapshot, selectedProgress, displayedCurrent,
-      }));
+      rememberProgress(normalizedSelected, displayedCurrent, targetTotal);
+      setAnimationFrame((current) => {
+        if (
+          current?.jobId === normalizedJobId
+          && current?.stageKey === normalizedSelected
+          && Object.is(current?.displayedCurrent, displayedCurrent)
+        ) {
+          return current;
+        }
+        return {
+          jobId: normalizedJobId,
+          stageKey: normalizedSelected,
+          displayedCurrent,
+        };
+      });
       if (displayedCurrent < targetCurrent) {
         timerRef.current = setTimeout(tick, TICK_DELAY_MS);
       }
     };
     tick();
     return clear;
-    // selected/selectedIsCurrent/snapshot/selectedProgress 均来自 props 派生值,
-    // 每次上游快照变化时这些引用天然变化,依赖表随其变化重跑动画判定——
-    // 与旧世界 render({selected,...}) 每次快照回调都被调用一次的时序等价。
+    // snapshot/selectedProgress 的对象引用不稳定；上面的标量字段覆盖了
+    // shouldAnimateRenderPageProgress/buildProgressOptions 读取的完整输入。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, selectedIsCurrent, snapshot, selectedProgress]);
+  }, [
+    normalizedJobId,
+    normalizedSelected,
+    selectedIsCurrent,
+    snapshotStatus,
+    snapshotProgressPercent,
+    snapshotProgressFallbackText,
+    selectedCurrent,
+    selectedTotal,
+    selectedProgressUnit,
+    selectedDisplayPercent,
+    selectedProgressText,
+    selectedIndeterminate,
+  ]);
 
   useEffect(() => clear, []);
 
-  return renderOptions;
+  const displayedCurrent = animationFrame?.jobId === normalizedJobId
+    && animationFrame?.stageKey === normalizedSelected
+    ? animationFrame.displayedCurrent
+    : null;
+
+  return useMemo(() => buildProgressOptions({
+    selected: normalizedSelected,
+    selectedIsCurrent,
+    snapshot: stableSnapshot,
+    selectedProgress: stableSelectedProgress,
+    displayedCurrent,
+  }), [
+    displayedCurrent,
+    normalizedSelected,
+    selectedIsCurrent,
+    stableSelectedProgress,
+    stableSnapshot,
+  ]);
 }

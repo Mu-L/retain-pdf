@@ -374,10 +374,72 @@ export function translateMockDocument(documentId: string): JobSubmissionView {
   return {
     job_id: live.jobId,
     document_id: found.document_id,
+    workflow: "book",
     status: `${snapshot.status || "queued"}`,
     stage: `${snapshot.stage || "queued"}`,
     display_stage: `${snapshot.display_stage || "ocr"}`,
     stage_detail: `${snapshot.stage_detail || "正在读取任务状态..."}`,
+  };
+}
+
+export function ocrMockDocument(documentId: string): JobSubmissionView {
+  const found = documents().find((item) => item.document_id === documentId);
+  if (!found) {
+    throw new Error("未找到该文档。(404)");
+  }
+  const previous = `${found.active_job_id || ""}`.trim();
+  const jobId = `mock-ocr-${Date.now()}`;
+  if (previous) MOCK_HISTORICAL_JOB_TO_DOCUMENT[previous] = found.document_id;
+  MOCK_HISTORICAL_JOB_TO_DOCUMENT[jobId] = found.document_id;
+  found.active_job_id = jobId;
+  found.updated_at = new Date().toISOString();
+  return {
+    job_id: jobId,
+    document_id: found.document_id,
+    workflow: "ocr",
+    status: "queued",
+    stage: "queued",
+    display_stage: "ocr",
+  };
+}
+
+export function getMockDocumentJobs(documentId: string) {
+  const found = documents().find((item) => item.document_id === documentId);
+  if (!found) {
+    throw new Error("未找到该文档。(404)");
+  }
+  const jobId = `${found.active_job_id || ""}`.trim();
+  if (!jobId) return { items: [], invocation_summary: {} };
+  const isOcr = jobId.startsWith("mock-ocr-");
+  const live = isOcr ? null : buildLiveMockJobPayload(jobId);
+  const status = `${live?.status || (isOcr ? "queued" : "succeeded")}`;
+  const stage = `${live?.stage || (isOcr ? "queued" : "finished")}`;
+  const displayStage = `${live?.display_stage || (isOcr ? "ocr" : "done")}`;
+  const stageDetail = `${live?.stage_detail || (isOcr ? "OCR 任务已排队" : "任务完成")}`;
+  const liveProgress: any = live?.progress || {};
+  return {
+    items: [{
+      job_id: jobId,
+      workflow: isOcr ? "ocr" : "book",
+      status,
+      stage_snapshot: {
+        display_stage: displayStage,
+        stage,
+        stage_detail: stageDetail,
+        progress: isOcr
+          ? { current: 0, total: found.page_count }
+          : {
+              current: Number(liveProgress.current) || found.page_count,
+              total: Number(liveProgress.total) || found.page_count,
+              percent: Number(liveProgress.percent),
+            },
+      },
+      created_at: found.updated_at,
+      updated_at: found.updated_at,
+      markdown_ready: !isOcr && status === "succeeded",
+      output_pdf_ready: !isOcr && status === "succeeded",
+    }],
+    invocation_summary: {},
   };
 }
 

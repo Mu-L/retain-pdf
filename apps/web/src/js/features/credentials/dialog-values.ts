@@ -6,7 +6,9 @@ export interface CredentialDialogValues {
   modelApiKey: string;
   modelBaseUrl: string;
   modelName: string;
+  translationWorkers: string;
   mathMode: string;
+  translationCredentialRef?: string;
 }
 
 export interface CredentialDialogElementsLike {
@@ -14,6 +16,7 @@ export interface CredentialDialogElementsLike {
   apiKeyInput?: { value?: string } | null;
   modelBaseUrlInput?: { value?: string } | null;
   modelNameInput?: { value?: string } | null;
+  translationWorkersInput?: { value?: string } | null;
   mathModeSelect?: { value?: string } | null;
 }
 
@@ -24,13 +27,13 @@ export interface ReadCredentialDialogValuesOptions {
 }
 
 export interface BuildBrowserCredentialConfigOptions {
-  values: Pick<CredentialDialogValues, "paddleToken" | "modelApiKey">;
+  values: Pick<CredentialDialogValues, "paddleToken" | "modelApiKey" | "translationCredentialRef">;
   currentOcrProvider: () => string;
   defaultModelApiKey?: () => string;
 }
 
 export interface BuildTaskOptionsFromDialogValuesOptions {
-  values: Pick<CredentialDialogValues, "modelName" | "modelBaseUrl" | "mathMode">;
+  values: Pick<CredentialDialogValues, "modelName" | "modelBaseUrl" | "translationWorkers" | "mathMode">;
   defaultModelBaseUrl?: () => string;
 }
 
@@ -42,6 +45,7 @@ export function readCredentialDialogValues({
     apiKeyInput,
     modelBaseUrlInput,
     modelNameInput,
+    translationWorkersInput,
     mathModeSelect,
   } = elementsPort.elements();
   return {
@@ -49,6 +53,7 @@ export function readCredentialDialogValues({
     modelApiKey: apiKeyInput?.value?.trim() || "",
     modelBaseUrl: modelBaseUrlInput?.value?.trim() || "",
     modelName: modelNameInput?.value?.trim() || "",
+    translationWorkers: translationWorkersInput?.value?.trim() || "",
     mathMode: mathModeSelect?.value || "direct_typst",
   };
 }
@@ -56,13 +61,13 @@ export function readCredentialDialogValues({
 export function buildBrowserCredentialConfig({
   values,
   currentOcrProvider,
-  // defaultModelApiKey 保留参数兼容调用方，但不再静默写入设置（密钥只认对话框/用户输入）
-  defaultModelApiKey: _defaultModelApiKey,
+  defaultModelApiKey,
 }: BuildBrowserCredentialConfigOptions) {
   return {
     ocrProvider: currentOcrProvider(),
     paddleToken: values.paddleToken,
-    modelApiKey: `${values.modelApiKey || ""}`.trim(),
+    translationCredentialRef: `${values.translationCredentialRef || ""}`.trim(),
+    modelApiKey: `${values.modelApiKey || defaultModelApiKey?.() || ""}`.trim(),
   };
 }
 
@@ -73,6 +78,7 @@ export function buildTaskOptionsFromDialogValues({
   return {
     model: values.modelName,
     baseUrl: values.modelBaseUrl || defaultModelBaseUrl?.() || "",
+    workers: Number(values.translationWorkers),
     mathMode: values.mathMode,
     translateTitles: true,
   };

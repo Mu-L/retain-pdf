@@ -67,6 +67,7 @@ export type BindCredentialViewEventsOptions = {
   open?: (options?: OpenCredentialDialogOptions) => void;
   activateCredentialTab?: (tabName: string) => void;
   changeProvider?: (event: Event) => void;
+  changeTranslationProvider?: (providerId: string) => void;
 };
 
 const noopUploadTilePort: CredentialUploadTilePort = Object.freeze({

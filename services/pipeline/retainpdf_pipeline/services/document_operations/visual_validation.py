@@ -29,7 +29,16 @@ def validate_page_program_visuals(
     *,
     max_dimension: int = DEFAULT_MAX_DIMENSION,
 ) -> dict[str, Any]:
-    """Render every expected/candidate page pair and compare RGB pixels exactly."""
+    """Prove page metadata and normalized page content exactly.
+
+    Rendering ``source + Matrix.prerotate`` is not pixel-equivalent to rendering
+    a PDF page whose ``/Rotate`` metadata carries the same rotation.  MuPDF may
+    round a fractional page origin to the neighbouring raster pixel in those
+    two code paths.  We therefore validate the candidate rotation/geometry as
+    metadata, normalize its in-memory rotation back to the source rotation,
+    and then render both page contents through the same matrix.  No tolerance
+    or fuzzy image comparison is involved.
+    """
 
     validate_page_program(program)
     if max_dimension < 64 or max_dimension > 2048:
@@ -57,18 +66,38 @@ def validate_page_program_visuals(
         for output_index, (source_index, added_rotation) in enumerate(plan):
             source_page = source.load_page(source_index)
             candidate_page = candidate.load_page(output_index)
-            expected_rect = source_page.rect
+            source_rotation = int(source_page.rotation) % 360
+            candidate_rotation = int(candidate_page.rotation) % 360
+            expected_rotation = (source_rotation + added_rotation) % 360
+            source_rect = source_page.rect
             if added_rotation in {90, 270}:
-                expected_width, expected_height = expected_rect.height, expected_rect.width
+                expected_width, expected_height = source_rect.height, source_rect.width
             else:
-                expected_width, expected_height = expected_rect.width, expected_rect.height
+                expected_width, expected_height = source_rect.width, source_rect.height
             candidate_rect = candidate_page.rect
+            source_mediabox = source_page.mediabox
+            source_cropbox = source_page.cropbox
+            candidate_mediabox = candidate_page.mediabox
+            candidate_cropbox = candidate_page.cropbox
+            page_matches = (
+                candidate_rotation == expected_rotation
+                and _close(candidate_rect.width, expected_width)
+                and _close(candidate_rect.height, expected_height)
+                and _rect_close(candidate_mediabox, source_mediabox)
+                and _rect_close(candidate_cropbox, source_cropbox)
+            )
+
+            # set_rotation changes only this open in-memory candidate document.
+            # It is never saved, and lets both underlying page contents traverse
+            # exactly the same MuPDF rasterization path.
+            candidate_page.set_rotation(source_rotation)
+            normalized_candidate_rect = candidate_page.rect
             scale = min(
                 1.0,
-                max_dimension / max(expected_width, expected_height, 1.0),
+                max_dimension / max(source_rect.width, source_rect.height, 1.0),
             )
             expected = source_page.get_pixmap(
-                matrix=fitz.Matrix(scale, scale).prerotate(added_rotation),
+                matrix=fitz.Matrix(scale, scale),
                 colorspace=fitz.csRGB,
                 alpha=False,
             )
@@ -88,12 +117,20 @@ def validate_page_program_visuals(
             geometry_digest.update(
                 (
                     f"{output_index + 1}:{source_index + 1}:{added_rotation}:"
-                    f"{candidate_rect.width:.4f}x{candidate_rect.height:.4f};"
+                    f"rotation={source_rotation}>{candidate_rotation};"
+                    f"source_media={_rect_token(source_mediabox)};"
+                    f"source_crop={_rect_token(source_cropbox)};"
+                    f"candidate_media={_rect_token(candidate_mediabox)};"
+                    f"candidate_crop={_rect_token(candidate_cropbox)};"
+                    f"candidate_rect={candidate_rect.width:.4f}x{candidate_rect.height:.4f};"
                 ).encode("ascii")
             )
             rendered_pixels += expected.width * expected.height
             if (
-                expected.width != actual.width
+                not page_matches
+                or not _close(normalized_candidate_rect.width, source_rect.width)
+                or not _close(normalized_candidate_rect.height, source_rect.height)
+                or expected.width != actual.width
                 or expected.height != actual.height
                 or expected.samples != actual.samples
             ):
@@ -136,6 +173,18 @@ def validate_page_program_visuals(
 def _require_regular_file(path: Path, label: str) -> None:
     if path.is_symlink() or not path.is_file():
         raise ValueError(f"{label} must be a regular non-symlink file")
+
+
+def _close(left: float, right: float, *, tolerance: float = 0.001) -> bool:
+    return abs(float(left) - float(right)) <= tolerance
+
+
+def _rect_close(left: fitz.Rect, right: fitz.Rect) -> bool:
+    return all(_close(left[index], right[index]) for index in range(4))
+
+
+def _rect_token(rect: fitz.Rect) -> str:
+    return ",".join(f"{rect[index]:.4f}" for index in range(4))
 
 
 def _sha256_file(path: Path) -> str:

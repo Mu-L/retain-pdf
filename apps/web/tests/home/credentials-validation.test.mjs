@@ -188,7 +188,7 @@ test("handleBrowserDeepSeekValidate writes balance through credentials state por
     },
     viewPort: {
       elements: () => ({
-        apiKeyInput: createCredentialNode({ value: "" }),
+        apiKeyInput: createCredentialNode({ value: "sk-test" }),
         modelBaseUrlInput: createCredentialNode({ value: "" }),
       }),
       setTopUpVisible: (visible) => calls.push(["top-up", visible]),
@@ -200,6 +200,74 @@ test("handleBrowserDeepSeekValidate writes balance through credentials state por
   assert.ok(calls.some((call) => call[0] === "state-reset"));
   assert.ok(calls.some((call) => call[0] === "state-set" && call[1] === 3.25 && call[2] === true));
   assert.deepEqual(messages.at(-1), ["DeepSeek 可用，余额 CNY 3.25", "valid"]);
+});
+
+test("third-party translation validation skips DeepSeek-only balance lookup", async () => {
+  const calls = [];
+  const messages = [];
+  const result = await handleBrowserDeepSeekValidate({
+    apiPrefix: "/custom/api",
+    defaultModelApiKey: () => "sk-test",
+    validateDeepSeekToken: async () => ({ ok: true, status: 200 }),
+    queryDeepSeekBalance: async () => {
+      calls.push(["balance-query"]);
+      throw new Error("third-party balance endpoint must not be called");
+    },
+    credentialsStatePort: {
+      getCredentials: () => ({ modelApiKey: "sk-test" }),
+      resetDeepSeekBalance: () => calls.push(["state-reset"]),
+      setDeepSeekBalance: () => calls.push(["state-set"]),
+    },
+    viewPort: {
+      elements: () => ({
+        apiKeyInput: createCredentialNode({ value: "sk-test" }),
+        modelBaseUrlInput: createCredentialNode({ value: "https://api.example.com/v1" }),
+      }),
+      setTopUpVisible: (visible) => calls.push(["top-up", visible]),
+      setValidationMessage: (message, tone) => messages.push([message, tone]),
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.status, "unsupported_provider");
+  assert.equal(calls.some((call) => call[0] === "balance-query"), false);
+  assert.equal(calls.some((call) => call[0] === "state-set"), false);
+  assert.deepEqual(messages.at(-1), ["翻译接口可用", "valid"]);
+});
+
+test("Qwen translation validation uses connectivity only and reports provider name", async () => {
+  const calls = [];
+  const messages = [];
+  const result = await handleBrowserDeepSeekValidate({
+    apiPrefix: "/custom/api",
+    defaultModelApiKey: () => "sk-test",
+    validateDeepSeekToken: async () => ({ ok: true, status: 200 }),
+    queryDeepSeekBalance: async () => {
+      calls.push(["balance-query"]);
+      throw new Error("Qwen must not call the DeepSeek balance endpoint");
+    },
+    credentialsStatePort: {
+      getCredentials: () => ({ modelApiKey: "sk-test" }),
+      resetDeepSeekBalance: () => calls.push(["state-reset"]),
+      setDeepSeekBalance: () => calls.push(["state-set"]),
+    },
+    viewPort: {
+      elements: () => ({
+        apiKeyInput: createCredentialNode({ value: "sk-test" }),
+        modelBaseUrlInput: createCredentialNode({
+          value: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        }),
+      }),
+      setTopUpVisible: (visible) => calls.push(["top-up", visible]),
+      setValidationMessage: (message, tone) => messages.push([message, tone]),
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.status, "unsupported_provider");
+  assert.equal(calls.some((call) => call[0] === "balance-query"), false);
+  assert.equal(calls.some((call) => call[0] === "state-set"), false);
+  assert.deepEqual(messages.at(-1), ["Qwen 可用", "valid"]);
 });
 
 test("credentials DOM contract centralizes hidden inputs and browser dialog ids", () => {
@@ -218,7 +286,7 @@ test("credentials state port owns credential source of truth and token helpers",
     initialState: {
       ocrProvider: "paddle",
       paddleToken: "paddle-token",
-      modelApiKey: "sk-test",
+      translationCredentialRef: "cred_test",
     },
     mirrorToDom: (snapshot) => mirrored.push(snapshot),
   });
@@ -229,7 +297,7 @@ test("credentials state port owns credential source of truth and token helpers",
   assert.equal(ocrTokenFromCredentials({ ocrProvider: "paddle" }, {
     defaultPaddleToken: () => "paddle-default",
   }), "paddle-default");
-  assert.equal(hasCompleteCredentials({ ocrProvider: "paddle", modelApiKey: "sk" }, {
+  assert.equal(hasCompleteCredentials({ ocrProvider: "paddle", translationCredentialRef: "cred_test" }, {
     defaultPaddleToken: () => "paddle-default",
   }), true);
 

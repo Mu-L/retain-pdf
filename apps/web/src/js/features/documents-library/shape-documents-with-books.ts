@@ -18,25 +18,49 @@ function normalizedJobId(value) {
 
 // documents: /documents 返回的文档数组
 // fetchLibraryBookList: (apiPrefix, { jobIds, limit }: any) => { items } 端口(可缺省)
+// fetchJobPayload: (jobId, { apiPrefix }) => job detail; library/books 不投影
+// OCR-only，因此仅对未命中的 active job 做 best-effort 回填。
 // 返回:与 documents 等长、同序的卡片 item 数组(已翻译叠加 book 活态,馆藏走
 // 合成 job_id)。
-export async function shapeDocumentsWithBooks(documents, { fetchLibraryBookList, apiPrefix }: any = {}) {
+export async function shapeDocumentsWithBooks(
+  documents,
+  { fetchLibraryBookList, fetchJobPayload, apiPrefix }: any = {},
+) {
   const docs = Array.isArray(documents) ? documents : [];
-  const jobIds = docs.map((doc) => normalizedJobId(doc?.active_job_id)).filter(Boolean);
+  const jobIds = Array.from(new Set(
+    docs.map((doc) => normalizedJobId(doc?.active_job_id)).filter(Boolean),
+  ));
 
-  const bookMap = new Map();
+  const projectionMap = new Map();
   if (jobIds.length && typeof fetchLibraryBookList === "function") {
     const payload = await fetchLibraryBookList(apiPrefix, { jobIds, limit: jobIds.length });
     for (const book of (Array.isArray(payload?.items) ? payload.items : [])) {
       const id = normalizedJobId(book?.job_id);
       if (id) {
-        bookMap.set(id, book);
+        projectionMap.set(id, book);
+      }
+    }
+  }
+
+  if (typeof fetchJobPayload === "function") {
+    const missingJobIds = jobIds.filter((jobId) => !projectionMap.has(jobId));
+    const fallbacks = await Promise.all(missingJobIds.map(async (jobId) => {
+      try {
+        const payload = await fetchJobPayload(jobId, { apiPrefix });
+        return payload && typeof payload === "object" ? [jobId, payload] : null;
+      } catch {
+        return null;
+      }
+    }));
+    for (const fallback of fallbacks) {
+      if (fallback) {
+        projectionMap.set(fallback[0], fallback[1]);
       }
     }
   }
 
   return docs.map((doc) => {
     const activeJobId = normalizedJobId(doc?.active_job_id);
-    return shapeDocumentCardItem(doc, activeJobId ? bookMap.get(activeJobId) || null : null);
+    return shapeDocumentCardItem(doc, activeJobId ? projectionMap.get(activeJobId) || null : null);
   });
 }

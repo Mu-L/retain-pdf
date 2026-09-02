@@ -17,6 +17,7 @@ export type ReaderAiPanelProps = {
   onClose: () => void;
   /** page_idx 为 0 基；由阅读器 goToPage(page_idx+1) */
   onJumpCitation: (citation: AiCitationLike) => void;
+  onDocumentCommitted?: (input: { documentId: string; revision: string }) => void;
   layout?: "floating" | "docked";
 };
 
@@ -25,6 +26,7 @@ export function ReaderAiPanel({
   jobId,
   onClose,
   onJumpCitation,
+  onDocumentCommitted,
   layout = "floating",
 }: ReaderAiPanelProps) {
   // 当前问答是 Markdown-only：是否存在译文与 AI 无关。
@@ -49,9 +51,13 @@ export function ReaderAiPanel({
     removeSession,
     renameSession,
     branchFromAnswer,
+    agentOperations,
+    assistantMode,
+    setAssistantMode,
   } = useReaderAskRuntime({
     jobId,
     enabled,
+    onDocumentCommitted,
   });
 
   const [branchNotice, setBranchNotice] = useState("");
@@ -125,6 +131,9 @@ export function ReaderAiPanel({
               onJumpCitation={safeJumpCitation}
               onBranchFromAnswer={handleBranch}
               branchBusy={sessionBusy}
+              agentOperations={agentOperations}
+              assistantMode={assistantMode}
+              onAssistantModeChange={setAssistantMode}
             />
           </div>
         </div>

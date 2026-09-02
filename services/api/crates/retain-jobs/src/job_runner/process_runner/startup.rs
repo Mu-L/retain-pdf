@@ -35,10 +35,10 @@ pub(super) async fn spawn_started_process(
     worker_runtime: &WorkerProcessRuntimeConfig<'_>,
     mut job: JobRuntimeState,
     extra_cancel_job_ids: &[String],
-) -> Result<(JobRuntimeState, tokio::process::Child)> {
+) -> Result<(JobRuntimeState, tokio::process::Child, Vec<String>)> {
     prepare_job_for_spawn(&mut job);
 
-    let child = spawn_worker_process(worker_runtime, &job)?;
+    let (child, runtime_secrets) = spawn_worker_process(worker_runtime, &job)?;
     job.pid = child.id();
     persist_runtime_job_with_resources(
         persist.db.as_ref(),
@@ -59,5 +59,5 @@ pub(super) async fn spawn_started_process(
         }
     }
 
-    Ok((job, child))
+    Ok((job, child, runtime_secrets))
 }

@@ -11,8 +11,8 @@ use crate::config::limits::MAX_JOB_LIMIT;
 use crate::db::Db;
 use crate::error::AppError;
 use crate::models::api::{
-    summarize_list_invocation, to_absolute_url, JobEventListView, JobListItemView, JobListView,
-    ListJobEventsQuery, ListJobsQuery,
+    summarize_list_invocation, to_absolute_url, DocumentJobListView, JobEventListView,
+    JobListItemView, JobListView, ListDocumentJobsQuery, ListJobEventsQuery, ListJobsQuery,
 };
 use crate::models::domain::JobSnapshot;
 
@@ -31,6 +31,34 @@ pub fn build_job_list_view(
     Ok(JobListView {
         items,
         invocation_summary,
+    })
+}
+
+/// Build the task history for one document. The document relation is resolved by
+/// the database; callers never need to infer it from active_job_id.
+pub fn build_document_job_list_view(
+    db: &Db,
+    data_root: &Path,
+    document_id: &str,
+    query: &ListDocumentJobsQuery,
+    base_url: &str,
+) -> Result<DocumentJobListView, AppError> {
+    let limit = query.limit.clamp(1, MAX_JOB_LIMIT);
+    let total = db.count_jobs_for_document(document_id)?;
+    let jobs = db.list_jobs_for_document(document_id, limit, query.offset)?;
+    let items: Vec<_> = jobs
+        .iter()
+        .map(|job| build_job_list_item_view(db, data_root, job, base_url))
+        .collect();
+    let invocation_summary = summarize_list_invocation(&items);
+    let returned = items.len() as u64;
+    Ok(DocumentJobListView {
+        items,
+        invocation_summary,
+        total,
+        limit,
+        offset: query.offset,
+        has_more: u64::from(query.offset).saturating_add(returned) < total,
     })
 }
 
@@ -76,6 +104,20 @@ fn build_job_list_item_view(
         display_name: derive_display_name(db, job),
         workflow: job.workflow.clone(),
         status: job.status.clone(),
+        attempt: job
+            .runtime
+            .as_ref()
+            .map(|runtime| runtime.retry_count.saturating_add(1))
+            .unwrap_or(1),
+        retry_count: job
+            .runtime
+            .as_ref()
+            .map(|runtime| runtime.retry_count)
+            .unwrap_or(0),
+        last_retry_at: job
+            .runtime
+            .as_ref()
+            .and_then(|runtime| runtime.last_retry_at.clone()),
         trace_id: job
             .artifacts
             .as_ref()

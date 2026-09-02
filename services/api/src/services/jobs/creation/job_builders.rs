@@ -56,13 +56,18 @@ fn build_translate_only_job_snapshot(
     input: &CreateJobInput,
 ) -> Result<JobSnapshot, AppError> {
     let prepared = prepare_translate_only_input(ctx, input)?;
+    let reuses_ocr = !prepared.spec.source.artifact_job_id.trim().is_empty();
     build_job_snapshot(
         &ctx.config,
         prepared.spec,
         JobCommandKind::Deferred {
             label: "translate-workflow-pending-ocr",
         },
-        JobInit::translate_default(),
+        if reuses_ocr {
+            JobInit::translate_from_ocr_artifact()
+        } else {
+            JobInit::translate_default()
+        },
     )
 }
 

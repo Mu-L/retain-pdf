@@ -45,8 +45,15 @@ export function LibraryBatchToolbar({
         setCollectionsOpen(false);
       }
     }
+    function onKeyDown(event) {
+      if (event.key === "Escape") setCollectionsOpen(false);
+    }
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [collectionsOpen]);
 
   const hasSelection = count > 0;
@@ -75,6 +82,9 @@ export function LibraryBatchToolbar({
           <div className="relative" ref={ref}>
             <button
               type="button"
+              aria-controls="library-batch-collections-menu"
+              aria-expanded={collectionsOpen}
+              aria-haspopup="menu"
               className="inline-flex h-8 items-center gap-1.5 rounded-[var(--btn-radius)] border border-border bg-paper px-3 text-xs font-medium transition active:scale-95 hover:bg-muted/30 disabled:pointer-events-none disabled:opacity-50"
               disabled={busy || !hasSelection || collections.length === 0}
               onClick={() => setCollectionsOpen((v) => !v)}
@@ -83,11 +93,17 @@ export function LibraryBatchToolbar({
               加入合集
             </button>
             {collectionsOpen ? (
-              <div className="absolute bottom-full right-0 z-30 mb-2 max-h-64 w-48 origin-bottom-right overflow-y-auto rounded-2xl border border-border bg-paper p-1.5 shadow-[0_16px_40px_color-mix(in_srgb,var(--shadow-color)_16%,transparent)] transition-[opacity,transform] duration-150 ease-[var(--ease-out)] starting:scale-95 starting:opacity-0">
+              <div
+                id="library-batch-collections-menu"
+                className="app-floating-surface absolute bottom-full right-0 z-30 mb-2 max-h-64 w-48 origin-bottom-right overflow-y-auto p-1.5"
+                role="menu"
+                aria-label="选择合集"
+              >
                 {collections.map((c) => (
                   <button
                     key={c.collection_id}
                     type="button"
+                    role="menuitem"
                     className="block w-full truncate rounded-xl px-3 py-2 text-left text-xs text-foreground transition-colors hover:bg-muted/45"
                     onClick={() => { setCollectionsOpen(false); onAddToCollection?.(c.collection_id); }}
                   >{c.name}</button>

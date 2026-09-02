@@ -8,6 +8,8 @@ import { normalizeOcrProvider } from "./providers.js";
 export interface BrowserStoredConfig {
   ocrProvider: string;
   paddleToken: string;
+  translationCredentialRef: string;
+  /** User-visible translation key retained in the local frontend settings. */
   modelApiKey: string;
   [key: string]: unknown;
 }
@@ -79,7 +81,10 @@ export function normalizeBrowserStoredConfig(
   return {
     ocrProvider: normalizeOcrProvider(source.ocrProvider),
     paddleToken: typeof source.paddleToken === "string" ? source.paddleToken : "",
-    modelApiKey: typeof source.modelApiKey === "string" ? source.modelApiKey : "",
+    translationCredentialRef: typeof source.translationCredentialRef === "string"
+      ? source.translationCredentialRef.trim()
+      : "",
+    modelApiKey: typeof source.modelApiKey === "string" ? source.modelApiKey.trim() : "",
   };
 }
 
@@ -96,6 +101,7 @@ export function desktopRuntimeToBrowserConfig(
   return normalizeBrowserStoredConfig({
     ocrProvider: source.ocrProvider as string | undefined,
     paddleToken: source.paddleToken as string | undefined,
+    translationCredentialRef: source.translationCredentialRef as string | undefined,
     modelApiKey: source.modelApiKey as string | undefined,
   });
 }
@@ -124,7 +130,7 @@ export function buildRuntimeConfig(
 }
 
 export function readBrowserStoredConfig(): Record<string, unknown> {
-  return readStoredConfig(BROWSER_CONFIG_STORAGE_KEY);
+  return normalizeBrowserStoredConfig(readStoredConfig(BROWSER_CONFIG_STORAGE_KEY));
 }
 
 export function writeBrowserStoredConfig(

@@ -1,6 +1,7 @@
 mod agent_capabilities;
 mod agent_runtime_sessions;
 mod conversations_contract;
+mod credentials;
 mod document_operations;
 mod glossaries;
 mod golden_replay;
@@ -20,6 +21,8 @@ mod jobs_reader;
 mod jobs_retry;
 mod jobs_security;
 mod library_data;
+mod live_translation;
 mod ocr_lifecycle;
 mod providers;
+mod public_document_operations;
 mod translation_debug;

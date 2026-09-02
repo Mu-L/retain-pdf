@@ -4,7 +4,15 @@ use crate::api_tests::jobs_common::minimal_pdf_bytes;
 use crate::db::{PipelineDispatchBegin, PipelineDispatchIntent};
 use crate::models::{now_iso, CreateJobInput, JobArtifacts, JobSnapshot, UploadRecord};
 
-pub(super) fn source_job_with_artifacts(job_id: &str, artifacts: JobArtifacts) -> JobSnapshot {
+pub(super) fn source_job_with_artifacts(job_id: &str, mut artifacts: JobArtifacts) -> JobSnapshot {
+    if artifacts.source_pdf.is_some() && artifacts.normalized_document_json.is_some() {
+        artifacts
+            .layout_json
+            .get_or_insert_with(|| format!("jobs/{job_id}/ocr/layout.json"));
+        artifacts
+            .ocr_status
+            .get_or_insert(crate::models::JobStatusKind::Succeeded);
+    }
     let mut input = CreateJobInput::default();
     input.runtime.job_id = job_id.to_string();
     input.translation.api_key = "sk-rerun-test".to_string();
@@ -85,6 +93,11 @@ pub(super) fn seed_ocr_checkpoint_files(state: &crate::AppState, job: &JobSnapsh
         let path = state.config.data_root.join(path);
         fs::create_dir_all(path.parent().expect("normalized parent")).expect("normalized dir");
         fs::write(path, br#"{"pages":[]}"#).expect("normalized file");
+    }
+    if let Some(path) = artifacts.layout_json.as_deref() {
+        let path = state.config.data_root.join(path);
+        fs::create_dir_all(path.parent().expect("layout parent")).expect("layout dir");
+        fs::write(path, br#"{"layoutParsingResults":[]}"#).expect("layout file");
     }
 }
 

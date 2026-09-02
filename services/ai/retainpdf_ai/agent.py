@@ -60,6 +60,7 @@ class AskResult:
     citations: list[Citation] = field(default_factory=list)
     tool_trace: list[dict[str, Any]] = field(default_factory=list)
     rounds: int = 0
+    operation_refs: list[dict[str, Any]] = field(default_factory=list)
 
 
 ChatFn = Callable[[list[dict[str, Any]], list[dict[str, Any]]], dict[str, Any]]

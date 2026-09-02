@@ -21,6 +21,10 @@ export function buildDeveloperConfigWithDefaults({
   const source = saved || {};
   return {
     workflow: normalizeWorkflow(source.workflow),
+    translationProvider: `${source.translationProvider || ""}`.trim(),
+    translationProfiles: source.translationProfiles && typeof source.translationProfiles === "object"
+      ? source.translationProfiles
+      : {},
     renderSourceJobId: `${source.renderSourceJobId || ""}`.trim(),
     mathMode: normalizeMathMode(source.mathMode),
     model: source.model || defaultModelName(),
@@ -66,6 +70,6 @@ export function workflowHeadline(workflow, constants) {
     case constants.WORKFLOW_RENDER:
       return "当前工作流会复用已有任务产物重新生成 PDF。";
     default:
-      return "选择 PDF 后，可直接翻译或仅收藏到书架。";
+      return "选择 PDF 后，可选择仅收藏、仅 OCR 或翻译。";
   }
 }

@@ -4,9 +4,8 @@ use crate::models::domain::{JobArtifactRecord, JobSnapshot};
 
 use super::constants::{
     OUTPUT_ARTIFACTS_DIR_NAME, OUTPUT_LOGS_DIR_NAME, OUTPUT_MARKDOWN_DIR_NAME,
-    OUTPUT_RENDERED_DIR_NAME, OUTPUT_TYPST_BOOK_OVERLAYS_DIR_NAME, OUTPUT_TYPST_DIR_NAME,
-    OUTPUT_TRANSLATED_DIR_NAME, TRANSLATION_MANIFEST_FILE_NAME,
-    TRANSLATION_REQUEST_JOURNAL_FILE_NAME,
+    OUTPUT_RENDERED_DIR_NAME, OUTPUT_TRANSLATED_DIR_NAME, OUTPUT_TYPST_BOOK_OVERLAYS_DIR_NAME,
+    OUTPUT_TYPST_DIR_NAME, TRANSLATION_MANIFEST_FILE_NAME, TRANSLATION_REQUEST_JOURNAL_FILE_NAME,
 };
 use super::path_ops::resolve_data_path;
 
@@ -99,10 +98,7 @@ pub fn resolve_translation_diagnostics(job: &JobSnapshot, data_root: &Path) -> O
     path.exists().then_some(path)
 }
 
-pub fn resolve_translation_request_journal(
-    job: &JobSnapshot,
-    data_root: &Path,
-) -> Option<PathBuf> {
+pub fn resolve_translation_request_journal(job: &JobSnapshot, data_root: &Path) -> Option<PathBuf> {
     let root = resolve_job_root(job, data_root)?;
     let path = root
         .join(OUTPUT_TRANSLATED_DIR_NAME)

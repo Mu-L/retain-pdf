@@ -12,8 +12,13 @@
 // 用法:
 //   <BookDetailShell open={…} onOpenChange={…} left={…} right={…} />
 
-import { X } from "lucide-react";
-import { Dialog as DialogPrimitive } from "radix-ui";
+import {
+  Dialog,
+  DialogCloseButton,
+  DialogContent,
+  DialogShell,
+  DialogTitle,
+} from "@/components/ui/dialog.js";
 
 /**
  * @param {object} props
@@ -35,34 +40,29 @@ export function BookDetailShell({
   contentClassName = "",
 }) {
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="desktop-dialog-overlay" />
-        <DialogPrimitive.Content
+    <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
           id="book-detail-dialog"
-          className={`book-detail-dialog-content fixed inset-0 z-[101] m-auto h-fit w-[min(1040px,96vw)] max-h-[90vh] overflow-hidden rounded-[20px] border border-border/60 bg-paper shadow-[0_32px_80px_color-mix(in_srgb,var(--shadow-color)_24%,transparent)] ${contentClassName}`.trim()}
+          className={`book-detail-dialog ${contentClassName}`.trim()}
           onCloseAutoFocus={onCloseAutoFocus}
+          showCloseButton={false}
+          size="workspace"
         >
-          <DialogPrimitive.Title asChild>
-            <h2 className="sr-only">{title}</h2>
-          </DialogPrimitive.Title>
-          <DialogPrimitive.Close asChild>
-            <button
+          <DialogShell className="book-detail-dialog-shell relative">
+            <DialogTitle asChild>
+              <h2 className="sr-only">{title}</h2>
+            </DialogTitle>
+            <DialogCloseButton
               id="book-detail-close-btn"
-              type="button"
-              aria-label="关闭"
-              className="absolute right-5 top-5 z-[2] inline-flex h-8 w-8 items-center justify-center rounded-full bg-muted/80 text-muted-foreground backdrop-blur hover:bg-muted hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </DialogPrimitive.Close>
+              className="absolute right-5 top-5 z-[2]"
+            />
 
-          <div className="book-detail-shell-grid grid grid-cols-1 gap-0 sm:grid-cols-[320px_1fr] sm:divide-x sm:divide-border/60">
-            <div className="book-detail-shell-left bg-muted/20 p-7 pr-6">{left}</div>
-            <div className="book-detail-shell-right min-w-0 max-h-[90vh] overflow-y-auto p-7 pl-7 pr-12">{right}</div>
-          </div>
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+            <div className="book-detail-shell-grid">
+              <div className="book-detail-shell-left">{left}</div>
+              <div className="book-detail-shell-right">{right}</div>
+            </div>
+          </DialogShell>
+        </DialogContent>
+    </Dialog>
   );
 }

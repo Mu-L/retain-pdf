@@ -1,11 +1,12 @@
 // BookCard「快速阅读」动作 —— 独立模块，改阅读逻辑只动本文件。
 //
 // 行为:
-// - 已完成 job → 对照阅读 (onReader(jobId))
+// - OCR-only 已完成 → 查看 OCR；翻译已完成 → 对照阅读（均保留 job 上下文）
 // - 否则有 document → 读原文 (onReadSource(documentId))
 // - 失败且无 document → 仍返回按钮，点击 no-op（兼容旧 UI/测试）
 
 import type { BookCardAction, BookCardActionHandlers, LibraryCardItem } from "../types.js";
+import { resolveLibraryReadPresentation } from "../display/library-card-semantics.js";
 
 export const BOOK_CARD_ACTION_READ = "read";
 
@@ -18,28 +19,22 @@ export function buildReadBookCardAction(
   item: LibraryCardItem = {},
   { onReader, onReadSource }: BookCardActionHandlers = {},
 ): BookCardAction[] {
-  const documentId = `${item.document_id || ""}`.trim();
-  const jobId = `${item.job_id || ""}`.trim();
-  const readerAvailable = `${item.status || ""}`.trim() === "succeeded";
-
-  let label = "读原文";
+  const presentation = resolveLibraryReadPresentation(item);
   let onClick: BookCardAction["onClick"] = () => {};
 
-  if (readerAvailable && jobId) {
-    label = "对照阅读";
+  if (presentation.target === "job") {
     onClick = () => {
-      onReader?.(jobId);
+      onReader?.(presentation.jobId);
     };
-  } else if (documentId) {
-    label = "读原文";
+  } else if (presentation.target === "source") {
     onClick = () => {
-      onReadSource?.(documentId);
+      onReadSource?.(presentation.documentId);
     };
   }
 
   return [{
     id: BOOK_CARD_ACTION_READ,
-    label,
+    label: presentation.label,
     icon: "eye",
     // 历史测试锚点 .recent-job-reader
     className: "book-card-action book-card-action-read recent-job-reader",

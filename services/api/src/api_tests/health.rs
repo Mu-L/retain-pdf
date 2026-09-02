@@ -6,7 +6,7 @@ use crate::api_tests::jobs_common::{read_json, test_state};
 use crate::app::{build_app, build_simple_app};
 use crate::config::JobsRuntimeMode;
 use crate::routes::common::build_health_route_deps;
-use crate::routes::health::{build_readiness_view, readiness_http_status};
+use crate::services::health_api::build_readiness_view;
 use crate::services::{ai_supervisor, jobsd_supervisor};
 
 #[tokio::test]
@@ -37,7 +37,7 @@ async fn liveness_and_readiness_are_public_on_both_routers() {
 fn readiness_requires_only_components_selected_by_config() {
     let state = test_state("readiness-config-boundary");
     let view = build_readiness_view(
-        build_health_route_deps(&state),
+        &build_health_route_deps(&state),
         ai_supervisor::AI_STATUS_UNHEALTHY,
         jobsd_supervisor::JOBSD_STATUS_UNHEALTHY,
     );
@@ -57,15 +57,12 @@ fn readiness_requires_only_components_selected_by_config() {
         ..state
     };
     let view = build_readiness_view(
-        build_health_route_deps(&required_state),
+        &build_health_route_deps(&required_state),
         ai_supervisor::AI_STATUS_STARTING,
         jobsd_supervisor::JOBSD_STATUS_UNHEALTHY,
     );
     assert_eq!(view.status, "not_ready");
-    assert_eq!(
-        readiness_http_status(&view),
-        StatusCode::SERVICE_UNAVAILABLE
-    );
+    assert!(!view.is_ready());
     assert_eq!(
         view.reasons,
         ["ai_service_not_healthy", "jobsd_not_healthy"]
@@ -76,11 +73,11 @@ fn readiness_requires_only_components_selected_by_config() {
     assert_eq!(view.components.jobsd.status, "unhealthy");
 
     let view = build_readiness_view(
-        build_health_route_deps(&required_state),
+        &build_health_route_deps(&required_state),
         ai_supervisor::AI_STATUS_HEALTHY,
         jobsd_supervisor::JOBSD_STATUS_HEALTHY,
     );
     assert_eq!(view.status, "ready");
-    assert_eq!(readiness_http_status(&view), StatusCode::OK);
+    assert!(view.is_ready());
     assert!(view.reasons.is_empty());
 }

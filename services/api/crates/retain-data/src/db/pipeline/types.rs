@@ -38,12 +38,19 @@ pub struct PipelineUnitCommit {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PipelineUnitRecord {
+    pub attempt: u32,
     pub unit_key: String,
     pub unit_order: u64,
     pub generation: u64,
     pub producer_generation: Option<u64>,
     pub page_index: Option<u32>,
     pub page_hash: String,
+    pub payload: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PipelineCommitEventRecord {
+    pub seq: i64,
     pub payload: Value,
 }
 
