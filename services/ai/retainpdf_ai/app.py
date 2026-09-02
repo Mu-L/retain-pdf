@@ -19,7 +19,7 @@ from .agent import RetrievalAgent, build_deepseek_chat_fn
 from .agent_confirmations import confirmation_requests
 from .api_contracts import AskInput, RuntimeConfigUpdate
 from .config import Settings, load_settings
-from .memory import assemble_history, maybe_compress_transcript
+from .conversation_state import ConversationState
 from .runtime import (
     AgentRuntime,
     PythonAgentRuntime,
@@ -85,293 +85,7 @@ def build_app(
 
     app = FastAPI(title="retainpdf-ai", version=__version__)
 
-    def resolve_document_id(payload: AskInput) -> str:
-        document_id = payload.document_id.strip()
-        if document_id or not payload.job_id.strip() or rust is None:
-            return document_id
-        try:
-            document = rust.get_document_by_job(payload.job_id.strip())
-        except Exception:  # noqa: BLE001 - lookup failure falls back to no document scope
-            return ""
-        return str((document or {}).get("document_id") or "")
-
-    def ensure_conversation_id(payload: AskInput, document_id: str) -> str:
-        """B1: 有 conversation_id 则用;否则经 Rust auto-create 并返回新 id。"""
-        existing = payload.conversation_id.strip()
-        if existing:
-            return existing
-        if rust is None:
-            return ""
-        title = (payload.question or "").strip().replace("\n", " ")
-        if len(title) > 48:
-            title = f"{title[:48].rstrip()}…"
-        if not title:
-            title = "阅读问答"
-        try:
-            created = rust.create_conversation(
-                title=title, document_id=document_id or ""
-            )
-            return str((created or {}).get("conversation_id") or "").strip()
-        except Exception as exc:  # noqa: BLE001 - conversation storage is optional here
-            print(f"[retainpdf-ai] auto-create conversation failed: {exc}", flush=True)
-            return ""
-
-    def _visible_path(
-        messages: list[dict[str, Any]],
-        head_id: str,
-        *,
-        stop_at: str = "",
-    ) -> list[dict[str, Any]]:
-        """从 head(或 stop_at)沿 parent_id 回溯,返回根→叶路径。
-
-        无 parent / message_id 的旧数据按 seq 串成线性链。
-        """
-        if not messages:
-            return []
-        ordered = sorted(
-            messages,
-            key=lambda m: (
-                int(m.get("seq") or 0) if str(m.get("seq") or "").strip() else 0
-            ),
-        )
-        # 合成稳定 id + 线性 parent,保证无树字段时退化为整条 transcript
-        by_id: dict[str, dict[str, Any]] = {}
-        prev_id = ""
-        for index, raw in enumerate(ordered):
-            mid = (
-                str(raw.get("message_id") or "").strip()
-                or f"__seq_{raw.get('seq', index)}"
-            )
-            pid = str(raw.get("parent_id") or "").strip()
-            if not pid and prev_id:
-                pid = prev_id
-            node = {**raw, "message_id": mid, "parent_id": pid}
-            by_id[mid] = node
-            prev_id = mid
-
-        start_id = (stop_at or head_id or "").strip()
-        if not start_id:
-            start_id = prev_id
-        cur = by_id.get(start_id)
-        if cur is None and ordered:
-            cur = by_id.get(prev_id)
-        chain: list[dict[str, Any]] = []
-        guard = 0
-        while cur is not None and guard <= len(messages) + 2:
-            chain.append(cur)
-            guard += 1
-            pid = str(cur.get("parent_id") or "").strip()
-            cur = by_id.get(pid) if pid else None
-        chain.reverse()
-        return chain
-
-    def load_transcript(
-        conversation_id: str,
-        *,
-        stop_at: str = "",
-    ) -> list[dict[str, Any]]:
-        if not conversation_id or rust is None:
-            return []
-        try:
-            detail = rust.get_conversation(conversation_id) or {}
-        except Exception:  # noqa: BLE001 - unavailable history degrades to an empty transcript
-            return []
-        messages = list(detail.get("messages") or [])
-        head_id = str(detail.get("head_id") or "").strip()
-        path = _visible_path(messages, head_id, stop_at=stop_at)
-        out: list[dict[str, Any]] = []
-        for message in path:
-            role = str(message.get("role") or "")
-            content = str(message.get("content") or "")
-            if role not in {"user", "assistant"} or not content.strip():
-                continue
-            out.append(
-                {
-                    "role": role,
-                    "content": content,
-                    "message_id": str(message.get("message_id") or ""),
-                    "parent_id": str(message.get("parent_id") or ""),
-                    "citations_json": message.get("citations_json") or "[]",
-                }
-            )
-        return out
-
-    def prepare_memory(
-        conversation_id: str,
-        *,
-        force_compress: bool = False,
-        stop_at: str = "",
-    ) -> tuple[list[dict[str, str]], dict[str, Any] | None, dict[str, Any], str]:
-        """压缩(可选) + 组装 history；返回 (history, compress_event|None, memory_debug, summary_id)。
-
-        summary_id 非空时,调用方必须把本轮 user(或 regenerate 的 assistant)挂在
-        它下面——摘要只有落在 head 路径上,下一轮 load_transcript 才读得回来。
-        旧实现摘要以 set_head=False 挂在 head 下、user 又同样挂在 head 下,
-        摘要成了 user 的兄弟节点(死分支):永远读不回 → 每轮重新压缩 + 再写一条
-        孤儿摘要(审计 A2)。
-        """
-        transcript = load_transcript(conversation_id, stop_at=stop_at)
-        compress = maybe_compress_transcript(
-            transcript,
-            window_turns=settings.memory_window_turns,
-            compress_after_turns=settings.memory_compress_after_turns,
-            force=force_compress,
-        )
-        compress_event: dict[str, Any] | None = None
-        summary_id = ""
-        working = compress.messages
-        if (
-            compress.compressed
-            and compress.summary_message
-            and conversation_id
-            and rust is not None
-        ):
-            try:
-                summary_msg = rust.append_conversation_message(
-                    conversation_id,
-                    role="assistant",
-                    content=str(compress.summary_message.get("content") or ""),
-                    model="memory/extractive_v1",
-                    parent_id=stop_at or "",
-                    set_head=False,
-                )
-                summary_id = str((summary_msg or {}).get("message_id") or "").strip()
-                compress_event = compress.event
-            except Exception as exc:  # noqa: BLE001 - memory persistence must not fail the turn
-                print(f"[retainpdf-ai] persist summary failed: {exc}", flush=True)
-                # 持久化失败仍用内存 working 视图完成本轮
-        assembled = assemble_history(
-            working,
-            window_turns=settings.memory_window_turns,
-            max_chars=settings.memory_max_chars,
-        )
-        debug = {
-            **assembled.debug,
-            "compressed": bool(compress.compressed and compress_event is not None),
-            "evidence_count": 0,
-        }
-        return assembled.history, compress_event, debug, summary_id
-
-    def persist_turn(
-        conversation_id: str,
-        payload: AskInput,
-        result: Any,
-        request_runtime: AgentRuntime,
-        *,
-        chain_parent_id: str = "",
-        prepersisted_user_id: str = "",
-    ) -> bool:
-        """尽力而为的历史回写:失败只记日志,不影响返回。
-
-        正常轮: user(parent=chain_parent_id|payload.parent_id|head) + assistant(parent=user)。
-        regenerate: 仅 assistant(parent=chain_parent_id|payload.parent_id 的 user 节点)。
-        chain_parent_id = prepare_memory 刚落库的摘要节点 id:传入时本轮消息以
-        摘要为 parent,把摘要接进 head 路径(否则摘要成死分支,见 prepare_memory 注释)。
-
-        返回是否成功持久化(无会话可写=True,不算失败);False 会经 done.persisted
-        透传给前端提示"本轮未存入历史"(审计 C2:此前失败只 print,用户无感知)。
-        """
-        if not conversation_id or rust is None:
-            return True
-        try:
-            parent_hint = chain_parent_id.strip() or payload.parent_id.strip()
-            citations_json = json.dumps(
-                [asdict(citation) for citation in result.citations], ensure_ascii=False
-            )
-            tool_trace_json = json.dumps(result.tool_trace, ensure_ascii=False)
-            model = (
-                settings.fx_model or request_runtime.runtime_id
-                if request_runtime.capabilities.model_transport == "runtime_managed"
-                else payload.llm_model or settings.llm_model
-            )
-            if payload.regenerate:
-                # 重试: parent_id 必须是 user 消息
-                user_parent = parent_hint
-                rust.append_conversation_message(
-                    conversation_id,
-                    role="assistant",
-                    content=result.answer,
-                    citations_json=citations_json,
-                    tool_trace_json=tool_trace_json,
-                    model=model,
-                    parent_id=user_parent,
-                    message_id=payload.assistant_message_id.strip(),
-                    set_head=True,
-                )
-                return True
-            user_id = prepersisted_user_id.strip()
-            if not user_id:
-                user_msg = rust.append_conversation_message(
-                    conversation_id,
-                    role="user",
-                    content=payload.question.strip(),
-                    parent_id=parent_hint,
-                    message_id=payload.user_message_id.strip(),
-                    set_head=True,
-                )
-                user_id = str((user_msg or {}).get("message_id") or "").strip()
-            rust.append_conversation_message(
-                conversation_id,
-                role="assistant",
-                content=result.answer,
-                citations_json=citations_json,
-                tool_trace_json=tool_trace_json,
-                model=model,
-                parent_id=user_id or parent_hint,
-                message_id=payload.assistant_message_id.strip(),
-                set_head=True,
-            )
-            return True
-        except Exception as exc:  # noqa: BLE001 - answer remains usable if history write fails
-            print(f"[retainpdf-ai] persist conversation turn failed: {exc}", flush=True)
-            return False
-
-    def persist_agent_request_message(
-        conversation_id: str,
-        payload: AskInput,
-        request_runtime: AgentRuntime,
-        *,
-        chain_parent_id: str = "",
-    ) -> tuple[str, bool]:
-        """Persist the user request before an Agent can create an operation."""
-        if not request_runtime.capabilities.document_operations:
-            return "", True
-        parent_hint = chain_parent_id.strip() or payload.parent_id.strip()
-        if payload.regenerate:
-            return parent_hint, bool(parent_hint)
-        if not conversation_id or rust is None:
-            return "", False
-        requested_id = payload.user_message_id.strip()
-        try:
-            user_msg = rust.append_conversation_message(
-                conversation_id,
-                role="user",
-                content=payload.question.strip(),
-                parent_id=parent_hint,
-                message_id=requested_id,
-                set_head=True,
-            )
-            message_id = str((user_msg or {}).get("message_id") or "").strip()
-            return message_id, bool(message_id)
-        except Exception as exc:  # noqa: BLE001 - retry must cover transport ambiguity
-            # A client retry may repeat a stable message_id after the first
-            # request reached Rust but its response was lost. Reuse only an
-            # exact user/content match; never guess by sequence or head.
-            if requested_id:
-                try:
-                    detail = rust.get_conversation(conversation_id) or {}
-                    for message in detail.get("messages") or []:
-                        if (
-                            str(message.get("message_id") or "") == requested_id
-                            and str(message.get("role") or "") == "user"
-                            and str(message.get("content") or "").strip()
-                            == payload.question.strip()
-                        ):
-                            return requested_id, True
-                except Exception:  # noqa: BLE001, S110 - preserve the original failure
-                    pass
-            print(f"[retainpdf-ai] pre-persist Agent request failed: {exc}", flush=True)
-            return "", False
+    conversation_state = ConversationState(settings, rust)
 
     def require_api_key(request: Request) -> None:
         if not settings.api_keys:
@@ -514,18 +228,22 @@ def build_app(
         # 前端在首个工具调用(~2s)就能看到"正在检索…"的过程感;
         # 最终回答轮经 on_delta 逐 token 推 answer_delta。
         events: queue.Queue[dict[str, Any] | None] = queue.Queue()
-        document_id = resolve_document_id(payload)
-        conversation_id = ensure_conversation_id(payload, document_id)
+        document_id = conversation_state.resolve_document_id(payload)
+        conversation_id = conversation_state.ensure_conversation_id(
+            payload, document_id
+        )
         # regenerate: 上下文停在 user 节点;正常续写:走当前 head 路径
         memory_stop = (
             payload.parent_id.strip()
             if payload.regenerate and payload.parent_id.strip()
             else ""
         )
-        history, compress_event, memory_debug, summary_id = prepare_memory(
-            conversation_id,
-            force_compress=bool(payload.force_compress),
-            stop_at=memory_stop,
+        history, compress_event, memory_debug, summary_id = (
+            conversation_state.prepare_memory(
+                conversation_id,
+                force_compress=bool(payload.force_compress),
+                stop_at=memory_stop,
+            )
         )
         # SSE 路径总是用带 on_delta 的流式 chat_fn:增量文本进事件队列。
         chat_fn = (
@@ -543,11 +261,13 @@ def build_app(
             try:
                 if compress_event:
                     events.put(compress_event)
-                request_message_id, request_persisted = persist_agent_request_message(
-                    conversation_id,
-                    payload,
-                    request_runtime,
-                    chain_parent_id=summary_id,
+                request_message_id, request_persisted = (
+                    conversation_state.persist_agent_request_message(
+                        conversation_id,
+                        payload,
+                        request_runtime,
+                        chain_parent_id=summary_id,
+                    )
                 )
                 events.put(
                     {
@@ -596,7 +316,7 @@ def build_app(
                             **confirmation,
                         }
                     )
-                persisted = request_persisted and persist_turn(
+                persisted = request_persisted and conversation_state.persist_turn(
                     conversation_id,
                     payload,
                     result,
@@ -647,23 +367,29 @@ def build_app(
                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
             )
         chat_fn = _request_chat_fn(payload, request_runtime)
-        document_id = resolve_document_id(payload)
-        conversation_id = ensure_conversation_id(payload, document_id)
+        document_id = conversation_state.resolve_document_id(payload)
+        conversation_id = conversation_state.ensure_conversation_id(
+            payload, document_id
+        )
         memory_stop = (
             payload.parent_id.strip()
             if payload.regenerate and payload.parent_id.strip()
             else ""
         )
-        history, _compress_event, memory_debug, summary_id = prepare_memory(
-            conversation_id,
-            force_compress=bool(payload.force_compress),
-            stop_at=memory_stop,
+        history, _compress_event, memory_debug, summary_id = (
+            conversation_state.prepare_memory(
+                conversation_id,
+                force_compress=bool(payload.force_compress),
+                stop_at=memory_stop,
+            )
         )
-        request_message_id, request_persisted = persist_agent_request_message(
-            conversation_id,
-            payload,
-            request_runtime,
-            chain_parent_id=summary_id,
+        request_message_id, request_persisted = (
+            conversation_state.persist_agent_request_message(
+                conversation_id,
+                payload,
+                request_runtime,
+                chain_parent_id=summary_id,
+            )
         )
         result = request_runtime.ask(
             payload.question,
@@ -682,7 +408,7 @@ def build_app(
                 else {}
             ),
         )
-        persisted = request_persisted and persist_turn(
+        persisted = request_persisted and conversation_state.persist_turn(
             conversation_id,
             payload,
             result,
