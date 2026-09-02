@@ -5,23 +5,21 @@ from pathlib import Path
 
 from retainpdf_pipeline.services.document_schema.defaults import normalize_block_continuation_hint
 from retainpdf_pipeline.services.document_schema.adapters import adapt_path_to_document_v1
-from retainpdf_pipeline.services.document_schema.semantics import is_algorithm_semantic
-from retainpdf_pipeline.services.document_schema.semantics import is_caption_semantic
-from retainpdf_pipeline.services.document_schema.semantics import is_reference_entry_semantic
-from retainpdf_pipeline.services.document_schema.semantics import normalize_tags
-from retainpdf_pipeline.services.document_schema.semantics import semantic_role as _semantic_role
-from retainpdf_pipeline.services.document_schema.semantics import structure_role as _structure_role
+from retainpdf_pipeline.services.document_schema.legacy_compat import is_legacy_algorithm
+from retainpdf_pipeline.services.document_schema.legacy_compat import legacy_tags
 from retainpdf_pipeline.services.translation.core.ocr.models import TextItem
 from retainpdf_pipeline.services.translation.core.ocr.normalized_reader import (
     block_asset_id as _block_asset_id,
     block_bbox as _block_bbox,
     block_children as _block_children,
+    block_class as _block_class,
     block_kind as _block_kind,
     block_layout_role as _block_layout_role,
     block_line_texts as _block_line_texts,
     block_policy_translate as _block_policy_translate,
     block_reading_order as _block_reading_order,
     block_semantic_role as _block_semantic_role,
+    block_structure_role as _block_structure_role,
     block_sub_type as _block_sub_type,
     block_text_flow as _block_text_flow,
     block_toc_entries as _block_toc_entries,
@@ -214,7 +212,11 @@ def block_segments(block: dict) -> list[dict]:
             span_type = span.get("type", span.get("raw_type", "text"))
             segments.append(
                 {
-                    "type": "inline_equation" if span_type == "formula" else span_type,
+                    "type": (
+                        "inline_equation"
+                        if span_type in {"formula", "inline_formula"}
+                        else span_type
+                    ),
                     "content": normalize_span_text(content, next_content),
                 }
             )
@@ -238,7 +240,11 @@ def block_lines(block: dict) -> list[dict]:
             span_type = span.get("type", span.get("raw_type", "text"))
             spans_out.append(
                 {
-                    "type": "inline_equation" if span_type == "formula" else span_type,
+                    "type": (
+                        "inline_equation"
+                        if span_type in {"formula", "inline_formula"}
+                        else span_type
+                    ),
                     "content": normalize_span_text(content, next_content),
                     "bbox": span.get("bbox", []),
                 }
@@ -449,16 +455,35 @@ def _is_translatable_page_item(item: TextItem) -> bool:
 
 PRIMARY_TRANSLATABLE_SEMANTIC_ROLES = {"body", "abstract", "table_of_contents"}
 PRIMARY_TRANSLATABLE_STRUCTURE_HINTS = {"body", "table_of_contents"}
-KEEP_ORIGIN_BLOCK_KINDS = {"formula"}
-KEEP_ORIGIN_SUB_TYPES = {"display_formula", "formula"}
+KEEP_ORIGIN_BLOCK_CLASSES = {"formula"}
+PRIMARY_TRANSLATABLE_BLOCK_CLASSES = {"body", "title", "caption", "footnote"}
+
+
+def _is_algorithm_container(block: dict) -> bool:
+    explicit_class = str(block.get("block_class", "") or "").strip().lower()
+    semantic_role = _block_semantic_role(block)
+    structure_role = _block_structure_role(block)
+    if semantic_role == "algorithm" or structure_role in {"algorithm", "code_block"}:
+        return True
+    if explicit_class not in {"", "unknown"}:
+        return explicit_class == "code"
+    if any(
+        str(value or "").strip().lower() not in {"", "unknown"}
+        for value in (_block_layout_role(block), semantic_role, structure_role)
+    ):
+        return False
+    if _block_class(block) == "code":
+        return True
+    # Old normalized documents did not carry a canonical code kind/class.
+    return is_legacy_algorithm(block)
 
 
 def _is_keep_origin_render_block(block: dict) -> bool:
-    if "skip_translation" in normalize_tags(block.get("tags", [])):
+    if _block_class(block) not in KEEP_ORIGIN_BLOCK_CLASSES:
         return False
-    block_kind = _block_kind(block)
-    sub_type = _block_sub_type(block)
-    return block_kind in KEEP_ORIGIN_BLOCK_KINDS or sub_type in KEEP_ORIGIN_SUB_TYPES
+    if _block_policy_translate(block) is not None:
+        return True
+    return "skip_translation" not in legacy_tags(block)
 
 
 def _is_primary_translatable_text_block(block: dict, data: dict) -> bool:
@@ -468,9 +493,11 @@ def _is_primary_translatable_text_block(block: dict, data: dict) -> bool:
     del data
     if _block_kind(block) != "text":
         return False
+    if _block_class(block) not in PRIMARY_TRANSLATABLE_BLOCK_CLASSES:
+        return False
     layout_role = _block_layout_role(block)
-    semantic_role = _semantic_role(block)
-    structure_role = _structure_role(block)
+    semantic_role = _block_semantic_role(block)
+    structure_role = _block_structure_role(block)
     if semantic_role == "abstract":
         return True
     if semantic_role == "table_of_contents" or structure_role == "table_of_contents":
@@ -496,12 +523,12 @@ def should_translate_block(
     if explicit_policy is not None:
         if not explicit_policy:
             return False
-        if inside_algorithm or is_algorithm_semantic(block):
+        if inside_algorithm or _is_algorithm_container(block):
             return False
         return True
-    if inside_algorithm or is_algorithm_semantic(block):
+    if inside_algorithm or _is_algorithm_container(block):
         return False
-    if "skip_translation" in normalize_tags(block.get("tags", [])):
+    if "skip_translation" in legacy_tags(block):
         return False
     if _block_kind(block) != "text":
         return False
@@ -552,6 +579,7 @@ def extract_block_item(
             **_translation_metadata_bridge(block),
         },
         block_kind=block_type,
+        block_class=_block_class(block),
         layout_role=layout_role,
         semantic_role=semantic_role,
         structure_role=structure_role,
@@ -564,7 +592,7 @@ def extract_block_item(
 
 
 def _seed_structure_role(block: dict) -> str:
-    explicit_structure_role = _structure_role(block)
+    explicit_structure_role = _block_structure_role(block)
     if explicit_structure_role:
         return explicit_structure_role
     explicit_semantic_role = _block_semantic_role(block)
@@ -591,7 +619,7 @@ def extract_text_items(data: dict, page_idx: int) -> list[TextItem]:
     page_blocks = list(_iter_page_blocks(data, page))
     items: list[TextItem] = []
     def visit_block(block: dict, block_idx: int, item_suffix: str = "", inside_algorithm: bool = False) -> None:
-        current_inside_algorithm = inside_algorithm or is_algorithm_semantic(block)
+        current_inside_algorithm = inside_algorithm or _is_algorithm_container(block)
         item = extract_block_item(
             block,
             data,

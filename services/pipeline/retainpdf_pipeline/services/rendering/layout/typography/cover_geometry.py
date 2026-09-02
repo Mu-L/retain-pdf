@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from retainpdf_pipeline.services.document_schema.semantics import is_bodylike_block
-from retainpdf_pipeline.services.document_schema.semantics import is_caption_like_block
-from retainpdf_pipeline.services.document_schema.semantics import is_footnote_like_block
-from retainpdf_pipeline.services.document_schema.semantics import is_title_like_block
-from retainpdf_pipeline.services.document_schema.semantics import block_kind
+from retainpdf_pipeline.services.rendering.semantics.item_view import block_kind
+from retainpdf_pipeline.services.rendering.semantics.item_view import is_bodylike_block
+from retainpdf_pipeline.services.rendering.semantics.item_view import is_caption_like_block
+from retainpdf_pipeline.services.rendering.semantics.item_view import is_footnote_like_block
+from retainpdf_pipeline.services.rendering.semantics.item_view import is_title_like_block
 
 
 COVER_EXPAND_BODY_RATIO = 0.01

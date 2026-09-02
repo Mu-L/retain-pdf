@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from retainpdf_pipeline.foundation.config import layout
-from retainpdf_pipeline.services.document_schema.semantics import block_kind as schema_block_kind
+from retainpdf_pipeline.services.rendering.semantics.item_view import block_kind as schema_block_kind
 from retainpdf_pipeline.services.rendering.policy.cleanup_policy import item_will_render_translated_overlay
 from retainpdf_pipeline.services.rendering.source.prewarm_algorithm_hash import source_cleanup_implementation_hash
 from retainpdf_pipeline.services.rendering.source.prewarm_contracts import BBOX_TEXT_STRIP_ALGORITHM_ID

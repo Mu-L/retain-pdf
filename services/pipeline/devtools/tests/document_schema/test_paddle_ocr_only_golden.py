@@ -211,11 +211,13 @@ def test_offline_complex_paddle_payload_survives_ocr_only_pipeline(tmp_path: Pat
 
     inline_formula_block = blocks[2]
     inline_formula_segments = [
-        segment for segment in inline_formula_block["segments"] if segment["type"] == "formula"
+        segment
+        for segment in inline_formula_block["segments"]
+        if segment["type"] == "inline_formula"
     ]
     assert inline_formula_segments == [
         {
-            "type": "formula",
+            "type": "inline_formula",
             "raw_type": "text",
             "text": "a^2+b^2=c^2",
             "bbox": [125.0, 125.0, 205.0, 145.0],

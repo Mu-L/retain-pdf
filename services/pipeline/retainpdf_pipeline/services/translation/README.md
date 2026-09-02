@@ -82,6 +82,7 @@ Translation 阶段的正式输入和输出固定为：
 顶层 contract 字段包括：
 
 - `block_kind`
+- `block_class`
 - `layout_role`
 - `semantic_role`
 - `structure_role`
@@ -93,8 +94,9 @@ Translation 阶段的正式输入和输出固定为：
 
 当前约定：
 
-- translation 的分类、style hint、policy、payload 回填和 diagnostics 主链优先只读这些顶层 contract 字段
+- translation 的分类、style hint、policy、payload 回填和 diagnostics 主链优先只读这些顶层 contract 字段；宽泛载体/行为分类统一读 `block_class`
 - `metadata` 可以继续保留，但职责只限于 debug、provider trace 和桥接 `continuation_hint/provider warning`
+- `raw_block_type`、`normalized_sub_type` 继续写入以恢复旧 cache/retry/checkpoint，但只允许用于兼容投影和诊断，不作为新任务的权威业务分类
 - 新逻辑不要再把 `metadata.layout_role`、`metadata.semantic_role`、`metadata.structure_role` 当正式语义入口
 - 如果后续 block 语义变更，优先只改 `document.v1 -> TextItem -> payload` 这条 contract 投影，不要让下游模块各自再翻 `metadata`
 

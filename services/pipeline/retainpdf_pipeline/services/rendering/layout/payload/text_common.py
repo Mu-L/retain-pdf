@@ -9,7 +9,7 @@ from retainpdf_pipeline.services.rendering.layout.model.render_text import resto
 from retainpdf_pipeline.services.rendering.layout.text_analysis import analyze_text
 from retainpdf_pipeline.services.rendering.layout.text_analysis import strip_formula_tokens
 from retainpdf_pipeline.services.rendering.layout.text_analysis import tokenize_text
-from retainpdf_pipeline.services.document_schema.semantics import is_plain_bodylike_block
+from retainpdf_pipeline.services.rendering.semantics.item_view import is_plain_bodylike_block
 
 
 WORD_RE = re.compile(r"[A-Za-z0-9]+(?:[-'][A-Za-z0-9]+)*")

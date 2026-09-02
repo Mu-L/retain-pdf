@@ -11,8 +11,8 @@ from retainpdf_pipeline.services.rendering.layout.font_roles import is_footnote_
 from retainpdf_pipeline.services.rendering.layout.font_roles import is_title_like_block
 from retainpdf_pipeline.services.rendering.layout.typography.measurement import bbox_height
 from retainpdf_pipeline.services.rendering.layout.typography.measurement import bbox_width
-from retainpdf_pipeline.services.document_schema.semantics import layout_role as schema_layout_role
-from retainpdf_pipeline.services.document_schema.semantics import semantic_role as schema_semantic_role
+from retainpdf_pipeline.services.rendering.semantics.item_view import layout_role as schema_layout_role
+from retainpdf_pipeline.services.rendering.semantics.item_view import semantic_role as schema_semantic_role
 
 
 INDENT_RENDER_SCALE = 2.0

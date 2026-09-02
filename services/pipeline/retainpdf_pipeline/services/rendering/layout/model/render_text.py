@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from retainpdf_pipeline.services.rendering.semantics.item_view import block_class
 from retainpdf_pipeline.services.rendering.layout.text_analysis import analyze_text
 
 MODEL_KEEP_ORIGIN_REASONS = {"skip_model_keep_origin"}
@@ -169,10 +170,8 @@ def should_skip_display_math_render(item: dict) -> bool:
     source_text = _render_source_text(item)
     if not source_text:
         return False
-    block_kind = str(item.get("block_kind", item.get("block_type", "")) or "").strip().lower()
-    sub_type = str(item.get("normalized_sub_type", "") or "").strip().lower()
     skip_reason = _skip_reason(item)
-    if block_kind == "formula" or sub_type == "display_formula":
+    if block_class(item) == "formula":
         return True
     analysis = analyze_text(source_text)
     if skip_reason in {"skip_display_formula", "skip_model_keep_origin"} and analysis.has_display_math and not analysis.plain_text.strip():
@@ -188,9 +187,7 @@ def _should_render_source_block(item: dict) -> bool:
     source_text = _render_source_text(item)
     if not source_text:
         return False
-    block_kind = str(item.get("block_kind", item.get("block_type", "")) or "").strip().lower()
-    sub_type = str(item.get("normalized_sub_type", "") or "").strip().lower()
-    if block_kind == "formula" or sub_type in {"formula", "display_formula"}:
+    if block_class(item) == "formula":
         return True
     analysis = analyze_text(source_text)
     return analysis.raw_math_count > 0 or "\\" in source_text

@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
+from retainpdf_pipeline.services.rendering.semantics.item_view import (
+    block_kind,
+    role_values,
+)
 
 ItemPredicate = Callable[[dict], bool]
 
@@ -66,19 +70,11 @@ def item_is_text(item: dict) -> bool:
 
 
 def item_block_kind(item: dict) -> str:
-    return str(item.get("block_kind") or item.get("block_type") or "").strip().lower()
+    return block_kind(item)
 
 
 def item_role_values(item: dict) -> frozenset[str]:
-    return frozenset(
-        str(item.get(key) or "").strip().lower()
-        for key in (
-            "layout_role",
-            "semantic_role",
-            "structure_role",
-            "normalized_sub_type",
-        )
-    )
+    return role_values(item)
 
 
 def item_matches_role_allowlist(item: dict, allowlist: frozenset[str]) -> bool:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from retainpdf_pipeline.services.rendering.semantics.item_view import block_class
 from retainpdf_pipeline.services.rendering.layout.text_analysis import analyze_text
 from retainpdf_pipeline.services.rendering.layout.payload.text_common import get_render_formula_map
 from retainpdf_pipeline.services.rendering.layout.payload.line_structure import maybe_preserve_structured_line_breaks
@@ -73,9 +74,7 @@ def should_render_source_block(item: dict) -> bool:
     source_text = render_protected_source_text(item)
     if not source_text:
         return False
-    block_kind = str(item.get("block_kind", item.get("block_type", "")) or "").strip().lower()
-    sub_type = str(item.get("normalized_sub_type", "") or "").strip().lower()
-    if block_kind == "formula" or sub_type in {"formula", "display_formula"}:
+    if block_class(item) == "formula":
         return True
     analysis = analyze_text(source_text)
     return analysis.raw_math_count > 0 or analysis.latex_command_count > 0

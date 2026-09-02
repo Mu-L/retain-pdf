@@ -4,11 +4,18 @@ import fitz
 
 from retainpdf_pipeline.foundation.config import layout
 from retainpdf_pipeline.services.rendering.policy.geometry import item_rect
-from retainpdf_pipeline.services.rendering.policy.models import CleanupMode
-from retainpdf_pipeline.services.rendering.policy.models import RenderItemPolicy
-from retainpdf_pipeline.services.rendering.policy.models import RenderPagePolicy
-from retainpdf_pipeline.services.document_schema.semantics import block_kind
-
+from retainpdf_pipeline.services.rendering.policy.models import (
+    CleanupMode,
+    RenderItemPolicy,
+    RenderPagePolicy,
+)
+from retainpdf_pipeline.services.rendering.semantics.item_view import (
+    block_class,
+    block_kind,
+)
+from retainpdf_pipeline.services.rendering.semantics.legacy_compat import (
+    legacy_has_skip_translation_tag,
+)
 
 NON_TRANSLATED_FINAL_STATUSES = frozenset(
     {
@@ -33,19 +40,8 @@ NON_TRANSLATED_DECISIONS = frozenset(
         "skip_translation",
     }
 )
-SKIP_TRANSLATION_TAGS = frozenset({"skip_translation", "keep_origin", "preserve_source"})
-
-
 def item_has_formula_region(item: dict) -> bool:
-    normalized_sub_type = str(item.get("normalized_sub_type") or "").strip().lower()
-    raw_block_type = str(item.get("raw_block_type") or "").strip().lower()
-    block_type = str(item.get("block_type") or "").strip().lower()
-    return (
-        block_kind(item) == "formula"
-        or block_type == "formula"
-        or raw_block_type == "display_formula"
-        or normalized_sub_type == "display_formula"
-    )
+    return block_class(item) == "formula"
 
 
 def page_has_formula_region(translated_items: list[dict]) -> bool:
@@ -190,17 +186,15 @@ def item_will_render_translated_overlay(item: dict) -> bool:
 
 def item_is_marked_non_translated(item: dict) -> bool:
     status = str(item.get("final_status") or item.get("translation_status") or item.get("status") or "").strip().lower()
-    if status in NON_TRANSLATED_FINAL_STATUSES:
-        return True
+    if status:
+        return status in NON_TRANSLATED_FINAL_STATUSES
     decision = str(item.get("decision") or item.get("translation_decision") or "").strip().lower()
-    if decision in NON_TRANSLATED_DECISIONS:
-        return True
-    tags = item.get("tags")
-    if isinstance(tags, list):
-        normalized_tags = {str(tag).strip().lower() for tag in tags}
-        if normalized_tags & SKIP_TRANSLATION_TAGS:
-            return True
-    return False
+    if decision:
+        return decision in NON_TRANSLATED_DECISIONS
+    should_translate = item.get("should_translate")
+    if isinstance(should_translate, bool):
+        return not should_translate
+    return legacy_has_skip_translation_tag(item)
 
 
 def item_render_output_text(item: dict) -> str:

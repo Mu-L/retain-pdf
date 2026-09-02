@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Iterable
 
+from retainpdf_pipeline.services.document_schema.classification import resolve_block_class
 from retainpdf_pipeline.services.document_schema.text_flow import TEXT_FLOW_PRESERVE_LINES
 
 
@@ -86,6 +87,12 @@ def block_kind(block: dict) -> str:
     return str(content.get("kind", "unknown") or "unknown").strip().lower()
 
 
+def block_class(block: dict, data: dict | None = None) -> str:
+    if data is not None:
+        ensure_normalized_document(data)
+    return resolve_block_class(block)
+
+
 def block_asset_id(block: dict) -> str:
     content = block.get("content", {}) or {}
     return str(content.get("asset_id", "") or "").strip()
@@ -149,6 +156,7 @@ __all__ = [
     "block_asset_ids",
     "block_bbox",
     "block_children",
+    "block_class",
     "block_kind",
     "block_line_texts",
     "block_layout_role",

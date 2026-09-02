@@ -5,10 +5,10 @@ from hashlib import blake2b
 import json
 from math import log1p
 
-from retainpdf_pipeline.services.document_schema.semantics import block_kind
-from retainpdf_pipeline.services.document_schema.semantics import layout_role
-from retainpdf_pipeline.services.document_schema.semantics import semantic_role
-from retainpdf_pipeline.services.document_schema.semantics import structure_role
+from retainpdf_pipeline.services.rendering.semantics.item_view import block_kind
+from retainpdf_pipeline.services.rendering.semantics.item_view import layout_role
+from retainpdf_pipeline.services.rendering.semantics.item_view import semantic_role
+from retainpdf_pipeline.services.rendering.semantics.item_view import structure_role
 from retainpdf_pipeline.services.rendering.layout.font_roles import is_title_like_block
 from retainpdf_pipeline.services.rendering.layout.payload.shared import source_word_count
 from retainpdf_pipeline.services.rendering.layout.payload.shared import translated_zh_char_count

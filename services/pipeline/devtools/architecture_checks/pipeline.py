@@ -4,6 +4,7 @@ from __future__ import annotations
 import sys
 
 from devtools.architecture_checks.common import ArchitectureCheckSyntaxError
+from devtools.architecture_checks.document_semantics import check_document_semantic_boundaries
 from devtools.architecture_checks.entrypoints import check_entrypoint_stable_imports
 from devtools.architecture_checks.entrypoints import check_stage_spec_contract_checker
 from devtools.architecture_checks.providers import check_ocr_provider_boundaries
@@ -25,6 +26,7 @@ def main() -> int:
     try:
         check_pipeline_provider_leaks(errors)
         check_service_provider_raw_leaks(errors)
+        check_document_semantic_boundaries(errors)
         check_entrypoint_stable_imports(errors)
         check_ocr_provider_boundaries(errors)
         check_translation_worker_protocol(errors)

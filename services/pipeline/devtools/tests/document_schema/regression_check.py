@@ -20,7 +20,9 @@ from retainpdf_pipeline.services.document_schema import validate_document_path
 from retainpdf_pipeline.services.document_schema import validate_document_payload
 from retainpdf_pipeline.services.document_schema.providers import PROVIDER_PADDLE
 from retainpdf_pipeline.services.translation.core.ocr.json_extractor import extract_text_items
-from retainpdf_pipeline.services.translation.core.payload.translations import _default_translation_flags
+from retainpdf_pipeline.services.translation.core.payload.template_records import (
+    default_translation_flags as _default_translation_flags,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 

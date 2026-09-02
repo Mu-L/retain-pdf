@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from retainpdf_pipeline.services.translation.artifacts import TranslationDiagnosticsCollector
-from retainpdf_pipeline.services.translation.core.item_reader import item_raw_block_type
+from retainpdf_pipeline.services.translation.core.item_reader import item_content_kind
 from retainpdf_pipeline.services.translation.llm.result_payload import result_entry
 from retainpdf_pipeline.services.translation.llm.validation.english_residue import is_direct_math_mode
 from retainpdf_pipeline.services.translation.llm.shared.orchestration.common import chunk_source_text_fallback
@@ -19,7 +19,7 @@ def should_split_direct_typst_long_text(item: dict) -> bool:
         return False
     if item.get("_direct_typst_long_split_applied"):
         return False
-    if item_raw_block_type(item) != "text":
+    if item_content_kind(item) != "text":
         return False
     source_text = str(item.get("translation_unit_protected_source_text") or item.get("protected_source_text") or "")
     compact = " ".join(source_text.split())

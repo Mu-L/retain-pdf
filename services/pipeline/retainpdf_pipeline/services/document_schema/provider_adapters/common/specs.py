@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
-from typing import TypedDict
+from typing import Any, TypedDict
 
 
 class NormalizedBlockSpec(TypedDict, total=False):
@@ -9,7 +8,10 @@ class NormalizedBlockSpec(TypedDict, total=False):
     page_index: int
     order: int
     reading_order: int
+    content_kind: str
+    # Transitional input alias. New adapters must use content_kind.
     block_type: str
+    block_class: str
     sub_type: str
     bbox: list[float]
     geometry: dict[str, Any]

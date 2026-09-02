@@ -2,6 +2,10 @@
 
 这份文档基于 [json_full.json](../json_full.json) 的 `layoutParsingResults[*].prunedResult.parsing_res_list[*].block_label` 实际枚举结果整理，目标是给后续 `Paddle -> document.v1` adapter 提供第一版稳定映射。
 
+> 这是一份样本观察记录，不代表 Paddle 官方标签全集。官方 25 类基线、当前实现
+> 覆盖率和升级门禁见
+> [`docs/backend/PADDLE_LAYOUT_LABELS.md`](../../../../../../../../docs/backend/PADDLE_LAYOUT_LABELS.md)。
+
 ## 1. 当前样本中观察到的 block_label
 
 从当前三页样本里枚举到的 label 如下：

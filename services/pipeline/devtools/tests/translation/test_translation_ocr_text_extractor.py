@@ -78,6 +78,7 @@ def test_extract_text_items_only_keeps_primary_body_like_text_blocks() -> None:
 
     assert [item.text for item in items] == ["Body paragraph", "Results"]
     assert [item.structure_role for item in items] == ["body", "heading"]
+    assert [item.block_class for item in items] == ["body", "title"]
 
 
 def test_extract_text_items_keeps_empty_subtype_plain_text_body_block() -> None:
@@ -145,3 +146,92 @@ def test_extract_text_items_keeps_empty_subtype_plain_text_body_block() -> None:
     items = extract_text_items(adapted, 0)
 
     assert [item.text for item in items] == ["Plain normalized body block"]
+    assert [item.block_class for item in items] == ["body"]
+
+
+def _normalized_document_with_blocks(*blocks: dict) -> dict:
+    return {
+        "schema": "normalized_document_v1",
+        "schema_version": "1.0.0",
+        "document_id": "translation-canonical-policy-test",
+        "source": {"provider": "test"},
+        "page_count": 1,
+        "pages": [{"page_index": 0, "width": 200.0, "height": 120.0, "unit": "pt", "blocks": list(blocks)}],
+    }
+
+
+def _normalized_block(
+    block_id: str,
+    text: str,
+    *,
+    kind: str = "text",
+    block_class: str = "body",
+    policy_translate: bool = True,
+    tags: list[str] | None = None,
+    children: list[dict] | None = None,
+) -> dict:
+    return {
+        "block_id": block_id,
+        "page_index": 0,
+        "order": 0,
+        "type": kind,
+        "sub_type": "body" if kind == "text" else kind,
+        "block_class": block_class,
+        "geometry": {"bbox": [0, 0, 180, 20]},
+        "content": {"kind": kind, "text": text},
+        "bbox": [0, 0, 180, 20],
+        "text": text,
+        "lines": [],
+        "segments": [],
+        "tags": list(tags or []),
+        "layout_role": "paragraph" if kind == "text" else "unknown",
+        "semantic_role": "body" if kind == "text" else "unknown",
+        "structure_role": "body" if kind == "text" else "",
+        "policy": {"translate": policy_translate},
+        "source": {"provider": "test", "raw_type": kind},
+        "blocks": list(children or []),
+    }
+
+
+def test_extract_text_items_explicit_policy_overrides_stale_skip_tag() -> None:
+    body = _normalized_block(
+        "p001-b0000",
+        "Canonical body text",
+        tags=["skip_translation"],
+        policy_translate=True,
+    )
+
+    items = extract_text_items(_normalized_document_with_blocks(body), 0)
+
+    assert [item.text for item in items] == ["Canonical body text"]
+
+
+def test_extract_text_items_keeps_explicitly_skipped_formula_for_rendering() -> None:
+    formula = _normalized_block(
+        "p001-b0000",
+        "E = mc^2",
+        kind="formula",
+        block_class="formula",
+        tags=["skip_translation"],
+        policy_translate=False,
+    )
+
+    items = extract_text_items(_normalized_document_with_blocks(formula), 0)
+
+    assert len(items) == 1
+    assert items[0].block_class == "formula"
+    assert items[0].policy_translate is False
+
+
+def test_extract_text_items_suppresses_algorithm_subtree_even_with_child_policy_true() -> None:
+    child = _normalized_block("p001-b0001", "Do not translate nested algorithm text")
+    algorithm = _normalized_block(
+        "p001-b0000",
+        "algorithm source",
+        kind="code",
+        block_class="code",
+        policy_translate=False,
+        children=[child],
+    )
+
+    assert extract_text_items(_normalized_document_with_blocks(algorithm), 0) == []

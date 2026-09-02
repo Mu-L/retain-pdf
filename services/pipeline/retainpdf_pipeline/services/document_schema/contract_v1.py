@@ -2,11 +2,15 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from retainpdf_pipeline.services.document_schema.text_flow import classify_text_flow_for_role
-from retainpdf_pipeline.services.document_schema.text_flow import line_texts_from_lines
-from retainpdf_pipeline.services.document_schema.text_flow import TEXT_FLOW_PRESERVE_LINES
+from retainpdf_pipeline.services.document_schema.classification import (
+    derive_block_class,
+)
+from retainpdf_pipeline.services.document_schema.text_flow import (
+    TEXT_FLOW_PRESERVE_LINES,
+    classify_text_flow_for_role,
+    line_texts_from_lines,
+)
 from retainpdf_pipeline.services.document_schema.toc import build_toc_entries
-
 
 _TEXT_LAYOUT_SUBTYPE_MAP = {
     "title": "title",
@@ -370,6 +374,12 @@ def enrich_document_contract_v1(document: dict) -> dict:
             block["layout_role"] = layout_role
             block["semantic_role"] = semantic_role
             block["structure_role"] = structure_role
+            block["block_class"] = derive_block_class(
+                content_kind=str(content.get("kind", "unknown") or "unknown"),
+                layout_role=layout_role,
+                semantic_role=semantic_role,
+                structure_role=structure_role,
+            )
             block["policy"] = _build_policy(
                 block,
                 kind=str(content.get("kind", "unknown") or "unknown"),

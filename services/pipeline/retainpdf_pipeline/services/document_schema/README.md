@@ -78,6 +78,7 @@
 - `reading_order`
 - `geometry`
 - `content`
+- `block_class`
 - `layout_role`
 - `semantic_role`
 - `structure_role`
@@ -408,6 +409,72 @@ python scripts/devtools/tests/document_schema/regression_check.py --write-report
 - 新 provider 至少补一条“provider 语义断言”
 - 不要只看 `pages / blocks`，否则分类回归很容易漏掉
 
+## Block class 决策差异门
+
+内部大类迁移不能靠肉眼抽查。仓库提供：
+
+- 可复用审计模块：`services/document_schema/decision_diff.py`
+- corpus CLI：`services/pipeline/devtools/audit_block_class_decisions.py`
+
+它会对同一个 block 同时计算：
+
+- 旧决策：只读取 `content.kind/type + sub_type + tags`
+- 新决策：读取 `block_class + layout_role/semantic_role/structure_role`
+- 下游 predicate 向量：`caption / footnote / reference / algorithm / body_candidate / document_title`
+
+默认直接扫描 `data/jobs/**/ocr/normalized/document.v1.json`：
+
+```bash
+PYTHONPATH=services/pipeline \
+python services/pipeline/devtools/audit_block_class_decisions.py
+```
+
+默认是严格 gate：出现未登记变化，或者显式 `block_class` 与 canonical fields 推导结果冲突时，返回非零退出码。需要先观察而不阻断时，可以运行：
+
+```bash
+PYTHONPATH=services/pipeline \
+python services/pipeline/devtools/audit_block_class_decisions.py \
+  --report-only \
+  --write-report /tmp/block-class-decision-diff.json
+```
+
+内置允许变化目前只有：
+
+- `body -> title`，且 `semantic_role = "abstract"`
+
+这条规则对应 RetainPDF 已确认的内部大类定义。其他差异必须修正，或者通过带有审查原因的 allowlist 显式登记：
+
+```json
+{
+  "schema": "block_class_decision_diff_allowlist_v1",
+  "rules": [
+    {
+      "name": "reviewed-document-exception",
+      "document_id": "document-id",
+      "block_id": "p001-b0001",
+      "old_class": "title",
+      "new_class": "body",
+      "reason": "Reviewed against the source page"
+    }
+  ]
+}
+```
+
+allowlist 规则至少要限制一个匹配字段，并且必须填写 `reason`。不要添加不带文档、block、role 或 class 约束的全局通配规则。
+
+当前语料库已审查的 predicate 变化保存在
+`services/pipeline/devtools/block_class_decision_allowlist.json`。严格验收命令为：
+
+```bash
+PYTHONPATH=services/pipeline \
+python services/pipeline/devtools/audit_block_class_decisions.py \
+  --allowlist services/pipeline/devtools/block_class_decision_allowlist.json
+```
+
+摘要的 class allowlist 不会自动放行 `body_candidate` 变化；predicate 规则必须显式声明
+`change_kind` 或 `predicate`。Paddle `algorithm` 的临时规则同样只确认兼容差异，
+不会把 provider label 加入 RetainPDF 的 canonical taxonomy。
+
 ## 默认值补齐规则
 
 adapter 产出的当前版 `document.v1.json` 在进入主线前，会统一补齐稳定默认值。
@@ -545,6 +612,12 @@ adapter 产出的当前版 `document.v1.json` 在进入主线前，会统一补�
   稳定内容字段，当前至少包含 `kind` 和 `text`
   - `asset_id` 是向后兼容的主资源 id
   - `asset_ids` 保存块关联的完整资源列表，首项必须等于 `asset_id`
+- `block_class: str`
+  RetainPDF 自己定义的跨 provider 大类：`title/body/formula/image/table/code/caption/footnote/metadata/unknown`
+  - `abstract` 归入 `title` 大类，细节保留为 `semantic_role = "abstract"`
+  - `formula` 只表示独立行间公式块
+  - 行内公式属于文本 block 内的 `segments/spans`，不是 formula block
+  - 公式编号属于 `metadata` 大类，细节为 `structure_role = "formula_number"`
 - `layout_role: str`
   显式版面角色
 - `semantic_role: str`
@@ -633,41 +706,37 @@ adapter 产出的当前版 `document.v1.json` 在进入主线前，会统一补�
 
 规则：
 
-- 能稳定映射的结构，优先进入 `type / sub_type`
-- 不稳定的高层语义，不要直接扩主类型系统
-- 先问“这是结构，还是语义判断”
-- 先问“跨 provider 是否大概率都能稳定落下来”
+- `content.kind` 只回答“内容载体是什么”：文字、行间公式、图片、表格或代码
+- `block_class` 只回答“我们用哪个大类处理它”，不接受 provider 私有标签
+- 标题、正文、caption、脚注和 metadata 的细分信息进入 `layout_role / semantic_role / structure_role`
+- `type / sub_type` 仅作为兼容投影，不再作为新代码的分类依据
+- 先问“这是内容载体、大类，还是细分语义”，避免在不同字段重复表达同一概念
 
 示例：
 
 - 正文段落：
-  - `type = "text"`
-  - `sub_type = "body"`
+  - `content.kind = "text"`
+  - `block_class = "body"`
+- 摘要标题：
+  - `content.kind = "text"`
+  - `block_class = "title"`
+  - `semantic_role = "abstract"`
 - 页眉：
-  - `type = "text"`
-  - `sub_type = "header"`
+  - `content.kind = "text"`
+  - `block_class = "metadata"`
+  - `layout_role = "header"`
 - 行间公式：
-  - `type = "formula"`
-  - `sub_type = "display_formula"`
+  - `content.kind = "formula"`
+  - `block_class = "formula"`
 - 代码块：
-  - `type = "code"`
-  - `sub_type = "code_block"`
+  - `content.kind = "code"`
+  - `block_class = "code"`
 - OCR 无法稳定细分，但能确认是文字：
-  - `type = "text"`
-  - `sub_type = "metadata"` 或 `body`
+  - `content.kind = "text"`
+  - `block_class = "body"` 或 `metadata`
+  - 无法确认的细节角色保持 `unknown`
 
-反例：
-
-- 不要把 `caption` 直接塞进 `type`
-- 不要把 `reference_entry` 直接塞进 `sub_type`
-- 不要因为单个 provider 有特殊字段，就扩一套新的主类型
-
-接 provider 时可以按下面这个判断：
-
-- `text/header/footer/page_number/footnote` 这类版面结构稳定，进 `type / sub_type`
-- `formula/display_formula`、`image/figure`、`table/table_body`、`code/code_block` 这类块级结构稳定，进 `type / sub_type`
-- `image_caption/table_caption/table_footnote/reference_entry/reference_heading` 这类更像“语义标签”，优先进 `tags`
-- 如果本地规则或后续 LLM 已经对某块做出更强结论，再写进 `derived.role`
+接 provider 时只允许映射到上述内部字段。provider 原始标签必须保留在 `provenance`，不得直接扩展 `content.kind` 或 `block_class`。
 - `author/date/affiliation/doi` 这类 OCR 经常分不稳、provider 差异又大的内容，默认不要扩成新的稳定 `sub_type`
 
 ## `tags / markers / derived` 分层
@@ -843,7 +912,8 @@ adapter 产出的当前版 `document.v1.json` 在进入主线前，会统一补�
 
 - `segments` 是块内扁平序列，便于翻译和公式保护
 - `lines` 保留行级结构，便于排版与局部分析
-- 行内公式不作为 block 主类型，保留在 `segments/spans` 中
+- 行内公式不作为 block 主类型，保留在文本 block 的 `segments/spans` 中，新产物写为 `type = "inline_formula"`
+- `content.kind = "formula"` 只表示行间公式 block；旧产物中 segment 的 `type = "formula"` 继续兼容读取
 
 ## 稳定契约与非稳定字段
 
@@ -851,7 +921,7 @@ adapter 产出的当前版 `document.v1.json` 在进入主线前，会统一补�
 
 - 顶层：`schema`, `schema_version`, `document_id`, `page_count`, `pages`, `markers`
 - 页面：`page_index`, `width`, `height`, `unit`, `blocks`
-- block：`block_id`, `page_index`, `order`, `type`, `sub_type`, `bbox`, `text`, `lines`, `segments`, `tags`, `derived`, `continuation_hint`, `metadata`, `source`
+- block：`block_id`, `page_index`, `order`, `geometry`, `content`, `block_class`, `layout_role`, `semantic_role`, `structure_role`, `policy`, `provenance`，以及兼容投影字段
 - `derived.role/by/confidence`
 
 当前不建议外部强绑定的部分：

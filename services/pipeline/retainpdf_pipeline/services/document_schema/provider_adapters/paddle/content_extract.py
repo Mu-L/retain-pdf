@@ -3,10 +3,14 @@ from __future__ import annotations
 import math
 import re
 
-from retainpdf_pipeline.services.document_schema.provider_adapters.common import build_line_records
-from retainpdf_pipeline.services.document_schema.provider_adapters.common import build_text_segments
-from retainpdf_pipeline.services.translation.public import protect_inline_formulas
-from retainpdf_pipeline.services.translation.public import PROTECTED_TOKEN_RE
+from retainpdf_pipeline.services.document_schema.provider_adapters.common import (
+    build_line_records,
+    build_text_segments,
+)
+from retainpdf_pipeline.services.translation.public import (
+    PROTECTED_TOKEN_RE,
+    protect_inline_formulas,
+)
 
 APPROX_TEXT_CHAR_WIDTH_PT = 5.2
 MIN_PSEUDO_LINE_PITCH_PT = 11.0
@@ -54,7 +58,7 @@ def _split_text_with_inline_formulas(text: str, raw_label: str) -> list[dict]:
                     _segment_record(
                         text=formula_text,
                         raw_label=raw_label,
-                        segment_type="formula",
+                        segment_type="inline_formula",
                     )
                 )
             cursor = match.end()
@@ -86,7 +90,13 @@ def _split_text_with_inline_formulas(text: str, raw_label: str) -> list[dict]:
         placeholder = match.group(0)
         formula_text = lookup.get(placeholder, "").strip()
         if formula_text:
-            segments.append(_segment_record(text=formula_text, raw_label=raw_label, segment_type="formula"))
+            segments.append(
+                _segment_record(
+                    text=formula_text,
+                    raw_label=raw_label,
+                    segment_type="inline_formula",
+                )
+            )
         cursor = end
     tail = protected_text[cursor:]
     if tail.strip():
@@ -315,7 +325,9 @@ def assign_inline_formula_bboxes(
     or line approximation remains explicit.
     """
 
-    formula_segments = [segment for segment in segments if segment.get("type") == "formula"]
+    formula_segments = [
+        segment for segment in segments if segment.get("type") == "inline_formula"
+    ]
     candidates: list[tuple[list[float], dict]] = []
     if len(block_bbox) == 4:
         x0, y0, x1, y1 = (float(value) for value in block_bbox)

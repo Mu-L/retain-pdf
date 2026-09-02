@@ -8,8 +8,8 @@ from retainpdf_pipeline.services.rendering.layout.payload.capacity import estima
 from retainpdf_pipeline.services.rendering.layout.payload.capacity import estimated_required_lines
 from retainpdf_pipeline.services.rendering.layout.payload.capacity import text_demand_units
 from retainpdf_pipeline.services.rendering.layout.payload.fit_common import fit_inner_bbox
-from retainpdf_pipeline.services.document_schema.semantics import layout_role
-from retainpdf_pipeline.services.document_schema.semantics import structure_role
+from retainpdf_pipeline.services.rendering.semantics.item_view import layout_role
+from retainpdf_pipeline.services.rendering.semantics.item_view import structure_role
 
 
 TITLE_FIT_WIDTH_SAFETY = 0.92

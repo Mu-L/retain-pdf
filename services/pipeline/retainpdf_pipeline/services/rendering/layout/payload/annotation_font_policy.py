@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from statistics import median
 
-from retainpdf_pipeline.services.document_schema.semantics import is_caption_like_block
-from retainpdf_pipeline.services.document_schema.semantics import is_footnote_like_block
+from retainpdf_pipeline.services.rendering.semantics.item_view import is_caption_like_block
+from retainpdf_pipeline.services.rendering.semantics.item_view import is_footnote_like_block
 from retainpdf_pipeline.services.rendering.layout.payload.body_common import is_body_context_text_payload
 from retainpdf_pipeline.services.rendering.layout.payload.body_common import payload_density
 from retainpdf_pipeline.services.rendering.policy import typography_policy as typography

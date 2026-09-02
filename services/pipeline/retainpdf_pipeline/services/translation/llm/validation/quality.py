@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import re
 from typing import Any
 
-from retainpdf_pipeline.services.translation.core.item_reader import item_raw_block_type
+from retainpdf_pipeline.services.translation.core.item_reader import item_content_kind
 from retainpdf_pipeline.services.translation.artifacts.status import is_allowed_untranslated
 from retainpdf_pipeline.services.translation.llm.result_payload import KEEP_ORIGIN_LABEL
 from retainpdf_pipeline.services.translation.llm.result_payload import is_internal_placeholder_degraded
@@ -78,8 +78,7 @@ def should_reject_keep_origin(item: dict, decision: str, payload: dict[str, str]
         return False
     if payload and is_internal_placeholder_degraded(payload):
         return False
-    block_type = item_raw_block_type(item)
-    if block_type not in {"", "text"}:
+    if item_content_kind(item) != "text":
         return False
     return should_force_translate_body_text(item)
 

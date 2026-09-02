@@ -7,7 +7,7 @@ from retainpdf_pipeline.services.rendering.layout.payload.metrics import VERTICA
 from retainpdf_pipeline.services.rendering.layout.payload.metrics import block_metrics
 from retainpdf_pipeline.services.rendering.layout.payload.metrics import estimated_render_height_pt
 from retainpdf_pipeline.services.rendering.layout.typography.geometry import inner_bbox
-from retainpdf_pipeline.services.document_schema.semantics import block_kind
+from retainpdf_pipeline.services.rendering.semantics.item_view import block_kind
 
 
 SUSPICIOUS_OCR_GLUE_MIN_CHARS = 1000

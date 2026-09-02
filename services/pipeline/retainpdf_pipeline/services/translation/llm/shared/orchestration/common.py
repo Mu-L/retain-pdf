@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import re
 
-from retainpdf_pipeline.services.translation.core.item_reader import item_block_kind
+from retainpdf_pipeline.services.translation.core.item_reader import item_content_kind
 from retainpdf_pipeline.services.translation.core.item_reader import item_is_bodylike
 from retainpdf_pipeline.services.translation.core.item_reader import item_is_caption_like
 from retainpdf_pipeline.services.translation.core.item_reader import item_policy_translate
-from retainpdf_pipeline.services.translation.core.item_reader import item_raw_block_type
 from retainpdf_pipeline.services.translation.llm.placeholder_transform import has_formula_placeholders
 from retainpdf_pipeline.services.translation.llm.validation.english_residue import is_direct_math_mode
 from retainpdf_pipeline.services.translation.llm.validation.english_residue import should_force_translate_body_text
@@ -82,7 +81,7 @@ def should_keep_origin_on_empty_translation(item: dict) -> bool:
 
 
 def looks_like_cjk_dominant_body_text(item: dict) -> bool:
-    if item_block_kind(item) != "text":
+    if item_content_kind(item) != "text":
         return False
     if not item_is_bodylike(item):
         return False
@@ -158,7 +157,7 @@ def is_low_risk_deepseek_batch_item(
     batch_low_risk_min_chars: int,
     batch_low_risk_max_chars: int,
 ) -> bool:
-    if item_raw_block_type(item) != "text":
+    if item_content_kind(item) != "text":
         return False
     if not item_is_bodylike(item):
         return False

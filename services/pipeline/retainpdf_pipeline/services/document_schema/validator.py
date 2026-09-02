@@ -1,13 +1,26 @@
 from __future__ import annotations
 
-from importlib import resources
-from pathlib import Path
 import json
 import math
+from importlib import resources
+from pathlib import Path
 
-from retainpdf_pipeline.services.document_schema.version import DOCUMENT_SCHEMA_FILE_NAME
-from retainpdf_pipeline.services.document_schema.version import DOCUMENT_SCHEMA_NAME
-from retainpdf_pipeline.services.document_schema.version import DOCUMENT_SCHEMA_VERSION
+from retainpdf_pipeline.services.document_schema.classification import (
+    derive_block_class,
+)
+from retainpdf_pipeline.services.document_schema.version import (
+    DOCUMENT_SCHEMA_FILE_NAME,
+    DOCUMENT_SCHEMA_NAME,
+    DOCUMENT_SCHEMA_VERSION,
+)
+from retainpdf_pipeline.services.document_schema.vocabulary import (
+    BLOCK_CLASSES,
+    BLOCK_TYPES,
+    CONTENT_KINDS,
+    LAYOUT_ROLES,
+    SEGMENT_TYPES,
+    SEMANTIC_ROLES,
+)
 
 SUPPORTED_DOCUMENT_SCHEMA_VERSIONS = (DOCUMENT_SCHEMA_VERSION,)
 
@@ -71,7 +84,7 @@ def _validate_content(path: str, content: dict) -> None:
     if "kind" not in content:
         _fail(path, "missing key 'kind'")
     _expect_type(f"{path}.kind", content["kind"], str)
-    if content["kind"] not in {"text", "image", "table", "formula", "code", "unknown"}:
+    if content["kind"] not in CONTENT_KINDS:
         _fail(f"{path}.kind", f"unexpected content kind '{content['kind']}'")
     if "text" in content:
         _expect_type(f"{path}.text", content["text"], str)
@@ -209,7 +222,7 @@ def _validate_segment(path: str, segment: dict) -> None:
         if key not in segment:
             _fail(path, f"missing key '{key}'")
     _expect_type(f"{path}.type", segment["type"], str)
-    if segment["type"] not in {"text", "formula"}:
+    if segment["type"] not in SEGMENT_TYPES:
         _fail(f"{path}.type", f"unexpected segment type '{segment['type']}'")
     _expect_type(f"{path}.raw_type", segment["raw_type"], str)
     _expect_type(f"{path}.text", segment["text"], str)
@@ -294,10 +307,10 @@ def _validate_block(
         )
     _validate_content(f"{path}.content", block["content"])
     layout_role = _validate_role_string(f"{path}.layout_role", block["layout_role"])
-    if layout_role not in {"title", "heading", "paragraph", "list_item", "caption", "header", "footer", "footnote", "page_number", "toc", "unknown"}:
+    if layout_role not in LAYOUT_ROLES:
         _fail(f"{path}.layout_role", f"unexpected layout role '{block['layout_role']}'")
     semantic_role = _validate_role_string(f"{path}.semantic_role", block["semantic_role"])
-    if semantic_role not in {"body", "abstract", "reference", "metadata", "affiliation", "acknowledgement", "table_of_contents", "unknown"}:
+    if semantic_role not in SEMANTIC_ROLES:
         _fail(f"{path}.semantic_role", f"unexpected semantic role '{block['semantic_role']}'")
     _validate_role_string(f"{path}.structure_role", block["structure_role"])
     _validate_policy(f"{path}.policy", block["policy"])
@@ -315,8 +328,31 @@ def _validate_block(
 
     if "type" in block:
         _expect_type(f"{path}.type", block["type"], str)
-        if block["type"] not in {"text", "formula", "image", "table", "code", "unknown"}:
+        if block["type"] not in BLOCK_TYPES:
             _fail(f"{path}.type", f"unexpected block type '{block['type']}'")
+        if block["type"] != block["content"]["kind"]:
+            _fail(
+                f"{path}.type",
+                "must match content.kind in the canonical content projection",
+            )
+    if "block_class" in block:
+        _expect_type(f"{path}.block_class", block["block_class"], str)
+        if block["block_class"] not in BLOCK_CLASSES:
+            _fail(
+                f"{path}.block_class",
+                f"unexpected block class '{block['block_class']}'",
+            )
+        expected_block_class = derive_block_class(
+            content_kind=block["content"]["kind"],
+            layout_role=layout_role,
+            semantic_role=semantic_role,
+            structure_role=block["structure_role"],
+        )
+        if block["block_class"] != expected_block_class:
+            _fail(
+                f"{path}.block_class",
+                f"expected '{expected_block_class}' from canonical roles",
+            )
     if "sub_type" in block:
         _expect_type(f"{path}.sub_type", block["sub_type"], str)
     if "bbox" in block:
@@ -326,6 +362,11 @@ def _validate_block(
             _fail(f"{path}.geometry.bbox", "must match block.bbox in the canonical PDF-point coordinate space")
     if "text" in block:
         _expect_type(f"{path}.text", block["text"], str)
+        if block["text"] != block["content"].get("text", ""):
+            _fail(
+                f"{path}.text",
+                "must match content.text in the canonical content projection",
+            )
     if "lines" in block:
         _expect_type(f"{path}.lines", block["lines"], list)
         for index, line in enumerate(block["lines"]):
@@ -521,7 +562,7 @@ def build_validation_report(data: dict) -> dict:
         segment
         for block in blocks
         for segment in block.get("segments", []) or []
-        if str(segment.get("type", "") or "") == "formula"
+        if str(segment.get("type", "") or "") in {"formula", "inline_formula"}
     ]
     provider_formula_segment_bbox_count = sum(
         1

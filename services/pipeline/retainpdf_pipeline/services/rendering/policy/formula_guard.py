@@ -9,7 +9,7 @@ from retainpdf_pipeline.services.rendering.policy.geometry import item_rect
 from retainpdf_pipeline.services.rendering.policy.geometry import merge_rects
 from retainpdf_pipeline.services.rendering.policy.geometry import rect_list
 from retainpdf_pipeline.services.rendering.source_cleanup.planning.segments import split_rect_around_guards
-from retainpdf_pipeline.services.document_schema.semantics import block_kind
+from retainpdf_pipeline.services.rendering.semantics.item_view import block_kind
 
 
 FORMULA_GUARD_VERTICAL_PAD_PT = 12.0

@@ -35,6 +35,7 @@ RENDERING_ALLOWED_ROOT_DIRS = {
     "output",
     "pdf_structure_profile",
     "policy",
+    "semantics",
     "source",
     "source_cleanup",
     "tools",
@@ -59,22 +60,26 @@ RENDERING_LAYER_IMPORT_RULES: dict[str, tuple[str, ...]] = {
         "retainpdf_pipeline.services.rendering.output",
         "retainpdf_pipeline.services.rendering.legacy",
         "retainpdf_pipeline.services.rendering.visual_profile",
+        "retainpdf_pipeline.services.rendering.semantics",
     ),
     "analysis": (
         "retainpdf_pipeline.services.rendering.analysis",
         "retainpdf_pipeline.services.rendering.contracts",
         # Page profiling may inspect source image metadata, but must not execute cleanup/output.
         "retainpdf_pipeline.services.rendering.source.background.detect",
+        "retainpdf_pipeline.services.rendering.semantics",
     ),
     "contracts": (
         "retainpdf_pipeline.services.rendering.contracts",
         "retainpdf_pipeline.services.rendering.analysis.profile.models",
         "retainpdf_pipeline.services.rendering.analysis.route.models",
+        "retainpdf_pipeline.services.rendering.semantics",
     ),
     "document": (
         "retainpdf_pipeline.services.rendering.document",
         "retainpdf_pipeline.services.rendering.layout.model",
         "retainpdf_pipeline.services.rendering.contracts",
+        "retainpdf_pipeline.services.rendering.semantics",
     ),
     "source": (
         "retainpdf_pipeline.services.rendering.source",
@@ -93,10 +98,12 @@ RENDERING_LAYER_IMPORT_RULES: dict[str, tuple[str, ...]] = {
         "retainpdf_pipeline.services.rendering.pdf_structure_profile",
         "retainpdf_pipeline.services.rendering.source_cleanup",
         "retainpdf_pipeline.services.rendering.visual_profile",
+        "retainpdf_pipeline.services.rendering.semantics",
     ),
     "layout": (
         "retainpdf_pipeline.services.rendering.layout",
         "retainpdf_pipeline.services.rendering.policy",
+        "retainpdf_pipeline.services.rendering.semantics",
     ),
     "output": (
         "retainpdf_pipeline.services.rendering.output",
@@ -106,10 +113,12 @@ RENDERING_LAYER_IMPORT_RULES: dict[str, tuple[str, ...]] = {
         # Output owns overlay composition and may sample/rebuild source backgrounds.
         "retainpdf_pipeline.services.rendering.source.background",
         "retainpdf_pipeline.services.rendering.visual_profile",
+        "retainpdf_pipeline.services.rendering.semantics",
     ),
     "policy": (
         "retainpdf_pipeline.services.rendering.policy",
         "retainpdf_pipeline.services.rendering.source_cleanup.planning.segments",
+        "retainpdf_pipeline.services.rendering.semantics",
     ),
     "source_cleanup": (
         "retainpdf_pipeline.services.rendering.source_cleanup",
@@ -117,15 +126,18 @@ RENDERING_LAYER_IMPORT_RULES: dict[str, tuple[str, ...]] = {
         "retainpdf_pipeline.services.rendering.policy",
         "retainpdf_pipeline.services.rendering.source.background.detect",
         "retainpdf_pipeline.services.rendering.source.rects",
+        "retainpdf_pipeline.services.rendering.semantics",
     ),
     "tools": (
         "retainpdf_pipeline.services.rendering.tools",
+        "retainpdf_pipeline.services.rendering.semantics",
     ),
     "pdf_structure_profile": (
         "retainpdf_pipeline.services.rendering.pdf_structure_profile",
         "retainpdf_pipeline.services.rendering.source.rects",
         "retainpdf_pipeline.services.rendering.source_cleanup.planning.coordinate_resolver",
         "retainpdf_pipeline.services.rendering.source_cleanup.planning.drawing_classifier",
+        "retainpdf_pipeline.services.rendering.semantics",
     ),
     "visual_profile": (
         "retainpdf_pipeline.services.rendering.visual_profile",
@@ -134,6 +146,7 @@ RENDERING_LAYER_IMPORT_RULES: dict[str, tuple[str, ...]] = {
         "retainpdf_pipeline.services.rendering.layout.typography.geometry",
         "retainpdf_pipeline.services.rendering.policy",
         "retainpdf_pipeline.services.rendering.source.background.fill",
+        "retainpdf_pipeline.services.rendering.semantics",
     ),
     "legacy": (
         "retainpdf_pipeline.services.rendering.workflow",
@@ -143,6 +156,10 @@ RENDERING_LAYER_IMPORT_RULES: dict[str, tuple[str, ...]] = {
         "retainpdf_pipeline.services.rendering.layout",
         "retainpdf_pipeline.services.rendering.output",
         "retainpdf_pipeline.services.rendering.legacy",
+        "retainpdf_pipeline.services.rendering.semantics",
+    ),
+    "semantics": (
+        "retainpdf_pipeline.services.rendering.semantics",
     ),
 }
 RENDERING_LAYER_IMPORT_EXCEPTIONS: dict[Path, tuple[str, ...]] = {

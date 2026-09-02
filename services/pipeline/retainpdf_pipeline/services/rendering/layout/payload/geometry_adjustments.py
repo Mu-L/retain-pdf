@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from statistics import median
 
-from retainpdf_pipeline.services.document_schema.semantics import is_bodylike_block
+from retainpdf_pipeline.services.rendering.semantics.item_view import is_bodylike_block
 from retainpdf_pipeline.services.rendering.layout.font_roles import is_title_like_block
 from retainpdf_pipeline.services.rendering.layout.payload.render_item import get_render_inner_bbox
 from retainpdf_pipeline.services.rendering.layout.typography.geometry import inner_bbox
-from retainpdf_pipeline.services.document_schema.semantics import block_kind as schema_block_kind
+from retainpdf_pipeline.services.rendering.semantics.item_view import block_kind as schema_block_kind
 
 
 BODY_TIGHT_GAP_MAX_INSET_RATIO = 0.03

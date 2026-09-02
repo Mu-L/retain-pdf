@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from retainpdf_pipeline.services.document_schema.defaults import normalize_block_continuation_hint
-from retainpdf_pipeline.services.document_schema.semantics import body_repair_applied
-from retainpdf_pipeline.services.document_schema.semantics import body_repair_peer_block_id
-from retainpdf_pipeline.services.document_schema.semantics import body_repair_role
-from retainpdf_pipeline.services.document_schema.semantics import is_algorithm_semantic
+from retainpdf_pipeline.services.document_schema.provider_signals import body_repair_applied
+from retainpdf_pipeline.services.document_schema.provider_signals import body_repair_peer_block_id
+from retainpdf_pipeline.services.document_schema.provider_signals import body_repair_role
+from retainpdf_pipeline.services.translation.core.item_reader import item_block_class
 from retainpdf_pipeline.services.translation.core.item_reader import item_block_kind
 from retainpdf_pipeline.services.translation.core.item_reader import item_is_algorithm_like
 from retainpdf_pipeline.services.translation.core.item_reader import item_is_bodylike
@@ -28,7 +28,8 @@ def is_algorithm_item(block_type: str, metadata: dict | None = None, *, contract
     payload = item_policy_payload(block_type, metadata, contract_fields=contract_fields)
     if item_is_algorithm_like(payload):
         return True
-    return is_algorithm_semantic(metadata or {})
+    legacy_payload = {"block_type": block_type, **(metadata or {})}
+    return item_is_algorithm_like(legacy_payload)
 
 
 def is_default_translatable_text_block(
@@ -124,8 +125,18 @@ def provider_layout_warning_fields(metadata: dict | None) -> dict:
 
 
 def contract_fields_from_item(item: TextItem) -> dict:
+    block_class = getattr(item, "block_class", "") or item_block_class(
+        {
+            "block_kind": getattr(item, "block_kind", "") or item.block_type,
+            "layout_role": getattr(item, "layout_role", ""),
+            "semantic_role": getattr(item, "semantic_role", ""),
+            "structure_role": getattr(item, "structure_role", ""),
+            "normalized_sub_type": getattr(item, "normalized_sub_type", ""),
+        }
+    )
     return {
         "block_kind": str(getattr(item, "block_kind", "") or item.block_type or "").strip().lower(),
+        "block_class": str(block_class).strip().lower(),
         "layout_role": str(getattr(item, "layout_role", "") or "").strip().lower(),
         "semantic_role": str(getattr(item, "semantic_role", "") or "").strip().lower(),
         "structure_role": str(getattr(item, "structure_role", "") or "").strip().lower(),

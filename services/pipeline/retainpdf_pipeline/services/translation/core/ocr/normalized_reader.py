@@ -3,6 +3,7 @@ from __future__ import annotations
 from retainpdf_pipeline.services.document_schema.consumer_reader import block_asset_id
 from retainpdf_pipeline.services.document_schema.consumer_reader import block_bbox
 from retainpdf_pipeline.services.document_schema.consumer_reader import block_children
+from retainpdf_pipeline.services.document_schema.consumer_reader import block_class
 from retainpdf_pipeline.services.document_schema.consumer_reader import block_kind
 from retainpdf_pipeline.services.document_schema.consumer_reader import block_layout_role
 from retainpdf_pipeline.services.document_schema.consumer_reader import block_line_texts
@@ -26,6 +27,7 @@ __all__ = [
     "block_asset_id",
     "block_bbox",
     "block_children",
+    "block_class",
     "block_kind",
     "block_layout_role",
     "block_line_texts",

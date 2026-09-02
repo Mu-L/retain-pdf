@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from retainpdf_pipeline.services.translation.core.item_reader import item_block_kind
 import re
+
+from retainpdf_pipeline.services.translation.core.item_reader import item_block_class
+from retainpdf_pipeline.services.translation.core.item_reader import item_block_kind
 
 from .common import (
     effective_translation_unit_id,
@@ -211,6 +213,7 @@ def _build_group_translation_unit(unit_id: str, items: list[dict]) -> dict | Non
         "translation_unit_id": unit_id,
         "block_type": item_block_kind(first_item) or "text",
         "block_kind": str(first_item.get("block_kind", "") or item_block_kind(first_item) or "text"),
+        "block_class": item_block_class(first_item),
         "layout_role": str(first_item.get("layout_role", "") or ""),
         "semantic_role": str(first_item.get("semantic_role", "") or ""),
         "structure_role": str(first_item.get("structure_role", "") or ""),

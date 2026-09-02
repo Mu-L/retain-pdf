@@ -5,21 +5,28 @@ from pathlib import Path
 import fitz
 
 from retainpdf_pipeline.services.rendering.layout.typography.geometry import cover_bbox
-from retainpdf_pipeline.services.document_schema.semantics import layout_role
-from retainpdf_pipeline.services.document_schema.semantics import normalized_sub_type
-from retainpdf_pipeline.services.document_schema.semantics import structure_role
-from retainpdf_pipeline.services.rendering.layout.font_roles import is_title_like_block
 from retainpdf_pipeline.services.rendering.policy import item_overlay_fill
-from retainpdf_pipeline.services.rendering.source.background.fill import LocalBackgroundSampler
-from retainpdf_pipeline.services.rendering.source.background.fill import sample_local_background_fill
-from retainpdf_pipeline.services.rendering.visual_profile.contracts import DocumentVisualProfile
-from retainpdf_pipeline.services.rendering.visual_profile.contracts import ItemVisualProfile
-from retainpdf_pipeline.services.rendering.visual_profile.contracts import PageVisualProfile
-from retainpdf_pipeline.services.rendering.visual_profile.contracts import VISUAL_PROFILE_ALGORITHM_VERSION
-from retainpdf_pipeline.services.rendering.visual_profile.foreground import sample_foreground_color_from_pixels
-from retainpdf_pipeline.services.rendering.visual_profile.foreground import text_color_for_background
-from retainpdf_pipeline.services.rendering.visual_profile.text_spans import PageSpanColorSampler
-
+from retainpdf_pipeline.services.rendering.semantics.item_view import (
+    is_document_title,
+    source_item_kind,
+)
+from retainpdf_pipeline.services.rendering.source.background.fill import (
+    LocalBackgroundSampler,
+    sample_local_background_fill,
+)
+from retainpdf_pipeline.services.rendering.visual_profile.contracts import (
+    VISUAL_PROFILE_ALGORITHM_VERSION,
+    DocumentVisualProfile,
+    ItemVisualProfile,
+    PageVisualProfile,
+)
+from retainpdf_pipeline.services.rendering.visual_profile.foreground import (
+    sample_foreground_color_from_pixels,
+    text_color_for_background,
+)
+from retainpdf_pipeline.services.rendering.visual_profile.text_spans import (
+    PageSpanColorSampler,
+)
 
 DEFAULT_PAGE_BACKGROUND = (1.0, 1.0, 1.0)
 
@@ -203,19 +210,8 @@ def _item_needs_span_text_color(item: dict, *, should_sample_background: bool) -
 
 
 def _is_document_title(item: dict) -> bool:
-    return (
-        layout_role(item) == "title"
-        or structure_role(item) == "title"
-        or normalized_sub_type(item) == "title"
-        or str(item.get("raw_block_type") or "").strip().lower() in {"doc_title", "title"}
-    )
+    return is_document_title(item)
 
 
 def _source_item_kind(item: dict) -> str:
-    return str(
-        item.get("layout_role")
-        or item.get("normalized_sub_type")
-        or item.get("block_kind")
-        or item.get("block_type")
-        or ""
-    )
+    return source_item_kind(item)

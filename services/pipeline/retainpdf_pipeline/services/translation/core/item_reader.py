@@ -1,8 +1,18 @@
 from __future__ import annotations
 
-from retainpdf_pipeline.services.document_schema.semantics import build_role_profile
-
-_TEXTUAL_LAYOUT_ROLES = {"title", "heading", "paragraph", "list_item", "caption"}
+from retainpdf_pipeline.services.document_schema.canonical_semantics import from_flat_item
+from retainpdf_pipeline.services.document_schema.canonical_semantics import is_bodylike
+from retainpdf_pipeline.services.document_schema.canonical_semantics import is_caption
+from retainpdf_pipeline.services.document_schema.canonical_semantics import is_footnote
+from retainpdf_pipeline.services.document_schema.canonical_semantics import is_metadata
+from retainpdf_pipeline.services.document_schema.canonical_semantics import is_plain_text
+from retainpdf_pipeline.services.document_schema.canonical_semantics import is_reference_entry
+from retainpdf_pipeline.services.document_schema.canonical_semantics import is_reference_heading
+from retainpdf_pipeline.services.document_schema.canonical_semantics import is_textual
+from retainpdf_pipeline.services.document_schema.canonical_semantics import is_title
+from retainpdf_pipeline.services.document_schema.legacy_compat import is_legacy_algorithm
+from retainpdf_pipeline.services.document_schema.legacy_compat import is_legacy_reference_entry
+from retainpdf_pipeline.services.document_schema.legacy_compat import normalized_sub_type
 
 
 def _first_non_empty_str(*values: object) -> str:
@@ -47,6 +57,30 @@ def item_block_kind(item: dict | None) -> str:
     return _first_non_empty_str(source.get("block_type")).lower() or "unknown"
 
 
+def item_block_class(item: dict | None) -> str:
+    return from_flat_item(item).block_class
+
+
+def item_content_kind(item: dict | None) -> str:
+    return from_flat_item(item).content_kind
+
+
+def _has_canonical_roles(item: dict | None) -> bool:
+    profile = from_flat_item(item)
+    return any(
+        role not in {"", "unknown"}
+        for role in (
+            profile.layout_role,
+            profile.semantic_role,
+            profile.structure_role,
+        )
+    )
+
+
+def _has_explicit_block_class(item: dict | None) -> bool:
+    return _first_non_empty_str((item or {}).get("block_class")).lower() not in {"", "unknown"}
+
+
 def item_layout_role(item: dict | None) -> str:
     source = item or {}
     return _first_non_empty_str(source.get("layout_role")).lower()
@@ -63,8 +97,7 @@ def item_structure_role(item: dict | None) -> str:
 
 
 def item_normalized_sub_type(item: dict | None) -> str:
-    source = item or {}
-    return _first_non_empty_str(source.get("normalized_sub_type")).lower()
+    return normalized_sub_type(item)
 
 
 def item_effective_role(item: dict | None) -> str:
@@ -76,7 +109,7 @@ def item_effective_role(item: dict | None) -> str:
 
 
 def item_policy_translate(item: dict | None) -> bool | None:
-    return build_role_profile(item).get("policy_translate")  # type: ignore[return-value]
+    return from_flat_item(item).policy_translate
 
 
 def item_reading_order(item: dict | None) -> int:
@@ -97,57 +130,76 @@ def item_tags(item: dict | None) -> set[str]:
 
 
 def item_is_caption_like(item: dict | None) -> bool:
-    return bool(build_role_profile(item).get("is_caption_like"))
+    return is_caption(from_flat_item(item))
 
 
 def item_is_footnote_like(item: dict | None) -> bool:
-    return bool(build_role_profile(item).get("is_footnote_like"))
+    return is_footnote(from_flat_item(item))
 
 
 def item_is_reference_like(item: dict | None) -> bool:
-    return bool(build_role_profile(item).get("is_reference_entry"))
+    return is_reference_entry(from_flat_item(item))
+
+
+def item_is_reference_compatible(item: dict | None) -> bool:
+    """Resolve references from canonical roles, with legacy cache aliases last."""
+
+    if item_is_reference_like(item):
+        return True
+    if _has_explicit_block_class(item) or _has_canonical_roles(item):
+        return False
+    return is_legacy_reference_entry(item)
 
 
 def item_is_reference_heading_like(item: dict | None) -> bool:
-    return bool(build_role_profile(item).get("is_reference_heading"))
+    return is_reference_heading(from_flat_item(item))
 
 
 def item_is_algorithm_like(item: dict | None) -> bool:
-    if bool(build_role_profile(item).get("is_algorithm")):
-        return True
-    return item_raw_block_type(item) == "algorithm"
+    if _has_canonical_roles(item):
+        return item_semantic_role(item) == "algorithm" or item_structure_role(item) in {"algorithm", "code_block"}
+    if _has_explicit_block_class(item) and item_block_class(item) != "code":
+        return False
+    return is_legacy_algorithm(item)
 
 
 def item_is_title_like(item: dict | None) -> bool:
-    return bool(build_role_profile(item).get("is_title_like"))
+    return is_title(from_flat_item(item))
+
+
+def item_is_metadata_like(item: dict | None) -> bool:
+    """Prefer canonical metadata classification and use subtype only for old caches."""
+
+    return is_metadata(from_flat_item(item))
 
 
 def item_is_textual(item: dict | None) -> bool:
-    if item_block_kind(item) == "text":
-        return True
-    return item_layout_role(item) in _TEXTUAL_LAYOUT_ROLES
+    return is_textual(from_flat_item(item))
 
 
 def item_is_plain_text_block(item: dict | None) -> bool:
-    return item_block_kind(item) == "text" and not (
-        item_is_caption_like(item) or item_is_footnote_like(item) or item_is_reference_like(item) or item_is_title_like(item)
-    )
+    return is_plain_text(from_flat_item(item))
 
 
 def item_is_bodylike(item: dict | None) -> bool:
-    return item_is_plain_text_block(item) and bool(build_role_profile(item).get("is_bodylike"))
+    profile = from_flat_item(item)
+    return is_plain_text(profile) and is_bodylike(profile)
 
 
 __all__ = [
     "item_asset_id",
     "item_bbox",
+    "item_block_class",
     "item_block_kind",
+    "item_content_kind",
     "item_effective_role",
-    "item_is_bodylike",
     "item_is_algorithm_like",
+    "item_is_bodylike",
     "item_is_caption_like",
     "item_is_footnote_like",
+    "item_is_metadata_like",
     "item_is_plain_text_block",
+    "item_is_reference_compatible",
     "item_is_reference_heading_like",
     "item_is_reference_like",
     "item_is_textual",

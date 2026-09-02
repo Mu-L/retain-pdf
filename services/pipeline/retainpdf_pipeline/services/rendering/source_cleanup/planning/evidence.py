@@ -1,12 +1,23 @@
 from __future__ import annotations
 
-from retainpdf_pipeline.services.rendering.policy.cleanup_policy import item_is_marked_non_translated
-from retainpdf_pipeline.services.rendering.policy.cleanup_policy import item_render_output_text
-from retainpdf_pipeline.services.rendering.policy.cleanup_policy import item_render_source_text
-from retainpdf_pipeline.services.rendering.source_cleanup.intents import SourceCleanupEvidence
-from retainpdf_pipeline.services.rendering.source_cleanup.planning.mixed_content import item_has_unresolved_embedded_formula
-from retainpdf_pipeline.services.rendering.source_cleanup.planning.item_classifier import item_allows_forced_text_strip
-from retainpdf_pipeline.services.rendering.source_cleanup.policy.adapter import has_formula_region
+from retainpdf_pipeline.services.rendering.policy.cleanup_policy import (
+    item_is_marked_non_translated,
+    item_render_output_text,
+    item_render_source_text,
+)
+from retainpdf_pipeline.services.rendering.semantics.item_view import block_kind
+from retainpdf_pipeline.services.rendering.source_cleanup.intents import (
+    SourceCleanupEvidence,
+)
+from retainpdf_pipeline.services.rendering.source_cleanup.planning.item_classifier import (
+    item_allows_forced_text_strip,
+)
+from retainpdf_pipeline.services.rendering.source_cleanup.planning.mixed_content import (
+    item_has_unresolved_embedded_formula,
+)
+from retainpdf_pipeline.services.rendering.source_cleanup.policy.adapter import (
+    has_formula_region,
+)
 
 
 def build_source_cleanup_evidence(item: dict) -> SourceCleanupEvidence:
@@ -24,4 +35,4 @@ def build_source_cleanup_evidence(item: dict) -> SourceCleanupEvidence:
 
 
 def item_block_kind(item: dict) -> str:
-    return str(item.get("block_kind") or item.get("block_type") or "").strip().lower()
+    return block_kind(item)

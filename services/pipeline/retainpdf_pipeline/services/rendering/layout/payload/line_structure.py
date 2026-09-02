@@ -5,7 +5,7 @@ import re
 from retainpdf_pipeline.services.document_schema.text_flow import TEXT_FLOW_PRESERVE_LINES
 from retainpdf_pipeline.services.document_schema.text_flow import classify_text_flow
 from retainpdf_pipeline.services.document_schema.text_flow import line_texts_from_lines
-from retainpdf_pipeline.services.document_schema.semantics import is_caption_like_block
+from retainpdf_pipeline.services.rendering.semantics.item_view import is_caption_like_block
 from retainpdf_pipeline.services.rendering.layout.model.models import RenderLineBox
 from retainpdf_pipeline.services.rendering.layout.text_analysis import RAW_MATH_TOKEN_KINDS
 from retainpdf_pipeline.services.rendering.layout.text_analysis import analyze_text

@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 from typing import Callable
 
+from retainpdf_pipeline.services.translation.core.item_reader import item_block_class
 from retainpdf_pipeline.services.translation.core.item_reader import item_is_caption_like
 from retainpdf_pipeline.services.translation.core.item_reader import item_policy_translate
 from retainpdf_pipeline.services.translation.core.item_reader import item_raw_block_type
@@ -28,6 +29,7 @@ NON_TRANSLATABLE_RAW_TYPES = {
     "table",
     "chart",
 }
+NON_TRANSLATABLE_BLOCK_CLASSES = {"formula", "image", "table"}
 
 
 @dataclass(frozen=True)
@@ -37,6 +39,7 @@ class TranslationPolicyView:
     compact: str
     policy_translate: bool | None
     labels: frozenset[str]
+    block_class: str
     raw_block_type: str
     layout_zone: str
 
@@ -120,6 +123,7 @@ def _policy_view(item: dict) -> TranslationPolicyView:
         compact=_compact_text(item),
         policy_translate=_policy_translate(item),
         labels=_labels_for_policy(item),
+        block_class=item_block_class(item),
         raw_block_type=item_raw_block_type(item),
         layout_zone=str(item.get("layout_zone", "") or "").strip().lower(),
     )
@@ -134,7 +138,11 @@ _KEEP_ORIGIN_RULES: tuple[_PolicyRule, ...] = (
     _PolicyRule("placeholder_only", lambda view: not view.compact),
     _PolicyRule("policy_skip", lambda view: view.policy_translate is False),
     _PolicyRule("skip_model_keep_origin", lambda view: bool(view.labels & SKIP_MODEL_LABELS)),
-    _PolicyRule("non_textual_raw_block", lambda view: view.raw_block_type in NON_TRANSLATABLE_RAW_TYPES),
+    _PolicyRule(
+        "non_textual_raw_block",
+        lambda view: view.block_class in NON_TRANSLATABLE_BLOCK_CLASSES
+        or (view.block_class == "unknown" and view.raw_block_type in NON_TRANSLATABLE_RAW_TYPES),
+    ),
     _PolicyRule("hard_metadata_fragment", lambda view: looks_like_hard_nontranslatable_metadata(view.item)),
     _PolicyRule("special_long_list_block", lambda view: looks_like_special_long_list_block(view.source)),
     _PolicyRule("protocol_hex_dump", lambda view: looks_like_protocol_or_hex_dump(view.source)),

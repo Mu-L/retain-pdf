@@ -1,11 +1,8 @@
 from __future__ import annotations
 
 import re
-from typing import Callable
 
-from retainpdf_pipeline.services.translation.core.item_reader import item_is_reference_like
-from retainpdf_pipeline.services.translation.core.item_reader import item_normalized_sub_type
-from retainpdf_pipeline.services.translation.core.item_reader import item_raw_block_type
+from retainpdf_pipeline.services.translation.core.item_reader import item_is_reference_compatible
 from retainpdf_pipeline.services.translation.services.policy.literal_block_rules import shared_literal_block_label
 from retainpdf_pipeline.services.translation.services.policy.metadata_filter import find_metadata_fragment_item_ids
 from retainpdf_pipeline.services.translation.services.policy.soft_hints import natural_word_count
@@ -22,9 +19,7 @@ from retainpdf_pipeline.services.translation.core.payload.parts.policy_state imp
 
 
 def _is_ref_text_like(item: dict) -> bool:
-    if item_is_reference_like(item) or item_raw_block_type(item) == "ref_text":
-        return True
-    return item_normalized_sub_type(item) == "ref_text"
+    return item_is_reference_compatible(item)
 
 
 

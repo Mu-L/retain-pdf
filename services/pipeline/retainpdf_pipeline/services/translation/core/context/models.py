@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from retainpdf_pipeline.services.translation.core.item_reader import item_block_class
 from retainpdf_pipeline.services.translation.core.item_reader import item_block_kind
 from retainpdf_pipeline.services.translation.core.item_reader import item_effective_role
 from retainpdf_pipeline.services.translation.core.item_reader import item_layout_role
@@ -59,6 +60,7 @@ class TranslationItemContext:
     order: int = 0
     block_type: str = ""
     block_kind: str = "unknown"
+    block_class: str = "unknown"
     layout_role: str = ""
     semantic_role: str = ""
     effective_role: str = "body"
@@ -130,6 +132,7 @@ class TranslationItemContext:
             "item_id": self.item_id,
             "block_type": self.block_type or self.block_kind,
             "block_kind": self.block_kind,
+            "block_class": self.block_class,
             "layout_role": self.layout_role,
             "semantic_role": self.semantic_role,
             "effective_role": self.effective_role or "body",
@@ -171,6 +174,7 @@ def build_item_context(item: dict[str, Any], *, order: int = 0, page_idx: int | 
     payload_for_roles = {
         "block_type": item.get("block_type", ""),
         "block_kind": item.get("block_kind", item.get("block_type", "")),
+        "block_class": item.get("block_class", ""),
         "layout_role": item.get("layout_role", ""),
         "semantic_role": item.get("semantic_role", ""),
         "structure_role": item.get("structure_role", ""),
@@ -192,6 +196,7 @@ def build_item_context(item: dict[str, Any], *, order: int = 0, page_idx: int | 
         protected_source_text=protected_source_text,
         block_type=item_block_kind(payload_for_roles),
         block_kind=item_block_kind(payload_for_roles),
+        block_class=item_block_class(payload_for_roles),
         layout_role=item_layout_role(payload_for_roles),
         semantic_role=item_semantic_role(payload_for_roles),
         effective_role=item_effective_role(payload_for_roles) or "body",

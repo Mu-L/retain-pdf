@@ -570,7 +570,11 @@ def test_paddle_inline_formula_is_preserved_for_nonliteral_text_label() -> None:
         "abstract",
     )
 
-    assert [segment["type"] for segment in segments] == ["text", "formula", "text"]
+    assert [segment["type"] for segment in segments] == [
+        "text",
+        "inline_formula",
+        "text",
+    ]
     assert segments[1]["text"] == "E = mc^2"
 
 
@@ -582,12 +586,16 @@ def test_paddle_mixed_text_splits_display_and_inline_dollar_math() -> None:
 
     assert [segment["type"] for segment in segments] == [
         "text",
-        "formula",
+        "inline_formula",
         "text",
-        "formula",
+        "inline_formula",
         "text",
     ]
-    assert [segment["text"] for segment in segments if segment["type"] == "formula"] == [
+    assert [
+        segment["text"]
+        for segment in segments
+        if segment["type"] == "inline_formula"
+    ] == [
         "E = mc^2",
         "x + y",
     ]
@@ -609,7 +617,11 @@ def test_paddle_spaced_short_math_and_segment_bbox_are_not_lost() -> None:
         lines=lines,
     )
 
-    assert [segment["text"] for segment in segments if segment["type"] == "formula"] == [
+    assert [
+        segment["text"]
+        for segment in segments
+        if segment["type"] == "inline_formula"
+    ] == [
         "^{17}",
         "_2",
     ]
@@ -639,7 +651,9 @@ def test_paddle_inline_formula_uses_provider_layout_bbox_only_for_exact_pairing(
         },
     )
 
-    formulas = [segment for segment in segments if segment["type"] == "formula"]
+    formulas = [
+        segment for segment in segments if segment["type"] == "inline_formula"
+    ]
     assert [segment["bbox"] for segment in formulas] == [
         [30.0, 30.0, 45.0, 48.0],
         [130.0, 50.0, 148.0, 70.0],

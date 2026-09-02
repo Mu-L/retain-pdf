@@ -6,8 +6,8 @@ from statistics import median
 
 import fitz
 
-from retainpdf_pipeline.services.document_schema.semantics import is_caption_like_block
-from retainpdf_pipeline.services.document_schema.semantics import is_footnote_like_block
+from retainpdf_pipeline.services.rendering.semantics.item_view import is_caption_like_block
+from retainpdf_pipeline.services.rendering.semantics.item_view import is_footnote_like_block
 from retainpdf_pipeline.services.rendering.layout.font_fit import page_baseline_font_size
 from retainpdf_pipeline.services.rendering.layout.payload.metrics import block_metrics
 from retainpdf_pipeline.services.rendering.layout.payload.metrics import box_capacity_units
@@ -27,7 +27,7 @@ from retainpdf_pipeline.services.rendering.layout.payload.shared import split_pr
 from retainpdf_pipeline.services.rendering.layout.payload.suspicious_ocr import detect_and_drop_suspicious_ocr_glued_blocks
 from retainpdf_pipeline.services.rendering.layout.typography.geometry import inner_bbox
 from retainpdf_pipeline.services.rendering.layout.typography.measurement import bbox_width
-from retainpdf_pipeline.services.document_schema.semantics import block_kind
+from retainpdf_pipeline.services.rendering.semantics.item_view import block_kind
 
 
 CONTINUATION_NARROW_BOX_MIN_NEIGHBOR_RATIO = 0.78

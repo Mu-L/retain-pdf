@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from retainpdf_pipeline.services.translation.core.ocr.normalized_reader import block_class
 from retainpdf_pipeline.services.translation.core.ocr.normalized_reader import is_normalized_document
 from retainpdf_pipeline.services.translation.core.text_rules import looks_like_reference_entry_text
 
@@ -78,9 +79,7 @@ def resolve_reference_cutoff(data: dict) -> tuple[int | None, int | None]:
             stack = [block]
             while stack:
                 current = stack.pop(0)
-                current_type = str(current.get("type", "") or "")
-                current_sub_type = str(current.get("sub_type", "") or "")
-                if (current_type == "title") or (current_type == "text" and current_sub_type == "title"):
+                if block_class(current) == "title":
                     if looks_like_reference_heading(_block_text(current)):
                         return page_idx, block_idx
                 stack[0:0] = list(current.get("blocks", []) or [])

@@ -59,3 +59,46 @@ def test_policy_verdict_protocol_hex_dump_keeps_origin_without_model_or_export_b
     assert verdict.allow_keep_origin is True
     assert verdict.blocks_export is False
     assert verdict.fast_path_keep_origin is True
+
+
+def test_policy_verdict_canonical_and_legacy_formula_inputs_are_equivalent() -> None:
+    canonical = _item(
+        "canonical-formula",
+        "$$ E = mc^2 $$",
+        block_type="formula",
+        block_kind="formula",
+        block_class="formula",
+        raw_block_type="",
+    )
+    legacy = _item(
+        "legacy-formula",
+        "$$ E = mc^2 $$",
+        block_type="text",
+        block_kind="text",
+        raw_block_type="display_formula",
+    )
+
+    canonical_verdict = translation_policy_verdict(canonical)
+    legacy_verdict = translation_policy_verdict(legacy)
+
+    assert canonical_verdict.action == legacy_verdict.action == "keep_origin"
+    assert canonical_verdict.reason == legacy_verdict.reason == "non_textual_raw_block"
+    assert canonical_verdict.should_call_model is legacy_verdict.should_call_model is False
+
+
+def test_policy_verdict_canonical_body_overrides_stale_formula_alias() -> None:
+    verdict = translation_policy_verdict(
+        _item(
+            "conflicting-body",
+            "This canonical body paragraph must be translated.",
+            block_class="body",
+            layout_role="paragraph",
+            semantic_role="body",
+            structure_role="body",
+            raw_block_type="display_formula",
+            normalized_sub_type="display_formula",
+        )
+    )
+
+    assert verdict.action == "translate"
+    assert verdict.should_call_model is True

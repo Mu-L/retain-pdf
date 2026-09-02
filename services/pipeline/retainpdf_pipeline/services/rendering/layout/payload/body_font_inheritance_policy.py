@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from statistics import median
 
-from retainpdf_pipeline.services.document_schema.semantics import is_bodylike_block
-from retainpdf_pipeline.services.document_schema.semantics import is_caption_like_block
-from retainpdf_pipeline.services.document_schema.semantics import is_footnote_like_block
+from retainpdf_pipeline.services.rendering.semantics.item_view import is_bodylike_block
+from retainpdf_pipeline.services.rendering.semantics.item_view import is_caption_like_block
+from retainpdf_pipeline.services.rendering.semantics.item_view import is_footnote_like_block
 from retainpdf_pipeline.services.rendering.layout.payload.body_common import SHORT_BODY_INHERIT_MAX_HEIGHT_PT
 from retainpdf_pipeline.services.rendering.layout.payload.body_common import body_context_anchors
 from retainpdf_pipeline.services.rendering.layout.payload.body_common import payload_density
@@ -13,7 +13,7 @@ from retainpdf_pipeline.services.rendering.layout.payload.body_common import pay
 from retainpdf_pipeline.services.rendering.layout.payload.body_common import payload_width
 from retainpdf_pipeline.services.rendering.layout.payload.body_common import required_lines
 from retainpdf_pipeline.services.rendering.layout.payload.body_common import same_body_column
-from retainpdf_pipeline.services.document_schema.semantics import block_kind
+from retainpdf_pipeline.services.rendering.semantics.item_view import block_kind
 
 
 SHORT_BODY_INHERIT_MIN_ANCHORS = 2

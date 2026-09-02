@@ -3,10 +3,10 @@ from __future__ import annotations
 from difflib import SequenceMatcher
 import re
 
+from retainpdf_pipeline.services.translation.core.item_reader import item_content_kind
 from retainpdf_pipeline.services.translation.core.item_reader import item_is_bodylike
-from retainpdf_pipeline.services.translation.core.item_reader import item_is_reference_like
-from retainpdf_pipeline.services.translation.core.item_reader import item_normalized_sub_type
-from retainpdf_pipeline.services.translation.core.item_reader import item_raw_block_type
+from retainpdf_pipeline.services.translation.core.item_reader import item_is_metadata_like
+from retainpdf_pipeline.services.translation.core.item_reader import item_is_reference_compatible
 from retainpdf_pipeline.services.translation.llm.validation.placeholder_tokens import FORMULA_TOKEN_RE
 from retainpdf_pipeline.services.translation.llm.validation.placeholder_tokens import strip_placeholders
 from retainpdf_pipeline.services.translation.llm.validation.text_features import AUTHOR_NAME_TOKEN_RE
@@ -146,11 +146,9 @@ def _looks_like_author_name_list(text: str) -> bool:
 
 
 def _is_reference_like_item(item: dict) -> bool:
-    if item_is_reference_like(item):
+    if item_is_reference_compatible(item):
         return True
-    if item_raw_block_type(item) == "ref_text":
-        return True
-    if item_normalized_sub_type(item) != "metadata":
+    if not item_is_metadata_like(item):
         return False
     source_text = strip_placeholders(unit_source_text(item)).strip()
     if not source_text:
@@ -297,14 +295,14 @@ def should_force_translate_body_text(item: dict) -> bool:
         return False
     if looks_like_short_fragment(source_text):
         return False
-    if item_raw_block_type(item) != "text":
+    if item_content_kind(item) != "text":
         return False
     if not item_is_bodylike(item):
         return False
     words = EN_WORD_RE.findall(strip_placeholders(source_text))
     if item.get("continuation_group"):
         return len(words) >= 6 and looks_like_english_prose(source_text)
-    if item_raw_block_type(item) == "text" and (
+    if item_content_kind(item) == "text" and (
         is_direct_math_mode(item) or bool(item.get("formula_map") or item.get("translation_unit_formula_map"))
     ):
         return len(words) >= 5 and looks_like_english_prose(source_text)

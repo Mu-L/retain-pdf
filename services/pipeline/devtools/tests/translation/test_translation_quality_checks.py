@@ -124,6 +124,23 @@ def test_quality_still_blocks_body_empty_translation() -> None:
     assert [issue.kind for issue in report.issues] == ["empty_translation"]
 
 
+def test_quality_rejects_keep_origin_for_canonical_body_with_non_text_raw_label() -> None:
+    item = _body_item(
+        "p002-b006",
+        "This canonical body paragraph contains enough English prose that it must be translated.",
+        block_kind="text",
+        block_class="body",
+        layout_role="paragraph",
+        semantic_role="body",
+        structure_role="body",
+        raw_block_type="paragraph",
+    )
+
+    report = review_translation_item(item, {"decision": "keep_origin", "translated_text": ""})
+
+    assert [issue.kind for issue in report.issues] == ["keep_origin_degraded"]
+
+
 def test_quality_flags_abnormally_short_translation() -> None:
     """Tail-only model outputs (e.g. p010-b007) must not pass as translated."""
     source = (

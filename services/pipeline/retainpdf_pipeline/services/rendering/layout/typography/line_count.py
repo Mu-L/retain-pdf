@@ -17,8 +17,8 @@ from retainpdf_pipeline.services.rendering.layout.typography.line_metrics import
 from retainpdf_pipeline.services.rendering.layout.typography.line_metrics import bbox_width
 from retainpdf_pipeline.services.rendering.layout.typography.line_metrics import median_line_height
 from retainpdf_pipeline.services.rendering.layout.typography.scalars import clamp
-from retainpdf_pipeline.services.document_schema.semantics import is_plain_bodylike_block
-from retainpdf_pipeline.services.document_schema.semantics import semantic_role as schema_semantic_role
+from retainpdf_pipeline.services.rendering.semantics.item_view import is_plain_bodylike_block
+from retainpdf_pipeline.services.rendering.semantics.item_view import semantic_role as schema_semantic_role
 
 
 def _predicted_wrapped_line_count(item: dict, *, width: float, text_len: int) -> int:

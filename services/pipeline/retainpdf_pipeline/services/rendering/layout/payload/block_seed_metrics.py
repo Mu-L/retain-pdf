@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from statistics import median
 
-from retainpdf_pipeline.services.document_schema.semantics import is_caption_like_block
-from retainpdf_pipeline.services.document_schema.semantics import is_footnote_like_block
+from retainpdf_pipeline.services.rendering.semantics.item_view import is_caption_like_block
+from retainpdf_pipeline.services.rendering.semantics.item_view import is_footnote_like_block
 from retainpdf_pipeline.services.rendering.layout.font_fit import estimate_font_size_pt
 from retainpdf_pipeline.services.rendering.layout.font_fit import estimate_leading_em
 from retainpdf_pipeline.services.rendering.layout.font_fit import is_body_text_candidate
@@ -12,7 +12,7 @@ from retainpdf_pipeline.services.rendering.layout.font_fit import page_baseline_
 from retainpdf_pipeline.services.rendering.layout.font_fit import percentile_value
 from retainpdf_pipeline.services.rendering.layout.payload.geometry_adjustments import build_effective_inner_bboxes
 from retainpdf_pipeline.services.rendering.layout.typography.measurement import bbox_width
-from retainpdf_pipeline.services.document_schema.semantics import block_kind
+from retainpdf_pipeline.services.rendering.semantics.item_view import block_kind
 
 
 BODY_PAGE_FONT_ANCHOR_PERCENTILE = 0.46

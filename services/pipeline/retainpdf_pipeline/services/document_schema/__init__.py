@@ -14,6 +14,9 @@ from retainpdf_pipeline.services.document_schema.defaults import apply_document_
 from retainpdf_pipeline.services.document_schema.defaults import default_block_derived
 from retainpdf_pipeline.services.document_schema.defaults import default_block_continuation_hint
 from retainpdf_pipeline.services.document_schema.defaults import normalize_block_continuation_hint
+from retainpdf_pipeline.services.document_schema.canonical_semantics import BlockSemanticProfile
+from retainpdf_pipeline.services.document_schema.canonical_semantics import from_flat_item
+from retainpdf_pipeline.services.document_schema.canonical_semantics import from_normalized_block
 from retainpdf_pipeline.services.document_schema.reporting import build_normalization_summary
 from retainpdf_pipeline.services.document_schema.reporting import load_normalization_report
 from retainpdf_pipeline.services.document_schema.providers import PROVIDER_GENERIC_FLAT_OCR
@@ -43,6 +46,9 @@ __all__ = [
     "default_block_continuation_hint",
     "default_block_derived",
     "normalize_block_continuation_hint",
+    "BlockSemanticProfile",
+    "from_flat_item",
+    "from_normalized_block",
     "apply_document_defaults",
     "apply_document_defaults_with_report",
     "build_normalization_summary",

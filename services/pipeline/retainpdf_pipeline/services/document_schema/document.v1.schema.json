@@ -142,8 +142,10 @@
       "properties": {
         "type": {
           "type": "string",
+          "description": "Segment-local kind. New text blocks use inline_formula for inline math; formula remains for display-formula block segments and historical compatibility.",
           "enum": [
             "text",
+            "inline_formula",
             "formula"
           ]
         },
@@ -213,6 +215,7 @@
       "properties": {
         "kind": {
           "type": "string",
+          "description": "Canonical block content kind. formula means a standalone display-formula block; inline math belongs to text-block segments.",
           "enum": [
             "text",
             "image",
@@ -348,6 +351,22 @@
             "unknown"
           ]
         },
+        "block_class": {
+          "type": "string",
+          "description": "Provider-neutral broad RetainPDF behavior class.",
+          "enum": [
+            "title",
+            "body",
+            "formula",
+            "image",
+            "table",
+            "code",
+            "caption",
+            "footnote",
+            "metadata",
+            "unknown"
+          ]
+        },
         "sub_type": {
           "type": "string"
         },
@@ -419,6 +438,7 @@
             "footer",
             "footnote",
             "page_number",
+            "toc",
             "unknown"
           ]
         },
@@ -431,8 +451,13 @@
             "metadata",
             "affiliation",
             "acknowledgement",
+            "table_of_contents",
             "unknown"
           ]
+        },
+        "structure_role": {
+          "type": "string",
+          "description": "Open document-structure role vocabulary in document.v1.1."
         },
         "policy": {
           "$ref": "#/$defs/policy"

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from retainpdf_pipeline.services.translation.core.item_reader import item_block_class
+
 from .models import FinalStatus
 
 
@@ -54,7 +56,7 @@ def is_allowed_untranslated(item: dict, diagnostics: dict | None = None, route_p
     if _policy_state_allows_keep_origin(item):
         return True
     diagnostics = dict(diagnostics or {})
-    if str(item.get("block_kind", "") or "").strip().lower() == "formula":
+    if item_block_class(item) == "formula":
         return True
     route_names = {str(route or "").strip() for route in (route_path if route_path is not None else diagnostics.get("route_path") or [])}
     if route_names & ALLOWED_UNTRANSLATED_ROUTE_NAMES:

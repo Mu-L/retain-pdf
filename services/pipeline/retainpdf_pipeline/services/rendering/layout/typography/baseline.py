@@ -20,9 +20,9 @@ from retainpdf_pipeline.services.rendering.layout.typography.line_metrics import
 from retainpdf_pipeline.services.rendering.layout.typography.line_metrics import median_line_height
 from retainpdf_pipeline.services.rendering.layout.typography.line_metrics import median_line_pitch
 from retainpdf_pipeline.services.rendering.layout.typography.scalars import percentile_value
-from retainpdf_pipeline.services.document_schema.semantics import block_kind
-from retainpdf_pipeline.services.document_schema.semantics import is_caption_like_block
-from retainpdf_pipeline.services.document_schema.semantics import is_footnote_like_block
+from retainpdf_pipeline.services.rendering.semantics.item_view import block_kind
+from retainpdf_pipeline.services.rendering.semantics.item_view import is_caption_like_block
+from retainpdf_pipeline.services.rendering.semantics.item_view import is_footnote_like_block
 
 
 def candidate_text_items(items: list[dict]) -> list[dict]:

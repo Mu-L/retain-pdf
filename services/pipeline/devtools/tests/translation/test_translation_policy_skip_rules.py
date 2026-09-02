@@ -9,6 +9,7 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 from retainpdf_pipeline.services.translation.services.policy.payload_rules.legacy_policy_mutations import apply_cjk_source_keep_origin
 from retainpdf_pipeline.services.translation.services.policy.payload_rules.policy_mutations import reset_policy_state
 from retainpdf_pipeline.services.translation.services.policy.payload_rules.policy_mutations import apply_title_skip
+from retainpdf_pipeline.services.translation.services.policy.payload_rules.policy_defaults import foundational_skip_defaults
 from retainpdf_pipeline.services.translation.services.policy.config import build_translation_policy_config
 from retainpdf_pipeline.services.translation.services.policy.flow import apply_translation_policies
 
@@ -53,6 +54,42 @@ def _translation_item(**overrides) -> dict:
     if "translation_unit_protected_source_text" not in overrides:
         item["translation_unit_protected_source_text"] = item["protected_source_text"]
     return item
+
+
+def test_foundational_skip_uses_canonical_class_with_legacy_table_parity() -> None:
+    canonical = {
+        "block_type": "table",
+        "block_kind": "table",
+        "block_class": "table",
+        "raw_block_type": "",
+    }
+    legacy = {
+        "block_type": "table_body",
+        "block_kind": "table_body",
+        "raw_block_type": "table_body",
+        "structure_role": "body",
+    }
+
+    assert foundational_skip_defaults(canonical) == ("skip_table_body", "skip_table_body")
+    assert foundational_skip_defaults(legacy) == ("skip_table_body", "skip_table_body")
+
+
+def test_foundational_skip_preserves_legacy_code_reason() -> None:
+    canonical = {"block_type": "code", "block_kind": "code", "block_class": "code"}
+    legacy = {"block_type": "code_body", "block_kind": "code_body", "raw_block_type": "code_body"}
+
+    assert foundational_skip_defaults(canonical) == ("code", "code")
+    assert foundational_skip_defaults(legacy) == ("code", "code")
+
+
+def test_foundational_skip_does_not_let_stale_table_alias_override_canonical_body() -> None:
+    item = _translation_item(
+        block_class="body",
+        raw_block_type="table_body",
+        normalized_sub_type="table_html",
+    )
+
+    assert foundational_skip_defaults(item) is None
 
 
 def _apply_default_policy(payload: list[dict], *, page_idx: int = 0) -> None:
@@ -211,6 +248,10 @@ def test_reset_policy_state_skips_table_body_by_default() -> None:
             block_idx=3,
             block_type="table_body",
             block_kind="table_body",
+            layout_role="",
+            semantic_role="",
+            structure_role="",
+            policy_translate=None,
             raw_block_type="table_body",
             source_text="<table><tr><td>Indigo</td><td>Absorption</td></tr></table>",
             metadata={"structure_role": "body", "normalized_sub_type": "table_html"},
@@ -307,5 +348,3 @@ def test_apply_translation_policies_translates_figure_caption_by_default() -> No
     assert payload[0]["should_translate"] is True
     assert payload[0]["skip_reason"] == ""
     assert payload[0]["classification_label"] == ""
-
-

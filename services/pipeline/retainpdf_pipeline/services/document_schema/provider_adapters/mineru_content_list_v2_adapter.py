@@ -89,7 +89,7 @@ def build_block_spec(block: dict, *, page_idx: int, order: int) -> dict:
         "block_id": f"p{page_idx + 1:03d}-b{order:04d}",
         "page_index": page_idx,
         "order": order,
-        "block_type": block_type,
+        "content_kind": block_type,
         "sub_type": sub_type,
         "bbox": bbox,
         "content": {

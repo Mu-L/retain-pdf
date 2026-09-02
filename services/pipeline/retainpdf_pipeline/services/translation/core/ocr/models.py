@@ -17,6 +17,7 @@ class TextItem:
     toc_entries: list[dict] = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
     block_kind: str = ""
+    block_class: str = ""
     layout_role: str = ""
     semantic_role: str = ""
     structure_role: str = ""

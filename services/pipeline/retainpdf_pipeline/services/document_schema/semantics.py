@@ -1,172 +1,206 @@
+"""Deprecated compatibility facade for pre-canonical semantic consumers.
+
+New production code should use :mod:`canonical_semantics`, and provider repair
+metadata should be read through :mod:`provider_signals`. Legacy subtype, tag,
+derived-role, and raw-label interpretation lives only in :mod:`legacy_compat`.
+"""
+
 from __future__ import annotations
 
+from retainpdf_pipeline.services.document_schema.canonical_semantics import (
+    BODYLIKE_LAYOUT_ROLES,
+    BODYLIKE_SEMANTIC_ROLES,
+    BODYLIKE_STRUCTURE_ROLES,
+    from_flat_item,
+    is_bodylike,
+    is_caption,
+    is_footnote,
+    is_metadata,
+    is_plain_bodylike,
+    is_plain_text,
+    is_reference_entry,
+    is_reference_heading,
+    is_textual,
+    is_title,
+)
+from retainpdf_pipeline.services.document_schema.classification import (
+    resolve_content_kind,
+)
+from retainpdf_pipeline.services.document_schema.legacy_compat import (
+    ALGORITHM_ALIASES,
+    CAPTION_ALIASES,
+    FOOTNOTE_ALIASES,
+    REFERENCE_ENTRY_ALIASES,
+    REFERENCE_HEADING_ALIASES,
+    derived_role,
+    is_legacy_algorithm,
+    is_legacy_caption,
+    is_legacy_footnote,
+    is_legacy_metadata,
+    is_legacy_reference_entry,
+    is_legacy_reference_heading,
+    legacy_tags,
+    normalize_tags,
+    normalized_sub_type,
+)
+from retainpdf_pipeline.services.document_schema.provider_signals import (
+    body_repair_applied,
+    body_repair_peer_block_id,
+    body_repair_role,
+)
 
-CAPTION_TAGS = {"caption", "figure_caption", "image_caption", "table_caption", "table_footnote", "image_footnote"}
-FOOTNOTE_TAGS = {"footnote", "image_footnote", "table_footnote", "vision_footnote"}
-REFERENCE_HEADING_TAGS = {"reference_heading"}
-REFERENCE_ENTRY_TAGS = {"reference_entry", "reference_zone"}
-ALGORITHM_TAGS = {"algorithm"}
-CAPTION_BLOCK_TYPES = {"figure_caption", "image_caption", "table_caption", "table_footnote"}
-FOOTNOTE_BLOCK_TYPES = {"footnote", "image_footnote", "table_footnote", "vision_footnote"}
-BODYLIKE_LAYOUT_ROLES = {"paragraph", "list_item"}
-BODYLIKE_SEMANTIC_ROLES = {"body", "abstract"}
-BODYLIKE_STRUCTURE_ROLES = {"", "body", "abstract", "example_line", "option_header", "option_description", "example_intro"}
+CAPTION_TAGS = set(CAPTION_ALIASES)
+FOOTNOTE_TAGS = set(FOOTNOTE_ALIASES)
+REFERENCE_HEADING_TAGS = set(REFERENCE_HEADING_ALIASES)
+REFERENCE_ENTRY_TAGS = set(REFERENCE_ENTRY_ALIASES)
+ALGORITHM_TAGS = set(ALGORITHM_ALIASES)
+CAPTION_BLOCK_TYPES = {
+    "figure_caption",
+    "image_caption",
+    "table_caption",
+    "table_footnote",
+}
+FOOTNOTE_BLOCK_TYPES = {
+    "footnote",
+    "image_footnote",
+    "table_footnote",
+    "vision_footnote",
+}
 TITLE_LIKE_LAYOUT_ROLES = {"title", "heading"}
 TITLE_LIKE_STRUCTURE_ROLES = {"title", "heading", "section_heading"}
 TEXTUAL_LAYOUT_ROLES = {"title", "heading", "paragraph", "list_item", "caption"}
 
 
-def normalize_tags(tags: list[str] | set[str] | tuple[str, ...] | None) -> set[str]:
-    return {str(tag or "").strip().lower() for tag in (tags or []) if str(tag or "").strip()}
+def _profile(payload: dict | None):
+    return from_flat_item(payload)
 
 
-def derived_role(payload: dict | None) -> str:
+def _metadata(payload: dict | None) -> dict:
+    metadata = (payload or {}).get("metadata", {}) or {}
+    return metadata if isinstance(metadata, dict) else {}
+
+
+def _role(payload: dict | None, key: str, *, default: str = "") -> str:
     source = payload or {}
-    derived = source.get("derived", {}) or {}
-    return str(derived.get("role", "") or "").strip().lower()
+    if key in source:
+        return str(source.get(key, "") or default).strip().lower() or default
+    return str(_metadata(source).get(key, "") or default).strip().lower() or default
 
 
-def normalized_sub_type(payload: dict | None) -> str:
+def _has_meaningful_canonical_identity(payload: dict | None) -> bool:
     source = payload or {}
-    if "normalized_sub_type" in source:
-        return str(source.get("normalized_sub_type", "") or "").strip().lower()
-    return str(source.get("sub_type", "") or "").strip().lower()
+    if str(source.get("block_class", "") or "").strip().lower() not in {
+        "",
+        "unknown",
+    }:
+        return True
+    metadata = _metadata(source)
+    return any(
+        str(
+            source.get(key, metadata.get(key, ""))
+            if key not in source
+            else source.get(key, "")
+        ).strip().lower()
+        not in {"", "unknown"}
+        for key in ("layout_role", "semantic_role", "structure_role")
+    )
 
 
 def layout_role(payload: dict | None) -> str:
-    source = payload or {}
-    return str(source.get("layout_role", "") or "").strip().lower()
+    return _role(payload, "layout_role")
 
 
 def semantic_role(payload: dict | None) -> str:
-    source = payload or {}
-    return str(source.get("semantic_role", "") or "").strip().lower()
-
-
-def block_kind(payload: dict | None) -> str:
-    source = payload or {}
-    explicit = str(source.get("block_kind", "") or "").strip()
-    if explicit:
-        return explicit.lower()
-    return str(source.get("block_type", "") or "unknown").strip().lower() or "unknown"
-
-
-def policy_translate(payload: dict | None) -> bool | None:
-    source = payload or {}
-    explicit = source.get("policy_translate")
-    if isinstance(explicit, bool):
-        return explicit
-    policy = source.get("policy", {}) or {}
-    value = policy.get("translate")
-    if isinstance(value, bool):
-        return value
-    return None
-
-
-def has_any_tag(payload: dict | None, tags: set[str]) -> bool:
-    source = payload or {}
-    return bool(normalize_tags(source.get("tags", [])) & tags)
-
-
-def is_caption_semantic(payload: dict | None) -> bool:
-    source = payload or {}
-    if structure_role(source) == "figure_caption":
-        return True
-    if layout_role(source) == "caption":
-        return True
-    return derived_role(source) in {"caption", "figure_caption"} or has_any_tag(source, CAPTION_TAGS)
-
-
-def is_caption_like_block(payload: dict | None) -> bool:
-    source = payload or {}
-    if is_caption_semantic(source):
-        return True
-    block_type = str(source.get("block_type", source.get("type", "")) or "").strip().lower()
-    return block_type in CAPTION_BLOCK_TYPES
-
-
-def is_footnote_like_block(payload: dict | None) -> bool:
-    source = payload or {}
-    if layout_role(source) == "footnote":
-        return True
-    if structure_role(source) in FOOTNOTE_TAGS:
-        return True
-    if derived_role(source) in FOOTNOTE_TAGS:
-        return True
-    if has_any_tag(source, FOOTNOTE_TAGS):
-        return True
-    block_type = str(source.get("block_type", source.get("type", "")) or "").strip().lower()
-    return block_type in FOOTNOTE_BLOCK_TYPES
-
-
-def is_reference_heading_semantic(payload: dict | None) -> bool:
-    source = payload or {}
-    if structure_role(source) == "reference_heading":
-        return True
-    return derived_role(source) == "reference_heading" or has_any_tag(source, REFERENCE_HEADING_TAGS)
-
-
-def is_reference_entry_semantic(payload: dict | None) -> bool:
-    source = payload or {}
-    if semantic_role(source) == "reference":
-        return True
-    if structure_role(source) == "reference_entry":
-        return True
-    return derived_role(source) == "reference_entry" or has_any_tag(source, REFERENCE_ENTRY_TAGS)
-
-
-def is_algorithm_semantic(payload: dict | None) -> bool:
-    source = payload or {}
-    block_type = str(source.get("raw_block_type", source.get("block_type", source.get("type", ""))) or "").strip().lower()
-    return (
-        normalized_sub_type(source) == "algorithm"
-        or block_type == "algorithm"
-        or derived_role(source) == "algorithm"
-        or has_any_tag(source, ALGORITHM_TAGS)
-    )
-
-
-def is_metadata_semantic(payload: dict | None) -> bool:
-    return normalized_sub_type(payload) == "metadata" or semantic_role(payload) == "metadata"
+    return _role(payload, "semantic_role")
 
 
 def structure_role(payload: dict | None) -> str:
-    source = payload or {}
-    return str(source.get("structure_role", "") or "").strip().lower()
+    return _role(payload, "structure_role")
+
+
+def block_kind(payload: dict | None) -> str:
+    return resolve_content_kind(payload)
+
+
+def policy_translate(payload: dict | None) -> bool | None:
+    return _profile(payload).policy_translate
+
+
+def has_any_tag(payload: dict | None, tags: set[str]) -> bool:
+    return bool(legacy_tags(payload) & normalize_tags(tags))
+
+
+def is_caption_semantic(payload: dict | None) -> bool:
+    canonical = is_caption(_profile(payload))
+    if canonical or _has_meaningful_canonical_identity(payload):
+        return canonical
+    return is_legacy_caption(payload)
+
+
+def is_caption_like_block(payload: dict | None) -> bool:
+    return is_caption_semantic(payload)
+
+
+def is_footnote_like_block(payload: dict | None) -> bool:
+    canonical = is_footnote(_profile(payload))
+    if canonical or _has_meaningful_canonical_identity(payload):
+        return canonical
+    return is_legacy_footnote(payload)
+
+
+def is_reference_heading_semantic(payload: dict | None) -> bool:
+    canonical = is_reference_heading(_profile(payload))
+    if canonical or _has_meaningful_canonical_identity(payload):
+        return canonical
+    return is_legacy_reference_heading(payload)
+
+
+def is_reference_entry_semantic(payload: dict | None) -> bool:
+    canonical = is_reference_entry(_profile(payload))
+    if canonical or _has_meaningful_canonical_identity(payload):
+        return canonical
+    return is_legacy_reference_entry(payload)
+
+
+def is_algorithm_semantic(payload: dict | None) -> bool:
+    # ``algorithm`` has no canonical taxonomy identity yet. Keep this one
+    # deliberately explicit legacy compatibility check instead of treating all
+    # canonical code blocks as algorithms.
+    return is_legacy_algorithm(payload)
+
+
+def is_metadata_semantic(payload: dict | None) -> bool:
+    canonical = is_metadata(_profile(payload))
+    if canonical or _has_meaningful_canonical_identity(payload):
+        return canonical
+    return is_legacy_metadata(payload)
 
 
 def is_title_like_block(payload: dict | None) -> bool:
-    if layout_role(payload) in TITLE_LIKE_LAYOUT_ROLES:
-        return True
-    return structure_role(payload) in TITLE_LIKE_STRUCTURE_ROLES
+    return is_title(_profile(payload))
 
 
 def is_body_structure_role(payload: dict | None) -> bool:
-    role = structure_role(payload)
-    return role in {"", "body"}
+    return structure_role(payload) in {"", "body"}
 
 
 def is_body_like_structure_role(payload: dict | None) -> bool:
-    role = structure_role(payload)
-    return role in {"", "body", "example_line"}
+    return structure_role(payload) in {"", "body", "example_line"}
 
 
 def is_bodylike_block(payload: dict | None) -> bool:
-    return (
-        semantic_role(payload) in BODYLIKE_SEMANTIC_ROLES
-        or structure_role(payload) in BODYLIKE_STRUCTURE_ROLES
-        or layout_role(payload) in BODYLIKE_LAYOUT_ROLES
-    )
+    return is_bodylike(_profile(payload))
 
 
 def is_textual_block(payload: dict | None) -> bool:
-    if block_kind(payload) == "text":
-        return True
-    return layout_role(payload) in TEXTUAL_LAYOUT_ROLES
+    return is_textual(_profile(payload))
 
 
 def is_plain_text_block(payload: dict | None) -> bool:
-    return block_kind(payload) == "text" and not (
+    profile = _profile(payload)
+    if not is_plain_text(profile):
+        return False
+    return not (
         is_caption_like_block(payload)
         or is_footnote_like_block(payload)
         or is_reference_entry_semantic(payload)
@@ -175,18 +209,25 @@ def is_plain_text_block(payload: dict | None) -> bool:
 
 
 def is_plain_bodylike_block(payload: dict | None) -> bool:
-    return is_plain_text_block(payload) and is_bodylike_block(payload)
+    profile = _profile(payload)
+    return (
+        is_plain_bodylike(profile)
+        and is_plain_text_block(payload)
+        and is_bodylike_block(payload)
+    )
 
 
 def build_role_profile(payload: dict | None) -> dict[str, object]:
     source = payload or {}
+    profile = _profile(source)
     return {
-        "layout_role": layout_role(source),
-        "semantic_role": semantic_role(source),
-        "structure_role": structure_role(source),
+        "layout_role": profile.layout_role,
+        "semantic_role": profile.semantic_role,
+        "structure_role": profile.structure_role,
         "normalized_sub_type": normalized_sub_type(source),
-        "policy_translate": policy_translate(source),
-        "block_kind": block_kind(source),
+        "policy_translate": profile.policy_translate,
+        "block_kind": profile.content_kind,
+        "block_class": profile.block_class,
         "is_caption_like": is_caption_like_block(source),
         "is_footnote_like": is_footnote_like_block(source),
         "is_reference_heading": is_reference_heading_semantic(source),
@@ -201,16 +242,45 @@ def build_role_profile(payload: dict | None) -> dict[str, object]:
     }
 
 
-def body_repair_applied(payload: dict | None) -> bool:
-    source = payload or {}
-    return bool(source.get("body_repair_applied") or source.get("provider_body_repair_applied"))
-
-
-def body_repair_role(payload: dict | None) -> str:
-    source = payload or {}
-    return str(source.get("body_repair_role", source.get("provider_body_repair_role", "")) or "").strip().lower()
-
-
-def body_repair_peer_block_id(payload: dict | None) -> str:
-    source = payload or {}
-    return str(source.get("body_repair_peer_block_id", source.get("provider_suspected_peer_block_id", "")) or "").strip()
+__all__ = [
+    "ALGORITHM_TAGS",
+    "BODYLIKE_LAYOUT_ROLES",
+    "BODYLIKE_SEMANTIC_ROLES",
+    "BODYLIKE_STRUCTURE_ROLES",
+    "CAPTION_BLOCK_TYPES",
+    "CAPTION_TAGS",
+    "FOOTNOTE_BLOCK_TYPES",
+    "FOOTNOTE_TAGS",
+    "REFERENCE_ENTRY_TAGS",
+    "REFERENCE_HEADING_TAGS",
+    "TEXTUAL_LAYOUT_ROLES",
+    "TITLE_LIKE_LAYOUT_ROLES",
+    "TITLE_LIKE_STRUCTURE_ROLES",
+    "block_kind",
+    "body_repair_applied",
+    "body_repair_peer_block_id",
+    "body_repair_role",
+    "build_role_profile",
+    "derived_role",
+    "has_any_tag",
+    "is_algorithm_semantic",
+    "is_body_like_structure_role",
+    "is_body_structure_role",
+    "is_bodylike_block",
+    "is_caption_like_block",
+    "is_caption_semantic",
+    "is_footnote_like_block",
+    "is_metadata_semantic",
+    "is_plain_bodylike_block",
+    "is_plain_text_block",
+    "is_reference_entry_semantic",
+    "is_reference_heading_semantic",
+    "is_textual_block",
+    "is_title_like_block",
+    "layout_role",
+    "normalize_tags",
+    "normalized_sub_type",
+    "policy_translate",
+    "semantic_role",
+    "structure_role",
+]
