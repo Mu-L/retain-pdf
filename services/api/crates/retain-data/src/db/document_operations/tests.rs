@@ -385,3 +385,42 @@ fn duplicate_dispatch_identity_is_rejected() {
         .create_document_operation(&second, &draft(&second), None)
         .is_err());
 }
+
+#[test]
+fn conversation_operations_are_counted_and_stably_paginated() {
+    let db = test_db("conversation-pagination");
+    db.create_conversation("conversation-page", "", Some("document-a"))
+        .expect("seed conversation");
+    for operation_id in ["op-page-a", "op-page-c", "op-page-b"] {
+        let mut operation = manifest(operation_id, &format!("dispatch-{operation_id}"));
+        operation.conversation_id = "conversation-page".to_string();
+        db.create_document_operation(&operation, &draft(&operation), None)
+            .expect("create paginated operation");
+    }
+
+    assert_eq!(
+        db.count_document_operations_for_conversation("conversation-page")
+            .expect("count conversation operations"),
+        3
+    );
+    let first_page = db
+        .list_document_operations_for_conversation("conversation-page", 2, 0)
+        .expect("list first page");
+    assert_eq!(
+        first_page
+            .iter()
+            .map(|operation| operation.operation_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["op-page-c", "op-page-b"]
+    );
+    let second_page = db
+        .list_document_operations_for_conversation("conversation-page", 2, 2)
+        .expect("list second page");
+    assert_eq!(
+        second_page
+            .iter()
+            .map(|operation| operation.operation_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["op-page-a"]
+    );
+}

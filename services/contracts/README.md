@@ -14,6 +14,8 @@ The mirrored files are:
 - `jobs-control.v1.schema.json`
 - `library-books.v1.schema.json`
 - `pipeline-stdout.v1.schema.json`
+- `public-document-operation.v1.schema.json`
+- `runtime-config.v1.schema.json`
 
 In the monorepo, `packages/schemas` remains the upstream schema package used by
 frontend consumers. Every mirrored JSON file must remain byte-for-byte equal to

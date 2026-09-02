@@ -25,7 +25,8 @@ export type WorkflowKind = "book" | "ocr" | "translate" | "render";
  * crate::models::common::JobStatusKind (serde rename_all snake_case)
  */
 export type JobStatusKind = "queued" | "running" | "succeeded" | "failed" | "canceled";
-export type JobStageStateView = "pending" | "in_progress" | "completed" | "failed" | "skipped";
+export type JobStageStateView =
+  "reused" | "queued" | "pending" | "in_progress" | "completed" | "failed" | "skipped";
 
 export interface JobListView {
   items: JobListItemView[];
@@ -39,6 +40,9 @@ export interface JobListItemView {
   display_name: string;
   workflow: WorkflowKind;
   status: JobStatusKind;
+  attempt: number;
+  retry_count: number;
+  last_retry_at: string | null;
   trace_id?: string | null;
   stage_snapshot: JobStageSnapshotView | null;
   background_snapshots: JobStageSnapshotView[];

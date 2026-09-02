@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::fs;
 
 use axum::body::{to_bytes, Body};
@@ -10,6 +11,34 @@ use crate::api_tests::jobs_common::{minimal_pdf_bytes, read_json, test_state};
 use crate::app::build_app;
 use crate::db::DocumentVersionRecord;
 use crate::models::domain::{now_iso, DocumentOperationStatus, UploadRecord};
+use crate::services::public_document_operations_api::{
+    PublicDocumentOperationActionInput, PublicDocumentOperationListQuery,
+};
+
+fn public_operation_contract() -> Value {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../contracts/public-document-operation.v1.schema.json");
+    serde_json::from_str(&std::fs::read_to_string(path).expect("read public operation contract"))
+        .expect("parse public operation contract")
+}
+
+fn object_keys(value: &Value) -> BTreeSet<String> {
+    value
+        .as_object()
+        .expect("JSON object")
+        .keys()
+        .cloned()
+        .collect()
+}
+
+fn definition_keys(contract: &Value, definition: &str) -> BTreeSet<String> {
+    contract["definitions"][definition]["properties"]
+        .as_object()
+        .expect("contract properties")
+        .keys()
+        .cloned()
+        .collect()
+}
 
 fn digest(character: char) -> String {
     std::iter::repeat_n(character, 64).collect()
@@ -153,7 +182,24 @@ async fn public_list_and_get_return_only_safe_recovery_projection() {
     let status = response.status();
     let body = read_json(response).await;
     assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["data"]["total"], 1);
+    assert_eq!(body["data"]["limit"], 50);
+    assert_eq!(body["data"]["offset"], 0);
+    assert_eq!(body["data"]["has_more"], false);
+    let contract = public_operation_contract();
+    assert_eq!(
+        object_keys(&body["data"]),
+        definition_keys(&contract, "PublicDocumentOperationListView")
+    );
     let operation = &body["data"]["operations"][0];
+    assert_eq!(
+        object_keys(operation),
+        definition_keys(&contract, "PublicDocumentOperationView")
+    );
+    assert_eq!(
+        object_keys(&operation["events"][0]),
+        definition_keys(&contract, "PublicDocumentOperationEventView")
+    );
     assert_eq!(operation["operation_id"], operation_id);
     assert_eq!(operation["conversation_id"], conversation_id);
     assert_eq!(operation["status"], "draft");
@@ -182,6 +228,125 @@ async fn public_list_and_get_return_only_safe_recovery_projection() {
     )
     .await;
     assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+}
+
+#[test]
+fn public_action_serde_matches_contract_required_unknown_and_status_rules() {
+    let contract = public_operation_contract();
+    let schema = &contract["definitions"]["PublicDocumentOperationActionInput"];
+    let base = action("draft", 1, "contract-action");
+
+    serde_json::from_value::<PublicDocumentOperationActionInput>(base.clone())
+        .expect("contract action must deserialize");
+    for field in schema["required"].as_array().expect("required fields") {
+        let field = field.as_str().expect("required field name");
+        let mut missing = base.clone();
+        missing
+            .as_object_mut()
+            .expect("action object")
+            .remove(field);
+        assert!(
+            serde_json::from_value::<PublicDocumentOperationActionInput>(missing).is_err(),
+            "Rust DTO unexpectedly accepted missing required field {field}"
+        );
+    }
+
+    let mut unknown = base.clone();
+    unknown["future_field"] = json!(true);
+    assert!(serde_json::from_value::<PublicDocumentOperationActionInput>(unknown).is_err());
+
+    for status in contract["definitions"]["DocumentOperationStatus"]["enum"]
+        .as_array()
+        .expect("status enum")
+    {
+        let mut payload = base.clone();
+        payload["expected_status"] = status.clone();
+        serde_json::from_value::<PublicDocumentOperationActionInput>(payload)
+            .expect("contract status must deserialize");
+    }
+    let mut invalid_status = base;
+    invalid_status["expected_status"] = json!("unknown");
+    assert!(serde_json::from_value::<PublicDocumentOperationActionInput>(invalid_status).is_err());
+}
+
+#[test]
+fn public_list_query_serde_matches_contract_optional_and_unknown_rules() {
+    let contract = public_operation_contract();
+    let schema = &contract["definitions"]["PublicDocumentOperationListQuery"];
+    assert!(schema.get("required").is_none());
+    assert_eq!(
+        definition_keys(&contract, "PublicDocumentOperationListQuery"),
+        BTreeSet::from(["limit".to_string(), "offset".to_string()])
+    );
+
+    let omitted = serde_json::from_value::<PublicDocumentOperationListQuery>(json!({}))
+        .expect("all query fields are optional");
+    assert_eq!(omitted.limit, None);
+    assert_eq!(omitted.offset, 0);
+    let explicit = serde_json::from_value::<PublicDocumentOperationListQuery>(json!({
+        "limit": 25,
+        "offset": 10
+    }))
+    .expect("contract query must deserialize");
+    assert_eq!(explicit.limit, Some(25));
+    assert_eq!(explicit.offset, 10);
+    assert!(
+        serde_json::from_value::<PublicDocumentOperationListQuery>(json!({
+            "future_field": true
+        }))
+        .is_err()
+    );
+}
+
+#[tokio::test]
+async fn public_operation_list_supports_stable_offset_pagination() {
+    let state = test_state("public-document-operation-pagination");
+    let (document_id, conversation_id) = seed_document_and_conversation(&state, "c");
+    let app = build_app(state);
+    let mut created = Vec::new();
+    for key in ["create-page-a", "create-page-b", "create-page-c"] {
+        created.push(create_operation(app.clone(), &document_id, &conversation_id, key).await);
+    }
+
+    let base_uri = format!("/api/v1/ai/conversations/{conversation_id}/operations");
+    let all = read_json(get(app.clone(), &format!("{base_uri}?limit=100")).await).await;
+    let all_ids = all["data"]["operations"]
+        .as_array()
+        .expect("all operations")
+        .iter()
+        .map(|operation| {
+            operation["operation_id"]
+                .as_str()
+                .expect("operation id")
+                .to_string()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(all["data"]["total"], 3);
+    assert_eq!(all_ids.len(), 3);
+    assert!(created
+        .iter()
+        .all(|operation_id| all_ids.contains(operation_id)));
+
+    // Existing clients that only send limit continue to start at offset zero.
+    let legacy = read_json(get(app.clone(), &format!("{base_uri}?limit=2")).await).await;
+    assert_eq!(legacy["data"]["limit"], 2);
+    assert_eq!(legacy["data"]["offset"], 0);
+    assert_eq!(legacy["data"]["total"], 3);
+    assert_eq!(legacy["data"]["has_more"], true);
+
+    let middle_uri = format!("{base_uri}?limit=1&offset=1");
+    let middle = read_json(get(app.clone(), &middle_uri).await).await;
+    assert_eq!(middle["data"]["limit"], 1);
+    assert_eq!(middle["data"]["offset"], 1);
+    assert_eq!(middle["data"]["total"], 3);
+    assert_eq!(middle["data"]["has_more"], true);
+    assert_eq!(middle["data"]["operations"][0]["operation_id"], all_ids[1]);
+    let repeated = read_json(get(app.clone(), &middle_uri).await).await;
+    assert_eq!(repeated["data"]["operations"], middle["data"]["operations"]);
+
+    let tail = read_json(get(app, &format!("{base_uri}?limit=1&offset=2")).await).await;
+    assert_eq!(tail["data"]["operations"][0]["operation_id"], all_ids[2]);
+    assert_eq!(tail["data"]["has_more"], false);
 }
 
 #[tokio::test]

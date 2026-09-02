@@ -15,6 +15,8 @@ CONTRACT_NAMES = (
     "jobs-control.v1.schema.json",
     "library-books.v1.schema.json",
     "pipeline-stdout.v1.schema.json",
+    "public-document-operation.v1.schema.json",
+    "runtime-config.v1.schema.json",
 )
 
 CONTRACTS_ROOT = Path(__file__).resolve().parent

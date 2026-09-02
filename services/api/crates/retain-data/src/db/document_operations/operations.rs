@@ -85,6 +85,7 @@ impl Db {
         &self,
         conversation_id: &str,
         limit: u32,
+        offset: u32,
     ) -> Result<Vec<StoredDocumentOperation>> {
         let conn = self.connect()?;
         let mut stmt = conn.prepare(
@@ -95,15 +96,28 @@ impl Db {
             FROM document_operations
             WHERE conversation_id = ?1
             ORDER BY updated_at DESC, operation_id DESC
-            LIMIT ?2
+            LIMIT ?2 OFFSET ?3
             "#,
         )?;
-        let rows = stmt.query_map(params![conversation_id, i64::from(limit)], row_to_operation)?;
+        let rows = stmt.query_map(
+            params![conversation_id, i64::from(limit), i64::from(offset)],
+            row_to_operation,
+        )?;
         let mut operations = Vec::new();
         for row in rows {
             operations.push(row?);
         }
         Ok(operations)
+    }
+
+    pub fn count_document_operations_for_conversation(&self, conversation_id: &str) -> Result<u64> {
+        let conn = self.connect()?;
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM document_operations WHERE conversation_id = ?1",
+            params![conversation_id],
+            |row| row.get(0),
+        )?;
+        Ok(count.max(0) as u64)
     }
 }
 

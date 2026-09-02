@@ -17,7 +17,7 @@ export type JobStatusKind = "queued" | "running" | "succeeded" | "failed" | "can
 export type JsonValue = null | boolean | number | string | JsonValue[] | {
     [key: string]: JsonValue;
 };
-export type JobStageStateView = "pending" | "in_progress" | "completed" | "failed" | "skipped";
+export type JobStageStateView = "reused" | "queued" | "pending" | "in_progress" | "completed" | "failed" | "skipped";
 export type OcrProviderKind = "mineru" | "paddle" | "local" | "unknown";
 export type OcrTaskState = "queued" | "waiting_upload" | "running" | "converting" | "succeeded" | "failed" | "unknown";
 /**
@@ -27,6 +27,8 @@ export interface JobDetailView {
     job_id: string;
     workflow: WorkflowKind;
     status: JobStatusKind;
+    ocr_reused: boolean;
+    source_artifact_job_id: string | null;
     request_payload: PublicResolvedJobSpec;
     trace_id?: string | null;
     provider_trace_id?: string | null;
@@ -125,6 +127,7 @@ export interface PublicTranslationInput {
     base_url: string;
     start_page: number;
     end_page: number;
+    page_ranges: number[];
     batch_size: number;
     workers: number;
     accepted_ambiguous_request_risk?: boolean;
@@ -155,6 +158,7 @@ export interface RenderInput {
 export interface RuntimeInput {
     job_id: string;
     timeout_seconds: number;
+    render_after_translation: boolean;
 }
 /**
  * job_types.rs :: JobStageSnapshotView。前端 adaptJobStageSnapshot / buildStageSnapshot 消费全部字段；lane=main|background。
@@ -534,6 +538,9 @@ export interface JobListItemView {
     display_name: string;
     workflow: WorkflowKind;
     status: JobStatusKind;
+    attempt: number;
+    retry_count: number;
+    last_retry_at: string | null;
     trace_id?: string | null;
     stage_snapshot: JobStageSnapshotView | null;
     background_snapshots: JobStageSnapshotView[];

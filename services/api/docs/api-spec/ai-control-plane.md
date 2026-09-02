@@ -25,6 +25,8 @@ sidecar; model and Gateway credentials are never returned in cleartext.
 
 The ask payload and SSE/result fields are defined by
 [`services/contracts/ai-ask.v1.schema.json`](../../../contracts/ai-ask.v1.schema.json).
+Runtime configuration updates and redacted views are defined by
+[`services/contracts/runtime-config.v1.schema.json`](../../../contracts/runtime-config.v1.schema.json).
 Important state rules are:
 
 - `assistant_mode=reading` selects document retrieval without operation tools;
@@ -74,7 +76,7 @@ write failure is surfaced through `persisted=false`.
 ## Public operation projection and actions
 
 ```text
-GET  /api/v1/ai/conversations/{conversation_id}/operations?limit=50
+GET  /api/v1/ai/conversations/{conversation_id}/operations?limit=50&offset=0
 GET  /api/v1/ai/operations/{operation_id}
 POST /api/v1/ai/operations/{operation_id}/run
 POST /api/v1/ai/operations/{operation_id}/retry
@@ -83,11 +85,15 @@ POST /api/v1/ai/operations/{operation_id}/commit
 GET  /api/v1/ai/operations/{operation_id}/candidate.pdf
 ```
 
-The list is conversation-scoped and clamps `limit` to `1..100`. Public views
-use schema `public_document_operation_v1` and expose only safe plan, status,
-attempt, candidate, failure, allowed-action, and event projections. They do not
-expose workspace paths, internal manifests, request bodies, capabilities,
-credentials, or signed provider URLs.
+The list is conversation-scoped, clamps `limit` to `1..100`, defaults omitted
+`offset` to zero, and sorts by `updated_at DESC, operation_id DESC` so equal
+timestamps remain deterministic. Its response contains `operations`, `total`,
+the effective `limit`, `offset`, and `has_more`. Existing callers that send only
+`limit` remain compatible. Public operation items use schema
+[`public_document_operation_v1`](../../../contracts/public-document-operation.v1.schema.json)
+and expose only safe plan, status, attempt, candidate, failure, allowed-action,
+and event projections. They do not expose workspace paths, internal manifests,
+request bodies, capabilities, credentials, or signed provider URLs.
 
 Each action request uses this concurrency envelope:
 

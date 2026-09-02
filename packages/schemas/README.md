@@ -10,6 +10,8 @@
 | `job-status.v1.schema.json` | 任务详情、脱敏请求参数、事件流与阶段进度 | `@retainpdf/api`、`packages/domain`、`apps/web`、`apps/web-react` | `services/api` public view models |
 | `jobs-control.v1.schema.json` | shell↔jobsd 控制面 | `services/api/src/api_tests/jobs_control_contract.rs` | `services/api/crates/retain-jobsd/src/contract_lock.rs` |
 | `pipeline-stdout.v1.schema.json` | Python stdout 协议 | `services/api/crates/retain-jobs/src/job_runner/stdout_parser/contract_lock.rs` | `services/pipeline` worker 与对应 contract test |
+| `public-document-operation.v1.schema.json` | 浏览器安全的 PDF operation 查询、分页与 CAS action | `packages/api`、Reader/网页宿主 | `services/api/src/services/public_document_operations.rs` |
+| `runtime-config.v1.schema.json` | AI runtime 配置更新与脱敏视图 | `services/api` 透明代理、设置客户端 | `services/ai/retainpdf_ai/runtime_config_api.py` |
 
 `packages/schemas/*.schema.json` 是 monorepo 上游真值；
 `services/contracts/*.schema.json` 是可独立提取后端使用的字节级镜像。
@@ -20,7 +22,7 @@
 
 ## npm 包
 
-本目录发布为 `@retainpdf/contracts`。Wire DTO 只从 `@retainpdf/contracts/job-status` 与 `@retainpdf/contracts/library-books` 导出；六份原始 schema 以文件名子路径显式导出。包没有根 DTO 入口、wildcard export 或 runtime dependency。
+本目录发布为 `@retainpdf/contracts`。Wire DTO 只从 `@retainpdf/contracts/job-status` 与 `@retainpdf/contracts/library-books` 导出；八份原始 schema 以文件名子路径显式导出。包没有根 DTO 入口、wildcard export 或 runtime dependency。
 
 ```bash
 npm --prefix packages/schemas run lint:schemas

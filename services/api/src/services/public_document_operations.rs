@@ -28,6 +28,8 @@ pub const PUBLIC_DOCUMENT_OPERATION_VIEW_SCHEMA: &str = "public_document_operati
 #[serde(deny_unknown_fields)]
 pub struct PublicDocumentOperationListQuery {
     pub limit: Option<u32>,
+    #[serde(default)]
+    pub offset: u32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -47,6 +49,10 @@ pub struct PublicDocumentOperationActionInput {
 #[derive(Debug, Clone, Serialize)]
 pub struct PublicDocumentOperationListView {
     pub operations: Vec<PublicDocumentOperationView>,
+    pub total: u64,
+    pub limit: u32,
+    pub offset: u32,
+    pub has_more: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -162,9 +168,13 @@ pub fn list_public_document_operations(
         )));
     }
     let limit = query.limit.unwrap_or(50).clamp(1, 100);
-    let operations = db
-        .list_document_operations_for_conversation(conversation_id, limit)
+    let total = db
+        .count_document_operations_for_conversation(conversation_id)
         .map_err(internal_error)?;
+    let operations = db
+        .list_document_operations_for_conversation(conversation_id, limit, query.offset)
+        .map_err(internal_error)?;
+    let returned = operations.len() as u64;
     let mut views = Vec::with_capacity(operations.len());
     for operation in operations {
         views.push(get_public_document_operation(
@@ -173,7 +183,13 @@ pub fn list_public_document_operations(
             &operation.operation_id,
         )?);
     }
-    Ok(PublicDocumentOperationListView { operations: views })
+    Ok(PublicDocumentOperationListView {
+        operations: views,
+        total,
+        limit,
+        offset: query.offset,
+        has_more: u64::from(query.offset).saturating_add(returned) < total,
+    })
 }
 
 pub fn list_document_agent_versions(

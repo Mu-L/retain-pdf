@@ -132,12 +132,15 @@
     "JobListItemView": {
       "type": "object",
       "description": "job_types.rs :: JobListItemView — /api/v1/jobs 列表项，含 stage_snapshot 与 cover/thumbnail 双图。",
-      "required": ["job_id", "display_name", "workflow", "status", "stage_snapshot", "background_snapshots", "stages", "output_pdf_ready", "markdown_ready", "bundle_ready", "created_at", "updated_at", "detail_path", "detail_url"],
+      "required": ["job_id", "display_name", "workflow", "status", "attempt", "retry_count", "last_retry_at", "stage_snapshot", "background_snapshots", "stages", "output_pdf_ready", "markdown_ready", "bundle_ready", "created_at", "updated_at", "detail_path", "detail_url"],
       "properties": {
         "job_id": { "type": "string" },
         "display_name": { "type": "string" },
         "workflow": { "$ref": "#/definitions/WorkflowKind" },
         "status": { "$ref": "#/definitions/JobStatusKind" },
+        "attempt": { "type": "integer", "minimum": 1 },
+        "retry_count": { "type": "integer", "minimum": 0 },
+        "last_retry_at": { "type": ["string", "null"], "format": "date-time" },
         "trace_id": { "type": ["string", "null"] },
         "stage_snapshot": { "anyOf": [{ "$ref": "#/definitions/JobStageSnapshotView" }, { "type": "null" }] },
         "background_snapshots": { "type": "array", "items": { "$ref": "#/definitions/JobStageSnapshotView" } },
@@ -179,7 +182,7 @@
     },
     "JobStageStateView": {
       "type": "string",
-      "enum": ["pending", "in_progress", "completed", "failed", "skipped"]
+      "enum": ["reused", "queued", "pending", "in_progress", "completed", "failed", "skipped"]
     },
     "JobStageRuntimeView": {
       "type": "object",

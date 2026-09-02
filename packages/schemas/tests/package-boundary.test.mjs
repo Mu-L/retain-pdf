@@ -13,6 +13,8 @@ const RAW_SCHEMA_EXPORTS = [
   "./jobs-control.v1.schema.json",
   "./library-books.v1.schema.json",
   "./pipeline-stdout.v1.schema.json",
+  "./public-document-operation.v1.schema.json",
+  "./runtime-config.v1.schema.json",
 ];
 
 test("package exposes only explicit DTO and raw schema subpaths", () => {
