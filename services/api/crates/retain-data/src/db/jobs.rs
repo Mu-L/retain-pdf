@@ -101,6 +101,24 @@ impl Db {
         Ok(count.max(0) as u64)
     }
 
+    /// Counts persisted jobs whose replayable request references an opaque
+    /// translation credential. Historical terminal jobs are deliberately
+    /// included because retry and rerun rebuild work from `request_json`.
+    pub fn count_jobs_referencing_credential(&self, credential_ref: &str) -> Result<u64> {
+        let conn = self.connect()?;
+        let count: i64 = conn.query_row(
+            r#"
+            SELECT COUNT(*)
+            FROM jobs
+            WHERE json_valid(request_json)
+              AND json_extract(request_json, '$.translation.credential_ref') = ?1
+            "#,
+            params![credential_ref],
+            |row| row.get(0),
+        )?;
+        Ok(count.max(0) as u64)
+    }
+
     pub fn list_jobs_with_status(&self, status: &JobStatusKind) -> Result<Vec<JobSnapshot>> {
         let conn = self.connect()?;
         let status_json = serde_json::to_string(status)?;

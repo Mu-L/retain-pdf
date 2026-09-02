@@ -2,6 +2,7 @@ use crate::db::PipelineDispatchRecord;
 use crate::error::AppError;
 use crate::models::domain::JobSnapshot;
 use crate::models::request::CreateJobInput;
+use crate::services::credentials::acquire_credential_usage_lock;
 use crate::services::job_launcher::start_job_execution;
 use serde_json::Value;
 
@@ -13,6 +14,7 @@ pub(crate) fn create_translation_job(
     deps: &JobSubmitDeps<'_>,
     input: &CreateJobInput,
 ) -> Result<JobSnapshot, AppError> {
+    let _credential_guard = acquire_translation_credential_usage_lock(deps, input)?;
     let job = build_translation_job_snapshot(&deps.snapshot, input)?;
     start_job_execution(&deps.launcher, job)
 }
@@ -24,6 +26,7 @@ pub(crate) fn create_ocr_ambiguity_recovery_job(
     resolution: &str,
     receipt: Option<&Value>,
 ) -> Result<JobSnapshot, AppError> {
+    let _credential_guard = acquire_translation_credential_usage_lock(deps, input)?;
     let job = build_translation_job_snapshot(&deps.snapshot, input)?;
     if !deps.launcher.db.create_ocr_recovery_job_state(
         source_dispatch,
@@ -37,6 +40,16 @@ pub(crate) fn create_ocr_ambiguity_recovery_job(
     }
     deps.launcher.runtime.launch(job.job_id.clone());
     Ok(job)
+}
+
+fn acquire_translation_credential_usage_lock(
+    deps: &JobSubmitDeps<'_>,
+    input: &CreateJobInput,
+) -> Result<Option<crate::services::credentials::CredentialUsageLock>, AppError> {
+    if input.translation.credential_ref.trim().is_empty() {
+        return Ok(None);
+    }
+    acquire_credential_usage_lock(deps.snapshot.config.data_root).map(Some)
 }
 
 pub(crate) async fn create_ocr_job_from_upload(

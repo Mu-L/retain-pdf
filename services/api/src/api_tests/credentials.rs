@@ -5,6 +5,8 @@ use tower::util::ServiceExt;
 
 use super::jobs_common::{read_json, test_state};
 use crate::app::build_app;
+use crate::models::domain::JobSnapshot;
+use crate::models::request::CreateJobInput;
 
 async fn request(
     app: axum::Router,
@@ -117,4 +119,81 @@ async fn credential_api_persists_only_safe_metadata_in_responses() {
             0o700
         );
     }
+}
+
+#[tokio::test]
+async fn credential_delete_requires_force_while_persisted_jobs_reference_it() {
+    let state = test_state("credential-delete-reference-guard");
+    let app = build_app(state.clone());
+    let secret = "sk-delete-reference-guard";
+    let (status, created) = request(
+        app.clone(),
+        Method::POST,
+        "/api/v1/credentials",
+        Some(json!({
+            "kind": "translation_api_key",
+            "provider": "deepseek",
+            "label": "Protected translation model",
+            "secret": secret,
+            "expected_revision": 0
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{created}");
+    let credential_ref = created["data"]["credential"]["credential_ref"]
+        .as_str()
+        .expect("credential ref")
+        .to_string();
+
+    let mut input = CreateJobInput::default();
+    input.translation.credential_ref = credential_ref.clone();
+    let job = JobSnapshot::new(
+        "job-referencing-credential".to_string(),
+        input,
+        vec!["python3".to_string()],
+    );
+    state.db.save_job(&job).expect("persist referencing job");
+
+    let (status, conflict) = request(
+        app.clone(),
+        Method::DELETE,
+        &format!("/api/v1/credentials/{credential_ref}?expected_revision=1"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{conflict}");
+    assert_eq!(conflict["code"], "CREDENTIAL_IN_USE");
+    assert_eq!(conflict["error"]["code"], "CREDENTIAL_IN_USE");
+    assert!(!conflict.to_string().contains(secret));
+    assert!(!conflict.to_string().contains("job-referencing-credential"));
+
+    let (status, still_present) = request(
+        app.clone(),
+        Method::GET,
+        &format!("/api/v1/credentials/{credential_ref}"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{still_present}");
+    assert_eq!(still_present["data"]["revision"], 1);
+
+    let (status, deleted) = request(
+        app.clone(),
+        Method::DELETE,
+        &format!("/api/v1/credentials/{credential_ref}?expected_revision=1&force=true"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{deleted}");
+    assert_eq!(deleted["data"]["deleted"], true);
+    assert_eq!(deleted["data"]["revision"], 2);
+
+    let (status, missing) = request(
+        app,
+        Method::GET,
+        &format!("/api/v1/credentials/{credential_ref}"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{missing}");
 }

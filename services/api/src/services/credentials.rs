@@ -2,11 +2,13 @@ use std::collections::BTreeMap;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{RwLock, RwLockReadGuard};
 
+use axum::http::StatusCode;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
+use crate::db::Db;
 use crate::error::AppError;
 use crate::models::domain::now_iso;
 
@@ -14,14 +16,14 @@ const VAULT_SCHEMA: &str = "retainpdf_credential_vault_v1";
 const VAULT_LOCK_NAME: &str = ".credentials.lock";
 const MAX_VAULT_BYTES: u64 = 256 * 1024;
 const MAX_SECRET_BYTES: usize = 8192;
-static VAULT_WRITE_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static VAULT_ACCESS_LOCK: Lazy<RwLock<()>> = Lazy::new(|| RwLock::new(()));
 
-struct VaultMutationLock {
+struct VaultFileLock {
     file: fs::File,
 }
 
 #[cfg(unix)]
-impl Drop for VaultMutationLock {
+impl Drop for VaultFileLock {
     fn drop(&mut self) {
         use std::os::fd::AsRawFd;
 
@@ -33,8 +35,16 @@ impl Drop for VaultMutationLock {
 }
 
 #[cfg(not(unix))]
-impl Drop for VaultMutationLock {
+impl Drop for VaultFileLock {
     fn drop(&mut self) {}
+}
+
+/// Keeps a credential reference stable from validation through job
+/// persistence. The process-local read guard permits concurrent submissions;
+/// the file guard extends the same ordering across backend processes on POSIX.
+pub(crate) struct CredentialUsageLock {
+    _process_guard: RwLockReadGuard<'static, ()>,
+    _file_guard: VaultFileLock,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -97,6 +107,8 @@ pub struct UpdateCredentialInput {
 pub struct DeleteCredentialQuery {
     #[serde(default)]
     pub expected_revision: Option<u64>,
+    #[serde(default)]
+    pub force: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -233,20 +245,37 @@ pub fn update_credential(
 }
 
 pub fn delete_credential(
+    db: &Db,
     data_root: &Path,
     credential_ref: &str,
     expected_revision: Option<u64>,
+    force: bool,
 ) -> Result<CredentialDeleteView, AppError> {
     validate_credential_ref(credential_ref)?;
-    let _guard = VAULT_WRITE_LOCK
-        .lock()
+    let _guard = VAULT_ACCESS_LOCK
+        .write()
         .map_err(|_| AppError::internal("credential vault lock is poisoned"))?;
-    let _file_guard = acquire_vault_mutation_lock(data_root)?;
+    let _file_guard = acquire_vault_file_lock(data_root, true)?;
     let mut vault = load_vault(data_root)?;
     require_revision(&vault, expected_revision)?;
-    if vault.credentials.remove(credential_ref).is_none() {
+    if !vault.credentials.contains_key(credential_ref) {
         return Err(AppError::not_found("credential reference not found"));
     }
+    let is_referenced = if force {
+        false
+    } else {
+        db.count_jobs_referencing_credential(credential_ref)
+            .map_err(|_| AppError::internal("credential reference usage cannot be determined"))?
+            > 0
+    };
+    if is_referenced {
+        return Err(AppError::credential_reference(
+            StatusCode::CONFLICT,
+            "CREDENTIAL_IN_USE",
+            "credential is referenced by persisted jobs; use force=true only after confirming the recovery impact",
+        ));
+    }
+    vault.credentials.remove(credential_ref);
     vault.revision = vault.revision.saturating_add(1);
     save_vault(data_root, &vault)?;
     Ok(CredentialDeleteView {
@@ -264,10 +293,10 @@ fn mutate_vault<F>(
 where
     F: FnOnce(&mut CredentialVault) -> Result<(String, StoredCredential), AppError>,
 {
-    let _guard = VAULT_WRITE_LOCK
-        .lock()
+    let _guard = VAULT_ACCESS_LOCK
+        .write()
         .map_err(|_| AppError::internal("credential vault lock is poisoned"))?;
-    let _file_guard = acquire_vault_mutation_lock(data_root)?;
+    let _file_guard = acquire_vault_file_lock(data_root, true)?;
     let mut vault = load_vault(data_root)?;
     require_revision(&vault, expected_revision)?;
     let (credential_ref, credential) = mutation(&mut vault)?;
@@ -414,7 +443,20 @@ fn prepare_vault_directory(data_root: &Path) -> Result<PathBuf, AppError> {
     Ok(directory)
 }
 
-fn acquire_vault_mutation_lock(data_root: &Path) -> Result<VaultMutationLock, AppError> {
+pub(crate) fn acquire_credential_usage_lock(
+    data_root: &Path,
+) -> Result<CredentialUsageLock, AppError> {
+    let process_guard = VAULT_ACCESS_LOCK
+        .read()
+        .map_err(|_| AppError::internal("credential vault lock is poisoned"))?;
+    let file_guard = acquire_vault_file_lock(data_root, false)?;
+    Ok(CredentialUsageLock {
+        _process_guard: process_guard,
+        _file_guard: file_guard,
+    })
+}
+
+fn acquire_vault_file_lock(data_root: &Path, exclusive: bool) -> Result<VaultFileLock, AppError> {
     let directory = prepare_vault_directory(data_root)?;
     let lock_path = directory.join(VAULT_LOCK_NAME);
     let mut options = OpenOptions::new();
@@ -439,15 +481,20 @@ fn acquire_vault_mutation_lock(data_root: &Path) -> Result<VaultMutationLock, Ap
 
         fs::set_permissions(&lock_path, fs::Permissions::from_mode(0o600))
             .map_err(|_| AppError::internal("credential vault lock cannot be secured"))?;
-        // SAFETY: the descriptor is valid and retained by `VaultMutationLock`
+        // SAFETY: the descriptor is valid and retained by `VaultFileLock`
         // until the critical section finishes.
-        if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) } != 0 {
+        let operation = if exclusive {
+            libc::LOCK_EX
+        } else {
+            libc::LOCK_SH
+        };
+        if unsafe { libc::flock(file.as_raw_fd(), operation) } != 0 {
             return Err(AppError::internal(
                 "credential vault lock cannot be acquired",
             ));
         }
     }
-    Ok(VaultMutationLock { file })
+    Ok(VaultFileLock { file })
 }
 
 fn validate_credential_ref(value: &str) -> Result<(), AppError> {
@@ -490,4 +537,79 @@ fn validate_secret(value: &str) -> Result<String, AppError> {
         return Err(AppError::bad_request("credential secret is invalid"));
     }
     Ok(value.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    use crate::models::domain::JobSnapshot;
+    use crate::models::request::CreateJobInput;
+
+    use super::*;
+
+    #[test]
+    fn concurrent_job_persistence_fences_credential_deletion() {
+        let data_root = std::env::temp_dir().join(format!(
+            "retainpdf-credential-lifecycle-{}-{:016x}",
+            std::process::id(),
+            fastrand::u64(..)
+        ));
+        let db = Db::new(data_root.join("db/jobs.db"), data_root.clone());
+        db.init().expect("initialize jobs db");
+        let created = create_credential(
+            &data_root,
+            CreateCredentialInput {
+                kind: "translation_api_key".to_string(),
+                provider: "deepseek".to_string(),
+                label: "lifecycle test".to_string(),
+                secret: "sk-lifecycle-test".to_string(),
+                expected_revision: Some(0),
+            },
+        )
+        .expect("create credential");
+        let credential_ref = created.credential.credential_ref;
+
+        let usage_guard =
+            acquire_credential_usage_lock(&data_root).expect("acquire credential usage lock");
+        let deletion_db = db.clone();
+        let deletion_root = data_root.clone();
+        let deletion_ref = credential_ref.clone();
+        let (started_tx, started_rx) = mpsc::channel();
+        let (done_tx, done_rx) = mpsc::channel();
+        let deletion = std::thread::spawn(move || {
+            started_tx.send(()).expect("signal deletion start");
+            let result =
+                delete_credential(&deletion_db, &deletion_root, &deletion_ref, Some(1), false);
+            done_tx.send(result).expect("return deletion result");
+        });
+        started_rx.recv().expect("deletion thread started");
+        assert!(
+            done_rx.recv_timeout(Duration::from_millis(50)).is_err(),
+            "deletion must wait while task creation holds the usage lock"
+        );
+
+        let mut input = CreateJobInput::default();
+        input.translation.credential_ref = credential_ref;
+        db.save_job(&JobSnapshot::new(
+            "job-created-during-delete".to_string(),
+            input,
+            vec!["python3".to_string()],
+        ))
+        .expect("persist job before releasing usage lock");
+        drop(usage_guard);
+
+        let result = done_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("deletion finishes after usage lock release");
+        match result {
+            Err(AppError::CredentialReference { code, status, .. }) => {
+                assert_eq!(code, "CREDENTIAL_IN_USE");
+                assert_eq!(status, StatusCode::CONFLICT);
+            }
+            other => panic!("unexpected deletion result: {other:?}"),
+        }
+        deletion.join().expect("join deletion thread");
+    }
 }

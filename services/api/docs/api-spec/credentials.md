@@ -19,6 +19,20 @@ private file lock; publishing fsyncs both the replacement file and its parent
 directory before the request is reported as successful. Other platforms retain
 the in-process mutation lock and atomic replacement behavior.
 
+`DELETE /api/v1/credentials/:credential_ref` accepts `expected_revision` and
+an optional `force` query flag. By default, deletion is rejected while any
+persisted job request references the credential, including terminal jobs: retry
+and rerun can still need that reference. After explicitly accepting that
+recovery impact, a caller may repeat the request with `force=true`. The conflict
+response never discloses referencing job IDs, counts, or credential values.
+Credential-backed task creation holds a shared lifecycle lock from reference
+validation through durable job persistence, while deletion holds the exclusive
+lock. This coordination applies within a process on every platform and across
+backend processes on POSIX. Therefore a coordinated concurrent delete cannot
+slip between those two steps: either the job is persisted first and deletion
+returns `CREDENTIAL_IN_USE`, or deletion finishes first and task creation
+returns `CREDENTIAL_REF_NOT_FOUND`.
+
 Translation jobs and document-scoped translation now accept
 `translation.credential_ref`. The backend validates the reference at task
 creation, persists only the opaque reference, resolves the secret immediately
@@ -41,6 +55,7 @@ Credential-reference resolution owns these machine-readable codes:
 | `CREDENTIAL_REF_INVALID` | 400 | The opaque reference has an invalid shape. |
 | `CREDENTIAL_REF_NOT_FOUND` | 404 | No credential exists for the reference. |
 | `CREDENTIAL_KIND_MISMATCH` | 400 | The credential exists but cannot be used for the requested purpose. |
+| `CREDENTIAL_IN_USE` | 409 | Persisted jobs still reference the credential; deletion requires an explicit `force=true` override. |
 | `CREDENTIAL_VAULT_UNAVAILABLE` | 500 | The backend cannot safely read or validate the credential vault. |
 
 For example, a missing reference returns the unified error object while

@@ -60,8 +60,10 @@ pub async fn delete_credential_route(
 ) -> Result<Json<ApiResponse<CredentialDeleteView>>, AppError> {
     let deps = build_credential_route_deps(&state);
     Ok(Json(ApiResponse::ok(delete_credential(
+        deps.db,
         deps.data_root,
         &credential_ref,
         query.expected_revision,
+        query.force,
     )?)))
 }
