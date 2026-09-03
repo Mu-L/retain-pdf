@@ -70,20 +70,32 @@ def test_release_workflows_accept_prefixed_and_unprefixed_version_tags(
     assert "resolve_release_version.py" in workflow
 
 
-def test_desktop_release_preserves_the_actual_tag_and_marks_prereleases() -> None:
+def test_desktop_release_is_published_once_after_all_platforms_finish() -> None:
     workflow = (
         REPO_ROOT / ".github" / "workflows" / "release-desktop.yml"
     ).read_text(encoding="utf-8")
 
-    assert workflow.count("resolve_release_version.py") == 3
-    assert workflow.count("prerelease: ${{ steps.version.outputs.prerelease == 'true' }}") == 3
+    assert workflow.count("resolve_release_version.py") == 4
+    assert workflow.count("uses: softprops/action-gh-release@v3") == 1
+    assert workflow.count("prerelease: ${{ steps.version.outputs.prerelease == 'true' }}") == 1
+    assert "publish-desktop-release:" in workflow
+    assert "- build-windows-release" in workflow
+    assert "- build-linux-release" in workflow
+    assert "- build-macos-release" in workflow
+    assert "release-assets/SHA256SUMS.txt" in workflow
     assert 'tag = "v$version"' not in workflow
 
 
-def test_docker_latest_is_only_published_for_stable_tag_pushes() -> None:
+def test_docker_latest_is_promoted_only_after_candidates_are_verified() -> None:
     workflow = (
         REPO_ROOT / ".github" / "workflows" / "release-docker.yml"
     ).read_text(encoding="utf-8")
 
-    assert "github.event_name == 'push' && steps.release.outputs.stable == 'true'" in workflow
+    assert "Verify both candidate images" in workflow
+    assert "Promote complete Docker release" in workflow
+    assert "STABLE_RELEASE: ${{ steps.release.outputs.stable }}" in workflow
+    assert 'if [ "$STABLE_RELEASE" = "true" ]; then' in workflow
+    assert workflow.index("Verify both candidate images") < workflow.index(
+        "Promote complete Docker release"
+    )
     assert "startsWith(github.ref, 'refs/tags/v')" not in workflow
