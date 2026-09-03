@@ -19,7 +19,8 @@ export type ReaderMarkdownPanelProps = {
   open: boolean;
   jobId: string;
   sourceOnly: boolean;
-  layout?: "floating" | "docked";
+  layout?: "floating" | "docked" | "workspace";
+  side?: "left" | "right";
   onClose: () => void;
 };
 
@@ -278,6 +279,7 @@ export function ReaderMarkdownPanel({
   jobId,
   sourceOnly,
   layout = "floating",
+  side = "right",
   onClose,
 }: ReaderMarkdownPanelProps) {
   const contentRef = useRef<HTMLElement | null>(null);
@@ -423,7 +425,9 @@ export function ReaderMarkdownPanel({
       storageKey="retainpdf.reader.markdown-float.pos.v1"
       ariaLabel="Markdown 预览"
       width={420}
-      placement={layout === "docked" ? "dock-right" : "floating"}
+      placement={layout === "workspace" ? "workspace" : layout === "docked" ? "dock-right" : "floating"}
+      showHeader={layout !== "workspace"}
+      className={layout === "workspace" ? `is-pane-${side}` : undefined}
       onClose={onClose}
       toolbar={(
         <span className="reader-notes-count">{status || "已加载"}</span>

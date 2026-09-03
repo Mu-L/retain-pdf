@@ -63,6 +63,7 @@ pub(super) fn apply_multipart_request_field(
         "workers" => request.translation.workers = parse_i64_like(name, value)?,
         "translated_pdf_name" => request.render.translated_pdf_name = value.to_string(),
         "provider" => request.ocr.provider = value.to_string(),
+        "ocr_credential_ref" => request.ocr.credential_ref = value.to_string(),
         "mineru_token" => request.ocr.mineru_token = value.to_string(),
         "model_version" => request.ocr.model_version = value.to_string(),
         "paddle_token" => request.ocr.paddle_token = value.to_string(),
@@ -120,6 +121,13 @@ mod tests {
         .expect("source_url");
         apply_multipart_request_field(&mut request, &mut developer_mode, "provider", "paddle")
             .expect("provider");
+        apply_multipart_request_field(
+            &mut request,
+            &mut developer_mode,
+            "ocr_credential_ref",
+            "cred-ocr",
+        )
+        .expect("ocr_credential_ref");
         apply_multipart_request_field(&mut request, &mut developer_mode, "mineru_token", "mineru")
             .expect("mineru_token");
         apply_multipart_request_field(
@@ -154,6 +162,7 @@ mod tests {
         assert_eq!(request.source.upload_id, "upload-1");
         assert_eq!(request.source.source_url, "https://example.com/paper.pdf");
         assert_eq!(request.ocr.provider, "paddle");
+        assert_eq!(request.ocr.credential_ref, "cred-ocr");
         assert_eq!(request.ocr.mineru_token, "mineru");
         assert_eq!(request.ocr.paddle_token, "paddle-secret");
         assert_eq!(request.translation.base_url, "https://api.deepseek.com/v1");

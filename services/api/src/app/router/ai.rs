@@ -3,7 +3,7 @@ use axum::routing::{get, post};
 use axum::Router;
 
 use crate::app::AppState;
-use crate::routes::{ai_proxy, library_extras, public_document_operations};
+use crate::routes::{agent_calculations, ai_proxy, library_extras, public_document_operations};
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new()
@@ -42,6 +42,18 @@ pub(super) fn routes() -> Router<AppState> {
         .route(
             "/api/v1/ai/conversations/:conversation_id/operations",
             get(public_document_operations::list_public_document_operations_route),
+        )
+        .route(
+            "/api/v1/ai/conversations/:conversation_id/calculations",
+            get(agent_calculations::list_agent_calculations_route),
+        )
+        .route(
+            "/api/v1/ai/calculations/:calculation_id",
+            get(agent_calculations::get_agent_calculation_route),
+        )
+        .route(
+            "/api/v1/ai/calculations/:calculation_id/artifacts/:artifact_id",
+            get(agent_calculations::download_agent_calculation_artifact_route),
         )
         .route(
             "/api/v1/ai/operations/:operation_id",

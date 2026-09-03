@@ -5,6 +5,8 @@ import {
   resolveSubmitReadiness,
   SUBMIT_BLOCK_REASONS,
 } from "../../src/js/contracts/submit-readiness-contract.js";
+import { APP_EVENTS } from "../../src/js/contracts/app-contract.js";
+import { publishSubmitSuccess } from "../../src/js/features/app-actions/submit-flow.js";
 import { resolveSubmitControlState } from "../../src/js/features/workflow/submit-controls.js";
 
 const workflowNeedsUpload = (workflow) => workflow !== "render";
@@ -132,4 +134,53 @@ test("resolveSubmitControlState preserves render source disabled behavior", () =
   assert.equal(state.pageRangeVisible, false);
   assert.equal(state.label, "开始渲染");
   assert.equal(state.readiness.reason, SUBMIT_BLOCK_REASONS.MISSING_RENDER_SOURCE);
+});
+
+test("publishSubmitSuccess transfers the job to runtime before closing the upload dialog", () => {
+  const calls = [];
+  const timers = [];
+  class TestCustomEvent {
+    constructor(type) {
+      this.type = type;
+    }
+  }
+
+  publishSubmitSuccess({
+    payload: { job_id: "job-new" },
+    state: { marker: "state" },
+    libraryEventPort: {
+      publishJobCreated: (job) => calls.push(["created", job.job_id]),
+      requestRefresh: (options) => calls.push(["refresh", options]),
+    },
+    syncCurrentJobSnapshot: (_state, _payload, jobId) => calls.push(["sync", jobId]),
+    renderJob: (job) => calls.push(["render", job.job_id]),
+    startJobPolling: (jobId) => calls.push(["poll", jobId]),
+    documentRef: {
+      defaultView: { CustomEvent: TestCustomEvent },
+      dispatchEvent: (event) => {
+        calls.push(["event", event.type]);
+        return true;
+      },
+    },
+    windowRef: {
+      setTimeout: (handler, delay) => {
+        timers.push({ handler, delay });
+        return timers.length;
+      },
+    },
+    now: () => "2026-09-03T00:00:00.000Z",
+  });
+
+  assert.deepEqual(calls, [
+    ["created", "job-new"],
+    ["sync", "job-new"],
+    ["render", "job-new"],
+    ["poll", "job-new"],
+    ["event", APP_EVENTS.closeTranslationWorkflow],
+  ]);
+  assert.equal(timers.length, 1);
+  assert.equal(timers[0].delay, 800);
+
+  timers[0].handler();
+  assert.deepEqual(calls.at(-1), ["refresh", { delay: 0, force: false }]);
 });

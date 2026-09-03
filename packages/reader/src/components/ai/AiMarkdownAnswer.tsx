@@ -1,14 +1,11 @@
 import { useEffect, useId, useMemo, useRef } from "react";
 import {
-  hydrateProtectedImages,
-  injectCitationMarkers,
+  decorateCitationMarkdown,
   isAgenticCitation,
-  neutralizeMarkdownAnchors,
   renderCitationFooter,
   revokeHydratedImageUrls,
   type AiCitationLike,
 } from "../../shared/ai/answer-enhance.js";
-import { shouldIgnoreReaderAiNavEvent } from "../../shared/ai/ui-interaction-lock.js";
 import { RetainMarkstream } from "./RetainMarkstream.js";
 
 export type AiMarkdownAnswerProps = {
@@ -52,27 +49,24 @@ export function AiMarkdownAnswer({
     }
     return map;
   }, [citations]);
+  const renderedBody = useMemo(
+    () => decorateCitationMarkdown(bodyText, citationByRef),
+    [bodyText, citationByRef],
+  );
   useEffect(() => {
     const root = rootRef.current;
-    if (!root || streaming || !bodyText) return;
-    revokeHydratedImageUrls(root);
-    neutralizeMarkdownAnchors(root, { onOpen: () => true });
-    injectCitationMarkers(root, citationByRef, onJumpCitation || null);
-    const controller = new AbortController();
-    if (root.querySelector("img[data-ai-src]")) {
-      void hydrateProtectedImages(root, { signal: controller.signal });
-    }
+    if (!root || !bodyText) return;
     const bubble = root.parentElement;
-    if (bubble instanceof HTMLElement) {
-      renderCitationFooter(bubble, citations, {
-        onJump: (citation) => {
-          if (!shouldIgnoreReaderAiNavEvent(null)) onJumpCitation?.(citation);
-        },
-        answerText: bodyText,
-        max: citationFooterMax,
-      });
+    if (!(bubble instanceof HTMLElement)) return;
+    if (streaming) {
+      bubble.querySelector(".reader-ai-citations")?.remove();
+      return;
     }
-    return () => controller.abort();
+    renderCitationFooter(bubble, citations, {
+      onJump: (citation) => onJumpCitation?.(citation),
+      answerText: bodyText,
+      max: citationFooterMax,
+    });
   }, [streaming, resolvedJobId, citationByRef, citations, onJumpCitation, bodyText, citationFooterMax]);
 
   useEffect(() => () => revokeHydratedImageUrls(rootRef.current), []);
@@ -84,10 +78,12 @@ export function AiMarkdownAnswer({
   return (
     <div ref={rootRef} className={`${className} ${stateClassName}`.trim()}>
       <RetainMarkstream
-        content={bodyText}
+        content={renderedBody}
         final={!streaming}
         indexKey={rendererId}
         jobId={resolvedJobId}
+        citations={citations}
+        onJumpCitation={onJumpCitation}
         onClickCapture={(event) => {
           const target = event.target;
           if (!(target instanceof Element)) return;

@@ -77,3 +77,40 @@ test("public operation action mirrors Rust CAS and deny-unknown constraints", ()
   assert.equal(list.properties.limit.minimum, 1);
   assert.equal(list.properties.limit.maximum, 100);
 });
+
+test("agent calculation contract separates internal bytes from public durable views", () => {
+  const contract = schema("agent-calculation.v1.schema.json");
+  const create = contract.definitions.CreateAgentCalculationInput;
+  const complete = contract.definitions.CompleteAgentCalculationInput;
+  const view = contract.definitions.AgentCalculationView;
+  const artifact = contract.definitions.AgentCalculationArtifactView;
+  const list = contract.definitions.AgentCalculationListView;
+
+  assert.deepEqual(contract.definitions.AgentCalculationToolName.enum, [
+    "calculate_expression",
+    "calculate_statistics",
+    "analyze_table",
+    "generate_chart",
+  ]);
+  assert.deepEqual(contract.definitions.AgentCalculationStatus.enum, [
+    "running",
+    "completed",
+    "failed",
+  ]);
+  assert.equal(create.additionalProperties, false);
+  assert.equal(create.properties.schema.const, "agent_calculation_create_v1");
+  assert.equal(complete.additionalProperties, false);
+  assert.equal(complete.properties.schema.const, "agent_calculation_complete_v1");
+  assert.equal(complete.properties.artifacts.maxItems, 10);
+  assert.deepEqual(new Set(view.required), new Set(Object.keys(view.properties)));
+  assert.equal(view.additionalProperties, false);
+  assert.equal(Object.hasOwn(view.properties, "input_sha256"), false);
+  assert.equal(Object.hasOwn(view.properties, "content_base64"), false);
+  assert.equal(Object.hasOwn(artifact.properties, "content_base64"), false);
+  assert.equal(Object.hasOwn(artifact.properties, "relative_path"), false);
+  assert.equal(artifact.properties.kind.const, "svg_chart");
+  assert.equal(artifact.properties.mime_type.const, "image/svg+xml");
+  assert.deepEqual(list.required, ["calculations", "total", "limit", "offset", "has_more"]);
+  assert.equal(contract.security_boundary.result_limit_bytes, 65536);
+  assert.equal(contract.security_boundary.artifact_limit_bytes_each, 524288);
+});

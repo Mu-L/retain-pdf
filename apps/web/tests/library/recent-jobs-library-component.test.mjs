@@ -132,13 +132,13 @@ test("RecentJobsLibrary：卡片交互(select / reader)", async () => {
   const dom = makeDom("?mock=parallel");
   const { services, root, host } = await bootHomeApp(dom);
 
-  const items = [makeItem(1), makeItem(2), makeItem(3)];
+  const items = [makeItem(1, { status: "running", display_stage: "translation" }), makeItem(2), makeItem(3)];
   services.library.recentJobsStore.actions.setItems(items);
   await waitFor(() => byId(dom, "recent-jobs-list").querySelectorAll(".recent-job-item").length === 3, "三张卡片就位");
 
   const cardOf = (jobId) => byId(dom, "recent-jobs-list").querySelector(`.recent-job-item[data-job-id="${jobId}"]`);
 
-  // ---- select 无 document_id：仍开书籍详情（不弹旧工作流窗）+ silent 轮询 ----
+  // ---- select 运行中任务：开书籍详情（不弹旧工作流窗）+ silent 轮询 ----
   let openCount = 0;
   dom.window.document.addEventListener(
     (await import("../../src/js/contracts/app-contract.js")).APP_EVENTS.openTranslationWorkflow,
@@ -161,6 +161,11 @@ test("RecentJobsLibrary：卡片交互(select / reader)", async () => {
   const readerButton = cardOf("job-2").querySelector(".recent-job-reader");
   click(dom, readerButton);
   await waitFor(() => readerDetail?.jobId === "job-2", "reader 按钮触发 openReaderRequested");
+  assert.equal(
+    services.features.jobRuntimeFeature.currentJobId(),
+    "job-1",
+    "阅读已完成 PDF 不能覆盖仍在后台运行的 currentJob",
+  );
 
   root.unmount();
   services.dispose();

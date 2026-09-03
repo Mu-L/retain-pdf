@@ -64,6 +64,32 @@ test("readAiAskStream:tool 事件按序回调,done 事件返回归一化结果",
   assert.equal(result.toolTrace.length, 1);
 });
 
+test("readAiAskStream:展示路由与检索进度并忽略 heartbeat", async () => {
+  const progress = [];
+  const result = await readAiAskStream(sseStream([
+    'data: {"type":"progress","stage":"routing","message":"正在选择回答模式"}\n\n',
+    'data: {"type":"heartbeat","elapsed_ms":5000}\n\n',
+    'data: {"type":"progress","stage":"retrieval","message":"正在读取文档"}\n\n',
+    'data: {"type":"done","answer":"完成","citations":[],"tool_trace":[],"rounds":1,"persisted":true}\n\n',
+  ]), {
+    onProgressEvent: (event) => progress.push(event),
+  });
+  assert.equal(result.answer, "完成");
+  assert.deepEqual(progress.map(({ stage, message }) => [stage, message]), [
+    ["routing", "正在选择回答模式"],
+    ["retrieval", "正在读取文档"],
+  ]);
+});
+
+test("readAiAskStream:cancelled 是明确终态而不是断流", async () => {
+  await assert.rejects(
+    readAiAskStream(sseStream([
+      'data: {"type":"cancelled","code":"AI_REQUEST_CANCELLED","message":"请求已取消","retryable":false}\n\n',
+    ])),
+    /请求已取消/,
+  );
+});
+
 test("readAiAskStream:结构化 Agent 事件回调并汇总 runtime/operation refs", async () => {
   const legacyTools = [];
   const agentTools = [];
@@ -444,6 +470,14 @@ test("buildScopedQuestion:页/选区范围以前缀写进 question 文本", () =
     buildScopedQuestion({ question: "解释这段", scope: "selection", context: { page: 2 }, resolveQuote: () => null }),
     "（针对第 2 页的选区内容）解释这段",
   );
+  assert.equal(
+    buildScopedQuestion({
+      question: "解释这个公式",
+      scope: "selection",
+      context: { page: 3, pane: "source", kind: "formula", quoteText: "E = mc^2" },
+    }),
+    "（针对选中的原文公式：「E = mc^2」）解释这个公式",
+  );
 });
 
 // ===== chat 渲染:引用可点击、模型文本不注入 HTML =====
@@ -578,9 +612,32 @@ test("ask answerer:按 job_id 直查 document_id 且只查一次", async () => {
   assert.equal(listCalls.length, 1, "document_id 直查结果应被缓存");
   assert.deepEqual(listCalls[0][1], "job-b", "按 job_id 直查");
   assert.equal(askCalls[0].documentId, "doc-b");
-  assert.equal(askCalls[0].jobId, "job-b");
+  assert.equal(askCalls[0].jobId, "", "文档身份已解析后不再把瞬时 job 绑定为检索范围");
   assert.equal(askCalls[1].question, "（当前第 3 页）问题二");
   assert.equal(toolEvents.length, 1);
+});
+
+test("ask answerer:显式 document_id 直接使用统一文档范围", async () => {
+  const documentCalls = [];
+  const askCalls = [];
+  const answerer = createReaderAskAnswerer({
+    jobId: "job-retry-without-markdown",
+    documentId: "doc-stable",
+    documentByJobId: async (...args) => {
+      documentCalls.push(args);
+      return null;
+    },
+    ask: async (payload) => {
+      askCalls.push(payload);
+      return { answer: "统一回答", citations: [] };
+    },
+  });
+
+  await answerer.answer({ question: "总结并计算", assistantMode: "auto" });
+  assert.equal(documentCalls.length, 0, "稳定 document_id 不需要通过 job 反查");
+  assert.equal(askCalls[0].documentId, "doc-stable");
+  assert.equal(askCalls[0].jobId, "");
+  assert.equal(askCalls[0].assistantMode, "auto");
 });
 
 test("ask answerer:反查不到 document 时 fail closed，不静默全库", async () => {

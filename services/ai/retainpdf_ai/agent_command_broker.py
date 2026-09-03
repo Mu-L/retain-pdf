@@ -20,7 +20,7 @@ from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Self
+from typing import TYPE_CHECKING, Any, Self
 
 from .agent_broker_commands import parse_broker_argv, parse_broker_command
 from .agent_broker_contracts import BrokerCommand, BrokerScope, CapabilityIssuer
@@ -31,6 +31,9 @@ from .agent_broker_transport import (
     recv_json_line,
     wrapper_source,
 )
+
+if TYPE_CHECKING:
+    from .tools import ToolRegistry
 
 _MAX_CALLS_PER_TURN = 16
 _CLI_TIMEOUT_SECONDS = 30
@@ -50,6 +53,8 @@ class AgentCommandBroker:
         rust: CapabilityIssuer,
         scope: BrokerScope,
         on_operation_event: Callable[[dict[str, Any]], None] | None = None,
+        tool_registry: ToolRegistry | None = None,
+        on_tool_event: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         self._state_root = state_root.resolve()
         self._cli_command = cli_command
@@ -57,6 +62,10 @@ class AgentCommandBroker:
         self._rust = rust
         self._scope = scope
         self._on_operation_event = on_operation_event
+        self._tool_registry = tool_registry
+        self._on_tool_event = on_tool_event
+        self._citations: dict[int, Any] = {}
+        self._next_ref = 1
         self._turn_id = secrets.token_urlsafe(18)
         self._root = self._state_root / "brokers" / self._turn_id
         self._bin_dir = self._root / "bin"
@@ -68,6 +77,7 @@ class AgentCommandBroker:
         self._socket_path = self._socket_dir / "broker.sock"
         self._broker_key = secrets.token_urlsafe(32)
         self._approved: Counter[tuple[str, ...]] = Counter()
+        self._approved_tool_ids: dict[tuple[str, ...], list[str]] = {}
         self._approved_lock = threading.Lock()
         self._stop = threading.Event()
         self._listener: socket.socket | None = None
@@ -99,6 +109,8 @@ class AgentCommandBroker:
         return (
             "The only host tool is retainpdf-agent. Supported commands are exactly:\n"
             "retainpdf-agent document inspect\n"
+            "retainpdf-agent tool call --name <allowed-name> "
+            "--arguments-base64url <base64url-encoded-compact-json-object>\n"
             "retainpdf-agent operation create --program-json '<compact-json>'\n"
             "retainpdf-agent operation get --operation-id <id>\n"
             "retainpdf-agent operation run --operation-id <id>\n"
@@ -114,10 +126,19 @@ class AgentCommandBroker:
             'Allowed steps are {"op":"select_pages","pages":[...]}, which '
             "can delete/reorder/duplicate pages, and "
             '{"op":"rotate_pages","pages":[...],"degrees":90|180|270}. '
+            "Allowed tool names are list_documents, search_fulltext, read_blocks, "
+            "search_favorites, search_markdown, read_markdown_chunk, "
+            "calculate_expression, calculate_statistics, analyze_table, and generate_chart. "
+            "Table analysis and chart tools require document_id, job_id, page_idx, and "
+            "block_ids from prior reading results. Do not invent those references. "
             "Do not use shell syntax, paths, redirection, substitutions, or other commands. "
             "The host injects document scope, message identity, idempotency keys, and credentials. "
             f"{confirmation}"
         )
+
+    @property
+    def citations(self) -> dict[int, Any]:
+        return dict(self._citations)
 
     def __enter__(self) -> Self:
         if os.name != "posix":
@@ -190,6 +211,11 @@ class AgentCommandBroker:
             if sum(self._approved.values()) >= _MAX_CALLS_PER_TURN:
                 return False
             self._approved[command.public_argv] += 1
+            tool_call_id = str(tool_call.get("toolCallId") or "")[:256]
+            self._approved_tool_ids.setdefault(command.public_argv, []).append(
+                tool_call_id
+            )
+        self._emit_tool_event(command, tool_call_id, "running")
         return True
 
     def execute_host_argv(self, argv: tuple[str, ...]) -> dict[str, Any]:
@@ -243,16 +269,22 @@ class AgentCommandBroker:
                 if self._approved[command.public_argv] <= 0:
                     return failure("command was not approved")
                 self._approved[command.public_argv] -= 1
+                approved_ids = self._approved_tool_ids.get(command.public_argv, [])
+                tool_call_id = approved_ids.pop(0) if approved_ids else ""
                 if self._call_count >= _MAX_CALLS_PER_TURN:
                     return failure("broker call limit reached")
                 self._call_count += 1
-            return self._execute(command)
+            return self._execute(command, tool_call_id=tool_call_id)
         except (OSError, TypeError, ValueError, json.JSONDecodeError):
             return failure("invalid broker request")
         except Exception:  # noqa: BLE001 - never expose host diagnostics to fx
             return failure("host command execution failed")
 
-    def _execute(self, command: BrokerCommand) -> dict[str, Any]:
+    def _execute(
+        self, command: BrokerCommand, *, tool_call_id: str = ""
+    ) -> dict[str, Any]:
+        if command.action == "tool.call":
+            return self._execute_host_tool(command, tool_call_id=tool_call_id)
         issued = self._rust.issue_agent_capability(
             conversation_id=self._scope.conversation_id,
             document_id=self._scope.document_id,
@@ -302,11 +334,87 @@ class AgentCommandBroker:
                     self._on_operation_event(event)
                 except Exception:  # noqa: BLE001, S110 - discovery is best effort
                     pass
-        return {
+        response = {
             "exit_code": int(completed.returncode),
             "stdout": stdout,
             "stderr": stderr,
         }
+        self._emit_tool_event(
+            command,
+            tool_call_id,
+            "completed" if completed.returncode == 0 else "failed",
+        )
+        return response
+
+    def _execute_host_tool(
+        self, command: BrokerCommand, *, tool_call_id: str = ""
+    ) -> dict[str, Any]:
+        from .agent import assign_refs, public_tool_payload, scope_tool_arguments
+        from .unified_tools import (
+            CALCULATION_TOOL_NAMES,
+            agent_tool_event,
+            with_tool_context,
+        )
+
+        registry = self._tool_registry
+        payload = command.request_payload or {}
+        name = str(payload.get("name") or "")
+        arguments = payload.get("arguments")
+        tool_call_id = tool_call_id or f"broker-{self._call_count:02d}"
+        if registry is None or not isinstance(arguments, dict):
+            return failure("host tool is unavailable")
+        scoped = scope_tool_arguments(
+            name,
+            arguments,
+            document_id=self._scope.document_id,
+            job_id=self._scope.job_id,
+        )
+        if name in CALCULATION_TOOL_NAMES:
+            scoped = with_tool_context(
+                scoped,
+                conversation_id=self._scope.conversation_id,
+                request_message_id=self._scope.request_message_id,
+                document_id=self._scope.document_id,
+                job_id=self._scope.job_id,
+                tool_call_id=tool_call_id,
+            )
+        result = registry.invoke(name, scoped)
+        self._next_ref = assign_refs(result, self._citations, self._next_ref)
+        public = result if name in CALCULATION_TOOL_NAMES else public_tool_payload(result)
+        if self._on_tool_event is not None:
+            event = agent_tool_event(
+                name,
+                tool_call_id,
+                "failed" if public.get("error") else "completed",
+                public,
+            )
+            try:
+                self._on_tool_event(event)
+            except Exception:  # noqa: BLE001,S110 - event delivery is best effort
+                pass
+        return {
+            "exit_code": 0,
+            "stdout": json.dumps(public, ensure_ascii=False, separators=(",", ":")),
+            "stderr": "",
+        }
+
+    def _emit_tool_event(
+        self, command: BrokerCommand, tool_call_id: str, status: str
+    ) -> None:
+        if self._on_tool_event is None:
+            return
+        from .unified_tools import agent_tool_event
+
+        payload = command.request_payload or {}
+        name = (
+            str(payload.get("name") or "")
+            if command.action == "tool.call"
+            else f"document_{command.action.replace('.', '_')}"
+        )
+        try:
+            self._on_tool_event(agent_tool_event(name, tool_call_id, status))
+        except Exception:  # noqa: BLE001,S110 - progress delivery is best effort
+            pass
 
     def _write_wrapper(self) -> None:
         wrapper = self._bin_dir / "retainpdf-agent"

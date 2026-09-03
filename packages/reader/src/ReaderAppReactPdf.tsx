@@ -1,66 +1,183 @@
 // 从 apps/web 迁入的 React-pdf 视图真值，现为 @retainpdf/reader 主入口
-import { lazy, Suspense, useCallback } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useReaderReactController } from "./hooks/use-reader-react-controller.js";
 import {
+  ReaderAiSplitResizeHandle,
+  ReaderAssistantDock,
   ReaderCloseHome,
-  ReaderModeTabs,
+  ReaderWorkspaceTabs,
   ReaderReactBoot,
   ReaderCompareGrid,
   ReaderZoomHud,
   ReaderFab,
   ReaderSelectionToolbar,
 } from "./components/react-pdf/index.js";
+import type { ReaderAssistantPanel, ReaderWorkspaceMode } from "./components/react-pdf/index.js";
 import { DownloadToastHost } from "./shared/react/DownloadToastHost.jsx";
-import { isReaderAiNavigationLocked } from "./external.js";
+import {
+  loadReaderViewState,
+  saveReaderViewState,
+} from "./shared/state/reader-view-state.js";
+import type { ReaderSelection } from "./shared/data/reader-regions.js";
 
-const ReaderNotesPanel = lazy(() => import("./components/react-pdf/ReaderNotesPanel.js").then((m) => ({ default: m.ReaderNotesPanel })));
 const ReaderFavoritesPanel = lazy(() => import("./components/react-pdf/ReaderFavoritesPanel.js").then((m) => ({ default: m.ReaderFavoritesPanel })));
 const ReaderMarkdownPanel = lazy(() => import("./components/react-pdf/ReaderMarkdownPanel.js").then((m) => ({ default: m.ReaderMarkdownPanel })));
 const ReaderAiPanel = lazy(() => import("./components/react-pdf/ReaderAiPanel.js").then((m) => ({ default: m.ReaderAiPanel })));
-const ReaderAiSplitResizeHandle = lazy(() => import("./components/react-pdf/ReaderAiSplitResizeHandle.js").then((m) => ({ default: m.ReaderAiSplitResizeHandle })));
+export function resolveReaderAiLayout(_mode: string): "workspace" {
+  return "workspace";
+}
 
-type ReaderAiLayout = "floating" | "docked";
+export function resolveVisiblePdfMode(
+  mode: "source" | "compare" | "translated",
+  assistantPanel: ReaderAssistantPanel | null,
+) {
+  return assistantPanel !== null && mode === "compare"
+    ? "source"
+    : mode;
+}
 
-/**
- * 单文档阅读时让 AI 成为稳定右栏；对照阅读已经有两栏，AI 改为悬浮，
- * 避免把原文和译文同时压成三条窄栏。
- */
-export function resolveReaderAiLayout(mode: string): ReaderAiLayout {
-  return mode === "compare" ? "floating" : "docked";
+export function resolveInitialAssistantPanel(
+  mode: "source" | "compare" | "translated",
+  saved: ReturnType<typeof loadReaderViewState>,
+): ReaderAssistantPanel | null {
+  // A newly opened job always starts in its canonical PDF comparison view.
+  if (mode === "compare") return null;
+  if (saved?.assistantPanel === "markdown" || saved?.assistantPanel === "ai") {
+    return saved.assistantPanel;
+  }
+  // One-time migration from the former arbitrary two-pane layout.
+  if (saved?.splitLayout?.left === "ai" || saved?.splitLayout?.right === "ai") return "ai";
+  if (saved?.splitLayout?.left === "markdown" || saved?.splitLayout?.right === "markdown") {
+    return "markdown";
+  }
+  return null;
 }
 
 export function ReaderAppReactPdf() {
   const c = useReaderReactController();
-  const { boot, panes, shell, sessionFiles, notes, tools, session } = c;
-  const markdownSplitOpen = tools.isOpen("markdown");
-  const aiLayout = resolveReaderAiLayout(c.mode);
-  const aiSplitOpen = tools.isOpen("ai") && aiLayout === "docked";
+  const { boot, panes, shell, sessionFiles, tools, session } = c;
   const sourceViewOnly = c.sourceOnly || !sessionFiles.translatedUrl;
+  const [assistantPanel, setAssistantPanel] = useState<ReaderAssistantPanel | null>(() => (
+    resolveInitialAssistantPanel(c.mode, loadReaderViewState(c.viewStateKey))
+  ));
+  const [assistantPdfPane, setAssistantPdfPane] = useState<"source" | "translated" | null>(null);
+  const [aiSelectionContext, setAiSelectionContext] = useState<ReaderSelection | null>(null);
+  const [liveTranslationVisible, setLiveTranslationVisible] = useState(true);
+  const layoutScopeRef = useRef(c.viewStateKey);
+
+  useEffect(() => {
+    setAiSelectionContext(null);
+    setLiveTranslationVisible(true);
+  }, [c.viewStateKey]);
+
+  useEffect(() => {
+    if (boot.loading) return;
+    if (layoutScopeRef.current !== c.viewStateKey) {
+      layoutScopeRef.current = c.viewStateKey;
+      const saved = loadReaderViewState(c.viewStateKey);
+      setAssistantPanel(resolveInitialAssistantPanel(c.mode, saved));
+      setAssistantPdfPane(null);
+      return;
+    }
+    saveReaderViewState(c.viewStateKey, { assistantPanel, splitLayout: null });
+  }, [assistantPanel, boot.loading, c.mode, c.viewStateKey]);
+  const workspaceView = assistantPanel || (c.mode === "compare" ? "compare" : "reading");
+  const assistantOpen = assistantPanel !== null;
+  const pdfMode = assistantPdfPane || resolveVisiblePdfMode(c.mode, assistantPanel);
+  // Live translation is a dedicated reading workspace: the source remains
+  // stable on the left while committed blocks materialize on a source-backed
+  // canvas on the right. Markdown/AI splits keep their existing composition.
+  const liveTranslationPair = Boolean(
+    c.liveTranslationAvailable && liveTranslationVisible && !assistantOpen,
+  );
+  const visiblePdfMode = liveTranslationPair ? "compare" : pdfMode;
   const closeTool = useCallback(() => { tools.close(); }, [tools]);
-  const jumpCitation = useCallback((citation: { page_idx?: number; page?: number; block_id?: string; } | number) => {
-    if (isReaderAiNavigationLocked()) return;
-    c.jumpToAnchor(citation);
-  }, [c.jumpToAnchor]);
+  const closeAssistant = useCallback(() => {
+    setAssistantPanel(null);
+    setAssistantPdfPane(null);
+    setAiSelectionContext(null);
+  }, []);
+  const jumpCitation = useCallback((citation: { page_idx?: number; page?: number; block_id?: string; image_url?: string; snippet?: string; } | number) => {
+    const visiblePane = visiblePdfMode === "translated" ? "translated" : "source";
+    c.jumpToAnchor(citation, visiblePane);
+  }, [c.jumpToAnchor, visiblePdfMode]);
   const refreshCommittedDocument = useCallback((input: { documentId: string; revision: string }) => {
     session.refreshCommittedDocument(input);
   }, [session.refreshCommittedDocument]);
+  const changeWorkspace = useCallback((next: ReaderWorkspaceMode) => {
+    tools.close();
+    setAssistantPdfPane(null);
+    // A running translation can provide the compare workspace before the
+    // immutable translated PDF exists. Keep the visible workspace and the
+    // top-bar selection in sync instead of asking the session mode (which is
+    // correctly source-only until the final artifact arrives) to represent
+    // this temporary live pair.
+    if (next === "compare" && c.liveTranslationAvailable) {
+      setLiveTranslationVisible(true);
+    } else if (next !== "compare") {
+      setLiveTranslationVisible(false);
+    }
+    c.setModeKeepingPage(next);
+  }, [c.liveTranslationAvailable, c.setModeKeepingPage, tools]);
+
+  const selectAssistant = useCallback((next: ReaderAssistantPanel) => {
+    setAssistantPanel(next);
+    if (next !== "ai") setAiSelectionContext(null);
+  }, []);
+
+  const askSelectedRegion = useCallback((selection: ReaderSelection) => {
+    const pdf = selection.pane === "translated" && !sourceViewOnly
+      ? "translated"
+      : "source";
+    setAiSelectionContext(selection);
+    setAssistantPanel("ai");
+    setAssistantPdfPane(pdf);
+    c.clearSelection();
+  }, [c.clearSelection, sourceViewOnly]);
+
+  const rootClasses = [
+    "reader-react-root",
+    `is-workspace-${workspaceView}`,
+    assistantOpen ? "is-assistant-open" : "",
+    liveTranslationPair ? "is-live-translation-pair" : "",
+  ].filter(Boolean).join(" ");
 
   return (
-    <div className={`reader-react-root${markdownSplitOpen ? " is-markdown-split" : ""}${aiSplitOpen ? " is-ai-split" : ""}`} data-reader-engine="react-pdf">
+    <div className={rootClasses} data-reader-engine="react-pdf" data-reader-workspace={workspaceView}>
       <ReaderReactBoot loading={boot.loading} failed={boot.failed} text={boot.text} percent={boot.percent} />
       <ReaderCloseHome onBeforeClose={session.prepareClose} />
-      <ReaderModeTabs mode={c.mode} sourceOnly={sourceViewOnly} onModeChange={c.setModeKeepingPage} />
-      {c.showHud ? <ReaderFab activeTool={tools.active} notesCount={notes.count} sourceOnly={c.sourceOnly} onToggleTool={tools.toggle} download={c.download} /> : null}
-      <ReaderCompareGrid mode={c.mode} bindShell={shell.bindShell} shellEl={shell.shellEl} userZoom={c.userZoom} compareMode={panes.compareMode} shellWidth={shell.shellWidth} compareColWidth={shell.compareColWidth} rowHeights={c.rowHeights} mountSource={panes.mountSource} mountTranslated={panes.mountTranslated} showSource={panes.showSource} showTranslated={panes.showTranslated} sourceOnly={sourceViewOnly} sourceUrl={sessionFiles.sourceUrl} translatedUrl={sessionFiles.translatedUrl} sourceFile={sessionFiles.sourceFile} translatedFile={sessionFiles.translatedFile} activeRegion={c.activeRegion} readerMetadata={session.readerMetadata} markdownSplit={markdownSplitOpen} assistantSplit={aiSplitOpen} onMetrics={panes.onMetrics} onNumPagesChange={panes.onNumPages} />
-      {c.showHud ? <ReaderZoomHud userZoom={c.userZoom} onZoomChange={c.onZoomChange} currentPage={c.currentPage} numPages={panes.hudNumPages} mode={c.mode} onGoToPage={c.goToPage} /> : null}
+      <ReaderWorkspaceTabs
+        mode={visiblePdfMode}
+        documentReady={Boolean(session.jobId)}
+        sourceOnly={sourceViewOnly}
+        onModeChange={changeWorkspace}
+        liveTranslation={c.liveTranslationAvailable ? {
+          visible: liveTranslationVisible,
+          state: c.liveTranslation,
+          onToggle: () => setLiveTranslationVisible((visible) => !visible),
+        } : null}
+      />
+      <ReaderAssistantDock active={assistantPanel} onSelect={selectAssistant} onClose={closeAssistant} />
+      {assistantOpen ? <ReaderAiSplitResizeHandle /> : null}
+      {c.showHud ? <ReaderFab activeTool={tools.active} sourceOnly={c.sourceOnly} onToggleTool={tools.toggle} download={c.download} /> : null}
+      <ReaderCompareGrid mode={visiblePdfMode} bindShell={shell.bindShell} shellEl={shell.shellEl} userZoom={c.userZoom} compareMode={visiblePdfMode === "compare"} shellWidth={shell.shellWidth} compareColWidth={shell.compareColWidth} rowHeights={c.rowHeights} mountSource={panes.mountSource} mountTranslated={panes.mountTranslated} showSource={liveTranslationPair || visiblePdfMode !== "translated"} showTranslated={liveTranslationPair || visiblePdfMode === "translated" || visiblePdfMode === "compare"} sourceOnly={sourceViewOnly} sourceUrl={sessionFiles.sourceUrl} translatedUrl={sessionFiles.translatedUrl} sourceFile={sessionFiles.sourceFile} translatedFile={sessionFiles.translatedFile} activeRegion={c.activeRegion} regions={session.regions} readerMetadata={session.readerMetadata} onSelectRegion={c.selectRegion} markdownSplit={assistantPanel === "markdown"} assistantSplit={assistantOpen} onMetrics={panes.onMetrics} onNumPagesChange={panes.onNumPages} liveTranslation={liveTranslationVisible ? c.liveTranslation : undefined} liveTranslationPair={liveTranslationPair} />
+      {c.showHud ? (
+        <ReaderZoomHud
+          userZoom={c.userZoom}
+          onZoomChange={c.onZoomChange}
+          currentPage={c.currentPage}
+          numPages={panes.hudNumPages}
+          mode={visiblePdfMode}
+          onGoToPage={c.goToPage}
+          modeControls={null}
+        />
+      ) : null}
       <Suspense fallback={null}>
-        <ReaderNotesPanel open={tools.isOpen("notes")} groups={notes.groups} count={notes.count} onClose={closeTool} onJump={c.jumpToNote} onUpdateNote={notes.updateNote} onRemove={notes.remove} onExport={() => notes.exportMarkdown(c.documentTitle)} />
         <ReaderFavoritesPanel open={tools.isOpen("favorites")} jobId={session.jobId} documentId={session.documentId} onClose={closeTool} onJumpPage={c.goToPage} />
-        <ReaderMarkdownPanel open={markdownSplitOpen} jobId={session.jobId} sourceOnly={c.sourceOnly} layout="docked" onClose={closeTool} />
-        <ReaderAiPanel key={session.jobId || "reader-ai-pending"} open={tools.isOpen("ai")} jobId={session.jobId} layout={aiLayout} onClose={closeTool} onJumpCitation={jumpCitation} onDocumentCommitted={refreshCommittedDocument} />
-        {aiSplitOpen ? <ReaderAiSplitResizeHandle /> : null}
+        <ReaderMarkdownPanel open={assistantPanel === "markdown"} jobId={session.jobId} sourceOnly={c.sourceOnly} layout="workspace" side="right" onClose={closeAssistant} />
+        <ReaderAiPanel key={session.documentId || session.jobId || "reader-ai-pending"} open={assistantPanel === "ai"} jobId={session.jobId} documentId={session.documentId} layout={resolveReaderAiLayout(c.mode)} side="right" selectionContext={aiSelectionContext} onClearSelectionContext={() => setAiSelectionContext(null)} onClose={closeAssistant} onJumpCitation={jumpCitation} onDocumentCommitted={refreshCommittedDocument} />
       </Suspense>
-      <ReaderSelectionToolbar selection={c.selection} onAddNote={c.addNoteFromSelection} onDismiss={c.clearSelection} />
+      <ReaderSelectionToolbar selection={c.selection} onDismiss={c.clearSelection} onAskAi={askSelectedRegion} />
       <DownloadToastHost />
     </div>
   );

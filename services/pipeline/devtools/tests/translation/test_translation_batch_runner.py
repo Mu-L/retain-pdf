@@ -3,11 +3,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from retainpdf_pipeline.services.translation.services.results.applier import TranslationResultApplier
+from retainpdf_pipeline.services.translation.services.results.applier import (
+    TranslationResultApplier,
+)
 from retainpdf_pipeline.services.translation.workflow import batch_runner
 
 
@@ -19,7 +20,7 @@ class _FlushState:
         self.final_flushed = False
         self.total_batches = 0
 
-    def mark_dirty(self, pages: set[int]) -> None:
+    def mark_dirty(self, pages: set[int], _changed_item_ids_by_page: dict[int, set[str]]) -> None:
         self.dirty_pages.update(pages)
 
     def record_progress(self, completed: int, touched_pages: set[int], *, substage: str = "translation_batches") -> None:

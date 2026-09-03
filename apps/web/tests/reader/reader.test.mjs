@@ -466,6 +466,22 @@ test("reader data port owns page API orchestration and fallbacks", async () => {
   ]);
 });
 
+test("reader data port treats a missing in-progress manifest as an empty artifact set", async () => {
+  const port = readerDataPort.createReaderDataPort({
+    loadJob: async () => ({ job_id: "job-ocr", status: "running" }),
+    loadManifest: async () => {
+      throw Object.assign(new Error("manifest not ready"), { status: 404 });
+    },
+  });
+
+  assert.deepEqual(await port.loadReaderPayload("job-ocr"), {
+    jobPayload: { job_id: "job-ocr", status: "running" },
+    manifestPayload: { items: [] },
+    readerMetadata: null,
+    regionsPayload: { items: [] },
+  });
+});
+
 // startup.js(page-runtime 包装)随旧入口 index.js 一并退役:React 入口
 // (src/pages/reader/entry.jsx)由打包构建守卫,boot 编排在 use-reader-boot。
 

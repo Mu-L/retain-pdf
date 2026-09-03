@@ -5,16 +5,17 @@ import re
 import shutil
 from pathlib import Path, PurePosixPath
 
-from retainpdf_pipeline.services.document_schema.consumer_reader import block_asset_ids
-from retainpdf_pipeline.services.document_schema.consumer_reader import block_kind
-from retainpdf_pipeline.services.document_schema.consumer_reader import block_layout_role
-from retainpdf_pipeline.services.document_schema.consumer_reader import block_reading_order
-from retainpdf_pipeline.services.document_schema.consumer_reader import block_structure_role
-from retainpdf_pipeline.services.document_schema.consumer_reader import block_sub_type
-from retainpdf_pipeline.services.document_schema.consumer_reader import block_text
-from retainpdf_pipeline.services.document_schema.consumer_reader import ensure_normalized_document
-from retainpdf_pipeline.services.document_schema.consumer_reader import get_pages
-
+from retainpdf_pipeline.services.document_schema.consumer_reader import (
+    block_asset_ids,
+    block_kind,
+    block_layout_role,
+    block_reading_order,
+    block_structure_role,
+    block_sub_type,
+    block_text,
+    ensure_normalized_document,
+    get_pages,
+)
 
 _EXTERNAL_URI_PREFIXES = ("http://", "https://", "data:")
 _HTML_ALT_RE = re.compile(r"""\balt\s*=\s*["']([^"']*)["']""", re.IGNORECASE)
@@ -111,11 +112,16 @@ def _render_block(block: dict, document: dict, asset_uris: dict[str, str]) -> st
         return _render_formula(text)
 
     if kind == "table" or sub_type in {"table", "table_html"}:
-        return text
+        content = block.get("content", {}) or {}
+        return str(content.get("table_html", "") or text).strip()
 
     if not text:
         return ""
-    if layout_role == "title" or structure_role == "title" or sub_type in {"title", "doc_title"}:
+    if (
+        layout_role == "title"
+        or structure_role in {"document_title", "title"}
+        or sub_type in {"title", "doc_title"}
+    ):
         return f"# {text}"
     if layout_role == "heading" or structure_role == "heading" or sub_type == "heading":
         return f"## {text}"

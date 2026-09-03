@@ -2,6 +2,7 @@
 .DS_Store
 .venv/
 data/
+tmp/
 
 **/__pycache__/
 **/*.py[cod]
@@ -11,6 +12,12 @@ data/
 **/*.egg-info/
 **/build/
 **/dist/
+**/.env
+**/.env.*
+**/*.env
+**/auth.local.json
+**/*credentials*.json
+**/runtime-config.local.js
 
 api/target/
 pipeline/.env/*

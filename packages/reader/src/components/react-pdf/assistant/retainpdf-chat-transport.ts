@@ -34,11 +34,14 @@ type ReaderAnswerer = {
 };
 
 export type ReaderChatRequest = {
+  assistantMode?: ReaderAssistantMode;
   assistantMessageId?: string;
   parentId?: string;
   question?: string;
   regenerate?: boolean;
   userMessageId?: string;
+  scope?: "document" | "selection" | "page";
+  context?: Record<string, unknown> | null;
 };
 
 function textFromMessage(message: ReaderChatMessage | undefined): string {
@@ -98,6 +101,16 @@ export class RetainPdfChatTransport implements ChatTransport<ReaderChatMessage> 
     const question = questionForRequest(messages, request);
     if (!question) throw new Error("请输入问题。");
 
+    // Freeze routing semantics synchronously, before ensureLoaded or any other
+    // await. A user can change the visible mode/selection while loading; that
+    // must not turn an already-submitted reading request into a PDF operation
+    // (or vice versa).
+    const assistantMode = request.assistantMode
+      || this.options.getAssistantMode?.()
+      || "reading";
+    const requestScope = request.scope || "document";
+    const requestContext = request.context ? { ...request.context } : null;
+
     const assistantMessageId = `${request.assistantMessageId || ""}`.trim()
       || `a-${Date.now().toString(36)}`;
     const textPartId = `${assistantMessageId}-text`;
@@ -133,16 +146,16 @@ export class RetainPdfChatTransport implements ChatTransport<ReaderChatMessage> 
         void (async () => {
           try {
             await remoteAnswerer?.ensureLoaded?.(this.options.jobId);
+            if (abortSignal?.aborted) throw new Error("aborted");
             let answerer = remoteAnswerer || localAnswerer!;
             let usedFallback = false;
             let result: Awaited<ReturnType<ReaderAnswerer["answer"]>>;
-            const assistantMode = this.options.getAssistantMode?.() || "reading";
-
             try {
               result = await answerer.answer({
                 question,
                 assistantMode,
-                scope: "document",
+                scope: requestScope,
+                context: requestContext,
                 parentId: `${request.parentId || ""}`.trim(),
                 regenerate: request.regenerate ?? trigger === "regenerate-message",
                 userMessageId: `${request.userMessageId || ""}`.trim(),
@@ -170,6 +183,11 @@ export class RetainPdfChatTransport implements ChatTransport<ReaderChatMessage> 
                   const progress = describeToolEvent(event as any);
                   if (progress) updateMetadata({ progress });
                 },
+                onProgressEvent: (event: unknown) => {
+                  if (streamedAnswer || abortSignal?.aborted) return;
+                  const message = `${(event as { message?: string })?.message || ""}`.trim();
+                  if (message) updateMetadata({ progress: message });
+                },
                 onAnswerDelta: (_fullText: string, chunk: string) => {
                   if (!chunk || abortSignal?.aborted) return;
                   streamedAnswer += chunk;
@@ -186,7 +204,7 @@ export class RetainPdfChatTransport implements ChatTransport<ReaderChatMessage> 
             } catch (error) {
               if (abortSignal?.aborted) throw error;
               if (
-                assistantMode !== "reading"
+                assistantMode === "operations"
                 || !remoteAnswerer
                 || !localAnswerer
                 || !shouldFallbackToLocal(error)
@@ -194,8 +212,15 @@ export class RetainPdfChatTransport implements ChatTransport<ReaderChatMessage> 
               usedFallback = true;
               updateMetadata({ progress: "在线服务暂不可用，改用本地检索…" });
               await localAnswerer.ensureLoaded?.(this.options.jobId);
+              if (abortSignal?.aborted) throw new Error("aborted");
               answerer = localAnswerer;
-              result = await answerer.answer({ question, scope: "document", signal: abortSignal });
+              result = await answerer.answer({
+                question,
+                assistantMode,
+                scope: requestScope,
+                context: requestContext,
+                signal: abortSignal,
+              });
             }
 
             if (abortSignal?.aborted) {

@@ -40,9 +40,8 @@ test("Reader ask factory consumes the host document and AI adapters", async () =
   assert.deepEqual(documentCalls, [{ apiPrefix: "/api/v1", jobId: "job-1" }]);
   assert.equal(askCalls.length, 1);
   assert.equal(askCalls[0].documentId, "doc-1");
-  assert.equal(askCalls[0].jobId, "job-1");
+  assert.equal(askCalls[0].jobId, "");
   assert.equal(askCalls[0].llmApiKey, "test-model-key");
   assert.equal(result.answer, "ok");
   setReaderAdapters(null);
 });
-

@@ -1,90 +1,109 @@
-import { l as E } from "../markdown-payload-BLt0pYzy.js";
-import { d as v } from "../pdf-document-config-DOSsufI-.js";
-const $ = "/api/v1";
-function C() {
-  return Promise.resolve(null);
-}
-function F() {
-  return Promise.resolve({ items: [] });
-}
-function T() {
+import { l as M, h as D, r as F } from "../markdown-payload-kK3ewW_I.js";
+import { d as C } from "../pdf-document-config-DOSsufI-.js";
+const T = "/api/v1";
+function J() {
   return Promise.resolve(null);
 }
 function S() {
-  return Promise.resolve(null);
+  return Promise.resolve({ items: [] });
 }
 function I() {
-  return Promise.resolve({ answer: "" });
-}
-function J() {
-  return Promise.resolve({ items: [] });
+  return Promise.resolve(null);
 }
 function H() {
   return Promise.resolve(null);
 }
 function W() {
+  return Promise.resolve({ answer: "" });
+}
+function z() {
+  return Promise.resolve({ items: [] });
+}
+function B() {
   return Promise.resolve(null);
 }
-function z(r, e) {
-  return typeof globalThis.fetch == "function" ? globalThis.fetch(r, e) : Promise.reject(new Error(`fetchProtected not injected for ${r}`));
+function G() {
+  return Promise.resolve(null);
 }
-function B({
-  apiPrefix: r = $,
-  loadJob: e = C,
-  loadManifest: u = F,
-  loadMarkdown: t = T,
-  loadMarkdownDocument: n = S,
-  loadAiChat: s = I,
-  loadRegions: a = J,
-  loadMetadata: l = H,
-  loadTranslationItem: d = W,
-  fetchProtectedResource: p = z
+function K(r, t) {
+  return typeof globalThis.fetch == "function" ? globalThis.fetch(r, t) : Promise.reject(new Error(`fetchProtected not injected for ${r}`));
+}
+function N({
+  apiPrefix: r = T,
+  loadJob: t = J,
+  loadManifest: u = S,
+  loadMarkdown: e = I,
+  loadMarkdownDocument: n = H,
+  loadAiChat: s = W,
+  loadRegions: a = z,
+  loadMetadata: d = B,
+  loadTranslationItem: f = G,
+  fetchProtectedResource: w = K
 } = {}) {
-  async function f(c) {
-    const [o, D, M, L] = await Promise.all([
-      e(c, r),
-      u(c, r),
+  async function o(c) {
+    const [l, U, i, m] = await Promise.all([
+      t(c, r),
+      // During OCR the immutable artifact manifest does not exist yet. That is
+      // a normal in-progress state: the Reader can still load the document's
+      // source PDF and reserve the right pane for live translation.
+      u(c, r).catch(() => ({ items: [] })),
       a(c, r).catch(() => ({ items: [] })),
-      l(c, r).catch(() => null)
+      d(c, r).catch(() => null)
     ]);
     return {
-      jobPayload: o,
-      manifestPayload: D,
-      readerMetadata: L,
-      regionsPayload: M
+      jobPayload: l,
+      manifestPayload: U,
+      readerMetadata: m,
+      regionsPayload: i
     };
   }
-  function w(c, o) {
-    return d(c, o, r);
+  function _(c) {
+    return t(c, r);
   }
-  async function k(c) {
-    return E(
+  function L(c, l) {
+    return f(c, l, r);
+  }
+  async function h(c) {
+    const l = await M(
       () => n(c, r),
-      () => t(c, r)
+      () => e(c, r)
     );
+    if (D(l)) return l;
+    try {
+      const U = await t(c, r), i = F(U, c);
+      if (!i) return l;
+      const m = await M(
+        () => n(i, r),
+        () => e(i, r)
+      );
+      return D(m) ? m : l;
+    } catch {
+      return l;
+    }
   }
-  function _(c, o) {
-    return s(c, o, r);
+  function $(c, l) {
+    return s(c, l, r);
   }
   return Object.freeze({
     apiPrefix: r,
-    fetchProtected: p,
-    fetchRegionTranslationItem: w,
-    loadMarkdownPayload: k,
-    loadReaderPayload: f,
-    submitAiChat: _
+    fetchProtected: w,
+    fetchRegionTranslationItem: L,
+    loadMarkdownPayload: h,
+    loadJobPayload: _,
+    loadReaderPayload: o,
+    submitAiChat: $
   });
 }
-const V = B();
-function A(r) {
+const x = N();
+function E(r) {
   return `${r ?? ""}`.trim();
 }
-function m(r = "") {
+function R(r = "") {
   return `${r ?? ""}`.trim() ? `${r}`.trim() : "";
 }
-const G = 512 * 1024;
-let i = null;
-function h(r = m) {
+const O = 512 * 1024;
+let p = null;
+function v(r = R) {
   return {
     moduleUrl: r("build/pdf.mjs"),
     workerUrl: r("build/pdf.worker.mjs"),
@@ -92,120 +111,120 @@ function h(r = m) {
     standardFontDataUrl: r("standard_fonts/")
   };
 }
-async function K({ resolvePdfjsVendorUrl: r = m } = {}) {
-  const { moduleUrl: e, workerUrl: u } = h(r);
-  if (!e)
+async function X({ resolvePdfjsVendorUrl: r = R } = {}) {
+  const { moduleUrl: t, workerUrl: u } = v(r);
+  if (!t)
     throw new Error("resolvePdfjsVendorUrl not injected");
-  return i || (i = import(e).then((t) => (t.GlobalWorkerOptions.workerSrc = u, t)).catch((t) => {
-    throw i = null, t;
-  })), i;
+  return p || (p = import(t).then((e) => (e.GlobalWorkerOptions.workerSrc = u, e)).catch((e) => {
+    throw p = null, e;
+  })), p;
 }
-function N(r, { resolveResourceUrl: e = A } = {}) {
-  return e((r == null ? void 0 : r.resource_url) || (r == null ? void 0 : r.resource_path) || "");
+function Z(r, { resolveResourceUrl: t = E } = {}) {
+  return t((r == null ? void 0 : r.resource_url) || (r == null ? void 0 : r.resource_path) || "");
 }
-function O({
+function q({
   url: r,
-  configPort: e = v,
-  resolvePdfjsVendorUrl: u = m
+  configPort: t = C,
+  resolvePdfjsVendorUrl: u = R
 } = {}) {
   var s;
   if (!r)
     return null;
-  const { cmapUrl: t, standardFontDataUrl: n } = h(u);
+  const { cmapUrl: e, standardFontDataUrl: n } = v(u);
   return {
     url: r,
-    httpHeaders: ((s = e == null ? void 0 : e.apiHeaders) == null ? void 0 : s.call(e)) ?? {},
+    httpHeaders: ((s = t == null ? void 0 : t.apiHeaders) == null ? void 0 : s.call(t)) ?? {},
     withCredentials: !1,
     disableRange: !1,
     disableStream: !1,
-    rangeChunkSize: G,
-    cMapUrl: t,
+    rangeChunkSize: O,
+    cMapUrl: e,
     cMapPacked: !0,
     standardFontDataUrl: n
   };
 }
-async function g({
+async function P({
   itemOrUrl: r,
-  configPort: e = v,
+  configPort: t = C,
   fetchProtected: u = null,
-  resolveResourceUrl: t = A,
-  resolvePdfjsVendorUrl: n = m
+  resolveResourceUrl: e = E,
+  resolvePdfjsVendorUrl: n = R
 } = {}) {
-  const s = typeof r == "string" ? r : N(r, { resolveResourceUrl: t });
+  const s = typeof r == "string" ? r : Z(r, { resolveResourceUrl: e });
   if (!s)
     return null;
-  const a = await K({ resolvePdfjsVendorUrl: n }), { cmapUrl: l, standardFontDataUrl: d } = h(n);
+  const a = await X({ resolvePdfjsVendorUrl: n }), { cmapUrl: d, standardFontDataUrl: f } = v(n);
   if (s.startsWith("mock://") && typeof u == "function") {
-    const p = await u(s), f = new Uint8Array(await p.arrayBuffer());
+    const w = await u(s), o = new Uint8Array(await w.arrayBuffer());
     return a.getDocument({
-      data: f,
-      cMapUrl: l,
+      data: o,
+      cMapUrl: d,
       cMapPacked: !0,
-      standardFontDataUrl: d
+      standardFontDataUrl: f
     }).promise;
   }
-  return a.getDocument(O({ url: s, configPort: e, resolvePdfjsVendorUrl: n })).promise;
+  return a.getDocument(q({ url: s, configPort: t, resolvePdfjsVendorUrl: n })).promise;
 }
-function x() {
-  i = null;
+function b() {
+  p = null;
 }
-function R(r) {
+function k(r) {
   return `${r ?? ""}`.trim();
 }
-function U(r, e) {
-  return (Array.isArray(r == null ? void 0 : r.items) ? r.items : []).find((t) => (t == null ? void 0 : t.artifact_key) === e && (t == null ? void 0 : t.ready)) || null;
+function A(r, t) {
+  return (Array.isArray(r == null ? void 0 : r.items) ? r.items : []).find((e) => (e == null ? void 0 : e.artifact_key) === t && (e == null ? void 0 : e.ready)) || null;
 }
-function X(r, e, { resolveResourceUrl: u = R, findReadyManifestArtifact: t = U } = {}) {
-  const n = t(r, e), s = `${(n == null ? void 0 : n.resource_url) || (n == null ? void 0 : n.resource_path) || ""}`.trim();
+function Q(r, t, { resolveResourceUrl: u = k, findReadyManifestArtifact: e = A } = {}) {
+  const n = e(r, t), s = `${(n == null ? void 0 : n.resource_url) || (n == null ? void 0 : n.resource_path) || ""}`.trim();
   return s ? u(s) : "";
 }
-function Z(r, { resolveResourceUrl: e = R } = {}) {
-  return e((r == null ? void 0 : r.resource_url) || (r == null ? void 0 : r.resource_path) || "");
+function Y(r, { resolveResourceUrl: t = k } = {}) {
+  return t((r == null ? void 0 : r.resource_url) || (r == null ? void 0 : r.resource_path) || "");
 }
-function q(r) {
-  var s, a, l, d;
+function V(r) {
+  var s, a, d, f;
   if (!r) return null;
-  const e = (r == null ? void 0 : r.actions) || {}, u = (r == null ? void 0 : r.artifacts) || {}, t = !!(((s = e.download_pdf) == null ? void 0 : s.enabled) ?? ((a = u.pdf) == null ? void 0 : a.ready) ?? (r == null ? void 0 : r.pdf_ready) ?? (r == null ? void 0 : r.output_pdf_ready)), n = `${((l = e.download_pdf) == null ? void 0 : l.url) || ((d = u.pdf) == null ? void 0 : d.url) || (r == null ? void 0 : r.pdf_url) || ""}`.trim();
-  return { pdfEnabled: t, pdf: n ? R(n) : "" };
+  const t = (r == null ? void 0 : r.actions) || {}, u = (r == null ? void 0 : r.artifacts) || {}, e = !!(((s = t.download_pdf) == null ? void 0 : s.enabled) ?? ((a = u.pdf) == null ? void 0 : a.ready) ?? (r == null ? void 0 : r.pdf_ready) ?? (r == null ? void 0 : r.output_pdf_ready)), n = `${((d = t.download_pdf) == null ? void 0 : d.url) || ((f = u.pdf) == null ? void 0 : f.url) || (r == null ? void 0 : r.pdf_url) || ""}`.trim();
+  return { pdfEnabled: e, pdf: n ? k(n) : "" };
 }
-function y(r) {
-  var e;
-  return ((e = r == null ? void 0 : r.readerJobId) == null ? void 0 : e.call(r)) || "";
+function j(r) {
+  var t;
+  return ((t = r == null ? void 0 : r.readerJobId) == null ? void 0 : t.call(r)) || "";
 }
-function P(r, {
-  findReadyManifestArtifact: e = U,
-  resolveManifestArtifactUrl: u = (t, n) => X(t, n, { findReadyManifestArtifact: e })
+function rr(r, {
+  findReadyManifestArtifact: t = A,
+  resolveManifestArtifactUrl: u = (e, n) => Q(e, n, { findReadyManifestArtifact: t })
 } = {}) {
-  const t = u(r, "source_pdf");
-  return t || e(r, "source_pdf");
+  const e = u(r, "source_pdf");
+  return e || t(r, "source_pdf");
 }
-function b(r, e, {
-  resolveJobActions: u = q,
-  findReadyManifestArtifact: t = U,
-  resolveReaderArtifactUrl: n = Z,
-  resolveResourceUrl: s = R
+function tr(r, t, {
+  resolveJobActions: u = V,
+  findReadyManifestArtifact: e = A,
+  resolveReaderArtifactUrl: n = Y,
+  resolveResourceUrl: s = k
 } = {}) {
   const a = r ? u(r) : null;
   if (a != null && a.pdfEnabled && (a != null && a.pdf))
     return a.pdf;
-  const l = ["pdf", "translated_pdf", "result_pdf"];
-  for (const f of l) {
-    const w = t(e, f), _ = n(w, { resolveResourceUrl: s }) || n(w);
-    if (_)
-      return _;
+  const d = ["pdf", "translated_pdf", "result_pdf"];
+  for (const o of d) {
+    const _ = e(t, o), h = n(_, { resolveResourceUrl: s }) || n(_);
+    if (h)
+      return h;
   }
-  const d = `${(r == null ? void 0 : r.workflow) || (r == null ? void 0 : r.job_type) || ""}`.trim().toLowerCase();
-  return ((a == null ? void 0 : a.pdfEnabled) || `${(r == null ? void 0 : r.status) || ""}`.trim().toLowerCase() === "succeeded" && d !== "ocr") && (r != null && r.job_id) ? s(`/api/v1/jobs/${encodeURIComponent(r.job_id)}/pdf`) : "";
+  const f = `${(r == null ? void 0 : r.workflow) || (r == null ? void 0 : r.job_type) || ""}`.trim().toLowerCase();
+  return ((a == null ? void 0 : a.pdfEnabled) || `${(r == null ? void 0 : r.status) || ""}`.trim().toLowerCase() === "succeeded" && f !== "ocr") && (r != null && r.job_id) ? s(`/api/v1/jobs/${encodeURIComponent(r.job_id)}/pdf`) : "";
 }
 export {
-  x as __resetPdfjsForTests,
-  O as buildPdfDocumentOptions,
-  B as createReaderDataPort,
-  V as defaultReaderDataPort,
-  g as loadPdfDocument,
-  N as resolveReaderArtifactUrl,
-  y as resolveReaderJobId,
-  P as resolveReaderSourcePdf,
-  b as resolveReaderTranslatedPdfUrl
+  b as __resetPdfjsForTests,
+  q as buildPdfDocumentOptions,
+  N as createReaderDataPort,
+  x as defaultReaderDataPort,
+  P as loadPdfDocument,
+  Z as resolveReaderArtifactUrl,
+  j as resolveReaderJobId,
+  rr as resolveReaderSourcePdf,
+  tr as resolveReaderTranslatedPdfUrl
 };
 //# sourceMappingURL=data.js.map

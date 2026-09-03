@@ -100,6 +100,14 @@ def build_sync_payload_prewarm(
 
 
 def merge_payload_prewarm(existing: dict[str, object], fresh: dict[str, object]) -> dict[str, object]:
+    # Algorithm-version changes invalidate the payload fields produced by the
+    # previous algorithm. Keeping existing values first here can otherwise
+    # publish a manifest with a new version label but stale geometry/colors.
+    # A partial legacy payload without version markers is still merged below
+    # so source-only refreshes retain compatible prewarm material.
+    if _has_algorithm_version_mismatch(existing, fresh):
+        return dict(fresh)
+
     merged = dict(existing)
     for key, value in fresh.items():
         if key.endswith("_algorithm"):
@@ -114,6 +122,19 @@ def merge_payload_prewarm(existing: dict[str, object], fresh: dict[str, object])
             continue
         merged[key] = _merge_existing_first(merged[key], value)
     return merged
+
+
+def _has_algorithm_version_mismatch(
+    existing: dict[str, object],
+    fresh: dict[str, object],
+) -> bool:
+    for key, fresh_value in fresh.items():
+        if not key.endswith("_algorithm") or not _payload_value_has_material(fresh_value):
+            continue
+        existing_value = existing.get(key)
+        if _payload_value_has_material(existing_value) and existing_value != fresh_value:
+            return True
+    return False
 
 
 def _merge_existing_first(existing: object, fresh: object) -> object:

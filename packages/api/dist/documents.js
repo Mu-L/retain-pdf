@@ -73,6 +73,52 @@ export async function patchDocument(apiPrefix, documentId, payload = {}) {
     }
     return unwrapEnvelope(await resp.json());
 }
+export async function createDocumentMetadataSuggestion(apiPrefix, documentId, payload = {}) {
+    const normalized = `${documentId || ""}`.trim();
+    if (!normalized)
+        throw new Error("缺少 document_id。");
+    const resp = await fetch(buildApiEndpoint(apiPrefix, `documents/${encodeURIComponent(normalized)}/metadata-suggestions`), {
+        method: "POST",
+        headers: { ...buildApiHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
+    if (!resp.ok) {
+        const envelope = await resp.json().catch(() => null);
+        throw documentRequestError("生成文档元数据建议失败。", resp.status, envelope);
+    }
+    return unwrapEnvelope(await resp.json());
+}
+export async function fetchDocumentMetadataSuggestions(apiPrefix, documentId, { limit = 20 } = {}) {
+    const normalized = `${documentId || ""}`.trim();
+    if (!normalized)
+        return [];
+    const params = new URLSearchParams({ limit: `${limit}` });
+    const resp = await fetch(`${buildApiEndpoint(apiPrefix, `documents/${encodeURIComponent(normalized)}/metadata-suggestions`)}?${params.toString()}`, { headers: buildApiHeaders() });
+    if (!resp.ok) {
+        const envelope = await resp.json().catch(() => null);
+        throw documentRequestError("读取文档元数据建议失败。", resp.status, envelope);
+    }
+    const payload = unwrapEnvelope(await resp.json());
+    return Array.isArray(payload?.suggestions) ? payload.suggestions : [];
+}
+export async function applyDocumentMetadataSuggestion(apiPrefix, documentId, suggestionId, payload = {}) {
+    const normalizedDocumentId = `${documentId || ""}`.trim();
+    const normalizedSuggestionId = `${suggestionId || ""}`.trim();
+    if (!normalizedDocumentId)
+        throw new Error("缺少 document_id。");
+    if (!normalizedSuggestionId)
+        throw new Error("缺少 suggestion_id。");
+    const resp = await fetch(buildApiEndpoint(apiPrefix, `documents/${encodeURIComponent(normalizedDocumentId)}/metadata-suggestions/${encodeURIComponent(normalizedSuggestionId)}/apply`), {
+        method: "POST",
+        headers: { ...buildApiHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
+    if (!resp.ok) {
+        const envelope = await resp.json().catch(() => null);
+        throw documentRequestError("应用文档元数据建议失败。", resp.status, envelope);
+    }
+    return unwrapEnvelope(await resp.json());
+}
 export async function deleteDocument(apiPrefix, documentId, { force = false } = {}) {
     const normalized = `${documentId || ""}`.trim();
     if (!normalized)

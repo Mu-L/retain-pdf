@@ -209,8 +209,11 @@ class ConversationState:
         *,
         chain_parent_id: str = "",
     ) -> tuple[str, bool]:
-        """Persist the user request before an Agent can create an operation."""
-        if not request_runtime.capabilities.document_operations:
+        """Persist the user request before durable Agent tools can run."""
+        if not (
+            request_runtime.capabilities.document_operations
+            or request_runtime.capabilities.durable_calculations
+        ):
             return "", True
         parent_hint = chain_parent_id.strip() or payload.parent_id.strip()
         if payload.regenerate:

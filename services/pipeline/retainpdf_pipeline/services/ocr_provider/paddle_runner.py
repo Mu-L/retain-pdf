@@ -166,7 +166,10 @@ def run_paddle_to_job_dir(
 ) -> tuple[Path, Path, Path, Path]:
     paddle_token = get_token(explicit_value=args.paddle_token)
     if not paddle_token:
-        raise RuntimeError("Missing Paddle token. Set RETAIN_PADDLE_API_TOKEN or backend/pipeline/.env/paddle.env.")
+        raise RuntimeError(
+            "Missing Paddle token. Set RETAIN_PADDLE_API_TOKEN or "
+            "services/pipeline/.env/paddle.env."
+        )
     job_dirs = job_dirs_from_explicit_args(args)
     provider_result_json_path = job_dirs.ocr_dir / "result.json"
     normalized_json_path = job_dirs.ocr_dir / "normalized" / "document.v1.json"

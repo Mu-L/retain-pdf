@@ -4,14 +4,15 @@ import type { PageRowHeights } from "../pdf/usePageRowSync.js";
 import type { ReaderMode, ReaderSessionState } from "./use-reader-session.js";
 import type { ProtectedPdfFile } from "../pdf/useProtectedPdfFile.js";
 import type { ReaderPaneModel } from "./use-reader-pane-model.js";
-import type { ReaderAnnotationsApi } from "./use-reader-annotations.js";
-import type { ReaderTextSelection } from "./use-reader-text-selection.js";
-import type { ReaderNote } from "../annotations/types.js";
-import { type ReaderRegion } from "../shared/data/reader-regions.js";
+import { type ReaderRegion, type ReaderSelection, type ReaderRegionSelection } from "../shared/data/reader-regions.js";
+import type { LiveTranslationState } from "../shared/data/live-translation-state.js";
+export declare const CITATION_HIGHLIGHT_MS = 2000;
 export type ReaderAnchorTarget = number | {
     page_idx?: number;
     page?: number;
     block_id?: string;
+    image_url?: string;
+    snippet?: string;
 };
 export type ReaderReactController = {
     session: ReaderSessionState;
@@ -38,17 +39,31 @@ export type ReaderReactController = {
     currentPage: number;
     goToPage: (page: number) => void;
     activeRegion: ReaderRegion | null;
-    jumpToAnchor: (target: ReaderAnchorTarget) => void;
+    jumpToAnchor: (target: ReaderAnchorTarget, pane?: "source" | "translated") => void;
     setModeKeepingPage: (next: ReaderMode) => void;
     showHud: boolean;
     tools: ReaderToolsApi;
-    notes: ReaderAnnotationsApi;
-    selection: ReaderTextSelection | null;
+    selection: ReaderSelection | null;
     clearSelection: () => void;
-    addNoteFromSelection: (selection: ReaderTextSelection) => void;
-    jumpToNote: (note: ReaderNote) => void;
+    selectRegion: (selection: ReaderRegionSelection) => void;
     documentTitle: string;
     download: ReaderSessionState["download"];
+    /** stable local persistence scope for reading position/layout */
+    viewStateKey: string;
+    liveTranslation: LiveTranslationState;
+    liveTranslationAvailable: boolean;
 };
+export declare function shouldTrackLiveTranslation(input: {
+    jobId: string;
+    sourceUrl: string;
+    workflow: string;
+}): boolean;
+export declare function shouldEnableLiveTranslation(input: {
+    jobId: string;
+    sourceUrl: string;
+    translatedUrl: string;
+    jobStatus: string;
+    workflow: string;
+}): boolean;
 export declare function useReaderReactController(): ReaderReactController;
 //# sourceMappingURL=use-reader-react-controller.d.ts.map

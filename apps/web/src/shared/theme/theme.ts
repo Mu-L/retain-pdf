@@ -1,5 +1,5 @@
 // 主题皮肤运行时 API
-// 注册表：./registry.ts · 文档：docs/theme-system/
+// 注册表：./registry.ts · 文档：docs/core/frontend/theme-system/
 
 import {
   DEFAULT_THEME_ID,

@@ -32,6 +32,12 @@ async fn list_ocr_providers_returns_public_contract() {
 
     assert_eq!(paddle["display_name"], "PaddleOCR");
     assert_eq!(paddle["provider_kind"], "remote");
+    assert_eq!(
+        paddle["credential"]["credential_kind"],
+        "ocr_provider_token"
+    );
+    assert_eq!(paddle["credential"]["reference_field"], "credential_ref");
+    assert_eq!(paddle["credential"]["legacy_inline_field"], "paddle_token");
     assert_eq!(paddle["credential"]["field"], "paddle_token");
     assert_eq!(paddle["credential"]["env"], "RETAIN_PADDLE_API_TOKEN");
     assert_eq!(paddle["options"]["paddle_model"]["type"], "string");

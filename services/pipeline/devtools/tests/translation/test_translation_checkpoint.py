@@ -11,21 +11,30 @@ from types import SimpleNamespace
 
 import pytest
 
-
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from retainpdf_pipeline.services.translation.core.payload import load_translations
-from retainpdf_pipeline.services.translation.core.payload import pending_translation_items
-from retainpdf_pipeline.services.translation.core.payload import save_translations
-from retainpdf_pipeline.services.translation.core.payload import write_translation_manifest
-from retainpdf_pipeline.services.translation.workflow.checkpoint import TRANSLATION_CHECKPOINT_FILE_NAME
-from retainpdf_pipeline.services.translation.workflow.checkpoint import ResumeCandidateFingerprintMismatch
-from retainpdf_pipeline.services.translation.workflow.checkpoint import TranslationCheckpointSession
-from retainpdf_pipeline.services.translation.workflow.checkpoint import discard_copied_resume_candidate
-from retainpdf_pipeline.services.translation.workflow.checkpoint.store import CheckpointStore
-from retainpdf_pipeline.services.translation.workflow.checkpoint.identity import build_translation_identity
-from retainpdf_pipeline.services.translation.workflow.execution import TranslationExecutionRequest
+from retainpdf_pipeline.services.translation.core.payload import (
+    load_translations,
+    pending_translation_items,
+    save_translations,
+    write_translation_manifest,
+)
+from retainpdf_pipeline.services.translation.workflow.checkpoint import (
+    TRANSLATION_CHECKPOINT_FILE_NAME,
+    ResumeCandidateFingerprintMismatch,
+    TranslationCheckpointSession,
+    discard_copied_resume_candidate,
+)
+from retainpdf_pipeline.services.translation.workflow.checkpoint.identity import (
+    build_translation_identity,
+)
+from retainpdf_pipeline.services.translation.workflow.checkpoint.store import (
+    CheckpointStore,
+)
+from retainpdf_pipeline.services.translation.workflow.execution import (
+    TranslationExecutionRequest,
+)
 
 
 def _request(source_json: Path, output_dir: Path, *, model: str = "test-model") -> TranslationExecutionRequest:
@@ -162,8 +171,11 @@ def test_checkpoint_projects_generation_unit_and_page_hash(
     with TranslationCheckpointSession.acquire(
         _request(source_json, output_dir), _plan()
     ) as checkpoint:
+        pending = [_item("p1-u1")]
+        save_translations(page, pending)
+        checkpoint.update("policy_ready", {0: pending}, {0: page})
         save_translations(page, payload)
-        checkpoint.update("translating", {0: payload}, {0: page})
+        checkpoint.update("translating", {0: payload}, {0: page}, {0: {"p1-u1"}})
 
     projection = json.loads(
         (output_dir / TRANSLATION_CHECKPOINT_FILE_NAME).read_text(encoding="utf-8")
@@ -178,7 +190,221 @@ def test_checkpoint_projects_generation_unit_and_page_hash(
         if line.startswith("{")
     ]
     assert stdout_records[-1]["event_type"] == "pipeline_checkpoint"
-    assert stdout_records[-1]["payload"]["unit_key"] == "p1-u1"
+    assert stdout_records[-1]["payload"]["committed_pages"] == [
+        {
+            "unit_key": "page:0",
+            "unit_order": 0,
+            "page_index": 0,
+            "page_hash": hashlib.sha256(page.read_bytes()).hexdigest(),
+            "changed_item_ids": ["p1-u1"],
+        }
+    ]
+
+
+def test_one_checkpoint_flush_commits_two_pages_with_snapshot_hashes(
+    tmp_path: Path, capsys
+) -> None:
+    source_json = tmp_path / "document.v1.json"
+    source_json.write_text("{}", encoding="utf-8")
+    output_dir = tmp_path / "job-two-pages" / "translated"
+    paths = {
+        0: output_dir / "page-001-deepseek.json",
+        1: output_dir / "page-002-deepseek.json",
+    }
+    pending = {0: [_item("p001-b0003")], 1: [_item("p002-b0004")]}
+
+    with TranslationCheckpointSession.acquire(
+        _request(source_json, output_dir), _plan()
+    ) as checkpoint:
+        for page_idx, path in paths.items():
+            save_translations(path, pending[page_idx])
+        checkpoint.update("policy_ready", pending, paths)
+        translated = {
+            0: [_item("p001-b0003", "甲")],
+            1: [_item("p002-b0004", "乙")],
+        }
+        for page_idx, path in paths.items():
+            save_translations(path, translated[page_idx])
+        checkpoint.update(
+            "translating",
+            translated,
+            paths,
+            {0: {"p001-b0003"}, 1: {"p002-b0004"}},
+        )
+
+    checkpoint_payload = json.loads(
+        (output_dir / TRANSLATION_CHECKPOINT_FILE_NAME).read_text(encoding="utf-8")
+    )
+    assert [page["unit_key"] for page in checkpoint_payload["committed_pages"]] == [
+        "page:0",
+        "page:1",
+    ]
+    page_records = {page["page_index"]: page for page in checkpoint_payload["pages"]}
+    for committed in checkpoint_payload["committed_pages"]:
+        page_idx = committed["page_index"]
+        snapshot = output_dir / page_records[page_idx]["snapshot_path"]
+        assert snapshot.read_bytes() == paths[page_idx].read_bytes()
+        assert committed["page_hash"] == hashlib.sha256(snapshot.read_bytes()).hexdigest()
+
+    records = [
+        json.loads(line)
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith("{")
+    ]
+    assert len(records[-1]["payload"]["committed_pages"]) == 2
+
+
+def test_repair_of_completed_translation_emits_changed_item(tmp_path: Path, capsys) -> None:
+    source_json = tmp_path / "document.v1.json"
+    source_json.write_text("{}", encoding="utf-8")
+    output_dir = tmp_path / "job-repair" / "translated"
+    page = output_dir / "page-001-deepseek.json"
+    payload = [_item("p001-b0003", "旧译文")]
+
+    with TranslationCheckpointSession.acquire(
+        _request(source_json, output_dir), _plan()
+    ) as checkpoint:
+        save_translations(page, payload)
+        checkpoint.update("translating", {0: payload}, {0: page})
+        payload[0]["translated_text"] = "修复后的译文"
+        save_translations(page, payload)
+        checkpoint.update(
+            "repairing",
+            {0: payload},
+            {0: page},
+            detect_item_changes=True,
+        )
+
+    records = [
+        json.loads(line)
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith("{")
+    ]
+    assert records[-1]["payload"]["committed_pages"][0]["changed_item_ids"] == [
+        "p001-b0003"
+    ]
+
+
+def test_checkpoint_with_no_translation_change_has_no_page_commit(
+    tmp_path: Path, capsys
+) -> None:
+    source_json = tmp_path / "document.v1.json"
+    source_json.write_text("{}", encoding="utf-8")
+    output_dir = tmp_path / "job-no-change" / "translated"
+    page = output_dir / "page-001-deepseek.json"
+    payload = [_item("p001-b0003", "稳定译文")]
+
+    with TranslationCheckpointSession.acquire(
+        _request(source_json, output_dir), _plan()
+    ) as checkpoint:
+        save_translations(page, payload)
+        checkpoint.update("translating", {0: payload}, {0: page})
+        checkpoint.update(
+            "repairing",
+            {0: payload},
+            {0: page},
+            detect_item_changes=True,
+        )
+
+    records = [
+        json.loads(line)
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith("{")
+    ]
+    assert records[-1]["payload"]["committed_pages"] == []
+
+
+def test_saved_checkpoint_is_replayed_after_stdout_failure(
+    tmp_path: Path, capsys, monkeypatch
+) -> None:
+    source_json = tmp_path / "document.v1.json"
+    source_json.write_text("{}", encoding="utf-8")
+    output_dir = tmp_path / "job-outbox" / "translated"
+    page = output_dir / "page-001-deepseek.json"
+    pending = [_item("p001-b0003")]
+    checkpoint = TranslationCheckpointSession.acquire(
+        _request(source_json, output_dir), _plan()
+    )
+    save_translations(page, pending)
+    checkpoint.update("policy_ready", {0: pending}, {0: page})
+    translated = [_item("p001-b0003", "已完成")]
+    save_translations(page, translated)
+
+    def _fail_after_save(_payload: dict) -> None:
+        raise RuntimeError("simulated stdout crash")
+
+    monkeypatch.setattr(checkpoint, "_emit_pipeline_checkpoint", _fail_after_save)
+    with pytest.raises(RuntimeError, match="stdout crash"):
+        checkpoint.update(
+            "translating",
+            {0: translated},
+            {0: page},
+            {0: {"p001-b0003"}},
+        )
+    checkpoint.close()
+    saved = json.loads(
+        (output_dir / TRANSLATION_CHECKPOINT_FILE_NAME).read_text(encoding="utf-8")
+    )
+    failed_generation = saved["generation"]
+    assert saved["committed_pages"][0]["changed_item_ids"] == ["p001-b0003"]
+
+    capsys.readouterr()
+    with TranslationCheckpointSession.acquire(
+        _request(source_json, output_dir), _plan()
+    ):
+        pass
+    replayed = [
+        json.loads(line)["payload"]
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith("{")
+    ]
+    durable_replays = [
+        payload
+        for payload in replayed
+        if payload["producer_generation"] == failed_generation
+        and payload["committed_pages"]
+    ]
+    assert len(durable_replays) == 1
+    assert durable_replays[0] == saved["committed_pages_event"]
+
+
+def test_legacy_checkpoint_without_item_fingerprints_remains_resumable(
+    tmp_path: Path,
+) -> None:
+    source_json = tmp_path / "document.v1.json"
+    source_json.write_text("{}", encoding="utf-8")
+    output_dir = tmp_path / "job-legacy-checkpoint" / "translated"
+    page = output_dir / "page-001-deepseek.json"
+    pending = [_item("p001-b0003")]
+    with TranslationCheckpointSession.acquire(
+        _request(source_json, output_dir), _plan()
+    ) as checkpoint:
+        save_translations(page, pending)
+        checkpoint.update("policy_ready", {0: pending}, {0: page})
+
+    checkpoint_path = output_dir / TRANSLATION_CHECKPOINT_FILE_NAME
+    legacy = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    legacy.pop("committed_pages", None)
+    legacy.pop("committed_pages_event", None)
+    for page_record in legacy["pages"]:
+        page_record.pop("item_fingerprints", None)
+    checkpoint_path.write_text(json.dumps(legacy), encoding="utf-8")
+
+    translated = [_item("p001-b0003", "兼容恢复")]
+    with TranslationCheckpointSession.acquire(
+        _request(source_json, output_dir), _plan()
+    ) as checkpoint:
+        save_translations(page, translated)
+        checkpoint.update(
+            "translating",
+            {0: translated},
+            {0: page},
+            {0: {"p001-b0003"}},
+        )
+
+    resumed = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    assert resumed["schema"] == "translation_checkpoint_v1"
+    assert resumed["committed_pages"][0]["changed_item_ids"] == ["p001-b0003"]
 
 
 def test_read_after_validating_checkpoint_cannot_change_page_hash(tmp_path: Path) -> None:

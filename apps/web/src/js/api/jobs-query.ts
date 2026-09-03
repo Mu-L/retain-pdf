@@ -36,9 +36,17 @@ export async function fetchJobPayload(jobId, options) {
   });
   if (!resp.ok) {
     if (resp.status === 404) {
-      throw new Error("未找到该任务，请检查 job_id 是否正确。");
+      const error = Object.assign(
+        new Error("未找到该任务，请检查 job_id 是否正确。"),
+        { status: 404 },
+      );
+      throw error;
     }
-    throw new Error(`读取任务失败，请稍后重试。(${resp.status})`);
+    const error = Object.assign(
+      new Error(`读取任务失败，请稍后重试。(${resp.status})`),
+      { status: resp.status },
+    );
+    throw error;
   }
   return unwrapEnvelope(await resp.json());
 }

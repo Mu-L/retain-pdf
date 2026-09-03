@@ -5,5 +5,5 @@ export type ReaderZoomApi = {
     stepZoom: (direction: 1 | -1) => void;
     resetZoom: (mode?: string) => void;
 };
-export declare function useReaderZoom(initialMode?: string, shellRef?: RefObject<HTMLElement | null>): ReaderZoomApi;
+export declare function useReaderZoom(initialMode?: string, shellRef?: RefObject<HTMLElement | null>, persistenceKey?: string): ReaderZoomApi;
 //# sourceMappingURL=use-reader-zoom.d.ts.map

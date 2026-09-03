@@ -120,6 +120,73 @@ fn job_detail_view_exposes_credential_reference_without_secret() {
 }
 
 #[test]
+fn job_detail_view_exposes_ocr_credential_reference_without_secret() {
+    let mut input = CreateJobInput::default();
+    input.ocr.provider = "mineru".to_string();
+    input.ocr.credential_ref = "cred_ocr_primary".to_string();
+    let job = JobSnapshot::new(
+        "job-ocr-credential-ref-view".to_string(),
+        input,
+        vec!["python".to_string()],
+    );
+
+    let detail = job_to_detail(
+        &job,
+        "http://127.0.0.1:41000",
+        std::path::Path::new("/tmp"),
+        false,
+        false,
+        false,
+    );
+
+    assert_eq!(
+        detail.request_payload.ocr.credential_ref,
+        "cred_ocr_primary"
+    );
+    assert!(detail.request_payload.ocr.mineru_token.is_empty());
+    assert!(detail.request_payload.ocr.paddle_token.is_empty());
+    assert!(detail.request_payload.ocr.mineru_token_configured);
+    assert!(!detail.request_payload.ocr.paddle_token_configured);
+}
+
+#[test]
+fn job_detail_view_removes_configured_provider_inline_secret_options() {
+    let mut input = CreateJobInput::default();
+    input.ocr.options.insert(
+        "credential".to_string(),
+        serde_json::Value::String("configured-secret".to_string()),
+    );
+    input.ocr.options.insert(
+        "region".to_string(),
+        serde_json::Value::String("cn-east".to_string()),
+    );
+    let job = JobSnapshot::new(
+        "job-configured-provider-secret-view".to_string(),
+        input,
+        vec!["python".to_string()],
+    );
+
+    let detail = job_to_detail(
+        &job,
+        "http://127.0.0.1:41000",
+        std::path::Path::new("/tmp"),
+        false,
+        false,
+        false,
+    );
+
+    assert!(!detail
+        .request_payload
+        .ocr
+        .options
+        .contains_key("credential"));
+    assert_eq!(
+        detail.request_payload.ocr.options.get("region"),
+        Some(&serde_json::Value::String("cn-east".to_string()))
+    );
+}
+
+#[test]
 fn redact_helpers_remove_structured_and_inline_secrets() {
     let mut input = CreateJobInput::default();
     input.translation.api_key = "sk-secret".to_string();

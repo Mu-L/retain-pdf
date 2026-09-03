@@ -100,6 +100,7 @@ ROUTE_RAW_EXTRACTOR_ALLOWLIST = {
 }
 
 ROUTE_STATE_RESOURCE_ALLOWLIST = {
+    Path("src/routes/common/agent_calculations.rs"),
     Path("src/routes/common/agent_capabilities.rs"),
     Path("src/routes/common/agent_runtime_sessions.rs"),
     Path("src/routes/common/auth.rs"),
@@ -115,6 +116,9 @@ ROUTE_STATE_RESOURCE_ALLOWLIST = {
 }
 
 ROUTE_SERVICE_IMPORT_ALLOWLIST = {
+    Path("src/routes/agent_calculations.rs"): (
+        "crate::services::agent_calculation_api::",
+    ),
     Path("src/routes/glossaries.rs"): (
         "crate::services::glossary_api::",
     ),
@@ -158,6 +162,9 @@ ROUTE_SERVICE_IMPORT_ALLOWLIST = {
     ),
     Path("src/routes/common/agent_runtime_sessions.rs"): (
         "crate::services::agent_runtime_session_api::AgentRuntimeSessionApiDeps",
+    ),
+    Path("src/routes/common/agent_calculations.rs"): (
+        "crate::services::agent_calculation_api::AgentCalculationApiDeps",
     ),
     Path("src/routes/common/glossaries.rs"): (
         "crate::services::glossary_api::GlossaryApiDeps",

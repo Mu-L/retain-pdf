@@ -16,19 +16,28 @@ export type ReaderModeTabsProps = {
   mode: ReaderMode;
   sourceOnly: boolean;
   onModeChange: (mode: ReaderMode) => void;
+  placement?: "top" | "context";
+  splitView?: boolean;
 };
 
 export function ReaderModeTabs({
   mode,
   sourceOnly,
   onModeChange,
+  placement = "top",
+  splitView = false,
 }: ReaderModeTabsProps): ReactElement {
+  const Tag = placement === "context" ? "div" : "header";
   return (
-    <header
-      className={`reader-topbar reader-react-topbar${sourceOnly ? " is-source-only" : ""}`}
+    <Tag
+      className={`${placement === "context" ? "reader-context-modes" : "reader-topbar reader-react-topbar"}${sourceOnly ? " is-source-only" : ""}`}
+      aria-label={placement === "context" ? "PDF 显示方式" : undefined}
     >
       <div className="reader-tabs" role="tablist" aria-label="阅读模式">
         {MODES.map((item) => {
+          if (splitView && item.id === "compare") {
+            return null;
+          }
           if (sourceOnly && item.id !== "source") {
             return null;
           }
@@ -47,11 +56,10 @@ export function ReaderModeTabs({
               onClick={() => onModeChange(item.id)}
             >
               <Icon className="reader-tab-lucide" size={16} strokeWidth={2.25} aria-hidden />
-              <span className="reader-tab-label">{item.label}</span>
             </button>
           );
         })}
       </div>
-    </header>
+    </Tag>
   );
 }

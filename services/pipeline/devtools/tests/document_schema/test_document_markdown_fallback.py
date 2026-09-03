@@ -4,12 +4,13 @@ import json
 import sys
 from pathlib import Path
 
-
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from retainpdf_pipeline.services.document_schema.markdown_fallback import materialize_document_markdown_fallback
-from retainpdf_pipeline.services.document_schema.markdown_fallback import render_document_markdown
+from retainpdf_pipeline.services.document_schema.markdown_fallback import (
+    materialize_document_markdown_fallback,
+    render_document_markdown,
+)
 
 
 def _document() -> dict:
@@ -87,6 +88,17 @@ def test_render_document_markdown_uses_canonical_reading_order_and_block_semanti
     positions = [markdown.index(fragment) for fragment in expected_fragments]
     assert positions == sorted(positions)
     assert markdown.endswith("\n")
+
+
+def test_render_document_markdown_uses_canonical_table_html_when_text_is_empty() -> None:
+    document = _document()
+    table = document["pages"][0]["blocks"][0]
+    table["content"]["text"] = ""
+    table["content"]["table_html"] = "<table><tr><td>MinerU</td></tr></table>"
+
+    markdown = render_document_markdown(document)
+
+    assert "<table><tr><td>MinerU</td></tr></table>" in markdown
 
 
 def test_materialize_fallback_preserves_existing_provider_markdown(tmp_path: Path) -> None:

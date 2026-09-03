@@ -219,7 +219,10 @@ export function createStatusCardStore(): StatusCardStore {
         return { ...state, snapshot };
       },
       setCancelDisabled(state, disabled = false) {
-        return { ...state, cancelDisabled: Boolean(disabled) };
+        const next = Boolean(disabled);
+        return state.cancelDisabled === next
+          ? state
+          : { ...state, cancelDisabled: next };
       },
     },
   });

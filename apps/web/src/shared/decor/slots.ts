@@ -1,6 +1,6 @@
 // 装饰锚点（slot）注册表：装饰主题的"布局契约"。
 //
-// 设计原则（docs/theme-system/DECOR_PACKS.md）：
+// 设计原则（docs/core/frontend/theme-system/DECOR_PACKS.md）：
 // - 功能 UI 永远是 DOM；装饰层只能挂在下列具名锚点上，不得自造坐标。
 // - manifest 声明"资产挂在哪个 slot"，slot 在哪、多大、什么层级由
 //   舞台 CSS（后续 DecorStage）统一实现——资产侧与布局侧解耦。

@@ -44,7 +44,7 @@
 建议环境：
 
 - 系统：`Linux` 优先，推荐 `Ubuntu 22.04 / 24.04`
-- CPU 架构：当前镜像按 `x86_64 / amd64` 构建，不是 ARM 版本
+- CPU 架构：发布工作流提供 `linux/amd64` 和 `linux/arm64` 镜像
 - CPU：至少 `4 核`
 - 内存：至少 `8GB`，推荐 `16GB` 或更高
 - 磁盘：至少预留 `10GB` 可用空间
@@ -53,7 +53,7 @@
 说明：
 
 - 这个项目主要吃 CPU、内存和网络，不依赖独立显卡
-- 如果你的机器是 `Mac M`、树莓派、ARM 服务器，请先确认是否具备 `x86_64` 兼容运行环境
+- `Mac M`、树莓派和 ARM 服务器应使用镜像中的 `linux/arm64` 变体
 - 如果只是轻量自用，`4 核 + 8GB` 可以起服务
 - 如果你要多人同时用，建议从 `8 核 + 16GB` 起步
 
@@ -75,7 +75,7 @@ docker compose version
 
 ```bash
 git clone https://github.com/wxyhgk/retain-pdf.git
-cd retain-pdf/docker/delivery
+cd retain-pdf/infra/docker/delivery
 ```
 
 ## 4. 启动服务
@@ -99,7 +99,8 @@ http://127.0.0.1:40001
 - `docker/app.env`
   后端运行参数。控制容器内路径、字体、端口、并发和上传限制。
 - `docker/web.env`
-  Docker 公共版前端运行参数。控制前端默认注入的后端 key、模型默认值等。
+  Docker 公共版 web 容器运行参数。控制 NGINX 后端 key 注入、
+  前端 provider 和模型默认值等。
 - `docker/auth.local.json`
   Rust API 鉴权白名单。前端和 CLI 都需要用这里配置的后端 key 才能访问接口。
 
@@ -118,8 +119,12 @@ http://127.0.0.1:40001
 
 - `FRONT_API_BASE`
   前端内部使用的 API 基地址。通常留空，让前端自动走同源代理。
+- `RETAINPDF_PROXY_API_KEY`
+  web 容器内的 NGINX 在 `/api/` 请求缺少 `X-API-Key` 时注入的后端
+  key。必须与 `docker/auth.local.json` 中的一个值一致。
 - `FRONT_X_API_KEY`
-  前端自动附带给后端的 `X-API-Key`。必须和 `docker/auth.local.json` 中某个值一致。
+  只为旧的非同源客户端保留的兼容字段。标准 Docker/NGINX 部署应留空，
+  避免后端 key 出现在浏览器可读的 `runtime-config.js`。
 - `FRONT_OCR_PROVIDER`
   前端默认 OCR provider。当前建议填 `paddle`，也可以切成 `mineru`。
 - `FRONT_PADDLE_TOKEN`
@@ -165,12 +170,59 @@ http://127.0.0.1:40001
 ## 说明
 
 - 当前 compose 默认暴露：
-  - `40001`：前端页面
-  - `41000`：完整 Rust API
-  - `42000`：multipart 扁平字段提交接口，只提供 `/health` 和 `POST /api/v1/translate/bundle`
+  - `127.0.0.1:40001`：前端页面和同源 API 代理
+  - `127.0.0.1:41000`：完整 Rust API，仅供本机调试
+  - `127.0.0.1:42000`：multipart 扁平字段提交接口，只提供 `/health` 和 `POST /api/v1/translate/bundle`
+- `HOST_BIND_ADDRESS` 默认是 `127.0.0.1`。只有在另外配置了可靠的网络边界鉴权时，
+  才应显式改为 `0.0.0.0`。
 - 前端通过同源代理访问后端；普通用户通常不需要手工理解 `API Base`
+- `RETAINPDF_PROXY_API_KEY` 由 web 容器内的 NGINX 注入，不会输出到浏览器
+  `runtime-config.js`。它必须与 `docker/auth.local.json` 中的一个 key 一致。
 - 当前主线前端默认 OCR provider 是 `paddle`
 - 页面里显示的大小 / 页数限制来自当前后端运行配置，不应再按旧的 MinerU 固定上游限制理解
+
+# 使用域名和 NGINX 反向代理
+
+宿主机 NGINX 只需代理到 `127.0.0.1:40001`，不要直接把域名指向
+`41000` 或 `42000`。完整示例位于：
+
+```text
+infra/nginx/retainpdf.example.conf
+```
+
+以 Ubuntu 为例：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y nginx apache2-utils certbot
+
+# RetainPDF 目前是单工作区服务，公网部署至少增加独立访问门禁。
+sudo htpasswd -c /etc/nginx/retainpdf.htpasswd retainpdf
+
+# 获取证书时需先确保 80 端口可从公网访问；standalone
+# 需要暂时停止占用 80 端口的 NGINX。
+sudo systemctl stop nginx
+sudo certbot certonly --standalone -d pdf.example.com
+sudo systemctl start nginx
+
+sudo cp infra/nginx/retainpdf.example.conf /etc/nginx/sites-available/retainpdf.conf
+# 把配置中的 pdf.example.com 替换为真实域名。
+sudo ln -sfn /etc/nginx/sites-available/retainpdf.conf /etc/nginx/sites-enabled/retainpdf.conf
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+宿主机代理必须同时保留：
+
+- `client_max_body_size 256m`；
+- `/api/v1/ai/ask` 和 `/api/v1/jobs/:job_id/live-events` 的 SSE 禁止缓冲；
+- 长请求超时；
+- `Host` / `X-Forwarded-*` 头；
+- Basic Auth、OAuth2 Proxy 或 Cloudflare Access 之一。
+
+如果不需要宿主机直接调试 Rust API，可以将 compose 中 app 的
+`41000` / `42000` 两个 `ports` 删除；web 容器通过 Docker 内部网络访问
+`app:41000`，不依赖这两个宿主机映射。
 
 ## 可选默认值
 

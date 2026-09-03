@@ -64,3 +64,19 @@ test("failed fallback isolates a different job and clears stale terminal progres
   assert.equal(merged.cancelEnabled, false);
   assert.equal(merged.job?.job_id, "failed-job");
 });
+
+test("active fallback keeps the standard cancel action available without an action URL", () => {
+  const merged = mergeSnapshotWithFallback(staleCompletedSnapshot(), {
+    job_id: "running-job",
+    status: "running",
+    stage_snapshot: {
+      display_stage: "translation",
+      stage_detail: "正在翻译正文",
+      progress: { current: 12, total: 20, percent: 60 },
+    },
+  });
+
+  assert.equal(merged.jobId, "running-job");
+  assert.equal(merged.status, "running");
+  assert.equal(merged.cancelEnabled, true);
+});

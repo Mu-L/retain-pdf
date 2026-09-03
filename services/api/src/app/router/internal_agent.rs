@@ -2,7 +2,9 @@ use axum::routing::{get, post};
 use axum::Router;
 
 use crate::app::AppState;
-use crate::routes::{agent_capabilities, agent_runtime_sessions, document_operations};
+use crate::routes::{
+    agent_calculations, agent_capabilities, agent_runtime_sessions, document_operations,
+};
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new()
@@ -29,6 +31,18 @@ pub(super) fn routes() -> Router<AppState> {
         .route(
             "/api/v1/internal/agent/operations/:operation_id/cancel",
             post(document_operations::cancel_document_operation_route),
+        )
+        .route(
+            "/api/v1/internal/agent/calculations",
+            post(agent_calculations::create_agent_calculation_route),
+        )
+        .route(
+            "/api/v1/internal/agent/calculations/:calculation_id/complete",
+            post(agent_calculations::complete_agent_calculation_route),
+        )
+        .route(
+            "/api/v1/internal/agent/calculations/:calculation_id/fail",
+            post(agent_calculations::fail_agent_calculation_route),
         )
         .route(
             "/api/v1/internal/agent/runtime-sessions/:conversation_id",

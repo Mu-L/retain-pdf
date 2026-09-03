@@ -16,7 +16,7 @@ from retainpdf_pipeline.services.document_schema.canonical_semantics import (
     is_plain_text,
     is_reference_entry,
     is_textual,
-    is_title,
+    uses_title_style,
 )
 from retainpdf_pipeline.services.rendering.semantics.legacy_compat import (
     legacy_is_document_title,
@@ -97,12 +97,15 @@ def is_document_title(item: dict | None) -> bool:
     """Return whether an item is the document title, excluding broad headings."""
 
     if _has_canonical_semantic_fields(item):
-        return layout_role(item) == "title" or structure_role(item) == "title"
+        return layout_role(item) == "title" or structure_role(item) in {
+            "document_title",
+            "title",
+        }
     return legacy_is_document_title(item)
 
 
 def is_title_like_block(item: dict | None) -> bool:
-    return is_title(from_flat_item(item))
+    return uses_title_style(from_flat_item(item))
 
 
 def is_caption_like_block(item: dict | None) -> bool:

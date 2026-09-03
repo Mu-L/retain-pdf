@@ -153,6 +153,56 @@ def test_prepare_render_payloads_keeps_member_translations_for_continuation_grou
     assert second == "$来表征，所有这些量均可通过拟合不同温度及$Q_{0}$值下的激发谱获得。"
 
 
+def test_prepare_render_payloads_resplits_repeated_full_cross_page_group_translation() -> None:
+    aggregate = (
+        "考虑到这些潜在困难，我们采用模型体系开展研究。"
+        "对副产物的分析鉴定出多种化合物，并优化了催化剂。"
+        "在整个项目过程中，我们发现含有路易斯碱性孤对电子时产率最高；"
+        "而在不存在此类基团时，催化剂表现更优（见下文）。"
+    )
+    shared = {
+        "block_type": "text",
+        "math_mode": "direct_typst",
+        "translation_unit_id": "__cg__:cg-cross-page",
+        "translation_unit_kind": "group",
+        "continuation_group": "cg-cross-page",
+        "translation_unit_protected_source_text": "long source on page one whereas the final clause continues on page two",
+        "translation_unit_protected_translated_text": aggregate,
+        "translation_unit_formula_map": [],
+        "protected_translated_text": aggregate,
+        "translated_text": aggregate,
+    }
+    translated_pages = {
+        0: [
+            {
+                **shared,
+                "item_id": "p001-b010",
+                "page_idx": 0,
+                "bbox": [302.357, 437.891, 560.735, 725.819],
+                "protected_source_text": "long source on page one " * 30,
+            }
+        ],
+        1: [
+            {
+                **shared,
+                "item_id": "p002-b003",
+                "page_idx": 1,
+                "bbox": [34.484, 579.855, 290.863, 602.35],
+                "protected_source_text": "whereas the final clause continues on page two",
+            }
+        ],
+    }
+
+    prepared = prepare_render_payloads_by_page(translated_pages)
+    first = prepared[0][0]["render_protected_text"]
+    second = prepared[1][0]["render_protected_text"]
+
+    assert first != aggregate
+    assert second != aggregate
+    assert first + second == aggregate
+    assert second
+
+
 def test_prepare_render_payloads_does_not_resplit_materialized_cross_page_member_translations() -> None:
     translated_pages = {
         11: [
@@ -259,5 +309,4 @@ def test_continuation_member_does_not_inherit_short_body_font_from_context() -> 
 
     assert continuation_member.get("_short_body_inherited_font_floor_pt") is None
     assert normal_short.get("_short_body_inherited_font_floor_pt") is not None
-
 

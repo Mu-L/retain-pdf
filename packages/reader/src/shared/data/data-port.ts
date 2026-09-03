@@ -1,7 +1,11 @@
 // 共享真值（原 apps/web/src/js/reader/data-port.ts），已抽离为纯函数 + 可注入依赖
 // 不直接 import apps/web 的 api/http，改为参数注入，默认用 window/fetch 或空实现
 
-import { loadMarkdownPayloadWithFallback } from "./markdown-payload.js";
+import {
+  hasMarkdownContent,
+  loadMarkdownPayloadWithFallback,
+  resolveLinkedMarkdownJobId,
+} from "./markdown-payload.js";
 
 const DEFAULT_API_PREFIX = "/api/v1";
 
@@ -62,7 +66,10 @@ export function createReaderDataPort({
   async function loadReaderPayload(jobId: string) {
     const [jobPayload, manifestPayload, regionsPayload, readerMetadata] = await Promise.all([
       loadJob(jobId, apiPrefix),
-      loadManifest(jobId, apiPrefix),
+      // During OCR the immutable artifact manifest does not exist yet. That is
+      // a normal in-progress state: the Reader can still load the document's
+      // source PDF and reserve the right pane for live translation.
+      loadManifest(jobId, apiPrefix).catch(() => ({ items: [] })),
       (loadRegions as any)(jobId, apiPrefix).catch(() => ({ items: [] })),
       (loadMetadata as any)(jobId, apiPrefix).catch(() => null),
     ]);
@@ -74,15 +81,36 @@ export function createReaderDataPort({
     };
   }
 
+  function loadJobPayload(jobId: string) {
+    return loadJob(jobId, apiPrefix);
+  }
+
   function fetchRegionTranslationItem(jobId: string, itemId: string) {
     return loadTranslationItem(jobId, itemId, apiPrefix);
   }
 
   async function loadMarkdownPayload(jobId: string) {
-    return loadMarkdownPayloadWithFallback(
+    const currentPayload = await loadMarkdownPayloadWithFallback(
       () => loadMarkdownDocument(jobId, apiPrefix),
       () => loadMarkdown(jobId, apiPrefix),
     );
+    if (hasMarkdownContent(currentPayload)) return currentPayload;
+
+    // OCR-reuse translation jobs do not copy the source Markdown into their
+    // own job root. Follow the public source_artifact_job_id and load the
+    // canonical Markdown from the OCR job instead.
+    try {
+      const jobPayload = await loadJob(jobId, apiPrefix);
+      const linkedJobId = resolveLinkedMarkdownJobId(jobPayload, jobId);
+      if (!linkedJobId) return currentPayload;
+      const linkedPayload = await loadMarkdownPayloadWithFallback(
+        () => loadMarkdownDocument(linkedJobId, apiPrefix),
+        () => loadMarkdown(linkedJobId, apiPrefix),
+      );
+      return hasMarkdownContent(linkedPayload) ? linkedPayload : currentPayload;
+    } catch {
+      return currentPayload;
+    }
   }
 
   function submitAiChat(jobId: string, payload: unknown) {
@@ -94,6 +122,7 @@ export function createReaderDataPort({
     fetchProtected: fetchProtectedResource,
     fetchRegionTranslationItem,
     loadMarkdownPayload,
+    loadJobPayload,
     loadReaderPayload,
     submitAiChat,
   });

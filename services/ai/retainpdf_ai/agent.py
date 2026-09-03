@@ -25,7 +25,9 @@ from .agent_llm import (
     friendly_llm_error,
 )
 from .retrieval_agent import (
+    DOCUMENT_READING_TOOL_NAMES,
     MARKDOWN_TOOL_NAMES,
+    STRUCTURED_READING_TOOL_NAMES,
     SYSTEM_PROMPT,
     RetrievalAgent,
     scope_tool_arguments,
@@ -37,9 +39,11 @@ __all__ = [
     "BLOCK_ID_BARE_RE",
     "BLOCK_ID_BRACKET_RE",
     "CITATION_RE",
+    "DOCUMENT_READING_TOOL_NAMES",
     "MARKDOWN_ID_BARE_RE",
     "MARKDOWN_ID_BRACKET_RE",
     "MARKDOWN_TOOL_NAMES",
+    "STRUCTURED_READING_TOOL_NAMES",
     "SYSTEM_PROMPT",
     "AskResult",
     "ChatFn",

@@ -349,10 +349,23 @@ def test_openai_runtime_combines_reading_and_operation_tools(tmp_path):
                 "role": "assistant",
                 "content": "",
                 "tool_calls": [
-                    _call("tool-search", "search_markdown", {"query": "证据"})
+                    _call("tool-search", "search_markdown", {"query": "证据"}),
+                    _call(
+                        "tool-create",
+                        "retainpdf_operation_create",
+                        {
+                            "steps": [
+                                {
+                                    "op": "rotate_pages",
+                                    "pages": [1],
+                                    "degrees": 180,
+                                }
+                            ]
+                        },
+                    ),
                 ],
             }
-        return {"role": "assistant", "content": "结论来自 md-0001。"}
+        return {"role": "assistant", "content": "结论来自 md-0001，操作已创建。"}
 
     result = runtime.ask(
         "先阅读，再按需要操作",
@@ -363,10 +376,154 @@ def test_openai_runtime_combines_reading_and_operation_tools(tmp_path):
         chat_fn=chat,
     )
 
-    assert result.answer == "结论来自 [1]。"
+    assert result.answer == "结论来自 [1]，操作已创建。"
     assert [citation.block_id for citation in result.citations] == ["md-0001"]
     assert result.tool_trace == [
-        {"round": 1, "tool": "search_markdown", "status": "completed"}
+        {"round": 1, "tool": "search_markdown", "status": "completed"},
+        {"round": 1, "tool": "retainpdf_operation_create", "status": "completed"},
+    ]
+    assert result.operation_refs[0]["operation_id"] == "op-openai-1"
+    assert rust.capability_calls[0]["actions"] == ["operation.create"]
+
+
+def test_openai_runtime_exposes_calculation_in_the_same_model_loop(tmp_path):
+    rust = FakeRust()
+    names = [
+        "search_fulltext",
+        "calculate_expression",
+        "calculate_statistics",
+        "analyze_table",
+        "generate_chart",
+    ]
+    registry = ToolRegistry(
+        [
+            Tool(
+                name=name,
+                description=name,
+                parameters={"type": "object"},
+                handler=(
+                    lambda _arguments: {
+                        "schema": "retainpdf.calculation-result.v1",
+                        "value": 13.8,
+                        "calculation_id": "calc-openai-1",
+                        "durable": True,
+                    }
+                ),
+            )
+            for name in names
+        ]
+    )
+    cli = _write_operation_cli(tmp_path / "retainpdf-agent")
+    runtime = OpenAICompatibleAgentRuntime(
+        _settings(tmp_path, cli),
+        rust,  # type: ignore[arg-type]
+        reading_registry=registry,
+    )
+    replies = iter(
+        [
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    _call(
+                        "tool-calculate",
+                        "calculate_expression",
+                        {"expression": "(12.5 + 13.7 + 15.2) / 3"},
+                    )
+                ],
+            },
+            {"role": "assistant", "content": "平均值为 13.8。"},
+        ]
+    )
+    events: list[dict] = []
+
+    result = runtime.ask(
+        "计算平均值",
+        conversation_id="conv-a",
+        document_id="doc-a",
+        job_id="job-a",
+        request_message_id="msg-a",
+        on_event=events.append,
+        chat_fn=lambda _messages, tools: (
+            next(replies)
+            if {item["function"]["name"] for item in tools} >= set(names)
+            else (_ for _ in ()).throw(AssertionError("unified tools are missing"))
+        ),
+    )
+
+    assert runtime.capabilities.calculation is True
+    assert runtime.capabilities.document_operations is True
+    assert result.calculation_refs == [
+        {"calculation_id": "calc-openai-1", "status": "completed"}
+    ]
+    assert [event["kind"] for event in events] == ["calculation", "calculation"]
+    assert [event["status"] for event in events] == ["running", "completed"]
+
+
+def test_openai_runtime_keeps_structured_path_after_empty_match(tmp_path):
+    markdown_calls: list[dict] = []
+    registry = ToolRegistry(
+        [
+            Tool(
+                name="search_fulltext",
+                description="search structured blocks",
+                parameters={
+                    "type": "object",
+                    "properties": {"query": {"type": "string"}},
+                },
+                handler=lambda _arguments: {
+                    "document_id": "doc-a",
+                    "structured_data_available": True,
+                    "hits": [],
+                },
+            ),
+            Tool(
+                name="search_markdown",
+                description="legacy markdown fallback",
+                parameters={
+                    "type": "object",
+                    "properties": {"query": {"type": "string"}},
+                },
+                handler=lambda arguments: markdown_calls.append(dict(arguments))
+                or {"hits": []},
+            ),
+        ]
+    )
+    cli = _write_operation_cli(tmp_path / "retainpdf-agent")
+    runtime = OpenAICompatibleAgentRuntime(
+        _settings(tmp_path, cli),
+        FakeRust(),  # type: ignore[arg-type]
+        reading_registry=registry,
+    )
+    replies = iter(
+        [
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [_call("tool-search", "search_fulltext", {"query": "x"})],
+            },
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [_call("tool-markdown", "search_markdown", {"query": "x"})],
+            },
+            {"role": "assistant", "content": "结构化数据存在，请换关键词检索。"},
+        ]
+    )
+
+    result = runtime.ask(
+        "查询当前文档",
+        conversation_id="conv-a",
+        document_id="doc-a",
+        job_id="job-a",
+        chat_fn=lambda _messages, _tools: next(replies),
+    )
+
+    assert markdown_calls == []
+    assert result.answer == "结构化数据存在，请换关键词检索。"
+    assert result.tool_trace == [
+        {"round": 1, "tool": "search_fulltext", "status": "completed"},
+        {"round": 2, "tool": "search_markdown", "status": "skipped"},
     ]
 
 

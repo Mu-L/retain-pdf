@@ -7,8 +7,9 @@ use std::path::Path;
 use crate::models::domain::{OcrProviderKind, UploadRecord, SOURCE_CLEANUP_STRATEGIES};
 use crate::models::request::CreateJobInput;
 use crate::ocr_provider::{
-    parse_provider_kind, provider_display_name, provider_token, provider_token_field_name,
-    require_supported_provider, PADDLE_OFFICIAL_CLI_TRANSPORT, PADDLE_OFFICIAL_HTTP_TRANSPORT,
+    is_configured_command_provider, parse_provider_kind, provider_display_name, provider_token,
+    provider_token_field_name, require_supported_provider, PADDLE_OFFICIAL_CLI_TRANSPORT,
+    PADDLE_OFFICIAL_HTTP_TRANSPORT,
 };
 
 const RENDER_MODES: &[&str] = &["auto", "overlay", "typst", "typst_visual", "dual"];
@@ -69,7 +70,31 @@ pub fn validate_translation_credential_reference(
         .map_err(map_credential_reference_error)
 }
 
-fn map_credential_reference_error(error: CredentialResolveError) -> AppError {
+pub fn validate_ocr_credential_reference(
+    input: &CreateJobInput,
+    data_root: &Path,
+) -> Result<(), AppError> {
+    let credential_ref = input.ocr.credential_ref.trim();
+    if credential_ref.is_empty() {
+        return Ok(());
+    }
+    let resolved = resolve_credential(data_root, credential_ref, "ocr_provider_token")
+        .map_err(map_credential_reference_error)?;
+    let expected_provider = input.ocr.provider.trim().to_ascii_lowercase();
+    let actual_provider = resolved.provider.trim().to_ascii_lowercase();
+    if actual_provider != expected_provider {
+        return Err(AppError::credential_reference(
+            StatusCode::BAD_REQUEST,
+            "CREDENTIAL_PROVIDER_MISMATCH",
+            format!(
+                "OCR credential provider does not match requested provider: expected {expected_provider}, got {actual_provider}"
+            ),
+        ));
+    }
+    Ok(())
+}
+
+pub(crate) fn map_credential_reference_error(error: CredentialResolveError) -> AppError {
     match error {
         CredentialResolveError::InvalidReference => AppError::credential_reference(
             StatusCode::BAD_REQUEST,
@@ -331,10 +356,25 @@ fn validate_provider_token(
     input: &CreateJobInput,
     provider_kind: &OcrProviderKind,
 ) -> Result<(), AppError> {
+    let is_configured = is_configured_command_provider(&input.ocr.provider);
+    let configured_token = configured_provider_inline_token(input);
+    let token = if is_configured {
+        configured_token
+    } else {
+        provider_token(provider_kind, &input.ocr)
+    };
+    let credential_ref = input.ocr.credential_ref.trim();
+    if !token.is_empty() && !credential_ref.is_empty() {
+        return Err(AppError::bad_request(
+            "OCR inline credential and ocr.credential_ref are mutually exclusive",
+        ));
+    }
+    if !credential_ref.is_empty() {
+        return Ok(());
+    }
     if matches!(provider_kind, OcrProviderKind::Local) {
         return Ok(());
     }
-    let token = provider_token(provider_kind, &input.ocr);
     let field_name = provider_token_field_name(provider_kind).unwrap_or("provider_token");
     let display_name = provider_display_name(provider_kind).unwrap_or("Provider");
     if token.is_empty() {
@@ -348,10 +388,26 @@ fn validate_provider_token(
     Ok(())
 }
 
+fn configured_provider_inline_token(input: &CreateJobInput) -> &str {
+    ["credential", "token", "api_key"]
+        .into_iter()
+        .find_map(|key| {
+            input
+                .ocr
+                .options
+                .get(key)
+                .and_then(serde_json::Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+        })
+        .unwrap_or("")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::models::domain::{now_iso, DEFAULT_SOURCE_CLEANUP_STRATEGY};
+    use crate::services::credentials::{create_credential, CreateCredentialInput};
 
     fn default_limits() -> ProviderLimitsConfig {
         ProviderLimitsConfig::from_env()
@@ -367,6 +423,22 @@ mod tests {
         let mut input = CreateJobInput::default();
         input.ocr.provider = "local".to_string();
         input
+    }
+
+    fn create_test_credential(root: &Path, kind: &str, provider: &str) -> String {
+        create_credential(
+            root,
+            CreateCredentialInput {
+                kind: kind.to_string(),
+                provider: provider.to_string(),
+                label: "OCR validation test".to_string(),
+                secret: "provider-secret".to_string(),
+                expected_revision: Some(0),
+            },
+        )
+        .expect("create test credential")
+        .credential
+        .credential_ref
     }
 
     fn upload_with_pages(page_count: u32) -> UploadRecord {
@@ -441,6 +513,104 @@ mod tests {
         let err = validate_provider_credentials(&input)
             .expect_err("CLI transport must not feed translation/render");
         assert!(err.to_string().contains("only supported for workflow=ocr"));
+    }
+
+    #[test]
+    fn ocr_credentials_accept_reference_and_reject_inline_secret_at_same_time() {
+        let mut input = paddle_input();
+        input.ocr.credential_ref = "cred_ocr_primary".to_string();
+        assert!(validate_ocr_provider_request(&input).is_ok());
+
+        input.ocr.paddle_token = "paddle-inline-secret".to_string();
+        let error = validate_ocr_provider_request(&input)
+            .expect_err("inline token and OCR credential_ref must be exclusive");
+        assert!(error.to_string().contains("mutually exclusive"));
+    }
+
+    #[test]
+    fn configured_provider_option_credential_is_exclusive_with_reference() {
+        let mut input = local_input();
+        input.ocr.credential_ref = "cred_local_ocr".to_string();
+        input.ocr.options.insert(
+            "credential".to_string(),
+            serde_json::Value::String("configured-inline-secret".to_string()),
+        );
+
+        let error = validate_ocr_provider_request(&input)
+            .expect_err("configured provider inline secret and reference must be exclusive");
+        assert!(error.to_string().contains("mutually exclusive"));
+    }
+
+    #[test]
+    fn ocr_credential_reference_requires_matching_kind_and_provider() {
+        let matching_root = std::env::temp_dir().join(format!(
+            "rust-api-ocr-credential-match-{:016x}",
+            fastrand::u64(..)
+        ));
+        let credential_ref =
+            create_test_credential(&matching_root, "ocr_provider_token", " Paddle ");
+        let mut input = paddle_input();
+        input.ocr.credential_ref = credential_ref;
+        validate_ocr_credential_reference(&input, &matching_root)
+            .expect("provider matching is trimmed and case insensitive");
+        let _ = std::fs::remove_dir_all(matching_root);
+
+        let wrong_provider_root = std::env::temp_dir().join(format!(
+            "rust-api-ocr-credential-provider-{:016x}",
+            fastrand::u64(..)
+        ));
+        input.ocr.credential_ref =
+            create_test_credential(&wrong_provider_root, "ocr_provider_token", "mineru");
+        let error = validate_ocr_credential_reference(&input, &wrong_provider_root)
+            .expect_err("credential provider mismatch must fail");
+        assert!(matches!(
+            error,
+            AppError::CredentialReference {
+                status: StatusCode::BAD_REQUEST,
+                code: "CREDENTIAL_PROVIDER_MISMATCH",
+                ..
+            }
+        ));
+        let _ = std::fs::remove_dir_all(wrong_provider_root);
+
+        let wrong_kind_root = std::env::temp_dir().join(format!(
+            "rust-api-ocr-credential-kind-{:016x}",
+            fastrand::u64(..)
+        ));
+        input.ocr.credential_ref =
+            create_test_credential(&wrong_kind_root, "translation_api_key", "paddle");
+        let error = validate_ocr_credential_reference(&input, &wrong_kind_root)
+            .expect_err("credential kind mismatch must fail");
+        assert!(matches!(
+            error,
+            AppError::CredentialReference {
+                status: StatusCode::BAD_REQUEST,
+                code: "CREDENTIAL_KIND_MISMATCH",
+                ..
+            }
+        ));
+        let _ = std::fs::remove_dir_all(wrong_kind_root);
+    }
+
+    #[test]
+    fn missing_ocr_credential_reference_is_a_diagnostic_not_found() {
+        let root = std::env::temp_dir().join(format!(
+            "rust-api-missing-ocr-credential-{:016x}",
+            fastrand::u64(..)
+        ));
+        let mut input = paddle_input();
+        input.ocr.credential_ref = "cred_missing".to_string();
+
+        let error = validate_ocr_credential_reference(&input, &root)
+            .expect_err("missing OCR credential must fail");
+        assert!(matches!(
+            error,
+            AppError::CredentialReference {
+                status: StatusCode::NOT_FOUND,
+                code: "CREDENTIAL_REF_NOT_FOUND",
+                ..
+            }
+        ));
     }
 
     #[test]

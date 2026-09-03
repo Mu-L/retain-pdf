@@ -217,6 +217,66 @@ def test_apply_translated_text_map_uses_structured_group_member_translations() -
     assert payload[1]["translation_diagnostics"]["group_member_translation_source"] == "structured"
 
 
+def test_apply_translated_text_map_rejects_repeated_full_group_member_translations() -> None:
+    payload = [
+        {
+            "item_id": "p001-b010",
+            "page_idx": 0,
+            "translation_unit_id": "__cg__:cg-cross-page",
+            "translation_unit_kind": "group",
+            "translation_unit_member_ids": ["p001-b010", "p002-b003"],
+            "should_translate": True,
+            "source_text": "A long paragraph occupies nearly all of the first box " * 20,
+            "protected_source_text": "A long paragraph occupies nearly all of the first box " * 20,
+            "protected_map": [],
+            "formula_map": [],
+            "translation_unit_protected_map": [],
+            "translation_unit_formula_map": [],
+            "group_protected_map": [],
+            "group_formula_map": [],
+        },
+        {
+            "item_id": "p002-b003",
+            "page_idx": 1,
+            "translation_unit_id": "__cg__:cg-cross-page",
+            "translation_unit_kind": "group",
+            "translation_unit_member_ids": ["p001-b010", "p002-b003"],
+            "should_translate": True,
+            "source_text": "whereas the short final clause continues on the next page.",
+            "protected_source_text": "whereas the short final clause continues on the next page.",
+            "protected_map": [],
+            "formula_map": [],
+            "translation_unit_protected_map": [],
+            "translation_unit_formula_map": [],
+            "group_protected_map": [],
+            "group_formula_map": [],
+        },
+    ]
+    aggregate = "第一部分内容很长，承载在前一页的大文本框中；而简短的最后分句延续到下一页。"
+    translated = {
+        "__cg__:cg-cross-page": {
+            "translated_text": aggregate,
+            "member_translations": [
+                {"item_id": "p001-b010", "translated_text": aggregate},
+                {"item_id": "p002-b003", "translated_text": aggregate},
+            ],
+        }
+    }
+
+    apply_translated_text_map(payload, translated)
+
+    assert payload[0]["translated_text"] != aggregate
+    assert payload[1]["translated_text"] != aggregate
+    assert payload[0]["translated_text"] + payload[1]["translated_text"] == aggregate
+    assert payload[1]["translated_text"]
+    assert len(payload[1]["translated_text"]) < len(aggregate)
+    assert payload[1]["translation_diagnostics"]["group_member_translation_source"] == "source_weighted_fallback"
+    assert (
+        payload[1]["translation_diagnostics"]["group_member_translation_fallback_reason"]
+        == "inconsistent_structured_members"
+    )
+
+
 def test_save_pages_preserves_cross_page_group_translation_units(tmp_path) -> None:
     page_payloads = {
         0: [

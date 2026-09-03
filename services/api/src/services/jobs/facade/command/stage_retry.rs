@@ -12,7 +12,10 @@ use super::super::super::query::load_job_or_404;
 use super::super::JobsFacade;
 use super::ocr_ambiguity::ambiguous_ocr_dispatch;
 use super::rerun::prepare_in_place_render_job;
-use super::stage_retry_overrides::{apply_retry_overrides, apply_retry_overrides_to_resolved_spec};
+use super::stage_retry_overrides::{
+    apply_retry_overrides, apply_retry_overrides_to_resolved_spec, discard_ocr_secret_sources,
+    discard_translation_secret_sources,
+};
 use super::stage_retry_request::build_retry_request;
 use super::stage_retry_view::{build_retry_stage_submission_view, build_stage_actions_view};
 
@@ -89,6 +92,8 @@ impl<'a> JobsFacade<'a> {
         } else if matches!(request.stage, RetryStageKind::Render) {
             let mut job = prepare_in_place_render_job(source_job)?;
             apply_retry_overrides_to_resolved_spec(&mut job.request_payload, &request.overrides)?;
+            discard_ocr_secret_sources(&mut job.request_payload.ocr);
+            discard_translation_secret_sources(&mut job.request_payload.translation);
             job.request_payload.runtime.job_id = job.job_id.clone();
             job.sync_runtime_state();
             let job = start_job_execution(&self.command.submit.launcher, job)?;

@@ -112,6 +112,10 @@ def test_pending_translation_items_refreshes_member_ids_for_real_group() -> None
     assert payload[1]["translation_unit_member_ids"] == ["a", "b"]
     assert payload[0]["translation_unit_kind"] == "group"
     assert payload[1]["translation_unit_kind"] == "group"
+    assert units[0]["translation_unit_members"] == [
+        {"item_id": "a", "protected_source_text": "left body text"},
+        {"item_id": "b", "protected_source_text": "right body text"},
+    ]
 
 
 def test_fragmented_formula_continuation_group_stays_grouped() -> None:

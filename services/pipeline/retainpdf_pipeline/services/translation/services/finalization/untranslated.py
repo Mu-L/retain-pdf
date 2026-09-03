@@ -5,9 +5,13 @@ from dataclasses import dataclass
 import os
 
 from retainpdf_pipeline.services.translation.artifacts import blocking_untranslated_items
+from retainpdf_pipeline.services.translation.core.payload.parts.apply import apply_group_translated_entry
 from retainpdf_pipeline.services.translation.core.payload.parts.apply import apply_single_translated_entry
+from retainpdf_pipeline.services.translation.core.payload.parts.common import effective_translation_unit_id
+from retainpdf_pipeline.services.translation.core.payload.parts.common import item_has_multi_member_group_unit
 from retainpdf_pipeline.services.translation.core.payload.parts.diagnostics import record_translation_diagnostics
 from retainpdf_pipeline.services.translation.core.payload.parts.policy_state import mark_keep_origin
+from retainpdf_pipeline.services.translation.core.payload.parts.units import pending_translation_items
 from retainpdf_pipeline.services.translation.llm.shared.provider_runtime import request_chat_content
 from retainpdf_pipeline.services.translation.llm.result_payload import result_entry
 from retainpdf_pipeline.services.translation.llm.validation.quality import review_translation_item
@@ -51,6 +55,8 @@ def recover_blocking_untranslated_items(
     request_chat_content_fn=request_chat_content,
 ) -> FinalUntranslatedRecoverySummary:
     max_items = _max_items_from_env(max_items)
+    flat_payload = [item for page_idx in sorted(page_payloads) for item in page_payloads[page_idx]]
+    pending_translation_items(flat_payload)
     blocking = blocking_untranslated_items(page_payloads)
     if not blocking:
         return FinalUntranslatedRecoverySummary()
@@ -68,11 +74,24 @@ def recover_blocking_untranslated_items(
             blocking_before=blocking_before,
             blocking_after=0,
         )
-    recoverable = [
-        item_by_id[item["item_id"]]
-        for item in blocking
-        if item.get("item_id") in item_by_id and _can_final_recover(item_by_id[item["item_id"]])
-    ]
+    recovery_members = _recovery_members_by_key(page_payloads)
+    recoverable: list[dict] = []
+    recovery_key_by_representative_id: dict[str, str] = {}
+    seen_recovery_keys: set[str] = set()
+    for blocked_item in blocking:
+        item_id = str(blocked_item.get("item_id", "") or "")
+        item = item_by_id.get(item_id)
+        if item is None or not _can_final_recover(item):
+            continue
+        recovery_key = _recovery_key(item)
+        if recovery_key in seen_recovery_keys:
+            continue
+        members = recovery_members.get(recovery_key) or [item]
+        representative = members[0]
+        representative_id = str(representative.get("item_id", "") or "")
+        seen_recovery_keys.add(recovery_key)
+        recovery_key_by_representative_id[representative_id] = recovery_key
+        recoverable.append(representative)
     candidates = recoverable[: max(0, max_items)]
     skipped_by_budget = max(0, len(recoverable) - len(candidates))
     if not candidates:
@@ -114,12 +133,19 @@ def recover_blocking_untranslated_items(
             results = [future.result() for future in as_completed(futures)]
 
     for item, payload, exc in results:
+        representative_id = str(item.get("item_id", "") or "")
+        recovery_key = recovery_key_by_representative_id.get(representative_id, _recovery_key(item))
+        members = recovery_members.get(recovery_key) or [item]
         if payload is not None:
-            apply_single_translated_entry(item, payload)
+            if _is_aggregate_geometry_group(item):
+                apply_group_translated_entry(members, payload)
+            else:
+                apply_single_translated_entry(item, payload)
             recovered += 1
             continue
-        _mark_final_dead_letter(item, exc)
-        dead_letter += 1
+        for member in members:
+            _mark_final_dead_letter(member, exc)
+        dead_letter += len(members)
 
     after = blocking_untranslated_items(page_payloads)
     return FinalUntranslatedRecoverySummary(
@@ -149,6 +175,27 @@ def _item_index(page_payloads: dict[int, list[dict]]) -> dict[str, dict]:
         for item in page_payloads[page_idx]
         if str(item.get("item_id", "") or "")
     }
+
+
+def _is_aggregate_geometry_group(item: dict) -> bool:
+    return (
+        str(item.get("translation_group_strategy", "") or "").strip() == "aggregate_geometry"
+        and item_has_multi_member_group_unit(item)
+    )
+
+
+def _recovery_key(item: dict) -> str:
+    if _is_aggregate_geometry_group(item):
+        return effective_translation_unit_id(item)
+    return f"item:{item.get('item_id', '')}"
+
+
+def _recovery_members_by_key(page_payloads: dict[int, list[dict]]) -> dict[str, list[dict]]:
+    members_by_key: dict[str, list[dict]] = {}
+    for page_idx in sorted(page_payloads):
+        for item in page_payloads[page_idx]:
+            members_by_key.setdefault(_recovery_key(item), []).append(item)
+    return members_by_key
 
 
 def _can_final_recover(item: dict) -> bool:

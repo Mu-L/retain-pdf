@@ -1,6 +1,6 @@
 // 双栏挂载/可见性 + 页数 + metrics 修订：从 ReaderAppReactPdf 抽出。
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReaderMode } from "./use-reader-session.js";
 import type { ProtectedPdfFile } from "../pdf/useProtectedPdfFile.js";
 
@@ -66,19 +66,30 @@ export function computeReaderPaneFlags(input: {
 
 export function useReaderPaneModel(
   input: ReaderPaneModelInput,
-  extras?: { userZoom?: number; shellWidth?: number },
+  extras?: { userZoom?: number; shellWidth?: number; identityKey?: string },
 ): ReaderPaneModel {
   const {
     mode,
     sourceOnly,
     assetsReady,
     sourceUrl,
+    translatedUrl,
     sourceFile,
     translatedFile,
   } = input;
 
-  const [numPagesByPane, setNumPagesByPane] = useState({ source: 0, translated: 0 });
-  const [metricsTick, setMetricsTick] = useState(0);
+  const paneIdentity = `${extras?.identityKey || ""}\u0000${sourceUrl}\u0000${translatedUrl}`;
+  const activeIdentityRef = useRef(paneIdentity);
+  activeIdentityRef.current = paneIdentity;
+  const [pageState, setPageState] = useState(() => ({
+    identity: paneIdentity,
+    pages: { source: 0, translated: 0 },
+  }));
+  const [metricsState, setMetricsState] = useState(() => ({ identity: paneIdentity, tick: 0 }));
+  const numPagesByPane = pageState.identity === paneIdentity
+    ? pageState.pages
+    : { source: 0, translated: 0 };
+  const metricsTick = metricsState.identity === paneIdentity ? metricsState.tick : 0;
 
   const flags = computeReaderPaneFlags({
     mode,
@@ -90,18 +101,55 @@ export function useReaderPaneModel(
   const { primaryPane } = flags;
 
   const onNumPages = useCallback((pages: number, pane: "source" | "translated") => {
-    setNumPagesByPane((prev) => (
-      prev[pane] === pages ? prev : { ...prev, [pane]: pages }
-    ));
-  }, []);
+    if (activeIdentityRef.current !== paneIdentity) return;
+    setPageState((prev) => {
+      const current = prev.identity === paneIdentity
+        ? prev.pages
+        : { source: 0, translated: 0 };
+      if (current[pane] === pages && prev.identity === paneIdentity) return prev;
+      return {
+        identity: paneIdentity,
+        pages: { ...current, [pane]: pages },
+      };
+    });
+  }, [paneIdentity]);
 
   const metricsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onMetrics = useCallback(() => {
     if (metricsTimerRef.current) clearTimeout(metricsTimerRef.current);
+    const scheduledIdentity = paneIdentity;
     metricsTimerRef.current = setTimeout(() => {
-      setMetricsTick((n) => n + 1);
+      metricsTimerRef.current = null;
+      if (activeIdentityRef.current !== scheduledIdentity) return;
+      setMetricsState((prev) => ({
+        identity: scheduledIdentity,
+        tick: prev.identity === scheduledIdentity ? prev.tick + 1 : 1,
+      }));
     }, 60);
-  }, []);
+  }, [paneIdentity]);
+
+  useEffect(() => {
+    if (metricsTimerRef.current) {
+      clearTimeout(metricsTimerRef.current);
+      metricsTimerRef.current = null;
+    }
+    setPageState((prev) => (
+      prev.identity === paneIdentity && prev.pages.source === 0 && prev.pages.translated === 0
+        ? prev
+        : { identity: paneIdentity, pages: { source: 0, translated: 0 } }
+    ));
+    setMetricsState((prev) => (
+      prev.identity === paneIdentity && prev.tick === 0
+        ? prev
+        : { identity: paneIdentity, tick: 0 }
+    ));
+    return () => {
+      if (metricsTimerRef.current) {
+        clearTimeout(metricsTimerRef.current);
+        metricsTimerRef.current = null;
+      }
+    };
+  }, [paneIdentity]);
 
   const hudNumPages = useMemo(
     () => Math.max(numPagesByPane.source, numPagesByPane.translated),
@@ -114,7 +162,7 @@ export function useReaderPaneModel(
 
   const userZoom = extras?.userZoom;
   const shellWidth = extras?.shellWidth;
-  const rowSyncRevision = `${metricsTick}-${userZoom}-${mode}-${numPagesByPane.source}-${numPagesByPane.translated}-${shellWidth}`;
+  const rowSyncRevision = `${paneIdentity}-${metricsTick}-${userZoom}-${mode}-${numPagesByPane.source}-${numPagesByPane.translated}-${shellWidth}`;
 
   return {
     ...flags,

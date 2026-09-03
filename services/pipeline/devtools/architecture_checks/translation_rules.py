@@ -58,6 +58,7 @@ TRANSLATION_WORKFLOW_SUBPACKAGE_RULES: dict[str, tuple[str, ...]] = {
         "retainpdf_pipeline.services.translation.workflow.execution",
         "retainpdf_pipeline.services.translation.workflow.execution_plan",
         "retainpdf_pipeline.services.translation.core.engine_identity",
+        "retainpdf_pipeline.services.translation.core.payload.parts.fingerprints",
         "retainpdf_pipeline.services.translation.core.payload.parts.units",
     ),
     "phases": (

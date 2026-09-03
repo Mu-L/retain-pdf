@@ -19,6 +19,7 @@ import { ReaderAgentOperationPanel } from "./ReaderAgentOperationPanel.js";
 import type { useReaderAgentOperations } from "./use-reader-agent-operations.js";
 import type { ReaderAskStoreMessage } from "./reader-ask-tree.js";
 import type { ReaderAssistantMode } from "../../../shared/ai/ask-answerer.js";
+import type { ReaderSelection } from "../../../shared/data/reader-regions.js";
 
 const identityMessageConverter = (message: ThreadMessageLike): ThreadMessageLike => message;
 const EMPTY_MESSAGES: readonly ReaderAskStoreMessage[] = Object.freeze([]);
@@ -50,6 +51,8 @@ export type ReaderAssistantThreadProps = {
   agentOperations?: ReturnType<typeof useReaderAgentOperations>;
   assistantMode?: ReaderAssistantMode;
   onAssistantModeChange?: (mode: ReaderAssistantMode) => void;
+  selectionContext?: ReaderSelection | null;
+  onClearSelectionContext?: () => void;
 };
 
 function messageText(message: AppendMessage): string {
@@ -97,6 +100,8 @@ export function ReaderAssistantThread({
   agentOperations = EMPTY_AGENT_OPERATIONS,
   assistantMode = "reading",
   onAssistantModeChange,
+  selectionContext = null,
+  onClearSelectionContext,
 }: ReaderAssistantThreadProps) {
   const [, setCredentialEpoch] = useState(0);
 
@@ -175,9 +180,10 @@ export function ReaderAssistantThread({
         agentRequestBlocked={agentOperations.runtimeRestarting}
         assistantMode={assistantMode}
         onAssistantModeChange={onAssistantModeChange}
+        selectionContext={selectionContext}
+        onClearSelectionContext={onClearSelectionContext}
         agentOperationPanel={(
-          assistantMode === "operations"
-          || agentOperations.entries.length > 0
+          agentOperations.entries.length > 0
           || agentOperations.runtimeRestarting
         ) ? (
           <ReaderAgentOperationPanel

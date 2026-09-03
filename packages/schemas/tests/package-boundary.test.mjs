@@ -8,6 +8,7 @@ const generatedJobStatus = readFileSync(resolve("src/job-status.ts"), "utf8");
 const generatedLibraryBooks = readFileSync(resolve("src/library-books.ts"), "utf8");
 const RAW_SCHEMA_EXPORTS = [
   "./ai-ask.v1.schema.json",
+  "./agent-calculation.v1.schema.json",
   "./ai-conversations.v1.schema.json",
   "./job-status.v1.schema.json",
   "./jobs-control.v1.schema.json",

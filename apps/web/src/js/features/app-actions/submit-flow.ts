@@ -324,21 +324,27 @@ export function publishSubmitSuccess({
 }: PublishSubmitSuccessOptions = {}) {
   // 创建事件已 insert+hydrate；不再 200/1500/4000 三次 force 整页刷（叠乘闪烁）
   libraryEventPort?.publishJobCreated?.(payload);
-  // 单次延迟 soft 对齐文档投影（soft reset 保留旧 items；不 force 绕过 workflow suspend）
-  windowRef?.setTimeout?.(() => {
-    libraryEventPort?.requestRefresh?.({ delay: 0, force: false });
-  }, 800);
-  const EventCtor = documentRef?.defaultView?.CustomEvent || globalThis.CustomEvent;
-  const openWorkflowEvent = typeof EventCtor === "function"
-    ? new EventCtor(APP_EVENTS.openTranslationWorkflow)
-    : { type: APP_EVENTS.openTranslationWorkflow };
-  documentRef?.dispatchEvent?.(openWorkflowEvent as Event);
   const job = asJobPayload(payload);
+
+  // 先让全局 job runtime 接管新任务，再关闭上传弹窗。关闭弹窗只影响展示，
+  // 不会停止后台轮询；同时 close 事件会解除书库刷新挂起并触发一次投影对账。
   syncCurrentJobSnapshot?.(state, payload, job?.job_id || "", {
     startedAt: now(),
   });
   renderJob?.(payload);
   startJobPolling?.(job?.job_id);
+
+  const EventCtor = documentRef?.defaultView?.CustomEvent || globalThis.CustomEvent;
+  const closeWorkflowEvent = typeof EventCtor === "function"
+    ? new EventCtor(APP_EVENTS.closeTranslationWorkflow)
+    : { type: APP_EVENTS.closeTranslationWorkflow };
+  documentRef?.dispatchEvent?.(closeWorkflowEvent as Event);
+
+  // close 事件通常会在 300ms 后刷新；这一轮 soft refresh 是无 DOM 订阅者时的兜底，
+  // scheduler 会合并/节流重复刷新，且此时 workflow 已不再处于 suspended 状态。
+  windowRef?.setTimeout?.(() => {
+    libraryEventPort?.requestRefresh?.({ delay: 0, force: false });
+  }, 800);
 }
 
 export async function runSubmitFlow({

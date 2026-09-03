@@ -1,6 +1,6 @@
 // 阅读器缩放：100% = 适应当前栏宽；变更时保持视口中心不偏右/上跳。
 
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import {
   clampReaderZoom,
@@ -8,6 +8,10 @@ import {
   preserveScrollCenter,
   stepReaderZoom,
 } from "../pdf/reader-zoom.js";
+import {
+  loadReaderViewState,
+  saveReaderViewState,
+} from "../shared/state/reader-view-state.js";
 
 export type ReaderZoomApi = {
   userZoom: number;
@@ -19,11 +23,24 @@ export type ReaderZoomApi = {
 export function useReaderZoom(
   initialMode?: string,
   shellRef?: RefObject<HTMLElement | null>,
+  persistenceKey = "",
 ): ReaderZoomApi {
-  const [userZoom, setUserZoom] = useState(() => defaultZoomForMode(initialMode));
+  const [userZoom, setUserZoom] = useState(() => (
+    loadReaderViewState(persistenceKey)?.zoom ?? defaultZoomForMode(initialMode)
+  ));
   const zoomRef = useRef(userZoom);
+  const persistenceKeyRef = useRef(persistenceKey);
   zoomRef.current = userZoom;
   const pendingRatioRef = useRef(1);
+
+  useEffect(() => {
+    if (persistenceKeyRef.current === persistenceKey) return;
+    persistenceKeyRef.current = persistenceKey;
+    const next = loadReaderViewState(persistenceKey)?.zoom ?? defaultZoomForMode(initialMode);
+    pendingRatioRef.current = 1;
+    zoomRef.current = next;
+    setUserZoom(next);
+  }, [initialMode, persistenceKey]);
 
   const onZoomChange = useCallback((zoom: number) => {
     const next = clampReaderZoom(zoom);
@@ -32,6 +49,7 @@ export function useReaderZoom(
       return;
     }
     pendingRatioRef.current = next / (prev || 1);
+    saveReaderViewState(persistenceKeyRef.current, { zoom: next });
     setUserZoom(next);
   }, []);
 

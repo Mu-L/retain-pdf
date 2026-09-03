@@ -14,9 +14,52 @@ GET /api/v1/jobs/{job_id}/live-events?after_seq={seq}
 ```
 
 `layout` projects page dimensions and text-block `item_id`, PDF-coordinate
-`bbox`, source text, and kind from the normalized OCR document. `page_idx` is
-zero-based. Item IDs are canonicalized so layout blocks and translated items
-can be joined directly.
+`bbox`, source text, and kind from the normalized OCR document. When a valid
+renderer typography plan exists, the block `bbox` instead uses that plan's
+background rectangle so its padding and bounding box stay in the same
+coordinate system. `page_idx` is zero-based. Item IDs are canonicalized so
+layout blocks and translated items use the same stable identity and can be
+joined directly.
+
+When a valid structured render-prewarm manifest is available, each layout
+block may also include the renderer-authored `typography` plan used to place
+its translation:
+
+```json
+{
+  "item_id": "p001-b0003",
+  "bbox": [59, 176, 304, 445],
+  "source_text": "Original text",
+  "kind": "paragraph",
+  "typography": {
+    "font_family": "Source Han Serif SC",
+    "font_size_pt": 9.82,
+    "leading_em": 0.56,
+    "font_weight": 400,
+    "text_align": "justify",
+    "padding_top_pt": 0,
+    "padding_right_pt": 0,
+    "padding_bottom_pt": 0,
+    "padding_left_pt": 0,
+    "fit_min_font_size_pt": 7,
+    "fit_max_font_size_pt": 9.82
+  }
+}
+```
+
+`bbox`, font sizes, and padding values are PDF points; `leading_em` is in `em`.
+`font_weight` is numeric and `text_align` is the planned alignment value. The
+API reads the layout values from the structured render-prewarm manifest and
+the font family from the job's durable render settings; it never requires
+clients to fetch or parse a `.typ` file. The padding values are the differences
+between the persisted background and content rectangles.
+
+This is the input plan and fitting range supplied to Typst, not a claim about
+the final size selected internally by a later Typst binary-fit compilation.
+`typography` is optional and is omitted for old jobs or whenever the matching
+block lacks a complete, valid parameter set; clients may then apply their own
+fitting fallback. A missing or malformed prewarm manifest does not make the
+layout request fail.
 
 The page endpoint returns `attempt`, the Rust state-machine `generation`,
 `page_hash`, and translated items. It does not read the mutable translated
@@ -24,6 +67,9 @@ page file. It first selects the latest committed `translate` pipeline unit for
 the page, then reads only an immutable `.translation-checkpoints/generation-*`
 page snapshot whose raw SHA-256 equals the committed database `page_hash`.
 Items without a non-empty committed translation are omitted.
+`translated_text` is returned without rewriting its content, including `$...$`
+and `$$...$$` LaTeX delimiters; mathematical content is not converted to an
+image or stripped before delivery to the client.
 
 `live-events` is an SSE stream. Each committed event has an SSE `id` equal to
 the authoritative per-job database sequence and event name

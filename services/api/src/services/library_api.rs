@@ -4,25 +4,29 @@
 
 use crate::error::AppError;
 use crate::models::api::{
-    AddCollectionDocumentsInput, AppendMessageInput, AssetRecord, CollectionListView,
-    CollectionMutationResult, CollectionRecord, ConversationDetailView, ConversationListView,
-    ConversationMutationResult, ConversationRecord, CreateCollectionInput, CreateConversationInput,
+    AddCollectionDocumentsInput, AppendMessageInput, ApplyDocumentMetadataSuggestionInput,
+    AssetRecord, CollectionListView, CollectionMutationResult, CollectionRecord,
+    ConversationDetailView, ConversationListView, ConversationMutationResult, ConversationRecord,
+    CreateCollectionInput, CreateConversationInput, CreateDocumentMetadataSuggestionInput,
     CreateFavoriteInput, DocumentDeleteResultView, DocumentJobListView, DocumentListView,
-    DocumentRecord, FavoriteListView, FavoriteMutationResult, FavoriteRecord, JobSubmissionView,
-    LibraryBatchDeleteInput, LibraryBatchDeleteResultView, LibraryBookDetailView,
-    LibraryBookListView, LibraryDeleteResultView, ListConversationsQuery, ListDocumentJobsQuery,
-    ListDocumentsQuery, ListFavoritesQuery, ListJobsQuery, MessageRecord, PatchCollectionInput,
-    PatchConversationInput, PatchDocumentInput, PatchFavoriteInput, SearchQuery, SearchResultView,
+    DocumentMetadataSuggestionApplyView, DocumentMetadataSuggestionListView,
+    DocumentMetadataSuggestionView, DocumentRecord, FavoriteListView, FavoriteMutationResult,
+    FavoriteRecord, JobSubmissionView, LibraryBatchDeleteInput, LibraryBatchDeleteResultView,
+    LibraryBookDetailView, LibraryBookListView, LibraryDeleteResultView, ListConversationsQuery,
+    ListDocumentJobsQuery, ListDocumentMetadataSuggestionsQuery, ListDocumentsQuery,
+    ListFavoritesQuery, ListJobsQuery, MessageRecord, PatchCollectionInput, PatchConversationInput,
+    PatchDocumentInput, PatchFavoriteInput, SearchQuery, SearchResultView,
 };
 use crate::models::request::CreateJobInput;
 use crate::services::jobs::JobsFacade;
 
 use super::library::{
-    add_collection_documents, append_message, create_collection, create_conversation,
-    create_favorite, delete_collection, delete_conversation, delete_document, delete_favorite,
-    delete_library_book, delete_library_books, document_cover, document_source_pdf,
-    document_thumbnail, get_conversation, get_document, get_library_book, list_collections,
-    list_conversations, list_documents, list_favorites, list_library_books, load_asset,
+    add_collection_documents, append_message, apply_metadata_suggestion, create_collection,
+    create_conversation, create_favorite, create_metadata_suggestion, delete_collection,
+    delete_conversation, delete_document, delete_favorite, delete_library_book,
+    delete_library_books, document_cover, document_source_pdf, document_thumbnail,
+    get_conversation, get_document, get_library_book, list_collections, list_conversations,
+    list_documents, list_favorites, list_library_books, list_metadata_suggestions, load_asset,
     ocr_document, patch_collection, patch_conversation, patch_document, patch_favorite,
     remove_collection_document, search_blocks, store_asset, translate_document, AssetDownload,
     DocumentFileDownload, LibraryDeps,
@@ -94,6 +98,31 @@ pub fn delete_document_view(
     force: bool,
 ) -> Result<DocumentDeleteResultView, AppError> {
     delete_document(deps, document_id, force)
+}
+
+pub fn create_document_metadata_suggestion_view(
+    deps: &LibraryDeps<'_>,
+    document_id: &str,
+    input: &CreateDocumentMetadataSuggestionInput,
+) -> Result<DocumentMetadataSuggestionView, AppError> {
+    create_metadata_suggestion(deps, document_id, input)
+}
+
+pub fn list_document_metadata_suggestions_view(
+    deps: &LibraryDeps<'_>,
+    document_id: &str,
+    query: &ListDocumentMetadataSuggestionsQuery,
+) -> Result<DocumentMetadataSuggestionListView, AppError> {
+    list_metadata_suggestions(deps, document_id, query)
+}
+
+pub fn apply_document_metadata_suggestion_view(
+    deps: &LibraryDeps<'_>,
+    document_id: &str,
+    suggestion_id: &str,
+    input: &ApplyDocumentMetadataSuggestionInput,
+) -> Result<DocumentMetadataSuggestionApplyView, AppError> {
+    apply_metadata_suggestion(deps, document_id, suggestion_id, input)
 }
 
 pub fn list_document_jobs_view(

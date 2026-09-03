@@ -62,7 +62,7 @@ def fx_gateway_chat_url(base_url: str) -> str:
 
 
 def _repo_root() -> Path:
-    # services/ai/retainpdf_ai/config.py -> 仓库根（兼容旧 backend/ai_service）
+    # services/ai/retainpdf_ai/config.py -> repository root
     return Path(__file__).resolve().parents[3]
 
 
@@ -83,6 +83,9 @@ class Settings:
     llm_timeout_s: float = 60.0
     # agent 循环护栏
     max_tool_rounds: int = 6
+    reading_max_tool_rounds: int = 3
+    ai_request_deadline_s: float = 90.0
+    ai_heartbeat_interval_s: float = 5.0
     # B2 memory：近期窗口 / 超过则压缩 / MemoryView 字符上限
     memory_window_turns: int = 6
     memory_compress_after_turns: int = 12
@@ -216,6 +219,24 @@ def load_settings() -> Settings:
         llm_credential_ref=os.environ.get("RETAIN_AI_LLM_CREDENTIAL_REF", "").strip(),
         llm_timeout_s=float(os.environ.get("RETAIN_AI_LLM_TIMEOUT_S", "60")),
         max_tool_rounds=int(os.environ.get("RETAIN_AI_MAX_TOOL_ROUNDS", "6")),
+        reading_max_tool_rounds=max(
+            1,
+            min(
+                3,
+                int(os.environ.get("RETAIN_AI_READING_MAX_TOOL_ROUNDS", "3")),
+            ),
+        ),
+        ai_request_deadline_s=max(
+            1.0,
+            float(os.environ.get("RETAIN_AI_REQUEST_DEADLINE_SECS", "90")),
+        ),
+        ai_heartbeat_interval_s=max(
+            1.0,
+            min(
+                10.0,
+                float(os.environ.get("RETAIN_AI_HEARTBEAT_INTERVAL_SECS", "5")),
+            ),
+        ),
         memory_window_turns=int(os.environ.get("RETAIN_AI_MEMORY_WINDOW_TURNS", "6")),
         memory_compress_after_turns=int(os.environ.get("RETAIN_AI_MEMORY_COMPRESS_AFTER_TURNS", "12")),
         memory_max_chars=int(os.environ.get("RETAIN_AI_MEMORY_MAX_CHARS", "24000")),

@@ -31,7 +31,11 @@ RUN npm run build && \
 
 FROM nginx:1.27-alpine
 
-RUN apk add --no-cache bash gettext
+# Ensures the official nginx envsubst entrypoint always replaces the template
+# placeholder, even when server-side API-key injection is intentionally off.
+ENV RETAINPDF_PROXY_API_KEY=""
+
+RUN apk add --no-cache bash gettext jq
 
 COPY --from=frontend-builder /app/apps/web/ /usr/share/nginx/html/
 COPY infra/docker/nginx.conf.template /etc/nginx/templates/default.conf.template

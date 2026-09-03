@@ -198,7 +198,7 @@ type BookCardProps = {
   actions?: BookCardAction[];
   onSelect?: (jobId: string) => void;
   onOpenDetail?: (item: LibraryCardItem) => void;
-  onReader?: (jobId: string) => void;
+  onReader?: (jobId: string, documentId?: string) => void;
   onReadSource?: (documentId: string) => void;
   batchMode?: boolean;
   selected?: boolean;

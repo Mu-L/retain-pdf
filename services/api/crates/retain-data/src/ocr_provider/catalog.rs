@@ -13,6 +13,8 @@ const MINERU_RESULT_FILE_NAME: &str = "mineru_result.json";
 const MINERU_BUNDLE_FILE_NAME: &str = "mineru_bundle.zip";
 const MINERU_UNPACK_DIR_NAME: &str = "unpacked";
 const MINERU_LAYOUT_JSON_FILE_NAME: &str = "layout.json";
+const OCR_CREDENTIAL_KIND: &str = "ocr_provider_token";
+const OCR_CREDENTIAL_REFERENCE_FIELD: &str = "credential_ref";
 
 #[derive(Debug, Clone)]
 pub struct OcrProviderDefinition {
@@ -202,6 +204,9 @@ fn parse_credential_spec(value: Option<&Value>) -> Option<OcrProviderCredentialS
         })
         .unwrap_or_default();
     Some(OcrProviderCredentialSpec {
+        credential_kind: OCR_CREDENTIAL_KIND.to_string(),
+        reference_field: OCR_CREDENTIAL_REFERENCE_FIELD.to_string(),
+        legacy_inline_field: field.clone(),
         field,
         env,
         required_for,
@@ -405,13 +410,12 @@ mod tests {
             .find(|definition| definition.key == "paddle")
             .expect("paddle public definition");
         assert_eq!(paddle.display_name, "PaddleOCR");
-        assert_eq!(
-            paddle
-                .credential
-                .as_ref()
-                .map(|credential| credential.field.as_str()),
-            Some("paddle_token")
-        );
+        let credential = paddle.credential.as_ref().expect("paddle credential");
+        assert_eq!(credential.credential_kind, "ocr_provider_token");
+        assert_eq!(credential.reference_field, "credential_ref");
+        assert_eq!(credential.legacy_inline_field, "paddle_token");
+        assert_eq!(credential.field, "paddle_token");
+        assert_eq!(credential.env, "RETAIN_PADDLE_API_TOKEN");
         assert_eq!(
             paddle
                 .options
@@ -427,6 +431,30 @@ mod tests {
         let transport = paddle.options.get("transport").expect("transport option");
         assert_eq!(transport.default, serde_json::json!("official_http"));
         assert_eq!(transport.choices, vec!["official_http", "official_cli"]);
+    }
+
+    #[test]
+    fn configured_provider_credential_keeps_declared_field_as_legacy_hint() {
+        let definition = provider_public_definition_from_config(
+            "acme".to_string(),
+            serde_json::json!({
+                "display_name": "Acme OCR",
+                "kind": "remote_command",
+                "credential": {
+                    "field": "acme_token",
+                    "env": "ACME_OCR_TOKEN",
+                    "required_for": ["local_upload"]
+                }
+            }),
+        );
+
+        let credential = definition.credential.expect("configured credential");
+        assert_eq!(credential.credential_kind, "ocr_provider_token");
+        assert_eq!(credential.reference_field, "credential_ref");
+        assert_eq!(credential.legacy_inline_field, "acme_token");
+        assert_eq!(credential.field, "acme_token");
+        assert_eq!(credential.env, "ACME_OCR_TOKEN");
+        assert_eq!(credential.required_for, vec!["local_upload"]);
     }
 
     #[test]

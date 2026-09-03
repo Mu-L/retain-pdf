@@ -9,12 +9,16 @@ from typing import Callable
 
 from retainpdf_pipeline.services.translation.core.item_reader import item_block_kind
 from retainpdf_pipeline.services.translation.core.payload.formula_protection import restore_protected_tokens
+from retainpdf_pipeline.services.translation.core.payload.parts.apply import apply_group_translated_entry
 from retainpdf_pipeline.services.translation.core.payload.parts.apply import apply_reconstructed_unit_text
+from retainpdf_pipeline.services.translation.core.payload.parts.common import effective_translation_unit_id
+from retainpdf_pipeline.services.translation.core.payload.parts.common import item_has_multi_member_group_unit
 from retainpdf_pipeline.services.translation.core.payload.parts.diagnostics import record_translation_diagnostics
 from retainpdf_pipeline.services.translation.core.payload.parts.final_status import TRANSLATED_STATUS
 from retainpdf_pipeline.services.translation.core.payload.parts.final_status import set_final_status
 from retainpdf_pipeline.services.translation.core.payload.parts.policy_state import mark_translation_required
 from retainpdf_pipeline.services.translation.core.payload.parts.result_entries import salvage_reasoning_leak
+from retainpdf_pipeline.services.translation.core.payload.parts.units import pending_translation_items
 from retainpdf_pipeline.services.translation.llm.shared.structured_models import GARBLED_RECONSTRUCTION_RESPONSE_SCHEMA
 from retainpdf_pipeline.services.translation.llm.shared.structured_parsers import parse_garbled_reconstruction_response
 from retainpdf_pipeline.services.translation.artifacts.status import has_translation_artifact
@@ -210,7 +214,12 @@ def _clean_reconstructed_text(text: str, item: dict) -> tuple[str, bool]:
     # 复用主翻译回填的清洗:剥离模型 reasoning 泄漏,再还原占位符。
     # 其它翻译/修复路径都经 apply.py 做这两步,唯独乱码重建曾直接落盘模型原始输出。
     salvaged, salvage_changed = salvage_reasoning_leak(text)
-    protected_map = item.get("protected_map") or item.get("formula_map", [])
+    protected_map = (
+        item.get("translation_unit_protected_map")
+        or item.get("translation_unit_formula_map")
+        or item.get("protected_map")
+        or item.get("formula_map", [])
+    )
     return restore_protected_tokens(salvaged, protected_map), salvage_changed
 
 
@@ -224,7 +233,17 @@ def _apply_reconstruction(items: list[dict], translated_text: str) -> None:
         for item in items:
             _record_reconstruction_rejected(item, validation_issues)
         return
-    apply_reconstructed_unit_text(items, cleaned_text)
+    if _is_aggregate_geometry_group(items[0]):
+        apply_group_translated_entry(
+            items,
+            {
+                "decision": "translate",
+                "translated_text": cleaned_text,
+                "final_status": "translated",
+            },
+        )
+    else:
+        apply_reconstructed_unit_text(items, cleaned_text)
     for item in items:
         # 候选资格已保证 should_translate=True(verdict 会把显式 False 挡在
         # should_skip_model_by_policy 之外),此处写 True 为恒等操作。
@@ -246,7 +265,16 @@ def _apply_reconstruction(items: list[dict], translated_text: str) -> None:
 
 
 def _candidate_key(item: dict) -> str:
+    if _is_aggregate_geometry_group(item):
+        return effective_translation_unit_id(item)
     return f"item:{item.get('item_id', '')}"
+
+
+def _is_aggregate_geometry_group(item: dict) -> bool:
+    return (
+        str(item.get("translation_group_strategy", "") or "").strip() == "aggregate_geometry"
+        and item_has_multi_member_group_unit(item)
+    )
 
 
 def _validate_reconstruction(item: dict, translated_text: str) -> list:
@@ -278,14 +306,19 @@ def _record_reconstruction_rejected(item: dict, issues: list) -> None:
 
 
 def _collect_candidates(items: list[dict]) -> tuple[dict[str, list[dict]], dict[str, dict]]:
-    candidates_by_key: dict[str, list[dict]] = {}
+    candidate_keys: set[str] = set()
     representatives: dict[str, dict] = {}
     for item in items:
         if not should_reconstruct_garbled_item(item):
             continue
         key = _candidate_key(item)
-        candidates_by_key.setdefault(key, []).append(item)
+        candidate_keys.add(key)
         representatives.setdefault(key, item)
+    candidates_by_key: dict[str, list[dict]] = {key: [] for key in candidate_keys}
+    for item in items:
+        key = _candidate_key(item)
+        if key in candidate_keys:
+            candidates_by_key[key].append(item)
     return candidates_by_key, representatives
 
 
@@ -375,6 +408,7 @@ def reconstruct_garbled_items(
     workers: int,
     runtime: GarbledReconstructionRuntime,
 ) -> dict[str, int]:
+    pending_translation_items(payload)
     candidates_by_key, representatives = _collect_candidates(payload)
     if not representatives:
         return {"garbled_candidates": 0, "garbled_reconstructed": 0}
@@ -410,6 +444,7 @@ def reconstruct_garbled_page_payloads(
     progress_callback: Callable[[int, int, set[int]], None] | None = None,
 ) -> dict[str, object]:
     flat_payload = [item for page_idx in sorted(page_payloads) for item in page_payloads[page_idx]]
+    pending_translation_items(flat_payload)
     candidates_by_key, representatives = _collect_candidates(flat_payload)
     if not representatives:
         return {

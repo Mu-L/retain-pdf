@@ -4,6 +4,7 @@ use axum::body::{to_bytes, Body};
 use axum::http::{header, Request, StatusCode};
 use lopdf::content::{Content, Operation};
 use lopdf::{dictionary, Document, Object, Stream};
+use retain_data::credentials::resolve_credential;
 use serde_json::Value;
 use tower::util::ServiceExt;
 
@@ -65,6 +66,8 @@ fn build_test_pdf_bytes() -> Vec<u8> {
 #[tokio::test]
 async fn translate_bundle_route_returns_async_job_submission_json() {
     let state = test_state("translate-bundle-async");
+    let db = state.db.clone();
+    let data_root = state.config.data_root.clone();
     let boundary = "retainpdf-test-boundary";
     let pdf_bytes = build_test_pdf_bytes();
     let mut body = Vec::new();
@@ -138,7 +141,29 @@ async fn translate_bundle_route_returns_async_job_submission_json() {
     .expect("json");
     assert_eq!(payload["data"]["status"], "queued");
     assert_eq!(payload["data"]["workflow"], "book");
-    assert!(payload["data"]["job_id"].as_str().unwrap_or("").len() > 8);
+    let job_id = payload["data"]["job_id"].as_str().unwrap_or("");
+    assert!(job_id.len() > 8);
+
+    let persisted = db.get_job(job_id).expect("load persisted bundle job");
+    assert!(persisted.request_payload.ocr.mineru_token.is_empty());
+    assert!(persisted.request_payload.translation.api_key.is_empty());
+    let persisted_json = serde_json::to_string(&persisted).expect("serialize persisted job");
+    assert!(!persisted_json.contains("mineru-token"));
+    assert!(!persisted_json.contains("sk-test"));
+    let ocr_credential = resolve_credential(
+        &data_root,
+        &persisted.request_payload.ocr.credential_ref,
+        "ocr_provider_token",
+    )
+    .expect("resolve imported OCR credential");
+    assert_eq!(ocr_credential.secret, "mineru-token");
+    let translation_credential = resolve_credential(
+        &data_root,
+        &persisted.request_payload.translation.credential_ref,
+        "translation_api_key",
+    )
+    .expect("resolve imported translation credential");
+    assert_eq!(translation_credential.secret, "sk-test");
 }
 
 const UPLOAD_BOUNDARY: &str = "retainpdf-upload-route-test";

@@ -6,6 +6,7 @@ export * from "./jobs-events.js";
 export * from "./jobs-actions.js";
 export * from "./jobs-submit.js";
 export * from "./translation-debug.js";
+export * from "./live-translation.js";
 export * from "./ai.js";
 export * from "./document-operations.js";
 export * from "./agent-runtime-settings.js";

@@ -335,6 +335,88 @@ const VERSIONED_MIGRATIONS: &[&str] = &[
     CREATE INDEX IF NOT EXISTS idx_pipeline_dispatch_status
         ON pipeline_dispatches(job_id, attempt, status, stage_key);
     "#,
+    // v11: durable, conversation-scoped calculation runs. Inputs are recorded
+    // by reference and hash; generated files are an immutable, controlled
+    // relative-path manifest committed atomically with successful completion.
+    r#"
+    CREATE TABLE IF NOT EXISTS agent_calculation_runs (
+        calculation_id    TEXT PRIMARY KEY,
+        conversation_id   TEXT NOT NULL REFERENCES ai_conversations(conversation_id) ON DELETE CASCADE,
+        request_message_id TEXT NOT NULL DEFAULT '',
+        document_id       TEXT,
+        job_id            TEXT,
+        tool_name         TEXT NOT NULL,
+        tool_call_id      TEXT NOT NULL DEFAULT '',
+        input_refs_json   TEXT NOT NULL,
+        input_sha256      TEXT NOT NULL,
+        status            TEXT NOT NULL CHECK(status IN ('running', 'completed', 'failed')),
+        result_summary    TEXT,
+        failure_summary   TEXT,
+        created_at        TEXT NOT NULL,
+        updated_at        TEXT NOT NULL,
+        finished_at       TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_calculation_runs_conversation
+        ON agent_calculation_runs(conversation_id, created_at DESC, calculation_id DESC);
+    CREATE INDEX IF NOT EXISTS idx_agent_calculation_runs_document
+        ON agent_calculation_runs(document_id, created_at DESC)
+        WHERE document_id IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_agent_calculation_runs_job
+        ON agent_calculation_runs(job_id, created_at DESC)
+        WHERE job_id IS NOT NULL;
+
+    CREATE TABLE IF NOT EXISTS agent_calculation_artifacts (
+        artifact_id       TEXT PRIMARY KEY,
+        calculation_id    TEXT NOT NULL REFERENCES agent_calculation_runs(calculation_id) ON DELETE CASCADE,
+        kind              TEXT NOT NULL,
+        sha256            TEXT NOT NULL,
+        relative_path     TEXT NOT NULL,
+        mime_type         TEXT NOT NULL,
+        size_bytes        INTEGER NOT NULL CHECK(size_bytes >= 0),
+        created_at        TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_calculation_artifacts_run
+        ON agent_calculation_artifacts(calculation_id, artifact_id);
+    "#,
+    // v12: durable document metadata suggestions and title provenance.  The
+    // suggestion is immutable evidence; application is a separate guarded
+    // transition so a refresh or lost response cannot overwrite a user title.
+    r#"
+    CREATE TABLE IF NOT EXISTS document_title_state (
+        document_id    TEXT PRIMARY KEY REFERENCES documents(document_id) ON DELETE CASCADE,
+        source         TEXT NOT NULL DEFAULT 'filename'
+                       CHECK(source IN ('filename', 'pdf_metadata', 'ocr', 'ai', 'user')),
+        locked         INTEGER NOT NULL DEFAULT 0 CHECK(locked IN (0, 1)),
+        suggestion_id  TEXT,
+        updated_at     TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS document_metadata_suggestions (
+        suggestion_id    TEXT PRIMARY KEY,
+        document_id      TEXT NOT NULL REFERENCES documents(document_id) ON DELETE CASCADE,
+        source_job_id    TEXT,
+        artifact_sha256  TEXT NOT NULL,
+        fields_json      TEXT NOT NULL DEFAULT '["title"]',
+        candidates_json  TEXT NOT NULL,
+        selected_title   TEXT NOT NULL,
+        generation_method TEXT NOT NULL DEFAULT 'deterministic',
+        needs_ai_review  INTEGER NOT NULL DEFAULT 0 CHECK(needs_ai_review IN (0, 1)),
+        status           TEXT NOT NULL DEFAULT 'completed'
+                         CHECK(status IN ('completed', 'applied')),
+        applied_at       TEXT,
+        created_at       TEXT NOT NULL,
+        updated_at       TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_document_metadata_suggestions_document
+        ON document_metadata_suggestions(document_id, created_at DESC, suggestion_id DESC);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_document_metadata_suggestions_evidence
+        ON document_metadata_suggestions(
+            document_id,
+            COALESCE(source_job_id, ''),
+            artifact_sha256,
+            selected_title
+        );
+    "#,
 ];
 
 pub(super) fn run_versioned_migrations(conn: &Connection) -> Result<()> {

@@ -61,8 +61,12 @@ def build_app(
         if selected_runtime in {"fx", "openai"}:
             rust = rust or RustApiClient(settings)
             runtime = build_agent_runtime(settings, rust, agent)
-        elif selected_runtime == "python":
+        elif selected_runtime == "python" and (
+            rust is None or getattr(agent, "registry", None) is None
+        ):
             runtime = PythonAgentRuntime(agent)
+        elif selected_runtime == "python":
+            runtime = build_agent_runtime(settings, rust, agent)
         else:
             raise RuntimeError(
                 f"unsupported RETAIN_AI_RUNTIME={settings.agent_runtime!r}; "

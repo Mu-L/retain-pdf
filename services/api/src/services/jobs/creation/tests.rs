@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use lopdf::content::{Content, Operation};
 use lopdf::{dictionary, Document, Object, Stream};
+use retain_data::credentials::resolve_credential;
 use tokio::sync::{Mutex, RwLock, Semaphore};
 
 use crate::config::AppConfig;
@@ -341,6 +342,134 @@ fn create_translation_job_persists_reference_instead_of_translation_secret() {
     let persisted = state.db.get_job(&job.job_id).expect("persisted job");
     let encoded = serde_json::to_string(&persisted).expect("encode persisted job");
     assert!(!encoded.contains(secret));
+}
+
+#[test]
+fn create_translation_job_imports_legacy_translation_secret_before_persistence() {
+    let state = test_state("translate-import-legacy-translation-secret");
+    seed_ocr_checkpoint_source_job(&state, "ocr-source-job-inline-translation");
+    let secret = "sk-legacy-translation-vault-only";
+    let mut input = base_translation_input(WorkflowKind::Translate);
+    input.source.artifact_job_id = "ocr-source-job-inline-translation".to_string();
+    input.translation.api_key = secret.to_string();
+    input.translation.credential_ref.clear();
+
+    let job = create_translation_job(&submit_context(&state), &input)
+        .expect("create translate job with legacy inline credential");
+
+    assert!(job.request_payload.translation.api_key.is_empty());
+    let credential_ref = job.request_payload.translation.credential_ref.clone();
+    assert!(credential_ref.starts_with("cred_"));
+    let resolved = resolve_credential(
+        &state.config.data_root,
+        &credential_ref,
+        "translation_api_key",
+    )
+    .expect("resolve imported translation credential");
+    assert_eq!(resolved.provider, "openai_compatible");
+    assert_eq!(resolved.secret, secret);
+
+    let persisted = state
+        .db
+        .get_job(&job.job_id)
+        .expect("persisted translate job");
+    let encoded = serde_json::to_string(&persisted).expect("encode persisted job");
+    assert!(!encoded.contains(secret));
+}
+
+#[test]
+fn repeated_legacy_translation_secret_reuses_managed_credential() {
+    let state = test_state("translate-reuse-managed-translation-secret");
+    seed_ocr_checkpoint_source_job(&state, "ocr-source-job-managed-translation");
+    let mut input = base_translation_input(WorkflowKind::Translate);
+    input.source.artifact_job_id = "ocr-source-job-managed-translation".to_string();
+    input.translation.api_key = "sk-shared-legacy-translation".to_string();
+
+    let first = create_translation_job(&submit_context(&state), &input)
+        .expect("create first translated job");
+    let second = create_translation_job(&submit_context(&state), &input)
+        .expect("create second translated job");
+
+    assert_eq!(
+        first.request_payload.translation.credential_ref,
+        second.request_payload.translation.credential_ref
+    );
+    assert!(first.request_payload.translation.api_key.is_empty());
+    assert!(second.request_payload.translation.api_key.is_empty());
+}
+
+#[test]
+fn create_book_job_imports_legacy_ocr_secret_before_persistence() {
+    let state = test_state("book-import-legacy-ocr-secret");
+    seed_upload(&state, "upload-book-legacy-ocr-secret");
+    let secret = "legacy-mineru-vault-only";
+    let mut input = base_translation_input(WorkflowKind::Book);
+    input.source.upload_id = "upload-book-legacy-ocr-secret".to_string();
+    input.ocr.provider = "mineru".to_string();
+    input.ocr.mineru_token = secret.to_string();
+
+    let job = create_translation_job(&submit_context(&state), &input)
+        .expect("create book job with legacy OCR credential");
+
+    assert!(job.request_payload.ocr.mineru_token.is_empty());
+    assert!(job.request_payload.ocr.paddle_token.is_empty());
+    let credential_ref = job.request_payload.ocr.credential_ref.clone();
+    assert!(credential_ref.starts_with("cred_"));
+    let resolved = resolve_credential(
+        &state.config.data_root,
+        &credential_ref,
+        "ocr_provider_token",
+    )
+    .expect("resolve imported OCR credential");
+    assert_eq!(resolved.provider, "mineru");
+    assert_eq!(resolved.secret, secret);
+
+    let persisted = state.db.get_job(&job.job_id).expect("persisted book job");
+    let encoded = serde_json::to_string(&persisted).expect("encode persisted job");
+    assert!(!encoded.contains(secret));
+}
+
+#[test]
+fn artifact_reuse_discards_unused_ocr_secret() {
+    let state = test_state("artifact-reuse-discards-ocr-secret");
+    seed_ocr_checkpoint_source_job(&state, "ocr-source-with-artifacts");
+    let mut input = base_translation_input(WorkflowKind::Translate);
+    input.source.artifact_job_id = "ocr-source-with-artifacts".to_string();
+    input.ocr.mineru_token = "unused-legacy-ocr-secret".to_string();
+
+    let job = create_translation_job(&submit_context(&state), &input)
+        .expect("create translation job that reuses OCR artifacts");
+
+    assert!(job.request_payload.ocr.credential_ref.is_empty());
+    assert!(job.request_payload.ocr.mineru_token.is_empty());
+    assert!(job.request_payload.ocr.paddle_token.is_empty());
+    let persisted = state.db.get_job(&job.job_id).expect("persisted reuse job");
+    let encoded = serde_json::to_string(&persisted).expect("encode persisted job");
+    assert!(!encoded.contains("unused-legacy-ocr-secret"));
+}
+
+#[test]
+fn render_job_discards_all_unused_provider_credentials_before_persistence() {
+    let state = test_state("render-discards-provider-credentials");
+    seed_render_source_job(&state, "render-source-with-artifacts");
+    let mut input = base_translation_input(WorkflowKind::Render);
+    input.source.artifact_job_id = "render-source-with-artifacts".to_string();
+    input.translation.api_key = "unused-render-translation-secret".to_string();
+    input.translation.credential_ref = "cred_invalid_but_unused".to_string();
+    input.ocr.credential_ref = "cred_invalid_ocr_but_unused".to_string();
+    input.ocr.mineru_token = "unused-render-ocr-secret".to_string();
+
+    let job = create_translation_job(&submit_context(&state), &input)
+        .expect("create render job without resolving unused credentials");
+
+    assert!(job.request_payload.translation.api_key.is_empty());
+    assert!(job.request_payload.translation.credential_ref.is_empty());
+    assert!(job.request_payload.ocr.credential_ref.is_empty());
+    assert!(job.request_payload.ocr.mineru_token.is_empty());
+    let persisted = state.db.get_job(&job.job_id).expect("persisted render job");
+    let encoded = serde_json::to_string(&persisted).expect("encode persisted render job");
+    assert!(!encoded.contains("unused-render-translation-secret"));
+    assert!(!encoded.contains("unused-render-ocr-secret"));
 }
 
 #[test]

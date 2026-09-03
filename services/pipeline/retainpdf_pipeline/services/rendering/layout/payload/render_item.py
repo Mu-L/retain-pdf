@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 
 from retainpdf_pipeline.services.rendering.semantics.item_view import block_class
@@ -32,6 +33,31 @@ def _render_should_use_unit_translation(item: dict) -> bool:
 
 def _member_translation_text(item: dict) -> str:
     return str(item.get("protected_translated_text") or item.get("translated_text") or "").strip()
+
+
+def _unit_protected_translation_text(item: dict) -> str:
+    return str(
+        item.get("translation_unit_protected_translated_text")
+        or item.get("group_protected_translated_text")
+        or item.get("translation_unit_translated_text")
+        or item.get("group_translated_text")
+        or ""
+    ).strip()
+
+
+def _compact_boundary_text(text: str) -> str:
+    return re.sub(r"[\s，,、]+", "", str(text or ""))
+
+
+def _has_repeated_aggregate_member_text(items: list[dict]) -> bool:
+    if len(items) < 2:
+        return False
+    aggregate = max((_unit_protected_translation_text(item) for item in items), key=len, default="")
+    compact_aggregate = _compact_boundary_text(aggregate)
+    if not compact_aggregate:
+        return False
+    member_texts = [_compact_boundary_text(_member_translation_text(item)) for item in items]
+    return all(member_text == compact_aggregate for member_text in member_texts)
 
 
 def render_protected_translation_text(item: dict) -> str:
@@ -129,9 +155,15 @@ def group_render_unit_items(items: Iterable[dict]) -> dict[str, list[dict]]:
     units: dict[str, list[dict]] = {}
     continuation_units_with_member_text: set[str] = set()
     materialized_items = list(items)
+    continuation_members: dict[str, list[dict]] = {}
     for item in materialized_items:
         unit_id = render_continuation_group_id(item)
-        if unit_id and _member_translation_text(item):
+        if unit_id:
+            continuation_members.setdefault(unit_id, []).append(item)
+    for unit_id, members in continuation_members.items():
+        if any(_member_translation_text(item) for item in members) and not _has_repeated_aggregate_member_text(
+            members
+        ):
             continuation_units_with_member_text.add(unit_id)
     for item in materialized_items:
         unit_id = render_continuation_group_id(item) or render_translation_unit_id(item)
@@ -155,6 +187,9 @@ def group_unit_formula_map(items: list[dict]) -> list[dict]:
 def group_unit_protected_text(items: list[dict]) -> str:
     if not items:
         return ""
+    unit_text = max((_unit_protected_translation_text(item) for item in items), key=len, default="")
+    if unit_text:
+        return unit_text
     return max((render_protected_translation_text(item) for item in items), key=len, default="")
 
 

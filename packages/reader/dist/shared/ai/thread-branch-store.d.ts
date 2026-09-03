@@ -31,10 +31,15 @@ export type ThreadBranchSnapshot = {
     /** 快照归属的会话 id（防串会话印章，审计 P2-10）；旧快照无此字段 */
     conversationId?: string;
 };
-export declare function threadBranchStorageKey(jobId: string, conversationId?: string): string;
-export declare function loadThreadBranchSnapshot(jobId: string, conversationId?: string): ThreadBranchSnapshot | null;
-export declare function saveThreadBranchSnapshot(jobId: string, snapshot: ThreadBranchSnapshot, conversationId?: string): void;
-export declare function clearThreadBranchSnapshot(jobId: string, conversationId?: string): void;
+export type ThreadBranchScope = {
+    jobId?: string;
+    documentId?: string;
+};
+export type ThreadBranchScopeInput = string | ThreadBranchScope;
+export declare function threadBranchStorageKey(scope: ThreadBranchScopeInput, conversationId?: string): string;
+export declare function loadThreadBranchSnapshot(scope: ThreadBranchScopeInput, conversationId?: string): ThreadBranchSnapshot | null;
+export declare function saveThreadBranchSnapshot(scope: ThreadBranchScopeInput, snapshot: ThreadBranchSnapshot, conversationId?: string): void;
+export declare function clearThreadBranchSnapshot(scope: ThreadBranchScopeInput, conversationId?: string): void;
 /** 可见路径：从 head 沿 parent 链回溯（parent 须先于 child 出现在 items 中）。 */
 export declare function visiblePathFromSnapshot(snapshot: ThreadBranchSnapshot): ThreadBranchMessage[];
 //# sourceMappingURL=thread-branch-store.d.ts.map

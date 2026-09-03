@@ -4,6 +4,7 @@
 //   （动作与导航分离，不挤 pill、不顶乱布局）
 
 import { StageFlow } from "./StageFlow.jsx";
+import { LoaderCircle, Square } from "lucide-react";
 import { buildProgressRenderModel, type ProgressRenderModelInput } from "./progress-model.js";
 import { StatusCardIdsContext } from "./status-card-ids-context.js";
 import { useStatusCardModel } from "./use-status-card-model.js";
@@ -206,7 +207,6 @@ export function StatusCardEmbedded({
     ? ""
     : rawDetail;
   const showError = Boolean(display?.errorState?.showError && display?.errorState?.errorText);
-  const cancelEnabled = Boolean(snapshot?.cancelEnabled) && !succeeded && !failed;
   const rounded = Math.round(percent);
   const rawProgressText = renderOptions
     ? (buildProgressRenderModel(renderOptions).text || "")
@@ -217,6 +217,7 @@ export function StatusCardEmbedded({
   const stageActions = snapshot?.stageRetryActions || {};
   const jobId = `${snapshot?.jobId || ""}`.trim();
   const hasJob = Boolean(jobId) && !jobId.startsWith("doc:");
+  const cancelEnabled = hasJob && ["queued", "running", "pending", "validating"].includes(status);
   const selectedFlow = normalizeFlowKey(selectedForFlow || stageKeyForFlow);
 
   const retry = resolveSelectedRetry({
@@ -250,12 +251,18 @@ export function StatusCardEmbedded({
             <button
               id={ids.cancelButton}
               type="button"
-              className="bd-job-status-btn"
+              className="bd-job-status-btn bd-job-status-btn-cancel"
               aria-label="取消任务"
+              title={cancelDisabled ? "正在取消任务" : "停止并取消当前任务"}
               disabled={!cancelEnabled || cancelDisabled}
               onClick={() => cancelCurrentJob?.()}
             >
-              取消
+              {cancelDisabled ? (
+                <LoaderCircle className="animate-spin" aria-hidden="true" />
+              ) : (
+                <Square aria-hidden="true" />
+              )}
+              <span>{cancelDisabled ? "取消中" : "取消任务"}</span>
             </button>
             <div className="bd-job-status-head-center">
               <div id={ids.ringLabel} className="bd-job-status-title">{ringLabel}</div>

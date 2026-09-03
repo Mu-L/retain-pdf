@@ -10,9 +10,11 @@ pub(super) fn apply_retry_overrides(
     apply_retry_overrides_to_sections(
         overrides,
         |patch| {
+            let switch = ocr_secret_source_switch(&patch);
             let patched = merge_json(to_json_value(&input.ocr)?, patch)?;
             input.ocr = serde_json::from_value(patched)
                 .map_err(|err| AppError::bad_request(format!("invalid ocr overrides: {err}")))?;
+            apply_ocr_secret_source_switch(&mut input.ocr, switch);
             Ok(())
         },
         |patch| {
@@ -52,9 +54,11 @@ pub(super) fn apply_retry_overrides_to_resolved_spec(
     apply_retry_overrides_to_sections(
         overrides,
         |patch| {
+            let switch = ocr_secret_source_switch(&patch);
             let patched = merge_json(to_json_value(&spec.ocr)?, patch)?;
             spec.ocr = serde_json::from_value(patched)
                 .map_err(|err| AppError::bad_request(format!("invalid ocr overrides: {err}")))?;
+            apply_ocr_secret_source_switch(&mut spec.ocr, switch);
             Ok(())
         },
         |patch| {
@@ -91,6 +95,82 @@ enum TranslationSecretSourceSwitch {
     Keep,
     Inline,
     Reference,
+}
+
+#[derive(Clone, Copy)]
+enum OcrSecretSourceSwitch {
+    Keep,
+    Inline,
+    Reference,
+}
+
+fn ocr_secret_source_switch(patch: &Value) -> OcrSecretSourceSwitch {
+    let Some(object) = patch.as_object() else {
+        return OcrSecretSourceSwitch::Keep;
+    };
+    let inline = ["mineru_token", "paddle_token"]
+        .into_iter()
+        .any(|key| non_empty_string_field(object, key))
+        || object
+            .get("options")
+            .and_then(Value::as_object)
+            .is_some_and(|options| {
+                ["credential", "token", "api_key"]
+                    .into_iter()
+                    .any(|key| non_empty_string_field(options, key))
+            });
+    let reference = non_empty_string_field(object, "credential_ref");
+    match (inline, reference) {
+        (true, false) if !object.contains_key("credential_ref") => OcrSecretSourceSwitch::Inline,
+        (false, true)
+            if !object.contains_key("mineru_token")
+                && !object.contains_key("paddle_token")
+                && !object.contains_key("options") =>
+        {
+            OcrSecretSourceSwitch::Reference
+        }
+        _ => OcrSecretSourceSwitch::Keep,
+    }
+}
+
+fn non_empty_string_field(object: &serde_json::Map<String, Value>, key: &str) -> bool {
+    object
+        .get(key)
+        .and_then(Value::as_str)
+        .is_some_and(|value| !value.trim().is_empty())
+}
+
+fn apply_ocr_secret_source_switch(
+    ocr: &mut crate::models::request::OcrInput,
+    switch: OcrSecretSourceSwitch,
+) {
+    match switch {
+        OcrSecretSourceSwitch::Keep => {}
+        OcrSecretSourceSwitch::Inline => ocr.credential_ref.clear(),
+        OcrSecretSourceSwitch::Reference => {
+            ocr.mineru_token.clear();
+            ocr.paddle_token.clear();
+            for key in ["credential", "token", "api_key"] {
+                ocr.options.remove(key);
+            }
+        }
+    }
+}
+
+pub(super) fn discard_ocr_secret_sources(ocr: &mut crate::models::request::OcrInput) {
+    ocr.credential_ref.clear();
+    ocr.mineru_token.clear();
+    ocr.paddle_token.clear();
+    for key in ["credential", "token", "api_key"] {
+        ocr.options.remove(key);
+    }
+}
+
+pub(super) fn discard_translation_secret_sources(
+    translation: &mut crate::models::request::TranslationInput,
+) {
+    translation.api_key.clear();
+    translation.credential_ref.clear();
 }
 
 fn translation_secret_source_switch(patch: &Value) -> TranslationSecretSourceSwitch {
@@ -215,5 +295,42 @@ mod tests {
 
         assert_eq!(input.translation.api_key, "sk-temporary");
         assert!(input.translation.credential_ref.is_empty());
+    }
+
+    #[test]
+    fn ocr_retry_override_can_switch_reference_to_inline_compatibility_token() {
+        let mut input = CreateJobInput::default();
+        input.ocr.provider = "paddle".to_string();
+        input.ocr.credential_ref = "cred_ocr_primary".to_string();
+
+        apply_retry_overrides(
+            &mut input,
+            &serde_json::json!({"ocr": {"paddle_token": "paddle-temporary"}}),
+        )
+        .expect("apply OCR retry inline override");
+
+        assert_eq!(input.ocr.paddle_token, "paddle-temporary");
+        assert!(input.ocr.credential_ref.is_empty());
+    }
+
+    #[test]
+    fn ocr_retry_override_can_migrate_legacy_inline_secret_to_reference() {
+        let mut input = CreateJobInput::default();
+        input.ocr.mineru_token = "mineru-legacy".to_string();
+        input.ocr.options.insert(
+            "credential".to_string(),
+            Value::String("configured-legacy".to_string()),
+        );
+
+        apply_retry_overrides(
+            &mut input,
+            &serde_json::json!({"ocr": {"credential_ref": "cred_ocr_primary"}}),
+        )
+        .expect("apply OCR retry reference override");
+
+        assert_eq!(input.ocr.credential_ref, "cred_ocr_primary");
+        assert!(input.ocr.mineru_token.is_empty());
+        assert!(input.ocr.paddle_token.is_empty());
+        assert!(!input.ocr.options.contains_key("credential"));
     }
 }

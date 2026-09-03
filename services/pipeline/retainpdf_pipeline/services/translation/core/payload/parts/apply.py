@@ -123,6 +123,12 @@ def _structured_group_member_chunks(raw_result, items: list[dict]) -> list[str] 
     return chunks
 
 
+def _structured_chunks_reconstruct_group(chunks: list[str], protected_group_text: str) -> bool:
+    compact_group = re.sub(r"[\s，,、]+", "", str(protected_group_text or ""))
+    compact_chunks = re.sub(r"[\s，,、]+", "", "".join(chunks))
+    return bool(compact_group) and compact_chunks == compact_group
+
+
 def apply_group_translated_entry(items: list[dict], raw_result) -> None:
     if not items:
         return
@@ -144,6 +150,13 @@ def apply_group_translated_entry(items: list[dict], raw_result) -> None:
     protected_map = items[0].get("translation_unit_protected_map") or items[0].get("group_protected_map") or formula_map
     restored = restore_protected_tokens(protected_translated_text, protected_map)
     member_chunks = _structured_group_member_chunks(raw_result, items)
+    rejected_structured_chunks = False
+    if member_chunks is not None and not _structured_chunks_reconstruct_group(
+        member_chunks,
+        protected_translated_text,
+    ):
+        member_chunks = None
+        rejected_structured_chunks = True
     structured_member_chunks = member_chunks is not None
     if member_chunks is None:
         member_chunks = split_group_protected_translation(protected_translated_text, items)
@@ -161,6 +174,10 @@ def apply_group_translated_entry(items: list[dict], raw_result) -> None:
         if structured_member_chunks:
             diagnostics = dict(diagnostics or {})
             diagnostics["group_member_translation_source"] = "structured"
+        elif rejected_structured_chunks:
+            diagnostics = dict(diagnostics or {})
+            diagnostics["group_member_translation_source"] = "source_weighted_fallback"
+            diagnostics["group_member_translation_fallback_reason"] = "inconsistent_structured_members"
         if diagnostics:
             item["translation_diagnostics"] = diagnostics
         set_final_status(item, str(metadata.get("final_status", "") or TRANSLATED_STATUS))

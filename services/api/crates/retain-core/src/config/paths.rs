@@ -133,13 +133,11 @@ fn resolve_entrypoint_script(scripts_dir: &Path, script_name: &str) -> PathBuf {
 fn infer_project_root(rust_api_root: &Path) -> Result<PathBuf> {
     let parent = rust_api_root
         .parent()
-        .context("rust_api must live under the repository root, services/ or backend/")?;
-    if parent.file_name().and_then(|v| v.to_str()) == Some("backend")
-        || parent.file_name().and_then(|v| v.to_str()) == Some("services")
-    {
+        .context("rust_api must live under the repository root or services/")?;
+    if parent.file_name().and_then(|v| v.to_str()) == Some("services") {
         return parent
             .parent()
-            .context("services/backend must live directly under repository root")
+            .context("services must live directly under repository root")
             .map(Path::to_path_buf);
     }
     // apps/services 扁平结构：rust_api 位于 services/api，取其祖父目录即 repo root
@@ -157,17 +155,12 @@ fn infer_project_root(rust_api_root: &Path) -> Result<PathBuf> {
 }
 
 fn default_scripts_dir(project_root: &Path) -> PathBuf {
-    // 2026-08 Monorepo 整理：services/pipeline 为主，兼容 backend/pipeline 符号链接
+    // Product monorepo layout.
     let services_pipeline = project_root.join("services").join("pipeline");
     if services_pipeline.exists() {
         return services_pipeline;
     }
-    let backend_pipeline = project_root.join("backend").join("pipeline");
-    if backend_pipeline.exists() {
-        backend_pipeline
-    } else {
-        project_root.join("pipeline")
-    }
+    project_root.join("pipeline")
 }
 
 fn resolve_data_root(project_root: &Path) -> PathBuf {

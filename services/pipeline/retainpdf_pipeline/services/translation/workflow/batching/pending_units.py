@@ -5,28 +5,52 @@ import time
 from pathlib import Path
 from typing import Callable
 
-from retainpdf_pipeline.services.translation.llm.shared.control_context import TranslationControlContext
-from retainpdf_pipeline.services.translation.llm.shared.orchestration import translate_batch
-from retainpdf_pipeline.services.translation.services.memory import JobMemorySnapshot
-from retainpdf_pipeline.services.translation.services.memory import JobMemoryStore
-from retainpdf_pipeline.services.translation.core.payload import pending_translation_items
-
-from retainpdf_pipeline.services.translation.workflow.batching.executor import _keep_origin_results_for_transport_batch
-from retainpdf_pipeline.services.translation.workflow.batching.executor import _translate_batch_or_keep_origin as _translate_batch_or_keep_origin_impl
-from retainpdf_pipeline.services.translation.workflow.batch_runner import run_translation_batches_parallel
-from retainpdf_pipeline.services.translation.workflow.batch_runner import run_translation_batches_sequential
-from retainpdf_pipeline.services.translation.services.results.flush import TranslationFlushState
-from retainpdf_pipeline.services.translation.services.results.applier import TranslationResultApplier
-from retainpdf_pipeline.services.translation.services.results.applier import expand_duplicate_results as _expand_duplicate_results
-from retainpdf_pipeline.services.translation.services.results.applier import touched_pages_for_batch
-from retainpdf_pipeline.services.translation.workflow.scheduling.allocation import _allocate_translation_queue_workers
-from retainpdf_pipeline.services.translation.workflow.scheduling.allocation import _slow_worker_cap
-from retainpdf_pipeline.services.translation.workflow.batching.plan import _build_translation_batches
-from retainpdf_pipeline.services.translation.workflow.batching.plan import _classify_translation_batches
-from retainpdf_pipeline.services.translation.workflow.batching.plan import _dedupe_pending_items
-from retainpdf_pipeline.services.translation.workflow.batching.plan import _effective_translation_batch_size
-from retainpdf_pipeline.services.translation.workflow.batching.plan import _save_flush_interval
-from retainpdf_pipeline.services.translation.workflow.scheduling.stats import TranslationBatchRunStats
+from retainpdf_pipeline.services.translation.core.payload import (
+    pending_translation_items,
+)
+from retainpdf_pipeline.services.translation.llm.shared.control_context import (
+    TranslationControlContext,
+)
+from retainpdf_pipeline.services.translation.llm.shared.orchestration import (
+    translate_batch,
+)
+from retainpdf_pipeline.services.translation.services.memory import (
+    JobMemorySnapshot,
+    JobMemoryStore,
+)
+from retainpdf_pipeline.services.translation.services.results.applier import (
+    TranslationResultApplier,
+)
+from retainpdf_pipeline.services.translation.services.results.applier import (
+    expand_duplicate_results as _expand_duplicate_results,
+)
+from retainpdf_pipeline.services.translation.services.results.flush import (
+    TranslationFlushState,
+)
+from retainpdf_pipeline.services.translation.workflow.batch_runner import (
+    run_translation_batches_parallel,
+    run_translation_batches_sequential,
+)
+from retainpdf_pipeline.services.translation.workflow.batching.executor import (
+    _keep_origin_results_for_transport_batch,
+)
+from retainpdf_pipeline.services.translation.workflow.batching.executor import (
+    _translate_batch_or_keep_origin as _translate_batch_or_keep_origin_impl,
+)
+from retainpdf_pipeline.services.translation.workflow.batching.plan import (
+    _build_translation_batches,
+    _classify_translation_batches,
+    _dedupe_pending_items,
+    _effective_translation_batch_size,
+    _save_flush_interval,
+)
+from retainpdf_pipeline.services.translation.workflow.scheduling.allocation import (
+    _allocate_translation_queue_workers,
+    _slow_worker_cap,
+)
+from retainpdf_pipeline.services.translation.workflow.scheduling.stats import (
+    TranslationBatchRunStats,
+)
 
 
 def _translate_batch_or_keep_origin(
@@ -74,7 +98,7 @@ def translate_pending_units(
     mode: str = "fast",
     translation_context: TranslationControlContext | None = None,
     progress_callback: Callable[[int, int, set[int], str], None] | None = None,
-    flush_callback: Callable[[set[int]], None] | None = None,
+    flush_callback: Callable[[set[int], dict[int, set[str]]], None] | None = None,
 ) -> dict[str, int]:
     apply_elapsed_s = 0.0
     max_result_drain_batch = 0

@@ -61,7 +61,7 @@ Canonical JSON request:
   },
   "ocr": {
     "provider": "mineru",
-    "mineru_token": "mineru-xxxx",
+    "credential_ref": "cred_ocr_0123456789abcdef",
     "model_version": "vlm",
     "is_ocr": false,
     "disable_formula": false,
@@ -118,6 +118,11 @@ Canonical JSON request:
 
 Security note:
 
+- OCR request bodies should use `ocr.credential_ref` with credential kind
+  `ocr_provider_token` and matching provider metadata
+- inline `ocr.mineru_token`, `ocr.paddle_token`, and configured-provider secret
+  options remain temporary compatibility inputs; the backend imports the
+  selected value into the vault and clears it before job persistence
 - translation request bodies should use `translation.credential_ref`; inline
   `translation.api_key` remains a temporary compatibility path
 - responses never echo raw credential values back
@@ -199,13 +204,22 @@ Endpoint boundary:
 
 - `/api/v1/jobs` is for `book`, `translate`, and `render`
 - `/api/v1/ocr/jobs` is for OCR-only jobs
-- `/api/v1/translate/bundle` is the synchronous multipart helper for the same full flow; flat multipart fields remain supported here, including `provider=paddle|mineru`
+- `/api/v1/translate/bundle` is the synchronous multipart helper for the same full flow; flat multipart fields remain supported here, including `provider=paddle|mineru`, `ocr_credential_ref`, and the translation field `credential_ref`
 - `GET /api/v1/providers/ocr` returns discoverable OCR provider metadata, credentials, options, capabilities, and artifact layout
+
+The provider response's optional `credential` object is authoritative for
+credential input discovery. New clients should create a credential whose kind
+matches `credential_kind`, then send its opaque reference using
+`ocr.<reference_field>`. `legacy_inline_field` identifies the temporary inline
+compatibility field; `field` remains its backward-compatible alias. Providers
+without credentials return `credential: null`. Clients must not infer these
+rules from provider names.
 
 Required provider fields:
 
-- `ocr.mineru_token` when a request will run OCR with `ocr.provider=mineru`
-- `ocr.paddle_token` when a request will run OCR with `ocr.provider=paddle`
+- exactly one of `ocr.credential_ref` or the selected provider's compatibility
+  inline token when a request will run remote OCR; the reference must have kind
+  `ocr_provider_token` and provider metadata matching `ocr.provider`
 - `translation.base_url`, `translation.model`, and exactly one of
   `translation.credential_ref` or compatibility field `translation.api_key`
   when translation is required
@@ -227,7 +241,12 @@ OCR provider options:
   `/api/v1/providers/ocr` and are executed through `provider.stage.v1`.
   The removed `backend/config` compatibility path is not a supported source.
 - `remote_command` means the external command owns the remote API submit/poll/download state machine. The backend passes `source.file_url`, optional local file path, provider options, and credential env, then consumes only the resulting source PDF plus `document.v1.json`.
-- Configured command provider credentials can be supplied through `ocr.options.credential`, `ocr.options.token`, `ocr.options.api_key`, or through the provider config `credential.env`. The worker exposes the resolved secret to the command as `RETAIN_OCR_CREDENTIAL`.
+- Configured command provider credentials should use `ocr.credential_ref`.
+  Compatibility inputs `ocr.options.credential`, `ocr.options.token`, and
+  `ocr.options.api_key` are imported into the vault before persistence. A
+  server-owned provider config `credential.env` remains supported. The worker
+  exposes the resolved secret to the command as `RETAIN_OCR_CREDENTIAL` and,
+  when configured, the provider-specific environment variable.
 
 `GET /api/v1/providers/ocr` response example:
 
@@ -241,6 +260,9 @@ OCR provider options:
       "display_name": "PaddleOCR",
       "provider_kind": "remote",
       "credential": {
+        "credential_kind": "ocr_provider_token",
+        "reference_field": "credential_ref",
+        "legacy_inline_field": "paddle_token",
         "field": "paddle_token",
         "env": "RETAIN_PADDLE_API_TOKEN",
         "required_for": ["remote_url", "local_upload"]
@@ -307,6 +329,10 @@ Validation:
   and takes precedence over the legacy zero-based inclusive
   `translation.start_page` / `translation.end_page` range
 - `ocr.mineru_token` must not be a URL-like string
+- an active inline OCR credential and `ocr.credential_ref` are mutually exclusive
+- a supplied `ocr.credential_ref` must exist, have kind `ocr_provider_token`,
+  and carry provider metadata matching `ocr.provider`; failures return
+  structured `CREDENTIAL_*` errors without credential values
 - `translation.base_url` must start with `http://` or `https://`
 - `translation.api_key` must not be a URL-like string
 - `translation.api_key` and `translation.credential_ref` are mutually exclusive
@@ -321,7 +347,9 @@ Validation:
 Response redaction rules:
 
 - `request_payload.ocr.mineru_token`, `request_payload.ocr.paddle_token`, and `request_payload.translation.api_key` are always returned as empty strings
-- `request_payload.ocr.mineru_token_configured`, `request_payload.ocr.paddle_token_configured`, and `request_payload.translation.api_key_configured` indicate whether the backend received those credentials
+- `request_payload.ocr.mineru_token_configured`, `request_payload.ocr.paddle_token_configured`, and `request_payload.translation.api_key_configured` indicate whether the selected provider has an inline or referenced credential source
+- `request_payload.ocr.credential_ref` may be returned as an opaque, non-secret
+  identifier; legacy inline OCR secrets are never persisted in the job request
 - `request_payload.translation.credential_ref` may be returned as an opaque,
   non-secret identifier; its secret is resolved only when the worker starts
 - `error`, `log_tail`, `events[*].message`, `events[*].payload`, translation diagnostics payloads, translation debug item payloads, and replay payloads are redacted before leaving Rust API

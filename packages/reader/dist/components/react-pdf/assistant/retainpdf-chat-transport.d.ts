@@ -27,11 +27,14 @@ type ReaderAnswerer = {
     }>;
 };
 export type ReaderChatRequest = {
+    assistantMode?: ReaderAssistantMode;
     assistantMessageId?: string;
     parentId?: string;
     question?: string;
     regenerate?: boolean;
     userMessageId?: string;
+    scope?: "document" | "selection" | "page";
+    context?: Record<string, unknown> | null;
 };
 /**
  * Translate RetainPDF's small SSE contract into AI SDK UI message chunks.

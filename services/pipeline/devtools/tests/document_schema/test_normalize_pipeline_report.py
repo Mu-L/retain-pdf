@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from retainpdf_pipeline.services.document_schema.normalize_pipeline import _refresh_report_for_final_document
+from retainpdf_pipeline.foundation.shared.stage_specs import NormalizeStageSpec
+from retainpdf_pipeline.services.document_schema.normalize_pipeline import (
+    _refresh_report_for_final_document,
+    _resolve_source_json_path,
+)
 
 
 def test_refresh_report_for_final_document_uses_final_validation_counts() -> None:
@@ -16,7 +21,7 @@ def test_refresh_report_for_final_document_uses_final_validation_counts() -> Non
         "document_id": "report-doc",
         "page_count": 1,
         "source": {"provider": "paddle"},
-        "derived": {},
+        "derived": {"provider_signals": {"materialized_page_asset_count": 2}},
         "markers": {},
         "pages": [
             {
@@ -100,10 +105,54 @@ def test_refresh_report_for_final_document_uses_final_validation_counts() -> Non
     assert refreshed["validation"]["block_count"] == 2
     assert refreshed["defaults"]["pages_seen"] == 1
     assert refreshed["defaults"]["blocks_seen"] == 2
+    assert refreshed["provider_signals"]["materialized_page_asset_count"] == 2
+
+
+def test_normalize_stage_discovers_current_mineru_middle_filename(
+    tmp_path: Path,
+) -> None:
+    job_root = tmp_path / "jobs" / "job-mineru"
+    raw_dir = job_root / "ocr" / "unpacked"
+    raw_dir.mkdir(parents=True)
+    middle_json = raw_dir / "paper_middle.json"
+    middle_json.write_text("{}", encoding="utf-8")
+    source_pdf = job_root / "source" / "paper.pdf"
+    source_pdf.parent.mkdir(parents=True)
+    source_pdf.write_bytes(b"%PDF-1.4\n%%EOF\n")
+    spec_path = job_root / "specs" / "normalize.spec.json"
+    spec_path.parent.mkdir(parents=True)
+    spec_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "normalize.stage.v1",
+                "stage": "normalize",
+                "job": {
+                    "job_id": "job-mineru",
+                    "job_root": str(job_root),
+                    "workflow": "ocr",
+                },
+                "inputs": {
+                    "provider": "mineru",
+                    "source_json": str(raw_dir / "layout.json"),
+                    "source_pdf": str(source_pdf),
+                    "provider_version": "vlm",
+                    "provider_raw_dir": str(raw_dir),
+                },
+                "params": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    spec = NormalizeStageSpec.load(spec_path)
+
+    assert _resolve_source_json_path(spec) == middle_json.resolve()
 
 
 def test_validation_asset_link_counts_only_image_blocks() -> None:
-    from retainpdf_pipeline.services.document_schema.validator import build_validation_report
+    from retainpdf_pipeline.services.document_schema.validator import (
+        build_validation_report,
+    )
 
     document = {
         "schema": "normalized_document_v1",
@@ -150,7 +199,9 @@ def test_validation_asset_link_counts_only_image_blocks() -> None:
 
 
 def test_validation_report_detects_orphan_and_uncovered_provider_assets() -> None:
-    from retainpdf_pipeline.services.document_schema.validator import build_validation_report
+    from retainpdf_pipeline.services.document_schema.validator import (
+        build_validation_report,
+    )
 
     document = {
         "schema": "normalized_document_v1",

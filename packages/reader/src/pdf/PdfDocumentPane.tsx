@@ -7,6 +7,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -27,9 +28,23 @@ import {
   resolveReaderRegionHighlight,
   type ReaderMetadata,
   type ReaderRegion,
+  type ReaderRegionSelection,
 } from "../shared/data/reader-regions.js";
+import type { LiveTranslationState } from "../shared/data/live-translation-state.js";
 
 const OVERSCAN = 5;
+let nextPdfFileIdentity = 1;
+const pdfFileIdentities = new WeakMap<ProtectedPdfFile, number>();
+
+function pdfFileIdentity(file: ProtectedPdfFile | null): number {
+  if (!file) return 0;
+  const existing = pdfFileIdentities.get(file);
+  if (existing) return existing;
+  const next = nextPdfFileIdentity;
+  nextPdfFileIdentity += 1;
+  pdfFileIdentities.set(file, next);
+  return next;
+}
 
 /**
  * 页宽按「shell 全宽 × zoom%」计算，与当前栏宽无关。
@@ -63,7 +78,14 @@ export type PdfDocumentPaneProps = {
   onLoadError?: (error: Error, pane: ReaderPaneId) => void;
   onNumPagesChange?: (numPages: number, pane: ReaderPaneId) => void;
   activeRegion?: ReaderRegion | null;
+  regions?: ReaderRegion[];
   readerMetadata?: ReaderMetadata | null;
+  onSelectRegion?: (selection: ReaderRegionSelection) => void;
+  liveTranslation?: LiveTranslationState;
+  /** Render live translation blocks in this pane, independent of source/translated identity. */
+  showLiveTranslation?: boolean;
+  /** Non-fatal live-translation wait state shown over the still-valid source canvas. */
+  liveTranslationPendingLabel?: string;
 };
 
 const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
@@ -83,11 +105,19 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
       onLoadError,
       onNumPagesChange,
       activeRegion = null,
+      regions = [],
       readerMetadata = null,
+      onSelectRegion,
+      liveTranslation,
+      showLiveTranslation = pane === "source",
+      liveTranslationPendingLabel = "",
     },
     ref,
   ) {
     const { file, loading, error: fetchError } = useProtectedPdfFile(url, preloadedFile);
+    const documentIdentity = `${url}\u0000${pdfFileIdentity(file)}`;
+    const activeDocumentIdentityRef = useRef(documentIdentity);
+    activeDocumentIdentityRef.current = documentIdentity;
     const documentFile = useMemo(
       () => cloneProtectedPdfFileForWorker(file),
       [file, url],
@@ -223,33 +253,41 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
       };
     }, [scrollRoot]);
 
-    // reset visiblePages / cache when document url changes
-    useEffect(() => {
+    // A pane survives Reader route changes. Clear every document-derived value
+    // before paint so pages/errors from document A cannot flash inside document B.
+    // Include the resolved file identity because an authoritative refresh may
+    // replace bytes while retaining the same protected URL.
+    useLayoutEffect(() => {
+      setNumPages(0);
+      setDocError("");
       setVisiblePages(new Set());
       setAspectCache(new Map());
       sentinelRefs.current.clear();
-      // keep observer; it will re-observe new sentinels on next render
-    }, [url]);
+      onNumPagesChange?.(0, pane);
+      // Keep the observer; it will re-observe new sentinels on next render.
+    }, [documentIdentity, onNumPagesChange, pane]);
 
     const handleLoadSuccess = useCallback(
       ({ numPages: pages }: { numPages: number }) => {
+        if (activeDocumentIdentityRef.current !== documentIdentity) return;
         setNumPages(pages);
         setDocError("");
         onNumPagesChange?.(pages, pane);
         onLoadSuccess?.({ numPages: pages, pane });
       },
-      [onLoadSuccess, onNumPagesChange, pane],
+      [documentIdentity, onLoadSuccess, onNumPagesChange, pane],
     );
 
     const handleLoadError = useCallback(
       (err: Error) => {
+        if (activeDocumentIdentityRef.current !== documentIdentity) return;
         const message = err?.message || "PDF 解析失败";
         setDocError(message);
         setNumPages(0);
         onNumPagesChange?.(0, pane);
         onLoadError?.(err, pane);
       },
-      [onLoadError, onNumPagesChange, pane],
+      [documentIdentity, onLoadError, onNumPagesChange, pane],
     );
 
     const pageNumbers = useMemo(
@@ -260,6 +298,17 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
       () => resolveReaderRegionHighlight(activeRegion, readerMetadata, pane),
       [activeRegion, readerMetadata, pane],
     );
+    const regionTargetsByPage = useMemo(() => {
+      const map = new Map<number, NonNullable<ReturnType<typeof resolveReaderRegionHighlight>>[]>();
+      for (const region of regions) {
+        const highlight = resolveReaderRegionHighlight(region, readerMetadata, pane);
+        if (!highlight) continue;
+        const list = map.get(highlight.box.page) || [];
+        list.push(highlight);
+        map.set(highlight.box.page, list);
+      }
+      return map;
+    }, [pane, readerMetadata, regions]);
 
     const windowedSet = useMemo(() => {
       if (numPages === 0) return new Set<number>();
@@ -291,9 +340,16 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
         data-reader-pane={pane}
         data-reader-engine="react-pdf"
         data-reader-visible={visible ? "true" : "false"}
+        data-live-translation-status={liveTranslation?.jobStatus || undefined}
         aria-hidden={visible ? undefined : true}
         aria-label={pane === "source" ? "原文 PDF" : "译文 PDF"}
       >
+        {liveTranslationPendingLabel ? (
+          <div className="reader-live-translation-waiting" role="status">
+            <span className="reader-live-translation-waiting-dot" aria-hidden="true" />
+            <span>{liveTranslationPendingLabel}</span>
+          </div>
+        ) : null}
         {showEmpty && !loading ? (
           <div className="reader-empty reader-react-pdf-empty" data-reader-pdf-empty={pane}>
             {emptyText}
@@ -307,7 +363,7 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
         {documentFile && !fetchError ? (
           <div className="reader-viewer-wrap reader-react-pdf-wrap">
             <Document
-              key={url}
+              key={documentIdentity}
               file={documentFile}
               loading={null}
               error={null}
@@ -333,6 +389,11 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
                       onAspectChange={handleAspectChange}
                       sentinelRef={(el) => registerSentinel(pageNumber, el)}
                       regionHighlight={regionHighlight?.box.page === pageNumber ? regionHighlight : null}
+                      regionTargets={regionTargetsByPage.get(pageNumber)}
+                      onSelectRegion={onSelectRegion}
+                      liveTranslationLayout={liveTranslation?.layoutByPage.get(pageNumber - 1)}
+                      liveTranslationPage={liveTranslation?.pagesByPage.get(pageNumber - 1)}
+                      showLiveTranslation={showLiveTranslation}
                     />
                   );
                 }

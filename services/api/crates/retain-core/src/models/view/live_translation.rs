@@ -19,6 +19,23 @@ pub struct LiveTranslationLayoutBlockView {
     pub bbox: Vec<f64>,
     pub source_text: String,
     pub kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub typography: Option<LiveTranslationTypographyView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct LiveTranslationTypographyView {
+    pub font_family: String,
+    pub font_size_pt: f64,
+    pub leading_em: f64,
+    pub font_weight: u16,
+    pub text_align: String,
+    pub padding_top_pt: f64,
+    pub padding_right_pt: f64,
+    pub padding_bottom_pt: f64,
+    pub padding_left_pt: f64,
+    pub fit_min_font_size_pt: f64,
+    pub fit_max_font_size_pt: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

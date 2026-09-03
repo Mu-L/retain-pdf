@@ -110,6 +110,7 @@ function parseSseEvent(line = "") {
 // 消费 /ai/ask 的 SSE body:按行切分 `data: {json}`,tool 事件回调,
 // compress 透出给上层做可观测提示,done 事件返回最终结果,error 事件抛 AiAskError。
 export async function readAiAskStream(body, {
+  onProgressEvent = null,
   onToolEvent = null,
   onAgentToolEvent = null,
   onAgentOperationEvent = null,
@@ -132,6 +133,17 @@ export async function readAiAskStream(body, {
   function handleLine(line) {
     const event = parseSseEvent(line);
     if (!event || typeof event !== "object") {
+      return;
+    }
+    if (event.type === "progress") {
+      onProgressEvent?.({
+        type: "progress",
+        stage: event.stage === "retrieval" ? "retrieval" : "routing",
+        message: `${event.message || ""}`.trim(),
+      });
+      return;
+    }
+    if (event.type === "heartbeat") {
       return;
     }
     if (event.type === "tool") {
@@ -201,8 +213,8 @@ export async function readAiAskStream(body, {
       }
       return;
     }
-    if (event.type === "error") {
-      throw new AiAskError(`${event.message || "AI 服务返回错误。"}`);
+    if (event.type === "error" || event.type === "cancelled") {
+      throw new AiAskError(`${event.message || (event.type === "cancelled" ? "AI 请求已取消。" : "AI 服务返回错误。")}`);
     }
     if (event.type === "compress") {
       onCompress?.(event);
@@ -336,6 +348,7 @@ export async function askLibraryAi({
   userMessageId = "",
   assistantMessageId = "",
   onToolEvent = null,
+  onProgressEvent = null,
   onAgentToolEvent = null,
   onAgentOperationEvent = null,
   onAgentConfirmationRequiredEvent = null,
@@ -360,6 +373,7 @@ export async function askLibraryAi({
     // 让 markdown 渲染 / 流式 / 引用跳转三条链路都能在 mock 下端到端复现。
     return readAiAskStream(buildMockAskStream(trimmed), {
       onToolEvent,
+      onProgressEvent,
       onAgentToolEvent,
       onAgentOperationEvent,
       onAgentConfirmationRequiredEvent,
@@ -450,6 +464,7 @@ export async function askLibraryAi({
     return result;
   }
   return readAiAskStream(resp.body, {
+    onProgressEvent,
     onToolEvent,
     onAgentToolEvent,
     onAgentOperationEvent,

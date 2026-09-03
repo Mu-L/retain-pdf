@@ -11,10 +11,11 @@ export type ReaderFloatShellProps = {
     /** 默认宽（px），会 min 到视口 */
     width?: number;
     /** dock-right 用于 PDF / Markdown 等稳定双栏，不启用拖拽定位。 */
-    placement?: "floating" | "dock-right";
+    placement?: "floating" | "dock-right" | "workspace";
+    showHeader?: boolean;
     onClose: () => void;
     toolbar?: ReactNode;
     children: ReactNode;
 };
-export declare function ReaderFloatShell({ id, open, title, subtitle, titleIcon, storageKey, ariaLabel, className, width, placement, onClose, toolbar, children, }: ReaderFloatShellProps): import("react").JSX.Element;
+export declare function ReaderFloatShell({ id, open, title, subtitle, titleIcon, storageKey, ariaLabel, className, width, placement, showHeader, onClose, toolbar, children, }: ReaderFloatShellProps): import("react").JSX.Element;
 //# sourceMappingURL=ReaderFloatShell.d.ts.map

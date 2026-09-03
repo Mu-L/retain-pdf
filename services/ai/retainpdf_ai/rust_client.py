@@ -243,3 +243,76 @@ class RustApiClient:
                 "ttl_seconds": ttl_seconds,
             },
         )
+
+    def create_agent_calculation(
+        self,
+        *,
+        calculation_id: str,
+        conversation_id: str,
+        request_message_id: str,
+        document_id: str,
+        job_id: str,
+        tool_name: str,
+        tool_call_id: str,
+        input_refs: dict[str, Any],
+        input_sha256: str,
+    ) -> dict[str, Any]:
+        """Create or replay one durable safe-calculation identity."""
+        return self._post(
+            "/api/v1/internal/agent/calculations",
+            {
+                "schema": "agent_calculation_create_v1",
+                "calculation_id": calculation_id,
+                "conversation_id": conversation_id,
+                "request_message_id": request_message_id,
+                "document_id": document_id,
+                "job_id": job_id,
+                "tool_name": tool_name,
+                "tool_call_id": tool_call_id,
+                "input_refs": input_refs,
+                "input_sha256": input_sha256,
+            },
+        )
+
+    def complete_agent_calculation(
+        self,
+        calculation_id: str,
+        *,
+        result: dict[str, Any],
+        artifacts: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        return self._post(
+            f"/api/v1/internal/agent/calculations/{calculation_id}/complete",
+            {
+                "schema": "agent_calculation_complete_v1",
+                "result": result,
+                "artifacts": artifacts,
+            },
+        )
+
+    def fail_agent_calculation(
+        self,
+        calculation_id: str,
+        *,
+        code: str,
+        message: str,
+    ) -> dict[str, Any]:
+        return self._post(
+            f"/api/v1/internal/agent/calculations/{calculation_id}/fail",
+            {
+                "schema": "agent_calculation_fail_v1",
+                "code": code,
+                "message": message,
+            },
+        )
+
+    def get_agent_calculation(self, calculation_id: str) -> dict[str, Any]:
+        return self._get(f"/api/v1/ai/calculations/{calculation_id}")
+
+    def list_agent_calculations(
+        self, conversation_id: str, *, limit: int = 50, offset: int = 0
+    ) -> dict[str, Any]:
+        return self._get(
+            f"/api/v1/ai/conversations/{conversation_id}/calculations",
+            {"limit": max(1, min(int(limit), 100)), "offset": max(0, int(offset))},
+        )

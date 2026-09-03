@@ -573,6 +573,12 @@ async fn retry_stage_route_creates_translation_recovery_job_with_overrides() {
     );
     assert_eq!(retry_job.request_payload.translation.workers, 50);
     assert_eq!(retry_job.request_payload.render.compile_workers, 8);
+    assert!(retry_job.request_payload.translation.api_key.is_empty());
+    assert!(retry_job
+        .request_payload
+        .translation
+        .credential_ref
+        .starts_with("cred_"));
 }
 
 #[tokio::test]
@@ -733,6 +739,13 @@ async fn retry_stage_route_applies_overrides_for_in_place_render() {
     assert_eq!(retry_job.request_payload.render.render_mode, "typst");
     assert_eq!(retry_job.request_payload.render.compile_workers, 8);
     assert_eq!(retry_job.request_payload.runtime.timeout_seconds, 120);
+    assert!(retry_job.request_payload.translation.api_key.is_empty());
+    assert!(retry_job
+        .request_payload
+        .translation
+        .credential_ref
+        .is_empty());
+    assert!(retry_job.request_payload.ocr.credential_ref.is_empty());
     assert_eq!(
         retry_job.request_payload.runtime.job_id,
         "job-retry-stage-render-in-place-overrides"

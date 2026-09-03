@@ -1,9 +1,10 @@
-import { Clock3, Copy, Link2, RefreshCw, Settings2 } from "lucide-react";
+import { Clock3, Copy, FileText, Link2, RefreshCw, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog.js";
 import { useHomeServices } from "../../../home-services-context.js";
 import { queueFullTitle, retryCountdownSeconds } from "../../../composition/external.js";
 import { OcrReceiptBindingDialog } from "../OcrReceiptBindingDialog.js";
+import { FailureLogDialog } from "../FailureLogDialog.js";
 import type { OcrReceiptValues } from "../ocr-ambiguity-recovery.js";
 import type { StatusDetailOverview } from "../status-detail-store.js";
 import type { StatusDetailControllerApi } from "../useStatusDetailOverview.js";
@@ -33,6 +34,7 @@ export function FailurePanel({
   const rerun = useRerunAction({ overview, rerunPending, controller });
   const [ocrConfirmOpen, setOcrConfirmOpen] = useState(false);
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+  const [logDialogOpen, setLogDialogOpen] = useState(false);
   const [retryPending, setRetryPending] = useState(false);
   const [recoveryFeedback, setRecoveryFeedback] = useState("");
   const [countdownNow, setCountdownNow] = useState(() => Date.now());
@@ -47,6 +49,7 @@ export function FailurePanel({
   useEffect(() => {
     setOcrConfirmOpen(false);
     setReceiptDialogOpen(false);
+    setLogDialogOpen(false);
   }, [overview.ocrAmbiguity.jobId, descriptor?.resolution_revision]);
 
   useEffect(() => {
@@ -110,6 +113,19 @@ export function FailurePanel({
           <span className="label">失败摘要</span>
           <span id={ids.failure.summary} className="info-value">{failure.summary}</span>
           <span id={ids.failure.rootCause} className="status-detail-failure-root-cause">{failure.rootCause}</span>
+        </div>
+
+        <div className="status-detail-log-entry-row">
+          <button
+            id={ids.failure.logButton}
+            type="button"
+            className="button-link secondary"
+            onClick={() => setLogDialogOpen(true)}
+          >
+            <FileText className="h-4 w-4" aria-hidden="true" />
+            查看错误日志
+          </button>
+          <span className="status-panel-note">包含错误码、阶段、Trace ID 和最近日志，可一键复制。</span>
         </div>
 
         <div className="status-detail-failure-recovery">
@@ -266,6 +282,12 @@ export function FailurePanel({
           />
         </>
       ) : null}
+      <FailureLogDialog
+        open={logDialogOpen}
+        onOpenChange={setLogDialogOpen}
+        jobId={overview.headline.jobId}
+        logText={failure.logText}
+      />
     </StatusDetailTabPanel>
   );
 }

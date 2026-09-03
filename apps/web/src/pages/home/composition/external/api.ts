@@ -188,7 +188,7 @@ export const submitJobRequest = async (...args: Parameters<typeof _canonSubmitJo
 };
 
 import * as LegacyDocuments from "../../../../js/api/documents.js";
-import { fetchDocumentList as _canonFetchDocumentList, fetchDocument as _canonFetchDocument, fetchDocumentByJobId as _canonFetchDocumentByJobId, fetchDocumentJobs as _canonFetchDocumentJobs, ocrDocument as _canonOcrDocument, translateDocument as _canonTranslateDocument, deleteDocument as _canonDeleteDocument, patchDocument as _canonPatchDocument } from "@retainpdf/api/documents";
+import { fetchDocumentList as _canonFetchDocumentList, fetchDocument as _canonFetchDocument, fetchDocumentByJobId as _canonFetchDocumentByJobId, fetchDocumentJobs as _canonFetchDocumentJobs, ocrDocument as _canonOcrDocument, translateDocument as _canonTranslateDocument, deleteDocument as _canonDeleteDocument, patchDocument as _canonPatchDocument, createDocumentMetadataSuggestion as _canonCreateDocumentMetadataSuggestion, fetchDocumentMetadataSuggestions as _canonFetchDocumentMetadataSuggestions } from "@retainpdf/api/documents";
 export const fetchDocumentList = async (...args: Parameters<typeof _canonFetchDocumentList>): Promise<any> => {
   if (isMockMode()) return (LegacyDocuments as any).fetchDocumentList(...args);
   return (_canonFetchDocumentList as any)(...args);
@@ -220,6 +220,14 @@ export const deleteDocument = async (...args: Parameters<typeof _canonDeleteDocu
 export const patchDocument = async (...args: Parameters<typeof _canonPatchDocument>): Promise<any> => {
   if (isMockMode()) return (LegacyDocuments as any).patchDocument(...args);
   return (_canonPatchDocument as any)(...args);
+};
+export const createDocumentMetadataSuggestion = async (...args: Parameters<typeof _canonCreateDocumentMetadataSuggestion>): Promise<any> => {
+  if (isMockMode()) return null;
+  return (_canonCreateDocumentMetadataSuggestion as any)(...args);
+};
+export const fetchDocumentMetadataSuggestions = async (...args: Parameters<typeof _canonFetchDocumentMetadataSuggestions>): Promise<any> => {
+  if (isMockMode()) return [];
+  return (_canonFetchDocumentMetadataSuggestions as any)(...args);
 };
 
 import * as LegacyCollections from "../../../../js/api/collections.js";

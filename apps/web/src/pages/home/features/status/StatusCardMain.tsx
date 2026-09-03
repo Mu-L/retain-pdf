@@ -7,6 +7,7 @@ import { ResultActions } from "./ResultActions.jsx";
 import { StageRetry } from "./StageRetry.jsx";
 import { StatusCardIdsContext } from "./status-card-ids-context.js";
 import { useStatusCardModel, type StatusCardPrimaryActions } from "./use-status-card-model.js";
+import { LoaderCircle, Square } from "lucide-react";
 
 type StatusCardMainProps = {
   visible?: boolean;
@@ -48,6 +49,9 @@ export function StatusCardMain({
   if (className) rootClassNames.push(className);
 
   const primaryActions = (display.primaryActions || {}) as Partial<StatusCardPrimaryActions>;
+  const status = `${snapshot.status || ""}`.trim().toLowerCase();
+  const hasCancellableJob = Boolean(`${snapshot.jobId || ""}`.trim())
+    && ["queued", "running", "pending", "validating"].includes(status);
   const hasResultActions = showResultActions && Boolean(
     primaryActions.markdownBundleReady
     || primaryActions.pdfReady
@@ -65,6 +69,9 @@ export function StatusCardMain({
         className={rootClassNames.join(" ")}
         data-status={`${snapshot.status || ""}`.trim()}
         data-visual-stage-key={lottie.visualStageKey || visualStageKey}
+        data-current-stage-key={selection.currentStageKey}
+        data-selected-stage-key={selection.selectedStageKey}
+        data-manual-stage-selection={selection.manualStageSelection ? "true" : "false"}
         data-embedded="false"
       >
         <div className="status-card-shell">
@@ -75,11 +82,16 @@ export function StatusCardMain({
                 type="button"
                 className="status-action-btn status-head-btn status-head-cancel"
                 aria-label="取消任务"
-                title="取消任务"
-                disabled={!snapshot.cancelEnabled || cancelDisabled}
+                title={cancelDisabled ? "正在取消任务" : "停止并取消当前任务"}
+                disabled={!hasCancellableJob || cancelDisabled}
                 onClick={() => cancelCurrentJob?.()}
               >
-                <span>取消</span>
+                {cancelDisabled ? (
+                  <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Square className="size-3.5" aria-hidden="true" />
+                )}
+                <span>{cancelDisabled ? "取消中" : "取消任务"}</span>
               </button>
               <div className="status-head-center">
                 <div id={ids.ringLabel} className="status-ring-label">{ringLabel}</div>

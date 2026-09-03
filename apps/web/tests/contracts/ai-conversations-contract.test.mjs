@@ -6,7 +6,7 @@ import { join } from "node:path";
 // 消费者契约测试:frontend 对 /api/v1/ai/conversations 的消费必须与
 // packages/schemas/ai-conversations.v1.schema.json(单一真值)一致。
 // 生产侧锁在 rust_api src/api_tests/conversations_contract.rs,
-// ai_service 侧锁在 backend/ai_service/tests/test_conversations_contract.py。
+// ai_service 侧锁在 services/ai/tests/test_conversations_contract.py。
 // 改契约先改 schema,三端测试同步变绿才算完成。
 
 const CONTRACT_PATH = join(

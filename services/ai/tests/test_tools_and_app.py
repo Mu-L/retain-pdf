@@ -1,5 +1,6 @@
 import json
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -276,6 +277,7 @@ def test_default_registry_tools_return_anchored_results(tmp_path):
     job_root = _write_job_dir(tmp_path)
     settings = Settings(data_root=tmp_path)
     registry = build_default_registry(settings, FakeRust())
+    assert registry.content_source("doc-a", "job-1") == "structured"
 
     hits = registry.invoke("search_fulltext", {"query": "光谱"})["hits"]
     assert len(hits) == 2
@@ -295,13 +297,15 @@ def test_default_registry_tools_return_anchored_results(tmp_path):
     assert len(scoped["hits"]) == 1
     assert scoped["hits"][0]["document_id"] == "doc-a"
     assert scoped["document_id"] == "doc-a"
+    assert scoped["structured_data_available"] is True
 
     empty_scoped = registry.invoke(
         "search_fulltext",
         {"query": "光谱", "document_id": "doc-missing"},
     )
     assert empty_scoped["hits"] == []
-    assert "全文索引" in empty_scoped.get("hint", "")
+    assert empty_scoped["structured_data_available"] is False
+    assert "没有可读取的结构化数据" in empty_scoped.get("hint", "")
 
     documents = registry.invoke("list_documents", {})["documents"]
     assert documents[0]["document_id"] == "doc-a"
@@ -340,6 +344,7 @@ def test_default_registry_tools_return_anchored_results(tmp_path):
 
     # 旧任务若缺 normalized block 关系，不能退化成同页图片枚举。
     (job_root / "ocr" / "normalized" / "document.v1.json").unlink()
+    assert registry.content_source("doc-a", "job-1") == "markdown"
     legacy_hits = registry.invoke("search_fulltext", {"query": "光谱"})["hits"]
     assert "image_urls" not in legacy_hits[0]
 
@@ -395,6 +400,39 @@ def test_default_registry_markdown_tools_only_read_full_markdown(tmp_path):
         {"query": "光谱", "document_id": "doc-other", "job_id": "job-1"},
     )
     assert "do not refer to the same document" in mismatch["error"]
+
+
+def test_reading_request_fails_before_model_when_no_content_source_exists(tmp_path):
+    rust = FakeRust()
+    registry = build_default_registry(Settings(data_root=tmp_path), rust)
+    called = False
+
+    def chat(_messages, _tools):
+        nonlocal called
+        called = True
+        return {"role": "assistant", "content": "unexpected"}
+
+    agent = RetrievalAgent(registry, chat)
+    client = TestClient(
+        build_app(
+            Settings(
+                api_keys=frozenset({"test-key"}),
+                llm_api_key="env-llm-key",
+                data_root=tmp_path,
+            ),
+            agent=agent,
+            rust=rust,
+        )
+    )
+    response = client.post(
+        "/v1/ask",
+        json={"question": "总结文档", "document_id": "doc-a"},
+        headers={"X-API-Key": "test-key"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "AI_DOCUMENT_CONTENT_UNAVAILABLE"
+    assert called is False
 
 
 class FakeAgent(RetrievalAgent):
@@ -465,19 +503,30 @@ def test_ask_endpoint_streams_sse_events():
         for line in response.iter_lines():
             if line.startswith("data: "):
                 events.append(json.loads(line[len("data: "):]))
-    assert events[0]["type"] == "agent_session"
-    assert events[0]["agent_runtime"] == "python-retrieval-v1"
-    assert events[0]["capabilities"] == {
+    assert events[0] == {
+        "type": "progress",
+        "stage": "routing",
+        "message": "正在判断任务类型",
+    }
+    session = next(event for event in events if event["type"] == "agent_session")
+    assert session["agent_runtime"] == "python-retrieval-v1"
+    assert session["assistant_mode"] == "auto"
+    assert session["resolved_mode"] == "reading"
+    assert session["content_source"] == "unscoped"
+    assert session["capabilities"] == {
+        "calculation": False,
         "confirmation_modes": [],
         "document_reading": True,
         "document_operations": False,
         "document_operation_confirmation_mode": "explicit",
+        "durable_calculations": False,
         "durable_sessions": False,
         "model_transport": "host_chat",
+        "python_analysis": False,
         "streaming": True,
     }
-    assert events[1]["type"] == "tool"
-    assert events[1]["tool"] == "search_fulltext"
+    tool_event = next(event for event in events if event["type"] == "tool")
+    assert tool_event["tool"] == "search_fulltext"
     assert events[-1]["type"] == "done"
     assert events[-1]["answer"].startswith("回答:")
     assert events[-1]["citations"][0]["block_id"] == "p003-b0001"
@@ -536,6 +585,16 @@ def test_ask_routes_reading_and_operations_without_changing_global_runtime():
         json={"question": "旋转第一页", "assistant_mode": "operations"},
         headers=headers,
     )
+    auto_reading = client.post(
+        "/v1/ask",
+        json={"question": "总结第三页", "assistant_mode": "auto"},
+        headers=headers,
+    )
+    auto_operations = client.post(
+        "/v1/ask",
+        json={"question": "把第一页旋转 90 度", "assistant_mode": "auto"},
+        headers=headers,
+    )
 
     assert reading.status_code == 200
     assert reading.json()["data"]["answer"].startswith("回答:总结本文")
@@ -543,7 +602,96 @@ def test_ask_routes_reading_and_operations_without_changing_global_runtime():
     assert operations.status_code == 200
     assert operations.json()["data"]["answer"] == "operation:旋转第一页"
     assert operations.json()["data"]["agent_runtime"] == "openai-compatible-agent-v1"
-    assert observed == ["旋转第一页"]
+    assert auto_reading.json()["data"]["answer"].startswith("回答:总结第三页")
+    assert auto_operations.json()["data"]["answer"] == "operation:把第一页旋转 90 度"
+    assert observed == ["旋转第一页", "把第一页旋转 90 度"]
+
+
+def test_stream_timeout_emits_heartbeats_and_one_structured_terminal():
+    class SlowOperationRuntime:
+        runtime_id = "slow-operation-runtime"
+        capabilities = RuntimeCapabilities(
+            document_reading=False,
+            document_operations=True,
+            streaming=True,
+            durable_sessions=False,
+            model_transport="host_chat",
+        )
+
+        def ask(self, _question, *, request_control=None, **_kwargs):
+            while True:
+                request_control.raise_if_stopped()
+                time.sleep(0.01)
+
+    settings = Settings(
+        api_keys=frozenset({"test-key"}),
+        llm_api_key="env-llm-key",
+        ai_request_deadline_s=0.12,
+        ai_heartbeat_interval_s=0.03,
+    )
+    client = TestClient(
+        build_app(settings, agent=FakeAgent(), runtime=SlowOperationRuntime())
+    )
+    with client.stream(
+        "POST",
+        "/v1/ask",
+        json={
+            "question": "旋转第一页",
+            "assistant_mode": "operations",
+            "stream": True,
+        },
+        headers={"X-API-Key": "test-key"},
+    ) as response:
+        events = [
+            json.loads(line[len("data: "):])
+            for line in response.iter_lines()
+            if line.startswith("data: ")
+        ]
+
+    assert any(event["type"] == "heartbeat" for event in events)
+    terminals = [
+        event for event in events if event["type"] in {"done", "error", "cancelled"}
+    ]
+    assert terminals == [
+        {
+            "type": "error",
+            "code": "AI_RESPONSE_TIMEOUT",
+            "message": "AI 响应超时，请重试",
+            "retryable": True,
+        }
+    ]
+
+
+def test_stream_rejects_empty_done_answer_with_structured_error():
+    class EmptyAgent(FakeAgent):
+        def ask(self, question, **kwargs):
+            del question, kwargs
+            return AskResult(answer="", rounds=1)
+
+    client = TestClient(
+        build_app(
+            Settings(api_keys=frozenset({"test-key"}), llm_api_key="env-llm-key"),
+            agent=EmptyAgent(),
+        )
+    )
+    with client.stream(
+        "POST",
+        "/v1/ask",
+        json={"question": "总结", "stream": True},
+        headers={"X-API-Key": "test-key"},
+    ) as response:
+        events = [
+            json.loads(line[len("data: "):])
+            for line in response.iter_lines()
+            if line.startswith("data: ")
+        ]
+
+    assert events[-1] == {
+        "type": "error",
+        "code": "AI_EMPTY_RESPONSE",
+        "message": "模型未返回有效回答，请重试",
+        "retryable": True,
+    }
 
 
 def test_ask_endpoint_requires_llm_key_from_env_or_request():
@@ -881,7 +1029,7 @@ def test_fx_auto_with_document_scope_fails_closed_before_runtime_call():
     )
 
     assert response.status_code == 409
-    assert "不能读取文档正文" in response.json()["detail"]
+    assert "没有可用的文档阅读运行时" in response.json()["detail"]
     assert called is False
 
 

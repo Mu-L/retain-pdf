@@ -1,9 +1,11 @@
 # retainpdf-ai
 
-常驻 AI 服务。默认的 `python-retrieval-v1` 只回答一个任务的 `md/full.md`：
-不检索 `document.v1.json`、PDF、收藏、全库 FTS 或其他文档。实验性的
-`vercel-fx-acp-v1` 通过 host-owned broker 创建 durable PDF operation；Rust
-仍是 operation、candidate、commit 和恢复状态的唯一权威来源。
+常驻 AI 服务。默认的 `python-retrieval-v1` 使用由
+`ocr/normalized/document.v1.json` 与 `translated/page-*.json` 派生的结构化索引回答当前文档；
+原文与译文共享 page/block/bbox 锚点。`md/full.md` 仅用于兼容缺少结构化产物的旧任务。实验性的
+`vercel-fx-acp-v1` 通过 host-owned broker 使用同一套阅读、确定性计算和 durable
+PDF operation。Rust 仍是 operation、calculation、candidate、commit 和恢复状态的
+唯一权威来源。
 
 ## 架构
 
@@ -13,19 +15,25 @@ POST /v1/ask
       └── AskOrchestrator            请求预校验、同步/SSE 编排
           ├── ConversationState      会话树、摘要、durable 消息写入
           └── AgentRuntime
-              ├── python-retrieval-v1（默认）
-              │   └── RetrievalAgent
-              │       ├── search_markdown
-              │       └── read_markdown_chunk
+              ├── python-unified-agent-v1（操作 runtime 可选项）
+              │   └── 单一 OpenAI-compatible model loop
               ├── openai-compatible-agent-v1
-              │   └── 自定义 URL/模型/Key → host broker → Rust operation API
+              │   └── 单一 OpenAI-compatible model loop
               └── vercel-fx-acp-v1
                   ├── fx acp 0.0.5（无 MCP，私有 HOME/workspace）
-                  └── host broker → retainpdf-agent → Rust operation API
+                  └── 固定 host broker grammar
 
-返回：`answer + citations[]`（document/job + Markdown chunk 兼容锚点）+ `tool_trace`；
-SSE 另提供 `agent_session`、`agent_operation`，`done.operation_refs` 作为断线前的
-发现提示。浏览器收到提示后仍必须查询 Rust public operation API 获取权威状态。
+`assistant_mode=auto` 先由宿主做保守路由：阅读、总结、解释、检索和计算进入
+`python-retrieval-v1`；只有明确的旋转、删除页面、重排、拆分等修改意图才进入
+当前 operation runtime。歧义请求默认 reading。operation runtime 的同一模型循环可看到：
+  - search_fulltext / read_blocks / Markdown 兼容工具
+  - calculate_expression / calculate_statistics / analyze_table / generate_chart
+  - durable PDF operation 工具
+
+返回：`answer + citations[]`（document/job/page/block 结构化锚点）+ `tool_trace`；
+SSE 另提供 `agent_session`、统一的 `agent_tool`、`agent_operation`；done 返回
+`operation_refs` 与 `calculation_refs`。浏览器收到提示后仍必须查询 Rust public API
+获取权威状态。
 ```
 
 当前模块边界：
@@ -35,6 +43,8 @@ SSE 另提供 `agent_session`、`agent_operation`，`done.operation_refs` 作为
 | `app.py` | FastAPI 初始化、鉴权和薄路由；保留历史兼容导出 |
 | `api_contracts.py` | `/v1/ask` 与 runtime-config 的 Pydantic 请求模型 |
 | `ask_orchestration.py` | runtime 选择、凭据预校验、同步/SSE turn 编排与结果投影 |
+| `request_routing.py` | `auto` 的保守意图分类；显式 reading/operations 不改写 |
+| `request_control.py` | 请求总 deadline、断流取消和结构化终态错误 |
 | `conversation_state.py` | 会话创建、历史读取、摘要提交、消息预写和最终回写 |
 | `conversation_tree.py` | 纯消息树可见分支投影；兼容旧线性消息 |
 | `runtime_config_api.py` | runtime 配置查询/更新、CAS revision、自检和 `/readyz` |
@@ -52,11 +62,18 @@ SSE 另提供 `agent_session`、`agent_operation`，`done.operation_refs` 作为
 业务状态。Rust 仍是 conversation、document、operation 和 candidate 的唯一
 持久化写入者。
 
-默认 Python retrieval 与有 document/job scope 的 OpenAI Agent 只暴露
-`search_markdown` / `read_markdown_chunk`。OpenAI Agent 没有文档 scope 时会显式
-切换到 `list_documents` / `search_fulltext` / `read_blocks` /
-`search_favorites` 做全库只读检索；这些工具不会出现在文档限定模式。`md/full.md`
-缺失时直接返回工具错误，不会静默回退到 JSON 或 FTS。
+进入模型循环前，宿主先检查当前任务产物。存在 `document.v1` 时只暴露
+`search_fulltext` / `read_blocks`；否则若存在 `md/full.md`，只暴露
+`search_markdown` / `read_markdown_chunk`；两者都不存在的阅读请求直接返回
+`AI_DOCUMENT_CONTENT_UNAVAILABLE`。OpenAI Agent 没有文档 scope 时使用
+`list_documents` / `search_fulltext` / `read_blocks` / `search_favorites`
+做全库只读检索。
+
+安全计算不执行 Python 或 shell，不访问网络，也不接收任意服务端路径。表格分析和
+图表必须引用当前 document/job/page/block；原始表达式与表格内容不写入 Rust。
+Rust 只保存输入哈希、结构化引用、受限结果和校验后的 SVG 产物。AI 服务重试同一
+request/tool/input 时复用稳定 calculation identity；这属于可恢复重放，不宣称后台
+会在进程重启后自动续算尚未完成的内存计算。
 
 刻意不用 agent 框架:单 provider、单用户本地服务,裸循环全权掌控超时/
 轮数/引用编号;工具定义同构,将来迁移只换循环外壳。
@@ -86,6 +103,9 @@ retainpdf-ai
 | `RETAIN_AI_LLM_TIMEOUT_S` | `60` | 普通 OpenAI-compatible 请求超时秒数 |
 | `RETAIN_AI_PORT` | `41100` | 监听端口 |
 | `RETAIN_AI_MAX_TOOL_ROUNDS` | `6` | agent 工具轮数上限 |
+| `RETAIN_AI_READING_MAX_TOOL_ROUNDS` | `3` | reading 工具轮数上限；最大固定为 3 |
+| `RETAIN_AI_REQUEST_DEADLINE_SECS` | `90` | 整个 AI turn 的总 deadline |
+| `RETAIN_AI_HEARTBEAT_INTERVAL_SECS` | `5` | 无其他事件时的 SSE 心跳间隔；限制为 1–10 秒 |
 | `RETAIN_AI_MEMORY_WINDOW_TURNS` | `6` | 近期保留对话轮数 |
 | `RETAIN_AI_MEMORY_COMPRESS_AFTER_TURNS` | `12` | 超过则抽取式压缩早期轮次 |
 | `RETAIN_AI_MEMORY_MAX_CHARS` | `24000` | 喂给模型的 history 字符上限 |

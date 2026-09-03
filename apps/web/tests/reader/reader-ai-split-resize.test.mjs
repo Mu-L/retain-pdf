@@ -18,11 +18,12 @@ test("AI split layout defaults to 50:50 and clamps both panes", () => {
   });
 });
 
-test("Reader delegates drag and keyboard resizing to react-resizable-panels", async () => {
-  const [component, app, css, manifest] = await Promise.all([
+test("assistant dock uses the library-owned resizable split", async () => {
+  const [component, app, css, dockCss, manifest] = await Promise.all([
     readFile(new URL("../../../../packages/reader/src/components/react-pdf/ReaderAiSplitResizeHandle.tsx", import.meta.url), "utf8"),
     readFile(new URL("../../../../packages/reader/src/ReaderAppReactPdf.tsx", import.meta.url), "utf8"),
     readFile(new URL("../../../../packages/reader/styles/react-pdf.css", import.meta.url), "utf8"),
+    readFile(new URL("../../../../packages/reader/styles/assistant-dock.css", import.meta.url), "utf8"),
     readFile(new URL("../../../../packages/reader/package.json", import.meta.url), "utf8"),
   ]);
 
@@ -31,10 +32,10 @@ test("Reader delegates drag and keyboard resizing to react-resizable-panels", as
   assert.match(component, /onLayoutChanged=\{handleLayoutChanged\}/);
   assert.match(component, /meta\.isUserInteraction/);
   assert.doesNotMatch(component, /onPointerMove|setPointerCapture|pointermove/);
-  assert.match(app, /aiSplitOpen \? <ReaderAiSplitResizeHandle \/> : null/);
+  assert.match(app, /assistantOpen \? <ReaderAiSplitResizeHandle \/>/);
+  assert.match(app, /is-workspace-\$\{workspaceView\}/);
   assert.match(css, /\.reader-ai-split-separator/);
-  assert.match(css, /\.reader-react-root\.is-ai-split \.reader-react-scroll-shell[\s\S]*?transition:\s*none/);
-  assert.match(css, /left:\s*calc\(\(100dvw - var\(--reader-ai-split-width\)\) \/ 2\)/);
+  assert.match(dockCss, /\.reader-react-root\.is-assistant-open \.reader-react-scroll-shell[\s\S]*?right:\s*var\(--reader-ai-split-width\)/);
   assert.match(css, /\.reader-ai-split-separator[\s\S]*?cursor:\s*col-resize/);
   assert.match(css, /\.reader-ai-split-resizer \[data-panel\][\s\S]*?pointer-events:\s*none/);
   assert.equal(JSON.parse(manifest).dependencies["react-resizable-panels"], "4.12.1");

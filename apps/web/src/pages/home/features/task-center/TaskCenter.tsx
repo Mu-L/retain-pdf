@@ -117,7 +117,7 @@ function TaskRow({ job, busyAction, onOpen, onCancel, onRetry }: {
             onClick={() => onCancel(job)}
           >
             {busyAction === "cancel" ? <LoaderCircle className="size-3.5 animate-spin" /> : <Square className="size-3.5" />}
-            取消
+            {busyAction === "cancel" ? "取消中" : "取消任务"}
           </button>
         ) : null}
         {status === "failed" ? (

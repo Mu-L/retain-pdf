@@ -9,6 +9,7 @@ mod conversations;
 mod documents;
 mod favorites;
 mod media;
+mod metadata_suggestions;
 mod ocr;
 mod search;
 mod translate;
@@ -31,6 +32,9 @@ pub use conversations::{
 pub use documents::{delete_document, get_document, list_documents, patch_document};
 pub use favorites::{create_favorite, delete_favorite, list_favorites, patch_favorite};
 pub use media::{document_cover, document_source_pdf, document_thumbnail, DocumentFileDownload};
+pub use metadata_suggestions::{
+    apply_metadata_suggestion, create_metadata_suggestion, list_metadata_suggestions,
+};
 pub use ocr::ocr_document;
 pub use search::search_blocks;
 pub use translate::translate_document;

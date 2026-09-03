@@ -1,7 +1,7 @@
-import { j as ee, k as te, l as re, g as ae, m as ne, h as se, c as ie, f as oe, i as ce, o as de, p as le, q as ue, n as fe, t as Ae, u as me, d as pe, r as ge, a as he, v as ye, w as ve, b as $e, s as Ie, e as Se } from "../answer-enhance-C1inCPcI.js";
-import { b as Ce, c as Ee, a as be, d as ke, l as _e, s as Me } from "../ask-answerer-CG3B68VS.js";
-import { C as Re, M as Te, h as xe, n as He, a as Le, b as Fe, r as Pe, s as Oe } from "../config-CgaWliJ_.js";
-import { c as ze, a as Ge, l as Ke, s as Ue, b as Xe, t as qe, v as Be } from "../thread-branch-store-CbVu8h7H.js";
+import { k as ee, l as te, m as re, j as ae, n as ne, d as se, f as ie, h as oe, o as ce, g as de, i as le, p as ue, q as fe, t as Ae, u as me, v as pe, w as ge, e as he, r as ye, b as ve, x as $e, a as Ie, c as Se, s as we, y as Ce } from "../answer-enhance-W8TBaAUL.js";
+import { b as be, c as ke, a as Me, d as _e, l as Ne, s as Re } from "../ask-answerer-GNQdzitl.js";
+import { C as xe, M as He, h as Fe, n as Le, a as Pe, b as Oe, r as De, s as ze } from "../config-CgaWliJ_.js";
+import { c as Ke, a as Ue, l as Xe, s as qe, b as Be, t as je, v as We } from "../thread-branch-store-Jy9wH_F1.js";
 import { Marked as T } from "marked";
 import { p as x } from "../markdown-math-Cb17EyYs.js";
 const w = "CITE_", C = "";
@@ -15,7 +15,7 @@ function H(t) {
     return a.push(o), d;
   }), refs: a };
 }
-function L(t, a) {
+function F(t, a) {
   return a.length ? `${t ?? ""}`.replace(
     new RegExp(`${w}(\\d+)${C}`, "g"),
     (r, n) => {
@@ -27,7 +27,7 @@ function L(t, a) {
 function W(t) {
   return v(t || "").replace(/`([^`\n]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br />");
 }
-function F(t) {
+function L(t) {
   if (typeof t == "string") return t;
   const a = t;
   return `${(a == null ? void 0 : a.raw) ?? (a == null ? void 0 : a.text) ?? ""}`;
@@ -36,7 +36,7 @@ const $ = new T();
 $.setOptions({ gfm: !0, breaks: !0 });
 $.use({
   renderer: {
-    html: (t) => v(F(t))
+    html: (t) => v(L(t))
   }
 });
 const P = /^\s*(?:javascript|vbscript|data:text\/html)/i;
@@ -84,7 +84,7 @@ async function Q(t) {
   const { text: n, refs: o } = H(a), d = await x(n, (u) => {
     const p = String($.parse(u, { async: !1 }));
     return O(p);
-  }), i = L(d, o);
+  }), i = F(d, o);
   return z(a, i), i;
 }
 const G = 20, I = 18;
@@ -207,10 +207,10 @@ function V({
   function k() {
     return n ? S(i()) : [];
   }
-  function _() {
+  function M() {
     return n ? `${i().activeId || ""}` : "";
   }
-  function M() {
+  function _() {
     if (!n)
       return "";
     const s = i(), e = h(d(), A());
@@ -242,66 +242,68 @@ function V({
     clear: b,
     enabled: n,
     listSessions: k,
-    activeSessionId: _,
-    newSession: M,
+    activeSessionId: M,
+    newSession: _,
     switchSession: N,
     deleteSession: R
   };
 }
 export {
-  Re as CREDENTIALS_CHANGED_EVENT,
+  xe as CREDENTIALS_CHANGED_EVENT,
   G as MAX_SESSIONS,
-  Te as MISSING_MODEL_API_KEY_MESSAGE,
+  He as MISSING_MODEL_API_KEY_MESSAGE,
   ee as armReaderAiClickShield,
   te as buildMarkdownImageApiUrl,
   re as buildPagePreviewUrl,
-  Ce as buildScopedQuestion,
+  be as buildScopedQuestion,
   ae as clearReaderAiNavigationLock,
-  Ee as clearStoredConversationId,
-  ze as clearThreadBranchSnapshot,
+  ke as clearStoredConversationId,
+  Ke as clearThreadBranchSnapshot,
   ne as clipSnippet,
-  be as conversationStorageKey,
+  Me as conversationStorageKey,
   V as createReaderAiHistoryStore,
-  ke as createReaderAskAnswerer,
-  Ge as createReaderMarkdownAnswerer,
+  _e as createReaderAskAnswerer,
+  Ue as createReaderMarkdownAnswerer,
+  se as decorateCitationMarkdown,
   K as deriveSessionTitle,
-  xe as hasModelApiKey,
-  se as hydrateProtectedImages,
-  ie as injectCitationMarkers,
-  oe as installReaderWindowOpenGuard,
-  ce as isAgenticCitation,
-  de as isReaderAiNavigationLocked,
-  _e as loadStoredConversationId,
-  Ke as loadThreadBranchSnapshot,
-  le as lockReaderAiNavigation,
-  ue as mountAnswerHtml,
-  fe as neutralizeMarkdownAnchors,
-  Ae as normalizeAiCitations,
-  He as notifyCredentialsChanged,
+  ie as findCitationForAnswerImage,
+  Fe as hasModelApiKey,
+  oe as hydrateProtectedImages,
+  ce as injectCitationMarkers,
+  de as installReaderWindowOpenGuard,
+  le as isAgenticCitation,
+  ue as isReaderAiNavigationLocked,
+  Ne as loadStoredConversationId,
+  Xe as loadThreadBranchSnapshot,
+  fe as lockReaderAiNavigation,
+  Ae as mountAnswerHtml,
+  me as neutralizeMarkdownAnchors,
+  pe as normalizeAiCitations,
+  Le as notifyCredentialsChanged,
   J as peekFinalAnswerHtmlCache,
-  me as pickCitationsForAnswer,
+  ge as pickCitationsForAnswer,
   H as protectNumericCitations,
-  Le as readSettingsModelApiKey,
-  pe as renderCitationFooter,
+  Pe as readSettingsModelApiKey,
+  he as renderCitationFooter,
   Q as renderFinalAnswerHtml,
   W as renderStreamingPreviewHtml,
-  ge as resetAnswerEnhanceAdapters,
-  Fe as resetReaderAiConfigAdapters,
-  he as resolveAnswerImageUrl,
-  ye as resolveCitationPageIdx,
-  ve as resolveCitationPageNumber,
-  Pe as resolveReaderAiConfig,
-  L as restoreNumericCitations,
-  $e as revokeHydratedImageUrls,
-  Ue as sanitizeAssistantAnswer,
-  Me as saveStoredConversationId,
-  Xe as saveThreadBranchSnapshot,
-  Ie as setAnswerEnhanceAdapters,
-  Oe as setReaderAiConfigAdapters,
-  Se as shouldIgnoreReaderAiNavEvent,
+  ye as resetAnswerEnhanceAdapters,
+  Oe as resetReaderAiConfigAdapters,
+  ve as resolveAnswerImageUrl,
+  $e as resolveCitationPageIdx,
+  Ie as resolveCitationPageNumber,
+  De as resolveReaderAiConfig,
+  F as restoreNumericCitations,
+  Se as revokeHydratedImageUrls,
+  qe as sanitizeAssistantAnswer,
+  Re as saveStoredConversationId,
+  Be as saveThreadBranchSnapshot,
+  we as setAnswerEnhanceAdapters,
+  ze as setReaderAiConfigAdapters,
+  Ce as shouldIgnoreReaderAiNavEvent,
   S as summarizeSessions,
-  qe as threadBranchStorageKey,
+  je as threadBranchStorageKey,
   U as trimSessions,
-  Be as visiblePathFromSnapshot
+  We as visiblePathFromSnapshot
 };
 //# sourceMappingURL=ai.js.map

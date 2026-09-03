@@ -1,4 +1,4 @@
-import { A } from "./AiMarkdownAnswer-JudKAKDl.js";
+import { A } from "./AiMarkdownAnswer-DET_KlrE.js";
 export {
   A as AiMarkdownAnswer
 };

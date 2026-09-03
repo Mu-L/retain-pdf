@@ -6,6 +6,7 @@ name: Tests
 # 以及最容易影响断点续跑的 translation/document_operations 单元测试。
 
 "on":
+  workflow_call: {}
   pull_request:
   push:
     branches:
@@ -17,7 +18,9 @@ permissions:
 
 concurrency:
   group: tests-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Tag releases may call this workflow from both desktop and Docker release
+  # workflows at the same time. Never cancel a release gate midway.
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
   rust-workspace:
@@ -32,7 +35,8 @@ jobs:
         uses: ./.github/actions/prepare-backend-source
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v9
+        # astral-sh/setup-uv v9.0.0
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
         with:
           version: "0.11.19"
           python-version: "3.11"
@@ -69,6 +73,9 @@ jobs:
 
       - name: Install (root workspaces)
         run: npm ci
+
+      - name: Desktop runtime pruning tests
+        run: node --test apps/desktop/scripts/runtime-prune.test.mjs
 
       - name: Test and build @retainpdf/contracts
         run: |
@@ -139,8 +146,10 @@ jobs:
         uses: ./.github/actions/prepare-backend-source
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v9
+        # astral-sh/setup-uv v9.0.0
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
         with:
+          version: "0.11.19"
           python-version: "3.11"
 
       - name: Install
@@ -189,8 +198,10 @@ jobs:
         uses: ./.github/actions/prepare-backend-source
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v9
+        # astral-sh/setup-uv v9.0.0
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
         with:
+          version: "0.11.19"
           python-version: "3.11"
 
       - name: Setup Rust

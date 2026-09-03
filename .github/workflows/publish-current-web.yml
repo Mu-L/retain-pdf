@@ -13,11 +13,17 @@ name: Publish Current Web Image
       - master
     paths:
       - ".github/workflows/publish-current-web.yml"
+      - ".dockerignore"
+      - "package.json"
+      - "package-lock.json"
+      - "apps/web/scripts/build-workspace-packages.mjs"
       - "infra/docker/Dockerfile.web"
       - "infra/docker/entrypoint-web.sh"
       - "infra/docker/nginx-mjs.types.conf"
       - "infra/docker/nginx.conf.template"
+      - "apps/desktop/package.json"
       - "apps/web/**"
+      - "apps/web-react/package.json"
       - "packages/api/**"
       - "packages/domain/**"
       - "packages/reader/**"
@@ -99,5 +105,5 @@ jobs:
             RETAIN_PDF_VERSION=${{ steps.frontend-version.outputs.version }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=current-web
+          cache-to: type=gha,mode=max,scope=current-web

@@ -21,7 +21,7 @@ from retainpdf_pipeline.services.document_schema.canonical_semantics import (
     is_reference_entry,
     is_reference_heading,
     is_textual,
-    is_title,
+    uses_title_style,
 )
 from retainpdf_pipeline.services.document_schema.classification import (
     resolve_content_kind,
@@ -67,7 +67,12 @@ FOOTNOTE_BLOCK_TYPES = {
     "vision_footnote",
 }
 TITLE_LIKE_LAYOUT_ROLES = {"title", "heading"}
-TITLE_LIKE_STRUCTURE_ROLES = {"title", "heading", "section_heading"}
+TITLE_LIKE_STRUCTURE_ROLES = {
+    "document_title",
+    "title",
+    "heading",
+    "section_heading",
+}
 TEXTUAL_LAYOUT_ROLES = {"title", "heading", "paragraph", "list_item", "caption"}
 
 
@@ -177,7 +182,7 @@ def is_metadata_semantic(payload: dict | None) -> bool:
 
 
 def is_title_like_block(payload: dict | None) -> bool:
-    return is_title(_profile(payload))
+    return uses_title_style(_profile(payload))
 
 
 def is_body_structure_role(payload: dict | None) -> bool:

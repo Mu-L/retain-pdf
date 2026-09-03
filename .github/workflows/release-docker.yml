@@ -1,6 +1,30 @@
 name: Release Docker Images
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/release-docker.yml'
+      - '.github/actions/prepare-backend-source/**'
+      - '.github/scripts/resolve_backend_source.py'
+      - '.github/scripts/resolve_release_version.py'
+      - '.dockerignore'
+      - 'backend-package.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'apps/web/scripts/build-workspace-packages.mjs'
+      - 'apps/desktop/package.json'
+      - 'apps/web/**'
+      - 'apps/web-react/package.json'
+      - 'packages/api/**'
+      - 'packages/domain/**'
+      - 'packages/reader/**'
+      - 'packages/schemas/**'
+      - 'packages/ui/**'
+      - 'infra/docker/Dockerfile.web'
+      - 'infra/docker/entrypoint-web.sh'
+      - 'infra/docker/nginx-mjs.types.conf'
+      - 'infra/docker/nginx.conf.template'
+      - 'services/**'
   workflow_dispatch:
     inputs:
       version:
@@ -29,7 +53,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  quality-gate:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/tests.yml
+
   build:
+    needs: quality-gate
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
@@ -57,10 +87,30 @@ jobs:
               --tag "${{ inputs.version }}" \
               --allow-label \
               --github-output "$GITHUB_OUTPUT"
-          else
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
             python3 .github/scripts/resolve_release_version.py \
               --tag "$GITHUB_REF_NAME" \
               --github-output "$GITHUB_OUTPUT"
+          else
+            python3 .github/scripts/resolve_release_version.py \
+              --tag "ci-${GITHUB_SHA:0:12}" \
+              --allow-label \
+              --github-output "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve build policy
+        id: policy
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "platforms=${{ inputs.platforms }}" >> "$GITHUB_OUTPUT"
+            echo "push=${{ inputs.push }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "platforms=linux/amd64,linux/arm64" >> "$GITHUB_OUTPUT"
+            echo "push=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "platforms=linux/amd64" >> "$GITHUB_OUTPUT"
+            echo "push=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Prepare embedded backend package
@@ -105,7 +155,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.event_name == 'push' && steps.release.outputs.stable == 'true' }}
 
       - name: Login to Docker Hub
-        if: inputs.push || github.event_name == 'push'
+        if: steps.policy.outputs.push == 'true'
         uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -134,10 +184,60 @@ jobs:
         with:
           context: ${{ steps.build-source.outputs.context }}
           file: ${{ steps.build-source.outputs.file }}
-          platforms: ${{ inputs.platforms || 'linux/amd64,linux/arm64' }}
-          push: ${{ inputs.push || github.event_name == 'push' }}
+          platforms: ${{ steps.policy.outputs.platforms }}
+          push: ${{ steps.policy.outputs.push }}
+          # PR builds are native single-platform builds, so loading into the
+          # local daemon is safe. Release builds remain multi-platform pushes.
+          load: ${{ github.event_name == 'pull_request' }}
           build-args: ${{ steps.build-args.outputs.args }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=release-docker-${{ matrix.target.name }}
+          cache-to: type=gha,mode=max,scope=release-docker-${{ matrix.target.name }}
+
+      - name: Smoke loaded PR image
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          IMAGE_REF: ${{ steps.hub.outputs.user }}/${{ matrix.target.repo }}:${{ steps.release.outputs.tag }}
+          TARGET_NAME: ${{ matrix.target.name }}
+        run: |
+          container="retainpdf-${TARGET_NAME}-pr-smoke"
+          cleanup() {
+            rc=$?
+            trap - EXIT
+            if [ "$rc" -ne 0 ]; then
+              docker logs "$container" 2>&1 || true
+            fi
+            docker rm -f "$container" >/dev/null 2>&1 || true
+            exit "$rc"
+          }
+          trap cleanup EXIT
+
+          docker image inspect "$IMAGE_REF" >/dev/null
+          if [ "$TARGET_NAME" = "web" ]; then
+            docker run -d \
+              --name "$container" \
+              --add-host app:127.0.0.1 \
+              -p 18080:80 \
+              "$IMAGE_REF"
+            probe_url="http://127.0.0.1:18080/"
+          else
+            docker run -d \
+              --name "$container" \
+              -e RUST_API_AI_SUPERVISE=0 \
+              -e RUST_API_KEYS=retainpdf-ci-smoke-key \
+              -p 14100:41000 \
+              "$IMAGE_REF"
+            probe_url="http://127.0.0.1:14100/health"
+          fi
+
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error "$probe_url" >/dev/null; then
+              echo "${TARGET_NAME} image smoke passed on attempt ${attempt}"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "${TARGET_NAME} image did not become ready at ${probe_url}" >&2
+          exit 1

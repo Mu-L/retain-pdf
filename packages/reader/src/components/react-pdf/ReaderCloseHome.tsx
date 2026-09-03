@@ -5,7 +5,6 @@
 // 3) 深链直达 → location.assign(index.html)
 
 import { X } from "lucide-react";
-import { peekHomeReturnState } from "../../shared/navigation/home-return-state.js";
 import { SOFT_READER_CLOSE_MESSAGE } from "../../shared/navigation/soft-reader.js";
 
 function homeIndexUrl() {
@@ -26,6 +25,23 @@ function requestSoftHostClose(): boolean {
   }
 }
 
+export function canReturnToReaderReferrer(
+  referrer: string,
+  currentHref: string,
+  historyLength: number,
+): boolean {
+  if (historyLength <= 1 || !referrer) return false;
+  try {
+    const current = new URL(currentHref);
+    const previous = new URL(referrer, current);
+    return previous.origin === current.origin
+      && !/reader\.html$/i.test(previous.pathname)
+      && !/detail\.html$/i.test(previous.pathname);
+  } catch {
+    return false;
+  }
+}
+
 /** 从阅读页回主页 */
 export function navigateReaderToHome() {
   if (typeof window === "undefined") return;
@@ -35,25 +51,17 @@ export function navigateReaderToHome() {
     return;
   }
 
-  const saved = peekHomeReturnState();
-  if (saved?.allowBack && window.history.length > 1) {
+  // history.length alone is not proof that the previous entry is RetainPDF.
+  // A stale home-return session record could previously send a deep-linked
+  // Reader tab to an unrelated or blank page. Only use back when the browser's
+  // actual referrer is a same-origin home route.
+  if (canReturnToReaderReferrer(
+    document.referrer,
+    window.location.href,
+    window.history.length,
+  )) {
     window.history.back();
     return;
-  }
-
-  try {
-    const ref = document.referrer ? new URL(document.referrer) : null;
-    if (
-      ref
-      && ref.origin === window.location.origin
-      && !/reader\.html/i.test(ref.pathname)
-      && window.history.length > 1
-    ) {
-      window.history.back();
-      return;
-    }
-  } catch {
-    /* ignore */
   }
 
   window.location.assign(homeIndexUrl());

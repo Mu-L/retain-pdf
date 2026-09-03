@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 
 from .config import Settings
+from .request_control import AIRequestTimeout, RequestControl
 from .runtimes.contracts import ChatFn
 
 
@@ -120,9 +121,14 @@ def build_deepseek_chat_fn(
     client: httpx.Client | None = None,
     *,
     on_delta: Callable[[str], None] | None = None,
+    request_control: RequestControl | None = None,
 ) -> ChatFn:
     """Build the request-scoped OpenAI-compatible chat function."""
     http = client or httpx.Client(timeout=settings.llm_timeout_s)
+    if client is None and request_control is not None:
+        # Closing the request-owned client interrupts a connection that is
+        # still waiting for response headers when the browser disconnects.
+        request_control.add_cancel_callback(http.close)
     url = f"{settings.llm_base_url}/chat/completions"
     api_key = f"{settings.llm_api_key or ''}".strip()
     if not api_key:
@@ -143,26 +149,69 @@ def build_deepseek_chat_fn(
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
     ) -> dict[str, Any]:
+        if request_control is not None:
+            request_control.raise_if_stopped()
         body: dict[str, Any] = {
             "model": settings.llm_model,
             "messages": messages,
             "tools": tools,
             "temperature": 0.2,
         }
+        request_timeout = settings.llm_timeout_s
+        if request_control is not None:
+            request_timeout = max(
+                0.1,
+                min(request_timeout, request_control.remaining_seconds),
+            )
         if on_delta is None:
-            response = http.post(url, headers=headers, json=body)
+            try:
+                response = http.post(
+                    url, headers=headers, json=body, timeout=request_timeout
+                )
+            except httpx.TimeoutException as exc:
+                if request_control is not None:
+                    request_control.raise_if_stopped()
+                raise AIRequestTimeout() from exc
+            except Exception:
+                if request_control is not None:
+                    request_control.raise_if_stopped()
+                raise
+            if request_control is not None:
+                request_control.raise_if_stopped()
             if response.status_code >= 400:
                 raise friendly_llm_error(response.status_code, response.text)
             return response.json()["choices"][0]["message"]
         body["stream"] = True
-        with http.stream("POST", url, headers=headers, json=body) as response:
+        with http.stream(
+            "POST", url, headers=headers, json=body, timeout=request_timeout
+        ) as response:
+            close_response = response.close
+            if request_control is not None:
+                request_control.add_cancel_callback(close_response)
             if response.status_code >= 400:
                 try:
                     detail = response.read().decode("utf-8", errors="replace")
                 except Exception:  # noqa: BLE001 - preserve bounded provider fallback
                     detail = ""
+                if request_control is not None:
+                    request_control.remove_cancel_callback(close_response)
                 raise friendly_llm_error(response.status_code, detail)
-            return assemble_streaming_message(response.iter_lines(), on_delta)
+            try:
+                message = assemble_streaming_message(response.iter_lines(), on_delta)
+                if request_control is not None:
+                    request_control.raise_if_stopped()
+                return message
+            except httpx.TimeoutException as exc:
+                if request_control is not None:
+                    request_control.raise_if_stopped()
+                raise AIRequestTimeout() from exc
+            except Exception:
+                if request_control is not None:
+                    request_control.raise_if_stopped()
+                raise
+            finally:
+                if request_control is not None:
+                    request_control.remove_cancel_callback(close_response)
 
     return chat
 

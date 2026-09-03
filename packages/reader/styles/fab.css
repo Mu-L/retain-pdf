@@ -44,7 +44,7 @@
     0 10px 24px color-mix(in srgb, var(--shadow-color) 20%, transparent),
     0 0 0 3px color-mix(in srgb, var(--ink) 12%, transparent);
 }
-.reader-fab-trigger.has-notes:not(.is-open) {
+.reader-fab-trigger.has-active-tool:not(.is-open) {
   box-shadow:
     0 14px 32px color-mix(in srgb, var(--shadow-color) 24%, transparent),
     0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent);
@@ -85,4 +85,3 @@
   box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 40%, transparent);
   pointer-events: none;
 }
-

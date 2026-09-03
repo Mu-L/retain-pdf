@@ -225,6 +225,10 @@ def test_group_member_json_user_prompt_includes_member_ids_and_schema() -> None:
         {
             "item_id": "__cg__:cg-010-001",
             "translation_unit_member_ids": ["p010-b001", "p010-b002"],
+            "translation_unit_members": [
+                {"item_id": "p010-b001", "protected_source_text": "This sentence starts"},
+                {"item_id": "p010-b002", "protected_source_text": "and continues."},
+            ],
             "continuation_group": "cg-010-001",
             "translation_unit_protected_source_text": "This sentence starts and continues.",
             "protected_source_text": "This sentence starts and continues.",
@@ -237,6 +241,10 @@ def test_group_member_json_user_prompt_includes_member_ids_and_schema() -> None:
 
     assert payload["group"]["item_id"] == "__cg__:cg-010-001"
     assert payload["group"]["member_ids"] == ["p010-b001", "p010-b002"]
+    assert payload["group"]["members"] == [
+        {"item_id": "p010-b001", "source_text": "This sentence starts"},
+        {"item_id": "p010-b002", "source_text": "and continues."},
+    ]
     assert payload["output_schema"]["member_translations"][0]["item_id"] == "member id from member_ids"
     assert "Do not include this context" in payload["context_after"]
 
@@ -602,6 +610,27 @@ def test_group_members_retries_when_member_ids_are_missing() -> None:
     assert calls["n"] == 2
     members = result["__cg__:cg-010-001"]["member_translations"]
     assert [m["item_id"] for m in members] == ["p010-b001", "p010-b002"]
+
+
+def test_group_members_drops_repeated_aggregate_member_splits() -> None:
+    aggregate = "考虑到这些困难，第一部分在前页；而第二部分在下一页。"
+    repeated = json.dumps(
+        {
+            "translated_text": aggregate,
+            "member_translations": [
+                {"item_id": "p010-b001", "translated_text": aggregate},
+                {"item_id": "p010-b002", "translated_text": aggregate},
+            ],
+        },
+        ensure_ascii=False,
+    )
+
+    with mock.patch.object(translation_client, "request_chat_content", return_value=repeated):
+        result = translation_client.translate_continuation_group_members(_cg_item(math_mode="placeholder"))
+
+    payload = result["__cg__:cg-010-001"]
+    assert payload["translated_text"] == aggregate
+    assert payload["member_translations"] == []
 
 
 def test_group_members_drops_splits_when_member_math_stays_unbalanced() -> None:

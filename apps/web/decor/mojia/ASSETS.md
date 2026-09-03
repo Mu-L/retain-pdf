@@ -1,7 +1,7 @@
 # 「墨家」装饰包 —— 美术资产说明
 
 > 本文件格式沿用 `decor/jiangnan/ASSETS.md` 模板（契约真值见
-> `docs/theme-system/DECOR_PACKS.md`）。当前包内资产为**正式稿**：
+> `docs/core/apps/web/theme-system/DECOR_PACKS.md`）。当前包内资产为**正式稿**：
 > 背景为用户提供的绢本框景图；道具由 10 张墨家机关题材透明 PNG 素材
 > （1254×1254 RGBA）经 ImageMagick 裁边 / 缩放 / 合成 / 压缩而来。
 > 替换资产时同名覆盖即可生效。
@@ -118,7 +118,7 @@
 ## 5. 验收（替换/新增资产后必跑）
 
 ```bash
-cd frontend
+cd apps/web
 node --import ./tests/helpers/register-jsx.mjs --test tests/decor-stage.test.mjs
 find decor/mojia -type f \( -name '*.webp' -o -name '*.png' -o -name '*.svg' -o -name '*.avif' \) -size +512k
 # ↑ 有输出 = 超预算，压缩后再入库

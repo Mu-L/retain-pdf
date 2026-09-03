@@ -4,11 +4,15 @@ use crate::models::domain::{now_iso, JobSnapshot, JobStatusKind, WorkflowKind};
 use crate::models::request::{CreateJobInput, JobSourceInput};
 use crate::services::jobs::stage_plan::resume_plan;
 use crate::services::jobs::translation_request_recovery::load_translation_request_recovery;
+use crate::services::managed_credential_gc::cleanup_deleted_job_credentials;
 
 use super::super::super::creation::create_translation_job;
 use super::super::super::query::load_job_or_404;
 use super::super::JobsFacade;
 use super::ocr_ambiguity::ambiguous_ocr_dispatch;
+use super::stage_retry_overrides::{
+    discard_ocr_secret_sources, discard_translation_secret_sources,
+};
 use crate::services::job_launcher::start_job_execution;
 
 impl<'a> JobsFacade<'a> {
@@ -23,7 +27,15 @@ impl<'a> JobsFacade<'a> {
             let job_id = source_job.job_id.clone();
             let ocr_child_id = format!("{}-ocr", job_id);
             // Clean up any previous OCR child that is now orphaned due to in-place rerender
+            let deleted_ocr_child = self.command.db.get_job(&ocr_child_id).ok();
             let _ = self.command.db.delete_job(&ocr_child_id);
+            if let Some(deleted_ocr_child) = deleted_ocr_child {
+                cleanup_deleted_job_credentials(
+                    self.command.db,
+                    self.command.control.data_root,
+                    &[deleted_ocr_child],
+                );
+            }
             let ocr_child_dir = self
                 .command
                 .control
@@ -81,6 +93,10 @@ pub(super) fn prepare_in_place_render_job(mut job: JobSnapshot) -> Result<JobSna
     job.request_payload.source.upload_id.clear();
     job.request_payload.source.source_url.clear();
     job.request_payload.source.artifact_job_id = job.job_id.clone();
+    // Render never contacts OCR or translation providers. Rewriting the same
+    // durable job must not retain historical inline secrets or vault refs.
+    discard_ocr_secret_sources(&mut job.request_payload.ocr);
+    discard_translation_secret_sources(&mut job.request_payload.translation);
     job.request_payload.runtime.job_id = job.job_id.clone();
     job.status = JobStatusKind::Queued;
     job.updated_at = now;
@@ -120,6 +136,34 @@ fn reset_render_artifacts(job: &mut JobSnapshot) {
     artifacts.translate_render_time_seconds = None;
     artifacts.save_time_seconds = None;
     artifacts.total_time_seconds = None;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn in_place_render_drops_unused_provider_credentials() {
+        let mut input = CreateJobInput::default();
+        input.ocr.credential_ref = "cred_ocr_old".to_string();
+        input.ocr.mineru_token = "mineru-old".to_string();
+        input.ocr.options.insert(
+            "credential".to_string(),
+            serde_json::Value::String("configured-old".to_string()),
+        );
+        input.translation.credential_ref = "cred_translation_old".to_string();
+        input.translation.api_key = "translation-old".to_string();
+        let mut job = JobSnapshot::new("job-render-retry".to_string(), input, Vec::new());
+        job.status = JobStatusKind::Failed;
+
+        let job = prepare_in_place_render_job(job).expect("prepare in-place render");
+
+        assert!(job.request_payload.ocr.credential_ref.is_empty());
+        assert!(job.request_payload.ocr.mineru_token.is_empty());
+        assert!(!job.request_payload.ocr.options.contains_key("credential"));
+        assert!(job.request_payload.translation.credential_ref.is_empty());
+        assert!(job.request_payload.translation.api_key.is_empty());
+    }
 }
 
 fn build_rerun_request(

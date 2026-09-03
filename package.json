@@ -9,9 +9,9 @@
     "packages/*"
   ],
   "scripts": {
-    "build:web": "npm --prefix apps/web run build",
-    "build:reader": "npm --prefix packages/reader run build",
-    "test:web": "npm --prefix apps/web test",
+    "build:web": "npm run build --workspace=front-tailwind-ui",
+    "build:reader": "npm run build --workspace=@retainpdf/reader",
+    "test:web": "npm test --workspace=front-tailwind-ui",
     "test:api": "python3 .github/scripts/run_with_backend_source.py -- cargo test --locked --workspace --manifest-path {backend}/api/Cargo.toml"
   },
   "engines": {

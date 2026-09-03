@@ -8,7 +8,7 @@ from ..rust_client import RustApiClient
 from .contracts import AgentRuntime
 from .fx import FxAcpRuntime
 from .openai import OpenAICompatibleAgentRuntime
-from .python import PythonAgentRuntime
+from .unified import UnifiedAgentRuntime
 
 
 def build_agent_runtime(
@@ -18,9 +18,20 @@ def build_agent_runtime(
 ) -> AgentRuntime:
     runtime = settings.agent_runtime.strip().lower()
     if runtime == "python":
-        return PythonAgentRuntime(python_agent)
+        return UnifiedAgentRuntime(
+            "python-unified-agent-v1",
+            OpenAICompatibleAgentRuntime(
+                settings,
+                rust,
+                reading_registry=getattr(python_agent, "registry", None),
+            ),
+        )
     if runtime == "fx":
-        candidate = FxAcpRuntime(settings, rust)
+        candidate = FxAcpRuntime(
+            settings,
+            rust,
+            reading_registry=getattr(python_agent, "registry", None),
+        )
         capability = candidate.probe()
         if not capability.available:
             raise RuntimeError(

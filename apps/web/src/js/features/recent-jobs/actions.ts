@@ -72,13 +72,13 @@ export function createRecentJobActions({
     renderCurrentRecentJobs({ reset: true });
   }
 
-  function openJobReader(jobId) {
+  function openJobReader(jobId, documentId = "") {
     const normalizedJobId = `${jobId || ""}`.trim();
     if (!normalizedJobId) {
       renderRecentJobsError("该任务缺少 job_id，无法打开对照阅读。", { reset: false });
       return;
     }
-    navigationPort.openReader(normalizedJobId);
+    navigationPort.openReader(normalizedJobId, `${documentId || ""}`.trim());
   }
 
   function recoverActiveJob(items = []) {

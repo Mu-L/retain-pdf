@@ -4,6 +4,7 @@
 // 失败态在过程条下继续给出诊断入口。
 
 import { useEffect } from "react";
+import { ArrowUpRight, Radio } from "lucide-react";
 import { useHomeServices } from "../../../../../home-services-context.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { StatusCard } from "../../../../status/StatusCard.jsx";
@@ -35,12 +36,14 @@ export interface BookTranslateProgressPanelProps {
   item?: LibraryCardItem;
   active?: boolean;
   dialogOpen?: boolean;
+  onOpenLiveReader?: (jobId: string) => void;
 }
 
 export function BookTranslateProgressPanel({
   item = {},
   active = true,
   dialogOpen = true,
+  onOpenLiveReader,
 }: BookTranslateProgressPanelProps) {
   const services = useHomeServices();
   const actions = services.library?.actions;
@@ -111,7 +114,7 @@ export function BookTranslateProgressPanel({
             className="shrink-0 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
             onClick={() => services.statusDetail.controller.openStatusDetailDialog("failure")}
           >
-            查看原因
+            查看日志
           </button>
         </div>
       );
@@ -149,6 +152,23 @@ export function BookTranslateProgressPanel({
       data-library-only={libraryOnly ? "true" : "false"}
       data-tab-active={active ? "true" : "false"}
     >
+      {onOpenLiveReader ? (
+        <button
+          type="button"
+          className="home-book-live-translation-entry"
+          onClick={() => onOpenLiveReader(cardJobId || jobId)}
+          aria-label="在阅读器中查看实时译文"
+        >
+          <span className="home-book-live-translation-entry-icon" aria-hidden="true">
+            <Radio />
+          </span>
+          <span>
+            <strong>查看实时译文</strong>
+            <small>在原 PDF 上逐页显示</small>
+          </span>
+          <ArrowUpRight aria-hidden="true" />
+        </button>
+      ) : null}
       <div className="book-detail-status-card-host">
         <StatusCard
           visible={active}

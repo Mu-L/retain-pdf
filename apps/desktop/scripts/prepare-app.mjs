@@ -2,6 +2,10 @@ import fs from "fs";
 import path from "path";
 import { spawnSync } from "child_process";
 import { fileURLToPath } from "url";
+import {
+  pruneBundledMacPythonRuntime,
+  pruneBundledPortablePythonRuntime,
+} from "./runtime-prune.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -9,7 +13,6 @@ const desktopRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(desktopRoot, "..", "..");
 const versionFile = path.join(repoRoot, "VERSION");
 const frontendRoot = path.join(repoRoot, "apps/web");
-const backendRoot = path.join(repoRoot, "backend");
 const infraRoot = path.join(repoRoot, "infra");
 const servicesRoot = path.resolve(
   process.env.RETAIN_PDF_SERVICES_ROOT || path.join(repoRoot, "services"),
@@ -66,21 +69,13 @@ function resolveRuntimeCandidate(relativePath) {
     return desktopCandidate;
   }
 
-  const legacyCandidates = {
-    "python": path.join(backendRoot, "python"),
-    "typst": {
-      win32: [path.join(infraRoot, "typst/win32"), path.join(backendRoot, "typst-win32")],
-      darwin: [path.join(infraRoot, "typst/darwin"), path.join(backendRoot, "typst-darwin")],
-      linux: [path.join(infraRoot, "typst/linux"), path.join(backendRoot, "typst-linux")],
-    }[targetPlatform],
-  };
-
-  const legacyCandidate = legacyCandidates[relativePath];
-  if (Array.isArray(legacyCandidate)) {
-    const match = legacyCandidate.find((candidate) => fs.existsSync(candidate));
-    return match || desktopCandidate;
+  if (relativePath === "typst") {
+    const infraCandidate = path.join(infraRoot, `typst/${targetPlatform}`);
+    if (fs.existsSync(infraCandidate)) {
+      return infraCandidate;
+    }
   }
-  return legacyCandidate && fs.existsSync(legacyCandidate) ? legacyCandidate : desktopCandidate;
+  return desktopCandidate;
 }
 
 function resolveSharedRuntimePath(relativePath) {
@@ -88,21 +83,19 @@ function resolveSharedRuntimePath(relativePath) {
   if (fs.existsSync(desktopCandidate)) {
     return desktopCandidate;
   }
-  const legacyCandidates = {
-    "typst-packages": path.join(backendRoot, "typst-packages"),
+  const sharedCandidates = {
     "fonts": [
       servicesFontsRoot,
       path.join(infraRoot, "fonts"),
-      path.join(backendRoot, "fonts"),
       path.join(desktopRoot, "assets", "fonts"),
     ],
   };
-  const legacyCandidate = legacyCandidates[relativePath];
-  if (Array.isArray(legacyCandidate)) {
-    const match = legacyCandidate.find((candidate) => fs.existsSync(candidate));
+  const sharedCandidate = sharedCandidates[relativePath];
+  if (Array.isArray(sharedCandidate)) {
+    const match = sharedCandidate.find((candidate) => fs.existsSync(candidate));
     return match || desktopCandidate;
   }
-  return legacyCandidate && fs.existsSync(legacyCandidate) ? legacyCandidate : desktopCandidate;
+  return desktopCandidate;
 }
 
 function resolveSharedRuntimePaths(relativePath) {
@@ -115,7 +108,6 @@ function resolveSharedRuntimePaths(relativePath) {
     for (const candidate of [
       servicesFontsRoot,
       path.join(infraRoot, "fonts"),
-      path.join(backendRoot, "fonts"),
       path.join(desktopRoot, "assets", "fonts"),
     ]) {
       if (fs.existsSync(candidate)) {
@@ -123,9 +115,9 @@ function resolveSharedRuntimePaths(relativePath) {
       }
     }
   } else {
-    const legacyCandidate = resolveSharedRuntimePath(relativePath);
-    if (legacyCandidate !== desktopCandidate && fs.existsSync(legacyCandidate)) {
-      candidates.push(legacyCandidate);
+    const sharedCandidate = resolveSharedRuntimePath(relativePath);
+    if (sharedCandidate !== desktopCandidate && fs.existsSync(sharedCandidate)) {
+      candidates.push(sharedCandidate);
     }
   }
   return [...new Set(candidates)];
@@ -176,92 +168,6 @@ function rewriteAbsoluteSymlinksWithinRoot(root, sourceRoot) {
   }
 
   visit(normalizedRoot);
-}
-
-function pruneBundledMacPythonRuntime(root) {
-  if (!fs.existsSync(root)) {
-    return;
-  }
-  const frameworkVersionsRoot = path.join(root, "Frameworks", "Python.framework", "Versions");
-  const libRoot = path.join(root, "lib");
-  const pythonLibDir = fs.existsSync(libRoot)
-    ? fs.readdirSync(libRoot).find((entry) => /^python\d+\.\d+$/.test(entry))
-    : null;
-  const expectedFrameworkVersion = pythonLibDir
-    ? pythonLibDir.replace(/^python/, "")
-    : "";
-  const removalTargets = [
-    path.join(root, "Frameworks", "Python.framework", "Headers"),
-    path.join(root, "Frameworks", "Python.framework", "Versions", "Current", "Frameworks", "Tk.framework"),
-    path.join(root, "Frameworks", "Python.framework", "Versions", "Current", "Frameworks", "Tcl.framework"),
-    path.join(root, "Frameworks", "Python.framework", "Versions", "Current", "Headers"),
-    path.join(root, "Frameworks", "Python.framework", "Versions", "Current", "share", "doc"),
-  ];
-  if (pythonLibDir) {
-    const sitePackagesRoot = path.join(libRoot, pythonLibDir, "site-packages");
-    removalTargets.push(
-      path.join(libRoot, pythonLibDir, "ensurepip"),
-      path.join(sitePackagesRoot, "pip"),
-      path.join(sitePackagesRoot, "setuptools"),
-      path.join(sitePackagesRoot, "pkg_resources"),
-    );
-    if (fs.existsSync(sitePackagesRoot)) {
-      for (const entry of fs.readdirSync(sitePackagesRoot)) {
-        if (/^(pip|setuptools)-.+\.dist-info$/.test(entry)) {
-          removalTargets.push(path.join(sitePackagesRoot, entry));
-        }
-      }
-    }
-  }
-  for (const target of removalTargets) {
-    fs.rmSync(target, { recursive: true, force: true });
-  }
-
-  const removableFiles = [
-    path.join(root, "bin", "2to3"),
-    path.join(root, "bin", "idle3"),
-    path.join(root, "bin", "pydoc3"),
-    path.join(root, "bin", "python3-config"),
-  ];
-  for (const target of removableFiles) {
-    fs.rmSync(target, { force: true });
-  }
-
-  if (fs.existsSync(frameworkVersionsRoot)) {
-    for (const entry of fs.readdirSync(frameworkVersionsRoot, { withFileTypes: true })) {
-      if (!entry.isDirectory()) {
-        continue;
-      }
-      if (entry.name === "Current" || entry.name === expectedFrameworkVersion) {
-        continue;
-      }
-      fs.rmSync(path.join(frameworkVersionsRoot, entry.name), { recursive: true, force: true });
-    }
-    if (expectedFrameworkVersion) {
-      const currentLink = path.join(frameworkVersionsRoot, "Current");
-      fs.rmSync(currentLink, { recursive: true, force: true });
-      fs.symlinkSync(expectedFrameworkVersion, currentLink);
-    }
-  }
-
-  function pruneTree(currentPath) {
-    if (!fs.existsSync(currentPath)) {
-      return;
-    }
-    const entries = fs.readdirSync(currentPath, { withFileTypes: true });
-    for (const entry of entries) {
-      const entryPath = path.join(currentPath, entry.name);
-      if (entry.isDirectory()) {
-        if (entry.name === "__pycache__" || entry.name === "test" || entry.name === "tests") {
-          fs.rmSync(entryPath, { recursive: true, force: true });
-          continue;
-        }
-        pruneTree(entryPath);
-      }
-    }
-  }
-
-  pruneTree(root);
 }
 
 const embeddedPythonRoot = resolveRuntimeCandidate("python");
@@ -607,20 +513,30 @@ if (frontendOnly) {
   fs.mkdirSync(bundledFontsRoot, { recursive: true });
 }
 
-const excludedFrontendEntries = new Set([
-  "node_modules",
-  "runtime-config.local.js",
-  ".codex",
-  ".ipynb_checkpoints",
+const desktopFrontendRuntimeEntries = new Set([
+  "index.html",
+  "detail.html",
+  "reader.html",
+  "styles.css",
+  "dist",
+  "src",
+  "decor",
+  "vendor",
 ]);
 
-function shouldExcludeFrontendPath(sourcePath) {
+function shouldCopyDesktopFrontendPath(sourcePath) {
   const relativePath = path.relative(frontendRoot, sourcePath);
   if (!relativePath || relativePath.startsWith("..")) {
-    return false;
+    return true;
   }
   const parts = relativePath.split(path.sep).filter(Boolean);
-  return parts.some((part) => excludedFrontendEntries.has(part));
+  if (!desktopFrontendRuntimeEntries.has(parts[0])) {
+    return false;
+  }
+  if (parts[0] === "src") {
+    return parts.length === 1 || parts[1] === "assets";
+  }
+  return !parts.some((part) => part === ".DS_Store" || part === ".ipynb_checkpoints");
 }
 
 for (const entry of fs.readdirSync(frontendRoot, { withFileTypes: true })) {
@@ -629,7 +545,7 @@ for (const entry of fs.readdirSync(frontendRoot, { withFileTypes: true })) {
   fs.cpSync(from, to, {
     recursive: true,
     force: true,
-    filter: (sourcePath) => !shouldExcludeFrontendPath(sourcePath),
+    filter: shouldCopyDesktopFrontendPath,
   });
 }
 
@@ -686,65 +602,9 @@ function rewriteDesktopFrontendRuntimeImports() {
     fs.writeFileSync(htmlPath, html, "utf8");
   }
 
-  const readerJsPath = path.join(outputFrontendRoot, "src", "js", "reader.js");
-  if (fs.existsSync(readerJsPath)) {
-    let readerJs = fs.readFileSync(readerJsPath, "utf8");
-    readerJs = readerJs.replaceAll(
-      "../../node_modules/pdfjs-dist/",
-      "../../vendor/pdfjs-dist/",
-    );
-    fs.writeFileSync(readerJsPath, readerJs, "utf8");
-  }
-
-  const readerDialogControllerPath = path.join(
-    outputFrontendRoot,
-    "src",
-    "js",
-    "features",
-    "reader-dialog",
-    "controller.js",
-  );
-  if (fs.existsSync(readerDialogControllerPath)) {
-    let controllerJs = fs.readFileSync(readerDialogControllerPath, "utf8");
-    controllerJs = controllerJs.replaceAll(
-      "../../../../node_modules/pdf-lib/",
-      "../../../../vendor/pdf-lib/",
-    );
-    fs.writeFileSync(readerDialogControllerPath, controllerJs, "utf8");
-  }
 }
 
 rewriteDesktopFrontendRuntimeImports();
-
-const desktopPartialsRoot = path.join(outputFrontendRoot, "src", "partials");
-const desktopTemplatesPath = path.join(outputFrontendRoot, "src", "js", "templates.js");
-const desktopMainContent = fs.readFileSync(
-  path.join(desktopPartialsRoot, "main-content.html"),
-  "utf8",
-);
-const desktopDialogs = fs.readFileSync(
-  path.join(desktopPartialsRoot, "dialogs.html"),
-  "utf8",
-);
-const desktopTemplatesSource = `const MAIN_CONTENT_HTML = ${JSON.stringify(desktopMainContent)};
-const DIALOGS_HTML = ${JSON.stringify(desktopDialogs)};
-
-export async function renderPageShell() {
-  document.body.innerHTML = MAIN_CONTENT_HTML + DIALOGS_HTML;
-}
-`;
-
-fs.writeFileSync(desktopTemplatesPath, desktopTemplatesSource, "utf8");
-
-const desktopConstantsPath = path.join(outputFrontendRoot, "src", "js", "constants.js");
-if (fs.existsSync(desktopConstantsPath)) {
-  let desktopConstants = fs.readFileSync(desktopConstantsPath, "utf8");
-  desktopConstants = desktopConstants.replace(
-    /export const DEFAULT_WORKERS = \d+;/,
-    "export const DEFAULT_WORKERS = 100;",
-  );
-  fs.writeFileSync(desktopConstantsPath, desktopConstants, "utf8");
-}
 
 const desktopRuntimeConfig = `window.__FRONT_RUNTIME_CONFIG__ = {
   apiBase: "http://127.0.0.1:41000",
@@ -771,12 +631,32 @@ fs.writeFileSync(desktopIndexPath, desktopIndexHtml, "utf8");
 
 if (!frontendOnly) {
   // Keep the bundled layout aligned with main.js and RUST_API_SCRIPTS_DIR.
-  const pipelineScriptsRoot = fs.existsSync(path.join(servicesPipelineRoot, "pyproject.toml"))
-    ? servicesPipelineRoot
-    : path.join(backendRoot, "scripts");
+  const pipelineScriptsRoot = servicesPipelineRoot;
+  if (!fs.existsSync(path.join(pipelineScriptsRoot, "pyproject.toml"))) {
+    throw new Error(`missing pipeline package at ${pipelineScriptsRoot}`);
+  }
+  const canonicalPipelineEntries = new Set([
+    "entrypoints",
+    "retainpdf_pipeline",
+    "pyproject.toml",
+  ]);
   fs.cpSync(pipelineScriptsRoot, path.join(outputBackendRoot, "pipeline"), {
     recursive: true,
     force: true,
+    filter: (sourcePath) => {
+      const relativePath = path.relative(pipelineScriptsRoot, sourcePath);
+      if (!relativePath) {
+        return true;
+      }
+      const parts = relativePath.split(path.sep).filter(Boolean);
+      if (!canonicalPipelineEntries.has(parts[0])) {
+        return false;
+      }
+      if (parts.some((part) => part === "__pycache__" || part === "test" || part === "tests")) {
+        return false;
+      }
+      return !sourcePath.endsWith(".pyc") && !sourcePath.endsWith(".pyo");
+    },
   });
   if (!fs.existsSync(path.join(servicesConfigRoot, "ocr_providers.json"))) {
     throw new Error(`missing backend provider config at ${servicesConfigRoot}`);
@@ -785,13 +665,10 @@ if (!frontendOnly) {
     recursive: true,
     force: true,
   });
-  // retainpdf-ai 已迁 services/ai，兼容旧 backend/ai_service
-  const aiServiceSrc = fs.existsSync(servicesAiRoot)
-    ? servicesAiRoot
-    : path.join(backendRoot, "ai_service");
+  const aiServiceSrc = servicesAiRoot;
   const aiServiceDst = path.join(outputBackendRoot, "ai_service");
   if (!fs.existsSync(aiServiceSrc)) {
-    throw new Error(`missing ai_service at ${aiServiceSrc} (expected services/ai or backend/ai_service)`);
+    throw new Error(`missing ai_service at ${aiServiceSrc}`);
   }
   fs.cpSync(aiServiceSrc, aiServiceDst, {
     recursive: true,
@@ -829,11 +706,15 @@ if (!frontendOnly && fs.existsSync(agentBinary.path)) {
 }
 
 if (!frontendOnly && targetPlatform === "win32" && fs.existsSync(path.join(embeddedPythonRoot, "python.exe"))) {
-  copyRuntimeTree(embeddedPythonRoot, path.join(outputBackendRoot, "python"));
+  const targetPythonRoot = path.join(outputBackendRoot, "python");
+  copyRuntimeTree(embeddedPythonRoot, targetPythonRoot);
+  pruneBundledPortablePythonRuntime(targetPythonRoot, "windows");
 }
 
 if (!frontendOnly && targetPlatform === "linux" && hasBundledPosixPython(embeddedPythonRoot)) {
-  copyRuntimeTree(embeddedPythonRoot, path.join(outputBackendRoot, "python"));
+  const targetPythonRoot = path.join(outputBackendRoot, "python");
+  copyRuntimeTree(embeddedPythonRoot, targetPythonRoot);
+  pruneBundledPortablePythonRuntime(targetPythonRoot, "linux");
 }
 
 if (!frontendOnly && targetPlatform === "darwin" && hasBundledPosixPython(embeddedPythonRoot)) {

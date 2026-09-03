@@ -37,6 +37,7 @@ export type BookTranslationWorkflowPanelProps = {
   onStartPageChange: (value: string) => void;
   onEndPageChange: (value: string) => void;
   onTranslate: () => void;
+  onOpenLiveReader?: (jobId: string) => void;
   onRetryStage: (
     stage: JobRetryStage,
     options?: { acceptDuplicateRisk?: boolean },
@@ -70,6 +71,7 @@ export function BookTranslationWorkflowPanel({
   onStartPageChange,
   onEndPageChange,
   onTranslate,
+  onOpenLiveReader,
   onRetryStage,
 }: BookTranslationWorkflowPanelProps) {
   const jobId = `${item.job_id || item.active_job_id || ""}`.trim();
@@ -93,6 +95,7 @@ export function BookTranslationWorkflowPanel({
             item={item}
             active={tabActive}
             dialogOpen={dialogOpen}
+            onOpenLiveReader={isActive ? onOpenLiveReader : undefined}
           />
         </section>
       ) : null}

@@ -21,6 +21,7 @@ pub struct PublicResolvedJobSpec {
 #[derive(Debug, Serialize, Clone)]
 pub struct PublicOcrInput {
     pub provider: String,
+    pub credential_ref: String,
     pub mineru_token: String,
     pub mineru_token_configured: bool,
     pub model_version: String,
@@ -73,17 +74,22 @@ pub struct PublicTranslationInput {
 }
 
 pub fn public_request_payload(spec: &ResolvedJobSpec) -> PublicResolvedJobSpec {
+    let ocr_credential_ref_configured = !spec.ocr.credential_ref.trim().is_empty();
+    let ocr_provider = spec.ocr.provider.trim();
     PublicResolvedJobSpec {
         workflow: spec.workflow.clone(),
         job_id: spec.job_id.clone(),
         source: spec.source.clone(),
         ocr: PublicOcrInput {
             provider: spec.ocr.provider.clone(),
+            credential_ref: spec.ocr.credential_ref.clone(),
             mineru_token: String::new(),
-            mineru_token_configured: !spec.ocr.mineru_token.trim().is_empty(),
+            mineru_token_configured: !spec.ocr.mineru_token.trim().is_empty()
+                || (ocr_credential_ref_configured && ocr_provider.eq_ignore_ascii_case("mineru")),
             model_version: spec.ocr.model_version.clone(),
             paddle_token: String::new(),
-            paddle_token_configured: !spec.ocr.paddle_token.trim().is_empty(),
+            paddle_token_configured: !spec.ocr.paddle_token.trim().is_empty()
+                || (ocr_credential_ref_configured && ocr_provider.eq_ignore_ascii_case("paddle")),
             paddle_api_url: spec.ocr.paddle_api_url.clone(),
             paddle_model: spec.ocr.paddle_model.clone(),
             is_ocr: spec.ocr.is_ocr,
@@ -97,7 +103,7 @@ pub fn public_request_payload(spec: &ResolvedJobSpec) -> PublicResolvedJobSpec {
             extra_formats: spec.ocr.extra_formats.clone(),
             poll_interval: spec.ocr.poll_interval,
             poll_timeout: spec.ocr.poll_timeout,
-            options: spec.ocr.options.clone(),
+            options: public_ocr_options(&spec.ocr.options),
         },
         translation: PublicTranslationInput {
             mode: spec.translation.mode.clone(),
@@ -131,4 +137,12 @@ pub fn public_request_payload(spec: &ResolvedJobSpec) -> PublicResolvedJobSpec {
         render: spec.render.clone(),
         runtime: spec.runtime.clone(),
     }
+}
+
+fn public_ocr_options(options: &BTreeMap<String, Value>) -> BTreeMap<String, Value> {
+    options
+        .iter()
+        .filter(|(key, _)| !matches!(key.as_str(), "credential" | "token" | "api_key"))
+        .map(|(key, value)| (key.clone(), value.clone()))
+        .collect()
 }

@@ -192,6 +192,43 @@ test("StatusDetailDialog：overview 首屏占位（同步）→ 刷新两段渲�
   host.remove();
 });
 
+test("StatusDetailDialog：错误日志可展开、滚动阅读并一键复制", async () => {
+  const dom = makeDom("?mock=failed");
+  const copied = [];
+  Object.defineProperty(dom.window.navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: async (value) => copied.push(value) },
+  });
+  Object.defineProperty(dom.window, "isSecureContext", {
+    configurable: true,
+    value: true,
+  });
+  const { services, root, host } = await bootHomeApp(dom);
+  const jobId = await openStatusDetailDialog(dom, services);
+
+  click(dom, byId(dom, "detail-tab-failure"));
+  await waitFor(
+    () => byId(dom, "failure-summary").textContent.trim() === "任务失败，但这是前端 mock 场景。",
+    "失败诊断数据就绪",
+  );
+  click(dom, byId(dom, "failure-log-btn"));
+  await waitFor(() => byId(dom, "failure-log-dialog"), "错误日志弹窗打开");
+
+  const content = byId(dom, "failure-log-content").textContent;
+  assert.match(content, new RegExp(`Job ID: ${jobId}`));
+  assert.match(content, /阶段: render/);
+  assert.match(content, /摘要: 任务失败，但这是前端 mock 场景。/);
+  assert.equal(byId(dom, "failure-log-content").getAttribute("tabindex"), "0");
+
+  click(dom, byId(dom, "failure-copy-log-btn"));
+  await waitFor(() => byId(dom, "failure-copy-log-status").textContent.includes("已复制"), "复制反馈出现");
+  assert.deepEqual(copied, [content]);
+
+  root.unmount();
+  services.dispose();
+  host.remove();
+});
+
 test("StatusDetailDialog：Paddle QueueFull 提供结构化恢复、Trace 复制和立即 OCR 重试", async () => {
   const dom = makeDom("?mock=failed");
   const copied = [];

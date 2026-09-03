@@ -4,9 +4,9 @@
  * 增量渲染，这里只覆盖视觉主题，不再让它继承桌面文章的宽栏节奏。 */
 .reader-float-ai .aui-md {
   font-family: var(--font-sans, ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif);
-  font-size: 13.5px;
+  font-size: 13.75px;
   font-weight: 400;
-  line-height: 1.62;
+  line-height: 1.66;
   letter-spacing: 0;
   color: color-mix(in srgb, var(--ink) 88%, transparent);
   word-break: break-word;
@@ -110,17 +110,32 @@
   background: none;
 }
 .reader-float-ai .aui-md :where(table) {
-  display: block;
+  width: 100%;
   max-width: 100%;
-  margin: 0.5em 0;
+  margin: 0.7em 0;
   overflow-x: auto;
-  border-collapse: collapse;
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  border-radius: 10px;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: color-mix(in srgb, var(--ink) 1.5%, var(--paper));
   font-size: 12.5px;
 }
 .reader-float-ai .aui-md :where(th),
 .reader-float-ai .aui-md :where(td) {
-  padding: 4px 8px;
-  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  padding: 7px 9px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--ink) 7%, transparent);
+  text-align: left;
+  vertical-align: top;
+}
+.reader-float-ai .aui-md :where(th) {
+  background: color-mix(in srgb, var(--ink) 3.5%, var(--paper));
+  color: var(--ink);
+  font-weight: 650;
+}
+.reader-float-ai .aui-md :where(tr:last-child td) {
+  border-bottom: 0;
 }
 .reader-float-ai .aui-md :where(hr) {
   margin: 0.9em 0;
@@ -188,11 +203,71 @@
 }
 .reader-float-ai .aui-md img {
   display: block;
-  max-width: 100%;
+  width: 70%;
+  max-width: 70%;
   height: auto;
-  margin: 0.55em 0;
+  margin: 0.75em auto;
   border-radius: 10px;
   background: color-mix(in srgb, var(--ink) 4%, transparent);
+}
+.reader-float-ai .aui-md img.is-low-resolution {
+  width: min(70%, var(--reader-ai-image-width, 70%));
+}
+.reader-float-ai .reader-ai-image-jump {
+  position: relative;
+  display: block;
+  width: 70%;
+  max-width: 70%;
+  margin: 0.75em auto;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.reader-float-ai .reader-ai-image-jump.is-low-resolution {
+  width: min(70%, var(--reader-ai-image-width, 70%));
+}
+.reader-float-ai .reader-ai-image-jump img {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  transition: filter 160ms ease, transform 160ms ease;
+}
+.reader-float-ai .reader-ai-image-jump img.is-low-resolution {
+  width: 100%;
+}
+.reader-float-ai .reader-ai-image-jump-label {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, white 28%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, black 68%, transparent);
+  color: white;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.2;
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity 160ms ease, transform 160ms ease;
+  pointer-events: none;
+}
+.reader-float-ai .reader-ai-image-jump:hover img {
+  filter: brightness(0.94);
+  transform: scale(1.002);
+}
+.reader-float-ai .reader-ai-image-jump:hover .reader-ai-image-jump-label,
+.reader-float-ai .reader-ai-image-jump:focus-visible .reader-ai-image-jump-label {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reader-float-ai .reader-ai-image-jump:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ink) 58%, transparent);
+  outline-offset: 3px;
 }
 .reader-float-ai .aui-md img.is-missing {
   min-height: 48px;

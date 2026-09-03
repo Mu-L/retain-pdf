@@ -13,6 +13,7 @@ for (const key of [
   "HTMLElement",
   "Element",
   "Node",
+  "NodeFilter",
   "Event",
   "MouseEvent",
   "requestAnimationFrame",
@@ -30,6 +31,9 @@ const React = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { setReaderAdapters } = await import("../../../../packages/reader/src/adapters.ts");
 const { AiMarkdownAnswer } = await import("../../../../packages/reader/src/ai.ts");
+const { syncAnswerImageDisplaySize } = await import(
+  "../../../../packages/reader/src/components/ai/RetainMarkstream.tsx"
+);
 
 async function waitFor(predicate, description) {
   const deadline = Date.now() + 2500;
@@ -39,6 +43,114 @@ async function waitFor(predicate, description) {
   }
   assert.fail(`等待超时：${description}`);
 }
+
+test("current AI Markdown component hydrates a complete image while the answer is still streaming", async () => {
+  const calls = [];
+  setReaderAdapters({
+    resolveResourceUrl: (url) => url,
+    fetchProtected: async (url) => {
+      calls.push(url);
+      return new Response(new Blob(["png"], { type: "image/png" }), { status: 200 });
+    },
+    credentialsPort: { getCredentials: () => ({ modelApiKey: "test" }) },
+  });
+  const container = document.getElementById("root");
+  const root = createRoot(container);
+  root.render(React.createElement(AiMarkdownAnswer, {
+    content: "**流式回答尚未闭合\n\n依据 [5]。\n\n![chart](images/page-3/imgs/chart%20a.png)",
+    streaming: true,
+    jobId: "job-1",
+    citations: [{
+      ref: 5,
+      block_id: "p003-b0004",
+      page_idx: 2,
+      image_urls: ["/api/v1/jobs/job-1/markdown/images/page-3/imgs/chart%20a.png"],
+    }],
+    onJumpCitation: () => {},
+  }));
+  await waitFor(() => Boolean(container.querySelector(".markstream-react")), "streaming Markstream render");
+  assert.match(container.textContent, /流式回答尚未闭合/);
+  await waitFor(
+    () => (container.querySelector("img")?.getAttribute("src") || "").startsWith("blob:"),
+    "streaming protected image hydration",
+  );
+  assert.deepEqual(calls, [
+    "/api/v1/jobs/job-1/markdown/images/page-3/imgs/chart%20a.png",
+  ]);
+  await waitFor(
+    () => Boolean(container.querySelector("button.reader-ai-citation-ref[data-page='3']")),
+    "streaming inline citation enhancement",
+  );
+  assert.equal(
+    container.querySelector("img")?.closest("button.reader-ai-image-jump")?.getAttribute("data-page"),
+    "3",
+    "answer image should carry the same PDF jump target as its structured citation",
+  );
+
+  root.render(React.createElement(AiMarkdownAnswer, {
+    content: "**流式回答尚未闭合\n\n依据 [5]。\n\n![chart](images/page-3/imgs/chart%20a.png)\n\n后续文字仍在生成",
+    streaming: true,
+    jobId: "job-1",
+    citations: [{
+      ref: 5,
+      block_id: "p003-b0004",
+      page_idx: 2,
+      image_urls: ["/api/v1/jobs/job-1/markdown/images/page-3/imgs/chart%20a.png"],
+    }],
+    onJumpCitation: () => {},
+  }));
+  await waitFor(() => /后续文字仍在生成/.test(container.textContent || ""), "later stream chunk");
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(calls.length, 1, "后续 token 不应重复下载已经显示的图片");
+  assert.match(container.querySelector("img")?.getAttribute("src") || "", /^blob:/);
+
+  root.unmount();
+  setReaderAdapters(null);
+});
+
+test("streaming AI image recovers when the protected asset becomes ready after a transient miss", async () => {
+  let requestCount = 0;
+  setReaderAdapters({
+    resolveResourceUrl: (url) => url,
+    fetchProtected: async () => {
+      requestCount += 1;
+      if (requestCount === 1) return new Response("not ready", { status: 404 });
+      return new Response(new Blob(["png"], { type: "image/png" }), { status: 200 });
+    },
+    credentialsPort: { getCredentials: () => ({ modelApiKey: "test" }) },
+  });
+  const container = document.getElementById("root");
+  const root = createRoot(container);
+  root.render(React.createElement(AiMarkdownAnswer, {
+    content: "![chart](images/page-2/imgs/chart.png)",
+    streaming: true,
+    jobId: "job-retry",
+  }));
+
+  await waitFor(
+    () => (container.querySelector("img")?.getAttribute("src") || "").startsWith("blob:"),
+    "transient image miss recovers without a page refresh",
+  );
+  assert.equal(requestCount, 2);
+  assert.equal(container.querySelector("img")?.classList.contains("is-missing"), false);
+
+  root.unmount();
+  setReaderAdapters(null);
+});
+
+test("small OCR image crops are capped instead of stretched across the AI column", () => {
+  const wrapper = document.createElement("button");
+  wrapper.className = "reader-ai-image-jump";
+  const image = document.createElement("img");
+  Object.defineProperty(image, "naturalWidth", { configurable: true, value: 72 });
+  wrapper.append(image);
+
+  syncAnswerImageDisplaySize(image);
+
+  assert.equal(image.classList.contains("is-low-resolution"), true);
+  assert.equal(wrapper.classList.contains("is-low-resolution"), true);
+  assert.equal(wrapper.style.getPropertyValue("--reader-ai-image-width"), "144px");
+});
 
 test("current AI Markdown component fetches only current-job images through the protected adapter", async () => {
   const calls = [];
@@ -52,15 +164,6 @@ test("current AI Markdown component fetches only current-job images through the 
   });
   const container = document.getElementById("root");
   const root = createRoot(container);
-  root.render(React.createElement(AiMarkdownAnswer, {
-    content: "**流式回答尚未闭合\n\n![chart](images/page-3/imgs/chart%20a.png)",
-    streaming: true,
-    jobId: "job-1",
-  }));
-  await waitFor(() => Boolean(container.querySelector(".markstream-react")), "streaming Markstream render");
-  assert.match(container.textContent, /流式回答尚未闭合/);
-  assert.match(container.textContent, /图片：chart/);
-  assert.equal(calls.length, 0);
 
   root.render(React.createElement(AiMarkdownAnswer, {
     content: [

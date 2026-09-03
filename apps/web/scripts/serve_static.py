@@ -60,13 +60,12 @@ def default_x_api_key(frontend_root: Path | None = None) -> str:
         if root in seen:
             continue
         seen.add(root)
-        # Prefer new layout services/api, fallback to legacy backend/rust_api for transition
-        for rel in ["services/api/auth.local.json", "backend/rust_api/auth.local.json"]:
+        for rel in ["services/api/auth.local.json"]:
             key = read_x_api_key_from_auth(root.parent / rel)
             if key:
                 return key
         # Also try repo root directly (when frontend_root is repo-adjacent)
-        for rel in ["services/api/auth.local.json", "backend/rust_api/auth.local.json"]:
+        for rel in ["services/api/auth.local.json"]:
             key = read_x_api_key_from_auth(root / rel)
             if key:
                 return key

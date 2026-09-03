@@ -10,6 +10,11 @@ function buildJobDetailEndpoint(jobId, apiPrefix, scope = "jobs") {
 function buildOcrJobDetailEndpoint(jobId, apiPrefix) {
     return buildJobDetailEndpoint(jobId, apiPrefix, "ocr");
 }
+function jobRequestError(message, status) {
+    const error = new Error(message);
+    error.status = status;
+    return error;
+}
 function normalizeJobPayloadArgs(a, b) {
     // Deprecated swapped order: (apiPrefix, jobId) heuristics via a.startsWith("/")
     if (typeof a === "string" &&
@@ -51,9 +56,10 @@ export async function fetchJobPayload(a, b) {
         }
     }
     if (!resp.ok) {
-        if (resp.status === 404)
-            throw new Error("未找到该任务，请检查 job_id 是否正确。");
-        throw new Error(`读取任务失败，请稍后重试。(${resp.status})`);
+        if (resp.status === 404) {
+            throw jobRequestError("未找到该任务，请检查 job_id 是否正确。", 404);
+        }
+        throw jobRequestError(`读取任务失败，请稍后重试。(${resp.status})`, resp.status);
     }
     return unwrapEnvelope(await resp.json());
 }

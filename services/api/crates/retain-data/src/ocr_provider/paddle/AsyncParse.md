@@ -22,7 +22,7 @@
 
 ## 2. 接口说明
 
-请查看[文档](https://ai.baidu.com/ai-doc/AISTUDIO/Xmjclapam)
+请查看[文档](https://ai.baidu.com/ai-docs/AISTUDIO/Xmjclapam)
 
 ## 3. 服务调用示例（python）
 

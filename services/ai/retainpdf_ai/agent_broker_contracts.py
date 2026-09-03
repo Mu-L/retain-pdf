@@ -23,6 +23,7 @@ class BrokerScope:
     document_id: str
     request_message_id: str
     intent_summary: str
+    job_id: str = ""
     confirmed: bool = False
     green_light: bool = False
 

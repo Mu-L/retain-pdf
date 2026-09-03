@@ -4,7 +4,7 @@
 
 > 这是一份样本观察记录，不代表 Paddle 官方标签全集。官方 25 类基线、当前实现
 > 覆盖率和升级门禁见
-> [`docs/backend/PADDLE_LAYOUT_LABELS.md`](../../../../../../../../docs/backend/PADDLE_LAYOUT_LABELS.md)。
+> [`docs/core/paddle_ocr_api/layout-labels.md`](../../../../../../../../docs/core/paddle_ocr_api/layout-labels.md)。
 
 ## 1. 当前样本中观察到的 block_label
 

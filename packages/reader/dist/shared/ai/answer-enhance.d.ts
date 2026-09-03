@@ -12,6 +12,13 @@ export type AiCitationLike = {
     job_id?: string;
     document_id?: string;
     snippet?: string;
+    image_url?: string;
+    image_urls?: string[];
+    asset_image_urls?: string[];
+    assets?: Array<{
+        image_url?: string;
+        [key: string]: unknown;
+    }>;
     [key: string]: unknown;
 };
 export declare function isAgenticCitation(citation: unknown): citation is AiCitationLike;
@@ -26,6 +33,12 @@ export declare function clipSnippet(text?: string, maxLength?: number): string;
 export declare function pickCitationsForAnswer(answerText: string, citations: AiCitationLike[], { max }?: {
     max?: number;
 }): AiCitationLike[];
+/**
+ * Turn bare citation markers into internal Markdown links before Markstream parses them.
+ * Fenced/inline code and existing links remain untouched, so streaming renders never need
+ * a post-render DOM replacement that Markstream can overwrite on its next batch.
+ */
+export declare function decorateCitationMarkdown(markdown: string, citationByRef: Map<string, AiCitationLike>): string;
 export declare function buildPagePreviewUrl(jobId: string, pageIdx0: number, kind?: "translated" | "source", adapters?: {
     resolveResourceUrl?: (v: unknown) => string;
 }): string;
@@ -39,6 +52,8 @@ export declare function buildMarkdownImageApiUrl(jobId: string, relativePath: st
 export declare function resolveAnswerImageUrl(rawValue: string, jobId: string, adapters?: {
     resolveResourceUrl?: (v: unknown) => string;
 }): string;
+/** Resolve an answer image to the same structured citation used by inline [n] jumps. */
+export declare function findCitationForAnswerImage(rawValue: string, citations: AiCitationLike[], jobId: string): AiCitationLike | null;
 /** Mount sanitized answer HTML without ever attaching a raw model-provided img src. */
 export declare function mountAnswerHtml(root: HTMLElement, html: string, { jobId, documentRef }: {
     jobId: string;

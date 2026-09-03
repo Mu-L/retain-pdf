@@ -22,6 +22,9 @@ export type AgentSessionEvent = {
     conversation_id: string;
     request_message_id?: string;
     agent_runtime: string;
+    assistant_mode: AiAssistantMode;
+    resolved_mode: "reading" | "operations";
+    content_source: "structured" | "markdown" | "none" | "unscoped" | "unknown";
     capabilities?: {
         document_operations?: boolean;
         document_operation_confirmation_mode?: AgentConfirmationMode;
@@ -53,6 +56,11 @@ export type AgentConfirmationRequiredEvent = AgentConfirmationRequest & {
     type: "agent_confirmation_required";
 };
 export type AiAskStreamCallbacks = {
+    onProgressEvent?: ((event: {
+        type: "progress";
+        stage: "routing" | "retrieval";
+        message: string;
+    }) => void) | null;
     onToolEvent?: ((event: any) => void) | null;
     onAgentToolEvent?: ((event: AgentToolEvent) => void) | null;
     onAgentOperationEvent?: ((event: AgentOperationEvent) => void) | null;
@@ -61,8 +69,8 @@ export type AiAskStreamCallbacks = {
     onAnswerDelta?: ((full: string, chunk: string) => void) | null;
     onCompress?: ((event: any) => void) | null;
 };
-export declare function readAiAskStream(body: ReadableStream<Uint8Array>, { onToolEvent, onAgentToolEvent, onAgentOperationEvent, onAgentConfirmationRequiredEvent, onAgentSessionEvent, onAnswerDelta, onCompress, }?: AiAskStreamCallbacks): Promise<any>;
-export declare function askLibraryAi({ question, documentId, jobId, conversationId, parentId, regenerate, userMessageId, assistantMessageId, onToolEvent, onAgentToolEvent, onAgentOperationEvent, onAgentConfirmationRequiredEvent, onAgentSessionEvent, onAnswerDelta, onCompress, signal, apiPrefix, fetchImpl, llmApiKey, llmBaseUrl, llmModel, confirmDocumentOperation, assistantMode, }?: {
+export declare function readAiAskStream(body: ReadableStream<Uint8Array>, { onProgressEvent, onToolEvent, onAgentToolEvent, onAgentOperationEvent, onAgentConfirmationRequiredEvent, onAgentSessionEvent, onAnswerDelta, onCompress, }?: AiAskStreamCallbacks): Promise<any>;
+export declare function askLibraryAi({ question, documentId, jobId, conversationId, parentId, regenerate, userMessageId, assistantMessageId, onToolEvent, onProgressEvent, onAgentToolEvent, onAgentOperationEvent, onAgentConfirmationRequiredEvent, onAgentSessionEvent, onAnswerDelta, onCompress, signal, apiPrefix, fetchImpl, llmApiKey, llmBaseUrl, llmModel, confirmDocumentOperation, assistantMode, }?: {
     question?: string;
     documentId?: string;
     jobId?: string;
@@ -72,6 +80,11 @@ export declare function askLibraryAi({ question, documentId, jobId, conversation
     userMessageId?: string;
     assistantMessageId?: string;
     onToolEvent?: ((e: any) => void) | null;
+    onProgressEvent?: ((e: {
+        type: "progress";
+        stage: "routing" | "retrieval";
+        message: string;
+    }) => void) | null;
     onAgentToolEvent?: ((e: AgentToolEvent) => void) | null;
     onAgentOperationEvent?: ((e: AgentOperationEvent) => void) | null;
     onAgentConfirmationRequiredEvent?: ((e: AgentConfirmationRequiredEvent) => void) | null;

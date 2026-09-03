@@ -45,6 +45,7 @@ export type StatusDetailFailure = {
   rootCause: string;
   suggestion: string;
   lastLogLine: string;
+  logText: string;
   retryable: string;
 };
 
@@ -210,6 +211,7 @@ const EMPTY_OVERVIEW: StatusDetailOverview = Object.freeze({
     rootCause: "-",
     suggestion: "-",
     lastLogLine: "-",
+    logText: "",
     retryable: "-",
   },
   rerun: { enabled: false, status: "" },

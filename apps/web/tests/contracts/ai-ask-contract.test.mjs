@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 // 消费者契约测试:frontend 对 /v1/ask 的消费必须与
 // packages/schemas/ai-ask.v1.schema.json(三方单一真值)一致。
-// 生产侧锁在 backend/ai_service/tests/test_contract_schema.py。
+// 生产侧锁在 services/ai/tests/test_contract_schema.py。
 // 改契约先改 schema,再让两端测试变绿——这是后端"服务化契约"的第一块门禁。
 
 const CONTRACT_PATH = join(

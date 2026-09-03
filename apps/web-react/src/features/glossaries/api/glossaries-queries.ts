@@ -2,7 +2,7 @@
  * Glossaries TanStack Query — React port of
  *   apps/web/src/js/api/glossaries.ts + packages/api/src/glossaries.ts
  *
- * Mirrors docs/frontend-spa-architecture.md §2.2 : queryOptions factories.
+ * Mirrors docs/core/frontend/spa-architecture.md §2.2 : queryOptions factories.
  * Uses @retainpdf/api fetchers with server-side unwrapping + mock fallback.
  */
 import { queryOptions } from '@tanstack/react-query'

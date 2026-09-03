@@ -4,6 +4,8 @@ mod bundle;
 pub(crate) mod context;
 #[path = "creation/job_builders.rs"]
 mod job_builders;
+#[path = "creation/ocr_credentials.rs"]
+mod ocr_credentials;
 #[path = "creation/prepare.rs"]
 mod prepare;
 #[path = "creation/submit.rs"]

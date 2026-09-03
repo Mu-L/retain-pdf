@@ -142,7 +142,15 @@ def translate_single_item_plain_text_unstructured(
     return result
 
 
-def _group_member_payload_defect(item: dict, member_translations: list[dict[str, str]]) -> str:
+def _compact_boundary_text(text: str) -> str:
+    return re.sub(r"[\s，,、]+", "", str(text or ""))
+
+
+def _group_member_payload_defect(
+    item: dict,
+    translated_text: str,
+    member_translations: list[dict[str, str]],
+) -> str:
     """检查群组 member 译文的协议完整性,返回缺陷描述(空串表示通过)。
 
     此前 member id 不做集合校验、逐 member 也不验证定界符:缺 id 会静默
@@ -161,6 +169,10 @@ def _group_member_payload_defect(item: dict, member_translations: list[dict[str,
     extra = [mid for mid in returned if mid not in expected_ids]
     if missing or extra:
         return f"member ids mismatch: missing={missing} extra={extra}"
+    aggregate = _compact_boundary_text(translated_text)
+    concatenated = _compact_boundary_text("".join(returned[mid] for mid in expected_ids))
+    if aggregate and concatenated != aggregate:
+        return "member translations do not reconstruct aggregate translation"
     if str(item.get("math_mode", "") or "").strip() == "direct_typst":
         unbalanced = [mid for mid in expected_ids if not has_balanced_unescaped_dollars(returned[mid])]
         if unbalanced:
@@ -227,7 +239,7 @@ def translate_continuation_group_members(
             for entry in payload.get("member_translations", [])
             if isinstance(entry, dict)
         ]
-        defect = _group_member_payload_defect(item, member_translations)
+        defect = _group_member_payload_defect(item, translated_text, member_translations)
         if not defect:
             break
         if attempt < protocol_attempts:

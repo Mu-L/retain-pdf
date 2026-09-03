@@ -2,22 +2,22 @@
 
 这份文档只回答一个问题：
 
-**现在要改 `backend/pipeline`，应该先进哪个目录。**
+**现在要改 `services/pipeline`，应该先进哪个目录。**
 
 ## 最常见入口
 
 - 改人工执行入口：
-  [`entrypoints/`](/home/wxyhgk/tmp/Code/backend/pipeline/entrypoints)
+  [`entrypoints/`](./entrypoints)
 - 改阶段编排总线：
-  [`runtime/pipeline/`](/home/wxyhgk/tmp/Code/backend/pipeline/runtime/pipeline)
+  [`runtime/pipeline/`](./runtime/pipeline)
 - 改 OCR provider 接入：
-  [`services/ocr_provider/`](/home/wxyhgk/tmp/Code/backend/pipeline/services/ocr_provider)
+  [`services/ocr_provider/`](./services/ocr_provider)
 - 改统一 OCR 契约：
-  [`services/document_schema/`](/home/wxyhgk/tmp/Code/backend/pipeline/services/document_schema)
+  [`services/document_schema/`](./services/document_schema)
 - 改翻译主链：
-  [`services/translation/`](/home/wxyhgk/tmp/Code/backend/pipeline/services/translation)
+  [`services/translation/`](./services/translation)
 - 改渲染主链：
-  [`services/rendering/`](/home/wxyhgk/tmp/Code/backend/pipeline/services/rendering)
+  [`services/rendering/`](./services/rendering)
 
 ## 一眼看懂主链
 
@@ -72,13 +72,13 @@ entrypoints/run_render_only.py
 - 不该做的事：
   不自己拼 provider 流程，不直接碰翻译/渲染深层实现。
 - 典型文件：
-  - [`run_provider_case.py`](/home/wxyhgk/tmp/Code/backend/pipeline/entrypoints/run_provider_case.py)
+  - [`run_provider_case.py`](./entrypoints/run_provider_case.py)
     provider-backed full flow 总入口。
-  - [`run_book.py`](/home/wxyhgk/tmp/Code/backend/pipeline/entrypoints/run_book.py)
+  - [`run_book.py`](./entrypoints/run_book.py)
     normalized OCR -> translate -> render 总入口。
-  - [`run_translate_only.py`](/home/wxyhgk/tmp/Code/backend/pipeline/entrypoints/run_translate_only.py)
+  - [`run_translate_only.py`](./entrypoints/run_translate_only.py)
     纯翻译入口。
-  - [`run_render_only.py`](/home/wxyhgk/tmp/Code/backend/pipeline/entrypoints/run_render_only.py)
+  - [`run_render_only.py`](./entrypoints/run_render_only.py)
     纯渲染入口。
 
 ### `runtime/pipeline/`
@@ -88,15 +88,15 @@ entrypoints/run_render_only.py
 - 不该做的事：
   不理解 provider raw JSON，不吸收翻译策略细节，不实现 PDF 底层渲染。
 - 关键文件：
-  - [`book_pipeline.py`](/home/wxyhgk/tmp/Code/backend/pipeline/runtime/pipeline/book_pipeline.py)
+  - [`book_pipeline.py`](./runtime/pipeline/book_pipeline.py)
     顶层 `translate -> render` 编排。
-  - [`translation_stage.py`](/home/wxyhgk/tmp/Code/backend/pipeline/runtime/pipeline/translation_stage.py)
+  - [`translation_stage.py`](./runtime/pipeline/translation_stage.py)
     纯翻译阶段入口。
-  - [`render_stage.py`](/home/wxyhgk/tmp/Code/backend/pipeline/runtime/pipeline/render_stage.py)
+  - [`render_stage.py`](./runtime/pipeline/render_stage.py)
     纯渲染阶段入口。
-  - [`translation_loader.py`](/home/wxyhgk/tmp/Code/backend/pipeline/runtime/pipeline/translation_loader.py)
+  - [`translation_loader.py`](./runtime/pipeline/translation_loader.py)
     读取 `translation-manifest.json` 和逐页 payload。
-  - [`render_inputs.py`](/home/wxyhgk/tmp/Code/backend/pipeline/runtime/pipeline/render_inputs.py)
+  - [`render_inputs.py`](./runtime/pipeline/render_inputs.py)
     render-only 输入协议收口。
 
 ### `services/document_schema/`
@@ -106,11 +106,11 @@ entrypoints/run_render_only.py
 - 进入条件：
   改 raw OCR -> `document.v1.json` 的适配、字段默认值、schema 校验时进这里。
 - 关键文件：
-  - [`normalize_pipeline.py`](/home/wxyhgk/tmp/Code/backend/pipeline/services/document_schema/normalize_pipeline.py)
+  - [`normalize_pipeline.py`](./services/document_schema/normalize_pipeline.py)
     normalize worker 入口。
-  - [`adapters.py`](/home/wxyhgk/tmp/Code/backend/pipeline/services/document_schema/adapters.py)
+  - [`adapters.py`](./services/document_schema/adapters.py)
     raw provider -> normalized document 总适配口。
-  - [`reporting.py`](/home/wxyhgk/tmp/Code/backend/pipeline/services/document_schema/reporting.py)
+  - [`reporting.py`](./services/document_schema/reporting.py)
     normalization summary/report 读取。
 
 ### `services/ocr_provider/`
@@ -120,13 +120,13 @@ entrypoints/run_render_only.py
 - 进入条件：
   改 provider 分发、Paddle API 调用、provider-backed worker 主线时进这里。
 - 关键文件：
-  - [`provider_pipeline.py`](/home/wxyhgk/tmp/Code/backend/pipeline/services/ocr_provider/provider_pipeline.py)
+  - [`provider_pipeline.py`](./services/ocr_provider/provider_pipeline.py)
     当前 provider-backed full flow 稳定入口，也是脚本/测试依赖的兼容面。
-  - [`paddle_api.py`](/home/wxyhgk/tmp/Code/backend/pipeline/services/ocr_provider/paddle_api.py)
+  - [`paddle_api.py`](./services/ocr_provider/paddle_api.py)
     Paddle 异步 API 接入。
-  - [`paddle_markdown.py`](/home/wxyhgk/tmp/Code/backend/pipeline/services/ocr_provider/paddle_markdown.py)
+  - [`paddle_markdown.py`](./services/ocr_provider/paddle_markdown.py)
     Paddle Markdown 与图片产物落盘。
-  - [`paddle_normalize.py`](/home/wxyhgk/tmp/Code/backend/pipeline/services/ocr_provider/paddle_normalize.py)
+  - [`paddle_normalize.py`](./services/ocr_provider/paddle_normalize.py)
     Paddle normalized document 几何修正等纯实现。
 
 ### `services/mineru/`
@@ -145,13 +145,13 @@ entrypoints/run_render_only.py
 - 进入条件：
   改翻译策略、LLM 调度、continuation、payload 落盘、diagnostics 时进这里。
 - 关键文件：
-  - [`from_ocr_pipeline.py`](/home/wxyhgk/tmp/Code/backend/pipeline/services/translation/from_ocr_pipeline.py)
+  - [`from_ocr_pipeline.py`](./services/translation/from_ocr_pipeline.py)
     normalized OCR -> translate -> render 的 worker 包装入口。
-  - [`translate_only_pipeline.py`](/home/wxyhgk/tmp/Code/backend/pipeline/services/translation/translate_only_pipeline.py)
+  - [`translate_only_pipeline.py`](./services/translation/translate_only_pipeline.py)
     translate-only worker 包装入口。
-  - [`workflow/translation_workflow.py`](/home/wxyhgk/tmp/Code/backend/pipeline/services/translation/workflow/translation_workflow.py)
+  - [`workflow/translation_workflow.py`](./services/translation/workflow/translation_workflow.py)
     单页翻译流程。
-  - [`llm/README.md`](/home/wxyhgk/tmp/Code/backend/pipeline/services/translation/llm/README.md)
+  - [`llm/README.md`](./services/translation/llm/README.md)
     LLM 目录边界说明。
 
 ### `services/rendering/`
@@ -161,11 +161,11 @@ entrypoints/run_render_only.py
 - 进入条件：
   改 overlay、Typst、背景修复、压缩、render-only 协议时进这里。
 - 关键文件：
-  - [`workflow/render_only.py`](/home/wxyhgk/tmp/Code/backend/pipeline/services/rendering/workflow/render_only.py)
+  - [`workflow/render_only.py`](./services/rendering/workflow/render_only.py)
     render-only worker 包装入口。
-  - [`workflow/`](/home/wxyhgk/tmp/Code/backend/pipeline/services/rendering/workflow)
+  - [`workflow/`](./services/rendering/workflow)
     渲染流程编排入口。
-  - [`output/typst/`](/home/wxyhgk/tmp/Code/backend/pipeline/services/rendering/output/typst)
+  - [`output/typst/`](./services/rendering/output/typst)
     Typst 输出主链。
 
 ### `services/pipeline_shared/`
@@ -212,12 +212,12 @@ entrypoints/run_render_only.py
 
 ## 新人阅读顺序
 
-1. [`README.md`](/home/wxyhgk/tmp/Code/backend/pipeline/README.md)
+1. [`README.md`](./README.md)
    先知道整体目录和正式入口。
-2. [`PIPELINE_DIRECTORY_MAP.md`](/home/wxyhgk/tmp/Code/backend/pipeline/PIPELINE_DIRECTORY_MAP.md)
+2. [`PIPELINE_DIRECTORY_MAP.md`](./PIPELINE_DIRECTORY_MAP.md)
    再知道改哪里。
-3. [`runtime/pipeline/README.md`](/home/wxyhgk/tmp/Code/backend/pipeline/runtime/pipeline/README.md)
+3. [`runtime/pipeline/README.md`](./runtime/pipeline/README.md)
    看阶段边界。
-4. [`services/README.md`](/home/wxyhgk/tmp/Code/backend/pipeline/services/README.md)
+4. [`services/README.md`](./services/README.md)
    看 services 总分工。
 5. 再按模块进入 `translation/`、`rendering/`、`ocr_provider/` 的 README。

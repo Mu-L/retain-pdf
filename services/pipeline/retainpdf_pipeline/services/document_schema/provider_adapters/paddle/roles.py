@@ -60,6 +60,10 @@ _ROLES_BY_SUBTYPE = {
 }
 
 _ROLES_BY_RAW_LABEL = {
+    "doc_title": PaddleBlockRoles(
+        layout_role="title",
+        structure_role="document_title",
+    ),
     "abstract": PaddleBlockRoles(
         layout_role="paragraph",
         semantic_role="abstract",

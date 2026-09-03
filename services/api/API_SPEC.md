@@ -4,7 +4,7 @@ This file is the entrypoint for the Rust API implementation contract. The
 detailed contract is split by stable backend domain under `docs/api-spec/`.
 
 For frontend and third-party integration, the canonical public entrypoint is
-the [RetainPDF backend API index](../../doc/core/api/index.md). The pages linked
+the [RetainPDF backend API index](../../docs/core/api/index.md). The pages linked
 below retain the more detailed Rust/Python orchestration, diagnostics, recovery,
 and internal Agent contracts used by backend maintainers.
 
@@ -65,6 +65,7 @@ only for compatibility. See the detailed credential contract below.
 | [AI proxy, conversations, and public operation control](docs/api-spec/ai-control-plane.md) | Ask/SSE proxy, runtime settings, durable message tree, operation projection, explicit confirmation actions, and candidate download |
 | [Backend-only Agent document operations](docs/api-spec/agent-document-operations.md) | Capabilities, fixed page programs, confirmation modes, retry/idempotency, candidate validation, runtime cursor |
 | [Live translation overlay](docs/api-spec/live-translation.md) | Durable layout/page snapshots, SSE replay, commit ordering, and producer requirements |
+| [Document metadata suggestions](docs/api-spec/document-metadata.md) | Durable title candidates, OCR role mapping, provenance, and guarded application |
 | [Errors, storage, and implementation notes](docs/api-spec/storage-and-errors.md) | Error shape, code ranges, data-root layout, and backend/worker ownership |
 
 ## Related Backend Documents

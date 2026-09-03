@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, ToSql};
 
 use crate::models::api::DocumentRecord;
 use crate::models::domain::{now_iso, UploadRecord};
@@ -10,6 +10,90 @@ use super::rows::{
     DOCUMENT_COLUMNS,
 };
 use crate::db::Db;
+
+struct DocumentFilterQuery {
+    where_sql: String,
+    args: Vec<String>,
+}
+
+fn build_document_filter_query(
+    reading_status: Option<&str>,
+    tag: Option<&str>,
+    collection_id: Option<&str>,
+) -> DocumentFilterQuery {
+    // A document without a backing upload is not a readable library item and
+    // must be excluded from both the page and its authoritative total.
+    let mut clauses = vec![
+        "EXISTS (SELECT 1 FROM uploads u WHERE u.content_hash = d.document_id AND u.content_hash <> '')"
+            .to_string(),
+    ];
+    let mut args = Vec::new();
+    if let Some(status) = reading_status {
+        clauses.push(format!("d.reading_status = ?{}", args.len() + 1));
+        args.push(status.to_string());
+    }
+    if let Some(tag) = tag {
+        clauses.push(format!(
+            "EXISTS (SELECT 1 FROM document_tags t WHERE t.document_id = d.document_id AND t.tag = ?{})",
+            args.len() + 1
+        ));
+        args.push(tag.to_string());
+    }
+    if let Some(collection_id) = collection_id {
+        clauses.push(format!(
+            "EXISTS (SELECT 1 FROM collection_documents c WHERE c.document_id = d.document_id AND c.collection_id = ?{})",
+            args.len() + 1
+        ));
+        args.push(collection_id.to_string());
+    }
+    DocumentFilterQuery {
+        where_sql: format!("WHERE {}", clauses.join(" AND ")),
+        args,
+    }
+}
+
+fn query_documents(
+    conn: &Connection,
+    filter: &DocumentFilterQuery,
+    limit: u32,
+    offset: u32,
+) -> Result<Vec<DocumentRecord>> {
+    let sql = format!(
+        "SELECT {DOCUMENT_COLUMNS} FROM documents d {} ORDER BY d.added_at DESC LIMIT ?{} OFFSET ?{}",
+        filter.where_sql,
+        filter.args.len() + 1,
+        filter.args.len() + 2
+    );
+    let limit = limit as i64;
+    let offset = offset as i64;
+    let mut args: Vec<&dyn ToSql> = filter
+        .args
+        .iter()
+        .map(|value| value as &dyn ToSql)
+        .collect();
+    args.push(&limit);
+    args.push(&offset);
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(rusqlite::params_from_iter(args), row_to_document)?;
+    let mut documents = Vec::new();
+    for row in rows {
+        documents.push(row?);
+    }
+    for document in &mut documents {
+        document.tags = load_document_tags(conn, &document.document_id)?;
+    }
+    Ok(documents)
+}
+
+fn count_documents_with_filter(conn: &Connection, filter: &DocumentFilterQuery) -> Result<u64> {
+    let sql = format!("SELECT COUNT(*) FROM documents d {}", filter.where_sql);
+    let count: i64 = conn.query_row(
+        &sql,
+        rusqlite::params_from_iter(filter.args.iter()),
+        |row| row.get(0),
+    )?;
+    u64::try_from(count).context("document count cannot be negative")
+}
 
 impl Db {
     /// 上传即建档:同一内容哈希只有一个 document,重复上传仅刷新时间与文件名。
@@ -83,56 +167,38 @@ impl Db {
         collection_id: Option<&str>,
     ) -> Result<Vec<DocumentRecord>> {
         let conn = self.connect()?;
-        // 防御性:图书馆列表永不返回无 upload 支撑的孤儿文档(源文件已丢的
-        // 僵尸卡)。"只入库"文档有 upload 只是没 job,不受影响。
-        let mut clauses: Vec<String> = vec![
-            "EXISTS (SELECT 1 FROM uploads u WHERE u.content_hash = d.document_id AND u.content_hash <> '')"
-                .to_string(),
-        ];
-        let mut args: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
-        if let Some(status) = reading_status {
-            clauses.push(format!("d.reading_status = ?{}", args.len() + 1));
-            args.push(Box::new(status.to_string()));
-        }
-        if let Some(tag) = tag {
-            clauses.push(format!(
-                "EXISTS (SELECT 1 FROM document_tags t WHERE t.document_id = d.document_id AND t.tag = ?{})",
-                args.len() + 1
-            ));
-            args.push(Box::new(tag.to_string()));
-        }
-        if let Some(collection_id) = collection_id {
-            clauses.push(format!(
-                "EXISTS (SELECT 1 FROM collection_documents c WHERE c.document_id = d.document_id AND c.collection_id = ?{})",
-                args.len() + 1
-            ));
-            args.push(Box::new(collection_id.to_string()));
-        }
-        let where_sql = if clauses.is_empty() {
-            String::new()
-        } else {
-            format!("WHERE {}", clauses.join(" AND "))
-        };
-        let sql = format!(
-            "SELECT {DOCUMENT_COLUMNS} FROM documents d {where_sql} ORDER BY d.added_at DESC LIMIT ?{} OFFSET ?{}",
-            args.len() + 1,
-            args.len() + 2
-        );
-        args.push(Box::new(limit as i64));
-        args.push(Box::new(offset as i64));
-        let mut stmt = conn.prepare(&sql)?;
-        let rows = stmt.query_map(
-            rusqlite::params_from_iter(args.iter().map(|value| value.as_ref())),
-            row_to_document,
-        )?;
-        let mut documents = Vec::new();
-        for row in rows {
-            documents.push(row?);
-        }
-        for document in &mut documents {
-            document.tags = load_document_tags(&conn, &document.document_id)?;
-        }
-        Ok(documents)
+        let filter = build_document_filter_query(reading_status, tag, collection_id);
+        query_documents(&conn, &filter, limit, offset)
+    }
+
+    pub fn count_documents(
+        &self,
+        reading_status: Option<&str>,
+        tag: Option<&str>,
+        collection_id: Option<&str>,
+    ) -> Result<u64> {
+        let conn = self.connect()?;
+        let filter = build_document_filter_query(reading_status, tag, collection_id);
+        count_documents_with_filter(&conn, &filter)
+    }
+
+    /// Reads the page and its filtered total from one SQLite snapshot so a
+    /// concurrent upload or deletion cannot make the response self-contradictory.
+    pub fn list_documents_with_total(
+        &self,
+        limit: u32,
+        offset: u32,
+        reading_status: Option<&str>,
+        tag: Option<&str>,
+        collection_id: Option<&str>,
+    ) -> Result<(Vec<DocumentRecord>, u64)> {
+        let mut conn = self.connect()?;
+        let transaction = conn.transaction()?;
+        let filter = build_document_filter_query(reading_status, tag, collection_id);
+        let total = count_documents_with_filter(&transaction, &filter)?;
+        let documents = query_documents(&transaction, &filter, limit, offset)?;
+        transaction.commit()?;
+        Ok((documents, total))
     }
 
     pub fn update_document_fields(
@@ -142,22 +208,35 @@ impl Db {
         reading_status: Option<&str>,
         tags: Option<&[String]>,
     ) -> Result<DocumentRecord> {
-        let conn = self.connect()?;
+        let mut conn = self.connect()?;
+        let tx = conn.transaction()?;
         let now = now_iso();
         if let Some(title) = title {
-            conn.execute(
+            tx.execute(
                 "UPDATE documents SET title = ?1, updated_at = ?2 WHERE document_id = ?3",
                 params![title, now, document_id],
             )?;
+            tx.execute(
+                r#"
+                INSERT INTO document_title_state (document_id, source, locked, suggestion_id, updated_at)
+                VALUES (?1, 'user', 1, NULL, ?2)
+                ON CONFLICT(document_id) DO UPDATE SET
+                    source = 'user',
+                    locked = 1,
+                    suggestion_id = NULL,
+                    updated_at = excluded.updated_at
+                "#,
+                params![document_id, now],
+            )?;
         }
         if let Some(status) = reading_status {
-            conn.execute(
+            tx.execute(
                 "UPDATE documents SET reading_status = ?1, updated_at = ?2 WHERE document_id = ?3",
                 params![status, now, document_id],
             )?;
         }
         if let Some(tags) = tags {
-            conn.execute(
+            tx.execute(
                 "DELETE FROM document_tags WHERE document_id = ?1",
                 params![document_id],
             )?;
@@ -166,14 +245,15 @@ impl Db {
                 if tag.is_empty() {
                     continue;
                 }
-                conn.execute(
+                tx.execute(
                     "INSERT OR IGNORE INTO document_tags (document_id, tag) VALUES (?1, ?2)",
                     params![document_id, tag],
                 )?;
             }
         }
-        let record = query_document(&conn, document_id)?
+        let record = query_document(&tx, document_id)?
             .with_context(|| format!("document not found: {document_id}"))?;
+        tx.commit()?;
         Ok(record)
     }
 

@@ -9,6 +9,12 @@ fn default_documents_limit() -> u32 {
 pub struct DocumentRecord {
     pub document_id: String,
     pub title: String,
+    /// 当前标题的来源；旧记录默认为 filename。
+    #[serde(default = "default_document_title_source")]
+    pub title_source: String,
+    /// 用户手工修改标题后锁定，自动元数据建议不得覆盖。
+    #[serde(default)]
+    pub title_locked: bool,
     pub authors_json: String,
     pub year: Option<i64>,
     pub doi: String,
@@ -33,6 +39,10 @@ pub struct DocumentRecord {
     /// 缩略图 URL（列表/详情由 API 层填充，不入库）
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub thumbnail_url: String,
+}
+
+fn default_document_title_source() -> String {
+    "filename".to_string()
 }
 
 /// 收藏:锚点 = (document_id, job_id, page_idx, block_id[, 选区]) + 引文快照。
@@ -156,6 +166,8 @@ pub struct ListDocumentsQuery {
 #[derive(Debug, Serialize)]
 pub struct DocumentListView {
     pub documents: Vec<DocumentRecord>,
+    /// Number of documents matching the filters before pagination.
+    pub total: u64,
 }
 
 /// PATCH /api/v1/documents/:id
@@ -164,6 +176,94 @@ pub struct PatchDocumentInput {
     pub title: Option<String>,
     pub reading_status: Option<String>,
     pub tags: Option<Vec<String>>,
+}
+
+fn default_metadata_suggestion_fields() -> Vec<String> {
+    vec!["title".to_string()]
+}
+
+fn default_metadata_suggestion_limit() -> u32 {
+    20
+}
+
+/// POST /api/v1/documents/:id/metadata-suggestions
+#[derive(Debug, Deserialize)]
+pub struct CreateDocumentMetadataSuggestionInput {
+    /// 缺省时选择该文档最新的可读规范化 OCR 产物。
+    #[serde(default)]
+    pub job_id: Option<String>,
+    /// v1 仅支持 title；保留数组以便后续扩展 authors/year/doi。
+    #[serde(default = "default_metadata_suggestion_fields")]
+    pub fields: Vec<String>,
+    /// 仅当当前标题仍是上传文件名且未被用户锁定时自动应用。
+    #[serde(default)]
+    pub apply_if_default: bool,
+}
+
+/// GET /api/v1/documents/:id/metadata-suggestions
+#[derive(Debug, Deserialize)]
+pub struct ListDocumentMetadataSuggestionsQuery {
+    #[serde(default = "default_metadata_suggestion_limit")]
+    pub limit: u32,
+}
+
+/// POST /api/v1/documents/:id/metadata-suggestions/:suggestion_id/apply
+#[derive(Debug, Default, Deserialize)]
+pub struct ApplyDocumentMetadataSuggestionInput {
+    /// 可选的文档版本护栏；不匹配时返回 409。
+    #[serde(default)]
+    pub expected_document_updated_at: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct DocumentMetadataEvidenceView {
+    pub source: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub page_idx: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub block_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub structure_role: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layout_role: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct DocumentTitleCandidateView {
+    pub value: String,
+    pub source: String,
+    pub confidence: f64,
+    pub evidence: Vec<DocumentMetadataEvidenceView>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct DocumentMetadataSuggestionView {
+    pub suggestion_id: String,
+    pub document_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_job_id: Option<String>,
+    pub artifact_sha256: String,
+    pub status: String,
+    pub fields: Vec<String>,
+    pub title_candidates: Vec<DocumentTitleCandidateView>,
+    pub selected_title: String,
+    pub generation_method: String,
+    pub needs_ai_review: bool,
+    pub applied: bool,
+    pub can_apply: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DocumentMetadataSuggestionListView {
+    pub suggestions: Vec<DocumentMetadataSuggestionView>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DocumentMetadataSuggestionApplyView {
+    pub suggestion: DocumentMetadataSuggestionView,
+    pub document: DocumentRecord,
 }
 
 /// POST /api/v1/favorites

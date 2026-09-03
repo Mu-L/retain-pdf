@@ -137,6 +137,7 @@ def translate_single_item_plain_text_with_retries(
     if (
         str(item.get("item_id", "") or "").startswith("__cg__:")
         and str(item.get("translation_unit_id", "") or "").startswith("__cg__:")
+        and str(item.get("translation_group_strategy", "") or "").strip() != "aggregate_geometry"
         and flow_deps.translate_group_members_fn is not None
     ):
         try:

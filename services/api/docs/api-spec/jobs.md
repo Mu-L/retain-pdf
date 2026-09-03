@@ -17,8 +17,8 @@ and document-history rules are maintained in the pages below.
   run.
 - Retry and effectful Agent-adjacent actions use explicit state and idempotency
   boundaries. State conflicts return `409` instead of overwriting newer work.
-- Provider and model secrets are never returned. Translation requests should
-  use an opaque `credential_ref` as described in the
+- Provider and model secrets are never returned. Translation and OCR requests
+  should use their opaque `credential_ref` fields as described in the
   [credential reference contract](credentials.md).
 
 ## Detailed Contracts
@@ -54,8 +54,12 @@ GET  /api/v1/ocr/jobs/{job_id}/events
 POST /api/v1/ocr/jobs/{job_id}/cancel
 POST /api/v1/documents/:document_id/translate
 POST /api/v1/documents/:document_id/ocr
+GET  /api/v1/documents
 GET  /api/v1/documents/:document_id/jobs
 GET  /api/v1/documents/:document_id/agent-versions
+POST /api/v1/documents/:document_id/metadata-suggestions
+GET  /api/v1/documents/:document_id/metadata-suggestions
+POST /api/v1/documents/:document_id/metadata-suggestions/:suggestion_id/apply
 ```
 
 Artifact downloads, Reader regions, Markdown, and PDF endpoints are documented

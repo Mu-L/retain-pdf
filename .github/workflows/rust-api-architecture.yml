@@ -8,8 +8,8 @@ name: Rust API Architecture
       - "backend-package.json"
       - ".github/actions/prepare-backend-source/**"
       - ".github/scripts/resolve_backend_source.py"
-      - "doc/adr/**"
-      - "doc/core/python/**"
+      - "docs/adr/**"
+      - "docs/core/python/**"
       - ".github/workflows/rust-api-architecture.yml"
   push:
     branches:
@@ -21,8 +21,8 @@ name: Rust API Architecture
       - "backend-package.json"
       - ".github/actions/prepare-backend-source/**"
       - ".github/scripts/resolve_backend_source.py"
-      - "doc/adr/**"
-      - "doc/core/python/**"
+      - "docs/adr/**"
+      - "docs/core/python/**"
       - ".github/workflows/rust-api-architecture.yml"
 
 permissions:

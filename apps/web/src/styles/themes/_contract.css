@@ -24,5 +24,5 @@
  *   皮肤只覆盖想改的；不覆盖 = 现状观感。core 文件禁止点名主题 id。
  *
  * 新增皮肤：复制 classic.css → 改色 → 在 index.css @import → registry.ts 登记。
- * 见 docs/theme-system/ADDING_A_THEME.md
+ * 见 docs/core/frontend/theme-system/ADDING_A_THEME.md
  */

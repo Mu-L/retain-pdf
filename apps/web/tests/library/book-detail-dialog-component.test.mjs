@@ -207,7 +207,13 @@ test("已翻译卡打开书籍详情:有对照阅读,无翻译按钮", async () 
     () => byId("book-detail-retry-translation-btn"),
     "后端阶段动作加载重新翻译按钮",
   );
-  const retryRenderButton = byId("book-detail-retry-render-btn");
+  const retryRenderButton = await waitFor(
+    () => {
+      const button = byId("book-detail-retry-render-btn");
+      return button && !button.disabled ? button : null;
+    },
+    "后端阶段动作加载可用的重新渲染按钮",
+  );
   assert.ok(retryTranslationButton, "已完成任务可以复用 OCR 重新翻译");
   assert.ok(retryRenderButton, "已有译文可以单独重新渲染");
   assert.ok(byId("book-detail-read-source-btn"), "仍可读原文");

@@ -2,15 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from retainpdf_pipeline.services.document_schema.providers import PROVIDER_GENERIC_FLAT_OCR
-from retainpdf_pipeline.services.document_schema.providers import PROVIDER_MINERU
-from retainpdf_pipeline.services.document_schema.providers import PROVIDER_MINERU_CONTENT_LIST_V2
-from retainpdf_pipeline.services.document_schema.providers import PROVIDER_PADDLE
-from retainpdf_pipeline.services.mineru.contracts import MINERU_CONTENT_LIST_V2_FILE_NAME
-from retainpdf_pipeline.services.mineru.contracts import MINERU_LAYOUT_JSON_FILE_NAME
+from retainpdf_pipeline.services.document_schema.providers import (
+    PROVIDER_GENERIC_FLAT_OCR,
+    PROVIDER_MINERU,
+    PROVIDER_MINERU_CONTENT_LIST_V2,
+    PROVIDER_PADDLE,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[6]
-MINERU_REGRESSION_ROOT = REPO_ROOT / "data" / "jobs" / "20260414164126-41e3ea" / "ocr" / "unpacked"
 DOCUMENT_SCHEMA_FIXTURES_ROOT = REPO_ROOT / "services" / "pipeline" / "devtools" / "tests" / "document_schema" / "fixtures"
 PADDLE_FIXTURES_ROOT = REPO_ROOT / "services" / "api" / "crates" / "retain-data" / "src" / "ocr_provider" / "paddle"
 
@@ -21,13 +20,13 @@ PROVIDER_FIXTURES = [
         "name": "raw_layout",
         "provider": PROVIDER_MINERU,
         "document_id": "regression-raw-layout",
-        "path": MINERU_REGRESSION_ROOT / MINERU_LAYOUT_JSON_FILE_NAME,
+        "path": DOCUMENT_SCHEMA_FIXTURES_ROOT / "mineru_middle_v3.golden.json",
     },
     {
         "name": "content_list_v2",
         "provider": PROVIDER_MINERU_CONTENT_LIST_V2,
         "document_id": "regression-content-v2",
-        "path": MINERU_REGRESSION_ROOT / MINERU_CONTENT_LIST_V2_FILE_NAME,
+        "path": DOCUMENT_SCHEMA_FIXTURES_ROOT / "mineru_content_list_v2.golden.json",
     },
     {
         "name": "generic_fixture",

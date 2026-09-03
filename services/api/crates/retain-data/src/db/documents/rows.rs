@@ -3,7 +3,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::models::api::{BlockSearchHit, DocumentRecord, FavoriteRecord};
 
-pub(super) const DOCUMENT_COLUMNS: &str = "d.document_id, d.title, d.authors_json, d.year, d.doi, d.source_filename, d.page_count, d.bytes, d.active_job_id, d.active_version_id, d.reading_status, d.added_at, d.last_opened_at, d.updated_at";
+pub(in crate::db) const DOCUMENT_COLUMNS: &str = "d.document_id, d.title, COALESCE((SELECT ts.source FROM document_title_state ts WHERE ts.document_id = d.document_id), 'filename'), COALESCE((SELECT ts.locked FROM document_title_state ts WHERE ts.document_id = d.document_id), 0), d.authors_json, d.year, d.doi, d.source_filename, d.page_count, d.bytes, d.active_job_id, d.active_version_id, d.reading_status, d.added_at, d.last_opened_at, d.updated_at";
 
 /// sha2 0.11 的输出类型不再实现 LowerHex,统一走手动十六进制编码。
 pub fn sha256_hex(bytes: &[u8]) -> String {
@@ -17,7 +17,7 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
         .collect()
 }
 
-pub(super) fn default_title_from_filename(filename: &str) -> String {
+pub(in crate::db) fn default_title_from_filename(filename: &str) -> String {
     filename
         .strip_suffix(".pdf")
         .or_else(|| filename.strip_suffix(".PDF"))
@@ -26,7 +26,7 @@ pub(super) fn default_title_from_filename(filename: &str) -> String {
         .to_string()
 }
 
-pub(super) fn query_document(
+pub(in crate::db) fn query_document(
     conn: &Connection,
     document_id: &str,
 ) -> Result<Option<DocumentRecord>> {
@@ -55,22 +55,24 @@ pub(super) fn load_document_tags(conn: &Connection, document_id: &str) -> Result
     Ok(tags)
 }
 
-pub(super) fn row_to_document(row: &rusqlite::Row<'_>) -> rusqlite::Result<DocumentRecord> {
+pub(in crate::db) fn row_to_document(row: &rusqlite::Row<'_>) -> rusqlite::Result<DocumentRecord> {
     Ok(DocumentRecord {
         document_id: row.get(0)?,
         title: row.get(1)?,
-        authors_json: row.get(2)?,
-        year: row.get(3)?,
-        doi: row.get(4)?,
-        source_filename: row.get(5)?,
-        page_count: row.get::<_, i64>(6)? as u32,
-        bytes: row.get::<_, i64>(7)? as u64,
-        active_job_id: row.get(8)?,
-        active_version_id: row.get(9)?,
-        reading_status: row.get(10)?,
-        added_at: row.get(11)?,
-        last_opened_at: row.get(12)?,
-        updated_at: row.get(13)?,
+        title_source: row.get(2)?,
+        title_locked: row.get::<_, i64>(3)? != 0,
+        authors_json: row.get(4)?,
+        year: row.get(5)?,
+        doi: row.get(6)?,
+        source_filename: row.get(7)?,
+        page_count: row.get::<_, i64>(8)? as u32,
+        bytes: row.get::<_, i64>(9)? as u64,
+        active_job_id: row.get(10)?,
+        active_version_id: row.get(11)?,
+        reading_status: row.get(12)?,
+        added_at: row.get(13)?,
+        last_opened_at: row.get(14)?,
+        updated_at: row.get(15)?,
         tags: Vec::new(),
         source_pdf_url: String::new(),
         cover_url: String::new(),

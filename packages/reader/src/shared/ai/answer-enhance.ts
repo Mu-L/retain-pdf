@@ -42,6 +42,10 @@ export type AiCitationLike = {
   job_id?: string;
   document_id?: string;
   snippet?: string;
+  image_url?: string;
+  image_urls?: string[];
+  asset_image_urls?: string[];
+  assets?: Array<{ image_url?: string; [key: string]: unknown }>;
   [key: string]: unknown;
 };
 
@@ -158,6 +162,32 @@ export function pickCitationsForAnswer(
   return fallback;
 }
 
+/**
+ * Turn bare citation markers into internal Markdown links before Markstream parses them.
+ * Fenced/inline code and existing links remain untouched, so streaming renders never need
+ * a post-render DOM replacement that Markstream can overwrite on its next batch.
+ */
+export function decorateCitationMarkdown(
+  markdown: string,
+  citationByRef: Map<string, AiCitationLike>,
+): string {
+  if (!citationByRef.size || !markdown) return markdown;
+  const decoratePlainText = (value: string) => value
+    .split(/(`+[^`\n]*?`+)/g)
+    .map((part, index) => {
+      if (index % 2 === 1) return part;
+      return part.replace(/(?<!!)\[(\d+)\](?!\s*\()/g, (marker, ref: string) => (
+        citationByRef.has(ref) ? `[${ref}](#retainpdf-citation-${ref})` : marker
+      ));
+    })
+    .join("");
+
+  return markdown
+    .split(/(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$))/g)
+    .map((part, index) => (index % 2 === 1 ? part : decoratePlainText(part)))
+    .join("");
+}
+
 export function buildPagePreviewUrl(jobId: string, pageIdx0: number, kind: "translated" | "source" = "translated", adapters: { resolveResourceUrl?: (v: unknown) => string } = {}): string {
   const resolver = adapters.resolveResourceUrl ?? resolveResourceUrl;
   const job = `${jobId || ""}`.trim();
@@ -217,6 +247,62 @@ export function resolveAnswerImageUrl(
   try { pathJob = decodeURIComponent(match[1]); } catch { return ""; }
   if (pathJob !== job) return "";
   return buildMarkdownImageApiUrl(job, match[2], adapters);
+}
+
+function collectCitationImageUrls(citation: AiCitationLike): string[] {
+  const candidates: unknown[] = [
+    citation.image_url,
+    ...(Array.isArray(citation.image_urls) ? citation.image_urls : []),
+    ...(Array.isArray(citation.asset_image_urls) ? citation.asset_image_urls : []),
+  ];
+  if (Array.isArray(citation.assets)) {
+    for (const asset of citation.assets) {
+      if (asset && typeof asset === "object") candidates.push(asset.image_url);
+    }
+  }
+  const seen = new Set<string>();
+  const urls: string[] = [];
+  for (const value of candidates) {
+    const url = `${value || ""}`.trim();
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    urls.push(url);
+  }
+  return urls;
+}
+
+function pageNumberFromImageUrl(rawValue: string): number | null {
+  let value = `${rawValue || ""}`.trim();
+  try {
+    value = decodeURIComponent(new URL(value, globalThis.location?.href || "http://localhost/").pathname);
+  } catch {
+    try { value = decodeURIComponent(value); } catch { /* keep raw value */ }
+  }
+  const match = value.match(/(?:^|\/)page-(\d+)(?:\/|$)/i);
+  if (!match) return null;
+  const page = Number(match[1]);
+  return Number.isFinite(page) && page >= 1 ? Math.floor(page) : null;
+}
+
+/** Resolve an answer image to the same structured citation used by inline [n] jumps. */
+export function findCitationForAnswerImage(
+  rawValue: string,
+  citations: AiCitationLike[],
+  jobId: string,
+): AiCitationLike | null {
+  const safeImageUrl = resolveAnswerImageUrl(rawValue, jobId);
+  if (!safeImageUrl) return null;
+
+  for (const citation of citations) {
+    for (const candidate of collectCitationImageUrls(citation)) {
+      if (resolveAnswerImageUrl(candidate, jobId) === safeImageUrl) return citation;
+    }
+  }
+
+  // Compatibility for history created before citations carried image URLs.
+  const imagePage = pageNumberFromImageUrl(safeImageUrl);
+  if (imagePage == null) return null;
+  return citations.find((citation) => resolveCitationPageNumber(citation) === imagePage) || null;
 }
 
 /** Mount sanitized answer HTML without ever attaching a raw model-provided img src. */
@@ -390,8 +476,6 @@ export function injectCitationMarkers(
         button.addEventListener("click", (event) => {
           event.preventDefault();
           event.stopPropagation();
-          // 分支/切会话 remount 期间的幽灵点击不跳页
-          if (shouldIgnoreReaderAiNavEvent(event)) return;
           onJump?.(citation);
         });
         fragment.appendChild(button);
@@ -406,7 +490,11 @@ export function injectCitationMarkers(
 /** 回收容器内已 hydrate 的 blob URL（重渲染/卸载前调用，防泄漏——审计 P1-5）。 */
 export function revokeHydratedImageUrls(container: ParentNode | null | undefined): void {
   if (!container) return;
-  const images = [...((container as Element).querySelectorAll?.("img.is-hydrated") || [])];
+  const root = container as Element;
+  const images = [
+    ...(root.matches?.("img.is-hydrated") ? [root] : []),
+    ...((root.querySelectorAll?.("img.is-hydrated") || []) as NodeListOf<Element>),
+  ];
   for (const img of images) {
     const el = img as HTMLImageElement;
     const src = el.src || "";
@@ -431,7 +519,11 @@ export async function hydrateProtectedImages(
   container: ParentNode,
   { fetchImpl = _fetchProtected, signal }: { fetchImpl?: FetchImpl; signal?: AbortSignal } = {},
 ): Promise<void> {
-  const images = [...(container as Element).querySelectorAll?.("img[data-ai-src]") || []];
+  const root = container as Element;
+  const images = [
+    ...(root.matches?.("img[data-ai-src]") ? [root] : []),
+    ...((root.querySelectorAll?.("img[data-ai-src]") || []) as NodeListOf<Element>),
+  ];
   await Promise.allSettled(images.map(async (img) => {
     const el = img as HTMLImageElement;
     if (signal?.aborted) return;
@@ -524,7 +616,6 @@ export function renderCitationFooter(
     row.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      if (shouldIgnoreReaderAiNavEvent(event)) return;
       onJump?.(citation);
     });
 

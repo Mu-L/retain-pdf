@@ -65,6 +65,7 @@ export { createRecentJobsRuntimePort } from "../../../../js/features/recent-jobs
 export { createRecentJobsReaderPort } from "../../../../js/features/recent-jobs/reader-port.js";
 export { createRecentJobsNavigationPort } from "../../../../js/features/recent-jobs/navigation-port.js";
 export { createRecentJobsLibraryRefreshPort } from "../../../../js/features/recent-jobs/library-refresh-port.js";
+export { createDocumentAutoNaming } from "../../../../js/features/documents-library/document-auto-naming.js";
 export {
   isRecentJobActive,
   recentJobProgressPercent,

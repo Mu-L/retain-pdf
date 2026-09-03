@@ -5,6 +5,8 @@ import {
   injectCitationMarkers,
   buildMarkdownImageApiUrl,
   buildPagePreviewUrl,
+  decorateCitationMarkdown,
+  findCitationForAnswerImage,
   isAgenticCitation,
   normalizeAiCitations,
   hydrateProtectedImages,
@@ -78,6 +80,17 @@ test("AI citation marker carries block_id through page resolution and bbox highl
   }]);
 });
 
+test("citation markdown decoration is streaming-safe and leaves code and links intact", () => {
+  const refs = new Map([["5", { ref: 5, block_id: "p003-b0004" }]]);
+  assert.equal(
+    decorateCitationMarkdown(
+      "正文 [5]，`代码 [5]`，已有 [5](https://example.com)。\n```txt\n[5]\n```",
+      refs,
+    ),
+    "正文 [5](#retainpdf-citation-5)，`代码 [5]`，已有 [5](https://example.com)。\n```txt\n[5]\n```",
+  );
+});
+
 test("buildMarkdownImageApiUrl strips images/ prefix", () => {
   const u = buildMarkdownImageApiUrl("job1", "images/page-1/imgs/a.png");
   assert.match(u, /markdown\/images\/page-1\/imgs\/a\.png/);
@@ -101,6 +114,28 @@ test("answer images are canonicalized once and locked to the current job", () =>
     "",
   );
   assert.equal(buildMarkdownImageApiUrl("job 1", "images/../secret.png"), "");
+});
+
+test("answer images resolve an exact structured citation and support legacy page fallback", () => {
+  const exact = {
+    ref: 4,
+    block_id: "p003-b0007",
+    page_idx: 2,
+    image_urls: ["/api/v1/jobs/job-1/markdown/images/page-3/imgs/chart.png"],
+  };
+  const samePageText = { ref: 5, block_id: "p003-b0008", page_idx: 2 };
+  assert.equal(
+    findCitationForAnswerImage("images/page-3/imgs/chart.png", [samePageText, exact], "job-1"),
+    exact,
+  );
+  assert.equal(
+    findCitationForAnswerImage("images/page-3/imgs/legacy.png", [samePageText], "job-1"),
+    samePageText,
+  );
+  assert.equal(
+    findCitationForAnswerImage("https://tracker.invalid/chart.png", [exact], "job-1"),
+    null,
+  );
 });
 
 test("answer HTML never mounts a raw image URL and hydrates accepted assets through protected fetch", async () => {

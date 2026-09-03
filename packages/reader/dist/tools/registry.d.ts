@@ -1,4 +1,4 @@
-export type ReaderToolId = "notes" | "favorites" | "markdown" | "ai";
+export type ReaderToolId = "favorites" | "markdown" | "ai";
 export type ReaderToolDef = {
     id: ReaderToolId;
     label: string;

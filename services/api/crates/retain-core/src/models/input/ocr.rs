@@ -10,6 +10,8 @@ pub struct OcrInput {
     #[serde(default = "default_ocr_provider")]
     pub provider: String,
     #[serde(default)]
+    pub credential_ref: String,
+    #[serde(default)]
     pub mineru_token: String,
     #[serde(default = "default_model_version")]
     pub model_version: String,
@@ -49,6 +51,7 @@ impl Default for OcrInput {
     fn default() -> Self {
         Self {
             provider: default_ocr_provider(),
+            credential_ref: String::new(),
             mineru_token: String::new(),
             model_version: default_model_version(),
             paddle_token: String::new(),

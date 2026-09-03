@@ -8,11 +8,15 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any
 
+from ..agent import referenced_citations, sanitize_answer_text
 from ..agent_command_broker import AgentCommandBroker, BrokerScope
 from ..config import Settings, normalize_fx_gateway_base_url
 from ..operation_context import load_operation_context
 from ..prompts import build_operation_context_block
+from ..request_control import RequestControl
 from ..rust_client import RustApiClient
+from ..tools import ToolRegistry
+from ..unified_tools import CALCULATION_TOOL_NAMES, READING_TOOL_NAMES
 from .contracts import AskResult, ChatFn, RuntimeCapabilities
 from .fx_acp import FxAcpClient
 from .fx_coordination import coordinator_for
@@ -56,9 +60,36 @@ class FxAcpRuntime:
         confirmation_modes=frozenset({"explicit", "green_light"}),
     )
 
-    def __init__(self, settings: Settings, rust: RustApiClient) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        rust: RustApiClient,
+        reading_registry: ToolRegistry | None = None,
+    ) -> None:
         self._settings = settings
         self._rust = rust
+        self._reading_registry = reading_registry
+        registered_names = (
+            {
+                str((spec.get("function") or {}).get("name") or "")
+                for spec in reading_registry.specs()
+            }
+            if reading_registry is not None
+            else set()
+        )
+        reading_available = bool(READING_TOOL_NAMES & registered_names)
+        calculation_available = CALCULATION_TOOL_NAMES.issubset(registered_names)
+        self.capabilities = RuntimeCapabilities(
+            document_reading=reading_available,
+            document_operations=True,
+            streaming=True,
+            durable_sessions=True,
+            model_transport="runtime_managed",
+            confirmation_modes=frozenset({"explicit", "green_light"}),
+            calculation=calculation_available,
+            durable_calculations=calculation_available,
+            python_analysis=False,
+        )
         self._coordinator = coordinator_for(
             settings.fx_state_root,
             settings.fx_max_concurrent_turns,
@@ -120,8 +151,11 @@ class FxAcpRuntime:
         on_event: Callable[[dict[str, Any]], None] | None = None,
         chat_fn: ChatFn | None = None,
         history: list[dict[str, str]] | None = None,
+        max_tool_rounds: int | None = None,
+        content_source: str = "auto",
+        request_control: RequestControl | None = None,
     ) -> AskResult:
-        del job_id
+        del max_tool_rounds, content_source
         if chat_fn is not None:
             raise RuntimeError("fx runtime does not accept the legacy chat_fn transport")
         conversation_id = conversation_id.strip()
@@ -136,8 +170,11 @@ class FxAcpRuntime:
             raise RuntimeError(
                 "fx runtime is enabled but RETAIN_AI_FX_GATEWAY_API_KEY is missing"
             )
+        if request_control is not None:
+            request_control.raise_if_stopped()
         emit = on_event or (lambda _event: None)
         operation_refs: dict[str, dict[str, Any]] = {}
+        calculation_refs: dict[str, dict[str, Any]] = {}
         operation_refs_lock = threading.Lock()
 
         def on_operation_event(event: dict[str, Any]) -> None:
@@ -154,6 +191,15 @@ class FxAcpRuntime:
                 operation_refs[operation_id] = ref
             emit(event)
 
+        def on_tool_event(event: dict[str, Any]) -> None:
+            calculation_id = str(event.get("calculation_id") or "").strip()
+            if calculation_id:
+                calculation_refs[calculation_id] = {
+                    "calculation_id": calculation_id,
+                    "status": str(event.get("status") or ""),
+                }
+            emit(event)
+
         broker_context = (
             AgentCommandBroker(
                 state_root=self._settings.fx_state_root,
@@ -168,14 +214,17 @@ class FxAcpRuntime:
                     document_id=document_id,
                     request_message_id=request_message_id,
                     intent_summary=question,
+                    job_id=job_id.strip(),
                     confirmed=confirmed,
                     green_light=(
                         self._settings.agent_confirmation_mode == "green_light"
                     ),
                 ),
                 on_operation_event=on_operation_event,
+                tool_registry=self._reading_registry,
+                on_tool_event=on_tool_event,
             )
-            if document_id and request_message_id
+            if request_message_id
             else nullcontext(None)
         )
         with (
@@ -225,21 +274,34 @@ class FxAcpRuntime:
                         raise RuntimeError("fx tool trace exceeded the backend event limit")
                     safe = safe_tool_event(update)
                     tool_trace.append(safe)
-                    emit({"type": "agent_tool", "runtime": self.runtime_id, **safe})
 
-            stop_reason = client.prompt(session_id, prompt, on_update)
+            stop_reason = client.prompt(
+                session_id,
+                prompt,
+                on_update,
+                request_control=request_control,
+            )
             answer = "".join(answer_parts).strip()
             if not answer and stop_reason == "cancelled":
                 raise RuntimeError("fx turn was cancelled")
             if not answer:
                 raise RuntimeError(f"fx turn ended without an answer ({stop_reason})")
+            citations = broker.citations if broker is not None else {}
+            answer = sanitize_answer_text(answer, citations)
             return AskResult(
                 answer=answer,
-                citations=[],
+                citations=referenced_citations(answer, citations),
                 tool_trace=tool_trace,
                 rounds=1,
                 operation_refs=list(operation_refs.values()),
+                calculation_refs=list(calculation_refs.values()),
             )
+
+    def content_source(self, document_id: str = "", job_id: str = "") -> str:
+        resolver = getattr(self._reading_registry, "content_source", None)
+        if callable(resolver):
+            return str(resolver(document_id, job_id))
+        return "unscoped" if not (document_id.strip() or job_id.strip()) else "unknown"
 
     def _open_or_create_session(
         self,

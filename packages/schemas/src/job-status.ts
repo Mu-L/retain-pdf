@@ -84,6 +84,7 @@ export interface ResolvedSourceSpec {
  */
 export interface PublicOcrInput {
   provider: string;
+  credential_ref: string;
   mineru_token: string;
   mineru_token_configured: boolean;
   model_version: string;

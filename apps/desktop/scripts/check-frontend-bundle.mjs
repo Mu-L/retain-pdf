@@ -58,11 +58,12 @@ assertExists("styles.css");
 assertExists("dist/css/home.css");
 assertExists("dist/css/reader.css");
 
-// Desktop-only source modules copied for runtime rewrites / smoke. Reader source
-// truth now lives in @retainpdf/reader and is verified through its production bundle.
-assertExists("src/js/runtime/vendor-url.ts");
-assertExists("src/js/features/upload/pdf-page-count.ts");
-assertExists("src/js/desktop/index.ts");
+// Runtime assets referenced by the production HTML and bundled animation URLs.
+assertExists("src/assets/RetainPDF-logo.svg");
+assertExists("src/assets/animations/pdf_upload_Lottie.json");
+if (fs.existsSync(path.join(frontendRoot, "src", "js"))) {
+  fail("Desktop frontend must not include source modules after bundling");
+}
 
 // Vendor copies used by packaged file:// loads
 assertExists("vendor/pdfjs-dist/build/pdf.mjs");
@@ -101,19 +102,10 @@ if (indexHtml.includes("runtime-config.local.js")) {
   fail("Desktop index.html still references runtime-config.local.js");
 }
 
-const uploadPdfPageCount = readFile("src/js/features/upload/pdf-page-count.ts");
-if (!uploadPdfPageCount.includes("runtime/vendor-url")) {
-  fail("Desktop upload/pdf-page-count.ts is missing runtime vendor resolver");
-}
-
 const readerBundleJs = readFile("dist/reader.bundle.js");
 if (!readerBundleJs.includes("credentials-changed")) {
   fail("Desktop reader bundle missing credentials-changed gate refresh");
 }
-if (!readerBundleJs.includes("is-markdown-split")) {
-  fail("Desktop reader bundle missing PDF / Markdown split layout");
-}
-
 const appBundleJs = readFile("dist/app.bundle.js");
 if (!appBundleJs.includes("./vendor/") && !appBundleJs.includes("vendor/pdfjs")) {
   // bundle may inline resolver strings differently; require credentials gate markers

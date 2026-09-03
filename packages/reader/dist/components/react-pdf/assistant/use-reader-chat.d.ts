@@ -11,6 +11,7 @@ export declare function storeMessagesToChat(messages: readonly ReaderAskStoreMes
 export declare function chatMessageToStore(message: ReaderChatMessage): ReaderAskStoreMessage;
 export declare function useReaderChat(options: {
     jobId: string;
+    enabled: boolean;
     remoteAnswerer: ReaderAnswerer;
     localAnswerer: ReaderAnswerer;
     assistantMode: ReaderAssistantMode;

@@ -3,25 +3,41 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from retainpdf_pipeline.services.translation.workflow.stages import run_continuation_review
-from retainpdf_pipeline.services.translation.workflow.stages import run_agent_repair_stage
-from retainpdf_pipeline.services.translation.workflow.stages import run_final_untranslated_recovery_stage
-from retainpdf_pipeline.services.translation.workflow.stages import run_garbled_reconstruction_stage
-from retainpdf_pipeline.services.translation.workflow.stages import run_initial_continuation_pass
-from retainpdf_pipeline.services.translation.workflow.stages import run_page_policy_stage
-from retainpdf_pipeline.services.translation.workflow.stages import run_translation_batch_stage
-from retainpdf_pipeline.services.translation.workflow.pages import load_page_payloads
-from retainpdf_pipeline.services.translation.workflow.pages import save_pages
-from retainpdf_pipeline.services.translation.workflow.page_policies import build_page_summaries
 from retainpdf_pipeline.services.translation.artifacts import TranslationRunDiagnostics
-from retainpdf_pipeline.services.translation.services.context.windows import annotate_translation_context_windows
-from retainpdf_pipeline.services.translation.services.continuation.orchestrator import finalize_orchestration_metadata_by_page
-from retainpdf_pipeline.services.translation.llm.shared.control_context import TranslationControlContext
-from retainpdf_pipeline.services.translation.services.policy import TranslationPolicyConfig
 from retainpdf_pipeline.services.translation.core.payload import load_translations
+from retainpdf_pipeline.services.translation.llm.shared.control_context import (
+    TranslationControlContext,
+)
+from retainpdf_pipeline.services.translation.services.context.windows import (
+    annotate_translation_context_windows,
+)
+from retainpdf_pipeline.services.translation.services.continuation.orchestrator import (
+    finalize_orchestration_metadata_by_page,
+)
+from retainpdf_pipeline.services.translation.services.policy import (
+    TranslationPolicyConfig,
+)
+from retainpdf_pipeline.services.translation.workflow.page_policies import (
+    build_page_summaries,
+)
+from retainpdf_pipeline.services.translation.workflow.pages import (
+    load_page_payloads,
+    save_pages,
+)
+from retainpdf_pipeline.services.translation.workflow.stages import (
+    run_agent_repair_stage,
+    run_continuation_review,
+    run_final_untranslated_recovery_stage,
+    run_garbled_reconstruction_stage,
+    run_initial_continuation_pass,
+    run_page_policy_stage,
+    run_translation_batch_stage,
+)
 
 if TYPE_CHECKING:
-    from retainpdf_pipeline.services.translation.workflow.checkpoint import TranslationCheckpointSession
+    from retainpdf_pipeline.services.translation.workflow.checkpoint import (
+        TranslationCheckpointSession,
+    )
 
 
 def translate_book_with_global_continuations(
@@ -120,13 +136,23 @@ def translate_book_with_global_continuations(
         translation_context=translation_context,
         run_diagnostics=run_diagnostics,
         flush_callback=(
-            lambda _pages: checkpoint.update("translating", page_payloads, translation_paths)
+            lambda _pages, changed_item_ids_by_page: checkpoint.update(
+                "translating",
+                page_payloads,
+                translation_paths,
+                changed_item_ids_by_page,
+            )
             if checkpoint is not None
             else None
         ),
     )
     if checkpoint is not None:
-        checkpoint.update("repairing", page_payloads, translation_paths)
+        checkpoint.update(
+            "repairing",
+            page_payloads,
+            translation_paths,
+            detect_item_changes=True,
+        )
 
     run_garbled_reconstruction_stage(
         page_payloads=page_payloads,
@@ -138,7 +164,12 @@ def translate_book_with_global_continuations(
         run_diagnostics=run_diagnostics,
     )
     if checkpoint is not None:
-        checkpoint.update("repairing", page_payloads, translation_paths)
+        checkpoint.update(
+            "repairing",
+            page_payloads,
+            translation_paths,
+            detect_item_changes=True,
+        )
 
     run_agent_repair_stage(
         page_payloads=page_payloads,
@@ -150,7 +181,12 @@ def translate_book_with_global_continuations(
         run_diagnostics=run_diagnostics,
     )
     if checkpoint is not None:
-        checkpoint.update("repairing", page_payloads, translation_paths)
+        checkpoint.update(
+            "repairing",
+            page_payloads,
+            translation_paths,
+            detect_item_changes=True,
+        )
 
     run_final_untranslated_recovery_stage(
         page_payloads=page_payloads,
@@ -162,7 +198,12 @@ def translate_book_with_global_continuations(
         workers=workers,
     )
     if checkpoint is not None:
-        checkpoint.update("validating", page_payloads, translation_paths)
+        checkpoint.update(
+            "validating",
+            page_payloads,
+            translation_paths,
+            detect_item_changes=True,
+        )
     translated_pages_map = {page_idx: load_translations(translation_paths[page_idx]) for page_idx in sorted(page_payloads)}
     summaries = build_page_summaries(
         translated_pages_map=translated_pages_map,

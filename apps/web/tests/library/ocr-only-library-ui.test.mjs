@@ -85,12 +85,12 @@ test("OCR-only 徽标和阅读语义与翻译成功明确区分", () => {
 test("OCR-only 阅读动作保留 job 上下文，不降级为只读源文件", () => {
   const calls = [];
   const [action] = buildReadBookCardAction(ocrDone, {
-    onReader: (jobId) => calls.push(["job", jobId]),
+    onReader: (jobId, documentId) => calls.push(["job", jobId, documentId]),
     onReadSource: (documentId) => calls.push(["source", documentId]),
   });
   assert.equal(action.label, "查看 OCR");
   action.onClick();
-  assert.deepEqual(calls, [["job", "job-ocr"]]);
+  assert.deepEqual(calls, [["job", "job-ocr", "doc-ocr"]]);
 });
 
 test("状态筛选将仅收藏、仅 OCR、已翻译和处理中分别计数", () => {

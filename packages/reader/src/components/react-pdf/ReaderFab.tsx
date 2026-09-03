@@ -1,5 +1,5 @@
 // 可拖动悬浮工具钮（FAB）：点击展开菜单，拖动改位置。
-// 菜单：批注 + 下载（原始 / 译文 / 对照）。
+// 菜单：摘录 + 下载（原始 / 译文 / 对照）。
 
 import {
   useCallback,
@@ -18,7 +18,6 @@ import {
   FileText,
   Languages,
   Sparkles,
-  StickyNote,
   X,
 } from "lucide-react";
 import type { ReaderDownloadContext } from "../../hooks/use-reader-session.js";
@@ -34,8 +33,7 @@ import {
   trimReaderDownloadString,
 } from "../../external.js";
 
-const TOOL_ICONS: Record<ReaderToolId, typeof StickyNote> = {
-  notes: StickyNote,
+const TOOL_ICONS: Record<ReaderToolId, typeof Bookmark> = {
   favorites: Bookmark,
   markdown: FileCode2,
   ai: Sparkles,
@@ -61,12 +59,13 @@ const DOWNLOAD_SHORT: Record<DownloadAction, string> = {
   translated: "译文",
 };
 
+const AUXILIARY_TOOLS = READER_TOOLS.filter((tool) => tool.id === "favorites");
+
 type FabPos = { x: number; y: number };
 
 export type ReaderFabProps = {
   /** 当前打开的工具 id；null 表示都关 */
   activeTool: ReaderToolId | null;
-  notesCount: number;
   sourceOnly: boolean;
   onToggleTool: (id: ReaderToolId) => void;
   download: ReaderDownloadContext;
@@ -133,7 +132,6 @@ function resolveDownloadUrls(ctx: ReaderDownloadContext) {
 
 export function ReaderFab({
   activeTool,
-  notesCount,
   sourceOnly,
   onToggleTool,
   download,
@@ -270,8 +268,6 @@ export function ReaderFab({
     setOpen((v) => !v);
   };
 
-  const badge =
-    notesCount > 0 ? (notesCount > 99 ? "99+" : String(notesCount)) : null;
   const openUp = typeof window !== "undefined" && pos.y > window.innerHeight * 0.55;
 
   const downloadItems = DOWNLOAD_ORDER.filter((action) => {
@@ -308,14 +304,11 @@ export function ReaderFab({
             </button>
           </header>
 
-          {READER_TOOLS.map((tool, index) => {
+          {AUXILIARY_TOOLS.map((tool, index) => {
             const Icon = TOOL_ICONS[tool.id];
             const isActive = activeTool === tool.id;
             const disabled = tool.needsJob && sourceOnly;
             let sub = isActive ? tool.subOpen : tool.subIdle;
-            if (tool.id === "notes" && !isActive && notesCount > 0) {
-              sub = `${notesCount} 条批注`;
-            }
             if (disabled) {
               sub = "需打开任务阅读";
             }
@@ -337,9 +330,6 @@ export function ReaderFab({
                   <span className="reader-fab-row-title">{tool.label}</span>
                   <span className="reader-fab-row-sub">{sub}</span>
                 </span>
-                {tool.id === "notes" && badge ? (
-                  <span className="reader-fab-row-badge">{badge}</span>
-                ) : null}
               </button>
             );
           })}
@@ -389,7 +379,7 @@ export function ReaderFab({
 
       <button
         type="button"
-        className={`reader-fab-trigger${open ? " is-open" : ""}${activeTool ? " has-notes" : ""}`}
+        className={`reader-fab-trigger${open ? " is-open" : ""}${activeTool ? " has-active-tool" : ""}`}
         aria-label={open ? "收起工具菜单" : "打开工具菜单"}
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
@@ -406,11 +396,6 @@ export function ReaderFab({
             </span>
           )}
         </span>
-        {!open && badge ? (
-          <span className="reader-fab-badge" aria-hidden="true">
-            {badge}
-          </span>
-        ) : null}
       </button>
     </div>
   );

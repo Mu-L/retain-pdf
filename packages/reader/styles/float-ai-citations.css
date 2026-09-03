@@ -37,14 +37,22 @@
 }
 .reader-float-ai .reader-ai-citations-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
+  max-width: 100%;
+  padding-bottom: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.reader-float-ai .reader-ai-citations-list::-webkit-scrollbar {
+  display: none;
 }
 .reader-float-ai .reader-ai-citation-item {
   display: inline-flex;
   align-items: baseline;
   gap: 6px;
-  max-width: 100%;
+  max-width: min(22em, 82%);
+  flex: 0 0 auto;
   min-height: 0;
   padding: 4px 10px 4px 6px;
   border: 1px solid color-mix(in srgb, var(--ink) 7%, transparent);

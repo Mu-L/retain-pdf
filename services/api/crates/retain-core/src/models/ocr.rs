@@ -79,6 +79,16 @@ impl OcrProviderArtifactLayout {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Default)]
 pub struct OcrProviderCredentialSpec {
+    /// Canonical credential-vault kind accepted by `ocr.credential_ref`.
+    #[serde(default)]
+    pub credential_kind: String,
+    /// Canonical request field for an opaque credential reference.
+    #[serde(default)]
+    pub reference_field: String,
+    /// Temporary inline request field retained for older clients.
+    #[serde(default)]
+    pub legacy_inline_field: String,
+    /// Legacy alias for `legacy_inline_field`, retained for compatibility.
     pub field: String,
     pub env: String,
     #[serde(default)]

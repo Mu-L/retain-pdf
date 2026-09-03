@@ -1,17 +1,6 @@
 import type { RefObject } from "react";
-import type { ReaderNotePane } from "../annotations/types.js";
-export type ReaderTextSelection = {
-    quote: string;
-    page: number;
-    pane: ReaderNotePane;
-    /** 视口坐标，用于浮条定位 */
-    rect: {
-        left: number;
-        top: number;
-        width: number;
-        height: number;
-    };
-};
+import type { ReaderTextSelection } from "../shared/data/reader-regions.js";
+export type { ReaderTextSelection } from "../shared/data/reader-regions.js";
 export declare function useReaderTextSelection(rootRef: RefObject<HTMLElement | null>, enabled?: boolean): {
     selection: ReaderTextSelection | null;
     clearSelection: () => void;

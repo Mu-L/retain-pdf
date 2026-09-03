@@ -7,6 +7,7 @@ import { createSecondaryResourceStatePort } from "../../src/js/features/job-runt
 import { createJobRenderContextPort } from "../../src/js/features/job-runtime/render-context.js";
 import { normalizedStageEventRecord } from "@retainpdf/domain/job-status";
 import { buildEventsPresentation } from "../../src/js/status-detail/events.js";
+import { buildFailureLogText } from "../../src/js/status-detail/snapshot.js";
 import { createStatusDetailPresenter } from "../../src/js/status-detail/presenter.js";
 import {
   resolveStageHistoryDuration,
@@ -80,6 +81,34 @@ const OCR_AMBIGUITY_DESCRIPTOR = {
     { name: "trace_id", label: "Trace ID", required: false, secret: false },
   ],
 };
+
+test("failure log:汇总诊断字段、保留日志并隐藏密钥", () => {
+  const logText = buildFailureLogText({
+    job_id: "job-log-1",
+    status: "failed",
+    request_payload: {
+      translation: { api_key: "must-never-be-copied" },
+    },
+    diagnostics: {
+      failed_stage: "translation",
+      failure_code: "PROVIDER_RATE_LIMIT",
+      trace_id: "trace-log-1",
+      summary: "翻译服务限流",
+      raw_exception_message: "Authorization: Bearer live-secret-token",
+      traceback: "RuntimeError: api_key=inline-secret",
+    },
+    log_tail: ["retry 2/3", "access_token=tail-secret"],
+  });
+
+  assert.match(logText, /Job ID: job-log-1/);
+  assert.match(logText, /阶段: translation/);
+  assert.match(logText, /错误码: PROVIDER_RATE_LIMIT/);
+  assert.match(logText, /Trace ID: trace-log-1/);
+  assert.match(logText, /retry 2\/3/);
+  assert.match(logText, /\[REDACTED\]/);
+  assert.doesNotMatch(logText, /must-never-be-copied/);
+  assert.doesNotMatch(logText, /live-secret-token|inline-secret|tail-secret/);
+});
 
 test("OCR ambiguity recovery:识别 diagnostics 契约并生成最小回执请求", () => {
   assert.equal(requiresOcrAmbiguityResolution({

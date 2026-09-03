@@ -17,6 +17,7 @@ from retainpdf_ai.fx_command_broker import (
     _safe_operation_event,
     parse_broker_command,
 )
+from retainpdf_ai.tools import Tool, ToolRegistry
 
 
 class FakeCapabilityIssuer:
@@ -244,6 +245,59 @@ def test_permission_requires_an_allow_once_option(tmp_path):
     permission["options"] = [{"optionId": "reject_once", "kind": "reject_once"}]
 
     assert broker.approve_permission(permission) is False
+
+
+def test_fixed_host_tool_emits_backend_owned_running_and_terminal_events(tmp_path):
+    events: list[dict] = []
+    registry = ToolRegistry(
+        [
+            Tool(
+                name="calculate_expression",
+                description="test",
+                parameters={"type": "object"},
+                handler=lambda _arguments: {
+                    "calculation_id": "calc-a",
+                    "durable": True,
+                },
+            )
+        ]
+    )
+    encoded = base64.urlsafe_b64encode(b'{"expression":"2+2"}').decode().rstrip("=")
+    command = (
+        "retainpdf-agent tool call --name calculate_expression "
+        f"--arguments-base64url {encoded}"
+    )
+    with FxCommandBroker(
+        state_root=tmp_path / "state",
+        cli_command="retainpdf-agent",
+        rust_api_url="http://127.0.0.1:41000",
+        rust=FakeCapabilityIssuer(),
+        scope=_scope(),
+        tool_registry=registry,
+        on_tool_event=events.append,
+    ) as broker:
+        assert broker.approve_permission(_permission(command)) is True
+        completed = subprocess.run(
+            [
+                str(broker.bin_dir / "retainpdf-agent"),
+                "tool",
+                "call",
+                "--name",
+                "calculate_expression",
+                "--arguments-base64url",
+                encoded,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+
+    assert completed.returncode == 0, completed.stderr
+    assert [event["status"] for event in events] == ["running", "completed"]
+    assert {event["kind"] for event in events} == {"calculation"}
+    assert {event["tool_call_id"] for event in events} == {"tool-a"}
+    assert all("2+2" not in json.dumps(event) for event in events)
 
 
 def test_wrapper_never_receives_rust_credentials_and_broker_injects_scope(tmp_path):

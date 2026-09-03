@@ -1031,6 +1031,18 @@ test("status card task actions view model owns cancel readiness", () => {
     },
   });
   assert.equal(running.cancelEnabled, true);
+
+  const runningWithoutActionUrl = buildStatusCardTaskActions({
+    job: {
+      job_id: "job-task-actions-with-standard-route",
+      status: "running",
+    },
+  });
+  assert.equal(
+    runningWithoutActionUrl.cancelEnabled,
+    true,
+    "标准 jobs cancel 路由存在时不应强制要求 action URL",
+  );
 });
 
 test("status card retry actions view model owns stage action normalization", () => {

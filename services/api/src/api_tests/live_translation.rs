@@ -30,6 +30,10 @@ fn seed_live_translation_job(state: &crate::AppState, test_name: &str) -> (JobSn
     let job_root = state.config.data_root.join("jobs").join(&job.job_id);
     let translated_dir = job_root.join("translated");
     let normalized_path = job_root.join("normalized").join("document.v1.json");
+    let render_prewarm_path = job_root
+        .join("artifacts")
+        .join("render_prewarm")
+        .join("render_source_prewarm_manifest.json");
     fs::create_dir_all(normalized_path.parent().expect("normalized parent"))
         .expect("create normalized dir");
     fs::create_dir_all(
@@ -38,6 +42,8 @@ fn seed_live_translation_job(state: &crate::AppState, test_name: &str) -> (JobSn
             .join("generation-1"),
     )
     .expect("create checkpoint dir");
+    fs::create_dir_all(render_prewarm_path.parent().expect("prewarm parent"))
+        .expect("create prewarm dir");
     fs::write(
         &normalized_path,
         serde_json::to_vec(&json!({
@@ -56,10 +62,37 @@ fn seed_live_translation_job(state: &crate::AppState, test_name: &str) -> (JobSn
         .expect("serialize normalized document"),
     )
     .expect("write normalized document");
+    fs::write(
+        &render_prewarm_path,
+        serde_json::to_vec(&json!({
+            "schema": "render_source_prewarm_v1",
+            "payload_prewarm": {
+                "background_render_page_specs": {
+                    "algorithm": "background_render_page_specs_v5_inline_math_compat",
+                    "page_specs": [{
+                        "page_index": 0,
+                        "blocks": [{
+                            "block_id": "item-p001-b3",
+                            "background_rect": [50.0, 100.0, 320.0, 200.0],
+                            "content_rect": [59.0, 106.0, 304.0, 190.0],
+                            "font_size_pt": 9.82,
+                            "leading_em": 0.56,
+                            "font_weight": "regular",
+                            "justify_text": true,
+                            "fit_min_font_size_pt": 7.0,
+                            "fit_max_font_size_pt": 9.82
+                        }]
+                    }]
+                }
+            }
+        }))
+        .expect("serialize render prewarm manifest"),
+    )
+    .expect("write render prewarm manifest");
     let snapshot = serde_json::to_vec(&json!([
         {
             "item_id": "p001-b3",
-            "translated_text": "已经完成的译文",
+            "translated_text": "结果保留 $E=mc^2$ 与 $$x^2$$ 定界符",
             "status": "translated"
         },
         {
@@ -140,6 +173,26 @@ async fn live_translation_reads_layout_and_only_hash_matched_checkpoint_page() {
         layout["data"]["pages"][0]["blocks"][0]["item_id"],
         "p001-b0003"
     );
+    assert_eq!(
+        layout["data"]["pages"][0]["blocks"][0]["bbox"],
+        json!([50.0, 100.0, 320.0, 200.0])
+    );
+    assert_eq!(
+        layout["data"]["pages"][0]["blocks"][0]["typography"],
+        json!({
+            "font_family": "Source Han Serif SC",
+            "font_size_pt": 9.82,
+            "leading_em": 0.56,
+            "font_weight": 400,
+            "text_align": "justify",
+            "padding_top_pt": 6.0,
+            "padding_right_pt": 16.0,
+            "padding_bottom_pt": 10.0,
+            "padding_left_pt": 9.0,
+            "fit_min_font_size_pt": 7.0,
+            "fit_max_font_size_pt": 9.82
+        })
+    );
 
     let page_response = app
         .oneshot(
@@ -161,8 +214,46 @@ async fn live_translation_reads_layout_and_only_hash_matched_checkpoint_page() {
     assert_eq!(page["data"]["items"].as_array().expect("items").len(), 1);
     assert_eq!(
         page["data"]["items"][0]["translated_text"],
-        "已经完成的译文"
+        "结果保留 $E=mc^2$ 与 $$x^2$$ 定界符"
     );
+    assert_eq!(
+        page["data"]["items"][0]["item_id"],
+        layout["data"]["pages"][0]["blocks"][0]["item_id"]
+    );
+}
+
+#[tokio::test]
+async fn live_translation_omits_typography_when_structured_prewarm_is_missing() {
+    let state = test_state("live-translation-no-typography");
+    let (job, _) = seed_live_translation_job(&state, "no-typography");
+    let manifest = state
+        .config
+        .data_root
+        .join("jobs")
+        .join(&job.job_id)
+        .join("artifacts")
+        .join("render_prewarm")
+        .join("render_source_prewarm_manifest.json");
+    fs::remove_file(manifest).expect("remove prewarm manifest");
+
+    let response = build_app(state)
+        .oneshot(
+            Request::builder()
+                .uri(format!(
+                    "/api/v1/jobs/{}/live-translation/layout",
+                    job.job_id
+                ))
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("layout request"),
+        )
+        .await
+        .expect("layout response");
+    assert_eq!(response.status(), StatusCode::OK);
+    let layout = read_json(response).await;
+    assert!(layout["data"]["pages"][0]["blocks"][0]
+        .get("typography")
+        .is_none());
 }
 
 #[tokio::test]

@@ -208,7 +208,7 @@ fn config_path() -> Option<PathBuf> {
         .or_else(|| {
             // The backend workspace owns the registry at <services-root>/config.
             // Search ancestors so both an isolated services checkout and the
-            // legacy monorepo layouts keep working during the migration.
+            // product monorepo resolve the canonical registry.
             let core_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
             for root in core_root.ancestors() {
                 for candidate in [
@@ -217,9 +217,6 @@ fn config_path() -> Option<PathBuf> {
                         .join("config")
                         .join("ocr_providers.json"),
                     root.join("packages")
-                        .join("config")
-                        .join("ocr_providers.json"),
-                    root.join("backend")
                         .join("config")
                         .join("ocr_providers.json"),
                 ] {

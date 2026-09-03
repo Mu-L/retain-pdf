@@ -50,7 +50,7 @@ function openFavoriteInReader(item: FavoriteItem): boolean {
   const pageIdx = Number(item.page_idx);
   const detail = {
     jobId: jobId || undefined,
-    documentId: jobId ? undefined : documentId || undefined,
+    documentId: documentId || undefined,
     pageIdx: Number.isFinite(pageIdx) ? pageIdx : null,
     blockId: `${item.block_id || ""}`.trim(),
   };

@@ -64,6 +64,11 @@ export const STATUS_DETAIL_DIALOG_IDS = {
     rootCause: "failure-root-cause",
     suggestion: "failure-suggestion",
     lastLogLine: "failure-last-log-line",
+    logButton: "failure-log-btn",
+    logDialog: "failure-log-dialog",
+    logContent: "failure-log-content",
+    copyLogButton: "failure-copy-log-btn",
+    copyLogStatus: "failure-copy-log-status",
     retryable: "failure-retryable",
   },
   events: {

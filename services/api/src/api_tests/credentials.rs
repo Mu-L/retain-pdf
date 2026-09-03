@@ -199,6 +199,54 @@ async fn credential_delete_requires_force_while_persisted_jobs_reference_it() {
 }
 
 #[tokio::test]
+async fn credential_delete_is_blocked_by_persisted_ocr_reference() {
+    let state = test_state("credential-delete-ocr-reference-guard");
+    let app = build_app(state.clone());
+    let secret = "ocr-delete-reference-guard";
+    let (status, created) = request(
+        app.clone(),
+        Method::POST,
+        "/api/v1/credentials",
+        Some(json!({
+            "kind": "ocr_provider_token",
+            "provider": "paddle",
+            "label": "Protected OCR provider",
+            "secret": secret,
+            "expected_revision": 0
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{created}");
+    let credential_ref = created["data"]["credential"]["credential_ref"]
+        .as_str()
+        .expect("credential ref")
+        .to_string();
+
+    let mut input = CreateJobInput::default();
+    input.ocr.credential_ref = credential_ref.clone();
+    let job = JobSnapshot::new(
+        "job-referencing-ocr-credential".to_string(),
+        input,
+        vec!["python3".to_string()],
+    );
+    state.db.save_job(&job).expect("persist referencing job");
+
+    let (status, conflict) = request(
+        app,
+        Method::DELETE,
+        &format!("/api/v1/credentials/{credential_ref}?expected_revision=1"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{conflict}");
+    assert_eq!(conflict["code"], "CREDENTIAL_IN_USE");
+    assert!(!conflict.to_string().contains(secret));
+    assert!(!conflict
+        .to_string()
+        .contains("job-referencing-ocr-credential"));
+}
+
+#[tokio::test]
 async fn credential_delete_detects_agent_runtime_references() {
     let state = test_state("credential-agent-runtime-reference-guard");
     let app = build_app(state.clone());

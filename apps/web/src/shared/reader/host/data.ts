@@ -36,7 +36,7 @@ async function fetchJobPayload(jobId: string, apiPrefix?: string): Promise<any> 
     void apiPrefix;
     return getMockJobPayload(jobId);
   }
-  return (fetchApiJobPayload as any)(jobId, apiPrefix);
+  return fetchApiJobPayload(jobId, apiPrefix ? { apiPrefix } : undefined);
 }
 
 async function fetchJobArtifactsManifest(jobId: string, apiPrefix?: string): Promise<any> {

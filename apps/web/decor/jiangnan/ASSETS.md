@@ -2,7 +2,7 @@
 
 > 本文件是给 **AI 生成工具（文生图 / 文生 3D）+ 后续接手的人** 看的资产规格书。
 > 生成的资产替换本目录同名文件即可生效，不用改任何代码；新增图层才需要
-> 改 manifest.json（格式契约见 `docs/theme-system/DECOR_PACKS.md`）。
+> 改 manifest.json（格式契约见 `docs/core/apps/web/theme-system/DECOR_PACKS.md`）。
 > 当前目录里的三张 SVG 为手绘矢量定稿（契约允许 svg 格式）；若日后改用
 > 文生图位图，按下方提示词生成 webp 同名替换即可。
 
@@ -89,7 +89,7 @@
 ## 6. 验收（替换/新增资产后必跑）
 
 ```bash
-cd frontend
+cd apps/web
 # manifest 契约 + 舞台计划（新增图层/改 manifest 后）
 node --import ./tests/helpers/register-jsx.mjs --test tests/decor-stage.test.mjs
 # 体积门禁（512KB）

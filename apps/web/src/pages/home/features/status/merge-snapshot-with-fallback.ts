@@ -217,6 +217,10 @@ export function mergeSnapshotWithFallback(
       progressPercent: Number.isFinite(itemPercent) ? itemPercent : (isolatedSnapshot?.progressPercent ?? NaN),
       progressCurrent: Number.isFinite(itemCurrent) ? itemCurrent : (isolatedSnapshot?.progressCurrent ?? NaN),
       progressTotal: Number.isFinite(itemTotal) ? itemTotal : (isolatedSnapshot?.progressTotal ?? NaN),
+      // 文档列表投影通常不携带 actions.cancel.url，但标准取消路由始终由
+      // job_id 构造。活跃 fallback 不能沿用隔离快照里的 false，否则详情页
+      // 会把真实运行中的任务错误显示为不可取消。
+      cancelEnabled: true,
     };
   }
 

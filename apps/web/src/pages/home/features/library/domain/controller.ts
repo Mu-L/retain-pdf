@@ -28,6 +28,7 @@ import type {
 import {
   translateDocument,
   ocrDocument,
+  fetchDocumentByJobId,
   fetchDocumentJobs,
   fetchJobStageActions,
   retryJobStage,
@@ -35,6 +36,7 @@ import {
   patchDocument,
   API_PREFIX,
   APP_EVENTS,
+  isRecentJobActive,
 } from "../../../composition/external.js";
 import { mergeTranslatePayload } from "./translation-ocr-reuse.js";
 
@@ -153,13 +155,18 @@ export function createLibraryController({
    * - 绝不 dispatch openTranslationWorkflow（进度主场在详情，不在弹窗）
    * - 强制 hide 主状态区，避免 #status-section / 主 StatusCard 抢戏
    */
-  function attachJobProgress(jobId?: string | null) {
+  function attachJobProgress(jobId?: string | null, options: { recovering?: boolean } = {}) {
     const id = `${jobId || ""}`.trim();
     if (!id || id.startsWith("doc:")) {
       return;
     }
     hideStatusArea?.();
-    startPolling?.(id, { silent: true, showWorkflow: false, publishLibrary: false });
+    startPolling?.(id, {
+      silent: true,
+      showWorkflow: false,
+      publishLibrary: false,
+      recovering: Boolean(options.recovering),
+    });
     hideStatusArea?.();
   }
 
@@ -173,6 +180,7 @@ export function createLibraryController({
   function promoteDocumentToJob(
     documentId: string,
     result: JobSubmissionView | null | undefined,
+    sourceJobId = "",
   ) {
     const jobId = `${result?.job_id || result?.id || ""}`.trim();
     if (!jobId) {
@@ -206,7 +214,7 @@ export function createLibraryController({
     }
 
     // 用 JobUpdated：按 document_id 就地改原卡，禁止主页再插一张新书
-    const previousJobId = `${base.job_id || ""}`.trim();
+    const previousJobId = `${sourceJobId || base.job_id || ""}`.trim();
     libraryEventPort?.publishJobUpdated?.({
       job_id: jobId,
       source_job_id: previousJobId && previousJobId !== jobId ? previousJobId : undefined,
@@ -288,6 +296,12 @@ export function createLibraryController({
     return fetchDocumentJobs(API_PREFIX, normalizedId) as Promise<any>;
   }
 
+  async function getDocumentByJobId(jobId?: string | null) {
+    const normalizedId = `${jobId || ""}`.trim();
+    if (!normalizedId || normalizedId.startsWith("doc:")) return null;
+    return fetchDocumentByJobId(API_PREFIX, normalizedId) as Promise<LibraryCardItem | null>;
+  }
+
   async function getJobStageActions(jobId?: string | null) {
     const normalizedId = `${jobId || ""}`.trim();
     if (!normalizedId || normalizedId.startsWith("doc:")) return null;
@@ -332,7 +346,7 @@ export function createLibraryController({
       ...overrides,
       ...(Object.keys(stageOverrides).length ? { overrides: stageOverrides } : {}),
     }) as JobSubmissionView;
-    if (result && documentId) promoteDocumentToJob(documentId, result);
+    if (result && documentId) promoteDocumentToJob(documentId, result, normalizedJobId);
     return result || null;
   }
 
@@ -401,7 +415,12 @@ export function createLibraryController({
     return Boolean(item?.prefer_translate_tab);
   }
 
-  // 书籍详情弹窗：点击卡片统一落概览；任务轮询仍静默接入。
+  // 书籍详情弹窗：点击卡片统一落概览。
+  //
+  // 只有这张卡本身仍在执行时，才允许它接管全局 currentJob 轮询。
+  // 已完成/失败的书只是被“查看”，不能覆盖另一本仍在后台运行的任务；否则
+  // fetchJob 读到旧书终态后会清掉 retainpdf.activeJobId，退出详情/阅读器时用户
+  // 就会看到真实运行任务的状态凭空消失。
   // 只有 selectJobForDetail 等明确处理入口才携带 prefer_translate_tab。
   function openBookDetail(item?: LibraryCardItem | null) {
     if (!item) return;
@@ -416,8 +435,8 @@ export function createLibraryController({
       ...item,
       prefer_translate_tab: prefer || Boolean(item.prefer_translate_tab),
     });
-    if (jobId && !jobId.startsWith("doc:")) {
-      attachJobProgress(jobId);
+    if (jobId && !jobId.startsWith("doc:") && isRecentJobActive(item)) {
+      attachJobProgress(jobId, { recovering: true });
     }
   }
 
@@ -516,6 +535,7 @@ export function createLibraryController({
     translateDocument: translateLibraryDocument,
     ocrDocument: ocrLibraryDocument,
     getDocumentJobs,
+    getDocumentByJobId,
     getJobStageActions,
     retryJobStage: retryDocumentJobStage,
     deleteDocument: deleteLibraryDocument,

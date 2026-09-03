@@ -7,7 +7,7 @@
 //
 // 契约先行：本文件是 manifest 的唯一 schema 真值。舞台引擎、资产管线
 // 门禁、AI 产模型的验收标准都只认 validateDecorManifest 的结论。
-// 设计文档：docs/theme-system/DECOR_PACKS.md
+// 设计文档：docs/core/frontend/theme-system/DECOR_PACKS.md
 
 import { getDecorSlot, isDecorSlotId, type DecorSlotId } from "./slots.js";
 

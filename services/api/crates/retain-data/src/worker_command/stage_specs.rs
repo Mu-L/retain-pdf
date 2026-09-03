@@ -18,6 +18,7 @@ const TRANSLATE_STAGE_SCHEMA_VERSION: &str = "translate.stage.v1";
 const RENDER_STAGE_SCHEMA_VERSION: &str = "render.stage.v1";
 const PROVIDER_STAGE_SCHEMA_VERSION: &str = "provider.stage.v1";
 pub(crate) const TRANSLATION_API_KEY_ENV_NAME: &str = "RETAIN_TRANSLATION_API_KEY";
+const OCR_CREDENTIAL_ENV_NAME: &str = "RETAIN_OCR_CREDENTIAL";
 
 fn normalize_stage_spec_path(job_paths: &JobPaths) -> PathBuf {
     job_paths.specs_dir.join("normalize.spec.json")
@@ -305,11 +306,24 @@ fn provider_credential_ref_for_stage(
     ocr: &crate::models::request::OcrInput,
 ) -> Result<String> {
     if is_configured_command_provider(provider) {
-        return Ok(configured_provider_credential_env(provider)
-            .map(|env_name| format!("env:{env_name}"))
-            .unwrap_or_default());
+        if let Some(env_name) = configured_provider_credential_env(provider) {
+            return Ok(format!("env:{env_name}"));
+        }
+        let has_inline_credential = ["credential", "token", "api_key"].iter().any(|key| {
+            ocr.options
+                .get(*key)
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|value| !value.trim().is_empty())
+        });
+        return Ok(
+            if has_inline_credential || !ocr.credential_ref.trim().is_empty() {
+                format!("env:{OCR_CREDENTIAL_ENV_NAME}")
+            } else {
+                String::new()
+            },
+        );
     }
-    if provider_token(provider_kind, ocr).is_empty() {
+    if provider_token(provider_kind, ocr).is_empty() && ocr.credential_ref.trim().is_empty() {
         return Ok(String::new());
     }
     let env_name = provider_token_env_name(provider_kind)
@@ -338,4 +352,57 @@ fn provider_options_for_stage(
         options.insert(key.clone(), value.clone());
     }
     serde_json::Value::Object(options)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::request::OcrInput;
+    use crate::ocr_provider::OcrProviderKind;
+
+    #[test]
+    fn builtin_credential_ref_is_projected_as_provider_env_only() {
+        let mut ocr = OcrInput::default();
+        ocr.provider = "paddle".to_string();
+        ocr.credential_ref = "cred_ocr_paddle".to_string();
+
+        let credential_ref =
+            provider_credential_ref_for_stage("paddle", &OcrProviderKind::Paddle, &ocr)
+                .expect("build provider credential reference");
+
+        assert_eq!(
+            credential_ref,
+            format!(
+                "env:{}",
+                provider_token_env_name(&OcrProviderKind::Paddle).expect("paddle env")
+            )
+        );
+        assert!(!credential_ref.contains("cred_ocr_paddle"));
+    }
+
+    #[test]
+    fn configured_credential_ref_without_custom_env_uses_generic_env() {
+        let mut ocr = OcrInput::default();
+        ocr.provider = "local".to_string();
+        ocr.credential_ref = "cred_ocr_local".to_string();
+
+        let credential_ref =
+            provider_credential_ref_for_stage("local", &OcrProviderKind::Local, &ocr)
+                .expect("build configured provider credential reference");
+
+        assert_eq!(credential_ref, "env:RETAIN_OCR_CREDENTIAL");
+        assert!(!credential_ref.contains("cred_ocr_local"));
+    }
+
+    #[test]
+    fn missing_builtin_credential_keeps_stage_reference_empty() {
+        let mut ocr = OcrInput::default();
+        ocr.provider = "paddle".to_string();
+
+        let credential_ref =
+            provider_credential_ref_for_stage("paddle", &OcrProviderKind::Paddle, &ocr)
+                .expect("build empty provider credential reference");
+
+        assert!(credential_ref.is_empty());
+    }
 }

@@ -116,6 +116,40 @@ mod tests {
     }
 
     #[test]
+    fn create_job_input_accepts_ocr_credential_reference() {
+        let input = CreateJobInput::from_api_value(json!({
+            "workflow": "ocr",
+            "source": { "upload_id": "upload-ocr" },
+            "ocr": {
+                "provider": "mineru",
+                "credential_ref": "cred_ocr_primary"
+            }
+        }))
+        .expect("parse OCR credential reference");
+
+        assert_eq!(input.ocr.provider, "mineru");
+        assert_eq!(input.ocr.credential_ref, "cred_ocr_primary");
+        assert!(input.ocr.mineru_token.is_empty());
+        assert!(input.ocr.paddle_token.is_empty());
+    }
+
+    #[test]
+    fn create_job_input_defaults_missing_ocr_credential_reference() {
+        let input = CreateJobInput::from_api_value(json!({
+            "workflow": "ocr",
+            "source": { "upload_id": "upload-legacy-ocr" },
+            "ocr": {
+                "provider": "mineru",
+                "mineru_token": "legacy-inline-token"
+            }
+        }))
+        .expect("parse legacy inline OCR credential");
+
+        assert!(input.ocr.credential_ref.is_empty());
+        assert_eq!(input.ocr.mineru_token, "legacy-inline-token");
+    }
+
+    #[test]
     fn create_job_input_accepts_all_canonical_workflows() {
         let mineru = CreateJobInput::from_api_value(json!({
             "workflow": "book",

@@ -11,6 +11,9 @@ const {
 } = await import(
   "../../../../packages/reader/src/components/react-pdf/assistant/ReaderAgentOperationPanel.tsx"
 );
+const { shouldReplaceAgentOperation } = await import(
+  "../../../../packages/reader/src/components/react-pdf/assistant/use-reader-agent-operations.ts"
+);
 
 function operation(status, overrides = {}) {
   return {
@@ -131,4 +134,13 @@ test("dismissal identity reopens a later retry attempt", () => {
     readerAgentOperationDismissalKey(failedAttemptOne),
     readerAgentOperationDismissalKey(failedAttemptTwo),
   );
+});
+
+test("identical operation polls do not replace local pending or error state", () => {
+  const current = operation("running");
+  assert.equal(shouldReplaceAgentOperation(current, { ...current }), false);
+  assert.equal(shouldReplaceAgentOperation(current, {
+    ...current,
+    latest_event_seq: 2,
+  }), true);
 });

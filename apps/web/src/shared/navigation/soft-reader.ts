@@ -13,6 +13,12 @@ export type SoftReaderHistoryState = {
   readerUrl?: string;
 };
 
+export type SoftReaderJobHandoff = {
+  previousJobId?: string | null;
+  nextJobId?: string | null;
+  documentId?: string | null;
+};
+
 export function isHomeDocumentPath(pathname = ""): boolean {
   const p = `${pathname || ""}`;
   if (/reader\.html/i.test(p)) return false;
@@ -83,6 +89,51 @@ export function trySoftOpenReader(url: string): boolean {
       }),
     );
     return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A retry-stage request creates a new immutable job. If the soft Reader is
+ * currently showing the retried job (or the same source document), replace
+ * its job_id in place and remount the iframe. Query anchors such as page_idx
+ * and block_id are intentionally preserved.
+ */
+export function handoffSoftReaderJob({
+  previousJobId,
+  nextJobId,
+  documentId,
+}: SoftReaderJobHandoff): boolean {
+  if (typeof window === "undefined") return false;
+  const nextId = `${nextJobId || ""}`.trim();
+  if (!nextId || !isSoftReaderHistoryState(window.history.state)) return false;
+
+  const readerUrl = `${window.history.state.readerUrl || ""}`.trim();
+  if (!readerUrl) return false;
+  try {
+    const current = new URL(readerUrl, window.location.href);
+    const currentJobId = `${current.searchParams.get("job_id") || ""}`.trim();
+    const currentDocumentId = `${current.searchParams.get("document_id") || ""}`.trim();
+    const previousId = `${previousJobId || ""}`.trim();
+    const ownerDocumentId = `${documentId || ""}`.trim();
+    const ownsReader = Boolean(
+      (previousId && currentJobId === previousId)
+      || (ownerDocumentId && currentDocumentId === ownerDocumentId),
+    );
+    if (!ownsReader) return false;
+
+    // Canonical document routes do not change identity when a retry creates a
+    // new immutable job. Re-open the same URL to remount the Reader; it will
+    // resolve document.active_job_id again. This keeps bookmarks and AI
+    // conversations attached to the document instead of exposing a second URL.
+    if (currentDocumentId && ownerDocumentId === currentDocumentId) {
+      return trySoftOpenReader(current.toString());
+    }
+    if (currentJobId === nextId) return false;
+
+    current.searchParams.set("job_id", nextId);
+    return trySoftOpenReader(current.toString());
   } catch {
     return false;
   }

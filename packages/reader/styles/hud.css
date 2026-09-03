@@ -20,6 +20,33 @@
   transform: translateX(-50%);
 }
 
+.reader-react-hud-modes {
+  padding-right: 7px;
+  border-right: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.reader-context-modes,
+.reader-context-modes .reader-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.reader-context-modes .reader-tab {
+  flex: 0 0 auto;
+  width: 30px;
+  min-height: 28px;
+}
+
+.reader-context-modes .reader-tab.is-active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.reader-context-modes.is-source-only .reader-tabs {
+  width: auto;
+}
+
 .reader-react-hud-group {
   display: inline-flex;
   align-items: center;
@@ -208,17 +235,12 @@
 .reader-tab.reader-tab-mode {
   flex: 1 1 0;
   min-width: 0;
-  padding: 0 10px;
-  gap: 6px;
+  padding: 0;
+  gap: 0;
 }
 .reader-tab-lucide {
   display: block;
   flex-shrink: 0;
-}
-.reader-tab-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .reader-react-shortcuts-btn {
   display: inline-flex;
@@ -231,11 +253,11 @@
 }
 
 .reader-body .reader-react-topbar {
-  width: min(360px, calc(100vw - 48px));
-  width: min(360px, calc(100dvw - 48px));
+  width: min(148px, calc(100vw - 48px));
+  width: min(148px, calc(100dvw - 48px));
 }
 
 .reader-body .reader-react-topbar.is-source-only {
-  width: min(132px, calc(100vw - 48px));
-  width: min(132px, calc(100dvw - 48px));
+  width: min(44px, calc(100vw - 48px));
+  width: min(44px, calc(100dvw - 48px));
 }

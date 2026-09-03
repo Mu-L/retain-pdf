@@ -69,10 +69,11 @@
     "PublicOcrInput": {
       "type": "object",
       "description": "public_contract.rs :: PublicOcrInput。凭据正文恒为空，仅暴露 configured 标记。",
-      "required": ["provider", "mineru_token", "mineru_token_configured", "model_version", "paddle_token", "paddle_token_configured", "paddle_api_url", "paddle_model", "is_ocr", "disable_formula", "disable_table", "language", "page_ranges", "data_id", "no_cache", "cache_tolerance", "extra_formats", "poll_interval", "poll_timeout", "options"],
+      "required": ["provider", "credential_ref", "mineru_token", "mineru_token_configured", "model_version", "paddle_token", "paddle_token_configured", "paddle_api_url", "paddle_model", "is_ocr", "disable_formula", "disable_table", "language", "page_ranges", "data_id", "no_cache", "cache_tolerance", "extra_formats", "poll_interval", "poll_timeout", "options"],
       "additionalProperties": false,
       "properties": {
         "provider": { "type": "string" },
+        "credential_ref": { "type": "string" },
         "mineru_token": { "type": "string" },
         "mineru_token_configured": { "type": "boolean" },
         "model_version": { "type": "string" },

@@ -123,7 +123,7 @@ export type BookCardAction = {
 };
 
 export type BookCardActionHandlers = {
-  onReader?: (jobId: string) => void;
+  onReader?: (jobId: string, documentId?: string) => void;
   onReadSource?: (documentId: string) => void;
   onTranslate?: (item: LibraryCardItem) => void;
 };
@@ -252,7 +252,13 @@ export type LibraryControllerDeps = {
   ) => OcrDocumentPayload | Record<string, unknown>;
   startPolling?: (
     jobId: string,
-    options?: { silent?: boolean; publishLibrary?: boolean; showWorkflow?: boolean },
+    options?: {
+      silent?: boolean;
+      publishLibrary?: boolean;
+      showWorkflow?: boolean;
+      seedPayload?: Record<string, unknown> | null;
+      recovering?: boolean;
+    },
   ) => void;
   hideStatusArea?: () => void;
   /** 网格状态端口（供 selectJob 的 findItem 内聚到 controller） */
@@ -274,6 +280,10 @@ export type LibraryController = {
   getDocumentJobs: (
     documentId?: string | null,
   ) => Promise<{ items: DocumentJobSummary[] }>;
+  /** Resolve the owning document for a globally submitted job. */
+  getDocumentByJobId: (
+    jobId?: string | null,
+  ) => Promise<LibraryCardItem | null>;
   getJobStageActions: (jobId?: string | null) => Promise<unknown>;
   retryJobStage: (
     jobId?: string | null,
@@ -304,7 +314,10 @@ export type LibraryController = {
     payload?: UpdateDocumentPayload,
   ) => Promise<unknown>;
   /** 详情内嵌进度：静默 startPolling，不弹工作流、不亮主状态区 */
-  attachJobProgress: (jobId?: string | null) => void;
+  attachJobProgress: (
+    jobId?: string | null,
+    options?: { recovering?: boolean },
+  ) => void;
 };
 
 // ─── View store / viewPort ───────────────────────────────────────

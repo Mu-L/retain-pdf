@@ -41,6 +41,9 @@ def existing_group_unit_id(item: dict) -> str:
 
 
 def group_key(item: dict) -> str:
+    translation_group_id = str(item.get("translation_group_id", "") or "").strip()
+    if translation_group_id:
+        return f"translation:{translation_group_id}"
     continuation_group = str(item.get("continuation_group", "") or "").strip()
     if continuation_group:
         return f"continuation:{continuation_group}"
@@ -69,8 +72,10 @@ def seed_orchestration_metadata(item: dict) -> None:
     label = str(item.get("classification_label", "") or "")
     should_translate = bool(item.get("should_translate", True))
     group_id = str(item.get("continuation_group", "") or "").strip()
+    translation_group_id = str(item.get("translation_group_id", "") or "").strip()
     item_id = str(item.get("item_id", "") or "")
-    unit_id = group_unit_id(group_id) if group_id else item_id
+    effective_group_id = translation_group_id or group_id
+    unit_id = group_unit_id(effective_group_id) if effective_group_id else item_id
     # skip_reason 归 policy 阶段所有;编排阶段只补缺，不覆盖已有的详细原因。
     if not should_translate:
         if not str(item.get("skip_reason", "") or "").strip():

@@ -109,6 +109,8 @@ export type StartPollingOptions = {
   silent?: boolean;
   publishLibrary?: boolean;
   showWorkflow?: boolean;
+  seedPayload?: Record<string, unknown> | null;
+  recovering?: boolean;
 };
 
 export type JobRuntimeFeature = {
@@ -239,7 +241,7 @@ export type HomeAppUpdate = {
 export type RecentJobActions = {
   selectJob: (jobId: string) => unknown;
   deleteJob: (jobId: string) => Promise<unknown> | unknown;
-  openJobReader: (jobId: string) => unknown;
+  openJobReader: (jobId: string, documentId?: string) => unknown;
   recoverActiveJob: (items?: unknown[]) => unknown;
 };
 
@@ -248,6 +250,7 @@ export type LibraryActions = RecentJobActions & {
   translateDocument: LibraryController["translateDocument"];
   ocrDocument: LibraryController["ocrDocument"];
   getDocumentJobs: LibraryController["getDocumentJobs"];
+  getDocumentByJobId: LibraryController["getDocumentByJobId"];
   getJobStageActions: LibraryController["getJobStageActions"];
   retryJobStage: LibraryController["retryJobStage"];
   deleteDocument: LibraryController["deleteDocument"];
@@ -381,7 +384,7 @@ export type HomeStatusDetail = {
 
 /** 主页阅读入口：跳转独立 reader.html（不再维护 dialogStore / iframe）。 */
 export type HomeReader = {
-  openReader: (jobId: string, anchor?: unknown) => unknown;
+  openReader: (jobId: string, anchor?: unknown, documentId?: string) => unknown;
 };
 
 export type StatusAreaBag = {

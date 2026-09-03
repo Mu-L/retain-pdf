@@ -313,7 +313,7 @@ CLI 原始 JSON、stdout/stderr 与 `--save_resources` 下载内容保存在
 完整外部接入文档看：
 
 ```text
-doc/api/03-OCR/04-local-command插件.md
+docs/api/03-OCR/04-local-command插件.md
 ```
 
 这一层的核心设计是：本地 OCR 是一个“命令行 API”。RetainPDF 负责启动命令并通过环境变量传入输入/输出路径；本地 OCR 命令负责读取 PDF，写出 raw payload 或 `document.v1.json`。

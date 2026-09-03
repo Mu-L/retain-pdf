@@ -109,6 +109,23 @@ def test_public_read_blocks_payload_keeps_coordinates_assets_and_full_slice() ->
     assert block["image_url"].endswith("page-3/imgs/figure.jpg")
     assert len(block["asset_image_urls"]) == 2
     assert block["source_text"] == "complete source slice"
+    assert citations[1].image_urls == block["asset_image_urls"]
+
+
+def test_public_tool_payload_exposes_structured_data_capability() -> None:
+    assert _public_tool_payload(
+        {"structured_data_available": True, "hits": []}
+    ) == {"structured_data_available": True}
+    assert _public_tool_payload(
+        {
+            "structured_data_available": False,
+            "hits": [],
+            "hint": "use markdown",
+        }
+    ) == {
+        "structured_data_available": False,
+        "hint": "use markdown",
+    }
 
 
 def _tool_call(name, arguments, call_id="call-1"):
@@ -143,6 +160,7 @@ def test_agent_runs_tools_then_answers_with_cited_anchors():
     assert result.citations[0].block_id == "p008-b0001"
     payload = json.loads(seen_tool_messages[0]["content"])
     assert payload["hits"][0]["ref"] == 1
+    assert payload["hits"][0]["translated_snippet"] == "反应速率显著提高"
     assert result.tool_trace == [
         {"round": 1, "tool": "search_fulltext", "arguments": {"query": "选择性"}}
     ]
@@ -179,43 +197,24 @@ def test_agent_forces_document_id_into_search_tools():
     assert result.tool_trace[0]["arguments"]["document_id"] == "doc-a"
 
 
-def test_default_tool_surface_exposes_only_markdown_and_forces_current_job():
+def test_default_tool_surface_prefers_structured_blocks_and_keeps_markdown_fallback():
     seen_args = []
     seen_specs = []
 
-    def markdown_search(arguments):
+    def structured_search(arguments):
         seen_args.append(dict(arguments))
         return {
             "document_id": "doc-a",
-            "job_id": "job-1",
-            "hits": [
-                {
-                    "document_id": "doc-a",
-                    "job_id": "job-1",
-                    "page_idx": None,
-                    "block_id": "md-0001",
-                    "chunk_id": "md-0001",
-                    "heading": "结论",
-                    "source_snippet": "Markdown evidence",
-                    "assets": [
-                        {
-                            "image_url": "/api/v1/jobs/job-1/markdown/images/page-3/imgs/chart.png",
-                            "alt": "chart",
-                        },
-                        {"image_url": "https://tracker.invalid/pixel.png", "alt": "bad"},
-                    ],
-                    "source": "markdown",
-                }
-            ],
+            "hits": [dict(HITS[1])],
         }
 
     registry = ToolRegistry(
         [
-            Tool(
-                name="search_markdown",
-                description="search md",
-                parameters={"type": "object", "properties": {"query": {"type": "string"}}},
-                handler=markdown_search,
+                Tool(
+                    name="search_markdown",
+                    description="search md",
+                    parameters={"type": "object", "properties": {"query": {"type": "string"}}},
+                    handler=lambda arguments: {"hits": []},
             ),
             Tool(
                 name="read_markdown_chunk",
@@ -223,13 +222,24 @@ def test_default_tool_surface_exposes_only_markdown_and_forces_current_job():
                 parameters={"type": "object", "properties": {}},
                 handler=lambda arguments: {"blocks": []},
             ),
-            _search_tool(HITS),
+            Tool(
+                name="search_fulltext",
+                description="search blocks",
+                parameters={"type": "object", "properties": {"query": {"type": "string"}}},
+                handler=structured_search,
+            ),
+            Tool(
+                name="read_blocks",
+                description="read blocks",
+                parameters={"type": "object", "properties": {}},
+                handler=lambda arguments: {"blocks": []},
+            ),
         ]
     )
     script = iter(
         [
-            {"content": "", "tool_calls": [_tool_call("search_markdown", {"query": "evidence"})]},
-            {"content": "Markdown 结论 [1]。", "tool_calls": []},
+            {"content": "", "tool_calls": [_tool_call("search_fulltext", {"query": "选择性"})]},
+            {"content": "结构化结论 [1]。", "tool_calls": []},
         ]
     )
 
@@ -243,16 +253,21 @@ def test_default_tool_surface_exposes_only_markdown_and_forces_current_job():
         "结论?", document_id="doc-a", job_id="job-1"
     )
 
-    assert seen_specs[0] == ["search_markdown", "read_markdown_chunk"]
+    assert seen_specs[0] == [
+        "search_fulltext",
+        "read_blocks",
+        "search_markdown",
+        "read_markdown_chunk",
+    ]
     assert seen_args == [
         {
-            "query": "evidence",
+            "query": "选择性",
             "document_id": "doc-a",
             "job_id": "job-1",
         }
     ]
-    assert result.citations[0].block_id == "md-0001"
-    assert result.citations[0].page_idx is None
+    assert result.citations[0].block_id == "p008-b0001"
+    assert result.citations[0].page_idx == 7
     public = _public_tool_payload(
         {
             "document_id": "doc-a",
@@ -288,7 +303,7 @@ def test_default_tool_surface_exposes_only_markdown_and_forces_current_job():
     assert "page" not in public["how_to_cite"]
 
 
-def test_markdown_registry_blocks_hallucinated_hidden_legacy_tool():
+def test_document_registry_blocks_hallucinated_nonreading_tool():
     called = []
     registry = ToolRegistry(
         [
@@ -300,9 +315,112 @@ def test_markdown_registry_blocks_hallucinated_hidden_legacy_tool():
             ),
             Tool(
                 name="search_fulltext",
-                description="legacy",
+                description="structured",
                 parameters={"type": "object", "properties": {}},
-                handler=lambda arguments: called.append(arguments) or {"hits": []},
+                handler=lambda arguments: {"hits": [dict(HITS[0])]},
+            ),
+            Tool(
+                name="list_documents",
+                description="not available inside a scoped reading turn",
+                parameters={"type": "object", "properties": {}},
+                handler=lambda arguments: called.append(arguments) or {"documents": []},
+            ),
+        ]
+    )
+    script = iter(
+        [
+            {"content": "", "tool_calls": [_tool_call("list_documents", {})]},
+            {"content": "", "tool_calls": [_tool_call("search_fulltext", {"query": "x"})]},
+            {"content": "结构化检索已完成 [1]。", "tool_calls": []},
+        ]
+    )
+    result = RetrievalAgent(registry, lambda m, t: next(script)).ask(
+        "q", document_id="doc-a", job_id="job-1"
+    )
+    assert called == []
+    assert result.answer.startswith("结构化检索")
+    assert result.tool_trace[0]["arguments"] == {"skipped": True}
+
+
+def test_markdown_fallback_requires_structured_data_to_be_unavailable():
+    markdown_calls = []
+    registry = ToolRegistry(
+        [
+            Tool(
+                name="search_fulltext",
+                description="structured",
+                parameters={"type": "object", "properties": {}},
+                handler=lambda arguments: {
+                    "document_id": "doc-a",
+                    "structured_data_available": False,
+                    "hits": [],
+                },
+            ),
+            Tool(
+                name="search_markdown",
+                description="legacy fallback",
+                parameters={"type": "object", "properties": {}},
+                handler=lambda arguments: markdown_calls.append(dict(arguments))
+                or {
+                    "document_id": "doc-a",
+                    "job_id": "job-1",
+                    "hits": [
+                        {
+                            "document_id": "doc-a",
+                            "job_id": "job-1",
+                            "block_id": "md-0001",
+                            "source_snippet": "legacy evidence",
+                        }
+                    ],
+                },
+            ),
+        ]
+    )
+    script = iter(
+        [
+            {"content": "", "tool_calls": [_tool_call("search_markdown", {"query": "x"})]},
+            {"content": "", "tool_calls": [_tool_call("search_fulltext", {"query": "x"})]},
+            {"content": "", "tool_calls": [_tool_call("search_markdown", {"query": "x"})]},
+            {"content": "兼容证据 [1]。", "tool_calls": []},
+        ]
+    )
+
+    result = RetrievalAgent(registry, lambda m, t: next(script)).ask(
+        "q", document_id="doc-a", job_id="job-1"
+    )
+
+    assert markdown_calls == [
+        {"query": "x", "document_id": "doc-a", "job_id": "job-1"}
+    ]
+    assert result.answer == "兼容证据 [1]。"
+    assert result.tool_trace[0]["arguments"] == {"skipped": True}
+    assert [item["tool"] for item in result.tool_trace] == [
+        "search_markdown",
+        "search_fulltext",
+        "search_markdown",
+    ]
+
+
+def test_empty_structured_result_does_not_fall_back_when_data_exists():
+    markdown_calls = []
+    registry = ToolRegistry(
+        [
+            Tool(
+                name="search_fulltext",
+                description="structured",
+                parameters={"type": "object", "properties": {}},
+                handler=lambda arguments: {
+                    "document_id": "doc-a",
+                    "structured_data_available": True,
+                    "hits": [],
+                },
+            ),
+            Tool(
+                name="search_markdown",
+                description="legacy fallback",
+                parameters={"type": "object", "properties": {}},
+                handler=lambda arguments: markdown_calls.append(dict(arguments))
+                or {"hits": []},
             ),
         ]
     )
@@ -310,13 +428,28 @@ def test_markdown_registry_blocks_hallucinated_hidden_legacy_tool():
         [
             {"content": "", "tool_calls": [_tool_call("search_fulltext", {"query": "x"})]},
             {"content": "", "tool_calls": [_tool_call("search_markdown", {"query": "x"})]},
-            {"content": "Markdown-only 模式已完成安全检索。", "tool_calls": []},
+            {"content": "结构化数据存在，但当前关键词没有命中。", "tool_calls": []},
         ]
     )
-    result = RetrievalAgent(registry, lambda m, t: next(script)).ask("q")
-    assert called == []
-    assert result.answer.startswith("Markdown-only")
-    assert result.tool_trace[0]["arguments"] == {"skipped": True}
+
+    result = RetrievalAgent(registry, lambda m, t: next(script)).ask(
+        "q", document_id="doc-a", job_id="job-1"
+    )
+
+    assert markdown_calls == []
+    assert result.answer == "结构化数据存在，但当前关键词没有命中。"
+    assert result.tool_trace == [
+        {
+            "round": 1,
+            "tool": "search_fulltext",
+            "arguments": {
+                "query": "x",
+                "document_id": "doc-a",
+                "job_id": "job-1",
+            },
+        },
+        {"round": 2, "tool": "search_markdown", "arguments": {"skipped": True}},
+    ]
 
 
 def test_markdown_internal_id_is_mapped_to_public_citation() -> None:

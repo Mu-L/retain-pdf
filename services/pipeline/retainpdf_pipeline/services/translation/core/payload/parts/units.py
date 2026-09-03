@@ -120,13 +120,18 @@ def _formula_segment_count(source_text: str) -> int:
 def _is_heavy_group(combined_source: str, items: list[dict]) -> tuple[bool, str]:
     segment_count = _formula_segment_count(combined_source)
     continuation_group = str(items[0].get("continuation_group", "") or "").strip() if items else ""
+    aggregate_geometry_group = (
+        str(items[0].get("translation_group_strategy", "") or "").strip() == "aggregate_geometry"
+        if items
+        else False
+    )
     if segment_count > HEAVY_GROUP_MAX_FORMULA_SEGMENTS:
         return True, "formula_heavy_group"
     if segment_count > FORMULA_SEGMENT_WINDOW_TARGET_COUNT:
         return True, "formula_windowed_group"
-    if len(combined_source) > HEAVY_GROUP_MAX_SOURCE_CHARS and not continuation_group:
+    if len(combined_source) > HEAVY_GROUP_MAX_SOURCE_CHARS and not continuation_group and not aggregate_geometry_group:
         return True, "long_continuation_group"
-    if len(items) > HEAVY_GROUP_MAX_MEMBERS and not continuation_group:
+    if len(items) > HEAVY_GROUP_MAX_MEMBERS and not continuation_group and not aggregate_geometry_group:
         return True, "large_continuation_group"
     return False, ""
 
@@ -211,6 +216,15 @@ def _build_group_translation_unit(unit_id: str, items: list[dict]) -> dict | Non
     return {
         "item_id": unit_id,
         "translation_unit_id": unit_id,
+        "translation_unit_kind": "group",
+        "translation_unit_member_ids": list(member_ids),
+        "translation_unit_members": [
+            {
+                "item_id": str(member_id or ""),
+                "protected_source_text": protected_chunk,
+            }
+            for member_id, protected_chunk in zip(member_ids, protected_chunks)
+        ],
         "block_type": item_block_kind(first_item) or "text",
         "block_kind": str(first_item.get("block_kind", "") or item_block_kind(first_item) or "text"),
         "block_class": item_block_class(first_item),
@@ -227,6 +241,10 @@ def _build_group_translation_unit(unit_id: str, items: list[dict]) -> dict | Non
         "formula_map": formula_map,
         "protected_map": protected_map,
         "continuation_group": str(first_item.get("continuation_group", "") or ""),
+        "translation_group_id": str(first_item.get("translation_group_id", "") or ""),
+        "translation_group_kind": str(first_item.get("translation_group_kind", "") or ""),
+        "translation_group_strategy": str(first_item.get("translation_group_strategy", "") or ""),
+        "translation_style_hint": str(first_item.get("translation_style_hint", "") or ""),
         "protected_source_text": combined_source,
     }
 

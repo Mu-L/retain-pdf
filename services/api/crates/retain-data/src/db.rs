@@ -5,6 +5,8 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use rusqlite::Connection;
 
+#[path = "db/agent_calculations.rs"]
+mod agent_calculations;
 #[path = "db/artifacts.rs"]
 mod artifacts;
 #[path = "db/assets.rs"]
@@ -13,6 +15,8 @@ mod assets;
 mod collections;
 #[path = "db/conversations.rs"]
 mod conversations;
+#[path = "db/document_metadata_suggestions.rs"]
+mod document_metadata_suggestions;
 #[path = "db/document_operations.rs"]
 mod document_operations;
 #[path = "db/documents.rs"]
@@ -91,6 +95,13 @@ pub enum PutAgentRuntimeSessionResult {
     RevisionConflict(AgentRuntimeSessionRecord),
 }
 
+pub use agent_calculations::{
+    AgentCalculationArtifactInput, AgentCalculationArtifactRecord, AgentCalculationRunCreate,
+    AgentCalculationRunRecord, AgentCalculationStatus, AgentCalculationTransitionResult,
+};
+pub use document_metadata_suggestions::{
+    ApplyDocumentMetadataSuggestionResult, StoredDocumentMetadataSuggestion,
+};
 pub use document_operations::{
     CommitDocumentCandidateResult, DocumentOperationEventRecord, DocumentVersionRecord,
     StoredDocumentOperation, StoredDocumentOperationAttempt,

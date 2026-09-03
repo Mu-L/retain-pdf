@@ -17,6 +17,11 @@ use crate::storage_paths::{resolve_data_path, resolve_job_root, resolve_normaliz
 const TRANSLATION_STAGE: &str = "translate";
 const CHECKPOINTS_DIR: &str = ".translation-checkpoints";
 
+#[path = "live_translation/typography.rs"]
+mod typography;
+
+use typography::{load_typography_index, TypographyIndex};
+
 pub(super) fn load_live_translation_layout(
     data_root: &Path,
     job: &JobSnapshot,
@@ -55,9 +60,10 @@ pub(super) fn load_live_translation_layout(
             )
         })?;
 
+    let typography = load_typography_index(data_root, job);
     let pages = pages
         .iter()
-        .filter_map(layout_page_from_value)
+        .filter_map(|page| layout_page_from_value(page, &typography))
         .collect::<Vec<_>>();
     if pages.is_empty() {
         return Err(live_error(
@@ -173,7 +179,10 @@ pub(super) fn load_live_translation_events_after(
         .collect()
 }
 
-fn layout_page_from_value(page: &Value) -> Option<LiveTranslationLayoutPageView> {
+fn layout_page_from_value(
+    page: &Value,
+    typography: &TypographyIndex,
+) -> Option<LiveTranslationLayoutPageView> {
     let page_idx = json_u64(page, "page_index")
         .or_else(|| json_u64(page, "page").map(|page| page.saturating_sub(1)))?
         as u32;
@@ -184,7 +193,7 @@ fn layout_page_from_value(page: &Value) -> Option<LiveTranslationLayoutPageView>
         .and_then(Value::as_array)
         .into_iter()
         .flatten()
-        .filter_map(layout_block_from_value)
+        .filter_map(|block| layout_block_from_value(block, page_idx, typography))
         .collect();
     Some(LiveTranslationLayoutPageView {
         page_idx,
@@ -194,10 +203,14 @@ fn layout_page_from_value(page: &Value) -> Option<LiveTranslationLayoutPageView>
     })
 }
 
-fn layout_block_from_value(block: &Value) -> Option<LiveTranslationLayoutBlockView> {
+fn layout_block_from_value(
+    block: &Value,
+    page_idx: u32,
+    typography: &TypographyIndex,
+) -> Option<LiveTranslationLayoutBlockView> {
     let item_id = nonempty_string(block.get("block_id").or_else(|| block.get("item_id")))?;
     let source_text = source_text_from_item(block)?;
-    let bbox = bbox_from_value(
+    let normalized_bbox = bbox_from_value(
         block
             .get("bbox")
             .or_else(|| block.get("geometry").and_then(|value| value.get("bbox"))),
@@ -213,9 +226,16 @@ fn layout_block_from_value(block: &Value) -> Option<LiveTranslationLayoutBlockVi
         ],
     )
     .unwrap_or_else(|| "paragraph".to_string());
+    let item_id = canonical_item_id(&item_id);
+    let plan = typography.get(&(page_idx, item_id.clone()));
     Some(LiveTranslationLayoutBlockView {
-        item_id: canonical_item_id(&item_id),
-        bbox,
+        // Padding is measured between the renderer's background/content rects,
+        // so the public bbox must use that same PDF-point coordinate system.
+        bbox: plan
+            .map(|plan| plan.bbox.clone())
+            .unwrap_or(normalized_bbox),
+        typography: plan.map(|plan| plan.view.clone()),
+        item_id,
         source_text,
         kind,
     })
@@ -371,21 +391,40 @@ fn source_text_from_item(item: &Value) -> Option<String> {
 }
 
 fn translated_text_from_item(item: &Value) -> Option<String> {
-    first_string(
-        item,
-        &[
-            "translation_unit_protected_translated_text",
-            "translation_unit_translated_text",
-            "group_protected_translated_text",
-            "group_translated_text",
-            "protected_translated_text",
-            "translated_text",
-        ],
-    )
+    // `translated_text` is the durable, restored text for this concrete block.
+    // Protected fields may still contain model placeholders, while group/unit
+    // fields may contain a whole continuation group and must not be repeated
+    // over every member block.
+    nonempty_raw_string(item.get("translated_text")).or_else(|| {
+        (!is_multi_member_translation_unit(item))
+            .then(|| {
+                first_raw_string(
+                    item,
+                    &["translation_unit_translated_text", "group_translated_text"],
+                )
+            })
+            .flatten()
+    })
+}
+
+fn is_multi_member_translation_unit(item: &Value) -> bool {
+    item.get("translation_unit_member_ids")
+        .and_then(Value::as_array)
+        .is_some_and(|members| members.len() > 1)
 }
 
 fn first_string(item: &Value, keys: &[&str]) -> Option<String> {
     keys.iter().find_map(|key| nonempty_string(item.get(*key)))
+}
+
+fn first_raw_string(item: &Value, keys: &[&str]) -> Option<String> {
+    keys.iter()
+        .find_map(|key| nonempty_raw_string(item.get(*key)))
+}
+
+fn nonempty_raw_string(value: Option<&Value>) -> Option<String> {
+    let value = value?.as_str()?;
+    (!value.trim().is_empty()).then(|| value.to_string())
 }
 
 fn nonempty_string(value: Option<&Value>) -> Option<String> {
@@ -439,5 +478,31 @@ mod tests {
                 .item_id,
             "p001-b0001"
         );
+    }
+
+    #[test]
+    fn live_text_prefers_member_restored_latex_over_protected_placeholder() {
+        let item = serde_json::json!({
+            "item_id": "p001-b1",
+            "translated_text": "结果是 $E=mc^2$。",
+            "protected_translated_text": "结果是 <f1-abc/>。",
+            "translation_unit_translated_text": "错误的单元级回退",
+            "translation_unit_protected_translated_text": "错误的 <f1-abc/>"
+        });
+        assert_eq!(
+            translated_text_from_item(&item).as_deref(),
+            Some("结果是 $E=mc^2$。")
+        );
+    }
+
+    #[test]
+    fn live_text_does_not_repeat_whole_group_over_member_without_member_text() {
+        let item = serde_json::json!({
+            "item_id": "p001-b1",
+            "translation_unit_member_ids": ["p001-b1", "p001-b2"],
+            "translation_unit_translated_text": "整组译文",
+            "group_translated_text": "整组译文"
+        });
+        assert!(translated_text_from_item(&item).is_none());
     }
 }

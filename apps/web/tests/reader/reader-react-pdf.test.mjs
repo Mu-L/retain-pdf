@@ -8,12 +8,114 @@ import {
   loadProtectedPdfFile,
 } from "../../../../packages/reader/src/pdf/useProtectedPdfFile.ts";
 import {
+  liveTranslationPendingCopy,
   resolveReaderGridPresentation,
   resolveReaderPageWidthBasis,
 } from "../../../../packages/reader/src/components/react-pdf/ReaderCompareGrid.tsx";
-import { resolveReaderAiLayout } from "../../../../packages/reader/src/ReaderAppReactPdf.tsx";
+import {
+  resolveReaderAiLayout,
+  resolveInitialAssistantPanel,
+  resolveVisiblePdfMode,
+} from "../../../../packages/reader/src/ReaderAppReactPdf.tsx";
 import { ReaderModeTabs } from "../../../../packages/reader/src/components/react-pdf/ReaderModeTabs.tsx";
+import { ReaderAssistantDock } from "../../../../packages/reader/src/components/react-pdf/ReaderAssistantDock.tsx";
+import {
+  isReaderWorkspaceDisabled,
+  liveTranslationStatusCopy,
+  ReaderWorkspaceTabs,
+} from "../../../../packages/reader/src/components/react-pdf/ReaderWorkspaceTabs.tsx";
+import { ReaderStructureSelectionLayer } from "../../../../packages/reader/src/pdf/ReaderStructureSelectionLayer.tsx";
+import {
+  hitTestReaderTextHoverTarget,
+  projectReaderTextHoverTargets,
+} from "../../../../packages/reader/src/pdf/ReaderTextHoverLayer.tsx";
 import { resolveReaderModeShortcut } from "../../../../packages/reader/src/hooks/use-reader-keyboard.ts";
+import { findReaderRegionByAssetUrl } from "../../../../packages/reader/src/shared/data/reader-regions.ts";
+
+test("page hover hit testing observes pointer movement in capture phase", () => {
+  const source = readFileSync(
+    new URL("../../../../packages/reader/src/pdf/PdfPageSlot.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /onPointerMoveCapture=\{handlePointerMove\}/);
+  assert.doesNotMatch(source, /\sonPointerMove=\{handlePointerMove\}/);
+});
+
+test("OCR structure selection layer exposes formula regions without covering text blocks", () => {
+  const makeHighlight = (itemId, regionType, bbox) => ({
+    itemId,
+    region: {
+      itemId,
+      source: { page: 1, bbox, unit: "pdf_point", origin: "top_left", text: "$$x^2$$" },
+      translated: { page: 1, bbox, unit: "pdf_point", origin: "top_left", text: "" },
+      markdown: "$$x^2$$",
+      regionType,
+      status: "source_only",
+      assetIds: [],
+      assetUrls: [],
+    },
+    box: { page: 1, bbox, unit: "pdf_point", origin: "top_left", text: "$$x^2$$" },
+    pageSize: { page: 1, width: 100, height: 200 },
+  });
+  const markup = renderToStaticMarkup(createElement(ReaderStructureSelectionLayer, {
+    pane: "source",
+    width: 200,
+    height: 400,
+    regions: [
+      makeHighlight("formula-1", "display_formula", [10, 20, 60, 50]),
+      makeHighlight("text-1", "text", [10, 60, 90, 90]),
+    ],
+  }));
+  assert.match(markup, /aria-label="PDF 结构选择层"/);
+  assert.match(markup, /data-reader-region-id="formula-1"/);
+  assert.match(markup, /data-reader-region-kind="formula"/);
+  assert.doesNotMatch(markup, /data-reader-region-id="text-1"/);
+});
+
+test("text hover uses passive projected hit testing without turning text into buttons", () => {
+  const region = {
+    itemId: "text-1",
+    source: { page: 1, bbox: [10, 20, 90, 50], unit: "pdf_point", origin: "top_left", text: "正文" },
+    translated: { page: 1, bbox: [10, 20, 90, 50], unit: "pdf_point", origin: "top_left", text: "正文" },
+    markdown: "正文",
+    regionType: "paragraph",
+    status: "source_only",
+    assetIds: [],
+    assetUrls: [],
+  };
+  const targets = projectReaderTextHoverTargets([{
+    itemId: region.itemId,
+    region,
+    box: region.source,
+    pageSize: { page: 1, width: 100, height: 200 },
+  }], 200, 400);
+  assert.equal(targets.length, 1);
+  assert.deepEqual(targets[0].rect, { left: 20, top: 40, width: 160, height: 60 });
+  assert.equal(hitTestReaderTextHoverTarget(targets, 40, 50)?.itemId, "text-1");
+  assert.equal(hitTestReaderTextHoverTarget(targets, 5, 5), null);
+});
+
+test("AI image URLs resolve to the matching structured region on the cited page", () => {
+  const regions = [{
+    itemId: "p002-b0005",
+    source: { page: 2, bbox: [10, 20, 90, 80], unit: "pdf_point", origin: "top_left", text: "Figure 1" },
+    translated: { page: 2, bbox: [12, 22, 92, 82], unit: "pdf_point", origin: "top_left", text: "图 1" },
+    markdown: "![图 1](images/page-2/imgs/figure.png)",
+    regionType: "image",
+    status: "translated",
+    assetIds: ["imgs/figure.png"],
+    assetUrls: ["/api/v1/jobs/job-1/markdown/images/page-2/imgs/figure.png"],
+  }];
+  assert.equal(
+    findReaderRegionByAssetUrl(
+      regions,
+      "/api/v1/jobs/job-1/markdown/images/page-2/imgs/figure.png",
+      2,
+    )?.itemId,
+    "p002-b0005",
+  );
+  assert.equal(findReaderRegionByAssetUrl(regions, "images/page-3/imgs/figure.png", 3), null);
+});
 
 test("reader mode tabs follow source, compare, translated order", () => {
   const markup = renderToStaticMarkup(createElement(ReaderModeTabs, {
@@ -28,9 +130,10 @@ test("reader mode tabs follow source, compare, translated order", () => {
 
   assert.ok(sourceIndex >= 0 && sourceIndex < compareIndex);
   assert.ok(compareIndex < translatedIndex);
-  assert.match(markup, />源文件</);
-  assert.match(markup, />对照</);
-  assert.match(markup, />翻译文件</);
+  assert.match(markup, /aria-label="源文件"/);
+  assert.match(markup, /aria-label="对照"/);
+  assert.match(markup, /aria-label="翻译文件"/);
+  assert.doesNotMatch(markup, /reader-tab-label/);
   assert.match(markup, /aria-selected="true"[^>]*data-reader-mode="compare"/);
 });
 
@@ -42,24 +145,198 @@ test("reader mode number shortcuts match the visible tab order", () => {
   assert.equal(resolveReaderModeShortcut("3", true), null);
 });
 
-test("Reader AI layout follows reading mode without creating a third fixed column", () => {
-  assert.equal(resolveReaderAiLayout("source"), "docked");
-  assert.equal(resolveReaderAiLayout("translated"), "docked");
-  assert.equal(resolveReaderAiLayout("compare"), "floating");
+test("failed live translation remains a readable paused workspace", () => {
+  const failedWithoutPages = {
+    layoutByPage: new Map(),
+    pagesByPage: new Map(),
+    lastSeq: 0,
+    connection: "terminal",
+    jobStatus: "failed",
+    error: "",
+  };
+  assert.equal(liveTranslationStatusCopy(failedWithoutPages), "实时译文 · 已暂停");
+  assert.equal(liveTranslationPendingCopy(failedWithoutPages), "翻译已暂停，原始 PDF 仍可阅读");
+
+  const failedWithPages = {
+    ...failedWithoutPages,
+    pagesByPage: new Map([[0, {}], [1, {}]]),
+  };
+  assert.equal(liveTranslationPendingCopy(failedWithPages), "翻译已暂停，已保留 2 页译文");
+});
+
+test("Reader AI is a full workspace in every PDF display mode", () => {
+  assert.equal(resolveReaderAiLayout("source"), "workspace");
+  assert.equal(resolveReaderAiLayout("translated"), "workspace");
+  assert.equal(resolveReaderAiLayout("compare"), "workspace");
+});
+
+test("split workspaces show one PDF pane without losing the saved compare mode", () => {
+  assert.equal(resolveVisiblePdfMode("compare", "ai"), "source");
+  assert.equal(resolveVisiblePdfMode("compare", "markdown"), "source");
+  assert.equal(resolveVisiblePdfMode("compare", null), "compare");
+  assert.equal(resolveVisiblePdfMode("translated", "ai"), "translated");
+});
+
+test("reader workspace bar keeps only three icon-only reading modes", () => {
+  const markup = renderToStaticMarkup(createElement(ReaderWorkspaceTabs, {
+    mode: "compare",
+    documentReady: true,
+    onModeChange() {},
+  }));
+  assert.match(markup, /aria-label="阅读工作区"/);
+  assert.match(markup, />源文件</);
+  assert.match(markup, />对照</);
+  assert.match(markup, />翻译文件</);
+  assert.doesNotMatch(markup, />Markdown</);
+  assert.doesNotMatch(markup, />AI</);
+  assert.match(markup, /reader-workspace-tab-label/);
+  assert.match(markup, /aria-selected="true"[^>]*aria-label="对照"/);
+});
+
+test("compare mode requires a translated artifact unless live translation supplies the second pane", () => {
+  assert.equal(isReaderWorkspaceDisabled({
+    id: "compare",
+    documentReady: true,
+    sourceOnly: true,
+    liveTranslationAvailable: false,
+  }), true);
+  assert.equal(isReaderWorkspaceDisabled({
+    id: "compare",
+    documentReady: true,
+    sourceOnly: true,
+    liveTranslationAvailable: true,
+  }), false);
+  assert.equal(isReaderWorkspaceDisabled({
+    id: "translated",
+    documentReady: true,
+    sourceOnly: true,
+    liveTranslationAvailable: true,
+  }), true);
+});
+
+test("assistant tools use a visible right rail and a unified dock header", () => {
+  const rail = renderToStaticMarkup(createElement(ReaderAssistantDock, {
+    active: null,
+    onSelect() {},
+    onClose() {},
+  }));
+  assert.match(rail, /reader-assistant-rail/);
+  assert.match(rail, /aria-label="打开Markdown"/);
+  assert.match(rail, /aria-label="打开AI 问答"/);
+
+  const dock = renderToStaticMarkup(createElement(ReaderAssistantDock, {
+    active: "ai",
+    onSelect() {},
+    onClose() {},
+  }));
+  assert.match(dock, /reader-assistant-dock-header/);
+  assert.match(dock, /role="tab" aria-selected="true"/);
+  assert.match(dock, /aria-label="关闭阅读辅助面板"/);
+});
+
+test("assistant state restores directly and migrates the former split preference", () => {
+  assert.equal(resolveInitialAssistantPanel("source", {
+    schema: "retainpdf_reader_view_v1",
+    assistantPanel: "markdown",
+    updatedAt: 1,
+  }), "markdown");
+  assert.equal(resolveInitialAssistantPanel("translated", {
+    schema: "retainpdf_reader_view_v1",
+    splitLayout: { left: "source", right: "ai" },
+    updatedAt: 1,
+  }), "ai");
+  assert.equal(resolveInitialAssistantPanel("source", {
+    schema: "retainpdf_reader_view_v1",
+    splitLayout: { left: "source", right: "translated" },
+    updatedAt: 1,
+  }), null);
+  assert.equal(resolveInitialAssistantPanel("source", null), null);
+  assert.equal(resolveInitialAssistantPanel("compare", {
+    schema: "retainpdf_reader_view_v1",
+    assistantPanel: "ai",
+    updatedAt: 1,
+  }), null);
+});
+
+test("assistant dock does not expose arbitrary left and right pane composition", () => {
+  const markup = renderToStaticMarkup(createElement(ReaderAssistantDock, {
+    active: "markdown",
+    onChange() {},
+    onSelect() {},
+    onClose() {},
+  }));
+  assert.doesNotMatch(markup, /左侧窗格|右侧窗格|aria-haspopup="menu"/);
+});
+
+import {
+  loadReaderViewState,
+  normalizeReaderViewState,
+  readerViewStateScope,
+  saveReaderViewState,
+} from "../../../../packages/reader/src/shared/state/reader-view-state.ts";
+
+test("reader view state persists page fraction, zoom and assistant panel without secrets", () => {
+  const values = new Map();
+  const storage = {
+    getItem(key) { return values.get(key) ?? null; },
+    setItem(key, value) { values.set(key, value); },
+  };
+  const scope = readerViewStateScope({ documentId: "doc-1", jobId: "job-ignored" });
+  saveReaderViewState(scope, { anchor: { page: 7, fraction: 0.42 } }, storage);
+  saveReaderViewState(scope, {
+    zoom: 0.65,
+    assistantPanel: "ai",
+    splitLayout: null,
+  }, storage);
+  assert.deepEqual(loadReaderViewState(scope, storage), {
+    schema: "retainpdf_reader_view_v1",
+    anchor: { page: 7, fraction: 0.42 },
+    zoom: 0.65,
+    splitLayout: null,
+    assistantPanel: "ai",
+    updatedAt: loadReaderViewState(scope, storage).updatedAt,
+  });
+  assert.equal(readerViewStateScope({ jobId: "job-2" }), "job:job-2");
+  assert.equal(values.size, 1);
+});
+
+test("reader view state rejects malformed layouts and clamps recoverable values", () => {
+  assert.deepEqual(normalizeReaderViewState({
+    schema: "retainpdf_reader_view_v1",
+    anchor: { page: 3.9, fraction: 2 },
+    zoom: 9,
+    splitLayout: { left: "source", right: "source" },
+    updatedAt: 12,
+  }), {
+    schema: "retainpdf_reader_view_v1",
+    anchor: { page: 3, fraction: 1 },
+    zoom: 1,
+    updatedAt: 12,
+  });
 });
 
 test("AI split keeps 50% zoom filling the document half", () => {
   assert.equal(resolveReaderPageWidthBasis(600, true), 1200);
+  assert.equal(resolveReaderPageWidthBasis(1200, true, 1200), 1200);
+  assert.equal(resolveReaderPageWidthBasis(600, true, 1200), 1200);
   assert.equal(resolveReaderPageWidthBasis(600, false), 600);
 });
 
-test("Markdown split keeps the floating tools entry available for AI", () => {
+test("assistant dock keeps the PDF mounted and owns Markdown or AI independently", () => {
   const source = readFileSync(
     new URL("../../../../packages/reader/src/ReaderAppReactPdf.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(source, /\{c\.showHud \? <ReaderFab/);
-  assert.doesNotMatch(source, /c\.showHud\s*&&\s*!markdownSplitOpen/);
+  assert.match(source, /is-workspace-\$\{workspaceView\}/);
+  assert.match(source, /<ReaderCompareGrid/);
+  assert.match(source, /<ReaderAssistantDock active=\{assistantPanel\}/);
+  assert.match(source, /assistantOpen \? <ReaderAiSplitResizeHandle \/>/);
+  assert.match(source, /markdownSplit=\{assistantPanel === "markdown"\}/);
+  assert.match(source, /assistantSplit=\{assistantOpen\}/);
+  assert.match(source, /modeControls=\{null\}/);
+  assert.doesNotMatch(source, /<ReaderPaneSelector/);
+  assert.doesNotMatch(source, /setAssistantPanel\(next\)[\s\S]{0,120}setModeKeepingPage/);
+  assert.doesNotMatch(source, /tools\.close\("ai"\)/);
 });
 
 test("Markdown split turns PDF compare into source PDF + Markdown", () => {
@@ -95,6 +372,49 @@ test("Markdown split turns PDF compare into source PDF + Markdown", () => {
       showTranslated: true,
     },
   );
+});
+
+test("live translation uses a source-left and live-canvas-right compare layout", () => {
+  assert.deepEqual(
+    resolveReaderGridPresentation({
+      mode: "source",
+      compareMode: false,
+      showSource: true,
+      showTranslated: false,
+      markdownSplit: false,
+      liveTranslationPair: true,
+    }),
+    {
+      mode: "compare",
+      compareMode: true,
+      showSource: true,
+      showTranslated: true,
+    },
+  );
+});
+
+test("live translation keeps a useful right-pane placeholder through OCR", () => {
+  assert.equal(liveTranslationPendingCopy({
+    layoutByPage: new Map(),
+    pagesByPage: new Map(),
+    lastSeq: 0,
+    connection: "connecting",
+    error: "",
+  }), "正在完成 OCR，译文将在这里逐页出现");
+  assert.equal(liveTranslationPendingCopy({
+    layoutByPage: new Map([[0, {}]]),
+    pagesByPage: new Map(),
+    lastSeq: 0,
+    connection: "connecting",
+    error: "",
+  }), "版面已就绪，正在等待首个译文页面");
+  assert.equal(liveTranslationPendingCopy({
+    layoutByPage: new Map([[0, {}]]),
+    pagesByPage: new Map([[0, {}]]),
+    lastSeq: 1,
+    connection: "live",
+    error: "",
+  }), "");
 });
 
 test("loadProtectedPdfFile returns null for empty url", async () => {

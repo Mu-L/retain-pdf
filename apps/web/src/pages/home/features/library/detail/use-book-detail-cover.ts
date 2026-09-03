@@ -48,6 +48,8 @@ export function deriveBookDetailCoverState({
   const snapshot = statusCardState?.snapshot ?? statusCardState ?? {};
   const cardStatus = `${snapshot?.status ?? statusCardState?.status ?? ""}`.trim().toLowerCase();
   const cardJobId = `${snapshot?.jobId ?? snapshot?.job_id ?? statusCardState?.jobId ?? ""}`.trim();
+  const itemJobId = `${item.job_id || item.active_job_id || ""}`.trim();
+  const cardMatchesItem = Boolean(cardJobId && itemJobId && cardJobId === itemJobId);
 
   const status = statusOf(item);
   const libraryOnly = isLibraryOnlyItem(item);
@@ -55,7 +57,7 @@ export function deriveBookDetailCoverState({
   const readPresentation = resolveLibraryReadPresentation(item);
   const readerAvailable =
     readPresentation.target === "job" &&
-    !["running", "queued", "pending"].includes(cardStatus);
+    !(cardMatchesItem && ["running", "queued", "pending"].includes(cardStatus));
   const canTranslate =
     Boolean(libraryOnly) ||
     itemStatus === "failed" ||
@@ -63,12 +65,13 @@ export function deriveBookDetailCoverState({
   const isActive =
     typeof isActiveProp === "boolean"
       ? isActiveProp
-      : isRecentJobActive(item) || ["running", "queued", "pending"].includes(cardStatus);
+      : isRecentJobActive(item)
+        || (cardMatchesItem && ["running", "queued", "pending"].includes(cardStatus));
   // 封面转圈：书架 live 行 + statusCard 正在跑（重试后 payload 可能仍是旧 succeeded）
   const coverProcessing =
     isActive ||
     isLibraryCardProcessing(item) ||
-    (Boolean(cardJobId) && ["running", "queued", "pending"].includes(cardStatus));
+    (cardMatchesItem && ["running", "queued", "pending"].includes(cardStatus));
 
   return {
     status,

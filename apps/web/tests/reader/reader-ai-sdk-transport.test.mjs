@@ -48,6 +48,14 @@ test("RetainPDF SSE adapter feeds AI SDK messages without changing the backend c
         assistantMessageId: "a-sdk",
         parentId: "a-before",
         userMessageId: "u-sdk",
+        scope: "selection",
+        context: {
+          page: 2,
+          pane: "source",
+          kind: "text",
+          block_id: "p002-b0001",
+          quoteText: "selected source text",
+        },
       },
     },
   );
@@ -55,8 +63,12 @@ test("RetainPDF SSE adapter feeds AI SDK messages without changing the backend c
   assert.equal(chat.status, "ready");
   assert.equal(calls.length, 1);
   assert.equal(calls[0].question, "核心结论？");
+  assert.equal(calls[0].assistantMode, "reading");
   assert.equal(calls[0].parentId, "a-before");
   assert.equal(calls[0].assistantMessageId, "a-sdk");
+  assert.equal(calls[0].scope, "selection");
+  assert.equal(calls[0].context.block_id, "p002-b0001");
+  assert.equal(calls[0].context.quoteText, "selected source text");
   assert.equal(chat.messages.at(-1).id, "a-sdk");
   assert.equal(readerChatMessageText(chat.messages.at(-1)), "第一段第二段");
   assert.equal(chat.messages.at(-1).metadata.status, "complete");
@@ -154,4 +166,59 @@ test("Reader transport forwards operation hints and green-light mode to the oper
   assert.equal(signals.find((signal) => signal.operationId === "op-stream").conversationId, "conv-reader");
   assert.equal(signals.find((signal) => signal.operationId === "op-done").confirmationMode, "green_light");
   assert.deepEqual(modes, ["green_light", "green_light"]);
+});
+
+test("Reader transport freezes mode, scope, and selection before async loading", async () => {
+  let currentMode = "reading";
+  let releaseLoading;
+  const loading = new Promise((resolve) => { releaseLoading = resolve; });
+  const calls = [];
+  const answerer = {
+    async ensureLoaded() {
+      await loading;
+    },
+    async answer(options) {
+      calls.push(options);
+      return { answer: "done", citations: [] };
+    },
+  };
+  const chat = new Chat({
+    id: "chat-frozen-request",
+    transport: new RetainPdfChatTransport({
+      jobId: "job-frozen-request",
+      getRemoteAnswerer: () => answerer,
+      getAssistantMode: () => currentMode,
+    }),
+  });
+
+  const context = {
+    page: 4,
+    pane: "translated",
+    kind: "text",
+    quoteText: "original selection",
+  };
+  const sending = chat.sendMessage({
+    id: "u-frozen-request",
+    role: "user",
+    parts: [{ type: "text", text: "retry this request" }],
+  }, {
+    body: {
+      assistantMessageId: "a-frozen-request",
+      assistantMode: "operations",
+      scope: "selection",
+      context,
+    },
+  });
+
+  // Mutating the visible controls and caller object after submission must not
+  // reroute the request that is already waiting for its document payload.
+  currentMode = "reading";
+  context.quoteText = "mutated selection";
+  releaseLoading();
+  await sending;
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].assistantMode, "operations");
+  assert.equal(calls[0].scope, "selection");
+  assert.equal(calls[0].context.quoteText, "original selection");
 });

@@ -29,6 +29,7 @@ test("Reader AI 加载已有会话后快照稳定，composer 仍可输入", asyn
     "Event",
     "MouseEvent",
     "Node",
+    "NodeFilter",
     "MutationObserver",
   ]) {
     Object.defineProperty(globalThis, key, {

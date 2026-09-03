@@ -16,6 +16,12 @@ function buildOcrJobDetailEndpoint(jobId: string, apiPrefix: string | undefined)
 
 export type FetchJobPayloadOptions = { apiPrefix?: string };
 
+function jobRequestError(message: string, status: number): Error & { status: number } {
+  const error = new Error(message) as Error & { status: number };
+  error.status = status;
+  return error;
+}
+
 function normalizeJobPayloadArgs(
   a: string,
   b?: string | FetchJobPayloadOptions,
@@ -70,8 +76,10 @@ export async function fetchJobPayload(a: string, b?: string | FetchJobPayloadOpt
     }
   }
   if (!resp.ok) {
-    if (resp.status === 404) throw new Error("未找到该任务，请检查 job_id 是否正确。");
-    throw new Error(`读取任务失败，请稍后重试。(${resp.status})`);
+    if (resp.status === 404) {
+      throw jobRequestError("未找到该任务，请检查 job_id 是否正确。", 404);
+    }
+    throw jobRequestError(`读取任务失败，请稍后重试。(${resp.status})`, resp.status);
   }
   return unwrapEnvelope<JobDetailView>(await resp.json());
 }

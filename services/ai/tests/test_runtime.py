@@ -361,7 +361,9 @@ def test_fx_acp_runtime_persists_cursor_streams_and_denies_permissions(tmp_path)
             "status": "failed",
         }
     ]
-    assert [event["type"] for event in events] == ["agent_tool", "answer_delta"]
+    # Rejected ACP commands are not authoritative RetainPDF tools and therefore
+    # must not be projected as public agent_tool events.
+    assert [event["type"] for event in events] == ["answer_delta"]
     stored = rust.get_agent_runtime_session("conv-a")
     assert stored["runtime_id"] == FX_RUNTIME_ID
     assert stored["session_cursor"] == "fx-test-session"

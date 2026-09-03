@@ -36,6 +36,51 @@
   touch-action: auto;
 }
 
+/* Markdown / AI 作为 Reader 中间工作区，不再伪装成悬浮对话框。 */
+.reader-notes-panel--workspace {
+  position: fixed;
+  inset: 60px 0 0 auto;
+  z-index: 24;
+  width: 50vw;
+  width: 50dvw;
+  height: auto;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  background: var(--paper);
+  box-shadow: none;
+  animation: reader-workspace-in 170ms var(--ease-out) both;
+}
+
+.reader-notes-panel--workspace.is-pane-left {
+  inset-inline: 0 auto;
+}
+
+.reader-notes-panel--workspace.is-pane-right {
+  inset-inline: auto 0;
+}
+
+.reader-notes-panel--workspace.is-headerless:not(.has-panel-toolbar) {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.reader-notes-panel--workspace.is-headerless.has-panel-toolbar {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+@keyframes reader-workspace-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 520px) {
+  .reader-notes-panel--workspace {
+    inset: 58px 0 0;
+    width: 100vw;
+    width: 100dvw;
+  }
+}
+
 @media (max-width: 899px) {
   .reader-notes-panel--docked {
     width: 100vw;

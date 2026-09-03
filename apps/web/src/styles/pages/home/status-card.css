@@ -260,7 +260,8 @@
 }
 
 @utility status-head-cancel {
-  @apply justify-self-start;
+  @apply gap-1.5 justify-self-start;
+  border-color: var(--ink);
 }
 
 @utility status-head-detail {

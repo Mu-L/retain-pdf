@@ -6,10 +6,10 @@ from pathlib import Path
 from typing import Any
 
 from retainpdf_pipeline.foundation.config import fonts
-from retainpdf_pipeline.foundation.shared.job_dirs import JobDirs
-from retainpdf_pipeline.foundation.shared.job_dirs import resolve_job_dirs
-from retainpdf_pipeline.foundation.shared.ocr_provider_config import paddle_default_model
-
+from retainpdf_pipeline.foundation.shared.job_dirs import JobDirs, resolve_job_dirs
+from retainpdf_pipeline.foundation.shared.ocr_provider_config import (
+    paddle_default_model,
+)
 
 NORMALIZE_STAGE_SCHEMA_VERSION = "normalize.stage.v1"
 TRANSLATE_STAGE_SCHEMA_VERSION = "translate.stage.v1"
@@ -84,7 +84,7 @@ class NormalizeStageSpec:
     inputs: NormalizeStageInputs
 
     @classmethod
-    def load(cls, path: Path) -> "NormalizeStageSpec":
+    def load(cls, path: Path) -> NormalizeStageSpec:
         spec_path = path.resolve()
         if not spec_path.exists():
             raise RuntimeError(f"stage spec not found: {spec_path}")
@@ -109,12 +109,21 @@ class NormalizeStageSpec:
             provider=_require_text(inputs_payload, "provider").lower(),
             source_json=Path(_require_text(inputs_payload, "source_json")).resolve(),
             source_pdf=Path(_require_text(inputs_payload, "source_pdf")).resolve(),
-            provider_version=str(inputs_payload.get("provider_version", "") or "").strip(),
-            provider_result_json=_optional_path(inputs_payload.get("provider_result_json")),
+            provider_version=str(
+                inputs_payload.get("provider_version", "") or ""
+            ).strip(),
+            provider_result_json=_optional_path(
+                inputs_payload.get("provider_result_json")
+            ),
             provider_zip=_optional_path(inputs_payload.get("provider_zip")),
             provider_raw_dir=_optional_path(inputs_payload.get("provider_raw_dir")),
         )
-        if not inputs.source_json.exists():
+        source_can_be_discovered = (
+            inputs.provider == "mineru"
+            and inputs.provider_raw_dir is not None
+            and inputs.provider_raw_dir.is_dir()
+        )
+        if not inputs.source_json.exists() and not source_can_be_discovered:
             raise RuntimeError(f"source json not found: {inputs.source_json}")
         if not inputs.source_pdf.exists():
             raise RuntimeError(f"source pdf not found: {inputs.source_pdf}")
@@ -196,7 +205,7 @@ class TranslateStageSpec:
     params: TranslateStageParams
 
     @classmethod
-    def load(cls, path: Path) -> "TranslateStageSpec":
+    def load(cls, path: Path) -> TranslateStageSpec:
         spec_path = path.resolve()
         if not spec_path.exists():
             raise RuntimeError(f"stage spec not found: {spec_path}")
@@ -228,36 +237,71 @@ class TranslateStageSpec:
             raise RuntimeError(f"source pdf not found: {inputs.source_pdf}")
         glossary_entries = params_payload.get("glossary_entries") or []
         if not isinstance(glossary_entries, list):
-            raise RuntimeError("stage spec field 'params.glossary_entries' must be a list")
+            raise RuntimeError(
+                "stage spec field 'params.glossary_entries' must be a list"
+            )
         params = TranslateStageParams(
             start_page=_int_field(params_payload, "start_page", 0),
             end_page=_int_field(params_payload, "end_page", -1),
             batch_size=int(params_payload.get("batch_size", 1) or 1),
             workers=int(params_payload.get("workers", 1) or 1),
             mode=str(params_payload.get("mode", "sci") or "sci"),
-            math_mode=str(params_payload.get("math_mode", "direct_typst") or "direct_typst"),
-            skip_title_translation=bool(params_payload.get("skip_title_translation", False)),
-            classify_batch_size=int(params_payload.get("classify_batch_size", 12) or 12),
-            rule_profile_name=str(params_payload.get("rule_profile_name", "general_sci") or "general_sci"),
+            math_mode=str(
+                params_payload.get("math_mode", "direct_typst") or "direct_typst"
+            ),
+            skip_title_translation=bool(
+                params_payload.get("skip_title_translation", False)
+            ),
+            classify_batch_size=int(
+                params_payload.get("classify_batch_size", 12) or 12
+            ),
+            rule_profile_name=str(
+                params_payload.get("rule_profile_name", "general_sci") or "general_sci"
+            ),
             custom_rules_text=str(params_payload.get("custom_rules_text", "") or ""),
             glossary_id=str(params_payload.get("glossary_id", "") or ""),
             glossary_name=str(params_payload.get("glossary_name", "") or ""),
-            glossary_resource_entry_count=int(params_payload.get("glossary_resource_entry_count", 0) or 0),
-            glossary_inline_entry_count=int(params_payload.get("glossary_inline_entry_count", 0) or 0),
-            glossary_overridden_entry_count=int(params_payload.get("glossary_overridden_entry_count", 0) or 0),
+            glossary_resource_entry_count=int(
+                params_payload.get("glossary_resource_entry_count", 0) or 0
+            ),
+            glossary_inline_entry_count=int(
+                params_payload.get("glossary_inline_entry_count", 0) or 0
+            ),
+            glossary_overridden_entry_count=int(
+                params_payload.get("glossary_overridden_entry_count", 0) or 0
+            ),
             glossary_entries=glossary_entries,
-            context_mode=str(params_payload.get("context_mode", "needed") or "needed").strip().lower(),
-            glossary_mode=str(params_payload.get("glossary_mode", "matched") or "matched").strip().lower(),
-            memory_mode=str(params_payload.get("memory_mode", "matched") or "matched").strip().lower(),
+            context_mode=str(params_payload.get("context_mode", "needed") or "needed")
+            .strip()
+            .lower(),
+            glossary_mode=str(
+                params_payload.get("glossary_mode", "matched") or "matched"
+            )
+            .strip()
+            .lower(),
+            memory_mode=str(params_payload.get("memory_mode", "matched") or "matched")
+            .strip()
+            .lower(),
             model=str(params_payload.get("model", "") or ""),
             base_url=str(params_payload.get("base_url", "") or ""),
             credential_ref=str(params_payload.get("credential_ref", "") or ""),
-            render_prewarm_output_pdf_path=_optional_path(params_payload.get("render_prewarm_output_pdf_path")),
-            render_prewarm_mode=str(params_payload.get("render_prewarm_mode", "auto") or "auto"),
-            render_prewarm_pdf_compress_dpi=int(params_payload.get("render_prewarm_pdf_compress_dpi", 0) or 0),
+            render_prewarm_output_pdf_path=_optional_path(
+                params_payload.get("render_prewarm_output_pdf_path")
+            ),
+            render_prewarm_mode=str(
+                params_payload.get("render_prewarm_mode", "auto") or "auto"
+            ),
+            render_prewarm_pdf_compress_dpi=int(
+                params_payload.get("render_prewarm_pdf_compress_dpi", 0) or 0
+            ),
             render_prewarm_source_cleanup_strategy=str(
-                params_payload.get("render_prewarm_source_cleanup_strategy", "pikepdf_text_strip") or "pikepdf_text_strip"
-            ).strip().lower(),
+                params_payload.get(
+                    "render_prewarm_source_cleanup_strategy", "pikepdf_text_strip"
+                )
+                or "pikepdf_text_strip"
+            )
+            .strip()
+            .lower(),
         )
         return cls(
             schema_version=schema_version,
@@ -310,7 +354,7 @@ class RenderStageSpec:
     params: RenderStageParams
 
     @classmethod
-    def load(cls, path: Path) -> "RenderStageSpec":
+    def load(cls, path: Path) -> RenderStageSpec:
         spec_path = path.resolve()
         if not spec_path.exists():
             raise RuntimeError(f"stage spec not found: {spec_path}")
@@ -333,8 +377,12 @@ class RenderStageSpec:
         )
         inputs = RenderStageInputs(
             source_pdf=Path(_require_text(inputs_payload, "source_pdf")).resolve(),
-            translations_dir=Path(_require_text(inputs_payload, "translations_dir")).resolve(),
-            translation_manifest=_optional_path(inputs_payload.get("translation_manifest")),
+            translations_dir=Path(
+                _require_text(inputs_payload, "translations_dir")
+            ).resolve(),
+            translation_manifest=_optional_path(
+                inputs_payload.get("translation_manifest")
+            ),
         )
         if not inputs.source_pdf.exists():
             raise RuntimeError(f"source pdf not found: {inputs.source_pdf}")
@@ -345,18 +393,43 @@ class RenderStageSpec:
             end_page=_int_field(params_payload, "end_page", -1),
             render_mode=str(params_payload.get("render_mode", "typst") or "typst"),
             compile_workers=int(params_payload.get("compile_workers", 0) or 0),
-            typst_font_family=str(params_payload.get("typst_font_family", "") or "").strip()
+            typst_font_family=str(
+                params_payload.get("typst_font_family", "") or ""
+            ).strip()
             or fonts.TYPST_DEFAULT_FONT_FAMILY,
             pdf_compress_dpi=int(params_payload.get("pdf_compress_dpi", 0) or 0),
-            translated_pdf_name=str(params_payload.get("translated_pdf_name", "") or ""),
-            body_font_size_factor=float(params_payload.get("body_font_size_factor", 1.0) or 1.0),
-            body_leading_factor=float(params_payload.get("body_leading_factor", 1.0) or 1.0),
-            inner_bbox_shrink_x=float(params_payload.get("inner_bbox_shrink_x", 0.0) or 0.0),
-            inner_bbox_shrink_y=float(params_payload.get("inner_bbox_shrink_y", 0.0) or 0.0),
-            inner_bbox_dense_shrink_x=float(params_payload.get("inner_bbox_dense_shrink_x", 0.0) or 0.0),
-            inner_bbox_dense_shrink_y=float(params_payload.get("inner_bbox_dense_shrink_y", 0.0) or 0.0),
-            font_unify_mode=str(params_payload.get("font_unify_mode", "role_min") or "role_min").strip().lower(),
-            source_cleanup_strategy=str(params_payload.get("source_cleanup_strategy", "pikepdf_text_strip") or "pikepdf_text_strip").strip().lower(),
+            translated_pdf_name=str(
+                params_payload.get("translated_pdf_name", "") or ""
+            ),
+            body_font_size_factor=float(
+                params_payload.get("body_font_size_factor", 1.0) or 1.0
+            ),
+            body_leading_factor=float(
+                params_payload.get("body_leading_factor", 1.0) or 1.0
+            ),
+            inner_bbox_shrink_x=float(
+                params_payload.get("inner_bbox_shrink_x", 0.0) or 0.0
+            ),
+            inner_bbox_shrink_y=float(
+                params_payload.get("inner_bbox_shrink_y", 0.0) or 0.0
+            ),
+            inner_bbox_dense_shrink_x=float(
+                params_payload.get("inner_bbox_dense_shrink_x", 0.0) or 0.0
+            ),
+            inner_bbox_dense_shrink_y=float(
+                params_payload.get("inner_bbox_dense_shrink_y", 0.0) or 0.0
+            ),
+            font_unify_mode=str(
+                params_payload.get("font_unify_mode", "role_min") or "role_min"
+            )
+            .strip()
+            .lower(),
+            source_cleanup_strategy=str(
+                params_payload.get("source_cleanup_strategy", "pikepdf_text_strip")
+                or "pikepdf_text_strip"
+            )
+            .strip()
+            .lower(),
             model=str(params_payload.get("model", "") or ""),
             base_url=str(params_payload.get("base_url", "") or ""),
             credential_ref=str(params_payload.get("credential_ref", "") or ""),
@@ -455,14 +528,16 @@ class ProviderStageSpec:
     render: ProviderStageRenderParams
 
     @classmethod
-    def load(cls, path: Path) -> "ProviderStageSpec":
+    def load(cls, path: Path) -> ProviderStageSpec:
         spec_path = path.resolve()
         if not spec_path.exists():
             raise RuntimeError(f"stage spec not found: {spec_path}")
         payload = _load_json(spec_path)
         schema_version = _require_text(payload, "schema_version")
         if schema_version != PROVIDER_STAGE_SCHEMA_VERSION:
-            raise RuntimeError(f"unsupported provider stage schema_version: {schema_version}")
+            raise RuntimeError(
+                f"unsupported provider stage schema_version: {schema_version}"
+            )
         stage = _require_text(payload, "stage")
         if stage != "provider":
             raise RuntimeError(f"unexpected stage spec kind: {stage}")
@@ -479,14 +554,21 @@ class ProviderStageSpec:
         file_url = str(source_payload.get("file_url", "") or "").strip()
         file_path = _optional_path(source_payload.get("file_path"))
         if not file_url and file_path is None:
-            raise RuntimeError("provider stage spec requires source.file_url or source.file_path")
+            raise RuntimeError(
+                "provider stage spec requires source.file_url or source.file_path"
+            )
         source = ProviderStageSource(file_url=file_url, file_path=file_path)
         ocr = ProviderStageOcrParams(
-            provider=str(ocr_payload.get("provider", "mineru") or "mineru").strip().lower(),
+            provider=str(ocr_payload.get("provider", "mineru") or "mineru")
+            .strip()
+            .lower(),
             credential_ref=str(ocr_payload.get("credential_ref", "") or ""),
             model_version=str(ocr_payload.get("model_version", "vlm") or "vlm"),
             paddle_api_url=str(ocr_payload.get("paddle_api_url", "") or ""),
-            paddle_model=str(ocr_payload.get("paddle_model", paddle_default_model()) or paddle_default_model()),
+            paddle_model=str(
+                ocr_payload.get("paddle_model", paddle_default_model())
+                or paddle_default_model()
+            ),
             is_ocr=bool(ocr_payload.get("is_ocr", False)),
             disable_formula=bool(ocr_payload.get("disable_formula", False)),
             disable_table=bool(ocr_payload.get("disable_table", False)),
@@ -504,27 +586,58 @@ class ProviderStageSpec:
         )
         glossary_entries = translation_payload.get("glossary_entries") or []
         if not isinstance(glossary_entries, list):
-            raise RuntimeError("stage spec field 'translation.glossary_entries' must be a list")
+            raise RuntimeError(
+                "stage spec field 'translation.glossary_entries' must be a list"
+            )
         translation = ProviderStageTranslationParams(
             start_page=_int_field(translation_payload, "start_page", 0),
             end_page=_int_field(translation_payload, "end_page", -1),
             batch_size=int(translation_payload.get("batch_size", 1) or 1),
             workers=int(translation_payload.get("workers", 1) or 1),
             mode=str(translation_payload.get("mode", "sci") or "sci"),
-            math_mode=str(translation_payload.get("math_mode", "direct_typst") or "direct_typst"),
-            skip_title_translation=bool(translation_payload.get("skip_title_translation", False)),
-            classify_batch_size=int(translation_payload.get("classify_batch_size", 12) or 12),
-            rule_profile_name=str(translation_payload.get("rule_profile_name", "general_sci") or "general_sci"),
-            custom_rules_text=str(translation_payload.get("custom_rules_text", "") or ""),
+            math_mode=str(
+                translation_payload.get("math_mode", "direct_typst") or "direct_typst"
+            ),
+            skip_title_translation=bool(
+                translation_payload.get("skip_title_translation", False)
+            ),
+            classify_batch_size=int(
+                translation_payload.get("classify_batch_size", 12) or 12
+            ),
+            rule_profile_name=str(
+                translation_payload.get("rule_profile_name", "general_sci")
+                or "general_sci"
+            ),
+            custom_rules_text=str(
+                translation_payload.get("custom_rules_text", "") or ""
+            ),
             glossary_id=str(translation_payload.get("glossary_id", "") or ""),
             glossary_name=str(translation_payload.get("glossary_name", "") or ""),
-            glossary_resource_entry_count=int(translation_payload.get("glossary_resource_entry_count", 0) or 0),
-            glossary_inline_entry_count=int(translation_payload.get("glossary_inline_entry_count", 0) or 0),
-            glossary_overridden_entry_count=int(translation_payload.get("glossary_overridden_entry_count", 0) or 0),
+            glossary_resource_entry_count=int(
+                translation_payload.get("glossary_resource_entry_count", 0) or 0
+            ),
+            glossary_inline_entry_count=int(
+                translation_payload.get("glossary_inline_entry_count", 0) or 0
+            ),
+            glossary_overridden_entry_count=int(
+                translation_payload.get("glossary_overridden_entry_count", 0) or 0
+            ),
             glossary_entries=glossary_entries,
-            context_mode=str(translation_payload.get("context_mode", "needed") or "needed").strip().lower(),
-            glossary_mode=str(translation_payload.get("glossary_mode", "matched") or "matched").strip().lower(),
-            memory_mode=str(translation_payload.get("memory_mode", "matched") or "matched").strip().lower(),
+            context_mode=str(
+                translation_payload.get("context_mode", "needed") or "needed"
+            )
+            .strip()
+            .lower(),
+            glossary_mode=str(
+                translation_payload.get("glossary_mode", "matched") or "matched"
+            )
+            .strip()
+            .lower(),
+            memory_mode=str(
+                translation_payload.get("memory_mode", "matched") or "matched"
+            )
+            .strip()
+            .lower(),
             model=str(translation_payload.get("model", "") or ""),
             base_url=str(translation_payload.get("base_url", "") or ""),
             credential_ref=str(translation_payload.get("credential_ref", "") or ""),
@@ -532,18 +645,43 @@ class ProviderStageSpec:
         render = ProviderStageRenderParams(
             render_mode=str(render_payload.get("render_mode", "typst") or "typst"),
             compile_workers=int(render_payload.get("compile_workers", 0) or 0),
-            typst_font_family=str(render_payload.get("typst_font_family", "") or "").strip()
+            typst_font_family=str(
+                render_payload.get("typst_font_family", "") or ""
+            ).strip()
             or fonts.TYPST_DEFAULT_FONT_FAMILY,
             pdf_compress_dpi=int(render_payload.get("pdf_compress_dpi", 0) or 0),
-            translated_pdf_name=str(render_payload.get("translated_pdf_name", "") or ""),
-            body_font_size_factor=float(render_payload.get("body_font_size_factor", 1.0) or 1.0),
-            body_leading_factor=float(render_payload.get("body_leading_factor", 1.0) or 1.0),
-            inner_bbox_shrink_x=float(render_payload.get("inner_bbox_shrink_x", 0.0) or 0.0),
-            inner_bbox_shrink_y=float(render_payload.get("inner_bbox_shrink_y", 0.0) or 0.0),
-            inner_bbox_dense_shrink_x=float(render_payload.get("inner_bbox_dense_shrink_x", 0.0) or 0.0),
-            inner_bbox_dense_shrink_y=float(render_payload.get("inner_bbox_dense_shrink_y", 0.0) or 0.0),
-            font_unify_mode=str(render_payload.get("font_unify_mode", "role_min") or "role_min").strip().lower(),
-            source_cleanup_strategy=str(render_payload.get("source_cleanup_strategy", "pikepdf_text_strip") or "pikepdf_text_strip").strip().lower(),
+            translated_pdf_name=str(
+                render_payload.get("translated_pdf_name", "") or ""
+            ),
+            body_font_size_factor=float(
+                render_payload.get("body_font_size_factor", 1.0) or 1.0
+            ),
+            body_leading_factor=float(
+                render_payload.get("body_leading_factor", 1.0) or 1.0
+            ),
+            inner_bbox_shrink_x=float(
+                render_payload.get("inner_bbox_shrink_x", 0.0) or 0.0
+            ),
+            inner_bbox_shrink_y=float(
+                render_payload.get("inner_bbox_shrink_y", 0.0) or 0.0
+            ),
+            inner_bbox_dense_shrink_x=float(
+                render_payload.get("inner_bbox_dense_shrink_x", 0.0) or 0.0
+            ),
+            inner_bbox_dense_shrink_y=float(
+                render_payload.get("inner_bbox_dense_shrink_y", 0.0) or 0.0
+            ),
+            font_unify_mode=str(
+                render_payload.get("font_unify_mode", "role_min") or "role_min"
+            )
+            .strip()
+            .lower(),
+            source_cleanup_strategy=str(
+                render_payload.get("source_cleanup_strategy", "pikepdf_text_strip")
+                or "pikepdf_text_strip"
+            )
+            .strip()
+            .lower(),
         )
         return cls(
             schema_version=schema_version,
@@ -620,14 +758,16 @@ class BookStageSpec:
     render: BookStageRenderParams
 
     @classmethod
-    def load(cls, path: Path) -> "BookStageSpec":
+    def load(cls, path: Path) -> BookStageSpec:
         spec_path = path.resolve()
         if not spec_path.exists():
             raise RuntimeError(f"stage spec not found: {spec_path}")
         payload = _load_json(spec_path)
         schema_version = _require_text(payload, "schema_version")
         if schema_version != BOOK_STAGE_SCHEMA_VERSION:
-            raise RuntimeError(f"unsupported book stage schema_version: {schema_version}")
+            raise RuntimeError(
+                f"unsupported book stage schema_version: {schema_version}"
+            )
         stage = _require_text(payload, "stage")
         if stage != "book":
             raise RuntimeError(f"unexpected stage spec kind: {stage}")
@@ -651,27 +791,58 @@ class BookStageSpec:
             raise RuntimeError(f"source pdf not found: {inputs.source_pdf}")
         glossary_entries = translation_payload.get("glossary_entries") or []
         if not isinstance(glossary_entries, list):
-            raise RuntimeError("stage spec field 'translation.glossary_entries' must be a list")
+            raise RuntimeError(
+                "stage spec field 'translation.glossary_entries' must be a list"
+            )
         translation = BookStageTranslationParams(
             start_page=_int_field(translation_payload, "start_page", 0),
             end_page=_int_field(translation_payload, "end_page", -1),
             batch_size=int(translation_payload.get("batch_size", 1) or 1),
             workers=int(translation_payload.get("workers", 1) or 1),
             mode=str(translation_payload.get("mode", "sci") or "sci"),
-            math_mode=str(translation_payload.get("math_mode", "direct_typst") or "direct_typst"),
-            skip_title_translation=bool(translation_payload.get("skip_title_translation", False)),
-            classify_batch_size=int(translation_payload.get("classify_batch_size", 12) or 12),
-            rule_profile_name=str(translation_payload.get("rule_profile_name", "general_sci") or "general_sci"),
-            custom_rules_text=str(translation_payload.get("custom_rules_text", "") or ""),
+            math_mode=str(
+                translation_payload.get("math_mode", "direct_typst") or "direct_typst"
+            ),
+            skip_title_translation=bool(
+                translation_payload.get("skip_title_translation", False)
+            ),
+            classify_batch_size=int(
+                translation_payload.get("classify_batch_size", 12) or 12
+            ),
+            rule_profile_name=str(
+                translation_payload.get("rule_profile_name", "general_sci")
+                or "general_sci"
+            ),
+            custom_rules_text=str(
+                translation_payload.get("custom_rules_text", "") or ""
+            ),
             glossary_id=str(translation_payload.get("glossary_id", "") or ""),
             glossary_name=str(translation_payload.get("glossary_name", "") or ""),
-            glossary_resource_entry_count=int(translation_payload.get("glossary_resource_entry_count", 0) or 0),
-            glossary_inline_entry_count=int(translation_payload.get("glossary_inline_entry_count", 0) or 0),
-            glossary_overridden_entry_count=int(translation_payload.get("glossary_overridden_entry_count", 0) or 0),
+            glossary_resource_entry_count=int(
+                translation_payload.get("glossary_resource_entry_count", 0) or 0
+            ),
+            glossary_inline_entry_count=int(
+                translation_payload.get("glossary_inline_entry_count", 0) or 0
+            ),
+            glossary_overridden_entry_count=int(
+                translation_payload.get("glossary_overridden_entry_count", 0) or 0
+            ),
             glossary_entries=glossary_entries,
-            context_mode=str(translation_payload.get("context_mode", "needed") or "needed").strip().lower(),
-            glossary_mode=str(translation_payload.get("glossary_mode", "matched") or "matched").strip().lower(),
-            memory_mode=str(translation_payload.get("memory_mode", "matched") or "matched").strip().lower(),
+            context_mode=str(
+                translation_payload.get("context_mode", "needed") or "needed"
+            )
+            .strip()
+            .lower(),
+            glossary_mode=str(
+                translation_payload.get("glossary_mode", "matched") or "matched"
+            )
+            .strip()
+            .lower(),
+            memory_mode=str(
+                translation_payload.get("memory_mode", "matched") or "matched"
+            )
+            .strip()
+            .lower(),
             model=str(translation_payload.get("model", "") or ""),
             base_url=str(translation_payload.get("base_url", "") or ""),
             credential_ref=str(translation_payload.get("credential_ref", "") or ""),
@@ -679,18 +850,43 @@ class BookStageSpec:
         render = BookStageRenderParams(
             render_mode=str(render_payload.get("render_mode", "typst") or "typst"),
             compile_workers=int(render_payload.get("compile_workers", 0) or 0),
-            typst_font_family=str(render_payload.get("typst_font_family", "") or "").strip()
+            typst_font_family=str(
+                render_payload.get("typst_font_family", "") or ""
+            ).strip()
             or fonts.TYPST_DEFAULT_FONT_FAMILY,
             pdf_compress_dpi=int(render_payload.get("pdf_compress_dpi", 0) or 0),
-            translated_pdf_name=str(render_payload.get("translated_pdf_name", "") or ""),
-            body_font_size_factor=float(render_payload.get("body_font_size_factor", 1.0) or 1.0),
-            body_leading_factor=float(render_payload.get("body_leading_factor", 1.0) or 1.0),
-            inner_bbox_shrink_x=float(render_payload.get("inner_bbox_shrink_x", 0.0) or 0.0),
-            inner_bbox_shrink_y=float(render_payload.get("inner_bbox_shrink_y", 0.0) or 0.0),
-            inner_bbox_dense_shrink_x=float(render_payload.get("inner_bbox_dense_shrink_x", 0.0) or 0.0),
-            inner_bbox_dense_shrink_y=float(render_payload.get("inner_bbox_dense_shrink_y", 0.0) or 0.0),
-            font_unify_mode=str(render_payload.get("font_unify_mode", "role_min") or "role_min").strip().lower(),
-            source_cleanup_strategy=str(render_payload.get("source_cleanup_strategy", "pikepdf_text_strip") or "pikepdf_text_strip").strip().lower(),
+            translated_pdf_name=str(
+                render_payload.get("translated_pdf_name", "") or ""
+            ),
+            body_font_size_factor=float(
+                render_payload.get("body_font_size_factor", 1.0) or 1.0
+            ),
+            body_leading_factor=float(
+                render_payload.get("body_leading_factor", 1.0) or 1.0
+            ),
+            inner_bbox_shrink_x=float(
+                render_payload.get("inner_bbox_shrink_x", 0.0) or 0.0
+            ),
+            inner_bbox_shrink_y=float(
+                render_payload.get("inner_bbox_shrink_y", 0.0) or 0.0
+            ),
+            inner_bbox_dense_shrink_x=float(
+                render_payload.get("inner_bbox_dense_shrink_x", 0.0) or 0.0
+            ),
+            inner_bbox_dense_shrink_y=float(
+                render_payload.get("inner_bbox_dense_shrink_y", 0.0) or 0.0
+            ),
+            font_unify_mode=str(
+                render_payload.get("font_unify_mode", "role_min") or "role_min"
+            )
+            .strip()
+            .lower(),
+            source_cleanup_strategy=str(
+                render_payload.get("source_cleanup_strategy", "pikepdf_text_strip")
+                or "pikepdf_text_strip"
+            )
+            .strip()
+            .lower(),
         )
         return cls(
             schema_version=schema_version,

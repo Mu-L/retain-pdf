@@ -24,7 +24,7 @@ function defaultDocumentByJobId(): Promise<any> {
 
 const QUOTE_MAX_LENGTH = 240;
 
-export type ReaderAssistantMode = "reading" | "operations";
+export type ReaderAssistantMode = "auto" | "reading" | "operations";
 
 function clipQuoteText(text = "", maxLength = QUOTE_MAX_LENGTH): string {
   const normalized = `${text}`.replace(/\s+/g, " ").trim();
@@ -41,9 +41,14 @@ export function buildScopedQuestion({ question = "", scope = "document", context
   }
   if (scope === "selection") {
     const quote = typeof resolveQuote === "function" && context ? resolveQuote(context) : null;
-    const quoteText = clipQuoteText(quote?.quoteText || "");
+    const quoteText = clipQuoteText(quote?.quoteText || context?.quoteText || "");
     if (quoteText) {
-      return `（针对选中的原文片段：「${quoteText}」）${trimmed}`;
+      const paneLabel = context?.pane === "translated" ? "译文" : "原文";
+      const kindLabel = context?.kind === "formula" ? "公式"
+        : context?.kind === "table" ? "表格"
+          : context?.kind === "figure" ? "图片"
+            : context?.kind === "text" ? "文字" : "片段";
+      return `（针对选中的${paneLabel}${kindLabel}：「${quoteText}」）${trimmed}`;
     }
     if (context?.page) {
       return `（针对第 ${Number(context.page)} 页的选区内容）${trimmed}`;
@@ -57,6 +62,7 @@ export function buildScopedQuestion({ question = "", scope = "document", context
 
 export function createReaderAskAnswerer({
   jobId = "",
+  documentId = "",
   apiPrefix = DEFAULT_API_PREFIX,
   ask = defaultAsk,
   documentByJobId = defaultDocumentByJobId,
@@ -65,19 +71,25 @@ export function createReaderAskAnswerer({
   llmConfig = resolveReaderAiConfig,
 }: {
   jobId?: string;
+  documentId?: string;
   apiPrefix?: string;
   ask?: (opts: any) => Promise<any>;
   documentByJobId?: (apiPrefix: string, jobId: string) => Promise<any>;
   resolveQuote?: ((ctx: any) => any) | null;
   llmConfig?: (() => any) | any;
 } = {}): any {
+  const stableDocumentId = `${documentId || ""}`.trim();
   let documentIdPromise: Promise<string> | null = null;
   // 内存优先,localStorage 兜底(跨刷新)
-  let conversationId = loadStoredConversationId({ jobId });
+  let conversationId = loadStoredConversationId({
+    jobId,
+    documentId: stableDocumentId,
+  });
 
   function resolveDocumentId(): Promise<string> {
     if (!documentIdPromise) {
       documentIdPromise = (async () => {
+        if (stableDocumentId) return stableDocumentId;
         try {
           const document = await documentByJobId(apiPrefix, jobId) as { document_id?: string } | null | undefined;
           return `${(document as any)?.document_id || ""}`.trim();
@@ -103,6 +115,7 @@ export function createReaderAskAnswerer({
     scope = "document",
     context = null,
     onToolEvent = null,
+    onProgressEvent = null,
     onAgentOperationEvent = null,
     onAgentConfirmationRequiredEvent = null,
     onAgentSessionEvent = null,
@@ -120,6 +133,7 @@ export function createReaderAskAnswerer({
     scope?: string;
     context?: any;
     onToolEvent?: ((e: any) => void) | null;
+    onProgressEvent?: ((e: { type: "progress"; stage: "routing" | "retrieval"; message: string }) => void) | null;
     onAgentOperationEvent?: ((e: any) => void) | null;
     onAgentConfirmationRequiredEvent?: ((e: any) => void) | null;
     onAgentSessionEvent?: ((e: any) => void) | null;
@@ -152,7 +166,12 @@ export function createReaderAskAnswerer({
     const result = await ask({
       question: scopedQuestion,
       documentId,
-      jobId: `${jobId || ""}`.trim(),
+      // document_id is the durable knowledge/operation identity. A job is an
+      // immutable pipeline attempt and may be a retry/render child without
+      // its own document.v1 or Markdown. Once the document is known, letting
+      // the backend resolve its authoritative readable artifacts prevents the
+      // Reader from pinning AI to a transient job directory.
+      jobId: documentId ? "" : `${jobId || ""}`.trim(),
       conversationId,
       parentId: `${parentId || ""}`.trim(),
       regenerate: Boolean(regenerate),
@@ -160,6 +179,7 @@ export function createReaderAskAnswerer({
       assistantMessageId: `${assistantMessageId || ""}`.trim(),
       assistantMode,
       onToolEvent,
+      onProgressEvent,
       onAgentOperationEvent,
       onAgentConfirmationRequiredEvent,
       onAgentSessionEvent,

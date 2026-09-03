@@ -45,6 +45,7 @@ export function mountJobRuntimeFeature({
   activateDetailTab,
   onReaderDialogSync,
   onReaderDialogClose,
+  onJobSucceeded,
   uploadStatePort,
   libraryEventPort,
   jobEventsResource = createJobEventsResource({ fetchJobEvents, apiPrefix }),
@@ -86,6 +87,28 @@ export function mountJobRuntimeFeature({
     return `${job?.job_id || ""}|${status}|${stage}`;
   }
 
+  function handleFetchFailure(jobId: string, error: any, { recovering = false } = {}) {
+    const currentJobId = `${currentJobPort.jobId?.() || ""}`.trim();
+    // A rejected request from an older polling generation must never stop or
+    // overwrite the task the user has just opened.
+    if (currentJobId && currentJobId !== jobId) return;
+    const missing = Number(error?.status) === 404;
+    if (missing) {
+      clearActiveJobId(jobId);
+      pollingPort.stop();
+      currentJobPort.syncSnapshot?.(null, "", { startedAt: "", finishedAt: "" });
+      resetStatePort.resetJob();
+      requestLibraryRefresh(state, { terminal: true, port: libraryEventPort });
+      if (recovering) {
+        // 持久化恢复键允许跨刷新接回后台任务，但任务被删除、数据库被替换
+        // 或 document.active_job_id 已过期时，它只是陈旧缓存，不应冒充用户错误。
+        setText("error-box", "-");
+        return;
+      }
+    }
+    setText("error-box", error?.message || String(error));
+  }
+
   async function fetchJob(jobId) {
     const generation = pollingPort.beginPoll();
     if (generation === null) {
@@ -123,6 +146,11 @@ export function mountJobRuntimeFeature({
       onReaderDialogSync?.();
     }
     if (terminal) {
+      if (`${job?.status || ""}`.trim().toLowerCase() === "succeeded") {
+        // Metadata enrichment is a detached post-success side effect. It must
+        // never keep polling alive or turn a completed job into a UI failure.
+        void Promise.resolve(onJobSucceeded?.(job)).catch(() => {});
+      }
       requestLibraryRefresh(state, { terminal: true, port: libraryEventPort });
       clearActiveJobId(jobId);
       pollingPort.stop();
@@ -153,15 +181,20 @@ export function mountJobRuntimeFeature({
       showWorkflow?: boolean;
       /** 首帧 payload（重试时带 fromStage 结果，避免先闪「排队」） */
       seedPayload?: Record<string, unknown> | null;
+      /** 刷新后从本地持久化状态恢复；404 代表陈旧缓存，应静默清理。 */
+      recovering?: boolean;
     } = {},
   ) {
     const silent = Boolean(options.silent);
     const publishLibrary = options.publishLibrary ?? !silent;
     const showWorkflow = options.showWorkflow ?? !silent;
     sessionPublishLibrary = publishLibrary;
+    const recovering = Boolean(options.recovering);
     lastLibraryPublishKey = "";
 
     pollingPort.stop();
+    // 上一个任务的取消请求可能把按钮锁在 disabled；新任务必须拥有独立操作状态。
+    shellViewPort.setCancelDisabled(false);
     writeActiveJobId(jobId);
     resetStatePort.resetSecondary();
     const { startedAt } = pollingPort.startJob(jobId);
@@ -207,7 +240,7 @@ export function mountJobRuntimeFeature({
     lastLibraryPublishKey = libraryPublishKeyOf(normalizedPlaceholder);
     notifyLibraryJobUpdated(normalizedPlaceholder, { port: libraryEventPort });
     fetchJob(jobId).catch((err) => {
-      setText("error-box", err.message);
+      handleFetchFailure(jobId, err, { recovering });
     });
     const timerGeneration = pollingPort.getSnapshot?.()?.generation ?? 0;
     pollingPort.startTimer(() => {
@@ -215,7 +248,7 @@ export function mountJobRuntimeFeature({
         return;
       }
       fetchJob(jobId).catch((err) => {
-        setText("error-box", err.message);
+        handleFetchFailure(jobId, err, { recovering });
       });
     }, JOB_POLL_INTERVAL_MS);
   }
@@ -257,6 +290,8 @@ export function mountJobRuntimeFeature({
       await cancel(jobId, apiPrefix);
       await fetchJob(jobId);
     } catch (err) {
+      // 请求失败时允许用户重试；成功时保持锁定，直到权威状态变为 canceled。
+      shellViewPort.setCancelDisabled(false);
       setText("error-box", err.message);
     }
   }

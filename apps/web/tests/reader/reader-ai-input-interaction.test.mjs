@@ -59,45 +59,52 @@ test("AI 会话隔离不再吞掉 composer 的点击与输入焦点", async () =
 });
 
 test("Markdown-only AI composer 不受翻译状态影响并保持可输入", async () => {
-  const [appSource, threadSource, surfaceSource, panelSource, floatCss, notesCss, reactPdfCss] = await Promise.all([
+  const [appSource, threadSource, surfaceSource, primitivesSource, readingViewSource, operationsViewSource, panelSource, floatCss, notesCss, assistantCss] = await Promise.all([
     readFile(new URL("../../../../packages/reader/src/ReaderAppReactPdf.tsx", import.meta.url), "utf8"),
     readFile(new URL("../../../../packages/reader/src/components/react-pdf/assistant/ReaderAssistantThread.tsx", import.meta.url), "utf8"),
     readFile(new URL("../../../../packages/reader/src/components/react-pdf/assistant/ReaderAssistantSurface.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../../packages/reader/src/components/react-pdf/assistant/reader-assistant-primitives.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../../packages/reader/src/components/react-pdf/assistant/ReaderReadingView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../../packages/reader/src/components/react-pdf/assistant/ReaderOperationsView.tsx", import.meta.url), "utf8"),
     readFile(new URL("../../../../packages/reader/src/components/react-pdf/ReaderAiPanel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../../../../packages/reader/styles/float-ai.css", import.meta.url), "utf8"),
     readFile(new URL("../../../../packages/reader/styles/notes-float.css", import.meta.url), "utf8"),
-    readFile(new URL("../../../../packages/reader/styles/react-pdf.css", import.meta.url), "utf8"),
+    readFile(new URL("../../../../packages/reader/styles/assistant-dock.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(surfaceSource, /data-reader-ai-composer/);
-  assert.match(surfaceSource, /aria-label="AI 能力模式"/);
-  assert.match(surfaceSource, /PDF 操作/);
+  assert.match(primitivesSource, /data-reader-ai-composer/);
+  assert.match(primitivesSource, /aria-label="AI 模式"/);
+  assert.match(primitivesSource, />阅读问答</);
+  assert.match(primitivesSource, />PDF Agent</);
+  assert.match(primitivesSource, /placeholder=\{mode === "operations" \? "描述要执行的 PDF 操作…" : "询问当前文档…"\}/);
   assert.match(panelSource, /assistantMode=\{assistantMode\}/);
-  assert.match(surfaceSource, /<ComposerPrimitive\.Input[\s\S]*?autoFocus/);
-  assert.match(surfaceSource, /<ThreadPrimitive\.ViewportFooter/);
+  assert.match(primitivesSource, /<ComposerPrimitive\.Input[\s\S]*?autoFocus/);
+  assert.match(readingViewSource, /<ThreadPrimitive\.ViewportFooter/);
+  assert.match(operationsViewSource, /<ThreadPrimitive\.ViewportFooter/);
   assert.match(surfaceSource, /turnAnchor="top"/);
   assert.match(threadSource, /@assistant-ui\/react/);
   assert.match(surfaceSource, /data-chat-ui="assistant-ui-official-thread"/);
   assert.doesNotMatch(threadSource, /MutationObserver|useViewportStickBottom/);
   assert.doesNotMatch(surfaceSource, /MutationObserver|useViewportStickBottom/);
+  assert.doesNotMatch(primitivesSource, /MutationObserver|useViewportStickBottom/);
   assert.doesNotMatch(threadSource, /components\/ai-elements/);
   assert.match(panelSource, /const enabled = open && Boolean\(jobId\)/);
-  assert.match(panelSource, /placement=\{layout === "docked" \? "dock-right" : "floating"\}/);
+  assert.match(panelSource, /layout === "workspace" \? "workspace"/);
+  assert.match(panelSource, /showHeader=\{layout !== "workspace"\}/);
   assert.match(panelSource, /is-\$\{layout\}/);
   assert.doesNotMatch(panelSource, /!sourceOnly|sourceOnly \|\| !jobId/);
-  assert.match(appSource, /is-ai-split/);
-  assert.match(appSource, /assistantSplit=\{aiSplitOpen\}/);
-  assert.match(appSource, /mode === "compare" \? "floating" : "docked"/);
+  assert.match(appSource, /is-workspace-\$\{workspaceView\}/);
+  assert.match(appSource, /resolveReaderAiLayout\(_mode: string\): "workspace"/);
+  assert.doesNotMatch(appSource, /tools\.close\("ai"\)/);
   assert.doesNotMatch(appSource, /retainpdf\.reader\.ai-layout/);
   assert.doesNotMatch(panelSource, /onLayoutChange|reader-ai-layout-toggle/);
-  assert.match(appSource, /<ReaderAiPanel key=\{session\.jobId \|\| "reader-ai-pending"\}/);
+  assert.match(appSource, /<ReaderAiPanel key=\{session\.documentId \|\| session\.jobId \|\| "reader-ai-pending"\}/);
   assert.doesNotMatch(appSource, /<ReaderAiPanel[^>]*sourceOnly=/);
   assert.doesNotMatch(panelSource, /aui-branch-pointer-shield/);
   assert.doesNotMatch(floatCss, /\.aui-branch-pointer-shield/);
   assert.match(floatCss, /\.reader-float-ai\.reader-notes-panel--docked/);
   assert.match(floatCss, /@media \(max-width: 899px\)[\s\S]*?\.reader-float-ai\.is-floating[\s\S]*?inset:\s*0 !important/);
-  assert.match(reactPdfCss, /--reader-ai-split-width:\s*50vw/);
-  assert.match(reactPdfCss, /\.reader-react-root\.is-ai-split \.reader-react-scroll-shell[\s\S]*?right:\s*var\(--reader-ai-split-width\)/);
+  assert.match(assistantCss, /\.reader-react-root\.is-assistant-open \.reader-react-scroll-shell[\s\S]*?right:\s*var\(--reader-ai-split-width\)/);
   assert.doesNotMatch(notesCss, /\.reader-notes-panel--float\s*\{\s*touch-action:\s*none/);
 });
 

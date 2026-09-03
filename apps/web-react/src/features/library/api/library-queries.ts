@@ -1,6 +1,6 @@
 /**
  * TanStack Query wrappers for library — Phase2 slice.
- * Mirrors docs/frontend-spa-architecture.md §2.2 : libraryKeys / libraryQuery
+ * Mirrors docs/core/frontend/spa-architecture.md §2.2 : libraryKeys / libraryQuery
  * Uses @retainpdf/api fetchLibraryBookList (server q param) + local adapter.
  * Keeps apps/web (MPA) untouched; web-react consumes via query.
  */

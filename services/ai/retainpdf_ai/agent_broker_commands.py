@@ -17,6 +17,20 @@ _SAFE_OPERATION_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _SHA256 = re.compile(r"^[0-9a-fA-F]{64}$")
 _CANCEL_REASONS = {"agent_abort", "superseded", "user_cancelled"}
 _BASE64URL = re.compile(r"^[A-Za-z0-9_-]+$")
+_HOST_TOOL_NAMES = frozenset(
+    {
+        "list_documents",
+        "search_fulltext",
+        "read_blocks",
+        "search_favorites",
+        "search_markdown",
+        "read_markdown_chunk",
+        "calculate_expression",
+        "calculate_statistics",
+        "analyze_table",
+        "generate_chart",
+    }
+)
 
 
 def parse_broker_command(raw_command: str, scope: BrokerScope) -> BrokerCommand:
@@ -42,6 +56,8 @@ def parse_broker_argv(argv: tuple[str, ...], scope: BrokerScope) -> BrokerComman
             action="document.inspect",
             cli_argv=("document", "inspect", "--document-id", scope.document_id),
         )
+    if len(argv) >= 3 and argv[1:3] == ("tool", "call"):
+        return _parse_tool_call(argv)
     if len(argv) >= 3 and argv[1:3] == ("operation", "create"):
         return _parse_create(argv, scope)
     if len(argv) < 3 or argv[1] != "operation":
@@ -74,6 +90,20 @@ def parse_broker_argv(argv: tuple[str, ...], scope: BrokerScope) -> BrokerComman
             },
         )
     raise ValueError("unsupported operation action")
+
+
+def _parse_tool_call(argv: tuple[str, ...]) -> BrokerCommand:
+    flags = _parse_flags(argv[3:], {"--name", "--arguments-base64url"})
+    name = flags["--name"]
+    if name not in _HOST_TOOL_NAMES:
+        raise ValueError("unsupported host tool")
+    arguments = _decode_json_object(flags["--arguments-base64url"])
+    return BrokerCommand(
+        public_argv=argv,
+        action="tool.call",
+        cli_argv=(),
+        request_payload={"name": name, "arguments": arguments},
+    )
 
 
 def _parse_create(argv: tuple[str, ...], scope: BrokerScope) -> BrokerCommand:
@@ -182,6 +212,20 @@ def _decode_page_program(encoded: str) -> tuple[dict[str, Any], bytes]:
     except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("invalid page program encoding") from exc
     return _validate_page_program(value)
+
+
+def _decode_json_object(encoded: str) -> dict[str, Any]:
+    if not encoded or len(encoded) > 12000 or not _BASE64URL.fullmatch(encoded):
+        raise ValueError("invalid tool arguments encoding")
+    padding = "=" * (-len(encoded) % 4)
+    try:
+        raw = base64.urlsafe_b64decode(encoded + padding)
+        value = json.loads(raw)
+    except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("invalid tool arguments encoding") from exc
+    if not isinstance(value, dict):
+        raise ValueError("tool arguments must be an object")  # noqa: TRY004
+    return value
 
 
 def _parse_page_program_json(raw: str) -> tuple[dict[str, Any], bytes]:

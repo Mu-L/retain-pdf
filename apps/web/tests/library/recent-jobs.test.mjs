@@ -57,6 +57,7 @@ import { createRecentJobActions } from "../../src/js/features/recent-jobs/action
 import { createRecentJobsRuntimePort } from "../../src/js/features/recent-jobs/job-runtime-port.js";
 import { createRecentJobsReaderPort } from "../../src/js/features/recent-jobs/reader-port.js";
 import { createRecentJobsNavigationPort } from "../../src/js/features/recent-jobs/navigation-port.js";
+import { createLibraryController } from "../../src/pages/home/features/library/domain/controller.js";
 import {
   recentJobRawImageUrls,
   recentJobProgressPercent,
@@ -65,6 +66,7 @@ import {
   recentJobStageLabel,
   recentJobStatusLabel,
 } from "../../src/js/features/recent-jobs/card-presenter.js";
+import { buildReaderUrl } from "../../src/js/components/recent-jobs/recent-job-card-presenter.js";
 import {
   clearRecentJobImageCache,
   loadRecentJobImage,
@@ -102,6 +104,29 @@ import {
   homeViewModeForTranslationWorkflow,
 } from "../../src/js/features/translation-workflow-dialog/state.js";
 import { createInitialState } from "../../src/js/state/slices.js";
+
+test("reader URL uses a real job as the canonical comparison session", () => {
+  assert.equal(
+    buildReaderUrl({ job_id: "job-live", document_id: "doc-stable" }),
+    "./reader.html?job_id=job-live",
+  );
+  assert.equal(
+    buildReaderUrl({ job_id: "doc:doc-stable", document_id: "doc-stable" }),
+    "./reader.html?document_id=doc-stable",
+  );
+  assert.equal(
+    buildReaderUrl({
+      job_id: "doc:doc-stable",
+      active_job_id: "job-active",
+      document_id: "doc-stable",
+    }),
+    "./reader.html?job_id=job-active",
+  );
+  assert.equal(
+    buildReaderUrl({ document_id: "doc-source-only" }),
+    "./reader.html?document_id=doc-source-only",
+  );
+});
 
 test("app contract centralizes global retainpdf events and dialog roots", () => {
   assert.deepEqual(
@@ -1982,6 +2007,29 @@ test("recent jobs reader port normalizes reader commands", () => {
   assert.deepEqual(opened, ["job-reader"]);
 });
 
+test("opening completed book detail does not steal active job polling", () => {
+  const polled = [];
+  const controller = createLibraryController({
+    documentRef: { dispatchEvent() {} },
+    startPolling: (jobId) => polled.push(jobId),
+    hideStatusArea() {},
+  });
+
+  controller.openBookDetail({
+    document_id: "doc-finished",
+    job_id: "job-finished",
+    status: "succeeded",
+  });
+  assert.deepEqual(polled, []);
+
+  controller.openBookDetail({
+    document_id: "doc-running",
+    job_id: "job-running",
+    status: "running",
+  });
+  assert.deepEqual(polled, ["job-running"]);
+});
+
 test("recent jobs navigation port owns workflow reader and recovery side effects", () => {
   const previousCustomEvent = global.CustomEvent;
   const dispatched = [];
@@ -2261,8 +2309,8 @@ test("recent job actions use navigation port instead of direct reader callback",
     },
     navigationPort: {
       currentJobId: () => "",
-      openReader: (jobId) => {
-        opened.push(jobId);
+      openReader: (jobId, documentId) => {
+        opened.push([jobId, documentId]);
         return true;
       },
     },
@@ -2277,10 +2325,10 @@ test("recent job actions use navigation port instead of direct reader callback",
     },
   });
 
-  actions.openJobReader(" job-reader ");
+  actions.openJobReader(" job-reader ", " doc-reader ");
   actions.openJobReader("");
 
-  assert.deepEqual(opened, ["job-reader"]);
+  assert.deepEqual(opened, [["job-reader", "doc-reader"]]);
   assert.deepEqual(errors, ["该任务缺少 job_id，无法打开对照阅读。"]);
 });
 

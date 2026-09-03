@@ -36,6 +36,83 @@ interface StagePresentationLike {
 
 type StatusDetailJob = JobLike | JobPayload | null | undefined;
 
+function diagnosticValueText(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") return `${value}`;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return `${value}`;
+  }
+}
+
+function redactDiagnosticText(value: string): string {
+  return value
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [REDACTED]")
+    .replace(
+      /((?:"?(?:api[_-]?key|access[_-]?token|authorization|password|secret)"?)\s*[:=]\s*")([^"]*)(")/gi,
+      "$1[REDACTED]$3",
+    )
+    .replace(
+      /((?:\b(?:api[_-]?key|access[_-]?token|authorization|password|secret)\b)\s*[:=]\s*)([^\s,;]+)/gi,
+      "$1[REDACTED]",
+    )
+    .replace(/([?&](?:api[_-]?key|access[_-]?token|token|key)=)[^&\s]+/gi, "$1[REDACTED]");
+}
+
+function firstDiagnosticValue(
+  sources: Record<string, unknown>[],
+  keys: string[],
+): unknown {
+  for (const source of sources) {
+    for (const key of keys) {
+      const text = diagnosticValueText(source[key]);
+      if (text && text !== "-") return source[key];
+    }
+  }
+  return "";
+}
+
+/**
+ * Builds a copyable failure report from diagnostic fields only. Request payloads
+ * are deliberately excluded because legacy jobs may still contain inline keys.
+ */
+export function buildFailureLogText(job: StatusDetailJob): string {
+  const jobRecord = (job || {}) as Record<string, unknown>;
+  const failure = (job?.failure || {}) as Record<string, unknown>;
+  const failureDiagnostic = (job?.failure_diagnostic || {}) as Record<string, unknown>;
+  const diagnostics = (job?.diagnostics || job?.failure_diagnostics || {}) as Record<string, unknown>;
+  const sources = [diagnostics, failure, failureDiagnostic, jobRecord];
+  const fields: Array<[string, unknown]> = [
+    ["Job ID", jobRecord.job_id],
+    ["状态", jobRecord.status],
+    ["阶段", firstDiagnosticValue(sources, ["failed_stage", "stage", "provider_stage", "display_stage"])],
+    ["错误码", firstDiagnosticValue(sources, ["failure_code", "error_code", "provider_code", "code"])],
+    ["Trace ID", firstDiagnosticValue(sources, ["trace_id", "provider_trace_id"])],
+    ["Request ID", firstDiagnosticValue(sources, ["request_id", "provider_request_id"])],
+    ["摘要", firstDiagnosticValue(sources, ["summary", "final_failure_summary", "detail", "message"])],
+    ["根因", firstDiagnosticValue(sources, ["root_cause", "raw_exception_type", "error_type"])],
+    ["建议", firstDiagnosticValue(sources, ["suggestion", "recovery_hint"])],
+    ["异常类型", firstDiagnosticValue(sources, ["raw_exception_type", "exception_type"])],
+    ["异常信息", firstDiagnosticValue(sources, ["raw_exception_message", "exception_message"])],
+    ["错误片段", firstDiagnosticValue(sources, ["raw_excerpt", "stderr_tail", "stdout_tail"])],
+    ["Traceback", firstDiagnosticValue(sources, ["traceback", "stack_trace", "stack"])],
+  ];
+  const lines = fields.flatMap(([label, value]) => {
+    const text = diagnosticValueText(value);
+    return text && text !== "-" ? [`${label}: ${text}`] : [];
+  });
+  const logTail = Array.isArray(job?.log_tail)
+    ? job.log_tail.map(diagnosticValueText).filter(Boolean)
+    : [];
+  if (logTail.length) {
+    lines.push("", "最近日志", ...logTail);
+  }
+  if (!lines.length) return "暂无可复制的错误日志。";
+  return redactDiagnosticText(lines.join("\n"));
+}
+
 function stageIconMarkup(job: StatusDetailJob, stageText: string | undefined): string {
   const text = `${stageText || ""}`.toLowerCase();
   const status = `${job?.status || ""}`.trim();
@@ -158,6 +235,7 @@ function buildFailureDetails(job: StatusDetailJob) {
     lastLogLine: summarizeRuntimeField(
       diagnostics.raw_excerpt || diagnostics.detail || failureLastLogLine,
     ),
+    logText: buildFailureLogText(job),
     retryable: typeof (diagnostics.retryable ?? retryable) === "boolean" ? ((diagnostics.retryable ?? retryable) ? "是" : "否") : "-",
   };
 }

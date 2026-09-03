@@ -11,6 +11,7 @@ use crate::models::domain::{JobSnapshot, JobStatusKind, WorkflowKind};
 use crate::services::book_projection::{
     build_library_book_detail_view, build_library_book_list_view,
 };
+use crate::services::managed_credential_gc::cleanup_deleted_job_credentials;
 
 pub fn list_library_books(
     deps: &LibraryDeps<'_>,
@@ -73,6 +74,7 @@ pub fn delete_library_book(
             removed_child_jobs.push(job.job_id.clone());
         }
     }
+    cleanup_deleted_job_credentials(deps.db, deps.data_root, &jobs);
 
     if let Some(document_id) = affected_document {
         // reconcile 失败不阻断删除(job 已删),仅记录——文档最坏保持悬空,

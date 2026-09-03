@@ -174,6 +174,35 @@ def test_apply_translation_policies_translates_title_by_default_with_title_rule_
     assert "matched terminology" in payload[0]["translation_style_hint"]
 
 
+def test_apply_translation_policies_treats_abstract_as_body_text() -> None:
+    payload = [
+        _translation_item(
+            item_id="p001-b015",
+            block_type="text",
+            block_class="title",
+            layout_role="paragraph",
+            semantic_role="abstract",
+            structure_role="body",
+            policy_translate=True,
+            raw_block_type="abstract",
+            normalized_sub_type="body",
+            source_text="ABSTRACT: This is ordinary flowing abstract text.",
+            metadata={
+                "layout_role": "paragraph",
+                "semantic_role": "abstract",
+                "structure_role": "body",
+                "policy_translate": True,
+            },
+        )
+    ]
+
+    assert apply_title_skip(payload) == 0
+    _apply_default_policy(payload)
+
+    assert payload[0]["should_translate"] is True
+    assert "Title rule:" not in payload[0].get("translation_style_hint", "")
+
+
 def test_apply_translation_policies_skips_title_when_config_enabled() -> None:
     payload = [
         _translation_item(

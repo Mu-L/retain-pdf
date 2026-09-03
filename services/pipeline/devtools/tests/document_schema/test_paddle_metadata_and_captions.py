@@ -760,7 +760,7 @@ def test_paddle_doc_title_enters_translation_items_as_optional_title_candidate()
 
     block = document["pages"][0]["blocks"][0]
     assert block["sub_type"] == "title"
-    assert block["structure_role"] == "title"
+    assert block["structure_role"] == "document_title"
     assert block["policy"] == {"translate": True, "translate_reason": "provider_title_candidate"}
     assert [item.text for item in extract_text_items(document, 0)] == ["Document Title"]
 

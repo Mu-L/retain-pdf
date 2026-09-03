@@ -7,7 +7,7 @@
 // - model 层在本版本一律走 fallback 静态图（three 引擎见路线图第 6 步）
 // - slot 定位真值在 src/styles/core/decor-stage.css
 //
-// 契约：./contract.ts · 计划器：./stage-plan.ts · 文档：docs/theme-system/DECOR_PACKS.md
+// 契约：./contract.ts · 计划器：./stage-plan.ts · 文档：docs/core/frontend/theme-system/DECOR_PACKS.md
 
 import { useEffect, useRef, useState } from "react";
 import { THEME_CHANGE_EVENT, getTheme, getThemeDefinition } from "../theme/theme.js";

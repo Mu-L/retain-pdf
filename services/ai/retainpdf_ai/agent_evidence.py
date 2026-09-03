@@ -14,6 +14,36 @@ MARKDOWN_ID_BRACKET_RE = re.compile(r"\[\s*(md-\d+)\s*\]", re.IGNORECASE)
 MARKDOWN_ID_BARE_RE = re.compile(r"(?<![\w/])(md-\d+)(?![\w/])", re.IGNORECASE)
 
 
+def _citation_image_urls(entry: dict[str, Any]) -> list[str]:
+    candidates: list[Any] = [entry.get("image_url")]
+    for key in ("image_urls", "asset_image_urls"):
+        values = entry.get(key)
+        if isinstance(values, list):
+            candidates.extend(values)
+    assets = entry.get("assets")
+    if isinstance(assets, list):
+        candidates.extend(
+            asset.get("image_url")
+            for asset in assets
+            if isinstance(asset, dict)
+        )
+
+    urls: list[str] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        url = str(candidate or "").strip()
+        if (
+            not url
+            or url in seen
+            or not url.startswith("/api/v1/jobs/")
+            or "/markdown/images/" not in url
+        ):
+            continue
+        seen.add(url)
+        urls.append(url)
+    return urls[:8]
+
+
 def assign_refs(
     result: dict[str, Any],
     citations: dict[int, Citation],
@@ -65,6 +95,7 @@ def assign_refs(
             page_idx=page_idx,
             block_id=block_id,
             snippet=snippet[:200],
+            image_urls=_citation_image_urls(entry),
         )
         next_ref += 1
     return next_ref
@@ -91,6 +122,10 @@ def _public_anchor(entry: dict[str, Any]) -> dict[str, Any] | None:
         or ""
     )[:280]
     public = {"ref": int(ref), "snippet": snippet}
+    for key in ("source_snippet", "translated_snippet"):
+        value = str(entry.get(key) or "").strip()
+        if value:
+            public[key] = value[:280]
     if page_idx is not None and page_idx >= 0:
         public["page"] = page_idx + 1
     for key in ("chunk_id", "heading", "source"):
@@ -148,6 +183,8 @@ def public_tool_payload(result: dict[str, Any]) -> dict[str, Any]:
         return {"error": str(result.get("error"))}
 
     public: dict[str, Any] = {}
+    if isinstance(result.get("structured_data_available"), bool):
+        public["structured_data_available"] = result["structured_data_available"]
     if result.get("hint"):
         public["hint"] = str(result.get("hint"))
     if result.get("document_id"):

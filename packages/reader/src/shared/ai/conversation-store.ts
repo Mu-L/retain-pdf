@@ -10,13 +10,18 @@ export type ConversationScopeKey = {
 export function conversationStorageKey(scope: ConversationScopeKey = {}): string {
   const jobId = `${scope.jobId || ""}`.trim();
   const documentId = `${scope.documentId || ""}`.trim();
-  if (jobId) {
-    return `${STORAGE_PREFIX}job:${jobId}`;
-  }
   if (documentId) {
     return `${STORAGE_PREFIX}doc:${documentId}`;
   }
+  if (jobId) {
+    return `${STORAGE_PREFIX}job:${jobId}`;
+  }
   return `${STORAGE_PREFIX}anonymous`;
+}
+
+function legacyJobStorageKey(scope: ConversationScopeKey): string {
+  const jobId = `${scope.jobId || ""}`.trim();
+  return jobId ? `${STORAGE_PREFIX}job:${jobId}` : "";
 }
 
 function storage(): Storage | null {
@@ -36,7 +41,16 @@ export function loadStoredConversationId(scope: ConversationScopeKey = {}): stri
     return "";
   }
   try {
-    return `${store.getItem(conversationStorageKey(scope)) || ""}`.trim();
+    const key = conversationStorageKey(scope);
+    const current = `${store.getItem(key) || ""}`.trim();
+    if (current) return current;
+    // One-time compatibility for readers that previously preferred job_id.
+    // Once document_id is known, migrate the sticky conversation to the
+    // durable document scope so retry/rerender job handoffs keep the thread.
+    const legacyKey = `${scope.documentId || ""}`.trim() ? legacyJobStorageKey(scope) : "";
+    const legacy = legacyKey ? `${store.getItem(legacyKey) || ""}`.trim() : "";
+    if (legacy) store.setItem(key, legacy);
+    return legacy;
   } catch {
     return "";
   }
@@ -65,6 +79,8 @@ export function clearStoredConversationId(scope: ConversationScopeKey = {}): voi
   }
   try {
     store.removeItem(conversationStorageKey(scope));
+    const legacyKey = `${scope.documentId || ""}`.trim() ? legacyJobStorageKey(scope) : "";
+    if (legacyKey) store.removeItem(legacyKey);
   } catch {
     // ignore
   }

@@ -31,7 +31,7 @@ class ImportHit:
 
 
 def parse_args() -> argparse.Namespace:
-    default_output_dir = Path("doc") / "python"
+    default_output_dir = Path("docs") / "core" / "python"
     parser = argparse.ArgumentParser(
         description="Extract Python/runtime dependency signals from the backend pipeline.",
     )
@@ -221,13 +221,13 @@ def _build_report(services_root: Path) -> dict[str, object]:
 
 
 def _render_markdown(report: dict[str, object]) -> str:
-    output_dir = Path("doc") / "python"
+    output_dir = Path("docs") / "core" / "python"
     lines = [
         "# Python Pipeline Dependencies",
         "",
         "This file is generated from static import scanning under `services/pipeline`.",
         "Regenerate with:",
-        "`python pipeline/devtools/extract_pipeline_requirements.py --services-root . --json-out doc/python/pipeline_dependencies.json --markdown-out doc/python/pipeline_dependencies.md --runtime-req-out doc/python/pipeline_runtime_requirements.in --test-req-out doc/python/pipeline_test_requirements.in`",
+        "`python services/pipeline/devtools/extract_pipeline_requirements.py --services-root services --json-out docs/core/python/pipeline_dependencies.json --markdown-out docs/core/python/pipeline_dependencies.md --runtime-req-out docs/core/python/pipeline_runtime_requirements.in --test-req-out docs/core/python/pipeline_test_requirements.in`",
         "",
         "## Runtime Python Packages",
         "",
@@ -307,6 +307,9 @@ def main() -> None:
     args = parse_args()
     services_root = args.services_root.resolve()
     report = _build_report(services_root)
+    if not args.services_root.is_absolute():
+        report["services_root"] = args.services_root.as_posix()
+        report["scripts_root"] = (args.services_root / "pipeline").as_posix()
     if args.json_out:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

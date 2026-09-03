@@ -37,18 +37,32 @@ slip between those two steps: either the job is persisted first and deletion
 returns `CREDENTIAL_IN_USE`, or deletion finishes first and task creation
 returns `CREDENTIAL_REF_NOT_FOUND`.
 
-Translation jobs and document-scoped translation now accept
-`translation.credential_ref`. The backend validates the reference at task
-creation, persists only the opaque reference, resolves the secret immediately
-before launching the worker, and injects it as
-`RETAIN_TRANSLATION_API_KEY`. Stage specs contain only the environment
-reference. Runtime stdout/stderr, timeout results, failure-AI diagnostics, and
-translation replay output are scrubbed with the resolved runtime secret before
-being persisted or returned. Retry overrides can switch between the temporary
-inline compatibility field and `credential_ref` without retaining both.
+Translation jobs and document-scoped translation accept
+`translation.credential_ref`. OCR jobs and full workflows accept
+`ocr.credential_ref`; OCR references use kind `ocr_provider_token`, and their
+stored provider must match `ocr.provider` after trim and case normalization.
+The backend validates references at task creation, persists only opaque
+references, resolves each secret immediately before launching the worker, and
+injects it through the existing provider-specific environment variable. OCR
+stage specs contain only `env:...` references and never contain a vault
+reference or secret. Runtime stdout/stderr and persisted job state are scrubbed
+with the resolved runtime secrets.
 
-Current adoption covers translation jobs and Agent runtime configuration. OCR
-provider payload migration to credential references remains separate work.
+`GET /api/v1/providers/ocr` exposes this contract per provider through
+`credential.credential_kind`, `credential.reference_field`, and
+`credential.legacy_inline_field`. The existing `credential.field`, `env`, and
+`required_for` members remain available for older clients. A provider that does
+not need a credential returns `credential: null`.
+
+Legacy inline OCR fields remain accepted temporarily. When OCR will actually
+run, the backend imports the selected inline secret into the vault as an
+`ocr_provider_token`, clears every inline OCR secret field, and persists the
+generated reference. When an existing OCR artifact is reused, unused OCR
+credentials are discarded instead. Supplying both an active inline OCR secret
+and `ocr.credential_ref` is rejected. OCR and translation retry overrides can
+explicitly switch between their temporary inline compatibility fields and a
+credential reference; the superseded secret source is cleared before the retry
+request is persisted.
 
 ## Credential Errors
 
@@ -59,6 +73,7 @@ Credential-reference resolution owns these machine-readable codes:
 | `CREDENTIAL_REF_INVALID` | 400 | The opaque reference has an invalid shape. |
 | `CREDENTIAL_REF_NOT_FOUND` | 404 | No credential exists for the reference. |
 | `CREDENTIAL_KIND_MISMATCH` | 400 | The credential exists but cannot be used for the requested purpose. |
+| `CREDENTIAL_PROVIDER_MISMATCH` | 400 | An OCR credential belongs to a different provider than `ocr.provider`. |
 | `CREDENTIAL_IN_USE` | 409 | Persisted jobs still reference the credential; deletion requires an explicit `force=true` override. |
 | `CREDENTIAL_VAULT_UNAVAILABLE` | 500 | The backend cannot safely read or validate the credential vault. |
 

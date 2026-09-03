@@ -133,6 +133,10 @@ Request fields:
 - `overrides`: optional object with `ocr`, `translation`, `render`, and
   `runtime` sections. Unknown sections are rejected. Each section is validated
   against the same input structs as normal job creation.
+- `overrides.ocr.credential_ref` can replace a legacy inline OCR token, and a
+  provider-specific inline token can temporarily replace an existing OCR
+  reference. The backend clears the superseded source so the retry never
+  persists both.
 
 Execution semantics:
 

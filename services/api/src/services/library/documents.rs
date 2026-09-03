@@ -9,6 +9,7 @@ use crate::models::api::{
     PatchDocumentInput,
 };
 use crate::models::domain::UploadRecord;
+use crate::services::managed_credential_gc::cleanup_deleted_job_credentials;
 
 use super::books::{ensure_deletable, remove_job_files, remove_path_if_exists};
 use super::LibraryDeps;
@@ -80,22 +81,22 @@ pub fn list_documents(
             .get_document_by_job_id(job_id)?
             .into_iter()
             .map(|doc| with_document_media_urls(doc, base_url))
-            .collect();
-        return Ok(DocumentListView { documents });
+            .collect::<Vec<_>>();
+        let total = documents.len() as u64;
+        return Ok(DocumentListView { documents, total });
     }
-    let documents = deps
-        .db
-        .list_documents(
-            query.limit.clamp(1, MAX_DOCUMENT_LIMIT),
-            query.offset,
-            query.reading_status.as_deref(),
-            query.tag.as_deref(),
-            query.collection_id.as_deref(),
-        )?
+    let (documents, total) = deps.db.list_documents_with_total(
+        query.limit.clamp(1, MAX_DOCUMENT_LIMIT),
+        query.offset,
+        query.reading_status.as_deref(),
+        query.tag.as_deref(),
+        query.collection_id.as_deref(),
+    )?;
+    let documents = documents
         .into_iter()
         .map(|doc| with_document_media_urls(doc, base_url))
         .collect();
-    Ok(DocumentListView { documents })
+    Ok(DocumentListView { documents, total })
 }
 
 pub fn get_document(
@@ -159,6 +160,7 @@ pub fn delete_document(
         deps.db.delete_job(&job.job_id)?;
         removed_jobs.push(job.job_id.clone());
     }
+    cleanup_deleted_job_credentials(deps.db, deps.data_root, &jobs);
 
     // 删除 upload 记录与其磁盘目录(uploads/<upload_id>/...)
     for upload in deps.db.uploads_for_document(document_id)? {
@@ -188,6 +190,15 @@ pub fn patch_document(
     payload: &PatchDocumentInput,
     base_url: &str,
 ) -> Result<DocumentRecord, AppError> {
+    if payload
+        .title
+        .as_deref()
+        .is_some_and(|title| title.trim().is_empty() || title.chars().count() > 512)
+    {
+        return Err(AppError::bad_request(
+            "title must contain 1 to 512 characters",
+        ));
+    }
     if let Some(status) = payload.reading_status.as_deref() {
         if !matches!(status, "unread" | "reading" | "done") {
             return Err(AppError::bad_request(
@@ -199,7 +210,7 @@ pub fn patch_document(
         .db
         .update_document_fields(
             document_id,
-            payload.title.as_deref(),
+            payload.title.as_deref().map(str::trim),
             payload.reading_status.as_deref(),
             payload.tags.as_deref(),
         )

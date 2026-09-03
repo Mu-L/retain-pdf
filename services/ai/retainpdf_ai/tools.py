@@ -137,8 +137,14 @@ class Tool:
 
 
 class ToolRegistry:
-    def __init__(self, tools: list[Tool]) -> None:
+    def __init__(
+        self,
+        tools: list[Tool],
+        *,
+        content_source_resolver: Callable[[str, str], str] | None = None,
+    ) -> None:
         self._tools = {tool.name: tool for tool in tools}
+        self._content_source_resolver = content_source_resolver
 
     def specs(self, names: set[str] | frozenset[str] | None = None) -> list[dict[str, Any]]:
         return [
@@ -153,12 +159,21 @@ class ToolRegistry:
             return {"error": f"unknown tool: {name}"}
         try:
             return tool.handler(arguments)
-        except Exception as exc:  # 工具失败作为结果反馈给模型,不中断循环
+        except Exception as exc:  # noqa: BLE001 - 工具错误作为模型结果
             return {"error": f"{type(exc).__name__}: {exc}"}
+
+    def content_source(self, document_id: str = "", job_id: str = "") -> str:
+        """Resolve the authoritative reading source before the model loop."""
+        if self._content_source_resolver is None:
+            return "unscoped" if not (document_id.strip() or job_id.strip()) else "none"
+        return self._content_source_resolver(document_id.strip(), job_id.strip())
 
 
 def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegistry:
-    def markdown_scope(arguments: dict[str, Any]) -> tuple[str, str, Path] | dict[str, Any]:
+    # Imported lazily because the unified calculation adapter reuses Tool.
+    from .unified_tools import calculation_tools
+
+    def document_artifact_scope(arguments: dict[str, Any]) -> tuple[str, str, Path] | dict[str, Any]:
         document_id = str(arguments.get("document_id") or "").strip()
         job_id = str(arguments.get("job_id") or "").strip()
         if not job_id and document_id:
@@ -178,17 +193,72 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
             if resolved_document_id:
                 document_id = resolved_document_id
         if not job_id:
-            return {"error": "当前文档没有可读取的 Markdown job"}
+            return {"error": "当前文档没有可读取的任务产物"}
         job_root = _safe_job_root(settings, job_id)
         if job_root is None:
             return {"error": f"invalid job_id: {job_id!r}"}
         return document_id, job_id, job_root
 
+    def structured_data_for_scope(
+        arguments: dict[str, Any],
+    ) -> tuple[bool | None, str, dict[str, Block]]:
+        """Resolve whether the current document has readable document.v1 blocks.
+
+        ``None`` means the call is not document scoped.  A scoped document with
+        a missing, malformed, or empty structured artifact is explicitly
+        reported as unavailable so the agent may use the legacy Markdown path.
+        """
+        if not str(
+            arguments.get("document_id") or arguments.get("job_id") or ""
+        ).strip():
+            return None, "", {}
+        scope = document_artifact_scope(arguments)
+        if isinstance(scope, dict):
+            return False, "", {}
+        _, job_id, job_root = scope
+        try:
+            blocks = load_job_blocks(job_root)
+        except (OSError, ValueError, TypeError):
+            return False, job_id, {}
+        block_map = {
+            _canonical_block_id(block.block_id): block
+            for block in blocks
+        }
+        return bool(block_map), job_id, block_map
+
+    def content_source(document_id: str, job_id: str) -> str:
+        if not (document_id or job_id):
+            return "unscoped"
+        scope = document_artifact_scope(
+            {"document_id": document_id, "job_id": job_id}
+        )
+        if isinstance(scope, dict):
+            return "none"
+        _, _resolved_job_id, job_root = scope
+        normalized_path = job_root / "ocr" / "normalized" / "document.v1.json"
+        try:
+            if normalized_path.is_file() and normalized_path.stat().st_size > 2:
+                # Keep preflight O(1): parsing a whole-book document here would
+                # delay the first SSE event. The selected tool performs the
+                # authoritative parse when the model actually retrieves data.
+                return "structured"
+        except OSError:
+            pass
+        markdown_path = job_root / "md" / "full.md"
+        try:
+            if markdown_path.is_file() and markdown_path.stat().st_size > 0:
+                with markdown_path.open("r", encoding="utf-8") as source:
+                    if source.read(4096).strip():
+                        return "markdown"
+        except OSError:
+            pass
+        return "none"
+
     def search_markdown(arguments: dict[str, Any]) -> dict[str, Any]:
         query = str(arguments.get("query") or "").strip()
         if not query:
             return {"error": "query must not be empty"}
-        scope = markdown_scope(arguments)
+        scope = document_artifact_scope(arguments)
         if isinstance(scope, dict):
             return scope
         document_id, job_id, job_root = scope
@@ -231,7 +301,7 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
         chunk_id = str(arguments.get("chunk_id") or "").strip()
         if not chunk_id:
             return {"error": "chunk_id is required"}
-        scope = markdown_scope(arguments)
+        scope = document_artifact_scope(arguments)
         if isinstance(scope, dict):
             return scope
         document_id, job_id, job_root = scope
@@ -269,6 +339,9 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
             return {"error": "query must not be empty"}
         limit = int(arguments.get("limit") or 10)
         document_id = str(arguments.get("document_id") or "").strip()
+        structured_data_available, scoped_job_id, scoped_block_map = (
+            structured_data_for_scope(arguments)
+        )
         hits = rust.search_fulltext(
             query,
             limit=max(1, min(limit, 30)),
@@ -278,6 +351,8 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
         # 宁可不返回图片，也不按页枚举并把同页无关图片挂到命中上。
         enriched_hits: list[dict[str, Any]] = []
         block_cache: dict[str, dict[str, Block]] = {}
+        if scoped_job_id:
+            block_cache[scoped_job_id] = scoped_block_map
         for hit in hits:
             if not isinstance(hit, dict):
                 continue
@@ -317,11 +392,22 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
         payload: dict[str, Any] = {"hits": enriched_hits}
         if document_id:
             payload["document_id"] = document_id
-        if document_id and not enriched_hits:
-            payload["hint"] = (
-                "该文档全文索引无命中：可能尚未建立 blocks_fts，"
-                "或关键词不在原文/译文中。可换关键词，或说明暂无证据。"
+        if structured_data_available is not None:
+            # An anchored FTS hit is itself structured evidence even if the
+            # underlying historical artifact can no longer be opened.
+            payload["structured_data_available"] = bool(
+                structured_data_available or enriched_hits
             )
+        if document_id and not enriched_hits:
+            if payload.get("structured_data_available") is False:
+                payload["hint"] = (
+                    "当前文档没有可读取的结构化数据，可使用 Markdown 兼容检索。"
+                )
+            else:
+                payload["hint"] = (
+                    "结构化数据存在，但本次关键词无命中。请改用更短关键词或文献中的"
+                    "英文术语继续 search_fulltext；不要因此切换到 Markdown。"
+                )
         return payload
 
     def list_documents(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -330,7 +416,7 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
         if scoped_id:
             try:
                 document = rust.get_document(scoped_id)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - Rust 代理错误作为工具结果
                 return {"error": f"{type(exc).__name__}: {exc}", "documents": []}
             return {
                 "documents": [
@@ -455,8 +541,9 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
             Tool(
                 name="search_markdown",
                 description=(
-                    "只检索当前文档的 md/full.md，按 Markdown 标题和段落返回相关片段。"
-                    "这是回答文档内容时的唯一搜索工具；若中文无命中，请改用文献中的英文术语。"
+                    "兼容旧任务：只检索当前文档的 md/full.md。"
+                    "仅当 search_fulltext 明确返回结构化数据不可用时使用；"
+                    "单次结构化搜索无命中不构成降级条件。"
                 ),
                 parameters={
                     "type": "object",
@@ -473,8 +560,8 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
             Tool(
                 name="read_markdown_chunk",
                 description=(
-                    "读取 search_markdown 返回的一个 Markdown chunk 完整上下文。"
-                    "只能读取当前文档 md/full.md 中的片段。"
+                    "兼容旧任务：读取 search_markdown 返回的 Markdown chunk。"
+                    "结构化任务应优先使用 read_blocks。"
                 ),
                 parameters={
                     "type": "object",
@@ -573,5 +660,7 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
                 },
                 handler=search_favorites,
             ),
-        ]
+            *calculation_tools(settings, rust),
+        ],
+        content_source_resolver=content_source,
     )

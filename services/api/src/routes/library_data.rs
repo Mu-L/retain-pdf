@@ -10,10 +10,13 @@ use axum::Json;
 
 use crate::error::AppError;
 use crate::models::api::{
-    ApiResponse, CreateFavoriteInput, DocumentDeleteResultView, DocumentJobListView,
-    DocumentListView, DocumentRecord, FavoriteListView, FavoriteMutationResult, FavoriteRecord,
-    JobSubmissionView, LibraryDeleteQuery, ListDocumentJobsQuery, ListDocumentsQuery,
-    ListFavoritesQuery, PatchDocumentInput, PatchFavoriteInput, SearchQuery, SearchResultView,
+    ApiResponse, ApplyDocumentMetadataSuggestionInput, CreateDocumentMetadataSuggestionInput,
+    CreateFavoriteInput, DocumentDeleteResultView, DocumentJobListView, DocumentListView,
+    DocumentMetadataSuggestionApplyView, DocumentMetadataSuggestionListView,
+    DocumentMetadataSuggestionView, DocumentRecord, FavoriteListView, FavoriteMutationResult,
+    FavoriteRecord, JobSubmissionView, LibraryDeleteQuery, ListDocumentJobsQuery,
+    ListDocumentMetadataSuggestionsQuery, ListDocumentsQuery, ListFavoritesQuery,
+    PatchDocumentInput, PatchFavoriteInput, SearchQuery, SearchResultView,
 };
 use crate::models::request::CreateJobInput;
 use crate::routes::common::{
@@ -21,10 +24,12 @@ use crate::routes::common::{
 };
 use crate::routes::job_helpers::stream_file;
 use crate::services::library_api::{
+    apply_document_metadata_suggestion_view, create_document_metadata_suggestion_view,
     create_favorite_view, delete_document_view, delete_favorite_view, document_cover_download,
     document_source_pdf_download, document_thumbnail_download, get_document_view,
-    list_document_jobs_view, list_documents_view, list_favorites_view, ocr_document_view,
-    patch_document_view, patch_favorite_view, search_blocks_view, translate_document_view,
+    list_document_jobs_view, list_document_metadata_suggestions_view, list_documents_view,
+    list_favorites_view, ocr_document_view, patch_document_view, patch_favorite_view,
+    search_blocks_view, translate_document_view,
 };
 use crate::AppState;
 
@@ -122,6 +127,46 @@ pub async fn patch_document_route(
         &document_id,
         &payload,
         &base_url,
+    )?))
+}
+
+pub async fn create_document_metadata_suggestion_route(
+    State(state): State<AppState>,
+    ApiPath(document_id): ApiPath<String>,
+    ApiJson(input): ApiJson<CreateDocumentMetadataSuggestionInput>,
+) -> Result<Json<ApiResponse<DocumentMetadataSuggestionView>>, AppError> {
+    let deps = build_library_route_deps(&state);
+    Ok(ok_json(create_document_metadata_suggestion_view(
+        &deps.library,
+        &document_id,
+        &input,
+    )?))
+}
+
+pub async fn list_document_metadata_suggestions_route(
+    State(state): State<AppState>,
+    ApiPath(document_id): ApiPath<String>,
+    ApiQuery(query): ApiQuery<ListDocumentMetadataSuggestionsQuery>,
+) -> Result<Json<ApiResponse<DocumentMetadataSuggestionListView>>, AppError> {
+    let deps = build_library_route_deps(&state);
+    Ok(ok_json(list_document_metadata_suggestions_view(
+        &deps.library,
+        &document_id,
+        &query,
+    )?))
+}
+
+pub async fn apply_document_metadata_suggestion_route(
+    State(state): State<AppState>,
+    ApiPath((document_id, suggestion_id)): ApiPath<(String, String)>,
+    ApiJson(input): ApiJson<ApplyDocumentMetadataSuggestionInput>,
+) -> Result<Json<ApiResponse<DocumentMetadataSuggestionApplyView>>, AppError> {
+    let deps = build_library_route_deps(&state);
+    Ok(ok_json(apply_document_metadata_suggestion_view(
+        &deps.library,
+        &document_id,
+        &suggestion_id,
+        &input,
     )?))
 }
 

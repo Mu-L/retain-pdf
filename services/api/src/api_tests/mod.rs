@@ -1,3 +1,4 @@
+mod agent_calculations;
 mod agent_capabilities;
 mod agent_runtime_sessions;
 mod conversations_contract;
@@ -8,7 +9,7 @@ mod golden_replay;
 mod health;
 mod http_contract;
 mod job_view_contract;
-mod jobs_common;
+pub(crate) mod jobs_common;
 mod jobs_control_contract;
 mod jobs_create;
 mod jobs_detail;

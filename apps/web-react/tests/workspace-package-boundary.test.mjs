@@ -111,7 +111,7 @@ test("SPA build and tests do not alias workspace packages back to source", () =>
   assert.deepEqual(offenders, []);
 
   const prepareScript = readFileSync(
-    join(REPO_ROOT, "scripts/build-frontend-packages.mjs"),
+    join(REPO_ROOT, "apps/web/scripts/build-workspace-packages.mjs"),
     "utf8",
   );
   for (const packageName of PACKAGE_ROOTS.keys()) {

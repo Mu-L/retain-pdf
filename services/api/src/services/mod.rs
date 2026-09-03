@@ -1,3 +1,5 @@
+pub mod agent_calculation_api;
+pub mod agent_calculations;
 pub mod agent_capabilities;
 pub mod agent_capability_api;
 pub mod agent_runtime_session_api;
@@ -24,6 +26,7 @@ pub mod jobs;
 pub mod jobsd_supervisor;
 pub mod library;
 pub mod library_api;
+pub(crate) mod managed_credential_gc;
 pub(crate) mod ocr_artifact_reuse;
 pub mod provider_api;
 pub(crate) mod provider_probe;

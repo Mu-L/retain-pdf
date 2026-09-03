@@ -36,6 +36,12 @@
 
 - `generic_flat_ocr.minimal.json`
 - `paddle_complex_ocr.golden.json`
+- `mineru_middle_v3.golden.json`
+- `mineru_content_list_v2.golden.json`
+
+其中 MinerU V3 fixture 模拟官方 `middle.json` 的 container → body/caption/footnote
+层级，同时覆盖 abstract 正文语义、行内/行间公式、list 聚合、discarded block、
+image/table asset path。它不包含真实论文内容或远程 API 响应，可以离线长期回归。
 
 ## Paddle Complex Offline Golden
 

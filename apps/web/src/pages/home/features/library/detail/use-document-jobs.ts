@@ -10,6 +10,7 @@ import { isPollingBootstrapPlaceholder } from "../../shared/job-helpers.js";
 const ACTIVE_STATUSES = new Set(["queued", "pending", "running", "validating"]);
 const TERMINAL_STATUSES = new Set(["succeeded", "failed", "cancelled", "canceled"]);
 export const DOCUMENT_JOBS_REFRESH_INTERVAL_MS = 2_000;
+const runtimeJobDocumentCache = new Map<string, string>();
 
 const EMPTY_RUNTIME_STORE = {
   getSnapshot: () => ({ jobId: "", snapshot: null }),
@@ -18,6 +19,10 @@ const EMPTY_RUNTIME_STORE = {
 
 function jobIdOf(job?: Partial<DocumentJobSummary> | null) {
   return `${job?.job_id || job?.id || ""}`.trim();
+}
+
+function documentIdOf(value?: Record<string, unknown> | null) {
+  return `${value?.document_id || value?.id || ""}`.trim();
 }
 
 export function isDocumentJobActive(job?: DocumentJobSummary | null) {
@@ -163,10 +168,12 @@ export function useDocumentJobs({
 }: any) {
   const [jobs, setJobs] = useState<DocumentJobSummary[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadedDocumentId, setLoadedDocumentId] = useState("");
   const [error, setError] = useState("");
   const [succeededRevision, setSucceededRevision] = useState(0);
   const [lastSucceededJobId, setLastSucceededJobId] = useState("");
   const generationRef = useRef(0);
+  const ownerGenerationRef = useRef(0);
   const optimisticJobsRef = useRef(new Map<string, DocumentJobSummary>());
   const terminalRefreshKeyRef = useRef("");
   const observedStatusRef = useRef(new Map<string, string>());
@@ -174,6 +181,15 @@ export function useDocumentJobs({
   onJobSucceededRef.current = onJobSucceeded;
   const runtimeState = useStoreSnapshot(runtimeStore || EMPTY_RUNTIME_STORE);
   const runtimeJob = useMemo(() => runtimeDocumentJob(runtimeState), [runtimeState]);
+  const runtimeJobId = jobIdOf(runtimeJob);
+  const runtimeDeclaredDocumentId = documentIdOf(runtimeJob);
+  const initialJobId = `${initialJob?.job_id || initialJob?.active_job_id || ""}`.trim();
+  const initialDocumentId = documentIdOf(initialJob);
+  const [runtimeOwner, setRuntimeOwner] = useState({
+    jobId: "",
+    documentId: "",
+    resolving: false,
+  });
 
   const upsert = useCallback((candidate?: Partial<DocumentJobSummary> | null) => {
     const normalized = upsertDocumentJob([], candidate, documentId)[0];
@@ -187,6 +203,7 @@ export function useDocumentJobs({
     if (!open || !documentId) {
       setJobs([]);
       setLoading(false);
+      setLoadedDocumentId("");
       return [];
     }
     const generation = ++generationRef.current;
@@ -205,11 +222,13 @@ export function useDocumentJobs({
       if (generation === generationRef.current) {
         setJobs(next);
         setError("");
+        setLoadedDocumentId(documentId);
       }
       return next;
     } catch (cause) {
       if (generation === generationRef.current) {
         setError(`${cause?.message || cause || "读取任务状态失败"}`);
+        setLoadedDocumentId(documentId);
       }
       return [];
     } finally {
@@ -229,6 +248,7 @@ export function useDocumentJobs({
       generationRef.current += 1;
       setJobs([]);
       setError("");
+      setLoadedDocumentId("");
       return undefined;
     }
     void refresh();
@@ -242,20 +262,89 @@ export function useDocumentJobs({
     };
   }, [documentId, open, refresh, refreshIntervalMs]);
 
+  // “+”提交先发布全局 runtime 快照，但 JobSubmissionView 不携带
+  // document_id。详情页不能因此丢掉进度：用既有 job_id 反查一次文档归属，
+  // 缓存后再把 runtime 合并进当前文档；切换书籍时仍严格校验归属，避免串书。
+  useEffect(() => {
+    const generation = ++ownerGenerationRef.current;
+    if (!open || !documentId || !runtimeJobId) {
+      setRuntimeOwner({ jobId: "", documentId: "", resolving: false });
+      return undefined;
+    }
+    const knownOwner = runtimeDeclaredDocumentId
+      || (runtimeJobId === initialJobId ? initialDocumentId : "")
+      || runtimeJobDocumentCache.get(runtimeJobId)
+      || "";
+    if (knownOwner) {
+      runtimeJobDocumentCache.set(runtimeJobId, knownOwner);
+      setRuntimeOwner({ jobId: runtimeJobId, documentId: knownOwner, resolving: false });
+      return undefined;
+    }
+    const resolveDocument = actions?.getDocumentByJobId;
+    if (typeof resolveDocument !== "function") {
+      setRuntimeOwner({ jobId: runtimeJobId, documentId: "", resolving: false });
+      return undefined;
+    }
+
+    setRuntimeOwner({ jobId: runtimeJobId, documentId: "", resolving: true });
+    let cancelled = false;
+    void (async () => {
+      // 上传先建 document 再建 job，通常首请求即可命中；短暂的两次补偿只用于
+      // 应对数据库投影尚未可见的瞬间，不依赖 2 秒 document-jobs 轮询。
+      for (const delay of [0, 250, 750]) {
+        if (delay) await new Promise((resolve) => globalThis.setTimeout(resolve, delay));
+        if (cancelled || generation !== ownerGenerationRef.current) return;
+        try {
+          const owner = await resolveDocument(runtimeJobId);
+          const ownerDocumentId = documentIdOf(owner);
+          if (!ownerDocumentId) continue;
+          runtimeJobDocumentCache.set(runtimeJobId, ownerDocumentId);
+          if (!cancelled && generation === ownerGenerationRef.current) {
+            setRuntimeOwner({
+              jobId: runtimeJobId,
+              documentId: ownerDocumentId,
+              resolving: false,
+            });
+          }
+          return;
+        } catch {
+          // 归属解析是 runtime 合并的增强路径；文档任务主轮询仍继续工作。
+        }
+      }
+      if (!cancelled && generation === ownerGenerationRef.current) {
+        setRuntimeOwner({ jobId: runtimeJobId, documentId: "", resolving: false });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    actions?.getDocumentByJobId,
+    documentId,
+    initialDocumentId,
+    initialJobId,
+    open,
+    runtimeDeclaredDocumentId,
+    runtimeJobId,
+  ]);
+
   const effectiveJobs = useMemo(() => {
-    const initialJobId = `${initialJob?.job_id || initialJob?.active_job_id || ""}`.trim();
     let next = jobs;
     if (initialJobId && !initialJobId.startsWith("doc:")) {
       next = upsertDocumentJob(next, { ...initialJob, job_id: initialJobId }, documentId);
     }
     const runtimeId = jobIdOf(runtimeJob);
+    const resolvedRuntimeJob = runtimeJob && runtimeOwner.jobId === runtimeId
+      && runtimeOwner.documentId === documentId
+      ? { ...runtimeJob, document_id: documentId }
+      : runtimeJob;
     return mergeRuntimeDocumentJob(
       next,
-      runtimeJob,
+      resolvedRuntimeJob,
       documentId,
       Boolean(runtimeId && optimisticJobsRef.current.has(runtimeId)),
     );
-  }, [documentId, initialJob, jobs, runtimeJob]);
+  }, [documentId, initialJob, initialJobId, jobs, runtimeJob, runtimeOwner]);
 
   const trackedRuntimeJob = useMemo(() => {
     if (!runtimeJob) return null;
@@ -320,7 +409,9 @@ export function useDocumentJobs({
 
   return useMemo(() => ({
     jobs: effectiveJobs,
-    loading,
+    loading: loading
+      || Boolean(open && documentId && loadedDocumentId !== documentId)
+      || runtimeOwner.resolving,
     error,
     refresh,
     upsert,
@@ -336,7 +427,11 @@ export function useDocumentJobs({
     lastSucceededJobId,
     latestTranslation,
     loading,
+    loadedDocumentId,
+    documentId,
+    open,
     refresh,
+    runtimeOwner.resolving,
     succeededRevision,
     upsert,
   ]);

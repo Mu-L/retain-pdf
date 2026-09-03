@@ -84,7 +84,7 @@ function parseSseEvent(line = "") {
         return null;
     }
 }
-export async function readAiAskStream(body, { onToolEvent = null, onAgentToolEvent = null, onAgentOperationEvent = null, onAgentConfirmationRequiredEvent = null, onAgentSessionEvent = null, onAnswerDelta = null, onCompress = null, } = {}) {
+export async function readAiAskStream(body, { onProgressEvent = null, onToolEvent = null, onAgentToolEvent = null, onAgentOperationEvent = null, onAgentConfirmationRequiredEvent = null, onAgentSessionEvent = null, onAnswerDelta = null, onCompress = null, } = {}) {
     if (!body || typeof body.getReader !== "function")
         throw new AiAskError("AI 服务响应格式异常,请重试。");
     const reader = body.getReader();
@@ -97,6 +97,16 @@ export async function readAiAskStream(body, { onToolEvent = null, onAgentToolEve
     function handleLine(line) {
         const event = parseSseEvent(line);
         if (!event || typeof event !== "object")
+            return;
+        if (event.type === "progress") {
+            onProgressEvent?.({
+                type: "progress",
+                stage: event.stage === "retrieval" ? "retrieval" : "routing",
+                message: `${event.message || ""}`.trim(),
+            });
+            return;
+        }
+        if (event.type === "heartbeat")
             return;
         if (event.type === "tool") {
             onToolEvent?.(event);
@@ -167,8 +177,9 @@ export async function readAiAskStream(body, { onToolEvent = null, onAgentToolEve
             }
             return;
         }
-        if (event.type === "error")
-            throw new AiAskError(`${event.message || "AI 服务返回错误。"}`);
+        if (event.type === "error" || event.type === "cancelled") {
+            throw new AiAskError(`${event.message || (event.type === "cancelled" ? "AI 请求已取消。" : "AI 服务返回错误。")}`);
+        }
         if (event.type === "compress") {
             onCompress?.(event);
             return;
@@ -228,7 +239,7 @@ async function extractErrorMessage(resp) {
         return `${text || ""}`.replace(/\s+/g, " ").trim().slice(0, 240);
     }
 }
-export async function askLibraryAi({ question = "", documentId = "", jobId = "", conversationId = "", parentId = "", regenerate = false, userMessageId = "", assistantMessageId = "", onToolEvent = null, onAgentToolEvent = null, onAgentOperationEvent = null, onAgentConfirmationRequiredEvent = null, onAgentSessionEvent = null, onAnswerDelta = null, onCompress = null, signal = null, apiPrefix = API_PREFIX, fetchImpl = fetch, llmApiKey = "", llmBaseUrl = "", llmModel = "", confirmDocumentOperation = false, assistantMode = "auto", } = {}) {
+export async function askLibraryAi({ question = "", documentId = "", jobId = "", conversationId = "", parentId = "", regenerate = false, userMessageId = "", assistantMessageId = "", onToolEvent = null, onProgressEvent = null, onAgentToolEvent = null, onAgentOperationEvent = null, onAgentConfirmationRequiredEvent = null, onAgentSessionEvent = null, onAnswerDelta = null, onCompress = null, signal = null, apiPrefix = API_PREFIX, fetchImpl = fetch, llmApiKey = "", llmBaseUrl = "", llmModel = "", confirmDocumentOperation = false, assistantMode = "auto", } = {}) {
     const trimmed = `${question}`.trim();
     if (!trimmed)
         throw new AiAskError("请输入问题。", 400);
@@ -296,6 +307,7 @@ export async function askLibraryAi({ question = "", documentId = "", jobId = "",
         return result;
     }
     return readAiAskStream(resp.body, {
+        onProgressEvent,
         onToolEvent,
         onAgentToolEvent,
         onAgentOperationEvent,

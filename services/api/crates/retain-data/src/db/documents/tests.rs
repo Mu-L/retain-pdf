@@ -407,6 +407,11 @@ fn update_document_fields_manages_tags_and_status() {
         .list_documents(10, 0, None, Some("化学"), None)
         .expect("list by tag");
     assert_eq!(filtered.len(), 1);
+    assert_eq!(
+        db.count_documents(None, Some("化学"), None)
+            .expect("count by tag"),
+        1
+    );
     let missed = db
         .list_documents(10, 0, None, Some("生物"), None)
         .expect("list by other tag");

@@ -45,13 +45,18 @@ function eventSeq(operation: AgentOperationView): number {
     || Math.max(0, ...(operation.events || []).map((event) => Number(event.seq) || 0));
 }
 
-function shouldReplace(current: AgentOperationView | undefined, next: AgentOperationView): boolean {
+export function shouldReplaceAgentOperation(
+  current: AgentOperationView | undefined,
+  next: AgentOperationView,
+): boolean {
   if (!current) return true;
   if (next.current_attempt !== current.current_attempt) {
     return next.current_attempt > current.current_attempt;
   }
   if (eventSeq(next) !== eventSeq(current)) return eventSeq(next) > eventSeq(current);
-  return `${next.updated_at || ""}` >= `${current.updated_at || ""}`;
+  // Equal snapshots are common while polling. Replacing them used to clear a
+  // pending action or its error even though the server had not advanced.
+  return `${next.updated_at || ""}` > `${current.updated_at || ""}`;
 }
 
 function makeActionKey(operationId: string, action: string): string {
@@ -92,12 +97,19 @@ export function useReaderAgentOperations({
   const inFlightRef = useRef(new Set<string>());
   const actionKeysRef = useRef(new Map<string, string>());
   const notifiedCommittedRef = useRef(new Set<string>());
+  const recoveredConversationRef = useRef(new Set<string>());
 
-  const upsert = useCallback((operation: AgentOperationView) => {
+  const upsert = useCallback((operation: AgentOperationView, settlePending = false) => {
     if (!operation?.operation_id) return;
     setEntriesById((current) => {
       const entry = current[operation.operation_id];
-      if (!shouldReplace(entry?.operation, operation)) return current;
+      if (!shouldReplaceAgentOperation(entry?.operation, operation)) {
+        if (!settlePending || !entry?.pendingAction) return current;
+        return {
+          ...current,
+          [operation.operation_id]: { ...entry, pendingAction: undefined },
+        };
+      }
       return {
         ...current,
         [operation.operation_id]: {
@@ -110,13 +122,13 @@ export function useReaderAgentOperations({
     });
   }, []);
 
-  const refresh = useCallback(async (operationId: string) => {
+  const refresh = useCallback(async (operationId: string, settlePending = false) => {
     const id = `${operationId || ""}`.trim();
     const slot = `refresh:${id}`;
     if (!id || inFlightRef.current.has(slot)) return;
     inFlightRef.current.add(slot);
     try {
-      upsert(await getAgentOperation(id));
+      upsert(await getAgentOperation(id), settlePending);
     } catch {
       // SSE events are hints. A following list/poll remains authoritative.
     } finally {
@@ -131,6 +143,17 @@ export function useReaderAgentOperations({
     inFlightRef.current.add(slot);
     try {
       const result = await listAgentOperations({ conversationId: id, limit: 50 });
+      // The first list request hydrates history. A committed operation found in
+      // that baseline is not a new commit and must not force the Reader back to
+      // the source PDF. Later transitions are still announced normally.
+      if (!recoveredConversationRef.current.has(id)) {
+        for (const operation of result.operations || []) {
+          if (operation.status === "committed") {
+            notifiedCommittedRef.current.add(operation.operation_id);
+          }
+        }
+        recoveredConversationRef.current.add(id);
+      }
       for (const operation of result.operations || []) upsert(operation);
     } catch {
       // Conversation remains usable when operation recovery is temporarily unavailable.
@@ -288,12 +311,12 @@ export function useReaderAgentOperations({
       }
       actionKeysRef.current.delete(keySlot);
       try { sessionStorage.removeItem(storageSlot); } catch { /* optional */ }
-      upsert(next);
+      upsert(next, true);
     } catch (error) {
       if (errorStatus(error) === 409) {
         actionKeysRef.current.delete(keySlot);
         try { sessionStorage.removeItem(storageSlot); } catch { /* optional */ }
-        await refresh(operationId);
+        await refresh(operationId, true);
       } else {
         setEntriesById((current) => ({
           ...current,

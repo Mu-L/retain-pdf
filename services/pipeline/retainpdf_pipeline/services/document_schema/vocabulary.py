@@ -70,6 +70,7 @@ STRUCTURE_ROLES = (
     "",
     "body",
     "abstract",
+    "document_title",
     "title",
     "heading",
     "section_heading",

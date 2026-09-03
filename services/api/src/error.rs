@@ -53,6 +53,12 @@ pub enum AppError {
         code: &'static str,
         message: String,
     },
+    #[error("{message}")]
+    DocumentMetadata {
+        status: StatusCode,
+        code: &'static str,
+        message: String,
+    },
 }
 
 #[derive(Serialize)]
@@ -80,6 +86,13 @@ struct CredentialReferenceErrorBody {
 
 #[derive(Serialize)]
 struct LiveTranslationErrorBody {
+    code: &'static str,
+    message: String,
+    error: StructuredError,
+}
+
+#[derive(Serialize)]
+struct DocumentMetadataErrorBody {
     code: &'static str,
     message: String,
     error: StructuredError,
@@ -209,6 +222,18 @@ impl AppError {
             message: message.into(),
         }
     }
+
+    pub fn document_metadata(
+        status: StatusCode,
+        code: &'static str,
+        message: impl Into<String>,
+    ) -> Self {
+        Self::DocumentMetadata {
+            status,
+            code,
+            message: message.into(),
+        }
+    }
 }
 
 impl IntoResponse for AppError {
@@ -270,6 +295,22 @@ impl IntoResponse for AppError {
             )
                 .into_response();
         }
+        if let AppError::DocumentMetadata {
+            status,
+            code,
+            message,
+        } = &self
+        {
+            return (
+                *status,
+                Json(DocumentMetadataErrorBody {
+                    code,
+                    message: message.clone(),
+                    error: StructuredError::empty(code, *status),
+                }),
+            )
+                .into_response();
+        }
         let (status, code, stable_code) = match &self {
             AppError::Unauthorized(_) => (StatusCode::UNAUTHORIZED, 40100, "UNAUTHORIZED"),
             AppError::Forbidden(_) => (StatusCode::FORBIDDEN, 40300, "FORBIDDEN"),
@@ -305,6 +346,7 @@ impl IntoResponse for AppError {
             AppError::OcrArtifactReuse { .. } => unreachable!("handled above"),
             AppError::CredentialReference { .. } => unreachable!("handled above"),
             AppError::LiveTranslation { .. } => unreachable!("handled above"),
+            AppError::DocumentMetadata { .. } => unreachable!("handled above"),
         };
         let body = ErrorBody {
             code,

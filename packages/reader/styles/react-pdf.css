@@ -42,12 +42,60 @@
 /* 对齐旧 #reader-scroll-shell：唯一纵向滚动容器；双栏不各自 overflow */
 .reader-react-scroll-shell {
   position: absolute;
-  inset: 0;
+  inset: 60px 0 0;
   overflow: auto;
   background: var(--bg, var(--reader-page-bg));
   scrollbar-width: none;
   -ms-overflow-style: none;
   transition: right 180ms ease;
+}
+
+.reader-react-root.is-workspace-markdown .reader-fab,
+.reader-react-root.is-workspace-ai .reader-fab {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 组合工作区：PDF 可以位于任一半栏，也可以完全让位给 Markdown + AI。 */
+.reader-react-root.is-workspace-split .reader-react-scroll-shell {
+  right: 50vw;
+  right: 50dvw;
+  transition: none;
+}
+
+.reader-react-root.is-workspace-split.is-pdf-pair .reader-react-scroll-shell {
+  left: 0;
+  right: 0;
+}
+
+.reader-react-root.is-workspace-split.is-pdf-pane-right .reader-react-scroll-shell {
+  left: 50vw;
+  left: 50dvw;
+  right: 0;
+}
+
+.reader-react-root.is-workspace-split.is-pdf-pane-none .reader-react-scroll-shell {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.reader-react-root.is-workspace-split.is-pdf-pane-left .reader-react-hud {
+  left: 25vw;
+  left: 25dvw;
+}
+
+.reader-react-root.is-workspace-split.is-pdf-pane-right .reader-react-hud {
+  left: 75vw;
+  left: 75dvw;
+}
+
+.reader-react-root.is-workspace-split.is-pdf-pair .reader-react-hud {
+  left: 50%;
+}
+
+.reader-react-root.is-workspace-split .reader-fab {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Markdown 工具打开时，PDF 与 Markdown 各自拥有独立滚动的左右半栏。 */
@@ -61,8 +109,7 @@
   left: 25dvw;
 }
 .reader-react-root.is-markdown-split .reader-close-home-btn {
-  right: calc(50vw + clamp(12px, 2.2vw, 28px));
-  right: calc(50dvw + clamp(12px, 2.2dvw, 28px));
+  right: clamp(12px, 2.2vw, 28px);
 }
 
 /* AI 阅读：文档与问答各占一半，与对照阅读的双栏比例一致。 */
@@ -76,7 +123,7 @@
   left: calc((100dvw - var(--reader-ai-split-width)) / 2);
 }
 .reader-react-root.is-ai-split .reader-close-home-btn {
-  right: calc(var(--reader-ai-split-width) + clamp(12px, 2.2vw, 28px));
+  right: clamp(12px, 2.2vw, 28px);
 }
 .reader-react-root.is-ai-split .reader-fab {
   opacity: 0;
@@ -86,7 +133,7 @@
 .reader-ai-split-resizer {
   position: fixed !important;
   inset: 0;
-  z-index: 52;
+  z-index: 33;
   pointer-events: none;
   background: transparent;
 }
@@ -155,6 +202,13 @@
   width: 100%;
 }
 
+/* Live translation uses the same synchronized 50:50 reading geometry as PDF compare. */
+.reader-react-root:has(.reader-live-translation-overlay)
+  .reader-react-grid.reader-mode-compare
+  .reader-react-pdf-pane[data-reader-pane="translated"] {
+  border-left: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
 /* 原文/译文：单栏铺满可视区域，不再卡在中间 1040px 窄条 */
 .reader-react-grid.reader-mode-source,
 .reader-react-grid.reader-mode-translated {
@@ -195,7 +249,26 @@
   border-left: 1px solid var(--line);
 }
 
+.reader-react-grid.reader-mode-compare.is-reversed .reader-react-pdf-pane[data-reader-pane="source"] {
+  order: 2;
+  border-left: 1px solid var(--line);
+}
+
+.reader-react-grid.reader-mode-compare.is-reversed .reader-react-pdf-pane[data-reader-pane="translated"] {
+  order: 1;
+  border-left: 0;
+}
+
 @media (max-width: 899px) {
+  .reader-react-root.is-workspace-split .reader-react-scroll-shell,
+  .reader-react-root.is-workspace-split.is-pdf-pane-right .reader-react-scroll-shell {
+    left: 0;
+    right: 0;
+    top: 60px;
+  }
+  .reader-react-root.is-workspace-split .reader-react-hud {
+    left: 50%;
+  }
   .reader-ai-split-resizer {
     display: none !important;
   }
@@ -243,6 +316,128 @@
     0 4px 18px color-mix(in srgb, var(--warn) 24%, transparent);
   animation: reader-region-focus 680ms ease-out both;
 }
+
+/* 独立 OCR 结构选择层：容器不拦截 PDF，只有结构命中框响应指针。 */
+.reader-structure-selection-layer {
+  position: absolute;
+  z-index: 6;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.reader-structure-selection-target {
+  position: absolute;
+  display: block;
+  min-width: 12px;
+  min-height: 12px;
+  padding: 0;
+  box-sizing: border-box;
+  border: 1.5px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  cursor: crosshair;
+  opacity: 0;
+  pointer-events: auto;
+  transition:
+    opacity 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.reader-structure-selection-target:hover,
+.reader-structure-selection-target:focus-visible {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--ink) 78%, transparent);
+  background: color-mix(in srgb, var(--paper) 8%, transparent);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--paper) 72%, transparent),
+    0 5px 18px color-mix(in srgb, var(--shadow-color) 16%, transparent);
+  outline: none;
+}
+
+.reader-react-pdf-page-slot:hover .reader-structure-selection-target:not(:hover) {
+  opacity: 0.42;
+  border-color: color-mix(in srgb, var(--ink) 48%, transparent);
+}
+
+.reader-react-pdf-page-slot:hover .reader-structure-selection-target:not(:hover) .reader-structure-selection-label {
+  opacity: 0;
+}
+
+.reader-structure-selection-label {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 92%, transparent);
+  color: var(--paper);
+  font-size: 9px;
+  font-weight: 750;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 3px 9px color-mix(in srgb, var(--shadow-color) 14%, transparent);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+/* 普通文字的被动命中层：仅绘制悬停框，不阻断 textLayer 的拖选。 */
+.reader-text-hover-layer {
+  position: absolute;
+  z-index: 5;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.reader-text-hover-frame {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--ink) 46%, transparent);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--paper) 5%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--paper) 62%, transparent);
+  animation: reader-text-hover-in 100ms ease-out both;
+}
+
+.reader-text-hover-label {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 17px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 86%, transparent);
+  color: var(--paper);
+  font-size: 9px;
+  font-weight: 720;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+@keyframes reader-text-hover-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.reader-structure-selection-target:hover .reader-structure-selection-label,
+.reader-structure-selection-target:focus-visible .reader-structure-selection-label {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 
 @keyframes reader-region-focus {
   from {
@@ -314,7 +509,7 @@
   cursor: text;
   transform-origin: 0 0;
 }
-/* 选区高亮：暖黄荧光笔感，比冷蓝更像「批注」 */
+/* 普通文字使用 PDF 原生选区；选区完成后由产品工具条接管复制与问 AI。 */
 .reader-react-pdf-page .textLayer ::selection {
   background: color-mix(in srgb, var(--warn) 45%, transparent);
   color: transparent;

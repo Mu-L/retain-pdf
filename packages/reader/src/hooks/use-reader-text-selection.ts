@@ -1,16 +1,9 @@
-// 在 PDF 文本层上监听选区，给出浮条位置与创建批注所需字段。
+// 在 PDF 文本层上监听正文选区；公式/表格/图片由独立结构选择层处理。
 
 import { useCallback, useEffect, useState } from "react";
 import type { RefObject } from "react";
-import type { ReaderNotePane } from "../annotations/types.js";
-
-export type ReaderTextSelection = {
-  quote: string;
-  page: number;
-  pane: ReaderNotePane;
-  /** 视口坐标，用于浮条定位 */
-  rect: { left: number; top: number; width: number; height: number };
-};
+import type { ReaderTextSelection } from "../shared/data/reader-regions.js";
+export type { ReaderTextSelection } from "../shared/data/reader-regions.js";
 
 export function useReaderTextSelection(
   rootRef: RefObject<HTMLElement | null>,
@@ -67,7 +60,7 @@ export function useReaderTextSelection(
       }
       const page = Math.max(1, Math.floor(Number(pageEl.getAttribute("data-reader-page")) || 1));
       const paneAttr = pageEl.getAttribute("data-reader-pane");
-      const pane: ReaderNotePane = paneAttr === "translated" ? "translated" : "source";
+      const pane = paneAttr === "translated" ? "translated" : "source";
 
       const rects = range.getClientRects();
       const last = rects[rects.length - 1] || range.getBoundingClientRect();
@@ -84,6 +77,7 @@ export function useReaderTextSelection(
       const clampedTop = Math.min(Math.max(pad, last.top), vh - pad);
 
       setSelection({
+        selectionType: "text",
         quote,
         page,
         pane,

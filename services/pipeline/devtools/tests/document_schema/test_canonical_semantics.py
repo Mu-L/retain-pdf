@@ -13,6 +13,9 @@ from retainpdf_pipeline.services.document_schema.canonical_semantics import (
     from_normalized_block,
     is_bodylike,
     is_caption,
+    is_plain_text,
+    is_title,
+    uses_title_style,
 )
 from retainpdf_pipeline.services.document_schema.classification import (
     resolve_block_class,
@@ -114,6 +117,29 @@ def test_class_only_caption_is_recognized_by_flat_compatibility_reader() -> None
     assert profile.block_class == "caption"
     assert is_caption(profile) is True
     assert is_caption_like_block({"block_class": "caption"}) is True
+
+
+def test_abstract_keeps_broad_title_class_but_uses_body_text_behavior() -> None:
+    profile = from_flat_item(
+        {
+            "content": {"kind": "text"},
+            "block_class": "title",
+            "layout_role": "paragraph",
+            "semantic_role": "abstract",
+            "structure_role": "body",
+        }
+    )
+
+    assert is_title(profile) is True
+    assert uses_title_style(profile) is False
+    assert is_bodylike(profile) is True
+    assert is_plain_text(profile) is True
+
+
+def test_class_only_legacy_title_retains_title_behavior() -> None:
+    profile = from_flat_item({"block_kind": "text", "block_class": "title"})
+
+    assert uses_title_style(profile) is True
 
 
 def test_nested_and_flat_canonical_carriers_build_the_same_profile() -> None:

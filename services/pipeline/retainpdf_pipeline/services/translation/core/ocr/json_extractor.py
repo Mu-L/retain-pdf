@@ -62,6 +62,7 @@ ROLE_EXAMPLE_INTRO = "example_intro"
 ROLE_EXAMPLE_LINE = "example_line"
 ROLE_ABSTRACT = "abstract"
 ROLE_REFERENCE_ENTRY = "reference_entry"
+ROLE_DOCUMENT_TITLE = "document_title"
 ROLE_TITLE = "title"
 ROLE_HEADING = "heading"
 ROLE_CAPTION = "caption"
@@ -76,6 +77,7 @@ ROLE_TABLE_OF_CONTENTS = "table_of_contents"
 PRIMARY_TRANSLATABLE_STRUCTURE_ROLES = {
     ROLE_BODY,
     ROLE_ABSTRACT,
+    ROLE_DOCUMENT_TITLE,
     ROLE_TITLE,
     ROLE_HEADING,
     ROLE_CAPTION,

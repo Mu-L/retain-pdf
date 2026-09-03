@@ -22,7 +22,8 @@ export type ReaderFloatShellProps = {
   /** 默认宽（px），会 min 到视口 */
   width?: number;
   /** dock-right 用于 PDF / Markdown 等稳定双栏，不启用拖拽定位。 */
-  placement?: "floating" | "dock-right";
+  placement?: "floating" | "dock-right" | "workspace";
+  showHeader?: boolean;
   onClose: () => void;
   toolbar?: ReactNode;
   children: ReactNode;
@@ -84,11 +85,14 @@ export function ReaderFloatShell({
   className = "",
   width = 360,
   placement = "floating",
+  showHeader = true,
   onClose,
   toolbar,
   children,
 }: ReaderFloatShellProps) {
+  const workspace = placement === "workspace";
   const docked = placement === "dock-right";
+  const anchored = docked || workspace;
   const [pos, setPos] = useState<PanelPos>(() => loadPos(storageKey, width));
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef<{
@@ -101,16 +105,16 @@ export function ReaderFloatShell({
   } | null>(null);
 
   useEffect(() => {
-    if (!open || docked) return;
+    if (!open || anchored) return;
     setPos((p) => clampPos(p.x, p.y, width));
-  }, [docked, open, width]);
+  }, [anchored, open, width]);
 
   useEffect(() => {
-    if (!open || docked) return;
+    if (!open || anchored) return;
     const onResize = () => setPos((p) => clampPos(p.x, p.y, width));
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [docked, open, width]);
+  }, [anchored, open, width]);
 
   useEffect(() => {
     if (!open) return;
@@ -126,7 +130,7 @@ export function ReaderFloatShell({
   }, [open, onClose]);
 
   const onPointerDown = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    if (docked) return;
+    if (anchored) return;
     if (event.button !== 0) return;
     if ((event.target as HTMLElement)?.closest?.("button")) return;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -139,7 +143,7 @@ export function ReaderFloatShell({
       moved: false,
     };
     setDragging(true);
-  }, [docked, pos.x, pos.y]);
+  }, [anchored, pos.x, pos.y]);
 
   const onPointerMove = useCallback((event: ReactPointerEvent<HTMLElement>) => {
     const drag = dragRef.current;
@@ -175,20 +179,20 @@ export function ReaderFloatShell({
   return (
     <aside
       id={id}
-      className={`reader-notes-panel reader-notes-panel--${docked ? "docked" : "float"}${docked ? "" : " reader-floating-surface"}${dragging ? " is-dragging" : ""} ${className}`.trim()}
-      style={docked ? undefined : { left: pos.x, top: pos.y, width: Math.min(width, typeof window !== "undefined" ? window.innerWidth - 24 : width) }}
+      className={`reader-notes-panel reader-notes-panel--${workspace ? "workspace" : docked ? "docked" : "float"}${anchored ? "" : " reader-floating-surface"}${showHeader ? " has-panel-header" : " is-headerless"}${toolbar ? " has-panel-toolbar" : ""}${dragging ? " is-dragging" : ""} ${className}`.trim()}
+      style={anchored ? undefined : { left: pos.x, top: pos.y, width: Math.min(width, typeof window !== "undefined" ? window.innerWidth - 24 : width) }}
       aria-label={ariaLabel}
       role="dialog"
       aria-modal="false"
     >
-      <header
+      {showHeader ? <header
         className="reader-notes-panel-head"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
       >
-        {docked ? null : (
+        {anchored ? null : (
           <div className="reader-notes-panel-drag" aria-hidden="true">
             <GripHorizontal size={14} strokeWidth={2.25} />
           </div>
@@ -203,7 +207,7 @@ export function ReaderFloatShell({
         <button type="button" className="reader-notes-close reader-floating-close" aria-label={`关闭${title}`} onClick={onClose}>
           <X size={14} strokeWidth={2.5} aria-hidden />
         </button>
-      </header>
+      </header> : null}
       {toolbar ? <div className="reader-notes-panel-toolbar">{toolbar}</div> : null}
       <div className="reader-notes-panel-body">{children}</div>
     </aside>

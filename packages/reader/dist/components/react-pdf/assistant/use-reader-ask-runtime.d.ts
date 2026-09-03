@@ -1,31 +1,28 @@
-import { type AiCitationLike } from "../../../external.js";
-import { type ReaderAskStoreMessage } from "./reader-ask-tree.js";
 import type { AgentConfirmationMode } from "@retainpdf/api/agent-runtime-settings";
 import type { ReaderAssistantMode } from "../../../shared/ai/ask-answerer.js";
+import type { ReaderSelection } from "../../../shared/data/reader-regions.js";
 export type { ReaderAskStoreMessage } from "./reader-ask-tree.js";
-export type ReaderAskSessionSummary = {
-    id: string;
-    title: string;
-    updatedAt: string;
-    messageCount: number;
-    active: boolean;
-};
+export type { ReaderAskSessionSummary } from "./use-reader-conversation.js";
+export { loadReaderRequestSnapshot, saveReaderRequestSnapshot, } from "./reader-request-snapshots.js";
+export type { ReaderRequestSnapshot } from "./reader-request-snapshots.js";
 export declare function useReaderAskRuntime(options: {
     jobId: string;
+    documentId?: string;
     enabled: boolean;
+    selectionContext?: ReaderSelection | null;
     onDocumentCommitted?: (input: {
         documentId: string;
         revision: string;
     }) => void;
 }): {
-    citationsByMessageId: Record<string, AiCitationLike[]>;
+    citationsByMessageId: Record<string, import("../../../external.js").AiCitationLike[]>;
     progressByMessageId: Record<string, string>;
     contentByMessageId: Record<string, string>;
     streamingAssistantId: string;
     isRunning: boolean;
-    messages: ReaderAskStoreMessage[];
-    sessions: ReaderAskSessionSummary[];
-    activeConversationId: any;
+    messages: import("./reader-ask-tree.js").ReaderAskStoreMessage[];
+    sessions: import("./use-reader-conversation.js").ReaderAskSessionSummary[];
+    activeConversationId: string;
     sessionBusy: boolean;
     sessionError: string;
     submitQuestion: (questionInput: string) => Promise<void>;

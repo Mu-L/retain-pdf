@@ -1,6 +1,6 @@
 // 阅读器工具定义（自包含版，从 apps/web/src/pages/reader/tools/registry.ts 复制）
 
-export type ReaderToolId = "notes" | "favorites" | "markdown" | "ai";
+export type ReaderToolId = "favorites" | "markdown" | "ai";
 
 export type ReaderToolDef = {
   id: ReaderToolId;
@@ -14,13 +14,6 @@ export type ReaderToolDef = {
 
 /** 与 legacy ReaderTopbarActions.TOOL_BUTTONS 同一套能力 */
 export const READER_TOOLS: readonly ReaderToolDef[] = Object.freeze([
-  {
-    id: "notes",
-    label: "批注",
-    subIdle: "选中文字后添加",
-    subOpen: "关闭悬浮窗",
-    needsJob: false,
-  },
   {
     id: "favorites",
     label: "摘录",

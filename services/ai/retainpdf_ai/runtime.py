@@ -15,6 +15,7 @@ from .runtimes import (
     FxCapability,
     PythonAgentRuntime,
     RuntimeCapabilities,
+    UnifiedAgentRuntime,
     build_agent_runtime,
     probe_fx_gateway_endpoint,
 )
@@ -28,6 +29,7 @@ __all__ = [
     "OpenAICompatibleAgentRuntime",
     "PythonAgentRuntime",
     "RuntimeCapabilities",
+    "UnifiedAgentRuntime",
     "build_agent_runtime",
     "probe_fx_gateway_endpoint",
 ]

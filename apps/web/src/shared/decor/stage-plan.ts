@@ -3,7 +3,7 @@
 // DecorStage 组件只消费这里的输出，不自己解析 manifest——校验/降级/路径
 // 解析全部收在纯函数里，方便 node:test 直测（不用 jsdom 挂组件）。
 //
-// 降级链（契约 docs/theme-system/DECOR_PACKS.md）：
+// 降级链（契约 docs/core/frontend/theme-system/DECOR_PACKS.md）：
 // - model 层在图片版舞台/无 WebGL/reduced-motion 下 → 渲染 fallback 静态图
 // - reduced-motion → 所有 parallax 归零
 // 契约：./contract.ts · 锚点：./slots.ts

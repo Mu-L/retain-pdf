@@ -107,6 +107,7 @@ test("StatusCard：DOM 契约 id 逐一存在(隐藏区 + ring + 阶段流)", as
     assert.ok(byId(dom, id), `契约 id 缺失：#${id}`);
   }
   assert.equal(byId(dom, "job-status-card").querySelectorAll(".status-stage-step[data-stage-key]").length, 4);
+  assert.match(byId(dom, "cancel-btn").textContent, /取消任务/, "任务卡必须提供明确的取消入口");
 
   root.unmount();
   services.dispose();
@@ -147,16 +148,32 @@ test("StatusCard：阶段选择语义 + 重试 + 取消", async () => {
 
   services.features.jobRuntimeFeature.startPolling(getMockJobId());
   await waitFor(() => {
-    const activeStep = byId(dom, "status-stage-flow").querySelector('.status-stage-step[data-stage-key="translate"]');
+    if (byId(dom, "job-status-card")?.dataset.currentStageKey !== "translate") return false;
+    const activeStep = byId(dom, "job-status-card").querySelector('.status-stage-step[data-stage-key="translate"]');
     return activeStep?.classList.contains("is-active");
   }, "翻译阶段就位");
+  await wait(50);
+  assert.equal(byId(dom, "job-status-card").dataset.currentStageKey, "translate");
 
   // ---- 阶段选择:点击 ocr(index < translate,可选) → 选中态切换 ----
-  const ocrStep = byId(dom, "status-stage-flow").querySelector('.status-stage-step[data-stage-key="ocr"]');
+  const ocrStep = byId(dom, "job-status-card").querySelector('.status-stage-step[data-stage-key="ocr"]');
   assert.equal(ocrStep.disabled, false, "ocr 阶段已到达,应可选");
   click(dom, ocrStep);
-  await waitFor(() => ocrStep.getAttribute("aria-selected") === "true", "点击 ocr 后选中态切换");
-  assert.equal(byId(dom, "status-ring-label").textContent.trim(), "OCR");
+  await waitFor(() => {
+    const currentOcrStep = byId(dom, "job-status-card")
+      .querySelector('.status-stage-step[data-stage-key="ocr"]');
+    return currentOcrStep?.getAttribute("aria-selected") === "true"
+      && byId(dom, "status-ring-label").textContent.trim() === "OCR";
+  }, "点击 ocr 后当前状态卡选中态切换");
+  assert.equal(
+    byId(dom, "status-ring-label").textContent.trim(),
+    "OCR",
+    JSON.stringify({
+      current: byId(dom, "job-status-card").dataset.currentStageKey,
+      selected: byId(dom, "job-status-card").dataset.selectedStageKey,
+      manual: byId(dom, "job-status-card").dataset.manualStageSelection,
+    }),
+  );
 
   // ---- 阶段选择语义:同一 job/同一 currentStageKey 下的无关渲染不应清掉手动选择 ----
   services.statusCard.store.actions.setCancelDisabled(false);
@@ -168,6 +185,7 @@ test("StatusCard：阶段选择语义 + 重试 + 取消", async () => {
   if (!cancelButton.disabled) {
     click(dom, cancelButton);
     await waitFor(() => cancelButton.disabled === true, "取消按钮点击后立即禁用");
+    assert.match(cancelButton.textContent, /取消中/, "取消请求中必须反馈状态");
   }
 
   root.unmount();
@@ -183,11 +201,15 @@ test("StatusCard：重试按钮(mock stage-actions 数据到达后可点击并�
 
   services.features.jobRuntimeFeature.startPolling(getMockJobId());
   await waitFor(() => {
-    const retryContainer = byId(dom, "status-stage-retry");
-    return retryContainer && !retryContainer.classList.contains("is-empty");
+    if (byId(dom, "job-status-card")?.dataset.currentStageKey !== "translate") return false;
+    const retryButton = byId(dom, "job-status-card")
+      ?.querySelector('.status-stage-retry-btn[data-retry-stage="translation"]');
+    return retryButton && !retryButton.disabled;
   }, "translate 阶段的重试按钮就位(mock fetchJobStageActions 恒返回 translation 可重试)");
+  await wait(50);
 
-  const retryButton = byId(dom, "status-stage-retry").querySelector(".status-stage-retry-btn");
+  const retryButton = byId(dom, "job-status-card")
+    .querySelector('.status-stage-retry-btn[data-retry-stage="translation"]');
   assert.ok(retryButton, "重试按钮应存在");
   assert.equal(retryButton.disabled, false);
   assert.equal(retryButton.dataset.retryStage, "translation");

@@ -1,7 +1,7 @@
 //! HTTP application facade for the retainpdf-ai reverse proxy.
 
 use axum::body::Body;
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::{header::HeaderName, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde_json::Value;
 
@@ -30,15 +30,23 @@ pub async fn ask(headers: &HeaderMap, payload: Value) -> Result<Response, AppErr
     let upstream = super::ai_proxy::ask(forwarded_api_key(headers), &payload).await?;
     let (status, content_type) = response_metadata(&upstream);
     let body = Body::from_stream(upstream.bytes_stream());
-    Ok((
+    Ok(streamed_ask_response(status, content_type, body))
+}
+
+fn streamed_ask_response(status: StatusCode, content_type: String, body: Body) -> Response {
+    (
         status,
         [
             (axum::http::header::CONTENT_TYPE, content_type),
             (axum::http::header::CACHE_CONTROL, "no-cache".to_string()),
+            (
+                HeaderName::from_static("x-accel-buffering"),
+                "no".to_string(),
+            ),
         ],
         body,
     )
-        .into_response())
+        .into_response()
 }
 
 async fn buffered_runtime_config_response(
@@ -72,4 +80,27 @@ pub async fn update_runtime_config(
     let upstream =
         super::ai_proxy::update_runtime_config(forwarded_api_key(headers), &payload).await?;
     buffered_runtime_config_response(upstream).await
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
+
+    use super::*;
+
+    #[test]
+    fn streamed_ask_response_disables_reverse_proxy_buffering() {
+        let response = streamed_ask_response(
+            StatusCode::OK,
+            "text/event-stream".to_string(),
+            Body::empty(),
+        );
+
+        assert_eq!(
+            response.headers().get(CONTENT_TYPE).unwrap(),
+            "text/event-stream"
+        );
+        assert_eq!(response.headers().get(CACHE_CONTROL).unwrap(), "no-cache");
+        assert_eq!(response.headers().get("x-accel-buffering").unwrap(), "no");
+    }
 }

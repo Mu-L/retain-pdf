@@ -225,6 +225,36 @@ test("整合一页:已翻译合并 book,馆藏用合成 id,hasMore 由 total 决
   assert.equal(page.nextOffset, 3);
 });
 
+test("分页严格使用后端 total，并按实际返回条数推进 offset", async () => {
+  const requested = [];
+  const fetchDocumentList = async (_prefix, params) => {
+    requested.push(params);
+    return {
+      documents: [
+        { document_id: "d3", active_job_id: null, title: "第三篇" },
+        { document_id: "d4", active_job_id: null, title: "第四篇" },
+      ],
+      total: 7,
+      limit: 2,
+      offset: 2,
+    };
+  };
+
+  const page = await collectDocumentLibraryPage({
+    fetchDocumentList,
+    fetchLibraryBookList: async () => ({ items: [] }),
+    apiPrefix: "/api/v1",
+    startOffset: 2,
+    pageSize: 24,
+    existingJobIds: new Set(),
+    query: "",
+  });
+
+  assert.deepEqual(requested, [{ limit: 24, offset: 2 }]);
+  assert.equal(page.hasMore, true, "服务端 total=7，因此当前返回 2 条后仍有下一页");
+  assert.equal(page.nextOffset, 4, "服务端可能限制页大小，不能直接跳过 24 条");
+});
+
 test("跨页去重:existingJobIds 命中的(含合成 id)不重复收集", async () => {
   const documents = [
     { document_id: "d1", active_job_id: "j1", title: "a" },

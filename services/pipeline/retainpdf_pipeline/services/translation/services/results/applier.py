@@ -1,18 +1,27 @@
 from __future__ import annotations
 
-from retainpdf_pipeline.services.translation.services.memory import TranslationMemoryUpdater
-from retainpdf_pipeline.services.translation.services.memory import update_translation_memory
-from retainpdf_pipeline.services.translation.services.memory import update_translation_memory_many
-from retainpdf_pipeline.services.translation.core.payload.parts.apply import apply_group_translated_entry
-from retainpdf_pipeline.services.translation.core.payload.parts.apply import apply_single_translated_entry
-from retainpdf_pipeline.services.translation.core.payload.parts.common import effective_translation_unit_id
-from retainpdf_pipeline.services.translation.core.payload.parts.common import existing_group_unit_id
-from retainpdf_pipeline.services.translation.core.payload.parts.common import is_group_unit_id
-from retainpdf_pipeline.services.translation.core.payload.parts.common import GROUP_ITEM_PREFIX
-from retainpdf_pipeline.services.translation.artifacts.models import FinalStatus
 import retainpdf_pipeline.services.translation.llm.result_payload as result_payload
-
-from retainpdf_pipeline.services.translation.services.results.flush import TranslationFlushState
+from retainpdf_pipeline.services.translation.artifacts.models import FinalStatus
+from retainpdf_pipeline.services.translation.core.payload.parts.apply import (
+    apply_group_translated_entry,
+    apply_single_translated_entry,
+)
+from retainpdf_pipeline.services.translation.core.payload.parts.common import (
+    effective_translation_unit_id,
+    existing_group_unit_id,
+    is_group_unit_id,
+)
+from retainpdf_pipeline.services.translation.services.memory import (
+    TranslationMemoryUpdater,
+    update_translation_memory,
+    update_translation_memory_many,
+)
+from retainpdf_pipeline.services.translation.core.payload.parts.fingerprints import (
+    translation_item_fingerprint,
+)
+from retainpdf_pipeline.services.translation.services.results.flush import (
+    TranslationFlushState,
+)
 
 
 def _clone_result_for_item(payload: dict[str, str], *, item: dict) -> dict[str, str]:
@@ -96,38 +105,6 @@ def _failed_duplicate_results(rep_payload: dict[str, str], duplicate_items: list
     return failed
 
 
-def current_payload_page_indexes(flat_payload: list[dict], fallback_item_to_page: dict[str, int]) -> tuple[dict[str, int], dict[str, set[int]]]:
-    item_to_page: dict[str, int] = dict(fallback_item_to_page)
-    unit_to_pages: dict[str, set[int]] = {}
-    for item in flat_payload:
-        item_id = str(item.get("item_id", "") or "")
-        page_idx = item.get("page_idx")
-        if page_idx is None:
-            page_idx = fallback_item_to_page.get(item_id)
-        if page_idx is None:
-            continue
-        item_to_page[item_id] = int(page_idx)
-        unit_id = str(item.get("translation_unit_id") or item_id or "")
-        if unit_id:
-            unit_to_pages.setdefault(unit_id, set()).add(int(page_idx))
-    return item_to_page, unit_to_pages
-
-
-def touched_pages_for_batch(
-    translated: dict[str, str],
-    flat_payload: list[dict],
-    fallback_item_to_page: dict[str, int],
-) -> set[int]:
-    item_to_page, unit_to_pages = current_payload_page_indexes(flat_payload, fallback_item_to_page)
-    touched_pages: set[int] = set()
-    for item_id in translated:
-        if item_id.startswith(GROUP_ITEM_PREFIX):
-            touched_pages.update(unit_to_pages.get(item_id, set()))
-        elif item_id in item_to_page:
-            touched_pages.add(item_to_page[item_id])
-    return touched_pages
-
-
 class TranslationResultApplier:
     def __init__(
         self,
@@ -178,11 +155,11 @@ class TranslationResultApplier:
             translated,
             duplicate_items_by_rep_id=self.duplicate_items_by_rep_id,
         )
-        self._apply_translated_results(expanded)
+        changed_item_ids_by_page = self._apply_translated_results(expanded)
         if update_memory:
             update_translation_memory(self.memory_store, batch=batch, translated=expanded)
-        touched_pages = self._touched_pages_for_expanded(expanded)
-        self.flush_state.mark_dirty(touched_pages)
+        touched_pages = set(changed_item_ids_by_page)
+        self.flush_state.mark_dirty(touched_pages, changed_item_ids_by_page)
         return touched_pages
 
     def apply_batches(
@@ -195,23 +172,34 @@ class TranslationResultApplier:
         if not results:
             return touched_pages
         memory_updates: list[tuple[list[dict], dict[str, dict[str, str]]]] = []
+        changed_item_ids_by_page: dict[int, set[str]] = {}
         for batch, translated in results:
             expanded = expand_duplicate_results(
                 translated,
                 duplicate_items_by_rep_id=self.duplicate_items_by_rep_id,
             )
-            self._apply_translated_results(expanded)
-            touched_pages.update(self._touched_pages_for_expanded(expanded))
+            batch_changes = self._apply_translated_results(expanded)
+            for page_idx, item_ids in batch_changes.items():
+                changed_item_ids_by_page.setdefault(page_idx, set()).update(item_ids)
+            touched_pages.update(batch_changes)
             if update_memory:
                 memory_updates.append((batch, expanded))
         if update_memory:
             update_translation_memory_many(self.memory_store, memory_updates)
-        self.flush_state.mark_dirty(touched_pages)
+        self.flush_state.mark_dirty(touched_pages, changed_item_ids_by_page)
         return touched_pages
 
-    def _apply_translated_results(self, translated: dict[str, dict[str, str]]) -> None:
+    def _apply_translated_results(
+        self,
+        translated: dict[str, dict[str, str]],
+    ) -> dict[int, set[str]]:
         if not translated:
-            return
+            return {}
+        candidates = self._candidate_items_for_expanded(translated)
+        before = {
+            item_id: translation_item_fingerprint(item)
+            for item_id, item in candidates.items()
+        }
         for item_id, raw_result in translated.items():
             if is_group_unit_id(str(item_id)):
                 apply_group_translated_entry(self.group_items_by_unit_id.get(str(item_id), []), raw_result)
@@ -229,27 +217,36 @@ class TranslationResultApplier:
         if any(is_group_unit_id(str(item_id)) or existing_group_unit_id(self.item_by_id.get(str(item_id), {})) for item_id in translated):
             self._rebuild_group_index()
 
-    def _touched_pages_for_expanded(self, translated: dict[str, dict[str, str]]) -> set[int]:
-        touched_pages: set[int] = set()
-        for item_id in translated:
-            item_id = str(item_id)
-            if item_id.startswith(GROUP_ITEM_PREFIX):
-                for item in self.group_items_by_unit_id.get(item_id, []):
-                    page_idx = item.get("page_idx")
-                    if page_idx is None:
-                        page_idx = self.item_to_page.get(str(item.get("item_id", "") or ""))
-                    if page_idx is not None:
-                        touched_pages.add(int(page_idx))
+        changed: dict[int, set[str]] = {}
+        for item_id, item in candidates.items():
+            if before[item_id] == translation_item_fingerprint(item):
                 continue
-            page_idx = self.item_to_page.get(item_id)
+            page_idx = item.get("page_idx")
+            if page_idx is None:
+                page_idx = self.item_to_page.get(item_id)
             if page_idx is not None:
-                touched_pages.add(int(page_idx))
-        return touched_pages
+                changed.setdefault(int(page_idx), set()).add(item_id)
+        return changed
 
+    def _candidate_items_for_expanded(
+        self,
+        translated: dict[str, dict[str, str]],
+    ) -> dict[str, dict]:
+        candidates: dict[str, dict] = {}
+        for raw_item_id in translated:
+            item_id = str(raw_item_id)
+            if is_group_unit_id(item_id):
+                for item in self.group_items_by_unit_id.get(item_id, []):
+                    member_id = str(item.get("item_id", "") or "")
+                    if member_id:
+                        candidates[member_id] = item
+                continue
+            item = self.item_by_id.get(item_id)
+            if item is not None:
+                candidates[item_id] = item
+        return candidates
 
 __all__ = [
     "TranslationResultApplier",
-    "current_payload_page_indexes",
     "expand_duplicate_results",
-    "touched_pages_for_batch",
 ]

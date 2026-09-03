@@ -1074,7 +1074,7 @@ test("job runtime controller consumes injected polling port", async () => {
         terminal: false,
       },
     ]);
-    assert.deepEqual(shellCalls, [["reader-sync"]]);
+    assert.deepEqual(shellCalls, [["cancel", false], ["reader-sync"]]);
   } finally {
     global.document = previousDocument;
   }
@@ -1182,6 +1182,7 @@ test("job runtime startPolling immediately publishes placeholder to the library"
   const state = createInitialState();
   const libraryCreated = [];
   const libraryUpdated = [];
+  const cancelDisabledStates = [];
   const feature = mountJobRuntimeFeature({
     state,
     apiPrefix: "/api/v1",
@@ -1245,12 +1246,13 @@ test("job runtime startPolling immediately publishes placeholder to the library"
       closeDialogs() {},
       isReaderOpen: () => false,
       resetEvents() {},
-      setCancelDisabled() {},
+      setCancelDisabled: (disabled) => cancelDisabledStates.push(disabled),
     },
   });
 
   feature.startPolling("job-library-placeholder");
 
+  assert.deepEqual(cancelDisabledStates, [false], "新任务必须解除上一任务遗留的取消锁");
   assert.equal(libraryCreated[0].job_id, "job-library-placeholder");
   assert.equal(libraryCreated[0].status, "queued");
   assert.equal(libraryCreated[0].display_stage, "ocr");
@@ -1347,6 +1349,91 @@ test("job runtime startPolling({ silent: true }) skips library create and workfl
   );
 });
 
+test("recovering a deleted persisted job clears it without showing a global error", async () => {
+  const previousWindow = global.window;
+  const storage = new Map([["retainpdf.activeJobId", "job-stale"]]);
+  global.window = {
+    localStorage: {
+      getItem: (key) => storage.get(key) ?? null,
+      setItem: (key, value) => storage.set(key, `${value}`),
+      removeItem: (key) => storage.delete(key),
+    },
+  };
+  const state = createInitialState();
+  let currentJobId = "";
+  const calls = [];
+  const missing = Object.assign(new Error("未找到该任务，请检查 job_id 是否正确。"), { status: 404 });
+  const feature = mountJobRuntimeFeature({
+    state,
+    apiPrefix: "/api/v1",
+    fetchJobPayload: async () => { throw missing; },
+    fetchJobEvents: async () => ({ items: [] }),
+    fetchJobArtifactsManifest: async () => ({ artifacts: [] }),
+    fetchJobStageActions: async () => ({ actions: [] }),
+    retryJobStage: async () => ({}),
+    renderJob: () => {},
+    renderJobSecondaryPatch: () => {},
+    setText: (...args) => calls.push(["text", ...args]),
+    setWorkflowSections: () => {},
+    resetUploadProgress: () => {},
+    resetUploadedFile: () => {},
+    applyWorkflowMode: () => {},
+    clearPageRanges: () => {},
+    updateJobWarning: () => {},
+    activateDetailTab: () => {},
+    libraryEventPort: {
+      publishJobUpdated() {},
+      requestRefresh: (...args) => calls.push(["refresh", ...args]),
+    },
+    pollingPort: {
+      beginPoll: () => 1,
+      finishPoll() {},
+      isCurrentGeneration: () => true,
+      startJob(jobId) {
+        currentJobId = jobId;
+        return { generation: 1, startedAt: "2026-09-03T00:00:00Z" };
+      },
+      getSnapshot: () => ({ generation: 1 }),
+      startTimer: () => null,
+      stop: () => calls.push(["stop"]),
+    },
+    currentJobPort: {
+      jobId: () => currentJobId,
+      syncSnapshot(_snapshot, jobId) {
+        currentJobId = jobId;
+      },
+    },
+    secondaryResourcePort: { cachedFor: () => null },
+    renderContextPort: {
+      applySnapshot: (input) => ({ job: input.payload, jobId: input.payload.job_id }),
+    },
+    secondaryResourceSchedulerPort: { schedule() {} },
+    resetStatePort: {
+      resetSecondary() {},
+      resetJob: () => calls.push(["reset-job"]),
+    },
+    jobPresentationPort: { isTerminalStatus, normalizeJobPayload },
+    shellViewPort: {
+      closeDialogs() {},
+      isReaderOpen: () => false,
+      resetEvents() {},
+      setCancelDisabled() {},
+    },
+  });
+
+  try {
+    feature.startPolling("job-stale", { silent: true, recovering: true });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(storage.has("retainpdf.activeJobId"), false);
+    assert.equal(currentJobId, "");
+    assert.ok(calls.some((call) => call[0] === "reset-job"));
+    assert.ok(calls.some((call) => call[0] === "refresh"));
+    assert.deepEqual(calls.filter((call) => call[0] === "text").at(-1), ["text", "error-box", "-"]);
+  } finally {
+    global.window = previousWindow;
+  }
+});
+
 test("job runtime controller routes cancel button state through shell view port", async () => {
   const state = createInitialState();
   state.currentJobId = "job-cancel";
@@ -1409,6 +1496,52 @@ test("job runtime controller routes cancel button state through shell view port"
     ["cancel-disabled", true],
     ["cancel", "job-cancel", "/api/v1"],
   ]);
+});
+
+test("job runtime unlocks cancel button when cancel request fails", async () => {
+  const state = createInitialState();
+  state.currentJobId = "job-cancel-failed";
+  const calls = [];
+  const feature = mountJobRuntimeFeature({
+    state,
+    apiPrefix: "/api/v1",
+    cancelJob: async () => { throw new Error("cancel unavailable"); },
+    cancelOcrJob: async () => {},
+    fetchJobPayload: async () => ({}),
+    fetchJobEvents: async () => ({ items: [] }),
+    fetchJobArtifactsManifest: async () => ({ artifacts: [] }),
+    fetchJobStageActions: async () => ({ actions: [] }),
+    retryJobStage: async () => ({}),
+    renderJob: () => {},
+    renderJobSecondaryPatch: () => {},
+    setText: (...args) => calls.push(["text", ...args]),
+    setWorkflowSections: () => {},
+    resetUploadProgress: () => {},
+    resetUploadedFile: () => {},
+    applyWorkflowMode: () => {},
+    clearPageRanges: () => {},
+    updateJobWarning: () => {},
+    activateDetailTab: () => {},
+    libraryEventPort: { publishJobUpdated() {}, requestRefresh() {} },
+    currentJobPort: {
+      jobId: () => "job-cancel-failed",
+      snapshot: () => ({ job_id: "job-cancel-failed", workflow: "translate" }),
+    },
+    shellViewPort: {
+      closeDialogs() {},
+      isReaderOpen: () => false,
+      resetEvents() {},
+      setCancelDisabled: (disabled) => calls.push(["cancel-disabled", disabled]),
+    },
+  });
+
+  await feature.cancelCurrentJob();
+
+  assert.deepEqual(calls.slice(0, 2), [
+    ["cancel-disabled", true],
+    ["cancel-disabled", false],
+  ]);
+  assert.match(calls.at(-1)?.[2] || "", /cancel unavailable/);
 });
 
 test("job runtime routes OCR-only cancellation to the OCR endpoint client", async () => {

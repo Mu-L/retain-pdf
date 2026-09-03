@@ -137,6 +137,68 @@ def test_build_render_blocks_binary_fits_long_translated_title_to_box() -> None:
     assert title.fit_target_height_pt == 28.0
 
 
+def test_build_render_blocks_uses_body_typography_for_abstract() -> None:
+    items = [
+        {
+            "item_id": "p001-abstract",
+            "page_idx": 0,
+            "block_type": "text",
+            "block_kind": "text",
+            "block_class": "title",
+            "layout_role": "paragraph",
+            "semantic_role": "abstract",
+            "structure_role": "body",
+            "bbox": [20.0, 40.0, 220.0, 130.0],
+            "lines": [{"text": "ABSTRACT: source abstract text"}],
+            "source_text": (
+                "ABSTRACT: This abstract is ordinary flowing body text and "
+                "must not inherit title typography or title fitting."
+            ),
+            "protected_source_text": (
+                "ABSTRACT: This abstract is ordinary flowing body text and "
+                "must not inherit title typography or title fitting."
+            ),
+            "protected_translated_text": (
+                "摘要：这是普通的连续正文，不应继承标题字重或标题缩放策略。"
+            ),
+        }
+    ]
+
+    body_item = {
+        **items[0],
+        "item_id": "p001-body",
+        "block_class": "body",
+        "semantic_role": "body",
+    }
+    abstract = build_render_blocks(items, page_width=260.0, page_height=320.0)[0]
+    body = build_render_blocks([body_item], page_width=260.0, page_height=320.0)[0]
+
+    assert abstract.font_weight == "regular"
+    assert abstract.font_size_pt == body.font_size_pt
+    assert abstract.leading_em == body.leading_em
+    assert abstract.fit_to_box == body.fit_to_box
+    assert abstract.fit_single_line is False
+    assert abstract.fit_target_width_pt == 0.0
+    assert abstract.fit_target_height_pt == 0.0
+
+    # A full-width body block below the abstract must not make the abstract
+    # inherit title-width alignment. On mixed text/figure layouts the source
+    # abstract bbox may intentionally stop at the figure's left edge.
+    geometry_blocks = build_render_blocks(
+        [
+            items[0],
+            {
+                **body_item,
+                "item_id": "p001-full-width-body",
+                "bbox": [20.0, 150.0, 250.0, 240.0],
+            },
+        ],
+        page_width=260.0,
+        page_height=320.0,
+    )
+    assert geometry_blocks[0].inner_bbox[2] == 220.0
+
+
 def test_build_render_blocks_insets_tight_body_vertical_gap() -> None:
     items = [
         {
@@ -348,5 +410,3 @@ def test_typst_overlay_source_uses_title_single_line_fit_when_title_fits_one_lin
     assert 'weight: "bold"' in source
     assert "fit_width: 160.0pt" in source
     assert "fit_height: 36.0pt" in source
-
-

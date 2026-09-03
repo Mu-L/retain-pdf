@@ -24,7 +24,7 @@ export function buildReadBookCardAction(
 
   if (presentation.target === "job") {
     onClick = () => {
-      onReader?.(presentation.jobId);
+      onReader?.(presentation.jobId, presentation.documentId);
     };
   } else if (presentation.target === "source") {
     onClick = () => {

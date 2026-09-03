@@ -1,6 +1,6 @@
 // 主题注册表：后期加皮肤 = 追加一项 + 对应 CSS 文件。
 // 组件只读 listThemes() / setTheme()，不要 hardcode 皮肤 id 列表。
-// 设计：docs/theme-system/THEME_SYSTEM.md · ADDING_A_THEME.md
+// 设计：docs/core/frontend/theme-system/THEME_SYSTEM.md · ADDING_A_THEME.md
 
 export const THEME_STORAGE_KEY = "retainpdf.theme";
 export const DEFAULT_THEME_ID = "classic";
@@ -48,7 +48,7 @@ export type ThemeDefinition = {
   /**
    * 装饰包名（public 静态目录 decor/<包名>/manifest.json）。
    * 缺省 = 纯配色皮肤，零装饰零额外下载。
-   * 契约：src/shared/decor/contract.ts · docs/theme-system/DECOR_PACKS.md
+   * 契约：src/shared/decor/contract.ts · docs/core/frontend/theme-system/DECOR_PACKS.md
    */
   decorPack?: string;
   /** 所属系列 id（THEME_SERIES），缺省归入 "base" 基础系列 */
@@ -57,7 +57,7 @@ export type ThemeDefinition = {
 
 /**
  * 注册表真值。
- * 新增皮肤步骤见 docs/theme-system/ADDING_A_THEME.md
+ * 新增皮肤步骤见 docs/core/frontend/theme-system/ADDING_A_THEME.md
  */
 export const THEME_REGISTRY: readonly ThemeDefinition[] = [
   {

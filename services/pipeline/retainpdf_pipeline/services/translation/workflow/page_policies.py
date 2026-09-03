@@ -11,6 +11,7 @@ from retainpdf_pipeline.services.translation.services.continuation.orchestrator 
 from retainpdf_pipeline.services.translation.services.policy import TranslationPolicyConfig
 from retainpdf_pipeline.services.translation.services.policy.flow import apply_translation_policies
 from retainpdf_pipeline.services.translation.core.payload import summarize_payload
+from retainpdf_pipeline.services.translation.core.orchestration.abstract_groups import annotate_abstract_translation_groups
 
 from retainpdf_pipeline.services.translation.workflow.pages import save_pages
 
@@ -71,10 +72,11 @@ def finalize_page_payloads(
     translation_paths: dict[int, Path],
 ) -> dict[str, int]:
     annotate_layout_zones_by_page(page_payloads)
-    continuation_items = annotate_continuation_context_global(page_payloads)
     flat_payload = [item for page_idx in sorted(page_payloads) for item in page_payloads[page_idx]]
+    abstract_grouped_items = annotate_abstract_translation_groups(flat_payload)
+    continuation_items = annotate_continuation_context_global(page_payloads)
     continuation_summary = summarize_continuation_decisions(flat_payload)
-    if continuation_items or continuation_summary["candidate_break_items"]:
+    if abstract_grouped_items or continuation_items or continuation_summary["candidate_break_items"]:
         finalize_orchestration_metadata_by_page(page_payloads)
         save_pages(page_payloads, translation_paths)
         print(

@@ -19,7 +19,7 @@ FOOTNOTE_STRUCTURE_ROLES = frozenset(
     {"footnote", "image_footnote", "table_footnote"}
 )
 TITLE_STRUCTURE_ROLES = frozenset(
-    {"title", "heading", "section_heading", "reference_heading"}
+    {"document_title", "title", "heading", "section_heading", "reference_heading"}
 )
 BODYLIKE_LAYOUT_ROLES = frozenset({"paragraph", "list_item"})
 BODYLIKE_SEMANTIC_ROLES = frozenset({"body", "abstract", "table_of_contents"})
@@ -179,6 +179,13 @@ def is_metadata(profile: BlockSemanticProfile) -> bool:
 
 
 def is_title(profile: BlockSemanticProfile) -> bool:
+    """Return the broad RetainPDF title classification.
+
+    ``abstract`` intentionally belongs to the coarse ``title`` block class.
+    Consumers choosing typography or translation behavior must use
+    :func:`uses_title_style` instead.
+    """
+
     return (
         profile.block_class == "title"
         or profile.layout_role in {"title", "heading"}
@@ -186,8 +193,43 @@ def is_title(profile: BlockSemanticProfile) -> bool:
     )
 
 
+def uses_title_style(profile: BlockSemanticProfile) -> bool:
+    """Return whether a text block should receive heading/title behavior.
+
+    Fine-grained canonical roles take precedence over the broad block class so
+    an abstract remains ordinary flowing text even though its coarse class is
+    ``title``. Class-only legacy payloads retain their historical behavior.
+    """
+
+    if profile.content_kind in {"formula", "image", "table", "code"}:
+        return False
+    if (
+        profile.layout_role in {"title", "heading"}
+        or profile.structure_role in TITLE_STRUCTURE_ROLES
+    ):
+        return True
+    has_fine_role = any(
+        role not in {"", "unknown"}
+        for role in (
+            profile.layout_role,
+            profile.semantic_role,
+            profile.structure_role,
+        )
+    )
+    if has_fine_role:
+        return False
+    return profile.block_class == "title"
+
+
 def is_bodylike(profile: BlockSemanticProfile) -> bool:
-    if profile.content_kind != "text" or profile.block_class != "body":
+    if profile.content_kind != "text":
+        return False
+    if profile.semantic_role == "abstract":
+        return (
+            profile.layout_role in {"", "unknown", "paragraph", "list_item"}
+            and profile.structure_role in {"", "body", "abstract"}
+        )
+    if profile.block_class != "body":
         return False
     return not (is_reference_entry(profile) or is_reference_heading(profile))
 
@@ -201,7 +243,7 @@ def is_plain_text(profile: BlockSemanticProfile) -> bool:
         is_caption(profile)
         or is_footnote(profile)
         or is_reference_entry(profile)
-        or is_title(profile)
+        or uses_title_style(profile)
     )
 
 
@@ -230,4 +272,5 @@ __all__ = [
     "is_reference_heading",
     "is_textual",
     "is_title",
+    "uses_title_style",
 ]

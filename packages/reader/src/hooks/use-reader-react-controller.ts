@@ -6,9 +6,8 @@ import { useReaderKeyboard } from "./use-reader-keyboard.js";
 import { useReaderShell } from "./use-reader-shell.js";
 import { useReaderPaneModel } from "./use-reader-pane-model.js";
 import { useReaderZoom } from "./use-reader-zoom.js";
-import { useReaderModeNavigation } from "./use-reader-mode-navigation.js";
-import { useReaderAnnotations } from "./use-reader-annotations.js";
 import { useReaderTextSelection } from "./use-reader-text-selection.js";
+import { useReaderModeNavigation } from "./use-reader-mode-navigation.js";
 import { useReaderTools, type ReaderToolsApi } from "./use-reader-tools.js";
 import { useCurrentPage } from "../pdf/useCurrentPage.js";
 import { usePageRowSync } from "../pdf/usePageRowSync.js";
@@ -18,19 +17,27 @@ import type { PageRowHeights } from "../pdf/usePageRowSync.js";
 import type { ReaderMode, ReaderSessionState } from "./use-reader-session.js";
 import type { ProtectedPdfFile } from "../pdf/useProtectedPdfFile.js";
 import type { ReaderPaneModel } from "./use-reader-pane-model.js";
-import type { ReaderAnnotationsApi } from "./use-reader-annotations.js";
-import type { ReaderTextSelection } from "./use-reader-text-selection.js";
-import type { ReaderNote } from "../annotations/types.js";
 import {
   findReaderRegion,
+  findReaderRegionByAssetUrl,
+  findReaderRegionByCitation,
   regionBoxForPane,
   type ReaderRegion,
+  type ReaderSelection,
+  type ReaderRegionSelection,
 } from "../shared/data/reader-regions.js";
+import { readerViewStateScope } from "../shared/state/reader-view-state.js";
+import { useLiveTranslation } from "./use-live-translation.js";
+import type { LiveTranslationState } from "../shared/data/live-translation-state.js";
+
+export const CITATION_HIGHLIGHT_MS = 2000;
 
 export type ReaderAnchorTarget = number | {
   page_idx?: number;
   page?: number;
   block_id?: string;
+  image_url?: string;
+  snippet?: string;
 };
 
 export type ReaderReactController = {
@@ -58,25 +65,79 @@ export type ReaderReactController = {
   currentPage: number;
   goToPage: (page: number) => void;
   activeRegion: ReaderRegion | null;
-  jumpToAnchor: (target: ReaderAnchorTarget) => void;
+  jumpToAnchor: (target: ReaderAnchorTarget, pane?: "source" | "translated") => void;
   setModeKeepingPage: (next: ReaderMode) => void;
   showHud: boolean;
   tools: ReaderToolsApi;
-  notes: ReaderAnnotationsApi;
-  selection: ReaderTextSelection | null;
+  selection: ReaderSelection | null;
   clearSelection: () => void;
-  addNoteFromSelection: (selection: ReaderTextSelection) => void;
-  jumpToNote: (note: ReaderNote) => void;
+  selectRegion: (selection: ReaderRegionSelection) => void;
   documentTitle: string;
   download: ReaderSessionState["download"];
+  /** stable local persistence scope for reading position/layout */
+  viewStateKey: string;
+  liveTranslation: LiveTranslationState;
+  liveTranslationAvailable: boolean;
 };
+
+const LIVE_TRANSLATION_WORKFLOWS = new Set(["book", "translate"]);
+export function shouldTrackLiveTranslation(input: {
+  jobId: string;
+  sourceUrl: string;
+  workflow: string;
+}): boolean {
+  return Boolean(
+    input.jobId
+    && input.sourceUrl
+    && LIVE_TRANSLATION_WORKFLOWS.has(input.workflow),
+  );
+}
+
+export function shouldEnableLiveTranslation(input: {
+  jobId: string;
+  sourceUrl: string;
+  translatedUrl: string;
+  jobStatus: string;
+  workflow: string;
+}): boolean {
+  return Boolean(
+    shouldTrackLiveTranslation(input)
+    // Preserve already committed live pages while the session switches to the
+    // final PDF. Only a successful task with an authoritative artifact replaces
+    // the temporary workspace. Failed/cancelled attempts keep their durable
+    // page snapshots even when an older translated artifact also exists.
+    && !(input.jobStatus === "succeeded" && input.translatedUrl),
+  );
+}
 
 
 export function useReaderReactController(): ReaderReactController {
   const session = useReaderSession();
+  const liveTranslationTracked = shouldTrackLiveTranslation({
+    jobId: session.jobId,
+    sourceUrl: session.sourceUrl,
+    workflow: session.workflow,
+  });
+  const liveTranslationAvailable = shouldEnableLiveTranslation({
+    jobId: session.jobId,
+    sourceUrl: session.sourceUrl,
+    translatedUrl: session.translatedUrl,
+    jobStatus: session.jobStatus,
+    workflow: session.workflow,
+  });
+  const liveTranslation = useLiveTranslation({
+    jobId: session.jobId,
+    jobStatus: session.jobStatus,
+    enabled: liveTranslationTracked,
+  });
   const tools = useReaderTools();
   const { shellRef, shellEl, shellWidth, compareColWidth, bindShell } = useReaderShell();
-  const { userZoom, onZoomChange } = useReaderZoom(session.mode, shellRef);
+  const viewStateKey = readerViewStateScope({
+    documentId: session.documentId,
+    jobId: session.jobId,
+  });
+  const readerContentKey = `${viewStateKey}\u0000${session.jobId}\u0000${session.sourceUrl}\u0000${session.translatedUrl}`;
+  const { userZoom, onZoomChange } = useReaderZoom(session.mode, shellRef, viewStateKey);
 
   const panes = useReaderPaneModel(
     {
@@ -88,7 +149,7 @@ export function useReaderReactController(): ReaderReactController {
       sourceFile: session.sourceFile,
       translatedFile: session.translatedFile,
     },
-    { userZoom, shellWidth },
+    { userZoom, shellWidth, identityKey: readerContentKey },
   );
 
   const {
@@ -99,6 +160,8 @@ export function useReaderReactController(): ReaderReactController {
     primaryPane: panes.primaryPane,
     mode: session.mode,
     enabled: !session.boot.loading,
+    persistenceKey: viewStateKey,
+    restoreReady: panes.primaryNumPages > 0,
   });
 
   useEffect(() => {
@@ -120,7 +183,7 @@ export function useReaderReactController(): ReaderReactController {
     panes.primaryPane,
   );
 
-  const goToPage = useCallback((page: number) => {
+  const goToPage = useCallback((page: number, pane?: "source" | "translated") => {
     // 取已加载栏的最大页数；未知时传 0，由 clampPageNumber 放行目标页
     const total = Math.max(
       Number(panes.hudNumPages) || 0,
@@ -128,7 +191,7 @@ export function useReaderReactController(): ReaderReactController {
       Number(panes.numPagesByPane?.source) || 0,
       Number(panes.numPagesByPane?.translated) || 0,
     );
-    goToPageWithTotal(page, total);
+    goToPageWithTotal(page, total, pane);
   }, [goToPageWithTotal, panes.hudNumPages, panes.primaryNumPages, panes.numPagesByPane]);
 
   const [activeRegion, setActiveRegion] = useState<ReaderRegion | null>(null);
@@ -137,7 +200,7 @@ export function useReaderReactController(): ReaderReactController {
     if (clearRegionTimerRef.current) clearTimeout(clearRegionTimerRef.current);
     setActiveRegion(region);
     if (region) {
-      clearRegionTimerRef.current = setTimeout(() => setActiveRegion(null), 6000);
+      clearRegionTimerRef.current = setTimeout(() => setActiveRegion(null), CITATION_HIGHLIGHT_MS);
     }
   }, []);
   useEffect(() => () => {
@@ -149,13 +212,28 @@ export function useReaderReactController(): ReaderReactController {
     return region ? regionBoxForPane(region, panes.primaryPane).page : null;
   }, [session.regions, panes.primaryPane]);
 
-  const jumpToAnchor = useCallback((target: ReaderAnchorTarget) => {
+  const jumpToAnchor = useCallback((target: ReaderAnchorTarget, pane?: "source" | "translated") => {
+    const targetPane = pane || panes.primaryPane;
     const blockId = typeof target === "object" && target
       ? `${target.block_id || ""}`.trim()
       : "";
-    const region = findReaderRegion(session.regions, blockId);
+    const imageUrl = typeof target === "object" && target
+      ? `${target.image_url || ""}`.trim()
+      : "";
+    const pageHint = typeof target === "object" && target
+      ? target.page_idx != null
+        ? Number(target.page_idx) + 1
+        : target.page != null
+          ? Number(target.page)
+          : null
+      : typeof target === "number"
+        ? target + 1
+        : null;
+    const region = findReaderRegionByAssetUrl(session.regions, imageUrl, pageHint)
+      || findReaderRegion(session.regions, blockId)
+      || (typeof target === "object" ? findReaderRegionByCitation(session.regions, target) : null);
     let page: number | null = region
-      ? regionBoxForPane(region, panes.primaryPane).page
+      ? regionBoxForPane(region, targetPane).page
       : null;
     if (page == null) {
       const raw = typeof target === "number"
@@ -168,7 +246,7 @@ export function useReaderReactController(): ReaderReactController {
     }
     if (page == null || page < 1) return;
     activateRegion(region);
-    goToPage(page);
+    goToPage(page, targetPane);
   }, [activateRegion, goToPage, panes.primaryPane, session.regions]);
 
   // 收藏 / 搜索回跳：URL ?page_idx= → 页码（0 基 → 1 基）
@@ -188,43 +266,42 @@ export function useReaderReactController(): ReaderReactController {
     beginModeSwitch,
   });
 
-  const openNotes = useCallback(() => {
-    tools.open("notes");
-  }, [tools]);
+  const [regionSelection, setRegionSelection] = useState<ReaderRegionSelection | null>(null);
+  const {
+    selection: textSelection,
+    clearSelection: clearTextSelection,
+  } = useReaderTextSelection(shellRef, !session.boot.loading && !session.boot.failed);
 
-  const notes = useReaderAnnotations(
-    {
-      jobId: session.jobId,
-      documentId: session.documentId,
-    },
-    { onAfterAdd: openNotes },
-  );
+  const clearSelection = useCallback(() => {
+    setRegionSelection(null);
+    clearTextSelection();
+  }, [clearTextSelection]);
 
-  const { selection, clearSelection } = useReaderTextSelection(
-    shellRef,
-    !session.boot.loading && !session.boot.failed,
-  );
+  const selectRegion = useCallback((next: ReaderRegionSelection) => {
+    clearTextSelection();
+    setRegionSelection(next);
+  }, [clearTextSelection]);
 
-  const addNoteFromSelection = useCallback((sel: ReaderTextSelection) => {
-    notes.addFromQuote({
-      page: sel.page,
-      pane: sel.pane,
-      quote: sel.quote,
-    });
+  useEffect(() => {
+    if (textSelection) setRegionSelection(null);
+  }, [textSelection]);
+
+  useEffect(() => {
+    const shellNode = shellRef.current;
+    if (!shellNode) return;
+    const clearRegionSelection = () => setRegionSelection(null);
+    shellNode.addEventListener("scroll", clearRegionSelection, { passive: true });
+    return () => shellNode.removeEventListener("scroll", clearRegionSelection);
+  }, [shellEl, shellRef]);
+
+  const selection: ReaderSelection | null = textSelection || regionSelection;
+
+  useEffect(() => {
+    // Selection rectangles and citation highlights carry page/pane coordinates;
+    // they are invalid as soon as the displayed Reader content changes.
+    activateRegion(null);
     clearSelection();
-  }, [notes, clearSelection]);
-
-  const jumpToNote = useCallback((note: ReaderNote) => {
-    // 若批注在译文/原文栏，尽量切到对应单栏或对照
-    if (note.pane === "translated" && session.mode === "source") {
-      beginModeSwitch();
-      session.setMode("compare");
-    } else if (note.pane === "source" && session.mode === "translated") {
-      beginModeSwitch();
-      session.setMode("compare");
-    }
-    goToPage(note.page);
-  }, [session, beginModeSwitch, goToPage]);
+  }, [readerContentKey, activateRegion, clearSelection]);
 
   const showHud = !session.boot.loading && !session.boot.failed;
 
@@ -270,13 +347,14 @@ export function useReaderReactController(): ReaderReactController {
     download: session.download,
     showHud,
     tools: toolsApi,
-    notes,
     selection,
     clearSelection,
-    addNoteFromSelection,
-    jumpToNote,
+    selectRegion,
     documentTitle: session.title || "",
-  }), [session, shellMemo, panes, sessionFilesMemo, rowHeights, goToPage, activeRegion, jumpToAnchor, setModeKeepingPage, showHud, toolsApi, notes, selection, clearSelection, addNoteFromSelection, jumpToNote, userZoom, onZoomChange]);
+    viewStateKey,
+    liveTranslation,
+    liveTranslationAvailable,
+  }), [session, shellMemo, panes, sessionFilesMemo, rowHeights, goToPage, activeRegion, jumpToAnchor, setModeKeepingPage, showHud, toolsApi, selection, clearSelection, selectRegion, userZoom, onZoomChange, viewStateKey, liveTranslation, liveTranslationAvailable]);
 
   return useMemo(() => ({
     ...stablePart,

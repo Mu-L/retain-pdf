@@ -2,7 +2,8 @@ export type ReaderMarkdownPanelProps = {
     open: boolean;
     jobId: string;
     sourceOnly: boolean;
-    layout?: "floating" | "docked";
+    layout?: "floating" | "docked" | "workspace";
+    side?: "left" | "right";
     onClose: () => void;
 };
 export declare function isProtectedMarkdownAssetUrl(value: string, baseUrl?: string): boolean;
@@ -31,6 +32,6 @@ type ProtectedMarkdownImageLoaderOptions = {
  * their authenticated blob has been fetched, so observe them against the reader scrollport.
  */
 export declare function startMarkdownImageLoading(images: HTMLImageElement[], options: ProtectedMarkdownImageLoaderOptions): () => void;
-export declare function ReaderMarkdownPanel({ open, jobId, sourceOnly, layout, onClose, }: ReaderMarkdownPanelProps): import("react").JSX.Element;
+export declare function ReaderMarkdownPanel({ open, jobId, sourceOnly, layout, side, onClose, }: ReaderMarkdownPanelProps): import("react").JSX.Element;
 export {};
 //# sourceMappingURL=ReaderMarkdownPanel.d.ts.map

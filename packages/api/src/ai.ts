@@ -40,6 +40,9 @@ export type AgentSessionEvent = {
   conversation_id: string;
   request_message_id?: string;
   agent_runtime: string;
+  assistant_mode: AiAssistantMode;
+  resolved_mode: "reading" | "operations";
+  content_source: "structured" | "markdown" | "none" | "unscoped" | "unknown";
   capabilities?: {
     document_operations?: boolean;
     document_operation_confirmation_mode?: AgentConfirmationMode;
@@ -75,6 +78,7 @@ export type AgentConfirmationRequiredEvent = AgentConfirmationRequest & {
 };
 
 export type AiAskStreamCallbacks = {
+  onProgressEvent?: ((event: { type: "progress"; stage: "routing" | "retrieval"; message: string }) => void) | null;
   onToolEvent?: ((event: any) => void) | null;
   onAgentToolEvent?: ((event: AgentToolEvent) => void) | null;
   onAgentOperationEvent?: ((event: AgentOperationEvent) => void) | null;
@@ -156,6 +160,7 @@ function parseSseEvent(line = "") {
 }
 
 export async function readAiAskStream(body: ReadableStream<Uint8Array>, {
+  onProgressEvent = null,
   onToolEvent = null,
   onAgentToolEvent = null,
   onAgentOperationEvent = null,
@@ -176,6 +181,15 @@ export async function readAiAskStream(body: ReadableStream<Uint8Array>, {
   function handleLine(line: string) {
     const event: any = parseSseEvent(line);
     if (!event || typeof event !== "object") return;
+    if (event.type === "progress") {
+      onProgressEvent?.({
+        type: "progress",
+        stage: event.stage === "retrieval" ? "retrieval" : "routing",
+        message: `${event.message || ""}`.trim(),
+      });
+      return;
+    }
+    if (event.type === "heartbeat") return;
     if (event.type === "tool") { onToolEvent?.(event); return; }
     if (event.type === "agent_tool") {
       onAgentToolEvent?.(event as AgentToolEvent);
@@ -238,7 +252,9 @@ export async function readAiAskStream(body: ReadableStream<Uint8Array>, {
       }
       return;
     }
-    if (event.type === "error") throw new AiAskError(`${event.message || "AI 服务返回错误。"}`);
+    if (event.type === "error" || event.type === "cancelled") {
+      throw new AiAskError(`${event.message || (event.type === "cancelled" ? "AI 请求已取消。" : "AI 服务返回错误。")}`);
+    }
     if (event.type === "compress") { onCompress?.(event); return; }
   }
 
@@ -296,6 +312,7 @@ export async function askLibraryAi({
   userMessageId = "",
   assistantMessageId = "",
   onToolEvent = null as ((e:any)=>void)|null,
+  onProgressEvent = null as ((e:{ type:"progress"; stage:"routing"|"retrieval"; message:string })=>void)|null,
   onAgentToolEvent = null as ((e:AgentToolEvent)=>void)|null,
   onAgentOperationEvent = null as ((e:AgentOperationEvent)=>void)|null,
   onAgentConfirmationRequiredEvent = null as ((e:AgentConfirmationRequiredEvent)=>void)|null,
@@ -312,7 +329,7 @@ export async function askLibraryAi({
   assistantMode = "auto" as AiAssistantMode,
 }: {
   question?: string; documentId?: string; jobId?: string; conversationId?: string; parentId?: string; regenerate?: boolean; userMessageId?: string; assistantMessageId?: string;
-  onToolEvent?: ((e:any)=>void)|null; onAgentToolEvent?: ((e:AgentToolEvent)=>void)|null; onAgentOperationEvent?: ((e:AgentOperationEvent)=>void)|null; onAgentConfirmationRequiredEvent?: ((e:AgentConfirmationRequiredEvent)=>void)|null; onAgentSessionEvent?: ((e:AgentSessionEvent)=>void)|null; onAnswerDelta?: ((full:string, chunk:string)=>void)|null; onCompress?: ((e:any)=>void)|null; signal?: AbortSignal | null; apiPrefix?: string; fetchImpl?: typeof fetch; llmApiKey?: string; llmBaseUrl?: string; llmModel?: string; confirmDocumentOperation?: boolean; assistantMode?: AiAssistantMode;
+  onToolEvent?: ((e:any)=>void)|null; onProgressEvent?: ((e:{ type:"progress"; stage:"routing"|"retrieval"; message:string })=>void)|null; onAgentToolEvent?: ((e:AgentToolEvent)=>void)|null; onAgentOperationEvent?: ((e:AgentOperationEvent)=>void)|null; onAgentConfirmationRequiredEvent?: ((e:AgentConfirmationRequiredEvent)=>void)|null; onAgentSessionEvent?: ((e:AgentSessionEvent)=>void)|null; onAnswerDelta?: ((full:string, chunk:string)=>void)|null; onCompress?: ((e:any)=>void)|null; signal?: AbortSignal | null; apiPrefix?: string; fetchImpl?: typeof fetch; llmApiKey?: string; llmBaseUrl?: string; llmModel?: string; confirmDocumentOperation?: boolean; assistantMode?: AiAssistantMode;
 } = {}): Promise<any> {
   const trimmed = `${question}`.trim();
   if (!trimmed) throw new AiAskError("请输入问题。", 400);
@@ -368,6 +385,7 @@ export async function askLibraryAi({
     return result;
   }
   return readAiAskStream(resp.body as any, {
+    onProgressEvent,
     onToolEvent,
     onAgentToolEvent,
     onAgentOperationEvent,

@@ -42,16 +42,35 @@ export type ThreadBranchSnapshot = {
   conversationId?: string;
 };
 
+export type ThreadBranchScope = {
+  jobId?: string;
+  documentId?: string;
+};
+
+export type ThreadBranchScopeInput = string | ThreadBranchScope;
+
+function normalizeScope(scope: ThreadBranchScopeInput): Required<ThreadBranchScope> {
+  if (typeof scope === "string") {
+    return { jobId: `${scope || ""}`.trim(), documentId: "" };
+  }
+  return {
+    jobId: `${scope?.jobId || ""}`.trim(),
+    documentId: `${scope?.documentId || ""}`.trim(),
+  };
+}
+
 export function threadBranchStorageKey(
-  jobId: string,
+  scope: ThreadBranchScopeInput,
   conversationId = "",
 ): string {
-  const id = `${jobId || ""}`.trim();
+  const { jobId, documentId } = normalizeScope(scope);
+  const kind = documentId ? "doc" : "job";
+  const id = documentId || jobId || "anonymous";
   const conv = `${conversationId || ""}`.trim();
   if (conv) {
-    return `${STORAGE_PREFIX}job:${id || "anonymous"}:conv:${conv}`;
+    return `${STORAGE_PREFIX}${kind}:${id}:conv:${conv}`;
   }
-  return `${STORAGE_PREFIX}job:${id || "anonymous"}`;
+  return `${STORAGE_PREFIX}${kind}:${id}`;
 }
 
 function storage(): Storage | null {
@@ -124,31 +143,9 @@ function normalizeSnapshot(raw: unknown): ThreadBranchSnapshot | null {
   return { version: 1, headId, items, ...(conversationId ? { conversationId } : {}) };
 }
 
-export function loadThreadBranchSnapshot(
-  jobId: string,
-  conversationId = "",
-): ThreadBranchSnapshot | null {
-  const store = storage();
-  if (!store) return null;
+function snapshotForConversation(raw: string | null, conversationId: string): ThreadBranchSnapshot | null {
+  if (!raw) return null;
   try {
-    const raw = store.getItem(threadBranchStorageKey(jobId, conversationId));
-    if (!raw && conversationId) {
-      // 兼容旧 key（仅 job）——但要防串会话（审计 P2-10）：
-      // 1. 带 conversationId 印章的快照，归属不符直接拒绝；
-      // 2. 无印章的真旧快照，只在"请求的正是本 job 的粘性会话"时才接受
-      //    （旧快照写入时代唯一可能代表的就是它）。
-      const legacy = store.getItem(threadBranchStorageKey(jobId));
-      if (!legacy) return null;
-      const snapshot = normalizeSnapshot(JSON.parse(legacy));
-      if (!snapshot) return null;
-      const marked = `${snapshot.conversationId || ""}`.trim();
-      if (marked) {
-        return marked === conversationId ? snapshot : null;
-      }
-      const sticky = loadStoredConversationId({ jobId });
-      return sticky && sticky === conversationId ? snapshot : null;
-    }
-    if (!raw) return null;
     const snapshot = normalizeSnapshot(JSON.parse(raw));
     if (!snapshot) return null;
     const marked = `${snapshot.conversationId || ""}`.trim();
@@ -159,42 +156,145 @@ export function loadThreadBranchSnapshot(
   }
 }
 
+function saveRawSnapshot(
+  store: Storage,
+  scope: ThreadBranchScopeInput,
+  conversationId: string,
+  snapshot: ThreadBranchSnapshot,
+): void {
+  const payload: ThreadBranchSnapshot = {
+    version: 1,
+    headId: snapshot.headId,
+    items: snapshot.items,
+    ...(conversationId ? { conversationId } : {}),
+  };
+  store.setItem(threadBranchStorageKey(scope, conversationId), JSON.stringify(payload));
+}
+
+function migrateSnapshot(
+  store: Storage,
+  targetScope: ThreadBranchScopeInput,
+  conversationId: string,
+  snapshot: ThreadBranchSnapshot,
+  sourceKey: string,
+): void {
+  try {
+    const targetKey = threadBranchStorageKey(targetScope, conversationId);
+    saveRawSnapshot(store, targetScope, conversationId, snapshot);
+    if (sourceKey && sourceKey !== targetKey) store.removeItem(sourceKey);
+  } catch {
+    // Migration is best-effort. A valid legacy snapshot remains readable even
+    // when storage is full or unavailable for a canonical copy.
+  }
+}
+
+export function loadThreadBranchSnapshot(
+  scope: ThreadBranchScopeInput,
+  conversationId = "",
+): ThreadBranchSnapshot | null {
+  const store = storage();
+  if (!store) return null;
+  try {
+    const normalized = normalizeScope(scope);
+    const raw = store.getItem(threadBranchStorageKey(normalized, conversationId));
+    const current = snapshotForConversation(raw, conversationId);
+    if (current) return current;
+
+    // document scope is canonical. On first read after an upgrade, accept the
+    // exact old job+conversation key and copy it forward so a retry/rerender
+    // that produces a new job still restores the same local branch.
+    if (normalized.documentId && normalized.jobId) {
+      const legacyJobScope = { jobId: normalized.jobId };
+      const legacyExact = snapshotForConversation(
+        store.getItem(threadBranchStorageKey(legacyJobScope, conversationId)),
+        conversationId,
+      );
+      if (legacyExact) {
+        migrateSnapshot(
+          store,
+          normalized,
+          conversationId,
+          legacyExact,
+          threadBranchStorageKey(legacyJobScope, conversationId),
+        );
+        return legacyExact;
+      }
+    }
+
+    if (!conversationId) return null;
+
+    // Compatibility with the oldest unscoped snapshot. An explicit seal is
+    // authoritative; an unsealed snapshot is accepted only for the sticky
+    // conversation of that document/job, preserving the anti-cross-thread
+    // guarantee from the previous job-only implementation.
+    const fallbackScopes: ThreadBranchScopeInput[] = normalized.documentId
+      ? [normalized, ...(normalized.jobId ? [{ jobId: normalized.jobId }] : [])]
+      : [normalized];
+    for (const fallbackScope of fallbackScopes) {
+      const legacy = snapshotForConversation(
+        store.getItem(threadBranchStorageKey(fallbackScope)),
+        conversationId,
+      );
+      if (!legacy) continue;
+      const marked = `${legacy.conversationId || ""}`.trim();
+      const sticky = normalized.documentId
+        ? loadStoredConversationId({ documentId: normalized.documentId })
+          || loadStoredConversationId({ jobId: normalized.jobId })
+        : loadStoredConversationId({ jobId: normalized.jobId });
+      if (marked ? marked === conversationId : sticky === conversationId) {
+        if (normalized.documentId) {
+          migrateSnapshot(
+            store,
+            normalized,
+            conversationId,
+            legacy,
+            threadBranchStorageKey(fallbackScope),
+          );
+        }
+        return legacy;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function saveThreadBranchSnapshot(
-  jobId: string,
+  scope: ThreadBranchScopeInput,
   snapshot: ThreadBranchSnapshot,
   conversationId = "",
 ): void {
   const store = storage();
   if (!store) return;
-  const id = `${jobId || ""}`.trim();
-  if (!id || !snapshot.items.length) return;
+  const normalized = normalizeScope(scope);
+  if ((!normalized.documentId && !normalized.jobId) || !snapshot.items.length) return;
   try {
-    const payload: ThreadBranchSnapshot = {
-      version: 1,
-      headId: snapshot.headId,
-      items: snapshot.items,
-      ...(conversationId ? { conversationId } : {}),
-    };
-    store.setItem(
-      threadBranchStorageKey(id, conversationId),
-      JSON.stringify(payload),
-    );
+    saveRawSnapshot(store, normalized, conversationId, snapshot);
   } catch {
     // quota / private mode
   }
 }
 
 export function clearThreadBranchSnapshot(
-  jobId: string,
+  scope: ThreadBranchScopeInput,
   conversationId = "",
 ): void {
   const store = storage();
   if (!store) return;
   try {
-    store.removeItem(threadBranchStorageKey(jobId, conversationId));
+    const normalized = normalizeScope(scope);
+    store.removeItem(threadBranchStorageKey(normalized, conversationId));
+    if (normalized.documentId && normalized.jobId) {
+      // Prevent a cleared canonical snapshot from being resurrected by the
+      // old job-key migration fallback on the next load.
+      store.removeItem(threadBranchStorageKey({ jobId: normalized.jobId }, conversationId));
+    }
     if (!conversationId) {
-      // 清 job 级旧 key
-      store.removeItem(threadBranchStorageKey(jobId));
+      store.removeItem(threadBranchStorageKey(normalized));
+      if (normalized.documentId && normalized.jobId) {
+        store.removeItem(threadBranchStorageKey({ jobId: normalized.jobId }));
+      }
     }
   } catch {
     // ignore

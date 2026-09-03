@@ -27,8 +27,7 @@
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--ink) 1.8%, var(--paper)) 0, var(--paper) 96px);
+  background: var(--paper);
 }
 .reader-float-ai .aui-thread-inner {
   display: flex;
@@ -38,13 +37,13 @@
   max-width: 44rem;
   min-height: 100%;
   margin: 0 auto;
-  padding: 16px 16px 0;
+  padding: 18px 18px 0;
 }
 .reader-float-ai .aui-message-group {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  margin-bottom: 56px;
+  gap: 28px;
+  margin-bottom: 44px;
 }
 .reader-float-ai .aui-message-group:empty {
   display: none;
@@ -56,7 +55,7 @@
   display: flex;
   flex-direction: column;
   margin-top: auto;
-  padding: 12px 0 14px;
+  padding: 10px 0 10px;
   background:
     linear-gradient(180deg, transparent 0, var(--paper) 18px, var(--paper) 100%);
 }

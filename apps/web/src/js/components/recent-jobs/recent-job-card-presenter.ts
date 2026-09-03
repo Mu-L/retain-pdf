@@ -132,6 +132,12 @@ export function recentJobImageUrl(item) {
 }
 
 export function buildReaderUrl(item) {
-  const jobId = `${item?.job_id || ""}`.trim();
-  return jobId ? `./reader.html?job_id=${encodeURIComponent(jobId)}` : "#";
+  const jobId = [item?.job_id, item?.active_job_id]
+    .map((value) => `${value || ""}`.trim())
+    .find((value) => value && !value.startsWith("doc:")) || "";
+  if (jobId && !jobId.startsWith("doc:")) {
+    return `./reader.html?job_id=${encodeURIComponent(jobId)}`;
+  }
+  const documentId = `${item?.document_id || ""}`.trim();
+  return documentId ? `./reader.html?document_id=${encodeURIComponent(documentId)}` : "#";
 }

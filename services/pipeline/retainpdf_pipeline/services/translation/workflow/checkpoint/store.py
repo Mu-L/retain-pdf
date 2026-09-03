@@ -9,7 +9,6 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-
 CHECKPOINT_LOCK_FILE_NAME = ".translation-checkpoint.lock"
 CHECKPOINT_SNAPSHOTS_DIR_NAME = ".translation-checkpoints"
 
@@ -117,11 +116,24 @@ class CheckpointStore:
             if not expected_hash or _sha256(source) != expected_hash:
                 raise RuntimeError(f"Translation checkpoint page hash mismatch: {source}")
             target = snapshot_dir / page_name
+            if target.exists() and (
+                target.is_symlink()
+                or not target.is_file()
+                or _sha256(target) != expected_hash
+            ):
+                if target.is_dir() and not target.is_symlink():
+                    shutil.rmtree(target)
+                else:
+                    target.unlink()
             if not target.exists():
                 try:
                     os.link(source, target)
                 except OSError:
                     shutil.copy2(source, target)
+            if _sha256(target) != expected_hash:
+                raise RuntimeError(
+                    f"Translation checkpoint snapshot hash mismatch: {target}"
+                )
             page["snapshot_path"] = target.relative_to(self.path.parent).as_posix()
         _fsync_parent_dir(snapshot_dir / ".sentinel")
 

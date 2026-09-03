@@ -13,7 +13,7 @@ import { DecorStage } from "@/shared/decor/DecorStage.jsx";
 import { createHomeComposition } from "./create-home-composition.js";
 import { HomeApp } from "./HomeApp.jsx";
 
-// 尽早挂 data-theme，减少换肤 FOUC（见 docs/theme-system/THEME_SYSTEM.md）
+// 尽早挂 data-theme，减少换肤 FOUC（见 docs/core/frontend/theme-system/THEME_SYSTEM.md）
 bootTheme();
 
 // appUpdateAutoCheckEnabled: true——create-home-composition.js 默认关闭 app-update 的后台
@@ -34,7 +34,7 @@ function resolveHomeRoot(body = document.body) {
 
 createRoot(resolveHomeRoot()).render(
   <>
-    {/* 装饰舞台：无 decorPack 的主题渲染 null，零开销（docs/theme-system/DECOR_PACKS.md） */}
+    {/* 装饰舞台：无 decorPack 的主题渲染 null，零开销（docs/core/frontend/theme-system/DECOR_PACKS.md） */}
     <DecorStage />
     <HomeApp services={services} />
   </>,

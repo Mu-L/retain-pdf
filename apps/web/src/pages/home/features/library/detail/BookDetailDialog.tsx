@@ -177,7 +177,7 @@ export function BookDetailDialog() {
           busy={docState.busy}
           processing={coverProcessing}
           onCompare={() => {
-            actions.openJobReader(readPresentation.jobId || jobId);
+            actions.openJobReader(readPresentation.jobId || jobId, documentId);
             close();
           }}
           onReadSource={openSource}
@@ -279,6 +279,10 @@ export function BookDetailDialog() {
                 onTranslate: async () => {
                   await translateState.handleTranslate();
                 },
+                onOpenLiveReader: (activeJobId) => {
+                  actions.openJobReader(activeJobId, documentId);
+                  close();
+                },
                 onRetryStage: stageActionState.retry,
               }}
             />
@@ -288,7 +292,7 @@ export function BookDetailDialog() {
               onOpenSource={openSource}
               artifactCenter={artifactCenter}
               onOpenJob={(artifactJobId) => {
-                actions.openJobReader(artifactJobId);
+                actions.openJobReader(artifactJobId, documentId);
                 close();
               }}
             />

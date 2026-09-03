@@ -104,14 +104,16 @@ export function createLibraryDomain({ features, documentRef, statusArea }: Creat
   });
 
   const recentJobsReaderPort = createRecentJobsReaderPort({
-    openReader: (jobId: string, anchor: ReaderAnchor = null) => {
+    openReader: (jobId: string, anchor: ReaderAnchor = null, documentId = "") => {
       const normalizedJobId = `${jobId || ""}`.trim();
       if (!normalizedJobId) return;
-      // 阅读器不需要抬主工作流区 / 刷库 create；silent 盯 job 即可
-      features.jobRuntimeFeature.startPolling(normalizedJobId, { silent: true });
+      // Reader 会在自己的 iframe/session 内读取 job、产物和 live translation。
+      // 这里不能让被阅读的 job 接管首页唯一的 currentJob 轮询：打开一本已完成
+      // 的 PDF 会立刻命中终态并清掉正在后台执行的另一项任务及其持久化恢复键。
       documentRef.dispatchEvent(new globalThis.CustomEvent(APP_EVENTS.openReaderRequested, {
         detail: {
           jobId: normalizedJobId,
+          documentId: `${documentId || ""}`.trim(),
           pageIdx: Number.isFinite(anchor?.pageIdx) ? anchor.pageIdx : null,
           blockId: anchor?.blockId || "",
         },
@@ -172,7 +174,13 @@ export function createLibraryDomain({ features, documentRef, statusArea }: Creat
     },
     buildTranslateConfig: (pageRanges?: string) => features.workflowFeature.buildTranslateJobConfig(pageRanges),
     buildOcrConfig: (pageRanges?: string) => features.workflowFeature.buildOcrJobConfig(pageRanges),
-    startPolling: (jobId: string, options?: { silent?: boolean }) => {
+    startPolling: (jobId: string, options?: {
+      silent?: boolean;
+      publishLibrary?: boolean;
+      showWorkflow?: boolean;
+      seedPayload?: Record<string, unknown> | null;
+      recovering?: boolean;
+    }) => {
       features.jobRuntimeFeature.startPolling(jobId, options);
     },
     hideStatusArea: () => statusArea.setVisible(false),

@@ -217,7 +217,7 @@ def canonical_predicate_vector(block: dict | None) -> dict[str, bool]:
         "reference_entry",
     }
     algorithm = semantic == "algorithm" or structure in {"algorithm", "code_block"}
-    document_title = layout == "title" or structure == "title"
+    document_title = layout == "title" or structure in {"document_title", "title"}
     body_candidate = (
         kind == "text"
         and block_class == "body"

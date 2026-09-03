@@ -16,6 +16,27 @@ Storage ownership:
 - `job_artifact_entries`: normalized artifact manifest for download/listing views
 - `events`: complete historical progress stream
 
+### Document list pagination
+
+`GET /api/v1/documents?limit=24&offset=0` returns the current page in
+`documents` and the filtered, pre-pagination count in `total`:
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "documents": [],
+    "total": 128
+  }
+}
+```
+
+`reading_status`, `tag`, and `collection_id` apply identically to the page and
+to `total`. Documents without a backing upload are excluded from both. `limit`
+and `offset` affect only `documents`. With `job_id`, an associated document
+returns `total: 1`; a miss returns an empty page with `total: 0`.
+
 Book display metadata:
 
 - list items expose `display_name`, `page_count`, `source_file_name`, `cover_url`,

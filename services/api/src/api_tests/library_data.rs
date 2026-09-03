@@ -79,7 +79,25 @@ fn seed_reusable_ocr_job(state: &crate::AppState, document_id: &str, job_id: &st
     fs::create_dir_all(normalized.parent().expect("normalized parent")).expect("normalized dir");
     fs::create_dir_all(layout.parent().expect("layout parent")).expect("layout dir");
     fs::write(&source_pdf, minimal_pdf_bytes(200, 280)).expect("source pdf");
-    fs::write(&normalized, br#"{"schema":"document.v1","pages":[]}"#).expect("normalized document");
+    fs::write(
+        &normalized,
+        br#"{
+            "schema":"document.v1",
+            "pages":[{
+                "page_index":0,
+                "blocks":[{
+                    "block_id":"p001-b0001",
+                    "text":"Retaining Scientific PDF Layout",
+                    "content":{"kind":"text","text":"Retaining Scientific PDF Layout"},
+                    "layout_role":"title",
+                    "semantic_role":"unknown",
+                    "structure_role":"document_title",
+                    "sub_type":"title"
+                }]
+            }]
+        }"#,
+    )
+    .expect("normalized document");
     fs::write(&layout, br#"{"layoutParsingResults":[]}"#).expect("layout document");
 
     let mut input = CreateJobInput::default();
@@ -128,6 +146,7 @@ async fn documents_list_and_patch_roundtrip() {
         .expect("list response");
     assert_eq!(response.status(), StatusCode::OK);
     let payload = json_response(response).await;
+    assert_eq!(payload["data"]["total"], 1);
     assert_eq!(payload["data"]["documents"][0]["document_id"], document_id);
     assert_eq!(
         payload["data"]["documents"][0]["source_pdf_url"],
@@ -186,6 +205,310 @@ async fn documents_list_and_patch_roundtrip() {
         .await
         .expect("bad patch response");
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn metadata_suggestion_is_durable_and_can_auto_apply_default_title() {
+    let state = test_state("library-metadata-suggestion-apply");
+    let app = build_app(state.clone());
+    let document_id = seed_document(&state, b"metadata suggestion apply");
+    let job_id = seed_reusable_ocr_job(&state, &document_id, "ocr-metadata-title");
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!(
+                    "/api/v1/documents/{document_id}/metadata-suggestions"
+                ))
+                .header("X-API-Key", "test-key")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "job_id": job_id,
+                        "fields": ["title"],
+                        "apply_if_default": true
+                    })
+                    .to_string(),
+                ))
+                .expect("metadata suggestion request"),
+        )
+        .await
+        .expect("metadata suggestion response");
+    assert_eq!(response.status(), StatusCode::OK);
+    let payload = json_response(response).await;
+    assert_eq!(
+        payload["data"]["selected_title"],
+        "Retaining Scientific PDF Layout"
+    );
+    assert_eq!(payload["data"]["source_job_id"], "ocr-metadata-title");
+    assert_eq!(payload["data"]["generation_method"], "ocr_structure");
+    assert_eq!(payload["data"]["applied"], true);
+    assert_eq!(payload["data"]["can_apply"], true);
+    assert_eq!(payload["data"]["title_candidates"][0]["confidence"], 0.99);
+
+    let document = state.db.get_document(&document_id).expect("load document");
+    assert_eq!(document.title, "Retaining Scientific PDF Layout");
+    assert_eq!(document.title_source, "ocr");
+    assert!(!document.title_locked);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri(format!(
+                    "/api/v1/documents/{document_id}/metadata-suggestions"
+                ))
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("list metadata suggestions request"),
+        )
+        .await
+        .expect("list metadata suggestions response");
+    assert_eq!(response.status(), StatusCode::OK);
+    let payload = json_response(response).await;
+    assert_eq!(payload["data"]["suggestions"].as_array().unwrap().len(), 1);
+    assert_eq!(payload["data"]["suggestions"][0]["status"], "applied");
+}
+
+#[tokio::test]
+async fn metadata_suggestion_never_overwrites_user_title() {
+    let state = test_state("library-metadata-suggestion-user-lock");
+    let app = build_app(state.clone());
+    let document_id = seed_document(&state, b"metadata suggestion user lock");
+    let job_id = seed_reusable_ocr_job(&state, &document_id, "ocr-user-lock-title");
+
+    let patch = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PATCH")
+                .uri(format!("/api/v1/documents/{document_id}"))
+                .header("X-API-Key", "test-key")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"title":"用户确定的标题"}"#))
+                .expect("patch title request"),
+        )
+        .await
+        .expect("patch title response");
+    assert_eq!(patch.status(), StatusCode::OK);
+    let patch = json_response(patch).await;
+    assert_eq!(patch["data"]["title_source"], "user");
+    assert_eq!(patch["data"]["title_locked"], true);
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!(
+                    "/api/v1/documents/{document_id}/metadata-suggestions"
+                ))
+                .header("X-API-Key", "test-key")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "job_id": job_id,
+                        "apply_if_default": true
+                    })
+                    .to_string(),
+                ))
+                .expect("metadata suggestion request"),
+        )
+        .await
+        .expect("metadata suggestion response");
+    assert_eq!(response.status(), StatusCode::OK);
+    let payload = json_response(response).await;
+    assert_eq!(payload["data"]["applied"], false);
+    assert_eq!(payload["data"]["can_apply"], false);
+    let suggestion_id = payload["data"]["suggestion_id"]
+        .as_str()
+        .expect("suggestion id")
+        .to_string();
+
+    let apply = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!(
+                    "/api/v1/documents/{document_id}/metadata-suggestions/{suggestion_id}/apply"
+                ))
+                .header("X-API-Key", "test-key")
+                .header("content-type", "application/json")
+                .body(Body::from("{}"))
+                .expect("apply metadata suggestion request"),
+        )
+        .await
+        .expect("apply metadata suggestion response");
+    assert_eq!(apply.status(), StatusCode::CONFLICT);
+    let apply = json_response(apply).await;
+    assert_eq!(apply["code"], "DOCUMENT_TITLE_CHANGED");
+    assert_eq!(
+        state.db.get_document(&document_id).expect("document").title,
+        "用户确定的标题"
+    );
+}
+
+#[tokio::test]
+async fn documents_list_total_is_stable_across_pages() {
+    let state = test_state("library-documents-total-pagination");
+    let app = build_app(state.clone());
+    for content in [b"page-one".as_slice(), b"page-two", b"page-three"] {
+        seed_document(&state, content);
+    }
+
+    let first = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/documents?limit=2&offset=0")
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("first page request"),
+        )
+        .await
+        .expect("first page response");
+    assert_eq!(first.status(), StatusCode::OK);
+    let first = json_response(first).await;
+    assert_eq!(first["data"]["documents"].as_array().unwrap().len(), 2);
+    assert_eq!(first["data"]["total"], 3);
+
+    let second = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/documents?limit=2&offset=2")
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("second page request"),
+        )
+        .await
+        .expect("second page response");
+    assert_eq!(second.status(), StatusCode::OK);
+    let second = json_response(second).await;
+    assert_eq!(second["data"]["documents"].as_array().unwrap().len(), 1);
+    assert_eq!(second["data"]["total"], 3);
+}
+
+#[tokio::test]
+async fn documents_list_total_uses_filters_upload_constraint_and_job_lookup() {
+    let state = test_state("library-documents-total-filters");
+    let app = build_app(state.clone());
+    let chemistry_reading = seed_document(&state, b"chemistry-reading");
+    let biology_reading = seed_document(&state, b"biology-reading");
+    let chemistry_finished = seed_document(&state, b"chemistry-finished");
+
+    state
+        .db
+        .update_document_fields(
+            &chemistry_reading,
+            None,
+            Some("reading"),
+            Some(&["chemistry".to_string()]),
+        )
+        .expect("mark chemistry reading");
+    state
+        .db
+        .update_document_fields(
+            &biology_reading,
+            None,
+            Some("reading"),
+            Some(&["biology".to_string()]),
+        )
+        .expect("mark biology reading");
+    state
+        .db
+        .update_document_fields(
+            &chemistry_finished,
+            None,
+            Some("finished"),
+            Some(&["chemistry".to_string()]),
+        )
+        .expect("mark chemistry finished");
+    state
+        .db
+        .create_collection("col-chemistry-reading", "Chemistry reading", None)
+        .expect("create collection");
+    state
+        .db
+        .add_documents_to_collection(
+            "col-chemistry-reading",
+            std::slice::from_ref(&chemistry_reading),
+        )
+        .expect("add collection document");
+
+    // This row matches the visible filters but has no upload and must remain
+    // absent from both the current page and its total.
+    let conn = rusqlite::Connection::open(state.config.jobs_db_path.clone()).expect("open db");
+    conn.execute(
+        "INSERT INTO documents (document_id, title, source_filename, page_count, bytes, added_at, updated_at, reading_status) VALUES ('orphan-filtered', 'Orphan', 'orphan.pdf', 1, 1, '2026-01-01', '2026-01-01', 'reading')",
+        [],
+    )
+    .expect("insert orphan document");
+    conn.execute(
+        "INSERT INTO document_tags (document_id, tag) VALUES ('orphan-filtered', 'chemistry')",
+        [],
+    )
+    .expect("tag orphan document");
+
+    let filtered = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/documents?reading_status=reading&tag=chemistry&collection_id=col-chemistry-reading&limit=1&offset=0")
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("filtered request"),
+        )
+        .await
+        .expect("filtered response");
+    assert_eq!(filtered.status(), StatusCode::OK);
+    let filtered = json_response(filtered).await;
+    assert_eq!(filtered["data"]["total"], 1);
+    assert_eq!(
+        filtered["data"]["documents"][0]["document_id"],
+        chemistry_reading
+    );
+
+    let mut linked_job = JobSnapshot::new(
+        "job-document-total-lookup".to_string(),
+        CreateJobInput::default(),
+        vec!["python".to_string()],
+    );
+    linked_job.status = JobStatusKind::Succeeded;
+    linked_job.sync_runtime_state();
+    state.db.save_job(&linked_job).expect("save linked job");
+    conn.execute(
+        "UPDATE jobs SET document_id = ?1 WHERE job_id = ?2",
+        rusqlite::params![chemistry_reading, linked_job.job_id],
+    )
+    .expect("link job to document");
+
+    let hit = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/documents?job_id=job-document-total-lookup")
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("job lookup request"),
+        )
+        .await
+        .expect("job lookup response");
+    assert_eq!(hit.status(), StatusCode::OK);
+    assert_eq!(json_response(hit).await["data"]["total"], 1);
+
+    let miss = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/documents?job_id=missing-job")
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("missing job lookup request"),
+        )
+        .await
+        .expect("missing job lookup response");
+    assert_eq!(miss.status(), StatusCode::OK);
+    assert_eq!(json_response(miss).await["data"]["total"], 0);
 }
 
 #[tokio::test]
@@ -1767,15 +2090,23 @@ async fn deleting_a_job_reconciles_document_active_job() {
 #[tokio::test]
 async fn delete_document_removes_everything_and_guards_favorites() {
     use crate::models::{CreateJobInput, JobSnapshot, JobStatusKind};
+    use crate::services::credentials::{get_credential_metadata, get_or_create_managed_credential};
 
     let state = test_state("library-delete-document");
     let app = build_app(state.clone());
     let document_id = seed_document(&state, b"doc delete");
-    let mut job = JobSnapshot::new(
-        "job-x".to_string(),
-        CreateJobInput::default(),
-        vec!["python".to_string()],
-    );
+    let managed_credential = get_or_create_managed_credential(
+        &state.config.data_root,
+        "translation_api_key",
+        "openai_compatible",
+        "Imported legacy translation credential",
+        "delete-document-managed-secret",
+    )
+    .expect("create managed credential");
+    let managed_credential_ref = managed_credential.credential.credential_ref;
+    let mut input = CreateJobInput::default();
+    input.translation.credential_ref = managed_credential_ref.clone();
+    let mut job = JobSnapshot::new("job-x".to_string(), input, vec!["python".to_string()]);
     job.status = JobStatusKind::Succeeded;
     job.sync_runtime_state();
     state.db.save_job(&job).expect("save job");
@@ -1832,6 +2163,7 @@ async fn delete_document_removes_everything_and_guards_favorites() {
         .await
         .expect("delete blocked");
     assert_eq!(response.status(), StatusCode::CONFLICT);
+    assert!(get_credential_metadata(&state.config.data_root, &managed_credential_ref).is_ok());
 
     // 移除收藏后可删
     app.clone()
@@ -1870,6 +2202,7 @@ async fn delete_document_removes_everything_and_guards_favorites() {
     // 文档行、job 行、upload 行都没了
     assert!(state.db.get_document(&document_id).is_err());
     assert!(state.db.get_job("job-x").is_err());
+    assert!(get_credential_metadata(&state.config.data_root, &managed_credential_ref).is_err());
     assert!(state
         .db
         .uploads_for_document(&document_id)

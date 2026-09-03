@@ -29,7 +29,7 @@
 
 .reader-float-ai .aui-composer {
   display: grid;
-  gap: 8px;
+  gap: 5px;
   padding: 0;
   border-top: 0;
   background: transparent;
@@ -56,13 +56,13 @@
 .reader-float-ai .aui-composer-shell {
   display: grid;
   gap: 0;
-  padding: 8px 10px 7px;
-  border: 1px solid color-mix(in srgb, var(--ink) 9%, transparent);
-  border-radius: 20px;
+  padding: 6px 8px 5px;
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  border-radius: 14px;
   background: var(--paper);
   box-shadow:
     0 1px 2px color-mix(in srgb, var(--ink) 4%, transparent),
-    0 8px 24px color-mix(in srgb, var(--ink) 5%, transparent);
+    0 4px 14px color-mix(in srgb, var(--ink) 4%, transparent);
   transition:
     border-color 160ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)),
     box-shadow 160ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
@@ -75,12 +75,57 @@
     0 12px 30px color-mix(in srgb, var(--ink) 8%, transparent);
 }
 
+.reader-float-ai .aui-selection-context {
+  min-width: 0;
+  margin: 2px 0 5px;
+  padding: 6px 7px;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  border-radius: 9px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.reader-float-ai .aui-selection-context-meta {
+  white-space: nowrap;
+  font-weight: 650;
+}
+
+.reader-float-ai .aui-selection-context-text {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reader-float-ai .aui-selection-context-remove {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.reader-float-ai .aui-selection-context-remove:hover {
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+}
+
 .reader-float-ai .aui-input {
   width: 100%;
-  min-height: 38px;
+  min-height: 32px;
   max-height: 140px;
   resize: none;
-  padding: 5px 4px 4px;
+  padding: 4px 4px 2px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -107,8 +152,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 32px;
-  padding-top: 2px;
+  min-height: 28px;
+  padding-top: 1px;
 }
 
 .reader-float-ai .aui-composer-chip {
@@ -139,11 +184,21 @@
   background: color-mix(in srgb, var(--ink) 4%, var(--paper));
 }
 
+.reader-float-ai .aui-assistant-mode.is-unified {
+  gap: 5px;
+  min-height: 23px;
+  padding: 0 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 550;
+  line-height: 1;
+}
+
 .reader-float-ai .aui-assistant-mode button {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  min-height: 24px;
+  min-height: 23px;
   padding: 0 8px;
   border: 0;
   border-radius: 6px;
@@ -183,8 +238,8 @@
 .reader-float-ai .aui-send {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 0;
   border-radius: 999px;

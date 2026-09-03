@@ -14,6 +14,7 @@ export type ReaderAgentOperationEntry = {
 export type ReaderAgentOperationPerformOptions = {
     acceptDuplicateRisk?: boolean;
 };
+export declare function shouldReplaceAgentOperation(current: AgentOperationView | undefined, next: AgentOperationView): boolean;
 export declare function useReaderAgentOperations({ conversationId, enabled, discovering, signal, confirmationModeHint, onDocumentCommitted, }: {
     conversationId: string;
     enabled: boolean;

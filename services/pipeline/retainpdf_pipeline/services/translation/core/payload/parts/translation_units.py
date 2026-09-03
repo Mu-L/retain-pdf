@@ -22,6 +22,9 @@ def _effective_group_unit_id(members: list[dict]) -> str:
         group_id = str(member.get("continuation_group", "") or "").strip()
         if group_id:
             return group_unit_id(group_id)
+        translation_group_id = str(member.get("translation_group_id", "") or "").strip()
+        if translation_group_id:
+            return group_unit_id(translation_group_id)
     return existing_ids[0] if existing_ids else ""
 
 

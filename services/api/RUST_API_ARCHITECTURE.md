@@ -19,7 +19,7 @@
 - stage 运行时契约：
   [`STAGE_EXECUTION_CONTRACT.md`](STAGE_EXECUTION_CONTRACT.md)
 - Rust 侧 artifact boundary：
-  [`../../doc/core/rust_api/10-Rust 侧 Artifact Boundary.md`](../../doc/core/rust_api/10-Rust%20%E4%BE%A7%20Artifact%20Boundary.md)
+  [`../../docs/core/rust_api/10-Rust 侧 Artifact Boundary.md`](../../docs/core/rust_api/10-Rust%20%E4%BE%A7%20Artifact%20Boundary.md)
 - 外部 API 协议：
   [`API_SPEC.md`](API_SPEC.md)
 

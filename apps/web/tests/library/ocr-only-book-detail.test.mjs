@@ -196,7 +196,7 @@ test("OCR-only 成功详情：OCR 状态、job reader 主操作和继续翻译�
   });
   click(dom, dom.window.document.getElementById("book-detail-ocr-btn"));
   await waitFor(() => readerDetail?.jobId === "job-ocr-detail", "查看 OCR 保留 job reader 上下文");
-  assert.equal(readerDetail.documentId, undefined);
+  assert.equal(readerDetail.documentId, "doc-ocr-detail", "Reader 路由保留稳定文档身份");
 
   root.unmount();
   services.dispose();

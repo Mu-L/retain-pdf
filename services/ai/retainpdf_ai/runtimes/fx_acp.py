@@ -14,6 +14,8 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any, Self
 
+from ..request_control import RequestControl
+
 _MAX_ACP_LINE_BYTES = 1024 * 1024
 
 
@@ -121,6 +123,7 @@ class FxAcpClient:
         session_id: str,
         prompt: str,
         on_update: Callable[[dict[str, Any]], None],
+        request_control: RequestControl | None = None,
     ) -> str:
         result = self._request(
             "session/prompt",
@@ -130,6 +133,7 @@ class FxAcpClient:
             },
             timeout=self._turn_timeout,
             on_update=on_update,
+            request_control=request_control,
         )
         return str(result.get("stopReason") or "unknown")
 
@@ -187,6 +191,7 @@ class FxAcpClient:
         *,
         timeout: float | None = None,
         on_update: Callable[[dict[str, Any]], None] | None = None,
+        request_control: RequestControl | None = None,
     ) -> dict[str, Any]:
         request_id = self._next_id
         self._next_id += 1
@@ -195,12 +200,18 @@ class FxAcpClient:
         )
         deadline = time.monotonic() + (timeout or self._startup_timeout)
         while True:
+            if request_control is not None:
+                request_control.raise_if_stopped()
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise RuntimeError(f"fx ACP request timed out: {method}")
             try:
-                line = self._lines.get(timeout=remaining)
+                line = self._lines.get(timeout=min(remaining, 0.2))
             except queue.Empty as exc:
+                if request_control is not None:
+                    request_control.raise_if_stopped()
+                if time.monotonic() < deadline:
+                    continue
                 raise RuntimeError(f"fx ACP request timed out: {method}") from exc
             if line is None:
                 raise RuntimeError(

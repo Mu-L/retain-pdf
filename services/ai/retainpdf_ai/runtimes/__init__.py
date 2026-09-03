@@ -19,6 +19,7 @@ _LAZY_EXPORTS = {
     "OPENAI_AGENT_RUNTIME_ID",
     "OpenAICompatibleAgentRuntime",
     "PythonAgentRuntime",
+    "UnifiedAgentRuntime",
     "build_agent_runtime",
     "probe_fx_gateway_endpoint",
 }
@@ -41,6 +42,10 @@ def __getattr__(name: str) -> Any:
         from .python import PythonAgentRuntime
 
         return PythonAgentRuntime
+    if name == "UnifiedAgentRuntime":
+        from .unified import UnifiedAgentRuntime
+
+        return UnifiedAgentRuntime
     if name in {"OPENAI_AGENT_RUNTIME_ID", "OpenAICompatibleAgentRuntime"}:
         from .openai import OPENAI_AGENT_RUNTIME_ID, OpenAICompatibleAgentRuntime
 
@@ -71,6 +76,7 @@ __all__ = [
     "OpenAICompatibleAgentRuntime",
     "PythonAgentRuntime",
     "RuntimeCapabilities",
+    "UnifiedAgentRuntime",
     "build_agent_runtime",
     "probe_fx_gateway_endpoint",
 ]

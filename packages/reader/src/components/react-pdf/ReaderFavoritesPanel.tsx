@@ -104,7 +104,7 @@ export function ReaderFavoritesPanel({
         <p className="reader-notes-empty">正在加载摘录…</p>
       ) : items.length === 0 ? (
         <p className="reader-notes-empty">
-          暂无摘录。在阅读时选中文字添加批注，或从主页收藏跳转过来。
+          暂无摘录。可从主页收藏内容后在这里定位阅读。
         </p>
       ) : (
         items.map((item) => (

@@ -34,6 +34,15 @@ pub(super) fn routes() -> Router<AppState> {
             post(library_data::ocr_document_route),
         )
         .route(
+            "/api/v1/documents/:document_id/metadata-suggestions",
+            get(library_data::list_document_metadata_suggestions_route)
+                .post(library_data::create_document_metadata_suggestion_route),
+        )
+        .route(
+            "/api/v1/documents/:document_id/metadata-suggestions/:suggestion_id/apply",
+            post(library_data::apply_document_metadata_suggestion_route),
+        )
+        .route(
             "/api/v1/documents/:document_id/jobs",
             get(library_data::list_document_jobs_route),
         )

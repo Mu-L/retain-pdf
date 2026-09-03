@@ -57,7 +57,13 @@ export async function collectDocumentLibraryPage({
 
   const payload = await fetchDocumentList(apiPrefix, { limit, offset });
   const documents = Array.isArray(payload?.documents) ? payload.documents : [];
-  const total = Number.isFinite(Number(payload?.total)) ? Number(payload.total) : documents.length;
+  // `total` is the server-side count for the same filter snapshot. Pagination
+  // must not infer this from the current page length, especially on a full
+  // first page where both values happen to look identical.
+  const responseTotal = Number(payload?.total);
+  const total = Number.isFinite(responseTotal) && responseTotal >= 0
+    ? responseTotal
+    : offset + documents.length;
 
   // 文档 → 卡片的映射走统一编排(shapeDocumentsWithBooks);去重/搜索过滤这些
   // 分页数据源自己的关切留在下面。
@@ -84,10 +90,8 @@ export async function collectDocumentLibraryPage({
     collected.push(item);
   }
 
-  const hasMore = searching
-    ? false
-    : documents.length > 0 && offset + documents.length < total;
-  const nextOffset = searching ? startOffset : startOffset + pageSize;
+  const hasMore = searching ? false : offset + documents.length < total;
+  const nextOffset = searching ? startOffset : offset + documents.length;
 
   return {
     collected,

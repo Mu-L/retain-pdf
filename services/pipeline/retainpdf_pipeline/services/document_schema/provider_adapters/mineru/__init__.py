@@ -1,15 +1,8 @@
 from __future__ import annotations
 
-
-def build_mineru_document(*args, **kwargs):
-    from retainpdf_pipeline.services.mineru.document_v1 import build_normalized_document_from_layout_payload
-
-    return build_normalized_document_from_layout_payload(
-        layout_payload=kwargs["payload"],
-        document_id=kwargs["document_id"],
-        layout_json_path=kwargs["source_json_path"],
-        provider_version=kwargs["provider_version"],
-    )
+from retainpdf_pipeline.services.document_schema.provider_adapters.mineru.adapter import (
+    build_mineru_document,
+)
 
 
 def looks_like_mineru_layout(payload: dict) -> bool:

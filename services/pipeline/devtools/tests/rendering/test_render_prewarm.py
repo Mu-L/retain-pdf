@@ -38,6 +38,7 @@ from retainpdf_pipeline.services.rendering.pdf_structure_profile import pdf_stru
 from retainpdf_pipeline.services.rendering.visual_profile import visual_profile_path_from_prewarm_manifest
 from retainpdf_pipeline.services.rendering.visual_profile.contracts import VISUAL_PROFILE_ALGORITHM_VERSION
 from retainpdf_pipeline.services.rendering.workflow.executor import execute_render_plan
+from retainpdf_pipeline.services.rendering.workflow.prewarm_cache import merge_payload_prewarm
 from retainpdf_pipeline.runtime.pipeline.render_preprocess import run_ocr_render_preprocess
 
 
@@ -598,6 +599,28 @@ def test_sync_source_prewarm_preserves_existing_payload_prewarm() -> None:
         assert payload_prewarm.visual_profile_path is not None
         assert payload_prewarm.visual_profile_path.exists()
         assert seen_colors and seen_colors[0]["p001-b001"]["cover_fill"] == (0.9, 0.9, 0.9)
+
+
+def test_sync_payload_algorithm_change_replaces_stale_geometry() -> None:
+    existing = {
+        "geometry_adjustment_algorithm": "geometry_adjustments_v1",
+        "payload_render_algorithm": "payload_render_v1",
+        "effective_inner_bbox_by_item_id": {
+            "p001-abstract": [20.0, 40.0, 250.0, 130.0],
+        },
+    }
+    fresh = {
+        "geometry_adjustment_algorithm": "geometry_adjustments_v3_stale_merge_guard",
+        "payload_render_algorithm": "payload_render_v2",
+        "effective_inner_bbox_by_item_id": {
+            "p001-abstract": [20.0, 40.0, 220.0, 130.0],
+        },
+    }
+
+    merged = merge_payload_prewarm(existing, fresh)
+
+    assert merged["geometry_adjustment_algorithm"] == "geometry_adjustments_v3_stale_merge_guard"
+    assert merged["effective_inner_bbox_by_item_id"]["p001-abstract"] == [20.0, 40.0, 220.0, 130.0]
 
 
 def test_ocr_render_preprocess_manifest_matches_translated_payload() -> None:

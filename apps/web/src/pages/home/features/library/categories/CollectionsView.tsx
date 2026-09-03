@@ -9,7 +9,7 @@
 // 数据形状和图书馆首页卡片完全一致,直接复用 BookCard,不用
 // 另外做一套"文件夹详情卡片"渲染,也不会有第二套删除确认气泡状态。
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useHomeServices } from "../../../home-services-context.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { EmptyState } from "@/shared/icons/EmptyState.jsx";
@@ -84,6 +84,8 @@ export function CollectionsView() {
   const [collections, setCollections] = useState([]);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState("");
+  const listRequestSeqRef = useRef(0);
+  const listLoadedRef = useRef(false);
   // 文件夹卡片的封面堆叠预览:collection_id → 该文件夹前几本书(job 卡片形状)。
   const [previews, setPreviews] = useState({});
 
@@ -94,7 +96,10 @@ export function CollectionsView() {
 
   const reload = useCallback((options: { soft?: boolean } = {}) => {
     // soft：version bump / 二次拉取时保留旧列表，不整表切成 loading（分类 tab 闪一下）
-    const soft = Boolean(options.soft);
+    // 首次挂载不能由全局 version 判断：该 store 会跨 tab 挂载保留版本号，
+    // version > 0 并不表示当前 CollectionsView 已经完成过首屏请求。
+    const soft = Boolean(options.soft) && listLoadedRef.current;
+    const requestSeq = ++listRequestSeqRef.current;
     if (!soft) {
       setListLoading(true);
     }
@@ -102,6 +107,7 @@ export function CollectionsView() {
     return controller
       .listCollections()
       .then(({ collections: items = [] } = {}) => {
+        if (requestSeq !== listRequestSeqRef.current) return;
         setCollections(items);
         // 正在查看的文件夹如果被删了(管理弹窗里点了删除),退回文件夹网格。
         setOpenFolder((current) => {
@@ -112,17 +118,22 @@ export function CollectionsView() {
           return stillExists ? items.find((item) => item.collection_id === current.collection_id) : null;
         });
       })
-      .catch((err) => setListError(err?.message || "读取合集失败，请稍后重试。"))
+      .catch((err) => {
+        if (requestSeq !== listRequestSeqRef.current) return;
+        setListError(err?.message || "读取合集失败，请稍后重试。");
+      })
       .finally(() => {
-        if (!soft) {
-          setListLoading(false);
-        }
+        if (requestSeq !== listRequestSeqRef.current) return;
+        listLoadedRef.current = true;
+        // soft 只决定刷新期间是否遮住旧内容；任何已结算请求都必须关闭
+        // 首屏 loading，否则初始 version > 0 时会永久停在“正在加载合集…”。
+        setListLoading(false);
       });
   }, [controller]);
 
   useEffect(() => {
     // 首屏 hard loading；管理弹窗 bump version 后 soft 刷新
-    reload({ soft: version > 0 });
+    reload({ soft: listLoadedRef.current });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reload, version]);
 

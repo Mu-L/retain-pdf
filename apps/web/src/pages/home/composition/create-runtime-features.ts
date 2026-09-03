@@ -14,6 +14,9 @@ import {
   fetchLibraryBookList,
   deleteLibraryBook,
   fetchProtected,
+  fetchDocumentByJobId,
+  fetchDocumentMetadataSuggestions,
+  createDocumentMetadataSuggestion,
 } from "./external/api.js";
 import {
   adaptJobStageSnapshot,
@@ -28,9 +31,11 @@ import {
   mountRecentJobsFeature,
   mountArtifactDownloadsFeature,
   createArtifactDownloadsRuntimePort,
+  createDocumentAutoNaming,
   currentJobIdFor,
   readActiveJobId,
 } from "./external/features.js";
+import { isMockMode } from "./external/config.js";
 import type {
   HomeBridge,
   HomeFeatures,
@@ -78,12 +83,12 @@ type RecentJobsRuntimePort = {
 };
 
 type RecentJobsReaderPort = {
-  openReader: (jobId: string, anchor?: unknown) => unknown;
+  openReader: (jobId: string, anchor?: unknown, documentId?: string) => unknown;
 };
 
 type RecentJobsNavigationPort = {
   openJob: (jobId: string) => unknown;
-  openReader: (jobId: string) => unknown;
+  openReader: (jobId: string, documentId?: string) => unknown;
   recoverJob: (jobId: string) => unknown;
   currentJobId: () => string;
 };
@@ -127,6 +132,17 @@ export function createRuntimeFeatures({
   recentJobsFeature: RecentJobsFeature;
   artifactDownloadsFeature: ArtifactDownloadsFeature;
 } {
+  const documentAutoNaming = createDocumentAutoNaming({
+    fetchDocumentByJobId: (jobId) => fetchDocumentByJobId(API_PREFIX, jobId),
+    fetchSuggestions: (documentId) => fetchDocumentMetadataSuggestions(API_PREFIX, documentId),
+    createSuggestion: (documentId, payload) => createDocumentMetadataSuggestion(API_PREFIX, documentId, payload),
+    onApplied: () => {
+      libraryEventPort.requestRefresh?.({ force: true, bypassThrottle: true });
+    },
+    onError: (error, { jobId }) => {
+      console.warn(`[document-auto-naming] ${jobId}`, error);
+    },
+  });
   const jobRuntimeFeature = mountJobRuntimeFeature({
     state: jobRuntimeState,
     apiPrefix: API_PREFIX,
@@ -150,6 +166,9 @@ export function createRuntimeFeatures({
     // 主页不再嵌入阅读 iframe；sync/close 保留给 job-runtime 契约，实现为空。
     onReaderDialogSync: () => {},
     onReaderDialogClose: () => {},
+    onJobSucceeded: isMockMode()
+      ? undefined
+      : (job) => documentAutoNaming.run(job),
     uploadStatePort,
     libraryEventPort,
     shellViewPort: jobRuntimeShellViewPort,

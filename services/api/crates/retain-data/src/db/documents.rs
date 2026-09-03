@@ -5,7 +5,7 @@ mod crud;
 #[path = "documents/favorites.rs"]
 mod favorites;
 #[path = "documents/rows.rs"]
-mod rows;
+pub(super) mod rows;
 #[path = "documents/search.rs"]
 mod search;
 

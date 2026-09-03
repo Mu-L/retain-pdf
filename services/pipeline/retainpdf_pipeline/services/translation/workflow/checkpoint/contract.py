@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import hashlib
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from retainpdf_pipeline.services.translation.core.payload.parts.units import pending_translation_items
-
+from retainpdf_pipeline.services.translation.core.payload.parts.units import (
+    pending_translation_items,
+)
+from retainpdf_pipeline.services.translation.core.payload.parts.fingerprints import (
+    translation_item_fingerprint,
+)
 
 TRANSLATION_CHECKPOINT_FILE_NAME = "translation-checkpoint.v1.json"
 TRANSLATION_CHECKPOINT_SCHEMA = "translation_checkpoint_v1"
@@ -61,6 +65,9 @@ def new_checkpoint(
         **identity,
         "pages": list((previous or {}).get("pages", [])),
         "progress": dict((previous or {}).get("progress", {})),
+        # Durable stdout outbox. It is replaced on every checkpoint write, so
+        # a crash after save and before stdout can replay precisely that write.
+        "committed_pages": list((previous or {}).get("committed_pages", [])),
         "final_manifest": None,
     }
     previous_attempt = str((previous or {}).get("attempt_id", "") or "")
@@ -133,6 +140,11 @@ def project_progress(
                 "completed_item_count": completed,
                 "pending_item_ids": pending_page_ids,
                 "page_hash": page_hash,
+                "item_fingerprints": {
+                    item_id: translation_item_fingerprint(item)
+                    for item_id, item in zip(item_ids, items)
+                    if item_id
+                },
                 "last_committed_unit": completed_units[-1] if completed_units else None,
             }
         )
@@ -199,6 +211,81 @@ def advance_checkpoint(
         max(committed, key=lambda item: int(item["unit_order"])) if committed else None
     )
     return payload
+
+
+def changed_item_ids_by_page(
+    previous_pages: list[dict[str, Any]],
+    current_pages: list[dict[str, Any]],
+    *,
+    include_new_items: bool = False,
+) -> dict[int, set[str]]:
+    previous_by_page = {
+        int(page.get("page_index", -1)): page
+        for page in previous_pages
+        if isinstance(page, dict)
+    }
+    changed: dict[int, set[str]] = {}
+    for page in current_pages:
+        if not isinstance(page, dict):
+            continue
+        page_idx = int(page.get("page_index", -1))
+        current = page.get("item_fingerprints")
+        if not isinstance(current, dict):
+            continue
+        previous_page = previous_by_page.get(page_idx, {})
+        previous = previous_page.get("item_fingerprints")
+        if not isinstance(previous, dict):
+            previous = {}
+        page_changes = {
+            str(item_id)
+            for item_id, fingerprint in current.items()
+            if str(item_id)
+            and (
+                (include_new_items and item_id not in previous)
+                or (item_id in previous and previous.get(item_id) != fingerprint)
+            )
+        }
+        if page_changes:
+            changed[page_idx] = page_changes
+    return changed
+
+
+def committed_pages_for_changes(
+    pages: list[dict[str, Any]],
+    changed_by_page: dict[int, set[str]],
+) -> list[dict[str, Any]]:
+    page_by_index = {
+        int(page["page_index"]): page
+        for page in pages
+        if isinstance(page, dict) and "page_index" in page
+    }
+    committed: list[dict[str, Any]] = []
+    for page_idx in sorted(changed_by_page):
+        changed_ids = sorted({str(value) for value in changed_by_page[page_idx] if str(value)})
+        if not changed_ids:
+            continue
+        page = page_by_index.get(int(page_idx))
+        if page is None:
+            raise RuntimeError(f"Changed translation page is missing from checkpoint: {page_idx}")
+        fingerprints = page.get("item_fingerprints")
+        if not isinstance(fingerprints, dict):
+            raise RuntimeError(f"Translation checkpoint page lacks item fingerprints: {page_idx}")
+        missing = [item_id for item_id in changed_ids if item_id not in fingerprints]
+        if missing:
+            preview = ", ".join(missing[:8])
+            raise RuntimeError(
+                f"Changed translation items are missing from page {page_idx}: {preview}"
+            )
+        committed.append(
+            {
+                "unit_key": f"page:{page_idx}",
+                "unit_order": int(page_idx),
+                "page_index": int(page_idx),
+                "page_hash": str(page.get("page_hash", "") or ""),
+                "changed_item_ids": changed_ids,
+            }
+        )
+    return committed
 
 
 def commit_checkpoint(payload: dict[str, Any], *, manifest_name: str) -> dict[str, Any]:

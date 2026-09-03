@@ -250,15 +250,32 @@ def group_member_json_user_prompt(
     ]
     if not member_ids:
         member_ids = [item.item_id]
+    raw_members = raw_item.get("translation_unit_members", [])
+    member_source_by_id = {
+        str(member.get("item_id", "") or "").strip(): str(
+            member.get("protected_source_text", "") or member.get("source_text", "") or ""
+        ).strip()
+        for member in raw_members
+        if isinstance(member, dict) and str(member.get("item_id", "") or "").strip()
+    }
     user_payload: dict[str, Any] = {
         "task": (
             f"Translate the continuation group into {_target_language_name(target_language_name)}. "
-            "Return one translated fragment per member_id. Do not add text from neighboring context."
+            "Return one translated fragment per member_id, following the supplied member source boundaries. "
+            "The full translated_text must equal the member translations concatenated in member order. "
+            "Do not repeat the full group translation in a member and do not add text from neighboring context."
         ),
         "group": {
             "item_id": item.item_id,
             "continuation_group": item.continuation_group,
             "member_ids": member_ids,
+            "members": [
+                {
+                    "item_id": member_id,
+                    "source_text": member_source_by_id.get(member_id, ""),
+                }
+                for member_id in member_ids
+            ],
             "combined_source_text": item.source_for_prompt(),
         },
         "output_schema": {

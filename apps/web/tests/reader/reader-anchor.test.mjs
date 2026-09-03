@@ -5,9 +5,15 @@ import { buildReaderPageUrl } from "@retainpdf/domain/job";
 import { pageNumberFromUrlAnchor } from "../../../../packages/reader/src/hooks/use-url-anchor-jump.ts";
 import {
   findReaderRegion,
+  findReaderRegionByCitation,
+  extractReaderFormulaLatex,
+  isStructuredReaderRegion,
   normalizeReaderMetadata,
   normalizeReaderRegions,
   projectReaderRegion,
+  readerRegionContent,
+  readerRegionKind,
+  readerRegionKindForRegion,
   resolveReaderRegionHighlight,
 } from "../../../../packages/reader/src/shared/data/reader-regions.ts";
 
@@ -95,6 +101,59 @@ test("reader regions: API envelope、补零 block_id 与 source/translated 坐�
   assert.ok(Math.abs(translatedRect.height - 120) < 1e-9);
 });
 
+test("reader regions: Markdown 兜底引用可按 snippet 映射回结构化页面", () => {
+  const regions = normalizeReaderRegions({ items: [{
+    item_id: "p007-b0001",
+    source: {
+      page: 7,
+      bbox: [10, 20, 190, 80],
+      unit: "pdf_point",
+      origin: "top_left",
+      text: "We state first the conventional definition that molecular structure signifies a rigid arrangement of nuclei.",
+    },
+    translated: {
+      page: 7,
+      bbox: [12, 22, 192, 82],
+      unit: "pdf_point",
+      origin: "top_left",
+      text: "我们首先说明分子结构的通常定义。",
+    },
+    region_type: "text",
+    status: "translated",
+  }, {
+    item_id: "p008-b0002",
+    source: {
+      page: 8,
+      bbox: [10, 100, 190, 160],
+      unit: "pdf_point",
+      origin: "top_left",
+      text: "In the preceding sections, we have discussed the fundamental principles of quantum mechanics.",
+    },
+    translated: {
+      page: 8,
+      bbox: [12, 102, 192, 162],
+      unit: "pdf_point",
+      origin: "top_left",
+      text: "在前面的章节中，我们讨论了量子力学的基本原理。",
+    },
+    region_type: "text",
+    status: "translated",
+  }] });
+
+  assert.equal(findReaderRegionByCitation(regions, {
+    block_id: "md-0020",
+    snippet: "Document > Molecular Structure\n\nWe state first the conventional definition that molecular structure",
+  })?.itemId, "p007-b0001");
+  assert.equal(findReaderRegionByCitation(regions, {
+    block_id: "md-0043",
+    snippet: "Document > Implications for Chemical Education\n\nIn the preceding sections, we have discussed the fundamental principles",
+  })?.itemId, "p008-b0002");
+  assert.equal(findReaderRegionByCitation(regions, {
+    block_id: "md-9999",
+    snippet: "unrelated content without a structured match",
+  }), null);
+});
+
 test("reader regions: bottom_left 可转换，非 PDF 坐标与坏 bbox 被拒绝", () => {
   const regions = normalizeReaderRegions({ items: [{
     item_id: "p1-b1",
@@ -121,6 +180,58 @@ test("reader regions: bottom_left 可转换，非 PDF 坐标与坏 bbox 被拒�
     width: 20,
     height: 20,
   });
+});
+
+test("reader regions: 公式、表格、图片是可交互结构区块并保留资源", () => {
+  const regions = normalizeReaderRegions({ items: [{
+    item_id: "p001-b0008",
+    source: { page: 1, bbox: [10, 20, 90, 60], text: "$$E=mc^2$$" },
+    translated: { page: 1, bbox: [10, 20, 90, 60] },
+    markdown: "$$E=mc^2$$",
+    region_type: "display_formula",
+    asset_ids: ["formula-8"],
+    asset_urls: ["/api/v1/jobs/j/markdown/images/formula-8.png"],
+  }] });
+  assert.equal(regions.length, 1);
+  assert.equal(readerRegionKind(regions[0].regionType), "formula");
+  assert.equal(isStructuredReaderRegion(regions[0]), true);
+  assert.deepEqual(regions[0].assetIds, ["formula-8"]);
+  assert.equal(extractReaderFormulaLatex(regions[0].markdown), "E=mc^2");
+  assert.equal(readerRegionKind("table"), "table");
+  assert.equal(readerRegionKind("header_image"), "figure");
+  assert.equal(readerRegionKind("paragraph_title"), "text");
+});
+
+test("reader regions: legacy unknown role falls back to structured content", () => {
+  const make = (content, assets = []) => ({
+    itemId: "legacy",
+    source: { page: 1, bbox: [0, 0, 10, 10], unit: "pdf_point", origin: "top_left", text: content },
+    translated: { page: 1, bbox: [0, 0, 10, 10], unit: "pdf_point", origin: "top_left", text: "" },
+    markdown: content,
+    regionType: "unknown",
+    status: "source_only",
+    assetIds: assets,
+    assetUrls: [],
+  });
+  assert.equal(readerRegionKindForRegion(make("$$x^2$$")), "formula");
+  assert.equal(readerRegionKindForRegion(make("<table><tr><td>x</td></tr></table>")), "table");
+  assert.equal(readerRegionKindForRegion(make("", ["page-1/figure.png"])), "figure");
+  assert.equal(readerRegionKindForRegion(make("普通 OCR 正文")), "text");
+});
+
+test("reader regions: copy content follows the visible source or translated pane", () => {
+  const region = {
+    itemId: "p001-b0003",
+    source: { page: 1, bbox: [0, 0, 10, 10], unit: "pdf_point", origin: "top_left", text: "source text" },
+    translated: { page: 1, bbox: [0, 0, 10, 10], unit: "pdf_point", origin: "top_left", text: "译文内容" },
+    markdown: "shared markdown",
+    regionType: "text",
+    status: "translated",
+    assetIds: [],
+    assetUrls: [],
+  };
+  assert.equal(readerRegionContent(region, "source"), "source text");
+  assert.equal(readerRegionContent(region, "translated"), "译文内容");
 });
 
 test("OCR-only block_id URL anchor resolves to the source page and bbox highlight", () => {
@@ -172,4 +283,39 @@ test("OCR-only block_id URL anchor resolves to the source page and bbox highligh
   });
   assert.equal(highlight?.itemId, "p002-b007");
   assert.equal(resolveReaderRegionHighlight(region, metadata, "translated"), null);
+});
+
+test("source regions reuse translated page dimensions when source metadata is omitted", () => {
+  const [region] = normalizeReaderRegions({
+    items: [{
+      item_id: "p001-b001",
+      source: {
+        page: 1,
+        bbox: [60, 80, 300, 160],
+        unit: "pdf_point",
+        origin: "top_left",
+        text: "Source paragraph",
+      },
+      translated: {
+        page: 1,
+        bbox: [60, 80, 300, 160],
+        unit: "pdf_point",
+        origin: "top_left",
+        text: "译文段落",
+      },
+      region_type: "paragraph",
+    }],
+  });
+  const metadata = normalizeReaderMetadata({
+    source: null,
+    translated: { pages: [{ page: 1, width: 600, height: 800 }] },
+  });
+
+  const highlight = resolveReaderRegionHighlight(region, metadata, "source");
+  assert.deepEqual(projectReaderRegion(highlight, 300, 400), {
+    left: 30,
+    top: 40,
+    width: 120,
+    height: 40,
+  });
 });

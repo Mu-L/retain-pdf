@@ -2,7 +2,7 @@
 
 图书馆 **对外 HTTP** 已合并到统一 API 入口：
 
-- [RetainPDF 后端 API 总入口](../../../doc/core/api/index.md)
+- [RetainPDF 后端 API 总入口](../../../docs/core/api/index.md)
 
 **实现分层**（模块化单体，非微服务）：
 

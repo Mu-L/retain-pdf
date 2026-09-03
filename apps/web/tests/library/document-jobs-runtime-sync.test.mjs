@@ -335,3 +335,79 @@ test("静默轮询接管慢速首请求后会结束首次 loading", async () => 
   root.unmount();
   dom.window.close();
 });
+
+test("全局加号提交的 runtime 缺少 document_id 时会反查归属并立即显示进度", async () => {
+  const dom = new JSDOM("<!doctype html><html><body><div id='root'></div></body></html>", {
+    url: "http://localhost/index.html",
+  });
+  for (const key of ["window", "document", "HTMLElement", "Node", "MutationObserver"]) {
+    Object.defineProperty(globalThis, key, {
+      value: dom.window[key] ?? dom.window,
+      configurable: true,
+      writable: true,
+    });
+  }
+  globalThis.IS_REACT_ACT_ENVIRONMENT = false;
+
+  const React = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const runtimeStore = createStore({
+    name: "ownerlessDocumentJobRuntimeTest",
+    initialState: {
+      jobId: "job-from-plus",
+      snapshot: {
+        job_id: "job-from-plus",
+        workflow: "book",
+        status: "running",
+        display_stage: "translation",
+        progress: { current: 3, total: 10, percent: 30 },
+      },
+    },
+    actions: {},
+  });
+
+  let ownerRequestCount = 0;
+  let hookState = null;
+  const actions = {
+    async getDocumentJobs() {
+      // 模拟 document-scoped 投影还没看到刚提交的任务。
+      return { items: [] };
+    },
+    async getDocumentByJobId(jobId) {
+      ownerRequestCount += 1;
+      assert.equal(jobId, "job-from-plus");
+      return { document_id: "doc-from-plus" };
+    },
+  };
+
+  function Harness() {
+    hookState = useDocumentJobs({
+      open: true,
+      documentId: "doc-from-plus",
+      actions,
+      initialJob: {
+        document_id: "doc-from-plus",
+        job_id: "doc:doc-from-plus",
+        library_only: true,
+      },
+      runtimeStore,
+      refreshIntervalMs: 0,
+    });
+    return React.createElement("output", null, hookState.latestTranslation?.status || "idle");
+  }
+
+  const root = createRoot(dom.window.document.getElementById("root"));
+  root.render(React.createElement(Harness));
+  await waitFor(
+    () => hookState?.latestTranslation?.job_id === "job-from-plus",
+    "通过 job_id 解析文档归属后合并运行进度",
+  );
+
+  assert.equal(ownerRequestCount, 1);
+  assert.equal(hookState.latestTranslation.document_id, "doc-from-plus");
+  assert.equal(hookState.latestTranslation.status, "running");
+  assert.equal(hookState.latestTranslation.progress.percent, 30);
+
+  root.unmount();
+  dom.window.close();
+});

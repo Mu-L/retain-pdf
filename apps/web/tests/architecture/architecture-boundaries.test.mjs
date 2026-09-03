@@ -4,6 +4,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const PROJECT_ROOT = process.cwd();
+const REPOSITORY_ROOT = join(PROJECT_ROOT, "../..");
 const JS_ROOT = join(PROJECT_ROOT, "src/js");
 const DOMAIN_JOB_SOURCE_ROOT = join(PROJECT_ROOT, "../../packages/domain/src/job");
 const FEATURE_ROOT = join(JS_ROOT, "features");
@@ -205,11 +206,23 @@ test("source tree does not contain notebook checkpoint artifacts", () => {
   assert.deepEqual(offenders, []);
 });
 
+test("npm workspaces use the repository root lockfile", () => {
+  const nestedLockfiles = [
+    join(REPOSITORY_ROOT, "apps/desktop/package-lock.json"),
+    join(REPOSITORY_ROOT, "apps/web/package-lock.json"),
+    join(REPOSITORY_ROOT, "apps/web-react/package-lock.json"),
+    join(REPOSITORY_ROOT, "packages/reader/package-lock.json"),
+  ].filter((filePath) => existsSync(filePath));
+
+  assert.equal(existsSync(join(REPOSITORY_ROOT, "package-lock.json")), true);
+  assert.deepEqual(nestedLockfiles, []);
+});
+
 test("runtime frontend does not depend on WebAwesome", () => {
   const runtimeSources = [
     ...APP_ENTRYPOINTS,
     join(PROJECT_ROOT, "package.json"),
-    join(PROJECT_ROOT, "package-lock.json"),
+    join(REPOSITORY_ROOT, "package-lock.json"),
     ...walkFiles(JS_ROOT),
     ...allPathsUnder(join(PROJECT_ROOT, "src/styles")).filter((filePath) => filePath.endsWith(".css")),
   ].filter((filePath) => existsSync(filePath));

@@ -150,20 +150,11 @@ function envFileCandidatesForKey(key) {
     case "xApiKey":
       return [];
     case "paddleToken":
-      return [
-        path.join(REPO_ROOT, "services/pipeline/.env/paddle.env"),
-        path.join(REPO_ROOT, "backend/scripts/.env/paddle.env"),
-      ];
+      return [path.join(REPO_ROOT, "services/pipeline/.env/paddle.env")];
     case "mineruToken":
-      return [
-        path.join(REPO_ROOT, "services/pipeline/.env/mineru.env"),
-        path.join(REPO_ROOT, "backend/scripts/.env/mineru.env"),
-      ];
+      return [path.join(REPO_ROOT, "services/pipeline/.env/mineru.env")];
     case "deepseekApiKey":
-      return [
-        path.join(REPO_ROOT, "services/pipeline/.env/deepseek.env"),
-        path.join(REPO_ROOT, "backend/scripts/.env/deepseek.env"),
-      ];
+      return [path.join(REPO_ROOT, "services/pipeline/.env/deepseek.env")];
     default:
       return [];
   }

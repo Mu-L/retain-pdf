@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from retainpdf_pipeline.services.translation.core.orchestration.abstract_groups import annotate_abstract_translation_groups
 from retainpdf_pipeline.services.translation.core.payload.parts.common import clear_singleton_continuation_group
 from retainpdf_pipeline.services.translation.core.payload.parts.common import seed_orchestration_metadata
 from retainpdf_pipeline.services.translation.core.payload.parts.translation_units import refresh_payload_translation_units
@@ -14,6 +15,8 @@ def finalize_payload_orchestration_metadata(payload: list[dict]) -> None:
 
     for item in payload:
         clear_singleton_continuation_group(item, group_counts=group_counts)
+    annotate_abstract_translation_groups(payload)
+    for item in payload:
         seed_orchestration_metadata(item)
     refresh_payload_translation_units(payload)
 

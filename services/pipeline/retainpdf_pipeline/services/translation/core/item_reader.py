@@ -9,7 +9,7 @@ from retainpdf_pipeline.services.document_schema.canonical_semantics import is_p
 from retainpdf_pipeline.services.document_schema.canonical_semantics import is_reference_entry
 from retainpdf_pipeline.services.document_schema.canonical_semantics import is_reference_heading
 from retainpdf_pipeline.services.document_schema.canonical_semantics import is_textual
-from retainpdf_pipeline.services.document_schema.canonical_semantics import is_title
+from retainpdf_pipeline.services.document_schema.canonical_semantics import uses_title_style
 from retainpdf_pipeline.services.document_schema.legacy_compat import is_legacy_algorithm
 from retainpdf_pipeline.services.document_schema.legacy_compat import is_legacy_reference_entry
 from retainpdf_pipeline.services.document_schema.legacy_compat import normalized_sub_type
@@ -164,7 +164,7 @@ def item_is_algorithm_like(item: dict | None) -> bool:
 
 
 def item_is_title_like(item: dict | None) -> bool:
-    return is_title(from_flat_item(item))
+    return uses_title_style(from_flat_item(item))
 
 
 def item_is_metadata_like(item: dict | None) -> bool:

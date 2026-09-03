@@ -23,7 +23,7 @@ function formatDate(value: string | null | undefined) {
 type BookListRowProps = {
   item: LibraryCardItem;
   onOpenDetail?: (item: LibraryCardItem) => void;
-  onReader?: (jobId: string) => void;
+  onReader?: (jobId: string, documentId?: string) => void;
   onReadSource?: (documentId: string) => void;
   onSelect?: (jobId: string) => void;
   batchMode?: boolean;
@@ -112,7 +112,7 @@ function BookListRowImpl({
     event.preventDefault();
     event.stopPropagation();
     if (readPresentation.target === "job") {
-      onReader?.(readPresentation.jobId);
+      onReader?.(readPresentation.jobId, readPresentation.documentId);
       return;
     }
     if (readPresentation.target === "source") {

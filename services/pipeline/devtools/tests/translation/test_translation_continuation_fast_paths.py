@@ -215,6 +215,67 @@ class TranslationContinuationFastPathTests(unittest.TestCase):
         self.assertEqual(payload["translation_diagnostics"]["route_path"], ["block_level", "continuation_group_members"])
         self.assertEqual(payload["translation_diagnostics"]["output_mode_path"], ["json", "member_translations"])
 
+    def test_abstract_aggregate_group_uses_one_full_text_translation(self):
+        module = _load_module(
+            "retainpdf_pipeline.services.translation.llm.shared.orchestration.fallbacks",
+            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration" / "fallbacks.py",
+        )
+        context_module = _load_module(
+            "retainpdf_pipeline.services.translation.llm.shared.control_context",
+            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "control_context.py",
+        )
+        context = context_module.build_translation_control_context(mode="sci")
+        item = {
+            "item_id": "__cg__:abstract:p001-b015",
+            "translation_unit_id": "__cg__:abstract:p001-b015",
+            "translation_unit_kind": "group",
+            "translation_unit_member_ids": ["p001-b015", "p001-b019"],
+            "translation_group_id": "abstract:p001-b015",
+            "translation_group_kind": "abstract",
+            "translation_group_strategy": "aggregate_geometry",
+            "page_idx": 0,
+            "block_type": "text",
+            "block_kind": "text",
+            "layout_role": "paragraph",
+            "semantic_role": "abstract",
+            "structure_role": "body",
+            "math_mode": "placeholder",
+            "protected_source_text": "The complete abstract is translated as one coherent passage.",
+            "translation_unit_protected_source_text": (
+                "The complete abstract is translated as one coherent passage."
+            ),
+        }
+        aggregate_result = {
+            item["item_id"]: {
+                "decision": "translate",
+                "translated_text": "完整摘要作为一段连贯文本进行翻译。",
+                "final_status": "translated",
+            }
+        }
+
+        with mock.patch.object(
+            module,
+            "translate_continuation_group_members",
+            side_effect=AssertionError("abstract groups must not request member translations"),
+        ) as group_mock, mock.patch.object(
+            module,
+            "translate_single_item_plain_text",
+            return_value=aggregate_result,
+        ) as plain_mock:
+            result = module.translate_single_item_plain_text_with_retries(
+                item,
+                api_key="",
+                model="deepseek-chat",
+                base_url="https://api.deepseek.com/v1",
+                request_label="test",
+                context=context,
+                diagnostics=None,
+            )
+
+        group_mock.assert_not_called()
+        plain_mock.assert_called_once()
+        self.assertEqual(result[item["item_id"]]["translated_text"], "完整摘要作为一段连贯文本进行翻译。")
+
     def test_direct_typst_continuation_group_protocol_shell_is_salvaged(self):
         module = _load_module(
             "retainpdf_pipeline.services.translation.llm.shared.orchestration.fallbacks",

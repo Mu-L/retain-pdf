@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Chat, useChat } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
 import type { ReaderAskStoreMessage } from "./reader-ask-tree.js";
@@ -62,6 +62,7 @@ export function chatMessageToStore(message: ReaderChatMessage): ReaderAskStoreMe
 
 export function useReaderChat(options: {
   jobId: string;
+  enabled: boolean;
   remoteAnswerer: ReaderAnswerer;
   localAnswerer: ReaderAnswerer;
   assistantMode: ReaderAssistantMode;
@@ -90,6 +91,20 @@ export function useReaderChat(options: {
       onConfirmationMode: (mode) => confirmationModeRef.current?.(mode),
     }),
   }), [options.jobId]);
+
+  // Hiding the AI workspace (including switching to Markdown) must stop the
+  // model stream that belongs to it. Chat.stop() only aborts this transport's
+  // request; durable PDF operations already dispatched through the operation
+  // API keep their own lifecycle and are deliberately not cancelled here.
+  useEffect(() => {
+    if (!options.enabled) void chat.stop();
+  }, [chat, options.enabled]);
+
+  // A document/job switch replaces the Chat instance. AI SDK unsubscribes the
+  // old external store, but it does not abort that Chat's active transport.
+  useEffect(() => () => {
+    void chat.stop();
+  }, [chat]);
 
   // A job switch creates a fresh Chat instance whose initial message list is
   // already empty. Do not call setMessages from an effect here: useChat owns an

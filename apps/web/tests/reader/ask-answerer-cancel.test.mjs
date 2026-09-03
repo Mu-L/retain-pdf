@@ -37,7 +37,7 @@ test("signal 透传到 ask,正常完成时回写会话粘性", async () => {
   assert.equal(result.conversationId, "conv-live");
   assert.equal(answerer.getConversationId(), "conv-live", "正常完成回写内存粘性");
   assert.equal(
-    loadStoredConversationId({ jobId: "job-cancel-a" }),
+    loadStoredConversationId({ jobId: "job-cancel-a", documentId: "doc-job-cancel-a" }),
     "conv-live",
     "正常完成回写 storage 粘性",
   );
@@ -54,7 +54,7 @@ test("aborted 的旧流禁止回写会话粘性(P0-4)", async () => {
   await answerer.answer({ question: "问", signal: controller.signal });
   assert.notEqual(answerer.getConversationId(), "conv-stale", "aborted 不得改内存粘性");
   assert.notEqual(
-    loadStoredConversationId({ jobId: "job-cancel-b" }),
+    loadStoredConversationId({ jobId: "job-cancel-b", documentId: "doc-job-cancel-b" }),
     "conv-stale",
     "aborted 不得写 storage 粘性",
   );

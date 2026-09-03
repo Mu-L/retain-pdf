@@ -18,6 +18,32 @@ function unwrapPayload(payload: any): any {
   return payload;
 }
 
+function nonEmptyString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+/**
+ * Translation jobs can reuse OCR artifacts owned by an earlier job. In that
+ * case the translation job has PDFs and translations, while Markdown remains
+ * under the source OCR job. Resolve that ownership link from the public job
+ * detail without coupling the Reader to a particular API envelope version.
+ */
+export function resolveLinkedMarkdownJobId(payload: any, currentJobId = ""): string {
+  const value = unwrapPayload(payload) || {};
+  const candidates = [
+    value.source_artifact_job_id,
+    value.request_payload?.source?.artifact_job_id,
+    value.request?.source?.artifact_job_id,
+    value.source?.artifact_job_id,
+  ];
+  const current = nonEmptyString(currentJobId);
+  for (const candidate of candidates) {
+    const jobId = nonEmptyString(candidate);
+    if (jobId && jobId !== current) return jobId;
+  }
+  return "";
+}
+
 export function normalizeMarkdownPayload(payload: any): NormalizedMarkdownPayload {
   const value = unwrapPayload(payload) || {};
   const content = `${

@@ -2,35 +2,41 @@
 
 import { useCallback, useState } from "react";
 import { Sparkles } from "lucide-react";
-import {
-  isReaderAiNavigationLocked,
-  type AiCitationLike,
-} from "../../external.js";
+import { type AiCitationLike } from "../../external.js";
 import { ReaderFloatShell } from "./ReaderFloatShell.js";
 import { ReaderAssistantThread } from "./assistant/ReaderAssistantThread.js";
 import { ReaderConversationBar } from "./assistant/ReaderConversationBar.js";
 import { useReaderAskRuntime } from "./assistant/use-reader-ask-runtime.js";
+import type { ReaderSelection } from "../../shared/data/reader-regions.js";
 
 export type ReaderAiPanelProps = {
   open: boolean;
   jobId: string;
+  documentId?: string;
   onClose: () => void;
   /** page_idx 为 0 基；由阅读器 goToPage(page_idx+1) */
   onJumpCitation: (citation: AiCitationLike) => void;
   onDocumentCommitted?: (input: { documentId: string; revision: string }) => void;
-  layout?: "floating" | "docked";
+  layout?: "floating" | "docked" | "workspace";
+  side?: "left" | "right";
+  selectionContext?: ReaderSelection | null;
+  onClearSelectionContext?: () => void;
 };
 
 export function ReaderAiPanel({
   open,
   jobId,
+  documentId = "",
   onClose,
   onJumpCitation,
   onDocumentCommitted,
   layout = "floating",
+  side = "right",
+  selectionContext = null,
+  onClearSelectionContext,
 }: ReaderAiPanelProps) {
-  // 当前问答是 Markdown-only：是否存在译文与 AI 无关。
-  // 只要 OCR job 已解析出 Markdown，就应允许输入和问答。
+  // AI 由后端统一选择结构化文档、Markdown 兼容检索或 PDF 操作。
+  // jobId 只证明当前文档已有可用的处理产物。
   const enabled = open && Boolean(jobId);
   const {
     citationsByMessageId,
@@ -56,7 +62,9 @@ export function ReaderAiPanel({
     setAssistantMode,
   } = useReaderAskRuntime({
     jobId,
+    documentId,
     enabled,
+    selectionContext,
     onDocumentCommitted,
   });
 
@@ -73,9 +81,9 @@ export function ReaderAiPanel({
     }
   }, [branchFromAnswer]);
 
-  // 分支/切会话锁定期内不跳 PDF，避免误触引用
+  // Session switching already owns the short-lived document click shield.
+  // Citation callbacks must not add another lock or legitimate clicks can vanish.
   const safeJumpCitation = useCallback((citation: AiCitationLike) => {
-    if (isReaderAiNavigationLocked()) return;
     onJumpCitation(citation);
   }, [onJumpCitation]);
 
@@ -84,19 +92,19 @@ export function ReaderAiPanel({
       id="reader-ai-panel"
       open={open}
       title="RetainPDF AI"
-      subtitle="当前文档"
       titleIcon={<Sparkles size={14} strokeWidth={2.1} aria-hidden />}
       storageKey="retainpdf.reader.ai-float.pos.v2"
       ariaLabel="阅读问答"
       width={420}
-      placement={layout === "docked" ? "dock-right" : "floating"}
-      className={`reader-float-ai is-${layout}${sessionBusy ? " is-session-busy" : ""}`}
+      placement={layout === "workspace" ? "workspace" : layout === "docked" ? "dock-right" : "floating"}
+      showHeader={layout !== "workspace"}
+      className={`reader-float-ai is-${layout}${layout === "workspace" ? ` is-pane-${side}` : ""}${sessionBusy ? " is-session-busy" : ""}`}
       onClose={onClose}
     >
       {!jobId ? (
         <div className="reader-float-ai-empty">
           <Sparkles size={22} strokeWidth={1.75} aria-hidden />
-          <p>当前文档还没有可用于问答的 Markdown</p>
+          <p>当前文档还没有可用于 AI 的解析产物</p>
           <span>请先完成 OCR 文档解析</span>
         </div>
       ) : (
@@ -134,6 +142,8 @@ export function ReaderAiPanel({
               agentOperations={agentOperations}
               assistantMode={assistantMode}
               onAssistantModeChange={setAssistantMode}
+              selectionContext={selectionContext}
+              onClearSelectionContext={onClearSelectionContext}
             />
           </div>
         </div>

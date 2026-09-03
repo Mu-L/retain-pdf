@@ -1,9 +1,7 @@
-type ReaderAiLayout = "floating" | "docked";
-/**
- * 单文档阅读时让 AI 成为稳定右栏；对照阅读已经有两栏，AI 改为悬浮，
- * 避免把原文和译文同时压成三条窄栏。
- */
-export declare function resolveReaderAiLayout(mode: string): ReaderAiLayout;
+import type { ReaderAssistantPanel } from "./components/react-pdf/index.js";
+import { loadReaderViewState } from "./shared/state/reader-view-state.js";
+export declare function resolveReaderAiLayout(_mode: string): "workspace";
+export declare function resolveVisiblePdfMode(mode: "source" | "compare" | "translated", assistantPanel: ReaderAssistantPanel | null): "compare" | "source" | "translated";
+export declare function resolveInitialAssistantPanel(mode: "source" | "compare" | "translated", saved: ReturnType<typeof loadReaderViewState>): ReaderAssistantPanel | null;
 export declare function ReaderAppReactPdf(): import("react").JSX.Element;
-export {};
 //# sourceMappingURL=ReaderAppReactPdf.d.ts.map

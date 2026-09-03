@@ -4,12 +4,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from fastapi.testclient import TestClient
-
+import httpx
+import pytest
 import retainpdf_ai.app as app_module
-from retainpdf_ai.agent import RetrievalAgent, assemble_streaming_message
+from fastapi.testclient import TestClient
+from retainpdf_ai.agent import (
+    RetrievalAgent,
+    assemble_streaming_message,
+    build_deepseek_chat_fn,
+)
 from retainpdf_ai.app import build_app
 from retainpdf_ai.config import Settings
+from retainpdf_ai.request_control import AIRequestTimeout
 from retainpdf_ai.tools import ToolRegistry
 
 
@@ -79,6 +85,20 @@ def test_assemble_streaming_tool_calls_do_not_emit_deltas():
     assert call["id"] == "call-1"
     assert call["function"]["name"] == "search_fulltext"
     assert json.loads(call["function"]["arguments"]) == {"query": "x"}
+
+
+def test_provider_timeout_uses_stable_public_timeout_error():
+    class TimeoutClient:
+        def post(self, *_args, **_kwargs):
+            raise httpx.ReadTimeout("provider stalled")
+
+    chat = build_deepseek_chat_fn(
+        Settings(llm_api_key="test-key"),
+        client=TimeoutClient(),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(AIRequestTimeout, match="AI 响应超时"):
+        chat([{"role": "user", "content": "q"}], [])
 
 
 def test_ask_endpoint_streams_answer_deltas(monkeypatch):

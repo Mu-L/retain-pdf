@@ -5,8 +5,9 @@ name: Desktop Frontend Sync
     paths:
       - ".github/workflows/desktop-frontend-sync.yml"
       - ".githooks/pre-commit"
+      - "package.json"
+      - "package-lock.json"
       - "apps/desktop/package.json"
-      - "apps/desktop/package-lock.json"
       - "apps/desktop/scripts/prepare-app.mjs"
       - "apps/desktop/scripts/check-frontend-bundle.mjs"
       - "apps/web/**"
@@ -22,8 +23,9 @@ name: Desktop Frontend Sync
     paths:
       - ".github/workflows/desktop-frontend-sync.yml"
       - ".githooks/pre-commit"
+      - "package.json"
+      - "package-lock.json"
       - "apps/desktop/package.json"
-      - "apps/desktop/package-lock.json"
       - "apps/desktop/scripts/prepare-app.mjs"
       - "apps/desktop/scripts/check-frontend-bundle.mjs"
       - "apps/web/**"
@@ -54,21 +56,17 @@ jobs:
         with:
           node-version: "22.22.0"
           cache: "npm"
-          cache-dependency-path: |
-            apps/desktop/package-lock.json
-            apps/web/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install desktop dependencies
-        working-directory: apps/desktop
+      - name: Install JavaScript workspace dependencies
         run: npm ci
 
-      - name: Install frontend dependencies
+      - name: Verify native frontend dependency
         working-directory: apps/web
         run: |
-          npm ci
           # @tailwindcss/oxide 需本机原生绑定；npm optionalDeps 偶发漏装时补齐
           node -e "require('@tailwindcss/oxide')" \
-            || npm install --no-save --no-package-lock "@tailwindcss/oxide@$(node -p "require('./node_modules/@tailwindcss/oxide/package.json').version")"
+            || npm install --no-save --no-package-lock "@tailwindcss/oxide@$(node -p "require('@tailwindcss/oxide/package.json').version")"
 
       - name: Verify desktop frontend generation
         env:

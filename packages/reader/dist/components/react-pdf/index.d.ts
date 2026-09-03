@@ -1,7 +1,13 @@
 export { ReaderCloseHome, navigateReaderToHome } from "./ReaderCloseHome.js";
 export { ReaderCompareGrid } from "./ReaderCompareGrid.js";
 export { ReaderModeTabs } from "./ReaderModeTabs.js";
-export { ReaderNotesPanel } from "./ReaderNotesPanel.js";
+export { ReaderWorkspaceTabs } from "./ReaderWorkspaceTabs.js";
+export type { ReaderWorkspaceMode, ReaderWorkspaceView } from "./ReaderWorkspaceTabs.js";
+export { ReaderAssistantDock } from "./ReaderAssistantDock.js";
+export type { ReaderAssistantPanel } from "./ReaderAssistantDock.js";
+export { ReaderAiSplitResizeHandle } from "./ReaderAiSplitResizeHandle.js";
+export { ReaderPaneSelector } from "./ReaderPaneSelector.js";
+export type { ReaderPaneContent, ReaderPaneSide } from "./ReaderPaneSelector.js";
 export { ReaderFavoritesPanel } from "./ReaderFavoritesPanel.js";
 export { ReaderMarkdownPanel } from "./ReaderMarkdownPanel.js";
 export { ReaderAiPanel } from "./ReaderAiPanel.js";

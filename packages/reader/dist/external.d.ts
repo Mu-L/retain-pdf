@@ -42,6 +42,7 @@ export { clearStoredConversationId, loadStoredConversationId, saveStoredConversa
 export declare const API_PREFIX = "/api/v1";
 export declare const fetchDocumentByJobId: (...args: [string, string]) => Promise<{
     document_id?: string;
+    active_job_id?: string | null;
     active_version_id?: string | null;
 }>;
 export declare const fetchFavorites: (apiPrefix?: string, options?: {

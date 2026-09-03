@@ -1,6 +1,6 @@
 // 底栏：页码（可点跳转）+ 缩放 +/- / 模式默认重置。
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   READER_ZOOM_MAX,
   READER_ZOOM_MIN,
@@ -20,6 +20,7 @@ export type ReaderZoomHudProps = {
   onGoToPage?: (page: number) => void;
   /** 点百分比时重置到该模式默认缩放 */
   mode?: ReaderZoomMode | string;
+  modeControls?: ReactNode;
 };
 
 export function ReaderZoomHud({
@@ -29,6 +30,7 @@ export function ReaderZoomHud({
   numPages,
   onGoToPage,
   mode = "compare",
+  modeControls,
 }: ReaderZoomHudProps) {
   // zoom 本身就是「占阅读区全宽的比例」：0.5→50%，1→100%
   const percent = zoomToDisplayPercent(userZoom);
@@ -57,6 +59,7 @@ export function ReaderZoomHud({
 
   return (
     <div className="reader-react-hud" data-reader-hud="true">
+      {modeControls ? <div className="reader-react-hud-group reader-react-hud-modes">{modeControls}</div> : null}
       <div className="reader-react-hud-group" aria-label="页码">
         {editing ? (
           <form

@@ -41,5 +41,6 @@ export declare function computeReaderPaneFlags(input: {
 export declare function useReaderPaneModel(input: ReaderPaneModelInput, extras?: {
     userZoom?: number;
     shellWidth?: number;
+    identityKey?: string;
 }): ReaderPaneModel;
 //# sourceMappingURL=use-reader-pane-model.d.ts.map
