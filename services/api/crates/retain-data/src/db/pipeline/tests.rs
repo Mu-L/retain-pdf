@@ -208,6 +208,48 @@ fn repair_can_refresh_an_earlier_page_without_moving_stage_cursor_backwards() {
 }
 
 #[test]
+fn new_page_can_commit_out_of_document_order_without_moving_stage_cursor_backwards() {
+    let fixture = Fixture::new("out-of-order-page");
+    let mut cursor = fixture
+        .db
+        .acquire_pipeline_attempt("job-1", "worker-a", "translate", 1)
+        .expect("acquire");
+    let mut later_page = unit(10, "page:10", 'a');
+    later_page.page_index = Some(10);
+    later_page.producer_generation = Some(21);
+    cursor.generation = fixture
+        .db
+        .commit_pipeline_unit(&cursor, &later_page)
+        .expect("later page finishes first")
+        .generation;
+
+    let mut earlier_page = unit(1, "page:1", 'b');
+    earlier_page.page_index = Some(1);
+    earlier_page.producer_generation = Some(22);
+    let committed = fixture
+        .db
+        .commit_pipeline_unit(&cursor, &earlier_page)
+        .expect("earlier page finishes later");
+
+    assert_eq!(
+        committed.last_committed_unit_key.as_deref(),
+        Some("page:10")
+    );
+    assert_eq!(committed.last_committed_unit_order, Some(10));
+    assert_eq!(
+        committed.last_page_hash.as_deref(),
+        Some("a".repeat(64).as_str())
+    );
+    let page = fixture
+        .db
+        .latest_pipeline_unit_for_page("job-1", "translate", 1)
+        .expect("query page")
+        .expect("earlier page commit");
+    assert_eq!(page.unit_key, "page:1");
+    assert_eq!(page.generation, committed.generation);
+}
+
+#[test]
 fn restart_fences_the_previous_worker() {
     let fixture = Fixture::new("restart");
     let old = fixture

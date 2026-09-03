@@ -154,17 +154,11 @@ impl Db {
                 }
                 continue;
             }
-            if let Some(previous_order) = previous.last_committed_unit_order {
-                if unit.unit_order < previous_order {
-                    bail!(
-                        "new pipeline unit order regressed for job {} stage {}: {} < {}",
-                        cursor.job_id,
-                        cursor.stage_key,
-                        unit.unit_order,
-                        previous_order
-                    );
-                }
-            }
+            // Translation workers finish pages concurrently, so a previously
+            // unseen lower document order is not a state regression. The
+            // stage checkpoint remains the highest committed order below;
+            // generation fencing and unique unit identities provide the
+            // authoritative mutation order.
             let conflicting_key = tx
                 .query_row(
                     r#"

@@ -53,7 +53,10 @@ Rust validates and commits the entire array in one SQLite transaction and one
 authority generation, then creates one durable refresh event per page. The
 legacy top-level unit fields remain accepted for old workers, but they cannot
 be mixed with `committed_pages` in one observation. A malformed page prevents
-the whole batch from becoming visible.
+the whole batch from becoming visible. `unit_order` is stable document order,
+not completion order: concurrent workers may first commit a later page and
+then an earlier page. This does not move the stage's highest committed cursor
+backwards; authoritative mutation ordering comes from the fenced generation.
 
 Live-translation failures use string codes:
 
