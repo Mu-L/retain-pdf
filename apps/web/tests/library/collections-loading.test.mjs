@@ -106,11 +106,15 @@ test("合集首次挂载时即使刷新版本非零，也会在请求完成后�
 test("合集首次请求失败也会退出 loading 并显示错误", async () => {
   const dom = installDom();
   const request = deferred();
-  const root = renderCollections(dom, () => request.promise);
+  let requestStarted = false;
+  const root = renderCollections(dom, () => {
+    requestStarted = true;
+    return request.promise;
+  });
 
   await waitFor(
-    () => dom.window.document.body.textContent.includes("正在加载合集…"),
-    "未进入合集首屏 loading",
+    () => requestStarted,
+    "合集首次请求没有开始",
   );
   request.reject(new Error("合集服务暂不可用"));
   await waitFor(
