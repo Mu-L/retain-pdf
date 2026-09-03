@@ -2,6 +2,8 @@
 
 `pipeline/` 是整套“PDF -> OCR -> 翻译 -> 保留排版渲染”的脚本工程目录。
 
+**script-mode 仅桌面兼容；正式入口为 `retainpdf-pipeline` console-mode。**
+
 安装后的唯一 Python 命名空间是 `retainpdf_pipeline`。源码树顶层分成三部分：
 
 - `retainpdf_pipeline/`
@@ -52,38 +54,44 @@
 
 ## 推荐入口
 
-日常使用优先走这些入口：
+日常使用优先走 `retainpdf-pipeline` console-mode：
 
-- `scripts/entrypoints/run_book.py`
+- `retainpdf-pipeline book --spec <job_root>/specs/book.spec.json`
   当前最上层完整入口。通过 `book.stage.v1` 串起 `normalize -> translate -> render`，适合人工本地跑整条主链路。
-- `scripts/entrypoints/run_provider_case.py`
+- `retainpdf-pipeline provider-case --spec <job_root>/specs/provider.spec.json`
   本地一条命令跑“provider -> normalize -> translate -> render”的通用入口名。底层由 provider 分发层决定具体 OCR 实现，入口名不暴露 provider。
-- `scripts/entrypoints/run_document_flow.py`
-  已经有 OCR JSON 和 PDF 时，优先用这个中性入口名跑完整流程。
-- `scripts/entrypoints/run_normalize_ocr.py`
+- `retainpdf-pipeline normalize-ocr --spec <job_root>/specs/normalize.spec.json`
   顶层 normalize worker。把 raw OCR JSON 收口成 `document.v1.json`。
-- `scripts/entrypoints/run_provider_ocr.py`
+- `retainpdf-pipeline provider-ocr --spec <job_root>/specs/provider.spec.json`
   本地 OCR-only 通用入口名。只跑 provider -> unpack -> normalize。
-- `scripts/entrypoints/run_translate_only.py`
+- `retainpdf-pipeline translate-only --spec <job_root>/specs/translate.spec.json`
   顶层 translate worker。只接受已经标准化的 `document.v1.json`。
-- `scripts/entrypoints/run_render_only.py`
+- `retainpdf-pipeline render-only --spec <job_root>/specs/render.spec.json`
   顶层 render worker。只接受翻译产物和 PDF。
-- `scripts/entrypoints/translate_book.py`
+- `retainpdf-pipeline translate-from-ocr --spec <job_root>/specs/book.spec.json`
+  provider/normalize 后继续翻译和渲染的入口之一（顶层垫片已删除，只有包内入口和 console 子命令）。
+- `retainpdf-pipeline diagnose-failure --spec <job_root>/specs/<stage>.spec.json`
+  失败诊断入口。
+- `run_document_flow.py`（script-mode，仅桌面兼容，无 console 等价物）
+  已经有 OCR JSON 和 PDF 时，优先用这个中性入口名跑完整流程。
+- `translate_book.py`（script-mode，仅桌面兼容，无 console 等价物）
   只翻译，不渲染。
-- `scripts/entrypoints/build_book.py`
+- `build_book.py`（script-mode，仅桌面兼容，无 console 等价物）
   只渲染，不重新翻译。
-- `scripts/entrypoints/build_page.py`
+- `build_page.py`（script-mode，仅桌面兼容，无 console 等价物）
   单页渲染调试入口。
-- `scripts/entrypoints/translate_page.py`
+- `translate_page.py`（script-mode，仅桌面兼容，无 console 等价物）
   单页翻译调试入口。
-- `scripts/entrypoints/validate_document_schema.py`
+- `validate_document_schema.py`（script-mode，仅桌面兼容，无 console 等价物）
   契约排错入口。只用于检查 `document.v1` 或 adapter 行为，不是日常整链路入口。
-- `scripts/devtools/tests/document_schema/regression_check.py`
+- `services/pipeline/devtools/tests/document_schema/regression_check.py`
   长期回归工具，不是主流程入口。
+
+未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_*.py --spec <job_root>/specs/<stage>.spec.json。
 
 不要把测试脚本当主入口。正常验证整条链路时，优先跑：
 
-1. `run_book.py --spec <job_root>/specs/book.spec.json`
+1. `retainpdf-pipeline book --spec <job_root>/specs/book.spec.json`
 2. 或 Rust API 提交 job，让 Rust 通过 spec 驱动三个 worker
 
 如果要改翻译链路，推荐阅读顺序是：
@@ -177,7 +185,9 @@
 
 当前 Rust API 到 Python worker 的稳定协议，已经固定为：
 
-`python -u <entrypoint> --spec DATA_ROOT/jobs/<job-id>/specs/<stage>.spec.json`
+`retainpdf-pipeline <subcommand> --spec DATA_ROOT/jobs/<job-id>/specs/<stage>.spec.json`
+
+未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_*.py --spec DATA_ROOT/jobs/<job-id>/specs/<stage>.spec.json。
 
 约定如下：
 
@@ -188,26 +198,26 @@
   - 如果 provider 是 `mineru`，对应 token 通过 `credential_ref=env:RETAIN_MINERU_API_TOKEN`
   - 运行时由 Rust 注入环境变量，Python 通过 `stage_specs.resolve_credential_ref(...)` 读取
 - Rust 主工作流和本地 book/translate 入口都已切到 spec-only
-  - `run_normalize_ocr.py`
-  - `run_provider_ocr.py`
-  - `run_translate_only.py`
-  - `run_render_only.py`
-  - `run_translate_from_ocr.py`
-  - `run_document_flow.py`
-  - `run_provider_case.py`
-  - `run_book.py`
-  - `translate_book.py`
+  - `retainpdf-pipeline normalize-ocr --spec <job_root>/specs/normalize.spec.json`
+  - `retainpdf-pipeline provider-ocr --spec <job_root>/specs/provider.spec.json`
+  - `retainpdf-pipeline translate-only --spec <job_root>/specs/translate.spec.json`
+  - `retainpdf-pipeline render-only --spec <job_root>/specs/render.spec.json`
+  - `retainpdf-pipeline translate-from-ocr --spec <job_root>/specs/book.spec.json`（顶层垫片已删除，只有包内入口和 console 子命令）
+  - `retainpdf-pipeline provider-case --spec <job_root>/specs/provider.spec.json`
+  - `retainpdf-pipeline book --spec <job_root>/specs/book.spec.json`
+  - `run_document_flow.py`（script-mode，仅桌面兼容，无 console 等价物）
+  - `translate_book.py`（script-mode，仅桌面兼容，无 console 等价物）
 
 本地开发入口当前也已统一到 stage spec 主路径：
 
-- `entrypoints/run_provider_case.py` -> 当前 provider-backed full workflow 的本地通用入口名
-- `entrypoints/run_document_flow.py` -> 当前 normalized-document full flow 的本地通用入口名
-- `entrypoints/run_provider_ocr.py` -> 当前 OCR-only provider flow 的本地通用入口名
+- `retainpdf-pipeline provider-case --spec <job_root>/specs/provider.spec.json` -> 当前 provider-backed full workflow 的本地通用入口
+- `run_document_flow.py`（script-mode，仅桌面兼容，无 console 等价物） -> 当前 normalized-document full flow 的本地通用入口名
+- `retainpdf-pipeline provider-ocr --spec <job_root>/specs/provider.spec.json` -> 当前 OCR-only provider flow 的本地通用入口
 - `services/document_schema/normalize_pipeline.py` -> `normalize.stage.v1`
 - `services/translation/translate_only_pipeline.py` -> `translate.stage.v1`
 - `services/rendering/workflow/render_only.py` -> `render.stage.v1`
 - `services/translation/from_ocr_pipeline.py` -> `book.stage.v1`
-- `entrypoints/run_book.py` -> `book.stage.v1`
+- `retainpdf-pipeline book --spec <job_root>/specs/book.spec.json` -> `book.stage.v1`
 
 历史任务需要按当前转换规则重建 `document.v1.json` 时，使用同一条 normalize
 构建链路的回填工具：
@@ -254,9 +264,11 @@ python services/pipeline/devtools/backfill_normalized_documents.py \
 
 也就是说，当前“最上层整个流程”的真实执行口径是：
 
-- 本地：`run_book.py --spec .../book.spec.json`
+- 本地：`retainpdf-pipeline book --spec <job_root>/specs/book.spec.json`
 - Rust API：创建 job，由 Rust 生成 `specs/*.spec.json` 并依次启动 worker
 - 测试脚本：只做回归，不代表主执行路径
+
+未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_book.py --spec <job_root>/specs/book.spec.json。
 
 ## Python 包与依赖真相源
 
@@ -286,11 +298,10 @@ retainpdf-pipeline translate-only --spec /path/to/translation.spec.json
 retainpdf-pipeline render-only --spec /path/to/render.spec.json
 ```
 
-过渡期内原有 `entrypoints/run_*.py` 文件仍保留，Rust API 和已存在部署不会被迫同时迁移。
+过渡期内原有 `services/pipeline/entrypoints/run_*.py` 文件仍保留（script-mode，仅桌面兼容），Rust API 和已存在部署不会被迫同时迁移。
 
 Rust API 默认采用自动模式：如果 `PATH` 中能够找到 `retainpdf-pipeline`，worker
-命令会保存为 `retainpdf-pipeline <subcommand> --spec ...`；否则回退到
-`python entrypoints/run_*.py --spec ...`。可以通过以下环境变量显式控制：
+命令会保存为 `retainpdf-pipeline <subcommand> --spec ...`；未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_*.py --spec ...。可以通过以下环境变量显式控制：
 
 - `RUST_API_PYTHON_ENTRYPOINT_MODE=auto|console|script`
 - `RUST_API_PIPELINE_COMMAND=/absolute/path/to/retainpdf-pipeline`

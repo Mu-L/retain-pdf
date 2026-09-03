@@ -58,7 +58,9 @@ Docker 中 `infra/docker/delivery/docker/auth.local.json` 的 `api_keys` 必须�
 - `RUST_API_SIMPLE_PORT`：multipart 异步提交端口，默认 `42000`。
 - `RUST_API_DATA_ROOT`：运行时数据根目录。
 - `RUST_API_DATA_DIR`：旧别名，仅在 `RUST_API_DATA_ROOT` 未设置时使用。
-- `RUST_API_SCRIPTS_DIR`：Python 脚本目录（script-mode 用；默认 console-mode 不需要）。
+- `RUST_API_SCRIPTS_DIR`：Python 脚本目录（script-mode 仅桌面兼容；默认 console-mode 不需要）。
+- `RUST_API_PYTHON_ENTRYPOINT_MODE`：worker 启动模式，`auto|console|script`。`auto` 为默认：`PATH` 中能找到 `retainpdf-pipeline` 时用 `retainpdf-pipeline <subcommand> --spec ...`（console-mode，为正式主链），否则回退到桌面兼容目录 `python services/pipeline/entrypoints/run_*.py --spec ...`（script-mode，仅桌面兼容）；`console` 强制使用 console-mode；`script` 强制使用 script-mode（仅桌面兼容）。
+- `RUST_API_PIPELINE_COMMAND`：显式指定 `retainpdf-pipeline` 可执行文件绝对路径；设置后 console-mode 不再依赖 `PATH` 查找。未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_*.py --spec <job_root>/specs/<stage>.spec.json。
 - `PYTHON_BIN`：Python 可执行文件。
 - `RUST_API_UPLOAD_MAX_BYTES`：普通上传大小限制，`0` 表示不限制。
 - `RUST_API_UPLOAD_MAX_PAGES`：普通上传页数限制，`0` 表示不限制。

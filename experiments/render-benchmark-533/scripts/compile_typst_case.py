@@ -29,7 +29,7 @@ def _typst_bin() -> str:
 
 def _font_paths(extra_font_paths: list[str]) -> list[Path]:
     paths: list[Path] = []
-    for candidate in [REPO_ROOT / "infra/fonts", REPO_ROOT / "backend/fonts"]:
+    for candidate in [REPO_ROOT / "infra/fonts", REPO_ROOT / "services/fonts"]:
         if candidate.exists():
             paths.append(candidate)
     raw = os.environ.get("RETAIN_PDF_TYPST_FONT_DIRS", "").strip()

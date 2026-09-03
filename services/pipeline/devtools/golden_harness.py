@@ -2,7 +2,7 @@
 """离线黄金用例 harness：用固化 fixture 校验翻译/渲染不变量。
 
 默认只做结构化校验（零凭证、零重依赖），加 --render 时才调
-`entrypoints/run_render_only.py` 做真实渲染（需本地有 source PDF 或
+`retainpdf-pipeline render-only --spec <job_root>/specs/render.spec.json` 做真实渲染（需本地有 source PDF 或
 container 内已有）。
 
 Fixture 目录约定（见 services/testdata/golden-jobs/chem-6ada81-10p/README.md）：
@@ -219,7 +219,7 @@ def _structural_checks(job_root: Path, fixture: Path) -> dict:
 
 
 def _run_render(job_root: Path) -> dict:
-    """调 run_render_only.py，返回结果或错误。"""
+    """调 retainpdf-pipeline render-only，返回结果或错误。"""
     source_pdf = _find_source_pdf(job_root, Path(), "")
     # 优先用 --source-pdf 已处理过的路径；这里重新找一次
     # 为可复现：若 source/ 下为空，尝试拷贝一个源 PDF 进去

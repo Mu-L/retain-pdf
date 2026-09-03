@@ -201,7 +201,7 @@
 - 翻译/渲染主链路优先消费 `document.v1.json`
 - `document.v1.report.json` 用于查 adapter 探测、默认值补齐和 schema 校验摘要
 - Rust 主工作流调用的 normalize worker 现在要求 `--spec <job_root/specs/normalize.spec.json>`
-- 如果只是本地手动验证 schema / adapter，应该走 `scripts/entrypoints/validate_document_schema.py`
+- 如果只是本地手动验证 schema / adapter，应该走 `validate_document_schema.py`（script-mode，仅桌面兼容，无 console 等价物）
 
 ## Adapter 约定
 
@@ -332,21 +332,21 @@ Paddle 当前 rich-content trace 也已经继续拆分成三层：
 
 ## 检查入口
 
-长期检查入口：
+长期检查入口（script-mode，仅桌面兼容，无 console 等价物）：
 
-- `scripts/entrypoints/validate_document_schema.py`
-- `scripts/devtools/tests/document_schema/regression_check.py`
+- `services/pipeline/retainpdf_pipeline/entrypoints/validate_document_schema.py`（script-mode，仅桌面兼容，无 console 等价物）
+- `services/pipeline/devtools/tests/document_schema/regression_check.py`
 
 现在支持两种用法：
 
 1. 直接校验已经生成好的 `document.v1.json`
 2. 对 raw OCR JSON 执行 `adapter -> defaults -> validation`，并输出 report
 
-示例：
+示例（script-mode，仅桌面兼容，无 console 等价物）：
 
 ```bash
-python scripts/entrypoints/validate_document_schema.py output/.../ocr/normalized/document.v1.json
-python scripts/entrypoints/validate_document_schema.py output/.../ocr/unpacked/layout.json --adapt --document-id demo --write-report /tmp/document-schema-report.json
+python services/pipeline/retainpdf_pipeline/entrypoints/validate_document_schema.py output/.../ocr/normalized/document.v1.json # script-mode，仅桌面兼容，无 console 等价物
+python services/pipeline/retainpdf_pipeline/entrypoints/validate_document_schema.py output/.../ocr/unpacked/layout.json --adapt --document-id demo --write-report /tmp/document-schema-report.json # script-mode，仅桌面兼容，无 console 等价物
 ```
 
 report 里当前会包含：
@@ -356,7 +356,7 @@ report 里当前会包含：
 - 默认值补齐统计
 - schema 校验摘要
 
-`validate_document_schema.py --write-report` 当前约定：
+`validate_document_schema.py --write-report`（script-mode，仅桌面兼容，无 console 等价物）当前约定：
 
 - `mode = "adapt"` 时：
   - `input_path`

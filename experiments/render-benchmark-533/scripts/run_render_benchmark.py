@@ -146,7 +146,7 @@ def run_benchmark(args: argparse.Namespace) -> Path:
         command.extend(["-m", "cProfile", "-o", str(profile_path)])
     command.extend(
         [
-            str(REPO_ROOT / "backend/pipeline/entrypoints/run_render_only.py"),
+            str(REPO_ROOT / "services/pipeline/entrypoints/run_render_only.py"),
             "--spec",
             str(spec_path),
         ]

@@ -114,7 +114,7 @@ Translation 阶段的正式输入和输出固定为：
 - 翻译产物协议固定为 `translation-manifest.json` + 每页 payload，渲染阶段不再兼容旧的逐页 JSON 直扫模式
 - 默认加载口径已经是 strict contract；缺少上述顶层字段的 payload 会直接报错
 - Rust 主工作流调用的 `translate-only` worker 现在要求 `--spec`
-- `scripts/entrypoints/translate_book.py` 现在也是 spec-only 包装入口
+- `translate_book.py`（script-mode，仅桌面兼容，无 console 等价物）现在也是 spec-only 包装入口
 - API 凭证不再要求写入 stage spec；spec 中使用 `credential_ref`，由运行时环境注入真实 key
 
 ## 调试闭环

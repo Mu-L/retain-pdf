@@ -54,13 +54,15 @@
 - 渲染
 - PDF merge / post-process
 
-代码主入口：
+代码主入口（`retainpdf-pipeline` console-mode 为主）：
 
-- [`services/pipeline/entrypoints/run_provider_case.py`](../pipeline/entrypoints/run_provider_case.py)
-- [`services/pipeline/entrypoints/run_provider_ocr.py`](../pipeline/entrypoints/run_provider_ocr.py)
-- [`services/pipeline/entrypoints/run_normalize_ocr.py`](../pipeline/entrypoints/run_normalize_ocr.py)
-- [`services/pipeline/entrypoints/run_translate_only.py`](../pipeline/entrypoints/run_translate_only.py)
-- [`services/pipeline/entrypoints/run_render_only.py`](../pipeline/entrypoints/run_render_only.py)
+- `retainpdf-pipeline provider-case --spec <job_root>/specs/provider.spec.json`
+- `retainpdf-pipeline provider-ocr --spec <job_root>/specs/provider.spec.json`
+- `retainpdf-pipeline normalize-ocr --spec <job_root>/specs/normalize.spec.json`
+- `retainpdf-pipeline translate-only --spec <job_root>/specs/translate.spec.json`
+- `retainpdf-pipeline render-only --spec <job_root>/specs/render.spec.json`
+
+未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_*.py --spec <job_root>/specs/<stage>.spec.json。
 
 ## 2. 当前正式 workflow
 
@@ -108,7 +110,7 @@
 - Python 按 provider 分发：
   - [`services/pipeline/retainpdf_pipeline/services/ocr_provider/provider_pipeline.py`](../pipeline/retainpdf_pipeline/services/ocr_provider/provider_pipeline.py)
 
-注意：生产主链的 `book` job 不再以 `run_provider_case.py` 作为初始命令。`book` job 创建时只保存
+注意：生产主链的 `book` job 不再以 `retainpdf-pipeline provider-case` 作为初始命令。`book` job 创建时只保存
 `book-workflow-rust-orchestrated` 占位命令，真正执行由 Rust `job_runner` 串联 OCR child、normalize、
 translate、render stage。
 
@@ -117,8 +119,10 @@ translate、render stage。
 Rust 和 Python worker 之间的正式协议已经不是长 CLI 参数，而是：
 
 ```bash
-python -u <entrypoint> --spec <job_root>/specs/<stage>.spec.json
+retainpdf-pipeline <subcommand> --spec <job_root>/specs/<stage>.spec.json
 ```
+
+未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_*.py --spec <job_root>/specs/<stage>.spec.json。
 
 当前正式 stage：
 
@@ -238,10 +242,10 @@ Rust 根据 workflow 选择运行计划：
 - `retainpdf-pipeline translate-only --spec specs/translate.spec.json`
 - `retainpdf-pipeline render-only --spec specs/render.spec.json`
 
-未安装 `retainpdf-pipeline` 时，自动回退为对应的 `entrypoints/run_*.py`；两种启动方式
+未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_*.py --spec <job_root>/specs/<stage>.spec.json；两种启动方式
 消费同一份 stage spec，产物校验不依赖物理脚本路径。
 
-`run_provider_case.py` 仍保留为 legacy/local wrapper，用于本地一次性验证 provider-backed 全流程；不要把它当成
+`retainpdf-pipeline provider-case` 仍保留 legacy/local wrapper 用于本地一次性验证 provider-backed 全流程（`run_provider_case.py` 仅桌面兼容）；不要把它当成
 Rust API 生产主链入口。
 
 ## 6. 当前最重要的产物目录
@@ -303,8 +307,8 @@ Rust API 生产主链入口。
 
 保留的 local / legacy wrapper：
 
-- `run_provider_case.py`
-- `run_document_flow.py`
+- `retainpdf-pipeline provider-case`（`run_provider_case.py` 仅桌面兼容）
+- `run_document_flow.py`（script-mode，仅桌面兼容，无 console 等价物）
 
 当前原则：
 

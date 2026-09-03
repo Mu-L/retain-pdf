@@ -24,7 +24,7 @@
 ### provider-backed 全流程
 
 ```text
-entrypoints/run_provider_case.py
+retainpdf-pipeline provider-case --spec <job_root>/specs/provider.spec.json
   -> services/ocr_provider/provider_pipeline.py
      -> services/mineru/* 或 services/ocr_provider/paddle_api.py
      -> services/document_schema/*
@@ -35,51 +35,61 @@ entrypoints/run_provider_case.py
            -> services/rendering/*
 ```
 
+未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_provider_case.py --spec <job_root>/specs/provider.spec.json。
+
 ### normalized OCR -> translate -> render
 
 ```text
-entrypoints/run_book.py
+retainpdf-pipeline book --spec <job_root>/specs/book.spec.json
   -> services/translation/from_ocr_pipeline.py
      -> runtime/pipeline/book_pipeline.py
         -> translation_stage.py
         -> render_stage.py
 ```
 
+未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_book.py --spec <job_root>/specs/book.spec.json。
+
 ### translate-only
 
 ```text
-entrypoints/run_translate_only.py
+retainpdf-pipeline translate-only --spec <job_root>/specs/translate.spec.json
   -> services/translation/translate_only_pipeline.py
      -> runtime/pipeline/translation_stage.py
         -> services/translation/*
 ```
 
+未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_translate_only.py --spec <job_root>/specs/translate.spec.json。
+
 ### render-only
 
 ```text
-entrypoints/run_render_only.py
+retainpdf-pipeline render-only --spec <job_root>/specs/render.spec.json
   -> services/rendering/workflow/render_only.py
      -> runtime/pipeline/render_stage.py
         -> services/rendering/*
 ```
+
+未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_render_only.py --spec <job_root>/specs/render.spec.json。
 
 ## 顶层目录地图
 
 ### `entrypoints/`
 
 - 作用：
-  最外层入口，只做参数接收、异常包装、把调用导向稳定入口。
+  最外层入口，只做参数接收、异常包装、把调用导向稳定入口。正式入口为 `retainpdf-pipeline` console-mode；`entrypoints/` 仅桌面兼容（script-mode）。
 - 不该做的事：
   不自己拼 provider 流程，不直接碰翻译/渲染深层实现。
-- 典型文件：
-  - [`run_provider_case.py`](./entrypoints/run_provider_case.py)
+- 典型文件（console 为主，script 仅桌面兼容回退）：
+  - `retainpdf-pipeline provider-case --spec <job_root>/specs/provider.spec.json`
     provider-backed full flow 总入口。
-  - [`run_book.py`](./entrypoints/run_book.py)
+  - `retainpdf-pipeline book --spec <job_root>/specs/book.spec.json`
     normalized OCR -> translate -> render 总入口。
-  - [`run_translate_only.py`](./entrypoints/run_translate_only.py)
+  - `retainpdf-pipeline translate-only --spec <job_root>/specs/translate.spec.json`
     纯翻译入口。
-  - [`run_render_only.py`](./entrypoints/run_render_only.py)
+  - `retainpdf-pipeline render-only --spec <job_root>/specs/render.spec.json`
     纯渲染入口。
+
+未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_*.py --spec <job_root>/specs/<stage>.spec.json。
 
 ### `runtime/pipeline/`
 

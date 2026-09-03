@@ -31,12 +31,14 @@ document.v1.json
 
 外部和 stage worker 不应直接拼翻译内部模块，优先走这些入口：
 
-- `services/pipeline/retainpdf_pipeline/entrypoints/run_translate_only.py`
+- `retainpdf-pipeline translate-only --spec <job_root>/specs/translate.spec.json`
   `translate.stage.v1` worker，要求 `--spec <job_root>/specs/translate.spec.json`。
-- `services/pipeline/retainpdf_pipeline/entrypoints/run_translate_from_ocr.py`
-  provider/normalize 后继续翻译和渲染的入口之一。
+- `retainpdf-pipeline translate-from-ocr --spec <job_root>/specs/book.spec.json`
+  provider/normalize 后继续翻译和渲染的入口之一（顶层垫片已删除，只有包内入口 `services/pipeline/retainpdf_pipeline/entrypoints/run_translate_from_ocr.py` 和 console 子命令，仅桌面兼容注脚）。
 - `services/pipeline/retainpdf_pipeline/services/translation/workflow`
   翻译层内部 facade，`runtime/pipeline/translation_stage.py` 通过这里进入翻译执行。
+
+未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_translate_only.py --spec <job_root>/specs/translate.spec.json。
 
 当前 stage spec 里的 `start_page` / `end_page` 是 0 基页码，`end_page=0` 表示只处理第一页，不能被当成未设置值。
 

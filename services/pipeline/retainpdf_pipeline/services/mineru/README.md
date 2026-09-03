@@ -4,7 +4,7 @@
 
 如果你现在关注的是“外部 OCR API 应该如何独立抽象，而不是耦合到当前工作流里”，先读：
 
-- `scripts/services/ocr_provider/README.md`
+- `services/pipeline/retainpdf_pipeline/services/ocr_provider/README.md`
 
 `services/mineru/` 只是 MinerU 这个 provider 的具体实现。
 
@@ -24,17 +24,17 @@
 - 不做 PDF 渲染
 - 不决定 `fast/sci/precise` 的翻译策略
 
-## 推荐入口
+## 推荐入口（`retainpdf-pipeline` console-mode 为主，script-mode 仅桌面兼容）
 
-- `scripts/entrypoints/run_provider_case.py`
+- `retainpdf-pipeline provider-case --spec <job_root>/specs/provider.spec.json`
   本地人工使用时优先走这个通用入口名。它是中性入口名，不把 provider 名字写死。
 - `mineru_pipeline.py`
-  `entrypoints/run_provider_case.py` 背后的稳定实现。
+  `retainpdf-pipeline provider-case` 背后的稳定实现。
 - `mineru_job.py`
   只做解析和解包，适合先拿 MinerU 结果再手动接翻译。
 - `mineru_api.py`
   最底层 API 调用封装，只在需要直接调 MinerU 接口时使用。
-- `scripts/devtools/tools/mineru_api_example.py`
+- `services/pipeline/devtools/tools/mineru_api_example.py`
   最小示例，适合调通接口和查看返回结构。
 
 ## 目录结构
@@ -100,7 +100,9 @@
 
 `provider.stage.v1` 现在主要保留给本地 provider-case helper 和兼容路径：
 
-`python -u scripts/entrypoints/run_provider_case.py --spec <job_root>/specs/provider.spec.json`
+`retainpdf-pipeline provider-case --spec <job_root>/specs/provider.spec.json`
+
+未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_provider_case.py --spec <job_root>/specs/provider.spec.json。
 
 生产主链中，Rust API 负责 provider-backed OCR flow：按请求中的 OCR provider 分发 MinerU / Paddle transport，产出 provider raw 结果后再进入 normalize、translate 和 render 阶段。MinerU provider 代码仍只维护 MinerU API 语义和 raw 产物整理，不定义上层 book workflow contract。
 

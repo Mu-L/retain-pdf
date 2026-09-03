@@ -1,6 +1,8 @@
 use crate::config::WorkerCommandRuntimeConfig;
 use std::path::Path;
 
+// auto/console/script 三模：console（retainpdf-pipeline）为主，script-mode 仅桌面兼容。
+
 use super::command_builder::{CommandBuilder, PythonEntrypoint};
 
 #[cfg(test)]

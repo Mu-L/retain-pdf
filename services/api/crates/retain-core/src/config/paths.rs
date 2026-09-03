@@ -4,6 +4,8 @@ use anyhow::{Context, Result};
 
 use super::env_vars::env_path;
 
+// auto/console/script 三模：console（retainpdf-pipeline）为主，script-mode 仅桌面兼容。
+
 #[derive(Clone, Debug)]
 pub struct RuntimePathsConfig {
     pub project_root: PathBuf,
