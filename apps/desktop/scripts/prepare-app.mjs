@@ -12,28 +12,7 @@ const __dirname = path.dirname(__filename);
 const desktopRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(desktopRoot, "..", "..");
 const versionFile = path.join(repoRoot, "VERSION");
-// P0-4 SPA readiness (additive only): --frontend=web-react or
-// RETAIN_PDF_FRONTEND=web-react selects the SPA bundle source
-// (apps/web-react/dist, single index.html + assets/). Default "web"
-// keeps production on apps/web with byte-identical behavior.
-function resolveFrontendKind() {
-  const flag = process.argv.find((arg) => arg.startsWith("--frontend="));
-  const fromFlag = flag ? flag.slice("--frontend=".length).trim() : "";
-  const fromEnv = (process.env.RETAIN_PDF_FRONTEND || "").trim();
-  const kind = fromFlag || fromEnv || "web";
-  if (kind !== "web" && kind !== "web-react") {
-    throw new Error(
-      `unsupported frontend: ${kind} (expected "web" or "web-react")`,
-    );
-  }
-  return kind;
-}
-const frontendKind = resolveFrontendKind();
-const isSpaFrontend = frontendKind === "web-react";
-const frontendRoot = path.join(
-  repoRoot,
-  isSpaFrontend ? "apps/web-react/dist" : "apps/web",
-);
+const frontendRoot = path.join(repoRoot, "apps/web");
 const infraRoot = path.join(repoRoot, "infra");
 const servicesRoot = path.resolve(
   process.env.RETAIN_PDF_SERVICES_ROOT || path.join(repoRoot, "services"),
@@ -626,31 +605,13 @@ function shouldCopyDesktopFrontendPath(sourcePath) {
 }
 
 for (const entry of fs.readdirSync(frontendRoot, { withFileTypes: true })) {
-  if (isSpaFrontend && entry.name === "runtime-config.local.js") {
-    continue;
-  }
   const from = path.join(frontendRoot, entry.name);
   const to = path.join(outputFrontendRoot, entry.name);
-  if (isSpaFrontend) {
-    // SPA dist is already bundled (single index.html + assets/): copy wholesale.
-    fs.cpSync(from, to, { recursive: true, force: true });
-    continue;
-  }
   fs.cpSync(from, to, {
     recursive: true,
     force: true,
     filter: shouldCopyDesktopFrontendPath,
   });
-}
-
-if (isSpaFrontend) {
-  const spaIndex = path.join(frontendRoot, "index.html");
-  if (!fs.existsSync(spaIndex)) {
-    throw new Error(`missing SPA frontend entry: ${spaIndex}`);
-  }
-  if (!fs.existsSync(path.join(frontendRoot, "assets"))) {
-    throw new Error(`missing SPA frontend assets: ${path.join(frontendRoot, "assets")}`);
-  }
 }
 
 function copyFrontendRuntimeDependency(packageName, entries, targetDirName = packageName) {
@@ -675,8 +636,7 @@ function copyFrontendRuntimeDependency(packageName, entries, targetDirName = pac
   }
 }
 
-if (!isSpaFrontend) {
-  copyFrontendRuntimeDependency("pdf-lib", [
+copyFrontendRuntimeDependency("pdf-lib", [
     "dist/pdf-lib.esm.js",
   ]);
 
@@ -689,7 +649,6 @@ if (!isSpaFrontend) {
     "web/pdf_viewer.css",
     "web/pdf_viewer.mjs",
   ]);
-}
 
 function rewriteDesktopFrontendRuntimeImports() {
   for (const entry of fs.readdirSync(outputFrontendRoot, { withFileTypes: true })) {
@@ -710,9 +669,7 @@ function rewriteDesktopFrontendRuntimeImports() {
 
 }
 
-if (!isSpaFrontend) {
-  rewriteDesktopFrontendRuntimeImports();
-}
+rewriteDesktopFrontendRuntimeImports();
 
 const desktopRuntimeConfig = `window.__FRONT_RUNTIME_CONFIG__ = {
   apiBase: "http://127.0.0.1:41000",
@@ -734,17 +691,7 @@ fs.writeFileSync(
 
 const desktopIndexPath = path.join(outputFrontendRoot, "index.html");
 let desktopIndexHtml = fs.readFileSync(desktopIndexPath, "utf8");
-if (isSpaFrontend) {
-  // SPA gap fill (P0-4, SPA branch only): stale dist/index.html may predate the
-  // runtime-config script tag. Ensure the bundled SPA loads the desktop
-  // runtime-config.js written below; entrypoint-web.sh covers Docker the same way.
-  desktopIndexHtml = desktopIndexHtml.replace('\n    <script src="./runtime-config.local.js"></script>', "");
-  if (!desktopIndexHtml.includes("runtime-config.js")) {
-    desktopIndexHtml = desktopIndexHtml.replace("</head>", '    <script src="./runtime-config.js"></script>\n  </head>');
-  }
-} else {
-  desktopIndexHtml = desktopIndexHtml.replace('\n    <script src="./runtime-config.local.js"></script>', "");
-}
+desktopIndexHtml = desktopIndexHtml.replace('\n    <script src="./runtime-config.local.js"></script>', "");
 fs.writeFileSync(desktopIndexPath, desktopIndexHtml, "utf8");
 
 if (!frontendOnly) {

@@ -135,34 +135,6 @@ jobs:
         working-directory: apps/web
         run: npm test
 
-      - name: React Frontend Tests
-        working-directory: apps/web-react
-        run: npm test
-
-  # P0-4 SPA readiness (additive only): verify apps/web-react builds without
-  # blocking the gate. Runs parallel to other jobs; visible but non-blocking
-  # until the SPA cutover is explicitly approved (default production stays on apps/web).
-  frontend-react-build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    continue-on-error: true
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: "22.22.0"
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install (root workspaces)
-        run: npm ci
-
-      - name: Build React frontend (SPA, non-blocking)
-        run: npm --prefix apps/web-react run build
-
   python-services:
     runs-on: ubuntu-latest
     timeout-minutes: 45

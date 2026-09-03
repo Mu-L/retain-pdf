@@ -5,7 +5,6 @@
   "workspaces": [
     "apps/web",
     "apps/desktop",
-    "apps/web-react",
     "packages/*"
   ],
   "scripts": {

@@ -7,25 +7,6 @@ const __dirname = path.dirname(__filename);
 const desktopRoot = path.resolve(__dirname, "..");
 const frontendRoot = path.join(desktopRoot, "app", "frontend");
 
-// P0-4 SPA readiness (additive only): --frontend=web-react or
-// RETAIN_PDF_FRONTEND=web-react validates the SPA bundle
-// (single index.html + assets/). Default "web" keeps the legacy
-// 3-HTML + 3-bundle assertions byte-identical.
-function resolveFrontendKind() {
-  const flag = process.argv.find((arg) => arg.startsWith("--frontend="));
-  const fromFlag = flag ? flag.slice("--frontend=".length).trim() : "";
-  const fromEnv = (process.env.RETAIN_PDF_FRONTEND || "").trim();
-  const kind = fromFlag || fromEnv || "web";
-  if (kind !== "web" && kind !== "web-react") {
-    throw new Error(
-      `unsupported frontend: ${kind} (expected "web" or "web-react")`,
-    );
-  }
-  return kind;
-}
-const frontendKind = resolveFrontendKind();
-const isSpaFrontend = frontendKind === "web-react";
-
 function fail(message) {
   throw new Error(message);
 }
@@ -66,53 +47,16 @@ function collectFiles(root, extensions) {
 }
 
 // HTML shells + production bundles (React cutover: entry is dist/*.bundle.js)
-// Default web path: unchanged legacy assertions.
-if (!isSpaFrontend) {
-  assertExists("index.html");
-  assertExists("detail.html");
-  assertExists("reader.html");
-  assertExists("runtime-config.js");
-  assertExists("dist/app.bundle.js");
-  assertExists("dist/reader.bundle.js");
-  assertExists("dist/detail.bundle.js");
-  assertExists("styles.css");
-  assertExists("dist/css/home.css");
-  assertExists("dist/css/reader.css");
-} else {
-  // SPA bundle: single index.html + vite assets, plus desktop runtime-config.
-  assertExists("index.html");
-  assertExists("runtime-config.js");
-  const spaIndex = readFile("index.html");
-  if (!spaIndex.includes("runtime-config.js")) {
-    fail("SPA index.html does not load runtime-config.js");
-  }
-  if (spaIndex.includes("runtime-config.local.js")) {
-    fail("SPA index.html still references runtime-config.local.js");
-  }
-  if (!spaIndex.includes("/assets/") && !spaIndex.includes("./assets/")) {
-    fail("SPA index.html is not using the vite assets bundle");
-  }
-  const spaAssetsRoot = path.join(frontendRoot, "assets");
-  if (!fs.existsSync(spaAssetsRoot)) {
-    fail(`Missing SPA assets bundle: ${spaAssetsRoot}`);
-  }
-  const spaJs = collectFiles(spaAssetsRoot, new Set([".js"]));
-  if (spaJs.length === 0) {
-    fail(`Missing SPA assets bundle JS under ${spaAssetsRoot}`);
-  }
-  if (fs.existsSync(path.join(frontendRoot, "runtime-config.local.js"))) {
-    fail("SPA frontend must not include runtime-config.local.js");
-  }
-  const spaRuntimeConfig = readFile("runtime-config.js");
-  if (!spaRuntimeConfig.includes('apiBase: "http://127.0.0.1:41000"')) {
-    fail("SPA runtime-config.js is missing local apiBase");
-  }
-  if (!spaRuntimeConfig.includes('xApiKey: "retain-pdf-desktop"')) {
-    fail("SPA runtime-config.js is missing desktop API key");
-  }
-  console.log("desktop frontend bundle check (web-react): ok");
-  process.exit(0);
-}
+assertExists("index.html");
+assertExists("detail.html");
+assertExists("reader.html");
+assertExists("runtime-config.js");
+assertExists("dist/app.bundle.js");
+assertExists("dist/reader.bundle.js");
+assertExists("dist/detail.bundle.js");
+assertExists("styles.css");
+assertExists("dist/css/home.css");
+assertExists("dist/css/reader.css");
 
 // Runtime assets referenced by the production HTML and bundled animation URLs.
 assertExists("src/assets/RetainPDF-logo.svg");
