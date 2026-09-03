@@ -3,8 +3,6 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { JSDOM } from "jsdom";
 
-const wait = (ms = 30) => new Promise((resolve) => setTimeout(resolve, ms));
-
 test("AI 会话隔离不再吞掉 composer 的点击与输入焦点", async () => {
   const dom = new JSDOM(
     "<!doctype html><html><body><form data-reader-ai-composer><textarea class='aui-input'></textarea></form><button id='page-action'>page</button></body></html>",
@@ -144,7 +142,7 @@ test("assistant-ui Composer can type and submit in an OCR-only Reader", async ()
     observe(target) { this.callback([{ target, contentRect: { height: 100 } }]); }
     disconnect() {}
   };
-  globalThis.IS_REACT_ACT_ENVIRONMENT = false;
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
   const React = await import("react");
   const { createRoot } = await import("react-dom/client");
@@ -159,13 +157,14 @@ test("assistant-ui Composer can type and submit in an OCR-only Reader", async ()
   const root = createRoot(document.getElementById("root"));
 
   try {
-    root.render(React.createElement(ReaderAssistantThread, {
-      jobId: "ocr-only-job",
-      onSubmit(question) { submitted.push(question); },
-      onRetry() {},
-      onCancel() {},
-    }));
-    await wait(50);
+    await React.act(async () => {
+      root.render(React.createElement(ReaderAssistantThread, {
+        jobId: "ocr-only-job",
+        onSubmit(question) { submitted.push(question); },
+        onRetry() {},
+        onCancel() {},
+      }));
+    });
 
     const input = document.querySelector("textarea.aui-input");
     assert.ok(input, "OCR-only Reader 应直接渲染 assistant-ui Composer");
@@ -174,22 +173,25 @@ test("assistant-ui Composer can type and submit in an OCR-only Reader", async ()
       dom.window.HTMLTextAreaElement.prototype,
       "value",
     ).set;
-    valueSetter.call(input, "只根据 Markdown 回答");
-    input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
-    await wait();
+    await React.act(async () => {
+      valueSetter.call(input, "只根据 Markdown 回答");
+      input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    });
     assert.equal(input.value, "只根据 Markdown 回答");
 
-    input.dispatchEvent(new dom.window.KeyboardEvent("keydown", {
-      key: "Enter",
-      bubbles: true,
-      cancelable: true,
-    }));
-    await wait();
+    await React.act(async () => {
+      input.dispatchEvent(new dom.window.KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      }));
+    });
     assert.deepEqual(submitted, ["只根据 Markdown 回答"]);
     assert.equal(input.value, "", "提交成功后应清空受控输入");
   } finally {
-    root.unmount();
+    await React.act(async () => root.unmount());
     setReaderAdapters(null);
+    globalThis.IS_REACT_ACT_ENVIRONMENT = false;
     dom.window.close();
   }
 });
