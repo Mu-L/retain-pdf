@@ -32,6 +32,7 @@ pub use stage_contract::{
     translation_artifacts_are_ready, translation_checkpoint_candidate_is_ready,
 };
 pub use startup_recovery::reconcile_stale_running_jobs;
+pub use startup_recovery::requeue_stuck_queued_jobs;
 pub use worker_process::terminate_job_process_tree;
 pub use worker_process::{
     configure_child_process, terminate_job_process_tree_blocking, worker_process_exists,

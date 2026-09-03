@@ -4,7 +4,7 @@ use anyhow::Result;
 
 use crate::config::AppConfig;
 use crate::db::Db;
-use crate::job_runner::{reconcile_stale_running_jobs, spawn_job, ProcessRuntimeDeps};
+use crate::job_runner::{reconcile_stale_running_jobs, requeue_stuck_queued_jobs, spawn_job, ProcessRuntimeDeps};
 use crate::services::job_launcher::JobLaunchDeps;
 use crate::services::jobs::{
     build_jobs_facade, CommandJobsDeps, ControlDeps, JobSubmitDeps, JobsFacade, QueryJobsDeps,
@@ -31,7 +31,11 @@ pub(super) fn resume_requeued_pipeline_jobs(state: &AppState) -> Result<usize> {
     for job_id in &job_ids {
         spawn_job(build_process_runtime_deps(state), job_id.clone());
     }
-    Ok(job_ids.len())
+    let stuck = requeue_stuck_queued_jobs(&state.config, &state.db)?;
+    for job_id in &stuck {
+        spawn_job(build_process_runtime_deps(state), job_id.clone());
+    }
+    Ok(job_ids.len() + stuck.len())
 }
 
 fn build_process_runtime_deps(state: &AppState) -> ProcessRuntimeDeps {

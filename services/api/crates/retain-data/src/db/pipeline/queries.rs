@@ -71,6 +71,34 @@ impl Db {
             .map_err(Into::into)
     }
 
+    /// Queued jobs that never started a durable attempt and therefore are
+    /// invisible to [`Self::list_resumable_pipeline_job_ids`].
+    ///
+    /// Startup-only contract: right after a runtime (re)start no driver task
+    /// exists for any queued job, so every id returned here is safe to
+    /// re-drive exactly once. Never call this outside startup: a live driver
+    /// may own the job and a second driver would duplicate execution.
+    pub fn list_stuck_queued_job_ids(&self) -> Result<Vec<String>> {
+        let conn = self.connect()?;
+        let queued = serde_json::to_string(&crate::models::domain::JobStatusKind::Queued)?;
+        let mut stmt = conn.prepare(
+            r#"
+            SELECT jobs.job_id
+            FROM jobs
+            WHERE jobs.status_json = ?1
+              AND NOT EXISTS (
+                SELECT 1 FROM pipeline_attempts
+                WHERE pipeline_attempts.job_id = jobs.job_id
+                  AND pipeline_attempts.status = 'running'
+              )
+            ORDER BY jobs.updated_at, jobs.job_id
+            "#,
+        )?;
+        let rows = stmt.query_map(params![queued], |row| row.get::<_, String>(0))?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(Into::into)
+    }
+
     pub fn running_pipeline_stage_state(&self, job_id: &str) -> Result<Option<PipelineStageState>> {
         let conn = self.connect()?;
         conn.query_row(
