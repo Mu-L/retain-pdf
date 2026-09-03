@@ -152,9 +152,10 @@ test("same mounted reading anchor sends a new document without saved state to pa
   const mount = document.createElement("div");
   container.appendChild(mount);
   const root = createRoot(mount);
+  let latest = null;
 
   function Harness({ identity }) {
-    useReadingAnchor(shellRef, {
+    latest = useReadingAnchor(shellRef, {
       primaryPane: "source",
       mode: "source",
       enabled: true,
@@ -164,23 +165,33 @@ test("same mounted reading anchor sends a new document without saved state to pa
     return null;
   }
 
+  const waitFor = async (predicate, description) => {
+    const deadline = Date.now() + 2_000;
+    while (Date.now() < deadline) {
+      if (predicate()) return;
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      });
+    }
+    assert.fail(`等待超时：${description}`);
+  };
+
   try {
     await act(async () => root.render(createElement(Harness, { identity: "document:a" })));
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 120));
-    });
+    await waitFor(() => latest && !latest.isRestoring(), "document A anchor restore");
     shell.scrollTop = 900;
     await act(async () => {
       shell.dispatchEvent(new Event("scroll"));
-      await new Promise((resolve) => setTimeout(resolve, 220));
     });
+    await waitFor(() => {
+      const stored = localStorage.getItem(readerViewStateStorageKey("document:a"));
+      return stored && JSON.parse(stored).anchor.page === 2;
+    }, "document A anchor persistence");
     const storedA = JSON.parse(localStorage.getItem(readerViewStateStorageKey("document:a")));
     assert.equal(storedA.anchor.page, 2);
 
     await act(async () => root.render(createElement(Harness, { identity: "document:b" })));
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    });
+    await waitFor(() => shell.scrollTop === 0, "document B page-one reset");
     assert.equal(
       shell.scrollTop,
       0,
