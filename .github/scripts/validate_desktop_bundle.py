@@ -121,8 +121,12 @@ def validate_pipeline_command(backend_root: Path, payload: dict[str, object]) ->
         print(f"warning: bundled pipeline command is not executable: {command_bin}")
         return
     try:
+        if is_windows_bundle(payload) and command_bin.suffix.lower() in {".cmd", ".bat"}:
+            probe_cmd = ["cmd", "/c", str(command_bin), "--help"]
+        else:
+            probe_cmd = [str(command_bin), "--help"]
         result = subprocess.run(
-            [str(command_bin), "--help"],
+            probe_cmd,
             cwd=backend_root,
             text=True,
             encoding="utf-8",

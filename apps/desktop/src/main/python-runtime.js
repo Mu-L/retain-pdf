@@ -158,6 +158,7 @@ function resolvePipelineCommand(backendRoot, options = {}) {
   const candidates = platform === "win32"
     ? [
         path.join(backendRoot, "bin", "retainpdf-pipeline.exe"),
+        path.join(backendRoot, "bin", "retainpdf-pipeline.cmd"),
         path.join(backendRoot, "python", "Scripts", "retainpdf-pipeline.exe"),
       ]
     : [

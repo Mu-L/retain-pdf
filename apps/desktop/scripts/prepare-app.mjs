@@ -479,10 +479,16 @@ function probePipelineConsoleWrapper(backendRoot) {
     );
     return { ok: false, skipped: true, detail: "pipeline wrapper not found (legacy bundle?)" };
   }
-  const probe = spawnSync(wrapperCommand, ["--help"], {
-    encoding: "utf8",
-    timeout: 60000,
-  });
+  const isWindowsCmdWrapper = targetPlatform === "win32" && /\.cmd$/i.test(wrapperCommand);
+  const probe = isWindowsCmdWrapper
+    ? spawnSync("cmd.exe", ["/d", "/c", wrapperCommand, "--help"], {
+      encoding: "utf8",
+      timeout: 60000,
+    })
+    : spawnSync(wrapperCommand, ["--help"], {
+      encoding: "utf8",
+      timeout: 60000,
+    });
   if (probe.status !== 0 || probe.error) {
     const detail = [
       probe.error ? String(probe.error.message || probe.error) : "",

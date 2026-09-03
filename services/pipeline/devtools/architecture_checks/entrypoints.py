@@ -33,11 +33,6 @@ ENTRYPOINT_IMPORT_ALLOWLIST: dict[Path, tuple[str, ...]] = {
     Path("diagnose_failure_with_ai.py"): (
         "from retainpdf_pipeline.services.translation.public import",
     ),
-    Path("run_book.py"): ("from retainpdf_pipeline.services.translation.entrypoints.from_ocr_pipeline import main",),
-    Path("run_document_flow.py"): (
-        "from retainpdf_pipeline.runtime.pipeline.book_pipeline import",
-        "from retainpdf_pipeline.services.translation.public import",
-    ),
     Path("run_document_operation.py"): (
         "from retainpdf_pipeline.services.document_operations.page_program import",
         "from retainpdf_pipeline.services.document_operations.visual_validation import",
@@ -46,7 +41,6 @@ ENTRYPOINT_IMPORT_ALLOWLIST: dict[Path, tuple[str, ...]] = {
     Path("run_provider_case.py"): ("from retainpdf_pipeline.services.ocr_provider.provider_pipeline import main",),
     Path("run_provider_ocr.py"): ("from retainpdf_pipeline.services.ocr_provider.provider_pipeline import main",),
     Path("run_render_only.py"): ("from retainpdf_pipeline.services.rendering.workflow.render_only import main",),
-    Path("run_translate_from_ocr.py"): ("from retainpdf_pipeline.services.translation.entrypoints.from_ocr_pipeline import main",),
     Path("run_translate_only.py"): ("from retainpdf_pipeline.services.translation.entrypoints.translate_only_pipeline import main",),
     Path("translate_book.py"): ("from retainpdf_pipeline.services.translation.entrypoints.translate_only_pipeline import main",),
     Path("translate_page.py"): (
@@ -107,23 +101,13 @@ __all__ = [
 ]
 
 
-# Top-level services/pipeline/entrypoints/*.py are script-mode compatibility
-# shims for the packaged desktop only. No new shims may be added: new worker
-# entry goes to retainpdf_pipeline console subcommands instead.
+# Top-level services/pipeline/entrypoints/*.py script-mode compatibility shims
+# were removed: production workers run as `python -m retainpdf_pipeline.<stage>`
+# and aux tools run via the `retainpdf-pipeline` console binary. The directory
+# must stay shim-free: new worker entry goes to retainpdf_pipeline console
+# subcommands or stage __main__ modules instead.
 TOP_LEVEL_SHIMS_ROOT = SCRIPTS_ROOT / "entrypoints"
-TOP_LEVEL_SHIM_ALLOWLIST = frozenset(
-    {
-        "diagnose_failure_with_ai.py",
-        "run_book.py",
-        "run_document_flow.py",
-        "run_document_operation.py",
-        "run_normalize_ocr.py",
-        "run_provider_case.py",
-        "run_provider_ocr.py",
-        "run_render_only.py",
-        "run_translate_only.py",
-    }
-)
+TOP_LEVEL_SHIM_ALLOWLIST = frozenset()
 
 # Pre-migration ghosts: top-level services/foundation/runtime must never hold
 # source again. All pipeline code lives under retainpdf_pipeline/.

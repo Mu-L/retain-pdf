@@ -147,8 +147,25 @@ jobs:
           python -m pip install --target $sitePackages -r apps/desktop/requirements-desktop-windows.txt
           python -m pip install --target $sitePackages -r apps/desktop/requirements-ai-service.txt
           $pythonBundleExe = Join-Path $bundleRoot "python.exe"
+          # 打包 retainpdf-pipeline console 入口：--no-deps 避免重复拉原生轮子；
+          # 用捆绑 python.exe 直接安装（产出 Lib/site-packages + Scripts/retainpdf-pipeline.exe），
+          # 但 Scripts exe 首行 shebang 硬编码构建机路径不可搬运，运行时走 backend/bin/*.cmd wrapper（-m）。
+          $pipelineSrc = Join-Path $PWD "services/pipeline"
+          & $pythonBundleExe -m pip install --no-deps --no-build-isolation $pipelineSrc
           $env:PYTHONPATH = $sitePackages
           & $pythonBundleExe -c "import requests, fitz, pikepdf, PIL, urllib3; print('python_bundle_import_check=ok')"
+          # console 入口探针（过渡期 warn-only，不阻断打包）
+          try {
+            & $pythonBundleExe -m retainpdf_pipeline.entrypoints.console --help
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "warning: bundled pipeline console -m --help probe failed (exit=$LASTEXITCODE, script fallback)"
+            } else {
+              Write-Host "bundled pipeline console -m probe OK"
+            }
+          } catch {
+            Write-Host "warning: bundled pipeline console --help probe failed: $_ (script fallback)"
+          }
+          Get-ChildItem (Join-Path $bundleRoot "Scripts") -Filter "retainpdf-pipeline*" -ErrorAction SilentlyContinue | Select-Object Name, Length
           Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
           Get-ChildItem $bundleRoot | Select-Object Name, Length, LastWriteTime
           $bundleSize = [Math]::Round(((Get-ChildItem $bundleRoot -Recurse -File | Measure-Object -Property Length -Sum).Sum / 1MB), 2)
@@ -779,6 +796,14 @@ jobs:
           "$bundle_python3" -m pip install --upgrade pip
           "$bundle_python3" -m pip install -r apps/desktop/requirements-desktop-posix.txt
           "$bundle_python3" -m pip install -r apps/desktop/requirements-ai-service.txt
+          # 打包 retainpdf-pipeline console 入口：--no-deps 避免重复拉原生轮子触发门禁
+          "$bundle_python3" -m pip install --no-deps --no-build-isolation "$PWD/services/pipeline"
+          # 兜底：pip 生成脚本首行多为 runner 绝对路径，重写为可搬运 shebang（纯文本替换，不跑 install_name_tool）
+          pipeline_entry="$bundle_root/bin/retainpdf-pipeline"
+          if [ -f "$pipeline_entry" ]; then
+            sed -i '' '1s|^.*$|#!/usr/bin/env python3|' "$pipeline_entry"
+            chmod +x "$pipeline_entry"
+          fi
           site_packages_root="$bundle_root/lib/python$framework_version/site-packages"
           python_lib_dynload="$framework_bundle_root/lib/python$framework_version/lib-dynload"
           while IFS= read -r site_mach_o; do
@@ -864,6 +889,17 @@ jobs:
           if [ -e "$bundle_python_app" ]; then
             otool -L "$bundle_python_app"
           fi
+          # console 入口探针（过渡期 warn-only；PYTHONHOME 保持 Versions/Current，不阻断打包）
+          export PYTHONHOME="$framework_bundle_framework_root/Versions/Current"
+          export PYTHONPATH="$site_packages_root:$python_lib_dynload"
+          if [ -x "$bundle_root/bin/retainpdf-pipeline" ]; then
+            "$bundle_root/bin/retainpdf-pipeline" --help || echo "warning: bundled pipeline console --help probe failed (script fallback)"
+          else
+            echo "warning: bundled pipeline console script missing: $bundle_root/bin/retainpdf-pipeline (script fallback)"
+          fi
+          "$bundle_python3" -m retainpdf_pipeline.entrypoints.console --help || echo "warning: bundled pipeline console -m probe failed (script fallback)"
+          unset PYTHONHOME
+          unset PYTHONPATH
           du -sh "$bundle_root"
 
       - name: Install JavaScript workspace dependencies
