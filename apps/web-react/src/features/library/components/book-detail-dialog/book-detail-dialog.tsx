@@ -44,7 +44,7 @@ export function BookDetailDialog({
       onClose={onClose}
       className={bookDetailLayout.dialogClassName}
     >
-      <div className={bookDetailLayout.shellClassName}>
+      <div className={bookDetailLayout.shellClassName} data-testid="book-detail-dialog" data-book-id={detail.id}>
         <div className={bookDetailLayout.bodyClassName}>
           <BookDetailCoverPanel book={detail.coverBook} />
           <BookDetailTabs

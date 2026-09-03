@@ -1,3 +1,6 @@
+// P0-2 UI 收敛 compat 说明：上游 @retainpdf/ui 暂无 Progress 原语，
+// 本地实现保留（Radix Progress，neutral 胶囊样式，与 TW3 host 一致）。
+// 若 apps/web 后续需要，应抽入 packages/ui 再统一 re-export（P0-3）。
 import * as ProgressPrimitive from '@radix-ui/react-progress'
 import type * as React from 'react'
 

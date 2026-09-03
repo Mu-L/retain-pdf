@@ -1,51 +1,12 @@
-import { Slot } from '@radix-ui/react-slot'
-import { cva, type VariantProps } from 'class-variance-authority'
-import type * as React from 'react'
+// P0-2 UI 收敛：Button 唯一真相源为 @retainpdf/ui（packages/ui）。
+// 本文件仅做 re-export + 旧对外 API 兼容（ButtonProps 类型别名）。
+export { Button, buttonVariants } from "@retainpdf/ui/components/ui/button";
 
-import { cn } from '@/lib/utils'
+import type * as React from "react";
+import { Button } from "@retainpdf/ui/components/ui/button";
 
-const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-45 [&_svg]:size-4 [&_svg]:shrink-0',
-  {
-    variants: {
-      variant: {
-        default: 'bg-neutral-950 text-white hover:bg-neutral-800',
-        outline: 'border border-neutral-300 bg-white text-neutral-950 hover:bg-neutral-50',
-        ghost: 'bg-transparent text-neutral-700 hover:bg-neutral-100',
-      },
-      size: {
-        default: 'h-10 px-4',
-        sm: 'h-8 px-3 text-xs',
-        icon: 'size-9',
-      },
-    },
-    defaultVariants: {
-      variant: 'default',
-      size: 'default',
-    },
-  },
-)
-
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
-  asChild?: boolean
-}
-
-export function Button({
-  className,
-  variant,
-  size,
-  asChild = false,
-  ...props
-}: ButtonProps) {
-  const Comp = asChild ? Slot : 'button'
-
-  return (
-    <Comp
-      data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
-    />
-  )
-}
+// 兼容旧 `import { ButtonProps } from "@/components/ui/button"`：
+// 上游 Button 的 props 即 ComponentProps（含 variant/size/asChild），
+// 此别名与旧手写 interface 在现有调用点（variant: default/outline/ghost；
+// size: default/sm/icon）上可互换。
+export type ButtonProps = React.ComponentProps<typeof Button>;

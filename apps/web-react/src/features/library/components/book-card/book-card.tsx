@@ -27,7 +27,7 @@ export function BookCard({
   onDelete,
 }: BookCardProps) {
   return (
-    <article className="grid">
+    <article className="grid" data-testid={`book-card-${book.id}`} data-book-id={book.id}>
       <BookCardShell selected={selected || selectionChecked} onClick={() => selectionMode ? onToggleSelect?.(book) : onSelect?.(book)}>
         <div className="group/cover relative">
           <BookCover book={book} />
@@ -51,6 +51,7 @@ export function BookCard({
           ) : null}
           <button
             type="button"
+            data-testid={`book-delete-${book.id}`}
             className="pointer-events-none absolute right-2 top-2 z-20 grid size-8 place-items-center rounded-full bg-white/95 text-neutral-950 opacity-0 shadow-lg transition hover:scale-105 hover:bg-neutral-950 hover:text-white focus-visible:pointer-events-auto focus-visible:opacity-100 focus-visible:outline-none group-hover/cover:pointer-events-auto group-hover/cover:opacity-100"
             aria-label="删除"
             onMouseDown={(event) => event.stopPropagation()}
@@ -63,6 +64,7 @@ export function BookCard({
           </button>
           <button
             type="button"
+            data-testid={`book-open-reader-${book.id}`}
             className={[
               'pointer-events-none absolute left-1/2 top-1/2 z-20 grid size-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white/95 text-neutral-950 opacity-0 shadow-lg transition hover:scale-105 focus-visible:pointer-events-auto focus-visible:opacity-100 focus-visible:outline-none group-hover/cover:pointer-events-auto group-hover/cover:opacity-100',
               selectionMode ? 'hidden' : '',

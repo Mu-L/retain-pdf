@@ -1,10 +1,27 @@
+// P0-2 UI 收敛 compat 说明：
+// - 上游 @retainpdf/ui 的 Dialog 是 Radix 复合组件（Root/Trigger/Content…），
+//   与本文件的业务弹窗（open/title/closeLabel/backdropCloseLabel/onClose…）
+//   不同构，6 个调用点依赖旧 API，故本地 `Dialog` 实现保留，待 P0-3 迁移。
+// - 除 `Dialog` 本体外，其余 Radix Dialog 部件从上游 re-export，供新代码使用。
+export {
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogOverlay,
+  DialogPortal,
+  DialogTitle,
+  DialogTrigger,
+} from "@retainpdf/ui/components/ui/dialog";
+
 import { X } from 'lucide-react'
 import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
 
-type DialogProps = {
+export type DialogProps = {
   open: boolean
   title: string
   closeLabel: string

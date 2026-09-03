@@ -1,8 +1,19 @@
-import { BookOpen } from 'lucide-react'
+import { BookOpen, FileUp } from 'lucide-react'
 
 import { libraryCopy } from '../library-config'
 
-export function LibraryEmptyState() {
+/** Empty shelf: no books yet. CTA jumps to the workflow upload dialog. */
+export function LibraryEmptyState({ onUpload }: { onUpload?: () => void } = {}) {
+  function handleUpload() {
+    if (onUpload) {
+      onUpload()
+      return
+    }
+    if (typeof document !== 'undefined' && typeof CustomEvent === 'function') {
+      document.dispatchEvent(new CustomEvent('retain:openTranslationWorkflow', { detail: { mode: 'upload' } }))
+    }
+  }
+
   return (
     <div className="grid h-full place-items-center rounded-[28px] border border-dashed border-neutral-200 bg-white/60 px-6 text-center">
       <div className="grid max-w-sm gap-3 justify-items-center">
@@ -13,6 +24,15 @@ export function LibraryEmptyState() {
           <h2 className="text-sm font-semibold text-neutral-950">{libraryCopy.empty.title}</h2>
           <p className="text-sm leading-6 text-neutral-500">{libraryCopy.empty.description}</p>
         </div>
+        <button
+          type="button"
+          data-testid="library-empty-upload"
+          onClick={handleUpload}
+          className="inline-flex items-center gap-2 rounded-full bg-neutral-950 px-4 py-2 text-xs font-medium text-white hover:bg-neutral-800"
+        >
+          <FileUp className="size-4" />
+          去传书
+        </button>
       </div>
     </div>
   )

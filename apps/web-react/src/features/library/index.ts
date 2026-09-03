@@ -5,7 +5,6 @@ export {
   BookDetailDialog,
   BookGrid,
   BookReaderDialog,
-  LibraryDevPreview,
   LibraryEmptyState,
   LibraryFilterBar,
   LibraryHeader,
@@ -27,7 +26,8 @@ export {
   sortLibraryBooks,
 } from './library-selectors'
 export { deleteLibraryBook, downloadLibraryResource, getLibraryJob, jobDetailToLibraryBook, jobListToLibraryBooks, libraryApiUrl, libraryRequestHeaders, libraryResourceUrl, listLibraryJobs, loadLibraryImageObjectUrl } from './api'
-export { libraryActivities, libraryBooks } from './mock-data'
+// DEV-ONLY mocks (500 fake books + preview) live in './dev' — never re-export here,
+// so the production barrel (`@/features/library`) cannot leak mock books into the shelf.
 export type {
   LibraryActivity,
   LibraryBook,

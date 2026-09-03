@@ -1,3 +1,11 @@
+/**
+ * DEV-ONLY mock library data (500 books).
+ * Import ONLY via `@/features/library/dev` in dev/stories/tests.
+ * Gated behind VITE_RETAIN_USE_MOCK_LIBRARY=1 via mockLibraryEnabled()
+ * (see model/library-model-utils.ts + model/use-library-data.ts).
+ * Never exported from `./index` — production renders API data
+ * (LibraryRoute -> useLibraryController -> useLibraryData query).
+ */
 import type { LibraryActivity, LibraryBook, LibraryBookArtifact } from './types'
 
 const defaultArtifacts: LibraryBookArtifact[] = [

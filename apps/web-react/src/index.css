@@ -1,3 +1,12 @@
+/* 书架刀2：上游 @retainpdf/ui 的工具类（bg-primary/bg-muted 等）由
+ * dist/styles.css 提供（TW4 预编译，@theme inline 消费宿主 :root token，
+ * 定义见下方）。用 CSS @import 而非 main.tsx JS import：宿主 PostCSS 是
+ * TW3 插件，JS import 会让它逐文件处理 dist 并因“@layer utilities 缺
+ * @tailwind utilities”抛错；@import 内联进本文件（含 @tailwind 指令）
+ * 则可通过检查。注：包 exports 仅导出 "./styles.css"（→ dist/styles.css），
+ * "./dist/styles.css" 子路径未导出，故用前者。 */
+@import '@retainpdf/ui/styles.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -79,5 +88,109 @@ a {
     border-width: 2px;
     background: rgba(29, 29, 31, 0.2);
     background-clip: padding-box;
+  }
+}
+
+/* 书架刀2：@retainpdf/ui 语义 token（宿主侧唯一定义）。
+ * 上游 packages/ui/scripts/styles.css 经 @theme inline 把
+ * bg-primary/text-muted-foreground 等工具类映射到 var(--primary)…，
+ * 但 token 值由宿主拥有——此前缺失导致 Button/Tabs/Toaster 底色透明。
+ * 取值对齐 neutral 旧观感：选中胶囊/主按钮 bg-neutral-950（#09090b），
+ * 弱文字 zinc-500（#71717a，对应业务 text-neutral-500），描边 zinc-200
+ * （#e4e4e7，近 apps/web classic --line #e5e5ea），危险色沿用 classic
+ * --danger（#ff3b30）。--radius 仅被 Toaster 内联 style 消费。 */
+:root {
+  color-scheme: light;
+  --background: #ffffff;
+  --foreground: #09090b;
+  --primary: #09090b;
+  --primary-foreground: #fafafa;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #09090b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #f4f4f5;
+  --accent-foreground: #09090b;
+  --destructive: #ff3b30;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #09090b;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+  --scrim: #09090b;
+  --radius: 0.625rem;
+}
+
+/* 书架刀2：上游工具类 vendor（非分层展开）。
+ * 来源：packages/ui/dist/styles.css 内顶层 @layer utilities{...} 的原样内容，
+ * 仅拆掉最外一层大括号，其余（@media/@supports/转义选择器）逐字保留。
+ * 为何 vendor 而非直接用 @import：宿主 PostCSS 是 TW 3.4.19，其收尾阶段会
+ * 删除外来 @layer utilities 整段（未知层名 properties/theme 则保留，故上方
+ * @import 仍负责带入 @property 注册与 @theme 的 --spacing 等变量）；非分层
+ * 自定义 CSS 则原样保留（本文件 scrollbar-subtle 同理），故此处展开存放。
+ * 上游重新构建后同步方法：packages/ui 下 npm run build:css，用 brace-match
+ * 取出顶层 @layer utilities{...} 内部替换本段（校验：花括号平衡）。
+ * 本段为非分层样式，优先级高于 @layer；下方“钉死浅色”覆盖与本段同选择器、
+ * 位置更靠后，故暗色媒体查询下仍以浅色值获胜。 */
+.sr-only{clip-path:inset(50%);white-space:nowrap;border-width:0;width:1px;height:1px;margin:-1px;padding:0;position:absolute;overflow:hidden}.absolute{position:absolute}.fixed{position:fixed}.relative{position:relative}.inset-0{inset:0}.top-4{top:calc(var(--spacing) * 4)}.top-\[50\%\]{top:50%}.right-4{right:calc(var(--spacing) * 4)}.left-\[50\%\]{left:50%}.z-50{z-index:50}.flex{display:flex}.grid{display:grid}.inline-flex{display:inline-flex}.size-2\.5{width:calc(var(--spacing) * 2.5);height:calc(var(--spacing) * 2.5)}.size-4{width:calc(var(--spacing) * 4);height:calc(var(--spacing) * 4)}.size-6{width:calc(var(--spacing) * 6);height:calc(var(--spacing) * 6)}.size-8{width:calc(var(--spacing) * 8);height:calc(var(--spacing) * 8)}.size-9{width:calc(var(--spacing) * 9);height:calc(var(--spacing) * 9)}.size-10{width:calc(var(--spacing) * 10);height:calc(var(--spacing) * 10)}.h-6{height:calc(var(--spacing) * 6)}.h-8{height:calc(var(--spacing) * 8)}.h-9{height:calc(var(--spacing) * 9)}.h-10{height:calc(var(--spacing) * 10)}.h-\[calc\(100\%-1px\)\]{height:calc(100% - 1px)}.w-fit{width:fit-content}.w-full{width:100%}.max-w-\[calc\(100\%-2rem\)\]{max-width:calc(100% - 2rem)}.flex-1{flex:1}.shrink-0{flex-shrink:0}.origin-\(--radix-tooltip-content-transform-origin\){transform-origin:var(--radix-tooltip-content-transform-origin)}.translate-x-\[-50\%\]{--tw-translate-x:-50%;translate:var(--tw-translate-x) var(--tw-translate-y)}.translate-y-\[-50\%\]{--tw-translate-y:-50%;translate:var(--tw-translate-x) var(--tw-translate-y)}.translate-y-\[calc\(-50\%_-_2px\)\]{--tw-translate-y:calc(-50% - 2px);translate:var(--tw-translate-x) var(--tw-translate-y)}.rotate-45{rotate:45deg}.animate-spin{animation:var(--animate-spin)}.flex-col{flex-direction:column}.flex-col-reverse{flex-direction:column-reverse}.items-center{align-items:center}.justify-center{justify-content:center}.gap-1{gap:var(--spacing)}.gap-1\.5{gap:calc(var(--spacing) * 1.5)}.gap-2{gap:calc(var(--spacing) * 2)}.gap-4{gap:calc(var(--spacing) * 4)}.rounded-\[2px\]{border-radius:2px}.rounded-lg{border-radius:var(--radius-lg)}.rounded-md{border-radius:var(--radius-md)}.rounded-xs{border-radius:var(--radius-xs)}.border{border-style:var(--tw-border-style);border-width:1px}.border-transparent{border-color:#0000}.bg-background{background-color:var(--background)}.bg-destructive{background-color:var(--destructive)}.bg-foreground{background-color:var(--foreground)}.bg-muted{background-color:var(--muted)}.bg-primary{background-color:var(--primary)}.bg-scrim\/50{background-color:var(--scrim)}@supports (color:color-mix(in lab, red, red)){.bg-scrim\/50{background-color:color-mix(in oklab, var(--scrim) 50%, transparent)}}.bg-secondary{background-color:var(--secondary)}.bg-transparent{background-color:#0000}.fill-foreground{fill:var(--foreground)}.p-6{padding:calc(var(--spacing) * 6)}.p-\[3px\]{padding:3px}.px-2{padding-inline:calc(var(--spacing) * 2)}.px-3{padding-inline:calc(var(--spacing) * 3)}.px-4{padding-inline:calc(var(--spacing) * 4)}.px-6{padding-inline:calc(var(--spacing) * 6)}.py-1{padding-block:var(--spacing)}.py-1\.5{padding-block:calc(var(--spacing) * 1.5)}.py-2{padding-block:calc(var(--spacing) * 2)}.text-center{text-align:center}.text-lg{font-size:var(--text-lg);line-height:var(--tw-leading,var(--text-lg--line-height))}.text-sm{font-size:var(--text-sm);line-height:var(--tw-leading,var(--text-sm--line-height))}.text-xs{font-size:var(--text-xs);line-height:var(--tw-leading,var(--text-xs--line-height))}.leading-none{--tw-leading:1;line-height:1}.font-medium{--tw-font-weight:var(--font-weight-medium);font-weight:var(--font-weight-medium)}.font-semibold{--tw-font-weight:var(--font-weight-semibold);font-weight:var(--font-weight-semibold)}.text-balance{text-wrap:balance}.whitespace-nowrap{white-space:nowrap}.text-background{color:var(--background)}.text-foreground\/60{color:var(--foreground)}@supports (color:color-mix(in lab, red, red)){.text-foreground\/60{color:color-mix(in oklab, var(--foreground) 60%, transparent)}}.text-muted-foreground{color:var(--muted-foreground)}.text-primary{color:var(--primary)}.text-primary-foreground{color:var(--primary-foreground)}.text-secondary-foreground{color:var(--secondary-foreground)}.underline-offset-4{text-underline-offset:4px}.opacity-70{opacity:.7}.shadow-lg{--tw-shadow:0 10px 15px -3px var(--tw-shadow-color,#0000001a), 0 4px 6px -4px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-xs{--tw-shadow:0 1px 2px 0 var(--tw-shadow-color,#0000000d);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.ring-offset-background{--tw-ring-offset-color:var(--background)}.outline{outline-style:var(--tw-outline-style);outline-width:1px}.transition-all{transition-property:all;transition-timing-function:var(--tw-ease,var(--default-transition-timing-function));transition-duration:var(--tw-duration,var(--default-transition-duration))}.transition-opacity{transition-property:opacity;transition-timing-function:var(--tw-ease,var(--default-transition-timing-function));transition-duration:var(--tw-duration,var(--default-transition-duration))}.duration-200{--tw-duration:.2s;transition-duration:.2s}.outline-none{--tw-outline-style:none;outline-style:none}.group-data-\[orientation\=horizontal\]\/tabs\:h-9:is(:where(.group\/tabs)[data-orientation=horizontal] *){height:calc(var(--spacing) * 9)}.group-data-\[orientation\=vertical\]\/tabs\:h-fit:is(:where(.group\/tabs)[data-orientation=vertical] *){height:fit-content}.group-data-\[orientation\=vertical\]\/tabs\:w-full:is(:where(.group\/tabs)[data-orientation=vertical] *){width:100%}.group-data-\[orientation\=vertical\]\/tabs\:flex-col:is(:where(.group\/tabs)[data-orientation=vertical] *){flex-direction:column}.group-data-\[orientation\=vertical\]\/tabs\:justify-start:is(:where(.group\/tabs)[data-orientation=vertical] *){justify-content:flex-start}.group-data-\[variant\=line\]\/tabs-list\:bg-transparent:is(:where(.group\/tabs-list)[data-variant=line] *){background-color:#0000}.after\:absolute:after{content:var(--tw-content);position:absolute}.after\:bg-foreground:after{content:var(--tw-content);background-color:var(--foreground)}.after\:opacity-0:after{content:var(--tw-content);opacity:0}.after\:transition-opacity:after{content:var(--tw-content);transition-property:opacity;transition-timing-function:var(--tw-ease,var(--default-transition-timing-function));transition-duration:var(--tw-duration,var(--default-transition-duration))}.group-data-\[orientation\=horizontal\]\/tabs\:after\:inset-x-0:is(:where(.group\/tabs)[data-orientation=horizontal] *):after{content:var(--tw-content);inset-inline:0}.group-data-\[orientation\=horizontal\]\/tabs\:after\:bottom-\[-5px\]:is(:where(.group\/tabs)[data-orientation=horizontal] *):after{content:var(--tw-content);bottom:-5px}.group-data-\[orientation\=horizontal\]\/tabs\:after\:h-0\.5:is(:where(.group\/tabs)[data-orientation=horizontal] *):after{content:var(--tw-content);height:calc(var(--spacing) * .5)}.group-data-\[orientation\=vertical\]\/tabs\:after\:inset-y-0:is(:where(.group\/tabs)[data-orientation=vertical] *):after{content:var(--tw-content);inset-block:0}.group-data-\[orientation\=vertical\]\/tabs\:after\:-right-1:is(:where(.group\/tabs)[data-orientation=vertical] *):after{content:var(--tw-content);right:calc(var(--spacing) * -1)}.group-data-\[orientation\=vertical\]\/tabs\:after\:w-0\.5:is(:where(.group\/tabs)[data-orientation=vertical] *):after{content:var(--tw-content);width:calc(var(--spacing) * .5)}@media (hover:hover){.hover\:bg-accent:hover{background-color:var(--accent)}.hover\:bg-destructive\/90:hover{background-color:var(--destructive)}@supports (color:color-mix(in lab, red, red)){.hover\:bg-destructive\/90:hover{background-color:color-mix(in oklab, var(--destructive) 90%, transparent)}}.hover\:bg-primary\/90:hover{background-color:var(--primary)}@supports (color:color-mix(in lab, red, red)){.hover\:bg-primary\/90:hover{background-color:color-mix(in oklab, var(--primary) 90%, transparent)}}.hover\:bg-secondary\/80:hover{background-color:var(--secondary)}@supports (color:color-mix(in lab, red, red)){.hover\:bg-secondary\/80:hover{background-color:color-mix(in oklab, var(--secondary) 80%, transparent)}}.hover\:text-accent-foreground:hover{color:var(--accent-foreground)}.hover\:text-foreground:hover{color:var(--foreground)}.hover\:underline:hover{text-decoration-line:underline}.hover\:opacity-100:hover{opacity:1}}.focus\:ring-2:focus{--tw-ring-shadow:var(--tw-ring-inset,) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color,currentcolor);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.focus\:ring-ring:focus{--tw-ring-color:var(--ring)}.focus\:ring-offset-2:focus{--tw-ring-offset-width:2px;--tw-ring-offset-shadow:var(--tw-ring-inset,) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color)}.focus\:outline-hidden:focus{--tw-outline-style:none;outline-style:none}@media (forced-colors:active){.focus\:outline-hidden:focus{outline-offset:2px;outline:2px solid #0000}}.focus-visible\:border-ring:focus-visible{border-color:var(--ring)}.focus-visible\:ring-\[3px\]:focus-visible{--tw-ring-shadow:var(--tw-ring-inset,) 0 0 0 calc(3px + var(--tw-ring-offset-width)) var(--tw-ring-color,currentcolor);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.focus-visible\:ring-destructive\/20:focus-visible{--tw-ring-color:var(--destructive)}@supports (color:color-mix(in lab, red, red)){.focus-visible\:ring-destructive\/20:focus-visible{--tw-ring-color:color-mix(in oklab, var(--destructive) 20%, transparent)}}.focus-visible\:ring-ring\/50:focus-visible{--tw-ring-color:var(--ring)}@supports (color:color-mix(in lab, red, red)){.focus-visible\:ring-ring\/50:focus-visible{--tw-ring-color:color-mix(in oklab, var(--ring) 50%, transparent)}}.focus-visible\:outline-1:focus-visible{outline-style:var(--tw-outline-style);outline-width:1px}.focus-visible\:outline-ring:focus-visible{outline-color:var(--ring)}.disabled\:pointer-events-none:disabled{pointer-events:none}.disabled\:opacity-50:disabled{opacity:.5}.has-\[\>svg\]\:px-1\.5:has(>svg){padding-inline:calc(var(--spacing) * 1.5)}.has-\[\>svg\]\:px-2\.5:has(>svg){padding-inline:calc(var(--spacing) * 2.5)}.has-\[\>svg\]\:px-3:has(>svg){padding-inline:calc(var(--spacing) * 3)}.has-\[\>svg\]\:px-4:has(>svg){padding-inline:calc(var(--spacing) * 4)}.aria-invalid\:border-destructive[aria-invalid=true]{border-color:var(--destructive)}.aria-invalid\:ring-destructive\/20[aria-invalid=true]{--tw-ring-color:var(--destructive)}@supports (color:color-mix(in lab, red, red)){.aria-invalid\:ring-destructive\/20[aria-invalid=true]{--tw-ring-color:color-mix(in oklab, var(--destructive) 20%, transparent)}}.data-\[orientation\=horizontal\]\:flex-col[data-orientation=horizontal]{flex-direction:column}.data-\[state\=active\]\:bg-background[data-state=active]{background-color:var(--background)}.data-\[state\=active\]\:text-foreground[data-state=active]{color:var(--foreground)}.group-data-\[variant\=default\]\/tabs-list\:data-\[state\=active\]\:shadow-sm:is(:where(.group\/tabs-list)[data-variant=default] *)[data-state=active]{--tw-shadow:0 1px 3px 0 var(--tw-shadow-color,#0000001a), 0 1px 2px -1px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.group-data-\[variant\=line\]\/tabs-list\:data-\[state\=active\]\:bg-transparent:is(:where(.group\/tabs-list)[data-variant=line] *)[data-state=active]{background-color:#0000}.group-data-\[variant\=line\]\/tabs-list\:data-\[state\=active\]\:shadow-none:is(:where(.group\/tabs-list)[data-variant=line] *)[data-state=active]{--tw-shadow:0 0 #0000;box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.group-data-\[variant\=line\]\/tabs-list\:data-\[state\=active\]\:after\:opacity-100:is(:where(.group\/tabs-list)[data-variant=line] *)[data-state=active]:after{content:var(--tw-content);opacity:1}.data-\[state\=open\]\:bg-accent[data-state=open]{background-color:var(--accent)}.data-\[state\=open\]\:text-muted-foreground[data-state=open]{color:var(--muted-foreground)}.data-\[variant\=line\]\:rounded-none[data-variant=line]{border-radius:0}@media (min-width:40rem){.sm\:max-w-lg{max-width:var(--container-lg)}.sm\:flex-row{flex-direction:row}.sm\:justify-end{justify-content:flex-end}.sm\:text-left{text-align:left}}@media (prefers-color-scheme:dark){.dark\:border-input{border-color:var(--input)}.dark\:bg-destructive\/60{background-color:var(--destructive)}@supports (color:color-mix(in lab, red, red)){.dark\:bg-destructive\/60{background-color:color-mix(in oklab, var(--destructive) 60%, transparent)}}.dark\:bg-input\/30{background-color:var(--input)}@supports (color:color-mix(in lab, red, red)){.dark\:bg-input\/30{background-color:color-mix(in oklab, var(--input) 30%, transparent)}}.dark\:text-muted-foreground{color:var(--muted-foreground)}@media (hover:hover){.dark\:hover\:bg-accent\/50:hover{background-color:var(--accent)}@supports (color:color-mix(in lab, red, red)){.dark\:hover\:bg-accent\/50:hover{background-color:color-mix(in oklab, var(--accent) 50%, transparent)}}.dark\:hover\:bg-input\/50:hover{background-color:var(--input)}@supports (color:color-mix(in lab, red, red)){.dark\:hover\:bg-input\/50:hover{background-color:color-mix(in oklab, var(--input) 50%, transparent)}}.dark\:hover\:text-foreground:hover{color:var(--foreground)}}.dark\:focus-visible\:ring-destructive\/40:focus-visible{--tw-ring-color:var(--destructive)}@supports (color:color-mix(in lab, red, red)){.dark\:focus-visible\:ring-destructive\/40:focus-visible{--tw-ring-color:color-mix(in oklab, var(--destructive) 40%, transparent)}}.dark\:aria-invalid\:ring-destructive\/40[aria-invalid=true]{--tw-ring-color:var(--destructive)}@supports (color:color-mix(in lab, red, red)){.dark\:aria-invalid\:ring-destructive\/40[aria-invalid=true]{--tw-ring-color:color-mix(in oklab, var(--destructive) 40%, transparent)}}.dark\:data-\[state\=active\]\:border-input[data-state=active]{border-color:var(--input)}.dark\:data-\[state\=active\]\:bg-input\/30[data-state=active]{background-color:var(--input)}@supports (color:color-mix(in lab, red, red)){.dark\:data-\[state\=active\]\:bg-input\/30[data-state=active]{background-color:color-mix(in oklab, var(--input) 30%, transparent)}}.dark\:data-\[state\=active\]\:text-foreground[data-state=active]{color:var(--foreground)}.dark\:group-data-\[variant\=line\]\/tabs-list\:data-\[state\=active\]\:border-transparent:is(:where(.group\/tabs-list)[data-variant=line] *)[data-state=active]{border-color:#0000}.dark\:group-data-\[variant\=line\]\/tabs-list\:data-\[state\=active\]\:bg-transparent:is(:where(.group\/tabs-list)[data-variant=line] *)[data-state=active]{background-color:#0000}}.\[\&_svg\]\:pointer-events-none svg{pointer-events:none}.\[\&_svg\]\:shrink-0 svg{flex-shrink:0}.\[\&_svg\:not\(\[class\*\=\'size-\'\]\)\]\:size-3 svg:not([class*=size-]){width:calc(var(--spacing) * 3);height:calc(var(--spacing) * 3)}.\[\&_svg\:not\(\[class\*\=\'size-\'\]\)\]\:size-4 svg:not([class*=size-]){width:calc(var(--spacing) * 4);height:calc(var(--spacing) * 4)}
+
+/* 书架刀2：钉死浅色（TW3 等价写法）。
+ * 宿主为 TW 3.4.19，不支持 TW4 的 `@custom-variant`；且上游 dist 已把
+ * `dark:` 预编译为 `@media (prefers-color-scheme: dark)`，改 host 的
+ * tailwind.config 也影响不到它。故在此用同一媒体查询把浅色值钉回去——
+ * 本段与上方 vendor 段同为非分层样式且位置更靠后，同选择器下获胜；
+ * 亦高于 @import 带入的 @layer 内容。
+ * color-scheme: light 管不住该媒体查询（它跟随 OS），必须逐类覆盖。 */
+@media (prefers-color-scheme: dark) {
+  .dark\:border-input {
+    border-color: currentColor;
+  }
+  .dark\:bg-destructive\/60 {
+    background-color: var(--destructive);
+  }
+  .dark\:bg-input\/30 {
+    background-color: var(--background);
+  }
+  .dark\:text-muted-foreground {
+    color: var(--foreground);
+  }
+  @supports (color: color-mix(in lab, red, red)) {
+    .dark\:text-muted-foreground {
+      color: color-mix(in oklab, var(--foreground) 60%, transparent);
+    }
+  }
+  .dark\:hover\:bg-accent\/50:hover {
+    background-color: var(--accent);
+  }
+  .dark\:hover\:bg-input\/50:hover {
+    background-color: var(--accent);
+  }
+  .dark\:hover\:text-foreground:hover {
+    color: var(--accent-foreground);
+  }
+  .dark\:focus-visible\:ring-destructive\/40:focus-visible {
+    --tw-ring-color: var(--destructive);
+  }
+  @supports (color: color-mix(in lab, red, red)) {
+    .dark\:focus-visible\:ring-destructive\/40:focus-visible {
+      --tw-ring-color: color-mix(in oklab, var(--destructive) 20%, transparent);
+    }
+  }
+  .dark\:aria-invalid\:ring-destructive\/40[aria-invalid='true'] {
+    --tw-ring-color: var(--destructive);
+  }
+  @supports (color: color-mix(in lab, red, red)) {
+    .dark\:aria-invalid\:ring-destructive\/40[aria-invalid='true'] {
+      --tw-ring-color: color-mix(in oklab, var(--destructive) 20%, transparent);
+    }
+  }
+  .dark\:data-\[state\=active\]\:border-input[data-state='active'] {
+    border-color: transparent;
+  }
+  .dark\:data-\[state\=active\]\:bg-input\/30[data-state='active'] {
+    background-color: var(--background);
+  }
+  .dark\:data-\[state\=active\]\:text-foreground[data-state='active'] {
+    color: var(--foreground);
   }
 }

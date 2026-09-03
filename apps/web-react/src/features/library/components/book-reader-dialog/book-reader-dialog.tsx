@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Download } from 'lucide-react'
+import { Download, Maximize2 } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
 
 import { Button, Dialog } from '@/components/ui'
 
 import { libraryCopy } from '../../library-config'
+import { SHELF_READER_ROUTE_TO, friendlyShelfError } from '../../model/library-shelf-flow'
 import { downloadLibraryResource } from '../../api'
 import { loadPdfDocument } from './book-reader-pdf-document'
 import { BookReaderPdfPagePair } from './book-reader-pdf-page-pair'
@@ -29,6 +31,14 @@ export function BookReaderDialog({ book, open, onClose }: BookReaderDialogProps)
   const [translatedError, setTranslatedError] = useState('')
   const [pageCount, setPageCount] = useState(0)
   const [scrollTop, setScrollTop] = useState(0)
+  const [actionError, setActionError] = useState('')
+
+  function handleDownload(path: string, fileName: string) {
+    setActionError('')
+    downloadLibraryResource(path, fileName).catch((error: unknown) => {
+      setActionError(friendlyShelfError(error, '下载失败，请稍后重试'))
+    })
+  }
 
   useEffect(() => {
     const bookId = book?.id
@@ -183,7 +193,27 @@ export function BookReaderDialog({ book, open, onClose }: BookReaderDialogProps)
       contentClassName="h-full"
       onClose={onClose}
     >
-      <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto]">
+      <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto]" data-testid="book-reader-dialog" data-book-id={book.id}>
+        <div className="flex items-center justify-between gap-3 border-x border-t border-neutral-200 bg-white px-4 py-2.5">
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold text-neutral-950">{book.title}</div>
+            <div className="text-[11px] text-neutral-500">预览入口 · 全屏对照请跳路由，不在此重复实现 reader</div>
+          </div>
+          <Link
+            to={SHELF_READER_ROUTE_TO}
+            params={{ jobId: book.id } as never}
+            data-testid="book-reader-open-full"
+            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-neutral-950 px-3 text-xs font-medium text-white transition hover:bg-neutral-800"
+          >
+            <Maximize2 className="size-3.5" />
+            全屏对照
+          </Link>
+        </div>
+        {actionError ? (
+          <div className="border-x border-neutral-200 bg-red-50 px-4 py-2 text-xs text-red-600" data-testid="book-reader-error">
+            {actionError}
+          </div>
+        ) : null}
         <div ref={scrollRef} className="scrollbar-subtle min-h-0 overflow-auto border border-neutral-200 bg-neutral-100" onScroll={handleScroll}>
           <div className="min-h-full">
             {pages.length ? (
@@ -208,7 +238,7 @@ export function BookReaderDialog({ book, open, onClose }: BookReaderDialogProps)
         </div>
         <div className="grid grid-cols-[1fr_auto_1fr] items-center border-x border-b border-neutral-200 bg-white px-4 py-3">
           <div className="flex justify-center">
-            <Button variant="outline" size="sm" onClick={() => void downloadLibraryResource(sourcePath, `${book.id}-source.pdf`)}>
+            <Button variant="outline" size="sm" data-testid="book-reader-download-source" onClick={() => handleDownload(sourcePath, `${book.id}-source.pdf`)}>
               <Download />
               {libraryCopy.reader.downloadSource}
             </Button>
@@ -217,7 +247,7 @@ export function BookReaderDialog({ book, open, onClose }: BookReaderDialogProps)
             {currentPage} / {effectivePageCount || '-'}
           </div>
           <div className="flex justify-center">
-            <Button variant="outline" size="sm" onClick={() => void downloadLibraryResource(translatedPath, `${book.id}-translated.pdf`)}>
+            <Button variant="outline" size="sm" data-testid="book-reader-download-translated" onClick={() => handleDownload(translatedPath, `${book.id}-translated.pdf`)}>
               <Download />
               {libraryCopy.reader.downloadTranslated}
             </Button>

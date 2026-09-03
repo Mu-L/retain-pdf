@@ -1,3 +1,8 @@
+/**
+ * DEV-ONLY component preview (mock books). Not part of the default render
+ * path — render only behind a dev flag / storybook-style preview entry.
+ * Import ONLY via `@/features/library/dev`, never from `@/features/library`.
+ */
 import { BookCard } from './book-card'
 import { LibraryTopBar } from './library-top-bar'
 import { StatusCard } from '@/features/status'

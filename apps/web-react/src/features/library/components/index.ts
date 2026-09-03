@@ -4,7 +4,7 @@ export { BookCover } from './book-cover'
 export { BookDetailDialog } from './book-detail-dialog'
 export { BookGrid } from './book-grid'
 export { BookReaderDialog } from './book-reader-dialog'
-export { LibraryDevPreview } from './library-dev-preview'
+// NOTE: LibraryDevPreview is DEV-ONLY — import via `@/features/library/dev`, never here.
 export { LibraryEmptyState } from './library-empty-state'
 export { LibraryFilterBar } from './library-filter-bar'
 export { LibraryHeader } from './library-header'

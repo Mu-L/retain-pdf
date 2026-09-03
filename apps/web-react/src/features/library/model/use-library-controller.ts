@@ -1,5 +1,6 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate, useRouter } from '@tanstack/react-router'
 import { API_PREFIX } from '@retainpdf/api/runtime'
 import { deleteLibraryBook as apiDeleteLibraryBook } from '@retainpdf/api/library-books'
 import { deleteDocument as apiDeleteDocument, patchDocument as apiPatchDocument, translateDocument as apiTranslateDocument } from '@retainpdf/api/documents'
@@ -11,6 +12,14 @@ import {
   libraryCopy,
   libraryResourceUrl,
 } from '../index'
+import {
+  SHELF_READER_ROUTE_TO,
+  confirmShelfDelete,
+  friendlyShelfError,
+  readerRouteParams,
+  resolveArtifactDownloadTarget,
+  resolvePdfDownloadTarget,
+} from './library-shelf-flow'
 import { libraryKeys } from '../api/library-queries'
 import { filterLibraryBooksByQuery, filterLibraryBooksByStatus, sortLibraryBooks } from '../library-selectors'
 import type { LibraryBook, LibrarySortKey, LibraryStatusFilterKey } from '../types'
@@ -23,6 +32,13 @@ import {
   shouldPreferTranslateTab,
   type TranslateDocumentPayload,
 } from './library-domain'
+import {
+  buildLibrarySearch,
+  isLibrarySortKey,
+  isLibraryStatusFilterKey,
+  parseLibrarySearch,
+  type LibrarySearch,
+} from './library-search-params'
 
 const APP_EVENTS = {
   openReaderRequested: 'retain:openReaderRequested',
@@ -33,6 +49,24 @@ type UseLibraryControllerOptions = {
   buildTranslateConfig?: (pageRanges?: string) => TranslateDocumentPayload | Record<string, unknown>
 }
 
+/**
+ * Minimal structural view of the TanStack Router instance — enough to sync
+ * ?q=&sort=&status= without coupling model to route objects. `useRouter`
+ * returns undefined outside <RouterProvider> (legacy VITE_USE_SPA=false App),
+ * where we fall back to the history API with the same param names.
+ */
+type LibraryRouterLike = {
+  navigate: (options: Record<string, unknown>) => Promise<unknown> | unknown
+  history: {
+    subscribe: (cb: (event: { location: { search?: string } }) => void) => (() => void) | void
+  }
+}
+
+function readBrowserSearch(): string {
+  if (typeof window === 'undefined') return ''
+  return window.location.search || ''
+}
+
 export function useLibraryController(options: UseLibraryControllerOptions = {}) {
   const { buildTranslateConfig } = options
   const feedback = useLibraryFeedback()
@@ -41,10 +75,86 @@ export function useLibraryController(options: UseLibraryControllerOptions = {}) 
     feedback.setLoadError(message)
   }, [feedback])
 
-  // Data layer now uses TanStack Query with server q param + client fallback
-  const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilterKey, setStatusFilterKey] = useState<LibraryStatusFilterKey>('all')
-  const [sortKey, setSortKey] = useState<LibrarySortKey>('recent')
+  // Filter state lives in the URL (?q=&sort=&status=, validated by the index
+  // route's validateSearch) so links are shareable and back/refresh restore
+  // the same shelf. Local state mirrors the URL; external navigations
+  // (back/forward, in-app Links) are adopted via the effect below.
+  // Outside <RouterProvider> (legacy App fallback) the same params are kept
+  // via window.location + history API.
+  const router = useRouter({ warn: false }) as unknown as LibraryRouterLike | undefined
+  const [initialSearch] = useState<LibrarySearch>(() => parseLibrarySearch(readBrowserSearch()))
+  const [searchQuery, setSearchQueryState] = useState(initialSearch.q)
+  const [statusFilterKey, setStatusFilterKeyState] = useState<LibraryStatusFilterKey>(initialSearch.status)
+  const [sortKey, setSortKeyState] = useState<LibrarySortKey>(initialSearch.sort)
+
+  // Write the next filter state to the URL. q uses replace (per-keystroke),
+  // discrete sort/status taps push so browser back restores the previous shelf.
+  const syncSearchToUrl = useCallback(
+    (next: LibrarySearch, options: { replace: boolean }) => {
+      if (typeof window === 'undefined') return
+      let navigated = false
+      if (router) {
+        try {
+          const result = router.navigate({ to: '/', search: buildLibrarySearch(next), replace: options.replace })
+          void Promise.resolve(result).catch(() => {})
+          navigated = true
+        } catch {
+          navigated = false
+        }
+      }
+      if (navigated) return
+      const params = new URLSearchParams()
+      if (next.q) params.set('q', next.q)
+      if (next.sort !== 'recent') params.set('sort', next.sort)
+      if (next.status !== 'all') params.set('status', next.status)
+      const query = params.toString()
+      const url = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`
+      if (options.replace) window.history.replaceState(null, '', url)
+      else window.history.pushState(null, '', url)
+    },
+    [router],
+  )
+
+  // Adopt external URL changes (back/forward, in-app Link to "/") so the
+  // shelf always matches the address bar. Guarded sets avoid render loops
+  // when the change originated from our own setters above.
+  useEffect(() => {
+    const adopt = (parsed: LibrarySearch) => {
+      setSearchQueryState((current) => (current === parsed.q ? current : parsed.q))
+      setSortKeyState((current) => (current === parsed.sort ? current : parsed.sort))
+      setStatusFilterKeyState((current) => (current === parsed.status ? current : parsed.status))
+    }
+    if (!router) {
+      if (typeof window === 'undefined') return
+      const onPopState = () => adopt(parseLibrarySearch(window.location.search))
+      window.addEventListener('popstate', onPopState)
+      return () => window.removeEventListener('popstate', onPopState)
+    }
+    const unsubscribe = router.history.subscribe((event) => {
+      adopt(parseLibrarySearch(event?.location?.search ?? ''))
+    })
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe()
+    }
+  }, [router])
+
+  function setSearchQuery(value: string) {
+    const q = `${value ?? ''}`
+    setSearchQueryState(q)
+    syncSearchToUrl({ q, sort: sortKey, status: statusFilterKey }, { replace: true })
+  }
+
+  function setSortKey(key: LibrarySortKey) {
+    const sort = isLibrarySortKey(key) ? key : 'recent'
+    setSortKeyState(sort)
+    syncSearchToUrl({ q: searchQuery, sort, status: statusFilterKey }, { replace: false })
+  }
+
+  function setStatusFilterKey(key: LibraryStatusFilterKey) {
+    const status = isLibraryStatusFilterKey(key) ? key : 'all'
+    setStatusFilterKeyState(status)
+    syncSearchToUrl({ q: searchQuery, sort: sortKey, status }, { replace: false })
+  }
 
   const libraryData = useLibraryData({
     query: searchQuery,
@@ -116,11 +226,25 @@ export function useLibraryController(options: UseLibraryControllerOptions = {}) 
 
   function openReader(bookOrId: LibraryBook | string) {
     const bookId = typeof bookOrId === 'string' ? bookOrId : bookOrId.id
-    libraryData.setSelectedBookId(bookId)
+    const normalizedId = `${bookId || ''}`.trim()
+    if (!normalizedId) {
+      feedback.setLoadError(friendlyShelfError('', '缺少任务 ID，无法打开对照阅读'))
+      return
+    }
+    libraryData.setSelectedBookId(normalizedId)
+    // 预览入口：先开 BookReaderDialog（轻量预览），再跳全屏路由；路由失败也不白屏。
     setReaderOpen(true)
-    libraryData.loadBookDetail(bookId)
+    libraryData.loadBookDetail(normalizedId)
     // Also dispatch openSourceReader for parity with controller
-    openSourceReader(bookId)
+    openSourceReader(normalizedId)
+    const params = readerRouteParams(normalizedId)
+    if (params && router) {
+      try {
+        void Promise.resolve(router.navigate({ to: SHELF_READER_ROUTE_TO, params })).catch(() => {})
+      } catch (error) {
+        feedback.setToastText(friendlyShelfError(error, '预览已打开，全屏对照跳转失败'))
+      }
+    }
   }
 
   function toggleSelectedBook(book: LibraryBook) {
@@ -318,44 +442,53 @@ export function useLibraryController(options: UseLibraryControllerOptions = {}) 
   }
 
   // ── Legacy download/delete (keep compat) ─────────────────
+  // 真调 library-api-client 的 downloadLibraryResource，downloading 态 + toast，不白屏。
   function downloadPdf(bookId: string) {
-    const book = libraryData.books.find((item) => item.id === bookId)
-    const artifactUrl = book?.detail?.artifacts.find((artifact) => artifact.state === 'ready' && artifact.downloadUrl)?.downloadUrl
-    const downloadTarget = artifactUrl ? libraryResourceUrl(artifactUrl) : libraryApiUrl(`jobs/${encodeURIComponent(bookId)}/download`)
+    const normalizedId = `${bookId || ''}`.trim()
+    const book = libraryData.books.find((item) => item.id === normalizedId)
+      ?? (libraryData.selectedBook?.id === normalizedId ? libraryData.selectedBook : undefined)
+    const target = resolvePdfDownloadTarget(book ?? null, normalizedId)
+    if (!target) {
+      feedback.setLoadError(friendlyShelfError('', '缺少任务 ID，无法下载 PDF'))
+      return
+    }
+    const downloadTarget = target.fromArtifact ? libraryResourceUrl(target.url) : libraryApiUrl(target.url)
 
-    setDownloadingBookId(bookId)
+    setDownloadingBookId(normalizedId)
     feedback.setLoadError(undefined)
     feedback.setToastText('正在下载...')
-    downloadLibraryResource(downloadTarget, `${book?.title || bookId}.pdf`)
+    downloadLibraryResource(downloadTarget, target.fileName)
       .then(() => {
         feedback.setToastText('已开始下载')
       })
       .catch((error: unknown) => {
-        feedback.setLoadError(error instanceof Error ? error.message : '下载 PDF 失败')
+        feedback.setLoadError(friendlyShelfError(error, '下载 PDF 失败'))
       })
       .finally(() => {
-        setDownloadingBookId((current) => (current === bookId ? undefined : current))
+        setDownloadingBookId((current) => (current === normalizedId ? undefined : current))
       })
   }
 
   function downloadArtifact(artifactKey: string) {
     const book = libraryData.selectedBook
-    const artifact = book?.detail?.artifacts.find((item) => item.key === artifactKey)
+    const target = resolveArtifactDownloadTarget(book ?? null, artifactKey)
 
-    if (!artifact?.downloadUrl || !book) {
+    if (!target || !book) {
+      feedback.setLoadError(friendlyShelfError('', '该文件暂不可下载'))
       return
     }
 
-    const fallbackFileName = artifact.fileName || `${book.id}-${artifact.key}`
+    const artifact = book.detail?.artifacts.find((item) => item.key === artifactKey)
+    const label = artifact?.label || artifactKey
     setDownloadingBookId(book.id)
     feedback.setLoadError(undefined)
-    feedback.setToastText(`正在下载 ${artifact.label}...`)
-    downloadLibraryResource(artifact.downloadUrl, fallbackFileName)
+    feedback.setToastText(`正在下载 ${label}...`)
+    downloadLibraryResource(target.url, target.fileName)
       .then(() => {
-        feedback.setToastText(`已开始下载 ${artifact.label}`)
+        feedback.setToastText(`已开始下载 ${label}`)
       })
       .catch((error: unknown) => {
-        feedback.setLoadError(error instanceof Error ? error.message : '下载文件失败')
+        feedback.setLoadError(friendlyShelfError(error, '下载文件失败'))
       })
       .finally(() => {
         setDownloadingBookId((current) => (current === book.id ? undefined : current))
@@ -364,38 +497,43 @@ export function useLibraryController(options: UseLibraryControllerOptions = {}) 
 
   function deleteBook(bookOrId: LibraryBook | string) {
     const bookId = typeof bookOrId === 'string' ? bookOrId : bookOrId.id
-    if (typeof window !== 'undefined' && !window.confirm(libraryCopy.detail.deleteConfirm)) {
+    const normalizedId = `${bookId || ''}`.trim()
+    if (!normalizedId) {
+      feedback.setLoadError(friendlyShelfError('', '缺少任务 ID，无法删除'))
       return
     }
-    setDeletingBookId(bookId)
+    if (typeof window !== 'undefined' && !confirmShelfDelete(window.confirm.bind(window), libraryCopy.detail.deleteConfirm)) {
+      return
+    }
+    setDeletingBookId(normalizedId)
     feedback.setLoadError(undefined)
-    deleteLibraryBook(bookId)
+    deleteLibraryBook(normalizedId)
       .then(() => {
-        libraryData.removeBookFromLibrary(bookId)
+        libraryData.removeBookFromLibrary(normalizedId)
         setDetailOpen(false)
         setReaderOpen(false)
         feedback.setToastText('已删除')
         queryClient.invalidateQueries({ queryKey: libraryKeys.all })
       })
       .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : '删除失败'
+        const message = friendlyShelfError(error, '删除失败')
         if (message.includes('409') && typeof window !== 'undefined' && window.confirm(libraryCopy.detail.forceDeleteConfirm)) {
-          return deleteLibraryBook(bookId, { force: true })
+          return deleteLibraryBook(normalizedId, { force: true })
             .then(() => {
-              libraryData.removeBookFromLibrary(bookId)
+              libraryData.removeBookFromLibrary(normalizedId)
               setDetailOpen(false)
               setReaderOpen(false)
               feedback.setToastText('已删除')
               queryClient.invalidateQueries({ queryKey: libraryKeys.all })
             })
             .catch((forceError: unknown) => {
-              feedback.setLoadError(forceError instanceof Error ? forceError.message : '强制删除失败')
+              feedback.setLoadError(friendlyShelfError(forceError, '强制删除失败'))
             })
         }
         feedback.setLoadError(message)
       })
       .finally(() => {
-        setDeletingBookId((current) => (current === bookId ? undefined : current))
+        setDeletingBookId((current) => (current === normalizedId ? undefined : current))
       })
   }
 
