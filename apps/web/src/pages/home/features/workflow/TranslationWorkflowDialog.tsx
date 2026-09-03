@@ -54,7 +54,7 @@
 // 子树，Radix 默认的 triggerRef 焦点归还机制失效，复用
 // use-dialog-return-focus.js(同 CredentialsDialog 等的先例)。
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   Dialog,
   DialogCloseButton,
@@ -68,6 +68,7 @@ import { useHomeServices } from "../../home-services-context.js";
 import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
 import { WorkflowPanel } from "./WorkflowPanel.jsx";
 import {
+  APP_EVENTS,
   TRANSLATION_WORKFLOW_DIALOG,
   TRANSLATION_WORKFLOW_MODES,
 } from "../../composition/external.js";
@@ -117,6 +118,57 @@ export function TranslationWorkflowDialog({
     }
   }
 
+  // B2 提交接线(仅本文件,不碰 Escape/背板/× 三路径与 requestClose 逻辑):
+  // #job-form 的提交在这里 capture 阶段统一拦截,单次调用 bridge.submitForm,
+  // WorkflowPanel 内的 onSubmit 由 stopPropagation 压住,避免一次提交跑两遍
+  // submit-flow。
+  // - 失败/被拦:submit-flow 已把原因写进 text store 的 error-box,WorkflowPanel
+  //   内的 InlineErrorBox(已有 error-box 行内红字样式)直接展示;这里不关对话
+  //   框、不卸载,用户改参可直接重提。
+  // - 成功:submit-flow 会先 setWorkflowSections(抬起状态区)再 dispatch
+  //   closeTranslationWorkflow(关对话框)。成功以状态区可见为准,这里补发一次
+  //   带 STATUS 的 openTranslationWorkflow 事件(复用既有 document 事件契约),
+  //   经 runtime.openFromEvent 原子落为 STATUS 态看进度,同时 DOM data-open
+  //   与 store 保持一致(3b 库刷新挂起/恢复读的是 DOM)。
+  const submittingRef = useRef(false);
+  function handleJobFormSubmitCapture(event: React.FormEvent) {
+    const target = event.target as unknown as Element | null;
+    const form = target && typeof target.closest === "function"
+      ? target.closest("#job-form")
+      : null;
+    if (!form) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    void (async () => {
+      try {
+        await services.bridge.submitForm(
+          event as unknown as { preventDefault?: () => void },
+        );
+      } catch {
+        // submit-flow 已落 error-box 行内错误,这里只保对话框不关。
+      }
+      submittingRef.current = false;
+      let succeeded = false;
+      try {
+        succeeded = Boolean(services.statusArea?.isVisible?.());
+      } catch {
+        succeeded = false;
+      }
+      if (!succeeded) return; // 失败/被拦:留屏,行内错误已展示,允许重提。
+      try {
+        document.dispatchEvent(
+          new globalThis.CustomEvent(APP_EVENTS.openTranslationWorkflow, {
+            detail: { mode: TRANSLATION_WORKFLOW_MODES.STATUS },
+          }),
+        );
+      } catch {
+        // 保持已有关闭结果,不抛。
+      }
+    })();
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent
@@ -129,7 +181,10 @@ export function TranslationWorkflowDialog({
           showCloseButton={false}
           size="standard"
         >
-          <DialogShell className="desktop-shell translation-workflow-shell">
+          <DialogShell
+            className="desktop-shell translation-workflow-shell"
+            onSubmitCapture={handleJobFormSubmitCapture}
+          >
             <DialogHeader className={`translation-workflow-head${statusMode ? "" : " is-upload-head"}`}>
               {statusMode ? (
                 <div className="translation-workflow-head-copy">

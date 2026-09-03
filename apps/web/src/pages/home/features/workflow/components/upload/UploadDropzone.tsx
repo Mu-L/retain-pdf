@@ -1,3 +1,5 @@
+// 展示组件边界：只收 props 发回调，不直连 services/store；
+// 文件选择与拖拽预览均由 UploadTile 容器映射为 onFile* 回调。
 import type { ChangeEventHandler, MouseEventHandler, ReactNode, RefCallback } from "react";
 
 import type { UploadViewState } from "../../stores/upload-store.js";

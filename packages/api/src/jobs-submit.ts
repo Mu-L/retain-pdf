@@ -5,6 +5,13 @@ function isObject(value: unknown): boolean {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
+// Upload 表单组参（纯）:仅拼 file 字段,与 apps/web 旧实现逐字节一致。
+export function collectUploadFormData(file: File | Blob): FormData {
+  const form = new FormData();
+  form.append("file", file);
+  return form;
+}
+
 function assertGroupedJobPayload(payload: unknown): void {
   if (!isObject(payload)) throw new Error("提交失败: /api/v1/jobs 需要 JSON object 请求体。");
   const p = payload as Record<string, unknown>;

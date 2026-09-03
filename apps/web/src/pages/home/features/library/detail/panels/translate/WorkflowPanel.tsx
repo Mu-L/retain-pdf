@@ -77,6 +77,10 @@ export function BookTranslationWorkflowPanel({
   const jobId = `${item.job_id || item.active_job_id || ""}`.trim();
   const hasRealJob = Boolean(jobId) && !jobId.startsWith("doc:");
   const showCompactProcess = hasRealJob && !isActive;
+  // 提交中（busy==="translate"）或阶段重试待定：job 回执尚未落袋，
+  // 状态区先行占位，进度一到即在区内展开，不闪现、不另弹工作流窗。
+  const submitting = busy === "translate" || Boolean(stageActionPending);
+  const showStatus = isActive || status.tone === "failed" || submitting;
 
   return (
     <div
@@ -85,7 +89,7 @@ export function BookTranslationWorkflowPanel({
     >
       {showCompactProcess ? <TranslationProcessOverview item={item} /> : null}
 
-      {isActive || status.tone === "failed" ? (
+      {showStatus ? (
         <section
           id="book-detail-status-section"
           className="book-translation-status-panel"

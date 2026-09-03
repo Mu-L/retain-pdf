@@ -1,3 +1,5 @@
+// 展示组件边界：只收 props 发回调，不直连 services/store；
+// 凭据门/预算提示的可见性与文案由 UploadTile 容器映射为 props。
 import type { ReactNode } from "react";
 
 export type TranslationBudgetView = {

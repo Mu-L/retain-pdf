@@ -1,3 +1,5 @@
+// 展示组件边界：只收 props 发回调，不直连 services/store；
+// 提交禁用/文案由 UploadTile 容器按凭据·预算就绪态映射为 submit* props。
 import type { ReactNode } from "react";
 import { Languages, Loader2, ScanSearch, SlidersHorizontal } from "lucide-react";
 
