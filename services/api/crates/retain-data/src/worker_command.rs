@@ -241,8 +241,9 @@ mod tests {
             Some(Path::new("/tmp/layout.json")),
         );
 
-        assert_eq!(cmd.first().map(String::as_str), Some("retainpdf-pipeline"));
-        assert_eq!(cmd.get(1).map(String::as_str), Some("translate-only"));
+        assert_eq!(cmd.first().map(String::as_str), Some("python"));
+        assert_eq!(cmd.get(1).map(String::as_str), Some("-m"));
+        assert_eq!(cmd.get(2).map(String::as_str), Some("retainpdf_pipeline.translate"));
         assert!(contains(&cmd, "--spec"));
         assert!(!contains(&cmd, "--source-json"));
         assert!(!contains(&cmd, "--api-key"));
@@ -285,8 +286,9 @@ mod tests {
             Path::new("/tmp/translated"),
         );
 
-        assert_eq!(cmd.first().map(String::as_str), Some("retainpdf-pipeline"));
-        assert_eq!(cmd.get(1).map(String::as_str), Some("render-only"));
+        assert_eq!(cmd.first().map(String::as_str), Some("python"));
+        assert_eq!(cmd.get(1).map(String::as_str), Some("-m"));
+        assert_eq!(cmd.get(2).map(String::as_str), Some("retainpdf_pipeline.render"));
         assert!(contains(&cmd, "--spec"));
         assert!(!contains(&cmd, "--mode"));
         assert!(!contains(&cmd, "--batch-size"));
@@ -329,8 +331,10 @@ mod tests {
             Path::new("/tmp/provider-raw"),
         );
 
-        assert_eq!(cmd.first().map(String::as_str), Some("retainpdf-pipeline"));
-        assert_eq!(cmd.get(1).map(String::as_str), Some("normalize-ocr"));
+        assert_eq!(cmd.first().map(String::as_str), Some("python"));
+        assert_eq!(cmd.get(1).map(String::as_str), Some("-m"));
+        assert_eq!(cmd.get(2).map(String::as_str), Some("retainpdf_pipeline.ocr"));
+        assert_eq!(cmd.get(3).map(String::as_str), Some("normalize-ocr"));
         assert!(contains(&cmd, "--spec"));
         assert!(!contains(&cmd, "--provider"));
         let spec_path = arg_value(&cmd, "--spec").expect("spec path");
@@ -346,7 +350,7 @@ mod tests {
     }
 
     #[test]
-    fn entrypoint_uses_installed_worker_commands() {
+    fn entrypoint_uses_stage_module_commands() {
         let config = test_config();
         let request = build_request(WorkflowKind::Render);
         let job_paths = build_paths(config.as_ref());
@@ -358,9 +362,9 @@ mod tests {
             Path::new("/tmp/translated"),
         );
 
-        assert_eq!(cmd.first().map(String::as_str), Some("retainpdf-pipeline"));
-        assert_eq!(cmd.get(1).map(String::as_str), Some("render-only"));
-        assert!(!contains(&cmd, "python"));
+        assert_eq!(cmd.first().map(String::as_str), Some("python"));
+        assert_eq!(cmd.get(1).map(String::as_str), Some("-m"));
+        assert_eq!(cmd.get(2).map(String::as_str), Some("retainpdf_pipeline.render"));
         assert!(contains(&cmd, "--spec"));
     }
 
@@ -377,8 +381,10 @@ mod tests {
             &job_paths,
         );
 
-        assert_eq!(cmd.first().map(String::as_str), Some("retainpdf-pipeline"));
-        assert_eq!(cmd.get(1).map(String::as_str), Some("provider-case"));
+        assert_eq!(cmd.first().map(String::as_str), Some("python"));
+        assert_eq!(cmd.get(1).map(String::as_str), Some("-m"));
+        assert_eq!(cmd.get(2).map(String::as_str), Some("retainpdf_pipeline.ocr"));
+        assert_eq!(cmd.get(3).map(String::as_str), Some("provider-case"));
         assert!(contains(&cmd, "--spec"));
         let spec_path = arg_value(&cmd, "--spec").expect("provider spec path");
         let spec_json =
@@ -417,8 +423,10 @@ mod tests {
             &job_paths,
         );
 
-        assert_eq!(cmd.first().map(String::as_str), Some("retainpdf-pipeline"));
-        assert_eq!(cmd.get(1).map(String::as_str), Some("provider-case"));
+        assert_eq!(cmd.first().map(String::as_str), Some("python"));
+        assert_eq!(cmd.get(1).map(String::as_str), Some("-m"));
+        assert_eq!(cmd.get(2).map(String::as_str), Some("retainpdf_pipeline.ocr"));
+        assert_eq!(cmd.get(3).map(String::as_str), Some("provider-case"));
         let spec_path = arg_value(&cmd, "--spec").expect("provider spec path");
         let spec_json =
             std::fs::read_to_string(spec_path).expect("provider stage spec should be written");
@@ -531,8 +539,10 @@ mod tests {
         )
         .expect("build OCR command");
 
-        assert_eq!(cmd.first().map(String::as_str), Some("retainpdf-pipeline"));
-        assert_eq!(cmd.get(1).map(String::as_str), Some("provider-ocr"));
+        assert_eq!(cmd.first().map(String::as_str), Some("python"));
+        assert_eq!(cmd.get(1).map(String::as_str), Some("-m"));
+        assert_eq!(cmd.get(2).map(String::as_str), Some("retainpdf_pipeline.ocr"));
+        assert_eq!(cmd.get(3).map(String::as_str), Some("provider-ocr"));
         assert!(contains(&cmd, "--spec"));
         let spec_path = arg_value(&cmd, "--spec").expect("provider spec path");
         let spec_json =

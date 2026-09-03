@@ -13,9 +13,10 @@ from retainpdf_pipeline.foundation.shared.structured_errors import run_with_stru
 
 def _usage() -> str:
     return (
-        "usage: python -m retainpdf_pipeline.ocr <provider-ocr|normalize-ocr> [args]\n"
+        "usage: python -m retainpdf_pipeline.ocr <provider-ocr|provider-case|normalize-ocr> [args]\n"
         "\n"
         "  provider-ocr   run the configured OCR provider only\n"
+        "  provider-case  run the provider-backed full workflow\n"
         "  normalize-ocr  normalize an OCR provider payload\n"
     )
 
@@ -26,7 +27,7 @@ def main(argv: list[str] | None = None) -> int:
         print(_usage())
         return 0
     worker, rest = args[0], args[1:]
-    if worker == "provider-ocr":
+    if worker in {"provider-ocr", "provider-case"}:
         from retainpdf_pipeline.services.ocr_provider.provider_pipeline import main as worker_main
 
         stage, provider = "provider", "ocr"

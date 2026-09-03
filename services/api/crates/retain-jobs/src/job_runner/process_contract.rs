@@ -22,6 +22,24 @@ pub(super) enum WorkerContract {
 
 impl WorkerContract {
     pub(super) fn from_command(command: &[String]) -> Self {
+        // Stage module shape: python -m retainpdf_pipeline.<stage> [worker].
+        if let Some(flag) = command.iter().position(|value| value == "-m") {
+            let module = command.get(flag + 1).map(String::as_str);
+            let worker = command.get(flag + 2).map(String::as_str);
+            let contract = match (module, worker) {
+                (Some("retainpdf_pipeline.translate"), _) => Some(WorkerContract::Translate),
+                (Some("retainpdf_pipeline.render"), _) => Some(WorkerContract::Render),
+                (Some("retainpdf_pipeline.ocr"), Some("normalize-ocr")) => {
+                    Some(WorkerContract::Normalize)
+                }
+                (Some("retainpdf_pipeline.ocr"), _) => Some(WorkerContract::Provider),
+                _ => None,
+            };
+            if let Some(contract) = contract {
+                return contract;
+            }
+        }
+        // Installed console shape: retainpdf-pipeline <subcommand>.
         if let Some(contract) = command.get(1).and_then(|value| match value.as_str() {
             "normalize-ocr" => Some(WorkerContract::Normalize),
             "translate-only" => Some(WorkerContract::Translate),
@@ -61,6 +79,26 @@ fn build_console_job(subcommand: &str) -> JobRuntimeState {
             "--spec".to_string(),
             "/tmp/spec.json".to_string(),
         ],
+    )
+    .into_runtime()
+}
+
+#[cfg(test)]
+fn build_stage_module_job(module: &str, worker: Option<&str>) -> JobRuntimeState {
+    let mut command = vec![
+        "python".to_string(),
+        "-m".to_string(),
+        module.to_string(),
+    ];
+    if let Some(worker) = worker {
+        command.push(worker.to_string());
+    }
+    command.push("--spec".to_string());
+    command.push("/tmp/spec.json".to_string());
+    JobSnapshot::new(
+        "job-test".to_string(),
+        CreateJobInput::default(),
+        command,
     )
     .into_runtime()
 }
@@ -242,6 +280,30 @@ mod tests {
         assert_eq!(
             WorkerContract::from_command(&build_console_job("render-only").command),
             WorkerContract::Render
+        );
+        assert_eq!(
+            WorkerContract::from_command(
+                &build_stage_module_job("retainpdf_pipeline.translate", None).command
+            ),
+            WorkerContract::Translate
+        );
+        assert_eq!(
+            WorkerContract::from_command(
+                &build_stage_module_job("retainpdf_pipeline.render", None).command
+            ),
+            WorkerContract::Render
+        );
+        assert_eq!(
+            WorkerContract::from_command(
+                &build_stage_module_job("retainpdf_pipeline.ocr", Some("normalize-ocr")).command
+            ),
+            WorkerContract::Normalize
+        );
+        assert_eq!(
+            WorkerContract::from_command(
+                &build_stage_module_job("retainpdf_pipeline.ocr", Some("provider-ocr")).command
+            ),
+            WorkerContract::Provider
         );
     }
 

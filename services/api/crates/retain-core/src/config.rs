@@ -132,7 +132,7 @@ pub struct AppConfig {
 
 #[derive(Clone, Copy, Debug)]
 pub struct WorkerCommandRuntimeConfig<'a> {
-    pub pipeline_command: &'a str,
+    pub python_bin: &'a str,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -176,7 +176,7 @@ struct AppConfigParts {
 impl AppConfig {
     pub fn worker_command_runtime(&self) -> WorkerCommandRuntimeConfig<'_> {
         WorkerCommandRuntimeConfig {
-            pipeline_command: &self.pipeline_command,
+            python_bin: &self.python_bin,
         }
     }
 

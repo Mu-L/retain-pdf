@@ -5,13 +5,19 @@ pub(super) struct CommandBuilder {
 }
 
 impl CommandBuilder {
-    pub(super) fn new(pipeline_command: &str, console_subcommand: &'static str) -> Self {
-        Self {
-            parts: vec![
-                pipeline_command.to_string(),
-                console_subcommand.to_string(),
-            ],
+    /// Build a stage worker command: `python_bin -m <module> [worker]`.
+    /// Each stage is an independent OS process; stages never share memory
+    /// and only exchange files (spec in, artifacts out).
+    pub(super) fn new(python_bin: &str, module: &'static str, worker: Option<&'static str>) -> Self {
+        let mut parts = vec![
+            python_bin.to_string(),
+            "-m".to_string(),
+            module.to_string(),
+        ];
+        if let Some(worker) = worker {
+            parts.push(worker.to_string());
         }
+        Self { parts }
     }
 
     pub(super) fn arg(&mut self, name: &str, value: impl ToString) {

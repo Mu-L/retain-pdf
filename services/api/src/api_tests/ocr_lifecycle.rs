@@ -111,18 +111,33 @@ async fn wait_for_terminal_job(state: &crate::AppState, job_id: &str) -> JobSnap
 async fn ocr_only_submission_reaches_reader_and_document_outputs() {
     let mut state = test_state("ocr-only-lifecycle");
     let bin_dir = state.config.data_root.join("bin");
-    fs::create_dir_all(&bin_dir).expect("create stub bin dir");
-    let stub = bin_dir.join("retainpdf-pipeline");
-    let stub_script = format!("#!/usr/bin/env python3\n{FAKE_OCR_WORKER}");
-    fs::write(&stub, stub_script).expect("write fake pipeline command");
+    // Stage workers run as `python -m retainpdf_pipeline.<stage>`, so the
+    // fake worker is a stub package plus a python wrapper that exposes it
+    // through PYTHONPATH (mirrors production, where the bundled/dev/docker
+    // python always has the real package importable).
+    let fake_lib = bin_dir.join("fakelib");
+    let fake_stage = fake_lib.join("retainpdf_pipeline").join("ocr");
+    fs::create_dir_all(&fake_stage).expect("create fake stage package");
+    fs::write(fake_lib.join("retainpdf_pipeline").join("__init__.py"), b"").expect("write fake package init");
+    fs::write(fake_stage.join("__init__.py"), b"").expect("write fake stage init");
+    fs::write(fake_stage.join("__main__.py"), FAKE_OCR_WORKER).expect("write fake stage worker");
+    let python_stub = bin_dir.join("python3");
+    fs::write(
+        &python_stub,
+        format!(
+            "#!/bin/sh\nexport PYTHONPATH=\"{}:$PYTHONPATH\"\nexec python3 \"$@\"\n",
+            fake_lib.to_string_lossy()
+        ),
+    )
+    .expect("write fake python wrapper");
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&stub, fs::Permissions::from_mode(0o700))
+        fs::set_permissions(&python_stub, fs::Permissions::from_mode(0o700))
             .expect("make stub executable");
     }
     let mut config = (*state.config).clone();
-    config.pipeline_command = stub.to_string_lossy().to_string();
+    config.python_bin = python_stub.to_string_lossy().to_string();
     state.config = std::sync::Arc::new(config);
     let app = build_app(state.clone());
     let boundary = "retainpdf-ocr-lifecycle-boundary";
