@@ -108,12 +108,14 @@ export function createStatusDomain({
   const artifactDownloadBusyStore = createArtifactDownloadBusyStore();
   const artifactDownloadsViewPort = {
     bindProtectedLinks(handler: (event: Event, link: Element) => void) {
-      documentRef.addEventListener("click", (event) => {
+      const onProtectedLinkClick = (event: Event) => {
         const target = event.target as Element | null;
         const link = target?.closest?.(PROTECTED_ARTIFACT_SELECTOR);
         if (!link) return;
         handler(event, link);
-      });
+      };
+      documentRef.addEventListener("click", onProtectedLinkClick);
+      return () => documentRef.removeEventListener("click", onProtectedLinkClick);
     },
     isLinkDisabled(link: Element) {
       const domDisabled = link.getAttribute("aria-disabled") === "true"

@@ -189,7 +189,8 @@ export function createRuntimeFeatures({
       resolveTranslatedPdfName: resolveTranslatedPdfDownloadName,
     },
   }) as ArtifactDownloadsFeature;
-  artifactDownloadsFeature.bindEvents();
+  const disposeArtifactDownloadsEvents = artifactDownloadsFeature.bindEvents();
+  (artifactDownloadsFeature as { disposeEvents?: unknown }).disposeEvents = disposeArtifactDownloadsEvents;
 
   // startPolling/openReader 已由 jobRuntimePort/readerPort/navigationPort 注入；签名仍标必填。
   const recentJobsFeature = mountRecentJobsFeature({

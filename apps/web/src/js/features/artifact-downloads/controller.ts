@@ -124,7 +124,8 @@ export function mountArtifactDownloadsFeature({
   }
 
   function bindEvents() {
-    viewPort.bindProtectedLinks(handleProtectedArtifactClick);
+    const unbind = viewPort.bindProtectedLinks(handleProtectedArtifactClick);
+    return typeof unbind === "function" ? unbind : () => {};
   }
 
   return {

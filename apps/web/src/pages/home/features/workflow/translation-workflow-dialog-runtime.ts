@@ -17,7 +17,7 @@ import type { TranslationWorkflowDialogStatePort } from "../../composition/exter
 //   APP_EVENTS.openTranslationWorkflow / closeTranslationWorkflow,再由本
 //   runtime 的 document 监听统一落状态——3b recent-jobs 的库刷新挂起/恢复
 //   (bindings.js)与 app-actions 提交流程都依赖这两个事件在 document 上可见。
-// - translationWorkflowSync / statusAreaVisibilityChanged → 同步模式。
+  // - statusAreaVisibilityChanged → 同步模式。
 
 export interface TranslationWorkflowStatusAreaPort {
   isVisible?: () => boolean;
@@ -145,7 +145,6 @@ export function createTranslationWorkflowDialogRuntime({
     const bindings: Array<[string, EventListener]> = [
       [APP_EVENTS.openTranslationWorkflow, openFromEvent as unknown as EventListener],
       [APP_EVENTS.closeTranslationWorkflow, close as EventListener],
-      [APP_EVENTS.translationWorkflowSync, sync as EventListener],
       [APP_EVENTS.statusAreaVisibilityChanged, sync as EventListener],
     ];
     const onKeydown = (event: KeyboardEvent) => {

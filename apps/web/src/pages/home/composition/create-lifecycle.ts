@@ -112,6 +112,11 @@ export function createLifecycle({
     disposeWorkflowDialogEvents?.();
     disposeDocumentEvents?.();
     disposeDocumentEvents = null;
+    features.recentJobsFeature?.disposeFeatureEvents?.();
+    const disposeArtifactDownloads = (features.artifactDownloadsFeature as { disposeEvents?: unknown } | undefined)?.disposeEvents;
+    if (typeof disposeArtifactDownloads === "function") {
+      (disposeArtifactDownloads as () => void)();
+    }
     features.jobRuntimeFeature.stopPolling();
     started = false;
   }

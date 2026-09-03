@@ -5,7 +5,7 @@ import { JSDOM } from "jsdom";
 // GlossariesDialog(Phase 3 dialogs 群,蓝图 §3)组件级测试。
 // 校验:契约 id、列表加载/选中/新建草稿、保存的名称回退与
 // "固定/偏好译法缺译文"校验、CSV 导入解析、CSV 导出、refreshWorkflowGlossaries
-// 反向回调断言(mock workflow 域)、APP_EVENTS.refreshGlossaries 触发刷新。
+// 反向回调断言(mock workflow 域)、handlers.reload 直调刷新。
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/index.html" });
 for (const key of ["window", "document", "DocumentFragment", "HTMLElement", "HTMLButtonElement", "HTMLFormElement", "HTMLInputElement", "HTMLTextAreaElement", "HTMLSelectElement", "CustomEvent", "Event", "KeyboardEvent", "MouseEvent", "Node", "MutationObserver", "NodeFilter"]) {
@@ -44,7 +44,6 @@ const { createRoot } = await import("react-dom/client");
 const React = await import("react");
 const { createHomeComposition } = await import("../../src/pages/home/create-home-composition.js");
 const { HomeApp } = await import("../../src/pages/home/HomeApp.jsx");
-const { APP_EVENTS } = await import("../../src/js/contracts/app-contract.js");
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -362,15 +361,16 @@ test("GlossariesDialog：CSV 导出调用 exportGlossaryCsv 并提示成功", as
   globalThis.URL = previousURL;
 });
 
-test("GlossariesDialog：APP_EVENTS.refreshGlossaries 触发列表重新加载", async () => {
+test("GlossariesDialog：直接调 handlers.reload 触发列表重新加载", async () => {
   const { services, calls } = createServices();
   const { host, root, glossariesBaseline } = await settle(services, calls);
 
   await openGlossariesDialog();
   await waitFor(() => calls.fetchGlossaries.length === glossariesBaseline + 1, "打开对话框触发一次列表加载");
 
-  dom.window.document.dispatchEvent(new dom.window.CustomEvent(APP_EVENTS.refreshGlossaries));
-  await waitFor(() => calls.fetchGlossaries.length === glossariesBaseline + 2, "refreshGlossaries 事件触发重新加载");
+  // refreshGlossaries 事件已删（0 生产派发）：外部刷新直调 handlers.reload()
+  await services.glossaries.view.handlersRef.current.reload();
+  await waitFor(() => calls.fetchGlossaries.length === glossariesBaseline + 2, "handlers.reload 触发重新加载");
 
   root.unmount();
   services.dispose();

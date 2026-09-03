@@ -88,10 +88,12 @@ export type RecentJobsFeature = {
   closeRecentJobsDialog: () => void;
   loadRecentJobs: (options?: unknown) => Promise<unknown> | unknown;
   initializeLibraryView: () => void;
+  disposeFeatureEvents?: () => void;
 };
 
 export type ArtifactDownloadsFeature = {
-  bindEvents: () => void;
+  bindEvents: () => unknown;
+  disposeEvents?: unknown;
   handleProtectedArtifactClick: (event: Event, link?: Element) => unknown;
 };
 

@@ -70,7 +70,7 @@ export function mountRecentJobsFeature({
     setDialogOpen: viewPort.setDialogOpen,
   });
 
-  bindRecentJobsFeatureEvents({
+  const featureEvents = bindRecentJobsFeatureEvents({
     apiPrefix,
     commandPort,
     doc: document,
@@ -88,5 +88,6 @@ export function mountRecentJobsFeature({
     closeRecentJobsDialog: refreshScheduler.closeDialog,
     loadRecentJobs: runtime.loadRecentJobs,
     initializeLibraryView: refreshScheduler.initialize,
+    disposeFeatureEvents: () => featureEvents?.dispose?.(),
   };
 }

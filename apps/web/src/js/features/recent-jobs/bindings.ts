@@ -40,20 +40,30 @@ export function bindRecentJobsFeatureEvents({
     },
   });
 
-  doc.addEventListener(APP_EVENTS.statusAreaVisibilityChanged, () => {
+  function onStatusAreaVisibilityChanged() {
     refreshScheduler.setSuspended(refreshScheduler.isSuspended());
-  });
-  doc.addEventListener(APP_EVENTS.openTranslationWorkflow, () => {
+  }
+  function onOpenTranslationWorkflow() {
     refreshScheduler.setSuspended(true);
-  });
-  doc.addEventListener(APP_EVENTS.closeTranslationWorkflow, () => {
+  }
+  function onCloseTranslationWorkflow() {
     // 打开期间 refresh 被 suspend 吞掉；关闭后必须 bypass 5s 节流做一次 soft 对齐
     refreshScheduler.setSuspended(false);
     refreshScheduler.scheduleRefresh({ delay: 300, bypassThrottle: true });
-  });
+  }
+  doc.addEventListener(APP_EVENTS.statusAreaVisibilityChanged, onStatusAreaVisibilityChanged);
+  doc.addEventListener(APP_EVENTS.openTranslationWorkflow, onOpenTranslationWorkflow);
+  doc.addEventListener(APP_EVENTS.closeTranslationWorkflow, onCloseTranslationWorkflow);
 
   return {
     commandSubscription,
     librarySubscription,
+    dispose() {
+      doc.removeEventListener(APP_EVENTS.statusAreaVisibilityChanged, onStatusAreaVisibilityChanged);
+      doc.removeEventListener(APP_EVENTS.openTranslationWorkflow, onOpenTranslationWorkflow);
+      doc.removeEventListener(APP_EVENTS.closeTranslationWorkflow, onCloseTranslationWorkflow);
+      commandSubscription?.destroy?.();
+      librarySubscription?.destroy?.();
+    },
   };
 }

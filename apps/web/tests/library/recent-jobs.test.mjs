@@ -133,19 +133,15 @@ test("app contract centralizes global retainpdf events and dialog roots", () => 
     Object.values(APP_EVENTS).filter((value) => value.startsWith("retainpdf:")).sort(),
     [
       "retainpdf:close-translation-workflow",
-      "retainpdf:home-recent-jobs-state-changed",
-      "retainpdf:home-view-mode-changed",
       "retainpdf:library-job-created",
       "retainpdf:library-job-updated",
       "retainpdf:library-refresh-requested",
       "retainpdf:open-browser-credentials",
       "retainpdf:open-reader-requested",
       "retainpdf:open-translation-workflow",
-      "retainpdf:refresh-glossaries",
       "retainpdf:retry-stage",
       "retainpdf:return-home",
       "retainpdf:status-area-visibility-changed",
-      "retainpdf:translation-workflow-sync",
     ],
   );
   assert.deepEqual(APP_DIALOG_BACKDROP_IDS, [
@@ -210,7 +206,7 @@ test("recent jobs summary view model owns invocation counts and display text", (
   );
 });
 
-test("home state port updates state and dispatches app events", () => {
+test("home state port updates state without dispatching app events", () => {
   const previousDocument = global.document;
   const previousCustomEvent = global.CustomEvent;
   const events = [];
@@ -233,17 +229,13 @@ test("home state port updates state and dispatches app events", () => {
     assert.equal(port.getSnapshot().viewMode, "library");
     // 迁移完成:store 是唯一真值,旧 state 对象不再被回写
     assert.equal(localState.homeViewMode, "library");
-    assert.equal(events.at(-1).type, APP_EVENTS.homeViewModeChanged);
-    assert.deepEqual(events.at(-1).detail, { mode: "library" });
+    // 死事件已删：setViewMode / setRecentJobsLoadingState 不再派发任何事件
+    assert.deepEqual(events, []);
 
     port.setRecentJobsLoadingState("error", "boom");
     assert.equal(port.getSnapshot().recentJobsLoadingState, "error");
     assert.equal(port.getSnapshot().recentJobsError, "boom");
-    assert.equal(events.at(-1).type, APP_EVENTS.homeRecentJobsStateChanged);
-    assert.deepEqual(events.at(-1).detail, {
-      loadingState: "error",
-      error: "boom",
-    });
+    assert.deepEqual(events, []);
     assert.deepEqual(port.getSnapshot(), {
       viewMode: "library",
       recentJobsLoadingState: "error",
@@ -285,7 +277,7 @@ test("home state port normalizes initial state and tolerates missing event APIs"
   });
 });
 
-test("home state port can dispatch through an injected event target", () => {
+test("home state port dispatches no events through an injected event target", () => {
   const previousCustomEvent = global.CustomEvent;
   const events = [];
   global.CustomEvent = class CustomEvent {
@@ -307,13 +299,8 @@ test("home state port can dispatch through an injected event target", () => {
     port.setViewMode("workflow_upload");
     port.setRecentJobsLoadingState("ready");
 
-    assert.deepEqual(events.map((event) => [event.type, event.detail]), [
-      [APP_EVENTS.homeViewModeChanged, { mode: "workflow_upload" }],
-      [APP_EVENTS.homeRecentJobsStateChanged, {
-        loadingState: "ready",
-        error: "",
-      }],
-    ]);
+    // 死事件已删：即使注入 eventTarget，也不派发任何事件
+    assert.deepEqual(events, []);
   } finally {
     global.CustomEvent = previousCustomEvent;
   }

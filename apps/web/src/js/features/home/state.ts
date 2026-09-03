@@ -3,7 +3,6 @@ import {
   type BoundStoreActions,
   type Store,
 } from "../../app-framework/store.js";
-import { APP_EVENTS } from "../../contracts/app-contract.js";
 import {
   HOME_LOADING_STATES,
   HOME_VIEW_MODES,
@@ -28,6 +27,7 @@ export type HomeInitialState = Partial<HomeState> & {
 };
 
 export interface CreateHomeStatePortOptions {
+  // 遗留字段：事件已删（store 是唯一真值），保留签名兼容调用方。
   eventTarget?: {
     dispatchEvent?: (event: Event) => boolean;
   } | null;
@@ -93,37 +93,21 @@ export function createHomeStore(initialState: HomeInitialState = {}): HomeStore 
   });
 }
 
-function dispatchHomeEvent(
-  eventTarget: CreateHomeStatePortOptions["eventTarget"],
-  type: string,
-  detail: Record<string, unknown>,
-) {
-  if (!eventTarget?.dispatchEvent || typeof globalThis.CustomEvent !== "function") {
-    return;
-  }
-  eventTarget.dispatchEvent(new globalThis.CustomEvent(type, { detail }));
-}
-
 export function createHomeStatePort(
   targetState: HomeInitialState = {},
-  { eventTarget = globalThis.document }: CreateHomeStatePortOptions = {},
+  _options: CreateHomeStatePortOptions = {},
 ): HomeStatePort {
   const store = createHomeStore(targetState);
   const actions: BoundStoreActions<HomeState, HomeActions> = store.actions;
 
   function setViewMode(mode?: string) {
-    const snapshot = actions.setViewMode(mode);
-    dispatchHomeEvent(eventTarget, APP_EVENTS.homeViewModeChanged, {
-      mode: snapshot.viewMode,
-    });
+    // store 是唯一真值；旧 homeViewModeChanged 事件已删（0 消费者）。
+    return actions.setViewMode(mode);
   }
 
   function setRecentJobsLoadingState(loadingState?: unknown, error = "") {
-    const snapshot = actions.setRecentJobsLoadingState(loadingState, error);
-    dispatchHomeEvent(eventTarget, APP_EVENTS.homeRecentJobsStateChanged, {
-      loadingState: snapshot.recentJobsLoadingState,
-      error: snapshot.recentJobsError,
-    });
+    // 同上：旧 homeRecentJobsStateChanged 事件已删，读 store 即可。
+    return actions.setRecentJobsLoadingState(loadingState, error);
   }
 
   function getSnapshot(): HomeState {
