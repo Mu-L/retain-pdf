@@ -35,6 +35,9 @@ services/api/auth.local.json
 services/pipeline/.env/*.env
 apps/web/node_modules/
 apps/desktop/node_modules/
+secrets/
+infra/docker/delivery/docker-compose.override.yml
+output/mcp-downloads/
 untitled.txt
 __MACOSX/
 apps/desktop/linux/

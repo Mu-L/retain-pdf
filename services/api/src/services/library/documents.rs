@@ -76,7 +76,7 @@ pub fn list_documents(
         .map(str::trim)
         .filter(|id| !id.is_empty())
     {
-        let documents = deps
+        let documents: Vec<_> = deps
             .db
             .get_document_by_job_id(job_id)?
             .into_iter()
