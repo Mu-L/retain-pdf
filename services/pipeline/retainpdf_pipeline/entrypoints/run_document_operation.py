@@ -6,9 +6,13 @@ import argparse
 import hashlib
 import json
 import os
-import resource
 import sys
 from pathlib import Path
+
+try:  # POSIX resource limits; missing on Windows.
+    import resource
+except ImportError:  # pragma: no cover - Windows fallback
+    resource = None  # type: ignore[assignment]
 
 from retainpdf_pipeline.services.document_operations.page_program import execute_page_program
 from retainpdf_pipeline.services.document_operations.visual_validation import validate_page_program_visuals
@@ -35,6 +39,9 @@ def _load_json(path: Path, label: str) -> dict:
 
 
 def _apply_limits(limits: dict) -> None:
+    if resource is None:
+        # Windows has no rlimits; run without process caps.
+        return
     configured = [
         ("RLIMIT_CPU", int(limits["cpu_time_seconds"])),
         ("RLIMIT_FSIZE", int(limits["output_bytes"])),
