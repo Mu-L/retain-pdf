@@ -26,6 +26,8 @@ function buildBackendEnv(options = {}) {
   const jobsPort = options.jobsPort || 41002;
   const jobsMode = options.jobsMode || process.env.RUST_API_JOBS_MODE || "";
   const jobsSupervise = options.jobsSupervise ?? process.env.RUST_API_JOBS_SUPERVISE;
+  const pipelineCommand = options.pipelineCommand || "";
+  const entrypointMode = options.entrypointMode || "script";
   const bundledAgentCommand = path.join(
     backendRoot,
     "bin",
@@ -44,7 +46,8 @@ function buildBackendEnv(options = {}) {
     RUST_API_PROJECT_ROOT: backendRoot,
     RETAIN_OCR_PROVIDER_CONFIG: path.join(backendRoot, "config", "ocr_providers.json"),
     RUST_API_SCRIPTS_DIR: scriptsDir,
-    RUST_API_PYTHON_ENTRYPOINT_MODE: "script",
+    RUST_API_PYTHON_ENTRYPOINT_MODE: entrypointMode,
+    ...(pipelineCommand ? { RUST_API_PIPELINE_COMMAND: pipelineCommand } : {}),
     // 前端 /api/v1/ai/* 由 Rust 反代到 retainpdf-ai
     RUST_API_AI_SERVICE_BASE: `http://127.0.0.1:${aiServicePort}`,
     PYTHON_BIN: pythonRuntime.command,

@@ -40,7 +40,7 @@ fn build_legacy_provider_case_command(
 mod tests {
     use self::stage_specs::TRANSLATION_API_KEY_ENV_NAME;
     use super::*;
-    use crate::config::{AppConfig, PythonWorkerEntrypointMode};
+    use crate::config::AppConfig;
     use crate::models::domain::{OcrProviderKind, WorkflowKind};
     use crate::models::request::{CreateJobInput, GlossaryEntryInput};
     use crate::ocr_provider::provider_token_env_name;
@@ -69,20 +69,12 @@ mod tests {
             rust_api_root,
             data_root: data_root.clone(),
             scripts_dir: scripts_dir.clone(),
-            run_provider_case_script: scripts_dir.join("run_provider_case.py"),
-            run_provider_ocr_script: scripts_dir.join("run_provider_ocr.py"),
-            run_normalize_ocr_script: scripts_dir.join("run_normalize_ocr.py"),
-            run_translate_from_ocr_script: scripts_dir.join("run_translate_from_ocr.py"),
-            run_translate_only_script: scripts_dir.join("run_translate_only.py"),
-            run_render_only_script: scripts_dir.join("run_render_only.py"),
-            run_failure_ai_diagnosis_script: scripts_dir.join("diagnose_failure_with_ai.py"),
             uploads_dir,
             downloads_dir,
             jobs_db_path: data_root.join("db").join("jobs.db"),
             output_root,
             python_bin: "python".to_string(),
             pipeline_command: "retainpdf-pipeline".to_string(),
-            python_entrypoint_mode: PythonWorkerEntrypointMode::Script,
             bind_host: "127.0.0.1".to_string(),
             port: 41000,
             simple_port: 41001,
@@ -102,12 +94,6 @@ mod tests {
             reader_llm: crate::config::ReaderLlmConfig::default(),
             rag: crate::config::RagConfig::default(),
         })
-    }
-
-    fn test_config_with_entrypoint_mode(mode: PythonWorkerEntrypointMode) -> Arc<AppConfig> {
-        let mut config = Arc::try_unwrap(test_config()).expect("test config has no other refs");
-        config.python_entrypoint_mode = mode;
-        Arc::new(config)
     }
 
     fn build_request(workflow: WorkflowKind) -> ResolvedJobSpec {
@@ -242,7 +228,7 @@ mod tests {
     }
 
     #[test]
-    fn translate_only_command_uses_translation_stage_script() {
+    fn translate_only_command_uses_translation_stage_command() {
         let config = test_config();
         let request = build_request(WorkflowKind::Translate);
         let job_paths = build_paths(config.as_ref());
@@ -255,13 +241,8 @@ mod tests {
             Some(Path::new("/tmp/layout.json")),
         );
 
-        assert!(contains(
-            &cmd,
-            &config
-                .run_translate_only_script
-                .to_string_lossy()
-                .to_string()
-        ));
+        assert_eq!(cmd.first().map(String::as_str), Some("retainpdf-pipeline"));
+        assert_eq!(cmd.get(1).map(String::as_str), Some("translate-only"));
         assert!(contains(&cmd, "--spec"));
         assert!(!contains(&cmd, "--source-json"));
         assert!(!contains(&cmd, "--api-key"));
@@ -292,7 +273,7 @@ mod tests {
     }
 
     #[test]
-    fn render_only_command_uses_render_stage_script_and_artifacts() {
+    fn render_only_command_uses_render_stage_command_and_artifacts() {
         let config = test_config();
         let request = build_request(WorkflowKind::Render);
         let job_paths = build_paths(config.as_ref());
@@ -304,10 +285,8 @@ mod tests {
             Path::new("/tmp/translated"),
         );
 
-        assert!(contains(
-            &cmd,
-            &config.run_render_only_script.to_string_lossy().to_string()
-        ));
+        assert_eq!(cmd.first().map(String::as_str), Some("retainpdf-pipeline"));
+        assert_eq!(cmd.get(1).map(String::as_str), Some("render-only"));
         assert!(contains(&cmd, "--spec"));
         assert!(!contains(&cmd, "--mode"));
         assert!(!contains(&cmd, "--batch-size"));
@@ -350,13 +329,8 @@ mod tests {
             Path::new("/tmp/provider-raw"),
         );
 
-        assert!(contains(
-            &cmd,
-            &config
-                .run_normalize_ocr_script
-                .to_string_lossy()
-                .to_string()
-        ));
+        assert_eq!(cmd.first().map(String::as_str), Some("retainpdf-pipeline"));
+        assert_eq!(cmd.get(1).map(String::as_str), Some("normalize-ocr"));
         assert!(contains(&cmd, "--spec"));
         assert!(!contains(&cmd, "--provider"));
         let spec_path = arg_value(&cmd, "--spec").expect("spec path");
@@ -372,8 +346,8 @@ mod tests {
     }
 
     #[test]
-    fn console_entrypoint_mode_uses_installed_worker_commands() {
-        let config = test_config_with_entrypoint_mode(PythonWorkerEntrypointMode::Console);
+    fn entrypoint_uses_installed_worker_commands() {
+        let config = test_config();
         let request = build_request(WorkflowKind::Render);
         let job_paths = build_paths(config.as_ref());
         let cmd = render_command(
@@ -387,10 +361,6 @@ mod tests {
         assert_eq!(cmd.first().map(String::as_str), Some("retainpdf-pipeline"));
         assert_eq!(cmd.get(1).map(String::as_str), Some("render-only"));
         assert!(!contains(&cmd, "python"));
-        assert!(!contains(
-            &cmd,
-            &config.run_render_only_script.to_string_lossy().to_string()
-        ));
         assert!(contains(&cmd, "--spec"));
     }
 
@@ -407,13 +377,8 @@ mod tests {
             &job_paths,
         );
 
-        assert!(contains(
-            &cmd,
-            &config
-                .run_provider_case_script
-                .to_string_lossy()
-                .to_string()
-        ));
+        assert_eq!(cmd.first().map(String::as_str), Some("retainpdf-pipeline"));
+        assert_eq!(cmd.get(1).map(String::as_str), Some("provider-case"));
         assert!(contains(&cmd, "--spec"));
         let spec_path = arg_value(&cmd, "--spec").expect("provider spec path");
         let spec_json =
@@ -452,13 +417,8 @@ mod tests {
             &job_paths,
         );
 
-        assert!(contains(
-            &cmd,
-            &config
-                .run_provider_case_script
-                .to_string_lossy()
-                .to_string()
-        ));
+        assert_eq!(cmd.first().map(String::as_str), Some("retainpdf-pipeline"));
+        assert_eq!(cmd.get(1).map(String::as_str), Some("provider-case"));
         let spec_path = arg_value(&cmd, "--spec").expect("provider spec path");
         let spec_json =
             std::fs::read_to_string(spec_path).expect("provider stage spec should be written");
@@ -559,7 +519,7 @@ mod tests {
     }
 
     #[test]
-    fn ocr_command_uses_provider_ocr_script() {
+    fn ocr_command_uses_provider_ocr_command() {
         let config = test_config();
         let request = build_request(WorkflowKind::Ocr);
         let job_paths = build_paths(config.as_ref());
@@ -571,10 +531,8 @@ mod tests {
         )
         .expect("build OCR command");
 
-        assert!(contains(
-            &cmd,
-            &config.run_provider_ocr_script.to_string_lossy().to_string()
-        ));
+        assert_eq!(cmd.first().map(String::as_str), Some("retainpdf-pipeline"));
+        assert_eq!(cmd.get(1).map(String::as_str), Some("provider-ocr"));
         assert!(contains(&cmd, "--spec"));
         let spec_path = arg_value(&cmd, "--spec").expect("provider spec path");
         let spec_json =

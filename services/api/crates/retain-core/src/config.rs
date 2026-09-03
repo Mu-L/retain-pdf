@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 
 mod ai_proxy;
 mod ai_service;
@@ -39,129 +39,16 @@ pub use reader_llm::ReaderLlmConfig;
 use server::ServerRuntimeConfig;
 pub use upload::{effective_upload_max_bytes, UploadRuntimeConfig, DEFAULT_UPLOAD_MAX_BYTES};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum PythonWorkerEntrypointMode {
-    Script,
-    Console,
-}
-
-impl PythonWorkerEntrypointMode {
-    pub fn from_env(pipeline_command: &str) -> Result<Self> {
-        Self::from_env_with_auto_default(pipeline_command, true)
-    }
-
-    fn from_env_with_auto_default(
-        pipeline_command: &str,
-        auto_detect_when_unset: bool,
-    ) -> Result<Self> {
-        let configured = env_vars::env_optional_string("RUST_API_PYTHON_ENTRYPOINT_MODE");
-        Self::resolve_with_auto_default(
-            configured.as_deref(),
-            pipeline_command,
-            auto_detect_when_unset,
-        )
-    }
-
-    fn resolve_with_auto_default(
-        configured: Option<&str>,
-        pipeline_command: &str,
-        auto_detect_when_unset: bool,
-    ) -> Result<Self> {
-        if configured.is_none() && !auto_detect_when_unset {
-            return Ok(Self::Script);
-        }
-        Self::resolve(configured, pipeline_command)
-    }
-
-    fn resolve(configured: Option<&str>, pipeline_command: &str) -> Result<Self> {
-        match configured.as_deref().map(str::trim) {
-            None | Some("") => Ok(if pipeline_command_is_available(pipeline_command) {
-                Self::Console
-            } else {
-                Self::Script
-            }),
-            Some(value) if value.eq_ignore_ascii_case("auto") => {
-                Ok(if pipeline_command_is_available(pipeline_command) {
-                    Self::Console
-                } else {
-                    Self::Script
-                })
-            }
-            Some(value) => Self::parse(value),
-        }
-    }
-
-    fn parse(value: &str) -> Result<Self> {
-        match value.trim().to_ascii_lowercase().as_str() {
-            "script" | "scripts" | "path" | "file" => Ok(Self::Script),
-            "console" | "command" | "commands" | "package" => Ok(Self::Console),
-            other => bail!(
-                "invalid RUST_API_PYTHON_ENTRYPOINT_MODE `{other}`; expected auto, script, or console"
-            ),
-        }
-    }
-}
-
-#[cfg(test)]
-mod python_entrypoint_tests {
-    use super::*;
-
-    #[test]
-    fn explicit_entrypoint_modes_remain_stable() {
-        assert_eq!(
-            PythonWorkerEntrypointMode::parse("script").expect("script mode"),
-            PythonWorkerEntrypointMode::Script
+// console-mode 唯一入口：RUST_API_PYTHON_ENTRYPOINT_MODE 已退役。
+// 两阶段退役的第一阶段：读到非空值只 warn 忽略（兼容已部署桌面旧版硬编码
+// script），强制走 console，不再 parse/bail。
+fn warn_ignored_python_entrypoint_mode_env() {
+    let configured = env_vars::env_optional_string("RUST_API_PYTHON_ENTRYPOINT_MODE");
+    if configured.as_deref().is_some_and(|value| !value.trim().is_empty()) {
+        eprintln!(
+            "warning: RUST_API_PYTHON_ENTRYPOINT_MODE is deprecated and ignored; \
+             console mode (retainpdf-pipeline) is always used"
         );
-        assert_eq!(
-            PythonWorkerEntrypointMode::parse("PACKAGE").expect("console mode"),
-            PythonWorkerEntrypointMode::Console
-        );
-        assert!(PythonWorkerEntrypointMode::parse("unknown").is_err());
-    }
-
-    #[test]
-    fn absolute_pipeline_command_availability_is_detected() {
-        let root = std::env::temp_dir().join(format!(
-            "retainpdf-pipeline-command-{}-{}",
-            std::process::id(),
-            fastrand::u64(..)
-        ));
-        std::fs::create_dir_all(&root).expect("temp dir");
-        let command = root.join("retainpdf-pipeline");
-        std::fs::write(&command, b"test").expect("fake command");
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&command, std::fs::Permissions::from_mode(0o700))
-                .expect("make fake command executable");
-        }
-        assert!(pipeline_command_is_available(&command.to_string_lossy()));
-        assert_eq!(
-            PythonWorkerEntrypointMode::resolve(None, &command.to_string_lossy())
-                .expect("auto console mode"),
-            PythonWorkerEntrypointMode::Console
-        );
-        assert_eq!(
-            PythonWorkerEntrypointMode::resolve_with_auto_default(
-                None,
-                &command.to_string_lossy(),
-                false,
-            )
-            .expect("desktop script default"),
-            PythonWorkerEntrypointMode::Script
-        );
-        assert!(!pipeline_command_is_available(
-            &root.join("missing-command").to_string_lossy()
-        ));
-        assert_eq!(
-            PythonWorkerEntrypointMode::resolve(
-                Some("auto"),
-                &root.join("missing-command").to_string_lossy()
-            )
-            .expect("auto script fallback"),
-            PythonWorkerEntrypointMode::Script
-        );
-        let _ = std::fs::remove_dir_all(root);
     }
 }
 
@@ -215,21 +102,14 @@ pub struct AppConfig {
     pub project_root: PathBuf,
     pub rust_api_root: PathBuf,
     pub data_root: PathBuf,
+    /// 保留给 debug/replay_translation_item.py（独立 script-mode，保持不动）。
     pub scripts_dir: PathBuf,
-    pub run_provider_case_script: PathBuf,
-    pub run_provider_ocr_script: PathBuf,
-    pub run_normalize_ocr_script: PathBuf,
-    pub run_translate_from_ocr_script: PathBuf,
-    pub run_translate_only_script: PathBuf,
-    pub run_render_only_script: PathBuf,
-    pub run_failure_ai_diagnosis_script: PathBuf,
     pub uploads_dir: PathBuf,
     pub downloads_dir: PathBuf,
     pub jobs_db_path: PathBuf,
     pub output_root: PathBuf,
     pub python_bin: String,
     pub pipeline_command: String,
-    pub python_entrypoint_mode: PythonWorkerEntrypointMode,
     pub bind_host: String,
     pub port: u16,
     pub simple_port: u16,
@@ -252,14 +132,7 @@ pub struct AppConfig {
 
 #[derive(Clone, Copy, Debug)]
 pub struct WorkerCommandRuntimeConfig<'a> {
-    pub python_bin: &'a str,
     pub pipeline_command: &'a str,
-    pub python_entrypoint_mode: PythonWorkerEntrypointMode,
-    pub run_provider_case_script: &'a Path,
-    pub run_provider_ocr_script: &'a Path,
-    pub run_normalize_ocr_script: &'a Path,
-    pub run_translate_only_script: &'a Path,
-    pub run_render_only_script: &'a Path,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -282,10 +155,7 @@ pub struct JobSnapshotRuntimeConfig<'a> {
 
 #[derive(Clone, Copy, Debug)]
 pub struct FailureAiDiagnosisRuntimeConfig<'a> {
-    pub python_bin: &'a str,
     pub pipeline_command: &'a str,
-    pub python_entrypoint_mode: PythonWorkerEntrypointMode,
-    pub script_path: &'a Path,
     pub project_root: &'a Path,
     pub data_root: &'a Path,
     pub output_root: &'a Path,
@@ -301,20 +171,12 @@ struct AppConfigParts {
     provider_runtime: ProviderRuntimeConfig,
     job_runner: JobRunnerConfig,
     asset: AssetConfig,
-    auto_detect_pipeline_command: bool,
 }
 
 impl AppConfig {
     pub fn worker_command_runtime(&self) -> WorkerCommandRuntimeConfig<'_> {
         WorkerCommandRuntimeConfig {
-            python_bin: &self.python_bin,
             pipeline_command: &self.pipeline_command,
-            python_entrypoint_mode: self.python_entrypoint_mode,
-            run_provider_case_script: &self.run_provider_case_script,
-            run_provider_ocr_script: &self.run_provider_ocr_script,
-            run_normalize_ocr_script: &self.run_normalize_ocr_script,
-            run_translate_only_script: &self.run_translate_only_script,
-            run_render_only_script: &self.run_render_only_script,
         }
     }
 
@@ -340,10 +202,7 @@ impl AppConfig {
 
     pub fn failure_ai_diagnosis_runtime(&self) -> FailureAiDiagnosisRuntimeConfig<'_> {
         FailureAiDiagnosisRuntimeConfig {
-            python_bin: &self.python_bin,
             pipeline_command: &self.pipeline_command,
-            python_entrypoint_mode: self.python_entrypoint_mode,
-            script_path: &self.run_failure_ai_diagnosis_script,
             project_root: &self.project_root,
             data_root: &self.data_root,
             output_root: &self.output_root,
@@ -365,7 +224,6 @@ impl AppConfig {
             provider_runtime: ProviderRuntimeConfig::from_env(),
             job_runner: JobRunnerConfig::from_env(),
             asset: AssetConfig::from_env(),
-            auto_detect_pipeline_command: true,
         })
     }
 
@@ -390,10 +248,6 @@ impl AppConfig {
             provider_runtime: ProviderRuntimeConfig::from_env(),
             job_runner: JobRunnerConfig::from_env(),
             asset: AssetConfig::from_env(),
-            // A packaged desktop must not accidentally execute a same-named
-            // command from the host PATH. It uses bundled scripts unless the
-            // entrypoint mode is explicitly configured.
-            auto_detect_pipeline_command: false,
         })
     }
 
@@ -407,36 +261,24 @@ impl AppConfig {
             provider_runtime,
             job_runner,
             asset,
-            auto_detect_pipeline_command,
         } = parts;
 
         let ai_service = AiServiceConfig::from_env(&paths.project_root, &server.python_bin);
         let jobs_service = JobsServiceConfig::from_env();
         let pipeline_command = env_vars::env_optional_string("RUST_API_PIPELINE_COMMAND")
             .unwrap_or_else(|| "retainpdf-pipeline".to_string());
-        let python_entrypoint_mode = PythonWorkerEntrypointMode::from_env_with_auto_default(
-            &pipeline_command,
-            auto_detect_pipeline_command,
-        )?;
+        warn_ignored_python_entrypoint_mode_env();
         Ok(Self {
             project_root: paths.project_root,
             rust_api_root: paths.rust_api_root,
             data_root: paths.data_root,
             scripts_dir: paths.scripts_dir,
-            run_provider_case_script: paths.run_provider_case_script,
-            run_provider_ocr_script: paths.run_provider_ocr_script,
-            run_normalize_ocr_script: paths.run_normalize_ocr_script,
-            run_translate_from_ocr_script: paths.run_translate_from_ocr_script,
-            run_translate_only_script: paths.run_translate_only_script,
-            run_render_only_script: paths.run_render_only_script,
-            run_failure_ai_diagnosis_script: paths.run_failure_ai_diagnosis_script,
             uploads_dir: paths.uploads_dir,
             downloads_dir: paths.downloads_dir,
             jobs_db_path: paths.jobs_db_path,
             output_root: paths.output_root,
             python_bin: server.python_bin,
             pipeline_command,
-            python_entrypoint_mode,
             bind_host: server.bind_host,
             port: server.port,
             simple_port: auth.simple_port,

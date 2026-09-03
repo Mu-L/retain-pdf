@@ -106,6 +106,47 @@ def validate_backend_binary(
         require(os.access(binary, os.X_OK), f"bundled {label} is not executable: {binary}")
 
 
+def validate_pipeline_command(backend_root: Path, payload: dict[str, object]) -> None:
+    # Transitional check: a missing wrapper only warns so legacy bundles
+    # (script entrypoint fallback) still validate during migration.
+    command_rel = str(payload.get("pipelineCommand") or "").strip()
+    if not command_rel:
+        print("warning: bundle manifest missing pipelineCommand; console mode unavailable (script fallback)")
+        return
+    command_bin = backend_root / command_rel
+    if not command_bin.is_file():
+        print(f"warning: bundled pipeline command missing: {command_bin} (script fallback)")
+        return
+    if not is_windows_bundle(payload) and not os.access(command_bin, os.X_OK):
+        print(f"warning: bundled pipeline command is not executable: {command_bin}")
+        return
+    try:
+        result = subprocess.run(
+            [str(command_bin), "--help"],
+            cwd=backend_root,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=60,
+            check=False,
+        )
+    except Exception as exc:  # noqa: BLE001 - warn-only transitional probe
+        print(f"warning: bundled pipeline command --help probe failed: {exc} (script fallback)")
+        return
+    if result.returncode != 0:
+        print(
+            "warning: bundled pipeline command --help probe failed\n"
+            f"exit code: {result.returncode}\n"
+            f"stdout: {output_summary(result.stdout)}\n"
+            f"stderr: {output_summary(result.stderr)}\n"
+            "(script fallback)"
+        )
+        return
+    print(f"pipeline command probe OK: {command_bin}")
+
+
 def validate_typst_bundle(backend_root: Path, payload: dict[str, object]) -> None:
     typst_bin = typst_executable(backend_root, payload)
     fonts_root = backend_root / "fonts"
@@ -201,6 +242,7 @@ def main() -> None:
         "bundle manifest missing bundled fonts",
     )
 
+    validate_pipeline_command(backend_root, payload)
     validate_typst_bundle(backend_root, payload)
 
     print(f"desktop bundle manifest OK: {manifest_path}")

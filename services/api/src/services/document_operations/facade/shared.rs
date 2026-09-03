@@ -18,13 +18,7 @@ pub(super) fn executor_for(
     match profile {
         CONTROL_PLANE_PREVIEW_PROFILE => Ok(Box::new(ControlPlanePreviewExecutor)),
         RESTRICTED_PAGE_PROGRAM_PROFILE => Ok(Box::new(
-            RestrictedPageProgramExecutor::new_with_entrypoint(
-                &config.data_root,
-                &config.scripts_dir,
-                &config.python_bin,
-                &config.pipeline_command,
-                config.python_entrypoint_mode,
-            ),
+            RestrictedPageProgramExecutor::new(&config.data_root, &config.pipeline_command),
         )),
         _ => Err(AppError::conflict(format!(
             "document operation executor profile is unavailable: {profile}"

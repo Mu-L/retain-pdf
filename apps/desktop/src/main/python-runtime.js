@@ -14,6 +14,10 @@ function createPythonRuntime(options = {}) {
     resolvePythonRuntime: (backendRoot) => resolvePythonRuntime(backendRoot, {
       isPackaged: !!options.isPackaged,
     }),
+    resolvePipelineCommand: (backendRoot, resolveOptions = {}) => resolvePipelineCommand(
+      backendRoot,
+      resolveOptions,
+    ),
   };
 }
 
@@ -144,6 +148,28 @@ function resolvePythonRuntime(backendRoot, options = {}) {
     return { command: "", bundledHome: null };
   }
   return { command: "python3", bundledHome: null };
+}
+
+function resolvePipelineCommand(backendRoot, options = {}) {
+  if (!backendRoot) {
+    return null;
+  }
+  const platform = options.platform || process.platform;
+  const candidates = platform === "win32"
+    ? [
+        path.join(backendRoot, "bin", "retainpdf-pipeline.exe"),
+        path.join(backendRoot, "python", "Scripts", "retainpdf-pipeline.exe"),
+      ]
+    : [
+        path.join(backendRoot, "bin", "retainpdf-pipeline"),
+        path.join(backendRoot, "python", "bin", "retainpdf-pipeline"),
+      ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
 }
 
 function resolveBundledPythonHome(bundledHome) {
@@ -333,4 +359,5 @@ function bundledPythonImportPaths(bundledHome) {
 
 module.exports = {
   createPythonRuntime,
+  resolvePipelineCommand,
 };

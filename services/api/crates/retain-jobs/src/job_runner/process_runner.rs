@@ -126,20 +126,12 @@ mod tests {
             rust_api_root,
             data_root: data_root.clone(),
             scripts_dir: scripts_dir.clone(),
-            run_provider_case_script: scripts_dir.join("run_provider_case.py"),
-            run_provider_ocr_script: scripts_dir.join("run_provider_ocr.py"),
-            run_normalize_ocr_script: scripts_dir.join("run_normalize_ocr.py"),
-            run_translate_from_ocr_script: scripts_dir.join("run_translate_from_ocr.py"),
-            run_translate_only_script: scripts_dir.join("run_translate_only.py"),
-            run_render_only_script: scripts_dir.join("run_render_only.py"),
-            run_failure_ai_diagnosis_script: scripts_dir.join("diagnose_failure_with_ai.py"),
             uploads_dir,
             downloads_dir,
             jobs_db_path: data_root.join("db").join("jobs.db"),
             output_root,
             python_bin: "python3".to_string(),
             pipeline_command: "retainpdf-pipeline".to_string(),
-            python_entrypoint_mode: crate::config::PythonWorkerEntrypointMode::Script,
             bind_host: "127.0.0.1".to_string(),
             port: 41000,
             simple_port: 41001,
@@ -339,7 +331,10 @@ mod tests {
 
     #[tokio::test]
     async fn maybe_attach_ai_failure_diagnosis_persists_ai_result_and_event() {
-        let state = test_state("ai-diagnosis");
+        let mut state = test_state("ai-diagnosis");
+        let bin_dir = state.config.data_root.join("bin");
+        fs::create_dir_all(&bin_dir).expect("create stub bin dir");
+        let stub = bin_dir.join("retainpdf-pipeline");
         let script = r#"#!/usr/bin/env python3
 import argparse
 import json
@@ -347,6 +342,7 @@ import os
 from pathlib import Path
 
 parser = argparse.ArgumentParser()
+parser.add_argument("subcommand", nargs="?")
 parser.add_argument("--input-json", required=True)
 parser.add_argument("--model")
 parser.add_argument("--base-url")
@@ -368,7 +364,16 @@ print(json.dumps({
     "observed_signals": ["unknown-category", "runtime-test"]
 }))
 "#;
-        fs::write(&state.config.run_failure_ai_diagnosis_script, script).expect("write script");
+        fs::write(&stub, script).expect("write stub pipeline command");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&stub, fs::Permissions::from_mode(0o700))
+                .expect("make stub executable");
+        }
+        let mut config = (*state.config).clone();
+        config.pipeline_command = stub.to_string_lossy().to_string();
+        state.config = Arc::new(config);
 
         let mut job = build_job();
         job.job_id = "job-ai-diagnosis".to_string();

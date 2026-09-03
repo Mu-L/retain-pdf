@@ -5,7 +5,7 @@ use std::thread;
 
 use anyhow::{bail, Context, Result};
 use chrono::{DateTime, Duration, Utc};
-use retain_core::config::{pipeline_command_is_available, PythonWorkerEntrypointMode};
+use retain_core::config::pipeline_command_is_available;
 use retain_core::models::domain::{
     now_iso, validate_operation_id, DocumentOperationDispatchReceipt,
     DocumentOperationWorkspaceManifest,
@@ -114,10 +114,7 @@ impl DocumentOperationExecutor for ControlPlanePreviewExecutor {
 #[derive(Debug, Clone)]
 pub struct RestrictedPageProgramExecutor {
     data_root: PathBuf,
-    scripts_dir: PathBuf,
-    python_bin: String,
     pipeline_command: String,
-    entrypoint_mode: PythonWorkerEntrypointMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -150,29 +147,10 @@ struct RestrictedWorkerResult {
 }
 
 impl RestrictedPageProgramExecutor {
-    pub fn new(data_root: &Path, scripts_dir: &Path, python_bin: &str) -> Self {
-        Self::new_with_entrypoint(
-            data_root,
-            scripts_dir,
-            python_bin,
-            "retainpdf-pipeline",
-            PythonWorkerEntrypointMode::Script,
-        )
-    }
-
-    pub fn new_with_entrypoint(
-        data_root: &Path,
-        scripts_dir: &Path,
-        python_bin: &str,
-        pipeline_command: &str,
-        entrypoint_mode: PythonWorkerEntrypointMode,
-    ) -> Self {
+    pub fn new(data_root: &Path, pipeline_command: &str) -> Self {
         Self {
             data_root: data_root.to_path_buf(),
-            scripts_dir: scripts_dir.to_path_buf(),
-            python_bin: python_bin.to_string(),
             pipeline_command: pipeline_command.to_string(),
-            entrypoint_mode,
         }
     }
 
@@ -214,36 +192,16 @@ impl RestrictedPageProgramExecutor {
         ))
     }
 
-    fn worker_command(&self, worker: &Path) -> Command {
-        match self.entrypoint_mode {
-            PythonWorkerEntrypointMode::Script => {
-                let mut command = Command::new(&self.python_bin);
-                command.arg(worker);
-                command
-            }
-            PythonWorkerEntrypointMode::Console => {
-                let mut command = Command::new(&self.pipeline_command);
-                command.arg("document-operation");
-                command
-            }
-        }
+    fn worker_command(&self) -> Command {
+        let mut command = Command::new(&self.pipeline_command);
+        command.arg("document-operation");
+        command
     }
 }
 
 impl DocumentOperationExecutor for RestrictedPageProgramExecutor {
     fn probe(&self, profile_id: &str) -> ExecutorCapabilityReport {
-        let worker = self
-            .scripts_dir
-            .join("entrypoints")
-            .join("run_document_operation.py");
-        let worker_available = match self.entrypoint_mode {
-            PythonWorkerEntrypointMode::Script => {
-                !self.python_bin.trim().is_empty() && worker.is_file()
-            }
-            PythonWorkerEntrypointMode::Console => {
-                pipeline_command_is_available(&self.pipeline_command)
-            }
-        };
+        let worker_available = pipeline_command_is_available(&self.pipeline_command);
         ExecutorCapabilityReport {
             available: profile_id == RESTRICTED_PAGE_PROGRAM_PROFILE && worker_available,
             profile_id: profile_id.to_string(),
@@ -268,13 +226,7 @@ impl DocumentOperationExecutor for RestrictedPageProgramExecutor {
                 .map_err(anyhow::Error::msg)?;
             return Ok(existing.receipt);
         }
-        let worker = self
-            .scripts_dir
-            .join("entrypoints")
-            .join("run_document_operation.py");
-        if self.entrypoint_mode == PythonWorkerEntrypointMode::Script {
-            require_regular_file(&worker, "restricted page executor entrypoint")?;
-        } else if !pipeline_command_is_available(&self.pipeline_command) {
+        if !pipeline_command_is_available(&self.pipeline_command) {
             bail!(
                 "restricted page executor command is unavailable: {}",
                 self.pipeline_command
@@ -291,7 +243,7 @@ impl DocumentOperationExecutor for RestrictedPageProgramExecutor {
         }
         let stdout = open_log(&paths.stdout_log)?;
         let stderr = open_log(&paths.stderr_log)?;
-        let mut command = self.worker_command(&worker);
+        let mut command = self.worker_command();
         command
             .arg("--source")
             .arg(&paths.source_pdf)
@@ -312,17 +264,11 @@ impl DocumentOperationExecutor for RestrictedPageProgramExecutor {
             .stdin(Stdio::null())
             .stdout(Stdio::from(stdout))
             .stderr(Stdio::from(stderr));
-        if self.entrypoint_mode == PythonWorkerEntrypointMode::Script {
-            command.env("PYTHONPATH", &self.scripts_dir);
-        }
         configure_process_group(&mut command);
         let mut child = command.spawn().with_context(|| {
             format!(
                 "failed to start restricted page executor via {}",
-                match self.entrypoint_mode {
-                    PythonWorkerEntrypointMode::Script => worker.display().to_string(),
-                    PythonWorkerEntrypointMode::Console => self.pipeline_command.clone(),
-                }
+                self.pipeline_command.clone(),
             )
         })?;
         let receipt = DocumentOperationDispatchReceipt {
@@ -577,15 +523,12 @@ mod restricted_tests {
     use crate::services::document_operations::workspace::materialize_operation_workspace;
 
     #[test]
-    fn restricted_executor_console_mode_uses_pipeline_subcommand() {
-        let executor = RestrictedPageProgramExecutor::new_with_entrypoint(
+    fn restricted_executor_uses_pipeline_subcommand() {
+        let executor = RestrictedPageProgramExecutor::new(
             Path::new("/tmp/data"),
-            Path::new("/tmp/pipeline"),
-            "python3",
             "/opt/retainpdf/bin/retainpdf-pipeline",
-            PythonWorkerEntrypointMode::Console,
         );
-        let command = executor.worker_command(Path::new("/tmp/pipeline/entrypoints/worker.py"));
+        let command = executor.worker_command();
 
         assert_eq!(
             command.get_program(),
@@ -605,15 +548,16 @@ mod restricted_tests {
             fastrand::u64(..)
         ));
         let data_root = root.join("data");
-        let scripts_dir = root.join("pipeline");
-        fs::create_dir_all(scripts_dir.join("entrypoints")).expect("entrypoints");
-        fs::write(
-            scripts_dir
-                .join("entrypoints")
-                .join("run_document_operation.py"),
-            "import time\ntime.sleep(30)\n",
-        )
-        .expect("fake worker");
+        let bin_dir = root.join("bin");
+        fs::create_dir_all(&bin_dir).expect("bin dir");
+        let stub = bin_dir.join("retainpdf-pipeline");
+        fs::write(&stub, "#!/bin/sh\nsleep 30\n").expect("stub pipeline command");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&stub, fs::Permissions::from_mode(0o700))
+                .expect("make stub executable");
+        }
         let source = root.join("source.pdf");
         fs::write(&source, b"%PDF-1.4\n%%EOF\n").expect("source");
         let program = json!({
@@ -667,7 +611,8 @@ mod restricted_tests {
         };
         materialize_operation_workspace(&data_root, &source, &program, &manifest, &state)
             .expect("workspace");
-        let executor = RestrictedPageProgramExecutor::new(&data_root, &scripts_dir, "python3");
+        let executor =
+            RestrictedPageProgramExecutor::new(&data_root, &stub.to_string_lossy());
         let receipt = executor.start(&manifest).expect("start worker");
         assert!(retain_proc::worker_process_exists(
             executor
