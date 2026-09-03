@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import fcntl
 import hashlib
 import json
 import os
@@ -9,8 +8,44 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+try:  # POSIX file locking; missing on Windows.
+    import fcntl
+except ImportError:  # pragma: no cover - Windows fallback
+    fcntl = None  # type: ignore[assignment]
+
+try:  # Windows file locking; missing on POSIX.
+    import msvcrt
+except ImportError:  # pragma: no cover - POSIX fallback
+    msvcrt = None  # type: ignore[assignment]
+
 CHECKPOINT_LOCK_FILE_NAME = ".translation-checkpoint.lock"
 CHECKPOINT_SNAPSHOTS_DIR_NAME = ".translation-checkpoints"
+
+
+def _lock_exclusive(handle: Any) -> None:
+    """Take a non-blocking exclusive lock, or raise ``BlockingIOError``."""
+    if fcntl is not None:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return
+    if msvcrt is not None:
+        try:
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        except OSError as exc:
+            raise BlockingIOError("checkpoint lock is held by another worker") from exc
+        return
+    # No OS locking available: single-process fallback, keep the handle open
+    # so close() stays symmetric.
+
+
+def _unlock(handle: Any) -> None:
+    if fcntl is not None:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        return
+    if msvcrt is not None:
+        try:
+            msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        except OSError:
+            pass
 
 
 class CheckpointStore:
@@ -21,9 +56,9 @@ class CheckpointStore:
     def acquire(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         lock_path = self.path.parent / CHECKPOINT_LOCK_FILE_NAME
-        handle = lock_path.open("a+", encoding="utf-8")
+        handle = lock_path.open("a+b")
         try:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            _lock_exclusive(handle)
         except BlockingIOError as exc:
             handle.close()
             raise RuntimeError(
@@ -150,7 +185,7 @@ class CheckpointStore:
         if self._lock_handle is None:
             return
         try:
-            fcntl.flock(self._lock_handle.fileno(), fcntl.LOCK_UN)
+            _unlock(self._lock_handle)
         finally:
             self._lock_handle.close()
             self._lock_handle = None
