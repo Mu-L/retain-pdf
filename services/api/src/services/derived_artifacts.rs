@@ -9,33 +9,25 @@ pub(crate) mod side_by_side;
 
 #[derive(Clone, Copy)]
 pub(crate) struct DerivedArtifactDeps<'a> {
-    pub(crate) scripts_dir: &'a Path,
     pub(crate) python_bin: &'a str,
     pub(crate) pipeline_command: &'a str,
-    pub(crate) python_entrypoint_mode: crate::config::PythonWorkerEntrypointMode,
 }
 
 impl<'a> DerivedArtifactDeps<'a> {
-    pub(crate) fn new(scripts_dir: &'a Path, python_bin: &'a str) -> Self {
+    pub(crate) fn new(python_bin: &'a str) -> Self {
         Self {
-            scripts_dir,
             python_bin,
             pipeline_command: "retainpdf-pipeline",
-            python_entrypoint_mode: crate::config::PythonWorkerEntrypointMode::Script,
         }
     }
 
     pub(crate) fn with_pipeline_command(
-        scripts_dir: &'a Path,
         python_bin: &'a str,
         pipeline_command: &'a str,
-        python_entrypoint_mode: crate::config::PythonWorkerEntrypointMode,
     ) -> Self {
         Self {
-            scripts_dir,
             python_bin,
             pipeline_command,
-            python_entrypoint_mode,
         }
     }
 }

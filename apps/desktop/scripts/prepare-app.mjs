@@ -434,6 +434,67 @@ function resolveBundledPythonHome(root) {
   return "";
 }
 
+function pipelineWrapperFileName(platformName = targetPlatform) {
+  return platformName === "win32" ? "retainpdf-pipeline.cmd" : "retainpdf-pipeline";
+}
+
+function resolveBuiltPipelineCommand(backendRoot) {
+  const candidate = path.join(backendRoot, "bin", pipelineWrapperFileName());
+  return fs.existsSync(candidate) ? candidate : "";
+}
+
+function writePipelineConsoleWrapper(backendRoot) {
+  const binDir = path.join(backendRoot, "bin");
+  fs.mkdirSync(binDir, { recursive: true });
+  const wrapperPath = path.join(binDir, pipelineWrapperFileName());
+  if (targetPlatform === "win32") {
+    const content = [
+      "@echo off",
+      "set \"PIPELINE_HERE=%~dp0\"",
+      "\"%PIPELINE_HERE%..\\python\\python.exe\" -m retainpdf_pipeline.entrypoints.console %*",
+    ].join("\r\n") + "\r\n";
+    fs.writeFileSync(wrapperPath, content, "utf8");
+  } else {
+    const content = [
+      "#!/bin/sh",
+      "PIPELINE_HERE=\"$(cd \"$(dirname \"$0\")\" && pwd)\"",
+      "if [ -x \"$PIPELINE_HERE/../python/bin/python3\" ]; then",
+      "  PIPELINE_PY=\"$PIPELINE_HERE/../python/bin/python3\"",
+      "else",
+      "  PIPELINE_PY=\"$PIPELINE_HERE/../python/bin/python\"",
+      "fi",
+      "exec \"$PIPELINE_PY\" -m retainpdf_pipeline.entrypoints.console \"$@\"",
+    ].join("\n") + "\n";
+    fs.writeFileSync(wrapperPath, content, { mode: 0o755 });
+    fs.chmodSync(wrapperPath, 0o755);
+  }
+  return wrapperPath;
+}
+
+function probePipelineConsoleWrapper(backendRoot) {
+  const wrapperCommand = resolveBuiltPipelineCommand(backendRoot);
+  if (!wrapperCommand) {
+    console.warn(
+      "[prepare-app] pipeline console wrapper missing; skipping console probe (script fallback remains)",
+    );
+    return { ok: false, skipped: true, detail: "pipeline wrapper not found (legacy bundle?)" };
+  }
+  const probe = spawnSync(wrapperCommand, ["--help"], {
+    encoding: "utf8",
+    timeout: 60000,
+  });
+  if (probe.status !== 0 || probe.error) {
+    const detail = [
+      probe.error ? String(probe.error.message || probe.error) : "",
+      probe.stdout || "",
+      probe.stderr || "",
+    ].filter(Boolean).join("\n").trim() || "unknown error";
+    console.warn(`[prepare-app] pipeline console probe failed (non-blocking): ${detail}`);
+    return { ok: false, skipped: false, detail };
+  }
+  return { ok: true, skipped: false, detail: (probe.stdout || "").trim().slice(0, 2000) };
+}
+
 function verifyBundledPythonRuntime(root) {
   const pythonCommand = resolveBundledPythonCommand(root);
   if (!pythonCommand) {
@@ -473,12 +534,16 @@ function verifyBundledPythonRuntime(root) {
     const detail = [probe.stdout, probe.stderr].filter(Boolean).join("\n").trim();
     throw new Error(`Bundled Python runtime import check failed: ${detail || "unknown error"}`);
   }
+  // Console entrypoint probe: wrapper --help. Warn-only so legacy bundles
+  // without the wrapper (or without the console entrypoint module) still pass.
+  const consoleProbe = probePipelineConsoleWrapper(path.dirname(root));
   return {
     pythonCommand,
     pythonHome: bundledPythonHome,
     sitePackages: bundledPythonSitePackages(root),
     importPaths: bundledPythonImportPaths(root),
     importCheck: probe.stdout.trim() || "python_bundle_import_check=ok",
+    consoleProbe,
   };
 }
 
@@ -730,6 +795,14 @@ if (!frontendOnly && targetPlatform === "darwin" && hasBundledPosixPython(embedd
   }
 }
 
+if (!frontendOnly) {
+  // Console-mode wrapper (backend/bin): Rust spawns this absolute path when
+  // RUST_API_PYTHON_ENTRYPOINT_MODE=console. Script-mode fallback (backend/pipeline
+  // sources copied below) is intentionally kept, so a missing wrapper only
+  // downgrades to script mode instead of breaking the bundle.
+  writePipelineConsoleWrapper(outputBackendRoot);
+}
+
 const outputPythonRoot = path.join(outputBackendRoot, "python");
 const pythonBundled = fs.existsSync(path.join(outputPythonRoot, "python.exe"))
   || fs.existsSync(path.join(outputPythonRoot, "bin", "python3"))
@@ -802,6 +875,14 @@ if (!frontendOnly) {
     jobsdBinaryName: jobsdBinary.fileName,
     agentBinaryBundled: fs.existsSync(path.join(outputBackendRoot, "bin", agentBinary.fileName)),
     agentBinaryName: agentBinary.fileName,
+    pipelineCommandBundled: Boolean(resolveBuiltPipelineCommand(outputBackendRoot)),
+    pipelineCommand: (() => {
+      const built = resolveBuiltPipelineCommand(outputBackendRoot);
+      return built ? path.relative(outputBackendRoot, built) : null;
+    })(),
+    pipelineConsoleProbe: bundledPythonDiagnostics && bundledPythonDiagnostics.consoleProbe
+      ? bundledPythonDiagnostics.consoleProbe
+      : null,
     providerConfigBundled: fs.existsSync(
       path.join(outputBackendRoot, "config", "ocr_providers.json"),
     ),

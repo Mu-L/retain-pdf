@@ -17,6 +17,7 @@ import pathlib
 import shutil
 
 parser = argparse.ArgumentParser()
+parser.add_argument("subcommand", nargs="?")
 parser.add_argument("--spec", required=True)
 args = parser.parse_args()
 
@@ -108,9 +109,21 @@ async fn wait_for_terminal_job(state: &crate::AppState, job_id: &str) -> JobSnap
 
 #[tokio::test]
 async fn ocr_only_submission_reaches_reader_and_document_outputs() {
-    let state = test_state("ocr-only-lifecycle");
-    fs::write(&state.config.run_provider_ocr_script, FAKE_OCR_WORKER)
-        .expect("write fake OCR worker");
+    let mut state = test_state("ocr-only-lifecycle");
+    let bin_dir = state.config.data_root.join("bin");
+    fs::create_dir_all(&bin_dir).expect("create stub bin dir");
+    let stub = bin_dir.join("retainpdf-pipeline");
+    let stub_script = format!("#!/usr/bin/env python3\n{FAKE_OCR_WORKER}");
+    fs::write(&stub, stub_script).expect("write fake pipeline command");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&stub, fs::Permissions::from_mode(0o700))
+            .expect("make stub executable");
+    }
+    let mut config = (*state.config).clone();
+    config.pipeline_command = stub.to_string_lossy().to_string();
+    state.config = std::sync::Arc::new(config);
     let app = build_app(state.clone());
     let boundary = "retainpdf-ocr-lifecycle-boundary";
 

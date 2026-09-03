@@ -331,6 +331,30 @@ jobs:
           import requests, fitz, pikepdf, PIL, urllib3
           print("python_bundle_import_check=ok")
           PY
+          # 打包 retainpdf-pipeline console 入口：--no-deps 避免重复拉原生轮子触发 ldd 门禁
+          "$bundle_root/bin/python3" -m pip install --target "$site_packages" --no-deps --no-build-isolation "$PWD/services/pipeline"
+          # 兜底：pip 生成脚本首行多为 runner 绝对路径，重写为可搬运 shebang
+          pipeline_entry="$(find "$bundle_root" -maxdepth 4 -name 'retainpdf-pipeline' -type f | head -n 1 || true)"
+          if [ -n "${pipeline_entry:-}" ]; then
+            sed -i '1s|^.*$|#!/usr/bin/env python3|' "$pipeline_entry"
+            chmod +x "$pipeline_entry"
+          fi
+          # 主路径：bundled python 同包 wrapper（兼容 backend/python/bin 与 backend/bin 两种落点）
+          cat > "$bundle_root/bin/retainpdf-pipeline" <<'WRAPPER'
+          #!/bin/sh
+          set -eu
+          SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+          if [ -x "$SCRIPT_DIR/python3" ]; then
+            PYTHON_BIN="$SCRIPT_DIR/python3"
+          elif [ -x "$SCRIPT_DIR/../python/bin/python3" ]; then
+            PYTHON_BIN="$SCRIPT_DIR/../python/bin/python3"
+          else
+            PYTHON_BIN="python3"
+          fi
+          exec "$PYTHON_BIN" -m retainpdf_pipeline.entrypoints.console "$@"
+          WRAPPER
+          chmod +x "$bundle_root/bin/retainpdf-pipeline"
+          "$bundle_root/bin/retainpdf-pipeline" --help
           ldd "$bundle_root/bin/python3"
           bad_refs="$( \
             { ldd "$bundle_root/bin/python3" 2>/dev/null; \

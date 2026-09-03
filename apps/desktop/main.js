@@ -32,6 +32,7 @@ const {
   resolveBackendBinary,
   resolveBackendRoot,
   resolveBundledPythonHome,
+  resolvePipelineCommand,
   resolvePythonRuntime,
   resolveTypstBinary,
 } = backendRuntime;
@@ -138,6 +139,10 @@ async function startBundledBackend() {
   const backendBin = resolveBackendBinary(backendRoot);
   let pythonRuntime = resolvePythonRuntime(backendRoot);
   const scriptsDir = path.join(backendRoot, "pipeline");
+  const pipelineCommand = typeof resolvePipelineCommand === "function"
+    ? resolvePipelineCommand(backendRoot)
+    : null;
+  const pipelineEntrypointMode = pipelineCommand ? "console" : "script";
   const typstBin = resolveTypstBinary(backendRoot);
   const bundledFontPath = path.join(backendRoot, "fonts", "SourceHanSerifSC-Regular.otf");
   const bundledTitleBoldFontPath = path.join(backendRoot, "fonts", "SourceHanSerifSC-Bold.otf");
@@ -171,6 +176,8 @@ async function startBundledBackend() {
       `python=${pythonRuntime.command || "<missing>"}`,
       `pythonHome=${pythonRuntime.bundledHome || "<system>"}`,
       `scriptsDir=${scriptsDir}`,
+      `pipelineCommand=${pipelineCommand || "<missing-script-fallback>"}`,
+      `entrypointMode=${pipelineEntrypointMode}`,
       `aiServiceRoot=${aiServiceRoot}`,
       `typst=${typstBin || "<missing>"}`,
       `log=${getDesktopLogPath() || "<unavailable>"}`,
@@ -185,6 +192,9 @@ async function startBundledBackend() {
   }
   if (!fs.existsSync(scriptsDir)) {
     throw new Error(`missing bundled scripts directory: ${scriptsDir}`);
+  }
+  if (!pipelineCommand) {
+    logDesktop("[desktop] pipeline console wrapper missing; falling back to script entrypoint mode");
   }
   if (app.isPackaged && !typstBin) {
     throw new Error(`missing bundled typst runtime under ${path.join(backendRoot, "typst")}`);
@@ -252,7 +262,9 @@ async function startBundledBackend() {
         bundledTypstFontDir,
         dataRoot,
         desktopApiKey: DESKTOP_API_KEY,
+        entrypointMode: pipelineEntrypointMode,
         inheritHostPythonPath: !app.isPackaged,
+        pipelineCommand: pipelineCommand || undefined,
         pythonRuntime,
         rustApiRoot,
         scriptsDir,
@@ -336,9 +348,11 @@ async function startBundledBackend() {
     bundledTypstFontDir,
     dataRoot,
     desktopApiKey: DESKTOP_API_KEY,
+    entrypointMode: pipelineEntrypointMode,
     inheritHostPythonPath: !app.isPackaged,
     jobsMode: jobsModeForEnv,
     jobsSupervise: jobsSuperviseForEnv,
+    pipelineCommand: pipelineCommand || undefined,
     pythonRuntime,
     rustApiRoot,
     scriptsDir,

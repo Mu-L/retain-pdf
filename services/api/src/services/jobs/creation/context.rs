@@ -108,7 +108,6 @@ pub(crate) struct ReplayDeps<'a> {
     pub(crate) scripts_dir: &'a Path,
     pub(crate) python_bin: &'a str,
     pub(crate) pipeline_command: &'a str,
-    pub(crate) python_entrypoint_mode: crate::config::PythonWorkerEntrypointMode,
     pub(crate) data_root: &'a Path,
 }
 
@@ -118,7 +117,6 @@ impl<'a> ReplayDeps<'a> {
         scripts_dir: &'a Path,
         python_bin: &'a str,
         pipeline_command: &'a str,
-        python_entrypoint_mode: crate::config::PythonWorkerEntrypointMode,
         data_root: &'a Path,
     ) -> Self {
         Self {
@@ -126,7 +124,6 @@ impl<'a> ReplayDeps<'a> {
             scripts_dir,
             python_bin,
             pipeline_command,
-            python_entrypoint_mode,
             data_root,
         }
     }

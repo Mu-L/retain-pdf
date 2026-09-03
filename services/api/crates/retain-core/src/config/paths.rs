@@ -4,21 +4,15 @@ use anyhow::{Context, Result};
 
 use super::env_vars::env_path;
 
-// auto/console/script 三模：console（retainpdf-pipeline）为主，script-mode 仅桌面兼容。
+// console-mode 唯一入口：worker 脚本路径已删除，仅保留 replay 调试脚本所需的 scripts_dir。
 
 #[derive(Clone, Debug)]
 pub struct RuntimePathsConfig {
     pub project_root: PathBuf,
     pub rust_api_root: PathBuf,
     pub data_root: PathBuf,
+    /// 保留给 debug/replay_translation_item.py（独立 script-mode，保持不动）。
     pub scripts_dir: PathBuf,
-    pub run_provider_case_script: PathBuf,
-    pub run_provider_ocr_script: PathBuf,
-    pub run_normalize_ocr_script: PathBuf,
-    pub run_translate_from_ocr_script: PathBuf,
-    pub run_translate_only_script: PathBuf,
-    pub run_render_only_script: PathBuf,
-    pub run_failure_ai_diagnosis_script: PathBuf,
     pub uploads_dir: PathBuf,
     pub downloads_dir: PathBuf,
     pub jobs_db_path: PathBuf,
@@ -90,23 +84,7 @@ impl RuntimePathsConfig {
             project_root,
             rust_api_root,
             data_root,
-            scripts_dir: scripts_dir.clone(),
-            run_provider_case_script: resolve_entrypoint_script(
-                &scripts_dir,
-                "run_provider_case.py",
-            ),
-            run_provider_ocr_script: resolve_entrypoint_script(&scripts_dir, "run_provider_ocr.py"),
-            run_normalize_ocr_script: scripts_dir.join("entrypoints").join("run_normalize_ocr.py"),
-            run_translate_from_ocr_script: scripts_dir
-                .join("entrypoints")
-                .join("run_translate_from_ocr.py"),
-            run_translate_only_script: scripts_dir
-                .join("entrypoints")
-                .join("run_translate_only.py"),
-            run_render_only_script: scripts_dir.join("entrypoints").join("run_render_only.py"),
-            run_failure_ai_diagnosis_script: scripts_dir
-                .join("entrypoints")
-                .join("diagnose_failure_with_ai.py"),
+            scripts_dir,
             uploads_dir,
             downloads_dir,
             jobs_db_path,
@@ -125,11 +103,6 @@ pub fn create_runtime_dirs(paths: &RuntimePathsConfig) -> Result<()> {
         std::fs::create_dir_all(parent)?;
     }
     Ok(())
-}
-
-fn resolve_entrypoint_script(scripts_dir: &Path, script_name: &str) -> PathBuf {
-    let entrypoints_dir = scripts_dir.join("entrypoints");
-    entrypoints_dir.join(script_name)
 }
 
 fn infer_project_root(rust_api_root: &Path) -> Result<PathBuf> {
