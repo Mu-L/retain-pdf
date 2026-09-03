@@ -198,10 +198,13 @@ function mergeRuntimePatch(
     };
   }
   const previousProgress = progressOfPatch(previous);
-  // 仅同 job_id 才可能保留旧 status（终态防回退 / active 盖过 queued）
+  // 仅同 job_id 才可能保留旧 status（终态防回退 / active 盖过 queued / 空状态不降级）
   const previousTerminal = isJobTerminal(previous) && !isJobTerminal(next);
   const previousActiveOverQueued = `${next.status || ""}`.trim() === "queued" && isRecentJobActive(previous);
-  const keepPreviousRuntimeState = previousTerminal || previousActiveOverQueued;
+  // 空状态刷新（后端写库滞后）绝不能把运行中的卡刷成静态：保留旧运行态直到真数据到
+  const nextStatusEmpty = `${next.status || ""}`.trim() === "";
+  const previousActiveOverEmpty = nextStatusEmpty && isRecentJobActive(previous);
+  const keepPreviousRuntimeState = previousTerminal || previousActiveOverQueued || previousActiveOverEmpty;
   const nextStageSnapshot = next.stage_snapshot && typeof next.stage_snapshot === "object"
     ? {
       ...next.stage_snapshot,
@@ -389,7 +392,14 @@ export function createRecentJobsRuntimePatches({
     }
     // 首帧无 document_id 时仍保留补丁：文档列表刷新并带上同一 active job 后，
     // apply() 会把这份进度合并回原书；但这里绝不能 prepend job_id 空壳。
-    runtimeJobPatches.set(nextItem.job_id, job);
+    // 提交即转圈：裸提交包可能没有 status/stage，存入 map 前先钉成 queued，
+    // 否则首轮轮询/水合回来之前的刷新会把卡片画成静态。
+    const queuedFirstFrame = {
+      ...job,
+      status: firstNonEmpty((job as RuntimeJobPatch)?.status, "queued"),
+      stage: firstNonEmpty((job as RuntimeJobPatch)?.stage, "queued"),
+    };
+    runtimeJobPatches.set(nextItem.job_id, queuedFirstFrame);
     if (!hasStableLibraryIdentity(nextItem)) {
       scheduleActiveRefresh?.({ resetTimer: false });
       return;
