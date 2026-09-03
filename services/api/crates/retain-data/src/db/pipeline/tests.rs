@@ -961,3 +961,51 @@ fn terminal_job_closes_attempt_and_removes_it_from_resume_queue() {
         .expect("resume queue")
         .is_empty());
 }
+
+#[test]
+fn stuck_queued_lists_jobs_without_running_attempts() {
+    let fixture = Fixture::new("stuck-queued");
+    // job-1: plain queued, never started -> stuck.
+    fixture
+        .db
+        .save_job(&JobSnapshot::new(
+            "job-stuck".to_string(),
+            CreateJobInput::default(),
+            vec!["python".to_string()],
+        ))
+        .expect("seed stuck job");
+    // job with a running attempt -> resumable path, not stuck.
+    fixture
+        .db
+        .save_job(&JobSnapshot::new(
+            "job-resumable".to_string(),
+            CreateJobInput::default(),
+            vec!["python".to_string()],
+        ))
+        .expect("seed resumable job");
+    fixture
+        .db
+        .acquire_pipeline_attempt("job-resumable", "worker-a", "ocr", 0)
+        .expect("acquire attempt");
+    // failed job -> neither list.
+    let mut failed = JobSnapshot::new(
+        "job-failed".to_string(),
+        CreateJobInput::default(),
+        vec!["python".to_string()],
+    );
+    failed.status = crate::models::domain::JobStatusKind::Failed;
+    fixture.db.save_job(&failed).expect("seed failed job");
+
+    let mut stuck = fixture
+        .db
+        .list_stuck_queued_job_ids()
+        .expect("stuck queue");
+    stuck.sort();
+    assert_eq!(stuck, vec!["job-1".to_string(), "job-stuck".to_string()]);
+
+    let resumable = fixture
+        .db
+        .list_resumable_pipeline_job_ids()
+        .expect("resume queue");
+    assert_eq!(resumable, vec!["job-resumable".to_string()]);
+}

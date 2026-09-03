@@ -163,6 +163,48 @@ pub fn reconcile_stale_running_jobs(config: &AppConfig, db: &Db) -> Result<usize
     Ok(reconciled)
 }
 
+/// Re-drive queued jobs that never started a durable attempt.
+///
+/// Startup-only contract (see `Db::list_stuck_queued_job_ids`): right after
+/// a runtime (re)start no driver task owns any queued job, so re-driving is
+/// safe. Jobs with a running attempt are excluded here; they resume through
+/// `list_resumable_pipeline_job_ids` instead, so the two paths never
+/// double-drive the same job.
+pub fn requeue_stuck_queued_jobs(config: &AppConfig, db: &Db) -> Result<Vec<String>> {
+    let stuck = db.list_stuck_queued_job_ids()?;
+    let timestamp = now_iso();
+    for job_id in &stuck {
+        match db.get_job(job_id) {
+            Ok(mut job) => {
+                job.updated_at = timestamp.clone();
+                job.stage_detail = Some(
+                    "runtime startup requeued stuck queued job for automatic resume".to_string(),
+                );
+                job.append_log(
+                    "WARN: runtime startup found queued job with no driver; requeued for automatic resume",
+                );
+                job.sync_runtime_state();
+                if let Err(error) =
+                    persist_job_with_resources(db, &config.data_root, &config.output_root, &job)
+                {
+                    warn!("runtime startup failed to mark requeued job {job_id}: {error:#}");
+                }
+            }
+            Err(error) => {
+                warn!("runtime startup found stuck queued job {job_id} but failed to load it: {error:#}");
+            }
+        }
+        warn!("runtime startup requeued stuck queued job {job_id}");
+    }
+    if !stuck.is_empty() {
+        warn!(
+            "runtime startup reconciliation requeued {} stuck queued job(s)",
+            stuck.len()
+        );
+    }
+    Ok(stuck)
+}
+
 fn committed_render_output_path(db: &Db, job_id: &str) -> Result<Option<String>> {
     let Some(stage) = db.running_pipeline_stage_state(job_id)? else {
         return Ok(None);
