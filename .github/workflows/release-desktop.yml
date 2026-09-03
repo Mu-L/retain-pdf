@@ -335,7 +335,7 @@ jobs:
             { ldd "$bundle_root/bin/python3" 2>/dev/null; \
               find "$bundle_root" \( -name '*.so' -o -name '*.dylib' \) -type f -print0 | \
               xargs -0 -I{} sh -c 'ldd "{}" 2>/dev/null || true'; } | \
-            rg '/Library/Frameworks/Python\\.framework|/opt/homebrew/Cellar|/usr/local/Cellar|/usr/local/opt/' || true \
+            grep -E '/Library/Frameworks/Python\\.framework|/opt/homebrew/Cellar|/usr/local/Cellar|/usr/local/opt/' || true \
           )"
           if [ -n "$bad_refs" ]; then
             echo "Bundled Linux Python runtime still contains host-specific library references:" >&2

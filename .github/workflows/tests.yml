@@ -76,6 +76,9 @@ jobs:
       - name: Install (root workspaces)
         run: npm ci
 
+      - name: Verify desktop packaging dependencies
+        run: npm --prefix apps/desktop run verify:packaging-deps
+
       - name: Desktop runtime pruning tests
         run: node --test apps/desktop/scripts/runtime-prune.test.mjs
 
