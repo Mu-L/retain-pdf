@@ -46,6 +46,10 @@ const GENERATOR_OPTIONS = {
   unknownAny: false,
 };
 
+function normalizeLineEndings(value) {
+  return value.replace(/\r\n?/g, "\n");
+}
+
 async function generateTarget(target) {
   const inputPath = resolve(PACKAGE_ROOT, target.input);
   const outputPath = resolve(PACKAGE_ROOT, target.output);
@@ -64,7 +68,9 @@ async function generateTarget(target) {
     oneOf: endpointDefinitionNames.map((name) => ({ $ref: `#/definitions/${name}` })),
     definitions: schema.definitions,
   };
-  const generated = await compile(generationSchema, target.rootName, GENERATOR_OPTIONS);
+  const generated = normalizeLineEndings(
+    await compile(generationSchema, target.rootName, GENERATOR_OPTIONS),
+  );
 
   if (CHECK_ONLY) {
     let current = "";
@@ -72,7 +78,7 @@ async function generateTarget(target) {
       current = await readFile(outputPath, "utf8");
     } catch {}
     assert.equal(
-      current,
+      normalizeLineEndings(current),
       generated,
       `${target.output} is stale; run npm run generate --workspace @retainpdf/contracts`,
     );
