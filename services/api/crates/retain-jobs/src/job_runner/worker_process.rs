@@ -15,7 +15,7 @@ use crate::ocr_provider::{
     provider_token_env_name, require_supported_provider,
 };
 
-const OCR_PROVIDER_CREDENTIAL_KIND: &str = "ocr_provider_token";
+use super::runtime_credentials::resolve_ocr_provider_token;
 
 pub(super) fn spawn_worker_process(
     config: &WorkerProcessRuntimeConfig<'_>,
@@ -76,25 +76,6 @@ fn apply_job_credentials(
         }
     }
     Ok(runtime_secrets)
-}
-
-fn resolve_ocr_provider_token(
-    data_root: &std::path::Path,
-    job: &JobRuntimeState,
-) -> Result<Option<String>> {
-    let credential_ref = job.request_payload.ocr.credential_ref.trim();
-    if credential_ref.is_empty() {
-        return Ok(None);
-    }
-    let expected_provider = job.request_payload.ocr.provider.trim().to_ascii_lowercase();
-    let resolved = resolve_credential(data_root, credential_ref, OCR_PROVIDER_CREDENTIAL_KIND)
-        .with_context(|| format!("resolve OCR credential_ref {credential_ref}"))?;
-    if resolved.provider.trim().to_ascii_lowercase() != expected_provider {
-        anyhow::bail!(
-            "OCR credential provider mismatch for credential_ref {credential_ref}: expected {expected_provider}"
-        );
-    }
-    Ok(Some(resolved.secret))
 }
 
 fn resolve_translation_api_key(
@@ -163,6 +144,7 @@ mod tests {
     use std::fs;
     use std::path::{Path, PathBuf};
 
+    use super::super::runtime_credentials::OCR_PROVIDER_CREDENTIAL_KIND;
     use super::*;
     use crate::models::domain::{JobSnapshot, OcrProviderKind};
     use crate::models::request::CreateJobInput;

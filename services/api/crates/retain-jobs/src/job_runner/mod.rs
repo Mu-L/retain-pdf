@@ -10,6 +10,7 @@ mod process_contract;
 mod process_runner;
 mod render_flow;
 mod render_flow_artifacts;
+mod runtime_credentials;
 mod runtime_deps;
 mod runtime_state;
 mod stage_contract;
