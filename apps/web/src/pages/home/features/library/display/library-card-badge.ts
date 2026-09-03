@@ -60,8 +60,8 @@ export function libraryCardBadge(item: LibraryCardItem = {}): LibraryCardBadge |
     };
   }
 
-  // 排队 / 运行中（兜底）
-  if (isRecentJobActive(item) || status === "queued" || status === "running") {
+  // 排队 / 运行中（兜底）：进行中不挂角标，中央 loading 表达
+  if (isRecentJobActive(item) || status === "queued" || status === "running" || status === "processing" || status === "validating") {
     return null;
   }
 
@@ -87,6 +87,7 @@ export function libraryCardBadge(item: LibraryCardItem = {}): LibraryCardBadge |
 /** 是否应在封面中央显示处理中加载动画 */
 export function isLibraryCardProcessing(item: LibraryCardItem = {}): boolean {
   if (isLibraryOnlyItem(item)) return false;
+  const RUNNING_STAGES = new Set(["ocr", "translate", "render", "queued", "processing", "validating"]);
   const status = `${item.status || ""}`.trim().toLowerCase();
   if (status === "failed" || status === "canceled" || status === "cancelled") {
     return false;
@@ -96,17 +97,27 @@ export function isLibraryCardProcessing(item: LibraryCardItem = {}): boolean {
   if (status === "succeeded" && isOcrOnlyItem(item)) {
     return false;
   }
-  // 明确运行中
-  if (status === "queued" || status === "running" || status === "pending") {
+  // 明确运行中（列表投影只有原生 stage，无 display_stage，见 live.rs）：
+  // 后端 running 之外的运行态（processing/validating）同样在转。
+  if (status === "queued" || status === "running" || status === "pending" || status === "processing" || status === "validating") {
     return true;
   }
-  // 重试后偶发 status 未及时变、但 stage 已回到 ocr/翻译/渲染
+  // 重试后偶发 status 未及时变、但 stage 已回到 ocr/翻译/渲染；
+  // 列表投影只有原生 stage（live.rs，无 display_stage），一并看 item.stage。
   const stage = stageKeyForRecentJobLabel(item);
-  if (["ocr", "translate", "render", "queued"].includes(stage)) {
-    // succeeded + stage=done 是真完成；succeeded + stage=ocr 视为重试脏态 → 仍转圈
-    if (status === "succeeded" && stage === "done") return false;
-    if (status === "succeeded" || status === "") return true;
+  const rawStage = `${(item as any).stage || ""}`.trim().toLowerCase();
+  const normRawStage = rawStage === "translation" || rawStage === "translating" ? "translate" : rawStage;
+  const effStage = stage || (RUNNING_STAGES.has(normRawStage) ? normRawStage : "");
+  // succeeded 先看原生 stage：helper 会把 succeeded 统一收敛成 done，
+  // 但重试脏态（原生 stage 回到 ocr/翻译/渲染/processing）必须仍转圈。
+  if (status === "succeeded") {
+    if (RUNNING_STAGES.has(normRawStage)) return true;
+    if (RUNNING_STAGES.has(effStage)) return true;
+    return false;
   }
-  if (status === "succeeded" || stage === "done") return false;
+  if (RUNNING_STAGES.has(effStage)) {
+    if (status === "") return true;
+  }
+  if (effStage === "done") return false;
   return isRecentJobActive(item);
 }

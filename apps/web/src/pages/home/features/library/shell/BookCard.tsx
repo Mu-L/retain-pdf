@@ -59,6 +59,7 @@ export function cardSignatureOf(item: LibraryCardItem = {}) {
     item.reading_status,
     item.updated_at,
     item.status,
+    item.stage,
     item.display_stage,
     item.substage,
     progress.current,
