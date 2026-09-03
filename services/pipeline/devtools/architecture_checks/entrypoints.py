@@ -103,4 +103,54 @@ def check_stage_spec_contract_checker(errors: list[str]) -> None:
 __all__ = [
     "check_entrypoint_stable_imports",
     "check_stage_spec_contract_checker",
+    "check_top_level_shim_freeze",
 ]
+
+
+# Top-level services/pipeline/entrypoints/*.py are script-mode compatibility
+# shims for the packaged desktop only. No new shims may be added: new worker
+# entry goes to retainpdf_pipeline console subcommands instead.
+TOP_LEVEL_SHIMS_ROOT = SCRIPTS_ROOT / "entrypoints"
+TOP_LEVEL_SHIM_ALLOWLIST = frozenset(
+    {
+        "diagnose_failure_with_ai.py",
+        "run_book.py",
+        "run_document_flow.py",
+        "run_document_operation.py",
+        "run_normalize_ocr.py",
+        "run_provider_case.py",
+        "run_provider_ocr.py",
+        "run_render_only.py",
+        "run_translate_only.py",
+    }
+)
+
+# Pre-migration ghosts: top-level services/foundation/runtime must never hold
+# source again. All pipeline code lives under retainpdf_pipeline/.
+LEGACY_TOP_LEVEL_PACKAGE_DIRS = ("services", "foundation", "runtime")
+
+
+def check_top_level_shim_freeze(errors: list[str]) -> None:
+    if TOP_LEVEL_SHIMS_ROOT.is_dir():
+        for path in sorted(TOP_LEVEL_SHIMS_ROOT.glob("*.py")):
+            if path.name not in TOP_LEVEL_SHIM_ALLOWLIST:
+                errors.append(
+                    f"entrypoints/{path.name}: new top-level shims are frozen; "
+                    "add a retainpdf-pipeline console subcommand instead "
+                    "(script-mode is desktop-only)"
+                )
+    for dirname in LEGACY_TOP_LEVEL_PACKAGE_DIRS:
+        legacy = SCRIPTS_ROOT / dirname
+        if not legacy.exists():
+            continue
+        stray = [
+            path
+            for path in legacy.rglob("*.py")
+            if "__pycache__" not in path.parts and ".ipynb_checkpoints" not in path.parts
+        ]
+        if stray:
+            errors.append(
+                f"{dirname}/: legacy top-level package dir must stay source-free; "
+                f"move {stray[0].name} under retainpdf_pipeline/ "
+                f"({len(stray)} stray file(s))"
+            )

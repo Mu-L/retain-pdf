@@ -10,7 +10,7 @@ BACKEND_ROOT="$(python3 .github/scripts/resolve_backend_source.py --print-path)"
 cd "$BACKEND_ROOT/api"
 RUST_API_BIND_HOST=0.0.0.0 \
 RUST_API_DATA_ROOT="$PRODUCT_ROOT/data" \
-RUST_API_SCRIPTS_DIR="$BACKEND_ROOT/scripts" \
+RUST_API_SCRIPTS_DIR="$BACKEND_ROOT/pipeline" \
 cargo run
 ```
 
@@ -58,7 +58,7 @@ Docker 中 `infra/docker/delivery/docker/auth.local.json` 的 `api_keys` 必须�
 - `RUST_API_SIMPLE_PORT`：multipart 异步提交端口，默认 `42000`。
 - `RUST_API_DATA_ROOT`：运行时数据根目录。
 - `RUST_API_DATA_DIR`：旧别名，仅在 `RUST_API_DATA_ROOT` 未设置时使用。
-- `RUST_API_SCRIPTS_DIR`：Python 脚本目录。
+- `RUST_API_SCRIPTS_DIR`：Python 脚本目录（script-mode 用；默认 console-mode 不需要）。
 - `PYTHON_BIN`：Python 可执行文件。
 - `RUST_API_UPLOAD_MAX_BYTES`：普通上传大小限制，`0` 表示不限制。
 - `RUST_API_UPLOAD_MAX_PAGES`：普通上传页数限制，`0` 表示不限制。
