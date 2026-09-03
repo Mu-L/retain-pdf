@@ -9,6 +9,7 @@ const {
 } = require("./src/main/backend-startup-diagnostics");
 const { buildBackendEnv } = require("./src/main/backend-env");
 const { createBackendHttp } = require("./src/main/backend-http");
+const { createPortOccupant } = require("./src/main/port-occupant");
 const { createBackendRuntime } = require("./src/main/backend-runtime");
 const { createDesktopConfigStore } = require("./src/main/desktop-config");
 const { createDesktopLogger } = require("./src/main/desktop-logging");
@@ -41,6 +42,7 @@ const backendHttp = createBackendHttp({
   logger: console,
 });
 const { canReuseExistingBackend } = backendHttp;
+const portOccupant = createPortOccupant({ canConnectToPort, logger: console });
 const desktopConfigStore = createDesktopConfigStore(app, { desktopApiKey: DESKTOP_API_KEY });
 const {
   buildDesktopConfigResponse,
@@ -146,6 +148,9 @@ async function startBundledBackend() {
   const typstPackageCachePath = path.join(dataRoot, "typst-package-cache");
   const apiPort = 41000;
   const simplePort = 42000;
+  // Must match RUST_API_JOBS_PORT default in retain-core config/jobs_service.rs
+  // (buildBackendEnv falls back to the same default when jobsPort is unset).
+  const jobsServicePort = 41002;
   const aiServicePort = AI_SERVICE_PORT;
   // Packaged builds use backend/ai_service; development may use services/ai.
   let aiServiceRoot = path.join(backendRoot, "ai_service");
@@ -201,7 +206,22 @@ async function startBundledBackend() {
 
   const apiPortBusy = await canConnectToPort("127.0.0.1", apiPort);
   logDesktop(`[desktop] port ${apiPort} busy=${apiPortBusy}`);
+  let apiPortOccupantLine = "";
   if (apiPortBusy) {
+    const reclaim = await portOccupant.reclaimPortIfOwnResidual("127.0.0.1", apiPort);
+    logDesktop(
+      `[desktop] port ${apiPort} occupant=${reclaim.occupant ? `${reclaim.occupant.image || "<unknown>"}:${reclaim.occupant.pid}` : "<none>"} reclaim=${reclaim.status}`,
+    );
+    if (reclaim.status === "reclaimed") {
+      updateSplashProgress(36, "正在清理残留进程", "已回收上次残留的后端端口");
+    } else {
+      apiPortOccupantLine = portOccupant.describeOccupant(apiPort, reclaim.occupant);
+    }
+  }
+  const apiPortStillBusy = apiPortBusy
+    ? await canConnectToPort("127.0.0.1", apiPort)
+    : false;
+  if (apiPortStillBusy) {
     const allowExternalBackend = process.env.RETAINPDF_DESKTOP_ALLOW_EXTERNAL_BACKEND === "1";
     if (app.isPackaged && !allowExternalBackend) {
       throw new Error(
@@ -209,7 +229,9 @@ async function startBundledBackend() {
           `端口 ${apiPort} 已被占用。`,
           "正式桌面端不会复用已有后端，避免连接到旧版本或开发版后端导致渲染错误。",
           "请关闭其他 RetainPDF、旧版桌面端、Docker/系统服务后再启动。",
-        ].join("\n"),
+          apiPortOccupantLine,
+          `完整日志：${getDesktopLogPath() || "<unavailable>"}`,
+        ].filter(Boolean).join("\n"),
       );
     }
     if (await canReuseExistingBackend(apiPort)) {
@@ -249,14 +271,52 @@ async function startBundledBackend() {
       return;
     }
     throw new Error(
-      `端口 ${apiPort} 已被其他进程占用，且不是可复用的 RetainPDF 后端。请先关闭占用进程后再启动桌面端。`,
+      [
+        `端口 ${apiPort} 已被其他进程占用，且不是可复用的 RetainPDF 后端。请先关闭占用进程后再启动桌面端。`,
+        apiPortOccupantLine,
+      ].filter(Boolean).join("\n"),
     );
   }
 
   const simplePortBusy = await canConnectToPort("127.0.0.1", simplePort);
   logDesktop(`[desktop] port ${simplePort} busy=${simplePortBusy}`);
+  let simplePortOccupantLine = "";
   if (simplePortBusy) {
-    throw new Error(`端口 ${simplePort} 已被其他进程占用，请先释放后再启动桌面端。`);
+    const reclaim = await portOccupant.reclaimPortIfOwnResidual("127.0.0.1", simplePort);
+    logDesktop(
+      `[desktop] port ${simplePort} occupant=${reclaim.occupant ? `${reclaim.occupant.image || "<unknown>"}:${reclaim.occupant.pid}` : "<none>"} reclaim=${reclaim.status}`,
+    );
+    if (reclaim.status !== "reclaimed") {
+      simplePortOccupantLine = portOccupant.describeOccupant(simplePort, reclaim.occupant);
+    }
+  }
+  if (simplePortBusy && (await canConnectToPort("127.0.0.1", simplePort))) {
+    throw new Error(
+      [
+        `端口 ${simplePort} 已被其他进程占用，请先释放后再启动桌面端。`,
+        simplePortOccupantLine,
+      ].filter(Boolean).join("\n"),
+    );
+  }
+
+  // retain-jobsd was never pre-checked: a residual jobsd fails rust_api bind
+  // later and the desktop idles 90s before timing out. Fail fast with a name.
+  const jobsPortBusy = await canConnectToPort("127.0.0.1", jobsServicePort);
+  logDesktop(`[desktop] port ${jobsServicePort} busy=${jobsPortBusy}`);
+  if (jobsPortBusy) {
+    const reclaim = await portOccupant.reclaimPortIfOwnResidual("127.0.0.1", jobsServicePort);
+    logDesktop(
+      `[desktop] port ${jobsServicePort} occupant=${reclaim.occupant ? `${reclaim.occupant.image || "<unknown>"}:${reclaim.occupant.pid}` : "<none>"} reclaim=${reclaim.status}`,
+    );
+    if (reclaim.status !== "reclaimed") {
+      throw new Error(
+        [
+          `端口 ${jobsServicePort} 已被其他进程占用（任务服务），请先释放后再启动桌面端。`,
+          portOccupant.describeOccupant(jobsServicePort, reclaim.occupant),
+        ].filter(Boolean).join("\n"),
+      );
+    }
+    updateSplashProgress(36, "正在清理残留进程", "已回收上次残留的任务服务端口");
   }
 
   const bundledPythonHome = resolveBundledPythonHome(pythonRuntime.bundledHome);
@@ -370,7 +430,18 @@ async function startRetainpdfAiService({
 
   const aiBusy = await canConnectToPort("127.0.0.1", aiServicePort);
   if (aiBusy) {
-    logDesktop(`[desktop] AI service port ${aiServicePort} already in use; reusing`);
+    let occupantLabel = "<none>";
+    try {
+      const occupant = await portOccupant.getPortOccupant("127.0.0.1", aiServicePort);
+      if (occupant) {
+        occupantLabel = `${occupant.image || "<unknown>"}:${occupant.pid}`;
+      }
+    } catch {
+      occupantLabel = "<lookup-failed>";
+    }
+    logDesktop(
+      `[desktop] AI service port ${aiServicePort} already in use; reusing (occupant=${occupantLabel})`,
+    );
     return;
   }
 
