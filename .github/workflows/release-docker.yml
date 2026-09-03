@@ -82,10 +82,12 @@ jobs:
       - name: Resolve release version
         id: release
         shell: bash
+        env:
+          MANUAL_VERSION: ${{ inputs.version }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             python3 .github/scripts/resolve_release_version.py \
-              --tag "${{ inputs.version }}" \
+              --tag "$MANUAL_VERSION" \
               --allow-label \
               --github-output "$GITHUB_OUTPUT"
           elif [ "${{ github.ref_type }}" = "tag" ]; then
@@ -102,10 +104,20 @@ jobs:
       - name: Resolve build policy
         id: policy
         shell: bash
+        env:
+          MANUAL_PLATFORMS: ${{ inputs.platforms }}
+          MANUAL_PUSH: ${{ inputs.push }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "platforms=${{ inputs.platforms }}" >> "$GITHUB_OUTPUT"
-            echo "push=${{ inputs.push }}" >> "$GITHUB_OUTPUT"
+            case "$MANUAL_PLATFORMS" in
+              linux/amd64|linux/arm64|linux/amd64,linux/arm64|linux/arm64,linux/amd64) ;;
+              *)
+                echo "Unsupported Docker platforms: $MANUAL_PLATFORMS" >&2
+                exit 1
+                ;;
+            esac
+            echo "platforms=$MANUAL_PLATFORMS" >> "$GITHUB_OUTPUT"
+            echo "push=$MANUAL_PUSH" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.ref_type }}" = "tag" ]; then
             echo "platforms=linux/amd64,linux/arm64" >> "$GITHUB_OUTPUT"
             echo "push=true" >> "$GITHUB_OUTPUT"
@@ -152,8 +164,10 @@ jobs:
         with:
           images: ${{ steps.hub.outputs.user }}/${{ matrix.target.repo }}
           tags: |
-            type=raw,value=${{ steps.release.outputs.tag }}
-            type=raw,value=latest,enable=${{ github.event_name == 'push' && steps.release.outputs.stable == 'true' }}
+            type=raw,value=candidate-${{ github.sha }}-${{ github.run_id }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.release.outputs.version }}
 
       - name: Login to Docker Hub
         if: steps.policy.outputs.push == 'true'
@@ -181,6 +195,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Build and push
+        id: build-image
         uses: docker/build-push-action@v7
         with:
           context: ${{ steps.build-source.outputs.context }}
@@ -196,11 +211,47 @@ jobs:
           cache-from: type=gha,scope=release-docker-${{ matrix.target.name }}
           cache-to: type=gha,mode=max,scope=release-docker-${{ matrix.target.name }}
 
+      - name: Record candidate image identity
+        if: steps.policy.outputs.push == 'true'
+        shell: bash
+        env:
+          TARGET_NAME: ${{ matrix.target.name }}
+          TARGET_REPO: ${{ matrix.target.repo }}
+          IMAGE_DIGEST: ${{ steps.build-image.outputs.digest }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          TARGET_PLATFORMS: ${{ steps.policy.outputs.platforms }}
+        run: |
+          if ! printf '%s' "$IMAGE_DIGEST" | grep -Eq '^sha256:[0-9a-f]{64}$'; then
+            echo "Build did not return a valid image digest: $IMAGE_DIGEST" >&2
+            exit 1
+          fi
+          mkdir -p docker-candidate
+          jq -n \
+            --arg target "$TARGET_NAME" \
+            --arg repo "$TARGET_REPO" \
+            --arg digest "$IMAGE_DIGEST" \
+            --arg revision "$GITHUB_SHA" \
+            --arg version "$RELEASE_VERSION" \
+            --arg platforms "$TARGET_PLATFORMS" \
+            '{target: $target, repo: $repo, digest: $digest, revision: $revision, version: $version, platforms: $platforms}' \
+            > "docker-candidate/${TARGET_NAME}.json"
+          cat "docker-candidate/${TARGET_NAME}.json"
+
+      - name: Upload candidate image identity
+        if: steps.policy.outputs.push == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: docker-candidate-${{ matrix.target.name }}-${{ github.run_id }}
+          path: docker-candidate/${{ matrix.target.name }}.json
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
+
       - name: Smoke loaded PR image
         if: github.event_name == 'pull_request'
         shell: bash
         env:
-          IMAGE_REF: ${{ steps.hub.outputs.user }}/${{ matrix.target.repo }}:${{ steps.release.outputs.tag }}
+          IMAGE_REF: ${{ steps.hub.outputs.user }}/${{ matrix.target.repo }}:candidate-${{ github.sha }}-${{ github.run_id }}
           TARGET_NAME: ${{ matrix.target.name }}
         run: |
           container="retainpdf-${TARGET_NAME}-pr-smoke"
@@ -242,3 +293,177 @@ jobs:
           done
           echo "${TARGET_NAME} image did not become ready at ${probe_url}" >&2
           exit 1
+
+  publish:
+    needs: build
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.push == true)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout release revision
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve release version
+        id: release
+        shell: bash
+        env:
+          MANUAL_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            python3 .github/scripts/resolve_release_version.py \
+              --tag "$MANUAL_VERSION" \
+              --allow-label \
+              --github-output "$GITHUB_OUTPUT"
+          else
+            python3 .github/scripts/resolve_release_version.py \
+              --tag "$GITHUB_REF_NAME" \
+              --github-output "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Download app candidate identity
+        uses: actions/download-artifact@v7
+        with:
+          name: docker-candidate-app-${{ github.run_id }}
+          path: docker-candidates
+
+      - name: Download web candidate identity
+        uses: actions/download-artifact@v7
+        with:
+          name: docker-candidate-web-${{ github.run_id }}
+          path: docker-candidates
+
+      - name: Resolve Docker Hub namespace
+        id: hub
+        shell: bash
+        run: |
+          user="${{ secrets.DOCKERHUB_USERNAME }}"
+          if [ -z "$user" ]; then
+            user="${GITHUB_REPOSITORY_OWNER}"
+          fi
+          echo "user=${user}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Verify both candidate images
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          for target in app web; do
+            manifest="docker-candidates/${target}.json"
+            if [ ! -s "$manifest" ]; then
+              echo "Missing candidate identity manifest: $manifest" >&2
+              exit 1
+            fi
+            revision="$(jq -r '.revision' "$manifest")"
+            version="$(jq -r '.version' "$manifest")"
+            manifest_target="$(jq -r '.target' "$manifest")"
+            repo="$(jq -r '.repo' "$manifest")"
+            digest="$(jq -r '.digest' "$manifest")"
+            platforms="$(jq -r '.platforms' "$manifest")"
+            if [ "$manifest_target" != "$target" ] || [ "$revision" != "$GITHUB_SHA" ] || [ "$version" != "$EXPECTED_VERSION" ]; then
+              echo "Candidate identity mismatch for $target: revision=$revision version=$version" >&2
+              exit 1
+            fi
+            if ! printf '%s' "$digest" | grep -Eq '^sha256:[0-9a-f]{64}$'; then
+              echo "Invalid candidate digest for $target: $digest" >&2
+              exit 1
+            fi
+            case "$target:$repo" in
+              app:retainpdf-app|web:retainpdf-web) ;;
+              *)
+                echo "Unexpected candidate repository for $target: $repo" >&2
+                exit 1
+                ;;
+            esac
+            image="${{ steps.hub.outputs.user }}/${repo}@${digest}"
+            echo "Verifying ${image} for ${platforms}"
+            docker buildx imagetools inspect "$image" --format '{{json .Image}}' > "docker-candidates/${target}-images.json"
+            expected_platforms="$(printf '%s' "$platforms" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sort)"
+            actual_platforms="$(jq -r 'keys[]' "docker-candidates/${target}-images.json" | sort)"
+            if [ "$actual_platforms" != "$expected_platforms" ]; then
+              echo "Candidate platform mismatch for $target" >&2
+              echo "expected: $expected_platforms" >&2
+              echo "actual: $actual_platforms" >&2
+              exit 1
+            fi
+            label_mismatches="$(
+              jq \
+                --arg revision "$GITHUB_SHA" \
+                --arg version "$EXPECTED_VERSION" \
+                '[to_entries[] | select(
+                  .value.config.Labels["org.opencontainers.image.revision"] != $revision or
+                  .value.config.Labels["org.opencontainers.image.version"] != $version
+                )] | length' \
+                "docker-candidates/${target}-images.json"
+            )"
+            if [ "$label_mismatches" != "0" ]; then
+              echo "Candidate OCI identity labels do not match this release for $target" >&2
+              exit 1
+            fi
+          done
+
+      - name: Verify release identity before promotion
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          head_sha="$(git rev-parse HEAD)"
+          if [ "$head_sha" != "$GITHUB_SHA" ]; then
+            echo "Checked out revision does not match this run: head=$head_sha expected=$GITHUB_SHA" >&2
+            exit 1
+          fi
+
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            remote_sha="$(git ls-remote origin "refs/tags/${GITHUB_REF_NAME}^{}" | awk 'NR == 1 { print $1 }')"
+            if [ -z "$remote_sha" ]; then
+              remote_sha="$(git ls-remote origin "refs/tags/${GITHUB_REF_NAME}" | awk 'NR == 1 { print $1 }')"
+            fi
+            if [ "$remote_sha" != "$GITHUB_SHA" ]; then
+              echo "Release tag moved while Docker images were building: remote=$remote_sha expected=$GITHUB_SHA" >&2
+              exit 1
+            fi
+          else
+            case "$RELEASE_TAG" in
+              dev|dev-*|manual-*) ;;
+              *)
+                echo "Manual Docker publishing only accepts dev, dev-*, or manual-* labels" >&2
+                exit 1
+                ;;
+            esac
+          fi
+
+      - name: Promote complete Docker release
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          STABLE_RELEASE: ${{ steps.release.outputs.stable }}
+        run: |
+          for target in app web; do
+            repo="$(jq -r '.repo' "docker-candidates/${target}.json")"
+            digest="$(jq -r '.digest' "docker-candidates/${target}.json")"
+            image="${{ steps.hub.outputs.user }}/${repo}"
+            docker buildx imagetools create --tag "${image}:${RELEASE_TAG}" "${image}@${digest}"
+            docker buildx imagetools inspect "${image}:${RELEASE_TAG}"
+          done
+
+          if [ "$STABLE_RELEASE" = "true" ]; then
+            for target in app web; do
+              repo="$(jq -r '.repo' "docker-candidates/${target}.json")"
+              digest="$(jq -r '.digest' "docker-candidates/${target}.json")"
+              image="${{ steps.hub.outputs.user }}/${repo}"
+              docker buildx imagetools create --tag "${image}:latest" "${image}@${digest}"
+              docker buildx imagetools inspect "${image}:latest"
+            done
+          fi

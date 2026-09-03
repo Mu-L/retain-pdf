@@ -8,7 +8,7 @@ run-name: Release Desktop · ${{ github.ref_name }}
       - "[0-9]*.[0-9]*.[0-9]*"
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-desktop-${{ github.ref }}
@@ -199,13 +199,14 @@ jobs:
         shell: pwsh
         run: npm --prefix apps/desktop run smoke:frontend-bundle
 
-      - name: Upload release assets
-        uses: softprops/action-gh-release@v3
+      - name: Upload Windows package artifact
+        uses: actions/upload-artifact@v7
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
-          files: |
-            ${{ env.DESKTOP_ROOT }}/win/RetainPDF-Windows-${{ steps.version.outputs.version }}-Setup.exe
+          name: desktop-windows-${{ github.sha }}
+          path: ${{ env.DESKTOP_ROOT }}/win/RetainPDF-Windows-${{ steps.version.outputs.version }}-Setup.exe
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
 
   build-linux-release:
     needs: quality-gate
@@ -426,13 +427,14 @@ jobs:
             exit 1
           fi
 
-      - name: Upload Linux release assets
-        uses: softprops/action-gh-release@v3
+      - name: Upload Linux package artifact
+        uses: actions/upload-artifact@v7
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
-          files: |
-            ${{ env.DESKTOP_ROOT }}/linux/RetainPDF-Linux-${{ steps.version.outputs.version }}.deb
+          name: desktop-linux-${{ github.sha }}
+          path: ${{ env.DESKTOP_ROOT }}/linux/RetainPDF-Linux-${{ steps.version.outputs.version }}.deb
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
 
   build-macos-release:
     needs: quality-gate
@@ -1001,10 +1003,100 @@ jobs:
         shell: bash
         run: npm --prefix apps/desktop run smoke:frontend-bundle
 
-      - name: Upload macOS release assets
+      - name: Upload macOS package artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-macos-${{ github.sha }}
+          path: ${{ env.DESKTOP_ROOT }}/mac/RetainPDF-Mac-${{ steps.version.outputs.version }}.dmg
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
+
+  publish-desktop-release:
+    needs:
+      - build-windows-release
+      - build-linux-release
+      - build-macos-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout release revision
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Derive version
+        id: version
+        shell: bash
+        run: python3 .github/scripts/resolve_release_version.py --tag "${{ github.ref_name }}" --github-output "$GITHUB_OUTPUT"
+
+      - name: Download Windows package artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: desktop-windows-${{ github.sha }}
+          path: release-assets
+
+      - name: Download Linux package artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: desktop-linux-${{ github.sha }}
+          path: release-assets
+
+      - name: Download macOS package artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: desktop-macos-${{ github.sha }}
+          path: release-assets
+
+      - name: Verify complete desktop release set
+        shell: bash
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          expected=(
+            "release-assets/RetainPDF-Windows-${version}-Setup.exe"
+            "release-assets/RetainPDF-Linux-${version}.deb"
+            "release-assets/RetainPDF-Mac-${version}.dmg"
+          )
+          for asset in "${expected[@]}"; do
+            if [ ! -s "$asset" ]; then
+              echo "Missing or empty desktop release asset: $asset" >&2
+              exit 1
+            fi
+          done
+          find release-assets -maxdepth 1 -type f -print | sort
+          (
+            cd release-assets
+            sha256sum \
+              "RetainPDF-Windows-${version}-Setup.exe" \
+              "RetainPDF-Linux-${version}.deb" \
+              "RetainPDF-Mac-${version}.dmg" \
+              > SHA256SUMS.txt
+          )
+          cat release-assets/SHA256SUMS.txt
+
+      - name: Verify release tag still targets this revision
+        shell: bash
+        run: |
+          head_sha="$(git rev-parse HEAD)"
+          remote_sha="$(git ls-remote origin "refs/tags/${GITHUB_REF_NAME}^{}" | awk 'NR == 1 { print $1 }')"
+          if [ -z "$remote_sha" ]; then
+            remote_sha="$(git ls-remote origin "refs/tags/${GITHUB_REF_NAME}" | awk 'NR == 1 { print $1 }')"
+          fi
+          if [ "$head_sha" != "$GITHUB_SHA" ] || [ "$remote_sha" != "$GITHUB_SHA" ]; then
+            echo "Release tag moved while this run was building: head=$head_sha remote=$remote_sha expected=$GITHUB_SHA" >&2
+            exit 1
+          fi
+
+      - name: Publish complete desktop release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
           files: |
-            ${{ env.DESKTOP_ROOT }}/mac/RetainPDF-Mac-${{ steps.version.outputs.version }}.dmg
+            release-assets/RetainPDF-Windows-${{ steps.version.outputs.version }}-Setup.exe
+            release-assets/RetainPDF-Linux-${{ steps.version.outputs.version }}.deb
+            release-assets/RetainPDF-Mac-${{ steps.version.outputs.version }}.dmg
+            release-assets/SHA256SUMS.txt

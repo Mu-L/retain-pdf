@@ -76,7 +76,7 @@ jobs:
         with:
           images: ${{ steps.hub.outputs.user }}/retainpdf-web
           tags: |
-            type=raw,value=latest
+            type=raw,value=edge
             type=sha,prefix=current-
 
       - name: Resolve frontend version
