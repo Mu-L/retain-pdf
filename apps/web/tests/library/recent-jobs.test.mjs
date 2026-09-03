@@ -145,7 +145,6 @@ test("app contract centralizes global retainpdf events and dialog roots", () => 
       "retainpdf:retry-stage",
       "retainpdf:return-home",
       "retainpdf:status-area-visibility-changed",
-      "retainpdf:submit-busy-changed",
       "retainpdf:translation-workflow-sync",
     ],
   );

@@ -1,41 +1,15 @@
-// home 页生产 React 入口。
-// index.html 加载 dist/app.bundle.js；该产物由 build-js-bundle.mjs 从本文件构建。
-//
-// 顺序保证(蓝图 §4):composition 先建、事件桥先绑、idle 视图先落 store,
-// 再 createRoot().render —— useSyncExternalStore 首读即拿现值,不闪空壳。
-// 与 detail/reader 先例一致:不开 StrictMode(composition 含一次性事件绑定,
-// 双调用会重复 dispatch;命令式复用件与 StrictMode 解耦是三页统一约定)。
+// home 页生产 React 入口（产物 dist/app.bundle.js，由 index.html 挂载）。
+// 启动顺序见 src/pages/shell-boot.ts：adapters → bootTheme → 找根 → 挂载（不开 StrictMode）。
+// 业务组装：composition 先建、事件桥先绑、idle 视图先落 store，再一行挂载。
 
-import "@/js/bootstrap/job-domain-adapters.js";
-import { createRoot } from "react-dom/client";
-import { bootTheme } from "@/shared/theme/theme.js";
 import { DecorStage } from "@/shared/decor/DecorStage.jsx";
 import { createHomeComposition } from "./create-home-composition.js";
 import { HomeApp } from "./HomeApp.jsx";
+import { mountShellPage } from "../shell-boot.js";
 
-// 尽早挂 data-theme，减少换肤 FOUC（见 docs/core/frontend/theme-system/THEME_SYSTEM.md）
-bootTheme();
-
-// appUpdateAutoCheckEnabled: true——create-home-composition.js 默认关闭 app-update 的后台
-// GitHub 自检(测试隔离,见 create-home-composition.js 头注释),生产入口这里显式打开,
-// 生产入口显式启用后台更新检查，测试装配默认保持关闭。
+// appUpdateAutoCheckEnabled: true——create-home-composition 默认关闭后台
+// GitHub 自检（测试隔离），生产入口这里显式打开。
 const services = createHomeComposition({ appUpdateAutoCheckEnabled: true });
 services.initialize();
 
-function resolveHomeRoot(body = document.body) {
-  let host = document.getElementById("home-root");
-  if (!host) {
-    host = document.createElement("div");
-    host.id = "home-root";
-    body.appendChild(host);
-  }
-  return host;
-}
-
-createRoot(resolveHomeRoot()).render(
-  <>
-    {/* 装饰舞台：无 decorPack 的主题渲染 null，零开销（docs/core/frontend/theme-system/DECOR_PACKS.md） */}
-    <DecorStage />
-    <HomeApp services={services} />
-  </>,
-);
+mountShellPage("home-root", <><DecorStage /><HomeApp services={services} /></>, { createIfMissing: true });

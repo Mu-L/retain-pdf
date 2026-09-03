@@ -1,14 +1,9 @@
-// detail 页 React 入口:挂载到 detail.html 的 #detail-root。
-// 打包产物为 dist/detail.bundle.js(见 scripts/build-js-bundle.mjs)。
+// detail 页 React 入口（产物 dist/detail.bundle.js，由 detail.html 挂载）。
+// 启动顺序见 src/pages/shell-boot.ts：adapters → bootTheme → 找根 → 挂载（不开 StrictMode）。
+// 业务组装（一行）：<DetailApp getJobId={parseDetailJobId 契约} />；缺根不挂载（旧语义）。
 
-import "@/js/bootstrap/job-domain-adapters.js";
-import { createRoot } from "react-dom/client";
-import { bootTheme } from "@/shared/theme/theme.js";
 import { DetailApp } from "./DetailApp.jsx";
+import { parseDetailJobId } from "../navigation.js";
+import { mountShellPage } from "../shell-boot.js";
 
-bootTheme();
-
-const host = document.getElementById("detail-root");
-if (host) {
-  createRoot(host).render(<DetailApp />);
-}
+mountShellPage("detail-root", <DetailApp getJobId={() => parseDetailJobId()} />);

@@ -1,5 +1,4 @@
 import { $ } from "../../dom/query.js";
-import { APP_EVENTS } from "../../contracts/app-contract.js";
 
 export interface ResetMissingUploadStateOptions {
   uploadStatePort?: {
@@ -10,9 +9,7 @@ export interface ResetMissingUploadStateOptions {
 }
 
 export function setSubmitBusy(busy) {
-  document.dispatchEvent(new CustomEvent(APP_EVENTS.submitBusyChanged, {
-    detail: { busy: !!busy },
-  }));
+  // 注：submitBusyChanged 事件已删（0 消费者）；busy 状态走 DOM 直写。
   const button = $("submit-btn") as HTMLButtonElement | null;
   if (button) {
     button.disabled = !!busy;

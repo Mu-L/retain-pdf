@@ -1,5 +1,16 @@
 // home 页组合根：只做「顺序接线」，不写业务、不堆 import。
 //
+// 装配顺序图（13工厂）：
+//  1 legacyState(developer/desktop) → 2 homeState/uploadState/credentialsState
+//  → 3 textStore/uploadView/workflowView/statusArea/dialog+workflowDialog
+//  → 4 bridge[读features晚绑定+statusDetailHolder] → 5 workflowAndUpload[写features.workflow/upload]
+//  → 6 credentials[写browserCredentials] → 7 glossariesAndAppUpdate[写glossaries/appUpdate,内bindEvents]
+//  → 8 statusDomain[写holder+jobRuntimeState] → 9 libraryDomain → 10 appActions[写appActions,读workflow/credentials/jobRuntime]
+//  → ★11 workflowDialog.bindEvents()先于mount → 12 runtimeFeatures[写jobRuntime/recentJobs/artifacts,内bindEvents]
+//  → 13 lifecycle[写appShell] → buildHomeServices[读features/domains→HomeServices]
+// 敏感点：bindEvents先于mountRecentJobs（先写DOM data-open，否则scheduleRefresh被吞）；
+// features唯一可变注册表，bridge/controller晚绑定读features；runtime一次挂齐，不进initialize懒挂。
+//
 // 规则：
 //   1. 所有 ../../../js/* 只在 composition/external.ts
 //   2. 各 create* 工厂返回自己的 bag，这里显式赋值，禁止 Object.assign(ctx)

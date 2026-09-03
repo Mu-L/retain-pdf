@@ -48,7 +48,15 @@ function jsToTsResolvePlugin() {
   };
 }
 
-// 三页 MPA 各自打包的入口表——home/detail/reader 均已切换到 React 新世界
+// 三页 MPA 各自打包的入口表——home/detail/reader 均已切换到 React 新世界。
+// 挂载对照（HTML → entry → 产物，?v= 由 stamp-cache-version.mjs 按内容哈希重写）：
+//   index.html  → src/pages/home/entry.tsx   → dist/app.bundle.js
+//   detail.html → src/pages/detail/entry.tsx → dist/detail.bundle.js
+//   reader.html → src/pages/reader/entry.tsx → dist/reader.bundle.js
+// 运行时顺序：各 HTML 内 runtime-config.js → runtime-config.local.js（同步脚本，
+// 先写 window.__FRONT_RUNTIME_CONFIG__）→ 对应 bundle（type=module 延迟执行）。
+// 三 entry 共享启动样板见 src/pages/shell-boot.ts（adapters → bootTheme →
+// 找根 → createRoot，不开 StrictMode）。
 const PAGE_BUNDLES = [
   {
     name: "home",
@@ -69,6 +77,8 @@ const PAGE_BUNDLES = [
 
 // mathjax-full/js/components/version.js 在未定义 PACKAGE_VERSION 时会
 // eval('require') 读 package.json —— 浏览器 ESM 里直接炸，导致全部公式回退。
+// 故三 bundle 统一经 define 注入 PACKAGE_VERSION（取自 mathjax-full 的
+// package.json 版本，读不到回退 3.2.1），HTML 侧无需再管。
 function resolveMathJaxPackageVersion() {
   try {
     const pkgPath = path.join(

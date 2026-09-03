@@ -1,8 +1,9 @@
 // 按页编译 CSS：home / detail / reader 独立产物，切断「一份 styles.css 打天下」。
-//
-//   src/styles/entries/home.css   → dist/css/home.css
-//   src/styles/entries/detail.css → dist/css/detail.css
-//   src/styles/entries/reader.css → dist/css/reader.css (仅 react-pdf，legacy 已删除)
+// 挂载对照（HTML → 源 → 产物，?v= 由 stamp-cache-version.mjs 按内容哈希重写）：
+//   index.html  → src/styles/entries/home.css   → dist/css/home.css
+//   detail.html → src/styles/entries/detail.css → dist/css/detail.css
+//   reader.html → src/styles/entries/reader.css → dist/css/reader.css (仅 react-pdf，legacy 已删除)
+// 对应 JS bundle 见 build-js-bundle.mjs；三 entry 共享启动壳见 src/pages/shell-boot.ts。
 //
 // 兼容：仍写一份 styles.css = home 的副本，避免外部脚本/文档旧路径立刻挂掉。
 

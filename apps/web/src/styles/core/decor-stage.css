@@ -74,7 +74,7 @@
   height: min(40vh, 420px);
 }
 
-/* right-bottom 的 fg 版：几何相同，z 层压面板（band 见 slots.ts） */
+/* right-bottom 的 fg 版：几何相同，z 层压面板人物/道具在上（band 见 slots.ts，fg → z:60） */
 .decor-slot-right-bottom-fg {
   right: 0.5vw;
   bottom: 1.5vh;
@@ -109,14 +109,6 @@
   top: 0;
   bottom: 0;
   width: min(10vw, 140px);
-}
-
-/* right-bottom 的 fg 版：人物/道具压在面板之上（band=fg → z:60，pointer-events:none） */
-.decor-slot-right-bottom-fg {
-  right: 0.5vw;
-  bottom: 1.5vh;
-  width: min(22vw, 300px);
-  height: min(40vh, 420px);
 }
 
 /* 题字横幅：textCapable 锚点，文字排版由舞台统一处理 */

@@ -1,3 +1,20 @@
+// 全局 retainpdf:* 事件契约（P=生产者，C=消费者；document CustomEvent）。
+// openBrowserCredentials: P UploadTile/desktop → C CredentialsDialog(useAppEvent)/credentials/view
+// returnHome: P status-area.returnHome → C create-lifecycle → jobRuntime.returnToHome
+// retryStage: P StageRetry/StatusCardEmbedded → C create-lifecycle → jobRuntime.retryStage
+// homeViewModeChanged: P home/state.setViewMode → C 无（读 store；仅测试断言）
+// homeRecentJobsStateChanged: P home/state → C 无（读 store；仅测试断言）
+// statusAreaVisibilityChanged: P status-area.setVisible → C recent-jobs/bindings + workflow-dialog-runtime
+// libraryJobCreated/Updated/RefreshRequested: P library-event-port → C recent-jobs/bindings；
+//   libraryJobUpdated 另被 ReaderDialog(useAppEvent)消费
+// open/closeTranslationWorkflow: P dialog-runtime/navigation-port/submit-flow/library-controller →
+//   C recent-jobs/bindings + dialog-runtime 自身（close 先写 data-open，见 composition 注释）
+// translationWorkflowSync: P 无（预留）→ C dialog-runtime sync 监听
+// refreshGlossaries: P 预留（测试外发）→ C useGlossariesController(useAppEvent)
+// openReaderRequested: P library-domain/library-controller/FavoritesView/library-search →
+//   C ReaderDialog(useAppEvent)
+// 已删 submitBusyChanged（原 P app-actions/view.setSubmitBusy，0 消费者，连带 dispatch 与测试期望一起删）。
+// 注意：retainpdf:credentials-changed（裸串，非本表成员）不可删，desktop  bundles 门禁要求其存在。
 export const APP_EVENTS = {
   openBrowserCredentials: "retainpdf:open-browser-credentials",
   returnHome: "retainpdf:return-home",
@@ -11,7 +28,6 @@ export const APP_EVENTS = {
   openTranslationWorkflow: "retainpdf:open-translation-workflow",
   closeTranslationWorkflow: "retainpdf:close-translation-workflow",
   translationWorkflowSync: "retainpdf:translation-workflow-sync",
-  submitBusyChanged: "retainpdf:submit-busy-changed",
   refreshGlossaries: "retainpdf:refresh-glossaries",
   openReaderRequested: "retainpdf:open-reader-requested",
 };

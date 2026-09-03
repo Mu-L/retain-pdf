@@ -4,6 +4,48 @@ import { normalizeOcrProvider } from "./providers.js";
 export const DEFAULT_FALLBACK_BASE = "http://127.0.0.1:41000";
 const DEFAULT_FALLBACK_PORT = 41000;
 
+// apiBase / xApiKey 解析优先级（高→低）：
+//   1. env（构建/桌面注入：RETAIN_PDF_FRONTEND_*，兼容 RETAIN_FRONTEND_*）
+//   2. window.__FRONT_RUNTIME_CONFIG__（先模块快照，再 live 回读，覆盖 local 晚注入）
+//   3. 同 host 回退（https 取 origin，其余取同 host:41000）
+const ENV_API_BASE_NAMES = ["RETAIN_PDF_FRONTEND_API_BASE", "RETAIN_FRONTEND_API_BASE"];
+const ENV_X_API_KEY_NAMES = ["RETAIN_PDF_FRONTEND_X_API_KEY", "RETAIN_FRONTEND_X_API_KEY"];
+
+function readNodeEnv(name: string): string {
+  try {
+    const value = (globalThis as any)?.process?.env?.[name];
+    return typeof value === "string" ? value.trim() : "";
+  } catch {
+    return "";
+  }
+}
+
+function readImportMetaEnv(name: string): string {
+  try {
+    const value = (import.meta as any)?.env?.[name];
+    return typeof value === "string" ? value.trim() : "";
+  } catch {
+    return "";
+  }
+}
+
+function readEnv(names: string[]): string {
+  for (const name of names) {
+    const value = readNodeEnv(name) || readImportMetaEnv(name);
+    if (value) {
+      return value;
+    }
+  }
+  return "";
+}
+
+function normalizeApiBase(value: unknown): string {
+  if (typeof value !== "string" || !value.trim()) {
+    return "";
+  }
+  return value.trim().replace(/\/+$/, "").replace(new RegExp(`${API_V1_SUFFIX}$`), "");
+}
+
 export let runtimeConfig = {
   ...((typeof window !== "undefined" ? (window as any).__FRONT_RUNTIME_CONFIG__ : null) || {}),
 };
@@ -51,8 +93,18 @@ export function isTrustedWindowMessage(event, expectedSource = null) {
 }
 
 export function apiBase() {
-  if (typeof runtimeConfig.apiBase === "string" && runtimeConfig.apiBase.trim()) {
-    return runtimeConfig.apiBase.trim().replace(/\/+$/, "").replace(new RegExp(`${API_V1_SUFFIX}$`), "");
+  const fromEnv = normalizeApiBase(readEnv(ENV_API_BASE_NAMES));
+  if (fromEnv) {
+    return fromEnv;
+  }
+  const fromSnapshot = normalizeApiBase((runtimeConfig as any)?.apiBase);
+  if (fromSnapshot) {
+    return fromSnapshot;
+  }
+  // runtime-config.local.js 晚注入时模块快照可能为空，再读一次 live window。
+  const fromLive = normalizeApiBase(liveRuntimeString("apiBase"));
+  if (fromLive) {
+    return fromLive;
   }
   if (typeof window === "undefined") {
     return DEFAULT_FALLBACK_BASE;
@@ -110,6 +162,10 @@ function liveRuntimeString(key: string): string {
 }
 
 export function frontendApiKey() {
+  const fromEnv = readEnv(ENV_X_API_KEY_NAMES);
+  if (fromEnv) {
+    return fromEnv;
+  }
   const fromModule = typeof runtimeConfig.xApiKey === "string" ? runtimeConfig.xApiKey.trim() : "";
   return fromModule || liveRuntimeString("xApiKey");
 }

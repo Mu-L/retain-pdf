@@ -60,12 +60,16 @@ const jobStatusTypesSrc = readFileSync(join(
   "../../packages/domain/src/job-status/types.ts",
 ), "utf8");
 
-// web-react 侧仅作存在性校验（路径容错）
+// web-react 已删除（单前端聚焦 apps/web）：仅作存在性校验，缺失则跳过对齐断言
 let statusReactSrc = "";
 try {
   statusReactSrc = readFileSync(join(process.cwd(), "..", "web-react", "src", "features", "status", "types.ts"), "utf8");
 } catch {
-  statusReactSrc = readFileSync(join(process.cwd(), "../../apps/web-react/src/features/status/types.ts"), "utf8");
+  try {
+    statusReactSrc = readFileSync(join(process.cwd(), "../../apps/web-react/src/features/status/types.ts"), "utf8");
+  } catch {
+    statusReactSrc = "";
+  }
 }
 
 test("JobDetailView: 契约 required 含 job_id/workflow/status/stage_snapshot/progress/cover 链路", () => {
@@ -163,8 +167,10 @@ test("Stage progress bundle: 前端进度文案与契约 progress 单测对齐",
     "../../packages/domain/src/job-status/summary/job-status-summary-progress.ts",
   ), "utf8");
   assert.ok(progressSummarySrc.includes("progress") && progressSummarySrc.includes("current"), "progress 文案未基于契约 progress");
-  // web-react status/types.ts 阶段进度亦应对齐
-  assert.ok(statusReactSrc.includes("StageProgress") || statusReactSrc.includes("stageProgress"));
+  // web-react status/types.ts 阶段进度亦应对齐（已删除则跳过）
+  if (statusReactSrc) {
+    assert.ok(statusReactSrc.includes("StageProgress") || statusReactSrc.includes("stageProgress"));
+  }
 });
 
 test("domain legacy stage payload adapter stays isolated", () => {

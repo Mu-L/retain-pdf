@@ -7,9 +7,19 @@
 // 其余区块(library-view 网格、status 卡、credentials/glossaries/status-detail 等)
 // 已陆续接上;ReaderDialog 仅导航到 reader.html(无 UI)。
 // 占位自定义元素标签(<recent-jobs-dialog> 等)在新世界不注册定义,惰性无副作用。
+//
+// Shell 收口:HomeApp 只做 providers 嵌套(HomeShellProviders + HomeTabsProvider),
+// HomeShell 承载 tabs 本地态 + AppTopBar/BottomBar + home-paper-stage。
+// tabs 切页只改本地 state + URL ?tab=(replaceState,不导航、不碰 store)。
 
-import { useState } from "react";
-import { HomeServicesProvider, useHomeServices } from "./home-services-context.js";
+import { useCallback, useState } from "react";
+import type { ReactNode } from "react";
+import {
+  HomeShellProviders,
+  HomeTabsProvider,
+  useHomeStatusAreaStore,
+  useHomeTabs,
+} from "./home-services-context.js";
 import type { HomeServices } from "./composition/types.js";
 import { AppTopBar } from "./features/app-shell/AppTopBar.jsx";
 import { AppBottomBar } from "./features/app-shell/AppBottomBar.jsx";
@@ -47,15 +57,57 @@ import {
 // 显式接管注册，避免 pages 层直连 src/js（门禁：home features/pages → external）。
 import "./composition/external/islands.js";
 
+const HOME_TABS = ["library", "categories", "favorites", "ask"] as const;
+type HomeTab = (typeof HOME_TABS)[number];
+
+function isHomeTab(tab: string): tab is HomeTab {
+  return (HOME_TABS as readonly string[]).includes(tab);
+}
+
+// 初始 tab:显式 ?tab= 深链优先(可分享/刷新保持),否则沿用阅读器返回恢复,
+// 兜底图书馆。非法值一律回图书馆,不抛错。
+function readInitialHomeTab(): string {
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get("tab") ?? "";
+    if (isHomeTab(fromUrl)) return fromUrl;
+  } catch {
+    // 非浏览器/jsdom 无 location 时忽略,走返回恢复
+  }
+  const fromReturn = readInitialLibraryTabFromReturn();
+  return isHomeTab(fromReturn) ? fromReturn : "library";
+}
+
+// tabs 切页的唯一写出口:只动 URL search,不导航、不碰 store。
+function writeHomeTabToSearch(tab: string) {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", tab);
+    window.history.replaceState(null, "", url);
+  } catch {
+    // jsdom/旧环境缺 history 时静默忽略——本地 state 照常切换
+  }
+}
+
+// tabs 本地态拥有者:state + ?tab= 同步,经 HomeTabsProvider 下发给 Shell。
+function HomeTabsRoot({ children }: { children: ReactNode }) {
+  const [activeTab, setActiveTab] = useState(readInitialHomeTab);
+  const onTabChange = useCallback((tab: string) => {
+    if (!isHomeTab(tab)) return;
+    setActiveTab(tab);
+    writeHomeTabToSearch(tab);
+  }, []);
+  return <HomeTabsProvider value={{ activeTab, onTabChange }}>{children}</HomeTabsProvider>;
+}
+
 function HomeShell() {
-  // 从阅读器返回时尽量恢复离开前的 tab；否则默认图书馆。
-  const [activeLibraryTab, setActiveLibraryTab] = useState(readInitialLibraryTabFromReturn);
-  const isLibraryTab = activeLibraryTab === "library";
+  // tabs 来自窄口,不再由 Shell 自持 useState(状态上移到 HomeTabsRoot)。
+  const { activeTab } = useHomeTabs();
+  const isLibraryTab = activeTab === "library";
   // 历史契约 key "categories" == 领域 collections（见 LibraryTopTabs/COLLECTIONS_TAB_KEY 映射）
-  const isCategoriesTab = activeLibraryTab === "categories";
+  const isCategoriesTab = activeTab === "categories";
   const isCollectionsTab = isCategoriesTab; // 统一别名，领域语义用 collections
-  const isFavoritesTab = activeLibraryTab === "favorites";
-  const isAskTab = activeLibraryTab === "ask";
+  const isFavoritesTab = activeTab === "favorites";
+  const isAskTab = activeTab === "ask";
   // #31 批量选择工具栏和底部栏都固定在底部居中,批量模式期间底部栏用 CSS
   // 隐藏(不卸载——搜索 input 卸载会让 library-search-island 的引用失效)让位
   // 给批量工具栏,两者不同时可见。
@@ -64,19 +116,15 @@ function HomeShell() {
   // 合集/收藏/AI tab：视图挂载即可尝试恢复 panel 滚动（图书馆由 RecentJobsLibrary 在有列表后恢复）
   useHomeReturnRestore(isCategoriesTab || isFavoritesTab || isAskTab);
 
-  // Decoupled composition: HomeApp (composition root) wires cross-feature slots.
-  // Previously:
-  //   WorkflowPanel → HiddenCredentialInputs (workflow → credentials)
-  //   TranslationWorkflowDialog → StatusCard (workflow → status)
-  //   SettingsHubDialog → CredentialsWorkbench / AppUpdateBanner / credentials-dom-ids
-  // Now each consumer receives its dependency via props from here (no sibling imports).
-  const services = useHomeServices();
-  const statusAreaSnap = useStoreSnapshot(services.stores.statusArea);
+  // Decoupled composition: HomeShell 只取 statusArea 窄口(读侧),跨域 slot
+  // 照旧由 props 下发,不再 useHomeServices 大包直取 services.stores。
+  const statusAreaStore = useHomeStatusAreaStore();
+  const statusAreaSnap = useStoreSnapshot(statusAreaStore);
 
   return (
     <>
       <main id="app-shell" className="page app-shell" data-home-spa="">
-        <AppTopBar activeTab={activeLibraryTab} onTabChange={setActiveLibraryTab} />
+        <AppTopBar />
         <MockModeBanner />
         {/* 纸心舞台：材质/比例层级（非传统符号拼贴）；侧栏筛选暂不做 */}
         <div className="home-paper-stage">
@@ -138,8 +186,10 @@ function HomeShell() {
 
 export function HomeApp({ services }: { services: HomeServices }) {
   return (
-    <HomeServicesProvider value={services}>
-      <HomeShell />
-    </HomeServicesProvider>
+    <HomeShellProviders services={services}>
+      <HomeTabsRoot>
+        <HomeShell />
+      </HomeTabsRoot>
+    </HomeShellProviders>
   );
 }

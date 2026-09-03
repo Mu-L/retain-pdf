@@ -5,8 +5,8 @@ import { BookOpen, FlaskConical, ListTree, Loader2, Sparkles } from "lucide-reac
 import {
   AiMarkdownAnswer,
   type AiCitationLike,
-  buildFrontendPageUrl,
 } from "../../composition/external.js";
+import { buildReaderUrl } from "../../../navigation.js";
 import { navigateToReader } from "../reader/navigate-to-reader.js";
 import type { HomeAskCitation, HomeAskMessage } from "./types.js";
 import { AgentOperationCard } from "./operations/AgentOperationCard.js";
@@ -53,10 +53,8 @@ function openCitation(citation: HomeAskCitation) {
     ? Math.max(0, Math.floor(Number(citation.page_idx)))
     : undefined;
   const blockId = `${citation.block_id || ""}`.trim();
-  const params: Record<string, string | number> = { job_id: jobId };
-  if (pageIdx !== undefined) params.page_idx = pageIdx;
-  if (blockId) params.block_id = blockId;
-  const url = buildFrontendPageUrl("./reader.html", params);
+  const url = buildReaderUrl(jobId, { page: pageIdx ?? null, blockId });
+  if (!url) return;
   navigateToReader(url);
 }
 

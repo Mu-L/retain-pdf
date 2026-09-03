@@ -10,8 +10,14 @@ import {
   peekHomeReturnState,
   type HomeReturnState,
 } from "@/shared/navigation/home-return-state.js";
+import { parseHomeTab, toUiTabKey } from "../../../../navigation.js";
 
 export function readInitialLibraryTabFromReturn(): string {
+  // 统一契约 home ?tab=library|collections|favorites|ask 优先（collections == UI 键 categories）。
+  const fromQuery = parseHomeTab();
+  if (fromQuery) {
+    return toUiTabKey(fromQuery);
+  }
   const state = peekHomeReturnState();
   const tab = `${state?.activeTab || ""}`;
   if (

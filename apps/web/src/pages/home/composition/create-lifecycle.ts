@@ -1,6 +1,20 @@
-// initialize / dispose：事件绑定 + idle 视图 + startup 路由。
-// 特性在 createRuntimeFeatures 已挂好；workflow 对话框事件在 composition
-// 里先于 recent-jobs 绑定（见 composition.js 注释）。
+// initialize / dispose：A9 壳生命周期唯一收口（事件绑定 + idle 视图 + startup 路由）。
+//
+// 启动顺序（见 entry.tsx / shell-boot.ts）：
+//   1. composition：建 state/view → createBridge（窄回调桥）→ 各域挂 features →
+//      workflowDialog.bindEvents（先于 recent-jobs，见 create-home-composition 注释）→
+//      createRuntimeFeatures（job-runtime / recent-jobs / artifacts 一次挂齐）→ createLifecycle。
+//      特性在 createRuntimeFeatures 已挂好；workflow 对话框事件在 composition
+//      里先于 recent-jobs 绑定（见 composition.js 注释）。
+//   2. bridge：随 composition 建好（无独立启动步），被 initializeIdleView 经端口消费。
+//   3. initialize()：bindDocumentEvents（retryStage / returnHome）→
+//      applyStartupRoute（reader/job_id/活动任务 → startPolling 恢复）→
+//      initializeIdleView（经 bridge 落 idle store，可重复调）。
+//   4. createRoot().render（mountShellPage：bootTheme → 找根 → 挂载，不开 StrictMode）。
+//
+// 销毁顺序（initialize 的逆序）：
+//   disposeWorkflowDialogEvents → disposeDocumentEvents（解绑 retryStage / returnHome）→
+//   jobRuntimeFeature.stopPolling()。事件生产者/消费者对照见 js/contracts/app-contract.ts。
 
 import { APP_EVENTS } from "./external/state.js";
 import { normalizeJobPayload, summarizeStatus } from "./external/job.js";
@@ -10,6 +24,7 @@ import {
   defaultAppShellConfigPort,
   readActiveJobId,
 } from "./external/features.js";
+import { parseDetailJobId } from "../../navigation.js";
 
 import type { HomeBridge, HomeFeatures } from "./types.js";
 
@@ -73,7 +88,7 @@ export function createLifecycle({
 
   function applyStartupRoute() {
     const fromReader = requestedReaderJobIdFromLocation();
-    const fromQuery = `${new URLSearchParams(globalThis.location?.search || "").get("job_id") || ""}`.trim();
+    const fromQuery = parseDetailJobId();
     const fromActiveSession = readActiveJobId();
     const jobId = fromReader || fromQuery || fromActiveSession;
     if (!jobId) return;

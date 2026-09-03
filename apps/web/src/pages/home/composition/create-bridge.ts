@@ -1,5 +1,7 @@
 // 3b 回调桥：job-runtime / idle-reset / upload 共用的窄接口。
 // statusDetail 在后续域才创建，通过 holder 惰性读。
+// 启动顺序中的位置：composition 内建好（state/view 就绪后、各域之前），
+// 被 lifecycle.initializeIdleView 与各域经端口消费；自身无 initialize/dispose。
 
 import { buildJobWarningViewModel } from "./external/job.js";
 import type { HomeBridge, HomeFeatures, StatusDetailHolder } from "./types.js";

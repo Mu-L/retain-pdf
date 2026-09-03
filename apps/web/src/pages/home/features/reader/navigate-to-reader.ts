@@ -5,6 +5,7 @@
 
 import { captureHomeReturnState } from "@/shared/navigation/home-return-state.js";
 import { trySoftOpenReader } from "@/shared/navigation/soft-reader.js";
+import { navigateTo } from "../../../navigation.js";
 
 export type ReaderNavigateOptions = {
   replace?: boolean;
@@ -26,11 +27,11 @@ const defaultNavigate: ReaderNavigateFn = (url, { replace = false } = {}) => {
     if (trySoftOpenReader(target)) {
       return;
     }
-    window.location.replace(target);
+    navigateTo(target, { replace: true });
     return;
   }
   // 独立 reader 页 / 跨页：整页进入
-  window.location.assign(target);
+  navigateTo(target);
 };
 
 let navigateImpl: ReaderNavigateFn = defaultNavigate;

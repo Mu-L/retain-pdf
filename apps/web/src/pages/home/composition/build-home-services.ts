@@ -1,5 +1,7 @@
 // 组装 HomeServices 对外 bag（HomeApp / useHomeServices 消费）。
 // Hide Store behind read-only selectors; 业务内聚到 domain 工厂（不再在此拼闭包）。
+// 装配位：末端只读features/domains/views/ports→HomeServices，不写features；
+// 写者见create-home-composition顺序图；敏感读：statusCard.cancel晚绑features.jobRuntime，library.selectJob读libraryController。
 
 import type {
   HomeBridge,

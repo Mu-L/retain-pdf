@@ -6,8 +6,19 @@
 // #open-output-btn 是契约 id(测试引用),保留在 display:none 的隐藏容器里,不占布局。
 
 import { LibraryTopTabs } from "./tabs/LibraryTopTabs.jsx";
+import { useHomeTabs } from "../../home-services-context.js";
 
-export function AppTopBar({ activeTab, onTabChange }) {
+// Shell 顶栏:优先 props(显式装配),缺省时取 HomeTabsProvider 窄口——
+// 不再经 HomeApp 逐层透传,不直取 useHomeServices 大包。视觉/DOM 不变。
+export function AppTopBar({ activeTab, onTabChange }: { activeTab?: string; onTabChange?: (tab: string) => void }) {
+  let tabs: { activeTab: string; onTabChange: (tab: string) => void } | null = null;
+  try {
+    tabs = useHomeTabs();
+  } catch {
+    tabs = null;
+  }
+  const active = activeTab ?? tabs?.activeTab ?? "library";
+  const onChange = onTabChange ?? tabs?.onTabChange ?? (() => {});
   return (
     <app-shell-header class="app-shell-header">
       <header className="topbar library-topbar">
@@ -25,7 +36,7 @@ export function AppTopBar({ activeTab, onTabChange }) {
           <button id="open-output-btn" type="button" className="secondary hidden">打开输出目录</button>
         </div>
         <div className="library-topbar-spacer" aria-hidden="true" />
-        <LibraryTopTabs active={activeTab} onChange={onTabChange} />
+        <LibraryTopTabs active={active} onChange={onChange} />
         <div className="library-topbar-spacer" aria-hidden="true" />
       </header>
     </app-shell-header>

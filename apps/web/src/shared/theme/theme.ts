@@ -83,7 +83,10 @@ export function setTheme(theme: ThemeId) {
   return next;
 }
 
-/** 入口最顶部调用，减少换肤 FOUC */
+/** 入口最顶部调用，减少换肤 FOUC（每 entry 只调一次，先于 createRoot） */
+let booted = false;
 export function bootTheme() {
+  if (booted) return getTheme();
+  booted = true;
   return setTheme(getStoredTheme());
 }

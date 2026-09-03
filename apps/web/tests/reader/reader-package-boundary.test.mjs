@@ -160,7 +160,7 @@ test("production consumers do not deep-link into packages/reader/src", () => {
   for (const configFile of [
     join(WEB_ROOT, "scripts/build-js-bundle.mjs"),
     join(WEB_REACT_ROOT, "vite.config.ts"),
-  ]) {
+  ].filter((file) => existsSync(file))) {
     assert.doesNotMatch(
       readFileSync(configFile, "utf8"),
       /packages\/reader\/src/,

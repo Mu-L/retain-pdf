@@ -12,14 +12,17 @@
 // showSearch=false 用于"分类"tab:该 tab 下搜索语义不同,不渲染 input(测试
 // 断言分类 tab 下 #library-search-input 不存在),只留添加/设置。
 
-import { useHomeServices } from "../../home-services-context.js";
+import { useHomeDialogStore, useHomeSettingsHub, useHomeWorkflowDialog } from "../../home-services-context.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useLibrarySearchBinding } from "@/pages/home/features/shared/use-library-search-binding.js";
 import { TRANSLATION_WORKFLOW_DIALOG } from "../../composition/external.js";
 
 export function AppBottomBar({ showSearch = true, hidden = false }) {
-  const services = useHomeServices();
-  const dialog = useStoreSnapshot(services.stores.dialog);
+  // Shell 窄口直取:dialog 读侧 + workflow/settings 动作口,不再 useHomeServices 大包。
+  const dialogStore = useHomeDialogStore();
+  const workflowDialog = useHomeWorkflowDialog();
+  const settingsHub = useHomeSettingsHub();
+  const dialog = useStoreSnapshot(dialogStore);
   const open = Boolean(dialog.open);
   // hooks 不能条件调用——始终订阅,只在 showSearch 时渲染 input(分类 tab 下
   // 只是拿着 query 不显示,无副作用)。
@@ -39,7 +42,7 @@ export function AppBottomBar({ showSearch = true, hidden = false }) {
           ? TRANSLATION_WORKFLOW_DIALOG.datasetValues.open
           : TRANSLATION_WORKFLOW_DIALOG.datasetValues.closed}
         data-workflow-mode={dialog.mode}
-        onClick={() => services.workflowDialog.requestOpenUpload()}
+        onClick={() => workflowDialog.requestOpenUpload()}
       >
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
@@ -69,7 +72,7 @@ export function AppBottomBar({ showSearch = true, hidden = false }) {
         aria-label="设置"
         title="设置"
         aria-controls="app-settings-dialog"
-        onClick={() => services.settingsHub.dialogStore.open({ tab: "api" })}
+        onClick={() => settingsHub.dialogStore.open({ tab: "api" })}
       >
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z" stroke="currentColor" strokeWidth="1.65" />
