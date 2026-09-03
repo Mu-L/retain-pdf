@@ -57,6 +57,8 @@ struct StoredCredential {
     provider: String,
     label: String,
     secret: String,
+    #[serde(default)]
+    revision: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     managed_by: Option<String>,
     created_at: String,
@@ -106,6 +108,8 @@ pub struct UpdateCredentialInput {
     pub secret: Option<String>,
     #[serde(default)]
     pub expected_revision: Option<u64>,
+    #[serde(default)]
+    pub expected_credential_revision: Option<u64>,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -124,6 +128,7 @@ pub struct CredentialMetadataView {
     pub provider: String,
     pub label: String,
     pub configured: bool,
+    pub revision: u64,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -191,6 +196,7 @@ pub fn create_credential(
             provider,
             label,
             secret,
+            revision: 1,
             managed_by: None,
             created_at: timestamp.clone(),
             updated_at: timestamp,
@@ -224,11 +230,27 @@ pub fn update_credential(
     if kind.is_none() && provider.is_none() && label.is_none() && secret.is_none() {
         return Err(AppError::bad_request("credential update is empty"));
     }
-    mutate_vault(data_root, input.expected_revision, move |vault| {
+    // New clients fence the specific record. The vault-wide revision remains
+    // the fallback for older clients, but must not reject an update merely
+    // because an unrelated OCR or Agent credential changed meanwhile.
+    let expected_vault_revision = if input.expected_credential_revision.is_some() {
+        None
+    } else {
+        input.expected_revision
+    };
+    let expected_credential_revision = input.expected_credential_revision;
+    mutate_vault(data_root, expected_vault_revision, move |vault| {
         let current = vault
             .credentials
             .get_mut(&credential_ref)
             .ok_or_else(|| AppError::not_found("credential reference not found"))?;
+        if expected_credential_revision.is_some_and(|expected| expected != current.revision) {
+            return Err(AppError::credential_reference(
+                StatusCode::CONFLICT,
+                "CREDENTIAL_REVISION_CONFLICT",
+                "凭据已在其他窗口更新，请重新加载后再保存",
+            ));
+        }
         if let Some(value) = kind {
             current.kind = value;
         }
@@ -245,6 +267,7 @@ pub fn update_credential(
         // This prevents a later job-deletion GC pass from removing a credential
         // that the user intentionally retained or repurposed.
         current.managed_by = None;
+        current.revision = current.revision.saturating_add(1);
         current.updated_at = now_iso();
         Ok((credential_ref.clone(), current.clone()))
     })
@@ -290,6 +313,7 @@ pub(crate) fn get_or_create_managed_credential(
         provider,
         label,
         secret,
+        revision: 1,
         managed_by: Some(MANAGED_BY_LEGACY_JOB_IMPORT.to_string()),
         created_at: timestamp.clone(),
         updated_at: timestamp,
@@ -419,8 +443,10 @@ fn next_credential_ref(vault: &CredentialVault) -> String {
 
 fn require_revision(vault: &CredentialVault, expected: Option<u64>) -> Result<(), AppError> {
     if expected.is_some_and(|expected| expected != vault.revision) {
-        return Err(AppError::conflict(
-            "credential vault changed; reload metadata before saving",
+        return Err(AppError::credential_reference(
+            StatusCode::CONFLICT,
+            "CREDENTIAL_VAULT_REVISION_CONFLICT",
+            "凭据列表已发生变化，请重新加载后再保存",
         ));
     }
     Ok(())
@@ -433,6 +459,7 @@ fn metadata(credential_ref: &str, credential: &StoredCredential) -> CredentialMe
         provider: credential.provider.clone(),
         label: credential.label.clone(),
         configured: !credential.secret.is_empty(),
+        revision: credential.revision,
         created_at: credential.created_at.clone(),
         updated_at: credential.updated_at.clone(),
     }
@@ -986,6 +1013,7 @@ mod tests {
                 label: Some("Keep this credential".to_string()),
                 secret: None,
                 expected_revision: Some(1),
+                expected_credential_revision: None,
             },
         )
         .expect("update imported credential");
@@ -995,6 +1023,71 @@ mod tests {
             &imported.credential.credential_ref
         )
         .expect("updated credential is user-owned"));
+        let _ = fs::remove_dir_all(data_root);
+    }
+
+    #[test]
+    fn record_revision_allows_unrelated_vault_changes_and_rejects_stale_target_updates() {
+        let data_root = test_root("record-revision");
+        let first = create_credential(
+            &data_root,
+            CreateCredentialInput {
+                kind: "translation_api_key".to_string(),
+                provider: "deepseek".to_string(),
+                label: "Translation".to_string(),
+                secret: "translation-secret".to_string(),
+                expected_revision: Some(0),
+            },
+        )
+        .expect("create target credential");
+        assert_eq!(first.credential.revision, 1);
+
+        get_or_create_managed_credential(
+            &data_root,
+            "ocr_provider_token",
+            "paddle",
+            "Imported OCR credential",
+            "ocr-secret",
+        )
+        .expect("create unrelated credential");
+
+        let updated = update_credential(
+            &data_root,
+            &first.credential.credential_ref,
+            UpdateCredentialInput {
+                kind: None,
+                provider: None,
+                label: Some("Translation updated".to_string()),
+                secret: None,
+                // Deliberately stale after the unrelated OCR import. A
+                // per-record fence makes this update safe.
+                expected_revision: Some(first.revision),
+                expected_credential_revision: Some(first.credential.revision),
+            },
+        )
+        .expect("update target after unrelated vault change");
+        assert_eq!(updated.credential.revision, 2);
+
+        let conflict = update_credential(
+            &data_root,
+            &first.credential.credential_ref,
+            UpdateCredentialInput {
+                kind: None,
+                provider: None,
+                label: Some("Stale overwrite".to_string()),
+                secret: None,
+                expected_revision: Some(updated.revision),
+                expected_credential_revision: Some(first.credential.revision),
+            },
+        )
+        .expect_err("stale target revision must be rejected");
+        match conflict {
+            AppError::CredentialReference { code, status, .. } => {
+                assert_eq!(code, "CREDENTIAL_REVISION_CONFLICT");
+                assert_eq!(status, StatusCode::CONFLICT);
+            }
+            other => panic!("unexpected error: {other}"),
+        }
         let _ = fs::remove_dir_all(data_root);
     }
 

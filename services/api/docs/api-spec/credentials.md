@@ -11,8 +11,12 @@ The backend-owned credential vault is exposed through authenticated endpoints:
 
 Create/update accepts a secret once and returns only metadata plus an opaque
 `credential_ref`. List/get responses never return the secret or a reversible
-masked value. Mutations support `expected_revision` compare-and-swap; stale
-writes return `409`. The vault is atomically persisted below the configured
+masked value. Metadata includes a per-record `revision`. Updates should send
+`expected_credential_revision`; this rejects concurrent changes to the same
+credential without treating unrelated vault changes as conflicts. The
+vault-wide `expected_revision` compare-and-swap remains supported for older
+clients and for create/delete flows. Stale writes return `409` with
+`CREDENTIAL_REVISION_CONFLICT` or `CREDENTIAL_VAULT_REVISION_CONFLICT`. The vault is atomically persisted below the configured
 data root with `0700` directory and `0600` file permissions on POSIX systems.
 On POSIX systems, mutations are serialized across backend processes through a
 private file lock; publishing fsyncs both the replacement file and its parent
@@ -75,6 +79,8 @@ Credential-reference resolution owns these machine-readable codes:
 | `CREDENTIAL_KIND_MISMATCH` | 400 | The credential exists but cannot be used for the requested purpose. |
 | `CREDENTIAL_PROVIDER_MISMATCH` | 400 | An OCR credential belongs to a different provider than `ocr.provider`. |
 | `CREDENTIAL_IN_USE` | 409 | Persisted jobs still reference the credential; deletion requires an explicit `force=true` override. |
+| `CREDENTIAL_REVISION_CONFLICT` | 409 | The target credential changed after the client loaded its metadata. |
+| `CREDENTIAL_VAULT_REVISION_CONFLICT` | 409 | A legacy vault-wide compare-and-swap revision is stale. |
 | `CREDENTIAL_VAULT_UNAVAILABLE` | 500 | The backend cannot safely read or validate the credential vault. |
 
 For example, a missing reference returns the unified error object while
@@ -92,11 +98,12 @@ retaining the existing top-level domain code and message:
 }
 ```
 
-Credential mutation validation and stale `expected_revision` conflicts may use
-the generic `BAD_REQUEST`, `NOT_FOUND`, or `CONFLICT` codes. New clients must
-read `error.code`; the top-level fields remain available only for compatibility
-and currently have no declared removal date. Error bodies never include the
-secret, a masked reversible value, vault path, or persisted credential record.
+Credential mutation validation may still use the generic `BAD_REQUEST` or
+`NOT_FOUND` codes. Revision conflicts use the credential-specific codes above.
+New clients must read `error.code`; the top-level fields remain available only
+for compatibility and currently have no declared removal date. Error bodies
+never include the secret, a masked reversible value, vault path, or persisted
+credential record.
 
 Credential JSON bodies, typed credential paths, and mutation query parameters
 also use the shared safe extractor-error contract. Malformed input therefore

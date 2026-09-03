@@ -121,6 +121,7 @@ function createServices(overrides = {}) {
         provider: payload.provider,
         label: payload.label,
         configured: true,
+        revision: 1,
         created_at: "2026-09-02T00:00:00Z",
         updated_at: "2026-09-02T00:00:00Z",
       };
@@ -135,6 +136,7 @@ function createServices(overrides = {}) {
         provider: payload.provider || "deepseek",
         label: payload.label || "翻译 API",
         configured: true,
+        revision: Number(translationCredential?.revision || 0) + 1,
         updated_at: "2026-09-02T00:00:01Z",
       };
       return { credential: translationCredential, revision: vaultRevision };
@@ -586,6 +588,65 @@ test("CredentialsDialog：保存(桌面模式)——走 saveDesktopConfig 分支
   assert.equal(desktopCalls[0].browserConfig.paddleToken, "paddle-desktop");
   assert.equal(desktopCalls[0].browserConfig.markConfigured, true, "setupMode 下应标记首次配置完成");
   await waitFor(() => byId("browser-credentials-dialog") === null, "保存成功后对话框关闭");
+
+  root.unmount();
+  services.dispose();
+  host.remove();
+});
+
+test("CredentialsDialog：既有翻译凭据按记录 revision 更新并串行化重复保存", async () => {
+  const updatePayloads = [];
+  let releaseUpdate;
+  const updateGate = new Promise((resolve) => {
+    releaseUpdate = resolve;
+  });
+  const existingCredential = {
+    credential_ref: "cred_existing_translation",
+    kind: "translation_api_key",
+    provider: "deepseek",
+    label: "翻译 API",
+    configured: true,
+    revision: 7,
+    created_at: "2026-09-02T00:00:00Z",
+    updated_at: "2026-09-02T00:00:00Z",
+  };
+  const services = createServices({
+    listCredentials: async () => ({
+      credentials: [existingCredential],
+      // Simulate an unrelated OCR import after this credential was created.
+      revision: 12,
+    }),
+    createCredential: async () => {
+      throw new Error("existing credential must be updated");
+    },
+    updateCredential: async (_apiPrefix, credentialRef, payload) => {
+      updatePayloads.push({ credentialRef, payload });
+      await updateGate;
+      return {
+        credential: { ...existingCredential, revision: 8 },
+        revision: 13,
+      };
+    },
+  });
+  const { host, root } = await mountHome(services);
+
+  dom.window.document.dispatchEvent(new dom.window.CustomEvent(APP_EVENTS.openBrowserCredentials));
+  await waitFor(() => byId("browser-api-key") !== null, "API 工作台就绪");
+  await waitFor(
+    () => defaultCredentialsStatePort.getCredentials().translationCredentialRef === existingCredential.credential_ref,
+    "既有翻译凭据元数据加载完成",
+  );
+  typeInput(byId("browser-paddle-token"), "paddle-existing");
+  typeInput(byId("browser-api-key"), "translation-updated");
+
+  click(byId("browser-credentials-save-btn"));
+  click(byId("browser-credentials-save-btn"));
+  await waitFor(() => updatePayloads.length === 1, "重复点击只发起一次更新");
+  assert.equal(updatePayloads[0].credentialRef, existingCredential.credential_ref);
+  assert.equal(updatePayloads[0].payload.expected_revision, 12);
+  assert.equal(updatePayloads[0].payload.expected_credential_revision, 7);
+  releaseUpdate();
+  await waitFor(() => byId("browser-credentials-status")?.textContent === "已保存", "更新完成");
 
   root.unmount();
   services.dispose();

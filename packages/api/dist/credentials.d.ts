@@ -5,6 +5,7 @@ export type CredentialMetadata = {
     provider: string;
     label: string;
     configured: boolean;
+    revision: number;
     created_at: string;
     updated_at: string;
 };
@@ -34,6 +35,7 @@ export type UpdateCredentialInput = {
     label?: string;
     secret?: string;
     expected_revision?: number;
+    expected_credential_revision?: number;
 };
 export interface CredentialRequestError extends Error {
     status?: number;

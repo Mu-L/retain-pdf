@@ -284,6 +284,8 @@ export function mountBrowserCredentialsFeature({
     resetDeepSeekBalance: () => credentialsStatePort.resetDeepSeekBalance?.(),
   };
   let credentialVaultRevision: number | undefined;
+  let translationCredentialRevision: number | undefined;
+  let credentialSaveInFlight = false;
   let lastCustomTranslationBaseUrl = "";
   let currentTranslationProvider = "deepseek";
   let translationProfiles: Record<string, TranslationProfile> = Object.fromEntries(
@@ -377,6 +379,9 @@ export function mountBrowserCredentialsFeature({
       || candidates.sort((a, b) => `${b?.updated_at || ""}`.localeCompare(`${a?.updated_at || ""}`))[0]
       || null;
     const translationCredentialRef = `${selected?.credential_ref || ""}`.trim();
+    translationCredentialRevision = Number.isFinite(Number(selected?.revision))
+      ? Number(selected.revision)
+      : undefined;
     credentialsStatePort.patchCredentials?.({
       translationCredentialRef,
     });
@@ -405,6 +410,9 @@ export function mountBrowserCredentialsFeature({
       ...(credentialVaultRevision === undefined
         ? {}
         : { expected_revision: credentialVaultRevision }),
+      ...(existingRef && translationCredentialRevision !== undefined
+        ? { expected_credential_revision: translationCredentialRevision }
+        : {}),
     };
     const result = existingRef
       ? await updateCredential(apiPrefix, existingRef, payload)
@@ -412,6 +420,9 @@ export function mountBrowserCredentialsFeature({
     credentialVaultRevision = Number.isFinite(Number(result?.revision))
       ? Number(result.revision)
       : credentialVaultRevision;
+    translationCredentialRevision = Number.isFinite(Number(result?.credential?.revision))
+      ? Number(result.credential.revision)
+      : translationCredentialRevision;
     return `${result?.credential?.credential_ref || existingRef}`.trim();
   }
 
@@ -608,7 +619,7 @@ export function mountBrowserCredentialsFeature({
     });
   }
 
-  async function handleBrowserCredentialSave() {
+  async function performBrowserCredentialSave() {
     const definition = getOcrProviderDefinition(currentOcrProvider());
     const existing = readCurrentCredentials();
     captureCurrentTranslationProfile();
@@ -737,6 +748,17 @@ export function mountBrowserCredentialsFeature({
     // 首次配置弹窗保存后关闭；设置中心内嵌时保持打开以便继续改任务选项
     if (setupModePort.currentSetupMode?.()) {
       viewPort.closeDialog();
+    }
+  }
+
+  async function handleBrowserCredentialSave() {
+    if (credentialSaveInFlight) return;
+    credentialSaveInFlight = true;
+    viewPort.setDialogStatus("正在保存…", "");
+    try {
+      await performBrowserCredentialSave();
+    } finally {
+      credentialSaveInFlight = false;
     }
   }
 

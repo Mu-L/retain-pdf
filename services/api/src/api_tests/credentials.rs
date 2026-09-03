@@ -58,6 +58,7 @@ async fn credential_api_persists_only_safe_metadata_in_responses() {
     assert!(credential_ref.starts_with("cred_"));
     assert_eq!(created["data"]["revision"], 1);
     assert_eq!(created["data"]["credential"]["configured"], true);
+    assert_eq!(created["data"]["credential"]["revision"], 1);
     assert!(!created.to_string().contains(secret));
     assert!(created["data"]["credential"].get("secret").is_none());
 
@@ -119,6 +120,72 @@ async fn credential_api_persists_only_safe_metadata_in_responses() {
             0o700
         );
     }
+}
+
+#[tokio::test]
+async fn credential_update_uses_record_revision_instead_of_unrelated_vault_revision() {
+    let state = test_state("credential-record-revision");
+    let app = build_app(state);
+    let (_, target) = request(
+        app.clone(),
+        Method::POST,
+        "/api/v1/credentials",
+        Some(json!({
+            "kind": "translation_api_key",
+            "provider": "deepseek",
+            "label": "Translation",
+            "secret": "translation-secret",
+            "expected_revision": 0
+        })),
+    )
+    .await;
+    let target_ref = target["data"]["credential"]["credential_ref"]
+        .as_str()
+        .expect("target credential ref");
+
+    let (status, _) = request(
+        app.clone(),
+        Method::POST,
+        "/api/v1/credentials",
+        Some(json!({
+            "kind": "ocr_provider_token",
+            "provider": "paddle",
+            "label": "OCR",
+            "secret": "ocr-secret",
+            "expected_revision": 1
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, updated) = request(
+        app.clone(),
+        Method::PUT,
+        &format!("/api/v1/credentials/{target_ref}"),
+        Some(json!({
+            "label": "Translation updated",
+            "expected_revision": 1,
+            "expected_credential_revision": 1
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{updated}");
+    assert_eq!(updated["data"]["revision"], 3);
+    assert_eq!(updated["data"]["credential"]["revision"], 2);
+
+    let (status, conflict) = request(
+        app,
+        Method::PUT,
+        &format!("/api/v1/credentials/{target_ref}"),
+        Some(json!({
+            "label": "Stale overwrite",
+            "expected_revision": 3,
+            "expected_credential_revision": 1
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{conflict}");
+    assert_eq!(conflict["error"]["code"], "CREDENTIAL_REVISION_CONFLICT");
 }
 
 #[tokio::test]
