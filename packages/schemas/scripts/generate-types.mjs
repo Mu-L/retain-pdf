@@ -77,11 +77,11 @@ async function generateTarget(target) {
     try {
       current = await readFile(outputPath, "utf8");
     } catch {}
-    assert.equal(
-      normalizeLineEndings(current),
-      generated,
-      `${target.output} is stale; run npm run generate --workspace @retainpdf/contracts`,
-    );
+    if (normalizeLineEndings(current) !== generated) {
+      throw new Error(
+        `${target.output} is stale; run npm run generate --workspace @retainpdf/contracts`,
+      );
+    }
     return;
   }
 
