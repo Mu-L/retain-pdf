@@ -67,7 +67,7 @@ test("serves static files and inlines apiBase into html", async (t) => {
   t.after(() => gateway.stop());
   const page = await getText(`${base}/index.html`);
   assert.equal(page.status, 200);
-  assert.match(page.body, /window\.__FRONT_RUNTIME_CONFIG__=\{"apiBase":"http:\/\/127\.0\.0\.1:41001"\}/);
+  assert.match(page.body, /Object\.assign\(\{\},window\.__FRONT_RUNTIME_CONFIG__\|\|\{\},\{"apiBase":"http:\/\/127\.0\.0\.1:41001"\}\)/);
   const script = await getText(`${base}/app.js`);
   assert.equal(script.status, 200);
   assert.match(script.headers["content-type"], /javascript/);

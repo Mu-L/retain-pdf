@@ -46,7 +46,10 @@ function createLocalGateway(options = {}) {
   let baseUrl = "";
 
   function injectRuntimeConfig(html, apiBase) {
-    const snippet = `<script>window.__FRONT_RUNTIME_CONFIG__=${JSON.stringify({ apiBase })};</script>`;
+    // Merge, never replace: the global also carries xApiKey, provider
+    // tokens and model settings. Replacing it drops the API key and every
+    // authenticated request answers 401.
+    const snippet = `<script>window.__FRONT_RUNTIME_CONFIG__=Object.assign({},window.__FRONT_RUNTIME_CONFIG__||{},${JSON.stringify({ apiBase })});</script>`;
     if (html.includes("</body>")) {
       return html.replace("</body>", `${snippet}</body>`);
     }
