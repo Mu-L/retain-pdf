@@ -1691,3 +1691,67 @@ test("secondary resource patches pass render context instead of raw cache inputs
   assert.equal(eventPatch.context.jobId, jobId);
   assert.equal(eventPatch.context.events.items[0].progress.current, 3);
 });
+
+test("stop() bumps generation so stale fetch resolutions cannot clear new polling", () => {
+  const state = createInitialState();
+  const port = runtimePollingStateModule.createRuntimePollingStatePort(state, {
+    clearIntervalFn: () => {},
+    setIntervalFn: () => 1,
+    now: () => "2026-06-16T00:00:00Z",
+  });
+  port.startJob("job-a");
+  assert.equal(port.beginPoll(), 1);
+  port.stop();
+  // 旧代 finish 失配返回 false，不清任何东西
+  assert.equal(port.finishPoll(1), false);
+  // 新一轮照常工作（startJob 再涨一代）
+  port.startJob("job-a");
+  assert.equal(port.beginPoll(), 3);
+  assert.equal(port.finishPoll(3), false);
+  assert.equal(port.getSnapshot().pollInFlight, false);
+});
+
+test("terminal fetch schedules secondary resources with post-stop generation", async () => {
+  const previousDocument = global.document;
+  global.document = { getElementById() { return null; } };
+  const state = createInitialState();
+  const schedulerCalls = [];
+  const feature = mountJobRuntimeFeature({
+    state,
+    apiPrefix: "/api/v1",
+    buildJobDetailEndpoint: (jobId, apiPrefix) => `${apiPrefix}/jobs/${jobId}`,
+    fetchJobPayload: async (jobId) => ({ job_id: jobId, status: "succeeded", display_stage: "done" }),
+    fetchJobEvents: async () => ({ items: [] }),
+    fetchJobArtifactsManifest: async () => ({ artifacts: [] }),
+    fetchJobStageActions: async () => ({ actions: [] }),
+    retryJobStage: async () => ({}),
+    submitJson: async () => ({}),
+    renderJob: () => {},
+    renderJobSecondaryPatch: () => {},
+    setText: () => {},
+    setWorkflowSections: () => {},
+    resetUploadProgress: () => {},
+    resetUploadedFile: () => {},
+    applyWorkflowMode: () => {},
+    clearPageRanges: () => {},
+    updateJobWarning: () => {},
+    activateDetailTab: () => {},
+    libraryEventPort: { publishJobUpdated() {}, requestRefresh() {} },
+    resetStatePort: { resetSecondary: () => {}, resetJob: () => {} },
+    secondaryResourceSchedulerPort: { schedule(input) { schedulerCalls.push(input); } },
+    jobPresentationPort: { isTerminalStatus, normalizeJobPayload },
+    shellViewPort: { closeDialogs() {}, isReaderOpen: () => false, resetEvents() {}, setCancelDisabled: () => {} },
+  });
+  try {
+    feature.startPolling("job-done");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.equal(schedulerCalls.length, 1);
+    // 停之后的新代：副资源抓取的代校验必须通过，否则 manifest 被丢、下载按钮永残
+    // 代数：startPolling 内 stop(+1)=1 → startJob(+1)=2 → 终态 stop(+1)=3
+    assert.equal(schedulerCalls[0].terminal, true);
+    assert.equal(schedulerCalls[0].generation, 3);
+  } finally {
+    global.document = previousDocument;
+    try { feature.stopPolling(); } catch {}
+  }
+});
