@@ -20,7 +20,7 @@ def test_rejects_legacy_semantics_facade_in_production_consumer(
     translation_root.mkdir()
     rendering_root.mkdir()
     (translation_root / "consumer.py").write_text(
-        "from retainpdf_pipeline.services.document_schema.semantics import is_bodylike_block\n",
+        "from retainpdf_pipeline.ocr.document_schema.semantics import is_bodylike_block\n",
         encoding="utf-8",
     )
 
@@ -44,7 +44,7 @@ def test_rejects_direct_legacy_compat_import_outside_boundary(
     translation_root.mkdir()
     rendering_root.mkdir()
     (rendering_root / "layout.py").write_text(
-        "from retainpdf_pipeline.services.document_schema.legacy_compat import resolve_legacy_block_class\n",
+        "from retainpdf_pipeline.ocr.document_schema.legacy_compat import resolve_legacy_block_class\n",
         encoding="utf-8",
     )
 
@@ -65,12 +65,12 @@ def test_rejects_decision_diff_import_from_production_package(
     monkeypatch,
 ) -> None:
     package_root = tmp_path / "retainpdf_pipeline"
-    translation_root = package_root / "services" / "translation"
-    rendering_root = package_root / "services" / "rendering"
+    translation_root = package_root / "translate"
+    rendering_root = package_root / "render"
     translation_root.mkdir(parents=True)
     rendering_root.mkdir(parents=True)
     (package_root / "runtime.py").write_text(
-        "from retainpdf_pipeline.services.document_schema.decision_diff import audit_document\n",
+        "from retainpdf_pipeline.ocr.document_schema.decision_diff import audit_document\n",
         encoding="utf-8",
     )
 

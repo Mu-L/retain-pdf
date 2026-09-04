@@ -21,8 +21,7 @@ REPO_PIPELINE_ROOT = Path(__file__).resolve().parents[3]
 STORE_PATH = (
     REPO_PIPELINE_ROOT
     / "retainpdf_pipeline"
-    / "services"
-    / "translation"
+    / "translate"
     / "workflow"
     / "checkpoint"
     / "store.py"

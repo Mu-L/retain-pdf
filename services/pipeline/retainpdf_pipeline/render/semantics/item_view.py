@@ -7,7 +7,7 @@ provider projections override the normalized document contract.
 
 from __future__ import annotations
 
-from retainpdf_pipeline.services.document_schema.canonical_semantics import (
+from retainpdf_pipeline.ocr.document_schema.canonical_semantics import (
     from_flat_item,
     is_bodylike,
     is_caption,

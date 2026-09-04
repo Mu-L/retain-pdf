@@ -10,7 +10,7 @@ from retainpdf_pipeline.foundation.shared.stage_specs import build_stage_invocat
 from retainpdf_pipeline.foundation.shared.stage_specs import BookStageSpec
 from retainpdf_pipeline.foundation.shared.stage_specs import resolve_credential_ref
 from retainpdf_pipeline.foundation.shared.tee_output import enable_job_log_capture
-from retainpdf_pipeline.services.document_schema import DOCUMENT_SCHEMA_REPORT_FILE_NAME
+from retainpdf_pipeline.ocr.document_schema import DOCUMENT_SCHEMA_REPORT_FILE_NAME
 from retainpdf_pipeline.services.pipeline_shared.contracts import PIPELINE_SUMMARY_FILE_NAME
 from retainpdf_pipeline.services.pipeline_shared.contracts import STDOUT_LABEL_EVENTS_JSONL
 from retainpdf_pipeline.services.pipeline_shared.events import emit_artifact_published

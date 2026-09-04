@@ -8,16 +8,16 @@ from devtools.architecture_checks.common import scan_py_files
 
 
 PIPELINE_ROOT = PACKAGE_ROOT / "runtime" / "pipeline"
-OCR_PROVIDER_ROOT = PACKAGE_ROOT / "services" / "ocr_provider"
-MINERU_ROOT = PACKAGE_ROOT / "services" / "mineru"
-TRANSLATION_ROOT = PACKAGE_ROOT / "services" / "translation"
-RENDERING_ROOT = PACKAGE_ROOT / "services" / "rendering"
+OCR_PROVIDER_ROOT = PACKAGE_ROOT / "ocr" / "ocr_provider"
+MINERU_ROOT = PACKAGE_ROOT / "ocr" / "mineru"
+TRANSLATION_ROOT = PACKAGE_ROOT / "translate"
+RENDERING_ROOT = PACKAGE_ROOT / "render"
 
 PROVIDER_PRIVATE_IMPORT_PATTERNS = (
-    "from retainpdf_pipeline.services.ocr_provider",
-    "import retainpdf_pipeline.services.ocr_provider",
-    "from retainpdf_pipeline.services.mineru",
-    "import retainpdf_pipeline.services.mineru",
+    "from retainpdf_pipeline.ocr.ocr_provider",
+    "import retainpdf_pipeline.ocr.ocr_provider",
+    "from retainpdf_pipeline.ocr.mineru",
+    "import retainpdf_pipeline.ocr.mineru",
 )
 PROVIDER_RAW_TOKENS = (
     "layoutParsingResults",
@@ -25,21 +25,21 @@ PROVIDER_RAW_TOKENS = (
     "content_list",
 )
 PROVIDER_ADAPTER_IMPORT_PATTERNS = (
-    "from retainpdf_pipeline.services.document_schema.provider_adapters",
-    "import retainpdf_pipeline.services.document_schema.provider_adapters",
+    "from retainpdf_pipeline.ocr.document_schema.provider_adapters",
+    "import retainpdf_pipeline.ocr.document_schema.provider_adapters",
 )
 OCR_PROVIDER_FORBIDDEN_IMPORT_PATTERNS = (
     "from retainpdf_pipeline.runtime.pipeline",
     "import retainpdf_pipeline.runtime.pipeline",
-    "from retainpdf_pipeline.services.translation",
-    "import retainpdf_pipeline.services.translation",
-    "from retainpdf_pipeline.services.rendering",
-    "import retainpdf_pipeline.services.rendering",
+    "from retainpdf_pipeline.translate",
+    "import retainpdf_pipeline.translate",
+    "from retainpdf_pipeline.render",
+    "import retainpdf_pipeline.render",
 )
-OCR_PROVIDER_STABLE_ENTRYPOINT = PACKAGE_ROOT / "services" / "ocr_provider" / "provider_pipeline.py"
-OCR_PROVIDER_PACKAGE_INIT = PACKAGE_ROOT / "services" / "ocr_provider" / "__init__.py"
-OCR_PROVIDER_DRIVER_REGISTRY = PACKAGE_ROOT / "services" / "ocr_provider" / "drivers.py"
-MINERU_PROVIDER_FLOW_IMPORT = "from retainpdf_pipeline.services.mineru.job_flow import run_mineru_to_job_dir"
+OCR_PROVIDER_STABLE_ENTRYPOINT = PACKAGE_ROOT / "ocr" / "ocr_provider" / "provider_pipeline.py"
+OCR_PROVIDER_PACKAGE_INIT = PACKAGE_ROOT / "ocr" / "ocr_provider" / "__init__.py"
+OCR_PROVIDER_DRIVER_REGISTRY = PACKAGE_ROOT / "ocr" / "ocr_provider" / "drivers.py"
+MINERU_PROVIDER_FLOW_IMPORT = "from retainpdf_pipeline.ocr.mineru.job_flow import run_mineru_to_job_dir"
 OCR_PROVIDER_COMPAT_SYMBOLS = (
     "adapt_path_to_document_v1_with_report",
     "validate_saved_document_path",
@@ -47,7 +47,7 @@ OCR_PROVIDER_COMPAT_SYMBOLS = (
     "tighten_paddle_text_bbox",
     "save_normalized_document_for_paddle",
 )
-DOCUMENT_SCHEMA_ADAPTERS_ENTRY = PACKAGE_ROOT / "services" / "document_schema" / "adapters.py"
+DOCUMENT_SCHEMA_ADAPTERS_ENTRY = PACKAGE_ROOT / "ocr" / "document_schema" / "adapters.py"
 
 
 def check_pipeline_provider_leaks(errors: list[str]) -> None:
@@ -154,7 +154,7 @@ def check_ocr_provider_boundaries(errors: list[str]) -> None:
             )
 
     adapters_text = read_text(DOCUMENT_SCHEMA_ADAPTERS_ENTRY)
-    if "from retainpdf_pipeline.services.mineru" in adapters_text:
+    if "from retainpdf_pipeline.ocr.mineru" in adapters_text:
         errors.append(
             "services/document_schema/adapters.py: provider registry must route MinerU through document_schema/provider_adapters/mineru"
         )

@@ -7,10 +7,10 @@ the remaining helpers only preserve generic historical rendering inputs.
 
 from __future__ import annotations
 
-from retainpdf_pipeline.services.document_schema.classification import (
+from retainpdf_pipeline.ocr.document_schema.classification import (
     resolve_block_class,
 )
-from retainpdf_pipeline.services.document_schema.legacy_compat import (
+from retainpdf_pipeline.ocr.document_schema.legacy_compat import (
     legacy_aliases,
     legacy_tags,
     normalized_sub_type,

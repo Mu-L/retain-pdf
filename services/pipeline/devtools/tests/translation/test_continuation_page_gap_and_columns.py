@@ -15,9 +15,9 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 def _ensure_package_stubs() -> None:
     package_paths = {
         "retainpdf_pipeline.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services",
-        "retainpdf_pipeline.translate": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation",
-        "retainpdf_pipeline.translate.core": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "core",
-        "retainpdf_pipeline.translate.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "services",
+        "retainpdf_pipeline.translate": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate",
+        "retainpdf_pipeline.translate.core": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "core",
+        "retainpdf_pipeline.translate.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "services",
         "retainpdf_pipeline.translate.services.continuation": REPO_SCRIPTS_ROOT
         / "services"
         / "translation"
@@ -49,15 +49,15 @@ def _load_continuation_modules():
     except Exception:
         _load_module(
             "retainpdf_pipeline.translate.core.item_reader",
-            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "core" / "item_reader.py",
+            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "core" / "item_reader.py",
         )
     rules = _load_module(
         "retainpdf_pipeline.translate.services.continuation.rules",
-        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "services" / "continuation" / "rules.py",
+        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "services" / "continuation" / "rules.py",
     )
     state = _load_module(
         "retainpdf_pipeline.translate.services.continuation.state",
-        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "services" / "continuation" / "state.py",
+        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "services" / "continuation" / "state.py",
     )
     return rules, state
 

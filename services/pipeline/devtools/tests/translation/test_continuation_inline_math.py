@@ -22,9 +22,9 @@ from retainpdf_pipeline.translate.services.continuation.orchestrator import _fil
 def _ensure_package_stubs() -> None:
     package_paths = {
         "retainpdf_pipeline.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services",
-        "retainpdf_pipeline.translate": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation",
-        "retainpdf_pipeline.translate.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "services",
-        "retainpdf_pipeline.translate.services.continuation": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "services" / "continuation",
+        "retainpdf_pipeline.translate": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate",
+        "retainpdf_pipeline.translate.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "services",
+        "retainpdf_pipeline.translate.services.continuation": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "services" / "continuation",
     }
     for name, path in package_paths.items():
         module = sys.modules.get(name)
@@ -46,11 +46,11 @@ def _load_module(name: str, path: Path):
 def _load_state_module():
     _load_module(
         "retainpdf_pipeline.translate.services.continuation.rules",
-        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "services" / "continuation" / "rules.py",
+        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "services" / "continuation" / "rules.py",
     )
     return _load_module(
         "retainpdf_pipeline.translate.services.continuation.state",
-        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "services" / "continuation" / "state.py",
+        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "services" / "continuation" / "state.py",
     )
 
 

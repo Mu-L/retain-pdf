@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-from retainpdf_pipeline.services.document_schema.canonical_semantics import from_flat_item
-from retainpdf_pipeline.services.document_schema.canonical_semantics import is_bodylike
-from retainpdf_pipeline.services.document_schema.canonical_semantics import is_caption
-from retainpdf_pipeline.services.document_schema.canonical_semantics import is_footnote
-from retainpdf_pipeline.services.document_schema.canonical_semantics import is_metadata
-from retainpdf_pipeline.services.document_schema.canonical_semantics import is_plain_text
-from retainpdf_pipeline.services.document_schema.canonical_semantics import is_reference_entry
-from retainpdf_pipeline.services.document_schema.canonical_semantics import is_reference_heading
-from retainpdf_pipeline.services.document_schema.canonical_semantics import is_textual
-from retainpdf_pipeline.services.document_schema.canonical_semantics import uses_title_style
-from retainpdf_pipeline.services.document_schema.legacy_compat import is_legacy_algorithm
-from retainpdf_pipeline.services.document_schema.legacy_compat import is_legacy_reference_entry
-from retainpdf_pipeline.services.document_schema.legacy_compat import normalized_sub_type
+from retainpdf_pipeline.ocr.document_schema.canonical_semantics import from_flat_item
+from retainpdf_pipeline.ocr.document_schema.canonical_semantics import is_bodylike
+from retainpdf_pipeline.ocr.document_schema.canonical_semantics import is_caption
+from retainpdf_pipeline.ocr.document_schema.canonical_semantics import is_footnote
+from retainpdf_pipeline.ocr.document_schema.canonical_semantics import is_metadata
+from retainpdf_pipeline.ocr.document_schema.canonical_semantics import is_plain_text
+from retainpdf_pipeline.ocr.document_schema.canonical_semantics import is_reference_entry
+from retainpdf_pipeline.ocr.document_schema.canonical_semantics import is_reference_heading
+from retainpdf_pipeline.ocr.document_schema.canonical_semantics import is_textual
+from retainpdf_pipeline.ocr.document_schema.canonical_semantics import uses_title_style
+from retainpdf_pipeline.ocr.document_schema.legacy_compat import is_legacy_algorithm
+from retainpdf_pipeline.ocr.document_schema.legacy_compat import is_legacy_reference_entry
+from retainpdf_pipeline.ocr.document_schema.legacy_compat import normalized_sub_type
 
 
 def _first_non_empty_str(*values: object) -> str:

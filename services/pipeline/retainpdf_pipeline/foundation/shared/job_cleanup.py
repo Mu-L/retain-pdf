@@ -3,8 +3,8 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from retainpdf_pipeline.services.mineru.contracts import MINERU_CONTENT_LIST_V2_FILE_NAME
-from retainpdf_pipeline.services.mineru.contracts import MINERU_LAYOUT_JSON_FILE_NAME
+from retainpdf_pipeline.ocr.mineru.contracts import MINERU_CONTENT_LIST_V2_FILE_NAME
+from retainpdf_pipeline.ocr.mineru.contracts import MINERU_LAYOUT_JSON_FILE_NAME
 
 
 def _safe_unlink(path: Path) -> None:

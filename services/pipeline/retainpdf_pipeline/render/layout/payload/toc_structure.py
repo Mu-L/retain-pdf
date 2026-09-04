@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import re
 
-from retainpdf_pipeline.services.document_schema.toc import build_toc_entries
-from retainpdf_pipeline.services.document_schema.toc import order_toc_lines_by_geometry
+from retainpdf_pipeline.ocr.document_schema.toc import build_toc_entries
+from retainpdf_pipeline.ocr.document_schema.toc import order_toc_lines_by_geometry
 from retainpdf_pipeline.render.layout.model.models import RenderTocEntry
 
 TRANSLATED_TOC_LINE_RE = re.compile(

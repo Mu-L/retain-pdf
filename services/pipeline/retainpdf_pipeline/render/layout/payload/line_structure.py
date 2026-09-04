@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import re
 
-from retainpdf_pipeline.services.document_schema.text_flow import TEXT_FLOW_PRESERVE_LINES
-from retainpdf_pipeline.services.document_schema.text_flow import classify_text_flow
-from retainpdf_pipeline.services.document_schema.text_flow import line_texts_from_lines
+from retainpdf_pipeline.ocr.document_schema.text_flow import TEXT_FLOW_PRESERVE_LINES
+from retainpdf_pipeline.ocr.document_schema.text_flow import classify_text_flow
+from retainpdf_pipeline.ocr.document_schema.text_flow import line_texts_from_lines
 from retainpdf_pipeline.render.semantics.item_view import is_caption_like_block
 from retainpdf_pipeline.render.layout.model.models import RenderLineBox
 from retainpdf_pipeline.render.layout.text_analysis import RAW_MATH_TOKEN_KINDS

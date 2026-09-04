@@ -11,12 +11,12 @@ from devtools.architecture_checks.common import display_path
 from devtools.architecture_checks.common import scan_py_files
 
 
-TRANSLATION_ROOT = PACKAGE_ROOT / "services" / "translation"
-RENDERING_ROOT = PACKAGE_ROOT / "services" / "rendering"
+TRANSLATION_ROOT = PACKAGE_ROOT / "translate"
+RENDERING_ROOT = PACKAGE_ROOT / "render"
 
-LEGACY_SEMANTICS_FACADE = "retainpdf_pipeline.services.document_schema.semantics"
-LEGACY_COMPAT_MODULE = "retainpdf_pipeline.services.document_schema.legacy_compat"
-DECISION_DIFF_MODULE = "retainpdf_pipeline.services.document_schema.decision_diff"
+LEGACY_SEMANTICS_FACADE = "retainpdf_pipeline.ocr.document_schema.semantics"
+LEGACY_COMPAT_MODULE = "retainpdf_pipeline.ocr.document_schema.legacy_compat"
+DECISION_DIFF_MODULE = "retainpdf_pipeline.ocr.document_schema.decision_diff"
 
 LEGACY_COMPAT_IMPORTERS = {
     TRANSLATION_ROOT / "core" / "item_reader.py",

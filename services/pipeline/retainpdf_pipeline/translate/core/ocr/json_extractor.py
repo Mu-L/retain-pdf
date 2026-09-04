@@ -3,10 +3,10 @@ import json
 import re
 from pathlib import Path
 
-from retainpdf_pipeline.services.document_schema.defaults import normalize_block_continuation_hint
-from retainpdf_pipeline.services.document_schema.adapters import adapt_path_to_document_v1
-from retainpdf_pipeline.services.document_schema.legacy_compat import is_legacy_algorithm
-from retainpdf_pipeline.services.document_schema.legacy_compat import legacy_tags
+from retainpdf_pipeline.ocr.document_schema.defaults import normalize_block_continuation_hint
+from retainpdf_pipeline.ocr.document_schema.adapters import adapt_path_to_document_v1
+from retainpdf_pipeline.ocr.document_schema.legacy_compat import is_legacy_algorithm
+from retainpdf_pipeline.ocr.document_schema.legacy_compat import legacy_tags
 from retainpdf_pipeline.translate.core.ocr.models import TextItem
 from retainpdf_pipeline.translate.core.ocr.normalized_reader import (
     block_asset_id as _block_asset_id,
@@ -29,7 +29,7 @@ from retainpdf_pipeline.translate.core.ocr.normalized_reader import (
     iter_page_blocks as _iter_page_blocks,
     is_normalized_document,
 )
-from retainpdf_pipeline.services.document_schema.validator import validate_document_payload
+from retainpdf_pipeline.ocr.document_schema.validator import validate_document_payload
 
 
 def load_ocr_json(json_path: Path) -> dict:

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from retainpdf_pipeline.services.document_schema.defaults import normalize_block_continuation_hint
-from retainpdf_pipeline.services.document_schema.provider_signals import body_repair_applied
-from retainpdf_pipeline.services.document_schema.provider_signals import body_repair_peer_block_id
-from retainpdf_pipeline.services.document_schema.provider_signals import body_repair_role
+from retainpdf_pipeline.ocr.document_schema.defaults import normalize_block_continuation_hint
+from retainpdf_pipeline.ocr.document_schema.provider_signals import body_repair_applied
+from retainpdf_pipeline.ocr.document_schema.provider_signals import body_repair_peer_block_id
+from retainpdf_pipeline.ocr.document_schema.provider_signals import body_repair_role
 from retainpdf_pipeline.translate.core.item_reader import item_block_class
 from retainpdf_pipeline.translate.core.item_reader import item_block_kind
 from retainpdf_pipeline.translate.core.item_reader import item_is_algorithm_like
