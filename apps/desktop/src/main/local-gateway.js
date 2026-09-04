@@ -41,15 +41,21 @@ function createLocalGateway(options = {}) {
   const logger = options.logger || console;
   const frontendRoot = options.frontendRoot || "";
   const getBackendBase = typeof options.getBackendBase === "function" ? options.getBackendBase : () => "";
+  // Full runtime config to inline (apiBase, xApiKey, providers, model).
+  // Defaults to just the backend base; callers with user config pass more.
+  const getRuntimeConfig = typeof options.getRuntimeConfig === "function"
+    ? options.getRuntimeConfig
+    : () => ({ apiBase: getBackendBase() });
   const canConnectToPort = options.canConnectToPort || null;
   let server = null;
   let baseUrl = "";
 
-  function injectRuntimeConfig(html, apiBase) {
+  function injectRuntimeConfig(html) {
     // Merge, never replace: the global also carries xApiKey, provider
     // tokens and model settings. Replacing it drops the API key and every
     // authenticated request answers 401.
-    const snippet = `<script>window.__FRONT_RUNTIME_CONFIG__=Object.assign({},window.__FRONT_RUNTIME_CONFIG__||{},${JSON.stringify({ apiBase })});</script>`;
+    const config = getRuntimeConfig() || {};
+    const snippet = `<script>window.__FRONT_RUNTIME_CONFIG__=Object.assign({},window.__FRONT_RUNTIME_CONFIG__||{},${JSON.stringify(config)});</script>`;
     if (html.includes("</body>")) {
       return html.replace("</body>", `${snippet}</body>`);
     }

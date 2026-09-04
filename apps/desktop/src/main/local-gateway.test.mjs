@@ -156,3 +156,25 @@ test("finds next free gateway port", async (t) => {
   t.after(() => gateway.stop());
   assert.notEqual(base, `http://127.0.0.1:${busyPort}`);
 });
+
+test("inlines full runtime config including xApiKey", async (t) => {
+  const root = makeFrontendDir({
+    "index.html": "<html><head><script>window.__FRONT_RUNTIME_CONFIG__={xApiKey:\"\",ocrProvider:\"mineru\"};</script></head><body>x</body></html>",
+  });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const gateway = createLocalGateway(gatewayOptions({
+    frontendRoot: root,
+    getBackendBase: () => "http://127.0.0.1:41001",
+    getRuntimeConfig: () => ({
+      apiBase: "http://127.0.0.1:41001",
+      xApiKey: "retain-pdf-desktop",
+      ocrProvider: "paddle",
+    }),
+  }));
+  const base = await gateway.start("127.0.0.1", 40001);
+  t.after(() => gateway.stop());
+  const page = await getText(`${base}/index.html`);
+  assert.equal(page.status, 200);
+  assert.match(page.body, /"xApiKey":"retain-pdf-desktop"/);
+  assert.match(page.body, /"ocrProvider":"paddle"/);
+});

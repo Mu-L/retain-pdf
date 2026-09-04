@@ -442,6 +442,9 @@ try {
     const gateway = createLocalGateway({
       frontendRoot: resolveFrontendRoot(),
       getBackendBase: () => `http://127.0.0.1:${apiPort}`,
+      // Inline the full runtime config (apiBase + xApiKey + providers):
+      // the page carries its own credentials, no IPC ordering risk.
+      getRuntimeConfig: () => buildDesktopRuntimeConfig(loadDesktopConfig()),
       canConnectToPort,
       logger: console,
     });
