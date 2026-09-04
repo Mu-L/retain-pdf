@@ -52,7 +52,20 @@ def review_candidate_pairs(
                 timeout=120,
                 request_label=request_label,
             )
-            return parse_continuation_review_response(content)
+            try:
+                return parse_continuation_review_response(content)
+            except ValueError as parse_error:
+                # Advisory review must never kill the job: rule-based groups
+                # stand as-is when the model returns unparseable output
+                # (weak models, relays ignoring response_format).
+                preview = " ".join((content or "").split())[:200]
+                print(
+                    f"{request_label or 'continuation-review'}: review response "
+                    f"unparseable, keeping rule decisions: {parse_error}; "
+                    f"preview={preview!r}",
+                    flush=True,
+                )
+                return {}
         except Exception as exc:  # noqa: BLE001 - classification decides retry vs fail-fast
             last_error = exc
             if _resilience.is_non_retryable_client_error(exc):
