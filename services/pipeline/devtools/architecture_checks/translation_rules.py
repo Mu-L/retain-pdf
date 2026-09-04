@@ -10,7 +10,7 @@ DOCUMENT_SCHEMA_ROOT = PACKAGE_ROOT / "ocr" / "document_schema"
 TRANSLATION_ROOT = PACKAGE_ROOT / "translate"
 RENDERING_ROOT = PACKAGE_ROOT / "render"
 DEVTOOLS_ROOT = SCRIPTS_ROOT / "devtools"
-TRANSLATION_STAGE_PIPELINE = PIPELINE_ROOT / "translation_stage.py"
+TRANSLATION_STAGE_PIPELINE = TRANSLATION_ROOT / "translation_stage.py"
 
 TRANSLATE_ONLY_ENTRYPOINT = PACKAGE_ROOT / "translate" / "entrypoints" / "translate_only_pipeline.py"
 FROM_OCR_ENTRYPOINT = PACKAGE_ROOT / "translate" / "entrypoints" / "from_ocr_pipeline.py"
@@ -19,6 +19,7 @@ TRANSLATION_ALLOWED_ROOT_DIRS = {
     "core",
     "entrypoints",
     "llm",
+    "prompts",
     "public",
     "services",
     "workflow",
@@ -27,6 +28,8 @@ TRANSLATION_ALLOWED_ROOT_FILES = {
     "__init__.py",
     "__main__.py",
     "README.md",
+    "prompt_loader.py",
+    "translation_stage.py",
 }
 TRANSLATION_WORKFLOW_ALLOWED_DIRS = {
     "__pycache__",
@@ -150,9 +153,11 @@ TRANSLATION_LAYER_IMPORT_RULES: dict[str, tuple[str, ...]] = {
         "retainpdf_pipeline.translate.llm",
         "retainpdf_pipeline.translate.services.terms",
         "retainpdf_pipeline.translate.workflow",
+        "retainpdf_pipeline.translate.translation_stage",
     ),
     "core": (
         "retainpdf_pipeline.translate.core",
+        "retainpdf_pipeline.translate.prompt_loader",
     ),
     "workflow": (
         "retainpdf_pipeline.translate.workflow",
@@ -183,6 +188,7 @@ TRANSLATION_LAYER_IMPORT_RULES: dict[str, tuple[str, ...]] = {
         "retainpdf_pipeline.translate.core",
         "retainpdf_pipeline.translate.artifacts",
         "retainpdf_pipeline.translate.core.payload",
+        "retainpdf_pipeline.translate.prompt_loader",
     ),
     "services": (
         "retainpdf_pipeline.translate.services",
@@ -190,11 +196,15 @@ TRANSLATION_LAYER_IMPORT_RULES: dict[str, tuple[str, ...]] = {
         "retainpdf_pipeline.translate.core.item_reader",
         "retainpdf_pipeline.translate.llm",
         "retainpdf_pipeline.translate.artifacts",
+        "retainpdf_pipeline.translate.prompt_loader",
     ),
     "artifacts": (
         "retainpdf_pipeline.translate.artifacts",
         "retainpdf_pipeline.translate.core",
         "retainpdf_pipeline.translate.core.payload",
+    ),
+    "prompts": (
+        "retainpdf_pipeline.translate.prompts",
     ),
     "public": (
         "retainpdf_pipeline.translate.public",

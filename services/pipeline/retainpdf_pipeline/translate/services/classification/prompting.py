@@ -1,4 +1,4 @@
-from retainpdf_pipeline.foundation.shared.prompt_loader import load_prompt
+from retainpdf_pipeline.translate.prompt_loader import load_prompt
 from retainpdf_pipeline.translate.core.item_reader import item_block_kind
 from retainpdf_pipeline.translate.core.item_reader import item_effective_role
 from retainpdf_pipeline.translate.core.item_reader import item_layout_role

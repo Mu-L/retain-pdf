@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Callable
 
-from retainpdf_pipeline.foundation.shared.prompt_loader import load_prompt
+from retainpdf_pipeline.translate.prompt_loader import load_prompt
 from retainpdf_pipeline.translate.llm.shared.structured_models import CONTINUATION_REVIEW_RESPONSE_SCHEMA
 from retainpdf_pipeline.translate.llm.shared.structured_parsers import parse_continuation_review_response
 

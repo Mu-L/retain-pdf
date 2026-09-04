@@ -14,7 +14,7 @@ from retainpdf_pipeline.ocr.mineru.job_flow import run_mineru_to_job_dir
 from retainpdf_pipeline.services.pipeline_shared.contracts import PIPELINE_SUMMARY_FILE_NAME
 from retainpdf_pipeline.services.pipeline_shared.summary import print_pipeline_summary
 from retainpdf_pipeline.services.pipeline_shared.summary import write_pipeline_summary
-from retainpdf_pipeline.services.pipeline_shared.source_json import resolve_translation_source_json_path
+from retainpdf_pipeline.ocr.source_json import resolve_translation_source_json_path
 from retainpdf_pipeline.runtime.pipeline.book_pipeline import run_book_pipeline
 from retainpdf_pipeline.translate.public import DEFAULT_BASE_URL
 from retainpdf_pipeline.translate.public import get_api_key

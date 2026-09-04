@@ -38,7 +38,7 @@ from retainpdf_pipeline.translate.llm.shared.provider_runtime import get_api_key
 from retainpdf_pipeline.translate.llm.shared.provider_runtime import normalize_base_url
 from retainpdf_pipeline.translate.services.terms import parse_glossary_json
 from retainpdf_pipeline.runtime.pipeline.render_preprocess import run_post_translation_render_prewarm
-from retainpdf_pipeline.runtime.pipeline.translation_stage import translate_book_pipeline
+from retainpdf_pipeline.translate.translation_stage import translate_book_pipeline
 
 
 def parse_args() -> argparse.Namespace:

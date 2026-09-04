@@ -11,7 +11,7 @@ from retainpdf_pipeline.foundation.shared.stage_specs import build_stage_invocat
 from retainpdf_pipeline.foundation.shared.stage_specs import RenderStageSpec
 from retainpdf_pipeline.foundation.shared.stage_specs import resolve_credential_ref
 from retainpdf_pipeline.foundation.shared.tee_output import enable_job_log_capture
-from retainpdf_pipeline.runtime.pipeline.render_stage import run_render_stage
+from retainpdf_pipeline.render.render_stage import run_render_stage
 from retainpdf_pipeline.services.pipeline_shared.contracts import format_stdout_kv
 from retainpdf_pipeline.services.pipeline_shared.contracts import PIPELINE_SUMMARY_FILE_NAME
 from retainpdf_pipeline.services.pipeline_shared.contracts import STDOUT_LABEL_EVENTS_JSONL

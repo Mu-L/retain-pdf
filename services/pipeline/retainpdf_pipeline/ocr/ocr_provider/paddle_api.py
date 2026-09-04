@@ -10,11 +10,11 @@ from typing import Callable
 import requests
 
 from retainpdf_pipeline.foundation.shared.local_env import get_secret
-from retainpdf_pipeline.services.network.retry import RetainNetworkError
-from retainpdf_pipeline.services.network.retry import RetainRateLimitError
-from retainpdf_pipeline.services.network.retry import direct_session
-from retainpdf_pipeline.services.network.retry import request_with_retry
-from retainpdf_pipeline.services.network.retry import stepped_poll_interval
+from retainpdf_pipeline.ocr.retry import RetainNetworkError
+from retainpdf_pipeline.ocr.retry import RetainRateLimitError
+from retainpdf_pipeline.ocr.retry import direct_session
+from retainpdf_pipeline.ocr.retry import request_with_retry
+from retainpdf_pipeline.ocr.retry import stepped_poll_interval
 from retainpdf_pipeline.ocr.ocr_provider.provider_config import normalize_paddle_model_name
 
 

@@ -20,8 +20,6 @@ from .events import PipelineEventWriter
 from .events import pipeline_event_writer_scope
 from .io import load_json
 from .io import save_json
-from .source_json import resolve_preferred_source_json_path
-from .source_json import resolve_translation_source_json_path
 from .summary import print_pipeline_summary
 from .summary import write_pipeline_summary
 
@@ -48,8 +46,6 @@ __all__ = [
     "STDOUT_LABEL_TRANSLATIONS_DIR",
     "format_stdout_kv",
     "print_pipeline_summary",
-    "resolve_preferred_source_json_path",
-    "resolve_translation_source_json_path",
     "save_json",
     "write_pipeline_summary",
 ]

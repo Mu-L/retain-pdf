@@ -19,8 +19,8 @@ from devtools.tests.rendering_support.prewarm_fixtures import translated_page_pa
 from devtools.tests.rendering_support.prewarm_fixtures import write_document_v1 as _document_v1
 from devtools.tests.rendering_support.prewarm_fixtures import write_pseudo_editable_scan_pdf as _pseudo_editable_scan_pdf
 from devtools.tests.rendering_support.prewarm_fixtures import write_source_pdf as _source_pdf
-from retainpdf_pipeline.runtime.pipeline.render_plan import RenderPlan
-from retainpdf_pipeline.runtime.pipeline.render_inputs import RenderInputs
+from retainpdf_pipeline.render.render_plan import RenderPlan
+from retainpdf_pipeline.render.render_inputs import RenderInputs
 from retainpdf_pipeline.foundation.config import layout
 from retainpdf_pipeline.render.source.prewarm import RenderPrewarmSpec
 from retainpdf_pipeline.render.source.prewarm import PAYLOAD_RENDER_ALGORITHM_VERSION

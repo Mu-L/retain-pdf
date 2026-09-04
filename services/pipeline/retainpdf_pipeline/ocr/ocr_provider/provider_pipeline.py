@@ -22,9 +22,9 @@ from retainpdf_pipeline.ocr.document_schema.provider_adapters.paddle.content_ext
 from retainpdf_pipeline.ocr.document_schema.provider_adapters.paddle.content_extract import tighten_text_bbox as tighten_paddle_text_bbox
 from retainpdf_pipeline.ocr.document_schema.reporting import build_normalization_summary
 from retainpdf_pipeline.ocr.document_schema.providers import PROVIDER_PADDLE
-from retainpdf_pipeline.services.network.retry import RetainNetworkError
-from retainpdf_pipeline.services.network.retry import direct_session
-from retainpdf_pipeline.services.network.retry import request_with_retry
+from retainpdf_pipeline.ocr.retry import RetainNetworkError
+from retainpdf_pipeline.ocr.retry import direct_session
+from retainpdf_pipeline.ocr.retry import request_with_retry
 from retainpdf_pipeline.ocr.ocr_provider.drivers import normalize_provider_name
 from retainpdf_pipeline.ocr.ocr_provider.drivers import run_registered_ocr_provider
 from retainpdf_pipeline.ocr.ocr_provider.paddle_api import PADDLE_BASE_URL

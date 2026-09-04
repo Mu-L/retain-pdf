@@ -5,7 +5,7 @@ from pathlib import Path
 import time
 
 from retainpdf_pipeline.foundation.config import layout
-from retainpdf_pipeline.runtime.pipeline.render_mode import resolve_effective_render_mode
+from retainpdf_pipeline.render.render_mode import resolve_effective_render_mode
 from retainpdf_pipeline.translate.public import resolve_page_range
 from retainpdf_pipeline.services.pipeline_shared.events import emit_stage_progress
 from retainpdf_pipeline.services.pipeline_shared.events import get_active_pipeline_event_writer

@@ -5,8 +5,8 @@ from pathlib import Path
 
 from retainpdf_pipeline.foundation.config import fonts
 from retainpdf_pipeline.foundation.config import runtime
-from retainpdf_pipeline.runtime.pipeline.render_plan import build_render_plan
-from retainpdf_pipeline.runtime.pipeline.render_execution import execute_render_plan
+from retainpdf_pipeline.render.render_plan import build_render_plan
+from retainpdf_pipeline.render.render_execution import execute_render_plan
 from retainpdf_pipeline.services.pipeline_shared.events import emit_stage_progress
 from retainpdf_pipeline.services.pipeline_shared.events import emit_stage_transition
 from retainpdf_pipeline.services.pipeline_shared.events import reset_render_page_progress

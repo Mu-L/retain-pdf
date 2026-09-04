@@ -14,8 +14,8 @@ from devtools.architecture_checks.common import scan_py_files
 PIPELINE_ROOT = PACKAGE_ROOT / "runtime" / "pipeline"
 RENDERING_ROOT = PACKAGE_ROOT / "render"
 
-RENDER_STAGE_PIPELINE = PIPELINE_ROOT / "render_stage.py"
-RENDER_EXECUTION_PIPELINE = PIPELINE_ROOT / "render_execution.py"
+RENDER_STAGE_PIPELINE = RENDERING_ROOT / "render_stage.py"
+RENDER_EXECUTION_PIPELINE = RENDERING_ROOT / "render_execution.py"
 RENDERING_WORKFLOW_ROOT = RENDERING_ROOT / "workflow"
 RENDERING_ANALYSIS_ROOT = RENDERING_ROOT / "analysis"
 RENDERING_PROFILE_ROOT = RENDERING_ANALYSIS_ROOT / "profile"
@@ -47,10 +47,18 @@ RENDERING_ALLOWED_ROOT_FILES = {
     "__main__.py",
     "performance.py",
     "README.md",
+    "render_stage.py",
+    "render_plan.py",
+    "render_inputs.py",
+    "render_mode.py",
+    "render_execution.py",
+    "translation_loader.py",
 }
 RENDERING_LAYER_IMPORT_RULES: dict[str, tuple[str, ...]] = {
     "workflow": (
         "retainpdf_pipeline.render.workflow",
+        "retainpdf_pipeline.render.render_stage",
+        "retainpdf_pipeline.render.render_plan",
         "retainpdf_pipeline.render.analysis",
         "retainpdf_pipeline.render.contracts",
         "retainpdf_pipeline.render.document",
@@ -84,6 +92,8 @@ RENDERING_LAYER_IMPORT_RULES: dict[str, tuple[str, ...]] = {
     ),
     "source": (
         "retainpdf_pipeline.render.source",
+        "retainpdf_pipeline.render.render_mode",
+        "retainpdf_pipeline.render.translation_loader",
         "retainpdf_pipeline.render.contracts",
         "retainpdf_pipeline.render.document",
         "retainpdf_pipeline.render.policy",
@@ -222,7 +232,7 @@ def check_render_pipeline_facade_boundary(errors: list[str]) -> None:
     execution_text = read_text(RENDER_EXECUTION_PIPELINE)
     if "from retainpdf_pipeline.render.workflow import execute_render_plan" not in execution_text:
         errors.append(
-            "runtime/pipeline/render_execution.py: must delegate to services.rendering.workflow.execute_render_plan"
+            "render/render_execution.py: must delegate to services.rendering.workflow.execute_render_plan"
         )
     forbidden = (
         "import fitz",
@@ -239,7 +249,7 @@ def check_render_pipeline_facade_boundary(errors: list[str]) -> None:
     for item in forbidden:
         if item in stage_text or item in execution_text:
             errors.append(
-                f"runtime/pipeline render facade must not import rendering internals directly: '{item}'"
+                f"render render facade must not import rendering internals directly: '{item}'"
             )
 
 

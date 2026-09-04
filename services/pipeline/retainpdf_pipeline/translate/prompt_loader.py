@@ -3,7 +3,7 @@ from importlib import resources
 from string import Formatter
 
 
-PROMPTS_PACKAGE = "retainpdf_pipeline.foundation.prompts"
+PROMPTS_PACKAGE = "retainpdf_pipeline.translate.prompts"
 
 
 @lru_cache(maxsize=None)
