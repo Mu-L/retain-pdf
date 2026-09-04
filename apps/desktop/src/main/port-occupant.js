@@ -1,4 +1,5 @@
 const { execFile } = require("child_process");
+const http = require("http");
 
 // Images owned by the RetainPDF backend. Only these are ever auto-reclaimed:
 // anything else (Docker, dev servers, system services) keeps the current
@@ -66,15 +67,37 @@ function createPortOccupant(options = {}) {
     }
     try {
       const taskOutput = await runCommand("tasklist", ["/FI", `PID eq ${pid}`, "/FO", "CSV", "/NH"]);
-      const firstLine = taskOutput.split(/\r?\n/).map((entry) => entry.trim()).find(Boolean) || "";
-      const match = firstLine.match(/^"([^"]+)"/);
-      if (!match || /^INFO:/i.test(firstLine)) {
-        return { pid, image: "" };
+      const image = parseTasklistImage(taskOutput);
+      if (image) {
+        return { pid, image };
       }
-      return { pid, image: match[1] };
+    } catch {
+      // Fall through to one retry below.
+    }
+    // The listener may have just exited (netstat/tasklist race), or tasklist
+    // spoke a localized "no such process" line. Retry once before giving up.
+    await sleep(400);
+    try {
+      const taskOutput = await runCommand("tasklist", ["/FI", `PID eq ${pid}`, "/FO", "CSV", "/NH"]);
+      const image = parseTasklistImage(taskOutput);
+      return { pid, image: image || "" };
     } catch {
       return { pid, image: "" };
     }
+  }
+
+  // tasklist /FO CSV /NH prints `"image.exe","pid",...` on hit, or an
+  // info line ("INFO: ..." / localized "信息: ...") on miss.
+  function parseTasklistImage(taskOutput) {
+    const firstLine = String(taskOutput || "")
+      .split(/\r?\n/)
+      .map((entry) => entry.trim())
+      .find(Boolean) || "";
+    const match = firstLine.match(/^"([^"]+)"/);
+    if (!match) {
+      return "";
+    }
+    return match[1];
   }
 
   async function getPosixOccupant(host, port) {
@@ -121,6 +144,37 @@ function createPortOccupant(options = {}) {
     }
   }
 
+  // Best-effort check whether the listener is a RetainPDF backend, used
+  // only when the process image could not be identified. Never throws.
+  async function identifyBackendViaHttp(host, port) {
+    return new Promise((resolve) => {
+      const request = http.get(
+        `http://${host}:${port}/health`,
+        { timeout: 2000 },
+        (response) => {
+          let body = "";
+          response.setEncoding("utf8");
+          response.on("data", (chunk) => {
+            body += chunk;
+          });
+          response.on("end", () => {
+            try {
+              const payload = JSON.parse(body);
+              resolve(Boolean(payload && payload.data && payload.data.status === "up"));
+            } catch {
+              resolve(false);
+            }
+          });
+        },
+      );
+      request.on("timeout", () => {
+        request.destroy();
+        resolve(false);
+      });
+      request.on("error", () => resolve(false));
+    });
+  }
+
   // If the port is held by our own residual backend binary, terminate its
   // tree and re-probe. Returns { status, occupant } where status is one of
   // "free" | "reclaimed" | "busy". Never throws: lookup failures degrade to
@@ -137,7 +191,26 @@ function createPortOccupant(options = {}) {
       return { status: "free", occupant: null };
     }
     if (!isOwnResidualBackend(occupant.image)) {
-      return { status: "busy", occupant };
+      // Image unidentified (localized tasklist, exited listener, missing
+      // rights): ask the port itself. A RetainPDF /health signature means a
+      // residual backend of ours, which the packaged policy allows reclaiming
+      // (killing, never silently reusing).
+      if (!occupant.image) {
+        let identified = false;
+        try {
+          identified = await identifyBackendViaHttp(host, port);
+        } catch {
+          identified = false;
+        }
+        if (identified) {
+          occupant.image = "RetainPDF 后端残留";
+          occupant.identifiedViaApi = true;
+        } else {
+          return { status: "busy", occupant };
+        }
+      } else {
+        return { status: "busy", occupant };
+      }
     }
     logger.warn(
       `[desktop] port ${port} is held by residual backend ${occupant.image} (PID ${occupant.pid}); terminating its process tree`,
@@ -159,10 +232,13 @@ function createPortOccupant(options = {}) {
     if (!occupant || !occupant.pid) {
       return "";
     }
+    const killHint = platform === "win32"
+      ? `可手动执行 taskkill /PID ${occupant.pid} /F 后重试。`
+      : `可手动执行 kill -9 ${occupant.pid} 后重试。`;
     if (occupant.image) {
-      return `占用进程：${occupant.image}（PID ${occupant.pid}）。`;
+      return `占用进程：${occupant.image}（PID ${occupant.pid}）。${killHint}`;
     }
-    return `占用进程 PID ${occupant.pid}（进程名未能识别）。`;
+    return `占用进程 PID ${occupant.pid}（进程名未能识别）。${killHint}`;
   }
 
   return {

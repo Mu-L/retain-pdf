@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import http from "node:http";
 import test from "node:test";
 
 import { createPortOccupant } from "./port-occupant.js";
@@ -109,4 +110,58 @@ test("lookup failure degrades to busy with null occupant", async () => {
   assert.equal(result.status, "busy");
   assert.equal(result.occupant, null);
   assert.equal(occupant.describeOccupant(41000, null), "");
+});
+
+test("windows: localized tasklist info line yields unknown image, then API identifies backend", async () => {
+  const server = http.createServer((req, res) => {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ data: { status: "up" } }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = server.address().port;
+  let killed = "";
+  const occupant = createPortOccupant({
+    platform: "win32",
+    canConnectToPort: async () => false,
+    runCommand: async (command) => {
+      if (command === "netstat") {
+        return `  TCP    127.0.0.1:${port}        0.0.0.0:0              LISTENING       27392\r\n`;
+      }
+      if (command === "tasklist") {
+        return "信息: 没有运行与指定标准匹配的任务。\r\n";
+      }
+      if (command === "taskkill") {
+        killed = "yes";
+        return "";
+      }
+      throw new Error(`unexpected command: ${command}`);
+    },
+  });
+  try {
+    const result = await occupant.reclaimPortIfOwnResidual("127.0.0.1", port);
+    assert.equal(result.status, "reclaimed");
+    assert.equal(killed, "yes");
+    assert.match(occupant.describeOccupant(port, result.occupant), /RetainPDF 后端残留.*27392/);
+    assert.match(occupant.describeOccupant(port, result.occupant), /taskkill \/PID 27392 \/F/);
+  } finally {
+    server.close();
+  }
+});
+
+test("windows: unknown image with no backend signature stays busy with kill hint", async () => {
+  const occupant = createPortOccupant({
+    platform: "win32",
+    runCommand: async (command) => {
+      if (command === "netstat") {
+        return "  TCP    127.0.0.1:41000        0.0.0.0:0              LISTENING       555\r\n";
+      }
+      if (command === "tasklist") {
+        throw new Error("access denied");
+      }
+      throw new Error(`unexpected command: ${command}`);
+    },
+  });
+  const result = await occupant.reclaimPortIfOwnResidual("127.0.0.1", 41000);
+  assert.equal(result.status, "busy");
+  assert.match(occupant.describeOccupant(41000, result.occupant), /taskkill \/PID 555 \/F/);
 });
