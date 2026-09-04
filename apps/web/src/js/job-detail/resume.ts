@@ -1,27 +1,10 @@
 import { $ } from "../dom/query.js";
-import { firstJobIdFromPayload, firstNonEmptyText, buildDetailPageUrl } from "./routing.js";
+import { firstJobIdFromPayload, firstNonEmpty as firstNonEmptyText } from "@retainpdf/domain/job";
+import { buildDetailPageUrl } from "./routing.js";
 import { retryJobStage } from "@retainpdf/api/jobs-actions";
 import { API_PREFIX } from "../config/api-constants.js";
 
-export function summarizeResumePlan(plan) {
-  if (!plan) {
-    return "当前任务暂不可恢复。";
-  }
-  if (!plan.can_resume) {
-    return plan.reason || "当前任务暂不可恢复。";
-  }
-  const fromStage = firstNonEmptyText(plan.from_stage, plan.resume_from, "checkpoint");
-  const workflow = firstNonEmptyText(plan.resume_workflow, plan.workflow);
-  const reruns = Array.isArray(plan.reruns_stages) ? plan.reruns_stages.join("、") : "";
-  const bits = [`可从 ${fromStage} 恢复`];
-  if (workflow) {
-    bits.push(`workflow=${workflow}`);
-  }
-  if (reruns) {
-    bits.push(`重跑 ${reruns}`);
-  }
-  return bits.join("，");
-}
+export { summarizeResumePlan } from "@retainpdf/domain/job";
 
 export function bindRerunButton({
   detailPageState,

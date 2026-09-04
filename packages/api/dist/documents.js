@@ -163,6 +163,13 @@ export async function ocrDocument(apiPrefix, documentId, payload = {}) {
     }
     return unwrapEnvelope(await resp.json());
 }
+export async function submitDocument(apiPrefix, documentId, payload = {}) {
+    const workflow = `${payload?.workflow || ""}`.trim().toLowerCase();
+    if (workflow === "ocr") {
+        return ocrDocument(apiPrefix, documentId, payload);
+    }
+    return translateDocument(apiPrefix, documentId, payload);
+}
 export async function fetchDocumentJobs(apiPrefix, documentId, { limit = 50, offset = 0 } = {}) {
     const normalized = `${documentId || ""}`.trim();
     if (!normalized)

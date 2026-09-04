@@ -1,6 +1,7 @@
 export * from "./presentation/job-display-state.js";
 export * from "./presentation/job-render-stage-presentation.js";
 export * from "./job-stage-contract-adapter.js";
+export * from "./job-detail-status-view-model.js";
 export * from "./contract/job-stage-event-contract.js";
 export * from "./progress/job-stage-event-progress.js";
 export * from "./job-stage-event-record.js";

@@ -1,5 +1,7 @@
 import { $ } from "../dom/query.js";
-import { summarizeRuntimeField } from "@retainpdf/domain/job";
+import { summarizeRuntimeField, firstDefinedValue, stringifyDebugValue } from "@retainpdf/domain/job";
+
+export { firstDefinedValue, stringifyDebugValue };
 
 function escapeHtml(value) {
   return `${value ?? ""}`
@@ -10,31 +12,7 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function firstDefinedValue(...values) {
-  for (const value of values) {
-    if (value !== undefined && value !== null && `${value}`.trim() !== "") {
-      return value;
-    }
-  }
-  return "";
-}
 
-function stringifyDebugValue(value) {
-  if (value == null || value === "") {
-    return "";
-  }
-  if (typeof value === "string") {
-    return value.trim();
-  }
-  if (typeof value === "number" || typeof value === "boolean") {
-    return `${value}`;
-  }
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch (_error) {
-    return String(value);
-  }
-}
 
 export function applyDiagnostics(diagnostics, job, setText) {
   if (!diagnostics) {

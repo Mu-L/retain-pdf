@@ -3,7 +3,21 @@ import {
   collectMarkdownImageRefs,
   resolveJobMarkdownContract,
   resolveMarkdownAssetUrl,
+  formatSizeBytes,
+  truncatePreview,
+  summarizeArtifactLabel,
+  firstNonEmpty as firstNonEmptyText,
+  resolveMarkdownImagesBaseUrl,
+  isMarkdownReady,
 } from "@retainpdf/domain/job";
+
+export {
+  formatSizeBytes,
+  truncatePreview,
+  summarizeArtifactLabel,
+  resolveMarkdownImagesBaseUrl,
+  isMarkdownReady,
+};
 
 function escapeHtml(value) {
   return `${value ?? ""}`
@@ -14,75 +28,9 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function firstNonEmptyText(...values) {
-  for (const value of values) {
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
-  }
-  return "";
-}
 
-function formatSizeBytes(value) {
-  const size = Number(value);
-  if (!Number.isFinite(size) || size < 0) {
-    return "-";
-  }
-  if (size < 1024) {
-    return `${size} B`;
-  }
-  if (size < 1024 * 1024) {
-    return `${(size / 1024).toFixed(1)} KB`;
-  }
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
 
-function truncatePreview(value, maxChars = 4000) {
-  const text = `${value || ""}`;
-  if (text.length <= maxChars) {
-    return text;
-  }
-  return `${text.slice(0, maxChars)}\n\n...（预览已截断）`;
-}
 
-function summarizeArtifactLabel(key) {
-  switch (`${key || ""}`.trim()) {
-    case "source_pdf":
-      return "源 PDF";
-    case "translated_pdf":
-      return "译后 PDF";
-    case "typst_render_pdf":
-      return "Typst 渲染 PDF";
-    case "markdown_raw":
-      return "Markdown Raw";
-    case "markdown_images_dir":
-      return "Markdown 图片目录";
-    case "markdown_bundle_zip":
-      return "Markdown Bundle";
-    case "normalized_document_json":
-      return "Normalized Document";
-    case "normalization_report_json":
-      return "Normalization Report";
-    case "translation_manifest_json":
-      return "Translation Manifest";
-    case "translation_diagnostics_json":
-      return "Translation Diagnostics";
-    case "translation_debug_index_json":
-      return "Translation Debug Index";
-    case "provider_result_json":
-      return "Provider Result";
-    case "provider_bundle_zip":
-      return "Provider Bundle";
-    case "provider_raw_dir":
-      return "Provider Raw Dir";
-    case "pipeline_summary":
-      return "Pipeline Summary";
-    case "events_jsonl":
-      return "Events JSONL";
-    default:
-      return `${key || "-"}`.trim() || "-";
-  }
-}
 
 export function revokeMarkdownImageUrls(markdownImageUrls) {
   for (const url of markdownImageUrls) {
@@ -295,13 +243,4 @@ export async function renderMarkdownImagePreview({
   empty.classList.add("hidden");
 }
 
-export function resolveMarkdownImagesBaseUrl(job, markdownPayload) {
-  return `${markdownPayload?.images_base_url
-    || markdownPayload?.images_base_path
-    || resolveJobMarkdownContract(job).imagesBaseUrl
-    || ""}`.trim();
-}
 
-export function isMarkdownReady(job) {
-  return Boolean(resolveJobMarkdownContract(job).ready);
-}

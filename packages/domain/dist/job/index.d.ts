@@ -8,6 +8,7 @@ export * from "./diagnostics.js";
 export * from "./durations.js";
 export * from "./elapsed-view-model.js";
 export * from "./formatters.js";
+export * from "./job-detail-formatters.js";
 export * from "./normalize.js";
 export * from "./stage-history.js";
 export * from "./stage-snapshot-flatten.js";

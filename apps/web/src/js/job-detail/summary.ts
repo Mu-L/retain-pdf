@@ -9,18 +9,9 @@ import {
   summarizePublicError,
   summarizeStatus,
 } from "@retainpdf/domain/job";
-import { firstNonEmptyText } from "./routing.js";
+import { firstNonEmpty as firstNonEmptyText, summarizeMathMode as renderMathMode } from "@retainpdf/domain/job";
 
-export function summarizeMathMode(job) {
-  const mathMode = `${job?.request_payload_math_mode || ""}`.trim();
-  if (mathMode === "placeholder") {
-    return "placeholder - 公式占位保护";
-  }
-  if (mathMode === "direct_typst") {
-    return "direct_typst - 模型直出公式";
-  }
-  return mathMode || "-";
-}
+export { summarizeMathMode } from "@retainpdf/domain/job";
 
 export function renderJobDetailRuntimeSummary({
   durations,
@@ -39,7 +30,7 @@ export function renderJobDetailRuntimeSummary({
   setText("detail-runtime-terminal-reason", summarizeRuntimeField(job.terminal_reason));
   setText("detail-runtime-input-protocol", summarizeInvocationProtocol(job));
   setText("detail-runtime-stage-spec-version", summarizeInvocationSchemaVersion(job));
-  setText("detail-runtime-math-mode", summarizeMathMode(job));
+  setText("detail-runtime-math-mode", renderMathMode(job));
 }
 
 export function renderJobDetailFailureSummary({ job, setText }) {

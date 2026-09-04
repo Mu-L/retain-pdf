@@ -124,4 +124,5 @@ export declare function deleteDocument(apiPrefix: string, documentId: string, { 
 }): Promise<any>;
 export declare function translateDocument(apiPrefix: string, documentId: string, payload?: Record<string, unknown>): Promise<DocumentJobSubmissionView>;
 export declare function ocrDocument(apiPrefix: string, documentId: string, payload?: Record<string, unknown>): Promise<any>;
+export declare function submitDocument(apiPrefix: string, documentId: string, payload?: Record<string, unknown>): Promise<DocumentJobSubmissionView>;
 export declare function fetchDocumentJobs(apiPrefix: string, documentId: string, { limit, offset }?: DocumentJobsQuery): Promise<DocumentJobsView>;
