@@ -101,6 +101,7 @@ export function BookTranslationWorkflowPanel({
     >
       {/* 取消任务只降视觉为文字链：作用域样式覆盖，不动 StatusCardEmbedded 事件/回调/disabled。 */}
       <style>{`#book-detail-status-section .bd-job-status-btn-cancel{border-color:transparent;background:transparent;box-shadow:none;padding-left:4px;padding-right:4px;text-decoration:underline;text-underline-offset:2px}#book-detail-status-section .bd-job-status-btn-cancel:hover:not(:disabled){background:transparent;color:inherit}#book-detail-status-section .bd-job-status-btn-primary{background:transparent;color:var(--ink)}`}</style>
+      {/* 阶段路标直接复用紧凑过程条（OCR→翻译→渲染→完成），不重写。 */}
       {showCompactProcess ? <TranslationProcessOverview item={item} /> : null}
 
       {showStatus ? (
@@ -121,23 +122,54 @@ export function BookTranslationWorkflowPanel({
         stageActionsNode
       )}
 
-      <BookTranslateLaunchForm
-        canTranslate={canTranslate}
-        readerAvailable={readerAvailable}
-        isActive={isActive}
-        statusTone={status.tone}
-        rangeOn={rangeOn}
-        startPage={startPage}
-        endPage={endPage}
-        pageCount={pageCount}
-        busy={busy}
-        error={error}
-        ocrReuse={ocrReuse}
-        onRangeOnChange={onRangeOnChange}
-        onStartPageChange={onStartPageChange}
-        onEndPageChange={onEndPageChange}
-        onTranslate={onTranslate}
-      />
+      {/* 以下只动布局：发起表单收进默认收起的「选项」折叠，提交/重试 props 与回调原样透传。 */}
+      {canTranslate ? (
+        <details className="book-translate-options rounded-lg border border-border/70 bg-background px-3 py-2">
+          <summary className="cursor-pointer select-none text-xs font-medium text-foreground">
+            选项（页码 / OCR 复用 / 高级）
+          </summary>
+          <div className="pt-2">
+            <BookTranslateLaunchForm
+              canTranslate={canTranslate}
+              readerAvailable={readerAvailable}
+              isActive={isActive}
+              statusTone={status.tone}
+              rangeOn={rangeOn}
+              startPage={startPage}
+              endPage={endPage}
+              pageCount={pageCount}
+              busy={busy}
+              error={error}
+              ocrReuse={ocrReuse}
+              onRangeOnChange={onRangeOnChange}
+              onStartPageChange={onStartPageChange}
+              onEndPageChange={onEndPageChange}
+              onTranslate={onTranslate}
+            />
+          </div>
+        </details>
+      ) : (
+        <BookTranslateLaunchForm
+          canTranslate={canTranslate}
+          readerAvailable={readerAvailable}
+          isActive={isActive}
+          statusTone={status.tone}
+          rangeOn={rangeOn}
+          startPage={startPage}
+          endPage={endPage}
+          pageCount={pageCount}
+          busy={busy}
+          error={error}
+          ocrReuse={ocrReuse}
+          onRangeOnChange={onRangeOnChange}
+          onStartPageChange={onStartPageChange}
+          onEndPageChange={onEndPageChange}
+          onTranslate={onTranslate}
+        />
+      )}
+      {isActive ? (
+        <p className="text-[11px] text-muted-foreground">实时译文随 OCR 逐页可见，无需等待全部完成。</p>
+      ) : null}
     </div>
   );
 }

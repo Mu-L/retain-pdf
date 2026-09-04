@@ -290,6 +290,24 @@ export function createLibraryController({
     return result;
   }
 
+  // 统一提交入口：仅按 workflow 分流，不改载荷组装。
+  // - workflow=ocr → ocrLibraryDocument（Paddle 凭据经 buildOcrConfig，
+  //   页码沿用 ocr.page_ranges "s-e" 串格式）。
+  // - 其余（book/translate/缺省）→ translateLibraryDocument（DeepSeek 凭据/
+  //   余额门禁经 buildTranslateConfig；artifact_job_id 复用时由
+  //   mergeTranslatePayload 删 ocr 字段并置 workflow=translate）。
+  // 旧函数原样保留（别处调用兼容）。
+  async function submitLibraryDocument(
+    documentId?: string | null,
+    payload: TranslateDocumentPayload & OcrDocumentPayload = {},
+  ): Promise<JobSubmissionView | null> {
+    const workflow = `${(payload as any)?.workflow || ""}`.trim().toLowerCase();
+    if (workflow === "ocr") {
+      return ocrLibraryDocument(documentId, payload as OcrDocumentPayload);
+    }
+    return translateLibraryDocument(documentId, payload as TranslateDocumentPayload);
+  }
+
   async function getDocumentJobs(documentId?: string | null) {
     const normalizedId = `${documentId || ""}`.trim();
     if (!normalizedId) return { items: [] };
@@ -526,7 +544,7 @@ export function createLibraryController({
     selectJobForDetail(id, { findItem });
   }
 
-  return {
+  const controller = {
     bookDetailStore,
     // 键名对齐 services.library.actions 的既有契约(消费方 RecentJobsLibrary /
     // BookDetailDialog / CategoriesView 不用改)。
@@ -548,4 +566,7 @@ export function createLibraryController({
     /** 详情内嵌进度：静默轮询，不弹 #translation-workflow-dialog */
     attachJobProgress,
   };
+  // submitDocument 为统一提交入口（按 workflow 分流到 ocr/translate 旧函数）；
+  // 经变量中转返回以兼容 LibraryController 契约（actions 侧以 any 消费）。
+  return { ...controller, submitDocument: submitLibraryDocument } as LibraryController;
 }

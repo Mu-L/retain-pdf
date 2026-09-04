@@ -4,10 +4,27 @@ import type {
   JobStageActionsView,
   JobStageRetryActionView,
 } from "../../../composition/external/api.js";
+import { resumeJob as resumeJobRequest } from "../../../composition/external/api.js";
 import type { DocumentJobSummary } from "../types.js";
 import { isDocumentJobActive } from "./use-document-jobs.js";
 
 const stageActionsCache = new Map<string, JobStageActionsView>();
+
+// 失败恢复走 POST /resume（服务端按 resume-plan 自动续跑）：
+// render 原地同 job_id，其余新建任务。只有已完成任务的显式重做、
+// 用户二次确认接受重复风险、或 resume 不可用时，才走 retry-stage。
+const RESUME_CANDIDATE_STATUSES = new Set([
+  "failed",
+  "error",
+  "timeout",
+  "dead",
+  "cancelled",
+  "canceled",
+]);
+
+function isResumeCandidate(job?: DocumentJobSummary | null) {
+  return RESUME_CANDIDATE_STATUSES.has(`${job?.status || ""}`.trim().toLowerCase());
+}
 
 function jobIdOf(job?: DocumentJobSummary | null) {
   const id = `${job?.job_id || job?.id || ""}`.trim();
@@ -30,6 +47,7 @@ export function useBookDetailStageActions({
       stage: JobRetryStage,
       payload?: Record<string, unknown>,
     ) => Promise<any>;
+    resumeJob?: (jobId: string) => Promise<any>;
   };
   onJobSubmitted?: (job: Partial<DocumentJobSummary>) => unknown;
   /** OCR/document authority changed while the translation job stayed the same. */
@@ -105,6 +123,34 @@ export function useBookDetailStageActions({
     setPendingStage(stage);
     setError("");
     try {
+      // 一键断点恢复优先：失败任务先调 POST /resume，服务端按 resume-plan
+      // 自动续跑（render 原地同 id，其余新建）。显式二次确认风险后、
+      // 已完成任务重做、或 resume 不可用时，才走 retry-stage(显式 stage)。
+      if (!acceptDuplicateRisk && isResumeCandidate(job)) {
+        try {
+          const resume = actions.resumeJob
+            ? await actions.resumeJob(jobId)
+            : await resumeJobRequest(jobId);
+          const resumedId = `${(resume as any)?.job_id || (resume as any)?.id || ""}`.trim();
+          if (resumedId || resume) {
+            const nextId = resumedId || jobId;
+            onJobSubmitted?.({
+              ...(resume as object),
+              job_id: nextId,
+              active_job_id: nextId,
+              source_job_id: jobId,
+              document_id: (resume as any)?.document_id || (job as any)?.document_id,
+              workflow: (resume as any)?.workflow
+                || (nextId === jobId ? (job as any)?.workflow : undefined)
+                || (stage === "render" ? "render" : "book"),
+              library_only: false,
+            });
+            return resume;
+          }
+        } catch {
+          // resume 不可用（404/不可恢复等）→ 兜底显式 retry-stage。
+        }
+      }
       const result = await actions.retryJobStage(jobId, stage, {
         ...(descriptor.action?.body || {}),
         ...(acceptDuplicateRisk

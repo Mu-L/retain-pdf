@@ -73,6 +73,7 @@ export function buildHomeServices({
       openSourceReader: library.libraryController.openSourceReader,
       translateDocument: library.libraryController.translateDocument,
       ocrDocument: library.libraryController.ocrDocument,
+      submitDocument: (library.libraryController as any).submitDocument,
       getDocumentJobs: library.libraryController.getDocumentJobs,
       getDocumentByJobId: library.libraryController.getDocumentByJobId,
       getJobStageActions: library.libraryController.getJobStageActions,

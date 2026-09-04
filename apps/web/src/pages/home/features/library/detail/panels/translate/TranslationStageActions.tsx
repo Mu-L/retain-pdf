@@ -55,6 +55,9 @@ export function TranslationStageActions({
   const visibleActions = checking ? LOADING_ACTIONS : actions;
   if (!visibleActions.length && !error) return null;
 
+  // 一键断点恢复：按钮先调 POST /resume（服务端按 resume-plan 自动续跑，
+  // render 原地同任务、其余新建）；仅二次确认接受重复风险后，才用
+  // retry-stage(显式 stage)兜底。id/disabled/ConfirmDialog 语义保持不变。
   async function confirmRisk() {
     if (!confirmAction) return;
     try {
@@ -105,7 +108,7 @@ export function TranslationStageActions({
           if (!next) setConfirmAction(null);
         }}
         title="确认重新翻译"
-        description="上一次翻译请求的结果可能不明确。继续操作可能重复调用翻译接口并产生费用；确认后将复用现有 OCR，重新执行翻译与渲染。"
+        description="将先尝试断点恢复：服务端按恢复计划自动续跑（渲染阶段原地同任务，其余新建任务）。仍需显式重跑时，确认后将复用现有 OCR，重新执行翻译与渲染，可能重复调用翻译接口并产生费用。"
         confirmLabel="接受风险并重新翻译"
         tone="default"
         pending={pendingStage === "translation"}

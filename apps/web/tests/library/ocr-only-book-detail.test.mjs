@@ -173,7 +173,8 @@ test("OCR-only 成功详情：OCR 状态、job reader 主操作和继续翻译�
   assert.doesNotMatch(dialog.textContent, /已翻译完成|对照阅读/);
 
   let translatePayload = null;
-  services.library.actions.translateDocument = async (_documentId, payload) => {
+  // 统一提交入口：hook 调 actions.submitDocument（按 workflow 分流到 translate）
+  services.library.actions.submitDocument = async (_documentId, payload) => {
     translatePayload = payload;
     return null;
   };

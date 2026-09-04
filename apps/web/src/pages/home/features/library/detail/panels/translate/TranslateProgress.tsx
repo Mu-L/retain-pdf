@@ -155,7 +155,7 @@ export function BookTranslateProgressPanel({
       {onOpenLiveReader ? (
         <button
           type="button"
-          className="home-book-live-translation-entry"
+          className="home-book-live-translation-entry w-full rounded-lg bg-foreground px-4 py-2.5 text-sm font-medium text-background hover:opacity-90"
           onClick={() => onOpenLiveReader(cardJobId || jobId)}
           aria-label="在阅读器中查看实时译文"
         >
@@ -163,7 +163,7 @@ export function BookTranslateProgressPanel({
             <Radio />
           </span>
           <span>
-            <strong>查看实时译文</strong>
+            <strong>查看实时译文 →</strong>
             <small>在原 PDF 上逐页显示</small>
           </span>
           <ArrowUpRight aria-hidden="true" />

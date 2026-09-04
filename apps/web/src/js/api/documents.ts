@@ -243,6 +243,18 @@ export async function ocrDocument(
   return unwrapEnvelope<JobSubmissionView>(await resp.json());
 }
 
+export async function submitDocument(
+  apiPrefix: string,
+  documentId: string,
+  payload: Record<string, unknown> = {},
+): Promise<JobSubmissionView> {
+  const workflow = `${(payload as any)?.workflow || ""}`.trim().toLowerCase();
+  if (workflow === "ocr") {
+    return ocrDocument(apiPrefix, documentId, payload);
+  }
+  return translateDocument(apiPrefix, documentId, payload);
+}
+
 export async function fetchDocumentJobs(
   apiPrefix: string,
   documentId: string,

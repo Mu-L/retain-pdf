@@ -25,7 +25,7 @@ export function useBookDetailOcr({
     setError("");
     setPending(true);
     try {
-      const result = await actions.ocrDocument(documentId, payload);
+      const result = await actions.submitDocument(documentId, payload);
       if (result) {
         await onStarted?.({
           ...result,

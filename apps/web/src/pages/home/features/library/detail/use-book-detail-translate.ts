@@ -68,7 +68,7 @@ export function useBookDetailTranslate({
       async () => {
         // promoteDocumentToJob：改详情 payload + silent attachJobProgress
         // 不 openTranslationWorkflow
-        const result = await actions.translateDocument(documentId, payload);
+        const result = await actions.submitDocument(documentId, payload);
         if (result) {
           onJobSubmitted?.({
             ...result,
