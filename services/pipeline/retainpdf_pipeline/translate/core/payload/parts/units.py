@@ -260,19 +260,36 @@ def _group_translation_text(item: dict) -> str:
     )
 
 
-def _group_translation_complete(items: list[dict]) -> bool:
-    """A group counts as translated only when every member carries the same
-    group-level translation.
+def _member_translation_text(item: dict) -> str:
+    """Member-level translation only: group-level unit fields excluded.
 
-    Group translations are stored per member, so a lone member holding a
-    stale solo text must not mark the whole group complete (it did: the empty
-    member was silently skipped, then a later regroup exposed it as pending
-    and the checkpoint guard failed the entire job).
+    A stale solo text sitting in a group field must not count as this
+    member being translated; only text written for the member itself does.
     """
-    texts = [_group_translation_text(item) for item in items]
-    if not texts or any(not text for text in texts):
+    return _compact_group_text(
+        item.get("protected_translated_text") or item.get("translated_text") or ""
+    )
+
+
+def _group_translation_complete(items: list[dict]) -> bool:
+    """A group counts as translated when every member is covered.
+
+    Two ways to be covered: (a) all members carry the same group-level
+    translation (genuinely translated as a unit), or (b) every member has
+    its own member-level translation (e.g. translated as singles before a
+    review join; retranslation would add nothing).
+
+    A lone member holding a stale solo group-field text while another
+    member is empty satisfies neither and stays pending (previously: the
+    empty member was silently skipped, then a later regroup exposed it as
+    pending and the checkpoint guard failed the entire job).
+    """
+    if not items:
         return False
-    return len(set(texts)) == 1
+    texts = [_group_translation_text(item) for item in items]
+    if all(texts) and len(set(texts)) == 1:
+        return True
+    return all(bool(_member_translation_text(item)) for item in items)
 
 
 def pending_translation_items(payload: list[dict]) -> list[dict]:
