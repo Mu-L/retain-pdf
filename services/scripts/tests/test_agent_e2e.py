@@ -320,6 +320,7 @@ def test_smoke_constructs_sync_build_and_focused_tests_with_venv_python():
             "pytest",
             "services/ai/tests/test_fx_command_broker.py",
             "services/ai/tests/test_runtime.py",
+            "services/scripts/tests/test_agent_live_e2e.py",
             "-q",
         ],
     ]

@@ -53,6 +53,16 @@ Set `RETAIN_AI_FX_GATEWAY_BASE_URL=http://127.0.0.1:<port>` when using one;
 the launcher rejects remote or malformed overrides instead of allowing FX to
 silently fall back to its default Gateway.
 
+FX `0.0.5` can also use an OpenAI-compatible Chat Completions endpoint through
+the backend-owned loopback bridge (no Vercel Gateway key required):
+
+```bash
+RETAIN_AI_FX_OPENAI_BASE_URL=http://127.0.0.1:8000/v1 \
+RETAIN_AI_FX_OPENAI_API_KEY=... \
+RETAIN_AI_FX_MODEL=my-model \
+python3 services/scripts/dev_stack.py --runtime fx
+```
+
 The document-capable OpenAI-compatible runtime uses the normal model URL,
 model, and key while sharing the same durable Rust operation broker:
 
@@ -70,6 +80,28 @@ the Agent integration or run the offline real-PDF smoke with:
 python3 services/scripts/agent_e2e.py doctor --probe-live
 python3 services/scripts/agent_e2e.py smoke
 ```
+
+Run the real Gateway-backed acceptance flow from a hidden local environment or
+prompt. It uploads a three-page fixture into an isolated data root and requires
+FX to create, run, and commit a four-page PDF candidate before reporting success:
+
+```bash
+python3 services/scripts/agent_live_e2e.py --prompt-gateway-key
+```
+
+To exercise durable state across a full backend stop/start, run the two-turn
+recovery scenario. It stops the stack with one operation at `result_ready`,
+restarts against the same data root, resumes the same FX conversation/session,
+commits the existing operation, and replays the commit response idempotently:
+
+```bash
+python3 services/scripts/agent_live_e2e.py \
+  --scenario restart-recovery --prompt-gateway-key
+```
+
+Temporary state is deleted only after success. Failures preserve their isolated
+data root and a private stack log for diagnosis; `--keep-data` also preserves a
+successful run.
 
 `/health` is a liveness/diagnostic endpoint. `/ready` is the startup gate for
 the database and locally supervised backend children. The legacy

@@ -10,7 +10,6 @@ from unittest import mock
 
 import pytest
 
-
 MODULE_PATH = Path(__file__).resolve().parents[1] / "dev_stack.py"
 SPEC = importlib.util.spec_from_file_location("retainpdf_dev_stack", MODULE_PATH)
 assert SPEC and SPEC.loader
@@ -70,9 +69,7 @@ def test_prepare_runs_uv_before_cargo_with_fixed_roots(tmp_path: Path) -> None:
     assert uv_call.kwargs["env"]["UV_PROJECT_ENVIRONMENT"] == str(
         paths.services / ".venv"
     )
-    assert cargo_call.kwargs["env"]["CARGO_TARGET_DIR"] == str(
-        paths.api / "target"
-    )
+    assert cargo_call.kwargs["env"]["CARGO_TARGET_DIR"] == str(paths.api / "target")
 
 
 def test_no_sync_no_build_skips_preparation_commands(tmp_path: Path) -> None:
@@ -124,6 +121,7 @@ def test_runtime_env_uses_absolute_commands_and_rust_supervision(tmp_path: Path)
     assert env["RUST_API_AI_SUPERVISE"] == "1"
     assert env["RUST_API_AI_COMMAND"] == str(paths.venv_python)
     assert env["RUST_API_AI_CWD"] == str(paths.ai)
+    assert env["RUST_API_AI_SERVICE_BASE"] == "http://127.0.0.1:43100"
     assert env["PYTHON_BIN"] == str(paths.venv_python)
     assert env["RUST_API_PIPELINE_COMMAND"] == str(paths.pipeline_command)
     assert env["RUST_API_PYTHON_ENTRYPOINT_MODE"] == "console"
@@ -173,9 +171,9 @@ def test_readiness_timeout_reclaims_process_group(tmp_path: Path) -> None:
         mock.patch.object(dev_stack, "terminate_process_group") as terminate,
         mock.patch.object(dev_stack.signal, "getsignal", return_value=signal.SIG_DFL),
         mock.patch.object(dev_stack.signal, "signal"),
+        pytest.raises(dev_stack.StackError, match="readiness timed out"),
     ):
-        with pytest.raises(dev_stack.StackError, match="readiness timed out"):
-            dev_stack.launch(paths, opts, {})
+        dev_stack.launch(paths, opts, {})
     terminate.assert_called_once_with(process, timeout=opts.shutdown_timeout)
 
 
@@ -229,7 +227,7 @@ def test_wait_until_ready_fails_when_child_exits() -> None:
         )
 
 
-def test_fx_preflight_requires_exact_version_and_gateway_key() -> None:
+def test_fx_preflight_requires_exact_version_and_provider_configuration() -> None:
     completed = subprocess.CompletedProcess(["/bin/fx", "--version"], 0, "0.0.5\n", "")
     with (
         mock.patch.object(dev_stack.shutil, "which", return_value="/bin/fx"),
@@ -238,12 +236,19 @@ def test_fx_preflight_requires_exact_version_and_gateway_key() -> None:
         assert dev_stack.preflight_fx(
             {"RETAIN_AI_FX_GATEWAY_API_KEY": "secret"}
         ) == str(Path("/bin/fx").resolve())
+        assert dev_stack.preflight_fx(
+            {"RETAIN_AI_FX_OPENAI_BASE_URL": "http://127.0.0.1:8000/v1"}
+        ) == str(Path("/bin/fx").resolve())
 
-    with mock.patch.object(dev_stack.shutil, "which", return_value=None):
-        with pytest.raises(dev_stack.StackError) as error:
-            dev_stack.preflight_fx({})
+    with (
+        mock.patch.object(dev_stack.shutil, "which", return_value=None),
+        pytest.raises(dev_stack.StackError) as error,
+    ):
+        dev_stack.preflight_fx({})
     assert "fx executable is missing" in str(error.value)
-    assert "RETAIN_AI_FX_GATEWAY_API_KEY is missing" in str(error.value)
+    assert "RETAIN_AI_FX_GATEWAY_API_KEY or RETAIN_AI_FX_OPENAI_BASE_URL" in str(
+        error.value
+    )
 
 
 def test_fx_preflight_error_never_includes_key() -> None:
@@ -285,7 +290,9 @@ def test_prepare_only_does_not_launch(tmp_path: Path) -> None:
         mock.patch.object(dev_stack, "launch") as launch,
     ):
         result = dev_stack.run(
-            ["--prepare-only"], paths=paths, environ={"PATH": os.environ.get("PATH", "")}
+            ["--prepare-only"],
+            paths=paths,
+            environ={"PATH": os.environ.get("PATH", "")},
         )
     assert result == 0
     prepare.assert_called_once()

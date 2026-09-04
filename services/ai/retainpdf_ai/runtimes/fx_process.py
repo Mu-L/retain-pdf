@@ -10,6 +10,7 @@ from pathlib import Path
 from ..agent_command_broker import AgentCommandBroker
 from ..config import Settings, fx_gateway_chat_url, normalize_fx_gateway_base_url
 from ..credential_vault import resolve_credential
+from ..fx_openai_bridge import FxOpenAIChatBridge
 from ..prompts import build_fx_workspace_instructions
 from .fx_acp import FxAcpClient
 from .fx_coordination import conversation_namespace
@@ -55,6 +56,18 @@ def start_fx_client(
             settings.fx_gateway_credential_ref,
             "fx_gateway_api_key",
         )
+    # Optional host-side loopback bridge: fx keeps owning the agent loop
+    # while inference uses an OpenAI-compatible endpoint instead of Vercel
+    # AI Gateway. Started/stopped with the client; never leaks without it.
+    bridge = None
+    if settings.fx_openai_base_url.strip():
+        bridge = FxOpenAIChatBridge(
+            base_url=settings.fx_openai_base_url.strip(),
+            api_key=settings.fx_openai_api_key,
+            model=settings.fx_model or settings.llm_model,
+            timeout_s=settings.fx_turn_timeout_s,
+        ).start()
+        gateway_api_key = bridge.gateway_api_key
     env = {
         "HOME": str(home),
         "TMPDIR": str(tmp),
@@ -64,8 +77,11 @@ def start_fx_client(
         "FX_PERMISSION_MODE": "ask",
         "AI_GATEWAY_API_KEY": gateway_api_key,
     }
-    if settings.fx_model:
-        env["FX_MODEL"] = settings.fx_model
+    if settings.fx_model or bridge is not None:
+        env["FX_MODEL"] = settings.fx_model or (settings.llm_model if bridge is not None else "")
+    if bridge is not None:
+        env["FX_GATEWAY_CHAT_URL"] = bridge.chat_url
+        env["FX_GATEWAY_BASE_URL"] = bridge.gateway_base_url
     if settings.fx_gateway_base_url:
         base_url = normalize_fx_gateway_base_url(settings.fx_gateway_base_url)
         env["FX_GATEWAY_BASE_URL"] = base_url
@@ -73,14 +89,20 @@ def start_fx_client(
         # Both variables are required or model turns still use the public
         # Gateway while catalog requests use the custom URL.
         env["FX_GATEWAY_CHAT_URL"] = fx_gateway_chat_url(base_url)
-    return FxAcpClient(
-        executable,
-        workspace,
-        env,
-        permission_handler=broker.approve_permission if broker is not None else None,
-        startup_timeout=settings.fx_startup_timeout_s,
-        turn_timeout=settings.fx_turn_timeout_s,
-    )
+    try:
+        return FxAcpClient(
+            executable,
+            workspace,
+            env,
+            permission_handler=broker.approve_permission if broker is not None else None,
+            startup_timeout=settings.fx_startup_timeout_s,
+            turn_timeout=settings.fx_turn_timeout_s,
+            cleanup=bridge.close if bridge is not None else None,
+        )
+    except Exception:
+        if bridge is not None:
+            bridge.close()
+        raise
 
 
 def resolve_executable(command: str) -> Path:

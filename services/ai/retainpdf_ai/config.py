@@ -111,6 +111,11 @@ class Settings:
     fx_gateway_api_key: str = ""
     fx_gateway_credential_ref: str = ""
     fx_model: str = ""
+    # Optional host-side loopback bridge for fx 0.0.5.  When configured, fx
+    # keeps owning the agent loop while inference uses an OpenAI-compatible
+    # Chat Completions endpoint instead of Vercel AI Gateway.
+    fx_openai_base_url: str = ""
+    fx_openai_api_key: str = ""
     fx_startup_timeout_s: float = 10.0
     fx_turn_timeout_s: float = 120.0
     fx_max_concurrent_turns: int = 4
@@ -211,9 +216,13 @@ def load_settings() -> Settings:
         host=os.environ.get("RETAIN_AI_HOST", "127.0.0.1"),
         port=int(os.environ.get("RETAIN_AI_PORT", "41100")),
         api_keys=api_keys,
-        rust_api_base=os.environ.get("RETAIN_AI_RUST_API_BASE", "http://127.0.0.1:41000").rstrip("/"),
+        rust_api_base=os.environ.get(
+            "RETAIN_AI_RUST_API_BASE", "http://127.0.0.1:41000"
+        ).rstrip("/"),
         rust_api_key=os.environ.get("RETAIN_AI_RUST_API_KEY", "").strip(),
-        llm_base_url=os.environ.get("RETAIN_AI_LLM_BASE_URL", "https://api.deepseek.com/v1").rstrip("/"),
+        llm_base_url=os.environ.get(
+            "RETAIN_AI_LLM_BASE_URL", "https://api.deepseek.com/v1"
+        ).rstrip("/"),
         llm_model=os.environ.get("RETAIN_AI_LLM_MODEL", "deepseek-v4-flash"),
         llm_api_key=os.environ.get("RETAIN_AI_LLM_API_KEY", "").strip(),
         llm_credential_ref=os.environ.get("RETAIN_AI_LLM_CREDENTIAL_REF", "").strip(),
@@ -238,7 +247,9 @@ def load_settings() -> Settings:
             ),
         ),
         memory_window_turns=int(os.environ.get("RETAIN_AI_MEMORY_WINDOW_TURNS", "6")),
-        memory_compress_after_turns=int(os.environ.get("RETAIN_AI_MEMORY_COMPRESS_AFTER_TURNS", "12")),
+        memory_compress_after_turns=int(
+            os.environ.get("RETAIN_AI_MEMORY_COMPRESS_AFTER_TURNS", "12")
+        ),
         memory_max_chars=int(os.environ.get("RETAIN_AI_MEMORY_MAX_CHARS", "24000")),
         agent_runtime=os.environ.get("RETAIN_AI_RUNTIME", "python").strip().lower(),
         agent_confirmation_mode=normalize_agent_confirmation_mode(
@@ -265,6 +276,8 @@ def load_settings() -> Settings:
             "RETAIN_AI_FX_GATEWAY_CREDENTIAL_REF", ""
         ).strip(),
         fx_model=os.environ.get("RETAIN_AI_FX_MODEL", "").strip(),
+        fx_openai_base_url=os.environ.get("RETAIN_AI_FX_OPENAI_BASE_URL", "").strip(),
+        fx_openai_api_key=os.environ.get("RETAIN_AI_FX_OPENAI_API_KEY", "").strip(),
         fx_startup_timeout_s=float(
             os.environ.get("RETAIN_AI_FX_STARTUP_TIMEOUT_SECS", "10")
         ),

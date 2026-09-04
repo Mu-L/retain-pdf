@@ -29,6 +29,7 @@ class FxAcpClient:
         permission_handler: Callable[[dict[str, Any]], bool] | None,
         startup_timeout: float,
         turn_timeout: float,
+        cleanup: Callable[[], None] | None = None,
     ) -> None:
         kwargs: dict[str, Any] = {
             "args": [str(executable), "acp"],
@@ -52,6 +53,7 @@ class FxAcpClient:
         self._stderr_seen = False
         self._next_id = 1
         self._permission_handler = permission_handler
+        self._cleanup = cleanup
         self._startup_timeout = max(1.0, startup_timeout)
         self._turn_timeout = max(1.0, turn_timeout)
         self._stdout_thread = threading.Thread(target=self._read_stdout, daemon=True)
@@ -161,6 +163,12 @@ class FxAcpClient:
                     pass
         self._stdout_thread.join(timeout=1)
         self._stderr_thread.join(timeout=1)
+        cleanup, self._cleanup = self._cleanup, None
+        if cleanup is not None:
+            try:
+                cleanup()
+            except Exception:
+                pass
 
     def _terminate_process(self, sig: signal.Signals) -> None:
         process = self._process

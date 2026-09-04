@@ -123,6 +123,8 @@ retainpdf-ai
 | `RETAIN_AI_FX_STARTUP_TIMEOUT_SECS` | `10` | ACP 启动/初始化超时 |
 | `RETAIN_AI_FX_TURN_TIMEOUT_SECS` | `120` | 单次 ACP prompt 超时 |
 | `RETAIN_AI_FX_MAX_CONCURRENT_TURNS` | `4` | 不同 conversation 的进程内并发上限；最小为 1 |
+| `RETAIN_AI_FX_OPENAI_BASE_URL` | 空 | 可选 OpenAI Chat Completions 兼容端点；设置后由宿主回环桥接，不需要 Vercel Gateway key |
+| `RETAIN_AI_FX_OPENAI_API_KEY` | 空 | 兼容端点 key；空值表示不发送 Authorization |
 | `RETAIN_AI_FX_AGENT_CLI_COMMAND` | `retainpdf-agent` | 仅由宿主中介启动的真实控制 CLI 路径/名称 |
 
 `openai` 使用 `RETAIN_AI_LLM_BASE_URL`、`RETAIN_AI_LLM_MODEL` 和

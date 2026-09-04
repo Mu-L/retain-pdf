@@ -99,12 +99,13 @@ class FxAcpRuntime:
         if not (
             self._settings.fx_gateway_api_key
             or self._settings.fx_gateway_credential_ref
+            or self._settings.fx_openai_base_url.strip()
         ):
             return FxCapability(
                 available=False,
                 runtime_id=self.runtime_id,
                 expected_version=self._settings.fx_expected_version,
-                detail="RETAIN_AI_FX_GATEWAY_API_KEY is missing",
+                detail="RETAIN_AI_FX_GATEWAY_API_KEY or RETAIN_AI_FX_OPENAI_BASE_URL is missing",
             )
         try:
             normalize_fx_gateway_base_url(self._settings.fx_gateway_base_url)
@@ -166,9 +167,10 @@ class FxAcpRuntime:
         if not (
             self._settings.fx_gateway_api_key
             or self._settings.fx_gateway_credential_ref
+            or self._settings.fx_openai_base_url.strip()
         ):
             raise RuntimeError(
-                "fx runtime is enabled but RETAIN_AI_FX_GATEWAY_API_KEY is missing"
+                "fx runtime is enabled but RETAIN_AI_FX_GATEWAY_API_KEY or RETAIN_AI_FX_OPENAI_BASE_URL is missing"
             )
         if request_control is not None:
             request_control.raise_if_stopped()

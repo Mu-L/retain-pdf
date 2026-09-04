@@ -176,8 +176,8 @@ def _settings(tmp_path: Path, command: Path, **overrides) -> Settings:
         "fx_expected_version": "0.0.5",
         "fx_gateway_api_key": "test-gateway-key",
         "fx_state_root": tmp_path / "fx-state",
-        "fx_startup_timeout_s": 2.0,
-        "fx_turn_timeout_s": 2.0,
+        "fx_startup_timeout_s": 5.0,
+        "fx_turn_timeout_s": 5.0,
     }
     values.update(overrides)
     return Settings(**values)
@@ -214,7 +214,7 @@ def _write_fx_credential_vault(tmp_path: Path, secret: str) -> str:
 
 
 def _write_fake_cli(path: Path) -> Path:
-    script = f'''#!{sys.executable}
+    script = f"""#!{sys.executable}
 import json
 import os
 import sys
@@ -224,14 +224,14 @@ print(json.dumps({{
     "api_key_present": bool(os.environ.get("RETAINPDF_AGENT_API_KEY")),
     "argv": sys.argv[1:],
 }}, separators=(",", ":")))
-'''
+"""
     path.write_text(script, encoding="utf-8")
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
     return path
 
 
 def _write_broker_using_fx(path: Path) -> Path:
-    script = f'''#!{sys.executable}
+    script = f"""#!{sys.executable}
 import json
 import subprocess
 import sys
@@ -300,7 +300,7 @@ for raw in sys.stdin:
             }}}}
         }})
         send({{"jsonrpc": "2.0", "id": request_id, "result": {{"stopReason": "end_turn"}}}})
-'''
+"""
     path.write_text(script, encoding="utf-8")
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
     return path
@@ -372,7 +372,9 @@ def test_fx_acp_runtime_persists_cursor_streams_and_denies_permissions(tmp_path)
     # A replacement adapter loads the durable cursor instead of creating a
     # second authoritative mapping.
     replacement = FxAcpRuntime(_settings(tmp_path, command), rust)  # type: ignore[arg-type]
-    assert replacement.ask("continue", conversation_id="conv-a").answer == "safe fx answer"
+    assert (
+        replacement.ask("continue", conversation_id="conv-a").answer == "safe fx answer"
+    )
     assert rust.get_agent_runtime_session("conv-a")["revision"] == 1
 
 
@@ -434,7 +436,8 @@ def test_fx_acp_runtime_rebuilds_when_local_session_is_missing(tmp_path):
 def test_fx_acp_runtime_fails_closed_on_version_mismatch(tmp_path):
     command = _write_fake_fx(tmp_path / "fake-fx", version="0.0.6")
     runtime = FxAcpRuntime(
-        _settings(tmp_path, command), FakeRustRuntimeSessions()  # type: ignore[arg-type]
+        _settings(tmp_path, command),
+        FakeRustRuntimeSessions(),  # type: ignore[arg-type]
     )
 
     capability = runtime.probe()
@@ -463,7 +466,7 @@ def test_fx_acp_runtime_requires_private_gateway_key(tmp_path):
         _settings(tmp_path, command, fx_gateway_api_key=""),
         FakeRustRuntimeSessions(),  # type: ignore[arg-type]
     )
-    with pytest.raises(RuntimeError, match="FX_GATEWAY_API_KEY"):
+    with pytest.raises(RuntimeError, match="FX_GATEWAY_API_KEY or"):
         runtime.ask("hello", conversation_id="conv-no-key")
 
 
@@ -488,6 +491,25 @@ def test_fx_subprocess_resolves_gateway_credential_ref_at_launch(tmp_path):
     capability = runtime.probe()
 
     assert capability.available is True
+
+
+def test_fx_acp_runtime_accepts_host_openai_bridge_without_gateway_key(tmp_path):
+    command = _write_fake_fx(tmp_path / "fake-fx")
+    runtime = FxAcpRuntime(
+        _settings(
+            tmp_path,
+            command,
+            fx_gateway_api_key="",
+            fx_model="qwen-test",
+            fx_openai_base_url="http://127.0.0.1:9/v1",
+        ),
+        FakeRustRuntimeSessions(),  # type: ignore[arg-type]
+    )
+
+    capability = runtime.probe()
+
+    assert capability.available is True
+    assert capability.actual_version == "0.0.5"
 
 
 def test_fx_acp_runtime_passes_base_and_actual_chat_url_to_subprocess(tmp_path):

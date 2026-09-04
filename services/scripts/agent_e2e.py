@@ -576,6 +576,7 @@ def smoke_steps(*, skip_sync: bool = False, skip_build: bool = False) -> list[Sm
                     "pytest",
                     "services/ai/tests/test_fx_command_broker.py",
                     "services/ai/tests/test_runtime.py",
+                    "services/scripts/tests/test_agent_live_e2e.py",
                     "-q",
                 ),
                 PRODUCT_ROOT,
