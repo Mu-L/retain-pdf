@@ -8,7 +8,6 @@ from retainpdf_pipeline.services.translation.core.item_reader import item_block_
 from .common import (
     effective_translation_unit_id,
     GROUP_ITEM_PREFIX,
-    has_group_translation,
     has_item_translation,
     item_source_text,
     is_group_unit_id,
@@ -249,6 +248,33 @@ def _build_group_translation_unit(unit_id: str, items: list[dict]) -> dict | Non
     }
 
 
+def _compact_group_text(text: str) -> str:
+    return " ".join((text or "").split())
+
+
+def _group_translation_text(item: dict) -> str:
+    return _compact_group_text(
+        item.get("translation_unit_protected_translated_text")
+        or item.get("group_protected_translated_text")
+        or ""
+    )
+
+
+def _group_translation_complete(items: list[dict]) -> bool:
+    """A group counts as translated only when every member carries the same
+    group-level translation.
+
+    Group translations are stored per member, so a lone member holding a
+    stale solo text must not mark the whole group complete (it did: the empty
+    member was silently skipped, then a later regroup exposed it as pending
+    and the checkpoint guard failed the entire job).
+    """
+    texts = [_group_translation_text(item) for item in items]
+    if not texts or any(not text for text in texts):
+        return False
+    return len(set(texts)) == 1
+
+
 def pending_translation_items(payload: list[dict]) -> list[dict]:
     refresh_payload_translation_units(payload)
     units: list[dict] = []
@@ -268,7 +294,7 @@ def pending_translation_items(payload: list[dict]) -> list[dict]:
         items = [item for item in items if item.get("should_translate", True)]
         if not items:
             continue
-        if any(has_group_translation(item) for item in items):
+        if _group_translation_complete(items):
             continue
         unit = _build_group_translation_unit(unit_id, items)
         if unit is None:
