@@ -41,7 +41,7 @@ function makeFrontendDir(files) {
 
 function getText(url) {
   return new Promise((resolve, reject) => {
-    http.get(url, (res) => {
+    http.get(url, { agent: false }, (res) => {
       let body = "";
       res.setEncoding("utf8");
       res.on("data", (chunk) => {
@@ -111,7 +111,7 @@ test("proxies /api with headers and streams SSE without buffering", async (t) =>
   t.after(() => gateway.stop());
   const chunks = [];
   await new Promise((resolve, reject) => {
-    const options = { headers: { "x-api-key": "k123" } };
+    const options = { agent: false, headers: { "x-api-key": "k123" } };
     http.get(`${base}/api/v1/ai/ask`, options, (res) => {
       assert.equal(res.statusCode, 200);
       assert.equal(res.headers["content-type"], "text/event-stream");
