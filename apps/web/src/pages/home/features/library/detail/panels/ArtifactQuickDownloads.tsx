@@ -1,10 +1,10 @@
 import {
   Columns2,
-  FileCode2,
   FileDown,
   Languages,
   LoaderCircle,
   PackageOpen,
+  SquareM,
 } from "lucide-react";
 
 import {
@@ -22,7 +22,7 @@ import {
 
 const DOWNLOADS = [
   { id: "source", label: "原始 PDF", Icon: FileDown },
-  { id: "markdown", label: "Markdown", Icon: FileCode2 },
+  { id: "markdown", label: "Markdown", Icon: SquareM },
   { id: "translated", label: "翻译 PDF", Icon: Languages },
   { id: "comparison", label: "对照 PDF", Icon: Columns2 },
 ] satisfies Array<{
