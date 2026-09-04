@@ -281,15 +281,19 @@ export function createFailureRecoveryController({
   retryStage?: (jobId: string, stage: string, payload: UnknownRecord) => Promise<unknown>;
   copyTrace?: (traceId: string) => Promise<unknown>;
 } = {}) {
-  async function retryOcrNow(jobId: string, model: FailureRecoveryModel) {
+  async function retryOcrNow(jobId: string, model: FailureRecoveryModel, options: { acceptDuplicateRisk?: boolean } = {}) {
     if (!model.retryOcr.available || !model.retryOcr.enabled) {
       throw new Error(model.retryOcr.reason || "后端当前未开放安全的 OCR 重试操作。");
     }
-    if (model.retryOcr.requiresDuplicateRisk) {
+    if (model.retryOcr.requiresDuplicateRisk && !options.acceptDuplicateRisk) {
       throw new Error("该请求可能重复执行，请使用重复风险确认流程。");
     }
     if (!retryStage) throw new Error("OCR 重试服务不可用。");
-    return retryStage(jobId, "ocr", model.retryOcr.body);
+    const body = { ...recordOf(model.retryOcr.body) };
+    if (model.retryOcr.requiresDuplicateRisk && options.acceptDuplicateRisk) {
+      body.ambiguous_request_policy = "accept_duplicate_risk";
+    }
+    return retryStage(jobId, "ocr", body);
   }
 
   async function copyTraceId(model: FailureRecoveryModel) {

@@ -33,6 +33,7 @@ export function FailurePanel({
   const recovery = overview.failureRecovery;
   const rerun = useRerunAction({ overview, rerunPending, controller });
   const [ocrConfirmOpen, setOcrConfirmOpen] = useState(false);
+  const [riskConfirmOpen, setRiskConfirmOpen] = useState(false);
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
   const [logDialogOpen, setLogDialogOpen] = useState(false);
   const [retryPending, setRetryPending] = useState(false);
@@ -73,11 +74,17 @@ export function FailurePanel({
       || { ok: false, conflict: false };
   }
 
-  async function retryOcrImmediately() {
+  async function retryOcrImmediately(options: { acceptDuplicateRisk?: boolean } = {}) {
+    // 重复风险走二次确认：调用方（queue_full 卡片）在 requiresDuplicateRisk 时
+    // 先弹确认框，用户确认后再带 acceptDuplicateRisk 进来。
+    if (recovery.retryOcr.requiresDuplicateRisk && !options.acceptDuplicateRisk) {
+      setRiskConfirmOpen(true);
+      return;
+    }
     setRetryPending(true);
     setRecoveryFeedback("正在创建 OCR 恢复任务…");
     try {
-      await controller.retryOcrNow?.();
+      await controller.retryOcrNow?.(options);
     } catch (error) {
       setRecoveryFeedback(error instanceof Error ? error.message : String(error));
       setRetryPending(false);
@@ -190,12 +197,26 @@ export function FailurePanel({
                   id={ids.failure.retryOcrButton}
                   type="button"
                   className="button-link secondary"
-                  disabled={!recovery.retryOcr.enabled || retryPending}
-                  onClick={retryOcrImmediately}
+                  disabled={(!recovery.retryOcr.enabled && !recovery.retryOcr.requiresDuplicateRisk) || retryPending}
+                  title={recovery.retryOcr.requiresDuplicateRisk ? "需要确认重复风险后重试" : undefined}
+                  onClick={() => void retryOcrImmediately()}
                 >
                   <RefreshCw className="h-4 w-4" aria-hidden="true" />
                   {retryPending ? "正在重试…" : "立即重试 OCR"}
                 </button>
+                <ConfirmDialog
+                  id="failure-ocr-risk-confirm"
+                  open={riskConfirmOpen}
+                  onOpenChange={setRiskConfirmOpen}
+                  pending={retryPending}
+                  title="确认重试 OCR"
+                  description="上游可能已经收到上一次请求。继续会创建新的 OCR 任务，可能造成重复处理或计费。"
+                  confirmLabel="确认重试"
+                  onConfirm={() => {
+                    setRiskConfirmOpen(false);
+                    void retryOcrImmediately({ acceptDuplicateRisk: true });
+                  }}
+                />
                 {recovery.traceId ? (
                   <button
                     id={ids.failure.copyTraceButton}

@@ -269,10 +269,10 @@ export function createStatusDetailController({
     copyTrace: copyText,
   });
 
-  async function retryOcrNow() {
+  async function retryOcrNow(options: { acceptDuplicateRisk?: boolean } = {}) {
     const jobId = getCurrentJobId();
     const model = store.getSnapshot().overview.failureRecovery;
-    const payload = await failureRecoveryActions.retryOcrNow(jobId, model) as Record<string, unknown>;
+    const payload = await failureRecoveryActions.retryOcrNow(jobId, model, options) as Record<string, unknown>;
     const nextJobId = `${payload?.job_id || payload?.id || ""}`.trim();
     if (!nextJobId) throw new Error("OCR 重试已提交，但响应中没有 job_id。");
     dialogStore.close();

@@ -37,7 +37,7 @@ export type StatusDetailControllerApi = {
   bindExistingOcrReceiptAndRecover?: (
     values: OcrReceiptValues,
   ) => Promise<OcrRecoveryOutcome> | OcrRecoveryOutcome;
-  retryOcrNow?: () => Promise<unknown> | unknown;
+  retryOcrNow?: (options?: { acceptDuplicateRisk?: boolean }) => Promise<unknown> | unknown;
   copyFailureTraceId?: () => Promise<unknown> | unknown;
   ensureOverviewData?: (options?: { force?: boolean }) => Promise<unknown> | unknown;
   ensureTranslationData?: (options?: { force?: boolean }) => Promise<unknown> | unknown;
