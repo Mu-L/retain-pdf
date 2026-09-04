@@ -58,6 +58,8 @@ retainpdf-ai
 | `RETAIN_AI_FX_EXPECTED_VERSION` | `0.0.5` | ACP 初始化必须精确匹配的 fx 版本 |
 | `RETAIN_AI_FX_GATEWAY_API_KEY` | 空 | 仅 fx 子进程使用，不复用 Rust API key |
 | `RETAIN_AI_FX_MODEL` | 空 | 后端配置的 fx 模型；HTTP 请求不能指定 |
+| `RETAIN_AI_FX_OPENAI_BASE_URL` | 空 | 可选 OpenAI Chat Completions 兼容端点；设置后由宿主回环桥接，不需要 Vercel Gateway key |
+| `RETAIN_AI_FX_OPENAI_API_KEY` | 空 | 兼容端点 key；空值表示不发送 Authorization |
 | `RETAIN_AI_FX_STATE_ROOT` | `data/agent-runtime/fx` | 私有 HOME、workspace 与 session 状态根 |
 | `RETAIN_AI_FX_AGENT_CLI_COMMAND` | `retainpdf-agent` | 仅由宿主中介启动的真实控制 CLI 路径/名称 |
 

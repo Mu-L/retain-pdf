@@ -36,6 +36,16 @@ local environment:
 python3 services/scripts/dev_stack.py --runtime fx
 ```
 
+FX `0.0.5` can also use an OpenAI-compatible Chat Completions endpoint through
+the backend-owned loopback bridge (no Vercel Gateway key required):
+
+```bash
+RETAIN_AI_FX_OPENAI_BASE_URL=http://127.0.0.1:8000/v1 \
+RETAIN_AI_FX_OPENAI_API_KEY=... \
+RETAIN_AI_FX_MODEL=my-model \
+python3 services/scripts/dev_stack.py --runtime fx
+```
+
 Credentials are checked as present or missing but are never printed. Inspect
 the Agent integration or run the offline real-PDF smoke with:
 
@@ -46,10 +56,20 @@ python3 services/scripts/agent_e2e.py smoke
 
 Run the real Gateway-backed acceptance flow from a hidden local environment or
 prompt. It uploads a three-page fixture into an isolated data root and requires
-FX to create, run, and commit a two-page PDF candidate before reporting success:
+FX to create, run, and commit a four-page PDF candidate before reporting success:
 
 ```bash
 python3 services/scripts/agent_live_e2e.py --prompt-gateway-key
+```
+
+To exercise durable state across a full backend stop/start, run the two-turn
+recovery scenario. It stops the stack with one operation at `result_ready`,
+restarts against the same data root, resumes the same FX conversation/session,
+commits the existing operation, and replays the commit response idempotently:
+
+```bash
+python3 services/scripts/agent_live_e2e.py \
+  --scenario restart-recovery --prompt-gateway-key
 ```
 
 Temporary state is deleted only after success. Failures preserve their isolated

@@ -25,6 +25,7 @@ from typing import Any, Protocol, Self
 from .agent import AskResult, ChatFn, RetrievalAgent
 from .config import Settings
 from .fx_command_broker import BrokerScope, FxCommandBroker
+from .fx_openai_bridge import FxOpenAIChatBridge
 from .rust_client import RustApiClient
 
 FX_RUNTIME_ID = "vercel-fx-acp-v1"
@@ -110,12 +111,15 @@ class FxAcpRuntime:
         self._lock = threading.Lock()
 
     def probe(self) -> FxCapability:
-        if not self._settings.fx_gateway_api_key:
+        if not (self._settings.fx_gateway_api_key or self._settings.fx_openai_base_url):
             return FxCapability(
                 available=False,
                 runtime_id=self.runtime_id,
                 expected_version=self._settings.fx_expected_version,
-                detail="RETAIN_AI_FX_GATEWAY_API_KEY is missing",
+                detail=(
+                    "RETAIN_AI_FX_GATEWAY_API_KEY or "
+                    "RETAIN_AI_FX_OPENAI_BASE_URL is required"
+                ),
             )
         try:
             with self._start_client() as client:
@@ -157,15 +161,18 @@ class FxAcpRuntime:
     ) -> AskResult:
         del job_id
         if chat_fn is not None:
-            raise RuntimeError("fx runtime does not accept the legacy chat_fn transport")
+            raise RuntimeError(
+                "fx runtime does not accept the legacy chat_fn transport"
+            )
         conversation_id = conversation_id.strip()
         document_id = document_id.strip()
         request_message_id = request_message_id.strip()
         if not conversation_id:
             raise RuntimeError("fx runtime requires a durable RetainPDF conversation")
-        if not self._settings.fx_gateway_api_key:
+        if not (self._settings.fx_gateway_api_key or self._settings.fx_openai_base_url):
             raise RuntimeError(
-                "fx runtime is enabled but RETAIN_AI_FX_GATEWAY_API_KEY is missing"
+                "fx runtime requires RETAIN_AI_FX_GATEWAY_API_KEY or "
+                "RETAIN_AI_FX_OPENAI_BASE_URL"
             )
         emit = on_event or (lambda _event: None)
         broker_context = (
@@ -209,14 +216,21 @@ class FxAcpRuntime:
                     content = update.get("content") or {}
                     text = str(content.get("text") or "")
                     if text:
-                        if sum(len(part) for part in answer_parts) + len(text) > _MAX_ANSWER_CHARS:
-                            raise RuntimeError("fx answer exceeded the backend output limit")
+                        if (
+                            sum(len(part) for part in answer_parts) + len(text)
+                            > _MAX_ANSWER_CHARS
+                        ):
+                            raise RuntimeError(
+                                "fx answer exceeded the backend output limit"
+                            )
                         answer_parts.append(text)
                         emit({"type": "answer_delta", "text": text})
                     return
                 if kind in {"tool_call", "tool_call_update"}:
                     if len(tool_trace) >= _MAX_TOOL_EVENTS:
-                        raise RuntimeError("fx tool trace exceeded the backend event limit")
+                        raise RuntimeError(
+                            "fx tool trace exceeded the backend event limit"
+                        )
                     safe = _safe_tool_event(update)
                     tool_trace.append(safe)
                     emit({"type": "agent_tool", "runtime": self.runtime_id, **safe})
@@ -265,10 +279,7 @@ class FxAcpRuntime:
             # current authoritative cursor when it belongs to this runtime.
             latest = self._rust.get_agent_runtime_session(conversation_id)
             latest_cursor = str(latest.get("session_cursor") or "").strip()
-            if (
-                latest_cursor
-                and str(latest.get("runtime_id") or "") == self.runtime_id
-            ):
+            if latest_cursor and str(latest.get("runtime_id") or "") == self.runtime_id:
                 client.load_session(latest_cursor)
                 return latest_cursor, False
             raise
@@ -312,6 +323,16 @@ class FxAcpRuntime:
         command_path = str(executable.parent)
         if broker is not None:
             command_path = f"{broker.bin_dir}{os.pathsep}{command_path}"
+        bridge: FxOpenAIChatBridge | None = None
+        gateway_key = self._settings.fx_gateway_api_key
+        if self._settings.fx_openai_base_url:
+            bridge = FxOpenAIChatBridge(
+                base_url=self._settings.fx_openai_base_url,
+                api_key=self._settings.fx_openai_api_key,
+                model=self._settings.fx_model or self._settings.llm_model,
+                timeout_s=self._settings.fx_turn_timeout_s,
+            ).start()
+            gateway_key = bridge.gateway_api_key
         env = {
             "HOME": str(home),
             "TMPDIR": str(tmp),
@@ -319,18 +340,32 @@ class FxAcpRuntime:
             "NO_COLOR": "1",
             "FX_AUTO_UPGRADE": "0",
             "FX_PERMISSION_MODE": "ask",
-            "AI_GATEWAY_API_KEY": self._settings.fx_gateway_api_key,
+            "AI_GATEWAY_API_KEY": gateway_key,
         }
-        if self._settings.fx_model:
-            env["FX_MODEL"] = self._settings.fx_model
-        return _FxAcpClient(
-            executable,
-            workspace,
-            env,
-            permission_handler=broker.approve_permission if broker is not None else None,
-            startup_timeout=self._settings.fx_startup_timeout_s,
-            turn_timeout=self._settings.fx_turn_timeout_s,
+        if bridge is not None:
+            env["FX_GATEWAY_CHAT_URL"] = bridge.chat_url
+            env["FX_GATEWAY_BASE_URL"] = bridge.gateway_base_url
+        selected_model = self._settings.fx_model or (
+            self._settings.llm_model if bridge is not None else ""
         )
+        if selected_model:
+            env["FX_MODEL"] = selected_model
+        try:
+            return _FxAcpClient(
+                executable,
+                workspace,
+                env,
+                permission_handler=broker.approve_permission
+                if broker is not None
+                else None,
+                startup_timeout=self._settings.fx_startup_timeout_s,
+                turn_timeout=self._settings.fx_turn_timeout_s,
+                cleanup=bridge.close if bridge is not None else None,
+            )
+        except Exception:
+            if bridge is not None:
+                bridge.close()
+            raise
 
 
 class _FxAcpClient:
@@ -343,6 +378,7 @@ class _FxAcpClient:
         permission_handler: Callable[[dict[str, Any]], bool] | None,
         startup_timeout: float,
         turn_timeout: float,
+        cleanup: Callable[[], None] | None = None,
     ) -> None:
         kwargs: dict[str, Any] = {
             "args": [str(executable), "acp"],
@@ -367,6 +403,7 @@ class _FxAcpClient:
         self._permission_handler = permission_handler
         self._startup_timeout = max(1.0, startup_timeout)
         self._turn_timeout = max(1.0, turn_timeout)
+        self._cleanup = cleanup
         threading.Thread(target=self._read_stdout, daemon=True).start()
         threading.Thread(target=self._read_stderr, daemon=True).start()
 
@@ -447,36 +484,42 @@ class _FxAcpClient:
         return str(result.get("stopReason") or "unknown")
 
     def close(self) -> None:
-        process = self._process
-        if process.poll() is not None:
-            return
-        if process.stdin is not None:
-            try:
-                process.stdin.close()
-            except OSError:
-                pass
         try:
-            process.wait(timeout=2)
-            return
-        except subprocess.TimeoutExpired:
-            pass
-        if os.name == "posix" and process.pid:
-            try:
-                os.killpg(process.pid, signal.SIGTERM)
-            except ProcessLookupError:
+            process = self._process
+            if process.poll() is not None:
                 return
-        else:
-            process.terminate()
-        try:
-            process.wait(timeout=2)
-        except subprocess.TimeoutExpired:
+            if process.stdin is not None:
+                try:
+                    process.stdin.close()
+                except OSError:
+                    pass
+            try:
+                process.wait(timeout=2)
+                return
+            except subprocess.TimeoutExpired:
+                pass
             if os.name == "posix" and process.pid:
                 try:
-                    os.killpg(process.pid, signal.SIGKILL)
+                    os.killpg(process.pid, signal.SIGTERM)
                 except ProcessLookupError:
-                    pass
+                    return
             else:
-                process.kill()
+                process.terminate()
+            try:
+                process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                if os.name == "posix" and process.pid:
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                else:
+                    process.kill()
+        finally:
+            cleanup = self._cleanup
+            self._cleanup = None
+            if cleanup is not None:
+                cleanup()
 
     def _request(
         self,
@@ -589,11 +632,7 @@ class _FxAcpClient:
             self._stderr_seen = True
 
     def _stderr_text(self) -> str:
-        return (
-            "stderr content suppressed"
-            if self._stderr_seen
-            else "no diagnostics"
-        )
+        return "stderr content suppressed" if self._stderr_seen else "no diagnostics"
 
 
 def _resolve_executable(command: str) -> Path:

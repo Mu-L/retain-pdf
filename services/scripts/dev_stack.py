@@ -17,10 +17,9 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping, Sequence
-
 
 FX_VERSION = "0.0.5"
 DEFAULT_API_KEY = "dev-local-key"
@@ -45,7 +44,7 @@ class RepoPaths:
     agent: Path
 
     @classmethod
-    def from_script(cls, script: Path | None = None) -> "RepoPaths":
+    def from_script(cls, script: Path | None = None) -> RepoPaths:
         source = (script or Path(__file__)).resolve()
         services = source.parent.parent
         product = services.parent
@@ -210,7 +209,9 @@ def prepare(paths: RepoPaths, options: Options, environ: Mapping[str, str]) -> N
                 check=True,
             )
         except FileNotFoundError as exc:
-            raise StackError(f"required command is not installed: {command[0]}") from exc
+            raise StackError(
+                f"required command is not installed: {command[0]}"
+            ) from exc
         except subprocess.CalledProcessError as exc:
             raise StackError(f"preparation command failed: {command[0]}") from exc
 
@@ -255,8 +256,13 @@ def preflight_fx(environ: Mapping[str, str]) -> str:
             version = output[-1].strip() if output else ""
             if result.returncode != 0 or version != FX_VERSION:
                 errors.append(f"fx {FX_VERSION} is required")
-    if not environ.get("RETAIN_AI_FX_GATEWAY_API_KEY", "").strip():
-        errors.append("RETAIN_AI_FX_GATEWAY_API_KEY is missing")
+    if not (
+        environ.get("RETAIN_AI_FX_GATEWAY_API_KEY", "").strip()
+        or environ.get("RETAIN_AI_FX_OPENAI_BASE_URL", "").strip()
+    ):
+        errors.append(
+            "RETAIN_AI_FX_GATEWAY_API_KEY or RETAIN_AI_FX_OPENAI_BASE_URL is missing"
+        )
     if errors:
         raise StackError("fx preflight failed: " + "; ".join(errors))
     assert fx_command is not None
@@ -507,9 +513,7 @@ def run(
     if options.prepare_only:
         print("[dev-stack] backend preparation complete")
         return 0
-    runtime_env = build_runtime_env(
-        repo, options, source_env, fx_command=fx_command
-    )
+    runtime_env = build_runtime_env(repo, options, source_env, fx_command=fx_command)
     return launch(repo, options, runtime_env)
 
 
