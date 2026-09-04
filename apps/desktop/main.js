@@ -11,6 +11,7 @@ const { buildBackendEnv } = require("./src/main/backend-env");
 const { createBackendHttp } = require("./src/main/backend-http");
 const { createPortOccupant } = require("./src/main/port-occupant");
 const { createPortAllocator } = require("./src/main/port-allocator");
+const { createLocalGateway } = require("./src/main/local-gateway");
 const { createBackendRuntime } = require("./src/main/backend-runtime");
 const { createDesktopConfigStore } = require("./src/main/desktop-config");
 const { createDesktopLogger } = require("./src/main/desktop-logging");
@@ -56,6 +57,9 @@ const {
 let backendChild = null;
 let aiServiceChild = null;
 let backendStopping = false;
+// Same-origin gateway base URL (http://127.0.0.1:<port>). Empty until the
+// gateway starts after backend readiness; windows fall back to loadFile.
+let frontendGatewayBaseUrl = "";
 // Startup retry rounds spawn short-lived backends; their crash dialogs would
 // be noise (the startup error itself is reported). Only show crash dialogs
 // for backends that die after a successful startup.
@@ -86,6 +90,7 @@ function closeSplashWindow() {
 const desktopWindows = createDesktopWindows(app, {
   appRoot: __dirname,
   closeSplashWindow,
+  getFrontendBaseUrl: () => frontendGatewayBaseUrl,
   isQuitting: () => isQuitting,
   loadDesktopConfig,
   logDesktop,
@@ -100,6 +105,7 @@ const {
   createTray,
   createWindow,
   hasLiveMainWindow,
+  resolveFrontendRoot,
   resolveWindowIcon,
   setCloseToTrayHintShown,
   showExistingDesktopWindow,
@@ -430,9 +436,23 @@ try {
   }
   throw error;
 }
-clearInterval(waitingTimer);
-logDesktop(`[desktop] backend ready on port ${apiPort}`);
-updateSplashProgress(92, "本地服务已就绪", "正在加载主界面");
+  clearInterval(waitingTimer);
+  logDesktop(`[desktop] backend ready on port ${apiPort}`);
+  try {
+    const gateway = createLocalGateway({
+      frontendRoot: resolveFrontendRoot(),
+      getBackendBase: () => `http://127.0.0.1:${apiPort}`,
+      canConnectToPort,
+      logger: console,
+    });
+    frontendGatewayBaseUrl = await gateway.start("127.0.0.1", 40001);
+  } catch (error) {
+    // Gateway is an optimization: without it windows fall back to loadFile
+    // plus IPC runtime config, exactly like before.
+    frontendGatewayBaseUrl = "";
+    logDesktopError(`[desktop] local gateway unavailable, falling back to file: ${error?.message || error}`);
+  }
+  updateSplashProgress(92, "本地服务已就绪", "正在加载主界面");
     break;
   } // end startup attempt loop
   suppressBackendCrashDialog = false;

@@ -163,8 +163,19 @@ function createDesktopWindows(app, options = {}) {
     });
 
     const indexPath = path.join(frontendRoot, "index.html");
-    logDesktop(`[desktop] loading frontend index=${indexPath}`);
-    mainWindow.loadFile(indexPath);
+    const frontendBaseUrl = typeof options.getFrontendBaseUrl === "function"
+      ? options.getFrontendBaseUrl()
+      : "";
+    if (frontendBaseUrl) {
+      // Served by the local gateway: same origin for pages and /api/*, and
+      // the real apiBase is inlined into the HTML. Falls back to file below.
+      const indexUrl = `${String(frontendBaseUrl).replace(/\/+$/, "")}/index.html`;
+      logDesktop(`[desktop] loading frontend via gateway ${indexUrl}`);
+      mainWindow.loadURL(indexUrl);
+    } else {
+      logDesktop(`[desktop] loading frontend index=${indexPath}`);
+      mainWindow.loadFile(indexPath);
+    }
 
     mainWindow.on("close", (event) => {
       if (isQuitting()) {
@@ -283,6 +294,7 @@ function createDesktopWindows(app, options = {}) {
     createTray,
     createWindow,
     hasLiveMainWindow,
+    resolveFrontendRoot,
     resolveWindowIcon,
     setCloseToTrayHintShown,
     showExistingDesktopWindow,
