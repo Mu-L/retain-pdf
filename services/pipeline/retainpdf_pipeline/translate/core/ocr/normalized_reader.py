@@ -22,7 +22,15 @@ def is_normalized_document(data: dict) -> bool:
 
 def ensure_normalized_document(data: dict) -> dict:
     if not is_normalized_document(data):
-        raise RuntimeError("expected normalized_document_v1 JSON data")
+        schema = data.get("schema", "") if isinstance(data, dict) else ""
+        keys = sorted(data.keys()) if isinstance(data, dict) else []
+        raise RuntimeError(
+            "translate expects normalized document.v1 "
+            "(schema 'normalized_document_v1'); "
+            f"got schema={schema!r} keys={keys}. "
+            "If this is a raw provider payload, run the ocr/normalize stage first "
+            "to produce document.v1.json, then retry translate."
+        )
     return data
 
 

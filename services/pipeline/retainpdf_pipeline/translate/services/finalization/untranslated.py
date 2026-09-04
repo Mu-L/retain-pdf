@@ -14,6 +14,7 @@ from retainpdf_pipeline.translate.core.payload.parts.policy_state import mark_ke
 from retainpdf_pipeline.translate.core.payload.parts.units import pending_translation_items
 from retainpdf_pipeline.translate.llm.shared.provider_runtime import request_chat_content
 from retainpdf_pipeline.translate.llm.result_payload import result_entry
+from retainpdf_pipeline.translate.llm.shared import upstream_resilience as _resilience
 from retainpdf_pipeline.translate.llm.validation.quality import review_translation_item
 from retainpdf_pipeline.translate.services.policy import should_skip_model_by_policy
 
@@ -293,6 +294,8 @@ def _source_text(item: dict) -> str:
 def _mark_final_dead_letter(item: dict, exc: Exception | None) -> None:
     # 先 mark 再 record:record 写入时重读 item 上的最新诊断,
     # 避免旧快照回写盖掉 mark_keep_origin 链路刚写入的内容。
+    # 402/401/403/400 由上游 request_chat_content 直接失败（不再重试），
+    # 这里把余额/Key 提示写进死信，方便快速定位充值而不是翻重试配额。
     mark_keep_origin(item)
     record_translation_diagnostics(
         item,
@@ -306,7 +309,7 @@ def _mark_final_dead_letter(item: dict, exc: Exception | None) -> None:
             "final_status": "kept_origin",
             "dead_letter": True,
             "final_recovery_error_type": type(exc).__name__ if exc is not None else "UnknownError",
-            "final_recovery_error": str(exc or ""),
+            "final_recovery_error": _resilience.describe_upstream_error(exc) if exc is not None else "",
         },
     )
 

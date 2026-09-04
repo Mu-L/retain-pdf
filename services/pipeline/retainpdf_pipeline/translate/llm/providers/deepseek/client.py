@@ -12,6 +12,7 @@ import requests
 from retainpdf_pipeline.foundation.shared.local_env import get_secret
 from retainpdf_pipeline.translate.artifacts import get_active_translation_run_diagnostics
 from retainpdf_pipeline.translate.artifacts import infer_stage_from_request_label
+from retainpdf_pipeline.translate.llm.shared import upstream_resilience as _resilience
 from retainpdf_pipeline.translate.llm.providers.deepseek import transport
 from retainpdf_pipeline.translate.llm.shared.prompt_building import build_messages
 from retainpdf_pipeline.translate.llm.shared.prompt_building import build_single_item_fallback_messages
@@ -137,10 +138,13 @@ def _raise_for_status_with_context(
     response_body = _response_text_excerpt(response) or "<empty>"
     reason = getattr(response, "reason", "") or "Error"
     url = getattr(response, "url", "") or "<unknown-url>"
+    hint = _resilience.hint_for_status(status_code)
+    hint_suffix = f" | {hint}" if hint else ""
     raise requests.HTTPError(
         f"{status_code} Client Error: {reason} for url: {url} | "
         f"response_body={response_body} | "
-        f"request_meta={_request_meta_summary(model=model, messages=messages, body=body, use_stream=use_stream)}",
+        f"request_meta={_request_meta_summary(model=model, messages=messages, body=body, use_stream=use_stream)}"
+        f"{hint_suffix}",
         response=response,
     )
 
