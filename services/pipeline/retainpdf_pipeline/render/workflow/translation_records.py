@@ -1,17 +1,23 @@
 from __future__ import annotations
 
-from retainpdf_pipeline.translate.core.continuation_hints import normalize_block_continuation_hint
-from retainpdf_pipeline.translate.core.provider_signals import body_repair_applied
-from retainpdf_pipeline.translate.core.provider_signals import body_repair_peer_block_id
-from retainpdf_pipeline.translate.core.provider_signals import body_repair_role
-from retainpdf_pipeline.translate.core.item_reader import item_block_class
-from retainpdf_pipeline.translate.core.item_reader import item_block_kind
-from retainpdf_pipeline.translate.core.item_reader import item_is_algorithm_like
-from retainpdf_pipeline.translate.core.item_reader import item_is_bodylike
-from retainpdf_pipeline.translate.core.item_reader import item_policy_translate
-from retainpdf_pipeline.translate.core.ocr.models import TextItem
+"""Render-local translation-record builder (file-contract duplicate).
 
-from .formula_protection import protect_inline_formulas_in_segments
+Duplicated from retainpdf_pipeline.translate.core.payload.template_records
+(stage-decouple: render must not import translate; duplicate wins over cross-package).
+"""
+
+from retainpdf_pipeline.render.semantics.continuation_hints import normalize_block_continuation_hint
+from retainpdf_pipeline.render.semantics.provider_signals import body_repair_applied
+from retainpdf_pipeline.render.semantics.provider_signals import body_repair_peer_block_id
+from retainpdf_pipeline.render.semantics.provider_signals import body_repair_role
+from retainpdf_pipeline.render.workflow.item_reader import item_block_class
+from retainpdf_pipeline.render.workflow.item_reader import item_block_kind
+from retainpdf_pipeline.render.workflow.item_reader import item_is_algorithm_like
+from retainpdf_pipeline.render.workflow.item_reader import item_is_bodylike
+from retainpdf_pipeline.render.workflow.item_reader import item_policy_translate
+from retainpdf_pipeline.render.workflow.source_models import TextItem
+
+from retainpdf_pipeline.render.layout.text_analysis.protected_formula_tokens import protect_inline_formulas_in_segments
 
 
 def item_policy_payload(block_type: str, metadata: dict | None = None, *, contract_fields: dict | None = None) -> dict:

@@ -10,10 +10,10 @@ from retainpdf_pipeline.foundation.shared.stage_specs import build_stage_invocat
 from retainpdf_pipeline.foundation.shared.stage_specs import resolve_credential_ref
 from retainpdf_pipeline.foundation.shared.stage_specs import TranslateStageSpec
 from retainpdf_pipeline.foundation.shared.tee_output import enable_job_log_capture
-from retainpdf_pipeline.ocr.document_schema import build_normalization_summary
-from retainpdf_pipeline.ocr.document_schema import build_validation_report_from_path
-from retainpdf_pipeline.ocr.document_schema import DOCUMENT_SCHEMA_REPORT_FILE_NAME
-from retainpdf_pipeline.ocr.document_schema import load_normalization_report
+from retainpdf_pipeline.translate.entrypoints.report_files import build_normalization_summary
+from retainpdf_pipeline.translate.entrypoints.report_files import build_validation_report_from_path
+from retainpdf_pipeline.translate.entrypoints.report_files import DOCUMENT_SCHEMA_REPORT_FILE_NAME
+from retainpdf_pipeline.translate.entrypoints.report_files import load_normalization_report
 from retainpdf_pipeline.services.pipeline_shared.contracts import format_stdout_kv
 from retainpdf_pipeline.services.pipeline_shared.contracts import PIPELINE_SUMMARY_FILE_NAME
 from retainpdf_pipeline.services.pipeline_shared.contracts import STDOUT_LABEL_JOB_ROOT
@@ -37,7 +37,6 @@ from retainpdf_pipeline.translate.llm.shared.provider_runtime import DEFAULT_BAS
 from retainpdf_pipeline.translate.llm.shared.provider_runtime import get_api_key
 from retainpdf_pipeline.translate.llm.shared.provider_runtime import normalize_base_url
 from retainpdf_pipeline.translate.services.terms import parse_glossary_json
-from retainpdf_pipeline.runtime.pipeline.render_preprocess import run_post_translation_render_prewarm
 from retainpdf_pipeline.translate.translation_stage import translate_book_pipeline
 
 
@@ -214,19 +213,17 @@ def main() -> None:
                 "translation review: errors recorded in translation_review.json; export continues because artifacts are diagnostic",
                 flush=True,
             )
-        render_prewarm_summary = run_post_translation_render_prewarm(
-            source_pdf_path=source_pdf_path,
-            output_pdf_path=args.render_prewarm_output_pdf_path or (
-                job_dirs.rendered_dir / f"{source_pdf_path.stem}-translated.pdf"
-            ),
-            artifacts_dir=job_dirs.artifacts_dir,
-            translated_pages=result.get("translated_pages_map", {}),
-            render_mode=args.render_prewarm_mode,
-            start_page=result.get("start_page", args.start_page),
-            end_page=result.get("end_page", args.end_page),
-            pdf_compress_dpi=args.render_prewarm_pdf_compress_dpi,
-            source_cleanup_strategy=args.render_prewarm_source_cleanup_strategy,
-        )
+        # Stage decoupling: the translate stage no longer runs render
+        # prewarm (see retainpdf_pipeline.render.workflow.prewarm_entry).
+        # The render stage rebuilds prewarm synchronously from translation
+        # artifacts (render_only passes the prewarm manifest path and
+        # execute_render_plan falls back to sync build on cache miss), so
+        # translate-only only records that prewarm was skipped. Output
+        # semantics are unchanged; render may take longer on cache miss.
+        render_prewarm_summary = {
+            "ready": False,
+            "reason": "decoupled: render prewarm runs in the render stage",
+        }
 
         schema_validation = build_validation_report_from_path(source_json_path)
         normalization_report = load_normalization_report(normalization_report_path)
