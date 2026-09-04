@@ -1,7 +1,7 @@
 import {
   Columns2,
+  FileCode2,
   FileDown,
-  FileText,
   Languages,
   LoaderCircle,
   PackageOpen,
@@ -22,7 +22,7 @@ import {
 
 const DOWNLOADS = [
   { id: "source", label: "原始 PDF", Icon: FileDown },
-  { id: "markdown", label: "Markdown", Icon: FileText },
+  { id: "markdown", label: "Markdown", Icon: FileCode2 },
   { id: "translated", label: "翻译 PDF", Icon: Languages },
   { id: "comparison", label: "对照 PDF", Icon: Columns2 },
 ] satisfies Array<{

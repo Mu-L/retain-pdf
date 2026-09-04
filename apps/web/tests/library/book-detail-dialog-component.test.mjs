@@ -103,9 +103,7 @@ test("馆藏卡打开书籍详情:元数据 + 阅读状态切换 + 翻译/读原
     /Group Theory Lecture Notes.*未知作者/,
     "左栏展示文档身份与作者兜底",
   );
-  assert.match(dlg.querySelector(".book-detail-left-reading-card")?.textContent || "", /共 88 页/, "左栏展示真实页数");
-  assert.equal(dlg.querySelector(".book-detail-left-reading-card")?.getAttribute("data-reading-status"), "reading");
-  assert.match(dlg.querySelector(".book-detail-left-reading-card")?.textContent || "", /在读/);
+  assert.equal(dlg.querySelector(".book-detail-left-reading-card"), null, "左栏不再展示阅读状态");
   for (const kind of ["source", "markdown", "translated", "comparison"]) {
     assert.ok(byId(`book-detail-download-${kind}-btn`), `左栏存在 ${kind} 快捷下载图标`);
   }
@@ -145,10 +143,6 @@ test("馆藏卡打开书籍详情:元数据 + 阅读状态切换 + 翻译/读原
   click(dom, doneBtn);
   await waitFor(() => doneBtn.classList.contains("is-active"), "读完变激活");
   await waitFor(() => getMockDocument(documentId).reading_status === "done", "patchDocument 落库 reading_status=done");
-  await waitFor(
-    () => dlg.querySelector(".book-detail-left-reading-card")?.getAttribute("data-reading-status") === "done",
-    "左栏阅读状态同步更新",
-  );
 
   root.unmount();
   services.dispose();

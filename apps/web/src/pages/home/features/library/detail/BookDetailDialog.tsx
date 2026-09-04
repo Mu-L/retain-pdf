@@ -174,6 +174,7 @@ export function BookDetailDialog() {
           readerAvailable={readerAvailable}
           readerActionLabel={readPresentation.label}
           documentId={documentId}
+          jobId={jobId}
           busy={docState.busy}
           processing={coverProcessing}
           onCompare={() => {
