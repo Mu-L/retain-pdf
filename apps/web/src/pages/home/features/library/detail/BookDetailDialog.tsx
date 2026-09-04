@@ -107,6 +107,9 @@ export function BookDetailDialog() {
     onStarted: documentJobs.upsert,
   });
   const latestTranslation: any = documentJobs.latestTranslation;
+  // 失败后表单不能消失：latestTranslation存在但failed时，照样给重提入口
+  // （TranslateForm按钮文案本来就是“重新翻译整本”），否则用户找不到按钮。
+  const latestTranslationFailed = `${latestTranslation?.status || ""}`.trim().toLowerCase() === "failed";
   const overviewOcrStatus = documentJobPresentation(documentJobs.ocrStatusJob, "尚未执行");
   const translationActive = isDocumentJobActive(latestTranslation);
   const translationStatus = documentJobPresentation(latestTranslation, "尚未翻译");
@@ -257,7 +260,7 @@ export function BookDetailDialog() {
                 item: translationItem,
                 status: translationStatus,
                 isActive: translationActive,
-                canTranslate: !latestTranslation && !translationActive && canTranslate,
+                canTranslate: (!latestTranslation || latestTranslationFailed) && !translationActive && canTranslate,
                 readerAvailable: translationSucceeded || readerAvailable,
                 dialogOpen: open,
                 tabActive: activeTab === "processing",
