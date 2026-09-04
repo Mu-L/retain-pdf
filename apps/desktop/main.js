@@ -10,6 +10,7 @@ const {
 const { buildBackendEnv } = require("./src/main/backend-env");
 const { createBackendHttp } = require("./src/main/backend-http");
 const { createPortOccupant } = require("./src/main/port-occupant");
+const { createPortAllocator } = require("./src/main/port-allocator");
 const { createBackendRuntime } = require("./src/main/backend-runtime");
 const { createDesktopConfigStore } = require("./src/main/desktop-config");
 const { createDesktopLogger } = require("./src/main/desktop-logging");
@@ -50,10 +51,15 @@ const {
   buildDesktopConfigResponse,
   loadDesktopConfig,
   saveDesktopConfig,
+  setBackendApiPort,
 } = desktopConfigStore;
 let backendChild = null;
 let aiServiceChild = null;
 let backendStopping = false;
+// Startup retry rounds spawn short-lived backends; their crash dialogs would
+// be noise (the startup error itself is reported). Only show crash dialogs
+// for backends that die after a successful startup.
+let suppressBackendCrashDialog = false;
 let splashWindow = null;
 let usingExternalBackend = false;
 let isQuitting = false;
@@ -152,12 +158,15 @@ async function startBundledBackend() {
   const rustApiRoot = path.join(dataRoot, "rust_api");
   const typstPackagePath = path.join(backendRoot, "typst-packages");
   const typstPackageCachePath = path.join(dataRoot, "typst-package-cache");
-  const apiPort = 41000;
-  const simplePort = 42000;
+  const DEFAULT_API_PORT = 41000;
+  const DEFAULT_SIMPLE_PORT = 42000;
   // Must match RUST_API_JOBS_PORT default in retain-core config/jobs_service.rs
   // (buildBackendEnv falls back to the same default when jobsPort is unset).
-  const jobsServicePort = 41002;
-  const aiServicePort = AI_SERVICE_PORT;
+  const DEFAULT_JOBS_PORT = 41002;
+  let apiPort = DEFAULT_API_PORT;
+  let simplePort = DEFAULT_SIMPLE_PORT;
+  let jobsServicePort = DEFAULT_JOBS_PORT;
+  let aiServicePort = AI_SERVICE_PORT;
   // Packaged builds use backend/ai_service; development may use services/ai.
   let aiServiceRoot = path.join(backendRoot, "ai_service");
   if (!fs.existsSync(path.join(aiServiceRoot, "retainpdf_ai", "__main__.py"))) {
@@ -215,37 +224,25 @@ async function startBundledBackend() {
   fs.mkdirSync(typstPackageCachePath, { recursive: true });
   updateSplashProgress(34, "正在准备工作目录", "正在初始化本地数据目录");
 
-  const apiPortBusy = await canConnectToPort("127.0.0.1", apiPort);
-  logDesktop(`[desktop] port ${apiPort} busy=${apiPortBusy}`);
-  let apiPortOccupantLine = "";
-  if (apiPortBusy) {
+  // Default API port busy? Try reclaiming our own residual first; a
+  // compatible existing backend may be reused in development only.
+  const defaultApiBusy = await canConnectToPort("127.0.0.1", apiPort);
+  logDesktop(`[desktop] port ${apiPort} busy=${defaultApiBusy}`);
+  if (defaultApiBusy) {
     const reclaim = await portOccupant.reclaimPortIfOwnResidual("127.0.0.1", apiPort);
     logDesktop(
       `[desktop] port ${apiPort} occupant=${reclaim.occupant ? `${reclaim.occupant.image || "<unknown>"}:${reclaim.occupant.pid}` : "<none>"} reclaim=${reclaim.status}`,
     );
     if (reclaim.status === "reclaimed") {
       updateSplashProgress(36, "正在清理残留进程", "已回收上次残留的后端端口");
-    } else {
-      apiPortOccupantLine = portOccupant.describeOccupant(apiPort, reclaim.occupant);
     }
   }
-  const apiPortStillBusy = apiPortBusy
+  const defaultApiStillBusy = defaultApiBusy
     ? await canConnectToPort("127.0.0.1", apiPort)
     : false;
-  if (apiPortStillBusy) {
+  if (defaultApiStillBusy) {
     const allowExternalBackend = process.env.RETAINPDF_DESKTOP_ALLOW_EXTERNAL_BACKEND === "1";
-    if (app.isPackaged && !allowExternalBackend) {
-      throw new Error(
-        [
-          `端口 ${apiPort} 已被占用。`,
-          "正式桌面端不会复用已有后端，避免连接到旧版本或开发版后端导致渲染错误。",
-          "请关闭其他 RetainPDF、旧版桌面端、Docker/系统服务后再启动。",
-          apiPortOccupantLine,
-          `完整日志：${getDesktopLogPath() || "<unavailable>"}`,
-        ].filter(Boolean).join("\n"),
-      );
-    }
-    if (await canReuseExistingBackend(apiPort)) {
+    if ((allowExternalBackend || !app.isPackaged) && await canReuseExistingBackend(apiPort)) {
       usingExternalBackend = true;
       logDesktop(`[desktop] reusing existing backend on port ${apiPort}`);
       updateSplashProgress(52, "检测到已有本地服务", "桌面端将直接复用当前后端");
@@ -283,153 +280,162 @@ async function startBundledBackend() {
       updateSplashProgress(92, "本地服务已就绪", "正在加载主界面");
       return;
     }
-    throw new Error(
-      [
-        `端口 ${apiPort} 已被其他进程占用，且不是可复用的 RetainPDF 后端。请先关闭占用进程后再启动桌面端。`,
-        apiPortOccupantLine,
-      ].filter(Boolean).join("\n"),
-    );
+    // Not reusable and not ours to reclaim: fall through to fresh allocation
+    // on fallback ports below instead of failing. Packaged builds never
+    // connect to the foreign backend, they just move to a free port.
   }
 
-  const simplePortBusy = await canConnectToPort("127.0.0.1", simplePort);
-  logDesktop(`[desktop] port ${simplePort} busy=${simplePortBusy}`);
-  let simplePortOccupantLine = "";
-  if (simplePortBusy) {
-    const reclaim = await portOccupant.reclaimPortIfOwnResidual("127.0.0.1", simplePort);
-    logDesktop(
-      `[desktop] port ${simplePort} occupant=${reclaim.occupant ? `${reclaim.occupant.image || "<unknown>"}:${reclaim.occupant.pid}` : "<none>"} reclaim=${reclaim.status}`,
-    );
-    if (reclaim.status !== "reclaimed") {
-      simplePortOccupantLine = portOccupant.describeOccupant(simplePort, reclaim.occupant);
+  // Allocate fresh ports for all four backend roles: reclaim own residuals,
+  // otherwise take the next free port. Retried on bind races (see below).
+  const excludedPorts = new Set();
+  suppressBackendCrashDialog = true;
+  for (let attempt = 1; ; attempt += 1) {
+    const allocator = createPortAllocator({
+      canConnectToPort,
+      reclaimPortIfOwnResidual: (host, port) => portOccupant.reclaimPortIfOwnResidual(host, port),
+      describeOccupant: (port, occupant) => portOccupant.describeOccupant(port, occupant),
+      exclude: excludedPorts,
+      logger: console,
+    });
+    const allocated = await allocator.allocateBackendPorts("127.0.0.1", {
+      apiPort: DEFAULT_API_PORT,
+      simplePort: DEFAULT_SIMPLE_PORT,
+      jobsPort: DEFAULT_JOBS_PORT,
+      aiServicePort: AI_SERVICE_PORT,
+    });
+    apiPort = allocated.ports.apiPort;
+    simplePort = allocated.ports.simplePort;
+    jobsServicePort = allocated.ports.jobsPort;
+    aiServicePort = allocated.ports.aiServicePort;
+    setBackendApiPort(apiPort);
+    if (allocated.relocations.length > 0) {
+      const summary = allocated.relocations.map((item) => `${item.from}→${item.to}`).join("、");
+      logDesktop(`[desktop] ports relocated: ${summary}`);
+      updateSplashProgress(36, "端口自动切换", `默认端口被占用，已切换：${summary}`);
     }
-  }
-  if (simplePortBusy && (await canConnectToPort("127.0.0.1", simplePort))) {
-    throw new Error(
-      [
-        `端口 ${simplePort} 已被其他进程占用，请先释放后再启动桌面端。`,
-        simplePortOccupantLine,
-      ].filter(Boolean).join("\n"),
-    );
-  }
 
-  // retain-jobsd was never pre-checked: a residual jobsd fails rust_api bind
-  // later and the desktop idles 90s before timing out. Fail fast with a name.
-  const jobsPortBusy = await canConnectToPort("127.0.0.1", jobsServicePort);
-  logDesktop(`[desktop] port ${jobsServicePort} busy=${jobsPortBusy}`);
-  if (jobsPortBusy) {
-    const reclaim = await portOccupant.reclaimPortIfOwnResidual("127.0.0.1", jobsServicePort);
-    logDesktop(
-      `[desktop] port ${jobsServicePort} occupant=${reclaim.occupant ? `${reclaim.occupant.image || "<unknown>"}:${reclaim.occupant.pid}` : "<none>"} reclaim=${reclaim.status}`,
-    );
-    if (reclaim.status !== "reclaimed") {
-      throw new Error(
-        [
-          `端口 ${jobsServicePort} 已被其他进程占用（任务服务），请先释放后再启动桌面端。`,
-          portOccupant.describeOccupant(jobsServicePort, reclaim.occupant),
-        ].filter(Boolean).join("\n"),
-      );
-    }
-    updateSplashProgress(36, "正在清理残留进程", "已回收上次残留的任务服务端口");
-  }
+const bundledPythonHome = resolveBundledPythonHome(pythonRuntime.bundledHome);
+// ADR-002 Phase3: 打包版默认 remote + 监督（改壳不杀任务），开发版保持 InProcess 除非显式设 env
+const jobsModeForEnv = process.env.RUST_API_JOBS_MODE || (app.isPackaged ? "remote" : "");
+const jobsSuperviseForEnv = process.env.RUST_API_JOBS_SUPERVISE || (app.isPackaged ? "1" : "");
+const aiSuperviseForEnv = process.env.RUST_API_AI_SUPERVISE || (app.isPackaged ? "1" : "");
+const env = buildBackendEnv({
+  apiPort,
+  aiServicePort,
+  aiServiceRoot,
+  backendRoot,
+  bundledFontPath,
+  bundledPythonHome,
+  bundledPythonImportPaths: bundledPythonImportPaths(pythonRuntime.bundledHome),
+  bundledTitleBoldFontPath,
+  bundledTypstFontDir,
+  dataRoot,
+  desktopApiKey: DESKTOP_API_KEY,
+  entrypointMode: pipelineEntrypointMode,
+  inheritHostPythonPath: !app.isPackaged,
+  jobsMode: jobsModeForEnv,
+  jobsSupervise: jobsSuperviseForEnv,
+  pipelineCommand: pipelineCommand || undefined,
+  pythonRuntime,
+  rustApiRoot,
+  scriptsDir,
+  simplePort,
+  typstBin,
+  typstPackageCachePath,
+  typstPackagePath,
+});
+if (aiSuperviseForEnv) env.RUST_API_AI_SUPERVISE = aiSuperviseForEnv;
 
-  const bundledPythonHome = resolveBundledPythonHome(pythonRuntime.bundledHome);
-  // ADR-002 Phase3: 打包版默认 remote + 监督（改壳不杀任务），开发版保持 InProcess 除非显式设 env
-  const jobsModeForEnv = process.env.RUST_API_JOBS_MODE || (app.isPackaged ? "remote" : "");
-  const jobsSuperviseForEnv = process.env.RUST_API_JOBS_SUPERVISE || (app.isPackaged ? "1" : "");
-  const aiSuperviseForEnv = process.env.RUST_API_AI_SUPERVISE || (app.isPackaged ? "1" : "");
-  const env = buildBackendEnv({
-    apiPort,
+updateSplashProgress(52, "正在启动本地服务", "Rust API 与 AI 服务正在启动");
+logDesktop(`[desktop] spawning backend: ${backendBin}`);
+backendStartupDiagnostics.reset(backendBin, backendRoot);
+backendChild = spawn(backendBin, [], {
+  cwd: backendRoot,
+  env,
+  windowsHide: process.platform === "win32",
+  stdio: ["ignore", "pipe", "pipe"],
+});
+
+backendChild.stdout.on("data", (chunk) => {
+  backendStartupDiagnostics.rememberOutput("stdout", chunk);
+  const message = `[rust_api] ${chunk}`;
+  process.stdout.write(message);
+  appendDesktopLog(message.trimEnd());
+});
+backendChild.stderr.on("data", (chunk) => {
+  backendStartupDiagnostics.rememberOutput("stderr", chunk);
+  const message = `[rust_api] ${chunk}`;
+  process.stderr.write(message);
+  appendDesktopLog(message.trimEnd());
+});
+
+backendChild.once("exit", (code, signal) => {
+  backendChild = null;
+  if (backendStopping || suppressBackendCrashDialog) {
+    return;
+  }
+  const detail = `code=${code ?? "null"} signal=${signal ?? "null"}`;
+  backendStartupDiagnostics.markExit(detail);
+  logDesktopError(`[desktop] Rust API worker crashed: ${detail}`);
+  dialog.showErrorBox("Rust API worker crashed", detail);
+});
+
+// retainpdf-ai：由壳监督（RUST_API_AI_SUPERVISE=1）时桌面端不再自拉，避免双进程
+const aiSupervisedByShell = env.RUST_API_AI_SUPERVISE === "1";
+const jobsdSupervisedByShell = env.RUST_API_JOBS_SUPERVISE === "1" && env.RUST_API_JOBS_MODE === "remote";
+if (aiSupervisedByShell) {
+  logDesktop("[desktop] ai_service supervised by shell (RUST_API_AI_SUPERVISE=1); skipping desktop spawn");
+} else {
+  await startRetainpdfAiService({
     aiServicePort,
     aiServiceRoot,
-    backendRoot,
-    bundledFontPath,
-    bundledPythonHome,
-    bundledPythonImportPaths: bundledPythonImportPaths(pythonRuntime.bundledHome),
-    bundledTitleBoldFontPath,
-    bundledTypstFontDir,
-    dataRoot,
-    desktopApiKey: DESKTOP_API_KEY,
-    entrypointMode: pipelineEntrypointMode,
-    inheritHostPythonPath: !app.isPackaged,
-    jobsMode: jobsModeForEnv,
-    jobsSupervise: jobsSuperviseForEnv,
-    pipelineCommand: pipelineCommand || undefined,
-    pythonRuntime,
-    rustApiRoot,
-    scriptsDir,
-    simplePort,
-    typstBin,
-    typstPackageCachePath,
-    typstPackagePath,
-  });
-  if (aiSuperviseForEnv) env.RUST_API_AI_SUPERVISE = aiSuperviseForEnv;
-
-  updateSplashProgress(52, "正在启动本地服务", "Rust API 与 AI 服务正在启动");
-  logDesktop(`[desktop] spawning backend: ${backendBin}`);
-  backendStartupDiagnostics.reset(backendBin, backendRoot);
-  backendChild = spawn(backendBin, [], {
-    cwd: backendRoot,
     env,
-    windowsHide: process.platform === "win32",
-    stdio: ["ignore", "pipe", "pipe"],
+    pythonCommand: pythonRuntime.command,
   });
+}
+if (jobsdSupervisedByShell) {
+  logDesktop("[desktop] jobsd supervised by shell (RUST_API_JOBS_SUPERVISE=1); shell will spawn retain-jobsd");
+}
 
-  backendChild.stdout.on("data", (chunk) => {
-    backendStartupDiagnostics.rememberOutput("stdout", chunk);
-    const message = `[rust_api] ${chunk}`;
-    process.stdout.write(message);
-    appendDesktopLog(message.trimEnd());
-  });
-  backendChild.stderr.on("data", (chunk) => {
-    backendStartupDiagnostics.rememberOutput("stderr", chunk);
-    const message = `[rust_api] ${chunk}`;
-    process.stderr.write(message);
-    appendDesktopLog(message.trimEnd());
-  });
-
-  backendChild.once("exit", (code, signal) => {
-    backendChild = null;
-    if (backendStopping) {
-      return;
-    }
-    const detail = `code=${code ?? "null"} signal=${signal ?? "null"}`;
-    backendStartupDiagnostics.markExit(detail);
-    logDesktopError(`[desktop] Rust API worker crashed: ${detail}`);
-    dialog.showErrorBox("Rust API worker crashed", detail);
-  });
-
-  // retainpdf-ai：由壳监督（RUST_API_AI_SUPERVISE=1）时桌面端不再自拉，避免双进程
-  const aiSupervisedByShell = env.RUST_API_AI_SUPERVISE === "1";
-  const jobsdSupervisedByShell = env.RUST_API_JOBS_SUPERVISE === "1" && env.RUST_API_JOBS_MODE === "remote";
-  if (aiSupervisedByShell) {
-    logDesktop("[desktop] ai_service supervised by shell (RUST_API_AI_SUPERVISE=1); skipping desktop spawn");
-  } else {
-    await startRetainpdfAiService({
-      aiServicePort,
-      aiServiceRoot,
-      env,
-      pythonCommand: pythonRuntime.command,
-    });
-  }
-  if (jobsdSupervisedByShell) {
-    logDesktop("[desktop] jobsd supervised by shell (RUST_API_JOBS_SUPERVISE=1); shell will spawn retain-jobsd");
-  }
-
-  let waitingProgress = 58;
-  const waitingTimer = setInterval(() => {
-    waitingProgress = Math.min(waitingProgress + 3, 88);
-    updateSplashProgress(
-      waitingProgress,
-      "正在连接本地服务",
-      "首次启动可能稍慢，请稍候",
-    );
-  }, 500);
-  const backendReadyTimeoutMs = app.isPackaged ? 90000 : 30000;
-  logDesktop(`[desktop] waiting for backend port ${apiPort} timeoutMs=${backendReadyTimeoutMs}`);
+let waitingProgress = 58;
+const waitingTimer = setInterval(() => {
+  waitingProgress = Math.min(waitingProgress + 3, 88);
+  updateSplashProgress(
+    waitingProgress,
+    "正在连接本地服务",
+    "首次启动可能稍慢，请稍候",
+  );
+}, 500);
+const backendReadyTimeoutMs = app.isPackaged ? 90000 : 30000;
+logDesktop(`[desktop] waiting for backend port ${apiPort} timeoutMs=${backendReadyTimeoutMs} (attempt ${attempt}/3)`);
+try {
   await backendStartupDiagnostics.waitForBackendReady("127.0.0.1", apiPort, backendReadyTimeoutMs);
+} catch (error) {
   clearInterval(waitingTimer);
-  logDesktop(`[desktop] backend ready on port ${apiPort}`);
-  updateSplashProgress(92, "本地服务已就绪", "正在加载主界面");
+  const conflict = backendStartupDiagnostics.hasExited() && backendStartupDiagnostics.hasBindConflict();
+  if (aiServiceChild && !aiServiceChild.killed && aiServiceChild.pid) {
+    killProcessTreeSync(aiServiceChild.pid);
+    aiServiceChild = null;
+  }
+  if (conflict && attempt < 3) {
+    // Bind race: someone grabbed our ports between probe and bind.
+    // Re-allocate excluding them and respawn.
+    excludedPorts.add(apiPort);
+    excludedPorts.add(simplePort);
+    excludedPorts.add(jobsServicePort);
+    excludedPorts.add(aiServicePort);
+    logDesktop(`[desktop] backend bind conflict on attempt ${attempt}, reallocating ports and retrying`);
+    updateSplashProgress(36, "端口冲突重试", "检测到端口竞争，正在换端口重试");
+    continue;
+  }
+  throw error;
+}
+clearInterval(waitingTimer);
+logDesktop(`[desktop] backend ready on port ${apiPort}`);
+updateSplashProgress(92, "本地服务已就绪", "正在加载主界面");
+    break;
+  } // end startup attempt loop
+  suppressBackendCrashDialog = false;
 }
 
 async function startRetainpdfAiService({

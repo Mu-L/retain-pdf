@@ -7,6 +7,17 @@ const DEFAULT_BASE_URL = "https://api.deepseek.com/v1";
 
 function createDesktopConfigStore(app, options = {}) {
   const desktopApiKey = options.desktopApiKey || "";
+  // Actual Rust API port chosen at startup (dynamic fallback when the
+  // default is occupied). IPC config responses read it so the frontend
+  // follows without a restart.
+  let backendApiPort = 41000;
+
+  function setBackendApiPort(port) {
+    const parsed = Number(port);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      backendApiPort = parsed;
+    }
+  }
 
   function createDefaultDesktopConfig() {
     return {
@@ -50,7 +61,7 @@ function createDesktopConfigStore(app, options = {}) {
 
   function buildDesktopRuntimeConfig(config) {
     return {
-      apiBase: "http://127.0.0.1:41000",
+      apiBase: `http://127.0.0.1:${backendApiPort}`,
       xApiKey: desktopApiKey,
       ...buildBrowserConfig(config),
       model: config.model || DEFAULT_MODEL,
@@ -77,6 +88,7 @@ function createDesktopConfigStore(app, options = {}) {
     loadDesktopConfig,
     resolveDesktopConfigPath,
     saveDesktopConfig,
+    setBackendApiPort,
   };
 }
 

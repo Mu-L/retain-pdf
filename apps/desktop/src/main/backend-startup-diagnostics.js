@@ -38,6 +38,14 @@ function createBackendStartupDiagnostics(options = {}) {
     return !!state.exitDetail;
   }
 
+  // Did the backend die fast with a bind conflict (someone grabbed the port
+  // between our probe and its bind)? Used to decide startup retry with
+  // freshly re-allocated ports instead of failing outright.
+  function hasBindConflict() {
+    const haystack = [...state.recentStdout, ...state.recentStderr].join("\n");
+    return /address already in use|EADDRINUSE|WSAEACCES|os error 48|bind .* failed/i.test(haystack);
+  }
+
   function diagnostic(host, port, timeoutMs) {
     const desktopLogPath = getDesktopLogPath();
     return [
@@ -61,6 +69,7 @@ function createBackendStartupDiagnostics(options = {}) {
 
   return {
     diagnostic,
+    hasBindConflict,
     hasExited,
     markExit,
     rememberOutput,
