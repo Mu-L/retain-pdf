@@ -45,6 +45,10 @@ on:
     tags:
       - 'v[0-9]*.[0-9]*.[0-9]*'
       - '[0-9]*.[0-9]*.[0-9]*'
+      # Desktop hotfix/prerelease tags are intentionally excluded. They used to
+      # start a second copy of the full quality gate plus two Docker builds.
+      - '!v*-*'
+      - '!*-*'
 
 permissions:
   contents: read

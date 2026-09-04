@@ -100,6 +100,7 @@ export function createWorkflowAndUpload({
     }) || "";
     return {
       ocrProvider,
+      ocrCredentialRef: credentials?.ocrCredentialRef || "",
       ocrToken,
       translationCredentialRef: credentials?.translationCredentialRef || "",
       selectedGlossaryId: workflowView.selectedGlossaryId(),
@@ -133,8 +134,9 @@ export function createWorkflowAndUpload({
     renderPageRangeSummary: () => features.uploadFeature.renderPageRangeSummary(),
     hasBrowserCredentials: () => {
       if (isOcrOnly()) {
+        const credentials = credentialsStatePort.getCredentials();
         const token = credentialsStatePort.getOcrToken({ defaultPaddleToken: () => defaultPaddleToken() }) || "";
-        return Boolean(token);
+        return Boolean(credentials.ocrCredentialRef || token);
       }
       return Boolean(features.browserCredentialsFeature.hasBrowserCredentials());
     },

@@ -9,6 +9,7 @@ import {
 import {
   handleBrowserDeepSeekValidate,
 } from "../../src/js/features/credentials/deepseek-flow.js";
+import { ensureOcrCredentialValidationReady } from "../../src/js/features/credentials/ocr-readiness-flow.js";
 import {
   browserValidationIdForProvider,
   CREDENTIAL_DOM_DATASETS,
@@ -102,6 +103,30 @@ test("runOcrTokenValidation does not call validation port without token", async 
   assert.equal(result.ok, false);
   assert.equal(called, false);
   assert.deepEqual(calls, [["reset"]]);
+});
+
+test("stored OCR credential ref is ready without exposing or revalidating its secret", async () => {
+  let validationCalls = 0;
+  const result = await ensureOcrCredentialValidationReady({
+    apiPrefix: "/api/v1",
+    providerId: "paddle",
+    credentials: {
+      ocrProvider: "paddle",
+      ocrCredentialRef: "cred_saved_ocr",
+      paddleToken: "",
+    },
+    defaultPaddleToken: () => "",
+    validateOcrToken: async () => {
+      validationCalls += 1;
+      return { ok: true };
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.status, "stored");
+  assert.equal(result.credentialRef, "cred_saved_ocr");
+  assert.equal(result.token, "");
+  assert.equal(validationCalls, 0);
 });
 
 test("runDeepSeekConnectivityCheck passes injected apiPrefix to DeepSeek validation port", async () => {
@@ -285,6 +310,7 @@ test("credentials state port owns credential source of truth and token helpers",
   const port = createCredentialsStatePort({
     initialState: {
       ocrProvider: "paddle",
+      ocrCredentialRef: "cred_ocr",
       paddleToken: "paddle-token",
       translationCredentialRef: "cred_test",
     },
@@ -293,6 +319,7 @@ test("credentials state port owns credential source of truth and token helpers",
 
   assert.equal(port.getOcrToken({ providerId: "paddle" }), "paddle-token");
   assert.equal(port.getOcrToken({ providerId: "unknown-provider" }), "paddle-token");
+  assert.equal(port.getCredentials().ocrCredentialRef, "cred_ocr");
   assert.equal(port.hasComplete(), true);
   assert.equal(ocrTokenFromCredentials({ ocrProvider: "paddle" }, {
     defaultPaddleToken: () => "paddle-default",

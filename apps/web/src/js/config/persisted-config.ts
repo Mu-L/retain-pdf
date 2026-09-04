@@ -39,6 +39,10 @@ export function loadBrowserStoredConfig() {
   const fromSnap = normalizeBrowserStoredConfig(snapshot.browserConfig);
   return normalizeBrowserStoredConfig({
     ocrProvider: fromSnap.ocrProvider || fromStorage.ocrProvider,
+    ocrCredentialRef: preferNonEmpty(
+      fromSnap.ocrCredentialRef,
+      fromStorage.ocrCredentialRef,
+    ),
     paddleToken: preferNonEmpty(fromSnap.paddleToken, fromStorage.paddleToken),
     translationCredentialRef: preferNonEmpty(
       fromSnap.translationCredentialRef,

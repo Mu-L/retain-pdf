@@ -8,6 +8,7 @@ export interface CredentialDialogValues {
   modelName: string;
   translationWorkers: string;
   mathMode: string;
+  ocrCredentialRef?: string;
   translationCredentialRef?: string;
 }
 
@@ -27,7 +28,7 @@ export interface ReadCredentialDialogValuesOptions {
 }
 
 export interface BuildBrowserCredentialConfigOptions {
-  values: Pick<CredentialDialogValues, "paddleToken" | "modelApiKey" | "translationCredentialRef">;
+  values: Pick<CredentialDialogValues, "paddleToken" | "modelApiKey" | "ocrCredentialRef" | "translationCredentialRef">;
   currentOcrProvider: () => string;
   defaultModelApiKey?: () => string;
 }
@@ -65,6 +66,7 @@ export function buildBrowserCredentialConfig({
 }: BuildBrowserCredentialConfigOptions) {
   return {
     ocrProvider: currentOcrProvider(),
+    ocrCredentialRef: `${values.ocrCredentialRef || ""}`.trim(),
     paddleToken: values.paddleToken,
     translationCredentialRef: `${values.translationCredentialRef || ""}`.trim(),
     modelApiKey: `${values.modelApiKey || defaultModelApiKey?.() || ""}`.trim(),

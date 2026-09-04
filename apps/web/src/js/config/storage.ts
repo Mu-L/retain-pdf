@@ -7,9 +7,10 @@ import { normalizeOcrProvider } from "./providers.js";
 /** Browser-local credential / OCR settings (localStorage + desktop shadow). */
 export interface BrowserStoredConfig {
   ocrProvider: string;
+  ocrCredentialRef: string;
   paddleToken: string;
   translationCredentialRef: string;
-  /** User-visible translation key retained in the local frontend settings. */
+  /** Browser-local value. Desktop persists the same field in desktop-config.json. */
   modelApiKey: string;
   [key: string]: unknown;
 }
@@ -27,7 +28,9 @@ export interface DeveloperStoredConfig {
  */
 export interface RuntimeConfig {
   ocrProvider?: string;
+  ocrCredentialRef?: string;
   paddleToken?: string;
+  translationCredentialRef?: string;
   modelApiKey?: string;
   model?: string;
   baseUrl?: string;
@@ -80,6 +83,9 @@ export function normalizeBrowserStoredConfig(
   const source = (isObject(payload) ? payload : {}) as Partial<BrowserStoredConfig> & Record<string, unknown>;
   return {
     ocrProvider: normalizeOcrProvider(source.ocrProvider),
+    ocrCredentialRef: typeof source.ocrCredentialRef === "string"
+      ? source.ocrCredentialRef.trim()
+      : "",
     paddleToken: typeof source.paddleToken === "string" ? source.paddleToken : "",
     translationCredentialRef: typeof source.translationCredentialRef === "string"
       ? source.translationCredentialRef.trim()
@@ -100,6 +106,7 @@ export function desktopRuntimeToBrowserConfig(
   const source = (isObject(runtime) ? runtime : {}) as Partial<RuntimeConfig> & Record<string, unknown>;
   return normalizeBrowserStoredConfig({
     ocrProvider: source.ocrProvider as string | undefined,
+    ocrCredentialRef: source.ocrCredentialRef as string | undefined,
     paddleToken: source.paddleToken as string | undefined,
     translationCredentialRef: source.translationCredentialRef as string | undefined,
     modelApiKey: source.modelApiKey as string | undefined,
@@ -116,7 +123,9 @@ export function buildRuntimeConfig(
   const nextRuntimeConfig: RuntimeConfig = {
     ...(isObject(baseRuntimeConfig) ? (baseRuntimeConfig as RuntimeConfig) : {}),
     ocrProvider: nextBrowserConfig.ocrProvider,
+    ocrCredentialRef: nextBrowserConfig.ocrCredentialRef,
     paddleToken: nextBrowserConfig.paddleToken,
+    translationCredentialRef: nextBrowserConfig.translationCredentialRef,
     modelApiKey: nextBrowserConfig.modelApiKey,
     developerConfig: nextDeveloperConfig,
   };

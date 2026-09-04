@@ -77,6 +77,7 @@ function buildOcrFormData(payload) {
   appendFormField(form, "upload_id", source.upload_id);
   appendFormField(form, "source_url", source.source_url);
   appendFormField(form, "provider", ocr.provider);
+  appendFormField(form, "ocr_credential_ref", ocr.credential_ref);
   appendFormField(form, "mineru_token", ocr.mineru_token);
   appendFormField(form, "paddle_token", ocr.paddle_token);
   appendFormField(form, "paddle_api_url", ocr.paddle_api_url);

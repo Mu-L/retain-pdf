@@ -9,7 +9,9 @@ export interface DesktopConfigPayload {
   firstRunCompleted?: boolean;
   closeToTrayHintShown?: boolean;
   ocrProvider?: string;
+  ocrCredentialRef?: string;
   paddleToken?: string;
+  translationCredentialRef?: string;
   modelApiKey?: string;
   browserConfig?: Partial<BrowserStoredConfig> | BrowserStoredConfig;
   developerConfig?: DeveloperStoredConfig;

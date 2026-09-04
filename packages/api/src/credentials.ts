@@ -1,7 +1,7 @@
 import { buildApiHeaders, unwrapEnvelope } from "./internal/runtime.js";
 import { buildApiEndpoint } from "./http.js";
 
-export type CredentialKind = "translation_api_key" | string;
+export type CredentialKind = "translation_api_key" | "ocr_provider_token" | string;
 
 export type CredentialMetadata = {
   credential_ref: string;

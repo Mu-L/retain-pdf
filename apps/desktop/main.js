@@ -50,6 +50,7 @@ const { killProcessTreeSync } = portOccupant;
 const desktopConfigStore = createDesktopConfigStore(app, { desktopApiKey: DESKTOP_API_KEY });
 const {
   buildDesktopConfigResponse,
+  buildDesktopRuntimeConfig,
   loadDesktopConfig,
   saveDesktopConfig,
   setBackendApiPort,
@@ -176,7 +177,7 @@ async function startBundledBackend() {
   // Packaged builds use backend/ai_service; development may use services/ai.
   let aiServiceRoot = path.join(backendRoot, "ai_service");
   if (!fs.existsSync(path.join(aiServiceRoot, "retainpdf_ai", "__main__.py"))) {
-    const repoAiServices = path.join(appRoot, "..", "services", "ai");
+    const repoAiServices = path.join(__dirname, "..", "..", "services", "ai");
     if (fs.existsSync(path.join(repoAiServices, "retainpdf_ai", "__main__.py"))) {
       aiServiceRoot = repoAiServices;
     }

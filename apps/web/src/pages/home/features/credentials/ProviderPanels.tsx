@@ -21,6 +21,10 @@ import { SecretInput } from "./SecretInput.js";
 
 const { browser: BROWSER_IDS } = CREDENTIAL_DOM_IDS;
 
+function storedSecretPlaceholder(label: string) {
+  return `••••••••••••（${label} 已安全保存，输入新值可替换）`;
+}
+
 function resetHandlerFor(handlers) {
   return handlers?.resetPaddleValidation;
 }
@@ -74,7 +78,9 @@ export function OcrPanels() {
                 id={credentialTokenInputId(provider.id)}
                 secretLabel="Paddle Access Token"
                 autoComplete="off"
-                placeholder={provider.tokenPlaceholder}
+                placeholder={credentials.ocrCredentialRef
+                  ? storedSecretPlaceholder("Paddle Token")
+                  : provider.tokenPlaceholder}
                 defaultValue=""
                 ref={tokenInputRef(provider.id)}
                 onInput={() => resetHandlerFor(handlers)?.()}
@@ -116,7 +122,7 @@ export function OcrPanels() {
 }
 
 export function TranslationPanel({ footerAction = null }: { footerAction?: React.ReactNode } = {}) {
-  const { view, handlers, elementsRef } = useCredentialsController();
+  const { credentials, view, handlers, elementsRef } = useCredentialsController();
   const translationProvider = `${view.translationProvider || "custom"}`;
   const providerDefinition = getTranslationProviderDefinition(translationProvider);
   const fixedBaseUrl = providerDefinition.id !== "custom";
@@ -223,7 +229,9 @@ export function TranslationPanel({ footerAction = null }: { footerAction?: React
             id={BROWSER_IDS.apiKey}
             secretLabel="翻译 API Key"
             autoComplete="off"
-            placeholder={TRANSLATION_PROVIDER_DEFINITION.keyPlaceholder}
+            placeholder={credentials.translationCredentialRef
+              ? storedSecretPlaceholder("翻译 API Key")
+              : TRANSLATION_PROVIDER_DEFINITION.keyPlaceholder}
             defaultValue=""
             ref={(node) => { elementsRef.apiKeyInput = node || null; }}
             onInput={() => handlers?.resetDeepSeekValidation?.()}

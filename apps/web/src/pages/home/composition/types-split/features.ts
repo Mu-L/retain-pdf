@@ -42,6 +42,7 @@ export type BrowserCredentialsFeature = {
   hasOcrCredentials: () => boolean;
   openBrowserCredentialsDialog: (options?: unknown) => void;
   prepareCredentialsPanels: () => void;
+  ready: () => Promise<unknown>;
   refreshDeepSeekBalance: (options?: unknown) => Promise<unknown> | unknown;
   setDialogStatus: (message?: string, tone?: string) => void;
   updateCredentialGate: (options?: unknown) => void;

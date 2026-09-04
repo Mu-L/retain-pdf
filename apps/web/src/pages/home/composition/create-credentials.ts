@@ -7,6 +7,7 @@ import {
   defaultPaddleToken,
   saveBrowserStoredConfig,
   savePersistedBrowserStoredConfig,
+  savePersistedDesktopConfig,
   savePersistedDeveloperStoredConfig,
 } from "./external/config.js";
 import {
@@ -86,10 +87,13 @@ export function createCredentials({
     afterSave?: () => unknown,
   ) {
     const source = (browserConfig && typeof browserConfig === "object") ? browserConfig : {};
-    const persisted = await savePersistedBrowserStoredConfig({ ...source });
+    let persisted = await savePersistedBrowserStoredConfig({ ...source });
     setDeveloperConfig(legacyState, persisted.developerConfig || getDeveloperConfig(legacyState));
     credentialsStatePort.setCredentials(persisted.browserConfig || {});
     if (source.markConfigured) {
+      if (!persisted.firstRunCompleted) {
+        persisted = await savePersistedDesktopConfig({ firstRunCompleted: true });
+      }
       setDesktopConfigured(legacyState, true);
     }
     await afterSave?.();

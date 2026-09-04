@@ -50,6 +50,12 @@ function buildBackendEnv(options = {}) {
     ...(pipelineCommand ? { RUST_API_PIPELINE_COMMAND: pipelineCommand } : {}),
     // 前端 /api/v1/ai/* 由 Rust 反代到 retainpdf-ai
     RUST_API_AI_SERVICE_BASE: `http://127.0.0.1:${aiServicePort}`,
+    // Rust supervises the Python AI process in packaged builds. Its
+    // AiServiceConfig reads the RUST_API_* names and then overwrites the
+    // child's RETAIN_AI_* values, so both layers must receive the relocated
+    // port instead of letting the supervisor fall back to 41100.
+    RUST_API_AI_HOST: "127.0.0.1",
+    RUST_API_AI_PORT: String(aiServicePort),
     PYTHON_BIN: pythonRuntime.command,
     PYTHONPATH: [
       scriptsDir,

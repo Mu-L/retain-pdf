@@ -10,6 +10,11 @@
   "scripts": {
     "build:web": "npm run build --workspace=front-tailwind-ui",
     "build:reader": "npm run build --workspace=@retainpdf/reader",
+    "dev:desktop": "npm --workspace=retain-pdf-desktop run dev --",
+    "test:desktop": "npm test --workspace=retain-pdf-desktop",
+    "test:desktop:windows": "npm run test:desktop && node apps/desktop/scripts/remote-windows.mjs",
+    "smoke:desktop:windows": "npm run verify:desktop && node apps/desktop/scripts/remote-windows.mjs --smoke",
+    "verify:desktop": "npm run test:desktop && npm --prefix apps/desktop run verify-frontend-sync",
     "test:web": "npm test --workspace=front-tailwind-ui",
     "test:api": "python3 .github/scripts/run_with_backend_source.py -- cargo test --locked --workspace --manifest-path {backend}/api/Cargo.toml"
   },

@@ -101,7 +101,7 @@ function mockValidators(overrides = {}) {
 function createServices(overrides = {}) {
   const { validateOcrToken, validateDeepSeekToken, queryDeepSeekBalance, ...rest } = mockValidators(overrides.validators);
   let vaultRevision = 0;
-  let translationCredential = null;
+  let credentials = [];
   return createHomeComposition({
     fetchGlossaries: async () => ({ items: [] }),
     loadPersistedDeveloperConfig: () => ({}),
@@ -110,13 +110,15 @@ function createServices(overrides = {}) {
     validateDeepSeekToken,
     queryDeepSeekBalance,
     listCredentials: async () => ({
-      credentials: translationCredential ? [translationCredential] : [],
+      credentials,
       revision: vaultRevision,
     }),
     createCredential: async (_apiPrefix, payload) => {
       vaultRevision += 1;
-      translationCredential = {
-        credential_ref: "cred_test_translation",
+      const credential = {
+        credential_ref: payload.kind === "ocr_provider_token"
+          ? "cred_test_ocr"
+          : "cred_test_translation",
         kind: payload.kind,
         provider: payload.provider,
         label: payload.label,
@@ -125,21 +127,25 @@ function createServices(overrides = {}) {
         created_at: "2026-09-02T00:00:00Z",
         updated_at: "2026-09-02T00:00:00Z",
       };
-      return { credential: translationCredential, revision: vaultRevision };
+      credentials = [...credentials, credential];
+      return { credential, revision: vaultRevision };
     },
     updateCredential: async (_apiPrefix, credentialRef, payload) => {
       vaultRevision += 1;
-      translationCredential = {
-        ...(translationCredential || {}),
+      const previous = credentials.find((item) => item.credential_ref === credentialRef) || {};
+      const credential = {
+        ...previous,
         credential_ref: credentialRef,
         kind: payload.kind || "translation_api_key",
         provider: payload.provider || "deepseek",
         label: payload.label || "翻译 API",
         configured: true,
-        revision: Number(translationCredential?.revision || 0) + 1,
+        revision: Number(previous.revision || 0) + 1,
         updated_at: "2026-09-02T00:00:01Z",
       };
-      return { credential: translationCredential, revision: vaultRevision };
+      credentials = credentials.filter((item) => item.credential_ref !== credentialRef);
+      credentials.push(credential);
+      return { credential, revision: vaultRevision };
     },
     ...rest,
     ...overrides,
@@ -502,18 +508,19 @@ test("CredentialsDialog：保存(浏览器模式)——写隐藏 input、同步 
   assert.equal(byId("ocr_provider").value, "paddle");
 
   const credentials = defaultCredentialsStatePort.getCredentials();
+  assert.equal(credentials.ocrCredentialRef, "cred_test_ocr");
   assert.equal(credentials.paddleToken, "paddle-secret");
   assert.equal(credentials.modelApiKey, "deepseek-secret");
   assert.equal(credentials.translationCredentialRef, "cred_test_translation");
   assert.equal(byId("browser-api-key").type, "password", "保存后默认继续遮蔽 Key");
-  assert.equal(byId("browser-api-key").value, "deepseek-secret", "保存后保留可查看的 Key");
+  assert.equal(byId("browser-api-key").value, "deepseek-secret", "保存后回填翻译 Key");
   const persistedValues = Array.from({ length: dom.window.localStorage.length }, (_, index) => (
     dom.window.localStorage.getItem(dom.window.localStorage.key(index)) || ""
   ));
   assert.equal(
-    persistedValues.some((value) => value.includes("deepseek-secret")),
+    persistedValues.some((value) => value.includes("deepseek-secret") && value.includes("paddle-secret")),
     true,
-    "翻译 Key 应写入本机前端配置，供下次打开设置时查看",
+    "普通网页把 OCR 与翻译密钥保存在当前浏览器",
   );
   await waitFor(
     () => services.features.workflowFeature.developerConfigWithDefaults().baseUrl === "https://translation.example/v1",
@@ -585,6 +592,7 @@ test("CredentialsDialog：保存(桌面模式)——走 saveDesktopConfig 分支
   await waitFor(() => desktopCalls.length === 1, "saveDesktopConfig 被调用");
   assert.equal(desktopCalls[0].browserConfig.modelApiKey, "deepseek-desktop");
   assert.equal(desktopCalls[0].browserConfig.translationCredentialRef, "cred_test_translation");
+  assert.equal(desktopCalls[0].browserConfig.ocrCredentialRef, "cred_test_ocr");
   assert.equal(desktopCalls[0].browserConfig.paddleToken, "paddle-desktop");
   assert.equal(desktopCalls[0].browserConfig.markConfigured, true, "setupMode 下应标记首次配置完成");
   await waitFor(() => byId("browser-credentials-dialog") === null, "保存成功后对话框关闭");
@@ -610,21 +618,35 @@ test("CredentialsDialog：既有翻译凭据按记录 revision 更新并串行�
     created_at: "2026-09-02T00:00:00Z",
     updated_at: "2026-09-02T00:00:00Z",
   };
+  const existingOcrCredential = {
+    credential_ref: "cred_existing_ocr",
+    kind: "ocr_provider_token",
+    provider: "paddle",
+    label: "Paddle OCR",
+    configured: true,
+    revision: 3,
+    created_at: "2026-09-02T00:00:00Z",
+    updated_at: "2026-09-02T00:00:00Z",
+  };
   const services = createServices({
     listCredentials: async () => ({
-      credentials: [existingCredential],
+      credentials: [existingCredential, existingOcrCredential],
       // Simulate an unrelated OCR import after this credential was created.
       revision: 12,
     }),
-    createCredential: async () => {
-      throw new Error("existing credential must be updated");
-    },
+    createCredential: async () => { throw new Error("existing credential must be updated"); },
     updateCredential: async (_apiPrefix, credentialRef, payload) => {
+      if (payload.kind === "ocr_provider_token") {
+        return {
+          credential: { ...existingOcrCredential, revision: 4 },
+          revision: 13,
+        };
+      }
       updatePayloads.push({ credentialRef, payload });
       await updateGate;
       return {
         credential: { ...existingCredential, revision: 8 },
-        revision: 13,
+        revision: 14,
       };
     },
   });
@@ -643,10 +665,64 @@ test("CredentialsDialog：既有翻译凭据按记录 revision 更新并串行�
   click(byId("browser-credentials-save-btn"));
   await waitFor(() => updatePayloads.length === 1, "重复点击只发起一次更新");
   assert.equal(updatePayloads[0].credentialRef, existingCredential.credential_ref);
-  assert.equal(updatePayloads[0].payload.expected_revision, 12);
+  assert.equal(updatePayloads[0].payload.expected_revision, 13);
   assert.equal(updatePayloads[0].payload.expected_credential_revision, 7);
   releaseUpdate();
   await waitFor(() => byId("browser-credentials-status")?.textContent === "已保存", "更新完成");
+
+  root.unmount();
+  services.dispose();
+  host.remove();
+});
+
+test("CredentialsDialog：重启后从浏览器存储恢复可查看值并关联 vault 引用", async () => {
+  const vaultCredentials = [
+    {
+      credential_ref: "cred_saved_ocr",
+      kind: "ocr_provider_token",
+      provider: "paddle",
+      label: "Paddle OCR",
+      configured: true,
+      revision: 2,
+      created_at: "2026-09-02T00:00:00Z",
+      updated_at: "2026-09-02T00:00:02Z",
+    },
+    {
+      credential_ref: "cred_saved_translation",
+      kind: "translation_api_key",
+      provider: "deepseek",
+      label: "翻译 API",
+      configured: true,
+      revision: 4,
+      created_at: "2026-09-02T00:00:00Z",
+      updated_at: "2026-09-02T00:00:04Z",
+    },
+  ];
+  const services = createServices({
+    loadPersistedBrowserConfig: () => ({
+      ocrProvider: "paddle",
+      paddleToken: "saved-ocr-value",
+      modelApiKey: "saved-translation-value",
+    }),
+    listCredentials: async () => ({ credentials: vaultCredentials, revision: 8 }),
+    createCredential: async () => { throw new Error("saved credentials must be reused"); },
+    updateCredential: async () => { throw new Error("blank inputs must not rotate saved credentials"); },
+  });
+  const { host, root } = await mountHome(services);
+
+  await services.features.browserCredentialsFeature.ready();
+  const restored = defaultCredentialsStatePort.getCredentials();
+  assert.equal(restored.ocrCredentialRef, "cred_saved_ocr");
+  assert.equal(restored.translationCredentialRef, "cred_saved_translation");
+  assert.equal(restored.paddleToken, "saved-ocr-value");
+  assert.equal(restored.modelApiKey, "saved-translation-value");
+
+  dom.window.document.dispatchEvent(new dom.window.CustomEvent(APP_EVENTS.openBrowserCredentials));
+  await waitFor(() => byId("browser-api-key") !== null, "API 工作台就绪");
+  assert.equal(byId("browser-paddle-token").value, "saved-ocr-value");
+  assert.equal(byId("browser-api-key").value, "saved-translation-value");
+  assert.match(byId("browser-paddle-validation").title, /已安全保存/);
+  assert.match(byId("browser-deepseek-validation").title, /已安全保存/);
 
   root.unmount();
   services.dispose();

@@ -100,6 +100,20 @@ test("buildOcrPayload maps provider token field and paddle api url", () => {
   assert.equal(payload.page_ranges, "1-3");
 });
 
+test("buildOcrPayload prefers credential ref and omits Paddle token plaintext", () => {
+  const payload = buildOcrPayload({
+    pageRanges: "1-3",
+    ocrProvider: "paddle",
+    ocrCredentialRef: "cred_ocr",
+    ocrToken: "must-not-leak",
+    defaultPaddleApiUrl: () => "https://paddle.example/v1",
+    constants,
+  });
+
+  assert.equal(payload.credential_ref, "cred_ocr");
+  assert.equal("paddle_token" in payload, false);
+});
+
 test("buildSourcePayload and buildRenderPayload preserve render-only inputs", () => {
   const source = buildSourcePayload({
     workflow: "render",
@@ -136,6 +150,7 @@ function mountWorkflowHarness({
   viewPort,
   submitValues = {
     ocrProvider: "paddle",
+    ocrCredentialRef: "cred_ocr",
     ocrToken: "ocr-token",
     translationCredentialRef: "cred_translation",
     selectedGlossaryId: "glossary-selected",
@@ -208,7 +223,8 @@ test("collectRunPayload builds book submit payload from resolved workflow inputs
   assert.deepEqual(payload.source, { upload_id: "upload-1" });
   assert.equal(payload.runtime.timeout_seconds, 1800);
   assert.equal(payload.ocr.provider, "paddle");
-  assert.equal(payload.ocr.paddle_token, "ocr-token");
+  assert.equal(payload.ocr.credential_ref, "cred_ocr");
+  assert.equal("paddle_token" in payload.ocr, false);
   assert.equal(payload.ocr.page_ranges, "2-4");
   assert.equal(payload.translation.credential_ref, "cred_translation");
   assert.equal("api_key" in payload.translation, false);

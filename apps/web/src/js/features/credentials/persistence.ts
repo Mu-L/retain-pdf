@@ -42,13 +42,16 @@ export async function persistDesktopCredentialsFromDialog({
   setupModePort = createCredentialSetupModePort(),
 }: any) {
   const provider = currentOcrProvider();
-  const paddleToken = values.paddleToken;
+  const ocrCredentialRef = `${values.ocrCredentialRef || ""}`.trim();
+  const translationCredentialRef = `${values.translationCredentialRef || ""}`.trim();
+  const paddleToken = `${values.paddleToken || ""}`.trim();
   const modelApiKey = `${values.modelApiKey || defaultModelApiKey?.() || ""}`.trim();
   await saveDesktopConfig?.(
     {
       ocrProvider: provider,
+      ocrCredentialRef,
       paddleToken,
-      translationCredentialRef: `${values.translationCredentialRef || ""}`.trim(),
+      translationCredentialRef,
       modelApiKey,
       markConfigured: setupModePort.currentSetupMode(),
     },

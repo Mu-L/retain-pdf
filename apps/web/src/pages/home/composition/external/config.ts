@@ -28,7 +28,10 @@ export {
   savePersistedBrowserStoredConfig,
   savePersistedDeveloperStoredConfig,
 } from "../../../../js/config/persisted-config.js";
-export { openDesktopOutputDirectory } from "../../../../js/config/desktop-persistence.js";
+export {
+  openDesktopOutputDirectory,
+  savePersistedDesktopConfig,
+} from "../../../../js/config/desktop-persistence.js";
 export { DEFAULT_MODEL_VERSION } from "../../../../js/config/model-constants.js";
 export {
   getTranslationProviderDefinition,

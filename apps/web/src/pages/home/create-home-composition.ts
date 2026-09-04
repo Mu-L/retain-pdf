@@ -79,6 +79,7 @@ export function createHomeComposition({
   loadPersistedDeveloperConfig = () => safeLoad(loadDeveloperStoredConfig, {}),
   loadPersistedBrowserConfig = () => safeLoad(loadBrowserStoredConfig, {
     ocrProvider: defaultOcrProvider(),
+    ocrCredentialRef: "",
     paddleToken: "",
     translationCredentialRef: "",
     modelApiKey: "",

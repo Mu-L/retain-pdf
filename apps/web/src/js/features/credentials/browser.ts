@@ -23,7 +23,6 @@ import {
 import { syncCredentialDialogFields } from "./dialog-sync.js";
 import { ensureOcrCredentialValidationReady } from "./ocr-readiness-flow.js";
 import {
-  persistBrowserCredentialsFromDialog as persistBrowserCredentials,
   persistDesktopCredentialsFromDialog as persistDesktopCredentials,
 } from "./persistence.js";
 import { createCredentialRuntimeEnvPort } from "./runtime-env-port.js";
@@ -284,6 +283,7 @@ export function mountBrowserCredentialsFeature({
     resetDeepSeekBalance: () => credentialsStatePort.resetDeepSeekBalance?.(),
   };
   let credentialVaultRevision: number | undefined;
+  let ocrCredentialRevision: number | undefined;
   let translationCredentialRevision: number | undefined;
   let credentialSaveInFlight = false;
   let lastCustomTranslationBaseUrl = "";
@@ -313,10 +313,11 @@ export function mountBrowserCredentialsFeature({
     currentTranslationProvider = normalizeTranslationProvider(
       `${taskOptions.translationProvider || inferredProvider}`,
     );
-    if (!storedProfiles[currentTranslationProvider]) {
+    if (!translationProfiles[currentTranslationProvider]?.apiKey && credentials.modelApiKey) {
       translationProfiles[currentTranslationProvider] = normalizeTranslationProfile(
         currentTranslationProvider,
         {
+          ...(storedProfiles[currentTranslationProvider] || {}),
           apiKey: `${credentials.modelApiKey || ""}`,
           baseUrl: `${taskOptions.baseUrl || ""}`,
           model: `${taskOptions.model || ""}`,
@@ -343,6 +344,10 @@ export function mountBrowserCredentialsFeature({
     }
   }
 
+  function persistableTranslationProfiles() {
+    return translationProfiles;
+  }
+
   function applyTranslationProfile(providerId = "custom") {
     const provider = normalizeTranslationProvider(providerId);
     const definition = getTranslationProviderDefinition(provider);
@@ -365,30 +370,99 @@ export function mountBrowserCredentialsFeature({
     return provider === "custom" ? "openai_compatible" : provider;
   }
 
-  async function refreshTranslationCredentialReference({ persist = true } = {}) {
+  async function refreshCredentialReferences({ persist = true } = {}) {
     if (!listCredentials) return null;
     const result = await listCredentials(apiPrefix);
     credentialVaultRevision = Number.isFinite(Number(result?.revision))
       ? Number(result.revision)
       : undefined;
-    const candidates = Array.isArray(result?.credentials)
-      ? result.credentials.filter((item) => item?.kind === "translation_api_key" && item?.configured !== false)
-      : [];
-    const existingRef = `${readCurrentCredentials()?.translationCredentialRef || ""}`.trim();
-    const selected = candidates.find((item) => item?.credential_ref === existingRef)
-      || candidates.sort((a, b) => `${b?.updated_at || ""}`.localeCompare(`${a?.updated_at || ""}`))[0]
+    const items = Array.isArray(result?.credentials) ? result.credentials : [];
+    const translationCandidates = items.filter(
+      (item) => item?.kind === "translation_api_key" && item?.configured !== false,
+    );
+    const currentCredentials = readCurrentCredentials();
+    const existingTranslationRef = `${currentCredentials?.translationCredentialRef || ""}`.trim();
+    const selectedTranslation = translationCandidates.find((item) => item?.credential_ref === existingTranslationRef)
+      || translationCandidates.sort((a, b) => `${b?.updated_at || ""}`.localeCompare(`${a?.updated_at || ""}`))[0]
       || null;
-    const translationCredentialRef = `${selected?.credential_ref || ""}`.trim();
-    translationCredentialRevision = Number.isFinite(Number(selected?.revision))
-      ? Number(selected.revision)
+    const translationCredentialRef = `${selectedTranslation?.credential_ref || ""}`.trim();
+    translationCredentialRevision = Number.isFinite(Number(selectedTranslation?.revision))
+      ? Number(selectedTranslation.revision)
       : undefined;
+
+    const provider = currentOcrProvider();
+    const ocrCandidates = items.filter((item) => (
+      item?.kind === "ocr_provider_token"
+      && item?.configured !== false
+      && `${item?.provider || ""}`.trim().toLowerCase() === provider
+    ));
+    const existingOcrRef = `${currentCredentials?.ocrCredentialRef || ""}`.trim();
+    const selectedOcr = ocrCandidates.find((item) => item?.credential_ref === existingOcrRef)
+      || ocrCandidates.sort((a, b) => `${b?.updated_at || ""}`.localeCompare(`${a?.updated_at || ""}`))[0]
+      || null;
+    const ocrCredentialRef = `${selectedOcr?.credential_ref || ""}`.trim();
+    ocrCredentialRevision = Number.isFinite(Number(selectedOcr?.revision))
+      ? Number(selectedOcr.revision)
+      : undefined;
+
     credentialsStatePort.patchCredentials?.({
+      ocrCredentialRef,
       translationCredentialRef,
     });
-    if (persist && translationCredentialRef !== existingRef) {
+    if (persist && (
+      translationCredentialRef !== existingTranslationRef
+      || ocrCredentialRef !== existingOcrRef
+    )) {
       await savePersistedBrowserStoredConfig(readCurrentCredentials());
     }
-    return selected;
+    if (ocrCredentialRef && translationCredentialRef && runtimeEnv.isDesktopMode() && saveDesktopConfig) {
+      const restoredCredentials = readCurrentCredentials();
+      await saveDesktopConfig({
+        ocrProvider: provider,
+        ocrCredentialRef,
+        paddleToken: restoredCredentials.paddleToken || "",
+        translationCredentialRef,
+        modelApiKey: restoredCredentials.modelApiKey || "",
+        markConfigured: true,
+      });
+    }
+    return { ocr: selectedOcr, translation: selectedTranslation };
+  }
+
+  async function storeOcrCredential({ secret, provider }: { secret: string; provider: string }) {
+    const normalizedSecret = `${secret || ""}`.trim();
+    let existingRef = `${readCurrentCredentials()?.ocrCredentialRef || ""}`.trim();
+    if (!normalizedSecret) return existingRef;
+    if (!createCredential || !updateCredential || !listCredentials) {
+      throw new Error("当前前端未接入安全凭据服务，请刷新后重试");
+    }
+    if (credentialVaultRevision === undefined) {
+      await refreshCredentialReferences({ persist: false });
+    }
+    existingRef = `${readCurrentCredentials()?.ocrCredentialRef || ""}`.trim();
+    const normalizedProvider = normalizeOcrProvider(provider);
+    const payload = {
+      kind: "ocr_provider_token",
+      provider: normalizedProvider,
+      label: `${getOcrProviderDefinition(normalizedProvider).label} OCR`,
+      secret: normalizedSecret,
+      ...(credentialVaultRevision === undefined
+        ? {}
+        : { expected_revision: credentialVaultRevision }),
+      ...(existingRef && ocrCredentialRevision !== undefined
+        ? { expected_credential_revision: ocrCredentialRevision }
+        : {}),
+    };
+    const result = existingRef
+      ? await updateCredential(apiPrefix, existingRef, payload)
+      : await createCredential(apiPrefix, payload);
+    credentialVaultRevision = Number.isFinite(Number(result?.revision))
+      ? Number(result.revision)
+      : credentialVaultRevision;
+    ocrCredentialRevision = Number.isFinite(Number(result?.credential?.revision))
+      ? Number(result.credential.revision)
+      : ocrCredentialRevision;
+    return `${result?.credential?.credential_ref || existingRef}`.trim();
   }
 
   async function storeTranslationCredential({ secret, baseUrl }: { secret: string; baseUrl: string }) {
@@ -399,7 +473,7 @@ export function mountBrowserCredentialsFeature({
       throw new Error("当前前端未接入安全凭据服务，请刷新后重试");
     }
     if (credentialVaultRevision === undefined) {
-      await refreshTranslationCredentialReference({ persist: false });
+      await refreshCredentialReferences({ persist: false });
     }
     existingRef = `${readCurrentCredentials()?.translationCredentialRef || ""}`.trim();
     const payload = {
@@ -472,6 +546,12 @@ export function mountBrowserCredentialsFeature({
     viewPort.setTranslationProvider?.(currentTranslationProvider);
     viewPort.setOcrValidationMessage("", "", "paddle");
     viewPort.setDeepSeekValidationMessage("", "");
+    if (credentials.ocrCredentialRef) {
+      viewPort.setOcrValidationMessage("Paddle Token 已安全保存", "valid", "paddle");
+    }
+    if (credentials.translationCredentialRef) {
+      viewPort.setDeepSeekValidationMessage("翻译 API Key 已安全保存", "valid");
+    }
     viewPort.setDeepSeekTopUpVisible(false);
     balanceState.resetDeepSeekBalance();
     viewPort.setDialogStatus("", "");
@@ -484,9 +564,11 @@ export function mountBrowserCredentialsFeature({
   }
 
   function hasOcrCredentials() {
-    return Boolean(credentialsStatePort.getOcrToken?.({
-      defaultPaddleToken,
-    }));
+    const credentials = readCurrentCredentials();
+    return Boolean(
+      credentials.ocrCredentialRef
+      || credentialsStatePort.getOcrToken?.({ defaultPaddleToken }),
+    );
   }
 
   function openBrowserCredentialsDialog(options: OpenBrowserCredentialsDialogOptions = {}) {
@@ -577,11 +659,22 @@ export function mountBrowserCredentialsFeature({
 
   async function handleBrowserOcrValidate() {
     const provider = currentOcrProvider();
+    const token = ocrTokenFromDialogValues(
+      readCredentialDialogValues({ elementsPort: dialogElementsPort }),
+    );
+    if (!token && readCurrentCredentials().ocrCredentialRef) {
+      viewPort.setOcrValidationMessage(
+        "Paddle Token 已安全保存；如需重新检测，请输入新 Token",
+        "valid",
+        provider,
+      );
+      return;
+    }
     await runOcrTokenValidation({
       apiPrefix,
       state,
       providerId: provider,
-      token: ocrTokenFromDialogValues(readCredentialDialogValues({ elementsPort: dialogElementsPort })),
+      token,
       validateOcrToken,
       setOcrValidationMessage: viewPort.setOcrValidationMessage,
       showResult: true,
@@ -625,7 +718,7 @@ export function mountBrowserCredentialsFeature({
     captureCurrentTranslationProfile();
     const raw = readCredentialDialogValues({ elementsPort: dialogElementsPort });
     const existingTaskOptions = (getTaskOptions?.() || {}) as Record<string, unknown>;
-    // 输入框被清空时沿用当前值，避免保存其他设置时误删 API Key。
+    // 输入框留空时沿用当前值，避免保存其他设置时误删凭据。
     const values = {
       ...raw,
       paddleToken: `${raw.paddleToken || ""}`.trim() || `${existing.paddleToken || ""}`.trim(),
@@ -640,19 +733,24 @@ export function mountBrowserCredentialsFeature({
     };
     const ocrToken = ocrTokenFromDialogValues(values);
     const modelApiKey = `${values.modelApiKey || ""}`.trim();
+    const existingOcrCredentialRef = `${existing.ocrCredentialRef || ""}`.trim();
+    const existingTranslationCredentialRef = `${existing.translationCredentialRef || ""}`.trim();
     const translationError = translationConfigError(values.modelBaseUrl, values.modelName);
     const workersError = translationWorkersError(values.translationWorkers, currentTranslationProvider);
-    if (!ocrToken || !modelApiKey || translationError || workersError) {
-      if (!ocrToken) {
+    if ((!ocrToken && !existingOcrCredentialRef)
+      || (!modelApiKey && !existingTranslationCredentialRef)
+      || translationError
+      || workersError) {
+      if (!ocrToken && !existingOcrCredentialRef) {
         viewPort.setOcrValidationMessage(definition.validationMissingMessage, "error", definition.id);
       }
-      if (!modelApiKey) {
+      if (!modelApiKey && !existingTranslationCredentialRef) {
         viewPort.setDeepSeekValidationMessage(TRANSLATION_PROVIDER_DEFINITION.validationMissingMessage, "error");
       } else if (translationError || workersError) {
         viewPort.setDeepSeekValidationMessage(translationError || workersError, "error");
       }
       viewPort.setDialogStatus(
-        translationError || workersError || "请填写 OCR Token 与翻译 API Key 后再保存",
+        translationError || workersError || "请填写尚未保存的 OCR Token 或翻译 API Key",
         "error",
       );
       return;
@@ -673,18 +771,23 @@ export function mountBrowserCredentialsFeature({
         defaultModelBaseUrl,
       }),
       translationProvider: currentTranslationProvider,
-      translationProfiles,
+      translationProfiles: persistableTranslationProfiles(),
     };
 
     // 保存只做落盘；联网校验留给「检测」按钮。
     // 必须 await 完整持久化（含桌面 snapshot），再通知 AI 门禁刷新。
     try {
+      const ocrCredentialRef = await storeOcrCredential({
+        secret: ocrToken,
+        provider: currentOcrProvider(),
+      });
       const translationCredentialRef = await storeTranslationCredential({
         secret: modelApiKey,
         baseUrl: values.modelBaseUrl,
       });
       const nextCredentials = {
         ocrProvider: currentOcrProvider(),
+        ocrCredentialRef,
         paddleToken: ocrToken,
         translationCredentialRef,
         modelApiKey,
@@ -709,26 +812,12 @@ export function mountBrowserCredentialsFeature({
           },
           values: {
             ...values,
+            ocrCredentialRef,
             paddleToken: ocrToken,
             modelApiKey,
             translationCredentialRef,
           },
           setupModePort,
-        });
-      } else {
-        persistBrowserCredentials({
-          applyCredentialInputs: applyHiddenCredentialInputs,
-          currentOcrProvider,
-          defaultModelApiKey,
-          defaultModelBaseUrl,
-          saveTaskOptions: undefined,
-          saveBrowserStoredConfig,
-          values: {
-            ...values,
-            paddleToken: ocrToken,
-            modelApiKey,
-            translationCredentialRef,
-          },
         });
       }
       saveTaskOptions?.(nextTaskOptions);
@@ -797,12 +886,13 @@ export function mountBrowserCredentialsFeature({
 
   // Resolve the backend-owned translation credential on mount. This also
   // repairs a missing local reference without ever returning the secret.
-  void refreshTranslationCredentialReference().catch(() => {
+  const credentialReferencesReady = refreshCredentialReferences().catch(() => {
     // Keep startup non-blocking; save will surface actionable vault errors.
   });
 
   return {
     activateCredentialTab,
+    ready: () => credentialReferencesReady,
     ensureOcrCredentialsReady,
     hasBrowserCredentials,
     hasOcrCredentials,

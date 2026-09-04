@@ -1,5 +1,6 @@
-// OCR 仍保留两个兼容旧上传链路的隐藏 input；翻译密钥已迁移到后端 vault，
-// 页面和任务请求只持有 credential_ref，因此这里不再渲染翻译 API Key。
+// OCR hidden inputs remain only for legacy inline compatibility. New saves put
+// both OCR and translation secrets in the backend vault; task payloads carry
+// credential_ref and never render either secret into hidden DOM.
 //
 // 只在这一处渲染(WorkflowPanel.jsx 已把原先的静态占位 input 换成本
 // 组件,注释里写明"隐藏凭据 input 由 3b credentials 域接管镜像")——全码库

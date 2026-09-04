@@ -49,6 +49,7 @@ export interface BuildSourcePayloadOptions {
 export interface BuildOcrPayloadOptions {
   pageRanges?: string;
   ocrProvider?: string;
+  ocrCredentialRef?: string;
   ocrToken?: string;
   defaultPaddleApiUrl: () => string;
   constants: WorkflowPayloadConstants;
@@ -80,6 +81,7 @@ export function buildSourcePayload({
 export function buildOcrPayload({
   pageRanges,
   ocrProvider,
+  ocrCredentialRef,
   ocrToken,
   defaultPaddleApiUrl,
   constants,
@@ -88,11 +90,14 @@ export function buildOcrPayload({
   const definition = getOcrProviderDefinition(provider);
   const payload: Record<string, unknown> = {
     provider,
-    [definition.tokenField]: ocrToken || "",
+    credential_ref: `${ocrCredentialRef || ""}`.trim(),
     model_version: constants.DEFAULT_MODEL_VERSION,
     language: constants.DEFAULT_LANGUAGE,
     page_ranges: pageRanges,
   };
+  if (!payload.credential_ref) {
+    payload[definition.tokenField] = ocrToken || "";
+  }
   if (definition.id === "paddle") {
     payload.paddle_api_url = defaultPaddleApiUrl() || "https://paddleocr.aistudio-app.com";
   }

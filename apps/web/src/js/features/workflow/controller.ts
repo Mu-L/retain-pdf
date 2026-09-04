@@ -26,6 +26,7 @@ import { isOfficialDeepSeekBaseUrl } from "../../config/providers.js";
 
 export interface WorkflowSubmitValues {
   ocrProvider?: string;
+  ocrCredentialRef?: string;
   ocrToken?: string;
   translationCredentialRef?: string;
   selectedGlossaryId?: string;
@@ -400,6 +401,7 @@ export function mountWorkflowFeature({
     return buildOcrPayloadRequest({
       pageRanges,
       ocrProvider: submitValues.ocrProvider,
+      ocrCredentialRef: submitValues.ocrCredentialRef,
       ocrToken: submitValues.ocrToken,
       defaultPaddleApiUrl,
       constants,

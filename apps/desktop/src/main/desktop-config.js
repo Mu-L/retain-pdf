@@ -7,6 +7,8 @@ const DEFAULT_BASE_URL = "https://api.deepseek.com/v1";
 
 function createDesktopConfigStore(app, options = {}) {
   const desktopApiKey = options.desktopApiKey || "";
+  const resolveCredentialSecret = options.resolveCredentialSecret
+    || ((credentialRef, expectedKind) => resolveVaultCredentialSecret(app, credentialRef, expectedKind));
   // Actual Rust API port chosen at startup (dynamic fallback when the
   // default is occupied). IPC config responses read it so the frontend
   // follows without a restart.
@@ -23,6 +25,8 @@ function createDesktopConfigStore(app, options = {}) {
     return {
       firstRunCompleted: false,
       ocrProvider: DEFAULT_OCR_PROVIDER,
+      ocrCredentialRef: "",
+      translationCredentialRef: "",
       mineruToken: "",
       paddleToken: "",
       modelApiKey: "",
@@ -63,7 +67,7 @@ function createDesktopConfigStore(app, options = {}) {
     return {
       apiBase: `http://127.0.0.1:${backendApiPort}`,
       xApiKey: desktopApiKey,
-      ...buildBrowserConfig(config),
+      ...buildResolvedBrowserConfig(config),
       model: config.model || DEFAULT_MODEL,
       baseUrl: config.baseUrl || DEFAULT_BASE_URL,
       developerConfig: config.developerConfig || {},
@@ -74,10 +78,27 @@ function createDesktopConfigStore(app, options = {}) {
     return {
       firstRunCompleted: config.firstRunCompleted,
       closeToTrayHintShown: config.closeToTrayHintShown,
-      browserConfig: buildBrowserConfig(config),
+      browserConfig: buildResolvedBrowserConfig(config),
       developerConfig: config.developerConfig || {},
       runtimeConfig: buildDesktopRuntimeConfig(config),
     };
+  }
+
+  function buildResolvedBrowserConfig(config) {
+    const browserConfig = buildBrowserConfig(config);
+    if (!browserConfig.paddleToken && browserConfig.ocrCredentialRef) {
+      browserConfig.paddleToken = resolveCredentialSecret(
+        browserConfig.ocrCredentialRef,
+        "ocr_provider_token",
+      );
+    }
+    if (!browserConfig.modelApiKey && browserConfig.translationCredentialRef) {
+      browserConfig.modelApiKey = resolveCredentialSecret(
+        browserConfig.translationCredentialRef,
+        "translation_api_key",
+      );
+    }
+    return browserConfig;
   }
 
   return {
@@ -92,9 +113,26 @@ function createDesktopConfigStore(app, options = {}) {
   };
 }
 
+function resolveVaultCredentialSecret(app, credentialRef, expectedKind) {
+  const normalizedRef = normalizeTrimmedString(credentialRef);
+  if (!normalizedRef) return "";
+  try {
+    const vaultPath = path.join(app.getPath("userData"), "data", "secrets", "credentials.json");
+    if (!fs.existsSync(vaultPath)) return "";
+    const vault = JSON.parse(fs.readFileSync(vaultPath, "utf8"));
+    const credential = vault?.credentials?.[normalizedRef];
+    if (!credential || credential.kind !== expectedKind) return "";
+    return normalizeTrimmedString(credential.secret);
+  } catch {
+    return "";
+  }
+}
+
 function buildBrowserConfig(config) {
   return {
     ocrProvider: config.ocrProvider || DEFAULT_OCR_PROVIDER,
+    ocrCredentialRef: config.ocrCredentialRef || "",
+    translationCredentialRef: config.translationCredentialRef || "",
     mineruToken: config.mineruToken || "",
     paddleToken: config.paddleToken || "",
     modelApiKey: config.modelApiKey || "",
@@ -116,6 +154,8 @@ function normalizeTrimmedString(value, fallback = "") {
 function normalizeDesktopConfig(raw = {}) {
   const defaults = {
     mineruToken: "",
+    ocrCredentialRef: "",
+    translationCredentialRef: "",
     paddleToken: "",
     modelApiKey: "",
     model: DEFAULT_MODEL,
@@ -124,6 +164,11 @@ function normalizeDesktopConfig(raw = {}) {
   return {
     firstRunCompleted: !!raw.firstRunCompleted,
     ocrProvider: normalizeOcrProvider(raw.ocrProvider),
+    ocrCredentialRef: normalizeTrimmedString(raw.ocrCredentialRef, defaults.ocrCredentialRef),
+    translationCredentialRef: normalizeTrimmedString(
+      raw.translationCredentialRef,
+      defaults.translationCredentialRef,
+    ),
     mineruToken: normalizeTrimmedString(raw.mineruToken, defaults.mineruToken),
     paddleToken: normalizeTrimmedString(raw.paddleToken, defaults.paddleToken),
     modelApiKey: normalizeTrimmedString(raw.modelApiKey, defaults.modelApiKey),
@@ -143,6 +188,8 @@ function mergeDesktopConfig(currentConfig, payload = {}) {
     : {};
   const keys = [
     "ocrProvider",
+    "ocrCredentialRef",
+    "translationCredentialRef",
     "mineruToken",
     "paddleToken",
     "modelApiKey",

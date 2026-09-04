@@ -16,6 +16,7 @@ function hiddenInputValue(id = "") {
 export function readHiddenCredentialDomInputs(): CredentialsFields {
   return normalizeBrowserStoredConfig({
     ocrProvider: hiddenInputValue(HIDDEN_CREDENTIAL_IDS.ocrProvider) || DEFAULT_OCR_PROVIDER,
+    ocrCredentialRef: "",
     paddleToken: hiddenInputValue(HIDDEN_CREDENTIAL_IDS.paddleToken),
     translationCredentialRef: "",
   }) as CredentialsFields;
@@ -29,6 +30,7 @@ export function normalizeHiddenCredentialPayload(
     ? credentials
     : {
         ocrProvider: DEFAULT_OCR_PROVIDER,
+        ocrCredentialRef: "",
         paddleToken: "",
         translationCredentialRef: "",
         modelApiKey: "",
