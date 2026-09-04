@@ -6,9 +6,8 @@ Stage boundary note: this module owns the render-source prewarm flow
 they hand off through files (translation artifacts + prewarm manifest) or
 invoke ``python -m retainpdf_pipeline.render`` as a separate process.
 
-``retainpdf_pipeline.runtime.pipeline.render_preprocess`` remains as a
-deprecated compat shim re-exporting these helpers for local debug and
-existing devtools tests.
+The old ``retainpdf_pipeline.runtime.pipeline.render_preprocess`` compat
+shim was removed; devtools tests import these helpers directly.
 """
 
 from __future__ import annotations

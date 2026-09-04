@@ -39,7 +39,7 @@ from retainpdf_pipeline.render.visual_profile import visual_profile_path_from_pr
 from retainpdf_pipeline.render.visual_profile.contracts import VISUAL_PROFILE_ALGORITHM_VERSION
 from retainpdf_pipeline.render.workflow.executor import execute_render_plan
 from retainpdf_pipeline.render.workflow.prewarm_cache import merge_payload_prewarm
-from retainpdf_pipeline.runtime.pipeline.render_preprocess import run_ocr_render_preprocess
+from retainpdf_pipeline.render.workflow.prewarm_entry import run_ocr_render_preprocess
 
 
 def test_first_line_indent_from_item_lines_uses_structured_line_bboxes() -> None:
