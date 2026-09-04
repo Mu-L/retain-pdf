@@ -832,7 +832,8 @@ test("runtime polling state gates concurrent polls and generations", () => {
   assert.equal(runtimePollingStateModule.isCurrentJobGeneration(state, "job-other", 1), false);
 
   assert.equal(runtimePollingStateModule.beginJobPoll(state), 1);
-  assert.equal(runtimePollingStateModule.beginJobPoll(state), null);
+  // 在途合并：第二拍返回同代记pending，不再返null丢拍
+  assert.equal(runtimePollingStateModule.beginJobPoll(state), 1);
   runtimePollingStateModule.finishJobPoll(state);
   assert.equal(runtimePollingStateModule.runtimePollingStoreFor(state).getSnapshot().pollInFlight, false);
 
@@ -869,9 +870,10 @@ test("runtime polling state port is backed by framework store without legacy mir
   assert.equal(state.currentJobId, "");
 
   assert.equal(port.beginPoll(), 1);
-  assert.equal(port.beginPoll(), null);
+  // 在途合并：第二拍不再返 null 丢拍，返回同代并记 pending，finishPoll 消费补发
+  assert.equal(port.beginPoll(), 1);
   assert.equal(port.getSnapshot().pollInFlight, true);
-  port.finishPoll();
+  assert.equal(port.finishPoll(), true);
   assert.equal(port.getSnapshot().pollInFlight, false);
   assert.equal(port.isCurrentGeneration("job-port", 1), true);
   assert.equal(port.isCurrentGeneration("job-port", 0), false);

@@ -15,6 +15,7 @@ export interface SecondaryResourceRecord {
   jobId: string;
   fetchedAt: number;
   inFlight: boolean;
+  ownerGen: number | string | null;
 }
 
 export type SecondaryResourcesState = {
@@ -59,6 +60,7 @@ export type SecondaryResourceActions = {
     currentState: SecondaryResourcesState,
     type: SecondaryResourceType | string,
     value: unknown,
+    ownerGen?: number | string | null,
   ): SecondaryResourcesState;
   cache(
     currentState: SecondaryResourcesState,
@@ -66,6 +68,7 @@ export type SecondaryResourceActions = {
     jobId: unknown,
     payload: unknown,
     fetchedAt: unknown,
+    ownerGen?: number | string | null,
   ): SecondaryResourcesState;
   clearForOtherJob(
     currentState: SecondaryResourcesState,
@@ -80,10 +83,10 @@ export type SecondaryResourceStore = Store<SecondaryResourcesState, SecondaryRes
 
 export interface SecondaryResourceBatchApi {
   actions: SecondaryResourceStore["actions"];
-  cache: (type: SecondaryResourceType | string, jobId: unknown, payload: unknown) => SecondaryResourcesState;
+  cache: (type: SecondaryResourceType | string, jobId: unknown, payload: unknown, ownerGen?: number | string | null) => SecondaryResourcesState;
   clearForOtherJob: SecondaryResourceStore["actions"]["clearForOtherJob"];
   getSnapshot: () => SecondaryResourcesState;
-  setInFlight: SecondaryResourceStore["actions"]["setInFlight"];
+  setInFlight: (type: SecondaryResourceType | string, value: unknown, ownerGen?: number | string | null) => SecondaryResourcesState;
 }
 
 export interface SecondaryResourceStatePort {
@@ -93,15 +96,17 @@ export interface SecondaryResourceStatePort {
   isInFlight: (type: SecondaryResourceType | string) => boolean;
   fetchedAt: (type: SecondaryResourceType | string) => number;
   shouldRefresh: (type: SecondaryResourceType | string, intervalMs: number, force?: boolean) => boolean;
-  setInFlight: (type: SecondaryResourceType | string, value: unknown) => SecondaryResourcesState;
+  setInFlight: (type: SecondaryResourceType | string, value: unknown, ownerGen?: number | string | null) => SecondaryResourcesState;
   clearInFlightForCurrentJob: (
     type: SecondaryResourceType | string,
     jobId: unknown,
+    ownerGen?: number | string | null,
   ) => SecondaryResourcesState;
   cache: (
     type: SecondaryResourceType | string,
     jobId: unknown,
     payload: unknown,
+    ownerGen?: number | string | null,
   ) => SecondaryResourcesState;
   clearForOtherJob: (
     type: SecondaryResourceType | string,
@@ -149,6 +154,7 @@ function emptySecondaryResourceRecord(): SecondaryResourceRecord {
     jobId: "",
     fetchedAt: 0,
     inFlight: false,
+    ownerGen: null,
   };
 }
 
@@ -165,6 +171,7 @@ function normalizeSecondaryResourceRecord(
     jobId: `${initialState[fields.jobId] || ""}`.trim(),
     fetchedAt: Number(initialState[fields.fetchedAt] || 0),
     inFlight: Boolean(initialState[fields.inFlight]),
+    ownerGen: null,
   };
 }
 
@@ -186,20 +193,36 @@ export function createSecondaryResourceStore(
     name: "secondaryResources",
     initialState: normalizeSecondaryResourcesState(initialState),
     actions: {
-      setInFlight(currentState, type, value) {
+      setInFlight(currentState, type, value, ownerGen = undefined) {
         if (!secondaryResourceFields(type)) {
+          return currentState;
+        }
+        const current = currentState[type as SecondaryResourceType] || emptySecondaryResourceRecord();
+        const on = Boolean(value);
+        // 异 gen 不清不覆：携带 ownerGen 的关断只允许同 gen 执行。
+        if (!on && ownerGen !== undefined && current.ownerGen !== null && current.ownerGen !== undefined
+          && ownerGen !== current.ownerGen) {
           return currentState;
         }
         return {
           ...currentState,
           [type]: {
             ...(currentState[type as SecondaryResourceType] || emptySecondaryResourceRecord()),
-            inFlight: Boolean(value),
+            inFlight: on,
+            ownerGen: on
+              ? (ownerGen !== undefined ? (ownerGen as number | string | null) : null)
+              : null,
           },
         };
       },
-      cache(currentState, type, jobId, payload, fetchedAt) {
+      cache(currentState, type, jobId, payload, fetchedAt, ownerGen = undefined) {
         if (!secondaryResourceFields(type)) {
+          return currentState;
+        }
+        const current = currentState[type as SecondaryResourceType] || emptySecondaryResourceRecord();
+        // 异 gen 不覆：已有属主且来者 gen 不同时直接丢弃。
+        if (ownerGen !== undefined && current.ownerGen !== null && current.ownerGen !== undefined
+          && ownerGen !== current.ownerGen) {
           return currentState;
         }
         return {
@@ -209,6 +232,7 @@ export function createSecondaryResourceStore(
             jobId: `${jobId || ""}`.trim(),
             fetchedAt: Number(fetchedAt || 0),
             inFlight: Boolean(currentState[type as SecondaryResourceType]?.inFlight),
+            ownerGen: current.ownerGen ?? null,
           },
         };
       },
@@ -226,6 +250,7 @@ export function createSecondaryResourceStore(
           [type]: {
             ...emptySecondaryResourceRecord(),
             inFlight: Boolean(current.inFlight),
+            ownerGen: current.ownerGen ?? null,
           },
         };
       },
@@ -236,6 +261,7 @@ export function createSecondaryResourceStore(
             {
               ...emptySecondaryResourceRecord(),
               inFlight: Boolean(currentState[type]?.inFlight),
+              ownerGen: currentState[type]?.ownerGen ?? null,
             },
           ]),
         ) as SecondaryResourcesState;
@@ -297,10 +323,10 @@ export function createSecondaryResourceStatePort(
     }
     const result = store.batch(({ actions }) => callback({
       actions,
-      cache: (type, jobId, payload) => actions.cache(type, jobId, payload, now()),
+      cache: (type, jobId, payload, ownerGen) => actions.cache(type, jobId, payload, now(), ownerGen),
       clearForOtherJob: actions.clearForOtherJob,
       getSnapshot: () => store.getSnapshot(),
-      setInFlight: actions.setInFlight,
+      setInFlight: (type, value, ownerGen) => actions.setInFlight(type, value, ownerGen),
     }));
     return result;
   }
@@ -319,23 +345,23 @@ export function createSecondaryResourceStatePort(
     shouldRefresh(type, intervalMs, force = false) {
       return shouldRefreshSecondary(this.fetchedAt(type), intervalMs, force);
     },
-    setInFlight(type, value) {
+    setInFlight(type, value, ownerGen = undefined) {
       return applySecondaryResourceAction(
         state,
-        (currentStore) => currentStore.actions.setInFlight(type, value),
+        (currentStore) => currentStore.actions.setInFlight(type, value, ownerGen),
       );
     },
-    clearInFlightForCurrentJob(type, jobId) {
+    clearInFlightForCurrentJob(type, jobId, ownerGen = undefined) {
       const record = store.getSnapshot()[type as SecondaryResourceType];
       if (record?.jobId === jobId) {
-        return this.setInFlight(type, false);
+        return this.setInFlight(type, false, ownerGen);
       }
       return store.getSnapshot();
     },
-    cache(type, jobId, payload) {
+    cache(type, jobId, payload, ownerGen = undefined) {
       return applySecondaryResourceAction(
         state,
-        (currentStore) => currentStore.actions.cache(type, jobId, payload, now()),
+        (currentStore) => currentStore.actions.cache(type, jobId, payload, now(), ownerGen),
       );
     },
     clearForOtherJob(type, jobId) {
@@ -364,6 +390,7 @@ export function createSecondaryResourceStatePort(
           {
             ...emptySecondaryResourceRecord(),
             inFlight: preserveInFlight ? Boolean(current[type]?.inFlight) : false,
+            ownerGen: preserveInFlight ? (current[type]?.ownerGen ?? null) : null,
           },
         ]),
       ) as SecondaryResourcesState;

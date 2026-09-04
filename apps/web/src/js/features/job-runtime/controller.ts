@@ -98,7 +98,8 @@ export function mountJobRuntimeFeature({
       pollingPort.stop();
       currentJobPort.syncSnapshot?.(null, "", { startedAt: "", finishedAt: "" });
       resetStatePort.resetJob();
-      requestLibraryRefresh(state, { terminal: true, port: libraryEventPort });
+      // 终态无视节流：直发 force 刷新，不走 5s 节流的 requestLibraryRefresh。
+      libraryEventPort?.requestRefresh?.({ delay: 200, force: true });
       if (recovering) {
         // 持久化恢复键允许跨刷新接回后台任务，但任务被删除、数据库被替换
         // 或 document.active_job_id 已过期时，它只是陈旧缓存，不应冒充用户错误。
@@ -111,15 +112,18 @@ export function mountJobRuntimeFeature({
 
   async function fetchJob(jobId) {
     const generation = pollingPort.beginPoll();
-    if (generation === null) {
+    if (generation === null || generation === undefined) {
       return;
     }
     let payload;
+    let coalesced = false;
     try {
       payload = await fetchJobPayload(jobId, { apiPrefix });
     } finally {
-      pollingPort.finishPoll(generation);
+      // finishPoll 内部按 generation 守卫：失配直接返回 false，不清新轮询的 pollInFlight。
+      coalesced = pollingPort.finishPoll(generation) === true;
     }
+    // 旧 fetch 决议后 isCurrent 失配直接返回。
     if (!pollingPort.isCurrentGeneration(jobId, generation)) {
       return;
     }
@@ -151,16 +155,26 @@ export function mountJobRuntimeFeature({
         // never keep polling alive or turn a completed job into a UI failure.
         void Promise.resolve(onJobSucceeded?.(job)).catch(() => {});
       }
-      requestLibraryRefresh(state, { terminal: true, port: libraryEventPort });
+      // 终态无视 5s 节流：直发 force 刷新，不走节流的 requestLibraryRefresh。
+      libraryEventPort?.requestRefresh?.({ delay: 200, force: true });
       clearActiveJobId(jobId);
       pollingPort.stop();
     }
+    // stop() 会涨 generation：终态副资源抓取必须用停之后的新代，
+    // 否则 isCurrentGeneration 校验失配，manifest 拉回来也被丢掉。
+    const scheduleGeneration = terminal
+      ? Number(pollingPort.getSnapshot?.()?.generation ?? generation) || generation
+      : generation;
     secondaryResourceSchedulerPort.schedule({
       jobId,
       payload,
-      generation,
+      generation: scheduleGeneration,
       terminal,
     });
+    // 在途合并的拍由 finishPoll 消费，这里补发一次（终态已停轮询，不补发）。
+    if (coalesced && !terminal) {
+      void fetchJob(jobId).catch((err) => handleFetchFailure(jobId, err));
+    }
   }
 
   /**

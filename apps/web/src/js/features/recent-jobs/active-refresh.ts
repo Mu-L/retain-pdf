@@ -36,30 +36,60 @@ export function createActiveLibraryRefreshLoop({
   environment = defaultRecentJobsRefreshEnvironment,
 }: any) {
   let activeLibraryRefreshTimer = null;
+  let loopGen = 0;
+  let stopped = false;
+  let disposed = false;
 
   function stop() {
+    stopped = true;
+    loopGen += 1;
     environment.clearTimeout(activeLibraryRefreshTimer);
     activeLibraryRefreshTimer = null;
   }
 
-  async function refreshActiveRecentJobDetails() {
+  function dispose() {
+    disposed = true;
+    stop();
+  }
+
+  function isStopped() {
+    return stopped || disposed;
+  }
+
+  async function refreshActiveRecentJobDetails(gen) {
     if (!fetchJobPayload) {
+      return;
+    }
+    if (gen !== loopGen || isStopped()) {
       return;
     }
     const activeItems = recentJobsEligibleForActiveRefresh(getItems(), currentJobId()).slice(0, 6);
     await Promise.allSettled(activeItems.map(async (item) => {
+      if (gen !== loopGen || isStopped()) {
+        return;
+      }
       const jobId = `${item?.job_id || ""}`.trim();
       if (!jobId) {
         return;
       }
       const payload = await fetchJobPayload(jobId, { apiPrefix });
+      if (gen !== loopGen || isStopped()) {
+        return;
+      }
       updateFromRuntime(payload);
     }));
   }
 
   function schedule({ resetTimer = true }: any = {}) {
+    if (disposed) {
+      return;
+    }
+    stopped = false;
     if (resetTimer) {
-      stop();
+      // 新一轮调度使上一轮在途 fetch 失活（gen 校验丢弃旧写）。
+      loopGen += 1;
+      environment.clearTimeout(activeLibraryRefreshTimer);
+      activeLibraryRefreshTimer = null;
     }
     if (activeLibraryRefreshTimer) {
       return;
@@ -67,19 +97,28 @@ export function createActiveLibraryRefreshLoop({
     if (!recentJobsEligibleForActiveRefresh(getItems(), currentJobId()).length) {
       return;
     }
+    const gen = loopGen;
     activeLibraryRefreshTimer = environment.setTimeout(() => {
       activeLibraryRefreshTimer = null;
+      if (gen !== loopGen || isStopped()) {
+        return;
+      }
       if (isRecentJobsLoading()) {
         schedule();
         return;
       }
-      void refreshActiveRecentJobDetails().finally(() => {
+      void refreshActiveRecentJobDetails(gen).finally(() => {
+        if (gen !== loopGen || isStopped()) {
+          return;
+        }
         schedule();
       });
     }, LIBRARY_ACTIVE_REFRESH_MS);
   }
 
   return {
+    dispose,
+    isStopped,
     schedule,
     stop,
   };

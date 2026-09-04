@@ -40,6 +40,43 @@ export type UploadViewState = {
 };
 
 export type UploadViewActions = {
+  setTileLocked(
+    currentState: UploadViewState,
+    options?: UploadTileLockedOptions,
+  ): UploadViewState;
+  setTileText(
+    currentState: UploadViewState,
+    options?: UploadTileTextOptions,
+  ): UploadViewState;
+  setTileReady(
+    currentState: UploadViewState,
+    ready?: boolean,
+  ): UploadViewState;
+  setActionSlotVisible(
+    currentState: UploadViewState,
+    visible?: boolean,
+  ): UploadViewState;
+  setProgress(
+    currentState: UploadViewState,
+    payload?: { percent?: number; text?: string },
+  ): UploadViewState;
+  resetProgress(currentState: UploadViewState): UploadViewState;
+  resetUploadedFileView(currentState: UploadViewState): UploadViewState;
+  clearPageRanges(currentState: UploadViewState): UploadViewState;
+  setPageRange(
+    currentState: UploadViewState,
+    payload?: { start?: string | number; end?: string | number },
+  ): UploadViewState;
+  openPageRangeDialog(
+    currentState: UploadViewState,
+    options?: UploadPageRangeDialogOptions,
+  ): UploadViewState;
+  closePageRangeDialog(currentState: UploadViewState): UploadViewState;
+  setInlinePageRangeVisible(
+    currentState: UploadViewState,
+    visible?: boolean,
+  ): UploadViewState;
+  /** @deprecated 兼容旧调用方/装配层，新代码用细粒度 action */
   patch(
     currentState: UploadViewState,
     payload?: Partial<UploadViewState>,
@@ -108,6 +145,114 @@ export function createUploadViewStore(): UploadViewStore {
       credentialGateVisible: false,
     },
     actions: {
+      setTileLocked(currentState, options = {}) {
+        const locked = Boolean(options.locked);
+        const enabled = options.enabled ?? !locked;
+        return { ...currentState, tileLocked: locked, tileEnabled: Boolean(enabled) };
+      },
+      setTileText(currentState, options = {}) {
+        const {
+          label = "",
+          labelTitle = "",
+          help = "",
+          status = "",
+          statusVisible = null,
+          labelVisible = true,
+          helpVisible = true,
+        } = options;
+        const next: Partial<UploadViewState> = {
+          labelVisible: Boolean(labelVisible),
+          helpVisible: Boolean(helpVisible),
+        };
+        if (label) {
+          next.label = label;
+          next.labelTitle = labelTitle;
+        }
+        if (help) {
+          next.help = help;
+        }
+        if (status) {
+          next.status = status;
+        }
+        next.statusVisible = Boolean(statusVisible ?? Boolean(status));
+        return { ...currentState, ...next };
+      },
+      setTileReady(currentState, ready = false) {
+        const isReady = Boolean(ready);
+        return {
+          ...currentState,
+          ready: isReady,
+          uploading: false,
+          ...(isReady
+            ? { progressVisible: false, progressPercent: 0, progressText: "上传中" }
+            : {}),
+        };
+      },
+      setActionSlotVisible(currentState, visible = false) {
+        return { ...currentState, actionSlotVisible: Boolean(visible) };
+      },
+      setProgress(currentState, payload = {}) {
+        const percent = Number(payload.percent ?? 0);
+        const text = `${payload.text ?? "上传中"}`;
+        return {
+          ...currentState,
+          progressVisible: true,
+          uploading: true,
+          ready: false,
+          actionSlotVisible: false,
+          progressPercent: percent,
+          progressText: text,
+        };
+      },
+      resetProgress(currentState) {
+        return {
+          ...currentState,
+          progressVisible: false,
+          uploading: false,
+          progressPercent: 0,
+          progressText: "上传中",
+        };
+      },
+      resetUploadedFileView(currentState) {
+        return {
+          ...currentState,
+          progressVisible: false,
+          uploading: false,
+          ready: false,
+          progressPercent: 0,
+          progressText: "上传中",
+          actionSlotVisible: false,
+          status: "未上传文件",
+          statusVisible: false,
+          label: DEFAULT_FILE_LABEL,
+          labelTitle: "",
+          labelVisible: true,
+        };
+      },
+      clearPageRanges(currentState) {
+        return { ...currentState, pageRangeStart: "", pageRangeEnd: "" };
+      },
+      setPageRange(currentState, payload = {}) {
+        const next: Partial<UploadViewState> = { ...currentState };
+        if (payload.start !== undefined) next.pageRangeStart = `${payload.start}`;
+        if (payload.end !== undefined) next.pageRangeEnd = `${payload.end}`;
+        return next as UploadViewState;
+      },
+      openPageRangeDialog(currentState, options = {}) {
+        const maxPage = Number(options.maxPage ?? 0);
+        return {
+          ...currentState,
+          pageRangeDialogOpen: true,
+          pageRangeMax: maxPage > 0 ? Math.floor(maxPage) : 0,
+        };
+      },
+      closePageRangeDialog(currentState) {
+        return { ...currentState, pageRangeDialogOpen: false };
+      },
+      setInlinePageRangeVisible(currentState, visible = false) {
+        return { ...currentState, inlinePageRangeVisible: Boolean(visible) };
+      },
+      /** @deprecated 兼容装配层/旧测试，新代码用细粒度 action */
       patch(currentState, payload = {}) {
         return { ...currentState, ...payload };
       },
@@ -123,6 +268,7 @@ export function createUploadViewFeature({
   // React ref 回填点:UploadTile 挂载 #file 后写入
   const domRefs: UploadDomRefs = { fileInput: null };
 
+  /** @deprecated 兼容装配层/旧测试，新代码用细粒度 action */
   const patch = (payload: Partial<UploadViewState> = {}) => store.actions.patch(payload);
 
   // ---- tile-view.js 镜像(workflow viewPort 经 uploadTilePort 也走这组) ----
@@ -131,7 +277,7 @@ export function createUploadViewFeature({
     locked = false,
     enabled = !locked,
   }: UploadTileLockedOptions = {}) {
-    patch({ tileLocked: Boolean(locked), tileEnabled: Boolean(enabled) });
+    store.actions.setTileLocked({ locked, enabled });
   }
 
   function setUploadTileText({
@@ -143,39 +289,23 @@ export function createUploadViewFeature({
     labelVisible = true,
     helpVisible = true,
   }: UploadTileTextOptions = {}) {
-    const next: Partial<UploadViewState> = {
-      labelVisible: Boolean(labelVisible),
-      helpVisible: Boolean(helpVisible),
-    };
-    if (label) {
-      next.label = label;
-      next.labelTitle = labelTitle;
-    }
-    if (help) {
-      next.help = help;
-    }
-    if (status) {
-      next.status = status;
-    }
-    next.statusVisible = Boolean(statusVisible ?? Boolean(status));
-    patch(next);
-  }
-
-  function setUploadTileReady(ready: boolean) {
-    const isReady = Boolean(ready);
-    patch({
-      ready: isReady,
-      uploading: false,
-      ...(isReady ? {
-        progressVisible: false,
-        progressPercent: 0,
-        progressText: "上传中",
-      } : {}),
+    store.actions.setTileText({
+      label,
+      labelTitle,
+      help,
+      status,
+      statusVisible,
+      labelVisible,
+      helpVisible,
     });
   }
 
+  function setUploadTileReady(ready: boolean) {
+    store.actions.setTileReady(ready);
+  }
+
   function setUploadActionSlotVisible(visible: boolean) {
-    patch({ actionSlotVisible: Boolean(visible) });
+    store.actions.setActionSlotVisible(visible);
   }
 
   // ---- ui/job-actions-view.js 镜像(上传进度/复位链) ----
@@ -185,23 +315,14 @@ export function createUploadViewFeature({
     const percent = hasNumbers
       ? Math.max(0, Math.min(100, (loaded / total) * 100))
       : 18;
-    patch({
-      progressVisible: true,
-      uploading: true,
-      ready: false,
-      actionSlotVisible: false,
-      progressPercent: percent,
-      progressText: hasNumbers ? `上传中 ${percent.toFixed(0)}%` : "上传中",
+    store.actions.setProgress({
+      percent,
+      text: hasNumbers ? `上传中 ${percent.toFixed(0)}%` : "上传中",
     });
   }
 
   function resetUploadProgress() {
-    patch({
-      progressVisible: false,
-      uploading: false,
-      progressPercent: 0,
-      progressText: "上传中",
-    });
+    store.actions.resetProgress();
   }
 
   function clearFileInputValue() {
@@ -213,32 +334,37 @@ export function createUploadViewFeature({
   // 视图侧复位(resetUploadedFileView 口径);上传状态归零由 composition 补上
   function resetUploadedFileView() {
     clearFileInputValue();
-    patch({
-      progressVisible: false,
-      uploading: false,
-      ready: false,
-      progressPercent: 0,
-      progressText: "上传中",
-      actionSlotVisible: false,
-      status: "未上传文件",
-      statusVisible: false,
-      label: DEFAULT_FILE_LABEL,
-      labelTitle: "",
-      labelVisible: true,
-    });
+    store.actions.resetUploadedFileView();
+  }
+
+  function setPageRange(payload: { start?: string | number; end?: string | number } = {}) {
+    store.actions.setPageRange(payload);
+  }
+
+  function openPageRangeDialog(options: UploadPageRangeDialogOptions = {}) {
+    store.actions.openPageRangeDialog(options);
+  }
+
+  function closePageRangeDialog() {
+    store.actions.closePageRangeDialog();
+  }
+
+  function setInlinePageRangeVisible(visible: boolean) {
+    store.actions.setInlinePageRangeVisible(visible);
+  }
+
+  function clearPageRanges() {
+    store.actions.clearPageRanges();
   }
 
   // ---- features/upload/view.js 镜像(mountUploadFeature 的 viewPort 契约) ----
 
   const viewPort = {
-    clearPageRanges: () => patch({ pageRangeStart: "", pageRangeEnd: "" }),
-    closePageRangeDialog: () => patch({ pageRangeDialogOpen: false }),
+    clearPageRanges: () => store.actions.clearPageRanges(),
+    closePageRangeDialog: () => store.actions.closePageRangeDialog(),
     markUploadReady: (ready: boolean) => setUploadTileReady(ready),
     openPageRangeDialog: ({ maxPage = 0 }: UploadPageRangeDialogOptions = {}) =>
-      patch({
-        pageRangeDialogOpen: true,
-        pageRangeMax: Number(maxPage) > 0 ? Math.floor(Number(maxPage)) : 0,
-      }),
+      store.actions.openPageRangeDialog({ maxPage }),
     readPageRanges: () => {
       const snapshot = store.getSnapshot();
       return { start: snapshot.pageRangeStart || "", end: snapshot.pageRangeEnd || "" };
@@ -252,14 +378,11 @@ export function createUploadViewFeature({
       });
     },
     setInlinePageRangeVisible: (visible: boolean) =>
-      patch({ inlinePageRangeVisible: Boolean(visible) }),
+      store.actions.setInlinePageRangeVisible(visible),
     showUploadStatus: (message: string) =>
       setUploadTileText({ status: message, statusVisible: true }),
     writePageRanges: ({ start = "", end = "" }: UploadPageRangesWrite = {}) =>
-      patch({
-        pageRangeStart: `${start}`,
-        pageRangeEnd: `${end}`,
-      }),
+      store.actions.setPageRange({ start: `${start}`, end: `${end}` }),
   };
 
   const uploadTilePort = {
@@ -270,10 +393,15 @@ export function createUploadViewFeature({
 
   return {
     clearFileInputValue,
+    clearPageRanges,
+    closePageRangeDialog,
     domRefs,
+    openPageRangeDialog,
     patch,
     resetUploadProgress,
     resetUploadedFileView,
+    setInlinePageRangeVisible,
+    setPageRange,
     setUploadProgress,
     store,
     uploadTilePort,

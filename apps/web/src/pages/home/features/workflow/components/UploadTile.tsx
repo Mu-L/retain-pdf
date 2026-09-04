@@ -9,6 +9,7 @@ import { useCallback, type MouseEvent as ReactMouseEvent } from "react";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { APP_EVENTS } from "../../../composition/external.js";
 import { useHomeServices } from "../../../home-services-context.js";
+import type { UploadViewStore } from "../stores/upload-store.js";
 import { TranslationOptionsPanel } from "./PageRangeDialog.jsx";
 import { ProcessingChoicePanel } from "./upload/ProcessingChoicePanel.jsx";
 import { UploadDropzone } from "./upload/UploadDropzone.jsx";
@@ -39,7 +40,7 @@ export function HeroUpload() {
 
   function toggleTranslationOptions() {
     if (upload.pageRangeDialogOpen) {
-      services.uploadViewActions.patch({ pageRangeDialogOpen: false });
+      (services.stores.uploadView as unknown as UploadViewStore).actions.closePageRangeDialog();
       return;
     }
     services.features.uploadFeature?.openPageRangeDialog();

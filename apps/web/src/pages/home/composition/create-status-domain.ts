@@ -130,6 +130,7 @@ export function createStatusDomain({
   return {
     jobRuntimeState,
     currentJobStore,
+    secondaryResourceStore,
     statusCardStore,
     statusCardPresenter,
     statusCardController,

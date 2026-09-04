@@ -39,6 +39,12 @@ export type GlossariesViewBag = {
   store: ReadOnlyStore;
   handlersRef: { current: HandlersBag | null };
   viewPort?: unknown;
+  /** 编辑器态端口(draft/csvText 的 ref 持有 + 订阅,见 glossaries-store.js) */
+  editor?: {
+    getSnapshot: () => { draft: unknown; csvText: string };
+    subscribe: (listener: (snapshot: unknown) => void) => () => void;
+    actions: Record<string, (...args: any[]) => unknown>;
+  };
 };
 
 export type HomeGlossaries = {

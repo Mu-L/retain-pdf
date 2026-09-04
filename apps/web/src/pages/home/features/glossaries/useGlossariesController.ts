@@ -12,10 +12,15 @@
 //
 // 旧 refreshGlossaries 事件已删（0 生产派发）：外部刷新直接调 handlers.reload()。
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useHomeServices } from "../../home-services-context.js";
 import { useDialogState } from "../../state/use-dialog-state.js";
+
+const EMPTY_EDITOR_SNAPSHOT = Object.freeze({
+  draft: Object.freeze({ name: "", entries: Object.freeze([]) }),
+  csvText: "",
+});
 
 export function useGlossariesController() {
   const services = useHomeServices();
@@ -24,6 +29,23 @@ export function useGlossariesController() {
   const viewState = useStoreSnapshot(view.store);
   const open = Boolean(dialogState.open);
   const handlers = view.handlersRef.current;
+
+  // draft/csvText 已移出 store(ref + editor 订阅,见 glossaries-store.js):
+  // 这里订阅 editor 并把 draft/csvText 合并回 view,调用方(GlossariesDialog)
+  // 的 view.draft / view.csvText / store.actions.* 契约保持不变。
+  const editorPort = view.editor;
+  const editorState = useSyncExternalStore(
+    (onChange) => (editorPort ? editorPort.subscribe(() => onChange()) : () => {}),
+    () => (editorPort ? editorPort.getSnapshot() : EMPTY_EDITOR_SNAPSHOT) as {
+      draft: unknown;
+      csvText: string;
+    },
+  );
+  const mergedView = { ...viewState, draft: editorState.draft, csvText: editorState.csvText };
+  const storeActions = (view.store as unknown as { actions?: Record<string, unknown> }).actions ?? {};
+  const mergedStore = editorPort
+    ? { ...view.store, actions: { ...storeActions, ...editorPort.actions } }
+    : view.store;
 
   const wasOpenRef = useRef(false);
   useEffect(() => {
@@ -38,8 +60,8 @@ export function useGlossariesController() {
 
   return {
     open,
-    view: viewState,
-    store: view.store,
+    view: mergedView,
+    store: mergedStore,
     feature,
     dialogStore,
     handlers,

@@ -3,9 +3,14 @@
 // credentials-view-store.js 的写法)。
 //
 // 旧世界 glossary-view-port.js/view.js 全部是 DOM 直写(死,不 import);这里
-// 用同名方法签名重新实现,只是"写"的目的地从 DOM 换成 store,让
+// 用同名方法签名重新实现,"写"的目的地从 DOM 换成 store / editorRef,让
 // GlossariesDialog.jsx 系的组件订阅渲染。controller.js(reload/select/save/
 // delete/export/applyImport 等编排逻辑)一行不改地复用。
+//
+// 编辑器态(draft/csvText)不在 store 里:高频受控输入只应触碰 editorRef +
+// editor 订阅,不进全局 store 快照(蓝图风险 1 的姊妹问题——双写源打架)。
+// store 只留列表/选中/状态/导入面板开合;组件经 useGlossariesController 订阅
+// editor,行为与旧 store 版一致。
 
 import type { DialogStore } from "../../state/dialog-store.js";
 import type { HandlersBag } from "../../composition/types.js";
@@ -53,10 +58,8 @@ export type GlossaryEditorPayload = {
 export type GlossariesViewState = {
   items: GlossaryListItem[];
   selectedId: string;
-  draft: GlossaryDraft;
   status: { message: string; tone: string };
   importVisible: boolean;
-  csvText: string;
 };
 
 export type GlossariesViewActions = {
@@ -64,26 +67,33 @@ export type GlossariesViewActions = {
     state: GlossariesViewState,
     payload?: { items?: GlossaryListItem[]; selectedId?: string },
   ): GlossariesViewState;
-  setDraft(
-    state: GlossariesViewState,
-    payload?: { name?: string; entries?: Array<Partial<GlossaryEntryRow> | GlossaryEntryRow> },
-  ): GlossariesViewState;
-  setName(state: GlossariesViewState, name?: string): GlossariesViewState;
-  addEntryRow(
-    state: GlossariesViewState,
-    entry?: Partial<GlossaryEntryRow>,
-  ): GlossariesViewState;
-  updateEntryField(
-    state: GlossariesViewState,
-    payload?: { index?: number; field?: keyof GlossaryEntryRow; value?: string },
-  ): GlossariesViewState;
-  removeEntryRow(state: GlossariesViewState, index: number): GlossariesViewState;
   setStatus(
     state: GlossariesViewState,
     payload?: { message?: string; tone?: string },
   ): GlossariesViewState;
   setImportVisible(state: GlossariesViewState, visible?: boolean): GlossariesViewState;
-  setCsvText(state: GlossariesViewState, csvText?: string): GlossariesViewState;
+};
+
+/** 编辑器态(store 之外,由 editorRef 持有 + editor 订阅分发) */
+export type GlossariesEditorState = {
+  draft: GlossaryDraft;
+  csvText: string;
+};
+
+export type GlossariesEditorActions = {
+  setDraft(payload?: { name?: string; entries?: Array<Partial<GlossaryEntryRow> | GlossaryEntryRow> }): void;
+  setName(name?: string): void;
+  addEntryRow(entry?: Partial<GlossaryEntryRow>): void;
+  updateEntryField(payload?: { index?: number; field?: keyof GlossaryEntryRow; value?: string }): void;
+  removeEntryRow(index: number): void;
+  setCsvText(csvText?: string): void;
+  clearCsvText(): void;
+};
+
+export type GlossariesEditorPort = {
+  getSnapshot(): GlossariesEditorState;
+  subscribe(listener: (snapshot: GlossariesEditorState) => void): () => void;
+  actions: GlossariesEditorActions;
 };
 
 export type GlossariesViewStore = Store<GlossariesViewState, GlossariesViewActions>;
@@ -103,7 +113,8 @@ function normalizeEntryForRow(entry: Partial<GlossaryEntryRow> = {}): GlossaryEn
 // level==="preserve" 且用户没有手填译文时,target 用 source 回填(“保留原词”
 // 语义,不是“译文缺失”);level 不是 preserve 时留空则视为“漏填译文”,计入
 // skippedMissingTarget,由 controller.js 的 save() 拦截并提示错误。
-function readEditorPayloadFromDraft(draft: GlossaryDraft): GlossaryEditorPayload {
+// 纯函数:读调用方持有的 draft(编辑器 useState/ref),不读 store。
+export function readEditorPayload(draft: GlossaryDraft = { name: "", entries: [] }): GlossaryEditorPayload {
   const entries: GlossaryEditorPayload["entries"] = [];
   const skippedMissingTarget: string[] = [];
   for (const row of draft.entries) {
@@ -134,6 +145,9 @@ function readEditorPayloadFromDraft(draft: GlossaryDraft): GlossaryEditorPayload
   };
 }
 
+/** 旧名别名(同签名纯函数,供未迁移的调用方过渡)。 */
+export const readEditorPayloadFromDraft = readEditorPayload;
+
 export function createGlossariesViewFeature({
   dialogStore,
 }: {
@@ -144,45 +158,12 @@ export function createGlossariesViewFeature({
     initialState: {
       items: [],
       selectedId: "",
-      draft: { name: "", entries: [] },
       status: { message: "", tone: "" },
       importVisible: false,
-      csvText: "",
     },
     actions: {
       setList(currentState, { items = [], selectedId = "" } = {}) {
         return { ...currentState, items, selectedId };
-      },
-      setDraft(currentState, { name = "", entries = [] } = {}) {
-        return {
-          ...currentState,
-          draft: { name, entries: entries.map((entry) => normalizeEntryForRow(entry)) },
-        };
-      },
-      setName(currentState, name = "") {
-        return { ...currentState, draft: { ...currentState.draft, name } };
-      },
-      addEntryRow(currentState, entry = {}) {
-        return {
-          ...currentState,
-          draft: {
-            ...currentState.draft,
-            entries: [...currentState.draft.entries, normalizeEntryForRow(entry)],
-          },
-        };
-      },
-      updateEntryField(currentState, { index, field, value } = {}) {
-        if (field == null || index == null) {
-          return currentState;
-        }
-        const entries = currentState.draft.entries.map((row, rowIndex) => (
-          rowIndex === index ? { ...row, [field]: value } : row
-        ));
-        return { ...currentState, draft: { ...currentState.draft, entries } };
-      },
-      removeEntryRow(currentState, index) {
-        const entries = currentState.draft.entries.filter((_row, rowIndex) => rowIndex !== index);
-        return { ...currentState, draft: { ...currentState.draft, entries } };
       },
       setStatus(currentState, { message = "", tone = "" } = {}) {
         return { ...currentState, status: { message, tone } };
@@ -190,11 +171,90 @@ export function createGlossariesViewFeature({
       setImportVisible(currentState, visible = false) {
         return { ...currentState, importVisible: Boolean(visible) };
       },
-      setCsvText(currentState, csvText = "") {
-        return { ...currentState, csvText: `${csvText || ""}` };
-      },
     },
   });
+
+  // 编辑器态(draft/csvText):ref 持有 + 订阅分发,不进 store。
+  // 快照引用稳定(仅变更时替换),可直接作 useSyncExternalStore 的 getSnapshot。
+  let editorSnapshot: GlossariesEditorState = {
+    draft: { name: "", entries: [] },
+    csvText: "",
+  };
+  const editorListeners = new Set<(snapshot: GlossariesEditorState) => void>();
+
+  function emitEditor() {
+    for (const listener of Array.from(editorListeners)) {
+      listener(editorSnapshot);
+    }
+  }
+
+  const editor: GlossariesEditorPort = {
+    getSnapshot: () => editorSnapshot,
+    subscribe: (listener: (snapshot: GlossariesEditorState) => void) => {
+      editorListeners.add(listener);
+      return () => {
+        editorListeners.delete(listener);
+      };
+    },
+    actions: {
+      setDraft({ name = "", entries = [] } = {}) {
+        editorSnapshot = {
+          ...editorSnapshot,
+          draft: { name, entries: entries.map((entry) => normalizeEntryForRow(entry)) },
+        };
+        emitEditor();
+      },
+      setName(name = "") {
+        editorSnapshot = {
+          ...editorSnapshot,
+          draft: { ...editorSnapshot.draft, name },
+        };
+        emitEditor();
+      },
+      addEntryRow(entry = {}) {
+        editorSnapshot = {
+          ...editorSnapshot,
+          draft: {
+            ...editorSnapshot.draft,
+            entries: [...editorSnapshot.draft.entries, normalizeEntryForRow(entry)],
+          },
+        };
+        emitEditor();
+      },
+      updateEntryField({ index, field, value } = {}) {
+        if (field == null || index == null) {
+          return;
+        }
+        const entries = editorSnapshot.draft.entries.map((row, rowIndex) => (
+          rowIndex === index ? { ...row, [field]: value } : row
+        ));
+        editorSnapshot = {
+          ...editorSnapshot,
+          draft: { ...editorSnapshot.draft, entries },
+        };
+        emitEditor();
+      },
+      removeEntryRow(index) {
+        const entries = editorSnapshot.draft.entries.filter((_row, rowIndex) => rowIndex !== index);
+        editorSnapshot = {
+          ...editorSnapshot,
+          draft: { ...editorSnapshot.draft, entries },
+        };
+        emitEditor();
+      },
+      setCsvText(csvText = "") {
+        editorSnapshot = { ...editorSnapshot, csvText: `${csvText || ""}` };
+        emitEditor();
+      },
+      clearCsvText() {
+        if (!editorSnapshot.csvText) {
+          return;
+        }
+        editorSnapshot = { ...editorSnapshot, csvText: "" };
+        emitEditor();
+      },
+    },
+  };
 
   // controller.js 在装配时同步调用一次 feature.bindEvents()(见
   // composition.js)捕获 open/close/reload/selectGlossary/createNew/addRow/
@@ -208,12 +268,12 @@ export function createGlossariesViewFeature({
     closeDialog: () => dialogStore.close(),
     setStatus: (message = "", tone = "") => store.actions.setStatus({ message, tone }),
     renderList: (items: GlossaryListItem[] = [], selectedId = "") => store.actions.setList({ items, selectedId }),
-    renderEditor: (detail: { name?: string; entries?: Array<Partial<GlossaryEntryRow>> } = {}) => store.actions.setDraft(detail),
-    addEntryRow: (entry: Partial<GlossaryEntryRow> = {}) => store.actions.addEntryRow(entry),
-    readEditorPayload: () => readEditorPayloadFromDraft(store.getSnapshot().draft),
+    renderEditor: (detail: { name?: string; entries?: Array<Partial<GlossaryEntryRow>> } = {}) => editor.actions.setDraft(detail),
+    addEntryRow: (entry: Partial<GlossaryEntryRow> = {}) => editor.actions.addEntryRow(entry),
+    readEditorPayload: () => readEditorPayload(editor.getSnapshot().draft),
     setImportVisible: (visible = false) => store.actions.setImportVisible(visible),
-    readCsvText: () => store.getSnapshot().csvText,
-    clearCsvText: () => store.actions.setCsvText(""),
+    readCsvText: () => editor.getSnapshot().csvText,
+    clearCsvText: () => editor.actions.clearCsvText(),
     bindEvents: (handlers: HandlersBag) => {
       handlersRef.current = handlers;
     },
@@ -221,6 +281,7 @@ export function createGlossariesViewFeature({
 
   return {
     store,
+    editor,
     viewPort,
     handlersRef,
   };

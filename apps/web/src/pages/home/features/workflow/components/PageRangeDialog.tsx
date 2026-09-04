@@ -10,6 +10,7 @@ import { BookOpen, FileText, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useHomeServices } from "../../../home-services-context.js";
+import type { UploadViewStore } from "../stores/upload-store.js";
 
 export function TranslationOptionsPanel() {
   const services = useHomeServices();
@@ -25,9 +26,9 @@ export function TranslationOptionsPanel() {
 
   function handlePageInput(source: "start" | "end", event: FormEvent<HTMLInputElement>) {
     const value = event.currentTarget.value;
-    services.uploadViewActions.patch(source === "start"
-      ? { pageRangeStart: value }
-      : { pageRangeEnd: value });
+    (services.stores.uploadView as unknown as UploadViewStore).actions.setPageRange(
+      source === "start" ? { start: value } : { end: value },
+    );
     services.features.uploadFeature?.constrainPageRanges({ source });
   }
 
@@ -51,7 +52,7 @@ export function TranslationOptionsPanel() {
           variant="ghost"
           size="icon-sm"
           aria-label="收起翻译选项"
-          onClick={() => services.uploadViewActions.patch({ pageRangeDialogOpen: false })}
+          onClick={() => (services.stores.uploadView as unknown as UploadViewStore).actions.closePageRangeDialog()}
         >
           <X aria-hidden="true" />
         </Button>

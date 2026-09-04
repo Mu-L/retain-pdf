@@ -200,6 +200,7 @@ export type HomeServicesDomains = {
   };
   status: {
     currentJobStore: AppStore;
+    secondaryResourceStore?: unknown;
     statusCardStore: AppStore;
     statusCardController?: { cancelCurrentJob: () => unknown };
     statusDetailStore: StatusDetailStore;

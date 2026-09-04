@@ -16,6 +16,7 @@ export function createRecentJobsRefreshScheduler({
   let query = "";
   let suspended = false;
   let lastRefreshAt = 0;
+  let pendingRefresh = null;
 
   function isSuspended() {
     return suspended || environment.isWorkflowOpen();
@@ -26,13 +27,26 @@ export function createRecentJobsRefreshScheduler({
   }
 
   function setSuspended(value) {
-    suspended = Boolean(value);
+    const next = Boolean(value);
+    const was = suspended;
+    suspended = next;
+    if (was && !next && pendingRefresh) {
+      const replay = pendingRefresh;
+      pendingRefresh = null;
+      scheduleRefresh(replay);
+    }
+  }
+
+  function hasPendingRefresh() {
+    return pendingRefresh !== null;
   }
 
   function scheduleRefresh({ delay = 600, force = false, bypassThrottle = false }: any = {}) {
     if (!force && isSuspended()) {
+      pendingRefresh = { delay, force, bypassThrottle };
       return;
     }
+    pendingRefresh = null;
     const now = environment.now();
     if (!force && !bypassThrottle && now - lastRefreshAt < LIBRARY_REFRESH_MIN_INTERVAL_MS) {
       return;
@@ -73,6 +87,7 @@ export function createRecentJobsRefreshScheduler({
   return {
     closeDialog,
     getQuery,
+    hasPendingRefresh,
     initialize,
     isSuspended,
     openDialog,

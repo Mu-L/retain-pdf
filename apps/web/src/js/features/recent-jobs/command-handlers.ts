@@ -44,8 +44,8 @@ export function bindRecentJobsCommandHandlers({
       const status = `${(job as LibraryJobItem | null | undefined)?.status || ""}`.trim();
       if (isTerminalStatus(status)) {
         invalidateLibraryBooksResource(libraryBooksResource);
-        // soft silent：终态一次对齐文档投影/封面
-        refreshScheduler.scheduleRefresh({ delay: 400, bypassThrottle: true });
+        // soft silent：终态一次对齐文档投影/封面，无视 5s 节流与挂起
+        refreshScheduler.scheduleRefresh({ delay: 400, force: true, bypassThrottle: true });
       }
     },
     onJobCreated: ({ job }: RecentJobsJobCommandPayload = {}) => {

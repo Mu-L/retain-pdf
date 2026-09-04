@@ -1344,9 +1344,10 @@ test("recent jobs command handlers invalidate list resource before patching and 
   assert.deepEqual(updates, ["job-updated", "job-done", "job-created"]);
   assert.deepEqual(inserts, ["job-created"]);
   // onJobCreated 不再 force 整页 refresh；仅 onRefreshRequested + 终态 update
+  // 终态 refresh 带 force:true，无视 5s 节流即时对齐
   assert.deepEqual(refreshes, [
     { delay: 50, force: true },
-    { delay: 400, bypassThrottle: true },
+    { delay: 400, bypassThrottle: true, force: true },
   ]);
 });
 

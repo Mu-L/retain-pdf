@@ -9,6 +9,8 @@ export interface RuntimePollingState {
   jobId: string;
   generation: number;
   pollInFlight: boolean;
+  /** 在途时又来一拍的合并标记，finishPoll 消费后补发一次。 */
+  pollPending: boolean;
 }
 
 /** Host-state or partial fields accepted when seeding the store. */
@@ -16,6 +18,7 @@ export type RuntimePollingInitialState = Partial<RuntimePollingState> & {
   currentJobId?: string;
   currentJobPollGeneration?: number;
   currentJobPollInFlight?: boolean;
+  currentJobPollPending?: boolean;
   currentJobStartedAt?: string;
   /** DOM / Node timer handle (number or Timeout depending on lib). */
   timer?: unknown;
@@ -54,7 +57,8 @@ export interface RuntimePollingStatePort {
   getSnapshot: () => RuntimePollingState;
   stop: () => RuntimePollingState;
   beginPoll: () => number | null;
-  finishPoll: () => RuntimePollingState;
+  /** 返回 true 表示消费掉一次合并待发，调用方需补发一次。 */
+  finishPoll: (generation?: unknown) => boolean;
   isCurrentGeneration: (jobId: unknown, generation: unknown) => boolean;
   startJob: (jobId: unknown) => RuntimePollingStartResult;
   startTimer: (
@@ -70,6 +74,11 @@ function normalizePollingState(
     jobId: `${initialState.jobId ?? initialState.currentJobId ?? ""}`.trim(),
     generation: Number(initialState.generation ?? initialState.currentJobPollGeneration ?? 0),
     pollInFlight: Boolean(initialState.pollInFlight ?? initialState.currentJobPollInFlight),
+    pollPending: Boolean(
+      (initialState as RuntimePollingInitialState).pollPending
+        ?? initialState.currentJobPollPending
+        ?? false,
+    ),
   };
 }
 
@@ -81,14 +90,21 @@ export function createRuntimePollingStore(
     initialState: normalizePollingState(initialState),
     actions: {
       stop(currentState) {
+        // 旧 fetch 决议后靠 generation 失配直接返回，不再清新轮询的 pollInFlight。
         return {
           ...currentState,
+          generation: Number(currentState.generation || 0) + 1,
           pollInFlight: false,
+          pollPending: false,
         };
       },
       beginPoll(currentState) {
+        // 在途不再返 null 丢拍：合并为 pending，由 finishPoll 消费补发一次。
         if (currentState.pollInFlight) {
-          return currentState;
+          return {
+            ...currentState,
+            pollPending: true,
+          };
         }
         return {
           ...currentState,
@@ -96,6 +112,13 @@ export function createRuntimePollingStore(
         };
       },
       finishPoll(currentState) {
+        if (currentState.pollPending) {
+          return {
+            ...currentState,
+            pollPending: false,
+            pollInFlight: false,
+          };
+        }
         return {
           ...currentState,
           pollInFlight: false,
@@ -107,6 +130,7 @@ export function createRuntimePollingStore(
           jobId: `${jobId || ""}`.trim(),
           generation: Number(currentState.generation || 0) + 1,
           pollInFlight: false,
+          pollPending: false,
         };
       },
     },
@@ -170,10 +194,6 @@ export function createRuntimePollingStatePort(
       return applyRuntimePollingAction(state, (currentStore) => currentStore.actions.stop());
     },
     beginPoll() {
-      const current = store.getSnapshot();
-      if (current.pollInFlight) {
-        return null;
-      }
       const snapshot = applyRuntimePollingAction(state, (currentStore) => currentStore.actions.beginPoll());
       return snapshot.generation;
     },
@@ -181,10 +201,15 @@ export function createRuntimePollingStatePort(
       if (generation !== undefined && generation !== null) {
         const current = store.getSnapshot();
         if (Number(generation) !== Number(current.generation || 0)) {
-          return current;
+          return false;
         }
+        const hadPending = Boolean(current.pollPending);
+        applyRuntimePollingAction(state, (currentStore) => currentStore.actions.finishPoll());
+        return hadPending;
       }
-      return applyRuntimePollingAction(state, (currentStore) => currentStore.actions.finishPoll());
+      const hadPending = Boolean(store.getSnapshot().pollPending);
+      applyRuntimePollingAction(state, (currentStore) => currentStore.actions.finishPoll());
+      return hadPending;
     },
     isCurrentGeneration(jobId, generation) {
       const current = store.getSnapshot();
