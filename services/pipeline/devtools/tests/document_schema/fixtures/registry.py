@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from retainpdf_pipeline.services.document_schema.providers import (
+from retainpdf_pipeline.ocr.document_schema.providers import (
     PROVIDER_GENERIC_FLAT_OCR,
     PROVIDER_MINERU,
     PROVIDER_MINERU_CONTENT_LIST_V2,

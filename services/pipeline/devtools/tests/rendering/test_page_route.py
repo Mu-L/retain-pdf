@@ -8,12 +8,12 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.rendering.analysis.profile.text_layer import TextLayerProfile
-from retainpdf_pipeline.services.rendering.analysis.route.background_route import decide_page_background_route
-from retainpdf_pipeline.services.rendering.analysis.route.builder import build_render_page_route
-from retainpdf_pipeline.services.rendering.analysis.route.compose_route import decide_page_compose_route
-from retainpdf_pipeline.services.rendering.analysis.route.layout_route import decide_page_layout_route
-from retainpdf_pipeline.services.rendering.analysis.route.redaction_route import decide_page_redaction_route
+from retainpdf_pipeline.render.analysis.profile.text_layer import TextLayerProfile
+from retainpdf_pipeline.render.analysis.route.background_route import decide_page_background_route
+from retainpdf_pipeline.render.analysis.route.builder import build_render_page_route
+from retainpdf_pipeline.render.analysis.route.compose_route import decide_page_compose_route
+from retainpdf_pipeline.render.analysis.route.layout_route import decide_page_layout_route
+from retainpdf_pipeline.render.analysis.route.redaction_route import decide_page_redaction_route
 from devtools.tests.rendering_support.page_profiles import sample_render_page_profile as _profile
 
 
@@ -55,7 +55,7 @@ def test_page_route_exposes_pipeline_decisions() -> None:
 
 
 def test_large_background_with_visible_text_is_pseudo_editable_scan() -> None:
-    from retainpdf_pipeline.services.rendering.analysis.profile.kind import classify_profile_kind
+    from retainpdf_pipeline.render.analysis.profile.kind import classify_profile_kind
 
     profile = _profile("mixed_complex")
     kind = classify_profile_kind(

@@ -27,15 +27,15 @@ sys.path.insert(0, str(PIPELINE_ROOT))
 
 
 from retainpdf_pipeline.foundation.shared.stage_specs import NormalizeStageSpec
-from retainpdf_pipeline.services.document_schema.markdown_fallback import materialize_document_markdown_fallback
-from retainpdf_pipeline.services.document_schema.markdown_fallback import render_document_markdown
-from retainpdf_pipeline.services.document_schema.normalize_pipeline import build_normalized_artifacts
-from retainpdf_pipeline.services.document_schema.normalize_pipeline import normalized_artifact_paths
-from retainpdf_pipeline.services.document_schema.normalize_pipeline import write_normalized_artifacts
-from retainpdf_pipeline.services.document_schema.reporting import build_normalization_summary
+from retainpdf_pipeline.ocr.document_schema.markdown_fallback import materialize_document_markdown_fallback
+from retainpdf_pipeline.ocr.document_schema.markdown_fallback import render_document_markdown
+from retainpdf_pipeline.ocr.document_schema.normalize_pipeline import build_normalized_artifacts
+from retainpdf_pipeline.ocr.document_schema.normalize_pipeline import normalized_artifact_paths
+from retainpdf_pipeline.ocr.document_schema.normalize_pipeline import write_normalized_artifacts
+from retainpdf_pipeline.ocr.document_schema.reporting import build_normalization_summary
 from retainpdf_pipeline.services.pipeline_shared.io import save_json_atomic
-from retainpdf_pipeline.services.ocr_provider.paddle_runner import apply_cli_normalization_report_semantics
-from retainpdf_pipeline.services.translation.public import load_translation_manifest
+from retainpdf_pipeline.ocr.ocr_provider.paddle_runner import apply_cli_normalization_report_semantics
+from retainpdf_pipeline.translate.public import load_translation_manifest
 
 
 _URL_RE = re.compile(r"https?://[^\s\"']+", re.IGNORECASE)

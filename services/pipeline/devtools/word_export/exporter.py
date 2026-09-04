@@ -14,7 +14,7 @@ from devtools.word_export.job_io import single_pdf
 from devtools.word_export.job_io import translated_pages
 from devtools.word_export.paths import SCRIPTS_ROOT  # noqa: F401
 from devtools.word_export.textboxes import append_absolute_textbox
-from retainpdf_pipeline.services.rendering.layout.page_specs import build_render_page_specs
+from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
 
 
 def export_layout_docx(

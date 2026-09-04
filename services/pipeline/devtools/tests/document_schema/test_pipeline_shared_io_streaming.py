@@ -77,7 +77,7 @@ def test_save_json_atomic_replaces_target_and_cleans_temporary_file(tmp_path: Pa
 
 
 def test_validate_document_path_streams_file(tmp_path: Path) -> None:
-    from retainpdf_pipeline.services.document_schema.validator import validate_document_path
+    from retainpdf_pipeline.ocr.document_schema.validator import validate_document_path
 
     # Minimal valid document.v1 skeleton (only structure required by validator may be richer;
     # if validation fails on schema, we still assert load path does not use read_text+loads).

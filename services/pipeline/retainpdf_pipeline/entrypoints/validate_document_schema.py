@@ -2,11 +2,11 @@ import argparse
 import json
 from pathlib import Path
 
-from retainpdf_pipeline.services.document_schema import adapt_path_to_document_v1_with_report
-from retainpdf_pipeline.services.document_schema import build_normalization_summary
-from retainpdf_pipeline.services.document_schema import build_validation_report
-from retainpdf_pipeline.services.document_schema import list_registered_ocr_adapters
-from retainpdf_pipeline.services.document_schema import validate_document_path
+from retainpdf_pipeline.ocr.document_schema import adapt_path_to_document_v1_with_report
+from retainpdf_pipeline.ocr.document_schema import build_normalization_summary
+from retainpdf_pipeline.ocr.document_schema import build_validation_report
+from retainpdf_pipeline.ocr.document_schema import list_registered_ocr_adapters
+from retainpdf_pipeline.ocr.document_schema import validate_document_path
 
 
 def parse_args() -> argparse.Namespace:

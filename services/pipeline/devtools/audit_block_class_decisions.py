@@ -8,7 +8,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "services" / "pipeline"))
 
-from retainpdf_pipeline.services.document_schema.decision_diff import (
+from retainpdf_pipeline.ocr.document_schema.decision_diff import (
     build_block_class_decision_diff,
     load_allowlist_payload,
 )

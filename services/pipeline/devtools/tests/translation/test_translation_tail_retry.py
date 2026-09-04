@@ -7,14 +7,14 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from retainpdf_pipeline.services.translation.llm.shared.control_context import build_translation_control_context
-from retainpdf_pipeline.services.translation.llm.shared.control_context import FallbackPolicy
-from retainpdf_pipeline.services.translation.llm.shared.control_context import TimeoutPolicy
-from retainpdf_pipeline.services.translation.llm.shared.control_context import EngineProfile
-from retainpdf_pipeline.services.translation.llm.shared.orchestration.batched_plain_single import run_translation_tail_items
-from retainpdf_pipeline.services.translation.llm.shared.orchestration.batched_plain_single import retry_deferred_transport_items
-from retainpdf_pipeline.services.translation.llm.shared.tail_retry_queue import TranslationTailItem
-from retainpdf_pipeline.services.translation.llm.shared.tail_retry_queue import TranslationTailQueue
+from retainpdf_pipeline.translate.llm.shared.control_context import build_translation_control_context
+from retainpdf_pipeline.translate.llm.shared.control_context import FallbackPolicy
+from retainpdf_pipeline.translate.llm.shared.control_context import TimeoutPolicy
+from retainpdf_pipeline.translate.llm.shared.control_context import EngineProfile
+from retainpdf_pipeline.translate.llm.shared.orchestration.batched_plain_single import run_translation_tail_items
+from retainpdf_pipeline.translate.llm.shared.orchestration.batched_plain_single import retry_deferred_transport_items
+from retainpdf_pipeline.translate.llm.shared.tail_retry_queue import TranslationTailItem
+from retainpdf_pipeline.translate.llm.shared.tail_retry_queue import TranslationTailQueue
 
 
 class _Diagnostics:

@@ -14,13 +14,13 @@ PIPELINE_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PIPELINE_ROOT))
 
 
-from retainpdf_pipeline.services.ocr_provider import paddle_cli
+from retainpdf_pipeline.ocr.ocr_provider import paddle_cli
 from retainpdf_pipeline.foundation.shared.job_dirs import ensure_job_dirs
 from retainpdf_pipeline.foundation.shared.job_dirs import resolve_job_dirs
-from retainpdf_pipeline.services.ocr_provider.paddle_cli import PaddleCliArtifacts
-from retainpdf_pipeline.services.ocr_provider.paddle_cli import paddle_cli_payload_for_document_schema
-from retainpdf_pipeline.services.ocr_provider.paddle_cli import run_paddle_cli
-from retainpdf_pipeline.services.ocr_provider.paddle_runner import run_paddle_to_job_dir
+from retainpdf_pipeline.ocr.ocr_provider.paddle_cli import PaddleCliArtifacts
+from retainpdf_pipeline.ocr.ocr_provider.paddle_cli import paddle_cli_payload_for_document_schema
+from retainpdf_pipeline.ocr.ocr_provider.paddle_cli import run_paddle_cli
+from retainpdf_pipeline.ocr.ocr_provider.paddle_runner import run_paddle_to_job_dir
 
 
 def _write_pdf(path: Path) -> None:

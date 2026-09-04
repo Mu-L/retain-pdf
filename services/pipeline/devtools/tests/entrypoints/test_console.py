@@ -45,7 +45,7 @@ def test_dispatch_forwards_worker_arguments_and_restores_argv(monkeypatch) -> No
 
 
 def test_side_by_side_pdf_is_a_plain_passthrough(monkeypatch, capsys) -> None:
-    from retainpdf_pipeline.services.rendering.tools import side_by_side_pdf
+    from retainpdf_pipeline.render.tools import side_by_side_pdf
 
     received: list[str] = []
 
@@ -87,7 +87,7 @@ def test_diagnose_failure_is_a_plain_passthrough(monkeypatch, capsys) -> None:
 @pytest.mark.parametrize("command", ["side-by-side-pdf", "diagnose-failure"])
 def test_plain_passthrough_preserves_system_exit(monkeypatch, command: str) -> None:
     if command == "side-by-side-pdf":
-        from retainpdf_pipeline.services.rendering.tools import side_by_side_pdf as target
+        from retainpdf_pipeline.render.tools import side_by_side_pdf as target
     else:
         from retainpdf_pipeline.entrypoints import diagnose_failure_with_ai as target
 

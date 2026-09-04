@@ -7,7 +7,7 @@ import fitz
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from retainpdf_pipeline.services.rendering.tools.side_by_side_pdf import build_side_by_side_pdf
+from retainpdf_pipeline.render.tools.side_by_side_pdf import build_side_by_side_pdf
 
 
 def _write_pdf(path: Path, page_sizes: list[tuple[int, int]], label: str) -> None:

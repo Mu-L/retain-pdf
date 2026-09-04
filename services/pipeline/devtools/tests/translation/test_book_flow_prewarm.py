@@ -9,7 +9,7 @@ import pytest
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from retainpdf_pipeline.services.translation.workflow import book_flow
+from retainpdf_pipeline.translate.workflow import book_flow
 
 
 def test_initial_continuation_state_is_checkpointed_before_provider_review(

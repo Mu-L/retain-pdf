@@ -8,7 +8,7 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 from retainpdf_pipeline.foundation.shared.stage_specs import NormalizeStageSpec
-from retainpdf_pipeline.services.document_schema.normalize_pipeline import (
+from retainpdf_pipeline.ocr.document_schema.normalize_pipeline import (
     _refresh_report_for_final_document,
     _resolve_source_json_path,
 )
@@ -150,7 +150,7 @@ def test_normalize_stage_discovers_current_mineru_middle_filename(
 
 
 def test_validation_asset_link_counts_only_image_blocks() -> None:
-    from retainpdf_pipeline.services.document_schema.validator import (
+    from retainpdf_pipeline.ocr.document_schema.validator import (
         build_validation_report,
     )
 
@@ -199,7 +199,7 @@ def test_validation_asset_link_counts_only_image_blocks() -> None:
 
 
 def test_validation_report_detects_orphan_and_uncovered_provider_assets() -> None:
-    from retainpdf_pipeline.services.document_schema.validator import (
+    from retainpdf_pipeline.ocr.document_schema.validator import (
         build_validation_report,
     )
 

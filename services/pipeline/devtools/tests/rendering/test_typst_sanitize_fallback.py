@@ -13,60 +13,60 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.rendering.source.background.stage import build_clean_background_pdf
+from retainpdf_pipeline.render.source.background.stage import build_clean_background_pdf
 from retainpdf_pipeline.foundation.config import fonts
-from retainpdf_pipeline.services.rendering.layout.payload.blocks import build_render_blocks
-from retainpdf_pipeline.services.rendering.layout.payload.body_pipeline import apply_body_payload_pipeline
-from retainpdf_pipeline.services.rendering.layout.payload.collision import mark_adjacent_collision_risk
-from retainpdf_pipeline.services.rendering.layout.payload.emit import payload_to_render_block
-from retainpdf_pipeline.services.rendering.layout.payload.first_line_indent import detect_first_line_indent_pt
-from retainpdf_pipeline.services.rendering.layout.payload.line_structure import maybe_preserve_structured_line_breaks
-from retainpdf_pipeline.services.rendering.layout.model.models import RenderLayoutBlock
-from retainpdf_pipeline.services.rendering.layout.model.models import RenderPageSpec
-from retainpdf_pipeline.services.rendering.layout.page_specs import build_render_page_specs
-from retainpdf_pipeline.services.rendering.layout.payload.continuation_split import split_protected_text_for_boxes
-from retainpdf_pipeline.services.rendering.layout.payload.prepare import prepare_render_payloads_by_page
-from retainpdf_pipeline.services.rendering.source.items import get_item_translated_text
-from retainpdf_pipeline.services.rendering.source.dev_overlay.text_draw import _build_direct_draw_tokens
-from retainpdf_pipeline.services.rendering.source.dev_overlay.text_draw import _fit_segment_layout
-from retainpdf_pipeline.services.rendering.layout.payload.suspicious_ocr import detect_and_drop_suspicious_ocr_glued_blocks
-from retainpdf_pipeline.services.rendering.output.typst.book_renderer import _compile_render_pages_pdf_resilient
-from retainpdf_pipeline.services.rendering.output.typst.block_renderer import build_typst_block
-from retainpdf_pipeline.services.rendering.output.typst.overlay_ops import overlay_translated_pages_on_doc
-from retainpdf_pipeline.services.rendering.output.typst.book_support import prepare_translated_pages_for_render
-from retainpdf_pipeline.services.rendering.output.typst.compiler import _resolved_font_paths
-from retainpdf_pipeline.services.rendering.output.typst.compiler import _resolved_common_root
-from retainpdf_pipeline.services.rendering.output.typst.compiler import TypstCompileError
-from retainpdf_pipeline.services.rendering.output.typst.compiler import compile_typst_book_background_pdf
-from retainpdf_pipeline.services.rendering.output.typst.compiler import compile_typst_overlay_pdf
-from retainpdf_pipeline.services.rendering.output.typst.compiler import compile_typst_render_pages_pdf
-from retainpdf_pipeline.services.rendering.output.typst.emitter import build_typst_source_from_page_specs
-from retainpdf_pipeline.services.rendering.output.typst.source_builder import build_typst_overlay_source
-from retainpdf_pipeline.services.rendering.policy import apply_render_page_policy_fields
-from retainpdf_pipeline.services.rendering.policy import build_render_page_policy
-from retainpdf_pipeline.services.rendering.policy import formula_neighbor_text_item_ids
-from retainpdf_pipeline.services.rendering.policy import item_render_policy
-from retainpdf_pipeline.services.rendering.policy import item_render_policy_reason
-from retainpdf_pipeline.services.rendering.policy import item_requires_visual_cover_only
-from retainpdf_pipeline.services.rendering.policy import item_uses_white_overlay_fill
-from retainpdf_pipeline.services.rendering.policy import protect_formula_regions_in_redaction_items
-from retainpdf_pipeline.services.rendering.output.typst.source_page_overlay import apply_source_page_overlay
-from retainpdf_pipeline.services.rendering.output.typst.overlay_diagnostics import apply_redaction_diagnostics
-from retainpdf_pipeline.services.rendering.output.typst.overlay_diagnostics import new_overlay_merge_diagnostics
-from retainpdf_pipeline.services.rendering.source.background.redaction_items import redaction_items_from_layout_blocks
-from retainpdf_pipeline.services.rendering.source.cleanup.item_rects import cover_rects_from_valid_items
-from retainpdf_pipeline.services.rendering.output.typst.source_page_overlay import overlay_pages_from_single_pdf
-from retainpdf_pipeline.services.rendering.output.typst.source_page_overlay import redaction_items_from_render_blocks
-from retainpdf_pipeline.services.rendering.output.typst.sanitize import sanitize_items_for_typst_compile
-from retainpdf_pipeline.services.rendering.output.typst.overlay_ops import _extract_failed_overlay_indices
-from retainpdf_pipeline.services.rendering.output.typst.overlay_ops import _can_use_pikepdf_book_overlay
-from retainpdf_pipeline.services.rendering.workflow.cover_fallback import cover_fallback_page_indices
-from retainpdf_pipeline.services.rendering.workflow.context import RenderExecutionContext
-from retainpdf_pipeline.services.rendering.workflow.modes import _compress_final_pdf_if_needed
-from retainpdf_pipeline.services.rendering.document.pikepdf_overlay import overlay_pdf_pages_with_pikepdf
-from retainpdf_pipeline.services.rendering.document.pikepdf_overlay import overlay_page_pdfs_with_pikepdf
-from retainpdf_pipeline.services.rendering.document.pikepdf_pages import extract_pages_with_pikepdf
-from retainpdf_pipeline.services.rendering.layout.inline_content.core.markdown import build_direct_typst_passthrough_text
+from retainpdf_pipeline.render.layout.payload.blocks import build_render_blocks
+from retainpdf_pipeline.render.layout.payload.body_pipeline import apply_body_payload_pipeline
+from retainpdf_pipeline.render.layout.payload.collision import mark_adjacent_collision_risk
+from retainpdf_pipeline.render.layout.payload.emit import payload_to_render_block
+from retainpdf_pipeline.render.layout.payload.first_line_indent import detect_first_line_indent_pt
+from retainpdf_pipeline.render.layout.payload.line_structure import maybe_preserve_structured_line_breaks
+from retainpdf_pipeline.render.layout.model.models import RenderLayoutBlock
+from retainpdf_pipeline.render.layout.model.models import RenderPageSpec
+from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
+from retainpdf_pipeline.render.layout.payload.continuation_split import split_protected_text_for_boxes
+from retainpdf_pipeline.render.layout.payload.prepare import prepare_render_payloads_by_page
+from retainpdf_pipeline.render.source.items import get_item_translated_text
+from retainpdf_pipeline.render.source.dev_overlay.text_draw import _build_direct_draw_tokens
+from retainpdf_pipeline.render.source.dev_overlay.text_draw import _fit_segment_layout
+from retainpdf_pipeline.render.layout.payload.suspicious_ocr import detect_and_drop_suspicious_ocr_glued_blocks
+from retainpdf_pipeline.render.output.typst.book_renderer import _compile_render_pages_pdf_resilient
+from retainpdf_pipeline.render.output.typst.block_renderer import build_typst_block
+from retainpdf_pipeline.render.output.typst.overlay_ops import overlay_translated_pages_on_doc
+from retainpdf_pipeline.render.output.typst.book_support import prepare_translated_pages_for_render
+from retainpdf_pipeline.render.output.typst.compiler import _resolved_font_paths
+from retainpdf_pipeline.render.output.typst.compiler import _resolved_common_root
+from retainpdf_pipeline.render.output.typst.compiler import TypstCompileError
+from retainpdf_pipeline.render.output.typst.compiler import compile_typst_book_background_pdf
+from retainpdf_pipeline.render.output.typst.compiler import compile_typst_overlay_pdf
+from retainpdf_pipeline.render.output.typst.compiler import compile_typst_render_pages_pdf
+from retainpdf_pipeline.render.output.typst.emitter import build_typst_source_from_page_specs
+from retainpdf_pipeline.render.output.typst.source_builder import build_typst_overlay_source
+from retainpdf_pipeline.render.policy import apply_render_page_policy_fields
+from retainpdf_pipeline.render.policy import build_render_page_policy
+from retainpdf_pipeline.render.policy import formula_neighbor_text_item_ids
+from retainpdf_pipeline.render.policy import item_render_policy
+from retainpdf_pipeline.render.policy import item_render_policy_reason
+from retainpdf_pipeline.render.policy import item_requires_visual_cover_only
+from retainpdf_pipeline.render.policy import item_uses_white_overlay_fill
+from retainpdf_pipeline.render.policy import protect_formula_regions_in_redaction_items
+from retainpdf_pipeline.render.output.typst.source_page_overlay import apply_source_page_overlay
+from retainpdf_pipeline.render.output.typst.overlay_diagnostics import apply_redaction_diagnostics
+from retainpdf_pipeline.render.output.typst.overlay_diagnostics import new_overlay_merge_diagnostics
+from retainpdf_pipeline.render.source.background.redaction_items import redaction_items_from_layout_blocks
+from retainpdf_pipeline.render.source.cleanup.item_rects import cover_rects_from_valid_items
+from retainpdf_pipeline.render.output.typst.source_page_overlay import overlay_pages_from_single_pdf
+from retainpdf_pipeline.render.output.typst.source_page_overlay import redaction_items_from_render_blocks
+from retainpdf_pipeline.render.output.typst.sanitize import sanitize_items_for_typst_compile
+from retainpdf_pipeline.render.output.typst.overlay_ops import _extract_failed_overlay_indices
+from retainpdf_pipeline.render.output.typst.overlay_ops import _can_use_pikepdf_book_overlay
+from retainpdf_pipeline.render.workflow.cover_fallback import cover_fallback_page_indices
+from retainpdf_pipeline.render.workflow.context import RenderExecutionContext
+from retainpdf_pipeline.render.workflow.modes import _compress_final_pdf_if_needed
+from retainpdf_pipeline.render.document.pikepdf_overlay import overlay_pdf_pages_with_pikepdf
+from retainpdf_pipeline.render.document.pikepdf_overlay import overlay_page_pdfs_with_pikepdf
+from retainpdf_pipeline.render.document.pikepdf_pages import extract_pages_with_pikepdf
+from retainpdf_pipeline.render.layout.inline_content.core.markdown import build_direct_typst_passthrough_text
 from devtools.tests.rendering_support.page_specs import sample_page_spec as _page_spec
 
 
@@ -90,8 +90,8 @@ def test_sanitize_items_collects_compile_diagnostics() -> None:
         )
 
     diagnostics: dict = {}
-    with mock.patch("retainpdf_pipeline.services.rendering.output.typst.sanitize.compile_typst_overlay_pdf", side_effect=_fake_compile), mock.patch(
-        "retainpdf_pipeline.services.rendering.output.typst.sanitize_steps.compile_typst_overlay_pdf",
+    with mock.patch("retainpdf_pipeline.render.output.typst.sanitize.compile_typst_overlay_pdf", side_effect=_fake_compile), mock.patch(
+        "retainpdf_pipeline.render.output.typst.sanitize_steps.compile_typst_overlay_pdf",
         side_effect=_fake_compile,
     ):
         sanitized = sanitize_items_for_typst_compile(
@@ -128,11 +128,11 @@ def test_sanitize_items_uses_llm_repair_before_plain_fallback() -> None:
             work_dir=Path("/tmp"),
         )
 
-    with mock.patch("retainpdf_pipeline.services.rendering.output.typst.sanitize.compile_typst_overlay_pdf", side_effect=_fake_compile), mock.patch(
-        "retainpdf_pipeline.services.rendering.output.typst.sanitize_steps.compile_typst_overlay_pdf",
+    with mock.patch("retainpdf_pipeline.render.output.typst.sanitize.compile_typst_overlay_pdf", side_effect=_fake_compile), mock.patch(
+        "retainpdf_pipeline.render.output.typst.sanitize_steps.compile_typst_overlay_pdf",
         side_effect=_fake_compile,
     ), mock.patch(
-        "retainpdf_pipeline.services.rendering.output.typst.sanitize_steps.repair_items_with_llm_for_typst",
+        "retainpdf_pipeline.render.output.typst.sanitize_steps.repair_items_with_llm_for_typst",
         return_value=[{**item, "protected_translated_text": "llm repaired"}],
     ) as repair_mock:
         diagnostics: dict = {}
@@ -171,10 +171,10 @@ def test_sanitize_items_can_disable_llm_repair(monkeypatch) -> None:
             work_dir=Path("/tmp"),
         )
 
-    with mock.patch("retainpdf_pipeline.services.rendering.output.typst.sanitize.compile_typst_overlay_pdf", side_effect=_fake_compile), mock.patch(
-        "retainpdf_pipeline.services.rendering.output.typst.sanitize_steps.compile_typst_overlay_pdf",
+    with mock.patch("retainpdf_pipeline.render.output.typst.sanitize.compile_typst_overlay_pdf", side_effect=_fake_compile), mock.patch(
+        "retainpdf_pipeline.render.output.typst.sanitize_steps.compile_typst_overlay_pdf",
         side_effect=_fake_compile,
-    ), mock.patch("retainpdf_pipeline.services.rendering.output.typst.sanitize_steps.repair_items_with_llm_for_typst") as repair_mock:
+    ), mock.patch("retainpdf_pipeline.render.output.typst.sanitize_steps.repair_items_with_llm_for_typst") as repair_mock:
         diagnostics: dict = {}
         sanitize_items_for_typst_compile(
             200.0,
@@ -217,8 +217,8 @@ def test_sanitize_items_uses_math_token_fallback_for_math_blocks(monkeypatch) ->
             work_dir=Path("/tmp"),
         )
 
-    with mock.patch("retainpdf_pipeline.services.rendering.output.typst.sanitize.compile_typst_overlay_pdf", side_effect=_fake_compile), mock.patch(
-        "retainpdf_pipeline.services.rendering.output.typst.sanitize_steps.compile_typst_overlay_pdf",
+    with mock.patch("retainpdf_pipeline.render.output.typst.sanitize.compile_typst_overlay_pdf", side_effect=_fake_compile), mock.patch(
+        "retainpdf_pipeline.render.output.typst.sanitize_steps.compile_typst_overlay_pdf",
         side_effect=_fake_compile,
     ):
         diagnostics: dict = {}
@@ -261,7 +261,7 @@ def test_extract_failed_overlay_indices_from_typst_error() -> None:
 
 
 def test_sanitize_book_overlay_can_limit_to_candidate_pages() -> None:
-    from retainpdf_pipeline.services.rendering.output.typst.sanitize import sanitize_page_specs_for_typst_book_overlay
+    from retainpdf_pipeline.render.output.typst.sanitize import sanitize_page_specs_for_typst_book_overlay
 
     page_specs = [
         (0, 200.0, 300.0, [{"item_id": "p001-b001", "protected_translated_text": "page 1"}], "book-overlay-000"),
@@ -273,7 +273,7 @@ def test_sanitize_book_overlay_can_limit_to_candidate_pages() -> None:
         return [{**item, "protected_translated_text": f"sanitized {stem}"} for item in items]
 
     with mock.patch(
-        "retainpdf_pipeline.services.rendering.output.typst.sanitize.sanitize_items_for_typst_compile",
+        "retainpdf_pipeline.render.output.typst.sanitize.sanitize_items_for_typst_compile",
         side_effect=_fake_sanitize,
     ) as sanitize_mock:
         sanitized_specs = sanitize_page_specs_for_typst_book_overlay(page_specs, overlay_indices={1})

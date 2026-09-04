@@ -7,7 +7,7 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.document_schema.canonical_semantics import (
+from retainpdf_pipeline.ocr.document_schema.canonical_semantics import (
     BlockSemanticProfile,
     from_flat_item,
     from_normalized_block,
@@ -17,16 +17,16 @@ from retainpdf_pipeline.services.document_schema.canonical_semantics import (
     is_title,
     uses_title_style,
 )
-from retainpdf_pipeline.services.document_schema.classification import (
+from retainpdf_pipeline.ocr.document_schema.classification import (
     resolve_block_class,
     resolve_content_kind,
 )
-from retainpdf_pipeline.services.document_schema.provider_signals import (
+from retainpdf_pipeline.ocr.document_schema.provider_signals import (
     body_repair_applied,
     body_repair_peer_block_id,
     body_repair_role,
 )
-from retainpdf_pipeline.services.document_schema.semantics import (
+from retainpdf_pipeline.ocr.document_schema.semantics import (
     is_algorithm_semantic,
     is_bodylike_block,
     is_caption_like_block,

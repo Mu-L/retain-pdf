@@ -5,7 +5,7 @@ stage per process with ``--spec``.
 """
 
 from retainpdf_pipeline.foundation.shared.structured_errors import run_with_structured_failure
-from retainpdf_pipeline.services.rendering.workflow.render_only import main
+from retainpdf_pipeline.render.workflow.render_only import main
 
 
 if __name__ == "__main__":

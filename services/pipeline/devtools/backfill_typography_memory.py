@@ -15,9 +15,9 @@ sys.path.insert(0, str(SCRIPTS_ROOT))
 
 
 from retainpdf_pipeline.runtime.pipeline.translation_loader import load_translated_pages
-from retainpdf_pipeline.services.rendering.layout.payload.blocks import build_render_blocks
-from retainpdf_pipeline.services.rendering.output.typst.book_support import prepare_translated_pages_for_render
-from retainpdf_pipeline.services.translation.public import TRANSLATION_MANIFEST_FILE_NAME
+from retainpdf_pipeline.render.layout.payload.blocks import build_render_blocks
+from retainpdf_pipeline.render.output.typst.book_support import prepare_translated_pages_for_render
+from retainpdf_pipeline.translate.public import TRANSLATION_MANIFEST_FILE_NAME
 
 
 def main() -> None:

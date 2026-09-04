@@ -16,22 +16,22 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.rendering.source.preparation.redact_restore_formula import build_redact_restore_formula_pdf_copy
-from retainpdf_pipeline.services.rendering.source_cleanup.pdf import document as source_cleanup_document
-from retainpdf_pipeline.services.rendering.source_cleanup.pdf.hit_test import RectIndex
-from retainpdf_pipeline.services.rendering.source_cleanup.pdf.hit_test import is_protected_text_op
-from retainpdf_pipeline.services.rendering.source_cleanup.pdf import pdf_math
-from retainpdf_pipeline.services.rendering.source_cleanup.pdf import text_ops
-from retainpdf_pipeline.services.rendering.source_cleanup import build_bbox_text_stripped_pdf_copy
-from retainpdf_pipeline.services.rendering.source_cleanup import strip_bbox_text_rects_from_pdf_copy
-from retainpdf_pipeline.services.rendering.source.render_source import build_render_source_pdf
-from retainpdf_pipeline.services.rendering.source.prewarm_manifest_io import bbox_candidates_from_manifest
-from retainpdf_pipeline.services.rendering.source.prewarm_manifest_io import bbox_candidates_to_manifest
-from retainpdf_pipeline.services.rendering.source_cleanup.types import BBoxTextStripCandidates
-from retainpdf_pipeline.services.rendering.source_cleanup.planning.intent_classifier import classify_source_cleanup_intent
-from retainpdf_pipeline.services.rendering.source_cleanup.planning import segments
-from retainpdf_pipeline.services.rendering.analysis.document.builder import build_render_page_analysis
-from retainpdf_pipeline.services.rendering.contracts import RenderDocumentAnalysis
+from retainpdf_pipeline.render.source.preparation.redact_restore_formula import build_redact_restore_formula_pdf_copy
+from retainpdf_pipeline.render.source_cleanup.pdf import document as source_cleanup_document
+from retainpdf_pipeline.render.source_cleanup.pdf.hit_test import RectIndex
+from retainpdf_pipeline.render.source_cleanup.pdf.hit_test import is_protected_text_op
+from retainpdf_pipeline.render.source_cleanup.pdf import pdf_math
+from retainpdf_pipeline.render.source_cleanup.pdf import text_ops
+from retainpdf_pipeline.render.source_cleanup import build_bbox_text_stripped_pdf_copy
+from retainpdf_pipeline.render.source_cleanup import strip_bbox_text_rects_from_pdf_copy
+from retainpdf_pipeline.render.source.render_source import build_render_source_pdf
+from retainpdf_pipeline.render.source.prewarm_manifest_io import bbox_candidates_from_manifest
+from retainpdf_pipeline.render.source.prewarm_manifest_io import bbox_candidates_to_manifest
+from retainpdf_pipeline.render.source_cleanup.types import BBoxTextStripCandidates
+from retainpdf_pipeline.render.source_cleanup.planning.intent_classifier import classify_source_cleanup_intent
+from retainpdf_pipeline.render.source_cleanup.planning import segments
+from retainpdf_pipeline.render.analysis.document.builder import build_render_page_analysis
+from retainpdf_pipeline.render.contracts import RenderDocumentAnalysis
 from devtools.tests.rendering_support.page_profiles import sample_render_page_profile
 
 
@@ -141,7 +141,7 @@ def test_source_cleanup_intent_strips_table_footnote_with_inline_math_markers() 
 
 
 def test_structural_toc_and_page_number_do_not_force_text_strip_in_beta10_cleanup() -> None:
-    from retainpdf_pipeline.services.rendering.source_cleanup.planning.item_classifier import item_allows_forced_text_strip
+    from retainpdf_pipeline.render.source_cleanup.planning.item_classifier import item_allows_forced_text_strip
 
     assert not item_allows_forced_text_strip(
         {
@@ -188,7 +188,7 @@ def test_bbox_text_strip_preserves_explicit_protected_source_blocks() -> None:
     if source_pdf is None or not translated_path.exists() or not normalized_path.exists():
         pytest.skip("sample job is not available")
 
-    from retainpdf_pipeline.services.rendering.source_cleanup.protected_blocks import protected_pages_from_document_path
+    from retainpdf_pipeline.render.source_cleanup.protected_blocks import protected_pages_from_document_path
 
     with tempfile.TemporaryDirectory() as tmp:
         output_pdf = Path(tmp) / "stripped.pdf"

@@ -9,7 +9,7 @@ import pytest
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from retainpdf_pipeline.services.document_schema import adapters
+from retainpdf_pipeline.ocr.document_schema import adapters
 
 
 def test_detect_ocr_provider_continues_after_detector_exception(monkeypatch) -> None:

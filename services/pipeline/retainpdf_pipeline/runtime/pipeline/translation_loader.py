@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from retainpdf_pipeline.services.translation.public import load_translations
-from retainpdf_pipeline.services.translation.public import load_translation_manifest
-from retainpdf_pipeline.services.translation.public import load_translation_manifest_file
-from retainpdf_pipeline.services.translation.public import translation_manifest_path
+from retainpdf_pipeline.translate.public import load_translations
+from retainpdf_pipeline.translate.public import load_translation_manifest
+from retainpdf_pipeline.translate.public import load_translation_manifest_file
+from retainpdf_pipeline.translate.public import translation_manifest_path
 
 def load_translated_pages(
     translations_dir: Path,

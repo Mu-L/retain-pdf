@@ -6,7 +6,7 @@ import pytest
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from retainpdf_pipeline.services.document_schema.decision_diff import (
+from retainpdf_pipeline.ocr.document_schema.decision_diff import (
     ALLOWLIST_SCHEMA,
     build_block_class_decision_diff,
     canonical_block_class,

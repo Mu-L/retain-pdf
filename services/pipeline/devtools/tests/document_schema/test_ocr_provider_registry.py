@@ -9,11 +9,11 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 from retainpdf_pipeline.foundation.shared.job_dirs import ensure_job_dirs
 from retainpdf_pipeline.foundation.shared.job_dirs import resolve_job_dirs
-from retainpdf_pipeline.services.ocr_provider.drivers import list_registered_ocr_provider_drivers
-from retainpdf_pipeline.services.ocr_provider.drivers import register_ocr_provider_driver
-from retainpdf_pipeline.services.ocr_provider.drivers import run_registered_ocr_provider
-from retainpdf_pipeline.services.ocr_provider.types import OcrProviderResult
-from retainpdf_pipeline.services.ocr_provider.provider_config import OCR_PROVIDER_CONFIG_ENV
+from retainpdf_pipeline.ocr.ocr_provider.drivers import list_registered_ocr_provider_drivers
+from retainpdf_pipeline.ocr.ocr_provider.drivers import register_ocr_provider_driver
+from retainpdf_pipeline.ocr.ocr_provider.drivers import run_registered_ocr_provider
+from retainpdf_pipeline.ocr.ocr_provider.types import OcrProviderResult
+from retainpdf_pipeline.ocr.ocr_provider.provider_config import OCR_PROVIDER_CONFIG_ENV
 
 
 def test_ocr_provider_registry_accepts_custom_driver(tmp_path: Path) -> None:
@@ -78,7 +78,7 @@ def test_ocr_provider_registry_discovers_configured_local_provider(
     # observes this test-specific config without leaking across tests.
     import importlib
     import retainpdf_pipeline.foundation.shared.ocr_provider_config as provider_config
-    import retainpdf_pipeline.services.ocr_provider.drivers as drivers
+    import retainpdf_pipeline.ocr.ocr_provider.drivers as drivers
 
     importlib.reload(provider_config)
     drivers = importlib.reload(drivers)

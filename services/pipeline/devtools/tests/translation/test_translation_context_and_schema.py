@@ -10,15 +10,15 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.translation.services.continuation import review as continuation_review
-from retainpdf_pipeline.services.translation.core.context import build_item_context
-from retainpdf_pipeline.services.translation.llm import domain_context
-from retainpdf_pipeline.services.translation.llm.shared import control_context
-from retainpdf_pipeline.services.translation.core.terms import matched_glossary_entries
-from retainpdf_pipeline.services.translation.core.terms import normalize_glossary_entries
-from retainpdf_pipeline.services.translation.services.postprocess import garbled_reconstruction
-from retainpdf_pipeline.services.translation.services.context import session_context
-from retainpdf_pipeline.services.document_schema.text_flow import classify_text_flow_for_role
+from retainpdf_pipeline.translate.services.continuation import review as continuation_review
+from retainpdf_pipeline.translate.core.context import build_item_context
+from retainpdf_pipeline.translate.llm import domain_context
+from retainpdf_pipeline.translate.llm.shared import control_context
+from retainpdf_pipeline.translate.core.terms import matched_glossary_entries
+from retainpdf_pipeline.translate.core.terms import normalize_glossary_entries
+from retainpdf_pipeline.translate.services.postprocess import garbled_reconstruction
+from retainpdf_pipeline.translate.services.context import session_context
+from retainpdf_pipeline.ocr.document_schema.text_flow import classify_text_flow_for_role
 
 
 def test_continuation_review_uses_strict_json_schema_format() -> None:

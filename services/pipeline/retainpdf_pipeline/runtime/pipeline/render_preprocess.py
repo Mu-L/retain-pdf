@@ -4,15 +4,15 @@ import time
 from pathlib import Path
 
 from retainpdf_pipeline.services.pipeline_shared.events import emit_stage_progress
-from retainpdf_pipeline.services.rendering.analysis.document import build_render_document_analysis
-from retainpdf_pipeline.services.rendering.source.prewarm import RenderPrewarmSpec
-from retainpdf_pipeline.services.rendering.source.prewarm import RenderPrewarmHandle
-from retainpdf_pipeline.services.rendering.source.prewarm import prewarm_manifest_path_from_artifacts_dir
-from retainpdf_pipeline.services.rendering.source.prewarm import start_render_source_prewarm
-from retainpdf_pipeline.services.translation.public import build_translation_record
-from retainpdf_pipeline.services.translation.public import extract_text_items
-from retainpdf_pipeline.services.translation.public import get_page_count
-from retainpdf_pipeline.services.translation.public import load_ocr_json
+from retainpdf_pipeline.render.analysis.document import build_render_document_analysis
+from retainpdf_pipeline.render.source.prewarm import RenderPrewarmSpec
+from retainpdf_pipeline.render.source.prewarm import RenderPrewarmHandle
+from retainpdf_pipeline.render.source.prewarm import prewarm_manifest_path_from_artifacts_dir
+from retainpdf_pipeline.render.source.prewarm import start_render_source_prewarm
+from retainpdf_pipeline.translate.public import build_translation_record
+from retainpdf_pipeline.translate.public import extract_text_items
+from retainpdf_pipeline.translate.public import get_page_count
+from retainpdf_pipeline.translate.public import load_ocr_json
 
 
 def build_source_render_preprocess_pages(

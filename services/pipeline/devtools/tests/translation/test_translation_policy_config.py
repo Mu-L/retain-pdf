@@ -8,7 +8,7 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.translation.services.policy.config import build_translation_policy_config
+from retainpdf_pipeline.translate.services.policy.config import build_translation_policy_config
 
 
 def test_policy_config_defaults_keep_legacy_skip_rules_disabled() -> None:

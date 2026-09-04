@@ -10,26 +10,26 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from retainpdf_pipeline.services.translation.llm.result_payload import result_entry
-from retainpdf_pipeline.services.translation.llm.shared.orchestration.heavy_formula import heavy_formula_split_reason
-from retainpdf_pipeline.services.translation.llm.shared.orchestration.heavy_formula import translate_heavy_formula_block
-from retainpdf_pipeline.services.translation.llm.shared.orchestration.metadata import should_store_translation_result
-from retainpdf_pipeline.services.translation.llm.shared.orchestration.sentence_level import sentence_level_fallback
-from retainpdf_pipeline.services.translation.llm.shared.orchestration.transport import DeferredTransportRetry
+from retainpdf_pipeline.translate.llm.result_payload import result_entry
+from retainpdf_pipeline.translate.llm.shared.orchestration.heavy_formula import heavy_formula_split_reason
+from retainpdf_pipeline.translate.llm.shared.orchestration.heavy_formula import translate_heavy_formula_block
+from retainpdf_pipeline.translate.llm.shared.orchestration.metadata import should_store_translation_result
+from retainpdf_pipeline.translate.llm.shared.orchestration.sentence_level import sentence_level_fallback
+from retainpdf_pipeline.translate.llm.shared.orchestration.transport import DeferredTransportRetry
 
 
 def load_retrying_translator():
     sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
     package_paths = {
         "retainpdf_pipeline.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services",
-        "retainpdf_pipeline.services.translation": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation",
-        "retainpdf_pipeline.services.translation.llm": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm",
-        "retainpdf_pipeline.services.translation.llm.shared": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared",
-        "retainpdf_pipeline.services.translation.llm.shared.orchestration": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration",
-        "retainpdf_pipeline.services.translation.llm.providers": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "providers",
-        "retainpdf_pipeline.services.translation.llm.providers.deepseek": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "providers" / "deepseek",
-        "retainpdf_pipeline.services.translation.services.policy": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "policy",
-        "retainpdf_pipeline.services.document_schema": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "document_schema",
+        "retainpdf_pipeline.translate": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation",
+        "retainpdf_pipeline.translate.llm": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm",
+        "retainpdf_pipeline.translate.llm.shared": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared",
+        "retainpdf_pipeline.translate.llm.shared.orchestration": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration",
+        "retainpdf_pipeline.translate.llm.providers": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "providers",
+        "retainpdf_pipeline.translate.llm.providers.deepseek": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "providers" / "deepseek",
+        "retainpdf_pipeline.translate.services.policy": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "policy",
+        "retainpdf_pipeline.ocr.document_schema": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "document_schema",
     }
     for name, path in package_paths.items():
         module = sys.modules.get(name)
@@ -39,15 +39,15 @@ def load_retrying_translator():
             sys.modules[name] = module
 
     for module_name in (
-        "retainpdf_pipeline.services.translation.llm.shared.orchestration.retrying_translator",
-        "retainpdf_pipeline.services.translation.llm.shared.orchestration.fallbacks",
-        "retainpdf_pipeline.services.translation.llm.shared.orchestration.segment_routing",
-        "retainpdf_pipeline.services.translation.llm.providers.deepseek.client",
+        "retainpdf_pipeline.translate.llm.shared.orchestration.retrying_translator",
+        "retainpdf_pipeline.translate.llm.shared.orchestration.fallbacks",
+        "retainpdf_pipeline.translate.llm.shared.orchestration.segment_routing",
+        "retainpdf_pipeline.translate.llm.providers.deepseek.client",
     ):
         sys.modules.pop(module_name, None)
 
     spec = importlib.util.spec_from_file_location(
-        "retainpdf_pipeline.services.translation.llm.shared.orchestration.retrying_translator",
+        "retainpdf_pipeline.translate.llm.shared.orchestration.retrying_translator",
         REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration" / "retrying_translator.py",
     )
     module = importlib.util.module_from_spec(spec)
@@ -141,8 +141,8 @@ def make_formula_dense_prose_item() -> dict:
 class RetryingTranslatorFormulaRoutesTests(unittest.TestCase):
     def test_plain_text_retry_for_large_formula_block_uses_plain_route(self):
         module = load_retrying_translator()
-        import retainpdf_pipeline.services.translation.llm.shared.orchestration.fallbacks as fallbacks
-        from retainpdf_pipeline.services.translation.llm.shared.control_context import build_translation_control_context
+        import retainpdf_pipeline.translate.llm.shared.orchestration.fallbacks as fallbacks
+        from retainpdf_pipeline.translate.llm.shared.control_context import build_translation_control_context
 
         item = make_formula_item(20)
         item["_heavy_formula_split_applied"] = True
@@ -172,8 +172,8 @@ class RetryingTranslatorFormulaRoutesTests(unittest.TestCase):
 
     def test_small_formula_inline_uses_plain_text_directly(self):
         module = load_retrying_translator()
-        import retainpdf_pipeline.services.translation.llm.shared.orchestration.fallbacks as fallbacks
-        from retainpdf_pipeline.services.translation.llm.shared.control_context import build_translation_control_context
+        import retainpdf_pipeline.translate.llm.shared.orchestration.fallbacks as fallbacks
+        from retainpdf_pipeline.translate.llm.shared.control_context import build_translation_control_context
 
         item = make_small_formula_inline_item()
         calls: list[str] = []
@@ -221,8 +221,8 @@ class RetryingTranslatorFormulaRoutesTests(unittest.TestCase):
 
     def test_formula_dense_prose_uses_plain_text_before_segmented(self):
         module = load_retrying_translator()
-        import retainpdf_pipeline.services.translation.llm.shared.orchestration.fallbacks as fallbacks
-        from retainpdf_pipeline.services.translation.llm.shared.control_context import build_translation_control_context
+        import retainpdf_pipeline.translate.llm.shared.orchestration.fallbacks as fallbacks
+        from retainpdf_pipeline.translate.llm.shared.control_context import build_translation_control_context
 
         item = make_formula_dense_prose_item()
         calls: list[str] = []

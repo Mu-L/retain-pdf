@@ -6,12 +6,12 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.rendering.layout.payload.prepare import prepare_render_payloads_by_page
-from retainpdf_pipeline.services.translation.core.orchestration.units import finalize_payload_orchestration_metadata
-from retainpdf_pipeline.services.translation.core.payload.parts.apply import apply_translated_text_map
-from retainpdf_pipeline.services.translation.core.payload.parts.units import pending_translation_items
-from retainpdf_pipeline.services.translation.services.finalization import recover_blocking_untranslated_items
-from retainpdf_pipeline.services.translation.services.postprocess import garbled_reconstruction
+from retainpdf_pipeline.render.layout.payload.prepare import prepare_render_payloads_by_page
+from retainpdf_pipeline.translate.core.orchestration.units import finalize_payload_orchestration_metadata
+from retainpdf_pipeline.translate.core.payload.parts.apply import apply_translated_text_map
+from retainpdf_pipeline.translate.core.payload.parts.units import pending_translation_items
+from retainpdf_pipeline.translate.services.finalization import recover_blocking_untranslated_items
+from retainpdf_pipeline.translate.services.postprocess import garbled_reconstruction
 
 
 def _abstract(item_id: str, bbox: list[float], source: str) -> dict:

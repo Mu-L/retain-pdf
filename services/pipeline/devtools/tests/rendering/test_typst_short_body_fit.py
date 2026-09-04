@@ -5,9 +5,9 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.rendering.layout.payload.body_pipeline import apply_body_payload_pipeline
-from retainpdf_pipeline.services.rendering.layout.payload.emit import payload_to_render_block
-from retainpdf_pipeline.services.rendering.output.typst.block_renderer import build_typst_block
+from retainpdf_pipeline.render.layout.payload.body_pipeline import apply_body_payload_pipeline
+from retainpdf_pipeline.render.layout.payload.emit import payload_to_render_block
+from retainpdf_pipeline.render.output.typst.block_renderer import build_typst_block
 
 
 def test_page_long_body_anchors_raise_single_line_body_font_and_allow_bbox_overflow() -> None:

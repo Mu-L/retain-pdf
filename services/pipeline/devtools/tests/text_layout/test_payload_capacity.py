@@ -8,8 +8,8 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.rendering.layout.payload.capacity import estimated_render_height_pt
-from retainpdf_pipeline.services.rendering.layout.payload.capacity import formula_estimate_discount
+from retainpdf_pipeline.render.layout.payload.capacity import estimated_render_height_pt
+from retainpdf_pipeline.render.layout.payload.capacity import formula_estimate_discount
 
 
 def test_formula_estimate_discount_keeps_plain_text_unchanged() -> None:

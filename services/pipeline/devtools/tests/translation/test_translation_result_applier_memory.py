@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from retainpdf_pipeline.services.translation.services.results.applier import (
+from retainpdf_pipeline.translate.services.results.applier import (
     TranslationResultApplier,
 )
 

@@ -6,7 +6,7 @@ import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[3]))
 
-from retainpdf_pipeline.services.mineru.contracts import MINERU_CONTENT_LIST_V2_FILE_NAME
+from retainpdf_pipeline.ocr.mineru.contracts import MINERU_CONTENT_LIST_V2_FILE_NAME
 
 
 TEXTUAL_BLOCK_TYPES = {

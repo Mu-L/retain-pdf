@@ -8,11 +8,11 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.rendering.layout.chinese_body_fit import estimate_chinese_body_height_pt
-from retainpdf_pipeline.services.rendering.layout.chinese_body_fit import estimate_chinese_body_lines
-from retainpdf_pipeline.services.rendering.layout.chinese_body_fit import formula_unit_ratio
-from retainpdf_pipeline.services.rendering.layout.chinese_body_fit import solve_chinese_body_font_size_pt
-from retainpdf_pipeline.services.rendering.layout.chinese_body_fit import tokenize_chinese_body_text
+from retainpdf_pipeline.render.layout.chinese_body_fit import estimate_chinese_body_height_pt
+from retainpdf_pipeline.render.layout.chinese_body_fit import estimate_chinese_body_lines
+from retainpdf_pipeline.render.layout.chinese_body_fit import formula_unit_ratio
+from retainpdf_pipeline.render.layout.chinese_body_fit import solve_chinese_body_font_size_pt
+from retainpdf_pipeline.render.layout.chinese_body_fit import tokenize_chinese_body_text
 
 
 def test_chinese_body_line_count_uses_bbox_width() -> None:

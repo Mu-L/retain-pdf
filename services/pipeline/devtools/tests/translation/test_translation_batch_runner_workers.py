@@ -8,10 +8,10 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from retainpdf_pipeline.services.translation.services.results.applier import (
+from retainpdf_pipeline.translate.services.results.applier import (
     TranslationResultApplier,
 )
-from retainpdf_pipeline.services.translation.workflow import batch_runner
+from retainpdf_pipeline.translate.workflow import batch_runner
 
 
 class _FlushState:

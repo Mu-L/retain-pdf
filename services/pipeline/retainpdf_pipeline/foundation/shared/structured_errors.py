@@ -59,7 +59,7 @@ def infer_failure_stage(*, default_stage: str, trace_text: str, detail: str) -> 
     if any(
         token in combined
         for token in (
-            "retainpdf_pipeline.services.translation",
+            "retainpdf_pipeline.translate",
             "translate_only_pipeline",
             "translate_from_ocr",
             "direct_typst.py",

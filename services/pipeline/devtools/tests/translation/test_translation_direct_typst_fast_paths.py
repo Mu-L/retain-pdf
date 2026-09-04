@@ -16,14 +16,14 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 def _ensure_package_stubs():
     package_paths = {
         "retainpdf_pipeline.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services",
-        "retainpdf_pipeline.services.translation": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation",
-        "retainpdf_pipeline.services.translation.llm": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm",
-        "retainpdf_pipeline.services.translation.llm.shared": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared",
-        "retainpdf_pipeline.services.translation.llm.shared.orchestration": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration",
-        "retainpdf_pipeline.services.translation.llm.providers": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "providers",
-        "retainpdf_pipeline.services.translation.llm.providers.deepseek": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "providers" / "deepseek",
-        "retainpdf_pipeline.services.translation.core.orchestration": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "orchestration",
-        "retainpdf_pipeline.services.translation.services.continuation": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "continuation",
+        "retainpdf_pipeline.translate": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation",
+        "retainpdf_pipeline.translate.llm": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm",
+        "retainpdf_pipeline.translate.llm.shared": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared",
+        "retainpdf_pipeline.translate.llm.shared.orchestration": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration",
+        "retainpdf_pipeline.translate.llm.providers": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "providers",
+        "retainpdf_pipeline.translate.llm.providers.deepseek": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "providers" / "deepseek",
+        "retainpdf_pipeline.translate.core.orchestration": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "orchestration",
+        "retainpdf_pipeline.translate.services.continuation": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "continuation",
     }
     for name, path in package_paths.items():
         module = sys.modules.get(name)
@@ -44,33 +44,33 @@ def _load_module(name: str, path: Path):
 
 def _load_continuation_package():
     return _load_module(
-        "retainpdf_pipeline.services.translation.services.continuation",
+        "retainpdf_pipeline.translate.services.continuation",
         REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "continuation" / "__init__.py",
     )
 
 
 def _install_minimal_continuation_stub():
     rules_module = _load_module(
-        "retainpdf_pipeline.services.translation.services.continuation.rules",
+        "retainpdf_pipeline.translate.services.continuation.rules",
         REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "continuation" / "rules.py",
     )
     pairs_module = _load_module(
-        "retainpdf_pipeline.services.translation.services.continuation.pairs",
+        "retainpdf_pipeline.translate.services.continuation.pairs",
         REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "continuation" / "pairs.py",
     )
-    module = types.ModuleType("retainpdf_pipeline.services.translation.services.continuation")
+    module = types.ModuleType("retainpdf_pipeline.translate.services.continuation")
     module.apply_candidate_pair_joins = pairs_module.apply_candidate_pair_joins
     module.candidate_continuation_pairs = pairs_module.candidate_continuation_pairs
     module.pair_break_score = rules_module.pair_break_score
     module.pair_join_score = rules_module.pair_join_score
     module.review_candidate_pairs = lambda *args, **kwargs: {}
-    sys.modules["retainpdf_pipeline.services.translation.services.continuation"] = module
+    sys.modules["retainpdf_pipeline.translate.services.continuation"] = module
     return module
 
 
 def _translate_direct_typst_for_test(module, item: dict, *, context, request_label: str = "test"):
     direct_typst = _load_module(
-        "retainpdf_pipeline.services.translation.llm.shared.orchestration.direct_typst",
+        "retainpdf_pipeline.translate.llm.shared.orchestration.direct_typst",
         REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration" / "direct_typst.py",
     )
     return direct_typst.translate_direct_typst_plain_text_with_retries(
@@ -94,11 +94,11 @@ def _translate_direct_typst_for_test(module, item: dict, *, context, request_lab
 class TranslationDirectTypstFastPathTests(unittest.TestCase):
     def test_direct_typst_protocol_shell_degrades_for_cjk_body_text(self):
         module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.orchestration.fallbacks",
+            "retainpdf_pipeline.translate.llm.shared.orchestration.fallbacks",
             REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration" / "fallbacks.py",
         )
         context_module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.control_context",
+            "retainpdf_pipeline.translate.llm.shared.control_context",
             REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "control_context.py",
         )
         context = context_module.build_translation_control_context(mode="sci")
@@ -141,15 +141,15 @@ class TranslationDirectTypstFastPathTests(unittest.TestCase):
 
     def test_direct_typst_short_empty_translation_uses_short_retry(self):
         module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.orchestration.fallbacks",
+            "retainpdf_pipeline.translate.llm.shared.orchestration.fallbacks",
             REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration" / "fallbacks.py",
         )
         context_module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.control_context",
+            "retainpdf_pipeline.translate.llm.shared.control_context",
             REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "control_context.py",
         )
         short_retry_module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.orchestration.short_text_retry",
+            "retainpdf_pipeline.translate.llm.shared.orchestration.short_text_retry",
             REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration" / "short_text_retry.py",
         )
         context = context_module.build_translation_control_context(mode="sci")
@@ -193,11 +193,11 @@ class TranslationDirectTypstFastPathTests(unittest.TestCase):
 
     def test_direct_typst_long_text_is_split_before_remote_translation(self):
         module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.orchestration.fallbacks",
+            "retainpdf_pipeline.translate.llm.shared.orchestration.fallbacks",
             REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration" / "fallbacks.py",
         )
         context_module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.control_context",
+            "retainpdf_pipeline.translate.llm.shared.control_context",
             REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "control_context.py",
         )
         context = context_module.build_translation_control_context(mode="sci")
@@ -234,11 +234,11 @@ class TranslationDirectTypstFastPathTests(unittest.TestCase):
 
     def test_formula_english_residue_marks_failed_after_all_fallbacks_fail(self):
         module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.orchestration.fallbacks",
+            "retainpdf_pipeline.translate.llm.shared.orchestration.fallbacks",
             REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration" / "fallbacks.py",
         )
         control_context = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.control_context",
+            "retainpdf_pipeline.translate.llm.shared.control_context",
             REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "control_context.py",
         )
         item = {
@@ -282,15 +282,15 @@ class TranslationDirectTypstFastPathTests(unittest.TestCase):
 
     def test_english_residue_after_raw_fallback_continues_to_sentence_level(self):
         module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.orchestration.fallbacks",
+            "retainpdf_pipeline.translate.llm.shared.orchestration.fallbacks",
             REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration" / "fallbacks.py",
         )
         control_context = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.control_context",
+            "retainpdf_pipeline.translate.llm.shared.control_context",
             REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "control_context.py",
         )
         placeholder_guard = _load_module(
-            "retainpdf_pipeline.services.translation.llm.placeholder_guard",
+            "retainpdf_pipeline.translate.llm.placeholder_guard",
             REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "placeholder_guard.py",
         )
         item = {
@@ -336,11 +336,11 @@ class TranslationDirectTypstFastPathTests(unittest.TestCase):
 
     def test_direct_typst_english_residue_does_not_enter_sentence_level_fallback(self):
         module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.orchestration.fallbacks",
+            "retainpdf_pipeline.translate.llm.shared.orchestration.fallbacks",
             REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration" / "fallbacks.py",
         )
         control_context = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.control_context",
+            "retainpdf_pipeline.translate.llm.shared.control_context",
             REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "control_context.py",
         )
         item = {
@@ -385,11 +385,11 @@ class TranslationDirectTypstFastPathTests(unittest.TestCase):
 
     def test_direct_typst_body_protocol_failure_falls_back_to_sentence_level(self):
         module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.orchestration.fallbacks",
+            "retainpdf_pipeline.translate.llm.shared.orchestration.fallbacks",
             REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration" / "fallbacks.py",
         )
         control_context = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.control_context",
+            "retainpdf_pipeline.translate.llm.shared.control_context",
             REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "control_context.py",
         )
         item = {
@@ -456,11 +456,11 @@ class TranslationDirectTypstFastPathTests(unittest.TestCase):
 
     def test_direct_typst_validation_failure_does_not_enter_tagged_placeholder_retry(self):
         module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.orchestration.fallbacks",
+            "retainpdf_pipeline.translate.llm.shared.orchestration.fallbacks",
             REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration" / "fallbacks.py",
         )
         control_context = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.control_context",
+            "retainpdf_pipeline.translate.llm.shared.control_context",
             REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "control_context.py",
         )
         item = {
@@ -501,8 +501,8 @@ class TranslationDirectTypstFastPathTests(unittest.TestCase):
 
 
 def test_long_text_split_partially_accepts_when_one_chunk_fails() -> None:
-    from retainpdf_pipeline.services.translation.llm.shared.control_context import build_translation_control_context
-    from retainpdf_pipeline.services.translation.llm.shared.orchestration.direct_typst_long_text import (
+    from retainpdf_pipeline.translate.llm.shared.control_context import build_translation_control_context
+    from retainpdf_pipeline.translate.llm.shared.orchestration.direct_typst_long_text import (
         translate_direct_typst_long_text_chunks,
     )
 
@@ -546,8 +546,8 @@ def test_long_text_split_partially_accepts_when_one_chunk_fails() -> None:
 
 
 def test_long_text_split_still_fails_when_all_chunks_fail() -> None:
-    from retainpdf_pipeline.services.translation.llm.shared.control_context import build_translation_control_context
-    from retainpdf_pipeline.services.translation.llm.shared.orchestration.direct_typst_long_text import (
+    from retainpdf_pipeline.translate.llm.shared.control_context import build_translation_control_context
+    from retainpdf_pipeline.translate.llm.shared.orchestration.direct_typst_long_text import (
         translate_direct_typst_long_text_chunks,
     )
 

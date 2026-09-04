@@ -33,4 +33,4 @@ namespaces = true
 
 [tool.setuptools.package-data]
 "retainpdf_pipeline.foundation.prompts" = ["*.txt", "*.md"]
-"retainpdf_pipeline.services.document_schema" = ["*.json"]
+"retainpdf_pipeline.ocr.document_schema" = ["*.json"]
