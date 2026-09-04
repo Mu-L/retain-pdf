@@ -39,9 +39,12 @@ def load_ocr_json(json_path: Path) -> dict:
     with json_path.open("r", encoding="utf-8") as f:
         data = json.load(f)
     if not is_normalized_document(data):
+        schema = data.get("schema", "") if isinstance(data, dict) else ""
         raise RuntimeError(
-            "translate expects normalized document.v1.json; "
-            f"got non-normalized payload: {json_path}"
+            "translate expects normalized document.v1.json "
+            f"(schema 'normalized_document_v1'); got schema={schema!r}: {json_path}. "
+            "If this is a raw provider payload, run the ocr/normalize stage first "
+            "to produce document.v1.json, then retry translate."
         )
     return ensure_normalized_document(data)
 
