@@ -21,6 +21,32 @@ import {
 import type { RecentJobsStatePort } from "./state.js";
 import { findLibraryCardIndex } from "./library-card-identity.js";
 
+/**
+ * 合并规则显性化（不改行为，只写清前置条件与优先级）。
+ *
+ * 四入口：
+ * - insert(job): 前置 job_id 非空 + isPrimaryRecentJob；优先级：已存在同卡 -> 降级为
+ *   update（就地合并，绝不 prepend 第二张）；全新文档 + hasStableLibraryIdentity 才
+ *   prepend，否则只缓存补丁 + scheduleActiveRefresh 等 soft refresh 补齐投影。
+ * - update(job): 前置 job_id 非空；优先级：按卡身份找原卡 -> mergeRuntimePatch 合并
+ *   运行态 -> stampBookIdentity 补书目身份 -> replaceItem 整表回写；找不到原卡且
+ *   active + 有书目身份才回退 insert，否则只留补丁。
+ * - apply(items): 前置 items 可空（按 [] 处理）；优先级：mergeRuntimePatches 先并表
+ *   -> 仅全新文档（不在表 + 无 source_job_id 血缘 + 有稳定身份）才 prepend 创建帧。
+ * - applyExisting(items): 前置同 apply；只做 mergeRuntimePatches，不 prepend（给
+ *   load-more / 追加页用，避免把创建帧重复插进第二页）。
+ *
+ * 三条不变式：
+ * - [I1 运行态不降级] active 盖过 queued/空状态，同 stage+unit+total 下 current 不倒退。
+ * - [I2 终态优先] 同 job_id 终态后到非终态脏轮询一律保留终态；新终态永远可落地。
+ * - [I3 换 id 继承身份] 重试换 job_id 时只继承书目身份（document_id/title/封面），
+ *   绝不继承旧运行态/旧终态；旧 patch 键必须删除，避免双卡。
+ *
+ * 单元测试断言（均已存在，不删）：tests/library/recent-jobs*.test.mjs 断言单调进度 /
+ * 终态覆盖脏轮询 / 重试走 replaceItem；tests/home/submit-spinning-guarantee.test.mjs
+ * 断言提交即 queued 转圈 / 空状态不降级 / 终态正常落地。
+ */
+
 /** Runtime job patch: library item plus optional flat progress fields from polling. */
 export interface RuntimeJobPatch extends LibraryJobItem {
   progress_current?: number | null;
@@ -122,43 +148,62 @@ function shouldKeepPreviousRuntimePatch(
   next: RuntimeJobPatch = {},
   { stageAdapterPort = {} }: RuntimePatchMergeOptions = {},
 ) {
+  // 前置：双帧缺一 -> 无可比，不保留。
   if (!previous || !next) {
     return false;
   }
+  // [I2] 新帧已终态 -> 永远落地，不保留旧帧。
   if (isJobTerminal(next) || (isTerminalStatus(next.status) && next.status !== "succeeded")) {
     return false;
   }
-  // 重试 / 再翻译会换 job_id：这是新一轮，绝不能继承旧终态（否则主页卡卡在「已翻译」不转圈）
+  // [I3] 换 job_id = 新一轮重试 -> 绝不继承旧终态/旧进度。
+  // 重试/再翻译会换 job_id：这是新一轮，绝不能继承旧终态（否则主页卡卡在「已翻译」不转圈）
   if (!sameRuntimeJobId(previous, next)) {
     return false;
   }
-  // 同 job 终态后偶发非终态脏轮询：保留终态，避免卡片回退
+  // [I2] 同 job 终态后偶发非终态脏轮询：保留终态，避免卡片回退
   if (isJobTerminal(previous) && !isJobTerminal(next)) {
     return true;
   }
+  // [I1] active 盖过 queued 回退。
   if (`${next.status || ""}`.trim() === "queued" && isRecentJobActive(previous)) {
     return true;
   }
+  // [I1] 不同 stage 不可比 -> 不保留（让新帧落地，进度单调性只在同 stage 内断言）。
   const previousStage = stageKeyForPatch(previous, stageAdapterPort);
   const nextStage = stageKeyForPatch(next, stageAdapterPort);
-  if (!previousStage || !nextStage || previousStage !== nextStage) {
+  if (!previousStage || !nextStage) {
     return false;
   }
+  if (previousStage !== nextStage) {
+    return false;
+  }
+  // [I1] 同 stage 下 unit/total 必须一致且合法，否则不可比。
   const previousProgress = progressOfPatch(previous);
   const nextProgress = progressOfPatch(next);
   const previousUnit = firstNonEmpty(previousProgress.unit, previous.progress_unit);
   const nextUnit = firstNonEmpty(nextProgress.unit, next.progress_unit);
-  if (!previousUnit || !nextUnit || previousUnit !== nextUnit) {
+  if (!previousUnit || !nextUnit) {
+    return false;
+  }
+  if (previousUnit !== nextUnit) {
     return false;
   }
   const previousTotal = numberOrNull(previousProgress.total ?? previous.progress_total);
   const nextTotal = numberOrNull(nextProgress.total ?? next.progress_total);
-  if (previousTotal === null || nextTotal === null || previousTotal !== nextTotal || previousTotal <= 0) {
+  if (previousTotal === null || nextTotal === null) {
     return false;
   }
+  if (previousTotal !== nextTotal || previousTotal <= 0) {
+    return false;
+  }
+  // [I1] 同口径下 current 倒退 -> 保留旧帧（运行态不降级）。
   const previousCurrent = numberOrNull(previousProgress.current ?? previous.progress_current);
   const nextCurrent = numberOrNull(nextProgress.current ?? next.progress_current);
-  return previousCurrent !== null && nextCurrent !== null && previousCurrent > nextCurrent;
+  if (previousCurrent === null || nextCurrent === null) {
+    return false;
+  }
+  return previousCurrent > nextCurrent;
 }
 
 function identityFieldsFromPrevious(
@@ -181,28 +226,31 @@ function mergeRuntimePatch(
   next: RuntimeJobPatch = {},
   { stageAdapterPort = {} }: RuntimePatchMergeOptions = {},
 ): RuntimeJobPatch {
+  // 前置：无旧帧 -> 直接采用新帧。
   if (!previous) {
     return next;
   }
-  // 新 job（重试）: 全量采用 next 的运行态，只继承书目身份字段
+  // [I3] 新 job（重试）: 全量采用 next 的运行态，只继承书目身份字段
   if (!sameRuntimeJobId(previous, next)) {
     return {
       ...next,
       ...identityFieldsFromPrevious(previous, next),
     };
   }
+  // 同 job 且无需保留旧帧 -> 采用新运行态 + 继承书目身份（[I2] 新终态走这里落地）。
   if (!shouldKeepPreviousRuntimePatch(previous, next, { stageAdapterPort })) {
     return {
       ...next,
       ...identityFieldsFromPrevious(previous, next),
     };
   }
+  // 以下仅同 job_id 且旧帧更新（[I1]/[I2] 保留分支）：旧 status/snapshot/progress 覆盖新帧。
   const previousProgress = progressOfPatch(previous);
   // 仅同 job_id 才可能保留旧 status（终态防回退 / active 盖过 queued / 空状态不降级）
-  const previousTerminal = isJobTerminal(previous) && !isJobTerminal(next);
-  const previousActiveOverQueued = `${next.status || ""}`.trim() === "queued" && isRecentJobActive(previous);
+  const previousTerminal = isJobTerminal(previous) && !isJobTerminal(next); // [I2]
+  const previousActiveOverQueued = `${next.status || ""}`.trim() === "queued" && isRecentJobActive(previous); // [I1]
   // 空状态刷新（后端写库滞后）绝不能把运行中的卡刷成静态：保留旧运行态直到真数据到
-  const nextStatusEmpty = `${next.status || ""}`.trim() === "";
+  const nextStatusEmpty = `${next.status || ""}`.trim() === ""; // [I1]
   const previousActiveOverEmpty = nextStatusEmpty && isRecentJobActive(previous);
   const keepPreviousRuntimeState = previousTerminal || previousActiveOverQueued || previousActiveOverEmpty;
   const nextStageSnapshot = next.stage_snapshot && typeof next.stage_snapshot === "object"
@@ -252,10 +300,12 @@ export function createRecentJobsRuntimePatches({
   const runtimeCreatedJobIds = new Set<string>();
 
   function apply(items: LibraryJobItem[] | null | undefined) {
-    // 先把 patches 按统一卡片 identity 并进列表项（重试换 job_id 时不丢原卡）
+    // 前置：items 可空（mergeRuntimePatches 内部按 [] 处理）。
+    // 优先级 P1 先把 patches 按统一卡片 identity 并进列表项（重试换 job_id 时不丢原卡）
     const mergedItems = mergeRuntimePatches(items, runtimeJobPatches, { stageAdapterPort });
-    // 仅「全新文档」才 prepend；同一 document 已在列表里绝不再插第二张。
+    // P2 仅「全新文档」才 prepend；同一 document 已在列表里绝不再插第二张。
     // 带 source_job_id 的是阶段重试血缘，绝不能当新书插（否则主页多一张 job_id 空壳）。
+    // P3 无稳定书目身份（缺 document_id/真书名）只留补丁不渲染（[I3]）。
     const missingCreatedItems = Array.from(runtimeCreatedJobIds)
       .filter((createdJobId: string) => {
         const patch = runtimeJobPatches.get(createdJobId);
@@ -270,6 +320,7 @@ export function createRecentJobsRuntimePatches({
   }
 
   function applyExisting(items: LibraryJobItem[] | null | undefined) {
+    // 前置同 apply；只合并不 prepend（load-more 追加页专用，避免创建帧被插进第二页）。
     return mergeRuntimePatches(items, runtimeJobPatches, { stageAdapterPort });
   }
 
@@ -309,10 +360,12 @@ export function createRecentJobsRuntimePatches({
   }
 
   function update(job: RuntimeJobPatch | LibraryJobItem) {
+    // 前置 P0：无 job_id 直接丢弃（早返）。
     const jobId = `${job?.job_id || ""}`.trim();
     if (!jobId) {
       return;
     }
+    // P1 按卡身份定位原卡；换 id 时取旧 patch 做 [I3] 身份继承源。
     const state = statePort.getSnapshot();
     const index = findItemIndex(state.items, job);
     const previousJobId = index >= 0
@@ -326,11 +379,13 @@ export function createRecentJobsRuntimePatches({
     const merged = mergeRuntimePatch(previousPatch || previousItem, job, { stageAdapterPort });
     const patch = stampBookIdentity(merged, previousItem, job);
     runtimeJobPatches.set(jobId, patch);
+    // P2 换 id 收尾：删旧 patch 键 + 旧 created 标记（[I3] 防双卡）；就地改原卡不标 created。
     if (previousJobId && previousJobId !== jobId) {
       runtimeJobPatches.delete(previousJobId);
       runtimeCreatedJobIds.delete(previousJobId);
       // 就地改原卡：绝不能标成 created，否则 soft refresh 会 prepend 一张 job_id 空壳
     }
+    // P3 找不到原卡：仅 active + 有书目身份才回退 insert，否则只留补丁等投影（[I1] 防空壳卡）。
     if (index < 0) {
       // 仍找不到原卡时：若带 document_id 但补丁缺书名，不要 insert 空壳
       // （否则主页会出现「转圈 + job_id」占位卡，原书还在）
@@ -367,6 +422,7 @@ export function createRecentJobsRuntimePatches({
   }
 
   function insert(job: RuntimeJobPatch | LibraryJobItem) {
+    // 前置 P0：非主任务（ocr 子任务等）直接丢弃；无 job_id 直接丢弃（早返）。
     if (!isPrimaryRecentJob(job)) {
       return;
     }
@@ -374,7 +430,7 @@ export function createRecentJobsRuntimePatches({
     if (!jobId) {
       return;
     }
-    // 核心：有 document_id / source_job_id 且书架已有该书 → 就地 update，绝不 prepend 新卡
+    // P1 核心：有 document_id / source_job_id 且书架已有该书 → 就地 update，绝不 prepend 新卡
     const state = statePort.getSnapshot();
     const existingIndex = findItemIndex(state.items, job);
     if (existingIndex >= 0) {
@@ -387,10 +443,11 @@ export function createRecentJobsRuntimePatches({
       return;
     }
     const nextItem = createLibraryJobItemFromRuntime(job, { stageAdapterPort });
+    // P2 建卡失败（缺 job_id）-> 早返。
     if (!nextItem) {
       return;
     }
-    // 首帧无 document_id 时仍保留补丁：文档列表刷新并带上同一 active job 后，
+    // P3 首帧无 document_id 时仍保留补丁：文档列表刷新并带上同一 active job 后，
     // apply() 会把这份进度合并回原书；但这里绝不能 prepend job_id 空壳。
     // 提交即转圈：裸提交包可能没有 status/stage，存入 map 前先钉成 queued，
     // 否则首轮轮询/水合回来之前的刷新会把卡片画成静态。
@@ -400,10 +457,12 @@ export function createRecentJobsRuntimePatches({
       stage: firstNonEmpty((job as RuntimeJobPatch)?.stage, "queued"),
     };
     runtimeJobPatches.set(nextItem.job_id, queuedFirstFrame);
+    // P4 无稳定书目身份只缓存 + 触发主动刷新，不 prepend（[I3] 防空壳卡）。
     if (!hasStableLibraryIdentity(nextItem)) {
       scheduleActiveRefresh?.({ resetTimer: false });
       return;
     }
+    // P5 全新文档才 prepend + 记 created，供 apply() 补齐。
     runtimeCreatedJobIds.add(nextItem.job_id);
     statePort.prependItem(nextItem);
     statePort.setHasMore(state.hasMore);

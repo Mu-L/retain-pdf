@@ -22,6 +22,8 @@ import type { ProgressRenderModelInput } from "./progress-model.js";
 import {
   statusStageLabel,
   buildSelectedStageDisplay,
+  isTerminalStatus,
+  APP_EVENTS,
 } from "../../composition/external.js";
 
 export type StatusCardPrimaryActions = {
@@ -83,6 +85,24 @@ export type UseStatusCardModelOptions = {
   fallbackItem?: StatusCardFallbackItem | null;
 };
 
+export type StatusCardCancelDescription = {
+  cancellable: boolean;
+  disabled: boolean;
+  busy: boolean;
+  title: string;
+  label: string;
+};
+
+export type StatusCardSelectedRetry = {
+  label: string;
+  dispatchStage: string;
+  title: string;
+};
+
+export type HasCancellableStatusCardJobOptions = {
+  excludeDocPrefix?: boolean;
+};
+
 export type StatusCardModel = {
   services: ReturnType<typeof useHomeServices>;
   ids: StatusCardIds;
@@ -98,9 +118,139 @@ export type StatusCardModel = {
   selectedForFlow: string;
   cancelDisabled: boolean;
   cancelCurrentJob: (() => unknown) | undefined;
+  cancel: StatusCardCancelDescription;
+  selectedRetry: StatusCardSelectedRetry | null;
   openDetail: () => void;
   visualStageKey: string;
 };
+
+// 两卡共用的可取消判定：有任务 + 状态非空 + 非终态。
+// 白名单会漏掉 processing 等后端状态词，这里用非终态判断。
+export function hasCancellableStatusCardJob(
+  jobId: unknown,
+  status: unknown,
+  options: HasCancellableStatusCardJobOptions = {},
+): boolean {
+  const trimmedJobId = `${jobId ?? ""}`.trim();
+  if (!trimmedJobId) return false;
+  if (options.excludeDocPrefix && trimmedJobId.startsWith("doc:")) return false;
+  const normalizedStatus = `${status ?? ""}`.trim().toLowerCase();
+  if (normalizedStatus === "" || normalizedStatus === "cancelled") return false;
+  return !isTerminalStatus(normalizedStatus);
+}
+
+export function describeStatusCardCancel(
+  jobId: unknown,
+  status: unknown,
+  cancelDisabled: unknown,
+  options: HasCancellableStatusCardJobOptions = {},
+): StatusCardCancelDescription {
+  const cancellable = hasCancellableStatusCardJob(jobId, status, options);
+  const busy = Boolean(cancelDisabled);
+  return {
+    cancellable,
+    disabled: !cancellable || busy,
+    busy,
+    title: busy ? "正在取消任务" : "停止并取消当前任务",
+    label: busy ? "取消中" : "取消任务",
+  };
+}
+
+export const STATUS_CARD_STAGE_RETRY_META = {
+  ocr: {
+    label: "重新 OCR",
+    dispatchStage: "ocr",
+    actionKeys: ["ocr"] as const,
+  },
+  translate: {
+    label: "重新翻译",
+    dispatchStage: "translation",
+    actionKeys: ["translate", "translation"] as const,
+  },
+  render: {
+    label: "重新渲染",
+    dispatchStage: "render",
+    actionKeys: ["render"] as const,
+  },
+} as const;
+
+export type StatusCardRetryFlowKey = keyof typeof STATUS_CARD_STAGE_RETRY_META;
+
+export function normalizeStatusCardFlowKey(key = ""): string {
+  const value = `${key || ""}`.trim().toLowerCase();
+  if (value === "translation" || value === "translate" || value === "translating") {
+    return "translate";
+  }
+  if (value === "ocr" || value === "ocr_processing") return "ocr";
+  if (value === "render" || value === "rendering") return "render";
+  if (value === "done" || value === "finished") return "done";
+  return value;
+}
+
+function resolveStatusCardStageAction(
+  actions: Record<string, StatusCardStageRetryAction> | null | undefined,
+  keys: readonly string[],
+): StatusCardStageRetryAction | null {
+  if (!actions || typeof actions !== "object") return null;
+  for (const key of keys) {
+    const hit = actions[key];
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/**
+ * 仅针对「当前选中阶段」返回一颗重试按钮配置。
+ * - OCR：有 job 即可（不看失败）
+ * - 翻译/渲染：can_retry 或 失败/成功
+ * - 完成：不显示
+ */
+export function resolveStatusCardSelectedRetry(options: {
+  hasJob: boolean;
+  failed: boolean;
+  succeeded: boolean;
+  selectedFlow: string;
+  stageActions: Record<string, StatusCardStageRetryAction>;
+}): StatusCardSelectedRetry | null {
+  const { hasJob, failed, succeeded, selectedFlow, stageActions } = options;
+  if (!hasJob) return null;
+  if (selectedFlow !== "ocr" && selectedFlow !== "translate" && selectedFlow !== "render") {
+    return null;
+  }
+  const flowKey = selectedFlow as StatusCardRetryFlowKey;
+  const meta = STATUS_CARD_STAGE_RETRY_META[flowKey];
+  const action = resolveStatusCardStageAction(stageActions, meta.actionKeys);
+
+  if (flowKey === "ocr") {
+    return {
+      label: action?.label || meta.label,
+      dispatchStage: meta.dispatchStage,
+      title: "从 OCR 重新执行",
+    };
+  }
+  const enabled = Boolean(action?.canRetry) || failed || succeeded;
+  if (!enabled) return null;
+  return {
+    label: action?.label || meta.label,
+    dispatchStage: meta.dispatchStage,
+    title: action?.disabledReason || meta.label,
+  };
+}
+
+export function dispatchStatusCardRetryStage(stage: string, jobId = "") {
+  if (globalThis.document?.dispatchEvent && typeof globalThis.CustomEvent === "function") {
+    globalThis.document.dispatchEvent(
+      new globalThis.CustomEvent(APP_EVENTS.retryStage, {
+        bubbles: true,
+        composed: true,
+        detail: {
+          stage,
+          jobId: `${jobId || ""}`.trim() || undefined,
+        },
+      }),
+    );
+  }
+}
 
 function resolveVisualStageKeyForSnapshot(
   snapshot: StatusCardSnapshot | null = null,
@@ -188,6 +338,23 @@ export function useStatusCardModel({
   const stageKeyForFlow = flowStageKey || snapshot.stageKey;
   const selectedForFlow = display.selected || stageKeyForFlow;
 
+  const cancel = describeStatusCardCancel(snapshot?.jobId, snapshot?.status, cancelDisabled, {
+    excludeDocPrefix: embedded,
+  });
+
+  const selectedRetry = (() => {
+    const trimmedJobId = `${snapshot?.jobId || ""}`.trim();
+    const hasJob = Boolean(trimmedJobId) && !trimmedJobId.startsWith("doc:");
+    const normalizedStatus = `${snapshot?.status || ""}`.trim().toLowerCase();
+    return resolveStatusCardSelectedRetry({
+      hasJob,
+      failed: normalizedStatus === "failed",
+      succeeded: normalizedStatus === "succeeded",
+      selectedFlow: normalizeStatusCardFlowKey(selectedForFlow || stageKeyForFlow),
+      stageActions: snapshot?.stageRetryActions || {},
+    });
+  })();
+
   const openDetail = () => {
     services.statusDetail.controller.openStatusDetailDialog("overview");
   };
@@ -207,6 +374,8 @@ export function useStatusCardModel({
     selectedForFlow,
     cancelDisabled,
     cancelCurrentJob,
+    cancel,
+    selectedRetry,
     openDetail,
     visualStageKey,
   };

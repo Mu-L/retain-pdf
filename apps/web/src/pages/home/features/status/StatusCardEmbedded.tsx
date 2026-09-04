@@ -7,14 +7,16 @@ import { StageFlow } from "./StageFlow.jsx";
 import { LoaderCircle, Square } from "lucide-react";
 import { buildProgressRenderModel, type ProgressRenderModelInput } from "./progress-model.js";
 import { StatusCardIdsContext } from "./status-card-ids-context.js";
-import { useStatusCardModel } from "./use-status-card-model.js";
+import {
+  useStatusCardModel,
+  hasCancellableStatusCardJob,
+  normalizeStatusCardFlowKey,
+  dispatchStatusCardRetryStage,
+} from "./use-status-card-model.js";
 import type { StatusCardFallbackItem } from "./merge-snapshot-with-fallback.js";
 import type {
   StatusCardSnapshot,
-  StatusCardStageRetryAction,
 } from "./status-card-store.js";
-import { APP_EVENTS } from "../../composition/external.js";
-import { isTerminalStatus } from "../../composition/external.js";
 
 function resolvePercent(
   renderOptions: ProgressRenderModelInput | null | undefined,
@@ -39,64 +41,6 @@ function resolvePercent(
   return 0;
 }
 
-function dispatchRetryStage(stage: string, jobId = "") {
-  if (globalThis.document?.dispatchEvent && typeof globalThis.CustomEvent === "function") {
-    globalThis.document.dispatchEvent(
-      new globalThis.CustomEvent(APP_EVENTS.retryStage, {
-        bubbles: true,
-        composed: true,
-        detail: {
-          stage,
-          jobId: `${jobId || ""}`.trim() || undefined,
-        },
-      }),
-    );
-  }
-}
-
-const STAGE_RETRY_META = {
-  ocr: {
-    label: "重新 OCR",
-    dispatchStage: "ocr",
-    actionKeys: ["ocr"] as const,
-  },
-  translate: {
-    label: "重新翻译",
-    dispatchStage: "translation",
-    actionKeys: ["translate", "translation"] as const,
-  },
-  render: {
-    label: "重新渲染",
-    dispatchStage: "render",
-    actionKeys: ["render"] as const,
-  },
-} as const;
-
-type RetryFlowKey = keyof typeof STAGE_RETRY_META;
-
-function normalizeFlowKey(key = ""): string {
-  const value = `${key || ""}`.trim().toLowerCase();
-  if (value === "translation" || value === "translate" || value === "translating") {
-    return "translate";
-  }
-  if (value === "ocr" || value === "ocr_processing") return "ocr";
-  if (value === "render" || value === "rendering") return "render";
-  if (value === "done" || value === "finished") return "done";
-  return value;
-}
-
-function resolveStageAction(
-  actions: Record<string, StatusCardStageRetryAction> | null | undefined,
-  keys: readonly string[],
-): StatusCardStageRetryAction | null {
-  if (!actions || typeof actions !== "object") return null;
-  for (const key of keys) {
-    const hit = actions[key];
-    if (hit) return hit;
-  }
-  return null;
-}
-
 function isRedundantDoneDetail(detail: string, value: string, title: string) {
   const d = `${detail || ""}`.trim();
   if (!d) return true;
@@ -116,44 +60,6 @@ function isRedundantDoneDetail(detail: string, value: string, title: string) {
   if (compact === `${title || ""}`.trim().replace(/\s+/g, "")) return true;
   if (/^(渲染|任务|处理)?完成/.test(compact) && compact.length <= 12) return true;
   return false;
-}
-
-/**
- * 仅针对「当前选中阶段」返回一颗重试按钮配置。
- * - OCR：有 job 即可（不看失败）
- * - 翻译/渲染：can_retry 或 失败/成功
- * - 完成：不显示
- */
-function resolveSelectedRetry(options: {
-  hasJob: boolean;
-  failed: boolean;
-  succeeded: boolean;
-  selectedFlow: string;
-  stageActions: Record<string, StatusCardStageRetryAction>;
-}): { label: string; dispatchStage: string; title: string } | null {
-  const { hasJob, failed, succeeded, selectedFlow, stageActions } = options;
-  if (!hasJob) return null;
-  if (selectedFlow !== "ocr" && selectedFlow !== "translate" && selectedFlow !== "render") {
-    return null;
-  }
-  const flowKey = selectedFlow as RetryFlowKey;
-  const meta = STAGE_RETRY_META[flowKey];
-  const action = resolveStageAction(stageActions, meta.actionKeys);
-
-  if (flowKey === "ocr") {
-    return {
-      label: action?.label || meta.label,
-      dispatchStage: meta.dispatchStage,
-      title: "从 OCR 重新执行",
-    };
-  }
-  const enabled = Boolean(action?.canRetry) || failed || succeeded;
-  if (!enabled) return null;
-  return {
-    label: action?.label || meta.label,
-    dispatchStage: meta.dispatchStage,
-    title: action?.disabledReason || meta.label,
-  };
 }
 
 type StatusCardEmbeddedProps = {
@@ -190,6 +96,8 @@ export function StatusCardEmbedded({
     selectedForFlow,
     cancelDisabled,
     cancelCurrentJob,
+    cancel,
+    selectedRetry: retry,
     openDetail,
     visualStageKey,
   } = model;
@@ -201,8 +109,8 @@ export function StatusCardEmbedded({
   const rawDetail = `${display?.detailText || snapshot?.detail || ""}`.trim();
   const failed = status === "failed";
   const succeeded = status === "succeeded";
-  const doneStage = normalizeFlowKey(selectedForFlow) === "done"
-    || normalizeFlowKey(stageKeyForFlow) === "done"
+  const doneStage = normalizeStatusCardFlowKey(selectedForFlow) === "done"
+    || normalizeStatusCardFlowKey(stageKeyForFlow) === "done"
     || succeeded;
   const detailText = (doneStage && isRedundantDoneDetail(rawDetail, valueText, ringLabel))
     ? ""
@@ -215,20 +123,11 @@ export function StatusCardEmbedded({
   const progressText = (doneStage && isRedundantDoneDetail(rawProgressText, valueText, ringLabel))
     ? ""
     : rawProgressText;
-  const stageActions = snapshot?.stageRetryActions || {};
   const jobId = `${snapshot?.jobId || ""}`.trim();
-  const hasJob = Boolean(jobId) && !jobId.startsWith("doc:");
-  // 可取消 = 有任务 + 状态非空 + 非终态（白名单会漏掉 processing 等后端状态词）
-  const cancelEnabled = hasJob && status !== "" && status !== "cancelled" && !isTerminalStatus(status);
-  const selectedFlow = normalizeFlowKey(selectedForFlow || stageKeyForFlow);
-
-  const retry = resolveSelectedRetry({
-    hasJob,
-    failed,
-    succeeded,
-    selectedFlow,
-    stageActions,
+  const cancelEnabled = hasCancellableStatusCardJob(snapshot?.jobId, snapshot?.status, {
+    excludeDocPrefix: true,
   });
+  const selectedFlow = normalizeStatusCardFlowKey(selectedForFlow || stageKeyForFlow);
 
   const rootClass = [
     "bd-job-status-card",
@@ -255,16 +154,16 @@ export function StatusCardEmbedded({
               type="button"
               className="bd-job-status-btn bd-job-status-btn-cancel"
               aria-label="取消任务"
-              title={cancelDisabled ? "正在取消任务" : "停止并取消当前任务"}
+              title={cancel.title}
               disabled={!cancelEnabled || cancelDisabled}
               onClick={() => cancelCurrentJob?.()}
             >
-              {cancelDisabled ? (
+              {cancel.busy ? (
                 <LoaderCircle className="animate-spin" aria-hidden="true" />
               ) : (
                 <Square aria-hidden="true" />
               )}
-              <span>{cancelDisabled ? "取消中" : "取消任务"}</span>
+              <span>{cancel.label}</span>
             </button>
             <div className="bd-job-status-head-center">
               <div id={ids.ringLabel} className="bd-job-status-title">{ringLabel}</div>
@@ -305,7 +204,7 @@ export function StatusCardEmbedded({
                     className="bd-job-status-retry-action"
                     data-retry-stage={retry.dispatchStage}
                     title={retry.title}
-                    onClick={() => dispatchRetryStage(retry.dispatchStage, jobId)}
+                    onClick={() => dispatchStatusCardRetryStage(retry.dispatchStage, jobId)}
                   >
                     {retry.label}
                   </button>

@@ -6,8 +6,7 @@ import { ProgressBlock } from "./ProgressBlock.jsx";
 import { ResultActions } from "./ResultActions.jsx";
 import { StageRetry } from "./StageRetry.jsx";
 import { StatusCardIdsContext } from "./status-card-ids-context.js";
-import { useStatusCardModel, type StatusCardPrimaryActions } from "./use-status-card-model.js";
-import { isTerminalStatus } from "../../composition/external.js";
+import { useStatusCardModel, hasCancellableStatusCardJob, type StatusCardPrimaryActions } from "./use-status-card-model.js";
 import { LoaderCircle, Square } from "lucide-react";
 
 type StatusCardMainProps = {
@@ -38,6 +37,7 @@ export function StatusCardMain({
     selectedForFlow,
     cancelDisabled,
     cancelCurrentJob,
+    cancel,
     openDetail,
     visualStageKey,
   } = model;
@@ -50,10 +50,7 @@ export function StatusCardMain({
   if (className) rootClassNames.push(className);
 
   const primaryActions = (display.primaryActions || {}) as Partial<StatusCardPrimaryActions>;
-  const status = `${snapshot.status || ""}`.trim().toLowerCase();
-  // 可取消 = 有任务 + 状态非空 + 非终态（白名单会漏掉 processing 等后端状态词，OCR 单跑就卡在这里）
-  const hasCancellableJob = Boolean(`${snapshot.jobId || ""}`.trim())
-    && status !== "" && status !== "cancelled" && !isTerminalStatus(status);
+  const hasCancellableJob = hasCancellableStatusCardJob(snapshot.jobId, snapshot.status);
   const hasResultActions = showResultActions && Boolean(
     primaryActions.markdownBundleReady
     || primaryActions.pdfReady
@@ -84,16 +81,16 @@ export function StatusCardMain({
                 type="button"
                 className="status-action-btn status-head-btn status-head-cancel"
                 aria-label="取消任务"
-                title={cancelDisabled ? "正在取消任务" : "停止并取消当前任务"}
+                title={cancel.title}
                 disabled={!hasCancellableJob || cancelDisabled}
                 onClick={() => cancelCurrentJob?.()}
               >
-                {cancelDisabled ? (
+                {cancel.busy ? (
                   <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
                 ) : (
                   <Square className="size-3.5" aria-hidden="true" />
                 )}
-                <span>{cancelDisabled ? "取消中" : "取消任务"}</span>
+                <span>{cancel.label}</span>
               </button>
               <div className="status-head-center">
                 <div id={ids.ringLabel} className="status-ring-label">{ringLabel}</div>

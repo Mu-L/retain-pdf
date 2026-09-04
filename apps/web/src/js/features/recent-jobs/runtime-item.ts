@@ -8,6 +8,26 @@ import {
 } from "./runtime-value-helpers.js";
 import { sameLibraryCard } from "./library-card-identity.js";
 
+/**
+ * 卡片合并规则显性化（不改行为）。
+ *
+ * mergeLibraryJobItem(previousItem, job) 前置：双参可空（按 {} 处理）。
+ * 优先级：
+ *  P1 身份：job_id/document_id/active_job_id 取首个非空；书名 display_name 遇占位
+ *    （job_id/mock 名冒充）保留旧真名（[I3] 换 id 继承身份的展示侧）。
+ *  P2 运行态：background lane 补丁冻结前景（stage/display/progress 全保留旧值）；
+ *     前景按 snapshot 驱动 stage/display/lane/substage。
+ *  P3 [I1 运行态不降级] status 取首个非空、progress 按 valueOrPrevious 合并，空快照
+ *     不清旧进度。
+ *  P4 [I2 终态优先] succeeded 钉 percent=100 + current=total；其余终态保留旧 percent
+ *     口径（终态展示不被空快照冲掉）。
+ * mergeRuntimePatches(items, patches) 前置：items 可空按 []，patches 可空按空表；
+ * 优先级：无命中补丁原样返回 -> 有命中按 sameLibraryCard 就地 mergeLibraryJobItem
+ * （job_id/active_job_id 切到新轮，library_only=false 点亮运行态）。
+ * createLibraryJobItemFromRuntime(job) 前置：缺 job_id 返回 null（早返）；否则以
+ * queued 骨架为底再 merge，保证裸提交首帧即转圈（[I1]）。
+ */
+
 export interface StageProgress {
   current?: number | null;
   total?: number | null;
@@ -403,6 +423,7 @@ export function createLibraryJobItemFromRuntime(
   job: LibraryJobItem = {},
   { stageAdapterPort = {} }: RuntimeItemOptions = {},
 ): LibraryJobItem | null {
+  // 前置：缺 job_id 建不出卡 -> null 早返；否则 queued 骨架打底再 merge（[I1] 裸提交即转圈）。
   const jobId = firstNonEmpty(job.job_id);
   if (!jobId) {
     return null;
@@ -428,14 +449,19 @@ export function mergeRuntimePatches(
   patches: Map<string, LibraryJobItem>,
   { stageAdapterPort = {} }: RuntimeItemOptions = {},
 ): LibraryJobItem[] {
+  // 前置：items 可空按 []；patches 为空直接返回原序浅拷贝（早返，不改行为）。
   const list = Array.isArray(items) ? items : [];
-  const patchList = Array.from(patches.values());
+  const patchList = patches ? Array.from(patches.values()) : [];
+  if (patchList.length === 0) {
+    return [...list];
+  }
   return list.map((item) => {
     const patch = patchList.find((candidate) => sameLibraryCard(candidate, item)) || null;
+    // 早返：无命中补丁 -> 原样返回（终态/运行态都不动）。
     if (!patch) {
       return item;
     }
-    // 用 patch 的 job_id 覆盖（重试后书架仍是原位原书）
+    // 命中：用 patch 的 job_id 覆盖（重试后书架仍是原位原书）// [I3]
     return mergeLibraryJobItem(item, {
       ...patch,
       job_id: firstNonEmpty(patch.job_id, item.job_id),

@@ -2,8 +2,11 @@ import {
   defaultRecentJobsRefreshEnvironment,
 } from "./refresh-environment.js";
 
-const LIBRARY_SEARCH_DEBOUNCE_MS = 260;
-const LIBRARY_REFRESH_MIN_INTERVAL_MS = 5000;
+export const LIBRARY_SEARCH_DEBOUNCE_MS = 260;
+export const LIBRARY_REFRESH_MIN_INTERVAL_MS = 5000;
+export const LIBRARY_REFRESH_DEFAULT_DELAY_MS = 600;
+export const LIBRARY_REFRESH_TERMINAL_DELAY_MS = 400;
+export const LIBRARY_REFRESH_RESUME_DELAY_MS = 300;
 
 export function createRecentJobsRefreshScheduler({
   loadRecentJobs,
@@ -18,6 +21,13 @@ export function createRecentJobsRefreshScheduler({
   let lastRefreshAt = 0;
   let pendingRefresh = null;
 
+  // 状态机：
+  //   idle --scheduleRefresh--> armed --timer触发--> idle
+  //   armed --scheduleRefresh--> armed（旧 timer 被覆盖）
+  //   * --suspend--> suspended（pending队列长度<=1，后写覆盖先写）
+  //   suspended --resume+pending--> armed（replay一次）/ --resume无pending--> idle
+  //   armed请求命中 throttle 则直接丢弃（不入pending、不改lastRefreshAt）
+
   function isSuspended() {
     return suspended || environment.isWorkflowOpen();
   }
@@ -26,36 +36,72 @@ export function createRecentJobsRefreshScheduler({
     return query;
   }
 
+  // 规则1 suspend：非 force 请求在挂起态只入队，不起 timer。
+  function shouldQueueWhileSuspended({ force = false }: any = {}) {
+    return !force && isSuspended();
+  }
+
+  function queuePendingRefresh(request: any) {
+    pendingRefresh = request;
+  }
+
+  function takePendingRefresh() {
+    const replay = pendingRefresh;
+    pendingRefresh = null;
+    return replay;
+  }
+
+  // 规则2 pending队列：resume 时若有积压则 replay 恰好一次。
+  function replayPendingRefreshOnResume(was: boolean, next: boolean) {
+    if (was && !next && pendingRefresh) {
+      scheduleRefresh(takePendingRefresh());
+    }
+  }
+
   function setSuspended(value) {
     const next = Boolean(value);
     const was = suspended;
     suspended = next;
-    if (was && !next && pendingRefresh) {
-      const replay = pendingRefresh;
-      pendingRefresh = null;
-      scheduleRefresh(replay);
-    }
+    replayPendingRefreshOnResume(was, next);
   }
 
   function hasPendingRefresh() {
     return pendingRefresh !== null;
   }
 
-  function scheduleRefresh({ delay = 600, force = false, bypassThrottle = false }: any = {}) {
-    if (!force && isSuspended()) {
-      pendingRefresh = { delay, force, bypassThrottle };
-      return;
+  // 规则3 bypass：force 跳过 suspend+throttle；bypassThrottle 只跳过 throttle。
+  function shouldBypassThrottle({ force = false, bypassThrottle = false }: any = {}) {
+    return Boolean(force || bypassThrottle);
+  }
+
+  // 规则4 throttle：距上次 armed 不足 MIN_INTERVAL 的普通请求直接丢弃。
+  function shouldDropByThrottle({ force = false, bypassThrottle = false }: any, now: number) {
+    if (shouldBypassThrottle({ force, bypassThrottle })) {
+      return false;
     }
-    pendingRefresh = null;
-    const now = environment.now();
-    if (!force && !bypassThrottle && now - lastRefreshAt < LIBRARY_REFRESH_MIN_INTERVAL_MS) {
-      return;
-    }
+    return now - lastRefreshAt < LIBRARY_REFRESH_MIN_INTERVAL_MS;
+  }
+
+  function armRefreshTimer(delay: number, now: number) {
     lastRefreshAt = now;
     environment.clearTimeout(refreshTimer);
     refreshTimer = environment.setTimeout(() => {
       void loadRecentJobs({ reset: true, silent: true });
     }, delay);
+  }
+
+  function scheduleRefresh({ delay = LIBRARY_REFRESH_DEFAULT_DELAY_MS, force = false, bypassThrottle = false }: any = {}) {
+    const request = { delay, force, bypassThrottle };
+    if (shouldQueueWhileSuspended(request)) {
+      queuePendingRefresh(request);
+      return;
+    }
+    pendingRefresh = null;
+    const now = environment.now();
+    if (shouldDropByThrottle(request, now)) {
+      return;
+    }
+    armRefreshTimer(delay, now);
   }
 
   function updateSearch(nextQuery) {

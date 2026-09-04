@@ -77,6 +77,13 @@ export function mountJobRuntimeFeature({
   const isJobTerminal = jobPresentationPort?.isJobTerminal || ((value: any = {}) => isTerminalStatus(value?.status || value));
   // 当前轮询会话是否向图书馆广播进度补丁。
   // silent：不全量刷库，但 status/stage 变化仍同步（封面转圈 / 完成「已翻译」）。
+  // 编排总览（fetch→render→publish→schedule，状态机见 runtime-polling-state.ts）：
+  // ```
+  // fetchJob: beginPoll → fetchPayload → finishPoll → isCurrent?丢弃
+  //   → render(applySnapshot+renderJob) → publish(notifyLibrary)
+  //   → settleTerminal(stop) → schedule(副资源) → refill(合并拍补发)
+  // startPolling: stop旧轮 → startJob → 首帧render+publish → fetchJob → startTimer
+  // ```
   let sessionPublishLibrary = true;
   /** silent 下上次已推到书架的 status|stage，用于跳过同态重复 notify */
   let lastLibraryPublishKey = "";
@@ -85,6 +92,96 @@ export function mountJobRuntimeFeature({
     const status = `${job?.status || ""}`.trim();
     const stage = `${job?.display_stage || job?.stage || ""}`.trim();
     return `${job?.job_id || ""}|${status}|${stage}`;
+  }
+
+  /** 编排步骤：组占位首帧（startPolling 用，逻辑原样搬运）。 */
+  function buildPlaceholderJob(jobId: string, startedAt: string, seed: any) {
+    return seed
+      ? {
+          ...seed,
+          job_id: jobId,
+          // 重试首帧强制 running，避免仍显示「已翻译」不转圈
+          status: seed.status && seed.status !== "succeeded"
+            ? seed.status
+            : "running",
+          library_only: false,
+          created_at: seed.created_at || startedAt,
+          started_at: seed.started_at || startedAt,
+        }
+      : {
+          job_id: jobId,
+          status: "queued",
+          stage: "queued",
+          display_stage: "ocr",
+          lane: "main",
+          current_stage: "queued",
+          stage_detail: "正在读取任务状态...",
+          created_at: startedAt,
+          started_at: startedAt,
+        };
+  }
+
+  /** 编排步骤：render——读副资源缓存 + applySnapshot + renderJob。 */
+  function renderFetchedFrame(jobId: string, payload: any) {
+    const cachedEvents = secondaryResourcePort.cachedFor("events", jobId);
+    const cachedManifest = secondaryResourcePort.cachedFor("manifest", jobId);
+    const cachedStageActions = secondaryResourcePort.cachedFor("stageActions", jobId);
+    const renderContext = renderContextPort.applySnapshot({
+      payload,
+      eventsPayload: cachedEvents,
+      manifestPayload: cachedManifest,
+      stageActionsPayload: cachedStageActions,
+    });
+    // 进度主场：statusCardStore（主卡 / 详情嵌入卡共用）
+    renderJob(renderContext);
+  }
+
+  /** 编排步骤：publish——主 poll 推书架（全量/终态/状态变化才推）。 */
+  function publishFetchedJob(job: any, terminal: boolean) {
+    const publishKey = libraryPublishKeyOf(job);
+    // 全量 publish：每次 poll；silent：仅 status/stage 变化或终态（封面转圈要靠 status=running）
+    if (sessionPublishLibrary || terminal || publishKey !== lastLibraryPublishKey) {
+      lastLibraryPublishKey = publishKey;
+      notifyLibraryJobUpdated(job, { port: libraryEventPort });
+    }
+  }
+
+  /** 编排步骤：终态收尾——后置副作用 + stop；返回副资源调度代。 */
+  function settleTerminalJob(jobId: string, job: any, generation: number) {
+    const terminal = isJobTerminal(job);
+    if (terminal) {
+      if (`${job?.status || ""}`.trim().toLowerCase() === "succeeded") {
+        // Metadata enrichment is a detached post-success side effect. It must
+        // never keep polling alive or turn a completed job into a UI failure.
+        void Promise.resolve(onJobSucceeded?.(job)).catch(() => {});
+      }
+      // 终态无视 5s 节流：直发 force 刷新，不走节流的 requestLibraryRefresh。
+      libraryEventPort?.requestRefresh?.({ delay: 200, force: true });
+      clearActiveJobId(jobId);
+      pollingPort.stop();
+    }
+    // stop() 会涨 generation：终态副资源抓取必须用停之后的新代，
+    // 否则 isCurrentGeneration 校验失配，manifest 拉回来也被丢掉。
+    return {
+      terminal,
+      scheduleGeneration: terminal
+        ? Number(pollingPort.getSnapshot?.()?.generation ?? generation) || generation
+        : generation,
+    };
+  }
+
+  /** 编排步骤：schedule——副资源调度 + 合并拍补发。 */
+  function scheduleFetchedFrame(jobId: string, payload: any, scheduleGeneration: number, terminal: boolean, coalesced: boolean) {
+    secondaryResourceSchedulerPort.schedule({
+      jobId,
+      payload,
+      generation: scheduleGeneration,
+      terminal,
+    });
+    // 在途合并的拍由 finishPoll 消费，这里补发一次（终态已停轮询，不补发）。
+    if (coalesced && !terminal) {
+      void fetchJob(jobId).catch((err) => handleFetchFailure(jobId, err));
+    }
   }
 
   function handleFetchFailure(jobId: string, error: any, { recovering = false } = {}) {
@@ -127,54 +224,15 @@ export function mountJobRuntimeFeature({
     if (!pollingPort.isCurrentGeneration(jobId, generation)) {
       return;
     }
-    const cachedEvents = secondaryResourcePort.cachedFor("events", jobId);
-    const cachedManifest = secondaryResourcePort.cachedFor("manifest", jobId);
-    const cachedStageActions = secondaryResourcePort.cachedFor("stageActions", jobId);
-    const renderContext = renderContextPort.applySnapshot({
-      payload,
-      eventsPayload: cachedEvents,
-      manifestPayload: cachedManifest,
-      stageActionsPayload: cachedStageActions,
-    });
-    // 进度主场：statusCardStore（主卡 / 详情嵌入卡共用）
-    renderJob(renderContext);
+    renderFetchedFrame(jobId, payload);
     const job = normalizeJobPayload(payload);
     const terminal = isJobTerminal(job);
-    const publishKey = libraryPublishKeyOf(job);
-    // 全量 publish：每次 poll；silent：仅 status/stage 变化或终态（封面转圈要靠 status=running）
-    if (sessionPublishLibrary || terminal || publishKey !== lastLibraryPublishKey) {
-      lastLibraryPublishKey = publishKey;
-      notifyLibraryJobUpdated(job, { port: libraryEventPort });
-    }
+    publishFetchedJob(job, terminal);
     if (shellViewPort.isReaderOpen()) {
       onReaderDialogSync?.();
     }
-    if (terminal) {
-      if (`${job?.status || ""}`.trim().toLowerCase() === "succeeded") {
-        // Metadata enrichment is a detached post-success side effect. It must
-        // never keep polling alive or turn a completed job into a UI failure.
-        void Promise.resolve(onJobSucceeded?.(job)).catch(() => {});
-      }
-      // 终态无视 5s 节流：直发 force 刷新，不走节流的 requestLibraryRefresh。
-      libraryEventPort?.requestRefresh?.({ delay: 200, force: true });
-      clearActiveJobId(jobId);
-      pollingPort.stop();
-    }
-    // stop() 会涨 generation：终态副资源抓取必须用停之后的新代，
-    // 否则 isCurrentGeneration 校验失配，manifest 拉回来也被丢掉。
-    const scheduleGeneration = terminal
-      ? Number(pollingPort.getSnapshot?.()?.generation ?? generation) || generation
-      : generation;
-    secondaryResourceSchedulerPort.schedule({
-      jobId,
-      payload,
-      generation: scheduleGeneration,
-      terminal,
-    });
-    // 在途合并的拍由 finishPoll 消费，这里补发一次（终态已停轮询，不补发）。
-    if (coalesced && !terminal) {
-      void fetchJob(jobId).catch((err) => handleFetchFailure(jobId, err));
-    }
+    const { scheduleGeneration } = settleTerminalJob(jobId, job, generation);
+    scheduleFetchedFrame(jobId, payload, scheduleGeneration, terminal, coalesced);
   }
 
   /**
@@ -215,29 +273,7 @@ export function mountJobRuntimeFeature({
     const seed = options.seedPayload && typeof options.seedPayload === "object"
       ? options.seedPayload
       : null;
-    const placeholderJob = seed
-      ? {
-          ...seed,
-          job_id: jobId,
-          // 重试首帧强制 running，避免仍显示「已翻译」不转圈
-          status: seed.status && seed.status !== "succeeded"
-            ? seed.status
-            : "running",
-          library_only: false,
-          created_at: seed.created_at || startedAt,
-          started_at: seed.started_at || startedAt,
-        }
-      : {
-          job_id: jobId,
-          status: "queued",
-          stage: "queued",
-          display_stage: "ocr",
-          lane: "main",
-          current_stage: "queued",
-          stage_detail: "正在读取任务状态...",
-          created_at: startedAt,
-          started_at: startedAt,
-        };
+    const placeholderJob = buildPlaceholderJob(jobId, startedAt, seed);
     if (showWorkflow) {
       setWorkflowSections(placeholderJob);
     }
