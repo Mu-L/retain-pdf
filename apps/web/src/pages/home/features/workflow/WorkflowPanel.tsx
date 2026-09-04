@@ -11,8 +11,22 @@
 // workflow → credentials 跨域耦合),改为由 HomeApp/TranslationWorkflowDialog
 // 经 props/slot 注入(hiddenInputsSlot)。workflow 域只管渲染 slot。
 //
-// 上传前先通过分段控制器选择翻译或仅 OCR；上传完成后，动作区只呈现当前
-// 模式的主操作与“仅收藏”。这是最初上传弹窗的交互顺序。
+// 提交链路(显性化,不改行为,签名/事件名不变):
+//   [1] 表单校验(form onSubmit → handleSubmit → bridge.submitForm,3a 仅
+//       preventDefault 占位)——成功→ 进组参;失败→ 停留本框,由 InlineErrorBox
+//       展示行内错误,不发请求。
+//   [2] 组参(真机分支由 submit-flow.collectRunPayload 组装 runPayload)——
+//       成功→ 进提交;失败(缺 upload/凭证/render 源/预算拦截)→ 返回 blocked,
+//       落 error-box + 按需弹配置框,不发请求。
+//   [3] 提交(submitJobRequest)——成功→ 进接进度;失败(missing_upload)→
+//       回上传态,其余→ error-box 诊断,不关框。
+//   [4] 接进度(publishSubmitSuccess: sync 快照→ renderJob → startJobPolling)——
+//       成功→ 进关框;任一步缺回调则跳过(可选口),不抛错。
+//   [5] 关框(dispatch APP_EVENTS.closeTranslationWorkflow)——成功→
+//       runtime.close 落状态 + 解除书库刷新挂起;失败(无 document 监听)则仅
+//       丢事件,不影响已启动的轮询。
+// 本文件只负责 [1] 的入口转发:handleSubmit 成功→ bridge.submitForm 接管
+// [2]-[5];失败→ 浏览器默认提交被阻止,停留本视图。
 
 import { Languages, ScanSearch } from "lucide-react";
 import { Tabs as TabsPrimitive } from "radix-ui";
@@ -25,6 +39,12 @@ export function WorkflowPanel({ hiddenInputsSlot = null }: { hiddenInputsSlot?: 
   const services = useHomeServices();
   const workflow = useStoreSnapshot(services.stores.workflowView);
   const ocrOnly = Boolean(workflow.ocrOnly);
+
+  // [1] 表单校验入口:成功→ bridge.submitForm 接管后续组参/提交/接进度/关框;
+  // 失败→ 仅阻止默认提交,停留本框(错误由 InlineErrorBox 行内展示)。
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    services.bridge.submitForm(event);
+  }
 
   function handleModeChange(value: string) {
     const nextOcrOnly = value === "ocr";
@@ -62,7 +82,7 @@ export function WorkflowPanel({ hiddenInputsSlot = null }: { hiddenInputsSlot?: 
         id="job-form"
         className="form"
         noValidate
-        onSubmit={(event) => services.bridge.submitForm(event)}
+        onSubmit={handleSubmit}
       >
         {hiddenInputsSlot}
 

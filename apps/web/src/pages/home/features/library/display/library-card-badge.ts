@@ -1,5 +1,16 @@
 // 书架卡片右上角终态徽标。
 // 进行中（排队/OCR/翻译/渲染）不在角标写文案（易截断），改由封面中央加载动画表达。
+//
+// 决策表（status × stage → 中央转圈 / 右上角标 / 无）：
+// | status                | stage(stageKey/raw)              | 转圈 | 角标      |
+// | library_only 馆藏      | —                                | 无   | 馆藏      |
+// | failed                | failed                           | 无   | 失败      |
+// | canceled/cancelled    | canceled                         | 无   | 已取消    |
+// | queued/running/pending/processing/validating | ocr/translate/render/queued/processing/validating | 转圈 | 无（中央 loading 代替） |
+// | succeeded + OCR-only  | done                             | 无   | OCR 完成  |
+// | succeeded             | done                             | 无   | 已翻译    |
+// | succeeded + 重试脏态   | 回到 ocr/translate/render        | 转圈 | 无        |
+// | 其余未知              | —（isRecentJobActive 兜底）      | 按 active 转圈 | 无 |
 
 import type { LibraryCardBadge, LibraryCardItem } from "../types.js";
 import {
@@ -10,7 +21,8 @@ import {
 import { isOcrOnlyItem } from "./library-card-semantics.js";
 
 /**
- * @returns 终态/馆藏徽标；进行中返回 null（用中央 loading 代替）
+ * @returns 终态/馆藏徽标；进行中返回 null（用中央 loading 代替，见上表）。
+ * 判定序：馆藏 → 失败/取消 → 进行中(null) → 成功(OCR 完成/已翻译) → 运行兜底(null)。
  */
 export function libraryCardBadge(item: LibraryCardItem = {}): LibraryCardBadge | null {
   if (isLibraryOnlyItem(item)) {
@@ -84,7 +96,12 @@ export function libraryCardBadge(item: LibraryCardItem = {}): LibraryCardBadge |
   return null;
 }
 
-/** 是否应在封面中央显示处理中加载动画 */
+/**
+ * 是否应在封面中央显示处理中加载动画（见文件头决策表）。
+ * 否决序：馆藏/失败/取消 → false；OCR-only 成功 → false；
+ * 肯定序：status 运行态 → true；succeeded 但原生 stage 回退运行态（重试脏态）→ true；
+ * 收尾：stage done → false，否则按 isRecentJobActive 兜底。progress 仅驱动条长，不决定转不转。
+ */
 export function isLibraryCardProcessing(item: LibraryCardItem = {}): boolean {
   if (isLibraryOnlyItem(item)) return false;
   const RUNNING_STAGES = new Set(["ocr", "translate", "render", "queued", "processing", "validating"]);

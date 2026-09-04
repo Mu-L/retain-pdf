@@ -1,8 +1,8 @@
 // 上传工作流容器。
 //
-// 本文件只负责把 home services/store 映射为视图 props 与业务回调；上传卡、
-// 凭据/预算提示、处理方式选择均为无 services 依赖的展示组件。这样视觉调整
-// 不再直接碰 composition、DOM ref 或提交端口。
+// 本文件是唯一的 store/服务读取点：快照与派生值全部在顶部一次取齐，
+// 再以 props 往下传；展示组件只收 props 发回调，不直连 services/store。
+// 事件回调全部具名化，JSX 内不写内联箭头，保证 id/文案/disabled 语义不变。
 
 import { useCallback, type MouseEvent as ReactMouseEvent } from "react";
 
@@ -21,41 +21,72 @@ import {
 
 export function HeroUpload() {
   const services = useHomeServices();
-  const upload = useStoreSnapshot(services.stores.uploadView);
-  const workflow = useStoreSnapshot(services.stores.workflowView);
-  const credentialsView = useStoreSnapshot(services.stores.credentialsView);
 
-  const fileInputRef = useCallback((node: HTMLInputElement | null) => {
-    services.uploadDomRefs.fileInput = node;
-  }, [services]);
+  // —— 顶部一次收敛：服务句柄 ——
+  const stores = services.stores;
+  const uploadFeature = services.features.uploadFeature;
+  const storeOnlyAction = services.library.actions.storeOnly;
+  const uploadDomRefs = services.uploadDomRefs;
 
+  // —— 顶部一次收敛：store 快照 ——
+  const upload = useStoreSnapshot(stores.uploadView);
+  const workflow = useStoreSnapshot(stores.workflowView);
+  const credentialsView = useStoreSnapshot(stores.credentialsView);
+
+  // —— 顶部一次收敛：派生视图值 ——
+  const credentialGateVisible = Boolean((credentialsView as any)?.credentialGate?.show);
+
+  // —— 具名回调：回填隐藏 file input 的 DOM 引用 ——
+  const handleFileInputRef = useCallback((node: HTMLInputElement | null) => {
+    uploadDomRefs.fileInput = node;
+  }, [uploadDomRefs]);
+
+  // —— 具名回调：点击卡片空白处透传为文件选择 ——
   function handleTileClick(event: ReactMouseEvent<HTMLDivElement>) {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     if (target.closest("button") || target.closest("a") || target.closest("input")) return;
 
-    const input = services.uploadDomRefs.fileInput;
+    const input = uploadDomRefs.fileInput;
     if (input && !input.disabled) input.click();
   }
 
-  function toggleTranslationOptions() {
+  // —— 具名回调：每次点开文件框前先清空 value，保证同文件可重选 ——
+  function handleFileInputClick() {
+    if (uploadDomRefs.fileInput) uploadDomRefs.fileInput.value = "";
+  }
+
+  // —— 具名回调：文件变化后交给上传控制器处理 ——
+  function handleFileChange() {
+    void uploadFeature?.handleFileSelected();
+  }
+
+  // —— 具名回调：翻译选项弹窗开/关切换 ——
+  function handleToggleTranslationOptions() {
     if (upload.pageRangeDialogOpen) {
-      (services.stores.uploadView as unknown as UploadViewStore).actions.closePageRangeDialog();
+      (stores.uploadView as unknown as UploadViewStore).actions.closePageRangeDialog();
       return;
     }
-    services.features.uploadFeature?.openPageRangeDialog();
+    uploadFeature?.openPageRangeDialog();
+  }
+
+  // —— 具名回调：打开浏览器凭据设置 ——
+  function handleOpenSettings() {
+    document.dispatchEvent(new CustomEvent(APP_EVENTS.openBrowserCredentials));
+  }
+
+  // —— 具名回调：仅收藏，不提交任务 ——
+  function handleStoreOnly() {
+    storeOnlyAction?.();
   }
 
   return (
     <div className="upload-workflow">
       <UploadDropzone
         upload={upload}
-        uploadedPageCount={Number(upload.pageRangeMax || upload.pageRangeEnd || 0)}
-        fileInputRef={fileInputRef}
-        onFileInputClick={() => {
-          if (services.uploadDomRefs.fileInput) services.uploadDomRefs.fileInput.value = "";
-        }}
-        onFileChange={() => void services.features.uploadFeature?.handleFileSelected()}
+        fileInputRef={handleFileInputRef}
+        onFileInputClick={handleFileInputClick}
+        onFileChange={handleFileChange}
         onTileClick={handleTileClick}
         budgetSlot={(
           <UploadBudgetSlot>
@@ -65,8 +96,8 @@ export function HeroUpload() {
       />
 
       <CredentialGateNotice
-        visible={Boolean((credentialsView as any)?.credentialGate?.show)}
-        onOpenSettings={() => document.dispatchEvent(new CustomEvent(APP_EVENTS.openBrowserCredentials))}
+        visible={credentialGateVisible}
+        onOpenSettings={handleOpenSettings}
       />
 
       <ProcessingChoicePanel
@@ -78,8 +109,8 @@ export function HeroUpload() {
         ocrOnly={workflow.ocrOnly}
         pageRangeButtonVisible={workflow.pageRangeButtonVisible}
         pageRangeOpen={upload.pageRangeDialogOpen}
-        onToggleTranslationOptions={toggleTranslationOptions}
-        onStoreOnly={() => services.library.actions.storeOnly?.()}
+        onToggleTranslationOptions={handleToggleTranslationOptions}
+        onStoreOnly={handleStoreOnly}
         translationOptionsSlot={<TranslationOptionsPanel />}
       />
     </div>

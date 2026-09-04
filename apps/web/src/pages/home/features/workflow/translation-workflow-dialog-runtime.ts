@@ -17,7 +17,14 @@ import type { TranslationWorkflowDialogStatePort } from "../../composition/exter
 //   APP_EVENTS.openTranslationWorkflow / closeTranslationWorkflow,再由本
 //   runtime 的 document 监听统一落状态——3b recent-jobs 的库刷新挂起/恢复
 //   (bindings.js)与 app-actions 提交流程都依赖这两个事件在 document 上可见。
-  // - statusAreaVisibilityChanged → 同步模式。
+// 三回调职责(签名/事件名不变,只做状态落地,不发新事件):
+// - open:由 APP_EVENTS.openTranslationWorkflow 触发,成功→ 落 store.open+
+//   同步 DOM data-open,失败(无 port)则空转,事件已消费不再重抛。
+// - close:由 APP_EVENTS.closeTranslationWorkflow / Escape 触发,成功→ 落
+//   store.close + 同步 DOM data-open=closed 并解除书库刷新挂起;失败→ 保持原
+//   开合态,后台轮询不受影响。
+// - sync:由 APP_EVENTS.statusAreaVisibilityChanged 触发,成功→ 按
+//   statusArea 可见性重算 mode;失败(无 port)→ 保持原 mode,不开关对话框。
 
 export interface TranslationWorkflowStatusAreaPort {
   isVisible?: () => boolean;
@@ -83,6 +90,8 @@ export function createTranslationWorkflowDialogRuntime({
   }
 
   // ---- 状态落地(document 监听调用;镜像旧 controller 的 openUpload/openFromEvent/close/sync) ----
+  // open 职责:上传入口,成功→ 切 UPLOAD 态 + 复位上传会话 + 点亮 DOM data-open;
+  // 失败→ 停留原态,不抛错(调用方 requestOpenUpload 只发事件,不直接改状态)。
 
   function openUpload() {
     statusAreaPort?.hide?.();
@@ -92,6 +101,8 @@ export function createTranslationWorkflowDialogRuntime({
   }
 
   function openFromEvent(event: OpenTranslationWorkflowEventLike = {} as OpenTranslationWorkflowEventLike) {
+    // open 分发:无 mode/UPLOAD→ openUpload;STATUS→ resolveMode 落对应态。
+    // 成功→ data-open 同步;失败→ 保持原态。
     const detail = (event as { detail?: OpenTranslationWorkflowEventDetail })?.detail;
     const mode = detail?.mode;
     if (!mode || mode === TRANSLATION_WORKFLOW_MODES.UPLOAD) {
@@ -103,11 +114,15 @@ export function createTranslationWorkflowDialogRuntime({
   }
 
   function close() {
+    // close 职责:成功→ store.close + DOM data-open=closed(同拍写,消 React 异步
+    // 提交竞态,让 bindings.js 读 DOM 解除书库刷新挂起);失败→ 原态保持,轮询照旧。
     dialogStatePort.close();
     syncOpenAttributeToDom(false);
   }
 
   function sync() {
+    // sync 职责:成功→ 按 statusArea 可见性 setMode(STATUS/UPLOAD),不开关对话框;
+    // 失败→ 保持原 mode。
     dialogStatePort.setMode(resolveMode());
   }
 

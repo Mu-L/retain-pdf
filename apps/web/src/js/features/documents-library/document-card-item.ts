@@ -51,10 +51,19 @@ function pickCardTitle(bookTitle, document, jobId) {
 // document + 可选的 active-job 投影 → 一张网格卡片 item。
 // 命中时以 job 活态为主，叠加文档身份；缺失时保留 active_job_id，
 // 等待后续轮询/恢复。
+//
+// job/document 身份规则:
+// - 文档身份(document_id/reading_status/tags/source_pdf_url/bytes/added_at/
+//   last_opened_at)恒由 document 侧提供,三分支共享(sharedDocumentIdentity);
+// - job 身份(job_id/active_job_id/library_only):有投影取投影 job_id(回落
+//   activeJobId);投影未命中保留真实 activeJobId(library_only=false,等轮询);
+//   无 active_job_id 则合成 `doc:<document_id>`(library_only=true),只为穿过
+//   按 job_id 键控的 store/去重,不被解析;
+// - 封面/标题:job 活态优先、文档兜底;book 占位标题(job_id/Mock)改用文档真名。
 export function shapeDocumentCardItem(document: any = {}, jobProjection = null) {
   const documentId = `${document.document_id || ""}`.trim();
   const activeJobId = `${document.active_job_id || ""}`.trim();
-  const sharedDocFields = {
+  const sharedDocumentIdentity = {
     document_id: documentId,
     reading_status: document.reading_status || "",
     tags: Array.isArray(document.tags) ? document.tags : [],
@@ -65,23 +74,23 @@ export function shapeDocumentCardItem(document: any = {}, jobProjection = null) 
   };
 
   if (activeJobId && jobProjection && typeof jobProjection === "object") {
-    const flattened = flattenStageSnapshot(jobProjection);
-    const jobId = `${flattened.job_id || jobProjection.job_id || activeJobId}`.trim();
+    const flattenedJobProjection = flattenStageSnapshot(jobProjection);
+    const jobId = `${flattenedJobProjection.job_id || jobProjection.job_id || activeJobId}`.trim();
     return {
-      ...flattened,
-      ...sharedDocFields,
+      ...flattenedJobProjection,
+      ...sharedDocumentIdentity,
       job_id: jobId,
       active_job_id: activeJobId,
       library_only: false,
       // 封面/页数：book 活态优先、文档级兜底（与现网格视觉一致）；
       // 标题：禁止 book 用 job_id.pdf 盖掉真书名
-      cover_url: firstUrl(flattened.cover_url, jobProjection.cover_url, document.cover_url),
-      thumbnail_url: firstUrl(flattened.thumbnail_url, jobProjection.thumbnail_url, document.thumbnail_url),
-      page_count: document.page_count || flattened.page_count || 0,
-      updated_at: flattened.updated_at || document.updated_at || "",
-      title: pickCardTitle(flattened.title || jobProjection.title, document, jobId),
+      cover_url: firstUrl(flattenedJobProjection.cover_url, jobProjection.cover_url, document.cover_url),
+      thumbnail_url: firstUrl(flattenedJobProjection.thumbnail_url, jobProjection.thumbnail_url, document.thumbnail_url),
+      page_count: document.page_count || flattenedJobProjection.page_count || 0,
+      updated_at: flattenedJobProjection.updated_at || document.updated_at || "",
+      title: pickCardTitle(flattenedJobProjection.title || jobProjection.title, document, jobId),
       display_name: pickCardTitle(
-        flattened.display_name || flattened.title || jobProjection.display_name || jobProjection.title,
+        flattenedJobProjection.display_name || flattenedJobProjection.title || jobProjection.display_name || jobProjection.title,
         document,
         jobId,
       ),
@@ -92,7 +101,7 @@ export function shapeDocumentCardItem(document: any = {}, jobProjection = null) 
     // 有 active_job_id 但所有投影都未命中(少见边角:job 刚建/被清)。保留真实
     // job_id 让轮询/对照阅读仍可用,但没有成品活态,按未完成处理(reader 禁用)。
     return {
-      ...sharedDocFields,
+      ...sharedDocumentIdentity,
       job_id: activeJobId,
       active_job_id: activeJobId,
       library_only: false,
@@ -109,7 +118,7 @@ export function shapeDocumentCardItem(document: any = {}, jobProjection = null) 
 
   // 馆藏态(未翻译):合成 job_id 让它穿过按 job_id 键控的引擎;library_only 打标。
   return {
-    ...sharedDocFields,
+    ...sharedDocumentIdentity,
     job_id: syntheticLibraryJobId(documentId),
     active_job_id: "",
     library_only: true,

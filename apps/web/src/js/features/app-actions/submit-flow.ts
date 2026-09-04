@@ -6,6 +6,13 @@ import {
 } from "../../contracts/submit-readiness-contract.js";
 import { APP_EVENTS } from "../../contracts/app-contract.js";
 
+// 提交链路总览(显性化,不改行为;签名与事件名不变):
+//   表单校验(WorkflowPanel.handleSubmit)→ 组参(collectRunPayload)→
+//   提交(submitJobRequest)→ 接进度(sync 快照/renderJob/startJobPolling)→
+//   关框(dispatch APP_EVENTS.closeTranslationWorkflow)。
+// 每步成功→ 下一步;失败→ 返回对应 status 并停留,不继续向下走,详见 runSubmitFlow 内联。
+// 分支: [MOCK] 直通提交(不做校验/预算/凭证); [真机] 全链路校验后提交。
+
 export const DEEPSEEK_BALANCE_CHECK_TIMEOUT_MS = 12000;
 
 /** DeepSeek 余额/预算快照（workflow budget 侧）。 */
@@ -322,6 +329,9 @@ export function publishSubmitSuccess({
   windowRef = globalThis.window,
   now = () => new Date().toISOString(),
 }: PublishSubmitSuccessOptions = {}) {
+  // 接进度→关框(成功链,顺序不可换):publish 创建事件→ sync 快照→ renderJob→
+  // startJobPolling→ dispatch close→ 800ms 兜底 soft refresh→ 5s 强制对账刷新。
+  // 成功→ 下一步;任一可选口缺失→ 跳过该步继续,不抛错;close 无监听→ 仅丢事件。
   // 创建事件已 insert+hydrate；不再 200/1500/4000 三次 force 整页刷（叠乘闪烁）
   libraryEventPort?.publishJobCreated?.(payload);
   const job = asJobPayload(payload);
@@ -384,6 +394,8 @@ export async function runSubmitFlow({
   windowRef,
   now,
 }: RunSubmitFlowOptions = {}) {
+  // ---- 分支[MOCK]:不做表单校验/组参/预算/凭证,成功→ publishSubmitSuccess→
+  // submitted;失败(抛错)→ 上抛由调用方处理,不落 error-box,不关框。 ----
   if (configPort?.isMock?.()) {
     setText("error-box", "-");
     const payload = await submitJobRequest(apiPrefix, { workflow, source: {}, mock: true });
@@ -401,6 +413,8 @@ export async function runSubmitFlow({
     return { status: "submitted", payload, mock: true };
   }
 
+  // ---- 分支[真机]:表单校验→组参→提交→接进度→关框 ----
+  // [1] 表单校验(readiness):成功→ 下一步;失败→ blocked + error-box/弹框,不发请求。
   const readiness = currentSubmitReadiness({
     workflow,
     configPort,
@@ -423,9 +437,11 @@ export async function runSubmitFlow({
     });
     return { status: "blocked", readiness };
   }
+  // [2] 页码校验:成功→ 下一步;失败→ invalid_page_ranges,不发请求。
   if (!validateBeforeSubmit?.()) {
     return { status: "invalid_page_ranges" };
   }
+  // [3] 预算/余额:成功→ 下一步;失败→ budget_not_ready + error-box,不发请求。
   if (!(await ensureDeepSeekBudgetReady({
     workflow,
     workflowNeedsUpload,
@@ -435,6 +451,7 @@ export async function runSubmitFlow({
   }))) {
     return { status: "budget_not_ready" };
   }
+  // [4] OCR 凭证:成功→ 下一步;失败→ ocr_credentials_not_ready + error-box/弹框,不发请求。
   if (!(await ensureOcrCredentialsForSubmit({
     workflow,
     desktopMode,
@@ -448,6 +465,8 @@ export async function runSubmitFlow({
 
   setText("error-box", "-");
 
+  // [5] 组参+提交:成功→ publishSubmitSuccess(接进度→关框)→ submitted;
+  // 失败(missing_upload)→ missing_upload 回上传态;其余→ error + error-box 诊断,不关框。
   try {
     const runPayload = collectRunPayload?.();
     const payload = await submitJobRequest(apiPrefix, runPayload);

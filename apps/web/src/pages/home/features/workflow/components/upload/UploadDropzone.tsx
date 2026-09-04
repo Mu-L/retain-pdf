@@ -6,7 +6,6 @@ import type { UploadViewState } from "../../stores/upload-store.js";
 
 type UploadDropzoneProps = {
   upload: UploadViewState;
-  uploadedPageCount: number;
   fileInputRef: RefCallback<HTMLInputElement>;
   onFileInputClick: () => void;
   onFileChange: ChangeEventHandler<HTMLInputElement>;

@@ -43,7 +43,14 @@ function formatCardDate(value: string | null | undefined) {
   }).format(parsed);
 }
 
-/** memo / 列表行共用：item 展示签名（进度与标题变了才重渲）。 */
+/**
+ * memo / 列表行共用：item 展示签名（命中才重渲）。
+ * 身份：job_id/document_id/workflow/job_type/library_only/reading_status —— 决定点卡进详情还是切选中态。
+ * 时间：updated_at —— 卡片副标题日期。
+ * 状态三件套：status（后端终态 succeeded/failed/canceled/running…）/ stage（列表投影原生 stage，live.rs 无 display_stage）/ display_stage（轮询·lane 合并后的公开阶段）/ substage（阶段内细分）。
+ * 进度：progress.*（顶层）+ runtime_status.progress.*（轮询快照）—— 驱动中央 loading 与底部进度条。
+ * 展示：title/display_name/page_count/cover_url/thumbnail_url/stage_detail/runtime_status.detail —— 标题·页数·封面·副文案。
+ */
 export function cardSignatureOf(item: LibraryCardItem = {}) {
   const progress = item.progress && typeof item.progress === "object" ? item.progress : {};
   const runtimeProgress =
@@ -179,6 +186,10 @@ export function BookCardActionButton({
   );
 }
 
+/**
+ * memo 比较：回调引用比对（onSelect/onOpenDetail/…）+ actions 指纹比对（id/label/disabled，不比 onClick 闭包）
+ * + item 展示签名比对；签名命中即跳过重渲，行为不变。
+ */
 function areBookCardPropsEqual(prev: BookCardProps, next: BookCardProps) {
   return (
     prev.onSelect === next.onSelect &&

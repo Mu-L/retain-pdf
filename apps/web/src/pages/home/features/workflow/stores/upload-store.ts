@@ -145,11 +145,13 @@ export function createUploadViewStore(): UploadViewStore {
       credentialGateVisible: false,
     },
     actions: {
+      // 管卡片锁定态：上传中/禁用时锁住点击，只改 tileLocked + tileEnabled。
       setTileLocked(currentState, options = {}) {
         const locked = Boolean(options.locked);
         const enabled = options.enabled ?? !locked;
         return { ...currentState, tileLocked: locked, tileEnabled: Boolean(enabled) };
       },
+      // 管卡片文案：文件名/帮助/状态三行文本及其显隐，只写 label/help/status 系字段。
       setTileText(currentState, options = {}) {
         const {
           label = "",
@@ -177,6 +179,7 @@ export function createUploadViewStore(): UploadViewStore {
         next.statusVisible = Boolean(statusVisible ?? Boolean(status));
         return { ...currentState, ...next };
       },
+      // 管就绪态：标记文件已可提交；置 ready 时顺手清掉进度条残留。
       setTileReady(currentState, ready = false) {
         const isReady = Boolean(ready);
         return {
@@ -188,9 +191,11 @@ export function createUploadViewStore(): UploadViewStore {
             : {}),
         };
       },
+      // 管处理方式区显隐：文件就绪后露出 OCR/翻译/仅收藏按钮组。
       setActionSlotVisible(currentState, visible = false) {
         return { ...currentState, actionSlotVisible: Boolean(visible) };
       },
+      // 管上传进度：写进度条百分比+文案，同时切到 uploading、收起处理方式区。
       setProgress(currentState, payload = {}) {
         const percent = Number(payload.percent ?? 0);
         const text = `${payload.text ?? "上传中"}`;
@@ -204,6 +209,7 @@ export function createUploadViewStore(): UploadViewStore {
           progressText: text,
         };
       },
+      // 管进度复位：隐藏进度条并清 uploading，保留文件名与页码。
       resetProgress(currentState) {
         return {
           ...currentState,
@@ -213,6 +219,7 @@ export function createUploadViewStore(): UploadViewStore {
           progressText: "上传中",
         };
       },
+      // 管文件视图复位：回到“未上传文件”空态，文件名回默认、收起处理方式区。
       resetUploadedFileView(currentState) {
         return {
           ...currentState,
@@ -229,15 +236,18 @@ export function createUploadViewStore(): UploadViewStore {
           labelVisible: true,
         };
       },
+      // 管页码清空：对话框重开/空表单时清 start/end，不碰弹窗开关。
       clearPageRanges(currentState) {
         return { ...currentState, pageRangeStart: "", pageRangeEnd: "" };
       },
+      // 管页码写入：按需更新 start/end 单侧，输入统一转字符串。
       setPageRange(currentState, payload = {}) {
         const next: Partial<UploadViewState> = { ...currentState };
         if (payload.start !== undefined) next.pageRangeStart = `${payload.start}`;
         if (payload.end !== undefined) next.pageRangeEnd = `${payload.end}`;
         return next as UploadViewState;
       },
+      // 管选项弹窗打开：立起 pageRangeDialogOpen 并记录最大页数供校验。
       openPageRangeDialog(currentState, options = {}) {
         const maxPage = Number(options.maxPage ?? 0);
         return {
@@ -246,9 +256,11 @@ export function createUploadViewStore(): UploadViewStore {
           pageRangeMax: maxPage > 0 ? Math.floor(maxPage) : 0,
         };
       },
+      // 管选项弹窗关闭：只落开关，保留已填页码以便下次回显。
       closePageRangeDialog(currentState) {
         return { ...currentState, pageRangeDialogOpen: false };
       },
+      // 管内联页码区显隐：旧内联表单开关，新 UI 默认关闭。
       setInlinePageRangeVisible(currentState, visible = false) {
         return { ...currentState, inlinePageRangeVisible: Boolean(visible) };
       },

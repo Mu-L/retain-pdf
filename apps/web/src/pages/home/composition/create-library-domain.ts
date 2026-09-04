@@ -1,4 +1,9 @@
 // recent-jobs ports + library controller + collections。
+//
+// 域装配显性化:本函数只做装配,不写业务——
+// ports(状态/视图/资源/运行时/阅读器/导航/actions)→
+// libraryController(唯一业务入口)→ collections(独立域,并行返回)。
+// 业务前置条件见 features/library/domain/controller.ts 各方法注释。
 
 import { API_PREFIX } from "./external/config.js";
 import { APP_EVENTS, createStore } from "./external/state.js";
@@ -76,6 +81,7 @@ type CreateLibraryDomainArgs = {
 };
 
 export function createLibraryDomain({ features, documentRef, statusArea }: CreateLibraryDomainArgs) {
+  // 装配顺序:事件/状态/视图 → 文档资源 → 运行时/阅读器/导航 → actions → controller。
   const libraryEventPort = createRecentJobsLibraryRefreshPort({ target: documentRef });
   const recentJobsStatePort = createRecentJobsStatePort();
   const recentJobsViewPort = createRecentJobsReactViewPort() as RecentJobsReactViewPort;
@@ -141,6 +147,7 @@ export function createLibraryDomain({ features, documentRef, statusArea }: Creat
     statePort: recentJobsStatePort,
   }) as RecentJobActions;
 
+  // libraryController 装配:网格乐观写直连 statePort,重载/删除 delegations 经 features/actions。
   const libraryController = createLibraryController({
     documentRef,
     libraryEventPort,
@@ -148,24 +155,24 @@ export function createLibraryDomain({ features, documentRef, statusArea }: Creat
       await features.recentJobsFeature.loadRecentJobs(opts);
     },
     removeLibraryDocuments: (documentIds: string[]) => {
-      const idSet = new Set((documentIds || []).map((id) => `${id || ""}`.trim()).filter(Boolean));
-      if (!idSet.size) {
+      const selectedDocumentIdSet = new Set((documentIds || []).map((id) => `${id || ""}`.trim()).filter(Boolean));
+      if (!selectedDocumentIdSet.size) {
         return;
       }
       const { items } = recentJobsStatePort.getSnapshot();
       recentJobsStatePort.setItems(
-        items.filter((item) => !idSet.has(`${item?.document_id || ""}`.trim())),
+        items.filter((item) => !selectedDocumentIdSet.has(`${item?.document_id || ""}`.trim())),
       );
     },
     patchLibraryDocumentItem: (documentId: string, patch) => {
-      const id = `${documentId || ""}`.trim();
-      if (!id || !patch || typeof patch !== "object") {
+      const targetDocumentId = `${documentId || ""}`.trim();
+      if (!targetDocumentId || !patch || typeof patch !== "object") {
         return;
       }
       const { items } = recentJobsStatePort.getSnapshot();
       recentJobsStatePort.setItems(
         items.map((item) => (
-          `${item?.document_id || ""}`.trim() === id ? { ...item, ...patch } : item
+          `${item?.document_id || ""}`.trim() === targetDocumentId ? { ...item, ...patch } : item
         )),
       );
     },

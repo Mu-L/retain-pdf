@@ -54,6 +54,10 @@ function IconCheck(props) {
   );
 }
 
+/**
+ * memo 比较：与 BookCard 同策略——回调引用比对 + item 展示签名（cardSignatureOf）比对；
+ * 行无 actions（仅固定眼睛钮），故不比 actions。
+ */
 function areEqual(prev: BookListRowProps, next: BookListRowProps) {
   return prev.onOpenDetail === next.onOpenDetail
     && prev.onReader === next.onReader

@@ -22,6 +22,13 @@ function normalizedJobId(value) {
 // OCR-only，因此仅对未命中的 active job 做 best-effort 回填。
 // 返回:与 documents 等长、同序的卡片 item 数组(已翻译叠加 book 活态,馆藏走
 // 合成 job_id)。
+//
+// 投影合并规则(逐篇,见 shapeDocumentCardItem 三分支):
+// 1) active_job_id 缺失 → 投影传 null,卡片走馆藏分支(`doc:<document_id>` 合成
+//    job_id,library_only=true),不查 book/不回填;
+// 2) 投影未命中 → library/books 无行时用 fetchJobPayload 按 job 逐个 best-effort
+//    回填(吞错留空),仍保留真实 job_id 等轮询接管,不降级成馆藏合成 id;
+// 3) 馆藏合成 id → 仅由下游 shapeDocumentCardItem 在分支 1) 内生成,本函数不造 id。
 export async function shapeDocumentsWithBooks(
   documents,
   { fetchLibraryBookList, fetchJobPayload, apiPrefix }: any = {},
@@ -31,20 +38,21 @@ export async function shapeDocumentsWithBooks(
     docs.map((doc) => normalizedJobId(doc?.active_job_id)).filter(Boolean),
   ));
 
-  const projectionMap = new Map();
+  // job_id → book 活态 / job 回填投影;缺 key 即"投影未命中",不抛错。
+  const jobProjectionById = new Map();
   if (jobIds.length && typeof fetchLibraryBookList === "function") {
     const payload = await fetchLibraryBookList(apiPrefix, { jobIds, limit: jobIds.length });
     for (const book of (Array.isArray(payload?.items) ? payload.items : [])) {
       const id = normalizedJobId(book?.job_id);
       if (id) {
-        projectionMap.set(id, book);
+        jobProjectionById.set(id, book);
       }
     }
   }
 
   if (typeof fetchJobPayload === "function") {
-    const missingJobIds = jobIds.filter((jobId) => !projectionMap.has(jobId));
-    const fallbacks = await Promise.all(missingJobIds.map(async (jobId) => {
+    const unprojectedJobIds = jobIds.filter((jobId) => !jobProjectionById.has(jobId));
+    const fallbackProjections = await Promise.all(unprojectedJobIds.map(async (jobId) => {
       try {
         const payload = await fetchJobPayload(jobId, { apiPrefix });
         return payload && typeof payload === "object" ? [jobId, payload] : null;
@@ -52,15 +60,15 @@ export async function shapeDocumentsWithBooks(
         return null;
       }
     }));
-    for (const fallback of fallbacks) {
+    for (const fallback of fallbackProjections) {
       if (fallback) {
-        projectionMap.set(fallback[0], fallback[1]);
+        jobProjectionById.set(fallback[0], fallback[1]);
       }
     }
   }
 
   return docs.map((doc) => {
     const activeJobId = normalizedJobId(doc?.active_job_id);
-    return shapeDocumentCardItem(doc, activeJobId ? projectionMap.get(activeJobId) || null : null);
+    return shapeDocumentCardItem(doc, activeJobId ? jobProjectionById.get(activeJobId) || null : null);
   });
 }
