@@ -135,7 +135,7 @@
 
 - 主翻译链：
   `workflow/translation_workflow.py`
-  -> `services.translation.llm.translate_batch`
+  -> `translate.llm.translate_batch`
   -> `shared/orchestration/retrying_translator.py`
   -> `shared/orchestration/single_item_flow.py`
   -> `providers/deepseek/translation_client.py`

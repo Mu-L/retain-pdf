@@ -5,7 +5,7 @@
 渲染前 PDF 预处理层。目前只保留通用 PDF 预处理能力，例如隐藏文本层剥离、
 公式 redaction 回贴和 XObject 清理。
 
-bbox text strip 已迁移到 `services.rendering.source_cleanup`。不要在本目录
+bbox text strip 已迁移到 `render.source_cleanup`。不要在本目录
 重新增加 bbox strip 规划、命中判断或 content stream 改写逻辑。
 
 ## 对外入口
@@ -27,5 +27,5 @@ bbox text strip 已迁移到 `services.rendering.source_cleanup`。不要在本�
 - 不做最终 redaction。
 - 不生成 Typst。
 - 不修改翻译 payload。
-- 不新增 bbox text strip 规则；规则应先进 `services.rendering.policy` 或
-  `services.rendering.source_cleanup` 对应层。
+- 不新增 bbox text strip 规则；规则应先进 `render.policy` 或
+  `render.source_cleanup` 对应层。

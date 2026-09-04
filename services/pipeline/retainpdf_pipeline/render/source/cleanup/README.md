@@ -10,8 +10,8 @@ workflow 编排。
 
 外部优先使用 source 层 facade：
 
-- `services.rendering.source.redaction.redact_source_text_areas`
-- `services.rendering.source.redaction.redact_translated_text_areas`
+- `render.source.redaction.redact_source_text_areas`
+- `render.source.redaction.redact_translated_text_areas`
 
 cleanup 子包内部的稳定入口：
 

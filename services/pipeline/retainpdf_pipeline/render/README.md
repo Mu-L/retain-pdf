@@ -1,6 +1,6 @@
 # Rendering 说明
 
-`scripts/services/rendering` 负责把已经翻译好的页面数据变成最终 PDF。
+`scripts/render` 负责把已经翻译好的页面数据变成最终 PDF。
 
 这里不负责翻译，也不负责 OCR 解析，只负责“怎么渲染、怎么排版、怎么输出”。
 
@@ -33,7 +33,7 @@ Rendering 阶段的正式输入和输出固定为：
 ## 当前目录结构
 
 ```text
-scripts/services/rendering/
+scripts/render/
   __init__.py
   README.md
   legacy/          旧调用方兼容入口；新逻辑不要放这里
@@ -236,7 +236,7 @@ python3 services/pipeline/devtools/run_golden_flow.py \
 ## 推荐入口
 
 - [render_stage.py](../../runtime/pipeline/render_stage.py)
-- [services/rendering/workflow](workflow)
+- [render/workflow](workflow)
 
 ## 公式回归
 

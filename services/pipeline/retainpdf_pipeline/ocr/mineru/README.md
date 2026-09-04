@@ -4,9 +4,9 @@
 
 如果你现在关注的是“外部 OCR API 应该如何独立抽象，而不是耦合到当前工作流里”，先读：
 
-- `services/pipeline/retainpdf_pipeline/services/ocr_provider/README.md`
+- `services/pipeline/retainpdf_pipeline/ocr/ocr_provider/README.md`
 
-`services/mineru/` 只是 MinerU 这个 provider 的具体实现。
+`ocr/mineru/` 只是 MinerU 这个 provider 的具体实现。
 
 ## 作用边界
 
@@ -73,9 +73,9 @@
 注意：
 
 - 主线 `pipeline_summary.json`、stdout labels、source-json 选择规则都已经收口到 `services/pipeline_shared/`
-- `services/mineru/` 不再承担任何共享规范壳
+- `ocr/mineru/` 不再承担任何共享规范壳
 
-现在这条链路已经通过 `services/document_schema/adapters.py` 暴露为统一 adapter，
+现在这条链路已经通过 `ocr/document_schema/adapters.py` 暴露为统一 adapter，
 也就是 MinerU 不再直接把自己的原始结构泄漏到翻译主线。
 
 ## 与主流程的关系
@@ -88,7 +88,7 @@
 4. 把原始 PDF 复制到 `source`
 5. 把解析结果放到 `ocr/unpacked`
 6. 同时生成 `ocr/normalized/document.v1.json`
-7. 后续由 `runtime/pipeline` 调 `services/translation` 和 `services/rendering` 完成剩余流程
+7. 后续由 `runtime/pipeline` 调 `translate` 和 `render` 完成剩余流程
 
 当前 `pipeline_summary.json` 里还会写入一份 `schema_validation`，用于快速确认
 规范化文档是否满足当前 `document.v1` 契约；同时会带上 `normalization_report`

@@ -35,6 +35,6 @@
 ## 对外接口
 
 ```python
-from services.translation.services.continuation import annotate_continuation_context
-from services.translation.services.continuation import candidate_continuation_pairs
+from translate.services.continuation import annotate_continuation_context
+from translate.services.continuation import candidate_continuation_pairs
 ```

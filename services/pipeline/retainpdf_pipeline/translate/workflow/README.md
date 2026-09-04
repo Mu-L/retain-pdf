@@ -1,6 +1,6 @@
 # 翻译 Workflow 边界
 
-`services.translation.workflow` 是全书翻译的编排层。
+`translate.workflow` 是全书翻译的编排层。
 它负责把稳定协议、策略/上下文准备、LLM 执行、结果回填、落盘、诊断和事件串起来，
 但不应该让某一个文件同时承担所有职责。
 

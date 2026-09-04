@@ -1,6 +1,6 @@
 # Inline Content Rendering 说明
 
-`services/rendering/layout/inline_content/` 负责一件事：
+`render/layout/inline_content/` 负责一件事：
 
 把“带公式、Markdown、Typst inline 内容的翻译文本”整理成排版阶段可用的文本形态。
 
@@ -165,12 +165,12 @@ layout/inline_content/
 
 外部模块通常只应该依赖这些稳定口：
 
-- `services.rendering.layout.inline_content.mode_router`
-- `services.rendering.layout.inline_content.core.markdown`
-- `services.rendering.layout.inline_content.core.inline_math`
-- `services.rendering.layout.inline_content.fallback.placeholder_markdown`
-- `services.rendering.layout.inline_content.fallback.latex_normalizer`
-- `services.rendering.layout.inline_content.fallback.png_renderer`
+- `render.layout.inline_content.mode_router`
+- `render.layout.inline_content.core.markdown`
+- `render.layout.inline_content.core.inline_math`
+- `render.layout.inline_content.fallback.placeholder_markdown`
+- `render.layout.inline_content.fallback.latex_normalizer`
+- `render.layout.inline_content.fallback.png_renderer`
 
 不要再引用已经删除的历史路径，比如：
 

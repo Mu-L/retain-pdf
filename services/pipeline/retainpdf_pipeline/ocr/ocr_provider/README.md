@@ -36,7 +36,7 @@
    - 它不应该决定翻译模式、渲染模式、字体、公式保护、块策略
 
 3. raw -> normalized 必须显式经过 adapter
-   - 任何 provider 返回结果，先进入 `services/document_schema/adapters.py`
+   - 任何 provider 返回结果，先进入 `ocr/document_schema/adapters.py`
    - 不能直接让 `translation/ocr`、`rendering/` 去理解 provider JSON
 
 4. provider 能力是可变的，统一 schema 才是稳定契约
@@ -136,30 +136,30 @@ provider 层产物一旦落盘，下一步只做一件事：
 
 当前代码里可以按下面理解：
 
-- `services/ocr_provider/provider_pipeline.py`
+- `ocr/ocr_provider/provider_pipeline.py`
   这是 provider-backed 全流程稳定入口；脚本、测试、兼容 patch 点都以它为边界
-- `services/ocr_provider/paddle_api.py`
+- `ocr/ocr_provider/paddle_api.py`
   这是 Paddle transport / polling / result download
-- `services/ocr_provider/paddle_markdown.py`
+- `ocr/ocr_provider/paddle_markdown.py`
   这是 Paddle Markdown 和图片产物落盘
-- `services/ocr_provider/paddle_normalize.py`
+- `ocr/ocr_provider/paddle_normalize.py`
   这是 Paddle normalized document 几何修正等纯实现
-- `services/mineru/`
+- `ocr/mineru/`
   这是 MinerU provider 的具体实现，不是“OCR 总入口”
-- `services/document_schema/`
+- `ocr/document_schema/`
   这是 OCR 统一契约层
 - `runtime/pipeline/`
   这是业务编排层
 
 后续如果接别的 OCR API，建议演进成下面的关系：
 
-- `services/ocr_provider/`
+- `ocr/ocr_provider/`
   只放 provider 接入规范与共享抽象
-- `services/mineru/`
+- `ocr/mineru/`
   作为 `ocr_provider` 的一个具体实现
 - `services/<other_ocr>/`
   其他 provider 的具体实现
-- `services/document_schema/`
+- `ocr/document_schema/`
   继续作为统一 normalized contract
 
 也就是说：
@@ -271,7 +271,7 @@ CLI 原始 JSON、stdout/stderr 与 `--save_resources` 下载内容保存在
 
 ## 当前建议
 
-短期内不要把 `services/mineru/` 继续扩成“默认 OCR 平台层”。
+短期内不要把 `ocr/mineru/` 继续扩成“默认 OCR 平台层”。
 
 更稳的做法是：
 
@@ -292,12 +292,12 @@ CLI 原始 JSON、stdout/stderr 与 `--save_resources` 下载内容保存在
 - Rust API 侧 provider transport 由 `services/api/crates/retain-jobs/src/job_runner/ocr_flow/provider_transport.rs` 分发，新增内置 provider 时先注册 transport handler
 - 新增的纯实现优先下沉到独立模块，不直接堆回 `provider_pipeline.py`
 - 如果测试需要 monkeypatch，patch 点应保留在 `provider_pipeline.py`
-- `services/ocr_provider/__init__.py` 必须显式导出 `provider_pipeline`
+- `ocr/ocr_provider/__init__.py` 必须显式导出 `provider_pipeline`
 - `paddle_api.py` 不处理 normalized schema
 - `paddle_markdown.py` 只处理 Markdown/图片产物，不碰翻译和渲染
 - `paddle_normalize.py` 只处理 normalized document 和几何修正，不碰 provider transport
 - `local_command_driver.py` 是本地 OCR 模型的最小接入口；它不关心模型实现，只校验落盘契约
-- `services/document_schema/adapters.py` 只做 adapter registry，不直接 import `services/mineru/*`；MinerU 走 `services/document_schema/provider_adapters/mineru/`
+- `ocr/document_schema/adapters.py` 只做 adapter registry，不直接 import `ocr/mineru/*`；MinerU 走 `ocr/document_schema/provider_adapters/mineru/`
 - Paddle 默认模型和 alias 配在 `services/config/ocr_providers.json`；历史开发环境的 `backend/config` symlink 不属于当前仓库，不要在 Python/Rust 里硬编码版本号
 
 这些约束已经进入：
@@ -356,10 +356,10 @@ RETAIN_OCR_RAW_PROVIDER
 如果本地 OCR 只能输出自定义 raw JSON，而不能直接输出 `document.v1.json`，推荐走 raw artifact 模式：
 
 1. 先把 raw JSON 稳定落到 `RETAIN_OCR_RAW_PAYLOAD_JSON`
-2. 在 `services/document_schema/provider_adapters/` 下新增 adapter
+2. 在 `ocr/document_schema/provider_adapters/` 下新增 adapter
 3. adapter 产出 `document.v1.json`
 4. 通过 `RETAIN_OCR_RAW_PROVIDER` 指定 adapter 名称
-5. 如果要成为内置 provider，再把 provider driver 注册到 `services/ocr_provider/drivers.py`
+5. 如果要成为内置 provider，再把 provider driver 注册到 `ocr/ocr_provider/drivers.py`
 
 最小 raw payload 例子可以先使用内置 `generic_flat_ocr` adapter：
 

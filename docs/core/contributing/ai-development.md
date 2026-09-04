@@ -147,7 +147,7 @@ npm --prefix apps/desktop run verify-frontend-sync
 
 ```text
 检查 translation、rendering、ocr_provider 是否存在跨层 import。
-不要让 translation import services.rendering。
+不要让 translation import render。
 如果需要共享数据，通过 manifest/spec/document.v1 传递。
 ```
 
