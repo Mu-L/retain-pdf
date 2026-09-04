@@ -345,6 +345,12 @@ export function publishSubmitSuccess({
   windowRef?.setTimeout?.(() => {
     libraryEventPort?.requestRefresh?.({ delay: 0, force: false });
   }, 800);
+  // 兜底对账：后端建档/链文档可能慢于前 1 秒内的两次刷新（尤其同文件重传，
+  // 文档行要等 active_job_id 落库）。5 秒后强制刷新一次，保证新任务可见，
+  // 不用用户手动刷新。只此一次，不影响节流。
+  windowRef?.setTimeout?.(() => {
+    libraryEventPort?.requestRefresh?.({ delay: 0, force: true });
+  }, 5000);
 }
 
 export async function runSubmitFlow({

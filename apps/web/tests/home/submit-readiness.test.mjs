@@ -178,9 +178,13 @@ test("publishSubmitSuccess transfers the job to runtime before closing the uploa
     ["poll", "job-new"],
     ["event", APP_EVENTS.closeTranslationWorkflow],
   ]);
-  assert.equal(timers.length, 1);
+  assert.equal(timers.length, 2);
   assert.equal(timers[0].delay, 800);
+  assert.equal(timers[1].delay, 5000);
 
   timers[0].handler();
   assert.deepEqual(calls.at(-1), ["refresh", { delay: 0, force: false }]);
+  // 兜底对账：5 秒后强制刷新一次，保证后端建档稍慢时新任务也可见
+  timers[1].handler();
+  assert.deepEqual(calls.at(-1), ["refresh", { delay: 0, force: true }]);
 });
