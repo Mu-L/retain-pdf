@@ -158,7 +158,15 @@ test("RecentJobsLibrary：卡片交互(select / reader)", async () => {
   dom.window.document.addEventListener(APP_EVENTS.openReaderRequested, (event) => {
     readerDetail = event.detail;
   });
-  const readerButton = cardOf("job-2").querySelector(".recent-job-reader");
+  const readerButton = await (async () => {
+    let button = null;
+    await waitFor(() => {
+      const card = cardOf("job-2");
+      button = card?.querySelector(".recent-job-reader") || null;
+      return Boolean(button);
+    }, "job-2 卡片对照阅读按钮就位（点开详情后列表重渲可能短暂置空）");
+    return button;
+  })();
   click(dom, readerButton);
   await waitFor(() => readerDetail?.jobId === "job-2", "reader 按钮触发 openReaderRequested");
   assert.equal(
