@@ -21,7 +21,7 @@ def _check(name: str, ok: bool, detail: str = "") -> bool:
 
 def main() -> None:
     ok = True
-    ok &= _check("repo root", (REPO_ROOT / "services/pipeline/entrypoints/run_render_only.py").exists(), str(REPO_ROOT))
+    ok &= _check("repo root", (REPO_ROOT / "services/pipeline/retainpdf_pipeline/render/__main__.py").exists(), str(REPO_ROOT))
     ok &= _check("python >= 3.10", sys.version_info >= (3, 10), sys.version.split()[0])
     ok &= _check("typst executable", shutil.which("typst") is not None, shutil.which("typst") or "not found")
     ok &= _check("PyMuPDF import", importlib.util.find_spec("fitz") is not None)
