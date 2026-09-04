@@ -16,10 +16,10 @@ from retainpdf_pipeline.services.pipeline_shared.summary import print_pipeline_s
 from retainpdf_pipeline.services.pipeline_shared.summary import write_pipeline_summary
 from retainpdf_pipeline.ocr.source_json import resolve_translation_source_json_path
 from retainpdf_pipeline.runtime.pipeline.book_pipeline import run_book_pipeline
-from retainpdf_pipeline.translate.public import DEFAULT_BASE_URL
-from retainpdf_pipeline.translate.public import get_api_key
-from retainpdf_pipeline.translate.public import normalize_base_url
-from retainpdf_pipeline.translate.public import parse_glossary_json
+from retainpdf_pipeline.ocr.glossary import parse_glossary_json
+from retainpdf_pipeline.ocr.llm_config import DEFAULT_BASE_URL
+from retainpdf_pipeline.ocr.llm_config import get_api_key
+from retainpdf_pipeline.ocr.llm_config import normalize_base_url
 
 
 def parse_args() -> argparse.Namespace:

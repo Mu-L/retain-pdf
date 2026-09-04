@@ -7,7 +7,7 @@ from retainpdf_pipeline.ocr.document_schema.provider_adapters.common import (
     build_line_records,
     build_text_segments,
 )
-from retainpdf_pipeline.translate.public import (
+from retainpdf_pipeline.ocr.document_schema.protected_formula_tokens import (
     PROTECTED_TOKEN_RE,
     protect_inline_formulas,
 )

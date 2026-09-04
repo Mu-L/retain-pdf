@@ -1,16 +1,17 @@
-"""Translate-local normalized-document reader (file-contract duplicate).
+"""Render-local document.v1 reader (file-contract duplicate).
 
 Duplicated from retainpdf_pipeline.ocr.document_schema.consumer_reader
-(stage-decouple: translate must not import ocr; duplicate wins over cross-package).
-The input is the ``document.v1.json`` dict produced by the ocr stage.
+(stage-decouple: render must not import ocr; duplicate wins over cross-package).
+Only the subset consumed by rendering is carried here; the input is the
+``document.v1.json`` file (or its already-loaded dict), never the ocr package.
 """
 
 from __future__ import annotations
 
 from typing import Iterable
 
-from retainpdf_pipeline.translate.core.classification import resolve_block_class
-from retainpdf_pipeline.translate.core.text_flow import TEXT_FLOW_PRESERVE_LINES
+from retainpdf_pipeline.render.semantics.classification import resolve_block_class
+from retainpdf_pipeline.render.semantics.text_flow import TEXT_FLOW_PRESERVE_LINES
 
 
 SCHEMA_PREFIX = "normalized_document_v"
@@ -36,17 +37,6 @@ def iter_page_blocks(data: dict, page: dict) -> Iterable[dict]:
     return page.get("blocks", []) or []
 
 
-def block_children(data: dict, block: dict) -> list[dict]:
-    ensure_normalized_document(data)
-    return block.get("blocks", []) or []
-
-
-def raw_block_type(block: dict) -> str:
-    source = block.get("source", {}) or {}
-    provenance = block.get("provenance", {}) or {}
-    return str(provenance.get("raw_label", source.get("raw_type", "unknown")) or "unknown")
-
-
 def block_bbox(block: dict) -> list[float]:
     bbox = list(block.get("bbox", []) or [])
     if len(bbox) == 4:
@@ -61,6 +51,30 @@ def block_bbox(block: dict) -> list[float]:
 def block_text(block: dict) -> str:
     content = block.get("content", {}) or {}
     return str(content.get("text", "") or "")
+
+
+def block_kind(block: dict) -> str:
+    content = block.get("content", {}) or {}
+    return str(content.get("kind", "unknown") or "unknown").strip().lower()
+
+
+def block_policy_translate(block: dict) -> bool | None:
+    policy = block.get("policy", {}) or {}
+    value = policy.get("translate")
+    if isinstance(value, bool):
+        return value
+    return None
+
+
+def block_children(data: dict, block: dict) -> list[dict]:
+    ensure_normalized_document(data)
+    return block.get("blocks", []) or []
+
+
+def raw_block_type(block: dict) -> str:
+    source = block.get("source", {}) or {}
+    provenance = block.get("provenance", {}) or {}
+    return str(provenance.get("raw_label", source.get("raw_type", "unknown")) or "unknown")
 
 
 def block_line_texts(block: dict) -> list[str]:
@@ -87,11 +101,6 @@ def block_toc_entries(block: dict) -> list[dict]:
     content = block.get("content", {}) or {}
     entries = content.get("toc_entries", [])
     return list(entries) if isinstance(entries, list) else []
-
-
-def block_kind(block: dict) -> str:
-    content = block.get("content", {}) or {}
-    return str(content.get("kind", "unknown") or "unknown").strip().lower()
 
 
 def block_class(block: dict, data: dict | None = None) -> str:
@@ -122,14 +131,6 @@ def block_semantic_role(block: dict) -> str:
 
 def block_structure_role(block: dict) -> str:
     return str(block.get("structure_role", "") or "").strip().lower()
-
-
-def block_policy_translate(block: dict) -> bool | None:
-    policy = block.get("policy", {}) or {}
-    value = policy.get("translate")
-    if isinstance(value, bool):
-        return value
-    return None
 
 
 def normalized_block_kind(block: dict, data: dict | None = None) -> str:

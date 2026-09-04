@@ -38,8 +38,16 @@ LEGACY_FIELD_READERS = {
     TRANSLATION_ROOT / "core" / "payload" / "parts" / "units.py",
     TRANSLATION_ROOT / "core" / "payload" / "template_records.py",
     TRANSLATION_ROOT / "services" / "agents" / "review_artifact.py",
+    # Verbatim local copies of ocr readers (stage decoupling): same fields,
+    # same boundaries, no new semantics.
+    TRANSLATION_ROOT / "core" / "legacy_compat.py",
+    TRANSLATION_ROOT / "core" / "ocr" / "normalized_reader.py",
     RENDERING_ROOT / "semantics" / "legacy_compat.py",
     RENDERING_ROOT / "source" / "prewarm_fingerprint.py",
+    RENDERING_ROOT / "semantics" / "document_reader.py",
+    RENDERING_ROOT / "semantics" / "legacy_aliases.py",
+    RENDERING_ROOT / "workflow" / "item_reader.py",
+    RENDERING_ROOT / "workflow" / "translation_records.py",
 }
 
 

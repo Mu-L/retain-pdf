@@ -9,7 +9,7 @@ from retainpdf_pipeline.render.analysis.document.models import RenderPageAnalysi
 from retainpdf_pipeline.render.analysis.profile.builder import build_render_page_profile
 from retainpdf_pipeline.render.analysis.profile.models import RenderPageProfile
 from retainpdf_pipeline.render.analysis.route.builder import build_render_page_route
-from retainpdf_pipeline.translate.public import resolve_page_range
+from retainpdf_pipeline.render.semantics.page_range import resolve_page_range
 
 
 def build_render_document_analysis(

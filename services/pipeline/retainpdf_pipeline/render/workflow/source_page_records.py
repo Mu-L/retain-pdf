@@ -1,13 +1,21 @@
+"""Render-local source page extractor (file-contract duplicate).
+
+Duplicated from retainpdf_pipeline.translate.core.ocr.json_extractor
+(stage-decouple: render must not import translate/ocr; duplicate wins over
+cross-package). The input is always the ``document.v1.json`` file produced by
+the ocr stage; non-normalized payloads are rejected instead of adapted.
+"""
+
 from __future__ import annotations
 import json
 import re
 from pathlib import Path
 
-from retainpdf_pipeline.translate.core.continuation_hints import normalize_block_continuation_hint
-from retainpdf_pipeline.translate.core.legacy_compat import is_legacy_algorithm
-from retainpdf_pipeline.translate.core.legacy_compat import legacy_tags
-from retainpdf_pipeline.translate.core.ocr.models import TextItem
-from retainpdf_pipeline.translate.core.ocr.normalized_reader import (
+from retainpdf_pipeline.render.semantics.continuation_hints import normalize_block_continuation_hint
+from retainpdf_pipeline.render.semantics.legacy_aliases import is_legacy_algorithm
+from retainpdf_pipeline.render.semantics.legacy_aliases import legacy_tags
+from retainpdf_pipeline.render.workflow.source_models import TextItem
+from retainpdf_pipeline.render.semantics.document_reader import (
     block_asset_id as _block_asset_id,
     block_bbox as _block_bbox,
     block_children as _block_children,
@@ -28,22 +36,18 @@ from retainpdf_pipeline.translate.core.ocr.normalized_reader import (
     iter_page_blocks as _iter_page_blocks,
     is_normalized_document,
 )
+
+
 def load_ocr_json(json_path: Path) -> dict:
-    """Read the ``document.v1.json`` file produced by the ocr stage.
-
-    Stage boundary note: translate no longer adapts provider payloads or
-    validates through the ocr package. Non-normalized inputs are rejected;
-    run the ocr stage first to produce ``document.v1.json``.
-    """
-
     with json_path.open("r", encoding="utf-8") as f:
         data = json.load(f)
     if not is_normalized_document(data):
         raise RuntimeError(
-            "translate expects normalized document.v1.json; "
+            "render prewarm expects normalized document.v1.json; "
             f"got non-normalized payload: {json_path}"
         )
-    return ensure_normalized_document(data)
+    ensure_normalized_document(data)
+    return data
 
 
 def get_pages(data: dict) -> list[dict]:

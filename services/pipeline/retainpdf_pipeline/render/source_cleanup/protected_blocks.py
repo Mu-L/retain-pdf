@@ -3,11 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from retainpdf_pipeline.ocr.document_schema.consumer_reader import block_bbox
-from retainpdf_pipeline.ocr.document_schema.consumer_reader import block_kind
-from retainpdf_pipeline.ocr.document_schema.consumer_reader import block_policy_translate
-from retainpdf_pipeline.ocr.document_schema.consumer_reader import block_text
-from retainpdf_pipeline.ocr.document_schema.consumer_reader import get_pages
+from retainpdf_pipeline.render.semantics.document_reader import block_bbox
+from retainpdf_pipeline.render.semantics.document_reader import block_kind
+from retainpdf_pipeline.render.semantics.document_reader import block_policy_translate
+from retainpdf_pipeline.render.semantics.document_reader import block_text
+from retainpdf_pipeline.render.semantics.document_reader import get_pages
 
 
 def protected_pages_from_document_path(document_path: Path | None) -> dict[int, list[dict]]:

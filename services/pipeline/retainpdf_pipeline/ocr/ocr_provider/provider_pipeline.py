@@ -13,7 +13,6 @@ from retainpdf_pipeline.foundation.shared.stage_specs import build_stage_invocat
 from retainpdf_pipeline.foundation.shared.stage_specs import resolve_credential_ref
 from retainpdf_pipeline.foundation.shared.tee_output import enable_job_log_capture
 from retainpdf_pipeline.runtime.pipeline.book_pipeline import run_book_pipeline
-from retainpdf_pipeline.runtime.pipeline.render_preprocess import start_ocr_render_preprocess
 from retainpdf_pipeline.ocr.document_schema import adapt_path_to_document_v1_with_report
 from retainpdf_pipeline.ocr.document_schema import DOCUMENT_SCHEMA_REPORT_FILE_NAME
 from retainpdf_pipeline.ocr.document_schema import validate_saved_document_path
@@ -57,10 +56,10 @@ from retainpdf_pipeline.services.pipeline_shared.events import pipeline_event_wr
 from retainpdf_pipeline.services.pipeline_shared.io import save_json
 from retainpdf_pipeline.services.pipeline_shared.summary import print_pipeline_summary
 from retainpdf_pipeline.services.pipeline_shared.summary import write_pipeline_summary
-from retainpdf_pipeline.translate.public import DEFAULT_BASE_URL
-from retainpdf_pipeline.translate.public import get_api_key
-from retainpdf_pipeline.translate.public import normalize_base_url
-from retainpdf_pipeline.translate.public import parse_glossary_json
+from retainpdf_pipeline.ocr.glossary import parse_glossary_json
+from retainpdf_pipeline.ocr.llm_config import DEFAULT_BASE_URL
+from retainpdf_pipeline.ocr.llm_config import get_api_key
+from retainpdf_pipeline.ocr.llm_config import normalize_base_url
 
 _SOURCE_DOWNLOAD_SESSION = direct_session(pool_connections=4, pool_maxsize=4)
 
@@ -429,18 +428,12 @@ def main() -> None:
             message="OCR provider 已完成，标准化文档已就绪",
             provider=provider,
         )
-        render_visual_prewarm_handle = start_ocr_render_preprocess(
-            source_json_path=translation_source_json_path,
-            source_pdf_path=source_pdf_path,
-            output_pdf_path=output_pdf_path,
-            artifacts_dir=job_dirs.artifacts_dir,
-            render_mode=args.render_mode,
-            start_page=args.start_page,
-            end_page=args.end_page,
-            pdf_compress_dpi=args.pdf_compress_dpi,
-            source_cleanup_strategy=args.source_cleanup_strategy,
-            math_mode=args.math_mode,
-        )
+        # Stage decoupling: the OCR stage no longer starts render prewarm
+        # directly (see retainpdf_pipeline.render.workflow.prewarm_entry).
+        # Render prewarm runs synchronously inside the render stage, so the
+        # handle stays None and run_book_pipeline waits on nothing here.
+        # Output semantics are unchanged; only parallel overlap is dropped.
+        render_visual_prewarm_handle = None
         api_key = get_api_key(
             args.api_key,
             required=normalize_base_url(args.base_url) == normalize_base_url(DEFAULT_BASE_URL),
