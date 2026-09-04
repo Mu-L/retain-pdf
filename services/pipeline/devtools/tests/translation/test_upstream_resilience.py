@@ -119,3 +119,19 @@ def test_json_extractor_rejects_raw_with_normalize_hint(tmp_path: Path) -> None:
 
     with pytest.raises(RuntimeError, match="document\\.v1.*normalize"):
         _json_extractor.get_pages({"provider": "x", "pages": []})
+
+
+def test_review_unparseable_response_degrades_to_rule_decisions(capsys) -> None:
+    def _garbage(*_args, **_kwargs):
+        return "当然可以，这是我的分析结果……（一段散文，没有 JSON）"
+
+    out = _review.review_candidate_pairs(
+        [{"prev_id": "a", "next_id": "b"}],
+        api_key="k",
+        model="m",
+        base_url="u",
+        sleep_fn=lambda _s: None,
+        request_chat_content_fn=_garbage,
+    )
+    assert out == {}
+    assert "unparseable" in capsys.readouterr().out
