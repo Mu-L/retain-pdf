@@ -23,6 +23,8 @@ export type LibraryActions = RecentJobActions & {
   openSourceReader: LibraryController["openSourceReader"];
   translateDocument: LibraryController["translateDocument"];
   ocrDocument: LibraryController["ocrDocument"];
+  /** 统一提交入口（按 workflow 分流到 ocr/translate） */
+  submitDocument: (documentId?: string | null, payload?: unknown) => Promise<unknown>;
   getDocumentJobs: LibraryController["getDocumentJobs"];
   getDocumentByJobId: LibraryController["getDocumentByJobId"];
   getJobStageActions: LibraryController["getJobStageActions"];

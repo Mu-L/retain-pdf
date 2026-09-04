@@ -33,6 +33,13 @@ export type BookTranslationWorkflowPanelProps = {
   stageActionPending?: JobRetryStage | "";
   stageActionError?: string;
   ocrReuse?: { jobId: string } | null;
+  ocrRangeOn?: boolean;
+  ocrStartPage?: string | number;
+  ocrEndPage?: string | number;
+  ocrPageCount?: number;
+  onOcrRangeOnChange?: (value: boolean) => void;
+  onOcrStartPageChange?: (value: string) => void;
+  onOcrEndPageChange?: (value: string) => void;
   onRangeOnChange: (value: boolean) => void;
   onStartPageChange: (value: string) => void;
   onEndPageChange: (value: string) => void;
@@ -67,6 +74,13 @@ export function BookTranslationWorkflowPanel({
   stageActionPending = "",
   stageActionError = "",
   ocrReuse = null,
+  ocrRangeOn = false,
+  ocrStartPage = "",
+  ocrEndPage = "",
+  ocrPageCount,
+  onOcrRangeOnChange,
+  onOcrStartPageChange,
+  onOcrEndPageChange,
   onRangeOnChange,
   onStartPageChange,
   onEndPageChange,
@@ -81,7 +95,10 @@ export function BookTranslationWorkflowPanel({
   // 状态区先行占位，进度一到即在区内展开，不闪现、不另弹工作流窗。
   const submitting = busy === "translate" || Boolean(stageActionPending);
   const showStatus = isActive || status.tone === "failed" || submitting;
-  // 次级重试动作：进度区下方右对齐（TranslationStageActions 内部 justify-end），
+  // 统一选项折叠：一张处理卡只有一个 <details>，OCR 页码范围搬进来与
+  // 翻译页码 / OCR 复用说明并列；提交/重试 props 与回调原样透传。
+  const hasOcrOptions = Boolean(onOcrRangeOnChange || onOcrStartPageChange || onOcrEndPageChange);
+  const showOptions = canTranslate || hasOcrOptions;
   // 黑主按钮只留进度区内的「查看实时译文」，此处两颗均为 btn("outline")。
   const stageActionsNode =
     hasRealJob && !isActive ? (
@@ -122,13 +139,29 @@ export function BookTranslationWorkflowPanel({
         stageActionsNode
       )}
 
-      {/* 以下只动布局：发起表单收进默认收起的「选项」折叠，提交/重试 props 与回调原样透传。 */}
-      {canTranslate ? (
+      {/* 以下只动布局：全卡唯一的选项折叠，OCR 页码范围与翻译发起表单并列，提交/重试 props 与回调原样透传。 */}
+      {showOptions ? (
         <details className="book-translate-options rounded-lg border border-border/70 bg-background px-3 py-2">
           <summary className="cursor-pointer select-none text-xs font-medium text-foreground">
             选项（页码 / OCR 复用 / 高级）
           </summary>
-          <div className="pt-2">
+          <div className="grid gap-2 pt-2">
+            {hasOcrOptions ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                  <input type="checkbox" checked={ocrRangeOn} onChange={(event) => onOcrRangeOnChange?.(event.target.checked)} />
+                  OCR 指定页码
+                </label>
+                {ocrRangeOn ? (
+                  <div className="flex items-center gap-2">
+                    <input aria-label="OCR 起始页" type="number" min="1" value={ocrStartPage} onChange={(event) => onOcrStartPageChange?.(event.target.value)} className="h-8 w-16 rounded-md border border-input bg-background px-2 text-sm" />
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <input aria-label="OCR 结束页" type="number" min="1" value={ocrEndPage} onChange={(event) => onOcrEndPageChange?.(event.target.value)} className="h-8 w-16 rounded-md border border-input bg-background px-2 text-sm" />
+                    <span className="text-[11px] text-muted-foreground">/ {ocrPageCount || "?"} 页</span>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             <BookTranslateLaunchForm
               canTranslate={canTranslate}
               readerAvailable={readerAvailable}
