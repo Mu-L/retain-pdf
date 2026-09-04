@@ -52,6 +52,7 @@ export function OcrActionCard({
           idleText="尚未执行 OCR"
           id="book-detail-ocr-progress"
           labels={{ active: "OCR 处理中", done: "OCR 完成", failed: "OCR 失败" }}
+          subject="OCR"
         />
       ) : (
         <span id="book-detail-ocr-progress" className="sr-only" data-job-status={job?.status || "idle"} aria-hidden="true" />

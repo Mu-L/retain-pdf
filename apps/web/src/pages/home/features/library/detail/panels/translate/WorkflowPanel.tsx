@@ -81,12 +81,26 @@ export function BookTranslationWorkflowPanel({
   // 状态区先行占位，进度一到即在区内展开，不闪现、不另弹工作流窗。
   const submitting = busy === "translate" || Boolean(stageActionPending);
   const showStatus = isActive || status.tone === "failed" || submitting;
+  // 次级重试动作：进度区下方右对齐（TranslationStageActions 内部 justify-end），
+  // 黑主按钮只留进度区内的「查看实时译文」，此处两颗均为 btn("outline")。
+  const stageActionsNode =
+    hasRealJob && !isActive ? (
+      <TranslationStageActions
+        actions={stageActions}
+        loading={stageActionsLoading}
+        pendingStage={stageActionPending}
+        error={stageActionError}
+        onRetry={onRetryStage}
+      />
+    ) : null;
 
   return (
     <div
       className="book-translation-workflow space-y-3"
       data-book-translation-workflow="true"
     >
+      {/* 取消任务只降视觉为文字链：作用域样式覆盖，不动 StatusCardEmbedded 事件/回调/disabled。 */}
+      <style>{`#book-detail-status-section .bd-job-status-btn-cancel{border-color:transparent;background:transparent;box-shadow:none;padding-left:4px;padding-right:4px;text-decoration:underline;text-underline-offset:2px}#book-detail-status-section .bd-job-status-btn-cancel:hover:not(:disabled){background:transparent;color:inherit}#book-detail-status-section .bd-job-status-btn-primary{background:transparent;color:var(--ink)}`}</style>
       {showCompactProcess ? <TranslationProcessOverview item={item} /> : null}
 
       {showStatus ? (
@@ -101,8 +115,11 @@ export function BookTranslationWorkflowPanel({
             dialogOpen={dialogOpen}
             onOpenLiveReader={isActive ? onOpenLiveReader : undefined}
           />
+          {stageActionsNode}
         </section>
-      ) : null}
+      ) : (
+        stageActionsNode
+      )}
 
       <BookTranslateLaunchForm
         canTranslate={canTranslate}
@@ -121,16 +138,6 @@ export function BookTranslationWorkflowPanel({
         onEndPageChange={onEndPageChange}
         onTranslate={onTranslate}
       />
-
-      {hasRealJob && !isActive ? (
-        <TranslationStageActions
-          actions={stageActions}
-          loading={stageActionsLoading}
-          pendingStage={stageActionPending}
-          error={stageActionError}
-          onRetry={onRetryStage}
-        />
-      ) : null}
     </div>
   );
 }

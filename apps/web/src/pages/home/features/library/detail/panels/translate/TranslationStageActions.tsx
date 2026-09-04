@@ -81,7 +81,7 @@ export function TranslationStageActions({
               key={action.stage}
               id={`book-detail-retry-${action.stage}-btn`}
               type="button"
-              className={btn(action.stage === "translation" ? "default" : "outline")}
+              className={btn("outline")}
               disabled={disabled}
               title={!action.can_retry && reason ? reason : undefined}
               onClick={() => {
