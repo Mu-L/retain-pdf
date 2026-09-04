@@ -14,6 +14,7 @@ import type {
   StatusCardStageRetryAction,
 } from "./status-card-store.js";
 import { APP_EVENTS } from "../../composition/external.js";
+import { isTerminalStatus } from "../../composition/external.js";
 
 function resolvePercent(
   renderOptions: ProgressRenderModelInput | null | undefined,
@@ -217,7 +218,8 @@ export function StatusCardEmbedded({
   const stageActions = snapshot?.stageRetryActions || {};
   const jobId = `${snapshot?.jobId || ""}`.trim();
   const hasJob = Boolean(jobId) && !jobId.startsWith("doc:");
-  const cancelEnabled = hasJob && ["queued", "running", "pending", "validating"].includes(status);
+  // 可取消 = 有任务 + 状态非空 + 非终态（白名单会漏掉 processing 等后端状态词）
+  const cancelEnabled = hasJob && status !== "" && status !== "cancelled" && !isTerminalStatus(status);
   const selectedFlow = normalizeFlowKey(selectedForFlow || stageKeyForFlow);
 
   const retry = resolveSelectedRetry({

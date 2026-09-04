@@ -7,6 +7,7 @@ import { ResultActions } from "./ResultActions.jsx";
 import { StageRetry } from "./StageRetry.jsx";
 import { StatusCardIdsContext } from "./status-card-ids-context.js";
 import { useStatusCardModel, type StatusCardPrimaryActions } from "./use-status-card-model.js";
+import { isTerminalStatus } from "../../composition/external.js";
 import { LoaderCircle, Square } from "lucide-react";
 
 type StatusCardMainProps = {
@@ -50,8 +51,9 @@ export function StatusCardMain({
 
   const primaryActions = (display.primaryActions || {}) as Partial<StatusCardPrimaryActions>;
   const status = `${snapshot.status || ""}`.trim().toLowerCase();
+  // 可取消 = 有任务 + 状态非空 + 非终态（白名单会漏掉 processing 等后端状态词，OCR 单跑就卡在这里）
   const hasCancellableJob = Boolean(`${snapshot.jobId || ""}`.trim())
-    && ["queued", "running", "pending", "validating"].includes(status);
+    && status !== "" && status !== "cancelled" && !isTerminalStatus(status);
   const hasResultActions = showResultActions && Boolean(
     primaryActions.markdownBundleReady
     || primaryActions.pdfReady
