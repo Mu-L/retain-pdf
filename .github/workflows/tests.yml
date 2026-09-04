@@ -173,7 +173,7 @@ jobs:
       - name: Pipeline durable translation tests
         run: |
           uv run --project "$RETAIN_PDF_SERVICES_ROOT" python -m pytest -q \
-            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/document_operations" \
+            "$RETAIN_PDF_SERVICES_ROOT/ai/tests/test_page_program.py" \
             "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/pipeline" \
             "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_book_translation_batch_results.py" \
             "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_final_untranslated_recovery.py" \

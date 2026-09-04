@@ -194,7 +194,7 @@ async fn main() -> Result<()> {
         tracing::warn!("jobsd startup resuming durable pipeline job {job_id}");
         spawn_job(state.runtime_deps(), job_id);
     }
-    for job_id in requeue_stuck_queued_jobs(config.as_ref(), &state.db)
+    for job_id in requeue_stuck_queued_jobs(state.config.as_ref(), &state.db)
         .context("requeue stuck queued jobs")?
     {
         tracing::warn!("jobsd startup requeuing stuck queued job {job_id}");

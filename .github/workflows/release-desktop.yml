@@ -150,7 +150,7 @@ jobs:
           # 打包 retainpdf-pipeline console 入口：--no-deps 避免重复拉原生轮子；
           # 用捆绑 python.exe 直接安装（产出 Lib/site-packages + Scripts/retainpdf-pipeline.exe），
           # 但 Scripts exe 首行 shebang 硬编码构建机路径不可搬运，运行时走 backend/bin/*.cmd wrapper（-m）。
-          $pipelineSrc = Join-Path $PWD "services/pipeline"
+          $pipelineSrc = Join-Path $env:RETAIN_PDF_SERVICES_ROOT "pipeline"
           & $pythonBundleExe -m pip install --no-deps --no-build-isolation $pipelineSrc
           $env:PYTHONPATH = $sitePackages
           & $pythonBundleExe -c "import requests, fitz, pikepdf, PIL, urllib3; print('python_bundle_import_check=ok')"
@@ -349,7 +349,7 @@ jobs:
           print("python_bundle_import_check=ok")
           PY
           # 打包 retainpdf-pipeline console 入口：--no-deps 避免重复拉原生轮子触发 ldd 门禁
-          "$bundle_root/bin/python3" -m pip install --target "$site_packages" --no-deps --no-build-isolation "$PWD/services/pipeline"
+          "$bundle_root/bin/python3" -m pip install --target "$site_packages" --no-deps --no-build-isolation "$RETAIN_PDF_SERVICES_ROOT/pipeline"
           # 兜底：pip 生成脚本首行多为 runner 绝对路径，重写为可搬运 shebang
           pipeline_entry="$(find "$bundle_root" -maxdepth 4 -name 'retainpdf-pipeline' -type f | head -n 1 || true)"
           if [ -n "${pipeline_entry:-}" ]; then
@@ -797,7 +797,7 @@ jobs:
           "$bundle_python3" -m pip install -r apps/desktop/requirements-desktop-posix.txt
           "$bundle_python3" -m pip install -r apps/desktop/requirements-ai-service.txt
           # 打包 retainpdf-pipeline console 入口：--no-deps 避免重复拉原生轮子触发门禁
-          "$bundle_python3" -m pip install --no-deps --no-build-isolation "$PWD/services/pipeline"
+          "$bundle_python3" -m pip install --no-deps --no-build-isolation "$RETAIN_PDF_SERVICES_ROOT/pipeline"
           # 兜底：pip 生成脚本首行多为 runner 绝对路径，重写为可搬运 shebang（纯文本替换，不跑 install_name_tool）
           pipeline_entry="$bundle_root/bin/retainpdf-pipeline"
           if [ -f "$pipeline_entry" ]; then
