@@ -204,7 +204,7 @@ def main() -> int:
                     "root = Path.cwd().resolve(); "
                     "assert Path(retainpdf_ai.__file__).resolve().is_relative_to(root); "
                     "assert Path(retainpdf_pipeline.__file__).resolve().is_relative_to(root); "
-                    "from retainpdf_pipeline.foundation.shared.ocr_provider_config "
+                    "from retainpdf_pipeline.ocr.ocr_provider_config "
                     "import _config_path; "
                     "assert _config_path() == Path.cwd() / 'config' / 'ocr_providers.json'; "
                     "from retainpdf_pipeline.foundation.config.fonts import BACKEND_FONTS_DIR; "

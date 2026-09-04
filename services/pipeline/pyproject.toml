@@ -32,5 +32,5 @@ include = [
 namespaces = true
 
 [tool.setuptools.package-data]
-"retainpdf_pipeline.foundation.prompts" = ["*.txt", "*.md"]
+"retainpdf_pipeline.translate.prompts" = ["*.txt", "*.md"]
 "retainpdf_pipeline.ocr.document_schema" = ["*.json"]

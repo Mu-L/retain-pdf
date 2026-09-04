@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from retainpdf_pipeline.foundation.shared.prompt_loader import load_prompt
+from retainpdf_pipeline.translate.prompt_loader import load_prompt
 
 
 DEFAULT_RULE_PROFILE_NAME = "general_sci"

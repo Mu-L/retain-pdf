@@ -7,7 +7,7 @@ from typing import Any
 
 from retainpdf_pipeline.foundation.config import fonts
 from retainpdf_pipeline.foundation.shared.job_dirs import JobDirs, resolve_job_dirs
-from retainpdf_pipeline.foundation.shared.ocr_provider_config import (
+from retainpdf_pipeline.ocr.ocr_provider_config import (
     paddle_default_model,
 )
 

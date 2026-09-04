@@ -69,7 +69,7 @@ def check_translation_pipeline_facade_boundary(errors: list[str]) -> None:
     for item in required:
         if item not in text:
             errors.append(
-                f"runtime/pipeline/translation_stage.py: must call translation public facade via '{item}'"
+                f"translate/translation_stage.py: must call translation public facade via '{item}'"
             )
     forbidden = (
         "from retainpdf_pipeline.translate.workflow import",
@@ -83,7 +83,7 @@ def check_translation_pipeline_facade_boundary(errors: list[str]) -> None:
     for item in forbidden:
         if item in text:
             errors.append(
-                f"runtime/pipeline/translation_stage.py: must not import workflow internals directly: '{item}'"
+                f"translate/translation_stage.py: must not import workflow internals directly: '{item}'"
             )
 
 

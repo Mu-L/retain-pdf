@@ -7,7 +7,7 @@ import time
 from retainpdf_pipeline.foundation.config import fonts
 from retainpdf_pipeline.foundation.config import layout
 from retainpdf_pipeline.foundation.config import runtime
-from retainpdf_pipeline.runtime.pipeline.render_plan import RenderPlan
+from retainpdf_pipeline.render.render_plan import RenderPlan
 from retainpdf_pipeline.render.workflow.context import RenderExecutionContext
 from retainpdf_pipeline.render.workflow.cover_fallback import TypstCoverFallbackPlan
 from retainpdf_pipeline.render.workflow.document_analysis import document_analysis_diagnostics

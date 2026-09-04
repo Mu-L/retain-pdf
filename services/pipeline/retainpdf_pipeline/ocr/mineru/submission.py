@@ -9,7 +9,7 @@ from retainpdf_pipeline.ocr.mineru.mineru_api import find_extract_result_in_batc
 from retainpdf_pipeline.ocr.mineru.mineru_api import poll_until_done
 from retainpdf_pipeline.ocr.mineru.mineru_api import query_batch_status
 from retainpdf_pipeline.ocr.mineru.mineru_api import upload_file
-from retainpdf_pipeline.services.network.retry import stepped_poll_interval
+from retainpdf_pipeline.ocr.retry import stepped_poll_interval
 
 
 def run_remote_extract_task(

@@ -9,7 +9,7 @@ import time
 
 import fitz
 
-from retainpdf_pipeline.foundation.shared.prompt_loader import load_prompt
+from retainpdf_pipeline.translate.prompt_loader import load_prompt
 
 from retainpdf_pipeline.services.pipeline_shared.events import emit_stage_progress
 from retainpdf_pipeline.services.pipeline_shared.events import emit_stage_transition

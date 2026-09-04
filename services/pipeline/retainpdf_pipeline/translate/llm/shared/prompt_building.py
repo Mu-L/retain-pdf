@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 
-from retainpdf_pipeline.foundation.shared.prompt_loader import load_prompt
-from retainpdf_pipeline.foundation.shared.prompt_loader import render_prompt
+from retainpdf_pipeline.translate.prompt_loader import load_prompt
+from retainpdf_pipeline.translate.prompt_loader import render_prompt
 from retainpdf_pipeline.translate.core.context import TranslationItemContext
 from retainpdf_pipeline.translate.core.context import build_item_context
 from retainpdf_pipeline.translate.llm.shared.prompt_protocols import batch_json_user_prompt

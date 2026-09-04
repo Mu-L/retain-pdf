@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from retainpdf_pipeline.foundation.shared.prompt_loader import load_prompt
+from retainpdf_pipeline.translate.prompt_loader import load_prompt
 from retainpdf_pipeline.translate.artifacts import TranslationDiagnosticsCollector
 from retainpdf_pipeline.translate.llm.result_validator import validate_batch_result
 from retainpdf_pipeline.translate.llm.result_canonicalizer import canonicalize_batch_result

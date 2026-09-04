@@ -3,10 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from retainpdf_pipeline.runtime.pipeline.render_inputs import RenderInputs
-from retainpdf_pipeline.runtime.pipeline.render_mode import resolve_effective_render_mode
-from retainpdf_pipeline.runtime.pipeline.translation_loader import load_translated_pages
-from retainpdf_pipeline.runtime.pipeline.translation_loader import select_translated_pages
+from retainpdf_pipeline.render.render_inputs import RenderInputs
+from retainpdf_pipeline.render.render_mode import resolve_effective_render_mode
+from retainpdf_pipeline.render.translation_loader import load_translated_pages
+from retainpdf_pipeline.render.translation_loader import select_translated_pages
 
 
 @dataclass(frozen=True)
@@ -31,7 +31,7 @@ def build_render_plan(
     render_mode: str,
     translated_pages_map: dict[int, list[dict]] | None = None,
 ) -> RenderPlan:
-    from retainpdf_pipeline.runtime.pipeline.render_inputs import resolve_render_inputs
+    from retainpdf_pipeline.render.render_inputs import resolve_render_inputs
 
     render_inputs = resolve_render_inputs(
         source_pdf_path=source_pdf_path,

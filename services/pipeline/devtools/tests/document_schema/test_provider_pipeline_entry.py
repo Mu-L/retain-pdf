@@ -550,7 +550,7 @@ target.write_text(json.dumps({
 
     monkeypatch.setenv("RETAIN_OCR_PROVIDER_CONFIG", str(config_path))
     import importlib
-    import retainpdf_pipeline.foundation.shared.ocr_provider_config as provider_config
+    import retainpdf_pipeline.ocr.ocr_provider_config as provider_config
     import retainpdf_pipeline.ocr.ocr_provider.drivers as drivers
 
     importlib.reload(provider_config)
@@ -778,7 +778,7 @@ target.write_text(json.dumps({
     monkeypatch.setenv("RETAIN_OCR_PROVIDER_CONFIG", str(config_path))
     monkeypatch.setenv("RETAIN_REMOTE_FAST_TOKEN", "remote-token")
     import importlib
-    import retainpdf_pipeline.foundation.shared.ocr_provider_config as provider_config
+    import retainpdf_pipeline.ocr.ocr_provider_config as provider_config
     import retainpdf_pipeline.ocr.ocr_provider.drivers as drivers
 
     importlib.reload(provider_config)

@@ -77,7 +77,7 @@ def test_ocr_provider_registry_discovers_configured_local_provider(
     # The registry is process-global. Force a module reload so config discovery
     # observes this test-specific config without leaking across tests.
     import importlib
-    import retainpdf_pipeline.foundation.shared.ocr_provider_config as provider_config
+    import retainpdf_pipeline.ocr.ocr_provider_config as provider_config
     import retainpdf_pipeline.ocr.ocr_provider.drivers as drivers
 
     importlib.reload(provider_config)

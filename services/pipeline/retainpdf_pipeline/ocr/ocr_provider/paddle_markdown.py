@@ -4,9 +4,9 @@ import base64
 import re
 from pathlib import Path
 
-from retainpdf_pipeline.services.network.retry import RetainNetworkError
-from retainpdf_pipeline.services.network.retry import direct_session
-from retainpdf_pipeline.services.network.retry import request_with_retry
+from retainpdf_pipeline.ocr.retry import RetainNetworkError
+from retainpdf_pipeline.ocr.retry import direct_session
+from retainpdf_pipeline.ocr.retry import request_with_retry
 
 _MARKDOWN_IMAGE_SESSION = direct_session(pool_connections=4, pool_maxsize=4)
 _PAGE_PREFIX_RE = re.compile(r"^page-\d+(/|$)")
