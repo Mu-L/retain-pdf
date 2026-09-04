@@ -7,7 +7,7 @@
 翻译层位于：
 
 ```text
-services/pipeline/retainpdf_pipeline/services/translation/
+services/pipeline/retainpdf_pipeline/translate/
 ```
 
 它只负责把标准化 OCR 文档变成可渲染的翻译产物：
@@ -35,7 +35,7 @@ document.v1.json
   `translate.stage.v1` worker，要求 `--spec <job_root>/specs/translate.spec.json`。
 - `retainpdf-pipeline translate-from-ocr --spec <job_root>/specs/book.spec.json`
   provider/normalize 后继续翻译和渲染的入口之一（顶层垫片已删除，只有包内入口 `services/pipeline/retainpdf_pipeline/entrypoints/run_translate_from_ocr.py` 和 console 子命令，仅桌面兼容注脚）。
-- `services/pipeline/retainpdf_pipeline/services/translation/workflow`
+- `services/pipeline/retainpdf_pipeline/translate/workflow`
   翻译层内部 facade，`runtime/pipeline/translation_stage.py` 通过这里进入翻译执行。
 
 未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_translate_only.py --spec <job_root>/specs/translate.spec.json。
@@ -186,7 +186,7 @@ data/jobs/<job_id>/logs/pipeline_events.jsonl
 翻译层改动后至少跑：
 
 ```bash
-uv run --project services python -m compileall -q services/pipeline/retainpdf_pipeline/services/translation
+uv run --project services python -m compileall -q services/pipeline/retainpdf_pipeline/translate
 PYTHONPATH=services/pipeline uv run --project services python -m pytest services/pipeline/devtools/tests/translation -q
 PYTHONPATH=services/pipeline uv run --project services python services/pipeline/devtools/check_pipeline_architecture.py
 ```
@@ -202,7 +202,7 @@ PYTHONPATH=services/pipeline uv run --project services python services/pipeline/
 
 翻译层禁止反向依赖：
 
-- `services.rendering`
+- `render`
 - provider 私有 raw 结构
 - `runtime.pipeline.book_translation_*`
 

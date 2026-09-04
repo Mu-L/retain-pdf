@@ -22,9 +22,9 @@
 
 新代码优先 import 具体实现目录，例如：
 
-- `services.rendering.output.typst.*`
-- `services.rendering.source.cleanup.*`
-- `services.rendering.source.background.*`
-- `services.rendering.source.compression.*`
+- `render.output.typst.*`
+- `render.source.cleanup.*`
+- `render.source.background.*`
+- `render.source.compression.*`
 
 只有需要兼容旧调用方时才新增这里的 wrapper。

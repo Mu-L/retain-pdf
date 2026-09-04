@@ -108,7 +108,7 @@
 - Rust 写 spec：
   - [`crates/retain-data/src/worker_command.rs`](crates/retain-data/src/worker_command.rs)
 - Python 按 provider 分发：
-  - [`services/pipeline/retainpdf_pipeline/services/ocr_provider/provider_pipeline.py`](../pipeline/retainpdf_pipeline/services/ocr_provider/provider_pipeline.py)
+  - [`services/pipeline/retainpdf_pipeline/ocr/ocr_provider/provider_pipeline.py`](../pipeline/retainpdf_pipeline/ocr/ocr_provider/provider_pipeline.py)
 
 注意：生产主链的 `book` job 不再以 `retainpdf-pipeline provider-case` 作为初始命令。`book` job 创建时只保存
 `book-workflow-rust-orchestrated` 占位命令，真正执行由 Rust `job_runner` 串联 OCR child、normalize、
@@ -395,7 +395,7 @@ Rust API 生产主链入口。
 
 ### 看 Python provider 总入口怎么分发
 
-- [`services/pipeline/retainpdf_pipeline/services/ocr_provider/provider_pipeline.py`](../pipeline/retainpdf_pipeline/services/ocr_provider/provider_pipeline.py)
+- [`services/pipeline/retainpdf_pipeline/ocr/ocr_provider/provider_pipeline.py`](../pipeline/retainpdf_pipeline/ocr/ocr_provider/provider_pipeline.py)
 
 ### 看 stage spec 长什么样
 

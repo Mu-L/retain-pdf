@@ -1,6 +1,6 @@
 # Orchestration 说明
 
-`scripts/services/translation/core/orchestration` 负责给 OCR payload 补齐“编排元数据”。
+`scripts/translate/core/orchestration` 负责给 OCR payload 补齐“编排元数据”。
 
 它既不直接翻译，也不直接渲染，作用是把原始 OCR 块整理成更适合翻译和排版使用的中间状态。
 

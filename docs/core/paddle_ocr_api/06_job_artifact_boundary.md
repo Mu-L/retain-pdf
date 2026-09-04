@@ -34,9 +34,9 @@ Paddle provider 当前在 provider-backed 流程里的原始结果文件是：
 
 来源代码：
 
-- `services/pipeline/retainpdf_pipeline/services/ocr_provider/provider_pipeline.py`
+- `services/pipeline/retainpdf_pipeline/ocr/ocr_provider/provider_pipeline.py`
   `run_paddle_to_job_dir()` 会把 `download_jsonl_result()` 的聚合结果保存到 `job_dirs.ocr_dir / "result.json"`
-- `services/pipeline/retainpdf_pipeline/services/ocr_provider/paddle_api.py`
+- `services/pipeline/retainpdf_pipeline/ocr/ocr_provider/paddle_api.py`
   `download_jsonl_result()` 把 JSONL 聚合为：
   - `layoutParsingResults`
   - `dataInfo`
@@ -70,9 +70,9 @@ Paddle raw 进入统一契约后的正式输出是：
 
 来源代码：
 
-- `services/pipeline/retainpdf_pipeline/services/ocr_provider/provider_pipeline.py`
+- `services/pipeline/retainpdf_pipeline/ocr/ocr_provider/provider_pipeline.py`
   `_save_normalized_document_for_paddle()`
-- `services/pipeline/retainpdf_pipeline/services/document_schema/README.md`
+- `services/pipeline/retainpdf_pipeline/ocr/document_schema/README.md`
 
 这一层是当前 OCR 到翻译/渲染主链路的稳定交接点。
 

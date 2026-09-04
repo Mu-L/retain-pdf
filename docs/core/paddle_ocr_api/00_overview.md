@@ -21,8 +21,8 @@ Paddle OCR 对接层的目标是：
 
 代码位置：
 
-- `services/pipeline/retainpdf_pipeline/services/document_schema/provider_adapters/paddle/adapter.py`
-- `services/pipeline/retainpdf_pipeline/services/document_schema/adapters.py`
+- `services/pipeline/retainpdf_pipeline/ocr/document_schema/provider_adapters/paddle/adapter.py`
+- `services/pipeline/retainpdf_pipeline/ocr/document_schema/adapters.py`
 
 ## 当前目录职责
 

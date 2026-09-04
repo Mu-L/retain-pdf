@@ -13,7 +13,7 @@
 - Rust client：
   [`client.rs`](client.rs)
 - Python client：
-  [`services/pipeline/retainpdf_pipeline/services/ocr_provider/paddle_api.py`](../../../../../../pipeline/retainpdf_pipeline/services/ocr_provider/paddle_api.py)
+  [`services/pipeline/retainpdf_pipeline/ocr/ocr_provider/paddle_api.py`](../../../../../../pipeline/retainpdf_pipeline/ocr/ocr_provider/paddle_api.py)
 - provider 边界：
   [`PROVIDER_BOUNDARY.md`](PROVIDER_BOUNDARY.md)
 
@@ -34,7 +34,7 @@
 - Rust：
   [`client.rs`](client.rs)
 - Python：
-  [`paddle_api.py`](../../../../../../pipeline/retainpdf_pipeline/services/ocr_provider/paddle_api.py)
+  [`paddle_api.py`](../../../../../../pipeline/retainpdf_pipeline/ocr/ocr_provider/paddle_api.py)
 
 ## 2. 鉴权方式
 
@@ -52,7 +52,7 @@ Accept: application/json
 
 Python 读取口：
 
-- [`get_paddle_token(...)`](../../../../../../pipeline/retainpdf_pipeline/services/ocr_provider/paddle_api.py)
+- [`get_paddle_token(...)`](../../../../../../pipeline/retainpdf_pipeline/ocr/ocr_provider/paddle_api.py)
 
 ## 3. 三段式协议
 
@@ -132,7 +132,7 @@ Python 读取口：
 - Rust：
   [`client.rs`](client.rs)
 - Python：
-  [`paddle_api.py`](../../../../../../pipeline/retainpdf_pipeline/services/ocr_provider/paddle_api.py)
+  [`paddle_api.py`](../../../../../../pipeline/retainpdf_pipeline/ocr/ocr_provider/paddle_api.py)
 
 ## 4. 当前我们实际传的关键参数
 
@@ -164,7 +164,7 @@ Python 读取口：
 
 对应实现：
 
-- [`build_optional_payload(...)`](../../../../../../pipeline/retainpdf_pipeline/services/ocr_provider/paddle_api.py)
+- [`build_optional_payload(...)`](../../../../../../pipeline/retainpdf_pipeline/ocr/ocr_provider/paddle_api.py)
 
 ## 5. 错误口径
 

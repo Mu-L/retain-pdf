@@ -161,7 +161,7 @@
 
 这次不要做：
 
-- 不要改 Python `services/mineru/`
+- 不要改 Python `ocr/mineru/`
 - 不要改 `document_schema`
 - 不要把整个工作流搬到 Rust
 - 不要开始接第二个 OCR provider

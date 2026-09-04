@@ -11,13 +11,13 @@
 - 改阶段编排总线：
   [`runtime/pipeline/`](./runtime/pipeline)
 - 改 OCR provider 接入：
-  [`services/ocr_provider/`](./services/ocr_provider)
+  [`ocr/ocr_provider/`](./ocr/ocr_provider)
 - 改统一 OCR 契约：
-  [`services/document_schema/`](./services/document_schema)
+  [`ocr/document_schema/`](./ocr/document_schema)
 - 改翻译主链：
-  [`services/translation/`](./services/translation)
+  [`translate/`](./translate)
 - 改渲染主链：
-  [`services/rendering/`](./services/rendering)
+  [`render/`](./render)
 
 ## 一眼看懂主链
 
@@ -25,14 +25,14 @@
 
 ```text
 retainpdf-pipeline provider-case --spec <job_root>/specs/provider.spec.json
-  -> services/ocr_provider/provider_pipeline.py
-     -> services/mineru/* 或 services/ocr_provider/paddle_api.py
-     -> services/document_schema/*
+  -> ocr/ocr_provider/provider_pipeline.py
+     -> ocr/mineru/* 或 ocr/ocr_provider/paddle_api.py
+     -> ocr/document_schema/*
      -> runtime/pipeline/book_pipeline.py
         -> runtime/pipeline/translation_stage.py
-           -> services/translation/*
+           -> translate/*
         -> runtime/pipeline/render_stage.py
-           -> services/rendering/*
+           -> render/*
 ```
 
 未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_provider_case.py --spec <job_root>/specs/provider.spec.json。
@@ -41,7 +41,7 @@ retainpdf-pipeline provider-case --spec <job_root>/specs/provider.spec.json
 
 ```text
 retainpdf-pipeline book --spec <job_root>/specs/book.spec.json
-  -> services/translation/from_ocr_pipeline.py
+  -> translate/from_ocr_pipeline.py
      -> runtime/pipeline/book_pipeline.py
         -> translation_stage.py
         -> render_stage.py
@@ -53,9 +53,9 @@ retainpdf-pipeline book --spec <job_root>/specs/book.spec.json
 
 ```text
 retainpdf-pipeline translate-only --spec <job_root>/specs/translate.spec.json
-  -> services/translation/translate_only_pipeline.py
+  -> translate/translate_only_pipeline.py
      -> runtime/pipeline/translation_stage.py
-        -> services/translation/*
+        -> translate/*
 ```
 
 未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_translate_only.py --spec <job_root>/specs/translate.spec.json。
@@ -64,9 +64,9 @@ retainpdf-pipeline translate-only --spec <job_root>/specs/translate.spec.json
 
 ```text
 retainpdf-pipeline render-only --spec <job_root>/specs/render.spec.json
-  -> services/rendering/workflow/render_only.py
+  -> render/workflow/render_only.py
      -> runtime/pipeline/render_stage.py
-        -> services/rendering/*
+        -> render/*
 ```
 
 未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_render_only.py --spec <job_root>/specs/render.spec.json。
@@ -109,37 +109,37 @@ retainpdf-pipeline render-only --spec <job_root>/specs/render.spec.json
   - [`render_inputs.py`](./runtime/pipeline/render_inputs.py)
     render-only 输入协议收口。
 
-### `services/document_schema/`
+### `ocr/document_schema/`
 
 - 作用：
   OCR 统一中间契约层。
 - 进入条件：
   改 raw OCR -> `document.v1.json` 的适配、字段默认值、schema 校验时进这里。
 - 关键文件：
-  - [`normalize_pipeline.py`](./services/document_schema/normalize_pipeline.py)
+  - [`normalize_pipeline.py`](./ocr/document_schema/normalize_pipeline.py)
     normalize worker 入口。
-  - [`adapters.py`](./services/document_schema/adapters.py)
+  - [`adapters.py`](./ocr/document_schema/adapters.py)
     raw provider -> normalized document 总适配口。
-  - [`reporting.py`](./services/document_schema/reporting.py)
+  - [`reporting.py`](./ocr/document_schema/reporting.py)
     normalization summary/report 读取。
 
-### `services/ocr_provider/`
+### `ocr/ocr_provider/`
 
 - 作用：
   provider-backed OCR 总入口与 provider 协议收口。
 - 进入条件：
   改 provider 分发、Paddle API 调用、provider-backed worker 主线时进这里。
 - 关键文件：
-  - [`provider_pipeline.py`](./services/ocr_provider/provider_pipeline.py)
+  - [`provider_pipeline.py`](./ocr/ocr_provider/provider_pipeline.py)
     当前 provider-backed full flow 稳定入口，也是脚本/测试依赖的兼容面。
-  - [`paddle_api.py`](./services/ocr_provider/paddle_api.py)
+  - [`paddle_api.py`](./ocr/ocr_provider/paddle_api.py)
     Paddle 异步 API 接入。
-  - [`paddle_markdown.py`](./services/ocr_provider/paddle_markdown.py)
+  - [`paddle_markdown.py`](./ocr/ocr_provider/paddle_markdown.py)
     Paddle Markdown 与图片产物落盘。
-  - [`paddle_normalize.py`](./services/ocr_provider/paddle_normalize.py)
+  - [`paddle_normalize.py`](./ocr/ocr_provider/paddle_normalize.py)
     Paddle normalized document 几何修正等纯实现。
 
-### `services/mineru/`
+### `ocr/mineru/`
 
 - 作用：
   MinerU provider 的具体实现。
@@ -148,34 +148,34 @@ retainpdf-pipeline render-only --spec <job_root>/specs/render.spec.json
 - 注意：
   这里是 provider 实现，不是 OCR 总线，也不是翻译/渲染主链。
 
-### `services/translation/`
+### `translate/`
 
 - 作用：
   把 `document.v1.json` 变成稳定翻译产物。
 - 进入条件：
   改翻译策略、LLM 调度、continuation、payload 落盘、diagnostics 时进这里。
 - 关键文件：
-  - [`from_ocr_pipeline.py`](./services/translation/from_ocr_pipeline.py)
+  - [`from_ocr_pipeline.py`](./translate/from_ocr_pipeline.py)
     normalized OCR -> translate -> render 的 worker 包装入口。
-  - [`translate_only_pipeline.py`](./services/translation/translate_only_pipeline.py)
+  - [`translate_only_pipeline.py`](./translate/translate_only_pipeline.py)
     translate-only worker 包装入口。
-  - [`workflow/translation_workflow.py`](./services/translation/workflow/translation_workflow.py)
+  - [`workflow/translation_workflow.py`](./translate/workflow/translation_workflow.py)
     单页翻译流程。
-  - [`llm/README.md`](./services/translation/llm/README.md)
+  - [`llm/README.md`](./translate/llm/README.md)
     LLM 目录边界说明。
 
-### `services/rendering/`
+### `render/`
 
 - 作用：
   把翻译产物和源 PDF 变成最终 PDF。
 - 进入条件：
   改 overlay、Typst、背景修复、压缩、render-only 协议时进这里。
 - 关键文件：
-  - [`workflow/render_only.py`](./services/rendering/workflow/render_only.py)
+  - [`workflow/render_only.py`](./render/workflow/render_only.py)
     render-only worker 包装入口。
-  - [`workflow/`](./services/rendering/workflow)
+  - [`workflow/`](./render/workflow)
     渲染流程编排入口。
-  - [`output/typst/`](./services/rendering/output/typst)
+  - [`output/typst/`](./render/output/typst)
     Typst 输出主链。
 
 ### `services/pipeline_shared/`
@@ -206,18 +206,18 @@ retainpdf-pipeline render-only --spec <job_root>/specs/render.spec.json
 - “这是阶段顺序或输入输出协议变化吗？”
   先看 `runtime/pipeline/`
 - “这是 raw OCR 适配或 schema 变化吗？”
-  先看 `services/document_schema/`
+  先看 `ocr/document_schema/`
 - “这是 provider 接入问题吗？”
-  先看 `services/ocr_provider/` 或 `services/mineru/`
+  先看 `ocr/ocr_provider/` 或 `ocr/mineru/`
 - “这是翻译结果不对吗？”
-  先看 `services/translation/`
+  先看 `translate/`
 - “这是 PDF 渲染不对吗？”
-  先看 `services/rendering/`
+  先看 `render/`
 
 ## 三条边界红线
 
 - `runtime/pipeline/` 不理解 provider raw JSON，也不直接 import provider 私有实现。
-- `services/translation/` 和 `services/rendering/` 不消费 provider raw 结构，只消费稳定交接物。
+- `translate/` 和 `render/` 不消费 provider raw 结构，只消费稳定交接物。
 - `entrypoints/` 只连稳定入口，不绕过 `*_pipeline.py` 或 `runtime/pipeline/*` 直连深层实现。
 
 ## 新人阅读顺序

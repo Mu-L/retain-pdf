@@ -1,6 +1,6 @@
 # Document Schema 说明
 
-`scripts/services/document_schema/` 定义统一中间文档结构。
+`scripts/ocr/document_schema/` 定义统一中间文档结构。
 
 当前正式使用的是：
 
@@ -186,7 +186,7 @@
 
 1. 上游 provider 先输出自己的原始结果
 2. adapter 把原始结果转成 `normalized_document_v1`
-3. `services/translation` 和 `services/rendering` 只围绕这份统一结构工作
+3. `translate` 和 `render` 只围绕这份统一结构工作
 
 以当前 provider 实现为例：
 
@@ -209,7 +209,7 @@ provider 原始 OCR 不应直接进入翻译/渲染主线。
 
 统一入口在：
 
-- `services/document_schema/adapters.py`
+- `ocr/document_schema/adapters.py`
 
 当前 adapter 接口：
 
@@ -222,11 +222,11 @@ provider 原始 OCR 不应直接进入翻译/渲染主线。
 
 共享约定入口：
 
-- `services/document_schema/providers.py`
+- `ocr/document_schema/providers.py`
   稳定 OCR provider 标识常量，adapter、fixture registry、回归脚本优先共用这一层
 - `services/pipeline_shared/`
   主线共享的 `pipeline_summary.json`、stdout 标签、JSON IO 和 source-json 选择规则
-- `services/mineru/contracts.py`
+- `ocr/mineru/contracts.py`
   仅保留 MinerU provider 私有原始文件名、目录名约定
 
 当前正式 provider adapter 有：
@@ -245,7 +245,7 @@ provider 原始 OCR 不应直接进入翻译/渲染主线。
 
 通用骨架位于：
 
-- `services/document_schema/provider_adapters/common/`
+- `ocr/document_schema/provider_adapters/common/`
 
 当前包含：
 
@@ -270,7 +270,7 @@ provider 原始 OCR 不应直接进入翻译/渲染主线。
 
 provider 装配层位于：
 
-- `services/document_schema/provider_adapters/`
+- `ocr/document_schema/provider_adapters/`
 
 其中：
 
@@ -283,7 +283,7 @@ provider 装配层位于：
 - `generic_flat_ocr_adapter.py`
   目前仍是最薄的一层 passthrough adapter
 - `mineru`
-  主线仍在 `services/mineru/document_v1.py`，当前不在这轮通用化范围内
+  主线仍在 `ocr/mineru/document_v1.py`，当前不在这轮通用化范围内
 
 也就是说，后续扩展 OCR provider 时，优先目标不是继续堆“大 adapter 文件”，而是：
 
@@ -307,8 +307,8 @@ Paddle 当前 rich-content trace 也已经继续拆分成三层：
 
 新 provider 可以参考：
 
-- `services/document_schema/provider_adapters/provider_adapter_template.py`
-- `services/document_schema/provider_adapters/paddle/`
+- `ocr/document_schema/provider_adapters/provider_adapter_template.py`
+- `ocr/document_schema/provider_adapters/paddle/`
 
 后续新增 OCR provider 时，正确做法是：
 
@@ -375,7 +375,7 @@ report 里当前会包含：
 
 统一消费入口：
 
-- `services/document_schema/reporting.py`
+- `ocr/document_schema/reporting.py`
 - `load_normalization_report(path)`
 - `build_normalization_summary(report)`
 
@@ -413,7 +413,7 @@ python scripts/devtools/tests/document_schema/regression_check.py --write-report
 
 内部大类迁移不能靠肉眼抽查。仓库提供：
 
-- 可复用审计模块：`services/document_schema/decision_diff.py`
+- 可复用审计模块：`ocr/document_schema/decision_diff.py`
 - corpus CLI：`services/pipeline/devtools/audit_block_class_decisions.py`
 
 它会对同一个 block 同时计算：

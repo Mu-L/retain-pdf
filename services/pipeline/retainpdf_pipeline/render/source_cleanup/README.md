@@ -27,7 +27,7 @@ Current mainline behavior is the `v4.1.6-beta10` cleanup model:
 - `strip_bbox_text_rects_from_pdf_copy(...)`
 
 External callers should go through these package-level boundaries rather than importing old
-`services.rendering.source.preparation.bbox_text_strip_*` modules.
+`render.source.preparation.bbox_text_strip_*` modules.
 
 ## Fallback Rules
 

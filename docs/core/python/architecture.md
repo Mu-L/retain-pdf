@@ -25,11 +25,11 @@ entrypoints
 ## 稳定子系统
 
 ```text
-services/document_schema
-services/ocr_provider
-services/mineru
-services/translation
-services/rendering
+ocr/document_schema
+ocr/ocr_provider
+ocr/mineru
+translate
+render
 services/pipeline_shared
 runtime/pipeline
 ```
@@ -44,7 +44,7 @@ runtime/pipeline
 ## 渲染层边界
 
 ```text
-services/rendering/workflow
+render/workflow
   -> document / analysis
   -> source
   -> layout
@@ -77,12 +77,12 @@ services/rendering/workflow
 - `output/typst` 不 import `source/cleanup`。
 - `layout` 不 import `output/typst`、`source/cleanup`、`source/prepare`。
 - `source/cleanup` 不 import `output/typst` 或高层 layout 逻辑。
-- `runtime/pipeline` 不直接 import `services.rendering.output.typst`、`services.rendering.source.cleanup`、`services.rendering.layout`。
+- `runtime/pipeline` 不直接 import `render.output.typst`、`render.source.cleanup`、`render.layout`。
 
 ## 翻译层边界
 
 ```text
-services/translation/workflow
+translate/workflow
   -> context
   -> policy
   -> memory
@@ -108,7 +108,7 @@ services/translation/workflow
 禁止方向：
 
 - `runtime/pipeline/translation_stage.py` 不直接 import `policy`、`llm`、`diagnostics` 内部细节。
-- `translation` 不 import `services.rendering`。
+- `translation` 不 import `render`。
 - `translation` 不消费 provider raw JSON。
 
 ## OCR 边界
@@ -121,18 +121,18 @@ ocr_provider / mineru
 
 禁止方向：
 
-- `ocr_provider` 不 import `services.translation`。
-- `ocr_provider` 不 import `services.rendering`。
-- `translation` 和 `rendering` 不 import `services.ocr_provider` 或 `services.mineru`。
+- `ocr_provider` 不 import `translate`。
+- `ocr_provider` 不 import `render`。
+- `translation` 和 `rendering` 不 import `ocr.ocr_provider` 或 `ocr.mineru`。
 
 ## 公共入口
 
 上层优先只调用这些入口：
 
-- `services.ocr_provider.provider_pipeline`
-- `services.document_schema.normalize_pipeline`
-- `services.translation.workflow`
-- `services.rendering.workflow.execute_render_plan`
+- `ocr.ocr_provider.provider_pipeline`
+- `ocr.document_schema.normalize_pipeline`
+- `translate.workflow`
+- `render.workflow.execute_render_plan`
 - `runtime.pipeline.book_pipeline`
 
 如果新增入口，必须同时更新：

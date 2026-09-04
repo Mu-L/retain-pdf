@@ -39,7 +39,7 @@ PaddleX 或官方 API 时，必须重新比对实际模型配置和真实返回�
 ## 3. 官方 25 类与当前映射
 
 当前实现以
-`services/pipeline/retainpdf_pipeline/services/document_schema/provider_adapters/paddle/block_labels.py`
+`services/pipeline/retainpdf_pipeline/ocr/document_schema/provider_adapters/paddle/block_labels.py`
 中的 `map_block_kind` 为准。
 
 | Paddle `block_label` | 含义 | 当前 `document.v1` 映射 | 状态与说明 |

@@ -22,16 +22,16 @@
 允许修改：
 
 - `docs/core/paddle_ocr_api/*`
-- `services/pipeline/retainpdf_pipeline/services/document_schema/provider_adapters/paddle/*`
-- `services/pipeline/retainpdf_pipeline/services/document_schema/adapters.py`
-- `services/pipeline/retainpdf_pipeline/services/document_schema/providers.py`
+- `services/pipeline/retainpdf_pipeline/ocr/document_schema/provider_adapters/paddle/*`
+- `services/pipeline/retainpdf_pipeline/ocr/document_schema/adapters.py`
+- `services/pipeline/retainpdf_pipeline/ocr/document_schema/providers.py`
 - `services/pipeline/devtools/tests/document_schema/fixtures/*`
 - `services/pipeline/devtools/tests/document_schema/regression_check.py`
 
 不要修改：
 
-- `services/pipeline/retainpdf_pipeline/services/translation/*`
-- `services/pipeline/retainpdf_pipeline/services/rendering/*`
+- `services/pipeline/retainpdf_pipeline/translate/*`
+- `services/pipeline/retainpdf_pipeline/render/*`
 - `services/pipeline/retainpdf_pipeline/runtime/pipeline/*`
 
 例外：

@@ -22,7 +22,7 @@
 
 核心流程可以概括成：
 
-`PDF -> OCR provider -> document_schema -> services/translation -> services/rendering -> PDF`
+`PDF -> OCR provider -> document_schema -> translate -> render -> PDF`
 
 更具体一点：
 
@@ -96,22 +96,22 @@
 
 如果要改翻译链路，推荐阅读顺序是：
 
-1. `services/translation/README.md`
-2. `services/translation/llm/README.md`
-3. 再按需要进入 `services/translation/llm/providers/` 或 `services/translation/llm/shared/orchestration/`
+1. `translate/README.md`
+2. `translate/llm/README.md`
+3. 再按需要进入 `translate/llm/providers/` 或 `translate/llm/shared/orchestration/`
 
 ## 新 Provider 接入顺序
 
 如果后续要接新的 OCR provider，先按这个顺序走，不要直接改翻译/渲染主线：
 
-1. 先看 `scripts/services/ocr_provider/README.md`
+1. 先看 `scripts/ocr/ocr_provider/README.md`
    先把 provider API 层边界、状态、原始产物职责定义清楚。
-2. 再看 `scripts/services/document_schema/README.md`
+2. 再看 `scripts/ocr/document_schema/README.md`
    明确字段应该落到 `geometry/content/layout_role/semantic_role/structure_role/policy/provenance` 的哪一层。
 3. 准备最小 raw fixture
    放到 `scripts/devtools/tests/document_schema/fixtures/`。
 4. 新增 provider 实现和 adapter
-   通过 `scripts/services/document_schema/adapters.py` 接进统一 schema。
+   通过 `scripts/ocr/document_schema/adapters.py` 接进统一 schema。
 5. 把 fixture 登记到 `scripts/devtools/tests/document_schema/fixtures/registry.py`
    不要手改主线去兼容 provider 原始 JSON。
 6. 跑 `scripts/devtools/tests/document_schema/regression_check.py`
@@ -119,13 +119,13 @@
 
 ## 顶层目录说明
 
-- `services/mineru`
+- `ocr/mineru`
   MinerU 接入、下载、解包、job 组织。
 - `services/pipeline_shared`
   provider / translate / render 共用的阶段协议、summary 和 JSON IO。
-- `services/translation`
+- `translate`
   OCR payload 到翻译 JSON。
-- `services/rendering`
+- `render`
   翻译 JSON 到 PDF。
 - `runtime/pipeline`
   翻译和渲染的总编排层。
@@ -173,7 +173,7 @@
 - 如果入口给的是 raw `layout.json`，会先做一次显式规范化，再进入翻译主线
 - raw MinerU 结构保留给 adapter、调试和回溯，不再作为主链路的隐式数据契约
 - 如果只是做排错、状态展示或 API 输出摘要，优先消费 `document.v1.report.json`
-- Python 侧统一通过 `services/document_schema/reporting.py` 读取 report 和生成 normalization summary
+- Python 侧统一通过 `ocr/document_schema/reporting.py` 读取 report 和生成 normalization summary
 - `specs/` 保存阶段 spec JSON，当前已覆盖：
   - `normalize.spec.json` -> `normalize.stage.v1`
   - `translate.spec.json` -> `translate.stage.v1`
@@ -213,10 +213,10 @@
 - `retainpdf-pipeline provider-case --spec <job_root>/specs/provider.spec.json` -> 当前 provider-backed full workflow 的本地通用入口
 - `run_document_flow.py`（script-mode，仅桌面兼容，无 console 等价物） -> 当前 normalized-document full flow 的本地通用入口名
 - `retainpdf-pipeline provider-ocr --spec <job_root>/specs/provider.spec.json` -> 当前 OCR-only provider flow 的本地通用入口
-- `services/document_schema/normalize_pipeline.py` -> `normalize.stage.v1`
-- `services/translation/translate_only_pipeline.py` -> `translate.stage.v1`
-- `services/rendering/workflow/render_only.py` -> `render.stage.v1`
-- `services/translation/from_ocr_pipeline.py` -> `book.stage.v1`
+- `ocr/document_schema/normalize_pipeline.py` -> `normalize.stage.v1`
+- `translate/translate_only_pipeline.py` -> `translate.stage.v1`
+- `render/workflow/render_only.py` -> `render.stage.v1`
+- `translate/from_ocr_pipeline.py` -> `book.stage.v1`
 - `retainpdf-pipeline book --spec <job_root>/specs/book.spec.json` -> `book.stage.v1`
 
 历史任务需要按当前转换规则重建 `document.v1.json` 时，使用同一条 normalize
@@ -321,15 +321,15 @@ Docker 镜像安装 pipeline 包并固定使用 `console` 模式；尚未安装�
 - [foundation/shared/README.md](./retainpdf_pipeline/foundation/shared/README.md)
 - [runtime/pipeline/README.md](./retainpdf_pipeline/runtime/pipeline/README.md)
 - [services/README.md](./retainpdf_pipeline/services/README.md)
-- [services/ocr_provider/README.md](./retainpdf_pipeline/services/ocr_provider/README.md)
-- [services/translation/README.md](./retainpdf_pipeline/services/translation/README.md)
-- [services/rendering/README.md](./retainpdf_pipeline/services/rendering/README.md)
-- [services/mineru/README.md](./retainpdf_pipeline/services/mineru/README.md)
+- [ocr/ocr_provider/README.md](./retainpdf_pipeline/ocr/ocr_provider/README.md)
+- [translate/README.md](./retainpdf_pipeline/translate/README.md)
+- [render/README.md](./retainpdf_pipeline/render/README.md)
+- [ocr/mineru/README.md](./retainpdf_pipeline/ocr/mineru/README.md)
 
 ## 设计边界
 
-- `services/translation` 不直接操作 PDF
-- `services/rendering` 不直接决定翻译策略
+- `translate` 不直接操作 PDF
+- `render` 不直接决定翻译策略
 - `runtime/pipeline` 负责编排，不下沉到实现细节
 - `foundation/` 不承载具体业务流程
 - `entrypoints/` 只做入口，不承载核心实现
@@ -344,10 +344,10 @@ Docker 镜像安装 pipeline 包并固定使用 `console` 模式；尚未安装�
 
 第二条负责卡住 Python 主链最容易回退的边界：
 
-- `runtime/pipeline` 重新直接 import `services.ocr_provider` / `services.mineru`
+- `runtime/pipeline` 重新直接 import `ocr.ocr_provider` / `ocr.mineru`
 - `runtime/pipeline` 重新理解 provider raw token，例如 `layoutParsingResults`
-- `services/translation` / `services/rendering` 重新碰 provider raw adapter
+- `translate` / `render` 重新碰 provider raw adapter
 - `entrypoints/*` 绕过稳定入口，直接连深层实现
-- `services/ocr_provider/__init__.py` 丢掉显式公共导出面
-- `services/ocr_provider/provider_pipeline.py` 丢掉稳定 compat symbol 或不再承担主链 handoff
-- `services/ocr_provider/paddle_*` 反向依赖 `runtime/pipeline` / `services/translation` / `services/rendering`
+- `ocr/ocr_provider/__init__.py` 丢掉显式公共导出面
+- `ocr/ocr_provider/provider_pipeline.py` 丢掉稳定 compat symbol 或不再承担主链 handoff
+- `ocr/ocr_provider/paddle_*` 反向依赖 `runtime/pipeline` / `translate` / `render`
