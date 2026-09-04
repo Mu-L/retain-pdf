@@ -151,7 +151,9 @@ jobs:
           # 用捆绑 python.exe 直接安装（产出 Lib/site-packages + Scripts/retainpdf-pipeline.exe），
           # 但 Scripts exe 首行 shebang 硬编码构建机路径不可搬运，运行时走 backend/bin/*.cmd wrapper（-m）。
           $pipelineSrc = Join-Path $env:RETAIN_PDF_SERVICES_ROOT "pipeline"
-          & $pythonBundleExe -m pip install --no-deps --no-build-isolation $pipelineSrc
+          # 注意：捆绑 python.exe 自身没有 pip（No module named pip），必须用
+          # 系统 python 的 pip --target 装进 bundle，不能调 bundle python -m pip。
+          python -m pip install --target $sitePackages --no-deps --no-build-isolation $pipelineSrc
           $env:PYTHONPATH = $sitePackages
           & $pythonBundleExe -c "import requests, fitz, pikepdf, PIL, urllib3; print('python_bundle_import_check=ok')"
           # console 入口探针（过渡期 warn-only，不阻断打包）
@@ -165,6 +167,9 @@ jobs:
           } catch {
             Write-Host "warning: bundled pipeline console --help probe failed: $_ (script fallback)"
           }
+          # 探针是 warn-only：显式清掉残留 $LASTEXITCODE，否则 pwsh 会在步骤
+          # 末尾带着旧失败码退出（原生命令失败不阻断，但失败码会粘住）。
+          $global:LASTEXITCODE = 0
           Get-ChildItem (Join-Path $bundleRoot "Scripts") -Filter "retainpdf-pipeline*" -ErrorAction SilentlyContinue | Select-Object Name, Length
           Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
           Get-ChildItem $bundleRoot | Select-Object Name, Length, LastWriteTime
@@ -797,6 +802,8 @@ jobs:
           "$bundle_python3" -m pip install -r apps/desktop/requirements-desktop-posix.txt
           "$bundle_python3" -m pip install -r apps/desktop/requirements-ai-service.txt
           # 打包 retainpdf-pipeline console 入口：--no-deps 避免重复拉原生轮子触发门禁
+          # 先装 wheel：venv 精简后缺 bdist_wheel，否则 metadata 生成失败
+          "$bundle_python3" -m pip install wheel
           "$bundle_python3" -m pip install --no-deps --no-build-isolation "$RETAIN_PDF_SERVICES_ROOT/pipeline"
           # 兜底：pip 生成脚本首行多为 runner 绝对路径，重写为可搬运 shebang（纯文本替换，不跑 install_name_tool）
           pipeline_entry="$bundle_root/bin/retainpdf-pipeline"
