@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import pytest
-from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.block_labels import (
+from retainpdf_pipeline.ocr.document_schema.provider_adapters.paddle.block_labels import (
     map_block_kind,
 )
-from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.label_catalog import (
+from retainpdf_pipeline.ocr.document_schema.provider_adapters.paddle.label_catalog import (
     DEFAULT_PADDLE_TAXONOMY_PROFILE,
     GRANULARITY_INLINE_SPAN,
     GRANULARITY_REGION,
@@ -13,10 +13,10 @@ from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.label_
     PADDLE_TAXONOMY_PROFILE_V3,
     get_paddle_label_definition,
 )
-from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.roles import (
+from retainpdf_pipeline.ocr.document_schema.provider_adapters.paddle.roles import (
     derive_paddle_block_roles,
 )
-from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.translation_policy import (
+from retainpdf_pipeline.ocr.document_schema.provider_adapters.paddle.translation_policy import (
     derive_paddle_translation_policy,
 )
 

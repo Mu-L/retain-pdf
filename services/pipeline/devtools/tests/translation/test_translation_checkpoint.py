@@ -14,25 +14,25 @@ import pytest
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from retainpdf_pipeline.services.translation.core.payload import (
+from retainpdf_pipeline.translate.core.payload import (
     load_translations,
     pending_translation_items,
     save_translations,
     write_translation_manifest,
 )
-from retainpdf_pipeline.services.translation.workflow.checkpoint import (
+from retainpdf_pipeline.translate.workflow.checkpoint import (
     TRANSLATION_CHECKPOINT_FILE_NAME,
     ResumeCandidateFingerprintMismatch,
     TranslationCheckpointSession,
     discard_copied_resume_candidate,
 )
-from retainpdf_pipeline.services.translation.workflow.checkpoint.identity import (
+from retainpdf_pipeline.translate.workflow.checkpoint.identity import (
     build_translation_identity,
 )
-from retainpdf_pipeline.services.translation.workflow.checkpoint.store import (
+from retainpdf_pipeline.translate.workflow.checkpoint.store import (
     CheckpointStore,
 )
-from retainpdf_pipeline.services.translation.workflow.execution import (
+from retainpdf_pipeline.translate.workflow.execution import (
     TranslationExecutionRequest,
 )
 
@@ -471,7 +471,7 @@ def test_checkpoint_identity_tracks_translation_engine_version(tmp_path: Path, m
 
     first = build_translation_identity(request, _plan())
     monkeypatch.setattr(
-        "retainpdf_pipeline.services.translation.workflow.checkpoint.identity.translation_engine_identity",
+        "retainpdf_pipeline.translate.workflow.checkpoint.identity.translation_engine_identity",
         lambda **_kwargs: {
             "prompt_hash": "changed-prompt",
             "translation_protocol_version": "changed-protocol",

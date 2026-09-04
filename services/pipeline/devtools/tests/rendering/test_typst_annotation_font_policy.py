@@ -6,10 +6,10 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.rendering.layout.font_size_fit import local_font_size_pt
-from retainpdf_pipeline.services.rendering.layout.payload.annotation_font_policy import recover_underfilled_annotation_density
-from retainpdf_pipeline.services.rendering.layout.payload.annotation_font_policy import unify_annotation_fonts
-from retainpdf_pipeline.services.rendering.layout.payload.body_common import payload_density
+from retainpdf_pipeline.render.layout.font_size_fit import local_font_size_pt
+from retainpdf_pipeline.render.layout.payload.annotation_font_policy import recover_underfilled_annotation_density
+from retainpdf_pipeline.render.layout.payload.annotation_font_policy import unify_annotation_fonts
+from retainpdf_pipeline.render.layout.payload.body_common import payload_density
 
 
 def test_caption_and_footnote_fonts_use_low_role_anchor() -> None:

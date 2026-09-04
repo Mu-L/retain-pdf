@@ -10,5 +10,5 @@ def test_run_provider_ocr_entrypoint_targets_provider_pipeline() -> None:
     entrypoint_path = REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "entrypoints" / "run_provider_ocr.py"
     source = entrypoint_path.read_text(encoding="utf-8")
 
-    assert "from retainpdf_pipeline.services.ocr_provider.provider_pipeline import main" in source
-    assert "retainpdf_pipeline.services.mineru.ocr_pipeline" not in source
+    assert "from retainpdf_pipeline.ocr.ocr_provider.provider_pipeline import main" in source
+    assert "retainpdf_pipeline.ocr.mineru.ocr_pipeline" not in source

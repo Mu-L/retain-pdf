@@ -4,9 +4,9 @@ from pathlib import Path
 
 # Import submodules (not package __init__) to avoid circular import with
 # document_schema adapters that may load pipeline_shared.io.
-from retainpdf_pipeline.services.document_schema.reporting import build_normalization_summary
-from retainpdf_pipeline.services.document_schema.reporting import load_normalization_report
-from retainpdf_pipeline.services.document_schema.validator import build_validation_report_from_path
+from retainpdf_pipeline.ocr.document_schema.reporting import build_normalization_summary
+from retainpdf_pipeline.ocr.document_schema.reporting import load_normalization_report
+from retainpdf_pipeline.ocr.document_schema.validator import build_validation_report_from_path
 
 from .contracts import STDOUT_LABEL_JOB_ROOT
 from .contracts import STDOUT_LABEL_LAYOUT_JSON

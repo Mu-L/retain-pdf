@@ -11,8 +11,8 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.rendering.analysis.profile.builder import build_render_page_profile
-from retainpdf_pipeline.services.rendering.analysis.profile.registry import EMPTY_PAGE_PROFILE_REGISTRY
+from retainpdf_pipeline.render.analysis.profile.builder import build_render_page_profile
+from retainpdf_pipeline.render.analysis.profile.registry import EMPTY_PAGE_PROFILE_REGISTRY
 
 
 def test_build_render_page_profile_collects_base_dimensions(tmp_path: Path) -> None:

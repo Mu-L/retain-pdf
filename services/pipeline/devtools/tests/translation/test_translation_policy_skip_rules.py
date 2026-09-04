@@ -6,12 +6,12 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.translation.services.policy.payload_rules.legacy_policy_mutations import apply_cjk_source_keep_origin
-from retainpdf_pipeline.services.translation.services.policy.payload_rules.policy_mutations import reset_policy_state
-from retainpdf_pipeline.services.translation.services.policy.payload_rules.policy_mutations import apply_title_skip
-from retainpdf_pipeline.services.translation.services.policy.payload_rules.policy_defaults import foundational_skip_defaults
-from retainpdf_pipeline.services.translation.services.policy.config import build_translation_policy_config
-from retainpdf_pipeline.services.translation.services.policy.flow import apply_translation_policies
+from retainpdf_pipeline.translate.services.policy.payload_rules.legacy_policy_mutations import apply_cjk_source_keep_origin
+from retainpdf_pipeline.translate.services.policy.payload_rules.policy_mutations import reset_policy_state
+from retainpdf_pipeline.translate.services.policy.payload_rules.policy_mutations import apply_title_skip
+from retainpdf_pipeline.translate.services.policy.payload_rules.policy_defaults import foundational_skip_defaults
+from retainpdf_pipeline.translate.services.policy.config import build_translation_policy_config
+from retainpdf_pipeline.translate.services.policy.flow import apply_translation_policies
 
 
 def _translation_item(**overrides) -> dict:

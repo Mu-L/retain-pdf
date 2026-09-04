@@ -11,10 +11,10 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 from devtools.tests.rendering_support.prewarm_fixtures import translated_page_payload
 from devtools.tests.rendering_support.prewarm_fixtures import write_source_pdf
-from retainpdf_pipeline.services.rendering.analysis.document.builder import build_render_page_analysis
-from retainpdf_pipeline.services.rendering.analysis.document.models import RenderDocumentAnalysis
+from retainpdf_pipeline.render.analysis.document.builder import build_render_page_analysis
+from retainpdf_pipeline.render.analysis.document.models import RenderDocumentAnalysis
 from devtools.tests.rendering_support.page_profiles import sample_render_page_profile
-from retainpdf_pipeline.services.rendering.source_cleanup.planning.planner import plan_source_cleanup
+from retainpdf_pipeline.render.source_cleanup.planning.planner import plan_source_cleanup
 
 
 def test_source_cleanup_skips_physical_delete_when_document_analysis_requires_visual_cover() -> None:

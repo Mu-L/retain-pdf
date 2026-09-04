@@ -14,14 +14,14 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 # pdf-structure-profile cleanup contract, which is not enabled in the current
 # beta10 cleanup mainline.
 
-from retainpdf_pipeline.services.rendering.pdf_structure_profile.contracts import PDF_STRUCTURE_PROFILE_ALGORITHM_VERSION
-from retainpdf_pipeline.services.rendering.pdf_structure_profile.contracts import PdfObjectBox
-from retainpdf_pipeline.services.rendering.pdf_structure_profile.contracts import PdfStructureDocumentProfile
-from retainpdf_pipeline.services.rendering.pdf_structure_profile.contracts import PdfStructurePageProfile
-from retainpdf_pipeline.services.rendering.pdf_structure_profile.io import write_pdf_structure_profile
-from retainpdf_pipeline.services.rendering.source_cleanup import SourceCleanupOptions
-from retainpdf_pipeline.services.rendering.source_cleanup import SourceCleanupRequest
-from retainpdf_pipeline.services.rendering.source_cleanup import build_source_cleanup_plan
+from retainpdf_pipeline.render.pdf_structure_profile.contracts import PDF_STRUCTURE_PROFILE_ALGORITHM_VERSION
+from retainpdf_pipeline.render.pdf_structure_profile.contracts import PdfObjectBox
+from retainpdf_pipeline.render.pdf_structure_profile.contracts import PdfStructureDocumentProfile
+from retainpdf_pipeline.render.pdf_structure_profile.contracts import PdfStructurePageProfile
+from retainpdf_pipeline.render.pdf_structure_profile.io import write_pdf_structure_profile
+from retainpdf_pipeline.render.source_cleanup import SourceCleanupOptions
+from retainpdf_pipeline.render.source_cleanup import SourceCleanupRequest
+from retainpdf_pipeline.render.source_cleanup import build_source_cleanup_plan
 
 
 def test_source_cleanup_plan_uses_pdf_structure_profile_page_features() -> None:

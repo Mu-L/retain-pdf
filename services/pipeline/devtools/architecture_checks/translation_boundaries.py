@@ -29,11 +29,11 @@ def check_translation_internal_boundaries(errors: list[str]) -> None:
             continue
         if path.is_dir() and path.name not in TRANSLATION_ALLOWED_ROOT_DIRS:
             errors.append(
-                f"services/translation/{path.name}: unexpected translation root directory; update architecture rules or move it into a named layer"
+                f"translate/{path.name}: unexpected translation root directory; update architecture rules or move it into a named layer"
             )
         if path.is_file() and path.name not in TRANSLATION_ALLOWED_ROOT_FILES:
             errors.append(
-                f"services/translation/{path.name}: unexpected translation root file; place new code inside entrypoints/workflow/core/services/llm/artifacts."
+                f"translate/{path.name}: unexpected translation root file; place new code inside entrypoints/workflow/core/services/llm/artifacts."
             )
 
     workflow_root = TRANSLATION_ROOT / "workflow"
@@ -59,7 +59,7 @@ def check_translation_internal_boundaries(errors: list[str]) -> None:
         if allowed_prefixes is None:
             continue
         for module in imported_modules(path):
-            if not module.startswith(("retainpdf_pipeline.services.translation.", "retainpdf_pipeline.services.pipeline_shared.")):
+            if not module.startswith(("retainpdf_pipeline.translate.", "retainpdf_pipeline.services.pipeline_shared.")):
                 continue
             if module_allowed(module, allowed_prefixes):
                 continue
@@ -67,7 +67,7 @@ def check_translation_internal_boundaries(errors: list[str]) -> None:
                 f"{rel(path)}: workflow/{subpackage} must not import '{module}' directly"
             )
 
-    private_import_prefix = "retainpdf_pipeline.services.translation.workflow."
+    private_import_prefix = "retainpdf_pipeline.translate.workflow."
     for path in scan_py_files(workflow_root):
         rel_to_translation = path.relative_to(TRANSLATION_ROOT)
         exception_prefixes = TRANSLATION_WORKFLOW_PRIVATE_IMPORT_EXCEPTIONS.get(rel_to_translation, ())
@@ -86,10 +86,10 @@ def check_translation_internal_boundaries(errors: list[str]) -> None:
     public_init = TRANSLATION_ROOT / "public" / "__init__.py"
     public_text = read_text(public_init)
     forbidden_public_eager_imports = (
-        "from retainpdf_pipeline.services.translation.",
-        "import retainpdf_pipeline.services.translation.",
-        "from retainpdf_pipeline.services.rendering",
-        "import retainpdf_pipeline.services.rendering",
+        "from retainpdf_pipeline.translate.",
+        "import retainpdf_pipeline.translate.",
+        "from retainpdf_pipeline.render",
+        "import retainpdf_pipeline.render",
     )
     for item in forbidden_public_eager_imports:
         if item in public_text:
@@ -128,12 +128,12 @@ def check_translation_internal_boundaries(errors: list[str]) -> None:
         text = read_text(path)
         rel_path = rel(path)
         forbidden = (
-            "from retainpdf_pipeline.services.translation.workflow",
-            "import retainpdf_pipeline.services.translation.workflow",
-            "from retainpdf_pipeline.services.translation.services.policy",
-            "import retainpdf_pipeline.services.translation.services.policy",
-            "from retainpdf_pipeline.services.rendering",
-            "import retainpdf_pipeline.services.rendering",
+            "from retainpdf_pipeline.translate.workflow",
+            "import retainpdf_pipeline.translate.workflow",
+            "from retainpdf_pipeline.translate.services.policy",
+            "import retainpdf_pipeline.translate.services.policy",
+            "from retainpdf_pipeline.render",
+            "import retainpdf_pipeline.render",
             "from retainpdf_pipeline.runtime.pipeline",
             "import retainpdf_pipeline.runtime.pipeline",
         )
@@ -148,18 +148,18 @@ def check_translation_internal_boundaries(errors: list[str]) -> None:
         text = read_text(path)
         rel_path = rel(path)
         forbidden = (
-            "from retainpdf_pipeline.services.translation.llm",
-            "import retainpdf_pipeline.services.translation.llm",
-            "from retainpdf_pipeline.services.translation.workflow",
-            "import retainpdf_pipeline.services.translation.workflow",
-            "from retainpdf_pipeline.services.translation.workflow.batching",
-            "import retainpdf_pipeline.services.translation.workflow.batching",
-            "from retainpdf_pipeline.services.translation.services.fast_path",
-            "import retainpdf_pipeline.services.translation.services.fast_path",
-            "from retainpdf_pipeline.services.translation.services.results",
-            "import retainpdf_pipeline.services.translation.services.results",
-            "from retainpdf_pipeline.services.translation.services.memory",
-            "import retainpdf_pipeline.services.translation.services.memory",
+            "from retainpdf_pipeline.translate.llm",
+            "import retainpdf_pipeline.translate.llm",
+            "from retainpdf_pipeline.translate.workflow",
+            "import retainpdf_pipeline.translate.workflow",
+            "from retainpdf_pipeline.translate.workflow.batching",
+            "import retainpdf_pipeline.translate.workflow.batching",
+            "from retainpdf_pipeline.translate.services.fast_path",
+            "import retainpdf_pipeline.translate.services.fast_path",
+            "from retainpdf_pipeline.translate.services.results",
+            "import retainpdf_pipeline.translate.services.results",
+            "from retainpdf_pipeline.translate.services.memory",
+            "import retainpdf_pipeline.translate.services.memory",
             "from retainpdf_pipeline.runtime.pipeline",
             "import retainpdf_pipeline.runtime.pipeline",
         )
@@ -177,7 +177,7 @@ def check_translation_internal_boundaries(errors: list[str]) -> None:
         allowed_prefixes = TRANSLATION_LAYER_IMPORT_RULES[layer]
         exception_prefixes = TRANSLATION_LAYER_IMPORT_EXCEPTIONS.get(path.relative_to(TRANSLATION_ROOT), ())
         for module in imported_modules(path):
-            if not module.startswith("retainpdf_pipeline.services.translation."):
+            if not module.startswith("retainpdf_pipeline.translate."):
                 continue
             if module_allowed(module, TRANSLATION_SHARED_COMPAT_IMPORTS):
                 continue

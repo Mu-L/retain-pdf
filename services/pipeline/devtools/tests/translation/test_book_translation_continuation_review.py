@@ -6,7 +6,7 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.translation.services.continuation.orchestrator import review_candidate_continuation_pairs
+from retainpdf_pipeline.translate.services.continuation.orchestrator import review_candidate_continuation_pairs
 
 
 def test_continuation_review_uses_default_wide_batches(monkeypatch) -> None:
@@ -55,15 +55,15 @@ def test_continuation_review_uses_default_wide_batches(monkeypatch) -> None:
     batch_sizes: list[int] = []
 
     monkeypatch.setattr(
-        "retainpdf_pipeline.services.translation.services.continuation.orchestrator.candidate_continuation_pairs",
+        "retainpdf_pipeline.translate.services.continuation.orchestrator.candidate_continuation_pairs",
         lambda _payload: fake_pairs,
     )
     monkeypatch.setattr(
-        "retainpdf_pipeline.services.translation.services.continuation.orchestrator.pair_join_score",
+        "retainpdf_pipeline.translate.services.continuation.orchestrator.pair_join_score",
         lambda _prev, _next: 0,
     )
     monkeypatch.setattr(
-        "retainpdf_pipeline.services.translation.services.continuation.orchestrator.pair_break_score",
+        "retainpdf_pipeline.translate.services.continuation.orchestrator.pair_break_score",
         lambda _prev, _next: 0,
     )
 
@@ -72,7 +72,7 @@ def test_continuation_review_uses_default_wide_batches(monkeypatch) -> None:
         return {pair["pair_id"]: "break" for pair in batch_pairs}
 
     monkeypatch.setattr(
-        "retainpdf_pipeline.services.translation.services.continuation.orchestrator.review_candidate_pairs",
+        "retainpdf_pipeline.translate.services.continuation.orchestrator.review_candidate_pairs",
         _fake_review,
     )
 

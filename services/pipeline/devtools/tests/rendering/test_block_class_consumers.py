@@ -7,22 +7,22 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.rendering.layout.model.render_text import (
+from retainpdf_pipeline.render.layout.model.render_text import (
     should_skip_display_math_render,
 )
-from retainpdf_pipeline.services.rendering.layout.payload.render_item import (
+from retainpdf_pipeline.render.layout.payload.render_item import (
     should_render_source_block,
 )
-from retainpdf_pipeline.services.rendering.policy.cleanup_policy import (
+from retainpdf_pipeline.render.policy.cleanup_policy import (
     item_has_formula_region,
     item_is_marked_non_translated,
 )
-from retainpdf_pipeline.services.rendering.semantics.item_view import (
+from retainpdf_pipeline.render.semantics.item_view import (
     block_class,
     is_document_title,
     is_title_like_block,
 )
-from retainpdf_pipeline.services.rendering.source_cleanup.planning.item_classifier import (
+from retainpdf_pipeline.render.source_cleanup.planning.item_classifier import (
     item_allows_forced_text_strip,
 )
 

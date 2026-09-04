@@ -4,9 +4,9 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from retainpdf_pipeline.services.document_schema.adapters import adapt_payload_to_document_v1
-from retainpdf_pipeline.services.document_schema.providers import PROVIDER_MINERU
-from retainpdf_pipeline.services.translation.services.policy.reference_section import resolve_reference_cutoff
+from retainpdf_pipeline.ocr.document_schema.adapters import adapt_payload_to_document_v1
+from retainpdf_pipeline.ocr.document_schema.providers import PROVIDER_MINERU
+from retainpdf_pipeline.translate.services.policy.reference_section import resolve_reference_cutoff
 
 
 def _text_block(block_type: str, text: str) -> dict:

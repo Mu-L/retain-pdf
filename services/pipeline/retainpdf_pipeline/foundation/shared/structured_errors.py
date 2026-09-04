@@ -59,7 +59,7 @@ def infer_failure_stage(*, default_stage: str, trace_text: str, detail: str) -> 
     if any(
         token in combined
         for token in (
-            "retainpdf_pipeline.services.translation",
+            "retainpdf_pipeline.translate",
             "translate_only_pipeline",
             "translate_from_ocr",
             "direct_typst.py",
@@ -71,7 +71,7 @@ def infer_failure_stage(*, default_stage: str, trace_text: str, detail: str) -> 
         )
     ):
         return "translation"
-    if any(token in combined for token in ("render_stage.py", "retainpdf_pipeline.services.rendering", "typst compile", "typst error", "render failed", "failed to render")):
+    if any(token in combined for token in ("render_stage.py", "retainpdf_pipeline.render", "typst compile", "typst error", "render failed", "failed to render")):
         return "render"
     if "normaliz" in combined or "document_schema" in combined:
         return "normalization"

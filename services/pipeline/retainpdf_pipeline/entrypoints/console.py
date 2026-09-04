@@ -19,43 +19,43 @@ def _run_structured(
 
 
 def run_book() -> int:
-    from retainpdf_pipeline.services.translation.entrypoints.from_ocr_pipeline import main
+    from retainpdf_pipeline.translate.entrypoints.from_ocr_pipeline import main
 
     return _run_structured(main, default_stage="translation", provider="translation")
 
 
 def run_provider_ocr() -> int:
-    from retainpdf_pipeline.services.ocr_provider.provider_pipeline import main
+    from retainpdf_pipeline.ocr.ocr_provider.provider_pipeline import main
 
     return _run_structured(main, default_stage="provider", provider="ocr")
 
 
 def run_provider_case() -> int:
-    from retainpdf_pipeline.services.ocr_provider.provider_pipeline import main
+    from retainpdf_pipeline.ocr.ocr_provider.provider_pipeline import main
 
     return _run_structured(main, default_stage="provider", provider="ocr")
 
 
 def run_normalize_ocr() -> int:
-    from retainpdf_pipeline.services.document_schema.normalize_pipeline import main
+    from retainpdf_pipeline.ocr.document_schema.normalize_pipeline import main
 
     return _run_structured(main, default_stage="normalization", provider="ocr")
 
 
 def run_translate_from_ocr() -> int:
-    from retainpdf_pipeline.services.translation.entrypoints.from_ocr_pipeline import main
+    from retainpdf_pipeline.translate.entrypoints.from_ocr_pipeline import main
 
     return _run_structured(main, default_stage="translation", provider="translation")
 
 
 def run_translate_only() -> int:
-    from retainpdf_pipeline.services.translation.entrypoints.translate_only_pipeline import main
+    from retainpdf_pipeline.translate.entrypoints.translate_only_pipeline import main
 
     return _run_structured(main, default_stage="translation", provider="translation")
 
 
 def run_render_only() -> int:
-    from retainpdf_pipeline.services.rendering.workflow.render_only import main
+    from retainpdf_pipeline.render.workflow.render_only import main
 
     return _run_structured(main, default_stage="rendering", provider="rendering")
 
@@ -67,7 +67,7 @@ def run_document_operation() -> int:
 
 
 def run_side_by_side_pdf() -> int:
-    from retainpdf_pipeline.services.rendering.tools.side_by_side_pdf import main
+    from retainpdf_pipeline.render.tools.side_by_side_pdf import main
 
     main()
     return 0

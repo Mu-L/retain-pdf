@@ -9,20 +9,20 @@ import pytest
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from retainpdf_pipeline.services.document_schema.adapters import (
+from retainpdf_pipeline.ocr.document_schema.adapters import (
     adapt_payload_to_document_v1,
 )
-from retainpdf_pipeline.services.document_schema.provider_adapters.mineru.label_catalog import (
+from retainpdf_pipeline.ocr.document_schema.provider_adapters.mineru.label_catalog import (
     MINERU_MIDDLE_BLOCK_LABELS,
 )
-from retainpdf_pipeline.services.document_schema.providers import (
+from retainpdf_pipeline.ocr.document_schema.providers import (
     PROVIDER_MINERU,
     PROVIDER_MINERU_CONTENT_LIST_V2,
 )
-from retainpdf_pipeline.services.document_schema.validator import (
+from retainpdf_pipeline.ocr.document_schema.validator import (
     validate_document_payload,
 )
-from retainpdf_pipeline.services.mineru.artifacts import (
+from retainpdf_pipeline.ocr.mineru.artifacts import (
     materialize_mineru_page_assets,
     resolve_layout_json_path,
 )

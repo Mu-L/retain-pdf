@@ -10,8 +10,8 @@ from retainpdf_pipeline.runtime.pipeline.render_execution import execute_render_
 from retainpdf_pipeline.services.pipeline_shared.events import emit_stage_progress
 from retainpdf_pipeline.services.pipeline_shared.events import emit_stage_transition
 from retainpdf_pipeline.services.pipeline_shared.events import reset_render_page_progress
-from retainpdf_pipeline.services.rendering.source.prewarm import prewarm_manifest_path_from_translations_dir
-from retainpdf_pipeline.services.rendering.workflow import render_translated_pages_map
+from retainpdf_pipeline.render.source.prewarm import prewarm_manifest_path_from_translations_dir
+from retainpdf_pipeline.render.workflow import render_translated_pages_map
 
 
 def render_no_cache_enabled() -> bool:

@@ -7,15 +7,15 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.document_schema.classification import (
+from retainpdf_pipeline.ocr.document_schema.classification import (
     derive_block_class,
     resolve_block_class,
 )
-from retainpdf_pipeline.services.document_schema.consumer_reader import block_class
-from retainpdf_pipeline.services.document_schema.provider_adapters.common.block_builder import (
+from retainpdf_pipeline.ocr.document_schema.consumer_reader import block_class
+from retainpdf_pipeline.ocr.document_schema.provider_adapters.common.block_builder import (
     build_block_record,
 )
-from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.roles import (
+from retainpdf_pipeline.ocr.document_schema.provider_adapters.paddle.roles import (
     derive_paddle_block_roles,
 )
 

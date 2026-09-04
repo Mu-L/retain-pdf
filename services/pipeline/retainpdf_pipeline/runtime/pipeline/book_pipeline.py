@@ -11,17 +11,17 @@ from retainpdf_pipeline.runtime.pipeline.render_stage import build_book_from_tra
 from retainpdf_pipeline.runtime.pipeline.render_stage import build_book_pipeline
 from retainpdf_pipeline.runtime.pipeline.render_stage import run_render_stage
 from retainpdf_pipeline.runtime.pipeline.translation_stage import translate_book_pipeline
-from retainpdf_pipeline.services.rendering.analysis.document import build_render_document_analysis
-from retainpdf_pipeline.services.rendering.source.prewarm import prewarm_manifest_path_from_artifacts_dir
-from retainpdf_pipeline.services.rendering.source.prewarm import RenderPrewarmHandle
-from retainpdf_pipeline.services.rendering.source.prewarm import RenderPrewarmSpec
-from retainpdf_pipeline.services.rendering.source.prewarm import start_render_source_prewarm
-from retainpdf_pipeline.services.translation.public import resolve_page_range
-from retainpdf_pipeline.services.translation.public import write_translation_debug_index
-from retainpdf_pipeline.services.translation.public import write_translation_diagnostics
-from retainpdf_pipeline.services.translation.public import GlossaryEntry
-from retainpdf_pipeline.services.translation.public import blocking_untranslated_items
-from retainpdf_pipeline.services.translation.public import enforce_no_blocking_review_errors
+from retainpdf_pipeline.render.analysis.document import build_render_document_analysis
+from retainpdf_pipeline.render.source.prewarm import prewarm_manifest_path_from_artifacts_dir
+from retainpdf_pipeline.render.source.prewarm import RenderPrewarmHandle
+from retainpdf_pipeline.render.source.prewarm import RenderPrewarmSpec
+from retainpdf_pipeline.render.source.prewarm import start_render_source_prewarm
+from retainpdf_pipeline.translate.public import resolve_page_range
+from retainpdf_pipeline.translate.public import write_translation_debug_index
+from retainpdf_pipeline.translate.public import write_translation_diagnostics
+from retainpdf_pipeline.translate.public import GlossaryEntry
+from retainpdf_pipeline.translate.public import blocking_untranslated_items
+from retainpdf_pipeline.translate.public import enforce_no_blocking_review_errors
 
 
 def run_book_pipeline(

@@ -28,11 +28,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     worker, rest = args[0], args[1:]
     if worker in {"provider-ocr", "provider-case"}:
-        from retainpdf_pipeline.services.ocr_provider.provider_pipeline import main as worker_main
+        from retainpdf_pipeline.ocr.ocr_provider.provider_pipeline import main as worker_main
 
         stage, provider = "provider", "ocr"
     elif worker == "normalize-ocr":
-        from retainpdf_pipeline.services.document_schema.normalize_pipeline import main as worker_main
+        from retainpdf_pipeline.ocr.document_schema.normalize_pipeline import main as worker_main
 
         stage, provider = "normalization", "ocr"
     else:

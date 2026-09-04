@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from retainpdf_pipeline.services.rendering.layout.model.models import RenderLayoutBlock
-from retainpdf_pipeline.services.rendering.layout.model.models import RenderPageSpec
+from retainpdf_pipeline.render.layout.model.models import RenderLayoutBlock
+from retainpdf_pipeline.render.layout.model.models import RenderPageSpec
 
 
 def sample_page_spec(background_pdf_path: Path | None = None) -> RenderPageSpec:

@@ -4,8 +4,8 @@ from pathlib import Path
 import math
 
 import fitz
-from retainpdf_pipeline.services.rendering.analysis.profile.builder import build_render_page_profile
-from retainpdf_pipeline.services.rendering.contracts import RenderDocumentAnalysis
+from retainpdf_pipeline.render.analysis.profile.builder import build_render_page_profile
+from retainpdf_pipeline.render.contracts import RenderDocumentAnalysis
 
 
 def is_pseudo_editable_scan_pdf(doc: fitz.Document, start_page: int, end_page: int) -> bool:

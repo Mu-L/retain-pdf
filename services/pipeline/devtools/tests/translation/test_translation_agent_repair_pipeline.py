@@ -8,11 +8,11 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.translation.services.agents import TranslationAgentCoordinator
-from retainpdf_pipeline.services.translation.services.agents import TranslationAgentRuntime
-from retainpdf_pipeline.services.translation.services.agents import run_agent_repair_pipeline
-from retainpdf_pipeline.services.translation.llm.shared.control_context import GlossaryEntry
-from retainpdf_pipeline.services.translation.llm.shared.control_context import build_translation_control_context
+from retainpdf_pipeline.translate.services.agents import TranslationAgentCoordinator
+from retainpdf_pipeline.translate.services.agents import TranslationAgentRuntime
+from retainpdf_pipeline.translate.services.agents import run_agent_repair_pipeline
+from retainpdf_pipeline.translate.llm.shared.control_context import GlossaryEntry
+from retainpdf_pipeline.translate.llm.shared.control_context import build_translation_control_context
 
 
 def _item(item_id: str, source_text: str, **overrides) -> dict:

@@ -15,8 +15,8 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 from retainpdf_pipeline.foundation.shared.job_dirs import ensure_job_dirs
 from retainpdf_pipeline.foundation.shared.job_dirs import resolve_job_dirs
-from retainpdf_pipeline.services.document_schema import validate_saved_document_path
-from retainpdf_pipeline.services.ocr_provider.paddle_runner import run_paddle_to_job_dir
+from retainpdf_pipeline.ocr.document_schema import validate_saved_document_path
+from retainpdf_pipeline.ocr.ocr_provider.paddle_runner import run_paddle_to_job_dir
 
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "paddle_complex_ocr.golden.json"

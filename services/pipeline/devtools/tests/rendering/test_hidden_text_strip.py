@@ -6,8 +6,8 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.rendering.source.preparation.hidden_text_strip import _text_object_is_hidden
-from retainpdf_pipeline.services.rendering.source.preparation.hidden_text_strip import _analyze_text_object_visibility
+from retainpdf_pipeline.render.source.preparation.hidden_text_strip import _text_object_is_hidden
+from retainpdf_pipeline.render.source.preparation.hidden_text_strip import _analyze_text_object_visibility
 
 
 def test_text_object_is_hidden_when_all_text_show_uses_render_mode_3() -> None:

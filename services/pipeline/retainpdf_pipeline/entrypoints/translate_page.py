@@ -3,9 +3,9 @@ from pathlib import Path
 
 from retainpdf_pipeline.foundation.config import paths
 from retainpdf_pipeline.foundation.shared.schema_cli import SOURCE_JSON_MAINLINE_HELP
-from retainpdf_pipeline.services.translation.public import extract_text_items, load_ocr_json
-from retainpdf_pipeline.services.translation.public import DEFAULT_BASE_URL, DEFAULT_MODEL, get_api_key, normalize_base_url
-from retainpdf_pipeline.services.translation.public import translate_items_to_path
+from retainpdf_pipeline.translate.public import extract_text_items, load_ocr_json
+from retainpdf_pipeline.translate.public import DEFAULT_BASE_URL, DEFAULT_MODEL, get_api_key, normalize_base_url
+from retainpdf_pipeline.translate.public import translate_items_to_path
 
 
 def parse_args() -> argparse.Namespace:

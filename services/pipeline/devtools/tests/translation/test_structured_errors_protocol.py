@@ -50,8 +50,8 @@ def test_classify_exception_extracts_provider_code_and_provider_category():
 def test_direct_typst_protocol_shell_is_classified_as_translation_not_render():
     trace = (
         'File "/Applications/RetainPDF.app/Contents/Resources/backend/pipeline/'
-        'services/translation/llm/shared/orchestration/direct_typst.py", line 399\n'
-        "retainpdf_pipeline.services.translation.llm.placeholder_guard.TranslationProtocolError: "
+        'translate/llm/shared/orchestration/direct_typst.py", line 399\n'
+        "retainpdf_pipeline.translate.llm.placeholder_guard.TranslationProtocolError: "
         "p007-b004: translated output still contains protocol/json shell"
     )
 

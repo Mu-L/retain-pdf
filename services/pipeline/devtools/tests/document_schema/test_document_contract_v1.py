@@ -7,13 +7,13 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.document_schema.adapters import (
+from retainpdf_pipeline.ocr.document_schema.adapters import (
     adapt_payload_to_document_v1,
 )
-from retainpdf_pipeline.services.document_schema.providers import (
+from retainpdf_pipeline.ocr.document_schema.providers import (
     PROVIDER_GENERIC_FLAT_OCR,
 )
-from retainpdf_pipeline.services.document_schema.validator import (
+from retainpdf_pipeline.ocr.document_schema.validator import (
     DocumentSchemaValidationError,
     validate_document_payload,
 )

@@ -5,10 +5,10 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.column_signals import (
+from retainpdf_pipeline.ocr.document_schema.provider_adapters.paddle.column_signals import (
     analyze_page_column_signals,
 )
-from retainpdf_pipeline.services.document_schema.provider_adapters.paddle.body_repair import repair_body_cross_column_blocks
+from retainpdf_pipeline.ocr.document_schema.provider_adapters.paddle.body_repair import repair_body_cross_column_blocks
 from devtools.tests.document_schema.fixtures.registry import PADDLE_FIXTURES_ROOT
 
 

@@ -5,10 +5,10 @@ from retainpdf_pipeline.foundation.config import fonts
 from retainpdf_pipeline.foundation.config import paths
 from retainpdf_pipeline.foundation.config import runtime
 from retainpdf_pipeline.foundation.shared.schema_cli import SOURCE_JSON_MAINLINE_HELP
-from retainpdf_pipeline.services.translation.public import extract_text_items, load_ocr_json
-from retainpdf_pipeline.services.rendering.legacy.pdf_overlay import build_dev_pdf, build_single_page_dev_pdf, extract_single_page_pdf
-from retainpdf_pipeline.services.rendering.legacy.typst_page_renderer import build_single_page_typst_pdf
-from retainpdf_pipeline.services.translation.public import ensure_translation_template, load_translations
+from retainpdf_pipeline.translate.public import extract_text_items, load_ocr_json
+from retainpdf_pipeline.render.legacy.pdf_overlay import build_dev_pdf, build_single_page_dev_pdf, extract_single_page_pdf
+from retainpdf_pipeline.render.legacy.typst_page_renderer import build_single_page_typst_pdf
+from retainpdf_pipeline.translate.public import ensure_translation_template, load_translations
 
 
 def parse_args() -> argparse.Namespace:

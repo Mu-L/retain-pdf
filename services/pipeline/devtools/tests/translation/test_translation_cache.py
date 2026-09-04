@@ -7,8 +7,8 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.translation.llm.shared.cache import cache_key_for_item
-from retainpdf_pipeline.services.translation.llm.shared import cache
+from retainpdf_pipeline.translate.llm.shared.cache import cache_key_for_item
+from retainpdf_pipeline.translate.llm.shared import cache
 
 
 def test_translation_cache_key_includes_translation_style_hint() -> None:
@@ -65,7 +65,7 @@ def test_translation_cache_key_includes_target_language() -> None:
 
 
 def test_translation_cache_key_includes_policy_version(monkeypatch) -> None:
-    from retainpdf_pipeline.services.translation.core import engine_identity
+    from retainpdf_pipeline.translate.core import engine_identity
 
     item = {
         "item_id": "p001-b001",
@@ -154,7 +154,7 @@ def test_unit_cache_prunes_expired_entries_once(tmp_path, monkeypatch) -> None:
     import os
     import time as time_module
 
-    from retainpdf_pipeline.services.translation.llm.shared import cache as cache_module
+    from retainpdf_pipeline.translate.llm.shared import cache as cache_module
     from retainpdf_pipeline.foundation.config import paths as paths_module
 
     cache_root = tmp_path / "_translation_unit_cache"

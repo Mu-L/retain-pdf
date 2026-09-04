@@ -14,12 +14,12 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 def _ensure_package_stubs():
     package_paths = {
         "retainpdf_pipeline.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services",
-        "retainpdf_pipeline.services.translation": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation",
-        "retainpdf_pipeline.services.translation.llm": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm",
-        "retainpdf_pipeline.services.translation.llm.shared": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared",
-        "retainpdf_pipeline.services.translation.llm.shared.orchestration": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration",
-        "retainpdf_pipeline.services.translation.llm.providers": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "providers",
-        "retainpdf_pipeline.services.translation.llm.providers.deepseek": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "providers" / "deepseek",
+        "retainpdf_pipeline.translate": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate",
+        "retainpdf_pipeline.translate.llm": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm",
+        "retainpdf_pipeline.translate.llm.shared": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "shared",
+        "retainpdf_pipeline.translate.llm.shared.orchestration": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "shared" / "orchestration",
+        "retainpdf_pipeline.translate.llm.providers": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "providers",
+        "retainpdf_pipeline.translate.llm.providers.deepseek": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "providers" / "deepseek",
     }
     for name, path in package_paths.items():
         module = sys.modules.get(name)
@@ -41,12 +41,12 @@ def _load_module(name: str, path: Path):
 class TranslationTransportFallbackTests(unittest.TestCase):
     def test_single_item_transport_failure_marks_failed(self):
         module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.orchestration.fallbacks",
-            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration" / "fallbacks.py",
+            "retainpdf_pipeline.translate.llm.shared.orchestration.fallbacks",
+            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "shared" / "orchestration" / "fallbacks.py",
         )
         control_module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.control_context",
-            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "control_context.py",
+            "retainpdf_pipeline.translate.llm.shared.control_context",
+            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "shared" / "control_context.py",
         )
         context = control_module.build_translation_control_context()
         item = {
@@ -81,12 +81,12 @@ class TranslationTransportFallbackTests(unittest.TestCase):
 
     def test_direct_typst_body_transport_failure_marks_failed_without_inline_sentence_fallback(self):
         module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.orchestration.fallbacks",
-            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration" / "fallbacks.py",
+            "retainpdf_pipeline.translate.llm.shared.orchestration.fallbacks",
+            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "shared" / "orchestration" / "fallbacks.py",
         )
         control_module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.control_context",
-            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "control_context.py",
+            "retainpdf_pipeline.translate.llm.shared.control_context",
+            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "shared" / "control_context.py",
         )
         context = control_module.build_translation_control_context()
         item = {
@@ -125,12 +125,12 @@ class TranslationTransportFallbackTests(unittest.TestCase):
 
     def test_direct_typst_transport_failure_does_not_run_sentence_level_degrade_path(self):
         module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.orchestration.fallbacks",
-            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration" / "fallbacks.py",
+            "retainpdf_pipeline.translate.llm.shared.orchestration.fallbacks",
+            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "shared" / "orchestration" / "fallbacks.py",
         )
         control_module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.control_context",
-            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "control_context.py",
+            "retainpdf_pipeline.translate.llm.shared.control_context",
+            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "shared" / "control_context.py",
         )
         context = control_module.build_translation_control_context()
         item = {
@@ -183,12 +183,12 @@ class TranslationTransportFallbackTests(unittest.TestCase):
 
     def test_batched_transport_failure_queues_single_item_tail_retry(self):
         module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.orchestration.fallbacks",
-            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration" / "fallbacks.py",
+            "retainpdf_pipeline.translate.llm.shared.orchestration.fallbacks",
+            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "shared" / "orchestration" / "fallbacks.py",
         )
         control_module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.control_context",
-            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "control_context.py",
+            "retainpdf_pipeline.translate.llm.shared.control_context",
+            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "shared" / "control_context.py",
         )
         context = control_module.build_translation_control_context()
         batch = [
@@ -239,16 +239,16 @@ class TranslationTransportFallbackTests(unittest.TestCase):
 
     def test_batched_plain_suspicious_keep_origin_only_retries_flagged_items(self):
         module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.orchestration.fallbacks",
-            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "orchestration" / "fallbacks.py",
+            "retainpdf_pipeline.translate.llm.shared.orchestration.fallbacks",
+            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "shared" / "orchestration" / "fallbacks.py",
         )
         control_module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.shared.control_context",
-            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "shared" / "control_context.py",
+            "retainpdf_pipeline.translate.llm.shared.control_context",
+            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "shared" / "control_context.py",
         )
         placeholder_module = _load_module(
-            "retainpdf_pipeline.services.translation.llm.placeholder_guard",
-            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "llm" / "placeholder_guard.py",
+            "retainpdf_pipeline.translate.llm.placeholder_guard",
+            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "placeholder_guard.py",
         )
         context = control_module.build_translation_control_context()
         batch = [

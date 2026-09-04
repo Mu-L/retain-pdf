@@ -11,9 +11,9 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 from retainpdf_pipeline.foundation.shared.job_dirs import ensure_job_dirs
 from retainpdf_pipeline.foundation.shared.job_dirs import resolve_job_dirs
-from retainpdf_pipeline.services.ocr_provider.local_command_driver import LOCAL_OCR_COMMAND_ENV
-from retainpdf_pipeline.services.ocr_provider.local_command_driver import LOCAL_OCR_RAW_PROVIDER_ENV
-from retainpdf_pipeline.services.ocr_provider.local_command_driver import run_local_command_ocr_to_job_dir
+from retainpdf_pipeline.ocr.ocr_provider.local_command_driver import LOCAL_OCR_COMMAND_ENV
+from retainpdf_pipeline.ocr.ocr_provider.local_command_driver import LOCAL_OCR_RAW_PROVIDER_ENV
+from retainpdf_pipeline.ocr.ocr_provider.local_command_driver import run_local_command_ocr_to_job_dir
 
 
 def _write_source_pdf(path: Path) -> None:
@@ -210,7 +210,7 @@ target.write_text(json.dumps({
     monkeypatch.setenv(LOCAL_OCR_COMMAND_ENV, f"{sys.executable} {script_path}")
     monkeypatch.setenv(LOCAL_OCR_RAW_PROVIDER_ENV, "custom_flat")
     monkeypatch.setattr(
-        "retainpdf_pipeline.services.ocr_provider.local_command_driver.adapt_path_to_document_v1_with_report",
+        "retainpdf_pipeline.ocr.ocr_provider.local_command_driver.adapt_path_to_document_v1_with_report",
         _fake_adapt_path_to_document_v1_with_report,
     )
 

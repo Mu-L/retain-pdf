@@ -7,7 +7,7 @@ from pathlib import Path
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
-from retainpdf_pipeline.services.document_schema.markdown_fallback import (
+from retainpdf_pipeline.ocr.document_schema.markdown_fallback import (
     materialize_document_markdown_fallback,
     render_document_markdown,
 )

@@ -9,22 +9,22 @@ REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
-from retainpdf_pipeline.services.document_schema.defaults import default_block_continuation_hint
-from retainpdf_pipeline.services.document_schema.adapters import adapt_payload_to_document_v1
-from retainpdf_pipeline.services.document_schema.providers import PROVIDER_GENERIC_FLAT_OCR
-from retainpdf_pipeline.services.translation.core.ocr.json_extractor import extract_text_items
-from retainpdf_pipeline.services.translation.core.ocr.models import TextItem
-from retainpdf_pipeline.services.translation.core.payload.translations import export_translation_template
-from retainpdf_pipeline.services.translation.core.payload.translations import load_translations
-from retainpdf_pipeline.services.translation.services.continuation.orchestrator import _filter_boundary_candidate_pairs
+from retainpdf_pipeline.ocr.document_schema.defaults import default_block_continuation_hint
+from retainpdf_pipeline.ocr.document_schema.adapters import adapt_payload_to_document_v1
+from retainpdf_pipeline.ocr.document_schema.providers import PROVIDER_GENERIC_FLAT_OCR
+from retainpdf_pipeline.translate.core.ocr.json_extractor import extract_text_items
+from retainpdf_pipeline.translate.core.ocr.models import TextItem
+from retainpdf_pipeline.translate.core.payload.translations import export_translation_template
+from retainpdf_pipeline.translate.core.payload.translations import load_translations
+from retainpdf_pipeline.translate.services.continuation.orchestrator import _filter_boundary_candidate_pairs
 
 
 def _ensure_package_stubs() -> None:
     package_paths = {
         "retainpdf_pipeline.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services",
-        "retainpdf_pipeline.services.translation": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation",
-        "retainpdf_pipeline.services.translation.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "services",
-        "retainpdf_pipeline.services.translation.services.continuation": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "services" / "continuation",
+        "retainpdf_pipeline.translate": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate",
+        "retainpdf_pipeline.translate.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "services",
+        "retainpdf_pipeline.translate.services.continuation": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "services" / "continuation",
     }
     for name, path in package_paths.items():
         module = sys.modules.get(name)
@@ -45,12 +45,12 @@ def _load_module(name: str, path: Path):
 
 def _load_state_module():
     _load_module(
-        "retainpdf_pipeline.services.translation.services.continuation.rules",
-        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "services" / "continuation" / "rules.py",
+        "retainpdf_pipeline.translate.services.continuation.rules",
+        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "services" / "continuation" / "rules.py",
     )
     return _load_module(
-        "retainpdf_pipeline.services.translation.services.continuation.state",
-        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services" / "translation" / "services" / "continuation" / "state.py",
+        "retainpdf_pipeline.translate.services.continuation.state",
+        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "services" / "continuation" / "state.py",
     )
 
 
