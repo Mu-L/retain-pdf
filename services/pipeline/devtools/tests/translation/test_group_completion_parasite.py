@@ -61,3 +61,24 @@ def test_mismatched_group_texts_keep_group_pending() -> None:
     ]
     units = pending_translation_items(payload)
     assert len(units) == 1
+
+
+def _review_joined_member(item_id: str, source: str, member_text: str, group_text: str) -> dict:
+    item = _member(item_id, source, group_text=group_text)
+    item["continuation_group"] = "cg-review-1002"
+    item["translation_unit_id"] = "__cg__:cg-review-1002"
+    item["translation_unit_member_ids"] = ["p002-b011", "p002-b012"]
+    item["continuation_decision"] = "review_joined"
+    item["protected_translated_text"] = member_text
+    return item
+
+
+def test_review_joined_members_with_own_texts_stay_complete() -> None:
+    # Regression for job 20260904024653-65f2da: review joined two already
+    # translated singles; members carry different group-field texts but each
+    # has its own member translation, so the group must not go pending.
+    payload = [
+        _review_joined_member("p002-b011", "first half", "前半译文", "合并且切分甲"),
+        _review_joined_member("p002-b012", "second half", "后半译文", "合并且切分乙"),
+    ]
+    assert pending_translation_items(payload) == []
