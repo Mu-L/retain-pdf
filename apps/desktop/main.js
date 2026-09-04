@@ -44,6 +44,7 @@ const backendHttp = createBackendHttp({
 });
 const { canReuseExistingBackend } = backendHttp;
 const portOccupant = createPortOccupant({ canConnectToPort, logger: console });
+const { killProcessTreeSync } = portOccupant;
 const desktopConfigStore = createDesktopConfigStore(app, { desktopApiKey: DESKTOP_API_KEY });
 const {
   buildDesktopConfigResponse,
@@ -541,16 +542,18 @@ app.on("window-all-closed", () => {
 app.on("before-quit", () => {
   isQuitting = true;
   backendStopping = true;
-  if (aiServiceChild && !aiServiceChild.killed) {
-    try {
-      aiServiceChild.kill();
-    } catch (_err) {
-      /* ignore */
-    }
+  // Synchronously terminate whole process trees: plain ChildProcess.kill()
+  // only kills the direct child, leaving supervised grandchildren (jobsd,
+  // ai service, workers) orphaned and holding ports. Never touch foreign
+  // backends: skip rust_api when reusing an external one.
+  if (aiServiceChild && !aiServiceChild.killed && aiServiceChild.pid) {
+    killProcessTreeSync(aiServiceChild.pid);
+    aiServiceChild = null;
+  } else {
     aiServiceChild = null;
   }
-  if (!usingExternalBackend && backendChild && !backendChild.killed) {
-    backendChild.kill();
+  if (!usingExternalBackend && backendChild && !backendChild.killed && backendChild.pid) {
+    killProcessTreeSync(backendChild.pid);
   }
 });
 

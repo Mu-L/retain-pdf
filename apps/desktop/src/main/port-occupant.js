@@ -1,4 +1,4 @@
-const { execFile } = require("child_process");
+const { execFile, execFileSync } = require("child_process");
 const http = require("http");
 
 // Images owned by the RetainPDF backend. Only these are ever auto-reclaimed:
@@ -27,6 +27,11 @@ function defaultRunCommand(command, args) {
   });
 }
 
+function defaultRunCommandSync(command, args) {
+  execFileSync(command, args, { timeout: COMMAND_TIMEOUT_MS, windowsHide: true });
+  return "";
+}
+
 function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -39,6 +44,7 @@ function createPortOccupant(options = {}) {
     ? options.canConnectToPort
     : async () => false;
   const runCommand = typeof options.runCommand === "function" ? options.runCommand : defaultRunCommand;
+  const runCommandSync = typeof options.runCommandSync === "function" ? options.runCommandSync : defaultRunCommandSync;
   const platform = options.platform || process.platform;
 
   function isOwnResidualBackend(image) {
@@ -127,6 +133,24 @@ function createPortOccupant(options = {}) {
       return await getWindowsOccupant(host, port);
     }
     return await getPosixOccupant(host, port);
+  }
+
+  // Synchronous variant for before-quit: Electron cannot await async work
+  // there, and plain ChildProcess.kill() leaves supervised grandchildren
+  // (jobsd, ai service, workers) orphaned holding ports. Only kills the
+  // given PID tree; callers must not pass foreign PIDs.
+  function killProcessTreeSync(pid) {
+    try {
+      if (platform === "win32") {
+        runCommandSync("taskkill", ["/PID", String(pid), "/T", "/F"]);
+        return true;
+      }
+      process.kill(Number(pid), "SIGKILL");
+      return true;
+    } catch (error) {
+      logger.warn(`[desktop] failed to terminate process tree ${pid}: ${error?.message || error}`);
+      return false;
+    }
   }
 
   async function killProcessTree(pid) {
@@ -246,6 +270,7 @@ function createPortOccupant(options = {}) {
     getPortOccupant,
     isOwnResidualBackend,
     killProcessTree,
+    killProcessTreeSync,
     reclaimPortIfOwnResidual,
   };
 }
