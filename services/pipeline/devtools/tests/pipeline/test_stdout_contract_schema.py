@@ -26,7 +26,13 @@ SCHEMA = json.loads(
 )
 
 # 发射点扫描范围：真实 worker 代码（devtools 工具脚本不算协议生产者）
-EMIT_SCAN_DIRS = [REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services", REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "entrypoints"]
+EMIT_SCAN_DIRS = [
+    REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services",
+    REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "entrypoints",
+    REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "ocr",
+    REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate",
+    REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "render",
+]
 
 
 def _iter_emit_sources():
@@ -106,7 +112,7 @@ def test_checkpoint_event_has_real_producer() -> None:
     assert checkpoint_contract["event_type"] == "pipeline_checkpoint"
     session_source = (
         REPO_SCRIPTS_ROOT
-        / "retainpdf_pipeline/services/translation/workflow/checkpoint/session.py"
+        / "retainpdf_pipeline/translate/workflow/checkpoint/session.py"
     ).read_text(encoding="utf-8")
     assert '"event_type": "pipeline_checkpoint"' in session_source
     for field in checkpoint_contract["required_payload_fields"]:
