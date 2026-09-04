@@ -193,7 +193,7 @@ layout/inline_content/
    放 `mode_router.py`
 4. 这是测试坏例吗？
    放到
-   [`devtools/tests/translation/test_formula_math_markers.py`](../../../../../devtools/tests/translation/test_formula_math_markers.py)
+   [`devtools/tests/translation/test_formula_math_markers.py`](../../../../devtools/tests/translation/test_formula_math_markers.py)
 
 ## 当前你最该看的文件
 

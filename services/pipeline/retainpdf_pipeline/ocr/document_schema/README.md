@@ -1,6 +1,6 @@
 # Document Schema 说明
 
-`scripts/ocr/document_schema/` 定义统一中间文档结构。
+`retainpdf_pipeline/ocr/document_schema/` 定义统一中间文档结构。
 
 当前正式使用的是：
 
@@ -322,7 +322,7 @@ Paddle 当前 rich-content trace 也已经继续拆分成三层：
 1. 先明确字段落位规则
    也就是先决定哪些进入 `content/layout_role/semantic_role/structure_role/policy`，哪些只留在 `tags/derived`，哪些只留在 `metadata/source`。
 2. 准备最小 raw fixture
-   放到 `scripts/devtools/tests/document_schema/fixtures/`。
+   放到 `services/pipeline/devtools/tests/document_schema/fixtures/`。
 3. 写并注册 adapter
    优先复用 `providers.py` 里的共享 provider 常量，不要在 adapter、fixture、回归入口里各写一份裸字符串。
    如果原始结构比较复杂，优先按 `payload_reader / block_labels / relations / content_extract / trace` 这种职责拆分，而不是继续堆单文件。
@@ -388,8 +388,8 @@ report 里当前会包含：
 回归 smoke 检查：
 
 ```bash
-python scripts/devtools/tests/document_schema/regression_check.py
-python scripts/devtools/tests/document_schema/regression_check.py --write-report /tmp/document-schema-regression.json
+python services/pipeline/devtools/tests/document_schema/regression_check.py
+python services/pipeline/devtools/tests/document_schema/regression_check.py --write-report /tmp/document-schema-regression.json
 ```
 
 这个回归脚本现在不是简单打印日志，而是会硬校验：

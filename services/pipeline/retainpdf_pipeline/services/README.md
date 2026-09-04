@@ -1,6 +1,6 @@
 # Services 说明
 
-`scripts/services/` 是具体能力实现层。
+`retainpdf_pipeline/services/` 是具体能力实现层。
 
 这里放真正执行工作的模块，而不是流程编排：
 
@@ -22,9 +22,9 @@
 - `services/*` 负责把单项能力做完整
 - `ocr_provider/` 只定义 provider 接入约定，不承担具体 provider 实现
 - `document_schema/` 负责定义统一中间层，不承载 provider 细节
-- OCR provider 原始 JSON 必须先经过 `document_schema/adapters.py` 转成 `document.v1`
+- OCR provider 原始 JSON 必须先经过 `../ocr/document_schema/adapters.py` 转成 `document.v1`
 - 需要排查 raw -> normalized 转化时，优先看 `document.v1.report.json` 或 `validate_document_schema.py --adapt`
-- 如果只是消费 provider / defaults / validation 摘要，优先走 `document_schema/reporting.py`
+- 如果只是消费 provider / defaults / validation 摘要，优先走 `../ocr/document_schema/reporting.py`
 - `mineru/` 是一个 provider 实现，不是 OCR 总工作流本身
 - `pipeline_shared/` 是中性共享层，不应该再放 provider 私有逻辑
 - `translation/ocr` 主线优先读取 normalized document，而不是直接依赖某个 OCR provider 的原始 JSON
@@ -36,12 +36,12 @@
 
 新 provider 接入时，推荐最短路径是：
 
-1. 先读 `ocr_provider/README.md`
-2. 再读 `document_schema/README.md`
+1. 先读 `../ocr/ocr_provider/README.md`
+2. 再读 `../ocr/document_schema/README.md`
 3. 准备最小 raw fixture
 4. 写 provider API 接入层和 adapter
-5. 把 fixture 加到 `devtools/tests/document_schema/fixtures/registry.py`
-6. 跑 `devtools/tests/document_schema/regression_check.py`
+5. 把 fixture 加到 `services/pipeline/devtools/tests/document_schema/fixtures/registry.py`
+6. 跑 `services/pipeline/devtools/tests/document_schema/regression_check.py`
 
 只有这条链跑通后，provider 才应该进入 translation/rendering 主线。
 

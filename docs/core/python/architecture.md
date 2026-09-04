@@ -107,7 +107,7 @@ translate/workflow
 
 禁止方向：
 
-- `runtime/pipeline/translation_stage.py` 不直接 import `policy`、`llm`、`diagnostics` 内部细节。
+- `translate/translation_stage.py` 不直接 import `policy`、`llm`、`diagnostics` 内部细节。
 - `translation` 不 import `render`。
 - `translation` 不消费 provider raw JSON。
 

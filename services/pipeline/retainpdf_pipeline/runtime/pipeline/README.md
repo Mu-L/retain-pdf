@@ -1,6 +1,6 @@
 # Pipeline 目录说明
 
-`scripts/runtime/pipeline/` 负责把 OCR 标准化产物、翻译流程和渲染流程串成一条稳定的总线。
+`retainpdf_pipeline/runtime/pipeline/` 只保留本地 book 串联（`book_pipeline.py`），负责把 OCR 标准化产物、翻译流程和渲染流程在本地串成一条稳定的总线。生产 book 编排由 Rust 顺序调 `ocr / translate / render` 三进程，不走这里。
 
 这里不承载具体的 OCR provider 解析、翻译模型调用或 PDF 低层渲染细节，而是负责“怎么把这些能力按正确顺序组织起来”。
 

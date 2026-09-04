@@ -4,142 +4,169 @@
 
 **现在要改 `services/pipeline`，应该先进哪个目录。**
 
+包内 canonical 命名空间是 `retainpdf_pipeline`。
+三个 stage 目录（`ocr/`、`translate/`、`render/`）各自是独立进程入口：
+
+- `python -m retainpdf_pipeline.ocr <provider-ocr|provider-case|normalize-ocr> --spec ...`
+- `python -m retainpdf_pipeline.translate --spec ...`
+- `python -m retainpdf_pipeline.render --spec ...`
+
+生产 book 编排由 Rust 按顺序调这三个进程；
+包内 [`runtime/pipeline/book_pipeline.py`](./retainpdf_pipeline/runtime/pipeline/book_pipeline.py)
+只剩本地串联，不再是生产主链。
+
 ## 最常见入口
 
 - 改人工执行入口：
-  [`entrypoints/`](./entrypoints)
-- 改阶段编排总线：
-  [`runtime/pipeline/`](./runtime/pipeline)
+  [`retainpdf_pipeline/entrypoints/`](./retainpdf_pipeline/entrypoints)
+  （console-mode 实现；顶层 `entrypoints/` 已清空，不要再进）
+- 改 book 本地串联：
+  [`retainpdf_pipeline/runtime/pipeline/`](./retainpdf_pipeline/runtime/pipeline)
 - 改 OCR provider 接入：
-  [`ocr/ocr_provider/`](./ocr/ocr_provider)
+  [`retainpdf_pipeline/ocr/ocr_provider/`](./retainpdf_pipeline/ocr/ocr_provider)
 - 改统一 OCR 契约：
-  [`ocr/document_schema/`](./ocr/document_schema)
-- 改翻译主链：
-  [`translate/`](./translate)
-- 改渲染主链：
-  [`render/`](./render)
+  [`retainpdf_pipeline/ocr/document_schema/`](./retainpdf_pipeline/ocr/document_schema)
+- 改翻译主链（含翻译阶段门面）：
+  [`retainpdf_pipeline/translate/`](./retainpdf_pipeline/translate)
+- 改渲染主链（含渲染阶段门面）：
+  [`retainpdf_pipeline/render/`](./retainpdf_pipeline/render)
 
 ## 一眼看懂主链
 
 ### provider-backed 全流程
 
+生产（Rust 顺序调三进程，不经过 book_pipeline）：
+
 ```text
-retainpdf-pipeline provider-case --spec <job_root>/specs/provider.spec.json
+python -m retainpdf_pipeline.ocr provider-case --spec <job_root>/specs/provider.spec.json
   -> ocr/ocr_provider/provider_pipeline.py
      -> ocr/mineru/* 或 ocr/ocr_provider/paddle_api.py
      -> ocr/document_schema/*
-     -> runtime/pipeline/book_pipeline.py
-        -> runtime/pipeline/translation_stage.py
-           -> translate/*
-        -> runtime/pipeline/render_stage.py
-           -> render/*
+python -m retainpdf_pipeline.translate --spec <job_root>/specs/translate.spec.json
+  -> translate/entrypoints/translate_only_pipeline.py
+     -> translate/translation_stage.py
+        -> translate/*
+python -m retainpdf_pipeline.render --spec <job_root>/specs/render.spec.json
+  -> render/workflow/render_only.py
+     -> render/render_stage.py
+        -> render/*
 ```
 
-未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_provider_case.py --spec <job_root>/specs/provider.spec.json。
+本地一次性串联仍可用
+`retainpdf-pipeline provider-case --spec <job_root>/specs/provider.spec.json`
+或包内 `runtime/pipeline/book_pipeline.py`（仅本地，不代表生产路径）。
 
 ### normalized OCR -> translate -> render
 
+生产同样是 Rust 顺序调 translate / render 两个进程。
+本地串联入口：
+
 ```text
 retainpdf-pipeline book --spec <job_root>/specs/book.spec.json
-  -> translate/from_ocr_pipeline.py
-     -> runtime/pipeline/book_pipeline.py
-        -> translation_stage.py
-        -> render_stage.py
+  -> translate/entrypoints/from_ocr_pipeline.py
+     -> runtime/pipeline/book_pipeline.py（仅本地串联）
+        -> translate/translation_stage.py
+        -> render/render_stage.py
 ```
-
-未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_book.py --spec <job_root>/specs/book.spec.json。
 
 ### translate-only
 
 ```text
-retainpdf-pipeline translate-only --spec <job_root>/specs/translate.spec.json
-  -> translate/translate_only_pipeline.py
-     -> runtime/pipeline/translation_stage.py
+python -m retainpdf_pipeline.translate --spec <job_root>/specs/translate.spec.json
+  -> translate/entrypoints/translate_only_pipeline.py
+     -> translate/translation_stage.py
         -> translate/*
 ```
 
-未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_translate_only.py --spec <job_root>/specs/translate.spec.json。
+console 别名：`retainpdf-pipeline translate-only --spec <job_root>/specs/translate.spec.json`。
 
 ### render-only
 
 ```text
-retainpdf-pipeline render-only --spec <job_root>/specs/render.spec.json
+python -m retainpdf_pipeline.render --spec <job_root>/specs/render.spec.json
   -> render/workflow/render_only.py
-     -> runtime/pipeline/render_stage.py
+     -> render/render_stage.py
         -> render/*
 ```
 
-未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_render_only.py --spec <job_root>/specs/render.spec.json。
+console 别名：`retainpdf-pipeline render-only --spec <job_root>/specs/render.spec.json`。
 
 ## 顶层目录地图
 
-### `entrypoints/`
+### `retainpdf_pipeline/entrypoints/`
 
 - 作用：
-  最外层入口，只做参数接收、异常包装、把调用导向稳定入口。正式入口为 `retainpdf-pipeline` console-mode；`entrypoints/` 仅桌面兼容（script-mode）。
+  console-mode 入口实现，只做参数接收、异常包装、把调用导向各 stage 稳定入口。
 - 不该做的事：
   不自己拼 provider 流程，不直接碰翻译/渲染深层实现。
-- 典型文件（console 为主，script 仅桌面兼容回退）：
+- 典型入口（`retainpdf-pipeline <subcommand>` 经由 `console.py` 分发）：
   - `retainpdf-pipeline provider-case --spec <job_root>/specs/provider.spec.json`
-    provider-backed full flow 总入口。
+    provider-backed full flow 本地总入口。
   - `retainpdf-pipeline book --spec <job_root>/specs/book.spec.json`
-    normalized OCR -> translate -> render 总入口。
+    normalized OCR -> translate -> render 本地总入口。
   - `retainpdf-pipeline translate-only --spec <job_root>/specs/translate.spec.json`
-    纯翻译入口。
+    纯翻译入口（生产等价物为 `python -m retainpdf_pipeline.translate`）。
   - `retainpdf-pipeline render-only --spec <job_root>/specs/render.spec.json`
-    纯渲染入口。
+    纯渲染入口（生产等价物为 `python -m retainpdf_pipeline.render`）。
 
-未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_*.py --spec <job_root>/specs/<stage>.spec.json。
+注意：源码树顶层的 `entrypoints/` 已清空（仅剩历史 `__pycache__`），不要再进；
+正式入口实现只在 `retainpdf_pipeline/entrypoints/`。
 
-### `runtime/pipeline/`
+### `retainpdf_pipeline/runtime/pipeline/`
 
 - 作用：
-  阶段编排总线，只负责组织顺序、阶段输入输出和汇总结果。
+  本地串联收口，只剩 [`book_pipeline.py`](./retainpdf_pipeline/runtime/pipeline/book_pipeline.py)，
+  负责把翻译阶段和渲染阶段在本地进程内串起来并汇总结果。
 - 不该做的事：
-  不理解 provider raw JSON，不吸收翻译策略细节，不实现 PDF 底层渲染。
+  不理解 provider raw JSON，不吸收翻译策略细节，不实现 PDF 底层渲染；
+  生产 book 编排不在这里，由 Rust 顺序调 `ocr / translate / render` 三进程。
 - 关键文件：
-  - [`book_pipeline.py`](./runtime/pipeline/book_pipeline.py)
-    顶层 `translate -> render` 编排。
-  - [`translation_stage.py`](./runtime/pipeline/translation_stage.py)
-    纯翻译阶段入口。
-  - [`render_stage.py`](./runtime/pipeline/render_stage.py)
-    纯渲染阶段入口。
-  - [`translation_loader.py`](./runtime/pipeline/translation_loader.py)
-    读取 `translation-manifest.json` 和逐页 payload。
-  - [`render_inputs.py`](./runtime/pipeline/render_inputs.py)
-    render-only 输入协议收口。
+  - [`book_pipeline.py`](./retainpdf_pipeline/runtime/pipeline/book_pipeline.py)
+    本地 `translate -> render` 串联（生产不用这条路径）。
 
-### `ocr/document_schema/`
+翻译 / 渲染的阶段门面已经搬进各自 stage 目录，不在这里：
+
+  - 翻译阶段门面：
+    [`translate/translation_stage.py`](./retainpdf_pipeline/translate/translation_stage.py)
+  - 渲染阶段门面：
+    [`render/render_stage.py`](./retainpdf_pipeline/render/render_stage.py)
+  - 翻译产物读取：
+    [`render/translation_loader.py`](./retainpdf_pipeline/render/translation_loader.py)
+  - render-only 输入协议收口：
+    [`render/render_inputs.py`](./retainpdf_pipeline/render/render_inputs.py)
+
+### `retainpdf_pipeline/ocr/document_schema/`
 
 - 作用：
   OCR 统一中间契约层。
 - 进入条件：
   改 raw OCR -> `document.v1.json` 的适配、字段默认值、schema 校验时进这里。
 - 关键文件：
-  - [`normalize_pipeline.py`](./ocr/document_schema/normalize_pipeline.py)
-    normalize worker 入口。
-  - [`adapters.py`](./ocr/document_schema/adapters.py)
+  - [`normalize_pipeline.py`](./retainpdf_pipeline/ocr/document_schema/normalize_pipeline.py)
+    normalize worker 入口（`python -m retainpdf_pipeline.ocr normalize-ocr`）。
+  - [`adapters.py`](./retainpdf_pipeline/ocr/document_schema/adapters.py)
     raw provider -> normalized document 总适配口。
-  - [`reporting.py`](./ocr/document_schema/reporting.py)
+  - [`reporting.py`](./retainpdf_pipeline/ocr/document_schema/reporting.py)
     normalization summary/report 读取。
 
-### `ocr/ocr_provider/`
+### `retainpdf_pipeline/ocr/ocr_provider/`
 
 - 作用：
   provider-backed OCR 总入口与 provider 协议收口。
 - 进入条件：
   改 provider 分发、Paddle API 调用、provider-backed worker 主线时进这里。
 - 关键文件：
-  - [`provider_pipeline.py`](./ocr/ocr_provider/provider_pipeline.py)
-    当前 provider-backed full flow 稳定入口，也是脚本/测试依赖的兼容面。
-  - [`paddle_api.py`](./ocr/ocr_provider/paddle_api.py)
+  - [`provider_pipeline.py`](./retainpdf_pipeline/ocr/ocr_provider/provider_pipeline.py)
+    当前 provider-backed full flow 稳定入口，
+    `python -m retainpdf_pipeline.ocr <provider-ocr|provider-case>` 即进这里。
+  - [`paddle_api.py`](./retainpdf_pipeline/ocr/ocr_provider/paddle_api.py)
     Paddle 异步 API 接入。
-  - [`paddle_markdown.py`](./ocr/ocr_provider/paddle_markdown.py)
+  - [`paddle_markdown.py`](./retainpdf_pipeline/ocr/ocr_provider/paddle_markdown.py)
     Paddle Markdown 与图片产物落盘。
-  - [`paddle_normalize.py`](./ocr/ocr_provider/paddle_normalize.py)
+  - [`paddle_normalize.py`](./retainpdf_pipeline/ocr/ocr_provider/paddle_normalize.py)
     Paddle normalized document 几何修正等纯实现。
 
-### `ocr/mineru/`
+### `retainpdf_pipeline/ocr/mineru/`
 
 - 作用：
   MinerU provider 的具体实现。
@@ -148,44 +175,61 @@ retainpdf-pipeline render-only --spec <job_root>/specs/render.spec.json
 - 注意：
   这里是 provider 实现，不是 OCR 总线，也不是翻译/渲染主链。
 
-### `translate/`
+### `retainpdf_pipeline/translate/`
 
 - 作用：
-  把 `document.v1.json` 变成稳定翻译产物。
+  把 `document.v1.json` 变成稳定翻译产物；翻译阶段门面也在这里。
 - 进入条件：
   改翻译策略、LLM 调度、continuation、payload 落盘、diagnostics 时进这里。
 - 关键文件：
-  - [`from_ocr_pipeline.py`](./translate/from_ocr_pipeline.py)
+  - [`__main__.py`](./retainpdf_pipeline/translate/__main__.py)
+    `python -m retainpdf_pipeline.translate` 进程入口。
+  - [`translation_stage.py`](./retainpdf_pipeline/translate/translation_stage.py)
+    翻译阶段门面（原 `runtime/pipeline/translation_stage.py` 已搬到这里）。
+  - [`entrypoints/from_ocr_pipeline.py`](./retainpdf_pipeline/translate/entrypoints/from_ocr_pipeline.py)
     normalized OCR -> translate -> render 的 worker 包装入口。
-  - [`translate_only_pipeline.py`](./translate/translate_only_pipeline.py)
+  - [`entrypoints/translate_only_pipeline.py`](./retainpdf_pipeline/translate/entrypoints/translate_only_pipeline.py)
     translate-only worker 包装入口。
-  - [`workflow/translation_workflow.py`](./translate/workflow/translation_workflow.py)
+  - [`workflow/translation_workflow.py`](./retainpdf_pipeline/translate/workflow/translation_workflow.py)
     单页翻译流程。
-  - [`llm/README.md`](./translate/llm/README.md)
+  - [`llm/README.md`](./retainpdf_pipeline/translate/llm/README.md)
     LLM 目录边界说明。
 
-### `render/`
+### `retainpdf_pipeline/render/`
 
 - 作用：
-  把翻译产物和源 PDF 变成最终 PDF。
+  把翻译产物和源 PDF 变成最终 PDF；渲染阶段门面也在这里。
 - 进入条件：
   改 overlay、Typst、背景修复、压缩、render-only 协议时进这里。
 - 关键文件：
-  - [`workflow/render_only.py`](./render/workflow/render_only.py)
+  - [`__main__.py`](./retainpdf_pipeline/render/__main__.py)
+    `python -m retainpdf_pipeline.render` 进程入口。
+  - [`render_stage.py`](./retainpdf_pipeline/render/render_stage.py)
+    渲染阶段门面（原 `runtime/pipeline/render_stage.py` 已搬到这里）。
+  - [`translation_loader.py`](./retainpdf_pipeline/render/translation_loader.py)
+    读取 `translation-manifest.json` 和逐页 payload。
+  - [`render_inputs.py`](./retainpdf_pipeline/render/render_inputs.py)
+    render-only 输入协议收口。
+  - [`workflow/render_only.py`](./retainpdf_pipeline/render/workflow/render_only.py)
     render-only worker 包装入口。
-  - [`workflow/`](./render/workflow)
+  - [`workflow/`](./retainpdf_pipeline/render/workflow)
     渲染流程编排入口。
-  - [`output/typst/`](./render/output/typst)
+  - [`output/typst/`](./retainpdf_pipeline/render/output/typst)
     Typst 输出主链。
 
-### `services/pipeline_shared/`
+### `retainpdf_pipeline/services/pipeline_shared/`
 
 - 作用：
   provider / translate / render 共享的 stdout contract、summary、events、JSON IO。
 - 不该做的事：
   不放 provider 私有逻辑，也不放翻译/渲染算法细节。
+- 注意：
+  `retainpdf_pipeline/services/` 下只有 `pipeline_shared/` 仍有实体文件；
+  `translation/`、`rendering/`、`ocr_provider/`、`document_schema/`、`mineru/` 等
+  只是搬家后留下的空壳目录，不要再进，实体分别在顶层的
+  `translate/`、`render/`、`ocr/` 下。
 
-### `foundation/`
+### `retainpdf_pipeline/foundation/`
 
 - 作用：
   配置、路径、stage spec、共享工具、prompt loader。
@@ -202,23 +246,27 @@ retainpdf-pipeline render-only --spec <job_root>/specs/render.spec.json
 ## 快速判断
 
 - “这是入口参数或 worker 启动方式变化吗？”
-  先看 `entrypoints/`
-- “这是阶段顺序或输入输出协议变化吗？”
-  先看 `runtime/pipeline/`
+  先看 `retainpdf_pipeline/entrypoints/` 或各 stage 的 `__main__.py`
+- “这是 book 阶段顺序或输入输出协议变化吗？”
+  先看 `retainpdf_pipeline/runtime/pipeline/`（本地串联）与 Rust 三进程编排；
+  生产行为以 Rust 侧为准
 - “这是 raw OCR 适配或 schema 变化吗？”
-  先看 `ocr/document_schema/`
+  先看 `retainpdf_pipeline/ocr/document_schema/`
 - “这是 provider 接入问题吗？”
-  先看 `ocr/ocr_provider/` 或 `ocr/mineru/`
+  先看 `retainpdf_pipeline/ocr/ocr_provider/` 或 `retainpdf_pipeline/ocr/mineru/`
 - “这是翻译结果不对吗？”
-  先看 `translate/`
+  先看 `retainpdf_pipeline/translate/`（含 `translation_stage.py`）
 - “这是 PDF 渲染不对吗？”
-  先看 `render/`
+  先看 `retainpdf_pipeline/render/`（含 `render_stage.py`）
 
 ## 三条边界红线
 
-- `runtime/pipeline/` 不理解 provider raw JSON，也不直接 import provider 私有实现。
+- 编排层（Rust 三进程编排 + 本地 `runtime/pipeline/book_pipeline.py`）
+  不理解 provider raw JSON，也不直接 import provider 私有实现。
 - `translate/` 和 `render/` 不消费 provider raw 结构，只消费稳定交接物。
-- `entrypoints/` 只连稳定入口，不绕过 `*_pipeline.py` 或 `runtime/pipeline/*` 直连深层实现。
+- `entrypoints/` 只连稳定入口，不绕过各 stage 的 `*_pipeline.py` /
+  `translation_stage.py` / `render_stage.py` / `render/workflow/render_only.py`
+  直连深层实现。
 
 ## 新人阅读顺序
 
@@ -226,8 +274,9 @@ retainpdf-pipeline render-only --spec <job_root>/specs/render.spec.json
    先知道整体目录和正式入口。
 2. [`PIPELINE_DIRECTORY_MAP.md`](./PIPELINE_DIRECTORY_MAP.md)
    再知道改哪里。
-3. [`runtime/pipeline/README.md`](./runtime/pipeline/README.md)
-   看阶段边界。
-4. [`services/README.md`](./services/README.md)
-   看 services 总分工。
-5. 再按模块进入 `translation/`、`rendering/`、`ocr_provider/` 的 README。
+3. [`retainpdf_pipeline/runtime/pipeline/README.md`](./retainpdf_pipeline/runtime/pipeline/README.md)
+   看阶段边界（注意 book 生产编排在 Rust，包内仅本地串联）。
+4. [`retainpdf_pipeline/services/README.md`](./retainpdf_pipeline/services/README.md)
+   看 services 总分工（实体只剩 `pipeline_shared`）。
+5. 再按模块进入 `translate/`、`render/`、`ocr/ocr_provider/`、`ocr/document_schema/`、
+   `ocr/mineru/` 的 README。

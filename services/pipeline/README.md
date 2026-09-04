@@ -96,46 +96,54 @@
 
 如果要改翻译链路，推荐阅读顺序是：
 
-1. `translate/README.md`
-2. `translate/llm/README.md`
-3. 再按需要进入 `translate/llm/providers/` 或 `translate/llm/shared/orchestration/`
+1. `retainpdf_pipeline/translate/README.md`
+2. `retainpdf_pipeline/translate/llm/README.md`
+3. 再按需要进入 `retainpdf_pipeline/translate/llm/providers/` 或 `retainpdf_pipeline/translate/llm/shared/orchestration/`
 
 ## 新 Provider 接入顺序
 
 如果后续要接新的 OCR provider，先按这个顺序走，不要直接改翻译/渲染主线：
 
-1. 先看 `scripts/ocr/ocr_provider/README.md`
+1. 先看 `retainpdf_pipeline/ocr/ocr_provider/README.md`
    先把 provider API 层边界、状态、原始产物职责定义清楚。
-2. 再看 `scripts/ocr/document_schema/README.md`
+2. 再看 `retainpdf_pipeline/ocr/document_schema/README.md`
    明确字段应该落到 `geometry/content/layout_role/semantic_role/structure_role/policy/provenance` 的哪一层。
 3. 准备最小 raw fixture
-   放到 `scripts/devtools/tests/document_schema/fixtures/`。
+   放到 `devtools/tests/document_schema/fixtures/`。
 4. 新增 provider 实现和 adapter
-   通过 `scripts/ocr/document_schema/adapters.py` 接进统一 schema。
-5. 把 fixture 登记到 `scripts/devtools/tests/document_schema/fixtures/registry.py`
+   通过 `retainpdf_pipeline/ocr/document_schema/adapters.py` 接进统一 schema.
+5. 把 fixture 登记到 `devtools/tests/document_schema/fixtures/registry.py`
    不要手改主线去兼容 provider 原始 JSON。
-6. 跑 `scripts/devtools/tests/document_schema/regression_check.py`
+6. 跑 `devtools/tests/document_schema/regression_check.py`
    至少确认 detector、adapt、validation、extractor smoke 全都通过。
 
 ## 顶层目录说明
 
-- `ocr/mineru`
+顶层只有 `retainpdf_pipeline/`（canonical 包）、`devtools/` 与若干空壳兼容目录；
+`ocr/`、`translate/`、`render/` 三 stage 目录都在 `retainpdf_pipeline/` 下，
+各自是独立进程入口（`python -m retainpdf_pipeline.{ocr,translate,render}`）。
+生产 book 由 Rust 顺序调三进程，包内 `runtime/pipeline/book_pipeline.py` 只剩本地串联。
+
+- `retainpdf_pipeline/ocr/mineru`
   MinerU 接入、下载、解包、job 组织。
-- `services/pipeline_shared`
+- `retainpdf_pipeline/services/pipeline_shared`
   provider / translate / render 共用的阶段协议、summary 和 JSON IO。
-- `translate`
-  OCR payload 到翻译 JSON。
-- `render`
-  翻译 JSON 到 PDF。
-- `runtime/pipeline`
-  翻译和渲染的总编排层。
-- `services/README.md`
+  `retainpdf_pipeline/services/` 下只有它仍有实体文件，其余子目录是搬家空壳。
+- `retainpdf_pipeline/translate`
+  OCR payload 到翻译 JSON（含 `translation_stage.py` 阶段门面）。
+- `retainpdf_pipeline/render`
+  翻译 JSON 到 PDF（含 `render_stage.py`、`translation_loader.py`、`render_inputs.py` 阶段门面）。
+- `retainpdf_pipeline/runtime/pipeline`
+  本地 book 串联收口（仅 `book_pipeline.py`）；生产编排在 Rust 侧。
+- `retainpdf_pipeline/entrypoints`
+  console-mode 入口实现；顶层 `entrypoints/` 已清空，不要再进。
+- `retainpdf_pipeline/services/README.md`
   具体能力实现层总说明。
-- `foundation/config`
+- `retainpdf_pipeline/foundation/config`
   路径、字体、版式和运行时默认配置。
-- `foundation/shared`
+- `retainpdf_pipeline/foundation/shared`
   输入解析、job 目录、环境变量、提示词加载等共享能力。
-- `foundation/prompts`
+- `retainpdf_pipeline/foundation/prompts`
   可编辑提示词模板。
 - `devtools/experiments`
   实验性流程，不属于稳定主链路。
@@ -213,10 +221,10 @@
 - `retainpdf-pipeline provider-case --spec <job_root>/specs/provider.spec.json` -> 当前 provider-backed full workflow 的本地通用入口
 - `run_document_flow.py`（script-mode，仅桌面兼容，无 console 等价物） -> 当前 normalized-document full flow 的本地通用入口名
 - `retainpdf-pipeline provider-ocr --spec <job_root>/specs/provider.spec.json` -> 当前 OCR-only provider flow 的本地通用入口
-- `ocr/document_schema/normalize_pipeline.py` -> `normalize.stage.v1`
-- `translate/translate_only_pipeline.py` -> `translate.stage.v1`
-- `render/workflow/render_only.py` -> `render.stage.v1`
-- `translate/from_ocr_pipeline.py` -> `book.stage.v1`
+- `retainpdf_pipeline/ocr/document_schema/normalize_pipeline.py` -> `normalize.stage.v1`
+- `retainpdf_pipeline/translate/entrypoints/translate_only_pipeline.py` -> `translate.stage.v1`
+- `retainpdf_pipeline/render/workflow/render_only.py` -> `render.stage.v1`
+- `retainpdf_pipeline/translate/entrypoints/from_ocr_pipeline.py` -> `book.stage.v1`
 - `retainpdf-pipeline book --spec <job_root>/specs/book.spec.json` -> `book.stage.v1`
 
 历史任务需要按当前转换规则重建 `document.v1.json` 时，使用同一条 normalize

@@ -1,6 +1,6 @@
 # Rendering 说明
 
-`scripts/render` 负责把已经翻译好的页面数据变成最终 PDF。
+`retainpdf_pipeline/render` 负责把已经翻译好的页面数据变成最终 PDF。
 
 这里不负责翻译，也不负责 OCR 解析，只负责“怎么渲染、怎么排版、怎么输出”。
 
@@ -33,7 +33,7 @@ Rendering 阶段的正式输入和输出固定为：
 ## 当前目录结构
 
 ```text
-scripts/render/
+retainpdf_pipeline/render/
   __init__.py
   README.md
   legacy/          旧调用方兼容入口；新逻辑不要放这里
@@ -57,7 +57,7 @@ scripts/render/
 
 `translation JSON -> layout/payload -> output/typst -> PDF`
 
-上层通常通过 [render_stage.py](../../runtime/pipeline/render_stage.py) 调用这里的能力。
+上层通常通过 [render_stage.py](./render_stage.py) 调用这里的能力。
 
 输入边界：
 
@@ -195,7 +195,7 @@ render-only 阶段必须同时复用这两类产物。特别注意：同步刷�
 ## 真实 PDF 回归
 
 真实样本放在
-[resources/samples/golden-pdfs](../../../../../resources/samples/golden-pdfs)。
+[resources/samples/golden-pdfs](../../../../resources/samples/golden-pdfs)。
 
 常用命令：
 
@@ -235,13 +235,13 @@ python3 services/pipeline/devtools/run_golden_flow.py \
 
 ## 推荐入口
 
-- [render_stage.py](../../runtime/pipeline/render_stage.py)
+- [render_stage.py](./render_stage.py)
 - [render/workflow](workflow)
 
 ## 公式回归
 
 如果新增了一条公式归一化规则，直接把坏例子补到
-[`devtools/tests/translation/test_formula_math_markers.py`](../../../devtools/tests/translation/test_formula_math_markers.py)
+[`devtools/tests/translation/test_formula_math_markers.py`](../../devtools/tests/translation/test_formula_math_markers.py)
 里的参数化回归测试。
 
 ## 协作规矩
