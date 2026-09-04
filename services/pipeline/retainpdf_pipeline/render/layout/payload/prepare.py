@@ -22,6 +22,7 @@ from retainpdf_pipeline.render.layout.payload.render_item import group_unit_prot
 from retainpdf_pipeline.render.layout.payload.render_item import group_unit_source_text
 from retainpdf_pipeline.render.layout.payload.render_item import item_has_group_render_text
 from retainpdf_pipeline.render.layout.payload.render_item import seed_render_fields
+from retainpdf_pipeline.render.layout.payload.reading_sort import sort_items_by_reading_order
 from retainpdf_pipeline.render.layout.payload.shared import same_meaningful_render_text
 from retainpdf_pipeline.render.layout.payload.shared import split_protected_text_for_boxes
 from retainpdf_pipeline.render.layout.payload.suspicious_ocr import detect_and_drop_suspicious_ocr_glued_blocks
@@ -46,11 +47,26 @@ def _inner_bbox_width(item: dict) -> float:
 
 
 def _continuation_adjusted_capacities(items: list[dict], capacities: list[float]) -> list[float]:
-    if len(items) != len(capacities) or len(items) < 3:
+    if len(items) != len(capacities) or len(items) < 2:
         return capacities
 
     widths = [_inner_bbox_width(item) for item in items]
     adjusted = list(capacities)
+    if len(items) == 2:
+        # Two-member cross-page group (narrow tail + wide head): neither index
+        # is "middle", so the loop below would never fire. Apply the same
+        # narrow-box rule pairwise, reusing the identical ratios/formula.
+        for index, other in ((0, 1), (1, 0)):
+            current_width = widths[index]
+            neighbor_width = widths[other]
+            if current_width <= 0 or neighbor_width <= 0:
+                continue
+            if current_width >= neighbor_width * CONTINUATION_NARROW_BOX_MIN_NEIGHBOR_RATIO:
+                continue
+            width_ratio = current_width / neighbor_width
+            relax_ratio = max(width_ratio, CONTINUATION_NARROW_BOX_CAPACITY_RELAX_RATIO)
+            adjusted[index] = capacities[index] * relax_ratio
+        return adjusted
     for index in range(1, len(items) - 1):
         current_width = widths[index]
         if current_width <= 0:
@@ -160,6 +176,11 @@ def prepare_render_payloads_by_page(
             items = [item for item in items if item_has_group_render_text(item)]
             if not items:
                 continue
+            # Reading-order-first: capacities/chunks are positional, so zip()
+            # below mis-assigns text when group members arrive out of reading
+            # order (double-column / cross-page). No reading_order -> legacy
+            # order is kept (never raises).
+            items = sort_items_by_reading_order(items)
             direct_math_mode = any(is_direct_typst_math_mode(item) for item in items)
             unit_formula_map = group_unit_formula_map(items)
             protected_unit_text = group_unit_protected_text(items)

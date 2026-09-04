@@ -6,6 +6,7 @@ from retainpdf_pipeline.render.layout.font_fit import BODY_LEADING_MIN
 from retainpdf_pipeline.render.layout.font_fit import BODY_LEADING_SIZE_ADJUST
 from retainpdf_pipeline.render.layout.font_fit import normalize_leading_em_for_font_size
 from retainpdf_pipeline.render.layout.payload.capacity import estimated_render_height_pt
+from retainpdf_pipeline.render.layout.payload.reading_sort import same_text_column
 from retainpdf_pipeline.render.layout.payload.shared import source_word_count
 from retainpdf_pipeline.render.layout.payload.shared import translated_zh_char_count
 
@@ -13,6 +14,9 @@ from retainpdf_pipeline.render.layout.payload.shared import translated_zh_char_c
 BODY_DENSITY_TARGET_MAX = 0.92
 ADJACENT_BODY_SMOOTH_MAX_GAP_PT = 42.0
 ADJACENT_BODY_SMOOTH_MIN_WIDTH_RATIO = 0.72
+# Legacy column thresholds, superseded by the geometry-unified same_text_column
+# check inside is_same_column_adjacent_body_pair() (overlap>=0.55 or
+# left<=max(18, page_w*0.035)). Kept so existing importers keep working.
 ADJACENT_BODY_SMOOTH_MIN_WIDTH_OVERLAP_RATIO = 0.64
 ADJACENT_BODY_SMOOTH_MAX_LEFT_DELTA_PT = 18.0
 ADJACENT_BODY_SMOOTH_MAX_CENTER_DELTA_PT = 22.0
@@ -118,20 +122,21 @@ def is_same_column_adjacent_body_pair(current: dict, nxt: dict, *, page_text_wid
     if width_ratio < ADJACENT_BODY_SMOOTH_MIN_WIDTH_RATIO:
         return False
 
-    overlap_width = max(0.0, min(current["inner_bbox"][2], nxt["inner_bbox"][2]) - max(current["inner_bbox"][0], nxt["inner_bbox"][0]))
-    if overlap_width / min(current_width, next_width) < ADJACENT_BODY_SMOOTH_MIN_WIDTH_OVERLAP_RATIO:
-        return False
-
+    # Column membership unified with geometry _same_text_column: overlap>=0.55
+    # (min-width normalized) or left_delta<=max(18, page_w*0.035). The width
+    # proxy here is page_text_width_med (identical unless the proportional
+    # term clears the 18pt floor). Indented same-column paragraphs still pass
+    # via overlap, so no separate center-delta fallback is needed.
     gap = payload_inner_top(nxt) - payload_inner_bottom(current)
     max_gap = max(ADJACENT_BODY_SMOOTH_MAX_GAP_PT, min(payload_inner_height(current), payload_inner_height(nxt)) * 0.45)
     if gap < -4.0 or gap > max_gap:
         return False
 
-    left_delta = abs(current["inner_bbox"][0] - nxt["inner_bbox"][0])
-    center_delta = abs(payload_center_x(current) - payload_center_x(nxt))
-    left_limit = max(ADJACENT_BODY_SMOOTH_MAX_LEFT_DELTA_PT, max(current_width, next_width) * 0.06)
-    center_limit = max(ADJACENT_BODY_SMOOTH_MAX_CENTER_DELTA_PT, max(current_width, next_width) * 0.08)
-    if left_delta > left_limit and center_delta > center_limit:
+    if not same_text_column(
+        [float(value) for value in current["inner_bbox"]],
+        [float(value) for value in nxt["inner_bbox"]],
+        page_text_width_med=page_text_width_med,
+    ):
         return False
     return True
 

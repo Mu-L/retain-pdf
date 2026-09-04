@@ -10,6 +10,7 @@ from retainpdf_pipeline.render.layout.payload.collision import mark_adjacent_col
 from retainpdf_pipeline.render.layout.payload.emit import emit_render_blocks
 from retainpdf_pipeline.render.layout.model.models import RenderBlock
 from retainpdf_pipeline.render.layout.payload.render_item import seed_render_fields
+from retainpdf_pipeline.render.layout.payload.reading_sort import sort_payloads_by_reading_order
 from retainpdf_pipeline.render.layout.typography_memory.learning import observe_payload_typography
 
 
@@ -27,7 +28,10 @@ def build_render_blocks(
         page_width=page_width,
         page_height=page_height,
     )
-    ordered_payloads = sorted(block_payloads, key=lambda payload: (payload["inner_bbox"][1], payload["inner_bbox"][0]))
+    # Reading-order-first: on double-column pages a global sorted((y, x))
+    # interleaves the right-column top into the left column. Bbox (y, x) is
+    # only the in-column fallback (no reading_order -> legacy order).
+    ordered_payloads = sort_payloads_by_reading_order(block_payloads)
     apply_body_payload_pipeline(
         ordered_payloads,
         page_text_width_med=page_text_width_med,

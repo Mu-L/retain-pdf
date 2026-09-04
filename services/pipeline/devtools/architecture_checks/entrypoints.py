@@ -34,8 +34,8 @@ ENTRYPOINT_IMPORT_ALLOWLIST: dict[Path, tuple[str, ...]] = {
         "from retainpdf_pipeline.translate.public import",
     ),
     Path("run_document_operation.py"): (
-        "from retainpdf_pipeline.services.document_operations.page_program import",
-        "from retainpdf_pipeline.services.document_operations.visual_validation import",
+        "from retainpdf_ai.document_operations.page_program import",
+        "from retainpdf_ai.document_operations.visual_validation import",
     ),
     Path("run_normalize_ocr.py"): ("from retainpdf_pipeline.ocr.document_schema.normalize_pipeline import main",),
     Path("run_provider_case.py"): ("from retainpdf_pipeline.ocr.ocr_provider.provider_pipeline import main",),

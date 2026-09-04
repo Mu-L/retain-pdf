@@ -7,6 +7,7 @@ from retainpdf_pipeline.render.layout.payload.metrics import VERTICAL_COLLISION_
 from retainpdf_pipeline.render.layout.payload.metrics import block_metrics
 from retainpdf_pipeline.render.layout.payload.metrics import estimated_render_height_pt
 from retainpdf_pipeline.render.layout.typography.geometry import inner_bbox
+from retainpdf_pipeline.render.layout.payload.reading_sort import sort_items_by_reading_order
 from retainpdf_pipeline.render.semantics.item_view import block_kind
 
 
@@ -62,16 +63,15 @@ def detect_and_drop_suspicious_ocr_glued_blocks(
     density_baseline: float,
     page_text_width_med: float,
 ) -> dict:
-    ordered = sorted(
-        (
+    # Reading-order-first (double-column): a global sorted((y, x)) would treat
+    # the right-column top as vertically adjacent to left-column text and flag
+    # false glue pairs. Falls back to legacy (y, x) order without reading_order.
+    ordered = sort_items_by_reading_order(
+        [
             item
             for item in items
             if block_kind(item) == "text" and (item.get("render_protected_text") or "").strip()
-        ),
-        key=lambda item: (
-            inner_bbox(item)[1] if len(inner_bbox(item)) == 4 else 0.0,
-            inner_bbox(item)[0] if len(inner_bbox(item)) == 4 else 0.0,
-        ),
+        ]
     )
     hits: list[dict] = []
     for current, nxt in zip(ordered, ordered[1:]):

@@ -18,6 +18,7 @@ LEGACY_JSON_ONLY_INSTRUCTION_ZH = (
 )
 DEFAULT_TARGET_LANGUAGE_NAME = "简体中文"
 SOURCE_TERMINAL_RE = re.compile(r"[.!?。！？；;:：)\]）】”’\"']\s*$")
+HALF_SENTENCE_NO_BORROW_GUARD = "即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。"
 
 
 def _target_language_name(value: str = "") -> str:
@@ -44,6 +45,8 @@ def _append_context_lines(lines: list[str], item: TranslationItemContext) -> Non
         if _source_looks_incomplete(item.source_for_prompt()):
             lines.append("当前原文是不完整片段；译文必须保持同等不完整，不要用后文上下文补全。")
         lines.append(f"后文上下文（仅供理解，禁止翻译进输出）：{context_after}")
+    if (context_before or context_after) and _source_looks_incomplete(item.source_for_prompt()):
+        lines.append(HALF_SENTENCE_NO_BORROW_GUARD)
 
 
 MATH_DELIMITER_DAMAGE_HINT = (
@@ -263,7 +266,9 @@ def group_member_json_user_prompt(
             f"Translate the continuation group into {_target_language_name(target_language_name)}. "
             "Return one translated fragment per member_id, following the supplied member source boundaries. "
             "The full translated_text must equal the member translations concatenated in member order. "
-            "Do not repeat the full group translation in a member and do not add text from neighboring context."
+            "Do not repeat the full group translation in a member and do not add text from neighboring context. "
+            "If a member source text is an incomplete fragment, keep its translation equally incomplete; "
+            "never borrow words from neighboring context to complete it."
         ),
         "group": {
             "item_id": item.item_id,
@@ -309,6 +314,7 @@ def group_member_json_user_prompt(
 
 
 __all__ = [
+    "HALF_SENTENCE_NO_BORROW_GUARD",
     "batch_json_user_prompt",
     "build_translation_system_prompt",
     "direct_math_guidance",

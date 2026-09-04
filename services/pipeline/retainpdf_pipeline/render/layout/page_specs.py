@@ -11,6 +11,7 @@ from retainpdf_pipeline.render.layout.payload.blocks import resolve_book_body_fo
 from retainpdf_pipeline.render.layout.payload.body_pipeline import apply_body_payload_pipeline
 from retainpdf_pipeline.render.layout.payload.annotation_font_policy import unify_annotation_fonts
 from retainpdf_pipeline.render.layout.payload.collision import mark_adjacent_collision_risk
+from retainpdf_pipeline.render.layout.payload.reading_sort import sort_payloads_by_reading_order
 from retainpdf_pipeline.render.layout.payload.emit import emit_render_blocks
 from retainpdf_pipeline.render.layout.model.models import RenderLayoutBlock
 from retainpdf_pipeline.render.layout.model.models import RenderPageSpec
@@ -67,7 +68,9 @@ def _layout_page_spec(
     book_body_font_target: float | None,
     background_pdf_path: Path | None,
 ) -> RenderPageSpec:
-    ordered_payloads = sorted(block_payloads, key=lambda payload: (payload["inner_bbox"][1], payload["inner_bbox"][0]))
+    # Reading-order-first (double-column): global sorted((y, x)) interleaves
+    # the right-column top into the left column. Bbox is in-column fallback.
+    ordered_payloads = sort_payloads_by_reading_order(block_payloads)
     apply_body_payload_pipeline(
         ordered_payloads,
         page_text_width_med=page_text_width_med,

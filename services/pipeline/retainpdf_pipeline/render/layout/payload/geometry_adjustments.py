@@ -5,6 +5,7 @@ from statistics import median
 from retainpdf_pipeline.render.semantics.item_view import is_bodylike_block
 from retainpdf_pipeline.render.layout.font_roles import is_title_like_block
 from retainpdf_pipeline.render.layout.payload.render_item import get_render_inner_bbox
+from retainpdf_pipeline.render.layout.payload.reading_sort import sort_indices_by_reading_order
 from retainpdf_pipeline.render.layout.typography.geometry import inner_bbox
 from retainpdf_pipeline.render.semantics.item_view import block_kind as schema_block_kind
 
@@ -83,7 +84,9 @@ def _apply_body_tight_gap_inset(
         return
     target_gap = min(BODY_TIGHT_GAP_MAX_TARGET_PT, max(BODY_TIGHT_GAP_MIN_TARGET_PT, median_height * 0.08))
 
-    ordered = sorted(body_indices, key=lambda index: (effective[index][1], effective[index][0]))
+    # Reading-order-first (double-column): a global sorted((y, x)) would pair
+    # the right-column top as the "next" box of left-column text.
+    ordered = sort_indices_by_reading_order(body_indices, boxes=effective)
     for position, current_index in enumerate(ordered):
         if current_index in locked_indices:
             continue
@@ -133,7 +136,8 @@ def _apply_short_body_region_expansion(
     if median_height <= 0.0 or median_width <= 0.0:
         return
 
-    ordered = sorted(candidate_indices, key=lambda index: (effective[index][1], effective[index][0]))
+    # Reading-order-first (double-column): see above.
+    ordered = sort_indices_by_reading_order(candidate_indices, boxes=effective, items=translated_items)
     anchor_set = set(anchor_indices)
     for position, current_index in enumerate(ordered):
         if current_index in locked_indices:

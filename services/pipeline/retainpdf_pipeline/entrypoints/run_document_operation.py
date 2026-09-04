@@ -14,8 +14,15 @@ try:  # POSIX resource limits; missing on Windows.
 except ImportError:  # pragma: no cover - Windows fallback
     resource = None  # type: ignore[assignment]
 
-from retainpdf_pipeline.services.document_operations.page_program import execute_page_program
-from retainpdf_pipeline.services.document_operations.visual_validation import validate_page_program_visuals
+
+def _page_program_fns():
+    # Lazy: retainpdf_ai lives outside the pipeline package (ai service).
+    # Top-level import would break pipeline-only environments (tests, workers
+    # without the ai service on PYTHONPATH) and the Windows import fallback.
+    from retainpdf_ai.document_operations.page_program import execute_page_program
+    from retainpdf_ai.document_operations.visual_validation import validate_page_program_visuals
+
+    return execute_page_program, validate_page_program_visuals
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -92,6 +99,7 @@ def main() -> int:
     limits = _load_json(limits_path, "limits")
     _apply_limits(limits)
     try:
+        execute_page_program, validate_page_program_visuals = _page_program_fns()
         program = _load_json(program_path, "program")
         report = execute_page_program(source, program, output)
         visual_report = validate_page_program_visuals(source, output, program)

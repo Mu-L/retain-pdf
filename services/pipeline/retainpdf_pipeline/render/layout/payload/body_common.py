@@ -6,7 +6,8 @@ from retainpdf_pipeline.render.semantics.item_view import is_bodylike_block
 from retainpdf_pipeline.render.semantics.item_view import is_caption_like_block
 from retainpdf_pipeline.render.semantics.item_view import is_footnote_like_block
 from retainpdf_pipeline.render.layout.payload.body_context import BODY_DENSITY_TARGET_MAX
-from retainpdf_pipeline.render.layout.payload.body_context import payload_center_x
+from retainpdf_pipeline.render.layout.payload.body_context import payload_center_x  # noqa: F401  # kept for external importers
+from retainpdf_pipeline.render.layout.payload.reading_sort import same_text_column
 from retainpdf_pipeline.render.layout.payload.metrics import estimated_render_height_pt
 from retainpdf_pipeline.render.layout.payload.metrics import estimated_required_lines
 from retainpdf_pipeline.render.layout.payload.metrics import text_demand_units
@@ -16,6 +17,9 @@ from retainpdf_pipeline.render.semantics.item_view import block_kind
 
 BODY_DENSITY_TARGET_MIN = 0.82
 SHORT_BODY_INHERIT_MAX_HEIGHT_PT = 16.0
+# Legacy same-column tolerances, superseded by the geometry-unified
+# same_body_column() below (overlap>=0.55 or left<=max(18, page_w*0.035)).
+# Kept so existing importers/constants users keep working.
 SHORT_BODY_INHERIT_LEFT_TOLERANCE_PT = 22.0
 SHORT_BODY_INHERIT_CENTER_TOLERANCE_RATIO = 0.18
 BODY_CONTEXT_MIN_ANCHORS = 2
@@ -160,13 +164,29 @@ def _natural_body_text_height(payload: dict, line_count: int) -> float:
     return font_size * max(1, line_count) * (1.0 + max(0.0, leading))
 
 
-def same_body_column(payload: dict, anchor: dict, *, page_text_width_med: float) -> bool:
-    left_delta = abs(payload["inner_bbox"][0] - anchor["inner_bbox"][0])
-    center_delta = abs(payload_center_x(payload) - payload_center_x(anchor))
-    width_ref = max(page_text_width_med, payload_width(anchor), 1.0)
-    return (
-        left_delta <= SHORT_BODY_INHERIT_LEFT_TOLERANCE_PT
-        or center_delta <= width_ref * SHORT_BODY_INHERIT_CENTER_TOLERANCE_RATIO
+def same_body_column(
+    payload: dict,
+    anchor: dict,
+    *,
+    page_text_width_med: float,
+    page_width: float | None = None,
+) -> bool:
+    """Same-column check unified with geometry ``_same_text_column``.
+
+    Canonical rule: ``overlap >= min_width * 0.55`` or
+    ``left_delta <= max(18, page_w * 0.035)``. ``page_text_width_med`` serves
+    as the width proxy when ``page_width`` is unavailable (identical outcome
+    unless the proportional term exceeds the 18pt floor).
+    """
+    first = payload.get("inner_bbox") or []
+    second = anchor.get("inner_bbox") or []
+    if len(first) != 4 or len(second) != 4:
+        return False
+    return same_text_column(
+        [float(value) for value in first],
+        [float(value) for value in second],
+        page_width=page_width,
+        page_text_width_med=page_text_width_med,
     )
 
 

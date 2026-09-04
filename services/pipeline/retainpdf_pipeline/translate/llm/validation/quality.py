@@ -27,6 +27,33 @@ from retainpdf_pipeline.translate.core.terms import normalize_glossary_entries
 
 INLINE_MATH_SPAN_RE = re.compile(r"(?<!\\)\$(?:\\.|[^$\\\n])+(?<!\\)\$")
 SOURCE_TERMINAL_RE = re.compile(r"[.!?。！？；;:：)\]）】”’\"']\s*$")
+# 上下文借词(“借词幻觉”):当前块没写完时模型从续接上下文借实词补全,
+# 如半句 + 图注上下文编出原文没有的 “Scheme 18 所示类型”。
+# 只抓高精度信号——编号标签(Scheme/Figure/Table/Equation + 数字,中英皆可)
+# 与上下文独有的长专有名词;命中只记 warning + retryable,标记复修而不丢弃。
+_CONTEXT_EN_LABEL_RE = re.compile(
+    r"\b(scheme|figures?|fig\.?|tables?|equations?|eq\.?|sections?|chapters?)\s*\.?\s*(\d{1,3}[a-z]?)",
+    re.IGNORECASE,
+)
+_CONTEXT_ZH_LABEL_RE = re.compile(r"(图|表|方案|公式|方程|章节)\s*(\d{1,3}[a-z]?)")
+_CONTEXT_PROPER_NOUN_RE = re.compile(r"\b[A-Z][A-Za-z\-]{4,}\b")
+_CONTEXT_BORROW_STOPWORDS = frozenset(
+    {
+        "about", "after", "before", "between", "during", "these", "those", "this", "that",
+        "with", "from", "into", "such", "when", "where", "which", "while", "their",
+        "there", "here", "have", "been", "would", "could", "should", "first", "second",
+        "other", "more", "most", "some", "many", "each", "both", "through", "under",
+        "over", "because", "scheme", "schemes", "figure", "figures", "table", "tables",
+        "equation", "equations", "section", "sections", "chapter", "chapters",
+    }
+)
+_CONTEXT_LABEL_ZH_HINTS: dict[str, tuple[str, ...]] = {
+    "scheme": ("scheme", "方案"),
+    "figure": ("figure", "fig", "图"),
+    "table": ("table", "表"),
+    "equation": ("equation", "eq", "公式", "方程"),
+    "section": ("section", "chapter", "节", "章"),
+}
 # EN→ZH technical prose is typically ~0.3–0.5 of source char length. Flag only
 # extreme tail-only / partial outputs so normal dense translations stay clean.
 TRUNCATION_MIN_SOURCE_CHARS = 200
@@ -157,6 +184,9 @@ def review_translation_item(
         return TranslationQualityReport(issues=issues, reviewed_item_count=1)
 
     issues.extend(_review_translated_text(item, item_id, source_text, translated_text))
+    issues.extend(
+        _review_context_borrow(item, item_id, source_text, translated_text, normalized_glossary)
+    )
     if not is_direct_math_mode(item):
         issues.extend(review_placeholders(item_id, source_text, translated_text))
     issues.extend(_review_glossary_terms(item_id, source_text, translated_text, normalized_glossary))
@@ -305,6 +335,119 @@ def _context_bleed_leaked_math(item: dict, source_text: str, translated_text: st
         expr
         for expr in _math_spans(context_after)
         if expr not in source_math and expr in translated_text
+    ]
+
+
+def _normalize_label_kind(raw_kind: str) -> str:
+    kind = str(raw_kind or "").strip().lower().rstrip(".")
+    if kind in {"fig", "figure", "figures", "图"}:
+        return "figure"
+    if kind in {"table", "tables", "表"}:
+        return "table"
+    if kind in {"equation", "equations", "eq", "公式", "方程"}:
+        return "equation"
+    if kind in {"section", "sections", "chapter", "chapters", "章节"}:
+        return "section"
+    return "scheme"
+
+
+def _number_present(text: str, number: str) -> bool:
+    return re.search(rf"(?<!\d){re.escape(number)}(?!\d)", str(text or "")) is not None
+
+
+def _label_hint_present(translated_text: str, kind: str, number: str) -> bool:
+    if not _number_present(translated_text, number):
+        return False
+    folded = str(translated_text or "").casefold()
+    return any(hint.casefold() in folded for hint in _CONTEXT_LABEL_ZH_HINTS[kind])
+
+
+def _context_borrowed_terms(
+    item: dict,
+    source_text: str,
+    translated_text: str,
+    glossary_entries: list[GlossaryEntry],
+) -> list[str]:
+    source = str(source_text or "")
+    translated = str(translated_text or "")
+    if not translated.strip():
+        return []
+    context = " ".join(
+        str(item.get(key) or "")
+        for key in (
+            "translation_context_before",
+            "translation_context_after",
+            "continuation_prev_text",
+            "continuation_next_text",
+        )
+    )
+    if not context.strip():
+        return []
+    borrowed: list[str] = []
+    seen: set[str] = set()
+
+    def _record(term: str) -> None:
+        key = term.casefold()
+        if key not in seen:
+            seen.add(key)
+            borrowed.append(term)
+
+    for match in _CONTEXT_EN_LABEL_RE.finditer(context):
+        kind = _normalize_label_kind(match.group(1))
+        number = str(match.group(2) or "").strip()
+        if not number or _number_present(source, number):
+            continue
+        label = f"{kind} {number}"
+        if _label_hint_present(translated, kind, number):
+            _record(label)
+    for match in _CONTEXT_ZH_LABEL_RE.finditer(context):
+        kind = _normalize_label_kind(match.group(1))
+        number = str(match.group(2) or "").strip()
+        if not number or _number_present(source, number):
+            continue
+        label = f"{kind} {number}"
+        if label.casefold() in seen:
+            continue
+        if _label_hint_present(translated, kind, number):
+            _record(label)
+    glossary_surfaces = set()
+    for entry in glossary_entries or []:
+        for surface in (getattr(entry, "source", ""), getattr(entry, "target", "")):
+            surface = str(surface or "").strip().casefold()
+            if surface:
+                glossary_surfaces.add(surface)
+    source_folded = source.casefold()
+    translated_folded = translated.casefold()
+    for match in _CONTEXT_PROPER_NOUN_RE.finditer(context):
+        token = str(match.group(0) or "").strip()
+        if len(token) < 5 or token.casefold() in _CONTEXT_BORROW_STOPWORDS:
+            continue
+        if token.casefold() in source_folded or token.casefold() in glossary_surfaces:
+            continue
+        if token.casefold() in translated_folded:
+            _record(token)
+    return borrowed[:5]
+
+
+def _review_context_borrow(
+    item: dict,
+    item_id: str,
+    source_text: str,
+    translated_text: str,
+    glossary_entries: list[GlossaryEntry],
+) -> list[TranslationQualityIssue]:
+    borrowed = _context_borrowed_terms(item, source_text, translated_text, glossary_entries or [])
+    if not borrowed:
+        return []
+    return [
+        TranslationQualityIssue(
+            item_id=item_id,
+            kind="context_borrow",
+            severity="warning",
+            message="Translated output contains terms borrowed from neighboring context not present in current source",
+            retryable=True,
+            details={"borrowed_terms": borrowed},
+        )
     ]
 
 

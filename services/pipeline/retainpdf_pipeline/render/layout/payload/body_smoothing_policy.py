@@ -6,10 +6,13 @@ from retainpdf_pipeline.render.layout.payload.body_context import payload_inner_
 from retainpdf_pipeline.render.layout.payload.body_context import payload_inner_top
 from retainpdf_pipeline.render.layout.payload.body_context import smooth_adjacent_body_pair
 from retainpdf_pipeline.render.layout.payload.body_common import payload_is_continuation_member
+from retainpdf_pipeline.render.layout.payload.reading_sort import sort_payloads_by_reading_order
 
 
 def smooth_adjacent_body_payloads(body_payloads: list[dict], *, page_text_width_med: float) -> None:
-    body_payloads_by_top = sorted(body_payloads, key=lambda payload: (payload["inner_bbox"][1], payload["inner_bbox"][0]))
+    # Reading-order-first (double-column): global sorted((y, x)) would smooth
+    # left-column text with right-column text sharing a similar y.
+    body_payloads_by_top = sort_payloads_by_reading_order(body_payloads)
     smoothed_pairs: set[tuple[int, int]] = set()
     for index, current in enumerate(body_payloads_by_top):
         if payload_is_continuation_member(current):
