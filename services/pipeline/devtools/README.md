@@ -21,7 +21,11 @@ propagates pytest's exit status.
 This is a curated offline test entrypoint, not a network sandbox. Tests must replace
 external services; subprocess probes must install their own network guards. It does
 not launch `live_smoke.py` or promptfoo. Live evaluations require separate explicit
-authorization. The existing CI file list is not yet equivalent to this full suite.
+authorization. The main `Tests` workflow runs this full suite in normal order;
+the manual `Translation Offline Order Check` workflow runs reverse file order.
+Neither workflow requests provider secrets or launches a live evaluation. CI
+installs Typst 0.14.2 for the real formula-compilation regression; locally install
+Typst or set `TYPST_BIN` to its executable.
 
 Keep these layers separate: component tests locate individual rules; static golden
 fixtures lock complete messages and identities; capture replay checks saved-input

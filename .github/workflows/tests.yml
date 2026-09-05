@@ -169,22 +169,17 @@ jobs:
       - name: Pipeline package entrypoint tests
         run: uv run --project "$RETAIN_PDF_SERVICES_ROOT" python -m pytest "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/entrypoints/test_console.py" -q
 
-      - name: Pipeline durable translation tests
+      - name: Setup Typst for offline formula tests
+        uses: ./.github/actions/setup-test-typst
+
+      - name: Offline translation regression
+        run: uv run --project "$RETAIN_PDF_SERVICES_ROOT" python "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/run_translation_tests.py"
+
+      - name: Pipeline durable stage tests
         run: |
           uv run --project "$RETAIN_PDF_SERVICES_ROOT" python -m pytest -q \
             "$RETAIN_PDF_SERVICES_ROOT/ai/tests/test_page_program.py" \
-            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/pipeline" \
-            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_book_translation_batch_results.py" \
-            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_final_untranslated_recovery.py" \
-            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_provider_runtime_contract.py" \
-            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_translation_agent_runtime.py" \
-            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_translation_checkpoint.py" \
-            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_translation_checkpoint_commit.py" \
-            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_translation_flush_state.py" \
-            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_translation_policy_state.py" \
-            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_translation_request_journal.py" \
-            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_translation_result_applier_memory.py" \
-            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/translation/test_translation_result_cache_policy.py"
+            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/pipeline"
 
   backend-standalone:
     runs-on: ubuntu-latest
