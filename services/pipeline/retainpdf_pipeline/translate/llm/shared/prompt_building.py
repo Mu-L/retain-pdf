@@ -53,7 +53,7 @@ def build_messages(
     if direct_typst_mode:
         system_prompt = f"{system_prompt}\n\n{_direct_math_guidance(target_language_name=target_language_name)}"
     user_content = (
-        _direct_typst_batch_user_prompt(item_contexts, mode=mode, target_language_name=target_language_name)
+        _direct_typst_batch_user_prompt(item_contexts, mode=mode, target_language_name=target_language_name, response_style=response_style)
         if direct_typst_mode
         else batch_json_user_prompt(item_contexts, target_language_name=target_language_name)
     )
@@ -88,7 +88,7 @@ def build_single_item_fallback_messages(
                 "不要包含 Markdown、代码块或解释说明。"
             )
         user_prompt = (
-            _direct_typst_single_user_prompt(item_context, mode=mode, target_language_name=target_language_name)
+            _direct_typst_single_user_prompt(item_context, mode=mode, target_language_name=target_language_name, response_style=response_style)
             if direct_typst_mode
             else json.dumps(
                 {
@@ -132,7 +132,7 @@ def build_single_item_fallback_messages(
     if direct_typst_mode:
         fallback_system = f"{fallback_system}\n{_direct_math_guidance(target_language_name=target_language_name)}"
     user_prompt = (
-        _direct_typst_single_user_prompt(item_context, mode=mode, target_language_name=target_language_name)
+        _direct_typst_single_user_prompt(item_context, mode=mode, target_language_name=target_language_name, response_style=response_style)
         if direct_typst_mode
         else (
             json.dumps(
@@ -172,7 +172,7 @@ def build_group_member_messages(
     system_prompt = (
         f"{system_prompt}\n\n"
         "Return only valid JSON. Required schema: "
-        '{"translated_text":"full translated continuation group","member_translations":[{"item_id":"...","translated_text":"..."}]}. '
+        '{"member_translations":[{"item_id":"...","translated_text":"..."}]}. '
         "Every member_id from the request must appear exactly once."
     )
     if _item_math_mode(item_context) == "direct_typst":

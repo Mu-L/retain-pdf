@@ -39,10 +39,10 @@ impl<'a> JobsFacade<'a> {
     fn link_retry_to_source_document(&self, source_job_id: &str, new_job_id: &str) {
         match self.command.db.get_document_by_job_id(source_job_id) {
             Ok(Some(doc)) => {
-                if let Err(error) = self
-                    .command
-                    .db
-                    .set_document_active_job(&doc.document_id, new_job_id, None)
+                if let Err(error) =
+                    self.command
+                        .db
+                        .set_document_active_job(&doc.document_id, new_job_id, None)
                 {
                     tracing::warn!(
                         "library: set active job for {} at retry failed: {error}",
@@ -73,6 +73,15 @@ impl<'a> JobsFacade<'a> {
         }
 
         let source_job = load_job_or_404(self.command.db, source_job_id)?;
+        if !matches!(request.stage, RetryStageKind::Render)
+            && source_job
+                .request_payload
+                .translation
+                .execution_connection
+                .is_some()
+        {
+            return Err(AppError::conflict("Rust model translation retry requires receipt-preserving recovery; legacy retry is disabled even with duplicate-risk acceptance"));
+        }
         let ambiguous_ocr = if matches!(request.stage, RetryStageKind::Ocr) {
             ambiguous_ocr_dispatch(self.command.db, source_job_id)?
         } else {

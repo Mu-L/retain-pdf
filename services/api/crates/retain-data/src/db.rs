@@ -29,6 +29,8 @@ mod glossaries;
 mod job_writes;
 #[path = "db/jobs.rs"]
 mod jobs;
+#[path = "db/model_requests.rs"]
+mod model_requests;
 #[path = "db/ocr_recovery.rs"]
 mod ocr_recovery;
 #[path = "db/pipeline/mod.rs"]
@@ -99,6 +101,7 @@ pub use agent_calculations::{
     AgentCalculationArtifactInput, AgentCalculationArtifactRecord, AgentCalculationRunCreate,
     AgentCalculationRunRecord, AgentCalculationStatus, AgentCalculationTransitionResult,
 };
+pub use model_requests::{ModelOperation, ModelRecoverySummary, ModelReservation, ModelSession};
 pub use document_metadata_suggestions::{
     ApplyDocumentMetadataSuggestionResult, StoredDocumentMetadataSuggestion,
 };

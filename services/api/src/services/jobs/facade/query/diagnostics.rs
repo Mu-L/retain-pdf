@@ -3,7 +3,7 @@ use crate::job_failure::classify_job_failure;
 use crate::models::api::{JobDiagnosticsView, JobResumePlanView, OcrAmbiguityView};
 use crate::models::domain::{JobFailureInfo, JobSnapshot, JobStatusKind};
 use crate::services::jobs::stage_plan::resume_plan;
-use crate::services::jobs::translation_request_recovery::load_translation_request_recovery;
+use crate::services::jobs::translation_request_recovery::load_translation_request_recovery_with_db;
 use crate::storage_paths::resolve_pipeline_summary;
 
 use super::super::super::query::load_supported_job;
@@ -23,6 +23,7 @@ impl<'a> JobsFacade<'a> {
             None
         };
         Ok(build_job_diagnostics_view(
+            self.query.db,
             &job,
             self.query.data_root,
             ocr_ambiguity,
@@ -36,6 +37,7 @@ impl<'a> JobsFacade<'a> {
 }
 
 fn build_job_diagnostics_view(
+    db: &crate::db::Db,
     job: &JobSnapshot,
     data_root: &std::path::Path,
     ocr_ambiguity: Option<OcrAmbiguityView>,
@@ -43,7 +45,8 @@ fn build_job_diagnostics_view(
     let failure = resolved_failure(job);
     let resume_plan = build_resume_plan_view(job, data_root);
     let render_diagnostics = load_render_diagnostics(job, data_root);
-    let translation_request_recovery = load_translation_request_recovery(job, data_root);
+    let translation_request_recovery =
+        load_translation_request_recovery_with_db(db, job, data_root);
     match failure {
         Some(failure) => JobDiagnosticsView {
             failure_code: Some(

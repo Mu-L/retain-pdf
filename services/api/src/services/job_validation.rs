@@ -24,6 +24,21 @@ pub fn validate_provider_credentials(input: &CreateJobInput) -> Result<(), AppEr
 }
 
 pub fn validate_translation_credentials(input: &CreateJobInput) -> Result<(), AppError> {
+    if let Some(connection) = &input.translation.execution_connection {
+        use crate::services::model_executor::ModelConnectionPolicy;
+        connection
+            .validate()
+            .map_err(|_| AppError::bad_request("invalid translation.execution_connection"))?;
+        if connection.model != input.translation.model
+            || connection.base_url.trim_end_matches('/')
+                != input.translation.base_url.trim_end_matches('/')
+            || connection.credential_ref != input.translation.credential_ref
+            || connection.concurrency as i64 != input.translation.workers
+            || !input.translation.api_key.is_empty()
+        {
+            return Err(AppError::bad_request("execution_connection must match translation model, endpoint, credential_ref and workers; inline API keys are not allowed"));
+        }
+    }
     let base_url = input.translation.base_url.trim();
     if base_url.is_empty() {
         return Err(AppError::bad_request("base_url is required"));

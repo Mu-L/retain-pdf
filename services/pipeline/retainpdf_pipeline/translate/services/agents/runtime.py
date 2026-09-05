@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Callable
+from retainpdf_pipeline.translate.llm.shared.executor_context import unit_scope
 
 from retainpdf_pipeline.translate.services.agents.contracts import AgentRunContext
 from retainpdf_pipeline.translate.services.agents.contracts import LLMResult
@@ -49,15 +50,16 @@ class TranslationAgentRuntime:
         base_url = task.base_url or self.context.base_url
         request_label = _request_label(task)
         try:
-            content = request_fn(
-                task.messages,
-                api_key=self.api_key,
-                model=model,
-                base_url=base_url,
-                response_format=task.response_format,
-                timeout=task.timeout_s,
-                request_label=request_label,
-            )
+            with unit_scope("agent", [task.agent, task.task_id]):
+                content = request_fn(
+                    task.messages,
+                    api_key=self.api_key,
+                    model=model,
+                    base_url=base_url,
+                    response_format=task.response_format,
+                    timeout=task.timeout_s,
+                    request_label=request_label,
+                )
         except Exception as exc:
             return LLMResult(
                 task_id=task.task_id,

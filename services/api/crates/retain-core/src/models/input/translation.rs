@@ -22,6 +22,10 @@ pub struct GlossaryEntryInput {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct TranslationInput {
+    /// Full immutable snapshot, not a pointer to mutable frontend settings.
+    /// Omitted for legacy jobs; it never contains an inline model API key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_connection: Option<crate::model_connection::ModelConnection>,
     #[serde(default = "default_mode")]
     pub mode: String,
     #[serde(default = "default_math_mode")]
@@ -79,6 +83,7 @@ pub struct TranslationInput {
 impl Default for TranslationInput {
     fn default() -> Self {
         Self {
+            execution_connection: None,
             mode: default_mode(),
             math_mode: default_math_mode(),
             skip_title_translation: false,

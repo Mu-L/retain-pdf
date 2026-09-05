@@ -67,6 +67,14 @@ pub(crate) async fn cancel_job(
             job.status
         )));
     }
+    if job
+        .request_payload
+        .translation
+        .execution_connection
+        .is_some()
+    {
+        deps.db.close_model_worker_session(job_id)?;
+    }
     deps.runtime.request_cancel(job_id).await;
 
     // The job may have raced to a terminal state between the status check

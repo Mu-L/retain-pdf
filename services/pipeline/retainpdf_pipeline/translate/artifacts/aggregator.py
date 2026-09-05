@@ -176,6 +176,19 @@ class TranslationRunDiagnostics:
         with self._lock:
             self._effective["effective_batch_size_translation"] = int(max(1, value))
 
+    def set_scheduler_metrics(self, metrics: dict) -> None:
+        with self._lock:
+            self._scheduler_metrics = metrics
+
+    def record_committed_pages(self, pages: list[dict]) -> None:
+        with self._lock:
+            if not hasattr(self, "_first_page_commit_ms"):
+                self._first_page_commit_ms = {}
+            for page in pages:
+                index = page.get("page_index")
+                if isinstance(index, int) and index >= 0:
+                    self._first_page_commit_ms.setdefault(str(index + 1), round((time.perf_counter() - self.run_started_at) * 1000, 3))
+
     def set_translation_queue_workers(
         self,
         *,
@@ -186,8 +199,11 @@ class TranslationRunDiagnostics:
         batched_fast_batches: int = 0,
         single_fast_batches: int = 0,
         single_slow_batches: int = 0,
+        shared_workers: int = 0,
     ) -> None:
         with self._lock:
+            if shared_workers:
+                batched_fast_workers = single_fast_workers = single_slow_workers = slow_worker_limit = 0
             self._effective["effective_workers_batched_fast"] = int(max(0, batched_fast_workers))
             self._effective["effective_workers_single_fast"] = int(max(0, single_fast_workers))
             self._effective["effective_workers_single_slow"] = int(max(0, single_slow_workers))
@@ -202,6 +218,8 @@ class TranslationRunDiagnostics:
                 "single_fast_workers": int(max(0, single_fast_workers)),
                 "single_slow_workers": int(max(0, single_slow_workers)),
             }
+            if shared_workers:
+                self._queue_split.update(scheduler="shared_page_order", shared_workers=shared_workers)
 
     def set_translation_result_stats(
         self,
@@ -592,6 +610,8 @@ class TranslationRunDiagnostics:
                     "peak_inflight_all_llm_requests": self._peak_inflight_by_stage.get("__all__", 0),
                 },
                 "translation_queue_split": dict(self._queue_split),
+                "scheduler_metrics": getattr(self, "_scheduler_metrics", None),
+                "first_page_commit_ms_since_run_start": getattr(self, "_first_page_commit_ms", None),
                 "adaptive_concurrency": {
                     "enabled": True,
                     "configured_limit": self.configured_workers,

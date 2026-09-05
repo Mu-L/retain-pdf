@@ -47,6 +47,20 @@ pub(crate) fn stage_plan(
     let running = matches!(job.status, JobStatusKind::Queued | JobStatusKind::Running);
     let mut plan = base_stage_plan(stage, &availability);
 
+    if job
+        .request_payload
+        .translation
+        .execution_connection
+        .is_some()
+        && !matches!(plan.stage, RetryStageKind::Render)
+    {
+        plan.can_retry = false;
+        plan.disabled_reason =
+            "Rust model retry requires receipt-preserving recovery; legacy retry is disabled"
+                .into();
+        return plan;
+    }
+
     if running {
         plan.can_retry = false;
         plan.disabled_reason =
@@ -83,6 +97,24 @@ pub(crate) fn resume_plan(job: &JobSnapshot, data_root: &Path) -> JobResumePlan 
             reason: None,
         };
     }
+    if job
+        .request_payload
+        .translation
+        .execution_connection
+        .is_some()
+    {
+        return JobResumePlan {
+            can_resume: false,
+            from_stage: Some("translate".into()),
+            resume_workflow: None,
+            reuses_artifacts: Vec::new(),
+            reruns_stages: Vec::new(),
+            reason: Some(
+                "Rust model recovery requires successful receipt reuse; legacy resume is disabled"
+                    .into(),
+            ),
+        };
+    }
     if availability.ocr_available && availability.translation_retry_requires_confirmation {
         return JobResumePlan {
             can_resume: false,
@@ -95,7 +127,7 @@ pub(crate) fn resume_plan(job: &JobSnapshot, data_root: &Path) -> JobResumePlan 
             ],
             reruns_stages: vec!["translation".to_string(), "rendering".to_string()],
             reason: Some(
-                "translation request outcome is ambiguous; use retry-stage with explicit duplicate-risk acceptance"
+                "translation recovery is blocked; consult supported retry policies before retrying"
                     .to_string(),
             ),
         };

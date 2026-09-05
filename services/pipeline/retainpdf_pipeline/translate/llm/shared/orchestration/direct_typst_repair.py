@@ -1,4 +1,5 @@
 from __future__ import annotations
+from retainpdf_pipeline.translate.llm.shared.executor_context import translation_unit
 
 from retainpdf_pipeline.translate.prompt_loader import load_prompt
 from retainpdf_pipeline.translate.artifacts import TranslationDiagnosticsCollector
@@ -50,6 +51,7 @@ def build_direct_typst_repair_messages(
     ]
 
 
+@translation_unit
 def try_repair_direct_typst_math_delimiters(
     item: dict,
     *,

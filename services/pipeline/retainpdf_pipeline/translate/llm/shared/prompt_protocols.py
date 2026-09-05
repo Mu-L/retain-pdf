@@ -9,6 +9,7 @@ from retainpdf_pipeline.translate.prompt_loader import render_prompt
 from retainpdf_pipeline.services.pipeline_shared.direct_typst_math import find_mitex_rewrites
 from retainpdf_pipeline.services.pipeline_shared.direct_typst_math import has_balanced_unescaped_dollars
 from retainpdf_pipeline.translate.core.context import TranslationItemContext
+from retainpdf_pipeline.translate.core.item_reader import item_is_reference_compatible, item_is_title_like
 
 
 JSON_ONLY_INSTRUCTION = 'Return only valid JSON with the schema {"translations":[{"item_id":"...","translated_text":"..."}]}.'
@@ -86,7 +87,19 @@ def _append_scoped_terms_guidance(lines: list[str], item: TranslationItemContext
         lines.append(f"术语要求：\n{guidance}")
 
 
+def _role_guidance(item: TranslationItemContext) -> str:
+    raw = item.raw_item or {}
+    if item_is_reference_compatible(raw):
+        return "参考文献规则：只翻译作品标题；作者、期刊、年份、卷期、页码和引文顺序保持原样。"
+    if item_is_title_like(raw):
+        return "标题规则：译成简洁正式的学术标题，不扩写为解释性句子。"
+    return ""
+
+
 def _append_text_flow_guidance(lines: list[str], item: TranslationItemContext) -> None:
+    role_guidance = _role_guidance(item)
+    if role_guidance:
+        lines.append(role_guidance)
     structure_role = str((item.metadata or {}).get("structure_role", "") or "").strip().lower()
     if item.toc_entries or structure_role == "table_of_contents" or str(item.semantic_role or "").strip().lower() == "table_of_contents":
         lines.append(
@@ -132,6 +145,7 @@ def direct_typst_batch_user_prompt(
     *,
     mode: str,
     target_language_name: str = DEFAULT_TARGET_LANGUAGE_NAME,
+    response_style: str = "tagged",
 ) -> str:
     lines: list[str] = [
         render_prompt("translation_task_plain_text.txt", **_prompt_context(target_language_name=target_language_name)),
@@ -143,6 +157,11 @@ def direct_typst_batch_user_prompt(
         "译文",
         "<<<END>>>",
     ]
+    if response_style == "json":
+        lines = [
+            render_prompt("translation_task_plain_text.txt", **_prompt_context(target_language_name=target_language_name)),
+            "按 system 指定的 JSON 协议为每个 item 返回译文。",
+        ]
     for item in batch:
         lines.append("")
         lines.append(f"原文 {item.item_id}:")
@@ -162,12 +181,17 @@ def direct_typst_single_user_prompt(
     *,
     mode: str,
     target_language_name: str = DEFAULT_TARGET_LANGUAGE_NAME,
+    response_style: str = "plain_text",
 ) -> str:
     lines: list[str] = [
         render_prompt("translation_task_plain_text.txt", **_prompt_context(target_language_name=target_language_name)),
         "",
         "下面是一段待翻译正文。",
-        f"你只输出最终{_target_language_name(target_language_name)}译文正文，不要输出编号、决策字段、结构化数据、标签、代码块或解释。",
+        (
+            "按 system 指定的 JSON 协议返回译文。"
+            if response_style == "json"
+            else f"你只输出最终{_target_language_name(target_language_name)}译文正文。"
+        ),
         "",
         "【当前原文开始】",
         item.source_for_prompt(),
@@ -219,6 +243,8 @@ def batch_json_user_prompt(
     for item in batch:
         group_id = item.continuation_group
         item_payload = item.as_batch_payload()
+        if guidance := _role_guidance(item):
+            item_payload["role_guidance"] = guidance
         if group_id:
             group = groups.setdefault(group_id, {"group_id": group_id, "item_ids": [], "combined_source_text": []})
             group["item_ids"].append(item.item_id)
@@ -265,7 +291,7 @@ def group_member_json_user_prompt(
         "task": (
             f"Translate the continuation group into {_target_language_name(target_language_name)}. "
             "Return one translated fragment per member_id, following the supplied member source boundaries. "
-            "The full translated_text must equal the member translations concatenated in member order. "
+            "Read all members together for continuity, but return only the member translations. "
             "Do not repeat the full group translation in a member and do not add text from neighboring context. "
             "If a member source text is an incomplete fragment, keep its translation equally incomplete; "
             "never borrow words from neighboring context to complete it."
@@ -281,17 +307,21 @@ def group_member_json_user_prompt(
                 }
                 for member_id in member_ids
             ],
-            "combined_source_text": item.source_for_prompt(),
         },
         "output_schema": {
-            "translated_text": "full translated continuation group",
             "member_translations": [
                 {"item_id": "member id from member_ids", "translated_text": "translation for this member only"}
             ],
         },
     }
+    # Older units may not carry individual source fragments. Keep their
+    # aggregate as a compatibility input rather than sending empty sources.
+    if any(not member_source_by_id.get(mid) for mid in member_ids):
+        user_payload["group"]["combined_source_text"] = item.source_for_prompt()
     if item.style_hint:
         user_payload["group"]["style_hint"] = item.style_hint
+    if guidance := _role_guidance(item):
+        user_payload["group"]["role_guidance"] = guidance
     terms_guidance = _scoped_terms_guidance(item)
     if terms_guidance:
         user_payload["group"]["terms_note"] = terms_guidance

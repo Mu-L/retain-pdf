@@ -43,5 +43,8 @@ class TranslationExecutionRequest:
 
 
 def execute_translation_request(request: TranslationExecutionRequest) -> dict:
+    from retainpdf_pipeline.translate.llm.shared.executor_context import raise_if_executor_failed
+    raise_if_executor_failed()
     plan = build_translation_execution_plan(request)
+    raise_if_executor_failed()
     return run_translation_execution_plan(request, plan)

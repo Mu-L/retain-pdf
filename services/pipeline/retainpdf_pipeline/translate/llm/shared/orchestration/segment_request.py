@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from retainpdf_pipeline.translate.llm.shared.executor_context import translation_unit
 
 from retainpdf_pipeline.translate.llm.shared.orchestration.segment_errors import SegmentTranslationFormatError
 from retainpdf_pipeline.translate.llm.shared.orchestration.segment_errors import SegmentTranslationSemanticError
@@ -10,6 +11,7 @@ from retainpdf_pipeline.translate.llm.shared.provider_runtime import request_cha
 from retainpdf_pipeline.translate.llm.shared.structured_models import FORMULA_SEGMENT_RESPONSE_SCHEMA
 
 
+@translation_unit
 def request_formula_segment_translation(
     item: dict,
     skeleton: list[tuple[str, str]],

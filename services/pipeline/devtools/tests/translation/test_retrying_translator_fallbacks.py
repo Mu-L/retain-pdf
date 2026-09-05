@@ -195,7 +195,10 @@ class RetryingTranslatorFallbacksTests(unittest.TestCase):
         def fake_plain(*args, **kwargs):
             sentence_item = args[0]
             seen.append(sentence_item["translation_unit_protected_source_text"])
-            return {item["item_id"]: result_entry("translate", "已翻译片段")}
+            # This test exercises splitting, not truncation recovery. Preserve
+            # source coverage in the fake translation (one word -> one word).
+            translated = "词语" * len(seen[-1].split())
+            return {item["item_id"]: result_entry("translate", translated)}
 
         result = sentence_level_fallback(
             item,
@@ -209,6 +212,8 @@ class RetryingTranslatorFallbacksTests(unittest.TestCase):
         )
 
         self.assertGreaterEqual(len(seen), 2)
+        self.assertEqual(" ".join(seen).split(), ["word"] * 120)
+        self.assertEqual(result[item["item_id"]]["translated_text"].replace(" ", ""), "词语" * 120)
         self.assertEqual(result[item["item_id"]]["final_status"], "partially_translated")
 
     def test_sentence_fallback_rejects_merged_partial_output_with_long_english_residue(self):
@@ -268,4 +273,3 @@ class RetryingTranslatorFallbacksTests(unittest.TestCase):
         finally:
             fallbacks.translate_single_item_plain_text = original_plain
             fallbacks.translate_single_item_plain_text_unstructured = original_raw
-

@@ -272,6 +272,11 @@ def request_chat_content(
     request_label: str = "",
     max_attempts: int | None = None,
 ) -> str:
+    from retainpdf_pipeline.translate.llm.shared.executor_context import execution_enabled, runtime
+    if execution_enabled():
+        # Rust owns provider policy, deadlines, concurrency and network retries.
+        # No Python slot, HTTP request, API key lookup or direct fallback here.
+        return runtime().request(messages, temperature=temperature, response_format=response_format)
     last_error: Exception | None = None
     request_stage = infer_stage_from_request_label(request_label)
     diagnostics = get_active_translation_run_diagnostics()
@@ -288,6 +293,10 @@ def request_chat_content(
         "temperature": temperature,
         "messages": messages,
     }
+    # DashScope Qwen3.8 Flash defaults to thinking. Translation does not need
+    # this extra generation pass; leave other providers/models untouched.
+    if model.strip().lower() == "qwen3.8-flash" and _hostname_from_base_url(base_url) == "dashscope.aliyuncs.com":
+        body["enable_thinking"] = False
     use_stream = should_use_stream_responses()
     if use_stream:
         body["stream"] = True
@@ -490,6 +499,9 @@ def translate_batch(
 
 
 def get_api_key(explicit_api_key: str = "", env_var: str = DEFAULT_API_KEY_ENV, required: bool = True) -> str:
+    from retainpdf_pipeline.translate.llm.shared.executor_context import execution_enabled
+    if execution_enabled():
+        return ""
     api_key = get_secret(
         explicit_value=explicit_api_key,
         env_var=env_var,

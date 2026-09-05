@@ -1,4 +1,5 @@
 from __future__ import annotations
+from retainpdf_pipeline.translate.llm.shared.executor_context import translation_unit
 
 import json
 import re
@@ -64,6 +65,7 @@ def parse_translation_payload(content: str) -> dict[str, dict[str, str]]:
     return result
 
 
+@translation_unit
 def translate_single_item_plain_text(
     item: dict,
     *,
@@ -103,6 +105,7 @@ def translate_single_item_plain_text(
     return result
 
 
+@translation_unit
 def translate_single_item_plain_text_unstructured(
     item: dict,
     *,
@@ -165,6 +168,8 @@ def _group_member_payload_defect(
     if not expected_ids:
         return ""
     returned = {entry["item_id"]: entry["translated_text"] for entry in member_translations}
+    if len(returned) != len(member_translations):
+        return "duplicate member ids"
     missing = [mid for mid in expected_ids if not str(returned.get(mid, "") or "").strip()]
     extra = [mid for mid in returned if mid not in expected_ids]
     if missing or extra:
@@ -180,6 +185,7 @@ def _group_member_payload_defect(
     return ""
 
 
+@translation_unit
 def translate_continuation_group_members(
     item: dict,
     *,
@@ -241,6 +247,16 @@ def translate_continuation_group_members(
         ]
         defect = _group_member_payload_defect(item, translated_text, member_translations)
         if not defect:
+            # Keep the persisted aggregate contract, without asking the model
+            # to generate the same translation twice. Accept old responses too.
+            by_id = {entry["item_id"]: entry["translated_text"] for entry in member_translations}
+            member_ids = item.get("translation_unit_member_ids", [])
+            if member_ids:
+                member_translations = [
+                    {"item_id": str(mid).strip(), "translated_text": by_id[str(mid).strip()]}
+                    for mid in member_ids
+                ]
+                translated_text = translated_text or " ".join(entry["translated_text"] for entry in member_translations)
             break
         if attempt < protocol_attempts:
             if request_label:
@@ -250,6 +266,8 @@ def translate_continuation_group_members(
         # 交给几何切分兜底(此前是静默走到这一步,现在有日志有重试)。
         if request_label:
             print(f"{request_label}: group member payload defect persists, dropping member splits: {defect}", flush=True)
+        if not translated_text:
+            raise ValueError(f"Invalid continuation member translations: {defect}")
         member_translations = []
     result_payload = result_entry("translate", translated_text)
     result_payload["member_translations"] = member_translations
@@ -259,6 +277,7 @@ def translate_continuation_group_members(
     return result
 
 
+@translation_unit
 def translate_single_item_tagged_text(
     item: dict,
     *,
@@ -295,6 +314,7 @@ def translate_single_item_tagged_text(
     return result
 
 
+@translation_unit
 def translate_single_item_with_decision(
     item: dict,
     *,
@@ -342,6 +362,7 @@ def translate_single_item_with_decision(
     return result
 
 
+@translation_unit
 def translate_batch_once(
     batch: list[dict],
     *,

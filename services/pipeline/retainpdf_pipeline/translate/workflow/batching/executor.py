@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
+from retainpdf_pipeline.translate.llm.shared.executor_context import raise_if_batch_failed, raise_if_executor_failed
 
 from retainpdf_pipeline.translate.llm.shared.control_context import TranslationControlContext
 from retainpdf_pipeline.translate.llm.shared.orchestration import translate_batch as default_translate_batch
@@ -48,6 +49,7 @@ def _translate_batch_or_keep_origin(
     memory_store: JobMemoryStore | None = None,
     translate_fn: TranslateBatchFn = default_translate_batch,
 ) -> dict[str, dict[str, str]]:
+    raise_if_executor_failed()
     effective_context = context_with_memory_guidance(
         context,
         domain_guidance=domain_guidance,
@@ -63,7 +65,7 @@ def _translate_batch_or_keep_origin(
         memory_mode=str(getattr(effective_context, "memory_mode", "matched")),
     )
     try:
-        return translate_fn(
+        result = translate_fn(
             batch,
             api_key=api_key,
             model=model,
@@ -73,6 +75,8 @@ def _translate_batch_or_keep_origin(
             mode=mode,
             context=effective_context,
         )
+        raise_if_batch_failed(batch)
+        return result
     except Exception as exc:
         if not is_transport_error(exc):
             raise

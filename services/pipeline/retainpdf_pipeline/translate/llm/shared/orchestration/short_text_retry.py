@@ -1,4 +1,5 @@
 from __future__ import annotations
+from retainpdf_pipeline.translate.llm.shared.executor_context import translation_unit
 
 import re
 
@@ -26,6 +27,7 @@ def should_retry_empty_short_text(item: dict) -> bool:
     return 3 <= len(words) <= 14
 
 
+@translation_unit
 def translate_empty_short_text_retry(
     item: dict,
     *,

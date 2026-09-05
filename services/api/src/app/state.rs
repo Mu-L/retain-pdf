@@ -22,6 +22,8 @@ pub struct AppState {
     pub job_runtime: Arc<JobRuntime>,
     /// Per-process signing authority for short-lived, least-privilege agent capabilities.
     pub agent_capabilities: Arc<AgentCapabilityAuthority>,
+    /// Staged rollout: disabled until worker pause/resume integration is enabled.
+    pub model_executor: Option<Arc<crate::services::model_executor::ModelExecutor>>,
 }
 
 pub fn build_state(config: Arc<AppConfig>) -> Result<AppState> {
@@ -51,7 +53,18 @@ pub fn build_state(config: Arc<AppConfig>) -> Result<AppState> {
         JobRuntime::in_process(canceled_jobs.clone())
     });
 
+    let model_executor = if std::env::var("RETAIN_MODEL_EXECUTOR_ENABLED").as_deref() == Ok("1") {
+        Some(Arc::new(
+            crate::services::model_executor::ModelExecutor::new(
+                db.clone(),
+                config.data_root.clone(),
+            )?,
+        ))
+    } else {
+        None
+    };
     Ok(AppState {
+        model_executor,
         config: config.clone(),
         db,
         downloads_lock: Arc::new(Mutex::new(())),

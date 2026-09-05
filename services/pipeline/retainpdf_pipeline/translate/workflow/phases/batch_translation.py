@@ -74,6 +74,7 @@ def run_translation_batch_stage(
             batched_fast_batches=batch_summary.get("batched_fast_batches", 0),
             single_fast_batches=batch_summary.get("single_fast_batches", 0),
             single_slow_batches=batch_summary.get("single_slow_batches", 0),
+            shared_workers=batch_summary.get("shared_workers", 0),
         )
         run_diagnostics.set_translation_result_stats(
             applied_batches=batch_summary.get("applied_batches", batch_summary.get("total_batches", 0)),

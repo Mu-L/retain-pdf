@@ -5,6 +5,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Empty, Queue
 import time
 from typing import Callable
+from retainpdf_pipeline.translate.llm.shared.executor_context import execution_enabled, runtime as executor_runtime, raise_if_executor_failed
+from retainpdf_pipeline.translate.llm.shared.rust_executor import ExecutorError
 
 from retainpdf_pipeline.translate.llm.shared.control_context import TranslationControlContext
 from retainpdf_pipeline.translate.llm.shared.orchestration import translate_batch
@@ -15,6 +17,8 @@ from retainpdf_pipeline.translate.workflow.batching.executor import _translate_b
 from retainpdf_pipeline.translate.services.results.flush import TranslationFlushState
 from retainpdf_pipeline.translate.services.results.applier import TranslationResultApplier
 from retainpdf_pipeline.translate.workflow.scheduling.failures import _failed_results_for_unhandled_batch_exception
+from retainpdf_pipeline.translate.workflow.scheduling.page_order import task_order
+from retainpdf_pipeline.translate.workflow.scheduling.metrics import SchedulerMetrics
 from retainpdf_pipeline.translate.workflow.scheduling.tail_retry import _drain_translation_tail_queue
 from retainpdf_pipeline.translate.workflow.scheduling.tail_retry import _should_drain_translation_tail_early
 from retainpdf_pipeline.translate.workflow.scheduling.tail_retry import _transport_tail_retry_workers
@@ -73,18 +77,23 @@ def run_translation_batches_sequential(
     total_batches = len(batches)
     for index, batch in enumerate(batches, start=1):
         batch_label = f"book: batch {index}/{total_batches}"
-        translated = _translate_batch_or_keep_origin(
-            batch,
-            api_key=api_key,
-            model=model,
-            base_url=base_url,
-            request_label=batch_label,
-            domain_guidance=domain_guidance,
-            mode=mode,
-            context=translation_context,
-            memory_store=memory_store,
-            translate_fn=translate_batch,
-        )
+        try:
+            translated = _translate_batch_or_keep_origin(
+                batch,
+                api_key=api_key,
+                model=model,
+                base_url=base_url,
+                request_label=batch_label,
+                domain_guidance=domain_guidance,
+                mode=mode,
+                context=translation_context,
+                memory_store=memory_store,
+                translate_fn=translate_batch,
+            )
+        except ExecutorError:
+            flush_translation_memory(memory_store)
+            flush_state.final_flush()
+            raise
         touched_pages = result_applier.apply_batch(batch, translated)
         flush_state.record_progress(index, touched_pages)
         flush_state.flush_if_due(index, label=f"flushed after batch {index}/{total_batches}")
@@ -109,12 +118,15 @@ def _run_translation_queue_worker(
     mode: str,
     translation_context: TranslationControlContext | None,
     memory_store: JobMemoryStore | None,
+    metrics: SchedulerMetrics | None = None,
 ) -> None:
     while True:
         try:
             queue_name, index, queue_total, batch = task_queue.get_nowait()
         except Empty:
             return
+        if metrics is not None:
+            metrics.start()
         translated: dict[str, dict[str, str]] | None = None
         exc: Exception | None = None
         try:
@@ -134,6 +146,8 @@ def _run_translation_queue_worker(
             exc = caught
         finally:
             task_queue.task_done()
+            if metrics is not None:
+                metrics.finish()
         result_queue.put((queue_name, index, batch, translated, exc))
 
 
@@ -149,6 +163,7 @@ def _start_translation_queue_workers(
     mode: str,
     translation_context: TranslationControlContext | None,
     memory_store: JobMemoryStore | None,
+    metrics: SchedulerMetrics | None = None,
 ) -> tuple[ThreadPoolExecutor, list]:
     task_queue: Queue[TranslationTask] = Queue()
     for task in tasks:
@@ -167,6 +182,7 @@ def _start_translation_queue_workers(
             mode=mode,
             translation_context=translation_context,
             memory_store=memory_store,
+            metrics=metrics,
         )
         for _ in range(resolved_worker_count)
     ]
@@ -183,6 +199,11 @@ def _translation_tasks(queue_name: str, batches: list[list[dict]]) -> list[Trans
 
 def _normalize_translation_result(result: TranslationResult) -> AppliedTranslationResult:
     queue_name, _batch_index, batch, translated, exc = result
+    if execution_enabled() and isinstance(exc, ExecutorError):
+        executor_runtime().fail(exc)
+        # Leave failed items pending. Successful in-flight batches still pass
+        # through the normal applier/flush path; no fake keep-origin completion.
+        return batch, {}
     if exc is not None:
         print(
             f"book: {queue_name} batch failed, preserving remaining completed results: {type(exc).__name__}: {exc}",
@@ -235,6 +256,7 @@ def run_translation_batches_parallel(
         "single_slow": single_slow_batches,
     }
     total_batches = sum(len(batches) for batches in batches_by_queue.values())
+    metrics = SchedulerMetrics(total_batches, min(total_batches, max(1, sum(queue_workers.values())))) if execution_enabled() else None
     tail_retry_workers = _transport_tail_retry_workers(queue_workers)
     slow_tasks = _translation_tasks("single_slow", single_slow_batches)
     pool_specs = [
@@ -254,6 +276,11 @@ def run_translation_batches_parallel(
             int(queue_workers.get("single_slow", 0) or 0),
         ),
     ]
+    if execution_enabled():
+        # One bounded FIFO queue for every route: idle workers can immediately
+        # serve batches of any kind. Rust remains the global request limiter.
+        tasks = sorted([task for _, tasks, _ in pool_specs for task in tasks], key=task_order)
+        pool_specs = [("shared_page_order", tasks, max(1, sum(queue_workers.values()))) ]
     for pool_name, tasks, worker_count in pool_specs:
         if not tasks:
             continue
@@ -270,6 +297,7 @@ def run_translation_batches_parallel(
             mode=mode,
             translation_context=translation_context,
             memory_store=memory_store,
+            metrics=metrics,
         )
         executors.append(executor)
         worker_futures.extend(futures)
@@ -297,6 +325,8 @@ def run_translation_batches_parallel(
             )
             apply_started = time.perf_counter()
             touched_pages = result_applier.apply_batches(drained)
+            if metrics is not None:
+                metrics.applied(touched_pages)
             apply_elapsed = time.perf_counter() - apply_started
             applied_batch_count += len(drained)
             apply_elapsed_s += max(0.0, apply_elapsed)
@@ -320,9 +350,18 @@ def run_translation_batches_parallel(
     finally:
         for executor in executors:
             executor.shutdown(wait=True, cancel_futures=False)
+        if metrics is not None:
+            from retainpdf_pipeline.translate.artifacts.aggregator import get_active_translation_run_diagnostics
+            diagnostics = get_active_translation_run_diagnostics()
+            if diagnostics is not None:
+                diagnostics.set_scheduler_metrics(metrics.snapshot())
         for future in worker_futures:
             if future.done() and future.exception() is not None:
                 raise future.exception()
+    if execution_enabled():
+        flush_translation_memory(memory_store)
+        flush_state.final_flush()
+        raise_if_executor_failed()
     final_tail_stats = _drain_translation_tail_queue(
         translation_context=translation_context,
         result_applier=result_applier,

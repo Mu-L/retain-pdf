@@ -6,7 +6,140 @@ use std::process::Stdio;
 use anyhow::anyhow;
 use anyhow::{Context, Result};
 use retain_data::credentials::resolve_credential;
+use sha2::{Digest, Sha256};
 use tokio::process::{Child, Command};
+
+pub(super) struct ModelWorkerBinding {
+    api_url: String,
+    job_id: String,
+    capability: String,
+    wait_seconds: u64,
+    fingerprint: String,
+}
+
+pub(super) struct ModelWorkerLease {
+    db: retain_data::db::Db,
+    job_id: Option<String>,
+}
+impl ModelWorkerLease {
+    pub(super) fn for_job(db: &retain_data::db::Db, job: &JobRuntimeState) -> Self {
+        Self {
+            db: db.clone(),
+            job_id: if job
+                .request_payload
+                .translation
+                .execution_connection
+                .is_some()
+                && job
+                    .command
+                    .windows(2)
+                    .any(|args| args[0] == "-m" && args[1] == "retainpdf_pipeline.translate")
+            {
+                Some(job.job_id.clone())
+            } else {
+                None
+            },
+        }
+    }
+}
+impl Drop for ModelWorkerLease {
+    fn drop(&mut self) {
+        if let Some(job_id) = &self.job_id {
+            if self.db.close_model_worker_session(job_id).is_err() {
+                tracing::error!("could not revoke stopped model worker session");
+            }
+        }
+    }
+}
+
+pub(super) fn prepare_model_worker_binding(
+    db: &retain_data::db::Db,
+    job: &JobRuntimeState,
+    api_url: Option<&str>,
+) -> Result<Option<ModelWorkerBinding>> {
+    let Some(profile) = job
+        .request_payload
+        .translation
+        .execution_connection
+        .as_ref()
+    else {
+        return Ok(None);
+    };
+    let translation_worker = job
+        .command
+        .windows(2)
+        .any(|args| args[0] == "-m" && args[1] == "retainpdf_pipeline.translate");
+    if !translation_worker {
+        return Ok(None);
+    }
+    let raw_url =
+        api_url.context("RETAIN_MODEL_EXECUTOR_URL is required for a Rust model worker")?;
+    let url = reqwest::Url::parse(raw_url)
+        .map_err(|_| anyhow::anyhow!("invalid model executor origin"))?;
+    let local = url
+        .host_str()
+        .and_then(|host| {
+            host.trim_matches(['[', ']'])
+                .parse::<std::net::IpAddr>()
+                .ok()
+        })
+        .is_some_and(|ip| ip.is_loopback());
+    if url.scheme() != "http"
+        || !local
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+        || url.path() != "/"
+    {
+        anyhow::bail!("model executor origin must be explicit loopback HTTP without credentials");
+    }
+    let persisted = db.get_job(&job.job_id)?;
+    if persisted
+        .request_payload
+        .translation
+        .execution_connection
+        .as_ref()
+        != Some(profile)
+    {
+        anyhow::bail!("worker model connection differs from submitted snapshot");
+    }
+    let mut random = [0u8; 32];
+    getrandom::getrandom(&mut random)
+        .map_err(|_| anyhow::anyhow!("worker capability generation failed"))?;
+    let capability: String = random.iter().map(|b| format!("{b:02x}")).collect();
+    let hash: String = Sha256::digest(capability.as_bytes())
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    let ttl = (job.request_payload.runtime.timeout_seconds.max(0) as u64)
+        .saturating_add(600)
+        .clamp(3600, 86400);
+    db.create_model_session(
+        &job.job_id,
+        &hash,
+        chrono_now_seconds() + ttl as i64,
+        &serde_json::to_value(profile)?,
+    )?;
+    let fingerprint = Sha256::digest(serde_json::to_vec(profile)?)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    Ok(Some(ModelWorkerBinding {
+        api_url: url.as_str().trim_end_matches('/').to_owned(),
+        job_id: job.job_id.clone(),
+        capability,
+        wait_seconds: (profile.deadlines.queue_ms + profile.deadlines.total_ms).div_ceil(1000) + 30,
+        fingerprint,
+    }))
+}
+
+fn chrono_now_seconds() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
+}
 
 use crate::config::WorkerProcessRuntimeConfig;
 use crate::models::domain::JobRuntimeState;
@@ -20,6 +153,7 @@ use super::runtime_credentials::resolve_ocr_provider_token;
 pub(super) fn spawn_worker_process(
     config: &WorkerProcessRuntimeConfig<'_>,
     job: &JobRuntimeState,
+    model_binding: Option<&ModelWorkerBinding>,
 ) -> Result<(Child, Vec<String>)> {
     let mut command = Command::new(&job.command[0]);
     command
@@ -35,7 +169,41 @@ pub(super) fn spawn_worker_process(
         .current_dir(config.project_root)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    let runtime_secrets = apply_job_credentials(&mut command, config.data_root, job)?;
+    let mut runtime_secrets = apply_job_credentials(&mut command, config.data_root, job)?;
+    // Never inherit another worker's capability or select Rust by ambient env.
+    for name in [
+        "RETAIN_MODEL_CAPABILITY",
+        "RETAIN_MODEL_JOB_ID",
+        "RETAIN_MODEL_WAIT_SECONDS",
+        "RETAIN_MODEL_CONNECTION_FINGERPRINT",
+    ] {
+        command.env_remove(name);
+    }
+    command.env("RETAIN_TRANSLATION_TRANSPORT", "legacy");
+    if let Some(binding) = model_binding {
+        command
+            .env("RETAIN_TRANSLATION_TRANSPORT", "rust")
+            .env("RETAIN_MODEL_EXECUTOR_URL", &binding.api_url)
+            .env("RETAIN_MODEL_JOB_ID", &binding.job_id)
+            .env("RETAIN_MODEL_CAPABILITY", &binding.capability)
+            .env("RETAIN_MODEL_CONNECTION_FINGERPRINT", &binding.fingerprint)
+            .env(
+                "RETAIN_MODEL_WAIT_SECONDS",
+                binding.wait_seconds.to_string(),
+            );
+        runtime_secrets.push(binding.capability.clone());
+    } else if job
+        .request_payload
+        .translation
+        .execution_connection
+        .is_some()
+        && job
+            .command
+            .windows(2)
+            .any(|args| args[0] == "-m" && args[1] == "retainpdf_pipeline.translate")
+    {
+        anyhow::bail!("Rust model worker requires a task capability; direct fallback is disabled");
+    }
     configure_child_process(&mut command);
 
     let program = job.command.first().cloned().unwrap_or_default();
@@ -51,7 +219,23 @@ fn apply_job_credentials(
     job: &JobRuntimeState,
 ) -> Result<Vec<String>> {
     let mut runtime_secrets = Vec::new();
-    if let Some(api_key) = resolve_translation_api_key(data_root, job)? {
+    if job
+        .request_payload
+        .translation
+        .execution_connection
+        .is_some()
+    {
+        for name in [
+            "RETAIN_TRANSLATION_API_KEY",
+            "DEEPSEEK_API_KEY",
+            "OPENAI_API_KEY",
+            "DASHSCOPE_API_KEY",
+            "QWEN_API_KEY",
+            "RUST_API_KEYS",
+        ] {
+            command.env_remove(name);
+        }
+    } else if let Some(api_key) = resolve_translation_api_key(data_root, job)? {
         command.env("RETAIN_TRANSLATION_API_KEY", &api_key);
         runtime_secrets.push(api_key);
     }
@@ -228,6 +412,121 @@ mod tests {
         assert_eq!(runtime_secrets, vec![secret.to_string()]);
     }
 
+    fn model_job() -> JobRuntimeState {
+        let profile:retain_core::model_connection::ModelConnection=serde_json::from_value(serde_json::json!({"id":"qwen-main","revision":1,"provider":"qwen","base_url":"https://dashscope.aliyuncs.com/compatible-mode/v1","model":"qwen3.8-flash","credential_ref":"cred_translation","concurrency":2})).unwrap();
+        let mut input = CreateJobInput::default();
+        input.translation.model = profile.model.clone();
+        input.translation.base_url = profile.base_url.clone();
+        input.translation.credential_ref = profile.credential_ref.clone();
+        input.translation.workers = 2;
+        input.translation.execution_connection = Some(profile);
+        JobSnapshot::new(
+            "model-job".into(),
+            input,
+            vec![
+                "python".into(),
+                "-m".into(),
+                "retainpdf_pipeline.translate".into(),
+            ],
+        )
+        .into_runtime()
+    }
+
+    #[test]
+    fn model_worker_uses_capability_without_resolving_translation_key() {
+        let root = test_root("model-capability");
+        let db = retain_data::db::Db::new(root.join("jobs.db"), root.clone());
+        db.init().unwrap();
+        let job = model_job();
+        db.save_job(&JobSnapshot {
+            record: job.record.clone(),
+            artifacts: job.artifacts.clone(),
+        })
+        .unwrap();
+        // There is intentionally no translation credential vault. The worker
+        // launcher must not need or resolve it to issue a capability.
+        let binding = prepare_model_worker_binding(&db, &job, Some("http://127.0.0.1:41000"))
+            .unwrap()
+            .unwrap();
+        assert_eq!(binding.capability.len(), 64);
+        let hash: String = Sha256::digest(binding.capability.as_bytes())
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        assert!(db
+            .authorize_model_session("model-job", &hash, chrono_now_seconds())
+            .unwrap()
+            .is_some());
+        assert!(db
+            .authorize_model_session("other-job", &hash, chrono_now_seconds())
+            .unwrap()
+            .is_none());
+        let mut command = Command::new("python");
+        let secrets = apply_job_credentials(&mut command, &root, &job).unwrap();
+        assert!(secrets.is_empty());
+        for name in [
+            "RETAIN_TRANSLATION_API_KEY",
+            "DEEPSEEK_API_KEY",
+            "OPENAI_API_KEY",
+            "DASHSCOPE_API_KEY",
+        ] {
+            assert!(command
+                .as_std()
+                .get_envs()
+                .any(|(key, value)| key == std::ffi::OsStr::new(name) && value.is_none()));
+        }
+        let lease = ModelWorkerLease::for_job(&db, &job);
+        db.reserve_model_operation("model-job", "op", "unit", "hash", "primary")
+            .unwrap();
+        assert!(db.claim_model_operation("model-job", "op").unwrap());
+        drop(lease);
+        assert!(db
+            .authorize_model_session("model-job", &hash, chrono_now_seconds())
+            .unwrap()
+            .is_none());
+        assert_eq!(
+            db.get_model_operation("model-job", "op")
+                .unwrap()
+                .unwrap()
+                .status,
+            "ambiguous"
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn model_worker_rejects_remote_or_mismatched_configuration() {
+        let root = test_root("model-binding-policy");
+        let db = retain_data::db::Db::new(root.join("jobs.db"), root.clone());
+        db.init().unwrap();
+        let job = model_job();
+        db.save_job(&JobSnapshot {
+            record: job.record.clone(),
+            artifacts: None,
+        })
+        .unwrap();
+        for url in [
+            None,
+            Some("http://example.org"),
+            Some("http://user:secret@127.0.0.1"),
+            Some("http://127.0.0.1/?key=secret"),
+        ] {
+            assert!(prepare_model_worker_binding(&db, &job, url).is_err());
+        }
+        let mut changed = job.clone();
+        changed
+            .request_payload
+            .translation
+            .execution_connection
+            .as_mut()
+            .unwrap()
+            .thinking = retain_core::model_connection::Thinking::On;
+        assert!(
+            prepare_model_worker_binding(&db, &changed, Some("http://127.0.0.1:41000")).is_err()
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn configured_ocr_credential_ref_is_available_through_generic_env() {
         let root = test_root("configured");
@@ -340,7 +639,7 @@ mod tests {
             worker_terminate_poll_ms: 10,
         };
 
-        let (child, runtime_secrets) = spawn_worker_process(&config, &restored_job)
+        let (child, runtime_secrets) = spawn_worker_process(&config, &restored_job, None)
             .expect("spawn credential child from restored state");
         let output = child
             .wait_with_output()

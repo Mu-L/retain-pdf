@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import time
+from retainpdf_pipeline.translate.llm.shared.executor_context import execution_enabled
+from retainpdf_pipeline.translate.workflow.scheduling.page_order import page_ordered_batches
 from pathlib import Path
 from typing import Callable
 
@@ -152,6 +154,11 @@ def translate_pending_units(
         effective_batch_size=effective_batch_size,
         translation_context=translation_context,
     )
+    if execution_enabled():
+        batches = page_ordered_batches(batches)
+        from retainpdf_pipeline.translate.llm.shared.request_capture import capture_plan
+        capture_plan(batches, workers=workers, mode=mode, model=model,
+                     domain_guidance=domain_guidance, context=translation_context)
     batched_fast_batches, single_fast_batches, single_slow_batches = _classify_translation_batches(batches)
     total_batches = len(batches)
     flush_interval = _save_flush_interval(workers=workers, total_batches=total_batches)
@@ -178,6 +185,8 @@ def translate_pending_units(
         slow_worker_limit=slow_worker_limit,
     )
     run_stats_payload = run_stats.as_dict()
+    if execution_enabled():
+        run_stats_payload["shared_workers"] = min(max(1, workers), total_batches)
     print(
         f"book: pending items={len(pending)} batches={total_batches} workers={max(1, workers)} "
         f"mode={mode} effective_batch_size={effective_batch_size}",
@@ -188,7 +197,9 @@ def translate_pending_units(
     duplicate_count = sum(len(items) for items in duplicate_items_by_rep_id.values())
     if duplicate_count:
         print(f"book: deduped duplicate items={duplicate_count}", flush=True)
-    if total_batches:
+    if total_batches and execution_enabled():
+        print(f"book: shared page-order queue batches={total_batches} workers={run_stats_payload['shared_workers']}", flush=True)
+    if total_batches and not execution_enabled():
         print(f"book: save flush interval={flush_interval} batches", flush=True)
         print(
             "book: queue split "

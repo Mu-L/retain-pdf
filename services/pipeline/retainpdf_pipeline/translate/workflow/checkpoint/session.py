@@ -214,6 +214,10 @@ class TranslationCheckpointSession:
         self.payload["committed_pages_event"] = event_payload
         self.store.snapshot_pages(self.payload)
         self.store.save(self.payload)
+        from retainpdf_pipeline.translate.artifacts.aggregator import get_active_translation_run_diagnostics
+        diagnostics = get_active_translation_run_diagnostics()
+        if diagnostics is not None:
+            diagnostics.record_committed_pages(committed_pages)
         self.store.prune_snapshots(int(self.payload["generation"]))
         self._emit_pipeline_checkpoint(event_payload)
 

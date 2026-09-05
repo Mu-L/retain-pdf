@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import time
 from typing import Callable
+from retainpdf_pipeline.translate.llm.shared.executor_context import scoped_request, execution_enabled
 
 from retainpdf_pipeline.translate.prompt_loader import load_prompt
 from retainpdf_pipeline.translate.llm.shared.structured_models import CONTINUATION_REVIEW_RESPONSE_SCHEMA
@@ -34,7 +35,7 @@ def review_candidate_pairs(
 ) -> dict[str, str]:
     if not pairs:
         return {}
-    max_retries = max(0, int(max_retries))
+    max_retries = 0 if execution_enabled() else max(0, int(max_retries))
     sleep = sleep_fn or time.sleep
     last_error: Exception | None = None
     # Transient upstream errors (Timeout/429/5xx/connection) get a limited
@@ -42,7 +43,7 @@ def review_candidate_pairs(
     # balance/Key hint and are never retried.
     for attempt in range(max_retries + 1):
         try:
-            content = request_chat_content_fn(
+            content = scoped_request("continuation", sorted((str(pair.get("prev_item_id", "")),str(pair.get("next_item_id", ""))) for pair in pairs), request_chat_content_fn,
                 _build_messages(pairs),
                 api_key=api_key,
                 model=model,

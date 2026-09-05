@@ -45,6 +45,8 @@ pub struct PublicOcrInput {
 
 #[derive(Debug, Serialize, Clone)]
 pub struct PublicTranslationInput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub execution_connection: Option<crate::model_connection::ModelConnection>,
     pub mode: String,
     pub math_mode: String,
     pub skip_title_translation: bool,
@@ -106,6 +108,7 @@ pub fn public_request_payload(spec: &ResolvedJobSpec) -> PublicResolvedJobSpec {
             options: public_ocr_options(&spec.ocr.options),
         },
         translation: PublicTranslationInput {
+            execution_connection: spec.translation.execution_connection.clone(),
             mode: spec.translation.mode.clone(),
             math_mode: spec.translation.math_mode.clone(),
             skip_title_translation: spec.translation.skip_title_translation,

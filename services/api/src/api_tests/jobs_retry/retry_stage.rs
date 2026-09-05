@@ -14,6 +14,40 @@ use super::common::{
 };
 
 #[tokio::test]
+async fn rust_model_retry_cannot_bypass_receipt_recovery_with_risk_acceptance() {
+    let state = test_state("rust-model-retry-fence");
+    let id = "rust-model-retry-fence";
+    let mut job = source_job_with_artifacts(id, JobArtifacts::default());
+    job.status = JobStatusKind::Failed;
+    job.request_payload.translation.execution_connection = Some(
+        serde_json::from_value(json!({
+            "id":"test", "revision":1, "provider":"qwen", "base_url":"https://example.org/v1",
+            "model":"qwen3.8-flash", "credential_ref":"cred_test", "concurrency":2
+        }))
+        .unwrap(),
+    );
+    state.db.save_job(&job).unwrap();
+    for stage in ["translation", "ocr"] {
+        let response = build_app(state.clone())
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/jobs/{id}/retry-stage"))
+                    .header("X-API-Key", "test-key")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(
+                        json!({"stage":stage,"ambiguous_request_policy":"accept_duplicate_risk"})
+                            .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+    }
+}
+
+#[tokio::test]
 async fn ambiguous_ocr_requires_explicit_resolution_and_can_bind_existing_receipt() {
     let state = test_state("retry-stage-ambiguous-ocr");
     let source_job_id = "job-retry-stage-ambiguous-ocr";

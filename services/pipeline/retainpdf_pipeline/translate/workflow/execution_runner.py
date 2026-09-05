@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from retainpdf_pipeline.translate.llm.shared.executor_context import raise_if_executor_failed
 
 from retainpdf_pipeline.translate.artifacts import aggregate_payload_diagnostics
 from retainpdf_pipeline.translate.artifacts import blocking_untranslated_items
@@ -62,6 +63,7 @@ def run_translation_execution_plan(
                 run_diagnostics=plan.run_diagnostics,
                 checkpoint=checkpoint,
             )
+        raise_if_executor_failed()
         total_items = sum(item["total_items"] for item in summaries)
         translated_items = sum(item["translated_items"] for item in summaries)
         glossary_summary = summarize_glossary_usage(

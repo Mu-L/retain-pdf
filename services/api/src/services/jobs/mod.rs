@@ -14,7 +14,7 @@ mod stage_plan;
 pub(crate) mod stage_view;
 pub(super) mod summary_loaders;
 mod support;
-mod translation_request_recovery;
+pub(crate) mod translation_request_recovery;
 
 pub use control::wait_for_terminal_job;
 pub(crate) use creation::context::{

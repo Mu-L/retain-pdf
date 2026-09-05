@@ -31,6 +31,7 @@ from retainpdf_pipeline.translate.llm.shared.orchestration.single_item_routes im
 from retainpdf_pipeline.translate.llm.shared.orchestration.single_item_routes import try_tagged_placeholder_route
 from retainpdf_pipeline.translate.llm.shared.orchestration.tagged_placeholder import translate_stable_placeholder_text
 from retainpdf_pipeline.translate.llm.shared.orchestration.transport import plain_text_timeout_seconds
+from retainpdf_pipeline.translate.llm.shared.orchestration.transport import defer_transport_retry
 from retainpdf_pipeline.translate.llm.shared.provider_runtime import DEFAULT_BASE_URL
 from retainpdf_pipeline.translate.llm.shared.provider_runtime import DEFAULT_MODEL
 from retainpdf_pipeline.translate.llm.shared.provider_runtime import is_transport_error
@@ -166,6 +167,18 @@ def translate_single_item_plain_text_with_retries(
                 output_mode_path=["json", "member_translations"],
             )
         except Exception as exc:
+            # A network timeout is not evidence that the member protocol is
+            # unsuitable. Do not repeat it through the aggregate/legacy route.
+            if is_transport_error(exc):
+                if allow_transport_tail_defer:
+                    defer_transport_retry(
+                        item,
+                        route_path=["block_level", "continuation_group_members"],
+                        cause=exc,
+                        request_label=request_label,
+                        diagnostics=diagnostics,
+                    )
+                raise
             if request_label:
                 print(
                     f"{request_label}: continuation group member route failed, fallback to legacy route: {type(exc).__name__}: {exc}",

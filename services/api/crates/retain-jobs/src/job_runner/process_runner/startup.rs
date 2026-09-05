@@ -11,7 +11,8 @@ use crate::models::domain::{
 
 use super::super::cancel_registry::is_cancel_requested_any;
 use super::super::{
-    sync_runtime_state, terminate_job_process_tree, worker_process::spawn_worker_process,
+    sync_runtime_state, terminate_job_process_tree,
+    worker_process::{prepare_model_worker_binding, spawn_worker_process},
     JobPersistDeps,
 };
 use crate::config::WorkerProcessRuntimeConfig;
@@ -38,7 +39,11 @@ pub(super) async fn spawn_started_process(
 ) -> Result<(JobRuntimeState, tokio::process::Child, Vec<String>)> {
     prepare_job_for_spawn(&mut job);
 
-    let (child, runtime_secrets) = spawn_worker_process(worker_runtime, &job)?;
+    let executor_url = std::env::var("RETAIN_MODEL_EXECUTOR_URL").ok();
+    let model_binding =
+        prepare_model_worker_binding(persist.db.as_ref(), &job, executor_url.as_deref())?;
+    let (child, runtime_secrets) =
+        spawn_worker_process(worker_runtime, &job, model_binding.as_ref())?;
     job.pid = child.id();
     persist_runtime_job_with_resources(
         persist.db.as_ref(),

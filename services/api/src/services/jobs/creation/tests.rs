@@ -70,6 +70,7 @@ fn test_state(test_name: &str) -> AppState {
     });
 
     AppState {
+        model_executor: None,
         config: config.clone(),
         db: Arc::new(Db::new(
             config.jobs_db_path.clone(),

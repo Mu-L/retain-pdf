@@ -14,8 +14,59 @@ pub(crate) fn load_translation_request_recovery(
     job: &JobSnapshot,
     data_root: &Path,
 ) -> Option<TranslationRequestRecoveryView> {
+    // Legacy stage planners have no database handle. Never mistake absence of
+    // a Python journal for permission to retry a Rust-owned request.
+    if job
+        .request_payload
+        .translation
+        .execution_connection
+        .is_some()
+    {
+        return Some(model_retry_blocked_view());
+    }
     let path = resolve_translation_request_journal(job, data_root)?;
     Some(parse_translation_request_journal(&path))
+}
+
+fn model_retry_blocked_view() -> TranslationRequestRecoveryView {
+    let mut view = corrupt_view(
+        "Rust model recovery requires receipt-preserving retry support; legacy retry is disabled",
+    );
+    view.status = "blocked".into();
+    view.journal_ready = false;
+    view
+}
+
+pub(crate) fn load_translation_request_recovery_with_db(
+    db: &crate::db::Db,
+    job: &JobSnapshot,
+    data_root: &Path,
+) -> Option<TranslationRequestRecoveryView> {
+    if job
+        .request_payload
+        .translation
+        .execution_connection
+        .is_none()
+    {
+        return load_translation_request_recovery(job, data_root);
+    }
+    let summary = match db.model_recovery_summary(&job.job_id) {
+        Ok(Some(summary)) => summary,
+        Ok(None) => return Some(model_retry_blocked_view()),
+        Err(_) => return Some(corrupt_view("Rust model recovery state cannot be read")),
+    };
+    Some(TranslationRequestRecoveryView {
+        status: if summary.ambiguous > 0 { "ambiguous" } else if summary.running > 0 { "running" } else if summary.paused { "paused" } else { "clean" }.into(),
+        journal_ready: true,
+        unresolved_dispatches: summary.running,
+        active_ambiguous_request_keys: summary.ambiguous,
+        historical_ambiguous_request_keys: summary.ambiguous,
+        requires_confirmation: summary.ambiguous > 0 || summary.running > 0,
+        // Acknowledgement alone cannot yet preserve successful receipts in a
+        // new job. Do not advertise a recovery operation we cannot execute.
+        supported_retry_policies: vec!["block".into()],
+        detail: Some("Rust model receipts are preserved; legacy translation retry is disabled until receipt-preserving recovery is available".into()),
+    })
 }
 
 fn parse_translation_request_journal(path: &Path) -> TranslationRequestRecoveryView {

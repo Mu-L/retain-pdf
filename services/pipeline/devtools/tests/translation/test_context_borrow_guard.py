@@ -49,11 +49,20 @@ def _nickel_item(**overrides) -> dict:
 def test_prompt_templates_forbid_borrowing_for_half_sentence() -> None:
     for name in (
         "translation_task.txt",
-        "translation_task_plain_text.txt",
         "translation_system.txt",
         "translation_system_plain_text.txt",
     ):
         assert HALF_SENTENCE_NO_BORROW_GUARD in load_prompt(name), name
+
+    # The compact user task relies on the system guard instead of duplicating it.
+    from retainpdf_pipeline.translate.llm.shared.prompt_building import build_single_item_fallback_messages
+
+    for math_mode in ("placeholder", "direct_typst"):
+        for style in ("plain_text", "json"):
+            messages = build_single_item_fallback_messages(
+                _nickel_item(math_mode=math_mode), response_style=style,
+            )
+            assert HALF_SENTENCE_NO_BORROW_GUARD in messages[0]["content"]
 
 
 def test_plain_text_prompt_adds_no_borrow_guard_for_half_sentence() -> None:

@@ -188,7 +188,8 @@ def test_build_single_item_fallback_messages_plain_text_has_no_json_contract_con
     system_prompt = messages[0]["content"]
 
     assert "只返回译文本身，使用纯文本。" in system_prompt
-    assert "不要输出占位符、结构化数据、标签、代码块或解释" in system_prompt
+    assert "不要返回结构化数据、代码块、标签、编号、决策字段或解释说明" in system_prompt
+    assert "原文已有的受保护占位符仍须原样保留" in system_prompt
     assert "返回结果时只输出符合以下结构的合法 JSON" not in system_prompt
     assert '{"translations":[{"item_id":"...","translated_text":"..."}]}' not in system_prompt
     assert "source_text" not in system_prompt
@@ -246,6 +247,8 @@ def test_group_member_json_user_prompt_includes_member_ids_and_schema() -> None:
         {"item_id": "p010-b002", "source_text": "and continues."},
     ]
     assert payload["output_schema"]["member_translations"][0]["item_id"] == "member id from member_ids"
+    assert "translated_text" not in payload["output_schema"]
+    assert "combined_source_text" not in payload["group"]
     assert "Do not include this context" in payload["context_after"]
 
 
@@ -265,7 +268,7 @@ def test_plain_text_prompt_keeps_literal_preservation_in_translation_scope() -> 
     assert "不要只依赖 OCR" not in combined_prompt
     assert "独立代码、命令、配置、输入文件、目录树或文件清单" not in combined_prompt
     assert "请原样返回" not in combined_prompt
-    assert "字面量部分逐字保留" in combined_prompt
+    assert "等字面量不得改写" in combined_prompt
 
 
 def test_sci_tagged_prompt_does_not_make_translation_model_choose_keep_origin() -> None:

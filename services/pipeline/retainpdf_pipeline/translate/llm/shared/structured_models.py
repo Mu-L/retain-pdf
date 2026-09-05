@@ -138,7 +138,6 @@ TRANSLATION_GROUP_MEMBER_RESPONSE_SCHEMA = {
             "type": "object",
             "additionalProperties": False,
             "properties": {
-                "translated_text": {"type": "string"},
                 "member_translations": {
                     "type": "array",
                     "items": {
@@ -152,7 +151,7 @@ TRANSLATION_GROUP_MEMBER_RESPONSE_SCHEMA = {
                     },
                 },
             },
-            "required": ["translated_text", "member_translations"],
+            "required": ["member_translations"],
         },
     },
 }

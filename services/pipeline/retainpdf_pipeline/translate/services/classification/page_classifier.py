@@ -1,4 +1,5 @@
 from typing import Callable
+from retainpdf_pipeline.translate.llm.shared.executor_context import scoped_request
 
 from retainpdf_pipeline.translate.services.classification.prompting import build_prompt
 from retainpdf_pipeline.translate.services.classification.response_parser import parse_no_trans_response
@@ -61,7 +62,7 @@ def classify_item_contexts(
             raise ValueError("request_chat_content_fn is required when classification has review items")
         if request_label:
             print(f"{request_label}: review_items={len(review_items)} filtered={len(filtered)}", flush=True)
-        content = request_chat_content_fn(
+        content = scoped_request("classification", sorted(str(item.get("item_id", "")) for item in review_items), request_chat_content_fn,
             build_prompt(filtered, review_items, rule_guidance=rule_guidance),
             api_key=api_key,
             model=model,

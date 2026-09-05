@@ -10,6 +10,7 @@ from retainpdf_pipeline.translate.llm.validation.placeholder_tokens import place
 from retainpdf_pipeline.translate.llm.placeholder_transform import has_formula_placeholders
 from retainpdf_pipeline.translate.llm.shared.control_context import TranslationControlContext
 from retainpdf_pipeline.translate.core.payload.parts.common import GROUP_ITEM_PREFIX
+from retainpdf_pipeline.translate.workflow.scheduling.optimization import strategy, page_local_batches
 
 
 @dataclass(frozen=True)
@@ -122,7 +123,10 @@ def _build_translation_batches(
 
     batches: list[list[dict]] = []
     if batchable:
-        batches.extend(chunked(batchable, effective_batch_size))
+        if strategy() == "page_local_v1":
+            batches.extend(page_local_batches(batchable, effective_batch_size, lambda item: plan_item_view_fn(item).source))
+        else:
+            batches.extend(chunked(batchable, effective_batch_size))
     for item in singles:
         batches.append([item])
     return batches, immediate_results

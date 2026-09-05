@@ -40,6 +40,7 @@ pub(crate) async fn execute_process_job(
     job: JobRuntimeState,
     extra_cancel_job_ids: &[String],
 ) -> Result<JobRuntimeState> {
+    let _model_lease = super::worker_process::ModelWorkerLease::for_job(deps.db.as_ref(), &job);
     let worker_runtime = deps.worker_process_runtime();
     let (job, child, runtime_secrets) = spawn_started_process(
         &deps.persist,

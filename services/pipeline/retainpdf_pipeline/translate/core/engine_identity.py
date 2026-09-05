@@ -8,7 +8,7 @@ from retainpdf_pipeline.translate.prompt_loader import load_prompt
 _PROMPT_HASHES: dict[str, str] = {}
 FORMULA_SEGMENT_STRATEGY_VERSION = "formula_segments_v2"
 PLAIN_TEXT_STRATEGY_VERSION = "plain_text_v2"
-TRANSLATION_PROTOCOL_VERSION = "translation_control_v5_no_reasoning_content"
+TRANSLATION_PROTOCOL_VERSION = "translation_control_v8_compact_prompt"
 TRANSLATION_POLICY_VERSION = "policy_hints_v2_memory_context_v1"
 TRANSLATION_PROMPT_FILES = (
     "translation_system.txt",
@@ -25,13 +25,22 @@ TRANSLATION_PROMPT_FILES = (
 
 def translation_engine_identity(*, mode: str = "fast") -> dict[str, str]:
     """Return the prompt/protocol identity that makes output reusable."""
-    return {
+    identity = {
         "prompt_hash": _prompt_hash(mode=mode),
         "translation_protocol_version": TRANSLATION_PROTOCOL_VERSION,
         "translation_policy_version": TRANSLATION_POLICY_VERSION,
         "formula_segment_strategy_version": FORMULA_SEGMENT_STRATEGY_VERSION,
         "plain_text_strategy_version": PLAIN_TEXT_STRATEGY_VERSION,
     }
+    from retainpdf_pipeline.translate.llm.shared.executor_context import execution_enabled
+    if execution_enabled():
+        import os
+        identity["model_transport"] = "rust_executor_v1"
+        identity["scheduler"] = "shared_page_order_v1"
+        from retainpdf_pipeline.translate.workflow.scheduling.optimization import strategy
+        identity["optimization"] = strategy()
+        identity["connection_fingerprint"] = os.environ.get("RETAIN_MODEL_CONNECTION_FINGERPRINT", "")
+    return identity
 
 
 def _prompt_hash(mode: str = "fast") -> str:

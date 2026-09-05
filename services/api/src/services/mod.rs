@@ -26,6 +26,7 @@ pub mod jobs;
 pub mod jobsd_supervisor;
 pub mod library;
 pub mod library_api;
+pub mod model_executor;
 pub(crate) mod managed_credential_gc;
 pub(crate) mod ocr_artifact_reuse;
 pub mod provider_api;

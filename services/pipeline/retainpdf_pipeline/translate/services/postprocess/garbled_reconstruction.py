@@ -1,4 +1,5 @@
 from __future__ import annotations
+from retainpdf_pipeline.translate.llm.shared.executor_context import scoped_request
 
 import json
 import os
@@ -197,7 +198,7 @@ def _repair_item_translation(item: dict, *, runtime: GarbledReconstructionRuntim
             ),
         },
     ]
-    content = runtime.request_chat_content_fn(
+    content = scoped_request("translation", [str(item.get("item_id", ""))], runtime.request_chat_content_fn,
         messages,
         api_key=runtime.api_key,
         model=runtime.model,

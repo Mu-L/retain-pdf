@@ -1,4 +1,5 @@
 from __future__ import annotations
+from retainpdf_pipeline.translate.llm.shared.executor_context import execution_enabled
 
 import os
 import time
@@ -57,6 +58,9 @@ def _drain_translation_tail_queue(
         "updated_total_batches": bool(update_total_batches),
         "label_prefix": label_prefix,
     }
+    if execution_enabled():
+        # Rust owns transport retries. Never replay ambiguous work in Python.
+        return stats
     started = time.perf_counter()
     queue = translation_tail_queue_from_context(translation_context)
     if queue is None:

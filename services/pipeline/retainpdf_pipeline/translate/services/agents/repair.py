@@ -1,4 +1,5 @@
 from __future__ import annotations
+from retainpdf_pipeline.translate.llm.shared.executor_context import scoped_request
 
 import json
 from dataclasses import dataclass
@@ -161,7 +162,7 @@ class RepairAgent:
         base_url: str = "",
     ) -> TranslationRepairResult:
         task = self.build_task(request, model=model, base_url=base_url)
-        content = request_chat_content_fn(
+        content = scoped_request("agent", [task.agent,task.task_id], request_chat_content_fn,
             task.messages,
             api_key=api_key,
             model=model,

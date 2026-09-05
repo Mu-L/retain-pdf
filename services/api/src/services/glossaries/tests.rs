@@ -66,6 +66,7 @@ fn test_state() -> AppState {
     ));
     db.init().expect("init db");
     AppState {
+        model_executor: None,
         config,
         db,
         downloads_lock: Arc::new(Mutex::new(())),

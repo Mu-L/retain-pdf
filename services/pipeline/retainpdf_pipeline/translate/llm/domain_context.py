@@ -6,6 +6,7 @@ from pathlib import Path
 import signal
 import threading
 import time
+from retainpdf_pipeline.translate.llm.shared.executor_context import execution_enabled, unit_scope
 
 import fitz
 
@@ -31,6 +32,11 @@ class DomainContextTimeoutError(TimeoutError):
 
 @contextmanager
 def _domain_context_deadline(timeout_secs: int):
+    if execution_enabled():
+        # Do not interrupt receipt polling while Rust may still be generating.
+        with unit_scope("domain", ["document-preview"]):
+            yield
+        return
     if timeout_secs <= 0 or threading.current_thread() is not threading.main_thread():
         yield
         return

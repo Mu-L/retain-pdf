@@ -24,6 +24,7 @@ mod simple;
 pub fn build_app(state: AppState) -> Router {
     public::routes()
         .merge(authenticated_api_routes(&state))
+        .merge(crate::routes::model_requests::worker_routes())
         .fallback(unknown_route)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
@@ -52,6 +53,7 @@ fn authenticated_api_routes(state: &AppState) -> Router<AppState> {
         .merge(jobs::routes())
         .merge(providers::routes())
         .merge(fonts::routes())
+        .merge(crate::routes::model_requests::launcher_routes())
         .method_not_allowed_fallback(method_not_allowed)
         .route_layer(middleware::from_fn_with_state(
             state.clone(),

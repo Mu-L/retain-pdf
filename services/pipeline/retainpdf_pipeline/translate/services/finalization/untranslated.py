@@ -1,4 +1,5 @@
 from __future__ import annotations
+from retainpdf_pipeline.translate.llm.shared.executor_context import translation_unit
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -245,6 +246,7 @@ def _recover_one(
         return item, None, exc
 
 
+@translation_unit
 def _request_final_translation(
     item: dict,
     *,

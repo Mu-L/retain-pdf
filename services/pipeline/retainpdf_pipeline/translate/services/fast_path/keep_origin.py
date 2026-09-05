@@ -56,6 +56,9 @@ def _fast_path_keep_origin_result(item: dict, reason: str) -> dict[str, dict[str
 
 
 def _is_fast_path_keep_origin_item(item: dict) -> tuple[bool, str]:
+    from retainpdf_pipeline.translate.workflow.scheduling.optimization import is_standalone_number
+    if is_standalone_number(item):
+        return True, "skip_standalone_number"
     return should_fast_path_keep_origin(item)
 
 
