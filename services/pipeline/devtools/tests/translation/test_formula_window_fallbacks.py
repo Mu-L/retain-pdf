@@ -1,8 +1,9 @@
-import importlib.util
 import json
 import sys
-import types
 import unittest
+import time
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 from dataclasses import replace
 from pathlib import Path
 
@@ -18,42 +19,7 @@ from retainpdf_pipeline.translate.llm.shared.orchestration.sentence_level import
 from retainpdf_pipeline.translate.llm.shared.orchestration.transport import DeferredTransportRetry
 
 
-def load_retrying_translator():
-    sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
-    package_paths = {
-        "retainpdf_pipeline.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services",
-        "retainpdf_pipeline.translate": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate",
-        "retainpdf_pipeline.translate.llm": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm",
-        "retainpdf_pipeline.translate.llm.shared": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "shared",
-        "retainpdf_pipeline.translate.llm.shared.orchestration": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "shared" / "orchestration",
-        "retainpdf_pipeline.translate.llm.providers": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "providers",
-        "retainpdf_pipeline.translate.llm.providers.deepseek": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "providers" / "deepseek",
-        "retainpdf_pipeline.translate.services.policy": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "policy",
-        "retainpdf_pipeline.ocr.document_schema": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "ocr" / "document_schema",
-    }
-    for name, path in package_paths.items():
-        module = sys.modules.get(name)
-        if module is None:
-            module = types.ModuleType(name)
-            module.__path__ = [str(path)]
-            sys.modules[name] = module
-
-    for module_name in (
-        "retainpdf_pipeline.translate.llm.shared.orchestration.retrying_translator",
-        "retainpdf_pipeline.translate.llm.shared.orchestration.fallbacks",
-        "retainpdf_pipeline.translate.llm.shared.orchestration.segment_routing",
-        "retainpdf_pipeline.translate.llm.providers.deepseek.client",
-    ):
-        sys.modules.pop(module_name, None)
-
-    spec = importlib.util.spec_from_file_location(
-        "retainpdf_pipeline.translate.llm.shared.orchestration.retrying_translator",
-        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "shared" / "orchestration" / "retrying_translator.py",
-    )
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+from retrying_translator_test_support import load_retrying_translator
 
 
 def make_formula_item(formula_count: int) -> dict:
@@ -180,6 +146,10 @@ class FormulaWindowFallbacksTests(unittest.TestCase):
         load_retrying_translator()
         import retainpdf_pipeline.translate.llm.providers.deepseek.client as deepseek_client
         import retainpdf_pipeline.translate.llm.shared.orchestration.segment_routing as segment_routing
+        import retainpdf_pipeline.translate.llm.shared.orchestration.segment_windows as segment_windows
+
+        sleep = Mock()
+        self.enterContext(patch.object(segment_windows, "time", SimpleNamespace(perf_counter=time.perf_counter, sleep=sleep)))
 
         item = make_formula_item(20)
         calls: list[list[str]] = []
@@ -208,11 +178,12 @@ class FormulaWindowFallbacksTests(unittest.TestCase):
             segment_routing.request_chat_content = original_request
             deepseek_client.request_chat_content = original_deepseek_request
 
-        self.assertGreaterEqual(len(calls), 3)
+        # Each of four failed attempts tries tagged output and then JSON.
+        self.assertEqual([ids[0] for ids in calls], ["1"] + ["9"] * 8)
+        self.assertEqual([call.args[0] for call in sleep.call_args_list], [2, 4, 6])
         payload = result[item["item_id"]]
         self.assertEqual(payload["decision"], "translate")
         self.assertEqual(payload["translated_text"], "")
         self.assertEqual(payload["final_status"], "failed")
         self.assertEqual(payload["translation_diagnostics"]["degradation_reason"], "formula_window_translation_failed")
         self.assertEqual(payload["translation_diagnostics"]["segment_range"], "9-16")
-

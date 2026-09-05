@@ -16,6 +16,8 @@ import types
 from contextlib import contextmanager
 from pathlib import Path
 
+from cold_import_test_support import run_cold_import_probe
+
 
 REPO_PIPELINE_ROOT = Path(__file__).resolve().parents[3]
 STORE_PATH = (
@@ -45,9 +47,8 @@ def blocked_imports(*names: str):
 
 
 def _load_store_fresh(module_name: str):
-    for mod in [m for m in sys.modules if m.startswith("windows_ckpt_store")]:
-        del sys.modules[mod]
     spec = importlib.util.spec_from_file_location(module_name, STORE_PATH)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
@@ -55,14 +56,18 @@ def _load_store_fresh(module_name: str):
 
 
 def test_store_imports_without_fcntl_or_msvcrt(tmp_path) -> None:
+    run_cold_import_probe(__file__, "_probe_store_without_os_locking", str(tmp_path))
+
+
+def _probe_store_without_os_locking(directory: str) -> None:
     with blocked_imports("fcntl", "msvcrt"):
         store = _load_store_fresh("windows_ckpt_store_noos")
     assert store.fcntl is None
     assert store.msvcrt is None
-    checkpoint = tmp_path / "translation-checkpoint.v1.json"
+    checkpoint = Path(directory) / "translation-checkpoint.v1.json"
     keeper = store.CheckpointStore(checkpoint)
-    keeper.acquire()
     try:
+        keeper.acquire()
         keeper.save({"generation": 1})
         assert keeper.load() == {"generation": 1}
     finally:
@@ -70,6 +75,10 @@ def test_store_imports_without_fcntl_or_msvcrt(tmp_path) -> None:
 
 
 def test_store_uses_msvcrt_locking_when_available(tmp_path) -> None:
+    run_cold_import_probe(__file__, "_probe_store_with_msvcrt", str(tmp_path))
+
+
+def _probe_store_with_msvcrt(directory: str) -> None:
     calls: list[tuple] = []
     fake_msvcrt = types.ModuleType("msvcrt")
     fake_msvcrt.LK_NBLCK = 1
@@ -95,20 +104,22 @@ def test_store_uses_msvcrt_locking_when_available(tmp_path) -> None:
             sys.modules.pop("msvcrt", None)
         else:
             sys.modules["msvcrt"] = saved
-    checkpoint = tmp_path / "translation-checkpoint.v1.json"
+    checkpoint = Path(directory) / "translation-checkpoint.v1.json"
     keeper = store.CheckpointStore(checkpoint)
-    keeper.acquire()
-    assert calls and calls[0][1] == 1  # LK_NBLCK taken
-    keeper.close()
+    try:
+        keeper.acquire()
+        assert calls and calls[0][1] == 1  # LK_NBLCK taken
+    finally:
+        keeper.close()
     assert calls[-1][1] == 0  # LK_UNLCK released
 
 
 def test_document_operation_imports_without_resource() -> None:
-    if str(REPO_PIPELINE_ROOT) not in sys.modules.get("__test_win_path__", ""):
-        sys.path.insert(0, str(REPO_PIPELINE_ROOT))
+    run_cold_import_probe(__file__, "_probe_document_operation_without_resource")
+
+
+def _probe_document_operation_without_resource() -> None:
     with blocked_imports("resource"):
-        for mod in [m for m in list(sys.modules) if m.endswith("run_document_operation")]:
-            del sys.modules[mod]
         module = importlib.import_module(
             "retainpdf_pipeline.entrypoints.run_document_operation"
         )

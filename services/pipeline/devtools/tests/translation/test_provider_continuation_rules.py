@@ -1,98 +1,25 @@
-import importlib.util
-import sys
-import tempfile
-import types
-from pathlib import Path
-
-
-REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
-
-
-from retainpdf_pipeline.ocr.document_schema.defaults import default_block_continuation_hint
-from retainpdf_pipeline.ocr.document_schema.adapters import adapt_payload_to_document_v1
-from retainpdf_pipeline.ocr.document_schema.providers import PROVIDER_GENERIC_FLAT_OCR
-from retainpdf_pipeline.translate.core.ocr.json_extractor import extract_text_items
-from retainpdf_pipeline.translate.core.ocr.models import TextItem
-from retainpdf_pipeline.translate.core.payload.translations import export_translation_template
-from retainpdf_pipeline.translate.core.payload.translations import load_translations
+from retainpdf_pipeline.translate.services.continuation import state
 from retainpdf_pipeline.translate.services.continuation.orchestrator import _filter_boundary_candidate_pairs
 
-
-def _ensure_package_stubs() -> None:
-    package_paths = {
-        "retainpdf_pipeline.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services",
-        "retainpdf_pipeline.translate": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate",
-        "retainpdf_pipeline.translate.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "services",
-        "retainpdf_pipeline.translate.services.continuation": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "services" / "continuation",
-    }
-    for name, path in package_paths.items():
-        module = sys.modules.get(name)
-        if module is None:
-            module = types.ModuleType(name)
-            module.__path__ = [str(path)]
-            sys.modules[name] = module
+from continuation_test_support import payload_item as _payload_item
 
 
-def _load_module(name: str, path: Path):
-    _ensure_package_stubs()
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+def test_payload_builder_preserves_defaults_and_returns_fresh_items() -> None:
+    bbox = [0, 0, 100, 20]
+    first = _payload_item(item_id="a", page_idx=0, text="source", bbox=bbox)
+    second = _payload_item(item_id="a", page_idx=0, text="source", bbox=bbox)
 
+    assert first == second
+    assert first is not second
+    assert first["bbox"] is bbox
+    assert first["ocr_continuation_reading_order"] == -1
+    assert first["ocr_continuation_source"] == ""
+    assert first["layout_boundary_role"] == ""
+    assert first["body_repair_applied"] is False
+    assert first["provider_body_repair_applied"] is False
+    first["continuation_group"] = "changed"
+    assert "continuation_group" not in second
 
-def _load_state_module():
-    _load_module(
-        "retainpdf_pipeline.translate.services.continuation.rules",
-        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "services" / "continuation" / "rules.py",
-    )
-    return _load_module(
-        "retainpdf_pipeline.translate.services.continuation.state",
-        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "services" / "continuation" / "state.py",
-    )
-
-
-def _payload_item(
-    *,
-    item_id: str,
-    page_idx: int,
-    text: str,
-    bbox: list[float],
-    ocr_source: str = "",
-    ocr_group_id: str = "",
-    ocr_scope: str = "",
-    ocr_order: int = -1,
-    layout_mode: str = "",
-    layout_zone: str = "",
-    layout_boundary_role: str = "",
-    provider_body_repair_applied: bool = False,
-) -> dict:
-    return {
-        "item_id": item_id,
-        "page_idx": page_idx,
-        "block_idx": 0,
-        "block_type": "text",
-        "block_kind": "text",
-        "layout_role": "paragraph",
-        "semantic_role": "body",
-        "structure_role": "body",
-        "policy_translate": True,
-        "raw_block_type": "text",
-        "normalized_sub_type": "",
-        "bbox": bbox,
-        "protected_source_text": text,
-        "ocr_continuation_source": ocr_source,
-        "ocr_continuation_group_id": ocr_group_id,
-        "ocr_continuation_scope": ocr_scope,
-        "ocr_continuation_reading_order": ocr_order,
-        "layout_mode": layout_mode,
-        "layout_zone": layout_zone,
-        "layout_boundary_role": layout_boundary_role,
-        "body_repair_applied": provider_body_repair_applied,
-        "provider_body_repair_applied": provider_body_repair_applied,
-    }
 
 def test_boundary_review_skips_body_repair_items() -> None:
     payload = [
@@ -134,7 +61,6 @@ def test_boundary_review_skips_body_repair_items() -> None:
 
 
 def test_provider_intra_page_join_takes_priority_and_rule_fallback_still_runs() -> None:
-    state = _load_state_module()
     payload = [
         _payload_item(
             item_id="a",
@@ -185,7 +111,6 @@ def test_provider_intra_page_join_takes_priority_and_rule_fallback_still_runs() 
 
 
 def test_provider_cross_page_boundary_pair_is_consumed() -> None:
-    state = _load_state_module()
     payload = [
         _payload_item(
             item_id="a",
@@ -219,5 +144,3 @@ def test_provider_cross_page_boundary_pair_is_consumed() -> None:
 
     assert payload[0]["continuation_decision"] == "provider_joined"
     assert payload[0]["continuation_group"] == "provider-paddle-global-abc"
-
-

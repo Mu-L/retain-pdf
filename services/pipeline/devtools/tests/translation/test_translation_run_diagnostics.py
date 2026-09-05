@@ -1,4 +1,4 @@
-import importlib.util
+import importlib
 import copy
 import json
 import sys
@@ -8,7 +8,7 @@ import tempfile
 import types
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import requests
 
@@ -25,29 +25,12 @@ from retainpdf_pipeline.translate.artifacts import translation_run_diagnostics_s
 
 
 def load_deepseek_client():
-    package_paths = {
-        "retainpdf_pipeline.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services",
-        "retainpdf_pipeline.translate": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate",
-        "retainpdf_pipeline.translate.llm": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm",
-        "retainpdf_pipeline.translate.llm.providers": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "providers",
-        "retainpdf_pipeline.translate.llm.providers.deepseek": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "providers" / "deepseek",
-        "retainpdf_pipeline.translate.services.policy": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "policy",
-        "retainpdf_pipeline.ocr.document_schema": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "ocr" / "document_schema",
-    }
-    for name, path in package_paths.items():
-        module = sys.modules.get(name)
-        if module is None:
-            module = types.ModuleType(name)
-            module.__path__ = [str(path)]
-            sys.modules[name] = module
-    spec = importlib.util.spec_from_file_location(
-        "retainpdf_pipeline.translate.llm.providers.deepseek.client",
-        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "providers" / "deepseek" / "client.py",
-    )
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    return importlib.import_module("retainpdf_pipeline.translate.llm.providers.deepseek.client")
+
+
+def _without_retry_wait(client):
+    # Replace only this module's clock binding, never the shared time module.
+    return patch.object(client, "time", types.SimpleNamespace(perf_counter=time.perf_counter, sleep=Mock()))
 
 
 class _FakeResponse:
@@ -218,6 +201,7 @@ class TranslationRunDiagnosticsTests(unittest.TestCase):
         run.mark_phase_end("translation_batches")
 
         started: list[int] = []
+        both_active = threading.Barrier(2, timeout=5)
 
         def _worker():
             request_id = run.record_request_start(
@@ -227,15 +211,17 @@ class TranslationRunDiagnosticsTests(unittest.TestCase):
                 attempt=1,
             )
             started.append(request_id)
-            time.sleep(0.01)
+            both_active.wait()
             run.record_request_end(request_id, success=True, elapsed_ms=25)
 
         t1 = threading.Thread(target=_worker)
         t2 = threading.Thread(target=_worker)
         t1.start()
         t2.start()
-        t1.join()
-        t2.join()
+        t1.join(timeout=6)
+        t2.join(timeout=6)
+        self.assertFalse(t1.is_alive())
+        self.assertFalse(t2.is_alive())
 
         retry_request_id = run.record_request_start(
             stage="translation",
@@ -284,7 +270,7 @@ class TranslationRunDiagnosticsTests(unittest.TestCase):
         with translation_run_diagnostics_scope(run):
             with patch.object(deepseek_client, "get_session", return_value=session):
                 with patch.object(deepseek_client, "_drop_session", return_value=None):
-                    with patch.object(deepseek_client.time, "sleep", return_value=None):
+                    with _without_retry_wait(deepseek_client):
                         content = deepseek_client.request_chat_content(
                             [{"role": "user", "content": "hello"}],
                             api_key="token",
@@ -345,7 +331,7 @@ class TranslationRunDiagnosticsTests(unittest.TestCase):
         with patch.dict(deepseek_client.os.environ, recovery_env, clear=False):
             with patch.object(deepseek_client, "get_session", return_value=session):
                 with patch.object(deepseek_client, "_drop_session", return_value=None):
-                    with patch.object(deepseek_client.time, "sleep", return_value=None):
+                    with _without_retry_wait(deepseek_client):
                         content = deepseek_client.request_chat_content(
                             [{"role": "user", "content": "hello"}],
                             api_key="token",
@@ -430,20 +416,42 @@ class TranslationRunDiagnosticsTests(unittest.TestCase):
     def test_deepseek_dns_prewarm_does_not_block_request_path(self):
         deepseek_client = load_deepseek_client()
         calls = []
+        entered = threading.Event()
+        release = threading.Event()
+        resolvers = []
+
+        def resolver_thread(**kwargs):
+            thread = threading.Thread(**kwargs)
+            resolvers.append(thread)
+            return thread
 
         def slow_getaddrinfo(*_args, **_kwargs):
             calls.append(1)
-            time.sleep(1)
+            entered.set()
+            if not release.wait(5):
+                raise OSError("test resolver was not released")
             return []
 
-        started = time.perf_counter()
-        with patch.object(deepseek_client.transport.socket, "getaddrinfo", side_effect=slow_getaddrinfo):
-            with patch.dict(deepseek_client.transport.os.environ, {"RETAIN_TRANSLATION_DNS_PREWARM_TIMEOUT_MS": "1"}, clear=False):
+        transport = deepseek_client.transport
+        with (
+            patch.object(transport.socket, "getaddrinfo", side_effect=slow_getaddrinfo),
+            patch.object(transport, "threading", types.SimpleNamespace(Thread=resolver_thread)),
+            patch.object(transport, "_DNS_CACHE", {}),
+            patch.object(transport, "_DNS_INFLIGHT", set()),
+            patch.dict(transport.os.environ, {"RETAIN_TRANSLATION_DNS_PREWARM_TIMEOUT_MS": "1"}, clear=False),
+        ):
+            try:
+                started = time.perf_counter()
                 deepseek_client._prewarm_dns("https://slow-dns.example/v1", request_label="dns-nonblocking-test")
                 deepseek_client._prewarm_dns("https://slow-dns.example/v1", request_label="dns-nonblocking-test")
-
-        self.assertLess(time.perf_counter() - started, 0.2)
-        self.assertEqual(len(calls), 1)
+                self.assertLess(time.perf_counter() - started, 0.2)
+                self.assertTrue(entered.wait(5))
+                self.assertEqual(len(calls), 1)
+            finally:
+                release.set()
+                for resolver in resolvers:
+                    resolver.join(timeout=5)
+                    self.assertFalse(resolver.is_alive())
 
     def test_adaptive_concurrency_applies_to_any_provider_family(self):
         run = TranslationRunDiagnostics(
@@ -538,7 +546,7 @@ class TranslationRunDiagnosticsTests(unittest.TestCase):
         session = _DnsRetryingSession()
         with patch.object(deepseek_client, "get_session", return_value=session):
             with patch.object(deepseek_client, "_drop_session", return_value=None):
-                with patch.object(deepseek_client.time, "sleep", return_value=None):
+                with _without_retry_wait(deepseek_client):
                     with patch.object(deepseek_client, "_prewarm_dns", return_value=None):
                         content = deepseek_client.request_chat_content(
                             [{"role": "user", "content": "hello"}],

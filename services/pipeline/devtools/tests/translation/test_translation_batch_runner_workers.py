@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import sys
 import threading
-import time
 from pathlib import Path
 
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
@@ -44,13 +43,15 @@ def test_parallel_batch_runner_only_keeps_worker_count_futures_active(monkeypatc
     lock = threading.Lock()
     active = 0
     peak_active = 0
+    first_pair = threading.Barrier(2, timeout=5)
 
     def _translate(batch, **_kwargs):
         nonlocal active, peak_active
         with lock:
             active += 1
             peak_active = max(peak_active, active)
-        time.sleep(0.01)
+        if batch[0]["item_id"] in {"i0", "i1"}:
+            first_pair.wait()
         with lock:
             active -= 1
         item_id = batch[0]["item_id"]
@@ -82,7 +83,7 @@ def test_parallel_batch_runner_only_keeps_worker_count_futures_active(monkeypatc
         flush_state=flush_state,
     )
 
-    assert peak_active <= 2
+    assert peak_active == 2
     assert flush_state.progress[-1][0] == 6
 
 
@@ -96,13 +97,18 @@ def test_parallel_batch_runner_workers_keep_pulling_when_result_apply_is_slow(mo
     started = 0
     peak_started_before_apply = 0
     apply_count = 0
+    apply_started = threading.Event()
+    workers_pulled_ahead = threading.Event()
 
     def _translate(batch, **_kwargs):
         nonlocal started, peak_started_before_apply
         with lock:
             started += 1
+            request_number = started
             peak_started_before_apply = max(peak_started_before_apply, started - apply_count)
-        time.sleep(0.002)
+        if request_number > 4:
+            assert apply_started.wait(5), "result application never started"
+            workers_pulled_ahead.set()
         item_id = batch[0]["item_id"]
         return {item_id: {"decision": "translate", "translated_text": f"译{item_id}", "final_status": "translated"}}
 
@@ -119,7 +125,8 @@ def test_parallel_batch_runner_workers_keep_pulling_when_result_apply_is_slow(mo
 
     def _slow_apply_batches(*args, **kwargs):
         nonlocal apply_count
-        time.sleep(0.01)
+        apply_started.set()
+        assert workers_pulled_ahead.wait(5), "workers stopped pulling while apply was blocked"
         result = original_apply_batches(*args, **kwargs)
         with lock:
             apply_count += 1
@@ -161,13 +168,18 @@ def test_parallel_batch_runner_fast_workers_share_batched_and_single_tail(monkey
     lock = threading.Lock()
     active = 0
     peak_active = 0
+    first_three = threading.Barrier(3, timeout=5)
+    started = 0
 
     def _translate(batch, **_kwargs):
-        nonlocal active, peak_active
+        nonlocal active, peak_active, started
         with lock:
             active += 1
+            started += 1
+            request_number = started
             peak_active = max(peak_active, active)
-        time.sleep(0.01)
+        if request_number <= 3:
+            first_three.wait()
         with lock:
             active -= 1
         item_id = batch[0]["item_id"]
@@ -213,13 +225,16 @@ def test_parallel_batch_runner_keeps_single_fast_workers_separate_from_batched_f
     payload.append({"item_id": "s0", "page_idx": 20, "source_text": "single", "translated_text": ""})
     started: list[str] = []
     lock = threading.Lock()
+    single_started = threading.Event()
 
     def _translate(batch, **_kwargs):
         item_id = batch[0]["item_id"]
         with lock:
             started.append(item_id)
         if item_id.startswith("b"):
-            time.sleep(0.03)
+            assert single_started.wait(5), "single-fast queue was starved"
+        else:
+            single_started.set()
         return {item_id: {"decision": "translate", "translated_text": f"译{item_id}", "final_status": "translated"}}
 
     monkeypatch.setattr(batch_runner, "translate_batch", _translate)

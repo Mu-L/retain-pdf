@@ -1,6 +1,10 @@
 import sys
+import time
+from types import SimpleNamespace
+from unittest.mock import Mock
 from pathlib import Path
 
+import pytest
 
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
@@ -15,6 +19,15 @@ from retainpdf_pipeline.translate.llm.validation.errors import EmptyTranslationE
 from retainpdf_pipeline.translate.llm.shared.control_context import build_translation_control_context
 from retainpdf_pipeline.translate.llm.shared.orchestration.direct_typst import translate_direct_typst_plain_text_with_retries
 from retainpdf_pipeline.translate.llm.shared.orchestration.direct_typst_salvage import extract_direct_typst_protocol_text
+
+
+@pytest.fixture
+def retry_sleep(monkeypatch):
+    from retainpdf_pipeline.translate.llm.shared.orchestration import direct_typst
+
+    sleep = Mock()
+    monkeypatch.setattr(direct_typst, "time", SimpleNamespace(perf_counter=time.perf_counter, sleep=sleep))
+    return sleep
 
 
 def _body_item() -> dict:
@@ -63,7 +76,7 @@ def test_canonicalize_batch_result_preserves_group_member_translations() -> None
     assert result[item["item_id"]]["member_translations"] == payload["member_translations"]
 
 
-def test_repeated_direct_typst_protocol_shell_marks_body_failed() -> None:
+def test_repeated_direct_typst_protocol_shell_marks_body_failed(retry_sleep) -> None:
     item = _body_item()
 
     def fail_with_protocol_shell(*args, **kwargs):
@@ -94,9 +107,10 @@ def test_repeated_direct_typst_protocol_shell_marks_body_failed() -> None:
     assert diagnostics["degradation_reason"] == "protocol_shell_repeated"
     assert diagnostics["error_trace"] == [{"type": "validation", "code": "PROTOCOL_SHELL"}]
     assert diagnostics["fallback_to"] == "retry_required"
+    assert [call.args[0] for call in retry_sleep.call_args_list] == [2]
 
 
-def test_repeated_direct_typst_empty_body_uses_sentence_level_fallback() -> None:
+def test_repeated_direct_typst_empty_body_uses_sentence_level_fallback(retry_sleep) -> None:
     item = _body_item()
     item["math_mode"] = "direct_typst"
 
@@ -133,9 +147,10 @@ def test_repeated_direct_typst_empty_body_uses_sentence_level_fallback() -> None
     payload = result[item["item_id"]]
     assert payload["decision"] == "translate"
     assert "水分子单点能" in payload["translated_text"]
+    assert [call.args[0] for call in retry_sleep.call_args_list] == [2]
 
 
-def test_repeated_direct_typst_empty_body_degrades_when_sentence_level_fails() -> None:
+def test_repeated_direct_typst_empty_body_degrades_when_sentence_level_fails(retry_sleep) -> None:
     item = _body_item()
     item["math_mode"] = "direct_typst"
 
@@ -163,6 +178,7 @@ def test_repeated_direct_typst_empty_body_degrades_when_sentence_level_fails() -
     assert payload["final_status"] == "failed"
     assert diagnostics["degradation_reason"] == "empty_translation_repeated"
     assert diagnostics["error_trace"] == [{"type": "validation", "code": "EMPTY_TRANSLATION"}]
+    assert [call.args[0] for call in retry_sleep.call_args_list] == [2]
 
 
 def test_direct_typst_math_delimiter_failure_uses_llm_repair_before_retry() -> None:

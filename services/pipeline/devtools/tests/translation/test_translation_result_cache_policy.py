@@ -1,7 +1,5 @@
-import importlib.util
 import json
 import sys
-import types
 import unittest
 from dataclasses import replace
 from pathlib import Path
@@ -18,42 +16,7 @@ from retainpdf_pipeline.translate.llm.shared.orchestration.sentence_level import
 from retainpdf_pipeline.translate.llm.shared.orchestration.transport import DeferredTransportRetry
 
 
-def load_retrying_translator():
-    sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
-    package_paths = {
-        "retainpdf_pipeline.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services",
-        "retainpdf_pipeline.translate": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate",
-        "retainpdf_pipeline.translate.llm": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm",
-        "retainpdf_pipeline.translate.llm.shared": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "shared",
-        "retainpdf_pipeline.translate.llm.shared.orchestration": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "shared" / "orchestration",
-        "retainpdf_pipeline.translate.llm.providers": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "providers",
-        "retainpdf_pipeline.translate.llm.providers.deepseek": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "providers" / "deepseek",
-        "retainpdf_pipeline.translate.services.policy": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "policy",
-        "retainpdf_pipeline.ocr.document_schema": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "ocr" / "document_schema",
-    }
-    for name, path in package_paths.items():
-        module = sys.modules.get(name)
-        if module is None:
-            module = types.ModuleType(name)
-            module.__path__ = [str(path)]
-            sys.modules[name] = module
-
-    for module_name in (
-        "retainpdf_pipeline.translate.llm.shared.orchestration.retrying_translator",
-        "retainpdf_pipeline.translate.llm.shared.orchestration.fallbacks",
-        "retainpdf_pipeline.translate.llm.shared.orchestration.segment_routing",
-        "retainpdf_pipeline.translate.llm.providers.deepseek.client",
-    ):
-        sys.modules.pop(module_name, None)
-
-    spec = importlib.util.spec_from_file_location(
-        "retainpdf_pipeline.translate.llm.shared.orchestration.retrying_translator",
-        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "shared" / "orchestration" / "retrying_translator.py",
-    )
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+from retrying_translator_test_support import load_retrying_translator
 
 
 def make_formula_item(formula_count: int) -> dict:

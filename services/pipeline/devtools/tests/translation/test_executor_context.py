@@ -1,4 +1,5 @@
 import importlib
+import threading
 from types import SimpleNamespace
 from unittest import mock
 
@@ -122,10 +123,17 @@ def test_parallel_runner_drains_successes_and_flushes_before_failure(execution, 
     runner = importlib.import_module("retainpdf_pipeline.translate.workflow.batch_runner")
     bad = [{"item_id": "a"}]
     good = [{"item_id": "b"}]
+    both_started = threading.Barrier(2, timeout=5)
+    failure_latched = threading.Event()
 
     def translate(batch, **kwargs):
+        # Both requests must be in flight before the failure latch is set.
+        both_started.wait()
         if batch == bad:
-            raise rt.fail(ctx.ExecutorError("paused"))
+            failure = rt.fail(ctx.ExecutorError("paused"))
+            failure_latched.set()
+            raise failure
+        assert failure_latched.wait(5), "failure was not latched before successful completion"
         return {"b": {"decision": "translate", "translated_text": "译文"}}
 
     monkeypatch.setattr(runner, "_translate_batch_or_keep_origin", translate)
