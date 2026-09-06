@@ -108,6 +108,33 @@
         "context": { "type": "string" }
       }
     },
+    "ModelConnection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "revision", "provider", "base_url", "model", "credential_ref", "concurrency"],
+      "properties": {
+        "id": {"type": "string"},
+        "revision": {"type": "integer", "minimum": 0},
+        "provider": {"enum": ["qwen", "deepseek", "openai_compatible"]},
+        "base_url": {"type": "string"},
+        "model": {"type": "string"},
+        "credential_ref": {"type": "string", "pattern": "^cred_[a-z0-9_-]+$", "maxLength": 64},
+        "concurrency": {"type": "integer", "minimum": 1, "maximum": 100},
+        "thinking": {"enum": ["auto", "off", "on"]},
+        "stream": {"type": ["boolean", "null"]},
+        "allow_private_endpoint": {"type": "boolean"},
+        "deadlines": {
+          "type": "object", "additionalProperties": false,
+          "required": ["queue_ms", "connect_ms", "idle_ms", "total_ms"],
+          "properties": {
+            "queue_ms": {"type": "integer", "minimum": 1, "maximum": 900000},
+            "connect_ms": {"type": "integer", "minimum": 1, "maximum": 900000},
+            "idle_ms": {"type": "integer", "minimum": 1, "maximum": 900000},
+            "total_ms": {"type": "integer", "minimum": 1, "maximum": 900000}
+          }
+        }
+      }
+    },
     "PublicTranslationInput": {
       "type": "object",
       "description": "public_contract.rs :: PublicTranslationInput。api_key 恒为空，仅暴露 configured 标记。",
@@ -139,7 +166,8 @@
         "page_ranges": { "type": "array", "items": { "type": "integer", "minimum": 1 } },
         "batch_size": { "type": "integer" },
         "workers": { "type": "integer" },
-        "accepted_ambiguous_request_risk": { "type": "boolean" }
+        "accepted_ambiguous_request_risk": { "type": "boolean" },
+        "execution_connection": {"$ref": "#/definitions/ModelConnection"}
       }
     },
     "RenderInput": {
@@ -688,7 +716,7 @@
       "required": ["status", "journal_ready", "unresolved_dispatches", "active_ambiguous_request_keys", "historical_ambiguous_request_keys", "requires_confirmation", "supported_retry_policies", "detail"],
       "additionalProperties": false,
       "properties": {
-        "status": { "type": "string", "enum": ["clean", "ambiguous", "corrupt"] },
+        "status": { "type": "string", "enum": ["clean", "ambiguous", "corrupt", "blocked", "running", "paused"] },
         "journal_ready": { "type": "boolean" },
         "unresolved_dispatches": { "type": "integer", "minimum": 0 },
         "active_ambiguous_request_keys": { "type": "integer", "minimum": 0 },

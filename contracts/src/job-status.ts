@@ -137,6 +137,7 @@ export interface PublicTranslationInput {
   batch_size: number;
   workers: number;
   accepted_ambiguous_request_risk?: boolean;
+  execution_connection?: ModelConnection;
 }
 export interface GlossaryEntryInput {
   source: string;
@@ -145,6 +146,24 @@ export interface GlossaryEntryInput {
   level: string;
   match_mode: string;
   context: string;
+}
+export interface ModelConnection {
+  id: string;
+  revision: number;
+  provider: "qwen" | "deepseek" | "openai_compatible";
+  base_url: string;
+  model: string;
+  credential_ref: string;
+  concurrency: number;
+  thinking?: "auto" | "off" | "on";
+  stream?: boolean | null;
+  allow_private_endpoint?: boolean;
+  deadlines?: {
+    queue_ms: number;
+    connect_ms: number;
+    idle_ms: number;
+    total_ms: number;
+  };
 }
 export interface RenderInput {
   render_mode: string;
@@ -473,7 +492,7 @@ export interface InvocationSummaryView {
   stage_spec_schema_version: string;
 }
 export interface TranslationRequestRecoveryView {
-  status: "clean" | "ambiguous" | "corrupt";
+  status: "clean" | "ambiguous" | "corrupt" | "blocked" | "running" | "paused";
   journal_ready: boolean;
   unresolved_dispatches: number;
   active_ambiguous_request_keys: number;
