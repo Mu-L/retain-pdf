@@ -7,9 +7,13 @@ import pytest
 
 def probe(transport, route, outcome, cache_dir):
     from copy import deepcopy
+    from contextlib import ExitStack
+    from importlib import import_module
     from types import SimpleNamespace
     from unittest.mock import Mock, patch
     import socket
+    import time
+    import requests
     from retainpdf_pipeline.foundation.config import paths
     from retainpdf_pipeline.translate.llm.shared.rust_executor import ExecutorError
     from retainpdf_pipeline.translate.llm.shared import executor_context as executor
@@ -38,36 +42,69 @@ def probe(transport, route, outcome, cache_dir):
     else:
         batch = [item("a")]
         content = translated
+    if outcome == "protocol":
+        content = ""
+    elif outcome == "malformed_json":
+        content = "invalid json"
+    elif outcome == "semantic":
+        # Syntactically valid envelopes, but no translated member content.
+        if route == "group":
+            content = json.dumps({"member_translations": [
+                {"item_id": i, "translated_text": ""} for i in ("a", "b")]})
+        elif route == "batch":
+            content = "\n".join(f"<<<ITEM item_id={i}>>>\n\n<<<END>>>" for i in ("a", "b"))
+        else:
+            content = "   "
     calls = []
     def fake_request(**kwargs):
         calls.append(deepcopy(kwargs))
         if outcome == "transport":
             raise ExecutorError("fake transport failure")
-        return SimpleNamespace(content="invalid json" if outcome == "protocol" else content)
+        return SimpleNamespace(content=content)
     def fake_post(_url, **kwargs):
         calls.append(deepcopy(kwargs["json"]))
+        if outcome == "transport":
+            raise requests.ConnectionError("synthetic transport failure")
         response = Mock(status_code=200)
         response.json.return_value = {"choices": [{"message": {"content": content}}]}
         return response
     def deny_network(*args, **kwargs):
         raise AssertionError("real network forbidden")
     rt = executor.ExecutorRuntime(SimpleNamespace(request=fake_request))
-    with patch.object(executor, "_runtime", rt), patch.object(socket, "socket", deny_network), \
+    sleeps = []
+    # Replace module-local clocks only: real deadline/monotonic behavior stays
+    # intact, while legacy backoff is recorded instead of actually sleeping.
+    clock = SimpleNamespace(sleep=sleeps.append, monotonic=time.monotonic,
+                            perf_counter=time.perf_counter, time=time.time)
+    with ExitStack() as stack, patch.object(executor, "_runtime", rt), patch.object(socket, "socket", deny_network), \
          patch.object(socket, "getaddrinfo", deny_network), \
          patch.object(client, "_prewarm_dns"), patch.object(client, "should_use_stream_responses", return_value=False), \
          patch.object(client, "get_session", return_value=SimpleNamespace(post=fake_post)):
+        for name in ("plain_text_retry", "segment_windows", "segment_executor", "sentence_level", "direct_typst"):
+            module = import_module("retainpdf_pipeline.translate.llm.shared.orchestration." + name)
+            stack.enter_context(patch.object(module, "time", clock))
+        stack.enter_context(patch.object(client, "time", clock))
         failed = False
+        error_type = None
+        latch_rejected = False
         try:
             result = translate_batch(batch, api_key="fake-key", model="qwen3.8-flash",
                                      base_url="https://dashscope.aliyuncs.com/compatible-mode/v1")
-        except ExecutorError:
+        except Exception as error:
             result, failed = {}, True
-        if failed:
+            error_type = type(error).__name__
+        if rt.failure is not None and transport == "rust":
             previous = len(calls)
             with pytest.raises(ExecutorError):
                 translate_batch([item("new-unit")], api_key="fake-key")
             assert len(calls) == previous
+            latch_rejected = True
     print(json.dumps({"calls": len(calls), "failed": failed,
+                      "http_attempts": len(calls) if transport == "legacy" else 0,
+                      "executor_submissions": len(calls) if transport == "rust" else 0,
+                      "error_type": error_type, "latch_rejected": latch_rejected,
+                      "runtime_failed": rt.failure is not None,
+                      "retry_delays": sleeps,
                       "messages_hashes": [digest(c["messages"]) for c in calls],
                       "purposes": [c.get("purpose") for c in calls],
                       "unit_ids": [c.get("unit_id") for c in calls],

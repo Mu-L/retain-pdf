@@ -32,12 +32,11 @@ def translation_engine_identity(*, mode: str = "fast") -> dict[str, str]:
         "formula_segment_strategy_version": FORMULA_SEGMENT_STRATEGY_VERSION,
         "plain_text_strategy_version": PLAIN_TEXT_STRATEGY_VERSION,
     }
-    from retainpdf_pipeline.translate.llm.shared.executor_context import execution_enabled
+    from retainpdf_pipeline.translate.core.execution_policy import execution_enabled, strategy
     if execution_enabled():
         import os
         identity["model_transport"] = "rust_executor_v1"
         identity["scheduler"] = "shared_page_order_v1"
-        from retainpdf_pipeline.translate.workflow.scheduling.optimization import strategy
         identity["optimization"] = strategy()
         identity["connection_fingerprint"] = os.environ.get("RETAIN_MODEL_CONNECTION_FINGERPRINT", "")
     return identity

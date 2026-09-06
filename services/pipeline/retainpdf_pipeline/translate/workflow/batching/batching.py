@@ -10,7 +10,8 @@ from retainpdf_pipeline.translate.llm.validation.placeholder_tokens import place
 from retainpdf_pipeline.translate.llm.placeholder_transform import has_formula_placeholders
 from retainpdf_pipeline.translate.llm.shared.control_context import TranslationControlContext
 from retainpdf_pipeline.translate.core.payload.parts.common import GROUP_ITEM_PREFIX
-from retainpdf_pipeline.translate.workflow.scheduling.optimization import strategy, page_local_batches
+from retainpdf_pipeline.translate.core.execution_policy import strategy
+from retainpdf_pipeline.translate.workflow.scheduling.optimization import page_local_batches
 
 
 @dataclass(frozen=True)

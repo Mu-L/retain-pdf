@@ -17,11 +17,7 @@ import threading
 from .rust_executor import ExecutorError, RustModelExecutorClient
 
 
-def execution_enabled() -> bool:
-    value = os.environ.get("RETAIN_TRANSLATION_TRANSPORT", "legacy").strip()
-    if value not in {"legacy", "rust"}:
-        raise ExecutorError("unsupported translation transport; direct fallback is disabled")
-    return value == "rust"
+from retainpdf_pipeline.translate.core.execution_policy import execution_enabled
 
 
 def item_ids(items) -> tuple[str, ...]:

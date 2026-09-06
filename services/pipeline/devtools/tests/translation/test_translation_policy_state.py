@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
 
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
@@ -11,6 +12,57 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 from retainpdf_pipeline.translate.core.payload.parts.policy_state import mark_policy_skip
 from retainpdf_pipeline.translate.core.payload.parts.policy_state import mark_translation_required
 from retainpdf_pipeline.translate.core.payload.parts.common import seed_orchestration_metadata
+from retainpdf_pipeline.translate.services.policy.payload_rules.policy_mutations import reset_policy_state
+
+
+def test_reset_policy_preserves_completed_keep_origin_result() -> None:
+    item = {"policy_translate": True, "source_text": "https://example.invalid/reference"}
+    mark_policy_skip(item, "skip_model_keep_origin", skip_reason="pure_url")
+    item["translation_diagnostics"] = {"route_path": ["fast_path_keep_origin"]}
+    expected = dict(item)
+
+    assert reset_policy_state([item]) == 0
+    assert all(item[key] == value for key, value in expected.items())
+
+
+@pytest.mark.parametrize("final_status", ["", "failed"])
+def test_reset_policy_does_not_freeze_unfinished_keep_origin_label(final_status: str) -> None:
+    item = {
+        "policy_translate": True,
+        "classification_label": "skip_model_keep_origin",
+        "should_translate": False,
+        "skip_reason": "stale",
+        "final_status": final_status,
+    }
+
+    assert reset_policy_state([item]) == 1
+    assert item["should_translate"] is True
+    assert item["classification_label"] == ""
+    assert item["skip_reason"] == ""
+    assert item["final_status"] == final_status
+
+
+def test_reset_policy_still_recomputes_page_policy_labels() -> None:
+    item = {"policy_translate": True}
+    mark_policy_skip(item, "skip_title")
+
+    assert reset_policy_state([item]) == 1
+    assert item["should_translate"] is True
+    assert item["classification_label"] == ""
+
+
+def test_reset_policy_does_not_preserve_inconsistent_keep_origin_state() -> None:
+    item = {
+        "policy_translate": True,
+        "classification_label": "skip_model_keep_origin",
+        "should_translate": True,
+        "final_status": "kept_origin",
+        "skip_reason": "stale",
+    }
+
+    assert reset_policy_state([item]) == 1
+    assert item["should_translate"] is True
+    assert item["skip_reason"] == ""
 
 
 def test_mark_policy_skip_clears_translation_and_sets_keep_origin_state() -> None:

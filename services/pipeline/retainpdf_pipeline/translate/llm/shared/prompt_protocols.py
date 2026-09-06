@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 from typing import Any
 
 from retainpdf_pipeline.translate.prompt_loader import load_prompt
@@ -20,6 +21,106 @@ LEGACY_JSON_ONLY_INSTRUCTION_ZH = (
 DEFAULT_TARGET_LANGUAGE_NAME = "简体中文"
 SOURCE_TERMINAL_RE = re.compile(r"[.!?。！？；;:：)\]）】”’\"']\s*$")
 HALF_SENTENCE_NO_BORROW_GUARD = "即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。"
+
+
+@dataclass(frozen=True)
+class _OutputProtocol:
+    """Output-only policy; separators are part of the existing wire contract."""
+
+    system_style: str
+    instruction: str = ""
+    instruction_separator: str = "\n\n"
+    math_separator: str = "\n"
+    include_sci_decision: bool = False
+    include_math_guidance: bool = True
+
+
+def _output_protocol(kind: str, response_style: str, *, sci_decision: bool = False) -> _OutputProtocol:
+    if kind == "group":
+        return _OutputProtocol(
+            "json",
+            "Return only valid JSON. Required schema: "
+            '{"member_translations":[{"item_id":"...","translated_text":"..."}]}. '
+            "Every member_id from the request must appear exactly once.",
+        )
+    if kind == "batch":
+        instruction = (
+            load_prompt("translation_output_json.txt")
+            if response_style == "json"
+            else load_prompt("translation_output_tagged.txt").format(tagged_header="<<<ITEM item_id=ITEM_ID>>>")
+        )
+        return _OutputProtocol(response_style, instruction, math_separator="\n\n")
+    if kind != "single":
+        raise ValueError(f"Unknown translation prompt kind: {kind}")
+    if sci_decision:
+        # Preserve the historical decision path, including its lack of a math suffix.
+        return _OutputProtocol(
+            "json" if response_style == "json" else "tagged",
+            (
+                '只返回符合 {"decision":"translate","translated_text":"translated text"} 的 JSON。'
+                "不要包含 Markdown、代码块或解释说明。"
+                if response_style == "json" else ""
+            ),
+            include_sci_decision=True,
+            include_math_guidance=False,
+        )
+    return _OutputProtocol(
+        "json" if response_style == "json" else "plain_text",
+        load_prompt("translation_output_single_json.txt" if response_style == "json" else "translation_output_plain_text.txt"),
+        instruction_separator="\n",
+    )
+
+
+def protocol_system_prompt(
+    kind: str,
+    *,
+    domain_guidance: str,
+    mode: str,
+    response_style: str,
+    target_language_name: str,
+    direct_typst: bool,
+    structured_decision: bool = False,
+) -> str:
+    """Select and assemble protocol rules without changing source/context rendering."""
+    protocol = _output_protocol(kind, response_style, sci_decision=mode == "sci" and structured_decision)
+    prompt = build_translation_system_prompt(
+        domain_guidance=domain_guidance,
+        mode=mode,
+        response_style=protocol.system_style,
+        include_sci_decision=protocol.include_sci_decision,
+        target_language_name=target_language_name,
+    )
+    if protocol.instruction:
+        prompt += protocol.instruction_separator + protocol.instruction
+    if direct_typst and protocol.include_math_guidance:
+        prompt += protocol.math_separator + direct_math_guidance(target_language_name=target_language_name)
+    return prompt
+
+
+def single_user_prompt(
+    item: TranslationItemContext,
+    *,
+    mode: str,
+    response_style: str,
+    target_language_name: str,
+    structured_decision: bool = False,
+) -> str:
+    if item.math_mode == "direct_typst":
+        return direct_typst_single_user_prompt(item, mode=mode, target_language_name=target_language_name, response_style=response_style)
+    if mode == "sci" and structured_decision:
+        payload = {"items": [{
+            "item_id": item.item_id,
+            "source_text": item.source_for_prompt(),
+            **({"style_hint": item.style_hint} if item.style_hint else {}),
+        }]}
+    elif response_style == "json":
+        payload = {"item": {"item_id": item.item_id, "source_text": item.source_for_prompt()}}
+    else:
+        return plain_text_single_user_prompt(item, mode=mode, target_language_name=target_language_name)
+    return json.dumps({
+        "task": render_prompt("translation_task.txt", target_language_name=target_language_name),
+        **payload,
+    }, ensure_ascii=False)
 
 
 def _target_language_name(value: str = "") -> str:

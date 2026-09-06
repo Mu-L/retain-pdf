@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 
 
 SERVICES = Path(__file__).resolve().parents[2]
@@ -14,6 +15,22 @@ SUITES = {
     "benchmarks": SERVICES / "benchmarks/tests",
 }
 RUNNER_TEST = Path(__file__).resolve().parent / "tests/entrypoints/test_translation_test_runner.py"
+
+
+def test_environment(output_root: str) -> dict[str, str]:
+    """Keep runtime essentials, never inherit live provider/executor settings."""
+    allowed = {
+        "PATH", "HOME", "USERPROFILE", "SYSTEMROOT", "WINDIR", "COMSPEC",
+        "PATHEXT", "APPDATA", "LOCALAPPDATA", "TMP", "TEMP", "TMPDIR",
+        "LANG", "LC_ALL", "TYPST_BIN",
+    }
+    environment = {key: value for key, value in os.environ.items() if key.upper() in allowed}
+    environment.update(
+        PYTHONPATH=str(SERVICES / "pipeline"),
+        PYTHONNOUSERSITE="1",
+        OUTPUT_ROOT=output_root,
+    )
+    return environment
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -41,15 +58,13 @@ def main(argv: list[str] | None = None) -> int:
     command = [sys.executable, "-m", "pytest", *targets, "-q", "--durations=12"]
     if args.collect_only:
         command.append("--collect-only")
-    environment = os.environ.copy()
-    environment["PYTHONPATH"] = str(SERVICES / "pipeline")
-    # A local live capture directory must never receive synthetic test inputs.
-    environment.pop("RETAIN_TRANSLATION_CAPTURE_DIR", None)
-    try:
-        return subprocess.run(command, cwd=SERVICES, env=environment, timeout=300).returncode
-    except subprocess.TimeoutExpired:
-        print("Offline translation tests exceeded 300 seconds.", file=sys.stderr)
-        return 124
+    # Isolate default translation/domain/render caches as well as test fixtures.
+    with tempfile.TemporaryDirectory(prefix="retainpdf-offline-tests-") as output_root:
+        try:
+            return subprocess.run(command, cwd=SERVICES, env=test_environment(output_root), timeout=300).returncode
+        except subprocess.TimeoutExpired:
+            print("Offline translation tests exceeded 300 seconds.", file=sys.stderr)
+            return 124
 
 
 if __name__ == "__main__":

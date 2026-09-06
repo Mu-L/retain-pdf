@@ -1,39 +1,28 @@
-import importlib.util
+from importlib import import_module
 import sys
-import types
 import unittest
 from pathlib import Path
 
 
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_SCRIPTS_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
 def load_placeholder_guard():
-    sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
-    package_paths = {
-        "retainpdf_pipeline.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services",
-        "retainpdf_pipeline.translate": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate",
-        "retainpdf_pipeline.translate.llm": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm",
-        "retainpdf_pipeline.translate.services.policy": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "policy",
-        "retainpdf_pipeline.ocr.document_schema": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "ocr" / "document_schema",
-    }
-    for name, path in package_paths.items():
-        module = sys.modules.get(name)
-        if module is None:
-            module = types.ModuleType(name)
-            module.__path__ = [str(path)]
-            sys.modules[name] = module
-    spec = importlib.util.spec_from_file_location(
-        "retainpdf_pipeline.translate.llm.placeholder_guard",
-        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "llm" / "placeholder_guard.py",
-    )
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    return import_module("retainpdf_pipeline.translate.llm.placeholder_guard")
 
 
 class PlaceholderAliasTests(unittest.TestCase):
+    def test_import_preserves_cached_module_identity(self):
+        package = import_module("retainpdf_pipeline.translate.llm")
+        module = load_placeholder_guard()
+        path_before = list(sys.path)
+        self.assertIs(load_placeholder_guard(), module)
+        self.assertIs(package.placeholder_guard, module)
+        self.assertIs(sys.modules[module.__name__], module)
+        self.assertEqual(sys.path, path_before)
+
     def test_alias_maps_use_short_ascii_tokens(self):
         module = load_placeholder_guard()
         item = {

@@ -168,7 +168,8 @@ class TranslationTransportFallbackTests(unittest.TestCase):
             },
         ]
 
-        with mock.patch.object(module, "split_cached_batch", return_value=({}, batch)):
+        with mock.patch.object(module, "split_cached_batch", return_value=({}, batch)), \
+                mock.patch.object(module, "store_cached_batch") as store_mock:
             with mock.patch.object(
                 module,
                 "translate_batch_once",
@@ -192,6 +193,7 @@ class TranslationTransportFallbackTests(unittest.TestCase):
                     )
 
         self.assertEqual(result, {})
+        store_mock.assert_not_called()
         self.assertEqual(single_mock.call_count, 0)
         self.assertEqual(len(context.translation_tail_queue), 2)
 
@@ -241,7 +243,8 @@ class TranslationTransportFallbackTests(unittest.TestCase):
                 }
             }
 
-        with mock.patch.object(module, "split_cached_batch", return_value=({}, batch)):
+        with mock.patch.object(module, "split_cached_batch", return_value=({}, batch)), \
+                mock.patch.object(module, "store_cached_batch") as store_mock:
             with mock.patch.object(module, "translate_batch_once", side_effect=suspicious_error):
                 with mock.patch.object(module, "translate_single_item_plain_text_with_retries", side_effect=fake_single):
                     result = module.translate_items_plain_text(
@@ -254,6 +257,10 @@ class TranslationTransportFallbackTests(unittest.TestCase):
                     )
 
         self.assertEqual(retried_items, [])
+        store_mock.assert_called_once()
+        cached_items, cached_result = store_mock.call_args.args
+        self.assertEqual([item["item_id"] for item in cached_items], ["p001-b002"])
+        self.assertEqual(set(cached_result), {"p001-b002"})
         self.assertEqual(result["p001-b002"]["translated_text"], "这一段应该直接接受。")
         self.assertEqual(
             result["p001-b002"]["translation_diagnostics"]["route_path"],

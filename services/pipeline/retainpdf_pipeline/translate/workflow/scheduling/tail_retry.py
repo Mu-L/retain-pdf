@@ -1,5 +1,4 @@
 from __future__ import annotations
-from retainpdf_pipeline.translate.llm.shared.executor_context import execution_enabled
 
 import os
 import time
@@ -46,6 +45,7 @@ def _drain_translation_tail_queue(
     result_applier: TranslationResultApplier,
     flush_state: TranslationFlushState,
     tail_workers: int,
+    allow_tail_retry: bool = True,
     update_total_batches: bool = True,
     label_prefix: str = "translation tail retry",
 ) -> dict[str, int | bool | str]:
@@ -58,7 +58,7 @@ def _drain_translation_tail_queue(
         "updated_total_batches": bool(update_total_batches),
         "label_prefix": label_prefix,
     }
-    if execution_enabled():
+    if not allow_tail_retry:
         # Rust owns transport retries. Never replay ambiguous work in Python.
         return stats
     started = time.perf_counter()

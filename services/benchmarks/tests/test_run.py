@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import socket
 from pathlib import Path
 import sqlite3
 from types import SimpleNamespace
@@ -10,6 +11,27 @@ import pytest
 SPEC = importlib.util.spec_from_file_location("benchmark_translation", Path(__file__).resolve().parents[1] / "run.py")
 bench = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(bench)
+
+
+@pytest.fixture
+def offline_benchmark(monkeypatch):
+    """Fail closed if a CLI test bypasses its fake API; never inherit a live key."""
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Benchmark test attempted real network access")
+
+    monkeypatch.setenv("RETAIN_BENCH_API_KEY", "synthetic-benchmark-key")
+    monkeypatch.setattr(bench.requests.sessions.Session, "request", forbidden)
+    monkeypatch.setattr(socket, "getaddrinfo", forbidden)
+    monkeypatch.setattr(socket, "create_connection", forbidden)
+    monkeypatch.setattr(socket.socket, "connect", forbidden)
+    monkeypatch.setattr(socket.socket, "connect_ex", forbidden)
+
+
+def test_offline_benchmark_blocks_http_and_dns(offline_benchmark):
+    with pytest.raises(AssertionError, match="real network access"):
+        bench.requests.Session().get("https://unused.invalid")
+    with pytest.raises(AssertionError, match="real network access"):
+        socket.getaddrinfo("unused.invalid", 443)
 
 
 def test_server_timing_does_not_mistake_render_duration_for_total():
@@ -72,7 +94,7 @@ def test_worker_override_preserves_executor_snapshot_and_source():
     assert config["translation"]["execution_connection"]["concurrency"] == 2
 
 
-def test_api_does_not_follow_redirects_or_expose_response_secrets():
+def test_api_does_not_follow_redirects_or_expose_response_secrets(offline_benchmark):
     session = mock.Mock()
     session.request.return_value = SimpleNamespace(status_code=302, text="secret")
     with pytest.raises(RuntimeError) as exc:
@@ -82,7 +104,7 @@ def test_api_does_not_follow_redirects_or_expose_response_secrets():
 
 
 @pytest.mark.parametrize("stage, reuse", [("translate", False), ("translate", True), ("render", True), ("ocr", False), ("full", False)])
-def test_run_writes_metrics_without_credentials(tmp_path, monkeypatch, stage, reuse):
+def test_run_writes_metrics_without_credentials(tmp_path, monkeypatch, stage, reuse, offline_benchmark):
     fixture = tmp_path / "fixture.pdf"
     fixture.write_bytes(b"%PDF-1.7\nfixture")
     monkeypatch.setattr(bench, "ROOT", tmp_path)
@@ -100,6 +122,7 @@ def test_run_writes_metrics_without_credentials(tmp_path, monkeypatch, stage, re
     calls = []
 
     def fake_api(session, base, method, path, **kwargs):
+        assert session.headers["X-API-Key"] == "synthetic-benchmark-key"
         calls.append((method, path))
         if path.endswith("uploads"):
             return {"upload_id": "upload-test"}
@@ -118,11 +141,12 @@ def test_run_writes_metrics_without_credentials(tmp_path, monkeypatch, stage, re
     assert bench.main() == 0
     report = next(tmp_path.glob("tmp/pipeline-benchmarks/*/report.json")).read_text()
     assert "private-token" not in report
+    assert "synthetic-benchmark-key" not in report
     assert json.loads(report)["request_counts"]["total_http_attempts"] == 2
     assert len(calls) == (2 if reuse else 3)
 
 
-def test_reused_pdf_mismatch_is_rejected_before_network(tmp_path, monkeypatch):
+def test_reused_pdf_mismatch_is_rejected_before_network(tmp_path, monkeypatch, offline_benchmark):
     fixture = tmp_path / "fixture.pdf"
     fixture.write_bytes(b"%PDF-1.7 new")
     source = tmp_path / "data/jobs/prior/source"

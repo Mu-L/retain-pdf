@@ -2,64 +2,32 @@
 
 from __future__ import annotations
 
-import importlib.util
+from importlib import import_module
 import sys
-import types
 from pathlib import Path
 
 
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
-
-
-def _ensure_package_stubs() -> None:
-    package_paths = {
-        "retainpdf_pipeline.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "services",
-        "retainpdf_pipeline.translate": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate",
-        "retainpdf_pipeline.translate.core": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "core",
-        "retainpdf_pipeline.translate.services": REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "services",
-        "retainpdf_pipeline.translate.services.continuation": REPO_SCRIPTS_ROOT
-        / "services"
-        / "translation"
-        / "services"
-        / "continuation",
-    }
-    for name, path in package_paths.items():
-        module = sys.modules.get(name)
-        if module is None:
-            module = types.ModuleType(name)
-            module.__path__ = [str(path)]
-            sys.modules[name] = module
-
-
-def _load_module(name: str, path: Path):
-    _ensure_package_stubs()
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    assert spec.loader is not None
-    spec.loader.exec_module(module)
-    return module
+if str(REPO_SCRIPTS_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 
 def _load_continuation_modules():
-    # item_reader is imported by rules.eligible
-    try:
-        import retainpdf_pipeline.translate.core.item_reader  # noqa: F401
-    except Exception:
-        _load_module(
-            "retainpdf_pipeline.translate.core.item_reader",
-            REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "core" / "item_reader.py",
-        )
-    rules = _load_module(
-        "retainpdf_pipeline.translate.services.continuation.rules",
-        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "services" / "continuation" / "rules.py",
+    return (
+        import_module("retainpdf_pipeline.translate.services.continuation.rules"),
+        import_module("retainpdf_pipeline.translate.services.continuation.state"),
     )
-    state = _load_module(
-        "retainpdf_pipeline.translate.services.continuation.state",
-        REPO_SCRIPTS_ROOT / "retainpdf_pipeline" / "translate" / "services" / "continuation" / "state.py",
-    )
-    return rules, state
+
+
+def test_continuation_imports_preserve_cached_module_identity() -> None:
+    package = import_module("retainpdf_pipeline.translate.services.continuation")
+    rules, state = _load_continuation_modules()
+    path_before = list(sys.path)
+    loaded_rules, loaded_state = _load_continuation_modules()
+    assert loaded_rules is rules is package.rules
+    assert loaded_state is state is package.state
+    assert sys.modules[package.__name__] is package
+    assert sys.path == path_before
 
 
 def _body(

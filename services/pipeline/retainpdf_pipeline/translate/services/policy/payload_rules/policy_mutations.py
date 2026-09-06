@@ -11,6 +11,8 @@ from retainpdf_pipeline.translate.core.item_reader import item_policy_translate
 from retainpdf_pipeline.translate.core.item_reader import item_structure_role
 
 from retainpdf_pipeline.translate.core.payload.parts.common import RESETTABLE_LABEL_PREFIXES
+from retainpdf_pipeline.translate.core.payload.parts.policy_state import KEEP_ORIGIN_LABEL
+from retainpdf_pipeline.translate.core.payload.parts.policy_state import KEPT_ORIGIN_STATUS
 from retainpdf_pipeline.translate.core.payload.parts.policy_state import mark_policy_skip
 from retainpdf_pipeline.translate.core.payload.parts.policy_state import mark_translation_required
 from retainpdf_pipeline.translate.core.payload.parts.policy_state import preserve_source_as_translation
@@ -33,6 +35,15 @@ def reset_policy_state(payload: list[dict]) -> int:
             mark_policy_skip(item, label, skip_reason=skip_reason)
             continue
         label = str(item.get("classification_label", "") or "")
+        # A completed model/fast-path decision is a translation result, not
+        # a temporary page-policy label. Resetting it on resume would reopen
+        # committed work before the batch fast path can run again.
+        if (
+            label == KEEP_ORIGIN_LABEL
+            and item.get("final_status") == KEPT_ORIGIN_STATUS
+            and item.get("should_translate") is False
+        ):
+            continue
         if not label:
             continue
         if not label.startswith(RESETTABLE_LABEL_PREFIXES):

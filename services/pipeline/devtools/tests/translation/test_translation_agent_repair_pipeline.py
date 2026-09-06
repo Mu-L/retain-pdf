@@ -1,6 +1,6 @@
 import json
 import sys
-import time
+from threading import Barrier
 from pathlib import Path
 
 
@@ -237,8 +237,12 @@ def test_agent_repair_pipeline_runs_candidates_in_parallel() -> None:
         for item in payload
     }
 
+    requests_entered = Barrier(len(payload), timeout=5)
+
     def _fake_request(*_args, **_kwargs):
-        time.sleep(0.05)
+        # No request can finish until all four are in flight. Serial execution
+        # breaks the barrier and fails the repaired-items assertion below.
+        requests_entered.wait()
         return json.dumps(
             {
                 "repaired_text": "自洽场过程在最终能量前计算分子轨道。",
@@ -250,18 +254,15 @@ def test_agent_repair_pipeline_runs_candidates_in_parallel() -> None:
             ensure_ascii=False,
         )
 
-    started = time.perf_counter()
     summary = run_agent_repair_pipeline(
         payload=payload,
         translated_results=translated_results,
         coordinator=TranslationAgentCoordinator(),
         runtime=TranslationAgentRuntime(request_chat_content_fn=_fake_request),
     )
-    elapsed = time.perf_counter() - started
 
     assert summary.candidate_items == 4
     assert summary.repaired_items == 4
-    assert elapsed < 0.18
     assert all(item["translation_diagnostics"]["agent_repaired"] is True for item in payload)
 
 

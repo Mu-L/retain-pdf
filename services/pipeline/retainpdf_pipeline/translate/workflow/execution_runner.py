@@ -6,6 +6,7 @@ from retainpdf_pipeline.translate.llm.shared.executor_context import raise_if_ex
 from retainpdf_pipeline.translate.artifacts import aggregate_payload_diagnostics
 from retainpdf_pipeline.translate.artifacts import blocking_untranslated_items
 from retainpdf_pipeline.translate.artifacts import translation_run_diagnostics_scope
+from retainpdf_pipeline.translate.artifacts import get_active_translation_run_diagnostics
 from retainpdf_pipeline.translate.services.agents.review_artifact import build_translation_review
 from retainpdf_pipeline.translate.core.payload import write_translation_manifest
 from retainpdf_pipeline.translate.services.terms import summarize_glossary_usage
@@ -13,6 +14,12 @@ from retainpdf_pipeline.translate.workflow.translation_workflow import default_p
 from retainpdf_pipeline.translate.workflow.checkpoint import TranslationCheckpointSession
 from retainpdf_pipeline.translate.workflow.checkpoint import ResumeCandidateFingerprintMismatch
 from retainpdf_pipeline.translate.workflow.checkpoint import discard_copied_resume_candidate
+
+def _record_committed_pages(pages):
+    diagnostics = get_active_translation_run_diagnostics()
+    if diagnostics is not None:
+        diagnostics.record_committed_pages(pages)
+
 
 if TYPE_CHECKING:
     from retainpdf_pipeline.translate.workflow.execution import TranslationExecutionRequest
@@ -42,6 +49,7 @@ def run_translation_execution_plan(
         checkpoint_session = TranslationCheckpointSession.acquire(request, plan)
 
     with checkpoint_session as checkpoint:
+        checkpoint.on_pages_committed = _record_committed_pages
         with translation_run_diagnostics_scope(plan.run_diagnostics):
             translated_pages_map, summaries = translate_book_with_global_continuations(
                 data=plan.data,

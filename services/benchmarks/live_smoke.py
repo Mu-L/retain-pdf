@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+from contextlib import ExitStack
 import hashlib
 import ipaddress
 import json
@@ -36,6 +37,13 @@ def configure_translation(translation, *, workers, all_pages, fake_ip):
 
 
 def main():
+    # Register private-resource cleanup before fallible initialization, not only
+    # around the running process. ExitStack also runs it if process cleanup fails.
+    with ExitStack() as resources:
+        return _main(resources)
+
+
+def _main(resources):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-job", required=True)
     parser.add_argument("--workers", type=positive, default=2)
@@ -79,6 +87,7 @@ def main():
     data = output / "data"
     (data / "secrets").mkdir(parents=True, mode=0o700)
     vault_path = data / "secrets/credentials.json"
+    resources.callback(vault_path.unlink, missing_ok=True)
     original_vault = json.loads((ROOT / "data/secrets/credentials.json").read_text())
     ref = translation["credential_ref"]
     vault_path.write_text(json.dumps({"schema": "retainpdf_credential_vault_v1", "credentials": {ref: original_vault["credentials"][ref]}}))
@@ -113,6 +122,7 @@ def main():
         report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
     save()
     session = requests.Session()
+    resources.callback(session.close)
     session.trust_env = False
     session.headers["X-API-Key"] = key
     def capture_local_error(response, *unused_args, **unused_kwargs):
@@ -188,8 +198,6 @@ def main():
             except subprocess.TimeoutExpired:
                 os.killpg(process.pid, signal.SIGKILL)
                 process.wait()
-        vault_path.unlink(missing_ok=True)
-        session.close()
 
 
 if __name__ == "__main__":

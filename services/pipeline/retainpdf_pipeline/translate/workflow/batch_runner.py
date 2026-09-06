@@ -98,6 +98,7 @@ def run_translation_batches_sequential(
         flush_state.record_progress(index, touched_pages)
         flush_state.flush_if_due(index, label=f"flushed after batch {index}/{total_batches}")
     _drain_translation_tail_queue(
+        allow_tail_retry=not execution_enabled(),
         translation_context=translation_context,
         result_applier=result_applier,
         flush_state=flush_state,
@@ -339,6 +340,7 @@ def run_translation_batches_parallel(
             print(f"book: completed batch {completed}/{total_batches} (+{len(drained)})", flush=True)
             if _should_drain_translation_tail_early(completed, total_batches):
                 tail_stats = _drain_translation_tail_queue(
+                    allow_tail_retry=not execution_enabled(),
                     translation_context=translation_context,
                     result_applier=result_applier,
                     flush_state=flush_state,
@@ -363,6 +365,7 @@ def run_translation_batches_parallel(
         flush_state.final_flush()
         raise_if_executor_failed()
     final_tail_stats = _drain_translation_tail_queue(
+        allow_tail_retry=not execution_enabled(),
         translation_context=translation_context,
         result_applier=result_applier,
         flush_state=flush_state,

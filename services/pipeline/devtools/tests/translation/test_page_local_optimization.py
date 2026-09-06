@@ -1,6 +1,7 @@
 import pytest
 
-from retainpdf_pipeline.translate.workflow.scheduling.optimization import is_standalone_number, page_local_batches, strategy
+from retainpdf_pipeline.translate.core.execution_policy import is_standalone_number, strategy
+from retainpdf_pipeline.translate.workflow.scheduling.optimization import page_local_batches
 from retainpdf_pipeline.translate.workflow.scheduling.metrics import SchedulerMetrics
 
 

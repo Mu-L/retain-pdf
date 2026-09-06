@@ -1,5 +1,6 @@
 """The offline entrypoint must not select live tools or hide pytest failures."""
 import importlib.util
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -38,6 +39,57 @@ def test_default_suites_and_failure_propagation(monkeypatch):
     assert options["timeout"] == 300
     assert "RETAIN_TRANSLATION_CAPTURE_DIR" not in options["env"]
     assert options["env"]["PYTHONPATH"] == str(runner.SERVICES / "pipeline")
+    assert not Path(options["env"]["OUTPUT_ROOT"]).exists()
+
+
+def test_runner_drops_live_environment_and_keeps_explicit_typst(monkeypatch, tmp_path):
+    runner = _runner()
+    for key in ("RETAIN_MODEL_EXECUTOR_URL", "RETAIN_MODEL_CAPABILITY", "RETAIN_MODEL_JOB_ID",
+                "RETAIN_TRANSLATION_TRANSPORT", "OPENAI_API_KEY", "DEEPSEEK_API_KEY",
+                "HTTPS_PROXY", "ALL_PROXY", "PYTEST_ADDOPTS", "PYTHONSTARTUP",
+                "RUST_API_PROJECT_ROOT", "RUST_API_OUTPUT_ROOT"):
+        monkeypatch.setenv(key, "synthetic-live-setting")
+    monkeypatch.setenv("OUTPUT_ROOT", "synthetic-live-setting")
+    monkeypatch.setenv("TYPST_BIN", "/synthetic/typst")
+    environment = runner.test_environment(str(tmp_path))
+    assert "synthetic-live-setting" not in environment.values()
+    assert environment["OUTPUT_ROOT"] == str(tmp_path)
+    assert environment["TYPST_BIN"] == "/synthetic/typst"
+    assert environment["PYTHONNOUSERSITE"] == "1"
+
+
+def test_child_default_caches_use_isolated_output_root(tmp_path):
+    runner = _runner()
+    child = runner.subprocess.run(
+        [runner.sys.executable, "-c",
+         "import json; from retainpdf_pipeline.foundation.config import paths; "
+         "print(json.dumps([str(paths.TRANSLATION_UNIT_CACHE_DIR), "
+         "str(paths.DOMAIN_CONTEXT_CACHE_DIR), str(paths.RENDER_TYPOGRAPHY_MEMORY_DIR)]))"],
+        env=runner.test_environment(str(tmp_path)), capture_output=True, text=True,
+        check=True, timeout=20,
+    )
+    assert json.loads(child.stdout) == [
+        str(tmp_path / name) for name in
+        ("_translation_unit_cache", "_domain_context_cache", "_render_typography_memory")
+    ]
+
+
+@pytest.mark.parametrize("failure", [False, True])
+def test_output_root_exists_only_during_child_run(monkeypatch, failure):
+    runner = _runner()
+    roots = []
+    def fake_run(command, **kwargs):
+        root = Path(kwargs["env"]["OUTPUT_ROOT"])
+        assert root.is_dir()
+        (root / "synthetic-cache").write_text("test-only")
+        roots.append(root)
+        if failure:
+            raise runner.subprocess.TimeoutExpired(command, 300)
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    assert runner.main([]) == (124 if failure else 0)
+    assert len(roots) == 1
+    assert not roots[0].exists()
 
 
 def test_reverse_and_collection(monkeypatch):

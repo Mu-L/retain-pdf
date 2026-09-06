@@ -40,6 +40,7 @@ from retainpdf_pipeline.translate.workflow.batching.executor import (
     _translate_batch_or_keep_origin as _translate_batch_or_keep_origin_impl,
 )
 from retainpdf_pipeline.translate.workflow.batching.plan import (
+    build_batch_dispatch_plan,
     _build_translation_batches,
     _classify_translation_batches,
     _dedupe_pending_items,
@@ -142,51 +143,30 @@ def translate_pending_units(
             item_to_page[item.get("item_id", "")] = page_idx
 
     pending = pending_translation_items(flat_payload)
-    pending, duplicate_items_by_rep_id = _dedupe_pending_items(pending)
-    effective_batch_size = _effective_translation_batch_size(
+    plan = build_batch_dispatch_plan(
+        pending,
         batch_size=batch_size,
+        workers=workers,
         model=model,
         base_url=base_url,
         translation_context=translation_context,
     )
-    batches, immediate_results = _build_translation_batches(
-        pending,
-        effective_batch_size=effective_batch_size,
-        translation_context=translation_context,
-    )
-    if execution_enabled():
-        batches = page_ordered_batches(batches)
+    pending = plan.pending
+    duplicate_items_by_rep_id = plan.duplicate_items_by_rep_id
+    batches = plan.batches
+    immediate_results = plan.immediate_results
+    effective_batch_size = plan.run_stats.effective_batch_size
+    total_batches = plan.total_batches
+    flush_interval = plan.flush_interval
+    batched_fast_batches = plan.batched_fast_batches
+    single_fast_batches = plan.single_fast_batches
+    single_slow_batches = plan.single_slow_batches
+    queue_workers = plan.queue_workers
+    run_stats_payload = plan.stats_payload()
+    if plan.shared_workers is not None:
         from retainpdf_pipeline.translate.llm.shared.request_capture import capture_plan
         capture_plan(batches, workers=workers, mode=mode, model=model,
                      domain_guidance=domain_guidance, context=translation_context)
-    batched_fast_batches, single_fast_batches, single_slow_batches = _classify_translation_batches(batches)
-    total_batches = len(batches)
-    flush_interval = _save_flush_interval(workers=workers, total_batches=total_batches)
-    slow_worker_limit = _slow_worker_cap(max(1, workers), len(single_slow_batches))
-    queue_workers = _allocate_translation_queue_workers(
-        workers,
-        batched_fast_count=len(batched_fast_batches),
-        single_fast_count=len(single_fast_batches),
-        single_slow_count=len(single_slow_batches),
-        slow_worker_limit=slow_worker_limit,
-    )
-    run_stats = TranslationBatchRunStats(
-        pending_items=len(pending),
-        total_batches=total_batches,
-        effective_batch_size=effective_batch_size,
-        flush_interval=flush_interval,
-        effective_workers=max(1, workers),
-        batched_fast_batches=len(batched_fast_batches),
-        single_fast_batches=len(single_fast_batches),
-        single_slow_batches=len(single_slow_batches),
-        batched_fast_workers=queue_workers["batched_fast"],
-        single_fast_workers=queue_workers["single_fast"],
-        single_slow_workers=queue_workers["single_slow"],
-        slow_worker_limit=slow_worker_limit,
-    )
-    run_stats_payload = run_stats.as_dict()
-    if execution_enabled():
-        run_stats_payload["shared_workers"] = min(max(1, workers), total_batches)
     print(
         f"book: pending items={len(pending)} batches={total_batches} workers={max(1, workers)} "
         f"mode={mode} effective_batch_size={effective_batch_size}",

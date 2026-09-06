@@ -123,3 +123,33 @@ cargo build --manifest-path services/api/Cargo.toml -p rust_api --bin rust_api -
 ```
 
 派发输入指纹排除 prompt/engine 版本，允许研究提示词变化；`same_dispatch_inputs` 不证明动态指引相同，也不证明性能或质量通过。快照保存 Python 请求输入，不是 Rust 最终 provider HTTP body（模型、thinking 等由连接策略另行应用）。本阶段提供捕获和离线校验，**没有接入付费重放或用快照绕过前置阶段的生产入口**，旧日志也不会被伪造成精确快照。
+
+### 假模型离线重放
+
+```bash
+.venv/bin/python services/benchmarks/replay_capture.py /ABSOLUTE/RUN/private-inputs
+```
+
+入口只支持内置假模型，没有 URL、密钥、真实模型或 `--run` 选项。先校验快照哈希、文件名、计划引用、稳定 unit/operation ID、连接指纹和主请求完整覆盖，再按计划批次顺序重放已经保存的最终 messages/temperature/response_format；不会重跑分组或提示词构建。修复输入若存在，紧跟所属 primary 重放，不根据假回复触发新的修复。
+
+要求恰好一份非空计划；缓存命中或中断造成的主请求缺失会明确失败。计划生成前的请求仅统计排除，不猜测其执行顺序。顺序指页优先任务队列顺序，不代表历史并发开始/完成顺序。
+
+测试夹具覆盖单条、批量、跨页连续段、公式、静态规则和运行期术语/记忆指引；网络 socket 被禁止，验证输入送达假模型前后完全一致且不修改快照。输出仅计数与摘要哈希，不输出原文或提示词。**这是输入恢复的 round-trip 测试，不是生产翻译/渲染全流程、速度或质量评估，也不能据此启动付费 A/B。**
+
+### 生产入口零网络契约
+
+`tests/test_production_translation_contract.py` 从生产 `translate_batch` 入口经过真实路由、提示词组装、结果解析与验证，Rust 分支在 executor client 处替换为假传输，legacy 分支在 HTTP session 处替换。测试同时禁止 socket 和 DNS；缓存重定向到测试临时目录，不读取用户缓存。子进程隔离避免旧测试的 `sys.modules` 动态替换污染生产导入链。
+
+当前覆盖：legacy/Rust 的单条、tagged 批量、成员 JSON 连续段成功路径（消息摘要、结果和 Rust unit ID 契约）；Rust 连续段协议错误最多 primary+repair 两次、传输错误一次，并验证失败后新单元不再发请求。尚未覆盖 legacy 的全部重试组合，也不是整份 PDF 的质量/速度测试。
+
+首批分层整理没有改变门禁规则：传输选择与独立数字策略移入 `core/execution_policy.py`；调度由调用者显式传入是否允许 tail retry；checkpoint 通过调用方注入的观察回调报告已提交页。固定顺序仍为 snapshot → save → observe → prune → event，旧 executor 异常导入入口保持可用。
+
+### 首轮并行解耦记录
+
+- 组批：`BatchDispatchPlan` 接收已经准备好的单元，负责去重、组批、页优先顺序、队列分配和统计；不进行文件/模型/记忆 I/O。`pending_units` 保留一次元数据准备、快照与执行装配。计划保留原始条目引用及候选浅拷贝规则，不是深层不可变文档；既有兼容导出和 runner 接口未删除。
+- 提示词：三个现有 builder 入口保留签名，协议选择、输出规则和单条 user 消息组装收敛到协议模块。模板资源、消息字节、JSON 键序及 sci structured-decision 的历史行为保持不变，不夹带功能修复。
+- 测试：五份 retrying-translator 测试共用正常包导入，不再伪造包或替换 `sys.modules`；新增模块/父包身份及 mock 异常恢复检查。
+
+`tests/refactor_baseline.json` 仅含合成文本，固定整理前的 28 组完整消息、成员 ID 和 legacy/Rust 引擎指纹；用 `test_refactor_baseline.py` 逐字验证。扩展协议分支的基线从本地 `062eeafe` 原提示词模块生成，而不是接受重构后的输出。不要为了通过重构测试重新生成基线；合法的语义变更应单独审阅并更新指纹与期望。
+
+本轮未修改 Rust 账本、请求预算、checkpoint 提交协议、生产 provider 设置或模板文本。源码行数减少不作为验收目标；后续 fallback 门面、provider 反向兼容入口和快照全局生命周期仍待单独整理。

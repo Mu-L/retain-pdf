@@ -9,8 +9,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pipeline"))
 from retainpdf_pipeline.translate.llm.shared.request_capture import digest, plan_input_digest
 
 
-def inspect(root):
+def load_capture(root):
+    """Load and validate once; callers operate on the same verified payloads."""
     root = Path(root)
+    if root.is_symlink():
+        raise ValueError("capture directory symlinks are not allowed")
     plans = {}
     requests = []
     files = sorted(root.glob("plan-*.json")) + sorted(root.glob("request-*.json"))
@@ -37,6 +40,11 @@ def inspect(root):
             raise ValueError("unsupported capture schema")
     if any(r["plan_sha256"] is not None and r["plan_sha256"] not in plans for r in requests):
         raise ValueError("request refers to a missing plan")
+    return plans, requests
+
+
+def inspect(root):
+    plans, requests = load_capture(root)
     return {"schema": "capture_inspection_v1", "plans": len(plans), "requests": len(requests),
             "plan_input_hashes": sorted(p["input_sha256"] for p in plans.values()),
             "requests_without_plan": sum(r["plan_sha256"] is None for r in requests),

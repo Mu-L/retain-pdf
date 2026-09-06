@@ -17,8 +17,7 @@ import requests
 from requests.adapters import HTTPAdapter
 
 
-class ExecutorError(RuntimeError):
-    """Safe error text only; never include response bodies or bearer tokens."""
+from retainpdf_pipeline.translate.core.execution_policy import ExecutorError
 
 
 class AmbiguousModelRequest(ExecutorError):
