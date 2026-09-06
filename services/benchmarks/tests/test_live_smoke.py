@@ -1,5 +1,7 @@
 import sys
 import json
+import copy
+import hashlib
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -8,6 +10,31 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from live_smoke import configure_translation
 import live_smoke
+
+
+def test_comparison_evidence_tracks_effective_inputs_without_credentials(tmp_path):
+    normalized = tmp_path / "document.json"
+    normalized.write_text('{"pages": []}')
+    translation = {"model": "qwen", "context_mode": "off", "api_key": "secret-one",
+                   "execution_connection": {"credential_ref": "cred-one", "concurrency": 8}}
+    original = copy.deepcopy(translation)
+
+    def evidence(value):
+        return live_smoke.comparison_evidence(pdf_sha256="a" * 64,
+                                             normalized_path=normalized, translation=value)
+
+    first = evidence(translation)
+    assert translation == original
+    changed_credentials = copy.deepcopy(translation)
+    changed_credentials["api_key"] = "secret-two"
+    changed_credentials["execution_connection"]["credential_ref"] = "cred-two"
+    assert evidence(changed_credentials) == first
+    assert evidence(dict(reversed(list(translation.items())))) == first
+    assert "secret" not in json.dumps(first) and "cred-one" not in json.dumps(first)
+    changed_config = {**translation, "context_mode": "window"}
+    assert evidence(changed_config)["translation_config_sha256"] != first["translation_config_sha256"]
+    normalized.write_text('{"pages": [1]}')
+    assert evidence(translation)["normalized_document_sha256"] != first["normalized_document_sha256"]
 
 
 def test_full_pdf_workers_match_frozen_connection_without_reusing_page_selection():
@@ -217,3 +244,19 @@ def test_live_run_cleans_credentials_without_resubmission(smoke_lifecycle, failu
             assert report["error_type"] == "TimeoutError"
         if failure == "http_error":
             assert report["local_http_error"] == {"status": 502, "detail": "[redacted] [redacted]"}
+
+
+def test_live_smoke_records_evidence_before_submission(smoke_lifecycle, monkeypatch):
+    original_api = live_smoke.api
+
+    def checked_api(session, base, method, path, **kwargs):
+        if method == "POST" and path == "/api/v1/jobs":
+            reports = list((smoke_lifecycle.root / "tmp/pipeline-benchmarks").glob("*/report.json"))
+            evidence = json.loads(reports[0].read_text())["comparison_evidence"]
+            assert evidence["schema"] == "translation_benchmark_evidence_v1"
+            assert evidence["normalized_document_sha256"] == hashlib.sha256(b"{}").hexdigest()
+            assert all(len(value) == 64 for key, value in evidence.items() if key.endswith("sha256"))
+        return original_api(session, base, method, path, **kwargs)
+
+    monkeypatch.setattr(live_smoke, "api", checked_api)
+    assert live_smoke.main() == 0

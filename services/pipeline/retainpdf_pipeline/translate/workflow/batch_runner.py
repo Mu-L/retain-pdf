@@ -73,6 +73,7 @@ def run_translation_batches_sequential(
     memory_store: JobMemoryStore | None,
     result_applier: TranslationResultApplier,
     flush_state: TranslationFlushState,
+    apply_stats_callback: Callable[..., None] | None = None,
 ) -> None:
     total_batches = len(batches)
     for index, batch in enumerate(batches, start=1):
@@ -94,7 +95,11 @@ def run_translation_batches_sequential(
             flush_translation_memory(memory_store)
             flush_state.final_flush()
             raise
+        apply_started = time.perf_counter()
         touched_pages = result_applier.apply_batch(batch, translated)
+        apply_elapsed = time.perf_counter() - apply_started
+        if apply_stats_callback is not None:
+            apply_stats_callback(batch_count=1, elapsed_s=apply_elapsed)
         flush_state.record_progress(index, touched_pages)
         flush_state.flush_if_due(index, label=f"flushed after batch {index}/{total_batches}")
     _drain_translation_tail_queue(
@@ -312,6 +317,13 @@ def run_translation_batches_parallel(
             try:
                 _queue_name, _batch_index, batch, translated, exc = result_queue.get(timeout=0.5)
             except Empty:
+                # A slow in-flight request must not hold already-applied pages
+                # in memory until another result arrives. Keep all page writes
+                # on this consumer thread, including the idle heartbeat.
+                flush_state.flush_if_due(
+                    completed,
+                    label=f"flushed while waiting after completed batch {completed}/{total_batches}",
+                )
                 if worker_futures and all(future.done() for future in worker_futures):
                     failed_workers = [future for future in worker_futures if future.exception() is not None]
                     if failed_workers:
@@ -326,9 +338,9 @@ def run_translation_batches_parallel(
             )
             apply_started = time.perf_counter()
             touched_pages = result_applier.apply_batches(drained)
+            apply_elapsed = time.perf_counter() - apply_started
             if metrics is not None:
                 metrics.applied(touched_pages)
-            apply_elapsed = time.perf_counter() - apply_started
             applied_batch_count += len(drained)
             apply_elapsed_s += max(0.0, apply_elapsed)
             max_result_drain_batch = max(max_result_drain_batch, len(drained))
@@ -349,6 +361,22 @@ def run_translation_batches_parallel(
                     label_prefix="early translation tail retry",
                 )
                 _merge_tail_retry_stats(tail_retry_stats, tail_stats, early=True)
+        if execution_enabled():
+            flush_translation_memory(memory_store)
+            flush_state.final_flush()
+            raise_if_executor_failed()
+        final_tail_stats = _drain_translation_tail_queue(
+            allow_tail_retry=not execution_enabled(),
+            translation_context=translation_context,
+            result_applier=result_applier,
+            flush_state=flush_state,
+            tail_workers=tail_retry_workers,
+            update_total_batches=True,
+            label_prefix="translation tail retry",
+        )
+        _merge_tail_retry_stats(tail_retry_stats, final_tail_stats, early=False)
+        flush_translation_memory(memory_store)
+        flush_state.final_flush()
     finally:
         for executor in executors:
             executor.shutdown(wait=True, cancel_futures=False)
@@ -357,37 +385,21 @@ def run_translation_batches_parallel(
             diagnostics = get_active_translation_run_diagnostics()
             if diagnostics is not None:
                 diagnostics.set_scheduler_metrics(metrics.snapshot())
+        if apply_stats_callback is not None:
+            apply_stats_callback(
+                batch_count=0,
+                elapsed_s=0.0,
+                reported_applied_batches=applied_batch_count,
+                reported_apply_elapsed_s=apply_elapsed_s,
+                reported_max_result_drain_batch=max_result_drain_batch,
+            )
+        if tail_retry_stats_callback is not None:
+            tail_retry_stats_callback(**tail_retry_stats)
+        if flush_stats_callback is not None:
+            flush_stats_callback(**flush_state.stats())
         for future in worker_futures:
             if future.done() and future.exception() is not None:
                 raise future.exception()
-    if execution_enabled():
-        flush_translation_memory(memory_store)
-        flush_state.final_flush()
-        raise_if_executor_failed()
-    final_tail_stats = _drain_translation_tail_queue(
-        allow_tail_retry=not execution_enabled(),
-        translation_context=translation_context,
-        result_applier=result_applier,
-        flush_state=flush_state,
-        tail_workers=tail_retry_workers,
-        update_total_batches=True,
-        label_prefix="translation tail retry",
-    )
-    _merge_tail_retry_stats(tail_retry_stats, final_tail_stats, early=False)
-    flush_translation_memory(memory_store)
-    flush_state.final_flush()
-    if apply_stats_callback is not None:
-        apply_stats_callback(
-            batch_count=0,
-            elapsed_s=0.0,
-            reported_applied_batches=applied_batch_count,
-            reported_apply_elapsed_s=apply_elapsed_s,
-            reported_max_result_drain_batch=max_result_drain_batch,
-        )
-    if tail_retry_stats_callback is not None:
-        tail_retry_stats_callback(**tail_retry_stats)
-    if flush_stats_callback is not None:
-        flush_stats_callback(**flush_state.stats())
 
 
 __all__ = [

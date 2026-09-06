@@ -14,6 +14,7 @@ payload files directly instead of importing translate at runtime.)
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -107,11 +108,15 @@ def validate_translation_payload_contract(payload: list[dict], *, translation_pa
             )
 
 
-def load_translations(translation_path: Path, *, strict_contract: bool = True) -> list[dict]:
+def load_translations(
+    translation_path: Path, *, strict_contract: bool = True, expected_sha256: str | None = None,
+) -> list[dict]:
     """Read a translation payload without modifying either data or disk state."""
 
-    with translation_path.open("r", encoding="utf-8") as f:
-        payload = json.load(f)
+    raw = translation_path.read_bytes()
+    if expected_sha256 is not None and hashlib.sha256(raw).hexdigest() != expected_sha256:
+        raise RuntimeError(f"Committed translation page hash mismatch: {translation_path}")
+    payload = json.loads(raw.decode("utf-8"))
     if strict_contract:
         validate_translation_payload_contract(payload, translation_path=translation_path)
     return payload

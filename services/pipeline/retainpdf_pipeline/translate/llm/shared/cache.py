@@ -11,6 +11,7 @@ from pathlib import Path
 
 from retainpdf_pipeline.foundation.config import paths
 
+from retainpdf_pipeline.translate.core.context import build_item_context
 from retainpdf_pipeline.translate.core.engine_identity import _PROMPT_HASHES
 from retainpdf_pipeline.translate.core.engine_identity import FORMULA_SEGMENT_STRATEGY_VERSION
 from retainpdf_pipeline.translate.core.engine_identity import PLAIN_TEXT_STRATEGY_VERSION
@@ -21,6 +22,8 @@ from retainpdf_pipeline.translate.core.engine_identity import translation_engine
 from retainpdf_pipeline.translate.core.payload.parts.result_entries import with_sanitized_translation
 from retainpdf_pipeline.translate.llm.shared.provider_runtime import extract_single_item_translation_text
 from retainpdf_pipeline.translate.llm.shared.provider_runtime import normalize_base_url
+from retainpdf_pipeline.translate.llm.validation.english_residue import normalize_inline_whitespace
+from retainpdf_pipeline.translate.llm.validation.placeholder_tokens import strip_placeholders
 
 
 # Cache writes need no process-wide lock: each writer uses a unique temporary
@@ -28,6 +31,20 @@ from retainpdf_pipeline.translate.llm.shared.provider_runtime import normalize_b
 # The file and shard directory are fsynced because this cache is also the
 # finest-grained recovery layer between page checkpoint flushes.
 UNESCAPED_INLINE_DOLLAR_RE = re.compile(r"(?<!\\)\$")
+UNIT_CACHE_KEY_VERSION = "translation-unit-cache-v2"
+
+
+def _prompt_context_signature(item: dict) -> dict[str, str]:
+    context = build_item_context(item)
+    include_continuation = str(item.get("translation_context_mode", "needed") or "needed").strip().lower() != "off"
+    return {
+        "before": context.context_before_for_prompt(),
+        "after": context.context_after_for_prompt(),
+        # Formula-segment requests use the continuation component independently
+        # of the merged window. Keep that distinction in the cache identity.
+        "continuation_before": normalize_inline_whitespace(strip_placeholders(str(item.get("continuation_prev_text", "") or ""))) if include_continuation else "",
+        "continuation_after": normalize_inline_whitespace(strip_placeholders(str(item.get("continuation_next_text", "") or ""))) if include_continuation else "",
+    }
 
 
 def _unit_source_text(item: dict) -> str:
@@ -62,6 +79,8 @@ def cache_key_for_item(
 ) -> str:
     engine_identity = translation_engine_identity(mode=mode)
     payload = {
+        # Deliberately invalidate pre-context keys, including context-free ones.
+        "cache_key_version": UNIT_CACHE_KEY_VERSION,
         "model": model.strip(),
         "base_url": normalize_base_url(base_url),
         "domain_guidance": (domain_guidance or "").strip(),
@@ -73,6 +92,7 @@ def cache_key_for_item(
         "translation_style_hint": str(item.get("translation_style_hint", "") or "").strip(),
         "translation_structure_kind": str(item.get("translation_structure_kind", "") or "").strip(),
         "source_text": _unit_source_text(item),
+        "prompt_context": _prompt_context_signature(item),
     }
     body = json.dumps(payload, ensure_ascii=False, sort_keys=True)
     return hashlib.sha256(body.encode("utf-8")).hexdigest()

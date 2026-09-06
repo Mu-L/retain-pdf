@@ -7,6 +7,7 @@ from pathlib import Path
 import socket
 import sys
 import threading
+import time
 import traceback
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -21,6 +22,7 @@ def main():
     os.environ["RETAIN_TRANSLATION_TRANSPORT"] = spec["transport"]
     calls, violations, unknown_requests = [], [], []
     lock = threading.Lock()
+    concurrent_started = threading.Barrier(2, timeout=5)
     def forbidden(*args, **kwargs):
         violations.append("unexpected external I/O: " + "".join(traceback.format_stack(limit=5)))
         raise AssertionError(violations[-1])
@@ -43,7 +45,16 @@ def main():
                 raise TypeError("model request JSON must be an object")
             kind = "translation"
             protocol = "single"
-            if "pairs" in payload:
+            if {"item_id", "source_text", "current_translation", "issues"} <= payload.keys():
+                protocol = "agent_repair"
+                ids = [payload["item_id"]]
+                if payload["source_text"] != SOURCES.get(ids[0]):
+                    violations.append("unknown repair source")
+                    raise AssertionError(violations[-1])
+                content = json.dumps({"repaired_text": TRANSLATIONS[ids[0]],
+                    "applied_issue_kinds": [issue["kind"] for issue in payload["issues"]],
+                    "confidence": 1.0, "needs_manual_review": False, "notes": ""})
+            elif "pairs" in payload:
                 kind = "continuation"
                 pairs = payload["pairs"]
                 for pair in pairs:
@@ -77,6 +88,8 @@ def main():
                 first_batch = not any(call.get("protocol") == "batch" for call in calls)
                 if first_batch and spec["outcome"] == "batch_missing":
                     response_ids.remove(ids[0])
+                if spec["outcome"] == "batch_exhaust" and "p002-b001" in response_ids:
+                    response_ids.remove("p002-b001")
                 if first_batch and spec["outcome"] == "batch_duplicate":
                     response_ids.append(ids[0])
                 replies = [(key, TRANSLATIONS[key]) for key in response_ids]
@@ -121,6 +134,23 @@ def main():
                 calls.append(record)
                 (root / "calls.json").write_text(json.dumps(calls, ensure_ascii=False))
                 attempts = sum(c["kind"] == "translation" and "p001-b000" in c["members"] for c in calls)
+            if spec["outcome"] == "concurrent_failure" and kind == "translation":
+                if ids not in (["p001-b000"], ["p001-b001"]):
+                    violations.append("new translation dispatched after concurrent failure")
+                    raise AssertionError(violations[-1])
+                concurrent_started.wait()
+                if ids == ["p001-b000"]:
+                    raise ExecutorError("synthetic concurrent failure")
+                # Observe the real runtime latch; do not set it or bypass the
+                # production request/worker error handling. This success was
+                # already in flight when the other unit failed.
+                deadline = time.monotonic() + 5
+                while executor_context.runtime().failure is None:
+                    if time.monotonic() >= deadline:
+                        violations.append("concurrent failure did not latch")
+                        raise AssertionError(violations[-1])
+                    threading.Event().wait(0.01)
+                record["returned_after_failure_latched"] = True
             if kind == "translation" and "p001-b000" in ids:
                 if spec["outcome"] == "transport":
                     if spec["transport"] == "rust":

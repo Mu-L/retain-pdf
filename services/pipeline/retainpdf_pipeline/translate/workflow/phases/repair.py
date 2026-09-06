@@ -22,6 +22,8 @@ from retainpdf_pipeline.translate.services.finalization import recover_blocking_
 from retainpdf_pipeline.translate.services.postprocess import GarbledReconstructionRuntime
 from retainpdf_pipeline.translate.services.postprocess import reconstruct_garbled_page_payloads
 from retainpdf_pipeline.translate.workflow.pages import save_pages
+from retainpdf_pipeline.translate.workflow.pages import refresh_translation_units_by_page
+from retainpdf_pipeline.translate.workflow.pages import refresh_translation_units_and_collect_changed_pages
 
 
 REPAIR_PROFILE_ENV = "RETAIN_TRANSLATION_REPAIR_PROFILE"
@@ -94,6 +96,7 @@ def run_garbled_reconstruction_stage(
     garbled_skipped_by_budget = int(summary.get("garbled_skipped_by_budget", 0))
     dirty_pages = {int(page_idx) for page_idx in summary.get("dirty_pages", [])}
     if dirty_pages:
+        dirty_pages.update(refresh_translation_units_and_collect_changed_pages(page_payloads))
         save_pages(page_payloads, translation_paths, dirty_pages)
     emit_stage_progress(
         stage="garbled_repair",
@@ -248,6 +251,7 @@ def run_agent_repair_stage(
         base_url=base_url,
     ).as_dict()
     if summary["repaired_items"] or summary["skipped_items"] or summary["failed_items"]:
+        refresh_translation_units_by_page(page_payloads)
         save_pages(page_payloads, translation_paths)
     if run_diagnostics is not None:
         run_diagnostics.mark_phase_end("agent_repair")
@@ -313,6 +317,7 @@ def run_final_untranslated_recovery_stage(
         workers=max(1, min(32, int(workers or 1))),
         request_chat_content_fn=request_chat_content,
     ).as_dict()
+    refresh_translation_units_by_page(page_payloads)
     save_pages(page_payloads, translation_paths)
     emit_stage_progress(
         stage="final_untranslated_recovery",

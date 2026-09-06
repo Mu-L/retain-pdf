@@ -77,10 +77,14 @@ def test_final_untranslated_recovery_dead_letters_unrecoverable_item() -> None:
 
     assert summary.recovered_items == 0
     assert summary.dead_letter_items == 1
-    assert summary.blocking_after == 0
-    assert payload[0]["final_status"] == "kept_origin"
+    assert summary.blocking_after == 1
+    assert payload[0]["final_status"] == "failed"
+    assert payload[0]["should_translate"] is True
+    assert payload[0]["classification_label"] == ""
+    assert payload[0]["skip_reason"] == ""
+    assert payload[0]["source_text"] == "The output remains unavailable after all retry stages."
     assert payload[0]["translation_diagnostics"]["dead_letter"] is True
-    assert blocking_untranslated_items({0: payload}) == []
+    assert len(blocking_untranslated_items({0: payload})) == 1
 
 
 def test_final_untranslated_recovery_skips_protocol_hex_dump() -> None:

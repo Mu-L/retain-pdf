@@ -57,12 +57,74 @@ Duplicate IDs are discarded rather than resolved by first/last-write wins.
 Rust repairs retain the original unit identity and primary/repair request budget.
 Assertions check both consumer-visible artifacts and per-member request counts.
 
+`test_translation_io_page_scope.py` retains provider cross-page hints while selecting
+only one page, for both transports. Requests, renderer output, and unit members
+must remain within the selected page; the fixture does not authorize expanding
+translation to an unselected page.
+
+`test_translation_io_exhaustion.py` verifies Rust batch exhaustion without a
+success manifest, then fresh-process resume without re-requesting committed items.
+Its legacy case covers all six requests, including the agent-repair and final
+recovery protocols. Exhausted items remain failed and translatable, with source
+and dead-letter diagnostics preserved; they block complete-manifest publication.
+A fresh-process retry must translate the failed item and publish a clean result.
+Intentional formula/code/URL policy skips remain distinct from failed recovery.
+
+`test_translation_io_concurrent_failure.py` repeats the two-worker failure case
+three times. Both fake model requests enter before one fails; the other returns
+success only after observing the real failure latch. The test checks persisted
+page hashes, absence of a success manifest, and fresh-process resume without
+re-requesting the committed success. No production failure state is injected.
+
+### Cache, flush, and publication boundaries
+
+- Unit cache keys include normalized prompt context and an explicit cache-key
+  version. Old cache entries are left on disk but are not reused under the new
+  identity; existing document outputs are not rewritten.
+- The concurrent result consumer checks pending writes during queue timeouts,
+  not just when another result arrives. The flush interval is still subject to
+  the result-queue polling interval and filesystem latency, not a hard real-time
+  guarantee. Sequential execution is unchanged.
+- Checkpoint-backed renderer input must represent a completed, consistent
+  publication. Historical manifest-only output remains supported; this does not
+  automatically migrate old completed jobs or create a second publication schema.
+  If a checkpoint exists but lacks valid page hashes, reading is rejected rather
+  than downgraded to unchecked manifest-only compatibility; files remain intact.
+
+### Persistence and measurement boundaries
+
+- `save_pages` defaults to writing the supplied payload without changing unit
+  metadata. Initial preparation and repair stages explicitly refresh units where
+  required; the explicit `refresh_units=True` compatibility option remains.
+  Garbled reconstruction unions its original dirty pages with every page actually
+  changed by the subsequent unit refresh, so changed cross-page peers are saved.
+  This tracking takes a deep copy only when reconstruction reports dirty pages;
+  it does not change checkpoint ordering or the selected-page scope.
+- Sequential and parallel `apply_elapsed_ms` measure only the applier. Model
+  latency, waiting, and file flush are excluded. Failed runs record available
+  apply/flush/tail statistics and close phase timing while preserving the error;
+  they do not emit the successful batch-completion event.
+- `applied_batches` remains a count of result batches handed to the applier,
+  including empty failure mappings in the concurrent path, not a successful
+  translation count. Use output item statuses to establish completed work.
+- `compare_optimization.py` validates the manifest and pages through the real
+  rendering consumer. Invalid baseline/candidate artifacts produce an explicit
+  rejected JSON comparison; stale files outside the manifest are not compared.
+  Fixed-dispatch comparisons additionally require source/config/cache-policy
+  evidence, a verified private dispatch capture and matching executor profiles.
+  Missing evidence rejects comparability rather than assuming equal inputs.
+  Provider cache warmth and runtime scheduling are not controlled by these checks;
+  a passing single-run comparison is not causal proof of a speedup.
+
 Recovery repeats real checkpoint interruption and fresh-process resume three times,
 verifying that committed translations are not requested again and the skipped URL
 `p001-b002` stays completed. Policy reset preserves completed model/fast-path
 keep-origin results; checkpoint regression guards remain unchanged. Rust bounded failure and
-legacy repair-success are covered; legacy exhausted-failure orchestration exceeded
-the probe's 30-second limit and is not claimed as covered by this IO suite.
+legacy repair-success are covered. The earlier legacy exhaustion timeout was
+caused by an unsupported agent-repair protocol in the fake transport; this is now
+recognized. Legacy exhaustion and fresh-process recovery are now covered without
+changing retry counts or sleeps; the earlier timeout is not evidence that the
+normal retry chain takes over 30 seconds.
 
 ## Code size
 

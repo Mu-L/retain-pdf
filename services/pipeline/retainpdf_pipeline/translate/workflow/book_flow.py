@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from retainpdf_pipeline.translate.artifacts import TranslationRunDiagnostics
 from retainpdf_pipeline.translate.core.payload import load_translations
+from retainpdf_pipeline.translate.core.orchestration.units import refresh_translation_units_by_page
 from retainpdf_pipeline.translate.llm.shared.control_context import (
     TranslationControlContext,
 )
@@ -83,6 +84,7 @@ def translate_book_with_global_continuations(
     # so an upstream failure cannot leave all working pages ahead of the last
     # durable checkpoint.
     if checkpoint is not None:
+        refresh_translation_units_by_page(page_payloads)
         save_pages(page_payloads, translation_paths)
         checkpoint.update("preparing", page_payloads, translation_paths)
     if policy_config is None or policy_config.enable_candidate_continuation_review:

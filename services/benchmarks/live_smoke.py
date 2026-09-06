@@ -25,6 +25,38 @@ from run import ROOT, api, load_config, positive
 from reporting import collect_model_metrics, collect_metrics
 
 
+def comparison_evidence(*, pdf_sha256, normalized_path, translation):
+    """Fingerprint bounded test inputs; never serialize credentials into reports.
+
+    The Rust child uses this run's fresh data/jobs as OUTPUT_ROOT. No translated
+    results or local caches are copied from the source job. Provider-side cache
+    warmth and scheduling remain uncontrolled, even when these hashes match.
+    """
+    def without_credentials(value):
+        if isinstance(value, dict):
+            return {key: without_credentials(item) for key, item in value.items()
+                    if key not in {"api_key", "credential_ref"}}
+        if isinstance(value, list):
+            return [without_credentials(item) for item in value]
+        return value
+
+    def fingerprint(value):
+        return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
+                                        separators=(",", ":"), allow_nan=False).encode()).hexdigest()
+
+    return {
+        "schema": "translation_benchmark_evidence_v1",
+        "pdf_sha256": pdf_sha256,
+        "normalized_document_sha256": hashlib.sha256(normalized_path.read_bytes()).hexdigest(),
+        "translation_config_sha256": fingerprint(without_credentials(translation)),
+        "cache_policy_sha256": fingerprint({
+            "version": 1, "local_output_root": "fresh_isolated_data_jobs",
+            "copied_inputs": ["source", "ocr"], "restored_translation_cache": False,
+            "provider_cache": "uncontrolled",
+        }),
+    }
+
+
 def configure_translation(translation, *, workers, all_pages, fake_ip):
     translation = copy.deepcopy(translation)
     translation.update(api_key="", workers=workers, start_page=0, end_page=-1 if all_pages else 1,
@@ -160,6 +192,12 @@ def _main(resources):
                 rows = cursor.fetchall()
                 target.executemany(f"INSERT INTO {table} ({','.join(names)}) VALUES ({','.join('?' for _ in names)})", rows)
         translation = configure_translation(translation, workers=args.workers, all_pages=args.all_pages, fake_ip=fake_ip)
+        report["comparison_evidence"] = comparison_evidence(
+            pdf_sha256=digest.hex(),
+            normalized_path=data / "jobs" / args.source_job / "ocr/normalized/document.v1.json",
+            translation=translation,
+        )
+        save()
         payload = {"workflow": "translate", "source": {"artifact_job_id": args.source_job}, "translation": translation,
                    "runtime": {"job_id": job_id, "timeout_seconds": args.timeout, "render_after_translation": False}}
         started = time.monotonic()

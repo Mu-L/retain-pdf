@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import time
 from retainpdf_pipeline.translate.llm.shared.executor_context import execution_enabled
 from retainpdf_pipeline.translate.workflow.scheduling.page_order import page_ordered_batches
 from pathlib import Path
@@ -102,12 +101,12 @@ def translate_pending_units(
     translation_context: TranslationControlContext | None = None,
     progress_callback: Callable[[int, int, set[int], str], None] | None = None,
     flush_callback: Callable[[set[int], dict[int, set[str]]], None] | None = None,
+    stats_callback: Callable[[dict[str, int]], None] | None = None,
 ) -> dict[str, int]:
     apply_elapsed_s = 0.0
     max_result_drain_batch = 0
     total_applied_batches = 0
     tail_retry_stats: dict[str, int] = {}
-    flush_stats: dict[str, int] = {}
 
     def _apply_stats_callback(
         *,
@@ -131,9 +130,6 @@ def translate_pending_units(
 
     def _tail_retry_stats_callback(**stats: int) -> None:
         tail_retry_stats.update({key: int(value) for key, value in stats.items()})
-
-    def _flush_stats_callback(**stats: int) -> None:
-        flush_stats.update({key: int(value) for key, value in stats.items()})
 
     flat_payload: list[dict] = []
     item_to_page: dict[str, int] = {}
@@ -214,54 +210,52 @@ def translate_pending_units(
         flush_state=flush_state,
         memory_store=memory_store if live_memory_updates else None,
     )
-    for immediate in immediate_results:
-        result_applier.apply_immediate(immediate)
-    if immediate_results and not batches:
-        flush_state.flush(label="final flush for fast-path items")
-    if workers <= 1:
-        sequential_started = time.perf_counter()
-        run_translation_batches_sequential(
-            batches,
-            api_key=api_key,
-            model=model,
-            base_url=base_url,
-            domain_guidance=domain_guidance,
-            mode=mode,
-            translation_context=translation_context,
-            memory_store=prompt_memory,
-            result_applier=result_applier,
-            flush_state=flush_state,
-        )
-        run_stats_payload["apply_elapsed_ms"] = int(round(max(0.0, time.perf_counter() - sequential_started) * 1000))
-        run_stats_payload["max_result_drain_batch"] = 1 if batches else 0
-        run_stats_payload["applied_batches"] = len(batches)
-        run_stats_payload.update(flush_state.stats())
+    try:
+        for immediate in immediate_results:
+            result_applier.apply_immediate(immediate)
+        if immediate_results and not batches:
+            flush_state.flush(label="final flush for fast-path items")
+        if workers <= 1:
+            run_translation_batches_sequential(
+                batches,
+                api_key=api_key,
+                model=model,
+                base_url=base_url,
+                domain_guidance=domain_guidance,
+                mode=mode,
+                translation_context=translation_context,
+                memory_store=prompt_memory,
+                result_applier=result_applier,
+                flush_state=flush_state,
+                apply_stats_callback=_apply_stats_callback,
+            )
+        else:
+            run_translation_batches_parallel(
+                batched_fast_batches=batched_fast_batches,
+                single_fast_batches=single_fast_batches,
+                single_slow_batches=single_slow_batches,
+                queue_workers=queue_workers,
+                api_key=api_key,
+                model=model,
+                base_url=base_url,
+                domain_guidance=domain_guidance,
+                mode=mode,
+                translation_context=translation_context,
+                memory_store=prompt_memory,
+                result_applier=result_applier,
+                flush_state=flush_state,
+                apply_stats_callback=_apply_stats_callback,
+                tail_retry_stats_callback=_tail_retry_stats_callback,
+            )
         return run_stats_payload
-
-    run_translation_batches_parallel(
-        batched_fast_batches=batched_fast_batches,
-        single_fast_batches=single_fast_batches,
-        single_slow_batches=single_slow_batches,
-        queue_workers=queue_workers,
-        api_key=api_key,
-        model=model,
-        base_url=base_url,
-        domain_guidance=domain_guidance,
-        mode=mode,
-        translation_context=translation_context,
-        memory_store=prompt_memory,
-        result_applier=result_applier,
-        flush_state=flush_state,
-        apply_stats_callback=_apply_stats_callback,
-        tail_retry_stats_callback=_tail_retry_stats_callback,
-        flush_stats_callback=_flush_stats_callback,
-    )
-    run_stats_payload["apply_elapsed_ms"] = int(round(apply_elapsed_s * 1000))
-    run_stats_payload["max_result_drain_batch"] = max_result_drain_batch
-    run_stats_payload["applied_batches"] = total_applied_batches
-    run_stats_payload.update(tail_retry_stats)
-    run_stats_payload.update(flush_stats)
-    return run_stats_payload
+    finally:
+        run_stats_payload["apply_elapsed_ms"] = int(round(apply_elapsed_s * 1000))
+        run_stats_payload["max_result_drain_batch"] = max_result_drain_batch
+        run_stats_payload["applied_batches"] = total_applied_batches
+        run_stats_payload.update(tail_retry_stats)
+        run_stats_payload.update(flush_state.stats())
+        if stats_callback is not None:
+            stats_callback(dict(run_stats_payload))
 
 
 def _live_memory_updates_enabled() -> bool:

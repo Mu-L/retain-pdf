@@ -8,6 +8,8 @@ from retainpdf_pipeline.translate.services.policy import TranslationPolicyConfig
 from retainpdf_pipeline.translate.core.payload import ensure_translation_template
 from retainpdf_pipeline.translate.core.payload import load_translations
 from retainpdf_pipeline.translate.core.payload import write_translation_manifest
+from retainpdf_pipeline.translate.core.orchestration.units import refresh_translation_units_by_page
+from retainpdf_pipeline.translate.core.orchestration.units import refresh_translation_units_and_collect_changed_pages
 from retainpdf_pipeline.translate.services.results.page_io import save_pages
 from retainpdf_pipeline.translate.workflow.translation_workflow import default_page_translation_name
 from retainpdf_pipeline.translate.workflow.translation_workflow import translate_items_to_path
@@ -84,4 +86,4 @@ def load_page_payloads(
     return translation_paths, page_payloads
 
 
-__all__ = ["load_page_payloads", "save_pages", "translate_book_pages"]
+__all__ = ["load_page_payloads", "save_pages", "translate_book_pages", "refresh_translation_units_by_page", "refresh_translation_units_and_collect_changed_pages"]
