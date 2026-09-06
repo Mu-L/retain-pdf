@@ -36,6 +36,7 @@ def test_default_suites_and_failure_propagation(monkeypatch):
     command, options = calls[0]
     assert command[3:5] == [str(path) for path in runner.SUITES.values()]
     assert command[5] == str(runner.RUNNER_TEST)
+    assert command[6:8] == list(map(str, runner.ARCHITECTURE_TESTS))
     assert options["timeout"] == 300
     assert "RETAIN_TRANSLATION_CAPTURE_DIR" not in options["env"]
     assert options["env"]["PYTHONPATH"] == str(runner.SERVICES / "pipeline")
@@ -101,6 +102,30 @@ def test_reverse_and_collection(monkeypatch):
     expected = sorted(map(str, runner.SUITES["benchmarks"].rglob("test_*.py")), reverse=True)
     assert calls[0][3:3 + len(expected)] == expected
     assert calls[0][-1] == "--collect-only"
+
+
+@pytest.mark.parametrize("suite", ["all", "translation", "benchmarks"])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_architecture_detector_regressions_follow_translation_suite(monkeypatch, suite, reverse):
+    runner = _runner()
+    calls = []
+    monkeypatch.setattr(runner.subprocess, "run", lambda command, **kwargs: (
+        calls.append(command) or SimpleNamespace(returncode=0)))
+    assert runner.main(["--suite", suite, *(["--reverse"] if reverse else [])]) == 0
+    for gate in runner.ARCHITECTURE_TESTS:
+        assert (str(gate) in calls[0]) == (suite != "benchmarks")
+        assert calls[0].count(str(gate)) <= 1
+    if reverse:
+        targets = calls[0][3:calls[0].index("-q")]
+        assert targets == sorted(targets, reverse=True)
+
+
+def test_missing_architecture_detector_regression_fails_closed(monkeypatch, tmp_path):
+    runner = _runner()
+    monkeypatch.setattr(runner, "ARCHITECTURE_TESTS", (tmp_path / "missing.py",))
+    with pytest.raises(SystemExit) as error:
+        runner.main([])
+    assert error.value.code == 2
 
 
 def test_timeout_is_failure(monkeypatch):

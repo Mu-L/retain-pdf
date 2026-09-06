@@ -12,6 +12,7 @@ from devtools.architecture_checks.translation_rules import TRANSLATE_ONLY_ENTRYP
 from devtools.architecture_checks.translation_rules import TRANSLATION_ALLOWED_ROOT_DIRS
 from devtools.architecture_checks.translation_rules import TRANSLATION_ALLOWED_ROOT_FILES
 from devtools.architecture_checks.translation_rules import TRANSLATION_LAYER_IMPORT_EXCEPTIONS
+from devtools.architecture_checks.translation_rules import TRANSLATION_LAYER_FROZEN_IMPORTS
 from devtools.architecture_checks.translation_rules import TRANSLATION_LAYER_IMPORT_RULES
 from devtools.architecture_checks.translation_rules import TRANSLATION_REMOVED_COMPAT_IMPORTS
 from devtools.architecture_checks.translation_rules import TRANSLATION_ROOT
@@ -176,12 +177,15 @@ def check_translation_internal_boundaries(errors: list[str]) -> None:
             continue
         allowed_prefixes = TRANSLATION_LAYER_IMPORT_RULES[layer]
         exception_prefixes = TRANSLATION_LAYER_IMPORT_EXCEPTIONS.get(path.relative_to(TRANSLATION_ROOT), ())
+        frozen_imports = TRANSLATION_LAYER_FROZEN_IMPORTS.get(path.relative_to(TRANSLATION_ROOT), ())
         for module in imported_modules(path):
             if not module.startswith("retainpdf_pipeline.translate."):
                 continue
             if module_allowed(module, TRANSLATION_SHARED_COMPAT_IMPORTS):
                 continue
             if module_allowed(module, allowed_prefixes) or module_allowed(module, exception_prefixes):
+                continue
+            if module in frozen_imports:
                 continue
             errors.append(
                 f"{rel(path)}: translation layer '{layer}' must not import '{module}' directly"

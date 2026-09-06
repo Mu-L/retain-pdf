@@ -39,6 +39,19 @@ class TranslationExecutionPlan:
 
 
 def build_translation_execution_plan(request: TranslationExecutionRequest) -> TranslationExecutionPlan:
+    journals = []
+    try:
+        return _build_translation_execution_plan(request, journals)
+    except BaseException:
+        for journal in journals:
+            try:
+                journal.close()
+            except Exception:
+                pass  # Preserve the plan-construction failure.
+        raise
+
+
+def _build_translation_execution_plan(request, journals) -> TranslationExecutionPlan:
     data = load_ocr_json(request.source_json_path)
     page_count = get_page_count(data)
     if not page_count:
@@ -46,6 +59,11 @@ def build_translation_execution_plan(request: TranslationExecutionRequest) -> Tr
 
     start, stop = resolve_page_range(page_count, request.start_page, request.end_page)
     provider_family = classify_provider_family(base_url=request.base_url, model=request.model)
+    journal = TranslationRequestJournal(
+        request.output_dir / TRANSLATION_REQUEST_JOURNAL_FILE_NAME,
+        attempt_id=request.output_dir.parent.name,
+    )
+    journals.append(journal)
     run_diagnostics = TranslationRunDiagnostics(
         provider_family=provider_family,
         model=request.model,
@@ -53,10 +71,7 @@ def build_translation_execution_plan(request: TranslationExecutionRequest) -> Tr
         configured_workers=max(1, request.workers),
         configured_batch_size=max(1, request.batch_size),
         configured_classify_batch_size=max(1, request.classify_batch_size),
-        request_journal=TranslationRequestJournal(
-            request.output_dir / TRANSLATION_REQUEST_JOURNAL_FILE_NAME,
-            attempt_id=request.output_dir.parent.name,
-        ),
+        request_journal=journal,
     )
     with translation_run_diagnostics_scope(run_diagnostics):
         policy_config = build_book_translation_policy_config(

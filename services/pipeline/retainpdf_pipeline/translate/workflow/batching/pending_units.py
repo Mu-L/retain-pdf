@@ -231,6 +231,7 @@ def translate_pending_units(
             )
         else:
             run_translation_batches_parallel(
+                use_shared_queue=plan.shared_workers is not None,
                 batched_fast_batches=batched_fast_batches,
                 single_fast_batches=single_fast_batches,
                 single_slow_batches=single_slow_batches,

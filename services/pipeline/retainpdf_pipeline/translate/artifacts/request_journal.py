@@ -50,13 +50,21 @@ class TranslationRequestJournal:
         if hasattr(os, "O_CLOEXEC"):
             flags |= os.O_CLOEXEC
         self._fd = os.open(self.path, flags, 0o600)
-        if os.fstat(self._fd).st_size != valid_size:
-            os.ftruncate(self._fd, valid_size)
-            os.fsync(self._fd)
         try:
-            os.chmod(self.path, 0o600)
-        except OSError:
-            pass
+            if os.fstat(self._fd).st_size != valid_size:
+                os.ftruncate(self._fd, valid_size)
+                os.fsync(self._fd)
+            try:
+                os.chmod(self.path, 0o600)
+            except OSError:
+                pass
+        except BaseException:
+            self._closed = True
+            try:
+                os.close(self._fd)
+            except OSError:
+                pass
+            raise
 
     def _load_existing_state(
         self,
@@ -193,7 +201,7 @@ class TranslationRequestJournal:
                 return
             while self._flush_in_progress and self._failure is None:
                 self._condition.wait()
-            self._raise_if_unavailable()
+            # Cleanup must release the descriptor even after a durable-write failure.
             self._closed = True
             os.close(self._fd)
 

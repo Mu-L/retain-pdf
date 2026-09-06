@@ -48,6 +48,7 @@ class TranslationCheckpointSession:
         self.identity = identity
         self.attempt_id = attempt_id
         self.store = CheckpointStore(translation_checkpoint_path(self.output_dir))
+        self._owns_store = True
         self.payload: dict[str, Any] | None = None
         self.on_pages_committed: Callable[[list[dict[str, Any]]], None] | None = None
 
@@ -56,6 +57,8 @@ class TranslationCheckpointSession:
         cls,
         request: TranslationExecutionRequest,
         plan: TranslationExecutionPlan,
+        *,
+        store: CheckpointStore | None = None,
     ) -> "TranslationCheckpointSession":
         output_dir = Path(request.output_dir)
         session = cls(
@@ -63,11 +66,16 @@ class TranslationCheckpointSession:
             identity=build_translation_identity(request, plan),
             attempt_id=output_dir.parent.name or output_dir.name,
         )
-        session.store.acquire()
+        if store is None:
+            session.store.acquire()
+        else:
+            store.require_owned_path(session.store.path)
+            session.store = store
+            session._owns_store = False
         try:
             session._initialize()
-        except Exception:
-            session.store.close()
+        except BaseException:
+            session.close()
             raise
         return session
 
@@ -269,7 +277,8 @@ class TranslationCheckpointSession:
         )
 
     def close(self) -> None:
-        self.store.close()
+        if self._owns_store:
+            self.store.close()
 
     def __enter__(self) -> "TranslationCheckpointSession":
         return self

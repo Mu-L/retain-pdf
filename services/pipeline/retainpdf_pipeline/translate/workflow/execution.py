@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import sys
 from typing import Any
 
 from retainpdf_pipeline.translate.llm.shared.provider_runtime import DEFAULT_BASE_URL
@@ -10,6 +11,8 @@ from retainpdf_pipeline.translate.services.terms import GlossaryEntry
 from retainpdf_pipeline.translate.workflow.execution_plan import build_translation_execution_plan
 from retainpdf_pipeline.translate.workflow.execution_runner import run_translation_execution_plan
 from retainpdf_pipeline.translate.workflow.execution_plan import TranslationExecutionPlan
+from retainpdf_pipeline.translate.workflow.checkpoint.store import CheckpointStore
+from retainpdf_pipeline.translate.workflow.checkpoint.contract import translation_checkpoint_path
 
 
 @dataclass(frozen=True)
@@ -45,6 +48,27 @@ class TranslationExecutionRequest:
 def execute_translation_request(request: TranslationExecutionRequest) -> dict:
     from retainpdf_pipeline.translate.llm.shared.executor_context import raise_if_executor_failed
     raise_if_executor_failed()
-    plan = build_translation_execution_plan(request)
-    raise_if_executor_failed()
-    return run_translation_execution_plan(request, plan)
+    # Own output before opening its journal or performing domain inference.
+    store = CheckpointStore(translation_checkpoint_path(request.output_dir))
+    store.acquire()
+    plan = None
+    try:
+        plan = build_translation_execution_plan(request)
+        raise_if_executor_failed()
+        return run_translation_execution_plan(request, plan, checkpoint_store=store)
+    finally:
+        active_error = sys.exc_info()[0] is not None
+        try:
+            if plan is not None and plan.run_diagnostics.request_journal is not None:
+                try:
+                    plan.run_diagnostics.request_journal.close()
+                except Exception:
+                    if not active_error:
+                        raise
+        finally:
+            cleanup_error = sys.exc_info()[0] is not None
+            try:
+                store.close()
+            except Exception:
+                if not cleanup_error:
+                    raise

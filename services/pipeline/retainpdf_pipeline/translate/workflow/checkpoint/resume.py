@@ -11,6 +11,7 @@ def discard_copied_resume_candidate(
     output_dir: Path,
     *,
     source_attempt_id: str,
+    store: CheckpointStore | None = None,
 ) -> None:
     """Discard only copy-on-write files after an explicit fingerprint rejection.
 
@@ -20,8 +21,12 @@ def discard_copied_resume_candidate(
 
     output_dir = Path(output_dir)
     current_attempt_id = output_dir.parent.name or output_dir.name
-    store = CheckpointStore(translation_checkpoint_path(output_dir))
-    store.acquire()
+    owns_store = store is None
+    if store is None:
+        store = CheckpointStore(translation_checkpoint_path(output_dir))
+        store.acquire()
+    else:
+        store.require_owned_path(translation_checkpoint_path(output_dir))
     try:
         loaded = store.load()
         if loaded is None:
@@ -58,4 +63,5 @@ def discard_copied_resume_candidate(
             manifest.unlink()
         store.path.unlink()
     finally:
-        store.close()
+        if owns_store:
+            store.close()

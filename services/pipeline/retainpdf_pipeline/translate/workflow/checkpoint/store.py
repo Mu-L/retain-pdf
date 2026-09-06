@@ -54,6 +54,8 @@ class CheckpointStore:
         self._lock_handle: Any = None
 
     def acquire(self) -> None:
+        if self._lock_handle is not None:
+            raise RuntimeError("Checkpoint store already owns a lease")
         self.path.parent.mkdir(parents=True, exist_ok=True)
         lock_path = self.path.parent / CHECKPOINT_LOCK_FILE_NAME
         handle = lock_path.open("a+b")
@@ -65,6 +67,10 @@ class CheckpointStore:
                 f"Translation checkpoint is already owned by another worker: {self.path.parent}"
             ) from exc
         self._lock_handle = handle
+
+    def require_owned_path(self, path: Path) -> None:
+        if self._lock_handle is None or self.path.resolve() != Path(path).resolve():
+            raise RuntimeError("Checkpoint store does not own the requested output lease")
 
     def load(self) -> object | None:
         if not self.path.is_file():

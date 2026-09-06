@@ -159,3 +159,14 @@ cargo build --manifest-path services/api/Cargo.toml -p rust_api --bin rust_api -
 `tests/refactor_baseline.json` 仅含合成文本，固定整理前的 28 组完整消息、成员 ID 和 legacy/Rust 引擎指纹；用 `test_refactor_baseline.py` 逐字验证。扩展协议分支的基线从本地 `062eeafe` 原提示词模块生成，而不是接受重构后的输出。不要为了通过重构测试重新生成基线；合法的语义变更应单独审阅并更新指纹与期望。
 
 本轮未修改 Rust 账本、请求预算、checkpoint 提交协议、生产 provider 设置或模板文本。源码行数减少不作为验收目标；后续 fallback 门面、provider 反向兼容入口和快照全局生命周期仍待单独整理。
+## 离线分阶段计时（零模型费用）
+
+```bash
+.venv/bin/python services/benchmarks/offline_profile.py --workers 1 8 --repeats 5
+```
+
+复用 2 页、7 条目的合成 IO 夹具，每次启动独立进程和冷本地缓存，替换模型传输，运行真实 Python 翻译阶段、页面落盘和 checkpoint，并用真实消费者验证产物。网络入口被禁止；这里的 `rust` 是假执行器客户端，不运行 Rust HTTP/数据库服务，不解析或翻译 `test1.pdf`。
+
+结果保存在独立的 `tmp/pipeline-benchmarks/offline-profile-*/report.json`，包含准备、连续段、策略、批量翻译、结果应用、页面写入、checkpoint 和修复入口的重复样本与中位数。`cProfile` 仅归因主线程，worker CPU 不单独统计；inclusive 行彼此重叠，**不可相加**。进程墙钟包含启动、导入及 profiler 开销，缺失计时表示未观测，不补零。每轮还保留合成产物和本地 profile 供定位；脚本不自动覆盖已有报告。
+
+这用于定位本地开销，不是线上模型等待时间、费用或并发加速比的证据。真实 Qwen 对照仍需另外批准付费请求预算，固定输入计划，并单独判断性能门槛。

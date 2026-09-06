@@ -15,6 +15,9 @@ SUITES = {
     "benchmarks": SERVICES / "benchmarks/tests",
 }
 RUNNER_TEST = Path(__file__).resolve().parent / "tests/entrypoints/test_translation_test_runner.py"
+ARCHITECTURE_TESTS = tuple(Path(__file__).resolve().parent / "tests" / name for name in (
+    "test_translation_field_writer_gate.py", "test_translation_layer_gate.py",
+))
 
 
 def test_environment(output_root: str) -> dict[str, str]:
@@ -53,6 +56,11 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("No test files found in the selected suites")
     if args.suite == "all":
         targets.append(str(RUNNER_TEST))
+    if args.suite in {"all", "translation"}:
+        missing_gates = [str(path) for path in ARCHITECTURE_TESTS if not path.is_file()]
+        if missing_gates:
+            parser.error("Missing architecture regression tests: " + ", ".join(missing_gates))
+        targets.extend(map(str, ARCHITECTURE_TESTS))
         if args.reverse:
             targets.sort(reverse=True)
     command = [sys.executable, "-m", "pytest", *targets, "-q", "--durations=12"]

@@ -217,6 +217,7 @@ TRANSLATION_LAYER_IMPORT_RULES: dict[str, tuple[str, ...]] = {
     ),
     "policy": (
         "retainpdf_pipeline.translate.services.policy",
+        "retainpdf_pipeline.translate.prompt_loader",
         # Historical policy modules still inspect OCR contracts and LLM domain hints.
         # T17-T18 will narrow this to decision-only inputs.
         "retainpdf_pipeline.translate.services.classification",
@@ -238,6 +239,7 @@ TRANSLATION_LAYER_IMPORT_RULES: dict[str, tuple[str, ...]] = {
     ),
     "context": (
         "retainpdf_pipeline.translate.services.context",
+        "retainpdf_pipeline.translate.core.context",
         "retainpdf_pipeline.translate.llm.shared.control_context",
         "retainpdf_pipeline.translate.llm.style_hints",
         "retainpdf_pipeline.translate.services.policy",
@@ -245,6 +247,10 @@ TRANSLATION_LAYER_IMPORT_RULES: dict[str, tuple[str, ...]] = {
     ),
     "ocr": (
         "retainpdf_pipeline.translate.core.ocr",
+        "retainpdf_pipeline.translate.core.continuation_hints",
+        "retainpdf_pipeline.translate.core.legacy_compat",
+        "retainpdf_pipeline.translate.core.classification",
+        "retainpdf_pipeline.translate.core.text_flow",
     ),
     "orchestration": (
         "retainpdf_pipeline.translate.core.orchestration",
@@ -256,12 +262,14 @@ TRANSLATION_LAYER_IMPORT_RULES: dict[str, tuple[str, ...]] = {
     ),
     "continuation": (
         "retainpdf_pipeline.translate.services.continuation",
+        "retainpdf_pipeline.translate.prompt_loader",
         "retainpdf_pipeline.translate.services.context",
         # Continuation review currently asks LLM for borderline cases.
         "retainpdf_pipeline.translate.llm",
     ),
     "classification": (
         "retainpdf_pipeline.translate.services.classification",
+        "retainpdf_pipeline.translate.prompt_loader",
         "retainpdf_pipeline.translate.core",
         "retainpdf_pipeline.translate.services.context",
         "retainpdf_pipeline.translate.llm",
@@ -270,6 +278,7 @@ TRANSLATION_LAYER_IMPORT_RULES: dict[str, tuple[str, ...]] = {
     ),
     "terms": (
         "retainpdf_pipeline.translate.services.terms",
+        "retainpdf_pipeline.translate.core.terms",
     ),
     "diagnostics": (
         "retainpdf_pipeline.translate.artifacts",
@@ -301,6 +310,43 @@ TRANSLATION_LAYER_IMPORT_EXCEPTIONS: dict[Path, tuple[str, ...]] = {
     Path("llm/shared/orchestration/fallbacks.py"): (
         "retainpdf_pipeline.translate.services.postprocess",
     ),
+}
+# Frozen migration debt: exact importing file AND exact imported module only.
+# These are existing orchestration/validation bridges, not permission for a
+# whole package to depend on another layer. Remove each edge as owners converge.
+TRANSLATION_LAYER_FROZEN_IMPORTS: dict[Path, frozenset[str]] = {
+    Path("services/agents/repair_pipeline.py"): frozenset({
+        "retainpdf_pipeline.translate.artifacts.status",
+        "retainpdf_pipeline.translate.core.payload",
+        "retainpdf_pipeline.translate.core.payload.parts.diagnostics",
+        "retainpdf_pipeline.translate.services.policy",
+    }),
+    Path("services/agents/review_artifact.py"): frozenset({
+        "retainpdf_pipeline.translate.artifacts.review",
+    }),
+    Path("services/continuation/orchestrator.py"): frozenset({
+        "retainpdf_pipeline.translate.core.orchestration.units",
+        "retainpdf_pipeline.translate.core.orchestration.zones",
+    }),
+    Path("services/policy/special_blocks.py"): frozenset({
+        "retainpdf_pipeline.translate.llm.validation.placeholder_tokens",
+    }),
+    Path("services/policy/verdict.py"): frozenset({
+        "retainpdf_pipeline.translate.llm.validation.placeholder_tokens",
+    }),
+    Path("services/postprocess/garbled_reconstruction.py"): frozenset({
+        "retainpdf_pipeline.translate.artifacts.status",
+        "retainpdf_pipeline.translate.core.payload.formula_protection",
+        "retainpdf_pipeline.translate.core.payload.parts.apply",
+        "retainpdf_pipeline.translate.core.payload.parts.common",
+        "retainpdf_pipeline.translate.core.payload.parts.diagnostics",
+        "retainpdf_pipeline.translate.core.payload.parts.final_status",
+        "retainpdf_pipeline.translate.core.payload.parts.policy_state",
+        "retainpdf_pipeline.translate.core.payload.parts.result_entries",
+        "retainpdf_pipeline.translate.core.payload.parts.units",
+        "retainpdf_pipeline.translate.services.policy",
+        "retainpdf_pipeline.translate.services.quality",
+    }),
 }
 TRANSLATION_RENDERING_IMPORT_EXCEPTIONS: dict[Path, tuple[str, ...]] = {
     # Translation can start render-source prewarm in parallel with LLM work, but
@@ -347,4 +393,9 @@ def translation_layer_for(path: Path) -> str | None:
     if not parts:
         return None
     first = parts[0]
+    if len(parts) > 2 and (first == "services" or
+                           (first == "core" and parts[1] in {"payload", "ocr", "orchestration"})):
+        specific = parts[1]
+        if specific in TRANSLATION_LAYER_IMPORT_RULES:
+            return specific
     return first if first in TRANSLATION_ALLOWED_ROOT_DIRS else None

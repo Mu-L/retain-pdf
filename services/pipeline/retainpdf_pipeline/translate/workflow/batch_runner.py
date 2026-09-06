@@ -17,7 +17,11 @@ from retainpdf_pipeline.translate.workflow.batching.executor import _translate_b
 from retainpdf_pipeline.translate.services.results.flush import TranslationFlushState
 from retainpdf_pipeline.translate.services.results.applier import TranslationResultApplier
 from retainpdf_pipeline.translate.workflow.scheduling.failures import _failed_results_for_unhandled_batch_exception
-from retainpdf_pipeline.translate.workflow.scheduling.page_order import task_order
+from retainpdf_pipeline.translate.workflow.scheduling.pool_specs import (
+    TranslationTask,
+    build_pool_specs,
+    translation_tasks as _translation_tasks,
+)
 from retainpdf_pipeline.translate.workflow.scheduling.metrics import SchedulerMetrics
 from retainpdf_pipeline.translate.workflow.scheduling.tail_retry import _drain_translation_tail_queue
 from retainpdf_pipeline.translate.workflow.scheduling.tail_retry import _should_drain_translation_tail_early
@@ -30,7 +34,6 @@ TranslationResult = tuple[
     dict[str, dict[str, str]] | None,
     Exception | None,
 ]
-TranslationTask = tuple[str, int, int, list[dict]]
 AppliedTranslationResult = tuple[list[dict], dict[str, dict[str, str]]]
 RESULT_DRAIN_BATCH_SIZE = 64
 
@@ -195,14 +198,6 @@ def _start_translation_queue_workers(
     return executor, futures
 
 
-def _translation_tasks(queue_name: str, batches: list[list[dict]]) -> list[TranslationTask]:
-    total = len(batches)
-    return [
-        (queue_name, index, total, batch)
-        for index, batch in enumerate(batches, start=1)
-    ]
-
-
 def _normalize_translation_result(result: TranslationResult) -> AppliedTranslationResult:
     queue_name, _batch_index, batch, translated, exc = result
     if execution_enabled() and isinstance(exc, ExecutorError):
@@ -252,7 +247,13 @@ def run_translation_batches_parallel(
     apply_stats_callback: Callable[..., None] | None = None,
     tail_retry_stats_callback: Callable[..., None] | None = None,
     flush_stats_callback: Callable[..., None] | None = None,
+    use_shared_queue: bool | None = None,
 ) -> None:
+    # Direct callers retain environment-selected scheduling; production passes
+    # the choice already made by its dispatch plan. Runtime failure gates remain
+    # independent of this pool-layout choice.
+    if use_shared_queue is None:
+        use_shared_queue = execution_enabled()
     executors: list[ThreadPoolExecutor] = []
     worker_futures = []
     result_queue: Queue[TranslationResult] = Queue()
@@ -262,31 +263,15 @@ def run_translation_batches_parallel(
         "single_slow": single_slow_batches,
     }
     total_batches = sum(len(batches) for batches in batches_by_queue.values())
-    metrics = SchedulerMetrics(total_batches, min(total_batches, max(1, sum(queue_workers.values())))) if execution_enabled() else None
+    metrics = SchedulerMetrics(total_batches, min(total_batches, max(1, sum(queue_workers.values())))) if use_shared_queue else None
     tail_retry_workers = _transport_tail_retry_workers(queue_workers)
-    slow_tasks = _translation_tasks("single_slow", single_slow_batches)
-    pool_specs = [
-        (
-            "batched_fast",
-            _translation_tasks("batched_fast", batched_fast_batches),
-            int(queue_workers.get("batched_fast", 0) or 0),
-        ),
-        (
-            "single_fast",
-            _translation_tasks("single_fast", single_fast_batches),
-            int(queue_workers.get("single_fast", 0) or 0),
-        ),
-        (
-            "slow",
-            slow_tasks,
-            int(queue_workers.get("single_slow", 0) or 0),
-        ),
-    ]
-    if execution_enabled():
-        # One bounded FIFO queue for every route: idle workers can immediately
-        # serve batches of any kind. Rust remains the global request limiter.
-        tasks = sorted([task for _, tasks, _ in pool_specs for task in tasks], key=task_order)
-        pool_specs = [("shared_page_order", tasks, max(1, sum(queue_workers.values()))) ]
+    pool_specs = build_pool_specs(
+        batched_fast_batches=batched_fast_batches,
+        single_fast_batches=single_fast_batches,
+        single_slow_batches=single_slow_batches,
+        queue_workers=queue_workers,
+        use_shared_queue=use_shared_queue,
+    )
     for pool_name, tasks, worker_count in pool_specs:
         if not tasks:
             continue

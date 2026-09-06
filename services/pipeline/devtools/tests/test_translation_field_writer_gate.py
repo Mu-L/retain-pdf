@@ -4,6 +4,8 @@ import ast
 import sys
 from pathlib import Path
 
+import pytest
+
 
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
@@ -58,6 +60,36 @@ def test_ignores_reads_and_ungated_keys() -> None:
         "flag = item.get(\"should_translate\", True)\n"
     )
 
+    assert _writes(source) == {}
+
+
+@pytest.mark.parametrize("source,field", [
+    ('item.update(final_status="translated")', "final_status"),
+    ('item.update({"should_translate": False})', "should_translate"),
+    ('item.update(**{"skip_reason": "policy"})', "skip_reason"),
+    ('item.update({**{"translated_text": "译文"}})', "translated_text"),
+    ('item.pop("skip_reason", None)', "skip_reason"),
+    ('del item["translated_text"]', "translated_text"),
+    ('item |= {"protected_translated_text": "译文"}', "protected_translated_text"),
+    ('item["final_status"]: str = "failed"', "final_status"),
+    ('item["translated_text"] += "译文"', "translated_text"),
+])
+def test_detects_explicit_mapping_mutations(source, field):
+    assert _writes(source) == {field: [1]}
+
+
+@pytest.mark.parametrize("source", [
+    'result = {"final_status": "translated"}',
+    'result = dict(final_status="translated")',
+    'result = item | {"final_status": "translated"}',
+    'result = item.get("translated_text")',
+    'item.update(bbox=[0, 0, 1, 1])',
+    'item.pop("bbox", None)',
+    # No invented data-flow proof for an unknown mapping or dynamic key.
+    'item.update(other_mapping)',
+    'item[key] = value',
+])
+def test_does_not_confuse_dictionary_creation_or_reads_with_mutation(source):
     assert _writes(source) == {}
 
 

@@ -145,6 +145,8 @@ def _subscript_write_keys(node: ast.AST) -> list[str]:
         targets = list(node.targets)
     elif isinstance(node, (ast.AugAssign, ast.AnnAssign)):
         targets = [node.target]
+    elif isinstance(node, ast.Delete):
+        targets = list(node.targets)
     for target in targets:
         elements = target.elts if isinstance(target, (ast.Tuple, ast.List)) else [target]
         for element in elements:
@@ -157,12 +159,32 @@ def _subscript_write_keys(node: ast.AST) -> list[str]:
     if (
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
-        and node.func.attr == "setdefault"
+        and node.func.attr in {"setdefault", "pop"}
         and node.args
         and isinstance(node.args[0], ast.Constant)
         and isinstance(node.args[0].value, str)
     ):
         keys.append(node.args[0].value)
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "update":
+        keys.extend(keyword.arg for keyword in node.keywords if keyword.arg is not None)
+        for argument in (*node.args, *(keyword.value for keyword in node.keywords if keyword.arg is None)):
+            keys.extend(_literal_mapping_keys(argument))
+    if isinstance(node, ast.AugAssign) and isinstance(node.op, ast.BitOr):
+        keys.extend(_literal_mapping_keys(node.value))
+    return keys
+
+
+def _literal_mapping_keys(node: ast.AST) -> list[str]:
+    # Recognize only explicit mapping mutations, not arbitrary dictionary
+    # construction/reads or unknown runtime keys. This is not alias analysis.
+    if not isinstance(node, ast.Dict):
+        return []
+    keys = []
+    for key, value in zip(node.keys, node.values):
+        if isinstance(key, ast.Constant) and isinstance(key.value, str):
+            keys.append(key.value)
+        elif key is None:
+            keys.extend(_literal_mapping_keys(value))
     return keys
 
 

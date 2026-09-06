@@ -14,6 +14,7 @@ from retainpdf_pipeline.translate.workflow.translation_workflow import default_p
 from retainpdf_pipeline.translate.workflow.checkpoint import TranslationCheckpointSession
 from retainpdf_pipeline.translate.workflow.checkpoint import ResumeCandidateFingerprintMismatch
 from retainpdf_pipeline.translate.workflow.checkpoint import discard_copied_resume_candidate
+from retainpdf_pipeline.translate.workflow.checkpoint.store import CheckpointStore
 
 def _record_committed_pages(pages):
     diagnostics = get_active_translation_run_diagnostics()
@@ -29,6 +30,8 @@ if TYPE_CHECKING:
 def run_translation_execution_plan(
     request: TranslationExecutionRequest,
     plan: TranslationExecutionPlan,
+    *,
+    checkpoint_store: CheckpointStore | None = None,
 ) -> dict:
     # Import lazily to keep services.translation.workflow importable without pulling runtime.pipeline.
     from retainpdf_pipeline.translate.workflow.book_flow import translate_book_with_global_continuations
@@ -36,17 +39,18 @@ def run_translation_execution_plan(
     glossary_entries = plan.glossary_entries
 
     try:
-        checkpoint_session = TranslationCheckpointSession.acquire(request, plan)
+        checkpoint_session = TranslationCheckpointSession.acquire(request, plan, store=checkpoint_store)
     except ResumeCandidateFingerprintMismatch as mismatch:
         discard_copied_resume_candidate(
             request.output_dir,
             source_attempt_id=mismatch.source_attempt_id,
+            store=checkpoint_store,
         )
         print(
             "book: copied translation checkpoint fingerprint mismatch; starting a fresh attempt",
             flush=True,
         )
-        checkpoint_session = TranslationCheckpointSession.acquire(request, plan)
+        checkpoint_session = TranslationCheckpointSession.acquire(request, plan, store=checkpoint_store)
 
     with checkpoint_session as checkpoint:
         checkpoint.on_pages_committed = _record_committed_pages

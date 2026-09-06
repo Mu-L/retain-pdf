@@ -10,7 +10,6 @@ from retainpdf_pipeline.translate.prompt_loader import render_prompt
 from retainpdf_pipeline.services.pipeline_shared.direct_typst_math import find_mitex_rewrites
 from retainpdf_pipeline.services.pipeline_shared.direct_typst_math import has_balanced_unescaped_dollars
 from retainpdf_pipeline.translate.core.context import TranslationItemContext
-from retainpdf_pipeline.translate.core.item_reader import item_is_reference_compatible, item_is_title_like
 
 
 JSON_ONLY_INSTRUCTION = 'Return only valid JSON with the schema {"translations":[{"item_id":"...","translated_text":"..."}]}.'
@@ -177,7 +176,7 @@ def _append_mitex_rewrite_hint(lines: list[str], item: TranslationItemContext) -
 
 
 def _scoped_terms_guidance(item: TranslationItemContext) -> str:
-    return str((item.raw_item or {}).get("_scoped_terms_guidance", "") or "").strip()
+    return item.scoped_terms_guidance
 
 
 def _append_scoped_terms_guidance(lines: list[str], item: TranslationItemContext) -> None:
@@ -189,10 +188,9 @@ def _append_scoped_terms_guidance(lines: list[str], item: TranslationItemContext
 
 
 def _role_guidance(item: TranslationItemContext) -> str:
-    raw = item.raw_item or {}
-    if item_is_reference_compatible(raw):
+    if item.prompt_is_reference:
         return "参考文献规则：只翻译作品标题；作者、期刊、年份、卷期、页码和引文顺序保持原样。"
-    if item_is_title_like(raw):
+    if item.prompt_is_title:
         return "标题规则：译成简洁正式的学术标题，不扩写为解释性句子。"
     return ""
 
@@ -372,22 +370,14 @@ def group_member_json_user_prompt(
     *,
     target_language_name: str = DEFAULT_TARGET_LANGUAGE_NAME,
 ) -> str:
-    raw_item = item.raw_item or {}
-    member_ids = [
-        str(member_id or "").strip()
-        for member_id in raw_item.get("translation_unit_member_ids", [])
-        if str(member_id or "").strip()
-    ]
+    if item.prompt_member_ids_error is not None:
+        raise TypeError(item.prompt_member_ids_error)
+    member_ids = list(item.prompt_member_ids)
     if not member_ids:
         member_ids = [item.item_id]
-    raw_members = raw_item.get("translation_unit_members", [])
-    member_source_by_id = {
-        str(member.get("item_id", "") or "").strip(): str(
-            member.get("protected_source_text", "") or member.get("source_text", "") or ""
-        ).strip()
-        for member in raw_members
-        if isinstance(member, dict) and str(member.get("item_id", "") or "").strip()
-    }
+    if item.prompt_member_sources_error is not None:
+        raise TypeError(item.prompt_member_sources_error)
+    member_source_by_id = dict(item.prompt_member_sources)
     user_payload: dict[str, Any] = {
         "task": (
             f"Translate the continuation group into {_target_language_name(target_language_name)}. "
@@ -426,7 +416,7 @@ def group_member_json_user_prompt(
     terms_guidance = _scoped_terms_guidance(item)
     if terms_guidance:
         user_payload["group"]["terms_note"] = terms_guidance
-    if str(raw_item.get("math_mode", "") or "").strip() == "direct_typst":
+    if item.prompt_raw_direct_typst:
         if not has_balanced_unescaped_dollars(item.source_for_prompt()):
             user_payload["group"]["math_delimiter_note"] = MATH_DELIMITER_DAMAGE_HINT
         rewrites = find_mitex_rewrites(item.source_for_prompt())

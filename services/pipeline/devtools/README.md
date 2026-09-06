@@ -126,6 +126,28 @@ recognized. Legacy exhaustion and fresh-process recovery are now covered without
 changing retry counts or sleeps; the earlier timeout is not evidence that the
 normal retry chain takes over 30 seconds.
 
+### Execution ownership and refactoring guards
+
+- The normal `execute_translation_request` entry acquires the output lease
+  before plan preparation opens the request journal or infers domain context.
+  Checkpoint initialization borrows that lease after the complete plan exists;
+  copied-resume rejection must reuse it rather than recursively acquiring it.
+  Journal cleanup runs on success and failure, and cleanup errors must not hide
+  the original execution error. This is output-directory exclusion, not global
+  model deduplication across different jobs or output directories.
+- Prompt context snapshots the values previously read through `raw_item`.
+  Existing plan/item reference identities remain unchanged; this is not a deep
+  immutable rewrite of every context field or a disk schema migration.
+- Parallel pool construction is a pure helper. The prepared plan selects the
+  queue strategy, while executor failure checks, tail-retry policy and the
+  single consumer's apply/flush/checkpoint sequence remain in their existing
+  execution boundaries. No additional background page writer is introduced.
+- Fine-grained layer mapping and field-writer detector regression tests belong
+  to the offline translation gate. Historical cross-layer debt is frozen by
+  exact file/module pairs, not blanket directory permissions. Static writer
+  checks cover literal-key mutation forms; dynamic keys/aliases are not a full
+  object-level proof of exclusive mutation ownership.
+
 ## Code size
 
 Run the repository code counter from the project root:
