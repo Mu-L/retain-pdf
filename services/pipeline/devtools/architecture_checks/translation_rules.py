@@ -328,12 +328,6 @@ TRANSLATION_LAYER_FROZEN_IMPORTS: dict[Path, frozenset[str]] = {
         "retainpdf_pipeline.translate.core.orchestration.units",
         "retainpdf_pipeline.translate.core.orchestration.zones",
     }),
-    Path("services/policy/special_blocks.py"): frozenset({
-        "retainpdf_pipeline.translate.llm.validation.placeholder_tokens",
-    }),
-    Path("services/policy/verdict.py"): frozenset({
-        "retainpdf_pipeline.translate.llm.validation.placeholder_tokens",
-    }),
     Path("services/postprocess/garbled_reconstruction.py"): frozenset({
         "retainpdf_pipeline.translate.artifacts.status",
         "retainpdf_pipeline.translate.core.payload.formula_protection",

@@ -6,6 +6,7 @@ import hashlib
 import re
 from typing import Iterable
 
+from retainpdf_pipeline.translate.core.placeholder_tokens import PROTECTED_TOKEN_RE
 from retainpdf_pipeline.translate.core.terms.glossary import GlossaryEntry
 from retainpdf_pipeline.translate.core.terms.glossary import context_matches
 from retainpdf_pipeline.translate.core.terms.glossary import glossary_hard_entries
@@ -16,11 +17,6 @@ from retainpdf_pipeline.translate.core.terms.glossary import term_pattern
 LEGACY_FORMULA_PLACEHOLDER_RE = re.compile(r"\[\[FORMULA_(\d+)]]")
 LEGACY_ALIAS_PLACEHOLDER_RE = re.compile(r"@@F\d+@@")
 TYPED_TOKEN_RE = re.compile(r"<(?P<prefix>[futnvc])(?P<index>\d+)-(?P<checksum>[0-9a-z]{3})/>")
-PROTECTED_TOKEN_RE = re.compile(
-    r"<[futnvc]\d+-[0-9a-z]{3}/>"
-    r"|\[\[FORMULA_\d+]]"
-    r"|@@F\d+@@"
-)
 INLINE_MATH_RE = re.compile(r"\$(?P<body>[^$\n]+)\$")
 PROSE_BOUNDARY_RE = re.compile(r"([}\]])([A-Za-z][a-z]{2,})")
 LATEX_FORMULA_RE = re.compile(

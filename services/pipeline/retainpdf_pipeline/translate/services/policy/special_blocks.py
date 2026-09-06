@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from retainpdf_pipeline.translate.llm.validation.placeholder_tokens import strip_placeholders
+from retainpdf_pipeline.translate.core.placeholder_tokens import strip_placeholders
 
 
 _CONTRIBUTOR_HEADING_RE = re.compile(

@@ -8,7 +8,7 @@ from retainpdf_pipeline.translate.core.item_reader import item_block_class
 from retainpdf_pipeline.translate.core.item_reader import item_is_caption_like
 from retainpdf_pipeline.translate.core.item_reader import item_policy_translate
 from retainpdf_pipeline.translate.core.item_reader import item_raw_block_type
-from retainpdf_pipeline.translate.llm.validation.placeholder_tokens import strip_placeholders
+from retainpdf_pipeline.translate.core.placeholder_tokens import strip_placeholders
 from retainpdf_pipeline.translate.services.policy.metadata_filter import looks_like_hard_nontranslatable_metadata
 from retainpdf_pipeline.translate.services.policy.special_blocks import looks_like_special_long_list_block
 

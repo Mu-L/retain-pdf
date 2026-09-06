@@ -7,6 +7,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Callable
+from typing import Literal
 
 from retainpdf_pipeline.translate.core.item_reader import item_block_kind
 from retainpdf_pipeline.translate.core.payload.formula_protection import restore_protected_tokens
@@ -224,16 +225,18 @@ def _clean_reconstructed_text(text: str, item: dict) -> tuple[str, bool]:
     return restore_protected_tokens(salvaged, protected_map), salvage_changed
 
 
-def _apply_reconstruction(items: list[dict], translated_text: str) -> None:
+def _apply_reconstruction(
+    items: list[dict], translated_text: str,
+) -> Literal["applied", "rejected", "no_result"]:
     if not translated_text or not items:
-        return
+        return "no_result"
     cleaned_text, salvaged = _clean_reconstructed_text(translated_text, items[0])
     # 用清洗后的文本做质量校验:落盘什么就校验什么。
     validation_issues = _validate_reconstruction(items[0], cleaned_text)
     if validation_issues:
         for item in items:
             _record_reconstruction_rejected(item, validation_issues)
-        return
+        return "rejected"
     if _is_aggregate_geometry_group(items[0]):
         apply_group_translated_entry(
             items,
@@ -263,6 +266,7 @@ def _apply_reconstruction(items: list[dict], translated_text: str) -> None:
         if salvaged:
             updates["reasoning_leak_salvaged"] = True
         record_translation_diagnostics(item, "garbled_reconstruction", updates)
+    return "applied"
 
 
 def _candidate_key(item: dict) -> str:
@@ -365,9 +369,11 @@ def _run_reconstruction_candidates(
                 continue
             if translated_text:
                 target_items = candidates_by_key[key]
-                _apply_reconstruction(target_items, translated_text)
-                reconstructed += 1
-                dirty_pages.update(_collect_dirty_pages(target_items))
+                outcome = _apply_reconstruction(target_items, translated_text)
+                reconstructed += int(outcome == "applied")
+                # Rejection changes diagnostics, so it still needs persistence.
+                if outcome != "no_result":
+                    dirty_pages.update(_collect_dirty_pages(target_items))
             if progress_callback is not None:
                 progress_callback(completed, len(candidate_list), set(dirty_pages))
         return reconstructed, dirty_pages
@@ -391,9 +397,10 @@ def _run_reconstruction_candidates(
                 continue
             if translated_text:
                 target_items = candidates_by_key[key]
-                _apply_reconstruction(target_items, translated_text)
-                reconstructed += 1
-                dirty_pages.update(_collect_dirty_pages(target_items))
+                outcome = _apply_reconstruction(target_items, translated_text)
+                reconstructed += int(outcome == "applied")
+                if outcome != "no_result":
+                    dirty_pages.update(_collect_dirty_pages(target_items))
             completed += 1
             if progress_callback is not None:
                 progress_callback(completed, len(candidate_list), set(dirty_pages))

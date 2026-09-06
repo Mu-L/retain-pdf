@@ -93,6 +93,11 @@ re-requesting the committed success. No production failure state is injected.
 
 ### Persistence and measurement boundaries
 
+- Garbled reconstruction application reports `applied`, `rejected`, or
+  `no_result`. Only `applied` increments the reconstructed candidate/unit count;
+  this is not a count of individual cross-page members. Rejected output still
+  dirties its diagnostic pages, even when the stage has zero successful repairs.
+  Candidate selection, quality validation and model request budgets are unchanged.
 - `save_pages` defaults to writing the supplied payload without changing unit
   metadata. Initial preparation and repair stages explicitly refresh units where
   required; the explicit `refresh_units=True` compatibility option remains.
@@ -128,6 +133,10 @@ normal retry chain takes over 30 seconds.
 
 ### Execution ownership and refactoring guards
 
+- Placeholder syntax and text helpers live in `translate/core/placeholder_tokens.py`
+  with standard-library-only dependencies. Policy and formula protection use
+  this owner; the previous LLM validation module remains a compatibility export
+  of the same objects. The two policy-to-LLM frozen import exceptions are removed.
 - The normal `execute_translation_request` entry acquires the output lease
   before plan preparation opens the request journal or infers domain context.
   Checkpoint initialization borrows that lease after the complete plan exists;
