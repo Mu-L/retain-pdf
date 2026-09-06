@@ -34,6 +34,7 @@ pub struct ProcessRuntimeDeps {
     pub db: Arc<Db>,
     pub canceled_jobs: Arc<RwLock<HashSet<String>>>,
     pub job_slots: Arc<Semaphore>,
+    pub job_drivers: Arc<super::JobDriverRegistry>,
 }
 
 impl ProcessRuntimeDeps {
@@ -42,6 +43,7 @@ impl ProcessRuntimeDeps {
         db: Arc<Db>,
         canceled_jobs: Arc<RwLock<HashSet<String>>>,
         job_slots: Arc<Semaphore>,
+        job_drivers: Arc<super::JobDriverRegistry>,
     ) -> Self {
         let persist = JobPersistDeps::new(
             db.clone(),
@@ -54,6 +56,7 @@ impl ProcessRuntimeDeps {
             db,
             canceled_jobs,
             job_slots,
+            job_drivers,
         }
     }
 

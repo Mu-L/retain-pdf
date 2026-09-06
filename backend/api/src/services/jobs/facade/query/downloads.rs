@@ -9,14 +9,39 @@ use crate::services::jobs::downloads::{
 use super::super::JobsFacade;
 
 impl<'a> JobsFacade<'a> {
-    pub(crate) fn download_job_document(
+    pub(crate) async fn download_job_document(
         &self,
         job_id: &str,
         ocr_only: bool,
         kind: DocumentDownloadKind,
     ) -> Result<FileDownload, AppError> {
-        let job = self.load_supported_job_snapshot(job_id, ocr_only)?;
-        document_download(&self.query, &job, kind)
+        let deps = self.query.owned();
+        let job_id = job_id.to_owned();
+        let label = match kind {
+            DocumentDownloadKind::OutputPdf => "output",
+            DocumentDownloadKind::NormalizedDocument => "normalized",
+            DocumentDownloadKind::NormalizationReport => "normalization-report",
+        };
+        self.query
+            .download_generation
+            .run(format!("{job_id}:document:{label}:{ocr_only}"), move || {
+                let deps = deps.borrowed();
+                let job = if ocr_only {
+                    crate::services::jobs::query::load_ocr_job_with_supported_layout(
+                        deps.db,
+                        deps.data_root,
+                        &job_id,
+                    )?
+                } else {
+                    crate::services::jobs::query::load_supported_job(
+                        deps.db,
+                        deps.data_root,
+                        &job_id,
+                    )?
+                };
+                document_download(&deps, &job, kind)
+            })
+            .await
     }
 
     pub async fn markdown_document(&self, job_id: String) -> Result<MarkdownDownload, AppError> {
@@ -57,12 +82,24 @@ impl<'a> JobsFacade<'a> {
     }
 
     pub async fn side_by_side_pdf_download(&self, job_id: &str) -> Result<FileDownload, AppError> {
-        let _guard = self.query.downloads_lock.lock().await;
-        side_by_side_pdf_download(&self.query, job_id)
+        let deps = self.query.owned();
+        let job_id = job_id.to_owned();
+        self.query
+            .download_generation
+            .run(format!("{job_id}:side-by-side"), move || {
+                side_by_side_pdf_download(&deps.borrowed(), &job_id)
+            })
+            .await
     }
 
     pub async fn bundle_download(&self, job_id: &str) -> Result<FileDownload, AppError> {
-        let _guard = self.query.downloads_lock.lock().await;
-        bundle_download(&self.query, job_id)
+        let deps = self.query.owned();
+        let job_id = job_id.to_owned();
+        self.query
+            .download_generation
+            .run(format!("{job_id}:bundle"), move || {
+                bundle_download(&deps.borrowed(), &job_id)
+            })
+            .await
     }
 }

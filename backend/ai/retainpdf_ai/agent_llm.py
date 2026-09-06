@@ -9,13 +9,14 @@ from typing import Any
 import httpx
 
 from .config import Settings
-from .request_control import AIRequestTimeout, RequestControl
+from .request_control import AIProviderError, AIRequestTimeout, AIStreamIncomplete, RequestControl
 from .runtimes.contracts import ChatFn
 
 
 def assemble_streaming_message(
     lines: Iterable[str | bytes],
     on_delta: Callable[[str], None] | None = None,
+    request_control: RequestControl | None = None,
 ) -> dict[str, Any]:
     """Assemble an SSE response into the non-streaming assistant shape."""
     content_parts: list[str] = []
@@ -26,6 +27,8 @@ def assemble_streaming_message(
     holdback_chars = 64
     pending: list[str] = []
     pending_flushed = False
+    done = False
+    finish_reason = None
 
     def flush_pending() -> None:
         nonlocal pending_flushed
@@ -35,28 +38,54 @@ def assemble_streaming_message(
         pending_flushed = True
 
     for raw in lines:
-        line = raw.decode("utf-8") if isinstance(raw, bytes) else raw
+        if request_control is not None:
+            request_control.raise_if_stopped()
+        try:
+            line = raw.decode("utf-8") if isinstance(raw, bytes) else raw
+        except UnicodeDecodeError as exc:
+            raise AIStreamIncomplete() from exc
         line = line.strip()
         if not line or not line.startswith("data:"):
             continue
         data = line[len("data:") :].strip()
         if data == "[DONE]":
+            done = True
             break
         try:
             chunk = json.loads(data)
-        except json.JSONDecodeError:
-            continue
-        choices = chunk.get("choices") or []
+        except json.JSONDecodeError as exc:
+            raise AIStreamIncomplete() from exc
+        if not isinstance(chunk, dict) or "error" in chunk:
+            raise AIStreamIncomplete()
+        choices = chunk.get("choices")
+        if not isinstance(choices, list):
+            raise AIStreamIncomplete()
         if not choices:
             continue
-        delta = choices[0].get("delta") or {}
+        if not isinstance(choices[0], dict):
+            raise AIStreamIncomplete()
+        choice = choices[0]
+        reason = choice.get("finish_reason")
+        if reason is not None:
+            if reason not in {"stop", "tool_calls"}:
+                raise AIStreamIncomplete()
+            finish_reason = reason
+        delta = choice.get("delta") or {}
+        if not isinstance(delta, dict):
+            raise AIStreamIncomplete()
         delta_tool_calls = delta.get("tool_calls") or []
+        if not isinstance(delta_tool_calls, list):
+            raise AIStreamIncomplete()
         if delta_tool_calls:
             if not saw_tool_calls:
                 pending.clear()
             saw_tool_calls = True
             for call in delta_tool_calls:
+                if not isinstance(call, dict):
+                    raise AIStreamIncomplete()
                 index = call.get("index", 0)
+                if type(index) is not int or index < 0:
+                    raise AIStreamIncomplete()
                 slot = tool_calls.setdefault(
                     index,
                     {
@@ -70,11 +99,18 @@ def assemble_streaming_message(
                 if call.get("type"):
                     slot["type"] = call["type"]
                 function = call.get("function") or {}
+                if not isinstance(function, dict) or any(
+                    key in function and not isinstance(function[key], str)
+                    for key in ("name", "arguments")
+                ):
+                    raise AIStreamIncomplete()
                 if function.get("name"):
                     slot["function"]["name"] += function["name"]
                 if function.get("arguments"):
                     slot["function"]["arguments"] += function["arguments"]
         piece = delta.get("content")
+        if piece is not None and not isinstance(piece, str):
+            raise AIStreamIncomplete()
         if piece:
             content_parts.append(piece)
             if on_delta is not None and not saw_tool_calls:
@@ -84,6 +120,10 @@ def assemble_streaming_message(
                     pending.append(piece)
                     if sum(len(part) for part in pending) >= holdback_chars:
                         flush_pending()
+    if request_control is not None:
+        request_control.raise_if_stopped()
+    if not done or finish_reason != ("tool_calls" if saw_tool_calls else "stop"):
+        raise AIStreamIncomplete()
     if not saw_tool_calls and not pending_flushed:
         flush_pending()
     message: dict[str, Any] = {
@@ -110,10 +150,7 @@ def friendly_llm_error(status_code: int, detail: str = "") -> RuntimeError:
             hint = "模型服务暂时不可用（上游故障）：请稍后重试"
         else:
             hint = f"模型服务返回错误（HTTP {status_code}）"
-    snippet = f"{detail or ''}".strip().replace("\n", " ")
-    if len(snippet) > 200:
-        snippet = f"{snippet[:200]}…"
-    return RuntimeError(f"{hint}" + (f"（上游信息：{snippet}）" if snippet else ""))
+    return AIProviderError(hint)
 
 
 def build_deepseek_chat_fn(
@@ -179,7 +216,7 @@ def build_deepseek_chat_fn(
             if request_control is not None:
                 request_control.raise_if_stopped()
             if response.status_code >= 400:
-                raise friendly_llm_error(response.status_code, response.text)
+                raise friendly_llm_error(response.status_code)
             return response.json()["choices"][0]["message"]
         body["stream"] = True
         with http.stream(
@@ -189,15 +226,11 @@ def build_deepseek_chat_fn(
             if request_control is not None:
                 request_control.add_cancel_callback(close_response)
             if response.status_code >= 400:
-                try:
-                    detail = response.read().decode("utf-8", errors="replace")
-                except Exception:  # noqa: BLE001 - preserve bounded provider fallback
-                    detail = ""
                 if request_control is not None:
                     request_control.remove_cancel_callback(close_response)
-                raise friendly_llm_error(response.status_code, detail)
+                raise friendly_llm_error(response.status_code)
             try:
-                message = assemble_streaming_message(response.iter_lines(), on_delta)
+                message = assemble_streaming_message(response.iter_lines(), on_delta, request_control)
                 if request_control is not None:
                     request_control.raise_if_stopped()
                 return message

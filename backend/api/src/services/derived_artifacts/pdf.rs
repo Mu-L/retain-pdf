@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use crate::error::AppError;
 use crate::models::domain::JobSnapshot;
@@ -24,27 +25,24 @@ pub(crate) fn linearized_pdf_or_original(
             return Ok(output_pdf);
         }
     }
-    let tmp_pdf = output_pdf.with_extension("pdf.tmp");
-    let linearized = linearize_pdf_with_qpdf(input_pdf, &tmp_pdf)?;
-    if !linearized || !tmp_pdf.exists() {
-        let _ = std::fs::remove_file(&tmp_pdf);
+    if !linearize_pdf_with_qpdf(input_pdf, &output_pdf) {
         return Ok(input_pdf.to_path_buf());
     }
-    std::fs::rename(&tmp_pdf, &output_pdf)?;
     Ok(output_pdf)
 }
 
-fn linearize_pdf_with_qpdf(input_pdf: &Path, output_pdf: &Path) -> Result<bool, AppError> {
+fn linearize_pdf_with_qpdf(input_pdf: &Path, output_pdf: &Path) -> bool {
     let Some(qpdf) = find_tool("qpdf") else {
-        return Ok(false);
+        return false;
     };
-    let status = std::process::Command::new(qpdf)
-        .arg("--linearize")
-        .arg(input_pdf)
-        .arg(output_pdf)
-        .status()
-        .map_err(|error| AppError::internal(format!("failed to run qpdf: {error}")))?;
-    Ok(status.success() && output_pdf.exists())
+    // Linearization is optional: timeout/spawn/output failures keep serving the
+    // original PDF and never replace a previous good cached derivative.
+    super::side_by_side::build_with_command(output_pdf, Duration::from_secs(120), |temporary| {
+        let mut command = std::process::Command::new(qpdf);
+        command.arg("--linearize").arg(input_pdf).arg(temporary);
+        command
+    })
+    .is_ok()
 }
 
 fn find_tool(name: &str) -> Option<PathBuf> {

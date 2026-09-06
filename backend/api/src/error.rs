@@ -5,7 +5,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Clone, Debug, Error)]
 pub enum AppError {
     #[error("{0}")]
     Unauthorized(String),

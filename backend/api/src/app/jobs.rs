@@ -44,6 +44,7 @@ fn build_process_runtime_deps(state: &AppState) -> ProcessRuntimeDeps {
         state.db.clone(),
         state.canceled_jobs.clone(),
         state.job_slots.clone(),
+        state.job_drivers.clone(),
     )
 }
 
@@ -97,7 +98,7 @@ pub fn build_jobs_facade_from_state(state: &AppState) -> JobsFacade<'_> {
             state.db.as_ref(),
             &state.config.data_root,
             &state.config.downloads_dir,
-            &state.downloads_lock,
+            &state.download_generation,
             replay,
         ),
     )

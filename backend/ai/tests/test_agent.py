@@ -496,7 +496,7 @@ def test_agent_forces_final_answer_when_rounds_exhausted():
 
 
 def test_friendly_llm_error_maps_status_codes():
-    """审计 C1:402/429/401 必须译成用户可行动的中文,且截断上游详情。"""
+    """Provider failures retain useful hints but never echo upstream bodies."""
     from retainpdf_ai.agent import _friendly_llm_error
 
     assert "余额不足" in str(_friendly_llm_error(402))
@@ -506,7 +506,7 @@ def test_friendly_llm_error_maps_status_codes():
     long_detail = "x" * 500
     msg = str(_friendly_llm_error(402, long_detail))
     assert len(msg) < 300
-    assert "…" in msg
+    assert "x" not in msg
 
 
 def test_rounds_exhausted_final_call_uses_request_level_chat_fn():
@@ -577,6 +577,8 @@ def test_unknown_tool_and_handler_error_feed_back_to_model():
 def _sse(chunks):
     import json as _json
     lines = [f"data: {_json.dumps(c, ensure_ascii=False)}" for c in chunks]
+    is_tool = any(c.get("choices", [{}])[0].get("delta", {}).get("tool_calls") for c in chunks)
+    lines.append("data: " + _json.dumps({"choices": [{"delta": {}, "finish_reason": "tool_calls" if is_tool else "stop"}]}))
     lines.append("data: [DONE]")
     return lines
 

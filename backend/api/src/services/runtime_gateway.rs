@@ -23,7 +23,7 @@ use crate::config::{JobRunnerConfig, JobsServiceConfig};
 use crate::error::AppError;
 use crate::job_runner::{clear_cancel_request_with_registry, request_cancel_with_registry};
 pub(crate) use crate::job_runner::{
-    translation_artifacts_are_ready, translation_checkpoint_candidate_is_ready,
+    translation_artifacts_are_ready, translation_checkpoint_candidate_is_ready, JobDriverRegistry,
 };
 use crate::process::terminate_job_process_tree;
 

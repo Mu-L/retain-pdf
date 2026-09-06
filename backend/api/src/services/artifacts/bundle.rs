@@ -1,4 +1,5 @@
-use std::io::Write;
+use std::fs::{File, OpenOptions};
+use std::io;
 use std::path::{Path, PathBuf};
 
 use walkdir::WalkDir;
@@ -13,6 +14,52 @@ use crate::storage_paths::{
 };
 
 use super::registry::find_registry_artifact;
+
+/// Owns an unpublished same-directory file; dropping after any error removes it.
+struct PendingOutput {
+    path: PathBuf,
+}
+
+impl PendingOutput {
+    fn create(destination: &Path) -> io::Result<(Self, File)> {
+        let parent = destination
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
+        for _ in 0..16 {
+            let path = parent.join(format!(".retain-bundle-{:032x}.tmp", fastrand::u128(..)));
+            match OpenOptions::new().write(true).create_new(true).open(&path) {
+                Ok(file) => return Ok((Self { path }, file)),
+                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+                Err(error) => return Err(error),
+            }
+        }
+        Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            "cannot reserve bundle temporary file",
+        ))
+    }
+
+    fn publish(self, file: File, destination: &Path) -> io::Result<()> {
+        file.sync_all()?;
+        // Close before rename, including on Windows. Never remove the old output.
+        drop(file);
+        std::fs::rename(&self.path, destination)
+    }
+}
+
+impl Drop for PendingOutput {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
+    }
+}
+
+fn copy_bundle_atomically(source: &Path, destination: &Path) -> io::Result<()> {
+    let mut source = File::open(source)?;
+    let (pending, mut file) = PendingOutput::create(destination)?;
+    io::copy(&mut source, &mut file)?;
+    pending.publish(file, destination)
+}
 
 pub fn build_bundle_for_job(
     db: &Db,
@@ -54,8 +101,9 @@ pub fn build_markdown_bundle_for_job(
     }
     let bundle_item = find_registry_artifact(db, data_root, job, ARTIFACT_KEY_MARKDOWN_BUNDLE_ZIP)?
         .ok_or_else(|| AppError::not_found(format!("markdown bundle not found: {}", job.job_id)))?;
-    let zip_path = resolve_registered_artifact_path(data_root, &bundle_item)
+    let registered_zip_path = resolve_registered_artifact_path(data_root, &bundle_item)
         .map_err(|err| AppError::internal(err.to_string()))?;
+    let zip_path = markdown_bundle_variant_path(&registered_zip_path, include_job_dir);
     if let Some(parent) = zip_path.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -79,7 +127,7 @@ fn build_zip(
     markdown_path: Option<&Path>,
     markdown_images_dir: Option<&Path>,
 ) -> Result<(), AppError> {
-    let file = std::fs::File::create(zip_path)?;
+    let (pending, file) = PendingOutput::create(zip_path)?;
     let mut zip = zip::ZipWriter::new(file);
     let options = FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
@@ -119,7 +167,7 @@ fn build_zip(
             }
         }
     }
-    zip.finish()?;
+    pending.publish(zip.finish()?, zip_path)?;
     Ok(())
 }
 
@@ -129,7 +177,7 @@ fn build_markdown_zip(
     markdown_images_dir: Option<&Path>,
     archive_root: String,
 ) -> Result<(), AppError> {
-    let file = std::fs::File::create(zip_path)?;
+    let (pending, file) = PendingOutput::create(zip_path)?;
     let mut zip = zip::ZipWriter::new(file);
     let options = FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
     if markdown_path.exists() {
@@ -161,7 +209,7 @@ fn build_markdown_zip(
             }
         }
     }
-    zip.finish()?;
+    pending.publish(zip.finish()?, zip_path)?;
     Ok(())
 }
 
@@ -171,9 +219,9 @@ fn add_file_to_zip(
     archive_name: &str,
     options: FileOptions,
 ) -> Result<(), AppError> {
-    let bytes = std::fs::read(path)?;
+    let mut file = File::open(path)?;
     zip.start_file(archive_name, options)?;
-    zip.write_all(&bytes)?;
+    io::copy(&mut file, zip)?;
     Ok(())
 }
 
@@ -191,10 +239,14 @@ fn persist_bundle_copy(
     std::fs::create_dir_all(translated_dir)?;
     let target_path = translated_dir.join(format!("{}.zip", job.job_id));
     if target_path != zip_path {
-        std::fs::copy(zip_path, &target_path)?;
+        copy_bundle_atomically(zip_path, &target_path)?;
     }
     Ok(Some(target_path))
 }
+
+#[cfg(test)]
+#[path = "bundle_tests.rs"]
+mod tests;
 
 fn markdown_zip_root(job: &JobSnapshot, include_job_dir: bool) -> String {
     if include_job_dir {
@@ -202,4 +254,21 @@ fn markdown_zip_root(job: &JobSnapshot, include_job_dir: bool) -> String {
     } else {
         "markdown".to_string()
     }
+}
+
+/// Different archive layouts cannot safely publish to the same cache file.
+fn markdown_bundle_variant_path(registered_path: &Path, include_job_dir: bool) -> PathBuf {
+    if include_job_dir {
+        return registered_path.to_owned();
+    }
+    let mut name = registered_path
+        .file_stem()
+        .unwrap_or_default()
+        .to_os_string();
+    name.push("-flat");
+    if let Some(extension) = registered_path.extension() {
+        name.push(".");
+        name.push(extension);
+    }
+    registered_path.with_file_name(name)
 }

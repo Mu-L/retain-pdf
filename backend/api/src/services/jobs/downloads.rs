@@ -20,7 +20,7 @@ pub(crate) use markdown::{markdown_document_view, markdown_download, markdown_im
 pub(crate) use previews::{cover_download, page_preview_download, thumbnail_download};
 pub(crate) use side_by_side::side_by_side_pdf_download;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct FileDownload {
     pub path: PathBuf,
     pub content_type: String,

@@ -2,22 +2,23 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use anyhow::Result;
-use tokio::sync::{Mutex, RwLock, Semaphore};
+use tokio::sync::{RwLock, Semaphore};
 use tracing::warn;
 
 use super::jobs::reconcile_owned_runtime;
 use crate::config::AppConfig;
 use crate::db::Db;
 use crate::services::agent_capabilities::AgentCapabilityAuthority;
-use crate::services::runtime_gateway::JobRuntime;
+use crate::services::runtime_gateway::{JobDriverRegistry, JobRuntime};
 
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<AppConfig>,
     pub db: Arc<Db>,
-    pub downloads_lock: Arc<Mutex<()>>,
+    pub download_generation: Arc<crate::services::download_generation::DownloadGeneration>,
     pub canceled_jobs: Arc<RwLock<HashSet<String>>>,
     pub job_slots: Arc<Semaphore>,
+    pub job_drivers: Arc<JobDriverRegistry>,
     /// 任务运行时落点（ADR-002）：进程内或远端 jobsd，装配一次此后只读。
     pub job_runtime: Arc<JobRuntime>,
     /// Per-process signing authority for short-lived, least-privilege agent capabilities.
@@ -67,9 +68,10 @@ pub fn build_state(config: Arc<AppConfig>) -> Result<AppState> {
         model_executor,
         config: config.clone(),
         db,
-        downloads_lock: Arc::new(Mutex::new(())),
+        download_generation: Arc::default(),
         canceled_jobs,
         job_slots: Arc::new(Semaphore::new(config.max_running_jobs)),
+        job_drivers: Arc::default(),
         job_runtime,
         agent_capabilities: Arc::new(AgentCapabilityAuthority::new_random()?),
     })

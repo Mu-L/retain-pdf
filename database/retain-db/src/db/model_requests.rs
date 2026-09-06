@@ -14,6 +14,19 @@ pub struct ModelSession {
     pub paused: bool,
 }
 
+/// A capability rotation attempted to replace the frozen connection snapshot.
+/// Kept distinct from SQLite failures while preserving the database Result API.
+#[derive(Debug)]
+pub struct ModelSessionConflict;
+
+impl std::fmt::Display for ModelSessionConflict {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("model session configuration conflict")
+    }
+}
+
+impl std::error::Error for ModelSessionConflict {}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ModelOperation {
     pub job_id: String,
@@ -84,13 +97,16 @@ impl Db {
     ) -> Result<()> {
         let conn = self.connect()?;
         let profile = serde_json::to_string(profile)?;
-        conn.execute(
+        let changed = conn.execute(
             "INSERT INTO model_sessions(job_id,token_hash,expires_at,profile_json,created_at)
              VALUES (?1,?2,?3,?4,?5)
              ON CONFLICT(job_id) DO UPDATE SET token_hash=excluded.token_hash, expires_at=excluded.expires_at
              WHERE model_sessions.profile_json=excluded.profile_json",
             params![job_id, token_hash, expires_at, profile, now_iso()],
-        ).and_then(|count| if count == 1 { Ok(count) } else { Err(rusqlite::Error::InvalidQuery) })?;
+        )?;
+        if changed == 0 {
+            return Err(ModelSessionConflict.into());
+        }
         Ok(())
     }
 

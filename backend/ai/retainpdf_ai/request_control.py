@@ -39,6 +39,17 @@ class EmptyAIResponse(AIRequestError):
         super().__init__("模型未返回有效回答，请重试")
 
 
+class AIStreamIncomplete(AIRequestError):
+    code = "AI_RESPONSE_INCOMPLETE"
+
+    def __init__(self) -> None:
+        super().__init__("模型响应不完整，请重试")
+
+
+class AIProviderError(AIRequestError):
+    """A deliberately safe provider failure; never carries a response body."""
+
+
 class RequestControl:
     """Thread-safe cooperative cancellation shared by orchestration and I/O."""
 
@@ -122,10 +133,9 @@ def public_error_event(exc: BaseException) -> dict[str, object]:
             "message": str(exc),
             "retryable": exc.retryable,
         }
-    message = str(exc) if isinstance(exc, RuntimeError) else f"{type(exc).__name__}: {exc}"
     return {
         "type": "error",
         "code": "AI_RESPONSE_FAILED",
-        "message": message[:1000],
+        "message": "AI 服务请求失败，请重试或检查模型配置",
         "retryable": True,
     }

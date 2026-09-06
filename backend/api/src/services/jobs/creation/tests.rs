@@ -4,7 +4,7 @@ use std::sync::Arc;
 use lopdf::content::{Content, Operation};
 use lopdf::{dictionary, Document, Object, Stream};
 use retain_data::credentials::resolve_credential;
-use tokio::sync::{Mutex, RwLock, Semaphore};
+use tokio::sync::{RwLock, Semaphore};
 
 use crate::config::AppConfig;
 use crate::db::Db;
@@ -76,9 +76,10 @@ fn test_state(test_name: &str) -> AppState {
             config.jobs_db_path.clone(),
             config.data_root.clone(),
         )),
-        downloads_lock: Arc::new(Mutex::new(())),
+        download_generation: Arc::default(),
         canceled_jobs: Arc::new(RwLock::new(HashSet::new())),
         job_slots: Arc::new(Semaphore::new(1)),
+        job_drivers: Arc::default(),
         job_runtime: Arc::new(crate::services::runtime_gateway::JobRuntime::in_process(
             Arc::new(RwLock::new(HashSet::new())),
         )),

@@ -5,11 +5,11 @@ mod policy;
 mod tests;
 mod transport;
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 pub use policy::{
     Deadlines, Message, ModelConnection, ModelConnectionPolicy, ModelRequest, Provider, Thinking,
 };
-use retain_data::db::{Db, ModelOperation, ModelReservation};
+use retain_data::db::{Db, ModelOperation, ModelReservation, ModelSessionConflict};
 use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
@@ -18,6 +18,19 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::sync::Mutex;
+
+/// Safe application-facing errors: never retain provider bodies or credentials.
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+pub enum ModelExecutorError {
+    #[error("invalid worker capability")]
+    Unauthorized,
+    #[error("invalid model request: {0}")]
+    BadRequest(&'static str),
+    #[error("model operation conflict: {0}")]
+    Conflict(&'static str),
+    #[error("model executor internal failure: {0}")]
+    Internal(&'static str),
+}
 
 pub struct ModelExecutor {
     db: Arc<Db>,
@@ -94,27 +107,44 @@ impl ModelExecutor {
         job_id: &str,
         profile: &ModelConnection,
         ttl_seconds: u64,
-    ) -> Result<String> {
-        profile.validate()?;
+    ) -> Result<String, ModelExecutorError> {
+        profile
+            .validate()
+            .map_err(|_| ModelExecutorError::BadRequest("invalid model connection"))?;
         if job_id.is_empty() || !(1..=86400).contains(&ttl_seconds) {
-            bail!("invalid capability scope or expiry");
+            return Err(ModelExecutorError::BadRequest(
+                "invalid capability scope or expiry",
+            ));
         }
         let mut random = [0u8; 32];
         getrandom::getrandom(&mut random)
-            .map_err(|_| anyhow::anyhow!("capability generation failed"))?;
+            .map_err(|_| ModelExecutorError::Internal("capability generation failed"))?;
         let token = fingerprint(&random);
-        self.db.create_model_session(
-            job_id,
-            &fingerprint(token.as_bytes()),
-            chrono::Utc::now().timestamp() + ttl_seconds as i64,
-            &serde_json::to_value(profile)?,
-        )?;
+        self.db
+            .create_model_session(
+                job_id,
+                &fingerprint(token.as_bytes()),
+                chrono::Utc::now().timestamp() + ttl_seconds as i64,
+                &serde_json::to_value(profile)
+                    .map_err(|_| ModelExecutorError::Internal("connection encoding failed"))?,
+            )
+            .map_err(|error| {
+                if error.downcast_ref::<ModelSessionConflict>().is_some() {
+                    ModelExecutorError::Conflict("frozen model connection differs")
+                } else {
+                    ModelExecutorError::Internal("model session persistence failed")
+                }
+            })?;
         Ok(token)
     }
 
-    fn authorize(&self, job: &str, token: &str) -> Result<ModelConnection> {
+    pub(crate) fn authorize(
+        &self,
+        job: &str,
+        token: &str,
+    ) -> Result<ModelConnection, ModelExecutorError> {
         if token.len() != 64 {
-            bail!("invalid worker capability");
+            return Err(ModelExecutorError::Unauthorized);
         }
         let session = self
             .db
@@ -122,9 +152,11 @@ impl ModelExecutor {
                 job,
                 &fingerprint(token.as_bytes()),
                 chrono::Utc::now().timestamp(),
-            )?
-            .ok_or_else(|| anyhow::anyhow!("invalid worker capability"))?;
-        Ok(serde_json::from_value(session.profile)?)
+            )
+            .map_err(|_| ModelExecutorError::Internal("model session lookup failed"))?
+            .ok_or(ModelExecutorError::Unauthorized)?;
+        serde_json::from_value(session.profile)
+            .map_err(|_| ModelExecutorError::Internal("stored model connection is invalid"))
     }
 
     pub fn status(
@@ -132,16 +164,25 @@ impl ModelExecutor {
         job: &str,
         token: &str,
         operation: &str,
-    ) -> Result<Option<ModelOperation>> {
+    ) -> Result<Option<ModelOperation>, ModelExecutorError> {
         self.authorize(job, token)?;
-        self.db.get_model_operation(job, operation)
+        self.db
+            .get_model_operation(job, operation)
+            .map_err(|_| ModelExecutorError::Internal("model operation lookup failed"))
     }
 
-    pub fn cancel(&self, job: &str, token: &str, operation: &str) -> Result<bool> {
+    pub fn cancel(
+        &self,
+        job: &str,
+        token: &str,
+        operation: &str,
+    ) -> Result<bool, ModelExecutorError> {
         self.authorize(job, token)?;
         // A dispatched cancellation is ambiguous: aborting a local socket does
         // not establish that the upstream stopped or did not charge.
-        self.db.cancel_model_operation(job, operation)
+        self.db
+            .cancel_model_operation(job, operation)
+            .map_err(|_| ModelExecutorError::Internal("model operation cancellation failed"))
     }
 
     pub async fn submit(
@@ -149,21 +190,36 @@ impl ModelExecutor {
         job: &str,
         token: &str,
         request: ModelRequest,
-    ) -> Result<ModelOperation> {
+    ) -> Result<ModelOperation, ModelExecutorError> {
         let profile = self.authorize(job, token)?;
-        request.validate()?;
-        let hash = fingerprint(&serde_json::to_vec(&request)?);
-        match self.db.reserve_model_operation(
-            job,
-            &request.operation_id,
-            &request.unit_id,
-            &hash,
-            &request.purpose,
-        )? {
+        request
+            .validate()
+            .map_err(|_| ModelExecutorError::BadRequest("invalid bounded model request"))?;
+        let hash = fingerprint(
+            &serde_json::to_vec(&request)
+                .map_err(|_| ModelExecutorError::Internal("model request encoding failed"))?,
+        );
+        match self
+            .db
+            .reserve_model_operation(
+                job,
+                &request.operation_id,
+                &request.unit_id,
+                &hash,
+                &request.purpose,
+            )
+            .map_err(|_| ModelExecutorError::Internal("model operation reservation failed"))?
+        {
             ModelReservation::Existing(operation) => Ok(operation),
-            ModelReservation::Conflict => bail!("operation_id content conflict"),
-            ModelReservation::Paused => bail!("job paused; manual recovery required"),
-            ModelReservation::UnitBudgetExceeded => bail!("unit request budget exceeded"),
+            ModelReservation::Conflict => Err(ModelExecutorError::Conflict(
+                "operation_id content conflict",
+            )),
+            ModelReservation::Paused => Err(ModelExecutorError::Conflict(
+                "job paused; manual recovery required",
+            )),
+            ModelReservation::UnitBudgetExceeded => {
+                Err(ModelExecutorError::Conflict("unit request budget exceeded"))
+            }
             ModelReservation::Created(operation) => {
                 let executor = self.clone();
                 let job = job.to_owned();

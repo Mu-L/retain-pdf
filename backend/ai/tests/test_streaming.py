@@ -28,6 +28,7 @@ def test_assemble_streaming_pure_content_emits_each_delta():
         _sse({"choices": [{"delta": {"content": "选择"}}]}),
         _sse({"choices": [{"delta": {"content": "性来自"}}]}),
         _sse({"choices": [{"delta": {"content": "共轭 [1]"}}]}),
+        _sse({"choices": [{"delta": {}, "finish_reason": "stop"}]}),
         "data: [DONE]",
         _sse({"choices": [{"delta": {"content": "被忽略"}}]}),  # [DONE] 之后不再处理
     ]
@@ -77,6 +78,7 @@ def test_assemble_streaming_tool_calls_do_not_emit_deltas():
         "data: [DONE]",
     ]
     deltas: list[str] = []
+    lines.insert(-1, _sse({"choices": [{"delta": {}, "finish_reason": "tool_calls"}]}))
     message = assemble_streaming_message(iter(lines), deltas.append)
 
     assert deltas == []  # 工具调用轮绝不 emit answer_delta

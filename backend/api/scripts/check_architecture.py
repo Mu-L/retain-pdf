@@ -117,6 +117,9 @@ ROUTE_STATE_RESOURCE_ALLOWLIST = {
 }
 
 ROUTE_SERVICE_IMPORT_ALLOWLIST = {
+    Path("src/routes/model_requests.rs"): (
+        "crate::services::model_requests_api::",
+    ),
     Path("src/routes/agent_calculations.rs"): (
         "crate::services::agent_calculation_api::",
     ),

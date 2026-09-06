@@ -101,13 +101,15 @@ pub use agent_calculations::{
     AgentCalculationArtifactInput, AgentCalculationArtifactRecord, AgentCalculationRunCreate,
     AgentCalculationRunRecord, AgentCalculationStatus, AgentCalculationTransitionResult,
 };
-pub use model_requests::{ModelOperation, ModelRecoverySummary, ModelReservation, ModelSession};
 pub use document_metadata_suggestions::{
     ApplyDocumentMetadataSuggestionResult, StoredDocumentMetadataSuggestion,
 };
 pub use document_operations::{
     CommitDocumentCandidateResult, DocumentOperationEventRecord, DocumentVersionRecord,
     StoredDocumentOperation, StoredDocumentOperationAttempt,
+};
+pub use model_requests::{
+    ModelOperation, ModelRecoverySummary, ModelReservation, ModelSession, ModelSessionConflict,
 };
 pub use pipeline::{
     PipelineAttemptCursor, PipelineCheckpoint, PipelineCommitEventRecord, PipelineDispatchBegin,

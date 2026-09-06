@@ -53,9 +53,9 @@ def sanitize_url_for_log(url: str) -> str:
     try:
         parts = urlsplit(url)
     except ValueError:
-        return url
+        return "<invalid-url>"
     had_query_or_fragment = bool(parts.query or parts.fragment)
-    sanitized = urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
+    sanitized = urlunsplit((parts.scheme, parts.netloc.rsplit("@", 1)[-1], parts.path, "", ""))
     if had_query_or_fragment:
         sanitized = f"{sanitized}?…redacted…"
     return sanitized
@@ -112,7 +112,9 @@ def request_with_retry(
     label: str,
     **kwargs: Any,
 ) -> requests.Response:
-    last_error: Exception | None = None
+    last_summary: str | None = None
+    terminal_error: Exception | None = None
+    status_code: int | None = None
     accumulated_rate_limit_wait = 0.0
     for attempt in range(1, attempts + 1):
         try:
@@ -120,18 +122,28 @@ def request_with_retry(
             response.raise_for_status()
             return response
         except (requests.Timeout, requests.ConnectionError, requests.RequestException) as err:
-            last_error = err
             status_code = (
                 err.response.status_code
                 if isinstance(err, requests.HTTPError) and err.response is not None
                 else None
+            )
+            # requests exception messages can include signed URLs, response
+            # bodies or proxy credentials. Never include their original text.
+            last_summary = (
+                f"{type(err).__name__} status={status_code or ''} "
+                f"method={method.upper()} url={sanitize_url_for_log(url)}"
             )
             retryable = status_code in RETRY_STATUS_CODES or isinstance(
                 err,
                 (requests.Timeout, requests.ConnectionError),
             )
             if not retryable:
-                raise
+                # Preserve callers' exception/status classification, but raise
+                # outside this handler so no raw exception context survives.
+                terminal_error = type(err)(
+                    last_summary, request=err.request, response=err.response
+                )
+                break
             if attempt >= attempts:
                 break
             retry_after = ""
@@ -145,23 +157,23 @@ def request_with_retry(
             if status_code == 429:
                 accumulated_rate_limit_wait += sleep_seconds
                 if accumulated_rate_limit_wait > RATE_LIMIT_WAIT_MAX_SECONDS:
-                    raise RetainRateLimitError(
+                    terminal_error = RetainRateLimitError(
                         f"{label} rate limited: retry-after budget exceeded for {sanitize_url_for_log(url)}"
-                    ) from err
+                    )
+                    break
             print(
                 f"{label} request retry {attempt}/{attempts} method={method.upper()} url={sanitize_url_for_log(url)} "
-                f"status={status_code or ''} error={type(err).__name__}: {err}; sleep={sleep_seconds:.2f}s",
+                f"error={last_summary}; sleep={sleep_seconds:.2f}s",
                 flush=True,
             )
             time.sleep(sleep_seconds)
-    assert last_error is not None
-    if isinstance(last_error, requests.HTTPError) and last_error.response is not None:
-        status_code = int(last_error.response.status_code)
-        if status_code == 429:
-            raise RetainRateLimitError(
-                f"{label} rate limited after {attempts} attempts: {sanitize_url_for_log(url)}"
-            ) from last_error
+    if terminal_error is not None:
+        raise terminal_error from None
+    assert last_summary is not None
+    if status_code == 429:
+        raise RetainRateLimitError(
+            f"{label} rate limited after {attempts} attempts: {sanitize_url_for_log(url)}"
+        ) from None
     raise RetainNetworkError(
-        f"{label} network request failed after {attempts} attempts: method={method.upper()} "
-        f"url={sanitize_url_for_log(url)}: {type(last_error).__name__}: {last_error}"
-    ) from last_error
+        f"{label} network request failed after {attempts} attempts: {last_summary}"
+    ) from None

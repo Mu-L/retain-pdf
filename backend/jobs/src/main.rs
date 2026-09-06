@@ -37,6 +37,7 @@ struct JobsdState {
     db: Arc<Db>,
     canceled_jobs: Arc<RwLock<HashSet<String>>>,
     job_slots: Arc<Semaphore>,
+    job_drivers: Arc<retain_jobs::job_runner::JobDriverRegistry>,
     api_keys: Arc<HashSet<String>>,
 }
 
@@ -47,6 +48,7 @@ impl JobsdState {
             self.db.clone(),
             self.canceled_jobs.clone(),
             self.job_slots.clone(),
+            self.job_drivers.clone(),
         )
     }
 }
@@ -182,6 +184,7 @@ async fn main() -> Result<()> {
     let state = JobsdState {
         api_keys: Arc::new(config.api_keys.clone()),
         job_slots: Arc::new(Semaphore::new(config.max_running_jobs)),
+        job_drivers: Arc::default(),
         canceled_jobs: Arc::new(RwLock::new(HashSet::new())),
         db,
         config,

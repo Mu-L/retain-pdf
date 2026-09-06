@@ -1,6 +1,10 @@
 use anyhow::Result;
 use tracing::error;
 
+#[cfg(test)]
+#[path = "lifecycle_tests.rs"]
+mod tests;
+
 use crate::job_events::cas_persist_job_with_resources;
 use crate::models::domain::{now_iso, JobRuntimeState, JobSnapshot, JobStatusKind, WorkflowKind};
 
@@ -19,8 +23,24 @@ use super::{
 };
 
 pub fn spawn_job(deps: ProcessRuntimeDeps, job_id: String) {
-    tokio::spawn(async move {
-        if let Err(err) = run_job(deps.clone(), job_id.clone()).await {
+    spawn_job_with_workflow(deps, job_id, dispatch_workflow);
+}
+
+fn spawn_job_with_workflow<F, Fut>(
+    deps: ProcessRuntimeDeps,
+    job_id: String,
+    workflow: F,
+) -> Option<tokio::task::JoinHandle<()>>
+where
+    F: FnOnce(ProcessRuntimeDeps, JobRuntimeState) -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = Result<JobRuntimeState>> + Send,
+{
+    let Some(guard) = deps.job_drivers.claim(&job_id) else {
+        return None;
+    };
+    Some(tokio::spawn(async move {
+        let _guard = guard;
+        if let Err(err) = run_job(deps.clone(), job_id.clone(), workflow).await {
             error!("job {} failed to run: {}", job_id, err);
             if let Ok(job) = deps.db.get_job(&job_id) {
                 if !matches!(job.status, JobStatusKind::Canceled) {
@@ -29,7 +49,7 @@ pub fn spawn_job(deps: ProcessRuntimeDeps, job_id: String) {
             }
             clear_job_cancel_request(&deps, &job_id).await;
         }
-    });
+    }))
 }
 
 async fn clear_job_cancel_request(deps: &ProcessRuntimeDeps, job_id: &str) {
@@ -39,7 +59,7 @@ async fn clear_job_cancel_request(deps: &ProcessRuntimeDeps, job_id: &str) {
 async fn should_skip_job_execution(deps: &ProcessRuntimeDeps, job_id: &str) -> Result<bool> {
     let job = deps.db.get_job(job_id)?;
     if is_cancel_requested_with_registry(deps.canceled_jobs.as_ref(), job_id).await
-        || matches!(job.status, JobStatusKind::Canceled)
+        || !matches!(job.status, JobStatusKind::Queued | JobStatusKind::Running)
     {
         clear_job_cancel_request(deps, job_id).await;
         return Ok(true);
@@ -47,7 +67,7 @@ async fn should_skip_job_execution(deps: &ProcessRuntimeDeps, job_id: &str) -> R
     Ok(false)
 }
 
-fn persist_queued_job(deps: &ProcessRuntimeDeps, job: &mut JobSnapshot) -> Result<()> {
+fn persist_queued_job(deps: &ProcessRuntimeDeps, job: &mut JobSnapshot) -> Result<bool> {
     job.status = JobStatusKind::Queued;
     job.stage = Some("queued".to_string());
     job.stage_detail = Some("任务排队中，等待可用执行槽位".to_string());
@@ -61,11 +81,7 @@ fn persist_queued_job(deps: &ProcessRuntimeDeps, job: &mut JobSnapshot) -> Resul
         job,
         &["queued", "running"],
     )?;
-    if !updated {
-        // Already terminal (e.g., canceled between should_skip and here), do not clobber
-        return Ok(());
-    }
-    Ok(())
+    Ok(updated)
 }
 
 async fn dispatch_workflow(
@@ -134,12 +150,19 @@ fn persist_failed_job(
     Ok(())
 }
 
-async fn run_job(deps: ProcessRuntimeDeps, job_id: String) -> Result<()> {
+async fn run_job<F, Fut>(deps: ProcessRuntimeDeps, job_id: String, workflow: F) -> Result<()>
+where
+    F: FnOnce(ProcessRuntimeDeps, JobRuntimeState) -> Fut,
+    Fut: std::future::Future<Output = Result<JobRuntimeState>>,
+{
     if should_skip_job_execution(&deps, &job_id).await? {
         return Ok(());
     }
     let mut job = deps.db.get_job(&job_id)?;
-    persist_queued_job(&deps, &mut job)?;
+    if !persist_queued_job(&deps, &mut job)? {
+        clear_job_cancel_request(&deps, &job_id).await;
+        return Ok(());
+    }
 
     let _permit = match wait_for_execution_slot(
         deps.db.as_ref(),
@@ -157,8 +180,7 @@ async fn run_job(deps: ProcessRuntimeDeps, job_id: String) -> Result<()> {
     if should_skip_job_execution(&deps, &job_id).await? {
         return Ok(());
     }
-    let finished_job =
-        dispatch_workflow(deps.clone(), deps.db.get_job(&job_id)?.into_runtime()).await?;
+    let finished_job = workflow(deps.clone(), deps.db.get_job(&job_id)?.into_runtime()).await?;
     let updated = crate::job_events::cas_persist_job_with_resources(
         deps.db.as_ref(),
         &deps.persist.data_root,

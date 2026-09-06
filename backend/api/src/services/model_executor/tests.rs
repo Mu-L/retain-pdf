@@ -553,7 +553,10 @@ fn restart_recovery_and_immutable_snapshot() {
     );
     let mut changed = p.clone();
     changed.model = "different".into();
-    assert!(e.register_job("j", &changed, 60).is_err());
+    assert!(matches!(
+        e.register_job("j", &changed, 60),
+        Err(ModelExecutorError::Conflict(_))
+    ));
     let new_token = e.register_job("j", &p, 60).unwrap();
     assert!(e.status("j", &token, "op").is_err());
     assert!(e.status("j", &new_token, "op").is_ok());
@@ -562,6 +565,111 @@ fn restart_recovery_and_immutable_snapshot() {
         .authorize_model_session("j", &fingerprint(new_token.as_bytes()), i64::MAX)
         .unwrap()
         .is_none());
+}
+
+#[test]
+fn session_storage_failures_are_internal_not_authentication_or_conflict() {
+    let f = Fixture::new();
+    let p = profile("http://127.0.0.1/v1");
+    let token = f.executor.register_job("j", &p, 60).unwrap();
+    let conn = rusqlite::Connection::open(f.root.join("jobs.db")).unwrap();
+    conn.execute("DROP TABLE model_sessions", []).unwrap();
+    assert!(matches!(
+        f.executor.register_job("j", &p, 60),
+        Err(ModelExecutorError::Internal(_))
+    ));
+    assert!(matches!(
+        f.executor.authorize("j", &token),
+        Err(ModelExecutorError::Internal(_))
+    ));
+    assert!(matches!(
+        f.executor.status("j", &token, "op"),
+        Err(ModelExecutorError::Internal(_))
+    ));
+    assert!(matches!(
+        f.executor.cancel("j", &token, "op"),
+        Err(ModelExecutorError::Internal(_))
+    ));
+}
+
+#[test]
+fn stored_profile_corruption_is_internal_and_does_not_leak_contents() {
+    for stored in [
+        "not-json-secret-sentinel",
+        r#"{"unexpected":"secret-sentinel"}"#,
+    ] {
+        let f = Fixture::new();
+        let token = f
+            .executor
+            .register_job("j", &profile("http://127.0.0.1/v1"), 60)
+            .unwrap();
+        rusqlite::Connection::open(f.root.join("jobs.db"))
+            .unwrap()
+            .execute(
+                "UPDATE model_sessions SET profile_json=?1 WHERE job_id='j'",
+                [stored],
+            )
+            .unwrap();
+        let error = f.executor.authorize("j", &token).unwrap_err();
+        assert!(matches!(error, ModelExecutorError::Internal(_)));
+        assert!(!error.to_string().contains("secret-sentinel"));
+        assert!(!format!("{error:?}").contains(&token));
+    }
+}
+
+#[tokio::test]
+async fn operation_storage_failures_remain_internal_after_valid_authorization() {
+    let f = Fixture::new();
+    let token = f
+        .executor
+        .register_job("j", &profile("http://127.0.0.1/v1"), 60)
+        .unwrap();
+    rusqlite::Connection::open(f.root.join("jobs.db"))
+        .unwrap()
+        .execute("DROP TABLE model_operations", [])
+        .unwrap();
+    assert!(f.executor.authorize("j", &token).is_ok());
+    assert!(matches!(
+        f.executor.status("j", &token, "op"),
+        Err(ModelExecutorError::Internal(_))
+    ));
+    assert!(matches!(
+        f.executor.cancel("j", &token, "op"),
+        Err(ModelExecutorError::Internal(_))
+    ));
+    assert!(matches!(
+        f.executor.submit("j", &token, request("op")).await,
+        Err(ModelExecutorError::Internal(_))
+    ));
+}
+
+#[tokio::test]
+async fn bad_requests_and_invalid_capabilities_have_distinct_error_types() {
+    let f = Fixture::new();
+    let p = profile("http://127.0.0.1/v1");
+    assert!(matches!(
+        f.executor.register_job("j", &p, 0),
+        Err(ModelExecutorError::BadRequest(_))
+    ));
+    let token = f.executor.register_job("j", &p, 60).unwrap();
+    assert!(matches!(
+        f.executor.authorize("j", "invalid"),
+        Err(ModelExecutorError::Unauthorized)
+    ));
+    assert!(matches!(
+        f.executor.authorize("job-a", &token),
+        Err(ModelExecutorError::Unauthorized)
+    ));
+    assert!(matches!(
+        f.executor.authorize("j", &"0".repeat(64)),
+        Err(ModelExecutorError::Unauthorized)
+    ));
+    let mut invalid = request("op");
+    invalid.operation_id.clear();
+    assert!(matches!(
+        f.executor.submit("j", &token, invalid).await,
+        Err(ModelExecutorError::BadRequest(_))
+    ));
 }
 
 #[tokio::test]

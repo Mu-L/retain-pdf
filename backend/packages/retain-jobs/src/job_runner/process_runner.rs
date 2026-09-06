@@ -68,7 +68,7 @@ pub(crate) async fn execute_process_job(
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use std::collections::HashSet;
     use std::fs;
     use std::sync::Arc;
@@ -93,6 +93,16 @@ mod tests {
         job_slots: Arc<Semaphore>,
     }
 
+    pub(in crate::job_runner) fn test_runtime_deps(slots: usize) -> ProcessRuntimeDeps {
+        let state = test_state(&format!("driver-{}", fastrand::u64(..)));
+        let mut config = (*state.config).clone();
+        config.job_runner.queue_poll_interval_ms = 1;
+        ProcessRuntimeDeps::new(
+            Arc::new(config), state.db, state.canceled_jobs,
+            Arc::new(Semaphore::new(slots)), Arc::default(),
+        )
+    }
+
     fn build_job() -> JobRuntimeState {
         JobSnapshot::new(
             "job-test".to_string(),
@@ -100,6 +110,25 @@ mod tests {
             vec!["python".to_string()],
         )
         .into_runtime()
+    }
+
+    #[tokio::test]
+    async fn startup_rejects_canceled_snapshot_before_spawning() {
+        let deps = test_runtime_deps(1);
+        let stale = build_job();
+        let mut canceled = stale.snapshot();
+        canceled.status = JobStatusKind::Canceled;
+        deps.db.save_job(&canceled).unwrap();
+        let result = spawn_started_process(
+            &deps.persist,
+            &deps.canceled_jobs,
+            &deps.worker_process_runtime(),
+            stale,
+            &[],
+        ).await;
+        assert!(result.err().unwrap().to_string().contains("no longer eligible"));
+        assert_eq!(deps.db.get_job(&canceled.job_id).unwrap().status, JobStatusKind::Canceled);
+        fs::remove_dir_all(&deps.config.project_root).unwrap();
     }
 
     fn test_state(test_name: &str) -> TestState {
@@ -268,6 +297,7 @@ mod tests {
                 state.db.clone(),
                 state.canceled_jobs.clone(),
                 state.job_slots.clone(),
+                Arc::default(),
             ),
             job,
             &[],
@@ -555,6 +585,7 @@ print(json.dumps({{
                 state.db.clone(),
                 state.canceled_jobs.clone(),
                 state.job_slots.clone(),
+                Arc::default(),
             ),
             job,
             &[],

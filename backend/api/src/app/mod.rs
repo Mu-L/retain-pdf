@@ -12,3 +12,12 @@ pub use jobs::build_jobs_facade_from_state;
 pub use router::{build_app, build_simple_app};
 pub use server::{run_servers, run_servers_with_shutdown, spawn_servers, RunningServers};
 pub use state::{build_state, AppState};
+
+pub fn build_model_requests_api_from_state(
+    state: &AppState,
+) -> crate::services::model_requests_api::ModelRequestsApi {
+    crate::services::model_requests_api::ModelRequestsApi::new(
+        state.db.clone(),
+        state.model_executor.clone(),
+    )
+}

@@ -2,6 +2,7 @@ use crate::models::domain::{JobRuntimeState, JobSnapshot};
 
 mod artifact_requirements;
 mod cancel_registry;
+mod driver_registry;
 mod execution_queue;
 mod lifecycle;
 mod ocr_flow;
@@ -21,6 +22,7 @@ mod worker_process;
 
 pub use cancel_registry::{clear_cancel_request_with_registry, request_cancel_with_registry};
 pub use lifecycle::spawn_job;
+pub use driver_registry::JobDriverRegistry;
 pub(crate) use process_runner::execute_process_job;
 pub use runtime_deps::{JobPersistDeps, ProcessRuntimeDeps};
 pub(crate) use runtime_state::{

@@ -21,7 +21,9 @@ pub async fn download_document_response(
     kind: DocumentDownloadKind,
 ) -> Result<Response, AppError> {
     file_download_response(
-        jobs_facade_ref(deps).download_job_document(job_id, ocr_only, kind)?,
+        jobs_facade_ref(deps)
+            .download_job_document(job_id, ocr_only, kind)
+            .await?,
         headers,
     )
     .await
@@ -91,12 +93,9 @@ pub async fn registered_artifact_response(
     ocr_only: bool,
 ) -> Result<Response, AppError> {
     file_download_response(
-        jobs_facade_ref(deps).registered_artifact_download(
-            job_id,
-            artifact_key,
-            include_job_dir,
-            ocr_only,
-        )?,
+        jobs_facade_ref(deps)
+            .registered_artifact_download(job_id, artifact_key, include_job_dir, ocr_only)
+            .await?,
         headers,
     )
     .await

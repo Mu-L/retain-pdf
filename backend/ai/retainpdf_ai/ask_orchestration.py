@@ -131,6 +131,7 @@ class AskOrchestrator:
                     payload, request_runtime, request_message_id
                 ),
             )
+            control.raise_if_stopped()
             self._ensure_answer(result)
         except AIRequestError as exc:
             event = public_error_event(exc)
@@ -239,6 +240,7 @@ class AskOrchestrator:
                     request_control=control,
                     **self._operation_arguments(payload, request_runtime, request_message_id),
                 )
+                control.raise_if_stopped()
                 self._ensure_answer(result)
                 for confirmation in self._confirmation_projector(
                     result, self._settings.agent_confirmation_mode
@@ -249,6 +251,7 @@ class AskOrchestrator:
                             **confirmation,
                         }
                     )
+                control.raise_if_stopped()
                 persisted = request_persisted and self._conversation_state.persist_turn(
                     conversation_id,
                     payload,
@@ -257,6 +260,7 @@ class AskOrchestrator:
                     chain_parent_id=summary_id,
                     prepersisted_user_id=request_message_id,
                 )
+                control.raise_if_stopped()
                 events.put(
                     {
                         "type": "done",
@@ -279,6 +283,11 @@ class AskOrchestrator:
         terminal_seen = False
         try:
             while True:
+                if control.remaining_seconds <= 0:
+                    control.cancel("deadline_exceeded")
+                    terminal_seen = True
+                    yield self._encode_event(public_error_event(AIRequestTimeout()))
+                    break
                 timeout = min(
                     self._settings.ai_heartbeat_interval_s,
                     max(0.05, control.remaining_seconds),
@@ -296,6 +305,11 @@ class AskOrchestrator:
                         {"type": "heartbeat", "elapsed_ms": control.elapsed_ms}
                     )
                     continue
+                if control.remaining_seconds <= 0:
+                    control.cancel("deadline_exceeded")
+                    terminal_seen = True
+                    yield self._encode_event(public_error_event(AIRequestTimeout()))
+                    break
                 if event is None:
                     if not terminal_seen:
                         yield self._encode_event(
