@@ -84,9 +84,13 @@ export function resolveAgentRuntimeCredentialGate({
     };
   }
 
+  // Browser delivery keeps the model key in browser-local credential state
+  // and sends it as a per-request override. Both Python retrieval and the
+  // OpenAI-compatible runtime support that request contract, so the homepage
+  // gate must accept it in either model-backed mode. FX remains separate and
+  // continues to require its dedicated Gateway credential above.
   const modelKeyConfigured = Boolean(
-    config.llm_api_key_configured
-    || (mode === "python" && legacyModelKeyConfigured),
+    config.llm_api_key_configured || legacyModelKeyConfigured,
   );
   return {
     blocked: !modelKeyConfigured,

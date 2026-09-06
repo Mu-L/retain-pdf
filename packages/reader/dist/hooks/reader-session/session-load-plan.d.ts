@@ -5,7 +5,7 @@ export type DocumentLink = {
 };
 /** 原内联逻辑：const docData = docJson?.data ?? docJson。 */
 export declare function parseDocumentLink(docJson: unknown): DocumentLink;
-export type SourceOnlyPlan =
+export type SourceOnlyPlan = 
 /** 跟随文档的 active job：对外暴露该 job 身份后走统一 job 分支。 */
 {
     kind: "follow-active-job";
@@ -27,7 +27,7 @@ export declare function planSourceOnlyLoad(input: {
     rejectedDocumentJobId: string;
     hasCommittedSource: boolean;
 }): SourceOnlyPlan;
-export type JobLoadPlan =
+export type JobLoadPlan = 
 /** 仅当前 active job 恢复其 committed 文档源（source 视图），不下载 job 产物。 */
 {
     kind: "restore-committed-source";

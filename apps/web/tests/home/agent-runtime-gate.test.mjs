@@ -50,7 +50,7 @@ test("agent runtime gate: OpenAI 兼容 Agent 使用模型 Key 并保留独立�
   assert.equal(gate.mode, "openai");
 });
 
-test("agent runtime gate: OpenAI 兼容 Agent 缺模型 Key 时阻止发送", () => {
+test("agent runtime gate: OpenAI 兼容 Agent 接受网页本地模型 Key", () => {
   const gate = resolveAgentRuntimeCredentialGate({
     config: {
       ...base,
@@ -59,6 +59,20 @@ test("agent runtime gate: OpenAI 兼容 Agent 缺模型 Key 时阻止发送", ()
     },
     loading: false,
     legacyModelKeyConfigured: true,
+  });
+  assert.equal(gate.blocked, false);
+  assert.equal(gate.message, "");
+});
+
+test("agent runtime gate: OpenAI 兼容 Agent 在两处都缺模型 Key 时阻止发送", () => {
+  const gate = resolveAgentRuntimeCredentialGate({
+    config: {
+      ...base,
+      active_runtime: "openai-compatible-agent-v1",
+      configured_runtime: "openai",
+    },
+    loading: false,
+    legacyModelKeyConfigured: false,
   });
   assert.equal(gate.blocked, true);
   assert.match(gate.message, /模型 API Key/);

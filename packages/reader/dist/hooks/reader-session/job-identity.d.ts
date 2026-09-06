@@ -39,7 +39,7 @@ export type SessionDocuments = {
  * 跨模块身份变更的 discriminated event。
  * 由 useSessionDocuments 内部翻译成具体 setState，调用方无需知道 state 切分。
  */
-export type SessionIdentityEvent =
+export type SessionIdentityEvent = 
 /** document 链路解析出 active job：对外暴露该 job 身份。 */
 {
     type: "resolved-document-job";
