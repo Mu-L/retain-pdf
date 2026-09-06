@@ -78,16 +78,6 @@ impl RuntimePathsConfig {
         let jobs_db_path = data_root.join("db").join("jobs.db");
         let output_root = data_root.join("jobs");
         let auth_config_path = rust_api_root.join("auth.local.json");
-        // Existing developer credentials are not moved with tracked source files.
-        let legacy_auth = project_root.join("services/api/auth.local.json");
-        let auth_config_path = if !auth_config_path.exists()
-            && rust_api_root == project_root.join("backend/api")
-            && legacy_auth.is_file()
-        {
-            legacy_auth
-        } else {
-            auth_config_path
-        };
 
         Self {
             project_root,
@@ -180,6 +170,20 @@ fn absolutize_path(path: &Path) -> PathBuf {
 #[cfg(test)]
 mod layout_tests {
     use super::*;
+
+    #[test]
+    fn auth_path_uses_selected_api_root_even_when_only_legacy_file_exists() {
+        let root = std::env::temp_dir().join(format!("retain-auth-path-{}", fastrand::u64(..)));
+        std::fs::create_dir_all(root.join("services/api")).unwrap();
+        std::fs::write(root.join("services/api/auth.local.json"), "{}").unwrap();
+        for api in [root.join("backend/api"), root.join("custom-api")] {
+            let config = RuntimePathsConfig::from_roots_unchecked(
+                root.clone(), api.clone(), root.join("data"), root.join("backend/pipeline"),
+            );
+            assert_eq!(config.auth_config_path, api.join("auth.local.json"));
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn source_layout_resolves_repository_not_backend() {

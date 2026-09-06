@@ -97,3 +97,50 @@ fn resolve_simple_port(local_auth: Option<&LocalAuthConfig>) -> u16 {
     }
     env_u16("RUST_API_SIMPLE_PORT", 42000)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn configuration_priority_is_verified_in_isolated_processes() {
+        for case in ["file", "missing", "empty", "malformed", "no_keys"] {
+            let result = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--ignored", "--exact", "config::auth::tests::environment_probe"])
+                .env("RETAIN_AUTH_TEST_CASE", case)
+                .env("RUST_API_KEYS", if case == "no_keys" { "" } else { "env-test-key" })
+                .env("RUST_API_MAX_RUNNING_JOBS", "7")
+                .env("RUST_API_SIMPLE_PORT", "43000")
+                .output().unwrap();
+            assert!(result.status.success(), "isolated auth case failed: {case}");
+            assert!(String::from_utf8_lossy(&result.stdout).contains("1 passed"), "auth probe was not executed: {case}");
+        }
+    }
+
+    #[test]
+    #[ignore = "invoked by configuration_priority_is_verified_in_isolated_processes"]
+    fn environment_probe() {
+        let Ok(case) = std::env::var("RETAIN_AUTH_TEST_CASE") else { return };
+        let root = std::env::temp_dir().join(format!("retain-auth-config-{}", fastrand::u64(..)));
+        std::fs::create_dir(&root).unwrap();
+        let path = root.join("auth.local.json");
+        match case.as_str() {
+            "file" => std::fs::write(&path, r#"{"api_keys":["file-test-key"],"max_running_jobs":2,"simple_port":42010}"#).unwrap(),
+            "empty" => std::fs::write(&path, r#"{"api_keys":[" "]}"#).unwrap(),
+            "malformed" => std::fs::write(&path, "not-json").unwrap(),
+            "missing" | "no_keys" => {},
+            _ => panic!("unknown test case"),
+        }
+        let result = AuthRuntimeConfig::from_env_or_file(&path);
+        std::fs::remove_dir_all(root).unwrap();
+        if case == "malformed" || case == "no_keys" {
+            assert!(result.is_err());
+        } else {
+            let config = result.unwrap();
+            let file = case == "file";
+            assert_eq!(config.api_keys, [if file { "file-test-key" } else { "env-test-key" }.to_owned()].into_iter().collect());
+            assert_eq!(config.max_running_jobs, if file { 2 } else { 7 });
+            assert_eq!(config.simple_port, if file { 42010 } else { 43000 });
+        }
+    }
+}
