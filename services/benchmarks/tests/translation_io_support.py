@@ -49,13 +49,13 @@ def document():
     return {"schema": "normalized_document_v1", "pages": pages}
 
 
-def prepare(root, *, transport="rust", workers=1, outcome="success", start_page=0, end_page=-1, data=None):
+def prepare(root, *, transport="rust", workers=1, outcome="success", start_page=0, end_page=-1, data=None, batch_size=1):
     root = Path(root)
     root.mkdir(parents=True, exist_ok=True)
     source = root / "document.v1.json"
     source.write_text(json.dumps(document() if data is None else data), encoding="utf-8")
     spec = dict(source=str(source), output=str(root / "translated"), transport=transport,
-                workers=workers, outcome=outcome, start_page=start_page, end_page=end_page)
+                workers=workers, outcome=outcome, start_page=start_page, end_page=end_page, batch_size=batch_size)
     (root / "spec.json").write_text(json.dumps(spec), encoding="utf-8")
     return root
 

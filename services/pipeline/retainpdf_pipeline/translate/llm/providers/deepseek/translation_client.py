@@ -12,6 +12,7 @@ from retainpdf_pipeline.translate.llm.shared.prompt_building import build_messag
 from retainpdf_pipeline.translate.llm.shared.prompt_building import build_single_item_fallback_messages
 from retainpdf_pipeline.translate.llm.shared.prompt_building import build_group_member_messages
 from retainpdf_pipeline.translate.llm.result_validator import validate_batch_result
+from retainpdf_pipeline.translate.llm.validation.errors import PartialBatchTranslationError
 from retainpdf_pipeline.translate.llm.result_canonicalizer import canonicalize_batch_result
 from retainpdf_pipeline.translate.llm.result_payload import result_entry
 from retainpdf_pipeline.services.pipeline_shared.direct_typst_math import has_balanced_unescaped_dollars
@@ -35,6 +36,13 @@ TAGGED_DAMAGED_END_RE = re.compile(r"\s*<{1,3}END>{0,4}\s*$")
 
 def parse_translation_payload(content: str) -> dict[str, dict[str, str]]:
     result: dict[str, dict[str, str]] = {}
+    seen: set[str] = set()
+    def add(item_id, decision, translated_text):
+        if item_id in seen:
+            result.pop(item_id, None)
+        else:
+            seen.add(item_id)
+            result[item_id] = result_entry(decision, translated_text)
     text = content or ""
     opens = list(TAGGED_ITEM_OPEN_RE.finditer(text))
     for index, match in enumerate(opens):
@@ -50,8 +58,8 @@ def parse_translation_payload(content: str) -> dict[str, dict[str, str]]:
         else:
             # 缺失/残缺闭合:下一个开标签或字符串结尾即隐式闭合
             translated_text = TAGGED_DAMAGED_END_RE.sub("", segment).strip()
-        result[item_id] = result_entry(decision, translated_text)
-    if result:
+        add(item_id, decision, translated_text)
+    if opens:
         return result
 
     payload = parse_structured_json(content)
@@ -61,7 +69,7 @@ def parse_translation_payload(content: str) -> dict[str, dict[str, str]]:
         translated_text = unwrap_translation_shell(str(item.get("translated_text", "") or ""), item_id=str(item_id or ""))
         decision = item.get("decision", "translate")
         if item_id:
-            result[item_id] = result_entry(decision, translated_text)
+            add(item_id, decision, translated_text)
     return result
 
 
@@ -396,5 +404,21 @@ def translate_batch_once(
     )
     result = parse_translation_payload(content)
     result = canonicalize_batch_result(batch, result)
+    # Retain only independently validated expected members. Unexpected IDs
+    # remain a whole-response protocol error, never silently accepted.
+    if set(result) - {item["item_id"] for item in batch}:
+        validate_batch_result(batch, result, diagnostics=diagnostics)
+    accepted, retry_items = {}, []
+    for item in batch:
+        item_id = item["item_id"]
+        member_result = {item_id: result[item_id]} if item_id in result else {}
+        try:
+            validate_batch_result([item], member_result, diagnostics=diagnostics)
+        except (ValueError, KeyError):
+            retry_items.append(item)
+        else:
+            accepted.update(member_result)
+    if retry_items:
+        raise PartialBatchTranslationError(accepted, retry_items)
     validate_batch_result(batch, result, diagnostics=diagnostics)
     return result

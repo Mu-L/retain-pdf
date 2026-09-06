@@ -45,8 +45,17 @@ Only model transports are replaced; final files are read by the real rendering
 consumer. The harness rejects unknown model protocols and never uses real provider
 credentials. Success covers legacy/Rust, workers 1/8, single items, a formula, a URL
 skip, and a cross-page group. Page selection uses independent pages without group
-hints. Ordinary multi-item batch protocol and domain/glossary configuration are
-not part of this fixture.
+hints. Domain/glossary configuration is not part of this fixture.
+
+`test_translation_io_batch.py` exercises the ordinary tagged multi-item protocol
+on the second page with batch size 8. The page-leading continuation fragment runs
+as a single item; the two independent paragraphs must share one initial request.
+Replies are reversed, and separate cases inject one missing ID or a conflicting
+duplicate ID into only the first batch reply. Subsequent replies are valid.
+Both transports retain validated members and repair only missing or invalid IDs.
+Duplicate IDs are discarded rather than resolved by first/last-write wins.
+Rust repairs retain the original unit identity and primary/repair request budget.
+Assertions check both consumer-visible artifacts and per-member request counts.
 
 Recovery repeats real checkpoint interruption and fresh-process resume three times,
 verifying that committed translations are not requested again and the skipped URL

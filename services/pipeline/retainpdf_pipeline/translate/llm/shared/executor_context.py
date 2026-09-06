@@ -15,6 +15,7 @@ import os
 import threading
 
 from .rust_executor import ExecutorError, RustModelExecutorClient
+from retainpdf_pipeline.translate.llm.validation.errors import PartialBatchTranslationError
 
 
 from retainpdf_pipeline.translate.core.execution_policy import execution_enabled
@@ -148,10 +149,22 @@ def translation_unit(function):
         items = args[0] if args else kwargs.get("item", kwargs.get("batch"))
         members = item_ids(items)
         with unit_scope("translation", members, members=members):
+            accepted = {}
             for _ in range(2):
                 before = _unit.get().requests
                 try:
-                    return function(*args, **kwargs)
+                    result = function(*args, **kwargs)
+                    return {**accepted, **result} if accepted else result
+                except PartialBatchTranslationError as error:
+                    accepted.update(error.result)
+                    if _unit.get().requests == before or _unit.get().requests >= 2:
+                        break
+                    # Keep the original unit identity and its primary/repair
+                    # budget, but send only unresolved members to the model.
+                    if args:
+                        args = (error.retry_items, *args[1:])
+                    else:
+                        kwargs = {**kwargs, "batch": error.retry_items}
                 except (ValueError, KeyError):
                     if _unit.get().requests == before or _unit.get().requests >= 2:
                         break

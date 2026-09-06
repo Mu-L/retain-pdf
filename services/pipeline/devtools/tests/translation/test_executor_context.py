@@ -89,6 +89,41 @@ def test_missing_scope_fails_before_any_dispatch(execution):
     client.request.assert_not_called()
 
 
+@pytest.mark.parametrize("succeeds", [True, False])
+@pytest.mark.parametrize("keyword", [True, False])
+def test_partial_batch_repair_keeps_budget_and_only_requests_pending(execution, succeeds, keyword):
+    from retainpdf_pipeline.translate.llm.validation.errors import PartialBatchTranslationError
+    ctx, rt, client = execution
+    submitted = []
+
+    @ctx.translation_unit
+    def translate(batch):
+        submitted.append([item["item_id"] for item in batch])
+        rt.request([{"role": "user", "content": "synthetic"}])
+        if len(submitted) == 1:
+            raise PartialBatchTranslationError({"a": {"translated_text": "甲"}}, [batch[1]])
+        if not succeeds:
+            raise PartialBatchTranslationError({}, batch)
+        return {"b": {"translated_text": "乙"}}
+
+    batch = [{"item_id": "a"}, {"item_id": "b"}]
+    def invoke():
+        return translate(batch=batch) if keyword else translate(batch)
+    if succeeds:
+        assert invoke() == {"a": {"translated_text": "甲"}, "b": {"translated_text": "乙"}}
+        assert rt.failure is None
+    else:
+        with pytest.raises(ctx.ExecutorError, match="bounded repair"):
+            invoke()
+        with pytest.raises(ctx.ExecutorError):
+            invoke()
+    assert submitted == [["a", "b"], ["b"]]
+    assert client.request.call_count == 2
+    first, repair = client.request.call_args_list
+    assert first.kwargs["unit_id"] == repair.kwargs["unit_id"]
+    assert [first.kwargs["purpose"], repair.kwargs["purpose"]] == ["primary", "repair"]
+
+
 def test_production_transport_does_not_read_a_key_or_open_upstream_http(execution):
     ctx, rt, client = execution
     transport = importlib.import_module("retainpdf_pipeline.translate.llm.providers.deepseek.client")

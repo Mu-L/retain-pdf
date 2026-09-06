@@ -1,6 +1,16 @@
 from __future__ import annotations
 
 
+class PartialBatchTranslationError(ValueError):
+    """Validated members may be retained; only retry_items need model repair."""
+
+    def __init__(self, result: dict, retry_items: list[dict]) -> None:
+        super().__init__("batch translation contains missing or invalid members")
+        self.result = result
+        self.retry_items = retry_items
+        self.item_id = retry_items[0]["item_id"]
+
+
 class SuspiciousKeepOriginError(ValueError):
     def __init__(self, item_id: str, result: dict[str, dict[str, str]]) -> None:
         super().__init__(f"{item_id}: suspicious keep_origin for long English body text")

@@ -2,6 +2,7 @@
 from contextlib import ExitStack
 import json
 import os
+import re
 from pathlib import Path
 import socket
 import sys
@@ -41,6 +42,7 @@ def main():
             if not isinstance(payload, dict):
                 raise TypeError("model request JSON must be an object")
             kind = "translation"
+            protocol = "single"
             if "pairs" in payload:
                 kind = "continuation"
                 pairs = payload["pairs"]
@@ -54,6 +56,7 @@ def main():
                     "decision": "join" if (pair["prev_item_id"], pair["next_item_id"]) ==
                     ("p001-b003", "p002-b000") else "break"} for pair in pairs]})
             elif "group" in payload:
+                protocol = "group"
                 members = payload["group"]["members"]
                 ids = [member["item_id"] for member in members]
                 if any(member["source_text"] != SOURCES.get(member["item_id"]) for member in members):
@@ -61,6 +64,29 @@ def main():
                     raise AssertionError(violations[-1])
                 content = json.dumps({"member_translations": [
                     {"item_id": key, "translated_text": TRANSLATIONS[key]} for key in ids]})
+            elif re.search(r"^原文 p\d+-b\d+:", user, re.M):
+                protocol = "batch"
+                members = re.findall(r"^原文 (p\d+-b\d+):\n([^\n]+)", user, re.M)
+                ids = [key for key, _ in members]
+                if not ids or len(set(ids)) != len(ids) or any(
+                    source != SOURCES.get(key) for key, source in members
+                ):
+                    violations.append("unknown batch member source")
+                    raise AssertionError(violations[-1])
+                response_ids = list(reversed(ids))
+                first_batch = not any(call.get("protocol") == "batch" for call in calls)
+                if first_batch and spec["outcome"] == "batch_missing":
+                    response_ids.remove(ids[0])
+                if first_batch and spec["outcome"] == "batch_duplicate":
+                    response_ids.append(ids[0])
+                replies = [(key, TRANSLATIONS[key]) for key in response_ids]
+                if first_batch and spec["outcome"] == "batch_duplicate":
+                    # A conflicting duplicate must not silently overwrite the
+                    # first member with another member's plausible translation.
+                    replies[-1] = (ids[0], TRANSLATIONS[ids[-1]])
+                content = "\n".join(
+                    f"<<<ITEM item_id={key}>>>\n{text}\n<<<END>>>" for key, text in replies
+                )
             else:
                 if not payload and user.strip() in SOURCES.values():
                     current = user.strip()  # Legacy raw-source fallback protocol.
@@ -87,8 +113,11 @@ def main():
                         if not threading.Event().wait(25):
                             raise TimeoutError("parent did not terminate blocked probe")
             with lock:
-                record = dict(kind=kind, members=ids, messages=messages,
+                record = dict(kind=kind, protocol=protocol, members=ids, messages=messages,
                               purpose=kwargs.get("purpose"), unit_id=kwargs.get("unit_id"))
+                if protocol == "batch":
+                    record["response_members"] = response_ids
+                    record["response_content"] = content
                 calls.append(record)
                 (root / "calls.json").write_text(json.dumps(calls, ensure_ascii=False))
                 attempts = sum(c["kind"] == "translation" and "p001-b000" in c["members"] for c in calls)
@@ -125,7 +154,7 @@ def main():
         try:
             translate_book_pipeline(source_json_path=Path(spec["source"]), output_dir=Path(spec["output"]),
                 api_key="synthetic", model="qwen3.8-flash", base_url="https://example.invalid/v1",
-                workers=spec["workers"], batch_size=1, mode="fast", math_mode="direct_typst",
+                workers=spec["workers"], batch_size=spec.get("batch_size", 1), mode="fast", math_mode="direct_typst",
                 context_mode="off", memory_mode="off", glossary_mode="off",
                 start_page=spec["start_page"], end_page=spec["end_page"])
             result["ok"] = True
