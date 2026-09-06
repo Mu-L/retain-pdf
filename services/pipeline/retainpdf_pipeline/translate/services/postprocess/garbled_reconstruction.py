@@ -26,6 +26,7 @@ from retainpdf_pipeline.translate.llm.shared.structured_parsers import parse_gar
 from retainpdf_pipeline.translate.artifacts.status import has_translation_artifact
 from retainpdf_pipeline.translate.services.policy import should_skip_model_by_policy
 from retainpdf_pipeline.translate.services.quality import review_translation_item
+from retainpdf_pipeline.translate.services.quality import TranslationQualityIssue
 
 
 MAX_CANDIDATES_ENV = "RETAIN_TRANSLATION_GARBLED_MAX_CANDIDATES"
@@ -225,29 +226,56 @@ def _clean_reconstructed_text(text: str, item: dict) -> tuple[str, bool]:
     return restore_protected_tokens(salvaged, protected_map), salvage_changed
 
 
-def _apply_reconstruction(
+@dataclass(frozen=True)
+class PreparedReconstruction:
+    outcome: Literal["ready", "rejected", "no_result"]
+    cleaned_text: str = ""
+    salvaged: bool = False
+    issues: tuple[TranslationQualityIssue, ...] = ()
+
+
+@dataclass(frozen=True)
+class ReconstructionApplication:
+    outcome: Literal["applied", "rejected", "no_result"]
+    # Touched pages, including diagnostic-only rejection writes.
+    dirty_pages: frozenset[int] = frozenset()
+
+
+def _prepare_reconstruction(
     items: list[dict], translated_text: str,
-) -> Literal["applied", "rejected", "no_result"]:
+) -> PreparedReconstruction:
+    """Clean and validate a response without modifying its target items."""
     if not translated_text or not items:
-        return "no_result"
+        return PreparedReconstruction("no_result")
     cleaned_text, salvaged = _clean_reconstructed_text(translated_text, items[0])
     # 用清洗后的文本做质量校验:落盘什么就校验什么。
-    validation_issues = _validate_reconstruction(items[0], cleaned_text)
-    if validation_issues:
+    issues = tuple(_validate_reconstruction(items[0], cleaned_text))
+    return PreparedReconstruction(
+        "rejected" if issues else "ready", cleaned_text, salvaged, issues,
+    )
+
+
+def _apply_prepared_reconstruction(
+    items: list[dict], prepared: PreparedReconstruction,
+) -> ReconstructionApplication:
+    """Apply a prepared response to the same targets; never request or validate."""
+    if prepared.outcome == "no_result" or not items:
+        return ReconstructionApplication("no_result")
+    if prepared.outcome == "rejected":
         for item in items:
-            _record_reconstruction_rejected(item, validation_issues)
-        return "rejected"
+            _record_reconstruction_rejected(item, prepared.issues)
+        return ReconstructionApplication("rejected", frozenset(_collect_dirty_pages(items)))
     if _is_aggregate_geometry_group(items[0]):
         apply_group_translated_entry(
             items,
             {
                 "decision": "translate",
-                "translated_text": cleaned_text,
+                "translated_text": prepared.cleaned_text,
                 "final_status": "translated",
             },
         )
     else:
-        apply_reconstructed_unit_text(items, cleaned_text)
+        apply_reconstructed_unit_text(items, prepared.cleaned_text)
     for item in items:
         # 候选资格已保证 should_translate=True(verdict 会把显式 False 挡在
         # should_skip_model_by_policy 之外),此处写 True 为恒等操作。
@@ -263,10 +291,19 @@ def _apply_reconstruction(
             "fallback_to": "",
             "route_path": route_path + ["garbled_reconstruction"],
         }
-        if salvaged:
+        if prepared.salvaged:
             updates["reasoning_leak_salvaged"] = True
         record_translation_diagnostics(item, "garbled_reconstruction", updates)
-    return "applied"
+    return ReconstructionApplication("applied", frozenset(_collect_dirty_pages(items)))
+
+
+def _apply_reconstruction(
+    items: list[dict], translated_text: str,
+) -> Literal["applied", "rejected", "no_result"]:
+    """Compatibility entrypoint for callers expecting only the outcome."""
+    return _apply_prepared_reconstruction(
+        items, _prepare_reconstruction(items, translated_text),
+    ).outcome
 
 
 def _candidate_key(item: dict) -> str:
@@ -298,7 +335,7 @@ def _validate_reconstruction(item: dict, translated_text: str) -> list:
     ]
 
 
-def _record_reconstruction_rejected(item: dict, issues: list) -> None:
+def _record_reconstruction_rejected(item: dict, issues: tuple[TranslationQualityIssue, ...]) -> None:
     record_translation_diagnostics(
         item,
         "garbled_reconstruction",
@@ -369,11 +406,10 @@ def _run_reconstruction_candidates(
                 continue
             if translated_text:
                 target_items = candidates_by_key[key]
-                outcome = _apply_reconstruction(target_items, translated_text)
-                reconstructed += int(outcome == "applied")
-                # Rejection changes diagnostics, so it still needs persistence.
-                if outcome != "no_result":
-                    dirty_pages.update(_collect_dirty_pages(target_items))
+                prepared = _prepare_reconstruction(target_items, translated_text)
+                result = _apply_prepared_reconstruction(target_items, prepared)
+                reconstructed += int(result.outcome == "applied")
+                dirty_pages.update(result.dirty_pages)
             if progress_callback is not None:
                 progress_callback(completed, len(candidate_list), set(dirty_pages))
         return reconstructed, dirty_pages
@@ -397,10 +433,10 @@ def _run_reconstruction_candidates(
                 continue
             if translated_text:
                 target_items = candidates_by_key[key]
-                outcome = _apply_reconstruction(target_items, translated_text)
-                reconstructed += int(outcome == "applied")
-                if outcome != "no_result":
-                    dirty_pages.update(_collect_dirty_pages(target_items))
+                prepared = _prepare_reconstruction(target_items, translated_text)
+                result = _apply_prepared_reconstruction(target_items, prepared)
+                reconstructed += int(result.outcome == "applied")
+                dirty_pages.update(result.dirty_pages)
             completed += 1
             if progress_callback is not None:
                 progress_callback(completed, len(candidate_list), set(dirty_pages))

@@ -133,6 +133,11 @@ normal retry chain takes over 30 seconds.
 
 ### Execution ownership and refactoring guards
 
+- Garbled reconstruction prepares cleaned text and a quality verdict without
+  changing page items. Application consumes that verdict without another model
+  request or quality review, and reports touched pages (including diagnostic-only
+  rejections) for persistence. The legacy outcome-only entrypoint is retained;
+  candidate budgets, group application and request scheduling are unchanged.
 - Placeholder syntax and text helpers live in `translate/core/placeholder_tokens.py`
   with standard-library-only dependencies. Policy and formula protection use
   this owner; the previous LLM validation module remains a compatibility export

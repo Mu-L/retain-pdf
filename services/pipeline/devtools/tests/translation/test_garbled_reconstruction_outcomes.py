@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from retainpdf_pipeline.translate.core.payload.parts.common import group_unit_id
 from retainpdf_pipeline.translate.services.postprocess import garbled_reconstruction as reconstruction
 from retainpdf_pipeline.translate.workflow.phases import repair
 
@@ -20,6 +21,72 @@ def item(page):
 
 def issue():
     return SimpleNamespace(kind="synthetic_rejection", as_dict=lambda: {"kind": "synthetic_rejection"})
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("催化剂保持稳定。", "ready"), ("   ", "rejected"), ("", "no_result"),
+])
+def test_preparation_with_real_validation_does_not_mutate_targets(text, expected):
+    targets = [item(0), item(1)]
+    before = deepcopy(targets)
+    prepared = reconstruction._prepare_reconstruction(targets, text)
+    assert prepared.outcome == expected
+    assert targets == before
+    if expected == "rejected":
+        assert "empty_translation" in {issue.kind for issue in prepared.issues}
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("我选择更简洁的表达。因此输出：催化剂保持稳定。", "applied"),
+    ("   ", "rejected"), ("", "no_result"),
+])
+def test_application_never_requests_cleans_or_validates_again(monkeypatch, text, expected):
+    targets = [item(0), item(1)]
+    for target in targets:
+        target["translated_text"] = "旧译文"
+        target["translation_diagnostics"] = {"prior_marker": "keep", "route_path": ["batch", "failed"]}
+    before = deepcopy(targets)
+    prepared = reconstruction._prepare_reconstruction(targets, text)
+    def forbidden(*args, **kwargs):
+        raise AssertionError("application must only apply the prepared result")
+    for name in ("_repair_item_translation", "_clean_reconstructed_text", "_validate_reconstruction"):
+        monkeypatch.setattr(reconstruction, name, forbidden)
+    result = reconstruction._apply_prepared_reconstruction(targets, prepared)
+    assert result.outcome == expected
+    assert result.dirty_pages == (frozenset() if expected == "no_result" else frozenset({0, 1}))
+    if expected == "no_result":
+        assert targets == before
+    for target, original in zip(targets, before):
+        assert target["translation_diagnostics"]["prior_marker"] == "keep"
+        if expected == "applied":
+            assert target["translated_text"] == "催化剂保持稳定。"
+            assert target["final_status"] == "translated"
+            assert target["translation_diagnostics"]["reasoning_leak_salvaged"]
+            assert target["translation_diagnostics"]["route_path"] == ["batch", "garbled_reconstruction"]
+        elif expected == "rejected":
+            assert {k: v for k, v in target.items() if k != "translation_diagnostics"} == {
+                k: v for k, v in original.items() if k != "translation_diagnostics"
+            }
+            assert target["translation_diagnostics"]["garbled_reconstruction_rejected"]
+
+
+@pytest.mark.parametrize("aggregate", [False, True])
+@pytest.mark.parametrize("text", ["催化剂保持稳定。", "   ", ""])
+def test_two_step_application_matches_compatibility_entrypoint(aggregate, text):
+    targets = [item(0), item(1)]
+    if aggregate:
+        for target in targets:
+            target.update(translation_group_strategy="aggregate_geometry",
+                          translation_unit_id=group_unit_id("cross-page-unit"),
+                          translation_unit_member_ids=[entry["item_id"] for entry in targets])
+        assert reconstruction._is_aggregate_geometry_group(targets[0])
+    compatibility_targets = deepcopy(targets)
+    expected = reconstruction._apply_reconstruction(compatibility_targets, text)
+    prepared = reconstruction._prepare_reconstruction(targets, text)
+    actual = reconstruction._apply_prepared_reconstruction(targets, prepared)
+    assert actual.outcome == expected
+    assert targets == compatibility_targets
+    assert actual.dirty_pages == (frozenset({0, 1}) if text else frozenset())
 
 
 @pytest.mark.parametrize("reject", [False, True])
