@@ -1,6 +1,6 @@
 # `@retainpdf/reader`
 
-RetainPDF 的独立 react-pdf 阅读器包。组件、hooks、PDF 加载、批注、阅读工具、AI 面板和 Reader 样式都以本包为实现真值；`apps/web` 只是其中一个宿主。
+RetainPDF 的独立 react-pdf 阅读器包。组件、hooks、PDF 加载、批注、阅读工具、AI 面板和 Reader 样式都以本包为实现真值；`frontend/web` 只是其中一个宿主。
 
 ## 公共入口
 
@@ -18,7 +18,7 @@ RetainPDF 的独立 react-pdf 阅读器包。组件、hooks、PDF 加载、批�
 
 ## 宿主契约
 
-本包不直接依赖 `apps/web/src/js/*`。宿主通过 `ReaderAdapters` 注入：
+本包不直接依赖 `frontend/web/src/js/*`。宿主通过 `ReaderAdapters` 注入：
 
 - 当前 Reader session 与文档来源；
 - 受保护 PDF/资源请求；
@@ -31,27 +31,27 @@ RetainPDF 的独立 react-pdf 阅读器包。组件、hooks、PDF 加载、批�
 RetainPDF Web 的实现位于：
 
 ```text
-apps/web/src/pages/reader/entry.tsx
-  → apps/web/src/pages/reader/adapters/retainpdf.ts
-  → apps/web/src/pages/reader/external.ts
-  → apps/web/src/shared/reader/host/*
+frontend/web/src/pages/reader/entry.tsx
+  → frontend/web/src/pages/reader/adapters/retainpdf.ts
+  → frontend/web/src/pages/reader/external.ts
+  → frontend/web/src/shared/reader/host/*
 ```
 
-宿主不得 alias、相对导入或发布依赖 `packages/reader/src`。需要非 React 能力时，使用 `runtime/ai`、`runtime/config`、`runtime/content`、`runtime/data`、`runtime/state` 等公开 exports。
+宿主不得 alias、相对导入或发布依赖 `frontend/packages/reader/src`。需要非 React 能力时，使用 `runtime/ai`、`runtime/config`、`runtime/content`、`runtime/data`、`runtime/state` 等公开 exports。
 
 ## 构建
 
 ```bash
-npm --prefix packages/reader run build
-npm --prefix packages/reader run typecheck
+npm --prefix frontend/packages/reader run build
+npm --prefix frontend/packages/reader run typecheck
 ```
 
 构建会生成 ESM、类型声明、`dist/styles.css` 和 `dist/ai.css`。在 Web MPA 中验证完整宿主链：
 
 ```bash
-npm --prefix apps/web run build:js
-npm --prefix apps/web run build:css
-npm --prefix apps/web test -- 'tests/reader/*.test.mjs'
+npm --prefix frontend/web run build:js
+npm --prefix frontend/web run build:css
+npm --prefix frontend/web test -- 'tests/reader/*.test.mjs'
 ```
 
 ## Markdown 与 AI 渲染
@@ -64,34 +64,34 @@ npm --prefix apps/web test -- 'tests/reader/*.test.mjs'
 - 整篇 Markdown 先显示可读 fallback，再分批升级 MathJax SVG；图片按视口懒加载并限制并发。
 - 正文目录、搜索和公式升级各自保持 DOM 边界，避免互相重写。
 
-相关回归测试位于 `apps/web/tests/reader`。
+相关回归测试位于 `frontend/web/tests/reader`。
 
 ## 样式真值
 
-`packages/reader/styles/entry.css` 是完整 Reader 样式入口：
+`frontend/packages/reader/styles/entry.css` 是完整 Reader 样式入口：
 
 ```text
-packages/reader/scripts/styles.css
-  → packages/reader/styles/entry.css
-  → packages/reader/dist/styles.css
+frontend/packages/reader/scripts/styles.css
+  → frontend/packages/reader/styles/entry.css
+  → frontend/packages/reader/dist/styles.css
 
-apps/web/src/styles/entries/reader.css
-  → packages/reader/styles/entry.css
-  → apps/web/dist/css/reader.css
+frontend/web/src/styles/entries/reader.css
+  → frontend/packages/reader/styles/entry.css
+  → frontend/web/dist/css/reader.css
 ```
 
-`apps/web/src/styles/reader/*` 是迁移后保留的旧镜像，不应继续编辑。具体归属和验证命令见 [`styles/README.md`](styles/README.md)。
+`frontend/web/src/styles/reader/*` 是迁移后保留的旧镜像，不应继续编辑。具体归属和验证命令见 [`styles/README.md`](styles/README.md)。
 
 Reader 的快捷键帮助、工具菜单、选区工具、下载 Toast 和非停靠悬浮面板统一使用 `reader-floating-surface`；标题栏关闭按钮使用 `reader-floating-close`。这些是非模态工具 surface，不套 Web 主页的模态 Dialog 尺寸与遮罩。
 
 ## Legacy 状态
 
-当前包和 `apps/web` 都只启动 react-pdf Reader，没有 `?engine=legacy` 分支。仓库中残留的 legacy 文件名、旧数据 fallback 或历史 CSS 产物不构成受支持的第二引擎。详见 [`src/LEGACY.md`](src/LEGACY.md)。
+当前包和 `frontend/web` 都只启动 react-pdf Reader，没有 `?engine=legacy` 分支。仓库中残留的 legacy 文件名、旧数据 fallback 或历史 CSS 产物不构成受支持的第二引擎。详见 [`src/LEGACY.md`](src/LEGACY.md)。
 
 ## 相关文档
 
 - [Reader 样式](styles/README.md)
 - [Legacy 当前状态](src/LEGACY.md)
-- [Web Reader 宿主边界](../../apps/web/src/pages/reader/README.md)
-- [Web 前端地图](../../apps/web/src/FEATURES.md)
-- [Web 测试指南](../../apps/web/tests/README.md)
+- [Web Reader 宿主边界](../../web/src/pages/reader/README.md)
+- [Web 前端地图](../../web/src/FEATURES.md)
+- [Web 测试指南](../../web/tests/README.md)

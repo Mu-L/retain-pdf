@@ -1,4 +1,4 @@
-// Vendored from apps/web/src/js/app-framework/selector.ts — pure memoization, no framework deps
+// Vendored from frontend/web/src/js/app-framework/selector.ts — pure memoization, no framework deps
 function shallowEqualArray(left: unknown, right: unknown): boolean {
   if (left === right) return true;
   if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false;

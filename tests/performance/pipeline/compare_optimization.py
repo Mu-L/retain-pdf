@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 
 # Keep the documented standalone CLI usable without a caller-provided PYTHONPATH.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pipeline"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "backend/pipeline"))
 from retainpdf_pipeline.render.translation_loader import load_translated_pages
 from optimization_evidence import compare_evidence
 

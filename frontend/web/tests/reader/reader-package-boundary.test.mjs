@@ -8,9 +8,9 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const execFileAsync = promisify(execFile);
 const REPO_ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
-const WEB_ROOT = join(REPO_ROOT, "apps/web");
-const WEB_REACT_ROOT = join(REPO_ROOT, "apps/web-react");
-const READER_ROOT = join(REPO_ROOT, "packages/reader");
+const WEB_ROOT = join(REPO_ROOT, "frontend/web");
+const WEB_REACT_ROOT = join(REPO_ROOT, "frontend/web-react");
+const READER_ROOT = join(REPO_ROOT, "frontend/packages/reader");
 const READER_SOURCE_ROOT = join(READER_ROOT, "src");
 const REQUIRED_EXPORTS = [
   ".",
@@ -75,7 +75,7 @@ before(async () => {
 });
 
 test("reader package exports only built, packed public entrypoints", () => {
-  assert.ok(readerPackage.exports, "packages/reader/package.json must define exports");
+  assert.ok(readerPackage.exports, "frontend/packages/reader/package.json must define exports");
 
   for (const exportName of REQUIRED_EXPORTS) {
     assert.ok(
@@ -139,7 +139,7 @@ test("importing Reader root and runtime exports does not require or mutate the D
   });
 });
 
-test("production consumers do not deep-link into packages/reader/src", () => {
+test("production consumers do not deep-link into frontend/packages/reader/src", () => {
   const files = [
     ...sourceFilesUnder(join(WEB_ROOT, "src")),
     ...sourceFilesUnder(join(WEB_REACT_ROOT, "src")),
@@ -154,7 +154,7 @@ test("production consumers do not deep-link into packages/reader/src", () => {
   assert.deepEqual(
     sourceFilesUnder(hostRoot).map((file) => relative(hostRoot, file)),
     ["host/ai.ts", "host/config.ts", "host/content.ts", "host/data.ts", "host/state.ts"],
-    "apps/web must keep exactly five Reader host adapter entries",
+    "frontend/web must keep exactly five Reader host adapter entries",
   );
 
   for (const configFile of [
@@ -176,18 +176,18 @@ test("reader changes trigger downstream workflows and CI typecheck", () => {
   ]);
   for (const [workflowName, expectedCount] of triggerCounts) {
     const source = readFileSync(join(REPO_ROOT, ".github/workflows", workflowName), "utf8");
-    const matches = source.match(/^\s*-\s+["']?packages\/reader\/\*\*["']?\s*$/gm) ?? [];
+    const matches = source.match(/^\s*-\s+["']?frontend\/packages\/reader\/\*\*["']?\s*$/gm) ?? [];
     assert.equal(
       matches.length,
       expectedCount,
-      `${workflowName} must trigger for packages/reader/** in every push/PR path filter`,
+      `${workflowName} must trigger for frontend/packages/reader/** in every push/PR path filter`,
     );
   }
 
   const testsWorkflow = readFileSync(join(REPO_ROOT, ".github/workflows/tests.yml"), "utf8");
   assert.match(
     testsWorkflow,
-    /npm\s+--prefix\s+packages\/reader\s+run\s+typecheck/,
+    /npm\s+--prefix\s+frontend\/packages\/reader\s+run\s+typecheck/,
     "tests.yml must run the reader typecheck",
   );
 });

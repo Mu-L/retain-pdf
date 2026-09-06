@@ -23,7 +23,7 @@ export async function packCurrentDesktopAsar(outputPath) {
   const frontendIndex = path.join(desktopRoot, "app", "frontend", "index.html");
   if (!fs.existsSync(frontendIndex)) {
     throw new Error(
-      `prepared desktop frontend is missing at ${frontendIndex}; run npm --prefix apps/desktop run sync-frontend`,
+      `prepared desktop frontend is missing at ${frontendIndex}; run npm --prefix frontend/desktop run sync-frontend`,
     );
   }
 

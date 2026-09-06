@@ -10,7 +10,7 @@ Python 保留翻译业务逻辑，Rust 最终统一负责模型凭据、供应�
 
 ## 当前已落地
 
-- `services/api/src/services/model_executor/`：连接快照、参数校验、连接池、跨任务/配置版本共享的并发上限。
+- `backend/api/src/services/model_executor/`：连接快照、参数校验、连接池、跨任务/配置版本共享的并发上限。
 - Qwen、DeepSeek、OpenAI-compatible 的 chat-completions 传输；已知供应商默认 SSE，自定义默认非流式。
 - Qwen3.8-flash 的 Qwen 策略默认关闭 thinking，不靠 hostname 猜测策略。DeepSeek 当前仅支持 auto；显式 on/off 暂时拒绝，自定义连接不注入 thinking 字段。
 - HTTP 客户端禁用环境代理、重定向及底层自动重试。解析并固定目标 IP，私有/保留地址需显式允许；拒绝 URL 内凭据、查询串和片段。
@@ -67,13 +67,13 @@ Python 保留翻译业务逻辑，Rust 最终统一负责模型凭据、供应�
 仓库根目录：
 
 ```bash
-PYTHONPATH=services/pipeline .venv/bin/python -m pytest \
-  services/pipeline/devtools/tests/translation/test_rust_executor_client.py \
-  services/pipeline/devtools/tests/translation/test_executor_context.py \
-  services/benchmarks/tests/test_run.py -q
+PYTHONPATH=backend/pipeline .venv/bin/python -m pytest \
+  backend/pipeline/devtools/tests/translation/test_rust_executor_client.py \
+  backend/pipeline/devtools/tests/translation/test_executor_context.py \
+  tests/performance/pipeline/tests/test_run.py -q
 ```
 
-在 `services/api`：
+在 `backend/api`：
 
 ```bash
 cargo test -p retain-data --lib --offline

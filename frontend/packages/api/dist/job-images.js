@@ -1,4 +1,4 @@
-// job-images — pure (from apps/web/src/js/api/job-images.ts, mock removed)
+// job-images — pure (from frontend/web/src/js/api/job-images.ts, mock removed)
 // Builds candidate URLs for thumbnail/cover fallbacks and fetches image blobs.
 import { API_PREFIX, buildApiHeaders, buildApiUrl } from "./internal/runtime.js";
 function isFileProtocolRuntime() {

@@ -1,5 +1,5 @@
-// 共享真值（原 apps/web/src/js/reader/server-favorites-port.ts），已抽离为可注入依赖
-// 不直接 import apps/web 的 config/api，仅通过参数注入，默认提供空实现保证纯函数可测试
+// 共享真值（原 frontend/web/src/js/reader/server-favorites-port.ts），已抽离为可注入依赖
+// 不直接 import frontend/web 的 config/api，仅通过参数注入，默认提供空实现保证纯函数可测试
 import type {
   CreateServerFavoritesPortOptions,
   FavoriteItem,

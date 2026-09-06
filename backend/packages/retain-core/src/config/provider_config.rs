@@ -213,7 +213,7 @@ fn config_path() -> Option<PathBuf> {
             for root in core_root.ancestors() {
                 for candidate in [
                     root.join("config").join("ocr_providers.json"),
-                    root.join("services")
+                    root.join("backend")
                         .join("config")
                         .join("ocr_providers.json"),
                     root.join("packages")
@@ -227,7 +227,7 @@ fn config_path() -> Option<PathBuf> {
             }
             core_root
                 .ancestors()
-                .nth(3)
+                .nth(2)
                 .map(|root| root.join("config").join("ocr_providers.json"))
         })
 }
@@ -258,7 +258,7 @@ mod tests {
         let core_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let backend_root = core_root
             .ancestors()
-            .nth(3)
+            .nth(2)
             .expect("retain-core must live below the backend root");
         let expected = backend_root.join("config").join("ocr_providers.json");
         let actual = config_path().expect("backend provider config path");

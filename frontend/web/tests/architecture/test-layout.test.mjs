@@ -6,13 +6,13 @@ import { fileURLToPath } from "node:url";
 
 const TESTS_ROOT = fileURLToPath(new URL("../", import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
-const WEB_SOURCE_ROOT = join(REPO_ROOT, "apps/web/src");
+const WEB_SOURCE_ROOT = join(REPO_ROOT, "frontend/web/src");
 const PACKAGE_BOUNDARIES = [
   {
     name: "job",
     publicEntry: "@retainpdf/domain/job",
-    sourceRoot: join(REPO_ROOT, "packages/domain/src/job"),
-    webMirrorRoot: join(REPO_ROOT, "apps/web/src/js/job"),
+    sourceRoot: join(REPO_ROOT, "frontend/packages/domain/src/job"),
+    webMirrorRoot: join(REPO_ROOT, "frontend/web/src/js/job"),
     sourceWhiteboxAllowlist: new Map([
       ["architecture/architecture-boundaries.test.mjs", new Set([""])],
       ["contracts/job-status-contract.test.mjs", new Set([
@@ -24,8 +24,8 @@ const PACKAGE_BOUNDARIES = [
   {
     name: "job-status",
     publicEntry: "@retainpdf/domain/job-status",
-    sourceRoot: join(REPO_ROOT, "packages/domain/src/job-status"),
-    webMirrorRoot: join(REPO_ROOT, "apps/web/src/js/job-status"),
+    sourceRoot: join(REPO_ROOT, "frontend/packages/domain/src/job-status"),
+    webMirrorRoot: join(REPO_ROOT, "frontend/web/src/js/job-status"),
     sourceWhiteboxAllowlist: new Map([
       ["contracts/job-status-contract.test.mjs", new Set([
         "",
@@ -100,7 +100,7 @@ function assertDomainPackageBoundaries() {
     if (file === thisFile) continue;
     const source = readFileSync(file, "utf8");
     for (const { literal, packageName } of sourcePathLiterals(source)) {
-      const marker = `packages/domain/src/${packageName}`;
+      const marker = `frontend/packages/domain/src/${packageName}`;
       const markerIndex = literal.indexOf(marker);
       const sourcePath = literal.slice(markerIndex + marker.length).replace(/^\//, "");
       sourceWhiteboxes.push([packageName, relative(TESTS_ROOT, file), sourcePath]);

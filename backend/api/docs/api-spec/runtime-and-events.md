@@ -88,7 +88,7 @@ Current internal boundary conventions:
 - `routes/*` only adapts HTTP requests/responses
 - `services/jobs/*` owns job query, presentation, creation orchestration, and control logic
 - `services/job_snapshot_factory` owns job snapshot assembly; `worker_command` owns Python worker command/spec construction
-- `crates/retain-jobs/src/job_runner/*` owns runtime execution, process lifecycle,
+- `../packages/retain-jobs/src/job_runner/*` owns runtime execution, process lifecycle,
   OCR-child chaining, and cancellation
 - `services/ai_proxy_api.rs` owns the Rust-to-AI HTTP proxy boundary;
   `services/library_api.rs` owns conversation persistence;
@@ -182,19 +182,19 @@ Current precedence contract is:
 ## Runtime Knobs
 
 These values are deployment/provider knobs, not API protocol constants. Defaults are owned by
-`services/api/crates/retain-core/src/config/*` and can be overridden by environment variables.
+`backend/packages/retain-core/src/config/*` and can be overridden by environment variables.
 
 Config source map:
 
-- `crates/retain-core/src/config/paths.rs`: project/data/scripts/jobs/uploads/downloads paths
-- `crates/retain-core/src/config/auth.rs`: `auth.local.json`, API keys, job concurrency, simple API port
-- `crates/retain-core/src/config/server.rs`: bind host, API port, Python binary
-- `crates/retain-core/src/config/upload.rs`: global upload size/page gates
-- `crates/retain-core/src/config/provider.rs`: MinerU / Paddle / DeepSeek runtime and provider limits
-- `crates/retain-core/src/config/ai_service.rs` and `ai_proxy.rs`: supervised
+- `../packages/retain-core/src/config/paths.rs`: project/data/scripts/jobs/uploads/downloads paths
+- `../packages/retain-core/src/config/auth.rs`: `auth.local.json`, API keys, job concurrency, simple API port
+- `../packages/retain-core/src/config/server.rs`: bind host, API port, Python binary
+- `../packages/retain-core/src/config/upload.rs`: global upload size/page gates
+- `../packages/retain-core/src/config/provider.rs`: MinerU / Paddle / DeepSeek runtime and provider limits
+- `../packages/retain-core/src/config/ai_service.rs` and `ai_proxy.rs`: supervised
   AI sidecar address, startup command, and proxy timeouts
-- `crates/retain-core/src/config/job_runner.rs`: queue polling, worker termination, failure diagnosis, sync wait knobs
-- `crates/retain-core/src/config.rs`: config facade exposing the current `AppConfig` fields
+- `../packages/retain-core/src/config/job_runner.rs`: queue polling, worker termination, failure diagnosis, sync wait knobs
+- `../packages/retain-core/src/config.rs`: config facade exposing the current `AppConfig` fields
 
 Provider upload gates:
 

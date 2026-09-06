@@ -1,5 +1,5 @@
-// packages/api/src/http.ts — canonical HTTP primitives (no mock, no window mock branching)
-// Mirrors apps/web/src/js/api/http.ts but pure: uses internal/runtime for apiBase/header/envelope.
+// frontend/packages/api/src/http.ts — canonical HTTP primitives (no mock, no window mock branching)
+// Mirrors frontend/web/src/js/api/http.ts but pure: uses internal/runtime for apiBase/header/envelope.
 
 import { apiBase, buildApiHeaders, buildApiUrl, frontendApiKey, unwrapEnvelope } from "./internal/runtime.js";
 

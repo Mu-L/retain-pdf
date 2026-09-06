@@ -22,7 +22,7 @@ CONTRACT_NAMES = (
 
 CONTRACTS_ROOT = Path(__file__).resolve().parent
 BACKEND_ROOT = CONTRACTS_ROOT.parent
-UPSTREAM_ROOT = BACKEND_ROOT.parent / "packages" / "schemas"
+UPSTREAM_ROOT = BACKEND_ROOT.parent / "contracts"
 
 
 def parse_args() -> argparse.Namespace:
@@ -32,7 +32,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--require-upstream",
         action="store_true",
-        help="Fail instead of skipping when packages/schemas is unavailable.",
+        help="Fail instead of skipping when the root contracts package is unavailable.",
     )
     return parser.parse_args()
 

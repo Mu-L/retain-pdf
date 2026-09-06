@@ -12,11 +12,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-COPY api/Cargo.toml api/Cargo.lock api/build.rs ./api/
-COPY api/crates ./api/crates
-COPY api/src ./api/src
+COPY Cargo.toml Cargo.lock ./
+COPY backend ./backend
+COPY database ./database
+COPY contracts ./contracts
+COPY resources/fonts ./resources/fonts
 
-WORKDIR /build/api
+WORKDIR /build
 RUN cargo build --release --locked --workspace --bins
 
 FROM python:3.11-slim-bookworm AS python-lock
@@ -25,9 +27,9 @@ COPY --from=ghcr.io/astral-sh/uv:0.11.19 /uv /uvx /bin/
 
 WORKDIR /workspace
 
-COPY pyproject.toml uv.lock ./
-COPY ai/pyproject.toml ai/pyproject.toml
-COPY pipeline/pyproject.toml pipeline/pyproject.toml
+COPY backend/pyproject.toml backend/uv.lock ./
+COPY backend/ai/pyproject.toml ai/pyproject.toml
+COPY backend/pipeline/pyproject.toml pipeline/pyproject.toml
 
 RUN uv export \
     --locked \
@@ -163,8 +165,8 @@ COPY --from=typstsrc /opt/fx/licenses /usr/share/licenses/fx
 
 RUN mkdir -p /usr/local/share/fonts/source-han-serif
 
-COPY fonts /usr/local/share/fonts/source-han-serif
-COPY docker/fontconfig/65-source-han-serif-alias.conf /etc/fonts/conf.d/65-source-han-serif-alias.conf
+COPY resources/fonts /usr/local/share/fonts/source-han-serif
+COPY ops/deployment/docker/backend/fontconfig/65-source-han-serif-alias.conf /etc/fonts/conf.d/65-source-han-serif-alias.conf
 
 RUN fc-scan /usr/local/share/fonts/source-han-serif/SourceHanSerifSC-Regular.otf >/dev/null \
     && fc-scan /usr/local/share/fonts/source-han-serif/SourceHanSerifSC-Bold.otf >/dev/null \
@@ -173,15 +175,15 @@ RUN fc-scan /usr/local/share/fonts/source-han-serif/SourceHanSerifSC-Regular.otf
 COPY --from=python-lock /requirements-backend.txt /tmp/requirements-backend.txt
 RUN pip install --no-cache-dir --require-hashes -r /tmp/requirements-backend.txt
 
-COPY --from=builder /build/api/target/release/rust_api /usr/local/bin/rust_api
-COPY --from=builder /build/api/target/release/retain-jobsd /usr/local/bin/retain-jobsd
-COPY --from=builder /build/api/target/release/retainpdf-agent /usr/local/bin/retainpdf-agent
-COPY config /app/services/config
-COPY pipeline /app/services/pipeline
-COPY ai /app/services/ai
+COPY --from=builder /build/target/release/rust_api /usr/local/bin/rust_api
+COPY --from=builder /build/target/release/retain-jobsd /usr/local/bin/retain-jobsd
+COPY --from=builder /build/target/release/retainpdf-agent /usr/local/bin/retainpdf-agent
+COPY backend/config /app/services/config
+COPY backend/pipeline /app/services/pipeline
+COPY backend/ai /app/services/ai
 RUN pip install --no-cache-dir --no-deps /app/services/pipeline /app/services/ai
-COPY api/auth.local.example.json /app/services/api/auth.local.example.json
-COPY docker/entrypoint-app.sh /entrypoint.sh
+COPY backend/api/auth.local.example.json /app/services/api/auth.local.example.json
+COPY ops/deployment/docker/backend/entrypoint-app.sh /entrypoint.sh
 
 RUN groupadd --gid "${RETAINPDF_GID}" retainpdf \
     && useradd \

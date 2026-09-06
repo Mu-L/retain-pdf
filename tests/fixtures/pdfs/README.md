@@ -53,29 +53,29 @@ multi-column-paper.pdf
 完整跑 OCR、翻译、渲染：
 
 ```bash
-RETAIN_TRANSLATION_API_KEY=... uv run --project services \
-  python services/pipeline/devtools/run_golden_flow.py \
+RETAIN_TRANSLATION_API_KEY=... uv run --project backend \
+  python backend/pipeline/devtools/run_golden_flow.py \
   --sample-id editable-paper-formula
 ```
 
 查看当前可用样本：
 
 ```bash
-uv run --project services \
-  python services/pipeline/devtools/run_golden_flow.py --list-samples
+uv run --project backend \
+  python backend/pipeline/devtools/run_golden_flow.py --list-samples
 ```
 
 只校验样本清单：
 
 ```bash
-uv run --project services \
-  python services/pipeline/devtools/run_golden_flow.py --check-manifest
+uv run --project backend \
+  python backend/pipeline/devtools/run_golden_flow.py --check-manifest
 ```
 
 复用已有 job 做检查：
 
 ```bash
-uv run --project services python services/pipeline/devtools/run_golden_flow.py \
+uv run --project backend python backend/pipeline/devtools/run_golden_flow.py \
   --job-root data/jobs/<job-id> \
   --skip-run
 ```

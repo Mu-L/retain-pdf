@@ -1,4 +1,4 @@
-// 主页「软打开」阅读器：自包含版，从 apps/web/src/shared/navigation/soft-reader.ts 复制
+// 主页「软打开」阅读器：自包含版，从 frontend/web/src/shared/navigation/soft-reader.ts 复制
 
 export const SOFT_READER_HISTORY_FLAG = "retainpdfSoftReader";
 export const SOFT_READER_OPEN_EVENT = "retainpdf:soft-reader-open";

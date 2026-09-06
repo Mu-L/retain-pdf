@@ -8,7 +8,7 @@ from pathlib import Path
 import sys
 from unittest.mock import patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "pipeline"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "backend/pipeline"))
 from retainpdf_pipeline.translate.core.engine_identity import translation_engine_identity
 from retainpdf_pipeline.translate.llm.shared.executor_context import item_ids
 from retainpdf_pipeline.translate.llm.shared.prompt_building import (

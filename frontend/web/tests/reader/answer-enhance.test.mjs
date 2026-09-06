@@ -15,15 +15,15 @@ import {
   resolveCitationPageIdx,
   resolveCitationPageNumber,
   resolveAnswerImageUrl,
-} from "../../../../packages/reader/src/shared/ai/answer-enhance.ts";
-import { pageNumberFromUrlAnchor } from "../../../../packages/reader/src/hooks/use-url-anchor-jump.ts";
+} from "../../../../frontend/packages/reader/src/shared/ai/answer-enhance.ts";
+import { pageNumberFromUrlAnchor } from "../../../../frontend/packages/reader/src/hooks/use-url-anchor-jump.ts";
 import {
   findReaderRegion,
   normalizeReaderMetadata,
   normalizeReaderRegions,
   projectReaderRegion,
   resolveReaderRegionHighlight,
-} from "../../../../packages/reader/src/shared/data/reader-regions.ts";
+} from "../../../../frontend/packages/reader/src/shared/data/reader-regions.ts";
 
 test("AI citation marker carries block_id through page resolution and bbox highlight", () => {
   const dom = new JSDOM('<!doctype html><div id="r"><p>OCR 结论成立 [1]。</p></div>');

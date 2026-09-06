@@ -116,7 +116,7 @@ export function buildReaderUrl(
   const pageNum = rawPage === null || rawPage === undefined ? NaN : Number(rawPage);
   const blockId = `${anchor?.blockId || ""}`.trim();
   if (Number.isFinite(pageNum)) {
-    // 双写：page（对外契约）+ page_idx（阅读器运行时真值，见 packages/reader page-config）。
+    // 双写：page（对外契约）+ page_idx（阅读器运行时真值，见 frontend/packages/reader page-config）。
     const pageStr = `${Math.max(0, Math.floor(pageNum))}`;
     params.set("page", pageStr);
     params.set("page_idx", pageStr);

@@ -13,7 +13,7 @@ import re
 import sqlite3
 import sys
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pipeline"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "backend/pipeline"))
 
 from retainpdf_pipeline.translate.core.payload.parts.units import _build_group_translation_unit
 from retainpdf_pipeline.translate.llm.shared.prompt_building import (

@@ -75,7 +75,7 @@ docker compose version
 
 ```bash
 git clone https://github.com/wxyhgk/retain-pdf.git
-cd retain-pdf/infra/docker/delivery
+cd retain-pdf/ops/deployment/docker/delivery
 ```
 
 ## 4. 启动服务
@@ -187,7 +187,7 @@ http://127.0.0.1:40001
 `41000` 或 `42000`。完整示例位于：
 
 ```text
-infra/nginx/retainpdf.example.conf
+ops/deployment/nginx/retainpdf.example.conf
 ```
 
 以 Ubuntu 为例：
@@ -205,7 +205,7 @@ sudo systemctl stop nginx
 sudo certbot certonly --standalone -d pdf.example.com
 sudo systemctl start nginx
 
-sudo cp infra/nginx/retainpdf.example.conf /etc/nginx/sites-available/retainpdf.conf
+sudo cp ops/deployment/nginx/retainpdf.example.conf /etc/nginx/sites-available/retainpdf.conf
 # 把配置中的 pdf.example.com 替换为真实域名。
 sudo ln -sfn /etc/nginx/sites-available/retainpdf.conf /etc/nginx/sites-enabled/retainpdf.conf
 sudo nginx -t

@@ -1,5 +1,5 @@
-// 共享真值（原 apps/web/src/js/reader/markdown-math.ts），已抽离为 standalone
-// 不直接 import apps/web 私有路径；MathJax 通过动态 import 加载，支持注入自定义 loader 便于单测
+// 共享真值（原 frontend/web/src/js/reader/markdown-math.ts），已抽离为 standalone
+// 不直接 import frontend/web 私有路径；MathJax 通过动态 import 加载，支持注入自定义 loader 便于单测
 // 对外保持与原实现一致的 pure + injectable 边界：parseMarkdown 由调用方注入（marked 等）
 
 export type MarkdownMathSlot = {

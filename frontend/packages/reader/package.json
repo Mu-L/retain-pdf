@@ -2,7 +2,7 @@
   "name": "@retainpdf/reader",
   "version": "0.1.0",
   "private": false,
-  "description": "RetainPDF reader — standalone react-pdf engine (extracted from apps/web)",
+  "description": "RetainPDF reader — standalone react-pdf engine (extracted from frontend/web)",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

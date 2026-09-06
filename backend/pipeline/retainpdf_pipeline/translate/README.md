@@ -125,9 +125,9 @@ Translation 阶段的正式输入和输出固定为：
    - `translation_diagnostics.json` 看全局统计
    - `translation_debug_index.json` 看 item 级索引
 2. 再看单 item
-   - `services/pipeline/devtools/replay_translation_item.py`
+   - `backend/pipeline/devtools/replay_translation_item.py`
 3. 需要批量回归时再接 promptfoo
-   - `services/pipeline/devtools/promptfoo/`
+   - `backend/pipeline/devtools/promptfoo/`
    - 先用 `scan_drift.py` 找 saved vs replay 漂移项，再用 `capture_case.py` 固化成 case artifact
 
 Rust API 对应暴露了：
@@ -187,7 +187,7 @@ production 代码在 translation 外部引用本模块时，默认只允许：
 
 ### Devtools 与测试例外
 
-`services/pipeline/devtools/**` 和 `services/pipeline/devtools/tests/**` 可以直接 import translation 内部模块，用来做：
+`backend/pipeline/devtools/**` 和 `backend/pipeline/devtools/tests/**` 可以直接 import translation 内部模块，用来做：
 
 - 单元测试内部规则、payload helper、LLM 协议和 policy 分支
 - replay / promptfoo / repair runner 这类调试工具
@@ -273,7 +273,7 @@ policy 相关 mutation/check/default 已迁到 `services/policy/payload_rules/`�
 - `memory/**` 不应 import `llm/providers`、`workflow`、`rendering`。
 - `translation/**` 整体不应 import `render`。
 
-这些规则由 `services/pipeline/devtools/check_pipeline_architecture.py` 逐步收紧。当前先卡住新增越界依赖，历史兼容入口会分批迁移。
+这些规则由 `backend/pipeline/devtools/check_pipeline_architecture.py` 逐步收紧。当前先卡住新增越界依赖，历史兼容入口会分批迁移。
 
 当前架构门禁已经覆盖：
 

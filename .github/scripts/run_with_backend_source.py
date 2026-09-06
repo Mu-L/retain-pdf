@@ -27,8 +27,8 @@ def main() -> int:
         parser.error("a command is required")
 
     repo_root = args.repo_root.resolve()
-    backend_root = resolve_backend_source(repo_root, allow_dirty=True)["path"]
-    expanded = [item.replace("{backend}", backend_root) for item in command]
+    source = resolve_backend_source(repo_root, allow_dirty=True)
+    expanded = [item.replace("{backend}", source["path"]).replace("{source_root}", source["source_root"]) for item in command]
     return subprocess.run(expanded, cwd=repo_root, check=False).returncode
 
 

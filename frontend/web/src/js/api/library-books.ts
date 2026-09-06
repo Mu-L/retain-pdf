@@ -1,9 +1,9 @@
 /**
  * Library books API — 薄封装层，形状以契约为准。
- * 契约真值: `packages/schemas/library-books.v1.schema.json`
+ * 契约真值: `contracts/library-books.v1.schema.json`
  *   - endpoints: GET /api/v1/library/books, GET /api/v1/library/books/:job_id, DELETE /api/v1/library/books/:job_id
  *   - definitions: LibraryBookListView / LibraryBookDetailView / JobListView / LibraryDeleteResultView
- * Rust 生产者: `services/api/crates/retain-core/src/models/view/job_types.rs`
+ * Rust 生产者: `backend/packages/retain-core/src/models/view/job_types.rs`
  * Wire DTO: `@retainpdf/contracts/library-books`；真实网络客户端由
  * `@retainpdf/api/library-books` 提供。本文件只保留 Web mock-aware 兼容边界。
  * 契约测试: `tests/contracts/library-books-contract.test.mjs`。

@@ -1,11 +1,11 @@
-# `apps/web/src` 功能与依赖边界
+# `frontend/web/src` 功能与依赖边界
 
 本文说明三页入口、主页的两套 `features`、Reader 包边界，以及共享代码应放在哪里。
 
 ## 总览
 
 ```text
-apps/web/src/
+frontend/web/src/
 ├── pages/
 │   ├── home/              # 主页 React UI 与装配
 │   │   ├── composition/   # 只接线：external → 领域与 UI
@@ -100,18 +100,18 @@ DeepSeek 以及提供 `/models`、Chat Completions 等 OpenAI 兼容协议的第
 
 ## Reader：包实现与 Web 宿主
 
-Reader 已不再由 `apps/web` 实现，也没有 `?engine=legacy` 的 Web 回退引擎。
+Reader 已不再由 `frontend/web` 实现，也没有 `?engine=legacy` 的 Web 回退引擎。
 
 | 层 | 路径 | 职责 |
 |----|------|------|
-| Reader 实现 | `packages/reader` | React 组件、hooks、PDF、批注、AI 与样式真值 |
+| Reader 实现 | `frontend/packages/reader` | React 组件、hooks、PDF、批注、AI 与样式真值 |
 | Web 页面入口 | `pages/reader/entry.tsx` | 注册 RetainPDF adapters 后显式调用 `bootReader()` |
 | Web adapter 装配 | `pages/reader/adapters/retainpdf.ts` | 把宿主能力注入 `@retainpdf/reader/adapters` |
 | Web 能力出口 | `pages/reader/external.ts` | API、下载、凭据、收藏与 AI 的单一出口 |
 | 宿主实现 | `shared/reader/host/{ai,config,content,data,state}.ts` | RetainPDF 特有的窄适配能力 |
-| Reader CSS 代理 | `styles/entries/reader.css` | 导入 `packages/reader/styles/entry.css` |
+| Reader CSS 代理 | `styles/entries/reader.css` | 导入 `frontend/packages/reader/styles/entry.css` |
 
-生产代码只使用 `@retainpdf/reader`、`@retainpdf/reader/boot`、`@retainpdf/reader/adapters`、`@retainpdf/reader/ai` 及公开的 `runtime/*` exports，不得直连 `packages/reader/src`。新的通用 Reader 功能应写入 `packages/reader`；只有 RetainPDF Web 特有的 API 或运行时适配才写在本应用。
+生产代码只使用 `@retainpdf/reader`、`@retainpdf/reader/boot`、`@retainpdf/reader/adapters`、`@retainpdf/reader/ai` 及公开的 `runtime/*` exports，不得直连 `frontend/packages/reader/src`。新的通用 Reader 功能应写入 `frontend/packages/reader`；只有 RetainPDF Web 特有的 API 或运行时适配才写在本应用。
 
 ## 详情页
 

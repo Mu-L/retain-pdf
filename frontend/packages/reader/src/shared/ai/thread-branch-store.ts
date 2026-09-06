@@ -1,4 +1,4 @@
-// 共享真值（原 apps/web/src/js/reader/ai/thread-branch-store.ts），已抽离为 standalone
+// 共享真值（原 frontend/web/src/js/reader/ai/thread-branch-store.ts），已抽离为 standalone
 // 仅依赖 conversation-store 的 storage 键，纯 localStorage
 
 import { loadStoredConversationId } from "./conversation-store.js";

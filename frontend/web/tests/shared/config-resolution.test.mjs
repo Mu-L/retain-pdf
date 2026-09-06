@@ -151,7 +151,7 @@ test("空 key 不发 X-API-Key header，非空才发", () => {
   }
 });
 
-// ===== 401 文案收敛：apps/web 内只保留 library-books.ts 一处 =====
+// ===== 401 文案收敛：frontend/web 内只保留 library-books.ts 一处 =====
 
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

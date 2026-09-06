@@ -39,7 +39,7 @@ PaddleX 或官方 API 时，必须重新比对实际模型配置和真实返回�
 ## 3. 官方 25 类与当前映射
 
 当前实现以
-`services/pipeline/retainpdf_pipeline/ocr/document_schema/provider_adapters/paddle/block_labels.py`
+`backend/pipeline/retainpdf_pipeline/ocr/document_schema/provider_adapters/paddle/block_labels.py`
 中的 `map_block_kind` 为准。
 
 | Paddle `block_label` | 含义 | 当前 `document.v1` 映射 | 状态与说明 |
@@ -112,5 +112,5 @@ Paddle adapter 后续应满足以下门禁：
 6. 对真实任务执行 raw block 与 normalized block 数量守恒检查。
 
 旧的样本统计文档
-`services/api/crates/retain-data/src/ocr_provider/paddle/JSON_README/block_label_mapping_README.md`
+`backend/packages/retain-data/src/ocr_provider/paddle/JSON_README/block_label_mapping_README.md`
 仍用于说明仓库样本，但不再作为官方标签全集。

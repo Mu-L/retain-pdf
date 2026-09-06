@@ -29,7 +29,7 @@
 11. Backend-only Agent capability / broker / executor：
    [`docs/api-spec/agent-document-operations.md`](docs/api-spec/agent-document-operations.md)
 12. Paddle OCR 异步 API 摘要：
-   [`crates/retain-data/src/ocr_provider/paddle/API_SUMMARY.md`](crates/retain-data/src/ocr_provider/paddle/API_SUMMARY.md)
+   [`../packages/retain-data/src/ocr_provider/paddle/API_SUMMARY.md`](../packages/retain-data/src/ocr_provider/paddle/API_SUMMARY.md)
 13. Paddle Markdown / artifact 边界：
    [`../docs/core/paddle_ocr_api/06_job_artifact_boundary.md`](../../docs/core/paddle_ocr_api/06_job_artifact_boundary.md)
 
@@ -55,7 +55,7 @@
   只看运行态执行层边界，重点回答“改 job_runner 时逻辑应该放在哪个模块”。
 - [`OCR_PROVIDER_CONTRACT.md`](OCR_PROVIDER_CONTRACT.md)
   只看 provider adapter 边界，重点回答“MinerU / Paddle 在哪一层分发和收口”。
-- [`crates/retain-data/src/ocr_provider/paddle/API_SUMMARY.md`](crates/retain-data/src/ocr_provider/paddle/API_SUMMARY.md)
+- [`../packages/retain-data/src/ocr_provider/paddle/API_SUMMARY.md`](../packages/retain-data/src/ocr_provider/paddle/API_SUMMARY.md)
   只看 Paddle OCR 异步接口协议，重点回答“submit / poll / result download 到底怎么走”。
 - [`../docs/core/paddle_ocr_api/06_job_artifact_boundary.md`](../../docs/core/paddle_ocr_api/06_job_artifact_boundary.md)
   只看 Markdown 发布边界，重点回答“provider raw 为什么不能直接当 job markdown artifact”。
@@ -73,10 +73,10 @@
 
 后端改动默认至少跑这几项：
 
-- `python3 services/api/scripts/check_architecture.py`
-- `cargo build --manifest-path services/api/Cargo.toml`
-- `cargo test --manifest-path services/api/Cargo.toml --lib job_runner::process_runner::tests::execute_process_job_injects_provider_and_translation_envs`
-- `cargo test --manifest-path services/api/Cargo.toml --lib routes::jobs::query::tests::job_detail_and_events_routes_redact_secrets`
+- `python3 backend/api/scripts/check_architecture.py`
+- `cargo build --manifest-path backend/api/Cargo.toml`
+- `cargo test --manifest-path backend/api/Cargo.toml --lib job_runner::process_runner::tests::execute_process_job_injects_provider_and_translation_envs`
+- `cargo test --manifest-path backend/api/Cargo.toml --lib routes::jobs::query::tests::job_detail_and_events_routes_redact_secrets`
 
 第一条负责卡住最容易回退的架构问题：
 

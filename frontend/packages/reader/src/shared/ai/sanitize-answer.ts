@@ -1,4 +1,4 @@
-// 共享真值（原 apps/web/src/js/reader/ai/sanitize-answer.ts），已抽离为 standalone
+// 共享真值（原 frontend/web/src/js/reader/ai/sanitize-answer.ts），已抽离为 standalone
 // 纯字符处理，无宿主依赖
 
 import type { AiCitationLike } from "./answer-enhance.js";

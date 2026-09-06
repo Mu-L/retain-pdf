@@ -6,35 +6,35 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   cloneProtectedPdfFileForWorker,
   loadProtectedPdfFile,
-} from "../../../../packages/reader/src/pdf/useProtectedPdfFile.ts";
+} from "../../../../frontend/packages/reader/src/pdf/useProtectedPdfFile.ts";
 import {
   liveTranslationPendingCopy,
   resolveReaderGridPresentation,
   resolveReaderPageWidthBasis,
-} from "../../../../packages/reader/src/components/react-pdf/ReaderCompareGrid.tsx";
+} from "../../../../frontend/packages/reader/src/components/react-pdf/ReaderCompareGrid.tsx";
 import {
   resolveReaderAiLayout,
   resolveInitialAssistantPanel,
   resolveVisiblePdfMode,
-} from "../../../../packages/reader/src/ReaderAppReactPdf.tsx";
-import { ReaderModeTabs } from "../../../../packages/reader/src/components/react-pdf/ReaderModeTabs.tsx";
-import { ReaderAssistantDock } from "../../../../packages/reader/src/components/react-pdf/ReaderAssistantDock.tsx";
+} from "../../../../frontend/packages/reader/src/ReaderAppReactPdf.tsx";
+import { ReaderModeTabs } from "../../../../frontend/packages/reader/src/components/react-pdf/ReaderModeTabs.tsx";
+import { ReaderAssistantDock } from "../../../../frontend/packages/reader/src/components/react-pdf/ReaderAssistantDock.tsx";
 import {
   isReaderWorkspaceDisabled,
   liveTranslationStatusCopy,
   ReaderWorkspaceTabs,
-} from "../../../../packages/reader/src/components/react-pdf/ReaderWorkspaceTabs.tsx";
-import { ReaderStructureSelectionLayer } from "../../../../packages/reader/src/pdf/ReaderStructureSelectionLayer.tsx";
+} from "../../../../frontend/packages/reader/src/components/react-pdf/ReaderWorkspaceTabs.tsx";
+import { ReaderStructureSelectionLayer } from "../../../../frontend/packages/reader/src/pdf/ReaderStructureSelectionLayer.tsx";
 import {
   hitTestReaderTextHoverTarget,
   projectReaderTextHoverTargets,
-} from "../../../../packages/reader/src/pdf/ReaderTextHoverLayer.tsx";
-import { resolveReaderModeShortcut } from "../../../../packages/reader/src/hooks/use-reader-keyboard.ts";
-import { findReaderRegionByAssetUrl } from "../../../../packages/reader/src/shared/data/reader-regions.ts";
+} from "../../../../frontend/packages/reader/src/pdf/ReaderTextHoverLayer.tsx";
+import { resolveReaderModeShortcut } from "../../../../frontend/packages/reader/src/hooks/use-reader-keyboard.ts";
+import { findReaderRegionByAssetUrl } from "../../../../frontend/packages/reader/src/shared/data/reader-regions.ts";
 
 test("page hover hit testing observes pointer movement in capture phase", () => {
   const source = readFileSync(
-    new URL("../../../../packages/reader/src/pdf/PdfPageSlot.tsx", import.meta.url),
+    new URL("../../../../frontend/packages/reader/src/pdf/PdfPageSlot.tsx", import.meta.url),
     "utf8",
   );
   assert.match(source, /onPointerMoveCapture=\{handlePointerMove\}/);
@@ -273,7 +273,7 @@ import {
   normalizeReaderViewState,
   readerViewStateScope,
   saveReaderViewState,
-} from "../../../../packages/reader/src/shared/state/reader-view-state.ts";
+} from "../../../../frontend/packages/reader/src/shared/state/reader-view-state.ts";
 
 test("reader view state persists page fraction, zoom and assistant panel without secrets", () => {
   const values = new Map();
@@ -324,7 +324,7 @@ test("AI split keeps 50% zoom filling the document half", () => {
 
 test("assistant dock keeps the PDF mounted and owns Markdown or AI independently", () => {
   const source = readFileSync(
-    new URL("../../../../packages/reader/src/ReaderAppReactPdf.tsx", import.meta.url),
+    new URL("../../../../frontend/packages/reader/src/ReaderAppReactPdf.tsx", import.meta.url),
     "utf8",
   );
   assert.match(source, /is-workspace-\$\{workspaceView\}/);
@@ -468,7 +468,7 @@ import {
   READER_ZOOM_MIN,
   READER_ZOOM_MAX,
   READER_ZOOM_DEFAULT,
-} from "../../../../packages/reader/src/pdf/reader-zoom.ts";
+} from "../../../../frontend/packages/reader/src/pdf/reader-zoom.ts";
 
 test("clampReaderZoom: 0.25–1 (fraction of full shell)", () => {
   assert.equal(clampReaderZoom(0.1), READER_ZOOM_MIN);
@@ -518,7 +518,7 @@ import {
   pageSelector,
   pageInPaneSelector,
   pageSlotSelector,
-} from "../../../../packages/reader/src/pdf/reader-dom-contract.ts";
+} from "../../../../frontend/packages/reader/src/pdf/reader-dom-contract.ts";
 
 test("reader-dom-contract: pageSelector strings", () => {
   assert.equal(pageSelector(), `[${READER_PAGE_ATTR}]`);
@@ -555,7 +555,7 @@ test("reader-dom-contract: pageSlotSelector strings", () => {
 import {
   clampPageNumber,
   scrollShellToPage,
-} from "../../../../packages/reader/src/pdf/scroll-to-page.ts";
+} from "../../../../frontend/packages/reader/src/pdf/scroll-to-page.ts";
 import { JSDOM } from "jsdom";
 
 test("clampPageNumber bounds", () => {
@@ -639,7 +639,7 @@ import {
   readingFocusY,
   pickPageAtFocus,
   READER_SCROLL_FOCUS_PX,
-} from "../../../../packages/reader/src/pdf/scroll-to-page.ts";
+} from "../../../../frontend/packages/reader/src/pdf/scroll-to-page.ts";
 
 test("locked progress apply is stable (no drift when re-applied)", () => {
   const { root, dom } = makeScrollRootWithPages(5, 200);

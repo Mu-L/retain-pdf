@@ -1,4 +1,4 @@
-// 从 apps/web/src/pages/reader/legacy/ai/answer-view.ts 迁移的纯函数
+// 从 frontend/web/src/pages/reader/legacy/ai/answer-view.ts 迁移的纯函数
 export const TOOL_EVENT_LABELS: Record<string, string> = {
   search_markdown: "检索 Markdown",
   read_markdown_chunk: "阅读 Markdown 片段",

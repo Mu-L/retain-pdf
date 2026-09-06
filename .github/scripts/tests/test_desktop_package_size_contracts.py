@@ -13,14 +13,14 @@ def _text(relative: str) -> str:
 
 
 def test_desktop_package_does_not_duplicate_backend_fonts() -> None:
-    package = json.loads(_text("apps/desktop/package.json"))
+    package = json.loads(_text("frontend/desktop/package.json"))
 
     assert "assets/**/*" in package["build"]["files"]
     assert "!assets/fonts/**/*" in package["build"]["files"]
 
 
 def test_desktop_package_keeps_only_supported_electron_locales() -> None:
-    package = json.loads(_text("apps/desktop/package.json"))
+    package = json.loads(_text("frontend/desktop/package.json"))
     build = package["build"]
 
     assert build["mac"]["electronLanguages"] == ["en", "zh_CN", "zh_TW"]
@@ -29,7 +29,7 @@ def test_desktop_package_keeps_only_supported_electron_locales() -> None:
 
 
 def test_prepare_app_excludes_development_frontend_payloads() -> None:
-    prepare = _text("apps/desktop/scripts/prepare-app.mjs")
+    prepare = _text("frontend/desktop/scripts/prepare-app.mjs")
 
     assert "desktopFrontendRuntimeEntries" in prepare
     for entry in [
@@ -46,7 +46,7 @@ def test_prepare_app_excludes_development_frontend_payloads() -> None:
 
 
 def test_prepare_app_copies_only_canonical_pipeline_runtime() -> None:
-    prepare = _text("apps/desktop/scripts/prepare-app.mjs")
+    prepare = _text("frontend/desktop/scripts/prepare-app.mjs")
 
     assert "canonicalPipelineEntries" in prepare
     assert '"entrypoints"' in prepare
@@ -56,8 +56,8 @@ def test_prepare_app_copies_only_canonical_pipeline_runtime() -> None:
 
 
 def test_prepare_app_prunes_non_runtime_python_payloads() -> None:
-    prepare = _text("apps/desktop/scripts/prepare-app.mjs")
-    prune = _text("apps/desktop/scripts/runtime-prune.mjs")
+    prepare = _text("frontend/desktop/scripts/prepare-app.mjs")
+    prune = _text("frontend/desktop/scripts/runtime-prune.mjs")
 
     assert "pruneBundledMacPythonRuntime" in prepare
     assert "pruneBundledPortablePythonRuntime" in prepare

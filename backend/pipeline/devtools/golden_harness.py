@@ -5,7 +5,7 @@
 `retainpdf-pipeline render-only --spec <job_root>/specs/render.spec.json` 做真实渲染（需本地有 source PDF 或
 container 内已有）。
 
-Fixture 目录约定（见 services/testdata/golden-jobs/chem-6ada81-10p/README.md）：
+Fixture 目录约定（见 tests/fixtures/golden-jobs/chem-6ada81-10p/README.md）：
   specs/{normalize,provider,translate,render}.spec.json  # 占位符已替换为 {JOB_ROOT}
   ocr/normalized/document.v1.json
   translated/{translation-manifest.json, page-*.json}
@@ -26,9 +26,9 @@ from datetime import datetime
 from pathlib import Path
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
-REPO_ROOT = BACKEND_ROOT.parent if BACKEND_ROOT.name == "services" else BACKEND_ROOT
+REPO_ROOT = BACKEND_ROOT.parent if BACKEND_ROOT.name == "backend" else BACKEND_ROOT
 PIPELINE_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_FIXTURE = BACKEND_ROOT / "testdata" / "golden-jobs" / "chem-6ada81-10p"
+DEFAULT_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "golden-jobs" / "chem-6ada81-10p"
 RENDER_ENTRYPOINT_MODULE = "retainpdf_pipeline.entrypoints.run_render_only"
 
 
@@ -104,7 +104,7 @@ def _find_source_pdf(job_root: Path, fixture: Path, override: str) -> Path | Non
     # 从 fixture 的 pipeline_summary 或 render spec 推断源名
     for candidate in [
         REPO_ROOT / "data" / "jobs" / "20260709124749-6ada81" / "source",
-        REPO_ROOT / "resources" / "samples" / "golden-pdfs",
+        REPO_ROOT / "tests" / "fixtures" / "pdfs",
     ]:
         if candidate.is_dir():
             pdfs = sorted(candidate.glob("*.pdf"))
@@ -224,7 +224,7 @@ def _run_render(job_root: Path) -> dict:
     # 优先用 --source-pdf 已处理过的路径；这里重新找一次
     # 为可复现：若 source/ 下为空，尝试拷贝一个源 PDF 进去
     if not list((job_root / "source").glob("*.pdf")):
-        src = _find_source_pdf(job_root, REPO_ROOT / "resources" / "fixtures" / "golden-jobs" / "chem-6ada81-10p", "")
+        src = _find_source_pdf(job_root, DEFAULT_FIXTURE, "")
         if src and src.exists():
             shutil.copy2(src, job_root / "source" / src.name)
         else:

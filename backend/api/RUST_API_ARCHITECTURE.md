@@ -165,8 +165,8 @@ app -> routes -> application services -> internal services -> job_runner / ocr_p
 
 ## 1.3 配置层边界
 
-`crates/retain-core/src/config.rs` 是配置 facade，API crate 通过 `crate::config`
-re-export 保持调用方兼容。真实配置分组在 `crates/retain-core/src/config/*`：
+`../packages/retain-core/src/config.rs` 是配置 facade，API crate 通过 `crate::config`
+re-export 保持调用方兼容。真实配置分组在 `../packages/retain-core/src/config/*`：
 
 - `paths.rs`
   只处理 root/data/scripts/jobs/uploads/downloads 这类路径和 runtime 目录创建。
@@ -205,7 +205,7 @@ re-export 保持调用方兼容。真实配置分组在 `crates/retain-core/src/
 这套边界不只靠文档约定，还靠硬性检查：
 
 - 本地命令：
-  `python3 services/api/scripts/check_architecture.py`
+  `python3 backend/api/scripts/check_architecture.py`
 - CI workflow：
   `.github/workflows/rust-api-architecture.yml`
 
@@ -254,7 +254,7 @@ provider raw -> normalized -> published artifact -> download API
 
 Rust 侧关键落点：
 
-- [crates/retain-core/src/storage_paths.rs](crates/retain-core/src/storage_paths.rs)
+- [../packages/retain-core/src/storage_paths.rs](../packages/retain-core/src/storage_paths.rs)
   facade；现在已拆成 `constants / job_paths / path_ops / resolvers / registry`
 - [src/services/artifacts/mod.rs](src/services/artifacts/mod.rs)
   artifact facade；现在已拆成 `registry / bundle / response`
@@ -269,7 +269,7 @@ Rust 侧关键落点：
   只处理文件、artifact key、稳定资源，不解释 provider raw 内部 JSON 结构
 - `db.rs`
   现在也只保留 `Db` facade；row decode 和 schema 检查分别下沉到
-  `crates/retain-data/src/db/rows.rs`、`crates/retain-data/src/db/schema.rs`
+  `../../database/retain-db/src/db/rows.rs`、`../../database/retain-db/src/db/schema.rs`
 - `routes/jobs/download.rs`
   只暴露稳定下载入口，不承诺 provider 私有字段语义
 - `normalized-document` / `normalization-report`
@@ -600,7 +600,7 @@ routes/library*.rs, collections.rs
 
 目录：
 
-- [crates/retain-jobs/src/job_runner](crates/retain-jobs/src/job_runner)
+- [../packages/retain-jobs/src/job_runner](../packages/retain-jobs/src/job_runner)
 
 职责：
 
@@ -661,7 +661,7 @@ routes/library*.rs, collections.rs
 
 目录：
 
-- [crates/retain-data/src/worker_command](crates/retain-data/src/worker_command)
+- [../packages/retain-data/src/worker_command](../packages/retain-data/src/worker_command)
 
 职责：
 
@@ -671,7 +671,7 @@ routes/library*.rs, collections.rs
   选 Python 脚本入口，拼入口参数
 - `command_builder.rs`
   只做命令行构建细节
-- [crates/retain-data/src/worker_command.rs](crates/retain-data/src/worker_command.rs)
+- [../packages/retain-data/src/worker_command.rs](../packages/retain-data/src/worker_command.rs)
   只保留对外 `build_*` facade
 
 规则：
@@ -684,13 +684,13 @@ routes/library*.rs, collections.rs
 
 文件：
 
-- [crates/retain-jobs/src/job_runner/process_runner.rs](crates/retain-jobs/src/job_runner/process_runner.rs)
-- [crates/retain-jobs/src/job_runner/process_runner/startup.rs](crates/retain-jobs/src/job_runner/process_runner/startup.rs)
-- [crates/retain-jobs/src/job_runner/process_runner/execution.rs](crates/retain-jobs/src/job_runner/process_runner/execution.rs)
-- [crates/retain-jobs/src/job_runner/process_runner/completion.rs](crates/retain-jobs/src/job_runner/process_runner/completion.rs)
-- [crates/retain-jobs/src/job_runner/process_runner/timeout_support.rs](crates/retain-jobs/src/job_runner/process_runner/timeout_support.rs)
-- [crates/retain-jobs/src/job_runner/process_runner/failure_ai_diagnosis.rs](crates/retain-jobs/src/job_runner/process_runner/failure_ai_diagnosis.rs)
-- [crates/retain-jobs/src/job_runner/process_runner/io_support.rs](crates/retain-jobs/src/job_runner/process_runner/io_support.rs)
+- [../packages/retain-jobs/src/job_runner/process_runner.rs](../packages/retain-jobs/src/job_runner/process_runner.rs)
+- [../packages/retain-jobs/src/job_runner/process_runner/startup.rs](../packages/retain-jobs/src/job_runner/process_runner/startup.rs)
+- [../packages/retain-jobs/src/job_runner/process_runner/execution.rs](../packages/retain-jobs/src/job_runner/process_runner/execution.rs)
+- [../packages/retain-jobs/src/job_runner/process_runner/completion.rs](../packages/retain-jobs/src/job_runner/process_runner/completion.rs)
+- [../packages/retain-jobs/src/job_runner/process_runner/timeout_support.rs](../packages/retain-jobs/src/job_runner/process_runner/timeout_support.rs)
+- [../packages/retain-jobs/src/job_runner/process_runner/failure_ai_diagnosis.rs](../packages/retain-jobs/src/job_runner/process_runner/failure_ai_diagnosis.rs)
+- [../packages/retain-jobs/src/job_runner/process_runner/io_support.rs](../packages/retain-jobs/src/job_runner/process_runner/io_support.rs)
 
 职责：
 
@@ -732,10 +732,10 @@ routes/library*.rs, collections.rs
 
 文件：
 
-- [crates/retain-jobs/src/job_runner/translation_flow.rs](crates/retain-jobs/src/job_runner/translation_flow.rs)
-- [crates/retain-jobs/src/job_runner/translation_flow_child.rs](crates/retain-jobs/src/job_runner/translation_flow_child.rs)
-- [crates/retain-jobs/src/job_runner/translation_flow_stage.rs](crates/retain-jobs/src/job_runner/translation_flow_stage.rs)
-- [crates/retain-jobs/src/job_runner/translation_flow_support.rs](crates/retain-jobs/src/job_runner/translation_flow_support.rs)
+- [../packages/retain-jobs/src/job_runner/translation_flow.rs](../packages/retain-jobs/src/job_runner/translation_flow.rs)
+- [../packages/retain-jobs/src/job_runner/translation_flow_child.rs](../packages/retain-jobs/src/job_runner/translation_flow_child.rs)
+- [../packages/retain-jobs/src/job_runner/translation_flow_stage.rs](../packages/retain-jobs/src/job_runner/translation_flow_stage.rs)
+- [../packages/retain-jobs/src/job_runner/translation_flow_support.rs](../packages/retain-jobs/src/job_runner/translation_flow_support.rs)
 
 职责：
 
@@ -758,8 +758,8 @@ routes/library*.rs, collections.rs
 
 文件：
 
-- [crates/retain-jobs/src/job_runner/ocr_flow/mod.rs](crates/retain-jobs/src/job_runner/ocr_flow/mod.rs)
-- [crates/retain-jobs/src/job_runner/ocr_flow/support.rs](crates/retain-jobs/src/job_runner/ocr_flow/support.rs)
+- [../packages/retain-jobs/src/job_runner/ocr_flow/mod.rs](../packages/retain-jobs/src/job_runner/ocr_flow/mod.rs)
+- [../packages/retain-jobs/src/job_runner/ocr_flow/support.rs](../packages/retain-jobs/src/job_runner/ocr_flow/support.rs)
 - 以及 `transport / polling / mineru / paddle / artifacts / provider_result / workspace / markdown_bundle / bundle_download / status / page_subset / mineru_retry / mineru_polling / paddle_markdown`
 
 职责：
@@ -775,12 +775,12 @@ routes/library*.rs, collections.rs
 
 文件：
 
-- [crates/retain-jobs/src/job_runner/stdout_parser/mod.rs](crates/retain-jobs/src/job_runner/stdout_parser/mod.rs)
-- [crates/retain-jobs/src/job_runner/stdout_parser/labels.rs](crates/retain-jobs/src/job_runner/stdout_parser/labels.rs)
-- [crates/retain-jobs/src/job_runner/stdout_parser/state.rs](crates/retain-jobs/src/job_runner/stdout_parser/state.rs)
-- [crates/retain-jobs/src/job_runner/stdout_parser/stage_rules.rs](crates/retain-jobs/src/job_runner/stdout_parser/stage_rules.rs)
-- [crates/retain-jobs/src/job_runner/stdout_parser/artifact_rules.rs](crates/retain-jobs/src/job_runner/stdout_parser/artifact_rules.rs)
-- [crates/retain-jobs/src/job_runner/stdout_parser/failure.rs](crates/retain-jobs/src/job_runner/stdout_parser/failure.rs)
+- [../packages/retain-jobs/src/job_runner/stdout_parser/mod.rs](../packages/retain-jobs/src/job_runner/stdout_parser/mod.rs)
+- [../packages/retain-jobs/src/job_runner/stdout_parser/labels.rs](../packages/retain-jobs/src/job_runner/stdout_parser/labels.rs)
+- [../packages/retain-jobs/src/job_runner/stdout_parser/state.rs](../packages/retain-jobs/src/job_runner/stdout_parser/state.rs)
+- [../packages/retain-jobs/src/job_runner/stdout_parser/stage_rules.rs](../packages/retain-jobs/src/job_runner/stdout_parser/stage_rules.rs)
+- [../packages/retain-jobs/src/job_runner/stdout_parser/artifact_rules.rs](../packages/retain-jobs/src/job_runner/stdout_parser/artifact_rules.rs)
+- [../packages/retain-jobs/src/job_runner/stdout_parser/failure.rs](../packages/retain-jobs/src/job_runner/stdout_parser/failure.rs)
 
 职责：
 
@@ -801,7 +801,7 @@ routes/library*.rs, collections.rs
 
 目录：
 
-- [crates/retain-data/src/ocr_provider](crates/retain-data/src/ocr_provider)
+- [../packages/retain-data/src/ocr_provider](../packages/retain-data/src/ocr_provider)
 
 职责：
 

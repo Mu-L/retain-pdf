@@ -1,5 +1,5 @@
-// 共享真值（原 apps/web/src/js/reader/data-port.ts），已抽离为纯函数 + 可注入依赖
-// 不直接 import apps/web 的 api/http，改为参数注入，默认用 window/fetch 或空实现
+// 共享真值（原 frontend/web/src/js/reader/data-port.ts），已抽离为纯函数 + 可注入依赖
+// 不直接 import frontend/web 的 api/http，改为参数注入，默认用 window/fetch 或空实现
 
 import {
   hasMarkdownContent,

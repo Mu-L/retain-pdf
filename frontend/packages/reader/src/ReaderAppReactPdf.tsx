@@ -1,4 +1,4 @@
-// 从 apps/web 迁入的 React-pdf 视图真值，现为 @retainpdf/reader 主入口
+// 从 frontend/web 迁入的 React-pdf 视图真值，现为 @retainpdf/reader 主入口
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useReaderReactController } from "./hooks/use-reader-react-controller.js";
 import {

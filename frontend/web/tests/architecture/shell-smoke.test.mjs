@@ -20,7 +20,7 @@ const PAGES = [
     html: "reader.html",
     bundle: "dist/reader.bundle.js",
     entry: "src/pages/reader/entry.tsx",
-    bootChain: ["packages/reader/src/boot.tsx"],
+    bootChain: ["frontend/packages/reader/src/boot.tsx"],
   },
 ];
 const SHARED_SHELL_BOOT = "src/pages/shell-boot.ts";

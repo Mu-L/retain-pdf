@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveReaderAnchor } from "../../../../packages/reader/src/shared/config/page-config.ts";
+import { resolveReaderAnchor } from "../../../../frontend/packages/reader/src/shared/config/page-config.ts";
 import { buildReaderPageUrl } from "@retainpdf/domain/job";
-import { pageNumberFromUrlAnchor } from "../../../../packages/reader/src/hooks/use-url-anchor-jump.ts";
+import { pageNumberFromUrlAnchor } from "../../../../frontend/packages/reader/src/hooks/use-url-anchor-jump.ts";
 import {
   findReaderRegion,
   findReaderRegionByCitation,
@@ -15,7 +15,7 @@ import {
   readerRegionKind,
   readerRegionKindForRegion,
   resolveReaderRegionHighlight,
-} from "../../../../packages/reader/src/shared/data/reader-regions.ts";
+} from "../../../../frontend/packages/reader/src/shared/data/reader-regions.ts";
 
 test("resolveReaderAnchor 解析 page_idx/block_id,两者皆缺返回 null", () => {
   assert.deepEqual(resolveReaderAnchor({ search: "?job_id=j&page_idx=3&block_id=b-9" }), {

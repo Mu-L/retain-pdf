@@ -5,7 +5,7 @@ import os
 import subprocess
 import sys
 
-PIPELINE = Path(__file__).resolve().parents[2] / "pipeline"
+PIPELINE = Path(__file__).resolve().parents[4] / "backend/pipeline"
 PROBE = Path(__file__).with_name("translation_io_probe.py")
 SOURCES = {
     "p001-b000": "The copper catalyst remains stable throughout the entire experiment.",

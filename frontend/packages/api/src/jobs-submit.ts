@@ -5,7 +5,7 @@ function isObject(value: unknown): boolean {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
-// Upload 表单组参（纯）:仅拼 file 字段,与 apps/web 旧实现逐字节一致。
+// Upload 表单组参（纯）:仅拼 file 字段,与 frontend/web 旧实现逐字节一致。
 export function collectUploadFormData(file: File | Blob): FormData {
   const form = new FormData();
   form.append("file", file);

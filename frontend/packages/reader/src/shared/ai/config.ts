@@ -1,5 +1,5 @@
-// 共享真值（原 apps/web/src/js/reader/ai/config.ts），已抽离为可注入依赖
-// 不直接 import apps/web 的 runtime/persisted-config/credentials，改为参数注入，默认用空实现
+// 共享真值（原 frontend/web/src/js/reader/ai/config.ts），已抽离为可注入依赖
+// 不直接 import frontend/web 的 runtime/persisted-config/credentials，改为参数注入，默认用空实现
 
 function firstNonEmpty(...candidates: unknown[]): string {
   for (const candidate of candidates) {
@@ -11,7 +11,7 @@ function firstNonEmpty(...candidates: unknown[]): string {
   return "";
 }
 
-// —— 可注入适配器（由宿主在启动时或 apps/web/shared/ai 代理层注入） ——
+// —— 可注入适配器（由宿主在启动时或 frontend/web/shared/ai 代理层注入） ——
 type CredentialsPort = { getCredentials?: () => { modelApiKey?: string } | null };
 
 let _credentialsPort: CredentialsPort | null = null;

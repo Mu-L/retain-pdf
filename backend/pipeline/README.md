@@ -84,10 +84,10 @@
   单页翻译调试入口。
 - `validate_document_schema.py`（script-mode，仅桌面兼容，无 console 等价物）
   契约排错入口。只用于检查 `document.v1` 或 adapter 行为，不是日常整链路入口。
-- `services/pipeline/devtools/tests/document_schema/regression_check.py`
+- `backend/pipeline/devtools/tests/document_schema/regression_check.py`
   长期回归工具，不是主流程入口。
 
-未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_*.py --spec <job_root>/specs/<stage>.spec.json。
+未安装 retainpdf-pipeline 的桌面兼容目录回退到 python backend/pipeline/entrypoints/run_*.py --spec <job_root>/specs/<stage>.spec.json。
 
 不要把测试脚本当主入口。正常验证整条链路时，优先跑：
 
@@ -195,7 +195,7 @@
 
 `retainpdf-pipeline <subcommand> --spec DATA_ROOT/jobs/<job-id>/specs/<stage>.spec.json`
 
-未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_*.py --spec DATA_ROOT/jobs/<job-id>/specs/<stage>.spec.json。
+未安装 retainpdf-pipeline 的桌面兼容目录回退到 python backend/pipeline/entrypoints/run_*.py --spec DATA_ROOT/jobs/<job-id>/specs/<stage>.spec.json。
 
 约定如下：
 
@@ -232,14 +232,14 @@
 
 ```bash
 # 默认只读检查；输出哪些任务会变化，不写任务目录或数据库
-python services/pipeline/devtools/backfill_normalized_documents.py \
+python backend/pipeline/devtools/backfill_normalized_documents.py \
   --jobs-root data/jobs \
   --require-complete \
   --report /tmp/normalized-backfill-dry-run.json
 
 # 先限定一个 succeeded 任务写入；document/report 成对备份回滚，
 # Markdown 只在缺失时生成，FTS 使用自己的 SQLite transaction
-python services/pipeline/devtools/backfill_normalized_documents.py \
+python backend/pipeline/devtools/backfill_normalized_documents.py \
   --jobs-root data/jobs \
   --job-id <job-id> \
   --require-complete \
@@ -276,13 +276,13 @@ python services/pipeline/devtools/backfill_normalized_documents.py \
 - Rust API：创建 job，由 Rust 生成 `specs/*.spec.json` 并依次启动 worker
 - 测试脚本：只做回归，不代表主执行路径
 
-未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_book.py --spec <job_root>/specs/book.spec.json。
+未安装 retainpdf-pipeline 的桌面兼容目录回退到 python backend/pipeline/entrypoints/run_book.py --spec <job_root>/specs/book.spec.json。
 
 ## Python 包与依赖真相源
 
 Pipeline 是可独立安装的 `retainpdf-pipeline` 包，依赖真相源是本目录的
 [`pyproject.toml`](./pyproject.toml)。后端 workspace 根是
-[`services/pyproject.toml`](../pyproject.toml)，组合 `pipeline` 与 `ai` 两个成员；
+[`backend/pyproject.toml`](../pyproject.toml)，组合 `pipeline` 与 `ai` 两个成员；
 monorepo 根不再持有 Python workspace 真相源。
 
 wheel 只发布 `retainpdf_pipeline.*`；不会再安装通用顶层包名
@@ -306,10 +306,10 @@ retainpdf-pipeline translate-only --spec /path/to/translation.spec.json
 retainpdf-pipeline render-only --spec /path/to/render.spec.json
 ```
 
-过渡期内原有 `services/pipeline/entrypoints/run_*.py` 文件仍保留（script-mode，仅桌面兼容），Rust API 和已存在部署不会被迫同时迁移。
+过渡期内原有 `backend/pipeline/entrypoints/run_*.py` 文件仍保留（script-mode，仅桌面兼容），Rust API 和已存在部署不会被迫同时迁移。
 
 Rust API 默认采用自动模式：如果 `PATH` 中能够找到 `retainpdf-pipeline`，worker
-命令会保存为 `retainpdf-pipeline <subcommand> --spec ...`；未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_*.py --spec ...。可以通过以下环境变量显式控制：
+命令会保存为 `retainpdf-pipeline <subcommand> --spec ...`；未安装 retainpdf-pipeline 的桌面兼容目录回退到 python backend/pipeline/entrypoints/run_*.py --spec ...。可以通过以下环境变量显式控制：
 
 - `RUST_API_PYTHON_ENTRYPOINT_MODE=auto|console|script`
 - `RUST_API_PIPELINE_COMMAND=/absolute/path/to/retainpdf-pipeline`
@@ -347,8 +347,8 @@ Docker 镜像安装 pipeline 包并固定使用 `console` 模式；尚未安装�
 
 日常改动建议至少跑这两条：
 
-- `python3 services/api/scripts/check_architecture.py`
-- `PYTHONPATH=services/pipeline python3 services/pipeline/devtools/check_pipeline_architecture.py`
+- `python3 backend/api/scripts/check_architecture.py`
+- `PYTHONPATH=backend/pipeline python3 backend/pipeline/devtools/check_pipeline_architecture.py`
 
 第二条负责卡住 Python 主链最容易回退的边界：
 

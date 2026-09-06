@@ -8,7 +8,7 @@ import {
   normalizeRequestSnapshot,
   requestSnapshotScopeKey,
   saveReaderRequestSnapshot,
-} from "../../../../packages/reader/src/components/react-pdf/assistant/reader-request-snapshots.ts";
+} from "../../../../frontend/packages/reader/src/components/react-pdf/assistant/reader-request-snapshots.ts";
 
 class MemoryStorage {
   constructor() {

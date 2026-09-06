@@ -1,5 +1,5 @@
 /* mojia library ornaments — home-only
- * Extracted from themes/mojia.css (packages/reader & apps/web) to prevent leakage into reader/detail bundles.
+ * Extracted from themes/mojia.css (frontend/packages/reader & frontend/web) to prevent leakage into reader/detail bundles.
  * This file is imported only by src/styles/entries/home.css.
  * Guarded with .home-paper-stage where applicable to avoid bleed if ever imported elsewhere.
  */

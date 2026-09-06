@@ -23,7 +23,7 @@ function runStep(command, args, extraEnv = {}) {
 
 runStep("npm", ["--prefix", "frontend", "run", "build:css"]);
 runStep("npm", ["--prefix", "frontend", "run", "smoke:desktop-first-run"]);
-runStep("node", ["apps/desktop/scripts/prepare-app.mjs"], {
+runStep("node", ["frontend/desktop/scripts/prepare-app.mjs"], {
   RETAIN_PDF_DESKTOP_PLATFORM: "win32",
   RETAIN_PDF_SKIP_BUNDLED_RUNTIME_VERIFICATION: "1",
 });

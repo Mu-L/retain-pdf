@@ -172,7 +172,7 @@ Gateway 做有界 TCP 可达性检查；保存成功后由 Rust 监督器重启 
 - `PUT /api/v1/ai/runtime-config`
 
 AI sidecar 的直接路径是 `GET/PUT /v1/runtime-config`。两者的 `data` 字段由
-`services/contracts/runtime-config.v1.schema.json` 锁定；问答/SSE 与公开 operation
+`backend/contracts/runtime-config.v1.schema.json` 锁定；问答/SSE 与公开 operation
 则分别由 `ai-ask.v1.schema.json` 和 `public-document-operation.v1.schema.json`
 锁定。
 
@@ -224,8 +224,8 @@ curl -s -X POST http://127.0.0.1:41100/v1/ask \
 ## 测试
 
 ```bash
-uv sync --project services --extra test
-uv run --project services python -m pytest services/ai/tests -q
-python services/contracts/check_parity.py --require-upstream
-npm --prefix packages/schemas test
+uv sync --project backend --extra test
+uv run --project backend python -m pytest backend/ai/tests -q
+python backend/contracts/check_parity.py --require-upstream
+npm --prefix contracts test
 ```

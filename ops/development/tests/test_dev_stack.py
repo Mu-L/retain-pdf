@@ -19,7 +19,7 @@ SPEC.loader.exec_module(dev_stack)
 
 
 def make_paths(tmp_path: Path) -> object:
-    script = tmp_path / "product" / "services" / "scripts" / "dev_stack.py"
+    script = tmp_path / "product" / "ops" / "development" / "dev_stack.py"
     script.parent.mkdir(parents=True)
     paths = dev_stack.RepoPaths.from_script(script)
     for path in (
@@ -64,12 +64,12 @@ def test_prepare_runs_uv_before_cargo_with_fixed_roots(tmp_path: Path) -> None:
         "--workspace",
         "--bins",
         "--manifest-path",
-        str(paths.api / "Cargo.toml"),
+        str(paths.product / "Cargo.toml"),
     ]
     assert uv_call.kwargs["env"]["UV_PROJECT_ENVIRONMENT"] == str(
         paths.services / ".venv"
     )
-    assert cargo_call.kwargs["env"]["CARGO_TARGET_DIR"] == str(paths.api / "target")
+    assert cargo_call.kwargs["env"]["CARGO_TARGET_DIR"] == str(paths.product / "target")
 
 
 def test_no_sync_no_build_skips_preparation_commands(tmp_path: Path) -> None:

@@ -144,8 +144,8 @@ def _main(resources):
                RUST_API_JOBS_MODE="in_process", RUST_API_JOBS_SUPERVISE="false", RUST_API_AI_SUPERVISE="false",
                RETAIN_MODEL_EXECUTOR_ENABLED="1", RETAIN_MODEL_WORKER_ENABLED="1", RETAIN_MODEL_EXECUTOR_URL=base,
                RETAIN_TRANSLATION_OPTIMIZATION=args.strategy,
-               PYTHON_BIN=str(ROOT / "services/.venv/bin/python"),
-               PYTHONPATH=str(ROOT / "services/pipeline"), PATH=str(ROOT / "services/.venv/bin") + os.pathsep + env.get("PATH", ""))
+               PYTHON_BIN=str(ROOT / "backend/.venv/bin/python"),
+               PYTHONPATH=str(ROOT / "backend/pipeline"), PATH=str(ROOT / "backend/.venv/bin") + os.pathsep + env.get("PATH", ""))
     job_id = "smoke-" + secrets.token_hex(8)
     report = {"job_id": job_id, "pages": "all" if args.all_pages else [1, 2], "workers": args.workers, "model": translation["model"], "transport": "rust", "status": "starting"}
     report["strategy"] = args.strategy
@@ -170,7 +170,7 @@ def _main(resources):
     print(f"Report: {report_path}", flush=True)
     try:
         with (output / "api.log").open("w") as log:
-            process = subprocess.Popen([str(ROOT / "services/api/target/debug/rust_api")], env=env, stdout=log, stderr=log, start_new_session=True)
+            process = subprocess.Popen([str(ROOT / "target/debug/rust_api")], env=env, stdout=log, stderr=log, start_new_session=True)
         for _ in range(100):
             if process.poll() is not None:
                 raise RuntimeError("Isolated API exited")

@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import sys
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pipeline"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "backend/pipeline"))
 from retainpdf_pipeline.translate.llm.shared.request_capture import digest, plan_input_digest
 
 

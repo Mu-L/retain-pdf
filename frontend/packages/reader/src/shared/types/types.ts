@@ -1,7 +1,7 @@
 /**
  * Minimal domain types for the reader: selection, favorites, anchors, geometry.
  * Shared by selection-favorites, favorites/*, region-interactions, server-favorites-port.
- * 共享真值（原 apps/web/src/js/reader/types.ts），纯类型，无运行时依赖
+ * 共享真值（原 frontend/web/src/js/reader/types.ts），纯类型，无运行时依赖
  */
 
 /** Axis-aligned rect in pixel coordinates (page-local or viewport). */

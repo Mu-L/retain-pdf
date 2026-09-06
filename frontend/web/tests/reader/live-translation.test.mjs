@@ -6,24 +6,24 @@ import { createRoot } from "react-dom/client";
 import { JSDOM } from "jsdom";
 import {
   streamLiveTranslationEvents,
-} from "../../../../packages/api/src/live-translation.ts";
+} from "../../../../frontend/packages/api/src/live-translation.ts";
 import {
   EMPTY_LIVE_TRANSLATION_STATE,
   applyLiveTranslationSnapshot,
   decideLiveTranslationSnapshot,
   layoutPageMap,
-} from "../../../../packages/reader/src/shared/data/live-translation-state.ts";
+} from "../../../../frontend/packages/reader/src/shared/data/live-translation-state.ts";
 import {
   prepareLiveTranslationMathHtml,
   projectLiveTranslationItems,
   resolveLiveTranslationTextStyle,
-} from "../../../../packages/reader/src/pdf/LiveTranslationOverlay.tsx";
+} from "../../../../frontend/packages/reader/src/pdf/LiveTranslationOverlay.tsx";
 import {
   shouldEnableLiveTranslation,
   shouldTrackLiveTranslation,
-} from "../../../../packages/reader/src/hooks/use-reader-react-controller.ts";
-import { useLiveTranslation } from "../../../../packages/reader/src/hooks/use-live-translation.ts";
-import { liveTranslationStatusCopy } from "../../../../packages/reader/src/components/react-pdf/ReaderWorkspaceTabs.tsx";
+} from "../../../../frontend/packages/reader/src/hooks/use-reader-react-controller.ts";
+import { useLiveTranslation } from "../../../../frontend/packages/reader/src/hooks/use-live-translation.ts";
+import { liveTranslationStatusCopy } from "../../../../frontend/packages/reader/src/components/react-pdf/ReaderWorkspaceTabs.tsx";
 
 const makeEvent = (overrides = {}) => ({
   event: "translation_units_committed",
@@ -181,9 +181,9 @@ test("overlay projection remains accurate after zoom and is keyed by page coordi
 
 test("live overlay is non-interactive and can be assigned to the dedicated live pane", async () => {
   const [css, pageSlot, pane] = await Promise.all([
-    readFile(new URL("../../../../packages/reader/styles/live-translation.css", import.meta.url), "utf8"),
-    readFile(new URL("../../../../packages/reader/src/pdf/PdfPageSlot.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../../../../packages/reader/src/pdf/PdfDocumentPane.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../../frontend/packages/reader/styles/live-translation.css", import.meta.url), "utf8"),
+    readFile(new URL("../../../../frontend/packages/reader/src/pdf/PdfPageSlot.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../../frontend/packages/reader/src/pdf/PdfDocumentPane.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(css, /\.reader-live-translation-overlay\s*\{[\s\S]*pointer-events:\s*none/);
   assert.match(pageSlot, /active && showLiveTranslation/);
@@ -228,7 +228,7 @@ test("live formula HTML escapes prose before asynchronously materializing MathJa
 
 test("live formula overlay owns math layout styles without intercepting PDF input", async () => {
   const css = await readFile(
-    new URL("../../../../packages/reader/styles/live-translation.css", import.meta.url),
+    new URL("../../../../frontend/packages/reader/styles/live-translation.css", import.meta.url),
     "utf8",
   );
   assert.match(css, /\.reader-live-translation-content \.reader-md-math-inline/);
@@ -352,7 +352,7 @@ test("live translation consumes session terminal status without polling the job"
 
 test("reader exposes a discoverable live-translation toggle with transport status", async () => {
   const source = await readFile(
-    new URL("../../../../packages/reader/src/components/react-pdf/ReaderWorkspaceTabs.tsx", import.meta.url),
+    new URL("../../../../frontend/packages/reader/src/components/react-pdf/ReaderWorkspaceTabs.tsx", import.meta.url),
     "utf8",
   );
   assert.match(source, /reader-live-translation-toggle/);

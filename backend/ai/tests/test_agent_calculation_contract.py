@@ -15,7 +15,7 @@ from pathlib import Path
 AI_SERVICE_ROOT = Path(__file__).resolve().parents[1]
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 UPSTREAM_SCHEMA_PATH = (
-    BACKEND_ROOT.parent / "packages" / "schemas" / "agent-calculation.v1.schema.json"
+    BACKEND_ROOT.parent / "contracts" / "agent-calculation.v1.schema.json"
 )
 BACKEND_SCHEMA_PATH = BACKEND_ROOT / "contracts" / "agent-calculation.v1.schema.json"
 SCHEMA = json.loads(BACKEND_SCHEMA_PATH.read_text(encoding="utf-8"))

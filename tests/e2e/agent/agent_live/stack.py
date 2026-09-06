@@ -13,15 +13,15 @@ import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from dev_stack import terminate_process_group
-
 from .contracts import LiveE2EError, Options, StackHandle
 from .transport import request_json
 
 SCRIPT_DIR = Path(__file__).resolve().parent.parent
-SERVICES_ROOT = SCRIPT_DIR.parent
-PRODUCT_ROOT = SERVICES_ROOT.parent
-DEV_STACK = SCRIPT_DIR / "dev_stack.py"
+PRODUCT_ROOT = Path(__file__).resolve().parents[4]
+SERVICES_ROOT = PRODUCT_ROOT / "backend"
+DEV_STACK = PRODUCT_ROOT / "ops/development/dev_stack.py"
+sys.path.insert(0, str(DEV_STACK.parent))
+from dev_stack import terminate_process_group
 MAX_DIAGNOSTIC_CHARS = 8_000
 SENSITIVE_NAME_PARTS = ("KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL")
 

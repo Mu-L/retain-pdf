@@ -8,9 +8,9 @@ name = "retain-jobsd"
 path = "src/main.rs"
 
 [dependencies]
-retain-core = { path = "../retain-core" }
-retain-data = { path = "../retain-data" }
-retain-jobs = { path = "../retain-jobs" }
+retain-core = { path = "../packages/retain-core" }
+retain-data = { path = "../packages/retain-data" }
+retain-jobs = { path = "../packages/retain-jobs" }
 anyhow = "1"
 axum = "0.7"
 serde = { version = "1", features = ["derive"] }

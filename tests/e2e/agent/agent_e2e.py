@@ -20,8 +20,8 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 
-SERVICES_ROOT = Path(__file__).resolve().parents[1]
-PRODUCT_ROOT = SERVICES_ROOT.parent
+PRODUCT_ROOT = Path(__file__).resolve().parents[3]
+SERVICES_ROOT = PRODUCT_ROOT / "backend"
 AI_ROOT = SERVICES_ROOT / "ai"
 if str(AI_ROOT) not in sys.path:
     sys.path.insert(0, str(AI_ROOT))
@@ -301,8 +301,8 @@ def _agent_check(
         "RETAIN_AI_FX_AGENT_CLI_COMMAND", ""
     ).strip()
     override_path = _resolve_command_path(override, which) if override else None
-    debug_path = SERVICES_ROOT / "api" / "target" / "debug" / "retainpdf-agent"
-    release_path = SERVICES_ROOT / "api" / "target" / "release" / "retainpdf-agent"
+    debug_path = PRODUCT_ROOT / "target" / "debug" / "retainpdf-agent"
+    release_path = PRODUCT_ROOT / "target" / "release" / "retainpdf-agent"
 
     def candidate(path: Path | None, *, configured: bool = True) -> dict[str, Any]:
         if not configured:
@@ -526,7 +526,7 @@ def smoke_steps(*, skip_sync: bool = False, skip_build: bool = False) -> list[Sm
         steps.append(
             SmokeStep(
                 "sync Python backend environment",
-                ("uv", "sync", "--project", "services", "--locked", "--all-extras"),
+                ("uv", "sync", "--project", "backend", "--locked", "--all-extras"),
                 PRODUCT_ROOT,
             )
         )
@@ -539,7 +539,7 @@ def smoke_steps(*, skip_sync: bool = False, skip_build: bool = False) -> list[Sm
                     "build",
                     "--locked",
                     "--manifest-path",
-                    "services/api/Cargo.toml",
+                    "backend/api/Cargo.toml",
                     "--bin",
                     "retainpdf-agent",
                 ),
@@ -555,7 +555,7 @@ def smoke_steps(*, skip_sync: bool = False, skip_build: bool = False) -> list[Sm
                     "test",
                     "--locked",
                     "--manifest-path",
-                    "services/api/Cargo.toml",
+                    "backend/api/Cargo.toml",
                     "--lib",
                     "api_tests::document_operations::restricted_page_program_produces_validates_and_commits_a_real_pdf",
                     "--",
@@ -569,14 +569,14 @@ def smoke_steps(*, skip_sync: bool = False, skip_build: bool = False) -> list[Sm
                     "uv",
                     "run",
                     "--project",
-                    "services",
+                    "backend",
                     "--locked",
                     "python",
                     "-m",
                     "pytest",
-                    "services/ai/tests/test_fx_command_broker.py",
-                    "services/ai/tests/test_runtime.py",
-                    "services/scripts/tests/test_agent_live_e2e.py",
+                    "backend/ai/tests/test_fx_command_broker.py",
+                    "backend/ai/tests/test_runtime.py",
+                    "tests/e2e/agent/tests/test_agent_live_e2e.py",
                     "-q",
                 ),
                 PRODUCT_ROOT,

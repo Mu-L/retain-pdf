@@ -7,15 +7,15 @@ name: Desktop Frontend Sync
       - ".githooks/pre-commit"
       - "package.json"
       - "package-lock.json"
-      - "apps/desktop/package.json"
-      - "apps/desktop/scripts/prepare-app.mjs"
-      - "apps/desktop/scripts/check-frontend-bundle.mjs"
-      - "apps/web/**"
-      - "packages/api/**"
-      - "packages/domain/**"
-      - "packages/reader/**"
-      - "packages/schemas/**"
-      - "packages/ui/**"
+      - "frontend/desktop/package.json"
+      - "frontend/desktop/scripts/prepare-app.mjs"
+      - "frontend/desktop/scripts/check-frontend-bundle.mjs"
+      - "frontend/web/**"
+      - "frontend/packages/api/**"
+      - "frontend/packages/domain/**"
+      - "frontend/packages/reader/**"
+      - "contracts/**"
+      - "frontend/packages/ui/**"
   push:
     branches:
       - main
@@ -25,15 +25,15 @@ name: Desktop Frontend Sync
       - ".githooks/pre-commit"
       - "package.json"
       - "package-lock.json"
-      - "apps/desktop/package.json"
-      - "apps/desktop/scripts/prepare-app.mjs"
-      - "apps/desktop/scripts/check-frontend-bundle.mjs"
-      - "apps/web/**"
-      - "packages/api/**"
-      - "packages/domain/**"
-      - "packages/reader/**"
-      - "packages/schemas/**"
-      - "packages/ui/**"
+      - "frontend/desktop/package.json"
+      - "frontend/desktop/scripts/prepare-app.mjs"
+      - "frontend/desktop/scripts/check-frontend-bundle.mjs"
+      - "frontend/web/**"
+      - "frontend/packages/api/**"
+      - "frontend/packages/domain/**"
+      - "frontend/packages/reader/**"
+      - "contracts/**"
+      - "frontend/packages/ui/**"
   workflow_dispatch: {}
 
 permissions:
@@ -62,7 +62,7 @@ jobs:
         run: npm ci
 
       - name: Verify native frontend dependency
-        working-directory: apps/web
+        working-directory: frontend/web
         run: |
           # @tailwindcss/oxide 需本机原生绑定；npm optionalDeps 偶发漏装时补齐
           node -e "require('@tailwindcss/oxide')" \
@@ -77,6 +77,6 @@ jobs:
       - name: Check tracked generated files are up to date
         run: |
           git diff --exit-code -- \
-            apps/web/styles.css \
-            apps/desktop/build/icons \
-            apps/desktop/package.json
+            frontend/web/styles.css \
+            frontend/desktop/build/icons \
+            frontend/desktop/package.json

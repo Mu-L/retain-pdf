@@ -1,4 +1,4 @@
-// 共享真值（原 apps/web/src/js/reader/ai/chat-sessions-view-model.ts），已抽离为 standalone
+// 共享真值（原 frontend/web/src/js/reader/ai/chat-sessions-view-model.ts），已抽离为 standalone
 // 无宿主依赖，纯逻辑
 import type {
   ReaderAiChatSession,

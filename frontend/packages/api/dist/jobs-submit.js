@@ -3,7 +3,7 @@ import { buildJobsEndpoint, submitJson, submitUploadRequest } from "./http.js";
 function isObject(value) {
     return !!value && typeof value === "object" && !Array.isArray(value);
 }
-// Upload 表单组参（纯）:仅拼 file 字段,与 apps/web 旧实现逐字节一致。
+// Upload 表单组参（纯）:仅拼 file 字段,与 frontend/web 旧实现逐字节一致。
 export function collectUploadFormData(file) {
     const form = new FormData();
     form.append("file", file);

@@ -27,9 +27,9 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = false;
 
 const React = await import("react");
 const { createRoot } = await import("react-dom/client");
-const { setReaderAdapters } = await import("../../../../packages/reader/src/adapters.ts");
+const { setReaderAdapters } = await import("../../../../frontend/packages/reader/src/adapters.ts");
 const { createReaderDataPort } = await import(
-  "../../../../packages/reader/src/shared/data/data-port.ts"
+  "../../../../frontend/packages/reader/src/shared/data/data-port.ts"
 );
 const {
   ReaderMarkdownPanel,
@@ -38,12 +38,12 @@ const {
   isProtectedMarkdownAssetUrl,
   startMarkdownImageLoading,
 } = await import(
-  "../../../../packages/reader/src/components/react-pdf/ReaderMarkdownPanel.tsx"
+  "../../../../frontend/packages/reader/src/components/react-pdf/ReaderMarkdownPanel.tsx"
 );
 const {
   resetMarkdownMathEngineLoader,
   setMarkdownMathEngineLoader,
-} = await import("../../../../packages/reader/src/shared/content/markdown-math.ts");
+} = await import("../../../../frontend/packages/reader/src/shared/content/markdown-math.ts");
 const { retainPdfReaderAdapters } = await import(
   "../../src/pages/reader/adapters/retainpdf.ts"
 );

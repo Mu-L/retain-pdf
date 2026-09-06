@@ -9,7 +9,7 @@ RetainPDF 面向本地桌面与自托管 Docker，不按云端微服务拆库。
 包、crate、进程和协议边界解耦，持久状态仍由同一后端数据根统一管理。
 
 ```text
-apps/web 或 apps/desktop
+frontend/web 或 frontend/desktop
   └─ rust_api
        ├─ :41000  完整 HTTP API、下载、SSE、健康与就绪检查
        ├─ :42000  仅 POST /api/v1/translate/bundle
@@ -19,16 +19,16 @@ apps/web 或 apps/desktop
 ```
 
 Rust 的原始配置默认使用进程内 jobs runtime，并关闭两个子服务监督。仓库的权威
-开发入口 `python3 services/scripts/dev_stack.py` 会显式选择
+开发入口 `python3 ops/development/dev_stack.py` 会显式选择
 `remote + supervised`，由 `rust_api` 监督 jobsd 与 AI 服务。当前 Docker 镜像
 监督 AI 服务，但 jobs runtime 保持默认进程内模式，除非部署者明确开启 remote。
 
 | 启动形态 | jobs runtime | AI 服务 | 说明 |
 | --- | --- | --- | --- |
 | 直接运行 `rust_api` | 默认 in-process | 默认不监督 | 由环境变量显式改变 |
-| `services/scripts/dev_stack.py` | remote，Rust 监督 jobsd | Rust 监督 | 当前权威开发入口 |
+| `ops/development/dev_stack.py` | remote，Rust 监督 jobsd | Rust 监督 | 当前权威开发入口 |
 | 打包 Electron | remote，Rust 监督 jobsd | Rust 监督 | desktop main 为 packaged 模式注入配置 |
-| `services/docker/Dockerfile.app` | 默认 in-process | Rust 监督 | jobsd 二进制已打包，但默认不启动 |
+| `ops/deployment/docker/Dockerfile.app` | 默认 in-process | Rust 监督 | jobsd 二进制已打包，但默认不启动 |
 
 `/health` 始终提供诊断视图；`/ready` 只把数据库和当前配置为“受监督”的子服务
 列为必需组件。41002、41100 必须保持回环地址。任何非回环 API 部署都必须显式
@@ -38,20 +38,20 @@ Rust 的原始配置默认使用进程内 jobs runtime，并关闭两个子服�
 
 | 目录 | 职责 |
 | --- | --- |
-| `services/api/` | Rust HTTP 壳、持久化、任务编排、恢复、下载与安全边界 |
-| `services/api/crates/retain-core/` | 配置、公共模型、路径和失败契约 |
-| `services/api/crates/retain-data/` | SQLite、OCR provider、worker command 与持久化适配 |
-| `services/api/crates/retain-jobs/` | worker 生命周期和 pipeline 执行状态机 |
-| `services/api/crates/retain-jobsd/` | 可选的独立 jobs runtime 进程 |
-| `services/api/crates/retain-proc/` | 进程组与 OS 进程工具 |
-| `services/ai/` | AI turn 编排、检索与 Agent runtime；不拥有业务持久状态 |
-| `services/pipeline/` | OCR 归一化、翻译、修复、渲染与 PDF 处理 |
-| `services/config/` | Rust/Python 共享 provider 配置 |
-| `services/contracts/` | 独立后端包使用的 schema 镜像 |
+| `backend/api/` | Rust HTTP 壳、持久化、任务编排、恢复、下载与安全边界 |
+| `backend/packages/retain-core/` | 配置、公共模型、路径和失败契约 |
+| `backend/packages/retain-data/` | SQLite、OCR provider、worker command 与持久化适配 |
+| `backend/packages/retain-jobs/` | worker 生命周期和 pipeline 执行状态机 |
+| `backend/jobs/` | 可选的独立 jobs runtime 进程 |
+| `backend/packages/retain-proc/` | 进程组与 OS 进程工具 |
+| `backend/ai/` | AI turn 编排、检索与 Agent runtime；不拥有业务持久状态 |
+| `backend/pipeline/` | OCR 归一化、翻译、修复、渲染与 PDF 处理 |
+| `backend/config/` | Rust/Python 共享 provider 配置 |
+| `backend/contracts/` | 独立后端包使用的 schema 镜像 |
 
 主 crate 通过兼容 façade 暴露下层 crate，业务代码保持单向依赖。架构门禁位于
-`services/api/scripts/check_architecture.py` 和
-`services/pipeline/devtools/check_pipeline_architecture.py`。
+`backend/api/scripts/check_architecture.py` 和
+`backend/pipeline/devtools/check_pipeline_architecture.py`。
 
 ## 状态所有权
 
@@ -94,9 +94,9 @@ Docker 使用 `/data`，桌面端传入应用数据目录；`services/data/` 不
 
 | 边界 | 协议真值 | 关键门禁 |
 | --- | --- | --- |
-| Web/desktop ↔ Rust API | `services/api/API_SPEC.md` 及 `services/api/docs/api-spec/` | Rust API contract tests、前端 API tests |
-| monorepo wire DTO | `packages/schemas/*.schema.json` | `npm --prefix packages/schemas test` |
-| 独立后端 schema 镜像 | `services/contracts/*.schema.json` | `python3 services/contracts/check_parity.py --require-upstream` |
+| Web/desktop ↔ Rust API | `backend/api/API_SPEC.md` 及 `backend/api/docs/api-spec/` | Rust API contract tests、前端 API tests |
+| monorepo wire DTO | `contracts/*.schema.json` | `npm --prefix contracts test` |
+| 独立后端 schema 镜像 | `backend/contracts/*.schema.json` | `python3 backend/contracts/check_parity.py --require-upstream` |
 | Rust ↔ jobsd | `jobs-control.v1.schema.json` | shell/jobsd 双端 contract lock |
 | Rust ↔ pipeline stdout | `pipeline-stdout.v1.schema.json` | retain-jobs 与 pipeline 双端 contract tests |
 | Rust ↔ pipeline stage input | versioned stage spec 与对应 Rust/Python模型 | stage-spec checks 与 worker tests |
@@ -107,13 +107,13 @@ Docker 使用 `/data`，桌面端传入应用数据目录；`services/data/` 不
 | AI ↔ Rust calculations | `agent-calculation.v1.schema.json` | AI client contract、Rust lifecycle/scope/artifact tests |
 | AI runtime 配置 | `runtime-config.v1.schema.json` | schema test、Python runtime config contract test |
 
-修改 schema 时先更新 `packages/schemas`，同步 `services/contracts` 镜像，再让
+修改 schema 时先更新 `contracts`，同步 `backend/contracts` 镜像，再让
 生产者、消费者和 parity 门禁全部通过。API 细节不能只靠 schema 推断；路径、
 认证、错误、恢复和下载行为以 Rust API spec 与实现契约测试为准。
 
 ## AI 模块化边界
 
-`services/ai/retainpdf_ai/app.py` 装配 `AskOrchestrator`、`ConversationState` 和
+`backend/ai/retainpdf_ai/app.py` 装配 `AskOrchestrator`、`ConversationState` 和
 选定 runtime。`runtimes/` 分别实现 Python retrieval、OpenAI-compatible Agent
 和 FX ACP；`agent_command_broker.py` 与 `agent_broker_*` 只允许受限的宿主命令。
 模型拿不到 Rust API key、capability 或任意 shell。Rust 验证 operation scope、
@@ -125,12 +125,12 @@ Docker 使用 `/data`，桌面端传入应用数据目录；`services/data/` 不
 从仓库根目录运行：
 
 ```bash
-python3 services/api/scripts/check_architecture.py
-cargo test --locked --workspace --manifest-path services/api/Cargo.toml
-PYTHONPATH=services/pipeline uv run --project services python services/pipeline/devtools/check_pipeline_architecture.py
-uv run --project services python -m pytest services/ai/tests services/pipeline/devtools/tests -q
-python3 services/contracts/check_parity.py --require-upstream
-npm --prefix packages/schemas test
+python3 backend/api/scripts/check_architecture.py
+cargo test --locked --workspace --manifest-path backend/api/Cargo.toml
+PYTHONPATH=backend/pipeline uv run --project backend python backend/pipeline/devtools/check_pipeline_architecture.py
+uv run --project backend python -m pytest backend/ai/tests backend/pipeline/devtools/tests -q
+python3 backend/contracts/check_parity.py --require-upstream
+npm --prefix contracts test
 ```
 
 固定测试数量不是契约，文档只记录应执行的 suite。需要真实 provider 凭据的

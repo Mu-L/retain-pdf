@@ -47,6 +47,17 @@ data/
 !apps/web/src/shared/data/**
 !packages/reader/src/shared/data/
 !packages/reader/src/shared/data/**
+!frontend/web/src/shared/data/
+!frontend/web/src/shared/data/**
+!frontend/packages/reader/src/shared/data/
+!frontend/packages/reader/src/shared/data/**
+backend/api/auth.local.json
+backend/pipeline/.env/*.env
+ops/deployment/docker/delivery/docker-compose.override.yml
+ops/deployment/typst/*/bin/
+frontend/desktop/linux/
+frontend/desktop/win_jobid/
+/var/
 /tmp/
 *.dmg
 *.AppImage

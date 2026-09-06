@@ -119,7 +119,7 @@ POST /api/v1/ai/ask
 - SSE 断线后重新查询 conversation 和 operation。SSE 本身不是可重放状态真源；
 - AI 服务未启动时反代返回 502，可提示“AI 服务未运行”。
 
-完整契约见 [`ai-ask.v1.schema.json`](../../../services/contracts/ai-ask.v1.schema.json)，
+完整契约见 [`ai-ask.v1.schema.json`](../../../backend/contracts/ai-ask.v1.schema.json)，
 接入与恢复说明见 [AI 问答与文档操作 API](../api/reader-ai-chat.md)。
 
 

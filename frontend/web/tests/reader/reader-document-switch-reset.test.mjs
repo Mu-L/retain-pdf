@@ -4,11 +4,11 @@ import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { JSDOM } from "jsdom";
 
-import { useReaderPaneModel } from "../../../../packages/reader/src/hooks/use-reader-pane-model.ts";
-import { useReaderReactController } from "../../../../packages/reader/src/hooks/use-reader-react-controller.ts";
-import { useReadingAnchor } from "../../../../packages/reader/src/pdf/useReadingAnchor.ts";
-import { setReaderAdapters } from "../../../../packages/reader/src/adapters.ts";
-import { readerViewStateStorageKey } from "../../../../packages/reader/src/shared/state/reader-view-state.ts";
+import { useReaderPaneModel } from "../../../../frontend/packages/reader/src/hooks/use-reader-pane-model.ts";
+import { useReaderReactController } from "../../../../frontend/packages/reader/src/hooks/use-reader-react-controller.ts";
+import { useReadingAnchor } from "../../../../frontend/packages/reader/src/pdf/useReadingAnchor.ts";
+import { setReaderAdapters } from "../../../../frontend/packages/reader/src/adapters.ts";
+import { readerViewStateStorageKey } from "../../../../frontend/packages/reader/src/shared/state/reader-view-state.ts";
 
 function installDom(url = "http://localhost/reader.html") {
   const dom = new JSDOM("<!doctype html><html><body><div id='root'></div></body></html>", {

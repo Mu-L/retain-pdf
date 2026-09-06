@@ -101,9 +101,9 @@ test("Reader AI 加载已有会话后快照稳定，composer 仍可输入", asyn
 
   const { createElement } = await import("react");
   const { createRoot } = await import("react-dom/client");
-  const { setReaderAdapters } = await import("../../../../packages/reader/src/adapters.ts");
+  const { setReaderAdapters } = await import("../../../../frontend/packages/reader/src/adapters.ts");
   const { ReaderAiPanel } = await import(
-    "../../../../packages/reader/src/components/react-pdf/ReaderAiPanel.tsx"
+    "../../../../frontend/packages/reader/src/components/react-pdf/ReaderAiPanel.tsx"
   );
   setReaderAdapters({
     apiPrefix: "/api/v1",

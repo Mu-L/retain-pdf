@@ -9,7 +9,7 @@ export {
   normalizeMarkdownPayload,
 } from "./shared/data/markdown-payload.js";
 
-// packages/reader 对宿主环境的唯一契约（取代 apps/web/src/pages/reader/external.ts）
+// frontend/packages/reader 对宿主环境的唯一契约（取代 frontend/web/src/pages/reader/external.ts）
 export type ReaderMode = "source" | "translated" | "compare";
 export type ReaderDocumentSource = {
   sourceUrl: string;
@@ -94,7 +94,7 @@ export type ReaderAdapters = ReaderSessionAdapters
   & ReaderCredentialsAdapters
   & ReaderAiAdapters;
 export const DEFAULT_READER_ADAPTERS: Partial<ReaderAdapters> = {};
-// 全局注入注册（monorepo 内由 apps/web 在启动时 set）
+// 全局注入注册（monorepo 内由 frontend/web 在启动时 set）
 let _adapters: ReaderAdapters | null = null;
 export function setReaderAdapters(a: ReaderAdapters | null) {
   _adapters = a;

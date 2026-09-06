@@ -1,4 +1,4 @@
-// 共享真值（原 apps/web/src/js/reader/page-state.ts），纯常量 + 纯函数，无外部依赖
+// 共享真值（原 frontend/web/src/js/reader/page-state.ts），纯常量 + 纯函数，无外部依赖
 export const READER_PROGRESS_COPY = Object.freeze({
   boot: "正在准备对照阅读…",
   metadata: "正在读取任务信息…",

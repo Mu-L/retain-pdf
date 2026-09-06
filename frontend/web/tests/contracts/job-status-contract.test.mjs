@@ -4,18 +4,18 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 
 // 消费者契约测试: 任务状态 / 阶段进度 Rust 真值 ↔ TS 消费
-// 真值: packages/schemas/job-status.v1.schema.json
-// 生产侧: services/api/crates/retain-core/src/models/view/{job_types.rs, common.rs}
-// 消费侧: packages/domain/src/job/{types,normalize}.ts
-//         & packages/domain/src/job-status/types.ts
-//         apps/web-react src/features/status/types.ts & library/api/library-api-adapter.ts
+// 真值: contracts/job-status.v1.schema.json
+// 生产侧: backend/packages/retain-core/src/models/view/{job_types.rs, common.rs}
+// 消费侧: frontend/packages/domain/src/job/{types,normalize}.ts
+//         & frontend/packages/domain/src/job-status/types.ts
+//         frontend/web-react src/features/status/types.ts & library/api/library-api-adapter.ts
 // 与 library-books、ai-ask、ai-conversations 同属 schema 门禁。
 
-const CONTRACT_PATH = join(process.cwd(), "..", "..", "packages", "schemas", "job-status.v1.schema.json");
+const CONTRACT_PATH = join(process.cwd(), "..", "..", "contracts", "job-status.v1.schema.json");
 const contract = JSON.parse(readFileSync(CONTRACT_PATH, "utf8"));
 const DOMAIN_JOB_STATUS_ROOT = join(
   process.cwd(),
-  "../../packages/domain/src/job-status",
+  "../../frontend/packages/domain/src/job-status",
 );
 
 function collectTypeScriptSources(root) {
@@ -53,20 +53,20 @@ function tsTypeFieldsLoose(source, typeName) {
 // 白盒例外：这里校验接口字段源码，路径由 test-layout 的显式清单约束。
 const jobTypesSrc = readFileSync(join(
   process.cwd(),
-  "../../packages/domain/src/job/types.ts",
+  "../../frontend/packages/domain/src/job/types.ts",
 ), "utf8");
 const jobStatusTypesSrc = readFileSync(join(
   process.cwd(),
-  "../../packages/domain/src/job-status/types.ts",
+  "../../frontend/packages/domain/src/job-status/types.ts",
 ), "utf8");
 
-// web-react 已删除（单前端聚焦 apps/web）：仅作存在性校验，缺失则跳过对齐断言
+// web-react 已删除（单前端聚焦 frontend/web）：仅作存在性校验，缺失则跳过对齐断言
 let statusReactSrc = "";
 try {
   statusReactSrc = readFileSync(join(process.cwd(), "..", "web-react", "src", "features", "status", "types.ts"), "utf8");
 } catch {
   try {
-    statusReactSrc = readFileSync(join(process.cwd(), "../../apps/web-react/src/features/status/types.ts"), "utf8");
+    statusReactSrc = readFileSync(join(process.cwd(), "../../frontend/web-react/src/features/status/types.ts"), "utf8");
   } catch {
     statusReactSrc = "";
   }
@@ -97,7 +97,7 @@ test("JobStageSnapshotView: display_stage/stage/substage/lane/stage_detail/progr
   // 前端 adapter 依赖的字段必须存在
   const adapterSrc = readFileSync(join(
     process.cwd(),
-    "../../packages/domain/src/job-status/job-stage-contract-adapter.ts",
+    "../../frontend/packages/domain/src/job-status/job-stage-contract-adapter.ts",
   ), "utf8");
   assert.ok(adapterSrc.includes("display_stage") || adapterSrc.includes("displayStage"), "adapter 未消费 display_stage");
 });
@@ -124,7 +124,7 @@ test("JobStagesView: ocr/translation/render 三阶段齐全且前端可见", () 
   // 前端 stage 引擎映射依赖
   const engineSrc = readFileSync(join(
     process.cwd(),
-    "../../packages/domain/src/job-status/public-stage-engine.ts",
+    "../../frontend/packages/domain/src/job-status/public-stage-engine.ts",
   ), "utf8");
   for (const stage of ["ocr", "translation", "render"]) {
     assert.ok(engineSrc.includes(stage), `public-stage-engine 未处理 ${stage}`);
@@ -140,7 +140,7 @@ test("JobListItemView: 列表卡关键字段与契约一致，且前端 normaliz
   // 前端 normalize 必须透传这些字段（silent 轮询与书架卡合并依赖）
   const normalizeSrc = readFileSync(join(
     process.cwd(),
-    "../../packages/domain/src/job/normalize.ts",
+    "../../frontend/packages/domain/src/job/normalize.ts",
   ), "utf8");
   for (const f of ["job_id", "display_name", "cover_url", "stage_snapshot"]) {
     assert.ok(normalizeSrc.includes(f), `normalize 未透传 ${f}`);
@@ -164,7 +164,7 @@ test("Stage progress bundle: 前端进度文案与契约 progress 单测对齐",
   // job-status-summary-progress.ts 依赖 progress.current/total/unit
   const progressSummarySrc = readFileSync(join(
     process.cwd(),
-    "../../packages/domain/src/job-status/summary/job-status-summary-progress.ts",
+    "../../frontend/packages/domain/src/job-status/summary/job-status-summary-progress.ts",
   ), "utf8");
   assert.ok(progressSummarySrc.includes("progress") && progressSummarySrc.includes("current"), "progress 文案未基于契约 progress");
   // web-react status/types.ts 阶段进度亦应对齐（已删除则跳过）

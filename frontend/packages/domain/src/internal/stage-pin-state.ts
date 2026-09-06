@@ -1,4 +1,4 @@
-// Vendored from apps/web/src/js/features/job-runtime/stage-pin-state.ts — pure stage pin logic
+// Vendored from frontend/web/src/js/features/job-runtime/stage-pin-state.ts — pure stage pin logic
 export function currentDisplayedStagePin(state: unknown) {
   const s = state as Record<string, unknown> | null | undefined;
   return {

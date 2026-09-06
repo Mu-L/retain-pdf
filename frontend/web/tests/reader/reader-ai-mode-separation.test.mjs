@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const assistantDir = new URL(
-  "../../../../packages/reader/src/components/react-pdf/assistant/",
+  "../../../../frontend/packages/reader/src/components/react-pdf/assistant/",
   import.meta.url,
 );
 const read = (name) => readFile(new URL(name, assistantDir), "utf8");

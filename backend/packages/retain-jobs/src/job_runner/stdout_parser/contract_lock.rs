@@ -16,10 +16,10 @@ use crate::models::domain::JobSnapshot;
 use crate::models::request::CreateJobInput;
 
 fn contract_path() -> PathBuf {
-    // crates/retain-jobs → crates → api → backend-root
+    // backend/packages/retain-jobs → packages → backend (test mirror).
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
-        .nth(3)
+        .nth(2)
         .expect("backend root")
         .join("contracts/pipeline-stdout.v1.schema.json")
 }

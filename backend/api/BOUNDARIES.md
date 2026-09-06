@@ -127,13 +127,13 @@ depend on job view internals.
 
 ## Persistence
 
-`crates/retain-data/src/db/**` should stay focused on SQLite rows and records.
+`../../database/retain-db/src/db/**` should stay focused on SQLite rows and records.
 It should not know about HTTP view contracts, route URLs, or frontend display
 decisions.
 
 ## Models
 
-`crates/retain-core/src/models/**` contains serializable input, job records, and
+`../packages/retain-core/src/models/**` contains serializable input, job records, and
 public view types. Model helpers can build plain data structures, but service
 decisions such as file readiness, route scope, and event-source merging should
 remain in services.

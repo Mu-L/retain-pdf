@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the tracked services tree as an isolated backend workspace."""
+"""Verify the committed aggregate source as an isolated backend workspace."""
 
 from __future__ import annotations
 
@@ -13,11 +13,14 @@ import tarfile
 import tempfile
 
 
-SERVICES_ROOT = Path(__file__).resolve().parents[1]
+from build_source_archive import ARCHIVE_PATHS, REQUIRED_FILES
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SERVICES_ROOT = REPO_ROOT / "backend"
 
 FONT_SHA256 = {
-    "fonts/SourceHanSerifSC-Regular.otf": "78aa7a328fd974df2d688c8a9fd74a33d8334dfa84ab24d9d11efb2ffc464117",
-    "fonts/SourceHanSerifSC-Bold.otf": "706b8c0de2deff6cbc0c87e2cdedfd33a78b7ffd76cebb4549012f197ba611fe",
+    "resources/fonts/SourceHanSerifSC-Regular.otf": "78aa7a328fd974df2d688c8a9fd74a33d8334dfa84ab24d9d11efb2ffc464117",
+    "resources/fonts/SourceHanSerifSC-Bold.otf": "706b8c0de2deff6cbc0c87e2cdedfd33a78b7ffd76cebb4549012f197ba611fe",
 }
 
 
@@ -47,20 +50,12 @@ def _git_archive_source(*, allow_dirty: bool) -> tuple[Path, str]:
         text=True,
     )
     git_root = Path(result.stdout.strip()).resolve()
-    relative = SERVICES_ROOT.relative_to(git_root)
-    if relative == Path("."):
-        treeish = "HEAD"
-        pathspec = "."
-    elif relative == Path("services"):
-        treeish = "HEAD:services"
-        pathspec = "services"
-    else:
-        raise RuntimeError(
-            "backend workspace must be either the Git root or its services directory"
-        )
+    if REPO_ROOT != git_root:
+        raise RuntimeError("release tools must be inside the repository root")
+    treeish = "HEAD"
 
     dirty = subprocess.run(
-        ["git", "status", "--porcelain", "--untracked-files=no", "--", pathspec],
+        ["git", "status", "--porcelain", "--untracked-files=no", "--", *ARCHIVE_PATHS],
         cwd=git_root,
         check=True,
         capture_output=True,
@@ -85,7 +80,7 @@ def _extract_tracked_snapshot(
     archive_path = destination.parent / "services.tar"
     with archive_path.open("wb") as archive:
         subprocess.run(
-            ["git", "archive", "--format=tar", treeish],
+            ["git", "archive", "--format=tar", treeish, "--", *ARCHIVE_PATHS],
             cwd=git_root,
             stdout=archive,
             check=True,
@@ -103,29 +98,13 @@ def _extract_tracked_snapshot(
 
 def _require_layout(root: Path) -> None:
     required = (
-        "pyproject.toml",
-        "uv.lock",
-        "ai/pyproject.toml",
-        "pipeline/pyproject.toml",
-        "pipeline/devtools/extract_pipeline_requirements.py",
-        "api/Cargo.toml",
-        "api/Cargo.lock",
-        "config/ocr_providers.json",
-        "contracts/check_parity.py",
-        "contracts/ai-ask.v1.schema.json",
-        "contracts/ai-conversations.v1.schema.json",
-        "contracts/job-status.v1.schema.json",
-        "contracts/jobs-control.v1.schema.json",
-        "contracts/library-books.v1.schema.json",
-        "contracts/pipeline-stdout.v1.schema.json",
-        "docker/Dockerfile.app",
-        "docker/entrypoint-app.sh",
-        "docker/fontconfig/65-source-han-serif-alias.conf",
-        "scripts/build_source_archive.py",
-        "fonts/LICENSE-OFL-1.1.txt",
-        "fonts/README.md",
+        *REQUIRED_FILES,
+        "backend/pipeline/devtools/extract_pipeline_requirements.py",
+        "backend/contracts/check_parity.py",
+        "ops/release/build_source_archive.py",
+        "resources/fonts/README.md",
         *FONT_SHA256,
-        "testdata/golden-jobs/chem-6ada81-10p/artifacts/pipeline_summary.json",
+        "tests/fixtures/golden-jobs/chem-6ada81-10p/artifacts/pipeline_summary.json",
     )
     missing = [relative for relative in required if not (root / relative).is_file()]
     if missing:
@@ -162,6 +141,7 @@ def main() -> int:
         snapshot.mkdir()
         _extract_tracked_snapshot(snapshot, git_root=git_root, treeish=treeish)
         _require_layout(snapshot)
+        backend = snapshot / "backend"
 
         env = os.environ.copy()
         for inherited_python_path in ("PYTHONHOME", "PYTHONPATH", "VIRTUAL_ENV"):
@@ -185,12 +165,12 @@ def main() -> int:
                 "--test-req-out",
                 str(reports / "pipeline_test_requirements.in"),
             ],
-            cwd=snapshot,
+            cwd=backend,
             env=env,
             suppress_stdout=True,
         )
-        _run(["python3", "contracts/check_parity.py"], cwd=snapshot, env=env)
-        _run(["uv", "sync", "--locked", "--all-extras"], cwd=snapshot, env=env)
+        _run(["python3", "contracts/check_parity.py"], cwd=backend, env=env)
+        _run(["uv", "sync", "--locked", "--all-extras"], cwd=backend, env=env)
         _run(
             [
                 "uv",
@@ -208,15 +188,15 @@ def main() -> int:
                     "import _config_path; "
                     "assert _config_path() == Path.cwd() / 'config' / 'ocr_providers.json'; "
                     "from retainpdf_pipeline.foundation.config.fonts import BACKEND_FONTS_DIR; "
-                    "assert BACKEND_FONTS_DIR == Path.cwd() / 'fonts'"
+                    "assert BACKEND_FONTS_DIR == Path.cwd().parent / 'resources' / 'fonts'"
                 ),
             ],
-            cwd=snapshot,
+            cwd=backend,
             env=env,
         )
         _run(
             ["uv", "run", "--locked", "retainpdf-pipeline", "--help"],
-            cwd=snapshot,
+            cwd=backend,
             env=env,
         )
         _run(
@@ -228,9 +208,9 @@ def main() -> int:
                 "--format-version",
                 "1",
                 "--manifest-path",
-                "api/Cargo.toml",
+                str(snapshot / "Cargo.toml"),
             ],
-            cwd=snapshot,
+            cwd=backend,
             env=env,
             suppress_stdout=True,
         )
@@ -243,9 +223,9 @@ def main() -> int:
                     "--workspace",
                     "--no-run",
                     "--manifest-path",
-                    "api/Cargo.toml",
+                    str(snapshot / "Cargo.toml"),
                 ],
-                cwd=snapshot,
+                cwd=backend,
                 env=env,
             )
 

@@ -1,5 +1,5 @@
-// @retainpdf/reader — 自包含 external（不再代理 apps/web）
-// 保留与 apps/web/src/pages/reader/external.ts 同样的导出面，但实现改为 adapters 注入 + 轻量 fallback
+// @retainpdf/reader — 自包含 external（不再代理 frontend/web）
+// 保留与 frontend/web/src/pages/reader/external.ts 同样的导出面，但实现改为 adapters 注入 + 轻量 fallback
 // 未注入时返回空/默认，保证 standalone 可 tsc/build，深功能需宿主 setReaderAdapters
 
 import { getReaderAdapters, requireAdapter } from "./adapters.js";

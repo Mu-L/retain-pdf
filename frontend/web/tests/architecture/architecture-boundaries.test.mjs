@@ -6,7 +6,7 @@ import { join, relative } from "node:path";
 const PROJECT_ROOT = process.cwd();
 const REPOSITORY_ROOT = join(PROJECT_ROOT, "../..");
 const JS_ROOT = join(PROJECT_ROOT, "src/js");
-const DOMAIN_JOB_SOURCE_ROOT = join(PROJECT_ROOT, "../../packages/domain/src/job");
+const DOMAIN_JOB_SOURCE_ROOT = join(PROJECT_ROOT, "../../frontend/packages/domain/src/job");
 const FEATURE_ROOT = join(JS_ROOT, "features");
 const BOOTSTRAP_ROOT = join(JS_ROOT, "bootstrap");
 const SOURCE_ROOTS = {
@@ -208,10 +208,10 @@ test("source tree does not contain notebook checkpoint artifacts", () => {
 
 test("npm workspaces use the repository root lockfile", () => {
   const nestedLockfiles = [
-    join(REPOSITORY_ROOT, "apps/desktop/package-lock.json"),
-    join(REPOSITORY_ROOT, "apps/web/package-lock.json"),
-    join(REPOSITORY_ROOT, "apps/web-react/package-lock.json"),
-    join(REPOSITORY_ROOT, "packages/reader/package-lock.json"),
+    join(REPOSITORY_ROOT, "frontend/desktop/package-lock.json"),
+    join(REPOSITORY_ROOT, "frontend/web/package-lock.json"),
+    join(REPOSITORY_ROOT, "frontend/web-react/package-lock.json"),
+    join(REPOSITORY_ROOT, "frontend/packages/reader/package-lock.json"),
   ].filter((filePath) => existsSync(filePath));
 
   assert.equal(existsSync(join(REPOSITORY_ROOT, "package-lock.json")), true);
@@ -559,12 +559,12 @@ test("job domains are consumed from packages instead of web mirrors", () => {
   assert.deepEqual(
     walkFiles(SOURCE_ROOTS.jobMirror),
     [],
-    "apps/web/src/js/job must not return; use @retainpdf/domain/job",
+    "frontend/web/src/js/job must not return; use @retainpdf/domain/job",
   );
   assert.deepEqual(
     walkFiles(SOURCE_ROOTS.jobStatus),
     [],
-    "apps/web/src/js/job-status must not return; use @retainpdf/domain/job-status",
+    "frontend/web/src/js/job-status must not return; use @retainpdf/domain/job-status",
   );
 
   const compositionJobSource = readSource(join(
@@ -870,17 +870,17 @@ test("composition/external re-exports cover all symbols imported by home feature
 
 test("@/lib/utils proxies to @retainpdf/ui (not duplicated cn impl)", () => {
   const utilsPath = join(PROJECT_ROOT, "src/lib/utils.ts");
-  const uiUtilsPath = join(PROJECT_ROOT, "../../packages/ui/src/lib/utils.ts");
+  const uiUtilsPath = join(PROJECT_ROOT, "../../frontend/packages/ui/src/lib/utils.ts");
   assert.equal(existsSync(utilsPath), true, "src/lib/utils.ts must exist");
-  assert.equal(existsSync(uiUtilsPath), true, "packages/ui/src/lib/utils.ts must exist");
+  assert.equal(existsSync(uiUtilsPath), true, "frontend/packages/ui/src/lib/utils.ts must exist");
   const proxySource = readFileSync(utilsPath, "utf8");
   // sole export should re-export from @retainpdf/ui, no local clsx/twMerge impl
   assert.match(proxySource, /from\s+["']@retainpdf\/ui\/lib\/utils["']/, "src/lib/utils.ts should proxy to @retainpdf/ui/lib/utils");
   assert.equal(proxySource.includes("clsx"), false, "proxy must not duplicate clsx impl");
   assert.equal(proxySource.includes("twMerge"), false, "proxy must not duplicate twMerge impl");
   const uiSource = readFileSync(uiUtilsPath, "utf8");
-  assert.match(uiSource, /clsx/, "packages/ui/src/lib/utils.ts should own clsx/twMerge impl");
-  assert.match(uiSource, /twMerge/, "packages/ui/src/lib/utils.ts should own clsx/twMerge impl");
+  assert.match(uiSource, /clsx/, "frontend/packages/ui/src/lib/utils.ts should own clsx/twMerge impl");
+  assert.match(uiSource, /twMerge/, "frontend/packages/ui/src/lib/utils.ts should own clsx/twMerge impl");
   // Workspace packages must resolve through package.json exports, not source aliases.
   const tsconfigRaw = readFileSync(join(PROJECT_ROOT, "tsconfig.json"), "utf8");
   assert.doesNotMatch(tsconfigRaw, /packages\/(?:api|domain|reader|ui)\/src/);
@@ -892,17 +892,17 @@ test("@/lib/utils proxies to @retainpdf/ui (not duplicated cn impl)", () => {
 
 test("@retainpdf/ui and @retainpdf/api packages expose expected entries", () => {
   for (const pkg of ["ui", "api"]) {
-    const pkgJson = JSON.parse(readFileSync(join(PROJECT_ROOT, `../../packages/${pkg}/package.json`), "utf8"));
+    const pkgJson = JSON.parse(readFileSync(join(PROJECT_ROOT, `../packages/${pkg}/package.json`), "utf8"));
     assert.equal(pkgJson.name, `@retainpdf/${pkg}`, `packages/${pkg}/package.json name must be @retainpdf/${pkg}`);
     assert.ok(pkgJson.exports?.["."], `packages/${pkg} must export "."`);
     assert.ok(pkgJson.scripts?.build, `packages/${pkg} must have build script`);
     assert.ok(pkgJson.scripts?.typecheck, `packages/${pkg} must have typecheck script`);
   }
   // ui exports styles.css must resolve to existing built artifact after build
-  const uiPkg = JSON.parse(readFileSync(join(PROJECT_ROOT, "../../packages/ui/package.json"), "utf8"));
+  const uiPkg = JSON.parse(readFileSync(join(PROJECT_ROOT, "../../frontend/packages/ui/package.json"), "utf8"));
   assert.ok(uiPkg.exports?.["./styles.css"], "@retainpdf/ui must export ./styles.css");
   // api exports library-books / jobs subpaths
-  const apiPkg = JSON.parse(readFileSync(join(PROJECT_ROOT, "../../packages/api/package.json"), "utf8"));
+  const apiPkg = JSON.parse(readFileSync(join(PROJECT_ROOT, "../../frontend/packages/api/package.json"), "utf8"));
   assert.ok(apiPkg.exports?.["./library-books"], "@retainpdf/api must export ./library-books");
   assert.ok(apiPkg.exports?.["./jobs"], "@retainpdf/api must export ./jobs");
   assert.ok(apiPkg.exports?.["./job-images"], "@retainpdf/api must export ./job-images");
@@ -955,7 +955,7 @@ test("job cancellation and OCR ambiguity recovery use canonical endpoint clients
   assert.doesNotMatch(runtimeController, /buildJobDetailEndpoint/);
 
   const apiActions = readFileSync(
-    join(PROJECT_ROOT, "../../packages/api/src/jobs-actions.ts"),
+    join(PROJECT_ROOT, "../../frontend/packages/api/src/jobs-actions.ts"),
     "utf8",
   );
   assert.match(apiActions, /export async function cancelJob/);

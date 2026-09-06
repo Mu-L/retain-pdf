@@ -1,5 +1,5 @@
-// 共享真值（原 apps/web/src/js/reader/downloads/resolve.ts），已抽离为可注入依赖
-// 纯函数 + 工厂注入：不直接 import apps/web 的 job/bootstrap/resource-resolver，改为参数注入
+// 共享真值（原 frontend/web/src/js/reader/downloads/resolve.ts），已抽离为可注入依赖
+// 纯函数 + 工厂注入：不直接 import frontend/web 的 job/bootstrap/resource-resolver，改为参数注入
 
 export const READER_DOWNLOAD_ACTIONS = Object.freeze({
   source: {
@@ -121,7 +121,7 @@ export function createReaderDownloadResolver({
   });
 }
 
-// 默认无注入的纯 fallback（用于未注入环境的单元测试，不依赖 apps/web）
+// 默认无注入的纯 fallback（用于未注入环境的单元测试，不依赖 frontend/web）
 const defaultResolver = createReaderDownloadResolver();
 
 export const resolveReaderDownloadUrls = defaultResolver.resolveReaderDownloadUrls;

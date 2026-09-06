@@ -13,6 +13,7 @@ def _default_fonts_dir() -> Path:
         if value:
             root = Path(value).expanduser().resolve()
             for candidate in (
+                root / "resources" / "fonts",
                 root / "fonts",
                 root / "services" / "fonts",
                 root / "infra" / "fonts",
@@ -22,6 +23,7 @@ def _default_fonts_dir() -> Path:
             return root / "fonts"
     for parent in Path(__file__).resolve().parents:
         for candidate in (
+            parent / "resources" / "fonts",
             parent / "fonts",
             parent / "services" / "fonts",
             parent / "infra" / "fonts",

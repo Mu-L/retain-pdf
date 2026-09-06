@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 
 AI_SERVICE_ROOT = Path(__file__).resolve().parents[1]
-# services/ai/tests -> backend root; this remains stable in an extracted services repo.
+# backend/ai/tests -> backend root; this remains stable in an extracted services repo.
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = BACKEND_ROOT / "contracts" / "ai-conversations.v1.schema.json"
 SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))

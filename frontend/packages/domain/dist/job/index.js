@@ -1,4 +1,4 @@
-// packages/domain/src/job/index.ts — barrel for pure job domain
+// frontend/packages/domain/src/job/index.ts — barrel for pure job domain
 export * from "./action-model.js";
 export * from "./actions.js";
 export * from "./artifact-runtime-port.js";

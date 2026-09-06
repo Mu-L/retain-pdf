@@ -195,18 +195,18 @@ render-only 阶段必须同时复用这两类产物。特别注意：同步刷�
 ## 真实 PDF 回归
 
 真实样本放在
-[resources/samples/golden-pdfs](../../../../resources/samples/golden-pdfs)。
+[tests/fixtures/pdfs](../../../../tests/fixtures/pdfs)。
 
 常用命令：
 
 ```bash
-python3 services/pipeline/devtools/run_golden_flow.py --check-manifest
-python3 services/pipeline/devtools/run_golden_flow.py --list-samples
-python3 services/pipeline/devtools/run_golden_flow.py \
+python3 backend/pipeline/devtools/run_golden_flow.py --check-manifest
+python3 backend/pipeline/devtools/run_golden_flow.py --list-samples
+python3 backend/pipeline/devtools/run_golden_flow.py \
   --job-root data/jobs/golden-fullflow-book-20260511170519 \
   --render-only \
   --bbox-item p001-b013
-python3 services/pipeline/devtools/run_golden_flow.py \
+python3 backend/pipeline/devtools/run_golden_flow.py \
   --job-root data/jobs/golden-pseudo-20260512-full \
   --render-only \
   --bbox-item p001-b013

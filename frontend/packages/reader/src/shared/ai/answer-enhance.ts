@@ -1,4 +1,4 @@
-// 共享真值（原 apps/web/src/js/reader/ai/answer-enhance.ts），已抽离为可注入依赖
+// 共享真值（原 frontend/web/src/js/reader/ai/answer-enhance.ts），已抽离为可注入依赖
 // AI 回答 DOM 增强：注入 [n] 可点引用、精简脚注、鉴权图片 blob 化。
 // fetchProtected / resolveResourceUrl 通过适配器注入，默认回退为全局 fetch / 恒等
 

@@ -60,12 +60,12 @@ def default_x_api_key(frontend_root: Path | None = None) -> str:
         if root in seen:
             continue
         seen.add(root)
-        for rel in ["services/api/auth.local.json"]:
+        for rel in ["backend/api/auth.local.json"]:
             key = read_x_api_key_from_auth(root.parent / rel)
             if key:
                 return key
         # Also try repo root directly (when frontend_root is repo-adjacent)
-        for rel in ["services/api/auth.local.json"]:
+        for rel in ["backend/api/auth.local.json"]:
             key = read_x_api_key_from_auth(root / rel)
             if key:
                 return key

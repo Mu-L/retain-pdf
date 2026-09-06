@@ -1,5 +1,5 @@
-// packages/domain/src/job/job-detail-formatters.ts — pure job-detail display/format helpers
-// Extracted verbatim from apps/web/src/js/job-detail/* (artifacts/failure/resume/routing/summary).
+// frontend/packages/domain/src/job/job-detail-formatters.ts — pure job-detail display/format helpers
+// Extracted verbatim from frontend/web/src/js/job-detail/* (artifacts/failure/resume/routing/summary).
 // No DOM, no window, no fetch — only string/object formatting.
 import { firstNonEmpty } from "./core.js";
 import { resolveJobMarkdownContract } from "./artifacts.js";

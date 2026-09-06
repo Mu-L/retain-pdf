@@ -7,7 +7,7 @@ const wait = (ms = 30) => new Promise((resolve) => setTimeout(resolve, ms));
 
 test("Reader AI 对话区是可收缩的独立滚动视口", async () => {
   const css = await readFile(
-    new URL("../../../../packages/reader/styles/float-ai-aui.css", import.meta.url),
+    new URL("../../../../frontend/packages/reader/styles/float-ai-aui.css", import.meta.url),
     "utf8",
   );
   const viewportRule = css.match(/\.reader-float-ai \.aui-viewport\s*\{([\s\S]*?)\n\}/)?.[1] || "";
@@ -76,9 +76,9 @@ test("Reader AI 流式增长时尊重用户上滑，手动滚底后才恢复跟�
 
   const React = await import("react");
   const { createRoot } = await import("react-dom/client");
-  const { setReaderAdapters } = await import("../../../../packages/reader/src/adapters.ts");
+  const { setReaderAdapters } = await import("../../../../frontend/packages/reader/src/adapters.ts");
   const { ReaderAssistantThread } = await import(
-    "../../../../packages/reader/src/components/react-pdf/assistant/ReaderAssistantThread.tsx"
+    "../../../../frontend/packages/reader/src/components/react-pdf/assistant/ReaderAssistantThread.tsx"
   );
   setReaderAdapters({
     credentialsPort: { getCredentials: () => ({ modelApiKey: "test" }) },

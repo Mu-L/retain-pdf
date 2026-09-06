@@ -42,7 +42,7 @@
 
 当前代码在：
 
-- `services/pipeline/retainpdf_pipeline/ocr/document_schema/provider_adapters/paddle/continuation.py`
+- `backend/pipeline/retainpdf_pipeline/ocr/document_schema/provider_adapters/paddle/continuation.py`
 
 当前规则：
 

@@ -5,26 +5,26 @@ ENV RETAIN_PDF_VERSION="${RETAIN_PDF_VERSION}"
 
 WORKDIR /app
 
-# Install from the monorepo lock. Running npm ci from apps/web while a workspace
+# Install from the monorepo lock. Running npm ci from frontend/web while a workspace
 # root package.json exists makes npm resolve /app as the install root, so the
 # root lock and every workspace manifest must be present in this cache layer.
 COPY package.json package-lock.json ./
-COPY apps/desktop/package.json ./apps/desktop/package.json
-COPY apps/web/package.json ./apps/web/package.json
-COPY packages/api/package.json ./packages/api/package.json
-COPY packages/domain/package.json ./packages/domain/package.json
-COPY packages/reader/package.json ./packages/reader/package.json
-COPY packages/schemas/package.json ./packages/schemas/package.json
-COPY packages/ui/package.json ./packages/ui/package.json
+COPY frontend/desktop/package.json ./frontend/desktop/package.json
+COPY frontend/web/package.json ./frontend/web/package.json
+COPY frontend/packages/api/package.json ./frontend/packages/api/package.json
+COPY frontend/packages/domain/package.json ./frontend/packages/domain/package.json
+COPY frontend/packages/reader/package.json ./frontend/packages/reader/package.json
+COPY contracts/package.json ./contracts/package.json
+COPY frontend/packages/ui/package.json ./frontend/packages/ui/package.json
 RUN npm ci --ignore-scripts
 
-COPY packages/reader/ ./packages/reader/
-COPY packages/ui/ ./packages/ui/
-COPY packages/api/ ./packages/api/
-COPY packages/domain/ ./packages/domain/
-COPY packages/schemas/ ./packages/schemas/
-COPY apps/web/ ./apps/web/
-WORKDIR /app/apps/web
+COPY frontend/packages/reader/ ./frontend/packages/reader/
+COPY frontend/packages/ui/ ./frontend/packages/ui/
+COPY frontend/packages/api/ ./frontend/packages/api/
+COPY frontend/packages/domain/ ./frontend/packages/domain/
+COPY contracts/ ./contracts/
+COPY frontend/web/ ./frontend/web/
+WORKDIR /app/frontend/web
 RUN npm run build && \
   : > ./runtime-config.local.js
 
@@ -36,10 +36,10 @@ ENV RETAINPDF_PROXY_API_KEY=""
 
 RUN apk add --no-cache bash gettext jq
 
-COPY --from=frontend-builder /app/apps/web/ /usr/share/nginx/html/
-COPY infra/docker/nginx.conf.template /etc/nginx/templates/default.conf.template
-COPY infra/docker/nginx-mjs.types.conf /etc/nginx/conf.d/mjs.types.conf
-COPY infra/docker/entrypoint-web.sh /docker-entrypoint.d/99-runtime-config.sh
+COPY --from=frontend-builder /app/frontend/web/ /usr/share/nginx/html/
+COPY ops/deployment/docker/nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY ops/deployment/docker/nginx-mjs.types.conf /etc/nginx/conf.d/mjs.types.conf
+COPY ops/deployment/docker/entrypoint-web.sh /docker-entrypoint.d/99-runtime-config.sh
 
 RUN rm -rf \
   /usr/share/nginx/html/node_modules \

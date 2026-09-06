@@ -239,10 +239,11 @@ test("AppUpdateBanner：手动检查 loading → 成功(available/latest)三态�
   assert.equal(byId("app-update-dialog").querySelector("h2").textContent, "正在检查更新");
 
   check1.resolve({
-    tag_name: "v4.2.0",
-    name: "RetainPDF 4.2.0",
+    // Keep this fixture newer than the generated local build version.
+    tag_name: "v99.0.0",
+    name: "RetainPDF 99.0.0",
     body: "## 新版本说明\n- 修复状态显示\n**重要**：请升级\n`fix-1`",
-    html_url: "https://example.com/releases/4.2.0",
+    html_url: "https://example.com/releases/99.0.0",
   });
   await waitFor(() => byId("app-update-btn").dataset.updateState === "available", "解析后进入 available 态");
   assert.equal(byId("app-update-btn").classList.contains("has-update"), true);

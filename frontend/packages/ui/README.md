@@ -1,11 +1,11 @@
 # @retainpdf/ui
 
-Shared UI primitives for `apps/web`, `apps/web-react`, and `packages/reader`.
+Shared UI primitives for `frontend/web`, `frontend/web-react`, and `frontend/packages/reader`.
 
 ## Usage
 
 Import the package's declared entry points. Do not alias or import
-`packages/ui/src` from an application.
+`frontend/packages/ui/src` from an application.
 
 ```tsx
 import { Button, Dialog, cn } from "@retainpdf/ui";
@@ -25,9 +25,9 @@ import { buttonVariants } from "@retainpdf/ui/components/ui/button";
 ## Development
 
 ```sh
-npm --prefix packages/ui run typecheck
-npm --prefix packages/ui run build
-npm pack ./packages/ui --dry-run
+npm --prefix frontend/packages/ui run typecheck
+npm --prefix frontend/packages/ui run build
+npm pack ./frontend/packages/ui --dry-run
 ```
 
 `npm pack` rebuilds the package first. Only `dist` is published; source paths

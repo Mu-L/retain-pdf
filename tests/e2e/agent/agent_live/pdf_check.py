@@ -10,12 +10,12 @@ from typing import Any
 from .contracts import LiveE2EError
 
 SCRIPT_DIR = Path(__file__).resolve().parent.parent
-SERVICES_ROOT = SCRIPT_DIR.parent
-PRODUCT_ROOT = SERVICES_ROOT.parent
+PRODUCT_ROOT = Path(__file__).resolve().parents[4]
+SERVICES_ROOT = PRODUCT_ROOT / "backend"
 DEFAULT_FIXTURE = (
-    SERVICES_ROOT
-    / "api"
-    / "crates"
+    PRODUCT_ROOT
+    / "backend"
+    / "packages"
     / "retain-data"
     / "src"
     / "ocr_provider"

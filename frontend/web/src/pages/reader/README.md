@@ -1,6 +1,6 @@
 # Reader host boundary
 
-`apps/web` no longer owns Reader UI, hooks, PDF helpers, or annotations. Their
+`frontend/web` no longer owns Reader UI, hooks, PDF helpers, or annotations. Their
 implementation lives in `@retainpdf/reader`; this directory only contains the
 RetainPDF host integration needed by the MPA.
 
@@ -17,7 +17,7 @@ for React hosts, while browser mounting remains an explicit host decision.
 
 ## Files kept here
 
-- `external.ts` adapts existing `apps/web` APIs and shared Reader ports.
+- `external.ts` adapts existing `frontend/web` APIs and shared Reader ports.
 - `adapters/retainpdf.ts` assembles and registers that adapter object.
 - `entry.tsx` is the MPA entry point and explicitly boots the package.
 
@@ -27,6 +27,6 @@ code must use the public package specifiers `@retainpdf/reader`,
 `@retainpdf/reader/styles.css`. Shared AI-answer consumers use the dedicated
 `@retainpdf/reader/ai` and `@retainpdf/reader/ai.css` exports.
 Host adapter shims may consume the domain-scoped `@retainpdf/reader/runtime/*`
-exports; they must never resolve files below `packages/reader/src` directly.
+exports; they must never resolve files below `frontend/packages/reader/src` directly.
 The web host owns exactly five adapter entries under `src/shared/reader/host`:
 `ai.ts`, `config.ts`, `content.ts`, `data.ts`, and `state.ts`.

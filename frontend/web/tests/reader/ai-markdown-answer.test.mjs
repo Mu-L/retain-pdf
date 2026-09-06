@@ -29,10 +29,10 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = false;
 
 const React = await import("react");
 const { createRoot } = await import("react-dom/client");
-const { setReaderAdapters } = await import("../../../../packages/reader/src/adapters.ts");
-const { AiMarkdownAnswer } = await import("../../../../packages/reader/src/ai.ts");
+const { setReaderAdapters } = await import("../../../../frontend/packages/reader/src/adapters.ts");
+const { AiMarkdownAnswer } = await import("../../../../frontend/packages/reader/src/ai.ts");
 const { syncAnswerImageDisplaySize } = await import(
-  "../../../../packages/reader/src/components/ai/RetainMarkstream.tsx"
+  "../../../../frontend/packages/reader/src/components/ai/RetainMarkstream.tsx"
 );
 
 async function waitFor(predicate, description) {

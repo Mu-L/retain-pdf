@@ -127,4 +127,4 @@ BookDetailArtifactsTab
 - OCR、翻译状态必须分别测试，禁止一个任务覆盖另一个任务。
 - 文件 Tab 测试只验证归一化后的产物列表和动作回调。
 - 任务提交成功必须验证书架按 `document_id` 就地更新。
-- 任何新增 API 都应先在 `packages/api` 建立类型和客户端，再由 composition 端口注入。
+- 任何新增 API 都应先在 `frontend/packages/api` 建立类型和客户端，再由 composition 端口注入。

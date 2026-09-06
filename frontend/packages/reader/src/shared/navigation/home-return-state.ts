@@ -1,4 +1,4 @@
-// 主页 ↔ 阅读器整页跳转时的回程状态（自包含版，从 apps/web/src/shared/navigation/home-return-state.ts 复制）
+// 主页 ↔ 阅读器整页跳转时的回程状态（自包含版，从 frontend/web/src/shared/navigation/home-return-state.ts 复制）
 
 export const HOME_RETURN_STORAGE_KEY = "retainpdf.home.return.v1";
 

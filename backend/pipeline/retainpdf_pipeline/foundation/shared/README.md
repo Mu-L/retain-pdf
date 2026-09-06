@@ -52,7 +52,7 @@
 
 `retainpdf-pipeline <subcommand> --spec <job_root>/specs/<stage>.spec.json`
 
-未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_*.py --spec <job_root>/specs/<stage>.spec.json。
+未安装 retainpdf-pipeline 的桌面兼容目录回退到 python backend/pipeline/entrypoints/run_*.py --spec <job_root>/specs/<stage>.spec.json。
 
 `stage_specs.py` 当前维护的 schema 版本包括：
 

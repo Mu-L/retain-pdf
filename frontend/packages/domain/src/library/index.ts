@@ -1,7 +1,7 @@
 /**
  * Library domain pure helpers — extractable from
- * apps/web/src/pages/home/features/library/domain/controller.ts
- * and apps/web-react/src/features/library/model/library-domain.ts
+ * frontend/web/src/pages/home/features/library/domain/controller.ts
+ * and frontend/web-react/src/features/library/model/library-domain.ts
  *
  * Framework-agnostic, no React/DOM/fetch.
  * This package entry proves the shared logic can live in @retainpdf/domain.

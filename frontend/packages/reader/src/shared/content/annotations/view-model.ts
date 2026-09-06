@@ -1,5 +1,5 @@
-// 共享真值（原 apps/web/src/js/reader/annotations/view-model.ts），已抽离为 standalone 纯函数
-// 不直接 import apps/web 私有路径或 types；仅依赖最小内联类型，宿主可按需收窄
+// 共享真值（原 frontend/web/src/js/reader/annotations/view-model.ts），已抽离为 standalone 纯函数
+// 不直接 import frontend/web 私有路径或 types；仅依赖最小内联类型，宿主可按需收窄
 
 // kind 到展示文案的映射:冻结防止展示层意外改写
 export const ANNOTATION_KIND_META = Object.freeze({

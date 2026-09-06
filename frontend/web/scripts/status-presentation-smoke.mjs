@@ -67,7 +67,7 @@ function collectStageProgressByKey(job = {}, events = {}) {
 
 // Host-only animation fallback. The canonical stage/progress calculation lives in
 // @retainpdf/domain/job-status; choosing an animation for a manually selected
-// future stage remains presentation behavior owned by apps/web.
+// future stage remains presentation behavior owned by frontend/web.
 function resolveVisualStageKeyForSnapshot(snapshot = null, selectedStageKey = "") {
   const stageKey = `${snapshot?.stageKey || ""}`.trim();
   const visualStageKey = `${snapshot?.visualStageKey || ""}`.trim();

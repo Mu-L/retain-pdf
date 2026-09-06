@@ -322,7 +322,7 @@ Paddle 当前 rich-content trace 也已经继续拆分成三层：
 1. 先明确字段落位规则
    也就是先决定哪些进入 `content/layout_role/semantic_role/structure_role/policy`，哪些只留在 `tags/derived`，哪些只留在 `metadata/source`。
 2. 准备最小 raw fixture
-   放到 `services/pipeline/devtools/tests/document_schema/fixtures/`。
+   放到 `backend/pipeline/devtools/tests/document_schema/fixtures/`。
 3. 写并注册 adapter
    优先复用 `providers.py` 里的共享 provider 常量，不要在 adapter、fixture、回归入口里各写一份裸字符串。
    如果原始结构比较复杂，优先按 `payload_reader / block_labels / relations / content_extract / trace` 这种职责拆分，而不是继续堆单文件。
@@ -334,8 +334,8 @@ Paddle 当前 rich-content trace 也已经继续拆分成三层：
 
 长期检查入口（script-mode，仅桌面兼容，无 console 等价物）：
 
-- `services/pipeline/retainpdf_pipeline/entrypoints/validate_document_schema.py`（script-mode，仅桌面兼容，无 console 等价物）
-- `services/pipeline/devtools/tests/document_schema/regression_check.py`
+- `backend/pipeline/retainpdf_pipeline/entrypoints/validate_document_schema.py`（script-mode，仅桌面兼容，无 console 等价物）
+- `backend/pipeline/devtools/tests/document_schema/regression_check.py`
 
 现在支持两种用法：
 
@@ -345,8 +345,8 @@ Paddle 当前 rich-content trace 也已经继续拆分成三层：
 示例（script-mode，仅桌面兼容，无 console 等价物）：
 
 ```bash
-python services/pipeline/retainpdf_pipeline/entrypoints/validate_document_schema.py output/.../ocr/normalized/document.v1.json # script-mode，仅桌面兼容，无 console 等价物
-python services/pipeline/retainpdf_pipeline/entrypoints/validate_document_schema.py output/.../ocr/unpacked/layout.json --adapt --document-id demo --write-report /tmp/document-schema-report.json # script-mode，仅桌面兼容，无 console 等价物
+python backend/pipeline/retainpdf_pipeline/entrypoints/validate_document_schema.py output/.../ocr/normalized/document.v1.json # script-mode，仅桌面兼容，无 console 等价物
+python backend/pipeline/retainpdf_pipeline/entrypoints/validate_document_schema.py output/.../ocr/unpacked/layout.json --adapt --document-id demo --write-report /tmp/document-schema-report.json # script-mode，仅桌面兼容，无 console 等价物
 ```
 
 report 里当前会包含：
@@ -388,8 +388,8 @@ report 里当前会包含：
 回归 smoke 检查：
 
 ```bash
-python services/pipeline/devtools/tests/document_schema/regression_check.py
-python services/pipeline/devtools/tests/document_schema/regression_check.py --write-report /tmp/document-schema-regression.json
+python backend/pipeline/devtools/tests/document_schema/regression_check.py
+python backend/pipeline/devtools/tests/document_schema/regression_check.py --write-report /tmp/document-schema-regression.json
 ```
 
 这个回归脚本现在不是简单打印日志，而是会硬校验：
@@ -414,7 +414,7 @@ python services/pipeline/devtools/tests/document_schema/regression_check.py --wr
 内部大类迁移不能靠肉眼抽查。仓库提供：
 
 - 可复用审计模块：`ocr/document_schema/decision_diff.py`
-- corpus CLI：`services/pipeline/devtools/audit_block_class_decisions.py`
+- corpus CLI：`backend/pipeline/devtools/audit_block_class_decisions.py`
 
 它会对同一个 block 同时计算：
 
@@ -425,15 +425,15 @@ python services/pipeline/devtools/tests/document_schema/regression_check.py --wr
 默认直接扫描 `data/jobs/**/ocr/normalized/document.v1.json`：
 
 ```bash
-PYTHONPATH=services/pipeline \
-python services/pipeline/devtools/audit_block_class_decisions.py
+PYTHONPATH=backend/pipeline \
+python backend/pipeline/devtools/audit_block_class_decisions.py
 ```
 
 默认是严格 gate：出现未登记变化，或者显式 `block_class` 与 canonical fields 推导结果冲突时，返回非零退出码。需要先观察而不阻断时，可以运行：
 
 ```bash
-PYTHONPATH=services/pipeline \
-python services/pipeline/devtools/audit_block_class_decisions.py \
+PYTHONPATH=backend/pipeline \
+python backend/pipeline/devtools/audit_block_class_decisions.py \
   --report-only \
   --write-report /tmp/block-class-decision-diff.json
 ```
@@ -463,12 +463,12 @@ python services/pipeline/devtools/audit_block_class_decisions.py \
 allowlist 规则至少要限制一个匹配字段，并且必须填写 `reason`。不要添加不带文档、block、role 或 class 约束的全局通配规则。
 
 当前语料库已审查的 predicate 变化保存在
-`services/pipeline/devtools/block_class_decision_allowlist.json`。严格验收命令为：
+`backend/pipeline/devtools/block_class_decision_allowlist.json`。严格验收命令为：
 
 ```bash
-PYTHONPATH=services/pipeline \
-python services/pipeline/devtools/audit_block_class_decisions.py \
-  --allowlist services/pipeline/devtools/block_class_decision_allowlist.json
+PYTHONPATH=backend/pipeline \
+python backend/pipeline/devtools/audit_block_class_decisions.py \
+  --allowlist backend/pipeline/devtools/block_class_decision_allowlist.json
 ```
 
 摘要的 class allowlist 不会自动放行 `body_candidate` 变化；predicate 规则必须显式声明

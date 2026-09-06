@@ -1,6 +1,6 @@
 # RetainPDF Web 主站
 
-`apps/web` 是当前生产 Web 前端。它是由三个静态 HTML 入口组成的 MPA，构建后可直接由静态文件服务器或桌面宿主加载。
+`frontend/web` 是当前生产 Web 前端。它是由三个静态 HTML 入口组成的 MPA，构建后可直接由静态文件服务器或桌面宿主加载。
 
 | 页面 | HTML | React 入口 | 构建产物 |
 |------|------|------------|----------|
@@ -25,7 +25,7 @@ CSS 按页面分别构建到 `dist/css/{home,detail,reader}.css`。HTML 引用�
 
 主页同时有两套职责不同的 `features`：`src/js/features` 是命令式领域层，`src/pages/home/features` 是 React UI 层。完整映射见 [`src/FEATURES.md`](src/FEATURES.md)。
 
-阅读器的组件、hooks、PDF 逻辑和样式真值位于 `packages/reader`。`apps/web` 只通过 `@retainpdf/reader` 的公开 exports 使用它，并注入 RetainPDF 的 API、凭据、收藏、下载和 AI 能力。边界见 [`src/pages/reader/README.md`](src/pages/reader/README.md)。
+阅读器的组件、hooks、PDF 逻辑和样式真值位于 `frontend/packages/reader`。`frontend/web` 只通过 `@retainpdf/reader` 的公开 exports 使用它，并注入 RetainPDF 的 API、凭据、收藏、下载和 AI 能力。边界见 [`src/pages/reader/README.md`](src/pages/reader/README.md)。
 
 ## 弹窗 UI 契约
 
@@ -37,9 +37,9 @@ CSS 按页面分别构建到 `dist/css/{home,detail,reader}.css`。HTML 引用�
 
 “添加 PDF”使用 `standard` 尺寸和单一上传入口：文件上传完成后，在同一动作区选择“仅收藏”“仅 OCR”或“翻译”。页码范围与术语表作为主弹窗内的可展开翻译选项，不再打开第二层弹窗。
 
-## 与 `apps/web-react`
+## 与 `frontend/web-react`
 
-`apps/web-react` 是独立的 Vite 迁移/实验工作区，开发端口为 40002；它不是 `apps/web` 的生产入口。日常主站开发、测试和发版以本目录为准。
+`frontend/web-react` 是独立的 Vite 迁移/实验工作区，开发端口为 40002；它不是 `frontend/web` 的生产入口。日常主站开发、测试和发版以本目录为准。
 
 ## 常用命令
 
@@ -48,7 +48,7 @@ CSS 按页面分别构建到 `dist/css/{home,detail,reader}.css`。HTML 引用�
 ```bash
 npm run build:web
 npm run test:web
-npm --prefix apps/web run typecheck
+npm --prefix frontend/web run typecheck
 ```
 
 也可以在本目录运行：

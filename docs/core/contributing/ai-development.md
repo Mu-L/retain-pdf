@@ -23,7 +23,7 @@ AI 可以提高效率，但不能替代边界判断、测试验证和最终责�
 
 - 项目根目录：当前产品仓库根目录，不写死本机绝对路径。
 - 后端源码：先运行 `.github/scripts/resolve_backend_source.py --json`，解析当前产品 commit 内的自包含 package。
-- 主要后端模块：`api/`、`ai/`、`pipeline/`、`contracts/`、`docker/`；产品集成位于 `.github/`、`infra/docker/` 和 `backend-package.json`。
+- 主要后端模块：`api/`、`ai/`、`pipeline/`、`contracts/`、`docker/`；产品集成位于 `.github/`、`ops/deployment/docker/` 和 `backend-package.json`。
 - Rust workspace：`api` 是 HTTP composition root，稳定边界位于
   `api/crates/retain-core`、`retain-data`、`retain-jobs`、`retain-proc` 和
   `retain-jobsd`，不要把这些职责重新合并进 `rust_api/src`。
@@ -77,16 +77,16 @@ uv run --project "$BACKEND_ROOT" python -m pytest "$BACKEND_ROOT/pipeline/devtoo
 
 应提醒 AI：
 
-- 改 `apps/web/**` 后需要跑 `npm --prefix apps/desktop run verify-frontend-sync`。
-- 不要只改 `apps/desktop/app/frontend/**`。
-- `apps/web-react/` 是迁移区，不默认替代 `apps/web/`。
+- 改 `frontend/web/**` 后需要跑 `npm --prefix frontend/desktop run verify-frontend-sync`。
+- 不要只改 `frontend/desktop/app/frontend/**`。
+- `frontend/web-react/` 是迁移区，不默认替代 `frontend/web/`。
 - 本地静态前端默认端口是 `40001`。
 
 常用检查：
 
 ```bash
-npm --prefix apps/web run build
-npm --prefix apps/desktop run verify-frontend-sync
+npm --prefix frontend/web run build
+npm --prefix frontend/desktop run verify-frontend-sync
 ```
 
 ### 测试与回归生成
@@ -109,8 +109,8 @@ npm --prefix apps/desktop run verify-frontend-sync
 
 - API 字段是否同步 `docs/core/api/`。
 - Rust 边界是否同步 `docs/core/rust_api/`。
-- 实现契约是否同步 `services/api/docs/api-spec/`，共享 schema 是否保持
-  `services/contracts` 与 `packages/schemas` 字节一致。
+- 实现契约是否同步 `backend/api/docs/api-spec/`，共享 schema 是否保持
+  `backend/contracts` 与 `contracts` 字节一致。
 - Python 边界是否同步 `docs/core/python/`。
 - 前端、Docker、桌面端端口和命令是否一致。
 - 根目录 `CONTRIBUTING.md` 是否仍然只是短入口。

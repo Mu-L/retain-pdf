@@ -1,9 +1,9 @@
 /**
  * @retainpdf/domain — pure, framework-agnostic domain layer.
  *
- * Shared implementation of the former apps/web job and job-status domains.
+ * Shared implementation of the former frontend/web job and job-status domains.
  * No React, no DOM, no fetch — only view-models, adapters, and formatters.
- * Purpose: share job/job-status logic between apps/web (MPA+React islands) and apps/web-react (Vite SPA).
+ * Purpose: share job/job-status logic between frontend/web (MPA+React islands) and frontend/web-react (Vite SPA).
  *
  * All applications consume the package through its public entry points:
  *   import { buildJobStatusSummaryViewModel } from "@retainpdf/domain";

@@ -6,22 +6,22 @@
 
 ```bash
 # 1. OCR + 标准化
-.venv/bin/python services/benchmarks/run.py --stage ocr --run
+.venv/bin/python tests/performance/pipeline/run.py --stage ocr --run
 
 # 2. 只测翻译：替换 OCR_JOB 为上一步报告中的 job_id
-.venv/bin/python services/benchmarks/run.py --stage translate --source-job OCR_JOB --run
+.venv/bin/python tests/performance/pipeline/run.py --stage translate --source-job OCR_JOB --run
 
 # 3. 只测渲染：替换 TRANSLATE_JOB 为翻译任务 job_id
-.venv/bin/python services/benchmarks/run.py --stage render --source-job TRANSLATE_JOB --run
+.venv/bin/python tests/performance/pipeline/run.py --stage render --source-job TRANSLATE_JOB --run
 
 # 4. 完整链路（包含渲染）
-.venv/bin/python services/benchmarks/run.py --stage full --run
+.venv/bin/python tests/performance/pipeline/run.py --stage full --run
 
 # 比较两次报告，不发起请求
-.venv/bin/python services/benchmarks/compare.py BEFORE/report.json AFTER/report.json
+.venv/bin/python tests/performance/pipeline/compare.py BEFORE/report.json AFTER/report.json
 
 # 工具回归测试，不调用供应商
-.venv/bin/python -m pytest services/benchmarks/tests -q
+.venv/bin/python -m pytest tests/performance/pipeline/tests -q
 ```
 
 可用 `--pdf PATH`、`--workers N`、`--batch-size N`、`--timeout SECONDS`。API 限制本机地址，默认 `http://127.0.0.1:41000`；本地开发鉴权不是默认值时，通过 `RETAIN_BENCH_API_KEY` 环境变量设置，勿放入命令行。
@@ -39,7 +39,7 @@
 - `translate` 不带 `--source-job` 时包含 OCR；带参数时先核对 PDF SHA-256 和前置产物，防止拿另一份 PDF 的结果测速。`render` 必须指定已翻译任务。
 - 每次运行生成新任务 ID，不修改旧任务或删除缓存。超时/中断尝试取消本次任务；若 `cancel_requested=false`，请按报告的 job_id 检查服务端，勿盲目重新提交。
 
-原 `services/scripts/benchmark_translation.py` 保留为兼容入口。
+统一入口为 `tests/performance/pipeline/run.py`，旧 benchmark_translation.py 转发入口已移除。
 
 ## 隔离的 Rust / Qwen 两页实测
 
@@ -47,12 +47,12 @@
 
 ```bash
 # 先构建当前 Rust API，再预检（不计费）
-cargo build --manifest-path services/api/Cargo.toml -p rust_api --bin rust_api --offline
-.venv/bin/python services/benchmarks/live_smoke.py --source-job SOURCE_JOB
+cargo build --manifest-path backend/api/Cargo.toml -p rust_api --bin rust_api --offline
+.venv/bin/python tests/performance/pipeline/live_smoke.py --source-job SOURCE_JOB
 # 实测会计费；若本机代理使用 198.18/15 Fake-IP，需审查后另加 --allow-fake-ip
-.venv/bin/python services/benchmarks/live_smoke.py --source-job SOURCE_JOB --run
+.venv/bin/python tests/performance/pipeline/live_smoke.py --source-job SOURCE_JOB --run
 # 整本翻译，并发 8（使用 Fake-IP 的本机代理环境另加 --allow-fake-ip）
-.venv/bin/python services/benchmarks/live_smoke.py --source-job SOURCE_JOB --workers 8 --all-pages --run
+.venv/bin/python tests/performance/pipeline/live_smoke.py --source-job SOURCE_JOB --workers 8 --all-pages --run
 ```
 
 2026-09-05 首次成功实测：35.28 秒，13 个 primary 操作全部成功，13 次上游请求，无重试/修复请求；输入 27004 tokens、输出 2346 tokens（缓存命中 12416 输入 tokens）。两页共 18 个条目：16 个 translated，2 个按规则保留原文（公式、编号 `(1)`）。这是两页翻译链路验证，不含 OCR、排版渲染，也不是整本 PDF 性能或质量结论。实际费用未知。
@@ -81,9 +81,9 @@ cargo build --manifest-path services/api/Cargo.toml -p rust_api --bin rust_api -
 结论：候选未达到请求减少、输入token不增加的门槛，保留baseline为推荐策略。候选过滤1个编号，但批量批次数12→15，未形成净请求收益；候选字符上限与页内重组都会影响批数。两次前置连续段处理的成员关系还在3个条目上发生变化，不能据此次样本归因纯组批收益；源文和公式映射未变，结构对照门槛未通过不等于已经证明漏译。后续若研究组批，需要固定前置翻译计划做离线对照，本轮不额外调用模型。
 
 ```bash
-.venv/bin/python services/benchmarks/live_smoke.py --source-job SOURCE_JOB --workers 8 --all-pages --strategy baseline --run
-.venv/bin/python services/benchmarks/live_smoke.py --source-job SOURCE_JOB --workers 8 --all-pages --strategy page_local_v1 --run
-.venv/bin/python services/benchmarks/compare_optimization.py BASELINE/report.json CANDIDATE/report.json --output COMPARISON.json
+.venv/bin/python tests/performance/pipeline/live_smoke.py --source-job SOURCE_JOB --workers 8 --all-pages --strategy baseline --run
+.venv/bin/python tests/performance/pipeline/live_smoke.py --source-job SOURCE_JOB --workers 8 --all-pages --strategy page_local_v1 --run
+.venv/bin/python tests/performance/pipeline/compare_optimization.py BASELINE/report.json CANDIDATE/report.json --output COMPARISON.json
 ```
 
 需要Fake-IP时显式追加 `--allow-fake-ip`。对照工具只读两次结果，检查条目覆盖、源文/公式/成员关系、最终状态以及请求/token/耗时门槛；它不是语义质量评估器，也不执行计费请求。
@@ -105,7 +105,7 @@ cargo build --manifest-path services/api/Cargo.toml -p rust_api --bin rust_api -
 可重复运行的离线审计（只读页文件和 SQLite 回执，不启动服务、不调用模型、不输出正文或提示词）：
 
 ```bash
-.venv/bin/python services/benchmarks/audit_prompts.py tmp/pipeline-benchmarks/rust-live-d83jwzpa/report.json
+.venv/bin/python tests/performance/pipeline/audit_prompts.py tmp/pipeline-benchmarks/rust-live-d83jwzpa/report.json
 ```
 
 默认用当前 fast/简体中文提示词重建；其他设置显式传 `--mode sci --target-language 英文`。按原回执成员哈希确认单条、tagged 批量和成员 JSON 连续段，不依据请求先后猜分组；无法确认的请求列入 excluded，修复不重建。运行期领域、术语和记忆指引未完整持久化，因此不是原始 HTTP 请求的精确重放；历史 token 与当前字符统计分列，不能直接相减作为 token 节省。
@@ -124,8 +124,8 @@ cargo build --manifest-path services/api/Cargo.toml -p rust_api --bin rust_api -
 离线检查及派发输入对照（不访问网络、不输出正文）：
 
 ```bash
-.venv/bin/python services/benchmarks/inspect_capture.py /ABSOLUTE/RUN/private-inputs
-.venv/bin/python services/benchmarks/inspect_capture.py /ABSOLUTE/RUN-A/private-inputs --compare /ABSOLUTE/RUN-B/private-inputs
+.venv/bin/python tests/performance/pipeline/inspect_capture.py /ABSOLUTE/RUN/private-inputs
+.venv/bin/python tests/performance/pipeline/inspect_capture.py /ABSOLUTE/RUN-A/private-inputs --compare /ABSOLUTE/RUN-B/private-inputs
 ```
 
 派发输入指纹排除 prompt/engine 版本，允许研究提示词变化；`same_dispatch_inputs` 不证明动态指引相同，也不证明性能或质量通过。快照保存 Python 请求输入，不是 Rust 最终 provider HTTP body（模型、thinking 等由连接策略另行应用）。本阶段提供捕获和离线校验，**没有接入付费重放或用快照绕过前置阶段的生产入口**，旧日志也不会被伪造成精确快照。
@@ -133,7 +133,7 @@ cargo build --manifest-path services/api/Cargo.toml -p rust_api --bin rust_api -
 ### 假模型离线重放
 
 ```bash
-.venv/bin/python services/benchmarks/replay_capture.py /ABSOLUTE/RUN/private-inputs
+.venv/bin/python tests/performance/pipeline/replay_capture.py /ABSOLUTE/RUN/private-inputs
 ```
 
 入口只支持内置假模型，没有 URL、密钥、真实模型或 `--run` 选项。先校验快照哈希、文件名、计划引用、稳定 unit/operation ID、连接指纹和主请求完整覆盖，再按计划批次顺序重放已经保存的最终 messages/temperature/response_format；不会重跑分组或提示词构建。修复输入若存在，紧跟所属 primary 重放，不根据假回复触发新的修复。
@@ -162,7 +162,7 @@ cargo build --manifest-path services/api/Cargo.toml -p rust_api --bin rust_api -
 ## 离线分阶段计时（零模型费用）
 
 ```bash
-.venv/bin/python services/benchmarks/offline_profile.py --workers 1 8 --repeats 5
+.venv/bin/python tests/performance/pipeline/offline_profile.py --workers 1 8 --repeats 5
 ```
 
 复用 2 页、7 条目的合成 IO 夹具，每次启动独立进程和冷本地缓存，替换模型传输，运行真实 Python 翻译阶段、页面落盘和 checkpoint，并用真实消费者验证产物。网络入口被禁止；这里的 `rust` 是假执行器客户端，不运行 Rust HTTP/数据库服务，不解析或翻译 `test1.pdf`。

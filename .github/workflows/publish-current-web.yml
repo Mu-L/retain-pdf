@@ -16,19 +16,18 @@ name: Publish Current Web Image
       - ".dockerignore"
       - "package.json"
       - "package-lock.json"
-      - "apps/web/scripts/build-workspace-packages.mjs"
-      - "infra/docker/Dockerfile.web"
-      - "infra/docker/entrypoint-web.sh"
-      - "infra/docker/nginx-mjs.types.conf"
-      - "infra/docker/nginx.conf.template"
-      - "apps/desktop/package.json"
-      - "apps/web/**"
-      - "apps/web-react/package.json"
-      - "packages/api/**"
-      - "packages/domain/**"
-      - "packages/reader/**"
-      - "packages/schemas/**"
-      - "packages/ui/**"
+      - "frontend/web/scripts/build-workspace-packages.mjs"
+      - "ops/deployment/docker/Dockerfile.web"
+      - "ops/deployment/docker/entrypoint-web.sh"
+      - "ops/deployment/docker/nginx-mjs.types.conf"
+      - "ops/deployment/docker/nginx.conf.template"
+      - "frontend/desktop/package.json"
+      - "frontend/web/**"
+      - "frontend/packages/api/**"
+      - "frontend/packages/domain/**"
+      - "frontend/packages/reader/**"
+      - "contracts/**"
+      - "frontend/packages/ui/**"
 
 permissions:
   contents: read
@@ -98,7 +97,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: infra/docker/Dockerfile.web
+          file: ops/deployment/docker/Dockerfile.web
           platforms: ${{ inputs.platforms || 'linux/amd64,linux/arm64' }}
           push: true
           build-args: |

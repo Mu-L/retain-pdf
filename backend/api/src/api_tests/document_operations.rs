@@ -86,11 +86,11 @@ fn real_executor_state(test_name: &str) -> crate::AppState {
         .expect("repository root")
         .to_path_buf();
     let mut config = (*state.config).clone();
-    config.scripts_dir = repo_root.join("services").join("pipeline");
+    config.scripts_dir = repo_root.join("backend").join("pipeline");
     let python_candidates = [
-        repo_root.join("services/.venv/bin/python"),
-        repo_root.join("services/.venv/bin/python3"),
-        repo_root.join("services/.venv/Scripts/python.exe"),
+        repo_root.join("backend/.venv/bin/python"),
+        repo_root.join("backend/.venv/bin/python3"),
+        repo_root.join("backend/.venv/Scripts/python.exe"),
         repo_root.join(".venv/bin/python"),
         repo_root.join(".venv/bin/python3"),
         repo_root.join(".venv/Scripts/python.exe"),

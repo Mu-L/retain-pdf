@@ -1,20 +1,22 @@
 # RetainPDF backend workspace
 
-`services/` is the self-contained source and build root for the RetainPDF
-backend package. The package boundary is tested from a clean extracted tree;
-it does not require or imply a separate Git repository.
+`backend/` owns backend services and shared implementation. The Rust workspace
+is rooted at the repository root; Python is rooted here. Source archives retain
+the required root manifests, database and resources alongside this directory.
 
 The workspace contains:
 
-- `api/`: Rust API and job runtime workspace.
+- `api/`: Rust HTTP API.
+- `jobs/`: Rust job process entrypoint.
+- `packages/`: backend shared Rust crates.
 - `ai/`: Python AI conversation service.
 - `pipeline/`: Python OCR, translation, and rendering package.
 - `config/`: backend-owned runtime configuration shared by Rust and Python.
 - `contracts/`: backend-local JSON contract mirror plus monorepo parity check.
-- `fonts/`: backend-owned default rendering fonts and their redistribution license.
-- `docker/`: the self-contained backend application image definition.
-- `scripts/`: development launcher, extraction check, Agent smoke, and source archive tools.
-- `testdata/`: backend-owned golden job fixtures used by isolated verification.
+
+Shared fonts live in `../resources/fonts`, database code in `../database`,
+deployment tools in `../ops`, and project-level fixtures and smoke runners in
+`../tests`. Module-specific tests and tools remain with their owner.
 
 ## Start the backend locally
 
@@ -23,7 +25,7 @@ environment and Rust binaries, starts `rust_api`, and lets Rust supervise jobsd
 and the AI service:
 
 ```bash
-python3 services/scripts/dev_stack.py --runtime python
+python3 ops/development/dev_stack.py --runtime python
 ```
 
 For the default loopback launch, the script injects a development key when
@@ -45,7 +47,7 @@ The FX runtime requires FX `0.0.5` and `RETAIN_AI_FX_GATEWAY_API_KEY` in the
 local environment:
 
 ```bash
-python3 services/scripts/dev_stack.py --runtime fx
+python3 ops/development/dev_stack.py --runtime fx
 ```
 
 FX 0.0.5 can redirect Gateway traffic only to a local loopback HTTP bridge.
@@ -60,7 +62,7 @@ the backend-owned loopback bridge (no Vercel Gateway key required):
 RETAIN_AI_FX_OPENAI_BASE_URL=http://127.0.0.1:8000/v1 \
 RETAIN_AI_FX_OPENAI_API_KEY=... \
 RETAIN_AI_FX_MODEL=my-model \
-python3 services/scripts/dev_stack.py --runtime fx
+python3 ops/development/dev_stack.py --runtime fx
 ```
 
 The document-capable OpenAI-compatible runtime uses the normal model URL,
@@ -70,15 +72,15 @@ model, and key while sharing the same durable Rust operation broker:
 RETAIN_AI_LLM_BASE_URL=https://models.example/v1 \
 RETAIN_AI_LLM_MODEL=model-name \
 RETAIN_AI_LLM_API_KEY=... \
-python3 services/scripts/dev_stack.py --runtime openai
+python3 ops/development/dev_stack.py --runtime openai
 ```
 
 Credentials are checked as present or missing but are never printed. Inspect
 the Agent integration or run the offline real-PDF smoke with:
 
 ```bash
-python3 services/scripts/agent_e2e.py doctor --probe-live
-python3 services/scripts/agent_e2e.py smoke
+python3 tests/e2e/agent/agent_e2e.py doctor --probe-live
+python3 tests/e2e/agent/agent_e2e.py smoke
 ```
 
 Run the real Gateway-backed acceptance flow from a hidden local environment or
@@ -86,7 +88,7 @@ prompt. It uploads a three-page fixture into an isolated data root and requires
 FX to create, run, and commit a four-page PDF candidate before reporting success:
 
 ```bash
-python3 services/scripts/agent_live_e2e.py --prompt-gateway-key
+python3 tests/e2e/agent/agent_live_e2e.py --prompt-gateway-key
 ```
 
 To exercise durable state across a full backend stop/start, run the two-turn
@@ -95,7 +97,7 @@ restarts against the same data root, resumes the same FX conversation/session,
 commits the existing operation, and replays the commit response idempotently:
 
 ```bash
-python3 services/scripts/agent_live_e2e.py \
+python3 tests/e2e/agent/agent_live_e2e.py \
   --scenario restart-recovery --prompt-gateway-key
 ```
 
@@ -105,44 +107,42 @@ successful run.
 
 `/health` is a liveness/diagnostic endpoint. `/ready` is the startup gate for
 the database and locally supervised backend children. The legacy
-`services/api/scripts/dev-remote.sh` entrypoint forwards to the same launcher.
+`backend/api/scripts/dev-remote.sh` entrypoint forwards to the same launcher.
 
 ## Local verification
 
-Run Python commands from this directory, or pass `--project services` from the
+Run Python commands from this directory, or pass `--project backend` from the
 monorepo root:
 
 ```bash
 uv sync --locked --all-extras
 uv run retainpdf-pipeline --help
 uv run python -c "import retainpdf_ai, retainpdf_pipeline"
-cargo test --locked --workspace --manifest-path api/Cargo.toml
+cargo test --locked --workspace --manifest-path ../Cargo.toml
 python3 api/scripts/check_architecture.py
 PYTHONPATH=pipeline uv run python pipeline/devtools/check_pipeline_architecture.py
 uv run python -m pytest ai/tests pipeline/devtools/tests -q
 ```
 
 From the monorepo root, the extraction smoke test builds a clean Git snapshot
-of this directory and verifies that it does not accidentally import source
+of the explicit backend delivery file set and verifies that it does not import source
 files from the parent checkout:
 
 ```bash
-python3 services/scripts/check_standalone.py
-python3 services/contracts/check_parity.py --require-upstream
+python3 ops/release/check_standalone.py
+python3 backend/contracts/check_parity.py --require-upstream
 ```
 
-Contracts and golden regression data now live under `contracts/` and
-`testdata/`, so an isolated backend checkout can validate both without reaching
-into the parent monorepo. The bundled font assets and app image are also owned
-by this workspace; web delivery and desktop packaging remain product-level
-consumers in the parent repository.
+Contracts use the local `contracts/` mirror. Golden regression data lives at
+`../tests/fixtures/golden-jobs`. Standalone validation verifies the archive
+without reaching back into the original checkout.
 
 ## Backend container
 
-Build the backend image with this directory as the complete Docker context:
+Build the backend image from the repository root as Docker context:
 
 ```bash
-docker build -f docker/Dockerfile.app -t retainpdf-app:local .
+docker build -f ops/deployment/docker/backend/Dockerfile.app -t retainpdf-app:local .
 ```
 
 The image contains `rust_api`, `retain-jobsd`, `retainpdf-agent`, the Python

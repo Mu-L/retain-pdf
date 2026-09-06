@@ -1,5 +1,5 @@
-// 共享真值（原 apps/web/src/js/reader/resource-resolver.ts），已抽离为纯函数 + 可注入依赖
-// 不直接 import apps/web 的 job/artifacts 等，改为参数注入，默认用本地最小实现
+// 共享真值（原 frontend/web/src/js/reader/resource-resolver.ts），已抽离为纯函数 + 可注入依赖
+// 不直接 import frontend/web 的 job/artifacts 等，改为参数注入，默认用本地最小实现
 
 function defaultResolveResourceUrl(value: unknown): string {
   return `${value ?? ""}`.trim();

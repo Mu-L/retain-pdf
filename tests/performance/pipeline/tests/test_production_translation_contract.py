@@ -8,7 +8,7 @@ import sys
 
 import pytest
 
-PIPELINE = Path(__file__).resolve().parents[2] / "pipeline"
+PIPELINE = Path(__file__).resolve().parents[4] / "backend/pipeline"
 PROBE = Path(__file__).with_name("production_translation_probe.py")
 
 

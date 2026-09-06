@@ -9,7 +9,7 @@ use std::path::PathBuf;
 /// `pipeline/devtools/golden_harness.py --render` 覆盖。
 fn fixture_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../testdata/golden-jobs/chem-6ada81-10p")
+        .join("../../tests/fixtures/golden-jobs/chem-6ada81-10p")
         .canonicalize()
         .expect("golden fixture dir must exist — did Step 1 run?")
 }

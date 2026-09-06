@@ -2,7 +2,7 @@
 
 这份文档只回答一个问题：
 
-**现在要改 `services/pipeline`，应该先进哪个目录。**
+**现在要改 `backend/pipeline`，应该先进哪个目录。**
 
 包内 canonical 命名空间是 `retainpdf_pipeline`。
 三个 stage 目录（`ocr/`、`translate/`、`render/`）各自是独立进程入口：

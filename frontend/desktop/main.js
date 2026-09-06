@@ -174,10 +174,10 @@ async function startBundledBackend() {
   let simplePort = DEFAULT_SIMPLE_PORT;
   let jobsServicePort = DEFAULT_JOBS_PORT;
   let aiServicePort = AI_SERVICE_PORT;
-  // Packaged builds use backend/ai_service; development may use services/ai.
+  // Packaged builds use backend/ai_service; development may use backend/ai.
   let aiServiceRoot = path.join(backendRoot, "ai_service");
   if (!fs.existsSync(path.join(aiServiceRoot, "retainpdf_ai", "__main__.py"))) {
-    const repoAiServices = path.join(__dirname, "..", "..", "services", "ai");
+    const repoAiServices = path.join(__dirname, "..", "..", "backend", "ai");
     if (fs.existsSync(path.join(repoAiServices, "retainpdf_ai", "__main__.py"))) {
       aiServiceRoot = repoAiServices;
     }

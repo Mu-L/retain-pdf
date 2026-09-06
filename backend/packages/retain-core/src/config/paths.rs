@@ -22,13 +22,12 @@ pub struct RuntimePathsConfig {
 
 impl RuntimePathsConfig {
     pub fn from_env() -> Result<Self> {
-        // CARGO_MANIFEST_DIR = <rust_api>/crates/retain-core;向上 2 级得到 <rust_api>
-        // (与拆分前直接取 rust_api 清单目录的行为一致)。
+        // retain-core lives in backend/packages; API-local configuration stays in backend/api.
         let core_manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let default_rust_api_root = core_manifest_dir
             .ancestors()
             .nth(2)
-            .map(PathBuf::from)
+            .map(|backend| backend.join("api"))
             .unwrap_or(core_manifest_dir);
         let rust_api_root = env_path("RUST_API_ROOT").unwrap_or(default_rust_api_root);
         let default_project_root = infer_project_root(&rust_api_root)?;
@@ -79,6 +78,16 @@ impl RuntimePathsConfig {
         let jobs_db_path = data_root.join("db").join("jobs.db");
         let output_root = data_root.join("jobs");
         let auth_config_path = rust_api_root.join("auth.local.json");
+        // Existing developer credentials are not moved with tracked source files.
+        let legacy_auth = project_root.join("services/api/auth.local.json");
+        let auth_config_path = if !auth_config_path.exists()
+            && rust_api_root == project_root.join("backend/api")
+            && legacy_auth.is_file()
+        {
+            legacy_auth
+        } else {
+            auth_config_path
+        };
 
         Self {
             project_root,
@@ -108,14 +117,17 @@ pub fn create_runtime_dirs(paths: &RuntimePathsConfig) -> Result<()> {
 fn infer_project_root(rust_api_root: &Path) -> Result<PathBuf> {
     let parent = rust_api_root
         .parent()
-        .context("rust_api must live under the repository root or services/")?;
-    if parent.file_name().and_then(|v| v.to_str()) == Some("services") {
+        .context("rust_api must live under the repository root or backend/")?;
+    if matches!(
+        parent.file_name().and_then(|v| v.to_str()),
+        Some("backend" | "services")
+    ) {
         return parent
             .parent()
-            .context("services must live directly under repository root")
+            .context("backend must live directly under repository root")
             .map(Path::to_path_buf);
     }
-    // apps/services 扁平结构：rust_api 位于 services/api，取其祖父目录即 repo root
+    // apps/services 扁平结构：rust_api 位于 backend/api，取其祖父目录即 repo root
     if parent.file_name().and_then(|v| v.to_str()) == Some("api") {
         if let Some(services) = parent.parent() {
             if services.file_name().and_then(|v| v.to_str()) == Some("services") {
@@ -131,7 +143,7 @@ fn infer_project_root(rust_api_root: &Path) -> Result<PathBuf> {
 
 fn default_scripts_dir(project_root: &Path) -> PathBuf {
     // Product monorepo layout.
-    let services_pipeline = project_root.join("services").join("pipeline");
+    let services_pipeline = project_root.join("backend").join("pipeline");
     if services_pipeline.exists() {
         return services_pipeline;
     }
@@ -162,5 +174,37 @@ fn absolutize_path(path: &Path) -> PathBuf {
             joined.canonicalize().unwrap_or(joined)
         }
         Err(_) => path.to_path_buf(),
+    }
+}
+
+#[cfg(test)]
+mod layout_tests {
+    use super::*;
+
+    #[test]
+    fn source_layout_resolves_repository_not_backend() {
+        let root = Path::new("/workspace/RetainPDF");
+        assert_eq!(infer_project_root(&root.join("backend/api")).unwrap(), root);
+        assert_eq!(
+            infer_project_root(&root.join("services/api")).unwrap(),
+            root
+        );
+    }
+
+    #[test]
+    fn desktop_layout_retains_packaged_pipeline_and_user_data() {
+        let config = RuntimePathsConfig::from_desktop(
+            PathBuf::from("/bundle/resources"),
+            PathBuf::from("/user/data"),
+        );
+        assert_eq!(
+            config.scripts_dir,
+            PathBuf::from("/bundle/resources/pipeline")
+        );
+        assert_eq!(config.jobs_db_path, PathBuf::from("/user/data/db/jobs.db"));
+        assert_eq!(
+            config.auth_config_path,
+            PathBuf::from("/user/data/rust_api/auth.local.json")
+        );
     }
 }

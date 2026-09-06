@@ -35,10 +35,10 @@
 后端：
 
 ```bash
-python3 services/scripts/dev_stack.py --runtime python
+python3 ops/development/dev_stack.py --runtime python
 ```
 
-该入口准备 `services/.venv` 与 Rust binaries，并以
+该入口准备 `backend/.venv` 与 Rust binaries，并以
 `remote + supervised` 模式启动 `rust_api`、`retain-jobsd` 和
 `retainpdf-ai`。已经准备好的 checkout 可追加 `--no-sync --no-build`。
 
@@ -47,11 +47,11 @@ python3 services/scripts/dev_stack.py --runtime python
 ```bash
 npm ci
 npm run build:web
-python3 -m http.server 40001 --bind 0.0.0.0 --directory apps/web
+python3 -m http.server 40001 --bind 0.0.0.0 --directory frontend/web
 ```
 
 所有正式 JavaScript workspace 共用根目录的 `package-lock.json`。不要在
-`apps/*` 或 `packages/*` 内运行会生成子锁文件的独立安装；新增或更新依赖时，
+`frontend/*` 或 `frontend/packages/*` 内运行会生成子锁文件的独立安装；新增或更新依赖时，
 从仓库根目录运行 npm。
 
 默认端口：
@@ -75,11 +75,12 @@ Docker 交付也默认使用同一组端口。如果本机已经启动 Docker We
 
 ## 目录放置规则
 
-- 应用入口进入 `apps/`，共享前端能力进入 `packages/`，后端进入 `services/`。
-- 部署和平台配置进入 `infra/`，正式文档统一进入 `docs/`。
-- 模块脚本跟随所有者放置，例如 `apps/web/scripts/`、`services/api/scripts/`；
+- 应用入口进入 `frontend/`，前端共享库进入 `frontend/packages/`；后端服务进入 `backend/`，后端共享库进入 `backend/packages/`。
+- 跨端协议进入 `contracts/`，数据层代码进入 `database/`，项目级测试进入 `tests/`。
+- 开发、部署与发布工具进入 `ops/`，安全规范与检查进入 `security/`，正式文档统一进入 `docs/`。
+- 模块脚本跟随所有者放置，例如 `frontend/web/scripts/`、`backend/api/scripts/`；
   仓库级 CI 工具进入 `.github/scripts/`。
-- 不要重新创建根目录 `backend/`、`doc/`、`scripts/` 或 `src/`。
+- 不要重新创建根目录 `apps/`、`packages/`、`services/`、`doc/`、`scripts/` 或 `src/` 作为源码入口。
 - `data/` 与 `tmp/` 只保存本地运行和诊断数据，不能作为代码或文档入口。
 
 维护者发布、Docker 交付和线上运维流程不放在普通贡献者主线里，相关记录见 [运维与过程记录](docs/ops/README.md) 和 Docker 文档。

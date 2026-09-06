@@ -47,9 +47,9 @@ class RepoPaths:
     @classmethod
     def from_script(cls, script: Path | None = None) -> RepoPaths:
         source = (script or Path(__file__)).resolve()
-        services = source.parent.parent
-        product = services.parent
-        target_debug = services / "api" / "target" / "debug"
+        product = source.parents[2]
+        services = product / "backend"
+        target_debug = product / "target" / "debug"
         executable_suffix = ".exe" if os.name == "nt" else ""
         venv_bin = services / ".venv" / ("Scripts" if os.name == "nt" else "bin")
         return cls(
@@ -179,7 +179,7 @@ def parse_args(
 def prepare(paths: RepoPaths, options: Options, environ: Mapping[str, str]) -> None:
     command_env = dict(environ)
     command_env["UV_PROJECT_ENVIRONMENT"] = str(paths.services / ".venv")
-    command_env["CARGO_TARGET_DIR"] = str(paths.api / "target")
+    command_env["CARGO_TARGET_DIR"] = str(paths.product / "target")
     commands: list[list[str]] = []
     if options.sync:
         commands.append(
@@ -201,7 +201,7 @@ def prepare(paths: RepoPaths, options: Options, environ: Mapping[str, str]) -> N
                 "--workspace",
                 "--bins",
                 "--manifest-path",
-                str(paths.api / "Cargo.toml"),
+                str(paths.product / "Cargo.toml"),
             ]
         )
     for command in commands:
@@ -309,8 +309,8 @@ def build_runtime_env(
     env.update(
         {
             "PATH": bin_path + (os.pathsep + inherited_path if inherited_path else ""),
-            "CARGO_MANIFEST_PATH": str(paths.api / "Cargo.toml"),
-            "CARGO_TARGET_DIR": str(paths.api / "target"),
+            "CARGO_MANIFEST_PATH": str(paths.product / "Cargo.toml"),
+            "CARGO_TARGET_DIR": str(paths.product / "target"),
             "PYTHON_BIN": str(paths.venv_python),
             "PYTHONUNBUFFERED": "1",
             "RETAIN_API_KEYS": api_keys,

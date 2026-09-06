@@ -13,13 +13,13 @@
 
 主要代码入口：
 
-- `apps/web/src/pages/`
-- `apps/web/src/js/`
-- `apps/web/src/styles/`
-- `packages/reader/`
-- `packages/ui/`
+- `frontend/web/src/pages/`
+- `frontend/web/src/js/`
+- `frontend/web/src/styles/`
+- `frontend/packages/reader/`
+- `frontend/packages/ui/`
 
 桌面端同步：
 
-- `apps/web/` 是桌面端前端 bundle 的输入目录。
-- 桌面打包入口和校验脚本位于 `apps/desktop/`；不要手工维护第二份前端源码。
+- `frontend/web/` 是桌面端前端 bundle 的输入目录。
+- 桌面打包入口和校验脚本位于 `frontend/desktop/`；不要手工维护第二份前端源码。

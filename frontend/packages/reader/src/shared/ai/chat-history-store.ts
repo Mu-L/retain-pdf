@@ -1,4 +1,4 @@
-// 共享真值（原 apps/web/src/js/reader/ai/chat-history-store.ts），已抽离为 standalone
+// 共享真值（原 frontend/web/src/js/reader/ai/chat-history-store.ts），已抽离为 standalone
 // 无宿主依赖，纯 localStorage + view-model
 
 import { summarizeSessions, trimSessions } from "./chat-sessions-view-model.js";

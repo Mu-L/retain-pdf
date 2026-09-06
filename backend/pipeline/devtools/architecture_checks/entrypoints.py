@@ -90,7 +90,7 @@ __all__ = [
 ]
 
 
-# Top-level services/pipeline/entrypoints/*.py script-mode compatibility shims
+# Top-level backend/pipeline/entrypoints/*.py script-mode compatibility shims
 # were removed: production workers run as `python -m retainpdf_pipeline.<stage>`
 # and aux tools run via the `retainpdf-pipeline` console binary. The directory
 # must stay shim-free: new worker entry goes to retainpdf_pipeline console

@@ -185,8 +185,8 @@ that fx posts model traffic to `<base>/v3/ai/language-model`.
 With an installed fx `0.0.5`, the transport proof is:
 
 ```bash
-uv run --project services python -m pytest \
-  services/ai/tests/test_fx_gateway_live.py -q
+uv run --project backend python -m pytest \
+  backend/ai/tests/test_fx_gateway_live.py -q
 ```
 
 It uses a dummy key and loopback capture server, records only whether an

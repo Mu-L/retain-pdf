@@ -10,8 +10,8 @@ from retainpdf_pipeline.ocr.document_schema.providers import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[6]
-DOCUMENT_SCHEMA_FIXTURES_ROOT = REPO_ROOT / "services" / "pipeline" / "devtools" / "tests" / "document_schema" / "fixtures"
-PADDLE_FIXTURES_ROOT = REPO_ROOT / "services" / "api" / "crates" / "retain-data" / "src" / "ocr_provider" / "paddle"
+DOCUMENT_SCHEMA_FIXTURES_ROOT = REPO_ROOT / "backend" / "pipeline" / "devtools" / "tests" / "document_schema" / "fixtures"
+PADDLE_FIXTURES_ROOT = REPO_ROOT / "backend" / "packages" / "retain-data" / "src" / "ocr_provider" / "paddle"
 
 
 # Single source of truth for provider fixtures consumed by regression_check.py.

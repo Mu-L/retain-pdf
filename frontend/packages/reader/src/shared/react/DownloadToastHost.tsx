@@ -1,4 +1,4 @@
-// 下载进度 toast 宿主（自包含版，从 apps/web/src/shared/react/DownloadToastHost.tsx 复制）
+// 下载进度 toast 宿主（自包含版，从 frontend/web/src/shared/react/DownloadToastHost.tsx 复制）
 // 已去 @/ 别名：Toaster 改为 sonner 直引，避免包内无 alias 解析
 
 import { useCallback } from "react";

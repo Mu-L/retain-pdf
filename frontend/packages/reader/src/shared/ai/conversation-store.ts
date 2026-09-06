@@ -1,4 +1,4 @@
-// 共享真值（原 apps/web/src/js/reader/ai/conversation-store.ts），已抽离为 standalone
+// 共享真值（原 frontend/web/src/js/reader/ai/conversation-store.ts），已抽离为 standalone
 // 无宿主依赖，纯 localStorage 粘性
 const STORAGE_PREFIX = "retainpdf.reader.ai.conversation.v1:";
 

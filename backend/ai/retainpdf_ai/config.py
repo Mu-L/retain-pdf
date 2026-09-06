@@ -62,7 +62,7 @@ def fx_gateway_chat_url(base_url: str) -> str:
 
 
 def _repo_root() -> Path:
-    # services/ai/retainpdf_ai/config.py -> repository root
+    # backend/ai/retainpdf_ai/config.py -> repository root
     return Path(__file__).resolve().parents[3]
 
 

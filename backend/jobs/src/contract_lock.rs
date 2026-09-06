@@ -11,10 +11,10 @@ use std::path::PathBuf;
 use serde_json::Value;
 
 fn contract() -> Value {
-    // crates/retain-jobsd → crates → api → backend-root
+    // backend/jobs → backend (test mirror, not the root canonical contract).
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
-        .nth(3)
+        .nth(1)
         .expect("backend root")
         .join("contracts/jobs-control.v1.schema.json");
     serde_json::from_str(&std::fs::read_to_string(path).expect("read jobs-control contract"))

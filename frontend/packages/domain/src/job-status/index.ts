@@ -1,4 +1,4 @@
-// packages/domain/src/job-status/index.ts — barrel for pure job-status domain (46 files)
+// frontend/packages/domain/src/job-status/index.ts — barrel for pure job-status domain (46 files)
 export * from "./presentation/job-display-state.js";
 export * from "./presentation/job-render-stage-presentation.js";
 export * from "./job-stage-contract-adapter.js";

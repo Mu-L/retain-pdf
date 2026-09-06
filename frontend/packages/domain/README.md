@@ -17,16 +17,16 @@ Source paths and individual implementation files are intentionally not exported.
 
 ## Consumer setup
 
-Declare `@retainpdf/domain` as a workspace dependency and let the package manager resolve it. Consumers should not alias `@retainpdf/domain` to `packages/domain/src` in Vite or TypeScript configuration. Build this package before a consumer build so its `dist` artifacts exist.
+Declare `@retainpdf/domain` as a workspace dependency and let the package manager resolve it. Consumers should not alias `@retainpdf/domain` to `frontend/packages/domain/src` in Vite or TypeScript configuration. Build this package before a consumer build so its `dist` artifacts exist.
 
 ## Development
 
 ```bash
-npm run typecheck --prefix packages/domain
-npm run build --prefix packages/domain
-npm run test:types --prefix packages/domain
-npm run test:imports --prefix packages/domain
-npm run test:pack --prefix packages/domain
+npm run typecheck --prefix frontend/packages/domain
+npm run build --prefix frontend/packages/domain
+npm run test:types --prefix frontend/packages/domain
+npm run test:imports --prefix frontend/packages/domain
+npm run test:pack --prefix frontend/packages/domain
 ```
 
-`npm test --prefix packages/domain` runs the complete sequence. `build` removes the previous `dist` first so renamed or deleted modules cannot survive as stale package artifacts. `prepack` rebuilds the package, and the pack verification confirms that every exported type and JavaScript target is present while `src` remains unpublished.
+`npm test --prefix frontend/packages/domain` runs the complete sequence. `build` removes the previous `dist` first so renamed or deleted modules cannot survive as stale package artifacts. `prepack` rebuilds the package, and the pack verification confirms that every exported type and JavaScript target is present while `src` remains unpublished.

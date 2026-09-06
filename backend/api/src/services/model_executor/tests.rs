@@ -272,17 +272,24 @@ with unit_scope('domain', ['document-preview']):
 assert text == 'translated', text
 print('bridge-ok')
 "#;
-    let python = if cfg!(windows) {
-        root.join("services/.venv/Scripts/python.exe")
+    let python_relative = if cfg!(windows) {
+        ".venv/Scripts/python.exe"
     } else {
-        root.join("services/.venv/bin/python")
+        ".venv/bin/python"
     };
+    let python = [
+        root.join("backend").join(python_relative),
+        root.join(python_relative),
+    ]
+    .into_iter()
+    .find(|path| path.is_file())
+    .expect("a project Python environment is required for the worker bridge test");
     let output = tokio::time::timeout(
         Duration::from_secs(20),
         tokio::process::Command::new(python)
             .arg("-c")
             .arg(script)
-            .env("PYTHONPATH", root.join("services/pipeline"))
+            .env("PYTHONPATH", root.join("backend/pipeline"))
             .env("RETAIN_TRANSLATION_TRANSPORT", "rust")
             .env("RETAIN_MODEL_EXECUTOR_URL", api_url)
             .env("RETAIN_MODEL_JOB_ID", "j")

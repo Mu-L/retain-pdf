@@ -12,16 +12,15 @@ const __dirname = path.dirname(__filename);
 const desktopRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(desktopRoot, "..", "..");
 const versionFile = path.join(repoRoot, "VERSION");
-const frontendRoot = path.join(repoRoot, "apps/web");
-const infraRoot = path.join(repoRoot, "infra");
+const frontendRoot = path.join(repoRoot, "frontend/web");
+const infraRoot = path.join(repoRoot, "ops", "deployment");
 const servicesRoot = path.resolve(
-  process.env.RETAIN_PDF_SERVICES_ROOT || path.join(repoRoot, "services"),
+  process.env.RETAIN_PDF_SERVICES_ROOT || path.join(repoRoot, "backend"),
 );
-const servicesApiRoot = path.join(servicesRoot, "api");
 const servicesPipelineRoot = path.join(servicesRoot, "pipeline");
 const servicesAiRoot = path.join(servicesRoot, "ai");
 const servicesConfigRoot = path.join(servicesRoot, "config");
-const servicesFontsRoot = path.join(servicesRoot, "fonts");
+const servicesFontsRoot = path.join(repoRoot, "resources", "fonts");
 const desktopSrcRoot = path.join(desktopRoot, "src");
 const desktopRuntimeRoot = path.join(desktopSrcRoot, "runtime");
 const targetPlatform = process.env.RETAIN_PDF_DESKTOP_PLATFORM || process.platform;
@@ -86,7 +85,7 @@ function resolveSharedRuntimePath(relativePath) {
   const sharedCandidates = {
     "fonts": [
       servicesFontsRoot,
-      path.join(infraRoot, "fonts"),
+      path.join(servicesRoot, "fonts"),
       path.join(desktopRoot, "assets", "fonts"),
     ],
   };
@@ -107,7 +106,7 @@ function resolveSharedRuntimePaths(relativePath) {
   if (relativePath === "fonts") {
     for (const candidate of [
       servicesFontsRoot,
-      path.join(infraRoot, "fonts"),
+      path.join(servicesRoot, "fonts"),
       path.join(desktopRoot, "assets", "fonts"),
     ]) {
       if (fs.existsSync(candidate)) {
@@ -222,21 +221,21 @@ function resolveRustApiBinary() {
   if (targetPlatform === "win32") {
     candidates.push(
       path.join(
-        servicesApiRoot,
+        repoRoot,
         "target",
         "x86_64-pc-windows-msvc",
         "release",
         "rust_api.exe",
       ),
       path.join(
-        servicesApiRoot,
+        repoRoot,
         "target",
         "i686-pc-windows-msvc",
         "release",
         "rust_api.exe",
       ),
       path.join(
-        servicesApiRoot,
+        repoRoot,
         "target",
         "i686-pc-windows-gnu",
         "release",
@@ -245,12 +244,12 @@ function resolveRustApiBinary() {
     );
   } else if (targetPlatform === "darwin") {
     candidates.push(
-      path.join(servicesApiRoot, "target", "release", "rust_api"),
-      path.join(servicesApiRoot, "target", "x86_64-apple-darwin", "release", "rust_api"),
-      path.join(servicesApiRoot, "target", "aarch64-apple-darwin", "release", "rust_api"),
+      path.join(repoRoot, "target", "release", "rust_api"),
+      path.join(repoRoot, "target", "x86_64-apple-darwin", "release", "rust_api"),
+      path.join(repoRoot, "target", "aarch64-apple-darwin", "release", "rust_api"),
     );
   } else {
-    candidates.push(path.join(servicesApiRoot, "target", "release", "rust_api"));
+    candidates.push(path.join(repoRoot, "target", "release", "rust_api"));
   }
 
   for (const candidate of candidates) {
@@ -276,18 +275,18 @@ function resolveJobsdBinary() {
 
   if (targetPlatform === "win32") {
     candidates.push(
-      path.join(servicesApiRoot, "target", "x86_64-pc-windows-msvc", "release", "retain-jobsd.exe"),
-      path.join(servicesApiRoot, "target", "i686-pc-windows-msvc", "release", "retain-jobsd.exe"),
-      path.join(servicesApiRoot, "target", "release", "retain-jobsd.exe"),
+      path.join(repoRoot, "target", "x86_64-pc-windows-msvc", "release", "retain-jobsd.exe"),
+      path.join(repoRoot, "target", "i686-pc-windows-msvc", "release", "retain-jobsd.exe"),
+      path.join(repoRoot, "target", "release", "retain-jobsd.exe"),
     );
   } else if (targetPlatform === "darwin") {
     candidates.push(
-      path.join(servicesApiRoot, "target", "release", "retain-jobsd"),
-      path.join(servicesApiRoot, "target", "x86_64-apple-darwin", "release", "retain-jobsd"),
-      path.join(servicesApiRoot, "target", "aarch64-apple-darwin", "release", "retain-jobsd"),
+      path.join(repoRoot, "target", "release", "retain-jobsd"),
+      path.join(repoRoot, "target", "x86_64-apple-darwin", "release", "retain-jobsd"),
+      path.join(repoRoot, "target", "aarch64-apple-darwin", "release", "retain-jobsd"),
     );
   } else {
-    candidates.push(path.join(servicesApiRoot, "target", "release", "retain-jobsd"));
+    candidates.push(path.join(repoRoot, "target", "release", "retain-jobsd"));
   }
 
   for (const candidate of candidates) {
@@ -314,18 +313,18 @@ function resolveAgentBinary() {
 
   if (targetPlatform === "win32") {
     candidates.push(
-      path.join(servicesApiRoot, "target", "x86_64-pc-windows-msvc", "release", fileName),
-      path.join(servicesApiRoot, "target", "i686-pc-windows-msvc", "release", fileName),
-      path.join(servicesApiRoot, "target", "release", fileName),
+      path.join(repoRoot, "target", "x86_64-pc-windows-msvc", "release", fileName),
+      path.join(repoRoot, "target", "i686-pc-windows-msvc", "release", fileName),
+      path.join(repoRoot, "target", "release", fileName),
     );
   } else if (targetPlatform === "darwin") {
     candidates.push(
-      path.join(servicesApiRoot, "target", "release", fileName),
-      path.join(servicesApiRoot, "target", "x86_64-apple-darwin", "release", fileName),
-      path.join(servicesApiRoot, "target", "aarch64-apple-darwin", "release", fileName),
+      path.join(repoRoot, "target", "release", fileName),
+      path.join(repoRoot, "target", "x86_64-apple-darwin", "release", fileName),
+      path.join(repoRoot, "target", "aarch64-apple-darwin", "release", fileName),
     );
   } else {
-    candidates.push(path.join(servicesApiRoot, "target", "release", fileName));
+    candidates.push(path.join(repoRoot, "target", "release", fileName));
   }
 
   const match = candidates.find((candidate) => candidate && fs.existsSync(candidate));

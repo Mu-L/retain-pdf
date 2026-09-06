@@ -1,4 +1,4 @@
-// 主题皮肤运行时 API — 自包含版（从 apps/web/src/shared/theme/theme.ts 复制）
+// 主题皮肤运行时 API — 自包含版（从 frontend/web/src/shared/theme/theme.ts 复制）
 // 注册表：./registry.ts
 import {
   DEFAULT_THEME_ID,

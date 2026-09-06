@@ -1,4 +1,4 @@
-// ai — canonical from apps/web/src/js/api/ai.ts (mock removed, runtime adapted)
+// ai — canonical from frontend/web/src/js/api/ai.ts (mock removed, runtime adapted)
 // Uses internal/runtime + http helpers.
 import { API_PREFIX } from "./internal/runtime.js";
 import { buildApiHeaders, unwrapEnvelope } from "./internal/runtime.js";

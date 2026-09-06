@@ -18,8 +18,8 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = false;
 
 const React = await import("react");
 const { createRoot } = await import("react-dom/client");
-const { setReaderAdapters } = await import("../../../../packages/reader/src/adapters.ts");
-const { useReaderSession } = await import("../../../../packages/reader/src/hooks/use-reader-session.ts");
+const { setReaderAdapters } = await import("../../../../frontend/packages/reader/src/adapters.ts");
+const { useReaderSession } = await import("../../../../frontend/packages/reader/src/hooks/use-reader-session.ts");
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

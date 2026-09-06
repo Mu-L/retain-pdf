@@ -23,7 +23,7 @@ def parse_args() -> argparse.Namespace:
         "--manifest",
         type=Path,
         required=True,
-        help="Path to apps/desktop/app/backend/bundle-manifest.json",
+        help="Path to frontend/desktop/app/backend/bundle-manifest.json",
     )
     parser.add_argument(
         "--min-fonts",

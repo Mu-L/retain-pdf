@@ -8,12 +8,12 @@
 
 当前脚本位置：
 
-- `apps/web/scripts/frontend-status-smoke.mjs`
+- `frontend/web/scripts/frontend-status-smoke.mjs`
 
 当前 npm 入口：
 
 ```bash
-cd apps/web
+cd frontend/web
 npm run smoke:status -- --file ../../data/temPDF/test1.pdf
 ```
 
@@ -35,30 +35,30 @@ docs/ops/reports/frontend-status-smoke-latest.json
 
 1. 命令行参数
 2. 环境变量
-3. `apps/web/runtime-config.local.js`
-4. `services/pipeline/.env/*.env`
+3. `frontend/web/runtime-config.local.js`
+4. `backend/pipeline/.env/*.env`
 
 默认读取：
 
-- API Base: `apps/web/runtime-config.local.js` / `apps/web/runtime-config.js`
-- `X-API-Key`: `apps/web/runtime-config.local.js`
-- Paddle token: `services/pipeline/.env/paddle.env`
-- MinerU token: `services/pipeline/.env/mineru.env`
-- 翻译 API key: `services/pipeline/.env/deepseek.env`
+- API Base: `frontend/web/runtime-config.local.js` / `frontend/web/runtime-config.js`
+- `X-API-Key`: `frontend/web/runtime-config.local.js`
+- Paddle token: `backend/pipeline/.env/paddle.env`
+- MinerU token: `backend/pipeline/.env/mineru.env`
+- 翻译 API key: `backend/pipeline/.env/deepseek.env`
 
 ## 常用示例
 
 跑完整 `book` 流程：
 
 ```bash
-cd apps/web
+cd frontend/web
 npm run smoke:status -- --file ../../data/temPDF/test1.pdf
 ```
 
 指定 Paddle：
 
 ```bash
-cd apps/web
+cd frontend/web
 npm run smoke:status -- \
   --file ../../data/temPDF/test1.pdf \
   --ocr-provider paddle
@@ -73,7 +73,7 @@ npm run smoke:status -- \
 只跑翻译不渲染：
 
 ```bash
-cd apps/web
+cd frontend/web
 npm run smoke:status -- \
   --file ../../data/temPDF/test1.pdf \
   --workflow translate \
@@ -83,7 +83,7 @@ npm run smoke:status -- \
 指定接口地址与超时时间：
 
 ```bash
-cd apps/web
+cd frontend/web
 npm run smoke:status -- \
   --file ../../data/temPDF/test1.pdf \
   --api-base http://127.0.0.1:41000 \
@@ -93,7 +93,7 @@ npm run smoke:status -- \
 输出 JSON：
 
 ```bash
-cd apps/web
+cd frontend/web
 npm run smoke:status -- \
   --file ../../data/temPDF/test1.pdf \
   --json

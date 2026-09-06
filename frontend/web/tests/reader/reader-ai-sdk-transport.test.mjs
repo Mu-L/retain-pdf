@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 
 const requireFromReader = createRequire(
-  new URL("../../../../packages/reader/package.json", import.meta.url),
+  new URL("../../../../frontend/packages/reader/package.json", import.meta.url),
 );
 const { Chat } = await import(requireFromReader.resolve("@ai-sdk/react"));
 
@@ -11,7 +11,7 @@ const {
   RetainPdfChatTransport,
   readerChatMessageText,
 } = await import(
-  "../../../../packages/reader/src/components/react-pdf/assistant/retainpdf-chat-transport.ts"
+  "../../../../frontend/packages/reader/src/components/react-pdf/assistant/retainpdf-chat-transport.ts"
 );
 
 test("RetainPDF SSE adapter feeds AI SDK messages without changing the backend contract", async () => {

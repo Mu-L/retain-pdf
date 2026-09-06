@@ -14,13 +14,13 @@
   [`src/services/library_api.rs`](src/services/library_api.rs) +
   [`src/services/library`](src/services/library)
 - 改 worker 运行链路：
-  [`crates/retain-jobs/src/job_runner`](crates/retain-jobs/src/job_runner)
+  [`../packages/retain-jobs/src/job_runner`](../packages/retain-jobs/src/job_runner)
 - 改 OCR provider 分发和适配：
-  [`crates/retain-data/src/ocr_provider`](crates/retain-data/src/ocr_provider)
+  [`../packages/retain-data/src/ocr_provider`](../packages/retain-data/src/ocr_provider)
 - 改后端运行参数、provider 超时/重试、路径和认证配置：
-  [`crates/retain-core/src/config`](crates/retain-core/src/config)
+  [`../packages/retain-core/src/config`](../packages/retain-core/src/config)
 - 改 Python worker 入口命令或 stage spec：
-  [`crates/retain-data/src/worker_command`](crates/retain-data/src/worker_command)
+  [`../packages/retain-data/src/worker_command`](../packages/retain-data/src/worker_command)
 
 ## 目录地图
 
@@ -38,7 +38,7 @@
   - [`src/app/jobs.rs`](src/app/jobs.rs)
     jobs facade 组合根。这里负责把 `AppState` 装成 `JobsFacade`，`routes` 不再直接碰 `job_runner`。
 
-### `crates/retain-core/src/config.rs` + `config/*`
+### `../packages/retain-core/src/config.rs` + `config/*`
 
 - 作用：
   运行时配置入口。API crate 通过 `crate::config` re-export 保持调用兼容，
@@ -187,7 +187,7 @@
 - [`src/services/agent_runtime_session_api.rs`](src/services/agent_runtime_session_api.rs)
   opaque runtime cursor revision CAS 入口。
 
-### `crates/retain-data/src/worker_command.rs` + `worker_command/*`
+### `../packages/retain-data/src/worker_command.rs` + `worker_command/*`
 
 - 作用：
   Python worker 命令、worker 入口脚本和 stage spec 文件构造。
@@ -205,7 +205,7 @@
   - `worker_command/command_builder.rs`
     命令行拼装细节。
 
-### `crates/retain-jobs/src/job_runner`
+### `../packages/retain-jobs/src/job_runner`
 
 - 作用：
   任务排队、worker 启动、stdout/stderr 消费、失败归因、取消、超时。
@@ -231,14 +231,14 @@
   - `worker_process.rs`
     子进程启动、env 注入、进程树终止；现在只拿 `WorkerProcessRuntimeConfig + job`，不再依赖整包 runtime deps。
 
-### `crates/retain-data/src/ocr_provider`
+### `../packages/retain-data/src/ocr_provider`
 
 - 作用：
   OCR provider 分发、provider 特定协议转换、provider 输出收口。
 - 快速判断：
   改 MinerU / Paddle 接入细节时进这里。
 
-### `crates/retain-core/src/storage_paths.rs` + `storage_paths/*`
+### `../packages/retain-core/src/storage_paths.rs` + `storage_paths/*`
 
 - 作用：
   artifact key、路径归一化、路径解析、artifact registry 收集。
@@ -254,7 +254,7 @@
   - `registry.rs`
     把任务文件投影成 artifact entry 列表。
 
-### `crates/retain-data/src/db.rs` + `db/*`
+### `../../database/retain-db/src/db.rs` + `db/*`
 
 - 作用：
   SQLite 持久化入口。
@@ -273,7 +273,7 @@
 - “这是 jobs 用例编排变化吗？”
   先看 `src/services/jobs/facade` 和 `src/services/jobs/creation`
 - “这是 worker / Python 执行变化吗？”
-  先看 `crates/retain-jobs/src/job_runner`
+  先看 `../packages/retain-jobs/src/job_runner`
 - “这是 AI 对话、runtime 或 PDF operation 变化吗？”
   先分清 `src/services/ai_proxy_api.rs`、
   `public_document_operations_api.rs` 和 backend-only
@@ -289,9 +289,9 @@
    jobs 用例总入口，route 只和 facade 说话。
 3. `src/services/jobs/creation` / `src/services/jobs/presentation`
    前者负责创建与提交，后者负责 detail/list/events 对外投影。
-4. `crates/retain-jobs/src/job_runner`
+4. `../packages/retain-jobs/src/job_runner`
    运行态编排、子进程、OCR flow、translation/render flow。
-5. `crates/retain-data/src/ocr_provider`
+5. `../packages/retain-data/src/ocr_provider`
    provider 协议和 provider 输出归一化。
 
 新人如果只想快速定位修改入口，可以先问自己是在改：
@@ -318,5 +318,5 @@
    看 command/query 用例入口。
 5. [`src/services/jobs/creation`](src/services/jobs/creation)
    看创建链路的准备、快照、提交、bundle。
-6. [`crates/retain-jobs/src/job_runner`](crates/retain-jobs/src/job_runner)
+6. [`../packages/retain-jobs/src/job_runner`](../packages/retain-jobs/src/job_runner)
    最后再进 runtime 执行层。

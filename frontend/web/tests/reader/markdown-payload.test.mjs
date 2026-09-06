@@ -6,8 +6,8 @@ import {
   loadMarkdownPayloadWithFallback,
   normalizeMarkdownPayload,
   resolveLinkedMarkdownJobId,
-} from "../../../../packages/reader/src/shared/data/markdown-payload.ts";
-import { createReaderDataPort } from "../../../../packages/reader/src/shared/data/data-port.ts";
+} from "../../../../frontend/packages/reader/src/shared/data/markdown-payload.ts";
+import { createReaderDataPort } from "../../../../frontend/packages/reader/src/shared/data/data-port.ts";
 
 
 test("normalizeMarkdownPayload accepts structured, legacy, and envelope payloads", () => {

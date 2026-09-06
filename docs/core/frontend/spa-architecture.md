@@ -1,17 +1,17 @@
 # RetainPDF Frontend: MPA → Unified React SPA — Target Architecture
 
-> Status: Design → for big migration `apps/web` (MPA + vanilla JS) → `apps/web-react` (SPA)
+> Status: Design → for big migration `frontend/web` (MPA + vanilla JS) → `frontend/web-react` (SPA)
 > Scope: routing · state · composition · shared packages · build · legacy `js/*`
 
 ---
 
 ## 0. Current State Diagnosis (what we are leaving)
 
-**Build:** `apps/web/scripts/build-js-bundle.mjs:1` — raw `esbuild` with custom `jsToTsResolvePlugin`, 3 separate MPA bundles (`home`/`detail`/`reader`) emitted to `dist/*.bundle.js`. CSS built separately via `scripts/build-css.mjs`. Two toolchains: `packages/reader` already Vite (`packages/reader/package.json:19`), `apps/web` esbuild, `apps/web-react` Vite — not unified.
+**Build:** `frontend/web/scripts/build-js-bundle.mjs:1` — raw `esbuild` with custom `jsToTsResolvePlugin`, 3 separate MPA bundles (`home`/`detail`/`reader`) emitted to `dist/*.bundle.js`. CSS built separately via `scripts/build-css.mjs`. Two toolchains: `frontend/packages/reader` already Vite (`frontend/packages/reader/package.json:19`), `frontend/web` esbuild, `frontend/web-react` Vite — not unified.
 
-**Entry:** `apps/web/src/pages/home/entry.tsx:1` — `createHomeComposition → services.initialize() → createRoot(HomeApp)` ; same pattern for `detail/entry.tsx`, `reader/entry.tsx`. 3 HTMLs, 3 roots, no SPA router.
+**Entry:** `frontend/web/src/pages/home/entry.tsx:1` — `createHomeComposition → services.initialize() → createRoot(HomeApp)` ; same pattern for `detail/entry.tsx`, `reader/entry.tsx`. 3 HTMLs, 3 roots, no SPA router.
 
-**Composition god object:** `apps/web/src/pages/home/create-home-composition.ts:60` + 13 factories (`create-library-domain.ts`, `create-status-domain.ts`, `create-bridge.ts`, `create-workflow-upload.ts`, `create-credentials.ts`, `create-glossaries-app-update.ts`, `create-app-actions.ts`, `create-runtime-features.ts`, `create-lifecycle.ts`, `build-home-services.ts:17`, `external/*.ts`). Factories share mutable `features: HomeFeatures` bag (`composition/types.ts:136`) and write into a late-bound `HomeServices` god object (`composition/types.ts:483`, ~595 LOC). `build-home-services.ts:42` hides only reads behind `ReadOnlyStore` but still casts with `as any`.
+**Composition god object:** `frontend/web/src/pages/home/create-home-composition.ts:60` + 13 factories (`create-library-domain.ts`, `create-status-domain.ts`, `create-bridge.ts`, `create-workflow-upload.ts`, `create-credentials.ts`, `create-glossaries-app-update.ts`, `create-app-actions.ts`, `create-runtime-features.ts`, `create-lifecycle.ts`, `build-home-services.ts:17`, `external/*.ts`). Factories share mutable `features: HomeFeatures` bag (`composition/types.ts:136`) and write into a late-bound `HomeServices` god object (`composition/types.ts:483`, ~595 LOC). `build-home-services.ts:42` hides only reads behind `ReadOnlyStore` but still casts with `as any`.
 
 **State:** Custom `js/app-framework/store.ts:126` `createStore<State,Actions>` (clone+freeze, batch, subscribe). 20+ stores (`text-store.ts`, `upload-store.ts`, `status-detail-store.ts`, `dialog-store.ts`, …) + `useStoreSnapshot` bridge. Server state (jobs, library) is imperative `fetch*` + manual `scheduleRefresh` + `APP_EVENTS`.
 
@@ -27,7 +27,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        apps/web-react (Vite SPA)                    │
+│                        frontend/web-react (Vite SPA)                    │
 │  index.html (single) → src/main.tsx → App Router                    │
 ├─────────────────────────────────────────────────────────────────────┤
 │  ROUTING (TanStack Router)                                          │
@@ -54,14 +54,14 @@
 │         (zustand, UI only) + hooks.ts + components/                 │
 ├─────────────────────────────────────────────────────────────────────┤
 │  SHARED                                                             │
-│  packages/ui        → design system (Radix + tailwind)              │
-│  packages/api       → pure fetch fns (no React)                     │
-│  packages/api-query → (or apps/web-react/src/lib/api) tanstack     │
+│  frontend/packages/ui        → design system (Radix + tailwind)              │
+│  frontend/packages/api       → pure fetch fns (no React)                     │
+│  packages/api-query → (or frontend/web-react/src/lib/api) tanstack     │
 │                       wrappers generated from schemas                │
-│  packages/reader    → <Reader> component, consumed as route         │
-│  packages/domain    → NEW: pure js/job + js/job-status extracted    │
+│  frontend/packages/reader    → <Reader> component, consumed as route         │
+│  frontend/packages/domain    → NEW: pure js/job + js/job-status extracted    │
 │                       (no DOM, no store, unit-tested)               │
-│  apps/web-react/src/lib/{queryClient, router, theme, utils}        │
+│  frontend/web-react/src/lib/{queryClient, router, theme, utils}        │
 └─────────────────────────────────────────────────────────────────────┘
            ▲                     │                     ▲
            │ npm workspace alias │                     │ fetch()
@@ -79,14 +79,14 @@ UI Component  →  hook (useLibrary / useJob)  →  TanStack Query (server)
                                                         ▼
                                               @retainpdf/api fetch fns
                                                         │
-                                              packages/domain pure fns
+                                              frontend/packages/domain pure fns
                                               (normalizeJobPayload, stage models)
 ```
 
 ### 1.2 Concrete file tree (target)
 
 ```
-apps/web-react/
+frontend/web-react/
   vite.config.ts          # single Vite config, aliases @, @retainpdf/*
   index.html
   src/
@@ -169,7 +169,7 @@ export const Route = createFileRoute("/reader/$jobId")({
 
 *Why not keep MPA?* MPA forces full reload between `home → detail → reader`, loses polling state, duplicates shell. SPA keeps `jobRuntime` polling across navigations and enables `SoftReaderHost` (`HomeApp.tsx:133`) as a true overlay route instead of an island.
 
-*Fallback:* During migration, keep `apps/web/dist/*.html` served; SPA dev server proxies `/api`. Cutover flips `index.html` to Vite's `index.html` and nginx fallback `try_files $uri /index.html`.
+*Fallback:* During migration, keep `frontend/web/dist/*.html` served; SPA dev server proxies `/api`. Cutover flips `index.html` to Vite's `index.html` and nginx fallback `try_files $uri /index.html`.
 
 ### 2.2 State Management
 
@@ -188,7 +188,7 @@ export const libraryKeys = { all: ["library"] as const, list: (q: string) => ["l
 export const libraryQuery = (q: string) => queryOptions({
   queryKey: libraryKeys.list(q),
   queryFn: () => fetchLibraryBookList(API_PREFIX, { q }),
-  select: (data) => normalizeLibraryData(data), // uses packages/domain
+  select: (data) => normalizeLibraryData(data), // uses frontend/packages/domain
 })
 // features/library/store.ts  (Zustand, UI only)
 export const useLibrarySelection = create<{ ids: Set<string>, toggle: (id: string)=>void }>()(...)
@@ -249,7 +249,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
 **Rules:**
 1. No `features` mutable bag. Each `features/*` becomes `src/features/<domain>/` with `api.ts | queries.ts | store.ts | hooks.ts | components/`. Imports are direct, not via `external/*.ts`.
-2. `external.ts:1` deleted. `external/api.ts:14` → `@retainpdf/api`; `external/state.ts:1` → `zustand`/`jotai`; `external/job.ts` → `packages/domain`.
+2. `external.ts:1` deleted. `external/api.ts:14` → `@retainpdf/api`; `external/state.ts:1` → `zustand`/`jotai`; `external/job.ts` → `frontend/packages/domain`.
 3. Factory return bags → hooks. E.g., `createStatusDomain` (`create-status-domain.ts:36`) → `features/status/StatusProvider.tsx` + `useStatusDetail()` hook. `createBridge` (`create-bridge.ts`) deleted — bridge was DOM→store glue, now React state is source of truth.
 4. Effects that were `initialize/dispose` (`create-lifecycle.ts`) become `useEffect` in providers + `queryClient` lifecycle. Ordering becomes declarative (Provider nesting) not imperative sequence.
 
@@ -257,15 +257,15 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
 | Package | Today | Target |
 |---------|-------|--------|
-| `@retainpdf/ui` (`packages/ui/package.json:1`) | Radix + `cn` + `build-css.mjs` separate toolchain | **Keep.** Build with Vite lib mode or keep `tsc + build-css.mjs`. Consume as `import { Button } from "@retainpdf/ui"`. Add Vite alias `@retainpdf/ui/*` → `packages/ui/src/*` (already in `build-js-bundle.mjs:98`, port to `vite.config.ts: resolve.alias`). |
-| `@retainpdf/api` (`packages/api/src/index.ts:1`) | Pilot: `jobs.ts`, `library-books.ts` + mock adapters in `external/api.ts` | **Expand to source of truth.** Move all `src/js/api/*` (`http.ts`, `collections.ts`, `favorites.ts`, `glossaries.ts`, …) into `packages/api/src/*`. Remove mock branching from `external/api.ts:14` — add `packages/api/src/mock.ts` or keep mock at app layer (`src/mocks/`). `buildApiHeaders()` stays in `api/internal/runtime.ts`. Generate types from `packages/schemas/*.json` (json-schema-to-typescript) and re-export via `packages/api/src/types.ts`. |
-| `@retainpdf/reader` (`packages/reader/package.json:1`) | Standalone Vite lib, consumed via `apps/web/src/pages/reader/entry.tsx:4` proxy entry | **Keep isolated, consume as route component.** `routes/reader.$jobId.tsx` → `import { Reader } from "@retainpdf/reader"` (no separate `reader.bundle.js`). Reader keeps its own Vite build for independent dev (`vite --port 40003`), but SPA build bundles it via alias. Shared `pdfjs-dist`, `react-pdf` deduped via `vite.config.resolve.dedupe`. |
-| **`packages/domain` (NEW)** | Scattered `src/js/job/*`, `src/js/job-status/*` (46 files), `src/js/job/types.ts:14` | **Extract pure domain** → `packages/domain/src/{job, job-status}/`. No `window`, no `fetch`, no `store`. Move `normalize.ts:29`, `core.ts`, `job-stage-contract-adapter.ts`, `public-stage-engine.ts`, etc. Keep all unit tests. `apps/web-react` imports `import { normalizeJobPayload } from "@retainpdf/domain"`. This is the “keep as pure” answer for bullet 6. |
+| `@retainpdf/ui` (`frontend/packages/ui/package.json:1`) | Radix + `cn` + `build-css.mjs` separate toolchain | **Keep.** Build with Vite lib mode or keep `tsc + build-css.mjs`. Consume as `import { Button } from "@retainpdf/ui"`. Add Vite alias `@retainpdf/ui/*` → `frontend/packages/ui/src/*` (already in `build-js-bundle.mjs:98`, port to `vite.config.ts: resolve.alias`). |
+| `@retainpdf/api` (`frontend/packages/api/src/index.ts:1`) | Pilot: `jobs.ts`, `library-books.ts` + mock adapters in `external/api.ts` | **Expand to source of truth.** Move all `src/js/api/*` (`http.ts`, `collections.ts`, `favorites.ts`, `glossaries.ts`, …) into `frontend/packages/api/src/*`. Remove mock branching from `external/api.ts:14` — add `frontend/packages/api/src/mock.ts` or keep mock at app layer (`src/mocks/`). `buildApiHeaders()` stays in `api/internal/runtime.ts`. Generate types from `contracts/*.json` (json-schema-to-typescript) and re-export via `frontend/packages/api/src/types.ts`. |
+| `@retainpdf/reader` (`frontend/packages/reader/package.json:1`) | Standalone Vite lib, consumed via `frontend/web/src/pages/reader/entry.tsx:4` proxy entry | **Keep isolated, consume as route component.** `routes/reader.$jobId.tsx` → `import { Reader } from "@retainpdf/reader"` (no separate `reader.bundle.js`). Reader keeps its own Vite build for independent dev (`vite --port 40003`), but SPA build bundles it via alias. Shared `pdfjs-dist`, `react-pdf` deduped via `vite.config.resolve.dedupe`. |
+| **`frontend/packages/domain` (NEW)** | Scattered `src/js/job/*`, `src/js/job-status/*` (46 files), `src/js/job/types.ts:14` | **Extract pure domain** → `frontend/packages/domain/src/{job, job-status}/`. No `window`, no `fetch`, no `store`. Move `normalize.ts:29`, `core.ts`, `job-stage-contract-adapter.ts`, `public-stage-engine.ts`, etc. Keep all unit tests. `frontend/web-react` imports `import { normalizeJobPayload } from "@retainpdf/domain"`. This is the “keep as pure” answer for bullet 6. |
 
 **Workspace + aliases (unified Vite):**
 
 ```ts
-// vite.config.ts (apps/web-react)
+// vite.config.ts (frontend/web-react)
 import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
 import { tanstackRouter } from "@tanstack/router-vite-plugin"
@@ -275,10 +275,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
-      "@retainpdf/ui": path.resolve(__dirname, "../../packages/ui/src"),
-      "@retainpdf/api": path.resolve(__dirname, "../../packages/api/src"),
-      "@retainpdf/reader": path.resolve(__dirname, "../../packages/reader/src"),
-      "@retainpdf/domain": path.resolve(__dirname, "../../packages/domain/src"),
+      "@retainpdf/ui": path.resolve(__dirname, "../../frontend/packages/ui/src"),
+      "@retainpdf/api": path.resolve(__dirname, "../../frontend/packages/api/src"),
+      "@retainpdf/reader": path.resolve(__dirname, "../../frontend/packages/reader/src"),
+      "@retainpdf/domain": path.resolve(__dirname, "../../frontend/packages/domain/src"),
     },
     dedupe: ["react", "react-dom", "pdfjs-dist"],
   },
@@ -297,7 +297,7 @@ export default defineConfig({
 | Config | 141 LOC imperative script | `vite.config.ts` declarative | **Vite** |
 | Migration cost | Zero | Need to port `alias` + `define.PACKAGE_VERSION` (`build-js-bundle.mjs:106`) | Low — `define: { PACKAGE_VERSION: JSON.stringify(...) }` moves to `vite.config.ts: define` |
 
-**Action:** Delete `apps/web/scripts/build-js-bundle.mjs`, `prepare-runtime-deps.mjs`, etc. Keep `packages/reader/vite.config` and `packages/ui/build-css.mjs` (or unify UI css via Vite lib). Root `package.json:11` scripts become `"dev": "vite --config apps/web-react/vite.config.ts"` etc.
+**Action:** Delete `frontend/web/scripts/build-js-bundle.mjs`, `prepare-runtime-deps.mjs`, etc. Keep `frontend/packages/reader/vite.config` and `frontend/packages/ui/build-css.mjs` (or unify UI css via Vite lib). Root `package.json:11` scripts become `"dev": "vite --config frontend/web-react/vite.config.ts"` etc.
 
 ### 2.6 Legacy `js/*` Domain Logic — Keep as Pure or Rewrite?
 
@@ -308,14 +308,14 @@ export default defineConfig({
 - `src/js/job-status/*` — all 46 files (presentation, stage adapters, progress records, summary view-models)
 - `src/js/job/types.ts:14` — canonical types
 - `src/js/job-status/types.ts` — stage types
-- Move to `packages/domain/src/` verbatim (TS, no logic change), add `index.ts` barrel. Tests remain `*.test.mjs` or port to Vitest.
+- Move to `frontend/packages/domain/src/` verbatim (TS, no logic change), add `index.ts` barrel. Tests remain `*.test.mjs` or port to Vitest.
 
 *Rewrite (imperative, DOM/store/fetch coupled):*
 - `src/js/features/recent-jobs/*` (`runtime.ts`, `controller.ts`, `refresh-scheduler.ts`, `store-renderer.ts`, `loader.ts`, …) → `features/library/queries.ts + store.ts`
 - `src/js/features/credentials/*` (`browser.ts`, `validation-view.ts`, `dialog-view.ts`) → `features/credentials/hooks.ts` + Zustand + `useMutation(validateDeepSeekToken)`
 - `src/js/features/upload/*` (`controller.ts`, `form-data.ts`) → `features/workflow/useUpload.ts`
 - `src/js/features/job-runtime` (if exists) → `features/status/useJobPolling.ts`
-- `src/js/api/*` → `packages/api/src/*` (thin wrappers, keep `http.ts` but replace `fetchProtected` call sites with Query)
+- `src/js/api/*` → `frontend/packages/api/src/*` (thin wrappers, keep `http.ts` but replace `fetchProtected` call sites with Query)
 - `src/js/app-framework/*` (`store.ts:126`, `component.ts`, `resource.ts`) → delete after migration; only `selector.ts` pattern may survive as `useMemo`
 
 **Litmus test:** If file imports `document`, `window`, `createStore`, or `fetch`, it is rewritten. If it is `(job: JobLike) => string|boolean|JobPayload`, it is kept.
@@ -326,14 +326,14 @@ export default defineConfig({
 
 ### Phase 0 — Foundations (1–2 weeks, no UI change)
 
-1. **Create `packages/domain`** — copy `src/js/job/**/*`, `src/js/job-status/**/*`, `src/js/job/types.ts` → `packages/domain/src/`, wire `pnpm -w` alias `@retainpdf/domain`, run existing tests green.
-2. **Unify build** — in `apps/web-react/vite.config.ts` port aliases from `build-js-bundle.mjs:94` and `define.PACKAGE_VERSION` (`build-js-bundle.mjs:72`). Verify `vite build` produces single SPA `dist/`. Keep old `apps/web` build untouched.
-3. **Add TanStack Router + Query** to `apps/web-react/package.json` — `npm i @tanstack/react-router @tanstack/react-query @tanstack/react-router-vite-plugin zustand zod`. Scaffold `routes/__root.tsx`, `lib/queryClient.ts`, `lib/router.ts`. No pages yet.
+1. **Create `frontend/packages/domain`** — copy `src/js/job/**/*`, `src/js/job-status/**/*`, `src/js/job/types.ts` → `frontend/packages/domain/src/`, wire `pnpm -w` alias `@retainpdf/domain`, run existing tests green.
+2. **Unify build** — in `frontend/web-react/vite.config.ts` port aliases from `build-js-bundle.mjs:94` and `define.PACKAGE_VERSION` (`build-js-bundle.mjs:72`). Verify `vite build` produces single SPA `dist/`. Keep old `frontend/web` build untouched.
+3. **Add TanStack Router + Query** to `frontend/web-react/package.json` — `npm i @tanstack/react-router @tanstack/react-query @tanstack/react-router-vite-plugin zustand zod`. Scaffold `routes/__root.tsx`, `lib/queryClient.ts`, `lib/router.ts`. No pages yet.
 
 ### Phase 1 — API surface migration (1 week)
 
-4. Move remaining `src/js/api/*` into `packages/api/src/*` (one file at a time, each with a thin `external/api.ts`-compatible re-export so `apps/web` still builds). Delete `external/api.ts` mock branches after `packages/api` owns `isMockMode` via injected `fetch` adapter.
-5. Create `packages/api-query` or `apps/web-react/src/lib/api/queryOptions.ts` — `libraryKeys`, `jobKeys`, `collectionKeys` with `queryOptions` factories. This replaces `refresh-scheduler.ts` / `active-refresh.ts`.
+4. Move remaining `src/js/api/*` into `frontend/packages/api/src/*` (one file at a time, each with a thin `external/api.ts`-compatible re-export so `frontend/web` still builds). Delete `external/api.ts` mock branches after `frontend/packages/api` owns `isMockMode` via injected `fetch` adapter.
+5. Create `packages/api-query` or `frontend/web-react/src/lib/api/queryOptions.ts` — `libraryKeys`, `jobKeys`, `collectionKeys` with `queryOptions` factories. This replaces `refresh-scheduler.ts` / `active-refresh.ts`.
 
 ### Phase 2 — Slice-by-slice feature migration (3–5 weeks, parallelizable)
 
@@ -341,24 +341,24 @@ Each slice: **(a)** create `src/features/<slice>/{api.ts,queries.ts,store.ts,hoo
 
 Order (dependency-aware):
 
-6. **Status/Job polling** (leaf, no deps) — `features/status` (`useJobPolling`, `StatusCard` already exists at `apps/web-react/src/features/status/status-card.tsx`). Replace `create-status-domain.ts` + `job-status` imperative wiring. Verify polling via Query `refetchInterval`.
+6. **Status/Job polling** (leaf, no deps) — `features/status` (`useJobPolling`, `StatusCard` already exists at `frontend/web-react/src/features/status/status-card.tsx`). Replace `create-status-domain.ts` + `job-status` imperative wiring. Verify polling via Query `refetchInterval`.
 7. **Library/Collections** — `features/library` + `features/collections`. Replace `create-library-domain.ts:78`. Migrate `RecentJobsLibrary` to `useSuspenseQuery(libraryQuery)`. Delete `recent-jobs/runtime.ts`, `store-renderer.ts`.
 8. **Workflow + Upload** — `features/workflow`. Replace `create-workflow-upload.ts`, `create-app-actions.ts`. Upload becomes `useMutation(submitJobRequest)` with `onSuccess: qc.invalidateQueries(libraryKeys.all)`.
 9. **Credentials + Settings + Glossaries + AppUpdate** — `features/credentials`, `features/glossaries`, `features/app-update`. Replace `create-credentials.ts`, `create-glossaries-app-update.ts`. Each dialog becomes controlled Radix Dialog (`open` via Zustand, not `dialog-store.ts`).
-10. **Reader** — `routes/reader.$jobId.tsx` wraps `@retainpdf/reader`. Delete `apps/web/src/pages/reader/entry.tsx` proxy, delete `create-runtime-features.ts` reader port.
+10. **Reader** — `routes/reader.$jobId.tsx` wraps `@retainpdf/reader`. Delete `frontend/web/src/pages/reader/entry.tsx` proxy, delete `create-runtime-features.ts` reader port.
 11. **Detail** — `routes/jobs.$jobId.tsx` port `DetailApp.tsx:57` (already React, but remove `useState` text maps in favor of `useSuspenseQuery(jobQuery)` + `ArtifactsSection` as Query). Delete `job-detail/*` imperative renderers after.
 
 ### Phase 3 — Shell cutover (1 week)
 
 12. Replace `HomeApp.tsx:51` `HomeShell` + `HomeServicesProvider` with `RootLayout` + `AppProviders`. Home tabs become `validateSearch` (`?tab=`) not `useState`. Remove `composition/*` directory (13 files) and `external/*.ts` barrel. Delete `js/app-framework/store.ts` after last `useStoreSnapshot` removed (provide codemod `createStore → create` Zustand).
-13. **Router cutover:** `apps/web-react/index.html` becomes canonical. Nginx `try_files $uri /index.html`. Keep `apps/web` MPA build for one release behind feature flag (`USE_SPA=1`) for rollback.
-14. Delete `apps/web/scripts/*`, `apps/web/src/pages/home/composition/*`, `apps/web/src/js/*` imperative leftovers. `packages/domain` is now sole owner of pure logic.
+13. **Router cutover:** `frontend/web-react/index.html` becomes canonical. Nginx `try_files $uri /index.html`. Keep `frontend/web` MPA build for one release behind feature flag (`USE_SPA=1`) for rollback.
+14. Delete `frontend/web/scripts/*`, `frontend/web/src/pages/home/composition/*`, `frontend/web/src/js/*` imperative leftovers. `frontend/packages/domain` is now sole owner of pure logic.
 
 ### Phase 4 — Polish & Deletion (ongoing)
 
-15. Vitest + Playwright for slices, Storybook for `packages/ui`.
-16. Generate API types from `packages/schemas/*.json` → `packages/api/src/generated/`.
-17. Remove `apps/web` entirely (or keep as `apps/web-legacy` for one quarter).
+15. Vitest + Playwright for slices, Storybook for `frontend/packages/ui`.
+16. Generate API types from `contracts/*.json` → `frontend/packages/api/src/generated/`.
+17. Remove `frontend/web` entirely (or keep as `frontend/web-legacy` for one quarter).
 
 **Risk mitigations:**
 
@@ -380,7 +380,7 @@ Order (dependency-aware):
 
 ## 5. Checklist
 
-- [ ] `packages/domain` extracted, tests green
+- [ ] `frontend/packages/domain` extracted, tests green
 - [ ] `vite.config.ts` unified (aliases, define, proxy)
 - [ ] TanStack Router routes (`/`, `/jobs/$jobId`, `/reader/$jobId`) live behind flag
 - [ ] `@retainpdf/api` owns all `src/js/api/*`
@@ -392,4 +392,4 @@ Order (dependency-aware):
 
 ---
 
-*Authored for `retain-pdf-monorepo` — references: `apps/web/src/pages/home/create-home-composition.ts:60`, `composition/build-home-services.ts:17`, `composition/types.ts:483`, `js/app-framework/store.ts:126`, `js/job/normalize.ts:29`, `pages/detail/DetailApp.tsx:57`, `pages/home/HomeApp.tsx:51`, `scripts/build-js-bundle.mjs:1`, `packages/api/src/jobs.ts:1`, `packages/reader/package.json:1`.*
+*Authored for `retain-pdf-monorepo` — references: `frontend/web/src/pages/home/create-home-composition.ts:60`, `composition/build-home-services.ts:17`, `composition/types.ts:483`, `js/app-framework/store.ts:126`, `js/job/normalize.ts:29`, `pages/detail/DetailApp.tsx:57`, `pages/home/HomeApp.tsx:51`, `scripts/build-js-bundle.mjs:1`, `frontend/packages/api/src/jobs.ts:1`, `frontend/packages/reader/package.json:1`.*

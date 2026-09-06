@@ -1,6 +1,6 @@
 """Benchmark OCR, translation, rendering, or the full local pipeline.
 
-Preview: .venv/bin/python services/benchmarks/run.py --stage translate
+Preview: .venv/bin/python tests/performance/pipeline/run.py --stage translate
 Execute: add --run (provider charges may apply).
 No keys are accepted on the command line or written to the benchmark report.
 """
@@ -23,7 +23,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from reporting import collect_metrics, collect_model_metrics, server_timing
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 def load_config(db: Path, job_id: str | None) -> tuple[str, dict]:

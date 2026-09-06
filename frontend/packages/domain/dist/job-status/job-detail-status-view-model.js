@@ -1,5 +1,5 @@
-// packages/domain/src/job-status/job-detail-status-view-model.ts — pure job-detail status view-models
-// Extracted verbatim from apps/web/src/js/job-detail/status-view-model.ts.
+// frontend/packages/domain/src/job-status/job-detail-status-view-model.ts — pure job-detail status view-models
+// Extracted verbatim from frontend/web/src/js/job-detail/status-view-model.ts.
 import { resolveDisplayedStagePresentation } from "./presentation/job-stage-presentation.js";
 import { normalizedStageEventRecord } from "./job-stage-event-record.js";
 import { adaptJobEventStageSnapshot } from "./job-stage-contract-adapter.js";

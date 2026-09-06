@@ -1,4 +1,4 @@
-// packages/api/src/fonts.ts — font discovery + upload (GET /api/v1/fonts)
+// frontend/packages/api/src/fonts.ts — font discovery + upload (GET /api/v1/fonts)
 import { API_PREFIX, buildApiHeaders, unwrapEnvelope } from "./internal/runtime.js";
 import { buildApiEndpoint } from "./http.js";
 export async function listFonts(apiPrefix = API_PREFIX) {

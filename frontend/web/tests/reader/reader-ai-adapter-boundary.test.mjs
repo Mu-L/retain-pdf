@@ -13,8 +13,8 @@ for (const key of ["window", "document", "localStorage", "location"]) {
   });
 }
 
-const { setReaderAdapters } = await import("../../../../packages/reader/src/adapters.ts");
-const { createReaderAskAnswerer } = await import("../../../../packages/reader/src/external.ts");
+const { setReaderAdapters } = await import("../../../../frontend/packages/reader/src/adapters.ts");
+const { createReaderAskAnswerer } = await import("../../../../frontend/packages/reader/src/external.ts");
 
 test("Reader ask factory consumes the host document and AI adapters", async () => {
   const documentCalls = [];

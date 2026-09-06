@@ -34,9 +34,9 @@ Paddle provider 当前在 provider-backed 流程里的原始结果文件是：
 
 来源代码：
 
-- `services/pipeline/retainpdf_pipeline/ocr/ocr_provider/provider_pipeline.py`
+- `backend/pipeline/retainpdf_pipeline/ocr/ocr_provider/provider_pipeline.py`
   `run_paddle_to_job_dir()` 会把 `download_jsonl_result()` 的聚合结果保存到 `job_dirs.ocr_dir / "result.json"`
-- `services/pipeline/retainpdf_pipeline/ocr/ocr_provider/paddle_api.py`
+- `backend/pipeline/retainpdf_pipeline/ocr/ocr_provider/paddle_api.py`
   `download_jsonl_result()` 把 JSONL 聚合为：
   - `layoutParsingResults`
   - `dataInfo`
@@ -70,9 +70,9 @@ Paddle raw 进入统一契约后的正式输出是：
 
 来源代码：
 
-- `services/pipeline/retainpdf_pipeline/ocr/ocr_provider/provider_pipeline.py`
+- `backend/pipeline/retainpdf_pipeline/ocr/ocr_provider/provider_pipeline.py`
   `_save_normalized_document_for_paddle()`
-- `services/pipeline/retainpdf_pipeline/ocr/document_schema/README.md`
+- `backend/pipeline/retainpdf_pipeline/ocr/document_schema/README.md`
 
 这一层是当前 OCR 到翻译/渲染主链路的稳定交接点。
 
@@ -105,7 +105,7 @@ Paddle raw 进入统一契约后的正式输出是：
 
 Rust 侧解析 Markdown 的位置：
 
-- `services/api/crates/retain-core/src/storage_paths.rs`
+- `backend/packages/retain-core/src/storage_paths.rs`
   - `resolve_markdown_path()`
   - `resolve_markdown_images_dir()`
 
@@ -174,8 +174,8 @@ job artifact 的职责是把作业目录里的文件和虚拟产物，统一映�
 
 关键代码：
 
-- `services/api/crates/retain-core/src/storage_paths.rs`
-- `services/api/src/services/artifacts/mod.rs`
+- `backend/packages/retain-core/src/storage_paths.rs`
+- `backend/api/src/services/artifacts/mod.rs`
 
 这里最关键的不是“文件放哪”，而是“对外暴露成什么 artifact key”。
 
@@ -194,7 +194,7 @@ job artifact 的职责是把作业目录里的文件和虚拟产物，统一映�
 
 ### 这里的边界规则
 
-`services/api/src/services/artifacts/` 只负责：
+`backend/api/src/services/artifacts/` 只负责：
 
 - 从 registry 或 fallback 中找到 artifact
 - 为 artifact 生成稳定资源路径
@@ -221,8 +221,8 @@ artifact 层不应该反向变成 provider 语义层。
 
 关键代码：
 
-- `services/api/src/services/jobs/facade/query/downloads.rs`
-- `services/api/src/services/artifacts/mod.rs`
+- `backend/api/src/services/jobs/facade/query/downloads.rs`
+- `backend/api/src/services/artifacts/mod.rs`
 
 ### 稳定资源接口
 

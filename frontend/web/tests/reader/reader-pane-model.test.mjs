@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { computeReaderPaneFlags } from "../../../../packages/reader/src/hooks/use-reader-pane-model.ts";
+import { computeReaderPaneFlags } from "../../../../frontend/packages/reader/src/hooks/use-reader-pane-model.ts";
 
 const bothAssets = {
   assetsReady: true,

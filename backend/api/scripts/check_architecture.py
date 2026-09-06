@@ -13,24 +13,25 @@ SRC_ROOT = REPO_ROOT / "src"
 # 本脚本沿用旧 "src/<module>/..." 字面量作为逻辑路径：abs_src() 负责映射到
 # 新家，rel() 负责逆映射回逻辑路径——检查逻辑与 allowlist 全部不用改。
 _CRATE_OF_MODULE = {
-    "job_runner": "crates/retain-jobs",
-    "db": "crates/retain-data",
-    "job_events": "crates/retain-data",
-    "worker_command": "crates/retain-data",
-    "ocr_provider": "crates/retain-data",
-    "models": "crates/retain-core",
-    "storage_paths": "crates/retain-core",
-    "config": "crates/retain-core",
-    "job_failure": "crates/retain-core",
-    "job_failure_structured": "crates/retain-core",
-    "job_failure_support": "crates/retain-core",
+    "job_runner": "../packages/retain-jobs",
+    "db": "../../database/retain-db",
+    "job_events": "../packages/retain-data",
+    "worker_command": "../packages/retain-data",
+    "ocr_provider": "../packages/retain-data",
+    "models": "../packages/retain-core",
+    "storage_paths": "../packages/retain-core",
+    "config": "../packages/retain-core",
+    "job_failure": "../packages/retain-core",
+    "job_failure_structured": "../packages/retain-core",
+    "job_failure_support": "../packages/retain-core",
 }
 
 ALL_SRC_ROOTS = (
     SRC_ROOT,
-    REPO_ROOT / "crates" / "retain-core" / "src",
-    REPO_ROOT / "crates" / "retain-data" / "src",
-    REPO_ROOT / "crates" / "retain-jobs" / "src",
+    REPO_ROOT.parent.parent / "database" / "retain-db" / "src",
+    REPO_ROOT.parent / "packages" / "retain-core" / "src",
+    REPO_ROOT.parent / "packages" / "retain-data" / "src",
+    REPO_ROOT.parent / "packages" / "retain-jobs" / "src",
 )
 
 
@@ -243,6 +244,9 @@ STAGE_VIEW_CONSUMER_ROOTS = (
 WORKER_COMMAND_FACADE = abs_src(Path("src/worker_command.rs"))
 
 def rel(path: Path) -> Path:
+    for root in ALL_SRC_ROOTS[1:]:
+        if path.resolve().is_relative_to(root.resolve()):
+            return Path("src") / path.resolve().relative_to(root.resolve())
     relative = path.relative_to(REPO_ROOT)
     parts = relative.parts
     if len(parts) > 2 and parts[0] == "crates":

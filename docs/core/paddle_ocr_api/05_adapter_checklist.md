@@ -22,17 +22,17 @@
 允许修改：
 
 - `docs/core/paddle_ocr_api/*`
-- `services/pipeline/retainpdf_pipeline/ocr/document_schema/provider_adapters/paddle/*`
-- `services/pipeline/retainpdf_pipeline/ocr/document_schema/adapters.py`
-- `services/pipeline/retainpdf_pipeline/ocr/document_schema/providers.py`
-- `services/pipeline/devtools/tests/document_schema/fixtures/*`
-- `services/pipeline/devtools/tests/document_schema/regression_check.py`
+- `backend/pipeline/retainpdf_pipeline/ocr/document_schema/provider_adapters/paddle/*`
+- `backend/pipeline/retainpdf_pipeline/ocr/document_schema/adapters.py`
+- `backend/pipeline/retainpdf_pipeline/ocr/document_schema/providers.py`
+- `backend/pipeline/devtools/tests/document_schema/fixtures/*`
+- `backend/pipeline/devtools/tests/document_schema/regression_check.py`
 
 不要修改：
 
-- `services/pipeline/retainpdf_pipeline/translate/*`
-- `services/pipeline/retainpdf_pipeline/render/*`
-- `services/pipeline/retainpdf_pipeline/runtime/pipeline/*`
+- `backend/pipeline/retainpdf_pipeline/translate/*`
+- `backend/pipeline/retainpdf_pipeline/render/*`
+- `backend/pipeline/retainpdf_pipeline/runtime/pipeline/*`
 
 例外：
 
@@ -56,10 +56,10 @@
 工具，但它引用了已移除的 translation 私有 helper，修复前不作为验收门禁。
 
 ```bash
-PYTHONPATH=services/pipeline uv run --project services \
-  python -m pytest services/pipeline/devtools/tests/document_schema -q
-PYTHONPATH=services/pipeline uv run --project services \
-  python -m pytest services/pipeline/devtools/tests/translation -q
+PYTHONPATH=backend/pipeline uv run --project backend \
+  python -m pytest backend/pipeline/devtools/tests/document_schema -q
+PYTHONPATH=backend/pipeline uv run --project backend \
+  python -m pytest backend/pipeline/devtools/tests/translation -q
 ```
 
 ## 必查项

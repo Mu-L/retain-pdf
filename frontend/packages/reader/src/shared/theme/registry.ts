@@ -1,7 +1,7 @@
 // 主题注册表：后期加皮肤 = 追加一项 + 对应 CSS 文件。
 // 组件只读 listThemes() / setTheme()，不要 hardcode 皮肤 id 列表。
 // 设计：docs/core/frontend/theme-system/THEME_SYSTEM.md · ADDING_A_THEME.md
-// 从 apps/web/src/shared/theme/registry.ts 复制，保证 @retainpdf/reader 自包含
+// 从 frontend/web/src/shared/theme/registry.ts 复制，保证 @retainpdf/reader 自包含
 
 export const THEME_STORAGE_KEY = "retainpdf.theme";
 export const DEFAULT_THEME_ID = "classic";

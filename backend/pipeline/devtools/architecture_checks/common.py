@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
-SCRIPTS_ROOT = REPO_ROOT / "services" / "pipeline"
+SCRIPTS_ROOT = REPO_ROOT / "backend" / "pipeline"
 PACKAGE_ROOT = SCRIPTS_ROOT / "retainpdf_pipeline"
 
 

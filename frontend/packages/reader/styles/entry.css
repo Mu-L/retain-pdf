@@ -1,11 +1,11 @@
 /* 阅读器 CSS 入口（真值）。
- * apps/web 的代理构建为 dist/css/reader.css；包构建为 dist/styles.css。
+ * frontend/web 的代理构建为 dist/css/reader.css；包构建为 dist/styles.css。
  * 当前运行时只使用 react-pdf ReaderApp。
  *
  * 边界：禁止 import library-* / status-* / book-detail / credential-* 等主页域。
  * 共享仅限 tokens / base / dialog-shell / download-toast。
  *
- * 本文件由 apps/web/src/styles/entries/reader.css 代理导入。
+ * 本文件由 frontend/web/src/styles/entries/reader.css 代理导入。
  */
 @import "./core/tailwind-theme.css";
 

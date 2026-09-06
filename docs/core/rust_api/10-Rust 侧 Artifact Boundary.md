@@ -112,9 +112,9 @@ Rust 侧不应把 provider raw 和 normalized 混成一个概念。
 
 Rust 侧与这四层最直接相关的文件是：
 
-- `services/api/crates/retain-core/src/storage_paths.rs`
-- `services/api/src/services/artifacts/mod.rs`
-- `services/api/src/routes/jobs/download.rs`
+- `backend/packages/retain-core/src/storage_paths.rs`
+- `backend/api/src/services/artifacts/mod.rs`
+- `backend/api/src/routes/jobs/download.rs`
 
 这三处的边界约定是：
 

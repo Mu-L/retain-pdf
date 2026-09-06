@@ -12,7 +12,7 @@ import tempfile
 SERVICES = Path(__file__).resolve().parents[2]
 SUITES = {
     "translation": SERVICES / "pipeline/devtools/tests/translation",
-    "benchmarks": SERVICES / "benchmarks/tests",
+    "benchmarks": SERVICES.parent / "tests/performance/pipeline/tests",
 }
 RUNNER_TEST = Path(__file__).resolve().parent / "tests/entrypoints/test_translation_test_runner.py"
 ARCHITECTURE_TESTS = tuple(Path(__file__).resolve().parent / "tests" / name for name in (

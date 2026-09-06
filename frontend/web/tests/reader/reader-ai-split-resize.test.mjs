@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { normalizeReaderAiSplitLayout } from "../../../../packages/reader/src/components/react-pdf/ReaderAiSplitResizeHandle.tsx";
+import { normalizeReaderAiSplitLayout } from "../../../../frontend/packages/reader/src/components/react-pdf/ReaderAiSplitResizeHandle.tsx";
 
 test("AI split layout defaults to 50:50 and clamps both panes", () => {
   assert.deepEqual(normalizeReaderAiSplitLayout(null), {
@@ -20,11 +20,11 @@ test("AI split layout defaults to 50:50 and clamps both panes", () => {
 
 test("assistant dock uses the library-owned resizable split", async () => {
   const [component, app, css, dockCss, manifest] = await Promise.all([
-    readFile(new URL("../../../../packages/reader/src/components/react-pdf/ReaderAiSplitResizeHandle.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../../../../packages/reader/src/ReaderAppReactPdf.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../../../../packages/reader/styles/react-pdf.css", import.meta.url), "utf8"),
-    readFile(new URL("../../../../packages/reader/styles/assistant-dock.css", import.meta.url), "utf8"),
-    readFile(new URL("../../../../packages/reader/package.json", import.meta.url), "utf8"),
+    readFile(new URL("../../../../frontend/packages/reader/src/components/react-pdf/ReaderAiSplitResizeHandle.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../../frontend/packages/reader/src/ReaderAppReactPdf.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../../frontend/packages/reader/styles/react-pdf.css", import.meta.url), "utf8"),
+    readFile(new URL("../../../../frontend/packages/reader/styles/assistant-dock.css", import.meta.url), "utf8"),
+    readFile(new URL("../../../../frontend/packages/reader/package.json", import.meta.url), "utf8"),
   ]);
 
   assert.match(component, /from "react-resizable-panels"/);

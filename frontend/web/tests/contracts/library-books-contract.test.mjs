@@ -4,12 +4,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // 消费者契约测试: library / jobs 视图的 Rust 真值 ↔ TS 消费必须一致。
-// 真值: packages/schemas/library-books.v1.schema.json 与 job-status.v1.schema.json
-// 生产侧: services/api/crates/retain-core/src/models/view/job_types.rs
-// 消费侧: packages/schemas 生成 DTO + apps/web src/js/api/library-books.ts
+// 真值: contracts/library-books.v1.schema.json 与 job-status.v1.schema.json
+// 生产侧: backend/packages/retain-core/src/models/view/job_types.rs
+// 消费侧: contracts 生成 DTO + frontend/web src/js/api/library-books.ts
 // 改契约先改 schema，再让两端测试变绿——与 ai-ask / ai-conversations 同门禁。
 
-const CONTRACT_PATH = join(process.cwd(), "..", "..", "packages", "schemas", "library-books.v1.schema.json");
+const CONTRACT_PATH = join(process.cwd(), "..", "..", "contracts", "library-books.v1.schema.json");
 const contract = JSON.parse(readFileSync(CONTRACT_PATH, "utf8"));
 
 function schemaProps(definition) {
@@ -35,7 +35,7 @@ function tsTypeFields(source, typeName) {
 
 const generatedContractsSource = readFileSync(join(
   process.cwd(),
-  "../../packages/schemas/src/library-books.ts",
+  "../../contracts/src/library-books.ts",
 ), "utf8");
 
 test("LibraryBookListItemView: TS 字段 ⊆ 契约，且关键字段齐全", () => {

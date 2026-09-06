@@ -57,7 +57,7 @@ jobs:
       # 通过 uv 启动 cargo，确保 Rust 集成测试派生的 python3 继承已安装
       # PyMuPDF 等依赖的 Python 虚拟环境，而不是误用 runner 的系统 Python。
       - name: Cargo Workspace Tests
-        run: uv run --project "$RETAIN_PDF_SERVICES_ROOT" cargo test --locked --workspace --manifest-path "$RETAIN_PDF_SERVICES_ROOT/api/Cargo.toml"
+        run: uv run --project "$RETAIN_PDF_SERVICES_ROOT" cargo test --locked --workspace --manifest-path "$RETAIN_PDF_SOURCE_ROOT/Cargo.toml"
 
   packages:
     runs-on: ubuntu-latest
@@ -79,30 +79,30 @@ jobs:
       - name: Desktop main-process checks
         run: |
           npm run test:desktop
-          npm --prefix apps/desktop run verify:packaging-deps
+          npm --prefix frontend/desktop run verify:packaging-deps
 
       - name: Test and build @retainpdf/contracts
         run: |
-          npm --prefix packages/schemas test
-          npm --prefix packages/schemas run typecheck
-          npm --prefix packages/schemas run build
+          npm --prefix contracts test
+          npm --prefix contracts run typecheck
+          npm --prefix contracts run build
 
       - name: Typecheck and build @retainpdf/domain
         run: |
-          npm --prefix packages/domain run typecheck
-          npm --prefix packages/domain run build
+          npm --prefix frontend/packages/domain run typecheck
+          npm --prefix frontend/packages/domain run build
 
       - name: Build @retainpdf/ui
-        run: npm --prefix packages/ui run build
+        run: npm --prefix frontend/packages/ui run build
 
       - name: Build @retainpdf/api
-        run: npm --prefix packages/api run build
+        run: npm --prefix frontend/packages/api run build
 
       - name: Typecheck @retainpdf/reader
-        run: npm --prefix packages/reader run typecheck
+        run: npm --prefix frontend/packages/reader run typecheck
 
       - name: Build @retainpdf/reader
-        run: npm --prefix packages/reader run build
+        run: npm --prefix frontend/packages/reader run build
 
   frontend:
     runs-on: ubuntu-latest
@@ -124,14 +124,14 @@ jobs:
 
       - name: Build frontend package dependencies
         run: |
-          npm --prefix packages/schemas run build
-          npm --prefix packages/domain run build
-          npm --prefix packages/ui run build
-          npm --prefix packages/api run build
-          npm --prefix packages/reader run build
+          npm --prefix contracts run build
+          npm --prefix frontend/packages/domain run build
+          npm --prefix frontend/packages/ui run build
+          npm --prefix frontend/packages/api run build
+          npm --prefix frontend/packages/reader run build
 
       - name: Frontend Tests
-        working-directory: apps/web
+        working-directory: frontend/web
         run: npm test
 
   python-services:
@@ -212,15 +212,15 @@ jobs:
         run: |
           python3 "$RETAIN_PDF_SERVICES_ROOT/contracts/check_parity.py"
           for backend_schema in "$RETAIN_PDF_SERVICES_ROOT"/contracts/*.schema.json; do
-            product_schema="$GITHUB_WORKSPACE/packages/schemas/$(basename "$backend_schema")"
+            product_schema="$GITHUB_WORKSPACE/contracts/$(basename "$backend_schema")"
             diff -- "$backend_schema" "$product_schema"
           done
 
       - name: Verify isolated backend workspace
-        run: python3 "$RETAIN_PDF_SERVICES_ROOT/scripts/check_standalone.py" --compile-rust
+        run: python3 "$RETAIN_PDF_SOURCE_ROOT/ops/release/check_standalone.py" --compile-rust
 
       - name: Build backend source archive
-        run: python3 "$RETAIN_PDF_SERVICES_ROOT/scripts/build_source_archive.py"
+        run: python3 "$RETAIN_PDF_SOURCE_ROOT/ops/release/build_source_archive.py"
 
       - name: Upload backend source archive
         uses: actions/upload-artifact@v7

@@ -9,10 +9,10 @@ const {
   ReaderAgentOperationPanel,
   readerAgentOperationDismissalKey,
 } = await import(
-  "../../../../packages/reader/src/components/react-pdf/assistant/ReaderAgentOperationPanel.tsx"
+  "../../../../frontend/packages/reader/src/components/react-pdf/assistant/ReaderAgentOperationPanel.tsx"
 );
 const { shouldReplaceAgentOperation } = await import(
-  "../../../../packages/reader/src/components/react-pdf/assistant/use-reader-agent-operations.ts"
+  "../../../../frontend/packages/reader/src/components/react-pdf/assistant/use-reader-agent-operations.ts"
 );
 
 function operation(status, overrides = {}) {

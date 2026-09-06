@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { canReturnToReaderReferrer } from "../../../../packages/reader/src/components/react-pdf/ReaderCloseHome.tsx";
+import { canReturnToReaderReferrer } from "../../../../frontend/packages/reader/src/components/react-pdf/ReaderCloseHome.tsx";
 
 test("Reader close only walks history back to a real same-origin home route", () => {
   const current = "http://127.0.0.1:40001/reader.html?job_id=job-1";

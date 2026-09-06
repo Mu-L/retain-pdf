@@ -11,8 +11,8 @@ from urllib.parse import urlparse
 
 import requests
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "services/pipeline"))
+ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "backend/pipeline"))
 from retainpdf_pipeline.translate.llm.shared.prompt_building import build_single_item_fallback_messages
 from run import load_config
 

@@ -8,6 +8,10 @@ python
 node_modules
 front_docker/node_modules
 services
+**/node_modules
+**/target
+**/.venv
+var
 data
 tmp
 **/.env

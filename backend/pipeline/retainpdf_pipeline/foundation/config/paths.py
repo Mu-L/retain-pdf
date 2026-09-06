@@ -13,7 +13,7 @@ def _project_root() -> Path:
 
     file_path = Path(__file__).resolve()
     for parent in file_path.parents:
-        if (parent / "services" / "pipeline").is_dir() and (parent / "packages").is_dir():
+        if (parent / "backend" / "pipeline").is_dir() and (parent / "contracts").is_dir():
             return parent
         if (parent / ".git").exists():
             return parent
@@ -23,7 +23,7 @@ def _project_root() -> Path:
 
 
 ROOT_DIR = _project_root()
-BACKEND_ROOT = ROOT_DIR / "services"
+BACKEND_ROOT = ROOT_DIR / "backend"
 DATA_DIR = ROOT_DIR / "en2zh" / "Data"
 
 

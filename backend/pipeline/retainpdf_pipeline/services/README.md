@@ -40,8 +40,8 @@
 2. 再读 `../ocr/document_schema/README.md`
 3. 准备最小 raw fixture
 4. 写 provider API 接入层和 adapter
-5. 把 fixture 加到 `services/pipeline/devtools/tests/document_schema/fixtures/registry.py`
-6. 跑 `services/pipeline/devtools/tests/document_schema/regression_check.py`
+5. 把 fixture 加到 `backend/pipeline/devtools/tests/document_schema/fixtures/registry.py`
+6. 跑 `backend/pipeline/devtools/tests/document_schema/regression_check.py`
 
 只有这条链跑通后，provider 才应该进入 translation/rendering 主线。
 

@@ -1,5 +1,5 @@
 // Library books API — standalone, typed by @retainpdf/contracts/library-books
-// No apps/web deps; browser-aware (reads window.__FRONT_RUNTIME_CONFIG__ for apiBase / X-API-Key if present).
+// No frontend/web deps; browser-aware (reads window.__FRONT_RUNTIME_CONFIG__ for apiBase / X-API-Key if present).
 
 import { buildApiHeaders, buildApiUrl, unwrapEnvelope } from "./internal/runtime.js";
 import { stripOcrSuffix } from "./utils/strip-ocr.js";

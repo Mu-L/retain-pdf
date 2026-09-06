@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 SERVICES_ROOT="$(python3 "${ROOT_DIR}/.github/scripts/resolve_backend_source.py" \
   --repo-root "${ROOT_DIR}" --print-path)"
 VERSION_TAG="${1:-}"
@@ -44,14 +44,14 @@ WEB_LATEST_IMAGE="${WEB_REPO}:latest"
 docker build \
   "${build_arg_flags[@]}" \
   --build-arg "TYPST_VERSION=${TYPST_VERSION}" \
-  -f "${SERVICES_ROOT}/docker/Dockerfile.app" \
+  -f "${SERVICES_ROOT}/../ops/deployment/docker/backend/Dockerfile.app" \
   -t "${APP_VERSION_IMAGE}" \
-  "${SERVICES_ROOT}"
+  "${SERVICES_ROOT}/.."
 
 docker build \
   "${build_arg_flags[@]}" \
   --build-arg "RETAIN_PDF_VERSION=${VERSION_TAG#v}" \
-  -f "${ROOT_DIR}/infra/docker/Dockerfile.web" \
+  -f "${ROOT_DIR}/ops/deployment/docker/Dockerfile.web" \
   -t "${WEB_VERSION_IMAGE}" \
   "${ROOT_DIR}"
 

@@ -60,9 +60,9 @@ const PAGES = [
     prefix: "reader",
     htmlFile: "reader.html",
     jsxDir: "src/pages/reader",
-    // src/js/reader 已空（逻辑迁至 packages/reader），回退到旧契约与新包以仍校验 reader-* 字面量归属
-    extraJsDirs: ["src/js/features/reader-dialog", "src/js/components/dialogs", "packages/reader/src"],
-    extraJsxDirs: ["packages/reader/src"],
+    // src/js/reader 已空（逻辑迁至 frontend/packages/reader），回退到旧契约与新包以仍校验 reader-* 字面量归属
+    extraJsDirs: ["src/js/features/reader-dialog", "src/js/components/dialogs", "frontend/packages/reader/src"],
+    extraJsxDirs: ["frontend/packages/reader/src"],
   },
   {
     jsDir: "src/js/features/home",

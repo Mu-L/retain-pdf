@@ -1,10 +1,10 @@
 # Backend container
 
-This directory belongs to the standalone `services` workspace. Build it from
-the workspace root so Docker cannot accidentally read monorepo-only files:
+Build from the repository root or the extracted backend source archive root.
+Both preserve the aggregate Cargo, backend, database and resource layout:
 
 ```bash
-docker build -f docker/Dockerfile.app -t retainpdf-app:local .
+docker build -f ops/deployment/docker/backend/Dockerfile.app -t retainpdf-app:local .
 ```
 
 Run a local smoke instance:

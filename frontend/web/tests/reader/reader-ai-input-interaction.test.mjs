@@ -20,7 +20,7 @@ test("AI 会话隔离不再吞掉 composer 的点击与输入焦点", async () =
     armReaderAiClickShield,
     clearReaderAiNavigationLock,
   } = await import(
-    `../../../../packages/reader/src/shared/ai/ui-interaction-lock.ts?input-test=${Date.now()}`
+    `../../../../frontend/packages/reader/src/shared/ai/ui-interaction-lock.ts?input-test=${Date.now()}`
   );
   const input = document.querySelector("textarea");
   const pageAction = document.getElementById("page-action");
@@ -58,16 +58,16 @@ test("AI 会话隔离不再吞掉 composer 的点击与输入焦点", async () =
 
 test("Markdown-only AI composer 不受翻译状态影响并保持可输入", async () => {
   const [appSource, threadSource, surfaceSource, primitivesSource, readingViewSource, operationsViewSource, panelSource, floatCss, notesCss, assistantCss] = await Promise.all([
-    readFile(new URL("../../../../packages/reader/src/ReaderAppReactPdf.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../../../../packages/reader/src/components/react-pdf/assistant/ReaderAssistantThread.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../../../../packages/reader/src/components/react-pdf/assistant/ReaderAssistantSurface.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../../../../packages/reader/src/components/react-pdf/assistant/reader-assistant-primitives.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../../../../packages/reader/src/components/react-pdf/assistant/ReaderReadingView.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../../../../packages/reader/src/components/react-pdf/assistant/ReaderOperationsView.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../../../../packages/reader/src/components/react-pdf/ReaderAiPanel.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../../../../packages/reader/styles/float-ai.css", import.meta.url), "utf8"),
-    readFile(new URL("../../../../packages/reader/styles/notes-float.css", import.meta.url), "utf8"),
-    readFile(new URL("../../../../packages/reader/styles/assistant-dock.css", import.meta.url), "utf8"),
+    readFile(new URL("../../../../frontend/packages/reader/src/ReaderAppReactPdf.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../../frontend/packages/reader/src/components/react-pdf/assistant/ReaderAssistantThread.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../../frontend/packages/reader/src/components/react-pdf/assistant/ReaderAssistantSurface.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../../frontend/packages/reader/src/components/react-pdf/assistant/reader-assistant-primitives.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../../frontend/packages/reader/src/components/react-pdf/assistant/ReaderReadingView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../../frontend/packages/reader/src/components/react-pdf/assistant/ReaderOperationsView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../../frontend/packages/reader/src/components/react-pdf/ReaderAiPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../../frontend/packages/reader/styles/float-ai.css", import.meta.url), "utf8"),
+    readFile(new URL("../../../../frontend/packages/reader/styles/notes-float.css", import.meta.url), "utf8"),
+    readFile(new URL("../../../../frontend/packages/reader/styles/assistant-dock.css", import.meta.url), "utf8"),
   ]);
 
   assert.match(primitivesSource, /data-reader-ai-composer/);
@@ -146,9 +146,9 @@ test("assistant-ui Composer can type and submit in an OCR-only Reader", async ()
 
   const React = await import("react");
   const { createRoot } = await import("react-dom/client");
-  const { setReaderAdapters } = await import("../../../../packages/reader/src/adapters.ts");
+  const { setReaderAdapters } = await import("../../../../frontend/packages/reader/src/adapters.ts");
   const { ReaderAssistantThread } = await import(
-    "../../../../packages/reader/src/components/react-pdf/assistant/ReaderAssistantThread.tsx"
+    "../../../../frontend/packages/reader/src/components/react-pdf/assistant/ReaderAssistantThread.tsx"
   );
   setReaderAdapters({
     credentialsPort: { getCredentials: () => ({ modelApiKey: "test" }) },

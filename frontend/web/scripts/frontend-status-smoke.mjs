@@ -25,16 +25,16 @@ const DEFAULT_EXPECTED_LABELS = [
 
 function printUsage() {
   console.log(`Usage:
-  node apps/web/scripts/frontend-status-smoke.mjs --file <pdf-path> [options]
+  node frontend/web/scripts/frontend-status-smoke.mjs --file <pdf-path> [options]
 
 Options:
   --file <path>              PDF file path to upload
   --api-base <url>           Rust API base, default from frontend config or ${DEFAULT_API_BASE}
-  --x-api-key <key>          X-API-Key header, default from apps/web/runtime-config.local.js
+  --x-api-key <key>          X-API-Key header, default from frontend/web/runtime-config.local.js
   --workflow <name>          book | translate | ocr, default book
   --ocr-provider <name>      paddle | mineru | local, default paddle
-  --ocr-token <token>        OCR provider token, default from env or services/pipeline/.env
-  --model-api-key <key>      Translation API key, default from env or services/pipeline/.env/deepseek.env
+  --ocr-token <token>        OCR provider token, default from env or backend/pipeline/.env
+  --model-api-key <key>      Translation API key, default from env or backend/pipeline/.env/deepseek.env
   --model <name>             Default deepseek-v4-flash
   --base-url <url>           Default https://api.deepseek.com/v1
   --page-ranges <ranges>     Optional page ranges, e.g. 1-3
@@ -150,11 +150,11 @@ function envFileCandidatesForKey(key) {
     case "xApiKey":
       return [];
     case "paddleToken":
-      return [path.join(REPO_ROOT, "services/pipeline/.env/paddle.env")];
+      return [path.join(REPO_ROOT, "backend/pipeline/.env/paddle.env")];
     case "mineruToken":
-      return [path.join(REPO_ROOT, "services/pipeline/.env/mineru.env")];
+      return [path.join(REPO_ROOT, "backend/pipeline/.env/mineru.env")];
     case "deepseekApiKey":
-      return [path.join(REPO_ROOT, "services/pipeline/.env/deepseek.env")];
+      return [path.join(REPO_ROOT, "backend/pipeline/.env/deepseek.env")];
     default:
       return [];
   }
@@ -187,7 +187,7 @@ async function resolveFrontendRuntimeConfig() {
 }
 
 async function resolveBackendLocalApiKey() {
-  const authText = await readTextIfExists(path.join(REPO_ROOT, "services/api/auth.local.json"));
+  const authText = await readTextIfExists(path.join(REPO_ROOT, "backend/api/auth.local.json"));
   if (!authText) {
     return "";
   }

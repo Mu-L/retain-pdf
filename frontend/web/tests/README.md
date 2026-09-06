@@ -1,4 +1,4 @@
-# `apps/web` 测试指南
+# `frontend/web` 测试指南
 
 这里的测试使用 Node.js 内置的 `node:test`。默认测试命令会先加载
 `helpers/register-jsx.mjs`，因此测试可以直接导入 TypeScript、TSX 和 JSX；显式的
@@ -27,28 +27,28 @@
 从仓库根目录运行全量测试：
 
 ```sh
-npm --prefix apps/web test
+npm --prefix frontend/web test
 ```
 
 运行单个文件或一个目录：
 
 ```sh
-npm --prefix apps/web test -- tests/reader/markdown-math.test.mjs
-npm --prefix apps/web test -- 'tests/contracts/*.test.mjs'
+npm --prefix frontend/web test -- tests/reader/markdown-math.test.mjs
+npm --prefix frontend/web test -- 'tests/contracts/*.test.mjs'
 ```
 
 修改 TypeScript、TSX 或包边界后，同时运行：
 
 ```sh
-npm --prefix apps/web run typecheck
-npm --prefix apps/web test -- 'tests/architecture/*.test.mjs'
+npm --prefix frontend/web run typecheck
+npm --prefix frontend/web test -- 'tests/architecture/*.test.mjs'
 ```
 
 视觉回归检查与基线更新是独立流程：
 
 ```sh
-npm --prefix apps/web run visual:check
-npm --prefix apps/web run visual:update   # 仅在确认视觉变化符合预期后执行
+npm --prefix frontend/web run visual:check
+npm --prefix frontend/web run visual:update   # 仅在确认视觉变化符合预期后执行
 ```
 
 不要绕过 package script 直接运行普通 `node --test`，否则 TS/TSX、`@/` 和
@@ -67,14 +67,14 @@ npm --prefix apps/web run visual:update   # 仅在确认视觉变化符合预期
 
 ## Import 边界
 
-- Web 源码可用 `@/…`；测试加载器会把它解析到 `apps/web/src/`。
+- Web 源码可用 `@/…`；测试加载器会把它解析到 `frontend/web/src/`。
 - Job 与 Job Status 只能从 `@retainpdf/domain/job` 和
   `@retainpdf/domain/job-status` 的公开入口导入。禁止深层包导入、相对导入
-  `packages/domain/src/{job,job-status}`，也禁止重新依赖已移除的
-  `apps/web/src/js/{job,job-status}` 镜像。
+  `frontend/packages/domain/src/{job,job-status}`，也禁止重新依赖已移除的
+  `frontend/web/src/js/{job,job-status}` 镜像。
 - 需要验证公开行为时，从包的 `exports` 入口导入，例如 `@retainpdf/reader`。
   Reader 内部实现的白盒单元测试可以留在 `reader/` 中直接指向
-  `packages/reader/src`；这不允许生产代码越过 Reader 的公开边界。
+  `frontend/packages/reader/src`；这不允许生产代码越过 Reader 的公开边界。
 - 读取 Domain 源文件文字属于少数契约白盒例外。新增例外必须在
   `architecture/test-layout.test.mjs` 的 `sourceWhiteboxAllowlist` 中显式登记并说明
   原因，不能靠换一种路径写法绕过门禁。
@@ -88,5 +88,5 @@ npm --prefix apps/web run visual:update   # 仅在确认视觉变化符合预期
 - [ ] 测试没有依赖执行顺序，并清理了自身创建的全局状态和资源。
 - [ ] 单个测试文件通过。
 - [ ] `tests/architecture` 通过；涉及类型时 `typecheck` 通过。
-- [ ] 提交前全量 `npm --prefix apps/web test` 通过。
+- [ ] 提交前全量 `npm --prefix frontend/web test` 通过。
 - [ ] 涉及可见 UI 变化时运行 `visual:check`，只有确认变化后才更新基线。

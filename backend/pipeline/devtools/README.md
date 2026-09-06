@@ -7,9 +7,9 @@
 From the repository root (uses the selected Python environment):
 
 ```bash
-.venv/bin/python services/pipeline/devtools/run_translation_tests.py
-.venv/bin/python services/pipeline/devtools/run_translation_tests.py --reverse
-.venv/bin/python services/pipeline/devtools/run_translation_tests.py --suite benchmarks
+.venv/bin/python backend/pipeline/devtools/run_translation_tests.py
+.venv/bin/python backend/pipeline/devtools/run_translation_tests.py --reverse
+.venv/bin/python backend/pipeline/devtools/run_translation_tests.py --suite benchmarks
 ```
 
 The default includes the runner's own regression tests and all translation and benchmark tests, including concurrency,
@@ -39,7 +39,7 @@ Never refresh golden expectations automatically to make a refactor pass.
 
 ### Public translation IO contracts
 
-`services/benchmarks/tests/test_translation_io_{success,failure,recovery}.py`
+`tests/performance/pipeline/tests/test_translation_io_{success,failure,recovery}.py`
 exercise `translate_book_pipeline` against a two-page synthetic normalized document.
 Only model transports are replaced; final files are read by the real rendering
 consumer. The harness rejects unknown model protocols and never uses real provider
@@ -167,7 +167,7 @@ normal retry chain takes over 30 seconds.
 Run the repository code counter from the project root:
 
 ```bash
-python services/pipeline/devtools/count_code.py
+python backend/pipeline/devtools/count_code.py
 ```
 
 Useful options:

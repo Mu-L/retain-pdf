@@ -14,17 +14,19 @@ import tempfile
 import tomllib
 
 
-SERVICES_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SERVICES_ROOT = REPO_ROOT / "backend"
+ARCHIVE_PATHS = (
+    "Cargo.toml", "Cargo.lock", ".dockerignore", "backend", "database", "resources/fonts",
+    "contracts", "ops/deployment", "ops/release", "tests/fixtures",
+)
 REQUIRED_FILES = (
-    "pyproject.toml",
-    "uv.lock",
-    "api/Cargo.toml",
-    "api/Cargo.lock",
-    "ai/pyproject.toml",
-    "pipeline/pyproject.toml",
-    "config/ocr_providers.json",
-    "docker/Dockerfile.app",
-    "fonts/LICENSE-OFL-1.1.txt",
+    "Cargo.toml", "Cargo.lock", ".dockerignore",
+    "backend/pyproject.toml", "backend/uv.lock",
+    "backend/api/Cargo.toml", "backend/ai/pyproject.toml",
+    "backend/pipeline/pyproject.toml", "backend/config/ocr_providers.json",
+    "ops/deployment/docker/backend/Dockerfile.app",
+    "resources/fonts/LICENSE-OFL-1.1.txt",
 )
 
 
@@ -40,14 +42,9 @@ def _git(*args: str, cwd: Path = SERVICES_ROOT) -> str:
 
 def _source() -> tuple[Path, str, str]:
     git_root = Path(_git("rev-parse", "--show-toplevel")).resolve()
-    relative = SERVICES_ROOT.relative_to(git_root)
-    if relative == Path("."):
-        return git_root, "HEAD", "."
-    if relative == Path("services"):
-        return git_root, "HEAD:services", "services"
-    raise RuntimeError(
-        "backend workspace must be either the Git root or its services directory"
-    )
+    if REPO_ROOT != git_root:
+        raise RuntimeError("release tools must be inside the repository root")
+    return git_root, "HEAD", "."
 
 
 def _version() -> str:
@@ -118,7 +115,7 @@ def main() -> int:
         "--porcelain",
         "--untracked-files=no",
         "--",
-        pathspec,
+        *ARCHIVE_PATHS,
         cwd=git_root,
     )
     if dirty and not args.allow_dirty:
@@ -166,6 +163,8 @@ def main() -> int:
                 f"--add-virtual-file={prefix}SOURCE.json:{provenance_json}",
                 f"--output={temp_archive}",
                 treeish,
+                "--",
+                *ARCHIVE_PATHS,
             ],
             cwd=git_root,
             check=True,

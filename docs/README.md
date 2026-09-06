@@ -5,6 +5,7 @@
 
 ## 入口
 
+- [仓库目录职责](./core/repository-layout.md)：六大职责、共享协议和依赖规则
 - [主线开发文档](./core/README.md)：当前架构、联调、开发与运行约定
 - [API Wiki](./api/README.md)：按接口能力组织的 API 导航
 - [架构决策记录](./adr/README.md)：长期有效的关键技术决策

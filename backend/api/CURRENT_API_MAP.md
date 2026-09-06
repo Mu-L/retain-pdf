@@ -42,7 +42,7 @@
 
 - [`src/routes/jobs/mod.rs`](src/routes/jobs/mod.rs)
 - [`src/services/jobs/*`](src/services/jobs)
-- [`crates/retain-jobs/src/job_runner/*`](crates/retain-jobs/src/job_runner)
+- [`../packages/retain-jobs/src/job_runner/*`](../packages/retain-jobs/src/job_runner)
 
 ### Python 层
 
@@ -106,7 +106,7 @@
 关键代码：
 
 - Rust 写 spec：
-  - [`crates/retain-data/src/worker_command.rs`](crates/retain-data/src/worker_command.rs)
+  - [`../packages/retain-data/src/worker_command.rs`](../packages/retain-data/src/worker_command.rs)
 - Python 按 provider 分发：
   - [`services/pipeline/retainpdf_pipeline/ocr/ocr_provider/provider_pipeline.py`](../pipeline/retainpdf_pipeline/ocr/ocr_provider/provider_pipeline.py)
 
@@ -186,10 +186,10 @@ Rust 根据 workflow 选择运行计划：
 
 主要代码：
 
-- [`crates/retain-jobs/src/job_runner/lifecycle.rs`](crates/retain-jobs/src/job_runner/lifecycle.rs)
-- [`crates/retain-jobs/src/job_runner/translation_flow.rs`](crates/retain-jobs/src/job_runner/translation_flow.rs)
-- [`crates/retain-jobs/src/job_runner/ocr_flow/mod.rs`](crates/retain-jobs/src/job_runner/ocr_flow/mod.rs)
-- [`crates/retain-jobs/src/job_runner/render_flow.rs`](crates/retain-jobs/src/job_runner/render_flow.rs)
+- [`../packages/retain-jobs/src/job_runner/lifecycle.rs`](../packages/retain-jobs/src/job_runner/lifecycle.rs)
+- [`../packages/retain-jobs/src/job_runner/translation_flow.rs`](../packages/retain-jobs/src/job_runner/translation_flow.rs)
+- [`../packages/retain-jobs/src/job_runner/ocr_flow/mod.rs`](../packages/retain-jobs/src/job_runner/ocr_flow/mod.rs)
+- [`../packages/retain-jobs/src/job_runner/render_flow.rs`](../packages/retain-jobs/src/job_runner/render_flow.rs)
 
 ### 第四步：Rust 按 stage 写 spec 并启动 worker
 
@@ -216,7 +216,7 @@ Rust 根据 workflow 选择运行计划：
 
 - [`src/app/jobs.rs`](src/app/jobs.rs)
   把 `AppState` 压缩成 `ProcessRuntimeDeps`
-- [`crates/retain-jobs/src/job_runner/lifecycle.rs`](crates/retain-jobs/src/job_runner/lifecycle.rs)
+- [`../packages/retain-jobs/src/job_runner/lifecycle.rs`](../packages/retain-jobs/src/job_runner/lifecycle.rs)
   负责 queued、执行槽位、workflow 分发
 
 ### 第六步：Rust 启动 Python worker
@@ -229,10 +229,10 @@ Rust 根据 workflow 选择运行计划：
 
 主要代码：
 
-- [`crates/retain-jobs/src/job_runner/process_runner.rs`](crates/retain-jobs/src/job_runner/process_runner.rs)
-- [`crates/retain-jobs/src/job_runner/process_runner/startup.rs`](crates/retain-jobs/src/job_runner/process_runner/startup.rs)
-- [`crates/retain-jobs/src/job_runner/process_runner/execution.rs`](crates/retain-jobs/src/job_runner/process_runner/execution.rs)
-- [`crates/retain-jobs/src/job_runner/worker_process.rs`](crates/retain-jobs/src/job_runner/worker_process.rs)
+- [`../packages/retain-jobs/src/job_runner/process_runner.rs`](../packages/retain-jobs/src/job_runner/process_runner.rs)
+- [`../packages/retain-jobs/src/job_runner/process_runner/startup.rs`](../packages/retain-jobs/src/job_runner/process_runner/startup.rs)
+- [`../packages/retain-jobs/src/job_runner/process_runner/execution.rs`](../packages/retain-jobs/src/job_runner/process_runner/execution.rs)
+- [`../packages/retain-jobs/src/job_runner/worker_process.rs`](../packages/retain-jobs/src/job_runner/worker_process.rs)
 
 ### 第七步：Python stage worker 执行
 
@@ -391,7 +391,7 @@ Rust API 生产主链入口。
 
 ### 看 Rust 到底起了哪个 Python 脚本
 
-- [`crates/retain-data/src/worker_command.rs`](crates/retain-data/src/worker_command.rs)
+- [`../packages/retain-data/src/worker_command.rs`](../packages/retain-data/src/worker_command.rs)
 
 ### 看 Python provider 总入口怎么分发
 
@@ -453,7 +453,7 @@ conversation/document/action。OpenAI-compatible / FX 模型进程都拿不到 t
 - [`src/routes/public_document_operations.rs`](src/routes/public_document_operations.rs)
 - [`src/services/document_operations`](src/services/document_operations)
 - [`src/services/public_document_operations.rs`](src/services/public_document_operations.rs)
-- [`crates/retain-data/src/db/document_operations.rs`](crates/retain-data/src/db/document_operations.rs)
+- [`../../database/retain-db/src/db/document_operations.rs`](../../database/retain-db/src/db/document_operations.rs)
 
 对外入口与实际 runtime 链如下：
 

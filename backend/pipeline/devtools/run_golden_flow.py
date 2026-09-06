@@ -23,8 +23,8 @@ from retainpdf_pipeline.foundation.shared.job_dirs import create_job_dirs
 from retainpdf_pipeline.translate.artifacts.io import aggregate_payload_diagnostics
 
 
-DEFAULT_SAMPLE = REPO_ROOT / "resources" / "samples" / "golden-pdfs" / "1.pdf"
-GOLDEN_SAMPLE_ROOT = REPO_ROOT / "resources" / "samples" / "golden-pdfs"
+DEFAULT_SAMPLE = REPO_ROOT / "tests" / "fixtures" / "pdfs" / "1.pdf"
+GOLDEN_SAMPLE_ROOT = REPO_ROOT / "tests" / "fixtures" / "pdfs"
 GOLDEN_MANIFEST = GOLDEN_SAMPLE_ROOT / "manifest.csv"
 PROVIDER_ENTRYPOINT_MODULE = "retainpdf_pipeline.entrypoints.run_provider_case"
 RENDER_ENTRYPOINT_MODULE = "retainpdf_pipeline.entrypoints.run_render_only"
@@ -35,7 +35,7 @@ def parse_args() -> argparse.Namespace:
         description="Run and verify a RetainPDF golden OCR->translation->render flow.",
     )
     parser.add_argument("--pdf", type=str, default=str(DEFAULT_SAMPLE), help="Source PDF path.")
-    parser.add_argument("--sample-id", type=str, default="", help="Golden sample id from resources/samples/golden-pdfs/manifest.csv.")
+    parser.add_argument("--sample-id", type=str, default="", help="Golden sample id from tests/fixtures/pdfs/manifest.csv.")
     parser.add_argument("--list-samples", action="store_true", help="List configured golden PDF samples and exit.")
     parser.add_argument("--check-manifest", action="store_true", help="Validate the golden PDF manifest and exit.")
     parser.add_argument("--job-id", type=str, default="", help="Optional job id. Default uses golden-fullflow timestamp.")

@@ -267,9 +267,9 @@ test("reader translated region right click keeps selection drag from stealing th
 test("reader page exposes ai/favorites/download entries, keeps paused tools hidden", () => {
   // legacy 已删除（f0803f2 后仅 react-pdf），改扫新世界 @retainpdf/reader 组件
   const jsxSources = [
-    "../../../../packages/reader/src/components/react-pdf/ReaderFavoritesPanel.tsx",
-    "../../../../packages/reader/src/components/react-pdf/ReaderAiPanel.tsx",
-    "../../../../packages/reader/src/components/react-pdf/ReaderFab.tsx",
+    "../../../../frontend/packages/reader/src/components/react-pdf/ReaderFavoritesPanel.tsx",
+    "../../../../frontend/packages/reader/src/components/react-pdf/ReaderAiPanel.tsx",
+    "../../../../frontend/packages/reader/src/components/react-pdf/ReaderFab.tsx",
   ].map((file) => {
     try { return readFileSync(new URL(file, import.meta.url), "utf8"); } catch { return ""; }
   }).join("\n");

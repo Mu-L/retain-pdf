@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import pytest
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "agent_e2e.py"
@@ -22,6 +23,14 @@ def _executable(path: Path, content: str = "") -> Path:
     path.write_text(content, encoding="utf-8")
     path.chmod(0o700)
     return path
+
+
+@pytest.fixture(autouse=True)
+def isolated_backend_python(tmp_path, monkeypatch):
+    """Doctor tests must not depend on an installed checkout-local environment."""
+    backend = tmp_path / "backend"
+    _executable(backend / ".venv/bin/python")
+    monkeypatch.setattr(agent_e2e, "SERVICES_ROOT", backend)
 
 
 def _completed(command, returncode=0, stdout="", stderr=""):
@@ -187,6 +196,7 @@ def test_doctor_does_not_restore_environment_key_after_persisted_clear(tmp_path)
 
 def test_doctor_only_requires_fx_tools_for_fx_runtime():
     report = agent_e2e.collect_doctor_report(
+        run=_doctor_version_run(),
         environ={
             "RETAIN_AI_RUNTIME": "python",
             "RUST_API_KEYS": "present-value",
@@ -208,12 +218,14 @@ def test_doctor_openai_runtime_requires_model_key_and_agent_cli(tmp_path):
         "RETAIN_AI_FX_AGENT_CLI_COMMAND": str(cli),
     }
     missing_key = agent_e2e.collect_doctor_report(
+        run=_doctor_version_run(),
         environ=base,
         which=lambda command: None,
     )
     assert missing_key["ok"] is False
 
     ready = agent_e2e.collect_doctor_report(
+        run=_doctor_version_run(),
         environ={**base, "RETAIN_AI_LLM_API_KEY": "present-value"},
         which=lambda command: None,
     )
@@ -288,13 +300,13 @@ def test_smoke_constructs_sync_build_and_focused_tests_with_venv_python():
 
     assert exit_code == 0
     assert [call[0] for call in calls] == [
-        ["uv", "sync", "--project", "services", "--locked", "--all-extras"],
+        ["uv", "sync", "--project", "backend", "--locked", "--all-extras"],
         [
             "cargo",
             "build",
             "--locked",
             "--manifest-path",
-            "services/api/Cargo.toml",
+            "backend/api/Cargo.toml",
             "--bin",
             "retainpdf-agent",
         ],
@@ -303,7 +315,7 @@ def test_smoke_constructs_sync_build_and_focused_tests_with_venv_python():
             "test",
             "--locked",
             "--manifest-path",
-            "services/api/Cargo.toml",
+            "backend/api/Cargo.toml",
             "--lib",
             "api_tests::document_operations::restricted_page_program_produces_validates_and_commits_a_real_pdf",
             "--",
@@ -313,14 +325,14 @@ def test_smoke_constructs_sync_build_and_focused_tests_with_venv_python():
             "uv",
             "run",
             "--project",
-            "services",
+            "backend",
             "--locked",
             "python",
             "-m",
             "pytest",
-            "services/ai/tests/test_fx_command_broker.py",
-            "services/ai/tests/test_runtime.py",
-            "services/scripts/tests/test_agent_live_e2e.py",
+            "backend/ai/tests/test_fx_command_broker.py",
+            "backend/ai/tests/test_runtime.py",
+            "tests/e2e/agent/tests/test_agent_live_e2e.py",
             "-q",
         ],
     ]

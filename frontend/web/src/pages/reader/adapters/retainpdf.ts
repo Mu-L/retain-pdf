@@ -1,4 +1,4 @@
-// RetainPDF 宿主对 @retainpdf/reader 的适配实现 — 将 apps/web 的 external 真值注入 packages/reader 的 adapters
+// RetainPDF 宿主对 @retainpdf/reader 的适配实现 — 将 frontend/web 的 external 真值注入 frontend/packages/reader 的 adapters
 import * as ext from "../external.js";
 import { setReaderAdapters } from "@retainpdf/reader/adapters";
 import type { ReaderAdapters } from "@retainpdf/reader/adapters";

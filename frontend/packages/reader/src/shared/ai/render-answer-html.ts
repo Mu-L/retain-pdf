@@ -1,5 +1,5 @@
-// 共享真值（原 apps/web/src/js/reader/ai/render-answer-html.ts），已抽离为 standalone
-// 已改为依赖 packages/reader 内共享的 markdown-math，不再直连 apps/web/js/reader/markdown-math
+// 共享真值（原 frontend/web/src/js/reader/ai/render-answer-html.ts），已抽离为 standalone
+// 已改为依赖 frontend/packages/reader 内共享的 markdown-math，不再直连 frontend/web/js/reader/markdown-math
 
 import { Marked } from "marked";
 import { parseMarkdownWithMath } from "../content/markdown-math.js";

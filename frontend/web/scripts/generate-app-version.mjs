@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const frontendRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(frontendRoot, "..", "..");
-const desktopPackagePath = path.resolve(repoRoot, "apps/desktop/package.json");
+const desktopPackagePath = path.resolve(repoRoot, "frontend/desktop/package.json");
 const outputPath = path.join(frontendRoot, "src/js/generated/app-version.ts");
 
 function repoFromHomepage(homepage = "") {

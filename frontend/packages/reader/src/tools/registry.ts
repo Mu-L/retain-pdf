@@ -1,4 +1,4 @@
-// 阅读器工具定义（自包含版，从 apps/web/src/pages/reader/tools/registry.ts 复制）
+// 阅读器工具定义（自包含版，从 frontend/web/src/pages/reader/tools/registry.ts 复制）
 
 export type ReaderToolId = "favorites" | "markdown" | "ai";
 

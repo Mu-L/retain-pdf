@@ -10,7 +10,7 @@ import pytest
 from retainpdf_pipeline.translate.llm.shared import request_capture as capture
 from retainpdf_pipeline.translate.llm.shared import executor_context as executor
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "benchmarks"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[5] / "tests/performance/pipeline"))
 from inspect_capture import inspect
 
 

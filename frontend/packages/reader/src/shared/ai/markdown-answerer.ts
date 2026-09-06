@@ -1,4 +1,4 @@
-// 共享真值（原 apps/web/src/js/reader/ai/markdown-answerer.ts），已抽离为 standalone
+// 共享真值（原 frontend/web/src/js/reader/ai/markdown-answerer.ts），已抽离为 standalone
 // 纯 Markdown 切段检索，无宿主依赖
 
 import { normalizeMarkdownPayload } from "../data/markdown-payload.js";

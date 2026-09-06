@@ -36,3 +36,23 @@ def test_formula_runtime_matches_repository_version():
     assert "curl --fail" in action
     assert '"$GITHUB_ENV"' in action
     assert "TYPST_BIN=" in action
+
+
+def test_rust_architecture_filters_cover_shared_workspace_dependencies():
+    workflow = (ROOT / ".github/workflows/rust-api-architecture.yml").read_text()
+    for path in ("backend/api/**", "backend/packages/**", "backend/jobs/**", "database/**", "contracts/**", "Cargo.toml", "Cargo.lock"):
+        assert workflow.count(f'- "{path}"') == 2
+
+
+def test_backend_cargo_commands_use_aggregate_source_root():
+    for relative in ("tests.yml", "release-desktop.yml"):
+        workflow = (ROOT / ".github/workflows" / relative).read_text()
+        cargo_lines = [line for line in workflow.splitlines() if "cargo " in line and "--manifest-path" in line]
+        assert cargo_lines
+        assert all("RETAIN_PDF_SOURCE_ROOT/Cargo.toml" in line for line in cargo_lines)
+
+
+def test_docker_backend_build_uses_aggregate_source_context():
+    workflow = (ROOT / ".github/workflows/release-docker.yml").read_text()
+    assert 'context=${{ steps.backend.outputs.source_root }}' in workflow
+    assert 'file=${{ steps.backend.outputs.source_root }}/ops/deployment/docker/backend/Dockerfile.app' in workflow

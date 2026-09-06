@@ -19,7 +19,15 @@ REQUIRED_PATHS = (
     "ai/pyproject.toml",
     "pipeline/pyproject.toml",
     "config/ocr_providers.json",
-    "docker/Dockerfile.app",
+)
+
+# A backend source package includes its workspace and shared resources.
+PACKAGE_PATHS = (
+    ".dockerignore", "Cargo.toml", "Cargo.lock", "backend", "database", "contracts",
+    "resources/fonts", "ops/deployment", "ops/release", "tests/fixtures",
+)
+REQUIRED_ROOT_PATHS = (
+    "Cargo.toml", "Cargo.lock", "ops/deployment/docker/backend/Dockerfile.app",
 )
 
 
@@ -82,24 +90,24 @@ def resolve_backend_source(
         raise RuntimeError(f"backend package directory is unavailable: {source_root}")
 
     missing = [item for item in REQUIRED_PATHS if not (source_root / item).is_file()]
+    missing.extend(item for item in REQUIRED_ROOT_PATHS if not (repo_root / item).is_file())
     if missing:
         raise RuntimeError(
             f"backend package layout is incomplete at {source_root}: {', '.join(missing)}"
         )
 
-    actual_revision, actual_tree, git_root, relative = _git_source(source_root)
+    actual_revision, actual_tree, git_root, relative = _git_source(repo_root)
     if git_root != repo_root:
         raise RuntimeError(
             f"backend package must belong to the product Git repository: {source_root}"
         )
 
-    pathspec = "." if relative == "." else relative
     dirty = _git(
         "status",
         "--porcelain",
         "--untracked-files=normal",
         "--",
-        pathspec,
+        *PACKAGE_PATHS,
         cwd=git_root,
     )
     if dirty and not allow_dirty:
@@ -107,6 +115,7 @@ def resolve_backend_source(
 
     return {
         "path": str(source_root),
+        "source_root": str(repo_root),
         "kind": "embedded-package",
         "revision": actual_revision,
         "tree": actual_tree,

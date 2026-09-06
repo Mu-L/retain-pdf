@@ -93,7 +93,7 @@ fn resolve_font_dirs(project_root: &Path, data_root: &Path) -> Vec<PathBuf> {
 
     for candidate in [
         project_root.join("fonts"),
-        project_root.join("services").join("fonts"),
+        project_root.join("resources").join("fonts"),
         project_root.join("infra").join("fonts"),
         data_root.join("fonts"),
     ] {

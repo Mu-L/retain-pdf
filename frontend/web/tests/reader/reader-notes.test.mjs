@@ -5,7 +5,7 @@ import {
   groupNotesByPage,
   notesStorageKey,
   sortNotes,
-} from "../../../../packages/reader/src/annotations/types.ts";
+} from "../../../../frontend/packages/reader/src/annotations/types.ts";
 
 test("notesStorageKey prefers job id", () => {
   assert.equal(notesStorageKey({ jobId: "j1", documentId: "d1" }), "retainpdf.reader.notes.v1:job:j1");

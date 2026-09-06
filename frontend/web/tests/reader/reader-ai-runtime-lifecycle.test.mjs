@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 
 test("hiding Reader AI aborts its active model stream", async () => {
   const source = await readFile(
-    new URL("../../../../packages/reader/src/components/react-pdf/assistant/use-reader-chat.ts", import.meta.url),
+    new URL("../../../../frontend/packages/reader/src/components/react-pdf/assistant/use-reader-chat.ts", import.meta.url),
     "utf8",
   );
   assert.match(source, /if \(!options\.enabled\) void chat\.stop\(\)/);
@@ -14,7 +14,7 @@ test("hiding Reader AI aborts its active model stream", async () => {
 
 test("frozen retry lives in the reading request hook, not the facade", async () => {
   const source = await readFile(
-    new URL("../../../../packages/reader/src/components/react-pdf/assistant/use-reader-reading-request.ts", import.meta.url),
+    new URL("../../../../frontend/packages/reader/src/components/react-pdf/assistant/use-reader-reading-request.ts", import.meta.url),
     "utf8",
   );
   const retryBlock = source.slice(
@@ -31,7 +31,7 @@ test("frozen retry lives in the reading request hook, not the facade", async () 
 
 test("stopping generation marks the tree cancelled without touching operations", async () => {
   const source = await readFile(
-    new URL("../../../../packages/reader/src/components/react-pdf/assistant/use-reader-reading-request.ts", import.meta.url),
+    new URL("../../../../frontend/packages/reader/src/components/react-pdf/assistant/use-reader-reading-request.ts", import.meta.url),
     "utf8",
   );
   const cancelBlock = source.slice(source.indexOf("const cancelAnswer"));
@@ -42,7 +42,7 @@ test("stopping generation marks the tree cancelled without touching operations",
 
 test("session hydration guards live in the conversation shell", async () => {
   const source = await readFile(
-    new URL("../../../../packages/reader/src/components/react-pdf/assistant/use-reader-conversation.ts", import.meta.url),
+    new URL("../../../../frontend/packages/reader/src/components/react-pdf/assistant/use-reader-conversation.ts", import.meta.url),
     "utf8",
   );
   const switchBlock = source.slice(
@@ -64,7 +64,7 @@ test("session hydration guards live in the conversation shell", async () => {
 
 test("answer completion refreshes sessions from the facade, reset on job switch", async () => {
   const source = await readFile(
-    new URL("../../../../packages/reader/src/components/react-pdf/assistant/use-reader-ask-runtime.ts", import.meta.url),
+    new URL("../../../../frontend/packages/reader/src/components/react-pdf/assistant/use-reader-ask-runtime.ts", import.meta.url),
     "utf8",
   );
   assert.match(source, /useEffect\(\(\) => \{\s*prevRunning\.current = false;\s*\}, \[jobId\]\)/);

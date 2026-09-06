@@ -79,7 +79,7 @@ New-Item -ItemType Directory -Path $source -Force | Out-Null
 
   const git = spawn(
     "git",
-    ["ls-files", "-co", "--exclude-standard", "-z", "--", "apps/desktop"],
+    ["ls-files", "-co", "--exclude-standard", "-z", "--", "frontend/desktop"],
     { cwd: repoRoot, stdio: ["ignore", "pipe", "inherit"] },
   );
   const tar = spawn(
@@ -112,8 +112,8 @@ $node = '${remoteNode}'
 $source = '${remoteSource}'
 if (-not (Test-Path $node)) { throw 'Portable Node is missing; bootstrap win11-shenzhou first' }
 Set-Location $source
-$tests = @('apps\\desktop\\scripts\\runtime-prune.test.mjs')
-$tests += Get-ChildItem 'apps\\desktop\\src\\main\\*.test.mjs' | ForEach-Object { $_.FullName }
+$tests = @('frontend\\desktop\\scripts\\runtime-prune.test.mjs')
+$tests += Get-ChildItem 'frontend\\desktop\\src\\main\\*.test.mjs' | ForEach-Object { $_.FullName }
 $timer = [Diagnostics.Stopwatch]::StartNew()
 & $node --test @tests
 if ($LASTEXITCODE -ne 0) { throw ('Desktop node tests failed with exit code ' + $LASTEXITCODE) }
@@ -137,7 +137,7 @@ async function runWindowsLiveSmoke() {
     const keepRunningArgument = keepRunning ? " -KeepRunning" : "";
     runRemotePowerShell(`
 $ErrorActionPreference = 'Stop'
-& '${remoteSource}\\apps\\desktop\\scripts\\windows-live-smoke.ps1' -AsarPath 'D:\\RetainPDF-win-test\\incoming-app.asar'${keepRunningArgument}
+& '${remoteSource}\\frontend\\desktop\\scripts\\windows-live-smoke.ps1' -AsarPath 'D:\\RetainPDF-win-test\\incoming-app.asar'${keepRunningArgument}
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 `);
   } finally {

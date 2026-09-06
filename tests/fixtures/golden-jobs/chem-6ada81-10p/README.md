@@ -11,7 +11,7 @@
 - `translated/{domain-context.json, translation-manifest.json, page-*-deepseek.json (10)}` — 翻译结果与 manifest
 - `artifacts/pipeline_summary.json` — 期望的 pages_processed/render_mode 等
 
-不包含：`source/*.pdf`（大文件，用 `resources/samples/golden-pdfs/*.pdf` 或运行时拷贝）、`rendered/*.pdf`（渲染产物由 harness 产出后校验）。
+不包含：`source/*.pdf`（大文件，用 `tests/fixtures/pdfs/*.pdf` 或运行时拷贝）、`rendered/*.pdf`（渲染产物由 harness 产出后校验）。
 
 不变量阈值（harness 断言）：
 - manifest `pages.length == 10`

@@ -1,4 +1,4 @@
-// Vendored from apps/web/src/js/app-framework/selector.ts — pure memoization, no framework deps
+// Vendored from frontend/web/src/js/app-framework/selector.ts — pure memoization, no framework deps
 function shallowEqualArray(left, right) {
     if (left === right)
         return true;

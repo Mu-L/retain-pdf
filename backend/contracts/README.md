@@ -3,7 +3,7 @@
 This directory is the backend-local mirror of the JSON contracts consumed by
 the Rust API, `retain-jobsd`, the Python AI service, and the Python pipeline.
 Backend code and tests must resolve contracts from `<backend-root>/contracts`
-where the current backend root is `services/`, so an extracted backend package
+where the current backend root is `backend/`, so an extracted backend package
 remains testable without the parent monorepo.
 
 The mirrored files are:
@@ -18,16 +18,16 @@ The mirrored files are:
 - `public-document-operation.v1.schema.json`
 - `runtime-config.v1.schema.json`
 
-In the monorepo, `packages/schemas` remains the upstream schema package used by
+In the monorepo, `contracts` remains the upstream schema package used by
 frontend consumers. Every mirrored JSON file must remain byte-for-byte equal to
 its upstream counterpart. Run:
 
 ```bash
-python3 services/contracts/check_parity.py --require-upstream
+python3 backend/contracts/check_parity.py --require-upstream
 ```
 
 In an extracted backend repository, the upstream directory is intentionally
-absent. From the extracted `services/` root, run:
+absent. From the extracted `backend/` root, run:
 
 ```bash
 python3 contracts/check_parity.py
@@ -35,5 +35,5 @@ python3 contracts/check_parity.py
 
 This validates that all nine local contract files exist and contain valid
 JSON, then explicitly skips upstream parity. In the monorepo, schema changes
-start in `packages/schemas`, are copied byte-for-byte here, and must pass the
+start in `contracts`, are copied byte-for-byte here, and must pass the
 `--require-upstream` gate.

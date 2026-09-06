@@ -1,5 +1,5 @@
 // Jobs API — standalone, wraps job-status.v1
-// No apps/web deps; browser-aware (reads window.__FRONT_RUNTIME_CONFIG__ for apiBase / X-API-Key if present).
+// No frontend/web deps; browser-aware (reads window.__FRONT_RUNTIME_CONFIG__ for apiBase / X-API-Key if present).
 
 import { API_PREFIX, buildApiHeaders, buildApiUrl, unwrapEnvelope } from "./internal/runtime.js";
 import type { JobDetailView, JobListView } from "@retainpdf/contracts/job-status";

@@ -6,8 +6,7 @@ import { fileURLToPath } from "node:url";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const desktopRoot = path.resolve(scriptDir, "..");
 const repoRoot = path.resolve(desktopRoot, "..", "..");
-const servicesRoot = path.join(repoRoot, "services");
-const apiRoot = path.join(servicesRoot, "api");
+const servicesRoot = path.join(repoRoot, "backend");
 const prepareOnly = process.argv.includes("--prepare-only");
 const refreshFrontend = process.argv.includes("--refresh-frontend");
 const executableSuffix = process.platform === "win32" ? ".exe" : "";
@@ -39,7 +38,7 @@ if (!fs.existsSync(venvPython)) {
 }
 
 const requiredBackendBinaries = ["rust_api", "retain-jobsd", "retainpdf-agent"]
-  .map((name) => path.join(apiRoot, "target", "release", `${name}${executableSuffix}`));
+  .map((name) => path.join(repoRoot, "target", "release", `${name}${executableSuffix}`));
 if (requiredBackendBinaries.some((candidate) => !fs.existsSync(candidate))) {
   run("cargo", [
     "build",
@@ -48,13 +47,13 @@ if (requiredBackendBinaries.some((candidate) => !fs.existsSync(candidate))) {
     "--workspace",
     "--bins",
     "--manifest-path",
-    path.join(apiRoot, "Cargo.toml"),
+    path.join(repoRoot, "Cargo.toml"),
   ]);
 }
 
 if (refreshFrontend) {
   const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
-  run(npmCommand, ["--prefix", path.join(repoRoot, "apps", "web"), "run", "build"]);
+  run(npmCommand, ["--prefix", path.join(repoRoot, "frontend", "web"), "run", "build"]);
 }
 
 const localEnv = {

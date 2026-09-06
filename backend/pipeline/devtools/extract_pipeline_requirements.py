@@ -225,9 +225,9 @@ def _render_markdown(report: dict[str, object]) -> str:
     lines = [
         "# Python Pipeline Dependencies",
         "",
-        "This file is generated from static import scanning under `services/pipeline`.",
+        "This file is generated from static import scanning under `backend/pipeline`.",
         "Regenerate with:",
-        "`python services/pipeline/devtools/extract_pipeline_requirements.py --services-root services --json-out docs/core/python/pipeline_dependencies.json --markdown-out docs/core/python/pipeline_dependencies.md --runtime-req-out docs/core/python/pipeline_runtime_requirements.in --test-req-out docs/core/python/pipeline_test_requirements.in`",
+        "`python backend/pipeline/devtools/extract_pipeline_requirements.py --services-root backend --json-out docs/core/python/pipeline_dependencies.json --markdown-out docs/core/python/pipeline_dependencies.md --runtime-req-out docs/core/python/pipeline_runtime_requirements.in --test-req-out docs/core/python/pipeline_test_requirements.in`",
         "",
         "## Runtime Python Packages",
         "",
