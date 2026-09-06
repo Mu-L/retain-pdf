@@ -53,6 +53,16 @@ AI `/readyz` 均返回 200，随后关闭整个进程组。未调用模型。
 
 ## 数据和回退边界
 
+### 后续协议修复（2026-09-06）
+
+`16f27449` 根据现有 Rust 输出补齐上游 ModelConnection、可选
+execution_connection 和 blocked/running/paused 恢复状态，并重新生成 DTO。
+后端运行行为与镜像内容未改。9 份镜像 parity 已通过，协议测试 11 项通过，
+API/domain/Reader 类型检查通过。该提交的完整
+`ops/release/check_standalone.py --compile-rust` 已退出 0：包含独立安装、入口
+检查和 Rust 全工作区测试编译（不是执行全部 Rust 测试）。上文协议阻塞已解除；
+Rust 架构违规和 13 项 devtools 基线失败不在本次修复范围。
+
 没有搬迁现有 data、tmp、凭据或用户任务。旧 `services/` 可以继续包含本地
 虚拟环境、缓存和凭据，但已无跟踪源码。旧本地授权文件有兼容读取路径。
 桌面安装包内部布局和环境变量名称保持不变。
