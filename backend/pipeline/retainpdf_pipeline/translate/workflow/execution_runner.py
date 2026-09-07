@@ -52,6 +52,7 @@ def run_translation_execution_plan(
         )
         checkpoint_session = TranslationCheckpointSession.acquire(request, plan, store=checkpoint_store)
 
+    plan.run_diagnostics.set_checkpoint_metrics_provider(checkpoint_session.metrics)
     with checkpoint_session as checkpoint:
         checkpoint.on_pages_committed = _record_committed_pages
         with translation_run_diagnostics_scope(plan.run_diagnostics):

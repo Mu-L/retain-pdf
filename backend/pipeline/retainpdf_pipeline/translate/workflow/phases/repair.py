@@ -80,16 +80,21 @@ def run_garbled_reconstruction_stage(
             stage="garbled_repair",
             substage="garbled_repair",
             message=f"正在修复乱码候选段，第 {current}/{total} 项",
-            progress_current=current,
-            progress_total=total,
+            # Candidate completion is not page completion (groups can span
+            # pages). Publish candidate counts separately until final save.
+            progress_current=0,
+            progress_total=len(page_payloads),
             payload={
                 "progress_unit": "page",
+                "garbled_completed": current,
+                "garbled_attempted": total,
                 "dirty_pages": sorted(dirty_pages),
             },
         ),
     )
     if run_diagnostics is not None:
         run_diagnostics.mark_phase_end("garbled_reconstruction")
+        run_diagnostics.set_garbled_reconstruction_stats(summary)
     reconstructed_items = int(summary["garbled_reconstructed"])
     garbled_candidates = int(summary["garbled_candidates"])
     garbled_attempted = int(summary.get("garbled_attempted", garbled_candidates))
@@ -101,7 +106,7 @@ def run_garbled_reconstruction_stage(
     emit_stage_progress(
         stage="garbled_repair",
         substage="garbled_repair",
-        message="乱码候选段修复完成",
+        message=f"乱码候选段处理完成，失败 {summary.get('garbled_failed', 0)} 项",
         progress_current=len(page_payloads),
         progress_total=len(page_payloads),
         elapsed_ms=int((time.perf_counter() - reconstruct_started) * 1000),
@@ -111,12 +116,18 @@ def run_garbled_reconstruction_stage(
             "garbled_attempted": garbled_attempted,
             "garbled_skipped_by_budget": garbled_skipped_by_budget,
             "garbled_reconstructed": reconstructed_items,
+            **{key: int(summary.get(key, 0)) for key in (
+                "garbled_applied", "garbled_rejected", "garbled_no_result",
+                "garbled_failed", "garbled_completed",
+            )},
             "dirty_pages": sorted(dirty_pages),
         },
     )
     print(
         f"book: garbled reconstruction candidates={garbled_candidates} attempted={garbled_attempted} "
         f"skipped_by_budget={garbled_skipped_by_budget} reconstructed={reconstructed_items} "
+        f"rejected={summary.get('garbled_rejected', 0)} no_result={summary.get('garbled_no_result', 0)} "
+        f"failed={summary.get('garbled_failed', 0)} completed={summary.get('garbled_completed', 0)} "
         f"in {time.perf_counter() - reconstruct_started:.2f}s",
         flush=True,
     )

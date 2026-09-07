@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import time
+import pytest
 from pathlib import Path
 
 REPO_SCRIPTS_ROOT = Path(__file__).resolve().parents[3]
@@ -13,6 +14,67 @@ from retainpdf_pipeline.translate.services.results import (
 from retainpdf_pipeline.translate.services.results.flush import (
     TranslationFlushState,
 )
+
+
+@pytest.mark.parametrize("failed", [False, True])
+def test_flush_total_includes_checkpoint_and_preserves_dirty_on_failure(monkeypatch, tmp_path, failed):
+    clock = [0]
+    monkeypatch.setattr(flush_module.time, "perf_counter_ns", lambda: clock[0])
+    monkeypatch.setattr(flush_module.time, "perf_counter", lambda: clock[0] / 1_000_000_000)
+
+    def save(*args, **kwargs):
+        clock[0] += 2_000_000
+
+    def checkpoint(*args):
+        clock[0] += 10_000_000
+        if failed:
+            raise RuntimeError("synthetic checkpoint failure")
+
+    monkeypatch.setattr(flush_module, "save_pages", save)
+    state = TranslationFlushState(page_payloads={0: []}, translation_paths={0: tmp_path / "page.json"},
+                                  flush_interval=1, total_batches=1, flush_callback=checkpoint)
+    state.mark_dirty({0}, {0: {"item"}})
+    if failed:
+        with pytest.raises(RuntimeError, match="synthetic checkpoint"):
+            state.flush(label="test")
+    else:
+        state.flush(label="test")
+    stats = state.stats()
+    assert stats["flush_elapsed_ms"] == 2
+    assert stats["flush_callback_elapsed_ms"] == 10
+    assert stats["flush_total_elapsed_ms"] == 12
+    assert stats["flush_commit_count"] == int(not failed)
+    assert stats["flush_callback_failed_count"] == int(failed)
+    assert state.dirty_pages == ({0} if failed else set())
+    assert state.dirty_item_ids_by_page == ({0: {"item"}} if failed else {})
+
+
+def test_flush_keeps_submillisecond_samples_until_export(monkeypatch, tmp_path):
+    clock = [0]
+    monkeypatch.setattr(flush_module.time, "perf_counter_ns", lambda: clock[0])
+    monkeypatch.setattr(flush_module, "save_pages", lambda *a, **k: None)
+    def callback(*args):
+        clock[0] += 100_000
+    state = TranslationFlushState(page_payloads={0: []}, translation_paths={0: tmp_path / "page.json"},
+                                  flush_interval=1, total_batches=10, flush_callback=callback)
+    for _ in range(10):
+        state.mark_dirty({0}, {0: {"item"}})
+        state.flush(label="test")
+    assert state.stats()["flush_callback_elapsed_ms"] == 1
+    assert state.stats()["flush_total_elapsed_ms"] == 1
+
+
+def test_diagnostics_reads_latest_checkpoint_metrics_and_safe_repair_counts():
+    from retainpdf_pipeline.translate.artifacts.aggregator import TranslationRunDiagnostics
+    diagnostics = TranslationRunDiagnostics("fake", "fake", "https://example.invalid", 1, 1, 1)
+    metrics = {"persist_count": 1, "persist_elapsed_ms": 1.25}
+    diagnostics.set_checkpoint_metrics_provider(lambda: dict(metrics))
+    assert diagnostics.build_summary()["checkpoint_timing"]["persist_count"] == 1
+    metrics["persist_count"] = 3  # Includes complete/failure persistence after batch stage.
+    diagnostics.set_garbled_reconstruction_stats({"garbled_failed": 2, "raw_error": "private"})
+    summary = diagnostics.build_summary()
+    assert summary["checkpoint_timing"]["persist_count"] == 3
+    assert summary["garbled_reconstruction"] == {"garbled_failed": 2}
 
 
 def test_translation_batch_flush_skips_full_unit_refresh(monkeypatch, tmp_path: Path) -> None:

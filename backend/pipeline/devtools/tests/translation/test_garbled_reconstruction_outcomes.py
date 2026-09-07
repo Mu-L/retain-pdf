@@ -144,6 +144,14 @@ def test_stage_counts_only_applied_and_saves_cross_page_rejections(tmp_path, mon
     final = events[-1]["payload"]
     assert final["garbled_attempted"] == 3
     assert final["garbled_reconstructed"] == int(has_success)
+    assert final["garbled_completed"] == 3
+    assert final["garbled_applied"] == int(has_success)
+    assert final["garbled_rejected"] == (1 if has_success else 2)
+    assert final["garbled_no_result"] == 1
+    assert final["garbled_failed"] == 0
+    assert [(event["progress_current"], event["progress_total"]) for event in events[:-1]] == [(0, 4)] * 3
+    assert [event["payload"]["garbled_completed"] for event in events[:-1]] == [1, 2, 3]
+    assert events[-1]["progress_current"] == events[-1]["progress_total"] == 4
     assert {0, 1, 2} <= set(final["dirty_pages"])
     assert Counter(calls) == Counter({0: 1, 2: 1, 3: 1})
     for page in (0, 1):
@@ -166,3 +174,118 @@ def test_only_rejected_responses_still_return_dirty_pages(monkeypatch, workers):
     )
     assert count == 0
     assert dirty == {0, 1}
+
+
+@pytest.mark.parametrize("workers", [1, 8])
+@pytest.mark.parametrize("outcomes", [
+    ["failed", "failed"], ["no_result", "failed"],
+    ["applied", "rejected", "no_result", "failed"],
+])
+def test_runner_accounts_every_completion_without_leaking_errors(monkeypatch, capsys, workers, outcomes):
+    targets = {str(i): [item(i)] for i in range(len(outcomes))}
+    calls = Counter()
+    lock = threading.Lock()
+    def model(target, **kwargs):
+        page = target["page_idx"]
+        with lock:
+            calls[page] += 1
+        if outcomes[page] == "failed":
+            raise RuntimeError("synthetic-secret-response")
+        return "" if outcomes[page] == "no_result" else "催化剂保持稳定。"
+    monkeypatch.setattr(reconstruction, "_repair_item_translation", model)
+    monkeypatch.setattr(reconstruction, "_validate_reconstruction",
+                        lambda target, text: [issue()] if outcomes[target["page_idx"]] == "rejected" else [])
+    counts, events = {}, []
+    count, dirty = reconstruction._run_reconstruction_candidates(
+        [(key, values[0]) for key, values in targets.items()], candidates_by_key=targets,
+        api_key="", model="offline", base_url="", workers=workers,
+        runtime=SimpleNamespace(model="offline", display_base_url=lambda: "offline", provider_reason="test"),
+        result_counts=counts, progress_callback=lambda current, total, pages: events.append((current, total)),
+    )
+    assert events == [(i, len(outcomes)) for i in range(1, len(outcomes) + 1)]
+    assert calls == Counter({i: 1 for i in range(len(outcomes))})
+    assert count == counts["garbled_applied"] == outcomes.count("applied")
+    assert counts["garbled_completed"] == sum(counts[f"garbled_{kind}"] for kind in ("applied", "rejected", "no_result", "failed")) == len(outcomes)
+    assert dirty == {i for i, kind in enumerate(outcomes) if kind in ("applied", "rejected")}
+    for i, kind in enumerate(outcomes):
+        if kind in ("failed", "no_result"):
+            assert targets[str(i)] == [item(i)]
+    assert "synthetic-secret-response" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("workers", [1, 8])
+@pytest.mark.parametrize("boundary", ["_prepare_reconstruction", "_apply_prepared_reconstruction"])
+def test_internal_application_failures_are_not_request_failures(monkeypatch, workers, boundary):
+    targets = {str(i): [item(i)] for i in range(2)}
+    monkeypatch.setattr(reconstruction, "_repair_item_translation", lambda *args, **kwargs: "催化剂保持稳定。")
+    def broken(*args, **kwargs):
+        raise RuntimeError("internal-bug")
+    monkeypatch.setattr(reconstruction, boundary, broken)
+    counts = {}
+    with pytest.raises(RuntimeError, match="internal-bug"):
+        reconstruction._run_reconstruction_candidates(
+            [(key, values[0]) for key, values in targets.items()], candidates_by_key=targets,
+            api_key="", model="offline", base_url="", workers=workers,
+            runtime=SimpleNamespace(model="offline", display_base_url=lambda: "offline", provider_reason="test"),
+            result_counts=counts,
+        )
+    assert counts["garbled_failed"] == counts["garbled_completed"] == 0
+
+
+@pytest.mark.parametrize("workers", [1, 8])
+@pytest.mark.parametrize("size,budget", [(0, 3), (3, 0), (3, 2)])
+@pytest.mark.parametrize("page_entrypoint", [False, True])
+def test_public_summaries_account_empty_and_budgeted_candidates(monkeypatch, workers, size, budget, page_entrypoint):
+    targets = {str(i): [item(i)] for i in range(size)}
+    monkeypatch.setattr(reconstruction, "_collect_candidates", lambda items: (targets, {key: values[0] for key, values in targets.items()}))
+    monkeypatch.setattr(reconstruction, "_max_candidates_from_env", lambda default: budget)
+    calls = []
+    def model(target, **kwargs):
+        calls.append(target["page_idx"])
+        raise RuntimeError("offline failure")
+    monkeypatch.setattr(reconstruction, "_repair_item_translation", model)
+    kwargs = dict(api_key="", model="offline", base_url="", workers=workers,
+                  runtime=SimpleNamespace(model="offline", display_base_url=lambda: "offline", provider_reason="test"))
+    if page_entrypoint:
+        summary = reconstruction.reconstruct_garbled_page_payloads({i: values for i, values in enumerate(targets.values())}, **kwargs)
+        assert summary["dirty_pages"] == []
+    else:
+        summary = reconstruction.reconstruct_garbled_items([values[0] for values in targets.values()], **kwargs)
+    assert summary["garbled_candidates"] == size
+    assert summary["garbled_attempted"] == summary["garbled_completed"] == summary["garbled_failed"] == min(size, budget)
+    assert summary["garbled_skipped_by_budget"] == max(0, size - budget)
+    assert summary["garbled_reconstructed"] == summary["garbled_applied"] == summary["garbled_rejected"] == summary["garbled_no_result"] == 0
+    assert sorted(calls) == list(range(min(size, budget)))
+
+
+@pytest.mark.parametrize("workers", [1, 8])
+def test_failed_stage_finishes_without_claiming_success_or_saving_pages(monkeypatch, workers):
+    pages = {i: [item(i)] for i in range(2)}
+    targets = {str(i): values for i, values in pages.items()}
+    monkeypatch.setattr(reconstruction, "_collect_candidates", lambda items: (targets, {key: values[0] for key, values in targets.items()}))
+    monkeypatch.setattr(reconstruction, "_max_candidates_from_env", lambda default: 2)
+    def fail(*args, **kwargs):
+        raise RuntimeError("offline-failure")
+    monkeypatch.setattr(reconstruction, "_repair_item_translation", fail)
+    monkeypatch.setattr(repair, "_garbled_reconstruction_enabled", lambda: True)
+    monkeypatch.setattr(repair, "_garbled_reconstruction_runtime", lambda **kwargs: SimpleNamespace(
+        model="offline", display_base_url=lambda: "offline", provider_reason="test"))
+    def forbidden(*args, **kwargs):
+        pytest.fail("failed candidates must not save or refresh pages")
+    monkeypatch.setattr(repair, "save_pages", forbidden)
+    monkeypatch.setattr(repair, "refresh_translation_units_and_collect_changed_pages", forbidden)
+    events, transitions = [], []
+    monkeypatch.setattr(repair, "emit_stage_progress", lambda **event: events.append(event))
+    monkeypatch.setattr(repair, "emit_stage_transition", lambda **event: transitions.append(event))
+    repair.run_garbled_reconstruction_stage(
+        page_payloads=pages, translation_paths={}, api_key="", model="offline",
+        base_url="", workers=workers, run_diagnostics=None,
+    )
+    assert transitions[0]["progress_current"] == 0
+    assert transitions[0]["progress_total"] == 2
+    assert [(event["progress_current"], event["progress_total"]) for event in events] == [(0, 2), (0, 2), (2, 2)]
+    assert [event["payload"]["garbled_completed"] for event in events] == [1, 2, 2]
+    final = events[-1]["payload"]
+    assert final["garbled_failed"] == final["garbled_attempted"] == 2
+    assert final["garbled_reconstructed"] == final["garbled_applied"] == 0
+    assert final["dirty_pages"] == []

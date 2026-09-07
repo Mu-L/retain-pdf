@@ -35,6 +35,10 @@ class TranslationFlushState:
         self.flush_count = 0
         self.flushed_page_total = 0
         self.flush_elapsed_ms = 0
+        self._flush_callback_ns = 0
+        self._flush_total_ns = 0
+        self.flush_commit_count = 0
+        self.flush_callback_failed_count = 0
         self.max_flush_pages = 0
 
     def mark_dirty(
@@ -74,6 +78,13 @@ class TranslationFlushState:
     def flush(self, *, label: str) -> None:
         if not self.dirty_pages:
             return
+        total_started = time.perf_counter_ns()
+        try:
+            self._flush(label=label)
+        finally:
+            self._flush_total_ns += max(0, time.perf_counter_ns() - total_started)
+
+    def _flush(self, *, label: str) -> None:
         save_started = time.perf_counter()
         flushed_pages = set(self.dirty_pages)
         changed_item_ids_by_page = {
@@ -94,8 +105,16 @@ class TranslationFlushState:
             f"book: {label} pages={page_count} in {time.perf_counter() - save_started:.2f}s",
             flush=True,
         )
-        if self.flush_callback is not None:
-            self.flush_callback(flushed_pages, changed_item_ids_by_page)
+        callback_started = time.perf_counter_ns()
+        try:
+            if self.flush_callback is not None:
+                self.flush_callback(flushed_pages, changed_item_ids_by_page)
+        except Exception:
+            self.flush_callback_failed_count += 1
+            raise
+        finally:
+            self._flush_callback_ns += max(0, time.perf_counter_ns() - callback_started)
+        self.flush_commit_count += 1
         self.dirty_pages.clear()
         self.dirty_item_ids_by_page.clear()
         self._last_flush_at = time.perf_counter()
@@ -103,11 +122,15 @@ class TranslationFlushState:
     def final_flush(self) -> None:
         self.flush(label="final flush")
 
-    def stats(self) -> dict[str, int]:
+    def stats(self) -> dict[str, int | float]:
         return {
             "flush_count": self.flush_count,
             "flushed_page_total": self.flushed_page_total,
             "flush_elapsed_ms": self.flush_elapsed_ms,
+            "flush_callback_elapsed_ms": self._flush_callback_ns / 1_000_000,
+            "flush_total_elapsed_ms": self._flush_total_ns / 1_000_000,
+            "flush_commit_count": self.flush_commit_count,
+            "flush_callback_failed_count": self.flush_callback_failed_count,
             "max_flush_pages": self.max_flush_pages,
         }
 

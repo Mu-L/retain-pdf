@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from dataclasses import field
 from statistics import mean
-from typing import Any
+from typing import Any, Callable
 
 from .request_journal import TranslationRequestJournal
 
@@ -122,7 +122,9 @@ class TranslationRunDiagnostics:
     _warmup_restore_limit: int = field(default=0, init=False, repr=False)
     _result_stats: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
     _queue_split: dict[str, int] = field(default_factory=dict, init=False, repr=False)
-    _flush_stats: dict[str, int] = field(default_factory=dict, init=False, repr=False)
+    _flush_stats: dict[str, int | float] = field(default_factory=dict, init=False, repr=False)
+    _checkpoint_metrics_provider: Callable[[], dict] | None = field(default=None, init=False, repr=False)
+    _garbled_stats: dict[str, int] = field(default_factory=dict, init=False, repr=False)
     _tail_retry_stats: dict[str, int] = field(default_factory=dict, init=False, repr=False)
     _token_usage: dict[str, int] = field(
         default_factory=lambda: {
@@ -221,6 +223,19 @@ class TranslationRunDiagnostics:
             if shared_workers:
                 self._queue_split.update(scheduler="shared_page_order", shared_workers=shared_workers)
 
+    def set_checkpoint_metrics_provider(self, provider: Callable[[], dict]) -> None:
+        self._checkpoint_metrics_provider = provider
+
+    def set_garbled_reconstruction_stats(self, summary: dict) -> None:
+        with self._lock:
+            self._garbled_stats = {
+                key: max(0, int(summary[key])) for key in (
+                    "garbled_candidates", "garbled_attempted", "garbled_skipped_by_budget",
+                    "garbled_reconstructed", "garbled_applied", "garbled_rejected",
+                    "garbled_no_result", "garbled_failed", "garbled_completed",
+                ) if key in summary
+            }
+
     def set_translation_result_stats(
         self,
         *,
@@ -230,6 +245,10 @@ class TranslationRunDiagnostics:
         flush_count: int = 0,
         flushed_page_total: int = 0,
         flush_elapsed_ms: int = 0,
+        flush_callback_elapsed_ms: float = 0,
+        flush_total_elapsed_ms: float = 0,
+        flush_commit_count: int = 0,
+        flush_callback_failed_count: int = 0,
         max_flush_pages: int = 0,
         tail_retry_drains: int = 0,
         tail_retry_items: int = 0,
@@ -249,6 +268,10 @@ class TranslationRunDiagnostics:
                 "flush_count": int(max(0, flush_count)),
                 "flushed_page_total": int(max(0, flushed_page_total)),
                 "flush_elapsed_ms": int(max(0, flush_elapsed_ms)),
+                "flush_callback_elapsed_ms": max(0, flush_callback_elapsed_ms),
+                "flush_total_elapsed_ms": max(0, flush_total_elapsed_ms),
+                "flush_commit_count": max(0, flush_commit_count),
+                "flush_callback_failed_count": max(0, flush_callback_failed_count),
                 "max_flush_pages": int(max(0, max_flush_pages)),
             }
             self._tail_retry_stats = {
@@ -622,6 +645,7 @@ class TranslationRunDiagnostics:
                 },
                 "result_apply": dict(self._result_stats),
                 "result_flush": dict(self._flush_stats),
+                "garbled_reconstruction": dict(self._garbled_stats),
                 "tail_retry": dict(self._tail_retry_stats),
                 "token_usage": dict(self._token_usage),
                 "phase_elapsed_ms": self._phase_elapsed_summary(),
@@ -630,6 +654,8 @@ class TranslationRunDiagnostics:
             }
         if self.request_journal is not None:
             summary["request_journal"] = self.request_journal.summary()
+        if self._checkpoint_metrics_provider is not None:
+            summary["checkpoint_timing"] = dict(self._checkpoint_metrics_provider())
         return summary
 
 

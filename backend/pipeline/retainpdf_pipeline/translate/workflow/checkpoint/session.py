@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import time
+from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -36,6 +38,15 @@ class ResumeCandidateFingerprintMismatch(RuntimeError):
         self.source_attempt_id = source_attempt_id
 
 
+def _timed(stage: str):
+    def decorate(function):
+        @wraps(function)
+        def measured(self, *args, **kwargs):
+            return self._measure(stage, function, self, *args, **kwargs)
+        return measured
+    return decorate
+
+
 class TranslationCheckpointSession:
     def __init__(
         self,
@@ -51,6 +62,36 @@ class TranslationCheckpointSession:
         self._owns_store = True
         self.payload: dict[str, Any] | None = None
         self.on_pages_committed: Callable[[list[dict[str, Any]]], None] | None = None
+        self._timings = {
+            stage: {"count": 0, "failed_count": 0, "elapsed_ns": 0}
+            for stage in ("update", "projection", "change_validation", "persist", "snapshot", "save", "observer", "prune", "event")
+        }
+
+    def _measure(self, stage, function, *args, **kwargs):
+        timing = self._timings[stage]
+        started = time.perf_counter_ns()
+        try:
+            result = function(*args, **kwargs)
+        except BaseException:
+            timing["failed_count"] += 1
+            raise
+        else:
+            timing["count"] += 1
+            return result
+        finally:
+            timing["elapsed_ns"] += max(0, time.perf_counter_ns() - started)
+
+    def metrics(self) -> dict[str, int | float]:
+        """Inclusive timings, including failed attempts; never checkpoint fields."""
+        return {
+            key: value
+            for stage, timing in self._timings.items()
+            for key, value in (
+                (f"{stage}_count", timing["count"]),
+                (f"{stage}_failed_count", timing["failed_count"]),
+                (f"{stage}_elapsed_ms", timing["elapsed_ns"] / 1_000_000),
+            )
+        }
 
     @classmethod
     def acquire(
@@ -102,6 +143,7 @@ class TranslationCheckpointSession:
         )
         self._persist(committed_pages=[])
 
+    @_timed("update")
     def update(
         self,
         phase: str,
@@ -118,11 +160,26 @@ class TranslationCheckpointSession:
             for page in self.payload.get("pages", [])
             if isinstance(page, dict)
         ]
-        pages, progress = project_progress(
+        pages, progress = self._measure("projection", project_progress,
             output_dir=self.output_dir,
             page_payloads=page_payloads,
             translation_paths=translation_paths,
         )
+        committed_changes = self._measure(
+            "change_validation", self._reconcile_changes,
+            previous_pages, pages, changed_item_ids_by_page, detect_item_changes,
+        )
+        advance_checkpoint(
+            self.payload,
+            phase=str(phase),
+            pages=pages,
+            progress=progress,
+        )
+        self._persist(
+            committed_pages=committed_pages_for_changes(pages, committed_changes)
+        )
+
+    def _reconcile_changes(self, previous_pages, pages, changed_item_ids_by_page, detect_item_changes):
         derived_changes = diff_changed_item_ids_by_page(previous_pages, pages)
         if changed_item_ids_by_page is not None:
             committed_changes = self._validate_change_hint(
@@ -135,15 +192,7 @@ class TranslationCheckpointSession:
             committed_changes = derived_changes
         else:
             committed_changes = {}
-        advance_checkpoint(
-            self.payload,
-            phase=str(phase),
-            pages=pages,
-            progress=progress,
-        )
-        self._persist(
-            committed_pages=committed_pages_for_changes(pages, committed_changes)
-        )
+        return committed_changes
 
     def complete(self, manifest_path: Path) -> None:
         if self.payload is None:
@@ -210,6 +259,7 @@ class TranslationCheckpointSession:
                 reconciled[page_idx] = set(item_ids)
         return reconciled
 
+    @_timed("persist")
     def _persist(self, *, committed_pages: list[dict[str, Any]]) -> None:
         if self.payload is None:
             raise RuntimeError("Translation checkpoint session is not initialized")
@@ -221,12 +271,12 @@ class TranslationCheckpointSession:
             producer_generation=int(self.payload["generation"]),
         )
         self.payload["committed_pages_event"] = event_payload
-        self.store.snapshot_pages(self.payload)
-        self.store.save(self.payload)
+        self._measure("snapshot", self.store.snapshot_pages, self.payload)
+        self._measure("save", self.store.save, self.payload)
         if self.on_pages_committed is not None:
-            self.on_pages_committed(committed_pages)
-        self.store.prune_snapshots(int(self.payload["generation"]))
-        self._emit_pipeline_checkpoint(event_payload)
+            self._measure("observer", self.on_pages_committed, committed_pages)
+        self._measure("prune", self.store.prune_snapshots, int(self.payload["generation"]))
+        self._measure("event", self._emit_pipeline_checkpoint, event_payload)
 
     @staticmethod
     def _event_payload(

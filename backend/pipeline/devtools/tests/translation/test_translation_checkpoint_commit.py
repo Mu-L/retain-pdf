@@ -32,13 +32,14 @@ def _request(tmp_path: Path) -> TranslationExecutionRequest:
 
 
 def _plan():
+    from retainpdf_pipeline.translate.artifacts.aggregator import TranslationRunDiagnostics
     return SimpleNamespace(
         data={},
         start=0,
         stop=0,
         page_indices=range(0, 1),
         glossary_entries=[],
-        run_diagnostics=object(),
+        run_diagnostics=TranslationRunDiagnostics("fake", "fake", "https://example.invalid", 1, 1, 1),
         translation_context=object(),
         policy_config=SimpleNamespace(
             rule_profile_name="general_sci",
@@ -92,7 +93,11 @@ def test_execution_commits_manifest_only_after_checkpoint_validation(tmp_path: P
     _install_execution_stubs(monkeypatch, translated_text="译文")
     monkeypatch.setattr(execution_runner, "blocking_untranslated_items", lambda _pages: [])
 
-    execution_runner.run_translation_execution_plan(request, _plan())
+    plan = _plan()
+    execution_runner.run_translation_execution_plan(request, plan)
+    metrics = plan.run_diagnostics.build_summary()["checkpoint_timing"]
+    assert metrics["persist_count"] >= 2  # Includes initialization and complete.
+    assert metrics["persist_failed_count"] == 0
 
     manifest = json.loads(
         (request.output_dir / "translation-manifest.json").read_text(encoding="utf-8")

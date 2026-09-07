@@ -373,6 +373,12 @@ def _collect_dirty_pages(items: list[dict]) -> set[int]:
     return dirty_pages
 
 
+def _empty_reconstruction_counts() -> dict[str, int]:
+    return {f"garbled_{outcome}": 0 for outcome in (
+        "applied", "rejected", "no_result", "failed", "completed",
+    )}
+
+
 def _run_reconstruction_candidates(
     candidate_list: list[tuple[str, dict]],
     *,
@@ -383,9 +389,32 @@ def _run_reconstruction_candidates(
     workers: int,
     runtime: GarbledReconstructionRuntime,
     progress_callback: Callable[[int, int, set[int]], None] | None = None,
+    result_counts: dict[str, int] | None = None,
 ) -> tuple[int, set[int]]:
     reconstructed = 0
     dirty_pages: set[int] = set()
+    counts = _empty_reconstruction_counts()
+    if result_counts is not None:
+        result_counts.update(counts)
+
+    def settle(key: str, translated_text: str, *, failed: bool = False) -> None:
+        nonlocal reconstructed
+        outcome = "failed" if failed else "no_result"
+        if not failed and translated_text:
+            target_items = candidates_by_key[key]
+            # Programming/validation/application failures must still propagate;
+            # they are not recoverable request or response parsing failures.
+            prepared = _prepare_reconstruction(target_items, translated_text)
+            result = _apply_prepared_reconstruction(target_items, prepared)
+            outcome = result.outcome
+            reconstructed += int(outcome == "applied")
+            dirty_pages.update(result.dirty_pages)
+        counts[f"garbled_{outcome}"] += 1
+        counts["garbled_completed"] += 1
+        if result_counts is not None:
+            result_counts.update(counts)
+        if progress_callback is not None:
+            progress_callback(counts["garbled_completed"], len(candidate_list), set(dirty_pages))
     max_workers = max(1, min(workers, 12, len(candidate_list)))
     print(f"book: garbled reconstruction candidates={len(candidate_list)} workers={max_workers}", flush=True)
     print(
@@ -395,23 +424,17 @@ def _run_reconstruction_candidates(
     )
 
     if max_workers == 1:
-        for completed, (key, item) in enumerate(candidate_list, start=1):
+        for key, item in candidate_list:
             try:
                 translated_text = _repair_item_translation(
                     item,
                     runtime=runtime,
                 )
-            except Exception as exc:
-                print(f"garbled-reconstruct {item.get('item_id', '')}: skipped: {type(exc).__name__}: {exc}", flush=True)
+            except Exception:
+                print("garbled-reconstruct: skipped category=request_or_parse_failed", flush=True)
+                settle(key, "", failed=True)
                 continue
-            if translated_text:
-                target_items = candidates_by_key[key]
-                prepared = _prepare_reconstruction(target_items, translated_text)
-                result = _apply_prepared_reconstruction(target_items, prepared)
-                reconstructed += int(result.outcome == "applied")
-                dirty_pages.update(result.dirty_pages)
-            if progress_callback is not None:
-                progress_callback(completed, len(candidate_list), set(dirty_pages))
+            settle(key, translated_text)
         return reconstructed, dirty_pages
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -423,23 +446,15 @@ def _run_reconstruction_candidates(
             ): (key, item)
             for key, item in candidate_list
         }
-        completed = 0
         for future in as_completed(future_map):
             key, item = future_map[future]
             try:
                 translated_text = future.result()
-            except Exception as exc:
-                print(f"garbled-reconstruct {item.get('item_id', '')}: skipped: {type(exc).__name__}: {exc}", flush=True)
+            except Exception:
+                print("garbled-reconstruct: skipped category=request_or_parse_failed", flush=True)
+                settle(key, "", failed=True)
                 continue
-            if translated_text:
-                target_items = candidates_by_key[key]
-                prepared = _prepare_reconstruction(target_items, translated_text)
-                result = _apply_prepared_reconstruction(target_items, prepared)
-                reconstructed += int(result.outcome == "applied")
-                dirty_pages.update(result.dirty_pages)
-            completed += 1
-            if progress_callback is not None:
-                progress_callback(completed, len(candidate_list), set(dirty_pages))
+            settle(key, translated_text)
     return reconstructed, dirty_pages
 
 
@@ -454,8 +469,10 @@ def reconstruct_garbled_items(
 ) -> dict[str, int]:
     pending_translation_items(payload)
     candidates_by_key, representatives = _collect_candidates(payload)
+    counts = _empty_reconstruction_counts()
     if not representatives:
-        return {"garbled_candidates": 0, "garbled_reconstructed": 0}
+        return {"garbled_candidates": 0, "garbled_reconstructed": 0,
+                "garbled_attempted": 0, "garbled_skipped_by_budget": 0, **counts}
 
     candidate_list = [(key, representatives[key]) for key in sorted(representatives)]
     total_candidates = len(candidate_list)
@@ -468,8 +485,10 @@ def reconstruct_garbled_items(
         base_url=base_url,
         workers=workers,
         runtime=runtime,
+        result_counts=counts,
     )
     return {
+        **counts,
         "garbled_candidates": total_candidates,
         "garbled_attempted": len(candidate_list),
         "garbled_skipped_by_budget": max(0, total_candidates - len(candidate_list)),
@@ -490,6 +509,7 @@ def reconstruct_garbled_page_payloads(
     flat_payload = [item for page_idx in sorted(page_payloads) for item in page_payloads[page_idx]]
     pending_translation_items(flat_payload)
     candidates_by_key, representatives = _collect_candidates(flat_payload)
+    counts = _empty_reconstruction_counts()
     if not representatives:
         return {
             "garbled_candidates": 0,
@@ -497,6 +517,7 @@ def reconstruct_garbled_page_payloads(
             "garbled_skipped_by_budget": 0,
             "garbled_reconstructed": 0,
             "dirty_pages": [],
+            **counts,
         }
 
     candidate_list = [(key, representatives[key]) for key in sorted(representatives)]
@@ -511,8 +532,10 @@ def reconstruct_garbled_page_payloads(
         workers=workers,
         runtime=runtime,
         progress_callback=progress_callback,
+        result_counts=counts,
     )
     return {
+        **counts,
         "garbled_candidates": total_candidates,
         "garbled_attempted": len(candidate_list),
         "garbled_skipped_by_budget": max(0, total_candidates - len(candidate_list)),
