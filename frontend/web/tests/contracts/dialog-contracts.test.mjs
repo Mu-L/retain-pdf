@@ -5,45 +5,12 @@ import assert from "node:assert/strict";
 // status-detail/glossary-manager 的 *-dialog-template.js)、features/developer/*、
 // features/reader-dialog/{view.js,legacy-dom-adapter.js} 已随 home 页 cutover 删除
 // (React 组件树取代)。本文件原有的"模板 markup 含契约 id"类用例随之删除;
-// 保留的 3 个用例测的是纯逻辑(reader-dialog-contract.js 的 readerDialogLinkOpenState、
-// reader-dialog/config-port.js 的 URL/消息可信度解析),与 DOM 模板无关,继续保活。
+// 保留的用例测的是纯逻辑(reader-dialog/config-port.js 的 URL/消息可信度解析),
+// 与 DOM 模板无关,继续保活。readerDialogLinkOpenState 所在的旧 DOM 契约文件
+// 在 src/ 内已零消费,连同其用例一并删除。
 
-import {
-  READER_DIALOG_CLASSES,
-  READER_DIALOG_DATASETS,
-  readerDialogLinkOpenState,
-} from "../../src/js/components/dialogs/reader-dialog-contract.js";
 import { createReaderDialogConfigPort } from "../../src/js/features/reader-dialog/config-port.js";
 
-test("reader dialog link open state uses the shared external trigger contract", () => {
-  const classes = new Set([READER_DIALOG_CLASSES.disabled]);
-  const link = {
-    dataset: {
-      [READER_DIALOG_DATASETS.url]: "./reader.html?job_id=job-reader",
-    },
-    disabled: false,
-    classList: {
-      contains(name) {
-        return classes.has(name);
-      },
-    },
-    getAttribute(name) {
-      return name === "aria-disabled" ? "false" : "";
-    },
-  };
-
-  assert.deepEqual(readerDialogLinkOpenState(link), {
-    url: "./reader.html?job_id=job-reader",
-    disabled: true,
-  });
-
-  classes.clear();
-  link.disabled = true;
-  assert.deepEqual(readerDialogLinkOpenState({ currentTarget: link }), {
-    url: "./reader.html?job_id=job-reader",
-    disabled: true,
-  });
-});
 
 test("reader dialog config port owns reader URLs and message trust", () => {
   const trustCalls = [];

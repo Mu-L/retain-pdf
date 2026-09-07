@@ -1,4 +1,4 @@
-// 工作流面板(翻译工作流卡片,对照 partials/main-content.html 的
+// 工作流面板(翻译工作流卡片,对照 旧世界 HTML 骨架(已删除) 的
 // .translation-workflow-card 区块逐 id 镜像)。
 //
 // - #job-warning:workflow 视图 store(updateJobWarning 桥回调写入)

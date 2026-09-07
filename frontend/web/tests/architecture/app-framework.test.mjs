@@ -8,9 +8,6 @@ import {
   createResource,
 } from "../../src/js/app-framework/resource.js";
 import {
-  createSelector,
-} from "../../src/js/app-framework/selector.js";
-import {
   createStore,
 } from "../../src/js/app-framework/store.js";
 
@@ -171,24 +168,4 @@ test("createResource records loader errors without throwing by default", async (
 
   assert.equal(snapshot.status, "error");
   assert.equal(snapshot.error.message, "network failed");
-});
-
-test("createSelector memoizes derived view models by input values", () => {
-  let calls = 0;
-  const selector = createSelector([
-    (state) => state.count,
-    (state) => state.label,
-  ], (count, label) => {
-    calls += 1;
-    return { title: `${label}:${count}` };
-  });
-
-  const first = selector({ count: 1, label: "ocr", ignored: "a" });
-  const second = selector({ count: 1, label: "ocr", ignored: "b" });
-  const third = selector({ count: 2, label: "ocr", ignored: "b" });
-
-  assert.equal(first, second);
-  assert.notEqual(second, third);
-  assert.deepEqual(third, { title: "ocr:2" });
-  assert.equal(calls, 2);
 });

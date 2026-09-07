@@ -5,7 +5,6 @@ import { createInitialState } from "../../src/js/state/slices.js";
 import * as jobEventsResourceModule from "../../src/js/features/job-runtime/job-events-resource.js";
 import * as secondaryResourceCacheModule from "../../src/js/features/job-runtime/secondary-resource-cache.js";
 import * as currentJobSecondarySelectorsModule from "../../src/js/features/job-runtime/current-job-secondary-selectors.js";
-import * as stagePinStateModule from "../../src/js/features/job-runtime/stage-pin-state.js";
 import * as currentJobStateModule from "../../src/js/features/job-runtime/current-job-state.js";
 import { syncCurrentJobSnapshot } from "../../src/js/features/job-runtime/current-job-state.js";
 import * as runtimePollingStateModule from "../../src/js/features/job-runtime/runtime-polling-state.js";
@@ -316,36 +315,7 @@ test("secondary resource state port batches resource updates into one notificati
   assert.equal(port.fetchedAt("events"), 2100);
 });
 
-test("stage pin state normalizes job and stage keys", () => {
-  const state = createInitialState();
-  stagePinStateModule.resetDisplayedStagePin(state, " job-a ");
-  stagePinStateModule.setDisplayedStagePin(state, " render ");
-  assert.deepEqual(stagePinStateModule.currentDisplayedStagePin(state), {
-    jobId: "job-a",
-    stageKey: "render",
-  });
-});
 
-test("stage pin state ignores untrusted stage changes from old compatibility paths", () => {
-  const state = createInitialState();
-  stagePinStateModule.resetDisplayedStagePin(state, "job-stage-current");
-  stagePinStateModule.setDisplayedStagePin(state, "render");
-
-  const displayStage = stagePinStateModule.keepDisplayedStageForward({
-    state,
-    jobId: "job-stage-current",
-    stageKey: "translate",
-  });
-
-	assert.deepEqual(displayStage, {
-	  stageKey: "render",
-	  keptPrevious: true,
-	});
-	assert.deepEqual(stagePinStateModule.currentDisplayedStagePin(state), {
-	  jobId: "job-stage-current",
-	  stageKey: "render",
-	});
-});
 
 test("current job state owns snapshot timing and detail caches", () => {
   const state = createInitialState();

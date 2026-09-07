@@ -7,8 +7,7 @@ import { createSecondaryResourceStatePort } from "../../src/js/features/job-runt
 import { createJobRenderContextPort } from "../../src/js/features/job-runtime/render-context.js";
 import { normalizedStageEventRecord } from "@retainpdf/domain/job-status";
 import { buildEventsPresentation } from "../../src/js/status-detail/events.js";
-import { buildFailureLogText } from "../../src/js/status-detail/snapshot.js";
-import { createStatusDetailPresenter } from "../../src/js/status-detail/presenter.js";
+import { buildFailureLogText, buildStatusDetailSnapshot } from "../../src/js/status-detail/snapshot.js";
 import {
   resolveStageHistoryDuration,
   stageHistoryDisplay,
@@ -208,33 +207,9 @@ test("OCR ambiguity recovery:409 时刷新诊断且不启动旧恢复任务", as
   assert.match(statuses.at(-1), /状态已变化/);
 });
 
-test("status detail presenter owns snapshot fallback rendering", () => {
-  const calls = [];
-  const presenter = createStatusDetailPresenter({
-    renderSnapshotView: (snapshot) => {
-      calls.push(["view", snapshot.headline.jobId]);
-      return false;
-    },
-    renderSnapshotSections: (snapshot) => {
-      calls.push(["sections", snapshot.headline.jobId]);
-    },
-  });
-
-  const snapshot = presenter.renderDetails({
-    job_id: "job-status-detail-presenter",
-    status: "running",
-  }, { items: [] });
-
-  assert.equal(snapshot.headline.jobId, "job-status-detail-presenter");
-  assert.deepEqual(calls, [
-    ["view", "job-status-detail-presenter"],
-    ["sections", "job-status-detail-presenter"],
-  ]);
-});
 
 test("status detail snapshot runtime stage follows public presentation", () => {
-  const presenter = createStatusDetailPresenter();
-  const snapshot = presenter.renderDetails({
+  const snapshot = buildStatusDetailSnapshot({
     job_id: "job-status-detail-public-stage",
     status: "running",
     display_stage: "translation",
@@ -249,8 +224,7 @@ test("status detail snapshot runtime stage follows public presentation", () => {
 });
 
 test("status detail snapshot runtime stage follows normalized stage snapshot", () => {
-  const presenter = createStatusDetailPresenter();
-  const snapshot = presenter.renderDetails({
+  const snapshot = buildStatusDetailSnapshot({
     job_id: "job-status-detail-normalized-stage",
     status: "running",
     stage: "render_preprocess",
@@ -278,8 +252,7 @@ test("status detail snapshot runtime stage follows normalized stage snapshot", (
 });
 
 test("status detail snapshot does not use legacy user_stage as runtime public stage", () => {
-  const presenter = createStatusDetailPresenter();
-  const snapshot = presenter.renderDetails({
+  const snapshot = buildStatusDetailSnapshot({
     job_id: "job-status-detail-legacy-user-stage",
     status: "running",
     user_stage: "translation",

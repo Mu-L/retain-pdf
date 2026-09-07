@@ -89,12 +89,7 @@ export { initializeIdleAppView } from "../../../../js/features/app-shell/idle-re
 export { defaultAppShellConfigPort } from "../../../../js/features/app-shell/config-port.js";
 
 // reader-dialog
-export {
-  READER_DIALOG_COPY,
-  READER_DIALOG_IDS,
-  READER_DIALOG_MESSAGES,
-  READER_FRAME_PLACEHOLDER,
-} from "../../../../js/features/reader-dialog/contract.js";
+export { READER_DIALOG_MESSAGES } from "../../../../js/features/reader-dialog/contract.js";
 export {
   buildReaderDocumentPageUrl,
   buildReaderPageUrl,

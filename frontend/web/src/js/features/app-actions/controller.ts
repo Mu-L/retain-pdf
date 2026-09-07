@@ -7,7 +7,6 @@ import {
   type SetTextFn,
 } from "./submit-flow.js";
 import { defaultAppActionsConfigPort } from "./config-port.js";
-import { createAppActionsViewPort } from "./action-view-port.js";
 import { createAppActionsRuntimeEnvPort } from "./runtime-env-port.js";
 import { createAppActionsJobSnapshotPort } from "./job-snapshot-port.js";
 import { createAppActionsUploadStatePort } from "./upload-state-port.js";
@@ -73,7 +72,7 @@ export interface MountAppActionsFeatureOptions {
   uploadStatePort?: AppActionsUploadStatePort;
   runtimeEnvPort?: AppActionsRuntimeEnvPort;
   jobSnapshotPort?: AppActionsJobSnapshotPort;
-  viewPort?: AppActionsViewPort;
+  viewPort: AppActionsViewPort;
   apiBase?: string | (() => string);
   apiPrefix?: string;
   buildApiEndpoint?: (prefix?: string, path?: string) => string;
@@ -105,7 +104,7 @@ export function mountAppActionsFeature({
   uploadStatePort,
   runtimeEnvPort,
   jobSnapshotPort,
-  viewPort = createAppActionsViewPort(),
+  viewPort,
   apiBase,
   apiPrefix,
   buildApiEndpoint,

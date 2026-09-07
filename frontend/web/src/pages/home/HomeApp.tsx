@@ -1,12 +1,13 @@
 // home 页 React 编排根。
 //
-// 结构对照 partials/main-content.html + dialogs.html 逐区块镜像;顶部只留
+// 结构对照 旧世界 HTML 骨架(已删除,见 git 历史) 逐区块镜像;顶部只留
 // 品牌 + 图书馆/分类分栏(AppTopBar.jsx,去掉白卡背景);添加/搜索/设置 三样
 // 收进底部一条居中浮动栏(AppBottomBar.jsx,取代早期分离的 AppBottomActions +
 // LibrarySearchDock 两个浮岛)。
 // 其余区块(library-view 网格、status 卡、credentials/glossaries/status-detail 等)
 // 已陆续接上;ReaderDialog 仅导航到 reader.html(无 UI)。
-// 占位自定义元素标签(<recent-jobs-dialog> 等)在新世界不注册定义,惰性无副作用。
+// 自定义元素只剩 <library-search-island> 一个真实注册点(见下方 islands 说明);
+// 其余占位标签在新世界不注册定义,已随 cutover 从 JSX 移除。
 //
 // Shell 收口:HomeApp 只做 providers 嵌套(HomeShellProviders + HomeTabsProvider),
 // HomeShell 承载 tabs 本地态 + AppTopBar/BottomBar + home-paper-stage。
@@ -150,8 +151,6 @@ function HomeShell() {
           ) : null}
         </div>
         <button id="open-query-btn" type="button" className="secondary hidden" aria-hidden="true">最近任务</button>
-        {/* 3b 占位:最近任务对话框 */}
-        <recent-jobs-dialog></recent-jobs-dialog>
         <SettingsHubDialog
           credentialsWorkbenchSlot={<CredentialsWorkbench />}
           appUpdateBannerSlot={<AppUpdateBanner />}

@@ -15,10 +15,8 @@ declare module "react" {
     interface IntrinsicElements {
       "inline-error-box": HomeCustomElementProps;
       "library-search-island": HomeCustomElementProps;
-      "recent-jobs-dialog": HomeCustomElementProps;
       "developer-auth-dialog": HomeCustomElementProps;
       "developer-settings-dialog": HomeCustomElementProps;
-      "page-range-dialog": HomeCustomElementProps;
       "app-shell-header": HomeCustomElementProps;
     }
   }

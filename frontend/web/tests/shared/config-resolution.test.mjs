@@ -172,7 +172,12 @@ test("401 提示文案只收敛一处：读取图书馆失败，请稍后重试�
     const content = fs.readFileSync(file, "utf8");
     if (content.includes("读取图书馆失败")) hits.push(path.relative(frontendRoot, file));
   }
-  assert.deepEqual(hits, ["src/js/api/library-books.ts"]);
-  const lib = fs.readFileSync(path.join(frontendRoot, "src/js/api/library-books.ts"), "utf8");
+  // 文案真值已随 library-books 客户端收敛到 @retainpdf/api；
+  // frontend/web/src 内不得再出现副本(旧的 src/js/api/library-books.ts 已删除)。
+  assert.deepEqual(hits, []);
+  const lib = fs.readFileSync(
+    path.join(frontendRoot, "../packages/api/src/library-books.ts"),
+    "utf8",
+  );
   assert.ok(lib.includes("读取图书馆失败，请稍后重试。(${resp.status})"));
 });

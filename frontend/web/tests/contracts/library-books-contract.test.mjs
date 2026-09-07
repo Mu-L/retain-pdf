@@ -81,15 +81,14 @@ test("LibraryBookDetailView: artifacts 与 cover 相关字段存在于契约", (
 test("API 路径: library-books 消费的路径落在契约端点内", () => {
   const allowedPaths = new Set(contract.endpoints.map((e) => e.path));
   // 消费侧路径取自 library-api-client + library-books.ts
-  const clientPaths = [];
-  try {
-    const clientSrc = readFileSync(join(process.cwd(), "..", "web-react", "src", "features", "library", "api", "library-api-client.ts"), "utf8");
-    clientPaths.push(...[...clientSrc.matchAll(/`library\/[^`]*`/g)].map((m) => m[0].replace(/`/g, "")));
-    clientPaths.push(...[...clientSrc.matchAll(/\"library\/[^"]*\"/g)].map((m) => m[0].replace(/"/g, "")));
-  } catch {}
-  const webLibSrc = readFileSync(join(process.cwd(), "src/js/api/library-books.ts"), "utf8");
-  const webPaths = [...webLibSrc.matchAll(/library\/books[^"\s`]*/g)].map((m) => m[0]);
-  const used = [...clientPaths, ...webPaths];
+  // 消费侧真值是 @retainpdf/api 的 library-books 客户端。
+  // (原先还读 ../web-react/... 那份实验工作区，该目录早已删除，try/catch 把
+  //  失败静默吞掉，clientPaths 恒为空——一并移除，避免哑分支掩盖提取失效。)
+  const clientSrc = readFileSync(
+    join(process.cwd(), "..", "packages", "api", "src", "library-books.ts"),
+    "utf8",
+  );
+  const used = [...clientSrc.matchAll(/library\/books[^"\s`]*/g)].map((m) => m[0]);
   assert.ok(used.length >= 2, `采集到的 library 路径过少(${used.length})，提取逻辑可能失效`);
   for (const p of used) {
     const normalized = p.split("?")[0].replace(/\/\$\{[^}]*\}/g, "/:job_id");

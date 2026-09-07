@@ -117,7 +117,7 @@ export type UploadDomRefs = {
   fileInput: HTMLInputElement | null;
 };
 
-// 初始值镜像 partials/main-content.html 的静态骨架(水合前状态)
+// 初始值镜像 旧世界 HTML 骨架(已删除) 的静态骨架(水合前状态)
 export function createUploadViewStore(): UploadViewStore {
   return createStore<UploadViewState, UploadViewActions>({
     name: "homeUploadView",

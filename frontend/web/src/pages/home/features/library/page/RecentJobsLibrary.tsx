@@ -360,7 +360,7 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
 
 // 使用 handleSearchChange 的搜索输入框自身留在 LibraryBottomBar(HomeApp.jsx)
 // 骨架里——图书馆网格与底部搜索栏是同级兄弟节点,不是父子关系(镜像
-// partials/main-content.html)。导出这个 hook 供 HomeApp.jsx 复用同一条
+// 旧世界 HTML 骨架(已删除))。导出这个 hook 供 HomeApp.jsx 复用同一条
 // onSearch/query 通道,避免出现两条平行实现。
 // — Decoupled: canonical implementation lives in features/shared/use-library-search-binding.js;
 //   AppBottomBar now imports from shared, not from library (removes app-shell → library coupling).

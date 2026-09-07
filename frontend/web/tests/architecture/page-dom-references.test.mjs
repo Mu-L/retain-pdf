@@ -20,6 +20,9 @@ import { join, relative } from "node:path";
 
 const PROJECT_ROOT = process.cwd();
 const STYLES_ROOT = join(PROJECT_ROOT, "src/styles");
+// Reader 的样式真值在 @retainpdf/reader 包内(web 侧只做代理入口),
+// 归属校验必须一并扫描,否则包内自有的 .reader-* 规则会被误判成孤儿。
+const PACKAGE_STYLE_ROOTS = [join(PROJECT_ROOT, "../packages/reader/styles")];
 
 // 已确认的历史遗留引用(运行时元素/类确实不存在)。新增条目前必须先人工确认,
 // 并注明原因;一旦引用恢复归属,下方的 hygiene 用例会强制从这里移除。
@@ -28,20 +31,9 @@ const KNOWN_ORPHANS = {
     // 模板生成的类,src/styles 中没有对应规则(无样式 div)
     "detail-artifact-meta",
   ]),
-  // reader 侧旧契约 `reader-dialog` 相关 id 在新引擎已迁至 @retainpdf/reader，
-  // 旧 JS 字面量仍保留，但归属已由新包的 data-attr / class 承接，暂列为已知孤儿以保持门禁绿灯。
-  "src/js/reader": Object.freeze([
-    "reader-dialog",
-    "reader-dialog-frame",
-    "reader-dialog-close-btn",
-    "reader-dialog-loading",
-    "reader-dialog-loading-text",
-    "reader-dialog-loading-percent",
-    "reader-dialog-loading-bar",
-    "reader-source-download-btn",
-    "reader-merged-download-btn",
-    "reader-translated-download-btn",
-  ]),
+  // 旧 reader-dialog DOM 契约文件已随 cutover 删除(reader-* 字面量真值现在
+  // 全部来自 @retainpdf/reader 包)，原先为它挂的孤儿豁免全部失效，清空。
+  "src/js/reader": Object.freeze([]),
   "src/js/features/home": Object.freeze([]),
 };
 
@@ -61,8 +53,8 @@ const PAGES = [
     htmlFile: "reader.html",
     jsxDir: "src/pages/reader",
     // src/js/reader 已空（逻辑迁至 frontend/packages/reader），回退到旧契约与新包以仍校验 reader-* 字面量归属
-    extraJsDirs: ["src/js/features/reader-dialog", "src/js/components/dialogs", "frontend/packages/reader/src"],
-    extraJsxDirs: ["frontend/packages/reader/src"],
+    extraJsDirs: ["src/js/features/reader-dialog", "../packages/reader/src"],
+    extraJsxDirs: ["../packages/reader/src"],
   },
   {
     jsDir: "src/js/features/home",
@@ -180,7 +172,14 @@ function analyzePage({ jsDir, prefix, htmlFile, jsxDir = "", extraJsDirs = [], e
     jsxTexts.push(...collectJsxTexts(extra));
   }
   const htmlText = readFileSync(join(PROJECT_ROOT, htmlFile), "utf8");
-  const cssText = walkFiles(STYLES_ROOT, ".css")
+  const cssText = [STYLES_ROOT, ...PACKAGE_STYLE_ROOTS]
+    .flatMap((root) => {
+      try {
+        return walkFiles(root, ".css");
+      } catch {
+        return [];
+      }
+    })
     .map((file) => readFileSync(file, "utf8"))
     .join("\n");
   const literals = collectLiterals(jsFiles, prefix);
