@@ -26,7 +26,6 @@ import {
   setDesktopMode,
   createHomeStatePort,
   createUploadStatePort,
-  defaultCredentialsStatePort,
   defaultOcrProvider,
   validateDeepSeekToken,
   queryDeepSeekBalance,
@@ -43,6 +42,9 @@ import {
   parseGlossaryCsvApi,
   submitUploadRequestHttp,
 } from "./composition/external.js";
+import {
+  defaultCredentialsStatePort,
+} from "@/features/credentials/index.js";
 import {
   defaultUpdateCachePort,
   fetchLatestGithubRelease,

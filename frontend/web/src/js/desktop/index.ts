@@ -6,7 +6,7 @@ import {
 import { savePersistedBrowserStoredConfig } from "../config/persisted-config.js";
 import {
   applyDefaultCredentialInputs,
-} from "../features/credentials/default-state-port.js";
+} from "@/features/credentials/domain.js";
 import { state } from "../state/store.js";
 import {
   setDesktopConfigured,

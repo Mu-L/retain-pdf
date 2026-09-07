@@ -1,4 +1,4 @@
-import { APP_DIALOG_IDS, APP_SHELL_IDS } from "../../contracts/app-contract.js";
+import { APP_DIALOG_IDS, APP_SHELL_IDS } from "@/js/contracts/app-contract.js";
 
 export const CREDENTIAL_DOM_IDS = {
   dialog: APP_DIALOG_IDS.browserCredentials,

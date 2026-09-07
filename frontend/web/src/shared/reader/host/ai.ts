@@ -12,7 +12,7 @@ import {
   loadBrowserStoredConfig,
   loadDeveloperStoredConfig,
 } from "../../../js/config/persisted-config.js";
-import { defaultCredentialsStatePort } from "../../../js/features/credentials/default-state-port.js";
+import { defaultCredentialsStatePort } from "@/features/credentials/domain.js";
 import { fetchProtected } from "./data.js";
 
 readerAi.setReaderAiConfigAdapters({

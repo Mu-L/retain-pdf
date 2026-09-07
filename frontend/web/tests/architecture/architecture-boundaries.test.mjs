@@ -585,15 +585,19 @@ test("status detail layer does not keep legacy render compatibility facades", ()
 });
 
 test("credentials runtime state is store-only with no legacy mirror ports", () => {
+  // credentials 已迁至 src/features/credentials（按功能重组），其非 React 实现在 domain/。
+  const CREDENTIALS_DOMAIN = join(PROJECT_ROOT, "src/features/credentials/domain");
   // credential slice 已统一到 app-framework store,镜像 port 文件不应再出现
-  for (const fileName of ["runtime-state-port.js", "balance-state-port.js", "legacy-runtime-port.js"]) {
-    assert.equal(existsSync(join(SOURCE_ROOTS.features, "credentials", fileName)), false);
+  for (const fileName of ["runtime-state-port.ts", "balance-state-port.ts", "legacy-runtime-port.ts"]) {
+    assert.equal(existsSync(join(CREDENTIALS_DOMAIN, fileName)), false);
   }
-  for (const fileName of ["validation.js", "deepseek-flow.js", "browser.js", "ocr-readiness-flow.js"]) {
-    const source = readFeatureSource("credentials", fileName);
-    assert.equal(source.includes("../../state/actions.js"), false);
-    assert.equal(source.includes("legacy-runtime-port.js"), false);
-    assert.equal(source.includes("balance-state-port.js"), false);
+  for (const fileName of ["validation.ts", "deepseek-flow.ts", "browser.ts", "ocr-readiness-flow.ts"]) {
+    const source = readSource(join(CREDENTIALS_DOMAIN, fileName));
+    // 迁移后跨目录 import 统一写 @/ 别名，断言必须同时覆盖新旧两种写法，
+    // 否则只匹配旧的相对路径会让本门禁退化成永远通过。
+    assert.equal(/["'][^"']*state\/actions\.js["']/.test(source), false);
+    assert.equal(source.includes("legacy-runtime-port"), false);
+    assert.equal(source.includes("balance-state-port"), false);
   }
 });
 

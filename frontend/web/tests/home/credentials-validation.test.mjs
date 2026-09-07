@@ -5,23 +5,23 @@ import {
   runDeepSeekBalanceCheck,
   runDeepSeekConnectivityCheck,
   runOcrTokenValidation,
-} from "../../src/js/features/credentials/validation.js";
+} from "../../src/features/credentials/domain/validation.js";
 import {
   handleBrowserDeepSeekValidate,
-} from "../../src/js/features/credentials/deepseek-flow.js";
-import { ensureOcrCredentialValidationReady } from "../../src/js/features/credentials/ocr-readiness-flow.js";
+} from "../../src/features/credentials/domain/deepseek-flow.js";
+import { ensureOcrCredentialValidationReady } from "../../src/features/credentials/domain/ocr-readiness-flow.js";
 import {
   browserValidationIdForProvider,
   CREDENTIAL_DOM_DATASETS,
   CREDENTIAL_DOM_IDS,
   CREDENTIAL_DOM_SELECTORS,
-} from "../../src/js/features/credentials/credentials-dom-contract.js";
-import { mountBrowserCredentialsFeature } from "../../src/js/features/credentials/browser.js";
+} from "../../src/features/credentials/domain/credentials-dom-contract.js";
+import { mountBrowserCredentialsFeature } from "../../src/features/credentials/domain/browser.js";
 import {
   createCredentialsStatePort,
   hasCompleteCredentials,
   ocrTokenFromCredentials,
-} from "../../src/js/features/credentials/state.js";
+} from "../../src/features/credentials/domain/state.js";
 import { createUploadStatePort } from "../../src/js/features/upload/state.js";
 import { createInitialState } from "../../src/js/state/slices.js";
 

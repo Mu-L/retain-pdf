@@ -3,9 +3,9 @@ import {
   type BoundStoreActions,
   type Store,
   type StoreListener,
-} from "../../app-framework/store.js";
-import { DEFAULT_OCR_PROVIDER } from "../../config/providers.js";
-import { normalizeBrowserStoredConfig } from "../../config/storage.js";
+} from "@/js/app-framework/store.js";
+import { DEFAULT_OCR_PROVIDER } from "@/js/config/providers.js";
+import { normalizeBrowserStoredConfig } from "@/js/config/storage.js";
 
 export interface CredentialsFields {
   ocrProvider: string;

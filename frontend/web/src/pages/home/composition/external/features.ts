@@ -12,12 +12,8 @@ export { collectUploadFormData } from "../../../../js/features/upload/form-data.
 export { mountWorkflowFeature } from "../../../../js/features/workflow/controller.js";
 export { defaultWorkflowConfigPort } from "../../../../js/features/workflow/config-port.js";
 
-// credentials / glossaries
-export type { CredentialsStatePort } from "../../../../js/features/credentials/state.js";
-export { defaultCredentialsStatePort } from "../../../../js/features/credentials/default-state-port.js";
-export { readHiddenCredentialDomInputs } from "../../../../js/features/credentials/hidden-input-dom-port.js";
-export { createCredentialRuntimeEnvPort } from "../../../../js/features/credentials/runtime-env-port.js";
-export { mountBrowserCredentialsFeature } from "../../../../js/features/credentials/browser.js";
+// credentials 已迁至 src/features/credentials，调用方直接从该功能的 index.ts
+// 导入，不再经本网关转发。
 // glossaries 已迁至 src/features/glossaries，调用方直接从该功能的 index.ts
 // 导入，不再经本网关转发。
 

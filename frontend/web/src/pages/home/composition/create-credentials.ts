@@ -11,14 +11,16 @@ import {
   savePersistedDeveloperStoredConfig,
 } from "./external/config.js";
 import {
+  createCredentialRuntimeEnvPort,
+  mountBrowserCredentialsFeature,
+  readHiddenCredentialDomInputs,
+} from "@/features/credentials/index.js";
+import {
   getDeveloperConfig,
   setDeveloperConfig,
   setDesktopConfigured,
 } from "./external/state.js";
 import {
-  readHiddenCredentialDomInputs,
-  createCredentialRuntimeEnvPort,
-  mountBrowserCredentialsFeature,
 } from "./external/features.js";
 import {
   createCredential,
@@ -26,8 +28,7 @@ import {
   updateCredential,
   validatePaddleToken,
 } from "@/platform/api/index.js";
-import { createCredentialsViewFeature } from "../features/credentials/credentials-view-store.js";
-import { createCredentialsDialogStore } from "../features/credentials/credentials-dialog-store.js";
+import { createCredentialsViewFeature } from "@/features/credentials/index.js";
 import type {
   AsyncFn,
   BrowserCredentialsFeature,
@@ -72,7 +73,7 @@ export function createCredentials({
   credentialsDialogStore: DialogStore;
   settingsHubDialogStore: DialogStore;
 } {
-  const credentialsDialogStore = createCredentialsDialogStore();
+  const credentialsDialogStore = createDialogStore();
   // payload 承载"打开时激活哪个 tab"（api/glossary/update），默认 api。
   const settingsHubDialogStore = createDialogStore({ tab: "api" });
   const credentialsView = createCredentialsViewFeature({ dialogStore: credentialsDialogStore });

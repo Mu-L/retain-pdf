@@ -1,4 +1,3 @@
-import { createCredentialDialogElementsPort } from "./dialog-elements-port.js";
 
 /** Values read from the browser credential dialog inputs. */
 export interface CredentialDialogValues {
@@ -39,7 +38,7 @@ export interface BuildTaskOptionsFromDialogValuesOptions {
 }
 
 export function readCredentialDialogValues({
-  elementsPort = createCredentialDialogElementsPort(),
+  elementsPort,
 }: ReadCredentialDialogValuesOptions = {}): CredentialDialogValues {
   const {
     paddleInput,

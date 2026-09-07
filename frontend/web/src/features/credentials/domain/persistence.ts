@@ -2,34 +2,7 @@ import {
   buildBrowserCredentialConfig,
   buildTaskOptionsFromDialogValues,
 } from "./dialog-values.js";
-import { createCredentialSetupModePort } from "./setup-mode-port.js";
 
-export function persistBrowserCredentialsFromDialog({
-  applyHiddenCredentialInputs,
-  applyCredentialInputs = applyHiddenCredentialInputs,
-  currentOcrProvider,
-  defaultModelApiKey,
-  defaultModelBaseUrl,
-  readHiddenCredentialInputs: _readHiddenCredentialInputs,
-  readCredentialInputs: _readCredentialInputs,
-  saveTaskOptions,
-  saveBrowserStoredConfig,
-  values,
-}: any) {
-  // 直接持久化表单结果，避免再从 state/DOM 回读时拿到旧值
-  const next = buildBrowserCredentialConfig({
-    values,
-    currentOcrProvider,
-    defaultModelApiKey,
-  });
-  applyCredentialInputs(next);
-  saveBrowserStoredConfig?.(next);
-  saveTaskOptions?.(buildTaskOptionsFromDialogValues({
-    values,
-    defaultModelBaseUrl,
-  }));
-  return next;
-}
 
 export async function persistDesktopCredentialsFromDialog({
   currentOcrProvider,
@@ -39,7 +12,7 @@ export async function persistDesktopCredentialsFromDialog({
   saveDesktopConfig,
   checkApiConnectivity,
   values,
-  setupModePort = createCredentialSetupModePort(),
+  setupModePort,
 }: any) {
   const provider = currentOcrProvider();
   const ocrCredentialRef = `${values.ocrCredentialRef || ""}`.trim();

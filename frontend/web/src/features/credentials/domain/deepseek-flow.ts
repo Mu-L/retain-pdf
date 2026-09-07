@@ -3,7 +3,7 @@ import {
   inferTranslationProvider,
   isOfficialDeepSeekBaseUrl,
   TRANSLATION_PROVIDER_DEFINITION,
-} from "../../config/providers.js";
+} from "@/js/config/providers.js";
 import {
   runDeepSeekBalanceCheck,
   runDeepSeekConnectivityCheck,

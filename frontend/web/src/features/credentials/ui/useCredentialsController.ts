@@ -8,15 +8,14 @@
 // changeProvider/resetXxxValidation 等)——见 credentials-view-store.js 头注释。
 
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
-import { useHomeServices } from "../../home-services-context.js";
-import { useDialogState } from "../../state/use-dialog-state.js";
+import { useCredentialsServices } from "./credentials-context.jsx";
+import { useDialogState } from "@/pages/home/state/use-dialog-state.js";
 
 export function useCredentialsController() {
-  const services = useHomeServices();
-  const { feature, view, dialogStore } = services.credentials;
+  const { feature, view, dialogStore, credentialsStatePort } = useCredentialsServices();
   const dialogState = useDialogState(dialogStore);
   const viewState = useStoreSnapshot(view.store);
-  const credentialsSnapshot = useStoreSnapshot(services.ports.credentialsStatePort.store);
+  const credentialsSnapshot = useStoreSnapshot(credentialsStatePort.store);
 
   return {
     open: Boolean(dialogState.open),

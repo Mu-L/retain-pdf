@@ -6,7 +6,7 @@ import {
   normalizeTranslationProvider,
   TRANSLATION_PROVIDER_DEFINITION,
   TRANSLATION_PROVIDER_OPTIONS,
-} from "../../config/providers.js";
+} from "@/js/config/providers.js";
 import {
   runOcrTokenValidation,
   type ProviderValidationResult,
@@ -27,7 +27,7 @@ import {
 } from "./persistence.js";
 import { createCredentialRuntimeEnvPort } from "./runtime-env-port.js";
 import { createCredentialUploadReadinessPort } from "./upload-readiness-port.js";
-import { savePersistedBrowserStoredConfig } from "../../config/persisted-config.js";
+import { savePersistedBrowserStoredConfig } from "@/js/config/persisted-config.js";
 import { notifyCredentialsChanged } from "@/shared/reader/host/ai.js";
 import type {
   CredentialsFields,
@@ -37,7 +37,7 @@ import type {
   BindCredentialViewEventsOptions,
   OpenCredentialDialogOptions,
   UpdateCredentialGateViewOptions,
-} from "./view.js";
+} from "@/features/credentials/domain/view-contracts.js";
 
 export interface CredentialDialogElements {
   dialog?: HTMLDialogElement | HTMLElement | boolean | null;

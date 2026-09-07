@@ -123,7 +123,7 @@ export {
 export type { ServerFavorite } from "@/shared/reader/host/state.js";
 
 // —— 阅读器 AI 面板：模型 Key 门禁 ——
-export { defaultCredentialsStatePort } from "../../js/features/credentials/default-state-port.js";
+export { defaultCredentialsStatePort } from "@/features/credentials/domain.js";
 export {
   CREDENTIALS_CHANGED_EVENT,
   hasModelApiKey,

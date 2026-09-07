@@ -1,12 +1,11 @@
-import { normalizeOcrProvider } from "../../config/providers.js";
-import { createCredentialDialogElementsPort } from "./dialog-elements-port.js";
+import { normalizeOcrProvider } from "@/js/config/providers.js";
 
 export function syncCredentialDialogFields({
   credentials,
   taskOptions = {},
   defaultModelBaseUrl,
   defaultModelApiKey,
-  elementsPort = createCredentialDialogElementsPort(),
+  elementsPort,
 }: any) {
   const {
     paddleInput,

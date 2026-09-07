@@ -9,13 +9,25 @@
 // ocr-readiness-flow.js/persistence.js/dialog-values.js 等 kept 逻辑层的编排者)
 // 一行不改地复用。
 
-import type { DialogStore } from "../../state/dialog-store.js";
-import type {
-  CredentialsElementsRef,
-  HandlersBag,
-} from "../../composition/types.js";
-import { createStore, inferTranslationProvider } from "../../composition/external.js";
-import type { Store } from "../../composition/external.js";
+import type { DialogStore } from "@/pages/home/state/dialog-store.js";
+import { createStore } from "@/js/app-framework/store.js";
+import type { Store } from "@/js/app-framework/store.js";
+import { inferTranslationProvider } from "@/js/config/providers.js";
+
+/** 事件处理函数表（viewPort.bindEvents 写入 handlersRef）。 */
+export type HandlersBag = {
+  [key: string]: ((...args: unknown[]) => unknown) | undefined | null;
+};
+
+/** 凭据弹窗内受控输入的 ref 集合。 */
+export type CredentialsElementsRef = {
+  apiKeyInput: HTMLInputElement | null;
+  modelBaseUrlInput: HTMLInputElement | null;
+  modelNameInput: HTMLInputElement | null;
+  translationWorkersInput: HTMLInputElement | null;
+  mathModeSelect: HTMLSelectElement | null;
+  tokenInputs: Record<string, HTMLInputElement | null | undefined>;
+};
 
 export type CredentialsMessage = {
   message: string;

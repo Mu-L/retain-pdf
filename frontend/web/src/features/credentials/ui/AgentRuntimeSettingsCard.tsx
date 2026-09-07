@@ -5,7 +5,10 @@ import {
   type AgentRuntimeConfigView,
   type AgentRuntimeMode,
 } from "@/platform/api/index.js";
-import { CREDENTIALS_CHANGED_EVENT } from "../../composition/external/shared.js";
+// 直接取 @retainpdf/reader 的真值，不经 @/shared/reader/host/ai —— 后者会
+// import 回 credentials 功能，形成 index -> ui -> host -> index 的循环，
+// 循环下 defaultCredentialsStatePort 在模块初始化期为 undefined。
+import { CREDENTIALS_CHANGED_EVENT } from "@retainpdf/reader/runtime/ai";
 import { Bot, Check, FlaskConical, Save, ShieldCheck, Zap } from "lucide-react";
 import { SecretInput } from "./SecretInput.js";
 

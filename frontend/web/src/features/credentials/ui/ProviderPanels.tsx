@@ -13,8 +13,8 @@ import {
   OCR_PROVIDER_DEFINITIONS,
   TRANSLATION_PROVIDER_DEFINITION,
   TRANSLATION_PROVIDER_OPTIONS,
-} from "../../composition/external.js";
-import { validationIcon } from "@/shared/credentials/validation-icon.js";
+} from "@/js/config/providers.js";
+import { validationIcon } from "../domain/validation-icon.js";
 import { Check, ChevronDown, Code2, ExternalLink, Languages, PlugZap, TriangleAlert } from "lucide-react";
 import { Select as SelectPrimitive } from "radix-ui";
 import { SecretInput } from "./SecretInput.js";

@@ -31,15 +31,18 @@ import {
   RecentJobsLibrary,
   BookDetailDialog,
 } from "./features/library/index.js";
-import { HiddenCredentialInputs } from "./features/credentials/HiddenCredentialInputs.jsx";
 import { StatusCard } from "./features/status/StatusCard.jsx";
-import { CredentialsWorkbench } from "./features/credentials/CredentialsWorkbench.jsx";
 import { AppUpdateBanner } from "@/features/app-update/index.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { HomeAskView } from "./features/home-ask/HomeAskView.js";
-import { CredentialsDialog } from "./features/credentials/CredentialsDialog.jsx";
 import { GlossariesDialog } from "@/features/glossaries/index.js";
 import { FavoritesView } from "@/features/favorites/index.js";
+import {
+  CredentialsDialog,
+  CredentialsProvider,
+  CredentialsWorkbench,
+  HiddenCredentialInputs,
+} from "@/features/credentials/index.js";
 import { useDialogState } from "./state/use-dialog-state.js";
 import { SettingsHubDialog } from "@/features/settings/index.js";
 import { StatusDetailDialog } from "./features/status-detail/StatusDetailDialog.jsx";
@@ -248,11 +251,36 @@ function HomeShell() {
   );
 }
 
+/**
+ * 页面侧绑定：把主页的服务上下文喂给 credentials 功能自带的 context。
+ *
+ * credentials 的组件树有四层（Workbench / Dialog / ProviderPanels /
+ * HiddenInputs），逐层传 prop 过于侵入，故功能自持 context，页面只提供值。
+ */
+function CredentialsProviderSlot({ children }: { children: React.ReactNode }) {
+  const services = useHomeServices();
+  return (
+    <CredentialsProvider
+      value={{
+        feature: services.credentials?.feature,
+        view: services.credentials?.view,
+        dialogStore: services.credentials?.dialogStore,
+        credentialsStatePort: services.ports.credentialsStatePort,
+        openSettingsHubApiTab: () => services.settingsHub?.dialogStore?.open?.({ tab: "api" }),
+      }}
+    >
+      {children}
+    </CredentialsProvider>
+  );
+}
+
 export function HomeApp({ services }: { services: HomeServices }) {
   return (
     <HomeShellProviders services={services}>
       <HomeTabsRoot>
-        <HomeShell />
+        <CredentialsProviderSlot>
+          <HomeShell />
+        </CredentialsProviderSlot>
       </HomeTabsRoot>
     </HomeShellProviders>
   );

@@ -36,17 +36,17 @@ import {
 } from "@/components/ui/dialog.js";
 import { useAppEvent } from "@/shared/react/use-app-event.js";
 import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
-import { useHomeServices } from "../../home-services-context.js";
+import { useCredentialsServices } from "./credentials-context.jsx";
 import { CREDENTIAL_DOM_IDS } from "./credentials-dom-ids.js";
 import { useCredentialsController } from "./useCredentialsController.js";
 import { CredentialsWorkbench } from "./CredentialsWorkbench.jsx";
-import { APP_EVENTS } from "../../composition/external.js";
+import { APP_EVENTS } from "@/js/contracts/app-contract.js";
 
 const { browser: BROWSER_IDS } = CREDENTIAL_DOM_IDS;
 
 export function CredentialsDialog() {
   const { open, view, feature, dialogStore } = useCredentialsController();
-  const services = useHomeServices();
+  const { openSettingsHubApiTab } = useCredentialsServices();
   const { onCloseAutoFocus } = useDialogReturnFocus(open);
 
   useAppEvent(APP_EVENTS.openBrowserCredentials, (event) => {
@@ -56,7 +56,7 @@ export function CredentialsDialog() {
       feature?.openBrowserCredentialsDialog({ setupMode: true });
       return;
     }
-    services.settingsHub?.dialogStore?.open?.({ tab: "api" });
+    openSettingsHubApiTab?.();
   });
 
   // Esc / 背板点击 / 关闭按钮都经这一个回调回写 store(dialogStore.close()

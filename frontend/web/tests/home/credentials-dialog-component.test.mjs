@@ -32,7 +32,7 @@ const React = await import("react");
 const { createHomeComposition } = await import("../../src/pages/home/create-home-composition.js");
 const { HomeApp } = await import("../../src/pages/home/HomeApp.jsx");
 const { APP_EVENTS } = await import("../../src/js/contracts/app-contract.js");
-const { defaultCredentialsStatePort } = await import("../../src/js/features/credentials/default-state-port.js");
+const { defaultCredentialsStatePort } = await import("../../src/features/credentials/domain/default-state-port.js");
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
