@@ -10,8 +10,22 @@ use super::Db;
 
 impl Db {
     pub fn save_upload(&self, upload: &UploadRecord) -> Result<()> {
-        let stored_path = to_relative_data_path(&self.data_root, Path::new(&upload.stored_path))?;
         let conn = self.connect()?;
+        self.save_upload_on(&conn, upload)
+    }
+
+    /// Publish the upload and its document identity as one database commit.
+    pub fn save_upload_with_document(&self, upload: &UploadRecord) -> Result<()> {
+        let mut conn = self.connect()?;
+        let tx = conn.transaction()?;
+        self.save_upload_on(&tx, upload)?;
+        Self::upsert_document_from_upload_on(&tx, upload)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    fn save_upload_on(&self, conn: &rusqlite::Connection, upload: &UploadRecord) -> Result<()> {
+        let stored_path = to_relative_data_path(&self.data_root, Path::new(&upload.stored_path))?;
         conn.execute(
             r#"
             INSERT INTO uploads (
@@ -66,5 +80,64 @@ impl Db {
                 .to_string(),
             ..upload
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn upload_and_document_publish_rolls_back_and_preserves_deduplication() {
+        let root = std::env::temp_dir().join(format!("retain-upload-tx-{}", fastrand::u64(..)));
+        std::fs::create_dir_all(&root).unwrap();
+        let db = Db::new(root.join("jobs.db"), root.clone());
+        let mut upload = UploadRecord {
+            upload_id: "first".into(),
+            filename: "first.pdf".into(),
+            stored_path: root.join("first.pdf").to_string_lossy().into_owned(),
+            bytes: 20,
+            page_count: 1,
+            uploaded_at: crate::models::domain::now_iso(),
+            developer_mode: false,
+            content_hash: "synthetic-content".into(),
+        };
+        let conn = db.connect().unwrap();
+        conn.execute_batch("CREATE TRIGGER reject_document BEFORE INSERT ON documents BEGIN SELECT RAISE(ABORT, 'synthetic failure'); END;").unwrap();
+        assert!(db.save_upload_with_document(&upload).is_err());
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM uploads", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM documents", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+        conn.execute_batch("DROP TRIGGER reject_document").unwrap();
+        db.save_upload_with_document(&upload).unwrap();
+        upload.upload_id = "second".into();
+        upload.filename = "second.pdf".into();
+        db.save_upload_with_document(&upload).unwrap();
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM uploads", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            2
+        );
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM documents", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+        assert_eq!(db.get_upload("second").unwrap().filename, "second.pdf");
+        assert_eq!(
+            db.get_document("synthetic-content")
+                .unwrap()
+                .source_filename,
+            "second.pdf"
+        );
+        drop(conn);
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

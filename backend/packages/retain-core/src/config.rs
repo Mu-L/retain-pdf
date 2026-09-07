@@ -37,14 +37,20 @@ pub use provider::{
 pub use rag::RagConfig;
 pub use reader_llm::ReaderLlmConfig;
 use server::ServerRuntimeConfig;
-pub use upload::{effective_upload_max_bytes, UploadRuntimeConfig, DEFAULT_UPLOAD_MAX_BYTES};
+pub use upload::{
+    effective_upload_max_bytes, UploadProcessingConfig, UploadRuntimeConfig,
+    DEFAULT_UPLOAD_MAX_BYTES,
+};
 
 // console-mode 唯一入口：RUST_API_PYTHON_ENTRYPOINT_MODE 已退役。
 // 两阶段退役的第一阶段：读到非空值只 warn 忽略（兼容已部署桌面旧版硬编码
 // script），强制走 console，不再 parse/bail。
 fn warn_ignored_python_entrypoint_mode_env() {
     let configured = env_vars::env_optional_string("RUST_API_PYTHON_ENTRYPOINT_MODE");
-    if configured.as_deref().is_some_and(|value| !value.trim().is_empty()) {
+    if configured
+        .as_deref()
+        .is_some_and(|value| !value.trim().is_empty())
+    {
         eprintln!(
             "warning: RUST_API_PYTHON_ENTRYPOINT_MODE is deprecated and ignored; \
              console mode (retainpdf-pipeline) is always used"
@@ -115,6 +121,7 @@ pub struct AppConfig {
     pub simple_port: u16,
     pub upload_max_bytes: u64,
     pub upload_max_pages: u32,
+    pub upload_processing: UploadProcessingConfig,
     pub api_keys: HashSet<String>,
     pub max_running_jobs: usize,
     pub provider_limits: ProviderLimitsConfig,
@@ -284,6 +291,8 @@ impl AppConfig {
             simple_port: auth.simple_port,
             upload_max_bytes: upload.upload_max_bytes,
             upload_max_pages: upload.upload_max_pages,
+            // Processing overrides also apply to desktop; snapshot once at startup.
+            upload_processing: UploadProcessingConfig::from_env(),
             api_keys: auth.api_keys,
             max_running_jobs: auth.max_running_jobs,
             provider_limits,

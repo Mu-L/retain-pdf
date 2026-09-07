@@ -6,9 +6,9 @@ use crate::models::request::CreateJobInput;
 use super::super::super::creation::context::BundleBuildDeps;
 use super::super::super::creation::{
     create_ocr_job_from_upload, create_translation_bundle_job, create_translation_job,
-    UploadedPdfInput,
 };
 use super::super::JobsFacade;
+use crate::services::uploads::UploadedPdfInput;
 
 impl<'a> JobsFacade<'a> {
     pub fn create_submission(

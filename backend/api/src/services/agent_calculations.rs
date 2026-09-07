@@ -20,7 +20,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-use crate::config::AppConfig;
 use crate::error::AppError;
 
 pub const AGENT_CALCULATION_CREATE_SCHEMA: &str = "agent_calculation_create_v1";
@@ -211,7 +210,7 @@ pub fn create_agent_calculation(
 
 pub fn complete_agent_calculation(
     db: &Db,
-    config: &AppConfig,
+    data_root: &Path,
     calculation_id: &str,
     input: &CompleteAgentCalculationInput,
 ) -> Result<AgentCalculationView, AppError> {
@@ -246,7 +245,8 @@ pub fn complete_agent_calculation(
             cleanup_files(&files);
             return Err(AppError::bad_request("duplicate calculation artifact_id"));
         }
-        let (created_path, entry) = match materialize_artifact(config, calculation_id, artifact) {
+        let (created_path, entry) = match materialize_artifact(data_root, calculation_id, artifact)
+        {
             Ok(value) => value,
             Err(error) => {
                 cleanup_files(&files);
@@ -266,7 +266,7 @@ pub fn complete_agent_calculation(
         AgentCalculationTransitionResult::AlreadyTerminal(record)
             if record.status == AgentCalculationStatus::Completed =>
         {
-            cleanup_unreferenced_files(config, &files, &record);
+            cleanup_unreferenced_files(data_root, &files, &record);
             Ok(project(record))
         }
         AgentCalculationTransitionResult::AlreadyTerminal(_) => {
@@ -365,7 +365,7 @@ pub fn list_agent_calculations(
 
 pub fn agent_calculation_artifact_download(
     db: &Db,
-    config: &AppConfig,
+    data_root: &Path,
     calculation_id: &str,
     artifact_id: &str,
 ) -> Result<AgentCalculationArtifactDownload, AppError> {
@@ -382,7 +382,7 @@ pub fn agent_calculation_artifact_download(
         .ok_or_else(|| {
             AppError::not_found(format!("calculation artifact not found: {artifact_id}"))
         })?;
-    let path = safe_data_path(&config.data_root, &artifact.relative_path)?;
+    let path = safe_data_path(data_root, &artifact.relative_path)?;
     let bytes =
         fs::read(&path).map_err(|_| AppError::not_found("calculation artifact file is missing"))?;
     if bytes.len() as u64 != artifact.size_bytes || sha256_hex(&bytes) != artifact.sha256 {
@@ -519,7 +519,7 @@ fn validate_refs(
 }
 
 fn materialize_artifact(
-    config: &AppConfig,
+    data_root: &Path,
     calculation_id: &str,
     artifact: &CompleteAgentCalculationArtifactInput,
 ) -> Result<(Option<PathBuf>, AgentCalculationArtifactInput), AppError> {
@@ -543,7 +543,7 @@ fn materialize_artifact(
     }
     validate_svg(&bytes)?;
     let relative_path = format!("agent-calculations/{calculation_id}/{artifact_id}.svg");
-    let path = safe_data_path(&config.data_root, &relative_path)?;
+    let path = safe_data_path(data_root, &relative_path)?;
     let parent = path
         .parent()
         .ok_or_else(|| AppError::internal("invalid calculation artifact directory"))?;
@@ -739,14 +739,14 @@ fn cleanup_files(paths: &[PathBuf]) {
 }
 
 fn cleanup_unreferenced_files(
-    config: &AppConfig,
+    data_root: &Path,
     created_paths: &[PathBuf],
     terminal: &AgentCalculationRunRecord,
 ) {
     let referenced = terminal
         .artifacts
         .iter()
-        .filter_map(|artifact| safe_data_path(&config.data_root, &artifact.relative_path).ok())
+        .filter_map(|artifact| safe_data_path(data_root, &artifact.relative_path).ok())
         .collect::<HashSet<_>>();
     for path in created_paths {
         // Another completion may have won the database transition after this
@@ -773,15 +773,25 @@ mod tests {
     use retain_data::db::AgentCalculationArtifactRecord;
 
     use super::*;
-    use crate::api_tests::jobs_common::test_state;
+
+    struct TestRoot(PathBuf);
+
+    impl Drop for TestRoot {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
 
     #[test]
     fn terminal_winner_artifact_is_not_deleted_by_losing_completion_cleanup() {
-        let state = test_state("agent-calculation-concurrent-cleanup");
+        let root = TestRoot(std::env::temp_dir().join(format!(
+            "agent-calculation-concurrent-cleanup-{}",
+            fastrand::u64(..)
+        )));
         let referenced_relative = "agent-calculations/calc-race/chart-a.svg";
         let orphan_relative = "agent-calculations/calc-race/chart-orphan.svg";
-        let referenced = state.config.data_root.join(referenced_relative);
-        let orphan = state.config.data_root.join(orphan_relative);
+        let referenced = root.0.join(referenced_relative);
+        let orphan = root.0.join(orphan_relative);
         fs::create_dir_all(referenced.parent().expect("artifact parent"))
             .expect("artifact directory");
         fs::write(&referenced, b"winner").expect("winner artifact");
@@ -816,11 +826,7 @@ mod tests {
             }],
         };
 
-        cleanup_unreferenced_files(
-            state.config.as_ref(),
-            &[referenced.clone(), orphan.clone()],
-            &terminal,
-        );
+        cleanup_unreferenced_files(&root.0, &[referenced.clone(), orphan.clone()], &terminal);
 
         assert!(referenced.is_file());
         assert!(!orphan.exists());

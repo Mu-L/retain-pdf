@@ -46,17 +46,7 @@ pub async fn upload_pdf(
         file_name.ok_or_else(|| AppError::bad_request("missing multipart field: file"))?;
     let bytes = file_bytes.ok_or_else(|| AppError::bad_request("empty upload"))?;
     Ok(ok_json(
-        store_upload_view(
-            deps.db,
-            deps.uploads_dir,
-            deps.upload_max_bytes.get(),
-            deps.upload_max_pages,
-            deps.python_bin,
-            filename,
-            bytes,
-            developer_mode,
-        )
-        .await?,
+        store_upload_view(&deps.uploads, filename, bytes, developer_mode).await?,
     ))
 }
 
@@ -66,15 +56,5 @@ pub async fn store_upload(
     bytes: Vec<u8>,
     developer_mode: bool,
 ) -> Result<UploadRecord, AppError> {
-    store_upload_service(
-        deps.db,
-        deps.uploads_dir,
-        deps.upload_max_bytes.get(),
-        deps.upload_max_pages,
-        deps.python_bin,
-        filename,
-        bytes,
-        developer_mode,
-    )
-    .await
+    store_upload_service(&deps.uploads, filename, bytes, developer_mode).await
 }

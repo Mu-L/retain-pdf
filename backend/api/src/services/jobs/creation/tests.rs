@@ -1,8 +1,6 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use lopdf::content::{Content, Operation};
-use lopdf::{dictionary, Document, Object, Stream};
 use retain_data::credentials::resolve_credential;
 use tokio::sync::{RwLock, Semaphore};
 
@@ -16,10 +14,10 @@ use crate::services::runtime_gateway::JobRuntimeLauncher;
 use crate::AppState;
 
 use super::bundle::create_translation_bundle_job;
-use super::context::{JobSubmitDeps, SnapshotBuildDeps, UploadStoreDeps};
+use super::context::{JobSubmitDeps, SnapshotBuildDeps};
 use super::job_builders::{build_ocr_job_snapshot, build_translation_job_snapshot};
 use super::submit::create_translation_job;
-use super::upload::{store_pdf_upload, UploadedPdfInput};
+use crate::services::uploads::UploadedPdfInput;
 
 fn test_state(test_name: &str) -> AppState {
     let root = std::env::temp_dir().join(format!(
@@ -54,6 +52,7 @@ fn test_state(test_name: &str) -> AppState {
         simple_port: 41001,
         upload_max_bytes: 0,
         upload_max_pages: 0,
+        upload_processing: Default::default(),
         api_keys: HashSet::new(),
         max_running_jobs: 1,
         provider_limits: crate::config::ProviderLimitsConfig::default(),
@@ -69,13 +68,25 @@ fn test_state(test_name: &str) -> AppState {
         rag: crate::config::RagConfig::default(),
     });
 
+    let db = Arc::new(Db::new(
+        config.jobs_db_path.clone(),
+        config.data_root.clone(),
+    ));
+    let uploads = Arc::new(crate::services::uploads::UploadService::new(
+        db.clone(),
+        crate::services::uploads::UploadServiceConfig {
+            uploads_dir: config.uploads_dir.clone(),
+            python_bin: config.python_bin.clone(),
+            upload_max_bytes: config.upload_max_bytes,
+            upload_max_pages: config.upload_max_pages,
+            processing: config.upload_processing.clone(),
+        },
+    ));
     AppState {
         model_executor: None,
         config: config.clone(),
-        db: Arc::new(Db::new(
-            config.jobs_db_path.clone(),
-            config.data_root.clone(),
-        )),
+        db,
+        uploads,
         download_generation: Arc::default(),
         canceled_jobs: Arc::new(RwLock::new(HashSet::new())),
         job_slots: Arc::new(Semaphore::new(1)),
@@ -97,13 +108,7 @@ fn snapshot_context<'a>(state: &'a AppState) -> SnapshotBuildDeps<'a> {
 fn submit_context<'a>(state: &'a AppState) -> JobSubmitDeps<'a> {
     JobSubmitDeps::new(
         snapshot_context(state),
-        UploadStoreDeps::new(
-            state.db.as_ref(),
-            &state.config.uploads_dir,
-            state.config.upload_max_bytes,
-            state.config.upload_max_pages,
-            &state.config.python_bin,
-        ),
+        state.uploads.as_ref(),
         JobLaunchDeps::new(
             state.db.as_ref(),
             &state.config.data_root,
@@ -113,85 +118,7 @@ fn submit_context<'a>(state: &'a AppState) -> JobSubmitDeps<'a> {
     )
 }
 
-fn build_test_pdf_bytes() -> Vec<u8> {
-    let dir = std::env::temp_dir().join(format!("rust-api-creation-pdf-{}", fastrand::u64(..)));
-    std::fs::create_dir_all(&dir).expect("create temp dir");
-    let path = dir.join("test.pdf");
-    let mut doc = Document::with_version("1.5");
-    let pages_id = doc.new_object_id();
-    let font_id = doc.add_object(dictionary! {
-        "Type" => "Font",
-        "Subtype" => "Type1",
-        "BaseFont" => "Courier",
-    });
-    let resources_id = doc.add_object(dictionary! {
-        "Font" => dictionary! { "F1" => font_id, },
-    });
-    let content = Content {
-        operations: vec![
-            Operation::new("BT", vec![]),
-            Operation::new("Tf", vec!["F1".into(), 18.into()]),
-            Operation::new("Td", vec![72.into(), 720.into()]),
-            Operation::new("Tj", vec![Object::string_literal("Hello")]),
-            Operation::new("ET", vec![]),
-        ],
-    };
-    let content_id = doc.add_object(Stream::new(
-        dictionary! {},
-        content.encode().expect("encode content"),
-    ));
-    let page_id = doc.add_object(dictionary! {
-        "Type" => "Page",
-        "Parent" => pages_id,
-        "Contents" => content_id,
-    });
-    let pages = dictionary! {
-        "Type" => "Pages",
-        "Kids" => vec![Object::Reference(page_id)],
-        "Count" => 1,
-        "Resources" => resources_id,
-        "MediaBox" => vec![0.into(), 0.into(), 595.into(), 842.into()],
-    };
-    doc.objects.insert(pages_id, Object::Dictionary(pages));
-    let catalog_id = doc.add_object(dictionary! {
-        "Type" => "Catalog",
-        "Pages" => pages_id,
-    });
-    doc.trailer.set("Root", catalog_id);
-    doc.compress();
-    doc.save(&path).expect("save test pdf");
-    std::fs::read(path).expect("read test pdf")
-}
-
-fn build_pdf_with_bad_xref_bytes() -> Vec<u8> {
-    let mut bytes = build_test_pdf_bytes();
-    let marker = b"startxref\n";
-    let startxref_pos = bytes
-        .windows(marker.len())
-        .rposition(|window| window == marker)
-        .expect("startxref marker");
-    let value_start = startxref_pos + marker.len();
-    let value_end = value_start
-        + bytes[value_start..]
-            .iter()
-            .position(|byte| *byte == b'\n')
-            .expect("startxref newline");
-    let original_startxref = std::str::from_utf8(&bytes[value_start..value_end])
-        .expect("utf8 startxref")
-        .trim()
-        .parse::<usize>()
-        .expect("parse startxref");
-    let replacement = format!(
-        "{:0width$}",
-        original_startxref.saturating_sub(4),
-        width = value_end - value_start
-    );
-    bytes.splice(value_start..value_end, replacement.bytes());
-    if bytes.ends_with(b"%%EOF\n") {
-        bytes.truncate(bytes.len() - 2);
-    }
-    bytes
-}
+use crate::test_support::pdf::build_test_pdf_bytes;
 
 fn base_translation_input(workflow: WorkflowKind) -> CreateJobInput {
     let mut input = CreateJobInput::default();
@@ -559,184 +486,6 @@ fn create_translation_job_rejects_missing_artifact_job_for_render_workflow() {
 }
 
 #[tokio::test]
-async fn store_pdf_upload_rejects_non_pdf_filename() {
-    let state = test_state("store-upload-non-pdf");
-    let err = store_pdf_upload(
-        state.db.as_ref(),
-        &state.config.uploads_dir,
-        0,
-        0,
-        &state.config.python_bin,
-        UploadedPdfInput {
-            filename: "notes.txt".to_string(),
-            bytes: b"not a pdf".to_vec(),
-            developer_mode: false,
-        },
-    )
-    .await
-    .expect_err("non-pdf filename should fail");
-    match err {
-        AppError::BadRequest(message) => {
-            assert_eq!(message, "uploaded file must be a PDF")
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[tokio::test]
-async fn store_pdf_upload_rejects_oversize_before_creating_upload_directory() {
-    let state = test_state("store-upload-oversize-before-write");
-    let upload_bytes = build_test_pdf_bytes();
-    let err = store_pdf_upload(
-        state.db.as_ref(),
-        &state.config.uploads_dir,
-        8,
-        0,
-        &state.config.python_bin,
-        UploadedPdfInput {
-            filename: "oversize.pdf".to_string(),
-            bytes: upload_bytes,
-            developer_mode: false,
-        },
-    )
-    .await
-    .expect_err("oversize upload must fail before writing");
-    match err {
-        AppError::PayloadTooLarge(message) => {
-            assert_eq!(message, "request body is too large")
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-
-    let entries = std::fs::read_dir(&state.config.uploads_dir)
-        .expect("read uploads directory")
-        .collect::<Result<Vec<_>, _>>()
-        .expect("list uploads directory");
-    assert!(
-        entries.is_empty(),
-        "oversize upload created filesystem artifacts"
-    );
-}
-
-#[tokio::test]
-async fn store_pdf_upload_rejects_path_traversal_filename() {
-    let state = test_state("store-upload-path-traversal");
-    let upload = store_pdf_upload(
-        state.db.as_ref(),
-        &state.config.uploads_dir,
-        0,
-        0,
-        &state.config.python_bin,
-        UploadedPdfInput {
-            filename: "../../../../tmp/evil.pdf".to_string(),
-            bytes: build_test_pdf_bytes(),
-            developer_mode: false,
-        },
-    )
-    .await
-    .expect("path traversal filename should still be stored safely");
-
-    // The traversal segments must never make it onto disk: the file should
-    // land inside the upload's own directory, named after the final
-    // component only.
-    assert!(upload.stored_path.ends_with("evil.pdf"));
-    assert!(upload.stored_path.contains(&upload.upload_id));
-    assert!(!upload.stored_path.contains(".."));
-}
-
-#[tokio::test]
-async fn store_pdf_upload_rejects_absolute_path_filename() {
-    let state = test_state("store-upload-absolute-path");
-    let upload = store_pdf_upload(
-        state.db.as_ref(),
-        &state.config.uploads_dir,
-        0,
-        0,
-        &state.config.python_bin,
-        UploadedPdfInput {
-            filename: "/etc/evil.pdf".to_string(),
-            bytes: build_test_pdf_bytes(),
-            developer_mode: false,
-        },
-    )
-    .await
-    .expect("absolute-path filename should still be stored safely");
-
-    assert!(upload.stored_path.ends_with("evil.pdf"));
-    assert!(upload.stored_path.contains(&upload.upload_id));
-    assert_ne!(upload.stored_path, "/etc/evil.pdf");
-}
-
-#[tokio::test]
-async fn store_pdf_upload_rejects_nul_byte_in_filename() {
-    let state = test_state("store-upload-nul-byte");
-    let err = store_pdf_upload(
-        state.db.as_ref(),
-        &state.config.uploads_dir,
-        0,
-        0,
-        &state.config.python_bin,
-        UploadedPdfInput {
-            filename: "evil.pdf\0.pdf".to_string(),
-            bytes: build_test_pdf_bytes(),
-            developer_mode: false,
-        },
-    )
-    .await
-    .expect_err("a filename containing a NUL byte should be rejected");
-    match err {
-        AppError::BadRequest(_) => {}
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[tokio::test]
-async fn store_pdf_upload_rejects_backslash_traversal_filename() {
-    let state = test_state("store-upload-backslash-traversal");
-    let err = store_pdf_upload(
-        state.db.as_ref(),
-        &state.config.uploads_dir,
-        0,
-        0,
-        &state.config.python_bin,
-        UploadedPdfInput {
-            filename: "..\\..\\evil.pdf".to_string(),
-            bytes: build_test_pdf_bytes(),
-            developer_mode: false,
-        },
-    )
-    .await
-    .expect_err("a filename using backslash traversal should be rejected");
-    match err {
-        AppError::BadRequest(_) => {}
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[tokio::test]
-async fn store_pdf_upload_repairs_bad_xref_pdf() {
-    let state = test_state("store-upload-repair-bad-xref");
-    let upload = store_pdf_upload(
-        state.db.as_ref(),
-        &state.config.uploads_dir,
-        0,
-        0,
-        &state.config.python_bin,
-        UploadedPdfInput {
-            filename: "bad-xref.pdf".to_string(),
-            bytes: build_pdf_with_bad_xref_bytes(),
-            developer_mode: false,
-        },
-    )
-    .await
-    .expect("bad xref pdf should be repaired");
-
-    assert_eq!(upload.page_count, 1);
-    let repaired_doc = Document::load(&upload.stored_path).expect("repaired pdf is valid");
-    assert_eq!(repaired_doc.get_pages().len(), 1);
-}
-
-#[tokio::test]
 async fn create_translation_bundle_job_returns_queued_job_without_waiting() {
     let state = test_state("bundle-job-async");
     let mut input = base_translation_input(WorkflowKind::Book);
@@ -770,6 +519,47 @@ async fn create_translation_bundle_job_returns_queued_job_without_waiting() {
         .downloads_dir
         .join(format!("{}.zip", job.job_id))
         .exists());
+}
+
+#[tokio::test]
+async fn bundle_job_failure_preserves_published_upload() {
+    let state = test_state("bundle-failure-preserves-upload");
+    let bytes = build_test_pdf_bytes();
+    let hash = crate::db::documents::sha256_hex(&bytes);
+    let error = create_translation_bundle_job(
+        &super::context::BundleBuildDeps {
+            submit: submit_context(&state),
+        },
+        base_translation_input(WorkflowKind::Ocr),
+        UploadedPdfInput {
+            filename: "published.pdf".into(),
+            bytes,
+            developer_mode: false,
+        },
+    )
+    .await
+    .expect_err("bundle rejects OCR workflow after publication");
+    assert_eq!(error.to_string(), "use /api/v1/ocr/jobs for workflow=ocr");
+    let entries = std::fs::read_dir(&state.config.uploads_dir)
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    assert_eq!(entries.len(), 1);
+    let upload_id = entries[0].file_name().into_string().unwrap();
+    let record = state
+        .db
+        .get_upload(&upload_id)
+        .expect("published upload survives");
+    assert_eq!(record.content_hash, hash);
+    assert!(std::path::Path::new(&record.stored_path).is_file());
+    assert!(state.db.get_document(&hash).is_ok());
+    assert!(state.db.list_jobs(10, 0, None, None).unwrap().is_empty());
+    assert_eq!(
+        std::fs::read_dir(&state.config.output_root)
+            .unwrap()
+            .count(),
+        0
+    );
 }
 
 #[test]

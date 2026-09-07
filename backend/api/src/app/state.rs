@@ -10,11 +10,13 @@ use crate::config::AppConfig;
 use crate::db::Db;
 use crate::services::agent_capabilities::AgentCapabilityAuthority;
 use crate::services::runtime_gateway::{JobDriverRegistry, JobRuntime};
+use crate::services::uploads::{UploadService, UploadServiceConfig};
 
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<AppConfig>,
     pub db: Arc<Db>,
+    pub(crate) uploads: Arc<UploadService>,
     pub download_generation: Arc<crate::services::download_generation::DownloadGeneration>,
     pub canceled_jobs: Arc<RwLock<HashSet<String>>>,
     pub job_slots: Arc<Semaphore>,
@@ -65,6 +67,16 @@ pub fn build_state(config: Arc<AppConfig>) -> Result<AppState> {
         None
     };
     Ok(AppState {
+        uploads: Arc::new(UploadService::new(
+            db.clone(),
+            UploadServiceConfig {
+                uploads_dir: config.uploads_dir.clone(),
+                python_bin: config.python_bin.clone(),
+                upload_max_bytes: config.upload_max_bytes,
+                upload_max_pages: config.upload_max_pages,
+                processing: config.upload_processing.clone(),
+            },
+        )),
         model_executor,
         config: config.clone(),
         db,
@@ -150,6 +162,7 @@ mod tests {
                 simple_port: 42000,
                 upload_max_bytes: 0,
                 upload_max_pages: 0,
+                upload_processing: Default::default(),
                 api_keys: HashSet::from(["test-key".to_string()]),
                 max_running_jobs: 4,
                 provider_limits: crate::config::ProviderLimitsConfig::default(),
@@ -191,6 +204,47 @@ mod tests {
         job.stage_detail = Some("正在运行".to_string());
         job.sync_runtime_state();
         job
+    }
+
+    #[tokio::test]
+    async fn upload_processing_snapshot_changes_only_for_new_state() {
+        use crate::services::uploads::{UploadError, UploadedPdfInput};
+
+        let fs = TestStateFs::new("upload-config-snapshot");
+        let mut config = (*fs.config()).clone();
+        config.upload_processing.buffer_mib = 1;
+        let original = build_state(Arc::new(config.clone())).unwrap();
+        let cloned = original.clone();
+        assert!(Arc::ptr_eq(&original.uploads, &cloned.uploads));
+
+        config.upload_processing.buffer_mib = 2;
+        let rebuilt = build_state(Arc::new(config)).unwrap();
+        assert!(!Arc::ptr_eq(&original.uploads, &rebuilt.uploads));
+        let mut bytes = crate::test_support::pdf::build_test_pdf_bytes();
+        bytes.resize(1024 * 1024 + 1, b' ');
+        for state in [&original, &cloned] {
+            let result = state
+                .uploads
+                .store(UploadedPdfInput {
+                    filename: "snapshot.pdf".into(),
+                    bytes: bytes.clone(),
+                    developer_mode: false,
+                })
+                .await;
+            assert!(matches!(result, Err(UploadError::PayloadTooLarge(_))));
+        }
+        assert_eq!(fs::read_dir(&fs.uploads_dir).unwrap().count(), 0);
+        let record = rebuilt
+            .uploads
+            .store(UploadedPdfInput {
+                filename: "snapshot.pdf".into(),
+                bytes,
+                developer_mode: false,
+            })
+            .await
+            .unwrap();
+        assert_eq!(record.page_count, 1);
+        assert!(std::path::Path::new(&record.stored_path).is_file());
     }
 
     #[test]

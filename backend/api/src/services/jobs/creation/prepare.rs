@@ -11,7 +11,11 @@ use crate::services::job_validation::{
 use crate::services::ocr_artifact_reuse::validate_ocr_artifact_reuse;
 
 use super::context::SnapshotBuildDeps;
-use super::upload::load_upload_or_404;
+
+fn load_upload_or_404(db: &crate::db::Db, upload_id: &str) -> Result<UploadRecord, AppError> {
+    db.get_upload(upload_id)
+        .map_err(|_| AppError::not_found(format!("upload not found: {upload_id}")))
+}
 
 pub(super) struct PreparedTranslationUpload {
     pub(super) spec: ResolvedJobSpec,

@@ -19,9 +19,7 @@ pub(crate) mod translation_request_recovery;
 pub use control::wait_for_terminal_job;
 pub(crate) use creation::context::{
     CommandJobsDeps, ControlDeps, JobSubmitDeps, QueryJobsDeps, ReplayDeps, SnapshotBuildDeps,
-    UploadStoreDeps,
 };
-pub(crate) use creation::{store_pdf_upload, UploadedPdfInput};
 pub(crate) use downloads::{DocumentDownloadKind, FileDownload, MarkdownDownload};
 pub(crate) use facade::build_jobs_facade;
 pub use facade::JobsFacade;

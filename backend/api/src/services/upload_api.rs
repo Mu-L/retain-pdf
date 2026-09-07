@@ -1,56 +1,41 @@
-use std::path::Path;
-
-use crate::db::Db;
 use crate::error::AppError;
 use crate::models::api::{upload_to_response, UploadView};
 use crate::models::domain::UploadRecord;
-use crate::services::jobs::{store_pdf_upload, UploadedPdfInput};
+use crate::services::uploads::UploadService;
+use crate::services::uploads::UploadedPdfInput;
 
-pub async fn store_upload(
-    db: &Db,
-    uploads_dir: &Path,
-    upload_max_bytes: u64,
-    upload_max_pages: u32,
-    python_bin: &str,
+pub(crate) struct UploadApiDeps<'a> {
+    uploads: &'a UploadService,
+}
+
+impl<'a> UploadApiDeps<'a> {
+    pub(crate) fn new(uploads: &'a UploadService) -> Self {
+        Self { uploads }
+    }
+}
+
+pub(crate) async fn store_upload(
+    deps: &UploadApiDeps<'_>,
     filename: String,
     bytes: Vec<u8>,
     developer_mode: bool,
 ) -> Result<UploadRecord, AppError> {
-    store_pdf_upload(
-        db,
-        uploads_dir,
-        upload_max_bytes,
-        upload_max_pages,
-        python_bin,
-        UploadedPdfInput {
+    deps.uploads
+        .store(UploadedPdfInput {
             filename,
             bytes,
             developer_mode,
-        },
-    )
-    .await
+        })
+        .await
+        .map_err(AppError::from)
 }
 
-pub async fn store_upload_view(
-    db: &Db,
-    uploads_dir: &Path,
-    upload_max_bytes: u64,
-    upload_max_pages: u32,
-    python_bin: &str,
+pub(crate) async fn store_upload_view(
+    deps: &UploadApiDeps<'_>,
     filename: String,
     bytes: Vec<u8>,
     developer_mode: bool,
 ) -> Result<UploadView, AppError> {
-    let upload = store_upload(
-        db,
-        uploads_dir,
-        upload_max_bytes,
-        upload_max_pages,
-        python_bin,
-        filename,
-        bytes,
-        developer_mode,
-    )
-    .await?;
+    let upload = store_upload(deps, filename, bytes, developer_mode).await?;
     Ok(upload_to_response(&upload))
 }

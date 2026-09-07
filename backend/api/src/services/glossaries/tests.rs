@@ -45,6 +45,7 @@ fn test_state() -> AppState {
         simple_port: 41001,
         upload_max_bytes: 0,
         upload_max_pages: 0,
+        upload_processing: Default::default(),
         api_keys: HashSet::new(),
         max_running_jobs: 1,
         provider_limits: crate::config::ProviderLimitsConfig::default(),
@@ -66,6 +67,16 @@ fn test_state() -> AppState {
     ));
     db.init().expect("init db");
     AppState {
+        uploads: Arc::new(crate::services::uploads::UploadService::new(
+            db.clone(),
+            crate::services::uploads::UploadServiceConfig {
+                uploads_dir: config.uploads_dir.clone(),
+                python_bin: config.python_bin.clone(),
+                upload_max_bytes: config.upload_max_bytes,
+                upload_max_pages: config.upload_max_pages,
+                processing: config.upload_processing.clone(),
+            },
+        )),
         model_executor: None,
         config,
         db,

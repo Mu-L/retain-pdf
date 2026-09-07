@@ -4,11 +4,13 @@ use anyhow::Result;
 
 use crate::config::AppConfig;
 use crate::db::Db;
-use crate::job_runner::{reconcile_stale_running_jobs, requeue_stuck_queued_jobs, spawn_job, ProcessRuntimeDeps};
+use crate::job_runner::{
+    reconcile_stale_running_jobs, requeue_stuck_queued_jobs, spawn_job, ProcessRuntimeDeps,
+};
 use crate::services::job_launcher::JobLaunchDeps;
 use crate::services::jobs::{
     build_jobs_facade, CommandJobsDeps, ControlDeps, JobSubmitDeps, JobsFacade, QueryJobsDeps,
-    ReplayDeps, SnapshotBuildDeps, UploadStoreDeps,
+    ReplayDeps, SnapshotBuildDeps,
 };
 use crate::services::runtime_gateway::JobRuntimeLauncher;
 
@@ -70,14 +72,7 @@ pub fn build_jobs_facade_from_state(state: &AppState) -> JobsFacade<'_> {
         runtime_launcher,
     );
     let snapshot = SnapshotBuildDeps::new(state.db.as_ref(), state.config.job_snapshot_runtime());
-    let uploads = UploadStoreDeps::new(
-        state.db.as_ref(),
-        &state.config.uploads_dir,
-        state.config.upload_max_bytes,
-        state.config.upload_max_pages,
-        &state.config.python_bin,
-    );
-    let submit = JobSubmitDeps::new(snapshot, uploads, launcher);
+    let submit = JobSubmitDeps::new(snapshot, state.uploads.as_ref(), launcher);
     let control = ControlDeps::new(
         state.db.as_ref(),
         &state.config.job_runner,

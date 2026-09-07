@@ -6,6 +6,30 @@
 
 `POST /api/v1/uploads`
 
+Upload execution boundaries:
+
+- PDF parsing, hashing, file publication, and database writes run on a blocking worker, not an async executor thread.
+- Parsing and Python repair have independent capacities owned by one application-level `UploadService`. The main and simple HTTP servers, standalone uploads, OCR submission, and bundle submission share the service from the same `AppState`. A repair (including reparsing its output) does not hold a normal parsing permit. Waiting for either stage uses a shared bounded queue, with a deadline per wait; queue exhaustion/timeout returns 503.
+- Before normal parsing starts, disconnect releases the queue and input budget. Once parsing starts, admitted processing finishes even if the HTTP caller disconnects; its stage/overall permits remain owned by that work. Disconnect is not proof that the upload was rejected.
+- Original PDF bytes are released before waiting for repair. A separate MiB-rounded input budget bounds buffers retained by the processing layer: transient exhaustion returns 503; a single PDF exceeding the configured budget returns 413. This is not a total RSS limit: multipart buffering happens before admission, and decoded parser memory is additional.
+- Python repair has a 60-second deadline; its direct child is killed and reaped on timeout. Missing repair tooling and timeout return 503; unsuccessful repair or page-limit rejection return 400. Python stdout/stderr are not returned to clients.
+- Failed uploads clean up only their newly created directory. Upload and document records publish in one SQLite transaction; existing content-hash deduplication and original-input hash semantics remain unchanged.
+- Synchronous PDF parsing is isolated and concurrency-limited, but is not forcibly interrupted by a wall-clock deadline. Process crashes and cleanup permission failures can still leave filesystem orphans; this is not a filesystem/database distributed transaction.
+
+Processing configuration (set before process startup; restart after changes):
+
+Configuration is captured when `AppConfig` is built and passed explicitly into the service; idle periods and subsequent requests do not reread environment variables. Capacity is not registered globally by directory path. Independent `build_state` calls have independent capacity even when configured with the same uploads directory; applications requiring shared capacity must explicitly share the same service instance. This is an in-process limit, not coordination across API processes.
+
+| Environment variable | Default | Range |
+| --- | --- | --- |
+| `RUST_API_UPLOAD_PARSE_WORKERS` | available CPU parallelism, capped at 4 | 1–32 |
+| `RUST_API_UPLOAD_REPAIR_WORKERS` | 2 | 1–8 |
+| `RUST_API_UPLOAD_QUEUE_CAPACITY` | 8 shared waiters | 0–64 (0 disables waiting) |
+| `RUST_API_UPLOAD_QUEUE_WAIT_MS` | 5000 per stage wait | 1–60000 |
+| `RUST_API_UPLOAD_BUFFER_MIB` | 512 | 1–16384 |
+
+Out-of-range numeric values are clamped; malformed values use defaults. These are conservative starting defaults, not universal throughput optima. The overall admitted-request cap is parse workers + repair workers + queue capacity, including publication work; buffer pressure can reject earlier than the queue count. Increase the input budget alongside the existing single-upload limit when accepting PDFs larger than 512 MiB. Burst/load tests should include parser RSS and other API traffic, not just upload throughput.
+
 Multipart fields:
 
 - `file`: required, PDF file

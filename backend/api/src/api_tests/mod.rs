@@ -28,3 +28,5 @@ mod ocr_lifecycle;
 mod providers;
 mod public_document_operations;
 mod translation_debug;
+mod uploads;
+mod uploads_service;

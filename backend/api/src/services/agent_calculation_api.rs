@@ -1,6 +1,7 @@
 //! Stable application facade for durable Agent calculation APIs.
 
-use crate::config::AppConfig;
+use std::path::Path;
+
 use crate::db::Db;
 use crate::error::AppError;
 
@@ -12,12 +13,12 @@ pub use super::agent_calculations::{
 
 pub struct AgentCalculationApiDeps<'a> {
     db: &'a Db,
-    config: &'a AppConfig,
+    data_root: &'a Path,
 }
 
 impl<'a> AgentCalculationApiDeps<'a> {
-    pub fn new(db: &'a Db, config: &'a AppConfig) -> Self {
-        Self { db, config }
+    pub fn new(db: &'a Db, data_root: &'a Path) -> Self {
+        Self { db, data_root }
     }
 }
 
@@ -35,7 +36,7 @@ pub fn complete_agent_calculation(
 ) -> Result<AgentCalculationView, AppError> {
     super::agent_calculations::complete_agent_calculation(
         deps.db,
-        deps.config,
+        deps.data_root,
         calculation_id,
         input,
     )
@@ -71,7 +72,7 @@ pub fn agent_calculation_artifact_download(
 ) -> Result<AgentCalculationArtifactDownload, AppError> {
     super::agent_calculations::agent_calculation_artifact_download(
         deps.db,
-        deps.config,
+        deps.data_root,
         calculation_id,
         artifact_id,
     )

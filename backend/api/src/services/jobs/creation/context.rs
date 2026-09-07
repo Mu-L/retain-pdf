@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::services::download_generation::DownloadGeneration;
+use crate::services::uploads::UploadService;
 
 use crate::config::{JobRunnerConfig, JobSnapshotRuntimeConfig};
 use crate::db::Db;
@@ -21,43 +22,16 @@ impl<'a> SnapshotBuildDeps<'a> {
 }
 
 #[derive(Clone)]
-pub(crate) struct UploadStoreDeps<'a> {
-    pub(crate) db: &'a Db,
-    pub(crate) uploads_dir: &'a Path,
-    pub(crate) upload_max_bytes: u64,
-    pub(crate) upload_max_pages: u32,
-    pub(crate) python_bin: &'a str,
-}
-
-impl<'a> UploadStoreDeps<'a> {
-    pub(crate) fn new(
-        db: &'a Db,
-        uploads_dir: &'a Path,
-        upload_max_bytes: u64,
-        upload_max_pages: u32,
-        python_bin: &'a str,
-    ) -> Self {
-        Self {
-            db,
-            uploads_dir,
-            upload_max_bytes,
-            upload_max_pages,
-            python_bin,
-        }
-    }
-}
-
-#[derive(Clone)]
 pub(crate) struct JobSubmitDeps<'a> {
     pub(crate) snapshot: SnapshotBuildDeps<'a>,
-    pub(crate) uploads: UploadStoreDeps<'a>,
+    pub(crate) uploads: &'a UploadService,
     pub(crate) launcher: JobLaunchDeps<'a>,
 }
 
 impl<'a> JobSubmitDeps<'a> {
     pub(crate) fn new(
         snapshot: SnapshotBuildDeps<'a>,
-        uploads: UploadStoreDeps<'a>,
+        uploads: &'a UploadService,
         launcher: JobLaunchDeps<'a>,
     ) -> Self {
         Self {

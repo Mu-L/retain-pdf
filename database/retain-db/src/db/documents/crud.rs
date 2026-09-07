@@ -102,6 +102,16 @@ impl Db {
             return Ok(());
         }
         let conn = self.connect()?;
+        Self::upsert_document_from_upload_on(&conn, upload)
+    }
+
+    pub(in crate::db) fn upsert_document_from_upload_on(
+        conn: &Connection,
+        upload: &UploadRecord,
+    ) -> Result<()> {
+        if upload.content_hash.is_empty() {
+            return Ok(());
+        }
         let now = now_iso();
         conn.execute(
             r#"

@@ -8,7 +8,7 @@ use serde_json::Value;
 use super::context::JobSubmitDeps;
 use super::job_builders::{build_ocr_job_snapshot, build_translation_job_snapshot};
 use super::ocr_credentials::{acquire_job_credential_usage_lock, secure_job_credentials};
-use super::upload::{store_pdf_upload, UploadedPdfInput};
+use crate::services::uploads::UploadedPdfInput;
 
 pub(crate) fn create_translation_job(
     deps: &JobSubmitDeps<'_>,
@@ -50,17 +50,7 @@ pub(crate) async fn create_ocr_job_from_upload(
     upload: Option<UploadedPdfInput>,
 ) -> Result<JobSnapshot, AppError> {
     let stored = match upload {
-        Some(upload) => Some(
-            store_pdf_upload(
-                deps.uploads.db,
-                deps.uploads.uploads_dir,
-                deps.uploads.upload_max_bytes,
-                deps.uploads.upload_max_pages,
-                deps.uploads.python_bin,
-                upload,
-            )
-            .await?,
-        ),
+        Some(upload) => Some(deps.uploads.store(upload).await?),
         None => None,
     };
     let job = build_ocr_job_snapshot(&deps.snapshot, input, stored.as_ref())?;

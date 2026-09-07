@@ -161,6 +161,9 @@ ROUTE_SERVICE_IMPORT_ALLOWLIST = {
     Path("src/routes/uploads.rs"): (
         "crate::services::upload_api::",
     ),
+    Path("src/routes/common/uploads.rs"): (
+        "crate::services::upload_api::UploadApiDeps",
+    ),
     Path("src/routes/common/agent_capabilities.rs"): (
         "crate::services::agent_capabilities::AgentCapabilityAuthority",
     ),
@@ -509,6 +512,7 @@ def check_service_model_facade_boundaries(errors: list[str]) -> None:
         SRC_ROOT / "services" / "library_api.rs",
         SRC_ROOT / "services" / "provider_probe.rs",
         SRC_ROOT / "services" / "upload_api.rs",
+        SRC_ROOT / "services" / "uploads",
         SRC_ROOT / "services" / "book_projection",
         SRC_ROOT / "services" / "book_projection.rs",
     )
@@ -531,6 +535,60 @@ def check_service_model_facade_boundaries(errors: list[str]) -> None:
                     errors.append(
                         f"{rel_path}: migrated service modules must import models through models::api/domain/request facades ({line})"
                     )
+
+
+def check_agent_calculation_dependencies(errors: list[str]) -> None:
+    """Calculation storage needs Db and data_root, not application configuration."""
+    for name in ("agent_calculations.rs", "agent_calculation_api.rs"):
+        path = SRC_ROOT / "services" / name
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        text = re.sub(r"/\*.*?\*/|//[^\n]*", "", text, flags=re.DOTALL)
+        if re.search(r"\b(?:AppConfig|AppState|api_tests)\b", text):
+            errors.append(
+                f"{rel(path)}: agent calculations must use narrow Db/data_root dependencies, including test fixtures"
+            )
+
+
+def check_upload_boundaries(errors: list[str]) -> None:
+    """Uploads is an app-owned capability, not a jobs/runtime implementation."""
+    upload_root = SRC_ROOT / "services" / "uploads"
+    private_modules = {"capacity", "pdf", "staging", "service", "error"}
+    forbidden_dependencies = {"jobs", "routes", "runtime_gateway", "job_runner"}
+    for path in scan_rs_files(SRC_ROOT):
+        # Include standalone test modules: their wiring must also use the facade.
+        text = path.read_text(encoding="utf-8")
+        text = re.sub(r"/\*.*?\*/|//[^\n]*", "", text, flags=re.DOTALL)
+        inside = path.is_relative_to(upload_root)
+        imports = re.findall(r"\buse\s+([^;]+);", text)
+        if inside:
+            dependencies = set(re.findall(r"\b(\w+)\s*::", text))
+            for imported in imports:
+                dependencies.update(re.findall(r"\b\w+\b", imported))
+            forbidden = dependencies & forbidden_dependencies
+            if forbidden or re.search(r"\b(?:AppState|JobRuntime)\b", text):
+                errors.append(
+                    f"{rel(path)}: uploads must not depend on jobs/routes/AppState/job runtime"
+                )
+            if re.search(r"\bAppError\b", text):
+                errors.append(
+                    f"{rel(path)}: uploads must return UploadError; HTTP error mapping belongs outside the domain"
+                )
+            if re.search(r"\bfrom_env\s*\(|\benv\s*::\s*(?:var|var_os|vars|vars_os)\s*\(", text):
+                errors.append(
+                    f"{rel(path)}: uploads must receive startup configuration explicitly, not read environment"
+                )
+        else:
+            # Match both uploads::capacity::X and uploads::{capacity::X, ...}.
+            for suffix in re.findall(r"\buploads\s*::\s*([^;]+)", text):
+                first = re.match(r"(\w+)", suffix)
+                members = set(re.findall(r"\b\w+\b", suffix)) if suffix.startswith("{") else set()
+                if (first and first.group(1) in private_modules) or members & private_modules:
+                    errors.append(
+                        f"{rel(path)}: external callers must use the uploads public surface, not its internal modules"
+                    )
+                    break
 
 
 def check_process_runtime_deps_usage(errors: list[str]) -> None:
@@ -967,6 +1025,8 @@ def main() -> int:
     check_route_service_imports(errors)
     check_route_model_boundary(errors)
     check_service_model_facade_boundaries(errors)
+    check_upload_boundaries(errors)
+    check_agent_calculation_dependencies(errors)
     check_process_runtime_deps_usage(errors)
     check_job_persist_deps_usage(errors)
     check_runtime_deps_module_boundary(errors)
