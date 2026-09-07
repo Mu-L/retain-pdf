@@ -219,32 +219,31 @@ def build_deepseek_chat_fn(
                 raise friendly_llm_error(response.status_code)
             return response.json()["choices"][0]["message"]
         body["stream"] = True
-        with http.stream(
-            "POST", url, headers=headers, json=body, timeout=request_timeout
-        ) as response:
-            close_response = response.close
+        try:
+            with http.stream(
+                "POST", url, headers=headers, json=body, timeout=request_timeout
+            ) as response:
+                close_response = response.close
+                if request_control is not None:
+                    request_control.add_cancel_callback(close_response)
+                try:
+                    if response.status_code >= 400:
+                        raise friendly_llm_error(response.status_code)
+                    message = assemble_streaming_message(response.iter_lines(), on_delta, request_control)
+                    if request_control is not None:
+                        request_control.raise_if_stopped()
+                    return message
+                finally:
+                    if request_control is not None:
+                        request_control.remove_cancel_callback(close_response)
+        except httpx.TimeoutException as exc:
             if request_control is not None:
-                request_control.add_cancel_callback(close_response)
-            if response.status_code >= 400:
-                if request_control is not None:
-                    request_control.remove_cancel_callback(close_response)
-                raise friendly_llm_error(response.status_code)
-            try:
-                message = assemble_streaming_message(response.iter_lines(), on_delta, request_control)
-                if request_control is not None:
-                    request_control.raise_if_stopped()
-                return message
-            except httpx.TimeoutException as exc:
-                if request_control is not None:
-                    request_control.raise_if_stopped()
-                raise AIRequestTimeout() from exc
-            except Exception:
-                if request_control is not None:
-                    request_control.raise_if_stopped()
-                raise
-            finally:
-                if request_control is not None:
-                    request_control.remove_cancel_callback(close_response)
+                request_control.raise_if_stopped()
+            raise AIRequestTimeout() from exc
+        except Exception:
+            if request_control is not None:
+                request_control.raise_if_stopped()
+            raise
 
     return chat
 

@@ -103,6 +103,41 @@ def test_provider_timeout_uses_stable_public_timeout_error():
         chat([{"role": "user", "content": "q"}], [])
 
 
+@pytest.mark.parametrize("stage", ["connect", "headers", "body"])
+def test_stream_timeouts_have_the_same_public_code(stage):
+    from contextlib import contextmanager
+    from retainpdf_ai.request_control import public_error_event
+
+    class Response:
+        status_code = 200
+
+        def close(self):
+            pass
+
+        def iter_lines(self):
+            raise httpx.ReadTimeout("private provider detail")
+
+    class Client:
+        @contextmanager
+        def stream(self, *_args, **_kwargs):
+            if stage == "connect":
+                raise httpx.ConnectTimeout("private provider detail")
+            if stage == "headers":
+                raise httpx.ReadTimeout("private provider detail")
+            yield Response()
+
+    chat = build_deepseek_chat_fn(
+        Settings(llm_api_key="synthetic-key"),
+        client=Client(),
+        on_delta=lambda _: None,
+    )
+    with pytest.raises(AIRequestTimeout) as error:
+        chat([{"role": "user", "content": "q"}], [])
+    event = public_error_event(error.value)
+    assert event["code"] == "AI_RESPONSE_TIMEOUT"
+    assert "private provider" not in event["message"]
+
+
 def test_ask_endpoint_streams_answer_deltas(monkeypatch):
     pieces = ["选择", "性来自", "共轭 [1]"]
     full = "".join(pieces)

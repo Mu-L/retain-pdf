@@ -165,6 +165,8 @@ class AskOrchestrator:
         self,
         payload: AskInput,
         prepared: PreparedAsk,
+        *,
+        request_control: RequestControl | None = None,
     ) -> Iterator[str]:
         """Yield the existing SSE protocol while work runs in a host thread."""
         # Emit immediately, before conversation persistence or model setup.
@@ -178,7 +180,9 @@ class AskOrchestrator:
         # The runtime loop is synchronous. A queue lets the HTTP response expose
         # tool events and final-answer deltas as soon as they are produced.
         events: queue.Queue[dict[str, Any] | None] = queue.Queue()
-        control = RequestControl(self._settings.ai_request_deadline_s)
+        control = request_control or RequestControl(self._settings.ai_request_deadline_s)
+        control.add_cancel_callback(lambda: events.put(None))
+        control.raise_if_stopped()
         request_runtime = prepared.runtime
         document_id = self._conversation_state.resolve_document_id(payload)
         conversation_id = self._conversation_state.ensure_conversation_id(

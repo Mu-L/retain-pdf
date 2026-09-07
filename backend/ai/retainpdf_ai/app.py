@@ -9,7 +9,8 @@ from collections.abc import Callable
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from .stream_response import ControlledStreamingResponse
+from .request_control import RequestControl
 
 from . import __version__
 from .agent import RetrievalAgent, build_deepseek_chat_fn
@@ -128,8 +129,10 @@ def build_app(
         # credential HTTPExceptions remain ordinary 4xx responses.
         prepared = ask_orchestrator.prepare(payload)
         if payload.stream:
-            return StreamingResponse(
-                ask_orchestrator.sse_events(payload, prepared),
+            control = RequestControl(settings.ai_request_deadline_s)
+            return ControlledStreamingResponse(
+                ask_orchestrator.sse_events(payload, prepared, request_control=control),
+                control=control,
                 media_type="text/event-stream",
                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
             )
