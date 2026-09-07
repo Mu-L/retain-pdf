@@ -17,7 +17,7 @@ globalThis.XMLHttpRequest = class {
   }
 };
 
-const { submitJobRequest } = await import("../../src/pages/home/composition/external/api.ts");
+const { submitJobRequest } = await import("../../src/platform/api/index.ts");
 
 test("composition submitJobRequest keeps book submission on the mock transport", async () => {
   const payload = await submitJobRequest("/api/v1", {

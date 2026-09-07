@@ -43,7 +43,7 @@ import type {
 import type {
   OcrAmbiguityResolutionKind,
   OcrAmbiguityResolutionRequest,
-} from "../../composition/external/api.js";
+} from "@/platform/api/index.js";
 import {
   resolveOcrAmbiguityRecovery,
   readOcrAmbiguityView,

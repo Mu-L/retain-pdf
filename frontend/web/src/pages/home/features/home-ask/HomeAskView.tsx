@@ -9,7 +9,7 @@ import {
 import {
   fetchAgentRuntimeConfig,
   type AgentRuntimeConfigView,
-} from "../../composition/external/api.js";
+} from "@/platform/api/index.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useHomeServices } from "../../home-services-context.js";
 import { HomeAskComposer } from "./HomeAskComposer.js";

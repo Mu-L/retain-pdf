@@ -8,12 +8,12 @@ const {
   taskIdentity,
   taskProgressPercent,
   taskWorkflowLabel,
-} = await import("../../src/pages/home/features/task-center/model.js");
+} = await import("../../src/features/task-center/domain/model.js");
 const {
   cancelTaskCenterJob,
   loadTaskCenterJobs,
   retryTaskCenterJob,
-} = await import("../../src/pages/home/features/task-center/task-center-api.js");
+} = await import("../../src/features/task-center/domain/task-center-api.js");
 
 function job(overrides = {}) {
   return {

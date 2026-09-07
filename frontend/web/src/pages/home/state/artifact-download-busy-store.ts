@@ -9,7 +9,7 @@
 // 按钮组件各自订阅自己的 actionId 分片(use-artifact-download-busy.js),
 // label 完全来自 React state,重渲染不会覆盖(因为 state 本身就是最新值)。
 //
-// 与旧世界 src/js/features/artifact-downloads/download-view-port.js 的关系:
+// 与旧世界 src/features/artifacts/（旧 download-view-port.js 已随 cutover 删除） 的关系:
 // 旧文件保持不动(仍供尚未 cutover 的 dist/app.bundle.js 使用,默认 DOM 版
 // setLinkBusy 直改真实 <a> 文本)——composition.js 给 React 世界另挂一份
 // viewPort 实例,字面量直接实现 3 个方法(不 import 旧 view-port.js/view.js:

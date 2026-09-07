@@ -25,7 +25,7 @@ import {
   listCredentials,
   updateCredential,
   validatePaddleToken,
-} from "./external/api.js";
+} from "@/platform/api/index.js";
 import { createCredentialsViewFeature } from "../features/credentials/credentials-view-store.js";
 import { createCredentialsDialogStore } from "../features/credentials/credentials-dialog-store.js";
 import { createSettingsHubDialogStore } from "../features/settings/settings-hub-dialog-store.js";

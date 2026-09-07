@@ -12,7 +12,6 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useHomeServices } from "../../home-services-context.js";
 import {
   groupTaskCenterJobs,
   taskCenterCounts,
@@ -22,13 +21,13 @@ import {
   taskStatusLabel,
   taskWorkflowLabel,
   type TaskCenterGroupKey,
-} from "./model.js";
+} from "../domain/model.js";
 import {
   cancelTaskCenterJob,
   loadTaskCenterJobs,
   retryTaskCenterJob,
   TASK_CENTER_MAX_ITEMS,
-} from "./task-center-api.js";
+} from "../domain/task-center-api.js";
 
 const ACTIVE_STATUSES = new Set(["queued", "running"]);
 
@@ -136,8 +135,20 @@ function TaskRow({ job, busyAction, onOpen, onCancel, onRetry }: {
   );
 }
 
-export function TaskCenter() {
-  const services = useHomeServices();
+export type TaskCenterOpenBookDetailInput = {
+  job_id?: string;
+  display_name?: string;
+  source_file_name?: string;
+  workflow?: string;
+  [key: string]: unknown;
+};
+
+export type TaskCenterProps = {
+  /** 点任务卡片打开书籍详情：由页面接到自己的图书馆动作上。 */
+  onOpenBookDetail: (input: TaskCenterOpenBookDetailInput) => void;
+};
+
+export function TaskCenter({ onOpenBookDetail }: TaskCenterProps) {
   const [items, setItems] = useState<JobListItemView[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -193,7 +204,7 @@ export function TaskCenter() {
     // Book detail consumes the library projection, while /jobs returns a task
     // projection. Only bridge fields present in both contracts; notably do not
     // manufacture a document_id for a job list row.
-    services.library.actions.openBookDetail({
+    onOpenBookDetail({
       job_id: job.job_id,
       display_name: job.display_name,
       source_file_name: job.source_file_name || undefined,

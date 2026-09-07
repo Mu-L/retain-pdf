@@ -1,13 +1,13 @@
 import type { JobListItemView, JobListView } from "@retainpdf/contracts/job-status";
-import { API_PREFIX } from "../../composition/external/config.js";
+import { API_PREFIX } from "@/js/config/api-constants.js";
 import {
   cancelJob,
   cancelOcrJob,
   fetchJobList,
   fetchJobPayload,
   rerunJob,
-} from "../../composition/external/api.js";
-import { resolveJobActions } from "../../composition/external/job.js";
+} from "@/platform/api/index.js";
+import { resolveJobActions } from "@retainpdf/domain/job";
 
 export const TASK_CENTER_PAGE_LIMIT = 500;
 export const TASK_CENTER_MAX_ITEMS = 2000;

@@ -4,7 +4,7 @@ import {
   updateAgentRuntimeConfig,
   type AgentRuntimeConfigView,
   type AgentRuntimeMode,
-} from "../../composition/external/api.js";
+} from "@/platform/api/index.js";
 import { CREDENTIALS_CHANGED_EVENT } from "../../composition/external/shared.js";
 import { Bot, Check, FlaskConical, Save, ShieldCheck, Zap } from "lucide-react";
 import { SecretInput } from "./SecretInput.js";

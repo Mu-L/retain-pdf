@@ -3,8 +3,8 @@ import type {
   JobRetryStage,
   JobStageActionsView,
   JobStageRetryActionView,
-} from "../../../composition/external/api.js";
-import { resumeJob as resumeJobRequest } from "../../../composition/external/api.js";
+} from "@/platform/api/index.js";
+import { resumeJob as resumeJobRequest } from "@/platform/api/index.js";
 import type { DocumentJobSummary } from "../types.js";
 import { isDocumentJobActive } from "./use-document-jobs.js";
 

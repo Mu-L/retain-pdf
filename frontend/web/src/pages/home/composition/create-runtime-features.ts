@@ -17,7 +17,7 @@ import {
   fetchDocumentByJobId,
   fetchDocumentMetadataSuggestions,
   createDocumentMetadataSuggestion,
-} from "./external/api.js";
+} from "@/platform/api/index.js";
 import {
   adaptJobStageSnapshot,
   resolveSourcePdfDownloadName,
@@ -29,12 +29,14 @@ import {
 import {
   mountJobRuntimeFeature,
   mountRecentJobsFeature,
-  mountArtifactDownloadsFeature,
-  createArtifactDownloadsRuntimePort,
   createDocumentAutoNaming,
   currentJobIdFor,
   readActiveJobId,
 } from "./external/features.js";
+import {
+  createArtifactDownloadsRuntimePort,
+  mountArtifactDownloadsFeature,
+} from "@/features/artifacts/index.js";
 import { isMockMode } from "./external/config.js";
 import type {
   HomeBridge,

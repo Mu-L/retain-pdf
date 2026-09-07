@@ -13,7 +13,7 @@ import {
 import {
   buildApiEndpoint,
   submitJobRequest,
-} from "./external/api.js";
+} from "@/platform/api/index.js";
 import type {
   AppActionsFeature,
   HomeBridge,

@@ -13,7 +13,7 @@ import {
 import {
   fetchJobEvents,
 } from "../api/jobs-events.js";
-import { fetchJobPayload } from "../../pages/home/composition/external/api.js";
+import { fetchJobPayload } from "@/platform/api/index.js";
 import { fetchProtected } from "../api/http.js";
 
 export function createJobDetailDataPort({

@@ -5,12 +5,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import {
-  API_PREFIX,
-  APP_EVENTS,
-  fetchFavorites,
-} from "../../../composition/external.js";
-import { useHomeServices } from "../../../home-services-context.js";
+import { API_PREFIX } from "@/js/config/api-constants.js";
+import { APP_EVENTS } from "@/js/contracts/app-contract.js";
+import { fetchFavorites } from "@/platform/api/index.js";
 import { EmptyState } from "@/shared/icons/EmptyState.jsx";
 
 type FavoriteItem = {
@@ -62,8 +59,12 @@ function openFavoriteInReader(item: FavoriteItem): boolean {
   return false;
 }
 
-export function FavoritesView() {
-  const services = useHomeServices();
+export type FavoritesViewProps = {
+  /** 空态里的"上传 PDF"按钮：由页面接到自己的上传弹窗上。 */
+  onRequestUpload: () => void;
+};
+
+export function FavoritesView({ onRequestUpload }: FavoritesViewProps) {
   const [items, setItems] = useState<FavoriteItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -114,7 +115,7 @@ export function FavoritesView() {
           <button
             type="button"
             className="app-button empty-state-action"
-            onClick={() => services.workflowDialog.requestOpenUpload()}
+            onClick={onRequestUpload}
           >
             上传 PDF
           </button>

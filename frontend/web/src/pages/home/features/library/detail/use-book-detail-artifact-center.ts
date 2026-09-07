@@ -5,7 +5,7 @@ import {
   fetchJobArtifacts,
   fetchJobArtifactsManifest,
   fetchProtected,
-} from "../../../composition/external/api.js";
+} from "@/platform/api/index.js";
 import { API_PREFIX } from "../../../composition/external/config.js";
 import {
   fileNameFromDisposition,

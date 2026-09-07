@@ -791,7 +791,9 @@ test("composition/external re-exports cover all symbols imported by home feature
     join(HOME_COMPOSITION_ROOT, "external/config.ts"),
     join(HOME_COMPOSITION_ROOT, "external/state.ts"),
     join(HOME_COMPOSITION_ROOT, "external/job.ts"),
-    join(HOME_COMPOSITION_ROOT, "external/api.ts"),
+    // API 网关已迁至 src/platform/api（跨功能基础设施），external/index.ts
+    // 仍转出它；符号收集需跟到新位置，否则本门禁会因扫不到而误报。
+    join(PROJECT_ROOT, "src/platform/api/index.ts"),
     join(HOME_COMPOSITION_ROOT, "external/features.ts"),
     join(HOME_COMPOSITION_ROOT, "external/shared.ts"),
     join(HOME_COMPOSITION_ROOT, "external/islands.ts"),

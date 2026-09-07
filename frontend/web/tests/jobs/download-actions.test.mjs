@@ -8,7 +8,7 @@ before(async () => {
     __FRONT_RUNTIME_CONFIG__: {},
     location: { href: "http://localhost/" },
   };
-  downloadActions = await import("../../src/js/features/artifact-downloads/download-actions.js");
+  downloadActions = await import("../../src/features/artifacts/domain/download-actions.js");
 });
 
 test("protected artifact selector is built from centralized action ids", () => {
@@ -82,7 +82,7 @@ test("download action target prefers injected artifact names for translated and 
 });
 
 test("artifact downloads controller routes view operations through view port", async () => {
-  const { mountArtifactDownloadsFeature } = await import("../../src/js/features/artifact-downloads/controller.js");
+  const { mountArtifactDownloadsFeature } = await import("../../src/features/artifacts/domain/controller.js");
   const calls = [];
   let handler = null;
   const feature = mountArtifactDownloadsFeature({

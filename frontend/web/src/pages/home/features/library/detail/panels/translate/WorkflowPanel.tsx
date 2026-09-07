@@ -12,7 +12,7 @@ import { BookTranslateLaunchForm } from "./TranslateForm.jsx";
 import { TranslationProcessOverview } from "./TranslationProcessOverview.jsx";
 import { TranslationStageActions } from "./TranslationStageActions.jsx";
 import type { LibraryCardItem } from "../../../types.js";
-import type { JobRetryStage, JobStageRetryActionView } from "../../../../../composition/external/api.js";
+import type { JobRetryStage, JobStageRetryActionView } from "@/platform/api/index.js";
 
 export type BookTranslationWorkflowPanelProps = {
   item?: LibraryCardItem;

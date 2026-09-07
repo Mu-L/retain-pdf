@@ -1,6 +1,6 @@
 import { createStore } from "../../composition/external.js";
 import type { Store } from "../../composition/external.js";
-import type { OcrAmbiguityView } from "../../composition/external/api.js";
+import type { OcrAmbiguityView } from "@/platform/api/index.js";
 import type { FailureRecoveryModel } from "../../composition/external.js";
 
 // StatusDetailDialog 的读面 store(蓝图 §1 "新 store"清单)。

@@ -78,8 +78,8 @@ export { isLibraryOnlyItem } from "../../../../js/features/documents-library/doc
 export { shapeDocumentsWithBooks } from "../../../../js/features/documents-library/shape-documents-with-books.js";
 
 // artifact-downloads / app-shell
-export { mountArtifactDownloadsFeature } from "../../../../js/features/artifact-downloads/controller.js";
-export { createArtifactDownloadsRuntimePort } from "../../../../js/features/artifact-downloads/runtime-port.js";
+// artifacts 已迁至 src/features/artifacts，调用方直接从该功能的 index.ts
+// 导入，不再经本网关转发。
 export { initializeIdleAppView } from "../../../../js/features/app-shell/idle-reset.js";
 export { defaultAppShellConfigPort } from "../../../../js/features/app-shell/config-port.js";
 

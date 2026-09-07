@@ -13,7 +13,7 @@ import {
   DialogShell,
   DialogTitle,
 } from "@/components/ui/dialog.js";
-import type { OcrAmbiguityView } from "../../composition/external/api.js";
+import type { OcrAmbiguityView } from "@/platform/api/index.js";
 import type {
   OcrReceiptValues,
   OcrRecoveryOutcome,

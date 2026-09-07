@@ -30,7 +30,6 @@ import { TranslationWorkflowDialog } from "./features/workflow/TranslationWorkfl
 import {
   RecentJobsLibrary,
   CollectionsView,
-  FavoritesView,
   BookDetailDialog,
 } from "./features/library/index.js";
 import { HiddenCredentialInputs } from "./features/credentials/HiddenCredentialInputs.jsx";
@@ -42,6 +41,7 @@ import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { HomeAskView } from "./features/home-ask/HomeAskView.js";
 import { CredentialsDialog } from "./features/credentials/CredentialsDialog.jsx";
 import { GlossariesDialog } from "@/features/glossaries/index.js";
+import { FavoritesView } from "@/features/favorites/index.js";
 import { useDialogState } from "./state/use-dialog-state.js";
 import { SettingsHubDialog } from "./features/settings/SettingsHubDialog.jsx";
 import { StatusDetailDialog } from "./features/status-detail/StatusDetailDialog.jsx";
@@ -113,6 +113,11 @@ function AppUpdateBannerSlot() {
   return <AppUpdateBanner view={appUpdate.view} handlersRef={appUpdate.handlersRef} />;
 }
 
+function FavoritesViewSlot() {
+  const { workflowDialog } = useHomeServices();
+  return <FavoritesView onRequestUpload={() => workflowDialog.requestOpenUpload()} />;
+}
+
 function GlossariesDialogSlot() {
   const { glossaries } = useHomeServices();
   const dialogState = useDialogState(glossaries.dialogStore);
@@ -168,7 +173,7 @@ function HomeShell() {
             </>
           ) : isFavoritesTab ? (
             <>
-              <FavoritesView />
+              <FavoritesViewSlot />
               <AppBottomBar showSearch={false} />
             </>
           ) : isAskTab ? (

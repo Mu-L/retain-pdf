@@ -40,7 +40,7 @@ export { createLibraryViewStore } from "./page/library-view-store.js";
 
 export { CollectionsView } from "./categories/CollectionsView.jsx";
 export { CollectionsView as CategoriesView } from "./categories/CollectionsView.jsx";
-export { FavoritesView } from "./favorites/FavoritesView.jsx";
+// FavoritesView 已迁至 src/features/favorites，由 HomeApp 直接从该功能导入。
 
 export { BookDetailDialog } from "./detail/BookDetailDialog.jsx";
 export { BookDetailShell } from "./detail/shell/BookDetailShell.jsx";

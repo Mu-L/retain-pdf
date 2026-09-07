@@ -4,7 +4,7 @@ import type {
   OcrAmbiguityResolutionRequest,
   OcrAmbiguityResolutionView,
   OcrAmbiguityView,
-} from "../../composition/external/api.js";
+} from "@/platform/api/index.js";
 
 type LooseRecord = Record<string, any>;
 export type OcrReceiptValues = Partial<Record<OcrAmbiguityReceiptField["name"], string>>;

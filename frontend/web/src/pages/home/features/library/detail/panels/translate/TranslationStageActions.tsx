@@ -4,7 +4,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog.js";
 import type {
   JobRetryStage,
   JobStageRetryActionView,
-} from "../../../../../composition/external/api.js";
+} from "@/platform/api/index.js";
 import { btn } from "../ui.jsx";
 
 function labelOf(action: JobStageRetryActionView) {

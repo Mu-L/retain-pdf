@@ -1,10 +1,10 @@
 export {
   DOWNLOAD_ACTION_IDS,
   PROTECTED_ARTIFACT_SELECTOR,
-} from "../../contracts/download-action-contract.js";
+} from "@/js/contracts/download-action-contract.js";
 import {
   DOWNLOAD_ACTION_IDS,
-} from "../../contracts/download-action-contract.js";
+} from "@/js/contracts/download-action-contract.js";
 
 const DOWNLOAD_ACTIONS = {
   [DOWNLOAD_ACTION_IDS.BUNDLE]: {

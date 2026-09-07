@@ -15,7 +15,7 @@ import {
   replayTranslationItem,
   resolveOcrAmbiguity,
   retryJobStage,
-} from "./external/api.js";
+} from "@/platform/api/index.js";
 import {
   copyText,
   currentJobStoreFor,
