@@ -23,6 +23,26 @@ import type { ReaderSelection } from "./shared/data/reader-regions.js";
 const ReaderFavoritesPanel = lazy(() => import("./components/react-pdf/ReaderFavoritesPanel.js").then((m) => ({ default: m.ReaderFavoritesPanel })));
 const ReaderMarkdownPanel = lazy(() => import("./components/react-pdf/ReaderMarkdownPanel.js").then((m) => ({ default: m.ReaderMarkdownPanel })));
 const ReaderAiPanel = lazy(() => import("./components/react-pdf/ReaderAiPanel.js").then((m) => ({ default: m.ReaderAiPanel })));
+
+/**
+ * 「曾经打开过」latch：上面三个面板是 lazy 的，但 lazy() 的动态 import 在组件
+ * 挂载时就会触发 —— 无条件渲染(仅用 open 控制显隐)会让分包边界形同虚设，
+ * reader 首屏因此白拉整个 AI 面板与 mathjax。
+ *
+ * 不能改成 `open && <Panel/>` 条件渲染：关闭即卸载会丢掉面板内部状态
+ * (AI 会话、滚动位置)。故首次打开后就一直挂载，仅把首次加载推迟到真正需要时。
+ *
+ * 用 ref 而非 state：取值只会 false→true 单调翻转，且发生在 open 变化已经
+ * 触发的那次渲染内，不需要额外再渲染一轮。
+ */
+function useMountedSinceFirstOpen(open: boolean): boolean {
+  const everOpened = useRef(false);
+  if (open) {
+    everOpened.current = true;
+  }
+  return everOpened.current;
+}
+
 export function resolveReaderAiLayout(_mode: string): "workspace" {
   return "workspace";
 }
@@ -83,6 +103,10 @@ export function ReaderAppReactPdf() {
   }, [assistantPanel, boot.loading, c.mode, c.viewStateKey]);
   const workspaceView = assistantPanel || (c.mode === "compare" ? "compare" : "reading");
   const assistantOpen = assistantPanel !== null;
+  // 三个 lazy 面板各自的挂载 latch，见 useMountedSinceFirstOpen。
+  const favoritesMounted = useMountedSinceFirstOpen(tools.isOpen("favorites"));
+  const markdownMounted = useMountedSinceFirstOpen(assistantPanel === "markdown");
+  const aiMounted = useMountedSinceFirstOpen(assistantPanel === "ai");
   const pdfMode = assistantPdfPane || resolveVisiblePdfMode(c.mode, assistantPanel);
   // Live translation is a dedicated reading workspace: the source remains
   // stable on the left while committed blocks materialize on a source-backed
@@ -173,9 +197,9 @@ export function ReaderAppReactPdf() {
         />
       ) : null}
       <Suspense fallback={null}>
-        <ReaderFavoritesPanel open={tools.isOpen("favorites")} jobId={session.jobId} documentId={session.documentId} onClose={closeTool} onJumpPage={c.goToPage} />
-        <ReaderMarkdownPanel open={assistantPanel === "markdown"} jobId={session.jobId} sourceOnly={c.sourceOnly} layout="workspace" side="right" onClose={closeAssistant} />
-        <ReaderAiPanel key={session.documentId || session.jobId || "reader-ai-pending"} open={assistantPanel === "ai"} jobId={session.jobId} documentId={session.documentId} layout={resolveReaderAiLayout(c.mode)} side="right" selectionContext={aiSelectionContext} onClearSelectionContext={() => setAiSelectionContext(null)} onClose={closeAssistant} onJumpCitation={jumpCitation} onDocumentCommitted={refreshCommittedDocument} />
+        {favoritesMounted ? <ReaderFavoritesPanel open={tools.isOpen("favorites")} jobId={session.jobId} documentId={session.documentId} onClose={closeTool} onJumpPage={c.goToPage} /> : null}
+        {markdownMounted ? <ReaderMarkdownPanel open={assistantPanel === "markdown"} jobId={session.jobId} sourceOnly={c.sourceOnly} layout="workspace" side="right" onClose={closeAssistant} /> : null}
+        {aiMounted ? <ReaderAiPanel key={session.documentId || session.jobId || "reader-ai-pending"} open={assistantPanel === "ai"} jobId={session.jobId} documentId={session.documentId} layout={resolveReaderAiLayout(c.mode)} side="right" selectionContext={aiSelectionContext} onClearSelectionContext={() => setAiSelectionContext(null)} onClose={closeAssistant} onJumpCitation={jumpCitation} onDocumentCommitted={refreshCommittedDocument} /> : null}
       </Suspense>
       <ReaderSelectionToolbar selection={c.selection} onDismiss={c.clearSelection} onAskAi={askSelectedRegion} />
       <DownloadToastHost />

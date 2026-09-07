@@ -57,21 +57,23 @@ function jsToTsResolvePlugin() {
 // 先写 window.__FRONT_RUNTIME_CONFIG__）→ 对应 bundle（type=module 延迟执行）。
 // 三 entry 共享启动样板见 src/pages/shell-boot.ts（adapters → bootTheme →
 // 找根 → createRoot，不开 StrictMode）。
+// 每页独立构建(见下方 splitting 说明),入口产物名保持 `<out>.js`,
+// 故 HTML 引用与 stamp-cache-version 的资源表都不用改。
 const PAGE_BUNDLES = [
   {
     name: "home",
     entry: path.join(frontendRoot, "src/pages/home/entry.tsx"),
-    outfile: path.join(outdir, "app.bundle.js"),
+    out: "app.bundle",
   },
   {
     name: "detail",
     entry: path.join(frontendRoot, "src/pages/detail/entry.tsx"),
-    outfile: path.join(outdir, "detail.bundle.js"),
+    out: "detail.bundle",
   },
   {
     name: "reader",
     entry: path.join(frontendRoot, "src/pages/reader/entry.tsx"),
-    outfile: path.join(outdir, "reader.bundle.js"),
+    out: "reader.bundle",
   },
 ];
 
@@ -92,10 +94,25 @@ function resolveMathJaxPackageVersion() {
   }
 }
 
-function bundleOptions({ entry, outfile }) {
+// splitting 是必需的,不是优化选项:packages/reader 用 lazy()/动态 import()
+// 把 AI 面板、Markdown 面板和 mathjax-full 排在首屏之外,单 outfile 构建会把
+// 这些动态 import 全部内联回主包 —— 光 mathjax-full 就是 1.7MB(占 reader
+// 包 40%),而文档没有公式时它一行都用不到。开启后 reader 首屏 4.3MB → 1.2MB,
+// 产物总量基本不变,只是改为按需取用。
+//
+// 每页单独构建、chunk 各自进 dist/chunks/<页>/:三页合批会让 esbuild 生成跨页
+// 共享 chunk,detail 没有任何懒加载点,却要为此拉入 home 才用得到的公共代码
+// (实测 +13%)。隔离后每页只按自身依赖图拆分;跨页重复的 React 等在合批前就
+// 已各自打包一份,故隔离不劣于原状态。
+//
+// 入口名由 entryPoints 的 { in, out } 指定,故仍写出 dist/<页>.bundle.js;
+// chunk 名带内容哈希,天然缓存安全,无需 stamp。
+function bundleOptions({ entry, out }) {
   return {
-    entryPoints: [entry],
-    outfile,
+    entryPoints: [{ in: entry, out }],
+    outdir,
+    splitting: true,
+    chunkNames: `chunks/${out.replace(/\.bundle$/, "")}/[name]-[hash]`,
     bundle: true,
     format: "esm",
     platform: "browser",
@@ -134,13 +151,19 @@ function bundleOptions({ entry, outfile }) {
 }
 
 // 只清 JS 产物，保留 dist/css/（build:css 独立写入；整目录 rm 会把主页样式弄没）
+// chunks/ 整个重建：chunk 名带内容哈希，不清会随构建次数堆积成旧版本垃圾。
 fs.mkdirSync(outdir, { recursive: true });
 for (const page of PAGE_BUNDLES) {
   try {
-    fs.rmSync(page.outfile, { force: true });
+    fs.rmSync(path.join(outdir, `${page.out}.js`), { force: true });
   } catch {
     // ignore
   }
+}
+try {
+  fs.rmSync(path.join(outdir, "chunks"), { recursive: true, force: true });
+} catch {
+  // ignore
 }
 
 if (watchMode) {
