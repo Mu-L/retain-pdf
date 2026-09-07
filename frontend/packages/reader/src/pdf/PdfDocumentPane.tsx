@@ -51,8 +51,6 @@ function pdfFileIdentity(file: ProtectedPdfFile | null): number {
  * pageWidthOverride 在此语义下应传 shell 全宽（不是半宽）。
  */
 
-setupReactPdf();
-
 function readerDevicePixelRatio(): number {
   const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
   return Math.max(1, Math.min(dpr, 2));
@@ -114,6 +112,9 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
     },
     ref,
   ) {
+    // 渲染期配置 worker，而不是模块顶层：workerSrc 取自宿主注入的 adapters，
+    // 模块求值时机由打包器的 chunk 顺序决定，不保证晚于 adapters 注入。
+    setupReactPdf();
     const { file, loading, error: fetchError } = useProtectedPdfFile(url, preloadedFile);
     const documentIdentity = `${url}\u0000${pdfFileIdentity(file)}`;
     const activeDocumentIdentityRef = useRef(documentIdentity);
