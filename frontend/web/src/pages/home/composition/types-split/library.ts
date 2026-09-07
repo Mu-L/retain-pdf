@@ -52,13 +52,10 @@ export type HomeBookDetail = {
 };
 
 /** 分类/合集控制器（createCollectionsController 返回面） */
-export type CollectionRecord = {
-  collection_id?: string;
-  name?: string;
-  document_count?: number;
-  parent_id?: string | null;
-  sort_order?: number;
-};
+// CollectionRecord 的真值在功能内（src/features/collections），装配层只引用它：
+// 依赖方向 app -> features。
+export type { CollectionRecord } from "@/features/collections/index.js";
+import type { CollectionRecord } from "@/features/collections/index.js";
 
 export type CollectionDocumentRecord = {
   document_id?: string;
@@ -70,23 +67,10 @@ export type CollectionsListResult = {
   collections?: CollectionRecord[];
 };
 
-export type CollectionsController = {
-  listCollections: () => Promise<CollectionsListResult>;
-  createCollection: (payload?: { name?: string; parentId?: string }) => Promise<CollectionRecord>;
-  patchCollection: (
-    collectionId: string,
-    payload?: { name?: string; sort_order?: number },
-  ) => Promise<CollectionRecord>;
-  deleteCollection: (collectionId: string) => Promise<unknown>;
-  addDocuments: (
-    collectionId: string,
-    documentIds: Array<string | null | undefined | unknown>,
-  ) => Promise<unknown>;
-  removeDocument: (collectionId: string, documentId: string) => Promise<unknown>;
-  listAllDocuments: () => Promise<CollectionDocumentRecord[]>;
-  listCollectionDocumentIds: (collectionId: string) => Promise<string[]>;
-  fetchFolderBooks: (collectionId: string) => Promise<LibraryCardItem[]>;
-};
+// CollectionsController 的真值是功能内 createCollectionsController 的返回类型，
+// 装配层不再手写一份（手写版曾与实现的 fetchFolderBooks 返回类型不兼容）。
+export type { CollectionsController } from "@/features/collections/index.js";
+import type { CollectionsController } from "@/features/collections/index.js";
 
 /** createStore 返回的 actions 经 BoundStoreActions 后难精确建模；消费面只认 bump */
 export type CollectionsReloadSignal = {

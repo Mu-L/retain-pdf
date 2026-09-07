@@ -29,7 +29,6 @@ import { MockModeBanner } from "./features/app-shell/MockModeBanner.jsx";
 import { TranslationWorkflowDialog } from "./features/workflow/TranslationWorkflowDialog.jsx";
 import {
   RecentJobsLibrary,
-  CollectionsView,
   BookDetailDialog,
 } from "./features/library/index.js";
 import { HiddenCredentialInputs } from "./features/credentials/HiddenCredentialInputs.jsx";
@@ -37,17 +36,19 @@ import { StatusCard } from "./features/status/StatusCard.jsx";
 import { CredentialsWorkbench } from "./features/credentials/CredentialsWorkbench.jsx";
 import { AppUpdateBanner } from "@/features/app-update/index.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
-// CategoriesView 为历史别名（同 CollectionsView），保留在 library/index 兼容导出
 import { HomeAskView } from "./features/home-ask/HomeAskView.js";
 import { CredentialsDialog } from "./features/credentials/CredentialsDialog.jsx";
 import { GlossariesDialog } from "@/features/glossaries/index.js";
 import { FavoritesView } from "@/features/favorites/index.js";
 import { useDialogState } from "./state/use-dialog-state.js";
-import { SettingsHubDialog } from "./features/settings/SettingsHubDialog.jsx";
+import { SettingsHubDialog } from "@/features/settings/index.js";
 import { StatusDetailDialog } from "./features/status-detail/StatusDetailDialog.jsx";
 import { ReaderDialog } from "./features/reader/ReaderDialog.jsx";
 import { SoftReaderHost } from "./features/reader/SoftReaderHost.jsx";
-import { CollectionManageDialog } from "./features/collections/CollectionManageDialog.jsx";
+import {
+  CollectionManageDialog,
+  CollectionsView,
+} from "@/features/collections/index.js";
 import { DownloadToastHost } from "@/shared/react/DownloadToastHost.jsx";
 import {
   readInitialLibraryTabFromReturn,
@@ -118,6 +119,42 @@ function FavoritesViewSlot() {
   return <FavoritesView onRequestUpload={() => workflowDialog.requestOpenUpload()} />;
 }
 
+function CollectionsViewSlot() {
+  const { collections, library } = useHomeServices();
+  return (
+    <CollectionsView
+      controller={collections.controller}
+      dialogStore={collections.dialogStore}
+      reloadSignal={collections.reloadSignal}
+      libraryActions={library.actions}
+    />
+  );
+}
+
+function CollectionManageDialogSlot() {
+  const { collections } = useHomeServices();
+  return (
+    <CollectionManageDialog
+      controller={collections.controller}
+      dialogStore={collections.dialogStore}
+      reloadSignal={collections.reloadSignal}
+    />
+  );
+}
+
+function SettingsHubDialogSlot() {
+  const { settingsHub, glossaries, credentials } = useHomeServices();
+  return (
+    <SettingsHubDialog
+      dialogStore={settingsHub.dialogStore}
+      onOpenGlossaries={() => glossaries.dialogStore.open()}
+      onPrepareCredentialPanels={() => credentials?.feature?.prepareCredentialsPanels?.()}
+      credentialsWorkbenchSlot={<CredentialsWorkbench />}
+      appUpdateBannerSlot={<AppUpdateBannerSlot />}
+    />
+  );
+}
+
 function GlossariesDialogSlot() {
   const { glossaries } = useHomeServices();
   const dialogState = useDialogState(glossaries.dialogStore);
@@ -168,7 +205,7 @@ function HomeShell() {
             </>
           ) : isCollectionsTab ? (
             <>
-              <CollectionsView />
+              <CollectionsViewSlot />
               <AppBottomBar showSearch={false} />
             </>
           ) : isFavoritesTab ? (
@@ -182,10 +219,7 @@ function HomeShell() {
           ) : null}
         </div>
         <button id="open-query-btn" type="button" className="secondary hidden" aria-hidden="true">最近任务</button>
-        <SettingsHubDialog
-          credentialsWorkbenchSlot={<CredentialsWorkbench />}
-          appUpdateBannerSlot={<AppUpdateBannerSlot />}
-        />
+        <SettingsHubDialogSlot />
         <TranslationWorkflowDialog
           hiddenInputsSlot={<HiddenCredentialInputs />}
           statusCardSlot={
@@ -207,7 +241,7 @@ function HomeShell() {
       <ReaderDialog />
       {/* 软打开阅读器：全屏层，主页不卸载（关 × 不刷新） */}
       <SoftReaderHost />
-      <CollectionManageDialog />
+      <CollectionManageDialogSlot />
       <BookDetailDialog />
       <DownloadToastHost />
     </>

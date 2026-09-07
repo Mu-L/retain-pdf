@@ -1,7 +1,6 @@
 // "合集"tab 的内容:文件夹卡片网格 + 点开一个文件夹后的书目列表。
 // 命名：领域/接口/服务统一叫 collections（`features/collections`, `api/collections`, `services.collections`），
 // UI 层历史叫 categories（DOM id `categories-view` / 类 `.categories-*` / tab key `categories`）为契约保留。
-// 本文件已重命名为 CollectionsView.tsx（原 CategoriesView.tsx），对外同时导出 CategoriesView 别名兼容旧引用。
 //
 // 图书馆网格的数据链路完全不动(调研计划「设计决策 2」)——文件夹展开时走
 // collection_id → documents(拿 active_job_id)→ job_ids 过滤 library/books
@@ -10,11 +9,13 @@
 // 另外做一套"文件夹详情卡片"渲染,也不会有第二套删除确认气泡状态。
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useHomeServices } from "../../../home-services-context.js";
+import type { DialogStore } from "@/pages/home/state/dialog-store.js";
+import type { CollectionRecord } from "../domain/controller.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { EmptyState } from "@/shared/icons/EmptyState.jsx";
-import { BookCard, buildDefaultBookCardActions } from "../shell/BookCard.jsx";
-import { useRecentJobCover } from "../display/useRecentJobCover.js";
+// TODO(feature-layout 批次 4): library 迁入 src/features 后改指 @/features/library。
+import { BookCard, buildDefaultBookCardActions } from "@/pages/home/features/library/index.js";
+import { useRecentJobCover } from "@/pages/home/features/library/display/useRecentJobCover.js";
 
 // 文件夹卡片的封面堆叠预览(参考 PDF_MD_lib 的 FolderCard.tsx:最多 4 本书的
 // 封面像扑克牌一样扇形叠放,越靠前的书 z 越高、叠在最外面)。封面图沿用
@@ -72,10 +73,38 @@ function FolderCoverStack({ items }) {
   );
 }
 
-export function CollectionsView() {
-  const services = useHomeServices();
-  const { controller, dialogStore, reloadSignal } = services.collections;
-  const { actions } = services.library;
+
+/** 由页面注入：合集域的三件依赖 + 图书馆的跳转动作。 */
+export type CollectionsController = ReturnType<
+  typeof import("../domain/controller.js").createCollectionsController
+>;
+
+// TODO(feature-layout 批次 5): dialog-store / use-dialog-state 是通用状态工具，
+// 随批次 5 迁入 platform 后改指。
+export type CollectionsDialogStore = DialogStore<CollectionRecord | null>;
+
+export type CollectionsReloadSignal = {
+  actions: Record<string, (...args: any[]) => unknown>;
+  getSnapshot: () => any;
+  subscribe: (listener: (snapshot: any) => void) => () => void;
+};
+
+export type CollectionsLibraryActions = {
+  openBookDetail: (...args: any[]) => unknown;
+  openJobReader: (...args: any[]) => unknown;
+  openSourceReader: (...args: any[]) => unknown;
+  selectJob: (...args: any[]) => unknown;
+};
+
+export type CollectionsViewProps = {
+  controller: CollectionsController;
+  dialogStore: CollectionsDialogStore;
+  reloadSignal: CollectionsReloadSignal;
+  libraryActions: CollectionsLibraryActions;
+};
+
+export function CollectionsView(props: CollectionsViewProps) {
+  const { controller, dialogStore, reloadSignal, libraryActions } = props;
   // CollectionManageDialog 挂在 HomeApp.jsx 顶层,和这个组件是兄弟节点
   // (不是父子),保存/删除后没法直接 prop 回调回来——靠一个共享的版本号信号
   // 桥接:对话框保存成功就 bump 一次,这里订阅到变化就重新拉取列表。
@@ -279,11 +308,11 @@ export function CollectionsView() {
                 key={item.job_id}
                 item={item}
                 actions={buildDefaultBookCardActions(item, {
-                  onReader: actions.openJobReader,
-                  onReadSource: actions.openSourceReader,
+                  onReader: libraryActions.openJobReader,
+                  onReadSource: libraryActions.openSourceReader,
                 })}
-                onSelect={actions.selectJob}
-                onOpenDetail={actions.openBookDetail}
+                onSelect={libraryActions.selectJob}
+                onOpenDetail={libraryActions.openBookDetail}
               />
             ))}
           </div>
@@ -372,6 +401,3 @@ export function CollectionsView() {
     </section>
   );
 }
-
-// 兼容别名：历史名 CategoriesView 指向现名 CollectionsView
-export const CategoriesView = CollectionsView;

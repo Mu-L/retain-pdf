@@ -2,14 +2,25 @@ import {
   addDocumentsToCollection,
   createCollection,
   deleteCollection,
-  listCollections,
-  patchCollection,
-  removeDocumentFromCollection,
   fetchDocumentList,
   fetchJobPayload,
   fetchLibraryBookList,
-  shapeDocumentsWithBooks,
-} from "../../composition/external.js";
+  listCollections,
+  patchCollection,
+  removeDocumentFromCollection,
+} from "@/platform/api/index.js";
+// TODO(feature-layout 批次 4): documents-library 随 library 功能迁移后改指
+// @/features/library。
+import { shapeDocumentsWithBooks } from "@/js/features/documents-library/shape-documents-with-books.js";
+
+/** 合集记录。领域真值在本功能内，装配层从 @/features/collections 引用。 */
+export type CollectionRecord = {
+  collection_id?: string;
+  name?: string;
+  document_count?: number;
+  parent_id?: string | null;
+  sort_order?: number;
+};
 
 // 合集域的唯一装配面（领域名统一为 collections，历史别名 categories）。
 // 这是一个纯 React 时代新建的域,没有旧世界 controller.js 可复用,所以不套其余域那套 mountXFeature()/viewPort 壳子——

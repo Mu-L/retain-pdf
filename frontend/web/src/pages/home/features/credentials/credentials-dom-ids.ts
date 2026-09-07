@@ -64,6 +64,6 @@ export const CREDENTIAL_DOM_DATASETS = {
 
 // SettingsHubDialog(蓝图 §0.4,拷贝自
 // src/js/components/dialogs/app-settings-dialog-contract.js)。
-// Decoupled: source of truth moved to features/shared/settings-dialog-ids.ts
+// Decoupled: 真值随 settings 功能迁至 src/features/settings。
 // (settings → credentials coupling removed). Re-export for backward-compat.
-export { APP_SETTINGS_DIALOG_IDS, APP_SETTINGS_DIALOG_DATASETS } from "@/pages/home/features/shared/settings-dialog-ids.js";
+export { APP_SETTINGS_DIALOG_IDS, APP_SETTINGS_DIALOG_DATASETS } from "@/features/settings/index.js";

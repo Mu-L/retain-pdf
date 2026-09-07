@@ -28,12 +28,13 @@ import {
   DialogShell,
   DialogTitle,
 } from "@/components/ui/dialog.js";
-import { useHomeServices } from "../../home-services-context.js";
-import { useDialogState } from "../../state/use-dialog-state.js";
+import { useDialogState } from "@/pages/home/state/use-dialog-state.js";
+// TODO(feature-layout 批次 5): dialog-store 是通用状态工具，随批次 5 迁入 platform 后改指。
+import type { DialogStore } from "@/pages/home/state/dialog-store.js";
 import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
-import { APP_SETTINGS_DIALOG_IDS } from "@/pages/home/features/shared/settings-dialog-ids.js";
+import { APP_SETTINGS_DIALOG_IDS } from "./settings-dialog-ids.js";
 import { ThemeAppearancePanel } from "./ThemeAppearancePanel.jsx";
-import { Button as ButtonBase } from "../../../../components/Button.jsx";
+import { Button as ButtonBase } from "@/components/Button.jsx";
 
 // Decoupled: settings → credentials / app-update 横向依赖改为经 HomeApp 注入(slot)。
 // - credentialsWorkbenchSlot: 由 HomeApp 传入 <CredentialsWorkbench />
@@ -103,15 +104,25 @@ function PaneHead({ tab }: { tab: keyof typeof PANE_HEADS }) {
   );
 }
 
-export function SettingsHubDialog({
-  credentialsWorkbenchSlot = null,
-  appUpdateBannerSlot = null,
-}: {
+export type SettingsHubDialogProps = {
+  /** 弹窗开合状态；payload.tab 决定打开时激活哪个 tab（api/glossary/update）。 */
+  dialogStore: DialogStore<{ tab?: string } | null>;
+  /** 「词表」tab 里点 #glossary-btn 时打开术语表弹窗。 */
+  onOpenGlossaries: () => void;
+  /** 切到 API tab 前让凭据域预热表单（可选）。 */
+  onPrepareCredentialPanels?: () => void;
   credentialsWorkbenchSlot?: React.ReactNode | null;
   appUpdateBannerSlot?: React.ReactNode | null;
-} = {}) {
-  const services = useHomeServices();
-  const { dialogStore } = services.settingsHub;
+};
+
+export function SettingsHubDialog({
+  dialogStore,
+  onOpenGlossaries,
+  onPrepareCredentialPanels,
+  credentialsWorkbenchSlot = null,
+  appUpdateBannerSlot = null,
+}: SettingsHubDialogProps) {
+
   const dialogState = useDialogState(dialogStore);
   const open = Boolean(dialogState.open);
   const { onCloseAutoFocus } = useDialogReturnFocus(open);
@@ -129,11 +140,11 @@ export function SettingsHubDialog({
     if (!open || activeTab !== "api") {
       return;
     }
-    const prepare = () => services.credentials?.feature?.prepareCredentialsPanels?.();
+    const prepare = () => onPrepareCredentialPanels?.();
     prepare();
     const raf = requestAnimationFrame(prepare);
     return () => cancelAnimationFrame(raf);
-  }, [open, activeTab, services]);
+  }, [open, activeTab, onPrepareCredentialPanels]);
 
   function handleOpenChange(nextOpen) {
     if (!nextOpen) {
@@ -142,7 +153,7 @@ export function SettingsHubDialog({
   }
 
   function openGlossaries() {
-    services.glossaries.dialogStore.open();
+    onOpenGlossaries();
   }
 
   function panelClass(tab: string) {

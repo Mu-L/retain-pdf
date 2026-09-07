@@ -5,7 +5,6 @@
 //   actions/    卡片操作工厂（read / translate）
 //   display/    展示辅助（封面、徽标）
 //   page/       书架页编排（网格、工具条、viewPort）
-//   categories/ 合集 tab（历史名，领域已统一为 collections，文件为 CollectionsView.tsx，CategoriesView 为兼容别名）
 //   favorites/  收藏 tab（摘录/笔记）
 //   detail/     书籍详情（shell 壳 + Dialog 容器）
 //   domain/     领域 controller
@@ -38,8 +37,7 @@ export { createLibraryViewStore } from "./page/library-view-store.js";
 // TODO[decouple-library-appShell]: 已移除 library/index 对 LibraryTopTabs 的重出口; 若需跨域复用, 迁至
 // features/shared 或 app-shell 公开索引, 并更新所有 `from ".../library" import LibraryTopTabs` 调用。
 
-export { CollectionsView } from "./categories/CollectionsView.jsx";
-export { CollectionsView as CategoriesView } from "./categories/CollectionsView.jsx";
+// CollectionsView 已迁至 src/features/collections（历史别名 CategoriesView 零引用，已删）。
 // FavoritesView 已迁至 src/features/favorites，由 HomeApp 直接从该功能导入。
 
 export { BookDetailDialog } from "./detail/BookDetailDialog.jsx";

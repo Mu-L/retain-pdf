@@ -20,17 +20,29 @@ import {
   DialogShell,
   DialogTitle,
 } from "@/components/ui/dialog.js";
-import { Button as ButtonBase } from "../../../../components/Button.jsx";
+import { Button as ButtonBase } from "@/components/Button.jsx";
 
 // Button.size 在未注解源文件里被推断为必填;unstyled 路径运行时不用 size。
 const Button = ButtonBase as any;
-import { useHomeServices } from "../../home-services-context.js";
-import { useDialogState } from "../../state/use-dialog-state.js";
+import { useDialogState } from "@/pages/home/state/use-dialog-state.js";
+import type {
+  CollectionsController,
+  CollectionsDialogStore,
+  CollectionsReloadSignal,
+} from "./CollectionsView.jsx";
 import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
 
-export function CollectionManageDialog() {
-  const services = useHomeServices();
-  const { controller, dialogStore, reloadSignal } = services.collections;
+export type CollectionManageDialogProps = {
+  controller: CollectionsController;
+  dialogStore: CollectionsDialogStore;
+  reloadSignal: CollectionsReloadSignal;
+};
+
+export function CollectionManageDialog({
+  controller,
+  dialogStore,
+  reloadSignal,
+}: CollectionManageDialogProps) {
   const dialogState = useDialogState(dialogStore);
   const open = Boolean(dialogState.open);
   const editing = dialogState.payload;

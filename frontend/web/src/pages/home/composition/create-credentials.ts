@@ -28,7 +28,6 @@ import {
 } from "@/platform/api/index.js";
 import { createCredentialsViewFeature } from "../features/credentials/credentials-view-store.js";
 import { createCredentialsDialogStore } from "../features/credentials/credentials-dialog-store.js";
-import { createSettingsHubDialogStore } from "../features/settings/settings-hub-dialog-store.js";
 import type {
   AsyncFn,
   BrowserCredentialsFeature,
@@ -37,7 +36,7 @@ import type {
   HomeFeatures,
   UploadStatePort,
 } from "./types.js";
-import type { DialogStore } from "../state/dialog-store.js";
+import { createDialogStore, type DialogStore } from "../state/dialog-store.js";
 
 type CreateCredentialsArgs = {
   features: HomeFeatures;
@@ -74,7 +73,8 @@ export function createCredentials({
   settingsHubDialogStore: DialogStore;
 } {
   const credentialsDialogStore = createCredentialsDialogStore();
-  const settingsHubDialogStore = createSettingsHubDialogStore();
+  // payload 承载"打开时激活哪个 tab"（api/glossary/update），默认 api。
+  const settingsHubDialogStore = createDialogStore({ tab: "api" });
   const credentialsView = createCredentialsViewFeature({ dialogStore: credentialsDialogStore });
 
   function saveCredentialTaskOptions(options: Record<string, unknown> = {}) {

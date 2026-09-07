@@ -4,8 +4,9 @@ import { JSDOM } from "jsdom";
 import React from "react";
 import { createRoot } from "react-dom/client";
 
-import { HomeServicesProvider } from "../../src/pages/home/home-services-context.js";
-import { CollectionsView } from "../../src/pages/home/features/library/categories/CollectionsView.js";
+// CollectionsView 已迁至 src/features/collections 并改为 props 注入：
+// 不再需要 HomeServicesProvider 包裹，依赖直接传入。
+import { CollectionsView } from "../../src/features/collections/ui/CollectionsView.js";
 
 function installDom() {
   const dom = new JSDOM("<!doctype html><html><body><div id=\"root\"></div></body></html>", {
@@ -53,35 +54,25 @@ async function waitFor(predicate, message) {
 }
 
 function renderCollections(dom, listCollections) {
-  const services = {
-    collections: {
-      controller: {
-        listCollections,
-        fetchFolderBooks: async () => [],
-      },
-      dialogStore: { open() {} },
-      // Reproduce the bug: this view mounts after a previous collection edit,
-      // so the shared version is already non-zero although this instance has
-      // never completed its initial request.
-      reloadSignal: versionSignal(3),
+  const props = {
+    controller: {
+      listCollections,
+      fetchFolderBooks: async () => [],
     },
-    library: {
-      actions: {
-        openJobReader() {},
-        openSourceReader() {},
-        selectJob() {},
-        openBookDetail() {},
-      },
+    dialogStore: { open() {} },
+    // Reproduce the bug: this view mounts after a previous collection edit,
+    // so the shared version is already non-zero although this instance has
+    // never completed its initial request.
+    reloadSignal: versionSignal(3),
+    libraryActions: {
+      openJobReader() {},
+      openSourceReader() {},
+      selectJob() {},
+      openBookDetail() {},
     },
   };
   const root = createRoot(dom.window.document.getElementById("root"));
-  root.render(
-    React.createElement(
-      HomeServicesProvider,
-      { value: services },
-      React.createElement(CollectionsView),
-    ),
-  );
+  root.render(React.createElement(CollectionsView, props));
   return root;
 }
 

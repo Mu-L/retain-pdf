@@ -53,8 +53,7 @@ import {
   createLibraryController,
   createRecentJobsReactViewPort,
 } from "../features/library/index.js";
-import { createCollectionsController } from "../features/collections/controller.js";
-import { createCollectionManageDialogStore } from "../features/collections/collection-manage-dialog-store.js";
+import { createCollectionsController } from "@/features/collections/index.js";
 import type {
   CollectionsController,
   CollectionsReloadSignal,
@@ -66,7 +65,7 @@ import type {
   RecentJobsReactViewPort,
   ReloadRecentJobsOptions,
 } from "../features/library/types.js";
-import type { DialogStore } from "../state/dialog-store.js";
+import { createDialogStore, type DialogStore } from "../state/dialog-store.js";
 import type { LibraryCardItem } from "../features/library/types.js";
 
 type ReaderAnchor = {
@@ -205,8 +204,9 @@ export function createLibraryDomain({ features, documentRef, statusArea }: Creat
     recentJobActions,
     libraryController,
     bookDetailStore: libraryController.bookDetailStore as DialogStore<LibraryCardItem | null>,
-    collectionsController: createCollectionsController({ apiPrefix: API_PREFIX }) as unknown as CollectionsController,
-    collectionManageDialogStore: createCollectionManageDialogStore(),
+    collectionsController: createCollectionsController({ apiPrefix: API_PREFIX }),
+    // payload = 正在编辑的 CollectionRecord，null 表示新建模式。
+    collectionManageDialogStore: createDialogStore(null),
     collectionsReloadSignal: createStore<
       { version: number },
       { bump: (state: { version: number }) => { version: number } }
