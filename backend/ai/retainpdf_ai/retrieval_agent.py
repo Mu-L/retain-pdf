@@ -89,6 +89,7 @@ class RetrievalAgent:
             str((spec.get("function") or {}).get("name") or "") for spec in tool_specs
         }
         document_reading_mode = bool(allowed_tool_names & DOCUMENT_READING_TOOL_NAMES)
+        requires_document_search = bool(scoped_document_id or scoped_job_id) and document_reading_mode
         searched_document = False
         structured_search_available = "search_fulltext" in allowed_tool_names
         markdown_fallback_allowed = not structured_search_available
@@ -106,7 +107,7 @@ class RetrievalAgent:
             message = chat(messages, tool_specs)
             tool_calls = message.get("tool_calls") or []
             if not tool_calls:
-                if document_reading_mode and not searched_document:
+                if requires_document_search and not searched_document:
                     if round_index < round_limit:
                         _request_required_document_search(messages, content_source)
                         continue
@@ -247,6 +248,13 @@ def _initial_messages(
             f"{user_content}"
         )
     messages: list[dict[str, Any]] = [{"role": "system", "content": SYSTEM_PROMPT}]
+    if not (document_id or job_id):
+        messages[0]["content"] += "\n\n" + (
+            "当前请求没有绑定文档。普通聊天、通用知识或连通性测试可以直接回答，"
+            "不要求文档检索或引用，也不要声称已读取某篇文档。"
+            "若用户确实询问文档内容，应使用检索工具取得证据，"
+            "或请用户明确选择文档；不得编造文档内容或引用。"
+        )
     for turn in history or []:
         role = str(turn.get("role") or "")
         content = str(turn.get("content") or "").strip()

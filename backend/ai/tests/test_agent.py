@@ -49,6 +49,35 @@ HITS = [
 ]
 
 
+def test_unscoped_chat_with_retrieval_tools_needs_only_one_model_call():
+    registry = ToolRegistry([_search_tool([])])
+    calls = []
+
+    def chat(messages, tools):
+        calls.append(messages)
+        return {"content": "Qwen连接正常。"}
+
+    result = RetrievalAgent(registry, chat).ask("连通性测试", content_source="unscoped")
+    assert result.answer == "Qwen连接正常。"
+    assert result.rounds == 1
+    assert len(calls) == 1
+    assert result.citations == []
+    assert result.tool_trace == []
+
+
+def test_scoped_chat_still_requires_search_even_if_content_source_says_unscoped():
+    for scope in ({"document_id": "doc-a"}, {"job_id": "job-1"}):
+        registry = ToolRegistry([_search_tool([]), Tool(
+            name="search_markdown", description="Markdown搜索",
+            parameters={"type": "object", "properties": {}},
+            handler=lambda arguments: {"hits": []},
+        )])
+        result = RetrievalAgent(registry, lambda messages, tools: {"content": "无证据回答"},
+                                max_tool_rounds=2).ask("概括本文", content_source="unscoped", **scope)
+        assert "尚未完成文档检索" in result.answer
+        assert result.rounds == 2
+
+
 def test_referenced_citations_keeps_every_ref_used_by_the_answer():
     citations = {
         ref: Citation(
