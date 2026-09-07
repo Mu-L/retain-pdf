@@ -1,8 +1,8 @@
 # 0003 用架构检查守住 Python 模块边界
 
 > 当前状态：决策仍有效。本文决策时的 `backend/scripts` 已迁移为
-> `services/pipeline`；当前门禁脚本位于
-> `services/pipeline/devtools/check_pipeline_architecture.py`。
+> `backend/pipeline`；当前门禁脚本位于
+> `backend/pipeline/devtools/check_pipeline_architecture.py`。
 
 ## 背景
 
@@ -10,7 +10,7 @@
 
 ## 决策
 
-使用仓库的 `services/pipeline/devtools/check_pipeline_architecture.py` 固化 Python 后端核心边界，并接入 CI。
+使用仓库的 `backend/pipeline/devtools/check_pipeline_architecture.py` 固化 Python 后端核心边界，并接入 CI。
 
 长期可以评估引入 `tach`、`import-linter` 或 `grimp`，但不会在没有收益验证前增加新依赖。
 

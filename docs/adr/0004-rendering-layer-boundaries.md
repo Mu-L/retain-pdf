@@ -1,7 +1,7 @@
 # 0004 渲染层按 workflow/analysis/source/layout/output 分层
 
 > 当前状态：决策仍有效。原始重构发生在历史 `backend/scripts` 布局；当前实现与
-> 验证入口均位于 `services/pipeline`，下方命令已更新为当前可执行路径。
+> 验证入口均位于 `backend/pipeline`，下方命令已更新为当前可执行路径。
 
 ## 背景
 
@@ -38,7 +38,7 @@
 
 ## 后果
 
-- 新代码不能随意跨层 import，必须通过 `services/pipeline/devtools/check_pipeline_architecture.py`。
+- 新代码不能随意跨层 import，必须通过 `backend/pipeline/devtools/check_pipeline_architecture.py`。
 - `legacy/` 只能 re-export 或兼容旧调用方，不应承载新逻辑。
 - `source` 可以操作 PDF 页面对象，但不应知道 Typst 输出细节，也不应自己构建 layout payload。
 - `layout` 只产出排版模型，不直接清理 PDF 或生成 Typst。
@@ -50,21 +50,21 @@
 当前基础验证：
 
 ```bash
-PYTHONPATH=services/pipeline uv run --project services python -m pytest services/pipeline/devtools/tests/rendering -q
-PYTHONPATH=services/pipeline uv run --project services python -m pytest services/pipeline/devtools/tests/text_layout -q
-uv run --project services python -m compileall -q services/pipeline/retainpdf_pipeline
-PYTHONPATH=services/pipeline uv run --project services python services/pipeline/devtools/check_pipeline_architecture.py
+PYTHONPATH=backend/pipeline uv run --project backend python -m pytest backend/pipeline/devtools/tests/rendering -q
+PYTHONPATH=backend/pipeline uv run --project backend python -m pytest backend/pipeline/devtools/tests/text_layout -q
+uv run --project backend python -m compileall -q backend/pipeline/retainpdf_pipeline
+PYTHONPATH=backend/pipeline uv run --project backend python backend/pipeline/devtools/check_pipeline_architecture.py
 ```
 
 真实 PDF render-only 回归：
 
 ```bash
-PYTHONPATH=services/pipeline uv run --project services python services/pipeline/devtools/run_golden_flow.py \
+PYTHONPATH=backend/pipeline uv run --project backend python backend/pipeline/devtools/run_golden_flow.py \
   --job-root data/jobs/golden-fullflow-book-20260511170519 \
   --render-only \
   --bbox-item p001-b013
 
-PYTHONPATH=services/pipeline uv run --project services python services/pipeline/devtools/run_golden_flow.py \
+PYTHONPATH=backend/pipeline uv run --project backend python backend/pipeline/devtools/run_golden_flow.py \
   --job-root data/jobs/golden-pseudo-20260512-full \
   --render-only \
   --bbox-item p001-b013

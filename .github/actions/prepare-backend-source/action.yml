@@ -2,6 +2,9 @@ name: Prepare embedded backend package
 description: Resolve and verify the self-contained backend package in this repository.
 
 outputs:
+  source_root:
+    description: Absolute path to the aggregate backend source workspace.
+    value: ${{ steps.resolve.outputs.source_root }}
   path:
     description: Absolute path to the verified backend package.
     value: ${{ steps.resolve.outputs.path }}
@@ -27,6 +30,7 @@ runs:
         env_path = Path(sys.argv[2])
         output_path = Path(sys.argv[3])
         values = {
+            "source_root": resolved["source_root"],
             "path": resolved["path"],
             "tree": resolved["tree"],
         }
@@ -35,6 +39,7 @@ runs:
                 raise SystemExit(f"backend package output {key} contains a newline")
         with env_path.open("a", encoding="utf-8") as env_file:
             env_file.write(f"RETAIN_PDF_SERVICES_ROOT={values['path']}\n")
+            env_file.write(f"RETAIN_PDF_SOURCE_ROOT={values['source_root']}\n")
         with output_path.open("a", encoding="utf-8") as output_file:
             for key, value in values.items():
                 output_file.write(f"{key}={value}\n")

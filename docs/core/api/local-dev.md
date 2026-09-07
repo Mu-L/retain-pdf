@@ -47,7 +47,7 @@ X-API-Key: your-rust-api-key
 - `$BACKEND_ROOT/api/auth.local.json`
 - 环境变量 `RUST_API_KEYS`
 
-Docker 中 `infra/docker/delivery/docker/auth.local.json` 的 `api_keys` 必须和 `infra/docker/delivery/docker/web.env` 里的 `FRONT_X_API_KEY` 对上。
+Docker 中 `ops/deployment/docker/delivery/docker/auth.local.json` 的 `api_keys` 必须和 `ops/deployment/docker/delivery/docker/web.env` 里的 `FRONT_X_API_KEY` 对上。
 
 ## 常用环境变量
 
@@ -59,8 +59,8 @@ Docker 中 `infra/docker/delivery/docker/auth.local.json` 的 `api_keys` 必须�
 - `RUST_API_DATA_ROOT`：运行时数据根目录。
 - `RUST_API_DATA_DIR`：旧别名，仅在 `RUST_API_DATA_ROOT` 未设置时使用。
 - `RUST_API_SCRIPTS_DIR`：Python 脚本目录（script-mode 仅桌面兼容；默认 console-mode 不需要）。
-- `RUST_API_PYTHON_ENTRYPOINT_MODE`：worker 启动模式，`auto|console|script`。`auto` 为默认：`PATH` 中能找到 `retainpdf-pipeline` 时用 `retainpdf-pipeline <subcommand> --spec ...`（console-mode，为正式主链），否则回退到桌面兼容目录 `python services/pipeline/entrypoints/run_*.py --spec ...`（script-mode，仅桌面兼容）；`console` 强制使用 console-mode；`script` 强制使用 script-mode（仅桌面兼容）。
-- `RUST_API_PIPELINE_COMMAND`：显式指定 `retainpdf-pipeline` 可执行文件绝对路径；设置后 console-mode 不再依赖 `PATH` 查找。未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_*.py --spec <job_root>/specs/<stage>.spec.json。
+- `RUST_API_PYTHON_ENTRYPOINT_MODE`：worker 启动模式，`auto|console|script`。`auto` 为默认：`PATH` 中能找到 `retainpdf-pipeline` 时用 `retainpdf-pipeline <subcommand> --spec ...`（console-mode，为正式主链），否则回退到桌面兼容目录 `python backend/pipeline/entrypoints/run_*.py --spec ...`（script-mode，仅桌面兼容）；`console` 强制使用 console-mode；`script` 强制使用 script-mode（仅桌面兼容）。
+- `RUST_API_PIPELINE_COMMAND`：显式指定 `retainpdf-pipeline` 可执行文件绝对路径；设置后 console-mode 不再依赖 `PATH` 查找。未安装 retainpdf-pipeline 的桌面兼容目录回退到 python backend/pipeline/entrypoints/run_*.py --spec <job_root>/specs/<stage>.spec.json。
 - `PYTHON_BIN`：Python 可执行文件。
 - `RUST_API_UPLOAD_MAX_BYTES`：普通上传大小限制，`0` 表示不限制。
 - `RUST_API_UPLOAD_MAX_PAGES`：普通上传页数限制，`0` 表示不限制。
@@ -70,8 +70,8 @@ Docker 中 `infra/docker/delivery/docker/auth.local.json` 的 `api_keys` 必须�
 
 Compose 实际读取的是：
 
-- `infra/docker/delivery/docker/app.env`
-- `infra/docker/delivery/docker/web.env`
-- `infra/docker/delivery/docker/auth.local.json`
+- `ops/deployment/docker/delivery/docker/app.env`
+- `ops/deployment/docker/delivery/docker/web.env`
+- `ops/deployment/docker/delivery/docker/auth.local.json`
 
 不是仓库根目录下的 `docker/*.env`。

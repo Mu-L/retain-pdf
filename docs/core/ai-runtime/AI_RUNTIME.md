@@ -4,7 +4,7 @@
 
 **更新：** 2026-09-02
 
-**范围：** `services/ai`、Rust AI proxy 与公开问答/operation 契约
+**范围：** `backend/ai`、Rust AI proxy 与公开问答/operation 契约
 
 **非范围：** OCR、翻译和排版流水线内部实现
 
@@ -12,8 +12,8 @@
 
 - [SESSION_AND_MEMORY.md](./SESSION_AND_MEMORY.md)：会话树、摘要与恢复
 - [SKILLS.md](./SKILLS.md)：尚在演进的 Skill 设计
-- [`services/ai/README.md`](../../../services/ai/README.md)：运行、配置和运维入口
-- [`services/api/src/services/document_operations/README.md`](../../../services/api/src/services/document_operations/README.md)：PDF operation 状态机
+- [`backend/ai/README.md`](../../../backend/ai/README.md)：运行、配置和运维入口
+- [`backend/api/src/services/document_operations/README.md`](../../../backend/api/src/services/document_operations/README.md)：PDF operation 状态机
 
 ## 1. 不可破坏的边界
 
@@ -27,9 +27,9 @@
 5. LLM、FX 和生成的 wrapper 均不能获得 Rust API key。实际操作使用单 action、
    短 TTL capability。
 6. `/v1/ask`、runtime config 和浏览器安全 operation 投影分别由
-   `services/contracts/ai-ask.v1.schema.json`、
-   `services/contracts/runtime-config.v1.schema.json` 与
-   `services/contracts/public-document-operation.v1.schema.json` 约束。
+   `backend/contracts/ai-ask.v1.schema.json`、
+   `backend/contracts/runtime-config.v1.schema.json` 与
+   `backend/contracts/public-document-operation.v1.schema.json` 约束。
 
 ## 2. 当前调用链
 
@@ -229,20 +229,20 @@ shell、任意路径或任意程序。
 ## 10. 验证
 
 ```bash
-uv run --project services ruff check \
-  services/ai/retainpdf_ai/app.py \
-  services/ai/retainpdf_ai/ask_orchestration.py \
-  services/ai/retainpdf_ai/agent.py \
-  services/ai/retainpdf_ai/agent_llm.py \
-  services/ai/retainpdf_ai/agent_evidence.py \
-  services/ai/retainpdf_ai/retrieval_agent.py \
-  services/ai/retainpdf_ai/conversation_state.py \
-  services/ai/retainpdf_ai/conversation_tree.py \
-  services/ai/tests/test_contract_schema.py \
-  services/ai/tests/test_runtime_config_contract.py
-uv run --project services python -m pytest services/ai/tests -q
-python services/contracts/check_parity.py --require-upstream
-npm --prefix packages/schemas test
+uv run --project backend ruff check \
+  backend/ai/retainpdf_ai/app.py \
+  backend/ai/retainpdf_ai/ask_orchestration.py \
+  backend/ai/retainpdf_ai/agent.py \
+  backend/ai/retainpdf_ai/agent_llm.py \
+  backend/ai/retainpdf_ai/agent_evidence.py \
+  backend/ai/retainpdf_ai/retrieval_agent.py \
+  backend/ai/retainpdf_ai/conversation_state.py \
+  backend/ai/retainpdf_ai/conversation_tree.py \
+  backend/ai/tests/test_contract_schema.py \
+  backend/ai/tests/test_runtime_config_contract.py
+uv run --project backend python -m pytest backend/ai/tests -q
+python backend/contracts/check_parity.py --require-upstream
+npm --prefix contracts test
 ```
 
 契约测试会扫描真正产生 SSE/done payload 的 `ask_orchestration.py`，而不是只扫描

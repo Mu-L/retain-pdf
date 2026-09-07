@@ -55,7 +55,7 @@ Rust 保持统一的 `X-API-Key` 鉴权，并将请求代理给 `retainpdf-ai`�
   配置应优先使用 runtime config；任何响应都不会回显密钥。
 
 完整字段和事件枚举以
-[`ai-ask.v1.schema.json`](../../../services/contracts/ai-ask.v1.schema.json) 为准。
+[`ai-ask.v1.schema.json`](../../../backend/contracts/ai-ask.v1.schema.json) 为准。
 
 ## 响应与 SSE
 
@@ -140,7 +140,7 @@ GET  /api/v1/ai/operations/{operation_id}/candidate.pdf
 
 operation 列表返回 `operations`、`total`、`limit`、`offset` 和 `has_more`，并按
 `updated_at DESC, operation_id DESC` 稳定排序。公开字段以
-[`public-document-operation.v1.schema.json`](../../../packages/schemas/public-document-operation.v1.schema.json)
+[`public-document-operation.v1.schema.json`](../../../contracts/public-document-operation.v1.schema.json)
 为准；浏览器不应依赖内部 manifest、workspace 或 dispatch 回执。
 
 默认 `explicit` 模式下，`run` 与 `commit` 必须来自明确的结构化确认。
@@ -148,7 +148,7 @@ operation 列表返回 `operations`、`total`、`limit`、`offset` 和 `has_more
 候选校验和 commit 的并发保护。候选 PDF 生成后仍要单独 commit 才成为文档活动版本。
 
 详细状态机和安全边界见
-[`agent-document-operations.md`](../../../services/api/docs/api-spec/agent-document-operations.md)。
+[`agent-document-operations.md`](../../../backend/api/docs/api-spec/agent-document-operations.md)。
 
 ## Runtime 配置
 
@@ -170,7 +170,7 @@ PUT /api/v1/ai/runtime-config
 观察 configured revision、active revision 和 readiness 诊断。
 
 更新请求和脱敏视图以
-[`runtime-config.v1.schema.json`](../../../packages/schemas/runtime-config.v1.schema.json)
+[`runtime-config.v1.schema.json`](../../../contracts/runtime-config.v1.schema.json)
 为准。该契约不包含原始模型 Key 或 Gateway Key。
 
 实现与恢复语义见

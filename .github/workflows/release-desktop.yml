@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DESKTOP_ROOT: apps/desktop
+  DESKTOP_ROOT: frontend/desktop
   TYPST_VERSION: "0.14.2"
   CMARKER_VERSION: "0.1.8"
   MITEX_VERSION: "0.2.6"
@@ -68,7 +68,7 @@ jobs:
 
       - name: Build Rust API for Windows
         shell: pwsh
-        run: cargo build --release --locked --workspace --bins --target x86_64-pc-windows-msvc --manifest-path "$env:RETAIN_PDF_SERVICES_ROOT/api/Cargo.toml"
+        run: cargo build --release --locked --workspace --bins --target x86_64-pc-windows-msvc --manifest-path "$env:RETAIN_PDF_SOURCE_ROOT/Cargo.toml"
 
       - name: Assemble bundled Typst runtime
         shell: pwsh
@@ -144,8 +144,8 @@ jobs:
           }
           New-Item -ItemType Directory -Path $sitePackages -Force | Out-Null
           python -m pip install --upgrade pip
-          python -m pip install --target $sitePackages -r apps/desktop/requirements-desktop-windows.txt
-          python -m pip install --target $sitePackages -r apps/desktop/requirements-ai-service.txt
+          python -m pip install --target $sitePackages -r frontend/desktop/requirements-desktop-windows.txt
+          python -m pip install --target $sitePackages -r frontend/desktop/requirements-ai-service.txt
           $pythonBundleExe = Join-Path $bundleRoot "python.exe"
           # 打包 retainpdf-pipeline console 入口：--no-deps 避免重复拉原生轮子；
           # 用捆绑 python.exe 直接安装（产出 Lib/site-packages + Scripts/retainpdf-pipeline.exe），
@@ -181,7 +181,7 @@ jobs:
         run: npm ci
 
       - name: Verify native frontend dependency
-        working-directory: apps/web
+        working-directory: frontend/web
         shell: pwsh
         run: |
           # @tailwindcss/oxide needs native binding; npm optionalDeps can drop it (npm/cli#4828)
@@ -194,14 +194,14 @@ jobs:
           }
 
       - name: Build Windows installer package
-        working-directory: apps/desktop
+        working-directory: frontend/desktop
         shell: pwsh
         env:
           RETAIN_PDF_VERSION: ${{ steps.version.outputs.version }}
         run: npm run dist:win32-installer
 
       - name: Report Windows package sizes
-        working-directory: apps/desktop
+        working-directory: frontend/desktop
         run: npm run report:size
 
       - name: Show desktop bundle manifest
@@ -211,7 +211,7 @@ jobs:
 
       - name: Smoke frontend bundle before manifest validation
         shell: pwsh
-        run: npm --prefix apps/desktop run smoke:frontend-bundle
+        run: npm --prefix frontend/desktop run smoke:frontend-bundle
 
       - name: Validate desktop bundle manifest
         shell: pwsh
@@ -219,7 +219,7 @@ jobs:
 
       - name: Smoke frontend bundle after manifest validation
         shell: pwsh
-        run: npm --prefix apps/desktop run smoke:frontend-bundle
+        run: npm --prefix frontend/desktop run smoke:frontend-bundle
 
       - name: Upload Windows package artifact
         uses: actions/upload-artifact@v7
@@ -269,7 +269,7 @@ jobs:
 
       - name: Build Rust API for Linux
         shell: bash
-        run: cargo build --release --locked --workspace --bins --manifest-path "$RETAIN_PDF_SERVICES_ROOT/api/Cargo.toml"
+        run: cargo build --release --locked --workspace --bins --manifest-path "$RETAIN_PDF_SOURCE_ROOT/Cargo.toml"
 
       - name: Install Linux packaging dependencies
         shell: bash
@@ -347,8 +347,8 @@ jobs:
           )"
           site_packages="$bundle_root/lib/python${py_minor}/site-packages"
           mkdir -p "$site_packages"
-          "$bundle_root/bin/python3" -m pip install --target "$site_packages" -r apps/desktop/requirements-desktop-posix.txt
-          "$bundle_root/bin/python3" -m pip install --target "$site_packages" -r apps/desktop/requirements-ai-service.txt
+          "$bundle_root/bin/python3" -m pip install --target "$site_packages" -r frontend/desktop/requirements-desktop-posix.txt
+          "$bundle_root/bin/python3" -m pip install --target "$site_packages" -r frontend/desktop/requirements-ai-service.txt
           "$bundle_root/bin/python3" - <<'PY'
           import requests, fitz, pikepdf, PIL, urllib3
           print("python_bundle_import_check=ok")
@@ -396,7 +396,7 @@ jobs:
         run: npm ci
 
       - name: Verify native frontend dependency
-        working-directory: apps/web
+        working-directory: frontend/web
         shell: bash
         run: |
           # @tailwindcss/oxide 需本机原生绑定；npm optionalDeps 偶发漏装时补齐
@@ -405,7 +405,7 @@ jobs:
           node -e "require('@tailwindcss/oxide')"
 
       - name: Build Linux package
-        working-directory: apps/desktop
+        working-directory: frontend/desktop
         shell: bash
         env:
           RETAIN_PDF_VERSION: ${{ steps.version.outputs.version }}
@@ -413,7 +413,7 @@ jobs:
         run: npm run dist:linux
 
       - name: Report Linux package sizes
-        working-directory: apps/desktop
+        working-directory: frontend/desktop
         run: npm run report:size
 
       - name: Show desktop bundle manifest
@@ -422,7 +422,7 @@ jobs:
 
       - name: Smoke frontend bundle before manifest validation
         shell: bash
-        run: npm --prefix apps/desktop run smoke:frontend-bundle
+        run: npm --prefix frontend/desktop run smoke:frontend-bundle
 
       - name: Validate desktop bundle manifest
         shell: bash
@@ -430,7 +430,7 @@ jobs:
 
       - name: Smoke frontend bundle after manifest validation
         shell: bash
-        run: npm --prefix apps/desktop run smoke:frontend-bundle
+        run: npm --prefix frontend/desktop run smoke:frontend-bundle
 
       - name: Check Linux bundled native dependencies
         shell: bash
@@ -521,7 +521,7 @@ jobs:
 
       - name: Build Rust API for macOS
         shell: bash
-        run: cargo build --release --locked --workspace --bins --manifest-path "$RETAIN_PDF_SERVICES_ROOT/api/Cargo.toml"
+        run: cargo build --release --locked --workspace --bins --manifest-path "$RETAIN_PDF_SOURCE_ROOT/Cargo.toml"
 
       - name: Assemble bundled Typst runtime
         shell: bash
@@ -799,8 +799,8 @@ jobs:
           export LDFLAGS="-L$qpdf_prefix/lib ${LDFLAGS:-}"
           export PKG_CONFIG_PATH="$qpdf_prefix/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
           "$bundle_python3" -m pip install --upgrade pip
-          "$bundle_python3" -m pip install -r apps/desktop/requirements-desktop-posix.txt
-          "$bundle_python3" -m pip install -r apps/desktop/requirements-ai-service.txt
+          "$bundle_python3" -m pip install -r frontend/desktop/requirements-desktop-posix.txt
+          "$bundle_python3" -m pip install -r frontend/desktop/requirements-ai-service.txt
           # 打包 retainpdf-pipeline console 入口：--no-deps 避免重复拉原生轮子触发门禁
           # 先装 wheel：venv 精简后缺 bdist_wheel，否则 metadata 生成失败
           "$bundle_python3" -m pip install wheel
@@ -914,7 +914,7 @@ jobs:
         run: npm ci
 
       - name: Verify native frontend dependency
-        working-directory: apps/web
+        working-directory: frontend/web
         shell: bash
         run: |
           # @tailwindcss/oxide 需本机原生绑定；npm optionalDeps 偶发漏装时补齐
@@ -943,7 +943,7 @@ jobs:
           ls -lah "$PWD/$DESKTOP_ROOT/build/icon.icns"
 
       - name: Build macOS package
-        working-directory: apps/desktop
+        working-directory: frontend/desktop
         shell: bash
         env:
           RETAIN_PDF_VERSION: ${{ steps.version.outputs.version }}
@@ -953,7 +953,7 @@ jobs:
         run: npm run dist:mac
 
       - name: Report macOS package sizes
-        working-directory: apps/desktop
+        working-directory: frontend/desktop
         run: npm run report:size
 
       - name: Check macOS bundled binary architectures
@@ -1060,7 +1060,7 @@ jobs:
 
       - name: Smoke frontend bundle before manifest validation
         shell: bash
-        run: npm --prefix apps/desktop run smoke:frontend-bundle
+        run: npm --prefix frontend/desktop run smoke:frontend-bundle
 
       - name: Validate desktop bundle manifest
         shell: bash
@@ -1068,7 +1068,7 @@ jobs:
 
       - name: Smoke frontend bundle after manifest validation
         shell: bash
-        run: npm --prefix apps/desktop run smoke:frontend-bundle
+        run: npm --prefix frontend/desktop run smoke:frontend-bundle
 
       - name: Upload macOS package artifact
         uses: actions/upload-artifact@v7

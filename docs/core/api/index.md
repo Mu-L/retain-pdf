@@ -1,8 +1,8 @@
 # RetainPDF 后端 API 总入口
 
 这份文档是前端接入和第三方调用的公共入口。字段级 JSON Schema 以
-[`packages/schemas`](../../../packages/schemas/README.md) 为准；Rust 编排、恢复和
-内部 Agent 契约以 [`services/api/API_SPEC.md`](../../../services/api/API_SPEC.md)
+[`contracts`](../../../contracts/README.md) 为准；Rust 编排、恢复和
+内部 Agent 契约以 [`backend/api/API_SPEC.md`](../../../backend/api/API_SPEC.md)
 及其分领域页面为准。其它 API 文档只作为专题页或历史兼容入口。
 
 ## 1. 基础约定
@@ -174,7 +174,7 @@
 `structure_role=document_title` 生成可审查、可恢复的标题候选。请求可使用
 `apply_if_default=true` 自动命名，但只会修改仍为上传文件名且未被用户锁定的文档；
 手工 `PATCH title` 后不会被自动结果覆盖。完整字段和冲突码见
-[Document metadata suggestions](../../../services/api/docs/api-spec/document-metadata.md)。
+[Document metadata suggestions](../../../backend/api/docs/api-spec/document-metadata.md)。
 
 ## 4. 上传接口
 
@@ -835,9 +835,9 @@ operation 列表响应包含 `operations`、`total`、`limit`、`offset` 和 `ha
 完整请求、事件、会话分支、operation 并发保护和旧接口迁移说明见
 [AI 问答与文档操作 API](./reader-ai-chat.md)。公开 operation 与 runtime 配置字段
 分别以
-[`public-document-operation.v1.schema.json`](../../../packages/schemas/public-document-operation.v1.schema.json)
+[`public-document-operation.v1.schema.json`](../../../contracts/public-document-operation.v1.schema.json)
 和
-[`runtime-config.v1.schema.json`](../../../packages/schemas/runtime-config.v1.schema.json)
+[`runtime-config.v1.schema.json`](../../../contracts/runtime-config.v1.schema.json)
 为准。
 
 ## 13. Simple App 入口
@@ -874,7 +874,7 @@ SQLite 主要表：
 - [错误排查](./troubleshooting.md)
 - [AI 问答与文档操作](./reader-ai-chat.md)
 - [Rust API 架构边界](../rust_api/README.md)
-- [当前运行主链](../../../services/api/CURRENT_API_MAP.md)
-- [Stage 执行契约](../../../services/api/STAGE_EXECUTION_CONTRACT.md)
-- [OCR Provider 契约](../../../services/api/OCR_PROVIDER_CONTRACT.md)
-- [渲染参数契约](../../../services/api/RENDER_OPTIONS_CONTRACT.md)
+- [当前运行主链](../../../backend/api/CURRENT_API_MAP.md)
+- [Stage 执行契约](../../../backend/api/STAGE_EXECUTION_CONTRACT.md)
+- [OCR Provider 契约](../../../backend/api/OCR_PROVIDER_CONTRACT.md)
+- [渲染参数契约](../../../backend/api/RENDER_OPTIONS_CONTRACT.md)

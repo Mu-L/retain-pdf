@@ -5,7 +5,7 @@
 > （`state_recovery` 把孤儿 worker 终止并标记 `worker_orphaned_after_restart`）。
 >
 > 当前实现注记（2026-09-02）：后端源码已经迁入 `services/`，主程序名仍为
-> `rust_api`；权威开发入口是 `python3 services/scripts/dev_stack.py`。本文中的
+> `rust_api`；权威开发入口是 `python3 ops/development/dev_stack.py`。本文中的
 > 固定测试数量和性能数字是 ADR 形成时的历史快照，不是当前验收门槛。早期
 > “SQLite 唯一写者”措辞也只描述当时拓扑；remote 模式下 API 与 jobsd 现在通过
 > `retain-data` 和 WAL 访问同一数据库。
@@ -41,16 +41,16 @@ desktop (Electron)
 
 | 关口 | 结论 | 依据 |
 |---|---|---|
-| 接缝大小 | **3 个操作，58 行** | `services/api/src/services/runtime_gateway.rs` 全部公开面：`JobRuntimeLauncher::launch`、`RuntimeControl::{request_cancel,clear_cancel}`、`terminate_runtime_process` |
+| 接缝大小 | **3 个操作，58 行** | `backend/api/src/services/runtime_gateway.rs` 全部公开面：`JobRuntimeLauncher::launch`、`RuntimeControl::{request_cancel,clear_cancel}`、`terminate_runtime_process` |
 | 注入点 | **现成** | launcher 本就是 `Arc<dyn Fn(String)>` 策略对象，换实现即可，非侵入 |
-| 调用点 | **2 处** | `services/api/src/app/jobs.rs`（装配）、`services/api/src/services/jobs/control.rs`（取消/终止） |
-| 实时进度 | **已全走 DB** | `services/api/src/services/jobs/live_stage/combined_events.rs` 读 `db.list_job_events`，壳无需任何内存态即可服务 SSE/查询 |
+| 调用点 | **2 处** | `backend/api/src/app/jobs.rs`（装配）、`backend/api/src/services/jobs/control.rs`（取消/终止） |
+| 实时进度 | **已全走 DB** | `backend/api/src/services/jobs/live_stage/combined_events.rs` 读 `db.list_job_events`，壳无需任何内存态即可服务 SSE/查询 |
 | 共享内存态 | **可整体搬走** | `canceled_jobs`、`job_slots` 仅被 job_runner 消费；`downloads_lock` 归壳自有 |
-| 数据面 | **无需改造** | SQLite 已是 `journal_mode=WAL` + `busy_timeout`（`services/api/crates/retain-data/src/db.rs`），多进程访问同一库是 SQLite 支持的配置 |
+| 数据面 | **无需改造** | SQLite 已是 `journal_mode=WAL` + `busy_timeout`（`backend/packages/retain-data/src/db.rs`），多进程访问同一库是 SQLite 支持的配置 |
 
 ## 内部契约：jobs-control.v1
 
-`services/contracts/jobs-control.v1.schema.json`，四个操作一一对应现有接缝：
+`backend/contracts/jobs-control.v1.schema.json`，四个操作一一对应现有接缝：
 
 | 操作 | 端点 | 语义 |
 |---|---|---|
@@ -73,16 +73,16 @@ desktop (Electron)
 
 ## 分期
 
-- **Phase 1——已落地（2026-07-24）**：契约 + `services/api/crates/retain-jobsd` 二进制 +
+- **Phase 1——已落地（2026-07-24）**：契约 + `backend/jobs` 二进制 +
   双实现接缝。默认 InProcess，行为零变化。
   - 接缝改造：`JobRuntime` 枚举（InProcess / Remote）收口四个操作；
-    `JobRuntimeLauncher` 保持 `Arc<dyn Fn>` 形状不变，只在 `services/api/src/app/jobs.rs`
+    `JobRuntimeLauncher` 保持 `Arc<dyn Fn>` 形状不变，只在 `backend/api/src/app/jobs.rs`
     按模式换闭包——上层（routes / services/jobs）**一行未改**。
   - jobsd 持有自己的 `canceled_jobs` / `job_slots`；壳在远端模式下不再需要
     这两份内存态。
-  - 契约双端锁：jobsd 侧 `services/api/crates/retain-jobsd/src/contract_lock.rs`
+  - 契约双端锁：jobsd 侧 `backend/jobs/src/contract_lock.rs`
     （路由与契约端点双向相等、HTTP 方法齐备、只绑回环）、壳侧
-    `services/api/src/api_tests/jobs_control_contract.rs`
+    `backend/api/src/api_tests/jobs_control_contract.rs`
     （发出路径与契约双向相等、每个操作可追溯到它取代的接缝函数、
     默认模式必须是进程内）。
   - 验收：`cargo test --workspace` 331/331（323→331：+2 配置、+3 jobsd 锁、
@@ -105,28 +105,28 @@ desktop (Electron)
     OS 进程操作、零任务语义，却住在 job_runner 里——导致 `ai_supervisor`
     （监督的是 Python AI 服务，与任务毫无关系）为了杀一棵进程树而依赖整个
     任务执行栈。
-  - **实际做法**：抽出 `services/api/crates/retain-proc`（仅 anyhow + libc + tokio），
+  - **实际做法**：抽出 `backend/packages/retain-proc`（仅 anyhow + libc + tokio），
     job_runner 侧 re-export 保持 `job_runner::` 路径不变；壳经
     `crate::process::` 直取。壳对 job_runner 的引用因此从 **5 个文件收敛
     到 2 个**，且两处恰好就是 InProcess 落点本身：
-    `services/api/src/app/jobs.rs`（spawn_job + ProcessRuntimeDeps）与
-    `services/api/src/services/runtime_gateway.rs`（取消注册表）。
-  - **门禁焊死**：`services/api/scripts/check_architecture.py` 新增
+    `backend/api/src/app/jobs.rs`（spawn_job + ProcessRuntimeDeps）与
+    `backend/api/src/services/runtime_gateway.rs`（取消注册表）。
+  - **门禁焊死**：`backend/api/scripts/check_architecture.py` 新增
     `check_job_runner_boundary`，
     壳内除上述两文件外引用 `job_runner::` 即红。已用故意越界验证它**真会咬**
     （probe 时 exit 1，还原后 exit 0）——只会绿的门禁等于没门禁。
   - 验收：`cargo test --workspace` 331/331，进程工具的 2 个测试随代码迁入
     retain-proc（未丢失）；架构检查通过。
 - **Phase 3——已落地（2026-08-18）**：
-  - **dev 脚本**：当前权威入口是 `services/scripts/dev_stack.py`，一键拉起
+  - **dev 脚本**：当前权威入口是 `ops/development/dev_stack.py`，一键拉起
     `rust_api:41000 + retain-jobsd:41002 + retainpdf-ai:41100`。它显式启用
-    `remote + supervised`；`services/api/scripts/dev-remote.sh` 仅作为兼容转发入口。
+    `remote + supervised`；`backend/api/scripts/dev-remote.sh` 仅作为兼容转发入口。
     原始 Rust 配置不经过该启动器时仍默认 `InProcess`。
-  - **桌面端监督接线**：`services/api/src/services/jobsd_supervisor.rs` 复用
-    `services/api/src/services/ai_supervisor.rs` 模式。桌面装配位于
-    `apps/desktop/src/main/backend-env.js`、
-    `apps/desktop/main.js` 和 `apps/desktop/scripts/prepare-app.mjs`；容器装配位于
-    `services/docker/Dockerfile.app`。
+  - **桌面端监督接线**：`backend/api/src/services/jobsd_supervisor.rs` 复用
+    `backend/api/src/services/ai_supervisor.rs` 模式。桌面装配位于
+    `frontend/desktop/src/main/backend-env.js`、
+    `frontend/desktop/main.js` 和 `frontend/desktop/scripts/prepare-app.mjs`；容器装配位于
+    `ops/deployment/docker/Dockerfile.app`。
   - **健康与可观测**：公开探针是 `/health` 与 `/ready`；健康视图同时报告
     `jobsd` 和 `ai_service`。41002、41100 是内部回环端口，不是公开 API。
   - **验收**：当前应运行 workspace 测试和架构门禁，不以本文记录的历史固定

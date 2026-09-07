@@ -95,7 +95,7 @@ sudo xattr -r -d com.apple.quarantine /Applications/RetainPDF.app
 
 ```bash
 git clone https://github.com/wxyhgk/retain-pdf.git
-cd retain-pdf/infra/docker/delivery
+cd retain-pdf/ops/deployment/docker/delivery
 docker compose up -d
 ```
 
@@ -106,7 +106,7 @@ docker compose pull
 docker compose up -d
 ```
 
-更多配置见 [Docker 部署说明](infra/docker/delivery/README.md)。
+更多配置见 [Docker 部署说明](ops/deployment/docker/delivery/README.md)。
 
 ## 交流
 
@@ -118,7 +118,7 @@ QQ 交流群：`1101779791`
 
 ## 开发
 
-参阅 [贡献指南](CONTRIBUTING.md)、[项目文档](docs/README.md)和[后端说明](services/README.md)。
+参阅 [贡献指南](CONTRIBUTING.md)、[项目文档](docs/README.md)和[后端说明](backend/README.md)。
 
 ## License
 

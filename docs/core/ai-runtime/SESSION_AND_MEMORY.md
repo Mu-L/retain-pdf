@@ -34,7 +34,7 @@
 
 ## 2. Rust conversation 契约
 
-当前单一真值是 `services/contracts/ai-conversations.v1.schema.json`。
+当前单一真值是 `backend/contracts/ai-conversations.v1.schema.json`。
 
 Conversation 的关键字段：
 
@@ -191,13 +191,13 @@ regenerate 不再重复写 user，只追加一个以指定 user message 为 pare
 ## 8. 测试与契约门禁
 
 ```bash
-uv run --project services python -m pytest \
-  services/ai/tests/test_memory.py \
-  services/ai/tests/test_tools_and_app.py \
-  services/ai/tests/test_streaming.py -q
+uv run --project backend python -m pytest \
+  backend/ai/tests/test_memory.py \
+  backend/ai/tests/test_tools_and_app.py \
+  backend/ai/tests/test_streaming.py -q
 
-uv run --project services python -m pytest services/ai/tests -q
-python services/contracts/check_parity.py --require-upstream
+uv run --project backend python -m pytest backend/ai/tests -q
+python backend/contracts/check_parity.py --require-upstream
 ```
 
 必须覆盖：

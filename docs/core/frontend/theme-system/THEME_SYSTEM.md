@@ -91,7 +91,7 @@ CSS：
 
 - Key：`localStorage["retainpdf.theme"]` = `"classic" | "jiangnan" | ...`
 - 启动：尽早读 storage 写到 `<html data-theme>`，避免 FOUC  
-  - 脚本：`apps/web/src/shared/theme/boot-theme.js`（各 HTML 可内联或入口首行 import）
+  - 脚本：`frontend/web/src/shared/theme/boot-theme.js`（各 HTML 可内联或入口首行 import）
 
 ### 4.3 切换 API（代码）
 
@@ -108,19 +108,19 @@ setTheme("jiangnan"); // 写 storage + document.documentElement.dataset.theme
 ## 5. 文件布局
 
 ```
-docs/core/apps/web/theme-system/
+docs/core/frontend/web/theme-system/
   THEME_SYSTEM.md          ← 本文
   skins/
     jiangnan.md            ← 江南色板说明（设计向）
 
-apps/web/src/styles/
+frontend/web/src/styles/
   tokens.css               ← 语义契约 + 默认引入 classic
   themes/
     classic.css            ← 当前默认肤色
     jiangnan.css           ← 江南院落
   shadcn-theme.css         ← 仍映射语义 token（皮肤无关）
 
-apps/web/src/shared/theme/
+frontend/web/src/shared/theme/
   theme.ts                 ← get/set/list + storage
   boot-theme.ts            ← 同步写 data-theme（防闪）
 ```

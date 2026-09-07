@@ -56,7 +56,7 @@ payload 结构和原始标签工作，不能只根据 `model_version=vlm` 猜格
 | `header_image`, `footer_image` | `image/figure` | 不送翻译 |
 
 官方 block 枚举的完整性由
-`services/pipeline/devtools/tests/document_schema/test_mineru_adapter.py` 锁定。官方新增
+`backend/pipeline/devtools/tests/document_schema/test_mineru_adapter.py` 锁定。官方新增
 标签时，必须同时更新标签目录、投影决策、本文和 fixture。
 
 ## 4. 层级和 bbox 规则

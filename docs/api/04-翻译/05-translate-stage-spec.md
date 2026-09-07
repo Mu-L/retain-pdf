@@ -10,7 +10,7 @@ Rust 会启动：
 retainpdf-pipeline translate-only --spec <job_root>/specs/translate.spec.json
 ```
 
-未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_translate_only.py --spec <job_root>/specs/translate.spec.json。
+未安装 retainpdf-pipeline 的桌面兼容目录回退到 python backend/pipeline/entrypoints/run_translate_only.py --spec <job_root>/specs/translate.spec.json。
 
 ## Spec 结构
 

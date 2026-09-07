@@ -7,7 +7,7 @@
 翻译层位于：
 
 ```text
-services/pipeline/retainpdf_pipeline/translate/
+backend/pipeline/retainpdf_pipeline/translate/
 ```
 
 它只负责把标准化 OCR 文档变成可渲染的翻译产物：
@@ -34,11 +34,11 @@ document.v1.json
 - `retainpdf-pipeline translate-only --spec <job_root>/specs/translate.spec.json`
   `translate.stage.v1` worker，要求 `--spec <job_root>/specs/translate.spec.json`。
 - `retainpdf-pipeline translate-from-ocr --spec <job_root>/specs/book.spec.json`
-  provider/normalize 后继续翻译和渲染的入口之一（顶层垫片已删除，只有包内入口 `services/pipeline/retainpdf_pipeline/translate/entrypoints/from_ocr_pipeline.py` 和 console 子命令，仅桌面兼容注脚）。
-- `services/pipeline/retainpdf_pipeline/translate/workflow`
-  翻译层内部 facade，`services/pipeline/retainpdf_pipeline/translate/translation_stage.py` 通过这里进入翻译执行。
+  provider/normalize 后继续翻译和渲染的入口之一（顶层垫片已删除，只有包内入口 `backend/pipeline/retainpdf_pipeline/translate/entrypoints/from_ocr_pipeline.py` 和 console 子命令，仅桌面兼容注脚）。
+- `backend/pipeline/retainpdf_pipeline/translate/workflow`
+  翻译层内部 facade，`backend/pipeline/retainpdf_pipeline/translate/translation_stage.py` 通过这里进入翻译执行。
 
-未安装 retainpdf-pipeline 的桌面兼容目录回退到 python services/pipeline/entrypoints/run_translate_only.py --spec <job_root>/specs/translate.spec.json。
+未安装 retainpdf-pipeline 的桌面兼容目录回退到 python backend/pipeline/entrypoints/run_translate_only.py --spec <job_root>/specs/translate.spec.json。
 
 当前 stage spec 里的 `start_page` / `end_page` 是 0 基页码，`end_page=0` 表示只处理第一页，不能被当成未设置值。
 
@@ -186,16 +186,16 @@ data/jobs/<job_id>/logs/pipeline_events.jsonl
 翻译层改动后至少跑：
 
 ```bash
-uv run --project services python -m compileall -q services/pipeline/retainpdf_pipeline/translate
-PYTHONPATH=services/pipeline uv run --project services python -m pytest services/pipeline/devtools/tests/translation -q
-PYTHONPATH=services/pipeline uv run --project services python services/pipeline/devtools/check_pipeline_architecture.py
+uv run --project backend python -m compileall -q backend/pipeline/retainpdf_pipeline/translate
+PYTHONPATH=backend/pipeline uv run --project backend python -m pytest backend/pipeline/devtools/tests/translation -q
+PYTHONPATH=backend/pipeline uv run --project backend python backend/pipeline/devtools/check_pipeline_architecture.py
 ```
 
 如果改了 stage spec、页范围或 provider-backed workflow，还要跑：
 
 ```bash
-PYTHONPATH=services/pipeline uv run --project services python -m pytest services/pipeline/devtools/tests/document_schema/test_normalize_stage_spec.py -q
-PYTHONPATH=services/pipeline uv run --project services python services/pipeline/devtools/check_stage_specs_contract.py data/jobs
+PYTHONPATH=backend/pipeline uv run --project backend python -m pytest backend/pipeline/devtools/tests/document_schema/test_normalize_stage_spec.py -q
+PYTHONPATH=backend/pipeline uv run --project backend python backend/pipeline/devtools/check_stage_specs_contract.py data/jobs
 ```
 
 ## 边界规则
@@ -209,7 +209,7 @@ PYTHONPATH=services/pipeline uv run --project services python services/pipeline/
 新增代码应优先放进已有分层目录。架构边界以：
 
 ```text
-services/pipeline/devtools/check_pipeline_architecture.py
+backend/pipeline/devtools/check_pipeline_architecture.py
 ```
 
 为准。

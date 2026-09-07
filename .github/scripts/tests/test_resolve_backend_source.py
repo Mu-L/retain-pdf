@@ -12,7 +12,7 @@ SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = SCRIPTS_ROOT.parents[1]
 sys.path.insert(0, str(SCRIPTS_ROOT))
 
-from resolve_backend_source import REQUIRED_PATHS, resolve_backend_source
+from resolve_backend_source import REQUIRED_PATHS, REQUIRED_ROOT_PATHS, resolve_backend_source
 
 
 BACKEND_WORKFLOWS = (
@@ -59,16 +59,20 @@ def _commit_repo(root: Path) -> None:
 
 def _product_repo(tmp_path: Path) -> tuple[Path, str, str]:
     repo_root = tmp_path / "product"
-    _write_backend_layout(repo_root / "services")
+    _write_backend_layout(repo_root / "backend")
+    for relative in REQUIRED_ROOT_PATHS:
+        path = repo_root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"fixture for {relative}\n", encoding="utf-8")
     (repo_root / "backend-package.json").write_text(
-        json.dumps({"schema_version": 1, "source_path": "services"}),
+        json.dumps({"schema_version": 1, "source_path": "backend"}),
         encoding="utf-8",
     )
     _commit_repo(repo_root)
     return (
         repo_root,
         _git(repo_root, "rev-parse", "HEAD"),
-        _git(repo_root, "rev-parse", "HEAD:services"),
+        _git(repo_root, "rev-parse", "HEAD^{tree}"),
     )
 
 
@@ -83,7 +87,8 @@ def test_resolves_verified_embedded_backend_package(tmp_path: Path) -> None:
     repo_root, revision, source_tree = _product_repo(tmp_path)
 
     assert resolve_backend_source(repo_root) == {
-        "path": str((repo_root / "services").resolve()),
+        "path": str((repo_root / "backend").resolve()),
+        "source_root": str(repo_root.resolve()),
         "kind": "embedded-package",
         "revision": revision,
         "tree": source_tree,
@@ -103,13 +108,13 @@ def test_environment_cannot_redirect_backend_outside_product_repo(
 
     resolved = resolve_backend_source(repo_root)
 
-    assert resolved["path"] == str((repo_root / "services").resolve())
+    assert resolved["path"] == str((repo_root / "backend").resolve())
     assert resolved["tree"] == source_tree
 
 
 def test_rejects_dirty_tracked_backend_by_default(tmp_path: Path) -> None:
     repo_root, _revision, source_tree = _product_repo(tmp_path)
-    (repo_root / "services" / "pyproject.toml").write_text("dirty\n", encoding="utf-8")
+    (repo_root / "backend" / "pyproject.toml").write_text("dirty\n", encoding="utf-8")
 
     with pytest.raises(RuntimeError, match="uncommitted changes"):
         resolve_backend_source(repo_root)
@@ -121,7 +126,7 @@ def test_rejects_dirty_tracked_backend_by_default(tmp_path: Path) -> None:
 
 def test_rejects_untracked_backend_file_by_default(tmp_path: Path) -> None:
     repo_root, _revision, _source_tree = _product_repo(tmp_path)
-    (repo_root / "services" / "new-source.py").write_text("pass\n", encoding="utf-8")
+    (repo_root / "backend" / "new-source.py").write_text("pass\n", encoding="utf-8")
 
     with pytest.raises(RuntimeError, match="uncommitted changes"):
         resolve_backend_source(repo_root)
@@ -137,6 +142,19 @@ def test_rejects_unsupported_manifest_schema(tmp_path: Path) -> None:
         resolve_backend_source(repo_root)
 
 
+@pytest.mark.parametrize("relative", ["Cargo.toml", "resources/fonts/new-font.txt", "database/retain-db/src/lib.rs", "contracts/new.schema.json"])
+def test_aggregate_dependencies_participate_in_dirty_check(tmp_path: Path, relative: str) -> None:
+    repo_root, _revision, source_tree = _product_repo(tmp_path)
+    path = repo_root / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("changed aggregate dependency\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="uncommitted changes"):
+        resolve_backend_source(repo_root)
+    resolved = resolve_backend_source(repo_root, allow_dirty=True)
+    assert resolved["dirty"] == "true"
+    assert resolved["tree"] == source_tree
+
+
 @pytest.mark.parametrize("unsafe_path", ["../backend", "/tmp/backend", "a\\backend", "."])
 def test_rejects_unsafe_source_path(tmp_path: Path, unsafe_path: str) -> None:
     repo_root, _revision, _source_tree = _product_repo(tmp_path)
@@ -148,7 +166,7 @@ def test_rejects_unsafe_source_path(tmp_path: Path, unsafe_path: str) -> None:
 
 def test_rejects_incomplete_backend_layout(tmp_path: Path) -> None:
     repo_root, _revision, _source_tree = _product_repo(tmp_path)
-    (repo_root / "services" / "docker" / "Dockerfile.app").unlink()
+    (repo_root / "ops/deployment/docker/backend/Dockerfile.app").unlink()
 
     with pytest.raises(RuntimeError, match="layout is incomplete"):
         resolve_backend_source(repo_root, allow_dirty=True)
@@ -157,7 +175,7 @@ def test_rejects_incomplete_backend_layout(tmp_path: Path) -> None:
 def test_manifest_declares_only_the_embedded_package_path() -> None:
     manifest = json.loads((REPO_ROOT / "backend-package.json").read_text(encoding="utf-8"))
 
-    assert manifest == {"schema_version": 1, "source_path": "services"}
+    assert manifest == {"schema_version": 1, "source_path": "backend"}
 
 
 def test_prepare_action_has_no_external_checkout_or_token() -> None:
@@ -192,10 +210,10 @@ def test_backend_workflow_commands_do_not_bypass_the_package_resolver(
     hardcoded_backend_lines = []
     for line in workflow.splitlines():
         stripped = line.strip()
-        if stripped.startswith('- "services/'):
+        if stripped.startswith('- "backend/'):
             # Embedded package path filters intentionally trigger relevant jobs.
             continue
-        if any(path in line for path in ("services/api", "services/ai", "services/pipeline")):
+        if any(path in line for path in ("backend/api", "backend/ai", "backend/pipeline")):
             hardcoded_backend_lines.append(stripped)
 
     assert hardcoded_backend_lines == []
@@ -205,14 +223,14 @@ def test_local_backend_entrypoints_resolve_the_embedded_package() -> None:
     package = json.loads((REPO_ROOT / "package.json").read_text(encoding="utf-8"))
     api_test = package["scripts"]["test:api"]
     assert ".github/scripts/run_with_backend_source.py" in api_test
-    assert "{backend}/api/Cargo.toml" in api_test
+    assert "{source_root}/Cargo.toml" in api_test
 
     wrapper = (REPO_ROOT / ".github" / "scripts" / "run_with_backend_source.py").read_text(
         encoding="utf-8"
     )
     assert "allow_dirty=True" in wrapper
 
-    for relative in ("infra/docker/release-images.sh", "infra/docker/build-arm64.sh"):
+    for relative in ("ops/deployment/docker/release-images.sh", "ops/deployment/docker/build-arm64.sh"):
         script = (REPO_ROOT / relative).read_text(encoding="utf-8")
         assert ".github/scripts/resolve_backend_source.py" in script
-        assert '${SERVICES_ROOT}/docker/Dockerfile.app' in script
+        assert '${SERVICES_ROOT}/../ops/deployment/docker/backend/Dockerfile.app' in script

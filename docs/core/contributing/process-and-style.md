@@ -25,7 +25,7 @@
 
 建议流程：
 
-1. 先开 Issue 或在已有 Issue 下说明方案，尤其是跨 Rust/Python/apps/web/Docker 的改动。
+1. 先开 Issue 或在已有 Issue 下说明方案，尤其是跨 Rust/Python/frontend/web/Docker 的改动。
 2. 从最新 `main` 开分支。
 3. 保持 PR 聚焦，一次只解决一个主题。
 4. 代码改动同时补测试或说明为什么暂时无法补。
@@ -43,7 +43,7 @@ PR 描述建议包含：
 
 - [ ] npm run test:api
 - [ ] BACKEND_ROOT="$(python3 .github/scripts/resolve_backend_source.py --print-path)" && python3 "$BACKEND_ROOT/pipeline/devtools/check_pipeline_architecture.py"
-- [ ] npm --prefix apps/desktop run verify-frontend-sync
+- [ ] npm --prefix frontend/desktop run verify-frontend-sync
 
 ## 风险
 

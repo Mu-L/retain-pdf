@@ -29,7 +29,7 @@ retain-jobsd -> retain-jobs + retain-data
 - 新增或改变接口、事件、产物 manifest、reader metadata、diagnostics、resume 行为时，更新 [API 文档](../api/index.md) 或对应 rust_api 文档。
 - API 返回字段优先从 view/projection 层输出，不要在 route 里临时拼 JSON。
 - 下载、预览、Range、ETag、reader regions 这类前端强依赖接口，应保持字段稳定和向后兼容。
-- 改共享线协议时，同时更新 `services/contracts`、`packages/schemas` 和 producer/consumer 契约测试。
+- 改共享线协议时，同时更新 `backend/contracts`、`contracts` 和 producer/consumer 契约测试。
 - 公共凭据只用 `credential_ref`；响应、日志、事件和 stage spec 都不得出现原始 secret。
 
 ## 常用检查

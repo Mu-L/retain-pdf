@@ -84,14 +84,14 @@
 
 | 路径 | 职责 |
 |------|------|
-| `apps/web/src/shared/navigation/soft-reader.ts` | `trySoftOpenReader` / `closeSoftReaderOnHost`、history state、消息类型 |
-| `apps/web/src/shared/navigation/home-return-state.ts` | 离开前滚动/tab 快照（硬跳转兜底） |
-| `apps/web/src/pages/home/features/reader/navigate-to-reader.ts` | 默认 soft open；`replace` 仍硬跳 |
-| `apps/web/src/pages/home/features/reader/SoftReaderHost.tsx` | 全屏层 + iframe + popstate / message |
-| `apps/web/src/pages/home/features/reader/ReaderDialog.tsx` | 监听 `openReaderRequested` → `navigateToReader` |
-| `apps/web/src/pages/reader/components/react-pdf/ReaderCloseHome.tsx` | ×：iframe 内 postMessage；独立页 back/assign |
-| `apps/web/src/pages/home/features/library/page/useHomeReturnRestore.ts` | 硬回主页时恢复滚动（兜底） |
-| `apps/web/src/styles/pages/home/library-shell.css` | `.soft-reader-host` / `.soft-reader-frame` |
+| `frontend/web/src/shared/navigation/soft-reader.ts` | `trySoftOpenReader` / `closeSoftReaderOnHost`、history state、消息类型 |
+| `frontend/web/src/shared/navigation/home-return-state.ts` | 离开前滚动/tab 快照（硬跳转兜底） |
+| `frontend/web/src/pages/home/features/reader/navigate-to-reader.ts` | 默认 soft open；`replace` 仍硬跳 |
+| `frontend/web/src/pages/home/features/reader/SoftReaderHost.tsx` | 全屏层 + iframe + popstate / message |
+| `frontend/web/src/pages/home/features/reader/ReaderDialog.tsx` | 监听 `openReaderRequested` → `navigateToReader` |
+| `frontend/web/src/pages/reader/components/react-pdf/ReaderCloseHome.tsx` | ×：iframe 内 postMessage；独立页 back/assign |
+| `frontend/web/src/pages/home/features/library/page/useHomeReturnRestore.ts` | 硬回主页时恢复滚动（兜底） |
+| `frontend/web/src/styles/pages/home/library-shell.css` | `.soft-reader-host` / `.soft-reader-frame` |
 
 ### 4.3 打开路径（主页点书）
 
@@ -159,7 +159,7 @@ openReaderRequested
 ## 6. 构建与验证
 
 ```bash
-cd apps/web
+cd frontend/web
 npm run build:css
 npm run build:js
 # 硬刷新浏览器后再测主页 → 阅读 → 关闭
@@ -174,8 +174,8 @@ npm run build:js
 
 相关测试（导航契约，多用 mock navigate）：
 
-- `apps/web/tests/reader-dialog-component.test.mjs`
-- `apps/web/tests/home-app-component.test.mjs`
+- `frontend/web/tests/reader-dialog-component.test.mjs`
+- `frontend/web/tests/home-app-component.test.mjs`
 
 ---
 

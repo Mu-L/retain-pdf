@@ -3,8 +3,14 @@ name: Rust API Architecture
 "on":
   pull_request:
     paths:
-      - "services/api/**"
-      - "services/pipeline/**"
+      - "backend/api/**"
+      - "backend/packages/**"
+      - "backend/jobs/**"
+      - "database/**"
+      - "contracts/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "backend/pipeline/**"
       - "backend-package.json"
       - ".github/actions/prepare-backend-source/**"
       - ".github/scripts/resolve_backend_source.py"
@@ -16,8 +22,14 @@ name: Rust API Architecture
       - main
       - master
     paths:
-      - "services/api/**"
-      - "services/pipeline/**"
+      - "backend/api/**"
+      - "backend/packages/**"
+      - "backend/jobs/**"
+      - "database/**"
+      - "contracts/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "backend/pipeline/**"
       - "backend-package.json"
       - ".github/actions/prepare-backend-source/**"
       - ".github/scripts/resolve_backend_source.py"

@@ -95,7 +95,7 @@ sudo xattr -r -d com.apple.quarantine /Applications/RetainPDF.app
 
 ```bash
 git clone https://github.com/wxyhgk/retain-pdf.git
-cd retain-pdf/infra/docker/delivery
+cd retain-pdf/ops/deployment/docker/delivery
 docker compose up -d
 ```
 
@@ -106,7 +106,7 @@ docker compose pull
 docker compose up -d
 ```
 
-See the [Docker deployment guide](infra/docker/delivery/README.md) for more options.
+See the [Docker deployment guide](ops/deployment/docker/delivery/README.md) for more options.
 
 ## Community
 
@@ -118,7 +118,7 @@ QQ group: `1101779791`
 
 ## Development
 
-See the [contribution guide](CONTRIBUTING.md), [project documentation](docs/README.md), and [backend guide](services/README.md).
+See the [contribution guide](CONTRIBUTING.md), [project documentation](docs/README.md), and [backend guide](backend/README.md).
 
 ## License
 

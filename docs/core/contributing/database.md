@@ -14,7 +14,7 @@
 ## 代码边界
 
 数据库访问统一收敛在
-`services/api/crates/retain-data/src/db.rs` 及其子模块：
+`backend/packages/retain-data/src/db.rs` 及其子模块：
 
 - `db.rs`：`Db` facade，对外提供 job、artifact、event、document、conversation、operation 等持久化能力。
 - `db/schema.rs`：建表、schema 检查和兼容初始化。

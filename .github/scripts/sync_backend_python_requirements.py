@@ -32,7 +32,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=(
             "Embedded backend package. Defaults to RETAIN_PDF_SERVICES_ROOT or "
-            "<repo-root>/services."
+            "<repo-root>/backend."
         ),
     )
     parser.add_argument(
@@ -132,7 +132,7 @@ def main() -> None:
     args = parse_args()
     repo_root = args.repo_root.resolve()
     raw_services_root = args.services_root or Path(
-        os.environ.get("RETAIN_PDF_SERVICES_ROOT", "services")
+        os.environ.get("RETAIN_PDF_SERVICES_ROOT", "backend")
     )
     services_root = (
         raw_services_root
@@ -143,35 +143,35 @@ def main() -> None:
     ai_path = services_root / "ai" / "pyproject.toml"
     # Keep generated headers stable even when the backend is checked out beside
     # the product repository rather than inside the backend package.
-    pipeline_source = "services/pipeline/pyproject.toml"
-    ai_source = "services/ai/pyproject.toml"
+    pipeline_source = "backend/pipeline/pyproject.toml"
+    ai_source = "backend/ai/pyproject.toml"
     pipeline_runtime, pipeline_test = _load_dependency_groups(pipeline_path)
     ai_runtime, _ai_test = _load_dependency_groups(ai_path)
     pipeline_with_test = pipeline_runtime + pipeline_test
 
     targets = {
-        repo_root / "infra" / "docker" / "requirements-app.txt": _render_requirements(
+        repo_root / "ops" / "deployment" / "docker" / "requirements-app.txt": _render_requirements(
             pipeline_runtime,
             source=pipeline_source,
         ),
-        repo_root / "infra" / "docker" / "requirements-test.txt": _render_requirements(
+        repo_root / "ops" / "deployment" / "docker" / "requirements-test.txt": _render_requirements(
             pipeline_with_test,
             source=pipeline_source,
         ),
-        repo_root / "apps" / "desktop" / "requirements-desktop-posix.txt": _render_requirements(
+        repo_root / "frontend" / "desktop" / "requirements-desktop-posix.txt": _render_requirements(
             pipeline_runtime,
             source=pipeline_source,
         ),
-        repo_root / "apps" / "desktop" / "requirements-desktop-windows.txt": _render_requirements(
+        repo_root / "frontend" / "desktop" / "requirements-desktop-windows.txt": _render_requirements(
             pipeline_runtime,
             source=pipeline_source,
         ),
-        repo_root / "apps" / "desktop" / "requirements-desktop-macos.txt": _render_requirements(
+        repo_root / "frontend" / "desktop" / "requirements-desktop-macos.txt": _render_requirements(
             pipeline_runtime,
             source=pipeline_source,
             extra_header=DESKTOP_MACOS_EXTRA_HEADER,
         ),
-        repo_root / "apps" / "desktop" / "requirements-ai-service.txt": _render_requirements(
+        repo_root / "frontend" / "desktop" / "requirements-ai-service.txt": _render_requirements(
             ai_runtime,
             source=ai_source,
         ),

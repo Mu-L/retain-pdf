@@ -12,8 +12,21 @@ MARKDOWN_LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 
 
 def test_legacy_root_directories_are_absent() -> None:
-    for name in ("doc", "backend", "scripts", "src"):
+    for name in ("doc", "scripts", "src", "apps", "packages", "infra"):
         assert not (REPO_ROOT / name).exists(), f"legacy root directory returned: {name}/"
+
+
+def test_responsibility_roots_and_shared_package_ownership() -> None:
+    for name in ("frontend", "backend", "database", "tests", "ops", "security", "contracts"):
+        assert (REPO_ROOT / name).is_dir(), f"missing responsibility root: {name}/"
+    for name in ("frontend/packages", "backend/packages"):
+        assert (REPO_ROOT / name).is_dir(), f"missing scoped package directory: {name}/"
+
+
+def test_rust_workspace_uses_root_manifest_and_lock() -> None:
+    assert (REPO_ROOT / "Cargo.toml").is_file()
+    assert (REPO_ROOT / "Cargo.lock").is_file()
+    assert not (REPO_ROOT / "backend/api/Cargo.lock").exists()
 
 
 def test_documentation_has_one_canonical_root() -> None:

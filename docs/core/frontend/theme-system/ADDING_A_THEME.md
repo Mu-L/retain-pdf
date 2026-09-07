@@ -11,8 +11,8 @@
 复制模板：
 
 ```bash
-cp apps/web/src/styles/themes/classic.css \
-   apps/web/src/styles/themes/<id>.css
+cp frontend/web/src/styles/themes/classic.css \
+   frontend/web/src/styles/themes/<id>.css
 ```
 
 编辑为：
@@ -45,7 +45,7 @@ cp apps/web/src/styles/themes/classic.css \
 }
 ```
 
-**必选变量**见 `apps/web/src/styles/themes/_contract.css`。
+**必选变量**见 `frontend/web/src/styles/themes/_contract.css`。
 
 注意：
 
@@ -54,7 +54,7 @@ cp apps/web/src/styles/themes/classic.css \
 
 ### 2. 挂进构建
 
-`apps/web/src/styles/themes/index.css` 增加一行：
+`frontend/web/src/styles/themes/index.css` 增加一行：
 
 ```css
 @import "./<id>.css";
@@ -62,7 +62,7 @@ cp apps/web/src/styles/themes/classic.css \
 
 ### 3. 登记注册表
 
-`apps/web/src/shared/theme/registry.ts` 的 `THEME_REGISTRY` 数组追加：
+`frontend/web/src/shared/theme/registry.ts` 的 `THEME_REGISTRY` 数组追加：
 
 ```ts
 {
@@ -86,7 +86,7 @@ cp apps/web/src/styles/themes/classic.css \
 ### 4. 构建
 
 ```bash
-cd apps/web && npm run build:css && npm run build:js
+cd frontend/web && npm run build:css && npm run build:js
 ```
 
 ### 5. 验证
@@ -112,7 +112,7 @@ location.reload();
 
 ## 可选增强
 
-- 设计说明：`docs/core/apps/web/theme-system/skins/<id>.md`
+- 设计说明：`docs/core/frontend/web/theme-system/skins/<id>.md`
 - 监听换肤：`window.addEventListener('retainpdf:theme-change', …)`
 - 深色特例：`html.theme-dark` 或 `[data-theme-group="dark"]`
 

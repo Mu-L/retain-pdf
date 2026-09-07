@@ -46,10 +46,10 @@ def _dockerignore_rules(relative: str) -> set[str]:
 
 
 def test_web_dockerfile_copies_every_workspace_manifest_and_app_builder() -> None:
-    dockerfile = _text("infra/docker/Dockerfile.web")
+    dockerfile = _text("ops/deployment/docker/Dockerfile.web")
 
     assert "COPY package.json package-lock.json ./" in dockerfile
-    assert "COPY apps/web/ ./apps/web/" in dockerfile
+    assert "COPY frontend/web/ ./frontend/web/" in dockerfile
     missing = [
         manifest
         for manifest in _workspace_manifests()
@@ -59,7 +59,7 @@ def test_web_dockerfile_copies_every_workspace_manifest_and_app_builder() -> Non
 
 
 def test_web_runtime_image_installs_json_config_writer() -> None:
-    dockerfile = _text("infra/docker/Dockerfile.web")
+    dockerfile = _text("ops/deployment/docker/Dockerfile.web")
     apk_install = next(
         line for line in dockerfile.splitlines() if line.startswith("RUN apk add ")
     )
@@ -68,7 +68,7 @@ def test_web_runtime_image_installs_json_config_writer() -> None:
 
 
 def test_compose_waits_for_app_readiness_not_liveness() -> None:
-    compose = _text("infra/docker/delivery/docker-compose.yml")
+    compose = _text("ops/deployment/docker/delivery/docker-compose.yml")
     app = _indented_section(compose, "  app:\n", "\n  web:\n")
 
     assert "http://127.0.0.1:41000/ready" in app
@@ -77,7 +77,7 @@ def test_compose_waits_for_app_readiness_not_liveness() -> None:
 
 
 def test_compose_publishes_every_service_on_loopback_by_default() -> None:
-    compose = _text("infra/docker/delivery/docker-compose.yml")
+    compose = _text("ops/deployment/docker/delivery/docker-compose.yml")
 
     assert (
         '"${HOST_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-40001}:80"' in compose
@@ -92,10 +92,10 @@ def test_compose_publishes_every_service_on_loopback_by_default() -> None:
 
 
 def test_web_proxy_key_is_server_side_and_browser_key_defaults_empty() -> None:
-    web_env = _text("infra/docker/delivery/docker/web.env")
-    dockerfile = _text("infra/docker/Dockerfile.web")
-    nginx = _text("infra/docker/nginx.conf.template")
-    runtime_entrypoint = _text("infra/docker/entrypoint-web.sh")
+    web_env = _text("ops/deployment/docker/delivery/docker/web.env")
+    dockerfile = _text("ops/deployment/docker/Dockerfile.web")
+    nginx = _text("ops/deployment/docker/nginx.conf.template")
+    runtime_entrypoint = _text("ops/deployment/docker/entrypoint-web.sh")
 
     assert "RETAINPDF_PROXY_API_KEY=replace-with-your-backend-key" in web_env
     assert "FRONT_X_API_KEY=\n" in web_env
@@ -113,7 +113,7 @@ def test_web_proxy_key_is_server_side_and_browser_key_defaults_empty() -> None:
     ],
 )
 def test_nginx_sse_locations_disable_response_buffering(declaration: str) -> None:
-    nginx = _text("infra/docker/nginx.conf.template")
+    nginx = _text("ops/deployment/docker/nginx.conf.template")
     location = _nginx_location(nginx, declaration)
 
     assert "proxy_buffering off;" in location
@@ -123,7 +123,7 @@ def test_nginx_sse_locations_disable_response_buffering(declaration: str) -> Non
 
 
 def test_internal_nginx_preserves_forwarded_client_and_streams_large_requests() -> None:
-    nginx = _text("infra/docker/nginx.conf.template")
+    nginx = _text("ops/deployment/docker/nginx.conf.template")
     api_location = _nginx_location(nginx, "location /api/ {")
 
     assert nginx.count("proxy_set_header X-Real-IP $remote_addr;") == 3
@@ -135,7 +135,7 @@ def test_internal_nginx_preserves_forwarded_client_and_streams_large_requests() 
 
 
 def test_host_nginx_example_keeps_backend_private_and_sse_streaming() -> None:
-    nginx = _text("infra/nginx/retainpdf.example.conf")
+    nginx = _text("ops/deployment/nginx/retainpdf.example.conf")
 
     assert "server 127.0.0.1:40001;" in nginx
     assert "41000" not in nginx
@@ -151,7 +151,7 @@ def test_host_nginx_example_keeps_backend_private_and_sse_streaming() -> None:
     assert "proxy_request_buffering off;" in nginx
 
 
-@pytest.mark.parametrize("relative", [".dockerignore", "services/.dockerignore"])
+@pytest.mark.parametrize("relative", [".dockerignore"])
 def test_dockerignore_excludes_local_credentials_and_runtime_overrides(
     relative: str,
 ) -> None:
