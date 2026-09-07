@@ -67,8 +67,6 @@ ALLOWED_APPSTATE_FILES = {
     Path("src/routes/providers.rs"),
     Path("src/routes/uploads.rs"),
     Path("src/services/glossaries/tests.rs"),
-    Path("src/services/jobs/creation/context.rs"),
-    Path("src/services/jobs/facade.rs"),
     Path("src/services/jobs/creation/tests.rs"),
     Path("src/services/jobs/support.rs"),
 }
@@ -121,16 +119,16 @@ ROUTE_SERVICE_IMPORT_ALLOWLIST = {
         "crate::services::model_requests_api::",
     ),
     Path("src/routes/agent_calculations.rs"): (
-        "crate::services::agent_calculation_api::",
+        "crate::services::agent_calculations::api::",
     ),
     Path("src/routes/glossaries.rs"): (
-        "crate::services::glossary_api::",
+        "crate::services::glossaries::api::",
     ),
     Path("src/routes/health.rs"): (
         "crate::services::health_api::",
     ),
     Path("src/routes/credentials.rs"): (
-        "crate::services::credentials_api::",
+        "crate::services::credentials::api::",
     ),
     Path("src/routes/document_operations.rs"): (
         "crate::services::document_operation_api::",
@@ -145,24 +143,24 @@ ROUTE_SERVICE_IMPORT_ALLOWLIST = {
         "crate::services::public_document_operations_api::",
     ),
     Path("src/routes/library.rs"): (
-        "crate::services::library_api::",
+        "crate::services::library::api::",
     ),
     # Library thick routes migrate to library_api in PR2–PR5; allowlist is
     # ready so partial moves do not require revisiting this file each PR.
     Path("src/routes/library_data.rs"): (
-        "crate::services::library_api::",
+        "crate::services::library::api::",
     ),
     Path("src/routes/library_extras.rs"): (
-        "crate::services::library_api::",
+        "crate::services::library::api::",
     ),
     Path("src/routes/collections.rs"): (
-        "crate::services::library_api::",
+        "crate::services::library::api::",
     ),
     Path("src/routes/uploads.rs"): (
-        "crate::services::upload_api::",
+        "crate::services::uploads::api::",
     ),
     Path("src/routes/common/uploads.rs"): (
-        "crate::services::upload_api::UploadApiDeps",
+        "crate::services::uploads::api::UploadApiDeps",
     ),
     Path("src/routes/common/agent_capabilities.rs"): (
         "crate::services::agent_capabilities::AgentCapabilityAuthority",
@@ -171,10 +169,10 @@ ROUTE_SERVICE_IMPORT_ALLOWLIST = {
         "crate::services::agent_runtime_session_api::AgentRuntimeSessionApiDeps",
     ),
     Path("src/routes/common/agent_calculations.rs"): (
-        "crate::services::agent_calculation_api::AgentCalculationApiDeps",
+        "crate::services::agent_calculations::api::AgentCalculationApiDeps",
     ),
     Path("src/routes/common/glossaries.rs"): (
-        "crate::services::glossary_api::GlossaryApiDeps",
+        "crate::services::glossaries::api::GlossaryApiDeps",
     ),
     Path("src/routes/common/health.rs"): (
         "crate::services::health_api::HealthApiDeps",
@@ -205,16 +203,16 @@ ROUTE_SERVICE_IMPORT_ALLOWLIST = {
         "crate::services::provider_api::",
     ),
     Path("src/routes/ai_proxy.rs"): (
-        "crate::services::ai_proxy_api",
+        "crate::services::ai::api",
     ),
     Path("src/routes/fonts.rs"): (
-        "crate::services::font_api::",
+        "crate::services::fonts::api::",
     ),
     Path("src/routes/common/providers.rs"): (
         "crate::services::provider_api::ProviderApiDeps",
     ),
     Path("src/routes/common/fonts.rs"): (
-        "crate::services::font_api::FontApiDeps",
+        "crate::services::fonts::api::FontApiDeps",
     ),
 }
 
@@ -372,7 +370,11 @@ def check_route_service_imports(errors: list[str]) -> None:
         allowed_prefixes = ROUTE_SERVICE_IMPORT_ALLOWLIST.get(rel_path, ())
         for item in imports:
             service_path = item.removeprefix("use ").strip()
-            if any(service_path.startswith(prefix) for prefix in allowed_prefixes):
+            if any(
+                service_path.startswith(prefix)
+                and (prefix.endswith("::") or re.match(r"(?:$|::|\s)", service_path[len(prefix):]))
+                for prefix in allowed_prefixes
+            ):
                 continue
             errors.append(
                 f"{rel_path}: routes must not import internal services directly ({service_path})"
@@ -479,8 +481,10 @@ def check_service_model_facade_boundaries(errors: list[str]) -> None:
         abs_src(Path("src/job_failure.rs")),
         abs_src(Path("src/job_failure_support.rs")),
         abs_src(Path("src/job_failure_structured.rs")),
-        SRC_ROOT / "services" / "glossary_api.rs",
-        SRC_ROOT / "services" / "glossaries.rs",
+        SRC_ROOT / "services" / "glossaries",
+        SRC_ROOT / "services" / "fonts",
+        SRC_ROOT / "services" / "credentials",
+        SRC_ROOT / "services" / "agent_calculations",
         SRC_ROOT / "services" / "job_snapshot_factory.rs",
         SRC_ROOT / "services" / "job_validation.rs",
         SRC_ROOT / "services" / "job_launcher.rs",
@@ -489,7 +493,8 @@ def check_service_model_facade_boundaries(errors: list[str]) -> None:
         SRC_ROOT / "services" / "jobs" / "presentation",
         SRC_ROOT / "services" / "jobs" / "control.rs",
         SRC_ROOT / "services" / "jobs" / "debug",
-        SRC_ROOT / "services" / "jobs" / "facade.rs",
+        SRC_ROOT / "services" / "jobs" / "facade" / "mod.rs",
+        SRC_ROOT / "services" / "jobs" / "deps",
         SRC_ROOT / "services" / "jobs" / "facade" / "query",
         SRC_ROOT / "services" / "jobs" / "facade" / "command" / "creation.rs",
         SRC_ROOT / "services" / "jobs" / "facade" / "command" / "control.rs",
@@ -509,9 +514,9 @@ def check_service_model_facade_boundaries(errors: list[str]) -> None:
         SRC_ROOT / "services" / "jobs" / "summary_loaders.rs",
         SRC_ROOT / "services" / "jobs" / "support.rs",
         SRC_ROOT / "services" / "library",
-        SRC_ROOT / "services" / "library_api.rs",
+        SRC_ROOT / "services" / "library" / "api.rs",
         SRC_ROOT / "services" / "provider_probe.rs",
-        SRC_ROOT / "services" / "upload_api.rs",
+        SRC_ROOT / "services" / "ai",
         SRC_ROOT / "services" / "uploads",
         SRC_ROOT / "services" / "book_projection",
         SRC_ROOT / "services" / "book_projection.rs",
@@ -537,12 +542,73 @@ def check_service_model_facade_boundaries(errors: list[str]) -> None:
                     )
 
 
+def check_jobs_dependency_boundaries(errors: list[str]) -> None:
+    root = SRC_ROOT / "services" / "jobs" / "deps"
+    for path in scan_rs_files(root):
+        text = route_source_without_tests(path)
+        text = re.sub(r"/\*.*?\*/|//[^\n]*", "", text, flags=re.DOTALL)
+        if re.search(r"\b(?:AppState|AppConfig|from_env)\b|\benv\s*::\s*var\s*\(", text):
+            errors.append(f"{rel(path)}: jobs dependencies must be explicitly assembled from narrow capabilities")
+        if path.name == "query.rs" and re.search(
+            r"\b(?:CommandJobsDeps|JobSubmitDeps|JobRuntime|RuntimeControl|JobLaunchDeps|UploadService)\b", text
+        ):
+            errors.append(f"{rel(path)}: query dependencies must not acquire submission or runtime control capabilities")
+    if (SRC_ROOT / "services" / "jobs" / "creation" / "context.rs").exists():
+        errors.append("jobs/creation/context.rs: shared dependencies belong in jobs/deps")
+
+
+def check_runtime_ownership(errors: list[str]) -> None:
+    allowed = {Path("src/app/server.rs"), Path("src/app/state.rs"),
+               Path("src/services/health_api.rs"), Path("src/services/ai/gateway.rs")}
+    for path in scan_rs_files(SRC_ROOT):
+        relative = rel(path)
+        text = route_source_without_tests(path)
+        text = re.sub(r"/\*.*?\*/|//[^\n]*", "", text, flags=re.DOTALL)
+        if path.is_relative_to(SRC_ROOT / "runtime"):
+            if re.search(r"\b(?:services|routes|AppState)\b", text):
+                errors.append(f"{relative}: runtime must not depend on business services or HTTP assembly state")
+        elif relative not in allowed and not path.is_relative_to(SRC_ROOT / "api_tests"):
+            if re.search(r"\b(?:ai_supervisor|jobsd_supervisor)\b", text):
+                errors.append(f"{relative}: supervisor access belongs to app assembly and explicit health consumers")
+    for name in ("ai_supervisor", "jobsd_supervisor"):
+        if (SRC_ROOT / "services" / f"{name}.rs").exists():
+            errors.append(f"services/{name}.rs: supervisor implementation belongs in runtime")
+
+
+def check_ai_gateway_dependencies(errors: list[str]) -> None:
+    for path in scan_rs_files(SRC_ROOT / "services" / "ai"):
+        text = route_source_without_tests(path)
+        text = re.sub(r"/\*.*?\*/|//[^\n]*", "", text, flags=re.DOTALL)
+        if re.search(r"\b(?:from_env|ai_service_status)\s*\(|\benv\s*::\s*var\s*\(|\bLazy\b", text):
+            errors.append(f"{rel(path)}: AI gateway must receive configuration and health source from app assembly")
+
+
+def check_business_private_modules(errors: list[str]) -> None:
+    """Public capability reexports are valid; implementation-path imports are not."""
+    private = {
+        "ai": {"gateway"},
+        "fonts": {"service"},
+        "credentials": {"service"},
+        "agent_calculations": {"service"},
+        "glossaries": {"csv", "entries", "records"},
+    }
+    for path in scan_rs_files(SRC_ROOT):
+        text = path.read_text(encoding="utf-8")
+        text = re.sub(r"/\*.*?\*/|//[^\n]*", "", text, flags=re.DOTALL)
+        for domain, members in private.items():
+            if path.is_relative_to(SRC_ROOT / "services" / domain):
+                continue
+            for suffix in re.findall(rf"\b{domain}\s*::\s*([^;]+)", text):
+                first = re.match(r"(\w+)", suffix)
+                grouped = set(re.findall(r"\b\w+\b", suffix)) if suffix.startswith("{") else set()
+                if (first and first.group(1) in members) or grouped & members:
+                    errors.append(f"{rel(path)}: external callers must use the {domain} public surface, not its internal modules")
+                    break
+
+
 def check_agent_calculation_dependencies(errors: list[str]) -> None:
     """Calculation storage needs Db and data_root, not application configuration."""
-    for name in ("agent_calculations.rs", "agent_calculation_api.rs"):
-        path = SRC_ROOT / "services" / name
-        if not path.exists():
-            continue
+    for path in scan_rs_files(SRC_ROOT / "services" / "agent_calculations"):
         text = path.read_text(encoding="utf-8")
         text = re.sub(r"/\*.*?\*/|//[^\n]*", "", text, flags=re.DOTALL)
         if re.search(r"\b(?:AppConfig|AppState|api_tests)\b", text):
@@ -571,7 +637,7 @@ def check_upload_boundaries(errors: list[str]) -> None:
                 errors.append(
                     f"{rel(path)}: uploads must not depend on jobs/routes/AppState/job runtime"
                 )
-            if re.search(r"\bAppError\b", text):
+            if path != upload_root / "api.rs" and re.search(r"\bAppError\b", text):
                 errors.append(
                     f"{rel(path)}: uploads must return UploadError; HTTP error mapping belongs outside the domain"
                 )
@@ -1026,7 +1092,11 @@ def main() -> int:
     check_route_model_boundary(errors)
     check_service_model_facade_boundaries(errors)
     check_upload_boundaries(errors)
+    check_business_private_modules(errors)
     check_agent_calculation_dependencies(errors)
+    check_ai_gateway_dependencies(errors)
+    check_runtime_ownership(errors)
+    check_jobs_dependency_boundaries(errors)
     check_process_runtime_deps_usage(errors)
     check_job_persist_deps_usage(errors)
     check_runtime_deps_module_boundary(errors)

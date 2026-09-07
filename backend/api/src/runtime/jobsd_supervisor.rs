@@ -38,11 +38,6 @@ fn set_status(status: u8) {
     JOBSD_STATUS.store(status, Ordering::Relaxed);
 }
 
-#[cfg(test)]
-pub fn set_status_for_test(status: u8) {
-    set_status(status);
-}
-
 fn resolve_command(app: &AppConfig) -> (String, Vec<String>) {
     let cfg = &app.jobs_service;
     if !cfg.command.is_empty() {
@@ -244,4 +239,113 @@ pub fn spawn_jobsd_supervisor(
         set_status(JOBSD_STATUS_DISABLED);
         tracing::info!("jobsd_supervisor: stopped");
     }))
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    /// Real disposable child: first healthy process exits, replacement keeps serving.
+    #[tokio::test]
+    async fn healthy_child_restarts_and_shutdown_releases_processes_and_port() {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root =
+            std::env::temp_dir().join(format!("jobsd-lifecycle-{}-{nonce}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        struct Cleanup(std::path::PathBuf, Option<watch::Sender<bool>>);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                if let Some(tx) = &self.1 {
+                    let _ = tx.send(true);
+                }
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let mut cleanup = Cleanup(root.clone(), None);
+        let reservation = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = reservation.local_addr().unwrap().port();
+        let mut app = AppConfig::from_desktop(
+            root.join("resources"),
+            root.join("data"),
+            "python3".into(),
+            0,
+            1,
+            "test".into(),
+        )
+        .unwrap();
+        app.jobs_service.mode = crate::config::JobsRuntimeMode::Remote;
+        let cfg = &mut app.jobs_service;
+        cfg.supervise = true;
+        cfg.bind_host = "127.0.0.1".into();
+        cfg.port = port;
+        cfg.command = "python3".into();
+        cfg.args = vec![
+            "-c".into(),
+            r#"
+import http.server, os, pathlib, sys
+record = pathlib.Path(sys.argv[2])
+first = not record.exists()
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+    def log_message(self, *args): pass
+class Server(http.server.HTTPServer):
+    allow_reuse_address = True
+server = Server(('127.0.0.1', int(sys.argv[1])), Handler)
+with record.open('a') as f:
+    f.write(str(os.getpid()) + '\n')
+if first:
+    server.handle_request()
+    server.server_close()
+else:
+    server.serve_forever()
+"#
+            .into(),
+            port.to_string(),
+            root.join("pids").to_string_lossy().into_owned(),
+        ];
+        cfg.startup_timeout = Duration::from_secs(5);
+        cfg.health_interval = Duration::from_millis(50);
+        cfg.backoff_initial = Duration::from_millis(30);
+        cfg.backoff_max = Duration::from_millis(60);
+        cfg.health_probe_connect_timeout = Duration::from_millis(100);
+        cfg.health_probe_timeout = Duration::from_millis(200);
+        let (tx, rx) = watch::channel(false);
+        cleanup.1 = Some(tx.clone());
+        drop(reservation);
+        let handle = spawn_jobsd_supervisor(std::sync::Arc::new(app), rx).unwrap();
+        let ready = tokio::time::timeout(Duration::from_secs(10), async {
+            loop {
+                let pids = std::fs::read_to_string(root.join("pids")).unwrap_or_default();
+                if pids.lines().count() >= 2 && jobsd_status() == JOBSD_STATUS_HEALTHY {
+                    break pids;
+                }
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+        })
+        .await;
+        tx.send(true).unwrap();
+        tokio::time::timeout(Duration::from_secs(10), handle)
+            .await
+            .expect("shutdown must join")
+            .expect("supervisor task");
+        let pids = ready.expect("replacement child must become healthy");
+        assert_eq!(jobsd_status(), JOBSD_STATUS_DISABLED);
+        for pid in pids.lines() {
+            let output = std::process::Command::new("kill")
+                .args(["-0", pid])
+                .output()
+                .unwrap();
+            assert!(
+                !output.status.success(),
+                "child {pid} still exists after shutdown"
+            );
+        }
+        let listener = std::net::TcpListener::bind(("127.0.0.1", port));
+        assert!(listener.is_ok(), "child must release its listening port");
+    }
 }

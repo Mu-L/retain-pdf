@@ -8,13 +8,13 @@ use crate::config::AppConfig;
 use crate::db::Db;
 use crate::error::AppError;
 use crate::models::{now_iso, CreateJobInput, JobSnapshot, UploadRecord, WorkflowKind};
-use crate::services::credentials::{create_credential, CreateCredentialInput};
+use crate::services::credentials::api::{create_credential, CreateCredentialInput};
 use crate::services::job_launcher::JobLaunchDeps;
 use crate::services::runtime_gateway::JobRuntimeLauncher;
 use crate::AppState;
 
 use super::bundle::create_translation_bundle_job;
-use super::context::{JobSubmitDeps, SnapshotBuildDeps};
+use crate::services::jobs::deps::{JobSubmitDeps, SnapshotBuildDeps};
 use super::job_builders::{build_ocr_job_snapshot, build_translation_job_snapshot};
 use super::submit::create_translation_job;
 use crate::services::uploads::UploadedPdfInput;
@@ -83,6 +83,9 @@ fn test_state(test_name: &str) -> AppState {
         },
     ));
     AppState {
+        ai_gateway: Arc::new(crate::services::ai::AiGateway::new(
+            &config.ai_proxy, config.ai_service.base_url(), || 0,
+        ).unwrap()),
         model_executor: None,
         config: config.clone(),
         db,
@@ -492,7 +495,7 @@ async fn create_translation_bundle_job_returns_queued_job_without_waiting() {
     input.ocr.poll_timeout = 1;
 
     let job = create_translation_bundle_job(
-        &super::context::BundleBuildDeps {
+        &crate::services::jobs::deps::BundleBuildDeps {
             submit: submit_context(&state),
         },
         input,
@@ -527,7 +530,7 @@ async fn bundle_job_failure_preserves_published_upload() {
     let bytes = build_test_pdf_bytes();
     let hash = crate::db::documents::sha256_hex(&bytes);
     let error = create_translation_bundle_job(
-        &super::context::BundleBuildDeps {
+        &crate::services::jobs::deps::BundleBuildDeps {
             submit: submit_context(&state),
         },
         base_translation_input(WorkflowKind::Ocr),

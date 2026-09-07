@@ -1,6 +1,6 @@
 use crate::services::derived_artifacts::DerivedArtifactDeps;
 
-use super::super::creation::context::QueryJobsDeps;
+use crate::services::jobs::deps::QueryJobsDeps;
 
 pub(super) fn derived_artifact_deps<'a>(deps: &'a QueryJobsDeps<'a>) -> DerivedArtifactDeps<'a> {
     DerivedArtifactDeps::with_pipeline_command(

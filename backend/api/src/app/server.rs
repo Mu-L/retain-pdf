@@ -86,7 +86,7 @@ async fn serve_with_shutdown(
     });
 
     // Phase 2（ADR-001）：RUST_API_AI_SUPERVISE=1 时 rust 监督 ai_service 生命周期
-    let ai_supervisor_handle = crate::services::ai_supervisor::spawn_ai_supervisor(
+    let ai_supervisor_handle = crate::runtime::ai_supervisor::spawn_ai_supervisor(
         config.clone(),
         shutdown_rx_watch.clone(),
     );
@@ -95,7 +95,7 @@ async fn serve_with_shutdown(
     }
 
     // Phase 3（ADR-002）：RUST_API_JOBS_SUPERVISE=1 且 RUST_API_JOBS_MODE=remote 时壳监督 jobsd
-    let jobsd_supervisor_handle = crate::services::jobsd_supervisor::spawn_jobsd_supervisor(
+    let jobsd_supervisor_handle = crate::runtime::jobsd_supervisor::spawn_jobsd_supervisor(
         config.clone(),
         shutdown_rx_watch,
     );

@@ -10,6 +10,36 @@ operations, attempts, events, and document versions.
 
 ## AI service proxy
 
+The application owns one reusable AI gateway. Its endpoint and timeout settings
+are captured at startup; restart after changing them. The endpoint uses
+`RUST_API_AI_SERVICE_BASE` when set, otherwise the configured sidecar host/port.
+Supervisor health is supplied by app assembly; the supervisor's existing
+process-wide health source is unchanged. Unsupervised mode still permits a
+manually started sidecar.
+
+| Setting | Default | Scope |
+| --- | --- | --- |
+| `RUST_API_AI_PROXY_CONNECT_TIMEOUT_SECS` | 3 | Establish connection |
+| `RUST_API_AI_PROXY_HEADER_TIMEOUT_SECS` | 120 | Send request and obtain response headers |
+| `RUST_API_AI_PROXY_IDLE_TIMEOUT_SECS` | 30 | Maximum wait for the next upstream read |
+| `RUST_API_AI_PROXY_CONFIG_TIMEOUT_SECS` | 15 | Complete runtime-config request, including body |
+
+The latter three settings have a minimum of one second. The header default exceeds
+the normal 90-second AI request deadline because non-streaming asks send their
+headers only after producing an answer. Body idle timing starts after headers.
+Ask streams have no
+gateway total-duration cap: the idle limit should exceed the AI service heartbeat
+interval (normally five seconds). Failures before downstream headers are sent
+return 502; failures during an already-open stream terminate the body, not a
+replacement HTTP status or fabricated `done` event. Runtime-config remains
+buffered with `Cache-Control: no-store`.
+
+Python stream cancellation is tied explicitly to ASGI disconnect/send failure,
+not generator garbage collection. Request-owned transports are cancelled and
+late runtime results are not persisted; this remains cooperative cancellation,
+not a guarantee of terminating arbitrary third-party runtime code or refunding
+tokens already processed by a provider.
+
 ```text
 POST /api/v1/ai/ask
 GET  /api/v1/ai/runtime-config

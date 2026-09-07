@@ -12,7 +12,7 @@ use crate::models::api::{
     CollectionRecord, CreateCollectionInput, PatchCollectionInput,
 };
 use crate::routes::common::{build_library_route_deps, ok_json, ApiJson, ApiPath};
-use crate::services::library_api::{
+use crate::services::library::api::{
     add_collection_documents_view, create_collection_view, delete_collection_view,
     list_collections_view, patch_collection_view, remove_collection_document_view,
 };

@@ -4,7 +4,7 @@ use axum::Json;
 use crate::error::AppError;
 use crate::models::api::ApiResponse;
 use crate::routes::common::{build_credential_route_deps, ApiJson, ApiPath, ApiQuery};
-use crate::services::credentials_api::{
+use crate::services::credentials::api::{
     create_credential, delete_credential, get_credential_metadata, list_credentials,
     update_credential, CreateCredentialInput, CredentialDeleteView, CredentialListView,
     CredentialMutationView, DeleteCredentialQuery, UpdateCredentialInput,

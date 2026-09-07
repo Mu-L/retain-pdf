@@ -6,7 +6,7 @@ use crate::job_events::cas_persist_job_with_resources;
 use crate::models::domain::{now_iso, JobSnapshot, JobStatusKind, WorkflowKind};
 use crate::services::runtime_gateway::terminate_runtime_process;
 
-use super::creation::context::ControlDeps;
+use crate::services::jobs::deps::ControlDeps;
 use super::query::load_job_or_404;
 
 pub async fn wait_for_terminal_job(

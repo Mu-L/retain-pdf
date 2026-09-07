@@ -618,15 +618,13 @@ async fn search_returns_anchored_hits() {
 
 #[tokio::test]
 async fn ai_proxy_returns_bad_gateway_when_upstream_is_down() {
-    // 两个场景同函数串行跑:AI_STATUS 是进程级全局,拆开会被 cargo test
-    // 并行调度互踩(503 分支置 UNHEALTHY 的窗口可能污染 502 分支)。
-    use crate::services::ai_supervisor::{
-        set_status_for_test, AI_STATUS_DISABLED, AI_STATUS_UNHEALTHY,
-    };
+    use crate::services::ai::AiGateway;
 
     // 场景 1(Phase 2 快速失败):监督器判定 unhealthy → 不发起上游连接,立即 503
-    set_status_for_test(AI_STATUS_UNHEALTHY);
-    let state = test_state("ai-proxy-unhealthy");
+    let mut state = test_state("ai-proxy-unhealthy");
+    state.ai_gateway = std::sync::Arc::new(AiGateway::new(
+        &state.config.ai_proxy, "http://127.0.0.1:9".into(), || 3,
+    ).unwrap());
     let app = build_app(state);
     let response = app
         .oneshot(
@@ -640,12 +638,13 @@ async fn ai_proxy_returns_bad_gateway_when_upstream_is_down() {
         )
         .await
         .expect("proxy response");
-    set_status_for_test(AI_STATUS_DISABLED);
     assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
 
     // 场景 2(unsupervised 直连):指向必死端口,代理干净地报 502,不挂起不 500
-    std::env::set_var("RUST_API_AI_SERVICE_BASE", "http://127.0.0.1:9");
-    let state = test_state("ai-proxy-down");
+    let mut state = test_state("ai-proxy-down");
+    let mut config = state.config.ai_proxy.clone();
+    config.service_base = Some("http://127.0.0.1:9".into());
+    state.ai_gateway = std::sync::Arc::new(AiGateway::new(&config, String::new(), || 0).unwrap());
     let app = build_app(state);
     let response = app
         .oneshot(
@@ -659,7 +658,6 @@ async fn ai_proxy_returns_bad_gateway_when_upstream_is_down() {
         )
         .await
         .expect("proxy response");
-    std::env::remove_var("RUST_API_AI_SERVICE_BASE");
     assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
 }
 
@@ -2090,7 +2088,8 @@ async fn deleting_a_job_reconciles_document_active_job() {
 #[tokio::test]
 async fn delete_document_removes_everything_and_guards_favorites() {
     use crate::models::{CreateJobInput, JobSnapshot, JobStatusKind};
-    use crate::services::credentials::{get_credential_metadata, get_or_create_managed_credential};
+    use crate::services::credentials::api::get_credential_metadata;
+    use crate::services::credentials::get_or_create_managed_credential;
 
     let state = test_state("library-delete-document");
     let app = build_app(state.clone());

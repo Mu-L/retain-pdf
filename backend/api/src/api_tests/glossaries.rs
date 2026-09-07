@@ -6,13 +6,14 @@ use tower::util::ServiceExt;
 use super::jobs_common::test_state;
 use crate::app::build_app;
 use crate::models::GlossaryUpsertInput;
+use crate::services::glossaries::api::{create_glossary_view, GlossaryApiDeps};
 
 #[tokio::test]
 async fn export_glossary_csv_route_returns_csv() {
     let state = test_state("glossary-export");
     let app = build_app(state.clone());
-    let create = crate::services::glossaries::create_glossary(
-        state.db.as_ref(),
+    let create = create_glossary_view(
+        &GlossaryApiDeps::new(state.db.as_ref()),
         &GlossaryUpsertInput {
             glossary_id: String::new(),
             name: "physics".to_string(),

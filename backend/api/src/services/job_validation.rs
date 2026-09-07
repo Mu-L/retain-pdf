@@ -422,7 +422,7 @@ fn configured_provider_inline_token(input: &CreateJobInput) -> &str {
 mod tests {
     use super::*;
     use crate::models::domain::{now_iso, DEFAULT_SOURCE_CLEANUP_STRATEGY};
-    use crate::services::credentials::{create_credential, CreateCredentialInput};
+    use crate::services::credentials::api::{create_credential, CreateCredentialInput};
 
     fn default_limits() -> ProviderLimitsConfig {
         ProviderLimitsConfig::from_env()

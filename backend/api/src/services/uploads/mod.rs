@@ -1,3 +1,5 @@
+pub(crate) mod api;
+
 mod capacity;
 mod error;
 mod pdf;

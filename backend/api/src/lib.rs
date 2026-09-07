@@ -2,6 +2,7 @@ pub mod app;
 pub mod auth;
 pub mod error;
 pub mod routes;
+pub(crate) mod runtime;
 pub mod services;
 
 pub use retain_core::{config, job_failure, models, storage_paths};

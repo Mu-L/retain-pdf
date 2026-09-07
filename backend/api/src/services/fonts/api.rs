@@ -4,7 +4,7 @@ use std::path::Path;
 
 use crate::error::AppError;
 
-pub use super::fonts::FontInfo;
+pub use super::service::FontInfo;
 
 pub struct FontApiDeps<'a> {
     project_root: &'a Path,
@@ -21,7 +21,7 @@ impl<'a> FontApiDeps<'a> {
 }
 
 pub fn list_fonts(deps: &FontApiDeps<'_>) -> Vec<FontInfo> {
-    super::fonts::list_fonts(deps.project_root, deps.data_root)
+    super::service::list_fonts(deps.project_root, deps.data_root)
 }
 
 pub fn upload_font(
@@ -29,5 +29,5 @@ pub fn upload_font(
     filename: &str,
     bytes: &[u8],
 ) -> Result<FontInfo, AppError> {
-    super::fonts::save_uploaded_font(deps.data_root, filename, bytes)
+    super::service::save_uploaded_font(deps.data_root, filename, bytes)
 }

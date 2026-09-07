@@ -5,7 +5,7 @@ use crate::models::request::CreateJobInput;
 use crate::services::job_launcher::start_job_execution;
 use serde_json::Value;
 
-use super::context::JobSubmitDeps;
+use crate::services::jobs::deps::JobSubmitDeps;
 use super::job_builders::{build_ocr_job_snapshot, build_translation_job_snapshot};
 use super::ocr_credentials::{acquire_job_credential_usage_lock, secure_job_credentials};
 use crate::services::uploads::UploadedPdfInput;

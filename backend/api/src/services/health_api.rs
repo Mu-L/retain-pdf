@@ -77,8 +77,8 @@ pub fn build_health_view(deps: &HealthApiDeps<'_>) -> HealthView {
         queue_depth: queued,
         running_jobs: running,
         provider_backends: supported_provider_keys(),
-        ai_service: super::ai_supervisor::ai_service_status_label(),
-        jobsd: super::jobsd_supervisor::jobsd_status_label(),
+        ai_service: crate::runtime::ai_supervisor::ai_service_status_label(),
+        jobsd: crate::runtime::jobsd_supervisor::jobsd_status_label(),
         time: now_iso(),
     }
 }
@@ -86,8 +86,8 @@ pub fn build_health_view(deps: &HealthApiDeps<'_>) -> HealthView {
 pub fn build_current_readiness_view(deps: &HealthApiDeps<'_>) -> ReadinessView {
     build_readiness_view(
         deps,
-        super::ai_supervisor::ai_service_status(),
-        super::jobsd_supervisor::jobsd_status(),
+        crate::runtime::ai_supervisor::ai_service_status(),
+        crate::runtime::jobsd_supervisor::jobsd_status(),
     )
 }
 
@@ -99,8 +99,8 @@ pub(crate) fn build_readiness_view(
     let db_ok = deps.db.ping().is_ok();
     let ai_required = deps.ai_supervised;
     let jobsd_required = deps.jobsd_supervised;
-    let ai_ok = !ai_required || ai_status == super::ai_supervisor::AI_STATUS_HEALTHY;
-    let jobsd_ok = !jobsd_required || jobsd_status == super::jobsd_supervisor::JOBSD_STATUS_HEALTHY;
+    let ai_ok = !ai_required || ai_status == crate::runtime::ai_supervisor::AI_STATUS_HEALTHY;
+    let jobsd_ok = !jobsd_required || jobsd_status == crate::runtime::jobsd_supervisor::JOBSD_STATUS_HEALTHY;
 
     let mut reasons = Vec::new();
     if !db_ok {
@@ -148,18 +148,18 @@ pub(crate) fn build_readiness_view(
 
 fn ai_status_label(status: u8) -> &'static str {
     match status {
-        super::ai_supervisor::AI_STATUS_STARTING => "starting",
-        super::ai_supervisor::AI_STATUS_HEALTHY => "healthy",
-        super::ai_supervisor::AI_STATUS_UNHEALTHY => "unhealthy",
+        crate::runtime::ai_supervisor::AI_STATUS_STARTING => "starting",
+        crate::runtime::ai_supervisor::AI_STATUS_HEALTHY => "healthy",
+        crate::runtime::ai_supervisor::AI_STATUS_UNHEALTHY => "unhealthy",
         _ => "unsupervised",
     }
 }
 
 fn jobsd_status_label(status: u8) -> &'static str {
     match status {
-        super::jobsd_supervisor::JOBSD_STATUS_STARTING => "starting",
-        super::jobsd_supervisor::JOBSD_STATUS_HEALTHY => "healthy",
-        super::jobsd_supervisor::JOBSD_STATUS_UNHEALTHY => "unhealthy",
+        crate::runtime::jobsd_supervisor::JOBSD_STATUS_STARTING => "starting",
+        crate::runtime::jobsd_supervisor::JOBSD_STATUS_HEALTHY => "healthy",
+        crate::runtime::jobsd_supervisor::JOBSD_STATUS_UNHEALTHY => "unhealthy",
         _ => "unsupervised",
     }
 }

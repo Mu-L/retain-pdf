@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::creation::context::QueryJobsDeps;
+use crate::services::jobs::deps::QueryJobsDeps;
 
 // Keep this file as the small public facade for job downloads. Concrete
 // handlers live in submodules so PDF, markdown, preview, and artifact behavior

@@ -4,7 +4,7 @@
 //! the vault can later move to Keychain or another secret backend without
 //! changing the transport layer.
 
-pub use super::credentials::{
+pub use super::service::{
     create_credential, delete_credential, get_credential_metadata, list_credentials,
     update_credential, CreateCredentialInput, CredentialDeleteView, CredentialListView,
     CredentialMutationView, DeleteCredentialQuery, UpdateCredentialInput,

@@ -67,6 +67,9 @@ fn test_state() -> AppState {
     ));
     db.init().expect("init db");
     AppState {
+        ai_gateway: Arc::new(crate::services::ai::AiGateway::new(
+            &config.ai_proxy, config.ai_service.base_url(), || 0,
+        ).unwrap()),
         uploads: Arc::new(crate::services::uploads::UploadService::new(
             db.clone(),
             crate::services::uploads::UploadServiceConfig {

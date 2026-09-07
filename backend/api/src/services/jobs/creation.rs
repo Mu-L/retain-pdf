@@ -1,7 +1,5 @@
 #[path = "creation/bundle.rs"]
 mod bundle;
-#[path = "creation/context.rs"]
-pub(crate) mod context;
 #[path = "creation/job_builders.rs"]
 mod job_builders;
 #[path = "creation/ocr_credentials.rs"]

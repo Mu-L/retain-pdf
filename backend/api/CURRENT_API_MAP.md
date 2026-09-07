@@ -152,7 +152,7 @@ legacy/local helper stage：
 Rust 路由：
 
 - [`src/routes/jobs/create.rs`](src/routes/jobs/create.rs)
-- [`src/services/jobs/facade.rs`](src/services/jobs/facade.rs)
+- [`src/services/jobs/facade/mod.rs`](src/services/jobs/facade/mod.rs)
 
 ### 第二步：Rust 创建 job
 
@@ -173,7 +173,7 @@ Rust 路由：
 
 - route 层现在尽量只做 HTTP 适配
 - `jobs` 相关用例已经统一先经过 `JobsFacade`
-- `uploads` / `glossaries` 也分别经过 `upload_api` / `glossary_api`
+- `uploads` / `glossaries` 也分别经过 `uploads::api` / `glossaries::api`
 
 ### 第三步：Rust 组装 workflow plan
 

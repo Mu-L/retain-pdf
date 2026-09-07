@@ -1,6 +1,8 @@
 //! Library domain services.
 //!
-//! Routes talk to this domain only through `services::library_api`.
+//! Routes talk to this domain only through `services::library::api`.
+
+pub(crate) mod api;
 
 mod assets;
 mod books;

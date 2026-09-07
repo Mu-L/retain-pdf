@@ -30,3 +30,4 @@ mod public_document_operations;
 mod translation_debug;
 mod uploads;
 mod uploads_service;
+mod ai_proxy;

@@ -88,10 +88,10 @@ app -> routes -> application services -> internal services -> job_runner / ocr_p
 - `services/provider_probe.rs` / `services/provider_probe/*`
   是 crate 内部实现边界，按 `types / url_policy / ocr / deepseek` 分离；
   新 provider 不应把 URL 策略、HTTP 分类和公开 DTO 重新堆回单文件
-- `services/font_api.rs` / `services/fonts.rs`
+- `services/fonts/api.rs` / `services/fonts/service.rs`
   分别负责字体 application facade 与内部扫描/持久化；`routes/fonts.rs`
   只保留有界 multipart 消费和 HTTP envelope，不执行 fontconfig 或文件业务
-- `services/ai_proxy_api.rs` / `services/ai_proxy.rs`
+- `services/ai/api.rs` / `services/ai/gateway.rs`
   分别负责 AI 代理的 HTTP application facade 与内部 sidecar gateway；
   `routes/ai_proxy.rs` 不读取环境变量、不管理 HTTP client、也不查询 supervisor
 - `services/agent_runtime_session_api.rs`
@@ -371,12 +371,12 @@ Rust 侧关键落点：
 
 当前路由已经统一收口到 application facade：
 
-- jobs → [src/services/jobs/facade.rs](src/services/jobs/facade.rs)
+- jobs → [src/services/jobs/facade/mod.rs](src/services/jobs/facade/mod.rs)
 - library → [src/services/library_api.rs](src/services/library_api.rs)
-- glossaries → [src/services/glossary_api.rs](src/services/glossary_api.rs)
+- glossaries → [src/services/glossaries/api.rs](src/services/glossaries/api.rs)
   → `services/glossaries/{records,entries,csv}.rs`
-- uploads → [src/services/upload_api.rs](src/services/upload_api.rs)
-- AI proxy → [src/services/ai_proxy_api.rs](src/services/ai_proxy_api.rs)
+- uploads → [src/services/uploads/api.rs](src/services/uploads/api.rs)
+- AI proxy → [src/services/ai/api.rs](src/services/ai/api.rs)
 - public Agent operation actions →
   [src/services/public_document_operations_api.rs](src/services/public_document_operations_api.rs)
 - internal Agent operation lifecycle →
@@ -397,11 +397,11 @@ Rust 侧关键落点：
 - `routes/jobs/json_response/**`
   只保留 JSON 响应出口
 - `routes/glossaries.rs`
-  只调 `services/glossary_api.rs`
+  只调 `services/glossaries/api.rs`
 - `routes/uploads.rs`
-  只调 `services/upload_api.rs`
+  只调 `services/uploads/api.rs`
 - `routes/ai_proxy.rs`
-  只调 `services/ai_proxy_api.rs`，问答保持流式字节代理，runtime config 禁止缓存
+  只调 `services/ai/api.rs`，问答保持流式字节代理，runtime config 禁止缓存
 - `routes/public_document_operations.rs`
   只调 `services/public_document_operations_api.rs`，输出浏览器安全投影并要求
   status / attempt / program hash CAS
@@ -442,11 +442,11 @@ Rust 侧关键落点：
 
 当前已经成型的 application 入口：
 
-- [src/services/jobs/facade.rs](src/services/jobs/facade.rs)
+- [src/services/jobs/facade/mod.rs](src/services/jobs/facade/mod.rs)
 - [src/services/library_api.rs](src/services/library_api.rs)
-- [src/services/glossary_api.rs](src/services/glossary_api.rs)
-- [src/services/upload_api.rs](src/services/upload_api.rs)
-- [src/services/ai_proxy_api.rs](src/services/ai_proxy_api.rs)
+- [src/services/glossaries/api.rs](src/services/glossaries/api.rs)
+- [src/services/uploads/api.rs](src/services/uploads/api.rs)
+- [src/services/ai/api.rs](src/services/ai/api.rs)
 - [src/services/public_document_operations_api.rs](src/services/public_document_operations_api.rs)
 - [src/services/document_operation_api.rs](src/services/document_operation_api.rs)
 - [src/services/agent_runtime_session_api.rs](src/services/agent_runtime_session_api.rs)
@@ -533,7 +533,7 @@ routes/library*.rs, collections.rs
 
 文件：
 
-- [src/services/jobs/facade.rs](src/services/jobs/facade.rs)
+- [src/services/jobs/facade/mod.rs](src/services/jobs/facade/mod.rs)
 - [src/services/jobs/facade/command](src/services/jobs/facade/command)
 - [src/services/jobs/facade/query](src/services/jobs/facade/query)
 
@@ -819,7 +819,7 @@ routes/library*.rs, collections.rs
 
 1. `POST /api/v1/jobs`
 2. `routes/jobs/create.rs`
-3. `services/jobs/facade.rs`
+3. `services/jobs/facade/mod.rs`
 4. `services/jobs/creation.rs`
 5. `services/job_snapshot_factory.rs`
 6. `services/job_launcher.rs`
@@ -892,7 +892,7 @@ routes/library*.rs, collections.rs
 改动顺序：
 
 1. `routes/jobs/*`
-2. `services/jobs/facade.rs`
+2. `services/jobs/facade/mod.rs`
 3. `services/jobs/query.rs` 或 `presentation/*`
 
 不要直接从 route 跨过 facade 去摸底层。

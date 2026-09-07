@@ -23,7 +23,7 @@ use crate::routes::common::{
     build_library_route_deps, ok_json, request_base_url, ApiJson, ApiPath, ApiQuery,
 };
 use crate::routes::job_helpers::stream_file;
-use crate::services::library_api::{
+use crate::services::library::api::{
     apply_document_metadata_suggestion_view, create_document_metadata_suggestion_view,
     create_favorite_view, delete_document_view, delete_favorite_view, document_cover_download,
     document_source_pdf_download, document_thumbnail_download, get_document_view,

@@ -11,7 +11,7 @@
 - 改 jobs 用例编排：
   [`src/services/jobs`](src/services/jobs)
 - 改图书馆域（文档/收藏/检索/资产/会话/合集）：
-  [`src/services/library_api.rs`](src/services/library_api.rs) +
+  [`src/services/library/api.rs`](src/services/library/api.rs) +
   [`src/services/library`](src/services/library)
 - 改 worker 运行链路：
   [`../packages/retain-jobs/src/job_runner`](../packages/retain-jobs/src/job_runner)
@@ -24,7 +24,19 @@
 
 ## 目录地图
 
+### `src/runtime`
+
+- `ai_supervisor.rs`、`jobsd_supervisor.rs`：子进程启动、探活、退避重启和退出回收。
+- `app/server.rs` 持有 shutdown 通道并等待监督任务结束；`app/state.rs` 给 AI 网关注入状态读取函数。
+- `services/health_api.rs` 保留 HTTP 健康状态投影；任务控制接口 `services/runtime_gateway.rs` 不属于进程监督器，不随目录名搬迁。
+- 当前状态仍由进程级原子量持有；本批不改变默认启动方式和 in-process/remote 语义。
+
 ### `src/app`
+
+jobs 的依赖装配由 `app/jobs.rs` 完成；依赖定义在 `services/jobs/deps/`：
+`command.rs` 管提交、快照与控制，`query.rs` 管查询/下载及 owned 快照，
+`replay.rs` 管重放所需路径和命令。查询模块不依赖 `creation` 的内部上下文。
+稳定 facade 位于 `services/jobs/facade/mod.rs`，其 command/query 实现继续分区。
 
 - 作用：
   应用启动、`AppState` 组装、router 挂载、服务启动。
@@ -97,7 +109,7 @@
 #### `src/routes` AI / Agent 面
 
 - `ai_proxy.rs`
-  `/api/v1/ai/ask` 与 runtime-config 代理；只调 `ai_proxy_api`。
+  `/api/v1/ai/ask` 与 runtime-config 代理；只调 `services::ai::api`。
 - `public_document_operations.rs`
   面向浏览器的 operation 查询、CAS 动作与 candidate 下载；只调
   `public_document_operations_api`。
@@ -117,6 +129,17 @@
 - 作用：
   application service 入口和内部业务实现。
 
+#### `src/services/uploads` 与 `src/services/ai`
+
+- 路由分别调用 `uploads::api` 和 `ai::api`；装配和跨业务调用通过模块根部的
+  明确能力导出，不访问私有实现文件。
+- `uploads` 的 `service/capacity/staging/pdf/error` 分别负责流程、处理容量、
+  文件发布与清理、PDF 处理和业务错误；独立上传、OCR、Bundle 共享服务实例。
+- `ai` 的 `gateway` 持有 HTTP 客户端和启动配置；`api` 处理 HTTP/SSE 适配。
+  `AppState` 装配共享网关，健康状态来源仍由现有监督器提供，本轮没有迁移监督器。
+- 迁移状态及后续批次见
+  [业务目录与边界统一迁移计划](../../docs/ops/planning/api-boundary-migration.md)。
+
 #### `src/services/jobs/facade`
 
 - 作用：
@@ -126,10 +149,10 @@
 - `query/*`
   列表、详情、下载、artifacts、translation debug 这类查询型能力。
 
-#### `src/services/library_api.rs` + `src/services/library/*`
+#### `src/services/library/api.rs` + `src/services/library/*`
 
 - 作用：
-  给 route 提供统一 **Library** 入口（与 `JobsFacade` / `glossary_api` 同级）。
+  给 route 提供统一 **Library** 入口（与 `JobsFacade` / `glossaries::api` 同级）。
 - 进入条件：
   改文档、馆藏翻译入口、收藏、全文检索、资产、会话、合集业务时进这里；
   **不要** 把逻辑写回 `routes/library_*`。
@@ -152,8 +175,7 @@
   输入解析、存在性检查、前置校验，只产出 `Prepared*` 输入，不生成 `JobSnapshot`。
 - `job_builders.rs`
   workflow 级快照编排；只消费 `Prepared*` 输入并调用 snapshot factory，不再自己做前置校验。
-- `upload.rs`
-  upload 持久化和 upload record 读取。
+- 上传持久化委托 `services/uploads`；已有 upload record 的输入查询在 `prepare.rs`。
 - `context.rs`
   creation 侧显式 deps。
 
@@ -166,11 +188,17 @@
 
 #### 其他 service 入口
 
-- [`src/services/upload_api.rs`](src/services/upload_api.rs)
+- [`src/services/uploads/api.rs`](src/services/uploads/api.rs)
   上传接口入口。
-- [`src/services/glossary_api.rs`](src/services/glossary_api.rs)
+- [`src/services/glossaries/api.rs`](src/services/glossaries/api.rs)
   术语表接口入口。
-- [`src/services/library_api.rs`](src/services/library_api.rs)
+- [`src/services/fonts/api.rs`](src/services/fonts/api.rs)
+  字体查询入口，具体发现逻辑位于私有 `service.rs`。
+- [`src/services/credentials/api.rs`](src/services/credentials/api.rs)
+  HTTP 凭据入口；jobs 所需凭据使用锁等能力由模块根部明确导出，不经 HTTP 入口。
+- [`src/services/agent_calculations/api.rs`](src/services/agent_calculations/api.rs)
+  Agent 计算记录与产物接口，内部只依赖数据库和目录，不接收完整配置。
+- [`src/services/library/api.rs`](src/services/library/api.rs)
   图书馆接口入口（见上）。
 - [`src/services/job_snapshot_factory.rs`](src/services/job_snapshot_factory.rs)
   job snapshot/command 构造边界。
@@ -178,7 +206,7 @@
   job 持久化与启动边界。
 - [`src/services/runtime_gateway.rs`](src/services/runtime_gateway.rs)
   services 访问 runtime 能力的收口层。
-- [`src/services/ai_proxy_api.rs`](src/services/ai_proxy_api.rs)
+- [`src/services/ai/api.rs`](src/services/ai/api.rs)
   Rust 到受监督 AI sidecar 的 HTTP 代理入口。
 - [`src/services/public_document_operations_api.rs`](src/services/public_document_operations_api.rs)
   浏览器安全 operation 投影、显式动作 CAS 与 candidate 读取入口。
@@ -275,7 +303,7 @@
 - “这是 worker / Python 执行变化吗？”
   先看 `../packages/retain-jobs/src/job_runner`
 - “这是 AI 对话、runtime 或 PDF operation 变化吗？”
-  先分清 `src/services/ai_proxy_api.rs`、
+  先分清 `src/services/ai/api.rs`、
   `public_document_operations_api.rs` 和 backend-only
   `document_operation_api.rs` 三个边界
 

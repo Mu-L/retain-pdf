@@ -4,7 +4,7 @@ mod query;
 use crate::models::api::JobSubmissionView;
 use crate::models::domain::{JobSnapshot, JobStatusKind, WorkflowKind};
 
-use super::creation::context::{CommandJobsDeps, QueryJobsDeps};
+use crate::services::jobs::deps::{CommandJobsDeps, QueryJobsDeps};
 use super::support::build_submission_view;
 
 #[derive(Clone)]

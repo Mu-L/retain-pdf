@@ -16,6 +16,7 @@ use crate::services::uploads::{UploadService, UploadServiceConfig};
 pub struct AppState {
     pub config: Arc<AppConfig>,
     pub db: Arc<Db>,
+    pub(crate) ai_gateway: Arc<crate::services::ai::AiGateway>,
     pub(crate) uploads: Arc<UploadService>,
     pub download_generation: Arc<crate::services::download_generation::DownloadGeneration>,
     pub canceled_jobs: Arc<RwLock<HashSet<String>>>,
@@ -67,6 +68,11 @@ pub fn build_state(config: Arc<AppConfig>) -> Result<AppState> {
         None
     };
     Ok(AppState {
+        ai_gateway: Arc::new(crate::services::ai::AiGateway::new(
+            &config.ai_proxy,
+            config.ai_service.base_url(),
+            crate::runtime::ai_supervisor::ai_service_status,
+        )?),
         uploads: Arc::new(UploadService::new(
             db.clone(),
             UploadServiceConfig {

@@ -12,7 +12,7 @@ use crate::routes::common::build_jobs_route_deps;
 use crate::routes::common::request_base_url;
 use crate::routes::common::{build_library_route_deps, ok_json, ApiJson, ApiPath, ApiQuery};
 use crate::routes::download_response::{cover_response, thumbnail_response};
-use crate::services::library_api::{
+use crate::services::library::api::{
     delete_library_book_view, delete_library_books_view, get_library_book_view,
     list_library_books_view,
 };

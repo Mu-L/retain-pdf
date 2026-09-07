@@ -2,6 +2,7 @@ mod control;
 mod creation;
 mod debug;
 mod downloads;
+mod deps;
 mod facade;
 pub(super) mod live_stage;
 mod live_translation;
@@ -17,7 +18,7 @@ mod support;
 pub(crate) mod translation_request_recovery;
 
 pub use control::wait_for_terminal_job;
-pub(crate) use creation::context::{
+pub(crate) use deps::{
     CommandJobsDeps, ControlDeps, JobSubmitDeps, QueryJobsDeps, ReplayDeps, SnapshotBuildDeps,
 };
 pub(crate) use downloads::{DocumentDownloadKind, FileDownload, MarkdownDownload};

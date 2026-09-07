@@ -10,7 +10,7 @@ use crate::services::job_validation::{
 };
 use crate::services::ocr_artifact_reuse::validate_ocr_artifact_reuse;
 
-use super::context::SnapshotBuildDeps;
+use crate::services::jobs::deps::SnapshotBuildDeps;
 
 fn load_upload_or_404(db: &crate::db::Db, upload_id: &str) -> Result<UploadRecord, AppError> {
     db.get_upload(upload_id)

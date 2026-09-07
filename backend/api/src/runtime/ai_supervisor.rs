@@ -45,11 +45,6 @@ fn set_status(status: u8) {
     AI_STATUS.store(status, Ordering::Relaxed);
 }
 
-#[cfg(test)]
-pub fn set_status_for_test(status: u8) {
-    set_status(status);
-}
-
 /// 组装子进程 env（互通六件套）。已有同名外部 env 会被覆盖——单源正是目的：
 /// 监督模式下 ai_service 的互通配置只应来自 rust。LLM key 等其余变量正常继承。
 fn child_env(app: &AppConfig, ai: &AiServiceConfig) -> Vec<(String, String)> {

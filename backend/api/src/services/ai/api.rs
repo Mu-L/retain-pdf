@@ -3,8 +3,10 @@
 use axum::body::Body;
 use axum::http::{header::HeaderName, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
+use futures_util::StreamExt;
 use serde_json::Value;
 
+use super::AiGateway;
 use crate::error::AppError;
 
 fn forwarded_api_key(headers: &HeaderMap) -> &str {
@@ -26,10 +28,33 @@ fn response_metadata(upstream: &reqwest::Response) -> (StatusCode, String) {
     (status, content_type)
 }
 
-pub async fn ask(headers: &HeaderMap, payload: Value) -> Result<Response, AppError> {
-    let upstream = super::ai_proxy::ask(forwarded_api_key(headers), &payload).await?;
+pub async fn ask(
+    gateway: &AiGateway,
+    headers: &HeaderMap,
+    payload: Value,
+) -> Result<Response, AppError> {
+    let upstream = gateway.ask(forwarded_api_key(headers), &payload).await?;
     let (status, content_type) = response_metadata(&upstream);
-    let body = Body::from_stream(upstream.bytes_stream());
+    let idle = gateway.idle_timeout();
+    // Body idle is separate from header wait: non-streaming answers may spend
+    // their entire model deadline computing before sending response headers.
+    let stream =
+        futures_util::stream::unfold(Some(upstream.bytes_stream()), move |state| async move {
+            let mut upstream = state?;
+            match tokio::time::timeout(idle, upstream.next()).await {
+                Ok(Some(Ok(bytes))) => Some((Ok(bytes), Some(upstream))),
+                Ok(None) => None,
+                Ok(Some(Err(error))) => Some((Err(std::io::Error::other(error)), None)),
+                Err(_) => Some((
+                    Err(std::io::Error::new(
+                        std::io::ErrorKind::TimedOut,
+                        "AI service response body stalled",
+                    )),
+                    None,
+                )),
+            }
+        });
+    let body = Body::from_stream(stream);
     Ok(streamed_ask_response(status, content_type, body))
 }
 
@@ -68,17 +93,24 @@ async fn buffered_runtime_config_response(
         .into_response())
 }
 
-pub async fn get_runtime_config(headers: &HeaderMap) -> Result<Response, AppError> {
-    let upstream = super::ai_proxy::get_runtime_config(forwarded_api_key(headers)).await?;
+pub async fn get_runtime_config(
+    gateway: &AiGateway,
+    headers: &HeaderMap,
+) -> Result<Response, AppError> {
+    let upstream = gateway
+        .get_runtime_config(forwarded_api_key(headers))
+        .await?;
     buffered_runtime_config_response(upstream).await
 }
 
 pub async fn update_runtime_config(
+    gateway: &AiGateway,
     headers: &HeaderMap,
     payload: Value,
 ) -> Result<Response, AppError> {
-    let upstream =
-        super::ai_proxy::update_runtime_config(forwarded_api_key(headers), &payload).await?;
+    let upstream = gateway
+        .update_runtime_config(forwarded_api_key(headers), &payload)
+        .await?;
     buffered_runtime_config_response(upstream).await
 }
 

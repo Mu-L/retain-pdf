@@ -90,7 +90,7 @@ Current internal boundary conventions:
 - `services/job_snapshot_factory` owns job snapshot assembly; `worker_command` owns Python worker command/spec construction
 - `../packages/retain-jobs/src/job_runner/*` owns runtime execution, process lifecycle,
   OCR-child chaining, and cancellation
-- `services/ai_proxy_api.rs` owns the Rust-to-AI HTTP proxy boundary;
+- `services/ai/api.rs` owns the Rust-to-AI HTTP proxy boundary;
   `services/library_api.rs` owns conversation persistence;
   `services/public_document_operations_api.rs` owns the browser-safe operation
   projection and CAS actions

@@ -20,7 +20,7 @@ use crate::models::api::{
 use crate::models::request::CreateJobInput;
 use crate::services::jobs::JobsFacade;
 
-use super::library::{
+use super::{
     add_collection_documents, append_message, apply_metadata_suggestion, create_collection,
     create_conversation, create_favorite, create_metadata_suggestion, delete_collection,
     delete_conversation, delete_document, delete_favorite, delete_library_book,
@@ -287,7 +287,7 @@ pub fn fork_conversation_view(
     deps: &LibraryDeps<'_>,
     payload: &crate::models::api::ForkConversationInput,
 ) -> Result<ConversationDetailView, AppError> {
-    super::library::fork_conversation(deps, payload)
+    super::fork_conversation(deps, payload)
 }
 
 // --- collections ---

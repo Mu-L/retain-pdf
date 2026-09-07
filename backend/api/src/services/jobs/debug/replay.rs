@@ -6,7 +6,7 @@ use crate::models::api::{redact_json_value, redact_text, sensitive_values, Trans
 use crate::models::domain::JobSnapshot;
 use crate::storage_paths::resolve_job_root;
 
-use super::super::creation::context::ReplayDeps;
+use crate::services::jobs::deps::ReplayDeps;
 
 pub(crate) async fn replay_translation_item(
     deps: &ReplayDeps<'_>,

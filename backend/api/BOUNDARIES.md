@@ -10,8 +10,8 @@ Files under `src/routes/**` should only:
 
 - extract Axum state, headers, path params, query params, and JSON bodies;
 - compute HTTP-only context such as `base_url`;
-- call application facades (`JobsFacade`, `library_api`, `glossary_api`,
-  `upload_api`, `ai_proxy_api`, `public_document_operations_api`, and the
+- call application facades (`JobsFacade`, `library_api`, `glossaries::api`,
+  `uploads::api`, `ai::api`, `public_document_operations_api`, and the
   backend-only Agent APIs) through deps builders in `routes/common.rs`;
 - wrap results in `ApiResponse` or stream files via `stream_file` /
   `download_response`.
@@ -38,7 +38,7 @@ in the route; persistence goes through `library_api::store_asset_view`.
 AI routes follow the same boundary:
 
 - `routes/ai_proxy.rs` streams ask bytes or buffers runtime config through
-  `ai_proxy_api`; it does not interpret the AI payload;
+  `ai::api`; it does not interpret the AI payload;
 - `routes/public_document_operations.rs` delegates browser-safe queries and CAS
   actions to `public_document_operations_api`;
 - `routes/document_operations.rs`, `agent_capabilities.rs`, and

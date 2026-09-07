@@ -1,3 +1,5 @@
+//! Credential vault operations and usage-lock lifecycle.
+
 use std::collections::BTreeMap;
 use std::fs::{self, OpenOptions};
 use std::io::Write;

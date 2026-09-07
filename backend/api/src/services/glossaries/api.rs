@@ -5,9 +5,10 @@ use crate::models::api::{
     GlossaryCsvParseInput, GlossaryCsvParseView, GlossaryDetailView, GlossaryListView,
     GlossaryUpsertInput, ListGlossariesQuery,
 };
-use crate::services::glossaries::{
+use super::csv::parse_glossary_csv;
+use super::records::{
     create_glossary, delete_glossary, filter_glossaries, list_glossaries, load_glossary_or_404,
-    parse_glossary_csv, update_glossary,
+    update_glossary,
 };
 
 pub struct GlossaryApiDeps<'a> {

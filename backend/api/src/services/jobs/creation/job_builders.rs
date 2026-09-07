@@ -3,7 +3,7 @@ use crate::models::domain::{JobSnapshot, UploadRecord, WorkflowKind};
 use crate::models::request::CreateJobInput;
 use crate::services::job_snapshot_factory::{build_job_snapshot, JobCommandKind, JobInit};
 
-use super::context::SnapshotBuildDeps;
+use crate::services::jobs::deps::SnapshotBuildDeps;
 use super::prepare::{
     prepare_full_pipeline_input, prepare_ocr_input, prepare_render_input,
     prepare_translate_only_input,

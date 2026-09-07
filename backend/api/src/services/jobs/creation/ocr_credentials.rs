@@ -10,7 +10,7 @@ use crate::services::credentials::{
 };
 use crate::services::job_validation::map_credential_reference_error;
 
-use super::context::JobSubmitDeps;
+use crate::services::jobs::deps::JobSubmitDeps;
 
 const OCR_CREDENTIAL_KIND: &str = "ocr_provider_token";
 const TRANSLATION_CREDENTIAL_KIND: &str = "translation_api_key";

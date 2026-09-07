@@ -5,7 +5,7 @@ use std::path::Path;
 use crate::db::Db;
 use crate::error::AppError;
 
-pub use super::agent_calculations::{
+pub use super::service::{
     AgentCalculationArtifactDownload, AgentCalculationListQuery, AgentCalculationListView,
     AgentCalculationView, CompleteAgentCalculationInput, CreateAgentCalculationInput,
     FailAgentCalculationInput,
@@ -26,7 +26,7 @@ pub fn create_agent_calculation(
     deps: &AgentCalculationApiDeps<'_>,
     input: &CreateAgentCalculationInput,
 ) -> Result<AgentCalculationView, AppError> {
-    super::agent_calculations::create_agent_calculation(deps.db, input)
+    super::service::create_agent_calculation(deps.db, input)
 }
 
 pub fn complete_agent_calculation(
@@ -34,7 +34,7 @@ pub fn complete_agent_calculation(
     calculation_id: &str,
     input: &CompleteAgentCalculationInput,
 ) -> Result<AgentCalculationView, AppError> {
-    super::agent_calculations::complete_agent_calculation(
+    super::service::complete_agent_calculation(
         deps.db,
         deps.data_root,
         calculation_id,
@@ -47,14 +47,14 @@ pub fn fail_agent_calculation(
     calculation_id: &str,
     input: &FailAgentCalculationInput,
 ) -> Result<AgentCalculationView, AppError> {
-    super::agent_calculations::fail_agent_calculation(deps.db, calculation_id, input)
+    super::service::fail_agent_calculation(deps.db, calculation_id, input)
 }
 
 pub fn get_agent_calculation(
     deps: &AgentCalculationApiDeps<'_>,
     calculation_id: &str,
 ) -> Result<AgentCalculationView, AppError> {
-    super::agent_calculations::get_agent_calculation(deps.db, calculation_id)
+    super::service::get_agent_calculation(deps.db, calculation_id)
 }
 
 pub fn list_agent_calculations(
@@ -62,7 +62,7 @@ pub fn list_agent_calculations(
     conversation_id: &str,
     query: &AgentCalculationListQuery,
 ) -> Result<AgentCalculationListView, AppError> {
-    super::agent_calculations::list_agent_calculations(deps.db, conversation_id, query)
+    super::service::list_agent_calculations(deps.db, conversation_id, query)
 }
 
 pub fn agent_calculation_artifact_download(
@@ -70,7 +70,7 @@ pub fn agent_calculation_artifact_download(
     calculation_id: &str,
     artifact_id: &str,
 ) -> Result<AgentCalculationArtifactDownload, AppError> {
-    super::agent_calculations::agent_calculation_artifact_download(
+    super::service::agent_calculation_artifact_download(
         deps.db,
         deps.data_root,
         calculation_id,

@@ -1,8 +1,7 @@
 use crate::error::AppError;
 use crate::models::api::{upload_to_response, UploadView};
 use crate::models::domain::UploadRecord;
-use crate::services::uploads::UploadService;
-use crate::services::uploads::UploadedPdfInput;
+use super::{UploadService, UploadedPdfInput};
 
 pub(crate) struct UploadApiDeps<'a> {
     uploads: &'a UploadService,

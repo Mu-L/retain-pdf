@@ -1,63 +1,25 @@
-# Services 说明
+# 流水线内部共享服务
 
-`retainpdf_pipeline/services/` 是具体能力实现层。
+这里是 Python 包内部的 `retainpdf_pipeline/services/`，不是仓库根目录已迁移的
+旧 `services/`。当前仅保留 [pipeline_shared](pipeline_shared/README.md)：
+跨阶段事件、stdout 协议、JSON IO、输入选择及 summary 等中性共享能力。
 
-这里放真正执行工作的模块，而不是流程编排：
+## 当前模块归属
 
-- `ocr_provider/`
-  OCR provider API 接入层的独立约定。这里只定义“第三方 OCR 服务怎么接进来”，不把 provider API 细节耦合到翻译/渲染工作流。
-- `document_schema/`
-  统一中间文档结构版本定义、adapter registry、defaults 收口、schema 校验与 normalization report。
-- `mineru/`
-  MinerU 这个 provider 的具体实现：提交、轮询、下载、解包、任务产物整理。
-- `pipeline_shared/`
-  provider / translate / render 主线共用的阶段协议、summary、统一 `pipeline_events.jsonl` 事件流和 JSON IO，不绑定任何单一 provider。
-- `translation/`
-  OCR 解析、翻译编排元数据、策略过滤、LLM 调用、结果回填。
-- `rendering/`
-  PDF 擦除、背景处理、Typst 生成、公式规整、最终渲染与压缩。
+| 职责 | 实际位置 |
+| --- | --- |
+| OCR provider、MinerU、文档结构与适配 | [ocr](../ocr/ocr_provider/README.md)、[document_schema](../ocr/document_schema/README.md)、[mineru](../ocr/mineru/README.md) |
+| 翻译策略、模型调用与结果回填 | [translate](../translate/README.md) |
+| 排版、渲染与 PDF 输出 | [render](../render/README.md) |
+| 流程编排 | [runtime/pipeline](../runtime/pipeline/README.md) |
+| 公共配置与基础工具 | [foundation/config](../foundation/config/README.md)、[foundation/shared](../foundation/shared/README.md) |
 
-设计原则：
+原先将这些实现列在本目录下的说明已经过时；不要重新创建
+`services/translation`、`services/rendering` 或 provider 实现副本。
 
-- `services/*` 负责把单项能力做完整
-- `ocr_provider/` 只定义 provider 接入约定，不承担具体 provider 实现
-- `document_schema/` 负责定义统一中间层，不承载 provider 细节
-- OCR provider 原始 JSON 必须先经过 `../ocr/document_schema/adapters.py` 转成 `document.v1`
-- 需要排查 raw -> normalized 转化时，优先看 `document.v1.report.json` 或 `validate_document_schema.py --adapt`
-- 如果只是消费 provider / defaults / validation 摘要，优先走 `../ocr/document_schema/reporting.py`
-- `mineru/` 是一个 provider 实现，不是 OCR 总工作流本身
-- `pipeline_shared/` 是中性共享层，不应该再放 provider 私有逻辑
-- `translation/ocr` 主线优先读取 normalized document，而不是直接依赖某个 OCR provider 的原始 JSON
-- `runtime/pipeline` 只负责把这些能力串起来
-- 上层入口优先依赖 `runtime/pipeline`，不要直接跨服务拼流程
-- 公共配置和共享工具继续下沉到 `foundation/`
+## 边界
 
-## 新 OCR Provider 最短路径
-
-新 provider 接入时，推荐最短路径是：
-
-1. 先读 `../ocr/ocr_provider/README.md`
-2. 再读 `../ocr/document_schema/README.md`
-3. 准备最小 raw fixture
-4. 写 provider API 接入层和 adapter
-5. 把 fixture 加到 `backend/pipeline/devtools/tests/document_schema/fixtures/registry.py`
-6. 跑 `backend/pipeline/devtools/tests/document_schema/regression_check.py`
-
-只有这条链跑通后，provider 才应该进入 translation/rendering 主线。
-
-## 协作规矩
-
-现在可以按模块拆分负责人，但边界必须按协议来守：
-
-- OCR / provider 负责人主要维护 `ocr_provider/`、`mineru/`、`document_schema/`
-- 翻译负责人主要维护 `translation/`
-- 渲染负责人主要维护 `rendering/`
-- 编排负责人主要维护 `runtime/pipeline/`
-
-默认原则：
-
-- 每个负责人优先在自己模块内解决问题，不把临时特判扩散到别的模块
-- `document.v1.json`、`translation-manifest.json`、render-only 输入协议属于稳定交接点，不能单边修改
-- 如果必须改交接协议，必须同时更新上下游 README、调用入口、兼容逻辑和测试
-- translation / rendering 主线禁止重新依赖 provider raw JSON
-- pipeline 只负责编排，不负责吸收 provider 特判、翻译细节或渲染补丁
+- `pipeline_shared` 不放 provider 私有语义、翻译策略或渲染实现。
+- OCR 原始输出先经文档适配层转成规范输入，再交给后续阶段消费。
+- 修改跨阶段协议时同步上下游消费者及测试，不通过移动目录改变协议。
+- 模块专用测试与开发工具仍跟随对应模块；这里不引入新的公共库层级。
