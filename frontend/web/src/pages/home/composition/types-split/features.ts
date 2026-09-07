@@ -48,12 +48,10 @@ export type BrowserCredentialsFeature = {
   updateCredentialGate: (options?: unknown) => void;
 };
 
-export type GlossariesFeature = {
-  bindEvents: () => void;
-  open: () => unknown;
-  reloadGlossaries: () => unknown;
-  save: () => unknown;
-};
+// GlossariesFeature 的真值在功能内（src/features/glossaries），装配层只引用它：
+// 依赖方向 app -> features，禁止功能反向依赖装配层类型。
+import type { GlossariesFeature } from "@/features/glossaries/index.js";
+export type { GlossariesFeature };
 
 export type AppUpdateFeature = {
   checkForUpdates: (options?: { manual?: boolean }) => Promise<unknown> | unknown;

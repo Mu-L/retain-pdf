@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { mountGlossariesFeature } from "../../src/js/features/glossaries/controller.js";
+import { mountGlossariesFeature } from "../../src/features/glossaries/domain/controller.js";
 
 function createGlossariesFeature({
   createdId = "glossary-created",

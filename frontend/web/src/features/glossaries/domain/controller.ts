@@ -3,12 +3,19 @@ import {
   failDownloadToast,
   showDownloadPreparing,
   updateDownloadProgress,
-} from "../../utils/download-feedback.js";
+} from "@/js/utils/download-feedback.js";
 import {
   fileNameFromDisposition,
   prepareDownloadTarget,
   saveResponseDownload,
-} from "../../utils/downloads.js";
+} from "@/js/utils/downloads.js";
+
+export type GlossariesFeature = {
+  bindEvents: () => void;
+  open: () => unknown;
+  reloadGlossaries: () => unknown;
+  save: () => unknown;
+};
 
 export function mountGlossariesFeature({
   apiPrefix,
@@ -22,7 +29,7 @@ export function mountGlossariesFeature({
   refreshWorkflowGlossaries,
   view = {},
   viewPort,
-}: any) {
+}: any): GlossariesFeature {
   const state = {
     items: [],
     selectedId: "",

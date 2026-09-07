@@ -41,7 +41,8 @@ import { useStoreSnapshot } from "@/shared/react/use-store.js";
 // CategoriesView 为历史别名（同 CollectionsView），保留在 library/index 兼容导出
 import { HomeAskView } from "./features/home-ask/HomeAskView.js";
 import { CredentialsDialog } from "./features/credentials/CredentialsDialog.jsx";
-import { GlossariesDialog } from "./features/glossaries/GlossariesDialog.jsx";
+import { GlossariesDialog } from "@/features/glossaries/index.js";
+import { useDialogState } from "./state/use-dialog-state.js";
 import { SettingsHubDialog } from "./features/settings/SettingsHubDialog.jsx";
 import { StatusDetailDialog } from "./features/status-detail/StatusDetailDialog.jsx";
 import { ReaderDialog } from "./features/reader/ReaderDialog.jsx";
@@ -101,15 +102,28 @@ function HomeTabsRoot({ children }: { children: ReactNode }) {
   return <HomeTabsProvider value={{ activeTab, onTabChange }}>{children}</HomeTabsProvider>;
 }
 
-/**
- * 页面侧绑定：把主页的服务上下文接到功能的 props 上。
- *
- * src/features/* 不依赖任何具体页面（不 import home-services-context），
- * 由页面自己负责这一层接线，功能才能被 detail/reader 或测试独立复用。
- */
+// ---- 功能插槽（页面侧绑定）----
+//
+// src/features/* 不依赖任何具体页面，尤其不 import home-services-context；
+// 由页面在这里把自己的服务上下文接到功能的 props 上。功能因此可以被
+// detail/reader 或测试独立复用。每迁入一个功能就在这里加一个对应的 Slot。
+
 function AppUpdateBannerSlot() {
   const { appUpdate } = useHomeServices();
   return <AppUpdateBanner view={appUpdate.view} handlersRef={appUpdate.handlersRef} />;
+}
+
+function GlossariesDialogSlot() {
+  const { glossaries } = useHomeServices();
+  const dialogState = useDialogState(glossaries.dialogStore);
+  return (
+    <GlossariesDialog
+      feature={glossaries.feature}
+      view={glossaries.view}
+      dialogStore={glossaries.dialogStore}
+      open={Boolean(dialogState.open)}
+    />
+  );
 }
 
 function HomeShell() {
@@ -181,7 +195,7 @@ function HomeShell() {
       </main>
       {/* dialogs.html 区块:credentials 域已 React 化,其余占位(3b) */}
       <CredentialsDialog />
-      <GlossariesDialog />
+      <GlossariesDialogSlot />
       <developer-auth-dialog></developer-auth-dialog>
       <developer-settings-dialog></developer-settings-dialog>
       <StatusDetailDialog />

@@ -12,10 +12,23 @@
 // store 只留列表/选中/状态/导入面板开合;组件经 useGlossariesController 订阅
 // editor,行为与旧 store 版一致。
 
-import type { DialogStore } from "../../state/dialog-store.js";
-import type { HandlersBag } from "../../composition/types.js";
-import { createStore } from "../../composition/external.js";
-import type { Store } from "../../composition/external.js";
+import { createStore } from "@/js/app-framework/store.js";
+import type { Store } from "@/js/app-framework/store.js";
+
+/** 事件处理函数表（viewPort.bindEvents 写入 handlersRef） */
+export type HandlersBag = {
+  [key: string]: ((...args: unknown[]) => unknown) | undefined | null;
+};
+
+/**
+ * 对话框开合端口的最小结构（装配层用通用的 createDialogStore 实例满足它，
+ * 见 src/pages/home/state/dialog-store.js）。
+ * 本功能只用 open()/close()，不依赖装配层的具体类型。
+ */
+export type GlossariesDialogStorePort = {
+  open: (payload?: unknown) => unknown;
+  close: () => unknown;
+};
 
 /** 列表项（API 列表摘要） */
 export type GlossaryListItem = {
@@ -98,6 +111,27 @@ export type GlossariesEditorPort = {
 
 export type GlossariesViewStore = Store<GlossariesViewState, GlossariesViewActions>;
 
+export type GlossariesViewPort = {
+  openDialog: () => unknown;
+  closeDialog: () => unknown;
+  setStatus: (message?: string, tone?: string) => unknown;
+  renderList: (items?: GlossaryListItem[], selectedId?: string) => unknown;
+  renderEditor: (detail?: { name?: string; entries?: Array<Partial<GlossaryEntryRow>> }) => unknown;
+  addEntryRow: (entry?: Partial<GlossaryEntryRow>) => unknown;
+  readEditorPayload: () => GlossaryEditorPayload;
+  setImportVisible: (visible?: boolean) => unknown;
+  readCsvText: () => string;
+  clearCsvText: () => unknown;
+  bindEvents: (handlers: HandlersBag) => unknown;
+};
+
+export type GlossariesViewFeature = {
+  store: GlossariesViewStore;
+  editor: GlossariesEditorPort;
+  viewPort: GlossariesViewPort;
+  handlersRef: { current: HandlersBag | null };
+};
+
 function normalizeEntryForRow(entry: Partial<GlossaryEntryRow> = {}): GlossaryEntryRow {
   return {
     source: entry.source || "",
@@ -151,8 +185,8 @@ export const readEditorPayloadFromDraft = readEditorPayload;
 export function createGlossariesViewFeature({
   dialogStore,
 }: {
-  dialogStore: DialogStore;
-}) {
+  dialogStore: GlossariesDialogStorePort;
+}): GlossariesViewFeature {
   const store = createStore<GlossariesViewState, GlossariesViewActions>({
     name: "glossariesView",
     initialState: {

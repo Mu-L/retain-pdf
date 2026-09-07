@@ -32,16 +32,33 @@ import {
 import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
 import { GLOSSARY_DOM_IDS } from "./glossaries-dom-ids.js";
 import { useGlossariesController } from "./useGlossariesController.js";
+import type { GlossariesControllerDeps } from "./useGlossariesController.js";
+import type { GlossariesDialogStorePort } from "../domain/glossaries-store.js";
 import { GlossaryList } from "./GlossaryList.jsx";
 import { GlossaryEditor } from "./GlossaryEditor.jsx";
 import { GlossaryImportPanel } from "./GlossaryImportPanel.jsx";
-import { Button as ButtonBase } from "../../../../components/Button.jsx";
+import { Button as ButtonBase } from "@/components/Button.jsx";
+import type { ButtonHTMLAttributes, ComponentType } from "react";
 
 // Button.size 在未注解源文件里被推断为必填;unstyled 路径运行时不用 size。
-const Button = ButtonBase as any;
+// GlossariesDialog 未迁移前的旧写法是 `as any`，这里收敛为"结构相同的按钮契约"，
+// 运行时仍是同一个 ButtonBase，行为不变。
+const Button = ButtonBase as unknown as ComponentType<
+  ButtonHTMLAttributes<HTMLButtonElement> & { className?: string }
+>;
 
-export function GlossariesDialog() {
-  const { open, view, store: glossariesStore, dialogStore, handlers } = useGlossariesController();
+/**
+ * 视图依赖由调用方注入，而不是从页面的服务上下文里自取：
+ * 功能不应反向依赖某个具体页面的装配层(app/home)。
+ * 主页在 HomeApp 的挂载点把 services.glossaries 拆开传进来
+ * （见 HomeApp 的 GlossariesDialogSlot，镜像 AppUpdateBannerSlot）。
+ */
+export type GlossariesDialogProps = GlossariesControllerDeps & {
+  dialogStore: GlossariesDialogStorePort;
+};
+
+export function GlossariesDialog({ feature, view: viewFeature, open, dialogStore }: GlossariesDialogProps) {
+  const { view, store: glossariesStore, handlers } = useGlossariesController({ feature, view: viewFeature, open });
   // view.store 在 HomeServices 上仍是 AppStore 默认泛型；运行时 actions 齐全
   const store = glossariesStore as unknown as {
     actions: {

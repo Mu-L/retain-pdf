@@ -38,17 +38,10 @@ export type HomeSettingsHub = {
   dialogStore: DialogStore<{ tab?: string } | null>;
 };
 
-export type GlossariesViewBag = {
-  store: ReadOnlyStore;
-  handlersRef: { current: HandlersBag | null };
-  viewPort?: unknown;
-  /** 编辑器态端口(draft/csvText 的 ref 持有 + 订阅,见 glossaries-store.js) */
-  editor?: {
-    getSnapshot: () => { draft: unknown; csvText: string };
-    subscribe: (listener: (snapshot: unknown) => void) => () => void;
-    actions: Record<string, (...args: any[]) => unknown>;
-  };
-};
+// GlossariesViewBag 的真值在功能内（src/features/glossaries），装配层只引用它：
+// 依赖方向 app -> features，禁止功能反向依赖装配层类型。
+import type { GlossariesViewFeature as GlossariesViewBag } from "@/features/glossaries/index.js";
+export type { GlossariesViewBag };
 
 export type HomeGlossaries = {
   feature: GlossariesFeature | undefined;

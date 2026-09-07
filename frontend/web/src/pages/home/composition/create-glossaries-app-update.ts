@@ -1,14 +1,15 @@
 // glossaries + app-update。
 
 import { API_PREFIX } from "./external/config.js";
-import { mountGlossariesFeature } from "./external/features.js";
+import {
+  createGlossariesViewFeature,
+  mountGlossariesFeature,
+} from "@/features/glossaries/index.js";
 import {
   createAppUpdateViewFeature,
   mountAppUpdateFeature,
   normalizeReleaseInfo,
 } from "@/features/app-update/index.js";
-import { createGlossariesViewFeature } from "../features/glossaries/glossaries-store.js";
-import { createGlossariesDialogStore } from "../features/glossaries/glossaries-dialog-store.js";
 import type {
   AppUpdateFeature,
   AppUpdateViewBag,
@@ -19,6 +20,7 @@ import type {
   HomeFeatures,
 } from "./types.js";
 import type { DialogStore } from "../state/dialog-store.js";
+import { createDialogStore } from "../state/dialog-store.js";
 
 type CreateGlossariesAndAppUpdateArgs = {
   features: HomeFeatures;
@@ -53,7 +55,7 @@ export function createGlossariesAndAppUpdate({
   appUpdateFeature: AppUpdateFeature;
   appUpdateView: AppUpdateViewBag;
 } {
-  const glossariesDialogStore = createGlossariesDialogStore();
+  const glossariesDialogStore = createDialogStore();
   const glossariesView = createGlossariesViewFeature({ dialogStore: glossariesDialogStore });
   const glossariesFeature = mountGlossariesFeature({
     apiPrefix: API_PREFIX,

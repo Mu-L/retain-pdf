@@ -18,7 +18,8 @@ export { defaultCredentialsStatePort } from "../../../../js/features/credentials
 export { readHiddenCredentialDomInputs } from "../../../../js/features/credentials/hidden-input-dom-port.js";
 export { createCredentialRuntimeEnvPort } from "../../../../js/features/credentials/runtime-env-port.js";
 export { mountBrowserCredentialsFeature } from "../../../../js/features/credentials/browser.js";
-export { mountGlossariesFeature } from "../../../../js/features/glossaries/controller.js";
+// glossaries 已迁至 src/features/glossaries，调用方直接从该功能的 index.ts
+// 导入，不再经本网关转发。
 
 // app-update 已迁至 src/features/app-update，调用方直接从该功能的 index.ts
 // 导入，不再经本网关转发。
