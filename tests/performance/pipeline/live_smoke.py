@@ -22,7 +22,7 @@ from urllib.parse import urlparse
 import requests
 
 from run import ROOT, api, load_config, positive
-from reporting import collect_model_metrics, collect_metrics
+from support.reporting import collect_model_metrics, collect_metrics
 
 
 def comparison_evidence(*, pdf_sha256, normalized_path, translation):

@@ -21,9 +21,8 @@ import requests
 
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from reporting import collect_metrics, collect_model_metrics, server_timing
-
-ROOT = Path(__file__).resolve().parents[3]
+from support.reporting import collect_metrics, collect_model_metrics, server_timing
+from support.paths import ROOT
 
 
 def load_config(db: Path, job_id: str | None) -> tuple[str, dict]:

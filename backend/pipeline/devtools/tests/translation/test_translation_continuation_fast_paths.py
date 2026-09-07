@@ -25,6 +25,13 @@ def _translate_direct_typst_for_test(module, item: dict, *, context, request_lab
 
 
 class TranslationContinuationFastPathTests(unittest.TestCase):
+    def setUp(self):
+        # These cases test content recovery, not provider DNS warmup. Keep the
+        # transport seam fake for every case, independent of DNS cache/order.
+        prewarm = mock.patch("retainpdf_pipeline.translate.llm.providers.deepseek.client._prewarm_dns")
+        prewarm.start()
+        self.addCleanup(prewarm.stop)
+
     def test_continuation_group_protocol_shell_degrades_to_keep_origin(self):
         retry_module = import_module(
             "retainpdf_pipeline.translate.llm.shared.orchestration.plain_text_retry"

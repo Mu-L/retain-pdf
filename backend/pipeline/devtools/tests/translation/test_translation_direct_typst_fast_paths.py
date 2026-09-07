@@ -25,6 +25,13 @@ def _translate_direct_typst_for_test(module, item: dict, *, context, request_lab
 
 
 class TranslationDirectTypstFastPathTests(unittest.TestCase):
+    def setUp(self):
+        # Content/windowing tests replace the remote translator, including its
+        # ancillary DNS warmup; DNS behavior has dedicated transport tests.
+        prewarm = mock.patch("retainpdf_pipeline.translate.llm.providers.deepseek.client._prewarm_dns")
+        prewarm.start()
+        self.addCleanup(prewarm.stop)
+
     def test_direct_typst_protocol_shell_degrades_for_cjk_body_text(self):
         module = import_module(
             "retainpdf_pipeline.translate.llm.shared.orchestration.fallbacks"

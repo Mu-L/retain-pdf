@@ -153,3 +153,116 @@ def test_empty_reverse_suite_never_runs_unscoped_pytest(monkeypatch, tmp_path):
     with pytest.raises(SystemExit) as error:
         runner.main(["--suite", "benchmarks", "--reverse"])
     assert error.value.code == 2
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_tooling_selection_preserves_legacy_aggregates(monkeypatch, reverse):
+    runner = _runner()
+    calls = []
+    monkeypatch.setattr(runner.subprocess, "run", lambda command, **kwargs: (
+        calls.append(command) or SimpleNamespace(returncode=0)))
+    assert list(runner.SUITES) == ["translation", "benchmarks"]
+    assert runner.main(["--suite", "tooling", "--collect-only", *(["--reverse"] if reverse else [])]) == 0
+    root = runner.SUITES["benchmarks"] / "tooling"
+    expected = sorted(map(str, root.rglob("test_*.py")), reverse=True) if reverse else [str(root)]
+    assert calls[0][3:calls[0].index("-q")] == expected
+    assert calls[0][-1] == "--collect-only"
+    assert str(runner.RUNNER_TEST) not in calls[0]
+
+
+def _fake_categories(runner, monkeypatch, tmp_path):
+    root = tmp_path / "pipeline/tests"
+    root.mkdir(parents=True)
+    monkeypatch.setitem(runner.SUITES, "benchmarks", root)
+    for category in runner.BENCHMARK_CATEGORIES:
+        directory = root / category
+        directory.mkdir()
+        (directory / "test_example.py").write_text("def test_example(): pass\n")
+
+
+@pytest.mark.parametrize("relative", ["test_loose.py", "unknown/test_hidden.py"])
+def test_structure_rejects_unclassified_tests(monkeypatch, tmp_path, relative):
+    runner = _runner()
+    _fake_categories(runner, monkeypatch, tmp_path)
+    misplaced = runner.SUITES["benchmarks"] / relative
+    misplaced.parent.mkdir(exist_ok=True)
+    misplaced.write_text("def test_unclassified(): pass\n")
+    with pytest.raises(ValueError, match="Unclassified"):
+        runner.benchmark_modules()
+
+
+def test_structure_rejects_empty_category(monkeypatch, tmp_path):
+    runner = _runner()
+    _fake_categories(runner, monkeypatch, tmp_path)
+    (runner.SUITES["benchmarks"] / "contracts/test_example.py").unlink()
+    with pytest.raises(ValueError, match="empty benchmark category"):
+        runner.benchmark_modules()
+
+
+@pytest.mark.parametrize("fault", [None, "reverse", "empty_module", "category_union", "duplicate"])
+def test_discovery_checks_dynamic_item_sets_without_executing_tests(monkeypatch, tmp_path, fault):
+    runner = _runner()
+    _fake_categories(runner, monkeypatch, tmp_path)
+    paths = [runner.SUITES["benchmarks"] / name / "test_example.py" for name in runner.BENCHMARK_CATEGORIES]
+    items = [str(path.resolve()) + "::test_example" for path in paths]
+    calls = []
+    def collect(targets, output_root):
+        calls.append(targets)
+        if len(calls) <= 2:
+            if fault == "reverse" and len(calls) == 2:
+                return items[:-1]
+            if fault == "empty_module":
+                return items[:-1]
+            if fault == "duplicate":
+                return items + items[:1]
+            return items
+        index = runner.BENCHMARK_CATEGORIES.index(targets[0].name)
+        return [] if fault == "category_union" and index == 0 else [items[index]]
+    monkeypatch.setattr(runner, "collect_nodeids", collect)
+    if fault:
+        with pytest.raises(ValueError):
+            runner.check_discovery(str(tmp_path))
+    else:
+        runner.check_discovery(str(tmp_path))
+        assert len(calls) == 5
+        assert not any(runner.RUNNER_TEST in targets for targets in calls)
+
+
+def test_check_discovery_option_does_not_execute_suite(monkeypatch):
+    runner = _runner()
+    calls = []
+    monkeypatch.setattr(runner, "check_discovery", lambda root: calls.append(root))
+    monkeypatch.setattr(runner.subprocess, "run", lambda *args, **kwargs: pytest.fail("must not execute tests"))
+    assert runner.main(["--check-discovery"]) == 0
+    assert len(calls) == 1
+    assert not Path(calls[0]).exists()
+
+
+def test_package_aliases_keep_default_full_and_explicit_contract_scope():
+    runner = _runner()
+    scripts = json.loads((runner.SERVICES.parent / "package.json").read_text())["scripts"]
+    base = "python3 backend/pipeline/devtools/run_translation_tests.py"
+    assert scripts["test:translation"] == base
+    assert scripts["test:translation:tooling"] == base + " --suite tooling"
+    assert scripts["test:translation:contract"] == base + " --suite benchmarks"
+
+
+def test_real_collector_returns_canonical_items_without_running_bodies(tmp_path):
+    runner = _runner()
+    module = tmp_path / "test_collection_probe.py"
+    module.write_text("def test_never_execute():\n    raise AssertionError('body must not run')\n")
+    assert runner.collect_nodeids([module], str(tmp_path / "cache")) == [
+        str(module.resolve()) + "::test_never_execute"
+    ]
+
+
+@pytest.mark.parametrize("relative", ["support/test_hidden.py", "tools/analysis/test_hidden.py", "test_hidden.py"])
+def test_structure_rejects_tests_outside_test_root(monkeypatch, tmp_path, relative):
+    runner = _runner()
+    _fake_categories(runner, monkeypatch, tmp_path)
+    misplaced = runner.SUITES["benchmarks"].parent / relative
+    misplaced.parent.mkdir(parents=True, exist_ok=True)
+    misplaced.write_text("def test_hidden(): pass\n")
+    with pytest.raises(ValueError, match="Unclassified") as error:
+        runner.benchmark_modules()
+    assert str(misplaced) in str(error.value)

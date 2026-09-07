@@ -19,6 +19,8 @@
     "test:web": "npm test --workspace=front-tailwind-ui",
     "test:api": "python3 .github/scripts/run_with_backend_source.py -- cargo test --locked --workspace --manifest-path {source_root}/Cargo.toml",
     "test:translation": "python3 backend/pipeline/devtools/run_translation_tests.py",
+    "test:translation:tooling": "python3 backend/pipeline/devtools/run_translation_tests.py --suite tooling",
+    "test:translation:contract": "python3 backend/pipeline/devtools/run_translation_tests.py --suite benchmarks",
     "dev:backend": "python3 ops/development/dev_stack.py"
   },
   "engines": {

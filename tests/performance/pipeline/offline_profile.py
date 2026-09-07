@@ -13,10 +13,10 @@ import sys
 import tempfile
 import time
 
-HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE / "tests"))
-sys.path.insert(0, str(HERE.parents[2] / "backend/pipeline"))
-from translation_io_support import PROBE, SOURCES, document, environment, prepare, read_artifacts
+from support.paths import HERE, PIPELINE, ROOT
+
+sys.path.insert(0, str(PIPELINE))
+from support.translation_io_support import PROBE, SOURCES, document, environment, prepare, read_artifacts
 
 # Inclusive main-thread durations: rows overlap and must never be summed.
 TARGETS = {
@@ -100,7 +100,7 @@ def main(argv=None):
     parser.add_argument("--workers", type=bounded_positive, nargs="+", default=[1, 8])
     parser.add_argument("--repeats", type=bounded_positive, default=5)
     args = parser.parse_args(argv)
-    parent = HERE.parents[2] / "tmp/pipeline-benchmarks"
+    parent = ROOT / "tmp/pipeline-benchmarks"
     parent.mkdir(parents=True, exist_ok=True)
     output = Path(tempfile.mkdtemp(prefix="offline-profile-", dir=parent))
     report = {"schema": "translation_offline_profile_v1", "status": "running", "runs": [],
