@@ -18,6 +18,7 @@ import type { ReactNode } from "react";
 import {
   HomeShellProviders,
   HomeTabsProvider,
+  useHomeServices,
   useHomeStatusAreaStore,
   useHomeTabs,
 } from "./home-services-context.js";
@@ -35,7 +36,7 @@ import {
 import { HiddenCredentialInputs } from "./features/credentials/HiddenCredentialInputs.jsx";
 import { StatusCard } from "./features/status/StatusCard.jsx";
 import { CredentialsWorkbench } from "./features/credentials/CredentialsWorkbench.jsx";
-import { AppUpdateBanner } from "./features/app-update/AppUpdateBanner.jsx";
+import { AppUpdateBanner } from "@/features/app-update/index.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
 // CategoriesView 为历史别名（同 CollectionsView），保留在 library/index 兼容导出
 import { HomeAskView } from "./features/home-ask/HomeAskView.js";
@@ -100,6 +101,17 @@ function HomeTabsRoot({ children }: { children: ReactNode }) {
   return <HomeTabsProvider value={{ activeTab, onTabChange }}>{children}</HomeTabsProvider>;
 }
 
+/**
+ * 页面侧绑定：把主页的服务上下文接到功能的 props 上。
+ *
+ * src/features/* 不依赖任何具体页面（不 import home-services-context），
+ * 由页面自己负责这一层接线，功能才能被 detail/reader 或测试独立复用。
+ */
+function AppUpdateBannerSlot() {
+  const { appUpdate } = useHomeServices();
+  return <AppUpdateBanner view={appUpdate.view} handlersRef={appUpdate.handlersRef} />;
+}
+
 function HomeShell() {
   // tabs 来自窄口,不再由 Shell 自持 useState(状态上移到 HomeTabsRoot)。
   const { activeTab } = useHomeTabs();
@@ -153,7 +165,7 @@ function HomeShell() {
         <button id="open-query-btn" type="button" className="secondary hidden" aria-hidden="true">最近任务</button>
         <SettingsHubDialog
           credentialsWorkbenchSlot={<CredentialsWorkbench />}
-          appUpdateBannerSlot={<AppUpdateBanner />}
+          appUpdateBannerSlot={<AppUpdateBannerSlot />}
         />
         <TranslationWorkflowDialog
           hiddenInputsSlot={<HiddenCredentialInputs />}

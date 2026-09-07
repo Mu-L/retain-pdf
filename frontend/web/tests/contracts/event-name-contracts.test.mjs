@@ -11,14 +11,22 @@ import { join, relative } from "node:path";
 
 const PROJECT_ROOT = process.cwd();
 const JS_ROOT = join(PROJECT_ROOT, "src/js");
-const SCAN_ROOTS = [JS_ROOT, join(PROJECT_ROOT, "src/pages"), join(PROJECT_ROOT, "src/shared")];
+const SRC_ROOT = join(PROJECT_ROOT, "src");
+// src/features 是按功能重组后的新树，事件名扫描必须一并覆盖，
+// 否则功能迁过去后契约门禁会漏扫。
+const SCAN_ROOTS = [
+  JS_ROOT,
+  join(PROJECT_ROOT, "src/features"),
+  join(PROJECT_ROOT, "src/pages"),
+  join(PROJECT_ROOT, "src/shared"),
+];
 const EVENT_CONTRACT_FILE = join(JS_ROOT, "contracts/app-contract.js");
 // generated/ 为构建产物(打包内联的事件名字面量来自源码,由源码扫描守卫)
 const GENERATED_ROOT = join(JS_ROOT, "generated");
 
 // 非事件用途的 retainpdf: 前缀字符串(如 localStorage key),逐条登记
 const ALLOWED_LITERALS = [
-  { file: join(JS_ROOT, "features/app-update/state.js"), literal: "retainpdf:update-check:v1" },
+  { file: join(SRC_ROOT, "features/app-update/domain/state.js"), literal: "retainpdf:update-check:v1" },
 ];
 
 function walkJsFiles(dir) {

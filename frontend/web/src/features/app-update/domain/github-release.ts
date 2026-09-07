@@ -1,4 +1,4 @@
-import { APP_VERSION, GITHUB_REPO } from "../../generated/app-version.js";
+import { APP_VERSION, GITHUB_REPO } from "@/js/generated/app-version.js";
 
 export const GITHUB_LATEST_RELEASE_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
 

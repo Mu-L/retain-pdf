@@ -9,13 +9,15 @@
 // setUpdateAvailable/setUpdateLatest/setUpdateError),controller.js
 // (checkForUpdates 编排 + 24h 缓存)一行不改地复用。
 
-import { APP_UPDATE_STATES } from "./app-update-contract.js";
-import type { HandlersBag } from "../../composition/types.js";
-import {
-  createStore,
-  APP_VERSION,
-} from "../../composition/external.js";
-import type { Store } from "../../composition/external.js";
+import { APP_UPDATE_STATES } from "./app-update-states.js";
+import { APP_VERSION } from "./current-version.js";
+import { createStore } from "@/js/app-framework/store.js";
+import type { Store } from "@/js/app-framework/store.js";
+
+/** 事件处理函数表（viewPort.bindEvents 写入 handlersRef） */
+export type HandlersBag = {
+  [key: string]: ((...args: unknown[]) => unknown) | undefined | null;
+};
 
 export type AppUpdatePanel = {
   title: string;
@@ -41,6 +43,9 @@ export type AppUpdateViewActions = {
 };
 
 export type AppUpdateViewStore = Store<AppUpdateViewState, AppUpdateViewActions>;
+
+/** 消费方(横幅)只需要订阅与取快照，不需要写入能力。 */
+export type AppUpdateReadOnlyStore = Pick<AppUpdateViewStore, "getSnapshot" | "subscribe">;
 
 /** setAvailable / setLatest 的发布信息载荷 */
 export type AppUpdateReleaseInfo = {

@@ -20,14 +20,8 @@ export { createCredentialRuntimeEnvPort } from "../../../../js/features/credenti
 export { mountBrowserCredentialsFeature } from "../../../../js/features/credentials/browser.js";
 export { mountGlossariesFeature } from "../../../../js/features/glossaries/controller.js";
 
-// app-update
-export { mountAppUpdateFeature } from "../../../../js/features/app-update/controller.js";
-export {
-  fetchLatestGithubRelease,
-  normalizeReleaseInfo,
-} from "../../../../js/features/app-update/github-release.js";
-export { defaultUpdateCachePort } from "../../../../js/features/app-update/state.js";
-export { APP_VERSION } from "../../../../js/features/app-update/current-version.js";
+// app-update 已迁至 src/features/app-update，调用方直接从该功能的 index.ts
+// 导入，不再经本网关转发。
 
 // translation workflow dialog
 export {

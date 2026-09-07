@@ -5,13 +5,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { isNewerVersion } from "../../src/js/features/app-update/github-release.js";
+import { isNewerVersion } from "../../src/features/app-update/domain/github-release.js";
 import {
   createUpdateCachePort,
   readUpdateCache,
   writeUpdateCache,
-} from "../../src/js/features/app-update/state.js";
-import { mountAppUpdateFeature } from "../../src/js/features/app-update/controller.js";
+} from "../../src/features/app-update/domain/state.js";
+import { mountAppUpdateFeature } from "../../src/features/app-update/domain/controller.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

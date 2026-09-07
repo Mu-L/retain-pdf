@@ -42,9 +42,11 @@ import {
   exportGlossaryCsvApi,
   parseGlossaryCsvApi,
   submitUploadRequestHttp,
-  fetchLatestGithubRelease,
-  defaultUpdateCachePort,
 } from "./composition/external.js";
+import {
+  defaultUpdateCachePort,
+  fetchLatestGithubRelease,
+} from "@/features/app-update/index.js";
 
 import { createHomeTextStore } from "./state/text-store.js";
 import { createUploadViewFeature } from "./features/workflow/stores/upload-store.js";

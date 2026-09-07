@@ -1,6 +1,9 @@
 // types-split/credentials.ts — 凭据/术语表/更新域。
 import type { DialogStore } from "../../state/dialog-store.js";
 import type { HandlersBag, ReadOnlyStore } from "./common.js";
+// 装配层的类型引用功能自身的定义，而不是另立一套弱化版本：
+// 依赖方向 app -> features，功能是该类型的真值。
+import type { AppUpdateReadOnlyStore } from "@/features/app-update/index.js";
 import type {
   AppUpdateFeature,
   BrowserCredentialsFeature,
@@ -54,7 +57,7 @@ export type HomeGlossaries = {
 };
 
 export type AppUpdateViewBag = {
-  store: ReadOnlyStore;
+  store: AppUpdateReadOnlyStore;
   viewPort?: unknown;
   handlersRef: { current: HandlersBag | null };
 };

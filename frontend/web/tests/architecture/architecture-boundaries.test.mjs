@@ -618,7 +618,12 @@ test("upload controller reads upload state only through upload state port", () =
 // 构建期即失败,不再需要独立的原生 ESM 解析守卫。
 
 test("React 新世界禁止 import 旧视图层(防回弹)", () => {
-  const REACT_ROOTS = [join(PROJECT_ROOT, "src/pages"), join(PROJECT_ROOT, "src/shared")];
+  const REACT_ROOTS = [
+    join(PROJECT_ROOT, "src/pages"),
+    join(PROJECT_ROOT, "src/shared"),
+    // 按功能重组后的新树同样受防回弹约束，否则功能迁过去就脱离门禁。
+    join(PROJECT_ROOT, "src/features"),
+  ];
   // 旧视图层路径特征:命中即违规
   const FORBIDDEN_IMPORT_PATTERNS = [
     // 只拦旧世界的 src/js/components/;新世界页面自身的 components/ 子目录
@@ -661,7 +666,10 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
     const normalized = file.replace(/\\/g, "/");
     return normalized.includes("/composition/external")
       || normalized.endsWith("/external.ts")
-      || normalized.endsWith("/external.js");
+      || normalized.endsWith("/external.js")
+      // 功能的 domain/ 是被认可的基础设施出口：ui/ 不得直连 js/generated 等
+      // 底层，由同功能的 domain/ 做一层薄封装再向 ui/ 暴露。
+      || /\/src\/features\/[^/]+\/domain\//.test(normalized);
   }
 
   const violations = [];

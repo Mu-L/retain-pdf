@@ -29,11 +29,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
-import { useHomeServices } from "../../home-services-context.js";
 import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
 import { APP_UPDATE_IDS } from "./app-update-contract.js";
 import { useAppUpdateDialogOpen } from "./useAppUpdateDialogOpen.js";
-import { Button as ButtonBase } from "../../../../components/Button.jsx";
+import type { AppUpdateReadOnlyStore, HandlersBag } from "../domain/app-update-store.js";
+import { Button as ButtonBase } from "@/components/Button.jsx";
 
 // Button.size 在未注解源文件里被推断为必填;unstyled 路径运行时不用 size。
 const Button = ButtonBase as any;
@@ -55,9 +55,17 @@ function formatReleaseNotes(markdown = "") {
     .trim();
 }
 
-export function AppUpdateBanner() {
-  const services = useHomeServices();
-  const { view, handlersRef } = services.appUpdate;
+/**
+ * 视图依赖由调用方注入，而不是从页面的服务上下文里自取：
+ * 功能不应反向依赖某个具体页面的装配层(app/home)。
+ * 主页在 HomeApp 的挂载点把 services.appUpdate 拆开传进来。
+ */
+export type AppUpdateBannerProps = {
+  view: { store: AppUpdateReadOnlyStore };
+  handlersRef: { current: HandlersBag | null };
+};
+
+export function AppUpdateBanner({ view, handlersRef }: AppUpdateBannerProps) {
   const state = useStoreSnapshot(view.store);
   const [dialogOpen, setDialogOpen] = useAppUpdateDialogOpen();
   const { onCloseAutoFocus } = useDialogReturnFocus(dialogOpen);
