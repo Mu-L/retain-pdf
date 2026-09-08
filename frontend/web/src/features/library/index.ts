@@ -60,6 +60,11 @@ export {
   readInitialLibraryTabFromReturn,
   useHomeReturnRestore,
 } from "./ui/page/useHomeReturnRestore.js";
+// 搜索绑定 hook：app-shell 的 AppBottomBar 跨功能消费，只能走本出口，
+// 不再直连 app/home/features/shared（该共享叶子已随 B4 撤销）。
+export {
+  useLibrarySearchBinding,
+} from "./ui/page/use-library-search-binding.js";
 export {
   BookCard,
   buildDefaultBookCardActions,

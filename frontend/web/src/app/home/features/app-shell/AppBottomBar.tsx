@@ -14,7 +14,7 @@
 
 import { useHomeDialogStore, useHomeSettingsHub, useHomeWorkflowDialog } from "../../home-services-context.js";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
-import { useLibrarySearchBinding } from "@/app/home/features/shared/use-library-search-binding.js";
+import { useLibrarySearchBinding } from "@/features/library/index.js";
 import { TRANSLATION_WORKFLOW_DIALOG } from "@/features/ingest/domain.js";
 
 export function AppBottomBar({ showSearch = true, hidden = false }) {
