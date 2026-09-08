@@ -6,7 +6,7 @@ import { createRecentJobsLoader } from "./loader.js";
 import { createRecentJobsRuntimePatches } from "./runtime-patches.js";
 import { createRecentJobsNavigationPort } from "./navigation-port.js";
 import { createRecentJobsStoreRenderer } from "./store-renderer.js";
-import type { HomeStatePort } from "@/js/features/home/state.js";
+import type { HomeStatePort } from "@/platform/contracts/home-view-contract.js";
 import type {
   ActiveRefreshLoopPort,
   RecentJobActionsPort,

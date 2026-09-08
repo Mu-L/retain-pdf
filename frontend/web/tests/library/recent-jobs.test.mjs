@@ -10,7 +10,7 @@ import {
 import {
   createHomeStatePort,
   createHomeStore,
-} from "../../src/js/features/home/state.js";
+} from "../../src/app/home/state/home-store.js";
 import {
   createRecentJobsStatePort,
   createRecentJobsStore,

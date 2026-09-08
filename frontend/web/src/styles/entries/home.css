@@ -15,8 +15,10 @@
 @source "../../shared/**/*.{js,jsx,ts,tsx}";
 @source "../../components/**/*.{js,jsx,ts,tsx}";
 @source "../../lib/**/*.{js,jsx,ts,tsx}";
-/* 主页仍经 composition 消费的 js 域（勿用 ../../js/** 全量扫） */
-@source "../../js/features/**/*.{js,jsx,ts,tsx}";
+/* 主页仍经 composition 消费的 js 域（勿用 ../../js/** 全量扫）。
+   js/features 已在批次 5B 拆空删除：型别归 platform/contracts，store 归
+   app/home/state，idle 视图归 app/home/composition——三处都已在上面/下面的
+   扫描根里，没有 class 字面量遗失。 */
 @source "../../js/islands/**/*.{js,jsx,ts,tsx}";
 @source "../../platform/api/**/*.{js,ts}";
 @source "../../platform/config/**/*.{js,ts}";

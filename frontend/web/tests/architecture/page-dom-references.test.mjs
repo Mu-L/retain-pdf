@@ -35,7 +35,8 @@ const KNOWN_ORPHANS = {
   // 全部来自 @retainpdf/reader 包)，原先为它挂的孤儿豁免全部失效，清空。
   // 键跟随 PAGES[].jsDir，src/js/reader 已不存在。
   "../packages/reader/src": Object.freeze([]),
-  "src/js/features/home": Object.freeze([]),
+  // home 页的 JS 真值随 B6/B7 全部落到 src/app/home（src/js/features 已删除）。
+  "src/app/home": Object.freeze([]),
 };
 
 const PAGES = [
@@ -61,12 +62,16 @@ const PAGES = [
     extraJsxDirs: ["../packages/reader/src"],
   },
   {
-    jsDir: "src/js/features/home",
+    // 原 jsDir 是 src/js/features/home，B6/B7 把它拆空删除（型别归
+    // platform/contracts、store 归 app/home/state、idle 视图归
+    // app/home/composition）；扫描面本来就靠 extraJsDirs 的 src/app/home 撑着
+    // （state.ts / idle-reset.ts 里没有一个 home-* 字面量），现在直接以它为 jsDir。
+    // requireScanDir 对不存在的根会失败，所以这里必须跟着改，不能放着不管。
+    jsDir: "src/app/home",
     prefix: "home",
     htmlFile: "index.html",
     jsxDir: "src/app/home",
     optional: true,
-    extraJsDirs: ["src/app/home"],
   },
 ];
 

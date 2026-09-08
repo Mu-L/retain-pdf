@@ -19,11 +19,11 @@
 import { APP_EVENTS } from "./external/state.js";
 import { requestedReaderJobIdFromLocation } from "@/features/reader/domain.js";
 import { normalizeJobPayload, summarizeStatus } from "./external/job.js";
+import { readActiveJobId } from "./external/features.js";
 import {
   initializeIdleAppView,
   defaultAppShellConfigPort,
-  readActiveJobId,
-} from "./external/features.js";
+} from "./idle-view.js";
 import { parseDetailJobId } from "@/platform/navigation/pages.js";
 
 import type { HomeBridge, HomeFeatures } from "./types.js";

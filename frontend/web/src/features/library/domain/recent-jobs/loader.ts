@@ -15,7 +15,7 @@ import {
   type RecentJobsCommitViewPort,
   type RecentJobsInvocationSummary,
 } from "./commit.js";
-import type { HomeStatePort } from "@/js/features/home/state.js";
+import type { HomeStatePort } from "@/platform/contracts/home-view-contract.js";
 import type { LibraryJobItem } from "./runtime-item.js";
 import type { RecentJobsRuntimePatches } from "./runtime-patches.js";
 import type { RecentJobsStatePort } from "./state.js";
