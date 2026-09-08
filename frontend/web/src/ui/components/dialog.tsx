@@ -4,8 +4,8 @@ import * as React from "react"
 import { XIcon } from "lucide-react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { Button } from "@/ui/components/button"
+import { cn } from "@/ui/lib/utils"
 
 type DialogSize = "compact" | "standard" | "wide" | "workspace"
 type DialogLevel = "base" | "nested"

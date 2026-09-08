@@ -35,7 +35,7 @@ import {
   DialogHeader,
   DialogShell,
   DialogTitle,
-} from "@/components/ui/dialog.js";
+} from "@/ui/components/dialog.js";
 import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
 import {
   formatEventTimestamp,

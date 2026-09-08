@@ -27,7 +27,7 @@ import { useLibraryAutoLoad } from "./useLibraryAutoLoad.js";
 import { useHomeReturnRestore } from "./useHomeReturnRestore.js";
 import { deriveLibraryPageState } from "../../domain/library-page-state.js";
 import { EmptyState } from "@/shared/icons/EmptyState.jsx";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog.js";
+import { ConfirmDialog } from "@/ui/components/confirm-dialog.js";
 import {
   isRecentJobActive,
 } from "../../domain/card/recent-job-card-presenter.js";

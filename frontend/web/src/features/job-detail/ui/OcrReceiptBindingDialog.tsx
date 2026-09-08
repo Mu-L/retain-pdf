@@ -1,7 +1,7 @@
 import { Link2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { Button } from "@/components/ui/button.js";
+import { Button } from "@/ui/components/button.js";
 import {
   Dialog,
   DialogBody,
@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogShell,
   DialogTitle,
-} from "@/components/ui/dialog.js";
+} from "@/ui/components/dialog.js";
 import type { OcrAmbiguityView } from "@/platform/api/index.js";
 import type {
   OcrReceiptValues,

@@ -3,7 +3,7 @@ import {
   DialogBody,
   DialogContent,
   DialogShell,
-} from "@/components/ui/dialog.js";
+} from "@/ui/components/dialog.js";
 import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
 import { StatusDetailHeader } from "./StatusDetailHeader.jsx";
 import { StatusDetailTabs } from "./StatusDetailTabs.jsx";

@@ -1,4 +1,4 @@
-import { DialogCloseButton, DialogHeader, DialogTitle } from "@/components/ui/dialog.js";
+import { DialogCloseButton, DialogHeader, DialogTitle } from "@/ui/components/dialog.js";
 import type { StatusDetailHeadline } from "../domain/status-detail-store.js";
 import { STATUS_DETAIL_DIALOG_IDS } from "../domain/status-detail-dom-ids.js";
 

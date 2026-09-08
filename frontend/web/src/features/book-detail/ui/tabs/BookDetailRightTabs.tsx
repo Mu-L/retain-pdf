@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { Tabs as TabsPrimitive } from "radix-ui";
-import { cn } from "@/lib/utils";
+import { cn } from "@/ui/lib/utils";
 
 function IconBook(props) {
   return (

@@ -67,7 +67,7 @@ import {
   DialogHeader,
   DialogShell,
   DialogTitle,
-} from "@/components/ui/dialog.js";
+} from "@/ui/components/dialog.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useHomeServices } from "@/pages/home/home-services-context.js";
 import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";

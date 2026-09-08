@@ -307,7 +307,10 @@ test("shared dialog shell styles stay in dialog-shell css", () => {
 });
 
 test("application dialogs use the shared dialog component boundary", () => {
-  const sharedDialog = join(PROJECT_ROOT, "src/components/ui/dialog.tsx");
+  const sharedDialog = join(PROJECT_ROOT, "src/ui/components/dialog.tsx");
+  // 唯一允许直连 Radix Dialog 的文件。路径写错就等于把豁免发给了一个不存在的文件，
+  // 门禁会反过来把真正的共享组件判成违规——先断言它在，失败信息才指得准。
+  assert.ok(existsSync(sharedDialog), `共享 dialog 组件不存在，门禁已失效: ${relativeToProject(sharedDialog)}`);
   const offenders = findMatchingSources(
     walkFiles(join(PROJECT_ROOT, "src")).filter((filePath) => filePath !== sharedDialog),
     RAW_RADIX_DIALOG_IMPORT_PATTERN,
@@ -318,7 +321,7 @@ test("application dialogs use the shared dialog component boundary", () => {
 
 test("production React UI does not use browser blocking dialogs", () => {
   const offenders = findMatchingSources(
-    scanRoots([join(PROJECT_ROOT, "src/pages"), join(PROJECT_ROOT, "src/components")]),
+    scanRoots([join(PROJECT_ROOT, "src/pages"), join(PROJECT_ROOT, "src/ui")]),
     BROWSER_BLOCKING_DIALOG_PATTERN,
   );
 
@@ -930,14 +933,14 @@ test("composition/external re-exports cover all symbols imported by home feature
   );
 });
 
-test("@/lib/utils proxies to @retainpdf/ui (not duplicated cn impl)", () => {
-  const utilsPath = join(PROJECT_ROOT, "src/lib/utils.ts");
+test("@/ui/lib/utils proxies to @retainpdf/ui (not duplicated cn impl)", () => {
+  const utilsPath = join(PROJECT_ROOT, "src/ui/lib/utils.ts");
   const uiUtilsPath = join(PROJECT_ROOT, "../../frontend/packages/ui/src/lib/utils.ts");
-  assert.equal(existsSync(utilsPath), true, "src/lib/utils.ts must exist");
+  assert.equal(existsSync(utilsPath), true, "src/ui/lib/utils.ts must exist");
   assert.equal(existsSync(uiUtilsPath), true, "frontend/packages/ui/src/lib/utils.ts must exist");
   const proxySource = readFileSync(utilsPath, "utf8");
   // sole export should re-export from @retainpdf/ui, no local clsx/twMerge impl
-  assert.match(proxySource, /from\s+["']@retainpdf\/ui\/lib\/utils["']/, "src/lib/utils.ts should proxy to @retainpdf/ui/lib/utils");
+  assert.match(proxySource, /from\s+["']@retainpdf\/ui\/lib\/utils["']/, "src/ui/lib/utils.ts should proxy to @retainpdf/ui/lib/utils");
   assert.equal(proxySource.includes("clsx"), false, "proxy must not duplicate clsx impl");
   assert.equal(proxySource.includes("twMerge"), false, "proxy must not duplicate twMerge impl");
   const uiSource = readFileSync(uiUtilsPath, "utf8");

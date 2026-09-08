@@ -6,7 +6,7 @@
 // LibrarySearchDock,两者不会同时出现)。
 
 import { useEffect, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/ui/lib/utils";
 
 function IconTrash(props) {
   return (

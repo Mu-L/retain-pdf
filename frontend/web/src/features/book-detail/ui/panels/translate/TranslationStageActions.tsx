@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Languages, LoaderCircle, RefreshCw } from "lucide-react";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog.js";
+import { ConfirmDialog } from "@/ui/components/confirm-dialog.js";
 import type {
   JobRetryStage,
   JobStageRetryActionView,

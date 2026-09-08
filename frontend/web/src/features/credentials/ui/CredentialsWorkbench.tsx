@@ -8,7 +8,7 @@
 import { CREDENTIAL_DOM_IDS } from "./credentials-dom-ids.js";
 import { useCredentialsController } from "./useCredentialsController.js";
 import { OcrPanels, TranslationPanel } from "./ProviderPanels.jsx";
-import { Button as ButtonBase } from "@/components/Button.jsx";
+import { Button as ButtonBase } from "@/ui/Button.jsx";
 import { AgentRuntimeSettingsCard } from "./AgentRuntimeSettingsCard.jsx";
 import { Save, ScanText } from "lucide-react";
 

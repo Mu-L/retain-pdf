@@ -12,7 +12,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip.js";
+} from "@/ui/components/tooltip.js";
 import {
   selectArtifactQuickDownloads,
   type ArtifactCenterItem,
