@@ -1,27 +1,24 @@
 // credentials 特性 + dialog stores。
 
+import { API_PREFIX } from "@/platform/config/api-constants.js";
 import {
-  API_PREFIX,
   defaultModelApiKey,
   defaultModelBaseUrl,
   defaultPaddleToken,
+} from "@/platform/config/runtime.js";
+import {
   saveBrowserStoredConfig,
   savePersistedBrowserStoredConfig,
-  savePersistedDesktopConfig,
   savePersistedDeveloperStoredConfig,
-} from "./external/config.js";
+} from "@/platform/config/persisted-config.js";
+import { savePersistedDesktopConfig } from "@/platform/config/desktop-persistence.js";
 import {
   createCredentialRuntimeEnvPort,
   mountBrowserCredentialsFeature,
   readHiddenCredentialDomInputs,
 } from "@/features/credentials/index.js";
-import {
-  getDeveloperConfig,
-  setDeveloperConfig,
-  setDesktopConfigured,
-} from "./external/state.js";
-import {
-} from "./external/features.js";
+import { getDeveloperConfig, setDeveloperConfig } from "@/js/state/developer-state.js";
+import { setDesktopConfigured } from "@/js/state/desktop-state.js";
 import {
   createCredential,
   listCredentials,

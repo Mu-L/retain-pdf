@@ -1,6 +1,5 @@
 // types-split/common.ts — 基础只读原语，无内部依赖。
-import type { Store } from "../external.js";
-
+import type { Store } from "@/platform/store/store.js";
 /**
  * 通用 app-framework store。
  * 用 Store 默认参（未建模 snapshot/actions），避免把消费方推成 never/unknown。

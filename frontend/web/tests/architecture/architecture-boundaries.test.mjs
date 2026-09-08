@@ -583,11 +583,13 @@ test("job domains are consumed from packages instead of web mirrors", () => {
     "frontend/web/src/js/job-status must not return; use @retainpdf/domain/job-status",
   );
 
-  const compositionJobSource = readSource(join(
+  // 原先断言主页网关的 external/job.ts 转出 job-status；B8 解散网关后，
+  // 真正的消费点是装配工厂本身。
+  const runtimeFeaturesSource = readSource(join(
     PROJECT_ROOT,
-    "src/app/home/composition/external/job.ts",
+    "src/app/home/composition/create-runtime-features.ts",
   ));
-  assert.match(compositionJobSource, /@retainpdf\/domain\/job-status/);
+  assert.match(runtimeFeaturesSource, /@retainpdf\/domain\/job-status/);
 });
 
 test("ui layer does not keep stage action compatibility helper", () => {
@@ -792,6 +794,10 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
       const normalizedPath = file.replace(/\\/g, "/");
       const isAppLayer = normalizedPath.includes("/src/app/") || normalizedPath.includes("/src/app/");
       const isFeatureDomain = /\/src\/features\/[^/]+\/domain\//.test(normalizedPath);
+      // app 是装配层：它建页面级 store（home-store / text-store）、给各域接线，
+      // 用 platform 的 store 工厂与 features/*/domain 同理合法。禁止的是
+      // features/*/ui 与 src/ui 直连——那两处必须经 domain 暴露的实例。
+      const isStoreFactoryUser = isFeatureDomain || isAppLayer;
       // 临时豁免（批次 5B 的 B10 删除）：app/desktop/bootstrap.ts 是全局 state
       // 单例 js/state/store.ts 的唯一生产消费方，且只用它的 desktop/developer
       // 两片。B10 把该单例塌缩成 platform/desktop/state.ts 之后，这条连同
@@ -802,6 +808,7 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
       for (const [pattern, label, options] of FORBIDDEN_IMPORT_PATTERNS) {
         if (isAppLayer && label.startsWith("bootstrap/")) continue;
         if (isFeatureDomain && options?.domainAllowed) continue;
+        if (isStoreFactoryUser && label.startsWith("platform/store/store")) continue;
         if (isGlobalStateExemption && label.includes("全局状态")) continue;
         if (label.startsWith("dynamic import")) {
           if (file.includes("/composition/")) {

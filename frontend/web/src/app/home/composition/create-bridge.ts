@@ -3,7 +3,7 @@
 // 启动顺序中的位置：composition 内建好（state/view 就绪后、各域之前），
 // 被 lifecycle.initializeIdleView 与各域经端口消费；自身无 initialize/dispose。
 
-import { buildJobWarningViewModel } from "./external/job.js";
+import { buildJobWarningViewModel } from "@retainpdf/domain/job";
 import type { HomeBridge, HomeFeatures, StatusDetailHolder } from "./types.js";
 
 export function createBridge({

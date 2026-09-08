@@ -5,8 +5,9 @@
 // libraryController(唯一业务入口)→ collections(独立域,并行返回)。
 // 业务前置条件见 features/library/domain/controller.ts 各方法注释。
 
-import { API_PREFIX } from "./external/config.js";
-import { APP_EVENTS, createStore } from "./external/state.js";
+import { API_PREFIX } from "@/platform/config/api-constants.js";
+import { APP_EVENTS } from "@/platform/contracts/app-contract.js";
+import { createStore } from "@/platform/store/store.js";
 import { fetchDocumentList, fetchJobPayload } from "@/platform/api/index.js";
 // Pilot: library-books migrated to @retainpdf/api (direct). Keep fetchDocumentList from external barrel.
 import { isMockMode } from "@/platform/config/runtime.js";
@@ -46,9 +47,10 @@ import {
   createRecentJobsReaderPort,
   createRecentJobsNavigationPort,
   createRecentJobsLibraryRefreshPort,
-  readActiveJobId,
   createDocumentLibraryResource,
-} from "./external/features.js";
+} from "@/features/library/index.js";
+// readActiveJobId 属 jobs 而非 library，容易归错。
+import { readActiveJobId } from "@/features/jobs/index.js";
 import {
   createLibraryController,
   createRecentJobsReactViewPort,

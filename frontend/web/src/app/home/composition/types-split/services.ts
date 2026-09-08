@@ -1,7 +1,5 @@
 // types-split/services.ts — Bridge/Core/Domains/Views/Stores 装配面。
-import type {
-  HomeStatePort,
-} from "../external.js";
+import type { HomeStatePort } from "@/platform/contracts/home-view-contract.js";
 import type { UploadStatePort } from "@/features/ingest/domain.js";
 import type { CredentialsStatePort } from "@/features/credentials/index.js";
 import type { DialogStore } from "@/platform/store/dialog-store.js";

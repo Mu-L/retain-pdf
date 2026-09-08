@@ -12,7 +12,7 @@
 // `export * from "./features.js"`，而 features.js 又转出本文件的 createHomeStatePort
 // ——走全量桶会形成 features → home-store → external → features 的模块环。
 
-import { createStore } from "../composition/external/state.js";
+import { createStore } from "@/platform/store/store.js";
 import {
   HOME_LOADING_STATES,
   HOME_VIEW_MODES,

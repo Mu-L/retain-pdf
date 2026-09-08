@@ -1,7 +1,7 @@
 // job-runtime / recent-jobs / artifact-downloads —— 在 composition 阶段一次挂齐，
 // 不放进 initialize 的 if 懒挂载。
 
-import { API_PREFIX } from "./external/config.js";
+import { API_PREFIX } from "@/platform/config/api-constants.js";
 import {
   cancelJob,
   cancelOcrJob,
@@ -18,26 +18,29 @@ import {
   fetchDocumentMetadataSuggestions,
   createDocumentMetadataSuggestion,
 } from "@/platform/api/index.js";
+// adaptJobStageSnapshot 来自 job-status，其余五个来自 job —— 两个入口。
+import { adaptJobStageSnapshot } from "@retainpdf/domain/job-status";
 import {
-  adaptJobStageSnapshot,
   resolveSourcePdfDownloadName,
   resolveTranslatedPdfDownloadName,
   normalizeJobPayload,
   isTerminalStatus,
   isJobTerminal,
-} from "./external/job.js";
+} from "@retainpdf/domain/job";
 import {
   mountJobRuntimeFeature,
+  currentJobId as currentJobIdFor,
+  readActiveJobId,
+} from "@/features/jobs/index.js";
+import {
   mountRecentJobsFeature,
   createDocumentAutoNaming,
-  currentJobIdFor,
-  readActiveJobId,
-} from "./external/features.js";
+} from "@/features/library/index.js";
 import {
   createArtifactDownloadsRuntimePort,
   mountArtifactDownloadsFeature,
 } from "@/features/artifacts/index.js";
-import { isMockMode } from "./external/config.js";
+import { isMockMode } from "@/platform/config/runtime.js";
 import type {
   HomeBridge,
   HomeFeatures,

@@ -1,7 +1,7 @@
 // workflow + upload 特性。
 
+import { API_PREFIX } from "@/platform/config/api-constants.js";
 import {
-  API_PREFIX,
   apiBase,
   defaultModelApiKey,
   defaultModelBaseUrl,
@@ -9,11 +9,13 @@ import {
   defaultOcrProvider,
   defaultPaddleApiUrl,
   defaultPaddleToken,
+} from "@/platform/config/runtime.js";
+import {
   DEFAULT_FILE_LABEL,
   FRONT_MAX_BYTES,
   FRONT_MAX_PAGE_COUNT,
-  savePersistedDeveloperStoredConfig,
-} from "./external/config.js";
+} from "@/platform/config/upload-constants.js";
+import { savePersistedDeveloperStoredConfig } from "@/platform/config/persisted-config.js";
 import {
   UploadStatePort,
   collectUploadFormData,
@@ -22,14 +24,14 @@ import {
   mountUploadFeature,
   mountWorkflowFeature,
 } from "@/features/ingest/domain.js";
+// isDesktopMode 在 state/desktop-state 与 config/desktop-persistence 各有一个同名
+// 函数，签名不同（前者收 target，后者无参）。这里要的是前者。
 import {
   getDeveloperConfig,
   resetDeveloperConfig,
   setDeveloperConfig,
-  isDesktopMode,
-} from "./external/state.js";
-import {
-} from "./external/features.js";
+} from "@/js/state/developer-state.js";
+import { isDesktopMode } from "@/js/state/desktop-state.js";
 import {
   normalizeMathMode,
   normalizeWorkflow,

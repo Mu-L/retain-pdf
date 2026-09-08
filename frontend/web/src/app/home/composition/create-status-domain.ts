@@ -1,7 +1,7 @@
 // statusCard / statusDetail / artifact-download busy。
 
-import { API_PREFIX } from "./external/config.js";
-import { PROTECTED_ARTIFACT_SELECTOR } from "./external/state.js";
+import { API_PREFIX } from "@/platform/config/api-constants.js";
+import { PROTECTED_ARTIFACT_SELECTOR } from "@/platform/contracts/download-action-contract.js";
 import {
   fetchJobPayload,
   fetchJobEvents,
@@ -16,11 +16,11 @@ import {
   resolveOcrAmbiguity,
   retryJobStage,
 } from "@/platform/api/index.js";
+import { copyText } from "@/platform/utils/clipboard.js";
 import {
-  copyText,
   currentJobStoreFor,
   secondaryResourceStoreFor,
-} from "./external/features.js";
+} from "@/features/jobs/index.js";
 import { createArtifactDownloadBusyStore } from "@/features/artifacts/index.js";
 import { createStatusCardStore, createStatusCardPresenter } from "@/features/jobs/index.js";
 import { createStatusDetailStore } from "@/features/job-detail/index.js";

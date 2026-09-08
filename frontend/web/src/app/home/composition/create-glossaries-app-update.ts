@@ -1,6 +1,6 @@
 // glossaries + app-update。
 
-import { API_PREFIX } from "./external/config.js";
+import { API_PREFIX } from "@/platform/config/api-constants.js";
 import {
   createGlossariesViewFeature,
   mountGlossariesFeature,

@@ -16,10 +16,10 @@
 //   disposeWorkflowDialogEvents → disposeDocumentEvents（解绑 retryStage / returnHome）→
 //   jobRuntimeFeature.stopPolling()。事件生产者/消费者对照见 js/contracts/app-contract.ts。
 
-import { APP_EVENTS } from "./external/state.js";
+import { APP_EVENTS } from "@/platform/contracts/app-contract.js";
 import { requestedReaderJobIdFromLocation } from "@/features/reader/domain.js";
-import { normalizeJobPayload, summarizeStatus } from "./external/job.js";
-import { readActiveJobId } from "./external/features.js";
+import { normalizeJobPayload, summarizeStatus } from "@retainpdf/domain/job";
+import { readActiveJobId } from "@/features/jobs/index.js";
 import {
   initializeIdleAppView,
   defaultAppShellConfigPort,

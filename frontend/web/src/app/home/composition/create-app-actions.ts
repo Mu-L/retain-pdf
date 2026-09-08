@@ -1,17 +1,13 @@
 // app-actions（提交任务 / 桌面输出目录）。
 
-import {
-  API_PREFIX,
-  openDesktopOutputDirectory,
-} from "./external/config.js";
+import { API_PREFIX } from "@/platform/config/api-constants.js";
+import { openDesktopOutputDirectory } from "@/platform/config/desktop-persistence.js";
 import {
   createAppActionsRuntimeEnvPort,
   defaultAppActionsConfigPort,
   mountAppActionsFeature,
 } from "@/features/ingest/domain.js";
-import {
-  syncCurrentJobSnapshot,
-} from "./external/features.js";
+import { syncCurrentJobSnapshot } from "@/features/jobs/index.js";
 import {
   buildApiEndpoint,
   submitJobRequest,

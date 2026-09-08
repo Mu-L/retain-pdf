@@ -8,8 +8,7 @@
 // 特例口径(镜像 ui/text.js):"error-box" 的 value 允许是 error-diagnostic
 // 对象,展示层用 messageForErrorBox 提取摘要;这里原样存储,由组件解读。
 
-import { createStore, type Store } from "../composition/external.js";
-
+import { createStore, type Store } from "@/platform/store/store.js";
 /** error-diagnostics.buildErrorDiagnostic 的返回形状 */
 export type ErrorDiagnosticText = {
   kind: "error-diagnostic";
