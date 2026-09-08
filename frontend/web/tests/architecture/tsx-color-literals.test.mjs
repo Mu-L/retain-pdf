@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 // TSX/JSX 主题盲颜色棘轮门禁——css-color-literals 的姊妹篇,补上它的盲区:
@@ -13,7 +13,9 @@ import { join, relative } from "node:path";
 // 语义替代:bg-paper/bg-ink/bg-scrim 等(@theme 映射见 core/tailwind-theme.css)。
 
 const PROJECT_ROOT = process.cwd();
-const SCAN_ROOTS = ["src/pages", "src/components", "src/shared", "src/lib"]
+// src/features 自批次 1 起就漏在棘轮之外——330 个已迁文件从迁移当天就脱离了
+// 主题盲颜色约束。补进来（实测 0 命中，无历史债）。
+const SCAN_ROOTS = ["src/pages", "src/components", "src/shared", "src/lib", "src/features"]
   .map((p) => join(PROJECT_ROOT, p));
 // 皮肤真值(预览色块数据)所在地,豁免
 const EXEMPT = [join(PROJECT_ROOT, "src/shared/theme")];
@@ -25,12 +27,9 @@ const UTILITY_RE = /\b(?:bg|text|border|ring|from|to|via|fill|stroke|divide|outl
 const LITERAL_RE = /\brgba?\(|\bhsla?\(|#[0-9a-fA-F]{6}\b/g;
 
 function walk(dir, out = []) {
-  let entries;
-  try {
-    entries = readdirSync(dir);
-  } catch {
-    return out;
-  }
+  // 原先这里用 try/catch 吞掉缺失目录并返回 []：扫描根一被搬走，棘轮就静默变绿。
+  // 现在缺目录直接抛错，由 currentCounts 的存在性断言点名是哪个根失效。
+  const entries = readdirSync(dir);
   for (const name of entries) {
     const full = join(dir, name);
     if (EXEMPT.some((e) => full === e || full.startsWith(`${e}/`))) continue;
@@ -58,6 +57,7 @@ function countFile(file) {
 function currentCounts() {
   const counts = {};
   for (const root of SCAN_ROOTS) {
+    assert.ok(existsSync(root), `扫描根不存在，颜色棘轮已失效: ${relative(PROJECT_ROOT, root)}`);
     for (const file of walk(root).sort()) {
       const n = countFile(file);
       if (n > 0) counts[relative(PROJECT_ROOT, file)] = n;

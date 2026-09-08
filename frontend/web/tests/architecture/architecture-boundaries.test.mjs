@@ -166,6 +166,30 @@ function filesUnder(...roots) {
   return roots.flatMap((root) => walkFiles(root));
 }
 
+/**
+ * 扫描类门禁的共用取文件入口。
+ *
+ * walkFiles 对不存在的目录返回 []，于是 `assert.deepEqual(offenders, [])` 恒真——
+ * 扫描根一旦被搬走或写错，门禁就"静默变绿"，看起来还在守着，实际什么都不查。
+ * 批次 4 的 ingest 迁移已经让 upload 门禁这样死过一次。凡是"遍历目录找违规"的
+ * 门禁都必须经这里取文件：目录不存在、或过滤后一个文件都没扫到，都直接判失败，
+ * 并在消息里点名是哪个根失效了。
+ */
+function scanRoot(root, filter = isSourceFile) {
+  assert.ok(existsSync(root), `扫描根不存在，门禁已失效: ${relativeToProject(root)}`);
+  const files = walkFiles(root).filter(filter);
+  assert.ok(files.length > 0, `扫描根为空，门禁已失效: ${relativeToProject(root)}`);
+  return files;
+}
+
+/** 多扫描根版本：逐个根做存在性与非空校验，任一根失效即失败 */
+function scanRoots(roots, filter = isSourceFile) {
+  return roots.flatMap((root) => scanRoot(root, filter));
+}
+
+const IS_TS_OR_TSX = (filePath) => /\.(?:ts|tsx)$/.test(filePath);
+const IS_SCRIPT_SOURCE = (filePath) => /\.(?:ts|tsx|js|jsx)$/.test(filePath);
+
 /** 去掉 `import type` 再匹配——TS 类型导入不构成运行时对 view 层的依赖 */
 function sourceWithoutTypeImports(source) {
   return source
@@ -234,12 +258,11 @@ test("runtime frontend does not depend on WebAwesome", () => {
 });
 
 test("upload workflow presentation components stay independent from home services", () => {
-  const presentationRoot = join(
-    PROJECT_ROOT,
-    "src/pages/home/features/workflow/components/upload",
-  );
-  const offenders = walkFiles(presentationRoot)
-    .filter((file) => /\.(?:ts|tsx)$/.test(file))
+  // 原路径 src/pages/home/features/workflow/components/upload 已在批次 4 的 ingest
+  // 迁移中删除，本门禁自那天起对空数组做 deepEqual，一直是永久绿灯。upload 展示层
+  // 现在在 features/ingest/ui/components/upload。
+  const presentationRoot = join(PROJECT_ROOT, "src/features/ingest/ui/components/upload");
+  const offenders = scanRoot(presentationRoot, IS_TS_OR_TSX)
     .filter((file) => /useHomeServices|home-services-context|composition\//.test(readFileSync(file, "utf8")))
     .map((file) => relativeToProject(file));
 
@@ -249,12 +272,11 @@ test("upload workflow presentation components stay independent from home service
 test("book detail tab and artifact components stay independent from APIs and home services", () => {
   // book-detail 已随按功能重组迁至 src/features/book-detail。
   const detailRoot = join(PROJECT_ROOT, "src/features/book-detail/ui");
-  const presentationFiles = filesUnder(
+  // 逐个根校验存在性与非空，避免其中一个根被搬走后另一个把总数撑起来、本门禁半哑。
+  const presentationFiles = scanRoots([
     join(detailRoot, "tabs"),
     join(detailRoot, "artifacts"),
-  );
-  // 路径失效时 filesUnder 返回空数组，断言随之永远通过；先确认真的扫到了文件。
-  assert.ok(presentationFiles.length > 0, "未扫到 book-detail 展示组件，检查 detailRoot 是否已失效");
+  ]);
   const offenders = presentationFiles
     .filter((file) => /useHomeServices|home-services-context|composition\/|@retainpdf\/api|domain\/controller/.test(readFileSync(file, "utf8")))
     .map((file) => relativeToProject(file));
@@ -267,11 +289,7 @@ test("book detail tab and artifact components stay independent from APIs and hom
 test("agent operation presentation components stay independent from APIs and home services", () => {
   // ask 已随按功能重组迁至 src/features/ask，展示组件在 ui/operations。
   const presentationRoot = join(PROJECT_ROOT, "src/features/ask/ui/operations");
-  const presentationFiles = walkFiles(presentationRoot)
-    .filter((file) => /Agent[^/]*\.tsx$/.test(file));
-  // 路径写错或目录被搬走时 walkFiles 会返回空数组，断言随之永远通过。
-  // 先确认真的扫到了文件，避免本门禁静默退化。
-  assert.ok(presentationFiles.length > 0, "未扫到任何 Agent*.tsx，检查 presentationRoot 是否已失效");
+  const presentationFiles = scanRoot(presentationRoot, (file) => /Agent[^/]*\.tsx$/.test(file));
   const offenders = presentationFiles
     .filter((file) => /useHomeServices|home-services-context|composition\/|@retainpdf\/api/.test(readFileSync(file, "utf8")))
     .map((file) => relativeToProject(file));
@@ -300,7 +318,7 @@ test("application dialogs use the shared dialog component boundary", () => {
 
 test("production React UI does not use browser blocking dialogs", () => {
   const offenders = findMatchingSources(
-    filesUnder(join(PROJECT_ROOT, "src/pages"), join(PROJECT_ROOT, "src/components")),
+    scanRoots([join(PROJECT_ROOT, "src/pages"), join(PROJECT_ROOT, "src/components")]),
     BROWSER_BLOCKING_DIALOG_PATTERN,
   );
 
@@ -693,11 +711,18 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
   }
 
   const violations = [];
+  // 原先是 `if (!existsSync(root)) continue;`——三个根一旦都被搬走，循环整个跳过，
+  // violations 保持 []，本门禁（防回弹总闸）就静默变绿。改为逐根断言存在，并在
+  // 循环外累计实际扫过的文件数，扫到 0 个同样判失败。
+  let scannedFileCount = 0;
   for (const root of REACT_ROOTS) {
-    if (!existsSync(root)) {
-      continue;
-    }
-    for (const file of walkReactFiles(root)) {
+    assert.ok(
+      existsSync(root),
+      `扫描根不存在，防回弹门禁已失效: ${relativeToProject(root)}`,
+    );
+    const rootFiles = walkReactFiles(root);
+    scannedFileCount += rootFiles.length;
+    for (const file of rootFiles) {
       // Reader host/state 是下载运行时的显式宿主装配边界；其余 shared 仍禁止触达 bootstrap。
       if (file.endsWith("/shared/reader/host/state.ts")) continue;
       if (isExternalGate(file)) continue;
@@ -726,6 +751,10 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
       }
     }
   }
+  assert.ok(
+    scannedFileCount > 0,
+    `防回弹门禁一个文件都没扫到，门禁已失效: ${REACT_ROOTS.map(relativeToProject).join(", ")}`,
+  );
   assert.deepEqual(
     violations,
     [],
@@ -752,8 +781,7 @@ function pageHasDirectJsImport(source) {
 }
 
 test("home features must not import src/js/* directly (use composition/external)", () => {
-  const offenders = walkFiles(HOME_FEATURES_ROOT)
-    .filter((file) => /\.(?:ts|tsx|js|jsx)$/.test(file))
+  const offenders = scanRoot(HOME_FEATURES_ROOT, IS_SCRIPT_SOURCE)
     .filter((file) => pageHasDirectJsImport(readSource(file)))
     .map((file) => relative(HOME_FEATURES_ROOT, file));
 
@@ -767,8 +795,7 @@ test("home features must not import src/js/* directly (use composition/external)
 const DETAIL_PAGE_ROOT = join(PROJECT_ROOT, "src/pages/detail");
 
 test("detail page must not import src/js/* directly (use pages/detail/external)", () => {
-  const offenders = walkFiles(DETAIL_PAGE_ROOT)
-    .filter((file) => /\.(?:ts|tsx|js|jsx)$/.test(file))
+  const offenders = scanRoot(DETAIL_PAGE_ROOT, IS_SCRIPT_SOURCE)
     .filter((file) => {
       const base = relative(DETAIL_PAGE_ROOT, file).replace(/\\/g, "/");
       if (base === "external.ts") return false;
@@ -786,8 +813,7 @@ test("detail page must not import src/js/* directly (use pages/detail/external)"
 const READER_PAGE_ROOT = join(PROJECT_ROOT, "src/pages/reader");
 
 test("reader non-legacy must not import src/js/* directly (use pages/reader/external)", () => {
-  const offenders = walkFiles(READER_PAGE_ROOT)
-    .filter((file) => /\.(?:ts|tsx|js|jsx)$/.test(file))
+  const offenders = scanRoot(READER_PAGE_ROOT, IS_SCRIPT_SOURCE)
     .filter((file) => {
       const base = relative(READER_PAGE_ROOT, file).replace(/\\/g, "/");
       if (base === "external.ts") return false;
@@ -858,10 +884,10 @@ test("composition/external re-exports cover all symbols imported by home feature
 
   function collectHomeFeatureImports() {
     const imported = new Map(); // name -> first file
-    const files = walkFiles(HOME_FEATURES_ROOT).filter((f) => /\.(?:ts|tsx|js|jsx)$/.test(f));
+    // 两个导入方扫描根一旦同时失效，imported 为空，missing 恒为 []，本门禁静默变绿。
+    const files = scanRoot(HOME_FEATURES_ROOT, IS_SCRIPT_SOURCE);
     // also include src/pages/home composition consumers (e.g. create-home-composition)
-    const homeRootFiles = walkFiles(join(PROJECT_ROOT, "src/pages/home"))
-      .filter((f) => /\.(?:ts|tsx|js|jsx)$/.test(f))
+    const homeRootFiles = scanRoot(join(PROJECT_ROOT, "src/pages/home"), IS_SCRIPT_SOURCE)
       .filter((f) => !f.includes("/composition/external"));
     const all = [...files, ...homeRootFiles];
     for (const file of all) {
@@ -884,6 +910,12 @@ test("composition/external re-exports cover all symbols imported by home feature
   }
 
   const exported = collectExports();
+  // barrel 清单整体失效（路径改了、文件被删）时 exported 为空集，届时应报"符号缺失"
+  // 而不是悄悄放行；这里先点名 barrel 侧失效，错误信息才指得准。
+  assert.ok(
+    exported.size > 0,
+    `external barrel 一个导出都没收集到，门禁已失效: ${EXTERNAL_BARRELS.map(relativeToProject).join(", ")}`,
+  );
   const imported = collectHomeFeatureImports();
   const missing = [];
   for (const [name, file] of imported) {
