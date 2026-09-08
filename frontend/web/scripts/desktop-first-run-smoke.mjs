@@ -130,7 +130,7 @@ ensureElement("browser-credentials-dialog").dataset.setupMode = "1";
 ensureElement("error-box").textContent = "old error";
 
 const [{ saveDesktopConfig }, { state }] = await Promise.all([
-  import("../src/js/desktop/index.ts"),
+  import("../src/app/desktop/bootstrap.ts"),
   import("../src/js/state/store.ts"),
 ]);
 

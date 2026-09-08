@@ -6,14 +6,14 @@ import { savePersistedBrowserStoredConfig } from "@/platform/config/persisted-co
 import {
   applyDefaultCredentialInputs,
 } from "@/features/credentials/domain.js";
-import { state } from "../state/store.js";
+import { state } from "@/js/state/store.js";
 import {
   setDesktopConfigured,
   setDesktopMode,
   setDeveloperConfig,
-} from "../state/actions.js";
-import { getDeveloperConfig } from "../state/developer-state.js";
-import { isDesktopConfigured } from "../state/desktop-state.js";
+} from "@/js/state/actions.js";
+import { getDeveloperConfig } from "@/js/state/developer-state.js";
+import { isDesktopConfigured } from "@/js/state/desktop-state.js";
 import {
   APP_DIALOG_IDS,
   APP_EVENTS,

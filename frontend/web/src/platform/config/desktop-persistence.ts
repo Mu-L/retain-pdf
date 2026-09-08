@@ -1,4 +1,4 @@
-import { getDesktopHost, isDesktopHostAvailable } from "@/js/desktop/host.js";
+import { getDesktopHost, isDesktopHostAvailable } from "@/platform/desktop/host.js";
 import { runtimeConfig, setRuntimeConfig } from "./runtime.js";
 import {
   buildRuntimeConfig,

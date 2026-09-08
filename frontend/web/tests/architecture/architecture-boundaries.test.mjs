@@ -9,14 +9,14 @@ const JS_ROOT = join(PROJECT_ROOT, "src/js");
 const PLATFORM_ROOT = join(PROJECT_ROOT, "src/platform");
 const DOMAIN_JOB_SOURCE_ROOT = join(PROJECT_ROOT, "../../frontend/packages/domain/src/job");
 const FEATURE_ROOT = join(JS_ROOT, "features");
-const BOOTSTRAP_ROOT = join(JS_ROOT, "bootstrap");
+const BOOTSTRAP_ROOT = join(PROJECT_ROOT, "src/app/bootstrap");
 const SOURCE_ROOTS = {
   api: join(PLATFORM_ROOT, "api/legacy"),
   bootstrap: BOOTSTRAP_ROOT,
   components: join(JS_ROOT, "components"),
   config: join(PLATFORM_ROOT, "config"),
   contracts: join(PLATFORM_ROOT, "contracts"),
-  desktop: join(JS_ROOT, "desktop"),
+  desktop: join(PLATFORM_ROOT, "desktop"),
   features: FEATURE_ROOT,
   job: DOMAIN_JOB_SOURCE_ROOT,
   jobMirror: join(JS_ROOT, "job"),
@@ -673,18 +673,20 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
     // 只拦旧世界的 src/js/components/;新世界页面自身的 components/ 子目录
     // (src/pages/*/components/,目录约定)不在此列
     // src/js/components/ 已随 library 迁移清空并删除；保留本条防止新代码重建该目录。
-    [/from\s+["'][^"']*\/js\/components\//, "src/js/components/(自定义元素/对话框视图)"],
-    [/from\s+["'][^"']*\/generated\//, "platform/generated/(预编译产物)"],
-    [/from\s+["'][^"']*\/bootstrap\//, "src/js/bootstrap/(旧 DI 装配层)"],
-    [/from\s+["'][^"']*\/features\/[^"']*\/view\.js["']/, "features/*/view.js(旧 DOM 视图)"],
-    [/from\s+["'][^"']*\/features\/[^"']*view-port\.js["']/, "features/*view-port.js(旧 DOM 端口)"],
-    [/from\s+["'][^"']*\/features\/[^"']*dom-contract\.js["']/, "features/*dom-contract.js(旧 DOM 契约)"],
-    [/from\s+["'][^"']*\/features\/[^"']*card-markup\.js["']/, "features/*card-markup.js(字符串模板)"],
-    [/from\s+["'][^"']*\/features\/[^"']*card-template\.js["']/, "features/*card-template.js(字符串模板)"],
-    [/from\s+["'][^"']*\/js\/dom\//, "src/js/dom/(旧 DOM 工具)"],
-    [/from\s+["'][^"']*\/js\/state\/store/, "src/js/state/store.js(全局状态)"],
-    [/from\s+["'][^"']*\/js\/job\/core/, "src/js/job/core.js(任务核心)"],
-    [/from\s+["'][^"']*\/platform\/store\/store/, "src/platform/store/store.ts(状态框架)"],
+    [/(?:from\s+|import\s+)["'][^"']*\/js\/components\//, "src/js/components/(自定义元素/对话框视图)"],
+    [/(?:from\s+|import\s+)["'][^"']*\/generated\//, "platform/generated/(预编译产物)"],
+    // 装配层：app/ 做依赖接线是它的职责，features/ 与 ui/ 不得触达。
+    // 作用域在下面的循环里按扫描根收窄（src/pages 即未来的 app/）。
+    [/(?:from\s+|import\s+)["'][^"']*\/bootstrap\//, "bootstrap/(DI 装配层，仅 app 可用)"],
+    [/(?:from\s+|import\s+)["'][^"']*\/features\/[^"']*\/view\.js["']/, "features/*/view.js(旧 DOM 视图)"],
+    [/(?:from\s+|import\s+)["'][^"']*\/features\/[^"']*view-port\.js["']/, "features/*view-port.js(旧 DOM 端口)"],
+    [/(?:from\s+|import\s+)["'][^"']*\/features\/[^"']*dom-contract\.js["']/, "features/*dom-contract.js(旧 DOM 契约)"],
+    [/(?:from\s+|import\s+)["'][^"']*\/features\/[^"']*card-markup\.js["']/, "features/*card-markup.js(字符串模板)"],
+    [/(?:from\s+|import\s+)["'][^"']*\/features\/[^"']*card-template\.js["']/, "features/*card-template.js(字符串模板)"],
+    [/(?:from\s+|import\s+)["'][^"']*\/js\/dom\//, "src/js/dom/(旧 DOM 工具)"],
+    [/(?:from\s+|import\s+)["'][^"']*\/js\/state\/store/, "src/js/state/store.js(全局状态)"],
+    [/(?:from\s+|import\s+)["'][^"']*\/js\/job\/core/, "src/js/job/core.js(任务核心)"],
+    [/(?:from\s+|import\s+)["'][^"']*\/platform\/store\/store/, "src/platform/store/store.ts(状态框架)"],
     [/import\s*\(\s*["'][^"']*\/js\//, "dynamic import src/js/*(应经 composition/external)"],
   ];
 
@@ -734,7 +736,11 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
       if (file.endsWith("/shared/reader/host/state.ts")) continue;
       if (isExternalGate(file)) continue;
       const source = readFileSync(file, "utf8");
+      // src/pages 是装配层（B1 后改名为 src/app），依赖接线正是它的职责。
+      const normalizedPath = file.replace(/\\/g, "/");
+      const isAppLayer = normalizedPath.includes("/src/pages/") || normalizedPath.includes("/src/app/");
       for (const [pattern, label] of FORBIDDEN_IMPORT_PATTERNS) {
+        if (isAppLayer && label.startsWith("bootstrap/")) continue;
         if (label.startsWith("dynamic import")) {
           if (file.includes("/composition/")) {
             // composition 层含大量 TS 类型查询 `import("js/...")`，非运行时动态 import，豁免

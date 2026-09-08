@@ -10,7 +10,7 @@ import {
   isDesktopMode,
   loadPersistedConfig,
 } from "@/platform/config/desktop-persistence.js";
-import { bootstrapDesktop } from "../../js/desktop/index.js";
+import { bootstrapDesktop } from "@/app/desktop/bootstrap.js";
 
 // appUpdateAutoCheckEnabled: true——create-home-composition 默认关闭后台
 // GitHub 自检（测试隔离），生产入口这里显式打开。
