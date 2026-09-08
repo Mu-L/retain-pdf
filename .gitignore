@@ -48,6 +48,8 @@ data/
 !packages/reader/src/shared/data/
 !packages/reader/src/shared/data/**
 !frontend/web/src/shared/data/
+!frontend/packages/reader/dist/shared/data/
+!frontend/packages/reader/dist/shared/data/**
 !frontend/web/src/shared/data/**
 !frontend/packages/reader/src/shared/data/
 !frontend/packages/reader/src/shared/data/**
