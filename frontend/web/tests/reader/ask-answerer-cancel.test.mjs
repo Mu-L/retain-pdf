@@ -12,7 +12,7 @@ globalThis.document = dom.window.document;
 globalThis.localStorage = dom.window.localStorage;
 
 const { createReaderAskAnswerer, loadStoredConversationId } = await import(
-  "../../src/shared/reader/host/ai.ts"
+  "../../src/features/reader/domain.ts"
 );
 
 function makeAnswerer(fakeAsk, jobId) {

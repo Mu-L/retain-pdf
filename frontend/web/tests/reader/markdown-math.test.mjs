@@ -7,7 +7,7 @@ import {
   materializeMarkdownMathHtml,
   parseMarkdownWithMath,
   wrapMathSvgHtml,
-} from "../../src/shared/reader/host/content.js";
+} from "../../src/features/reader/domain.js";
 
 test("extractMarkdownMath protects display and inline delimiters", () => {
   const src = [

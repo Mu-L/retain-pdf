@@ -5,13 +5,13 @@
 
 import { useEffect } from "react";
 import { useAppEvent } from "@/shared/react/use-app-event.js";
+import { APP_EVENTS } from "@/js/contracts/app-contract.js";
 import {
-  APP_EVENTS,
   buildReaderDocumentPageUrl,
   buildReaderPageUrl,
   requestedReaderJobIdFromLocation,
-} from "../../composition/external.js";
-import { navigateToReader } from "./navigate-to-reader.js";
+} from "../domain/dialog/routing.js";
+import { navigateToReader } from "../domain/navigate-to-reader.js";
 import { handoffSoftReaderJob } from "@/shared/navigation/soft-reader.js";
 
 function anchorFromEventDetail(detail: any = {}) {

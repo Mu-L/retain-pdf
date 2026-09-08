@@ -17,9 +17,9 @@
 //   jobRuntimeFeature.stopPolling()。事件生产者/消费者对照见 js/contracts/app-contract.ts。
 
 import { APP_EVENTS } from "./external/state.js";
+import { requestedReaderJobIdFromLocation } from "@/features/reader/domain.js";
 import { normalizeJobPayload, summarizeStatus } from "./external/job.js";
 import {
-  requestedReaderJobIdFromLocation,
   initializeIdleAppView,
   defaultAppShellConfigPort,
   readActiveJobId,

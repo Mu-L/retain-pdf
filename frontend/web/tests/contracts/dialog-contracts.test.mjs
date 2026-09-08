@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 // 与 DOM 模板无关,继续保活。readerDialogLinkOpenState 所在的旧 DOM 契约文件
 // 在 src/ 内已零消费,连同其用例一并删除。
 
-import { createReaderDialogConfigPort } from "../../src/js/features/reader-dialog/config-port.js";
+import { createReaderDialogConfigPort } from "../../src/features/reader/domain.js";
 
 
 test("reader dialog config port owns reader URLs and message trust", () => {

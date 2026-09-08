@@ -925,8 +925,9 @@ test("@retainpdf/ui and @retainpdf/api packages expose expected entries", () => 
 });
 
 test("reader, search, and recent-job images use the canonical API package", () => {
+  // reader 宿主已随按功能重组迁至 src/features/reader/domain/host。
   const readerData = readFileSync(
-    join(PROJECT_ROOT, "src/shared/reader/host/data.ts"),
+    join(PROJECT_ROOT, "src/features/reader/domain/host/data.ts"),
     "utf8",
   );
   for (const entry of ["http", "jobs-artifacts", "jobs", "reader", "translation-debug"]) {

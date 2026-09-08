@@ -150,10 +150,11 @@ test("production consumers do not deep-link into frontend/packages/reader/src", 
 
   assert.deepEqual(offenders, []);
 
-  const hostRoot = join(WEB_ROOT, "src/shared/reader");
+  // Reader 宿主适配层已随按功能重组迁至 src/features/reader/domain/host。
+  const hostRoot = join(WEB_ROOT, "src/features/reader/domain/host");
   assert.deepEqual(
     sourceFilesUnder(hostRoot).map((file) => relative(hostRoot, file)),
-    ["host/ai.ts", "host/config.ts", "host/content.ts", "host/data.ts", "host/state.ts"],
+    ["ai.ts", "config.ts", "content.ts", "data.ts", "state.ts"],
     "frontend/web must keep exactly five Reader host adapter entries",
   );
 

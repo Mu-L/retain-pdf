@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { sanitizeAssistantAnswer } from "../../src/shared/reader/host/ai.ts";
+import { sanitizeAssistantAnswer } from "../../src/features/reader/domain.ts";
 
 test("maps bracketed block_id to [n]", () => {
   const out = sanitizeAssistantAnswer(
@@ -27,7 +27,7 @@ test("maps bare block_id", () => {
 import {
   protectNumericCitations,
   restoreNumericCitations,
-} from "../../src/shared/reader/host/ai.ts";
+} from "../../src/features/reader/domain.ts";
 
 test("protectNumericCitations survives marked-like processing", async () => {
   const { marked } = await import("../../vendor/marked/lib/marked.esm.js");

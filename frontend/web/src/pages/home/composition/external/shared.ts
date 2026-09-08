@@ -20,15 +20,15 @@ export {
   neutralizeMarkdownAnchors,
   renderCitationFooter,
   type AiCitationLike,
-} from "@/shared/reader/host/ai.js";
+} from "@/features/reader/domain.js";
 export {
   renderFinalAnswerHtml,
   renderStreamingPreviewHtml,
-} from "@/shared/reader/host/ai.js";
+} from "@/features/reader/domain.js";
 export {
   CREDENTIALS_CHANGED_EVENT,
   hasModelApiKey,
   MISSING_MODEL_API_KEY_MESSAGE,
   resolveReaderAiConfig,
-} from "@/shared/reader/host/ai.js";
-export { sanitizeAssistantAnswer } from "@/shared/reader/host/ai.js";
+} from "@/features/reader/domain.js";
+export { sanitizeAssistantAnswer } from "@/features/reader/domain.js";

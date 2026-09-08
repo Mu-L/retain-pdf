@@ -17,7 +17,7 @@ const {
   runAgentOperation,
 } = await import("@retainpdf/api/document-operations");
 const { setRuntimeConfig } = await import("../../src/js/config/runtime.js");
-const { buildScopedQuestion, createReaderAskAnswerer } = await import("../../src/shared/reader/host/ai.js");
+const { buildScopedQuestion, createReaderAskAnswerer } = await import("../../src/features/reader/domain.js");
 
 function sseStream(chunks = []) {
   const encoder = new TextEncoder();

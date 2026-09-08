@@ -6,7 +6,7 @@ import {
   saveThreadBranchSnapshot,
   threadBranchStorageKey,
   visiblePathFromSnapshot,
-} from "../../src/shared/reader/host/ai.ts";
+} from "../../src/features/reader/domain.ts";
 
 class MemoryStorage {
   constructor() {
@@ -118,7 +118,7 @@ test("load normalizes running status to cancelled", () => {
 
 // 审计 P2-10 回归锁:旧 job 级快照回退不得把 A 会话内容 hydrate 进 B 会话
 test("legacy job-key fallback only serves the job's sticky conversation", async () => {
-  const { saveStoredConversationId } = await import("../../src/shared/reader/host/ai.ts");
+  const { saveStoredConversationId } = await import("../../src/features/reader/domain.ts");
   const mem = new MemoryStorage();
   globalThis.localStorage = mem;
   const jobId = "job-stale";

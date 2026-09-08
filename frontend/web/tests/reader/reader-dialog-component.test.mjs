@@ -73,7 +73,7 @@ async function bootHomeApp(dom) {
 
 afterEach(async () => {
   const { setReaderNavigateForTests } = await import(
-    "../../src/pages/home/features/reader/navigate-to-reader.ts"
+    "../../src/features/reader/domain.ts"
   );
   setReaderNavigateForTests(null);
 });
@@ -82,7 +82,7 @@ test("openReaderRequested：跳转到 reader.html?job_id=（非 iframe）", asyn
   const dom = makeDom("?mock=parallel");
   const hits = { assign: [], replace: [] };
   const { setReaderNavigateForTests } = await import(
-    "../../src/pages/home/features/reader/navigate-to-reader.ts"
+    "../../src/features/reader/domain.ts"
   );
   setReaderNavigateForTests((url, { replace } = {}) => {
     if (replace) hits.replace.push(url);
@@ -113,7 +113,7 @@ test("openReaderRequested：馆藏 document_id 跳转读原文", async () => {
   const dom = makeDom("?mock=parallel");
   const hits = { assign: [], replace: [] };
   const { setReaderNavigateForTests } = await import(
-    "../../src/pages/home/features/reader/navigate-to-reader.ts"
+    "../../src/features/reader/domain.ts"
   );
   setReaderNavigateForTests((url, { replace } = {}) => {
     if (replace) hits.replace.push(url);
@@ -141,7 +141,7 @@ test("openReaderRequested：同时有 document/job 时以 job 路由打开对照
   const dom = makeDom("?mock=parallel");
   const hits = { assign: [], replace: [] };
   const { setReaderNavigateForTests } = await import(
-    "../../src/pages/home/features/reader/navigate-to-reader.ts"
+    "../../src/features/reader/domain.ts"
   );
   setReaderNavigateForTests((url, { replace } = {}) => {
     if (replace) hits.replace.push(url);
@@ -171,7 +171,7 @@ test("深链 ?view=reader&job_id=：replace 到 reader.html", async () => {
   const dom = makeDom("?view=reader&job_id=job-deep&mock=parallel");
   const hits = { assign: [], replace: [] };
   const { setReaderNavigateForTests } = await import(
-    "../../src/pages/home/features/reader/navigate-to-reader.ts"
+    "../../src/features/reader/domain.ts"
   );
   // 必须在 boot 前注入：深链在 ReaderDialog mount effect 里触发
   setReaderNavigateForTests((url, { replace } = {}) => {

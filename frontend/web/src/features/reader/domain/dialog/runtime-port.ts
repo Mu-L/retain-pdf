@@ -1,4 +1,4 @@
-import { API_PREFIX } from "../config/api-constants.js";
+import { API_PREFIX } from "@/js/config/api-constants.js";
 import {
   resolveManifestArtifactUrl,
   resolveResourceUrl,
@@ -12,8 +12,8 @@ import {
 import {
   currentJobId,
   currentJobSnapshot,
-} from "../features/job-runtime/current-job-state.js";
-import { cachedManifestFor } from "../features/job-runtime/secondary-resource-cache.js";
+} from "@/js/features/job-runtime/current-job-state.js";
+import { cachedManifestFor } from "@/js/features/job-runtime/secondary-resource-cache.js";
 
 export function createReaderDialogRuntimePort({
   getCurrentJobId = currentJobId,

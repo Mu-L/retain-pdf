@@ -5,7 +5,7 @@
 
 import { captureHomeReturnState } from "@/shared/navigation/home-return-state.js";
 import { trySoftOpenReader } from "@/shared/navigation/soft-reader.js";
-import { navigateTo } from "../../../navigation.js";
+import { navigateTo } from "@/pages/navigation.js";
 
 export type ReaderNavigateOptions = {
   replace?: boolean;

@@ -1,7 +1,7 @@
 /** RetainPDF host bindings for Reader URL and PDF configuration. */
 import * as readerConfig from "@retainpdf/reader/runtime/config";
-import { buildApiHeaders, isMockMode, readerMessageTargetOrigin } from "../../../js/config/runtime.js";
-import { getMockJobId } from "../../../js/mock/index.js";
+import { buildApiHeaders, isMockMode, readerMessageTargetOrigin } from "@/js/config/runtime.js";
+import { getMockJobId } from "@/js/mock/index.js";
 
 export const resolveReaderJobId = (options: any = {}) =>
   readerConfig.resolveReaderJobId({

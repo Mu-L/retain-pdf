@@ -7,7 +7,7 @@ import {
   type AiCitationLike,
 } from "../../composition/external.js";
 import { buildReaderUrl } from "../../../navigation.js";
-import { navigateToReader } from "../reader/navigate-to-reader.js";
+import { navigateToReader } from "@/features/reader/domain.js";
 import type { HomeAskCitation, HomeAskMessage } from "./types.js";
 import { AgentOperationCard } from "./operations/AgentOperationCard.js";
 import type {

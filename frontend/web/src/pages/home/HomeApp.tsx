@@ -46,8 +46,7 @@ import {
 import { useDialogState } from "./state/use-dialog-state.js";
 import { SettingsHubDialog } from "@/features/settings/index.js";
 import { StatusDetailDialog } from "./features/status-detail/StatusDetailDialog.jsx";
-import { ReaderDialog } from "./features/reader/ReaderDialog.jsx";
-import { SoftReaderHost } from "./features/reader/SoftReaderHost.jsx";
+import { ReaderDialog, SoftReaderHost } from "@/features/reader/index.js";
 import {
   CollectionManageDialog,
   CollectionsView,

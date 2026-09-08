@@ -6,7 +6,7 @@ import {
   buildAnnotationsMarkdown,
   groupAnnotationsByPage,
   sortAnnotations,
-} from "../../src/shared/reader/host/content.js";
+} from "../../src/features/reader/domain.js";
 
 // 造一条最小批注:测试里只覆写关心的字段
 function makeAnnotation(overrides = {}) {

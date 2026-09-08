@@ -79,14 +79,8 @@ export { shapeDocumentsWithBooks } from "../../../../js/features/documents-libra
 export { initializeIdleAppView } from "../../../../js/features/app-shell/idle-reset.js";
 export { defaultAppShellConfigPort } from "../../../../js/features/app-shell/config-port.js";
 
-// reader-dialog
-export { READER_DIALOG_MESSAGES } from "../../../../js/features/reader-dialog/contract.js";
-export {
-  buildReaderDocumentPageUrl,
-  buildReaderPageUrl,
-  buildReaderRouteUrl,
-  requestedReaderJobIdFromLocation,
-} from "../../../../js/features/reader-dialog/routing.js";
+// reader 已迁至 src/features/reader，调用方直接从该功能的出口导入，
+// 不再经本网关转发。
 
 // status-detail (domain helpers used by pages/home/features/status-detail)
 export { copyText } from "../../../../js/utils/clipboard.js";

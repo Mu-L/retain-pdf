@@ -49,15 +49,15 @@ before(async () => {
     resolveApiBase: () => global.window.__FRONT_RUNTIME_CONFIG__.apiBase,
   });
   async function tryImport(path) { try { return await import(path); } catch { return null; } }
-  readerDataPort = await tryImport("../../src/shared/reader/host/data.js");
+  readerDataPort = await tryImport("../../src/features/reader/domain.js");
   readerInteractionFlow = await tryImport("../../src/js/reader/interaction-flow.js") || { bindReaderInteractions: () => {}, createReaderInteractionFlow: () => ({}) };
   readerPdfDocument = readerDataPort;
-  readerPageConfig = await tryImport("../../src/shared/reader/host/config.js");
-  readerPageState = await tryImport("../../src/shared/reader/host/state.js");
+  readerPageConfig = await tryImport("../../src/features/reader/domain.js");
+  readerPageState = await tryImport("../../src/features/reader/domain.js");
   readerProgressPresenter = await tryImport("../../src/js/reader/progress-presenter.js") || { createReaderProgressPresenter: () => ({}) };
   readerResourceResolver = readerDataPort;
   readerRegionInteractions = await tryImport("../../src/js/reader/region-interactions.js") || { bindReaderRegionHover: () => {}, isReaderTranslatedRegionEvent: () => false, regionInteractions: {} };
-  readerAiMarkdown = await tryImport("../../src/shared/reader/host/ai.js");
+  readerAiMarkdown = await tryImport("../../src/features/reader/domain.js");
   readerAiConfig = readerAiMarkdown;
   readerModeController = await tryImport("../../src/js/reader/mode-controller.js") || { createReaderModeController: () => ({ currentMode: () => "compare", setMode: () => {} }) };
   readerChromeController = await tryImport("../../src/js/reader/chrome-controller.js") || { createReaderChromeController: () => ({}) };
@@ -65,7 +65,7 @@ before(async () => {
   readerFavoritesStorage = await tryImport("../../src/js/reader/favorites-storage.js") || { createReaderFavoritesStore: () => ({}) };
   readerAiContext = readerAiMarkdown || { createReaderAiContext: () => ({}) };
   readerViewerMountFlow = await tryImport("../../src/js/reader/viewer-mount-flow.js") || { mountReaderPdfPair: async () => ({ sourceReady: { key: "reader-pdf", pagesCount: 10, controller: { key: "reader-pdf" } }, translatedReady: null }) };
-  readerDialogRuntimePort = await import("../../src/js/bootstrap/reader-dialog-runtime-port.js");
+  readerDialogRuntimePort = await import("../../src/features/reader/domain.js");
   readerDownloadResolve = readerPageState;
 });
 
@@ -86,7 +86,7 @@ test("reader artifact url reuses the unified resource resolver", () => {
 
 test("reader resource resolver owns job id source and translated PDF selection", () => {
   assert.equal(
-    readerResourceResolver.resolveReaderJobId({ readerJobId: () => "job-reader" }),
+    readerResourceResolver.resolveReaderResourceJobId({ readerJobId: () => "job-reader" }),
     "job-reader",
   );
   const manifest = {
