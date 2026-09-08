@@ -12,12 +12,12 @@
 // handleProtectedArtifactClick,composition.js 已挂载 bindEvents()),点击
 // 时该处理器会先于原生 <a> 默认跳转执行 event.preventDefault()——按钮本身不
 // 需要额外接 onClick(委托点击与谁渲染了按钮无关)。这里只订阅
-// artifact-download-busy-store.js 的对应 actionId 分片,驱动"下载中...".
+// artifacts 功能 busy-store 的对应 actionId 分片,驱动"下载中...".
 // 文案与禁用态(方案二:避免父组件因轮询重渲染把命令式写入的下载进度文案
 // 覆盖回原始 label)。
 
 import { useHomeServices } from "@/app/home/home-services-context.js";
-import { useArtifactDownloadBusy } from "@/app/home/state/use-artifact-download-busy.js";
+import { useArtifactDownloadBusy } from "@/features/artifacts/index.js";
 import { STATUS_CARD_ACTION_IDS } from "./status-card-dom-ids.js";
 
 type ActionLinkProps = {

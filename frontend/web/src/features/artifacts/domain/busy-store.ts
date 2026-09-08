@@ -6,7 +6,7 @@
 // StatusDetailDialog 本身)都挂在高频轮询/store 更新链路上,若下载中途父组件
 // 因无关字段变化重渲染,虚拟 DOM diff 会把命令式写入的"下载中.../37%"文案
 // 吃掉、打回按钮原始 label。方案二:setLinkBusy 不再直改 DOM,只写这个 store;
-// 按钮组件各自订阅自己的 actionId 分片(use-artifact-download-busy.js),
+// 按钮组件各自订阅自己的 actionId 分片(ui/use-artifact-download-busy.js),
 // label 完全来自 React state,重渲染不会覆盖(因为 state 本身就是最新值)。
 //
 // 与旧世界 src/features/artifacts/（旧 download-view-port.js 已随 cutover 删除） 的关系:
@@ -21,12 +21,12 @@
 //   actions.setBusy/clearBusy 两个 reducer;不含某 actionId 表示当前非 busy;
 // - view 只在真正变化时换顶层引用,且 setBusy 对无关 actionId 是纯粹浅 spread,
 //   其他键的分片引用原样复用——getActionState 命中未变化的 actionId 时返回同一
-//   对象引用,配合 use-artifact-download-busy.js 做到按钮级精确重渲染;
+//   对象引用,配合 ui/use-artifact-download-busy.js 做到按钮级精确重渲染;
 // - 分片全是 { busy, label } 纯数据(无 File),天然不进 structuredClone 雷区;
 //   getSnapshot 返回稳定投影(区别于通用 createStore 每次克隆的语义),可直接喂
 //   useSyncExternalStore 而不会触发无限重渲染。
 
-import { createStore } from "../composition/external.js";
+import { createStore } from "@/platform/store/store.js";
 
 export type ArtifactBusySlice = {
   busy: boolean;
@@ -169,7 +169,7 @@ export function createArtifactDownloadBusyStore(): ArtifactDownloadBusyStore {
     getSnapshot: () => view,
     // 按 actionId 取一个分片;命中同一 actionId 且未变化时返回同一个对象
     // 引用(setBusy 对不相关的 actionId 是纯粹的浅 spread,不触碰其他键的
-    // 值引用)——配合 use-artifact-download-busy.js 做到按钮级精确重渲染。
+    // 值引用)——配合 ui/use-artifact-download-busy.js 做到按钮级精确重渲染。
     getActionState(actionId) {
       return view[normalizeId(actionId)] || IDLE;
     },

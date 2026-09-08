@@ -15,6 +15,9 @@ export {
   buildProgressRenderModel,
 } from "./domain/progress-model.js";
 export {
+  isPollingBootstrapPlaceholder,
+} from "./domain/polling-placeholder.js";
+export {
   readActiveJobId,
 } from "./domain/runtime/active-job-storage.js";
 export {

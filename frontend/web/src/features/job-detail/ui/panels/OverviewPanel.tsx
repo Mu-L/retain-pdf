@@ -7,7 +7,7 @@ import {
   SlidersHorizontal,
   Timer,
 } from "lucide-react";
-import { useArtifactDownloadBusy } from "@/app/home/state/use-artifact-download-busy.js";
+import { useArtifactDownloadBusy } from "@/features/artifacts/index.js";
 import { useHomeServices } from "@/app/home/home-services-context.js";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { StageHistoryList } from "../StageHistoryList.jsx";

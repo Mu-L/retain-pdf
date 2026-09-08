@@ -5,7 +5,7 @@ import {
   selectDocumentOcrStatusJob,
   selectReusableOcrJob,
 } from "@/features/library/domain.js";
-import { isPollingBootstrapPlaceholder } from "@/app/home/features/shared/job-helpers.js";
+import { isPollingBootstrapPlaceholder } from "@/features/jobs/index.js";
 
 const ACTIVE_STATUSES = new Set(["queued", "pending", "running", "validating"]);
 const TERMINAL_STATUSES = new Set(["succeeded", "failed", "cancelled", "canceled"]);
