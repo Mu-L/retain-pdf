@@ -30,8 +30,8 @@ import {
   getDeveloperConfig,
   resetDeveloperConfig,
   setDeveloperConfig,
-} from "@/js/state/developer-state.js";
-import { isDesktopMode } from "@/js/state/desktop-state.js";
+  isDesktopMode,
+} from "@/platform/desktop/state.js";
 import {
   normalizeMathMode,
   normalizeWorkflow,

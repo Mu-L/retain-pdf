@@ -22,8 +22,12 @@ import {
   loadDeveloperStoredConfig,
 } from "@/platform/config/persisted-config.js";
 import { defaultOcrProvider } from "@/platform/config/runtime.js";
-import { createDeveloperState, setDeveloperConfig } from "@/js/state/developer-state.js";
-import { createDesktopState, setDesktopMode } from "@/js/state/desktop-state.js";
+import {
+  createDeveloperState,
+  setDeveloperConfig,
+  createDesktopState,
+  setDesktopMode,
+} from "@/platform/desktop/state.js";
 import { createHomeStatePort } from "./state/home-store.js";
 import {
   validateDeepSeekToken,

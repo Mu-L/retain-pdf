@@ -50,7 +50,8 @@ function collectSourceFiles(dir) {
     if (entry.isDirectory()) {
       return collectSourceFiles(fullPath);
     }
-    return entry.isFile() && entry.name.endsWith(".js") ? [fullPath] : [];
+    // 代码库已全量 TS：原先只收 .js，扫到 0 个文件，这条门禁一直在空转。
+    return entry.isFile() && /\.(?:ts|tsx|js|jsx)$/.test(entry.name) ? [fullPath] : [];
   });
 }
 
@@ -369,20 +370,24 @@ test("OCR stage progress keeps latest substage and composite percent", () => {
 });
 
 test("production status code does not import legacy compatibility facades", () => {
-  const sourceRoot = path.resolve("src/js");
+  // 原根 src/js 已在批次 5B 整体删除，改扫新世界三层。
+  const sourceRoots = ["src/app", "src/features", "src/platform"].map((dir) => path.resolve(dir));
   const blockedImports = [
     "job-stage-contract.js",
     "job-stage-render-detection.js",
   ];
-  for (const blocked of blockedImports) {
-    assert.equal(fs.existsSync(path.join(sourceRoot, "job-status", blocked)), false);
-  }
-  const offenders = collectSourceFiles(sourceRoot)
+  assert.equal(fs.existsSync(path.resolve("src/js")), false, "src/js 不得复活");
+  const collected = sourceRoots.flatMap((root) => {
+    assert.equal(fs.existsSync(root), true, `扫描根不存在，门禁已失效: ${root}`);
+    return collectSourceFiles(root);
+  });
+  assert.ok(collected.length > 0, "扫描根为空，门禁已失效");
+  const offenders = collected
     .flatMap((file) => {
       const source = fs.readFileSync(file, "utf8");
       return blockedImports
         .filter((blocked) => source.includes(`/${blocked}`) || source.includes(`./${blocked}`) || source.includes(`../${blocked}`))
-        .map((blocked) => `${path.relative(sourceRoot, file)} -> ${blocked}`);
+        .map((blocked) => `${path.relative(process.cwd(), file)} -> ${blocked}`);
     });
 
   assert.deepEqual(offenders, []);

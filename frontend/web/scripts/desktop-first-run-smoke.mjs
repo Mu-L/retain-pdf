@@ -193,9 +193,9 @@ ensureElement("browser-credentials-dialog").open = true;
 ensureElement("browser-credentials-dialog").dataset.setupMode = "1";
 ensureElement("error-box").textContent = "old error";
 
-const [{ saveDesktopConfig }, { state }] = await Promise.all([
+const [{ saveDesktopConfig }, { desktopBootstrapState: state }] = await Promise.all([
   import("../src/app/desktop/bootstrap.ts"),
-  import("../src/js/state/store.ts"),
+  import("../src/platform/desktop/state.ts"),
 ]);
 
 let caughtMessage = "";

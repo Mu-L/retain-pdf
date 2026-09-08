@@ -17,8 +17,11 @@ import {
   mountBrowserCredentialsFeature,
   readHiddenCredentialDomInputs,
 } from "@/features/credentials/index.js";
-import { getDeveloperConfig, setDeveloperConfig } from "@/js/state/developer-state.js";
-import { setDesktopConfigured } from "@/js/state/desktop-state.js";
+import {
+  getDeveloperConfig,
+  setDeveloperConfig,
+  setDesktopConfigured,
+} from "@/platform/desktop/state.js";
 import {
   createCredential,
   listCredentials,

@@ -716,14 +716,6 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
     join(PROJECT_ROOT, "src/features"),
   ];
   // 旧视图层路径特征:命中即违规
-  // 只减不增的棘轮：新增条目必须先改这里，评审时能看见。
-  const GLOBAL_STATE_EXEMPTIONS = ["/src/app/desktop/bootstrap.ts"];
-  assert.equal(
-    GLOBAL_STATE_EXEMPTIONS.length,
-    1,
-    "全局状态豁免清单只减不增；B10 删除 js/state 单例后应清空",
-  );
-
   const FORBIDDEN_IMPORT_PATTERNS = [
     // 只拦旧世界的 src/js/components/;新世界页面自身的 components/ 子目录
     // (src/app/*/components/,目录约定)不在此列
@@ -741,7 +733,9 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
     [/(?:from\s+|import\s+)["'][^"']*\/features\/[^"']*card-markup\.js["']/, "features/*card-markup.js(字符串模板)"],
     [/(?:from\s+|import\s+)["'][^"']*\/features\/[^"']*card-template\.js["']/, "features/*card-template.js(字符串模板)"],
     [/(?:from\s+|import\s+)["'][^"']*\/js\/dom\//, "src/js/dom/(旧 DOM 工具)"],
-    [/(?:from\s+|import\s+)["'][^"']*\/js\/state\/store/, "src/js/state/store.js(全局状态)"],
+    // src/js/state 已在 B10 整体删除（6 片死代码 + 塌缩剩余两片到
+    // platform/desktop/state.ts）。保留本条防止该目录以任何形式复活。
+    [/(?:from\s+|import\s+)["'][^"']*\/js\/state\//, "src/js/state/(已删除的全局状态单例)"],
     [/(?:from\s+|import\s+)["'][^"']*\/js\/job\/core/, "src/js/job/core.js(任务核心)"],
     // domain/ 用 platform 的 store 工厂建自己的状态是目标架构（15 个功能在用）；
     // ui/ 不得直连，须经同功能 domain/ 暴露的 store 实例。
@@ -798,18 +792,10 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
       // 用 platform 的 store 工厂与 features/*/domain 同理合法。禁止的是
       // features/*/ui 与 src/ui 直连——那两处必须经 domain 暴露的实例。
       const isStoreFactoryUser = isFeatureDomain || isAppLayer;
-      // 临时豁免（批次 5B 的 B10 删除）：app/desktop/bootstrap.ts 是全局 state
-      // 单例 js/state/store.ts 的唯一生产消费方，且只用它的 desktop/developer
-      // 两片。B10 把该单例塌缩成 platform/desktop/state.ts 之后，这条连同
-      // GLOBAL_STATE_EXEMPTIONS 一并删除。清单只减不增——见下方长度断言。
-      const isGlobalStateExemption = GLOBAL_STATE_EXEMPTIONS.some(
-        (suffix) => normalizedPath.endsWith(suffix),
-      );
       for (const [pattern, label, options] of FORBIDDEN_IMPORT_PATTERNS) {
         if (isAppLayer && label.startsWith("bootstrap/")) continue;
         if (isFeatureDomain && options?.domainAllowed) continue;
         if (isStoreFactoryUser && label.startsWith("platform/store/store")) continue;
-        if (isGlobalStateExemption && label.includes("全局状态")) continue;
         if (label.startsWith("dynamic import")) {
           if (file.includes("/composition/")) {
             // composition 层含大量 TS 类型查询 `import("js/...")`，非运行时动态 import，豁免
