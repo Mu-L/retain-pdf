@@ -1,4 +1,3 @@
-import { $ } from "../dom/query.js";
 import {
   loadPersistedConfig,
   savePersistedDesktopConfig,
@@ -21,13 +20,13 @@ import {
 } from "../contracts/app-contract.js";
 
 export function showDesktopUi() {
-  $("open-output-btn").classList.remove("hidden");
+  document.getElementById("open-output-btn").classList.remove("hidden");
 }
 
 export function setDesktopBusy(message = "") {
   const targetIds = ["browser-credentials-status"];
   for (const id of targetIds) {
-    const el = $(id);
+    const el = document.getElementById(id);
     if (!el) {
       continue;
     }
@@ -48,7 +47,7 @@ export function openSetupDialog() {
 }
 
 export function closeSetupDialog() {
-  const dialog = $(APP_DIALOG_IDS.browserCredentials) as any;
+  const dialog = document.getElementById(APP_DIALOG_IDS.browserCredentials) as any;
   if (dialog?.open && dialog.dataset.setupMode === "1") {
     dialog.close();
   }
@@ -86,7 +85,7 @@ export async function saveDesktopConfig(browserConfig: any = {}, afterSave) {
   setDesktopConfigured(state, persisted.firstRunCompleted);
   if (isDesktopConfigured(state)) {
     closeSetupDialog();
-    const errorBox = $("error-box") || $("error-box-inline");
+    const errorBox = document.getElementById("error-box") || document.getElementById("error-box-inline");
     if (errorBox) {
       errorBox.textContent = "-";
       errorBox.classList?.add("hidden");

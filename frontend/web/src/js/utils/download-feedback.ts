@@ -1,4 +1,3 @@
-import { $ } from "../dom/query.js";
 import { formatTransferSize } from "./downloads.js";
 
 export interface DownloadToastState {
@@ -33,7 +32,7 @@ export interface UpdateDownloadProgressOptions {
 let hideTimer = 0;
 
 function toastElement(): DownloadToastElement | null {
-  return (document.querySelector("download-toast") || $("download-toast")) as DownloadToastElement | null;
+  return (document.querySelector("download-toast") || document.getElementById("download-toast")) as DownloadToastElement | null;
 }
 
 function clearHideTimer() {

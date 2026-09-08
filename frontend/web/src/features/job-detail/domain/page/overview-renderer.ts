@@ -1,4 +1,3 @@
-import { $ } from "@/js/dom/query.js";
 import { resolveJobActions, resolveLiveDurations } from "@retainpdf/domain/job";
 import { renderArtifactsManifest } from "./artifacts.js";
 import { applyDiagnostics, renderFailureDebugContext } from "./failure.js";
@@ -47,8 +46,8 @@ export function renderJobDetailOverview({
   renderFailureDebugContext(job);
 
   const rerunEnabled = Boolean(resumePlan?.can_resume || (actions.rerunEnabled && actions.rerun));
-  if ($("detail-rerun-btn")) {
-    ($("detail-rerun-btn") as any).disabled = !rerunEnabled;
+  if (document.getElementById("detail-rerun-btn")) {
+    (document.getElementById("detail-rerun-btn") as any).disabled = !rerunEnabled;
   }
   setText("detail-rerun-status", summarizeResumePlan(resumePlan));
   renderJobDetailPublicError({ job, setText });

@@ -1,4 +1,3 @@
-import { $ } from "@/js/dom/query.js";
 import { firstJobIdFromPayload, firstNonEmpty as firstNonEmptyText } from "@retainpdf/domain/job";
 import { buildDetailPageUrl } from "./routing.js";
 import { retryJobStage } from "@retainpdf/api/jobs-actions";
@@ -12,8 +11,8 @@ export function bindRerunButton({
   resumePort,
   setText,
 }) {
-  $("detail-rerun-btn")?.addEventListener("click", async () => {
-    const button = $("detail-rerun-btn") as any;
+  document.getElementById("detail-rerun-btn")?.addEventListener("click", async () => {
+    const button = document.getElementById("detail-rerun-btn") as any;
     const jobId = detailPageState.job?.job_id || getJobId();
     const actionUrl = `${detailPageState.rerunActionUrl || ""}`.trim();
     if (!button || (!jobId && !actionUrl)) {

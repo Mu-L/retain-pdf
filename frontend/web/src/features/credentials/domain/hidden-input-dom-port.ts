@@ -1,4 +1,3 @@
-import { $ } from "@/js/dom/query.js";
 import { DEFAULT_OCR_PROVIDER, normalizeOcrProvider } from "@/js/config/providers.js";
 import { normalizeBrowserStoredConfig } from "@/js/config/storage.js";
 import { CREDENTIAL_DOM_IDS } from "./credentials-dom-contract.js";
@@ -10,7 +9,7 @@ function hiddenInputValue(id = "") {
   if (typeof document === "undefined") {
     return "";
   }
-  return ($(id) as HTMLInputElement | null)?.value || "";
+  return (document.getElementById(id) as HTMLInputElement | null)?.value || "";
 }
 
 export function readHiddenCredentialDomInputs(): CredentialsFields {
@@ -48,8 +47,8 @@ export function mirrorCredentialsToHiddenInputs(
   const ocrProvider = normalizeOcrProvider(credentials.ocrProvider);
   const paddleToken = credentials.paddleToken || "";
 
-  const providerInput = $(HIDDEN_CREDENTIAL_IDS.ocrProvider) as HTMLInputElement | null;
-  const paddleInput = $(HIDDEN_CREDENTIAL_IDS.paddleToken) as HTMLInputElement | null;
+  const providerInput = document.getElementById(HIDDEN_CREDENTIAL_IDS.ocrProvider) as HTMLInputElement | null;
+  const paddleInput = document.getElementById(HIDDEN_CREDENTIAL_IDS.paddleToken) as HTMLInputElement | null;
   if (providerInput) {
     providerInput.value = ocrProvider;
   }
@@ -71,6 +70,6 @@ export function bindHiddenCredentialInputPersistence({
     credentialsStatePort?.setCredentials?.(readHiddenCredentialDomInputs());
     saveBrowserStoredConfig?.(readCredentials());
   };
-  $(HIDDEN_CREDENTIAL_IDS.ocrProvider)?.addEventListener("input", saveCurrentBrowserCredentials);
-  $(HIDDEN_CREDENTIAL_IDS.paddleToken)?.addEventListener("input", saveCurrentBrowserCredentials);
+  document.getElementById(HIDDEN_CREDENTIAL_IDS.ocrProvider)?.addEventListener("input", saveCurrentBrowserCredentials);
+  document.getElementById(HIDDEN_CREDENTIAL_IDS.paddleToken)?.addEventListener("input", saveCurrentBrowserCredentials);
 }

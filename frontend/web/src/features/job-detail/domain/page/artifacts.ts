@@ -1,4 +1,3 @@
-import { $ } from "@/js/dom/query.js";
 import {
   collectMarkdownImageRefs,
   resolveJobMarkdownContract,
@@ -44,8 +43,8 @@ export function revokeMarkdownImageUrls(markdownImageUrls) {
 }
 
 export function renderArtifactsManifest(manifestPayload) {
-  const summary = $("detail-artifacts-summary");
-  const container = $("detail-artifacts-list");
+  const summary = document.getElementById("detail-artifacts-summary");
+  const container = document.getElementById("detail-artifacts-list");
   if (!summary || !container) {
     return;
   }
@@ -161,12 +160,12 @@ export function renderMarkdownContract({
     setText("detail-markdown-status", "当前任务没有已发布 Markdown");
     setText("detail-markdown-image-count", "0");
     setText("detail-markdown-preview", "-");
-    const grid = $("detail-markdown-image-grid");
+    const grid = document.getElementById("detail-markdown-image-grid");
     grid?.classList.add("hidden");
     if (grid) {
       grid.innerHTML = "";
     }
-    $("detail-markdown-image-empty")?.classList.remove("hidden");
+    document.getElementById("detail-markdown-image-empty")?.classList.remove("hidden");
     return;
   }
   if (!markdownPayload) {
@@ -196,8 +195,8 @@ export async function renderMarkdownImagePreview({
   markdownImageUrls,
   fetchProtected,
 }) {
-  const grid = $("detail-markdown-image-grid");
-  const empty = $("detail-markdown-image-empty");
+  const grid = document.getElementById("detail-markdown-image-grid");
+  const empty = document.getElementById("detail-markdown-image-empty");
   if (!grid || !empty) {
     return;
   }

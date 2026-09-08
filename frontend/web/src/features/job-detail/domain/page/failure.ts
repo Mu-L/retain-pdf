@@ -1,4 +1,3 @@
-import { $ } from "@/js/dom/query.js";
 import { summarizeRuntimeField, firstDefinedValue, stringifyDebugValue } from "@retainpdf/domain/job";
 
 export { firstDefinedValue, stringifyDebugValue };
@@ -27,7 +26,7 @@ export function applyDiagnostics(diagnostics, job, setText) {
 }
 
 export function renderFailureDebugContext(job) {
-  const container = $("detail-failure-debug-context");
+  const container = document.getElementById("detail-failure-debug-context");
   if (!container) {
     return;
   }
