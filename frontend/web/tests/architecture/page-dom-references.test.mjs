@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 // detail.html / reader.html 现由 esbuild 打包的 dist/{detail,reader}.bundle.js 挂载 React
@@ -33,7 +33,8 @@ const KNOWN_ORPHANS = {
   ]),
   // 旧 reader-dialog DOM 契约文件已随 cutover 删除(reader-* 字面量真值现在
   // 全部来自 @retainpdf/reader 包)，原先为它挂的孤儿豁免全部失效，清空。
-  "src/js/reader": Object.freeze([]),
+  // 键跟随 PAGES[].jsDir，src/js/reader 已不存在。
+  "../packages/reader/src": Object.freeze([]),
   "src/js/features/home": Object.freeze([]),
 };
 
@@ -48,12 +49,15 @@ const PAGES = [
     jsxDir: "src/pages/detail",
   },
   {
-    jsDir: "src/js/reader",
+    // src/js/reader 与 src/js/features/reader-dialog 都已被删除（reader 逻辑迁至
+    // frontend/packages/reader，对话框契约迁至 features/reader/domain/dialog）。
+    // 原配置留着两个不存在的目录，collectJsFiles 的 try/catch 把它们吞掉，
+    // 实际只有 ../packages/reader/src 在起作用——扫描面比配置看起来窄。
+    jsDir: "../packages/reader/src",
     prefix: "reader",
     htmlFile: "reader.html",
     jsxDir: "src/pages/reader",
-    // src/js/reader 已空（逻辑迁至 frontend/packages/reader），回退到旧契约与新包以仍校验 reader-* 字面量归属
-    extraJsDirs: ["src/js/features/reader-dialog", "../packages/reader/src"],
+    extraJsDirs: ["src/features/reader/domain/dialog"],
     extraJsxDirs: ["../packages/reader/src"],
   },
   {
@@ -138,47 +142,47 @@ function isOwned(literal, ownership) {
 }
 
 function analyzePage({ jsDir, prefix, htmlFile, jsxDir = "", extraJsDirs = [], extraJsxDirs = [] }) {
+  // 原先 collectJsFiles / collectJsxTexts 用 try/catch 吞掉缺失目录并返回 []：
+  // 目录一被搬走，字面量集合或归属集合就悄悄缩水（home 页更是走 optional 分支
+  // 直接返回，彻底静默变绿）。改为缺目录即失败，并点名是哪个根、什么角色。
+  function requireScanDir(dir, role) {
+    const full = join(PROJECT_ROOT, dir);
+    assert.ok(existsSync(full), `扫描根不存在，门禁已失效: ${dir}（${role}）`);
+    return full;
+  }
   // TS 迁移后源文件是 .ts/.tsx；仍兼容残留 .js/.jsx
-  function collectJsFiles(dir) {
-    try {
-      return [
-        ...walkFiles(join(PROJECT_ROOT, dir), ".ts"),
-        ...walkFiles(join(PROJECT_ROOT, dir), ".js"),
-      ];
-    } catch {
-      return [];
-    }
+  function collectJsFiles(dir, role) {
+    const full = requireScanDir(dir, role);
+    return [
+      ...walkFiles(full, ".ts"),
+      ...walkFiles(full, ".js"),
+    ];
   }
-  function collectJsxTexts(dir) {
-    try {
-      return [
-        ...walkFiles(join(PROJECT_ROOT, dir), ".tsx"),
-        ...walkFiles(join(PROJECT_ROOT, dir), ".jsx"),
-        ...walkFiles(join(PROJECT_ROOT, dir), ".ts"),
-        ...walkFiles(join(PROJECT_ROOT, dir), ".js"),
-      ].map((file) => readFileSync(file, "utf8"));
-    } catch {
-      return [];
-    }
+  function collectJsxTexts(dir, role) {
+    const full = requireScanDir(dir, role);
+    return [
+      ...walkFiles(full, ".tsx"),
+      ...walkFiles(full, ".jsx"),
+      ...walkFiles(full, ".ts"),
+      ...walkFiles(full, ".js"),
+    ].map((file) => readFileSync(file, "utf8"));
   }
-  let jsFiles = collectJsFiles(jsDir);
+  let jsFiles = collectJsFiles(jsDir, "jsDir");
   for (const extra of extraJsDirs) {
-    jsFiles.push(...collectJsFiles(extra));
+    jsFiles.push(...collectJsFiles(extra, "extraJsDirs"));
   }
   jsFiles = [...new Set(jsFiles)].sort();
   const jsTexts = jsFiles.map((file) => readFileSync(file, "utf8"));
-  let jsxTexts = jsxDir ? collectJsxTexts(jsxDir) : [];
+  let jsxTexts = jsxDir ? collectJsxTexts(jsxDir, "jsxDir") : [];
   for (const extra of extraJsxDirs) {
-    jsxTexts.push(...collectJsxTexts(extra));
+    jsxTexts.push(...collectJsxTexts(extra, "extraJsxDirs"));
   }
   const htmlText = readFileSync(join(PROJECT_ROOT, htmlFile), "utf8");
   const cssText = [STYLES_ROOT, ...PACKAGE_STYLE_ROOTS]
     .flatMap((root) => {
-      try {
-        return walkFiles(root, ".css");
-      } catch {
-        return [];
-      }
+      // 样式根消失会让归属集合缩水、把正常引用误判成孤儿；报错要指向真正的原因。
+      assert.ok(existsSync(root), `样式扫描根不存在，归属校验已失效: ${relative(PROJECT_ROOT, root)}`);
+      return walkFiles(root, ".css");
     })
     .map((file) => readFileSync(file, "utf8"))
     .join("\n");
@@ -186,6 +190,18 @@ function analyzePage({ jsDir, prefix, htmlFile, jsxDir = "", extraJsDirs = [], e
   const ownership = collectOwnership(htmlText, jsTexts, cssText, jsxTexts);
   return { literals, ownership };
 }
+
+test("KNOWN_ORPHANS 的键与 PAGES 的 jsDir 对齐", () => {
+  // 键写错或页面 jsDir 改了而键没跟上时，new Set(undefined) 会得到空豁免集，
+  // 下面两条用例都照样通过——豁免清单静默失效，没人会发现。
+  const jsDirs = new Set(PAGES.map((page) => page.jsDir));
+  const orphanKeys = Object.keys(KNOWN_ORPHANS);
+  assert.deepEqual(
+    orphanKeys.filter((key) => !jsDirs.has(key)),
+    [],
+    `KNOWN_ORPHANS 里有 PAGES 中不存在的 jsDir 键，豁免清单已失效：${orphanKeys.join(", ")}`,
+  );
+});
 
 for (const page of PAGES) {
   const allowlist = new Set(KNOWN_ORPHANS[page.jsDir]);
