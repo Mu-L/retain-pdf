@@ -18,7 +18,7 @@ import {
   DialogContent,
   DialogShell,
   DialogTitle,
-} from "@/components/ui/dialog.js";
+} from "@/ui/components/dialog.js";
 
 /**
  * @param {object} props

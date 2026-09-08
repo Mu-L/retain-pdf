@@ -9,7 +9,7 @@ import {
   consumeHomeReturnState,
   peekHomeReturnState,
   type HomeReturnState,
-} from "@/shared/navigation/home-return-state.js";
+} from "@/platform/navigation/home-return-state.js";
 import { parseHomeTab, toUiTabKey } from "@/pages/navigation.js";
 
 export function readInitialLibraryTabFromReturn(): string {

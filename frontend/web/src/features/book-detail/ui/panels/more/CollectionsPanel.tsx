@@ -1,6 +1,6 @@
 // 右栏：合集成员切换。
 
-import { cn } from "@/lib/utils";
+import { cn } from "@/ui/lib/utils";
 import { Layers3 } from "lucide-react";
 
 /**

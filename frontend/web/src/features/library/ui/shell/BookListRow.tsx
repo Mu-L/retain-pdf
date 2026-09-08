@@ -2,7 +2,7 @@
 // 更新日期 + 右侧眼睛(快速阅读)。点行 → 书籍详情弹窗。数据/动作与卡片一致。
 
 import { memo } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/ui/lib/utils";
 import { cardSignatureOf } from "./BookCard.jsx";
 import { isLibraryCardProcessing, libraryCardBadge } from "../../domain/card/library-card-badge.js";
 import { BadgeIcon } from "../display/library-card-badge-icon.jsx";

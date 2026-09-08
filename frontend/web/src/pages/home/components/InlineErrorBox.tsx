@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import { copyText, messageForErrorBox } from "../composition/external.js";
-import { useStoreSnapshot } from "@/shared/react/use-store.js";
+import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { useHomeServices } from "../home-services-context.js";
 
 const selectErrorBoxValue = (snapshot) => snapshot?.texts?.["error-box"];

@@ -16,7 +16,7 @@
 import "@/js/bootstrap/job-domain-adapters.js";
 import { createRoot } from "react-dom/client";
 import type { ReactNode } from "react";
-import { bootTheme } from "@/shared/theme/theme.js";
+import { bootTheme } from "@/ui/theme/theme.js";
 
 export type ShellHostOptions = {
   // home/reader 缺根时兜底创建；detail 保持“缺根即不挂载”的旧语义，默认 false。

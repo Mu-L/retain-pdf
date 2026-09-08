@@ -7,7 +7,7 @@ import { join } from "node:path";
 // 关键约束:随包发布的 decor/*/manifest.json 必须永远通过契约校验——
 // 资产改坏 manifest 会在这里先红,而不是运行时静默不渲染。
 
-import { planStage } from "../../src/shared/decor/stage-plan.js";
+import { planStage } from "../../src/ui/decor/stage-plan.js";
 
 const PROJECT_ROOT = process.cwd();
 

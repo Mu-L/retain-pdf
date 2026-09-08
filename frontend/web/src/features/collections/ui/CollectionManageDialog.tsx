@@ -19,8 +19,8 @@ import {
   DialogHeader,
   DialogShell,
   DialogTitle,
-} from "@/components/ui/dialog.js";
-import { Button as ButtonBase } from "@/components/Button.jsx";
+} from "@/ui/components/dialog.js";
+import { Button as ButtonBase } from "@/ui/Button.jsx";
 
 // Button.size 在未注解源文件里被推断为必填;unstyled 路径运行时不用 size。
 const Button = ButtonBase as any;
@@ -30,7 +30,7 @@ import type {
   CollectionsDialogStore,
   CollectionsReloadSignal,
 } from "./CollectionsView.jsx";
-import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
+import { useDialogReturnFocus } from "@/ui/hooks/use-dialog-return-focus.js";
 
 export type CollectionManageDialogProps = {
   controller: CollectionsController;

@@ -1,6 +1,6 @@
 // 右栏：错误提示 + 删除确认。
 
-import { cn } from "@/lib/utils";
+import { cn } from "@/ui/lib/utils";
 import { Trash2 } from "lucide-react";
 
 /**

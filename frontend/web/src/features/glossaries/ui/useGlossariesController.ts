@@ -17,7 +17,7 @@
 // 旧 refreshGlossaries 事件已删（0 生产派发）：外部刷新直接调 handlers.reload()。
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import { useStoreSnapshot } from "@/shared/react/use-store.js";
+import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import type { GlossariesFeature } from "../domain/controller.js";
 import type { GlossariesViewFeature } from "../domain/glossaries-store.js";
 const EMPTY_EDITOR_SNAPSHOT = Object.freeze({

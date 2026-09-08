@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useStoreSnapshot } from "@/shared/react/use-store.js";
+import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import type { DocumentJobSummary } from "@/features/library/domain.js";
 import {
   selectDocumentOcrStatusJob,

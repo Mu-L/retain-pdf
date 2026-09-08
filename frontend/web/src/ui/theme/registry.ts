@@ -48,7 +48,7 @@ export type ThemeDefinition = {
   /**
    * 装饰包名（public 静态目录 decor/<包名>/manifest.json）。
    * 缺省 = 纯配色皮肤，零装饰零额外下载。
-   * 契约：src/shared/decor/contract.ts · docs/core/frontend/theme-system/DECOR_PACKS.md
+   * 契约：src/ui/decor/contract.ts · docs/core/frontend/theme-system/DECOR_PACKS.md
    */
   decorPack?: string;
   /** 所属系列 id（THEME_SERIES），缺省归入 "base" 基础系列 */

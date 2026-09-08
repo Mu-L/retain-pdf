@@ -27,13 +27,13 @@ import {
   DialogHeader,
   DialogShell,
   DialogTitle,
-} from "@/components/ui/dialog.js";
-import { useStoreSnapshot } from "@/shared/react/use-store.js";
-import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
+} from "@/ui/components/dialog.js";
+import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
+import { useDialogReturnFocus } from "@/ui/hooks/use-dialog-return-focus.js";
 import { APP_UPDATE_IDS } from "./app-update-contract.js";
 import { useAppUpdateDialogOpen } from "./useAppUpdateDialogOpen.js";
 import type { AppUpdateReadOnlyStore, HandlersBag } from "../domain/app-update-store.js";
-import { Button as ButtonBase } from "@/components/Button.jsx";
+import { Button as ButtonBase } from "@/ui/Button.jsx";
 
 // Button.size 在未注解源文件里被推断为必填;unstyled 路径运行时不用 size。
 const Button = ButtonBase as any;

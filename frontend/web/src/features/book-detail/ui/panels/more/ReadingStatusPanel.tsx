@@ -1,6 +1,6 @@
 // 右栏：阅读状态（未读 / 在读 / 读完）。
 
-import { cn } from "@/lib/utils";
+import { cn } from "@/ui/lib/utils";
 import { BookOpen } from "lucide-react";
 
 export const READING_STATUSES = [

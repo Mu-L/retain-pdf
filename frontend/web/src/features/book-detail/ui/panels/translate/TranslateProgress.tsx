@@ -6,7 +6,7 @@
 import { useEffect } from "react";
 import { ArrowUpRight, Radio } from "lucide-react";
 import { useHomeServices } from "@/pages/home/home-services-context.js";
-import { useStoreSnapshot } from "@/shared/react/use-store.js";
+import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { StatusCard } from "@/features/jobs/index.js";
 import type { LibraryCardItem } from "@/features/library/domain.js";
 import {

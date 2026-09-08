@@ -13,7 +13,7 @@
 // 断言分类 tab 下 #library-search-input 不存在),只留添加/设置。
 
 import { useHomeDialogStore, useHomeSettingsHub, useHomeWorkflowDialog } from "../../home-services-context.js";
-import { useStoreSnapshot } from "@/shared/react/use-store.js";
+import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { useLibrarySearchBinding } from "@/pages/home/features/shared/use-library-search-binding.js";
 import { TRANSLATION_WORKFLOW_DIALOG } from "@/features/ingest/domain.js";
 
