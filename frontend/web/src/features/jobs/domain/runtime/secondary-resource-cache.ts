@@ -1,4 +1,4 @@
-import { createStore, type Store } from "@/js/app-framework/store.js";
+import { createStore, type Store } from "@/platform/store/store.js";
 import type { ManifestPayload } from "@retainpdf/domain/job";
 
 export const SECONDARY_RESOURCE_TYPES = Object.freeze([

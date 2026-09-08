@@ -11,8 +11,8 @@
 
 import { APP_UPDATE_STATES } from "./app-update-states.js";
 import { APP_VERSION } from "./current-version.js";
-import { createStore } from "@/js/app-framework/store.js";
-import type { Store } from "@/js/app-framework/store.js";
+import { createStore } from "@/platform/store/store.js";
+import type { Store } from "@/platform/store/store.js";
 
 /** 事件处理函数表（viewPort.bindEvents 写入 handlersRef） */
 export type HandlersBag = {

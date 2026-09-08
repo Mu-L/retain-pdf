@@ -1,4 +1,4 @@
-import { createResource } from "@/js/app-framework/resource.js";
+import { createResource } from "@/platform/store/resource.js";
 import {
   collectRecentJobsPage,
   RECENT_JOBS_PAGE_SIZE,

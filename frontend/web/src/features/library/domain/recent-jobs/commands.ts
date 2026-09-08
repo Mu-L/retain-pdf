@@ -1,4 +1,4 @@
-import { createCommandBus } from "@/js/app-framework/commands.js";
+import { createCommandBus } from "@/platform/store/commands.js";
 import type { LibraryJobItem } from "./runtime-item.js";
 
 export const RECENT_JOBS_COMMANDS = Object.freeze({

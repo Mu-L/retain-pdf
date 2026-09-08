@@ -5,7 +5,7 @@ import type { DialogStore } from "@/pages/home/state/dialog-store.js";
 import type {
   Store,
   StoreChangeMeta,
-} from "@/js/app-framework/store.js";
+} from "@/platform/store/store.js";
 
 // ─── 进度 / 运行时 ───────────────────────────────────────────────
 

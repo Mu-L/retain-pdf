@@ -2,7 +2,7 @@ import {
   createStore,
   type BoundStoreActions,
   type Store,
-} from "../../app-framework/store.js";
+} from "@/platform/store/store.js";
 import {
   HOME_LOADING_STATES,
   HOME_VIEW_MODES,

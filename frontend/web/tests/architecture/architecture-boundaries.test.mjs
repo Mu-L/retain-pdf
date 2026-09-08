@@ -40,7 +40,7 @@ const ROOT_TEMPLATES_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+templates\.js["']/;
 const ROOT_DOM_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+dom\.js["']/;
 const ROOT_MAIN_IMPORT_PATTERN = /from\s+["'](?:\.\/src\/js\/main\.js|(?:\.\.\/)+main\.js)["']/;
 const JOBS_API_BARREL_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+api\/jobs\.js["']/;
-const APP_FRAMEWORK_BARREL_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+app-framework(?:\/index\.js)?["']/;
+const PLATFORM_STORE_BARREL_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+platform\/store(?:\/index\.js)?["']/;
 const FEATURE_UI_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+ui\//;
 const FEATURE_UPLOAD_CONSTANTS_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+config\/upload-constants\.js["']/;
 const WEBAWESOME_USAGE_PATTERN = /@awesome\.me\/webawesome|<wa-|wa-(?:button|dialog|progress|badge|card|progress-ring|progress-bar)\b|WebAwesome|Web Awesome/;
@@ -677,7 +677,7 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
     [/from\s+["'][^"']*\/js\/dom\//, "src/js/dom/(旧 DOM 工具)"],
     [/from\s+["'][^"']*\/js\/state\/store/, "src/js/state/store.js(全局状态)"],
     [/from\s+["'][^"']*\/js\/job\/core/, "src/js/job/core.js(任务核心)"],
-    [/from\s+["'][^"']*\/js\/app-framework\/store/, "src/js/app-framework/store.js(状态框架)"],
+    [/from\s+["'][^"']*\/platform\/store\/store/, "src/platform/store/store.ts(状态框架)"],
     [/import\s*\(\s*["'][^"']*\/js\//, "dynamic import src/js/*(应经 composition/external)"],
   ];
 

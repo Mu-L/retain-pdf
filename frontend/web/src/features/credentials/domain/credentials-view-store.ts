@@ -10,8 +10,8 @@
 // 一行不改地复用。
 
 import type { DialogStore } from "@/pages/home/state/dialog-store.js";
-import { createStore } from "@/js/app-framework/store.js";
-import type { Store } from "@/js/app-framework/store.js";
+import { createStore } from "@/platform/store/store.js";
+import type { Store } from "@/platform/store/store.js";
 import { inferTranslationProvider } from "@/js/config/providers.js";
 
 /** 事件处理函数表（viewPort.bindEvents 写入 handlersRef）。 */

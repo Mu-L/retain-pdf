@@ -1,6 +1,6 @@
 import {
   createStore,
-} from "@/js/app-framework/store.js";
+} from "@/platform/store/store.js";
 import {
   APP_EVENTS,
 } from "@/js/contracts/app-contract.js";
@@ -12,7 +12,7 @@ import {
 } from "@/features/ingest/domain.js";
 import type {
   Store,
-} from "@/js/app-framework/store.js";
+} from "@/platform/store/store.js";
 
 // 状态区(#status-section)可见性 feature。
 //

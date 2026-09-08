@@ -3,7 +3,7 @@ import {
   type BoundStoreActions,
   type Store,
   type StoreListener,
-} from "@/js/app-framework/store.js";
+} from "@/platform/store/store.js";
 
 export interface UploadState {
   uploadId: string;
