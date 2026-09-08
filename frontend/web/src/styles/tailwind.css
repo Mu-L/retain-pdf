@@ -19,17 +19,16 @@
   显式声明 content 来源(对应原 tailwind.config.js 的 content 数组),
   不依赖 v4 的自动探测——路径相对本文件(src/styles/)解析。
 */
-@source '../../index.html';
-@source '../../detail.html';
-@source '../../reader.html';
-@source '../js/**/*.js';
-@source '../js/**/*.jsx';
-@source '../pages/**/*.js';
-@source '../pages/**/*.jsx';
-@source '../shared/**/*.js';
-@source '../partials/**/*.html';
-@source '../components/**/*.jsx';
-@source '../lib/**/*.js';
+@source "../../index.html";
+@source "../../detail.html";
+@source "../../reader.html";
+/* 批次 5 之前这里有 8 条指向已删除目录（js/ pages/ shared/ components/ lib/
+ * partials/），且后缀写的是 *.js / *.jsx —— 代码库早已全量 TS，那几条即使
+ * 目录还在也扫不到东西。改为按新的四层结构列出。 */
+@source "../app/**/*.{ts,tsx}";
+@source "../features/**/*.{ts,tsx}";
+@source "../ui/**/*.{ts,tsx}";
+@source "../platform/**/*.{ts,tsx}";
 
 /*
   危险区修复(Tailwind v4 迁移):v4 的内容扫描是纯文本 token 提取,不理解 JS

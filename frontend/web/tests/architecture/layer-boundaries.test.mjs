@@ -126,3 +126,35 @@ test("功能的 domain 层不得 import React", () => {
     "domain/ 必须保持无 React：阅读器包与命令式调用方要复用同一份领域逻辑",
   );
 });
+
+test("Tailwind @source 指向的目录必须存在", () => {
+  // 批次 5 之前 30 条 @source 里有 16 条指向已删除目录（js/ pages/ shared/
+  // components/ lib/ islands/ partials/），且部分后缀还写着 *.js / *.jsx——
+  // 代码库早已全量 TS。全靠 v4 的自动来源探测兜住才没出事，所以一直没人发现。
+  // 加这条防止再腐烂。
+  const cssFiles = [];
+  (function collect(dir) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) collect(full);
+      else if (entry.name.endsWith(".css")) cssFiles.push(full);
+    }
+  })(join(PROJECT_ROOT, "src/styles"));
+  assert.ok(cssFiles.length > 0, "没扫到任何 CSS，门禁已失效");
+
+  const missing = [];
+  for (const file of cssFiles) {
+    const lines = readFileSync(file, "utf8").split("\n");
+    lines.forEach((line, index) => {
+      if (line.includes("inline(")) return;
+      const match = /@source\s+["']([^"']+)["']/.exec(line);
+      if (!match) return;
+      const root = match[1].split("/**")[0].split("/*")[0];
+      const resolved = join(dirname(file), root);
+      if (!existsSync(resolved)) {
+        missing.push(`${relative(PROJECT_ROOT, file).replace(/\\/g, "/")}:${index + 1} → ${match[1]}`);
+      }
+    });
+  }
+  assert.deepEqual(missing, [], "@source 指向了不存在的目录（Tailwind 不会报错，只会静默少扫）");
+});

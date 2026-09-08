@@ -9,23 +9,20 @@
 @import "tailwindcss";
 @import "../core/tailwind-theme.css";
 
-/* content 扫描：收窄到主页会渲染的路径，避免把 reader 域 class 扫进 home 包 */
+/* content 扫描。
+ *
+ * 注意：`@import "tailwindcss"` 没有 source(none)，v4 的自动来源探测一直在跑，
+ * 所以下面这些 @source 是**叠加**而非收窄——此前注释写「收窄到主页会渲染的
+ * 路径，避免把 reader 域 class 扫进 home 包」，与实际行为不符。
+ *
+ * 批次 5 之前这里有 8 条指向已删除目录（shared/ components/ lib/ js/islands/
+ * partials/），全靠自动探测兜住才没出事。现改为按新的四层结构列出。
+ * 真要收窄需要加 source(none)，那会改变 CSS 产物，另行处理。 */
 @source "../../../index.html";
-@source "../../app/home/**/*.{js,jsx,ts,tsx}";
-@source "../../shared/**/*.{js,jsx,ts,tsx}";
-@source "../../components/**/*.{js,jsx,ts,tsx}";
-@source "../../lib/**/*.{js,jsx,ts,tsx}";
-/* 主页仍经 composition 消费的 js 域（勿用 ../../js/** 全量扫）。
-   js/features 已在批次 5B 拆空删除：型别归 platform/contracts，store 归
-   app/home/state，idle 视图归 app/home/composition——三处都已在上面/下面的
-   扫描根里，没有 class 字面量遗失。 */
-@source "../../js/islands/**/*.{js,jsx,ts,tsx}";
-@source "../../platform/api/**/*.{js,ts}";
-@source "../../platform/config/**/*.{js,ts}";
-@source "../../platform/contracts/**/*.{js,ts}";
-@source "../../platform/store/**/*.{js,ts}";
-@source "../../platform/utils/**/*.{js,ts}";
-@source "../../partials/**/*.html";
+@source "../../app/home/**/*.{ts,tsx}";
+@source "../../features/**/*.{ts,tsx}";
+@source "../../ui/**/*.{ts,tsx}";
+@source "../../platform/**/*.{ts,tsx}";
 @source inline("app-settings-panel credential-provider-panel credential-tabs credential-top-up-link glossary-list-item progress-bar recent-job-cover status-result-actions status-substage-flow status-substage-step");
 
 @layer tokens, base, pages;

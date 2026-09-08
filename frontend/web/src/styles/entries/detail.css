@@ -8,13 +8,10 @@
 @import "../core/tailwind-theme.css";
 
 @source "../../../detail.html";
-@source "../../app/detail/**/*.{js,jsx,ts,tsx}";
-@source "../../shared/**/*.{js,jsx,ts,tsx}";
-@source "../../components/**/*.{js,jsx,ts,tsx}";
-@source "../../lib/**/*.{js,jsx,ts,tsx}";
-/* detail 仍用 job-detail / job-status 文案与下载 */
-@source "../../js/job-detail/**/*.{js,ts}";
-@source "../../platform/utils/**/*.{js,ts}";
+@source "../../app/detail/**/*.{ts,tsx}";
+@source "../../features/job-detail/**/*.{ts,tsx}";
+@source "../../ui/**/*.{ts,tsx}";
+@source "../../platform/**/*.{ts,tsx}";
 @source inline("detail-item detail-tab detail-tab-panel progress-bar mono button-link");
 
 @layer tokens, base, pages;
