@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 
-import { createStore } from "../../src/js/app-framework/store.js";
+import { createStore } from "../../src/platform/store/store.js";
 import {
   mergeRuntimeDocumentJob,
   runtimeDocumentJob,

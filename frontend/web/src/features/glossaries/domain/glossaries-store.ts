@@ -12,8 +12,8 @@
 // store 只留列表/选中/状态/导入面板开合;组件经 useGlossariesController 订阅
 // editor,行为与旧 store 版一致。
 
-import { createStore } from "@/js/app-framework/store.js";
-import type { Store } from "@/js/app-framework/store.js";
+import { createStore } from "@/platform/store/store.js";
+import type { Store } from "@/platform/store/store.js";
 
 /** 事件处理函数表（viewPort.bindEvents 写入 handlersRef） */
 export type HandlersBag = {

@@ -2,7 +2,7 @@
 // recent-jobs/library-books-resource.js 的形状,供 recent-jobs 引擎的
 // loader.js/bindings.js 当作 libraryBooksResource 注入使用。
 
-import { createResource } from "@/js/app-framework/resource.js";
+import { createResource } from "@/platform/store/resource.js";
 import { RECENT_JOBS_PAGE_SIZE } from "../recent-jobs/pagination.js";
 import { collectDocumentLibraryPage } from "./document-library-source.js";
 

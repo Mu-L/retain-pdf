@@ -24,7 +24,7 @@ import type {
 } from "./types.js";
 import {
   createStore,
-} from "@/js/app-framework/store.js";
+} from "@/platform/store/store.js";
 
 export function createLibraryViewStore(): LibraryViewStore {
   return createStore<LibraryViewState, LibraryViewActions>({

@@ -3,7 +3,7 @@ import {
   type BoundStoreActions,
   type Store,
   type StoreListener,
-} from "@/js/app-framework/store.js";
+} from "@/platform/store/store.js";
 import { DEFAULT_OCR_PROVIDER } from "@/platform/config/providers.js";
 import { normalizeBrowserStoredConfig } from "@/platform/config/storage.js";
 

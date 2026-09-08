@@ -1,4 +1,4 @@
-import { createStore, type Store } from "@/js/app-framework/store.js";
+import { createStore, type Store } from "@/platform/store/store.js";
 
 export const JOB_POLL_INTERVAL_MS = 1000;
 

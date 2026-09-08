@@ -20,5 +20,5 @@ export {
   DOWNLOAD_ACTION_IDS,
   PROTECTED_ARTIFACT_SELECTOR,
 } from "@/platform/contracts/download-action-contract.js";
-export { createStore } from "../../../../js/app-framework/store.js";
-export type { Store, StoreChangeMeta } from "../../../../js/app-framework/store.js";
+export { createStore } from "../../../../platform/store/store.js";
+export type { Store, StoreChangeMeta } from "../../../../platform/store/store.js";

@@ -1,4 +1,4 @@
-import { defineConnectedComponent } from "@/js/app-framework/connector.js";
+import { defineConnectedComponent } from "@/platform/store/connector.js";
 
 export function createRecentJobsStoreRenderer({
   recentJobsStatePort,

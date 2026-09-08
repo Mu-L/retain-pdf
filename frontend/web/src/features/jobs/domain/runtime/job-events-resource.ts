@@ -1,4 +1,4 @@
-import { createResource } from "@/js/app-framework/resource.js";
+import { createResource } from "@/platform/store/resource.js";
 
 export const JOB_EVENTS_PAGE_SIZE = 200;
 export const JOB_EVENTS_PREVIEW_PAGE_SIZE = 500;

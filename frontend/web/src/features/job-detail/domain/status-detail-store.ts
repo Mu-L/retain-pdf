@@ -1,9 +1,9 @@
 import {
   createStore,
-} from "@/js/app-framework/store.js";
+} from "@/platform/store/store.js";
 import type {
   Store,
-} from "@/js/app-framework/store.js";
+} from "@/platform/store/store.js";
 import type { OcrAmbiguityView } from "@/platform/api/index.js";
 import type {
   FailureRecoveryModel,

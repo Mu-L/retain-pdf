@@ -3,13 +3,13 @@ import assert from "node:assert/strict";
 
 import {
   createCommandBus,
-} from "../../src/js/app-framework/commands.js";
+} from "../../src/platform/store/commands.js";
 import {
   createResource,
-} from "../../src/js/app-framework/resource.js";
+} from "../../src/platform/store/resource.js";
 import {
   createStore,
-} from "../../src/js/app-framework/store.js";
+} from "../../src/platform/store/store.js";
 
 test("createStore owns immutable snapshots and action updates", () => {
   const store = createStore({
