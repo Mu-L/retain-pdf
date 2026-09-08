@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { createTranslationWorkflowDialogRuntime } from "../../src/features/ingest/domain/translation-workflow-dialog-runtime.js";
 import { createUploadStatePort } from "../../src/features/ingest/domain/upload/state.js";
-import { createInitialState } from "../../src/js/state/slices.js";
+import { createLegacyStateFixture } from "../helpers/legacy-state-fixture.mjs";
 import { resolveSubmitControlState } from "../../src/features/ingest/domain/workflow/submit-controls.js";
 import { SUBMIT_BLOCK_REASONS } from "@/platform/contracts/submit-readiness-contract.js";
 
@@ -57,7 +57,7 @@ function selectFile(uploadPort) {
 }
 
 test("upload empty form: open -> select file -> close -> reopen is empty", () => {
-  const uploadPort = createUploadStatePort(createInitialState());
+  const uploadPort = createUploadStatePort(createLegacyStateFixture());
   const { runtime, getResets } = createDialogHarness(uploadPort);
 
   // 打开是空表单
@@ -80,7 +80,7 @@ test("upload empty form: open -> select file -> close -> reopen is empty", () =>
 });
 
 test("upload empty form: reopen resets even without intermediate file selection", () => {
-  const uploadPort = createUploadStatePort(createInitialState());
+  const uploadPort = createUploadStatePort(createLegacyStateFixture());
   const { runtime, getResets } = createDialogHarness(uploadPort);
 
   runtime.openUpload();

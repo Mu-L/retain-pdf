@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createInitialState } from "../../src/js/state/slices.js";
+import { createLegacyStateFixture } from "../helpers/legacy-state-fixture.mjs";
 import * as currentJobStateModule from "../../src/features/jobs/domain/runtime/current-job-state.js";
 import { createSecondaryResourceStatePort } from "../../src/features/jobs/domain/runtime/secondary-resource-cache.js";
 import { createJobRenderContextPort } from "../../src/features/jobs/domain/runtime/render-context.js";
@@ -690,7 +690,7 @@ test("job detail page state owns initial shape and markdown image cleanup", () =
 });
 
 test("status detail runtime port narrows current job cache access", () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const port = createStatusDetailRuntimePort(state);
   const job = { job_id: "job-detail-port", status: "running" };
   const events = { items: [{ seq: 1, display_stage: "translation" }] };
@@ -724,7 +724,7 @@ test("status detail runtime port narrows current job cache access", () => {
 });
 
 test("status detail runtime port ignores stale resume plans", () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const job = { job_id: "job-current", status: "failed" };
   currentJobStateModule.syncCurrentJobSnapshot(state, job, job.job_id);
   currentJobStateModule.cacheJobResumePlan(state, "job-old", { can_resume: true });
@@ -737,7 +737,7 @@ test("status detail runtime port ignores stale resume plans", () => {
 });
 
 test("status detail runtime port reads current job store instead of legacy fields", () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const currentJobPort = currentJobStateModule.createCurrentJobStatePort(state);
   const job = { job_id: "job-store-authority", status: "failed" };
   const resumePlan = { can_resume: true };
@@ -820,7 +820,7 @@ test("status detail resume actions route UI side effects through view port", asy
 });
 
 test("status detail overview coordinator renders cached snapshot before fresh payload", async () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const runtimePort = createStatusDetailRuntimePort(state);
   const snapshots = [];
   const renders = [];
@@ -874,7 +874,7 @@ test("status detail overview coordinator renders cached snapshot before fresh pa
 });
 
 test("status detail overview coordinator reuses in-flight refresh", async () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const runtimePort = createStatusDetailRuntimePort(state);
   currentJobStateModule.syncCurrentJobSnapshot(state, {
     job_id: "job-overview-inflight",
@@ -904,7 +904,7 @@ test("status detail overview coordinator reuses in-flight refresh", async () => 
 });
 
 test("status detail overview coordinator ignores stale fresh payloads", async () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const runtimePort = createStatusDetailRuntimePort(state);
   const renders = [];
   currentJobStateModule.syncCurrentJobSnapshot(state, {
@@ -1335,7 +1335,7 @@ test("job status view model preserves status card snapshot fields", () => {
     },
   };
   const input = {
-    state: createInitialState(),
+    state: createLegacyStateFixture(),
     job,
     jobId: job.job_id,
     stagePresentation,
@@ -1384,7 +1384,7 @@ test("job status view model carries manifest actions and retry actions", () => {
     ],
   };
   const viewModel = buildJobStatusViewModel({
-    state: createInitialState(),
+    state: createLegacyStateFixture(),
     job,
     jobId: job.job_id,
     events: { items: [] },
@@ -1496,7 +1496,7 @@ test("job status view model accepts explicit finished-at fallback", () => {
     updated_at: "2026-01-01T00:02:00Z",
   };
   const viewModel = buildJobStatusViewModel({
-    state: createInitialState(),
+    state: createLegacyStateFixture(),
     job,
     jobId: job.job_id,
     events: { items: [] },
@@ -1523,7 +1523,7 @@ test("job status view model accepts explicit finished-at fallback", () => {
 });
 
 test("job status view model does not read runtime finished-at fallback implicitly", () => {
-  const localState = createInitialState();
+  const localState = createLegacyStateFixture();
   localState.currentJobFinishedAt = "2026-01-01T00:10:00Z";
   const job = {
     job_id: "job-status-explicit-duration",

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createInitialState } from "../../src/js/state/slices.js";
+import { createLegacyStateFixture } from "../helpers/legacy-state-fixture.mjs";
 import * as jobEventsResourceModule from "../../src/features/jobs/domain/runtime/job-events-resource.js";
 import * as secondaryResourceCacheModule from "../../src/features/jobs/domain/runtime/secondary-resource-cache.js";
 import * as currentJobSecondarySelectorsModule from "../../src/features/jobs/domain/runtime/current-job-secondary-selectors.js";
@@ -18,7 +18,10 @@ import {
   setAppliedPageRange,
   setUploadState,
 } from "../../src/features/ingest/domain/upload/state.js";
-import { state } from "../../src/js/state/store.js";
+// 这里原先直接用 js/state 的全局单例当夹具（secondaryResourceCache 只是往传入
+// 对象上读写，并不要求它是那个单例）。改用测试自持的同形夹具，好让生产代码
+// 删掉那 6 片死 slice。
+const state = createLegacyStateFixture();
 import {
   createJobEventsResource,
   fetchRecentJobEvents,
@@ -41,7 +44,7 @@ import { buildJobPatchWithDisplayState } from "@retainpdf/domain/job-status";
 test("returnJobRuntimeToHome clears page range through upload state port", () => {
   const previousDocument = global.document;
   const previousCustomEvent = global.CustomEvent;
-  const runtimeState = createInitialState();
+  const runtimeState = createLegacyStateFixture();
   const uploadStatePort = createUploadStatePort(runtimeState);
   uploadStatePort.setAppliedPageRange("3-9");
   const calls = [];
@@ -237,7 +240,7 @@ test("mergeJobEventsPayload keeps same-seq events from different lanes and subst
 });
 
 test("secondary resource cache isolates resources by job and type", () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const eventsPayload = { items: [{ seq: 1 }] };
   const manifestPayload = { artifacts: [{ key: "pdf" }] };
 
@@ -257,7 +260,7 @@ test("secondary resource cache isolates resources by job and type", () => {
 
 test("secondary resource state port owns cache in-flight and reset without legacy mirror", () => {
   let nowValue = 1000;
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   state.currentJobId = "job-secondary";
   const port = secondaryResourceCacheModule.createSecondaryResourceStatePort(state, {
     now: () => nowValue,
@@ -292,7 +295,7 @@ test("secondary resource state port owns cache in-flight and reset without legac
 
 test("secondary resource state port batches resource updates into one notification", () => {
   let nowValue = 2000;
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const port = secondaryResourceCacheModule.createSecondaryResourceStatePort(state, {
     now: () => nowValue,
   });
@@ -318,7 +321,7 @@ test("secondary resource state port batches resource updates into one notificati
 
 
 test("current job state owns snapshot timing and detail caches", () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const job = { job_id: "job-current", status: "running" };
   currentJobStateModule.syncCurrentJobSnapshot(state, job, "job-current", {
     startedAt: "2026-01-01T00:00:00Z",
@@ -348,7 +351,7 @@ test("current job state owns snapshot timing and detail caches", () => {
 });
 
 test("current job state port is backed by framework store without legacy mirror", () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const port = currentJobStateModule.createCurrentJobStatePort(state);
   const job = { job_id: "job-store", status: "running" };
 
@@ -374,7 +377,7 @@ test("current job state port is backed by framework store without legacy mirror"
 
 
 test("current job state port batches snapshot diagnostics and resume plan", () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const port = currentJobStateModule.createCurrentJobStatePort(state);
   const events = [];
   const job = { job_id: "job-current-batch", status: "running" };
@@ -399,7 +402,7 @@ test("current job state port batches snapshot diagnostics and resume plan", () =
 });
 
 test("current job state port exposes narrow readers", () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const port = currentJobStateModule.createCurrentJobStatePort(state);
   const job = { job_id: "job-reader-port", status: "running" };
 
@@ -416,7 +419,7 @@ test("current job state port exposes narrow readers", () => {
 });
 
 test("current job secondary selectors forward to secondary resource store", () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const job = { job_id: "job-secondary-selector", status: "running" };
   currentJobStateModule.syncCurrentJobSnapshot(state, job, job.job_id);
   const secondaryPort = secondaryResourceCacheModule.createSecondaryResourceStatePort(state, {
@@ -440,7 +443,7 @@ test("current job secondary selectors forward to secondary resource store", () =
 });
 
 test("job render context port applies primary and secondary runtime contexts", () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const port = renderContextModule.createJobRenderContextPort(state, {
     jobPresentationPort: {
       normalizeJobPayload: (payload) => ({ ...payload, normalized_by_port: true }),
@@ -530,7 +533,7 @@ test("job events resource caches by job and switches terminal jobs to full histo
 });
 
 test("secondary event refresh consumes the injected job events resource", async () => {
-  const runtimeState = createInitialState();
+  const runtimeState = createLegacyStateFixture();
   const jobId = "job-secondary-resource";
   const job = {
     job_id: jobId,
@@ -794,7 +797,7 @@ test("secondary resource scheduler ignores stale generations through polling por
 });
 
 test("runtime polling state gates concurrent polls and generations", () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const start = runtimePollingStateModule.startRuntimeJob(state, "job-poll");
   assert.equal(start.generation, 1);
   assert.equal(runtimePollingStateModule.runtimePollingStoreFor(state).getSnapshot().jobId, "job-poll");
@@ -819,7 +822,7 @@ test("runtime polling state port is backed by framework store without legacy mir
   const cleared = [];
   const intervals = [];
   let nextTimer = 100;
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const port = runtimePollingStateModule.createRuntimePollingStatePort(state, {
     clearIntervalFn: (timer) => cleared.push(timer),
     setIntervalFn: (callback, intervalMs) => {
@@ -867,7 +870,7 @@ test("job runtime controller consumes injected polling port", async () => {
       return null;
     },
   };
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const calls = [];
   const payloads = new Map([
     ["job-port", {
@@ -1062,7 +1065,7 @@ test("job runtime keeps polling when succeeded payload is still in an active sta
   ];
 
   for (const [name, payload] of cases) {
-    const state = createInitialState();
+    const state = createLegacyStateFixture();
     const calls = [];
     const schedulerCalls = [];
     const feature = mountJobRuntimeFeature({
@@ -1151,7 +1154,7 @@ test("job runtime keeps polling when succeeded payload is still in an active sta
 });
 
 test("job runtime startPolling immediately publishes placeholder to the library", async () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const libraryCreated = [];
   const libraryUpdated = [];
   const cancelDisabledStates = [];
@@ -1237,7 +1240,7 @@ test("job runtime startPolling immediately publishes placeholder to the library"
 });
 
 test("job runtime startPolling({ silent: true }) skips library create and workflow sections", async () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const libraryCreated = [];
   const libraryUpdated = [];
   const workflowCalls = [];
@@ -1331,7 +1334,7 @@ test("recovering a deleted persisted job clears it without showing a global erro
       removeItem: (key) => storage.delete(key),
     },
   };
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   let currentJobId = "";
   const calls = [];
   const missing = Object.assign(new Error("未找到该任务，请检查 job_id 是否正确。"), { status: 404 });
@@ -1407,7 +1410,7 @@ test("recovering a deleted persisted job clears it without showing a global erro
 });
 
 test("job runtime controller routes cancel button state through shell view port", async () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   state.currentJobId = "job-cancel";
   const calls = [];
   const feature = mountJobRuntimeFeature({
@@ -1471,7 +1474,7 @@ test("job runtime controller routes cancel button state through shell view port"
 });
 
 test("job runtime unlocks cancel button when cancel request fails", async () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   state.currentJobId = "job-cancel-failed";
   const calls = [];
   const feature = mountJobRuntimeFeature({
@@ -1519,7 +1522,7 @@ test("job runtime unlocks cancel button when cancel request fails", async () => 
 test("job runtime routes OCR-only cancellation to the OCR endpoint client", async () => {
   const calls = [];
   const feature = mountJobRuntimeFeature({
-    state: createInitialState(),
+    state: createLegacyStateFixture(),
     apiPrefix: "/api/v1",
     cancelJob: async (...args) => calls.push(["cancel", ...args]),
     cancelOcrJob: async (...args) => calls.push(["cancel-ocr", ...args]),
@@ -1568,7 +1571,7 @@ test("job runtime routes OCR-only cancellation to the OCR endpoint client", asyn
 });
 
 test("secondary event refresh uses patch renderer instead of full job render", async () => {
-  const runtimeState = createInitialState();
+  const runtimeState = createLegacyStateFixture();
   const jobId = "job-secondary-patch";
   const job = {
     job_id: jobId,
@@ -1623,7 +1626,7 @@ test("secondary event refresh uses patch renderer instead of full job render", a
 });
 
 test("secondary resource patches pass render context instead of raw cache inputs", async () => {
-  const runtimeState = createInitialState();
+  const runtimeState = createLegacyStateFixture();
   const jobId = "job-secondary-context";
   const job = {
     job_id: jobId,
@@ -1663,7 +1666,7 @@ test("secondary resource patches pass render context instead of raw cache inputs
 });
 
 test("stop() bumps generation so stale fetch resolutions cannot clear new polling", () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const port = runtimePollingStateModule.createRuntimePollingStatePort(state, {
     clearIntervalFn: () => {},
     setIntervalFn: () => 1,
@@ -1684,7 +1687,7 @@ test("stop() bumps generation so stale fetch resolutions cannot clear new pollin
 test("terminal fetch schedules secondary resources with post-stop generation", async () => {
   const previousDocument = global.document;
   global.document = { getElementById() { return null; } };
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const schedulerCalls = [];
   const feature = mountJobRuntimeFeature({
     state,

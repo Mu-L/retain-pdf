@@ -54,7 +54,7 @@ import {
   substagesForStage,
   visualStageKeyForSubstage,
 } from "@retainpdf/domain/job-status";
-import { createInitialState } from "../../src/js/state/slices.js";
+import { createLegacyStateFixture } from "../helpers/legacy-state-fixture.mjs";
 import { buildStatusCardSnapshot } from "@retainpdf/domain/job-status";
 import {
   buildStatusCardPatchPayload,
@@ -91,7 +91,7 @@ test("status substage badges do not infer translation substages from display tex
 });
 
 test("status card context is the single render model entry point", () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const job = {
     job_id: "job-status-context",
     status: "running",
@@ -138,7 +138,7 @@ test("status card context is the single render model entry point", () => {
 });
 
 test("render stage presentation respects trusted public stage while using runtime pin state", () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const jobId = "job-stage-pin";
   const renderPresentation = resolveRenderStagePresentation({
     state,
@@ -171,7 +171,7 @@ test("render stage presentation respects trusted public stage while using runtim
 });
 
 test("render stage presentation follows the current public stage through ui boundary", () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const jobId = "job-stage-pin-boundary";
   const renderPresentation = resolveRenderStagePresentation({
     state,
@@ -256,7 +256,7 @@ test("runtime status card snapshot source belongs to job-status boundary", () =>
       publicErrorText: "",
     },
     secondaryResources,
-    state: createInitialState(),
+    state: createLegacyStateFixture(),
     finishedAtFallback: () => {
       fallbackCalls += 1;
       return "2026-06-17T00:00:00Z";
@@ -280,7 +280,7 @@ test("runtime status card snapshot source belongs to job-status boundary", () =>
 test("runtime status card source owns runtime view model and patch payload inputs", () => {
   let fallbackCalls = 0;
   const runtime = {
-    state: createInitialState(),
+    state: createLegacyStateFixture(),
     finishedAtFallback: () => {
       fallbackCalls += 1;
       return "2026-06-17T00:00:00Z";
@@ -336,7 +336,7 @@ test("runtime status card source owns runtime view model and patch payload input
 });
 
 test("status card patch payload resolves public error and exposes selected stage presentation", () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const job = {
     job_id: "job-status-patch",
     status: "failed",
@@ -360,7 +360,7 @@ test("status card patch payload resolves public error and exposes selected stage
 });
 
 test("status card selector memoizes stable status card inputs", () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const stagePresentation = {
     label: "第 2/4 步 · 翻译",
     detail: "正在翻译正文内容",
@@ -419,7 +419,7 @@ test("status card stage presentation resolver rejects stale explicit stage", () 
   };
 
   const presentation = resolveStatusCardStagePresentation({
-    state: createInitialState(),
+    state: createLegacyStateFixture(),
     job: {
       display_stage: "translation",
     },

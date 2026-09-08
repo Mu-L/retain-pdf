@@ -103,7 +103,7 @@ import {
   createTranslationWorkflowDialogStatePort,
   homeViewModeForTranslationWorkflow,
 } from "../../src/features/ingest/domain/dialog/state.js";
-import { createInitialState } from "../../src/js/state/slices.js";
+import { createLegacyStateFixture } from "../helpers/legacy-state-fixture.mjs";
 
 test("reader URL uses a real job as the canonical comparison session", () => {
   assert.equal(
@@ -223,7 +223,7 @@ test("home state port updates state without dispatching app events", () => {
   };
 
   try {
-    const localState = createInitialState();
+    const localState = createLegacyStateFixture();
     const port = createHomeStatePort(localState);
     port.setViewMode("bad-mode");
     assert.equal(port.getSnapshot().viewMode, "library");
@@ -358,7 +358,7 @@ test("translation workflow dialog state port owns open mode and home view sync",
 });
 
 test("recent jobs state port normalizes pagination state", () => {
-  const localState = createInitialState();
+  const localState = createLegacyStateFixture();
   const port = createRecentJobsStatePort(localState);
 
   port.setOffset("12");
@@ -401,7 +401,7 @@ test("recent jobs state port normalizes pagination state", () => {
 });
 
 test("recent jobs state port exposes store subscriptions for card refresh", () => {
-  const localState = createInitialState();
+  const localState = createLegacyStateFixture();
   const port = createRecentJobsStatePort(localState);
   const notifications = [];
   const unsubscribe = port.subscribe((snapshot, meta) => {
@@ -485,7 +485,7 @@ test("recent jobs store renderer can opt into page-level store rendering", () =>
 });
 
 test("recent jobs state port is backed by the app-framework store without legacy mirror", () => {
-  const localState = createInitialState();
+  const localState = createLegacyStateFixture();
   const port = createRecentJobsStatePort(localState);
 
   assert.equal(port.store.name, "recentJobs");
@@ -508,7 +508,7 @@ test("recent jobs state port is backed by the app-framework store without legacy
 });
 
 test("recent jobs state port batches pagination updates into one notification", () => {
-  const localState = createInitialState();
+  const localState = createLegacyStateFixture();
   const port = createRecentJobsStatePort(localState);
   const events = [];
   port.store.subscribe((snapshot, meta) => {

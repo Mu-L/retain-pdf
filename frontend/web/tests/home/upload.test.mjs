@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { mountUploadFeature } from "../../src/features/ingest/domain/upload/controller.js";
 import { createUploadConfigPort } from "../../src/features/ingest/domain/upload/config-port.js";
 import { createUploadStatePort } from "../../src/features/ingest/domain/upload/state.js";
-import { createInitialState } from "../../src/js/state/slices.js";
+import { createLegacyStateFixture } from "../helpers/legacy-state-fixture.mjs";
 
 function createClassList() {
   const classes = new Set();
@@ -61,7 +61,7 @@ test("upload controller submits to config port upload url", async () => {
   const submittedUrls = [];
   const viewCalls = [];
   let pageRangeInputs = { start: "", end: "" };
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const uploadStatePort = createUploadStatePort(state);
   const feature = mountUploadFeature({
     state,
@@ -510,7 +510,7 @@ test("upload controller keeps start page from exceeding end page", () => {
 });
 
 test("upload state port preserves page range reset semantics without legacy mirror", () => {
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const port = createUploadStatePort(state);
   const notifications = [];
   port.subscribe((snapshot, meta) => {

@@ -23,7 +23,7 @@ import {
   ocrTokenFromCredentials,
 } from "../../src/features/credentials/domain/state.js";
 import { createUploadStatePort } from "../../src/features/ingest/domain/upload/state.js";
-import { createInitialState } from "../../src/js/state/slices.js";
+import { createLegacyStateFixture } from "../helpers/legacy-state-fixture.mjs";
 
 function createState() {
   return {
@@ -426,7 +426,7 @@ function createCredentialNode(overrides = {}) {
 
 test("browser credential gate reads upload readiness from upload state port", () => {
   const previousDocument = global.document;
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const uploadStatePort = createUploadStatePort(state);
   uploadStatePort.setUpload({
     uploadId: "upload-ready",
@@ -512,7 +512,7 @@ test("browser credential gate reads upload readiness from upload state port", ()
 
 test("browser credentials controller routes UI operations through view port", () => {
   const calls = [];
-  const state = createInitialState();
+  const state = createLegacyStateFixture();
   const uploadStatePort = createUploadStatePort(state);
   const credentialsStatePort = createCredentialsStatePort({
     initialState: {
