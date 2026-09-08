@@ -1,5 +1,5 @@
 // types-split/library.ts — 文库域。
-import type { DialogStore } from "../../state/dialog-store.js";
+import type { DialogStore } from "@/platform/store/dialog-store.js";
 import type {
   DeleteCardTarget,
   DeleteDocumentsResult,

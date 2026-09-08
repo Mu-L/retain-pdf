@@ -2,7 +2,7 @@
 // 业务状态见 use-book-detail-*.js；UI 见 shell / tabs / panels。
 
 import { useHomeServices } from "@/app/home/home-services-context.js";
-import { useDialogState } from "@/app/home/state/use-dialog-state.js";
+import { useDialogState } from "@/ui/hooks/use-dialog-state.js";
 import { useDialogReturnFocus } from "@/ui/hooks/use-dialog-return-focus.js";
 import { useRecentJobCover } from "@/features/library/index.js";
 import { BookDetailShell } from "./shell/BookDetailShell.jsx";

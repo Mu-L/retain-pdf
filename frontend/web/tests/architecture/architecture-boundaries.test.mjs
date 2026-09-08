@@ -651,6 +651,70 @@ test("upload controller reads upload state only through upload state port", () =
 // 三页(home/detail/reader)入口全部经 esbuild 打包,import 断链在 build:js
 // 构建期即失败,不再需要独立的原生 ESM 解析守卫。
 
+// features 只允许经这一条路径引用 app 层：主页装配出来的 DI 容器。
+//
+// 为什么不能靠搬文件消除：useHomeServices() 要的是 HomeApp 装配出来的**实例**，
+// 而它的类型 HomeServices（composition/types.ts + types-split/ 共 692 行）引用了
+// 每一个功能的类型。把 context 下沉到 platform 会造成 platform → features，
+// 比现状更糟。正确终局是按域拆窄 Context（代码里已有 useHomeDialogStore /
+// useHomeStatusAreaStore / useHomeWorkflowDialog / useHomeSettingsHub 四个先例），
+// 但那是行为影响性重构，违反「移动与行为修改分开」，留作批次 6。
+//
+// 在此之前用**只减不增的清单**把这条遗留倒置显性化：新增消费方必须先改这里，
+// 评审时能看见。
+const HOME_SERVICES_CONTEXT_CONSUMERS = Object.freeze([
+  "src/features/ask/ui/HomeAskView.tsx",
+  "src/features/book-detail/ui/BookDetailDialog.tsx",
+  "src/features/book-detail/ui/panels/translate/TranslateProgress.tsx",
+  "src/features/ingest/ui/InlineErrorBox.tsx",
+  "src/features/ingest/ui/TranslationWorkflowDialog.tsx",
+  "src/features/ingest/ui/WorkflowPanel.tsx",
+  "src/features/ingest/ui/components/PageRangeDialog.tsx",
+  "src/features/ingest/ui/components/UploadTile.tsx",
+  "src/features/job-detail/ui/panels/FailurePanel.tsx",
+  "src/features/job-detail/ui/panels/OverviewPanel.tsx",
+  "src/features/job-detail/ui/useStatusDetailOverview.ts",
+  "src/features/jobs/ui/ResultActions.tsx",
+  "src/features/jobs/ui/use-status-card-model.ts",
+  "src/features/library/ui/page/RecentJobsLibrary.tsx",
+  "src/features/library/ui/page/use-library-search-binding.ts",
+]);
+
+test("features 引用 app 层仅限主页 DI 容器，且消费方清单只减不增", () => {
+  const featureFiles = scanRoot(join(PROJECT_ROOT, "src/features"));
+  const appImports = [];
+  const contextConsumers = [];
+  for (const file of featureFiles) {
+    const source = readFileSync(file, "utf8");
+    const rel = relativeToProject(file).replace(/\\/g, "/");
+    for (const match of source.matchAll(/(?:from\s+|import\s*\(\s*|import\s+)["'](@\/app\/[^"']+)["']/g)) {
+      const target = match[1];
+      if (target === "@/app/home/home-services-context.js") {
+        contextConsumers.push(rel);
+      } else {
+        appImports.push(`${rel} → ${target}`);
+      }
+    }
+  }
+  assert.deepEqual(
+    appImports,
+    [],
+    "features 不得引用 app 层（唯一例外是 @/app/home/home-services-context.js）",
+  );
+  const unlisted = [...new Set(contextConsumers)]
+    .filter((file) => !HOME_SERVICES_CONTEXT_CONSUMERS.includes(file))
+    .sort();
+  assert.deepEqual(
+    unlisted,
+    [],
+    "新增了 useHomeServices 消费方，请先登记进 HOME_SERVICES_CONTEXT_CONSUMERS（该清单只减不增，批次 6 用窄 Context 消除）",
+  );
+  const stale = HOME_SERVICES_CONTEXT_CONSUMERS
+    .filter((file) => !contextConsumers.includes(file))
+    .sort();
+  assert.deepEqual(stale, [], "清单里有已不再消费该 context 的条目，请删除（只减不增）");
+});
+
 test("React 新世界禁止 import 旧视图层(防回弹)", () => {
   const REACT_ROOTS = [
     join(PROJECT_ROOT, "src/app"),

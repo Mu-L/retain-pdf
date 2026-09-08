@@ -1,7 +1,7 @@
 // library 域共享类型：网格卡片 item、controller 契约、viewPort / viewStore。
 // 字段从 shapeDocumentCardItem / mergeLibraryJobItem / cardSignatureOf 反推。
 
-import type { DialogStore } from "@/app/home/state/dialog-store.js";
+import type { DialogStore } from "@/platform/store/dialog-store.js";
 import type {
   Store,
   StoreChangeMeta,

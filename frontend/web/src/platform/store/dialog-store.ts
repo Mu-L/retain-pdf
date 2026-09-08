@@ -11,7 +11,7 @@
 // 对话框不是"多选一互斥",而是"单个开合 + 可选负载"(setupMode、初始 tab 等),
 // 所以状态形状是 { open, payload } 而不是 drawer 的单一 active 字符串。
 
-import { createStore } from "../composition/external.js";
+import { createStore } from "./store.js";
 
 export type DialogState<T = unknown> = {
   open: boolean;

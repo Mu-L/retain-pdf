@@ -1,5 +1,5 @@
 // types-split/status.ts — 状态/任务运行时域（只读 store 可抽）。
-import type { DialogStore } from "../../state/dialog-store.js";
+import type { DialogStore } from "@/platform/store/dialog-store.js";
 import type { ArtifactDownloadBusyStore } from "@/features/artifacts/index.js";
 import type { LibraryJobItem } from "@/features/library/index.js";
 import type { ReadOnlyStore } from "./common.js";

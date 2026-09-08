@@ -37,7 +37,7 @@ import type {
   HomeFeatures,
   UploadStatePort,
 } from "./types.js";
-import { createDialogStore, type DialogStore } from "../state/dialog-store.js";
+import { createDialogStore, type DialogStore } from "@/platform/store/dialog-store.js";
 
 type CreateCredentialsArgs = {
   features: HomeFeatures;

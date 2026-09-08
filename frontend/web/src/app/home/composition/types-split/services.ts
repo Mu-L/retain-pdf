@@ -4,7 +4,7 @@ import type {
 } from "../external.js";
 import type { UploadStatePort } from "@/features/ingest/domain.js";
 import type { CredentialsStatePort } from "@/features/credentials/index.js";
-import type { DialogStore } from "../../state/dialog-store.js";
+import type { DialogStore } from "@/platform/store/dialog-store.js";
 import type { ArtifactDownloadBusyStore } from "@/features/artifacts/index.js";
 import type {
   BrowserCredentialsFeature,

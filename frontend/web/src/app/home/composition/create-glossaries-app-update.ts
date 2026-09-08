@@ -19,8 +19,8 @@ import type {
   GlossariesViewBag,
   HomeFeatures,
 } from "./types.js";
-import type { DialogStore } from "../state/dialog-store.js";
-import { createDialogStore } from "../state/dialog-store.js";
+import type { DialogStore } from "@/platform/store/dialog-store.js";
+import { createDialogStore } from "@/platform/store/dialog-store.js";
 
 type CreateGlossariesAndAppUpdateArgs = {
   features: HomeFeatures;

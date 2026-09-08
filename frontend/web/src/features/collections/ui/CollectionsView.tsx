@@ -9,7 +9,7 @@
 // 另外做一套"文件夹详情卡片"渲染,也不会有第二套删除确认气泡状态。
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { DialogStore } from "@/app/home/state/dialog-store.js";
+import type { DialogStore } from "@/platform/store/dialog-store.js";
 import type { CollectionRecord } from "../domain/controller.js";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { EmptyState } from "@/ui/icons/EmptyState.jsx";

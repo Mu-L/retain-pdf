@@ -65,7 +65,7 @@ import type {
   RecentJobsReactViewPort,
   ReloadRecentJobsOptions,
 } from "@/features/library/index.js";
-import { createDialogStore, type DialogStore } from "../state/dialog-store.js";
+import { createDialogStore, type DialogStore } from "@/platform/store/dialog-store.js";
 import type { LibraryCardItem } from "@/features/library/index.js";
 
 type ReaderAnchor = {

@@ -3,7 +3,7 @@
 // use-drawer-active.js)。
 
 import { useSyncExternalStore } from "react";
-import type { DialogState, DialogStore } from "./dialog-store.js";
+import type { DialogState, DialogStore } from "@/platform/store/dialog-store.js";
 
 export function useDialogState<T = any>(dialogStore: DialogStore<T>): DialogState<T> {
   return useSyncExternalStore(
