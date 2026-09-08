@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 const { buildHomeAskModelRequestOverrides } = await import(
-  "../../src/pages/home/features/home-ask/home-ask-request-config.js"
+  "../../src/features/ask/domain/home-ask-request-config.js"
 );
 
 test("home ask: browser key 为空时不覆盖后端安全运行配置", () => {

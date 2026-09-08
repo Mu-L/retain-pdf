@@ -1,6 +1,6 @@
 import { Check, Circle, Loader2, TriangleAlert, X } from "lucide-react";
-import { operationStatusLabel } from "./operation-controller.js";
-import type { AgentOperationEvent, AgentOperationStatus } from "./types.js";
+import { operationStatusLabel } from "../../domain/operations/operation-controller.js";
+import type { AgentOperationEvent, AgentOperationStatus } from "../../domain/operations/types.js";
 
 function eventIcon(status: AgentOperationStatus) {
   if (status === "failed" || status === "ambiguous") return TriangleAlert;

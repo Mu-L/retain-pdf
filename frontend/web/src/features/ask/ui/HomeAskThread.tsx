@@ -5,10 +5,10 @@ import { BookOpen, FlaskConical, ListTree, Loader2, Sparkles } from "lucide-reac
 import {
   AiMarkdownAnswer,
   type AiCitationLike,
-} from "../../composition/external.js";
-import { buildReaderUrl } from "../../../navigation.js";
+} from "@/pages/home/composition/external.js";
+import { buildReaderUrl } from "@/pages/navigation.js";
 import { navigateToReader } from "@/features/reader/domain.js";
-import type { HomeAskCitation, HomeAskMessage } from "./types.js";
+import type { HomeAskCitation, HomeAskMessage } from "../domain/types.js";
 import { AgentOperationCard } from "./operations/AgentOperationCard.js";
 import type {
   AgentOperationAction,
@@ -16,7 +16,7 @@ import type {
   AgentOperationPerformOptions,
   AgentOperationView,
   AgentConfirmationMode,
-} from "./operations/types.js";
+} from "../domain/operations/types.js";
 
 export const HOME_ASK_SUGGESTIONS: Array<{
   prompt: string;

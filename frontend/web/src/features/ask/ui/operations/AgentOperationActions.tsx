@@ -2,7 +2,7 @@ import type {
   AgentConfirmationMode,
   AgentOperationAction,
   AgentOperationStatus,
-} from "./types.js";
+} from "../../domain/operations/types.js";
 
 export type AgentOperationActionItem = {
   action: AgentOperationAction;

@@ -5,24 +5,24 @@ import { Sparkles } from "lucide-react";
 import {
   CREDENTIALS_CHANGED_EVENT,
   hasModelApiKey,
-} from "../../composition/external.js";
+} from "@/pages/home/composition/external.js";
 import {
   fetchAgentRuntimeConfig,
   type AgentRuntimeConfigView,
 } from "@/platform/api/index.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
-import { useHomeServices } from "../../home-services-context.js";
+import { useHomeServices } from "@/pages/home/home-services-context.js";
 import { HomeAskComposer } from "./HomeAskComposer.js";
 import { HomeAskSidebar } from "./HomeAskSidebar.js";
 import { HomeAskThread, HOME_ASK_SUGGESTIONS } from "./HomeAskThread.js";
 import { useHomeAskRuntime } from "./use-home-ask-runtime.js";
-import type { HomeAskScope } from "./types.js";
+import type { HomeAskScope } from "../domain/types.js";
 import { useAgentOperations } from "./operations/use-agent-operations.js";
 import {
   activeAgentRuntimeMode,
   agentRuntimeModeLabel,
   resolveAgentRuntimeCredentialGate,
-} from "./agent-runtime-gate.js";
+} from "../domain/agent-runtime-gate.js";
 
 const SIDEBAR_COLLAPSED_KEY = "retainpdf.home.ai.sidebar-collapsed.v1";
 

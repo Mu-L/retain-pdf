@@ -4,19 +4,19 @@ import assert from "node:assert/strict";
 const {
   agentOperationReducer,
   INITIAL_AGENT_OPERATION_STATE,
-} = await import("../../src/pages/home/features/home-ask/operations/operation-reducer.js");
+} = await import("../../src/features/ask/domain/operations/operation-reducer.js");
 const {
   hasActiveOperations,
   operationNeedsPolling,
   operationsByRequestMessage,
-} = await import("../../src/pages/home/features/home-ask/operations/operation-selectors.js");
+} = await import("../../src/features/ask/domain/operations/operation-selectors.js");
 const {
   actionsForStatus,
-} = await import("../../src/pages/home/features/home-ask/operations/AgentOperationActions.js");
+} = await import("../../src/features/ask/ui/operations/AgentOperationActions.js");
 const {
   createAgentOperationController,
   operationStatusLabel,
-} = await import("../../src/pages/home/features/home-ask/operations/operation-controller.js");
+} = await import("../../src/features/ask/domain/operations/operation-controller.js");
 
 function operation(overrides = {}) {
   return {

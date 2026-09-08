@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Bot, ChevronDown, ChevronUp } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog.js";
-import { operationStatusLabel } from "./operation-controller.js";
+import { operationStatusLabel } from "../../domain/operations/operation-controller.js";
 import { AgentCandidatePreview } from "./AgentCandidatePreview.js";
 import { AgentOperationActions, type AgentOperationActionItem } from "./AgentOperationActions.js";
 import { AgentOperationTimeline } from "./AgentOperationTimeline.js";
@@ -11,7 +11,7 @@ import type {
   AgentOperationEntry,
   AgentOperationPerformOptions,
   AgentOperationView,
-} from "./types.js";
+} from "../../domain/operations/types.js";
 
 function compactPages(pages: number[] = []): string {
   const visible = pages.slice(0, 12).join("、");

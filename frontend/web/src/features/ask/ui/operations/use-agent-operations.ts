@@ -7,16 +7,16 @@ import {
   listAgentOperations,
   retryAgentOperation,
   runAgentOperation,
-} from "../../../composition/external.js";
-import { createAgentOperationController } from "./operation-controller.js";
-import { agentOperationReducer, INITIAL_AGENT_OPERATION_STATE } from "./operation-reducer.js";
-import { hasActiveOperations, operationsByRequestMessage } from "./operation-selectors.js";
+} from "@/pages/home/composition/external.js";
+import { createAgentOperationController } from "../../domain/operations/operation-controller.js";
+import { agentOperationReducer, INITIAL_AGENT_OPERATION_STATE } from "../../domain/operations/operation-reducer.js";
+import { hasActiveOperations, operationsByRequestMessage } from "../../domain/operations/operation-selectors.js";
 import type {
   AgentConfirmationMode,
   AgentOperationAction,
   AgentOperationPerformOptions,
   AgentOperationView,
-} from "./types.js";
+} from "../../domain/operations/types.js";
 import type { HomeAgentOperationSignal } from "../use-home-ask-runtime.js";
 
 export function useAgentOperations(

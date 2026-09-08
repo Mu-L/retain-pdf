@@ -263,12 +263,14 @@ test("book detail tab and artifact components stay independent from APIs and hom
 });
 
 test("agent operation presentation components stay independent from APIs and home services", () => {
-  const presentationRoot = join(
-    PROJECT_ROOT,
-    "src/pages/home/features/home-ask/operations",
-  );
-  const offenders = walkFiles(presentationRoot)
-    .filter((file) => /Agent[^/]*\.tsx$/.test(file))
+  // ask 已随按功能重组迁至 src/features/ask，展示组件在 ui/operations。
+  const presentationRoot = join(PROJECT_ROOT, "src/features/ask/ui/operations");
+  const presentationFiles = walkFiles(presentationRoot)
+    .filter((file) => /Agent[^/]*\.tsx$/.test(file));
+  // 路径写错或目录被搬走时 walkFiles 会返回空数组，断言随之永远通过。
+  // 先确认真的扫到了文件，避免本门禁静默退化。
+  assert.ok(presentationFiles.length > 0, "未扫到任何 Agent*.tsx，检查 presentationRoot 是否已失效");
+  const offenders = presentationFiles
     .filter((file) => /useHomeServices|home-services-context|composition\/|@retainpdf\/api/.test(readFileSync(file, "utf8")))
     .map((file) => relativeToProject(file));
 

@@ -13,9 +13,9 @@ import {
   filterDocumentOptions,
   loadPickerOptions,
   parseAtQuery,
-} from "./document-picker.js";
-import type { HomeAskScope } from "./types.js";
-import { scopeKey } from "./types.js";
+} from "../domain/document-picker.js";
+import type { HomeAskScope } from "../domain/types.js";
+import { scopeKey } from "../domain/types.js";
 
 const MAX_SCOPES = 4;
 

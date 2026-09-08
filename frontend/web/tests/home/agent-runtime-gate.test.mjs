@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 const {
   resolveAgentRuntimeCredentialGate,
-} = await import("../../src/pages/home/features/home-ask/agent-runtime-gate.js");
+} = await import("../../src/features/ask/domain/agent-runtime-gate.js");
 
 const base = {
   active_runtime: "python-retrieval-v1",

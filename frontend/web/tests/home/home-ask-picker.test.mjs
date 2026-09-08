@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   filterDocumentOptions,
   parseAtQuery,
-} from "../../src/pages/home/features/home-ask/document-picker.js";
+} from "../../src/features/ask/domain/document-picker.js";
 
 test("parseAtQuery: 光标在 @query 后时解析", () => {
   const text = "帮我总结 @halogen";

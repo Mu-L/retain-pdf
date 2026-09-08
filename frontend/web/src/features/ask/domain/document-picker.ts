@@ -5,7 +5,7 @@ import {
   listCollections,
   fetchDocumentList,
   type DocumentRecord,
-} from "../../composition/external.js";
+} from "@/pages/home/composition/external.js";
 import type { HomeAskCollectionScope, HomeAskDocScope, HomeAskScope } from "./types.js";
 import { scopeKey } from "./types.js";
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ExternalLink, FileText } from "lucide-react";
-import type { AgentOperationView } from "./types.js";
+import type { AgentOperationView } from "../../domain/operations/types.js";
 
 export function AgentCandidatePreview({
   operation,

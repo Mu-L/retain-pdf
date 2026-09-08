@@ -34,7 +34,7 @@ import {
 import { StatusCard } from "./features/status/StatusCard.jsx";
 import { AppUpdateBanner } from "@/features/app-update/index.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
-import { HomeAskView } from "./features/home-ask/HomeAskView.js";
+import { HomeAskView } from "@/features/ask/index.js";
 import { GlossariesDialog } from "@/features/glossaries/index.js";
 import { FavoritesView } from "@/features/favorites/index.js";
 import {
