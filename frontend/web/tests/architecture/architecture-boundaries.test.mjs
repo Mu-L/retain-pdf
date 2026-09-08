@@ -13,7 +13,6 @@ const BOOTSTRAP_ROOT = join(PROJECT_ROOT, "src/app/bootstrap");
 const SOURCE_ROOTS = {
   api: join(PLATFORM_ROOT, "api/legacy"),
   bootstrap: BOOTSTRAP_ROOT,
-  components: join(JS_ROOT, "components"),
   config: join(PLATFORM_ROOT, "config"),
   contracts: join(PLATFORM_ROOT, "contracts"),
   desktop: join(PLATFORM_ROOT, "desktop"),
@@ -22,7 +21,6 @@ const SOURCE_ROOTS = {
   jobMirror: join(JS_ROOT, "job"),
   jobDetail: join(PROJECT_ROOT, "src/features/job-detail/domain/page"),
   jobStatus: join(JS_ROOT, "job-status"),
-  reader: join(JS_ROOT, "reader"),
   state: join(JS_ROOT, "state"),
   statusDetail: join(PROJECT_ROOT, "src/features/job-detail/domain/snapshot"),
   ui: join(JS_ROOT, "ui"),
@@ -40,8 +38,6 @@ const ROOT_CONFIG_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+config\.js["']/;
 const ROOT_TEMPLATES_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+templates\.js["']/;
 const ROOT_DOM_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+dom\.js["']/;
 const ROOT_MAIN_IMPORT_PATTERN = /from\s+["'](?:\.\/src\/js\/main\.js|(?:\.\.\/)+main\.js)["']/;
-const JOBS_API_BARREL_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+api\/jobs\.js["']/;
-const PLATFORM_STORE_BARREL_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+platform\/store(?:\/index\.js)?["']/;
 const FEATURE_UI_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+ui\//;
 const FEATURE_UPLOAD_CONSTANTS_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+config\/upload-constants\.js["']/;
 const WEBAWESOME_USAGE_PATTERN = /@awesome\.me\/webawesome|<wa-|wa-(?:button|dialog|progress|badge|card|progress-ring|progress-bar)\b|WebAwesome|Web Awesome/;
@@ -153,10 +149,6 @@ function readFeatureSource(featureName, fileName) {
 const JOB_RUNTIME_DOMAIN = join(PROJECT_ROOT, "src/features/jobs/domain/runtime");
 function readJobRuntimeSource(fileName) {
   return readSource(join(JOB_RUNTIME_DOMAIN, fileName.replace(/\.js$/, ".ts")));
-}
-
-function readUiSource(fileName) {
-  return readSource(join(SOURCE_ROOTS.ui, fileName));
 }
 
 function relativeToProject(filePath) {
@@ -674,7 +666,9 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
     // (src/pages/*/components/,目录约定)不在此列
     // src/js/components/ 已随 library 迁移清空并删除；保留本条防止新代码重建该目录。
     [/(?:from\s+|import\s+)["'][^"']*\/js\/components\//, "src/js/components/(自定义元素/对话框视图)"],
-    [/(?:from\s+|import\s+)["'][^"']*\/generated\//, "platform/generated/(预编译产物)"],
+    // domain/ 可以读构建产物（app-update 需要 APP_VERSION）；ui/ 不行，
+    // 由同功能的 domain/ 做一层薄封装再向 ui/ 暴露。
+    [/(?:from\s+|import\s+)["'][^"']*\/generated\//, "platform/generated/(预编译产物)", { domainAllowed: true }],
     // 装配层：app/ 做依赖接线是它的职责，features/ 与 ui/ 不得触达。
     // 作用域在下面的循环里按扫描根收窄（src/pages 即未来的 app/）。
     [/(?:from\s+|import\s+)["'][^"']*\/bootstrap\//, "bootstrap/(DI 装配层，仅 app 可用)"],
@@ -686,7 +680,9 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
     [/(?:from\s+|import\s+)["'][^"']*\/js\/dom\//, "src/js/dom/(旧 DOM 工具)"],
     [/(?:from\s+|import\s+)["'][^"']*\/js\/state\/store/, "src/js/state/store.js(全局状态)"],
     [/(?:from\s+|import\s+)["'][^"']*\/js\/job\/core/, "src/js/job/core.js(任务核心)"],
-    [/(?:from\s+|import\s+)["'][^"']*\/platform\/store\/store/, "src/platform/store/store.ts(状态框架)"],
+    // domain/ 用 platform 的 store 工厂建自己的状态是目标架构（15 个功能在用）；
+    // ui/ 不得直连，须经同功能 domain/ 暴露的 store 实例。
+    [/(?:from\s+|import\s+)["'][^"']*\/platform\/store\/store/, "platform/store/store.ts(状态框架)", { domainAllowed: true }],
     [/import\s*\(\s*["'][^"']*\/js\//, "dynamic import src/js/*(应经 composition/external)"],
   ];
 
@@ -713,10 +709,7 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
     const normalized = file.replace(/\\/g, "/");
     return normalized.includes("/composition/external")
       || normalized.endsWith("/external.ts")
-      || normalized.endsWith("/external.js")
-      // 功能的 domain/ 是被认可的基础设施出口：ui/ 不得直连 js/generated 等
-      // 底层，由同功能的 domain/ 做一层薄封装再向 ui/ 暴露。
-      || /\/src\/features\/[^/]+\/domain\//.test(normalized);
+      || normalized.endsWith("/external.js");
   }
 
   const violations = [];
@@ -732,15 +725,15 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
     const rootFiles = walkReactFiles(root);
     scannedFileCount += rootFiles.length;
     for (const file of rootFiles) {
-      // Reader host/state 是下载运行时的显式宿主装配边界；其余 shared 仍禁止触达 bootstrap。
-      if (file.endsWith("/shared/reader/host/state.ts")) continue;
       if (isExternalGate(file)) continue;
       const source = readFileSync(file, "utf8");
       // src/pages 是装配层（B1 后改名为 src/app），依赖接线正是它的职责。
       const normalizedPath = file.replace(/\\/g, "/");
       const isAppLayer = normalizedPath.includes("/src/pages/") || normalizedPath.includes("/src/app/");
-      for (const [pattern, label] of FORBIDDEN_IMPORT_PATTERNS) {
+      const isFeatureDomain = /\/src\/features\/[^/]+\/domain\//.test(normalizedPath);
+      for (const [pattern, label, options] of FORBIDDEN_IMPORT_PATTERNS) {
         if (isAppLayer && label.startsWith("bootstrap/")) continue;
+        if (isFeatureDomain && options?.domainAllowed) continue;
         if (label.startsWith("dynamic import")) {
           if (file.includes("/composition/")) {
             // composition 层含大量 TS 类型查询 `import("js/...")`，非运行时动态 import，豁免
