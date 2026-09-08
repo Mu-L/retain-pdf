@@ -23,7 +23,7 @@ export async function fetchAgentRuntimeConfig({ apiPrefix = API_PREFIX, fetchImp
 export async function updateAgentRuntimeConfig(update, { apiPrefix = API_PREFIX, fetchImpl = fetch, } = {}) {
     const response = await fetchImpl(buildApiUrl(apiPrefix, "ai/runtime-config"), {
         method: "PUT",
-        headers: buildApiHeaders(),
+        headers: buildApiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(update),
     });
     if (!response.ok)

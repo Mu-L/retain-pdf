@@ -93,7 +93,7 @@ test("Reader AI 加载已有会话后快照稳定，composer 仍可输入", asyn
           ],
         }
       : { conversations: [conversation] };
-    return new Response(JSON.stringify({ data: payload }), {
+    return new Response(JSON.stringify({ code: 0, message: "ok", data: payload }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });

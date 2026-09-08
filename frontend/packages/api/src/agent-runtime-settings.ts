@@ -84,7 +84,7 @@ export async function updateAgentRuntimeConfig(
 ): Promise<AgentRuntimeConfigView> {
   const response = await fetchImpl(buildApiUrl(apiPrefix, "ai/runtime-config"), {
     method: "PUT",
-    headers: buildApiHeaders(),
+    headers: buildApiHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(update),
   });
   if (!response.ok) throw await responseError(response);

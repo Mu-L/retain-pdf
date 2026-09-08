@@ -38,7 +38,7 @@ test("agent runtime settings: GET 使用本地服务鉴权并解析安全视图"
   const result = await fetchAgentRuntimeConfig({
     fetchImpl: async (url, options) => {
       calls.push([url, options]);
-      return new Response(JSON.stringify({ data: view }), {
+      return new Response(JSON.stringify({ code: 0, message: "ok", data: view }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
@@ -64,8 +64,7 @@ test("agent runtime settings: PUT 只发送本次录入且不要求浏览器持�
     {
       fetchImpl: async (url, options) => {
         calls.push([url, options]);
-        return new Response(JSON.stringify({
-          data: {
+        return new Response(JSON.stringify({ code: 0, message: "ok", data: {
             ...view,
             configured_runtime: "fx",
             fx_gateway_api_key_configured: true,
@@ -100,8 +99,7 @@ test("agent runtime settings: OpenAI Agent 复用自定义模型接口字段", a
     {
       fetchImpl: async (url, options) => {
         calls.push([url, options]);
-        return new Response(JSON.stringify({
-          data: {
+        return new Response(JSON.stringify({ code: 0, message: "ok", data: {
             ...view,
             active_runtime: "openai-compatible-agent-v1",
             configured_runtime: "openai",

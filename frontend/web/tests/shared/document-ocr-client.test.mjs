@@ -12,7 +12,8 @@ globalThis.window = {
 const { fetchDocumentJobs, ocrDocument, translateDocument } = await import("@retainpdf/api/documents");
 
 function okResponse(data) {
-  return new Response(JSON.stringify({ data }), {
+  // 与真实后端一致：ApiResponse::ok 恒发 {code:0, message:"ok", data}。
+  return new Response(JSON.stringify({ code: 0, message: "ok", data }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });

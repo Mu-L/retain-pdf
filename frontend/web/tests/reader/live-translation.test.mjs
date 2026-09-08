@@ -298,7 +298,7 @@ test("live translation consumes session terminal status without polling the job"
   globalThis.fetch = async (url, init = {}) => {
     requestedUrls.push(String(url));
     if (String(url).includes("/live-translation/layout")) {
-      return new Response(JSON.stringify({ data: { pages: [] } }), {
+      return new Response(JSON.stringify({ code: 0, message: "ok", data: { pages: [] } }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
