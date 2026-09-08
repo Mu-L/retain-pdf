@@ -14,6 +14,7 @@
 // tabs 切页只改本地 state + URL ?tab=(replaceState,不导航、不碰 store)。
 
 import { useCallback, useState } from "react";
+import { BookDetailDialog } from "@/features/book-detail/index.js";
 import type { ReactNode } from "react";
 import {
   HomeShellProviders,
@@ -29,7 +30,6 @@ import { MockModeBanner } from "./features/app-shell/MockModeBanner.jsx";
 import { TranslationWorkflowDialog } from "@/features/ingest/index.js";
 import {
   RecentJobsLibrary,
-  BookDetailDialog,
 } from "./features/library/index.js";
 import { StatusCard } from "./features/status/StatusCard.jsx";
 import { AppUpdateBanner } from "@/features/app-update/index.js";

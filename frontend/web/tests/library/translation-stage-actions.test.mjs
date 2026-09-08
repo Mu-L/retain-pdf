@@ -59,7 +59,7 @@ test("不明确的翻译阶段必须二次确认重复调用风险", async () =>
   const React = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { TranslationStageActions } = await import(
-    "../../src/pages/home/features/library/detail/panels/translate/TranslationStageActions.jsx"
+    "../../src/features/book-detail/ui/panels/translate/TranslationStageActions.jsx"
   );
   const calls = [];
   const root = createRoot(dom.window.document.getElementById("root"));
@@ -97,7 +97,7 @@ test("阶段能力读取期间固定展示重新翻译和重新渲染按钮", as
   const React = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { TranslationStageActions } = await import(
-    "../../src/pages/home/features/library/detail/panels/translate/TranslationStageActions.jsx"
+    "../../src/features/book-detail/ui/panels/translate/TranslationStageActions.jsx"
   );
   const root = createRoot(dom.window.document.getElementById("root"));
   root.render(React.createElement(TranslationStageActions, {

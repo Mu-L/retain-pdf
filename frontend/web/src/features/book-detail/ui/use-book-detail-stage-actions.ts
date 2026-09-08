@@ -5,7 +5,7 @@ import type {
   JobStageRetryActionView,
 } from "@/platform/api/index.js";
 import { resumeJob as resumeJobRequest } from "@/platform/api/index.js";
-import type { DocumentJobSummary } from "../types.js";
+import type { DocumentJobSummary } from "@/pages/home/features/library/types.js";
 import { isDocumentJobActive } from "./use-document-jobs.js";
 
 const stageActionsCache = new Map<string, JobStageActionsView>();

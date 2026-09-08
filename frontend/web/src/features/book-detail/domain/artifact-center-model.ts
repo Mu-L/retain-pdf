@@ -1,4 +1,4 @@
-import type { DocumentJobSummary } from "../../../types.js";
+import type { DocumentJobSummary } from "@/pages/home/features/library/types.js";
 
 export type ArtifactCenterGroupId = "source" | "ocr" | "translation" | "diagnostics" | "agent";
 

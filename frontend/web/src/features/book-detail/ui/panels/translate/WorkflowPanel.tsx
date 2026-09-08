@@ -11,7 +11,7 @@ import { BookTranslateProgressPanel } from "./TranslateProgress.jsx";
 import { BookTranslateLaunchForm } from "./TranslateForm.jsx";
 import { TranslationProcessOverview } from "./TranslationProcessOverview.jsx";
 import { TranslationStageActions } from "./TranslationStageActions.jsx";
-import type { LibraryCardItem } from "../../../types.js";
+import type { LibraryCardItem } from "@/pages/home/features/library/types.js";
 import type { JobRetryStage, JobStageRetryActionView } from "@/platform/api/index.js";
 
 export type BookTranslationWorkflowPanelProps = {

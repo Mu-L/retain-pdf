@@ -1,5 +1,5 @@
 import { ArtifactCenterView } from "./artifact-center/ArtifactCenterView.jsx";
-import type { ArtifactCenterItem, ArtifactCenterSection } from "./artifact-center/model.js";
+import type { ArtifactCenterItem, ArtifactCenterSection } from "../../domain/artifact-center-model.js";
 
 export type BookDetailArtifactsTabProps = {
   onOpenSource: () => void;

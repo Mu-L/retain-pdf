@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
-import type { DocumentJobSummary } from "../types.js";
+import type { DocumentJobSummary } from "@/pages/home/features/library/types.js";
 import {
   selectDocumentOcrStatusJob,
   selectReusableOcrJob,
-} from "../domain/translation-ocr-reuse.js";
-import { isPollingBootstrapPlaceholder } from "../../shared/job-helpers.js";
+} from "@/pages/home/features/library/domain/translation-ocr-reuse.js";
+import { isPollingBootstrapPlaceholder } from "@/pages/home/features/shared/job-helpers.js";
 
 const ACTIVE_STATUSES = new Set(["queued", "pending", "running", "validating"]);
 const TERMINAL_STATUSES = new Set(["succeeded", "failed", "cancelled", "canceled"]);

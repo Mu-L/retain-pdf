@@ -18,7 +18,7 @@ import {
   type ArtifactCenterItem,
   type ArtifactCenterSection,
   type ArtifactQuickDownloadId,
-} from "../tabs/artifact-center/model.js";
+} from "../../domain/artifact-center-model.js";
 
 const DOWNLOADS = [
   { id: "source", label: "原始 PDF", Icon: FileDown },

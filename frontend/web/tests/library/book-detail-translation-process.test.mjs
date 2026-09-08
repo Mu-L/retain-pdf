@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 const { translationProcessModel } = await import(
-  "../../src/pages/home/features/library/detail/panels/translate/TranslationProcessOverview.js"
+  "../../src/features/book-detail/ui/panels/translate/TranslationProcessOverview.js"
 );
 
 test("翻译过程：失败任务保留已完成阶段并标记失败阶段", () => {

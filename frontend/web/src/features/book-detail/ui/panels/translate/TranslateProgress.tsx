@@ -5,11 +5,11 @@
 
 import { useEffect } from "react";
 import { ArrowUpRight, Radio } from "lucide-react";
-import { useHomeServices } from "../../../../../home-services-context.js";
+import { useHomeServices } from "@/pages/home/home-services-context.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
-import { StatusCard } from "../../../../status/StatusCard.jsx";
-import type { LibraryCardItem } from "../../../types.js";
-import { isLibraryOnlyItem } from "../../../../../composition/external.js";
+import { StatusCard } from "@/pages/home/features/status/StatusCard.jsx";
+import type { LibraryCardItem } from "@/pages/home/features/library/types.js";
+import { isLibraryOnlyItem } from "@/pages/home/composition/external.js";
 
 const PROGRESS_STATUSES = new Set(["queued", "pending", "running", "validating"]);
 

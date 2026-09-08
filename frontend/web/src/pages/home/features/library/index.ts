@@ -40,17 +40,8 @@ export { createLibraryViewStore } from "./page/library-view-store.js";
 // CollectionsView 已迁至 src/features/collections（历史别名 CategoriesView 零引用，已删）。
 // FavoritesView 已迁至 src/features/favorites，由 HomeApp 直接从该功能导入。
 
-export { BookDetailDialog } from "./detail/BookDetailDialog.jsx";
-export { BookDetailShell } from "./detail/shell/BookDetailShell.jsx";
-export {
-  BookDetailRightTabs,
-  BookDetailOverviewTab,
-  BookDetailProcessingTab,
-  BookDetailArtifactsTab,
-  BookDetailManageTab,
-  BOOK_DETAIL_TABS,
-} from "./detail/tabs/index.js";
-export { createBookDetailDialogStore } from "./detail/book-detail-dialog-store.js";
+// book-detail 已迁至 src/features/book-detail；其弹窗 store 改由 library/domain
+// 直接用通用 createDialogStore 建立，不再单列工厂。
 
 export { createLibraryController } from "./domain/controller.js";
 

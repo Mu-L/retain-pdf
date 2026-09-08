@@ -16,7 +16,7 @@ import {
   type ArtifactCenterGroupId,
   type ArtifactCenterItem,
   type ArtifactCenterSection,
-} from "./model.js";
+} from "../../../domain/artifact-center-model.js";
 
 const SECTION_ICONS = {
   source: FileText,

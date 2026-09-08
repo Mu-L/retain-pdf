@@ -129,7 +129,7 @@ test("详情翻译提交接进度:静默 attach + 状态区占位,不弹上传�
     "../../src/pages/home/home-services-context.js"
   );
   const { BookTranslationWorkflowPanel } = await import(
-    "../../src/pages/home/features/library/detail/panels/translate/WorkflowPanel.jsx"
+    "../../src/features/book-detail/ui/panels/translate/WorkflowPanel.jsx"
   );
 
   const fakeServices = {

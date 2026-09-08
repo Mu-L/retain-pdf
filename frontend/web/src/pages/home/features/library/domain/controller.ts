@@ -12,7 +12,7 @@
 // - attachJobProgress（本 controller）→ 只 startPolling，不弹窗、不亮主状态区
 //   供书籍详情「翻译」Tab 内嵌 StatusCard 使用。
 
-import { createBookDetailDialogStore } from "../detail/book-detail-dialog-store.js";
+import { createDialogStore } from "../../../state/dialog-store.js";
 import type {
   DeleteCardTarget,
   DeleteDocumentsResult,
@@ -60,7 +60,8 @@ export function createLibraryController({
   hideStatusArea,
   recentJobsStatePort,
 }: LibraryControllerDeps = {}): LibraryController {
-  const bookDetailStore = createBookDetailDialogStore();
+  // payload = 被点开的那张网格卡片 item；弹窗再按 document_id 拉完整文档补齐元数据。
+  const bookDetailStore = createDialogStore<LibraryCardItem | null>(null);
   const translatingDocumentIds = new Set<string>();
   const ocrDocumentIds = new Set<string>();
 

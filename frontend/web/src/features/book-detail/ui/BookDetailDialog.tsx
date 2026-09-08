@@ -1,10 +1,10 @@
 // BookDetailDialog —— 容器：组合 hooks + shell/tabs。
 // 业务状态见 use-book-detail-*.js；UI 见 shell / tabs / panels。
 
-import { useHomeServices } from "../../../home-services-context.js";
-import { useDialogState } from "../../../state/use-dialog-state.js";
+import { useHomeServices } from "@/pages/home/home-services-context.js";
+import { useDialogState } from "@/pages/home/state/use-dialog-state.js";
 import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
-import { useRecentJobCover } from "../display/useRecentJobCover.js";
+import { useRecentJobCover } from "@/pages/home/features/library/display/useRecentJobCover.js";
 import { BookDetailShell } from "./shell/BookDetailShell.jsx";
 import { CoverActionsPanel } from "./panels/CoverActionsPanel.jsx";
 import { ArtifactQuickDownloads } from "./panels/ArtifactQuickDownloads.js";

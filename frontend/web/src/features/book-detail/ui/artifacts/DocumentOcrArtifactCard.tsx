@@ -1,6 +1,6 @@
 import { ScanText } from "lucide-react";
 import { btn } from "../panels/ui.jsx";
-import type { DocumentJobSummary } from "../../types.js";
+import type { DocumentJobSummary } from "@/pages/home/features/library/types.js";
 
 export function DocumentOcrArtifactCard({
   job,

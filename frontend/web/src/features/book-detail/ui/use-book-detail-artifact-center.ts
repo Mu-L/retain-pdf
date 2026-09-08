@@ -6,20 +6,20 @@ import {
   fetchJobArtifactsManifest,
   fetchProtected,
 } from "@/platform/api/index.js";
-import { API_PREFIX } from "../../../composition/external/config.js";
+import { API_PREFIX } from "@/pages/home/composition/external.js";
 import {
   fileNameFromDisposition,
   prepareDownloadTarget,
   saveResponseDownload,
-} from "../../../composition/external/shared.js";
-import type { DocumentJobSummary } from "../types.js";
+} from "@/pages/home/composition/external.js";
+import type { DocumentJobSummary } from "@/pages/home/features/library/types.js";
 import {
   buildArtifactCenterSections,
   mergeArtifactLinksIntoManifest,
   type ArtifactCenterItem,
   type ArtifactLinks,
   type ArtifactManifest,
-} from "./tabs/artifact-center/model.js";
+} from "../domain/artifact-center-model.js";
 
 export function readerCompatibleArtifactLinks(
   job: DocumentJobSummary,

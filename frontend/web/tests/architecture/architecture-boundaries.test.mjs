@@ -245,14 +245,14 @@ test("upload workflow presentation components stay independent from home service
 });
 
 test("book detail tab and artifact components stay independent from APIs and home services", () => {
-  const detailRoot = join(
-    PROJECT_ROOT,
-    "src/pages/home/features/library/detail",
-  );
+  // book-detail 已随按功能重组迁至 src/features/book-detail。
+  const detailRoot = join(PROJECT_ROOT, "src/features/book-detail/ui");
   const presentationFiles = filesUnder(
     join(detailRoot, "tabs"),
     join(detailRoot, "artifacts"),
   );
+  // 路径失效时 filesUnder 返回空数组，断言随之永远通过；先确认真的扫到了文件。
+  assert.ok(presentationFiles.length > 0, "未扫到 book-detail 展示组件，检查 detailRoot 是否已失效");
   const offenders = presentationFiles
     .filter((file) => /useHomeServices|home-services-context|composition\/|@retainpdf\/api|domain\/controller/.test(readFileSync(file, "utf8")))
     .map((file) => relativeToProject(file));

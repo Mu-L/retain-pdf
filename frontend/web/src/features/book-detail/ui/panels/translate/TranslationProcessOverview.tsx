@@ -1,7 +1,7 @@
 import { Check, LoaderCircle, TriangleAlert, X } from "lucide-react";
 
-import type { LibraryCardItem } from "../../../types.js";
-import { translationUsesReusedOcr } from "../../../domain/translation-ocr-reuse.js";
+import type { LibraryCardItem } from "@/pages/home/features/library/types.js";
+import { translationUsesReusedOcr } from "@/pages/home/features/library/domain/translation-ocr-reuse.js";
 
 const PROCESS_STAGES = [
   { key: "ocr", label: "OCR" },

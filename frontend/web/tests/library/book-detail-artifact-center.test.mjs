@@ -7,8 +7,8 @@ import {
   formatArtifactTime,
   mergeArtifactLinksIntoManifest,
   selectArtifactQuickDownloads,
-} from "../../src/pages/home/features/library/detail/tabs/artifact-center/model.js";
-import { readerCompatibleArtifactLinks } from "../../src/pages/home/features/library/detail/use-book-detail-artifact-center.js";
+} from "../../src/features/book-detail/domain/artifact-center-model.js";
+import { readerCompatibleArtifactLinks } from "../../src/features/book-detail/ui/use-book-detail-artifact-center.js";
 
 const source = {
   filename: "paper.pdf",

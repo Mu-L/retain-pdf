@@ -9,7 +9,7 @@ import {
   selectLatestDocumentJob,
   upsertDocumentJob,
   useDocumentJobs,
-} from "../../src/pages/home/features/library/detail/use-document-jobs.js";
+} from "../../src/features/book-detail/ui/use-document-jobs.js";
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
