@@ -22,7 +22,7 @@ import {
   hasCompleteCredentials,
   ocrTokenFromCredentials,
 } from "../../src/features/credentials/domain/state.js";
-import { createUploadStatePort } from "../../src/js/features/upload/state.js";
+import { createUploadStatePort } from "../../src/features/ingest/domain/upload/state.js";
 import { createInitialState } from "../../src/js/state/slices.js";
 
 function createState() {

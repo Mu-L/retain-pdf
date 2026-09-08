@@ -604,14 +604,17 @@ test("credentials runtime state is store-only with no legacy mirror ports", () =
 });
 
 test("upload controller reads upload state only through upload state port", () => {
-  const source = readFeatureSource("upload", "controller.js");
-  const stateSource = readFeatureSource("upload", "state.js");
+  // upload 已随按功能重组迁至 src/features/ingest/domain/upload。
+  const UPLOAD_DOMAIN = join(PROJECT_ROOT, "src/features/ingest/domain/upload");
+  const source = readSource(join(UPLOAD_DOMAIN, "controller.ts"));
+  const stateSource = readSource(join(UPLOAD_DOMAIN, "state.ts"));
 
-  assert.equal(source.includes("../../state/actions.js"), false);
-  assert.equal(source.includes("../../state/upload-state.js"), false);
+  // 迁移后跨目录 import 统一写 @/ 别名，断言用路径无关的正则，
+  // 否则只匹配旧相对路径会让本门禁退化成永远通过。
+  const legacyStateImport = /["'][^"']*state\/(?:actions|upload-state|store)\.js["']/;
+  assert.doesNotMatch(source, legacyStateImport);
   assert.match(source, /getUploadStatePort/);
-  assert.equal(stateSource.includes("../../state/store.js"), false);
-  assert.equal(stateSource.includes("../../state/upload-state.js"), false);
+  assert.doesNotMatch(stateSource, legacyStateImport);
 });
 
 // ===== React 迁移防回弹门禁(Phase 0 起生效) =====

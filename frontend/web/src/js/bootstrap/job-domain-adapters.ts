@@ -3,7 +3,7 @@ import {
   configureDefaultArtifactUrlConfigPort,
 } from "@retainpdf/domain/job";
 import { apiBase } from "../config/runtime.js";
-import { getUploadState } from "../features/upload/state.js";
+import { getUploadState } from "@/features/ingest/domain.js";
 
 // The domain package owns artifact naming and URL rules. The web host owns the
 // live upload store and runtime API configuration, so wire those capabilities

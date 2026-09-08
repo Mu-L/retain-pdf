@@ -26,7 +26,7 @@ import type { HomeServices } from "./composition/types.js";
 import { AppTopBar } from "./features/app-shell/AppTopBar.jsx";
 import { AppBottomBar } from "./features/app-shell/AppBottomBar.jsx";
 import { MockModeBanner } from "./features/app-shell/MockModeBanner.jsx";
-import { TranslationWorkflowDialog } from "./features/workflow/TranslationWorkflowDialog.jsx";
+import { TranslationWorkflowDialog } from "@/features/ingest/index.js";
 import {
   RecentJobsLibrary,
   BookDetailDialog,

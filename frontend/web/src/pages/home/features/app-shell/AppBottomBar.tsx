@@ -15,7 +15,7 @@
 import { useHomeDialogStore, useHomeSettingsHub, useHomeWorkflowDialog } from "../../home-services-context.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { useLibrarySearchBinding } from "@/pages/home/features/shared/use-library-search-binding.js";
-import { TRANSLATION_WORKFLOW_DIALOG } from "../../composition/external.js";
+import { TRANSLATION_WORKFLOW_DIALOG } from "@/features/ingest/domain.js";
 
 export function AppBottomBar({ showSearch = true, hidden = false }) {
   // Shell 窄口直取:dialog 读侧 + workflow/settings 动作口,不再 useHomeServices 大包。

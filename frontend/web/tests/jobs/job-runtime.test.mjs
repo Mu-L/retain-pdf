@@ -17,7 +17,7 @@ import {
   getUploadState,
   setAppliedPageRange,
   setUploadState,
-} from "../../src/js/features/upload/state.js";
+} from "../../src/features/ingest/domain/upload/state.js";
 import { state } from "../../src/js/state/store.js";
 import {
   createJobEventsResource,

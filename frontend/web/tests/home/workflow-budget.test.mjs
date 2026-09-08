@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   resolveTranslationBudgetState,
-} from "../../src/js/features/workflow/budget.js";
+} from "../../src/features/ingest/domain/workflow/budget.js";
 
 test("translation budget blocks DeepSeek submission when estimated cost exceeds balance", () => {
   const budget = resolveTranslationBudgetState({

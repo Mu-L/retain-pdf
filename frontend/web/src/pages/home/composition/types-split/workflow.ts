@@ -1,5 +1,5 @@
 // types-split/workflow.ts — workflow/upload 文本视图域。
-import type { TranslationWorkflowDialogStatePort } from "../external.js";
+import type { TranslationWorkflowDialogStatePort } from "@/features/ingest/domain.js";
 import type { ReadOnlyStore } from "./common.js";
 
 export type DialogStatePort = TranslationWorkflowDialogStatePort;

@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createTranslationWorkflowDialogRuntime } from "../../src/pages/home/features/workflow/translation-workflow-dialog-runtime.js";
-import { createUploadStatePort } from "../../src/js/features/upload/state.js";
+import { createTranslationWorkflowDialogRuntime } from "../../src/features/ingest/domain/translation-workflow-dialog-runtime.js";
+import { createUploadStatePort } from "../../src/features/ingest/domain/upload/state.js";
 import { createInitialState } from "../../src/js/state/slices.js";
-import { resolveSubmitControlState } from "../../src/js/features/workflow/submit-controls.js";
+import { resolveSubmitControlState } from "../../src/features/ingest/domain/workflow/submit-controls.js";
 import { SUBMIT_BLOCK_REASONS } from "../../src/js/contracts/submit-readiness-contract.js";
 
 const workflowNeedsUpload = (workflow) => workflow !== "render";

@@ -2,8 +2,10 @@ import {
   APP_EVENTS,
   createStore,
   buildWorkflowSectionsViewModel,
-  createTranslationWorkflowStatusAreaPort,
 } from "../../composition/external.js";
+import {
+  createTranslationWorkflowStatusAreaPort,
+} from "@/features/ingest/domain.js";
 import type { Store } from "../../composition/external.js";
 
 // 状态区(#status-section)可见性 feature。

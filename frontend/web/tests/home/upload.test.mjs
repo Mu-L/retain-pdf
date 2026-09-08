@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { mountUploadFeature } from "../../src/js/features/upload/controller.js";
-import { createUploadConfigPort } from "../../src/js/features/upload/config-port.js";
-import { createUploadStatePort } from "../../src/js/features/upload/state.js";
+import { mountUploadFeature } from "../../src/features/ingest/domain/upload/controller.js";
+import { createUploadConfigPort } from "../../src/features/ingest/domain/upload/config-port.js";
+import { createUploadStatePort } from "../../src/features/ingest/domain/upload/state.js";
 import { createInitialState } from "../../src/js/state/slices.js";
 
 function createClassList() {

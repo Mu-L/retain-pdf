@@ -15,29 +15,31 @@ import {
   savePersistedDeveloperStoredConfig,
 } from "./external/config.js";
 import {
+  UploadStatePort,
+  collectUploadFormData,
+  countPdfPages,
+  defaultWorkflowConfigPort,
+  mountUploadFeature,
+  mountWorkflowFeature,
+} from "@/features/ingest/domain.js";
+import {
   getDeveloperConfig,
   resetDeveloperConfig,
   setDeveloperConfig,
   isDesktopMode,
 } from "./external/state.js";
 import {
-  mountUploadFeature,
-  mountWorkflowFeature,
-  defaultWorkflowConfigPort,
-  countPdfPages,
-  collectUploadFormData,
 } from "./external/features.js";
 import {
   normalizeMathMode,
   normalizeWorkflow,
   workflowConstants,
-} from "../features/workflow/workflow-config.js";
+} from "@/features/ingest/domain.js";
 import type {
   AsyncFn,
   CredentialsStatePort,
   HomeFeatures,
   UploadFeature,
-  UploadStatePort,
   WorkflowFeature,
 } from "./types.js";
 
@@ -129,7 +131,7 @@ export function createWorkflowAndUpload({
     normalizeMathMode,
     constants,
     currentPageRanges: () => features.uploadFeature.currentPageRanges() || "",
-    viewPort: workflowView.viewPort as import("../../../js/features/workflow/controller.js").WorkflowViewPortLike,
+    viewPort: workflowView.viewPort as import("@/features/ingest/domain.js").WorkflowViewPortLike,
     readSubmitValues,
     renderPageRangeSummary: () => features.uploadFeature.renderPageRangeSummary(),
     hasBrowserCredentials: () => {
@@ -150,7 +152,7 @@ export function createWorkflowAndUpload({
   // mountUploadFeature 签名要求 state，但 uploadStatePort 在运行时已足够；下层 nocheck 签名未放宽。
   const uploadFeature = mountUploadFeature({
     uploadStatePort,
-    viewPort: uploadView.viewPort as import("../../../js/features/upload/controller.js").UploadViewPort,
+    viewPort: uploadView.viewPort as import("@/features/ingest/domain.js").UploadViewPort,
     apiBase: typeof apiBase === "function" ? apiBase() : apiBase,
     apiPrefix: API_PREFIX,
     frontMaxBytes: FRONT_MAX_BYTES,
@@ -158,7 +160,7 @@ export function createWorkflowAndUpload({
     countPdfPages,
     defaultFileLabel: DEFAULT_FILE_LABEL,
     collectUploadFormData,
-    submitUploadRequest: submitUploadRequest as import("../../../js/features/upload/controller.js").MountUploadFeatureOptions["submitUploadRequest"],
+    submitUploadRequest: submitUploadRequest as import("@/features/ingest/domain.js").MountUploadFeatureOptions["submitUploadRequest"],
     resetUploadedFile: bridge.resetUploadedFile,
     resetUploadProgress: bridge.resetUploadProgress,
     setUploadProgress: uploadView.setUploadProgress,

@@ -25,14 +25,12 @@ import {
   createDesktopState,
   setDesktopMode,
   createHomeStatePort,
-  createUploadStatePort,
   defaultOcrProvider,
   validateDeepSeekToken,
   queryDeepSeekBalance,
   listCredentials,
   createCredential,
   updateCredential,
-  createTranslationWorkflowDialogStatePort,
   fetchGlossariesApi,
   fetchGlossaryApi,
   createGlossaryApi,
@@ -43,6 +41,10 @@ import {
   submitUploadRequestHttp,
 } from "./composition/external.js";
 import {
+  createTranslationWorkflowDialogStatePort,
+  createUploadStatePort,
+} from "@/features/ingest/domain.js";
+import {
   defaultCredentialsStatePort,
 } from "@/features/credentials/index.js";
 import {
@@ -51,10 +53,10 @@ import {
 } from "@/features/app-update/index.js";
 
 import { createHomeTextStore } from "./state/text-store.js";
-import { createUploadViewFeature } from "./features/workflow/stores/upload-store.js";
-import { createWorkflowViewFeature } from "./features/workflow/workflow-view-store.js";
+import { createUploadViewFeature } from "@/features/ingest/domain.js";
+import { createWorkflowViewFeature } from "@/features/ingest/domain.js";
 import { createStatusAreaFeature } from "./features/status/status-area.js";
-import { createTranslationWorkflowDialogRuntime } from "./features/workflow/translation-workflow-dialog-runtime.js";
+import { createTranslationWorkflowDialogRuntime } from "@/features/ingest/domain.js";
 
 import { safeLoad } from "./composition/safe-load.js";
 import { createBridge } from "./composition/create-bridge.js";

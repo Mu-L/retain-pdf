@@ -6,12 +6,12 @@ import {
   buildRenderPayload,
   buildSourcePayload,
   buildTranslationPayload,
-} from "../../src/js/features/workflow/payload.js";
-import { mountWorkflowFeature } from "../../src/js/features/workflow/controller.js";
+} from "../../src/features/ingest/domain/workflow/payload.js";
+import { mountWorkflowFeature } from "../../src/features/ingest/domain/workflow/controller.js";
 import {
   createWorkflowConfigPort,
   resolveMockScenario,
-} from "../../src/js/features/workflow/config-port.js";
+} from "../../src/features/ingest/domain/workflow/config-port.js";
 
 const constants = {
   DEFAULT_MODEL_VERSION: "PP-StructureV3",

@@ -98,11 +98,11 @@ import {
 import {
   TRANSLATION_WORKFLOW_DIALOG,
   TRANSLATION_WORKFLOW_MODES,
-} from "../../src/js/features/translation-workflow-dialog/contract.js";
+} from "../../src/features/ingest/domain/dialog/contract.js";
 import {
   createTranslationWorkflowDialogStatePort,
   homeViewModeForTranslationWorkflow,
-} from "../../src/js/features/translation-workflow-dialog/state.js";
+} from "../../src/features/ingest/domain/dialog/state.js";
 import { createInitialState } from "../../src/js/state/slices.js";
 
 test("reader URL uses a real job as the canonical comparison session", () => {

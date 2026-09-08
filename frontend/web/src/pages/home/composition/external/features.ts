@@ -4,13 +4,8 @@
 // home / upload / workflow
 export { createHomeStatePort, HOME_LOADING_STATES } from "../../../../js/features/home/state.js";
 export type { HomeStatePort } from "../../../../js/features/home/state.js";
-export { createUploadStatePort } from "../../../../js/features/upload/state.js";
-export type { UploadStatePort } from "../../../../js/features/upload/state.js";
-export { mountUploadFeature } from "../../../../js/features/upload/controller.js";
-export { countPdfPages } from "../../../../js/features/upload/pdf-page-count.js";
-export { collectUploadFormData } from "../../../../js/features/upload/form-data.js";
-export { mountWorkflowFeature } from "../../../../js/features/workflow/controller.js";
-export { defaultWorkflowConfigPort } from "../../../../js/features/workflow/config-port.js";
+// ingest（上传 + 工作流 + 提交 + 弹窗）已迁至 src/features/ingest，
+// 调用方直接从该功能的出口导入，不再经本网关转发。
 
 // credentials 已迁至 src/features/credentials，调用方直接从该功能的 index.ts
 // 导入，不再经本网关转发。
@@ -20,19 +15,8 @@ export { defaultWorkflowConfigPort } from "../../../../js/features/workflow/conf
 // app-update 已迁至 src/features/app-update，调用方直接从该功能的 index.ts
 // 导入，不再经本网关转发。
 
-// translation workflow dialog
-export {
-  TRANSLATION_WORKFLOW_DIALOG,
-  TRANSLATION_WORKFLOW_MODES,
-} from "../../../../js/features/translation-workflow-dialog/contract.js";
-export { createTranslationWorkflowDialogStatePort } from "../../../../js/features/translation-workflow-dialog/state.js";
-export type { TranslationWorkflowDialogStatePort } from "../../../../js/features/translation-workflow-dialog/state.js";
-export { createTranslationWorkflowStatusAreaPort } from "../../../../js/features/translation-workflow-dialog/status-area-port.js";
 
-// app-actions / job-runtime
-export { mountAppActionsFeature } from "../../../../js/features/app-actions/controller.js";
-export { defaultAppActionsConfigPort } from "../../../../js/features/app-actions/config-port.js";
-export { createAppActionsRuntimeEnvPort } from "../../../../js/features/app-actions/runtime-env-port.js";
+// job-runtime
 export { mountJobRuntimeFeature } from "../../../../js/features/job-runtime/controller.js";
 export {
   currentJobStoreFor,

@@ -6,8 +6,8 @@ import {
   SUBMIT_BLOCK_REASONS,
 } from "../../src/js/contracts/submit-readiness-contract.js";
 import { APP_EVENTS } from "../../src/js/contracts/app-contract.js";
-import { publishSubmitSuccess } from "../../src/js/features/app-actions/submit-flow.js";
-import { resolveSubmitControlState } from "../../src/js/features/workflow/submit-controls.js";
+import { publishSubmitSuccess } from "../../src/features/ingest/domain/actions/submit-flow.js";
+import { resolveSubmitControlState } from "../../src/features/ingest/domain/workflow/submit-controls.js";
 
 const workflowNeedsUpload = (workflow) => workflow !== "render";
 const workflowNeedsCredentials = (workflow) => workflow !== "render";

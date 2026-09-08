@@ -5,9 +5,11 @@ import {
   openDesktopOutputDirectory,
 } from "./external/config.js";
 import {
-  mountAppActionsFeature,
-  defaultAppActionsConfigPort,
   createAppActionsRuntimeEnvPort,
+  defaultAppActionsConfigPort,
+  mountAppActionsFeature,
+} from "@/features/ingest/domain.js";
+import {
   syncCurrentJobSnapshot,
 } from "./external/features.js";
 import {
