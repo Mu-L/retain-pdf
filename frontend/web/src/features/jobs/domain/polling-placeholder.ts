@@ -1,6 +1,6 @@
-// 共享 job 帮助：跨 status/library/detail 均可 import，不产生 feature 间耦合。
-// 原先 isPollingBootstrapPlaceholder 在 features/status/merge-snapshot-with-fallback.ts，
-// library/detail 需跨域 import；迁至 shared 以断开 status → library 依赖。
+// 轮询占位判定：startPolling 首帧占位是 jobs 领域的规则，故落在本功能 domain/。
+// 同功能内（merge-snapshot-with-fallback）用相对路径引用；跨功能（book-detail）
+// 经 @/features/jobs/index.js 出口，不产生 feature 间的深层耦合。
 
 export type PollingPlaceholderItem = {
   status?: string;

@@ -21,7 +21,7 @@ import {
   currentJobStoreFor,
   secondaryResourceStoreFor,
 } from "./external/features.js";
-import { createArtifactDownloadBusyStore } from "../state/artifact-download-busy-store.js";
+import { createArtifactDownloadBusyStore } from "@/features/artifacts/index.js";
 import { createStatusCardStore, createStatusCardPresenter } from "@/features/jobs/index.js";
 import { createStatusDetailStore } from "@/features/job-detail/index.js";
 import { createStatusDetailDialogStore } from "@/features/job-detail/index.js";
