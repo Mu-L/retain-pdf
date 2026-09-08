@@ -30,12 +30,41 @@ function buildRuntimeConfig(config) {
 }
 
 class ElementStub {
-  constructor(id) {
+  constructor(id = "", tagName = "div") {
     this.id = id;
+    this.tagName = tagName.toUpperCase();
     this.textContent = "";
     this.dataset = {};
     this.open = false;
+    this.children = [];
+    this.style = {};
+    this.classList = {
+      add() {},
+      remove() {},
+      toggle() {},
+      contains() {
+        return false;
+      },
+    };
   }
+
+  appendChild(child) {
+    this.children.push(child);
+    return child;
+  }
+
+  removeChild(child) {
+    this.children = this.children.filter((item) => item !== child);
+    return child;
+  }
+
+  setAttribute() {}
+
+  removeAttribute() {}
+
+  addEventListener() {}
+
+  removeEventListener() {}
 
   close() {
     this.open = false;
@@ -118,10 +147,45 @@ globalThis.window = {
   },
 };
 
+// 这个假 document 要撑住的不只是 desktop bootstrap 自己的 getElementById——
+// bootstrap 经 features/credentials/domain 会把整条 React 依赖链拉进来，其中
+// sonner 在**模块顶层**就执行 __insertCSS()：
+//     document.head || document.getElementsByTagName("head")[0]
+//     document.createElement("style") → head.appendChild(style)
+//     style.appendChild(document.createTextNode(code))
+// 缺任何一环脚本都会在 import 阶段崩，而不是跑到断言。
+const documentHead = new ElementStub("", "head");
+const documentBody = new ElementStub("", "body");
+
 globalThis.document = {
+  head: documentHead,
+  body: documentBody,
+  documentElement: new ElementStub("", "html"),
   getElementById(id) {
     return ensureElement(id);
   },
+  getElementsByTagName(tagName) {
+    const name = `${tagName}`.toLowerCase();
+    if (name === "head") return [documentHead];
+    if (name === "body") return [documentBody];
+    return [];
+  },
+  querySelector() {
+    return null;
+  },
+  querySelectorAll() {
+    return [];
+  },
+  createElement(tagName) {
+    return new ElementStub("", tagName);
+  },
+  createTextNode(data) {
+    const node = new ElementStub("", "#text");
+    node.textContent = `${data}`;
+    return node;
+  },
+  addEventListener() {},
+  removeEventListener() {},
   dispatchEvent() {},
 };
 
