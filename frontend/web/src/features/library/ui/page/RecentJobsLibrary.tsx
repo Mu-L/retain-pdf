@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { useStoreSnapshot } from "@/shared/react/use-store.js";
+import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { useHomeServices } from "@/pages/home/home-services-context.js";
 import { BookCard, buildDefaultBookCardActions } from "../shell/BookCard.jsx";
 import { BookListRow } from "../shell/BookListRow.jsx";
@@ -26,7 +26,7 @@ import { LibraryBatchToolbar } from "./LibraryBatchToolbar.jsx";
 import { useLibraryAutoLoad } from "./useLibraryAutoLoad.js";
 import { useHomeReturnRestore } from "./useHomeReturnRestore.js";
 import { deriveLibraryPageState } from "../../domain/library-page-state.js";
-import { EmptyState } from "@/shared/icons/EmptyState.jsx";
+import { EmptyState } from "@/ui/icons/EmptyState.jsx";
 import { ConfirmDialog } from "@/ui/components/confirm-dialog.js";
 import {
   isRecentJobActive,

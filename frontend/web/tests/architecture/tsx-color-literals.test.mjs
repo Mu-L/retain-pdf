@@ -15,10 +15,10 @@ import { join, relative } from "node:path";
 const PROJECT_ROOT = process.cwd();
 // src/features 自批次 1 起就漏在棘轮之外——330 个已迁文件从迁移当天就脱离了
 // 主题盲颜色约束。补进来（实测 0 命中，无历史债）。
-const SCAN_ROOTS = ["src/pages", "src/ui", "src/shared", "src/features"]
+const SCAN_ROOTS = ["src/pages", "src/ui", "src/features"]
   .map((p) => join(PROJECT_ROOT, p));
 // 皮肤真值(预览色块数据)所在地,豁免
-const EXEMPT = [join(PROJECT_ROOT, "src/shared/theme")];
+const EXEMPT = [join(PROJECT_ROOT, "src/ui/theme")];
 const BASELINE_PATH = join(PROJECT_ROOT, "tests/helpers/tsx-color-literals-baseline.json");
 
 // 1) 主题盲工具类:white/black 系(含 /alpha 变体与 hover: 等前缀后的形式)

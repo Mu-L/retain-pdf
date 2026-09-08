@@ -11,7 +11,7 @@
 // should import from here.
 
 import { useHomeServices } from "../../home-services-context.js";
-import { useStoreSnapshot } from "@/shared/react/use-store.js";
+import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 
 export function useLibrarySearchBinding() {
   const services = useHomeServices();

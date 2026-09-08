@@ -14,7 +14,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const { act, createElement, useRef } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { createStore } = await import("../../src/js/app-framework/store.js");
-const { useStoreSnapshot, shallowEqual } = await import("../../src/shared/react/use-store.js");
+const { useStoreSnapshot, shallowEqual } = await import("../../src/ui/hooks/use-store.js");
 
 function renderProbe(store, selector) {
   const renders = [];

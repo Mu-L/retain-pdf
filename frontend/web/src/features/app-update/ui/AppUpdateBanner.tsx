@@ -28,8 +28,8 @@ import {
   DialogShell,
   DialogTitle,
 } from "@/ui/components/dialog.js";
-import { useStoreSnapshot } from "@/shared/react/use-store.js";
-import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
+import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
+import { useDialogReturnFocus } from "@/ui/hooks/use-dialog-return-focus.js";
 import { APP_UPDATE_IDS } from "./app-update-contract.js";
 import { useAppUpdateDialogOpen } from "./useAppUpdateDialogOpen.js";
 import type { AppUpdateReadOnlyStore, HandlersBag } from "../domain/app-update-store.js";

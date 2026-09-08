@@ -2,7 +2,7 @@
 // 启动顺序见 src/pages/shell-boot.ts：adapters → bootTheme → 找根 → 挂载（不开 StrictMode）。
 // 业务组装：composition 先建、事件桥先绑、idle 视图先落 store，再一行挂载。
 
-import { DecorStage } from "@/shared/decor/DecorStage.jsx";
+import { DecorStage } from "@/ui/decor/DecorStage.jsx";
 import { createHomeComposition } from "./create-home-composition.js";
 import { HomeApp } from "./HomeApp.jsx";
 import { mountShellPage } from "../shell-boot.js";

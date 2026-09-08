@@ -34,8 +34,8 @@ import {
   DialogShell,
   DialogTitle,
 } from "@/ui/components/dialog.js";
-import { useAppEvent } from "@/shared/react/use-app-event.js";
-import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
+import { useAppEvent } from "@/ui/hooks/use-app-event.js";
+import { useDialogReturnFocus } from "@/ui/hooks/use-dialog-return-focus.js";
 import { useCredentialsServices } from "./credentials-context.jsx";
 import { CREDENTIAL_DOM_IDS } from "./credentials-dom-ids.js";
 import { useCredentialsController } from "./useCredentialsController.js";

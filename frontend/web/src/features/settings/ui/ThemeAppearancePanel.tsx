@@ -9,12 +9,12 @@ import {
   listThemesBySeries,
   setTheme,
   type ThemeId,
-} from "@/shared/theme/theme.js";
+} from "@/ui/theme/theme.js";
 import {
   getStoredFontFamily,
   setStoredFontFamily,
   RENDER_FONT_STORAGE_KEY,
-} from "@/shared/render-font/font.js";
+} from "../domain/render-font.js";
 import { listFonts, type FontInfo } from "@retainpdf/api/fonts";
 import { API_PREFIX } from "@/js/config/api-constants.js";
 

@@ -3,8 +3,8 @@
 // 默认「软打开」：history.pushState + SoftReaderHost 全屏层，主页不卸载。
 // replace / 非主页文档 / 跨域：仍 location.replace|assign。
 
-import { captureHomeReturnState } from "@/shared/navigation/home-return-state.js";
-import { trySoftOpenReader } from "@/shared/navigation/soft-reader.js";
+import { captureHomeReturnState } from "@/platform/navigation/home-return-state.js";
+import { trySoftOpenReader } from "@/platform/navigation/soft-reader.js";
 import { navigateTo } from "@/pages/navigation.js";
 
 export type ReaderNavigateOptions = {

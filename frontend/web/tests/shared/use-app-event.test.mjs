@@ -25,7 +25,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = false;
 
 const { createRoot } = await import("react-dom/client");
 const React = await import("react");
-const { useAppEvent } = await import("../../src/shared/react/use-app-event.js");
+const { useAppEvent } = await import("../../src/ui/hooks/use-app-event.js");
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

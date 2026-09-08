@@ -33,7 +33,7 @@ import {
 } from "@/features/library/index.js";
 import { StatusCard } from "@/features/jobs/index.js";
 import { AppUpdateBanner } from "@/features/app-update/index.js";
-import { useStoreSnapshot } from "@/shared/react/use-store.js";
+import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { HomeAskView } from "@/features/ask/index.js";
 import { GlossariesDialog } from "@/features/glossaries/index.js";
 import { FavoritesView } from "@/features/favorites/index.js";
@@ -51,7 +51,7 @@ import {
   CollectionManageDialog,
   CollectionsView,
 } from "@/features/collections/index.js";
-import { DownloadToastHost } from "@/shared/react/DownloadToastHost.jsx";
+import { DownloadToastHost } from "@/ui/download-toast/DownloadToastHost.jsx";
 import {
   readInitialLibraryTabFromReturn,
   useHomeReturnRestore,

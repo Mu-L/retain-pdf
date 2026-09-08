@@ -29,7 +29,7 @@ import {
   DialogShell,
   DialogTitle,
 } from "@/ui/components/dialog.js";
-import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
+import { useDialogReturnFocus } from "@/ui/hooks/use-dialog-return-focus.js";
 import { GLOSSARY_DOM_IDS } from "./glossaries-dom-ids.js";
 import { useGlossariesController } from "./useGlossariesController.js";
 import type { GlossariesControllerDeps } from "./useGlossariesController.js";

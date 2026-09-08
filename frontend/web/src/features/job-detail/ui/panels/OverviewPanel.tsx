@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useArtifactDownloadBusy } from "@/pages/home/state/use-artifact-download-busy.js";
 import { useHomeServices } from "@/pages/home/home-services-context.js";
-import { useStoreSnapshot } from "@/shared/react/use-store.js";
+import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { StageHistoryList } from "../StageHistoryList.jsx";
 import type { StatusDetailOverview } from "../../domain/status-detail-store.js";
 import {

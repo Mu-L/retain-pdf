@@ -30,7 +30,7 @@ import type {
   CollectionsDialogStore,
   CollectionsReloadSignal,
 } from "./CollectionsView.jsx";
-import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
+import { useDialogReturnFocus } from "@/ui/hooks/use-dialog-return-focus.js";
 
 export type CollectionManageDialogProps = {
   controller: CollectionsController;

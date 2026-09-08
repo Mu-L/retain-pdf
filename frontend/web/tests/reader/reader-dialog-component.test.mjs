@@ -198,7 +198,7 @@ test("retry-stage handoff replaces the open soft Reader job and preserves its an
     SOFT_READER_HISTORY_FLAG,
     SOFT_READER_OPEN_EVENT,
     handoffSoftReaderJob,
-  } = await import("../../src/shared/navigation/soft-reader.ts");
+  } = await import("../../src/platform/navigation/soft-reader.ts");
   const currentReaderUrl = "http://localhost/reader.html?job_id=job-old&page_idx=6&block_id=p007-b0002&mock=parallel";
   dom.window.history.replaceState({
     [SOFT_READER_HISTORY_FLAG]: true,
@@ -229,7 +229,7 @@ test("library job replacement automatically hands an open Reader to the new job"
   const {
     SOFT_READER_HISTORY_FLAG,
     SOFT_READER_OPEN_EVENT,
-  } = await import("../../src/shared/navigation/soft-reader.ts");
+  } = await import("../../src/platform/navigation/soft-reader.ts");
   const currentReaderUrl = "http://localhost/reader.html?job_id=job-retry-source&page_idx=2&mock=parallel";
   dom.window.history.replaceState({
     [SOFT_READER_HISTORY_FLAG]: true,
@@ -270,7 +270,7 @@ test("retry-stage handoff keeps a canonical document Reader URL", async () => {
     SOFT_READER_HISTORY_FLAG,
     SOFT_READER_OPEN_EVENT,
     handoffSoftReaderJob,
-  } = await import("../../src/shared/navigation/soft-reader.ts");
+  } = await import("../../src/platform/navigation/soft-reader.ts");
   const currentReaderUrl = "http://localhost/reader.html?document_id=doc-1&page_idx=4&mock=parallel";
   dom.window.history.replaceState({
     [SOFT_READER_HISTORY_FLAG]: true,

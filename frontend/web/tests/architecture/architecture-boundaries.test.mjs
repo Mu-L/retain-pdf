@@ -649,7 +649,7 @@ test("upload controller reads upload state only through upload state port", () =
 });
 
 // ===== React 迁移防回弹门禁(Phase 0 起生效) =====
-// 新世界(src/pages/**、src/shared/**)只能消费旧世界的纯逻辑层
+// 新世界(src/pages/**、src/ui/**、src/features/**)只能消费旧世界的纯逻辑层
 // (api/contracts/state-port/actions/view-model 等),禁止 import 旧视图层——
 // 一旦引用,旧 DOM 视图就会"回弹"进 React 树,迁移永远收不了口。
 //
@@ -660,7 +660,9 @@ test("upload controller reads upload state only through upload state port", () =
 test("React 新世界禁止 import 旧视图层(防回弹)", () => {
   const REACT_ROOTS = [
     join(PROJECT_ROOT, "src/pages"),
-    join(PROJECT_ROOT, "src/shared"),
+    // src/shared 已在 A7 解散：React 侧（hooks/icons/theme/decor/download-toast）
+    // 全部落到 src/ui，防回弹扫描根随之改指这里。
+    join(PROJECT_ROOT, "src/ui"),
     // 按功能重组后的新树同样受防回弹约束，否则功能迁过去就脱离门禁。
     join(PROJECT_ROOT, "src/features"),
   ];

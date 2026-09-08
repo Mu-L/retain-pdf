@@ -4,7 +4,7 @@ import {
   DialogContent,
   DialogShell,
 } from "@/ui/components/dialog.js";
-import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
+import { useDialogReturnFocus } from "@/ui/hooks/use-dialog-return-focus.js";
 import { StatusDetailHeader } from "./StatusDetailHeader.jsx";
 import { StatusDetailTabs } from "./StatusDetailTabs.jsx";
 import { STATUS_DETAIL_DIALOG_IDS } from "../domain/status-detail-dom-ids.js";

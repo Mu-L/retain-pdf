@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { API_PREFIX } from "@/js/config/api-constants.js";
 import { APP_EVENTS } from "@/js/contracts/app-contract.js";
 import { fetchFavorites } from "@/platform/api/index.js";
-import { EmptyState } from "@/shared/icons/EmptyState.jsx";
+import { EmptyState } from "@/ui/icons/EmptyState.jsx";
 
 type FavoriteItem = {
   favorite_id?: string;

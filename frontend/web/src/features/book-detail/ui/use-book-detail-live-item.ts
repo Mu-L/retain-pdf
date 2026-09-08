@@ -3,7 +3,7 @@
 // 避免 startPolling 首帧把已完成书盖成「排队中」。
 
 import { useMemo } from "react";
-import { useStoreSnapshot } from "@/shared/react/use-store.js";
+import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { isPollingBootstrapPlaceholder } from "@/pages/home/features/shared/job-helpers.js";
 
 /**

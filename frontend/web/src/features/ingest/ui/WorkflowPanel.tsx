@@ -30,7 +30,7 @@
 
 import { Languages, ScanSearch } from "lucide-react";
 import { Tabs as TabsPrimitive } from "radix-ui";
-import { useStoreSnapshot } from "@/shared/react/use-store.js";
+import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { useHomeServices } from "@/pages/home/home-services-context.js";
 import { HeroUpload } from "./components/UploadTile.jsx";
 import { InlineErrorBox } from "@/pages/home/components/InlineErrorBox.jsx";

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-// 装饰包 manifest 契约测试:schema 真值在 src/shared/decor/contract.ts,
+// 装饰包 manifest 契约测试:schema 真值在 src/ui/decor/contract.ts,
 // 这里锁住校验行为——舞台引擎和资产管线门禁都只认 validateDecorManifest,
 // 校验松了/紧了都会在真实资产入库前暴露。
 
@@ -9,8 +9,8 @@ import {
   MAX_LAYERS,
   MAX_MODEL_LAYERS,
   validateDecorManifest,
-} from "../../src/shared/decor/contract.js";
-import { DECOR_SLOTS, getDecorSlot, isDecorSlotId } from "../../src/shared/decor/slots.js";
+} from "../../src/ui/decor/contract.js";
+import { DECOR_SLOTS, getDecorSlot, isDecorSlotId } from "../../src/ui/decor/slots.js";
 
 /** 概念稿"国风"主题的最小合法 manifest(文档 DECOR_PACKS.md 同款示例) */
 function sampleManifest() {

@@ -4,7 +4,7 @@
 // 深链 replace 仍硬进 reader.html。
 
 import { useEffect } from "react";
-import { useAppEvent } from "@/shared/react/use-app-event.js";
+import { useAppEvent } from "@/ui/hooks/use-app-event.js";
 import { APP_EVENTS } from "@/js/contracts/app-contract.js";
 import {
   buildReaderDocumentPageUrl,
@@ -12,7 +12,7 @@ import {
   requestedReaderJobIdFromLocation,
 } from "../domain/dialog/routing.js";
 import { navigateToReader } from "../domain/navigate-to-reader.js";
-import { handoffSoftReaderJob } from "@/shared/navigation/soft-reader.js";
+import { handoffSoftReaderJob } from "@/platform/navigation/soft-reader.js";
 
 function anchorFromEventDetail(detail: any = {}) {
   const rawPageIdx = detail.pageIdx;

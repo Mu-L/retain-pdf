@@ -18,7 +18,8 @@ const SCAN_ROOTS = [
   JS_ROOT,
   join(PROJECT_ROOT, "src/features"),
   join(PROJECT_ROOT, "src/pages"),
-  join(PROJECT_ROOT, "src/shared"),
+  // src/shared 已在 A7 解散，共享 React 层落到 src/ui。
+  join(PROJECT_ROOT, "src/ui"),
 ];
 const EVENT_CONTRACT_FILE = join(JS_ROOT, "contracts/app-contract.js");
 // generated/ 为构建产物(打包内联的事件名字面量来自源码,由源码扫描守卫)

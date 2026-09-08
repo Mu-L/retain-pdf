@@ -11,8 +11,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DialogStore } from "@/pages/home/state/dialog-store.js";
 import type { CollectionRecord } from "../domain/controller.js";
-import { useStoreSnapshot } from "@/shared/react/use-store.js";
-import { EmptyState } from "@/shared/icons/EmptyState.jsx";
+import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
+import { EmptyState } from "@/ui/icons/EmptyState.jsx";
 // TODO(feature-layout 批次 4): library 迁入 src/features 后改指 @/features/library。
 import { BookCard, buildDefaultBookCardActions } from "@/features/library/index.js";
 import { useRecentJobCover } from "@/features/library/index.js";

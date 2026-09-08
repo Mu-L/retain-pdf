@@ -8,7 +8,7 @@ import type { FormEvent } from "react";
 import { BookOpen, FileText, SlidersHorizontal, X } from "lucide-react";
 
 import { Button } from "@/ui/components/button.js";
-import { useStoreSnapshot } from "@/shared/react/use-store.js";
+import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { useHomeServices } from "@/pages/home/home-services-context.js";
 import type { UploadViewStore } from "../../domain/upload-store.js";
 
