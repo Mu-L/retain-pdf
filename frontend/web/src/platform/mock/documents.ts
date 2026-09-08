@@ -4,7 +4,7 @@ import {
   isLiveMockJobActive,
   registerLiveMockJob,
 } from "./live-jobs.js";
-import type { JobSubmissionView } from "@/features/library/index.js";
+import type { JobSubmissionView } from "@/platform/contracts/library-payloads.js";
 
 export const MOCK_DOCUMENT_ID = "doc-9f2a41c8e77b";
 

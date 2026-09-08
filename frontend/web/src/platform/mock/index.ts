@@ -11,7 +11,7 @@ import {
 } from "./live-jobs.js";
 import { getMockDocumentByJobId } from "./documents.js";
 import type { JobLike } from "@retainpdf/domain/job";
-import type { LibraryCardItem } from "@/features/library/index.js";
+import type { LibraryCardItem } from "@/platform/contracts/library-payloads.js";
 export { getMockJobMarkdown } from "./markdown.js";
 export { fetchMockProtected } from "./responses.js";
 export {

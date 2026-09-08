@@ -7,47 +7,32 @@ import type {
   StoreChangeMeta,
 } from "@/platform/store/store.js";
 
+// 这两个型别已下沉到 platform（platform/mock 与 api/legacy 需要它们，
+// features → platform 才是正方向）。本文件内部仍要用它们，所以 import 与
+// re-export 各写一条：`export type {} from` 只转出，不引入本地作用域。
+import type {
+  LibraryProgress,
+  LibraryRuntimeStatus,
+  LibraryBackgroundStage,
+  LibraryBookSummary,
+  LibraryCardItem,
+  JobSubmissionView,
+} from "@/platform/contracts/library-payloads.js";
+
+export type {
+  LibraryProgress,
+  LibraryRuntimeStatus,
+  LibraryBackgroundStage,
+  LibraryBookSummary,
+  LibraryCardItem,
+  JobSubmissionView,
+};
+
 // ─── 进度 / 运行时 ───────────────────────────────────────────────
 
-/** job 进度条（top-level progress 或 runtime_status.progress） */
-export type LibraryProgress = {
-  current?: number | null;
-  total?: number | null;
-  percent?: number | null;
-  unit?: string | null;
-  [key: string]: unknown;
-};
 
-/** 运行时状态快照（轮询 / stage adapter 写入） */
-export type LibraryRuntimeStatus = {
-  stageKey?: string;
-  publicStage?: string;
-  source?: string;
-  lane?: string;
-  substage?: string;
-  detail?: string;
-  progress?: LibraryProgress;
-  [key: string]: unknown;
-};
 
-/** background lane 合并时附带的阶段片段 */
-export type LibraryBackgroundStage = {
-  display_stage?: string;
-  stage?: string;
-  substage?: string;
-  lane?: string;
-  progress?: LibraryProgress;
-  stage_detail?: string;
-  [key: string]: unknown;
-};
 
-/** book 载荷上的摘要（merge 时回填 source_file_name / page_count） */
-export type LibraryBookSummary = {
-  source_file_name?: string;
-  page_count?: number | null;
-  title?: string;
-  [key: string]: unknown;
-};
 
 // ─── 网格卡片 item ───────────────────────────────────────────────
 
@@ -58,52 +43,6 @@ export type LibraryBookSummary = {
  *
  * 扩展字段经 index signature 放行；已知字段尽量列全，避免 any。
  */
-export type LibraryCardItem = {
-  // 身份
-  job_id?: string;
-  id?: string;
-  document_id?: string;
-  active_job_id?: string;
-  library_only?: boolean;
-  /** 打开详情时优先落在「翻译」Tab（进度在 Tab 内，不弹工作流窗） */
-  prefer_translate_tab?: boolean;
-
-  // 展示
-  title?: string;
-  display_name?: string;
-  source_file_name?: string;
-  page_count?: number | null;
-  cover_url?: string;
-  thumbnail_url?: string;
-  updated_at?: string;
-  created_at?: string;
-  added_at?: string;
-  last_opened_at?: string | null;
-
-  // 文档元数据
-  reading_status?: string;
-  tags?: string[];
-  source_pdf_url?: string;
-  bytes?: number | null;
-
-  // job 状态 / stage
-  status?: string;
-  stage?: string;
-  display_stage?: string;
-  substage?: string;
-  lane?: string;
-  stage_detail?: string;
-  progress?: LibraryProgress;
-  runtime_status?: LibraryRuntimeStatus;
-  background_stages?: LibraryBackgroundStage[];
-  stage_snapshot?: LibraryRuntimeStatus;
-  book_summary?: LibraryBookSummary;
-  workflow?: string;
-  job_type?: string;
-
-  // runtime merge / API 可能附带额外字段
-  [key: string]: unknown;
-};
 
 /** job 中心命名别名（与 LibraryCardItem 同一形状） */
 export type LibraryJobItem = LibraryCardItem;
@@ -174,22 +113,6 @@ export type DocumentJobSummary = LibraryCardItem & {
 };
 
 /** POST /documents/:id/translate 返回（JobSubmissionView） */
-export type JobSubmissionView = {
-  job_id?: string;
-  id?: string;
-  document_id?: string;
-  status?: string;
-  workflow?: string;
-  ocr_reused?: boolean;
-  source_artifact_job_id?: string;
-  stages?: {
-    ocr?: { state?: string; [key: string]: unknown };
-    translation?: { state?: string; [key: string]: unknown };
-    render?: { state?: string; [key: string]: unknown };
-    [key: string]: unknown;
-  };
-  [key: string]: unknown;
-};
 
 export type UpdateDocumentPayload = {
   title?: string;
