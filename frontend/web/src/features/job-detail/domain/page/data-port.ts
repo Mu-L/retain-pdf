@@ -3,18 +3,18 @@ import {
   fetchJobArtifactsManifest,
   fetchJobMarkdown,
   fetchJobMarkdownDocument,
-} from "@/platform/api/legacy/jobs-artifacts.js";
+} from "@/platform/api/index.js";
 import {
   fetchJobDiagnostics,
   fetchResumePlan,
   rerunJob,
   resumeJob,
-} from "@/platform/api/legacy/jobs-actions.js";
+} from "@/platform/api/index.js";
 import {
   fetchJobEvents,
-} from "@/platform/api/legacy/jobs-events.js";
+} from "@/platform/api/index.js";
 import { fetchJobPayload } from "@/platform/api/index.js";
-import { fetchProtected } from "@/platform/api/legacy/http.js";
+import { fetchProtected } from "@/platform/api/index.js";
 
 export function createJobDetailDataPort({
   apiPrefix = API_PREFIX,

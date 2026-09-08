@@ -4,8 +4,8 @@ import {
   resolveTranslatedPdfDownloadName,
 } from "@retainpdf/domain/job";
 import * as readerState from "@retainpdf/reader/runtime/state";
-import { createFavorite, deleteFavorite, fetchFavorites } from "@/platform/api/legacy/favorites.js";
-import { fetchDocumentByJobId } from "@/platform/api/legacy/documents.js";
+import { createFavorite, deleteFavorite, fetchFavorites } from "@/platform/api/index.js";
+import { fetchDocumentByJobId } from "@/platform/api/index.js";
 import { createReaderDialogRuntimePort } from "../dialog/runtime-port.js";
 import { API_PREFIX } from "@/platform/config/api-constants.js";
 import { resolveReaderSourcePdf } from "./data.js";

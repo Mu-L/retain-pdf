@@ -46,7 +46,7 @@ export { resolveMarkdownAssetUrl } from "@retainpdf/domain/job";
 export { parseMarkdownWithMath } from "@/features/reader/domain.js";
 
 // —— AI 追问（react-pdf assistant）——
-export { askLibraryAi } from "@/platform/api/legacy/ai.js";
+export { askLibraryAi } from "@/platform/api/index.js";
 export { createReaderAskAnswerer } from "@/features/reader/domain.js";
 export { createReaderMarkdownAnswerer } from "@/features/reader/domain.js";
 export {
@@ -96,12 +96,12 @@ export {
   messagesToBranchItems,
   nextForkConversationTitle,
   patchConversation,
-} from "@/platform/api/legacy/conversations.js";
+} from "@/platform/api/index.js";
 export type {
   ConversationDetail,
   ConversationRecord,
   MessageRecord,
-} from "@/platform/api/legacy/conversations.js";
+} from "@/platform/api/index.js";
 export {
   loadStoredConversationId,
   saveStoredConversationId,
@@ -110,12 +110,12 @@ export {
 
 // —— 服务端收藏面板 ——
 export { API_PREFIX } from "@/platform/config/api-constants.js";
-export { fetchDocumentByJobId } from "@/platform/api/legacy/documents.js";
+export { fetchDocumentByJobId } from "@/platform/api/index.js";
 export {
   createFavorite,
   deleteFavorite,
   fetchFavorites,
-} from "@/platform/api/legacy/favorites.js";
+} from "@/platform/api/index.js";
 export {
   createReaderServerFavoritesPort,
   normalizeServerFavorite,

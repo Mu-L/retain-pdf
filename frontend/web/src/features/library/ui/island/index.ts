@@ -1,9 +1,8 @@
 import { API_PREFIX } from "@/platform/config/api-constants.js";
 import { APP_EVENTS } from "@/platform/contracts/app-contract.js";
 import { RECENT_JOBS_IDS } from "../recent-jobs-dom-contract.js";
-import { fetchDocumentList, patchDocument } from "@/platform/api/legacy/documents.js";
-import { searchLibrary } from "@/platform/api/legacy/search.js";
-import type { MockDocumentPatch } from "@/platform/mock/documents.js";
+import { fetchDocumentList, patchDocument } from "@/platform/api/index.js";
+import { searchLibrary } from "@/platform/api/index.js";
 
 /** Anchor payload used to open the reader from a search hit / document row. */
 export interface LibrarySearchAnchor {
@@ -14,12 +13,22 @@ export interface LibrarySearchAnchor {
   [key: string]: unknown;
 }
 
+/** 书卡可改的字段。原先直接复用 mock 层的 MockDocumentPatch——那是 mock 夹具
+ *  的形状，不该出现在功能的公开端口上。改为结构类型，与 canonical
+ *  patchDocument 的 Record<string, unknown> 兼容。 */
+export interface LibraryDocumentPatch {
+  title?: string;
+  reading_status?: string;
+  tags?: string[];
+  [key: string]: unknown;
+}
+
 export type LibrarySearchQuerySubscriber = (value: string) => void;
 
 export interface LibrarySearchPorts {
   searchLibrary: (q: string) => Promise<{ hits?: LibrarySearchAnchor[] } | null | undefined>;
   fetchDocumentList: () => Promise<{ documents?: unknown[] } | null | undefined>;
-  patchDocument: (documentId: string, payload: MockDocumentPatch) => Promise<unknown>;
+  patchDocument: (documentId: string, payload: LibraryDocumentPatch) => Promise<unknown>;
   openReader: (anchor: LibrarySearchAnchor) => void;
   subscribeQuery: (subscriber: LibrarySearchQuerySubscriber) => () => void;
 }
