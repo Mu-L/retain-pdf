@@ -2,17 +2,17 @@
 // 入参 item/statusCardState（可选 isActive 透传），出 coverProcessing/readerAvailable/canTranslate + isActive/status。
 
 import { useMemo } from "react";
-import { isLibraryCardProcessing } from "@/pages/home/features/library/display/library-card-badge.js";
+import { isLibraryCardProcessing } from "@/features/library/domain.js";
 import {
   isOcrOnlyItem,
   resolveLibraryReadPresentation,
-} from "@/pages/home/features/library/display/library-card-semantics.js";
+} from "@/features/library/domain.js";
 import {
   isLibraryOnlyItem,
   isRecentJobActive,
   recentJobStageLabel,
   recentJobStatusLabel,
-} from "@/pages/home/composition/external.js";
+} from "@/features/library/domain.js";
 
 function statusOf(item: any) {
   if (isLibraryOnlyItem(item)) return { label: "未翻译", tone: "muted" };

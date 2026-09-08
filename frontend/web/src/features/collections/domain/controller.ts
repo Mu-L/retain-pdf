@@ -9,9 +9,7 @@ import {
   patchCollection,
   removeDocumentFromCollection,
 } from "@/platform/api/index.js";
-// TODO(feature-layout 批次 4): documents-library 随 library 功能迁移后改指
-// @/features/library。
-import { shapeDocumentsWithBooks } from "@/js/features/documents-library/shape-documents-with-books.js";
+import { shapeDocumentsWithBooks } from "@/features/library/index.js";
 
 /** 合集记录。领域真值在本功能内，装配层从 @/features/collections 引用。 */
 export type CollectionRecord = {

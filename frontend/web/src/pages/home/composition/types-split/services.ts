@@ -56,7 +56,7 @@ import type { HomeReader } from "./reader.js";
 import type {
   LibraryController,
   RecentJobsReactViewPort,
-} from "../../features/library/types.js";
+} from "@/features/library/index.js";
 
 // ── Ports / stores ──
 export type { CredentialsStatePort, HomeStatePort, UploadStatePort };

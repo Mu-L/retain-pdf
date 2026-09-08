@@ -486,7 +486,7 @@ test("RecentJobsLibrary：卡片渲染隔离(replaceItem 单卡,其余 23 张卡
   const {
     getCardRenderCountForTests,
     resetCardRenderCountsForTests,
-  } = await import("../../src/pages/home/features/library/index.js");
+  } = await import("../../src/features/library/index.js");
 
   const items = Array.from({ length: 24 }, (_, index) => makeItem(index));
   services.library.recentJobsStore.actions.setItems(items);

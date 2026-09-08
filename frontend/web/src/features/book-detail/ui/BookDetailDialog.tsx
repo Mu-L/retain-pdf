@@ -4,7 +4,7 @@
 import { useHomeServices } from "@/pages/home/home-services-context.js";
 import { useDialogState } from "@/pages/home/state/use-dialog-state.js";
 import { useDialogReturnFocus } from "@/shared/react/use-dialog-return-focus.js";
-import { useRecentJobCover } from "@/pages/home/features/library/display/useRecentJobCover.js";
+import { useRecentJobCover } from "@/features/library/index.js";
 import { BookDetailShell } from "./shell/BookDetailShell.jsx";
 import { CoverActionsPanel } from "./panels/CoverActionsPanel.jsx";
 import { ArtifactQuickDownloads } from "./panels/ArtifactQuickDownloads.js";

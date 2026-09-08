@@ -1,5 +1,5 @@
 // types-split/features.ts — Feature 注册表（神对象 CT：10 字段）。
-import type { TranslateDocumentPayload } from "../../features/library/types.js";
+import type { TranslateDocumentPayload } from "@/features/library/index.js";
 
 export type WorkflowFeature = {
   applyWorkflowMode: () => void;

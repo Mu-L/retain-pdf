@@ -13,7 +13,7 @@ import {
   type MockDocumentPatch,
   type MockDocumentWithMedia,
 } from "../mock/documents.js";
-import type { JobSubmissionView } from "../../pages/home/features/library/types.js";
+import type { JobSubmissionView } from "@/features/library/index.js";
 import { buildApiEndpoint } from "./http.js";
 
 /** Document record returned by documents API (media URLs included). */

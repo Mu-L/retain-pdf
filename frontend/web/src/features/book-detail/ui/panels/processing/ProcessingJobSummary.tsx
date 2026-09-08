@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import type { DocumentJobSummary } from "@/pages/home/features/library/types.js";
+import type { DocumentJobSummary } from "@/features/library/domain.js";
 import { documentJobPresentation } from "../../use-document-jobs.js";
 
 function progressOf(job?: DocumentJobSummary | null) {

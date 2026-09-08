@@ -5,8 +5,8 @@ import {
   syntheticLibraryJobId,
   isLibraryOnlyItem,
   LIBRARY_ONLY_JOB_PREFIX,
-} from "../../src/js/features/documents-library/document-card-item.js";
-import { collectDocumentLibraryPage } from "../../src/js/features/documents-library/document-library-source.js";
+} from "../../src/features/library/domain/documents/document-card-item.js";
+import { collectDocumentLibraryPage } from "../../src/features/library/domain/documents/document-library-source.js";
 
 // ===== shapeDocumentCardItem:三种文档态映射 =====
 

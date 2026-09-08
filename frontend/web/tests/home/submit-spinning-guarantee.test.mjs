@@ -3,13 +3,13 @@ import assert from "node:assert/strict";
 
 import {
   createRecentJobsRuntimePatches,
-} from "../../src/js/features/recent-jobs/runtime-patches.ts";
+} from "../../src/features/library/domain/recent-jobs/runtime-patches.ts";
 import {
   createRecentJobsStatePort,
-} from "../../src/js/features/recent-jobs/state.ts";
+} from "../../src/features/library/domain/recent-jobs/state.ts";
 import {
   isLibraryCardProcessing,
-} from "../../src/pages/home/features/library/display/library-card-badge.js";
+} from "../../src/features/library/domain/card/library-card-badge.js";
 
 function makePatches() {
   const statePort = createRecentJobsStatePort();

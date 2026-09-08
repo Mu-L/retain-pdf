@@ -52,7 +52,7 @@ import {
 import {
   createLibraryController,
   createRecentJobsReactViewPort,
-} from "../features/library/index.js";
+} from "@/features/library/index.js";
 import { createCollectionsController } from "@/features/collections/index.js";
 import type {
   CollectionsController,
@@ -64,9 +64,9 @@ import type {
   LibraryController,
   RecentJobsReactViewPort,
   ReloadRecentJobsOptions,
-} from "../features/library/types.js";
+} from "@/features/library/index.js";
 import { createDialogStore, type DialogStore } from "../state/dialog-store.js";
-import type { LibraryCardItem } from "../features/library/types.js";
+import type { LibraryCardItem } from "@/features/library/index.js";
 
 type ReaderAnchor = {
   pageIdx?: number | null;

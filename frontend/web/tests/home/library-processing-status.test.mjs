@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 // 回归：刷新后书架卡片对列表投影原生状态词（无 display_stage、无 progress）
 // 必须照样转圈。断点见 library-card-badge.ts 白名单。
 const { isLibraryCardProcessing, libraryCardBadge } = await import(
-  "../../src/pages/home/features/library/display/library-card-badge.js"
+  "../../src/features/library/domain/card/library-card-badge.js"
 );
 
 const runningVariants = [

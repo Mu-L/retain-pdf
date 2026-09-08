@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { buildTranslateBookCardAction } from "../../src/pages/home/features/library/actions/translate.js";
+import { buildTranslateBookCardAction } from "../../src/features/library/domain/actions/translate.js";
 import { deriveBookDetailCoverState } from "../../src/features/book-detail/ui/use-book-detail-cover.js";
 
 const OCR_DONE_ITEM = {

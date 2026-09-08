@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createDocumentAutoNaming } from "../../src/js/features/documents-library/document-auto-naming.js";
+import { createDocumentAutoNaming } from "../../src/features/library/domain/documents/document-auto-naming.js";
 
 test("成功 OCR 任务创建并自动应用标题建议", async () => {
   const calls = [];

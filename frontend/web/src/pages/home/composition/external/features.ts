@@ -33,14 +33,14 @@ export { createJobRenderContextPort } from "../../../../js/features/job-runtime/
 export { readActiveJobId } from "../../../../js/features/job-runtime/active-job-storage.js";
 
 // recent-jobs / documents-library
-export { mountRecentJobsFeature } from "../../../../js/features/recent-jobs/controller.js";
-export { createRecentJobsStatePort } from "../../../../js/features/recent-jobs/state.js";
-export { createRecentJobActions } from "../../../../js/features/recent-jobs/actions.js";
-export { createRecentJobsRuntimePort } from "../../../../js/features/recent-jobs/job-runtime-port.js";
-export { createRecentJobsReaderPort } from "../../../../js/features/recent-jobs/reader-port.js";
-export { createRecentJobsNavigationPort } from "../../../../js/features/recent-jobs/navigation-port.js";
-export { createRecentJobsLibraryRefreshPort } from "../../../../js/features/recent-jobs/library-refresh-port.js";
-export { createDocumentAutoNaming } from "../../../../js/features/documents-library/document-auto-naming.js";
+export { mountRecentJobsFeature } from "@/features/library/index.js";
+export { createRecentJobsStatePort } from "@/features/library/index.js";
+export { createRecentJobActions } from "@/features/library/index.js";
+export { createRecentJobsRuntimePort } from "@/features/library/index.js";
+export { createRecentJobsReaderPort } from "@/features/library/index.js";
+export { createRecentJobsNavigationPort } from "@/features/library/index.js";
+export { createRecentJobsLibraryRefreshPort } from "@/features/library/index.js";
+export { createDocumentAutoNaming } from "@/features/library/index.js";
 export {
   isRecentJobActive,
   recentJobProgressPercent,
@@ -49,13 +49,13 @@ export {
   recentJobStatusLabel,
   recentJobTitle,
   stageKeyForRecentJobLabel,
-} from "../../../../js/features/recent-jobs/card-presenter.js";
-export { loadFirstRecentJobImage } from "../../../../js/features/recent-jobs/image-loader.js";
-export { buildRecentJobsSummaryViewModel } from "../../../../js/features/recent-jobs/summary-view-model.js";
-export { libraryCardIdentity } from "../../../../js/features/recent-jobs/library-card-identity.js";
-export { createDocumentLibraryResource } from "../../../../js/features/documents-library/document-library-resource.js";
-export { isLibraryOnlyItem } from "../../../../js/features/documents-library/document-card-item.js";
-export { shapeDocumentsWithBooks } from "../../../../js/features/documents-library/shape-documents-with-books.js";
+} from "@/features/library/index.js";
+export { loadFirstRecentJobImage } from "@/features/library/index.js";
+export { buildRecentJobsSummaryViewModel } from "@/features/library/index.js";
+export { libraryCardIdentity } from "@/features/library/index.js";
+export { createDocumentLibraryResource } from "@/features/library/index.js";
+export { isLibraryOnlyItem } from "@/features/library/index.js";
+export { shapeDocumentsWithBooks } from "@/features/library/index.js";
 
 // artifact-downloads / app-shell
 // artifacts 已迁至 src/features/artifacts，调用方直接从该功能的 index.ts

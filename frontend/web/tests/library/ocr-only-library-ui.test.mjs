@@ -6,19 +6,19 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   isOcrOnlyItem,
   resolveLibraryReadPresentation,
-} from "../../src/pages/home/features/library/display/library-card-semantics.js";
+} from "../../src/features/library/domain/card/library-card-semantics.js";
 import {
   isLibraryCardProcessing,
   libraryCardBadge,
-} from "../../src/pages/home/features/library/display/library-card-badge.js";
-import { buildReadBookCardAction } from "../../src/pages/home/features/library/actions/read.js";
-import { BookCard, cardSignatureOf } from "../../src/pages/home/features/library/shell/BookCard.js";
-import { BookListRow } from "../../src/pages/home/features/library/shell/BookListRow.js";
+} from "../../src/features/library/domain/card/library-card-badge.js";
+import { buildReadBookCardAction } from "../../src/features/library/domain/actions/read.js";
+import { BookCard, cardSignatureOf } from "../../src/features/library/ui/shell/BookCard.js";
+import { BookListRow } from "../../src/features/library/ui/shell/BookListRow.js";
 import {
   countLibraryStatusFilters,
   matchesLibraryFilter,
   STATUS_FILTERS,
-} from "../../src/pages/home/features/library/page/LibraryFilterMenu.js";
+} from "../../src/features/library/ui/page/LibraryFilterMenu.js";
 
 const ocrDone = {
   job_id: "job-ocr",

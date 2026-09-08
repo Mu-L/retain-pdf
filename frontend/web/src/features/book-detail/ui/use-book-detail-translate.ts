@@ -5,7 +5,7 @@ import { usePageRange } from "./use-page-range.js";
 import {
   inclusivePageNumbers,
   reusableOcrJobId,
-} from "@/pages/home/features/library/domain/translation-ocr-reuse.js";
+} from "@/features/library/domain.js";
 
 /**
  * @param {object} options

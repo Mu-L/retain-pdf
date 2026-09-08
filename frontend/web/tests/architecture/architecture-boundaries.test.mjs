@@ -507,26 +507,32 @@ test("job runtime default adapter shims are not kept in feature layer", () => {
   }
 });
 
+// recent-jobs 已随 library 功能迁至 features/library/domain/recent-jobs。
+const RECENT_JOBS_DOMAIN = join(PROJECT_ROOT, "src/features/library/domain/recent-jobs");
+function readRecentJobsSource(fileName) {
+  return readSource(join(RECENT_JOBS_DOMAIN, fileName.replace(/\.js$/, ".ts")));
+}
+
 test("recent jobs feature does not import home state directly", () => {
   for (const fileName of ["controller.js", "loader.js", "commit.js", "runtime-item.js"]) {
     // 允许 `import type { HomeStatePort }`（编译期擦除，无运行时依赖）
-    const source = sourceWithoutTypeImports(readFeatureSource("recent-jobs", fileName));
+    const source = sourceWithoutTypeImports(readRecentJobsSource(fileName));
 
     assert.equal(source.includes("../home/state.js"), false);
   }
-  assert.equal(readFeatureSource("recent-jobs", "runtime-item.js").includes("../../job/core.js"), false);
-  assert.equal(readFeatureSource("recent-jobs", "runtime-item.js").includes("../../job-status/"), false);
-  assert.match(readFeatureSource("recent-jobs", "runtime-item.js"), /runtime-value-helpers\.js/);
+  assert.equal(readRecentJobsSource("runtime-item.js").includes("../../job/core.js"), false);
+  assert.equal(readRecentJobsSource("runtime-item.js").includes("../../job-status/"), false);
+  assert.match(readRecentJobsSource("runtime-item.js"), /runtime-value-helpers\.js/);
   assert.equal(
-    readFeatureSource("recent-jobs", "library-refresh-port.js").includes("../library/library-event-port.js"),
+    readRecentJobsSource("library-refresh-port.js").includes("../library/library-event-port.js"),
     false,
   );
   assert.equal(
-    readFeatureSource("recent-jobs", "active-job-recovery.js").includes("../job-runtime/active-job-storage.js"),
+    readRecentJobsSource("active-job-recovery.js").includes("../job-runtime/active-job-storage.js"),
     false,
   );
-  assert.equal(readFeatureSource("recent-jobs", "state.js").includes("../../state/store.js"), false);
-  assert.match(readFeatureSource("recent-jobs", "loading-state-contract.js"), /RECENT_JOBS_LOADING_STATES/);
+  assert.equal(readRecentJobsSource("state.js").includes("../../state/store.js"), false);
+  assert.match(readRecentJobsSource("loading-state-contract.js"), /RECENT_JOBS_LOADING_STATES/);
 });
 
 test("current job state is store-only with no legacy mirror", () => {
@@ -637,6 +643,7 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
   const FORBIDDEN_IMPORT_PATTERNS = [
     // 只拦旧世界的 src/js/components/;新世界页面自身的 components/ 子目录
     // (src/pages/*/components/,目录约定)不在此列
+    // src/js/components/ 已随 library 迁移清空并删除；保留本条防止新代码重建该目录。
     [/from\s+["'][^"']*\/js\/components\//, "src/js/components/(自定义元素/对话框视图)"],
     [/from\s+["'][^"']*\/generated\//, "src/js/generated/(预编译产物)"],
     [/from\s+["'][^"']*\/bootstrap\//, "src/js/bootstrap/(旧 DI 装配层)"],
@@ -952,9 +959,10 @@ test("reader, search, and recent-job images use the canonical API package", () =
   assert.match(legacySearchAdapter, /from\s+["']@retainpdf\/api\/search["']/);
   assert.doesNotMatch(legacySearchAdapter, /\bfetch\s*\(/, "search adapter must not duplicate HTTP logic");
 
+  // 卡片 presenter 与图片加载器已随 library 功能迁至 features/library/domain/card。
   for (const file of [
-    "src/js/components/recent-jobs/recent-job-card-presenter.ts",
-    "src/js/components/recent-jobs/recent-job-card-image-loader.ts",
+    "src/features/library/domain/card/recent-job-card-presenter.ts",
+    "src/features/library/domain/card/recent-job-card-image-loader.ts",
   ]) {
     const source = readFileSync(join(PROJECT_ROOT, file), "utf8");
     assert.match(source, /from\s+["']@retainpdf\/api\/job-images["']/);

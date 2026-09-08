@@ -12,7 +12,7 @@ import {
   prepareDownloadTarget,
   saveResponseDownload,
 } from "@/pages/home/composition/external.js";
-import type { DocumentJobSummary } from "@/pages/home/features/library/types.js";
+import type { DocumentJobSummary } from "@/features/library/domain.js";
 import {
   buildArtifactCenterSections,
   mergeArtifactLinksIntoManifest,

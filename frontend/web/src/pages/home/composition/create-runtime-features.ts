@@ -47,7 +47,7 @@ import type {
   ArtifactDownloadsFeature,
   UploadStatePort,
 } from "./types.js";
-import type { RecentJobsReactViewPort } from "../features/library/types.js";
+import type { RecentJobsReactViewPort } from "@/features/library/index.js";
 
 /** mountJobRuntimeFeature 外壳端口（只声明 composition 实际传入的面） */
 type JobRuntimeShellViewPort = {

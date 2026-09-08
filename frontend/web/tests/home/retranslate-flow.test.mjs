@@ -46,7 +46,7 @@ async function waitFor(predicate, description) {
 test("有 document_id 点卡开详情,不开上传框", async () => {
   const dom = makeDom();
   const { createLibraryController } = await import(
-    "../../src/pages/home/features/library/domain/controller.js"
+    "../../src/features/library/domain/controller.js"
   );
   const { APP_EVENTS } = await import("../../src/js/contracts/app-contract.js");
 
@@ -101,7 +101,7 @@ test("有 document_id 点卡开详情,不开上传框", async () => {
 test("详情翻译提交接进度:静默 attach + 状态区占位,不弹上传框", async () => {
   const dom = makeDom();
   const { createLibraryController } = await import(
-    "../../src/pages/home/features/library/domain/controller.js"
+    "../../src/features/library/domain/controller.js"
   );
 
   // —— 提交即静默接进度:只写 statusCardStore,不抬工作流区,不整页 reload ——

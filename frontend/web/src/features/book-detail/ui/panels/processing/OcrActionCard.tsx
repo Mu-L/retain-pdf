@@ -2,7 +2,7 @@ import { btn } from "../ui.jsx";
 import { ProcessingJobSummary } from "./ProcessingJobSummary.jsx";
 import { isDocumentJobActive } from "../../use-document-jobs.js";
 import { documentJobPresentation } from "../../use-document-jobs.js";
-import type { DocumentJobSummary } from "@/pages/home/features/library/types.js";
+import type { DocumentJobSummary } from "@/features/library/domain.js";
 import { ProcessingCapabilityHeader } from "./ProcessingCapabilityHeader.jsx";
 
 function ScanIcon() {

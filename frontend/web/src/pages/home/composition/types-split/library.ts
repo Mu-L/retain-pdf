@@ -9,7 +9,7 @@ import type {
   RecentJobsReactViewPort,
   TranslateDocumentPayload,
   UpdateDocumentPayload,
-} from "../../features/library/types.js";
+} from "@/features/library/index.js";
 import type { ReadOnlyStore } from "./common.js";
 
 export type RecentJobActions = {

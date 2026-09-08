@@ -234,7 +234,7 @@ test("running job with display_stage=done does not skip render in the stage flow
 
 test("recent-jobs card label clamps done while the job is still running", async () => {
   const { stageKeyForRecentJobLabel, recentJobStageLabel } = await import(
-    "../../src/js/components/recent-jobs/recent-job-card-presenter.js"
+    "../../src/features/library/domain/card/recent-job-card-presenter.js"
   );
   // running + display_stage="done" should not advance the small card to "已完成".
   const runningWithDoneFlag = {
@@ -274,7 +274,7 @@ test("recent-jobs card label clamps done while the job is still running", async 
 
 test("library merge keeps recent-jobs item.display_stage out of done while running", async () => {
   const { mergeLibraryJobItem } = await import(
-    "../../src/js/features/recent-jobs/runtime-item.js"
+    "../../src/features/library/domain/recent-jobs/runtime-item.js"
   );
   // Backend pushes a runtime patch with display_stage="done" while status is still "running".
   const merged = mergeLibraryJobItem(

@@ -14,7 +14,7 @@ import {
   deleteMockDocument,
 } from "../../src/js/mock/documents.js";
 import { MOCK_JOB_ID } from "../../src/js/mock/constants.js";
-import { createRecentJobActions } from "../../src/js/features/recent-jobs/actions.js";
+import { createRecentJobActions } from "../../src/features/library/domain/recent-jobs/actions.js";
 
 // ===== documents:形状与语义(与后端对接说明对齐) =====
 

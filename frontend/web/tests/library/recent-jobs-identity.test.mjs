@@ -5,16 +5,16 @@ import {
   dedupeLibraryCards,
   libraryCardIdentity,
   sameLibraryCard,
-} from "../../src/js/features/recent-jobs/library-card-identity.ts";
+} from "../../src/features/library/domain/recent-jobs/library-card-identity.ts";
 import {
   collectRecentJobsPage,
-} from "../../src/js/features/recent-jobs/pagination.ts";
+} from "../../src/features/library/domain/recent-jobs/pagination.ts";
 import {
   createRecentJobsRuntimePatches,
-} from "../../src/js/features/recent-jobs/runtime-patches.ts";
+} from "../../src/features/library/domain/recent-jobs/runtime-patches.ts";
 import {
   createRecentJobsStatePort,
-} from "../../src/js/features/recent-jobs/state.ts";
+} from "../../src/features/library/domain/recent-jobs/state.ts";
 
 test("library card identity prefers document_id and falls back to job_id", () => {
   assert.equal(

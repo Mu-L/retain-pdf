@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 const { deriveLibraryPageState } = await import(
-  "../../src/pages/home/features/library/page/library-page-state.js"
+  "../../src/features/library/domain/library-page-state.js"
 );
 
 test("library page state: 有卡片时始终保持列表，普通刷新不显示加载占位", () => {

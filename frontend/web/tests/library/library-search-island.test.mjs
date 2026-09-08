@@ -5,7 +5,7 @@ import {
   filterDocuments,
   highlightSegments,
   nextReadingStatus,
-} from "../../src/js/islands/library-search/view-model.js";
+} from "../../src/features/library/ui/island/view-model.js";
 
 test("highlightSegments 把 [ ] 包裹的命中词拆成高亮分段", () => {
   assert.deepEqual(highlightSegments("…考察了[光谱]系列中的[交换]反应…"), [

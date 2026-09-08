@@ -7,7 +7,7 @@ import {
   selectDocumentOcrStatusJob,
   selectReusableOcrJob,
   translationUsesReusedOcr,
-} from "../../src/pages/home/features/library/domain/translation-ocr-reuse.js";
+} from "../../src/features/library/domain/translation-ocr-reuse.js";
 
 test("OCR 复用：指定范围展开为一基连续页码数组", () => {
   assert.deepEqual(inclusivePageNumbers(2, 5), [2, 3, 4, 5]);

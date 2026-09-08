@@ -14,8 +14,8 @@ import type { CollectionRecord } from "../domain/controller.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { EmptyState } from "@/shared/icons/EmptyState.jsx";
 // TODO(feature-layout 批次 4): library 迁入 src/features 后改指 @/features/library。
-import { BookCard, buildDefaultBookCardActions } from "@/pages/home/features/library/index.js";
-import { useRecentJobCover } from "@/pages/home/features/library/display/useRecentJobCover.js";
+import { BookCard, buildDefaultBookCardActions } from "@/features/library/index.js";
+import { useRecentJobCover } from "@/features/library/index.js";
 
 // 文件夹卡片的封面堆叠预览(参考 PDF_MD_lib 的 FolderCard.tsx:最多 4 本书的
 // 封面像扑克牌一样扇形叠放,越靠前的书 z 越高、叠在最外面)。封面图沿用

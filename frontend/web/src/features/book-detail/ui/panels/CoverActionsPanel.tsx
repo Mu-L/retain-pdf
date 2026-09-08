@@ -3,7 +3,7 @@
 // （BookDetailOverviewTab）——左栏纯粹化，右栏不再空旷。
 
 import { btn, IconCompare, IconEye } from "./ui.jsx";
-import { BookCardProcessingOverlay } from "@/pages/home/features/library/display/BookCardProcessingOverlay.jsx";
+import { BookCardProcessingOverlay } from "@/features/library/index.js";
 import { BookMarked, Check, Copy, Hash, UserRound } from "lucide-react";
 import { useState, type ReactNode } from "react";
 

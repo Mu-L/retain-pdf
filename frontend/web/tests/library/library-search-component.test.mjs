@@ -22,7 +22,7 @@ globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
 globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
 globalThis.IS_REACT_ACT_ENVIRONMENT = false;
 
-const { mountLibrarySearchApp } = await import("../../src/js/islands/library-search/library-search-app.jsx");
+const { mountLibrarySearchApp } = await import("../../src/features/library/ui/island/library-search-app.jsx");
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

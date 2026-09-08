@@ -14,50 +14,50 @@ import {
 import {
   createRecentJobsStatePort,
   createRecentJobsStore,
-} from "../../src/js/features/recent-jobs/state.js";
-import { createRecentJobsLibraryRefreshPort } from "../../src/js/features/recent-jobs/library-refresh-port.js";
+} from "../../src/features/library/domain/recent-jobs/state.js";
+import { createRecentJobsLibraryRefreshPort } from "../../src/features/library/domain/recent-jobs/library-refresh-port.js";
 import {
   createRecentJobsCommandPort,
   RECENT_JOBS_COMMANDS,
-} from "../../src/js/features/recent-jobs/commands.js";
-import { bindRecentJobsFeatureEvents } from "../../src/js/features/recent-jobs/bindings.js";
-import { bindRecentJobsCommandHandlers } from "../../src/js/features/recent-jobs/command-handlers.js";
-import { hydrateCreatedRecentJob } from "../../src/js/features/recent-jobs/created-job-hydration.js";
+} from "../../src/features/library/domain/recent-jobs/commands.js";
+import { bindRecentJobsFeatureEvents } from "../../src/features/library/domain/recent-jobs/bindings.js";
+import { bindRecentJobsCommandHandlers } from "../../src/features/library/domain/recent-jobs/command-handlers.js";
+import { hydrateCreatedRecentJob } from "../../src/features/library/domain/recent-jobs/created-job-hydration.js";
 import {
   createLibraryBooksResource,
   invalidateLibraryBooksResource,
-} from "../../src/js/features/recent-jobs/library-books-resource.js";
+} from "../../src/features/library/domain/recent-jobs/library-books-resource.js";
 import {
   collectRecentJobsPage,
   isPrimaryRecentJob,
-} from "../../src/js/features/recent-jobs/pagination.js";
-import { createRecentJobsLoader } from "../../src/js/features/recent-jobs/loader.js";
+} from "../../src/features/library/domain/recent-jobs/pagination.js";
+import { createRecentJobsLoader } from "../../src/features/library/domain/recent-jobs/loader.js";
 import {
   commitRecentJobsEmpty,
   commitRecentJobsError,
   commitRecentJobsNoMore,
   commitRecentJobsPage,
-} from "../../src/js/features/recent-jobs/commit.js";
+} from "../../src/features/library/domain/recent-jobs/commit.js";
 import {
   createLibraryEventPort,
   requestThrottledLibraryRefresh,
 } from "../../src/js/contracts/library-event-contract.js";
-import { createRecentJobsRefreshScheduler } from "../../src/js/features/recent-jobs/refresh-scheduler.js";
+import { createRecentJobsRefreshScheduler } from "../../src/features/library/domain/recent-jobs/refresh-scheduler.js";
 import {
   createActiveLibraryRefreshLoop,
   recentJobsEligibleForActiveRefresh,
-} from "../../src/js/features/recent-jobs/active-refresh.js";
+} from "../../src/features/library/domain/recent-jobs/active-refresh.js";
 import {
   createRecentJobsRefreshEnvironment,
-} from "../../src/js/features/recent-jobs/refresh-environment.js";
+} from "../../src/features/library/domain/recent-jobs/refresh-environment.js";
 import {
   isTranslationWorkflowDialogOpen,
-} from "../../src/js/features/recent-jobs/workflow-open-port.js";
-import { createRecentJobActions } from "../../src/js/features/recent-jobs/actions.js";
-import { createRecentJobsRuntimePort } from "../../src/js/features/recent-jobs/job-runtime-port.js";
-import { createRecentJobsReaderPort } from "../../src/js/features/recent-jobs/reader-port.js";
-import { createRecentJobsNavigationPort } from "../../src/js/features/recent-jobs/navigation-port.js";
-import { createLibraryController } from "../../src/pages/home/features/library/domain/controller.js";
+} from "../../src/features/library/domain/recent-jobs/workflow-open-port.js";
+import { createRecentJobActions } from "../../src/features/library/domain/recent-jobs/actions.js";
+import { createRecentJobsRuntimePort } from "../../src/features/library/domain/recent-jobs/job-runtime-port.js";
+import { createRecentJobsReaderPort } from "../../src/features/library/domain/recent-jobs/reader-port.js";
+import { createRecentJobsNavigationPort } from "../../src/features/library/domain/recent-jobs/navigation-port.js";
+import { createLibraryController } from "../../src/features/library/domain/controller.js";
 import {
   recentJobRawImageUrls,
   recentJobProgressPercent,
@@ -65,20 +65,20 @@ import {
   stageKeyForRecentJobLabel,
   recentJobStageLabel,
   recentJobStatusLabel,
-} from "../../src/js/features/recent-jobs/card-presenter.js";
-import { buildReaderUrl } from "../../src/js/components/recent-jobs/recent-job-card-presenter.js";
+} from "../../src/features/library/domain/recent-jobs/card-presenter.js";
+import { buildReaderUrl } from "../../src/features/library/domain/card/recent-job-card-presenter.js";
 import {
   clearRecentJobImageCache,
   loadRecentJobImage,
-} from "../../src/js/features/recent-jobs/image-loader.js";
-import { recentJobImageRefreshUrls } from "../../src/js/features/recent-jobs/image-refresh.js";
+} from "../../src/features/library/domain/recent-jobs/image-loader.js";
+import { recentJobImageRefreshUrls } from "../../src/features/library/domain/recent-jobs/image-refresh.js";
 import {
   buildRecentJobRuntimeSnapshot,
   mergeLibraryJobItem,
-} from "../../src/js/features/recent-jobs/runtime-item.js";
-import { createRecentJobsRuntime } from "../../src/js/features/recent-jobs/runtime.js";
-import { createRecentJobsRuntimePatches } from "../../src/js/features/recent-jobs/runtime-patches.js";
-import { createRecentJobsStoreRenderer } from "../../src/js/features/recent-jobs/store-renderer.js";
+} from "../../src/features/library/domain/recent-jobs/runtime-item.js";
+import { createRecentJobsRuntime } from "../../src/features/library/domain/recent-jobs/runtime.js";
+import { createRecentJobsRuntimePatches } from "../../src/features/library/domain/recent-jobs/runtime-patches.js";
+import { createRecentJobsStoreRenderer } from "../../src/features/library/domain/recent-jobs/store-renderer.js";
 import {
   buildJobImageCandidateUrls,
   normalizeJobImageUrl,
@@ -89,12 +89,12 @@ import {
   RECENT_JOBS_PRIVATE_KEYS,
   RECENT_JOBS_SELECTORS,
   RECENT_JOBS_TAGS,
-} from "../../src/js/components/dialogs/recent-jobs-dialog-dom-contract.js";
+} from "../../src/features/library/ui/recent-jobs-dom-contract.js";
 const recentJobsStageAdapterPort = { adaptJobStageSnapshot };
 import {
   buildRecentJobsSummaryViewModel,
   summarizeRecentJobsInvocationCounts,
-} from "../../src/js/features/recent-jobs/summary-view-model.js";
+} from "../../src/features/library/domain/recent-jobs/summary-view-model.js";
 import {
   TRANSLATION_WORKFLOW_DIALOG,
   TRANSLATION_WORKFLOW_MODES,

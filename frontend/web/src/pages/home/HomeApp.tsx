@@ -30,7 +30,7 @@ import { MockModeBanner } from "./features/app-shell/MockModeBanner.jsx";
 import { TranslationWorkflowDialog } from "@/features/ingest/index.js";
 import {
   RecentJobsLibrary,
-} from "./features/library/index.js";
+} from "@/features/library/index.js";
 import { StatusCard } from "./features/status/StatusCard.jsx";
 import { AppUpdateBanner } from "@/features/app-update/index.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
@@ -55,7 +55,7 @@ import { DownloadToastHost } from "@/shared/react/DownloadToastHost.jsx";
 import {
   readInitialLibraryTabFromReturn,
   useHomeReturnRestore,
-} from "./features/library/page/useHomeReturnRestore.js";
+} from "@/features/library/index.js";
 // library-search-island 自定义元素的唯一注册点。旧世界由 src/js/components/index.js
 // 兜底 side-effect import 注册;该文件随 cutover 删除后,注册链路断了会导致下方
 // JSX 里的 <library-search-island> 标签渲染成惰性空标签(数据契约上仍在,但搜索
