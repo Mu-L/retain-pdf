@@ -6,7 +6,7 @@ const {
   createFailureRecoveryController,
   queueFullTitle,
   retryCountdownSeconds,
-} = await import("../../src/js/features/status-detail/failure-recovery.js");
+} = await import("../../src/features/job-detail/domain/dialog/failure-recovery.js");
 
 function queueFullInput(overrides = {}) {
   return {

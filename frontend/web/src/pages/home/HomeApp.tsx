@@ -45,7 +45,7 @@ import {
 } from "@/features/credentials/index.js";
 import { useDialogState } from "./state/use-dialog-state.js";
 import { SettingsHubDialog } from "@/features/settings/index.js";
-import { StatusDetailDialog } from "./features/status-detail/StatusDetailDialog.jsx";
+import { StatusDetailDialog } from "@/features/job-detail/index.js";
 import { ReaderDialog, SoftReaderHost } from "@/features/reader/index.js";
 import {
   CollectionManageDialog,

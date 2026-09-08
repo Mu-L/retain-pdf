@@ -19,11 +19,11 @@ const SOURCE_ROOTS = {
   features: FEATURE_ROOT,
   job: DOMAIN_JOB_SOURCE_ROOT,
   jobMirror: join(JS_ROOT, "job"),
-  jobDetail: join(JS_ROOT, "job-detail"),
+  jobDetail: join(PROJECT_ROOT, "src/features/job-detail/domain/page"),
   jobStatus: join(JS_ROOT, "job-status"),
   reader: join(JS_ROOT, "reader"),
   state: join(JS_ROOT, "state"),
-  statusDetail: join(JS_ROOT, "status-detail"),
+  statusDetail: join(PROJECT_ROOT, "src/features/job-detail/domain/snapshot"),
   ui: join(JS_ROOT, "ui"),
   utils: join(JS_ROOT, "utils"),
 };
@@ -411,11 +411,13 @@ test("job helpers keep job-runtime feature access behind explicit runtime ports"
 test("job stage history presentation helpers are owned by the job layer", () => {
   const stageHistorySource = readSource(join(SOURCE_ROOTS.job, "stage-history.js"));
   const statusDetailUtilsSource = readSource(join(SOURCE_ROOTS.statusDetail, "utils.js"));
+  // 迁移后跨目录 import 统一写 @/ 或功能内相对路径，断言用路径无关的正则，
+  // 否则只匹配旧的 ../status-detail/utils.js 会让本门禁退化成永远通过。
   const jobDetailOffenders = walkFiles(SOURCE_ROOTS.jobDetail)
     .filter((file) => {
       const source = readSource(file);
       return source.includes("stageHistoryDisplay")
-        && source.includes("../status-detail/utils.js");
+        && /["'][^"']*(?:status-detail|snapshot)\/utils\.js["']/.test(source);
     })
     .map((file) => relativeToProject(file));
 

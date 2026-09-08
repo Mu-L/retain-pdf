@@ -10,18 +10,20 @@ export {
 } from "@retainpdf/domain/job";
 
 // —— job-detail ——
-export { getJobIdFromQuery } from "../../js/job-detail/routing.js";
-export { defaultJobDetailConfigPort } from "../../js/job-detail/config-port.js";
-export { defaultJobDetailDataPort } from "../../js/job-detail/data-port.js";
-export { defaultJobDetailResumePort } from "../../js/job-detail/resume-port.js";
-export { bindRerunButton } from "../../js/job-detail/resume.js";
-export { renderJobDetailOverview } from "../../js/job-detail/overview-renderer.js";
-export { loadAndRenderMarkdownFlow } from "../../js/job-detail/markdown-flow.js";
+export { getJobIdFromQuery } from "@/features/job-detail/index.js";
+export { defaultJobDetailConfigPort } from "@/features/job-detail/index.js";
+export { defaultJobDetailDataPort } from "@/features/job-detail/index.js";
+export { defaultJobDetailResumePort } from "@/features/job-detail/index.js";
+export { bindRerunButton } from "@/features/job-detail/index.js";
+export { renderJobDetailOverview } from "@/features/job-detail/index.js";
+export { loadAndRenderMarkdownFlow } from "@/features/job-detail/index.js";
 export {
   createJobDetailPageState,
   revokeJobDetailMarkdownImageUrls,
-} from "../../js/job-detail/page-state.js";
-export { buildJobDetailEventViewModel } from "../../js/job-detail/status-view-model.js";
+} from "@/features/job-detail/index.js";
+export {
+  buildJobDetailEventViewModel,
+} from "@retainpdf/domain/job-status";
 
 // —— downloads ——
 export {

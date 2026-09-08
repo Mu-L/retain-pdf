@@ -41,8 +41,8 @@ export {
 export type { EventsPayload } from "@retainpdf/domain/job-status";
 
 // —— status-detail (non-feature path) ——
-export { buildStatusDetailSnapshot } from "../../../../js/status-detail/snapshot.js";
+export { buildStatusDetailSnapshot } from "@/features/job-detail/index.js";
 export {
   formatEventTimestamp,
   formatRuntimeDuration,
-} from "../../../../js/status-detail/utils.js";
+} from "@retainpdf/domain/job";

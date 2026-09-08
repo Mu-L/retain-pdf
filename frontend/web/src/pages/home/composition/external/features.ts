@@ -68,7 +68,7 @@ export { defaultAppShellConfigPort } from "../../../../js/features/app-shell/con
 
 // status-detail (domain helpers used by pages/home/features/status-detail)
 export { copyText } from "../../../../js/utils/clipboard.js";
-export { defaultStatusDetailConfigPort } from "../../../../js/features/status-detail/config-port.js";
+export { defaultStatusDetailConfigPort } from "@/features/job-detail/index.js";
 export {
   boolLabel,
   degradationReasonOf,
@@ -84,23 +84,23 @@ export {
   routePathOf,
   stringifyPretty,
   summarizeTranslationFilter,
-} from "../../../../js/features/status-detail/formatters.js";
-export { createStatusDetailOverviewCoordinator } from "../../../../js/features/status-detail/overview-coordinator.js";
+} from "@/features/job-detail/index.js";
+export { createStatusDetailOverviewCoordinator } from "@/features/job-detail/index.js";
 export {
   buildFailureRecoveryModel,
   createFailureRecoveryController,
   queueFullTitle,
   retryCountdownSeconds,
-} from "../../../../js/features/status-detail/failure-recovery.js";
+} from "@/features/job-detail/index.js";
 export type {
   FailureRecoveryAction,
   FailureRecoveryKind,
   FailureRecoveryModel,
-} from "../../../../js/features/status-detail/failure-recovery.js";
+} from "@/features/job-detail/index.js";
 export {
   rerunCurrentJob,
   syncRerunAction,
-} from "../../../../js/features/status-detail/resume-actions.js";
-export { createStatusDetailTranslationDataPort } from "../../../../js/features/status-detail/translation-data-port.js";
-export { createStatusDetailTranslationTabCoordinator } from "../../../../js/features/status-detail/translation-tab-coordinator.js";
-export { createTranslationState } from "../../../../js/features/status-detail/translation-state.js";
+} from "@/features/job-detail/index.js";
+export { createStatusDetailTranslationDataPort } from "@/features/job-detail/index.js";
+export { createStatusDetailTranslationTabCoordinator } from "@/features/job-detail/index.js";
+export { createTranslationState } from "@/features/job-detail/index.js";

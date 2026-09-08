@@ -6,60 +6,60 @@ import * as currentJobStateModule from "../../src/features/jobs/domain/runtime/c
 import { createSecondaryResourceStatePort } from "../../src/features/jobs/domain/runtime/secondary-resource-cache.js";
 import { createJobRenderContextPort } from "../../src/features/jobs/domain/runtime/render-context.js";
 import { normalizedStageEventRecord } from "@retainpdf/domain/job-status";
-import { buildEventsPresentation } from "../../src/js/status-detail/events.js";
-import { buildFailureLogText, buildStatusDetailSnapshot } from "../../src/js/status-detail/snapshot.js";
+import { buildEventsPresentation } from "../../src/features/job-detail/domain/snapshot/events.js";
+import { buildFailureLogText, buildStatusDetailSnapshot } from "../../src/features/job-detail/domain/snapshot/snapshot.js";
 import {
   resolveStageHistoryDuration,
   stageHistoryDisplay,
 } from "@retainpdf/domain/job";
 import { resolveLiveDurations } from "@retainpdf/domain/job";
-import { buildStageHistoryPresentation } from "../../src/js/status-detail/history.js";
+import { buildStageHistoryPresentation } from "../../src/features/job-detail/domain/snapshot/history.js";
 import { buildStatusCardSnapshot } from "@retainpdf/domain/job-status";
 import { buildJobStatusViewModel } from "@retainpdf/domain/job-status";
 // bootstrap/status-detail-runtime-port.js 已随 cutover 删除;这是它的纯逻辑
 // 拷贝(job-runtime 三个 kept 端口的字面量组合,零 DOM),迁移指向 pages/home
 // 的同名实现(两者函数体完全一致,仅头部注释与相对导入路径不同)。
-import { createStatusDetailRuntimePort } from "../../src/pages/home/features/status-detail/status-detail-runtime-port.js";
-import { createTranslationState } from "../../src/js/features/status-detail/translation-state.js";
-import { createStatusDetailTranslationDataPort } from "../../src/js/features/status-detail/translation-data-port.js";
-import { createStatusDetailTranslationTabCoordinator } from "../../src/js/features/status-detail/translation-tab-coordinator.js";
-import { createStatusDetailOverviewCoordinator } from "../../src/js/features/status-detail/overview-coordinator.js";
-import { createStatusDetailConfigPort } from "../../src/js/features/status-detail/config-port.js";
+import { createStatusDetailRuntimePort } from "../../src/features/job-detail/domain/status-detail-runtime-port.js";
+import { createTranslationState } from "../../src/features/job-detail/domain/dialog/translation-state.js";
+import { createStatusDetailTranslationDataPort } from "../../src/features/job-detail/domain/dialog/translation-data-port.js";
+import { createStatusDetailTranslationTabCoordinator } from "../../src/features/job-detail/domain/dialog/translation-tab-coordinator.js";
+import { createStatusDetailOverviewCoordinator } from "../../src/features/job-detail/domain/dialog/overview-coordinator.js";
+import { createStatusDetailConfigPort } from "../../src/features/job-detail/domain/dialog/config-port.js";
 import {
   rerunCurrentJob,
   syncRerunAction,
-} from "../../src/js/features/status-detail/resume-actions.js";
+} from "../../src/features/job-detail/domain/dialog/resume-actions.js";
 import {
   buildJobDetailEventViewModel,
   buildJobDetailStatusViewModel,
-} from "../../src/js/job-detail/status-view-model.js";
-import { createJobDetailConfigPort } from "../../src/js/job-detail/config-port.js";
-import { createJobDetailDataPort } from "../../src/js/job-detail/data-port.js";
-import { createJobDetailResumePort } from "../../src/js/job-detail/resume-port.js";
+} from "../../src/features/job-detail/domain/page/status-view-model.js";
+import { createJobDetailConfigPort } from "../../src/features/job-detail/domain/page/config-port.js";
+import { createJobDetailDataPort } from "../../src/features/job-detail/domain/page/data-port.js";
+import { createJobDetailResumePort } from "../../src/features/job-detail/domain/page/resume-port.js";
 import {
   renderJobDetailFailureSummary,
   renderJobDetailRuntimeSummary,
   summarizeMathMode,
-} from "../../src/js/job-detail/summary.js";
+} from "../../src/features/job-detail/domain/page/summary.js";
 import {
   isReaderActionEnabled,
   renderJobDetailActionLinks,
-} from "../../src/js/job-detail/action-links.js";
+} from "../../src/features/job-detail/domain/page/action-links.js";
 import {
   loadAndRenderMarkdownFlow,
-} from "../../src/js/job-detail/markdown-flow.js";
-import { renderJobDetailOverview } from "../../src/js/job-detail/overview-renderer.js";
+} from "../../src/features/job-detail/domain/page/markdown-flow.js";
+import { renderJobDetailOverview } from "../../src/features/job-detail/domain/page/overview-renderer.js";
 import {
   createJobDetailPageState,
   revokeJobDetailMarkdownImageUrls,
-} from "../../src/js/job-detail/page-state.js";
+} from "../../src/features/job-detail/domain/page/page-state.js";
 import {
   buildOcrAmbiguityRequest,
   ocrRecoveryJobId,
   readOcrAmbiguityView,
   requiresOcrAmbiguityResolution,
   resolveOcrAmbiguityRecovery,
-} from "../../src/pages/home/features/status-detail/ocr-ambiguity-recovery.js";
+} from "../../src/features/job-detail/domain/ocr-ambiguity-recovery.js";
 
 global.window ||= {};
 global.window.location ||= {
