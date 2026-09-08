@@ -2,10 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { BookOpen, FlaskConical, ListTree, Loader2, Sparkles } from "lucide-react";
-import {
-  AiMarkdownAnswer,
-  type AiCitationLike,
-} from "@/app/home/composition/external.js";
+import { AiMarkdownAnswer, type AiCitationLike } from "@retainpdf/reader/ai";
 import { buildReaderUrl } from "@/platform/navigation/pages.js";
 import { navigateToReader } from "@/features/reader/domain.js";
 import type { HomeAskCitation, HomeAskMessage } from "../domain/types.js";

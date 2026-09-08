@@ -1,8 +1,6 @@
-import {
-  createStore,
-  DEFAULT_FILE_LABEL,
-} from "@/app/home/composition/external.js";
-import type { Store } from "@/app/home/composition/external.js";
+import { createStore } from "@/platform/store/store.js";
+import { DEFAULT_FILE_LABEL } from "@/platform/config/upload-constants.js";
+import type { Store } from "@/platform/store/store.js";
 
 // upload 域视图 store + React viewPort（已归入 workflow 域）。
 //

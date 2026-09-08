@@ -1,6 +1,6 @@
 import {
   APP_EVENTS,
-} from "@/app/home/composition/external.js";
+} from "@/platform/contracts/app-contract.js";
 import type { TranslationWorkflowDialogStatePort } from "./dialog/state.js";
 import {
   TRANSLATION_WORKFLOW_DIALOG,

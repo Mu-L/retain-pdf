@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
-import {
-  CREDENTIALS_CHANGED_EVENT,
-  hasModelApiKey,
-} from "@/app/home/composition/external.js";
+import { CREDENTIALS_CHANGED_EVENT } from "@retainpdf/reader/runtime/ai";
+// hasModelApiKey 依赖 features/reader/domain 顶层注册的适配器，不可直连包。
+import { hasModelApiKey } from "@/features/reader/domain.js";
 import {
   fetchAgentRuntimeConfig,
   type AgentRuntimeConfigView,

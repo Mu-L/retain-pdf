@@ -1,5 +1,5 @@
-import { createStore } from "@/app/home/composition/external.js";
-import type { Store } from "@/app/home/composition/external.js";
+import { createStore } from "@/platform/store/store.js";
+import type { Store } from "@/platform/store/store.js";
 
 // workflow 域视图 store + React viewPort。
 //

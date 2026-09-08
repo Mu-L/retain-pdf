@@ -17,8 +17,9 @@ import {
   DEFAULT_TRANSLATED_PDF_NAME,
   DEFAULT_TYPST_FONT_FAMILY,
   DEFAULT_WORKERS,
-  DEFAULT_MODEL_VERSION,
-} from "@/app/home/composition/external.js";
+} from "@/platform/config/workflow-defaults.js";
+// DEFAULT_MODEL_VERSION 与上面 18 个 DEFAULT_* 不同源，别一把梭。
+import { DEFAULT_MODEL_VERSION } from "@/platform/config/model-constants.js";
 
 // 工作流常量与归一化。
 //

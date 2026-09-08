@@ -1,11 +1,11 @@
 // @ 选择器：文档 + 合集，本地过滤
 
+import { API_PREFIX } from "@/platform/config/api-constants.js";
 import {
-  API_PREFIX,
   listCollections,
   fetchDocumentList,
   type DocumentRecord,
-} from "@/app/home/composition/external.js";
+} from "@/platform/api/index.js";
 import type { HomeAskCollectionScope, HomeAskDocScope, HomeAskScope } from "./types.js";
 import { scopeKey } from "./types.js";
 

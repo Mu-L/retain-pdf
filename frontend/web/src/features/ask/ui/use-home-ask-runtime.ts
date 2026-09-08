@@ -10,9 +10,14 @@ import {
   listConversations,
   patchConversation,
   type ConversationRecord,
+} from "@/platform/api/index.js";
+// resolveReaderAiConfig / sanitizeAssistantAnswer 必须经 features/reader/domain：
+// 该模块顶层调用 setReaderAiConfigAdapters() 注册适配器，直连
+// @retainpdf/reader/runtime/ai 会跳过注册，导致「永远认为没配 Key」且 typecheck 全绿。
+import {
   resolveReaderAiConfig,
   sanitizeAssistantAnswer,
-} from "@/app/home/composition/external.js";
+} from "@/features/reader/domain.js";
 import { resolveCollectionDocuments } from "../domain/document-picker.js";
 import { buildHomeAskModelRequestOverrides } from "../domain/home-ask-request-config.js";
 import type { HomeAskCitation, HomeAskDocScope, HomeAskMessage, HomeAskScope } from "../domain/types.js";

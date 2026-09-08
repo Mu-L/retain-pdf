@@ -2,7 +2,8 @@
 // 由 useBookDetailDocument 门面组合，保持 BookDetailDialog 调用不变。
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchDocument, API_PREFIX } from "@/app/home/composition/external.js";
+import { fetchDocument } from "@/platform/api/index.js";
+import { API_PREFIX } from "@/platform/config/api-constants.js";
 
 function parseAuthors(authorsJson: unknown): string[] {
   try {

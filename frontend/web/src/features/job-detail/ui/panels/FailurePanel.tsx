@@ -2,7 +2,11 @@ import { Clock3, Copy, FileText, Link2, RefreshCw, Settings2 } from "lucide-reac
 import { useEffect, useState } from "react";
 import { ConfirmDialog } from "@/ui/components/confirm-dialog.js";
 import { useHomeServices } from "@/app/home/home-services-context.js";
-import { queueFullTitle, retryCountdownSeconds } from "@/app/home/composition/external.js";
+// 同功能内取真值，不绕主页网关、也不经自己的 index（那会让 ui 依赖本功能 barrel 成环）。
+import {
+  queueFullTitle,
+  retryCountdownSeconds,
+} from "../../domain/dialog/failure-recovery.js";
 import { OcrReceiptBindingDialog } from "../OcrReceiptBindingDialog.jsx";
 import { FailureLogDialog } from "../FailureLogDialog.jsx";
 import type { OcrReceiptValues } from "../../domain/ocr-ambiguity-recovery.js";

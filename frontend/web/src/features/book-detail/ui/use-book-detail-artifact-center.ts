@@ -6,12 +6,12 @@ import {
   fetchJobArtifactsManifest,
   fetchProtected,
 } from "@/platform/api/index.js";
-import { API_PREFIX } from "@/app/home/composition/external.js";
+import { API_PREFIX } from "@/platform/config/api-constants.js";
 import {
   fileNameFromDisposition,
   prepareDownloadTarget,
   saveResponseDownload,
-} from "@/app/home/composition/external.js";
+} from "@/platform/utils/downloads.js";
 import type { DocumentJobSummary } from "@/features/library/domain.js";
 import {
   buildArtifactCenterSections,

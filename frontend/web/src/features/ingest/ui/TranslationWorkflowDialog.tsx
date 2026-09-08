@@ -74,7 +74,7 @@ import { useDialogReturnFocus } from "@/ui/hooks/use-dialog-return-focus.js";
 import { WorkflowPanel } from "./WorkflowPanel.jsx";
 import {
   APP_EVENTS,
-} from "@/app/home/composition/external.js";
+} from "@/platform/contracts/app-contract.js";
 
 // Decoupled: workflow → status 横向依赖改为经 HomeApp 注入(slot/prop)。
 // - statusCardSlot: 由 HomeApp 传入 <StatusCard ... /> (原先直接 import StatusCard)
