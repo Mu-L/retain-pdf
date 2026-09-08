@@ -17,20 +17,20 @@ export type { HomeStatePort } from "../../../../js/features/home/state.js";
 
 
 // job-runtime
-export { mountJobRuntimeFeature } from "../../../../js/features/job-runtime/controller.js";
+export { mountJobRuntimeFeature } from "@/features/jobs/index.js";
 export {
   currentJobStoreFor,
   currentJobId as currentJobIdFor,
   syncCurrentJobSnapshot,
   currentJobFinishedAt,
   createCurrentJobStatePort,
-} from "../../../../js/features/job-runtime/current-job-state.js";
+} from "@/features/jobs/index.js";
 export {
   secondaryResourceStoreFor,
   createSecondaryResourceStatePort,
-} from "../../../../js/features/job-runtime/secondary-resource-cache.js";
-export { createJobRenderContextPort } from "../../../../js/features/job-runtime/render-context.js";
-export { readActiveJobId } from "../../../../js/features/job-runtime/active-job-storage.js";
+} from "@/features/jobs/index.js";
+export { createJobRenderContextPort } from "@/features/jobs/index.js";
+export { readActiveJobId } from "@/features/jobs/index.js";
 
 // recent-jobs / documents-library
 export { mountRecentJobsFeature } from "@/features/library/index.js";

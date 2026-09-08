@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { mergeSnapshotWithFallback } from "../../src/pages/home/features/status/merge-snapshot-with-fallback.js";
+import { mergeSnapshotWithFallback } from "../../src/features/jobs/domain/merge-snapshot-with-fallback.js";
 
 function staleCompletedSnapshot() {
   return {

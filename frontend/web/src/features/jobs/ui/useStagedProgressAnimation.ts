@@ -17,7 +17,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   buildProgressOptions,
   shouldAnimateRenderPageProgress,
-} from "../../composition/external.js";
+} from "@retainpdf/domain/job-status";
 
 const TICK_DELAY_MS = 120;
 

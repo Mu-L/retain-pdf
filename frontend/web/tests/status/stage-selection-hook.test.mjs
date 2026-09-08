@@ -26,7 +26,7 @@ test("阶段选择对 null / undefined / 空串等价输入不追加状态更新
   const React = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { useStageSelection } = await import(
-    "../../src/pages/home/features/status/useStageSelection.js"
+    "../../src/features/jobs/ui/useStageSelection.js"
   );
   let renderCount = 0;
 

@@ -3,28 +3,32 @@
 
 import { useMemo } from "react";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
-import { useHomeServices } from "../../home-services-context.js";
+import { useHomeServices } from "@/pages/home/home-services-context.js";
 import { useStageSelection } from "./useStageSelection.js";
 import { useElapsedTicker } from "./useElapsedTicker.js";
 import { useStagedProgressAnimation } from "./useStagedProgressAnimation.js";
 import { useLottieStageAnimation } from "./useLottieStageAnimation.js";
 import { STATUS_CARD_IDS } from "./status-card-dom-ids.js";
 import { createPrefixedStatusCardIds, type StatusCardIds } from "./status-card-ids-context.js";
-import { mergeSnapshotWithFallback, type StatusCardFallbackItem } from "./merge-snapshot-with-fallback.js";
+import { mergeSnapshotWithFallback, type StatusCardFallbackItem } from "../domain/merge-snapshot-with-fallback.js";
 import type {
   StatusCardSnapshot,
   StatusCardStageProgress,
   StatusCardStageRetryAction,
   StatusCardState,
   StatusCardStore,
-} from "./status-card-store.js";
-import type { ProgressRenderModelInput } from "./progress-model.js";
+} from "../domain/status-card-store.js";
+import type { ProgressRenderModelInput } from "../domain/progress-model.js";
 import {
-  statusStageLabel,
-  buildSelectedStageDisplay,
-  isTerminalStatus,
   APP_EVENTS,
-} from "../../composition/external.js";
+} from "@/js/contracts/app-contract.js";
+import {
+  isTerminalStatus,
+} from "@retainpdf/domain/job";
+import {
+  buildSelectedStageDisplay,
+  statusStageLabel,
+} from "@retainpdf/domain/job-status";
 
 export type StatusCardPrimaryActions = {
   pdfReady: boolean;

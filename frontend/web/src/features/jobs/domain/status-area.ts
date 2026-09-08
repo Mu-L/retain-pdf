@@ -1,12 +1,18 @@
 import {
-  APP_EVENTS,
   createStore,
+} from "@/js/app-framework/store.js";
+import {
+  APP_EVENTS,
+} from "@/js/contracts/app-contract.js";
+import {
   buildWorkflowSectionsViewModel,
-} from "../../composition/external.js";
+} from "@retainpdf/domain/job";
 import {
   createTranslationWorkflowStatusAreaPort,
 } from "@/features/ingest/domain.js";
-import type { Store } from "../../composition/external.js";
+import type {
+  Store,
+} from "@/js/app-framework/store.js";
 
 // 状态区(#status-section)可见性 feature。
 //

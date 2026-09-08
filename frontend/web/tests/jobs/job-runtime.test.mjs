@@ -2,16 +2,16 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { createInitialState } from "../../src/js/state/slices.js";
-import * as jobEventsResourceModule from "../../src/js/features/job-runtime/job-events-resource.js";
-import * as secondaryResourceCacheModule from "../../src/js/features/job-runtime/secondary-resource-cache.js";
-import * as currentJobSecondarySelectorsModule from "../../src/js/features/job-runtime/current-job-secondary-selectors.js";
-import * as currentJobStateModule from "../../src/js/features/job-runtime/current-job-state.js";
-import { syncCurrentJobSnapshot } from "../../src/js/features/job-runtime/current-job-state.js";
-import * as runtimePollingStateModule from "../../src/js/features/job-runtime/runtime-polling-state.js";
-import * as secondaryResourcePolicyModule from "../../src/js/features/job-runtime/secondary-resource-policy.js";
-import * as renderContextModule from "../../src/js/features/job-runtime/render-context.js";
+import * as jobEventsResourceModule from "../../src/features/jobs/domain/runtime/job-events-resource.js";
+import * as secondaryResourceCacheModule from "../../src/features/jobs/domain/runtime/secondary-resource-cache.js";
+import * as currentJobSecondarySelectorsModule from "../../src/features/jobs/domain/runtime/current-job-secondary-selectors.js";
+import * as currentJobStateModule from "../../src/features/jobs/domain/runtime/current-job-state.js";
+import { syncCurrentJobSnapshot } from "../../src/features/jobs/domain/runtime/current-job-state.js";
+import * as runtimePollingStateModule from "../../src/features/jobs/domain/runtime/runtime-polling-state.js";
+import * as secondaryResourcePolicyModule from "../../src/features/jobs/domain/runtime/secondary-resource-policy.js";
+import * as renderContextModule from "../../src/features/jobs/domain/runtime/render-context.js";
 import { buildElapsedViewModel } from "@retainpdf/domain/job";
-import { returnJobRuntimeToHome } from "../../src/js/features/job-runtime/runtime-reset.js";
+import { returnJobRuntimeToHome } from "../../src/features/jobs/domain/runtime/runtime-reset.js";
 import {
   createUploadStatePort,
   getUploadState,
@@ -25,12 +25,12 @@ import {
   JOB_EVENTS_PAGE_SIZE,
   JOB_EVENTS_PREVIEW_PAGE_SIZE,
   mergeJobEventsPayload,
-} from "../../src/js/features/job-runtime/job-events-resource.js";
-import { mountJobRuntimeFeature } from "../../src/js/features/job-runtime/controller.js";
+} from "../../src/features/jobs/domain/runtime/job-events-resource.js";
+import { mountJobRuntimeFeature } from "../../src/features/jobs/domain/runtime/controller.js";
 import {
   createSecondaryResourceSchedulerPort,
   scheduleSecondaryResourceFetches,
-} from "../../src/js/features/job-runtime/secondary-resources.js";
+} from "../../src/features/jobs/domain/runtime/secondary-resources.js";
 import {
   isJobTerminal,
   isTerminalStatus,

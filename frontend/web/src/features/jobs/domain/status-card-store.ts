@@ -1,10 +1,16 @@
 import {
-  createStore,
-  buildRuntimeStatusCardSnapshot,
-  buildJobStatusSummaryViewModel,
   currentJobFinishedAt,
-} from "../../composition/external.js";
-import type { Store } from "../../composition/external.js";
+} from "./runtime/current-job-state.js";
+import {
+  createStore,
+} from "@/js/app-framework/store.js";
+import {
+  buildJobStatusSummaryViewModel,
+  buildRuntimeStatusCardSnapshot,
+} from "@retainpdf/domain/job-status";
+import type {
+  Store,
+} from "@/js/app-framework/store.js";
 
 // 状态卡 store + presenter(蓝图 §2 features/status/,§4 生命周期)。
 //

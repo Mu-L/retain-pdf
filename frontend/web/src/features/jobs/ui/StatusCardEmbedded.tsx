@@ -5,7 +5,7 @@
 
 import { StageFlow } from "./StageFlow.jsx";
 import { LoaderCircle, Square } from "lucide-react";
-import { buildProgressRenderModel, type ProgressRenderModelInput } from "./progress-model.js";
+import { buildProgressRenderModel, type ProgressRenderModelInput } from "../domain/progress-model.js";
 import { StatusCardIdsContext } from "./status-card-ids-context.js";
 import {
   useStatusCardModel,
@@ -13,10 +13,10 @@ import {
   normalizeStatusCardFlowKey,
   dispatchStatusCardRetryStage,
 } from "./use-status-card-model.js";
-import type { StatusCardFallbackItem } from "./merge-snapshot-with-fallback.js";
+import type { StatusCardFallbackItem } from "../domain/merge-snapshot-with-fallback.js";
 import type {
   StatusCardSnapshot,
-} from "./status-card-store.js";
+} from "../domain/status-card-store.js";
 
 function resolvePercent(
   renderOptions: ProgressRenderModelInput | null | undefined,

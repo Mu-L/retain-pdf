@@ -22,7 +22,7 @@ test("进度输入对象每次重建时不会触发 React #185", async () => {
   const React = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { useStagedProgressAnimation } = await import(
-    "../../src/pages/home/features/status/useStagedProgressAnimation.js"
+    "../../src/features/jobs/ui/useStagedProgressAnimation.js"
   );
   let renderCount = 0;
 

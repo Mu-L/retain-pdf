@@ -22,7 +22,7 @@ import {
   secondaryResourceStoreFor,
 } from "./external/features.js";
 import { createArtifactDownloadBusyStore } from "../state/artifact-download-busy-store.js";
-import { createStatusCardStore, createStatusCardPresenter } from "../features/status/status-card-store.js";
+import { createStatusCardStore, createStatusCardPresenter } from "@/features/jobs/index.js";
 import { createStatusDetailStore } from "../features/status-detail/status-detail-store.js";
 import { createStatusDetailDialogStore } from "../features/status-detail/status-detail-dialog-store.js";
 import { createStatusDetailRuntimePort } from "../features/status-detail/status-detail-runtime-port.js";

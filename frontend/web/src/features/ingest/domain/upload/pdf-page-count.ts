@@ -1,17 +1,17 @@
 import { resolvePdfjsVendorUrl } from "@/js/runtime/vendor-url.js";
 
-const PDFJS_MODULE_URL = resolvePdfjsVendorUrl("build/pdf.mjs");
-const PDFJS_CMAP_URL = resolvePdfjsVendorUrl("cmaps/");
-const PDFJS_STANDARD_FONT_DATA_URL = resolvePdfjsVendorUrl("standard_fonts/");
-const PDFJS_WORKER_URL = resolvePdfjsVendorUrl("build/pdf.worker.mjs");
+// 惰性解析：resolvePdfjsVendorUrl 依赖 document.baseURI，模块级求值会在无 DOM
+// 的环境（node 测试直接 import 本模块的传递依赖时）抛 ERR_INVALID_URL。
+// 首次真正用到时再解析，模块加载本身不触碰环境。
+const pdfjsUrl = (path: string) => resolvePdfjsVendorUrl(path);
 
 let pdfjsPromise = null;
 
 async function loadPdfjs() {
   if (!pdfjsPromise) {
-    pdfjsPromise = import(PDFJS_MODULE_URL)
+    pdfjsPromise = import(pdfjsUrl("build/pdf.mjs"))
       .then((module) => {
-        module.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
+        module.GlobalWorkerOptions.workerSrc = pdfjsUrl("build/pdf.worker.mjs");
         return module;
       })
       .catch((error) => {
@@ -29,9 +29,9 @@ export async function countPdfPages(file) {
   const pdfjsLib = await loadPdfjs();
   const doc = await pdfjsLib.getDocument({
     data: await file.arrayBuffer(),
-    cMapUrl: PDFJS_CMAP_URL,
+    cMapUrl: pdfjsUrl("cmaps/"),
     cMapPacked: true,
-    standardFontDataUrl: PDFJS_STANDARD_FONT_DATA_URL,
+    standardFontDataUrl: pdfjsUrl("standard_fonts/"),
     disableFontFace: true,
     disableRange: true,
     disableStream: true,

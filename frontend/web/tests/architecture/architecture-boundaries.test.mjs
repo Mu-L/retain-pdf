@@ -148,8 +148,10 @@ function readFeatureSource(featureName, fileName) {
   return readSource(join(FEATURE_ROOT, featureName, fileName));
 }
 
+// job-runtime 已随 jobs 功能迁至 features/jobs/domain/runtime。
+const JOB_RUNTIME_DOMAIN = join(PROJECT_ROOT, "src/features/jobs/domain/runtime");
 function readJobRuntimeSource(fileName) {
-  return readFeatureSource("job-runtime", fileName);
+  return readSource(join(JOB_RUNTIME_DOMAIN, fileName.replace(/\.js$/, ".ts")));
 }
 
 function readUiSource(fileName) {
@@ -974,7 +976,7 @@ test("reader, search, and recent-job images use the canonical API package", () =
 
 test("job cancellation and OCR ambiguity recovery use canonical endpoint clients", () => {
   const runtimeController = readFileSync(
-    join(PROJECT_ROOT, "src/js/features/job-runtime/controller.ts"),
+    join(PROJECT_ROOT, "src/features/jobs/domain/runtime/controller.ts"),
     "utf8",
   );
   assert.match(runtimeController, /cancelOcrJob/);

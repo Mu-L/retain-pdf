@@ -3,7 +3,9 @@
 // APP_EVENTS.retryStage,job-runtime 引擎消费,事件契约原样保留,蓝图 §5)。
 
 import { useStatusCardIds } from "./status-card-ids-context.js";
-import { APP_EVENTS } from "../../composition/external.js";
+import {
+  APP_EVENTS,
+} from "@/js/contracts/app-contract.js";
 
 function dispatchRetryStage(stage) {
   if (globalThis.document?.dispatchEvent && typeof globalThis.CustomEvent === "function") {

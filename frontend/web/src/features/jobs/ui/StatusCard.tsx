@@ -53,4 +53,4 @@ export function StatusCard({
 export { StatusCardMain } from "./StatusCardMain.jsx";
 export { StatusCardEmbedded } from "./StatusCardEmbedded.jsx";
 export { useStatusCardModel } from "./use-status-card-model.js";
-export { mergeSnapshotWithFallback, isPollingBootstrapPlaceholder } from "./merge-snapshot-with-fallback.js";
+export { mergeSnapshotWithFallback, isPollingBootstrapPlaceholder } from "../domain/merge-snapshot-with-fallback.js";

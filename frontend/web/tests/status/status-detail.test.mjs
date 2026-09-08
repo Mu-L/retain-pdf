@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { createInitialState } from "../../src/js/state/slices.js";
-import * as currentJobStateModule from "../../src/js/features/job-runtime/current-job-state.js";
-import { createSecondaryResourceStatePort } from "../../src/js/features/job-runtime/secondary-resource-cache.js";
-import { createJobRenderContextPort } from "../../src/js/features/job-runtime/render-context.js";
+import * as currentJobStateModule from "../../src/features/jobs/domain/runtime/current-job-state.js";
+import { createSecondaryResourceStatePort } from "../../src/features/jobs/domain/runtime/secondary-resource-cache.js";
+import { createJobRenderContextPort } from "../../src/features/jobs/domain/runtime/render-context.js";
 import { normalizedStageEventRecord } from "@retainpdf/domain/job-status";
 import { buildEventsPresentation } from "../../src/js/status-detail/events.js";
 import { buildFailureLogText, buildStatusDetailSnapshot } from "../../src/js/status-detail/snapshot.js";

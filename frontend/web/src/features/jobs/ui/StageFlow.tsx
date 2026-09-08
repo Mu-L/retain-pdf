@@ -7,11 +7,11 @@
 
 import { useStatusCardIds } from "./status-card-ids-context.js";
 import {
-  isSelectableStatusStage,
   STATUS_STAGE_FLOW,
   STATUS_STAGE_LABELS,
+  isSelectableStatusStage,
   statusStageIndex,
-} from "../../composition/external.js";
+} from "@retainpdf/domain/job-status";
 
 /** @deprecated 重试已迁出 StageFlow；保留类型以免旧 import 断裂 */
 export type StageFlowRetryAction = {

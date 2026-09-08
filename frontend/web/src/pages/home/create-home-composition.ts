@@ -55,7 +55,7 @@ import {
 import { createHomeTextStore } from "./state/text-store.js";
 import { createUploadViewFeature } from "@/features/ingest/domain.js";
 import { createWorkflowViewFeature } from "@/features/ingest/domain.js";
-import { createStatusAreaFeature } from "./features/status/status-area.js";
+import { createStatusAreaFeature } from "@/features/jobs/index.js";
 import { createTranslationWorkflowDialogRuntime } from "@/features/ingest/domain.js";
 
 import { safeLoad } from "./composition/safe-load.js";

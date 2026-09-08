@@ -12,8 +12,8 @@ import {
 import {
   currentJobId,
   currentJobSnapshot,
-} from "@/js/features/job-runtime/current-job-state.js";
-import { cachedManifestFor } from "@/js/features/job-runtime/secondary-resource-cache.js";
+} from "@/features/jobs/index.js";
+import { cachedManifestFor } from "@/features/jobs/index.js";
 
 export function createReaderDialogRuntimePort({
   getCurrentJobId = currentJobId,

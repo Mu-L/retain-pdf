@@ -22,11 +22,11 @@ import {
   capRunningStagePercent,
 } from "@retainpdf/domain/job-status";
 // buildProgressRenderModel 随 cutover 从 components/status/job-status-card-rendering.js
-// (死,已删除)迁移指向 src/pages/home/features/status/progress-model.js(蓝图判决:
+// (死,已删除)迁移指向 src/features/jobs/domain/progress-model.js(蓝图判决:
 // 45-164 行纯函数拷贝,归属改在新世界,断言口径不变)。
 import {
   buildProgressRenderModel,
-} from "../../src/pages/home/features/status/progress-model.js";
+} from "../../src/features/jobs/domain/progress-model.js";
 import {
   buildSubstageViewModel,
   translationSubstageKeyForSnapshot,

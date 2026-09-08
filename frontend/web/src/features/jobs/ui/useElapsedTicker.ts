@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import {
   buildElapsedViewModel,
   isTerminalStatus,
-} from "../../composition/external.js";
+} from "@retainpdf/domain/job";
 
 export function useElapsedTicker(job, { finishedAtFallback = "" } = {}) {
   const [tick, setTick] = useState(0);

@@ -18,7 +18,9 @@
 // StatusCard.jsx 以声明式 className/dataset 渲染(不必要的命令式 DOM 写)。
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { resolveLottieVendorUrl } from "../../composition/external.js";
+import {
+  resolveLottieVendorUrl,
+} from "@/js/runtime/vendor-url.js";
 
 // 用站点根路径，避免详情弹窗 / 子路径下相对 ./src 解析失败导致动画空盒
 const TRANSLATION_ANIMATION_PATH = "/src/assets/animations/deepseek_lottie.json";
@@ -47,7 +49,9 @@ function resolveAnimationPathForStage(stageKey = "") {
   return STAGE_ANIMATIONS[`${stageKey || ""}`.trim()] || "";
 }
 
-const LOTTIE_WEB_PATH = resolveLottieVendorUrl("build/player/lottie.min.js");
+// 惰性解析：resolveLottieVendorUrl 依赖 document.baseURI，模块级求值会在无 DOM
+// 的环境（node 测试经传递依赖 import 本模块时）抛 ERR_INVALID_URL。
+const lottieWebPath = () => resolveLottieVendorUrl("build/player/lottie.min.js");
 let lottieLoaderPromise: Promise<any> | null = null;
 
 function windowLottie() {
@@ -64,7 +68,7 @@ function loadLottieWeb() {
   }
   lottieLoaderPromise = new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = LOTTIE_WEB_PATH;
+    script.src = lottieWebPath();
     script.async = true;
     script.onload = () => {
       const lottie = windowLottie();

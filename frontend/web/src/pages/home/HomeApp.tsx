@@ -31,7 +31,7 @@ import { TranslationWorkflowDialog } from "@/features/ingest/index.js";
 import {
   RecentJobsLibrary,
 } from "@/features/library/index.js";
-import { StatusCard } from "./features/status/StatusCard.jsx";
+import { StatusCard } from "@/features/jobs/index.js";
 import { AppUpdateBanner } from "@/features/app-update/index.js";
 import { useStoreSnapshot } from "@/shared/react/use-store.js";
 import { HomeAskView } from "@/features/ask/index.js";

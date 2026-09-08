@@ -6,7 +6,7 @@
 // 本组件只管声明式渲染,不持有动画状态。
 
 import type { CSSProperties } from "react";
-import { buildProgressRenderModel, type ProgressRenderModelInput } from "./progress-model.js";
+import { buildProgressRenderModel, type ProgressRenderModelInput } from "../domain/progress-model.js";
 import { useStatusCardIds } from "./status-card-ids-context.js";
 
 function roundPercent(percent: number) {

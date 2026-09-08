@@ -12,7 +12,9 @@
 //   isSelectableStatusStage 语义:只能选"已到达或正在进行"的阶段)。
 
 import { useCallback, useMemo, useState } from "react";
-import { resolveSelectedStatusStage } from "../../composition/external.js";
+import {
+  resolveSelectedStatusStage,
+} from "@retainpdf/domain/job-status";
 
 type StageSelectionState = {
   currentJobId: string;

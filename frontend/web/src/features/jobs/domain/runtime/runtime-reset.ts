@@ -1,4 +1,4 @@
-import { resetStatusDetailRuntimeView } from "../app-shell/idle-reset.js";
+import { resetStatusDetailRuntimeView } from "@/js/features/app-shell/idle-reset.js";
 import { clearActiveJobId } from "./active-job-storage.js";
 import { createJobRuntimeShellViewPort } from "./shell-view-port.js";
 import { createJobRuntimeResetStatePort } from "./reset-state-port.js";
