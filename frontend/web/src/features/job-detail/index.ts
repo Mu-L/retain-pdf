@@ -130,3 +130,23 @@ export {
 export {
   StatusDetailDialog,
 } from "./ui/StatusDetailDialog.jsx";
+
+// detail.html 整页的展示组件（C1 从 app/detail/components 迁入）。
+// 逐个显式列出，不用 export * —— barrel 无差别转出会连带触发模块级副作用。
+export { DetailHeader } from "./ui/page/DetailHeader.js";
+export {
+  ErrorNoticeCard,
+  JobSummaryCard,
+  MetaRow,
+} from "./ui/page/JobSummaryCard.js";
+export { ErrorDiagnostics } from "./ui/page/ErrorDiagnostics.js";
+export {
+  ArtifactsSection,
+  MarkdownCard,
+} from "./ui/page/ArtifactsSection.js";
+export {
+  EventsModal,
+  EventsTriggerCard,
+  StageHistoryModal,
+  StageHistoryTriggerCard,
+} from "./ui/page/EventsTimeline.js";

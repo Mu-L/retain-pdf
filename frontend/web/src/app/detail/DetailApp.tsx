@@ -12,19 +12,23 @@
 //   modal-bindings.js / events.js 启动器 / downloads.js 的职责)。
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DetailHeader } from "./components/DetailHeader.jsx";
-import { ErrorNoticeCard, JobSummaryCard, MetaRow } from "./components/JobSummaryCard.jsx";
-import { ErrorDiagnostics } from "./components/ErrorDiagnostics.jsx";
-import { ArtifactsSection, MarkdownCard } from "./components/ArtifactsSection.jsx";
+// 五个展示组件已归入 job-detail 功能（C1）；app 层跨功能引用经其 index 出口。
 import {
+  DetailHeader,
+  ErrorNoticeCard,
+  JobSummaryCard,
+  MetaRow,
+  ErrorDiagnostics,
+  ArtifactsSection,
+  MarkdownCard,
   EventsModal,
   EventsTriggerCard,
   StageHistoryModal,
   StageHistoryTriggerCard,
-} from "./components/EventsTimeline.jsx";
+} from "@/features/job-detail/index.js";
 import { DownloadToastHost } from "@/ui/download-toast/DownloadToastHost.jsx";
+import { normalizeJobPayload } from "@retainpdf/domain/job";
 import {
-  normalizeJobPayload,
   getJobIdFromQuery,
   defaultJobDetailConfigPort,
   defaultJobDetailDataPort,
@@ -34,14 +38,18 @@ import {
   loadAndRenderMarkdownFlow,
   createJobDetailPageState,
   revokeJobDetailMarkdownImageUrls,
+} from "@/features/job-detail/index.js";
+import {
   fileNameFromDisposition,
   prepareDownloadTarget,
   saveResponseDownload,
+} from "@/platform/utils/downloads.js";
+import {
   completeDownloadToast,
   failDownloadToast,
   showDownloadPreparing,
   updateDownloadProgress,
-} from "./external.js";
+} from "@/platform/utils/download-feedback.js";
 
 const JOB_EVENTS_PAGE_SIZE = 200;
 

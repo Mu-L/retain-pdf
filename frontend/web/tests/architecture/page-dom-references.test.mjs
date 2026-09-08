@@ -48,6 +48,10 @@ const PAGES = [
     // (id/class)改由 React 树渲染:归属校验需要扫描新世界 JSX 的
     // id="..." 与 className="..."(保留的旧纯逻辑仍按 id 写这些节点)。
     jsxDir: "src/app/detail",
+    // C1 把 detail.html 的五个展示组件从 app/detail/components 迁进了
+    // job-detail 功能。它们仍按 id 渲染页面骨架，必须一并纳入归属校验，
+    // 否则这些 id 会被判成孤儿。
+    extraJsxDirs: ["src/features/job-detail/ui/page"],
   },
   {
     // src/js/reader 与 src/js/features/reader-dialog 都已被删除（reader 逻辑迁至

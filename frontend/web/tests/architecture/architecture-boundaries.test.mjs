@@ -671,6 +671,30 @@ const HOME_SERVICES_CONTEXT_CONSUMERS = Object.freeze([
   "src/features/library/ui/page/use-library-search-binding.ts",
 ]);
 
+// detail / reader 两页原本各有一条「不得直连 src/js/*，须经本页 external.ts」。
+// 批次 5 之后 src/js 与两页的 external.ts 都已删除——detail 的在 C1 解散，
+// reader 的仍在（它是 @retainpdf/reader 包的宿主注入面，不是旧世界网关）。
+// 规则对象消失，改为断言旧目录不得复活；方向约束由 C3 的四层门禁接管。
+test("已删除的旧目录不得复活", () => {
+  for (const dir of ["src/js", "src/pages", "src/shared", "src/components", "src/lib"]) {
+    assert.equal(
+      existsSync(join(PROJECT_ROOT, dir)),
+      false,
+      `${dir} 已在批次 5 删除，不得以任何形式复活`,
+    );
+  }
+  assert.equal(
+    existsSync(join(PROJECT_ROOT, "src/app/home/composition/external.ts")),
+    false,
+    "主页集中网关已在 B8 解散，不得复活（蓝图 §5.2：不允许用新 barrel 取代）",
+  );
+  assert.equal(
+    existsSync(join(PROJECT_ROOT, "src/app/detail/external.ts")),
+    false,
+    "detail 页网关已在 C1 解散，不得复活",
+  );
+});
+
 test("features 引用 app 层仅限主页 DI 容器，且消费方清单只减不增", () => {
   const featureFiles = scanRoot(join(PROJECT_ROOT, "src/features"));
   const appImports = [];
@@ -835,17 +859,6 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
 const HOME_FEATURES_DIRECT_JS_IMPORT =
   /from\s+["'][^"']*(?:^|\/)js\/[^"']+["']|from\s+["'][^"']*(?:\.\.\/)+js\/[^"']+["']/;
 
-function pageHasDirectJsImport(source) {
-  return source.split("\n").some((line) => {
-    const code = line.split("//")[0];
-    return (
-      /\bfrom\s+["']/.test(code)
-      && /js\//.test(code)
-      && !/\/external(?:\.js)?["']/.test(code)
-      && !/composition\/external/.test(code)
-    );
-  });
-}
 
 // 已退休：`app/home/features/` 在批次 5B 被清空（app-shell 迁 app/home/shell，
 // shared 的两个文件按归属迁进 features/{jobs,library}）。该规则的意图「app 层
@@ -853,42 +866,9 @@ function pageHasDirectJsImport(source) {
 // FORBIDDEN_IMPORT_PATTERNS 里，且 REACT_ROOTS 含 src/app。已实证：
 // 往 app/home/HomeApp.tsx 注入 @/js/state/store.js 会被点名。
 
-const DETAIL_PAGE_ROOT = join(PROJECT_ROOT, "src/app/detail");
 
-test("detail page must not import src/js/* directly (use pages/detail/external)", () => {
-  const offenders = scanRoot(DETAIL_PAGE_ROOT, IS_SCRIPT_SOURCE)
-    .filter((file) => {
-      const base = relative(DETAIL_PAGE_ROOT, file).replace(/\\/g, "/");
-      if (base === "external.ts") return false;
-      return pageHasDirectJsImport(readSource(file));
-    })
-    .map((file) => relative(DETAIL_PAGE_ROOT, file).replace(/\\/g, "/"));
 
-  assert.deepEqual(
-    offenders,
-    [],
-    "import src/js/* only via pages/detail/external.ts",
-  );
-});
 
-const READER_PAGE_ROOT = join(PROJECT_ROOT, "src/app/reader");
-
-test("reader non-legacy must not import src/js/* directly (use pages/reader/external)", () => {
-  const offenders = scanRoot(READER_PAGE_ROOT, IS_SCRIPT_SOURCE)
-    .filter((file) => {
-      const base = relative(READER_PAGE_ROOT, file).replace(/\\/g, "/");
-      if (base === "external.ts") return false;
-      if (base.startsWith("legacy/")) return false; // legacy 可直接依赖 js/reader
-      return pageHasDirectJsImport(readSource(file));
-    })
-    .map((file) => relative(READER_PAGE_ROOT, file).replace(/\\/g, "/"));
-
-  assert.deepEqual(
-    offenders,
-    [],
-    "non-legacy reader code imports src/js/* only via pages/reader/external.ts",
-  );
-});
 
 // 已退休：本规则校验「external barrel 覆盖 home features 用到的全部符号」，
 // 两侧对象都没了——home features 目录已清空，external 网关本身也在 B8 解散。

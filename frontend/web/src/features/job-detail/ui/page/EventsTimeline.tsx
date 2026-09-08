@@ -42,8 +42,8 @@ import {
   formatRuntimeDuration,
   stageHistoryDisplay,
   isJobTerminal,
-  buildJobDetailEventViewModel,
-} from "../external.js";
+} from "@retainpdf/domain/job";
+import { buildJobDetailEventViewModel } from "@retainpdf/domain/job-status";
 
 // —— 以下三个私有函数照搬旧 events.js,保证耗时/载荷文案逐字节一致 ——
 
