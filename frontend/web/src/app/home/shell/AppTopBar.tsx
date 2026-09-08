@@ -6,7 +6,7 @@
 // #open-output-btn 是契约 id(测试引用),保留在 display:none 的隐藏容器里,不占布局。
 
 import { LibraryTopTabs } from "./tabs/LibraryTopTabs.jsx";
-import { useHomeTabs } from "../../home-services-context.js";
+import { useHomeTabs } from "../home-services-context.js";
 
 // Shell 顶栏:优先 props(显式装配),缺省时取 HomeTabsProvider 窄口——
 // 不再经 HomeApp 逐层透传,不直取 useHomeServices 大包。视觉/DOM 不变。

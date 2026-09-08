@@ -1,55 +1,32 @@
-import {
-  createStore,
-  type BoundStoreActions,
-  type Store,
-} from "@/platform/store/store.js";
+// 主页视图状态的 store 实现（原 src/js/features/home/state.ts 的下半段）。
+//
+// 型别与常量（HomeState / HomeStatePort / HOME_VIEW_MODES / HOME_LOADING_STATES）
+// 在 @/platform/contracts/home-view-contract.js —— features/{ingest,library} 只
+// import type 那一半，不会因此依赖装配层。本文件是唯一的实现方，只被 app/home
+// 的组合根消费。
+//
+// createStore 经 composition/external 取（同目录 text-store / dialog-store /
+// artifact-download-busy-store 的既有约定：app 层不直连 platform/store，
+// architecture-boundaries 的防回弹门禁只豁免 features/*/domain）。
+// 这里取 external/state.js 子桶而不是全量 external.js：external/index.js 会
+// `export * from "./features.js"`，而 features.js 又转出本文件的 createHomeStatePort
+// ——走全量桶会形成 features → home-store → external → features 的模块环。
+
+import { createStore } from "../composition/external/state.js";
 import {
   HOME_LOADING_STATES,
   HOME_VIEW_MODES,
 } from "@/platform/contracts/home-view-contract.js";
-
-export { HOME_LOADING_STATES, HOME_VIEW_MODES };
-
-export type HomeViewMode = (typeof HOME_VIEW_MODES)[keyof typeof HOME_VIEW_MODES];
-export type HomeLoadingState = (typeof HOME_LOADING_STATES)[keyof typeof HOME_LOADING_STATES];
-
-export interface HomeState {
-  viewMode: HomeViewMode;
-  recentJobsLoadingState: HomeLoadingState;
-  recentJobsError: string;
-}
-
-/** 兼容旧扁平字段名的初始态 */
-export type HomeInitialState = Partial<HomeState> & {
-  homeViewMode?: HomeViewMode | string;
-  homeRecentJobsLoadingState?: HomeLoadingState | string;
-  homeRecentJobsError?: string;
-};
-
-export interface CreateHomeStatePortOptions {
-  // 遗留字段：事件已删（store 是唯一真值），保留签名兼容调用方。
-  eventTarget?: {
-    dispatchEvent?: (event: Event) => boolean;
-  } | null;
-}
-
-export type HomeActions = {
-  setViewMode(currentState: HomeState, mode?: unknown): HomeState;
-  setRecentJobsLoadingState(
-    currentState: HomeState,
-    loadingState?: unknown,
-    error?: string,
-  ): HomeState;
-};
-
-export type HomeStore = Store<HomeState, HomeActions>;
-
-export interface HomeStatePort {
-  getSnapshot(): HomeState;
-  setRecentJobsLoadingState(loadingState?: unknown, error?: string): void;
-  setViewMode(mode?: string): void;
-  store: HomeStore;
-}
+import type {
+  CreateHomeStatePortOptions,
+  HomeActions,
+  HomeInitialState,
+  HomeLoadingState,
+  HomeState,
+  HomeStatePort,
+  HomeStore,
+  HomeViewMode,
+} from "@/platform/contracts/home-view-contract.js";
 
 function normalizeHomeViewMode(mode: unknown): HomeViewMode {
   return (Object.values(HOME_VIEW_MODES) as string[]).includes(mode as string)
@@ -98,7 +75,7 @@ export function createHomeStatePort(
   _options: CreateHomeStatePortOptions = {},
 ): HomeStatePort {
   const store = createHomeStore(targetState);
-  const actions: BoundStoreActions<HomeState, HomeActions> = store.actions;
+  const actions = store.actions;
 
   function setViewMode(mode?: string) {
     // store 是唯一真值；旧 homeViewModeChanged 事件已删（0 消费者）。

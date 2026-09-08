@@ -8,15 +8,19 @@ const REPOSITORY_ROOT = join(PROJECT_ROOT, "../..");
 const JS_ROOT = join(PROJECT_ROOT, "src/js");
 const PLATFORM_ROOT = join(PROJECT_ROOT, "src/platform");
 const DOMAIN_JOB_SOURCE_ROOT = join(PROJECT_ROOT, "../../frontend/packages/domain/src/job");
-const FEATURE_ROOT = join(JS_ROOT, "features");
+// FEATURE_ROOT（src/js/features）已在批次 5B 的 B6/B7 拆空删除：型别归
+// platform/contracts、store 归 app/home/state、idle 视图归 app/home/composition、
+// resetStatusDetailRuntimeView 归 features/job-detail。以它为扫描根的四条规则
+// 见下方逐条说明（两条重定向到新位置，四条删除并注明被谁接管）。
 const BOOTSTRAP_ROOT = join(PROJECT_ROOT, "src/app/bootstrap");
+// 新世界功能层（按功能重组后的 src/features/*），承接原 FEATURE_ROOT 仍然成立的规则。
+const FEATURE_LAYER_ROOT = join(PROJECT_ROOT, "src/features");
 const SOURCE_ROOTS = {
   api: join(PLATFORM_ROOT, "api/legacy"),
   bootstrap: BOOTSTRAP_ROOT,
   config: join(PLATFORM_ROOT, "config"),
   contracts: join(PLATFORM_ROOT, "contracts"),
   desktop: join(PLATFORM_ROOT, "desktop"),
-  features: FEATURE_ROOT,
   job: DOMAIN_JOB_SOURCE_ROOT,
   jobMirror: join(JS_ROOT, "job"),
   jobDetail: join(PROJECT_ROOT, "src/features/job-detail/domain/page"),
@@ -30,16 +34,12 @@ const APP_ENTRYPOINTS = [
   join(PROJECT_ROOT, "app.js"),
   join(PROJECT_ROOT, "app-bundle-entry.js"),
 ];
-const VIEW_IMPORT_PATTERN = /from\s+["']\.\/view\.js["']/;
-const LEGACY_STATE_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+state\/store\.js["']/;
 const ROOT_COMPAT_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+(?:state|job)\.js["']/;
 const ROOT_PROVIDER_CONFIG_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+provider-config\.js["']/;
 const ROOT_CONFIG_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+config\.js["']/;
 const ROOT_TEMPLATES_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+templates\.js["']/;
 const ROOT_DOM_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+dom\.js["']/;
 const ROOT_MAIN_IMPORT_PATTERN = /from\s+["'](?:\.\/src\/js\/main\.js|(?:\.\.\/)+main\.js)["']/;
-const FEATURE_UI_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+ui\//;
-const FEATURE_UPLOAD_CONSTANTS_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+config\/upload-constants\.js["']/;
 const WEBAWESOME_USAGE_PATTERN = /@awesome\.me\/webawesome|<wa-|wa-(?:button|dialog|progress|badge|card|progress-ring|progress-bar)\b|WebAwesome|Web Awesome/;
 const SHARED_DIALOG_SHELL_SELECTOR_PATTERN = /^\s*\.(?:app-(?:dialog|confirm|floating)-[\w-]+|desktop-dialog|desktop-shell|desktop-head|desktop-body|dialog-close-btn)(?:\s|[,{:#.])/m;
 const RAW_RADIX_DIALOG_IMPORT_PATTERN = /import\s*\{[^}]*\bDialog\s+as\s+DialogPrimitive\b[^}]*\}\s*from\s*["']radix-ui["']/s;
@@ -141,10 +141,6 @@ function readBootstrapSource(fileName) {
   return readSource(join(BOOTSTRAP_ROOT, fileName));
 }
 
-function readFeatureSource(featureName, fileName) {
-  return readSource(join(FEATURE_ROOT, featureName, fileName));
-}
-
 // job-runtime 已随 jobs 功能迁至 features/jobs/domain/runtime。
 const JOB_RUNTIME_DOMAIN = join(PROJECT_ROOT, "src/features/jobs/domain/runtime");
 function readJobRuntimeSource(fileName) {
@@ -153,10 +149,6 @@ function readJobRuntimeSource(fileName) {
 
 function relativeToProject(filePath) {
   return relative(PROJECT_ROOT, filePath);
-}
-
-function filesUnder(...roots) {
-  return roots.flatMap((root) => walkFiles(root));
 }
 
 /**
@@ -209,12 +201,6 @@ function stripCompatibilityReExports(source) {
   return source
     .replace(/export\s+(?:\{[\s\S]*?\}|\*)\s+from\s+["'][^"']+["'];/g, "")
     .trim();
-}
-
-function isViewBoundaryModule(filePath) {
-  const fileName = filePath.split("/").pop() || "";
-  return /(?:-view-port|view-port)\.(?:js|ts)$/.test(fileName)
-    || /^(?:dialog-elements-port|deepseek-view-port|setup-mode-port|presenter-port|translation-view-port)\.(?:js|ts)$/.test(fileName);
 }
 
 test("source tree does not contain notebook checkpoint artifacts", () => {
@@ -339,36 +325,29 @@ test("library shell styles stay in library-shell css", () => {
   assert.deepEqual(offenders, []);
 });
 
-test("feature modules import local view.js only through explicit view boundary ports", () => {
-  const offenders = findMatchingImports(walkFiles(FEATURE_ROOT), VIEW_IMPORT_PATTERN)
-    .filter((file) => !isViewBoundaryModule(file));
+// 删：「feature modules import local view.js only through explicit view boundary ports」。
+// 旧世界的 features/*/view.js 视图层已随各功能迁移全部删除（src 下已无 view.ts/js），
+// 且同一模式由下方「React 新世界禁止 import 旧视图层」的
+// `features/*/view.js(旧 DOM 视图)` 一条接管，扫描根 src/{app,ui,features} 仍存在
+// 且有存在性断言，不会静默变绿。
 
-  assert.deepEqual(offenders, []);
-});
+// 删：「feature modules import legacy global state only through state boundary ports」。
+// 由「React 新世界禁止 import 旧视图层」的 `src/js/state/store.js(全局状态)` 一条
+// 接管，且更严——那条只留 app/desktop/bootstrap.ts 一个豁免（有只减不增的长度断言），
+// 不像这里按 *-state.ts 文件名整片放行。
 
-function isLegacyStateBoundaryModule(filePath) {
-  const fileName = filePath.split("/").pop() || "";
-  return /^(?:state|.*-state|.*-state-port|.*runtime-state-port)\.(?:js|ts)$/.test(fileName);
-}
+// 删：「feature modules do not import default ui adapters directly」。
+// 它拦的是旧 src/js/ui 适配层，该目录已整体删除（SOURCE_ROOTS.ui 现在只用于
+// existsSync 反向断言），被禁目标本身不存在。且 FEATURE_UI_IMPORT_PATTERN 是
+// `(../)+ui/`，若改指 src/features 会把新世界合法的 `../../../ui/hooks/*`
+// （src/ui，A7 之后 React 侧共用层）误判成违规——不能重定向，只能删。
 
-test("feature modules import legacy global state only through state boundary ports", () => {
-  const offenders = findMatchingImports(walkFiles(FEATURE_ROOT), LEGACY_STATE_IMPORT_PATTERN)
-    .filter((file) => !isLegacyStateBoundaryModule(file));
-
-  assert.deepEqual(offenders, []);
-});
-
-test("feature modules do not import default ui adapters directly", () => {
-  const offenders = findMatchingImports(walkFiles(FEATURE_ROOT), FEATURE_UI_IMPORT_PATTERN);
-
-  assert.deepEqual(offenders, []);
-});
-
-test("feature modules receive upload defaults through ports", () => {
-  const offenders = findMatchingImports(walkFiles(FEATURE_ROOT), FEATURE_UPLOAD_CONSTANTS_IMPORT_PATTERN);
-
-  assert.deepEqual(offenders, []);
-});
+// 删：「feature modules receive upload defaults through ports」。
+// FEATURE_UPLOAD_CONSTANTS_IMPORT_PATTERN 是 `(../)+config/upload-constants.js`，
+// 指旧 src/js/config——该目录已迁 src/platform/config 并删除，相对路径在新树里
+// 解析不到任何东西。现网 upload-constants 的唯一消费方是
+// app/home/composition/external/config.ts（装配层转出，本就是允许的），
+// 规则已无可拦对象。
 
 test("root compatibility barrels are removed", () => {
   const remaining = [
@@ -454,10 +433,13 @@ test("source modules read API prefix from config api constants", () => {
 });
 
 test("source modules read model defaults from config model constants", () => {
+  // SOURCE_ROOTS.features（src/js/features）已删除：scanRoot 会因扫描根不存在
+  // 直接失败。这里照 SOURCE_ROOTS.reader 的先例摘掉死根而不替换——本规则拦的是
+  // 根 barrel `(../)+constants.js`，而 src/js/constants.js 已由
+  // 「root compatibility barrels are removed」断言不存在，换任何新根都恒不命中。
   const offenders = findMatchingImports(scanRoots([
     SOURCE_ROOTS.bootstrap,
     SOURCE_ROOTS.config,
-    SOURCE_ROOTS.features,
   ]), MODEL_CONSTANTS_FROM_ROOT_PATTERN);
 
   assert.deepEqual(offenders, []);
@@ -473,10 +455,12 @@ test("source modules read storage keys from config storage keys", () => {
 });
 
 test("source modules read workflow defaults from config workflow defaults", () => {
-  const offenders = findMatchingImports(filesUnder(
-    SOURCE_ROOTS.bootstrap,
-    SOURCE_ROOTS.features,
-  ), WORKFLOW_DEFAULTS_FROM_ROOT_PATTERN);
+  // 同上：摘掉已删除的 SOURCE_ROOTS.features。顺手把 filesUnder 换成 scanRoot——
+  // filesUnder 对不存在的根静默返回 []，正是本文件反复防的「静默变绿」。
+  const offenders = findMatchingImports(
+    scanRoot(SOURCE_ROOTS.bootstrap),
+    WORKFLOW_DEFAULTS_FROM_ROOT_PATTERN,
+  );
 
   assert.deepEqual(offenders, []);
 });
@@ -504,7 +488,9 @@ test("bootstrap grouped port list covers grouped port files", () => {
 test("runtime source paths avoid the legacy hidden credential facade", () => {
   const bootstrapFiles = walkFiles(BOOTSTRAP_ROOT);
   const desktopFiles = walkFiles(SOURCE_ROOTS.desktop);
-  const featureFiles = walkFiles(FEATURE_ROOT).filter((filePath) => {
+  // credentials 已迁至 src/features/credentials：扫描根从已删除的 src/js/features
+  // 改指新功能层，规则本身（谁都不许依赖隐藏凭据门面）仍然成立。
+  const featureFiles = scanRoot(FEATURE_LAYER_ROOT).filter((filePath) => {
     return !filePath.endsWith("/features/credentials/hidden-inputs.js")
       && !filePath.endsWith("/features/credentials/hidden-inputs.ts");
   });
@@ -521,8 +507,10 @@ test("runtime source paths avoid the legacy hidden credential facade", () => {
 });
 
 test("job runtime default adapter shims are not kept in feature layer", () => {
+  // 原断言在 src/js/features/job-runtime/ —— 该目录已随 jobs 功能迁走并删除，
+  // 断言恒真。改指真实落点 features/jobs/domain/runtime，防回弹才继续有效。
   for (const fileName of ["job-actions-runtime-port.js", "presentation-runtime-port.js"]) {
-    assert.equal(existsSync(resolveSourcePath(join(FEATURE_ROOT, "job-runtime", fileName))), false);
+    assert.equal(existsSync(resolveSourcePath(join(JOB_RUNTIME_DOMAIN, fileName))), false);
   }
 });
 
@@ -559,7 +547,8 @@ test("current job state is store-only with no legacy mirror", () => {
   const secondarySelectorSource = readJobRuntimeSource("current-job-secondary-selectors.js");
 
   // 迁移完成:镜像 port 文件不得存在,选择器读 store 快照
-  assert.equal(existsSync(join(SOURCE_ROOTS.features, "job-runtime", "legacy-current-job-state-port.js")), false);
+  // 同上：扫描点从已删除的 src/js/features/job-runtime 改指 features/jobs/domain/runtime。
+  assert.equal(existsSync(resolveSourcePath(join(JOB_RUNTIME_DOMAIN, "legacy-current-job-state-port.js"))), false);
   assert.equal(/state\.currentJob[A-Za-z]*\s*=(?!=)/.test(currentJobStateSource), false);
   // 允许 TS 收窄：currentJobStoreFor(state as object | null | undefined).getSnapshot()
   assert.match(

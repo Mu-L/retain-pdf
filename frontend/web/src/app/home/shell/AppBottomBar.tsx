@@ -12,7 +12,7 @@
 // showSearch=false 用于"分类"tab:该 tab 下搜索语义不同,不渲染 input(测试
 // 断言分类 tab 下 #library-search-input 不存在),只留添加/设置。
 
-import { useHomeDialogStore, useHomeSettingsHub, useHomeWorkflowDialog } from "../../home-services-context.js";
+import { useHomeDialogStore, useHomeSettingsHub, useHomeWorkflowDialog } from "../home-services-context.js";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { useLibrarySearchBinding } from "@/app/home/features/shared/use-library-search-binding.js";
 import { TRANSLATION_WORKFLOW_DIALOG } from "@/features/ingest/domain.js";

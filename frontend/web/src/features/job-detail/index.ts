@@ -60,6 +60,9 @@ export {
   createStatusDetailTranslationTabCoordinator,
 } from "./domain/dialog/translation-tab-coordinator.js";
 export {
+  resetStatusDetailRuntimeView,
+} from "./domain/runtime-view-reset.js";
+export {
   buildOcrAmbiguityRequest,
   ocrRecoveryJobId,
   readOcrAmbiguityView,

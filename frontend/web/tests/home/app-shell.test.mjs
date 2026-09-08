@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { initializeIdleAppView } from "../../src/js/features/app-shell/idle-reset.js";
-import { createAppShellConfigPort } from "../../src/js/features/app-shell/config-port.js";
+import {
+  createAppShellConfigPort,
+  initializeIdleAppView,
+} from "../../src/app/home/composition/idle-view.js";
 import {
   buildJobWarningViewModel,
   buildWorkflowSectionsViewModel,

@@ -18,9 +18,11 @@
 | `credentials/` | 凭据设置 UI |
 | `glossaries/` | 术语表 UI |
 | `app-update/` | 应用更新条 |
-| `app-shell/` | 底栏等壳 |
 | `reader/` | 主页侧「打开阅读」对话框 store（不是 `pages/reader` 阅读器） |
 | `settings/` | 设置入口编排 |
+
+> 页面 chrome（AppTopBar / AppBottomBar / MockModeBanner / tabs）不是功能域，
+> 批次 5B 已搬到 **`../shell/`**；本目录只留真正的功能域。
 
 ## 规则
 

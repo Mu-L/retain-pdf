@@ -2,8 +2,9 @@
 // pages/home/features 不得直接 import ../../../js/features/*；统一从本文件拿。
 
 // home / upload / workflow
-export { createHomeStatePort, HOME_LOADING_STATES } from "../../../../js/features/home/state.js";
-export type { HomeStatePort } from "../../../../js/features/home/state.js";
+export { createHomeStatePort } from "../../state/home-store.js";
+export { HOME_LOADING_STATES } from "@/platform/contracts/home-view-contract.js";
+export type { HomeStatePort } from "@/platform/contracts/home-view-contract.js";
 // ingest（上传 + 工作流 + 提交 + 弹窗）已迁至 src/features/ingest，
 // 调用方直接从该功能的出口导入，不再经本网关转发。
 
@@ -57,11 +58,11 @@ export { createDocumentLibraryResource } from "@/features/library/index.js";
 export { isLibraryOnlyItem } from "@/features/library/index.js";
 export { shapeDocumentsWithBooks } from "@/features/library/index.js";
 
-// artifact-downloads / app-shell
+// artifact-downloads
 // artifacts 已迁至 src/features/artifacts，调用方直接从该功能的 index.ts
 // 导入，不再经本网关转发。
-export { initializeIdleAppView } from "../../../../js/features/app-shell/idle-reset.js";
-export { defaultAppShellConfigPort } from "../../../../js/features/app-shell/config-port.js";
+// app-shell 的 idle 视图与 config port 已落 composition/idle-view.ts（同层，
+// 不再是「外部依赖」），唯一消费方 create-lifecycle.ts 直接从那里取。
 
 // reader 已迁至 src/features/reader，调用方直接从该功能的出口导入，
 // 不再经本网关转发。

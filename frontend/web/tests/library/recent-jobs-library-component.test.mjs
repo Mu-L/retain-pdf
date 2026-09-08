@@ -403,7 +403,7 @@ test("书籍详情弹窗:馆藏点翻译 → 立刻接进度 + 网格静默更�
   // 详情 payload/进度卡立刻有 job_id，网格有真实 job 行，不靠整页 loading 重载。
   const dom = makeDom("?mock=parallel");
   const { services, root, host } = await bootHomeApp(dom);
-  const { HOME_LOADING_STATES } = await import("../../src/js/features/home/state.js");
+  const { HOME_LOADING_STATES } = await import("@/platform/contracts/home-view-contract.js");
 
   const { getMockDocumentList } = await import("@/platform/mock/documents.js");
   const untranslated = getMockDocumentList().documents.find((doc) => !`${doc.active_job_id || ""}`.trim());
@@ -543,7 +543,7 @@ test("RecentJobsLibrary：workflow 挂起不死锁(开→job-updated 仍打补�
   const dom = makeDom("?mock=parallel");
   const { services, root, host } = await bootHomeApp(dom);
   const { APP_EVENTS } = await import("@/platform/contracts/app-contract.js");
-  const { HOME_LOADING_STATES } = await import("../../src/js/features/home/state.js");
+  const { HOME_LOADING_STATES } = await import("@/platform/contracts/home-view-contract.js");
 
   // F2 文档中心化后网格加载的是"文档"(mock 有若干篇,含馆藏),这里只需要一张
   // 有真实 job 的已翻译卡当补丁靶子(runtimePatches.update 按真实 job_id 找卡)。
