@@ -5,7 +5,7 @@
 
 import { useEffect } from "react";
 import { useAppEvent } from "@/shared/react/use-app-event.js";
-import { APP_EVENTS } from "@/js/contracts/app-contract.js";
+import { APP_EVENTS } from "@/platform/contracts/app-contract.js";
 import {
   buildReaderDocumentPageUrl,
   buildReaderPageUrl,

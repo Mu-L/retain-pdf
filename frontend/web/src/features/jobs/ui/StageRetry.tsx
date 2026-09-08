@@ -5,7 +5,7 @@
 import { useStatusCardIds } from "./status-card-ids-context.js";
 import {
   APP_EVENTS,
-} from "@/js/contracts/app-contract.js";
+} from "@/platform/contracts/app-contract.js";
 
 function dispatchRetryStage(stage) {
   if (globalThis.document?.dispatchEvent && typeof globalThis.CustomEvent === "function") {

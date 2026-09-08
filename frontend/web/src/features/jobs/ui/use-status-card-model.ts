@@ -21,7 +21,7 @@ import type {
 import type { ProgressRenderModelInput } from "../domain/progress-model.js";
 import {
   APP_EVENTS,
-} from "@/js/contracts/app-contract.js";
+} from "@/platform/contracts/app-contract.js";
 import {
   isTerminalStatus,
 } from "@retainpdf/domain/job";

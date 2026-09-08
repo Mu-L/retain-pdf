@@ -90,7 +90,7 @@ test("openReaderRequested：跳转到 reader.html?job_id=（非 iframe）", asyn
   });
 
   const { root, host, services } = await bootHomeApp(dom);
-  const { APP_EVENTS } = await import("../../src/js/contracts/app-contract.js");
+  const { APP_EVENTS } = await import("@/platform/contracts/app-contract.js");
 
   assert.equal(dom.window.document.getElementById("reader-dialog"), null, "不再挂阅读对话框");
 
@@ -121,7 +121,7 @@ test("openReaderRequested：馆藏 document_id 跳转读原文", async () => {
   });
 
   const { root, host, services } = await bootHomeApp(dom);
-  const { APP_EVENTS } = await import("../../src/js/contracts/app-contract.js");
+  const { APP_EVENTS } = await import("@/platform/contracts/app-contract.js");
 
   dom.window.document.dispatchEvent(
     new dom.window.CustomEvent(APP_EVENTS.openReaderRequested, {
@@ -149,7 +149,7 @@ test("openReaderRequested：同时有 document/job 时以 job 路由打开对照
   });
 
   const { root, host, services } = await bootHomeApp(dom);
-  const { APP_EVENTS } = await import("../../src/js/contracts/app-contract.js");
+  const { APP_EVENTS } = await import("@/platform/contracts/app-contract.js");
   dom.window.document.dispatchEvent(
     new dom.window.CustomEvent(APP_EVENTS.openReaderRequested, {
       detail: { documentId: "doc-stable", jobId: "job-attempt", pageIdx: 3 },
@@ -225,7 +225,7 @@ test("retry-stage handoff replaces the open soft Reader job and preserves its an
 test("library job replacement automatically hands an open Reader to the new job", async () => {
   const dom = makeDom("?mock=parallel");
   const { root, host, services } = await bootHomeApp(dom);
-  const { APP_EVENTS } = await import("../../src/js/contracts/app-contract.js");
+  const { APP_EVENTS } = await import("@/platform/contracts/app-contract.js");
   const {
     SOFT_READER_HISTORY_FLAG,
     SOFT_READER_OPEN_EVENT,

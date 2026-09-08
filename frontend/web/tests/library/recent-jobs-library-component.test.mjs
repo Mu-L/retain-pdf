@@ -141,7 +141,7 @@ test("RecentJobsLibrary：卡片交互(select / reader)", { skip: "CI-only flake
   // ---- select 运行中任务：开书籍详情（不弹旧工作流窗）+ silent 轮询 ----
   let openCount = 0;
   dom.window.document.addEventListener(
-    (await import("../../src/js/contracts/app-contract.js")).APP_EVENTS.openTranslationWorkflow,
+    (await import("@/platform/contracts/app-contract.js")).APP_EVENTS.openTranslationWorkflow,
     () => { openCount += 1; },
   );
   click(dom, cardOf("job-1"));
@@ -153,7 +153,7 @@ test("RecentJobsLibrary：卡片交互(select / reader)", { skip: "CI-only flake
   );
 
   // ---- reader:点击悬浮"对照阅读"按钮 → openReaderRequested ----
-  const { APP_EVENTS } = await import("../../src/js/contracts/app-contract.js");
+  const { APP_EVENTS } = await import("@/platform/contracts/app-contract.js");
   let readerDetail = null;
   dom.window.document.addEventListener(APP_EVENTS.openReaderRequested, (event) => {
     readerDetail = event.detail;
@@ -340,7 +340,7 @@ test("RecentJobsLibrary：卡片眼睛=快速阅读(已完成→对照阅读;失
   assert.equal(cardOf("job-2").querySelector(".recent-job-delete"), null, "卡片不再有删除按钮");
   assert.equal(cardOf("job-2").querySelector(".recent-job-translate"), null, "卡片不再有翻译按钮");
 
-  const { APP_EVENTS } = await import("../../src/js/contracts/app-contract.js");
+  const { APP_EVENTS } = await import("@/platform/contracts/app-contract.js");
   let readerDetail = null;
   dom.window.document.addEventListener(APP_EVENTS.openReaderRequested, (event) => { readerDetail = event.detail; });
 
@@ -378,7 +378,7 @@ test("RecentJobsLibrary：馆藏文档卡(未翻译)——徽标/点卡片开详
   assert.match(card.textContent, /馆藏/, "显示馆藏徽标");
   assert.equal(card.querySelector(".recent-job-delete"), null, "卡片无删除(在详情弹窗里)");
 
-  const { APP_EVENTS } = await import("../../src/js/contracts/app-contract.js");
+  const { APP_EVENTS } = await import("@/platform/contracts/app-contract.js");
   let readerDetail = null;
   dom.window.document.addEventListener(APP_EVENTS.openReaderRequested, (event) => { readerDetail = event.detail; });
 
@@ -542,7 +542,7 @@ test("RecentJobsLibrary：workflow 挂起不死锁(开→job-updated 仍打补�
   // scheduleRefresh({delay:300}) 应该让刷新恢复,不能永久卡死。
   const dom = makeDom("?mock=parallel");
   const { services, root, host } = await bootHomeApp(dom);
-  const { APP_EVENTS } = await import("../../src/js/contracts/app-contract.js");
+  const { APP_EVENTS } = await import("@/platform/contracts/app-contract.js");
   const { HOME_LOADING_STATES } = await import("../../src/js/features/home/state.js");
 
   // F2 文档中心化后网格加载的是"文档"(mock 有若干篇,含馆藏),这里只需要一张

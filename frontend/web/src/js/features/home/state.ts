@@ -6,7 +6,7 @@ import {
 import {
   HOME_LOADING_STATES,
   HOME_VIEW_MODES,
-} from "../../contracts/home-view-contract.js";
+} from "@/platform/contracts/home-view-contract.js";
 
 export { HOME_LOADING_STATES, HOME_VIEW_MODES };
 

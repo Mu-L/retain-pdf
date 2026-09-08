@@ -230,7 +230,7 @@ test("artifact-downloads：document 级委托覆盖全部 7 个契约 id(含当�
   const dom = makeDom("?mock=done");
   const { services, root, host } = await bootHomeApp(dom);
   const { getMockJobId } = await import("../../src/js/mock/index.js");
-  const { DOWNLOAD_ACTION_IDS } = await import("../../src/js/contracts/download-action-contract.js");
+  const { DOWNLOAD_ACTION_IDS } = await import("@/platform/contracts/download-action-contract.js");
   const urlStub = stubObjectUrl();
 
   try {
@@ -282,7 +282,7 @@ test("artifact-downloads：busy 态文案不被父组件(StatusCard)重渲染覆
   await waitFor(() => byId(dom, "status-ring-value").textContent.trim() !== "准备中", "真实任务数据到达");
   await waitFor(() => byId(dom, "pdf-btn").getAttribute("aria-disabled") === "false", "下载按钮就绪");
 
-  const { DOWNLOAD_ACTION_IDS } = await import("../../src/js/contracts/download-action-contract.js");
+  const { DOWNLOAD_ACTION_IDS } = await import("@/platform/contracts/download-action-contract.js");
   const actionId = DOWNLOAD_ACTION_IDS.PDF; // "pdf-btn"
 
   // 模拟 controller.js 在下载中途调用 viewPort.setLinkBusy(link, true, "37%")

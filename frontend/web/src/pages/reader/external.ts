@@ -3,7 +3,7 @@
 // 收藏与 AI 能力；缺少宿主符号时只扩展本文件和 adapters/retainpdf.ts。
 
 // —— config / mock / messaging ——
-export { isMockMode } from "../../js/config/runtime.js";
+export { isMockMode } from "@/platform/config/runtime.js";
 export { MOCK_DOCUMENT_SOURCE_PDF_URL } from "../../js/mock/documents.js";
 export { READER_DIALOG_MESSAGES } from "@/features/reader/domain.js";
 
@@ -13,7 +13,7 @@ export { fetchProtected } from "@/features/reader/domain.js";
 export {
   resolvePdfjsVendorUrl,
   resolveMarkedVendorUrl,
-} from "../../js/runtime/vendor-url.js";
+} from "@/platform/runtime/vendor-url.js";
 
 // —— Reader 宿主 ports：直连 shared/*，不经历史中转层 ——
 export { defaultReaderDataPort } from "@/features/reader/domain.js";
@@ -39,7 +39,7 @@ export {
   trimString as trimReaderDownloadString,
 } from "@/features/reader/domain.js";
 export { downloadProtectedResource } from "@/features/reader/domain.js";
-export { failDownloadToast } from "../../js/utils/download-feedback.js";
+export { failDownloadToast } from "@/platform/utils/download-feedback.js";
 
 // —— markdown 面板 ——
 export { resolveMarkdownAssetUrl } from "@retainpdf/domain/job";
@@ -109,7 +109,7 @@ export {
 } from "@/features/reader/domain.js";
 
 // —— 服务端收藏面板 ——
-export { API_PREFIX } from "../../js/config/api-constants.js";
+export { API_PREFIX } from "@/platform/config/api-constants.js";
 export { fetchDocumentByJobId } from "../../js/api/documents.js";
 export {
   createFavorite,

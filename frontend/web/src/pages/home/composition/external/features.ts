@@ -67,7 +67,7 @@ export { defaultAppShellConfigPort } from "../../../../js/features/app-shell/con
 // 不再经本网关转发。
 
 // status-detail (domain helpers used by pages/home/features/status-detail)
-export { copyText } from "../../../../js/utils/clipboard.js";
+export { copyText } from "@/platform/utils/clipboard.js";
 export { defaultStatusDetailConfigPort } from "@/features/job-detail/index.js";
 export {
   boolLabel,

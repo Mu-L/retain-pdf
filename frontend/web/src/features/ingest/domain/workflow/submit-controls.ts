@@ -1,4 +1,4 @@
-import { resolveSubmitReadiness } from "@/js/contracts/submit-readiness-contract.js";
+import { resolveSubmitReadiness } from "@/platform/contracts/submit-readiness-contract.js";
 
 export function resolveSubmitControlState({
   workflow,

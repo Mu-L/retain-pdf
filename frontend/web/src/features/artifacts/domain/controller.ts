@@ -3,14 +3,14 @@ import {
   formatTransferSize,
   prepareDownloadTarget,
   saveResponseDownload,
-} from "@/js/utils/downloads.js";
+} from "@/platform/utils/downloads.js";
 import {
   completeDownloadToast,
   failDownloadToast,
   showDownloadPreparing,
   updateDownloadProgress,
-} from "@/js/utils/download-feedback.js";
-import { buildErrorDiagnostic } from "@/js/utils/error-diagnostics.js";
+} from "@/platform/utils/download-feedback.js";
+import { buildErrorDiagnostic } from "@/platform/utils/error-diagnostics.js";
 import {
   downloadActionForLink,
   defaultDownloadNameResolver,

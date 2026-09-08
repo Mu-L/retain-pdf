@@ -16,7 +16,7 @@ import {
   RENDER_FONT_STORAGE_KEY,
 } from "@/shared/render-font/font.js";
 import { listFonts, type FontInfo } from "@retainpdf/api/fonts";
-import { API_PREFIX } from "@/js/config/api-constants.js";
+import { API_PREFIX } from "@/platform/config/api-constants.js";
 
 const FALLBACK_FONTS: FontInfo[] = [
   { family: "Source Han Serif SC", files: [], available: true },

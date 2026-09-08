@@ -12,7 +12,7 @@
 import type { DialogStore } from "@/pages/home/state/dialog-store.js";
 import { createStore } from "@/js/app-framework/store.js";
 import type { Store } from "@/js/app-framework/store.js";
-import { inferTranslationProvider } from "@/js/config/providers.js";
+import { inferTranslationProvider } from "@/platform/config/providers.js";
 
 /** 事件处理函数表（viewPort.bindEvents 写入 handlersRef）。 */
 export type HandlersBag = {

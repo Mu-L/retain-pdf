@@ -1,7 +1,7 @@
 // AI 会话 CRUD：对接 Rust /api/v1/ai/conversations（含 parent_id / head_id 分支树）。
 
-import { API_PREFIX } from "../config/api-constants.js";
-import { buildApiHeaders, isMockMode } from "../config/runtime.js";
+import { API_PREFIX } from "@/platform/config/api-constants.js";
+import { buildApiHeaders, isMockMode } from "@/platform/config/runtime.js";
 import { unwrapEnvelope } from "@retainpdf/domain/job";
 import { buildApiEndpoint } from "./http.js";
 

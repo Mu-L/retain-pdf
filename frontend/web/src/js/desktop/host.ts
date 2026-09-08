@@ -2,7 +2,7 @@ import type {
   BrowserStoredConfig,
   DeveloperStoredConfig,
   RuntimeConfig,
-} from "../config/storage.js";
+} from "@/platform/config/storage.js";
 
 /** Payload passed to / returned from desktop config load/save. */
 export interface DesktopConfigPayload {

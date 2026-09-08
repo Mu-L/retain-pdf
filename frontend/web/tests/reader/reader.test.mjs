@@ -376,7 +376,7 @@ test("reader ai config prefers persisted browser credentials", () => {
 
 test("reader ai model key comes only from settings (no runtime secret fallback)", async () => {
   if (!readerAiConfig) return;
-  const { setRuntimeConfig } = await import("../../src/js/config/runtime.js");
+  const { setRuntimeConfig } = await import("@/platform/config/runtime.js");
   setRuntimeConfig({
     modelApiKey: "sk-from-runtime",
     baseUrl: "https://api.deepseek.com/v1",

@@ -6,6 +6,7 @@ import { join, relative } from "node:path";
 const PROJECT_ROOT = process.cwd();
 const REPOSITORY_ROOT = join(PROJECT_ROOT, "../..");
 const JS_ROOT = join(PROJECT_ROOT, "src/js");
+const PLATFORM_ROOT = join(PROJECT_ROOT, "src/platform");
 const DOMAIN_JOB_SOURCE_ROOT = join(PROJECT_ROOT, "../../frontend/packages/domain/src/job");
 const FEATURE_ROOT = join(JS_ROOT, "features");
 const BOOTSTRAP_ROOT = join(JS_ROOT, "bootstrap");
@@ -13,8 +14,8 @@ const SOURCE_ROOTS = {
   api: join(JS_ROOT, "api"),
   bootstrap: BOOTSTRAP_ROOT,
   components: join(JS_ROOT, "components"),
-  config: join(JS_ROOT, "config"),
-  contracts: join(JS_ROOT, "contracts"),
+  config: join(PLATFORM_ROOT, "config"),
+  contracts: join(PLATFORM_ROOT, "contracts"),
   desktop: join(JS_ROOT, "desktop"),
   features: FEATURE_ROOT,
   job: DOMAIN_JOB_SOURCE_ROOT,
@@ -25,7 +26,7 @@ const SOURCE_ROOTS = {
   state: join(JS_ROOT, "state"),
   statusDetail: join(PROJECT_ROOT, "src/features/job-detail/domain/snapshot"),
   ui: join(JS_ROOT, "ui"),
-  utils: join(JS_ROOT, "utils"),
+  utils: join(PLATFORM_ROOT, "utils"),
 };
 const APP_ENTRYPOINTS = [
   join(PROJECT_ROOT, "app.js"),
@@ -446,29 +447,30 @@ test("job stage history presentation helpers are owned by the job layer", () => 
 });
 
 test("source modules read API prefix from config api constants", () => {
-  const offenders = findMatchingImports(filesUnder(
+  // SOURCE_ROOTS.reader (src/js/reader) 已在更早的迁移中删除，留在这里只贡献 0 个
+  // 文件、让门禁半哑（A0 加固时发现）。移除该根，其余三根逐个校验存在且非空。
+  const offenders = findMatchingImports(scanRoots([
     SOURCE_ROOTS.api,
     SOURCE_ROOTS.bootstrap,
     SOURCE_ROOTS.jobDetail,
-    SOURCE_ROOTS.reader,
-  ), API_PREFIX_FROM_ROOT_CONSTANTS_PATTERN);
+  ]), API_PREFIX_FROM_ROOT_CONSTANTS_PATTERN);
 
   assert.deepEqual(offenders, []);
 });
 
 test("source modules read model defaults from config model constants", () => {
-  const offenders = findMatchingImports(filesUnder(
+  const offenders = findMatchingImports(scanRoots([
     SOURCE_ROOTS.bootstrap,
     SOURCE_ROOTS.config,
     SOURCE_ROOTS.features,
-  ), MODEL_CONSTANTS_FROM_ROOT_PATTERN);
+  ]), MODEL_CONSTANTS_FROM_ROOT_PATTERN);
 
   assert.deepEqual(offenders, []);
 });
 
 test("source modules read storage keys from config storage keys", () => {
   const offenders = findMatchingImports(
-    walkFiles(SOURCE_ROOTS.config),
+    scanRoot(SOURCE_ROOTS.config),
     STORAGE_KEYS_FROM_ROOT_PATTERN,
   );
 
@@ -667,7 +669,7 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
     // (src/pages/*/components/,目录约定)不在此列
     // src/js/components/ 已随 library 迁移清空并删除；保留本条防止新代码重建该目录。
     [/from\s+["'][^"']*\/js\/components\//, "src/js/components/(自定义元素/对话框视图)"],
-    [/from\s+["'][^"']*\/generated\//, "src/js/generated/(预编译产物)"],
+    [/from\s+["'][^"']*\/generated\//, "platform/generated/(预编译产物)"],
     [/from\s+["'][^"']*\/bootstrap\//, "src/js/bootstrap/(旧 DI 装配层)"],
     [/from\s+["'][^"']*\/features\/[^"']*\/view\.js["']/, "features/*/view.js(旧 DOM 视图)"],
     [/from\s+["'][^"']*\/features\/[^"']*view-port\.js["']/, "features/*view-port.js(旧 DOM 端口)"],

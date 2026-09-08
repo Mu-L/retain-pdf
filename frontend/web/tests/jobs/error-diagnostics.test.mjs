@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   buildErrorDiagnostic,
   messageForErrorBox,
-} from "../../src/js/utils/error-diagnostics.js";
+} from "@/platform/utils/error-diagnostics.js";
 
 test("buildErrorDiagnostic formats copyable frontend diagnostics", () => {
   const error = new Error("backend unavailable");

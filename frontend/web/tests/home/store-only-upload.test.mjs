@@ -105,7 +105,7 @@ test("仅收藏：关闭对话框且不提交翻译 job", async () => {
   const dom = makeDom("?mock=parallel");
   const byId = (id) => dom.window.document.getElementById(id);
   const { services, root, host } = await bootHomeApp(dom);
-  const { APP_EVENTS } = await import("../../src/js/contracts/app-contract.js");
+  const { APP_EVENTS } = await import("@/platform/contracts/app-contract.js");
 
   click(dom, byId("library-add-pdf-btn"));
   await waitFor(() => byId("translation-workflow-dialog") !== null, "添加对话框打开");

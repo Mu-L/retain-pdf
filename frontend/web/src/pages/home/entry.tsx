@@ -9,7 +9,7 @@ import { mountShellPage } from "../shell-boot.js";
 import {
   isDesktopMode,
   loadPersistedConfig,
-} from "../../js/config/desktop-persistence.js";
+} from "@/platform/config/desktop-persistence.js";
 import { bootstrapDesktop } from "../../js/desktop/index.js";
 
 // appUpdateAutoCheckEnabled: true——create-home-composition 默认关闭后台

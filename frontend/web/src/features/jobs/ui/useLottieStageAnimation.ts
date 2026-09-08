@@ -20,7 +20,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   resolveLottieVendorUrl,
-} from "@/js/runtime/vendor-url.js";
+} from "@/platform/runtime/vendor-url.js";
 
 // 用站点根路径，避免详情弹窗 / 子路径下相对 ./src 解析失败导致动画空盒
 const TRANSLATION_ANIMATION_PATH = "/src/assets/animations/deepseek_lottie.json";

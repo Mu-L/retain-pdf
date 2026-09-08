@@ -28,7 +28,7 @@ export type {
   CredentialMetadata,
   CredentialMutationView,
 } from "@retainpdf/api/credentials";
-import { isMockMode } from "@/js/config/runtime.js";
+import { isMockMode } from "@/platform/config/runtime.js";
 import { fetchMockProtected } from "@/js/mock/index.js";
 import { fetchProtected as _canonFetchProtected, submitJson as _canonSubmitJson, submitUploadRequest as _canonSubmitUploadRequest } from "@retainpdf/api/http";
 import { submitJson as _legacySubmitJson, submitUploadRequest as _legacySubmitUploadRequest } from "@/js/api/http.js";

@@ -19,10 +19,10 @@
 @source "../../js/features/**/*.{js,jsx,ts,tsx}";
 @source "../../js/islands/**/*.{js,jsx,ts,tsx}";
 @source "../../js/api/**/*.{js,ts}";
-@source "../../js/config/**/*.{js,ts}";
-@source "../../js/contracts/**/*.{js,ts}";
+@source "../../platform/config/**/*.{js,ts}";
+@source "../../platform/contracts/**/*.{js,ts}";
 @source "../../js/app-framework/**/*.{js,ts}";
-@source "../../js/utils/**/*.{js,ts}";
+@source "../../platform/utils/**/*.{js,ts}";
 @source "../../partials/**/*.html";
 @source inline("app-settings-panel credential-provider-panel credential-tabs credential-top-up-link glossary-list-item progress-bar recent-job-cover status-result-actions status-substage-flow status-substage-step");
 

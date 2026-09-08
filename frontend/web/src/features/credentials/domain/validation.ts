@@ -1,7 +1,7 @@
 import {
   getOcrProviderDefinition,
   TRANSLATION_PROVIDER_DEFINITION,
-} from "@/js/config/providers.js";
+} from "@/platform/config/providers.js";
 import type {
   CredentialsStatePort,
   OcrValidationCachePayload,

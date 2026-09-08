@@ -1,4 +1,4 @@
-import { normalizeOcrProvider } from "@/js/config/providers.js";
+import { normalizeOcrProvider } from "@/platform/config/providers.js";
 
 export function syncCredentialDialogFields({
   credentials,

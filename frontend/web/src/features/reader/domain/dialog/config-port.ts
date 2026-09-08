@@ -2,7 +2,7 @@ import {
   buildFrontendPageUrl,
   isTrustedWindowMessage,
   mockScenario,
-} from "@/js/config/runtime.js";
+} from "@/platform/config/runtime.js";
 
 export function createReaderDialogConfigPort({
   buildPageUrl = buildFrontendPageUrl,

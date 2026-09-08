@@ -2,7 +2,7 @@
 // Re-exports for: api-constants, runtime, upload-constants, persisted-config, providers, workflow-defaults, model-constants
 
 // —— config / constants ——
-export { API_PREFIX } from "../../../../js/config/api-constants.js";
+export { API_PREFIX } from "@/platform/config/api-constants.js";
 export {
   apiBase,
   defaultModelApiKey,
@@ -15,31 +15,31 @@ export {
   isTrustedWindowMessage,
   mockScenario,
   buildFrontendPageUrl,
-} from "../../../../js/config/runtime.js";
+} from "@/platform/config/runtime.js";
 export {
   DEFAULT_FILE_LABEL,
   FRONT_MAX_BYTES,
   FRONT_MAX_PAGE_COUNT,
-} from "../../../../js/config/upload-constants.js";
+} from "@/platform/config/upload-constants.js";
 export {
   loadBrowserStoredConfig,
   loadDeveloperStoredConfig,
   saveBrowserStoredConfig,
   savePersistedBrowserStoredConfig,
   savePersistedDeveloperStoredConfig,
-} from "../../../../js/config/persisted-config.js";
+} from "@/platform/config/persisted-config.js";
 export {
   openDesktopOutputDirectory,
   savePersistedDesktopConfig,
-} from "../../../../js/config/desktop-persistence.js";
-export { DEFAULT_MODEL_VERSION } from "../../../../js/config/model-constants.js";
+} from "@/platform/config/desktop-persistence.js";
+export { DEFAULT_MODEL_VERSION } from "@/platform/config/model-constants.js";
 export {
   getTranslationProviderDefinition,
   inferTranslationProvider,
   OCR_PROVIDER_DEFINITIONS,
   TRANSLATION_PROVIDER_DEFINITION,
   TRANSLATION_PROVIDER_OPTIONS,
-} from "../../../../js/config/providers.js";
+} from "@/platform/config/providers.js";
 export {
   DEFAULT_BATCH_SIZE,
   DEFAULT_BODY_FONT_SIZE_FACTOR,
@@ -59,7 +59,7 @@ export {
   DEFAULT_TRANSLATED_PDF_NAME,
   DEFAULT_TYPST_FONT_FAMILY,
   DEFAULT_WORKERS,
-} from "../../../../js/config/workflow-defaults.js";
+} from "@/platform/config/workflow-defaults.js";
 
 // —— runtime ——
-export { resolveLottieVendorUrl } from "../../../../js/runtime/vendor-url.js";
+export { resolveLottieVendorUrl } from "@/platform/runtime/vendor-url.js";

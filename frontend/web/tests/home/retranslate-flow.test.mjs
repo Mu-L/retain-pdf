@@ -48,7 +48,7 @@ test("有 document_id 点卡开详情,不开上传框", async () => {
   const { createLibraryController } = await import(
     "../../src/features/library/domain/controller.js"
   );
-  const { APP_EVENTS } = await import("../../src/js/contracts/app-contract.js");
+  const { APP_EVENTS } = await import("@/platform/contracts/app-contract.js");
 
   const dispatched = [];
   const card = {

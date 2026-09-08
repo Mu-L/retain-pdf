@@ -1,5 +1,5 @@
-import { DEFAULT_OCR_PROVIDER, normalizeOcrProvider } from "@/js/config/providers.js";
-import { normalizeBrowserStoredConfig } from "@/js/config/storage.js";
+import { DEFAULT_OCR_PROVIDER, normalizeOcrProvider } from "@/platform/config/providers.js";
+import { normalizeBrowserStoredConfig } from "@/platform/config/storage.js";
 import { CREDENTIAL_DOM_IDS } from "./credentials-dom-contract.js";
 import type { CredentialsFields, CredentialsStatePort } from "./state.js";
 

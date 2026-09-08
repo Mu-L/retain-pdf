@@ -1,6 +1,6 @@
 import {
   requestThrottledLibraryRefresh,
-} from "@/js/contracts/library-event-contract.js";
+} from "@/platform/contracts/library-event-contract.js";
 
 const noopLibraryEventPort = Object.freeze({
   publishJobUpdated() {},

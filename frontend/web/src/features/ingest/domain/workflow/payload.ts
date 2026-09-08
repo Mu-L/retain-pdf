@@ -1,4 +1,4 @@
-import { getOcrProviderDefinition, normalizeOcrProvider } from "@/js/config/providers.js";
+import { getOcrProviderDefinition, normalizeOcrProvider } from "@/platform/config/providers.js";
 
 /** Developer/workflow config fields consumed by payload builders. */
 export interface WorkflowDeveloperConfig {

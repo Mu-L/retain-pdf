@@ -5,7 +5,7 @@ import {
   resolveLottieVendorUrl,
   resolvePdfjsVendorUrl,
   resolveVendorUrl,
-} from "../../src/js/runtime/vendor-url.js";
+} from "@/platform/runtime/vendor-url.js";
 
 test("vendor resolver is rooted at page base URI instead of module path", () => {
   const documentRef = {

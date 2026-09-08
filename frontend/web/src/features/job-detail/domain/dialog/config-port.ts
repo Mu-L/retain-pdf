@@ -1,4 +1,4 @@
-import { buildFrontendPageUrl } from "@/js/config/runtime.js";
+import { buildFrontendPageUrl } from "@/platform/config/runtime.js";
 
 export function createStatusDetailConfigPort({
   buildPageUrl = buildFrontendPageUrl,

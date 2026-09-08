@@ -22,7 +22,7 @@ import {
 import { resolveSubmitControlState } from "./submit-controls.js";
 import { resolveTranslationBudgetState } from "./budget.js";
 import { defaultWorkflowConfigPort } from "./config-port.js";
-import { isOfficialDeepSeekBaseUrl } from "@/js/config/providers.js";
+import { isOfficialDeepSeekBaseUrl } from "@/platform/config/providers.js";
 
 export interface WorkflowSubmitValues {
   ocrProvider?: string;

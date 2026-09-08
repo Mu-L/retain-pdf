@@ -30,10 +30,10 @@ export {
   fileNameFromDisposition,
   prepareDownloadTarget,
   saveResponseDownload,
-} from "../../js/utils/downloads.js";
+} from "@/platform/utils/downloads.js";
 export {
   completeDownloadToast,
   failDownloadToast,
   showDownloadPreparing,
   updateDownloadProgress,
-} from "../../js/utils/download-feedback.js";
+} from "@/platform/utils/download-feedback.js";

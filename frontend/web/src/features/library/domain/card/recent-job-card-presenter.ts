@@ -4,7 +4,7 @@ import {
   isJobTerminal,
   normalizeRuntimeDisplayStage,
 } from "../recent-jobs/runtime-value-helpers.js";
-import { escapeAttribute, truncateDisplayName } from "@/js/utils/html-formatting.js";
+import { escapeAttribute, truncateDisplayName } from "@/platform/utils/html-formatting.js";
 
 export function recentJobStatusLabel(status) {
   switch (`${status || ""}`.trim()) {

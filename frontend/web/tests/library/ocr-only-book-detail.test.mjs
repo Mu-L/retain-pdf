@@ -120,7 +120,7 @@ test("OCR-only 成功详情：OCR 状态、job reader 主操作和继续翻译�
   const React = await import("react");
   const { createHomeComposition } = await import("../../src/pages/home/create-home-composition.js");
   const { HomeApp } = await import("../../src/pages/home/HomeApp.jsx");
-  const { APP_EVENTS } = await import("../../src/js/contracts/app-contract.js");
+  const { APP_EVENTS } = await import("@/platform/contracts/app-contract.js");
 
   const host = dom.window.document.createElement("div");
   host.id = "home-root";

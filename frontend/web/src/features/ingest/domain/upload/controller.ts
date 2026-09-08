@@ -1,5 +1,5 @@
-import { withTimeout } from "@/js/utils/async-timeout.js";
-import { buildErrorDiagnostic } from "@/js/utils/error-diagnostics.js";
+import { withTimeout } from "@/platform/utils/async-timeout.js";
+import { buildErrorDiagnostic } from "@/platform/utils/error-diagnostics.js";
 import {
   getUploadStatePort,
   type UploadPayload,

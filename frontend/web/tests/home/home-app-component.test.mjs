@@ -29,7 +29,7 @@ const { createRoot } = await import("react-dom/client");
 const React = await import("react");
 const { createHomeComposition } = await import("../../src/pages/home/create-home-composition.js");
 const { HomeApp } = await import("../../src/pages/home/HomeApp.jsx");
-const { APP_EVENTS } = await import("../../src/js/contracts/app-contract.js");
+const { APP_EVENTS } = await import("@/platform/contracts/app-contract.js");
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

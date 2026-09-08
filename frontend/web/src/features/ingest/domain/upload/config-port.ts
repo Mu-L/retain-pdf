@@ -1,4 +1,4 @@
-import { buildApiUrl } from "@/js/config/runtime.js";
+import { buildApiUrl } from "@/platform/config/runtime.js";
 
 export function createUploadConfigPort({
   buildEndpoint = buildApiUrl,

@@ -5,4 +5,4 @@
 // ui/ 侧从 domain 拿版本号,不复制字面量、不绕过门禁,
 // 版本号更新脚本(generate-app-version.mjs)改一处两边同时生效。
 
-export { APP_VERSION } from "@/js/generated/app-version.js";
+export { APP_VERSION } from "@/platform/generated/app-version.js";

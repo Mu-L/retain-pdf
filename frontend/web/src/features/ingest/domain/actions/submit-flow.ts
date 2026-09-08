@@ -1,10 +1,10 @@
-import { withTimeout } from "@/js/utils/async-timeout.js";
-import { buildErrorDiagnostic } from "@/js/utils/error-diagnostics.js";
+import { withTimeout } from "@/platform/utils/async-timeout.js";
+import { buildErrorDiagnostic } from "@/platform/utils/error-diagnostics.js";
 import {
   resolveSubmitReadiness,
   SUBMIT_BLOCK_REASONS,
-} from "@/js/contracts/submit-readiness-contract.js";
-import { APP_EVENTS } from "@/js/contracts/app-contract.js";
+} from "@/platform/contracts/submit-readiness-contract.js";
+import { APP_EVENTS } from "@/platform/contracts/app-contract.js";
 
 // 提交链路总览(显性化,不改行为;签名与事件名不变):
 //   表单校验(WorkflowPanel.handleSubmit)→ 组参(collectRunPayload)→

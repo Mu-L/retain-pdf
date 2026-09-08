@@ -1,4 +1,4 @@
-import { isMockMode } from "@/js/config/runtime.js";
+import { isMockMode } from "@/platform/config/runtime.js";
 
 function defaultSearch() {
   return globalThis.window?.location?.search || "";

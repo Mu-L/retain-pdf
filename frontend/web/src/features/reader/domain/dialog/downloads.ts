@@ -3,12 +3,12 @@ import {
   formatTransferSize,
   prepareDownloadTarget,
   saveResponseDownload,
-} from "@/js/utils/downloads.js";
+} from "@/platform/utils/downloads.js";
 import {
   completeDownloadToast,
   showDownloadPreparing,
   updateDownloadProgress,
-} from "@/js/utils/download-feedback.js";
+} from "@/platform/utils/download-feedback.js";
 
 export function summarizeDownloadProgress(receivedBytes, totalBytes, percent) {
   const receivedText = formatTransferSize(receivedBytes);

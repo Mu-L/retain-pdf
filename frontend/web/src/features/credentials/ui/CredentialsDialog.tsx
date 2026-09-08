@@ -40,7 +40,7 @@ import { useCredentialsServices } from "./credentials-context.jsx";
 import { CREDENTIAL_DOM_IDS } from "./credentials-dom-ids.js";
 import { useCredentialsController } from "./useCredentialsController.js";
 import { CredentialsWorkbench } from "./CredentialsWorkbench.jsx";
-import { APP_EVENTS } from "@/js/contracts/app-contract.js";
+import { APP_EVENTS } from "@/platform/contracts/app-contract.js";
 
 const { browser: BROWSER_IDS } = CREDENTIAL_DOM_IDS;
 

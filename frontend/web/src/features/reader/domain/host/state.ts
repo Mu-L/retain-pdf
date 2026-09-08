@@ -7,7 +7,7 @@ import * as readerState from "@retainpdf/reader/runtime/state";
 import { createFavorite, deleteFavorite, fetchFavorites } from "@/js/api/favorites.js";
 import { fetchDocumentByJobId } from "@/js/api/documents.js";
 import { createReaderDialogRuntimePort } from "../dialog/runtime-port.js";
-import { API_PREFIX } from "@/js/config/api-constants.js";
+import { API_PREFIX } from "@/platform/config/api-constants.js";
 import { resolveReaderSourcePdf } from "./data.js";
 
 export type * from "@retainpdf/reader/runtime/state";

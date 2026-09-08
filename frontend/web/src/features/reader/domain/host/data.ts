@@ -26,9 +26,9 @@ import {
 } from "@/js/mock/index.js";
 import { getMockReaderRegions } from "@/js/mock/documents.js";
 import { getMockTranslationItem } from "@/js/mock/translation.js";
-import { API_PREFIX } from "@/js/config/api-constants.js";
-import { isMockMode } from "@/js/config/runtime.js";
-import { resolvePdfjsVendorUrl } from "@/js/runtime/vendor-url.js";
+import { API_PREFIX } from "@/platform/config/api-constants.js";
+import { isMockMode } from "@/platform/config/runtime.js";
+import { resolvePdfjsVendorUrl } from "@/platform/runtime/vendor-url.js";
 import { defaultReaderPdfDocumentConfigPort } from "./config.js";
 
 async function fetchJobPayload(jobId: string, apiPrefix?: string): Promise<any> {

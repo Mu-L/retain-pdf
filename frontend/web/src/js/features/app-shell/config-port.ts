@@ -1,4 +1,4 @@
-import { isMockMode } from "../../config/runtime.js";
+import { isMockMode } from "@/platform/config/runtime.js";
 
 export function createAppShellConfigPort({
   isMock = isMockMode,

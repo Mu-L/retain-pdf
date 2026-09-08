@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 const frontendRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(frontendRoot, "..", "..");
 const desktopPackagePath = path.resolve(repoRoot, "frontend/desktop/package.json");
-const outputPath = path.join(frontendRoot, "src/js/generated/app-version.ts");
+const outputPath = path.join(frontendRoot, "src/platform/generated/app-version.ts");
 
 function repoFromHomepage(homepage = "") {
   const match = `${homepage || ""}`.match(/github\.com\/([^/]+\/[^/#?]+)/i);

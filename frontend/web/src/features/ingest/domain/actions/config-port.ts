@@ -1,4 +1,4 @@
-import { apiBase, isMockMode } from "@/js/config/runtime.js";
+import { apiBase, isMockMode } from "@/platform/config/runtime.js";
 
 export interface CreateAppActionsConfigPortOptions {
   resolveApiBase?: () => string;

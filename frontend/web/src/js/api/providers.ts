@@ -1,4 +1,4 @@
-import { isMockMode } from "../config/runtime.js";
+import { isMockMode } from "@/platform/config/runtime.js";
 import { buildApiEndpoint, submitJson } from "./http.js";
 
 export async function validatePaddleToken(apiPrefix, payload) {

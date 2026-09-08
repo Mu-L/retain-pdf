@@ -1,4 +1,4 @@
-import { getOcrProviderDefinition } from "@/js/config/providers.js";
+import { getOcrProviderDefinition } from "@/platform/config/providers.js";
 import {
   credentialOcrToken,
 } from "./selectors-port.js";

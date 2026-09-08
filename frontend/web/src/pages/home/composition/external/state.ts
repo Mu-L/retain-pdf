@@ -15,10 +15,10 @@ export {
 } from "../../../../js/state/desktop-state.js";
 
 // —— contracts / framework ——
-export { APP_EVENTS } from "../../../../js/contracts/app-contract.js";
+export { APP_EVENTS } from "@/platform/contracts/app-contract.js";
 export {
   DOWNLOAD_ACTION_IDS,
   PROTECTED_ARTIFACT_SELECTOR,
-} from "../../../../js/contracts/download-action-contract.js";
+} from "@/platform/contracts/download-action-contract.js";
 export { createStore } from "../../../../js/app-framework/store.js";
 export type { Store, StoreChangeMeta } from "../../../../js/app-framework/store.js";

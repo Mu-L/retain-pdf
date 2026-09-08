@@ -4,7 +4,7 @@ import {
   type Store,
   type StoreListener,
 } from "@/js/app-framework/store.js";
-import { HOME_VIEW_MODES } from "@/js/contracts/home-view-contract.js";
+import { HOME_VIEW_MODES } from "@/platform/contracts/home-view-contract.js";
 import type { HomeStatePort } from "@/js/features/home/state.js";
 import { TRANSLATION_WORKFLOW_MODES } from "./contract.js";
 

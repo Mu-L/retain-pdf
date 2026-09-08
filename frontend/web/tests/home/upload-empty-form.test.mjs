@@ -5,7 +5,7 @@ import { createTranslationWorkflowDialogRuntime } from "../../src/features/inges
 import { createUploadStatePort } from "../../src/features/ingest/domain/upload/state.js";
 import { createInitialState } from "../../src/js/state/slices.js";
 import { resolveSubmitControlState } from "../../src/features/ingest/domain/workflow/submit-controls.js";
-import { SUBMIT_BLOCK_REASONS } from "../../src/js/contracts/submit-readiness-contract.js";
+import { SUBMIT_BLOCK_REASONS } from "@/platform/contracts/submit-readiness-contract.js";
 
 const workflowNeedsUpload = (workflow) => workflow !== "render";
 const workflowNeedsCredentials = (workflow) => workflow !== "render";

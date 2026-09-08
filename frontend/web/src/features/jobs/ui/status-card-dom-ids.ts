@@ -1,6 +1,6 @@
 import {
   DOWNLOAD_ACTION_IDS,
-} from "@/js/contracts/download-action-contract.js";
+} from "@/platform/contracts/download-action-contract.js";
 
 // 状态卡 DOM 契约 id 拷贝(蓝图 §2 features/status/)。
 //

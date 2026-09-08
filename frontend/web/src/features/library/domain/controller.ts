@@ -30,10 +30,10 @@ import {
 } from "./card/recent-job-card-presenter.js";
 import {
   API_PREFIX,
-} from "@/js/config/api-constants.js";
+} from "@/platform/config/api-constants.js";
 import {
   APP_EVENTS,
-} from "@/js/contracts/app-contract.js";
+} from "@/platform/contracts/app-contract.js";
 import {
   deleteDocument,
   fetchDocumentByJobId,

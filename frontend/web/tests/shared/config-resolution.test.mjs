@@ -13,7 +13,7 @@ globalThis.window = globalThis.window || {
   __FRONT_RUNTIME_CONFIG__: {},
 };
 
-const runtime = await import("../../src/js/config/runtime.js");
+const runtime = await import("@/platform/config/runtime.js");
 const { apiBase, buildApiHeaders, frontendApiKey, setRuntimeConfig } = runtime;
 
 const ENV_BASE = "RETAIN_PDF_FRONTEND_API_BASE";

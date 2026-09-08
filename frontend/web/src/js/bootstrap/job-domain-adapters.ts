@@ -2,7 +2,7 @@ import {
   configureDefaultArtifactRuntimePort,
   configureDefaultArtifactUrlConfigPort,
 } from "@retainpdf/domain/job";
-import { apiBase } from "../config/runtime.js";
+import { apiBase } from "@/platform/config/runtime.js";
 import { getUploadState } from "@/features/ingest/domain.js";
 
 // The domain package owns artifact naming and URL rules. The web host owns the

@@ -14,7 +14,7 @@
 @source "../../lib/**/*.{js,jsx,ts,tsx}";
 /* detail 仍用 job-detail / job-status 文案与下载 */
 @source "../../js/job-detail/**/*.{js,ts}";
-@source "../../js/utils/**/*.{js,ts}";
+@source "../../platform/utils/**/*.{js,ts}";
 @source inline("detail-item detail-tab detail-tab-panel progress-bar mono button-link");
 
 @layer tokens, base, pages;

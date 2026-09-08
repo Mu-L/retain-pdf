@@ -1,4 +1,4 @@
-import { APP_DIALOG_IDS } from "@/js/contracts/app-contract.js";
+import { APP_DIALOG_IDS } from "@/platform/contracts/app-contract.js";
 
 export function isTranslationWorkflowDialogOpen(doc = document) {
   return doc.getElementById?.(APP_DIALOG_IDS.translationWorkflow)?.dataset.open === "1";

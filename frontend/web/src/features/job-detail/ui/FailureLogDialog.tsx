@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog.js";
 import {
   copyText,
-} from "@/js/utils/clipboard.js";
+} from "@/platform/utils/clipboard.js";
 import { STATUS_DETAIL_DIALOG_IDS } from "../domain/status-detail-dom-ids.js";
 
 type FailureLogDialogProps = {

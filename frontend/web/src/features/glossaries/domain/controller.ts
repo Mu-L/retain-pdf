@@ -3,12 +3,12 @@ import {
   failDownloadToast,
   showDownloadPreparing,
   updateDownloadProgress,
-} from "@/js/utils/download-feedback.js";
+} from "@/platform/utils/download-feedback.js";
 import {
   fileNameFromDisposition,
   prepareDownloadTarget,
   saveResponseDownload,
-} from "@/js/utils/downloads.js";
+} from "@/platform/utils/downloads.js";
 
 export type GlossariesFeature = {
   bindEvents: () => void;

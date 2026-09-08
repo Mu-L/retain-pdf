@@ -4,8 +4,8 @@ import assert from "node:assert/strict";
 import {
   resolveSubmitReadiness,
   SUBMIT_BLOCK_REASONS,
-} from "../../src/js/contracts/submit-readiness-contract.js";
-import { APP_EVENTS } from "../../src/js/contracts/app-contract.js";
+} from "@/platform/contracts/submit-readiness-contract.js";
+import { APP_EVENTS } from "@/platform/contracts/app-contract.js";
 import { publishSubmitSuccess } from "../../src/features/ingest/domain/actions/submit-flow.js";
 import { resolveSubmitControlState } from "../../src/features/ingest/domain/workflow/submit-controls.js";
 

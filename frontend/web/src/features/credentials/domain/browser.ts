@@ -6,7 +6,7 @@ import {
   normalizeTranslationProvider,
   TRANSLATION_PROVIDER_DEFINITION,
   TRANSLATION_PROVIDER_OPTIONS,
-} from "@/js/config/providers.js";
+} from "@/platform/config/providers.js";
 import {
   runOcrTokenValidation,
   type ProviderValidationResult,
@@ -27,7 +27,7 @@ import {
 } from "./persistence.js";
 import { createCredentialRuntimeEnvPort } from "./runtime-env-port.js";
 import { createCredentialUploadReadinessPort } from "./upload-readiness-port.js";
-import { savePersistedBrowserStoredConfig } from "@/js/config/persisted-config.js";
+import { savePersistedBrowserStoredConfig } from "@/platform/config/persisted-config.js";
 import { notifyCredentialsChanged } from "@/features/reader/domain.js";
 import type {
   CredentialsFields,

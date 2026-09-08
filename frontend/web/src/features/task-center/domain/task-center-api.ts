@@ -1,5 +1,5 @@
 import type { JobListItemView, JobListView } from "@retainpdf/contracts/job-status";
-import { API_PREFIX } from "@/js/config/api-constants.js";
+import { API_PREFIX } from "@/platform/config/api-constants.js";
 import {
   cancelJob,
   cancelOcrJob,

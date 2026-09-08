@@ -1,4 +1,4 @@
-import { APP_VERSION } from "@/js/generated/app-version.js";
+import { APP_VERSION } from "@/platform/generated/app-version.js";
 
 const CACHE_KEY = "retainpdf:update-check:v1";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;

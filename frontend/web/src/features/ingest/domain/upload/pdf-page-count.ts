@@ -1,4 +1,4 @@
-import { resolvePdfjsVendorUrl } from "@/js/runtime/vendor-url.js";
+import { resolvePdfjsVendorUrl } from "@/platform/runtime/vendor-url.js";
 
 // 惰性解析：resolvePdfjsVendorUrl 依赖 document.baseURI，模块级求值会在无 DOM
 // 的环境（node 测试直接 import 本模块的传递依赖时）抛 ERR_INVALID_URL。

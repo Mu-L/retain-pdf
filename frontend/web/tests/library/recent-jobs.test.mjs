@@ -6,7 +6,7 @@ import {
   APP_DIALOG_IDS,
   APP_EVENTS,
   APP_SHELL_IDS,
-} from "../../src/js/contracts/app-contract.js";
+} from "@/platform/contracts/app-contract.js";
 import {
   createHomeStatePort,
   createHomeStore,
@@ -41,7 +41,7 @@ import {
 import {
   createLibraryEventPort,
   requestThrottledLibraryRefresh,
-} from "../../src/js/contracts/library-event-contract.js";
+} from "@/platform/contracts/library-event-contract.js";
 import { createRecentJobsRefreshScheduler } from "../../src/features/library/domain/recent-jobs/refresh-scheduler.js";
 import {
   createActiveLibraryRefreshLoop,

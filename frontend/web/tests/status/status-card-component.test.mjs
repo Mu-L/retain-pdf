@@ -197,7 +197,7 @@ test("StatusCard：重试按钮(mock stage-actions 数据到达后可点击并�
   const dom = makeDom("?mock=translate");
   const { services, root, host } = await bootHomeApp(dom);
   const { getMockJobId } = await import("../../src/js/mock/index.js");
-  const { APP_EVENTS } = await import("../../src/js/contracts/app-contract.js");
+  const { APP_EVENTS } = await import("@/platform/contracts/app-contract.js");
 
   services.features.jobRuntimeFeature.startPolling(getMockJobId());
   await waitFor(() => {

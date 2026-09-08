@@ -1,5 +1,5 @@
-import { API_PREFIX } from "@/js/config/api-constants.js";
-import { APP_EVENTS } from "@/js/contracts/app-contract.js";
+import { API_PREFIX } from "@/platform/config/api-constants.js";
+import { APP_EVENTS } from "@/platform/contracts/app-contract.js";
 import { RECENT_JOBS_IDS } from "../recent-jobs-dom-contract.js";
 import { fetchDocumentList, patchDocument } from "@/js/api/documents.js";
 import { searchLibrary } from "@/js/api/search.js";

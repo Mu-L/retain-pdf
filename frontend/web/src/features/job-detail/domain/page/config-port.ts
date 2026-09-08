@@ -1,7 +1,7 @@
 import {
   buildFrontendPageUrl,
   isMockMode,
-} from "@/js/config/runtime.js";
+} from "@/platform/config/runtime.js";
 
 export function createJobDetailConfigPort({
   buildPageUrl = buildFrontendPageUrl,

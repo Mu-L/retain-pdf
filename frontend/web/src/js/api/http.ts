@@ -4,7 +4,7 @@ import {
   buildApiUrl,
   frontendApiKey,
   isMockMode,
-} from "../config/runtime.js";
+} from "@/platform/config/runtime.js";
 import { unwrapEnvelope } from "@retainpdf/domain/job";
 import { fetchMockProtected, submitMockJob, submitMockUpload } from "../mock/index.js";
 

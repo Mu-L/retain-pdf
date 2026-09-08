@@ -1,8 +1,8 @@
 import {
   loadPersistedConfig,
   savePersistedDesktopConfig,
-} from "../config/desktop-persistence.js";
-import { savePersistedBrowserStoredConfig } from "../config/persisted-config.js";
+} from "@/platform/config/desktop-persistence.js";
+import { savePersistedBrowserStoredConfig } from "@/platform/config/persisted-config.js";
 import {
   applyDefaultCredentialInputs,
 } from "@/features/credentials/domain.js";
@@ -17,7 +17,7 @@ import { isDesktopConfigured } from "../state/desktop-state.js";
 import {
   APP_DIALOG_IDS,
   APP_EVENTS,
-} from "../contracts/app-contract.js";
+} from "@/platform/contracts/app-contract.js";
 
 export function showDesktopUi() {
   document.getElementById("open-output-btn").classList.remove("hidden");

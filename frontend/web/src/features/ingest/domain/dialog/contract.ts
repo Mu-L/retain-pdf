@@ -1,4 +1,4 @@
-import { APP_DIALOG_IDS } from "@/js/contracts/app-contract.js";
+import { APP_DIALOG_IDS } from "@/platform/contracts/app-contract.js";
 
 export const TRANSLATION_WORKFLOW_MODES = Object.freeze({
   UPLOAD: "upload",

@@ -1,4 +1,4 @@
-import { APP_EVENTS } from "@/js/contracts/app-contract.js";
+import { APP_EVENTS } from "@/platform/contracts/app-contract.js";
 import { createRecentJobsReaderPort } from "./reader-port.js";
 import { createRecentJobsRuntimePort } from "./job-runtime-port.js";
 

@@ -1,5 +1,5 @@
-import { buildApiHeaders, isMockMode } from "../config/runtime.js";
-import { API_PREFIX } from "../config/api-constants.js";
+import { buildApiHeaders, isMockMode } from "@/platform/config/runtime.js";
+import { API_PREFIX } from "@/platform/config/api-constants.js";
 import { unwrapEnvelope } from "@retainpdf/domain/job";
 import { buildApiEndpoint } from "./http.js";
 
