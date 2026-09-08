@@ -11,7 +11,7 @@ const DOMAIN_JOB_SOURCE_ROOT = join(PROJECT_ROOT, "../../frontend/packages/domai
 const FEATURE_ROOT = join(JS_ROOT, "features");
 const BOOTSTRAP_ROOT = join(JS_ROOT, "bootstrap");
 const SOURCE_ROOTS = {
-  api: join(JS_ROOT, "api"),
+  api: join(PLATFORM_ROOT, "api/legacy"),
   bootstrap: BOOTSTRAP_ROOT,
   components: join(JS_ROOT, "components"),
   config: join(PLATFORM_ROOT, "config"),
@@ -998,7 +998,7 @@ test("reader, search, and recent-job images use the canonical API package", () =
   );
   assert.doesNotMatch(readerData, /loadAiChat\s*:/, "deprecated Reader AI chat must not be wired");
 
-  const legacySearchAdapter = readFileSync(join(PROJECT_ROOT, "src/js/api/search.ts"), "utf8");
+  const legacySearchAdapter = readFileSync(join(PROJECT_ROOT, "src/platform/api/legacy/search.ts"), "utf8");
   assert.match(legacySearchAdapter, /from\s+["']@retainpdf\/api\/search["']/);
   assert.doesNotMatch(legacySearchAdapter, /\bfetch\s*\(/, "search adapter must not duplicate HTTP logic");
 
@@ -1011,8 +1011,8 @@ test("reader, search, and recent-job images use the canonical API package", () =
     assert.match(source, /from\s+["']@retainpdf\/api\/job-images["']/);
     assert.doesNotMatch(source, /api\/job-images\.js/);
   }
-  assert.equal(existsSync(join(PROJECT_ROOT, "src/js/api/job-images.ts")), false);
-  assert.equal(existsSync(join(PROJECT_ROOT, "src/js/api/reader.ts")), false);
+  assert.equal(existsSync(join(PROJECT_ROOT, "src/platform/api/legacy/job-images.ts")), false);
+  assert.equal(existsSync(join(PROJECT_ROOT, "src/platform/api/legacy/reader.ts")), false);
 });
 
 test("job cancellation and OCR ambiguity recovery use canonical endpoint clients", () => {

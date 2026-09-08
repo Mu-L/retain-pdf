@@ -110,7 +110,7 @@ async function bootHomeApp(dom) {
 }
 
 async function openStatusDetailDialog(dom, services) {
-  const { getMockJobId } = await import("../../src/js/mock/index.js");
+  const { getMockJobId } = await import("@/platform/mock/index.js");
   services.features.jobRuntimeFeature.startPolling(getMockJobId());
   await waitFor(() => byId(dom, "status-detail-btn"), "状态卡详情按钮就绪");
   click(dom, byId(dom, "status-detail-btn"));
@@ -500,7 +500,7 @@ test("StatusDetailDialog：按后端 receipt_fields 渲染绑定表单且关闭�
 test("StatusDetailDialog：翻译调试 tab —— 摘要/筛选/选中/翻页/重放闭环", async () => {
   const dom = makeDom("?mock=done");
   const { services, root, host } = await bootHomeApp(dom);
-  const { getMockTranslationItems, getMockTranslationSummary } = await import("../../src/js/mock/translation.js");
+  const { getMockTranslationItems, getMockTranslationSummary } = await import("@/platform/mock/translation.js");
   const jobId = await openStatusDetailDialog(dom, services);
   const summary = getMockTranslationSummary(jobId).summary;
   const allItems = getMockTranslationItems(jobId, {}).items;

@@ -405,7 +405,7 @@ test("书籍详情弹窗:馆藏点翻译 → 立刻接进度 + 网格静默更�
   const { services, root, host } = await bootHomeApp(dom);
   const { HOME_LOADING_STATES } = await import("../../src/js/features/home/state.js");
 
-  const { getMockDocumentList } = await import("../../src/js/mock/documents.js");
+  const { getMockDocumentList } = await import("@/platform/mock/documents.js");
   const untranslated = getMockDocumentList().documents.find((doc) => !`${doc.active_job_id || ""}`.trim());
   assert.ok(untranslated, "mock 里有馆藏文档");
 

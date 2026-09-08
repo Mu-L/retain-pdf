@@ -1,14 +1,14 @@
 import { buildApiHeaders, isMockMode } from "@/platform/config/runtime.js";
 import { unwrapEnvelope } from "@retainpdf/domain/job";
-import { currentMockScenario } from "../mock/scenario.js";
+import { currentMockScenario } from "@/platform/mock/scenario.js";
 import {
   buildLiveMockJobPayload,
   registerLiveMockJob,
-} from "../mock/live-jobs.js";
+} from "@/platform/mock/live-jobs.js";
 import {
   bindMockDocumentActiveJob,
   getMockDocumentByJobId,
-} from "../mock/documents.js";
+} from "@/platform/mock/documents.js";
 import { buildJobDetailEndpoint, submitJson } from "./http.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {

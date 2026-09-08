@@ -1,6 +1,6 @@
 import { buildApiHeaders, isMockMode } from "@/platform/config/runtime.js";
 import { unwrapEnvelope } from "@retainpdf/domain/job";
-import { getMockJobEvents } from "../mock/index.js";
+import { getMockJobEvents } from "@/platform/mock/index.js";
 import { buildJobDetailEndpoint } from "./http.js";
 
 export async function fetchJobEvents(jobId, apiPrefix, limit = 50, offset = 0) {

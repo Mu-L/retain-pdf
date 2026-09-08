@@ -23,9 +23,9 @@ import {
   getMockJobArtifactsManifest,
   getMockJobPayload,
   getMockJobMarkdown,
-} from "@/js/mock/index.js";
-import { getMockReaderRegions } from "@/js/mock/documents.js";
-import { getMockTranslationItem } from "@/js/mock/translation.js";
+} from "@/platform/mock/index.js";
+import { getMockReaderRegions } from "@/platform/mock/documents.js";
+import { getMockTranslationItem } from "@/platform/mock/translation.js";
 import { API_PREFIX } from "@/platform/config/api-constants.js";
 import { isMockMode } from "@/platform/config/runtime.js";
 import { resolvePdfjsVendorUrl } from "@/platform/runtime/vendor-url.js";

@@ -18,7 +18,7 @@
 /* 主页仍经 composition 消费的 js 域（勿用 ../../js/** 全量扫） */
 @source "../../js/features/**/*.{js,jsx,ts,tsx}";
 @source "../../js/islands/**/*.{js,jsx,ts,tsx}";
-@source "../../js/api/**/*.{js,ts}";
+@source "../../platform/api/**/*.{js,ts}";
 @source "../../platform/config/**/*.{js,ts}";
 @source "../../platform/contracts/**/*.{js,ts}";
 @source "../../platform/store/**/*.{js,ts}";

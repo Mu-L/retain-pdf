@@ -6,7 +6,7 @@ import {
   isMockMode,
 } from "@/platform/config/runtime.js";
 import { unwrapEnvelope } from "@retainpdf/domain/job";
-import { fetchMockProtected, submitMockJob, submitMockUpload } from "../mock/index.js";
+import { fetchMockProtected, submitMockJob, submitMockUpload } from "@/platform/mock/index.js";
 
 /** HTTP 请求失败时挂载 status/url 的宽松错误类型 */
 export interface HttpError extends Error {

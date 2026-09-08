@@ -3,7 +3,7 @@ import { unwrapEnvelope } from "@retainpdf/domain/job";
 import {
   getMockJobArtifactsManifest,
   getMockJobMarkdown,
-} from "../mock/index.js";
+} from "@/platform/mock/index.js";
 import { buildJobDetailEndpoint } from "./http.js";
 
 export async function fetchJobArtifactsManifest(jobId, apiPrefix) {

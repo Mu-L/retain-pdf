@@ -7,7 +7,7 @@ import {
   getMockCollectionList,
   patchMockCollection,
   removeMockCollectionDocument,
-} from "../mock/documents.js";
+} from "@/platform/mock/documents.js";
 import { buildApiEndpoint } from "./http.js";
 
 export async function listCollections(apiPrefix) {

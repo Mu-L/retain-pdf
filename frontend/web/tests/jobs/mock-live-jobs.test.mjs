@@ -5,13 +5,13 @@ import {
   isLiveMockJobActive,
   registerLiveMockJob,
   resetLiveMockJobs,
-} from "../../src/js/mock/live-jobs.js";
+} from "@/platform/mock/live-jobs.js";
 import {
   getMockDocument,
   getMockDocumentList,
   translateMockDocument,
-} from "../../src/js/mock/documents.js";
-import { getMockJobPayload } from "../../src/js/mock/index.js";
+} from "@/platform/mock/documents.js";
+import { getMockJobPayload } from "@/platform/mock/index.js";
 
 test("live mock job advances upload → ocr → translate → render → done", () => {
   resetLiveMockJobs();

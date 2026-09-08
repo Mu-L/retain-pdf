@@ -12,8 +12,8 @@ import {
   patchMockDocument,
   translateMockDocument,
   deleteMockDocument,
-} from "../../src/js/mock/documents.js";
-import { MOCK_JOB_ID } from "../../src/js/mock/constants.js";
+} from "@/platform/mock/documents.js";
+import { MOCK_JOB_ID } from "@/platform/mock/constants.js";
 import { createRecentJobActions } from "../../src/features/library/domain/recent-jobs/actions.js";
 
 // ===== documents:形状与语义(与后端对接说明对齐) =====
@@ -165,7 +165,7 @@ test("删除被收藏引用的 job:呈现收藏数量提示而非自动强删", 
 test("按 job_id 直查文档:active_job_id 命中 + 历史 run 也解析到同一文档", async () => {
   // isMockMode 靠 window.location.search 的 ?mock=,置好后再动态 import api 层
   globalThis.window = { location: { search: "?mock=succeeded", protocol: "http:", hostname: "127.0.0.1" } };
-  const { fetchDocumentByJobId } = await import("../../src/js/api/documents.js");
+  const { fetchDocumentByJobId } = await import("@/platform/api/legacy/documents.js");
   // active_job_id 命中
   const active = await fetchDocumentByJobId("/api/v1", MOCK_JOB_ID);
   assert.equal(active?.document_id, MOCK_DOCUMENT_ID);

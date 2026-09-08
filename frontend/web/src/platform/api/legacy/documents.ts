@@ -12,7 +12,7 @@ import {
   type MockDocumentListResult,
   type MockDocumentPatch,
   type MockDocumentWithMedia,
-} from "../mock/documents.js";
+} from "@/platform/mock/documents.js";
 import type { JobSubmissionView } from "@/features/library/index.js";
 import { buildApiEndpoint } from "./http.js";
 

@@ -4,7 +4,7 @@ import {
   createMockFavorite,
   deleteMockFavorite,
   getMockFavorites,
-} from "../mock/documents.js";
+} from "@/platform/mock/documents.js";
 import { buildApiEndpoint } from "./http.js";
 
 // 必填:document_id、page_idx、block_id、quote_text(引文快照)。

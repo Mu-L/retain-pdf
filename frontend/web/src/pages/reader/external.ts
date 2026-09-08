@@ -4,7 +4,7 @@
 
 // —— config / mock / messaging ——
 export { isMockMode } from "@/platform/config/runtime.js";
-export { MOCK_DOCUMENT_SOURCE_PDF_URL } from "../../js/mock/documents.js";
+export { MOCK_DOCUMENT_SOURCE_PDF_URL } from "@/platform/mock/documents.js";
 export { READER_DIALOG_MESSAGES } from "@/features/reader/domain.js";
 
 // —— job / http / vendor ——
@@ -46,7 +46,7 @@ export { resolveMarkdownAssetUrl } from "@retainpdf/domain/job";
 export { parseMarkdownWithMath } from "@/features/reader/domain.js";
 
 // —— AI 追问（react-pdf assistant）——
-export { askLibraryAi } from "../../js/api/ai.js";
+export { askLibraryAi } from "@/platform/api/legacy/ai.js";
 export { createReaderAskAnswerer } from "@/features/reader/domain.js";
 export { createReaderMarkdownAnswerer } from "@/features/reader/domain.js";
 export {
@@ -96,12 +96,12 @@ export {
   messagesToBranchItems,
   nextForkConversationTitle,
   patchConversation,
-} from "../../js/api/conversations.js";
+} from "@/platform/api/legacy/conversations.js";
 export type {
   ConversationDetail,
   ConversationRecord,
   MessageRecord,
-} from "../../js/api/conversations.js";
+} from "@/platform/api/legacy/conversations.js";
 export {
   loadStoredConversationId,
   saveStoredConversationId,
@@ -110,12 +110,12 @@ export {
 
 // —— 服务端收藏面板 ——
 export { API_PREFIX } from "@/platform/config/api-constants.js";
-export { fetchDocumentByJobId } from "../../js/api/documents.js";
+export { fetchDocumentByJobId } from "@/platform/api/legacy/documents.js";
 export {
   createFavorite,
   deleteFavorite,
   fetchFavorites,
-} from "../../js/api/favorites.js";
+} from "@/platform/api/legacy/favorites.js";
 export {
   createReaderServerFavoritesPort,
   normalizeServerFavorite,

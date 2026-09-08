@@ -1,9 +1,9 @@
 import { API_PREFIX } from "@/platform/config/api-constants.js";
 import { APP_EVENTS } from "@/platform/contracts/app-contract.js";
 import { RECENT_JOBS_IDS } from "../recent-jobs-dom-contract.js";
-import { fetchDocumentList, patchDocument } from "@/js/api/documents.js";
-import { searchLibrary } from "@/js/api/search.js";
-import type { MockDocumentPatch } from "@/js/mock/documents.js";
+import { fetchDocumentList, patchDocument } from "@/platform/api/legacy/documents.js";
+import { searchLibrary } from "@/platform/api/legacy/search.js";
+import type { MockDocumentPatch } from "@/platform/mock/documents.js";
 
 /** Anchor payload used to open the reader from a search hit / document row. */
 export interface LibrarySearchAnchor {

@@ -117,7 +117,7 @@ test("StatusCard：DOM 契约 id 逐一存在(隐藏区 + ring + 阶段流)", as
 test("StatusCard：真实轮询(mock=translate)驱动 ring/进度/阶段流(首帧不闪空卡)", async () => {
   const dom = makeDom("?mock=translate");
   const { services, root, host } = await bootHomeApp(dom);
-  const { getMockJobId } = await import("../../src/js/mock/index.js");
+  const { getMockJobId } = await import("@/platform/mock/index.js");
 
   services.features.jobRuntimeFeature.startPolling(getMockJobId());
 
@@ -144,7 +144,7 @@ test("StatusCard：真实轮询(mock=translate)驱动 ring/进度/阶段流(首�
 test("StatusCard：阶段选择语义 + 重试 + 取消", async () => {
   const dom = makeDom("?mock=translate");
   const { services, root, host } = await bootHomeApp(dom);
-  const { getMockJobId } = await import("../../src/js/mock/index.js");
+  const { getMockJobId } = await import("@/platform/mock/index.js");
 
   services.features.jobRuntimeFeature.startPolling(getMockJobId());
   await waitFor(() => {
@@ -196,7 +196,7 @@ test("StatusCard：阶段选择语义 + 重试 + 取消", async () => {
 test("StatusCard：重试按钮(mock stage-actions 数据到达后可点击并触发新一轮轮询)", async () => {
   const dom = makeDom("?mock=translate");
   const { services, root, host } = await bootHomeApp(dom);
-  const { getMockJobId } = await import("../../src/js/mock/index.js");
+  const { getMockJobId } = await import("@/platform/mock/index.js");
   const { APP_EVENTS } = await import("@/platform/contracts/app-contract.js");
 
   services.features.jobRuntimeFeature.startPolling(getMockJobId());

@@ -121,7 +121,7 @@ function stubObjectUrl() {
 test("artifact-downloads：真实轮询(mock=done)驱动 ResultActions 三个下载按钮就绪且可点击", async () => {
   const dom = makeDom("?mock=done");
   const { services, root, host } = await bootHomeApp(dom);
-  const { getMockJobId } = await import("../../src/js/mock/index.js");
+  const { getMockJobId } = await import("@/platform/mock/index.js");
 
   services.features.jobRuntimeFeature.startPolling(getMockJobId());
   await waitFor(() => byId(dom, "status-ring-value").textContent.trim() !== "准备中", "真实任务数据到达");
@@ -145,7 +145,7 @@ test("artifact-downloads：真实轮询(mock=done)驱动 ResultActions 三个下
 test("artifact-downloads：点击 ResultActions 的 3 个受保护下载按钮触发 fetchProtected 下载流程(不是裸导航)", async () => {
   const dom = makeDom("?mock=done");
   const { services, root, host } = await bootHomeApp(dom);
-  const { getMockJobId } = await import("../../src/js/mock/index.js");
+  const { getMockJobId } = await import("@/platform/mock/index.js");
   const urlStub = stubObjectUrl();
 
   try {
@@ -198,7 +198,7 @@ test("artifact-downloads：点击 ResultActions 的 3 个受保护下载按钮�
 test("artifact-downloads：StatusDetailDialog 概览面板的 markdown-bundle-btn 同样接入下载流程", async () => {
   const dom = makeDom("?mock=done");
   const { services, root, host } = await bootHomeApp(dom);
-  const { getMockJobId } = await import("../../src/js/mock/index.js");
+  const { getMockJobId } = await import("@/platform/mock/index.js");
   const urlStub = stubObjectUrl();
 
   try {
@@ -229,7 +229,7 @@ test("artifact-downloads：StatusDetailDialog 概览面板的 markdown-bundle-bt
 test("artifact-downloads：document 级委托覆盖全部 7 个契约 id(含当前无 UI 消费点的 3 个)", async () => {
   const dom = makeDom("?mock=done");
   const { services, root, host } = await bootHomeApp(dom);
-  const { getMockJobId } = await import("../../src/js/mock/index.js");
+  const { getMockJobId } = await import("@/platform/mock/index.js");
   const { DOWNLOAD_ACTION_IDS } = await import("@/platform/contracts/download-action-contract.js");
   const urlStub = stubObjectUrl();
 
@@ -276,7 +276,7 @@ test("artifact-downloads：document 级委托覆盖全部 7 个契约 id(含当�
 test("artifact-downloads：busy 态文案不被父组件(StatusCard)重渲染覆盖(蓝图 §7.5 方案二核心保障)", async () => {
   const dom = makeDom("?mock=done");
   const { services, root, host } = await bootHomeApp(dom);
-  const { getMockJobId } = await import("../../src/js/mock/index.js");
+  const { getMockJobId } = await import("@/platform/mock/index.js");
 
   services.features.jobRuntimeFeature.startPolling(getMockJobId());
   await waitFor(() => byId(dom, "status-ring-value").textContent.trim() !== "准备中", "真实任务数据到达");
@@ -320,7 +320,7 @@ test("artifact-downloads：busy 态文案不被父组件(StatusCard)重渲染覆
 test("artifact-downloads：StatusDetailDialog 概览下载按钮的 busy 态同样不被翻页/tab 切换等重渲染覆盖", async () => {
   const dom = makeDom("?mock=done");
   const { services, root, host } = await bootHomeApp(dom);
-  const { getMockJobId } = await import("../../src/js/mock/index.js");
+  const { getMockJobId } = await import("@/platform/mock/index.js");
 
   services.features.jobRuntimeFeature.startPolling(getMockJobId());
   await waitFor(() => byId(dom, "status-detail-btn"), "状态卡详情按钮就绪");

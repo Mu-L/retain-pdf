@@ -5,7 +5,7 @@ import {
   getMockTranslationItems,
   getMockTranslationReplay,
   getMockTranslationSummary,
-} from "../mock/translation.js";
+} from "@/platform/mock/translation.js";
 import { buildJobDetailEndpoint } from "./http.js";
 
 export async function fetchTranslationDiagnostics(jobId, apiPrefix) {

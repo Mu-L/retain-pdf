@@ -1,8 +1,8 @@
 /** RetainPDF host bindings for the package-owned Reader AI runtime. */
 import { resolveResourceUrl } from "@retainpdf/domain/job";
 import * as readerAi from "@retainpdf/reader/runtime/ai";
-import { askLibraryAi } from "@/js/api/ai.js";
-import { fetchDocumentByJobId } from "@/js/api/documents.js";
+import { askLibraryAi } from "@/platform/api/legacy/ai.js";
+import { fetchDocumentByJobId } from "@/platform/api/legacy/documents.js";
 import { API_PREFIX } from "@/platform/config/api-constants.js";
 import {
   defaultModelBaseUrl,

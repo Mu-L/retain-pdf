@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 // 让 config/runtime.js 的 isMockMode()/apiBase() 在 node 下可用(无 jsdom 需求)
 globalThis.window = globalThis.window || { location: { search: "", protocol: "http:", hostname: "127.0.0.1" } };
 
-const { AiAskError, askLibraryAi, readAiAskStream } = await import("../../src/js/api/ai.js");
+const { AiAskError, askLibraryAi, readAiAskStream } = await import("@/platform/api/legacy/ai.js");
 const { readAiAskStream: readCanonicalAiAskStream } = await import("@retainpdf/api/ai");
 const {
   buildAgentOperationCandidateUrl,
