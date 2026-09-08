@@ -45,7 +45,7 @@ const {
   setMarkdownMathEngineLoader,
 } = await import("../../../../frontend/packages/reader/src/shared/content/markdown-math.ts");
 const { retainPdfReaderAdapters } = await import(
-  "../../src/pages/reader/adapters/retainpdf.ts"
+  "../../src/app/reader/adapters/retainpdf.ts"
 );
 
 function wait(ms) {

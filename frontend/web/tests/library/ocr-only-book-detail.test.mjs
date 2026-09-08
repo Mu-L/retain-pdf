@@ -118,8 +118,8 @@ test("OCR-only 成功详情：OCR 状态、job reader 主操作和继续翻译�
   const dom = makeDom();
   const { createRoot } = await import("react-dom/client");
   const React = await import("react");
-  const { createHomeComposition } = await import("../../src/pages/home/create-home-composition.js");
-  const { HomeApp } = await import("../../src/pages/home/HomeApp.jsx");
+  const { createHomeComposition } = await import("../../src/app/home/create-home-composition.js");
+  const { HomeApp } = await import("../../src/app/home/HomeApp.jsx");
   const { APP_EVENTS } = await import("@/platform/contracts/app-contract.js");
 
   const host = dom.window.document.createElement("div");

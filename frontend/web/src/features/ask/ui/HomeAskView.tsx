@@ -5,13 +5,13 @@ import { Sparkles } from "lucide-react";
 import {
   CREDENTIALS_CHANGED_EVENT,
   hasModelApiKey,
-} from "@/pages/home/composition/external.js";
+} from "@/app/home/composition/external.js";
 import {
   fetchAgentRuntimeConfig,
   type AgentRuntimeConfigView,
 } from "@/platform/api/index.js";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
-import { useHomeServices } from "@/pages/home/home-services-context.js";
+import { useHomeServices } from "@/app/home/home-services-context.js";
 import { HomeAskComposer } from "./HomeAskComposer.js";
 import { HomeAskSidebar } from "./HomeAskSidebar.js";
 import { HomeAskThread, HOME_ASK_SUGGESTIONS } from "./HomeAskThread.js";

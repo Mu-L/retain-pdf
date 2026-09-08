@@ -12,7 +12,7 @@ import {
   type ConversationRecord,
   resolveReaderAiConfig,
   sanitizeAssistantAnswer,
-} from "@/pages/home/composition/external.js";
+} from "@/app/home/composition/external.js";
 import { resolveCollectionDocuments } from "../domain/document-picker.js";
 import { buildHomeAskModelRequestOverrides } from "../domain/home-ask-request-config.js";
 import type { HomeAskCitation, HomeAskDocScope, HomeAskMessage, HomeAskScope } from "../domain/types.js";

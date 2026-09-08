@@ -4,7 +4,7 @@
 
 import { useMemo } from "react";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
-import { isPollingBootstrapPlaceholder } from "@/pages/home/features/shared/job-helpers.js";
+import { isPollingBootstrapPlaceholder } from "@/app/home/features/shared/job-helpers.js";
 
 /**
  * @param {object} services useHomeServices()

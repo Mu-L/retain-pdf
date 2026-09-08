@@ -16,8 +16,8 @@
 // 文案与禁用态(方案二:避免父组件因轮询重渲染把命令式写入的下载进度文案
 // 覆盖回原始 label)。
 
-import { useHomeServices } from "@/pages/home/home-services-context.js";
-import { useArtifactDownloadBusy } from "@/pages/home/state/use-artifact-download-busy.js";
+import { useHomeServices } from "@/app/home/home-services-context.js";
+import { useArtifactDownloadBusy } from "@/app/home/state/use-artifact-download-busy.js";
 import { STATUS_CARD_ACTION_IDS } from "./status-card-dom-ids.js";
 
 type ActionLinkProps = {

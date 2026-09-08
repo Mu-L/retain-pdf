@@ -9,7 +9,7 @@
 
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { useCredentialsServices } from "./credentials-context.jsx";
-import { useDialogState } from "@/pages/home/state/use-dialog-state.js";
+import { useDialogState } from "@/app/home/state/use-dialog-state.js";
 
 export function useCredentialsController() {
   const { feature, view, dialogStore, credentialsStatePort } = useCredentialsServices();

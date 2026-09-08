@@ -3,7 +3,7 @@
 //   index.html  → src/styles/entries/home.css   → dist/css/home.css
 //   detail.html → src/styles/entries/detail.css → dist/css/detail.css
 //   reader.html → src/styles/entries/reader.css → dist/css/reader.css (仅 react-pdf，legacy 已删除)
-// 对应 JS bundle 见 build-js-bundle.mjs；三 entry 共享启动壳见 src/pages/shell-boot.ts。
+// 对应 JS bundle 见 build-js-bundle.mjs；三 entry 共享启动壳见 src/app/shell-boot.ts。
 //
 // 兼容：仍写一份 styles.css = home 的副本，避免外部脚本/文档旧路径立刻挂掉。
 

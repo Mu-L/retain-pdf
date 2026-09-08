@@ -251,7 +251,7 @@ test("runtime frontend does not depend on WebAwesome", () => {
 });
 
 test("upload workflow presentation components stay independent from home services", () => {
-  // 原路径 src/pages/home/features/workflow/components/upload 已在批次 4 的 ingest
+  // 原路径 src/app/home/features/workflow/components/upload 已在批次 4 的 ingest
   // 迁移中删除，本门禁自那天起对空数组做 deepEqual，一直是永久绿灯。upload 展示层
   // 现在在 features/ingest/ui/components/upload。
   const presentationRoot = join(PROJECT_ROOT, "src/features/ingest/ui/components/upload");
@@ -314,7 +314,7 @@ test("application dialogs use the shared dialog component boundary", () => {
 
 test("production React UI does not use browser blocking dialogs", () => {
   const offenders = findMatchingSources(
-    scanRoots([join(PROJECT_ROOT, "src/pages"), join(PROJECT_ROOT, "src/ui")]),
+    scanRoots([join(PROJECT_ROOT, "src/app"), join(PROJECT_ROOT, "src/ui")]),
     BROWSER_BLOCKING_DIALOG_PATTERN,
   );
 
@@ -596,7 +596,7 @@ test("job domains are consumed from packages instead of web mirrors", () => {
 
   const compositionJobSource = readSource(join(
     PROJECT_ROOT,
-    "src/pages/home/composition/external/job.ts",
+    "src/app/home/composition/external/job.ts",
   ));
   assert.match(compositionJobSource, /@retainpdf\/domain\/job-status/);
 });
@@ -643,7 +643,7 @@ test("upload controller reads upload state only through upload state port", () =
 });
 
 // ===== React 迁移防回弹门禁(Phase 0 起生效) =====
-// 新世界(src/pages/**、src/ui/**、src/features/**)只能消费旧世界的纯逻辑层
+// 新世界(src/app/**、src/ui/**、src/features/**)只能消费旧世界的纯逻辑层
 // (api/contracts/state-port/actions/view-model 等),禁止 import 旧视图层——
 // 一旦引用,旧 DOM 视图就会"回弹"进 React 树,迁移永远收不了口。
 //
@@ -653,7 +653,7 @@ test("upload controller reads upload state only through upload state port", () =
 
 test("React 新世界禁止 import 旧视图层(防回弹)", () => {
   const REACT_ROOTS = [
-    join(PROJECT_ROOT, "src/pages"),
+    join(PROJECT_ROOT, "src/app"),
     // src/shared 已在 A7 解散：React 侧（hooks/icons/theme/decor/download-toast）
     // 全部落到 src/ui，防回弹扫描根随之改指这里。
     join(PROJECT_ROOT, "src/ui"),
@@ -661,16 +661,24 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
     join(PROJECT_ROOT, "src/features"),
   ];
   // 旧视图层路径特征:命中即违规
+  // 只减不增的棘轮：新增条目必须先改这里，评审时能看见。
+  const GLOBAL_STATE_EXEMPTIONS = ["/src/app/desktop/bootstrap.ts"];
+  assert.equal(
+    GLOBAL_STATE_EXEMPTIONS.length,
+    1,
+    "全局状态豁免清单只减不增；B10 删除 js/state 单例后应清空",
+  );
+
   const FORBIDDEN_IMPORT_PATTERNS = [
     // 只拦旧世界的 src/js/components/;新世界页面自身的 components/ 子目录
-    // (src/pages/*/components/,目录约定)不在此列
+    // (src/app/*/components/,目录约定)不在此列
     // src/js/components/ 已随 library 迁移清空并删除；保留本条防止新代码重建该目录。
     [/(?:from\s+|import\s+)["'][^"']*\/js\/components\//, "src/js/components/(自定义元素/对话框视图)"],
     // domain/ 可以读构建产物（app-update 需要 APP_VERSION）；ui/ 不行，
     // 由同功能的 domain/ 做一层薄封装再向 ui/ 暴露。
     [/(?:from\s+|import\s+)["'][^"']*\/generated\//, "platform/generated/(预编译产物)", { domainAllowed: true }],
     // 装配层：app/ 做依赖接线是它的职责，features/ 与 ui/ 不得触达。
-    // 作用域在下面的循环里按扫描根收窄（src/pages 即未来的 app/）。
+    // 作用域在下面的循环里按扫描根收窄（src/app 即未来的 app/）。
     [/(?:from\s+|import\s+)["'][^"']*\/bootstrap\//, "bootstrap/(DI 装配层，仅 app 可用)"],
     [/(?:from\s+|import\s+)["'][^"']*\/features\/[^"']*\/view\.js["']/, "features/*/view.js(旧 DOM 视图)"],
     [/(?:from\s+|import\s+)["'][^"']*\/features\/[^"']*view-port\.js["']/, "features/*view-port.js(旧 DOM 端口)"],
@@ -727,13 +735,21 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
     for (const file of rootFiles) {
       if (isExternalGate(file)) continue;
       const source = readFileSync(file, "utf8");
-      // src/pages 是装配层（B1 后改名为 src/app），依赖接线正是它的职责。
+      // src/app 是装配层（B1 后改名为 src/app），依赖接线正是它的职责。
       const normalizedPath = file.replace(/\\/g, "/");
-      const isAppLayer = normalizedPath.includes("/src/pages/") || normalizedPath.includes("/src/app/");
+      const isAppLayer = normalizedPath.includes("/src/app/") || normalizedPath.includes("/src/app/");
       const isFeatureDomain = /\/src\/features\/[^/]+\/domain\//.test(normalizedPath);
+      // 临时豁免（批次 5B 的 B10 删除）：app/desktop/bootstrap.ts 是全局 state
+      // 单例 js/state/store.ts 的唯一生产消费方，且只用它的 desktop/developer
+      // 两片。B10 把该单例塌缩成 platform/desktop/state.ts 之后，这条连同
+      // GLOBAL_STATE_EXEMPTIONS 一并删除。清单只减不增——见下方长度断言。
+      const isGlobalStateExemption = GLOBAL_STATE_EXEMPTIONS.some(
+        (suffix) => normalizedPath.endsWith(suffix),
+      );
       for (const [pattern, label, options] of FORBIDDEN_IMPORT_PATTERNS) {
         if (isAppLayer && label.startsWith("bootstrap/")) continue;
         if (isFeatureDomain && options?.domainAllowed) continue;
+        if (isGlobalStateExemption && label.includes("全局状态")) continue;
         if (label.startsWith("dynamic import")) {
           if (file.includes("/composition/")) {
             // composition 层含大量 TS 类型查询 `import("js/...")`，非运行时动态 import，豁免
@@ -769,7 +785,7 @@ test("React 新世界禁止 import 旧视图层(防回弹)", () => {
 });
 
 
-const HOME_FEATURES_ROOT = join(PROJECT_ROOT, "src/pages/home/features");
+const HOME_FEATURES_ROOT = join(PROJECT_ROOT, "src/app/home/features");
 /** Any import whose module path reaches src/js (…/js/…); composition/external is the only gate. */
 const HOME_FEATURES_DIRECT_JS_IMPORT =
   /from\s+["'][^"']*(?:^|\/)js\/[^"']+["']|from\s+["'][^"']*(?:\.\.\/)+js\/[^"']+["']/;
@@ -798,7 +814,7 @@ test("home features must not import src/js/* directly (use composition/external)
   );
 });
 
-const DETAIL_PAGE_ROOT = join(PROJECT_ROOT, "src/pages/detail");
+const DETAIL_PAGE_ROOT = join(PROJECT_ROOT, "src/app/detail");
 
 test("detail page must not import src/js/* directly (use pages/detail/external)", () => {
   const offenders = scanRoot(DETAIL_PAGE_ROOT, IS_SCRIPT_SOURCE)
@@ -816,7 +832,7 @@ test("detail page must not import src/js/* directly (use pages/detail/external)"
   );
 });
 
-const READER_PAGE_ROOT = join(PROJECT_ROOT, "src/pages/reader");
+const READER_PAGE_ROOT = join(PROJECT_ROOT, "src/app/reader");
 
 test("reader non-legacy must not import src/js/* directly (use pages/reader/external)", () => {
   const offenders = scanRoot(READER_PAGE_ROOT, IS_SCRIPT_SOURCE)
@@ -836,7 +852,7 @@ test("reader non-legacy must not import src/js/* directly (use pages/reader/exte
 });
 
 test("composition/external re-exports cover all symbols imported by home features", () => {
-  const HOME_COMPOSITION_ROOT = join(PROJECT_ROOT, "src/pages/home/composition");
+  const HOME_COMPOSITION_ROOT = join(PROJECT_ROOT, "src/app/home/composition");
   const EXTERNAL_BARRELS = [
     join(HOME_COMPOSITION_ROOT, "external.ts"),
     join(HOME_COMPOSITION_ROOT, "external/index.ts"),
@@ -892,8 +908,8 @@ test("composition/external re-exports cover all symbols imported by home feature
     const imported = new Map(); // name -> first file
     // 两个导入方扫描根一旦同时失效，imported 为空，missing 恒为 []，本门禁静默变绿。
     const files = scanRoot(HOME_FEATURES_ROOT, IS_SCRIPT_SOURCE);
-    // also include src/pages/home composition consumers (e.g. create-home-composition)
-    const homeRootFiles = scanRoot(join(PROJECT_ROOT, "src/pages/home"), IS_SCRIPT_SOURCE)
+    // also include src/app/home composition consumers (e.g. create-home-composition)
+    const homeRootFiles = scanRoot(join(PROJECT_ROOT, "src/app/home"), IS_SCRIPT_SOURCE)
       .filter((f) => !f.includes("/composition/external"));
     const all = [...files, ...homeRootFiles];
     for (const file of all) {

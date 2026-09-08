@@ -50,29 +50,29 @@ function jsToTsResolvePlugin() {
 
 // 三页 MPA 各自打包的入口表——home/detail/reader 均已切换到 React 新世界。
 // 挂载对照（HTML → entry → 产物，?v= 由 stamp-cache-version.mjs 按内容哈希重写）：
-//   index.html  → src/pages/home/entry.tsx   → dist/app.bundle.js
-//   detail.html → src/pages/detail/entry.tsx → dist/detail.bundle.js
-//   reader.html → src/pages/reader/entry.tsx → dist/reader.bundle.js
+//   index.html  → src/app/home/entry.tsx   → dist/app.bundle.js
+//   detail.html → src/app/detail/entry.tsx → dist/detail.bundle.js
+//   reader.html → src/app/reader/entry.tsx → dist/reader.bundle.js
 // 运行时顺序：各 HTML 内 runtime-config.js → runtime-config.local.js（同步脚本，
 // 先写 window.__FRONT_RUNTIME_CONFIG__）→ 对应 bundle（type=module 延迟执行）。
-// 三 entry 共享启动样板见 src/pages/shell-boot.ts（adapters → bootTheme →
+// 三 entry 共享启动样板见 src/app/shell-boot.ts（adapters → bootTheme →
 // 找根 → createRoot，不开 StrictMode）。
 // 每页独立构建(见下方 splitting 说明),入口产物名保持 `<out>.js`,
 // 故 HTML 引用与 stamp-cache-version 的资源表都不用改。
 const PAGE_BUNDLES = [
   {
     name: "home",
-    entry: path.join(frontendRoot, "src/pages/home/entry.tsx"),
+    entry: path.join(frontendRoot, "src/app/home/entry.tsx"),
     out: "app.bundle",
   },
   {
     name: "detail",
-    entry: path.join(frontendRoot, "src/pages/detail/entry.tsx"),
+    entry: path.join(frontendRoot, "src/app/detail/entry.tsx"),
     out: "detail.bundle",
   },
   {
     name: "reader",
-    entry: path.join(frontendRoot, "src/pages/reader/entry.tsx"),
+    entry: path.join(frontendRoot, "src/app/reader/entry.tsx"),
     out: "reader.bundle",
   },
 ];

@@ -126,7 +126,7 @@ test("详情翻译提交接进度:静默 attach + 状态区占位,不弹上传�
   const React = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { HomeServicesProvider } = await import(
-    "../../src/pages/home/home-services-context.js"
+    "../../src/app/home/home-services-context.js"
   );
   const { BookTranslationWorkflowPanel } = await import(
     "../../src/features/book-detail/ui/panels/translate/WorkflowPanel.jsx"

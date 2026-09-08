@@ -10,7 +10,7 @@ import {
   peekHomeReturnState,
   type HomeReturnState,
 } from "@/platform/navigation/home-return-state.js";
-import { parseHomeTab, toUiTabKey } from "@/pages/navigation.js";
+import { parseHomeTab, toUiTabKey } from "@/platform/navigation/pages.js";
 
 export function readInitialLibraryTabFromReturn(): string {
   // 统一契约 home ?tab=library|collections|favorites|ask 优先（collections == UI 键 categories）。

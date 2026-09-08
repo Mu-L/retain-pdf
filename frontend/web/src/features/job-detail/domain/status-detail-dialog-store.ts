@@ -4,7 +4,7 @@
 // createDialogStore().open() 对已 open 的状态更新 payload，受控 AppDialog
 // 会原位切换内容，所以"打开时指定 tab"与"打开后切 tab"可以复用同一个方法。
 
-import { createDialogStore, type DialogStore } from "@/pages/home/state/dialog-store.js";
+import { createDialogStore, type DialogStore } from "@/app/home/state/dialog-store.js";
 
 export type StatusDetailDialogPayload = {
   activeTab: string;

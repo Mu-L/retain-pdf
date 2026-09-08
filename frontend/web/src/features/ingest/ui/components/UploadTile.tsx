@@ -7,8 +7,8 @@
 import { useCallback, type MouseEvent as ReactMouseEvent } from "react";
 
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
-import { APP_EVENTS } from "@/pages/home/composition/external.js";
-import { useHomeServices } from "@/pages/home/home-services-context.js";
+import { APP_EVENTS } from "@/app/home/composition/external.js";
+import { useHomeServices } from "@/app/home/home-services-context.js";
 import type { UploadViewStore } from "../../domain/upload-store.js";
 import { TranslationOptionsPanel } from "./PageRangeDialog.jsx";
 import { ProcessingChoicePanel } from "./upload/ProcessingChoicePanel.jsx";

@@ -24,7 +24,7 @@ import { Button as ButtonBase } from "@/ui/Button.jsx";
 
 // Button.size 在未注解源文件里被推断为必填;unstyled 路径运行时不用 size。
 const Button = ButtonBase as any;
-import { useDialogState } from "@/pages/home/state/use-dialog-state.js";
+import { useDialogState } from "@/app/home/state/use-dialog-state.js";
 import type {
   CollectionsController,
   CollectionsDialogStore,

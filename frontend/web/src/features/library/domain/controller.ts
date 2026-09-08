@@ -12,7 +12,7 @@
 // - attachJobProgress（本 controller）→ 只 startPolling，不弹窗、不亮主状态区
 //   供书籍详情「翻译」Tab 内嵌 StatusCard 使用。
 
-import { createDialogStore } from "@/pages/home/state/dialog-store.js";
+import { createDialogStore } from "@/app/home/state/dialog-store.js";
 import type {
   DeleteCardTarget,
   DeleteDocumentsResult,

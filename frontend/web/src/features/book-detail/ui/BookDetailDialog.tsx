@@ -1,8 +1,8 @@
 // BookDetailDialog —— 容器：组合 hooks + shell/tabs。
 // 业务状态见 use-book-detail-*.js；UI 见 shell / tabs / panels。
 
-import { useHomeServices } from "@/pages/home/home-services-context.js";
-import { useDialogState } from "@/pages/home/state/use-dialog-state.js";
+import { useHomeServices } from "@/app/home/home-services-context.js";
+import { useDialogState } from "@/app/home/state/use-dialog-state.js";
 import { useDialogReturnFocus } from "@/ui/hooks/use-dialog-return-focus.js";
 import { useRecentJobCover } from "@/features/library/index.js";
 import { BookDetailShell } from "./shell/BookDetailShell.jsx";

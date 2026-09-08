@@ -6,7 +6,7 @@
 import "../shell-boot.js";
 import "./adapters/retainpdf.js";
 import { bootReader } from "@retainpdf/reader/boot";
-import { parseReaderParams } from "../navigation.js";
+import { parseReaderParams } from "@/platform/navigation/pages.js";
 
 // 入参走三页统一契约：camelCase ?page=&blockId= 补齐运行时读取的
 // page_idx/block_id（replaceState，无刷新；双 key 并存时不动）。

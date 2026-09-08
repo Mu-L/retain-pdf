@@ -1,8 +1,8 @@
 import { Clock3, Copy, FileText, Link2, RefreshCw, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ConfirmDialog } from "@/ui/components/confirm-dialog.js";
-import { useHomeServices } from "@/pages/home/home-services-context.js";
-import { queueFullTitle, retryCountdownSeconds } from "@/pages/home/composition/external.js";
+import { useHomeServices } from "@/app/home/home-services-context.js";
+import { queueFullTitle, retryCountdownSeconds } from "@/app/home/composition/external.js";
 import { OcrReceiptBindingDialog } from "../OcrReceiptBindingDialog.jsx";
 import { FailureLogDialog } from "../FailureLogDialog.jsx";
 import type { OcrReceiptValues } from "../../domain/ocr-ambiguity-recovery.js";

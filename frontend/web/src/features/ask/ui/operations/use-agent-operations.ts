@@ -7,7 +7,7 @@ import {
   listAgentOperations,
   retryAgentOperation,
   runAgentOperation,
-} from "@/pages/home/composition/external.js";
+} from "@/app/home/composition/external.js";
 import { createAgentOperationController } from "../../domain/operations/operation-controller.js";
 import { agentOperationReducer, INITIAL_AGENT_OPERATION_STATE } from "../../domain/operations/operation-reducer.js";
 import { hasActiveOperations, operationsByRequestMessage } from "../../domain/operations/operation-selectors.js";

@@ -12,18 +12,18 @@ const FRONT_URL = "http://127.0.0.1:40001";
 const BACKEND_URLS = ["http://127.0.0.1:41000/health", "http://127.0.0.1:41000/ready"];
 
 // 三页壳:HTML 文件 ↔ bundle 产物 ↔ React 挂载入口。
-// home/detail 经共享壳 src/pages/shell-boot.ts 建根挂载；reader 经包内 boot 链。
+// home/detail 经共享壳 src/app/shell-boot.ts 建根挂载；reader 经包内 boot 链。
 const PAGES = [
-  { html: "index.html", bundle: "dist/app.bundle.js", entry: "src/pages/home/entry.tsx" },
-  { html: "detail.html", bundle: "dist/detail.bundle.js", entry: "src/pages/detail/entry.tsx" },
+  { html: "index.html", bundle: "dist/app.bundle.js", entry: "src/app/home/entry.tsx" },
+  { html: "detail.html", bundle: "dist/detail.bundle.js", entry: "src/app/detail/entry.tsx" },
   {
     html: "reader.html",
     bundle: "dist/reader.bundle.js",
-    entry: "src/pages/reader/entry.tsx",
+    entry: "src/app/reader/entry.tsx",
     bootChain: ["frontend/packages/reader/src/boot.tsx"],
   },
 ];
-const SHARED_SHELL_BOOT = "src/pages/shell-boot.ts";
+const SHARED_SHELL_BOOT = "src/app/shell-boot.ts";
 
 function stripComments(source) {
   return source

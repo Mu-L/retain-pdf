@@ -7,7 +7,7 @@ import { join, relative } from "node:path";
 // 现状:retainpdf:* 事件已全部收敛在 contracts/app-contract.js 的 APP_EVENTS,
 // 命令总线两端都走 RECENT_JOBS_COMMANDS 常量。本测试锁住这个状态,
 // 禁止未来出现绕过契约的裸字面量。
-// 扫描覆盖 .js 与 .jsx(React 迁移的新世界 src/pages、src/shared 一并纳入)。
+// 扫描覆盖 .js 与 .jsx(React 迁移的新世界 src/app、src/shared 一并纳入)。
 
 const PROJECT_ROOT = process.cwd();
 const JS_ROOT = join(PROJECT_ROOT, "src/js");
@@ -17,7 +17,7 @@ const SRC_ROOT = join(PROJECT_ROOT, "src");
 const SCAN_ROOTS = [
   JS_ROOT,
   join(PROJECT_ROOT, "src/features"),
-  join(PROJECT_ROOT, "src/pages"),
+  join(PROJECT_ROOT, "src/app"),
   // src/shared 已在 A7 解散，共享 React 层落到 src/ui。
   join(PROJECT_ROOT, "src/ui"),
 ];

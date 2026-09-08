@@ -27,7 +27,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = false;
 
 const { createRoot } = await import("react-dom/client");
 const React = await import("react");
-const { DetailApp } = await import("../../src/pages/detail/DetailApp.jsx");
+const { DetailApp } = await import("../../src/app/detail/DetailApp.jsx");
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

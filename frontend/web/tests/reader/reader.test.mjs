@@ -483,7 +483,7 @@ test("reader data port treats a missing in-progress manifest as an empty artifac
 });
 
 // startup.js(page-runtime 包装)随旧入口 index.js 一并退役:React 入口
-// (src/pages/reader/entry.jsx)由打包构建守卫,boot 编排在 use-reader-boot。
+// (src/app/reader/entry.jsx)由打包构建守卫,boot 编排在 use-reader-boot。
 
 test("reader page state owns boot progress snapshots", () => {
   const state = readerPageState.createReaderPageState();

@@ -80,8 +80,8 @@ function byId(dom, id) {
 async function bootHomeApp(dom) {
   const { createRoot } = await import("react-dom/client");
   const React = await import("react");
-  const { createHomeComposition } = await import("../../src/pages/home/create-home-composition.js");
-  const { HomeApp } = await import("../../src/pages/home/HomeApp.jsx");
+  const { createHomeComposition } = await import("../../src/app/home/create-home-composition.js");
+  const { HomeApp } = await import("../../src/app/home/HomeApp.jsx");
 
   const host = dom.window.document.createElement("div");
   host.id = "home-root";

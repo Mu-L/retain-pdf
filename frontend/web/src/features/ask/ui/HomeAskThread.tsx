@@ -5,8 +5,8 @@ import { BookOpen, FlaskConical, ListTree, Loader2, Sparkles } from "lucide-reac
 import {
   AiMarkdownAnswer,
   type AiCitationLike,
-} from "@/pages/home/composition/external.js";
-import { buildReaderUrl } from "@/pages/navigation.js";
+} from "@/app/home/composition/external.js";
+import { buildReaderUrl } from "@/platform/navigation/pages.js";
 import { navigateToReader } from "@/features/reader/domain.js";
 import type { HomeAskCitation, HomeAskMessage } from "../domain/types.js";
 import { AgentOperationCard } from "./operations/AgentOperationCard.js";

@@ -18,7 +18,7 @@ import {
   DEFAULT_TYPST_FONT_FAMILY,
   DEFAULT_WORKERS,
   DEFAULT_MODEL_VERSION,
-} from "@/pages/home/composition/external.js";
+} from "@/app/home/composition/external.js";
 
 // 工作流常量与归一化。
 //

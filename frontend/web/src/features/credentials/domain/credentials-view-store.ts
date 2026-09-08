@@ -9,7 +9,7 @@
 // ocr-readiness-flow.js/persistence.js/dialog-values.js 等 kept 逻辑层的编排者)
 // 一行不改地复用。
 
-import type { DialogStore } from "@/pages/home/state/dialog-store.js";
+import type { DialogStore } from "@/app/home/state/dialog-store.js";
 import { createStore } from "@/platform/store/store.js";
 import type { Store } from "@/platform/store/store.js";
 import { inferTranslationProvider } from "@/platform/config/providers.js";

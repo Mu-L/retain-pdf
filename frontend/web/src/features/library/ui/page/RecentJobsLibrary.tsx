@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
-import { useHomeServices } from "@/pages/home/home-services-context.js";
+import { useHomeServices } from "@/app/home/home-services-context.js";
 import { BookCard, buildDefaultBookCardActions } from "../shell/BookCard.jsx";
 import { BookListRow } from "../shell/BookListRow.jsx";
 import { LibraryToolbar } from "./LibraryToolbar.jsx";
@@ -370,4 +370,4 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
 // onSearch/query 通道,避免出现两条平行实现。
 // — Decoupled: canonical implementation lives in features/shared/use-library-search-binding.js;
 //   AppBottomBar now imports from shared, not from library (removes app-shell → library coupling).
-export { useLibrarySearchBinding } from "@/pages/home/features/shared/use-library-search-binding.js";
+export { useLibrarySearchBinding } from "@/app/home/features/shared/use-library-search-binding.js";

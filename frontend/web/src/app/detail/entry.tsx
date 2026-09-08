@@ -3,7 +3,7 @@
 // 业务组装（一行）：<DetailApp getJobId={parseDetailJobId 契约} />；缺根不挂载（旧语义）。
 
 import { DetailApp } from "./DetailApp.jsx";
-import { parseDetailJobId } from "../navigation.js";
+import { parseDetailJobId } from "@/platform/navigation/pages.js";
 import { mountShellPage } from "../shell-boot.js";
 
 mountShellPage("detail-root", <DetailApp getJobId={() => parseDetailJobId()} />);

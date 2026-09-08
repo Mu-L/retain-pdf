@@ -8,10 +8,10 @@ import { join, relative } from "node:path";
 // 字符串字面量引用 DOM id/class,esbuild 不做这类校验:id 改名、typo、删掉 CSS 类都只会
 // 在运行时静默失效(dom/query.js 的守卫会吞掉 null)。本测试交叉校验:job-detail / reader
 // 目录下 JS 出现的每个 "detail-*" / "reader-*" 字符串字面量,必须能在对应页面 HTML 的
-// id/class、src/styles 的类定义、src/pages/{detail,reader} 的 JSX(id=.../className=...),
+// id/class、src/styles 的类定义、src/app/{detail,reader} 的 JSX(id=.../className=...),
 // 或 JS 自建元素(id="...")中找到归属。
 //
-// home 页(index.html / src/pages/home)未纳入本文件:home 没有单一 id 前缀约定(各 feature
+// home 页(index.html / src/app/home)未纳入本文件:home 没有单一 id 前缀约定(各 feature
 // 域各自命名),用 tests/home-app-component.test.mjs(渲染 HomeApp 断言契约 id)+ 各域
 // *-component.test.mjs(如 recent-jobs-library-component / status-card-component 等,
 // 渲染实际 React 树断言 DOM 契约)覆盖,是比这里的字符串字面量扫描更强的检查——直接渲染
@@ -46,7 +46,7 @@ const PAGES = [
     // Phase 1 cutover 后 detail.html 只剩 #detail-root 挂载点,页面骨架
     // (id/class)改由 React 树渲染:归属校验需要扫描新世界 JSX 的
     // id="..." 与 className="..."(保留的旧纯逻辑仍按 id 写这些节点)。
-    jsxDir: "src/pages/detail",
+    jsxDir: "src/app/detail",
   },
   {
     // src/js/reader 与 src/js/features/reader-dialog 都已被删除（reader 逻辑迁至
@@ -56,7 +56,7 @@ const PAGES = [
     jsDir: "../packages/reader/src",
     prefix: "reader",
     htmlFile: "reader.html",
-    jsxDir: "src/pages/reader",
+    jsxDir: "src/app/reader",
     extraJsDirs: ["src/features/reader/domain/dialog"],
     extraJsxDirs: ["../packages/reader/src"],
   },
@@ -64,9 +64,9 @@ const PAGES = [
     jsDir: "src/js/features/home",
     prefix: "home",
     htmlFile: "index.html",
-    jsxDir: "src/pages/home",
+    jsxDir: "src/app/home",
     optional: true,
-    extraJsDirs: ["src/pages/home"],
+    extraJsDirs: ["src/app/home"],
   },
 ];
 

@@ -24,7 +24,7 @@ import {
   defaultAppShellConfigPort,
   readActiveJobId,
 } from "./external/features.js";
-import { parseDetailJobId } from "../../navigation.js";
+import { parseDetailJobId } from "@/platform/navigation/pages.js";
 
 import type { HomeBridge, HomeFeatures } from "./types.js";
 

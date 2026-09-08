@@ -516,7 +516,7 @@ test("chat:agentic 回答渲染 [n] 可点击引用与脚注,模型文本 XSS �
   // 若仍需验证旧组件，跳过（legacy 不再是主路径）
   let ReaderAiChat;
   try {
-    ({ ReaderAiChat } = await import("../../src/pages/reader/legacy/components/ReaderAiChat.jsx"));
+    ({ ReaderAiChat } = await import("../../src/app/reader/legacy/components/ReaderAiChat.jsx"));
   } catch {
     // legacy 删除后跳过旧组件集成用例，保留其余契约测试（SSE/ask 等）绿
     return;

@@ -29,7 +29,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = false;
 // HomeApp.jsx 渲染 <download-toast></download-toast> 占位(蓝图 §7
 // artifact-downloads 域,不在本 agent 范围),真正的自定义元素类
 // (src/js/components/feedback/download-toast.js)属旧世界 js/components/**,
-// architecture-boundaries 门禁禁止 src/pages/** import——组件本身尚未在
+// architecture-boundaries 门禁禁止 src/app/** import——组件本身尚未在
 // React 世界注册。这里注册一个最小 stub(仅 setState/hide 两个公开方法,
 // 与真实实现的公开契约一致),隔离本域(CSV 导出)的测试,不代表已解决
 // artifact-downloads 域的接线缺口(见测试文件末尾的发现说明)。
@@ -42,8 +42,8 @@ if (!dom.window.customElements.get("download-toast")) {
 
 const { createRoot } = await import("react-dom/client");
 const React = await import("react");
-const { createHomeComposition } = await import("../../src/pages/home/create-home-composition.js");
-const { HomeApp } = await import("../../src/pages/home/HomeApp.jsx");
+const { createHomeComposition } = await import("../../src/app/home/create-home-composition.js");
+const { HomeApp } = await import("../../src/app/home/HomeApp.jsx");
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

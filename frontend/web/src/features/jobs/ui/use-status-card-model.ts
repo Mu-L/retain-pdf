@@ -3,7 +3,7 @@
 
 import { useMemo } from "react";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
-import { useHomeServices } from "@/pages/home/home-services-context.js";
+import { useHomeServices } from "@/app/home/home-services-context.js";
 import { useStageSelection } from "./useStageSelection.js";
 import { useElapsedTicker } from "./useElapsedTicker.js";
 import { useStagedProgressAnimation } from "./useStagedProgressAnimation.js";

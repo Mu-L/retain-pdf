@@ -2081,7 +2081,7 @@ test("recent jobs runtime wires loader actions and scheduler callbacks", async (
   const previousCustomEvent = global.CustomEvent;
   const dispatched = [];
   // 旧 DOM 直写 viewPort 已随 cutover 删除,改用最小 stub(满足 10 方法契约,
-  // 见 src/pages/home/features/library/recent-jobs-react-port.js 的 React 实现)。
+  // 见 src/app/home/features/library/recent-jobs-react-port.js 的 React 实现)。
   const viewPort = {
     bindEvents() {},
     hasView: () => true,

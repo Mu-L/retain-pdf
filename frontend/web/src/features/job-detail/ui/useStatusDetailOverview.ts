@@ -4,9 +4,9 @@
 // useDialogState 样板(镜像 useCredentialsController.js 的先例)。
 
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
-import type { DialogState } from "@/pages/home/state/dialog-store.js";
-import { useHomeServices } from "@/pages/home/home-services-context.js";
-import { useDialogState } from "@/pages/home/state/use-dialog-state.js";
+import type { DialogState } from "@/app/home/state/dialog-store.js";
+import { useHomeServices } from "@/app/home/home-services-context.js";
+import { useDialogState } from "@/app/home/state/use-dialog-state.js";
 import type {
   StatusDetailOverview,
   StatusDetailState,

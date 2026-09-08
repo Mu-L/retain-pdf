@@ -31,9 +31,9 @@
 import { Languages, ScanSearch } from "lucide-react";
 import { Tabs as TabsPrimitive } from "radix-ui";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
-import { useHomeServices } from "@/pages/home/home-services-context.js";
+import { useHomeServices } from "@/app/home/home-services-context.js";
 import { HeroUpload } from "./components/UploadTile.jsx";
-import { InlineErrorBox } from "@/pages/home/components/InlineErrorBox.jsx";
+import { InlineErrorBox } from "@/app/home/components/InlineErrorBox.jsx";
 
 export function WorkflowPanel({ hiddenInputsSlot = null }: { hiddenInputsSlot?: React.ReactNode | null }) {
   const services = useHomeServices();
