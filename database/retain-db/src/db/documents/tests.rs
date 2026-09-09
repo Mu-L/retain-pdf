@@ -137,7 +137,7 @@ fn same_content_hash_upserts_single_document() {
     db.save_upload(&up2).expect("save up-2");
     db.upsert_document_from_upload(&up2).expect("second upsert");
     let documents = db
-        .list_documents(10, 0, None, None, None)
+        .list_documents(10, 0, None, None, None, None)
         .expect("list documents");
     assert_eq!(documents.len(), 1);
     assert_eq!(documents[0].document_id, hash);
@@ -404,16 +404,157 @@ fn update_document_fields_manages_tags_and_status() {
     assert_eq!(updated.reading_status, "reading");
     assert_eq!(updated.tags, vec!["光谱".to_string(), "化学".to_string()]);
     let filtered = db
-        .list_documents(10, 0, None, Some("化学"), None)
+        .list_documents(10, 0, None, Some("化学"), None, None)
         .expect("list by tag");
     assert_eq!(filtered.len(), 1);
     assert_eq!(
-        db.count_documents(None, Some("化学"), None)
+        db.count_documents(None, Some("化学"), None, None)
             .expect("count by tag"),
         1
     );
     let missed = db
-        .list_documents(10, 0, None, Some("生物"), None)
+        .list_documents(10, 0, None, Some("生物"), None, None)
         .expect("list by other tag");
     assert!(missed.is_empty());
+}
+
+/// 建一篇文档并设好标题：`upload_with_hash` 的文件名是写死的，
+/// 文本搜索要同时验标题列与文件名列，所以这里让调用方两者都能指定。
+fn seed_titled_document(db: &crate::db::Db, seed: &str, filename: &str, title: Option<&str>) -> String {
+    let hash = sha256_hex(seed.as_bytes());
+    let mut upload = upload_with_hash(&format!("up-{seed}"), &hash);
+    upload.filename = filename.to_string();
+    upload.stored_path = format!("uploads/x/{filename}");
+    db.save_upload(&upload).expect("save upload");
+    db.upsert_document_from_upload(&upload).expect("upsert");
+    if let Some(title) = title {
+        db.update_document_fields(&hash, Some(title), None, None)
+            .expect("set title");
+    }
+    hash
+}
+
+#[test]
+fn document_text_search_matches_title_or_filename() {
+    let fs = TestDbFs::new("doc-search");
+    let db = fs.db();
+    db.init().expect("init");
+    seed_titled_document(&db, "a", "spectra.pdf", Some("光谱计算方法综述"));
+    seed_titled_document(&db, "b", "attention-is-all-you-need.pdf", Some("Attention Is All You Need"));
+    seed_titled_document(&db, "c", "misc.pdf", Some("无关文档"));
+
+    // 标题命中
+    let by_title = db
+        .list_documents(10, 0, None, None, None, Some("光谱"))
+        .expect("search by title");
+    assert_eq!(by_title.len(), 1);
+    assert_eq!(by_title[0].title, "光谱计算方法综述");
+
+    // 文件名命中（标题里没有 "attention" 之外的线索时，文件名也应算）
+    let by_filename = db
+        .list_documents(10, 0, None, None, None, Some("all-you-need"))
+        .expect("search by filename");
+    assert_eq!(by_filename.len(), 1);
+
+    // 大小写不敏感（SQLite LIKE 对 ASCII 默认不敏感）
+    let case_insensitive = db
+        .list_documents(10, 0, None, None, None, Some("ATTENTION"))
+        .expect("search case-insensitive");
+    assert_eq!(case_insensitive.len(), 1);
+
+    // count 与 list 用同一套过滤
+    assert_eq!(
+        db.count_documents(None, None, None, Some("光谱"))
+            .expect("count"),
+        1
+    );
+
+    // 无命中
+    let miss = db
+        .list_documents(10, 0, None, None, None, Some("不存在的词"))
+        .expect("search miss");
+    assert!(miss.is_empty());
+}
+
+#[test]
+fn document_text_search_escapes_like_wildcards() {
+    // 不转义的话，标题里的 % 和 _ 会被当通配符：搜 "50%" 会命中一切。
+    let fs = TestDbFs::new("doc-search-escape");
+    let db = fs.db();
+    db.init().expect("init");
+    seed_titled_document(&db, "pct", "a.pdf", Some("压缩率 50% 报告"));
+    seed_titled_document(&db, "plain", "b.pdf", Some("压缩率 5099 报告"));
+    seed_titled_document(&db, "under", "c.pdf", Some("run_id 说明"));
+    seed_titled_document(&db, "nounder", "d.pdf", Some("runXid 说明"));
+
+    let percent = db
+        .list_documents(10, 0, None, None, None, Some("50%"))
+        .expect("search percent");
+    assert_eq!(percent.len(), 1, "% 必须当字面量，不能匹配 5099");
+    assert_eq!(percent[0].title, "压缩率 50% 报告");
+
+    let underscore = db
+        .list_documents(10, 0, None, None, None, Some("run_id"))
+        .expect("search underscore");
+    assert_eq!(underscore.len(), 1, "_ 必须当字面量，不能匹配 runXid");
+    assert_eq!(underscore[0].title, "run_id 说明");
+}
+
+#[test]
+fn document_text_search_combines_with_other_filters() {
+    let fs = TestDbFs::new("doc-search-combo");
+    let db = fs.db();
+    db.init().expect("init");
+    let reading = sha256_hex(b"combo-reading");
+    let mut up = upload_with_hash("up-combo-1", &reading);
+    up.filename = "spectra-a.pdf".to_string();
+    db.save_upload(&up).expect("save");
+    db.upsert_document_from_upload(&up).expect("upsert");
+    db.update_document_fields(&reading, Some("光谱 A"), Some("reading"), None)
+        .expect("patch a");
+
+    let unread = sha256_hex(b"combo-unread");
+    let mut up2 = upload_with_hash("up-combo-2", &unread);
+    up2.filename = "spectra-b.pdf".to_string();
+    db.save_upload(&up2).expect("save");
+    db.upsert_document_from_upload(&up2).expect("upsert");
+    db.update_document_fields(&unread, Some("光谱 B"), Some("unread"), None)
+        .expect("patch b");
+
+    // 两篇都含「光谱」，但只有一篇是 reading
+    let both = db
+        .list_documents(10, 0, None, None, None, Some("光谱"))
+        .expect("search only");
+    assert_eq!(both.len(), 2);
+
+    let narrowed = db
+        .list_documents(10, 0, Some("reading"), None, None, Some("光谱"))
+        .expect("search + status");
+    assert_eq!(narrowed.len(), 1);
+    assert_eq!(narrowed[0].title, "光谱 A");
+
+    assert_eq!(
+        db.count_documents(Some("reading"), None, None, Some("光谱"))
+            .expect("count combined"),
+        1
+    );
+}
+
+#[test]
+fn document_text_search_ignores_blank_query() {
+    // 空串/纯空白不应变成 "%%" 把全库当命中——它应当等价于「不过滤」。
+    let fs = TestDbFs::new("doc-search-blank");
+    let db = fs.db();
+    db.init().expect("init");
+    seed_titled_document(&db, "x", "x.pdf", Some("甲"));
+    seed_titled_document(&db, "y", "y.pdf", Some("乙"));
+
+    let none = db
+        .list_documents(10, 0, None, None, None, None)
+        .expect("no query");
+    let blank = db
+        .list_documents(10, 0, None, None, None, Some("   "))
+        .expect("blank query");
+    assert_eq!(none.len(), 2);
+    assert_eq!(blank.len(), none.len(), "空白查询应等价于不过滤");
 }

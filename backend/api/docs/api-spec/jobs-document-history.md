@@ -32,10 +32,23 @@ Storage ownership:
 }
 ```
 
-`reading_status`, `tag`, and `collection_id` apply identically to the page and
-to `total`. Documents without a backing upload are excluded from both. `limit`
-and `offset` affect only `documents`. With `job_id`, an associated document
-returns `total: 1`; a miss returns an empty page with `total: 0`.
+`reading_status`, `tag`, `collection_id`, and `q` apply identically to the page
+and to `total`. Documents without a backing upload are excluded from both.
+`limit` and `offset` affect only `documents`. With `job_id`, an associated
+document returns `total: 1`; a miss returns an empty page with `total: 0`.
+
+`q` is document-level text search: a document matches when either its `title`
+or its original `source_filename` contains the query (case-insensitive for
+ASCII). `%` and `_` in the query are matched literally, not as wildcards. A
+blank or whitespace-only `q` is equivalent to omitting it.
+
+`q` is distinct from `GET /api/v1/search`, which searches **block-level body
+text** for the reader's full-text hits. `q` only searches the document's own
+title and filename, for library/shelf lookup.
+
+Because `total` reflects the same filter, clients can paginate search results
+normally. Before `q` existed, clients had to fetch a large first page and
+filter locally, which silently dropped matches beyond that page.
 
 Book display metadata:
 

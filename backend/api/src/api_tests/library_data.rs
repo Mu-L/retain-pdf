@@ -350,6 +350,112 @@ async fn metadata_suggestion_never_overwrites_user_title() {
 }
 
 #[tokio::test]
+async fn documents_list_supports_text_search_over_title_and_filename() {
+    // /documents 此前没有任何文本过滤，前端只能拉前 200 篇做客户端过滤并把
+    // hasMore 钉成 false——超过 200 篇的库里搜索会静默漏结果。
+    let state = test_state("library-documents-text-search");
+    let app = build_app(state.clone());
+    // 注意：seed_document 的 filename 固定为「光谱综述.pdf」，所以搜索词不能用
+    // 「光谱」——那会经 source_filename 命中全部三篇。这里只用标题里的独有词。
+    let spectra = seed_document(&state, b"text-search-spectra");
+    let attention = seed_document(&state, b"text-search-attention");
+    seed_document(&state, b"text-search-unrelated");
+    state
+        .db
+        .update_document_fields(&spectra, Some("拉曼散射的计算方法"), None, None)
+        .expect("title spectra");
+    state
+        .db
+        .update_document_fields(&attention, Some("Attention Is All You Need"), None, None)
+        .expect("title attention");
+    state
+        .db
+        .update_document_fields(&attention, None, None, None)
+        .expect("noop patch keeps title");
+
+    let hit = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                // q=拉曼（URL 编码）
+                .uri("/api/v1/documents?q=%E6%8B%89%E6%9B%BC&limit=10&offset=0")
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("search request"),
+        )
+        .await
+        .expect("search response");
+    assert_eq!(hit.status(), StatusCode::OK);
+    let hit = json_response(hit).await;
+    // total 必须是过滤后的计数，前端才敢据此分页——这正是客户端过滤给不了的。
+    assert_eq!(hit["data"]["total"], 1);
+    assert_eq!(hit["data"]["documents"][0]["document_id"], spectra);
+
+    // 文件名列也参与搜索：三篇的 source_filename 都是「光谱综述.pdf」，
+    // 搜「光谱」应当三篇全中——这条同时证明搜的是 title OR source_filename。
+    let by_filename = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/documents?q=%E5%85%89%E8%B0%B1&limit=10&offset=0")
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("filename request"),
+        )
+        .await
+        .expect("filename response");
+    let by_filename = json_response(by_filename).await;
+    assert_eq!(by_filename["data"]["total"], 3);
+
+    let case_insensitive = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/documents?q=ATTENTION&limit=10&offset=0")
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("case-insensitive request"),
+        )
+        .await
+        .expect("case-insensitive response");
+    let case_insensitive = json_response(case_insensitive).await;
+    assert_eq!(case_insensitive["data"]["total"], 1);
+    assert_eq!(
+        case_insensitive["data"]["documents"][0]["document_id"],
+        attention
+    );
+
+    let miss = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/documents?q=zzz-no-such-title&limit=10&offset=0")
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("miss request"),
+        )
+        .await
+        .expect("miss response");
+    let miss = json_response(miss).await;
+    assert_eq!(miss["data"]["total"], 0);
+    assert_eq!(miss["data"]["documents"].as_array().expect("array").len(), 0);
+
+    // 不带 q 时行为不变（回归保护：新参数不能影响既有列表）
+    let unfiltered = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/documents?limit=10&offset=0")
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("unfiltered request"),
+        )
+        .await
+        .expect("unfiltered response");
+    let unfiltered = json_response(unfiltered).await;
+    assert_eq!(unfiltered["data"]["total"], 3);
+}
+
+#[tokio::test]
 async fn documents_list_total_is_stable_across_pages() {
     let state = test_state("library-documents-total-pagination");
     let app = build_app(state.clone());

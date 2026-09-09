@@ -16,10 +16,22 @@ struct DocumentFilterQuery {
     args: Vec<String>,
 }
 
+/// 把用户输入变成 LIKE 模式：转义 SQLite LIKE 的三个元字符，再两侧加 %。
+/// 转义符用 `\`，调用处必须配套写 `ESCAPE '\'`，否则标题里的 `%` 或 `_`
+/// 会被当通配符——搜 "50%_summary" 会命中一堆无关文档。
+fn like_pattern(query: &str) -> String {
+    let escaped = query
+        .replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_");
+    format!("%{escaped}%")
+}
+
 fn build_document_filter_query(
     reading_status: Option<&str>,
     tag: Option<&str>,
     collection_id: Option<&str>,
+    query: Option<&str>,
 ) -> DocumentFilterQuery {
     // A document without a backing upload is not a readable library item and
     // must be excluded from both the page and its authoritative total.
@@ -45,6 +57,24 @@ fn build_document_filter_query(
             args.len() + 1
         ));
         args.push(collection_id.to_string());
+    }
+    // 文档级文本搜索：标题或原始文件名任一命中即可。
+    //
+    // 此前 /documents 没有任何文本过滤，前端只能拉前 200 篇做客户端过滤并把
+    // hasMore 钉成 false——超过 200 篇的库里，搜索会静默漏掉后面的匹配项。
+    //
+    // 用 LIKE 而非 FTS：这两列都短（标题 + 文件名），库规模是「个人文献库」量级，
+    // 且 LIKE 能和现有的 reading_status / tag / collection 过滤在同一条 WHERE
+    // 里自然组合。真需要正文全文检索时走已有的 /api/v1/search（块级）。
+    if let Some(query) = query {
+        let trimmed = query.trim();
+        if !trimmed.is_empty() {
+            clauses.push(format!(
+                "(d.title LIKE ?{0} ESCAPE '\\' OR d.source_filename LIKE ?{0} ESCAPE '\\')",
+                args.len() + 1
+            ));
+            args.push(like_pattern(trimmed));
+        }
     }
     DocumentFilterQuery {
         where_sql: format!("WHERE {}", clauses.join(" AND ")),
@@ -175,9 +205,10 @@ impl Db {
         reading_status: Option<&str>,
         tag: Option<&str>,
         collection_id: Option<&str>,
+        query: Option<&str>,
     ) -> Result<Vec<DocumentRecord>> {
         let conn = self.connect()?;
-        let filter = build_document_filter_query(reading_status, tag, collection_id);
+        let filter = build_document_filter_query(reading_status, tag, collection_id, query);
         query_documents(&conn, &filter, limit, offset)
     }
 
@@ -186,9 +217,10 @@ impl Db {
         reading_status: Option<&str>,
         tag: Option<&str>,
         collection_id: Option<&str>,
+        query: Option<&str>,
     ) -> Result<u64> {
         let conn = self.connect()?;
-        let filter = build_document_filter_query(reading_status, tag, collection_id);
+        let filter = build_document_filter_query(reading_status, tag, collection_id, query);
         count_documents_with_filter(&conn, &filter)
     }
 
@@ -201,10 +233,11 @@ impl Db {
         reading_status: Option<&str>,
         tag: Option<&str>,
         collection_id: Option<&str>,
+        query: Option<&str>,
     ) -> Result<(Vec<DocumentRecord>, u64)> {
         let mut conn = self.connect()?;
         let transaction = conn.transaction()?;
-        let filter = build_document_filter_query(reading_status, tag, collection_id);
+        let filter = build_document_filter_query(reading_status, tag, collection_id, query);
         let total = count_documents_with_filter(&transaction, &filter)?;
         let documents = query_documents(&transaction, &filter, limit, offset)?;
         transaction.commit()?;

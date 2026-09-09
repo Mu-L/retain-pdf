@@ -161,6 +161,14 @@ pub struct ListDocumentsQuery {
     pub collection_id: Option<String>,
     /// 按任意 job_id(含历史 run)直查其所属文档,前端无需再扫列表反查
     pub job_id: Option<String>,
+    /// 文档级文本搜索:标题或原始文件名任一包含即命中(大小写不敏感)。
+    ///
+    /// 与 /api/v1/search 的区别:那个搜的是**块级正文**(阅读器的全文命中),
+    /// 这个只搜文档自身的标题与文件名,用于书架检索。
+    ///
+    /// 加这个字段之前,前端只能拉前 200 篇做客户端过滤并把 hasMore 钉成 false,
+    /// 超过 200 篇的库里搜索会静默漏结果。
+    pub q: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

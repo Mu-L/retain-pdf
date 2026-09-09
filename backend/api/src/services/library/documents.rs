@@ -91,6 +91,7 @@ pub fn list_documents(
         query.reading_status.as_deref(),
         query.tag.as_deref(),
         query.collection_id.as_deref(),
+        query.q.as_deref(),
     )?;
     let documents = documents
         .into_iter()
