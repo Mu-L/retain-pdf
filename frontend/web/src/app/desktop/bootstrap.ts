@@ -1,8 +1,4 @@
-import {
-  loadPersistedConfig,
-  savePersistedDesktopConfig,
-} from "@/platform/config/desktop-persistence.js";
-import { savePersistedBrowserStoredConfig } from "@/platform/config/persisted-config.js";
+import { loadPersistedConfig } from "@/platform/config/desktop-persistence.js";
 import {
   applyDefaultCredentialInputs,
 } from "@/features/credentials/domain.js";
@@ -11,46 +7,18 @@ import {
   setDesktopConfigured,
   setDesktopMode,
   setDeveloperConfig,
-  getDeveloperConfig,
   isDesktopConfigured,
 } from "@/platform/desktop/state.js";
-import {
-  APP_DIALOG_IDS,
-  APP_EVENTS,
-} from "@/platform/contracts/app-contract.js";
+import { APP_EVENTS } from "@/platform/contracts/app-contract.js";
 
 export function showDesktopUi() {
   document.getElementById("open-output-btn").classList.remove("hidden");
-}
-
-export function setDesktopBusy(message = "") {
-  const targetIds = ["browser-credentials-status"];
-  for (const id of targetIds) {
-    const el = document.getElementById(id);
-    if (!el) {
-      continue;
-    }
-    if (message) {
-      el.textContent = message;
-      el.classList.remove("hidden");
-    } else {
-      el.textContent = "";
-      el.classList.add("hidden");
-    }
-  }
 }
 
 export function openSetupDialog() {
   document.dispatchEvent(new CustomEvent(APP_EVENTS.openBrowserCredentials, {
     detail: { setupMode: true },
   }));
-}
-
-export function closeSetupDialog() {
-  const dialog = document.getElementById(APP_DIALOG_IDS.browserCredentials) as any;
-  if (dialog?.open && dialog.dataset.setupMode === "1") {
-    dialog.close();
-  }
 }
 
 export async function bootstrapDesktop(initialConfig = null) {
@@ -62,47 +30,11 @@ export async function bootstrapDesktop(initialConfig = null) {
   setDesktopConfigured(state, payload.firstRunCompleted);
   if (!isDesktopConfigured(state)) {
     openSetupDialog();
-  } else {
-    closeSetupDialog();
   }
+  // 原先 else 分支调 closeSetupDialog()「已配置就关掉可能开着的首配窗」。
+  // 那个函数判的是 `dialog.open`——凭据弹窗 React 化后是 Radix 的
+  // <DialogContent>（渲染成 div，没有 .open 属性），条件恒为假，从未生效。
+  // 且到这一步弹窗只可能由本函数的 openSetupDialog() 打开，不存在要关的窗。
+  // 若将来确有该场景，正确做法是走 credentialsDialogStore 而不是 DOM 查找。
 }
 
-export async function saveDesktopConfig(browserConfig: any = {}, afterSave) {
-  const source = (typeof browserConfig === "object" && browserConfig !== null) ? browserConfig : {};
-  const nextBrowserConfig = { ...(source.browserConfig || source) };
-  const markConfigured = !!source.markConfigured;
-  const callback = afterSave;
-  let persisted = await savePersistedBrowserStoredConfig({
-    ...nextBrowserConfig,
-  });
-  setDeveloperConfig(state, persisted.developerConfig || getDeveloperConfig(state));
-  applyDefaultCredentialInputs(persisted.browserConfig || {});
-  if (markConfigured && !persisted.firstRunCompleted) {
-    persisted = await savePersistedDesktopConfig({ firstRunCompleted: true });
-    setDeveloperConfig(state, persisted.developerConfig || getDeveloperConfig(state));
-    applyDefaultCredentialInputs(persisted.browserConfig || {});
-  }
-  setDesktopConfigured(state, persisted.firstRunCompleted);
-  if (isDesktopConfigured(state)) {
-    closeSetupDialog();
-    const errorBox = document.getElementById("error-box") || document.getElementById("error-box-inline");
-    if (errorBox) {
-      errorBox.textContent = "-";
-      errorBox.classList?.add("hidden");
-    }
-  }
-  if (callback) {
-    try {
-      await callback();
-    } catch (error) {
-      if (isDesktopConfigured(state)) {
-        const message = error?.message || String(error);
-        throw new Error(`首次配置已保存，但当前无法连接本地后端。${message}`);
-      }
-      throw error;
-    }
-  }
-  setDeveloperConfig(state, persisted.developerConfig || getDeveloperConfig(state));
-  applyDefaultCredentialInputs(persisted.browserConfig || {});
-  return persisted;
-}

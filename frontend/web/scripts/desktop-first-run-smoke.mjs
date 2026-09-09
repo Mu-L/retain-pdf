@@ -38,13 +38,14 @@ class ElementStub {
     this.open = false;
     this.children = [];
     this.style = {};
+    // 真的记录 class：showDesktopUi() 靠 classList.remove("hidden") 显示按钮，
+    // 空实现会让断言无从下手。
+    const classes = new Set();
     this.classList = {
-      add() {},
-      remove() {},
-      toggle() {},
-      contains() {
-        return false;
-      },
+      add: (...names) => names.forEach((n) => classes.add(n)),
+      remove: (...names) => names.forEach((n) => classes.delete(n)),
+      toggle: (n) => (classes.has(n) ? classes.delete(n) : classes.add(n)),
+      contains: (n) => classes.has(n),
     };
   }
 
@@ -154,6 +155,7 @@ globalThis.window = {
 //     document.createElement("style") → head.appendChild(style)
 //     style.appendChild(document.createTextNode(code))
 // 缺任何一环脚本都会在 import 阶段崩，而不是跑到断言。
+const dispatchedEvents = [];
 const documentHead = new ElementStub("", "head");
 const documentBody = new ElementStub("", "body");
 
@@ -186,50 +188,71 @@ globalThis.document = {
   },
   addEventListener() {},
   removeEventListener() {},
-  dispatchEvent() {},
+  // openSetupDialog() 是靠派发 APP_EVENTS.openBrowserCredentials 打开首配窗的
+  // （React 侧 CredentialsDialog.tsx 监听它）。记下来才能断言。
+  dispatchEvent(event) {
+    dispatchedEvents.push({ type: event?.type, detail: event?.detail });
+    return true;
+  },
 };
 
-ensureElement("browser-credentials-dialog").open = true;
-ensureElement("browser-credentials-dialog").dataset.setupMode = "1";
-ensureElement("error-box").textContent = "old error";
+// ── 被测对象：bootstrapDesktop() ───────────────────────────────────────
+//
+// 这个脚本原先测的是 `app/desktop/bootstrap.ts` 的 saveDesktopConfig()。
+// 排查发现那个函数**生产从不执行**——entry.tsx 只 import bootstrapDesktop，
+// 而 createHomeComposition 的 saveDesktopConfig 选项没有任何生产传入点，
+// 凭据功能实际用的是 composition 自己的 saveDesktopCredentialConfig。
+// 该函数连同 closeSetupDialog / setDesktopBusy 已一并删除。
+//
+// 现在测的是这个文件里仅存的活路径：桌面首启探测与首配窗拉起。
+// 保存分支的覆盖在 tests/home/credentials-dialog-component.test.mjs
+//（「CredentialsDialog：保存(桌面模式)」）。
 
-const [{ saveDesktopConfig }, { desktopBootstrapState: state }] = await Promise.all([
-  import("../src/app/desktop/bootstrap.ts"),
-  import("../src/platform/desktop/state.ts"),
-]);
+const { bootstrapDesktop } = await import("../src/app/desktop/bootstrap.ts");
+const { desktopBootstrapState: state } = await import("../src/platform/desktop/state.ts");
 
-let caughtMessage = "";
-try {
-  // 当前签名: saveDesktopConfig(browserConfig, afterSave)
-  await saveDesktopConfig(
-    {
-      ocrProvider: "paddle",
-      paddleToken: "paddle-token",
-      modelApiKey: "deepseek-key",
-      markConfigured: true,
-    },
-    async () => {
-      throw new Error("health 503");
-    },
+// ── 场景 1：未完成首次配置 → 应拉起首配窗 ──
+desktopStore.firstRunCompleted = false;
+desktopStore.developerConfig = { workers: 4 };
+dispatchedEvents.length = 0;
+ensureElement("open-output-btn").classList.add("hidden");
+
+await bootstrapDesktop();
+
+if (state.desktopMode !== true) {
+  throw new Error("expected state.desktopMode to be true after bootstrapDesktop");
+}
+if (state.desktopConfigured !== false) {
+  throw new Error("expected state.desktopConfigured to stay false on first run");
+}
+if (ensureElement("open-output-btn").classList.contains("hidden")) {
+  throw new Error("expected showDesktopUi() to unhide #open-output-btn");
+}
+const setupEvents = dispatchedEvents.filter(
+  (e) => e.type === "retainpdf:open-browser-credentials" && e.detail?.setupMode === true,
+);
+if (setupEvents.length !== 1) {
+  throw new Error(
+    `expected exactly one setup-dialog event on first run, got ${setupEvents.length}`,
   );
-} catch (error) {
-  caughtMessage = error?.message || String(error);
+}
+if (JSON.stringify(state.developerConfig) !== JSON.stringify({ workers: 4 })) {
+  throw new Error(
+    `expected developerConfig to propagate, got ${JSON.stringify(state.developerConfig)}`,
+  );
 }
 
-if (desktopStore.firstRunCompleted !== true) {
-  throw new Error("expected desktopStore.firstRunCompleted to be true after first-run save");
-}
+// ── 场景 2：已完成首次配置 → 不应拉起首配窗 ──
+desktopStore.firstRunCompleted = true;
+dispatchedEvents.length = 0;
+
+await bootstrapDesktop();
 
 if (state.desktopConfigured !== true) {
-  throw new Error("expected state.desktopConfigured to be true after first-run save");
+  throw new Error("expected state.desktopConfigured to be true when already configured");
 }
-
-if (ensureElement("browser-credentials-dialog").open !== false) {
-  throw new Error("expected setup dialog to close after first-run save");
-}
-
-if (!caughtMessage.includes("首次配置已保存")) {
-  throw new Error(`expected saved-first-run connectivity error, got: ${caughtMessage || "<empty>"}`);
+if (dispatchedEvents.some((e) => e.type === "retainpdf:open-browser-credentials")) {
+  throw new Error("expected no setup-dialog event when first run already completed");
 }
 
 console.log("desktop-first-run-smoke: ok");
