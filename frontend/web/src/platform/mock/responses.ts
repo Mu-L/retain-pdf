@@ -78,14 +78,22 @@ export async function fetchMockProtected(url) {
       },
     });
   }
-  // 文档封面/缩略图：1×1 PNG，避免 mock 下 cover 404 空封面
+  // 文档封面/缩略图占位。
+  //
+  // 真实封面是 PDF 首页的渲染图，所以占位也画成"一页文档"：纸色底 + 标题块 +
+  // 正文行，120×160（与书卡 3:4 一致）。
+  //
+  // 原先这里是 1×1 透明 PNG。它同时没做到两件事：URL 侧
+  // normalizeJobImageUrl 会把 mock:// 当相对路径拼到 apiBase 上、且加载走的是
+  // 裸 fetch 拿不到 mock 分流，所以照样 404；而即便修好加载链路，透明像素也会
+  // 成功"盖掉"书卡自带的 PDF 占位图，让封面变成纯白——比 404 回退还难看。
   if (
     normalized === "mock://document-cover.png"
     || normalized === "mock://document-thumb.png"
     || /\/api\/v1\/documents\/[^/]+\/(cover|thumbnail)$/.test(normalized)
   ) {
     const png = Uint8Array.from(
-      atob("iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAALElEQVR42mP8z8BQz0BFwMhIAQZGRgaG/wwMDIwMDAyMDAwMjAwMDAwABwQBBQn0n2kAAAAASUVORK5CYII="),
+      atob("iVBORw0KGgoAAAANSUhEUgAAAHgAAACgCAIAAABIaz/HAAABPElEQVR42u3asQ2FMAxAwey/ThqUJWgQJQXKEigUsIQjYU56f4ErEpuf0s9DEyrv7x6XQgMNGrRAgwYNGjRogQYNGjRo0AINGjRo0KAFGjRo0KBBC3Q26LbUlIEGDRo0aNCgjXfmaIEGDTrbZQgaNGjQoEGbOkCDFmjQAg0atECDFmjQoAUatGKg9239UKBBg3ZGuwwFGjRogbaw/CTQoEE7o12GoAUaNGjQFhbjHWjQFhZnNGjQoAUaNGgPaECDBu2MdhmCBg0atEBbWHyPBg0atECDBg0CNGgZ78zRoEFbWFyGAg0aNAvQFhYPaECDBi3QoAUaNGgZ73z4Bw3aPyzOaIEGLdCgQRvvzNGgQTujXYagBRq0QFtYPKABDdqTMIEGDVqgQQs0aNACDVqgQYMWaNACDRq0AqE1oQfEy4B0pczZSQAAAABJRU5ErkJggg=="),
       (c) => c.charCodeAt(0),
     );
     return new Response(png, {

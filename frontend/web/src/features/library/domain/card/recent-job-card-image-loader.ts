@@ -1,4 +1,9 @@
-import { fetchJobImageBlob, normalizeJobImageUrl } from "@retainpdf/api/job-images";
+import { normalizeJobImageUrl } from "@retainpdf/api/job-images";
+// 走网关而不是 @retainpdf/api 的 fetchJobImageBlob：后者用裸 fetch，
+// 拿不到 mock 分流，演示模式下 mock:// 封面必然 404。网关的 fetchProtected
+// 在非 mock 模式下就是 canonical 的同名实现（同样 buildApiHeaders + fetch），
+// 真实模式行为不变。
+import { fetchProtected } from "@/platform/api/index.js";
 
 const recentJobImageCache = new Map();
 
@@ -29,7 +34,11 @@ export async function loadRecentJobImage(rawUrl, options = {}) {
   if (recentJobImageCache.has(cacheKey)) {
     return recentJobImageCache.get(cacheKey);
   }
-  const request = fetchJobImageBlob(rawUrl)
+  const request = fetchProtected(url)
+    .then((response) => {
+      if (!response.ok) throw new Error(`image failed: ${response.status}`);
+      return response.blob();
+    })
     .then((blob) => URL.createObjectURL(blob))
     .catch((error) => {
       recentJobImageCache.delete(cacheKey);

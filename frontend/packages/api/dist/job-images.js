@@ -39,6 +39,13 @@ export function normalizeJobImageUrl(value) {
     const raw = `${value || ""}`.trim();
     if (!raw)
         return "";
+    // mock:// 是 mock 夹具自带的协议（见 web 侧 platform/mock/responses.ts 的
+    // fetchMockProtected）。它既不是 http(s)、也不以 API_PREFIX 开头，会掉到
+    // 最后那条「当相对路径拼到 apiBase 上」的分支，变成
+    // http://127.0.0.1:41000/mock://document-cover.png → 404，
+    // 演示模式下书架封面因此空白。协议 URL 原样返回，交给调用方分流。
+    if (/^mock:\/\//i.test(raw))
+        return raw;
     if (/^https?:\/\//i.test(raw)) {
         try {
             const parsed = new URL(raw);

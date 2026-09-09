@@ -128,6 +128,10 @@ export function buildApiUrl(apiPrefix = "", relativePath = "") {
 }
 
 export function mockScenario() {
+  // 同文件的 apiBase() 有这道防御，这里原先没有：任何非浏览器环境（node --test、
+  // SSR、构建脚本）只要走到 isMockMode() 就会 ReferenceError。
+  // 书架封面加载改走 mock-aware 网关后，这条路径第一次在 node 测试里被触达。
+  if (typeof window === "undefined") return "";
   const value = new URLSearchParams(window.location.search).get("mock")?.trim().toLowerCase() || "";
   return [
     "queued",
