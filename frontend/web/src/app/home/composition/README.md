@@ -6,12 +6,12 @@
 
 ## 规则（后期维护必读）
 
-1. **`external.ts` 是主页对 `src/js/*` 的唯一入口（features 层）**  
-   - `pages/home/features/**` **禁止**直接 import 任何 `src/js/**`；一律 `from "../composition/external.js"`（深度自调）。  
-   - 领域工厂（`create-*.ts`）也应经 `./external.js`，不要再开 `../../../js/…`。  
-   - `composition/types.ts` 的 port/store 类型也从 `./external.js` 拿。  
-   - 缺符号只改 `external.ts`；门禁见 `tests/architecture-boundaries.test.mjs`。  
-   源码已全量 TS；import 路径仍可写 `.js`（esbuild / test loader 映射到 `.ts/.tsx`）。
+1. **不再有集中网关**  
+   - `composition/external.ts` 与 `external/` 子桶已在批次 5B 的 B8 解散
+     （蓝图 §5.2：不允许用一个新的全局 barrel 取代它，那只是把同一个问题换个位置）。  
+   - 9 个 `create-*.ts` 工厂各自直连真正的来源：`@/platform/{config,contracts,store,utils,api}`、
+     `@retainpdf/domain/{job,job-status}`、以及各功能的 `index.js`。  
+   - `architecture-boundaries.test.mjs` 有一条断言该网关不得复活。  
 
 2. **工厂返回 bag，不写可变 `ctx`**  
    `createXxx(...)` 返回自己的产物；`create-home-composition.ts` 显式赋值到 `features` / `domains`。

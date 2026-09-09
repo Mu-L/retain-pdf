@@ -1,153 +1,132 @@
-# `frontend/web/src` 功能与依赖边界
+# `frontend/web/src` 结构与依赖边界
 
-本文说明三页入口、主页的两套 `features`、Reader 包边界，以及共享代码应放在哪里。
+本文说明 `src/` 的四层结构、每层的职责、层与层之间允许的依赖方向，
+以及这些规则由哪些门禁把守。
 
 ## 总览
 
 ```text
 frontend/web/src/
-├── pages/
-│   ├── home/              # 主页 React UI 与装配
-│   │   ├── composition/   # 只接线：external → 领域与 UI
-│   │   └── features/      # React UI、hooks、page store
-│   ├── detail/            # 独立任务详情页
-│   └── reader/            # @retainpdf/reader 的宿主入口与 adapters
-├── js/
-│   ├── api/               # HTTP 与后端契约
-│   ├── features/          # 命令式领域逻辑、ports 与 state
-│   ├── job-detail/        # Web 宿主任务详情逻辑
-│   ├── status-detail/     # 状态详情 presenter
-│   └── config/ state/ mock/ islands/ …
-├── shared/                # 跨页 React、主题、装饰、导航、Reader 宿主能力
-├── styles/                # home/detail 样式与 Reader 样式代理
-└── components/ lib/       # 通用 UI 与兼容入口
+├── app/          # 装配层：三页入口、依赖接线、页面外壳
+│   ├── home/     #   HomeApp、composition（9 个 create-*.ts 工厂）、shell、state
+│   ├── detail/   #   detail.html 的入口与页面壳
+│   ├── reader/   #   reader.html 入口 + @retainpdf/reader 的宿主注入面
+│   ├── bootstrap/#   给 @retainpdf/domain 注入运行时端口
+│   ├── desktop/  #   桌面首启流程
+│   └── shell-boot.ts  # 三页共享启动壳（adapters → bootTheme → 挂载）
+├── features/     # 15 个产品功能，每个 = 用户能指着界面说出的一件事
+├── platform/     # 跨功能基础设施，不知道任何产品功能的存在
+├── ui/           # 共享 UI 组件与 React 原语，同样不知道产品功能
+├── types/        # ambient 全局声明
+├── styles/       # 三页 CSS 入口与主题
+└── assets/       # 图片、动画
 ```
 
-| 层 | 路径 | 职责 |
-|----|------|------|
-| 页面 React | `pages/*` | UI、hooks、页面 store 与宿主挂载 |
-| 命令式领域 | `js/features/*` | 提交、上传、轮询、凭据、术语表等非 UI 逻辑 |
-| 共享 API | `js/api/*` | fetch/XHR 封装与后端端点客户端 |
-| 共享宿主能力 | `shared/*` | 跨页 hook、主题、Reader adapter 实现等 |
-| 装配 | `pages/home/composition/*` | 依赖接线，不承载业务规则 |
-| 共享弹窗 UI | `components/ui/dialog.tsx` | 普通弹窗的遮罩、尺寸、壳、标题/正文/页脚、关闭与嵌套层级 |
+## 依赖方向
 
-## 主页：两套 `features`
+```
+app  ──►  features  ──►  platform
+             │              ▲
+             └──► ui ───────┘
+```
 
-主页同时存在：
+- `app` 可以引用任何一层
+- `features` 可以引用 `features`（只经对方出口）、`ui`、`platform`；**不得引用 `app`**
+- `ui` 只能引用 `ui`、`platform`
+- `platform` 只能引用 `platform`
 
-1. `src/js/features/*`：命令式领域层，通常暴露 controller、mount、port 或 store。
-2. `src/pages/home/features/*`：React 视图、页面 hooks、对话框与 UI store。
+由 `tests/architecture/layer-boundaries.test.mjs` 把守。
 
-它们是领域层与 UI 层，不是重复实现。主页对 `src/js/*` 的依赖统一经 `pages/home/composition/external.ts` 导出；新增接线写在对应 `create-*.ts`，不要在 React feature 中新增深层 `../../../js` import。
+**唯一例外**：15 个 features 文件经 `@/app/home/home-services-context.js` 消费
+主页装配出来的 DI 容器。它要的是 `HomeApp` 装配出来的**实例**，而
+`HomeServices` 类型引用了每一个功能的类型，下沉到 platform 会造成
+`platform → features`，比现状更糟。正确终局是按域拆窄 Context（代码里已有
+`useHomeDialogStore` / `useHomeStatusAreaStore` / `useHomeWorkflowDialog` /
+`useHomeSettingsHub` 四个先例）。在那之前用只减不增的清单把这条遗留倒置显性化，
+见 `architecture-boundaries.test.mjs` 的「features 引用 app 层仅限主页 DI 容器」。
 
-| 命令式领域 | React UI | 关系 |
-|------------|----------|------|
-| `app-actions` | workflow/status/upload 消费 | 提交任务与提交后启动轮询 |
-| `job-runtime` | status/library 消费 | 当前任务轮询与可见状态同步 |
-| `upload` | `workflow` | 上传状态、页码范围与上传视图 |
-| `workflow` | `workflow` | 工作流规则、payload 与对话框 |
-| `credentials` | `credentials` | 凭据状态、校验与设置 UI |
-| `glossaries` | `glossaries` | 术语表 controller 与编辑 UI |
-| `recent-jobs` / `documents-library` | `library` / `collections` | 书架资源、任务卡与合集 |
-| `status-detail` | `status` / `status-detail` | 状态卡与详情弹窗 |
-| `reader-dialog` | `reader` | 主页打开阅读器的路由与软宿主 |
-| `artifact-downloads` | library/status 消费 | 受保护产物下载 |
+## `features/` —— 一个功能 = 一个目录
 
-常见修改位置：
+15 个目录，对应界面上 15 件事：
 
-| 要修改的能力 | 优先路径 |
-|--------------|----------|
-| 书架卡片或书籍详情 UI | `pages/home/features/library/**` |
-| 上传/翻译对话框 UI | `pages/home/features/workflow/**` |
-| 提交任务 | `js/features/app-actions/**` + composition |
-| 当前任务轮询 | `js/features/job-runtime/**` |
-| 后端端点 | `js/api/**` |
-| 新的 `js` 依赖接入主页 | `pages/home/composition/external.ts` + 对应 `create-*.ts` |
+| 目录 | 用户看到的 |
+|---|---|
+| `library` | 书架：书卡、封面、筛选、批量、搜索 |
+| `book-detail` | 点开一本书的详情弹窗（翻译/OCR/产物/合集/元数据五个 Tab） |
+| `ingest` | 添加 PDF：上传、翻译/OCR 选项、页码范围、提交 |
+| `jobs` | 任务运行中的状态卡、阶段流、进度动画、取消/重试 |
+| `job-detail` | 状态详情弹窗 + `detail.html` 整页 |
+| `reader` | 阅读器宿主接线（实现在 `@retainpdf/reader` 包，不在此） |
+| `ask` | 主页 AI 问答 |
+| `credentials` | 凭据配置与校验 |
+| `glossaries` | 术语表 |
+| `collections` | 合集 |
+| `favorites` | 收藏 |
+| `artifacts` | 受保护产物下载 |
+| `task-center` | 任务中心 |
+| `settings` | 设置外壳、主题外观、开发者选项 |
+| `app-update` | 应用更新 |
 
-所有普通弹窗都从 `components/ui/dialog.tsx` 组合；feature 不直接导入 Radix Dialog。尺寸只从 `compact`、`standard`、`wide`、`workspace` 中选择。Reader 的全屏软宿主保留独立 surface 语义。
+每个功能内部固定两层，`index.ts` 是唯一出口：
 
-上传/翻译对话框采用单流程：一个 PDF 上传入口，上传完成后在同一动作区选择仅收藏、仅 OCR 或翻译；页码范围和术语表在主弹窗内展开，不创建嵌套 Dialog。
+```text
+features/<功能>/
+├── index.ts      # 唯一出口。跨功能只能从这里（或 domain.ts）取
+├── domain.ts     # 可选：纯逻辑窄口，给非 React 调用方（如阅读器包）
+├── ui/           # React 组件与 hooks
+└── domain/       # 纯逻辑，**不得 import React**
+```
 
-`workflow/components/UploadTile.tsx` 只负责 services/store 接线；`workflow/components/upload/*` 是不访问 home services 的展示层。上传卡、处理方式和提示视觉应在展示层修改，避免把 composition 依赖重新带回组件树叶。
+`domain/` 禁 React 是硬规则：阅读器包是非 React 宿主，要复用同一份领域逻辑。
+由 `layer-boundaries.test.mjs` 把守。
 
-主页 AI 的 durable PDF 操作位于 `pages/home/features/home-ask/operations/*`。其中 reducer/selectors 维护 conversation 与 request message 索引，controller 独占 operation 查询、CAS 动作和幂等 key，`AgentOperationCard` 等展示组件只接收 props。首轮提问必须先创建 conversation；`agent_operation`、`agent_confirmation_required` 和 `done.confirmation_requests` 都只作为刷新提示，前端按 `operation_id` 查询 Rust operation 获取权威状态，不解析模型确认文案。409 必须刷新 operation，不能重放 mutation；`ambiguous` 重试只有用户在风险弹窗中明确接受后才能携带 `accept_duplicate_risk`。刷新、重新联网和页面重新可见时再以 operation 列表恢复。操作卡展示的页程序只来自后端重新校验后的 `plan_steps`，不得直接展示 manifest、workspace 路径或 tool stdout。
+跨功能引用只能落在对方的 `index.js` 或 `domain.js`，不得深入内部——
+同样有门禁。
 
-`credentials/AgentRuntimeSettingsCard.tsx` 是 AI Agent 专用的安全配置入口。模型
-Key 与 FX Gateway Key 只保存在该组件的临时 React state，提交到受鉴权的
-`/api/v1/ai/runtime-config` 后立即清空；组件只读取后端返回的配置布尔值、掩码
-和 active/configured runtime，不得把这些 Agent Key 接入旧的
-`credentialsStatePort`、隐藏 input、desktop snapshot 或 localStorage。旧 OCR/
-翻译任务凭据仍属于既有 workflow 协议，后续迁移不得与 Agent runtime 配置
-重新合并成浏览器单一真值。主页 AI 输入门禁读取同一个后端安全视图：Markdown
-检索问答与 OpenAI 兼容 Agent 检查模型 Key，FX Gateway Agent 只检查 Gateway
-Key；旧模型 Key 仅在 Markdown 检索问答迁移期兼容，不得阻塞两个 Agent 模式。
-`agent_confirmation_mode` 是全局 runtime 配置：`explicit` 逐步确认，`green_light`
-允许 Agent 自动执行并提交受支持的 PDF 操作，但操作卡仍持续显示并保留取消入口。
-配置保存后，只要 `restart_state`、`restart_required` 或 active/configured revision
-任一表明尚未激活，主页 AI 就必须阻止新请求。浏览器旧模型配置只在同时存在旧 Key
-时作为完整的单次请求覆盖；没有旧 Key 时不得用浏览器 URL/模型覆盖后端安全配置。
-FX 模式另行读取和提交 `fx_gateway_base_url`；FX 0.0.5 只允许带端口的回环 HTTP
-Gateway，设置界面必须持续显示该限制。空值表示使用官方 Gateway，远程地址继续
-由 OpenAI 兼容 Agent 承担。
+## `platform/` —— 跨功能基础设施
 
-翻译任务的 API 配置在同一设置页公开 `API URL`、`模型` 和 `API Key`，支持
-DeepSeek 以及提供 `/models`、Chat Completions 等 OpenAI 兼容协议的第三方
-服务。三个字段继续落入既有 translation job payload；不要另造只在 UI 中生效
-的 provider 状态。
+| 子目录 | 内容 |
+|---|---|
+| `api/` | `index.ts` 是唯一 API 网关（58 处 `mockable()` 做 mock/真实两路分发）；`legacy/` 是 `@retainpdf/api` 出现前的手写客户端，现主要充当 mock 侧实现 |
+| `config/` | 运行时配置、常量、持久化 |
+| `contracts/` | 应用事件、下载动作、主页视图、书架载荷等跨功能契约 |
+| `store/` | store 框架与通用对话框 store |
+| `mock/` | mock 夹具 |
+| `desktop/` | 桌面 IPC 端口与桌面/开发者配置状态 |
+| `navigation/` | 三页 URL 契约、软跳转、返回态 |
+| `utils/` `runtime/` `generated/` | 纯工具、vendor URL 解析、构建产物 |
 
-详细接线顺序见 `pages/home/composition/README.md`。
+**`features/` 不得直连 `platform/api/legacy/`**，必须经 `api/index.ts`——
+直连会让 mock 模式静默走真网络。
 
-## Reader：包实现与 Web 宿主
+## `ui/` —— 共享 UI
 
-Reader 已不再由 `frontend/web` 实现，也没有 `?engine=legacy` 的 Web 回退引擎。
+`components/`（shadcn 生成物）、`Button.tsx`、`lib/utils.ts`、`hooks/`、
+`icons/`、`theme/`、`decor/`、`download-toast/`。
 
-| 层 | 路径 | 职责 |
-|----|------|------|
-| Reader 实现 | `frontend/packages/reader` | React 组件、hooks、PDF、批注、AI 与样式真值 |
-| Web 页面入口 | `pages/reader/entry.tsx` | 注册 RetainPDF adapters 后显式调用 `bootReader()` |
-| Web adapter 装配 | `pages/reader/adapters/retainpdf.ts` | 把宿主能力注入 `@retainpdf/reader/adapters` |
-| Web 能力出口 | `pages/reader/external.ts` | API、下载、凭据、收藏与 AI 的单一出口 |
-| 宿主实现 | `shared/reader/host/{ai,config,content,data,state}.ts` | RetainPDF 特有的窄适配能力 |
-| Reader CSS 代理 | `styles/entries/reader.css` | 导入 `frontend/packages/reader/styles/entry.css` |
+`components.json` 的别名指向 `@/ui` 系列，`npx shadcn add` 会生成到
+`ui/components/`。
 
-生产代码只使用 `@retainpdf/reader`、`@retainpdf/reader/boot`、`@retainpdf/reader/adapters`、`@retainpdf/reader/ai` 及公开的 `runtime/*` exports，不得直连 `frontend/packages/reader/src`。新的通用 Reader 功能应写入 `frontend/packages/reader`；只有 RetainPDF Web 特有的 API 或运行时适配才写在本应用。
+⚠️ `ui/Button.tsx` 与 `ui/components/button.tsx` **必须保持两级**——
+macOS 文件系统大小写不敏感，压平会冲突。
 
-## 详情页
+## 门禁清单
 
-`detail.html` → `pages/detail/entry.tsx` → `DetailApp`。`pages/detail/**` 对 `src/js/*` 的依赖统一由 `pages/detail/external.ts` 提供；任务详情的命令式 overview、Markdown、重试与链接逻辑位于 `js/job-detail/*`。
+| 文件 | 把守什么 |
+|---|---|
+| `tests/architecture/layer-boundaries.test.mjs` | 四层方向、跨功能只经出口、domain 禁 React、Tailwind `@source` 目录存在 |
+| `tests/architecture/architecture-boundaries.test.mjs` | 防回弹（不得 import 已删除的旧世界）、DI 容器消费方清单、旧目录不得复活、共享 dialog 边界 |
+| `tests/architecture/page-dom-references.test.mjs` | 三页的 DOM id/class 引用必须有归属，防运行时静默失效 |
+| `tests/architecture/tsx-color-literals.test.mjs` | 主题盲颜色只减不增 |
+| `tests/architecture/shell-smoke.test.mjs` | 三页挂载顺序与入口链路 |
 
-## 其它共享目录
+改动这些门禁时，**必须注入一个已知违规确认它仍能报错，再移除**。
+只看「测试通过」不足以说明门禁有效——批次 5 查出四条一直在空转的门禁，
+都是「测试常绿」但实际扫 0 个文件或整片豁免。
 
-| 路径 | 用途 |
-|------|------|
-| `@retainpdf/domain/job` | Job 归一化、产物、时间与诊断纯逻辑 |
-| `@retainpdf/domain/job-status` | 阶段、进度与状态卡纯领域逻辑 |
-| `js/config` | API、provider、runtime 与持久化配置 |
-| `js/state` | Web 运行时 store 切片 |
-| `js/mock` | URL `?mock=...` 使用的本地场景 |
-| `js/islands` | 挂载在页面中的小型 Web Component |
-| `js/app-framework` | 轻量 store、resource、command bus 与 selector |
-| `shared/theme` / `shared/decor` | 三页主题与装饰舞台 |
+## 历史
 
-## 边界门禁
-
-- `pages/home/features` → `src/js/*`：只经 `pages/home/composition/external.ts`。
-- `pages/detail` → `src/js/*`：只经 `pages/detail/external.ts`。
-- `pages/reader` → Reader 实现：只经 `@retainpdf/reader` 的公开 exports。
-- Job 与 Job Status：只经 `@retainpdf/domain/job`、`@retainpdf/domain/job-status`。
-- 无 importer 不等于死代码；动态入口、测试和自定义元素注册都需要纳入判断。
-
-这些规则由 `tests/architecture/*.test.mjs` 持续检查。
-
-## 相关文档
-
-| 文件 | 内容 |
-|------|------|
-| `../README.md` | 入口、命令与运行时配置 |
-| `pages/home/composition/README.md` | 主页装配规则 |
-| `pages/home/features/README.md` | 主页 React 域索引 |
-| `pages/home/features/library/README.md` | 书架子目录与进度入口 |
-| `pages/reader/README.md` | Reader 包与宿主边界 |
-| `pages/detail/README.md` | 详情页 external 规则 |
-| `styles/README.md` | CSS 入口与归属 |
+`src/` 曾长期是 `js/`（命令式领域层）+ `pages/`（React 视图层）的双树结构，
+加上 `shared/` `components/` `lib/` 三个共享目录。2026-09 的批次 1–5 把它
+重组为现在的四层，迁移记录见
+`docs/ops/planning/frontend-migration/feature-layout-blueprint.md`。

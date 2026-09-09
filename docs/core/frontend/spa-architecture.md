@@ -1,6 +1,12 @@
 # RetainPDF Frontend: MPA → Unified React SPA — Target Architecture
 
-> Status: Design → for big migration `frontend/web` (MPA + vanilla JS) → `frontend/web-react` (SPA)
+> Status: **未实施的历史设计稿（2026-09 归档）**。它设想迁往一个新的
+> `frontend/web-react` SPA，那件事没有发生。实际走的是原地重组：
+> `frontend/web/src` 在 2026-09 的批次 1–5 被重组为 app / features / platform / ui
+> 四层，仍是 3 页 MPA。**现状以 `frontend/web/src/FEATURES.md` 为准**，
+> 本文中的 `src/js/*`、`src/pages/*` 等路径均已不存在。
+>
+> 原始状态行：Design → for big migration `frontend/web` (MPA + vanilla JS) → `frontend/web-react` (SPA)
 > Scope: routing · state · composition · shared packages · build · legacy `js/*`
 
 ---

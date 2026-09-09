@@ -4,9 +4,9 @@
 
 | 页面 | HTML | React 入口 | 构建产物 |
 |------|------|------------|----------|
-| 主页 | `index.html` | `src/pages/home/entry.tsx` | `dist/app.bundle.js` |
-| 任务详情 | `detail.html` | `src/pages/detail/entry.tsx` | `dist/detail.bundle.js` |
-| PDF 阅读器 | `reader.html` | `src/pages/reader/entry.tsx` | `dist/reader.bundle.js` |
+| 主页 | `index.html` | `src/app/home/entry.tsx` | `dist/app.bundle.js` |
+| 任务详情 | `detail.html` | `src/app/detail/entry.tsx` | `dist/detail.bundle.js` |
+| PDF 阅读器 | `reader.html` | `src/app/reader/entry.tsx` | `dist/reader.bundle.js` |
 
 CSS 按页面分别构建到 `dist/css/{home,detail,reader}.css`。HTML 引用的查询参数由构建脚本按内容哈希更新。
 
@@ -14,22 +14,21 @@ CSS 按页面分别构建到 `dist/css/{home,detail,reader}.css`。HTML 引用�
 
 | 目录 | 说明 |
 |------|------|
-| `src/pages/home` | 主页 React UI、视图 store 与装配层 |
-| `src/pages/detail` | 独立任务详情页 |
-| `src/pages/reader` | `@retainpdf/reader` 的 Web 宿主入口与 adapters；阅读器实现不在这里 |
-| `src/js` | 共享 API、命令式领域逻辑、配置、mock 与任务详情适配 |
-| `src/shared` | 跨页面 React、主题、装饰、导航和 Reader 宿主能力 |
+| `src/app` | 装配层：三页入口、主页 composition、页面外壳、桌面首启 |
+| `src/features` | 15 个产品功能，每个内部分 `ui/` 与 `domain/`，`index.ts` 是唯一出口 |
+| `src/platform` | 跨功能基础设施：API 网关、配置、契约、store 框架、mock、导航 |
+| `src/ui` | 共享 UI 组件与 React 原语（shadcn 生成物、hooks、主题、装饰） |
 | `src/styles` | home/detail 样式以及 Reader 样式代理入口 |
 | `scripts` | JS/CSS 构建、静态服务器、smoke 与视觉检查 |
 | `tests` | Node 单测、架构/契约门禁和视觉基线 |
 
-主页同时有两套职责不同的 `features`：`src/js/features` 是命令式领域层，`src/pages/home/features` 是 React UI 层。完整映射见 [`src/FEATURES.md`](src/FEATURES.md)。
+`src/` 的四层结构、依赖方向与门禁清单见 [`src/FEATURES.md`](src/FEATURES.md)。
 
-阅读器的组件、hooks、PDF 逻辑和样式真值位于 `frontend/packages/reader`。`frontend/web` 只通过 `@retainpdf/reader` 的公开 exports 使用它，并注入 RetainPDF 的 API、凭据、收藏、下载和 AI 能力。边界见 [`src/pages/reader/README.md`](src/pages/reader/README.md)。
+阅读器的组件、hooks、PDF 逻辑和样式真值位于 `frontend/packages/reader`。`frontend/web` 只通过 `@retainpdf/reader` 的公开 exports 使用它，并注入 RetainPDF 的 API、凭据、收藏、下载和 AI 能力。边界见 [`src/app/reader/README.md`](src/app/reader/README.md)。
 
 ## 弹窗 UI 契约
 
-主页与任务详情页的普通弹窗必须使用 `src/components/ui/dialog.tsx`；危险操作确认使用 `src/components/ui/confirm-dialog.tsx`，不得调用浏览器 `alert/confirm/prompt`。共享层统一负责遮罩、居中、纸面壳、28px 圆角、标题/正文/页脚、关闭按钮、动画、焦点与嵌套层级；业务组件只选择 `compact`、`standard`、`wide`、`workspace` 尺寸并实现内部内容。
+主页与任务详情页的普通弹窗必须使用 `src/ui/components/dialog.tsx`；危险操作确认使用 `src/ui/components/confirm-dialog.tsx`，不得调用浏览器 `alert/confirm/prompt`。共享层统一负责遮罩、居中、纸面壳、28px 圆角、标题/正文/页脚、关闭按钮、动画、焦点与嵌套层级；业务组件只选择 `compact`、`standard`、`wide`、`workspace` 尺寸并实现内部内容。
 
 筛选菜单、范围选择器、Toast 等非模态浮层使用 `app-floating-surface` / `app-floating-close` 的 18px 纸面浮层语言。全屏 Reader 宿主是独立 surface，不套普通弹窗尺寸；Reader 内部浮层由包内同名职责契约维护。
 
@@ -87,9 +86,8 @@ API URL、模型名称和 API Key。连通性检测使用该服务的 `/models` 
 | 文件 | 内容 |
 |------|------|
 | [`src/FEATURES.md`](src/FEATURES.md) | 页面、领域层与装配边界 |
-| [`src/pages/home/composition/README.md`](src/pages/home/composition/README.md) | 主页接线规则 |
-| [`src/pages/home/features/README.md`](src/pages/home/features/README.md) | 主页 React 功能域索引 |
-| [`src/pages/reader/README.md`](src/pages/reader/README.md) | Reader 包与 Web 宿主边界 |
-| [`src/pages/detail/README.md`](src/pages/detail/README.md) | 详情页 external 规则 |
+| [`src/app/home/composition/README.md`](src/app/home/composition/README.md) | 主页接线规则 |
+| [`src/app/reader/README.md`](src/app/reader/README.md) | Reader 包与 Web 宿主边界 |
+| [`src/app/detail/README.md`](src/app/detail/README.md) | 详情页职责 |
 | [`src/styles/README.md`](src/styles/README.md) | 三页 CSS 构建与归属 |
 | [`tests/README.md`](tests/README.md) | 测试命令与测试边界 |

@@ -28,5 +28,5 @@ code must use the public package specifiers `@retainpdf/reader`,
 `@retainpdf/reader/ai` and `@retainpdf/reader/ai.css` exports.
 Host adapter shims may consume the domain-scoped `@retainpdf/reader/runtime/*`
 exports; they must never resolve files below `frontend/packages/reader/src` directly.
-The web host owns exactly five adapter entries under `src/shared/reader/host`:
+The web host owns exactly five adapter entries under `features/reader/domain/host`:
 `ai.ts`, `config.ts`, `content.ts`, `data.ts`, and `state.ts`.

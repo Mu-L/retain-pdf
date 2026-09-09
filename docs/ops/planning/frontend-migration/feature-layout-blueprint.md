@@ -316,7 +316,40 @@ mock 模式（`?mock=demo`）渲染与迁移前一致。
 
 回退以批次为单位。已发布的批次优先用反向提交，不重写共享历史。
 
-## 10. 关联文档
+## 10. 施工中推翻的条目（2026-09-09 补记）
+
+批次 1–5 执行完毕。以下条目在实测后被推翻，实际落地与本文原文不同：
+
+| 原文 | 实际 | 理由 |
+|---|---|---|
+| §5.4 把 8 个 slice 分发进各自功能 | **删除 6 片，剩余两片塌缩成 `platform/desktop/state.ts`** | 那 6 片是死代码，能力早已在 `features/*` 用 `platform/store` 独立重建；分发只会制造两份平行真值。三层实证（静态 / 语义 / Proxy 探针）见提交 3780b6cc |
+| §4.4 `js/features/{app-shell,home}` → `app/home/` | **按归属拆到 `features/job-detail`、`platform/contracts`、`app/home`** | 它们被 features 引用，整体进 `app/` 会造成 `features → app` |
+| §4.3 `shared/theme` → `features/settings` | **进 `ui/theme`** | theme 与 decor 互耦，且 `shell-boot.ts` 在任何 composition 之前就调 `bootTheme()`——启动壳不能依赖产品功能 |
+| §4.4 `js/desktop` 整体 → `platform/` | **`host.ts` 进 platform，`index.ts` 进 `app/desktop/bootstrap.ts`** | 后者 import features、直接改 DOM、派发事件，是 app 级装配 |
+| §4.4 `shared/navigation` → `app/home/` | **进 `platform/navigation/`** | 被 features 8 处引用。同批把本文未提及的 `pages/navigation.ts`（被 3 个 feature 引用）一并并入 |
+| §7「tests 下约 189 条」 | web 侧实际约 40 个改写目标 | 原数把 `packages/reader` 的测试路径也算了进来 |
+| §7「不需要改 tsconfig」 | 结论正确，但漏列了 Tailwind `@source` 与两份 eslint 配置 | — |
+
+§5.1 的「domain 不得 import React」原文写了但**从未被实现**，批次 5C 的 C3
+补上了对应门禁（`tests/architecture/layer-boundaries.test.mjs`），实测 0 违规。
+
+### 施工中查出的四条一直在空转的门禁
+
+这四条都是「测试常绿」但实际什么都没检查，与蓝图 §9 预警的失效模式同类，
+且**在批次 5 之前就已经在漏**：
+
+1. `isExternalGate()` 对 `features/*/domain/` 整体豁免——178 / 331 个文件（54%）
+   从迁移当天起脱离防回弹门禁
+2. `FORBIDDEN_IMPORT_PATTERNS` 的 13 条规则都要求 `from`，**没有一条能匹配裸
+   副作用 import** `import "路径"`
+3. upload 展示层门禁的 `presentationRoot` 指向批次 4 已删除的目录，永久绿灯
+4. `job-stage-contract.test.mjs` 的 `collectSourceFiles` 只收 `.js`——代码库
+   早已全量 TS，一直扫 0 个文件
+
+另有 Tailwind 的 30 条 `@source` 里 16 条指向已删除目录（含 `src/features/`
+从未被列入），靠 v4 自动来源探测兜住才没出事。
+
+## 11. 关联文档
 
 - [前端迁移计划与审计](./README.md)
 - [遗留树可达性审计](./legacy-audit.md)

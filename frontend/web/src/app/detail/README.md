@@ -1,29 +1,30 @@
-# 任务详情页（`pages/detail`）
+# `app/detail` — 任务详情页
 
-独立 SPA：`detail.html` → `entry.tsx` → `DetailApp`。
-
-## 布局
+`detail.html` 的入口与页面壳。
 
 ```text
-pages/detail/
-  entry.tsx / DetailApp.tsx
-  external.ts              # 对 src/js/* 的唯一出口
-  components/              # UI（Header / Artifacts / Events…）
+app/detail/
+├── entry.tsx      # 挂载点：mountShellPage("detail-root", <DetailApp/>)
+└── DetailApp.tsx  # 页面壳：编排 job 拉取、markdown 流、下载 toast
 ```
 
-## 规则
+## 边界
 
-| 层 | 规则 |
-|----|------|
-| `DetailApp` / `components/**` | **禁止**直接 `import … from "../../js/…"` |
-| `external.ts` | 唯一允许 import `src/js/*` 的文件；缺符号只改这里 |
-| `js/job-detail/*` | 命令式 overview / markdown / resume 逻辑（经 external 接入） |
+页面**展示组件与命令式逻辑都不在这里**，它们属 `job-detail` 功能：
 
-门禁：`tests/architecture-boundaries.test.mjs`  
-（`detail page must not import src/js/* directly`）
+| 内容 | 位置 |
+|---|---|
+| 五个展示组件（Header / JobSummary / ErrorDiagnostics / Artifacts / Events） | `features/job-detail/ui/page/` |
+| overview / markdown / resume / artifacts 的命令式逻辑 | `features/job-detail/domain/page/` |
+| 状态详情弹窗（主页共用） | `features/job-detail/{ui,domain}/` |
 
-## 状态策略（摘要）
+`DetailApp.tsx` 跨功能引用一律经 `@/features/job-detail/index.js`。
 
-- 文案 / 链接：React state（`texts` / `links`），由 job-detail 回调写入  
-- 产物清单、失败调试、Markdown 图片网格：命令式 innerHTML 孤岛（见各组件注释）  
-- 模态 / 下载 toast：React（Radix Dialog + DownloadToastHost）
+## 历史
+
+这里曾有一个 `external.ts`，作为本页对 `src/js/*` 的唯一出口。
+`src/js/` 已在批次 5B 整体删除，该网关随之在 C1 解散——它转出的 13 个符号
+全部已在新世界（`features/job-detail/index.js`、`@retainpdf/domain/*`、
+`@/platform/utils/*`），逐个直连即可，不需要中间层。
+
+`architecture-boundaries.test.mjs` 有一条断言它不得复活。

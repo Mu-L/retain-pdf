@@ -71,7 +71,7 @@ npm --prefix frontend/web run visual:update   # 仅在确认视觉变化符合�
 - Job 与 Job Status 只能从 `@retainpdf/domain/job` 和
   `@retainpdf/domain/job-status` 的公开入口导入。禁止深层包导入、相对导入
   `frontend/packages/domain/src/{job,job-status}`，也禁止重新依赖已移除的
-  `frontend/web/src/js/{job,job-status}` 镜像。
+  `frontend/web/src/js/{job,job-status}` 镜像（该目录已在批次 5B 整体删除）。
 - 需要验证公开行为时，从包的 `exports` 入口导入，例如 `@retainpdf/reader`。
   Reader 内部实现的白盒单元测试可以留在 `reader/` 中直接指向
   `frontend/packages/reader/src`；这不允许生产代码越过 Reader 的公开边界。

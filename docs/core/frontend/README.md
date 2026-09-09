@@ -13,8 +13,9 @@
 
 主要代码入口：
 
-- `frontend/web/src/pages/`
-- `frontend/web/src/js/`
+- `frontend/web/src/app/`（装配层）
+- `frontend/web/src/features/`（15 个产品功能）
+- `frontend/web/src/platform/`、`frontend/web/src/ui/`
 - `frontend/web/src/styles/`
 - `frontend/packages/reader/`
 - `frontend/packages/ui/`
