@@ -2568,3 +2568,91 @@ async fn retention_preserves_document_backed_uploads() {
     assert!(!removed_ids.contains(&"up-old-ingest"));
     assert!(state.db.get_upload("up-old-ingest").is_ok());
 }
+
+/// 彻底删除文档必须是"要么全删,要么全不删",且 DB 提交在文件删除之前。
+///
+/// 原实现是一串各自开连接、各自自动提交的删除:逐个 job 先删文件再删行,
+/// 然后逐个 upload 先删目录再删行,最后删文档行。中途任何一步失败都留下
+/// 没有自动修复路径的半删状态——最典型的就是 job 行和 upload 行都删光了,
+/// 文档行却还在,书架上剩一本点开即 404 的书。
+///
+/// 这里用 SQLite trigger 让最后一步(删 documents 行)必定失败,断言前面
+/// 那些行一条都没少,产物文件也一个没删。改回逐步提交的写法会让下面每一条
+/// 断言都红。
+#[tokio::test]
+async fn delete_document_rolls_back_rows_and_keeps_files_when_a_step_fails() {
+    use crate::models::{CreateJobInput, JobSnapshot, JobStatusKind};
+
+    let state = test_state("library-delete-document-atomic");
+    let app = build_app(state.clone());
+    let document_id = seed_document(&state, b"atomic delete doc");
+
+    let mut job = JobSnapshot::new(
+        "job-atomic".to_string(),
+        CreateJobInput::default(),
+        vec!["python".to_string()],
+    );
+    job.status = JobStatusKind::Succeeded;
+    job.sync_runtime_state();
+    state.db.save_job(&job).expect("save job");
+    let conn = rusqlite::Connection::open(state.config.jobs_db_path.clone()).expect("open db");
+    conn.execute(
+        "UPDATE jobs SET document_id = ?1 WHERE job_id = 'job-atomic'",
+        rusqlite::params![document_id],
+    )
+    .expect("link job");
+
+    // 产物目录:删除成功时它会被清掉,所以它还在就证明文件删除没有先于 DB 发生。
+    let job_root = state.config.output_root.join("job-atomic");
+    fs::create_dir_all(&job_root).expect("job root");
+    fs::write(job_root.join("full.md"), b"artifact").expect("artifact");
+
+    // 让删 documents 行必定失败(模拟 DB 忙、约束冲突、进程被杀等真实中断)。
+    conn.execute_batch(
+        "CREATE TRIGGER reject_document_delete BEFORE DELETE ON documents
+         BEGIN SELECT RAISE(ABORT, 'synthetic failure'); END;",
+    )
+    .expect("install failing trigger");
+    drop(conn);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri(format!("/api/v1/documents/{document_id}"))
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("request"),
+        )
+        .await
+        .expect("delete response");
+    assert_ne!(
+        response.status(),
+        StatusCode::OK,
+        "删除中途失败时不得报告成功"
+    );
+
+    // DB 侧必须原封不动
+    assert!(
+        state.db.get_document(&document_id).is_ok(),
+        "文档行必须还在"
+    );
+    assert!(
+        state.db.get_job("job-atomic").is_ok(),
+        "job 行必须随文档行一起回滚,否则书架上剩一本点不开的书"
+    );
+    assert!(
+        !state
+            .db
+            .uploads_for_document(&document_id)
+            .expect("uploads query")
+            .is_empty(),
+        "upload 行必须随文档行一起回滚,否则源文件永远找不回来"
+    );
+
+    // 磁盘侧也必须原封不动:文件删除只能发生在事务提交成功之后
+    assert!(
+        job_root.join("full.md").exists(),
+        "DB 没删成时不得已经把产物文件删了"
+    );
+}

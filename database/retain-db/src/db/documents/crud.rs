@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use rusqlite::{params, Connection, OptionalExtension, ToSql};
+use rusqlite::{params, Connection, OptionalExtension, ToSql, TransactionBehavior};
 
 use crate::models::api::DocumentRecord;
 use crate::models::domain::{now_iso, UploadRecord};
@@ -439,6 +439,60 @@ impl Db {
         Ok(changed > 0)
     }
 
+    /// 在一个事务里删掉一批 job 行(连同它们的 events)。
+    ///
+    /// 与 [`Db::delete_document_cascade`] 同一个理由:馆藏删除一次要删
+    /// "book job + 它的 -ocr 子 job"两行,逐个自动提交时中途失败会留下
+    /// 子 job 还在而父 job 已没的孤儿。调用方同样必须在本方法成功之后
+    /// 才动磁盘文件。
+    pub fn delete_jobs(&self, job_ids: &[String]) -> Result<()> {
+        let mut conn = self.connect()?;
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        delete_job_rows(&tx, job_ids)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// 在**一个事务**里删掉文档行及其名下所有 job / upload 行。
+    ///
+    /// 服务层的彻底删除原先是一串各自开连接、各自自动提交的 `delete_job` /
+    /// `delete_upload` / `delete_document`。中途任何一步失败都留下没有自动
+    /// 修复路径的半删状态:job 行删完了而文档行还在(书架上一本点不开的书),
+    /// 或者反过来文档没了而 job 成孤儿。连 `delete_job` 与 `delete_document`
+    /// 自身内部的两条 DELETE 也是分开提交的——events 删掉而 jobs 没删、
+    /// blocks_fts 删掉而 documents 没删,都是能真实落地的中间态。
+    ///
+    /// 收进一条 IMMEDIATE 事务后,DB 侧只剩"全删"和"全不删"两个结果。
+    ///
+    /// 磁盘文件删不进事务,所以调用方必须把文件删除放到本方法**成功之后**:
+    /// 那样最坏是留下一批孤儿文件(可回收、可重删),而不是丢掉指向它们的索引。
+    pub fn delete_document_cascade(
+        &self,
+        document_id: &str,
+        job_ids: &[String],
+        upload_ids: &[String],
+    ) -> Result<bool> {
+        let mut conn = self.connect()?;
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        delete_job_rows(&tx, job_ids)?;
+        for upload_id in upload_ids {
+            tx.execute(
+                "DELETE FROM uploads WHERE upload_id = ?1",
+                params![upload_id],
+            )?;
+        }
+        tx.execute(
+            "DELETE FROM blocks_fts WHERE document_id = ?1",
+            params![document_id],
+        )?;
+        let changed = tx.execute(
+            "DELETE FROM documents WHERE document_id = ?1",
+            params![document_id],
+        )?;
+        tx.commit()?;
+        Ok(changed > 0)
+    }
+
     /// 修复悬空的 active_job_id:若它指向的 job 已不存在,优先重指该文档下
     /// 最新的非 OCR 成功任务；只有 OCR 成功任务时回退到 OCR。完全没有则
     /// 置 NULL(降级为干净馆藏)。删 job 后必调,防僵尸卡。
@@ -481,4 +535,13 @@ impl Db {
         }
         Ok(())
     }
+}
+
+/// 删 job 行的共用语句对:events 是 job 的从属行,必须与 jobs 同生共死。
+fn delete_job_rows(tx: &rusqlite::Transaction<'_>, job_ids: &[String]) -> Result<()> {
+    for job_id in job_ids {
+        tx.execute("DELETE FROM events WHERE job_id = ?1", params![job_id])?;
+        tx.execute("DELETE FROM jobs WHERE job_id = ?1", params![job_id])?;
+    }
+    Ok(())
 }

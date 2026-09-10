@@ -69,11 +69,17 @@ pub fn delete_library_book(
         .flatten()
         .map(|doc| doc.document_id);
 
+    // 先一次性提交行删除,再动磁盘。逐个 `remove_job_files` + `delete_job`
+    // 自动提交时,book job 删完而 -ocr 子 job 那步失败就留下一个没有父任务的
+    // 孤儿行,没有任何自动修复路径。反过来,事务提交后文件删失败只是留下可
+    // 重删的孤儿目录。
+    let job_ids: Vec<String> = jobs.iter().map(|job| job.job_id.clone()).collect();
+    deps.db.delete_jobs(&job_ids)?;
+
     let mut removed_paths = Vec::new();
     let mut removed_child_jobs = Vec::new();
     for job in &jobs {
         removed_paths.extend(remove_job_files(deps, &job.job_id)?);
-        deps.db.delete_job(&job.job_id)?;
         if job.job_id != job_id {
             removed_child_jobs.push(job.job_id.clone());
         }

@@ -154,28 +154,42 @@ pub fn delete_document(
         }
     }
 
-    let mut removed_jobs = Vec::new();
+    let uploads = deps.db.uploads_for_document(document_id)?;
+
+    // 先一次性提交所有 DB 删除,再动磁盘。
+    //
+    // 原先是"删一个 job 的文件→删它的行→下一个→……→删 upload 目录→删 upload
+    // 行→删文档行",每步各自提交。中途任何一步出错(磁盘 IO 失败、DB 忙、进程
+    // 被杀)都会留下半删状态,而这些状态没有任何自动修复路径:文档行还在但名下
+    // job 已被删光,书架上就是一本点开即 404 的书;反过来文档没了而 job 成孤儿,
+    // 则永远不会再被任何清理逻辑看到。
+    //
+    // 文件删除进不了事务,所以两类残留只能二选一。选留文件:孤儿文件占的是可
+    // 回收的磁盘空间,重删幂等;而丢失的索引行拿不回来。
+    let removed_jobs: Vec<String> = jobs.iter().map(|job| job.job_id.clone()).collect();
+    let upload_ids: Vec<String> = uploads
+        .iter()
+        .map(|upload| upload.upload_id.clone())
+        .collect();
+    let deleted = deps
+        .db
+        .delete_document_cascade(document_id, &removed_jobs, &upload_ids)?;
+
     let mut removed_paths = Vec::new();
     for job in &jobs {
         removed_paths.extend(remove_job_files(deps, &job.job_id)?);
-        deps.db.delete_job(&job.job_id)?;
-        removed_jobs.push(job.job_id.clone());
     }
     cleanup_deleted_job_credentials(deps.db, deps.data_root, &jobs);
 
-    // 删除 upload 记录与其磁盘目录(uploads/<upload_id>/...)
-    for upload in deps.db.uploads_for_document(document_id)? {
+    // upload 的磁盘目录(uploads/<upload_id>/...)
+    for upload in &uploads {
         let stored = PathBuf::from(&upload.stored_path);
         if let Some(parent) = stored.parent() {
             remove_path_if_exists(parent.to_path_buf(), &mut removed_paths)?;
         } else {
             remove_path_if_exists(stored, &mut removed_paths)?;
         }
-        deps.db.delete_upload(&upload.upload_id)?;
     }
-
-    // 最后删文档行(FK 级联 tags/collection_documents;ai_conversations 置 NULL)+ FTS
-    let deleted = deps.db.delete_document(document_id)?;
 
     Ok(DocumentDeleteResultView {
         deleted,
