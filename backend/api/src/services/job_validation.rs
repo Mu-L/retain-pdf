@@ -227,6 +227,13 @@ pub fn validate_runtime_limits(input: &CreateJobInput) -> Result<(), AppError> {
             "timeout_seconds must be a positive integer",
         ));
     }
+    // 与 timeout_seconds 不同,这个允许 0——那是"关闭空闲检测"的意思,也是默认值。
+    // 但负数没有任何解释,只能是调用方算错了。
+    if input.runtime.no_output_timeout_seconds < 0 {
+        return Err(AppError::bad_request(
+            "no_output_timeout_seconds must be zero (disabled) or a positive integer",
+        ));
+    }
     Ok(())
 }
 

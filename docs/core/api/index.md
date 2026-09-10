@@ -231,10 +231,18 @@
     "compile_workers": 8
   },
   "runtime": {
-    "timeout_seconds": 1800
+    "timeout_seconds": 1800,
+    "no_output_timeout_seconds": 0
   }
 }
 ```
+
+`timeout_seconds` 是整段执行的上限，必须按最坏情况给（大部头翻译几小时是正常的），
+必须为正整数。`no_output_timeout_seconds` 是独立的空闲检测：每收到一行 stdout 就
+重新计时，只有 worker 彻底不出声才触发，于是"卡在第一页"不必等满那几小时。
+默认 `0` 表示关闭——各阶段正常静默时长差别很大，没有安全的统一默认值，按工作流
+显式设定。两者都判为 `failed` / `process_timeout`，但 `stage_detail` 不同：总超时是
+`provider timeout`，空闲超时是 `no output for {N}s`。
 
 推荐先通过 `POST /api/v1/credentials` 创建 `translation_api_key` 凭据，再把返回的
 `credential_ref` 放进任务。`GET /api/v1/credentials` 和任务详情只返回元数据，

@@ -338,6 +338,115 @@ pub(super) mod tests {
             .any(|line| line.contains("stderr-before-timeout")));
     }
 
+    /// 卡死的 worker 必须被空闲超时截住,而不是等满 timeout_seconds。
+    ///
+    /// `timeout_seconds` 要按最坏情况给——一本大部头翻译几小时是正常的——
+    /// 于是"打完第一行就再没动静"这种卡死也要等满那几小时。这个用例把两个
+    /// 阈值拉开两个数量级(总 600 秒 / 空闲 2 秒),再让 worker 打一行就睡死:
+    /// 若空闲检测不生效,用例会撞上外层的 30 秒 timeout。
+    #[tokio::test]
+    async fn silent_worker_is_cut_by_the_no_output_timeout_not_the_total_one() {
+        let state = test_state("no-output-timeout");
+        let mut job = JobSnapshot::new(
+            "job-no-output".to_string(),
+            CreateJobInput::default(),
+            vec![
+                "python3".to_string(),
+                "-c".to_string(),
+                "import sys, time; print('first-line', flush=True); time.sleep(600)".to_string(),
+            ],
+        )
+        .into_runtime();
+        job.request_payload.runtime.job_id = job.job_id.clone();
+        job.request_payload.runtime.timeout_seconds = 600;
+        job.request_payload.runtime.no_output_timeout_seconds = 2;
+
+        let finished = tokio::time::timeout(
+            Duration::from_secs(30),
+            execute_process_job(
+                ProcessRuntimeDeps::new(
+                    state.config.clone(),
+                    state.db.clone(),
+                    state.canceled_jobs.clone(),
+                    state.job_slots.clone(),
+                    Arc::default(),
+                ),
+                job,
+                &[],
+            ),
+        )
+        .await
+        .expect("空闲 2 秒就该收掉,不该等满 timeout_seconds=600")
+        .expect("execute process job");
+
+        assert_eq!(finished.status, JobStatusKind::Failed);
+        assert_eq!(
+            finished.stage_detail.as_deref(),
+            Some("no output for 2s"),
+            "必须说明是卡住不动,而不是笼统的 provider timeout——两者的排查方向不同"
+        );
+        // 已经收到的输出仍要保留,那是排查卡在哪一步的唯一线索。
+        let result = finished.result.as_ref().expect("process result");
+        assert!(
+            result.stdout.contains("first-line"),
+            "被空闲超时收掉时,卡死之前的输出不能丢"
+        );
+    }
+
+    /// 不设 `no_output_timeout_seconds`(默认 0)时,空闲检测必须完全不介入。
+    ///
+    /// 各阶段的正常静默时长差别很大(等 provider 响应、单页 OCR),所以这个
+    /// 功能默认关闭。这条用例守的就是"默认关闭"本身:worker 静默 3 秒后
+    /// 正常打印并成功退出,不得被判成超时。
+    #[tokio::test]
+    async fn silence_is_allowed_when_no_output_timeout_is_disabled() {
+        let state = test_state("no-output-disabled");
+        let mut job = JobSnapshot::new(
+            "job-silent-ok".to_string(),
+            CreateJobInput::default(),
+            vec![
+                "python3".to_string(),
+                "-c".to_string(),
+                "import time; time.sleep(3); print('late-line', flush=True)".to_string(),
+            ],
+        )
+        .into_runtime();
+        job.request_payload.runtime.job_id = job.job_id.clone();
+        job.request_payload.runtime.timeout_seconds = 60;
+        assert_eq!(
+            job.request_payload.runtime.no_output_timeout_seconds, 0,
+            "前置条件:这个功能必须默认关闭"
+        );
+
+        let finished = execute_process_job(
+            ProcessRuntimeDeps::new(
+                state.config.clone(),
+                state.db.clone(),
+                state.canceled_jobs.clone(),
+                state.job_slots.clone(),
+                Arc::default(),
+            ),
+            job,
+            &[],
+        )
+        .await
+        .expect("execute process job");
+
+        assert_ne!(
+            finished.stage_detail.as_deref(),
+            Some("no output for 0s"),
+            "关闭时不得触发空闲超时"
+        );
+        assert!(
+            finished
+                .result
+                .as_ref()
+                .is_some_and(|result| result.stdout.contains("late-line")),
+            "静默之后的输出必须照常收到:{:?}",
+            finished.stage_detail
+        );
+    }
+
     /// worker 退出后,孙进程仍握着 stdout 管道时,runner 不能永久挂住。
     ///
     /// 这里的 worker 派生一个 `setsid()` 脱离进程组的孙进程再立刻退出。

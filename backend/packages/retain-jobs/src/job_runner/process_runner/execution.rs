@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::{Context, Result};
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use tokio::time::{timeout, Duration};
 
 use crate::config::WorkerProcessRuntimeConfig;
@@ -38,6 +38,54 @@ pub(super) enum ProcessExecution {
     TimedOut(JobRuntimeState),
 }
 
+/// 两条互相独立的超时。
+///
+/// `Total` 是 `timeout_seconds`,整段执行的上限,必须按最坏情况给——一本大
+/// 部头翻译几个小时是正常的。`NoOutput` 是 `no_output_timeout_seconds`,盯的
+/// 是"还在不在动":卡在第一页之后没有任何 stdout,不该等满那几个小时才被
+/// 发现。两者阈值差一两个数量级是常态,所以不能合并成一个。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum TimeoutKind {
+    Total,
+    NoOutput,
+}
+
+enum WaitOutcome {
+    Exited(ExitStatus),
+    TimedOut(TimeoutKind),
+}
+
+/// 同时盯总时长与空闲时长。轮询而不是 select,因为空闲的截止时刻会随每一行
+/// 输出往后推,没法预先算出一个固定的 sleep。
+///
+/// `child.wait()` 是 cancel-safe 的(tokio 文档明写),所以每轮重建它是安全的。
+async fn wait_with_limits(
+    child: &mut tokio::process::Child,
+    total_secs: i64,
+    no_output_secs: i64,
+    last_output_at: &Mutex<Instant>,
+    started: Instant,
+) -> Result<WaitOutcome> {
+    if total_secs <= 0 && no_output_secs <= 0 {
+        return Ok(WaitOutcome::Exited(child.wait().await?));
+    }
+    let poll = Duration::from_millis(250);
+    loop {
+        if let Ok(status) = timeout(poll, child.wait()).await {
+            return Ok(WaitOutcome::Exited(status?));
+        }
+        if total_secs > 0 && started.elapsed() >= Duration::from_secs(total_secs as u64) {
+            return Ok(WaitOutcome::TimedOut(TimeoutKind::Total));
+        }
+        if no_output_secs > 0 {
+            let idle = last_output_at.lock().await.elapsed();
+            if idle >= Duration::from_secs(no_output_secs as u64) {
+                return Ok(WaitOutcome::TimedOut(TimeoutKind::NoOutput));
+            }
+        }
+    }
+}
+
 pub(super) async fn collect_process_execution(
     persist: &JobPersistDeps,
     canceled_jobs: &Arc<RwLock<HashSet<String>>>,
@@ -53,6 +101,9 @@ pub(super) async fn collect_process_execution(
     let stderr = child.stderr.take().context("missing stderr pipe")?;
     let child_pid = job.pid;
     let timeout_secs = job.request_payload.runtime.timeout_seconds;
+    let no_output_secs = job.request_payload.runtime.no_output_timeout_seconds;
+    let started = Instant::now();
+    let last_output_at = Arc::new(Mutex::new(started));
     let stdout_handle = tokio::spawn(read_stdout(
         persist.clone(),
         canceled_jobs.clone(),
@@ -60,14 +111,22 @@ pub(super) async fn collect_process_execution(
         stdout,
         runtime_secrets.clone(),
         extra_cancel_job_ids.to_vec(),
+        last_output_at.clone(),
     ));
     let stderr_handle = tokio::spawn(read_stream(stderr, runtime_secrets));
-    let started = Instant::now();
 
-    let status = if timeout_secs > 0 {
-        match timeout(Duration::from_secs(timeout_secs as u64), child.wait()).await {
-            Ok(result) => result?,
-            Err(_) => {
+    let status = {
+        match wait_with_limits(
+            &mut child,
+            timeout_secs,
+            no_output_secs,
+            &last_output_at,
+            started,
+        )
+        .await?
+        {
+            WaitOutcome::Exited(status) => status,
+            WaitOutcome::TimedOut(kind) => {
                 if let Some(pid) = child_pid {
                     let _ = terminate_job_process_tree(
                         pid,
@@ -102,11 +161,11 @@ pub(super) async fn collect_process_execution(
                     started,
                     stdout_text,
                     stderr_text,
+                    kind,
+                    no_output_secs,
                 )?));
             }
         }
-    } else {
-        child.wait().await?
     };
 
     let (stdout_text, latest_job) = drain_stdout(stdout_handle, persist, &job_id, drain_secs).await?;

@@ -192,11 +192,20 @@
     },
     "RuntimeInput": {
       "type": "object",
-      "required": ["job_id", "timeout_seconds", "render_after_translation"],
+      "required": [
+        "job_id",
+        "timeout_seconds",
+        "no_output_timeout_seconds",
+        "render_after_translation"
+      ],
       "additionalProperties": false,
       "properties": {
         "job_id": { "type": "string" },
         "timeout_seconds": { "type": "integer" },
+        "no_output_timeout_seconds": {
+          "type": "integer",
+          "description": "空闲检测：多久没有 stdout 输出就判定 worker 卡死（秒）。0 表示关闭，也是默认值。与 timeout_seconds 相互独立——后者是整段执行的上限，要按最坏情况给。"
+        },
         "render_after_translation": { "type": "boolean" }
       }
     },

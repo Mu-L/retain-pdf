@@ -135,10 +135,33 @@ Canonical JSON request:
   "runtime": {
     "job_id": "",
     "timeout_seconds": 1800,
+    "no_output_timeout_seconds": 0,
     "render_after_translation": false
   }
 }
 ```
+
+Timeout note:
+
+`timeout_seconds` and `no_output_timeout_seconds` are two independent limits and
+are meant to sit orders of magnitude apart.
+
+- `timeout_seconds` caps the whole run and must be sized for the worst case — a
+  long book translation legitimately takes hours, so the threshold has to be
+  hours. It must be a positive integer; there is no "unlimited".
+- `no_output_timeout_seconds` watches whether the worker is still moving: the
+  clock resets on every stdout line and expires only if the worker goes silent.
+  A job that wedges after page one no longer waits out the multi-hour total.
+  `0` (the default) disables it. Normal quiet stretches differ a lot per stage —
+  waiting on a provider response, OCRing a single page — so there is no safe
+  universal default; set it per workflow.
+
+Both end the job as `failed` with `return_code: -1` and failure code
+`process_timeout`, since the handling is the same either way. They differ in
+`stage_detail`, because the thing to investigate is not: the total timeout reads
+`provider timeout` (or `normalization timeout`), the idle timeout reads
+`no output for {N}s`. Output collected before the job wedged is preserved in
+either case.
 
 Security note:
 
@@ -256,6 +279,7 @@ OCR provider options:
 
 - `ocr.options` is the canonical JSON object for provider-specific non-secret options.
 - For multipart helper requests, send the same object as JSON string field `ocr_options`.
+- Multipart helper requests accept `timeout_seconds` and `no_output_timeout_seconds` as flat fields, same semantics as the JSON `runtime` block.
 - Paddle `ocr.options.transport` accepts `official_http` (default) or `official_cli`.
 - `official_cli` uses the externally installed official `paddleocr api` client and is only accepted by `/api/v1/ocr/jobs`. It is a Markdown/coarse document extraction path; its result does not provide the `bbox`/`prunedResult` contract required by translation and render, so `book` and `translate` requests must use `official_http`.
 - Selecting `official_cli` does not install PaddleOCR or add it to the server base image. A missing executable is reported as a provider worker failure.

@@ -2,6 +2,7 @@
 
 这里存放当前生产前端的架构、联调和状态检查资料。
 
+- [后端改动交接](./backend-changes-handoff.md) —— 需要前端配合的新端点/新字段/新错误码
 - [前端状态 Smoke](./status_smoke.md)
 - [图书馆数据层 API](./library-api.md)
 - [统一 React SPA 目标架构](./spa-architecture.md)

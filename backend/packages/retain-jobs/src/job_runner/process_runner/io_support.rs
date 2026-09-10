@@ -2,11 +2,12 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
+use std::time::Instant;
 
 use anyhow::{Context, Result};
 use sha2::{Digest, Sha256};
 use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 
 use crate::db::{PipelineAttemptCursor, PipelineStageObservation, PipelineUnitCommit};
 use crate::job_events::persist_runtime_job_with_resources;
@@ -43,6 +44,7 @@ pub(super) async fn read_stdout(
     stdout: tokio::process::ChildStdout,
     runtime_secrets: Vec<String>,
     extra_cancel_job_ids: Vec<String>,
+    last_output_at: Arc<Mutex<Instant>>,
 ) -> Result<(String, JobRuntimeState)> {
     let mut out = String::new();
     let mut secrets = sensitive_values(&job.request_payload);
@@ -64,6 +66,9 @@ pub(super) async fn read_stdout(
     )?;
     while let Some(raw_line) = lines.next_line().await? {
         let line = redact_text(&raw_line, &secrets);
+        // 收到任何一行就算"还在动"。放在所有 break 之前:进程有没有活着,
+        // 与这行内容是什么、要不要继续处理它无关。
+        *last_output_at.lock().await = Instant::now();
         if is_cancel_requested_any(&canceled_jobs, &job.job_id, &extra_cancel_job_ids).await {
             break;
         }

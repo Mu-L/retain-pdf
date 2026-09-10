@@ -183,6 +183,10 @@ export interface RenderInput {
 export interface RuntimeInput {
   job_id: string;
   timeout_seconds: number;
+  /**
+   * 空闲检测：多久没有 stdout 输出就判定 worker 卡死（秒）。0 表示关闭，也是默认值。与 timeout_seconds 相互独立——后者是整段执行的上限，要按最坏情况给。
+   */
+  no_output_timeout_seconds: number;
   render_after_translation: boolean;
 }
 /**

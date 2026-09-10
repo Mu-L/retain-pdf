@@ -82,6 +82,9 @@ pub(super) fn apply_multipart_request_field(
         "poll_timeout" => request.ocr.poll_timeout = parse_i64_like(name, value)?,
         "ocr_options" => request.ocr.options = parse_json_object_field(name, value)?,
         "timeout_seconds" => request.runtime.timeout_seconds = parse_i64_like(name, value)?,
+        "no_output_timeout_seconds" => {
+            request.runtime.no_output_timeout_seconds = parse_i64_like(name, value)?
+        }
         "body_font_size_factor" => {
             request.render.body_font_size_factor = parse_f64_like(name, value)?
         }
@@ -157,6 +160,13 @@ mod tests {
             .expect("render_mode");
         apply_multipart_request_field(&mut request, &mut developer_mode, "timeout_seconds", "600")
             .expect("timeout_seconds");
+        apply_multipart_request_field(
+            &mut request,
+            &mut developer_mode,
+            "no_output_timeout_seconds",
+            "120",
+        )
+        .expect("no_output_timeout_seconds");
 
         assert!(!developer_mode);
         assert_eq!(request.source.upload_id, "upload-1");
@@ -170,6 +180,9 @@ mod tests {
         assert_eq!(request.translation.credential_ref, "cred-translation");
         assert_eq!(request.render.render_mode, "auto");
         assert_eq!(request.runtime.timeout_seconds, 600);
+        // multipart 也必须能设空闲超时,否则 /translate/bundle 那条路的调用方
+        // 根本用不上这个功能,而它们恰恰是最容易撞上"卡住不动"的同步调用。
+        assert_eq!(request.runtime.no_output_timeout_seconds, 120);
     }
 
     #[test]

@@ -693,6 +693,50 @@ fn non_positive_timeout_is_rejected_on_every_creation_path() {
 }
 
 #[test]
+fn negative_no_output_timeout_is_rejected_but_zero_means_disabled() {
+    // `no_output_timeout_seconds` 与 `timeout_seconds` 的合法域不同:0 是
+    // "关闭空闲检测",是默认值也是绝大多数提交的取值,必须放行。负数则没有
+    // 任何解释,只可能是调用方算错了(例如拿两个时间戳相减写反了顺序),
+    // 放过去会让空闲检测静默失效——`no_output_secs > 0` 的判断直接跳过它。
+    let state = test_state("no-output-timeout-guard");
+
+    for workflow in [
+        WorkflowKind::Book,
+        WorkflowKind::Translate,
+        WorkflowKind::Render,
+    ] {
+        let mut input = base_translation_input(workflow.clone());
+        input.runtime.no_output_timeout_seconds = -1;
+        let error = build_translation_job_snapshot(&snapshot_context(&state), &input).expect_err(
+            &format!("workflow={workflow:?} 的负数 no_output_timeout_seconds 必须被拒绝"),
+        );
+        assert!(
+            format!("{error:?}").contains("no_output_timeout_seconds"),
+            "workflow={workflow:?} 的报错应指明 no_output_timeout_seconds，实际: {error:?}"
+        );
+    }
+
+    let mut ocr_input = base_translation_input(WorkflowKind::Ocr);
+    ocr_input.source.source_url = "https://example.com/input.pdf".to_string();
+    ocr_input.runtime.no_output_timeout_seconds = -1;
+    let error = build_ocr_job_snapshot(&snapshot_context(&state), &ocr_input, None)
+        .expect_err("OCR 路径的负数 no_output_timeout_seconds 必须被拒绝");
+    assert!(
+        format!("{error:?}").contains("no_output_timeout_seconds"),
+        "OCR 路径的报错应指明 no_output_timeout_seconds，实际: {error:?}"
+    );
+
+    // 0(关闭)与正数都必须放行。
+    for value in [0, 30] {
+        let mut ok_input = base_translation_input(WorkflowKind::Ocr);
+        ok_input.source.source_url = "https://example.com/input.pdf".to_string();
+        ok_input.runtime.no_output_timeout_seconds = value;
+        build_ocr_job_snapshot(&snapshot_context(&state), &ok_input, None)
+            .unwrap_or_else(|error| panic!("no_output_timeout_seconds={value} 必须放行: {error:?}"));
+    }
+}
+
+#[test]
 fn build_ocr_job_snapshot_supports_source_url_without_upload() {
     let state = test_state("ocr-source-url");
     let mut input = base_translation_input(WorkflowKind::Ocr);
