@@ -3,6 +3,7 @@ use crate::models::domain::{JobSnapshot, UploadRecord, WorkflowKind};
 use crate::models::request::CreateJobInput;
 use crate::services::job_snapshot_factory::{build_job_snapshot, JobCommandKind, JobInit};
 
+use crate::services::job_validation::validate_runtime_limits;
 use crate::services::jobs::deps::SnapshotBuildDeps;
 use super::prepare::{
     prepare_full_pipeline_input, prepare_ocr_input, prepare_render_input,
@@ -13,6 +14,9 @@ pub(super) fn build_translation_job_snapshot(
     ctx: &SnapshotBuildDeps<'_>,
     input: &CreateJobInput,
 ) -> Result<JobSnapshot, AppError> {
+    // 三条翻译/渲染路径的公共入口：runtime 参数在这里统一校验，
+    // 而不是散落在各自的 prepare_* 里（见 validate_runtime_limits 的注释）。
+    validate_runtime_limits(input)?;
     match input.workflow {
         WorkflowKind::Ocr => {
             return Err(AppError::bad_request(
@@ -91,6 +95,7 @@ pub(super) fn build_ocr_job_snapshot(
     input: &CreateJobInput,
     upload: Option<&UploadRecord>,
 ) -> Result<JobSnapshot, AppError> {
+    validate_runtime_limits(input)?;
     let prepared = prepare_ocr_input(ctx, input, upload)?;
     build_job_snapshot(
         &ctx.config,

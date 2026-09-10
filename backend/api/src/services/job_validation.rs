@@ -211,6 +211,25 @@ fn validate_optional_output_filename(field: &str, value: &str) -> Result<(), App
     Ok(())
 }
 
+/// 所有工作流共用的 runtime 参数校验。
+///
+/// `timeout_seconds` 原先只在 `validate_ocr_provider_request` 里查，而那个函数
+/// 只被 OCR-only 的创建路径调用。另外三条（full pipeline / translate-only /
+/// render-only）从不校验，multipart 的 `parse_i64_like` 也没有范围检查——于是
+/// `timeout_seconds=0` 能一路打到 runner，在
+/// `job_runner/process_runner/execution.rs` 落进 `timeout_secs > 0` 的 else 分支，
+/// 走裸 `child.wait().await?`，**完全没有超时**，进程可以永远挂着。
+///
+/// 所以这条校验必须挂在所有创建路径的公共入口上，而不是某一条路径里。
+pub fn validate_runtime_limits(input: &CreateJobInput) -> Result<(), AppError> {
+    if input.runtime.timeout_seconds <= 0 {
+        return Err(AppError::bad_request(
+            "timeout_seconds must be a positive integer",
+        ));
+    }
+    Ok(())
+}
+
 pub fn validate_ocr_provider_request(input: &CreateJobInput) -> Result<(), AppError> {
     let provider = input.ocr.provider.trim();
     if provider.is_empty() {
@@ -226,11 +245,6 @@ pub fn validate_ocr_provider_request(input: &CreateJobInput) -> Result<(), AppEr
     {
         return Err(AppError::bad_request(
             "source_url must start with http:// or https://",
-        ));
-    }
-    if input.runtime.timeout_seconds <= 0 {
-        return Err(AppError::bad_request(
-            "timeout_seconds must be a positive integer",
         ));
     }
     Ok(())

@@ -638,6 +638,61 @@ fn build_translation_job_snapshot_for_render_succeeds_with_existing_artifact_job
 }
 
 #[test]
+fn non_positive_timeout_is_rejected_on_every_creation_path() {
+    // `timeout_seconds` 的校验原先只写在 `validate_ocr_provider_request` 里，
+    // 而那个函数只被 OCR-only 的 prepare 调用。full pipeline / translate-only /
+    // render-only 三条路径从不校验，multipart 的 parse_i64_like 也没有范围检查。
+    //
+    // 后果不是"参数不合法"这么轻：runner 的
+    // job_runner/process_runner/execution.rs 是 `if timeout_secs > 0 { timeout(..) }
+    // else { child.wait().await? }`——0 会落进 else，走**完全没有超时**的裸等待，
+    // 进程可以永远挂着，没有任何机制把它收掉。
+    //
+    // 所以四条路径都必须拒绝，缺一条就等于那条路径上的超时保护不存在。
+    let state = test_state("runtime-timeout-guard");
+
+    for workflow in [
+        WorkflowKind::Book,
+        WorkflowKind::Translate,
+        WorkflowKind::Render,
+    ] {
+        for timeout_seconds in [0, -1] {
+            let mut input = base_translation_input(workflow.clone());
+            input.runtime.timeout_seconds = timeout_seconds;
+            let error = build_translation_job_snapshot(&snapshot_context(&state), &input)
+                .expect_err(&format!(
+                    "workflow={workflow:?} timeout_seconds={timeout_seconds} 必须被拒绝"
+                ));
+            assert!(
+                format!("{error:?}").contains("timeout_seconds"),
+                "workflow={workflow:?} 的报错应指明 timeout_seconds，实际: {error:?}"
+            );
+        }
+    }
+
+    for timeout_seconds in [0, -1] {
+        let mut input = base_translation_input(WorkflowKind::Ocr);
+        input.source.source_url = "https://example.com/input.pdf".to_string();
+        input.runtime.timeout_seconds = timeout_seconds;
+        let error = build_ocr_job_snapshot(&snapshot_context(&state), &input, None).expect_err(
+            &format!("workflow=Ocr timeout_seconds={timeout_seconds} 必须被拒绝"),
+        );
+        assert!(
+            format!("{error:?}").contains("timeout_seconds"),
+            "OCR 路径的报错应指明 timeout_seconds，实际: {error:?}"
+        );
+    }
+
+    // 正数仍然放行（回归保护：新校验不得误伤正常提交）。
+    // 用 OCR 路径做这条，因为它接受 source_url、不需要预先 seed upload。
+    let mut ok_input = base_translation_input(WorkflowKind::Ocr);
+    ok_input.source.source_url = "https://example.com/input.pdf".to_string();
+    ok_input.runtime.timeout_seconds = 1;
+    build_ocr_job_snapshot(&snapshot_context(&state), &ok_input, None)
+        .expect("正数 timeout_seconds 必须放行");
+}
+
+#[test]
 fn build_ocr_job_snapshot_supports_source_url_without_upload() {
     let state = test_state("ocr-source-url");
     let mut input = base_translation_input(WorkflowKind::Ocr);
