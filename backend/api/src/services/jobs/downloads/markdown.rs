@@ -29,6 +29,26 @@ pub(crate) async fn markdown_download(
     })
 }
 
+/// 原文下载走文件流,不把整篇读进内存。
+///
+/// 交给 `stream_file` 而不是自己返回 String,是为了直接吃到它已经实现好的
+/// HTTP Range:阅读器要的"滚到底再拉下一段"用 `Range: bytes=a-b` 就够,不需要
+/// 另造一套游标端点。顺带修掉了原先每次请求都把整篇(实测最大 620 KB)读进
+/// 堆的问题。
+pub(crate) fn markdown_raw_download(
+    deps: &QueryJobsDeps<'_>,
+    job_id: &str,
+) -> Result<FileDownload, AppError> {
+    let job = load_supported_job(deps.db, deps.data_root, job_id)?;
+    let markdown_path = resolve_markdown_path(&job, deps.data_root)
+        .ok_or_else(|| AppError::not_found(format!("markdown not found: {job_id}")))?;
+    Ok(FileDownload::new(
+        markdown_path,
+        "text/markdown; charset=utf-8",
+        None,
+    ))
+}
+
 pub(crate) async fn markdown_document_view(
     deps: &QueryJobsDeps<'_>,
     job_id: &str,

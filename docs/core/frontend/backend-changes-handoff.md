@@ -7,6 +7,85 @@
 
 ---
 
+## 0. 阅读视图分段读 markdown：用 HTTP Range，不新增端点
+
+后端提交：`perf(api): markdown 原文改走文件流，直接支持 Range`
+
+### 结论先说
+
+你提案里的 `/markdown/metadata` 和 `/markdown/chunks` 两个端点**都不做**，
+改用已有的 `GET /api/v1/jobs/:job_id/markdown?raw=true` + 标准 HTTP `Range`。
+
+后端 API 已经 113 个,markdown 一个资源就占 3 条。加两条自定义端点去做一件
+HTTP 本来就定义了的事,不划算。
+
+### 为什么 metadata 端点不做
+
+它的每一个字段,job detail 的 `artifacts.markdown` 里都已经有了:
+
+| 提案的 `MarkdownMetadataView` | 已有的位置 |
+|---|---|
+| `ready` | `artifacts.markdown.ready` |
+| `total_bytes` | `artifacts.markdown.size_bytes` |
+| `raw_path` / `raw_url` | `artifacts.markdown.raw_path` / `raw_url` |
+| `images_base_path` / `images_base_url` | 同名字段 |
+| `chunks_path` | 不再需要 |
+
+而且 `Content-Range: bytes 0-262143/620000` 的分母就是总字节数,第一次请求
+就拿到了,连预先查一次都不用。
+
+### 为什么 chunks 端点不做
+
+`stream_file` 早就实现了完整的 Range(解析头、`206`、`Content-Range`、
+`Accept-Ranges`、seek + 流式读),只是 markdown 这条路没接上——它原先把整篇
+`read_to_string` 进堆再整个返回。现在接上了,顺带修掉了那次整篇读入
+(实测最大的 `full.md` 是 620 KB)。
+
+你否掉 Range 的理由是「按字节切会切到行/多字节字符中间,前端拼行更麻烦」。
+多字节那半在浏览器里不成立:`TextDecoder(..., { stream: true })` 就是为跨块
+序列设计的,是内置能力。行边界那半确实要前端做,但只有几行。
+
+### 前端要怎么用
+
+```js
+const res = await fetch(rawUrl, {
+  headers: { ...apiHeaders, Range: `bytes=${offset}-${offset + WINDOW - 1}` },
+});
+// 206；Content-Range: bytes <start>-<end>/<total>
+const total = Number(res.headers.get("Content-Range").split("/")[1]);
+const etag = res.headers.get("ETag");
+```
+
+两件必须自己做的事:
+
+1. **字符边界**：整段读取过程共用**一个** `TextDecoder`,每次
+   `decoder.decode(bytes, { stream: true })`。**不要**每段单独解码——那会在
+   跨块的多字节字符上出乱码。
+2. **行边界**：一段可能停在行中间,会把代码块 / 表格行 / 公式劈开。把最后一个
+   `\n` 之后的残余留下,拼到下一段开头再交给渲染。
+
+**版本检测**：比对各段的 `ETag`(size + mtime)。正文由 pipeline 一次性整篇写出,
+当前没有任何路径会就地改写它(非 render 的 rerun/retry 都建新 job;render 就地
+重跑只清 `rendered/`),所以偏移量在实践中是稳定的——但那是当下 job 生命周期的
+性质,不是这个端点给的保证。`ETag` 中途变了就从 0 重来,否则拼出来的是两个版本
+的混合,而且是静默的。也可以直接用 `If-Range`。
+
+### 几点提醒
+
+- 图片仍是正文里的原始相对路径(`images/...`),用 `images_base_url` 解析。
+  **复用 `frontend/packages/domain/src/job/artifacts.ts` 的
+  `resolveMarkdownAssetUrl`,别在新数据层里重写一遍**——它第 281 行那个
+  `while (rel.startsWith("images/"))` 是在剥双重前缀(`images_base_url` 已经
+  以 `/images/` 结尾,而正文里写的是 `images/x.png`),漏掉就是 404。
+- 不带 `Range` 时行为不变:`200` + 整篇,旧调用方不受影响。
+- `/markdown/document` 保留。但阅读器迁走后它只剩 job-detail 页在用,而它贵在
+  两处:整篇正文返回两份(原文 + 图片链接重写版),外加 `walkdir` 遍历整个 images
+  目录逐个 stat + mime_guess。**如果 job-detail 那边也能改用 `?raw=true`,这条
+  端点就可以删掉**,markdown 从 3 条端点收敛到 2 条。要不要做由你定,后端这边
+  随时可以配合。
+
+---
+
 ## 1. 收藏挡住删除 → 结构化 409 + 清空收藏端点
 
 后端提交：`feat(library): 收藏挡住删除时返回结构化 409，并给出清空收藏的端点`

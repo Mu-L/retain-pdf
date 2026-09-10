@@ -178,6 +178,34 @@ Default response:
 Response:
 
 - raw `text/markdown; charset=utf-8`
+- streamed from the file, not buffered into memory
+- `Accept-Ranges: bytes`, and `Range: bytes=<start>-<end>` returns `206` with
+  `Content-Range: bytes <start>-<end>/<total>`
+- `ETag` derived from size and mtime
+
+### Reading long Markdown in parts
+
+This is the paging path for readers: request the first window, render it, and
+fetch the next window when the viewport reaches the end. There is no separate
+cursor endpoint — plain HTTP `Range` covers it, and `Content-Range` already
+reports the total size, so nothing has to be looked up first.
+
+Two things the client owns, because byte offsets do not respect text structure:
+
+- **Character boundaries.** A window can end in the middle of a multi-byte
+  UTF-8 sequence. Decode with `TextDecoder(..., { stream: true })`, which
+  carries the partial sequence into the next chunk. Do not decode each window
+  independently.
+- **Line boundaries.** A window can end mid-line, which would split a fenced
+  code block, a table row, or a formula. Hold back the text after the last
+  newline and prepend it to the next window before rendering.
+
+Compare `ETag` across windows. The published Markdown is written once by the
+pipeline and no current path rewrites it in place, so offsets are stable in
+practice — but that is a property of today's job lifecycle, not a guarantee
+this endpoint makes. If the `ETag` changes mid-read, the offsets belong to a
+different revision and the fetch should restart at zero; otherwise the pieces
+silently splice two versions together. `If-Range` works here too.
 
 `GET /api/v1/jobs/{job_id}/markdown/document`
 

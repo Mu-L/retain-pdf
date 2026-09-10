@@ -2,6 +2,7 @@ use crate::error::AppError;
 use crate::models::api::{MarkdownDocumentView, PagePreviewQuery};
 use crate::services::jobs::downloads::{
     bundle_download, cover_download, document_download, markdown_document_view, markdown_download,
+    markdown_raw_download,
     markdown_image_download, page_preview_download, side_by_side_pdf_download, thumbnail_download,
     DocumentDownloadKind, FileDownload, MarkdownDownload,
 };
@@ -54,6 +55,10 @@ impl<'a> JobsFacade<'a> {
         base_url: &str,
     ) -> Result<MarkdownDocumentView, AppError> {
         markdown_document_view(&self.query, job_id, base_url).await
+    }
+
+    pub fn markdown_raw_download(&self, job_id: &str) -> Result<FileDownload, AppError> {
+        markdown_raw_download(&self.query, job_id)
     }
 
     pub fn markdown_image_download(

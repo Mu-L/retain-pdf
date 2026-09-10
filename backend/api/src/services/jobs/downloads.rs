@@ -16,7 +16,9 @@ mod side_by_side;
 
 pub(crate) use artifacts::{bundle_download, registered_artifact_download};
 pub(crate) use documents::{document_download, DocumentDownloadKind};
-pub(crate) use markdown::{markdown_document_view, markdown_download, markdown_image_download};
+pub(crate) use markdown::{
+    markdown_document_view, markdown_download, markdown_image_download, markdown_raw_download,
+};
 pub(crate) use previews::{cover_download, page_preview_download, thumbnail_download};
 pub(crate) use side_by_side::side_by_side_pdf_download;
 

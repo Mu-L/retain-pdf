@@ -1,4 +1,4 @@
-use axum::http::{header, HeaderMap};
+use axum::http::{header, HeaderMap, HeaderValue};
 use axum::response::{IntoResponse, Response};
 
 use crate::error::AppError;
@@ -6,7 +6,8 @@ use crate::models::api::{to_absolute_url, MarkdownQuery, MarkdownView};
 use crate::routes::common::ok_json;
 use crate::services::jobs::MarkdownDownload;
 
-use super::files::jobs_facade_ref;
+use super::files::{file_download_response, jobs_facade_ref};
+use crate::routes::job_helpers::file_etag;
 use crate::routes::common::{request_base_url, JobsRouteDeps};
 
 pub async fn markdown_response(
@@ -15,6 +16,25 @@ pub async fn markdown_response(
     job_id: String,
     query: &MarkdownQuery,
 ) -> Result<Response, AppError> {
+    // raw 走文件流,于是直接拿到 `stream_file` 已经实现好的 HTTP Range:
+    // 阅读器要的"滚到底再拉下一段"用 `Range: bytes=a-b` 就够,不必再开一套
+    // 游标端点。ETag(size+mtime)让客户端能发现正文换了版本——分段拉取期间
+    // 正文若被改写,拼出来的会是两个版本的混合,而那是静默的。
+    //
+    // 非 raw 仍走 JSON,那条路要把正文塞进 JSON 字段,没法流式给。
+    if query.raw {
+        let download = jobs_facade_ref(deps).markdown_raw_download(&job_id)?;
+        let etag = file_etag(&download.path);
+        let mut response = file_download_response(download, headers).await?;
+        if let Some(etag) = etag {
+            response.headers_mut().insert(
+                header::ETAG,
+                HeaderValue::from_str(&etag)
+                    .map_err(|error| AppError::internal(error.to_string()))?,
+            );
+        }
+        return Ok(response);
+    }
     let markdown = jobs_facade_ref(deps).markdown_document(job_id).await?;
     markdown_download_response(
         headers,
