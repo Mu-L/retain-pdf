@@ -623,11 +623,21 @@ def test_stream_timeout_emits_heartbeats_and_one_structured_terminal():
                 request_control.raise_if_stopped()
                 time.sleep(0.01)
 
+    # 预算不能按 heartbeat_interval 的几倍来估。经 TestClient → starlette 的
+    # SSE 转发,每次 `yield` 都要跨线程同步一次,实测一轮循环约 0.2 秒——远大于
+    # 这里设的 interval,所以真正的心跳条数是 deadline / 0.2,与 interval 基本
+    # 无关(把 interval 从 0.05 调到 0.03、或把 runtime 的 sleep 从 0.01 调到
+    # 0.05,心跳条数都不变)。
+    #
+    # 原先 deadline=0.12 连一轮都不够,一条心跳也发不出来,于是这条用例在整套
+    # 跑时红、单独跑时绿。现在 1.0 秒约产出 5 条心跳,留够 5 倍余量。
+    #
+    # 要调小请先量:把 deadline 降到 0.4 以下就只剩 2 条,再降就归零。
     settings = Settings(
         api_keys=frozenset({"test-key"}),
         llm_api_key="env-llm-key",
-        ai_request_deadline_s=0.12,
-        ai_heartbeat_interval_s=0.03,
+        ai_request_deadline_s=1.0,
+        ai_heartbeat_interval_s=0.05,
     )
     client = TestClient(
         build_app(settings, agent=FakeAgent(), runtime=SlowOperationRuntime())
@@ -648,7 +658,10 @@ def test_stream_timeout_emits_heartbeats_and_one_structured_terminal():
             if line.startswith("data: ")
         ]
 
-    assert any(event["type"] == "heartbeat" for event in events)
+    assert any(event["type"] == "heartbeat" for event in events), (
+        "长操作期间必须发心跳,否则中间的代理会把连接当死连接掐掉;"
+        f"实际收到的事件:{[event['type'] for event in events]}"
+    )
     terminals = [
         event for event in events if event["type"] in {"done", "error", "cancelled"}
     ]
