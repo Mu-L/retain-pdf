@@ -24,6 +24,31 @@ manually started sidecar.
 | `RUST_API_AI_PROXY_IDLE_TIMEOUT_SECS` | 30 | Maximum wait for the next upstream read |
 | `RUST_API_AI_PROXY_CONFIG_TIMEOUT_SECS` | 15 | Complete runtime-config request, including body |
 
+### Connection reuse and keep-alive
+
+Two settings on opposite sides of the same socket used to collide. The
+supervisor probes `/readyz` every `RUST_API_AI_HEALTH_INTERVAL_SECS` (default
+`5`), and uvicorn's own `timeout_keep_alive` also defaults to `5` — so the
+server closed the idle connection at the same moment the probe reused it, the
+request was reset in flight, and the log alternated
+`health probe failed` / `health recovered` at exactly one probe interval. The
+`/readyz` handler itself answers in about a millisecond and the AI service log
+is clean throughout; nothing was wrong on the server.
+
+Two independent changes, because the two callers want different things:
+
+- The supervisor's probe client keeps **no idle connections** and opens a fresh
+  one per probe. That removes the race outright rather than making it rarer,
+  and it does not depend on the server's configuration — which matters because
+  the probe interval is user-tunable and could be raised past any fixed
+  keep-alive window.
+- The AI service now takes `RETAIN_AI_KEEP_ALIVE_TIMEOUT_S` (default `75`) and
+  passes it to uvicorn. The proxy gateway that carries real user traffic *does*
+  pool connections, and a five-second idle window is easy to land on by
+  accident. Note this widens the window rather than eliminating it: any finite
+  keep-alive leaves a race with a pooling client. Closing it completely would
+  mean retrying idempotent requests in the gateway, which is a separate change.
+
 The latter three settings have a minimum of one second. The header default exceeds
 the normal 90-second AI request deadline because non-streaming asks send their
 headers only after producing an answer. Body idle timing starts after headers.

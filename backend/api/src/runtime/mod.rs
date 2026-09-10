@@ -2,3 +2,4 @@
 
 pub(crate) mod ai_supervisor;
 pub(crate) mod jobsd_supervisor;
+pub(crate) mod probe_client;

@@ -20,6 +20,7 @@ use tokio::task::JoinHandle;
 
 use crate::config::{AiServiceConfig, AppConfig};
 use crate::process::{configure_child_process, terminate_job_process_tree};
+use crate::runtime::probe_client::build_probe_client;
 
 pub const AI_STATUS_DISABLED: u8 = 0;
 pub const AI_STATUS_STARTING: u8 = 1;
@@ -221,11 +222,11 @@ pub fn spawn_ai_supervisor(
     }
     set_status(AI_STATUS_STARTING);
     Some(tokio::spawn(async move {
-        let client = reqwest::Client::builder()
-            .connect_timeout(ai.health_probe_connect_timeout)
-            .timeout(ai.health_probe_timeout)
-            .build()
-            .expect("build ai supervisor client");
+        let client = build_probe_client(
+            ai.health_probe_connect_timeout,
+            ai.health_probe_timeout,
+            "ai supervisor",
+        );
         let health_url = ai.health_url();
         let mut shutdown = shutdown;
         let mut backoff = ai.backoff_initial;

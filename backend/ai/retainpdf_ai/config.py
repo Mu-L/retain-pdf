@@ -70,6 +70,13 @@ def _repo_root() -> Path:
 class Settings:
     host: str = "127.0.0.1"
     port: int = 41100
+    # HTTP keep-alive 空闲回收阈值(秒)。uvicorn 默认 5 秒,与 rust_api 探测
+    # 间隔的默认值(RUST_API_AI_HEALTH_INTERVAL_SECS)恰好相同,于是服务端到点
+    # 关连接、客户端正好复用那一条,请求在途中被 RST。探测那侧已经改成不留
+    # 空闲连接,从根上不受影响;但 AiGateway(用户的 AI 请求)仍然用连接池,
+    # 而 5 秒是一个太容易被撞上的窗口。调大只是把窗口推远、不是消除竞态——
+    # 真正消除要让网关对幂等请求重试,那是另一件事。
+    keep_alive_timeout_s: int = 75
     # 本服务自身的认证 key 集合(与 Rust API 同风格的 X-API-Key)
     api_keys: frozenset[str] = field(default_factory=frozenset)
     # 调用 Rust API 用
@@ -215,6 +222,7 @@ def load_settings() -> Settings:
     settings = Settings(
         host=os.environ.get("RETAIN_AI_HOST", "127.0.0.1"),
         port=int(os.environ.get("RETAIN_AI_PORT", "41100")),
+        keep_alive_timeout_s=int(os.environ.get("RETAIN_AI_KEEP_ALIVE_TIMEOUT_S", "75")),
         api_keys=api_keys,
         rust_api_base=os.environ.get(
             "RETAIN_AI_RUST_API_BASE", "http://127.0.0.1:41000"

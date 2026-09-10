@@ -13,6 +13,7 @@ use tokio::task::JoinHandle;
 
 use crate::config::AppConfig;
 use crate::process::{configure_child_process, terminate_job_process_tree};
+use crate::runtime::probe_client::build_probe_client;
 
 pub const JOBSD_STATUS_DISABLED: u8 = 0;
 pub const JOBSD_STATUS_STARTING: u8 = 1;
@@ -211,11 +212,11 @@ pub fn spawn_jobsd_supervisor(
     }
     set_status(JOBSD_STATUS_STARTING);
     Some(tokio::spawn(async move {
-        let client = reqwest::Client::builder()
-            .connect_timeout(app.jobs_service.health_probe_connect_timeout)
-            .timeout(app.jobs_service.health_probe_timeout)
-            .build()
-            .expect("build jobsd supervisor client");
+        let client = build_probe_client(
+            app.jobs_service.health_probe_connect_timeout,
+            app.jobs_service.health_probe_timeout,
+            "jobsd supervisor",
+        );
         let health_url = app.jobs_service.health_url();
         let mut shutdown = shutdown;
         let mut backoff = app.jobs_service.backoff_initial;
