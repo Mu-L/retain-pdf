@@ -8,7 +8,7 @@ use tower::util::ServiceExt;
 
 use super::jobs_common::{minimal_pdf_bytes, read_json, test_state};
 use crate::app::build_app;
-use crate::models::domain::{JobSnapshot, JobStatusKind, WorkflowKind};
+use crate::models::domain::{CreateJobInput, JobSnapshot, JobStatusKind, WorkflowKind};
 
 const FAKE_OCR_WORKER: &str = r##"
 import argparse
@@ -277,4 +277,69 @@ async fn ocr_only_submission_reaches_reader_and_document_outputs() {
         std::str::from_utf8(&markdown).expect("markdown UTF-8"),
         "# OCR lifecycle\n\nOCR lifecycle source text\n"
     );
+}
+
+/// 取消 normalizing 阶段的 OCR 任务必须真的杀掉 worker 进程。
+///
+/// 曾经这里有一条豁免：`ocr_only && stage == "normalizing"` 时跳过
+/// `terminate_runtime_process`，让 normalize 子进程"跑完再取消"。它保护的是
+/// 一个不存在的风险——normalizing 期间唯一的磁盘写入走
+/// `normalize_pipeline.py` 的 `save_json_atomic()`（同目录临时文件 +
+/// `os.replace`），被杀最坏只留一个孤立 .tmp；而代价是用户点了取消，进程却
+/// 继续跑到自然结束。
+///
+/// 这个用例起一个真实的、自成进程组的子进程（与生产 worker 的
+/// `configure_child_process` 同一套），把它的 pid 挂到一个 stage=normalizing
+/// 的 OCR 任务上，然后走真实 HTTP 取消路径，断言进程确实退出了。恢复那条
+/// 豁免会让 `child.wait()` 等到超时。
+#[tokio::test]
+async fn canceling_a_normalizing_ocr_job_kills_the_worker_process() {
+    let state = test_state("ocr-cancel-normalizing");
+    let job_id = "job-cancel-normalizing";
+
+    let mut command = tokio::process::Command::new("sleep");
+    command.arg("300");
+    retain_proc::configure_child_process(&mut command);
+    let mut child = command.spawn().expect("spawn stand-in worker");
+    let pid = child.id().expect("worker pid");
+
+    let mut job = JobSnapshot::new(
+        job_id.to_string(),
+        CreateJobInput::default(),
+        vec!["sleep".to_string(), "300".to_string()],
+    );
+    job.workflow = WorkflowKind::Ocr;
+    job.status = JobStatusKind::Running;
+    job.stage = Some("normalizing".to_string());
+    job.stage_detail = Some("正在归一化".to_string());
+    job.started_at = Some(job.updated_at.clone());
+    job.pid = Some(pid);
+    job.sync_runtime_state();
+    state.db.save_job(&job).expect("save normalizing ocr job");
+
+    // 前置条件：进程此刻确实活着，否则后面的"它死了"断言毫无意义。
+    assert!(
+        child.try_wait().expect("poll worker").is_none(),
+        "前置条件：取消之前 worker 必须还在跑"
+    );
+
+    let app = build_app(state.clone());
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/v1/ocr/jobs/{job_id}/cancel"))
+                .header("X-API-Key", "test-key")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::empty())
+                .expect("cancel request"),
+        )
+        .await
+        .expect("cancel response");
+    assert_eq!(response.status(), StatusCode::OK, "取消请求本身必须成功");
+
+    let exited = tokio::time::timeout(Duration::from_secs(10), child.wait())
+        .await
+        .expect("normalizing 阶段的 worker 必须在取消时被终止，而不是放它跑完");
+    exited.expect("reap worker");
 }

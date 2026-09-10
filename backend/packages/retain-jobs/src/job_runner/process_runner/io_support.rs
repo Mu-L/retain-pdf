@@ -64,9 +64,7 @@ pub(super) async fn read_stdout(
     )?;
     while let Some(raw_line) = lines.next_line().await? {
         let line = redact_text(&raw_line, &secrets);
-        if is_cancel_requested_any(&canceled_jobs, &job.job_id, &extra_cancel_job_ids).await
-            && !should_continue_after_cancel(&job)
-        {
+        if is_cancel_requested_any(&canceled_jobs, &job.job_id, &extra_cancel_job_ids).await {
             break;
         }
         out.push_str(&line);
@@ -90,9 +88,7 @@ pub(super) async fn read_stdout(
         if let Some(artifact) = parse_artifact_published_line(&line) {
             apply_durable_artifact_commit(persist.db.as_ref(), &mut pipeline_cursor, artifact)?;
         }
-        if is_cancel_requested_any(&canceled_jobs, &job.job_id, &extra_cancel_job_ids).await
-            && !should_continue_after_cancel(&job)
-        {
+        if is_cancel_requested_any(&canceled_jobs, &job.job_id, &extra_cancel_job_ids).await {
             break;
         }
         job.updated_at = now_iso();
@@ -246,10 +242,6 @@ fn durable_stage_order(stage: &str) -> u32 {
         "render" => 2,
         _ => 0,
     }
-}
-
-pub(super) fn should_continue_after_cancel(job: &JobRuntimeState) -> bool {
-    matches!(job.stage.as_deref(), Some("normalizing"))
 }
 
 #[cfg(test)]

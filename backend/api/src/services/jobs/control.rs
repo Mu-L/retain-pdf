@@ -88,10 +88,20 @@ pub(crate) async fn cancel_job(
         return Ok(job);
     }
 
-    if !ocr_only || !matches!(job.stage.as_deref(), Some("normalizing")) {
-        if let Some(pid) = job.pid {
-            terminate_runtime_process(deps.runtime.job_runtime(), pid, deps.job_runner).await?;
-        }
+    // 取消一律终止进程，normalizing 不再豁免。
+    //
+    // 原先 ocr_only + normalizing 时跳过 terminate，让 normalize 子进程"跑完再
+    // 取消"。这条豁免保护的东西其实不需要保护：normalizing 阶段唯一的磁盘写入
+    // 在 `normalize_pipeline.py` 的 `save_json_atomic()` 里，它用同目录临时文件 +
+    // `os.replace` 原子改名，其 docstring 写明就是为了防"worker 被中断时读者看到
+    // 截断的 JSON"。被 SIGKILL 最坏只留一个孤立 .tmp，目标文件要么旧内容完整、
+    // 要么新内容完整。而 normalize 本身是全量重算 + 原子覆盖，天然幂等，重跑
+    // 不需要"已完成则跳过"的判断。
+    //
+    // 代价则是实打实的：豁免期间进程继续跑，而 job 在 DB 里既没被杀也没落终态，
+    // 用户点了取消却要等它自然结束。
+    if let Some(pid) = job.pid {
+        terminate_runtime_process(deps.runtime.job_runtime(), pid, deps.job_runner).await?;
     }
     if ocr_only {
         if matches!(job.stage.as_deref(), Some("queued")) {

@@ -225,6 +225,26 @@ Current intent:
 - best-effort kill of the running Python worker process
 - mark job as `canceled`
 
+Cancel always terminates the worker process. There is no stage that gets to
+finish first.
+
+An earlier exemption let an OCR job in the `normalizing` stage keep running
+after a cancel, on the theory that interrupting normalization could leave a
+truncated `document.v1.json`. It cannot: normalization's only disk write goes
+through `save_json_atomic()` (temp file in the same directory, then
+`os.replace`), so a killed worker leaves at most an orphan `.tmp` and the
+target file stays either fully old or fully new. Normalization is also a full
+recompute, so a re-run needs no resume bookkeeping. Meanwhile the exemption
+cost was real: the process kept running while the job sat in the database
+neither killed nor marked terminal, so a user who pressed cancel had to wait
+for the stage to end on its own.
+
+The OCR-specific cancel (`POST /api/v1/ocr/jobs/{job_id}/cancel`) still only
+writes the terminal `canceled` row itself when the job is still `queued`. Past
+that point the process is killed and the runner records the terminal state
+when it observes the exit — so a client that polls right after cancelling may
+still read `running` for one tick.
+
 Response:
 
 ```json

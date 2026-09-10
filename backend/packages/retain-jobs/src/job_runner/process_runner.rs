@@ -27,8 +27,6 @@ use self::completion_pipeline::finalize_completed_process;
 use self::execution::{collect_process_execution, ProcessExecution};
 #[cfg(test)]
 use self::failure_ai_diagnosis::maybe_attach_ai_failure_diagnosis;
-#[cfg(test)]
-use self::io_support::should_continue_after_cancel;
 use self::startup::spawn_started_process;
 #[cfg(test)]
 use self::timeout_support::apply_timeout_failure;
@@ -195,16 +193,6 @@ pub(super) mod tests {
             canceled_jobs: Arc::new(RwLock::new(HashSet::new())),
             job_slots: Arc::new(Semaphore::new(1)),
         }
-    }
-
-    #[test]
-    fn should_continue_after_cancel_only_for_normalizing_stage() {
-        let mut job = build_job();
-        job.stage = Some("normalizing".to_string());
-        assert!(should_continue_after_cancel(&job));
-
-        job.stage = Some("translating".to_string());
-        assert!(!should_continue_after_cancel(&job));
     }
 
     #[test]
