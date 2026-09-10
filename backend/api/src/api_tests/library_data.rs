@@ -618,6 +618,154 @@ async fn documents_list_total_uses_filters_upload_constraint_and_job_lookup() {
 }
 
 #[tokio::test]
+async fn deleting_library_book_is_blocked_by_favorites_even_with_force() {
+    // 这条路径此前零 HTTP 级测试覆盖：`DELETE /api/v1/library/books/:id` 的收藏
+    // 保护从未被端到端验证过，`force=true` 是否能绕过它也没人验。
+    //
+    // 语义：force 只放行「运行中/排队中」的 job（ensure_deletable），
+    // 收藏保护是独立的一道，force 不得绕过——收藏是用户策展内容，删了不可逆。
+    let state = test_state("library-book-delete-favorites-guard");
+    let app = build_app(state.clone());
+    let document_id = seed_document(&state, b"book delete favorites guard");
+    seed_succeeded_job_for_document(&state, &document_id, "job-guarded");
+    state
+        .db
+        .set_document_active_job(&document_id, "job-guarded", None)
+        .expect("set active job");
+
+    let created = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/favorites")
+                .header("X-API-Key", "test-key")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "document_id": document_id,
+                        "job_id": "job-guarded",
+                        "page_idx": 1,
+                        "block_id": "p001-b0001",
+                        "quote_text": "anchored quote",
+                        "translated_quote_text": "锚定引用"
+                    })
+                    .to_string(),
+                ))
+                .expect("create favorite request"),
+        )
+        .await
+        .expect("create favorite response");
+    assert_eq!(created.status(), StatusCode::OK);
+    let favorite_id = json_response(created).await["data"]["favorite_id"]
+        .as_str()
+        .expect("favorite id")
+        .to_string();
+
+    for uri in [
+        "/api/v1/library/books/job-guarded",
+        "/api/v1/library/books/job-guarded?force=true",
+    ] {
+        let blocked = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("DELETE")
+                    .uri(uri)
+                    .header("X-API-Key", "test-key")
+                    .body(Body::empty())
+                    .expect("delete request"),
+            )
+            .await
+            .expect("delete response");
+        assert_eq!(
+            blocked.status(),
+            StatusCode::CONFLICT,
+            "收藏保护必须拦住 {uri}（force 不得绕过）"
+        );
+        assert!(
+            state.db.get_job("job-guarded").is_ok(),
+            "被拦下时 job 不得被删除: {uri}"
+        );
+    }
+
+    // 清掉收藏后才允许删除
+    let removed = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri(format!("/api/v1/favorites/{favorite_id}"))
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("delete favorite request"),
+        )
+        .await
+        .expect("delete favorite response");
+    assert_eq!(removed.status(), StatusCode::OK);
+
+    let deleted = app
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri("/api/v1/library/books/job-guarded")
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("final delete request"),
+        )
+        .await
+        .expect("final delete response");
+    assert_eq!(deleted.status(), StatusCode::OK);
+    assert!(state.db.get_job("job-guarded").is_err(), "job 应已删除");
+}
+
+#[tokio::test]
+async fn library_book_delete_fails_closed_when_favorites_lookup_errors() {
+    // 收藏保护的失败方向必须是"拒绝删除"，不能是"当作没有收藏、放行"。
+    //
+    // 原实现写的是 `favorites_referencing_job(..).unwrap_or(0)`：查询一旦出错
+    // （磁盘满、库损坏、迁移中途、锁争用）就退化成 0，保护静默消失，而删除是
+    // 不可逆的。正常环境下查询不会失败，所以这个缺陷用常规用例测不出来——
+    // 这里主动制造一次真实的查询失败来钉住它。
+    let state = test_state("library-book-delete-favorites-fail-closed");
+    let app = build_app(state.clone());
+    let document_id = seed_document(&state, b"book delete favorites fail closed");
+    seed_succeeded_job_for_document(&state, &document_id, "job-lookup-error");
+
+    // 制造查询失败：favorites 表不存在时 favorites_referencing_job 返回 Err。
+    let conn = rusqlite::Connection::open(state.config.jobs_db_path.clone()).expect("open db");
+    conn.execute("DROP TABLE favorites", [])
+        .expect("drop favorites table");
+    drop(conn);
+    assert!(
+        state.db.favorites_referencing_job("job-lookup-error").is_err(),
+        "前置条件：此时收藏查询必须真的失败"
+    );
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri("/api/v1/library/books/job-lookup-error")
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("delete request"),
+        )
+        .await
+        .expect("delete response");
+
+    assert_ne!(
+        response.status(),
+        StatusCode::OK,
+        "收藏查询失败时不得放行删除"
+    );
+    assert!(
+        state.db.get_job("job-lookup-error").is_ok(),
+        "查询失败时 job 必须原封不动"
+    );
+}
+
+#[tokio::test]
 async fn favorites_crud_and_job_reference_guard() {
     let state = test_state("library-favorites");
     let app = build_app(state.clone());
