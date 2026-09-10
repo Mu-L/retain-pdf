@@ -2,7 +2,7 @@ use axum::routing::{get, post};
 use axum::Router;
 
 use crate::app::AppState;
-use crate::routes::library;
+use crate::routes::{library, library_data};
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new()
@@ -11,6 +11,10 @@ pub(super) fn routes() -> Router<AppState> {
         .route(
             "/api/v1/library/books/:job_id",
             get(library::get_book).delete(library::delete_book),
+        )
+        .route(
+            "/api/v1/library/books/:job_id/favorites",
+            axum::routing::delete(library_data::clear_book_favorites_route),
         )
         .route(
             "/api/v1/library/books/:job_id/cover",

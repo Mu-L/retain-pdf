@@ -99,6 +99,31 @@ impl Db {
         Ok(changed > 0)
     }
 
+    /// 清空一篇文档名下的全部收藏,返回删掉的条数。
+    ///
+    /// 存在的理由是删除保护本身:文档被收藏引用时删除会 409,而用户确认
+    /// "连收藏一起删"之后,唯一的替代路径是逐条 `DELETE /favorites/{id}`——
+    /// 那既要先列举,又在中途失败时留下删了一半的收藏。
+    pub fn delete_favorites_for_document(&self, document_id: &str) -> Result<u64> {
+        let conn = self.connect()?;
+        let changed = conn.execute(
+            "DELETE FROM favorites WHERE document_id = ?1",
+            params![document_id],
+        )?;
+        Ok(changed as u64)
+    }
+
+    /// 清空引用某个 run 的全部收藏,返回删掉的条数。
+    /// 与 [`Db::delete_favorites_for_document`] 同理,服务于馆藏图书的删除保护。
+    pub fn delete_favorites_referencing_job(&self, job_id: &str) -> Result<u64> {
+        let conn = self.connect()?;
+        let changed = conn.execute(
+            "DELETE FROM favorites WHERE job_id = ?1",
+            params![job_id],
+        )?;
+        Ok(changed as u64)
+    }
+
     /// 被收藏锚点引用的 job 不允许单独删除(锚点块空间保护)。
     pub fn favorites_referencing_job(&self, job_id: &str) -> Result<u64> {
         let conn = self.connect()?;

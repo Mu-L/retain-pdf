@@ -324,6 +324,13 @@ pub struct FavoriteMutationResult {
     pub deleted: Option<bool>,
 }
 
+/// 批量清空收藏的结果。返回条数而不只是 `deleted: true`,因为调用方刚刚
+/// 在 409 里读到过一个 `favorite_count`,需要能核对自己删掉的是不是那一批。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FavoritesClearedResult {
+    pub deleted_count: u64,
+}
+
 fn default_search_limit() -> u32 {
     crate::config::limits::DEFAULT_LIST_LIMIT
 }

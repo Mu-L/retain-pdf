@@ -11,7 +11,8 @@ use crate::models::api::{
     CreateFavoriteInput, DocumentDeleteResultView, DocumentJobListView, DocumentListView,
     DocumentMetadataSuggestionApplyView, DocumentMetadataSuggestionListView,
     DocumentMetadataSuggestionView, DocumentRecord, FavoriteListView, FavoriteMutationResult,
-    FavoriteRecord, JobSubmissionView, LibraryBatchDeleteInput, LibraryBatchDeleteResultView,
+    FavoriteRecord, FavoritesClearedResult, JobSubmissionView, LibraryBatchDeleteInput,
+    LibraryBatchDeleteResultView,
     LibraryBookDetailView, LibraryBookListView, LibraryDeleteResultView, ListConversationsQuery,
     ListDocumentJobsQuery, ListDocumentMetadataSuggestionsQuery, ListDocumentsQuery,
     ListFavoritesQuery, ListJobsQuery, MessageRecord, PatchCollectionInput, PatchConversationInput,
@@ -21,8 +22,9 @@ use crate::models::request::CreateJobInput;
 use crate::services::jobs::JobsFacade;
 
 use super::{
-    add_collection_documents, append_message, apply_metadata_suggestion, create_collection,
-    create_conversation, create_favorite, create_metadata_suggestion, delete_collection,
+    add_collection_documents, append_message, apply_metadata_suggestion,
+    clear_favorites_for_document, clear_favorites_for_job, create_collection, create_conversation,
+    create_favorite, create_metadata_suggestion, delete_collection,
     delete_conversation, delete_document, delete_favorite, delete_library_book,
     delete_library_books, document_cover, document_source_pdf, document_thumbnail,
     get_conversation, get_document, get_library_book, list_collections, list_conversations,
@@ -212,6 +214,20 @@ pub fn delete_favorite_view(
     favorite_id: &str,
 ) -> Result<FavoriteMutationResult, AppError> {
     delete_favorite(deps, favorite_id)
+}
+
+pub fn clear_favorites_for_document_view(
+    deps: &LibraryDeps<'_>,
+    document_id: &str,
+) -> Result<FavoritesClearedResult, AppError> {
+    clear_favorites_for_document(deps, document_id)
+}
+
+pub fn clear_favorites_for_job_view(
+    deps: &LibraryDeps<'_>,
+    job_id: &str,
+) -> Result<FavoritesClearedResult, AppError> {
+    clear_favorites_for_job(deps, job_id)
 }
 
 // --- search ---

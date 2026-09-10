@@ -2656,3 +2656,180 @@ async fn delete_document_rolls_back_rows_and_keeps_files_when_a_step_fails() {
         "DB 没删成时不得已经把产物文件删了"
     );
 }
+
+/// 收藏挡住删除时必须给出结构化的 409,而不只是一句人话。
+///
+/// 客户端在这个 409 之后要做的事是固定的:告诉用户有 N 条收藏、问他要不要
+/// 一并删掉、清空、重试。若只给 `message`,那 N 和清空的目标就只能从中文
+/// 句子里正则抠出来,任何一次文案改动(包括做多语言)都会静默打断这条路径。
+///
+/// 文档级与 run 级共用错误码 `DELETE_BLOCKED_BY_FAVORITES`,靠 details 里的
+/// `scope` 和 `clear_favorites_path` 区分,所以客户端只需要一个分支。
+#[tokio::test]
+async fn favorites_blocked_delete_returns_structured_409_with_clear_path() {
+    use crate::models::{CreateJobInput, JobSnapshot, JobStatusKind};
+
+    let state = test_state("library-favorites-blocked-409");
+    let app = build_app(state.clone());
+    let document_id = seed_document(&state, b"structured 409 doc");
+
+    let mut job = JobSnapshot::new(
+        "job-blocked".to_string(),
+        CreateJobInput::default(),
+        vec!["python".to_string()],
+    );
+    job.status = JobStatusKind::Succeeded;
+    job.sync_runtime_state();
+    state.db.save_job(&job).expect("save job");
+    let conn = rusqlite::Connection::open(state.config.jobs_db_path.clone()).expect("open db");
+    conn.execute(
+        "UPDATE jobs SET document_id = ?1 WHERE job_id = 'job-blocked'",
+        rusqlite::params![document_id],
+    )
+    .expect("link job");
+    drop(conn);
+
+    for page in 1..=2 {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/favorites")
+                    .header("X-API-Key", "test-key")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "document_id": document_id,
+                            "job_id": "job-blocked",
+                            "page_idx": page,
+                            "block_id": format!("p00{page}-b0001"),
+                            "quote_text": "q"
+                        })
+                        .to_string(),
+                    ))
+                    .expect("request"),
+            )
+            .await
+            .expect("create favorite");
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    // 文档级
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri(format!("/api/v1/documents/{document_id}"))
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("request"),
+        )
+        .await
+        .expect("delete document");
+    assert_eq!(response.status(), StatusCode::CONFLICT);
+    let body = json_response(response).await;
+    assert_eq!(body["error"]["code"], "DELETE_BLOCKED_BY_FAVORITES");
+    assert_eq!(body["error"]["http_status"], 409);
+    assert_eq!(body["error"]["details"]["scope"], "document");
+    assert_eq!(body["error"]["details"]["favorite_count"], 2);
+    assert_eq!(body["error"]["details"]["document_id"], document_id);
+    assert_eq!(
+        body["error"]["details"]["clear_favorites_path"],
+        format!("/api/v1/documents/{document_id}/favorites")
+    );
+
+    // run 级:同一个错误码,details 换一套坐标
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri("/api/v1/library/books/job-blocked")
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("request"),
+        )
+        .await
+        .expect("delete book");
+    assert_eq!(response.status(), StatusCode::CONFLICT);
+    let body = json_response(response).await;
+    assert_eq!(body["error"]["code"], "DELETE_BLOCKED_BY_FAVORITES");
+    assert_eq!(body["error"]["details"]["scope"], "job");
+    assert_eq!(body["error"]["details"]["job_id"], "job-blocked");
+    assert_eq!(body["error"]["details"]["favorite_count"], 2);
+    assert_eq!(
+        body["error"]["details"]["clear_favorites_path"],
+        "/api/v1/library/books/job-blocked/favorites"
+    );
+
+    // 走 409 指出的那条路:清空 → 重试删除必须成功
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri(format!("/api/v1/documents/{document_id}/favorites"))
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("request"),
+        )
+        .await
+        .expect("clear favorites");
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = json_response(response).await;
+    assert_eq!(
+        body["data"]["deleted_count"], 2,
+        "清空必须报告实际删掉的条数,好让客户端核对它读到的 favorite_count"
+    );
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri(format!("/api/v1/documents/{document_id}"))
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("request"),
+        )
+        .await
+        .expect("retry delete");
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "清空收藏后重试删除必须放行,否则 409 指的那条路是死路"
+    );
+
+    // 清空是幂等的:没有收藏时返回 0 而不是报错
+    let other = seed_document(&state, b"no favorites doc");
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri(format!("/api/v1/documents/{other}/favorites"))
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("request"),
+        )
+        .await
+        .expect("clear empty");
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(json_response(response).await["data"]["deleted_count"], 0);
+
+    // 但文档不存在要 404,不能和"存在但没有收藏"混为一谈
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri("/api/v1/documents/nosuchdoc/favorites")
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("request"),
+        )
+        .await
+        .expect("clear missing");
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}

@@ -59,5 +59,9 @@ pub(super) fn routes() -> Router<AppState> {
             axum::routing::patch(library_data::patch_favorite_route)
                 .delete(library_data::delete_favorite_route),
         )
+        .route(
+            "/api/v1/documents/:document_id/favorites",
+            axum::routing::delete(library_data::clear_document_favorites_route),
+        )
         .route("/api/v1/search", get(library_data::search_blocks_route))
 }

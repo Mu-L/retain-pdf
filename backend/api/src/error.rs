@@ -5,6 +5,11 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use thiserror::Error;
 
+/// 删除被收藏锚点挡住时的领域错误码,文档级与 run 级共用一个。
+/// 客户端的处理动作两者一致(提示条数 → 清空 → 重试),只有清空的目标不同,
+/// 靠 `error.details.scope` 与 `clear_favorites_path` 区分。
+pub const DELETE_BLOCKED_BY_FAVORITES: &str = "DELETE_BLOCKED_BY_FAVORITES";
+
 #[derive(Clone, Debug, Error)]
 pub enum AppError {
     #[error("{0}")]
@@ -59,6 +64,17 @@ pub enum AppError {
         code: &'static str,
         message: String,
     },
+    /// 删除被收藏锚点引用的文档或 run 时的 409。
+    ///
+    /// 这里必须是结构化错误而不是 `Conflict(String)`:客户端要做的事是
+    /// "告诉用户有 N 条收藏,问他要不要一并删掉,然后重试"。从人类可读的
+    /// 消息里正则抠数字和 id 是唯一的替代方案,而它会在任何一次文案改动
+    /// (包括翻译)时静默失效。
+    #[error("{message}")]
+    DeleteBlockedByFavorites {
+        message: String,
+        details: Value,
+    },
 }
 
 #[derive(Serialize)]
@@ -99,6 +115,13 @@ struct DocumentMetadataErrorBody {
 }
 
 #[derive(Serialize)]
+struct DeleteBlockedByFavoritesErrorBody {
+    code: &'static str,
+    message: String,
+    error: StructuredError,
+}
+
+#[derive(Serialize)]
 struct StructuredError {
     code: &'static str,
     http_status: u16,
@@ -111,6 +134,14 @@ impl StructuredError {
             code,
             http_status: status.as_u16(),
             details: json!({}),
+        }
+    }
+
+    fn with_details(code: &'static str, status: StatusCode, details: Value) -> Self {
+        Self {
+            code,
+            http_status: status.as_u16(),
+            details,
         }
     }
 
@@ -223,6 +254,37 @@ impl AppError {
         }
     }
 
+    /// 文档级删除被收藏挡住。`details` 里给出收藏条数与清空收藏的路径,
+    /// 客户端据此提示用户并在确认后重试,不必自己拼 URL。
+    pub fn document_delete_blocked_by_favorites(document_id: &str, favorite_count: u64) -> Self {
+        Self::DeleteBlockedByFavorites {
+            message: format!(
+                "document is referenced by {favorite_count} favorite(s); remove the favorites first"
+            ),
+            details: json!({
+                "scope": "document",
+                "document_id": document_id,
+                "favorite_count": favorite_count,
+                "clear_favorites_path": format!("/api/v1/documents/{document_id}/favorites"),
+            }),
+        }
+    }
+
+    /// run 级删除被收藏挡住(馆藏图书及其 -ocr 子任务)。
+    pub fn job_delete_blocked_by_favorites(job_id: &str, favorite_count: u64) -> Self {
+        Self::DeleteBlockedByFavorites {
+            message: format!(
+                "job {job_id} is referenced by {favorite_count} favorite(s); remove the favorites first"
+            ),
+            details: json!({
+                "scope": "job",
+                "job_id": job_id,
+                "favorite_count": favorite_count,
+                "clear_favorites_path": format!("/api/v1/library/books/{job_id}/favorites"),
+            }),
+        }
+    }
+
     pub fn document_metadata(
         status: StatusCode,
         code: &'static str,
@@ -311,6 +373,19 @@ impl IntoResponse for AppError {
             )
                 .into_response();
         }
+        if let AppError::DeleteBlockedByFavorites { message, details } = &self {
+            let status = StatusCode::CONFLICT;
+            let code = DELETE_BLOCKED_BY_FAVORITES;
+            return (
+                status,
+                Json(DeleteBlockedByFavoritesErrorBody {
+                    code,
+                    message: message.clone(),
+                    error: StructuredError::with_details(code, status, details.clone()),
+                }),
+            )
+                .into_response();
+        }
         let (status, code, stable_code) = match &self {
             AppError::Unauthorized(_) => (StatusCode::UNAUTHORIZED, 40100, "UNAUTHORIZED"),
             AppError::Forbidden(_) => (StatusCode::FORBIDDEN, 40300, "FORBIDDEN"),
@@ -347,6 +422,7 @@ impl IntoResponse for AppError {
             AppError::CredentialReference { .. } => unreachable!("handled above"),
             AppError::LiveTranslation { .. } => unreachable!("handled above"),
             AppError::DocumentMetadata { .. } => unreachable!("handled above"),
+            AppError::DeleteBlockedByFavorites { .. } => unreachable!("handled above"),
         };
         let body = ErrorBody {
             code,

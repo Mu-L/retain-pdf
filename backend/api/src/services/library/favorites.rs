@@ -3,7 +3,7 @@
 use crate::error::AppError;
 use crate::models::api::{
     CreateFavoriteInput, FavoriteListView, FavoriteMutationResult, FavoriteRecord,
-    ListFavoritesQuery, PatchFavoriteInput,
+    FavoritesClearedResult, ListFavoritesQuery, PatchFavoriteInput,
 };
 use crate::models::domain::{build_job_id, now_iso};
 
@@ -119,4 +119,42 @@ pub fn delete_favorite(
         updated: None,
         deleted: Some(true),
     })
+}
+
+/// 清空一篇文档名下的全部收藏。
+///
+/// 与删除保护配套:文档被收藏引用时 `DELETE /documents/{id}` 返回
+/// `DELETE_BLOCKED_BY_FAVORITES`,里面带着收藏条数和本端点的路径。用户确认
+/// "连收藏一起删"后打这里,再重试删除。
+///
+/// 先校验文档存在,好让"文档不存在"与"文档存在但没有收藏"这两种情况分别
+/// 落到 404 和 `deleted_count: 0`,而不是都返回一个含糊的成功。
+pub fn clear_favorites_for_document(
+    deps: &LibraryDeps<'_>,
+    document_id: &str,
+) -> Result<FavoritesClearedResult, AppError> {
+    deps.db
+        .get_document(document_id)
+        .map_err(|_| AppError::not_found(format!("document not found: {document_id}")))?;
+    let deleted_count = deps.db.delete_favorites_for_document(document_id)?;
+    Ok(FavoritesClearedResult { deleted_count })
+}
+
+/// 清空引用某个 run 的全部收藏(含它的 -ocr 子任务),与馆藏图书的删除保护配套。
+///
+/// 子任务一并清:`delete_library_book` 会连着删 `{job_id}-ocr`,并对两者都做
+/// 收藏检查。只清父任务的收藏会让紧接着的重试仍然 409,用户点两次才成功。
+pub fn clear_favorites_for_job(
+    deps: &LibraryDeps<'_>,
+    job_id: &str,
+) -> Result<FavoritesClearedResult, AppError> {
+    deps.db
+        .get_job(job_id)
+        .map_err(|_| AppError::not_found(format!("job not found: {job_id}")))?;
+    let mut deleted_count = deps.db.delete_favorites_referencing_job(job_id)?;
+    let child = format!("{job_id}-ocr");
+    if deps.db.get_job(&child).is_ok() {
+        deleted_count += deps.db.delete_favorites_referencing_job(&child)?;
+    }
+    Ok(FavoritesClearedResult { deleted_count })
 }

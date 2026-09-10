@@ -53,10 +53,10 @@ pub fn delete_library_book(
         // 且失败方向是"删掉用户策展内容"这种不可逆的一侧。宁可报错让调用方重试。
         let referencing = deps.db.favorites_referencing_job(&job.job_id)?;
         if referencing > 0 {
-            return Err(AppError::conflict(format!(
-                "job {} is referenced by {referencing} favorite(s); remove the favorites first",
-                job.job_id
-            )));
+            return Err(AppError::job_delete_blocked_by_favorites(
+                &job.job_id,
+                referencing,
+            ));
         }
     }
 

@@ -54,6 +54,7 @@
 
 - `GET /api/v1/documents`
 - `GET|PATCH|DELETE /api/v1/documents/{document_id}`
+- `DELETE /api/v1/documents/{document_id}/favorites`
 - `POST /api/v1/documents/{document_id}/ocr`
 - `POST /api/v1/documents/{document_id}/translate`
 - `GET /api/v1/documents/{document_id}/jobs`

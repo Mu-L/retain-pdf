@@ -143,6 +143,9 @@
 - 如果存在 `{job_id}-ocr` 子任务，一并删除
 - 默认不删除 `uploads` 源文件
 - `queued` / `running` 默认拒绝删除，除非传 `force=true`
+- 被收藏锚点引用的 run 拒绝删除（`force=true` 也不绕过），返回
+  `DELETE_BLOCKED_BY_FAVORITES`；`error.details.clear_favorites_path` 指向
+  `DELETE /api/v1/library/books/{job_id}/favorites`，清空后重试即可
 
 ### 文档身份与文档级任务历史
 
@@ -158,6 +161,7 @@
 - `POST /api/v1/documents/{document_id}/translate`
 - `GET /api/v1/documents/{document_id}/jobs`
 - `GET /api/v1/documents/{document_id}/agent-versions`
+- `DELETE /api/v1/documents/{document_id}/favorites`
 - `POST|GET /api/v1/documents/{document_id}/metadata-suggestions`
 - `POST /api/v1/documents/{document_id}/metadata-suggestions/{suggestion_id}/apply`
 

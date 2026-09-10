@@ -14,7 +14,8 @@ use crate::models::api::{
     CreateFavoriteInput, DocumentDeleteResultView, DocumentJobListView, DocumentListView,
     DocumentMetadataSuggestionApplyView, DocumentMetadataSuggestionListView,
     DocumentMetadataSuggestionView, DocumentRecord, FavoriteListView, FavoriteMutationResult,
-    FavoriteRecord, JobSubmissionView, LibraryDeleteQuery, ListDocumentJobsQuery,
+    FavoriteRecord, FavoritesClearedResult, JobSubmissionView, LibraryDeleteQuery,
+    ListDocumentJobsQuery,
     ListDocumentMetadataSuggestionsQuery, ListDocumentsQuery, ListFavoritesQuery,
     PatchDocumentInput, PatchFavoriteInput, SearchQuery, SearchResultView,
 };
@@ -24,8 +25,8 @@ use crate::routes::common::{
 };
 use crate::routes::job_helpers::stream_file;
 use crate::services::library::api::{
-    apply_document_metadata_suggestion_view, create_document_metadata_suggestion_view,
-    create_favorite_view, delete_document_view, delete_favorite_view, document_cover_download,
+    apply_document_metadata_suggestion_view, clear_favorites_for_document_view,
+    clear_favorites_for_job_view, create_document_metadata_suggestion_view, create_favorite_view, delete_document_view, delete_favorite_view, document_cover_download,
     document_source_pdf_download, document_thumbnail_download, get_document_view,
     list_document_jobs_view, list_document_metadata_suggestions_view, list_documents_view,
     list_favorites_view, ocr_document_view, patch_document_view, patch_favorite_view,
@@ -277,6 +278,28 @@ pub async fn delete_favorite_route(
 ) -> Result<Json<ApiResponse<FavoriteMutationResult>>, AppError> {
     let deps = build_library_route_deps(&state);
     Ok(ok_json(delete_favorite_view(&deps.library, &favorite_id)?))
+}
+
+/// 清空一篇文档名下的全部收藏,与 `DELETE /documents/{id}` 的收藏保护配套。
+pub async fn clear_document_favorites_route(
+    State(state): State<AppState>,
+    ApiPath(document_id): ApiPath<String>,
+) -> Result<Json<ApiResponse<FavoritesClearedResult>>, AppError> {
+    let deps = build_library_route_deps(&state);
+    Ok(ok_json(clear_favorites_for_document_view(
+        &deps.library,
+        &document_id,
+    )?))
+}
+
+/// 清空引用某个 run(及其 -ocr 子任务)的全部收藏,与
+/// `DELETE /library/books/{job_id}` 的收藏保护配套。
+pub async fn clear_book_favorites_route(
+    State(state): State<AppState>,
+    ApiPath(job_id): ApiPath<String>,
+) -> Result<Json<ApiResponse<FavoritesClearedResult>>, AppError> {
+    let deps = build_library_route_deps(&state);
+    Ok(ok_json(clear_favorites_for_job_view(&deps.library, &job_id)?))
 }
 
 // --- search ---
