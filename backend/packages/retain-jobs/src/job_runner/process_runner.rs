@@ -78,6 +78,7 @@ pub(super) mod tests {
     use crate::models::domain::{now_iso, JobFailureInfo, JobSnapshot, JobStatusKind};
     use crate::models::request::CreateJobInput;
     use crate::ocr_provider::{provider_token_env_name, OcrProviderKind};
+    use std::time::Duration;
     use tokio::sync::{RwLock, Semaphore};
 
     /// 拆分说明：原测试借用主 crate 的 `AppState` 仅当作
@@ -170,7 +171,13 @@ pub(super) mod tests {
             max_running_jobs: 1,
             provider_limits: crate::config::ProviderLimitsConfig::default(),
             provider_runtime: crate::config::ProviderRuntimeConfig::default(),
-            job_runner: crate::config::JobRunnerConfig::default(),
+            job_runner: crate::config::JobRunnerConfig {
+                // 收尾上限默认 30 秒,那是生产该等的时长,不是测试该等的。
+                // 正常路径下管道一关 join 就瞬时返回,压到 2 秒不影响任何
+                // 正常用例,只让"读取任务卡住"那条路径能在秒级内被断言。
+                worker_output_drain_secs: 2,
+                ..crate::config::JobRunnerConfig::default()
+            },
             ai_service: crate::config::AiServiceConfig::default(),
             jobs_service: crate::config::JobsServiceConfig::default(),
             asset: crate::config::AssetConfig::default(),
@@ -329,6 +336,80 @@ pub(super) mod tests {
             .log_tail
             .iter()
             .any(|line| line.contains("stderr-before-timeout")));
+    }
+
+    /// worker 退出后,孙进程仍握着 stdout 管道时,runner 不能永久挂住。
+    ///
+    /// 这里的 worker 派生一个 `setsid()` 脱离进程组的孙进程再立刻退出。
+    /// 孙进程继承了 stdout 的写端,组杀打不到它,管道于是不会关闭——
+    /// `lines.next_line()` 永远不返回 `None`,读取任务永远不结束。
+    ///
+    /// 收尾 join 若无上限,`execute_process_job` 会卡在这里不返回:job 在 DB 里
+    /// 停在 running,再没有任何东西推进它,也没有一行日志说明原因。所以外层
+    /// 套一个远大于收尾上限的 timeout —— 它红就意味着 runner 挂死了。
+    #[tokio::test]
+    async fn worker_exit_completes_even_when_a_detached_grandchild_holds_stdout() {
+        let state = test_state("stdout-held-by-grandchild");
+        let mut job = JobSnapshot::new(
+            "job-stdout-held".to_string(),
+            CreateJobInput::default(),
+            vec![
+                "python3".to_string(),
+                "-c".to_string(),
+                // 父进程立刻退出;孙进程脱组后抱着 stdout 睡 60 秒。
+                //
+                // 这个 60 秒是本用例的全部证明力所在:它必须远大于外层
+                // timeout,否则"无上限地等下去"也能等到管道自然关闭,用例
+                // 照样绿——第一版就是这么写的(睡 10 秒),反证时只是从 4 秒
+                // 变成 10 秒,根本没红。
+                "import os, sys, time\n\
+                 sys.stdout.write('parent-line\\n'); sys.stdout.flush()\n\
+                 if os.fork() == 0:\n\
+                 \x20   os.setsid()\n\
+                 \x20   time.sleep(60)\n\
+                 \x20   os._exit(0)\n\
+                 os._exit(0)\n"
+                    .to_string(),
+            ],
+        )
+        .into_runtime();
+        job.request_payload.runtime.job_id = job.job_id.clone();
+        job.request_payload.runtime.timeout_seconds = 60;
+
+        let started = std::time::Instant::now();
+        let finished = tokio::time::timeout(
+            Duration::from_secs(20),
+            execute_process_job(
+                ProcessRuntimeDeps::new(
+                    state.config.clone(),
+                    state.db.clone(),
+                    state.canceled_jobs.clone(),
+                    state.job_slots.clone(),
+                    Arc::default(),
+                ),
+                job,
+                &[],
+            ),
+        )
+        .await
+        .expect("worker 已退出,runner 不得卡在等待 stdout 读取任务上")
+        .expect("execute process job");
+
+        let elapsed = started.elapsed();
+
+        assert!(
+            matches!(
+                finished.status,
+                JobStatusKind::Succeeded | JobStatusKind::Failed
+            ),
+            "放弃收集输出之后仍必须落到终态,而不是停在 running：{:?}",
+            finished.status
+        );
+        // 返回必须是收尾上限促成的,而不是靠孙进程自己睡醒把管道关掉。
+        assert!(
+            elapsed < Duration::from_secs(15),
+            "耗时 {elapsed:?}：说明 runner 是等到孙进程退出才返回的,收尾上限没起作用"
+        );
     }
 
     #[test]

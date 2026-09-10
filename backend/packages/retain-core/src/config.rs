@@ -150,6 +150,7 @@ pub struct WorkerProcessRuntimeConfig<'a> {
     pub ocr_provider_config_path: &'a Path,
     pub worker_terminate_grace_secs: u64,
     pub worker_terminate_poll_ms: u64,
+    pub worker_output_drain_secs: u64,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -195,6 +196,7 @@ impl AppConfig {
             ocr_provider_config_path: &self.provider_runtime.ocr_provider_config_path,
             worker_terminate_grace_secs: self.job_runner.worker_terminate_grace_secs,
             worker_terminate_poll_ms: self.job_runner.worker_terminate_poll_ms,
+            worker_output_drain_secs: self.job_runner.worker_output_drain_secs,
         }
     }
 

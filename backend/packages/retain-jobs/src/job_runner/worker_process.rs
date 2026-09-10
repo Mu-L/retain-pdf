@@ -636,6 +636,7 @@ mod tests {
             output_root: &output_root,
             ocr_provider_config_path: &provider_config,
             worker_terminate_grace_secs: 1,
+            worker_output_drain_secs: 5,
             worker_terminate_poll_ms: 10,
         };
 
