@@ -4,15 +4,17 @@ export type StoredReaderSplitLayout = {
     left: StoredReaderPaneContent;
     right: StoredReaderPaneContent;
 };
+export type StoredReaderMode = "source" | "compare" | "translated";
 export type ReaderViewState = {
     schema: "retainpdf_reader_view_v1";
     anchor?: PageScrollProgress;
     zoom?: number;
+    mode?: StoredReaderMode;
     splitLayout?: StoredReaderSplitLayout | null;
     assistantPanel?: "markdown" | "ai" | null;
     updatedAt: number;
 };
-type ReaderViewStatePatch = Partial<Pick<ReaderViewState, "anchor" | "zoom" | "splitLayout" | "assistantPanel">>;
+type ReaderViewStatePatch = Partial<Pick<ReaderViewState, "anchor" | "zoom" | "mode" | "splitLayout" | "assistantPanel">>;
 type StorageLike = Pick<Storage, "getItem" | "setItem">;
 export declare function readerViewStateScope({ documentId, jobId, }: {
     documentId?: unknown;

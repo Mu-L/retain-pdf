@@ -1,20 +1,8 @@
 import { type AgentOperationView } from "@retainpdf/api/document-operations";
-import { type AgentConfirmationMode } from "@retainpdf/api/agent-runtime-settings";
-export type ReaderAgentOperationSignal = {
-    operationId: string;
-    conversationId?: string;
-    confirmationMode?: AgentConfirmationMode;
-    nonce: number;
-};
-export type ReaderAgentOperationEntry = {
-    operation: AgentOperationView;
-    pendingAction?: "run" | "cancel" | "commit" | "retry";
-    error?: string;
-};
-export type ReaderAgentOperationPerformOptions = {
-    acceptDuplicateRisk?: boolean;
-};
-export declare function shouldReplaceAgentOperation(current: AgentOperationView | undefined, next: AgentOperationView): boolean;
+import type { AgentConfirmationMode } from "@retainpdf/api/agent-runtime-settings";
+import { type ReaderAgentOperationSignal } from "./reader-agent-operation-model.js";
+export type { ReaderAgentOperationSignal, ReaderAgentOperationEntry, ReaderAgentOperationPerformOptions, } from "./reader-agent-operation-model.js";
+export { shouldReplaceAgentOperation } from "./reader-agent-operation-model.js";
 export declare function useReaderAgentOperations({ conversationId, enabled, discovering, signal, confirmationModeHint, onDocumentCommitted, }: {
     conversationId: string;
     enabled: boolean;
@@ -26,11 +14,11 @@ export declare function useReaderAgentOperations({ conversationId, enabled, disc
         revision: string;
     }) => void;
 }): {
-    entries: ReaderAgentOperationEntry[];
+    entries: import("./reader-agent-operation-model.js").ReaderAgentOperationEntry[];
     confirmationMode: AgentConfirmationMode;
     runtimeRestarting: boolean;
     runtimeCredentialConfigured: boolean;
-    perform: (action: "run" | "cancel" | "commit" | "retry", operation: AgentOperationView, options?: ReaderAgentOperationPerformOptions) => Promise<void>;
+    perform: (action: "run" | "cancel" | "commit" | "retry", operation: AgentOperationView, options?: import("./reader-agent-operation-model.js").ReaderAgentOperationPerformOptions) => Promise<void>;
     loadCandidate: (operation: AgentOperationView) => Promise<Blob>;
 };
 //# sourceMappingURL=use-reader-agent-operations.d.ts.map

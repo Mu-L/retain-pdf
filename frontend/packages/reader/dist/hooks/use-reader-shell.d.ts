@@ -4,12 +4,7 @@ export type ReaderShellApi = {
     /** same node as shellRef.current; state for children that need re-render when mounted */
     shellEl: HTMLElement | null;
     shellWidth: number;
-    /** half width for compare columns, min 160 */
-    compareColWidth: number;
     bindShell: (node: HTMLDivElement | null) => void;
 };
-export declare function useReaderShell(options?: {
-    /** called when shellWidth changes (e.g. repinIfRestoring) */
-    onWidthChange?: (width: number) => void;
-}): ReaderShellApi;
+export declare function useReaderShell(): ReaderShellApi;
 //# sourceMappingURL=use-reader-shell.d.ts.map

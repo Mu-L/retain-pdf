@@ -3,5 +3,5 @@ export declare function describeToolEvent(event: {
     tool?: string;
     event?: string;
     type?: string;
-} | string): string;
+} | string | null | undefined): string;
 //# sourceMappingURL=tool-labels.d.ts.map

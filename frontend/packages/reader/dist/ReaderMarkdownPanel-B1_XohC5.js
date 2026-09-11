@@ -1,7 +1,7 @@
 import { jsxs as J, jsx as b } from "react/jsx-runtime";
 import { useRef as S, useState as T, useEffect as ye } from "react";
 import { Search as qe, ChevronUp as ze, ChevronDown as Be, ListTree as Pe, FileCode2 as _e } from "lucide-react";
-import { b as Fe, d as Me, e as ve, r as je } from "./ReaderApp-D8gLVCsS.js";
+import { b as Fe, d as Me, e as ve, r as je } from "./ReaderApp-kTlxBzs5.js";
 import { e as Ee, m as Ke, a as Ue } from "./markdown-math-Cb17EyYs.js";
 import { n as We } from "./markdown-payload-kK3ewW_I.js";
 function Ve(t, r) {
@@ -490,4 +490,4 @@ export {
   Je as isProtectedMarkdownAssetUrl,
   Re as startMarkdownImageLoading
 };
-//# sourceMappingURL=ReaderMarkdownPanel-t-9JdtJD.js.map
+//# sourceMappingURL=ReaderMarkdownPanel-B1_XohC5.js.map

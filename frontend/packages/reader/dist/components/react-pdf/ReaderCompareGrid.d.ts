@@ -11,8 +11,6 @@ export type ReaderCompareGridProps = {
     compareMode: boolean;
     /** 阅读区全宽（shell），用于 zoom% 相对整屏计算 */
     shellWidth: number;
-    /** @deprecated 保留兼容，页宽不再用半栏 */
-    compareColWidth?: number;
     rowHeights?: PageRowHeights;
     mountSource: boolean;
     mountTranslated: boolean;
@@ -31,7 +29,6 @@ export type ReaderCompareGridProps = {
     onSelectRegion?: (selection: ReaderRegionSelection) => void;
     markdownSplit?: boolean;
     assistantSplit?: boolean;
-    reversePanes?: boolean;
     liveTranslation?: LiveTranslationState;
     /** Running translation: stable source PDF on the left, source-backed live canvas on the right. */
     liveTranslationPair?: boolean;

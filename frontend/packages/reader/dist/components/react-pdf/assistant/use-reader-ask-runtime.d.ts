@@ -21,7 +21,7 @@ export declare function useReaderAskRuntime(options: {
     streamingAssistantId: string;
     isRunning: boolean;
     messages: import("./reader-ask-tree.js").ReaderAskStoreMessage[];
-    sessions: import("./use-reader-conversation.js").ReaderAskSessionSummary[];
+    sessions: import("./reader-conversation-ports.js").ReaderAskSessionSummary[];
     activeConversationId: string;
     sessionBusy: boolean;
     sessionError: string;
@@ -34,11 +34,11 @@ export declare function useReaderAskRuntime(options: {
     renameSession: (conversationId: string, title: string) => Promise<void>;
     branchFromAnswer: (assistantMessageId: string) => Promise<boolean>;
     agentOperations: {
-        entries: import("./use-reader-agent-operations.js").ReaderAgentOperationEntry[];
+        entries: import("./reader-agent-operation-model.js").ReaderAgentOperationEntry[];
         confirmationMode: AgentConfirmationMode;
         runtimeRestarting: boolean;
         runtimeCredentialConfigured: boolean;
-        perform: (action: "run" | "cancel" | "commit" | "retry", operation: import("@retainpdf/api/document-operations").AgentOperationView, options?: import("./use-reader-agent-operations.js").ReaderAgentOperationPerformOptions) => Promise<void>;
+        perform: (action: "run" | "cancel" | "commit" | "retry", operation: import("@retainpdf/api/document-operations").AgentOperationView, options?: import("./reader-agent-operation-model.js").ReaderAgentOperationPerformOptions) => Promise<void>;
         loadCandidate: (operation: import("@retainpdf/api/document-operations").AgentOperationView) => Promise<Blob>;
     };
     assistantMode: ReaderAssistantMode;

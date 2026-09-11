@@ -33,7 +33,6 @@ export type ReaderReactController = {
         bindShell: (node: HTMLDivElement | null) => void;
         shellEl: HTMLElement | null;
         shellWidth: number;
-        compareColWidth: number;
         shellRef: RefObject<HTMLDivElement | null>;
     };
     panes: ReaderPaneModel;

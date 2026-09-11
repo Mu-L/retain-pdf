@@ -14,7 +14,7 @@ export type MarkdownRangeResult = {
     rangeEnd: number | null;
     etag: string | null;
 };
-export declare function createReaderDataPort({ apiPrefix, loadJob, loadManifest, loadMarkdown, loadMarkdownDocument, loadMarkdownSource, fetchMarkdownRange, loadAiChat, loadRegions, loadMetadata, loadTranslationItem, fetchProtectedResource, }?: {
+export declare function createReaderDataPort({ apiPrefix, loadJob, loadManifest, loadMarkdown, loadMarkdownDocument, loadMarkdownSource, fetchMarkdownRange, loadRegions, loadMetadata, loadTranslationItem, fetchProtectedResource, }?: {
     apiPrefix?: string;
     loadJob?: (jobId: string, apiPrefix: string) => Promise<unknown>;
     loadManifest?: (jobId: string, apiPrefix: string) => Promise<unknown>;
@@ -22,7 +22,6 @@ export declare function createReaderDataPort({ apiPrefix, loadJob, loadManifest,
     loadMarkdownDocument?: (jobId: string, apiPrefix: string) => Promise<unknown>;
     loadMarkdownSource?: ((jobId: string, apiPrefix: string) => Promise<MarkdownSourceDescriptor | null>) | null;
     fetchMarkdownRange?: ((rawUrl: string, start: number, endInclusive: number, etag?: string, signal?: AbortSignal) => Promise<MarkdownRangeResult>) | null;
-    loadAiChat?: (jobId: string, payload: unknown, apiPrefix: string) => Promise<unknown>;
     loadRegions?: (jobId: string, apiPrefix: string) => Promise<unknown>;
     loadMetadata?: (jobId: string, apiPrefix: string) => Promise<unknown>;
     loadTranslationItem?: (jobId: string, itemId: string, apiPrefix: string) => Promise<unknown>;
@@ -30,7 +29,6 @@ export declare function createReaderDataPort({ apiPrefix, loadJob, loadManifest,
 }): Readonly<{
     apiPrefix: string;
     fetchProtected: typeof fetch;
-    fetchRegionTranslationItem: (jobId: string, itemId: string) => Promise<unknown>;
     loadMarkdownPayload: (jobId: string) => Promise<any>;
     loadMarkdownSource: (jobId: string) => Promise<MarkdownSourceDescriptor | null>;
     loadMarkdownRange: (rawUrl: string, start: number, endInclusive: number, etag?: string, signal?: AbortSignal) => Promise<MarkdownRangeResult>;
@@ -49,12 +47,10 @@ export declare function createReaderDataPort({ apiPrefix, loadJob, loadManifest,
             metadata: unknown;
         };
     }>;
-    submitAiChat: (jobId: string, payload: unknown) => Promise<unknown>;
 }>;
 export declare const defaultReaderDataPort: Readonly<{
     apiPrefix: string;
     fetchProtected: typeof fetch;
-    fetchRegionTranslationItem: (jobId: string, itemId: string) => Promise<unknown>;
     loadMarkdownPayload: (jobId: string) => Promise<any>;
     loadMarkdownSource: (jobId: string) => Promise<MarkdownSourceDescriptor | null>;
     loadMarkdownRange: (rawUrl: string, start: number, endInclusive: number, etag?: string, signal?: AbortSignal) => Promise<MarkdownRangeResult>;
@@ -73,6 +69,5 @@ export declare const defaultReaderDataPort: Readonly<{
             metadata: unknown;
         };
     }>;
-    submitAiChat: (jobId: string, payload: unknown) => Promise<unknown>;
 }>;
 //# sourceMappingURL=data-port.d.ts.map
