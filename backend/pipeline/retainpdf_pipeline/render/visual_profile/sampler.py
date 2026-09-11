@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import as_completed
 from pathlib import Path
 
 import fitz
@@ -31,7 +34,51 @@ from retainpdf_pipeline.render.visual_profile.text_spans import (
 DEFAULT_PAGE_BACKGROUND = (1.0, 1.0, 1.0)
 
 
+def _default_visual_profile_workers(page_count: int) -> int:
+    cpu_count = os.cpu_count() or 1
+    return max(1, min(page_count, cpu_count, 24))
+
+
+def _build_single_page_visual_profile(
+    source_pdf_path: str,
+    page_index: int,
+    items: list[dict],
+) -> PageVisualProfile | None:
+    doc = fitz.open(source_pdf_path)
+    try:
+        if not 0 <= page_index < len(doc):
+            return None
+        return build_page_visual_profile(doc[page_index], page_index, items)
+    finally:
+        doc.close()
+
+
 def build_document_visual_profile(
+    source_pdf_path: Path,
+    pages: dict[int, list[dict]],
+    *,
+    max_workers: int | None = None,
+) -> DocumentVisualProfile:
+    workers = max_workers if max_workers is not None else _default_visual_profile_workers(len(pages))
+    if workers <= 1:
+        return _build_document_visual_profile_sequential(source_pdf_path, pages)
+    page_profiles: dict[int, PageVisualProfile] = {}
+    with ProcessPoolExecutor(max_workers=workers) as executor:
+        future_map = {
+            executor.submit(_build_single_page_visual_profile, str(source_pdf_path), page_index, items): page_index
+            for page_index, items in pages.items()
+        }
+        for future in as_completed(future_map):
+            profile = future.result()
+            if profile is not None:
+                page_profiles[future_map[future]] = profile
+    return DocumentVisualProfile(
+        algorithm=VISUAL_PROFILE_ALGORITHM_VERSION,
+        pages={page_index: page_profiles[page_index] for page_index in pages if page_index in page_profiles},
+    )
+
+
+def _build_document_visual_profile_sequential(
     source_pdf_path: Path,
     pages: dict[int, list[dict]],
 ) -> DocumentVisualProfile:

@@ -62,7 +62,10 @@ def strip_bbox_text_from_stream(
 
     xobjects = xobject_dict(stream_obj)
 
-    for operands, operator in instructions:
+    for index in range(len(instructions)):
+        instruction = instructions[index]
+        operands = instruction[0]
+        operator = instruction[1]
         op = str(operator)
         if state.apply_state_operator(op, operands):
             output.append((operands, operator))

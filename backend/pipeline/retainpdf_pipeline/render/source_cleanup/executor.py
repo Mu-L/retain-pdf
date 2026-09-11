@@ -7,6 +7,7 @@ import time
 from retainpdf_pipeline.foundation.config import layout
 from retainpdf_pipeline.render.source_cleanup.types import BBoxTextStripCandidates
 from retainpdf_pipeline.render.source_cleanup.types import BBoxTextStripResult
+from retainpdf_pipeline.render.source_cleanup.types import protected_pages_fingerprint
 from retainpdf_pipeline.render.source_cleanup.contracts import SourceCleanupRequest
 from retainpdf_pipeline.render.source_cleanup.contracts import SourceCleanupResult
 from retainpdf_pipeline.render.source_cleanup.pdf.document import strip_bbox_text_rects_from_pdf_copy
@@ -17,14 +18,22 @@ def execute_source_cleanup(request: SourceCleanupRequest) -> SourceCleanupResult
     if not request.translated_pages or not layout.use_bbox_text_strip_cleanup(request.options.strategy):
         return SourceCleanupResult(bbox_text_strip=BBoxTextStripResult(changed=False, candidates=request.candidates))
 
-    candidates = request.candidates or plan_source_cleanup(
-        source_pdf_path=request.source_pdf_path,
-        translated_pages=request.translated_pages,
-        protected_pages=request.protected_pages,
-        skip_formula_pages=request.options.skip_formula_pages,
-        skip_form_xobject_pages=request.options.skip_form_xobject_pages,
-        document_analysis=request.document_analysis,
-    )
+    # Provided (prewarmed) candidates may have been planned without the current
+    # protected pages; protection must never be silently dropped. Replan only
+    # when the protection set differs (fingerprint mismatch covers stale
+    # manifests that predate fingerprinting).
+    candidates = request.candidates
+    if candidates is None or protected_pages_fingerprint(
+        request.protected_pages
+    ) != candidates.protected_fingerprint:
+        candidates = plan_source_cleanup(
+            source_pdf_path=request.source_pdf_path,
+            translated_pages=request.translated_pages,
+            protected_pages=request.protected_pages,
+            skip_formula_pages=request.options.skip_formula_pages,
+            skip_form_xobject_pages=request.options.skip_form_xobject_pages,
+            document_analysis=request.document_analysis,
+        )
     print(
         "source cleanup: bbox candidates "
         f"source={candidates.candidate_source} pages={len(candidates.page_rects)} "

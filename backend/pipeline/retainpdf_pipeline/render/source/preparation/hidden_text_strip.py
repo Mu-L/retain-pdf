@@ -48,15 +48,35 @@ def _collect_hidden_text_scan_pages(
         doc.close()
 
 
+def _resolve_gs_fill_opacity(operands: list, extgstates) -> float | None:
+    if not operands or extgstates is None:
+        return None
+    try:
+        raw_name = operands[0]
+        key = raw_name if isinstance(raw_name, Name) else Name(str(raw_name))
+        gs = extgstates.get(key)
+        if gs is None:
+            return None
+        ca = gs.get(Name("/ca"))
+        if ca is None:
+            return None
+        return float(ca)
+    except Exception:
+        return None
+
+
 def _analyze_text_object_visibility(
     text_ops: list[tuple],
     *,
     initial_render_mode: int = 0,
+    effective_opacity: float = 1.0,
 ) -> tuple[bool, int]:
     render_mode = initial_render_mode
     saw_text_show = False
     all_text_show_is_hidden = True
-    for operands, operator in text_ops:
+    for index in range(len(text_ops)):
+        operands = text_ops[index][0]
+        operator = text_ops[index][1]
         op = str(operator)
         if op == "Tr" and operands:
             try:
@@ -67,7 +87,11 @@ def _analyze_text_object_visibility(
             saw_text_show = True
             if render_mode != 3:
                 all_text_show_is_hidden = False
-    return saw_text_show and all_text_show_is_hidden, render_mode
+    try:
+        fully_transparent = float(effective_opacity) <= 0.0
+    except Exception:
+        fully_transparent = False
+    return saw_text_show and (all_text_show_is_hidden or fully_transparent), render_mode
 
 
 def _text_object_is_hidden(text_ops: list[tuple]) -> bool:
@@ -80,21 +104,40 @@ def _strip_hidden_text_objects_from_page(page: pikepdf.Page) -> tuple[bytes | No
     if not instructions:
         return None, 0
 
+    try:
+        extgstates = page.Resources.get(Name("/ExtGState"))
+    except Exception:
+        extgstates = None
+    if extgstates is not None and not hasattr(extgstates, "get"):
+        extgstates = None
+
     output_instructions: list[tuple] = []
     removed = 0
     index = 0
     render_mode = 0
     render_mode_stack: list[int] = []
+    opacity = 1.0
+    opacity_stack: list[float] = []
     while index < len(instructions):
-        operands, operator = instructions[index]
+        operands = instructions[index][0]
+        operator = instructions[index][1]
         op = str(operator)
         if op == "q":
             render_mode_stack.append(render_mode)
+            opacity_stack.append(opacity)
             output_instructions.append((operands, operator))
             index += 1
             continue
         if op == "Q":
             render_mode = render_mode_stack.pop() if render_mode_stack else 0
+            opacity = opacity_stack.pop() if opacity_stack else 1.0
+            output_instructions.append((operands, operator))
+            index += 1
+            continue
+        if op == "gs" and operands:
+            resolved = _resolve_gs_fill_opacity(list(operands), extgstates)
+            if resolved is not None:
+                opacity = resolved
             output_instructions.append((operands, operator))
             index += 1
             continue
@@ -115,7 +158,13 @@ def _strip_hidden_text_objects_from_page(page: pikepdf.Page) -> tuple[bytes | No
         index += 1
         while index < len(instructions):
             text_object.append(instructions[index])
-            if str(instructions[index][1]) == "ET":
+            inner_operands = instructions[index][0]
+            inner_operator = instructions[index][1]
+            if str(inner_operator) == "gs" and inner_operands:
+                resolved = _resolve_gs_fill_opacity(list(inner_operands), extgstates)
+                if resolved is not None:
+                    opacity = resolved
+            if str(inner_operator) == "ET":
                 index += 1
                 break
             index += 1
@@ -123,12 +172,12 @@ def _strip_hidden_text_objects_from_page(page: pikepdf.Page) -> tuple[bytes | No
         hidden, render_mode = _analyze_text_object_visibility(
             text_object,
             initial_render_mode=render_mode,
+            effective_opacity=opacity,
         )
         if hidden:
             removed += 1
             continue
         output_instructions.extend(text_object)
-
     if removed <= 0:
         return None, 0
     return pikepdf.unparse_content_stream(output_instructions), removed

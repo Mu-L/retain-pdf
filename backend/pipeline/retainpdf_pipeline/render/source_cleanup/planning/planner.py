@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from dataclasses import replace
 from pathlib import Path
 
 import fitz
@@ -25,8 +25,8 @@ from retainpdf_pipeline.render.source_cleanup.planning.page_features import buil
 from retainpdf_pipeline.render.source_cleanup.pdf.constants import BBOX_TEXT_STRIP_CONTENT_STREAM_SIZE_THRESHOLD
 from retainpdf_pipeline.render.source_cleanup.types import BBOX_TEXT_STRIP_PAGE_SKIP_NONE
 from retainpdf_pipeline.render.source_cleanup.types import BBOX_TEXT_STRIP_PAGE_SKIP_COMPLEX
-from retainpdf_pipeline.render.source_cleanup.types import BBOX_TEXT_STRIP_PAGE_SKIP_NO_TEXT_OVERLAP
 from retainpdf_pipeline.render.source_cleanup.types import BBOX_TEXT_STRIP_PAGE_SKIP_VISUAL_BACKGROUND
+from retainpdf_pipeline.render.source_cleanup.types import protected_pages_fingerprint
 from retainpdf_pipeline.render.source_cleanup.types import BBoxTextStripCandidates
 from retainpdf_pipeline.render.source_cleanup.types import BBoxTextStripPagePlan
 from retainpdf_pipeline.render.source_cleanup.planning.segments import strip_segments_for_text_rect
@@ -38,7 +38,7 @@ def plan_source_cleanup(
     translated_pages: dict[int, list[dict]],
     protected_pages: dict[int, list[dict]] | None = None,
     skip_formula_pages: bool = False,
-    skip_form_xobject_pages: bool = True,
+    skip_form_xobject_pages: bool = False,
     document_analysis: RenderDocumentAnalysis | None = None,
     pdf_structure_profile=None,
 ) -> BBoxTextStripCandidates:
@@ -65,7 +65,10 @@ def plan_source_cleanup(
             accumulator.add_page_plan(page_idx, page_plan)
     finally:
         doc.close()
-    return accumulator.build()
+    return replace(
+        accumulator.build(),
+        protected_fingerprint=protected_pages_fingerprint(protected_pages),
+    )
 
 
 def plan_source_cleanup_page(
@@ -75,7 +78,7 @@ def plan_source_cleanup_page(
     translated_items: list[dict],
     protected_items: list[dict] | None = None,
     skip_formula_pages: bool = False,
-    skip_form_xobject_pages: bool = True,
+    skip_form_xobject_pages: bool = False,
     features: PageCleanupFeatures | None = None,
     document_analysis: RenderDocumentAnalysis | None = None,
 ) -> BBoxTextStripPagePlan:
@@ -105,6 +108,13 @@ def plan_source_cleanup_page(
 
     resolver = PageBBoxResolver.build(page, bboxes=[item.get("bbox", []) for item in strip_items])
     strip_pairs = list(iter_strip_item_rect_pairs_for_page(page, strip_items, resolver=resolver, prefiltered=True))
+    # NOTE: gate (view_rect, display space, vs bboxlog text_index) and blade
+    # (pdf_rect, PDF user space, vs glyph CTM) intentionally differ. Vote picks
+    # raw_top_left only on strict overlap majority, which proves display-space
+    # OCR — exactly when the pdf_matrix blade is correct. A PDF-space page can
+    # never win raw_top_left (ties fall through to pdf_matrix), so the gate
+    # fails safe to skip instead of green-lighting a mirrored cut. Do NOT
+    # "unify" the two spaces without re-proving this.
     item_view_rects = merge_rects([pair.view_rect for pair in strip_pairs if not pair.view_rect.is_empty])
     if not item_view_rects:
         return BBoxTextStripPagePlan()

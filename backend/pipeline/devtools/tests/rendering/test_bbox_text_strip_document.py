@@ -140,6 +140,24 @@ def test_source_cleanup_intent_strips_table_footnote_with_inline_math_markers() 
     assert intent.cleanup_action == "strip_text"
 
 
+def test_source_cleanup_intent_protects_footnote_with_display_math() -> None:
+    intent = classify_source_cleanup_intent(
+        {
+            "item_id": "p001-b001",
+            "block_kind": "text",
+            "block_type": "text",
+            "layout_role": "footnote",
+            "semantic_role": "metadata",
+            "normalized_sub_type": "table_footnote",
+            "source_text": "See $$ E=mc^2 $$ for details.",
+            "protected_translated_text": "详见 $$ E=mc^2 $$。",
+        }
+    )
+
+    assert intent.source_role == "mixed_math_text"
+    assert intent.cleanup_action == "protect_source"
+
+
 def test_structural_toc_and_page_number_do_not_force_text_strip_in_beta10_cleanup() -> None:
     from retainpdf_pipeline.render.source_cleanup.planning.item_classifier import item_allows_forced_text_strip
 
@@ -1159,6 +1177,22 @@ def test_bbox_text_strip_parallel_threshold_can_be_overridden(monkeypatch: pytes
     assert source_cleanup_document.BBOX_TEXT_STRIP_PARALLEL_PAGE_THRESHOLD == 12
 
 
+def test_bbox_text_strip_worker_override_is_clamped_to_ceiling(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(source_cleanup_document.os, "cpu_count", lambda: 8)
+
+    monkeypatch.setenv("RETAIN_BBOX_TEXT_STRIP_WORKERS", "1000")
+    assert source_cleanup_document._parallel_worker_count(500) == source_cleanup_document.BBOX_TEXT_STRIP_PARALLEL_MAX_WORKERS
+
+    monkeypatch.setenv("RETAIN_BBOX_TEXT_STRIP_WORKERS", "0")
+    assert source_cleanup_document._parallel_worker_count(500) == 1
+
+    monkeypatch.setenv("RETAIN_BBOX_TEXT_STRIP_WORKERS", "abc")
+    assert source_cleanup_document._parallel_worker_count(500) == source_cleanup_document.BBOX_TEXT_STRIP_PARALLEL_MAX_WORKERS
+
+    monkeypatch.setenv("RETAIN_BBOX_TEXT_STRIP_WORKERS", "3")
+    assert source_cleanup_document._parallel_worker_count(500) == 3
+
+
 def test_bbox_text_strip_chunks_balance_decoded_stream_weights() -> None:
     pdf = pikepdf.Pdf.new()
     sizes = [1200, 1100, 1000, 220, 210, 200, 190, 180, 170]
@@ -1227,3 +1261,230 @@ def test_estimated_text_rect_uses_font_size_from_text_state() -> None:
     assert rect[1] < 40.0
     assert rect[2] >= 44.0
     assert rect[3] > 50.0
+
+
+def test_skip_form_xobject_default_is_deep_delete() -> None:
+    import inspect
+
+    from retainpdf_pipeline.render.source_cleanup.contracts import SourceCleanupOptions
+    from retainpdf_pipeline.render.source_cleanup.planning.planner import plan_source_cleanup
+
+    default = inspect.signature(plan_source_cleanup).parameters["skip_form_xobject_pages"].default
+    assert default is False
+    assert SourceCleanupOptions.skip_form_xobject_pages is False
+
+
+def test_execute_source_cleanup_replans_when_protected_pages_present() -> None:
+    from retainpdf_pipeline.render.source_cleanup.contracts import SourceCleanupRequest
+    from retainpdf_pipeline.render.source_cleanup.executor import execute_source_cleanup
+    from retainpdf_pipeline.render.source_cleanup.planning.planner import plan_source_cleanup
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        source_pdf = root / "source.pdf"
+        output_pdf = root / "stripped.pdf"
+        doc = fitz.open()
+        page = doc.new_page(width=200, height=200)
+        page.insert_text((20, 40), "inside text", fontsize=12)
+        doc.save(source_pdf)
+        doc.close()
+
+        translated_pages = {
+            0: [
+                {
+                    "block_kind": "text",
+                    "bbox": [10.0, 20.0, 140.0, 55.0],
+                    "protected_translated_text": "译文",
+                }
+            ]
+        }
+        stale_candidates = plan_source_cleanup(
+            source_pdf_path=source_pdf,
+            translated_pages=translated_pages,
+        )
+        assert stale_candidates.page_rects != {}
+
+        result = execute_source_cleanup(
+            SourceCleanupRequest(
+                source_pdf_path=source_pdf,
+                output_pdf_path=output_pdf,
+                translated_pages=translated_pages,
+                protected_pages={0: [{"bbox": [10.0, 20.0, 140.0, 55.0]}]},
+                candidates=stale_candidates,
+            )
+        )
+
+        assert result.changed is False
+        assert result.bbox_text_strip.text_show_ops_removed == 0
+
+
+def test_execute_source_cleanup_reuses_candidates_when_protection_matches() -> None:
+    from retainpdf_pipeline.render.source_cleanup.contracts import SourceCleanupRequest
+    from retainpdf_pipeline.render.source_cleanup.executor import execute_source_cleanup
+    from retainpdf_pipeline.render.source_cleanup.planning.planner import plan_source_cleanup
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        source_pdf = root / "source.pdf"
+        output_pdf = root / "stripped.pdf"
+        doc = fitz.open()
+        page = doc.new_page(width=200, height=200)
+        page.insert_text((20, 40), "inside text", fontsize=12)
+        doc.save(source_pdf)
+        doc.close()
+
+        translated_pages = {
+            0: [
+                {
+                    "block_kind": "text",
+                    "bbox": [10.0, 20.0, 140.0, 55.0],
+                    "protected_translated_text": "译文",
+                }
+            ]
+        }
+        protected_pages = {0: [{"bbox": [10.0, 20.0, 140.0, 55.0]}]}
+        matching_candidates = plan_source_cleanup(
+            source_pdf_path=source_pdf,
+            translated_pages=translated_pages,
+            protected_pages=protected_pages,
+        )
+        from dataclasses import replace
+
+        manifest_candidates = replace(matching_candidates, candidate_source="manifest")
+
+        result = execute_source_cleanup(
+            SourceCleanupRequest(
+                source_pdf_path=source_pdf,
+                output_pdf_path=output_pdf,
+                translated_pages=translated_pages,
+                protected_pages=protected_pages,
+                candidates=manifest_candidates,
+            )
+        )
+
+        assert result.changed is False
+        assert result.bbox_text_strip.candidates is not None
+        assert result.bbox_text_strip.candidates.candidate_source == "manifest"
+        assert (
+            result.bbox_text_strip.candidates.protected_fingerprint
+            == manifest_candidates.protected_fingerprint
+        )
+
+
+def test_stray_q_keeps_accumulated_graphics_state() -> None:
+    from retainpdf_pipeline.render.source_cleanup.pdf.stream_state import ContentStreamState
+
+    state = ContentStreamState()
+    state.concat_matrix([2, 0, 0, 2, 10, 20])
+    state.pop_graphics_state([])
+
+    assert state.ctm == (2, 0, 0, 2, 10, 20)
+
+
+def test_balanced_q_still_restores_graphics_state() -> None:
+    from retainpdf_pipeline.render.source_cleanup.pdf.stream_state import ContentStreamState
+
+    state = ContentStreamState()
+    state.concat_matrix([2, 0, 0, 2, 10, 20])
+    state.push_graphics_state([])
+    state.concat_matrix([1, 0, 0, 1, 5, 5])
+    state.pop_graphics_state([])
+
+    assert state.ctm == (2, 0, 0, 2, 10, 20)
+
+
+def test_bbox_text_strip_preserves_formula_zone_pixels() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        source_pdf = root / "source.pdf"
+        output_pdf = root / "stripped.pdf"
+        doc = fitz.open()
+        page = doc.new_page(width=300, height=300)
+        page.insert_text((30, 50), "remove me", fontsize=12)
+        page.insert_text((30, 150), "E = mc2", fontsize=12)
+        doc.save(source_pdf)
+        doc.close()
+
+        formula_bbox = [20.0, 130.0, 180.0, 170.0]
+        result = build_bbox_text_stripped_pdf_copy(
+            source_pdf_path=source_pdf,
+            output_pdf_path=output_pdf,
+            translated_pages={
+                0: [
+                    {
+                        "block_kind": "text",
+                        "block_type": "text",
+                        "bbox": [20.0, 30.0, 180.0, 70.0],
+                        "protected_translated_text": "译文",
+                    },
+                    {
+                        "block_kind": "formula",
+                        "block_type": "formula",
+                        "normalized_sub_type": "display_formula",
+                        "bbox": formula_bbox,
+                    },
+                ]
+            },
+        )
+
+        assert result.changed is True
+        source_doc = fitz.open(source_pdf)
+        stripped_doc = fitz.open(output_pdf)
+        try:
+            assert "remove me" not in stripped_doc[0].get_text()
+            assert "mc2" in stripped_doc[0].get_text()
+            zone = fitz.Rect(formula_bbox)
+            before = source_doc[0].get_pixmap(clip=zone, matrix=fitz.Matrix(2, 2))
+            after = stripped_doc[0].get_pixmap(clip=zone, matrix=fitz.Matrix(2, 2))
+            assert (before.width, before.height) == (after.width, after.height)
+            assert bytes(before.samples) == bytes(after.samples)
+        finally:
+            source_doc.close()
+            stripped_doc.close()
+
+
+def test_bbox_text_strip_parallel_matches_serial(monkeypatch: pytest.MonkeyPatch) -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        source_pdf = root / "source.pdf"
+        doc = fitz.open()
+        for index in range(20):
+            page = doc.new_page(width=240, height=180)
+            page.insert_text((30, 50), f"remove me {index}", fontsize=12)
+        doc.save(source_pdf)
+        doc.close()
+
+        translated_pages = {
+            index: [
+                {
+                    "block_kind": "text",
+                    "bbox": [20.0, 30.0, 200.0, 70.0],
+                    "protected_translated_text": "译文",
+                }
+            ]
+            for index in range(20)
+        }
+
+        def _run(workers: str | None) -> tuple[list[str], int]:
+            if workers is None:
+                monkeypatch.delenv("RETAIN_BBOX_TEXT_STRIP_WORKERS", raising=False)
+            else:
+                monkeypatch.setenv("RETAIN_BBOX_TEXT_STRIP_WORKERS", workers)
+            output_pdf = root / f"stripped-{workers or 'pool'}.pdf"
+            result = build_bbox_text_stripped_pdf_copy(
+                source_pdf_path=source_pdf,
+                output_pdf_path=output_pdf,
+                translated_pages=translated_pages,
+            )
+            naive_doc = fitz.open(output_pdf)
+            try:
+                texts = [naive_doc[index].get_text() for index in range(20)]
+            finally:
+                naive_doc.close()
+            return texts, result.text_show_ops_removed
+
+        pool_texts, pool_removed = _run(None)
+        serial_texts, serial_removed = _run("1")
+
+        assert pool_removed == serial_removed > 0
+        assert pool_texts == serial_texts

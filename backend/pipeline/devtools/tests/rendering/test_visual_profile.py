@@ -179,3 +179,58 @@ def test_visual_profile_runtime_supplies_background_visual_cover(tmp_path: Path)
         )
     finally:
         doc.close()
+
+
+def test_document_visual_profile_parallel_matches_sequential(tmp_path: Path) -> None:
+    from retainpdf_pipeline.render.visual_profile import build_document_visual_profile
+
+    source_pdf = tmp_path / "source.pdf"
+    doc = fitz.open()
+    try:
+        for index in range(3):
+            page = doc.new_page(width=300, height=200)
+            page.draw_rect(fitz.Rect(40, 40, 230, 80), color=None, fill=(0.86, 0.9, 0.96))
+            page.insert_text((50, 60), f"heading {index}", fontsize=12, color=(0.8, 0.0, 0.0))
+        doc.save(source_pdf)
+    finally:
+        doc.close()
+
+    pages = {
+        index: [
+            {
+                "item_id": f"p{index:03d}-b001",
+                "bbox": [44, 42, 226, 82],
+                "block_kind": "text",
+                "layout_role": "title",
+                "translated_text": "彩色标题",
+            }
+        ]
+        for index in range(3)
+    }
+
+    sequential = build_document_visual_profile(source_pdf, pages, max_workers=1)
+    parallel = build_document_visual_profile(source_pdf, pages, max_workers=2)
+
+    assert parallel == sequential
+    assert sorted(parallel.pages) == [0, 1, 2]
+
+
+def test_batch_sampler_matches_direct_sampling_on_flat_page() -> None:
+    from retainpdf_pipeline.render.source.background.fill import LocalBackgroundSampler
+    from retainpdf_pipeline.render.source.background.fill import sample_local_background_fill
+
+    doc = fitz.open()
+    try:
+        page = doc.new_page(width=400, height=400)
+        page.draw_rect(fitz.Rect(0, 0, 400, 400), color=None, fill=(0.93, 0.93, 0.9))
+        page.draw_rect(fitz.Rect(50, 50, 350, 120), color=None, fill=(0.75, 0.8, 0.88))
+        rects = [fitz.Rect(60 + index * 20, 200, 140 + index * 20, 230) for index in range(10)]
+
+        sampler = LocalBackgroundSampler.build(page, rects)
+        assert sampler is not None
+        for rect in rects:
+            assert sample_local_background_fill(page, rect, sampler=sampler) == sample_local_background_fill(
+                page, rect, sampler=None
+            )
+    finally:
+        doc.close()

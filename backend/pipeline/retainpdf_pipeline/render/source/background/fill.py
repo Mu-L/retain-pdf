@@ -7,6 +7,7 @@ import fitz
 from retainpdf_pipeline.render.source.background.config import BACKGROUND_COVER_COMPLEXITY_BRIGHTNESS_SPREAD
 from retainpdf_pipeline.render.source.background.config import BACKGROUND_COVER_MIN_SAMPLE_PIXELS
 from retainpdf_pipeline.render.source.background.config import BACKGROUND_COVER_SAMPLE_MARGIN_PT
+from retainpdf_pipeline.render.source.background.config import BACKGROUND_COVER_PATCH_SCALE
 from retainpdf_pipeline.render.source.background.config import BACKGROUND_COVER_SAMPLE_SCALE
 from retainpdf_pipeline.render.source.background.config import BACKGROUND_CLIP_SAMPLER_EXTRA_MARGIN_PT
 from retainpdf_pipeline.render.source.background.config import BACKGROUND_FULL_PAGE_SAMPLER_MIN_RECTS
@@ -48,6 +49,16 @@ class LocalBackgroundSampler:
         if pixmap is None or pixmap.width <= 0 or pixmap.height <= 0 or pixmap.n < 3:
             return None
         return cls(fitz.Rect(page.rect), clip_rect, pixmap)
+
+    @classmethod
+    def build_full_page(cls, page: fitz.Page) -> "LocalBackgroundSampler | None":
+        page_rect = fitz.Rect(page.rect)
+        if page_rect.is_empty or page_rect.is_infinite:
+            return None
+        pixmap = _clip_pixmap(page, page_rect)
+        if pixmap is None or pixmap.width <= 0 or pixmap.height <= 0 or pixmap.n < 3:
+            return None
+        return cls(page_rect, page_rect, pixmap)
 
     def sample_local_background_fill(self, rect: fitz.Rect) -> tuple[float, float, float] | None:
         if not self._can_sample(rect):
@@ -219,11 +230,19 @@ def _rect_contains(container: fitz.Rect, rect: fitz.Rect) -> bool:
     return not clipped.is_empty and abs(rect_area(clipped) - rect_area(fitz.Rect(rect))) <= 0.01
 
 
-def _clip_pixmap(page: fitz.Page, clip: fitz.Rect) -> fitz.Pixmap | None:
+def _clip_pixmap(
+    page: fitz.Page,
+    clip: fitz.Rect,
+    *,
+    scale: float | None = None,
+) -> fitz.Pixmap | None:
+    # None resolves at call time so an explicit argument always wins and the
+    # module default stays a single constant.
+    resolved_scale = BACKGROUND_COVER_SAMPLE_SCALE if scale is None else scale
     try:
         return page.get_pixmap(
             clip=clip,
-            matrix=fitz.Matrix(BACKGROUND_COVER_SAMPLE_SCALE, BACKGROUND_COVER_SAMPLE_SCALE),
+            matrix=fitz.Matrix(resolved_scale, resolved_scale),
             colorspace=fitz.csRGB,
             alpha=False,
         )
@@ -382,10 +401,11 @@ def sample_local_background_fill(
     samples = memoryview(pix.samples)
     stride = pix.n
     pixels: list[tuple[int, int, int]] = []
-    for y in range(pix.height):
+    step = _sample_step_for_bounds(0, 0, pix.width, pix.height)
+    for y in range(0, pix.height, step):
         inside_y = inner_y0 <= y < inner_y1
         row_offset = y * pix.width * stride
-        for x in range(pix.width):
+        for x in range(0, pix.width, step):
             if inside_y and inner_x0 <= x < inner_x1:
                 continue
             offset = row_offset + x * stride
@@ -453,7 +473,7 @@ def prepare_background_cover(page: fitz.Page, rect: fitz.Rect) -> PreparedBackgr
     best_pixmap: fitz.Pixmap | None = None
     best_score: tuple[int, int, float] | None = None
     for candidate in _patch_candidate_rects(page_rect, rect):
-        pix = _clip_pixmap(page, candidate)
+        pix = _clip_pixmap(page, candidate, scale=BACKGROUND_COVER_PATCH_SCALE)
         if pix is None:
             continue
         pixels = _pixmap_rgb_pixels(pix)
@@ -519,8 +539,11 @@ def apply_prepared_background_covers(
 def draw_white_covers(page: fitz.Page, rects: list[fitz.Rect]) -> None:
     if not rects:
         return
+    sampler = LocalBackgroundSampler.build(page, [fitz.Rect(rect) for rect in rects])
+    if sampler is None:
+        sampler = LocalBackgroundSampler.build_full_page(page)
     for rect in rects:
-        fill = sample_local_background_fill(page, rect)
+        fill = sample_local_background_fill(page, rect, sampler=sampler)
         shape = page.new_shape()
         shape.draw_rect(rect)
         shape.finish(color=None, fill=fill)

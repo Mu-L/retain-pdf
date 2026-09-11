@@ -459,6 +459,7 @@ def bbox_candidates_to_manifest(candidates: BBoxTextStripCandidates) -> dict[str
             str(page_idx): dict(features)
             for page_idx, features in sorted((candidates.page_features or {}).items())
         },
+        "protected_fingerprint": candidates.protected_fingerprint,
         "deletion_contracts_by_page": {
             str(page_idx): [dict(contract) for contract in contracts]
             for page_idx, contracts in sorted((getattr(candidates, "deletion_contracts_by_page", None) or {}).items())
@@ -542,6 +543,8 @@ def bbox_candidates_from_manifest(value: object) -> BBoxTextStripCandidates | No
     candidate_fields = getattr(BBoxTextStripCandidates, "__dataclass_fields__", {})
     if "page_path_rects" in candidate_fields:
         candidate_kwargs["page_path_rects"] = page_path_rects
+    if "protected_fingerprint" in candidate_fields:
+        candidate_kwargs["protected_fingerprint"] = str(payload.get("protected_fingerprint") or "")
     if "deletion_contracts_by_page" in candidate_fields:
         candidate_kwargs["deletion_contracts_by_page"] = deletion_contracts_from_manifest(
             payload.get("deletion_contracts_by_page")
