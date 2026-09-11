@@ -10,8 +10,6 @@ export const READER_ZOOM_MAX = 1;
 export const READER_ZOOM_STEP = 0.05;
 /** 默认 50%：半屏宽，对照两侧刚好铺满 */
 export const READER_ZOOM_DEFAULT = 0.5;
-/** @deprecated */
-export const READER_ZOOM_SINGLE_DEFAULT = 0.5;
 export const READER_ZOOM_COMPARE_DEFAULT = 0.5;
 
 /** 栏内左右 padding 合计 */
@@ -74,15 +72,6 @@ export function pageWidthFromShell(shellWidth: number, userZoom = READER_ZOOM_DE
   const zoom = clampReaderZoom(userZoom);
   // 先按占比得到目标宽，再扣 padding，保证 50% 正好是半屏内容宽
   return fitContentWidth((Number(shellWidth) || 0) * zoom);
-}
-
-/**
- * @deprecated 易误解为「按栏宽缩放」。请用 pageWidthFromShell(shellWidth, zoom)。
- * 保留签名以免旧调用崩：把 first arg 当作 shell 半宽时行为与旧半栏 unit 不同。
- */
-export function pageWidthForPane(shellOrPaneWidth: number, userZoom = READER_ZOOM_DEFAULT): number {
-  // 兼容：若误传半栏宽，×2 还原成 shell 近似值再算
-  return pageWidthFromShell(shellOrPaneWidth, userZoom);
 }
 
 export function preserveScrollCenter(

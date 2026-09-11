@@ -41,7 +41,7 @@ const STATES = [
     diffThreshold: 0.008,
     url: `/reader.html?mock=succeeded`,
     prepare: async (page) => {
-      await page.waitForSelector("#reader-boot-loading.hidden", { state: "attached", timeout: 20000 });
+      await page.waitForSelector(".reader-boot-loading", { state: "attached", timeout: 20000 });
       // 右栏默认展开会触发 PDF 重排缩放,留足时间让缩放落定再截图(否则 PDF 文本亚像素抖动)
       await page.waitForTimeout(1800);
     },
@@ -51,7 +51,7 @@ const STATES = [
     diffThreshold: 0.008,
     url: `/reader.html?mock=succeeded`,
     prepare: async (page) => {
-      await page.waitForSelector("#reader-boot-loading.hidden", { state: "attached", timeout: 20000 });
+      await page.waitForSelector(".reader-boot-loading", { state: "attached", timeout: 20000 });
       // 三栏骨架:右栏(AI 问答)默认展开,无需再点开
       await page.waitForSelector("#reader-ai-drawer.is-open", { timeout: 10000 });
       // 等待右栏展开引发的 PDF 重排缩放落定,避免亚像素抖动
@@ -81,7 +81,7 @@ const STATES = [
     diffThreshold: 0.008,
     url: `/reader.html?mock=succeeded`,
     prepare: async (page) => {
-      await page.waitForSelector("#reader-boot-loading.hidden", { state: "attached", timeout: 20000 });
+      await page.waitForSelector(".reader-boot-loading", { state: "attached", timeout: 20000 });
       await page.click("#reader-markdown-toggle-btn");
       await page.waitForSelector("#reader-markdown-content:not(.hidden)", { timeout: 10000 });
       await page.waitForTimeout(600);
@@ -98,7 +98,7 @@ const STATES = [
       await page.click("#reader-btn");
       const frameElement = await page.waitForSelector("iframe[src*='reader.html']", { timeout: 10000 });
       const frame = await frameElement.contentFrame();
-      await frame.waitForSelector("#reader-boot-loading.hidden", { state: "attached", timeout: 20000 });
+      await frame.waitForSelector(".reader-boot-loading", { state: "attached", timeout: 20000 });
       await page.waitForTimeout(800);
     },
   },
@@ -107,7 +107,7 @@ const STATES = [
     diffThreshold: 0.008,
     url: `/reader.html?mock=succeeded`,
     prepare: async (page) => {
-      await page.waitForSelector("#reader-boot-loading.hidden", { state: "attached", timeout: 20000 });
+      await page.waitForSelector(".reader-boot-loading", { state: "attached", timeout: 20000 });
       // 右栏默认展开,直接提问(不再点击开合按钮)
       await page.waitForSelector("#reader-ai-drawer.is-open", { timeout: 10000 });
       await page.fill("#reader-ai-input", "共轭如何影响选择性?");
@@ -121,7 +121,7 @@ const STATES = [
     diffThreshold: 0.008,
     url: `/reader.html?mock=succeeded`,
     prepare: async (page) => {
-      await page.waitForSelector("#reader-boot-loading.hidden", { state: "attached", timeout: 20000 });
+      await page.waitForSelector(".reader-boot-loading", { state: "attached", timeout: 20000 });
       await page.click("#reader-annotations-toggle-btn");
       await page.waitForSelector(".reader-annotations-item", { timeout: 10000 });
       await page.waitForTimeout(600);

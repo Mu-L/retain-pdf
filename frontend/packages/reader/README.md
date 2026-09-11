@@ -31,13 +31,15 @@ RetainPDF 的独立 react-pdf 阅读器包。组件、hooks、PDF 加载、批�
 RetainPDF Web 的实现位于：
 
 ```text
-frontend/web/src/pages/reader/entry.tsx
-  → frontend/web/src/pages/reader/adapters/retainpdf.ts
-  → frontend/web/src/pages/reader/external.ts
-  → frontend/web/src/shared/reader/host/*
+frontend/web/src/app/reader/entry.tsx
+  → frontend/web/src/app/reader/adapters/retainpdf.ts
+  → frontend/web/src/app/reader/external.ts
+  → frontend/web/src/features/reader/domain/host/*
 ```
 
 宿主不得 alias、相对导入或发布依赖 `frontend/packages/reader/src`。需要非 React 能力时，使用 `runtime/ai`、`runtime/config`、`runtime/content`、`runtime/data`、`runtime/state` 等公开 exports。
+
+唯一例外是软导航共享实现：包内暂无公开 navigation subpath，`frontend/web/src/platform/navigation/soft-reader.ts` 以源码路径 re-export `shared/navigation/soft-reader.ts`，与包内 `ReaderCloseHome` 共用同一真源。补齐公开 navigation export 后应改为经 package exports 消费。
 
 ## 构建
 
@@ -92,6 +94,6 @@ Reader 的快捷键帮助、工具菜单、选区工具、下载 Toast 和非停
 
 - [Reader 样式](styles/README.md)
 - [Legacy 当前状态](src/LEGACY.md)
-- [Web Reader 宿主边界](../../web/src/pages/reader/README.md)
+- [Web Reader 宿主边界](../../web/src/app/reader/README.md)
 - [Web 前端地图](../../web/src/FEATURES.md)
 - [Web 测试指南](../../web/tests/README.md)

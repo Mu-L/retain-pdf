@@ -17,7 +17,6 @@ import {
   resolveInitialAssistantPanel,
   resolveVisiblePdfMode,
 } from "../../../../frontend/packages/reader/src/ReaderAppReactPdf.tsx";
-import { ReaderModeTabs } from "../../../../frontend/packages/reader/src/components/react-pdf/ReaderModeTabs.tsx";
 import { ReaderAssistantDock } from "../../../../frontend/packages/reader/src/components/react-pdf/ReaderAssistantDock.tsx";
 import {
   isReaderWorkspaceDisabled,
@@ -115,26 +114,6 @@ test("AI image URLs resolve to the matching structured region on the cited page"
     "p002-b0005",
   );
   assert.equal(findReaderRegionByAssetUrl(regions, "images/page-3/imgs/figure.png", 3), null);
-});
-
-test("reader mode tabs follow source, compare, translated order", () => {
-  const markup = renderToStaticMarkup(createElement(ReaderModeTabs, {
-    mode: "compare",
-    sourceOnly: false,
-    onModeChange() {},
-  }));
-
-  const sourceIndex = markup.indexOf('data-reader-mode="source"');
-  const compareIndex = markup.indexOf('data-reader-mode="compare"');
-  const translatedIndex = markup.indexOf('data-reader-mode="translated"');
-
-  assert.ok(sourceIndex >= 0 && sourceIndex < compareIndex);
-  assert.ok(compareIndex < translatedIndex);
-  assert.match(markup, /aria-label="源文件"/);
-  assert.match(markup, /aria-label="对照"/);
-  assert.match(markup, /aria-label="翻译文件"/);
-  assert.doesNotMatch(markup, /reader-tab-label/);
-  assert.match(markup, /aria-selected="true"[^>]*data-reader-mode="compare"/);
 });
 
 test("reader mode number shortcuts match the visible tab order", () => {

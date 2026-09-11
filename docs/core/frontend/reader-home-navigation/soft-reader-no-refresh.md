@@ -84,20 +84,21 @@
 
 | 路径 | 职责 |
 |------|------|
-| `frontend/web/src/shared/navigation/soft-reader.ts` | `trySoftOpenReader` / `closeSoftReaderOnHost`、history state、消息类型 |
-| `frontend/web/src/shared/navigation/home-return-state.ts` | 离开前滚动/tab 快照（硬跳转兜底） |
-| `frontend/web/src/pages/home/features/reader/navigate-to-reader.ts` | 默认 soft open；`replace` 仍硬跳 |
-| `frontend/web/src/pages/home/features/reader/SoftReaderHost.tsx` | 全屏层 + iframe + popstate / message |
-| `frontend/web/src/pages/home/features/reader/ReaderDialog.tsx` | 监听 `openReaderRequested` → `navigateToReader` |
-| `frontend/web/src/pages/reader/components/react-pdf/ReaderCloseHome.tsx` | ×：iframe 内 postMessage；独立页 back/assign |
-| `frontend/web/src/pages/home/features/library/page/useHomeReturnRestore.ts` | 硬回主页时恢复滚动（兜底） |
+| `frontend/packages/reader/src/shared/navigation/soft-reader.ts` | 单一真源：`trySoftOpenReader` / `closeSoftReaderOnHost` / `handoffSoftReaderJob`、history state、消息类型 |
+| `frontend/web/src/platform/navigation/soft-reader.ts` | Web 宿主 re-export（从包内真源导入，导出名不变） |
+| `frontend/web/src/platform/navigation/home-return-state.ts` | 离开前滚动/tab 快照（硬跳转兜底） |
+| `frontend/web/src/features/reader/domain/navigate-to-reader.ts` | 默认 soft open；`replace` 仍硬跳 |
+| `frontend/web/src/features/reader/ui/SoftReaderHost.tsx` | 全屏层 + iframe + popstate / message |
+| `frontend/web/src/features/reader/ui/ReaderNavigation.tsx` | 监听 `openReaderRequested` → `navigateToReader`；retry-stage `handoffSoftReaderJob` |
+| `frontend/packages/reader/src/components/react-pdf/ReaderCloseHome.tsx` | ×：iframe 内 postMessage；独立页 back/assign |
+| `frontend/web/src/features/library/ui/page/useHomeReturnRestore.ts` | 硬回主页时恢复滚动（兜底） |
 | `frontend/web/src/styles/pages/home/library-shell.css` | `.soft-reader-host` / `.soft-reader-frame` |
 
 ### 4.3 打开路径（主页点书）
 
 ```
 openReaderRequested
-  → ReaderDialog
+  → ReaderNavigation
   → navigateToReader(url)
   → captureHomeReturnState({ allowBack: true })
   → trySoftOpenReader(url)          // 主页文档上
@@ -174,8 +175,9 @@ npm run build:js
 
 相关测试（导航契约，多用 mock navigate）：
 
-- `frontend/web/tests/reader-dialog-component.test.mjs`
-- `frontend/web/tests/home-app-component.test.mjs`
+- `frontend/web/tests/reader/reader-navigation-component.test.mjs`
+- `frontend/web/tests/reader/reader-close-home.test.mjs`
+- `frontend/web/tests/home/home-app-component.test.mjs`
 
 ---
 

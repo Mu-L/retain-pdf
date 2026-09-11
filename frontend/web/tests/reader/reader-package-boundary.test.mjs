@@ -57,9 +57,19 @@ function importSpecifiers(source) {
   return Array.from(source.matchAll(pattern), (match) => match[1]);
 }
 
+// Soft navigation is shared implementation, not a host adapter: the package
+// has no public navigation subpath yet and its dist is frozen, so
+// @retainpdf/reader exposes soft-reader as source and the web shell re-exports
+// it. Every other Reader deep-link stays forbidden.
+const SHARED_NAVIGATION_ALLOWLIST = new Set([
+  join(READER_SOURCE_ROOT, "shared/navigation/soft-reader.js"),
+  join(READER_SOURCE_ROOT, "shared/navigation/soft-reader.ts"),
+]);
+
 function resolvesInsideReaderSource(importer, specifier) {
   if (!specifier.startsWith(".")) return false;
   const target = resolve(dirname(importer), specifier);
+  if (SHARED_NAVIGATION_ALLOWLIST.has(target)) return false;
   return target === READER_SOURCE_ROOT || target.startsWith(`${READER_SOURCE_ROOT}${sep}`);
 }
 

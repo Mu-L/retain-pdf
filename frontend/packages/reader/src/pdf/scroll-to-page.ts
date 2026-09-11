@@ -163,15 +163,6 @@ export function scrollShellToPage(
   );
 }
 
-/** @deprecated 兼容旧名 */
-export function scrollPaneToPage(
-  root: HTMLElement | null | undefined,
-  pageNumber: number,
-  behavior: ScrollBehavior = "smooth",
-): boolean {
-  return scrollShellToPage(root, pageNumber, behavior);
-}
-
 /**
  * 用锁定的 progress 恢复位置。
  * 布局未稳时重试；同一 progress 反复 apply 是幂等的（不会越滚越远）。

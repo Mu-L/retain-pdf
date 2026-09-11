@@ -6,28 +6,18 @@
 import "../shell-boot.js";
 import "./adapters/retainpdf.js";
 import { bootReader } from "@retainpdf/reader/boot";
-import { parseReaderParams } from "@/platform/navigation/pages.js";
+import { canonicalizeReaderSearch } from "@/platform/navigation/pages.js";
 
-// 入参走三页统一契约：camelCase ?page=&blockId= 补齐运行时读取的
-// page_idx/block_id（replaceState，无刷新；双 key 并存时不动）。
+// 入参走三页统一契约：历史别名 ?page=&blockId= 由 pages 的解析真源归一成
+// 运行时读取的 page_idx/block_id（replaceState，无刷新；无变化则跳过）。
 try {
   const search = globalThis.location?.search || "";
-  const parsed = parseReaderParams(search);
-  const params = new URLSearchParams(search);
-  let dirty = false;
-  if (parsed.page !== null && !params.has("page_idx")) {
-    params.set("page_idx", `${parsed.page}`);
-    dirty = true;
-  }
-  if (parsed.blockId && !params.has("block_id")) {
-    params.set("block_id", parsed.blockId);
-    dirty = true;
-  }
-  if (dirty) {
+  const canonical = canonicalizeReaderSearch(search);
+  if (canonical !== null) {
     globalThis.history?.replaceState?.(
       null,
       "",
-      `${globalThis.location.pathname}?${params.toString()}${globalThis.location.hash || ""}`,
+      `${globalThis.location.pathname}?${canonical}${globalThis.location.hash || ""}`,
     );
   }
 } catch {
