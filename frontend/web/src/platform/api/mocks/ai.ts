@@ -12,8 +12,6 @@ export class AiAskError extends Error {
   }
 }
 
-export type AiAssistantMode = "auto" | "reading" | "operations";
-
 function normalizeOperationRefs(value) {
   if (!Array.isArray(value)) {
     return [];
@@ -106,7 +104,7 @@ function parseSseEvent(line = "") {
 
 // 消费 /ai/ask 的 SSE body:按行切分 `data: {json}`,tool 事件回调,
 // compress 透出给上层做可观测提示,done 事件返回最终结果,error 事件抛 AiAskError。
-export async function readAiAskStream(body, {
+async function readAiAskStream(body, {
   onProgressEvent = null,
   onToolEvent = null,
   onAgentToolEvent = null,

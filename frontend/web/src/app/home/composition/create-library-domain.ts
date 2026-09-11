@@ -8,38 +8,13 @@
 import { API_PREFIX } from "@/platform/config/api-constants.js";
 import { APP_EVENTS } from "@/platform/contracts/app-contract.js";
 import { createStore } from "@/platform/store/store.js";
-import { fetchDocumentList, fetchJobPayload } from "@/platform/api/index.js";
-// Pilot: library-books migrated to @retainpdf/api (direct). Keep fetchDocumentList from external barrel.
-import { isMockMode } from "@/platform/config/runtime.js";
-import { getMockJobList } from "@/platform/mock/index.js";
-import { countMockFavoritesByJob } from "@/platform/mock/documents.js";
+// library-books 的 mock 包装统一由 platform/api 提供，避免在此重写第二份。
 import {
-  fetchLibraryBookList as _fetchLibraryBookList,
-  deleteLibraryBook as _deleteLibraryBook,
-} from "@retainpdf/api/library-books";
-import { stripOcrSuffix } from "@retainpdf/api/utils/strip-ocr";
-
-async function fetchLibraryBookList(apiPrefix: string, opts: any = {}): Promise<any> {
-  if (isMockMode()) {
-    const jobIds = Array.isArray(opts?.jobIds) ? opts.jobIds : [];
-    return getMockJobList({ jobIds });
-  }
-  return (_fetchLibraryBookList as any)(apiPrefix, opts);
-}
-async function deleteLibraryBook(apiPrefix: string, jobId: string, opts: any = {}): Promise<any> {
-  const normalizedJobId = stripOcrSuffix(`${jobId || ""}`);
-  if (!normalizedJobId) throw new Error("删除失败: 缺少 job_id");
-  if (isMockMode()) {
-    const referenced = countMockFavoritesByJob(normalizedJobId);
-    if (referenced > 0 && !opts?.force) {
-      const conflict = new Error(`该 job 被 ${referenced} 条收藏引用(409)`) as Error & { status?: number };
-      (conflict as any).status = 409;
-      throw conflict;
-    }
-    return { job_id: normalizedJobId };
-  }
-  return (_deleteLibraryBook as any)(apiPrefix, jobId, opts);
-}
+  fetchDocumentList,
+  fetchJobPayload,
+  fetchLibraryBookList,
+  deleteLibraryBook,
+} from "@/platform/api/index.js";
 import {
   createRecentJobsStatePort,
   createRecentJobActions,

@@ -2,10 +2,6 @@
 // callers that need the network use @retainpdf/api/http directly.
 import { submitMockJob, submitMockUpload } from "@/platform/mock/index.js";
 
-// Pure URL builders have no mock/real split — re-export canonical signatures.
-export { buildApiEndpoint, buildJobsEndpoint, buildJobDetailEndpoint } from "@retainpdf/api/http";
-export type { HttpError } from "@retainpdf/api/http";
-
 export async function submitJson(url: string, payload: unknown): Promise<any> {
   void payload;
   if (/\/jobs(?:$|\?)/.test(url)) {
