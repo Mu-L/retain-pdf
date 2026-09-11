@@ -1,28 +1,8 @@
-/* 阅读器顶栏 chrome：tabs / boot / 关闭回主页 */
-
-.reader-topbar {
-  position: fixed;
-  top: 12px;
-  left: 50%;
-  z-index: 35;
-  z-index: var(--z-chrome, 35);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: min(148px, calc(100vw - 48px));
-  width: min(148px, calc(100dvw - 48px));
-  min-height: 36px;
-  padding: 4px;
-  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--paper) 82%, transparent);
-  box-shadow: 0 10px 28px color-mix(in srgb, var(--shadow-color) 10%, transparent);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  transform: translateX(-50%);
-  transition: opacity 180ms ease, transform 180ms ease, box-shadow 180ms ease;
-  will-change: opacity, transform;
-}
+/* 阅读器顶栏 chrome：workspace tabs / boot / 关闭回主页
+ *
+ * 旧 .reader-topbar / .reader-tabs / .reader-tab* 已被
+ * .reader-workspace-bar / .reader-workspace-tabs / .reader-workspace-tab
+ * 取代（ReaderWorkspaceTabs.tsx），且无任何 JS/TSX 写入者，删除防复活。 */
 
 /* Reader 顶栏只放场景预设；窗格的自由组合由各自的小选择器负责。 */
 .reader-workspace-bar {
@@ -289,51 +269,6 @@
   .reader-pane-selector-menu {
     width: 160px;
   }
-}
-
-.reader-tabs {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  width: 100%;
-}
-
-.reader-topbar.is-source-only {
-  width: 44px;
-}
-
-.reader-tab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1 1 0;
-  min-height: 28px;
-  padding: 0;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--ink);
-  box-shadow: none;
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0;
-  white-space: nowrap;
-}
-
-.reader-tab.is-active {
-  background: var(--accent);
-  color: var(--paper);
-}
-
-.reader-tab:hover {
-  background: var(--accent-weak);
-  color: var(--ink);
-}
-
-.reader-tab.is-active:hover {
-  background: var(--accent);
-  color: var(--paper);
 }
 
 /* 整页阅读器「关闭 → 主页」（替代旧 iframe 宿主右上角关闭） */

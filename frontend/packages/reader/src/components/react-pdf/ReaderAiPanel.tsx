@@ -13,6 +13,8 @@ export type ReaderAiPanelProps = {
   open: boolean;
   jobId: string;
   documentId?: string;
+  /** route 身份；与 jobId/documentId 共同决定 AI 运行时重置 scope */
+  sessionIdentity?: string;
   onClose: () => void;
   /** page_idx 为 0 基；由阅读器 goToPage(page_idx+1) */
   onJumpCitation: (citation: AiCitationLike) => void;
@@ -27,6 +29,7 @@ export function ReaderAiPanel({
   open,
   jobId,
   documentId = "",
+  sessionIdentity = "",
   onClose,
   onJumpCitation,
   onDocumentCommitted,
@@ -63,6 +66,7 @@ export function ReaderAiPanel({
   } = useReaderAskRuntime({
     jobId,
     documentId,
+    sessionIdentity,
     enabled,
     selectionContext,
     onDocumentCommitted,

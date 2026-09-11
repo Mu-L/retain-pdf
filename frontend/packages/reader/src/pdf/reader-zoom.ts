@@ -5,6 +5,8 @@
 //
 // 绝不能按「当前栏宽 × 百分比」再算一次，否则对照 50% 会变成整屏 25%。
 
+import { READER_PANE_ATTR } from "./reader-dom-contract.js";
+
 export const READER_ZOOM_MIN = 0.25;
 export const READER_ZOOM_MAX = 1;
 const READER_ZOOM_STEP = 0.05;
@@ -84,7 +86,7 @@ export function preserveScrollCenter(
   const cx = shell.scrollLeft + shell.clientWidth / 2;
   const cy = shell.scrollTop + shell.clientHeight / 2;
   const paneCenters = Array.from(
-    shell.querySelectorAll<HTMLElement>("[data-reader-pane]"),
+    shell.querySelectorAll<HTMLElement>(`[${READER_PANE_ATTR}]`),
   ).map((pane) => ({
     pane,
     cx: pane.scrollLeft + pane.clientWidth / 2,

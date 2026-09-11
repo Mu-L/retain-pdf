@@ -56,80 +56,11 @@
   pointer-events: none;
 }
 
-/* 组合工作区：PDF 可以位于任一半栏，也可以完全让位给 Markdown + AI。 */
-.reader-react-root.is-workspace-split .reader-react-scroll-shell {
-  right: 50vw;
-  right: 50dvw;
-  transition: none;
-}
+/* 工作区布局现由根类 is-workspace-{reading,compare,markdown,ai} 与
+ * is-assistant-open（见 assistant-dock.css）驱动；旧的
+ * is-workspace-split / is-pdf-pane-* / is-pdf-pair / is-markdown-split /
+ * is-ai-split 已无 JS/TSX 写入者，删除以防复活。 */
 
-.reader-react-root.is-workspace-split.is-pdf-pair .reader-react-scroll-shell {
-  left: 0;
-  right: 0;
-}
-
-.reader-react-root.is-workspace-split.is-pdf-pane-right .reader-react-scroll-shell {
-  left: 50vw;
-  left: 50dvw;
-  right: 0;
-}
-
-.reader-react-root.is-workspace-split.is-pdf-pane-none .reader-react-scroll-shell {
-  visibility: hidden;
-  pointer-events: none;
-}
-
-.reader-react-root.is-workspace-split.is-pdf-pane-left .reader-react-hud {
-  left: 25vw;
-  left: 25dvw;
-}
-
-.reader-react-root.is-workspace-split.is-pdf-pane-right .reader-react-hud {
-  left: 75vw;
-  left: 75dvw;
-}
-
-.reader-react-root.is-workspace-split.is-pdf-pair .reader-react-hud {
-  left: 50%;
-}
-
-.reader-react-root.is-workspace-split .reader-fab {
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* Markdown 工具打开时，PDF 与 Markdown 各自拥有独立滚动的左右半栏。 */
-.reader-react-root.is-markdown-split .reader-react-scroll-shell {
-  right: 50vw;
-  right: 50dvw;
-}
-.reader-react-root.is-markdown-split .reader-topbar,
-.reader-react-root.is-markdown-split .reader-react-hud {
-  left: 25vw;
-  left: 25dvw;
-}
-.reader-react-root.is-markdown-split .reader-close-home-btn {
-  right: clamp(12px, 2.2vw, 28px);
-}
-
-/* AI 阅读：文档与问答各占一半，与对照阅读的双栏比例一致。 */
-.reader-react-root.is-ai-split .reader-react-scroll-shell {
-  right: var(--reader-ai-split-width);
-  transition: none;
-}
-.reader-react-root.is-ai-split .reader-topbar,
-.reader-react-root.is-ai-split .reader-react-hud {
-  left: calc((100vw - var(--reader-ai-split-width)) / 2);
-  left: calc((100dvw - var(--reader-ai-split-width)) / 2);
-}
-.reader-react-root.is-ai-split .reader-close-home-btn {
-  right: clamp(12px, 2.2vw, 28px);
-}
-.reader-react-root.is-ai-split .reader-fab {
-  opacity: 0;
-  pointer-events: none;
-  transform: scale(0.92);
-}
 .reader-ai-split-resizer {
   position: fixed !important;
   inset: 0;
@@ -245,52 +176,48 @@
   display: none;
 }
 
+/* 源栏右上角动作（如「译文」叠加开关）：放在 pane 内，不随内容滚动。 */
+.reader-react-pdf-pane-action {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 6;
+  pointer-events: none;
+}
+.reader-react-pdf-pane-action > * {
+  pointer-events: auto;
+}
+.reader-live-translation-toggle {
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--ink) 18%, var(--line));
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1;
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.reader-live-translation-toggle:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+}
+.reader-live-translation-toggle.is-active {
+  background: color-mix(in srgb, var(--accent) 88%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 88%, var(--line));
+  color: #fff;
+}
+
 .reader-react-grid.reader-mode-compare .reader-react-pdf-pane[data-reader-pane="translated"] {
   border-left: 1px solid var(--line);
 }
 
-.reader-react-grid.reader-mode-compare.is-reversed .reader-react-pdf-pane[data-reader-pane="source"] {
-  order: 2;
-  border-left: 1px solid var(--line);
-}
-
-.reader-react-grid.reader-mode-compare.is-reversed .reader-react-pdf-pane[data-reader-pane="translated"] {
-  order: 1;
-  border-left: 0;
-}
+/* .is-reversed 无写入者：对照固定 source→translated，顺序反转功能未落地。 */
 
 @media (max-width: 899px) {
-  .reader-react-root.is-workspace-split .reader-react-scroll-shell,
-  .reader-react-root.is-workspace-split.is-pdf-pane-right .reader-react-scroll-shell {
-    left: 0;
-    right: 0;
-    top: 60px;
-  }
-  .reader-react-root.is-workspace-split .reader-react-hud {
-    left: 50%;
-  }
   .reader-ai-split-resizer {
     display: none !important;
-  }
-  .reader-react-root.is-markdown-split .reader-react-scroll-shell {
-    right: 0;
-  }
-  .reader-react-root.is-markdown-split .reader-topbar,
-  .reader-react-root.is-markdown-split .reader-react-hud {
-    left: 50%;
-  }
-  .reader-react-root.is-markdown-split .reader-close-home-btn {
-    right: clamp(12px, 2.2vw, 28px);
-  }
-  .reader-react-root.is-ai-split .reader-react-scroll-shell {
-    right: 0;
-  }
-  .reader-react-root.is-ai-split .reader-topbar,
-  .reader-react-root.is-ai-split .reader-react-hud {
-    left: 50%;
-  }
-  .reader-react-root.is-ai-split .reader-close-home-btn {
-    right: clamp(12px, 2.2vw, 28px);
   }
 }
 

@@ -5,12 +5,20 @@ import {
 } from "@/platform/config/runtime.js";
 import { buildReaderParams } from "@/platform/navigation/pages.js";
 
+// 注入点签名直接取自 platform 运行时真值，避免 `any` 让宿主错配/漏接静默通过。
+type ReaderDialogConfigPortOptions = {
+  buildPageUrl?: typeof buildFrontendPageUrl;
+  trustWindowMessage?: typeof isTrustedWindowMessage;
+  locationProvider?: () => { href?: string | null } | null | undefined;
+  mockScenarioProvider?: typeof mockScenario;
+};
+
 export function createReaderDialogConfigPort({
   buildPageUrl = buildFrontendPageUrl,
   trustWindowMessage = isTrustedWindowMessage,
   locationProvider = () => globalThis.window?.location,
   mockScenarioProvider = mockScenario,
-}: any = {}) {
+}: ReaderDialogConfigPortOptions = {}) {
   function currentMockScenarioSafe() {
     try {
       return `${mockScenarioProvider() || ""}`.trim();

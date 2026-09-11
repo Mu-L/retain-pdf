@@ -11,10 +11,13 @@
 // 能力的「运行时访问层」。历史上独立的 config-port.ts 已删除，其宿主配置
 // 能力统一由 adapters + runtime/config 承载，不要再新增平行入口。
 // 未注入的 port 尽量给出空/默认实现；缺失关键能力时才 requireAdapter 抛错。
-// 极少数 `as any` 仅用于 port 签名比宿主实现窄（0 参 vs 可选入参）或 port
-// 形状为 unknown 的动态转发，属有意为之且已就近注释。
+// data/pageConfig port 采用显式方法转发（见下方），方法名与形状都由包内 runtime
+// 工厂签名派生，宿主漏接或拼错会在 tsc/运行时立刻暴露。极少数 `as any` 仅用于
+// port 签名比宿主实现窄（0 参 vs 可选入参），属有意为之且已就近注释。
 
 import { getReaderAdapters, requireAdapter } from "./adapters.js";
+import type { createReaderDataPort } from "./runtime/data.js";
+import type { createReaderPageConfigPort } from "./runtime/config.js";
 import {
   resolveReaderDownloadName as defaultResolveReaderDownloadName,
   resolveReaderDownloadUrls as defaultResolveReaderDownloadUrls,
@@ -45,10 +48,28 @@ export const resolvePdfjsVendorUrl = (relativePath = ""): string =>
   (getReaderAdapters()?.resolvePdfjsVendorUrl as any)?.(relativePath) ?? "";
 
 // —— js/reader 共享 ports ——
-// 未注入时保持可调用空壳：通过 Proxy 把任意方法转发给宿主注入的 port。
-// target 用 `{}`，具体 port 是未知形状（unknown），故 index/call 处保留最小 cast。
-export const defaultReaderDataPort: any = new Proxy({}, { get: (_t, p) => (...a: any[]) => (getReaderAdapters()?.defaultReaderDataPort as any)?.[p as string]?.(...a) });
-export const defaultReaderPageConfigPort: any = new Proxy({}, { get: (_t, p) => (...a: any[]) => (getReaderAdapters()?.defaultReaderPageConfigPort as any)?.[p as string]?.(...a) });
+// 显式方法转发：方法名写死，宿主 port 缺失或拼错方法名都会在此抛错，
+// 而不是旧 Proxy 静默返回 undefined。形状由 adapter 契约（runtime 工厂
+// 派生的具体类型）约束，方法增删会在 tsc 阶段暴露。
+type ReaderDataPort = ReturnType<typeof createReaderDataPort>;
+type ReaderPageConfigPort = ReturnType<typeof createReaderPageConfigPort>;
+const readDataPort = (): ReaderDataPort => requireAdapter("defaultReaderDataPort");
+const readPageConfigPort = (): ReaderPageConfigPort =>
+  requireAdapter("defaultReaderPageConfigPort");
+export const defaultReaderDataPort: ReaderDataPort = {
+  get apiPrefix(): string { return readDataPort().apiPrefix; },
+  fetchProtected: (...args: Parameters<typeof fetch>) => readDataPort().fetchProtected(...args),
+  loadMarkdownPayload: (jobId) => readDataPort().loadMarkdownPayload(jobId),
+  loadMarkdownSource: (jobId) => readDataPort().loadMarkdownSource(jobId),
+  loadMarkdownRange: (rawUrl, start, endInclusive, etag, signal) =>
+    readDataPort().loadMarkdownRange(rawUrl, start, endInclusive, etag, signal),
+  loadJobPayload: (jobId) => readDataPort().loadJobPayload(jobId),
+  loadReaderPayload: (jobId, options) => readDataPort().loadReaderPayload(jobId, options),
+};
+export const defaultReaderPageConfigPort: ReaderPageConfigPort = {
+  messageTargetOrigin: () => readPageConfigPort().messageTargetOrigin(),
+  readerJobId: () => readPageConfigPort().readerJobId(),
+};
 export const resolveReaderAnchor = (...a: any[]) => getReaderAdapters()?.resolveReaderAnchor?.(...a) ?? null;
 export const resolveReaderDocumentId = (): string => getReaderAdapters()?.resolveReaderDocumentId?.() ?? "";
 // resolveReaderJobId / resolvePdfjsVendorUrl 的 port 签名比宿主实现窄

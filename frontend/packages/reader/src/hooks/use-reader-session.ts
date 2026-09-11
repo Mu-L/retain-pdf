@@ -144,6 +144,7 @@ export function useReaderSession(): ReaderSessionState {
     workflow: `${scopedJobPayload?.workflow || ""}`.trim().toLowerCase(),
     jobTerminal,
     documentId,
+    sessionIdentity,
     sourceOnly,
     mode,
     setMode,

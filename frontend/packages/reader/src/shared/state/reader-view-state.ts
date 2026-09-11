@@ -1,6 +1,6 @@
 // Reader 的轻量本地恢复状态。这里只保存视图偏好，不保存文档内容或凭据。
 
-import type { PageScrollProgress } from "../../pdf/scroll-to-page.js";
+import type { PageScrollProgress } from "../types/reader-scroll.js";
 
 export type StoredReaderPaneContent = "source" | "translated" | "markdown" | "ai";
 

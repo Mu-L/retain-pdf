@@ -6,11 +6,9 @@ import {
   pageSelector,
   type ReaderPaneId,
 } from "./reader-dom-contract.js";
+import type { PageScrollProgress } from "../shared/types/reader-scroll.js";
 
-export type PageScrollProgress = {
-  page: number;
-  fraction: number;
-};
+export type { PageScrollProgress } from "../shared/types/reader-scroll.js";
 
 /** 视口内「阅读线」相对滚动容器顶的偏移（与 measure/apply / HUD 当前页必须一致） */
 export const READER_SCROLL_FOCUS_PX = 48;

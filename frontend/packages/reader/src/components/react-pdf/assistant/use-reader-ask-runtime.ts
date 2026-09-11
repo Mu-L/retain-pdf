@@ -44,11 +44,26 @@ export type { ReaderRequestSnapshot } from "./reader-request-snapshots.js";
 export function useReaderAskRuntime(options: {
   jobId: string;
   documentId?: string;
+  /**
+   * route 身份（job+document 组合）。jobId/documentId 任一变化都会改变它，
+   * 因此用它作为 AI 运行时的统一重置 scope，避免只按 jobId 重置时
+   * 「documentId 变了但 jobId 不变」导致会话/操作状态串档。
+   */
+  sessionIdentity?: string;
   enabled: boolean;
   selectionContext?: ReaderSelection | null;
   onDocumentCommitted?: (input: { documentId: string; revision: string }) => void;
 }) {
-  const { jobId, documentId = "", enabled, selectionContext = null, onDocumentCommitted } = options;
+  const {
+    jobId,
+    documentId = "",
+    sessionIdentity = "",
+    enabled,
+    selectionContext = null,
+    onDocumentCommitted,
+  } = options;
+  // 单一 scope key：job / document / route 身份任一变化都触发重置。
+  const resetScopeKey = `${jobId}\u0000${documentId}\u0000${sessionIdentity}`;
   const [assistantMode, setAssistantMode] = useState<ReaderAssistantMode>("reading");
   const [agentOperationSignal, setAgentOperationSignal] = useState<ReaderAgentOperationSignal | null>(null);
   const [agentConfirmationModeHint, setAgentConfirmationModeHint] = useState<AgentConfirmationMode>();
@@ -58,7 +73,7 @@ export function useReaderAskRuntime(options: {
     setAssistantMode("reading");
     setAgentOperationSignal(null);
     setAgentConfirmationModeHint(undefined);
-  }, [jobId]);
+  }, [resetScopeKey]);
 
   const remoteAnswerer = useMemo(() => {
     if (!enabled || !jobId) return null;
@@ -142,6 +157,11 @@ export function useReaderAskRuntime(options: {
   useEffect(() => {
     prevRunning.current = false;
   }, [jobId]);
+  // 统一 scope 重置：documentId / sessionIdentity 变化时，即使 jobId 不变，
+  // 也要丢弃上一份文档的运行标记，避免把 A 的完成事件记到 B 上。
+  useEffect(() => {
+    prevRunning.current = false;
+  }, [resetScopeKey]);
   useEffect(() => {
     if (prevRunning.current && !reading.isRunning) {
       void conversation.sessionCommands.refreshSessions();

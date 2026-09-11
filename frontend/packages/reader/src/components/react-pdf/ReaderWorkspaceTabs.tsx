@@ -15,7 +15,11 @@ const WORKSPACES = [
 export type ReaderWorkspaceTabsProps = {
   mode: ReaderWorkspaceMode;
   documentReady: boolean;
-  sourceOnly?: boolean;
+  /**
+   * 「无可并排的最终译文」(sourceOnly || !translatedUrl)。
+   * 与 FAB 的 sourceOnly（无 job）语义不同：禁对照/译文页签看这个。
+   */
+  sourceViewOnly?: boolean;
   onModeChange: (mode: ReaderWorkspaceMode) => void;
   liveTranslation?: {
     visible: boolean;
@@ -40,12 +44,13 @@ export function liveTranslationStatusCopy(state: LiveTranslationState): string {
 export function isReaderWorkspaceDisabled(input: {
   id: ReaderWorkspaceMode;
   documentReady: boolean;
-  sourceOnly: boolean;
+  /** 「无可并排的最终译文」；有 live 译文时对照仍可开 */
+  sourceViewOnly: boolean;
   liveTranslationAvailable: boolean;
 }): boolean {
-  if (input.id === "translated") return input.sourceOnly;
+  if (input.id === "translated") return input.sourceViewOnly;
   if (input.id === "compare") {
-    return !input.documentReady || (input.sourceOnly && !input.liveTranslationAvailable);
+    return !input.documentReady || (input.sourceViewOnly && !input.liveTranslationAvailable);
   }
   return false;
 }
@@ -58,7 +63,7 @@ export function ReaderWorkspaceTabs(props: ReaderWorkspaceTabsProps): ReactEleme
     onModeChange,
     liveTranslation = null,
   } = props;
-  const sourceOnly = props.sourceOnly ?? ctx?.sourceViewOnly ?? false;
+  const sourceViewOnly = props.sourceViewOnly ?? ctx?.sourceViewOnly ?? false;
   const liveCopy = liveTranslation ? liveTranslationStatusCopy(liveTranslation.state) : "";
   return (
     <header className="reader-workspace-bar">
@@ -81,7 +86,7 @@ export function ReaderWorkspaceTabs(props: ReaderWorkspaceTabsProps): ReactEleme
           const disabled = isReaderWorkspaceDisabled({
             id,
             documentReady,
-            sourceOnly,
+            sourceViewOnly,
             liveTranslationAvailable: Boolean(liveTranslation),
           });
           return (

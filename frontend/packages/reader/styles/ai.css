@@ -2,3 +2,6 @@
  * layout so Home consumers do not need to import the complete Reader theme. */
 @import "markstream-react/index.css";
 @import "katex/dist/katex.min.css";
+/* 引用皮肤（.reader-ai-citation-*）随 AI 子集一起分发，主页软宿主不再
+ * 在自己的域 CSS 里重定义 reader 类。 */
+@import "./ai-citations.css";

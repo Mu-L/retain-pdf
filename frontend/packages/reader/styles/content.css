@@ -26,11 +26,11 @@
   color: var(--ink);
 }
 
-/* 馆藏文档"读原文"只读态(F4):没有 job,所有吃 jobId 的入口都不该出现——
-   译文/对照两个模式 tab、Markdown/摘录/批注/AI 问答/下载工具组全部隐藏,
-   只留原文单栏。根节点的 .reader-source-only 由 use-reader-boot.js 打上。 */
-.reader-source-only .reader-topbar-actions,
-.reader-source-only .reader-tab[data-reader-mode="translated"],
-.reader-source-only .reader-tab[data-reader-mode="compare"] {
+/* 馆藏文档"读原文"只读态(F4):没有 job,译文/对照入口不该出现。
+   根节点 documentElement 的 .reader-source-only 由
+   src/hooks/reader-session/reader-mode.ts 打上;React 侧把不可用工作区
+   tab 标为 disabled(见 isReaderWorkspaceDisabled),这里兜底隐藏。
+   旧的 .reader-topbar-actions / .reader-tab[data-reader-mode] 已无写入者。 */
+.reader-source-only .reader-workspace-tab:disabled {
   display: none;
 }

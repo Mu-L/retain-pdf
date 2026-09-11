@@ -5,13 +5,16 @@ import { useLayoutEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import {
   getPageAttr,
+  READER_NATURAL_HEIGHT_ATTR,
+  READER_PDF_PAGE_CLASS,
+  READER_PDF_PAGE_PLACEHOLDER_CLASS,
   pageSlotSelector,
 } from "./reader-dom-contract.js";
 
 export type PageRowHeights = ReadonlyMap<number, number>;
 
 const CONTENT_SELECTOR =
-  "canvas, .react-pdf__Page, .reader-react-pdf-page, .reader-react-pdf-page-placeholder";
+  `canvas, .react-pdf__Page, .${READER_PDF_PAGE_CLASS}, .${READER_PDF_PAGE_PLACEHOLDER_CLASS}`;
 // Windowed rendering replaces placeholder <-> page content, so keep the content
 // lookup off the hot path and only re-query when the cached node disconnected.
 const contentRefCache = new WeakMap<HTMLElement, HTMLElement | null>();
@@ -19,7 +22,7 @@ const contentRefCache = new WeakMap<HTMLElement, HTMLElement | null>();
 export function measureNaturalPageHeight(slot: HTMLElement): number {
   // The pane/slot always renders this attr from the un-inflated natural height,
   // so it is both cheaper and safer than reading a rect that may include minHeight.
-  const natural = Number(slot.getAttribute("data-natural-height"));
+  const natural = Number(slot.getAttribute(READER_NATURAL_HEIGHT_ATTR));
   if (Number.isFinite(natural) && natural > 0) {
     return natural;
   }

@@ -1,8 +1,19 @@
 // Markdown 渲染共享：marked 懒加载、HTML 消毒、把渲染结果挂载到容器并转交图片懒加载。
-
-import { resolveMarkdownAssetUrl } from "../../external.js";
+//
+// 宿主能力（资源 URL 解析）不再直接 import external，而是由调用方参数注入，
+// 避免 shared 层向上依赖运行时访问层。
 
 let markedModulePromise: Promise<typeof import("marked")> | null = null;
+
+export type MarkdownAssetResolver = (
+  imagesBaseUrl: string,
+  relativePath: string,
+) => string;
+
+export type MountRenderedMarkdownOptions = {
+  /** 注入宿主资源 URL 解析（原 external.resolveMarkdownAssetUrl）。缺省时原样保留。 */
+  resolveAssetUrl?: MarkdownAssetResolver;
+};
 
 export function loadMarked() {
   if (!markedModulePromise) {
@@ -39,13 +50,14 @@ export function mountRenderedMarkdown(
   container: HTMLElement,
   html: string,
   imagesBaseUrl: string,
+  options: MountRenderedMarkdownOptions = {},
 ): HTMLImageElement[] {
   const template = container.ownerDocument.createElement("template");
   template.innerHTML = html;
   sanitizeRenderedMarkdown(template.content);
   template.content.querySelectorAll("img[src]").forEach((img) => {
     const raw = img.getAttribute("src") || "";
-    const resolved = resolveMarkdownAssetUrl(imagesBaseUrl, raw) || raw;
+    const resolved = options.resolveAssetUrl?.(imagesBaseUrl, raw) || raw;
     img.setAttribute("data-reader-md-src", resolved);
     img.setAttribute("loading", "lazy");
     img.setAttribute("decoding", "async");

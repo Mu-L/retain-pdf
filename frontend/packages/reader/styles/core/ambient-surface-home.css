@@ -50,8 +50,7 @@ body {
 
 #home-root,
 #detail-root,
-#reader-root,
-main.app-shell {
+#reader-root {
   background: transparent;
 }
 

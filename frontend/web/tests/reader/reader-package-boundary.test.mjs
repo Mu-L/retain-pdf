@@ -57,6 +57,35 @@ function importSpecifiers(source) {
   return Array.from(source.matchAll(pattern), (match) => match[1]);
 }
 
+// 从 vite.config.ts 文本解析 build.lib.entry 的 <entryKey, 源码路径> 表。
+// 不 import 配置(会执行 defineConfig),只按文本解析,门禁保持只读。
+function parseViteEntrySources(configText) {
+  const entryAt = configText.indexOf("entry:");
+  assert.ok(entryAt !== -1, "reader/vite.config.ts must declare build.lib.entry");
+  const openAt = configText.indexOf("{", entryAt);
+  assert.notEqual(openAt, -1, "reader/vite.config.ts build.lib.entry must be an object literal");
+  let depth = 0;
+  let closeAt = -1;
+  for (let i = openAt; i < configText.length; i += 1) {
+    if (configText[i] === "{") depth += 1;
+    else if (configText[i] === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        closeAt = i;
+        break;
+      }
+    }
+  }
+  assert.notEqual(closeAt, -1, "reader/vite.config.ts build.lib.entry object is unclosed");
+  const block = configText.slice(openAt + 1, closeAt);
+  const entries = new Map();
+  const pattern = /(?:"([^"]+)"|'([^']+)'|([A-Za-z0-9_./-]+))\s*:\s*path\.resolve\(\s*__dirname\s*,\s*["']([^"']+)["']\s*\)/g;
+  for (const match of block.matchAll(pattern)) {
+    entries.set(match[1] ?? match[2] ?? match[3], match[4]);
+  }
+  return entries;
+}
+
 // Soft navigation is shared implementation, not a host adapter: the package
 // has no public navigation subpath yet and its dist is frozen, so
 // @retainpdf/reader exposes soft-reader as source and the web shell re-exports
@@ -115,6 +144,43 @@ test("reader package exports only built, packed public entrypoints", () => {
       `${target} still contains an uncompiled Tailwind directive`,
     );
   }
+});
+
+test("reader exports align with vite build entries and resolve into dist", () => {
+  const configText = readFileSync(join(READER_ROOT, "vite.config.ts"), "utf8");
+  const entrySources = parseViteEntrySources(configText);
+  assert.ok(entrySources.size > 0, "vite.config.ts parsed no build.lib.entry sources");
+
+  const problems = [];
+  const exportedEntryKeys = new Set();
+  for (const [exportName, value] of Object.entries(readerPackage.exports)) {
+    // 纯 CSS 子路径由 tailwind 单独产出,不经 vite lib entry。
+    if (typeof value === "string") continue;
+    if (!value || typeof value !== "object" || typeof value.import !== "string") {
+      problems.push(`${exportName} 缺少 import 目标`);
+      continue;
+    }
+    if (!value.import.startsWith("./dist/")) {
+      problems.push(`${exportName} 的 import 必须指向 dist/**:${value.import}`);
+    }
+    const entryKey = value.import.replace(/^\.\/dist\//, "").replace(/\.[^./]+$/, "");
+    exportedEntryKeys.add(entryKey);
+    const source = entrySources.get(entryKey);
+    if (source === undefined) {
+      problems.push(`${exportName} -> ${value.import} 在 vite.config.ts 无对应 entry "${entryKey}"`);
+      continue;
+    }
+    if (!existsSync(join(READER_ROOT, source))) {
+      problems.push(`${exportName} 的 vite 源码入口不存在:${source}`);
+    }
+  }
+
+  const orphanEntries = [...entrySources.keys()].filter((key) => !exportedEntryKeys.has(key));
+  if (orphanEntries.length > 0) {
+    problems.push(`vite entry 未作为公开子路径导出:${orphanEntries.join(", ")}`);
+  }
+
+  assert.deepEqual(problems, [], `reader exports 与 vite entry 不齐:\n${problems.join("\n")}`);
 });
 
 test("importing Reader root and runtime exports does not require or mutate the DOM", async () => {

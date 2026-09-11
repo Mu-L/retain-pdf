@@ -27,6 +27,9 @@
 
 @layer tokens, base, pages;
 
+/* reader 的 AI 子集：markstream 渲染器 + katex + 引用皮肤（ai-citations.css）。
+ * 主页 AI 回答需要 Markdown/代码/公式全套渲染，三者缺一不可，无法再安全
+ * 拆成更小的子集；引用/脚注的皮肤由 reader 侧提供，主页不再重定义。 */
 @import "@retainpdf/reader/ai.css" layer(pages);
 
 @import "../tokens.css" layer(tokens);

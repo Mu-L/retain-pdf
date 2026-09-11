@@ -32,6 +32,8 @@ export type ReaderSessionState = {
   workflow: string;
   jobTerminal: boolean;
   documentId: string;
+  /** route 身份：job/document 组合，用于跨 session 重置 AI 运行时等 */
+  sessionIdentity: string;
   sourceOnly: boolean;
   mode: ReaderMode;
   setMode: (mode: ReaderMode) => void;

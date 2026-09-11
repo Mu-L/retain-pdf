@@ -2,6 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { RefObject } from "react";
+import {
+  getPageAttr,
+  pageSelector,
+  READER_PANE_ATTR,
+} from "../pdf/reader-dom-contract.js";
 import type { ReaderTextSelection } from "../shared/data/reader-regions.js";
 export type { ReaderTextSelection } from "../shared/data/reader-regions.js";
 
@@ -52,14 +57,14 @@ export function useReaderTextSelection(
         node = node.parentElement;
       }
       const pageEl = (node as HTMLElement | null)?.closest?.(
-        "[data-reader-page]",
+        pageSelector(),
       ) as HTMLElement | null;
       if (!pageEl || !root.contains(pageEl)) {
         setSelection(null);
         return;
       }
-      const page = Math.max(1, Math.floor(Number(pageEl.getAttribute("data-reader-page")) || 1));
-      const paneAttr = pageEl.getAttribute("data-reader-pane");
+      const page = Math.max(1, Math.floor(getPageAttr(pageEl) || 1));
+      const paneAttr = pageEl.getAttribute(READER_PANE_ATTR);
       const pane = paneAttr === "translated" ? "translated" : "source";
 
       const rects = range.getClientRects();

@@ -1,15 +1,40 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { isAbsolute, join } from "node:path";
 
 // 壳 A10 冒烟:三页 HTML 挂载顺序 + 三 entry createRoot/无 StrictMode + 静态 200。
 // 只读源码文本与 HTTP 状态,不改业务代码、不改构建、不依赖后端(后端可达才加断 API)。
 
 const PROJECT_ROOT = process.cwd();
+const READER_PKG_ROOT = join(PROJECT_ROOT, "..", "..", "frontend", "packages", "reader");
 const FRONT_URL = "http://127.0.0.1:40001";
 const BACKEND_URLS = ["http://127.0.0.1:41000/health", "http://127.0.0.1:41000/ready"];
+
+// reader 的公开 boot 子路径以 package.json exports 为唯一真源:宿主只经 exports
+// 消费,冒烟也从 exports 取构建产物与源码入口,避免仓库里再抄一份 dist/src 路径。
+function readerExportImport(exportsMap, subpath) {
+  const entry = exportsMap?.[subpath];
+  const target = typeof entry === "string" ? entry : entry?.import;
+  assert.ok(typeof target === "string", `reader exports "${subpath}" 必须声明 import 目标`);
+  return target;
+}
+
+// ./dist/boot.js -> ./src/boot.{ts,tsx,...}(vite/tsc 的 dist<-src 目录约定)。
+function readerSourceForImport(importTarget) {
+  const base = join(
+    READER_PKG_ROOT,
+    importTarget.replace(/^\.\//, "").replace(/^dist\//, "src/").replace(/\.[^./]+$/, ""),
+  );
+  const candidates = [".ts", ".tsx", ".mts", ".js", ".jsx", ".mjs"].map((ext) => `${base}${ext}`);
+  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0];
+}
+
+const readerPackage = JSON.parse(readFileSync(join(READER_PKG_ROOT, "package.json"), "utf8"));
+const READER_BOOT_IMPORT = readerExportImport(readerPackage.exports, "./boot");
+const READER_BOOT_ARTIFACT = join(READER_PKG_ROOT, READER_BOOT_IMPORT);
+const READER_BOOT_SOURCE = readerSourceForImport(READER_BOOT_IMPORT);
 
 // 三页壳:HTML 文件 ↔ bundle 产物 ↔ React 挂载入口。
 // home/detail 经共享壳 src/app/shell-boot.ts 建根挂载；reader 经包内 boot 链。
@@ -20,7 +45,7 @@ const PAGES = [
     html: "reader.html",
     bundle: "dist/reader.bundle.js",
     entry: "src/app/reader/entry.tsx",
-    bootChain: ["frontend/packages/reader/src/boot.tsx"],
+    bootChain: [READER_BOOT_SOURCE],
   },
 ];
 const SHARED_SHELL_BOOT = "src/app/shell-boot.ts";
@@ -60,7 +85,17 @@ test("三HTML都挂对bundle且runtime-config在前", () => {
     assert.ok(iBundle !== -1, `${page.html} 缺 ${page.bundle}`);
     assert.ok(iBase < iLocal && iLocal < iBundle, `${page.html} 顺序错:runtime-config应在bundle前`);
     assert.ok(tags[iBundle].tag.includes('type="module"'), `${page.html} bundle应为type=module`);
+    assert.ok(existsSync(join(PROJECT_ROOT, page.bundle)), `${page.html} bundle构建产物缺失:${page.bundle}`);
   }
+});
+
+test("reader boot由exports派生:构建产物与源码入口都存在", () => {
+  assert.ok(
+    READER_BOOT_IMPORT.startsWith("./dist/"),
+    `reader ./boot 必须指向构建产物:${READER_BOOT_IMPORT}`,
+  );
+  assert.ok(existsSync(READER_BOOT_ARTIFACT), `reader boot 构建产物缺失:${READER_BOOT_IMPORT}`);
+  assert.ok(existsSync(READER_BOOT_SOURCE), `reader boot 源码入口缺失:${READER_BOOT_SOURCE}`);
 });
 
 test("三entry都有createRoot且不开StrictMode", () => {
@@ -69,7 +104,7 @@ test("三entry都有createRoot且不开StrictMode", () => {
     const entry = readFileSync(join(PROJECT_ROOT, page.entry), "utf8");
     const chain = [entry, shellBoot];
     for (const extra of page.bootChain ?? []) {
-      chain.push(readFileSync(join(PROJECT_ROOT, "..", "..", extra), "utf8"));
+      chain.push(readFileSync(isAbsolute(extra) ? extra : join(PROJECT_ROOT, "..", "..", extra), "utf8"));
     }
     const code = stripComments(chain.join("\n"));
     assert.ok(code.includes("createRoot"), `${page.entry} 链无createRoot`);

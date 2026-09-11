@@ -130,6 +130,11 @@ jobs:
           npm --prefix frontend/packages/api run build
           npm --prefix frontend/packages/reader run build
 
+      - name: Frontend Typecheck
+        # deps were just built above, so skip the pretypecheck ->
+        # prepare:workspace rebuild (and its duplicate prepare:workspace run).
+        run: npm --prefix frontend/web run typecheck --ignore-scripts
+
       - name: Frontend Tests
         working-directory: frontend/web
         run: npm test

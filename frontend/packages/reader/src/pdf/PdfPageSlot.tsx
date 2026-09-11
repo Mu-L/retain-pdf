@@ -12,7 +12,12 @@ import {
 } from "react";
 import { Page } from "react-pdf";
 import {
+  READER_NATURAL_HEIGHT_ATTR,
+  READER_PAGE_ATTR,
   READER_PAGE_SLOT_CLASS,
+  READER_PANE_ATTR,
+  READER_PDF_PAGE_CLASS,
+  READER_PDF_PAGE_PLACEHOLDER_CLASS,
   type ReaderPaneId,
 } from "./reader-dom-contract.js";
 import { projectReaderRegion, type ReaderRegionHighlight, type ReaderRegionSelection } from "../shared/data/reader-regions.js";
@@ -160,9 +165,11 @@ function PdfPageSlotInner({
   return (
     <div
       ref={sentinelCallbackRef}
-      data-reader-page={pageNumber}
-      data-reader-pane={pane}
-      data-natural-height={naturalHeight}
+      {...{
+        [READER_PAGE_ATTR]: pageNumber,
+        [READER_PANE_ATTR]: pane,
+        [READER_NATURAL_HEIGHT_ATTR]: naturalHeight,
+      }}
       className={READER_PAGE_SLOT_CLASS}
       // pdf.js text spans may handle pointer events themselves. Capture at the
       // page boundary so source-PDF hover hit testing stays active without
@@ -183,10 +190,10 @@ function PdfPageSlotInner({
           devicePixelRatio={devicePixelRatio}
           renderTextLayer
           renderAnnotationLayer={false}
-          className="reader-react-pdf-page"
+          className={READER_PDF_PAGE_CLASS}
           loading={
             <div
-              className="reader-react-pdf-page-placeholder"
+              className={READER_PDF_PAGE_PLACEHOLDER_CLASS}
               style={{ width, height: naturalHeight }}
             />
           }
@@ -208,7 +215,7 @@ function PdfPageSlotInner({
         />
       ) : (
         <div
-          className="reader-react-pdf-page-placeholder"
+          className={READER_PDF_PAGE_PLACEHOLDER_CLASS}
           style={{ width, height: naturalHeight }}
           aria-hidden
         />

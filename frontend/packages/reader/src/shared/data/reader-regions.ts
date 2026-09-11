@@ -1,5 +1,5 @@
 import { normalizeBlockKey } from "../utils/block-key.js";
-import type { ReaderPaneId } from "../../pdf/reader-dom-contract.js";
+import type { ReaderPaneId } from "../types/reader-dom.js";
 
 export type ReaderRegionBox = {
   page: number;

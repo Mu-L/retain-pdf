@@ -3,6 +3,13 @@ import {
   resetAnswerEnhanceAdapters,
   setAnswerEnhanceAdapters,
 } from "./shared/ai/answer-enhance.js";
+import type { createReaderDataPort } from "./runtime/data.js";
+import type { createReaderPageConfigPort } from "./runtime/config.js";
+import type {
+  FavoriteApiRecord,
+  ServerFavoriteRaw,
+} from "./shared/types/types.js";
+import type { askLibraryAi } from "@retainpdf/api/ai";
 export {
   hasMarkdownContent,
   loadMarkdownPayloadWithFallback,
@@ -10,29 +17,16 @@ export {
 } from "./shared/data/markdown-payload.js";
 
 // frontend/packages/reader 对宿主环境的唯一契约（取代 frontend/web/src/pages/reader/external.ts）
-export type ReaderMode = "source" | "translated" | "compare";
-export type ReaderDocumentSource = {
-  sourceUrl: string;
-  translatedUrl?: string | null;
-  sourceFile?: unknown | null;
-  translatedFile?: unknown | null;
-  title?: string;
-};
 // 扩展：将 external 的 20+ 符号收敛为可注入能力，逐步替换直接 import
 export type ReaderSessionAdapters = {
-  resolveSession?: () => { jobId?: string; documentId?: string; sourceOnly?: boolean; mode?: ReaderMode };
-  resolveDocument?: () => Promise<ReaderDocumentSource> | ReaderDocumentSource;
-  fetchPdf?: (url: string, init?: RequestInit) => Promise<Response>;
-  favoritesPort?: unknown;
-  aiAnswerer?: unknown;
-  markdownLoader?: (jobId: string) => Promise<string>;
   // 细粒度：保留旧 external 的关键能力以便渐进迁移
   isMockMode?: () => boolean;
   resolveResourceUrl?: (url: string) => string;
   fetchProtected?: typeof fetch;
   resolvePdfjsVendorUrl?: () => string;
-  defaultReaderDataPort?: unknown;
-  defaultReaderPageConfigPort?: unknown;
+  // 形状直接取自包内 runtime 工厂签名，宿主漏注入/结构漂移在 tsc 阶段暴露。
+  defaultReaderDataPort?: ReturnType<typeof createReaderDataPort>;
+  defaultReaderPageConfigPort?: ReturnType<typeof createReaderPageConfigPort>;
   resolveReaderAnchor?: (...args: any[]) => any;
   resolveReaderDocumentId?: () => string;
   resolveReaderJobId?: () => string;
@@ -49,7 +43,7 @@ export type ReaderDownloadContext = {
   manifestPayload?: unknown;
 };
 export type ReaderDownloadUrls = {
-  source: any;
+  source: string;
   sideBySide: string;
   translated: string;
 };
@@ -73,8 +67,9 @@ export type ReaderFavoritesAdapters = {
     active_job_id?: string | null;
     active_version_id?: string | null;
   } | null>;
-  createFavorite: (apiPrefix: string, payload: Record<string, unknown>) => Promise<any>;
-  fetchFavorites: (apiPrefix: string, options?: { documentId?: string }) => Promise<{ favorites?: any[] }>;
+  // 形状取自包内 shared/types 的已有契约类型，避免 any 掩盖收藏适配漂移。
+  createFavorite: (apiPrefix: string, payload: Record<string, unknown>) => Promise<FavoriteApiRecord>;
+  fetchFavorites: (apiPrefix: string, options?: { documentId?: string }) => Promise<{ favorites?: ServerFavoriteRaw[] }>;
   deleteFavorite: (apiPrefix: string, favoriteId: string) => Promise<unknown>;
 };
 export type ReaderCredentialsPort = {
@@ -85,7 +80,9 @@ export type ReaderCredentialsAdapters = {
 };
 export type ReaderAiAdapters = {
   /** Canonical /ai/ask client supplied by the host (SSE + credentials). */
-  askDocumentAi: (options: Record<string, unknown>) => Promise<any>;
+  askDocumentAi: (
+    options: Parameters<typeof askLibraryAi>[0],
+  ) => ReturnType<typeof askLibraryAi>;
 };
 export type ReaderAdapters = ReaderSessionAdapters
   & ReaderMarkdownAdapters
@@ -93,7 +90,70 @@ export type ReaderAdapters = ReaderSessionAdapters
   & ReaderFavoritesAdapters
   & ReaderCredentialsAdapters
   & ReaderAiAdapters;
-export const DEFAULT_READER_ADAPTERS: Partial<ReaderAdapters> = {};
+
+/**
+ * ReaderAdapters 声明键的运行时镜像（TS 类型在运行时被擦除）。
+ * 注册层与门禁测试共用，避免手工复制字段集漂移；`satisfies` 保证不引入拼错键。
+ * 完整性由紧随其后的编译期断言守护。
+ */
+export const READER_ADAPTER_KEYS = [
+  "isMockMode",
+  "resolveResourceUrl",
+  "fetchProtected",
+  "resolvePdfjsVendorUrl",
+  "defaultReaderDataPort",
+  "defaultReaderPageConfigPort",
+  "resolveReaderAnchor",
+  "resolveReaderDocumentId",
+  "resolveReaderJobId",
+  "resolveReaderArtifactUrl",
+  "resolveReaderSourcePdf",
+  "resolveReaderTranslatedPdfUrl",
+  "resolveMarkdownAssetUrl",
+  "resolveReaderDownloadUrls",
+  "resolveReaderDownloadName",
+  "downloadProtectedResource",
+  "failDownloadToast",
+  "apiPrefix",
+  "fetchDocumentByJobId",
+  "createFavorite",
+  "fetchFavorites",
+  "deleteFavorite",
+  "credentialsPort",
+  "askDocumentAi",
+] as const satisfies readonly (keyof ReaderAdapters)[];
+
+/** 必填（非 `?`）适配键子集，供门禁断言最小注入面。 */
+export const READER_REQUIRED_ADAPTER_KEYS = [
+  "resolveMarkdownAssetUrl",
+  "resolveReaderDownloadUrls",
+  "resolveReaderDownloadName",
+  "downloadProtectedResource",
+  "failDownloadToast",
+  "fetchDocumentByJobId",
+  "createFavorite",
+  "fetchFavorites",
+  "deleteFavorite",
+  "credentialsPort",
+  "askDocumentAi",
+] as const satisfies readonly (keyof ReaderAdapters)[];
+
+type RequiredAdapterKey = {
+  [K in keyof ReaderAdapters]: undefined extends ReaderAdapters[K] ? never : K;
+}[keyof ReaderAdapters];
+
+// 编译期守护：声明新增/删除字段时，上面两个运行时数组必须同步。
+const _adapterKeysComplete: Exclude<
+  keyof ReaderAdapters,
+  (typeof READER_ADAPTER_KEYS)[number]
+> extends never ? true : false = true;
+const _requiredKeysCovered: Exclude<
+  RequiredAdapterKey,
+  (typeof READER_REQUIRED_ADAPTER_KEYS)[number]
+> extends never ? true : false = true;
+void _adapterKeysComplete;
+void _requiredKeysCovered;
+
 // 全局注入注册（monorepo 内由 frontend/web 在启动时 set）
 let _adapters: ReaderAdapters | null = null;
 export function setReaderAdapters(a: ReaderAdapters | null) {

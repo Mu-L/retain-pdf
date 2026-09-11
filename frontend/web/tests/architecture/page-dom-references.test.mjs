@@ -7,9 +7,9 @@ import { join, relative } from "node:path";
 // 树(Phase 1 / 2b cutover),但 job-detail 页面逻辑与 reader 下保留的纯逻辑仍以
 // 字符串字面量引用 DOM id/class,esbuild 不做这类校验:id 改名、typo、删掉 CSS 类都只会
 // 在运行时静默失效(dom/query.js 的守卫会吞掉 null)。本测试交叉校验:job-detail / reader
-// 目录下 JS 出现的每个 "detail-*" / "reader-*" 字符串字面量,必须能在对应页面 HTML 的
-// id/class、src/styles 的类定义、src/app/{detail,reader} 的 JSX(id=.../className=...),
-// 或 JS 自建元素(id="...")中找到归属。
+// 目录下 .ts/.tsx/.js 出现的每个 "detail-*" / "reader-*" / "data-reader-*" 字符串字面量,
+// 必须能在对应页面 HTML 的 id/class、src/styles 的类定义、src/app/{detail,reader} 的 JSX
+// (id=.../className=...)、同名契约常量声明,或 JS/JSX 的 data-* 属性引用中找到归属。
 //
 // home 页(index.html / src/app/home)未纳入本文件:home 没有单一 id 前缀约定(各 feature
 // 域各自命名),用 tests/home-app-component.test.mjs(渲染 HomeApp 断言契约 id)+ 各域
@@ -34,7 +34,16 @@ const KNOWN_ORPHANS = {
   // 旧 reader-dialog DOM 契约文件已随 cutover 删除(reader-* 字面量真值现在
   // 全部来自 @retainpdf/reader 包)，原先为它挂的孤儿豁免全部失效，清空。
   // 键跟随 PAGES[].jsDir，src/js/reader 已不存在。
-  "../packages/reader/src": Object.freeze([]),
+  // 扩面到 .tsx 后暴露的非 DOM 字符串，均非样式类或 id，无法补归属，登记为
+  // 已知孤儿：
+  //   reader-ai-pending   ReaderAppReactPdf 的 React key 兜底值
+  //   reader-embedded     boot.tsx 运行时加到 body 的标记类(无对应 CSS)
+  // react-resizable-panels 的 reader-document / reader-assistant 是 const 声明，
+  // 由 declarations 归属覆盖，不需豁免。
+  "../packages/reader/src": Object.freeze([
+    "reader-ai-pending",
+    "reader-embedded",
+  ]),
   // home 页的 JS 真值随 B6/B7 全部落到 src/app/home（src/js/features 已删除）。
   "src/app/home": Object.freeze([]),
 };
@@ -93,7 +102,7 @@ function walkFiles(dir, extension) {
 }
 
 function collectLiterals(jsFiles, prefix) {
-  const pattern = new RegExp(`["'](${prefix}-[a-z0-9-]+)["']`, "g");
+  const pattern = new RegExp(`["']((?:data-)?${prefix}-[a-z0-9-]+)["']`, "g");
   const literals = new Map();
   for (const file of jsFiles) {
     const text = readFileSync(file, "utf8");
@@ -133,11 +142,35 @@ function collectOwnership(htmlText, jsTexts, cssText, jsxTexts = []) {
   for (const match of cssText.matchAll(/\.([a-z0-9][a-z0-9-]*)/g)) {
     classes.add(match[1]);
   }
-  return { ids, classes };
+  // data-* 属性不是 id/class，但同样可能被改名后静默失效：把 JS/JSX 中的
+  // JSX 属性名、setAttribute/getAttribute 引用的属性名纳入归属集合。
+  const attributes = new Set();
+  for (const text of [...jsTexts, ...jsxTexts]) {
+    for (const match of text.matchAll(/\b(data-[a-z0-9-]+)\s*[={]/g)) {
+      attributes.add(match[1]);
+    }
+    for (const match of text.matchAll(/\b(?:set|get|remove)Attribute\s*\(\s*["'](data-[a-z0-9-]+)["']/g)) {
+      attributes.add(match[1]);
+    }
+  }
+  // 契约常量(如 READER_PAGE_ATTR = "data-reader-page")是名字的唯一真值来源，
+  // 其声明本身就构成归属，否则常量定义会被误判成孤儿。
+  const declarations = new Set();
+  for (const text of [...jsTexts, ...jsxTexts]) {
+    for (const match of text.matchAll(/\b(?:const|let|var)\s+[A-Za-z0-9_$]+\s*=\s*["']([a-z][a-z0-9-]*)["']/g)) {
+      declarations.add(match[1]);
+    }
+  }
+  return { ids, classes, attributes, declarations };
 }
 
 function isOwned(literal, ownership) {
-  if (ownership.ids.has(literal) || ownership.classes.has(literal)) {
+  if (
+    ownership.ids.has(literal)
+    || ownership.classes.has(literal)
+    || ownership.attributes.has(literal)
+    || ownership.declarations.has(literal)
+  ) {
     return true;
   }
   // 复合 id 模式,如 showReaderPaneEmpty 用 "reader-pdf" 拼出 "reader-pdf-wrap"
@@ -164,6 +197,7 @@ function analyzePage({ jsDir, prefix, htmlFile, jsxDir = "", extraJsDirs = [], e
     const full = requireScanDir(dir, role);
     return [
       ...walkFiles(full, ".ts"),
+      ...walkFiles(full, ".tsx"),
       ...walkFiles(full, ".js"),
     ];
   }

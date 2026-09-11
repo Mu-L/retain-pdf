@@ -25,27 +25,8 @@
   border-right: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
 }
 
-.reader-context-modes,
-.reader-context-modes .reader-tabs {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.reader-context-modes .reader-tab {
-  flex: 0 0 auto;
-  width: 30px;
-  min-height: 28px;
-}
-
-.reader-context-modes .reader-tab.is-active {
-  background: var(--ink);
-  color: var(--paper);
-}
-
-.reader-context-modes.is-source-only .reader-tabs {
-  width: auto;
-}
+/* 旧 .reader-context-modes/.reader-tabs/.reader-tab 组合无 JS/TSX 写入者，
+   模式切换已由 .reader-workspace-tab 承担，删除。 */
 
 .reader-react-hud-group {
   display: inline-flex;
@@ -231,17 +212,7 @@
 }
 
 
-/* 模式 tab：图标 + 明确的文件视图名称 */
-.reader-tab.reader-tab-mode {
-  flex: 1 1 0;
-  min-width: 0;
-  padding: 0;
-  gap: 0;
-}
-.reader-tab-lucide {
-  display: block;
-  flex-shrink: 0;
-}
+/* 旧 .reader-tab.reader-tab-mode / .reader-tab-lucide 无写入者，删除。 */
 .reader-react-shortcuts-btn {
   display: inline-flex;
   align-items: center;
@@ -250,14 +221,4 @@
 }
 .reader-react-shortcuts-icon {
   display: block;
-}
-
-.reader-body .reader-react-topbar {
-  width: min(148px, calc(100vw - 48px));
-  width: min(148px, calc(100dvw - 48px));
-}
-
-.reader-body .reader-react-topbar.is-source-only {
-  width: min(44px, calc(100vw - 48px));
-  width: min(44px, calc(100dvw - 48px));
 }

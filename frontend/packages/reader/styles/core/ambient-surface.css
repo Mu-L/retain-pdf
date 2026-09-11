@@ -58,8 +58,8 @@ body {
   min-height: 100dvh;
 }
 
-#reader-root,
-main.app-shell {
+/* 阅读器根容器：main.app-shell 是主页壳，reader bundle 不需要，故不加裸全局选择器 */
+#reader-root {
   background: transparent;
 }
 

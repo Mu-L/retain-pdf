@@ -71,3 +71,24 @@ test("answer completion refreshes sessions from the facade, reset on job switch"
   assert.match(source, /sessionCommands\.refreshSessions\(\)/);
   assert.match(source, /sessionCommands\.adoptRemoteConversationId\(\)/);
 });
+
+test("AI runtime reset scope combines jobId, documentId and sessionIdentity", async () => {
+  const source = await readFile(
+    new URL("../../../../frontend/packages/reader/src/components/react-pdf/assistant/use-reader-ask-runtime.ts", import.meta.url),
+    "utf8",
+  );
+  assert.ok(
+    source.includes("`${jobId}\\u0000${documentId}\\u0000${sessionIdentity}`"),
+    "resetScopeKey 必须由 jobId/documentId/sessionIdentity 组成",
+  );
+  assert.ok(source.includes("}, [resetScopeKey])"), "重置 effect 必须依赖 resetScopeKey");
+  assert.match(source, /sessionIdentity = ""/);
+
+  // 面板把 route 身份透传给运行时，documentId 变了 jobId 不变也会重置。
+  const panel = await readFile(
+    new URL("../../../../frontend/packages/reader/src/components/react-pdf/ReaderAiPanel.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(panel, /sessionIdentity/);
+  assert.match(panel, /sessionIdentity,/);
+});

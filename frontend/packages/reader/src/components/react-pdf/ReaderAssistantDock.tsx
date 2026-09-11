@@ -1,8 +1,10 @@
 import { FileCode2, Sparkles, X } from "lucide-react";
 import type { ReactElement } from "react";
 import { useReaderContext } from "./reader-context.js";
+import type { ReaderAssistantPanel } from "./reader-assistant-types.js";
 
-export type ReaderAssistantPanel = "markdown" | "ai";
+// 既有 import 兼容：类型真值已移至叶子文件。
+export type { ReaderAssistantPanel } from "./reader-assistant-types.js";
 
 const PANELS = [
   { id: "markdown", label: "Markdown", Icon: FileCode2 },

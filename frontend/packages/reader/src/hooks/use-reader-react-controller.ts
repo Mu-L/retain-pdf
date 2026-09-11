@@ -99,7 +99,6 @@ export type ReaderReactController = {
   selection: ReaderSelection | null;
   clearSelection: () => void;
   selectRegion: (selection: ReaderRegionSelection) => void;
-  documentTitle: string;
   download: ReaderSessionState["download"];
   /** stable local persistence scope for reading position/layout */
   viewStateKey: string;
@@ -363,7 +362,6 @@ export function useReaderReactController(): ReaderReactController {
     selection,
     clearSelection,
     selectRegion,
-    documentTitle: session.title || "",
     viewStateKey,
     liveTranslation,
     liveTranslationAvailable,

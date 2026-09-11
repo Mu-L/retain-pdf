@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 // 源码级命名空间门禁：reader/detail 源文件选择器必须带页前缀。
@@ -9,17 +9,89 @@ import { join, relative } from "node:path";
 
 const PROJECT_ROOT = process.cwd();
 const STYLES_ROOT = join(PROJECT_ROOT, "src/styles");
+const READER_STYLES_ROOT = join(PROJECT_ROOT, "..", "packages", "reader", "styles");
+
+// 递归遍历样式根：此前只 readdirSync 顶层，漏掉了 core/、themes/ 等子目录
+// （以及 web 侧的 entries/reader.css），子目录里的裸全局选择器可以绕过门禁。
+function cssFilesUnder(root) {
+  const files = [];
+  const pending = [root];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    const stat = statSync(current);
+    if (stat.isDirectory()) {
+      for (const entry of readdirSync(current)) pending.push(join(current, entry));
+    } else if (current.endsWith(".css")) {
+      files.push(current);
+    }
+  }
+  return files.sort();
+}
+
+// reader 包内「主题基座 / 多页共享件」白名单：这些选择器必须作用于文档根或
+// 被多页复用，无法加页前缀。逐文件登记 + 原因，避免把 html/body/* 变成
+// 所有 reader 文件都能写的后门。仅对列出的文件追加 selectors。
+const READER_FILE_EXEMPTIONS = [
+  {
+    file: "core/ambient-surface-reader.css",
+    reason:
+      "阅读器 bundle 的主题基座：html/body 的纸张材质、底色与对比度/降级必须作用于文档根；bundle 已按页拆包，不会污染 home/detail。",
+    selectors: [/^html$/, /^body$/],
+  },
+  {
+    file: "core/ambient-surface.css",
+    reason:
+      "共享氛围基座回退真值（entry 未引用）：同 reader variant 的 html/body 主题基座。",
+    selectors: [/^html$/, /^body$/],
+  },
+  {
+    file: "core/ambient-surface-home.css",
+    reason:
+      "主页/详情页纸台基座：页面根 #home-root/#detail-root、纸台 .home-paper-stage 与 html/body 主题底；非 reader bundle 业务类。",
+    selectors: [/^html$/, /^body$/, /^#home-root$/, /^#detail-root$/, /^\.home-paper-stage$/],
+  },
+  {
+    file: "core/tailwind-theme.css",
+    reason: "Tailwind v4 base reset（v3→v4 默认边框色兼容）：* 与伪元素必须全局生效。",
+    selectors: [/^\*$/, /^::/],
+  },
+  {
+    file: "core/download-toast.css",
+    reason:
+      "跨页共享下载 toast 工具类（@utility 生成），类名不带 reader- 前缀以避免宿主 DOM 改名。",
+    selectors: [/^\.download-toast/],
+  },
+  ...[
+    "classic.css",
+    "jiangnan.css",
+    "mojia.css",
+    "night.css",
+    "seacliff.css",
+  ].map((name) => ({
+    file: `themes/${name}`,
+    reason: "皮肤 token 契约：颜色/形态变量必须写在 :root/[data-theme] 上全局生效。",
+    selectors: [/^\[data-theme/],
+  })),
+];
+
+const READER_EXEMPTIONS = new Map(
+  READER_FILE_EXEMPTIONS.map(({ file, selectors }) => [file, selectors]),
+);
 
 const GROUPS = [
   {
     name: "reader 页/阅读器组件",
+    root: READER_STYLES_ROOT,
+    exemptions: READER_EXEMPTIONS,
     files: [
       // 真值已迁至 @retainpdf/reader（frontend/packages/reader/styles）；
       // *-legacy.css 为冻结兼容，base.css 为页面壳归一化（元素选择器 + 通用
       // 工具类，无业务类，2026-09-10 目检），两者不纳入命名空间门禁。
-      ...readdirSync(join(PROJECT_ROOT, "..", "packages", "reader", "styles"))
-        .filter((f) => f.endsWith(".css") && !f.endsWith("-legacy.css") && f !== "base.css")
-        .map((f) => join(PROJECT_ROOT, "..", "packages", "reader", "styles", f)),
+      // web 侧 entries/reader.css 是薄代理入口，也纳入扫描。
+      ...cssFilesUnder(READER_STYLES_ROOT).filter(
+        (f) => !f.endsWith("-legacy.css") && !f.endsWith("/base.css"),
+      ),
+      join(STYLES_ROOT, "entries/reader.css"),
     ],
     allowed: [
       /(\.|#)reader-/,
@@ -196,15 +268,20 @@ for (const group of GROUPS) {
   test(`${group.name} 样式文件的选择器全部带页面命名空间`, () => {
     const violations = [];
     for (const file of group.files) {
+      const exempt = group.exemptions?.get(relative(group.root, file)) ?? [];
       for (const selector of ruleSelectors(readFileSync(file, "utf8"))) {
         for (const part of selector.split(",")) {
           const trimmed = part.trim();
           if (!trimmed) {
             continue;
           }
-          if (!group.allowed.some((pattern) => pattern.test(trimmed))) {
-            violations.push(`${relative(PROJECT_ROOT, file)}: "${trimmed}"`);
+          if (group.allowed.some((pattern) => pattern.test(trimmed))) {
+            continue;
           }
+          if (exempt.some((pattern) => pattern.test(trimmed))) {
+            continue;
+          }
+          violations.push(`${relative(PROJECT_ROOT, file)}: "${trimmed}"`);
         }
       }
     }
@@ -215,3 +292,40 @@ for (const group of GROUPS) {
     );
   });
 }
+
+test("reader 门禁扫描为递归并覆盖 core/、themes/ 与 web 代理入口", () => {
+  const reader = GROUPS.find((group) => group.name === "reader 页/阅读器组件");
+  const rels = new Set(reader.files.map((file) => relative(READER_STYLES_ROOT, file)));
+  for (const expected of [
+    "core/ambient-surface-reader.css",
+    "core/tailwind-theme.css",
+    "themes/classic.css",
+    "themes/index.css",
+    "reader.utilities.css",
+  ]) {
+    assert.ok(rels.has(expected), `递归扫描缺少 reader/styles/${expected}`);
+  }
+  const webRels = new Set(reader.files.map((file) => relative(STYLES_ROOT, file)));
+  assert.ok(
+    webRels.has("entries/reader.css"),
+    "扫描缺少 web src/styles/entries/reader.css",
+  );
+});
+
+test("reader 门禁豁免清单文件存在且没有过期条目", () => {
+  const reader = GROUPS.find((group) => group.name === "reader 页/阅读器组件");
+  const scanned = new Set(reader.files.map((file) => relative(READER_STYLES_ROOT, file)));
+  for (const { file, selectors } of READER_FILE_EXEMPTIONS) {
+    assert.ok(scanned.has(file), `豁免文件不在扫描组: ${file}`);
+    const stillNeeded = ruleSelectors(readFileSync(join(READER_STYLES_ROOT, file), "utf8"))
+      .some((selector) =>
+        selector.split(",").some((part) => {
+          const trimmed = part.trim();
+          if (!trimmed) return false;
+          if (reader.allowed.some((pattern) => pattern.test(trimmed))) return false;
+          return selectors.some((pattern) => pattern.test(trimmed));
+        }),
+      );
+    assert.ok(stillNeeded, `豁免条目已过期（选择器已删除或已加前缀），请移除: ${file}`);
+  }
+});

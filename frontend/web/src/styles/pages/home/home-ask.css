@@ -875,84 +875,10 @@
   max-width: 100%;
 }
 
-/* 文内引用 [n]：小标签，不抢戏 */
-.home-ask-msg-bubble .reader-ai-citation-ref {
-  display: inline;
-  margin: 0 1px;
-  padding: 0 4px;
-  border: 0;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--ink) 6%, transparent);
-  color: color-mix(in srgb, var(--ink) 55%, var(--muted));
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.4;
-  vertical-align: baseline;
-  cursor: pointer;
-}
-
-.home-ask-msg-bubble .reader-ai-citation-ref:hover {
-  background: color-mix(in srgb, var(--ink) 10%, transparent);
-  color: var(--ink);
-}
-
-/* 底部来源 */
-.home-ask-msg-bubble .reader-ai-citations {
-  display: grid;
-  gap: 6px;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid color-mix(in srgb, var(--ink) 7%, transparent);
-}
-
-.home-ask-msg-bubble .reader-ai-citations-head {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.home-ask-msg-bubble .reader-ai-citations-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.home-ask-msg-bubble .reader-ai-citation-item {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-  max-width: 100%;
-  padding: 4px 10px;
-  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.35;
-  text-align: left;
-  cursor: pointer;
-}
-
-.home-ask-msg-bubble .reader-ai-citation-item:hover {
-  background: color-mix(in srgb, var(--ink) 3.5%, transparent);
-  color: var(--ink);
-}
-
-.home-ask-msg-bubble .reader-ai-citation-refno {
-  font-weight: 600;
-  color: color-mix(in srgb, var(--ink) 50%, var(--muted));
-}
-
-.home-ask-msg-bubble .reader-ai-citation-meta {
-  opacity: 0.85;
-}
-
-.home-ask-msg-bubble .reader-ai-citation-copy {
-  max-width: 14em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* 文内引用 [n] 与底部来源的皮肤已移至 @retainpdf/reader 的 AI 子集
+ * (packages/reader/styles/ai-citations.css)。这些 .reader-ai-citation-* 是
+ * reader 的稳定公开 DOM 契约，主页软宿主通过 `@retainpdf/reader/ai.css`
+ * 消费，不再在自己的域 CSS 里重定义 reader 类。 */
 
 /* —— 输入条 —— */
 .home-ask-composer {
