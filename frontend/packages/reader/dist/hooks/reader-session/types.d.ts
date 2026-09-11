@@ -2,6 +2,15 @@ import type { defaultReaderDataPort } from "../../external.js";
 import type { ReaderMetadata, ReaderRegion } from "../../shared/data/reader-regions.js";
 import type { ProtectedPdfFile } from "../../pdf/useProtectedPdfFile.js";
 export type ReaderMode = "source" | "translated" | "compare";
+/**
+ * 可选产物（译文区域 regions / 元数据 metadata）的加载错误。
+ * 两者失败都不致命：正文仍可读，但要向用户如实说明，而不是静默降级。
+ * 成功或请求被跳过时为 null。
+ */
+export type ReaderOptionalArtifactErrors = {
+    regions: unknown;
+    metadata: unknown;
+};
 /** 与 legacy ReaderDownloadMenu 相同的下载上下文 */
 export type ReaderDownloadContext = {
     fetchProtected: typeof defaultReaderDataPort.fetchProtected;
@@ -39,6 +48,8 @@ export type ReaderSessionState = {
     title: string;
     regions: ReaderRegion[];
     readerMetadata: ReaderMetadata;
+    /** 可选产物失败的真实错误；非致命提示的唯一真源。 */
+    readerErrors: ReaderOptionalArtifactErrors;
     download: ReaderDownloadContext;
     /** Agent 提交新文档版本后，切换到文档当前源文件并重新下载。 */
     refreshCommittedDocument: (input: {

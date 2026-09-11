@@ -1,6 +1,6 @@
 import { type ReaderRegionHighlight, type ReaderRegionSelection } from "../shared/data/reader-regions.js";
 import type { ReaderPaneId } from "./reader-dom-contract.js";
-export type ReaderStructureSelectionLayerProps = {
+type ReaderStructureSelectionLayerProps = {
     pane: ReaderPaneId;
     width: number;
     height: number;
@@ -13,4 +13,5 @@ export type ReaderStructureSelectionLayerProps = {
  * pdf.js 原生文字选择。
  */
 export declare function ReaderStructureSelectionLayer({ pane, width, height, regions, onSelect, }: ReaderStructureSelectionLayerProps): import("react").JSX.Element;
+export {};
 //# sourceMappingURL=ReaderStructureSelectionLayer.d.ts.map

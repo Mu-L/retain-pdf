@@ -1,7 +1,7 @@
 import type { LiveTranslationLayoutPage, LiveTranslationTypography } from "@retainpdf/api/live-translation";
 import type { LiveTranslationPageState } from "../shared/data/live-translation-state.js";
 import { type ReaderRegionRect } from "../shared/data/reader-regions.js";
-export type ProjectedLiveTranslationItem = {
+type ProjectedLiveTranslationItem = {
     itemId: string;
     translatedText: string;
     status: string;
@@ -13,7 +13,7 @@ export type ProjectedLiveTranslationItem = {
     changedNow: boolean;
 };
 export declare function projectLiveTranslationItems(layoutPage: LiveTranslationLayoutPage | undefined, pageState: LiveTranslationPageState | undefined, renderedWidth: number, renderedHeight: number): ProjectedLiveTranslationItem[];
-export type LiveTranslationOverlayProps = {
+type LiveTranslationOverlayProps = {
     layoutPage?: LiveTranslationLayoutPage;
     pageState?: LiveTranslationPageState;
     width: number;
@@ -37,11 +37,11 @@ export declare function prepareLiveTranslationMathHtml(text: string): {
 };
 /** Translate Typst point/em values into the current PDF viewport. */
 export declare function resolveLiveTranslationTextStyle(item: Pick<ProjectedLiveTranslationItem, "kind" | "rect" | "sourceText" | "typography">, pageScale: number): LiveTranslationTextStyle;
-export type LiveTranslationFitMeasure = (fontSize: number) => {
+type LiveTranslationFitMeasure = (fontSize: number) => {
     width: number;
     height: number;
 };
-export type LiveTranslationFitInput = {
+type LiveTranslationFitInput = {
     minFontSizePx: number;
     maxFontSizePx: number;
     requestedFontSizePx: number;

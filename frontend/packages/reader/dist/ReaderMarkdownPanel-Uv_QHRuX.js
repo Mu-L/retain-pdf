@@ -1,7 +1,7 @@
 import { jsxs as Z, jsx as C } from "react/jsx-runtime";
 import { useRef as R, useState as z, useEffect as he } from "react";
 import { Search as Ce, ChevronUp as Ae, ChevronDown as Ue, ListTree as Le, FileCode2 as Ne } from "lucide-react";
-import { r as Re, d as fe, e as me, b as Ie } from "./ReaderApp-D360eK74.js";
+import { r as Re, d as fe, e as me, b as Ie } from "./ReaderApp-Ds9tRSBd.js";
 import { e as we, m as Oe, a as ge } from "./markdown-math-Cb17EyYs.js";
 import { n as Se } from "./markdown-payload-kK3ewW_I.js";
 const ke = "h1, h2, h3, h4, h5, h6, p, li, td, th, blockquote, pre";
@@ -535,4 +535,4 @@ export {
   Te as isProtectedMarkdownAssetUrl,
   be as startMarkdownImageLoading
 };
-//# sourceMappingURL=ReaderMarkdownPanel-Dawku-OF.js.map
+//# sourceMappingURL=ReaderMarkdownPanel-Uv_QHRuX.js.map

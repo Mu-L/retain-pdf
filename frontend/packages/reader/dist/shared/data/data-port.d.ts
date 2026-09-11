@@ -14,7 +14,7 @@ export type MarkdownRangeResult = {
     rangeEnd: number | null;
     etag: string | null;
 };
-export declare function createReaderDataPort({ apiPrefix, loadJob, loadManifest, loadMarkdown, loadMarkdownDocument, loadMarkdownSource, fetchMarkdownRange, loadRegions, loadMetadata, loadTranslationItem, fetchProtectedResource, }?: {
+export declare function createReaderDataPort({ apiPrefix, loadJob, loadManifest, loadMarkdown, loadMarkdownDocument, loadMarkdownSource, fetchMarkdownRange, loadRegions, loadMetadata, fetchProtectedResource, }?: {
     apiPrefix?: string;
     loadJob?: (jobId: string, apiPrefix: string) => Promise<unknown>;
     loadManifest?: (jobId: string, apiPrefix: string) => Promise<unknown>;
@@ -24,7 +24,6 @@ export declare function createReaderDataPort({ apiPrefix, loadJob, loadManifest,
     fetchMarkdownRange?: ((rawUrl: string, start: number, endInclusive: number, etag?: string, signal?: AbortSignal) => Promise<MarkdownRangeResult>) | null;
     loadRegions?: (jobId: string, apiPrefix: string) => Promise<unknown>;
     loadMetadata?: (jobId: string, apiPrefix: string) => Promise<unknown>;
-    loadTranslationItem?: (jobId: string, itemId: string, apiPrefix: string) => Promise<unknown>;
     fetchProtectedResource?: typeof fetch;
 }): Readonly<{
     apiPrefix: string;

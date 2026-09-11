@@ -3,7 +3,7 @@ import type { PageRowHeights } from "./usePageRowSync.js";
 import { type ReaderPaneId } from "./reader-dom-contract.js";
 import { type ReaderMetadata, type ReaderRegion, type ReaderRegionSelection } from "../shared/data/reader-regions.js";
 import type { LiveTranslationState } from "../shared/data/live-translation-state.js";
-export type PdfDocumentPaneProps = {
+type PdfDocumentPaneProps = {
     pane: ReaderPaneId;
     url?: string;
     preloadedFile?: ProtectedPdfFile | null;
@@ -36,4 +36,5 @@ export type PdfDocumentPaneProps = {
     liveTranslationPendingLabel?: string;
 };
 export declare const PdfDocumentPane: import("react").NamedExoticComponent<PdfDocumentPaneProps & import("react").RefAttributes<HTMLElement>>;
+export {};
 //# sourceMappingURL=PdfDocumentPane.d.ts.map

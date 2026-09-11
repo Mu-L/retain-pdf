@@ -1,6 +1,6 @@
 import type { ProtectedPdfFile } from "../../pdf/useProtectedPdfFile.js";
 import { type ReaderMetadata, type ReaderRegion } from "../../shared/data/reader-regions.js";
-import type { CommittedDocumentSource, ReaderMode, ReaderSessionState } from "./types.js";
+import type { CommittedDocumentSource, ReaderMode, ReaderOptionalArtifactErrors, ReaderSessionState } from "./types.js";
 import type { SessionIdentityEvent } from "./job-identity.js";
 export type SessionAssets = {
     sourceUrl: string;
@@ -11,6 +11,7 @@ export type SessionAssets = {
     title: string;
     regions: ReaderRegion[];
     readerMetadata: ReaderMetadata;
+    readerErrors: ReaderOptionalArtifactErrors;
     boot: ReaderSessionState["boot"];
 };
 export type SessionAssetCommands = {

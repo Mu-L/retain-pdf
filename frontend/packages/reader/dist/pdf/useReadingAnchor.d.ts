@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 import { type PageScrollProgress } from "./scroll-to-page.js";
-export type ReadingAnchorPane = "source" | "translated";
+type ReadingAnchorPane = "source" | "translated";
 export declare function useReadingAnchor(shellRef: RefObject<HTMLElement | null>, options: {
     primaryPane: ReadingAnchorPane;
     /** when mode changes, hook restores locked progress */
@@ -23,4 +23,5 @@ export declare function useReadingAnchor(shellRef: RefObject<HTMLElement | null>
     /** call when layout settles (rowHeights/shellWidth) while restoring — re-pin locked only */
     repinIfRestoring: () => void;
 };
+export {};
 //# sourceMappingURL=useReadingAnchor.d.ts.map

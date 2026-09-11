@@ -1,5 +1,5 @@
 import { type ReaderRegionHighlight, type ReaderRegionRect } from "../shared/data/reader-regions.js";
-export type ReaderTextHoverTarget = {
+type ReaderTextHoverTarget = {
     itemId: string;
     highlight: ReaderRegionHighlight;
     rect: ReaderRegionRect;
@@ -9,4 +9,5 @@ export declare function hitTestReaderTextHoverTarget(targets: readonly ReaderTex
 export declare function ReaderTextHoverLayer({ target }: {
     target: ReaderTextHoverTarget | null;
 }): import("react").JSX.Element;
+export {};
 //# sourceMappingURL=ReaderTextHoverLayer.d.ts.map

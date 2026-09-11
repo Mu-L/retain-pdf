@@ -3,11 +3,10 @@ import { type ReaderRegionHighlight, type ReaderRegionSelection } from "../share
 import type { LiveTranslationLayoutPage } from "@retainpdf/api/live-translation";
 import type { LiveTranslationPageState } from "../shared/data/live-translation-state.js";
 export declare const DEFAULT_ASPECT = 1.414;
-export type PdfPageSlotProps = {
+type PdfPageSlotProps = {
     pageNumber: number;
     width: number;
     devicePixelRatio: number;
-    scrollRoot: HTMLElement | null;
     pane?: ReaderPaneId;
     /** pane-level windowing decides whether the page canvas should be mounted */
     active?: boolean;
