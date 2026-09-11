@@ -23,6 +23,7 @@ from retainpdf_pipeline.ocr.document_schema.providers import (
     PROVIDER_MINERU_CONTENT_LIST_V2,
 )
 from retainpdf_pipeline.ocr.document_schema.validator import (
+    build_validation_report,
     validate_document_payload,
 )
 from retainpdf_pipeline.ocr.mineru.artifacts import (
@@ -444,6 +445,36 @@ def test_mineru_content_list_v2_projects_current_common_types() -> None:
     assert footnote["policy"]["translate"] is False
 
 
+def test_mineru_content_list_v2_inherits_block_bbox_for_segments() -> None:
+    fixture_path = FIXTURES_DIR / "mineru_content_list_v2.golden.json"
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    document = adapt_payload_to_document_v1(
+        payload=payload,
+        provider=PROVIDER_MINERU_CONTENT_LIST_V2,
+        document_id="mineru-v2-test",
+        source_json_path=fixture_path,
+    )
+    validate_document_payload(document)
+
+    for block in document["pages"][0]["blocks"]:
+        assert block["segments"], "expected segments"
+        for segment in block["segments"]:
+            assert segment["bbox"] == block["bbox"]
+            assert segment["bbox_precision"] == "block"
+        for line in block["lines"]:
+            for span in line["spans"]:
+                assert span["bbox"] == line["bbox"]
+                assert span["bbox_precision"] == "line"
+
+    report = build_validation_report(document)
+    assert report["zero_segment_bbox_count"] == 0
+    assert report["approximate_segment_bbox_count"] == len(
+        [segment for block in document["pages"][0]["blocks"] for segment in block["segments"]]
+    )
+    assert report["complete"] is True
+
+
 def test_mineru_artifact_resolver_accepts_current_middle_filename(
     tmp_path: Path,
 ) -> None:
@@ -528,3 +559,15 @@ def test_mineru_coherent_block_does_not_split() -> None:
     validate_document_payload(document)
 
     assert len(document["pages"][0]["blocks"]) == 1
+
+
+def test_mineru_lines_deleted_shell_is_skipped() -> None:
+    normal = _block("text", "Kept paragraph.", index=0)
+    merged_from = _block("text", "Stale merged content.", index=1, lines_deleted=True)
+
+    document = _adapt(_payload(normal, merged_from))
+    validate_document_payload(document)
+
+    blocks = document["pages"][0]["blocks"]
+    assert len(blocks) == 1
+    assert blocks[0]["text"] == "Kept paragraph."

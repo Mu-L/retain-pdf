@@ -44,3 +44,27 @@ def build_line_records(bbox: list[float], segments: list[dict]) -> list[dict]:
             "spans": [dict(segment) for segment in segments],
         }
     ]
+
+
+def inherit_missing_segment_bboxes(*, bbox: list[float], segments: list[dict], lines: list[dict]) -> None:
+    """Attach the narrowest truthful containing region when a provider has no glyph boxes.
+
+    `bbox_precision` makes the approximation explicit: top-level segments inherit
+    their block, while line spans inherit their generated/observed line region.
+    """
+    for segment in segments:
+        if segment.get("bbox") in (None, [], [0, 0, 0, 0]) or segment.get("bbox_precision") in {
+            "block",
+            "line",
+        }:
+            segment["bbox"] = list(bbox)
+            segment["bbox_precision"] = "block"
+    for line in lines:
+        line_bbox = list(line.get("bbox", bbox) or bbox)
+        for span in line.get("spans", []) or []:
+            if span.get("bbox") in (None, [], [0, 0, 0, 0]) or span.get("bbox_precision") in {
+                "block",
+                "line",
+            }:
+                span["bbox"] = line_bbox
+                span["bbox_precision"] = "line"

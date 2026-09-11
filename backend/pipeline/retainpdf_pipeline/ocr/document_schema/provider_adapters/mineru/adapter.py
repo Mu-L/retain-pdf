@@ -503,6 +503,10 @@ def _build_page_record(page: dict, *, page_idx: int) -> tuple[dict, int]:
         parent_group: dict | None = None,
     ) -> None:
         nonlocal skipped_container_count
+        # MinerU marks merged-from shells with lines_deleted=true and empties
+        # their lines; skip them before they become empty downstream records.
+        if block.get("lines_deleted"):
+            return
         raw_type = str(block.get("type", "") or "").strip().lower()
         children = _iter_child_blocks(block)
         aggregate_children = raw_type in MINERU_TEXT_AGGREGATE_CONTAINERS and bool(

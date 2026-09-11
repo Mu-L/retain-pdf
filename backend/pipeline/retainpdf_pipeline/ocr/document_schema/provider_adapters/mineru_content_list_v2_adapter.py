@@ -9,6 +9,7 @@ from retainpdf_pipeline.ocr.document_schema.provider_adapters.common import (
     build_line_records,
     build_page_record,
     build_text_segments,
+    inherit_missing_segment_bboxes,
     normalize_bbox,
 )
 from retainpdf_pipeline.ocr.document_schema.provider_adapters.mineru.projection import (
@@ -109,6 +110,7 @@ def build_block_spec(block: dict, *, page_idx: int, order: int) -> dict:
     raw_type = str(block.get("type", "") or "")
     bbox = normalize_bbox(block.get("bbox"))
     lines, segments, text = extract_text_structure(block)
+    inherit_missing_segment_bboxes(bbox=bbox, segments=segments, lines=lines)
     projected_label = _V2_TO_MIDDLE_LABEL.get(raw_type, raw_type)
     projection = project_mineru_block(
         projected_label,

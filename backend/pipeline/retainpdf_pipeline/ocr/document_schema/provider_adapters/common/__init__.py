@@ -6,6 +6,7 @@ from retainpdf_pipeline.ocr.document_schema.provider_adapters.common.continuatio
 from retainpdf_pipeline.ocr.document_schema.provider_adapters.common.document_builder import build_document_record
 from retainpdf_pipeline.ocr.document_schema.provider_adapters.common.normalize import build_line_records
 from retainpdf_pipeline.ocr.document_schema.provider_adapters.common.normalize import build_text_segments
+from retainpdf_pipeline.ocr.document_schema.provider_adapters.common.normalize import inherit_missing_segment_bboxes
 from retainpdf_pipeline.ocr.document_schema.provider_adapters.common.normalize import normalize_bbox
 from retainpdf_pipeline.ocr.document_schema.provider_adapters.common.normalize import normalize_polygon
 from retainpdf_pipeline.ocr.document_schema.provider_adapters.common.page_builder import build_page_record
@@ -26,6 +27,7 @@ __all__ = [
     "classify_with_previous_anchor",
     "continuation_role_for",
     "continuation_scope_for_blocks",
+    "inherit_missing_segment_bboxes",
     "normalize_bbox",
     "normalize_polygon",
 ]

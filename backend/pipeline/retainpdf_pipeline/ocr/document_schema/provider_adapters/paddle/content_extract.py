@@ -6,6 +6,7 @@ import re
 from retainpdf_pipeline.ocr.document_schema.provider_adapters.common import (
     build_line_records,
     build_text_segments,
+    inherit_missing_segment_bboxes,
 )
 from retainpdf_pipeline.ocr.document_schema.protected_formula_tokens import (
     PROTECTED_TOKEN_RE,
@@ -284,30 +285,6 @@ def build_lines(
         if pseudo_lines:
             return pseudo_lines
     return build_line_records(bbox, segments)
-
-
-def inherit_missing_segment_bboxes(*, bbox: list[float], segments: list[dict], lines: list[dict]) -> None:
-    """Attach the narrowest truthful containing region when Paddle has no glyph boxes.
-
-    `bbox_precision` makes the approximation explicit: top-level segments inherit
-    their block, while line spans inherit their generated/observed line region.
-    """
-    for segment in segments:
-        if segment.get("bbox") in (None, [], [0, 0, 0, 0]) or segment.get("bbox_precision") in {
-            "block",
-            "line",
-        }:
-            segment["bbox"] = list(bbox)
-            segment["bbox_precision"] = "block"
-    for line in lines:
-        line_bbox = list(line.get("bbox", bbox) or bbox)
-        for span in line.get("spans", []) or []:
-            if span.get("bbox") in (None, [], [0, 0, 0, 0]) or span.get("bbox_precision") in {
-                "block",
-                "line",
-            }:
-                span["bbox"] = line_bbox
-                span["bbox_precision"] = "line"
 
 
 def assign_inline_formula_bboxes(
