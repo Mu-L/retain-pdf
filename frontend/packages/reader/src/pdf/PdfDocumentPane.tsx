@@ -33,6 +33,10 @@ import {
 import type { LiveTranslationState } from "../shared/data/live-translation-state.js";
 
 const OVERSCAN = 5;
+/** Pre-warm/active band: same root margin the old per-slot observer used. */
+const ACTIVE_ROOT_MARGIN = "120% 0px";
+/** Leave grace period so edge scrolling does not rapidly unmount the canvas. */
+const ACTIVE_LEAVE_MS = 120;
 let nextPdfFileIdentity = 1;
 const pdfFileIdentities = new WeakMap<ProtectedPdfFile, number>();
 
@@ -172,9 +176,13 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
 
     // --- virtualization: aspect cache keeps placeholder heights correct when windowed out ---
     const [aspectCache, setAspectCache] = useState<Map<number, number>>(() => new Map());
-    const [visiblePages, setVisiblePages] = useState<Set<number>>(() => new Set());
+    // nearPages: pages inside the ACTIVE_ROOT_MARGIN band (pre-warm + windowing source).
+    // activePages: nearPages with a 120ms leave hysteresis (canvas mount decision).
+    const [nearPages, setNearPages] = useState<Set<number>>(() => new Set());
+    const [activePages, setActivePages] = useState<Set<number>>(() => new Set());
     const sentinelRefs = useRef<Map<number, HTMLDivElement>>(new Map());
     const windowingObserverRef = useRef<IntersectionObserver | null>(null);
+    const activeLeaveTimersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
     const handleAspectChange = useCallback((pn: number, aspect: number) => {
       setAspectCache((prev) => {
@@ -209,35 +217,76 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
       }
     }, []);
 
-    // shared windowing observer: tracks which page sentinels are intersecting viewport
-    // expands to +/- OVERSCAN to form windowed set. Keeps shared IntersectionObserver pattern for active toggling.
+    // Single pane-level observer replaces the old pair (pane window + per-slot
+    // shared observer). It uses the slot's former 120% root margin, then:
+    //   - nearPages drives the +/- OVERSCAN mount window (same window semantics)
+    //   - activePages applies the 120ms leave hysteresis for canvas mounting
+    // so each page sentinel is observed exactly once and unmount decisions are
+    // no longer duplicated across two observers.
     useEffect(() => {
-      if (!scrollRoot || typeof IntersectionObserver === "undefined") return;
+      if (typeof IntersectionObserver === "undefined") return;
+      const leaveTimers = activeLeaveTimersRef.current;
       const obs = new IntersectionObserver(
         (entries) => {
-          setVisiblePages((prev) => {
-            const next = new Set(prev);
-            let changed = false;
-            for (const ent of entries) {
-              const target = ent.target as HTMLElement;
-              const pn = Number(target.getAttribute("data-reader-page"));
-              if (!Number.isFinite(pn)) continue;
-              if (ent.isIntersecting) {
-                if (!next.has(pn)) {
+          const entering: number[] = [];
+          const leaving: number[] = [];
+          for (const ent of entries) {
+            const target = ent.target as HTMLElement;
+            const pn = Number(target.getAttribute("data-reader-page"));
+            if (!Number.isFinite(pn)) continue;
+            (ent.isIntersecting ? entering : leaving).push(pn);
+          }
+          if (entering.length || leaving.length) {
+            setNearPages((prev) => {
+              let next: Set<number> | null = null;
+              for (const pn of entering) {
+                if (!prev.has(pn)) {
+                  next = next || new Set(prev);
                   next.add(pn);
-                  changed = true;
-                }
-              } else {
-                if (next.has(pn)) {
-                  next.delete(pn);
-                  changed = true;
                 }
               }
+              for (const pn of leaving) {
+                if (prev.has(pn)) {
+                  next = next || new Set(prev);
+                  next.delete(pn);
+                }
+              }
+              return next || prev;
+            });
+          }
+          if (entering.length) {
+            for (const pn of entering) {
+              const timer = leaveTimers.get(pn);
+              if (timer) {
+                clearTimeout(timer);
+                leaveTimers.delete(pn);
+              }
             }
-            return changed ? next : prev;
-          });
+            setActivePages((prev) => {
+              let next: Set<number> | null = null;
+              for (const pn of entering) {
+                if (!prev.has(pn)) {
+                  next = next || new Set(prev);
+                  next.add(pn);
+                }
+              }
+              return next || prev;
+            });
+          }
+          for (const pn of leaving) {
+            if (leaveTimers.has(pn)) continue;
+            leaveTimers.set(pn, setTimeout(() => {
+              leaveTimers.delete(pn);
+              setActivePages((prev) => {
+                if (!prev.has(pn)) return prev;
+                const next = new Set(prev);
+                next.delete(pn);
+                return next;
+              });
+            }, ACTIVE_LEAVE_MS));
+          }
         },
-        { root: scrollRoot, rootMargin: "0px", threshold: 0 },
+        { root: scrollRoot, rootMargin: ACTIVE_ROOT_MARGIN, threshold: 0 },
       );
       windowingObserverRef.current = obs;
       // observe any already-mounted sentinels
@@ -251,6 +300,8 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
       return () => {
         obs.disconnect();
         if (windowingObserverRef.current === obs) windowingObserverRef.current = null;
+        for (const timer of leaveTimers.values()) clearTimeout(timer);
+        leaveTimers.clear();
       };
     }, [scrollRoot]);
 
@@ -261,9 +312,13 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
     useLayoutEffect(() => {
       setNumPages(0);
       setDocError("");
-      setVisiblePages(new Set());
+      setNearPages(new Set());
+      setActivePages(new Set());
       setAspectCache(new Map());
       sentinelRefs.current.clear();
+      const leaveTimers = activeLeaveTimersRef.current;
+      for (const timer of leaveTimers.values()) clearTimeout(timer);
+      leaveTimers.clear();
       onNumPagesChange?.(0, pane);
       // Keep the observer; it will re-observe new sentinels on next render.
     }, [documentIdentity, onNumPagesChange, pane]);
@@ -295,6 +350,14 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
       () => (numPages > 0 ? Array.from({ length: numPages }, (_, i) => i + 1) : []),
       [numPages],
     );
+
+    // No IntersectionObserver (SSR / legacy env): render every windowed canvas,
+    // matching the old per-slot fallback where active defaulted to true.
+    useEffect(() => {
+      if (typeof IntersectionObserver !== "undefined") return;
+      setActivePages(new Set(pageNumbers));
+    }, [pageNumbers]);
+
     const regionHighlight = useMemo(
       () => resolveReaderRegionHighlight(activeRegion, readerMetadata, pane),
       [activeRegion, readerMetadata, pane],
@@ -315,19 +378,19 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
       if (numPages === 0) return new Set<number>();
       const canWindow = !!scrollRoot && typeof IntersectionObserver !== "undefined" && visible;
       if (!canWindow) return new Set(pageNumbers);
-      if (visiblePages.size === 0) {
+      if (nearPages.size === 0) {
         const end = Math.min(numPages, OVERSCAN * 2 + 1);
         return new Set(Array.from({ length: end }, (_, i) => i + 1));
       }
       const s = new Set<number>();
-      for (const v of visiblePages) {
+      for (const v of nearPages) {
         for (let d = -OVERSCAN; d <= OVERSCAN; d++) {
           const n = v + d;
           if (n >= 1 && n <= numPages) s.add(n);
         }
       }
       return s;
-    }, [numPages, pageNumbers, scrollRoot, visible, visiblePages]);
+    }, [numPages, pageNumbers, scrollRoot, visible, nearPages]);
 
     const showEmpty = !url || Boolean(fetchError) || Boolean(docError);
     const emptyText = !url
@@ -384,6 +447,7 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
                       width={pageWidth}
                       devicePixelRatio={dpr}
                       scrollRoot={scrollRoot}
+                      active={activePages.has(pageNumber)}
                       syncedMinHeight={rowHeights?.get(pageNumber) || 0}
                       onMetrics={onMetrics}
                       cachedAspect={aspectCache.get(pageNumber)}

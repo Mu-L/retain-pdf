@@ -27,7 +27,6 @@ import type { LiveTranslationLayoutPage } from "@retainpdf/api/live-translation"
 import type { LiveTranslationPageState } from "../shared/data/live-translation-state.js";
 
 export const DEFAULT_ASPECT = 1.414;
-const ROOT_MARGIN = "120% 0px";
 
 export type PdfPageSlotProps = {
   pageNumber: number;
@@ -35,13 +34,15 @@ export type PdfPageSlotProps = {
   devicePixelRatio: number;
   scrollRoot: HTMLElement | null;
   pane?: ReaderPaneId;
+  /** pane-level windowing decides whether the page canvas should be mounted */
+  active?: boolean;
   /** 对照左右同页 max 高度 */
   syncedMinHeight?: number;
   onMetrics?: () => void;
   /** windowed rendering: aspect cache from pane to keep placeholder height correct */
   cachedAspect?: number;
   onAspectChange?: (pageNumber: number, aspect: number) => void;
-  /** pane-level windowing sentinel registration (shared observer also handles windowing) */
+  /** pane-level windowing sentinel registration (the pane observer owns activeness) */
   sentinelRef?: (el: HTMLDivElement | null) => void;
   regionHighlight?: ReaderRegionHighlight | null;
   regionTargets?: ReaderRegionHighlight[];
@@ -51,55 +52,12 @@ export type PdfPageSlotProps = {
   showLiveTranslation?: boolean;
 };
 
-type SharedObserverEntry = {
-  observer: IntersectionObserver;
-  elements: Map<Element, (isIntersecting: boolean) => void>;
-};
-
-const sharedObserverMap = new Map<HTMLElement | null, SharedObserverEntry>();
-
-function getSharedObserver(
-  root: HTMLElement | null,
-  onIntersect: (isIntersecting: boolean) => void,
-  el: Element,
-): SharedObserverEntry {
-  let entry = sharedObserverMap.get(root);
-  if (!entry) {
-    const elements = new Map<Element, (isIntersecting: boolean) => void>();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const ent of entries) {
-          const cb = elements.get(ent.target);
-          if (cb) cb(ent.isIntersecting);
-        }
-      },
-      { root, rootMargin: ROOT_MARGIN, threshold: 0 },
-    );
-    entry = { observer, elements };
-    sharedObserverMap.set(root, entry);
-  }
-  entry.elements.set(el, onIntersect);
-  entry.observer.observe(el);
-  return entry;
-}
-
-function releaseSharedObserver(root: HTMLElement | null, el: Element) {
-  const entry = sharedObserverMap.get(root);
-  if (!entry) return;
-  entry.observer.unobserve(el);
-  entry.elements.delete(el);
-  if (entry.elements.size === 0) {
-    entry.observer.disconnect();
-    sharedObserverMap.delete(root);
-  }
-}
-
 function PdfPageSlotInner({
   pageNumber,
   width,
   devicePixelRatio,
-  scrollRoot,
   pane,
+  active = false,
   syncedMinHeight = 0,
   onMetrics,
   cachedAspect,
@@ -113,15 +71,16 @@ function PdfPageSlotInner({
   showLiveTranslation = pane === "source",
 }: PdfPageSlotProps) {
   const slotRef = useRef<HTMLDivElement | null>(null);
-  const [active, setActive] = useState(false);
-  const [aspect, setAspect] = useState(cachedAspect ?? DEFAULT_ASPECT);
+  const aspectRef = useRef(cachedAspect ?? DEFAULT_ASPECT);
+  const [aspect, setAspect] = useState(aspectRef.current);
 
   // keep local aspect in sync with pane-level cache (e.g. after remount)
   useEffect(() => {
-    if (cachedAspect != null && Math.abs(cachedAspect - aspect) >= 0.001) {
+    if (cachedAspect != null && Math.abs(cachedAspect - aspectRef.current) >= 0.001) {
+      aspectRef.current = cachedAspect;
       setAspect(cachedAspect);
     }
-  }, [cachedAspect]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cachedAspect]);
 
   const sentinelRefRef = useRef(sentinelRef);
   sentinelRefRef.current = sentinelRef;
@@ -130,39 +89,6 @@ function PdfPageSlotInner({
     (slotRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
     sentinelRefRef.current?.(el);
   }).current;
-
-  useEffect(() => {
-    const el = slotRef.current;
-    if (!el) return;
-    if (typeof IntersectionObserver === "undefined") {
-      setActive(true);
-      return;
-    }
-    // hysteresis: keep active for a short grace period when leaving viewport
-    let deactivateTimer: ReturnType<typeof setTimeout> | null = null;
-    const onIntersect = (isIntersecting: boolean) => {
-      if (isIntersecting) {
-        if (deactivateTimer) {
-          clearTimeout(deactivateTimer);
-          deactivateTimer = null;
-        }
-        setActive(true);
-      } else {
-        // hysteresis to avoid rapid toggle on edge
-        if (deactivateTimer) clearTimeout(deactivateTimer);
-        deactivateTimer = setTimeout(() => {
-          setActive(false);
-        }, 120);
-      }
-    };
-    const entry = getSharedObserver(scrollRoot, onIntersect, el);
-    return () => {
-      if (deactivateTimer) clearTimeout(deactivateTimer);
-      releaseSharedObserver(scrollRoot, el);
-      // keep observer shared; do not disconnect globally if still has elements
-      void entry;
-    };
-  }, [scrollRoot, pageNumber]);
 
   // 旧引擎 page 固定 height = viewport * scale
   const naturalHeight = Math.max(120, Math.floor(width * aspect));
@@ -221,16 +147,15 @@ function PdfPageSlotInner({
     });
   };
 
-  // notify pane of aspect so placeholder heights stay correct when windowed out
+  // notify pane of aspect so placeholder heights stay correct when windowed out.
+  // onLoadSuccess is an async react-pdf callback, not render, so notifying the
+  // parent directly is safe; the ref guard keeps StrictMode double-loads quiet.
   const handleAspect = (next: number) => {
-    setAspect((prev) => {
-      if (Math.abs(prev - next) < 0.001) return prev;
-      // defer parent notification to avoid setState during render
-      const notify = () => onAspectChange?.(pageNumber, next);
-      if (typeof queueMicrotask !== "undefined") queueMicrotask(notify);
-      else setTimeout(notify, 0);
-      return next;
-    });
+    if (!Number.isFinite(next) || next <= 0) return;
+    if (Math.abs(aspectRef.current - next) < 0.001) return;
+    aspectRef.current = next;
+    setAspect(next);
+    onAspectChange?.(pageNumber, next);
   };
 
   return (

@@ -64,6 +64,9 @@ export function computeReaderPaneFlags(input: {
   };
 }
 
+/** Stable identity for the "no pages yet / document switched" branch. */
+const EMPTY_PAGE_COUNTS: { source: number; translated: number } = { source: 0, translated: 0 };
+
 export function useReaderPaneModel(
   input: ReaderPaneModelInput,
   extras?: { userZoom?: number; shellWidth?: number; identityKey?: string },
@@ -83,12 +86,12 @@ export function useReaderPaneModel(
   activeIdentityRef.current = paneIdentity;
   const [pageState, setPageState] = useState(() => ({
     identity: paneIdentity,
-    pages: { source: 0, translated: 0 },
+    pages: EMPTY_PAGE_COUNTS,
   }));
   const [metricsState, setMetricsState] = useState(() => ({ identity: paneIdentity, tick: 0 }));
   const numPagesByPane = pageState.identity === paneIdentity
     ? pageState.pages
-    : { source: 0, translated: 0 };
+    : EMPTY_PAGE_COUNTS;
   const metricsTick = metricsState.identity === paneIdentity ? metricsState.tick : 0;
 
   const flags = computeReaderPaneFlags({
@@ -105,7 +108,7 @@ export function useReaderPaneModel(
     setPageState((prev) => {
       const current = prev.identity === paneIdentity
         ? prev.pages
-        : { source: 0, translated: 0 };
+        : EMPTY_PAGE_COUNTS;
       if (current[pane] === pages && prev.identity === paneIdentity) return prev;
       return {
         identity: paneIdentity,

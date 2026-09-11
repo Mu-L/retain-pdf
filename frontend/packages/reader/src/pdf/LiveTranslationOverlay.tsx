@@ -118,6 +118,9 @@ type LiveTranslationTextStyle = {
 };
 
 const DEFAULT_FONT_FAMILY = '"Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", serif';
+// Long reading sessions can materialize many distinct formulas; keep the cache
+// bounded (evict oldest) so it cannot grow without limit.
+const MATH_HTML_CACHE_LIMIT = 256;
 const mathHtmlCache = new Map<string, Promise<string>>();
 
 function escapeHtml(value: string): string {
@@ -145,6 +148,10 @@ export function prepareLiveTranslationMathHtml(text: string): {
   if (!richHtml) {
     richHtml = materializeMarkdownMathHtml(escaped, slots);
     mathHtmlCache.set(source, richHtml);
+    if (mathHtmlCache.size > MATH_HTML_CACHE_LIMIT) {
+      const oldest = mathHtmlCache.keys().next().value;
+      if (oldest !== undefined) mathHtmlCache.delete(oldest);
+    }
   }
   return { fallbackHtml, richHtml, hasMath: true };
 }

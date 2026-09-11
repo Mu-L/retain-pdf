@@ -10,20 +10,29 @@ import {
 
 export type PageRowHeights = ReadonlyMap<number, number>;
 
-function measureNaturalPageHeight(slot: HTMLElement): number {
-  // 优先量「纸面」内容，不吃已被抬高的 minHeight
-  const content = slot.querySelector<HTMLElement>(
-    "canvas, .react-pdf__Page, .reader-react-pdf-page, .reader-react-pdf-page-placeholder",
-  );
+const CONTENT_SELECTOR =
+  "canvas, .react-pdf__Page, .reader-react-pdf-page, .reader-react-pdf-page-placeholder";
+// Windowed rendering replaces placeholder <-> page content, so keep the content
+// lookup off the hot path and only re-query when the cached node disconnected.
+const contentRefCache = new WeakMap<HTMLElement, HTMLElement | null>();
+
+export function measureNaturalPageHeight(slot: HTMLElement): number {
+  // The pane/slot always renders this attr from the un-inflated natural height,
+  // so it is both cheaper and safer than reading a rect that may include minHeight.
+  const natural = Number(slot.getAttribute("data-natural-height"));
+  if (Number.isFinite(natural) && natural > 0) {
+    return natural;
+  }
+  let content = contentRefCache.get(slot);
+  if (content == null || !content.isConnected) {
+    content = slot.querySelector<HTMLElement>(CONTENT_SELECTOR);
+    contentRefCache.set(slot, content);
+  }
   if (content) {
     const h = content.getBoundingClientRect().height;
     if (Number.isFinite(h) && h > 0) {
       return h;
     }
-  }
-  const natural = Number(slot.getAttribute("data-natural-height"));
-  if (Number.isFinite(natural) && natural > 0) {
-    return natural;
   }
   const h = slot.getBoundingClientRect().height;
   return Number.isFinite(h) && h > 0 ? h : 0;
@@ -35,6 +44,30 @@ function mapsEqual(a: PageRowHeights, b: PageRowHeights): boolean {
     if (a.get(k) !== v) return false;
   }
   return true;
+}
+
+/** Pure measure of one shell's slots → pageNumber → max(natural height) when both panes have it. */
+export function collectPageRowHeights(shell: HTMLElement): PageRowHeights {
+  const rows = new Map<number, { height: number; count: number }>();
+  shell.querySelectorAll<HTMLElement>(pageSlotSelector()).forEach((slot) => {
+    const page = getPageAttr(slot);
+    if (!Number.isFinite(page) || page < 1) return;
+    const h = measureNaturalPageHeight(slot);
+    if (h <= 0) return;
+    const row = rows.get(page) || { height: 0, count: 0 };
+    row.height = Math.max(row.height, h);
+    row.count += 1;
+    rows.set(page, row);
+  });
+
+  const next = new Map<number, number>();
+  rows.forEach((row, page) => {
+    // 旧逻辑：两侧都有才同步
+    if (row.count >= 2 && row.height > 0) {
+      next.set(page, Math.ceil(row.height));
+    }
+  });
+  return next;
 }
 
 /**
@@ -51,12 +84,16 @@ export function usePageRowSync(
   onSettle?: () => void,
 ): PageRowHeights {
   const [heights, setHeights] = useState<PageRowHeights>(() => new Map());
+  const heightsRef = useRef<PageRowHeights>(heights);
   const onSettleRef = useRef(onSettle);
   onSettleRef.current = onSettle;
 
   useLayoutEffect(() => {
     if (!enabled) {
-      setHeights((prev) => (prev.size === 0 ? prev : new Map()));
+      if (heightsRef.current.size !== 0) {
+        heightsRef.current = new Map();
+        setHeights(heightsRef.current);
+      }
       return;
     }
 
@@ -71,27 +108,12 @@ export function usePageRowSync(
       const shell = shellRef.current;
       if (!shell) return;
 
-      const rows = new Map<number, { height: number; count: number }>();
-      shell.querySelectorAll<HTMLElement>(pageSlotSelector()).forEach((slot) => {
-        const page = getPageAttr(slot);
-        if (!Number.isFinite(page) || page < 1) return;
-        const h = measureNaturalPageHeight(slot);
-        if (h <= 0) return;
-        const row = rows.get(page) || { height: 0, count: 0 };
-        row.height = Math.max(row.height, h);
-        row.count += 1;
-        rows.set(page, row);
-      });
+      const next = collectPageRowHeights(shell);
 
-      const next = new Map<number, number>();
-      rows.forEach((row, page) => {
-        // 旧逻辑：两侧都有才同步
-        if (row.count >= 2 && row.height > 0) {
-          next.set(page, Math.ceil(row.height));
-        }
-      });
-
-      setHeights((prev) => (mapsEqual(prev, next) ? prev : next));
+      if (!mapsEqual(heightsRef.current, next)) {
+        heightsRef.current = next;
+        setHeights(next);
+      }
 
       // Once per revision: after delayed (300ms+) successful measure — not RO spam
       if (settleArmed && !settled) {
