@@ -1,5 +1,6 @@
 import { APP_EVENTS } from "@/platform/contracts/app-contract.js";
 import { bindRecentJobsCommandHandlers } from "./command-handlers.js";
+import { invalidateLibraryBooksResource } from "./library-books-resource.js";
 
 export function bindRecentJobsFeatureEvents({
   apiPrefix,
@@ -47,9 +48,17 @@ export function bindRecentJobsFeatureEvents({
     refreshScheduler.setSuspended(true);
   }
   function onCloseTranslationWorkflow() {
-    // 打开期间 refresh 被 suspend 吞掉；关闭后必须 bypass 5s 节流做一次 soft 对齐
+    // 关闭上传/任务弹窗后必须真正刷新书架：上传只建文档、不建任务，若这里不刷新，
+    // 新上传的 PDF 要等整页刷新才会出现。
+    //
+    // 注意：`bypassThrottle` **不解除 suspend**，而 `scheduleRefresh` 在
+    // `isWorkflowOpen()`（DOM `data-open`）仍为真时会把非 force 请求排进 pending
+    // 且此场景不会 replay（setSuspended 已是 false→false），于是刷新被静默丢弃。
+    // 关闭瞬间 data-open 可能还没被 workflow 监听器清掉（监听器注册顺序），所以这里
+    // 用 `force: true` 跳过 suspend+throttle，并失效书架资源确保读到最新文档。
     refreshScheduler.setSuspended(false);
-    refreshScheduler.scheduleRefresh({ delay: 300, bypassThrottle: true });
+    invalidateLibraryBooksResource(libraryBooksResource);
+    refreshScheduler.scheduleRefresh({ delay: 300, force: true });
   }
   doc.addEventListener(APP_EVENTS.statusAreaVisibilityChanged, onStatusAreaVisibilityChanged);
   doc.addEventListener(APP_EVENTS.openTranslationWorkflow, onOpenTranslationWorkflow);

@@ -1797,6 +1797,7 @@ test("recent jobs feature bindings route ui library and workflow events", () => 
   const loadCalls = [];
   const commandCalls = [];
   const schedulerCalls = [];
+  const invalidateCalls = [];
   let viewPortHandlers = null;
   const viewPort = {
     bindEvents(handlers) {
@@ -1834,7 +1835,7 @@ test("recent jobs feature bindings route ui library and workflow events", () => 
   bindRecentJobsFeatureEvents({
     commandPort,
     doc,
-    libraryBooksResource: {},
+    libraryBooksResource: { invalidate: () => invalidateCalls.push(true) },
     libraryRefreshPort,
     refreshScheduler,
     runtime: {
@@ -1865,8 +1866,10 @@ test("recent jobs feature bindings route ui library and workflow events", () => 
     ["suspended", false],
     ["suspended", true],
     ["suspended", false],
-    ["schedule", { delay: 300, bypassThrottle: true }],
+    ["schedule", { delay: 300, force: true }],
   ]);
+  // 关闭弹窗必须失效书架资源：否则新上传的文档要整页刷新才出现。
+  assert.equal(invalidateCalls.length, 1, "closeTranslationWorkflow 必须 invalidate 书架资源");
 });
 
 test("shared library event port publishes and normalizes app events", () => {

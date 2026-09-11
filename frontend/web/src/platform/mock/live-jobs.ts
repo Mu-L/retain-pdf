@@ -141,6 +141,8 @@ export function buildLiveMockJobPayload(
           ? (slot.skipped ? 0 : (slot.phase.key === "done" ? 500 : slot.durationMs))
           : null,
         terminal_status: doneForHistory ? "completed" : "",
+        progress_current: null,
+        progress_total: null,
       };
     });
 

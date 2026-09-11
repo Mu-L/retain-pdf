@@ -41,7 +41,7 @@ test("OCR multipart submission sends ocr_credential_ref without Paddle token pla
         credential_ref: "cred_saved_ocr",
         paddle_token: "",
       },
-      runtime: { timeout_seconds: 120 },
+      runtime: { timeout_seconds: 120, no_output_timeout_seconds: 0 },
     });
 
     assert.equal(submittedForm.get("ocr_credential_ref"), "cred_saved_ocr");

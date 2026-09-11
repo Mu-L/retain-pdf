@@ -342,6 +342,7 @@ async function submitJob({
       form.append("ocr_options", JSON.stringify(parsed));
     }
     form.append("timeout_seconds", String(timeoutSeconds));
+    form.append("no_output_timeout_seconds", "0");
     const response = await safeFetch(`${apiBase}/api/v1/ocr/jobs`, {
       method: "POST",
       headers: buildHeaders(xApiKey),
@@ -362,6 +363,7 @@ async function submitJob({
     runtime: {
       job_id: "",
       timeout_seconds: timeoutSeconds,
+      no_output_timeout_seconds: 0,
     },
     ocr: {
       provider: ocrProvider,

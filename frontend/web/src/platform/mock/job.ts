@@ -24,6 +24,8 @@ export function buildMockStageHistory(scenario: string): StageHistoryEntry[] {
       exit_at: stage.duration_ms === null ? "" : isoOffsetMinutes(-11 + index * 2),
       duration_ms: stage.duration_ms,
       terminal_status: stage.duration_ms === null ? "" : "completed",
+      progress_current: null,
+      progress_total: null,
     }));
 }
 

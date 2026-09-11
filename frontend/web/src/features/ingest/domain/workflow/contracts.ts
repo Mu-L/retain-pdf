@@ -73,6 +73,7 @@ export interface WorkflowRunPayload {
   runtime: {
     job_id: string;
     timeout_seconds: number | undefined;
+    no_output_timeout_seconds: number;
   };
   ocr?: unknown;
   translation?: unknown;

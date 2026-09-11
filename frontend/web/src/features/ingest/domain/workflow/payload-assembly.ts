@@ -136,6 +136,7 @@ export function createWorkflowPayloadAssembly({
       runtime: {
         job_id: "",
         timeout_seconds: developerConfig.timeoutSeconds,
+        no_output_timeout_seconds: 0,
       },
     };
     if (ocrOnly) {
