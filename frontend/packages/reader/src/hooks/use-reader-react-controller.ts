@@ -11,7 +11,7 @@ import { useReaderTools, type ReaderToolsApi } from "./use-reader-tools.js";
 import { useCurrentPage } from "../pdf/useCurrentPage.js";
 import { usePageRowSync } from "../pdf/usePageRowSync.js";
 import { useReadingAnchor } from "../pdf/useReadingAnchor.js";
-import { useUrlAnchorJump } from "./use-url-anchor-jump.js";
+import { useReaderUrlAnchorSync } from "./use-url-anchor-jump.js";
 import type { PageRowHeights } from "../pdf/usePageRowSync.js";
 import type { ReaderMode, ReaderSessionState } from "./use-reader-session.js";
 import type { ProtectedPdfFile } from "../pdf/useProtectedPdfFile.js";
@@ -269,10 +269,13 @@ export function useReaderReactController(): ReaderReactController {
     activateRegion(region);
     goToPage(page, targetPane);
   }, [activateRegion, goToPage, panes.primaryPane, session.regions]);
-  // 收藏 / 搜索回跳：URL ?page_idx= → 页码（0 基 → 1 基）
-  useUrlAnchorJump({
+  // 收藏 / 搜索回跳：URL ?page_idx= → 页码（0 基 → 1 基）；
+  // 阅读中反向把 currentPage 防抖写回 URL，使分享/刷新回到当前位置。
+  useReaderUrlAnchorSync({
     enabled: !session.boot.loading && !session.boot.failed && session.assetsReady,
+    syncEnabled: !session.boot.loading && !session.boot.failed && session.assetsReady,
     numPages: panes.hudNumPages || 0,
+    currentPage,
     goToPage,
     resolveBlockPage,
     jobId: session.jobId,

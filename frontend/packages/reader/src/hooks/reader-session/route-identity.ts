@@ -7,13 +7,18 @@ import {
   resolveReaderJobId,
   defaultReaderPageConfigPort,
 } from "../../external.js";
+import { readerRouteSearchSignature } from "../../shared/config/page-config.js";
 
 export function useLocationKey(): string {
-  const [locationKey, setLocationKey] = useState(
-    () => globalThis.location?.search || globalThis.location?.href || "",
+  // locationKey 只承载会话身份（job/document/mock 等），阅读位置锚点
+  // （page_idx/block_id）由 useReaderUrlAnchorSync 滚动写回；若把它们计入
+  // locationKey，会触发 session-assets 重载。故此处用去掉锚点的签名。
+  const readSignature = () => readerRouteSearchSignature(
+    globalThis.location?.search || "",
   );
+  const [locationKey, setLocationKey] = useState(readSignature);
   useEffect(() => {
-    const handler = () => setLocationKey(globalThis.location?.search || globalThis.location?.href || "");
+    const handler = () => setLocationKey(readSignature());
     // pushState/replaceState do not fire popstate; monkeypatch to detect SPA navigation
     const origPush = globalThis.history?.pushState?.bind(globalThis.history);
     const origReplace = globalThis.history?.replaceState?.bind(globalThis.history);
