@@ -236,6 +236,38 @@ def _valid_bbox(value: object) -> list[float] | None:
     return bbox
 
 
+def _intersect_bbox(inner: object, outer: object) -> list[float] | None:
+    inner_box = _valid_bbox(inner)
+    outer_box = _valid_bbox(outer)
+    if inner_box is None or outer_box is None:
+        return None
+    clamped = [
+        max(inner_box[0], outer_box[0]),
+        max(inner_box[1], outer_box[1]),
+        min(inner_box[2], outer_box[2]),
+        min(inner_box[3], outer_box[3]),
+    ]
+    if clamped[2] < clamped[0] or clamped[3] < clamped[1]:
+        return None
+    return clamped
+
+
+def _clamp_descendant_bboxes(lines: list[dict], block_bbox: object) -> None:
+    for line in lines:
+        if not isinstance(line, dict):
+            continue
+        clamped_line = _intersect_bbox(line.get("bbox"), block_bbox)
+        if clamped_line is None:
+            continue
+        line["bbox"] = clamped_line
+        for span in line.get("spans", []):
+            if not isinstance(span, dict):
+                continue
+            clamped_span = _intersect_bbox(span.get("bbox"), clamped_line)
+            if clamped_span is not None:
+                span["bbox"] = clamped_span
+
+
 def _effective_block_bbox(
     block: dict, *, aggregate_children: bool
 ) -> list[float] | list:
@@ -257,6 +289,40 @@ def _effective_block_bbox(
     ]
 
 
+def _split_orphan_line_runs(
+    lines: list[dict], block_bbox: object
+) -> tuple[list[dict], list[list[dict]]]:
+    block_box = _valid_bbox(block_bbox)
+    if block_box is None:
+        return lines, []
+    main_lines: list[dict] = []
+    orphan_groups: list[list[dict]] = []
+    current_run: list[dict] = []
+    for line in lines:
+        line_box = _valid_bbox(line.get("bbox")) if isinstance(line, dict) else None
+        if line_box is not None and _intersect_bbox(line_box, block_box) is None:
+            current_run.append(line)
+            continue
+        if current_run:
+            orphan_groups.append(current_run)
+            current_run = []
+        main_lines.append(line)
+    if current_run:
+        orphan_groups.append(current_run)
+    return main_lines, orphan_groups
+
+
+def _join_line_texts(lines: list[dict], *, preserve_lines: bool) -> str:
+    separator = "\n" if preserve_lines else " "
+    return separator.join(
+        str(span.get("text", "") or "")
+        for line in lines
+        if isinstance(line, dict)
+        for span in (line.get("spans", []) or [])
+        if isinstance(span, dict) and span.get("text")
+    ).strip()
+
+
 def _build_block_record(
     *,
     block: dict,
@@ -265,7 +331,7 @@ def _build_block_record(
     raw_path_parts: list[str | int],
     aggregate_children: bool,
     parent_group: dict | None,
-) -> dict:
+) -> list[dict]:
     raw_type = str(block.get("type", "") or "").strip().lower()
     raw_sub_type = str(block.get("sub_type", "") or "").strip().lower()
     lines, segments, text = _extract_text_structure(
@@ -278,6 +344,11 @@ def _build_block_record(
     normalized_bbox = _effective_block_bbox(
         block, aggregate_children=aggregate_children
     )
+    # MinerU's own hierarchy is occasionally off by rounding noise (e.g. a
+    # line bottom 1pt below its block). Clamp descendants into the block so
+    # the document validator's containment invariant holds; disjoint boxes
+    # are left untouched and still fail loudly downstream.
+    _clamp_descendant_bboxes(lines, normalized_bbox)
     metadata: dict[str, object] = {
         "raw_index": block.get("index"),
         "raw_angle": block.get("angle"),
@@ -287,16 +358,87 @@ def _build_block_record(
     }
     if parent_group:
         metadata.update(parent_group)
+    preserve_lines = raw_type in {"code", "code_body", "algorithm"}
+    main_lines, orphan_runs = _split_orphan_line_runs(lines, normalized_bbox)
+    records = [
+        _block_record_from_lines(
+            block=block,
+            page_idx=page_idx,
+            page_block_index=page_block_index,
+            raw_path_parts=raw_path_parts,
+            parent_group=parent_group,
+            projection=projection,
+            raw_type=raw_type,
+            raw_sub_type=raw_sub_type,
+            metadata=metadata,
+            block_bbox=normalized_bbox,
+            lines=main_lines,
+            preserve_lines=preserve_lines,
+            include_table_content=True,
+        )
+    ]
+    for position, orphan_lines in enumerate(orphan_runs, start=1):
+        orphan_bbox: list[float] = [
+            min(float(line["bbox"][0]) for line in orphan_lines),
+            min(float(line["bbox"][1]) for line in orphan_lines),
+            max(float(line["bbox"][2]) for line in orphan_lines),
+            max(float(line["bbox"][3]) for line in orphan_lines),
+        ]
+        records.append(
+            _block_record_from_lines(
+                block=block,
+                page_idx=page_idx,
+                page_block_index=page_block_index + position,
+                raw_path_parts=raw_path_parts,
+                parent_group=parent_group,
+                projection=projection,
+                raw_type=raw_type,
+                raw_sub_type=raw_sub_type,
+                metadata=metadata,
+                block_bbox=orphan_bbox,
+                lines=orphan_lines,
+                preserve_lines=preserve_lines,
+                include_table_content=False,
+            )
+        )
+    return records
+
+
+def _block_record_from_lines(
+    *,
+    block: dict,
+    page_idx: int,
+    page_block_index: int,
+    raw_path_parts: list[str | int],
+    parent_group: dict | None,
+    projection,
+    raw_type: str,
+    raw_sub_type: str,
+    metadata: dict[str, object],
+    block_bbox,
+    lines: list[dict],
+    preserve_lines: bool,
+    include_table_content: bool,
+) -> dict:
+    block_id = f"p{page_idx + 1:03d}-b{page_block_index:04d}"
+    block_text = _join_line_texts(lines, preserve_lines=preserve_lines)
+    block_segments = [
+        span
+        for line in lines
+        if isinstance(line, dict)
+        for span in (line.get("spans", []) or [])
+        if isinstance(span, dict)
+    ]
     record = {
         "block_id": block_id,
         "page_index": page_idx,
         "order": page_block_index,
         "type": projection.content_kind,
         "sub_type": projection.sub_type,
-        "bbox": normalized_bbox,
-        "text": text,
+        "bbox": block_bbox,
+        "text": block_text,
         "lines": lines,
-        "segments": segments,
+        "segments": block_segments,
         "tags": list(projection.tags),
         "derived": _derived_for_projection(projection),
         "layout_role": projection.layout_role,
@@ -306,7 +448,7 @@ def _build_block_record(
             "translate": projection.translate,
             "translate_reason": projection.translate_reason,
         },
-        "metadata": metadata,
+        "metadata": dict(metadata),
         "source": {
             "provider": PROVIDER_MINERU,
             "raw_page_index": page_idx,
@@ -314,13 +456,13 @@ def _build_block_record(
             "raw_type": raw_type,
             "raw_sub_type": raw_sub_type,
             "raw_bbox": block.get("bbox", []),
-            "raw_text_excerpt": text[:200],
+            "raw_text_excerpt": block_text[:200],
             "raw_unit": "pt",
             "raw_origin": "top_left",
         },
     }
     table_html = _first_provider_table_html(block)
-    if projection.content_kind == "table" and table_html:
+    if include_table_content and projection.content_kind == "table" and table_html:
         record["content"] = {
             "kind": "table",
             "table_html": table_html,
@@ -399,7 +541,7 @@ def _build_page_record(page: dict, *, page_idx: int) -> tuple[dict, int]:
 
         # A container without children is emitted as a conservative fallback;
         # some MinerU backends flatten their middle output.
-        blocks_out.append(
+        blocks_out.extend(
             _build_block_record(
                 block=block,
                 page_idx=page_idx,

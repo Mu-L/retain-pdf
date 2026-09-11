@@ -463,3 +463,68 @@ def test_mineru_artifact_resolver_rejects_ambiguous_middle_files(
 
     with pytest.raises(RuntimeError, match="multiple middle.json candidates"):
         resolve_layout_json_path(tmp_path)
+
+
+def test_mineru_line_overhang_is_clamped_into_block_bbox() -> None:
+    block = _block("title", "Section heading", index=0)
+    block["bbox"] = [155, 219, 204, 232]
+    block["lines"][0]["bbox"] = [156, 219, 203, 233]
+    block["lines"][0]["spans"][0]["bbox"] = [156, 219, 203, 233]
+
+    document = _adapt(_payload(block))
+    validate_document_payload(document)
+
+    line = document["pages"][0]["blocks"][0]["lines"][0]
+    assert line["bbox"] == [156, 219, 203, 232]
+    assert document["pages"][0]["blocks"][0]["bbox"] == [155, 219, 204, 232]
+
+
+def _text_line(text: str, bbox: list) -> dict:
+    return {
+        "bbox": bbox,
+        "spans": [{"type": "text", "content": text, "bbox": bbox, "score": 0.99}],
+    }
+
+
+def test_mineru_disjoint_lines_split_into_sibling_block() -> None:
+    block = {
+        "type": "text",
+        "bbox": [300, 500, 530, 780],
+        "index": 0,
+        "angle": 0,
+        "lines": [
+            _text_line("First coherent line.", [310, 540, 520, 555]),
+            _text_line("Second coherent line.", [310, 560, 520, 575]),
+            _text_line("Stray top line.", [70, 73, 288, 84]),
+        ],
+    }
+
+    document = _adapt(_payload(block))
+    validate_document_payload(document)
+
+    blocks = document["pages"][0]["blocks"]
+    assert len(blocks) == 2
+    assert blocks[0]["bbox"] == [300, 500, 530, 780]
+    assert "Stray top line." not in blocks[0]["text"]
+    assert [b["block_id"] for b in blocks] == ["p001-b0000", "p001-b0001"]
+    assert blocks[1]["bbox"] == [70, 73, 288, 84]
+    assert blocks[1]["text"] == "Stray top line."
+    assert "Stray top line." in document["pages"][0]["blocks"][1]["lines"][0]["spans"][0]["text"]
+
+
+def test_mineru_coherent_block_does_not_split() -> None:
+    block = {
+        "type": "text",
+        "bbox": [300, 500, 530, 780],
+        "index": 0,
+        "angle": 0,
+        "lines": [
+            _text_line("First coherent line.", [310, 540, 520, 555]),
+            _text_line("Second coherent line.", [310, 560, 520, 575]),
+        ],
+    }
+
+    document = _adapt(_payload(block))
+    validate_document_payload(document)
+
+    assert len(document["pages"][0]["blocks"]) == 1
