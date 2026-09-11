@@ -11,9 +11,6 @@ import type {
   HomeServicesViews,
   LibraryPort,
   StatusCardPort,
-  UploadPort,
-  TextPort,
-  WorkflowPort,
 } from "./types.js";
 
 export function buildHomeServices({
@@ -57,8 +54,8 @@ export function buildHomeServices({
     store: status.statusCardStore as unknown as StatusCardPort["store"],
     // cancel 业务已内聚到 status 域的 statusCardController（而非在此直接调 feature）
     cancelCurrentJob: () =>
-      (status as any).statusCardController?.cancelCurrentJob?.() ??
-      (features.jobRuntimeFeature as any)?.cancelCurrentJob?.(),
+      status.statusCardController?.cancelCurrentJob?.() ??
+      features.jobRuntimeFeature?.cancelCurrentJob?.(),
   };
 
   const libraryPort: LibraryPort = {
@@ -67,12 +64,14 @@ export function buildHomeServices({
     actions: {
       ...library.recentJobActions,
       // selectJob 业务已内聚到 LibraryController（findItem 不再由 composition 拼）
-      selectJob: (library.libraryController as any).selectJob
-        ? (jobId: string) => (library.libraryController as any).selectJob(jobId)
-        : (jobId: string) => (library.libraryController as any).selectJobForDetail(jobId, {} as any),
+      selectJob: (jobId: string) =>
+        library.libraryController.selectJob
+          ? library.libraryController.selectJob(jobId)
+          : library.libraryController.selectJobForDetail(jobId, {}),
       openSourceReader: library.libraryController.openSourceReader,
       translateDocument: library.libraryController.translateDocument,
       ocrDocument: library.libraryController.ocrDocument,
+      // submitDocument 运行时由 controller 拼入，但 LibraryController 类型尚未暴露（见报告）。
       submitDocument: (library.libraryController as any).submitDocument,
       getDocumentJobs: library.libraryController.getDocumentJobs,
       getDocumentByJobId: library.libraryController.getDocumentByJobId,
@@ -90,27 +89,6 @@ export function buildHomeServices({
     },
   };
 
-  const uploadPort: UploadPort = {
-    domRefs: views.uploadView.domRefs,
-    viewActions: { patch: views.uploadView.patch },
-    store: views.uploadView.store as unknown as UploadPort["store"],
-  };
-
-  const textPort: TextPort = {
-    store: views.textStore.store as unknown as TextPort["store"],
-    textOf: views.textStore.textOf,
-  };
-
-  const workflowPort: WorkflowPort = {
-    store: views.workflowView.store as unknown as WorkflowPort["store"],
-    viewActions: {
-      setSelectedGlossaryId: views.workflowView.setSelectedGlossaryId,
-      setOcrOnly: (views.workflowView as any).setOcrOnly,
-      isOcrOnly: (views.workflowView as any).isOcrOnly,
-    } as unknown as WorkflowPort["viewActions"],
-    dialog: views.workflowDialog,
-  };
-
   return {
     bridge,
     dispose,
@@ -121,7 +99,7 @@ export function buildHomeServices({
     statusArea: views.statusArea,
     credentials: {
       feature: features.browserCredentialsFeature,
-      view: credentials.credentialsView as any,
+      view: credentials.credentialsView,
       dialogStore: credentials.credentialsDialogStore,
     },
     settingsHub: {
@@ -129,16 +107,15 @@ export function buildHomeServices({
     },
     glossaries: {
       feature: features.glossariesFeature,
-      view: glossaries.glossariesView as any,
+      view: glossaries.glossariesView,
       dialogStore: glossaries.glossariesDialogStore,
     },
     appUpdate: {
       feature: features.appUpdateFeature,
-      view: appUpdate.appUpdateView as any,
+      view: appUpdate.appUpdateView,
       handlersRef: appUpdate.appUpdateView.handlersRef,
     },
     library: libraryPort,
-    libraryPort,
     bookDetail: {
       dialogStore: library.bookDetailStore,
     },
@@ -154,7 +131,6 @@ export function buildHomeServices({
       store: status.currentJobStore as unknown as HomeServices["jobRuntime"]["store"],
     },
     statusCard,
-    statusCardPort: statusCard,
     statusDetail: {
       store: status.statusDetailStore,
       dialogStore: status.statusDetailDialogStore,
@@ -163,10 +139,7 @@ export function buildHomeServices({
     reader: {
       openReader: library.recentJobsReaderPort.openReader,
     },
-    // narrow ports
-    uploadPort,
-    textPort,
-    workflowPort,
+    // 视图帮助别名
     textOf: views.textStore.textOf,
     uploadDomRefs: views.uploadView.domRefs,
     uploadViewActions: {
@@ -174,9 +147,9 @@ export function buildHomeServices({
     },
     workflowViewActions: {
       setSelectedGlossaryId: views.workflowView.setSelectedGlossaryId,
-      setOcrOnly: (views.workflowView as any).setOcrOnly,
-      isOcrOnly: (views.workflowView as any).isOcrOnly,
-    } as any,
+      setOcrOnly: views.workflowView.setOcrOnly,
+      isOcrOnly: views.workflowView.isOcrOnly,
+    },
     workflowDialog: views.workflowDialog,
-  } as HomeServices;
+  };
 }
