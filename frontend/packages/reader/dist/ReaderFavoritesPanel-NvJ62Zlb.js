@@ -1,7 +1,7 @@
 import { jsx as r, jsxs as o, Fragment as N } from "react/jsx-runtime";
 import { useState as m, useCallback as k, useEffect as g } from "react";
 import { Bookmark as b } from "lucide-react";
-import { c as x, f as F, A as S, b as A } from "./ReaderApp-kTlxBzs5.js";
+import { c as x, f as F, A as S, b as A } from "./ReaderApp-D360eK74.js";
 import { normalizeServerFavorite as E } from "./runtime/state.js";
 function P(t) {
   const a = `${t || ""}`.trim();
@@ -43,7 +43,7 @@ function z({
       id: "reader-favorites-panel",
       open: t,
       title: "摘录",
-      subtitle: "本书云端收藏 · 本地保存",
+      subtitle: "本书云端摘录 · 服务端保存",
       titleIcon: /* @__PURE__ */ r(b, { size: 14, strokeWidth: 2.25, "aria-hidden": !0 }),
       storageKey: "retainpdf.reader.favorites-float.pos.v1",
       ariaLabel: "摘录",
@@ -87,4 +87,4 @@ function z({
 export {
   z as ReaderFavoritesPanel
 };
-//# sourceMappingURL=ReaderFavoritesPanel-Cb0UdAJ2.js.map
+//# sourceMappingURL=ReaderFavoritesPanel-NvJ62Zlb.js.map

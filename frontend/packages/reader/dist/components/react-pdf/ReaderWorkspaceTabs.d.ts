@@ -20,5 +20,5 @@ export declare function isReaderWorkspaceDisabled(input: {
     sourceOnly: boolean;
     liveTranslationAvailable: boolean;
 }): boolean;
-export declare function ReaderWorkspaceTabs({ mode, documentReady, sourceOnly, onModeChange, liveTranslation, }: ReaderWorkspaceTabsProps): ReactElement;
+export declare function ReaderWorkspaceTabs(props: ReaderWorkspaceTabsProps): ReactElement;
 //# sourceMappingURL=ReaderWorkspaceTabs.d.ts.map

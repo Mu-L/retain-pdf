@@ -37,6 +37,25 @@ export declare function prepareLiveTranslationMathHtml(text: string): {
 };
 /** Translate Typst point/em values into the current PDF viewport. */
 export declare function resolveLiveTranslationTextStyle(item: Pick<ProjectedLiveTranslationItem, "kind" | "rect" | "sourceText" | "typography">, pageScale: number): LiveTranslationTextStyle;
+export type LiveTranslationFitMeasure = (fontSize: number) => {
+    width: number;
+    height: number;
+};
+export type LiveTranslationFitInput = {
+    minFontSizePx: number;
+    maxFontSizePx: number;
+    requestedFontSizePx: number;
+    exact: boolean;
+};
+/**
+ * Binary-search the largest font size whose measured content still fits the
+ * available box. This is the exact original search (same brackets, iteration
+ * counts and rounding), with two output-preserving reductions in layout reads:
+ * repeated probes of the same size are answered from a per-fit memo, and a
+ * collapsed bracket stops early instead of re-probing the same endpoint.
+ */
+export declare function computeLiveTranslationFit(measure: LiveTranslationFitMeasure, availableWidth: number, availableHeight: number, input: LiveTranslationFitInput): number;
+export declare function clearLiveTranslationFitCache(): void;
 declare function LiveTranslationOverlayInner({ layoutPage, pageState, width, height, }: LiveTranslationOverlayProps): import("react").JSX.Element;
 export declare const LiveTranslationOverlay: import("react").MemoExoticComponent<typeof LiveTranslationOverlayInner>;
 export {};
