@@ -31,28 +31,36 @@
 import { Languages, ScanSearch } from "lucide-react";
 import { Tabs as TabsPrimitive } from "radix-ui";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
-import { useHomeServices } from "@/app/home/home-services-context.js";
+import {
+  useHomeBridge,
+  useHomeFeatures,
+  useHomeWorkflowViewActions,
+  useHomeWorkflowViewStore,
+} from "@/ui/context/home-services-context.js";
 import { HeroUpload } from "./components/UploadTile.jsx";
 import { InlineErrorBox } from "./InlineErrorBox.jsx";
 
 export function WorkflowPanel({ hiddenInputsSlot = null }: { hiddenInputsSlot?: React.ReactNode | null }) {
-  const services = useHomeServices();
-  const workflow = useStoreSnapshot(services.stores.workflowView);
+  const workflowViewStore = useHomeWorkflowViewStore();
+  const bridge = useHomeBridge();
+  const workflowViewActions = useHomeWorkflowViewActions();
+  const features = useHomeFeatures();
+  const workflow = useStoreSnapshot(workflowViewStore);
   const ocrOnly = Boolean(workflow.ocrOnly);
 
   // [1] 表单校验入口:成功→ bridge.submitForm 接管后续组参/提交/接进度/关框;
   // 失败→ 仅阻止默认提交,停留本框(错误由 InlineErrorBox 行内展示)。
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    services.bridge.submitForm(event);
+    bridge.submitForm(event);
   }
 
   function handleModeChange(value: string) {
     const nextOcrOnly = value === "ocr";
     if (nextOcrOnly === ocrOnly) return;
 
-    services.workflowViewActions.setOcrOnly(nextOcrOnly);
-    services.features.workflowFeature?.refreshSubmitControls?.();
-    services.features.workflowFeature?.applyWorkflowMode?.();
+    workflowViewActions.setOcrOnly(nextOcrOnly);
+    features.workflowFeature?.refreshSubmitControls?.();
+    features.workflowFeature?.applyWorkflowMode?.();
   }
 
   return (

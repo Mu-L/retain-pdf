@@ -8,13 +8,13 @@ import { useState } from "react";
 import { copyText } from "@/platform/utils/clipboard.js";
 import { messageForErrorBox } from "@/platform/utils/error-diagnostics.js";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
-import { useHomeServices } from "@/app/home/home-services-context.js";
+import { useHomeTextStore } from "@/ui/context/home-services-context.js";
 
 const selectErrorBoxValue = (snapshot) => snapshot?.texts?.["error-box"];
 
 export function InlineErrorBox() {
-  const services = useHomeServices();
-  const value = useStoreSnapshot(services.stores.text, selectErrorBoxValue);
+  const textStore = useHomeTextStore();
+  const value = useStoreSnapshot(textStore, selectErrorBoxValue);
   const [copyLabel, setCopyLabel] = useState("复制诊断");
 
   const summary = messageForErrorBox(value);

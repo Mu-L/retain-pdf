@@ -8,7 +8,10 @@ import {
   Timer,
 } from "lucide-react";
 import { useArtifactDownloadBusy } from "@/features/artifacts/index.js";
-import { useHomeServices } from "@/app/home/home-services-context.js";
+import {
+  useHomeArtifactDownloads,
+  useHomeStatusCard,
+} from "@/ui/context/home-services-context.js";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { StageHistoryList } from "../StageHistoryList.jsx";
 import type { StatusDetailOverview } from "../../domain/status-detail-store.js";
@@ -42,10 +45,11 @@ function DetailItem({ id, label, value, icon: Icon, optional = false, compact = 
 }
 
 function OverviewMarkdownBundleLink() {
-  const services = useHomeServices();
-  const cardSnapshot = useStoreSnapshot(services.statusCard.store);
+  const { store } = useHomeStatusCard();
+  const { busyStore } = useHomeArtifactDownloads();
+  const cardSnapshot = useStoreSnapshot(store);
   const busyState = useArtifactDownloadBusy(
-    services.artifactDownloads.busyStore,
+    busyStore,
     STATUS_DETAIL_MARKDOWN_BUNDLE_ID,
   );
   const ready = Boolean(cardSnapshot.snapshot?.markdownBundleReady);

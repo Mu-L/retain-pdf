@@ -1,7 +1,13 @@
 // BookDetailDialog —— 容器：组合 hooks + shell/tabs。
 // 业务状态见 use-book-detail-*.js；UI 见 shell / tabs / panels。
 
-import { useHomeServices } from "@/app/home/home-services-context.js";
+import {
+  useHomeBookDetail,
+  useHomeCollections,
+  useHomeJobRuntime,
+  useHomeLibrary,
+  useHomeStatusCard,
+} from "@/ui/context/home-services-context.js";
 import { useDialogState } from "@/ui/hooks/use-dialog-state.js";
 import { useDialogReturnFocus } from "@/ui/hooks/use-dialog-return-focus.js";
 import { useRecentJobCover } from "@/features/library/index.js";
@@ -31,18 +37,21 @@ import { useBookDetailArtifactCenter } from "./use-book-detail-artifact-center.j
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 
 export function BookDetailDialog() {
-  const services = useHomeServices();
-  const { dialogStore } = services.bookDetail;
-  const actions = services.library.actions;
-  const collectionsCtl = services.collections?.controller;
-  const collectionsReload = services.collections?.reloadSignal;
+  const { dialogStore } = useHomeBookDetail();
+  const library = useHomeLibrary();
+  const actions = library.actions;
+  const collections = useHomeCollections();
+  const collectionsCtl = collections?.controller;
+  const collectionsReload = collections?.reloadSignal;
+  const { store: statusCardStore } = useHomeStatusCard();
+  const { store: jobRuntimeStore } = useHomeJobRuntime();
   const dialogState: any = useDialogState(dialogStore);
   const open = Boolean(dialogState.open);
   const payloadItem: any = dialogState.payload || {};
   const { onCloseAutoFocus } = useDialogReturnFocus(open);
 
-  const item = useBookDetailLiveItem(services, payloadItem);
-  const statusCardState = useStoreSnapshot(services.statusCard.store);
+  const item = useBookDetailLiveItem(payloadItem);
+  const statusCardState = useStoreSnapshot(statusCardStore);
   const documentId = `${item.document_id || ""}`.trim();
   const {
     coverProcessing,
@@ -82,7 +91,7 @@ export function BookDetailDialog() {
     documentId,
     actions,
     initialJob: item,
-    runtimeStore: services.jobRuntime.store,
+    runtimeStore: jobRuntimeStore,
     onJobSucceeded: () => {
       void docState.refreshDocument?.();
     },

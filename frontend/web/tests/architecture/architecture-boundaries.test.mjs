@@ -659,21 +659,8 @@ test("upload controller reads upload state only through upload state port", () =
 // 在此之前用**只减不增的清单**把这条遗留倒置显性化：新增消费方必须先改这里，
 // 评审时能看见。
 const HOME_SERVICES_CONTEXT_CONSUMERS = Object.freeze([
-  "src/features/ask/ui/HomeAskView.tsx",
-  "src/features/book-detail/ui/BookDetailDialog.tsx",
-  "src/features/book-detail/ui/panels/translate/TranslateProgress.tsx",
-  "src/features/ingest/ui/InlineErrorBox.tsx",
-  "src/features/ingest/ui/IngestDialog.tsx",
-  "src/features/ingest/ui/WorkflowPanel.tsx",
-  "src/features/ingest/ui/components/TranslationOptionsPanel.tsx",
-  "src/features/ingest/ui/components/UploadTile.tsx",
-  "src/features/job-detail/ui/panels/FailurePanel.tsx",
-  "src/features/job-detail/ui/panels/OverviewPanel.tsx",
-  "src/features/job-detail/ui/useStatusDetailOverview.ts",
-  "src/features/jobs/ui/ResultActions.tsx",
-  "src/features/jobs/ui/use-status-card-model.ts",
-  "src/features/library/ui/page/RecentJobsLibrary.tsx",
-  "src/features/library/ui/page/use-library-search-binding.ts",
+  // 批次 6 完成：15 个消费者已全部迁移到 @/ui/context 的窄 hook，
+  // features 不再 import app 的 home-services-context。清单清空（只减不增）。
 ]);
 
 // detail / reader 两页原本各有一条「不得直连 src/js/*，须经本页 external.ts」。

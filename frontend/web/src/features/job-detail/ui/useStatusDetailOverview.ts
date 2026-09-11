@@ -5,7 +5,7 @@
 
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import type { DialogState } from "@/platform/store/dialog-store.js";
-import { useHomeServices } from "@/app/home/home-services-context.js";
+import { useHomeStatusDetail } from "@/ui/context/home-services-context.js";
 import { useDialogState } from "@/ui/hooks/use-dialog-state.js";
 import type {
   StatusDetailOverview,
@@ -58,8 +58,7 @@ export type StatusDetailOverviewHook = {
 };
 
 export function useStatusDetailOverview(): StatusDetailOverviewHook {
-  const services = useHomeServices();
-  const { store, dialogStore, controller } = services.statusDetail as {
+  const { store, dialogStore, controller } = useHomeStatusDetail() as {
     store: StatusDetailStore;
     dialogStore: StatusDetailDialogStore;
     controller: StatusDetailControllerApi;

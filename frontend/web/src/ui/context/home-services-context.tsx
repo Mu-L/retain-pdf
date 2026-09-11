@@ -129,6 +129,11 @@ export type HomeUploadStatePortValue = {
   getSnapshot?: () => { documentId?: string } | unknown;
 };
 
+/** 主页阅读入口（跳独立 reader.html）。 */
+export type HomeReaderValue = {
+  openReader: (jobId: string, anchor?: unknown, documentId?: string) => unknown;
+};
+
 /** app 侧映射出的窄口聚合；HomeShellProviders 按此一次灌入全部窄 Context。 */
 export type HomeNarrowServices = {
   dialogStore: HomeDialogStoreValue;
@@ -154,6 +159,7 @@ export type HomeNarrowServices = {
   uploadDomRefs: HomeUploadDomRefsValue;
   credentialsStatePort: HomeCredentialsStatePortValue;
   uploadStatePort: HomeUploadStatePortValue;
+  reader: HomeReaderValue;
 };
 
 // ── 泛型 bag + 窄 Context ──
@@ -184,6 +190,7 @@ export const HomeWorkflowViewActionsContext = createContext<HomeWorkflowViewActi
 export const HomeUploadDomRefsContext = createContext<HomeUploadDomRefsValue | null>(null);
 export const HomeCredentialsStatePortContext = createContext<HomeCredentialsStatePortValue | null>(null);
 export const HomeUploadStatePortContext = createContext<HomeUploadStatePortValue | null>(null);
+export const HomeReaderContext = createContext<HomeReaderValue | null>(null);
 
 // ── 窄 hook 工厂：窄 Context 缺失时回退到 app 灌入的 HomeServices 大包 ──
 
@@ -318,6 +325,11 @@ export const useHomeUploadStatePort = createNarrowHook(
   (s) => s.ports.uploadStatePort,
   "useHomeUploadStatePort",
 );
+export const useHomeReader = createNarrowHook(
+  HomeReaderContext,
+  (s) => s.reader,
+  "useHomeReader",
+);
 
 // ── 一次灌入所有窄 Context（app 侧映射 HomeServices → HomeNarrowServices） ──
 
@@ -346,6 +358,7 @@ export function HomeShellProviders({ services, children }: { services: HomeNarro
     [HomeUploadDomRefsContext, services.uploadDomRefs],
     [HomeCredentialsStatePortContext, services.credentialsStatePort],
     [HomeUploadStatePortContext, services.uploadStatePort],
+    [HomeReaderContext, services.reader],
   ];
   return providers.reduceRight<ReactNode>(
     (acc, [context, value]) => createElement(context.Provider, { value }, acc),

@@ -10,7 +10,7 @@ import {
   type AgentRuntimeConfigView,
 } from "@/platform/api/index.js";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
-import { useHomeServices } from "@/app/home/home-services-context.js";
+import { useHomeCredentialsStatePort } from "@/ui/context/home-services-context.js";
 import { HomeAskComposer } from "./HomeAskComposer.js";
 import { HomeAskSidebar } from "./HomeAskSidebar.js";
 import { HomeAskThread, HOME_ASK_SUGGESTIONS } from "./HomeAskThread.js";
@@ -42,7 +42,7 @@ function saveSidebarCollapsed(collapsed: boolean) {
 }
 
 export function HomeAskView() {
-  const services = useHomeServices();
+  const credentialsStatePort = useHomeCredentialsStatePort();
   const {
     messages,
     isRunning,
@@ -73,7 +73,7 @@ export function HomeAskView() {
   );
   // 凭据保存后立刻重算门禁：订阅 credentials store + 自定义事件
   const [credTick, setCredTick] = useState(0);
-  const credentialsSnap = useStoreSnapshot(services.ports.credentialsStatePort.store);
+  const credentialsSnap = useStoreSnapshot(credentialsStatePort.store);
   const empty = messages.length === 0;
 
   useEffect(() => {

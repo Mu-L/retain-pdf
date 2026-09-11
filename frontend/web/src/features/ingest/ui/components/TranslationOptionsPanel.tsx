@@ -7,13 +7,21 @@ import { BookOpen, FileText, SlidersHorizontal, X } from "lucide-react";
 
 import { Button } from "@/ui/components/button.js";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
-import { useHomeServices } from "@/app/home/home-services-context.js";
+import {
+  useHomeFeatures,
+  useHomeUploadViewStore,
+  useHomeWorkflowViewActions,
+  useHomeWorkflowViewStore,
+} from "@/ui/context/home-services-context.js";
 import type { UploadViewStore } from "../../domain/upload-store.js";
 
 export function TranslationOptionsPanel() {
-  const services = useHomeServices();
-  const upload = useStoreSnapshot(services.stores.uploadView);
-  const workflow = useStoreSnapshot(services.stores.workflowView);
+  const uploadViewStore = useHomeUploadViewStore();
+  const workflowViewStore = useHomeWorkflowViewStore();
+  const workflowViewActions = useHomeWorkflowViewActions();
+  const features = useHomeFeatures();
+  const upload = useStoreSnapshot(uploadViewStore);
+  const workflow = useStoreSnapshot(workflowViewStore);
 
   if (!upload.translationOptionsOpen) return null;
 
@@ -24,10 +32,10 @@ export function TranslationOptionsPanel() {
 
   function handlePageInput(source: "start" | "end", event: FormEvent<HTMLInputElement>) {
     const value = event.currentTarget.value;
-    (services.stores.uploadView as unknown as UploadViewStore).actions.setPageRange(
+    (uploadViewStore as unknown as UploadViewStore).actions.setPageRange(
       source === "start" ? { start: value } : { end: value },
     );
-    services.features.uploadFeature?.constrainPageRanges({ source });
+    features.uploadFeature?.constrainPageRanges({ source });
   }
 
   return (
@@ -50,7 +58,7 @@ export function TranslationOptionsPanel() {
           variant="ghost"
           size="icon-sm"
           aria-label="收起翻译选项"
-          onClick={() => (services.stores.uploadView as unknown as UploadViewStore).actions.closeTranslationOptions()}
+          onClick={() => (uploadViewStore as unknown as UploadViewStore).actions.closeTranslationOptions()}
         >
           <X aria-hidden="true" />
         </Button>
@@ -103,7 +111,7 @@ export function TranslationOptionsPanel() {
           <select
             id="job-glossary-id"
             value={selectedId}
-            onChange={(event) => services.workflowViewActions.setSelectedGlossaryId(event.target.value)}
+            onChange={(event) => workflowViewActions.setSelectedGlossaryId(event.target.value)}
           >
             <option value="">不使用术语表</option>
             {workflow.glossaries.map((glossary) => (
@@ -124,14 +132,14 @@ export function TranslationOptionsPanel() {
           id="page-range-clear-btn"
           type="button"
           variant="outline"
-          onClick={() => services.features.uploadFeature?.clearPageRanges()}
+          onClick={() => features.uploadFeature?.clearPageRanges()}
         >
           清除页码
         </Button>
         <Button
           id="page-range-apply-btn"
           type="button"
-          onClick={() => services.features.uploadFeature?.applyPageRanges()}
+          onClick={() => features.uploadFeature?.applyPageRanges()}
         >
           完成
         </Button>

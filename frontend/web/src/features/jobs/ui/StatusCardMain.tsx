@@ -24,7 +24,7 @@ export function StatusCardMain({
 }: StatusCardMainProps) {
   const model = useStatusCardModel({ embedded: false });
   const {
-    services,
+    reader,
     ids,
     snapshot,
     display,
@@ -162,7 +162,7 @@ export function StatusCardMain({
               <div className="status-card-footer">
                 <ResultActions
                   {...display.primaryActions}
-                  onReaderClick={() => services.reader.openReader(snapshot.jobId)}
+                  onReaderClick={() => reader.openReader(snapshot.jobId)}
                 />
               </div>
             ) : null}

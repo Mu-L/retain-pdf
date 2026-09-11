@@ -16,7 +16,7 @@
 // 文案与禁用态(方案二:避免父组件因轮询重渲染把命令式写入的下载进度文案
 // 覆盖回原始 label)。
 
-import { useHomeServices } from "@/app/home/home-services-context.js";
+import { useHomeArtifactDownloads } from "@/ui/context/home-services-context.js";
 import { useArtifactDownloadBusy } from "@/features/artifacts/index.js";
 import { STATUS_CARD_ACTION_IDS } from "./status-card-dom-ids.js";
 
@@ -29,8 +29,8 @@ type ActionLinkProps = {
 };
 
 function ActionLink({ id, label, ready, url, onClick }: ActionLinkProps) {
-  const services = useHomeServices();
-  const busyState = useArtifactDownloadBusy(services.artifactDownloads.busyStore, id);
+  const { busyStore } = useHomeArtifactDownloads();
+  const busyState = useArtifactDownloadBusy(busyStore, id);
   const enabled = Boolean(ready && url) && !busyState.busy;
   const isReaderLink = id === STATUS_CARD_ACTION_IDS.reader;
   const displayLabel = busyState.busy ? (busyState.label || "下载中...") : label;

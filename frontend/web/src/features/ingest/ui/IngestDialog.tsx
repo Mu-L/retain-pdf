@@ -27,7 +27,13 @@ import {
   DialogTitle,
 } from "@/ui/components/dialog.js";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
-import { useHomeServices } from "@/app/home/home-services-context.js";
+import {
+  useHomeBridge,
+  useHomeDialogStore,
+  useHomeLibrary,
+  useHomeUploadStatePort,
+  useHomeWorkflowDialog,
+} from "@/ui/context/home-services-context.js";
 import { useDialogReturnFocus } from "@/ui/hooks/use-dialog-return-focus.js";
 import { WorkflowPanel } from "./WorkflowPanel.jsx";
 
@@ -37,8 +43,12 @@ export function IngestDialog({
 }: {
   hiddenInputsSlot?: React.ReactNode | null;
 } = {}) {
-  const services = useHomeServices();
-  const dialog = useStoreSnapshot(services.stores.dialog);
+  const dialogStore = useHomeDialogStore();
+  const uploadStatePort = useHomeUploadStatePort();
+  const library = useHomeLibrary();
+  const workflowDialog = useHomeWorkflowDialog();
+  const bridge = useHomeBridge();
+  const dialog = useStoreSnapshot(dialogStore);
   const open = Boolean(dialog.open);
   const { onCloseAutoFocus } = useDialogReturnFocus(open);
 
@@ -51,7 +61,7 @@ export function IngestDialog({
 
   function readUploadedDocumentId() {
     try {
-      return `${services.ports?.uploadStatePort?.getSnapshot?.()?.documentId || ""}`.trim();
+      return `${uploadStatePort?.getSnapshot?.()?.documentId || ""}`.trim();
     } catch {
       return "";
     }
@@ -63,7 +73,7 @@ export function IngestDialog({
     const documentId = readUploadedDocumentId() || `${payload?.document_id || ""}`.trim();
     if (!documentId) return;
     const jobId = `${payload?.job_id || ""}`.trim();
-    services.library.actions.openBookDetail({
+    library.actions.openBookDetail({
       document_id: documentId,
       ...(jobId ? { job_id: jobId, active_job_id: jobId, prefer_translate_tab: true } : {}),
     });
@@ -71,7 +81,7 @@ export function IngestDialog({
 
   function handleOpenChange(nextOpen) {
     if (!nextOpen) {
-      services.workflowDialog.requestClose();
+      workflowDialog.requestClose();
     }
   }
 
@@ -89,7 +99,7 @@ export function IngestDialog({
     void (async () => {
       let result: any = null;
       try {
-        result = await services.bridge.submitForm(
+        result = await bridge.submitForm(
           event as unknown as { preventDefault?: () => void },
         );
       } catch {

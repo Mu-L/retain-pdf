@@ -87,6 +87,7 @@ function toNarrowServices(services: HomeServices): HomeNarrowServices {
     uploadDomRefs: services.uploadDomRefs,
     credentialsStatePort: services.ports.credentialsStatePort,
     uploadStatePort: services.ports.uploadStatePort,
+    reader: services.reader,
   };
 }
 

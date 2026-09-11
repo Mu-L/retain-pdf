@@ -13,7 +13,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
-import { useHomeServices } from "@/app/home/home-services-context.js";
+import {
+  useHomeCollections,
+  useHomeHomeStateStore,
+  useHomeLibrary,
+  useHomeWorkflowDialog,
+} from "@/ui/context/home-services-context.js";
 import { BookCard, buildDefaultBookCardActions } from "../shell/BookCard.jsx";
 import { BookListRow } from "../shell/BookListRow.jsx";
 import { LibraryToolbar } from "./LibraryToolbar.jsx";
@@ -63,11 +68,13 @@ const VIEW_TEXT = Object.freeze({
 });
 
 export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
-  const services = useHomeServices();
-  const { viewPort, recentJobsStore, actions } = services.library;
+  const { viewPort, recentJobsStore, actions } = useHomeLibrary();
+  const homeStateStore = useHomeHomeStateStore();
+  const { controller: collectionsController } = useHomeCollections();
+  const workflowDialog = useHomeWorkflowDialog();
 
   const recentJobs = useStoreSnapshot(recentJobsStore);
-  const homeState = useStoreSnapshot(services.stores.homeState);
+  const homeState = useStoreSnapshot(homeStateStore);
   const view = useStoreSnapshot(viewPort.store);
 
   const scrollBodyRef = useRef(null);
@@ -105,7 +112,7 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
 
   useEffect(() => {
     if (!batchMode) return;
-    services.collections?.controller?.listCollections().then((list) => {
+    collectionsController?.listCollections().then((list) => {
       const rows = Array.isArray(list?.collections) ? list.collections : (Array.isArray(list) ? list : []);
       setCollections(rows);
     }).catch(() => {});
@@ -251,7 +258,7 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
     if (!ids.length || batchBusy) return;
     setBatchBusy(true);
     try {
-      await services.collections.controller.addDocuments(collectionId, ids);
+      await collectionsController.addDocuments(collectionId, ids);
       toast.success(`已加入合集，共 ${ids.length} 篇`);
       setBatchMode(false);
     } catch (err) {
@@ -312,7 +319,7 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
               <button
                 type="button"
                 className="app-button empty-state-action"
-                onClick={() => services.workflowDialog.requestOpenUpload()}
+                onClick={() => workflowDialog.requestOpenUpload()}
               >
                 上传 PDF
               </button>

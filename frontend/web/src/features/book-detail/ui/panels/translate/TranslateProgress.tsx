@@ -5,7 +5,12 @@
 
 import { useEffect } from "react";
 import { ArrowUpRight, Radio } from "lucide-react";
-import { useHomeServices } from "@/app/home/home-services-context.js";
+import {
+  useHomeLibrary,
+  useHomeStatusArea,
+  useHomeStatusCard,
+  useHomeStatusDetail,
+} from "@/ui/context/home-services-context.js";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { StatusCard } from "@/features/jobs/index.js";
 import type { LibraryCardItem } from "@/features/library/domain.js";
@@ -47,9 +52,12 @@ export function BookTranslateProgressPanel({
   dialogOpen = true,
   onOpenLiveReader,
 }: BookTranslateProgressPanelProps) {
-  const services = useHomeServices();
-  const actions = services.library?.actions;
-  const statusCardState = useStoreSnapshot(services.statusCard.store);
+  const library = useHomeLibrary();
+  const actions = library?.actions;
+  const { store: statusCardStore } = useHomeStatusCard();
+  const statusArea = useHomeStatusArea();
+  const statusDetail = useHomeStatusDetail();
+  const statusCardState = useStoreSnapshot(statusCardStore);
   const cardJobId = `${statusCardState?.snapshot?.jobId || ""}`.trim();
 
   const jobId = resolveJobId(item);
@@ -73,15 +81,15 @@ export function BookTranslateProgressPanel({
     if (cardJobId && cardPollingActive && !showDetailedProgress) return undefined;
     actions?.attachJobProgress?.(jobId);
     return undefined;
-    // 刻意不把 actions 放进 deps（services 引用稳定，避免无意义重跑）
+    // 刻意不把 actions 放进 deps（窄口引用稳定，避免无意义重跑）
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, dialogOpen, shouldAttach, jobId, cardJobId, cardPollingActive, showDetailedProgress]);
 
   // 进度主场在详情：仅当主状态区当前可见时才关掉（避免 setVisible 每帧通知死循环）
   useEffect(() => {
     if (!active || !dialogOpen || !shouldAttach) return undefined;
-    if (services.statusArea?.isVisible?.()) {
-      services.statusArea.setVisible(false);
+    if (statusArea?.isVisible?.()) {
+      statusArea.setVisible(false);
     }
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -114,7 +122,7 @@ export function BookTranslateProgressPanel({
           <button
             type="button"
             className="shrink-0 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
-            onClick={() => services.statusDetail.controller.openStatusDetailDialog("failure")}
+            onClick={() => statusDetail.controller.openStatusDetailDialog("failure")}
           >
             查看日志
           </button>

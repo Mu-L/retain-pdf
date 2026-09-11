@@ -3,7 +3,11 @@
 
 import { useMemo } from "react";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
-import { useHomeServices } from "@/app/home/home-services-context.js";
+import {
+  useHomeStatusCard,
+  useHomeStatusDetail,
+  useHomeReader,
+} from "@/ui/context/home-services-context.js";
 import { useStageSelection } from "./useStageSelection.js";
 import { useElapsedTicker } from "./useElapsedTicker.js";
 import { useStagedProgressAnimation } from "./useStagedProgressAnimation.js";
@@ -108,7 +112,7 @@ export type HasCancellableStatusCardJobOptions = {
 };
 
 export type StatusCardModel = {
-  services: ReturnType<typeof useHomeServices>;
+  reader: ReturnType<typeof useHomeReader>;
   ids: StatusCardIds;
   snapshot: StatusCardSnapshot;
   display: StatusCardStageDisplay;
@@ -274,11 +278,11 @@ export function useStatusCardModel({
   idPrefix = "book-detail-",
   fallbackItem = null,
 }: UseStatusCardModelOptions = {}): StatusCardModel {
-  const services = useHomeServices();
-  const { store, cancelCurrentJob } = services.statusCard as {
-    store: StatusCardStore;
-    cancelCurrentJob?: () => unknown;
-  };
+  const reader = useHomeReader();
+  const statusCard = useHomeStatusCard();
+  const statusDetail = useHomeStatusDetail();
+  const store = statusCard.store as StatusCardStore;
+  const cancelCurrentJob = statusCard.cancelCurrentJob as (() => unknown) | undefined;
   const stateSnapshot = useStoreSnapshot(store) as StatusCardState;
   const rawSnapshot = stateSnapshot.snapshot;
   const snapshot = (embedded
@@ -360,11 +364,11 @@ export function useStatusCardModel({
   })();
 
   const openDetail = () => {
-    services.statusDetail.controller.openStatusDetailDialog("overview");
+    statusDetail.controller.openStatusDetailDialog("overview");
   };
 
   return {
-    services,
+    reader,
     ids,
     snapshot,
     display,

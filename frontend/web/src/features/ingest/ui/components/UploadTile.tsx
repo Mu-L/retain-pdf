@@ -8,7 +8,14 @@ import { useCallback, type MouseEvent as ReactMouseEvent } from "react";
 
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { APP_EVENTS } from "@/platform/contracts/app-contract.js";
-import { useHomeServices } from "@/app/home/home-services-context.js";
+import {
+  useHomeCredentialsViewStore,
+  useHomeFeatures,
+  useHomeLibrary,
+  useHomeUploadDomRefs,
+  useHomeUploadViewStore,
+  useHomeWorkflowViewStore,
+} from "@/ui/context/home-services-context.js";
 import type { UploadViewStore } from "../../domain/upload-store.js";
 import { TranslationOptionsPanel } from "./TranslationOptionsPanel.jsx";
 import { ProcessingChoicePanel } from "./upload/ProcessingChoicePanel.jsx";
@@ -20,18 +27,20 @@ import {
 } from "./upload/UploadWorkflowNotices.jsx";
 
 export function HeroUpload() {
-  const services = useHomeServices();
-
   // —— 顶部一次收敛：服务句柄 ——
-  const stores = services.stores;
-  const uploadFeature = services.features.uploadFeature;
-  const storeOnlyAction = services.library.actions.storeOnly;
-  const uploadDomRefs = services.uploadDomRefs;
+  const uploadViewStore = useHomeUploadViewStore();
+  const workflowViewStore = useHomeWorkflowViewStore();
+  const credentialsViewStore = useHomeCredentialsViewStore();
+  const features = useHomeFeatures();
+  const library = useHomeLibrary();
+  const uploadFeature = features.uploadFeature;
+  const storeOnlyAction = library.actions.storeOnly;
+  const uploadDomRefs = useHomeUploadDomRefs();
 
   // —— 顶部一次收敛：store 快照 ——
-  const upload = useStoreSnapshot(stores.uploadView);
-  const workflow = useStoreSnapshot(stores.workflowView);
-  const credentialsView = useStoreSnapshot(stores.credentialsView);
+  const upload = useStoreSnapshot(uploadViewStore);
+  const workflow = useStoreSnapshot(workflowViewStore);
+  const credentialsView = useStoreSnapshot(credentialsViewStore);
 
   // —— 顶部一次收敛：派生视图值 ——
   const credentialGateVisible = Boolean((credentialsView as any)?.credentialGate?.show);
@@ -64,7 +73,7 @@ export function HeroUpload() {
   // —— 具名回调：翻译选项开/关切换 ——
   function handleToggleTranslationOptions() {
     if (upload.translationOptionsOpen) {
-      (stores.uploadView as unknown as UploadViewStore).actions.closeTranslationOptions();
+      (uploadViewStore as unknown as UploadViewStore).actions.closeTranslationOptions();
       return;
     }
     uploadFeature?.openTranslationOptions();

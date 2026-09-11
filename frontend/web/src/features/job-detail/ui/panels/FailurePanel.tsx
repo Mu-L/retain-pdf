@@ -1,7 +1,10 @@
 import { Clock3, Copy, FileText, Link2, RefreshCw, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ConfirmDialog } from "@/ui/components/confirm-dialog.js";
-import { useHomeServices } from "@/app/home/home-services-context.js";
+import {
+  useHomeSettingsHub,
+  useHomeStatusDetail,
+} from "@/ui/context/home-services-context.js";
 // 同功能内取真值，不绕主页网关、也不经自己的 index（那会让 ui 依赖本功能 barrel 成环）。
 import {
   queueFullTitle,
@@ -31,7 +34,8 @@ export function FailurePanel({
   controller,
   active,
 }: FailurePanelProps) {
-  const services = useHomeServices();
+  const { dialogStore: statusDetailDialogStore } = useHomeStatusDetail();
+  const { dialogStore: settingsHubDialogStore } = useHomeSettingsHub();
   const ids = STATUS_DETAIL_DIALOG_IDS;
   const failure = overview.failure;
   const recovery = overview.failureRecovery;
@@ -106,8 +110,8 @@ export function FailurePanel({
   }
 
   function openProviderSettings() {
-    services.statusDetail?.dialogStore?.close?.();
-    services.settingsHub?.dialogStore?.open?.({ tab: "api" });
+    statusDetailDialogStore?.close?.();
+    settingsHubDialogStore?.open?.({ tab: "api" });
   }
 
   return (
