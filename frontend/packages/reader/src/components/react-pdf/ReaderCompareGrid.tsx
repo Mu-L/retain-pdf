@@ -5,7 +5,6 @@ import type { PageRowHeights } from "../../pdf/usePageRowSync.js";
 import { READER_ZOOM_DEFAULT } from "../../pdf/reader-zoom.js";
 import {
   READER_SCROLL_SHELL_CLASS,
-  READER_SCROLL_SHELL_ID,
 } from "../../pdf/reader-dom-contract.js";
 import {
   isStructuredReaderRegion,
@@ -161,7 +160,6 @@ export function ReaderCompareGrid(props: ReaderCompareGridProps): ReactElement {
   return (
     <div
       ref={bindShell}
-      id={READER_SCROLL_SHELL_ID}
       className={READER_SCROLL_SHELL_CLASS}
       data-reader-scroll-shell="true"
       data-reader-region-count={regions.length}

@@ -1,6 +1,4 @@
-/* Markdown 正文排版（默认悬浮窗 + legacy 抽屉共用 .reader-markdown-content）
- * 抽屉壳（.reader-markdown-drawer 等）→ markdown-legacy.css
- */
+/* Markdown 正文排版（.reader-markdown-content） */
 
 .reader-markdown-content {
   color: var(--ink);

@@ -2,7 +2,6 @@
 
 export const READER_PAGE_ATTR = "data-reader-page";
 export const READER_PANE_ATTR = "data-reader-pane";
-export const READER_SCROLL_SHELL_ID = "reader-scroll-shell";
 export const READER_SCROLL_SHELL_CLASS = "reader-react-scroll-shell";
 export const READER_PAGE_SLOT_CLASS = "reader-react-pdf-page-slot";
 

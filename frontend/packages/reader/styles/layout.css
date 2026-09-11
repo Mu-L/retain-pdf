@@ -1,6 +1,5 @@
-/* 阅读器布局共享（默认 react-pdf + legacy 共用）：
+/* 阅读器布局共享（默认 react-pdf）：
  * 页面变量 / body / panel / empty / viewer-wrap。
- * 三栏骨架、legacy pdf.js、底栏 HUD → layout-legacy.css（仅 legacy 包）。
  */
 
 :root {

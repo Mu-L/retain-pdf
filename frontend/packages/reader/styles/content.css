@@ -1,6 +1,4 @@
-/* 阅读器正文区：markdown 表面 token / 源文档只读态。
- * 功能模块见 entries/reader.css；三栏窄屏见 layout-legacy.css。
- */
+/* 阅读器正文区：markdown 表面 token / 源文档只读态。 */
 
 .reader-markdown {
   background: var(--reader-markdown-bg);

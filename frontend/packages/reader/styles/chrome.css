@@ -1,6 +1,4 @@
-/* 阅读器顶栏 chrome（默认 react-pdf 共用）：tabs / boot / 关闭回主页
- * 顶栏动作组 / 下载菜单 / chrome-muted 淡出 → chrome-legacy.css
- */
+/* 阅读器顶栏 chrome：tabs / boot / 关闭回主页 */
 
 .reader-topbar {
   position: fixed;
