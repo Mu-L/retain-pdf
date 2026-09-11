@@ -360,6 +360,13 @@ def _build_block_record(
         metadata.update(parent_group)
     preserve_lines = raw_type in {"code", "code_body", "algorithm"}
     main_lines, orphan_runs = _split_orphan_line_runs(lines, normalized_bbox)
+    # Table content belongs to the first record that actually holds lines;
+    # an emptied parent shell must not keep it and win group linkage.
+    # Exception: table html lives in raw spans, independent of normalized
+    # lines, so a lineless table keeps its content (pre-split behavior).
+    main_has_content = bool(main_lines) or (
+        projection.content_kind == "table" and bool(_first_provider_table_html(block))
+    )
     records = [
         _block_record_from_lines(
             block=block,
@@ -374,7 +381,7 @@ def _build_block_record(
             block_bbox=normalized_bbox,
             lines=main_lines,
             preserve_lines=preserve_lines,
-            include_table_content=True,
+            include_table_content=main_has_content,
         )
     ]
     for position, orphan_lines in enumerate(orphan_runs, start=1):
@@ -398,7 +405,7 @@ def _build_block_record(
                 block_bbox=orphan_bbox,
                 lines=orphan_lines,
                 preserve_lines=preserve_lines,
-                include_table_content=False,
+                include_table_content=not main_has_content and position == 1,
             )
         )
     return records

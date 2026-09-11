@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 from pathlib import Path
 from typing import Callable
 
@@ -137,11 +139,14 @@ def rescale_document_geometry_to_pdf(document: dict, source_pdf_path: Path) -> d
 def scale_bbox(value: list[float], scale_x: float, scale_y: float) -> list[float]:
     if not isinstance(value, list) or len(value) != 4:
         return value
+    # Outward rounding (floor min corner, ceil max corner) preserves nesting:
+    # if inner ⊆ outer pre-scale, the scaled boxes keep that relation, so
+    # rescaling can never introduce a containment violation by itself.
     return [
-        round(float(value[0]) * scale_x, 3),
-        round(float(value[1]) * scale_y, 3),
-        round(float(value[2]) * scale_x, 3),
-        round(float(value[3]) * scale_y, 3),
+        math.floor(float(value[0]) * scale_x * 1000) / 1000,
+        math.floor(float(value[1]) * scale_y * 1000) / 1000,
+        math.ceil(float(value[2]) * scale_x * 1000) / 1000,
+        math.ceil(float(value[3]) * scale_y * 1000) / 1000,
     ]
 
 

@@ -779,3 +779,17 @@ def test_paddle_classifies_ancillary_tail_headings_as_metadata() -> None:
     assert classified[1][:2] == ("text", "metadata")
     assert classified[2][:2] == ("text", "metadata")
     assert classified[3][:2] == ("text", "heading")
+
+
+def test_scale_bbox_preserves_nesting() -> None:
+    from retainpdf_pipeline.ocr.ocr_provider.paddle_normalize import scale_bbox
+
+    outer = [527.0, 39.0, 547.0, 51.0]
+    inner = [527.244, 39.041, 546.253, 50.053]
+    for scale_x, scale_y in ((1.0, 1.0), (0.5, 0.5), (2.0, 2.0), (1.7, 2.3), (0.13, 0.29)):
+        scaled_outer = scale_bbox(list(outer), scale_x, scale_y)
+        scaled_inner = scale_bbox(list(inner), scale_x, scale_y)
+        assert scaled_inner[0] >= scaled_outer[0]
+        assert scaled_inner[1] >= scaled_outer[1]
+        assert scaled_inner[2] <= scaled_outer[2]
+        assert scaled_inner[3] <= scaled_outer[3]
