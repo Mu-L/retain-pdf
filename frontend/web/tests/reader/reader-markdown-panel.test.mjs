@@ -383,3 +383,281 @@ test("reader markdown reads via HTTP Range and renders incrementally", async () 
   host.remove();
   setReaderAdapters(null);
 });
+
+function spyObjectUrls() {
+  const originalCreate = URL.createObjectURL;
+  const originalRevoke = URL.revokeObjectURL;
+  const created = [];
+  const revoked = [];
+  URL.createObjectURL = (blob) => {
+    const url = originalCreate.call(URL, blob);
+    created.push(url);
+    return url;
+  };
+  URL.revokeObjectURL = (url) => {
+    revoked.push(url);
+    return originalRevoke.call(URL, url);
+  };
+  return {
+    created,
+    revoked,
+    restore() {
+      URL.createObjectURL = originalCreate;
+      URL.revokeObjectURL = originalRevoke;
+    },
+  };
+}
+
+test("ETag changes mid-Range restart clears old chunks, image cleanups, and blob URLs", async () => {
+  const objectUrls = spyObjectUrls();
+  const encoder = new TextEncoder();
+  const v1 = `# V1 heading\n\n![figure](images/page-1/figure.png)\n\n${"a".repeat(9000)}\n\n`;
+  const v2 = "# V2 heading\n\nshort body\n";
+  const v1Bytes = encoder.encode(v1);
+  const v2Bytes = encoder.encode(v2);
+  const rangeCalls = [];
+  const imageFetches = [];
+  let call = 0;
+
+  setReaderAdapters({
+    ...retainPdfReaderAdapters,
+    defaultReaderDataPort: {
+      loadMarkdownSource: async () => ({
+        rawUrl: "/api/v1/jobs/job-etag/markdown?raw=true",
+        totalBytes: 1_000_000,
+        imagesBaseUrl: "/api/v1/jobs/job-etag/markdown/images/",
+        etag: 'W/"v1"',
+      }),
+      loadMarkdownRange: async (_url, start, end, rangeEtag) => {
+        call += 1;
+        rangeCalls.push({ start, etag: rangeEtag });
+        if (call === 1) {
+          return { status: 206, bytes: v1Bytes, totalBytes: 1_000_000, rangeEnd: v1Bytes.length - 1, etag: 'W/"v1"' };
+        }
+        if (call === 2) {
+          // 文件被就地改写：同一段的 ETag 与首段不一致，应触发从 0 重来。
+          return { status: 206, bytes: encoder.encode("x"), totalBytes: v2Bytes.length, rangeEnd: start, etag: 'W/"v2"' };
+        }
+        return { status: 206, bytes: v2Bytes, totalBytes: v2Bytes.length, rangeEnd: v2Bytes.length - 1, etag: 'W/"v2"' };
+      },
+    },
+    fetchProtected: async (url) => {
+      imageFetches.push(url);
+      return { ok: true, blob: async () => new Blob(["png"], { type: "image/png" }) };
+    },
+  });
+
+  const host = dom.window.document.createElement("div");
+  dom.window.document.body.appendChild(host);
+  const root = createRoot(host);
+  root.render(React.createElement(ReaderMarkdownPanel, {
+    open: true,
+    jobId: "job-etag",
+    sourceOnly: false,
+    onClose: () => {},
+  }));
+
+  await waitFor(
+    () => dom.window.document.querySelector("#reader-markdown-content h1")?.textContent === "V2 heading",
+    "ETag 变化后从 0 重建出 V2 正文",
+  );
+  // 旧 V1 分块必须被移除，绝不能混出两个版本。
+  assert.equal(dom.window.document.querySelector("#reader-markdown-content h1")?.textContent, "V2 heading");
+  assert.ok(!(dom.window.document.querySelector("#reader-markdown-content")?.textContent || "").includes("V1 heading"));
+  assert.ok(rangeCalls.filter((entry) => entry.start === 0).length >= 2, "应回到字节 0 重新拉取");
+  await waitFor(() => objectUrls.revoked.length > 0, "旧受保护图片的 blob URL 被回收");
+  assert.ok(imageFetches.length >= 1, "V1 分块中的受保护图片确实发起过请求");
+
+  root.unmount();
+  host.remove();
+  objectUrls.restore();
+  setReaderAdapters(null);
+});
+
+test("server ignoring Range (200) rebuilds the whole document instead of appending", async () => {
+  const encoder = new TextEncoder();
+  const full = `# Full 200\n\n${Array.from({ length: 20 }, (_, i) => `段落 ${i} ${"z".repeat(400)}`).join("\n\n")}\n`;
+  const fullBytes = encoder.encode(full);
+  let rangeCalls = 0;
+
+  setReaderAdapters({
+    ...retainPdfReaderAdapters,
+    defaultReaderDataPort: {
+      loadMarkdownSource: async () => ({
+        rawUrl: "/api/v1/jobs/job-200/markdown?raw=true",
+        totalBytes: fullBytes.length,
+        imagesBaseUrl: "",
+      }),
+      loadMarkdownRange: async () => {
+        rangeCalls += 1;
+        return { status: 200, bytes: fullBytes, totalBytes: fullBytes.length, rangeEnd: null, etag: null };
+      },
+    },
+  });
+
+  const host = dom.window.document.createElement("div");
+  dom.window.document.body.appendChild(host);
+  const root = createRoot(host);
+  root.render(React.createElement(ReaderMarkdownPanel, {
+    open: true,
+    jobId: "job-200",
+    sourceOnly: false,
+    onClose: () => {},
+  }));
+
+  await waitFor(
+    () => dom.window.document.querySelector("#reader-markdown-content h1")?.textContent === "Full 200",
+    "服务端返回 200 时整篇渲染",
+  );
+  await waitFor(
+    () => dom.window.document.querySelectorAll("#reader-markdown-content .reader-markdown-chunk p").length >= 20,
+    "整篇内容一次重建完成",
+  );
+  assert.equal(rangeCalls, 1, "回整篇后不再继续 Range 拉取");
+
+  root.unmount();
+  host.remove();
+  setReaderAdapters(null);
+});
+
+test("weak ETag is forwarded and a 200 If-Range miss rebuilds without duplicate content", async () => {
+  const encoder = new TextEncoder();
+  const full = `# Weak heading\n\n${"w".repeat(9000)}\n\n`;
+  const fullBytes = encoder.encode(full);
+  const etagArgs = [];
+  let call = 0;
+
+  setReaderAdapters({
+    ...retainPdfReaderAdapters,
+    defaultReaderDataPort: {
+      loadMarkdownSource: async () => ({
+        rawUrl: "/api/v1/jobs/job-weak/markdown?raw=true",
+        totalBytes: 1_000_000,
+        imagesBaseUrl: "",
+        etag: 'W/"weak-1"',
+      }),
+      loadMarkdownRange: async (_url, _start, _end, rangeEtag) => {
+        call += 1;
+        etagArgs.push(rangeEtag);
+        if (call === 1) {
+          return { status: 206, bytes: fullBytes, totalBytes: 1_000_000, rangeEnd: fullBytes.length - 1, etag: 'W/"weak-1"' };
+        }
+        // 弱 ETag 不能用于 If-Range：服务端忽略 Range 并回整篇 200。
+        return { status: 200, bytes: fullBytes, totalBytes: fullBytes.length, rangeEnd: null, etag: null };
+      },
+    },
+  });
+
+  const host = dom.window.document.createElement("div");
+  dom.window.document.body.appendChild(host);
+  const root = createRoot(host);
+  root.render(React.createElement(ReaderMarkdownPanel, {
+    open: true,
+    jobId: "job-weak",
+    sourceOnly: false,
+    onClose: () => {},
+  }));
+
+  await waitFor(
+    () => dom.window.document.querySelectorAll("#reader-markdown-content h1").length === 1,
+    "弱 ETag 后被回整篇也不产生重复标题",
+  );
+  assert.equal(etagArgs[0], 'W/"weak-1"');
+  assert.equal(etagArgs[1], 'W/"weak-1"', "弱 ETag 原样透传给下一次 Range");
+  await waitFor(
+    () => dom.window.document.querySelector("#reader-markdown-panel .reader-notes-count")?.textContent === "已加载",
+    "弱 ETag 回整篇后加载完成",
+  );
+  assert.equal(dom.window.document.querySelectorAll("#reader-markdown-content h1").length, 1);
+
+  root.unmount();
+  host.remove();
+  setReaderAdapters(null);
+});
+
+test("cancelling (jobId change) aborts in-flight Range requests and stale bytes never land", async () => {
+  const encoder = new TextEncoder();
+  const staleBytes = encoder.encode("# STALE CONTENT\n\n");
+  const freshBytes = encoder.encode("# FRESH CONTENT\n\n");
+  let resolveStale = null;
+  const staleGate = new Promise((resolve) => { resolveStale = resolve; });
+  const signals = {};
+
+  setReaderAdapters({
+    ...retainPdfReaderAdapters,
+    defaultReaderDataPort: {
+      loadMarkdownSource: async (jobId) => ({
+        rawUrl: `/api/v1/jobs/${jobId}/markdown?raw=true`,
+        totalBytes: null,
+        imagesBaseUrl: "",
+      }),
+      loadMarkdownRange: async (url, _start, _end, _etag, signal) => {
+        if (url.includes("job-cancel-a")) {
+          signals.a = signal;
+          await staleGate;
+          return { status: 206, bytes: staleBytes, totalBytes: staleBytes.length, rangeEnd: staleBytes.length - 1, etag: null };
+        }
+        return { status: 206, bytes: freshBytes, totalBytes: freshBytes.length, rangeEnd: freshBytes.length - 1, etag: null };
+      },
+    },
+  });
+
+  const host = dom.window.document.createElement("div");
+  dom.window.document.body.appendChild(host);
+  const root = createRoot(host);
+  const render = (jobId) => root.render(React.createElement(ReaderMarkdownPanel, {
+    open: true,
+    jobId,
+    sourceOnly: false,
+    onClose: () => {},
+  }));
+  render("job-cancel-a");
+
+  await waitFor(() => Boolean(signals.a), "旧任务的 Range 请求已发出且携带 signal");
+  assert.equal(signals.a.aborted, false);
+
+  // 重来（切换 jobId）：旧 effect 清理应 abort 在途请求。
+  render("job-cancel-b");
+  await waitFor(
+    () => dom.window.document.querySelector("#reader-markdown-content h1")?.textContent === "FRESH CONTENT",
+    "新任务正文渲染",
+  );
+  assert.equal(signals.a.aborted, true, "旧 Range 请求被 AbortController 取消");
+
+  // 迟到的旧响应不得落地覆盖新内容。
+  resolveStale();
+  await wait(60);
+  const content = dom.window.document.querySelector("#reader-markdown-content")?.textContent || "";
+  assert.ok(content.includes("FRESH CONTENT"));
+  assert.ok(!content.includes("STALE CONTENT"), "已取消的旧响应不再落地");
+
+  root.unmount();
+  host.remove();
+  setReaderAdapters(null);
+});
+
+test("windowing keeps reference definitions and loose ordered-list items in one chunk", async () => {
+  const { marked } = await import("marked");
+
+  // 引用式定义若与引用被切开，前一块的 [ref] 会退化成纯文本。
+  const referenceDoc = "See [the docs][ref].\n\n[ref]: https://example.com\n\nNext paragraph.\n";
+  const first = takeCompleteMarkdownChunk(referenceDoc, { minChars: 1 });
+  assert.equal(first.complete, "See [the docs][ref].\n\n[ref]: https://example.com\n\n");
+  const firstHtml = String(marked.parse(first.complete, { async: false }));
+  assert.match(firstHtml, /<a href="https:\/\/example\.com">the docs<\/a>/);
+  // 对照：朴素地按空行切开会让引用无法解析（说明缓解确实生效）。
+  const naiveHtml = String(marked.parse("See [the docs][ref].\n\n", { async: false }));
+  assert.doesNotMatch(naiveHtml, /<a /);
+
+  // 松散有序列表的内部空行不应被当作块边界，否则会被渲染成多个 <ol>。
+  const listDoc = "1. one\n\n2. two\n\n3. three\n\nAfter.\n";
+  const listChunk = takeCompleteMarkdownChunk(listDoc, { minChars: 1 });
+  assert.equal(listChunk.complete, "1. one\n\n2. two\n\n3. three\n\n");
+  const listHtml = String(marked.parse(listChunk.complete, { async: false }));
+  assert.equal((listHtml.match(/<ol/g) || []).length, 1);
+  assert.equal((listHtml.match(/<li>/g) || []).length, 3);
+  // 对照：分开渲染松散列表会得到多个起始于 1 的 <ol>（错误编号）。
+  const naiveListHtml = String(marked.parse("1. one\n\n", { async: false }));
+  assert.equal((naiveListHtml.match(/<ol/g) || []).length, 1);
+  assert.equal((naiveListHtml.match(/<li>/g) || []).length, 1);
+});

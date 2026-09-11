@@ -159,11 +159,13 @@ type MarkdownImageProgress = {
 };
 
 type ProtectedMarkdownImageLoaderOptions = {
-  fetchImage: (url: string) => Promise<Response>;
+  fetchImage: (url: string, init?: RequestInit) => Promise<Response>;
   onObjectUrl: (url: string) => void;
   onProgress?: (progress: MarkdownImageProgress) => void;
   protectedBaseUrl?: string;
   root?: Element | null;
+  /** 外部取消信号：卸载/重来时中止在途的受保护图片请求。 */
+  signal?: AbortSignal;
 };
 
 /**
@@ -210,7 +212,7 @@ export function startMarkdownImageLoading(
       if (!img?.isConnected) continue;
       active += 1;
       const src = img.getAttribute("data-reader-md-src") || "";
-      void options.fetchImage(src)
+      void options.fetchImage(src, options.signal ? { signal: options.signal } : undefined)
         .then(async (response) => {
           if (!response?.ok) throw new Error(`HTTP ${response?.status || 0}`);
           const objectUrl = URL.createObjectURL(await response.blob());
@@ -297,8 +299,14 @@ export function ReaderMarkdownPanel({
   const resumeCleanupRef = useRef<(() => void) | null>(null);
   // 搜索/跳转需要整篇：置真后分段渲染器不再因视口暂停，直到全部渲染完。
   const renderAllRef = useRef(false);
+  // 目录是否覆盖整篇（未覆盖时 UI 明确提示，避免误导）。
+  const outlineCompleteRef = useRef(false);
+  // 跳转目标尚未渲染时的待办锚点，续带命中后自动滚动。
+  const pendingAnchorRef = useRef<string | null>(null);
   const [outline, setOutline] = useState<MarkdownOutlineItem[]>([]);
+  const [outlineComplete, setOutlineComplete] = useState(false);
   const [outlineOpen, setOutlineOpen] = useState(false);
+  const [pendingResume, setPendingResume] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatchCount, setSearchMatchCount] = useState(0);
   const [activeSearchIndex, setActiveSearchIndex] = useState(-1);
@@ -308,6 +316,39 @@ export function ReaderMarkdownPanel({
       try { URL.revokeObjectURL(url); } catch { /* ignore */ }
     }
     objectUrlsRef.current = [];
+  };
+
+  // 回收当前已挂载分块产生的图片加载器 / blob / 滚动续带监听。ETag 变化、
+  // 服务端忽略 Range 回整篇、卸载/重开都必须走这里，否则旧图 blob 会泄漏。
+  const teardownRenderedContent = () => {
+    imageLoaderCleanupRef.current?.();
+    imageLoaderCleanupRef.current = null;
+    for (const cleanup of chunkImageCleanupsRef.current) cleanup();
+    chunkImageCleanupsRef.current = [];
+    resumeCleanupRef.current?.();
+    resumeCleanupRef.current = null;
+    revokeAll();
+  };
+
+  // 基于当前已挂载的全部块重算目录，保证打开目录/跳转时覆盖所有已加载内容。
+  const rebuildOutline = () => {
+    const container = contentRef.current;
+    if (!container) return;
+    outlineUsedRef.current = new Map();
+    setOutline(buildMarkdownOutline(container, outlineUsedRef.current));
+  };
+
+  const resolvePendingAnchor = () => {
+    const anchorId = pendingAnchorRef.current;
+    const container = contentRef.current;
+    if (!anchorId || !container) return;
+    const target = [...container.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6")]
+      .find((heading) => heading.id === anchorId);
+    if (!target) return;
+    pendingAnchorRef.current = null;
+    if (typeof target.scrollIntoView === "function") {
+      target.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
   };
 
   const activateSearchMatch = (index: number, scroll = true) => {
@@ -348,22 +389,24 @@ export function ReaderMarkdownPanel({
 
   useEffect(() => {
     if (!open) {
-      imageLoaderCleanupRef.current?.();
-      imageLoaderCleanupRef.current = null;
-      revokeAll();
+      teardownRenderedContent();
       setOutline([]);
+      outlineCompleteRef.current = false;
+      setOutlineComplete(false);
       return;
     }
     let cancelled = false;
     // 每次重新加载前回收上一轮 blob / 图片 / 滚动监听，避免 jobId 切换/重开时泄漏
-    revokeAll();
-    imageLoaderCleanupRef.current?.();
-    imageLoaderCleanupRef.current = null;
-    for (const cleanup of chunkImageCleanupsRef.current) cleanup();
-    chunkImageCleanupsRef.current = [];
-    resumeCleanupRef.current?.();
-    resumeCleanupRef.current = null;
+    teardownRenderedContent();
     outlineUsedRef.current = new Map();
+    outlineCompleteRef.current = false;
+    setOutlineComplete(false);
+    setOutline([]);
+    renderAllRef.current = false;
+    pendingAnchorRef.current = null;
+    setPendingResume(false);
+    // 卸载/重来时中止在途的 Range / 图片请求，避免旧版本结果落地。
+    const controller = new AbortController();
 
     const dataPort: any = defaultReaderDataPort;
 
@@ -388,7 +431,7 @@ export function ReaderMarkdownPanel({
       try {
         if (typeof dataPort?.loadMarkdownSource === "function"
           && typeof dataPort?.loadMarkdownRange === "function") {
-          const source = await dataPort.loadMarkdownSource(jobId);
+          const source = await dataPort.loadMarkdownSource(jobId, controller.signal);
           if (cancelled) return;
           if (source?.rawUrl) {
             await loadProgressive(source);
@@ -426,6 +469,8 @@ export function ReaderMarkdownPanel({
         if (cancelled || !contentRef.current) return;
         const images = mountRenderedMarkdown(contentRef.current, html, imagesBaseUrl);
         setOutline(buildMarkdownOutline(contentRef.current));
+        outlineCompleteRef.current = true;
+        setOutlineComplete(true);
         applySearch(searchQueryRef.current);
         setStatus("");
         const scrollRoot = contentRef.current.closest(".reader-notes-panel-body");
@@ -433,6 +478,7 @@ export function ReaderMarkdownPanel({
           root: scrollRoot,
           protectedBaseUrl: imagesBaseUrl || contentRef.current.ownerDocument.baseURI,
           fetchImage: fetchProtected,
+          signal: controller.signal,
           onObjectUrl: (url) => objectUrlsRef.current.push(url),
           onProgress: ({ failed }) => {
             if (!cancelled && failed > 0) setStatus(`正文已加载 · ${failed} 张图片不可用`);
@@ -454,7 +500,8 @@ export function ReaderMarkdownPanel({
       const MIN_CHUNK = 8192;
       const imagesBaseUrl = `${source.imagesBaseUrl || ""}`;
       const scrollRoot = container.closest(".reader-notes-panel-body") as HTMLElement | null;
-      const decoder = new TextDecoder();
+      // 不清则重来时残留污染解码状态；不清零则漏掉半截多字节字符。
+      let decoder = new TextDecoder();
       let cursor = 0;
       let etag = `${source.etag || ""}`;
       let total: number | null = Number.isFinite(Number(source.totalBytes))
@@ -462,6 +509,20 @@ export function ReaderMarkdownPanel({
         : null;
       let pending = "";
       let atEof = false;
+      // 用户不滚动时不能永久卡住：有限次自动续带（防一次性拉满），超出后保留
+      // 明确的「继续加载」入口。
+      const MAX_AUTO_RESUME = 4;
+      const RESUME_TIMEOUT_MS = 4000;
+      let autoResumeCount = 0;
+
+      // ETag 变化 / 回整篇重建前必须回收旧的图片加载器与 blob，否则泄漏。
+      const resetRenderedOutput = () => {
+        for (const cleanup of chunkImageCleanupsRef.current) cleanup();
+        chunkImageCleanupsRef.current = [];
+        revokeAll();
+        outlineUsedRef.current = new Map();
+        setOutline([]);
+      };
 
       const mountChunk = async (markdownChunk: string) => {
         const { marked } = await loadMarked();
@@ -479,10 +540,12 @@ export function ReaderMarkdownPanel({
         container.classList.remove("hidden");
         const items = buildMarkdownOutline(section, outlineUsedRef.current);
         if (items.length) setOutline((prev) => [...prev, ...items]);
+        resolvePendingAnchor();
         const cleanup = startMarkdownImageLoading(images, {
           root: scrollRoot,
           protectedBaseUrl: imagesBaseUrl || container.ownerDocument.baseURI,
           fetchImage: fetchProtected,
+          signal: controller.signal,
           onObjectUrl: (url) => objectUrlsRef.current.push(url),
           onProgress: ({ failed }) => {
             if (!cancelled && failed > 0) setStatus(`正文已加载 · ${failed} 张图片不可用`);
@@ -491,24 +554,45 @@ export function ReaderMarkdownPanel({
         chunkImageCleanupsRef.current.push(cleanup);
       };
 
-      // 已渲染内容超过约两屏时暂停，等用户滚动到接近底部再继续。
+      // 已渲染内容超过约两屏时暂停，等用户滚动到接近底部再继续；用户不滚动时
+      // 也有限次自动续带（避免永久卡在「正在加载 Markdown…」），超出上限后保留
+      // 「继续加载」按钮，绝不无限等待，也不会一次性拉满整篇。
       const pauseIfLongEnough = async () => {
         if (renderAllRef.current || !scrollRoot || cancelled) return;
         if (container.scrollHeight <= scrollRoot.clientHeight * 2) return;
+        setPendingResume(true);
+        setStatus("已加载部分 · 滚动或点击继续加载");
         await new Promise<void>((resolve) => {
+          let settled = false;
+          let timer: ReturnType<typeof setTimeout> | null = null;
+          const finish = (manual: boolean) => {
+            if (settled) return;
+            settled = true;
+            scrollRoot.removeEventListener("scroll", onScroll);
+            if (timer) {
+              clearTimeout(timer);
+              timer = null;
+            }
+            resumeCleanupRef.current = null;
+            if (!cancelled) {
+              setPendingResume(false);
+              // 用户主动滚动/点击后续带后，重新给满自动续带额度。
+              if (manual) autoResumeCount = 0;
+            }
+            resolve();
+          };
           const onScroll = () => {
             if (container.scrollHeight <= scrollRoot.clientHeight * 2
               || scrollRoot.scrollTop + scrollRoot.clientHeight >= container.scrollHeight - 800) {
-              scrollRoot.removeEventListener("scroll", onScroll);
-              resumeCleanupRef.current = null;
-              resolve();
+              finish(true);
             }
           };
-          resumeCleanupRef.current = () => {
-            scrollRoot.removeEventListener("scroll", onScroll);
-            resolve();
-          };
+          resumeCleanupRef.current = () => finish(true);
           scrollRoot.addEventListener("scroll", onScroll, { passive: true });
+          if (autoResumeCount < MAX_AUTO_RESUME) {
+            autoResumeCount += 1;
+            timer = setTimeout(() => finish(false), RESUME_TIMEOUT_MS);
+          }
         });
       };
 
@@ -519,6 +603,7 @@ export function ReaderMarkdownPanel({
             cursor,
             cursor + WINDOW - 1,
             etag || undefined,
+            controller.signal,
           );
           if (cancelled) return;
           if (res.status === 404) {
@@ -530,8 +615,8 @@ export function ReaderMarkdownPanel({
           if (res.status === 200) {
             // 服务端忽略了 Range（ETag 变了 / 无 Range 支持）：按整篇重建。
             container.replaceChildren();
-            setOutline([]);
-            outlineUsedRef.current = new Map();
+            resetRenderedOutput();
+            decoder = new TextDecoder();
             pending = decoder.decode(res.bytes, { stream: false });
             atEof = true;
           } else if (res.status === 206) {
@@ -539,8 +624,8 @@ export function ReaderMarkdownPanel({
             // 静默错误最危险 —— 直接清零，从 0 重来。
             if (etag && res.etag && res.etag !== etag) {
               container.replaceChildren();
-              setOutline([]);
-              outlineUsedRef.current = new Map();
+              resetRenderedOutput();
+              decoder = new TextDecoder();
               pending = "";
               cursor = 0;
               atEof = false;
@@ -571,12 +656,17 @@ export function ReaderMarkdownPanel({
           }
         }
         if (!cancelled) {
+          // 整篇完成后基于全部已加载块重建目录并标记完整，供打开目录/跳转使用。
+          rebuildOutline();
+          outlineCompleteRef.current = true;
+          setOutlineComplete(true);
+          resolvePendingAnchor();
           setStatus("");
           // 整篇渲染完成后重算搜索：覆盖之前只渲染部分块时漏掉的命中。
           if (searchQueryRef.current.trim()) applySearch(searchQueryRef.current);
         }
       } catch (err) {
-        if (cancelled) return;
+        if (cancelled || controller.signal.aborted) return;
         setStatus(err instanceof Error ? err.message : "Markdown 加载失败");
       }
     }
@@ -584,14 +674,11 @@ export function ReaderMarkdownPanel({
     void load();
     return () => {
       cancelled = true;
-      imageLoaderCleanupRef.current?.();
-      imageLoaderCleanupRef.current = null;
-      resumeCleanupRef.current?.();
-      resumeCleanupRef.current = null;
-      for (const cleanup of chunkImageCleanupsRef.current) cleanup();
-      chunkImageCleanupsRef.current = [];
-      // 中途取消时，若已创建了 blob 也需回收；下一轮 load 开头的 revokeAll 会兜底
-      // 这里不直接 revoke，避免与正在进行的 Promise 竞争，依赖 cancelled 检查回收
+      // 中止在途 Range / 图片请求；旧结果因 cancelled / signal.aborted 不再落地。
+      controller.abort();
+      teardownRenderedContent();
+      // 中途取消时可能仍持有已创建的 blob，teardown 已回收；此处不直接 revoke
+      // 与进行中 Promise 竞争，依赖 cancelled 检查让落点自行 revoke。
     };
   }, [open, jobId, sourceOnly]);
 
@@ -660,14 +747,31 @@ export function ReaderMarkdownPanel({
           className="reader-markdown-outline-toggle"
           aria-expanded={outlineOpen}
           disabled={outline.length === 0}
-          onClick={() => setOutlineOpen((value) => !value)}
+          onClick={() => {
+            // 打开目录前重算一次：覆盖所有已挂载块，而非只依赖增量追加。
+            rebuildOutline();
+            setOutlineComplete(outlineCompleteRef.current);
+            setOutlineOpen((value) => !value);
+          }}
         >
           <ListTree size={13} aria-hidden />
           目录{outline.length > 0 ? ` ${outline.length}` : ""}
         </button>
+        {pendingResume ? (
+          <button
+            type="button"
+            className="reader-markdown-resume"
+            onClick={() => resumeCleanupRef.current?.()}
+          >
+            继续加载
+          </button>
+        ) : null}
       </div>
       {outlineOpen && outline.length > 0 ? (
         <nav className="reader-markdown-outline" aria-label="Markdown 目录">
+          {!outlineComplete ? (
+            <p className="reader-markdown-outline-note">仅显示已加载内容，滚动可加载更多</p>
+          ) : null}
           {outline.map((item) => (
             <button
               key={item.id}
@@ -678,7 +782,13 @@ export function ReaderMarkdownPanel({
                   .find((heading) => heading.id === item.id);
                 if (target && typeof target.scrollIntoView === "function") {
                   target.scrollIntoView({ block: "start", behavior: "smooth" });
+                  return;
                 }
+                // 目标章节还没渲染：续带整篇并在命中后自动滚动，避免点了没反应。
+                pendingAnchorRef.current = item.id;
+                renderAllRef.current = true;
+                resumeCleanupRef.current?.();
+                setStatus("正在加载目标章节…");
               }}
             >
               {item.text}

@@ -121,6 +121,12 @@ export function useJobStatusPolling(options: {
     }
   }, []);
 
+  // 切换 session 时清除终态产物刷新栅栏：新 session 即使复用同一 jobId，
+  // 也必须能在再次观察到 succeeded 时刷新最终产物。
+  useEffect(() => {
+    terminalArtifactRefreshRef.current = "";
+  }, [sessionIdentity]);
+
   useEffect(() => {
     if (!sessionJobId || jobTerminal || !scopedJobPayload) return;
     const timer = window.setInterval(() => {

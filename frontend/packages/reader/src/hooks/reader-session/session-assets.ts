@@ -277,7 +277,11 @@ export function useSessionAssets(options: {
       // 历史翻译任务会因为 document.active_version_id 而失去对照阅读。
       // Reader 当前会话内完成 Agent 提交时，refreshCommittedDocument
       // 会显式设置 committedDocumentSource，并切换到新的文档源版本。
-      const payload = await defaultReaderDataPort.loadReaderPayload(sessionJobId);
+      const payload = await defaultReaderDataPort.loadReaderPayload(sessionJobId, {
+        // committedSource 分支会丢弃 regions/metadata（旧页序已失效），
+        // 直接跳过这两个可选请求，避免无效网络往返。
+        includeOptionalArtifacts: !committedSource,
+      });
       if (fence.isInactive()) return;
       let linkedDocument: LinkedDocumentRecord | null = null;
       if (jobId && !routeDocumentId) {

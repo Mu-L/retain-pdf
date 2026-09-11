@@ -1,6 +1,9 @@
 import test, { before } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+// 数据端口白盒测试直连 src，避免依赖需单独构建的 reader dist（与
+// markdown-payload.test.mjs 相同边界）。
+import { createReaderDataPort } from "../../../../frontend/packages/reader/src/shared/data/data-port.ts";
 
 let readerDataPort;
 let readerInteractionFlow;
@@ -403,7 +406,7 @@ test("reader ai model key comes only from settings (no runtime secret fallback)"
 
 test("reader data port owns page API orchestration and fallbacks", async () => {
   const calls = [];
-  const port = readerDataPort.createReaderDataPort({
+  const port = createReaderDataPort({
     apiPrefix: "/reader-api",
     loadJob: async (jobId, apiPrefix) => {
       calls.push(["job", jobId, apiPrefix]);
@@ -436,13 +439,15 @@ test("reader data port owns page API orchestration and fallbacks", async () => {
     fetchProtectedResource: async (url) => ({ url }),
   });
 
-  const payload = await port.loadReaderPayload("job-reader");
-  assert.deepEqual(payload, {
+  const { readerErrors, ...payloadCore } = await port.loadReaderPayload("job-reader");
+  assert.deepEqual(payloadCore, {
     jobPayload: { job_id: "job-reader" },
     manifestPayload: { items: [] },
     readerMetadata: null,
     regionsPayload: { items: [] },
   });
+  assert.equal(readerErrors.regions.message, "regions unavailable");
+  assert.equal(readerErrors.metadata.message, "metadata unavailable");
   assert.deepEqual(await port.fetchRegionTranslationItem("job-reader", "item-1"), {
     item_id: "item-1",
   });
@@ -467,7 +472,7 @@ test("reader data port owns page API orchestration and fallbacks", async () => {
 });
 
 test("reader data port treats a missing in-progress manifest as an empty artifact set", async () => {
-  const port = readerDataPort.createReaderDataPort({
+  const port = createReaderDataPort({
     loadJob: async () => ({ job_id: "job-ocr", status: "running" }),
     loadManifest: async () => {
       throw Object.assign(new Error("manifest not ready"), { status: 404 });
@@ -479,6 +484,7 @@ test("reader data port treats a missing in-progress manifest as an empty artifac
     manifestPayload: { items: [] },
     readerMetadata: null,
     regionsPayload: { items: [] },
+    readerErrors: { regions: null, metadata: null },
   });
 });
 

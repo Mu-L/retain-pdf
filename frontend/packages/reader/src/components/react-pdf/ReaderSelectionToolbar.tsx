@@ -1,17 +1,24 @@
 // PDF 选择浮条：正文走原生选区，公式/表格/图片走 OCR 结构选择层。
 
 import { useEffect, useState } from "react";
-import { Check, Copy, Image, Sigma, Sparkles, Table2, Type, X } from "lucide-react";
+import { Check, Copy, Image, Sigma, Sparkles, StickyNote, Table2, Type, X } from "lucide-react";
 import {
   extractReaderFormulaLatex,
   readerRegionContent,
   type ReaderSelection,
 } from "../../shared/data/reader-regions.js";
 
+export type ReaderSelectionNoteInput = {
+  page: number;
+  pane: "source" | "translated";
+  quote: string;
+};
+
 export type ReaderSelectionToolbarProps = {
   selection: ReaderSelection | null;
   onDismiss: () => void;
   onAskAi?: (selection: ReaderSelection) => void;
+  onAddNote?: (input: ReaderSelectionNoteInput) => void;
 };
 
 export async function copyReaderSelectionText(value: string): Promise<void> {
@@ -41,6 +48,7 @@ export function ReaderSelectionToolbar({
   selection,
   onDismiss,
   onAskAi,
+  onAddNote,
 }: ReaderSelectionToolbarProps) {
   const [copied, setCopied] = useState(false);
   const selectionKey = selection
@@ -57,8 +65,8 @@ export function ReaderSelectionToolbar({
   const vw = typeof window !== "undefined" ? window.innerWidth : 800;
   const vh = typeof window !== "undefined" ? window.innerHeight : 600;
   const midX = selection.rect.left + selection.rect.width / 2;
-  // 紧凑工具条约 220px 宽，避免覆盖大段正文。
-  const TOOLBAR_HALF = 120;
+  // 紧凑工具条约 320px 宽（复制 / 批注 / 问 AI / 取消），避免覆盖大段正文。
+  const TOOLBAR_HALF = 170;
   const left = Math.min(Math.max(16 + TOOLBAR_HALF, midX), vw - 16 - TOOLBAR_HALF);
 
   // 优先选区上方；空间不够则翻到下方
@@ -127,6 +135,16 @@ export function ReaderSelectionToolbar({
           ) : (
             <span className="reader-sel-pop-selection-hint">已选择图片</span>
           )}
+          {onAddNote && copyValue ? (
+            <button
+              type="button"
+              className="reader-sel-pop-btn reader-sel-pop-btn--secondary"
+              onClick={() => onAddNote({ page: selection.page, pane: selection.pane, quote: copyValue })}
+            >
+              <StickyNote size={15} strokeWidth={2.2} aria-hidden />
+              <span>添加批注</span>
+            </button>
+          ) : null}
           {onAskAi ? (
             <button
               type="button"

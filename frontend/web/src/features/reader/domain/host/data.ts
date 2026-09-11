@@ -89,6 +89,7 @@ async function fetchJobMarkdownRange(
   start: number,
   endInclusive: number,
   etag?: string,
+  signal?: AbortSignal,
 ): Promise<any> {
   if (isMockMode() && `${rawUrl || ""}`.startsWith("mock://")) {
     const bytes = new TextEncoder().encode(`${(getMockJobMarkdown() as any)?.content || ""}`);
@@ -104,7 +105,7 @@ async function fetchJobMarkdownRange(
   const headers: Record<string, string> = { Range: `bytes=${start}-${endInclusive}` };
   // If-Range 只接受强校验器；弱 ETag（W/"…"）会被服务端忽略并回整篇。
   if (etag && !etag.startsWith("W/")) headers["If-Range"] = etag;
-  const resp = await fetchApiProtected(rawUrl, { headers });
+  const resp = await fetchApiProtected(rawUrl, { headers, signal });
   const contentRange = resp.headers.get("Content-Range") || "";
   const match = contentRange.match(/bytes\s+(\d+)-(\d+)\/(\d+|\*)/i);
   const rangeEnd = match ? Number(match[2]) : null;
