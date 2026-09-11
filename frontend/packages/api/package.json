@@ -62,6 +62,10 @@
       "types": "./dist/document-operations.d.ts",
       "import": "./dist/document-operations.js"
     },
+    "./agent-operation-model": {
+      "types": "./dist/agent-operation-model.d.ts",
+      "import": "./dist/agent-operation-model.js"
+    },
     "./agent-runtime-settings": {
       "types": "./dist/agent-runtime-settings.d.ts",
       "import": "./dist/agent-runtime-settings.js"

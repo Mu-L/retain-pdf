@@ -1,3 +1,4 @@
+import { agentOperationShouldReplace } from "@retainpdf/api/agent-operation-model";
 import type {
   AgentOperationEntry,
   AgentOperationReducerAction,
@@ -12,22 +13,8 @@ export const INITIAL_AGENT_OPERATION_STATE: AgentOperationState = {
   recoveryByConversation: {},
 };
 
-function latestSeq(operation: AgentOperationView): number {
-  if (Number.isFinite(Number(operation.latest_event_seq))) {
-    return Number(operation.latest_event_seq);
-  }
-  return Math.max(0, ...(operation.events || []).map((event) => Number(event.seq) || 0));
-}
-
 function shouldReplace(current: AgentOperationView | undefined, next: AgentOperationView): boolean {
-  if (!current) return true;
-  if (next.current_attempt !== current.current_attempt) {
-    return next.current_attempt > current.current_attempt;
-  }
-  const currentSeq = latestSeq(current);
-  const nextSeq = latestSeq(next);
-  if (currentSeq !== nextSeq) return nextSeq > currentSeq;
-  return `${next.updated_at || ""}` >= `${current.updated_at || ""}`;
+  return agentOperationShouldReplace(current, next, { replaceOnEqualTimestamp: true });
 }
 
 function appendUnique(map: Record<string, string[]>, key: string, value: string) {

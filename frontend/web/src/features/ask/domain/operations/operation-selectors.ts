@@ -1,3 +1,4 @@
+import { agentOperationShouldPoll } from "@retainpdf/api/agent-operation-model";
 import type {
   AgentConfirmationMode,
   AgentOperationEntry,
@@ -5,19 +6,8 @@ import type {
   AgentOperationStatus,
 } from "./types.js";
 
-const ACTIVE_STATUSES = new Set<AgentOperationStatus>(["queued", "running", "validating"]);
-const GREEN_LIGHT_TRANSITION_STATUSES = new Set<AgentOperationStatus>([
-  "draft",
-  "awaiting_confirmation",
-  "result_ready",
-]);
-
 function shouldPoll(status: AgentOperationStatus, confirmationMode: AgentConfirmationMode): boolean {
-  return ACTIVE_STATUSES.has(status)
-    || (
-      confirmationMode === "green_light"
-      && GREEN_LIGHT_TRANSITION_STATUSES.has(status)
-    );
+  return agentOperationShouldPoll(status, confirmationMode);
 }
 
 export function operationsForConversation(state: AgentOperationState, conversationId: string): AgentOperationEntry[] {

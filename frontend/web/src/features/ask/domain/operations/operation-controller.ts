@@ -1,3 +1,10 @@
+import {
+  agentOperationErrorMessage,
+  agentOperationErrorStatus,
+  clearAgentOperationActionKey,
+  resolveAgentOperationActionKey,
+  type AgentOperationActionKeyStorage,
+} from "@retainpdf/api/agent-operation-model";
 import type {
   AgentOperationAction,
   AgentOperationPerformOptions,
@@ -16,22 +23,16 @@ export type AgentOperationApi = {
 };
 
 type Dispatch = (action: AgentOperationReducerAction) => void;
-type ActionKeyStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 const ACTION_KEY_PREFIX = "retainpdf.agent-operation.action-key.v1:";
+const ACTION_KEY_ID_PREFIX = "ui-";
 
-function browserActionKeyStorage(): ActionKeyStorage | undefined {
+function browserActionKeyStorage(): AgentOperationActionKeyStorage | undefined {
   try {
     return globalThis.sessionStorage;
   } catch {
     return undefined;
   }
-}
-
-function makeIdempotencyKey(operationId: string, action: AgentOperationAction): string {
-  const random = globalThis.crypto?.randomUUID?.()
-    || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  return `ui-${action}-${operationId}-${random}`.slice(0, 128);
 }
 
 function asOperation(value: unknown): AgentOperationView {
@@ -52,17 +53,6 @@ function asOperations(value: unknown): AgentOperationView[] {
   return [];
 }
 
-function errorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) return error.message.trim();
-  return "操作请求失败，请重试。";
-}
-
-function errorStatus(error: unknown): number {
-  if (!error || typeof error !== "object" || !("status" in error)) return 0;
-  const status = Number((error as { status?: unknown }).status);
-  return Number.isFinite(status) ? status : 0;
-}
-
 export function createAgentOperationController(
   api: AgentOperationApi,
   dispatch: Dispatch,
@@ -70,6 +60,11 @@ export function createAgentOperationController(
 ) {
   const actionKeys = new Map<string, string>();
   const inFlight = new Set<string>();
+  const idempotencyOptions = {
+    storagePrefix: ACTION_KEY_PREFIX,
+    keyPrefix: ACTION_KEY_ID_PREFIX,
+    storage: keyStorage,
+  };
 
   async function recover(conversationId: string) {
     const id = `${conversationId || ""}`.trim();
@@ -113,21 +108,12 @@ export function createAgentOperationController(
       });
       return;
     }
-    const keySlot = `${operationId}:${action}`;
-    const storageSlot = `${ACTION_KEY_PREFIX}${keySlot}`;
-    let persistedKey = "";
-    try {
-      persistedKey = `${keyStorage?.getItem(storageSlot) || ""}`.trim();
-    } catch {
-      /* storage is only a refresh-recovery hint */
-    }
-    const idempotencyKey = actionKeys.get(keySlot) || persistedKey || makeIdempotencyKey(operationId, action);
-    actionKeys.set(keySlot, idempotencyKey);
-    try {
-      keyStorage?.setItem(storageSlot, idempotencyKey);
-    } catch {
-      /* continue with in-memory idempotency */
-    }
+    const idempotencyKey = resolveAgentOperationActionKey(
+      operationId,
+      action,
+      actionKeys,
+      idempotencyOptions,
+    );
     inFlight.add(`action:${operationId}`);
     dispatch({ type: "action-start", operationId, action });
     const common = {
@@ -151,24 +137,14 @@ export function createAgentOperationController(
       }
       const next = asOperation(response);
       if (!next?.operation_id) throw new Error("操作服务返回了无效状态。");
-      actionKeys.delete(keySlot);
-      try {
-        keyStorage?.removeItem(storageSlot);
-      } catch {
-        /* successful server response is authoritative */
-      }
+      clearAgentOperationActionKey(operationId, action, actionKeys, idempotencyOptions);
       dispatch({ type: "action-finish", operation: next });
     } catch (error) {
-      if (errorStatus(error) === 409) {
+      if (agentOperationErrorStatus(error) === 409) {
         // A CAS conflict is a definitive rejection, not an unknown submit
         // result. Discard the key and refresh the server-owned snapshot rather
         // than replaying the mutation with stale expectations.
-        actionKeys.delete(keySlot);
-        try {
-          keyStorage?.removeItem(storageSlot);
-        } catch {
-          /* the authoritative refresh below still prevents a blind retry */
-        }
+        clearAgentOperationActionKey(operationId, action, actionKeys, idempotencyOptions);
         try {
           const current = asOperation(await api.get(operationId));
           if (!current?.operation_id) throw new Error("操作服务返回了无效状态。");
@@ -181,7 +157,7 @@ export function createAgentOperationController(
           });
         }
       } else {
-        dispatch({ type: "action-error", operationId, message: errorMessage(error) });
+        dispatch({ type: "action-error", operationId, message: agentOperationErrorMessage(error) });
       }
     } finally {
       inFlight.delete(`action:${operationId}`);

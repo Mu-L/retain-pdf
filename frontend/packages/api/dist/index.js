@@ -9,6 +9,7 @@ export * from "./translation-debug.js";
 export * from "./live-translation.js";
 export * from "./ai.js";
 export * from "./document-operations.js";
+export * from "./agent-operation-model.js";
 export * from "./agent-runtime-settings.js";
 export * from "./documents.js";
 export * from "./collections.js";
