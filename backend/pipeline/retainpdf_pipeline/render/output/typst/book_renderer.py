@@ -34,6 +34,7 @@ from retainpdf_pipeline.render.output.typst.compiler import compile_typst_render
 from retainpdf_pipeline.render.output.typst.color_adapt import apply_adaptive_overlay_colors
 from retainpdf_pipeline.render.output.typst.overlay_book import overlay_pages_via_page_fallback
 from retainpdf_pipeline.render.output.typst.overlay_ops import overlay_translated_items_on_page
+from retainpdf_pipeline.render.output.typst.overlay_ops import overlay_translated_pages_on_doc
 from retainpdf_pipeline.render.output.typst.sanitize import sanitize_page_specs_for_typst_book_background
 from retainpdf_pipeline.render.output.typst.shared import default_compile_workers
 from retainpdf_pipeline.render.visual_profile import merge_visual_profile_colors

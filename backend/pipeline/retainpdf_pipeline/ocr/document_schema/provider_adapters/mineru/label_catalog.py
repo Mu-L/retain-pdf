@@ -70,6 +70,7 @@ _DEFINITIONS = (
     _block("title", "heading"),
     _block("interline_equation", "display_formula", "formula"),
     _block("equation", "display_formula", "formula"),
+    _block("equation_interline", "display_formula", "formula"),
     _container("list", "list", "text"),
     _container("index", "index", "text"),
     _block("discarded", "discarded", "none"),

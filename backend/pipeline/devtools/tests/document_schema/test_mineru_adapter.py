@@ -15,6 +15,9 @@ from retainpdf_pipeline.ocr.document_schema.adapters import (
 from retainpdf_pipeline.ocr.document_schema.provider_adapters.mineru.label_catalog import (
     MINERU_MIDDLE_BLOCK_LABELS,
 )
+from retainpdf_pipeline.ocr.document_schema.provider_adapters.mineru.projection import (
+    project_mineru_block,
+)
 from retainpdf_pipeline.ocr.document_schema.providers import (
     PROVIDER_MINERU,
     PROVIDER_MINERU_CONTENT_LIST_V2,
@@ -100,6 +103,7 @@ def test_mineru_catalog_covers_current_official_block_type_values() -> None:
         "title",
         "interline_equation",
         "equation",
+        "equation_interline",
         "list",
         "index",
         "discarded",
@@ -395,6 +399,21 @@ def test_mineru_unknown_text_label_is_reported_and_not_translated() -> None:
     assert document["derived"]["provider_signals"]["unknown_block_types"] == [
         "future_provider_label"
     ]
+
+
+def test_mineru_equation_interline_projects_to_formula_without_unknown_signal() -> None:
+    projection = project_mineru_block("equation_interline")
+    assert projection.content_kind == "formula"
+    assert projection.sub_type == "display_formula"
+
+    document = _adapt(
+        _payload(_block("equation_interline", "x^2+y^2=z^2", index=0))
+    )
+    block = document["pages"][0]["blocks"][0]
+
+    assert block["content"]["kind"] == "formula"
+    assert block["policy"]["translate"] is False
+    assert document["derived"]["provider_signals"]["unknown_block_types"] == []
 
 
 def test_mineru_content_list_v2_projects_current_common_types() -> None:
