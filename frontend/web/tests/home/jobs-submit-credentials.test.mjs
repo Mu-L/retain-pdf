@@ -10,7 +10,7 @@ globalThis.window = {
   },
 };
 
-const { submitJobRequest } = await import("@/platform/api/legacy/jobs-submit.ts");
+const { submitJobRequest } = await import("@retainpdf/api/jobs-submit");
 
 test("OCR multipart submission sends ocr_credential_ref without Paddle token plaintext", async () => {
   let submittedForm = null;

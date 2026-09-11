@@ -5,7 +5,7 @@ import {
   dedupeServerFavorites,
   normalizeServerFavorite,
 } from "../../src/features/reader/domain.js";
-import { deleteFavorite } from "@/platform/api/legacy/favorites.js";
+import { deleteFavorite } from "@retainpdf/api/favorites";
 
 const API_FAVORITE = {
   favorite_id: "fav-1",

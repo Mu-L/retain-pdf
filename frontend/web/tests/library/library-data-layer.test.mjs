@@ -44,6 +44,30 @@ test("mock 文档列表支持 reading_status 与 tag 过滤", () => {
   assert.ok(tagged.documents.every((doc) => doc.tags.includes("化学")));
 });
 
+test("mock 文档列表支持 q 标题/文件名过滤（镜像后端 LIKE）", () => {
+  const all = getMockDocumentList({ limit: 999 });
+  const target = all.documents.find((doc) => `${doc.title || ""}`.trim());
+  assert.ok(target, "至少一篇有标题的文档");
+  const needle = `${target.title}`.trim().slice(0, 3);
+  assert.ok(needle, "标题取前 3 字作查询词");
+  const matched = getMockDocumentList({ limit: 999, q: needle });
+  assert.ok(matched.documents.some((doc) => doc.document_id === target.document_id), "标题命中");
+  assert.ok(
+    matched.documents.every((doc) =>
+      `${doc.title || ""}\n${doc.source_filename || ""}`.toLowerCase().includes(needle.toLowerCase()),
+    ),
+    "只返回标题或文件名命中的文档",
+  );
+  assert.equal(
+    matched.total,
+    all.documents.filter((doc) =>
+      `${doc.title || ""}\n${doc.source_filename || ""}`.toLowerCase().includes(needle.toLowerCase()),
+    ).length,
+    "total 是过滤后计数",
+  );
+});
+
+
 test("translateMockDocument:给馆藏文档挂 active_job_id 并返回提交视图", () => {
   const before = getMockDocumentList().documents.find((doc) => !`${doc.active_job_id || ""}`.trim());
   assert.ok(before, "至少一篇馆藏文档");
@@ -165,7 +189,7 @@ test("删除被收藏引用的 job:呈现收藏数量提示而非自动强删", 
 test("按 job_id 直查文档:active_job_id 命中 + 历史 run 也解析到同一文档", async () => {
   // isMockMode 靠 window.location.search 的 ?mock=,置好后再动态 import api 层
   globalThis.window = { location: { search: "?mock=succeeded", protocol: "http:", hostname: "127.0.0.1" } };
-  const { fetchDocumentByJobId } = await import("@/platform/api/legacy/documents.js");
+  const { fetchDocumentByJobId } = await import("@/platform/api/mocks/documents.js");
   // active_job_id 命中
   const active = await fetchDocumentByJobId("/api/v1", MOCK_JOB_ID);
   assert.equal(active?.document_id, MOCK_DOCUMENT_ID);

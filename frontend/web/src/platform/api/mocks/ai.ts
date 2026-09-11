@@ -1,10 +1,7 @@
-import { buildApiHeaders, isMockMode } from "@/platform/config/runtime.js";
 import { API_PREFIX } from "@/platform/config/api-constants.js";
-import { unwrapEnvelope } from "@retainpdf/domain/job";
-import { buildApiEndpoint } from "./http.js";
 
-// 图书馆 AI 问答(POST /api/v1/ai/ask,SSE 流式)。
-// 用流式 fetch 而不是 EventSource:EventSource 无法携带 X-API-Key 请求头。
+// 图书馆 AI 问答(POST /api/v1/ai/ask,SSE 流式)。mock-only 适配器:
+// 只保留 readAiAskStream 解析器与 buildMockAskStream 端到端 mock 流。
 
 export class AiAskError extends Error {
   status: number;
@@ -252,43 +249,6 @@ export async function readAiAskStream(body, {
   return result;
 }
 
-async function extractErrorMessage(resp) {
-  const text = await resp.text().catch(() => "");
-  try {
-    const envelope = JSON.parse(text);
-    // Rust envelope: { code, message }
-    const message = `${envelope?.message || ""}`.trim();
-    if (message) {
-      return message;
-    }
-    // FastAPI / AI service: { detail: string | [{msg}] }
-    const detail = envelope?.detail;
-    if (typeof detail === "string" && detail.trim()) {
-      return detail.trim();
-    }
-    if (Array.isArray(detail)) {
-      const parts = detail
-        .map((item) => {
-          if (typeof item === "string") {
-            return item.trim();
-          }
-          if (item && typeof item === "object") {
-            return `${(item as { msg?: string }).msg || (item as { message?: string }).message || ""}`.trim();
-          }
-          return "";
-        })
-        .filter(Boolean);
-      if (parts.length) {
-        return parts.join("; ");
-      }
-    }
-    return "";
-  } catch (_err) {
-    // 非 JSON 时截一段原文，避免整页 HTML 糊到聊天气泡
-    return `${text || ""}`.replace(/\s+/g, " ").trim().slice(0, 240);
-  }
-}
-
 // mock 模式的 SSE 流:忠实复刻真实后端事件序列(tool → answer_delta → done)。
 // 引用 block_id 对齐 mock 阅读区域(b-intro-3),使引用跳转可端到端验证。
 function buildMockAskStream(question = "") {
@@ -364,108 +324,30 @@ export async function askLibraryAi({
   confirmDocumentOperation = false,
   assistantMode = "auto",
 } = {}) {
+  void documentId;
+  void jobId;
+  void conversationId;
+  void parentId;
+  void regenerate;
+  void userMessageId;
+  void assistantMessageId;
+  void signal;
+  void apiPrefix;
+  void fetchImpl;
+  void llmApiKey;
+  void llmBaseUrl;
+  void llmModel;
+  void confirmDocumentOperation;
+  void assistantMode;
   const trimmed = `${question}`.trim();
   if (!trimmed) {
     throw new AiAskError("请输入问题。", 400);
   }
-  if (isMockMode()) {
-    // 忠实模拟真实 SSE 流:tool 事件 → answer_delta 逐块 → done 带引用,
-    // 让 markdown 渲染 / 流式 / 引用跳转三条链路都能在 mock 下端到端复现。
-    return readAiAskStream(buildMockAskStream(trimmed), {
-      onToolEvent,
-      onProgressEvent,
-      onAgentToolEvent,
-      onAgentOperationEvent,
-      onAgentConfirmationRequiredEvent,
-      onAgentSessionEvent,
-      onAnswerDelta,
-      onCompress,
-    });
-  }
-  const payload: Record<string, any> = { question: trimmed, stream: true };
-  const normalizedDocumentId = `${documentId || ""}`.trim();
-  const normalizedJobId = `${jobId || ""}`.trim();
-  const normalizedConversationId = `${conversationId || ""}`.trim();
-  if (normalizedDocumentId) {
-    payload.document_id = normalizedDocumentId;
-  }
-  if (normalizedJobId) {
-    payload.job_id = normalizedJobId;
-  }
-  if (normalizedConversationId) {
-    payload.conversation_id = normalizedConversationId;
-  }
-  const normalizedParentId = `${parentId || ""}`.trim();
-  if (normalizedParentId) {
-    payload.parent_id = normalizedParentId;
-  }
-  if (regenerate) {
-    payload.regenerate = true;
-  }
-  const uid = `${userMessageId || ""}`.trim();
-  const aid = `${assistantMessageId || ""}`.trim();
-  if (uid) payload.user_message_id = uid;
-  if (aid) payload.assistant_message_id = aid;
-  if (confirmDocumentOperation === true) payload.confirm_document_operation = true;
-  if (["reading", "operations"].includes(`${assistantMode}`)) {
-    payload.assistant_mode = assistantMode;
-  }
-  // 按请求携带 LLM 凭据:必须非空,禁止带出空 Authorization: Bearer
-  const key = `${llmApiKey || ""}`.trim();
-  if (key) {
-    // 若用户误把 "Bearer xxx" 整段粘进设置,剥掉前缀
-    payload.llm_api_key = key.replace(/^Bearer\s+/i, "").trim();
-  }
-  if (`${llmBaseUrl || ""}`.trim()) {
-    payload.llm_base_url = `${llmBaseUrl}`.trim();
-  }
-  if (`${llmModel || ""}`.trim()) {
-    payload.llm_model = `${llmModel}`.trim();
-  }
-  const resp = await fetchImpl(buildApiEndpoint(apiPrefix, "ai/ask"), {
-    method: "POST",
-    headers: buildApiHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify(payload),
-    signal,
-  });
-  if (!resp.ok) {
-    if (resp.status === 502) {
-      throw new AiAskError("AI 服务未运行(502),请先启动 retainpdf-ai 服务。", 502);
-    }
-    const message = await extractErrorMessage(resp);
-    // 401：多半是服务入口 X-API-Key（runtime xApiKey），不是模型 Key
-    if (resp.status === 401) {
-      const hint = /X-API-Key|api key|invalid api key|Unauthorized/i.test(message)
-        ? message
-        : "服务鉴权失败：X-API-Key 无效或未配置（检查 runtime-config 的 xApiKey / 后端 auth 配置）。";
-      throw new AiAskError(`${hint}(${resp.status})`, 401);
-    }
-    // 400 缺 LLM key：明确指向「设置 → 凭据」的模型 API Key
-    if (resp.status === 400 && /LLM|模型\s*API\s*Key|api key/i.test(message)) {
-      throw new AiAskError(
-        message.includes("凭据") || message.includes("设置")
-          ? `${message}(${resp.status})`
-          : `缺少模型 API Key：请到设置 → API 设置填写后再提问。(${resp.status})`,
-        400,
-      );
-    }
-    throw new AiAskError(`${message || "AI 问答请求失败,请稍后重试。"}(${resp.status})`, resp.status);
-  }
-  const contentType = `${resp.headers?.get?.("content-type") || ""}`.toLowerCase();
-  if (contentType.includes("application/json")) {
-    // 后端未按流式返回时,兼容一次性 JSON envelope
-    const result = normalizeDonePayload(unwrapEnvelope(await resp.json()));
-    for (const confirmation of result.confirmationRequests) {
-      onAgentConfirmationRequiredEvent?.({
-        type: "agent_confirmation_required",
-        ...confirmation,
-      });
-    }
-    return result;
-  }
-  return readAiAskStream(resp.body, {
-    onProgressEvent,
+  // 忠实模拟真实 SSE 流:tool 事件 → answer_delta 逐块 → done 带引用,
+  // 让 markdown 渲染 / 流式 / 引用跳转三条链路都能在 mock 下端到端复现。
+  return readAiAskStream(buildMockAskStream(trimmed), {
     onToolEvent,
+    onProgressEvent,
     onAgentToolEvent,
     onAgentOperationEvent,
     onAgentConfirmationRequiredEvent,

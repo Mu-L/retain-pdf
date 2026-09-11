@@ -14,9 +14,12 @@ const GROUPS = [
   {
     name: "reader 页/阅读器组件",
     files: [
-      ...readdirSync(join(STYLES_ROOT, "reader"))
-        .filter((f) => f.endsWith(".css"))
-        .map((f) => join(STYLES_ROOT, "reader", f)),
+      // 真值已迁至 @retainpdf/reader（frontend/packages/reader/styles）；
+      // *-legacy.css 为冻结兼容，base.css 为页面壳归一化（元素选择器 + 通用
+      // 工具类，无业务类，2026-09-10 目检），两者不纳入命名空间门禁。
+      ...readdirSync(join(PROJECT_ROOT, "..", "packages", "reader", "styles"))
+        .filter((f) => f.endsWith(".css") && !f.endsWith("-legacy.css") && f !== "base.css")
+        .map((f) => join(PROJECT_ROOT, "..", "packages", "reader", "styles", f)),
     ],
     allowed: [
       /(\.|#)reader-/,

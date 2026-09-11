@@ -15,7 +15,7 @@ export type TranslateDocumentPayload = {
   [key: string]: unknown
 }
 
-type ErrorLike = { message?: string; status?: number } | string | null | undefined
+type ErrorLike = { message?: string; status?: number; favoriteCount?: number } | string | null | undefined
 
 export function friendlyTranslateError(error: ErrorLike): string {
   const message = typeof error === 'string' ? error : `${(error as any)?.message || error || ''}`
@@ -31,7 +31,8 @@ export function friendlyDocumentDeleteError(error: ErrorLike): string {
   const message = typeof error === 'string' ? error : `${(error as any)?.message || error || ''}`
   const status = typeof error === 'object' && error ? (error as any).status : undefined
   if (status === 409 || message.includes('(409)')) {
-    const count = message.match(/\d+/)?.[0]
+    const structured = typeof error === 'object' && error ? Number((error as any).favoriteCount) : NaN
+    const count = Number.isFinite(structured) && structured > 0 ? structured : message.match(/\d+/)?.[0]
     return count
       ? `该文档有 ${count} 条收藏，请先删除收藏后再删除文档。`
       : '该文档存在收藏引用，请先删除相关收藏后再删除文档。'

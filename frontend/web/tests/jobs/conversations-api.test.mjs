@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { messagesToBranchItems } from "@/platform/api/legacy/conversations.ts";
+import { messagesToBranchItems } from "@retainpdf/api/conversations";
 
 test("messagesToBranchItems builds parent tree for siblings", () => {
   const items = messagesToBranchItems([

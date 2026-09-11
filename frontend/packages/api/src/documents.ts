@@ -57,6 +57,8 @@ export type DocumentListQuery = {
   readingStatus?: string;
   tag?: string;
   collectionId?: string;
+  /** 服务端标题/原始文件名包含匹配（后端 LIKE，已转义 %/_）。空串不发送。 */
+  q?: string;
 };
 
 export type DocumentListView = {
@@ -120,6 +122,12 @@ export interface DocumentRequestError extends Error {
   errorCode?: string;
   reason?: string;
   canFallbackToOcr?: boolean;
+  /** DELETE_BLOCKED_BY_FAVORITES: 引用该文档/run 的收藏条数 */
+  favoriteCount?: number;
+  /** DELETE_BLOCKED_BY_FAVORITES: 清空这些收藏的端点路径（后端给好，前端不要自己拼） */
+  clearFavoritesPath?: string;
+  /** "document" | "job"，仅用于展示与日志 */
+  favoriteScope?: "document" | "job" | "";
 }
 
 function documentRequestError(
@@ -127,26 +135,38 @@ function documentRequestError(
   status: number,
   payload: any,
 ): DocumentRequestError {
-  const details = payload?.details && typeof payload.details === "object"
-    ? payload.details
-    : payload?.data && typeof payload.data === "object"
-      ? payload.data
-      : {};
+  // 通用错误把结构化数据放在 payload.error.details；老接口可能直接在 payload.details/data。
+  const structured = payload?.error && typeof payload.error === "object" ? payload.error : null;
+  const details = structured?.details && typeof structured.details === "object"
+    ? structured.details
+    : payload?.details && typeof payload.details === "object"
+      ? payload.details
+      : payload?.data && typeof payload.data === "object"
+        ? payload.data
+        : {};
   const message = `${payload?.message || details?.message || fallback}`;
   const error = new Error(`${message}(${status})`) as DocumentRequestError;
   error.status = status;
-  const errorCode = `${payload?.error_code || details?.error_code || details?.code || (typeof payload?.code === "string" ? payload.code : "")}`.trim();
+  const errorCode = `${payload?.error_code || structured?.code || details?.error_code || details?.code || (typeof payload?.code === "string" ? payload.code : "")}`.trim();
   if (errorCode) error.errorCode = errorCode;
   const reason = `${payload?.reason || details?.reason || ""}`.trim();
   if (reason) error.reason = reason;
   const canFallback = payload?.can_fallback_to_ocr ?? details?.can_fallback_to_ocr;
   if (typeof canFallback === "boolean") error.canFallbackToOcr = canFallback;
+  const favoriteCount = Number(details?.favorite_count);
+  if (Number.isFinite(favoriteCount) && favoriteCount > 0) {
+    error.favoriteCount = favoriteCount;
+  }
+  const clearPath = `${details?.clear_favorites_path || ""}`.trim();
+  if (clearPath) error.clearFavoritesPath = clearPath;
+  const scope = `${details?.scope || ""}`.trim();
+  if (scope === "document" || scope === "job") error.favoriteScope = scope;
   return error;
 }
 
 export async function fetchDocumentList(
   apiPrefix: string,
-  { limit = 50, offset = 0, readingStatus = "", tag = "", collectionId = "" }: DocumentListQuery = {},
+  { limit = 50, offset = 0, readingStatus = "", tag = "", collectionId = "", q = "" }: DocumentListQuery = {},
 ): Promise<DocumentListView> {
   const params = new URLSearchParams();
   params.set("limit", `${limit}`);
@@ -154,6 +174,7 @@ export async function fetchDocumentList(
   if (`${readingStatus || ""}`.trim()) params.set("reading_status", `${readingStatus}`.trim());
   if (`${tag || ""}`.trim()) params.set("tag", `${tag}`.trim());
   if (`${collectionId || ""}`.trim()) params.set("collection_id", `${collectionId}`.trim());
+  if (`${q || ""}`.trim()) params.set("q", `${q}`.trim());
   const resp = await fetch(`${buildApiEndpoint(apiPrefix, "documents")}?${params.toString()}`, { headers: buildApiHeaders() });
   if (!resp.ok) throw new Error(`读取文档库失败，请稍后重试。(${resp.status})`);
   return unwrapEnvelope<DocumentListView>(await resp.json());
@@ -271,11 +292,35 @@ export async function deleteDocument(apiPrefix: string, documentId: string, { fo
   const resp = await fetch(buildApiEndpoint(apiPrefix, `documents/${encodeURIComponent(normalized)}`) + params, { method: "DELETE", headers: buildApiHeaders() });
   if (!resp.ok) {
     const envelope: any = await resp.json().catch(() => null);
-    const error = new Error(`${envelope?.message || "删除文档失败，请稍后重试。"}(${resp.status})`) as Error & { status?: number };
-    (error as any).status = resp.status;
-    throw error;
+    // 保留结构化 error.code / error.details（收藏保护 409 靠它拿条数和清空路径）
+    throw documentRequestError("删除文档失败，请稍后重试。", resp.status, envelope);
   }
   return unwrapEnvelope(await resp.json());
+}
+
+/**
+ * DELETE `clear_favorites_path`（后端在 DELETE_BLOCKED_BY_FAVORITES 的
+ * error.details 里给好的路径，文档级/run 级共用）。幂等：没有收藏返回 0；
+ * 目标不存在是 404。返回实际删除的收藏条数。
+ */
+export async function clearFavorites(
+  apiPrefix: string,
+  clearFavoritesPath: string,
+): Promise<number> {
+  const raw = `${clearFavoritesPath || ""}`.trim();
+  if (!raw) return 0;
+  const prefix = `${apiPrefix || ""}`.replace(/\/+$/, "");
+  const relative = prefix && raw.startsWith(prefix) ? raw.slice(prefix.length) : raw;
+  const resp = await fetch(buildApiEndpoint(apiPrefix, relative.replace(/^\/+/, "")), {
+    method: "DELETE",
+    headers: buildApiHeaders(),
+  });
+  if (!resp.ok) {
+    const envelope: any = await resp.json().catch(() => null);
+    throw documentRequestError("清空收藏失败，请稍后重试。", resp.status, envelope);
+  }
+  const payload: any = unwrapEnvelope(await resp.json());
+  return Number(payload?.deleted_count) || 0;
 }
 
 export async function translateDocument(

@@ -23,6 +23,7 @@ export type TranslateDocumentPayload = {
 type ErrorLike = {
     message?: string;
     status?: number;
+    favoriteCount?: number;
 } | string | null | undefined;
 export declare function friendlyTranslateError(error: ErrorLike): string;
 export declare function friendlyDocumentDeleteError(error: ErrorLike): string;

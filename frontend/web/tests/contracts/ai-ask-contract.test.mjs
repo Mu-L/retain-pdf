@@ -19,7 +19,7 @@ const contract = JSON.parse(readFileSync(CONTRACT_PATH, "utf8"));
 
 test("SSE 事件类型:前端处理的类型 ⊆ 契约枚举,且关键事件全覆盖", () => {
   const declared = new Set(contract.definitions.SseEventType.enum);
-  const source = readFileSync(join(process.cwd(), "src/platform/api/legacy/ai.ts"), "utf8");
+  const source = readFileSync(join(process.cwd(), "../packages/api/src/ai.ts"), "utf8");
   const handled = new Set(
     [...source.matchAll(/event\.type === "([a-z_]+)"/g)].map((m) => m[1]),
   );
@@ -35,7 +35,7 @@ test("SSE 事件类型:前端处理的类型 ⊆ 契约枚举,且关键事件全
 test("done payload:normalizeDonePayload 消费的字段 ⊆ 契约", () => {
   const properties = new Set(Object.keys(contract.definitions.DonePayload.properties));
   // conversationId 是前端归一化别名,contract 侧对应 conversation_id
-  const source = readFileSync(join(process.cwd(), "src/platform/api/legacy/ai.ts"), "utf8");
+  const source = readFileSync(join(process.cwd(), "../packages/api/src/ai.ts"), "utf8");
   const normalized = source.match(/function normalizeDonePayload[\s\S]*?\n\}/)?.[0] || "";
   const consumed = new Set(
     [...normalized.matchAll(/payload\?\.([a-zA-Z_]+)/g)].map((m) => m[1]),
@@ -61,7 +61,7 @@ test("Citation:前端跳转依赖的字段存在于契约", () => {
 
 test("AskInput:前端发送的字段 ⊆ 契约", () => {
   const properties = new Set(Object.keys(contract.definitions.AskInput.properties));
-  const source = readFileSync(join(process.cwd(), "src/platform/api/legacy/ai.ts"), "utf8");
+  const source = readFileSync(join(process.cwd(), "../packages/api/src/ai.ts"), "utf8");
   // askLibraryAi 组装请求体的两种写法:初始化字面量 + payload.xxx = 条件赋值
   const sent = new Set([
     ...[...source.matchAll(/payload\.([a-z_]+)\s*=/g)].map((m) => m[1]),

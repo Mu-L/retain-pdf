@@ -9,7 +9,8 @@ import {
   isLiveMockJobId,
   registerLiveMockJob,
 } from "./live-jobs.js";
-import { getMockDocumentByJobId } from "./documents.js";
+import { MOCK_DOCUMENT_ID, getMockDocumentByJobId } from "./documents.js";
+import { matchesAnyText } from "./mock-utils.js";
 import type { JobLike } from "@retainpdf/domain/job";
 import type { LibraryCardItem } from "@/platform/contracts/library-payloads.js";
 export { getMockJobMarkdown } from "./markdown.js";
@@ -115,6 +116,10 @@ function synthesizeMockBook(jobId: string): LibraryCardItem {
 
 export interface MockJobListQuery {
   jobIds?: Array<string | null | undefined>;
+  /** legacy 搜索关键字：标题/文件名包含（大小写不敏感）。 */
+  q?: string;
+  limit?: number;
+  offset?: number;
 }
 
 export interface MockJobListResult {
@@ -124,7 +129,7 @@ export interface MockJobListResult {
   has_more: boolean;
 }
 
-export function getMockJobList({ jobIds = [] }: MockJobListQuery = {}): MockJobListResult {
+export function getMockJobList({ jobIds = [], q = "", limit = 20, offset = 0 }: MockJobListQuery = {}): MockJobListResult {
   if (Array.isArray(jobIds) && jobIds.length) {
     const wanted = jobIds.map((id) => `${id}`.trim()).filter(Boolean);
     const items = wanted.map((id) => {
@@ -139,12 +144,20 @@ export function getMockJobList({ jobIds = [] }: MockJobListQuery = {}): MockJobL
     });
     return { items, limit: 20, offset: 0, has_more: false };
   }
-  return {
-    items: [enrichJobWithDocument(buildMockJobPayload(), MOCK_JOB_ID)],
-    limit: 20,
-    offset: 0,
-    has_more: false,
-  };
+  // 默认单卡行为不变；q/limit/offset 在这 1 行空间内真实生效，
+  // 使 legacy 路 mock 与真实分页语义一致（多文档场景走 document 源）。
+  let items = [enrichJobWithDocument(buildMockJobPayload(), MOCK_JOB_ID)];
+  const needle = `${q || ""}`.trim().toLowerCase();
+  if (needle) {
+    items = items.filter((job) => {
+      const record = job as LibraryCardItem;
+      return matchesAnyText([record.title, record.source_file_name], needle);
+    });
+  }
+  const safeOffset = Math.max(0, Number(offset) || 0);
+  const safeLimit = Math.max(0, Number(limit) || 0);
+  const paged = items.slice(safeOffset, safeOffset + safeLimit);
+  return { items: paged, limit: safeLimit, offset: safeOffset, has_more: safeOffset + paged.length < items.length };
 }
 
 export function submitMockJob(): JobLike {
@@ -159,6 +172,8 @@ export function submitMockJob(): JobLike {
 export function submitMockUpload() {
   return {
     upload_id: "mock-upload-id",
+    // 上传即建档：镜像真实后端 POST /uploads 现在返回的 document_id。
+    document_id: MOCK_DOCUMENT_ID,
     filename: "mock.pdf",
     page_count: 12,
     bytes: 2_621_440,

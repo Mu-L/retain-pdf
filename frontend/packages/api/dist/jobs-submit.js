@@ -15,7 +15,7 @@ function assertGroupedJobPayload(payload) {
     const p = payload;
     if (!p.workflow || !isObject(p.source))
         throw new Error("提交失败: /api/v1/jobs 必须使用 grouped JSON，至少包含 workflow 和 source。");
-    const legacyTopLevelFields = ["upload_id", "artifact_job_id", "mode", "model", "base_url", "api_key", "mineru_token", "paddle_token", "model_version", "language", "render_mode", "skip_title_translation", "batch_size", "workers", "classify_batch_size", "compile_workers", "rule_profile_name", "custom_rules_text", "timeout_seconds"];
+    const legacyTopLevelFields = ["upload_id", "artifact_job_id", "mode", "model", "base_url", "api_key", "mineru_token", "paddle_token", "model_version", "language", "render_mode", "skip_title_translation", "batch_size", "workers", "classify_batch_size", "compile_workers", "rule_profile_name", "custom_rules_text", "timeout_seconds", "no_output_timeout_seconds"];
     const leaked = legacyTopLevelFields.filter((f) => f in p);
     if (leaked.length > 0)
         throw new Error(`提交失败: /api/v1/jobs 不再接受旧扁平字段，发现 ${leaked.join(", ")}。请改为 source/ocr/translation/render/runtime 分组结构。`);
@@ -55,6 +55,7 @@ function buildOcrFormData(payload) {
     appendFormField(form, "upload_id", source.upload_id);
     appendFormField(form, "source_url", source.source_url);
     appendFormField(form, "provider", ocr.provider);
+    appendFormField(form, "ocr_credential_ref", ocr.credential_ref);
     appendFormField(form, "mineru_token", ocr.mineru_token);
     appendFormField(form, "paddle_token", ocr.paddle_token);
     appendFormField(form, "paddle_api_url", ocr.paddle_api_url);
@@ -76,6 +77,7 @@ function buildOcrFormData(payload) {
         appendFormField(form, "ocr_options", typeof ocrOptions === "string" ? ocrOptions : JSON.stringify(ocrOptions));
     }
     appendFormField(form, "timeout_seconds", runtime.timeout_seconds);
+    appendFormField(form, "no_output_timeout_seconds", runtime.no_output_timeout_seconds);
     appendFormField(form, "job_id", runtime.job_id);
     return form;
 }

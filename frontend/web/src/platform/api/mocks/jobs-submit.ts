@@ -1,4 +1,5 @@
-import { buildJobsEndpoint, submitJson, submitUploadRequest } from "./http.js";
+import { buildJobsEndpoint } from "@retainpdf/api/http";
+import { submitJson, submitUploadRequest } from "./http.js";
 
 function isObject(value) {
   return value && typeof value === "object" && !Array.isArray(value);
@@ -31,6 +32,7 @@ function assertGroupedJobPayload(payload) {
     "rule_profile_name",
     "custom_rules_text",
     "timeout_seconds",
+    "no_output_timeout_seconds",
   ];
   const leakedLegacyFields = legacyTopLevelFields.filter((field) => field in payload);
   if (leakedLegacyFields.length > 0) {
@@ -99,6 +101,7 @@ function buildOcrFormData(payload) {
     appendFormField(form, "ocr_options", typeof options === "string" ? options : JSON.stringify(options));
   }
   appendFormField(form, "timeout_seconds", runtime.timeout_seconds);
+  appendFormField(form, "no_output_timeout_seconds", runtime.no_output_timeout_seconds);
   appendFormField(form, "job_id", runtime.job_id);
   // fallback: if no provider token fields yet, copy generic tokenField handling (ocr token already mapped)
   return form;

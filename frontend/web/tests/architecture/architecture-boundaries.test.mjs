@@ -16,7 +16,7 @@ const BOOTSTRAP_ROOT = join(PROJECT_ROOT, "src/app/bootstrap");
 // 新世界功能层（按功能重组后的 src/features/*），承接原 FEATURE_ROOT 仍然成立的规则。
 const FEATURE_LAYER_ROOT = join(PROJECT_ROOT, "src/features");
 const SOURCE_ROOTS = {
-  api: join(PLATFORM_ROOT, "api/legacy"),
+  api: join(PLATFORM_ROOT, "api/mocks"),
   bootstrap: BOOTSTRAP_ROOT,
   config: join(PLATFORM_ROOT, "config"),
   contracts: join(PLATFORM_ROOT, "contracts"),
@@ -42,8 +42,8 @@ const ROOT_DOM_IMPORT_PATTERN = /from\s+["'](?:\.\.\/)+dom\.js["']/;
 const ROOT_MAIN_IMPORT_PATTERN = /from\s+["'](?:\.\/src\/js\/main\.js|(?:\.\.\/)+main\.js)["']/;
 const WEBAWESOME_USAGE_PATTERN = /@awesome\.me\/webawesome|<wa-|wa-(?:button|dialog|progress|badge|card|progress-ring|progress-bar)\b|WebAwesome|Web Awesome/;
 const SHARED_DIALOG_SHELL_SELECTOR_PATTERN = /^\s*\.(?:app-(?:dialog|confirm|floating)-[\w-]+|desktop-dialog|desktop-shell|desktop-head|desktop-body|dialog-close-btn)(?:\s|[,{:#.])/m;
-const RAW_RADIX_DIALOG_IMPORT_PATTERN = /import\s*\{[^}]*\bDialog\s+as\s+DialogPrimitive\b[^}]*\}\s*from\s*["']radix-ui["']/s;
-const BROWSER_BLOCKING_DIALOG_PATTERN = /\b(?:window\.)?(?:alert|confirm|prompt)\s*\(/;
+const RAW_RADIX_DIALOG_IMPORT_PATTERN = /import\s*\{[^}]*\bDialog\b[^}]*\}\s*from\s*["'](?:@radix-ui\/react-dialog|radix-ui)["']/s;
+const BROWSER_BLOCKING_DIALOG_PATTERN = /\b(?:window\.|globalThis\.)?(?:alert|confirm|prompt)\s*\(/;
 const APP_UPDATE_SELECTOR_PATTERN = /^\s*\.app-update-[\w-]+(?:\s|[,{:#.])/m;
 const LIBRARY_SHELL_SELECTOR_PATTERN = /^\s*(?:\.(?:page|app-shell|topbar|app-shell-header|library-[\w-]+|home-action-btn|brand-[\w-]+|hero(?:-[\w-]+)?)(?:\s|[,{:#.])|#recent-jobs-list\.library-grid\b|\.recent-jobs-more-row\s+#load-more-jobs-btn\b)/m;
 const API_PREFIX_FROM_ROOT_CONSTANTS_PATTERN = /import\s*{[^}]*API_PREFIX[^}]*}\s*from\s+["'](?:\.\.\/)+constants\.js["']/s;
@@ -249,12 +249,13 @@ test("upload workflow presentation components stay independent from home service
 });
 
 test("book detail tab and artifact components stay independent from APIs and home services", () => {
-  // book-detail 已随按功能重组迁至 src/features/book-detail。
+  // book-detail 已随按功能重组迁至 src/features/book-detail；死文件
+  // ui/artifacts/* 删除后产物组件真值在 tabs/artifact-center。
   const detailRoot = join(PROJECT_ROOT, "src/features/book-detail/ui");
   // 逐个根校验存在性与非空，避免其中一个根被搬走后另一个把总数撑起来、本门禁半哑。
   const presentationFiles = scanRoots([
     join(detailRoot, "tabs"),
-    join(detailRoot, "artifacts"),
+    join(detailRoot, "tabs/artifact-center"),
   ]);
   const offenders = presentationFiles
     .filter((file) => /useHomeServices|home-services-context|composition\/|@retainpdf\/api|domain\/controller/.test(readFileSync(file, "utf8")))
@@ -300,7 +301,11 @@ test("application dialogs use the shared dialog component boundary", () => {
 
 test("production React UI does not use browser blocking dialogs", () => {
   const offenders = findMatchingSources(
-    scanRoots([join(PROJECT_ROOT, "src/app"), join(PROJECT_ROOT, "src/ui")]),
+    scanRoots([
+      join(PROJECT_ROOT, "src/app"),
+      join(PROJECT_ROOT, "src/ui"),
+      join(PROJECT_ROOT, "src/features"),
+    ]),
     BROWSER_BLOCKING_DIALOG_PATTERN,
   );
 
@@ -645,7 +650,7 @@ test("upload controller reads upload state only through upload state port", () =
 // features 只允许经这一条路径引用 app 层：主页装配出来的 DI 容器。
 //
 // 为什么不能靠搬文件消除：useHomeServices() 要的是 HomeApp 装配出来的**实例**，
-// 而它的类型 HomeServices（composition/types.ts + types-split/ 共 692 行）引用了
+// 而它的类型 HomeServices（composition/types.ts）引用了
 // 每一个功能的类型。把 context 下沉到 platform 会造成 platform → features，
 // 比现状更糟。正确终局是按域拆窄 Context（代码里已有 useHomeDialogStore /
 // useHomeStatusAreaStore / useHomeWorkflowDialog / useHomeSettingsHub 四个先例），
@@ -658,9 +663,9 @@ const HOME_SERVICES_CONTEXT_CONSUMERS = Object.freeze([
   "src/features/book-detail/ui/BookDetailDialog.tsx",
   "src/features/book-detail/ui/panels/translate/TranslateProgress.tsx",
   "src/features/ingest/ui/InlineErrorBox.tsx",
-  "src/features/ingest/ui/TranslationWorkflowDialog.tsx",
+  "src/features/ingest/ui/IngestDialog.tsx",
   "src/features/ingest/ui/WorkflowPanel.tsx",
-  "src/features/ingest/ui/components/PageRangeDialog.tsx",
+  "src/features/ingest/ui/components/TranslationOptionsPanel.tsx",
   "src/features/ingest/ui/components/UploadTile.tsx",
   "src/features/job-detail/ui/panels/FailurePanel.tsx",
   "src/features/job-detail/ui/panels/OverviewPanel.tsx",
@@ -934,9 +939,11 @@ test("reader, search, and recent-job images use the canonical API package", () =
   );
   assert.doesNotMatch(readerData, /loadAiChat\s*:/, "deprecated Reader AI chat must not be wired");
 
-  const legacySearchAdapter = readFileSync(join(PROJECT_ROOT, "src/platform/api/legacy/search.ts"), "utf8");
-  assert.match(legacySearchAdapter, /from\s+["']@retainpdf\/api\/search["']/);
-  assert.doesNotMatch(legacySearchAdapter, /\bfetch\s*\(/, "search adapter must not duplicate HTTP logic");
+  // 搜索的 mock 适配器不得自带 HTTP；canonical 客户端由平台 barrel 接线。
+  const searchMockAdapter = readFileSync(join(PROJECT_ROOT, "src/platform/api/mocks/search.ts"), "utf8");
+  assert.doesNotMatch(searchMockAdapter, /\bfetch\s*\(/, "search mock adapter must not duplicate HTTP logic");
+  const apiBarrel = readFileSync(join(PROJECT_ROOT, "src/platform/api/index.ts"), "utf8");
+  assert.match(apiBarrel, /from\s+["']@retainpdf\/api\/search["']/);
 
   // 卡片 presenter 与图片加载器已随 library 功能迁至 features/library/domain/card。
   for (const file of [
@@ -947,8 +954,8 @@ test("reader, search, and recent-job images use the canonical API package", () =
     assert.match(source, /from\s+["']@retainpdf\/api\/job-images["']/);
     assert.doesNotMatch(source, /api\/job-images\.js/);
   }
-  assert.equal(existsSync(join(PROJECT_ROOT, "src/platform/api/legacy/job-images.ts")), false);
-  assert.equal(existsSync(join(PROJECT_ROOT, "src/platform/api/legacy/reader.ts")), false);
+  assert.equal(existsSync(join(PROJECT_ROOT, "src/platform/api/legacy")), false);
+  assert.equal(existsSync(join(PROJECT_ROOT, "src/platform/api/mocks/search.ts")), true);
 });
 
 test("job cancellation and OCR ambiguity recovery use canonical endpoint clients", () => {

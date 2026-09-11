@@ -1,12 +1,41 @@
-function emptyState() {
-  return {
-    status: "idle",
-    data: null,
-    error: null,
-    requestId: 0,
-    updatedAt: 0,
-  };
+// 稳定序列化(默认 cacheKey 用):对象键排序,避免 JSON 键序抖动造成缓存键漂移。
+// 与 JSON.stringify 保持一致的取舍:undefined/函数/Symbol 字段丢弃,Date 等
+// 带 toJSON 的对象走原生序列化。
+function stableSerialize(value) {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+  if (typeof value.toJSON === "function") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    const items = [];
+    for (const item of value) {
+      const serialized = stableSerialize(item);
+      items.push(serialized === undefined ? "null" : serialized);
+    }
+    return `[${items.join(",")}]`;
+  }
+  const parts = [];
+  for (const key of Object.keys(value).sort()) {
+    const serialized = stableSerialize(value[key]);
+    if (serialized === undefined) {
+      continue;
+    }
+    parts.push(`${JSON.stringify(key)}:${serialized}`);
+  }
+  return `{${parts.join(",")}}`;
 }
+
+ function emptyState() {
+   return {
+     status: "idle",
+     data: null,
+     error: null,
+     requestId: 0,
+     updatedAt: 0,
+   };
+ }
 
 export function createResource({
   name = "resource",
@@ -19,6 +48,8 @@ export function createResource({
   let state = emptyState();
   const listeners = new Set<(snapshot: any, meta: any) => void>();
   const cache = new Map();
+  // 同 key 在途去重:并发 load 复用同一 promise,settled 后删除。
+  const inflight = new Map();
 
   function snapshot() {
     return Object.freeze({ ...state });
@@ -27,7 +58,11 @@ export function createResource({
   function emit() {
     const next = snapshot();
     for (const listener of listeners) {
-      listener(next, { resource: name });
+      try {
+        listener(next, { resource: name });
+      } catch (error) {
+        console.error(`Resource "${name}" listener failed:`, error);
+      }
     }
   }
 
@@ -48,33 +83,51 @@ export function createResource({
     if (typeof cacheKey === "string") {
       return cacheKey;
     }
-    return JSON.stringify(params ?? {});
+    return stableSerialize(params ?? {});
   }
 
   async function load(params = {}, options: any = {}) {
     const key = keyFor(params);
     if (options.cache !== false && cache.has(key)) {
+      // 缓存命中同样推进 requestId:之后才 settle 的旧在途一律过期,避免慢请求反超覆盖。
+      const requestId = state.requestId + 1;
       return setState({
         status: "success",
         data: cache.get(key),
         error: null,
+        requestId,
       });
+    }
+    if (inflight.has(key)) {
+      return inflight.get(key);
     }
     const requestId = state.requestId + 1;
     setState({ status: "loading", error: null, requestId });
-    try {
-      const data = await loader(params, { resource: name, requestId });
-      if (state.requestId !== requestId) {
-        return snapshot();
+    const pending = (async () => {
+      try {
+        const data = await loader(params, { resource: name, requestId });
+        if (state.requestId !== requestId) {
+          return snapshot();
+        }
+        cache.set(key, data);
+        return setState({ status: "success", data, error: null });
+      } catch (error) {
+        if (state.requestId !== requestId) {
+          return snapshot();
+        }
+        // 后台刷新失败默认保留旧 data;仅 keepData:false 显式清空。
+        if (options.keepData === false) {
+          return setState({ status: "error", error, data: null });
+        }
+        return setState({ status: "error", error });
+      } finally {
+        if (inflight.get(key) === pending) {
+          inflight.delete(key);
+        }
       }
-      cache.set(key, data);
-      return setState({ status: "success", data, error: null });
-    } catch (error) {
-      if (state.requestId !== requestId) {
-        return snapshot();
-      }
-      return setState({ status: "error", error, data: null });
-    }
+    })();
+    inflight.set(key, pending);
+    return pending;
   }
 
   function invalidate(params = null) {
@@ -97,8 +150,13 @@ export function createResource({
     return snapshot();
   }
 
-  function reset() {
+  function reset(options: any = {}) {
     state = emptyState();
+    // reset 默认清 cache(旧数据不跨重置复活);传 keepCache:true 显式保留。
+    if (options.keepCache !== true) {
+      cache.clear();
+    }
+    inflight.clear();
     emit();
   }
 

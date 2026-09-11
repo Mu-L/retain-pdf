@@ -1,7 +1,7 @@
 // composition/external/api — canonical barrel, re-exports from @retainpdf/api
 // Source of truth for ALL API clients is now @retainpdf/api; this barrel keeps
 // the public import surface (pages/home/* stays `from "@/platform/api/index.js"`), but
-// delegates to @retainpdf/api. Mock adapters remain here so mock mode stays identical;
+// delegates to @retainpdf/api. Mock adapters live in ./mocks so mock mode stays identical;
 
 // http primitives — canonical (no mock branching)
 export {
@@ -31,7 +31,7 @@ export type {
 import { isMockMode } from "@/platform/config/runtime.js";
 import { fetchMockProtected } from "@/platform/mock/index.js";
 import { fetchProtected as _canonFetchProtected, submitJson as _canonSubmitJson, submitUploadRequest as _canonSubmitUploadRequest } from "@retainpdf/api/http";
-import { submitJson as _legacySubmitJson, submitUploadRequest as _legacySubmitUploadRequest } from "@/platform/api/legacy/http.js";
+import { submitJson as _mockSubmitJson, submitUploadRequest as _mockSubmitUploadRequest } from "./mocks/http.js";
 
 /**
  * mock 模式走 mockImpl，否则直接调 canonical 实现。
@@ -58,11 +58,11 @@ export const fetchProtected = async (url: string, options: RequestInit = {}): Pr
   return _canonFetchProtected(url, options);
 };
 export const submitJson = async (url: string, payload: unknown): Promise<any> => {
-  if (isMockMode()) return _legacySubmitJson(url, payload);
+  if (isMockMode()) return _mockSubmitJson(url, payload);
   return _canonSubmitJson(url, payload);
 };
 export const submitUploadRequest = (url: string, form: FormData, onProgress?: (a:number,b:number)=>void): Promise<any> => {
-  if (isMockMode()) return _legacySubmitUploadRequest(url, form, onProgress);
+  if (isMockMode()) return _mockSubmitUploadRequest(url, form, onProgress);
   return _canonSubmitUploadRequest(url, form, onProgress);
 };
 export const submitUploadRequestHttp = submitUploadRequest;
@@ -92,7 +92,10 @@ export const fetchJobPayload = async (jobId: string, options?: { apiPrefix?: str
 };
 
 export const fetchJobList = async (apiPrefix: string, opts: any = {}): Promise<any> => {
-  if (isMockMode()) { void apiPrefix; void opts; return getMockJobList(); }
+  if (isMockMode()) {
+    const { limit = 20, offset = 0, q = "" } = opts || {};
+    return getMockJobList({ limit, offset, q });
+  }
   return (_fetchJobList as any)(apiPrefix, opts);
 };
 
@@ -117,22 +120,21 @@ export const deleteLibraryBook = async (apiPrefix: string, jobId: string, opts: 
 };
 
 // --- Remaining API groups: mock-aware wrappers delegating to @retainpdf/api for real network ---
-// Import legacy (mock-aware) and canonical (pure) side-by-side; wrapper picks based on isMockMode.
-import * as LegacyJobsEvents from "@/platform/api/legacy/jobs-events.js";
+// Import mock adapters (./mocks) and canonical (pure) side-by-side; wrapper picks based on isMockMode.
+import * as MockJobsEvents from "./mocks/jobs-events.js";
 import { fetchJobEvents as _canonFetchJobEvents } from "@retainpdf/api/jobs-events";
-export const fetchJobEvents = mockable(_canonFetchJobEvents, LegacyJobsEvents.fetchJobEvents);
+export const fetchJobEvents = mockable(_canonFetchJobEvents, MockJobsEvents.fetchJobEvents);
 
-import * as LegacyJobsArtifacts from "@/platform/api/legacy/jobs-artifacts.js";
-import { fetchJobArtifacts as _canonFetchJobArtifacts, fetchJobArtifactsManifest as _canonFetchJobArtifactsManifest, fetchJobMarkdown as _canonFetchJobMarkdown, fetchJobMarkdownDocument as _canonFetchJobMarkdownDocument } from "@retainpdf/api/jobs-artifacts";
+import * as MockJobsArtifacts from "./mocks/jobs-artifacts.js";
+import { fetchJobArtifacts as _canonFetchJobArtifacts, fetchJobArtifactsManifest as _canonFetchJobArtifactsManifest, fetchJobMarkdown as _canonFetchJobMarkdown } from "@retainpdf/api/jobs-artifacts";
 export type { JobArtifactLinks } from "@retainpdf/api/jobs-artifacts";
 // Mock manifests already carry the complete artifact set; avoid a second
 // network-shaped projection that the mock backend does not expose.
 export const fetchJobArtifacts = mockable(_canonFetchJobArtifacts, () => null);
-export const fetchJobArtifactsManifest = mockable(_canonFetchJobArtifactsManifest, LegacyJobsArtifacts.fetchJobArtifactsManifest);
-export const fetchJobMarkdown = mockable(_canonFetchJobMarkdown, LegacyJobsArtifacts.fetchJobMarkdown);
-export const fetchJobMarkdownDocument = mockable(_canonFetchJobMarkdownDocument, LegacyJobsArtifacts.fetchJobMarkdownDocument);
+export const fetchJobArtifactsManifest = mockable(_canonFetchJobArtifactsManifest, MockJobsArtifacts.fetchJobArtifactsManifest);
+export const fetchJobMarkdown = mockable(_canonFetchJobMarkdown, MockJobsArtifacts.fetchJobMarkdown);
 
-import * as LegacyJobsActions from "@/platform/api/legacy/jobs-actions.js";
+import * as MockJobsActions from "./mocks/jobs-actions.js";
 import { cancelJob as _canonCancelJob, cancelOcrJob as _canonCancelOcrJob, fetchJobDiagnostics as _canonFetchJobDiagnostics, fetchJobStageActions as _canonFetchJobStageActions, fetchResumePlan as _canonFetchResumePlan, resolveOcrAmbiguity as _canonResolveOcrAmbiguity, resumeJob as _canonResumeJob, rerunJob as _canonRerunJob, retryJobStage as _canonRetryJobStage } from "@retainpdf/api/jobs-actions";
 export type {
   JobRetryStage,
@@ -145,74 +147,75 @@ export type {
   OcrAmbiguityResolutionView,
   OcrAmbiguityView,
 } from "@retainpdf/api/jobs-actions";
-export const fetchJobDiagnostics = mockable(_canonFetchJobDiagnostics, LegacyJobsActions.fetchJobDiagnostics);
-export const fetchJobStageActions = mockable(_canonFetchJobStageActions, LegacyJobsActions.fetchJobStageActions);
-export const fetchResumePlan = mockable(_canonFetchResumePlan, LegacyJobsActions.fetchResumePlan);
-export const resumeJob = mockable(_canonResumeJob, LegacyJobsActions.resumeJob);
-export const cancelJob = mockable(_canonCancelJob, LegacyJobsActions.cancelJob);
-export const cancelOcrJob = mockable(_canonCancelOcrJob, LegacyJobsActions.cancelOcrJob);
-export const resolveOcrAmbiguity = mockable(_canonResolveOcrAmbiguity, LegacyJobsActions.resolveOcrAmbiguity);
-export const rerunJob = mockable(_canonRerunJob, LegacyJobsActions.rerunJob);
-export const retryJobStage = mockable(_canonRetryJobStage, LegacyJobsActions.retryJobStage);
+export const fetchJobDiagnostics = mockable(_canonFetchJobDiagnostics, MockJobsActions.fetchJobDiagnostics);
+export const fetchJobStageActions = mockable(_canonFetchJobStageActions, MockJobsActions.fetchJobStageActions);
+export const fetchResumePlan = mockable(_canonFetchResumePlan, MockJobsActions.fetchResumePlan);
+export const resumeJob = mockable(_canonResumeJob, MockJobsActions.resumeJob);
+export const cancelJob = mockable(_canonCancelJob, MockJobsActions.cancelJob);
+export const cancelOcrJob = mockable(_canonCancelOcrJob, MockJobsActions.cancelOcrJob);
+export const resolveOcrAmbiguity = mockable(_canonResolveOcrAmbiguity, MockJobsActions.resolveOcrAmbiguity);
+export const rerunJob = mockable(_canonRerunJob, MockJobsActions.rerunJob);
+export const retryJobStage = mockable(_canonRetryJobStage, MockJobsActions.retryJobStage);
 
-import * as LegacyJobsSubmit from "@/platform/api/legacy/jobs-submit.js";
+import * as MockJobsSubmit from "./mocks/jobs-submit.js";
 import { submitJobRequest as _canonSubmitJobRequest } from "@retainpdf/api/jobs-submit";
-export const submitJobRequest = mockable(_canonSubmitJobRequest, LegacyJobsSubmit.submitJobRequest);
+export const submitJobRequest = mockable(_canonSubmitJobRequest, MockJobsSubmit.submitJobRequest);
 
-import * as LegacyDocuments from "@/platform/api/legacy/documents.js";
-import { fetchDocumentList as _canonFetchDocumentList, fetchDocument as _canonFetchDocument, fetchDocumentByJobId as _canonFetchDocumentByJobId, fetchDocumentJobs as _canonFetchDocumentJobs, ocrDocument as _canonOcrDocument, translateDocument as _canonTranslateDocument, deleteDocument as _canonDeleteDocument, patchDocument as _canonPatchDocument, createDocumentMetadataSuggestion as _canonCreateDocumentMetadataSuggestion, fetchDocumentMetadataSuggestions as _canonFetchDocumentMetadataSuggestions } from "@retainpdf/api/documents";
-export const fetchDocumentList = mockable(_canonFetchDocumentList, LegacyDocuments.fetchDocumentList);
-export const fetchDocumentByJobId = mockable(_canonFetchDocumentByJobId, LegacyDocuments.fetchDocumentByJobId);
-export const fetchDocument = mockable(_canonFetchDocument, LegacyDocuments.fetchDocument);
-export const translateDocument = mockable(_canonTranslateDocument, LegacyDocuments.translateDocument);
-export const ocrDocument = mockable(_canonOcrDocument, LegacyDocuments.ocrDocument);
-export const fetchDocumentJobs = mockable(_canonFetchDocumentJobs, LegacyDocuments.fetchDocumentJobs);
-export const deleteDocument = mockable(_canonDeleteDocument, LegacyDocuments.deleteDocument);
-export const patchDocument = mockable(_canonPatchDocument, LegacyDocuments.patchDocument);
+import * as MockDocuments from "./mocks/documents.js";
+import { fetchDocumentList as _canonFetchDocumentList, fetchDocument as _canonFetchDocument, fetchDocumentByJobId as _canonFetchDocumentByJobId, fetchDocumentJobs as _canonFetchDocumentJobs, ocrDocument as _canonOcrDocument, translateDocument as _canonTranslateDocument, deleteDocument as _canonDeleteDocument, clearFavorites as _canonClearFavorites, patchDocument as _canonPatchDocument, createDocumentMetadataSuggestion as _canonCreateDocumentMetadataSuggestion, fetchDocumentMetadataSuggestions as _canonFetchDocumentMetadataSuggestions } from "@retainpdf/api/documents";
+export const fetchDocumentList = mockable(_canonFetchDocumentList, MockDocuments.fetchDocumentList);
+export const fetchDocumentByJobId = mockable(_canonFetchDocumentByJobId, MockDocuments.fetchDocumentByJobId);
+export const fetchDocument = mockable(_canonFetchDocument, MockDocuments.fetchDocument);
+export const translateDocument = mockable(_canonTranslateDocument, MockDocuments.translateDocument);
+export const ocrDocument = mockable(_canonOcrDocument, MockDocuments.ocrDocument);
+export const fetchDocumentJobs = mockable(_canonFetchDocumentJobs, MockDocuments.fetchDocumentJobs);
+export const deleteDocument = mockable(_canonDeleteDocument, MockDocuments.deleteDocument);
+export const clearFavorites = mockable(_canonClearFavorites, MockDocuments.clearFavorites);
+export const patchDocument = mockable(_canonPatchDocument, MockDocuments.patchDocument);
 export const createDocumentMetadataSuggestion = mockable(_canonCreateDocumentMetadataSuggestion, () => null);
 export const fetchDocumentMetadataSuggestions = mockable(_canonFetchDocumentMetadataSuggestions, () => []);
 
-import * as LegacyCollections from "@/platform/api/legacy/collections.js";
+import * as MockCollections from "./mocks/collections.js";
 import { listCollections as _canonListCollections, createCollection as _canonCreateCollection, patchCollection as _canonPatchCollection, deleteCollection as _canonDeleteCollection, addDocumentsToCollection as _canonAddDocumentsToCollection, removeDocumentFromCollection as _canonRemoveDocumentFromCollection } from "@retainpdf/api/collections";
-export const listCollections = mockable(_canonListCollections, LegacyCollections.listCollections);
-export const createCollection = mockable(_canonCreateCollection, LegacyCollections.createCollection);
-export const patchCollection = mockable(_canonPatchCollection, LegacyCollections.patchCollection);
-export const deleteCollection = mockable(_canonDeleteCollection, LegacyCollections.deleteCollection);
-export const addDocumentsToCollection = mockable(_canonAddDocumentsToCollection, LegacyCollections.addDocumentsToCollection);
-export const removeDocumentFromCollection = mockable(_canonRemoveDocumentFromCollection, LegacyCollections.removeDocumentFromCollection);
+export const listCollections = mockable(_canonListCollections, MockCollections.listCollections);
+export const createCollection = mockable(_canonCreateCollection, MockCollections.createCollection);
+export const patchCollection = mockable(_canonPatchCollection, MockCollections.patchCollection);
+export const deleteCollection = mockable(_canonDeleteCollection, MockCollections.deleteCollection);
+export const addDocumentsToCollection = mockable(_canonAddDocumentsToCollection, MockCollections.addDocumentsToCollection);
+export const removeDocumentFromCollection = mockable(_canonRemoveDocumentFromCollection, MockCollections.removeDocumentFromCollection);
 
-import * as LegacyFavorites from "@/platform/api/legacy/favorites.js";
+import * as MockFavorites from "./mocks/favorites.js";
 import { fetchFavorites as _canonFetchFavorites, createFavorite as _canonCreateFavorite, deleteFavorite as _canonDeleteFavorite } from "@retainpdf/api/favorites";
-export const fetchFavorites = mockable(_canonFetchFavorites, LegacyFavorites.fetchFavorites);
-export const createFavorite = mockable(_canonCreateFavorite, LegacyFavorites.createFavorite);
-export const deleteFavorite = mockable(_canonDeleteFavorite, LegacyFavorites.deleteFavorite);
+export const fetchFavorites = mockable(_canonFetchFavorites, MockFavorites.fetchFavorites);
+export const createFavorite = mockable(_canonCreateFavorite, MockFavorites.createFavorite);
+export const deleteFavorite = mockable(_canonDeleteFavorite, MockFavorites.deleteFavorite);
 
-import * as LegacyProviders from "@/platform/api/legacy/providers.js";
+import * as MockProviders from "./mocks/providers.js";
 import { validateDeepSeekToken as _canonValidateDeepSeekToken, queryDeepSeekBalance as _canonQueryDeepSeekBalance, validatePaddleToken as _canonValidatePaddleToken } from "@retainpdf/api/providers";
-export const validateDeepSeekToken = mockable(_canonValidateDeepSeekToken, LegacyProviders.validateDeepSeekToken);
-export const queryDeepSeekBalance = mockable(_canonQueryDeepSeekBalance, LegacyProviders.queryDeepSeekBalance);
-export const validatePaddleToken = mockable(_canonValidatePaddleToken, LegacyProviders.validatePaddleToken);
+export const validateDeepSeekToken = mockable(_canonValidateDeepSeekToken, MockProviders.validateDeepSeekToken);
+export const queryDeepSeekBalance = mockable(_canonQueryDeepSeekBalance, MockProviders.queryDeepSeekBalance);
+export const validatePaddleToken = mockable(_canonValidatePaddleToken, MockProviders.validatePaddleToken);
 
-import * as LegacyGlossaries from "@/platform/api/legacy/glossaries.js";
+import * as MockGlossaries from "./mocks/glossaries.js";
 import { fetchGlossaries as _canonFetchGlossaries, fetchGlossary as _canonFetchGlossary, createGlossary as _canonCreateGlossary, updateGlossary as _canonUpdateGlossary, deleteGlossary as _canonDeleteGlossary, exportGlossaryCsv as _canonExportGlossaryCsv, parseGlossaryCsv as _canonParseGlossaryCsv } from "@retainpdf/api/glossaries";
-export const fetchGlossariesApi = mockable(_canonFetchGlossaries, LegacyGlossaries.fetchGlossaries);
-export const fetchGlossaryApi = mockable(_canonFetchGlossary, LegacyGlossaries.fetchGlossary);
-export const createGlossaryApi = mockable(_canonCreateGlossary, LegacyGlossaries.createGlossary);
-export const updateGlossaryApi = mockable(_canonUpdateGlossary, LegacyGlossaries.updateGlossary);
-export const deleteGlossaryApi = mockable(_canonDeleteGlossary, LegacyGlossaries.deleteGlossary);
-export const exportGlossaryCsvApi = mockable(_canonExportGlossaryCsv, LegacyGlossaries.exportGlossaryCsv);
-export const parseGlossaryCsvApi = mockable(_canonParseGlossaryCsv, LegacyGlossaries.parseGlossaryCsv);
+export const fetchGlossariesApi = mockable(_canonFetchGlossaries, MockGlossaries.fetchGlossaries);
+export const fetchGlossaryApi = mockable(_canonFetchGlossary, MockGlossaries.fetchGlossary);
+export const createGlossaryApi = mockable(_canonCreateGlossary, MockGlossaries.createGlossary);
+export const updateGlossaryApi = mockable(_canonUpdateGlossary, MockGlossaries.updateGlossary);
+export const deleteGlossaryApi = mockable(_canonDeleteGlossary, MockGlossaries.deleteGlossary);
+export const exportGlossaryCsvApi = mockable(_canonExportGlossaryCsv, MockGlossaries.exportGlossaryCsv);
+export const parseGlossaryCsvApi = mockable(_canonParseGlossaryCsv, MockGlossaries.parseGlossaryCsv);
 
-import * as LegacyTranslationDebug from "@/platform/api/legacy/translation-debug.js";
+import * as MockTranslationDebug from "./mocks/translation-debug.js";
 import { fetchTranslationDiagnostics as _canonFetchTranslationDiagnostics, fetchTranslationItems as _canonFetchTranslationItems, fetchTranslationItem as _canonFetchTranslationItem, replayTranslationItem as _canonReplayTranslationItem } from "@retainpdf/api/translation-debug";
-export const fetchTranslationDiagnostics = mockable(_canonFetchTranslationDiagnostics, LegacyTranslationDebug.fetchTranslationDiagnostics);
-export const fetchTranslationItems = mockable(_canonFetchTranslationItems, LegacyTranslationDebug.fetchTranslationItems);
-export const fetchTranslationItem = mockable(_canonFetchTranslationItem, LegacyTranslationDebug.fetchTranslationItem);
-export const replayTranslationItem = mockable(_canonReplayTranslationItem, LegacyTranslationDebug.replayTranslationItem);
+export const fetchTranslationDiagnostics = mockable(_canonFetchTranslationDiagnostics, MockTranslationDebug.fetchTranslationDiagnostics);
+export const fetchTranslationItems = mockable(_canonFetchTranslationItems, MockTranslationDebug.fetchTranslationItems);
+export const fetchTranslationItem = mockable(_canonFetchTranslationItem, MockTranslationDebug.fetchTranslationItem);
+export const replayTranslationItem = mockable(_canonReplayTranslationItem, MockTranslationDebug.replayTranslationItem);
 
-import * as LegacyAi from "@/platform/api/legacy/ai.js";
+import * as MockAi from "./mocks/ai.js";
 import { askLibraryAi as _canonAskLibraryAi, readAiAskStream as _canonReadAiAskStream, AiAskError as _CanonAiAskError } from "@retainpdf/api/ai";
-export const askLibraryAi = mockable(_canonAskLibraryAi, LegacyAi.askLibraryAi);
+export const askLibraryAi = mockable(_canonAskLibraryAi, MockAi.askLibraryAi);
 export const readAiAskStream = _canonReadAiAskStream;
 export const AiAskError = _CanonAiAskError;
 
@@ -248,19 +251,19 @@ export const fetchAgentOperationCandidate = async (
 ): Promise<Blob> => _canonFetchAgentOperationCandidate(...args);
 export const buildAgentOperationCandidateUrl = _canonBuildAgentOperationCandidateUrl;
 
-import * as LegacyConversations from "@/platform/api/legacy/conversations.js";
+import * as MockConversations from "./mocks/conversations.js";
 import { deleteConversation as _canonDeleteConversation, getConversation as _canonGetConversation, listConversations as _canonListConversations, patchConversation as _canonPatchConversation, createConversation as _canonCreateConversation, appendConversationMessage as _canonAppendConversationMessage, forkConversationFromPath as _canonForkConversationFromPath } from "@retainpdf/api/conversations";
-export const deleteConversation = mockable(_canonDeleteConversation, LegacyConversations.deleteConversation);
-export const getConversation = mockable(_canonGetConversation, LegacyConversations.getConversation);
-export const listConversations = mockable(_canonListConversations, LegacyConversations.listConversations);
-export const patchConversation = mockable(_canonPatchConversation, LegacyConversations.patchConversation);
-export const createConversation = mockable(_canonCreateConversation, LegacyConversations.createConversation);
-export const appendConversationMessage = mockable(_canonAppendConversationMessage, LegacyConversations.appendConversationMessage);
-export const forkConversationFromPath = mockable(_canonForkConversationFromPath, LegacyConversations.forkConversationFromPath);
+export const deleteConversation = mockable(_canonDeleteConversation, MockConversations.deleteConversation);
+export const getConversation = mockable(_canonGetConversation, MockConversations.getConversation);
+export const listConversations = mockable(_canonListConversations, MockConversations.listConversations);
+export const patchConversation = mockable(_canonPatchConversation, MockConversations.patchConversation);
+export const createConversation = mockable(_canonCreateConversation, MockConversations.createConversation);
+export const appendConversationMessage = mockable(_canonAppendConversationMessage, MockConversations.appendConversationMessage);
+export const forkConversationFromPath = mockable(_canonForkConversationFromPath, MockConversations.forkConversationFromPath);
 export { baseConversationTitle, nextForkConversationTitle, messagesToBranchItems } from "@retainpdf/api/conversations";
 export type { ConversationRecord, MessageRecord, ConversationDetail } from "@retainpdf/api/conversations";
 export type { DocumentRecord } from "@retainpdf/api/documents";
 
-import * as LegacySearch from "@/platform/api/legacy/search.js";
+import * as MockSearch from "./mocks/search.js";
 import { searchLibrary as _canonSearchLibrary } from "@retainpdf/api/search";
-export const searchLibrary = mockable(_canonSearchLibrary, LegacySearch.searchLibrary);
+export const searchLibrary = mockable(_canonSearchLibrary, MockSearch.searchLibrary);

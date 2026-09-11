@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 // 让 config/runtime.js 的 isMockMode()/apiBase() 在 node 下可用(无 jsdom 需求)
 globalThis.window = globalThis.window || { location: { search: "", protocol: "http:", hostname: "127.0.0.1" } };
 
-const { AiAskError, askLibraryAi, readAiAskStream } = await import("@/platform/api/legacy/ai.js");
+const { AiAskError, askLibraryAi, readAiAskStream } = await import("@retainpdf/api/ai");
 const { readAiAskStream: readCanonicalAiAskStream } = await import("@retainpdf/api/ai");
 const {
   buildAgentOperationCandidateUrl,
@@ -16,7 +16,6 @@ const {
   retryAgentOperation,
   runAgentOperation,
 } = await import("@retainpdf/api/document-operations");
-const { setRuntimeConfig } = await import("@/platform/config/runtime.js");
 const { buildScopedQuestion, createReaderAskAnswerer } = await import("../../src/features/reader/domain.js");
 
 function sseStream(chunks = []) {
@@ -198,7 +197,8 @@ test("readAiAskStream:末尾无换行的 done 行也能解析", async () => {
 // ===== askLibraryAi:请求构造与错误分级 =====
 
 test("askLibraryAi:携带 X-API-Key,body 含 question/document_id/job_id/stream", async () => {
-  setRuntimeConfig({ xApiKey: "test-key" });
+  // canonical @retainpdf/api 读 window.__FRONT_RUNTIME_CONFIG__（生产由 runtime-config.js 注入）
+  globalThis.window.__FRONT_RUNTIME_CONFIG__ = { xApiKey: "test-key" };
   const calls = [];
   const result = await askLibraryAi({
     question: "这篇讲什么?",
@@ -213,7 +213,7 @@ test("askLibraryAi:携带 X-API-Key,body 含 question/document_id/job_id/stream"
       };
     },
   });
-  setRuntimeConfig({ xApiKey: "" });
+  delete globalThis.window.__FRONT_RUNTIME_CONFIG__;
 
   assert.equal(result.answer, "答");
   assert.equal(calls.length, 1);

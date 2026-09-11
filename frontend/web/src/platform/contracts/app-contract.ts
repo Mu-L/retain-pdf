@@ -1,14 +1,24 @@
-// 全局 retainpdf:* 事件契约（P=生产者，C=消费者；document CustomEvent）。
+// 调度分工表（跨域刷新/轮询/释放归属，不另设“总调度”）：
+//   书架刷新 —— features/library/domain/recent-jobs/refresh-scheduler.ts
+//     （防抖/节流/挂起/force 粘滞；经下方 library* 事件进入）
+//   任务轮询 —— features/jobs/domain/runtime/（controller + runtime-polling-state，
+//     失败指数退避 1s→15s 封顶，不可见暂停；成功清错）
+//   装配顺序与释放 —— app/home/composition/create-*.ts + create-lifecycle.ts
+//     （dispose 逆序：workflowDialog 事件 → document 事件 → recent-jobs 定时器/
+//     loader/active-refresh → artifacts → jobRuntime.stopPolling）
+//   提交兜底 —— ingest/domain/actions/submit-flow.ts publishSubmitSuccess
+//     （800ms/5s 两路，返回取消函数）
+// 事件契约（P=生产者，C=消费者；document CustomEvent）。
 // openBrowserCredentials: P UploadTile/desktop → C CredentialsDialog(useAppEvent)/credentials/view
 // returnHome: P status-area.returnHome → C create-lifecycle → jobRuntime.returnToHome
 // retryStage: P StageRetry/StatusCardEmbedded → C create-lifecycle → jobRuntime.retryStage
 // statusAreaVisibilityChanged: P status-area.setVisible → C recent-jobs/bindings + workflow-dialog-runtime
 // libraryJobCreated/Updated/RefreshRequested: P library-event-port → C recent-jobs/bindings；
-//   libraryJobUpdated 另被 ReaderDialog(useAppEvent)消费
+//   libraryJobUpdated 另被 ReaderNavigation(useAppEvent)消费
 // open/closeTranslationWorkflow: P dialog-runtime/navigation-port/submit-flow/library-controller →
 //   C recent-jobs/bindings + dialog-runtime 自身（close 先写 data-open，见 composition 注释）
 // openReaderRequested: P library-domain/library-controller/FavoritesView/library-search →
-//   C ReaderDialog(useAppEvent)
+//   C ReaderNavigation(useAppEvent)
 // 已删 submitBusyChanged（原 P app-actions/view.setSubmitBusy，0 消费者，连带 dispatch 与测试期望一起删）。
 // 注意：retainpdf:credentials-changed（裸串，非本表成员）不可删，desktop  bundles 门禁要求其存在。
 export const APP_EVENTS = {

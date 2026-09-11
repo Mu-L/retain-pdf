@@ -1,8 +1,10 @@
 /**
  * Generic immutable store.
  *
- * Action reducers: `(state: TState, ...args) => Partial<TState> | TState`
- * Runtime always replaces state with the returned object (no deep merge).
+ * Action reducers: `(state: TState, ...args) => TState`
+ * Runtime always replaces state with the returned object (no deep merge,
+ * no shallow merge of partials): every action must return the complete next
+ * state, conventionally built with `{ ...state, ...changes }`.
  *
  * Typed call sites:
  *   createStore<State, Actions>({ initialState, actions })
@@ -14,9 +16,10 @@
 
 type IsAny<T> = 0 extends 1 & T ? true : false;
 
-export type StoreActionResult<TState> = Partial<TState> | TState;
+/** Action reducer result: the complete next state (whole replacement). */
+export type StoreActionResult<TState> = TState;
 
-/** Action reducer: (state, ...args) => next state (or partial). */
+/** Action reducer: (state, ...args) => complete next state. */
 export type StoreAction<TState, TArgs extends any[] = any[]> = (
   state: TState,
   ...args: TArgs
@@ -81,7 +84,8 @@ export type CreateStoreOptions<TState, TActions> = {
  * Structural constraint for action maps.
  * Return type is intentionally loose (`any`) so call sites can annotate
  * `state: SomeState` even when `TState` is a narrower inferred object.
- * Documented contract remains Partial<TState> | TState.
+ * Documented contract remains the complete next state (whole replacement,
+ * conventionally `{ ...state, ...changes }`); partial returns are not merged.
  */
 export type StoreActionsConstraint<TState> = Record<
   string,
@@ -184,11 +188,15 @@ export function createStore<
   function notify(actionName: string, previousState: TState) {
     const snapshot = getSnapshot();
     for (const listener of listeners) {
-      listener(snapshot, {
-        action: actionName,
-        previousState: freezeSnapshot(cloneState(previousState)),
-        store: name,
-      });
+      try {
+        listener(snapshot, {
+          action: actionName,
+          previousState: freezeSnapshot(cloneState(previousState)),
+          store: name,
+        });
+      } catch (error) {
+        console.error(`Store "${name}" listener failed:`, error);
+      }
     }
   }
 
@@ -246,6 +254,9 @@ export function createStore<
     return setState(cloneState(nextState), "reset");
   }
 
+  // batch 只合并同步回调内的写入：回调返回后（finally）即结算一次通知，
+  // async 回调跨 await 后的写入走出合并，各自单独通知。需要跨 await 合并
+  // 请分段 batch 或接受多次通知。
   function batch<TResult = TState>(
     callback: (api: StoreBatchApi<TState, TActions>) => TResult,
   ): TResult {

@@ -11,7 +11,7 @@ import {
   getMockDocumentList,
   translateMockDocument,
 } from "@/platform/mock/documents.js";
-import { getMockJobPayload } from "@/platform/mock/index.js";
+import { getMockJobList, getMockJobPayload } from "@/platform/mock/index.js";
 
 test("live mock job advances upload → ocr → translate → render → done", () => {
   resetLiveMockJobs();
@@ -129,4 +129,24 @@ test("translateMockDocument wires live payload via getMockJobPayload", () => {
   // 这里只断言第二次在 cleared state 成功
   assert.ok(again.job_id);
   assert.ok(getMockDocumentList().documents.some((d) => d.document_id === targetId));
+});
+
+test("mock 任务列表（legacy）q/limit/offset 参数真实生效", () => {
+  const previousWindow = globalThis.window;
+  globalThis.window = { location: { search: "" } };
+  try {
+    const baseline = getMockJobList();
+    assert.equal(baseline.items.length, 1, "默认单卡行为不变");
+    assert.equal(baseline.has_more, false);
+    const title = `${baseline.items[0]?.title || ""}`.trim();
+    assert.ok(title, "单卡有标题可查");
+    assert.equal(getMockJobList({ q: title.slice(0, 3) }).items.length, 1, "标题关键字命中");
+    assert.equal(getMockJobList({ q: "zzz-no-such-job" }).items.length, 0, "无命中返回空");
+    const beyond = getMockJobList({ offset: 5 });
+    assert.equal(beyond.items.length, 0, "offset 越界返回空");
+    assert.equal(beyond.offset, 5);
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
 });

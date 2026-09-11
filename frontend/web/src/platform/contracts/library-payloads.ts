@@ -1,7 +1,7 @@
 // 书架卡片与任务提交的纯载荷型别。
 //
-// 原先定义在 `features/library/domain/types.ts`，但 `platform/mock/*` 与
-// `platform/api/legacy/documents.ts` 都要 `import type` 它们——那是
+// 原先定义在 `features/library/domain/types.ts`，但 `platform/mock/*` 都要
+// `import type` 它们——那是
 // `platform → features`，方向反了（C3 的四层门禁会拦）。
 //
 // 这两个型别是后端返回值的形状描述，不含任何行为，本就属于跨功能契约。

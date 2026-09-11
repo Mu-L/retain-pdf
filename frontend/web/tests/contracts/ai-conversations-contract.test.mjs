@@ -18,7 +18,7 @@ const CONTRACT_PATH = join(
 );
 const contract = JSON.parse(readFileSync(CONTRACT_PATH, "utf8"));
 const source = readFileSync(
-  join(process.cwd(), "src/platform/api/legacy/conversations.ts"),
+  join(process.cwd(), "../packages/api/src/conversations.ts"),
   "utf8",
 );
 

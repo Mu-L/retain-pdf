@@ -48,6 +48,8 @@ export type DocumentListQuery = {
     readingStatus?: string;
     tag?: string;
     collectionId?: string;
+    /** 服务端标题/原始文件名包含匹配（后端 LIKE，已转义 %/_）。空串不发送。 */
+    q?: string;
 };
 export type DocumentListView = {
     documents: DocumentRecord[];
@@ -106,8 +108,14 @@ export interface DocumentRequestError extends Error {
     errorCode?: string;
     reason?: string;
     canFallbackToOcr?: boolean;
+    /** DELETE_BLOCKED_BY_FAVORITES: 引用该文档/run 的收藏条数 */
+    favoriteCount?: number;
+    /** DELETE_BLOCKED_BY_FAVORITES: 清空这些收藏的端点路径（后端给好，前端不要自己拼） */
+    clearFavoritesPath?: string;
+    /** "document" | "job"，仅用于展示与日志 */
+    favoriteScope?: "document" | "job" | "";
 }
-export declare function fetchDocumentList(apiPrefix: string, { limit, offset, readingStatus, tag, collectionId }?: DocumentListQuery): Promise<DocumentListView>;
+export declare function fetchDocumentList(apiPrefix: string, { limit, offset, readingStatus, tag, collectionId, q }?: DocumentListQuery): Promise<DocumentListView>;
 export declare function fetchDocumentByJobId(apiPrefix: string, jobId: string): Promise<DocumentRecord | null>;
 export declare function fetchDocument(apiPrefix: string, documentId: string): Promise<DocumentRecord>;
 export declare function patchDocument(apiPrefix: string, documentId: string, payload?: Record<string, unknown>): Promise<DocumentRecord>;
@@ -122,6 +130,12 @@ export declare function applyDocumentMetadataSuggestion(apiPrefix: string, docum
 export declare function deleteDocument(apiPrefix: string, documentId: string, { force }?: {
     force?: boolean;
 }): Promise<any>;
+/**
+ * DELETE `clear_favorites_path`（后端在 DELETE_BLOCKED_BY_FAVORITES 的
+ * error.details 里给好的路径，文档级/run 级共用）。幂等：没有收藏返回 0；
+ * 目标不存在是 404。返回实际删除的收藏条数。
+ */
+export declare function clearFavorites(apiPrefix: string, clearFavoritesPath: string): Promise<number>;
 export declare function translateDocument(apiPrefix: string, documentId: string, payload?: Record<string, unknown>): Promise<DocumentJobSubmissionView>;
 export declare function ocrDocument(apiPrefix: string, documentId: string, payload?: Record<string, unknown>): Promise<any>;
 export declare function submitDocument(apiPrefix: string, documentId: string, payload?: Record<string, unknown>): Promise<DocumentJobSubmissionView>;

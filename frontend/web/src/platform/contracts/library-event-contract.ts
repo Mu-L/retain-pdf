@@ -20,6 +20,7 @@ export interface CreateLibraryEventPortOptions {
 export interface RequestLibraryRefreshOptions {
   delay?: number | string;
   force?: boolean;
+  bypassThrottle?: boolean;
 }
 
 export interface SubscribeLibraryEventsOptions {
@@ -39,13 +40,14 @@ export interface RequestThrottledLibraryRefreshOptions {
   };
   terminal?: boolean;
 }
-
 export function normalizeLibraryRefreshDetail(detail: LibraryRefreshDetailInput = {}) {
   const delay = Number(detail?.delay);
-  return {
+  const normalized: { delay?: number; force: boolean; bypassThrottle?: boolean } = {
     delay: Number.isFinite(delay) ? delay : undefined,
     force: Boolean(detail?.force),
   };
+  if (detail?.bypassThrottle) normalized.bypassThrottle = true;
+  return normalized;
 }
 
 export function normalizeLibraryJobDetail(detail: LibraryJobDetailInput = {}) {
@@ -56,11 +58,12 @@ export function normalizeLibraryJobDetail(detail: LibraryJobDetailInput = {}) {
 
 export function createLibraryEventPort({ target = document }: CreateLibraryEventPortOptions = {}) {
   return {
-    requestRefresh({ delay, force = false }: RequestLibraryRefreshOptions = {}) {
+    requestRefresh({ delay, force = false, bypassThrottle = false }: RequestLibraryRefreshOptions = {}) {
       target.dispatchEvent(new CustomEvent(APP_EVENTS.libraryRefreshRequested, {
         detail: {
           delay: Number.isFinite(Number(delay)) ? Number(delay) : undefined,
           force: Boolean(force),
+          ...(bypassThrottle ? { bypassThrottle: true } : null),
         },
       }));
     },

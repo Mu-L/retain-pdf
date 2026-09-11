@@ -1,5 +1,5 @@
 // 通用对话框开合状态工厂(蓝图 §0.3)——CredentialsDialog/GlossariesDialog/
-// AppUpdate 详情/SettingsHubDialog 等常驻挂载的 AppDialog 共用同一套语义。
+// AppUpdate 详情/SettingsDialog 等常驻挂载的 AppDialog 共用同一套语义。
 //
 // 实现 = createStore 引擎 + 读侧稳定投影(view):
 // - 可克隆 state 形状 { open, payload },转移逻辑收敛在
@@ -86,9 +86,14 @@ export function createDialogStore<T = unknown>(initialPayload: T | null = null):
   const listeners = new Set<(state: DialogState<T>) => void>();
 
   function notify() {
-    listeners.forEach((listener) => listener(view));
+    for (const listener of listeners) {
+      try {
+        listener(view);
+      } catch (error) {
+        console.error("Dialog store listener failed:", error);
+      }
+    }
   }
-
   // engine 为 best-effort 镜像(不可克隆载荷落占位,抛错也不影响真相源 view)。
   function mirrorOpen(payload: T | null) {
     try {
@@ -109,23 +114,28 @@ export function createDialogStore<T = unknown>(initialPayload: T | null = null):
   }
 
   function open(payload: T | null = null): DialogState<T> {
+    // 真值守卫:已开且解析后 payload 同引用 → 状态无变化,不换引用不通知。
+    // null/undefined 保持旧 payload 引用,同引用显式 payload 同理。
+    const resolved = payload === null || payload === undefined ? view.payload : (payload as T);
+    if (view.open && resolved === view.payload) {
+      return view;
+    }
     mirrorOpen(payload);
-    // 语义与原来一致:open 恒换新引用 + 通知;null/undefined 保持旧 payload 引用。
-    view =
-      payload === null || payload === undefined
-        ? { open: true, payload: view.payload }
-        : { open: true, payload: payload as T };
+    view = { open: true, payload: resolved };
     notify();
     return view;
   }
 
   function close(): DialogState<T> {
-    // 语义与原来一致:已关时同引用返回且不通知。
+    // 已关时同引用返回且不通知;关闭清 payload 回初始值,不保留旧负载。
+    // 调用方 survey:无一处依赖 close 后恢复旧 payload(全经 open 显式传参或
+    // 无 payload 对话框);不清反有坏处:CollectionDialog「新建」open(null) 会
+    // 复用上次编辑项。
     if (!view.open) {
       return view;
     }
     mirrorClose();
-    view = { open: false, payload: view.payload };
+    view = { open: false, payload: initial.payload };
     notify();
     return view;
   }

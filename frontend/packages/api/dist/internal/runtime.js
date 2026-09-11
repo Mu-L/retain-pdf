@@ -3,6 +3,36 @@ export const API_PREFIX = "/api/v1";
 const API_V1_SUFFIX = "/api/v1";
 const DEFAULT_FALLBACK_BASE = "http://127.0.0.1:41000";
 const DEFAULT_FALLBACK_PORT = 41000;
+// 与 web 侧 `platform/config/runtime.ts` 对齐：非浏览器环境（桌面/Node/SSR/构建）
+// 允许由环境变量注入 apiBase / X-API-Key，优先级高于 window.__FRONT_RUNTIME_CONFIG__。
+const ENV_API_BASE_NAMES = ["RETAIN_PDF_FRONTEND_API_BASE", "RETAIN_FRONTEND_API_BASE"];
+const ENV_X_API_KEY_NAMES = ["RETAIN_PDF_FRONTEND_X_API_KEY", "RETAIN_FRONTEND_X_API_KEY"];
+function readEnvValue(name) {
+    try {
+        const fromProcess = globalThis?.process?.env?.[name];
+        if (typeof fromProcess === "string" && fromProcess.trim())
+            return fromProcess.trim();
+    }
+    catch { /* 非 Node 环境忽略 */ }
+    try {
+        const fromImport = import.meta?.env?.[name];
+        if (typeof fromImport === "string" && fromImport.trim())
+            return fromImport.trim();
+    }
+    catch { /* 无 import.meta 环境忽略 */ }
+    return "";
+}
+function readEnv(names) {
+    for (const name of names) {
+        const value = readEnvValue(name);
+        if (value)
+            return value;
+    }
+    return "";
+}
+function normalizeApiBase(value) {
+    return value.trim().replace(/\/+$/, "").replace(new RegExp(`${API_V1_SUFFIX}$`), "");
+}
 export function getRuntimeConfig() {
     if (typeof window !== "undefined" && window.__FRONT_RUNTIME_CONFIG__)
         return window.__FRONT_RUNTIME_CONFIG__;
@@ -14,9 +44,12 @@ function isFileProtocol() {
     return window.location.protocol === "file:";
 }
 export function apiBase() {
+    const fromEnv = readEnv(ENV_API_BASE_NAMES);
+    if (fromEnv)
+        return normalizeApiBase(fromEnv);
     const cfg = getRuntimeConfig();
     if (typeof cfg.apiBase === "string" && cfg.apiBase.trim()) {
-        return cfg.apiBase.trim().replace(/\/+$/, "").replace(new RegExp(`${API_V1_SUFFIX}$`), "");
+        return normalizeApiBase(cfg.apiBase);
     }
     if (typeof window === "undefined")
         return DEFAULT_FALLBACK_BASE;
@@ -35,6 +68,9 @@ export function buildApiUrl(apiPrefix, relativePath) {
     return segments.join("/");
 }
 export function frontendApiKey() {
+    const fromEnv = readEnv(ENV_X_API_KEY_NAMES);
+    if (fromEnv)
+        return fromEnv;
     const cfg = getRuntimeConfig();
     const fromModule = typeof cfg.xApiKey === "string" ? cfg.xApiKey.trim() : "";
     if (fromModule)
