@@ -1,7 +1,2 @@
-export declare const TOOL_EVENT_LABELS: Record<string, string>;
-export declare function describeToolEvent(event: {
-    tool?: string;
-    event?: string;
-    type?: string;
-} | string | null | undefined): string;
+export { TOOL_EVENT_LABELS, describeToolEvent } from "@retainpdf/domain/ai";
 //# sourceMappingURL=tool-labels.d.ts.map
