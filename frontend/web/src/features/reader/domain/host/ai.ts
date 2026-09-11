@@ -15,25 +15,36 @@ import {
 import { defaultCredentialsStatePort } from "@/features/credentials/domain.js";
 import { fetchProtected } from "./data.js";
 
+// 注册点参数类型直接取自 reader 包公开工厂签名，避免 any 掩盖契约漂移。
+type ReaderAiConfigAdapters = NonNullable<
+  Parameters<typeof readerAi.setReaderAiConfigAdapters>[0]
+>;
+type AnswerEnhanceAdapters = NonNullable<
+  Parameters<typeof readerAi.setAnswerEnhanceAdapters>[0]
+>;
+type ReaderAskAnswererOptions = NonNullable<
+  Parameters<typeof readerAi.createReaderAskAnswerer>[0]
+>;
+
 readerAi.setReaderAiConfigAdapters({
-  credentialsPort: defaultCredentialsStatePort as any,
-  loadBrowserStoredConfig: loadBrowserStoredConfig as any,
-  loadDeveloperStoredConfig: loadDeveloperStoredConfig as any,
-  defaultModelBaseUrl: defaultModelBaseUrl as any,
-  defaultModelName: defaultModelName as any,
-});
+  credentialsPort: defaultCredentialsStatePort,
+  loadBrowserStoredConfig,
+  loadDeveloperStoredConfig,
+  defaultModelBaseUrl,
+  defaultModelName,
+} satisfies ReaderAiConfigAdapters);
 readerAi.setAnswerEnhanceAdapters({
-  fetchProtected: fetchProtected as any,
-  resolveResourceUrl: resolveResourceUrl as any,
-});
+  fetchProtected,
+  resolveResourceUrl,
+} satisfies AnswerEnhanceAdapters);
 
 export * from "@retainpdf/reader/runtime/ai";
 
-export const createReaderAskAnswerer = (options: any = {}) =>
+export const createReaderAskAnswerer = (options: ReaderAskAnswererOptions = {}) =>
   readerAi.createReaderAskAnswerer({
     apiPrefix: API_PREFIX,
-    ask: askLibraryAi as any,
-    documentByJobId: fetchDocumentByJobId as any,
-    llmConfig: readerAi.resolveReaderAiConfig as any,
+    ask: askLibraryAi,
+    documentByJobId: fetchDocumentByJobId,
+    llmConfig: readerAi.resolveReaderAiConfig,
     ...options,
   });

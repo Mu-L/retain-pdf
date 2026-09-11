@@ -17,7 +17,12 @@ import {
   resolveManifestArtifactUrl,
   resolveResourceUrl,
 } from "@retainpdf/domain/job";
+import type { JobLike } from "@retainpdf/domain/job";
 import * as readerData from "@retainpdf/reader/runtime/data";
+import type {
+  MarkdownRangeResult,
+  MarkdownSourceDescriptor,
+} from "@retainpdf/reader/runtime/data";
 import {
   fetchMockProtected,
   getMockJobArtifactsManifest,
@@ -60,11 +65,14 @@ async function fetchJobMarkdown(jobId: string, apiPrefix?: string): Promise<any>
 // Markdown 原文来源：job detail 的 artifacts.markdown 已提供 raw_url /
 // images_base_url / size_bytes，无需额外的 metadata 端点。mock 也走同一分段路径
 // （把 mock 正文当成本地文件切片），保证开发/测试与生产行为一致。
-async function fetchJobMarkdownSource(jobId: string, apiPrefix?: string): Promise<any> {
+async function fetchJobMarkdownSource(
+  jobId: string,
+  apiPrefix?: string,
+): Promise<MarkdownSourceDescriptor | null> {
   if (isMockMode()) {
     void jobId;
     void apiPrefix;
-    const mock = getMockJobMarkdown() as any;
+    const mock = getMockJobMarkdown();
     const content = `${mock?.content || ""}`;
     if (!content) return null;
     return {
@@ -74,7 +82,9 @@ async function fetchJobMarkdownSource(jobId: string, apiPrefix?: string): Promis
     };
   }
   const job = await fetchApiJobPayload(jobId, apiPrefix ? { apiPrefix } : undefined);
-  const contract = resolveJobMarkdownContract(job as any);
+  // 后端 job detail 的完整契约由 @retainpdf/api 拥有；这里只按消费到的
+  // JobLike 子集读取 markdown artifacts，故收窄而非 any。
+  const contract = resolveJobMarkdownContract(job as unknown as JobLike);
   if (!contract?.rawUrl) return null;
   return {
     rawUrl: contract.rawUrl,
@@ -90,9 +100,9 @@ async function fetchJobMarkdownRange(
   endInclusive: number,
   etag?: string,
   signal?: AbortSignal,
-): Promise<any> {
+): Promise<MarkdownRangeResult> {
   if (isMockMode() && `${rawUrl || ""}`.startsWith("mock://")) {
-    const bytes = new TextEncoder().encode(`${(getMockJobMarkdown() as any)?.content || ""}`);
+    const bytes = new TextEncoder().encode(`${getMockJobMarkdown()?.content || ""}`);
     const slice = bytes.slice(start, Math.min(endInclusive + 1, bytes.length));
     return {
       status: 206,
@@ -153,7 +163,27 @@ export async function fetchProtected(url: string, options: RequestInit = {}): Pr
   return fetchApiProtected(url, options);
 }
 
-export const createReaderDataPort = (options: any = {}) =>
+// 入口参数类型取自 reader 包公开签名，避免 any 掩盖适配契约。
+type ReaderDataPortOptions = NonNullable<
+  Parameters<typeof readerData.createReaderDataPort>[0]
+>;
+type ReaderSourcePdfOptions = NonNullable<
+  Parameters<typeof readerData.resolveReaderSourcePdf>[1]
+>;
+type ReaderTranslatedPdfOptions = NonNullable<
+  Parameters<typeof readerData.resolveReaderTranslatedPdfUrl>[2]
+>;
+type ReaderArtifactUrlOptions = NonNullable<
+  Parameters<typeof readerData.resolveReaderArtifactUrl>[1]
+>;
+type BuildPdfDocumentOptions = NonNullable<
+  Parameters<typeof readerData.buildPdfDocumentOptions>[0]
+>;
+type LoadPdfDocumentOptions = NonNullable<
+  Parameters<typeof readerData.loadPdfDocument>[0]
+>;
+
+export const createReaderDataPort = (options: ReaderDataPortOptions = {}) =>
   readerData.createReaderDataPort({
     apiPrefix: API_PREFIX,
     loadJob: fetchJobPayload,
@@ -169,15 +199,17 @@ export const createReaderDataPort = (options: any = {}) =>
   });
 export const defaultReaderDataPort = createReaderDataPort();
 
-export const resolveReaderArtifactUrl = (item: any, options: any = {}) =>
-  readerData.resolveReaderArtifactUrl(item, { resolveResourceUrl, ...options });
-export const buildPdfDocumentOptions = (options: any = {}) =>
+export const resolveReaderArtifactUrl = (
+  item: Parameters<typeof readerData.resolveReaderArtifactUrl>[0],
+  options: ReaderArtifactUrlOptions = {},
+) => readerData.resolveReaderArtifactUrl(item, { resolveResourceUrl, ...options });
+export const buildPdfDocumentOptions = (options: BuildPdfDocumentOptions = {}) =>
   readerData.buildPdfDocumentOptions({
     configPort: defaultReaderPdfDocumentConfigPort,
     resolvePdfjsVendorUrl,
     ...options,
   });
-export const loadPdfDocument = (options: any = {}) =>
+export const loadPdfDocument = (options: LoadPdfDocumentOptions = {}) =>
   readerData.loadPdfDocument({
     configPort: defaultReaderPdfDocumentConfigPort,
     resolveResourceUrl,
@@ -187,17 +219,20 @@ export const loadPdfDocument = (options: any = {}) =>
 export const __resetPdfjsForTests = readerData.__resetPdfjsForTests;
 
 export const resolveReaderJobId = readerData.resolveReaderJobId;
-export const resolveReaderSourcePdf = (manifestPayload: any, options: any = {}) =>
+export const resolveReaderSourcePdf = (
+  manifestPayload: Parameters<typeof readerData.resolveReaderSourcePdf>[0],
+  options: ReaderSourcePdfOptions = {},
+) =>
   readerData.resolveReaderSourcePdf(manifestPayload, {
     findReadyManifestArtifact,
-    resolveManifestArtifactUrl: (payload: any, key: string) =>
+    resolveManifestArtifactUrl: (payload, key) =>
       resolveManifestArtifactUrl(payload, key),
     ...options,
   });
 export const resolveReaderTranslatedPdfUrl = (
-  jobPayload: any,
-  manifestPayload: any,
-  options: any = {},
+  jobPayload: Parameters<typeof readerData.resolveReaderTranslatedPdfUrl>[0],
+  manifestPayload: Parameters<typeof readerData.resolveReaderTranslatedPdfUrl>[1],
+  options: ReaderTranslatedPdfOptions = {},
 ) => readerData.resolveReaderTranslatedPdfUrl(jobPayload, manifestPayload, {
   resolveJobActions,
   findReadyManifestArtifact,

@@ -24,8 +24,8 @@ export const disabledReason = readerState.disabledReason;
 const downloadResolver = readerState.createReaderDownloadResolver({
   resolveSourcePdfDownloadName,
   resolveTranslatedPdfDownloadName,
-  createRuntimePort: createReaderDialogRuntimePort as any,
-  resolveSourcePdf: resolveReaderSourcePdf as any,
+  createRuntimePort: createReaderDialogRuntimePort,
+  resolveSourcePdf: resolveReaderSourcePdf,
 });
 export const resolveReaderDownloadUrls = downloadResolver.resolveReaderDownloadUrls;
 export const resolveReaderDownloadName = downloadResolver.resolveReaderDownloadName;
@@ -33,7 +33,13 @@ export const createReaderDownloadResolver = readerState.createReaderDownloadReso
 
 export const normalizeServerFavorite = readerState.normalizeServerFavorite;
 export const dedupeServerFavorites = readerState.dedupeServerFavorites;
-export const createReaderServerFavoritesPort = (options: any = {}) =>
+type ReaderServerFavoritesPortOptions = NonNullable<
+  Parameters<typeof readerState.createReaderServerFavoritesPort>[0]
+>;
+
+export const createReaderServerFavoritesPort = (
+  options: ReaderServerFavoritesPortOptions = {},
+) =>
   readerState.createReaderServerFavoritesPort({
     apiPrefix: API_PREFIX,
     documentByJobId: fetchDocumentByJobId,
