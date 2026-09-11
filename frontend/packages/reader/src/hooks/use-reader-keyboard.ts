@@ -1,6 +1,5 @@
 // 阅读器键盘快捷键（输入框内不抢键）。
-// j/↓/PageDown 下页 · k/↑/PageUp 上页 · Home/End 首末页
-// +/- 缩放 · 0 重置模式默认缩放 · 1/2/3 源文件/对照/翻译文件
+// 键位定义见 reader-keyboard-map.ts（实现与说明浮层共用同一份）。
 
 import { useEffect } from "react";
 import type { ReaderMode } from "./use-reader-session.js";
@@ -9,6 +8,7 @@ import {
   stepReaderZoom,
 } from "../pdf/reader-zoom.js";
 import { clampPageNumber } from "../pdf/scroll-to-page.js";
+import { matchReaderKeyBinding } from "./reader-keyboard-map.js";
 
 export type ReaderKeyboardApi = {
   mode: ReaderMode;
@@ -40,11 +40,10 @@ export function resolveReaderModeShortcut(
   key: string,
   sourceOnly: boolean,
 ): ReaderMode | null {
-  if (key === "1") return "source";
-  if (sourceOnly) return null;
-  if (key === "2") return "compare";
-  if (key === "3") return "translated";
-  return null;
+  const binding = matchReaderKeyBinding(key);
+  if (!binding?.mode) return null;
+  if (sourceOnly && binding.mode !== "source") return null;
+  return binding.mode;
 }
 
 export function useReaderKeyboard(api: ReaderKeyboardApi) {
@@ -74,55 +73,49 @@ export function useReaderKeyboard(api: ReaderKeyboardApi) {
       }
 
       const key = event.key;
-      const lower = key.length === 1 ? key.toLowerCase() : key;
-
-      // 模式
-      const shortcutMode = resolveReaderModeShortcut(lower, sourceOnly);
-      if (shortcutMode) {
-        event.preventDefault();
-        setMode(shortcutMode);
+      const binding = matchReaderKeyBinding(key);
+      if (!binding) {
         return;
       }
 
-      // 缩放
-      if (key === "+" || key === "=") {
+      // 模式：sourceOnly 下仅 source 可用；键位命中但被禁用时不拦截默认行为
+      if (binding.mode) {
+        if (sourceOnly && binding.mode !== "source") {
+          return;
+        }
         event.preventDefault();
-        onZoomChange(stepReaderZoom(userZoom, 1));
-        return;
-      }
-      if (key === "-" || key === "_") {
-        event.preventDefault();
-        onZoomChange(stepReaderZoom(userZoom, -1));
-        return;
-      }
-      if (lower === "0") {
-        event.preventDefault();
-        onZoomChange(defaultZoomForMode(mode));
+        setMode(binding.mode);
         return;
       }
 
-      // 翻页
-      if (numPages <= 0) {
+      // 翻页：页数未知时不拦截
+      if (binding.requiresPages && numPages <= 0) {
         return;
       }
-      if (lower === "j" || key === "ArrowDown" || key === "PageDown") {
-        event.preventDefault();
-        goToPage(clampPageNumber(currentPage + 1, numPages));
-        return;
-      }
-      if (lower === "k" || key === "ArrowUp" || key === "PageUp") {
-        event.preventDefault();
-        goToPage(clampPageNumber(currentPage - 1, numPages));
-        return;
-      }
-      if (key === "Home") {
-        event.preventDefault();
-        goToPage(1);
-        return;
-      }
-      if (key === "End") {
-        event.preventDefault();
-        goToPage(numPages);
+
+      event.preventDefault();
+      switch (binding.action) {
+        case "zoom-in":
+          onZoomChange(stepReaderZoom(userZoom, 1));
+          return;
+        case "zoom-out":
+          onZoomChange(stepReaderZoom(userZoom, -1));
+          return;
+        case "zoom-reset":
+          onZoomChange(defaultZoomForMode(mode));
+          return;
+        case "next-page":
+          goToPage(clampPageNumber(currentPage + 1, numPages));
+          return;
+        case "prev-page":
+          goToPage(clampPageNumber(currentPage - 1, numPages));
+          return;
+        case "first-page":
+          goToPage(1);
+          return;
+        case "last-page":
+          goToPage(numPages);
+          return;
       }
     };
 

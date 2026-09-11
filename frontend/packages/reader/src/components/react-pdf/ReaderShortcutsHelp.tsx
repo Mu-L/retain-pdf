@@ -2,34 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Keyboard } from "lucide-react";
-
-const SHORTCUT_GROUPS: { title: string; items: { keys: string; desc: string }[] }[] = [
-  {
-    title: "翻页",
-    items: [
-      { keys: "J · ↓ · PgDn", desc: "下一页" },
-      { keys: "K · ↑ · PgUp", desc: "上一页" },
-      { keys: "Home / End", desc: "首页 / 末页" },
-      { keys: "点底栏页码", desc: "输入页码跳转" },
-    ],
-  },
-  {
-    title: "缩放",
-    items: [
-      { keys: "+ / −", desc: "放大 / 缩小" },
-      { keys: "0", desc: "重置为模式默认" },
-      { keys: "点百分比", desc: "重置为模式默认" },
-    ],
-  },
-  {
-    title: "模式",
-    items: [
-      { keys: "1", desc: "源文件" },
-      { keys: "2", desc: "对照" },
-      { keys: "3", desc: "翻译文件" },
-    ],
-  },
-];
+import { READER_SHORTCUT_HELP } from "../../hooks/reader-keyboard-map.js";
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -118,7 +91,7 @@ export function ReaderShortcutsHelp() {
             </button>
           </div>
           <div className="reader-react-shortcuts-body">
-            {SHORTCUT_GROUPS.map((group) => (
+            {READER_SHORTCUT_HELP.map((group) => (
               <section key={group.title} className="reader-react-shortcuts-group">
                 <h3>{group.title}</h3>
                 <ul>
