@@ -1,8 +1,19 @@
-use rust_api::config::AppConfig;
+use rust_api::config::{AppConfig, JOB_WORKER_THREAD_STACK_BYTES};
 use rust_api::run_servers_with_shutdown;
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+/// 手建 runtime 而不是 `#[tokio::main]`,只为显式设定 worker 栈大小。
+///
+/// InProcess 模式下 job 就跑在这个进程的 worker 线程上,与 jobsd 是同一条
+/// 调用链,所以同样需要——见 `JOB_WORKER_THREAD_STACK_BYTES`。
+fn main() -> anyhow::Result<()> {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .thread_stack_size(JOB_WORKER_THREAD_STACK_BYTES)
+        .build()?
+        .block_on(run())
+}
+
+async fn run() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()

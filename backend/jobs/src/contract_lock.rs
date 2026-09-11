@@ -123,3 +123,34 @@ fn jobsd_acquires_listener_before_reconciling_workers() {
         "jobsd must acquire its exclusive listener before reconciling running workers"
     );
 }
+
+/// jobsd 必须显式设定 worker 栈大小,不能退回 `#[tokio::main]` 的默认值。
+///
+/// tokio 默认 2 MiB,而 book 工作流在 2 MiB 下必然栈溢出(debug 与 release
+/// 都会)。溢出不是"某个 job 失败",而是 `fatal runtime error: stack overflow`
+/// 直接 abort 掉整个 jobsd 进程;supervisor 重启后,startup_recovery 又会把
+/// 当时在跑的 book 父任务判成"未记录 worker pid"的孤儿——报错指向的位置
+/// 与真实原因毫无关系,极难查。
+///
+/// 所以这条守的是"有没有显式设",而不是具体数值:换回 `#[tokio::main]`
+/// 会让 2 MiB 悄悄回来,而症状只在跑 book 时才浮现。
+#[test]
+fn jobsd_sets_an_explicit_worker_stack_size() {
+    let source = include_str!("main.rs");
+    // 只认属性行本身：上面那段文档注释里就提到了这个属性名,用 contains
+    // 会把说明文字当成代码。
+    assert!(
+        !source
+            .lines()
+            .any(|line| line.trim_start().starts_with("#[tokio::main]")),
+        "jobsd 不能用 #[tokio::main]：那会让 worker 栈退回 tokio 默认的 2 MiB"
+    );
+    assert!(
+        source.contains(".thread_stack_size(JOB_WORKER_THREAD_STACK_BYTES)"),
+        "jobsd 必须显式设定 worker 栈大小（JOB_WORKER_THREAD_STACK_BYTES）"
+    );
+    assert!(
+        retain_core::config::JOB_WORKER_THREAD_STACK_BYTES >= 4 * 1024 * 1024,
+        "实测 book 工作流在 4 MiB 下才不溢出，这个下限不能再调低"
+    );
+}

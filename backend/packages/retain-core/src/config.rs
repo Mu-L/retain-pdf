@@ -27,7 +27,7 @@ pub use asset::AssetConfig;
 use auth::AuthRuntimeConfig;
 pub use cleanup::CleanupConfig;
 pub use db::DbConfig;
-pub use job_runner::JobRunnerConfig;
+pub use job_runner::{JobRunnerConfig, JOB_WORKER_THREAD_STACK_BYTES};
 pub use jobs_service::{JobsRuntimeMode, JobsServiceConfig};
 use paths::{create_runtime_dirs, RuntimePathsConfig};
 pub use provider::{

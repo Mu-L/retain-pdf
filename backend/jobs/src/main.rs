@@ -21,7 +21,7 @@ use axum::{Json, Router};
 use serde_json::json;
 use tokio::sync::{RwLock, Semaphore};
 
-use retain_core::config::AppConfig;
+use retain_core::config::{AppConfig, JOB_WORKER_THREAD_STACK_BYTES};
 use retain_data::db::Db;
 use retain_jobs::job_runner::{
     clear_cancel_request_with_registry, reconcile_stale_running_jobs, request_cancel_with_registry,
@@ -152,8 +152,19 @@ fn build_router(state: JobsdState) -> Router {
         .with_state(state)
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+/// 手建 runtime 而不是 `#[tokio::main]`,只为显式设定 worker 栈大小。
+/// 见 [`JOB_WORKER_THREAD_STACK_BYTES`]:默认的 2 MiB 会让 book 工作流栈溢出,
+/// 而溢出杀死的是整个 jobsd 进程,不只是那一个 job。
+fn main() -> Result<()> {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .thread_stack_size(JOB_WORKER_THREAD_STACK_BYTES)
+        .build()
+        .context("build jobsd runtime")?
+        .block_on(run())
+}
+
+async fn run() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
