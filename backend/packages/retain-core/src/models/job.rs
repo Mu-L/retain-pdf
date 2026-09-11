@@ -31,6 +31,60 @@ mod tests {
     use crate::models::{CreateJobInput, JobSnapshot, JobStatusKind};
 
     #[test]
+    /// 阶段结束时要把当时的进度留在历史里,否则任务跑完就查不到
+    /// 「这次翻译了多少块」——`stages.*.progress` 只反映当前活跃阶段,
+    /// 阶段一结束就回到 null。
+    #[test]
+    fn stage_history_archives_the_progress_each_stage_ended_with() {
+        let mut job = JobSnapshot::new(
+            "job-stage-progress".to_string(),
+            CreateJobInput::default(),
+            vec!["python".to_string()],
+        );
+        job.started_at = Some("2026-04-04T00:00:00Z".to_string());
+
+        // 按真实时序:进入阶段时还没有进度(translation_flow_stage 会显式清空),
+        // 进度是运行中一次次更新上来的。这一步很关键——若把 50/50 直接写在
+        // 进入那一次,用例就只走了 push 分支,删掉「活跃期间更新」的代码它照样
+        // 绿(实测过)。
+        job.updated_at = "2026-04-04T00:00:05Z".to_string();
+        job.stage = Some("translating".to_string());
+        job.progress_current = None;
+        job.progress_total = None;
+        job.sync_runtime_state();
+
+        // 运行中推进到 50/50
+        job.updated_at = "2026-04-04T00:00:09Z".to_string();
+        job.progress_current = Some(50);
+        job.progress_total = Some(50);
+        job.sync_runtime_state();
+
+        // 进入渲染:job 上的进度会被改写成渲染自己的口径
+        job.updated_at = "2026-04-04T00:00:12Z".to_string();
+        job.stage = Some("rendering".to_string());
+        job.progress_current = Some(1);
+        job.progress_total = Some(4);
+        job.sync_runtime_state();
+
+        let history = &job.runtime.as_ref().expect("runtime").stage_history;
+        let translating = history
+            .iter()
+            .find(|entry| entry.stage == "translating")
+            .expect("translating entry");
+        assert_eq!(
+            (translating.progress_current, translating.progress_total),
+            (Some(50), Some(50)),
+            "翻译阶段结束时的进度必须留在历史里，不能被后一阶段的口径冲掉"
+        );
+
+        // 当前阶段还没结束,历史条目里先不填
+        let rendering = history
+            .iter()
+            .find(|entry| entry.stage == "rendering")
+            .expect("rendering entry");
+        assert_eq!(rendering.exit_at, None);
+    }
+
     fn sync_runtime_state_tracks_stage_history_and_elapsed() {
         let mut job = JobSnapshot::new(
             "job-runtime-metrics".to_string(),

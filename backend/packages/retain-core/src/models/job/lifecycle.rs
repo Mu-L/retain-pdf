@@ -57,6 +57,8 @@ impl JobRecord {
             .clone()
             .unwrap_or_else(|| updated_at.clone());
         let failure = self.failure.clone();
+        // 阶段切换时 job 上的这对字段还是上一阶段的值,正好是要归档的那个。
+        let stage_progress = (self.progress_current, self.progress_total);
 
         let runtime = self.ensure_runtime_info();
         let previous_stage = runtime.current_stage.clone();
@@ -83,6 +85,8 @@ impl JobRecord {
                     exit_at: None,
                     duration_ms: None,
                     terminal_status: None,
+                    progress_current: stage_progress.0,
+                    progress_total: stage_progress.1,
                 });
             }
         } else if let Some(active) = runtime
@@ -91,6 +95,12 @@ impl JobRecord {
             .filter(|entry| entry.exit_at.is_none())
         {
             active.detail = stage_detail.clone();
+            // 进度也要跟着走:归档不能等到阶段关闭那一刻才做——调用方是同时
+            // 改 stage 和 progress 的,等 close 时读到的已经是下一阶段的口径了
+            // (实测把 translating 归档成了渲染的 1/4)。所以在阶段活跃期间就
+            // 把最新进度记进它自己的历史条目。
+            active.progress_current = stage_progress.0;
+            active.progress_total = stage_progress.1;
         }
 
         if terminal_reason.is_some() {

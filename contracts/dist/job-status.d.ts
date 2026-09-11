@@ -413,6 +413,11 @@ export interface JobStageTiming {
     exit_at: string | null;
     duration_ms: number | null;
     terminal_status: JobStatusKind | null;
+    /**
+     * 该阶段归档的进度。stages.*.progress 只反映当前活跃阶段，阶段一结束就回到 null；要回顾「这次翻译了多少块」看这里。
+     */
+    progress_current: number | null;
+    progress_total: number | null;
 }
 export interface JobFailureInfo {
     stage: string;

@@ -312,7 +312,7 @@
     },
     "JobStageTiming": {
       "type": "object",
-      "required": ["stage", "detail", "enter_at", "exit_at", "duration_ms", "terminal_status"],
+      "required": ["stage", "detail", "enter_at", "exit_at", "duration_ms", "terminal_status", "progress_current", "progress_total"],
       "additionalProperties": false,
       "properties": {
         "stage": { "type": "string" },
@@ -320,7 +320,9 @@
         "enter_at": { "type": "string" },
         "exit_at": { "type": ["string", "null"] },
         "duration_ms": { "type": ["integer", "null"] },
-        "terminal_status": { "anyOf": [{ "$ref": "#/definitions/JobStatusKind" }, { "type": "null" }] }
+        "terminal_status": { "anyOf": [{ "$ref": "#/definitions/JobStatusKind" }, { "type": "null" }] },
+        "progress_current": { "type": ["integer", "null"], "description": "该阶段归档的进度。stages.*.progress 只反映当前活跃阶段，阶段一结束就回到 null；要回顾「这次翻译了多少块」看这里。" },
+        "progress_total": { "type": ["integer", "null"] }
       }
     },
     "JobRuntimeInfo": {
