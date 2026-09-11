@@ -22,7 +22,7 @@ from retainpdf_pipeline.ocr.document_schema.validator import (
 from retainpdf_pipeline.ocr.document_schema.version import (
     DOCUMENT_SCHEMA_REPORT_FILE_NAME,
 )
-from retainpdf_pipeline.ocr.mineru.artifacts import (
+from retainpdf_pipeline.ocr.mineru_provider.artifacts import (
     materialize_mineru_page_assets,
     resolve_layout_json_path,
 )

@@ -144,7 +144,7 @@ provider 层产物一旦落盘，下一步只做一件事：
   这是 Paddle Markdown 和图片产物落盘
 - `ocr/ocr_provider/paddle_normalize.py`
   这是 Paddle normalized document 几何修正等纯实现
-- `ocr/mineru/`
+- `ocr/mineru_provider/`
   这是 MinerU provider 的具体实现，不是“OCR 总入口”
 - `ocr/document_schema/`
   这是 OCR 统一契约层
@@ -155,7 +155,7 @@ provider 层产物一旦落盘，下一步只做一件事：
 
 - `ocr/ocr_provider/`
   只放 provider 接入规范与共享抽象
-- `ocr/mineru/`
+- `ocr/mineru_provider/`
   作为 `ocr_provider` 的一个具体实现
 - `services/<other_ocr>/`
   其他 provider 的具体实现
@@ -271,7 +271,7 @@ CLI 原始 JSON、stdout/stderr 与 `--save_resources` 下载内容保存在
 
 ## 当前建议
 
-短期内不要把 `ocr/mineru/` 继续扩成“默认 OCR 平台层”。
+短期内不要把 `ocr/mineru_provider/` 继续扩成“默认 OCR 平台层”。
 
 更稳的做法是：
 
@@ -297,7 +297,7 @@ CLI 原始 JSON、stdout/stderr 与 `--save_resources` 下载内容保存在
 - `paddle_markdown.py` 只处理 Markdown/图片产物，不碰翻译和渲染
 - `paddle_normalize.py` 只处理 normalized document 和几何修正，不碰 provider transport
 - `local_command_driver.py` 是本地 OCR 模型的最小接入口；它不关心模型实现，只校验落盘契约
-- `ocr/document_schema/adapters.py` 只做 adapter registry，不直接 import `ocr/mineru/*`；MinerU 走 `ocr/document_schema/provider_adapters/mineru/`
+- `ocr/document_schema/adapters.py` 只做 adapter registry，不直接 import `ocr/mineru_provider/*`；MinerU 走 `ocr/document_schema/provider_adapters/mineru/`
 - Paddle 默认模型和 alias 配在 `backend/config/ocr_providers.json`；不要在 Python/Rust 里硬编码版本号
 
 这些约束已经进入：

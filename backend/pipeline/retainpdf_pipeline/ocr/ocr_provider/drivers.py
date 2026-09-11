@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from retainpdf_pipeline.ocr.mineru.job_flow import run_mineru_to_job_dir
+from retainpdf_pipeline.ocr.mineru_provider.job_flow import run_mineru_to_job_dir
 from retainpdf_pipeline.ocr.ocr_provider.local_command_driver import run_local_command_ocr_to_job_dir
 from retainpdf_pipeline.ocr.ocr_provider.provider_config import configured_command_providers
 from retainpdf_pipeline.ocr.ocr_provider.types import OcrProviderDriver

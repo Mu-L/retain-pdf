@@ -9,16 +9,16 @@ from retainpdf_pipeline.foundation.shared.local_env import get_secret
 from retainpdf_pipeline.ocr.document_schema.adapters import adapt_path_to_document_v1_with_report
 from retainpdf_pipeline.ocr.document_schema.providers import PROVIDER_MINERU
 from retainpdf_pipeline.ocr.document_schema.reporting import build_normalization_summary
-from retainpdf_pipeline.ocr.mineru.artifacts import build_mineru_artifact_paths
-from retainpdf_pipeline.ocr.mineru.artifacts import download_and_unpack_bundle
-from retainpdf_pipeline.ocr.mineru.artifacts import ensure_source_pdf_from_bundle
-from retainpdf_pipeline.ocr.mineru.artifacts import resolve_layout_json_path
-from retainpdf_pipeline.ocr.mineru.artifacts import save_json
-from retainpdf_pipeline.ocr.mineru.mineru_api import MINERU_ENV_FILE
-from retainpdf_pipeline.ocr.mineru.mineru_api import MINERU_TOKEN_ENV
-from retainpdf_pipeline.ocr.mineru.mineru_api import parse_extra_formats
-from retainpdf_pipeline.ocr.mineru.submission import run_local_extract_task
-from retainpdf_pipeline.ocr.mineru.submission import run_remote_extract_task
+from retainpdf_pipeline.ocr.mineru_provider.artifacts import build_mineru_artifact_paths
+from retainpdf_pipeline.ocr.mineru_provider.artifacts import download_and_unpack_bundle
+from retainpdf_pipeline.ocr.mineru_provider.artifacts import ensure_source_pdf_from_bundle
+from retainpdf_pipeline.ocr.mineru_provider.artifacts import resolve_layout_json_path
+from retainpdf_pipeline.ocr.mineru_provider.artifacts import save_json
+from retainpdf_pipeline.ocr.mineru_provider.mineru_api import MINERU_ENV_FILE
+from retainpdf_pipeline.ocr.mineru_provider.mineru_api import MINERU_TOKEN_ENV
+from retainpdf_pipeline.ocr.mineru_provider.mineru_api import parse_extra_formats
+from retainpdf_pipeline.ocr.mineru_provider.submission import run_local_extract_task
+from retainpdf_pipeline.ocr.mineru_provider.submission import run_remote_extract_task
 
 
 def _resolve_mineru_token(args: Namespace) -> str:

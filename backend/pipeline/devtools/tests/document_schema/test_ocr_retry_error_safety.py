@@ -8,7 +8,7 @@ import pytest
 import requests
 
 from retainpdf_pipeline.ocr import retry
-from retainpdf_pipeline.ocr.mineru import mineru_api
+from retainpdf_pipeline.ocr.mineru_provider import mineru_api
 from retainpdf_pipeline.ocr.ocr_provider import paddle_api
 
 

@@ -124,7 +124,7 @@
 各自是独立进程入口（`python -m retainpdf_pipeline.{ocr,translate,render}`）。
 生产 book 由 Rust 顺序调三进程，包内 `runtime/pipeline/book_pipeline.py` 只剩本地串联。
 
-- `retainpdf_pipeline/ocr/mineru`
+- `retainpdf_pipeline/ocr/mineru_provider`
   MinerU 接入、下载、解包、job 组织。
 - `retainpdf_pipeline/services/pipeline_shared`
   provider / translate / render 共用的阶段协议、summary 和 JSON IO。
@@ -332,7 +332,7 @@ Docker 镜像安装 pipeline 包并固定使用 `console` 模式；尚未安装�
 - [ocr/ocr_provider/README.md](./retainpdf_pipeline/ocr/ocr_provider/README.md)
 - [translate/README.md](./retainpdf_pipeline/translate/README.md)
 - [render/README.md](./retainpdf_pipeline/render/README.md)
-- [ocr/mineru/README.md](./retainpdf_pipeline/ocr/mineru/README.md)
+- [ocr/mineru_provider/README.md](./retainpdf_pipeline/ocr/mineru_provider/README.md)
 
 ## 设计边界
 
@@ -352,7 +352,7 @@ Docker 镜像安装 pipeline 包并固定使用 `console` 模式；尚未安装�
 
 第二条负责卡住 Python 主链最容易回退的边界：
 
-- `runtime/pipeline` 重新直接 import `ocr.ocr_provider` / `ocr.mineru`
+- `runtime/pipeline` 重新直接 import `ocr.ocr_provider` / `ocr.mineru_provider`
 - `runtime/pipeline` 重新理解 provider raw token，例如 `layoutParsingResults`
 - `translate` / `render` 重新碰 provider raw adapter
 - `entrypoints/*` 绕过稳定入口，直接连深层实现

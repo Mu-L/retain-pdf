@@ -9,15 +9,15 @@ from devtools.architecture_checks.common import scan_py_files
 
 PIPELINE_ROOT = PACKAGE_ROOT / "runtime" / "pipeline"
 OCR_PROVIDER_ROOT = PACKAGE_ROOT / "ocr" / "ocr_provider"
-MINERU_ROOT = PACKAGE_ROOT / "ocr" / "mineru"
+MINERU_ROOT = PACKAGE_ROOT / "ocr" / "mineru_provider"
 TRANSLATION_ROOT = PACKAGE_ROOT / "translate"
 RENDERING_ROOT = PACKAGE_ROOT / "render"
 
 PROVIDER_PRIVATE_IMPORT_PATTERNS = (
     "from retainpdf_pipeline.ocr.ocr_provider",
     "import retainpdf_pipeline.ocr.ocr_provider",
-    "from retainpdf_pipeline.ocr.mineru",
-    "import retainpdf_pipeline.ocr.mineru",
+    "from retainpdf_pipeline.ocr.mineru_provider",
+    "import retainpdf_pipeline.ocr.mineru_provider",
 )
 PROVIDER_RAW_TOKENS = (
     "layoutParsingResults",
@@ -39,7 +39,7 @@ OCR_PROVIDER_FORBIDDEN_IMPORT_PATTERNS = (
 OCR_PROVIDER_STABLE_ENTRYPOINT = PACKAGE_ROOT / "ocr" / "ocr_provider" / "provider_pipeline.py"
 OCR_PROVIDER_PACKAGE_INIT = PACKAGE_ROOT / "ocr" / "ocr_provider" / "__init__.py"
 OCR_PROVIDER_DRIVER_REGISTRY = PACKAGE_ROOT / "ocr" / "ocr_provider" / "drivers.py"
-MINERU_PROVIDER_FLOW_IMPORT = "from retainpdf_pipeline.ocr.mineru.job_flow import run_mineru_to_job_dir"
+MINERU_PROVIDER_FLOW_IMPORT = "from retainpdf_pipeline.ocr.mineru_provider.job_flow import run_mineru_to_job_dir"
 OCR_PROVIDER_COMPAT_SYMBOLS = (
     "adapt_path_to_document_v1_with_report",
     "validate_saved_document_path",
@@ -154,7 +154,7 @@ def check_ocr_provider_boundaries(errors: list[str]) -> None:
             )
 
     adapters_text = read_text(DOCUMENT_SCHEMA_ADAPTERS_ENTRY)
-    if "from retainpdf_pipeline.ocr.mineru" in adapters_text:
+    if "from retainpdf_pipeline.ocr.mineru_provider" in adapters_text:
         errors.append(
             "services/document_schema/adapters.py: provider registry must route MinerU through document_schema/provider_adapters/mineru"
         )

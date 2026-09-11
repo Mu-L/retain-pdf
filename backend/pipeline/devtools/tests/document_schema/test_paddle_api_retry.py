@@ -13,7 +13,7 @@ sys.path.insert(0, str(REPO_SCRIPTS_ROOT))
 
 from retainpdf_pipeline.ocr.ocr_provider import paddle_api
 from retainpdf_pipeline.ocr.ocr_provider import paddle_markdown
-from retainpdf_pipeline.ocr.mineru import mineru_api
+from retainpdf_pipeline.ocr.mineru_provider import mineru_api
 from retainpdf_pipeline.ocr import retry as network_retry
 
 

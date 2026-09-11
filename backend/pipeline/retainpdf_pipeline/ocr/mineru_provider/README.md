@@ -6,7 +6,7 @@
 
 - `backend/pipeline/retainpdf_pipeline/ocr/ocr_provider/README.md`
 
-`ocr/mineru/` 只是 MinerU 这个 provider 的具体实现。
+`ocr/mineru_provider/` 只是 MinerU 这个 provider 的具体实现。
 
 ## 作用边界
 
@@ -73,7 +73,7 @@
 注意：
 
 - 主线 `pipeline_summary.json`、stdout labels、source-json 选择规则都已经收口到 `services/pipeline_shared/`
-- `ocr/mineru/` 不再承担任何共享规范壳
+- `ocr/mineru_provider/` 不再承担任何共享规范壳
 
 现在这条链路已经通过 `ocr/document_schema/adapters.py` 暴露为统一 adapter，
 也就是 MinerU 不再直接把自己的原始结构泄漏到翻译主线。

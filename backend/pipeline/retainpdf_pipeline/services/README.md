@@ -8,7 +8,7 @@
 
 | 职责 | 实际位置 |
 | --- | --- |
-| OCR provider、MinerU、文档结构与适配 | [ocr](../ocr/ocr_provider/README.md)、[document_schema](../ocr/document_schema/README.md)、[mineru](../ocr/mineru/README.md) |
+| OCR provider、MinerU、文档结构与适配 | [ocr](../ocr/ocr_provider/README.md)、[document_schema](../ocr/document_schema/README.md)、[mineru](../ocr/mineru_provider/README.md) |
 | 翻译策略、模型调用与结果回填 | [translate](../translate/README.md) |
 | 排版、渲染与 PDF 输出 | [render](../render/README.md) |
 | 流程编排 | [runtime/pipeline](../runtime/pipeline/README.md) |

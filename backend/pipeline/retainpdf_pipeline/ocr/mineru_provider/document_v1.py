@@ -2,8 +2,8 @@ from __future__ import annotations
 
 """Compatibility facade for the MinerU document adapter.
 
-Provider transport remains under ``services.mineru``. Raw-to-document.v1
-normalization is owned by ``services.document_schema.provider_adapters``.
+Provider transport lives under ``ocr.mineru_provider``. Raw-to-document.v1
+normalization is owned by ``ocr.document_schema.provider_adapters.mineru``.
 """
 
 from pathlib import Path

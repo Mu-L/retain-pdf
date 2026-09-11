@@ -37,7 +37,7 @@ Regenerate with:
 | `lxml` | `lxml` | yes | yes | `devtools/word_export/textboxes.py` |
 | `pikepdf` | `pikepdf` | yes | yes | `retainpdf_pipeline/services/document_operations/page_program.py`, `retainpdf_pipeline/render/document/pikepdf_overlay.py`, `retainpdf_pipeline/render/document/pikepdf_pages.py` |
 | `pytest` | `pytest` | no | yes | `devtools/tests/document_operations/test_page_program.py`, `devtools/tests/document_schema/test_adapters_detection.py`, `devtools/tests/document_schema/test_backfill_normalized_documents.py` |
-| `requests` | `requests` | yes | yes | `retainpdf_pipeline/ocr/mineru/mineru_api.py`, `retainpdf_pipeline/services/network/retry.py`, `retainpdf_pipeline/ocr/ocr_provider/paddle_api.py` |
+| `requests` | `requests` | yes | yes | `retainpdf_pipeline/ocr/mineru_provider/mineru_api.py`, `retainpdf_pipeline/services/network/retry.py`, `retainpdf_pipeline/ocr/ocr_provider/paddle_api.py` |
 | `urllib3` | `urllib3` | yes | no | `retainpdf_pipeline/services/network/retry.py`, `retainpdf_pipeline/translate/llm/providers/deepseek/transport.py` |
 
 ## Dependency Sources

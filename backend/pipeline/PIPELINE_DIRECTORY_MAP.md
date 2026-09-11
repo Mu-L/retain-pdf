@@ -40,7 +40,7 @@
 ```text
 python -m retainpdf_pipeline.ocr provider-case --spec <job_root>/specs/provider.spec.json
   -> ocr/ocr_provider/provider_pipeline.py
-     -> ocr/mineru/* 或 ocr/ocr_provider/paddle_api.py
+     -> ocr/mineru_provider/* 或 ocr/ocr_provider/paddle_api.py
      -> ocr/document_schema/*
 python -m retainpdf_pipeline.translate --spec <job_root>/specs/translate.spec.json
   -> translate/entrypoints/translate_only_pipeline.py
@@ -166,7 +166,7 @@ console 别名：`retainpdf-pipeline render-only --spec <job_root>/specs/render.
   - [`paddle_normalize.py`](./retainpdf_pipeline/ocr/ocr_provider/paddle_normalize.py)
     Paddle normalized document 几何修正等纯实现。
 
-### `retainpdf_pipeline/ocr/mineru/`
+### `retainpdf_pipeline/ocr/mineru_provider/`
 
 - 作用：
   MinerU provider 的具体实现。
@@ -253,7 +253,7 @@ console 别名：`retainpdf-pipeline render-only --spec <job_root>/specs/render.
 - “这是 raw OCR 适配或 schema 变化吗？”
   先看 `retainpdf_pipeline/ocr/document_schema/`
 - “这是 provider 接入问题吗？”
-  先看 `retainpdf_pipeline/ocr/ocr_provider/` 或 `retainpdf_pipeline/ocr/mineru/`
+  先看 `retainpdf_pipeline/ocr/ocr_provider/` 或 `retainpdf_pipeline/ocr/mineru_provider/`
 - “这是翻译结果不对吗？”
   先看 `retainpdf_pipeline/translate/`（含 `translation_stage.py`）
 - “这是 PDF 渲染不对吗？”
@@ -279,4 +279,4 @@ console 别名：`retainpdf-pipeline render-only --spec <job_root>/specs/render.
 4. [`retainpdf_pipeline/services/README.md`](./retainpdf_pipeline/services/README.md)
    看 services 总分工（实体只剩 `pipeline_shared`）。
 5. 再按模块进入 `translate/`、`render/`、`ocr/ocr_provider/`、`ocr/document_schema/`、
-   `ocr/mineru/` 的 README。
+   `ocr/mineru_provider/` 的 README。

@@ -226,7 +226,7 @@ provider 原始 OCR 不应直接进入翻译/渲染主线。
   稳定 OCR provider 标识常量，adapter、fixture registry、回归脚本优先共用这一层
 - `services/pipeline_shared/`
   主线共享的 `pipeline_summary.json`、stdout 标签、JSON IO 和 source-json 选择规则
-- `ocr/mineru/contracts.py`
+- `ocr/mineru_provider/contracts.py`
   仅保留 MinerU provider 私有原始文件名、目录名约定
 
 当前正式 provider adapter 有：
@@ -283,7 +283,7 @@ provider 装配层位于：
 - `generic_flat_ocr_adapter.py`
   目前仍是最薄的一层 passthrough adapter
 - `mineru`
-  主线仍在 `ocr/mineru/document_v1.py`，当前不在这轮通用化范围内
+  主线仍在 `ocr/mineru_provider/document_v1.py`，当前不在这轮通用化范围内
 
 也就是说，后续扩展 OCR provider 时，优先目标不是继续堆“大 adapter 文件”，而是：
 

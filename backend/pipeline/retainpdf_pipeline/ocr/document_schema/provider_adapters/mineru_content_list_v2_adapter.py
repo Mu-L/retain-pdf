@@ -22,7 +22,7 @@ from retainpdf_pipeline.ocr.document_schema.text_flow import (
     classify_text_flow,
     line_texts_from_lines,
 )
-from retainpdf_pipeline.ocr.mineru.contracts import (
+from retainpdf_pipeline.ocr.mineru_provider.contracts import (
     MINERU_CONTENT_LIST_V2_FILE_NAME,
 )
 

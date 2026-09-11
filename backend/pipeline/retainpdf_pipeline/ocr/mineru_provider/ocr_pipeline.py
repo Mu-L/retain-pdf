@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from retainpdf_pipeline.foundation.shared.job_dirs import add_explicit_job_dir_args
 from retainpdf_pipeline.ocr.document_schema import DOCUMENT_SCHEMA_REPORT_FILE_NAME
-from retainpdf_pipeline.ocr.mineru.artifacts import build_mineru_artifact_paths
+from retainpdf_pipeline.ocr.mineru_provider.artifacts import build_mineru_artifact_paths
 from retainpdf_pipeline.services.pipeline_shared.contracts import STDOUT_LABEL_JOB_ROOT
 from retainpdf_pipeline.services.pipeline_shared.contracts import STDOUT_LABEL_LAYOUT_JSON
 from retainpdf_pipeline.services.pipeline_shared.contracts import STDOUT_LABEL_NORMALIZATION_REPORT_JSON
@@ -15,7 +15,7 @@ from retainpdf_pipeline.services.pipeline_shared.contracts import STDOUT_LABEL_S
 from retainpdf_pipeline.services.pipeline_shared.contracts import STDOUT_LABEL_SOURCE_PDF
 from retainpdf_pipeline.services.pipeline_shared.contracts import STDOUT_SCHEMA_VERSION_VALUE
 from retainpdf_pipeline.services.pipeline_shared.contracts import format_stdout_kv
-from retainpdf_pipeline.ocr.mineru.job_flow import run_mineru_to_job_dir
+from retainpdf_pipeline.ocr.mineru_provider.job_flow import run_mineru_to_job_dir
 
 
 def parse_args() -> argparse.Namespace:

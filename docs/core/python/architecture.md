@@ -27,7 +27,7 @@ entrypoints
 ```text
 ocr/document_schema
 ocr/ocr_provider
-ocr/mineru
+ocr/mineru_provider
 translate
 render
 services/pipeline_shared
@@ -123,7 +123,7 @@ ocr_provider / mineru
 
 - `ocr_provider` 不 import `translate`。
 - `ocr_provider` 不 import `render`。
-- `translation` 和 `rendering` 不 import `ocr.ocr_provider` 或 `ocr.mineru`。
+- `translation` 和 `rendering` 不 import `ocr.ocr_provider` 或 `ocr.mineru_provider`。
 
 ## 公共入口
 

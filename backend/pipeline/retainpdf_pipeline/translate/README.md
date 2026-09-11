@@ -168,7 +168,7 @@ production 代码在 translation 外部引用本模块时，默认只允许：
 - `runtime/pipeline/**`
 - `render/**`
 - `ocr/ocr_provider/**`
-- `ocr/mineru/**`
+- `ocr/mineru_provider/**`
 - `ocr/document_schema/**`
 
 这些目录禁止直接引用：

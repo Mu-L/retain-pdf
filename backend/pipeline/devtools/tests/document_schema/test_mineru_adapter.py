@@ -26,7 +26,7 @@ from retainpdf_pipeline.ocr.document_schema.validator import (
     build_validation_report,
     validate_document_payload,
 )
-from retainpdf_pipeline.ocr.mineru.artifacts import (
+from retainpdf_pipeline.ocr.mineru_provider.artifacts import (
     materialize_mineru_page_assets,
     resolve_layout_json_path,
 )

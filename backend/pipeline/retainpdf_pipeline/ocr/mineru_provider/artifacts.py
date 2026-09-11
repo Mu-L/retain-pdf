@@ -20,14 +20,14 @@ from retainpdf_pipeline.ocr.document_schema.version import (
     DOCUMENT_SCHEMA_FILE_NAME,
     DOCUMENT_SCHEMA_REPORT_FILE_NAME,
 )
-from retainpdf_pipeline.ocr.mineru.contracts import (
+from retainpdf_pipeline.ocr.mineru_provider.contracts import (
     MINERU_BUNDLE_FILE_NAME,
     MINERU_LAYOUT_JSON_FILE_NAME,
     MINERU_NORMALIZED_DIR_NAME,
     MINERU_RESULT_FILE_NAME,
     MINERU_UNPACK_DIR_NAME,
 )
-from retainpdf_pipeline.ocr.mineru.mineru_api import request_mineru
+from retainpdf_pipeline.ocr.mineru_provider.mineru_api import request_mineru
 from retainpdf_pipeline.services.pipeline_shared.io import save_json
 from retainpdf_pipeline.ocr.source_json import (
     resolve_preferred_source_json_path,

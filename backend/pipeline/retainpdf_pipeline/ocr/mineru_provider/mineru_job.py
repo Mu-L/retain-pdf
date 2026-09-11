@@ -6,17 +6,17 @@ from pathlib import Path
 
 from retainpdf_pipeline.foundation.shared.job_dirs import create_job_dirs
 from retainpdf_pipeline.foundation.shared.local_env import get_secret
-from retainpdf_pipeline.ocr.mineru.artifacts import download_file
-from retainpdf_pipeline.ocr.mineru.artifacts import unpack_zip
-from retainpdf_pipeline.ocr.mineru.mineru_api import MINERU_ENV_FILE
-from retainpdf_pipeline.ocr.mineru.mineru_api import MINERU_TOKEN_ENV
-from retainpdf_pipeline.ocr.mineru.mineru_api import apply_upload_url
-from retainpdf_pipeline.ocr.mineru.mineru_api import create_extract_task
-from retainpdf_pipeline.ocr.mineru.mineru_api import find_extract_result_in_batch
-from retainpdf_pipeline.ocr.mineru.mineru_api import parse_extra_formats
-from retainpdf_pipeline.ocr.mineru.mineru_api import poll_until_done
-from retainpdf_pipeline.ocr.mineru.mineru_api import query_batch_status
-from retainpdf_pipeline.ocr.mineru.mineru_api import upload_file
+from retainpdf_pipeline.ocr.mineru_provider.artifacts import download_file
+from retainpdf_pipeline.ocr.mineru_provider.artifacts import unpack_zip
+from retainpdf_pipeline.ocr.mineru_provider.mineru_api import MINERU_ENV_FILE
+from retainpdf_pipeline.ocr.mineru_provider.mineru_api import MINERU_TOKEN_ENV
+from retainpdf_pipeline.ocr.mineru_provider.mineru_api import apply_upload_url
+from retainpdf_pipeline.ocr.mineru_provider.mineru_api import create_extract_task
+from retainpdf_pipeline.ocr.mineru_provider.mineru_api import find_extract_result_in_batch
+from retainpdf_pipeline.ocr.mineru_provider.mineru_api import parse_extra_formats
+from retainpdf_pipeline.ocr.mineru_provider.mineru_api import poll_until_done
+from retainpdf_pipeline.ocr.mineru_provider.mineru_api import query_batch_status
+from retainpdf_pipeline.ocr.mineru_provider.mineru_api import upload_file
 
 
 DEFAULT_OUTPUT_ROOT = "output"
