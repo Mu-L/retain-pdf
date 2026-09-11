@@ -1,5 +1,6 @@
 import { FileCode2, Sparkles, X } from "lucide-react";
 import type { ReactElement } from "react";
+import { useReaderContext } from "./reader-context.js";
 
 export type ReaderAssistantPanel = "markdown" | "ai";
 
@@ -10,19 +11,20 @@ const PANELS = [
 
 export type ReaderAssistantDockProps = {
   active: ReaderAssistantPanel | null;
-  onSelect: (panel: ReaderAssistantPanel) => void;
-  onClose: () => void;
+  /** 缺省时从 reader context 的 assistant actions 取 */
+  onSelect?: (panel: ReaderAssistantPanel) => void;
+  onClose?: () => void;
 };
 
 /**
  * Markdown 和 AI 是阅读辅助工具，不参与 PDF 阅读模式的选择。
  * 关闭时只显示安静的右侧工具栏；打开后由 Dock 顶栏负责切换与关闭。
  */
-export function ReaderAssistantDock({
-  active,
-  onSelect,
-  onClose,
-}: ReaderAssistantDockProps): ReactElement {
+export function ReaderAssistantDock(props: ReaderAssistantDockProps): ReactElement {
+  const ctx = useReaderContext();
+  const { active } = props;
+  const onSelect = props.onSelect ?? ctx?.assistant.select ?? (() => {});
+  const onClose = props.onClose ?? ctx?.assistant.close ?? (() => {});
   if (!active) {
     return (
       <nav className="reader-assistant-rail" aria-label="阅读辅助工具">

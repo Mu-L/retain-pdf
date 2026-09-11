@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import { PdfDocumentPane } from "../../pdf/PdfDocumentPane.js";
 import type { ProtectedPdfFile } from "../../pdf/useProtectedPdfFile.js";
 import type { PageRowHeights } from "../../pdf/usePageRowSync.js";
+import { READER_ZOOM_DEFAULT } from "../../pdf/reader-zoom.js";
 import {
   READER_SCROLL_SHELL_CLASS,
   READER_SCROLL_SHELL_ID,
@@ -13,27 +14,29 @@ import {
   type ReaderRegionSelection,
 } from "../../shared/data/reader-regions.js";
 import type { LiveTranslationState } from "../../shared/data/live-translation-state.js";
+import { useReaderContext } from "./reader-context.js";
 
 export type ReaderCompareGridProps = {
-  mode: string; // ReaderMode
-  bindShell: (node: HTMLDivElement | null) => void;
-  shellEl: HTMLElement | null;
-  userZoom: number;
-  compareMode: boolean;
+  mode?: string; // ReaderMode
+  /** 以下 controller 透传值缺省时从 reader context 取 */
+  bindShell?: (node: HTMLDivElement | null) => void;
+  shellEl?: HTMLElement | null;
+  userZoom?: number;
+  compareMode?: boolean;
   /** 阅读区全宽（shell），用于 zoom% 相对整屏计算 */
-  shellWidth: number;
+  shellWidth?: number;
   rowHeights?: PageRowHeights;
-  mountSource: boolean;
-  mountTranslated: boolean;
-  showSource: boolean;
-  showTranslated: boolean;
-  sourceOnly: boolean;
-  sourceUrl: string;
-  translatedUrl: string;
-  sourceFile: ProtectedPdfFile | null;
-  translatedFile: ProtectedPdfFile | null;
-  onMetrics: () => void;
-  onNumPagesChange: (pages: number, pane: "source" | "translated") => void;
+  mountSource?: boolean;
+  mountTranslated?: boolean;
+  showSource?: boolean;
+  showTranslated?: boolean;
+  sourceOnly?: boolean;
+  sourceUrl?: string;
+  translatedUrl?: string;
+  sourceFile?: ProtectedPdfFile | null;
+  translatedFile?: ProtectedPdfFile | null;
+  onMetrics?: () => void;
+  onNumPagesChange?: (pages: number, pane: "source" | "translated") => void;
   activeRegion?: ReaderRegion | null;
   regions?: ReaderRegion[];
   readerMetadata?: ReaderMetadata | null;
@@ -109,34 +112,35 @@ export function liveTranslationPendingCopy(state: LiveTranslationState | undefin
 }
 
 export function ReaderCompareGrid(props: ReaderCompareGridProps): ReactElement {
+  const ctx = useReaderContext();
   const {
-    mode,
-    bindShell,
-    shellEl,
-    userZoom,
-    compareMode,
-    shellWidth,
-    rowHeights,
-    mountSource,
-    mountTranslated,
-    showSource,
-    showTranslated,
-    sourceOnly,
-    sourceUrl,
-    translatedUrl,
-    sourceFile,
-    translatedFile,
-    onMetrics,
-    onNumPagesChange,
-    activeRegion,
-    regions = [],
-    readerMetadata,
-    onSelectRegion,
+    mode = "compare",
     markdownSplit = false,
     assistantSplit = false,
     liveTranslation,
     liveTranslationPair = false,
   } = props;
+  const compareMode = props.compareMode ?? mode === "compare";
+  const showSource = props.showSource ?? true;
+  const showTranslated = props.showTranslated ?? (mode === "compare" || mode === "translated");
+  const bindShell = props.bindShell ?? ctx?.bindShell;
+  const shellEl = props.shellEl ?? ctx?.shellEl ?? null;
+  const userZoom = props.userZoom ?? ctx?.userZoom ?? READER_ZOOM_DEFAULT;
+  const shellWidth = props.shellWidth ?? ctx?.shellWidth ?? 0;
+  const rowHeights = props.rowHeights ?? ctx?.rowHeights;
+  const mountSource = props.mountSource ?? ctx?.mountSource ?? false;
+  const mountTranslated = props.mountTranslated ?? ctx?.mountTranslated ?? false;
+  const sourceOnly = props.sourceOnly ?? ctx?.sourceViewOnly ?? false;
+  const sourceUrl = props.sourceUrl ?? ctx?.sourceUrl ?? "";
+  const translatedUrl = props.translatedUrl ?? ctx?.translatedUrl ?? "";
+  const sourceFile = props.sourceFile ?? ctx?.sourceFile ?? null;
+  const translatedFile = props.translatedFile ?? ctx?.translatedFile ?? null;
+  const onMetrics = props.onMetrics ?? ctx?.onMetrics;
+  const onNumPagesChange = props.onNumPagesChange ?? ctx?.onNumPagesChange;
+  const activeRegion = props.activeRegion ?? ctx?.activeRegion;
+  const regions = props.regions ?? ctx?.regions ?? [];
+  const readerMetadata = props.readerMetadata ?? ctx?.readerMetadata;
+  const onSelectRegion = props.onSelectRegion ?? ctx?.onSelectRegion;
 
   const presentation = resolveReaderGridPresentation({
     mode,

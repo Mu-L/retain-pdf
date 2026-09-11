@@ -1,5 +1,5 @@
 // 从 frontend/web 迁入的 React-pdf 视图真值，现为 @retainpdf/reader 主入口
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReaderReactController } from "./hooks/use-reader-react-controller.js";
 import {
   ReaderAiSplitResizeHandle,
@@ -24,6 +24,11 @@ import {
 } from "./shared/state/reader-view-state.js";
 import type { ReaderSelection } from "./shared/data/reader-regions.js";
 import type { ReaderSelectionNoteInput } from "./components/react-pdf/ReaderSelectionToolbar.js";
+import {
+  ReaderProvider,
+  type ReaderContextValue,
+  type ReaderHudContextValue,
+} from "./components/react-pdf/reader-context.js";
 
 const ReaderFavoritesPanel = lazy(() => import("./components/react-pdf/ReaderFavoritesPanel.js").then((m) => ({ default: m.ReaderFavoritesPanel })));
 const ReaderMarkdownPanel = lazy(() => import("./components/react-pdf/ReaderMarkdownPanel.js").then((m) => ({ default: m.ReaderMarkdownPanel })));
@@ -80,7 +85,7 @@ export function resolveInitialAssistantPanel(
 
 export function ReaderAppReactPdf() {
   const c = useReaderReactController();
-  const { boot, panes, shell, sessionFiles, tools, session } = c;
+  const { boot, panes, sessionFiles, tools, session } = c;
   const sourceViewOnly = c.sourceOnly || !sessionFiles.translatedUrl;
   const [assistantPanel, setAssistantPanel] = useState<ReaderAssistantPanel | null>(() => (
     resolveInitialAssistantPanel(c.mode, loadReaderViewState(c.viewStateKey))
@@ -209,6 +214,56 @@ export function ReaderAppReactPdf() {
     c.clearSelection();
   }, [c.clearSelection, sourceViewOnly]);
 
+  // 外壳 Context：只装频繁下钻、且此前纯透传的值；currentPage/numPages 走 HUD
+  // context，避免滚动带动整棵外壳重渲染。
+  const readerContext = useMemo<ReaderContextValue>(() => ({
+    bindShell: c.shell.bindShell,
+    shellEl: c.shell.shellEl,
+    shellWidth: c.shell.shellWidth,
+    userZoom: c.userZoom,
+    onZoomChange: c.onZoomChange,
+    rowHeights: c.rowHeights,
+    mountSource: c.panes.mountSource,
+    mountTranslated: c.panes.mountTranslated,
+    onMetrics: c.panes.onMetrics,
+    onNumPagesChange: c.panes.onNumPages,
+    sourceUrl: c.sessionFiles.sourceUrl,
+    translatedUrl: c.sessionFiles.translatedUrl,
+    sourceFile: c.sessionFiles.sourceFile,
+    translatedFile: c.sessionFiles.translatedFile,
+    regions: session.regions,
+    readerMetadata: session.readerMetadata,
+    activeRegion: c.activeRegion,
+    onSelectRegion: c.selectRegion,
+    sourceOnly: c.sourceOnly,
+    sourceViewOnly,
+    download: c.download,
+    goToPage: c.goToPage,
+    assistant: { select: selectAssistant, close: closeAssistant },
+  }), [
+    c.shell,
+    c.userZoom,
+    c.onZoomChange,
+    c.rowHeights,
+    c.panes,
+    c.sessionFiles,
+    session.regions,
+    session.readerMetadata,
+    c.activeRegion,
+    c.selectRegion,
+    c.sourceOnly,
+    sourceViewOnly,
+    c.download,
+    c.goToPage,
+    selectAssistant,
+    closeAssistant,
+  ]);
+
+  const readerHud = useMemo<ReaderHudContextValue>(() => ({
+    currentPage: c.currentPage,
+    numPages: panes.hudNumPages,
+  }), [c.currentPage, panes.hudNumPages]);
+
   const rootClasses = [
     "reader-react-root",
     `is-workspace-${workspaceView}`,
@@ -217,52 +272,48 @@ export function ReaderAppReactPdf() {
   ].filter(Boolean).join(" ");
 
   return (
-    <div className={rootClasses} data-reader-engine="react-pdf" data-reader-workspace={workspaceView}>
-      <ReaderReactBoot loading={boot.loading} failed={boot.failed} text={boot.text} percent={boot.percent} />
-      <ReaderCloseHome onBeforeClose={session.prepareClose} />
-      <ReaderWorkspaceTabs
-        mode={visiblePdfMode}
-        documentReady={Boolean(session.jobId)}
-        sourceOnly={sourceViewOnly}
-        onModeChange={changeWorkspace}
-        liveTranslation={c.liveTranslationAvailable ? {
-          visible: liveTranslationVisible,
-          state: c.liveTranslation,
-          onToggle: () => setLiveTranslationVisible((visible) => !visible),
-        } : null}
-      />
-      <ReaderAssistantDock active={assistantPanel} onSelect={selectAssistant} onClose={closeAssistant} />
-      {assistantOpen ? <ReaderAiSplitResizeHandle /> : null}
-      {c.showHud ? <ReaderFab activeTool={notesOpen ? "notes" : tools.active} noteCount={annotations.count} sourceOnly={c.sourceOnly} onToggleTool={handleFabTool} download={c.download} /> : null}
-      <ReaderCompareGrid mode={visiblePdfMode} bindShell={shell.bindShell} shellEl={shell.shellEl} userZoom={c.userZoom} compareMode={visiblePdfMode === "compare"} shellWidth={shell.shellWidth} rowHeights={c.rowHeights} mountSource={panes.mountSource} mountTranslated={panes.mountTranslated} showSource={liveTranslationPair || visiblePdfMode !== "translated"} showTranslated={liveTranslationPair || visiblePdfMode === "translated" || visiblePdfMode === "compare"} sourceOnly={sourceViewOnly} sourceUrl={sessionFiles.sourceUrl} translatedUrl={sessionFiles.translatedUrl} sourceFile={sessionFiles.sourceFile} translatedFile={sessionFiles.translatedFile} activeRegion={c.activeRegion} regions={session.regions} readerMetadata={session.readerMetadata} onSelectRegion={c.selectRegion} markdownSplit={assistantPanel === "markdown"} assistantSplit={assistantOpen} onMetrics={panes.onMetrics} onNumPagesChange={panes.onNumPages} liveTranslation={liveTranslationVisible ? c.liveTranslation : undefined} liveTranslationPair={liveTranslationPair} />
-      {c.showHud ? (
-        <ReaderZoomHud
-          userZoom={c.userZoom}
-          onZoomChange={c.onZoomChange}
-          currentPage={c.currentPage}
-          numPages={panes.hudNumPages}
+    <ReaderProvider value={readerContext} hud={readerHud}>
+      <div className={rootClasses} data-reader-engine="react-pdf" data-reader-workspace={workspaceView}>
+        <ReaderReactBoot loading={boot.loading} failed={boot.failed} text={boot.text} percent={boot.percent} />
+        <ReaderCloseHome onBeforeClose={session.prepareClose} />
+        <ReaderWorkspaceTabs
           mode={visiblePdfMode}
-          onGoToPage={c.goToPage}
-          modeControls={null}
+          documentReady={Boolean(session.jobId)}
+          onModeChange={changeWorkspace}
+          liveTranslation={c.liveTranslationAvailable ? {
+            visible: liveTranslationVisible,
+            state: c.liveTranslation,
+            onToggle: () => setLiveTranslationVisible((visible) => !visible),
+          } : null}
         />
-      ) : null}
-      <Suspense fallback={null}>
-        {favoritesMounted ? <ReaderFavoritesPanel open={tools.isOpen("favorites")} jobId={session.jobId} documentId={session.documentId} onClose={closeTool} onJumpPage={c.goToPage} /> : null}
-        {markdownMounted ? <ReaderMarkdownPanel open={assistantPanel === "markdown"} jobId={session.jobId} sourceOnly={c.sourceOnly} layout="workspace" side="right" onClose={closeAssistant} /> : null}
-        {aiMounted ? <ReaderAiPanel key={session.documentId || session.jobId || "reader-ai-pending"} open={assistantPanel === "ai"} jobId={session.jobId} documentId={session.documentId} layout={resolveReaderAiLayout(c.mode)} side="right" selectionContext={aiSelectionContext} onClearSelectionContext={() => setAiSelectionContext(null)} onClose={closeAssistant} onJumpCitation={jumpCitation} onDocumentCommitted={refreshCommittedDocument} /> : null}
-      </Suspense>
-      <ReaderNotesPanel
-        open={notesOpen}
-        groups={annotations.groups}
-        count={annotations.count}
-        onClose={() => setNotesOpen(false)}
-        onJump={jumpToNote}
-        onUpdateNote={annotations.updateNote}
-        onRemove={annotations.remove}
-        onExport={exportNotes}
-      />
-      <ReaderSelectionToolbar selection={c.selection} onDismiss={c.clearSelection} onAskAi={askSelectedRegion} onAddNote={addNoteFromSelection} />
-      <DownloadToastHost />
-    </div>
+        <ReaderAssistantDock active={assistantPanel} />
+        {assistantOpen ? <ReaderAiSplitResizeHandle /> : null}
+        {c.showHud ? <ReaderFab activeTool={notesOpen ? "notes" : tools.active} noteCount={annotations.count} onToggleTool={handleFabTool} /> : null}
+        <ReaderCompareGrid mode={visiblePdfMode} compareMode={visiblePdfMode === "compare"} showSource={liveTranslationPair || visiblePdfMode !== "translated"} showTranslated={liveTranslationPair || visiblePdfMode === "translated" || visiblePdfMode === "compare"} markdownSplit={assistantPanel === "markdown"} assistantSplit={assistantOpen} liveTranslation={liveTranslationVisible ? c.liveTranslation : undefined} liveTranslationPair={liveTranslationPair} />
+        {c.showHud ? (
+          <ReaderZoomHud
+            mode={visiblePdfMode}
+            modeControls={null}
+          />
+        ) : null}
+        <Suspense fallback={null}>
+          {favoritesMounted ? <ReaderFavoritesPanel open={tools.isOpen("favorites")} jobId={session.jobId} documentId={session.documentId} onClose={closeTool} onJumpPage={c.goToPage} /> : null}
+          {markdownMounted ? <ReaderMarkdownPanel open={assistantPanel === "markdown"} jobId={session.jobId} sourceOnly={c.sourceOnly} layout="workspace" side="right" onClose={closeAssistant} /> : null}
+          {aiMounted ? <ReaderAiPanel key={session.documentId || session.jobId || "reader-ai-pending"} open={assistantPanel === "ai"} jobId={session.jobId} documentId={session.documentId} layout={resolveReaderAiLayout(c.mode)} side="right" selectionContext={aiSelectionContext} onClearSelectionContext={() => setAiSelectionContext(null)} onClose={closeAssistant} onJumpCitation={jumpCitation} onDocumentCommitted={refreshCommittedDocument} /> : null}
+        </Suspense>
+        <ReaderNotesPanel
+          open={notesOpen}
+          groups={annotations.groups}
+          count={annotations.count}
+          onClose={() => setNotesOpen(false)}
+          onJump={jumpToNote}
+          onUpdateNote={annotations.updateNote}
+          onRemove={annotations.remove}
+          onExport={exportNotes}
+        />
+        <ReaderSelectionToolbar selection={c.selection} onDismiss={c.clearSelection} onAskAi={askSelectedRegion} onAddNote={addNoteFromSelection} />
+        <DownloadToastHost />
+      </div>
+    </ReaderProvider>
   );
 }

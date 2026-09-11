@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { Columns2, FileText, Languages, Radio } from "lucide-react";
 import type { LiveTranslationState } from "../../shared/data/live-translation-state.js";
+import { useReaderContext } from "./reader-context.js";
 
 export type ReaderWorkspaceView = "reading" | "compare" | "markdown" | "ai";
 export type ReaderWorkspaceMode = "source" | "compare" | "translated";
@@ -49,13 +50,15 @@ export function isReaderWorkspaceDisabled(input: {
   return false;
 }
 
-export function ReaderWorkspaceTabs({
-  mode,
-  documentReady,
-  sourceOnly = false,
-  onModeChange,
-  liveTranslation = null,
-}: ReaderWorkspaceTabsProps): ReactElement {
+export function ReaderWorkspaceTabs(props: ReaderWorkspaceTabsProps): ReactElement {
+  const ctx = useReaderContext();
+  const {
+    mode,
+    documentReady,
+    onModeChange,
+    liveTranslation = null,
+  } = props;
+  const sourceOnly = props.sourceOnly ?? ctx?.sourceViewOnly ?? false;
   const liveCopy = liveTranslation ? liveTranslationStatusCopy(liveTranslation.state) : "";
   return (
     <header className="reader-workspace-bar">

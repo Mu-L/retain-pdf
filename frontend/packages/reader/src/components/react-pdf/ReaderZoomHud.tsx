@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import {
+  READER_ZOOM_DEFAULT,
   READER_ZOOM_MAX,
   READER_ZOOM_MIN,
   defaultZoomForMode,
@@ -11,27 +12,29 @@ import {
 } from "../../pdf/reader-zoom.js";
 import { clampPageNumber } from "../../pdf/scroll-to-page.js";
 import { ReaderShortcutsHelp } from "./ReaderShortcutsHelp.js";
+import { useReaderContext, useReaderHudContext } from "./reader-context.js";
 
 export type ReaderZoomHudProps = {
-  userZoom: number;
-  onZoomChange: (zoom: number) => void;
-  currentPage: number;
-  numPages: number;
+  /** 以下显示值缺省时从 reader context / hud context 取 */
+  userZoom?: number;
+  onZoomChange?: (zoom: number) => void;
+  currentPage?: number;
+  numPages?: number;
   onGoToPage?: (page: number) => void;
   /** 点百分比时重置到该模式默认缩放 */
   mode?: ReaderZoomMode | string;
   modeControls?: ReactNode;
 };
 
-export function ReaderZoomHud({
-  userZoom,
-  onZoomChange,
-  currentPage,
-  numPages,
-  onGoToPage,
-  mode = "compare",
-  modeControls,
-}: ReaderZoomHudProps) {
+export function ReaderZoomHud(props: ReaderZoomHudProps) {
+  const ctx = useReaderContext();
+  const hud = useReaderHudContext();
+  const { mode = "compare", modeControls } = props;
+  const userZoom = props.userZoom ?? ctx?.userZoom ?? READER_ZOOM_DEFAULT;
+  const onZoomChange = props.onZoomChange ?? ctx?.onZoomChange ?? (() => {});
+  const currentPage = props.currentPage ?? hud?.currentPage ?? 1;
+  const numPages = props.numPages ?? hud?.numPages ?? 0;
+  const onGoToPage = props.onGoToPage ?? ctx?.goToPage;
   // zoom 本身就是「占阅读区全宽的比例」：0.5→50%，1→100%
   const percent = zoomToDisplayPercent(userZoom);
   const canZoomOut = userZoom > READER_ZOOM_MIN + 0.001;
