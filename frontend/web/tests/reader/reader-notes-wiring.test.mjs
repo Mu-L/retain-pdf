@@ -192,7 +192,7 @@ test("导出 Markdown：把分组批注复制到剪贴板", async () => {
     new dom.window.MouseEvent("click", { bubbles: true }),
   );
   await waitFor(() => copied.includes("Demo"), "剪贴板写入批注 Markdown");
-  assert.match(copied, /# Demo · 批注/);
+  assert.match(copied, /# Demo 批注/);
   assert.match(copied, /## 第 3 页/);
   assert.match(copied, /> hello annotation world/);
   root.unmount();

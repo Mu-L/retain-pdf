@@ -77,7 +77,7 @@ export function ReaderFavoritesPanel({
       id="reader-favorites-panel"
       open={open}
       title="摘录"
-      subtitle="本书云端收藏 · 本地保存"
+      subtitle="本书云端摘录 · 服务端保存"
       titleIcon={<Bookmark size={14} strokeWidth={2.25} aria-hidden />}
       storageKey="retainpdf.reader.favorites-float.pos.v1"
       ariaLabel="摘录"

@@ -9,8 +9,12 @@ import type {
 } from "../types/types.js";
 
 // 服务端收藏 → 阅读器视图记录:snake_case 转 camelCase,
-// page_idx 与 jumpToReaderAnchor 的 pageIdx 同为 0 基。
+// page_idx 与 jumpToReaderAnchor 的 pageIdx 同为 0 基（面向人的 UI/导出再 +1 展示）。
 // 缺 favorite_id 或 quote_text 的脏数据直接丢弃(返回 null)。
+//
+// 生命周期提示（已知、暂不改）：服务端收藏按 document_id 归属/去重；本地注记
+// （annotations/types.ts 的 notesStorageKey）以 jobId 为第一身份，同文档换 run 会
+// 落到不同 key。两套页码展示已统一为 1-based。
 export function normalizeServerFavorite(raw: ServerFavoriteRaw = {} as ServerFavoriteRaw): ServerFavorite | null {
   const favoriteId = `${(raw as any)?.favorite_id || ""}`.trim();
   const quoteText = `${(raw as any)?.quote_text || ""}`.trim();
