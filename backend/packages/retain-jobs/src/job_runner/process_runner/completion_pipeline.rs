@@ -8,7 +8,7 @@ use crate::models::domain::JobRuntimeState;
 
 use super::completion::{
     apply_process_completion, classify_process_completion, should_treat_shutdown_noise_as_success,
-    ProcessCompletionKind,
+    ProcessCompletionKind, ProcessStageKind,
 };
 use super::execution::CompletedProcess;
 use super::failure_ai_diagnosis::maybe_attach_ai_failure_diagnosis;
@@ -19,6 +19,7 @@ pub(super) async fn finalize_completed_process(
     worker_runtime: &WorkerProcessRuntimeConfig<'_>,
     completed: CompletedProcess,
     extra_cancel_job_ids: &[String],
+    stage_kind: ProcessStageKind,
 ) -> Result<JobRuntimeState> {
     let mut latest_job = completed.latest_job;
     attach_process_result(
@@ -50,11 +51,14 @@ pub(super) async fn finalize_completed_process(
             &mut completion,
         );
     }
-    apply_process_completion(&mut latest_job, completion, &completed.stderr_text);
-    if matches!(
-        completion,
-        ProcessCompletionKind::Succeeded | ProcessCompletionKind::SucceededWithShutdownNoise
-    ) {
+    apply_process_completion(&mut latest_job, completion, &completed.stderr_text, stage_kind);
+    // 这条提示以「任务完成，但……」开头,只有真正的终点才该挂。
+    if matches!(stage_kind, ProcessStageKind::Final)
+        && matches!(
+            completion,
+            ProcessCompletionKind::Succeeded | ProcessCompletionKind::SucceededWithShutdownNoise
+        )
+    {
         attach_untranslated_content_warning(&mut latest_job, &deps.persist.data_root);
     }
     maybe_attach_ai_failure_diagnosis(

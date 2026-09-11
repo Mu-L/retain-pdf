@@ -23,6 +23,8 @@ use self::completion::is_shutdown_noise;
 use self::completion::ProcessCompletionKind;
 #[cfg(test)]
 use self::completion::{classify_process_completion, should_treat_shutdown_noise_as_success};
+// 生产路径要用,不能挂在上面那个 #[cfg(test)] 后面。
+pub(crate) use self::completion::ProcessStageKind;
 use self::completion_pipeline::finalize_completed_process;
 use self::execution::{collect_process_execution, ProcessExecution};
 #[cfg(test)]
@@ -37,6 +39,17 @@ pub(crate) async fn execute_process_job(
     deps: ProcessRuntimeDeps,
     job: JobRuntimeState,
     extra_cancel_job_ids: &[String],
+) -> Result<JobRuntimeState> {
+    execute_process_job_stage(deps, job, extra_cancel_job_ids, ProcessStageKind::Final).await
+}
+
+/// 与 [`execute_process_job`] 相同,但由调用方声明这一步是否为流程终点。
+/// 见 [`ProcessStageKind`]:翻译阶段跑完后面还有渲染,不能落终态。
+pub(crate) async fn execute_process_job_stage(
+    deps: ProcessRuntimeDeps,
+    job: JobRuntimeState,
+    extra_cancel_job_ids: &[String],
+    stage_kind: ProcessStageKind,
 ) -> Result<JobRuntimeState> {
     let _model_lease = super::worker_process::ModelWorkerLease::for_job(deps.db.as_ref(), &job);
     let worker_runtime = deps.worker_process_runtime();
@@ -62,7 +75,14 @@ pub(crate) async fn execute_process_job(
         ProcessExecution::Completed(completed) => completed,
         ProcessExecution::TimedOut(timed_out_job) => return Ok(timed_out_job),
     };
-    finalize_completed_process(&deps, &worker_runtime, completed, extra_cancel_job_ids).await
+    finalize_completed_process(
+        &deps,
+        &worker_runtime,
+        completed,
+        extra_cancel_job_ids,
+        stage_kind,
+    )
+    .await
 }
 
 #[cfg(test)]
@@ -530,7 +550,12 @@ pub(super) mod tests {
             schema_version: Some("document.v1".to_string()),
             ..JobArtifacts::default()
         });
-        apply_process_completion(&mut job, ProcessCompletionKind::Canceled, "");
+        apply_process_completion(
+            &mut job,
+            ProcessCompletionKind::Canceled,
+            "",
+            ProcessStageKind::Final,
+        );
         assert_eq!(job.status, JobStatusKind::Canceled);
         assert_eq!(job.stage.as_deref(), Some("canceled"));
         let artifacts = job.artifacts.as_ref().unwrap();

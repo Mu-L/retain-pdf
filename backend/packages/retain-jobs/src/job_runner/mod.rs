@@ -23,7 +23,7 @@ mod worker_process;
 pub use cancel_registry::{clear_cancel_request_with_registry, request_cancel_with_registry};
 pub use lifecycle::spawn_job;
 pub use driver_registry::JobDriverRegistry;
-pub(crate) use process_runner::execute_process_job;
+pub(crate) use process_runner::{execute_process_job, execute_process_job_stage, ProcessStageKind};
 pub use runtime_deps::{JobPersistDeps, ProcessRuntimeDeps};
 pub(crate) use runtime_state::{
     attach_job_paths, attach_job_provider_failure, clear_canceled_runtime_artifacts,

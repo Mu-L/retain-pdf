@@ -13,7 +13,8 @@ use crate::storage_paths::TRANSLATION_CHECKPOINT_FILE_NAME;
 use crate::worker_command::{build_worker_stage_command, WorkerStageCommand};
 
 use crate::job_runner::{
-    clear_job_failure, execute_process_job, sync_runtime_state, ProcessRuntimeDeps,
+    clear_job_failure, execute_process_job, execute_process_job_stage, sync_runtime_state,
+    ProcessRuntimeDeps, ProcessStageKind,
 };
 
 use crate::job_runner::stage_contract::{
@@ -67,7 +68,16 @@ pub(super) async fn run_translation_stage(
         &source_pdf_path,
         layout_json_path.as_deref(),
     )?;
-    let job = execute_process_job(deps.clone(), parent_job, &[]).await?;
+    // 翻译跑完后面一定还有渲染——四个调用方(book / translate / 两条 artifacts
+    // 复用路径)无一例外。所以这一步成功时不能落终态,否则 stage_history 会多出
+    // 一条 finished/succeeded 夹在 translating 与 rendering 之间。
+    let job = execute_process_job_stage(
+        deps.clone(),
+        parent_job,
+        &[],
+        ProcessStageKind::Intermediate,
+    )
+    .await?;
     Ok(TranslationStageResult {
         job,
         source_pdf_path,
@@ -146,4 +156,27 @@ pub(super) async fn run_render_stage_after_translation(
         &job,
     )?;
     execute_process_job(deps, job, &[]).await
+}
+
+#[cfg(test)]
+mod stage_kind_contract {
+    /// 翻译阶段必须以「中间阶段」跑,这条锁的是调用点本身。
+    ///
+    /// 单测只能锁住 `apply_process_completion` 在收到 `Intermediate` 时的行为;
+    /// 把这里的调用改回 `Final`,那些单测照样全绿——实测过。真正会坏的是
+    /// stage_history 的顺序,而那要跑完整的 book 流程才看得出来,单元测试够不着。
+    /// 所以这里直接盯调用点。
+    #[test]
+    fn translation_stage_runs_as_an_intermediate_step() {
+        let source = include_str!("translation_flow_stage.rs");
+        let call = source
+            .find("execute_process_job_stage(")
+            .expect("翻译阶段必须走 execute_process_job_stage");
+        let tail = &source[call..];
+        let end = tail.find(").await").expect("调用应当被 await");
+        assert!(
+            tail[..end].contains("ProcessStageKind::Intermediate"),
+            "翻译跑完后面还有渲染：这一步落终态会让 stage_history 出现 finished 夹在 rendering 前面"
+        );
+    }
 }
