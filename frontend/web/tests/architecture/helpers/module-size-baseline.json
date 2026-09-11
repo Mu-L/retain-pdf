@@ -1,0 +1,8 @@
+{
+  "src/app/home/composition/types.ts": 599,
+  "src/features/collections/ui/CollectionsView.tsx": 403,
+  "src/features/jobs/ui/use-status-card-model.ts": 390,
+  "src/features/library/ui/page/RecentJobsLibrary.tsx": 449,
+  "src/features/library/ui/shell/BookCard.tsx": 397,
+  "src/ui/context/home-services-context.tsx": 385
+}
