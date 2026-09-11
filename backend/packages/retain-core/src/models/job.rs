@@ -31,6 +31,59 @@ mod tests {
     use crate::models::{CreateJobInput, JobSnapshot, JobStatusKind};
 
     #[test]
+    /// 一个阶段不得归档上一阶段的进度。
+    ///
+    /// `progress_current/total` 是 job 级的、跨阶段不自动重置。渲染阶段的进度
+    /// 走 stage snapshot,从不写这对字段,所以若进入渲染时不清零,它整段都停在
+    /// 翻译留下的值上——真实任务里 stage_history 把 rendering 和 finished 两条
+    /// 都归档成了「59/59」,而那是翻译的文本块数,不是渲染的页数。
+    #[test]
+    fn a_stage_must_not_archive_the_previous_stages_progress() {
+        let mut job = JobSnapshot::new(
+            "job-stage-bleed".to_string(),
+            CreateJobInput::default(),
+            vec!["python".to_string()],
+        );
+        job.started_at = Some("2026-04-04T00:00:00Z".to_string());
+
+        job.updated_at = "2026-04-04T00:00:01Z".to_string();
+        job.stage = Some("translating".to_string());
+        job.sync_runtime_state();
+        job.updated_at = "2026-04-04T00:00:05Z".to_string();
+        job.progress_current = Some(59);
+        job.progress_total = Some(59);
+        job.sync_runtime_state();
+
+        // 进入渲染:调用方清零,渲染自己的进度不走这对字段
+        job.updated_at = "2026-04-04T00:00:06Z".to_string();
+        job.stage = Some("rendering".to_string());
+        job.progress_current = None;
+        job.progress_total = None;
+        job.sync_runtime_state();
+        job.updated_at = "2026-04-04T00:00:08Z".to_string();
+        job.sync_runtime_state();
+
+        let history = &job.runtime.as_ref().expect("runtime").stage_history;
+        let rendering = history
+            .iter()
+            .find(|entry| entry.stage == "rendering")
+            .expect("rendering entry");
+        assert_eq!(
+            (rendering.progress_current, rendering.progress_total),
+            (None, None),
+            "渲染阶段不得带着翻译的 59/59"
+        );
+        let translating = history
+            .iter()
+            .find(|entry| entry.stage == "translating")
+            .expect("translating entry");
+        assert_eq!(
+            (translating.progress_current, translating.progress_total),
+            (Some(59), Some(59)),
+            "翻译自己的归档不能因此丢失"
+        );
+    }
+
     /// 阶段结束时要把当时的进度留在历史里,否则任务跑完就查不到
     /// 「这次翻译了多少块」——`stages.*.progress` 只反映当前活跃阶段,
     /// 阶段一结束就回到 null。

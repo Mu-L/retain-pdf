@@ -146,6 +146,14 @@ pub(super) async fn run_render_stage_after_translation(
     job.status = JobStatusKind::Running;
     job.stage = Some(job_stage_str(JobStage::Rendering).to_string());
     job.stage_detail = Some(job_stage_detail(JobStage::Rendering).to_string());
+    // 进入新阶段就把进度清零,和 `prepare_translation_stage` 对称。
+    //
+    // 这对字段是 job 级的、跨阶段不自动重置。渲染阶段的进度走的是 stage
+    // snapshot(stages.render 那个 2/3),从不写 job.progress_*,于是它整段都
+    // 停在翻译留下的值上——stage_history 把渲染和 finished 两条都归档成了
+    // 「59/59」,而那是翻译的块数,不是渲染的页数。
+    job.progress_current = None;
+    job.progress_total = None;
     job.updated_at = now_iso();
     clear_job_failure(&mut job);
     sync_runtime_state(&mut job);
