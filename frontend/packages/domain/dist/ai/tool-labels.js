@@ -1,0 +1,15 @@
+// 工具事件标签真值：web home-ask 与 reader assistant 共用的纯映射。
+export const TOOL_EVENT_LABELS = {
+    search_markdown: "检索 Markdown",
+    read_markdown_chunk: "阅读 Markdown 片段",
+    list_documents: "确认文档信息",
+    read_blocks: "阅读相关段落",
+    search_favorites: "查找收藏",
+    search_fulltext: "检索文档内容",
+};
+export function describeToolEvent(event) {
+    const key = typeof event === "string"
+        ? event
+        : (event?.tool || event?.event || event?.type || "");
+    return TOOL_EVENT_LABELS[key] || (key ? `执行 ${key}` : "处理中");
+}

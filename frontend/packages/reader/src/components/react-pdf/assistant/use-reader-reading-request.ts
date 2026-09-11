@@ -7,6 +7,7 @@
 // lifecycle elsewhere and are deliberately untouched.
 
 import { useCallback, useEffect, useRef } from "react";
+import { makeId } from "@retainpdf/domain/session";
 import {
   findMessage,
   visibleMessages,
@@ -45,10 +46,6 @@ export type ReaderReadingChatPort = {
   stopStream: () => Promise<void>;
   replaceVisible: (messages: readonly ReaderChatMessage[]) => void;
 };
-
-function makeId(prefix: string) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
 
 export function useReaderReadingRequest(options: {
   jobId: string;

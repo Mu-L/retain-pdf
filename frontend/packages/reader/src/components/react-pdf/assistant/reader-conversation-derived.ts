@@ -2,6 +2,7 @@
 // no side effects, so the shell can memoize them with the same dependency
 // lists it used before extraction.
 
+import { toSessionSummary } from "@retainpdf/domain/session";
 import type { AiCitationLike, ConversationRecord } from "../../../external.js";
 import type { ReaderAskTreeItem } from "./reader-ask-tree.js";
 import type {
@@ -55,10 +56,7 @@ export function buildReaderAskSessionSummaries(
     || remoteAnswerer?.getConversationId?.()
     || "";
   return (sessions || []).map((s) => ({
-    id: s.conversation_id,
-    title: `${s.title || ""}`.trim() || "未命名对话",
-    updatedAt: s.updated_at || "",
-    messageCount: Number(s.message_count) || 0,
+    ...toSessionSummary(s, { active }),
     active: s.conversation_id === active,
   }));
 }
