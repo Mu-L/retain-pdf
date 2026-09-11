@@ -50,6 +50,11 @@ const { takeCompleteMarkdownChunk } = await import(
 const { retainPdfReaderAdapters } = await import(
   "../../src/app/reader/adapters/retainpdf.ts"
 );
+// parseMarkdownWithMath 由 reader 包直接导出，不属于 ReaderAdapters 注入面；
+// 注册对象只应包含声明字段（避免 `...ext` 静默带入）。
+const { parseMarkdownWithMath } = await import(
+  "../../../../frontend/packages/reader/src/external.ts"
+);
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -68,7 +73,7 @@ async function waitFor(predicate, description) {
 }
 
 test("OCR-only legacy Markdown and its protected image render in the reader panel", async () => {
-  assert.equal(typeof retainPdfReaderAdapters.parseMarkdownWithMath, "function");
+  assert.equal(typeof parseMarkdownWithMath, "function");
   assert.equal(typeof retainPdfReaderAdapters.resolveMarkdownAssetUrl, "function");
 
   const calls = [];
