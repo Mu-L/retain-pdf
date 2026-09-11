@@ -105,7 +105,7 @@ export type CollectionsViewProps = {
 
 export function CollectionsView(props: CollectionsViewProps) {
   const { controller, dialogStore, reloadSignal, libraryActions } = props;
-  // CollectionManageDialog 挂在 HomeApp.jsx 顶层,和这个组件是兄弟节点
+  // CollectionDialog 挂在 HomeApp.jsx 顶层,和这个组件是兄弟节点
   // (不是父子),保存/删除后没法直接 prop 回调回来——靠一个共享的版本号信号
   // 桥接:对话框保存成功就 bump 一次,这里订阅到变化就重新拉取列表。
   const { version } = useStoreSnapshot(reloadSignal);
@@ -298,7 +298,7 @@ export function CollectionsView(props: CollectionsViewProps) {
         ) : folderItems.length === 0 ? (
           <EmptyState
             instrument="balance"
-            title="这个合集还没有书"
+            title="这个合集暂无书"
             hint="点合集卡片上的「管理」，从书库勾选 PDF 放进来。"
           />
         ) : (
@@ -355,7 +355,7 @@ export function CollectionsView(props: CollectionsViewProps) {
         <EmptyState
           id="categories-empty"
           instrument="telescope"
-          title="还没有合集"
+            title="暂无合集"
           hint="把 PDF 按主题分组成书架，之后更好找。"
         >
           <button

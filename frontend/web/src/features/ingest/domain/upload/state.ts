@@ -7,6 +7,8 @@ import {
 
 export interface UploadState {
   uploadId: string;
+  /** documents.document_id（= sha256 内容哈希）；上传即建档，供上传后直接打开详情。 */
+  documentId: string;
   uploadedFileName: string;
   uploadedPageCount: number;
   uploadedBytes: number;
@@ -16,7 +18,7 @@ export interface UploadState {
 
 export type UploadPayload = Partial<Pick<
   UploadState,
-  "uploadId" | "uploadedFileName" | "uploadedPageCount" | "uploadedBytes"
+  "uploadId" | "documentId" | "uploadedFileName" | "uploadedPageCount" | "uploadedBytes"
 >>;
 
 export interface UploadResetOptions {
@@ -47,6 +49,7 @@ export interface UploadStatePort {
 function createUploadState(): UploadState {
   return {
     uploadId: "",
+    documentId: "",
     uploadedFileName: "",
     uploadedPageCount: 0,
     uploadedBytes: 0,
@@ -58,6 +61,7 @@ function createUploadState(): UploadState {
 function readUploadState(target: Partial<UploadState> = {}): Partial<UploadState> {
   return {
     uploadId: target.uploadId,
+    documentId: target.documentId,
     uploadedFileName: target.uploadedFileName,
     uploadedPageCount: target.uploadedPageCount,
     uploadedBytes: target.uploadedBytes,
@@ -81,6 +85,7 @@ function setUploadSnapshot(
   currentState: UploadState,
   {
     uploadId = "",
+    documentId = "",
     uploadedFileName = "",
     uploadedPageCount = 0,
     uploadedBytes = 0,
@@ -89,6 +94,7 @@ function setUploadSnapshot(
   return {
     ...currentState,
     uploadId,
+    documentId,
     uploadedFileName,
     uploadedPageCount,
     uploadedBytes,

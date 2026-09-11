@@ -33,9 +33,13 @@ export function bindRecentJobsCommandHandlers({
   refreshScheduler,
 }: BindRecentJobsCommandHandlersOptions = {}): RecentJobsCommandSubscription {
   return commandPort.subscribe({
-    onRefreshRequested: ({ delay, force }: RecentJobsRefreshRequest = {}) => {
+    onRefreshRequested: ({ delay, force, bypassThrottle = false }: RecentJobsRefreshRequest = {}) => {
       invalidateLibraryBooksResource(libraryBooksResource);
-      refreshScheduler.scheduleRefresh({ delay: Number(delay ?? 600), force });
+      refreshScheduler.scheduleRefresh({
+        delay: Number(delay ?? 600),
+        force,
+        ...(bypassThrottle ? { bypassThrottle: true } : null),
+      });
     },
     onJobUpdated: ({ job }: RecentJobsJobCommandPayload = {}) => {
       // 运行中只做单卡补丁，不 invalidate / 不整页 refresh。

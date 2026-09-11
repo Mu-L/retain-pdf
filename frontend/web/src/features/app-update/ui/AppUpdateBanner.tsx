@@ -2,8 +2,8 @@
 //
 // 旧世界"两处 DOM 分属两个宿主"的问题(按钮在 app-settings-dialog 模板,
 // 详情 dialog 在 app-shell-header.js)在这里合并成同一个组件:本组件整体挂载
-// 在 SettingsHubDialog.jsx"更新"tab 面板下(该面板用 hidden 属性切换,不卸载
-// ——见 SettingsHubDialog.jsx 头注释同款处理),按钮与 dialog 都是这里的常驻
+// 在 SettingsDialog.jsx"更新"tab 面板下(该面板用 hidden 属性切换,不卸载
+// ——见 SettingsDialog.jsx 头注释同款处理),按钮与 dialog 都是这里的常驻
 // 子节点。dialog 只会在用户点击本组件自己的按钮时才打开(此时"更新"
 // tab 必然是激活态、祖先没有 hidden),不存在"父级隐藏时误开 dialog"的场景。
 //

@@ -293,11 +293,9 @@ test("跨页去重接受稳定 document identity", async () => {
   assert.deepEqual(page.collected, []);
 });
 
-test("搜索:客户端按标题过滤,hasMore 关闭", async () => {
+test("搜索:query 经 q 透传后端，分页照常按后端 total 走", async () => {
   const documents = [
     { document_id: "d1", active_job_id: null, title: "量子化学导论" },
-    { document_id: "d2", active_job_id: null, title: "机器学习基础" },
-    { document_id: "d3", active_job_id: null, source_filename: "quantum-notes.pdf" },
   ];
   const { fetchDocumentList, fetchLibraryBookList, calls } = makeFetchers({ documents, total: 3, books: [] });
   const page = await collectDocumentLibraryPage({
@@ -309,8 +307,31 @@ test("搜索:客户端按标题过滤,hasMore 关闭", async () => {
     existingJobIds: new Set(),
     query: "量子",
   });
+  assert.equal(calls.documentQuery.q, "量子", "query 透传给后端 q");
+  assert.equal(calls.documentQuery.limit, 2, "搜索不再多拉，照常分页");
+  assert.equal(calls.documentQuery.offset, 0);
   assert.equal(page.collected.length, 1);
   assert.equal(page.collected[0].document_id, "d1");
-  assert.equal(page.hasMore, false, "搜索态关闭继续分页");
-  assert.ok((calls.documentQuery.limit || 0) >= 200, "搜索时一次多拉一批");
+  assert.equal(page.hasMore, true, "后端 total=3，已回 1 条 → 还有下一页");
+  assert.equal(page.nextOffset, 1, "按实际返回条数推进 offset");
+});
+
+test("搜索:第二页带 q 与 offset 继续向后翻", async () => {
+  const requested = [];
+  const fetchDocumentList = async (_prefix, params) => {
+    requested.push(params);
+    return { documents: [], total: 3, limit: 2, offset: 1 };
+  };
+  const page = await collectDocumentLibraryPage({
+    fetchDocumentList,
+    fetchLibraryBookList: async () => ({ items: [] }),
+    apiPrefix: "/api/v1",
+    startOffset: 1,
+    pageSize: 2,
+    existingJobIds: new Set(),
+    query: "量子",
+  });
+  assert.deepEqual(requested, [{ limit: 2, offset: 1, q: "量子" }]);
+  assert.equal(page.hasMore, true);
+  assert.equal(page.nextOffset, 1);
 });

@@ -1,6 +1,6 @@
 // CredentialsWorkbench：凭据表单主体（OCR / 翻译 / Agent + 保存行），
 // 从 CredentialsDialog 抽出的双宿主组件：
-//   1. SettingsHubDialog 的 API 区内嵌（常规入口，无二层弹窗）
+//   1. SettingsDialog 的接口区内嵌（常规入口，无二层弹窗）
 //   2. CredentialsDialog（仅剩首次配置门 setupMode 一个场景）
 // 两个宿主互斥挂载（设置是模态、门弹窗只从上传引导触发），BROWSER_IDS 的
 // DOM id 不会同屏重复。状态/保存/校验全部走 useCredentialsController 的
@@ -10,6 +10,8 @@ import { useCredentialsController } from "./useCredentialsController.js";
 import { OcrPanels, TranslationPanel } from "./ProviderPanels.jsx";
 import { Button as ButtonBase } from "@/ui/Button.jsx";
 import { AgentRuntimeSettingsCard } from "./AgentRuntimeSettingsCard.jsx";
+import { DialogFooter } from "@/ui/components/dialog.js";
+import { FormStatusLine } from "@/ui/components/form-status-line.js";
 import { Save, ScanText } from "lucide-react";
 
 // Button.size 在未注解源文件里被推断为必填;unstyled 路径运行时不用 size。
@@ -21,25 +23,10 @@ export function CredentialsWorkbench() {
   const { view, handlers } = useCredentialsController();
 
   const setupMode = Boolean(view.setupMode);
-  const dialogStatus = view.dialogStatus || { message: "", tone: "" };
-  const statusContent = `${dialogStatus.message || ""}`.trim();
-  const statusClasses = [
-    "upload-status",
-    statusContent ? "" : "hidden",
-    dialogStatus.tone === "valid" ? "is-valid" : "",
-    dialogStatus.tone === "error" ? "is-error" : "",
-  ].filter(Boolean).join(" ");
 
   const saveAction = (
-    <div className="actions credential-dialog-actions credential-document-actions">
-      <span
-        id={BROWSER_IDS.status}
-        className={statusClasses}
-        role="status"
-        aria-live="polite"
-      >
-        {statusContent}
-      </span>
+    <DialogFooter className="credential-dialog-actions credential-document-actions">
+      <FormStatusLine id={BROWSER_IDS.status} status={view.dialogStatus} className="upload-status" />
       <Button
         id={BROWSER_IDS.saveButton}
         className="app-button"
@@ -48,7 +35,7 @@ export function CredentialsWorkbench() {
         <Save aria-hidden="true" />
         {setupMode ? "保存并启动" : "保存接口"}
       </Button>
-    </div>
+    </DialogFooter>
   );
 
   return (

@@ -10,6 +10,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { ConfirmDialog } from "@/ui/components/confirm-dialog.js";
 import type { HomeAskSession } from "./use-home-ask-runtime.js";
 
 function startOfDay(d: Date) {
@@ -74,6 +75,7 @@ export function HomeAskSidebar({
   onDelete,
   onRename,
 }: HomeAskSidebarProps) {
+  const [pendingDelete, setPendingDelete] = useState<HomeAskSession | null>(null);
   const groups = groupSessions(sessions);
   const [editingId, setEditingId] = useState("");
   const [editTitle, setEditTitle] = useState("");
@@ -270,8 +272,7 @@ export function HomeAskSidebar({
                             title="删除"
                             onClick={(e) => {
                               e.stopPropagation();
-                              const ok = globalThis.confirm?.(`删除对话「${title}」？`);
-                              if (ok) onDelete(s.id);
+                              setPendingDelete(s);
                             }}
                           >
                             <Trash2 size={13} strokeWidth={2.2} aria-hidden />
@@ -286,6 +287,16 @@ export function HomeAskSidebar({
           ))
         )}
       </div>
+      <ConfirmDialog
+        id="home-ask-delete-confirm"
+        title="删除对话"
+        description={pendingDelete ? `确定删除对话「${displayTitle(pendingDelete.title)}」吗？删除后无法恢复。` : "确定删除该对话吗？"}
+        confirmLabel="删除"
+        tone="danger"
+        open={Boolean(pendingDelete)}
+        onOpenChange={(open) => { if (!open) setPendingDelete(null); }}
+        onConfirm={() => { if (pendingDelete) onDelete(pendingDelete.id); setPendingDelete(null); }}
+      />
     </aside>
   );
 }

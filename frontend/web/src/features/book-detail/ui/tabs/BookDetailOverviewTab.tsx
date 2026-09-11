@@ -175,7 +175,7 @@ export function BookDetailOverviewTab({
         <div className="book-detail-overview-actions">
           <button id="book-detail-overview-process-btn" type="button" className="book-detail-overview-action is-primary" onClick={onOpenProcessing}>
             <span aria-hidden="true"><Languages /></span>
-            <small>处理</small>
+            <small>进度</small>
             <ArrowRight className="book-detail-overview-action-arrow" aria-hidden="true" />
           </button>
           <button id="book-detail-overview-files-btn" type="button" className="book-detail-overview-action" onClick={onOpenArtifacts}>
@@ -204,13 +204,13 @@ export function BookDetailOverviewTab({
       </div>
 
       <div className="book-detail-overview-main-grid">
-        <section className="book-detail-overview-feature-card" aria-label="处理状态">
+        <section className="book-detail-overview-feature-card" aria-label="进度状态">
           <div className="book-detail-overview-card-heading">
             <div className="book-detail-overview-heading-title">
               <span aria-hidden="true"><FileStack /></span>
-              <h3>处理</h3>
+              <h3>进度</h3>
             </div>
-            <button type="button" className="book-detail-overview-icon-link" onClick={onOpenProcessing} aria-label="查看处理详情">
+            <button type="button" className="book-detail-overview-icon-link" onClick={onOpenProcessing} aria-label="查看进度详情">
               <ArrowRight aria-hidden="true" />
             </button>
           </div>
@@ -260,7 +260,7 @@ export function BookDetailOverviewTab({
             ))}
           </ol>
         ) : (
-          <p className="book-detail-overview-empty-activity">任务开始后，处理记录会显示在这里。</p>
+          <p className="book-detail-overview-empty-activity">任务开始后，进度记录会显示在这里。</p>
         )}
       </section>
     </div>

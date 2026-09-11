@@ -4,6 +4,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchDocument } from "@/platform/api/index.js";
 import { API_PREFIX } from "@/platform/config/api-constants.js";
+import {
+  blockedClearFavoritesPath,
+  blockedFavoriteCount,
+  isDeleteBlockedByFavorites,
+} from "@/features/library/domain.js";
+
+export type DeleteBlockedState = {
+  favoriteCount: number;
+  clearFavoritesPath: string;
+};
 
 function parseAuthors(authorsJson: unknown): string[] {
   try {
@@ -33,7 +43,7 @@ export function useDocumentMeta({
   const [readingStatus, setReadingStatus] = useState("unread");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteBlocked, setDeleteBlocked] = useState<DeleteBlockedState | null>(null);
   const [editing, setEditing] = useState(false);
   const [titleText, setTitleText] = useState("");
   const [tagsText, setTagsText] = useState("");
@@ -41,6 +51,10 @@ export function useDocumentMeta({
   const requestGenerationRef = useRef(0);
   const scopeRef = useRef({ open, documentId });
   scopeRef.current = { open, documentId };
+  // live item 会随轮询换引用；只在开合/换文档时才拿它做初始同步，
+  // 否则轮询期间会把用户正在编辑的标题/标签重置掉。
+  const itemRef = useRef(item);
+  itemRef.current = item;
 
   const refresh = useCallback(async () => {
     const scope = scopeRef.current;
@@ -80,22 +94,23 @@ export function useDocumentMeta({
       requestGenerationRef.current += 1;
       setDoc(null);
       setError("");
-      setConfirmingDelete(false);
       setEditing(false);
       setBusy("");
       return undefined;
     }
-    // item 切但 documentId 不变时同步 readingStatus/title/tags，避免残留
-    const initialTags: string[] = Array.isArray(item?.tags) ? item.tags : [];
-    setReadingStatus(item?.reading_status || "unread");
-    setTitleText(item?.title || item?.display_name || "");
+    // 只在打开/换文档时做初始同步；刻意不依赖 item（轮询会换引用），
+    // 否则后台刷新会覆盖用户正在编辑的 title/tags，并反复重打 fetchDocument。
+    const liveItem = itemRef.current;
+    const initialTags: string[] = Array.isArray(liveItem?.tags) ? liveItem.tags : [];
+    setReadingStatus(liveItem?.reading_status || "unread");
+    setTitleText(liveItem?.title || liveItem?.display_name || "");
     setTags(initialTags);
     setTagsText(initialTags.join("、"));
     void refresh();
     return () => {
       requestGenerationRef.current += 1;
     };
-  }, [open, documentId, item, refresh]);
+  }, [open, documentId, refresh]);
 
   const authors = useMemo(() => parseAuthors(doc?.authors_json), [doc?.authors_json]);
   const pageCount = doc?.page_count || item?.page_count || 0;
@@ -140,34 +155,78 @@ export function useDocumentMeta({
       .map((t) => t.trim())
       .filter(Boolean);
     const nextTitle = titleText.trim();
-    await withBusy(
-      "meta",
-      async () => {
-        const updated = await actions.updateDocument(documentId, {
-          title: nextTitle || undefined,
-          tags: nextTags,
-        });
-        if (updated) setDoc(updated);
-        setTags(nextTags);
-        setEditing(false);
-      },
-      "保存失败",
-    );
+    try {
+      await withBusy(
+        "meta",
+        async () => {
+          const updated = await actions.updateDocument(documentId, {
+            title: nextTitle || undefined,
+            tags: nextTags,
+          });
+          if (updated) setDoc(updated);
+          setTags(nextTags);
+          setEditing(false);
+        },
+        "保存失败",
+      );
+    } catch {
+      // 失败原因已由 withBusy -> setError 展示；这里吞掉避免事件回调产生未处理拒绝。
+    }
   }
 
+  useEffect(() => {
+    // 只在开合/换文档时清掉确认态；item 轮询不打断用户正在看的确认框。
+    setDeleteBlocked(null);
+  }, [open, documentId]);
+
   async function handleDelete() {
-    if (!confirmingDelete) {
-      setConfirmingDelete(true);
-      return;
+    setBusy("delete");
+    setError("");
+    setDeleteBlocked(null);
+    try {
+      await actions.deleteDocument(documentId);
+      onClose?.();
+    } catch (err: any) {
+      if (isDeleteBlockedByFavorites(err)) {
+        const favoriteCount = blockedFavoriteCount(err);
+        const clearFavoritesPath = blockedClearFavoritesPath(err);
+        if (favoriteCount > 0 && clearFavoritesPath) {
+          setDeleteBlocked({ favoriteCount, clearFavoritesPath });
+          return;
+        }
+      }
+      setError(err?.message || "删除失败");
+    } finally {
+      setBusy("");
     }
-    await withBusy(
-      "delete",
-      async () => {
-        await actions.deleteDocument(documentId);
-        onClose?.();
-      },
-      "删除失败",
-    );
+  }
+
+  // 用户确认「一并删除收藏」：先 DELETE clear_favorites_path，再重试原删除。
+  async function clearFavoritesAndDelete() {
+    const blocked = deleteBlocked;
+    if (!blocked) return;
+    setBusy("delete");
+    setError("");
+    try {
+      await actions.clearFavorites(blocked.clearFavoritesPath);
+      setDeleteBlocked(null);
+      await actions.deleteDocument(documentId);
+      onClose?.();
+    } catch (err: any) {
+      if (isDeleteBlockedByFavorites(err)) {
+        // 并发新增了收藏：更新计数并留在确认态，让用户重试。
+        const favoriteCount = blockedFavoriteCount(err);
+        const clearFavoritesPath = blockedClearFavoritesPath(err);
+        if (favoriteCount > 0 && clearFavoritesPath) {
+          setDeleteBlocked({ favoriteCount, clearFavoritesPath });
+          setError("收藏已被重新添加，请重试。");
+          return;
+        }
+      }
+      setError(err?.message || "删除失败");
+    } finally {
+      setBusy("");
+    }
   }
 
   return {
@@ -182,8 +241,6 @@ export function useDocumentMeta({
     error,
     setError,
     withBusy,
-    confirmingDelete,
-    setConfirmingDelete,
     editing,
     setEditing,
     titleText,
@@ -197,5 +254,8 @@ export function useDocumentMeta({
     handleSaveEdit,
     handleReadingStatus,
     handleDelete,
+    deleteBlocked,
+    clearFavoritesAndDelete,
+    dismissDeleteBlocked: () => setDeleteBlocked(null),
   };
 }

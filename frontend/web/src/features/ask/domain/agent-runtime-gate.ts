@@ -79,7 +79,7 @@ export function resolveAgentRuntimeCredentialGate({
       blocked: !config.fx_gateway_api_key_configured,
       message: config.fx_gateway_api_key_configured
         ? ""
-        : "请先在设置 → API 设置 → AI Agent 中填写 Gateway Key",
+        : "请先在设置 → 接口设置 → AI Agent 中填写 Gateway Key",
       mode,
     };
   }
@@ -96,7 +96,7 @@ export function resolveAgentRuntimeCredentialGate({
     blocked: !modelKeyConfigured,
     message: modelKeyConfigured
       ? ""
-      : "请先在设置 → API 设置 → AI Agent 中填写模型 API Key",
+        : "请先在设置 → 接口设置 → AI Agent 中填写模型 API Key",
     mode,
   };
 }

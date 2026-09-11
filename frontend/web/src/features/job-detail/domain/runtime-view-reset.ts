@@ -7,7 +7,7 @@
 // events-status（events.status）。一个也不属于主页外壳，所以真值应当归 job-detail。
 //
 // 两个消费方：
-//   - app/home/composition/idle-view.ts（idle 首帧）
+//   - app/home/composition/create-lifecycle.ts（idle 首帧）
 //   - features/jobs/domain/runtime/runtime-reset.ts（返回主页时清场），
 //     它跨功能经 @/features/job-detail/index.js 取，不直连本文件。
 

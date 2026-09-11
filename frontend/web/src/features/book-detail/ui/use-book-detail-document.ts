@@ -44,7 +44,6 @@ export function useBookDetailDocument({
     error: meta.error,
     setError: meta.setError,
     withBusy: meta.withBusy,
-    confirmingDelete: meta.confirmingDelete,
     editing: meta.editing,
     setEditing: meta.setEditing,
     titleText: meta.titleText,
@@ -57,6 +56,9 @@ export function useBookDetailDocument({
     handleSaveEdit: meta.handleSaveEdit,
     handleReadingStatus: meta.handleReadingStatus,
     handleDelete: meta.handleDelete,
+    deleteBlocked: meta.deleteBlocked,
+    clearFavoritesAndDelete: meta.clearFavoritesAndDelete,
+    dismissDeleteBlocked: meta.dismissDeleteBlocked,
     // collections 域
     collections: col.collections,
     collectionsBusy: col.collectionsBusy,

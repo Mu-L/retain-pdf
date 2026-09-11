@@ -4,7 +4,7 @@
 // 「对照阅读」链接(dialogs 蓝图 §4 施工范围第 6 条 ①):运行时复核确认
 // 3b 只渲染了裸 <a href="reader.html?...">,没有拦截点击——整页跳转会
 // 打断 SPA 的对话框体验,补上 onClick(preventDefault + onReaderClick)
-// 走 ReaderDialog 统一的 openReaderRequested 入口,href 保留作为
+// 走 ReaderNavigation 统一的 openReaderRequested 入口,href 保留作为
 // JS 失效时的可用兜底。
 //
 // markdownBundle/sourcePdf/pdf 三个下载链接(dialogs 蓝图 §7):这几个 id

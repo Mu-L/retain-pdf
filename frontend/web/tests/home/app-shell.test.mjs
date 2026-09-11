@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   createAppShellConfigPort,
   initializeIdleAppView,
-} from "../../src/app/home/composition/idle-view.js";
+} from "../../src/app/home/composition/create-lifecycle.js";
 import {
   buildJobWarningViewModel,
   buildWorkflowSectionsViewModel,

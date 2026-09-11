@@ -20,10 +20,8 @@ import { APP_EVENTS } from "@/platform/contracts/app-contract.js";
 import { requestedReaderJobIdFromLocation } from "@/features/reader/domain.js";
 import { normalizeJobPayload, summarizeStatus } from "@retainpdf/domain/job";
 import { readActiveJobId } from "@/features/jobs/index.js";
-import {
-  initializeIdleAppView,
-  defaultAppShellConfigPort,
-} from "./idle-view.js";
+import { isMockMode } from "@/platform/config/runtime.js";
+import { resetStatusDetailRuntimeView } from "@/features/job-detail/index.js";
 import { parseDetailJobId } from "@/platform/navigation/pages.js";
 
 import type { HomeBridge, HomeFeatures } from "./types.js";
@@ -117,7 +115,7 @@ export function createLifecycle({
     if (typeof disposeArtifactDownloads === "function") {
       (disposeArtifactDownloads as () => void)();
     }
-    features.jobRuntimeFeature.stopPolling();
+    features.jobRuntimeFeature?.stopPolling?.();
     started = false;
   }
 
@@ -126,4 +124,58 @@ export function createLifecycle({
     dispose,
     appShellFeature: { initializeIdleView },
   };
+}
+
+// ── idle 首帧：把主页外壳（进度条 / 摘要 / 上传区 / 工作流）打回空态。 ──
+//
+// 原在 src/js/features/app-shell/idle-reset.ts + config-port.ts，后拆到 idle-view.ts；
+// 现并入本文件与 initialize/dispose 同住（idle 视图是壳生命周期的一环）。
+//   - createAppShellConfigPort 存在的唯一目的就是把 isMock 喂给
+//     initializeIdleAppView（mock 模式下才清 error-box），没有第二个消费方。
+//   - 状态详情弹窗那半（resetStatusDetailRuntimeView）留在 features/job-detail，
+//     这里跨功能经它的出口 @/features/job-detail/index.js 取。
+
+export function createAppShellConfigPort({
+  isMock = isMockMode,
+}: any = {}) {
+  return {
+    isMock,
+  };
+}
+
+export const defaultAppShellConfigPort = createAppShellConfigPort();
+
+export function initializeIdleAppView({
+  configPort,
+  jobPresentationPort = {},
+  setText,
+  setWorkflowSections,
+  setLinearProgress,
+  updateActionButtons,
+  renderPageRangeSummary,
+  resetUploadProgress,
+  resetUploadedFile,
+  applyWorkflowMode,
+  updateJobWarning,
+  resetEventsList,
+  activateDetailTab,
+}: any) {
+  const normalizeJobPayload = jobPresentationPort.normalizeJobPayload || ((payload) => payload);
+  const summarizeStatus = jobPresentationPort.summarizeStatus || ((status) => status);
+
+  updateActionButtons(normalizeJobPayload({}));
+  setWorkflowSections(null);
+  setLinearProgress("job-progress-bar", "job-progress-text", NaN, NaN, "-");
+  setText("job-summary", summarizeStatus("idle"));
+  setText("job-stage-detail", "-");
+  setText("query-job-duration", "-");
+  resetStatusDetailRuntimeView({ setText, resetEventsList, activateDetailTab });
+  if (configPort?.isMock?.()) {
+    setText("error-box", "-");
+  }
+  renderPageRangeSummary();
+  resetUploadProgress();
+  resetUploadedFile();
+  applyWorkflowMode();
+  updateJobWarning("idle");
 }

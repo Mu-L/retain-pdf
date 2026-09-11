@@ -30,29 +30,36 @@ const StatusAreaStoreContext = createContext<HomeServices["stores"]["statusArea"
 const WorkflowDialogContext = createContext<HomeServices["workflowDialog"] | null>(null);
 const SettingsHubContext = createContext<HomeServices["settingsHub"] | null>(null);
 
-function narrowOrBag<T>(narrow: T | null, pick: (s: HomeServices) => T, name: string): T {
+function narrowOrBag<T>(narrow: T | null, bag: HomeServices | null, pick: (s: HomeServices) => T, name: string): T {
   if (narrow) return narrow;
   // 兼容单挂 HomeServicesProvider 的旧挂载(孤立渲染 BottomBar 的测试)——
   // Shell 正常路径经 HomeShellProviders 灌入,不走这条回退。
-  const bag = useContext(HomeServicesContext);
   if (!bag) throw new Error(`${name} 必须在 <HomeShellProviders> 内使用`);
   return pick(bag);
 }
 
 export function useHomeDialogStore(): HomeServices["stores"]["dialog"] {
-  return narrowOrBag(useContext(DialogStoreContext), (s) => s.stores.dialog, "useHomeDialogStore");
+  const narrow = useContext(DialogStoreContext);
+  const bag = useContext(HomeServicesContext);
+  return narrowOrBag(narrow, bag, (s) => s.stores.dialog, "useHomeDialogStore");
 }
 
 export function useHomeStatusAreaStore(): HomeServices["stores"]["statusArea"] {
-  return narrowOrBag(useContext(StatusAreaStoreContext), (s) => s.stores.statusArea, "useHomeStatusAreaStore");
+  const narrow = useContext(StatusAreaStoreContext);
+  const bag = useContext(HomeServicesContext);
+  return narrowOrBag(narrow, bag, (s) => s.stores.statusArea, "useHomeStatusAreaStore");
 }
 
 export function useHomeWorkflowDialog(): HomeServices["workflowDialog"] {
-  return narrowOrBag(useContext(WorkflowDialogContext), (s) => s.workflowDialog, "useHomeWorkflowDialog");
+  const narrow = useContext(WorkflowDialogContext);
+  const bag = useContext(HomeServicesContext);
+  return narrowOrBag(narrow, bag, (s) => s.workflowDialog, "useHomeWorkflowDialog");
 }
 
 export function useHomeSettingsHub(): HomeServices["settingsHub"] {
-  return narrowOrBag(useContext(SettingsHubContext), (s) => s.settingsHub, "useHomeSettingsHub");
+  const narrow = useContext(SettingsHubContext);
+  const bag = useContext(HomeServicesContext);
+  return narrowOrBag(narrow, bag, (s) => s.settingsHub, "useHomeSettingsHub");
 }
 
 export function HomeShellProviders({ services, children }: { services: HomeServices; children: ReactNode }) {

@@ -4,7 +4,7 @@ import { JSDOM } from "jsdom";
 
 // AppUpdateBanner(Phase 3 dialogs 群,蓝图 §5)组件级测试。
 // 校验:契约 id、启动缓存命中/未命中两条路径、手动检查
-// loading/成功/失败三态、formatReleaseNotes 渲染断言、SettingsHubDialog
+// loading/成功/失败三态、formatReleaseNotes 渲染断言、SettingsDialog
 // "更新"tab 的按钮 + 详情 dialog 合并挂载、AppShellHeader 不再残留旧模板。
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/index.html" });
@@ -84,7 +84,7 @@ async function mountHome(services) {
   return { host, root };
 }
 
-// 阶段 C(shadcn 改造):SettingsHubDialog/AppUpdateBanner 详情 dialog 换成
+// 阶段 C(shadcn 改造):SettingsDialog/AppUpdateBanner 详情 dialog 换成
 // Radix Dialog 后不 forceMount Content,关闭态下整个内容都不挂载(不再是
 // 原生 <dialog>.open 布尔属性),下面全部改用"是否挂载"判断打开态。
 async function openUpdateTab() {

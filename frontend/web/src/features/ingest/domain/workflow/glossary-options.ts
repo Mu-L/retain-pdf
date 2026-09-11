@@ -32,7 +32,13 @@ export function createGlossaryOptionsLoader({
       .then((payload) => {
         glossaryOptions = Array.isArray(payload?.items) ? payload.items : [];
         glossaryOptionsLoaded = true;
-        const nextSelectedId = `${selectedId || ""}`.trim() || getDefaultSelectedId?.() || "";
+        const requestedSelectedId = `${selectedId || ""}`.trim();
+        const fallbackSelectedId = `${getDefaultSelectedId?.() || ""}`.trim();
+        // 已删除术语表的残留 id 不再回退：仅当回退 id 仍在新列表中才沿用。
+        const nextSelectedId = requestedSelectedId
+          || (fallbackSelectedId && glossaryOptions.some((item) => `${item?.glossary_id || ""}`.trim() === fallbackSelectedId)
+            ? fallbackSelectedId
+            : "");
         setDeveloperGlossaryOptions(glossaryOptions, nextSelectedId);
         return glossaryOptions;
       })

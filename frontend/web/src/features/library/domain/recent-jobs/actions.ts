@@ -44,7 +44,11 @@ export function createRecentJobActions({
   function friendlyDeleteError(error) {
     const message = `${error?.message || error || ""}`;
     if (error?.status === 409 || message.includes("(409)")) {
-      const count = message.match(/\d+/)?.[0];
+      // 结构化 favorite_count 优先；message 正则仅为旧错误源兜底。
+      const structured = Number(error?.favoriteCount);
+      const count = Number.isFinite(structured) && structured > 0
+        ? structured
+        : message.match(/\d+/)?.[0];
       return count
         ? `该文档有 ${count} 条收藏，请先删除收藏后再删除文档。`
         : "该文档存在收藏引用，请先删除相关收藏后再删除文档。";

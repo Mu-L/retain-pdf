@@ -36,7 +36,7 @@ function IconFile(props) {
 // shortLabel 用于按钮显示，避免挤占关闭钮；title 完整名称给悬停/无障碍
 export const BOOK_DETAIL_TABS = Object.freeze([
   { id: "overview", label: "概览", title: "文档概览", Icon: IconBook },
-  { id: "processing", label: "处理", title: "文档处理", Icon: IconProcessing },
+  { id: "processing", label: "进度", title: "文档进度", Icon: IconProcessing },
   { id: "artifacts", label: "文件", title: "文件与产物", Icon: IconFile },
 ]);
 
@@ -61,11 +61,13 @@ export function BookDetailRightTabs({
 }: any) {
   const [activeTab, setActiveTab] = useState(defaultTab || "overview");
 
+  // open/换文档时回到 defaultTab；同时跟随 defaultTab 变化（例如提交翻译后
+  // 强制进处理 Tab）。用户手动切 Tab 不改 defaultTab，所以不会被拉回。
   useEffect(() => {
     if (open) {
       setActiveTab(defaultTab || "overview");
     }
-  }, [open, resetKey]);
+  }, [open, resetKey, defaultTab]);
 
   function handleTabChange(next) {
     setActiveTab(next);

@@ -99,9 +99,9 @@ test("upload controller submits to config port upload url", async () => {
         pageRangeInputs = { start: "", end: "" };
         viewCalls.push(["clear-ranges"]);
       },
-      closePageRangeDialog: () => viewCalls.push(["close-range-dialog"]),
+      closeTranslationOptions: () => viewCalls.push(["close-range-dialog"]),
       markUploadReady: (ready) => viewCalls.push(["ready", ready]),
-      openPageRangeDialog: (options) => viewCalls.push(["open-range-dialog", options]),
+      openTranslationOptions: (options) => viewCalls.push(["open-range-dialog", options]),
       readPageRanges: () => pageRangeInputs,
       selectedFile: () => file,
       setFileLabel: (selected, fallback) => viewCalls.push(["file-label", selected?.name || "", fallback]),
@@ -187,9 +187,9 @@ test("upload controller reads and writes upload state through upload state port"
       clearPageRanges: () => {
         pageRangeInputs = { start: "", end: "" };
       },
-      closePageRangeDialog: () => {},
+      closeTranslationOptions: () => {},
       markUploadReady: (ready) => calls.push(["ready", ready]),
-      openPageRangeDialog: () => {},
+      openTranslationOptions: () => {},
       readPageRanges: () => pageRangeInputs,
       selectedFile: () => file,
       setFileLabel: () => {},
@@ -253,9 +253,9 @@ test("upload controller resetUploadSession clears stale upload and page range st
         pageRangeInputs = { start: "", end: "" };
         calls.push(["clear-ranges"]);
       },
-      closePageRangeDialog() {},
+      closeTranslationOptions() {},
       markUploadReady: (ready) => calls.push(["ready", ready]),
-      openPageRangeDialog() {},
+      openTranslationOptions() {},
       readPageRanges: () => pageRangeInputs,
       selectedFile: () => null,
       setFileLabel() {},
@@ -333,9 +333,9 @@ test("upload controller clears stale upload state before selecting a new file", 
         pageRangeInputs = { start: "", end: "" };
         calls.push(["clear-ranges"]);
       },
-      closePageRangeDialog() {},
+      closeTranslationOptions() {},
       markUploadReady: (ready) => calls.push(["ready", ready]),
-      openPageRangeDialog() {},
+      openTranslationOptions() {},
       readPageRanges: () => pageRangeInputs,
       selectedFile: () => file,
       setFileLabel() {},
@@ -380,9 +380,9 @@ test("upload controller opens page range dialog with uploaded PDF page count", (
     workflowNeedsUpload: () => true,
     viewPort: {
       clearPageRanges() {},
-      closePageRangeDialog() {},
-      markUploadReady() {},
-      openPageRangeDialog: (options) => calls.push(["open-range-dialog", options]),
+      closeTranslationOptions() {},
+      markUploadReady: () => {},
+      openTranslationOptions: (options) => calls.push(["open-range-dialog", options]),
       readPageRanges: () => ({ start: "2", end: "8" }),
       selectedFile: () => null,
       setFileLabel() {},
@@ -392,7 +392,7 @@ test("upload controller opens page range dialog with uploaded PDF page count", (
     },
   });
 
-  feature.openPageRangeDialog();
+  feature.openTranslationOptions();
 
   assert.deepEqual(calls, [
     ["open-range-dialog", { applied: "2-8", maxPage: 12 }],
@@ -428,9 +428,9 @@ test("upload controller constrains page ranges to current PDF bounds", () => {
     workflowNeedsUpload: () => true,
     viewPort: {
       clearPageRanges() {},
-      closePageRangeDialog() {},
-      markUploadReady() {},
-      openPageRangeDialog() {},
+      closeTranslationOptions() {},
+      markUploadReady: () => calls.push(["ready", ready]),
+      openTranslationOptions() {},
       readPageRanges: () => pageRangeInputs,
       selectedFile: () => null,
       setFileLabel() {},
@@ -481,9 +481,9 @@ test("upload controller keeps start page from exceeding end page", () => {
     workflowNeedsUpload: () => true,
     viewPort: {
       clearPageRanges() {},
-      closePageRangeDialog() {},
+      closeTranslationOptions() {},
       markUploadReady() {},
-      openPageRangeDialog() {},
+      openTranslationOptions() {},
       readPageRanges: () => pageRangeInputs,
       selectedFile: () => null,
       setFileLabel() {},
@@ -571,6 +571,7 @@ test("upload state port owns normalization without legacy upload helpers", () =>
   port.reset();
   assert.deepEqual(port.getSnapshot(), {
     uploadId: "",
+    documentId: "",
     uploadedFileName: "",
     uploadedPageCount: 0,
     uploadedBytes: 0,
@@ -579,4 +580,61 @@ test("upload state port owns normalization without legacy upload helpers", () =>
   });
   // 不再回写旧对象:保持调用方传入的原值
   assert.equal(state.appliedPageRange, "3-5");
+});
+
+test("upload controller rejects non-numeric page ranges", () => {
+  const texts = [];
+  const calls = [];
+  let snapshot = {
+    uploadId: "upload-1",
+    uploadedPageCount: 12,
+    appliedPageRange: "",
+  };
+  let pageRangeInputs = { start: "abc", end: "" };
+  const feature = mountUploadFeature({
+    state: {},
+    uploadStatePort: {
+      getSnapshot: () => snapshot,
+      setAppliedPageRange: (value) => {
+        calls.push(["applied", value]);
+        snapshot = { ...snapshot, appliedPageRange: value };
+        return snapshot;
+      },
+    },
+    frontMaxBytes: 1024 * 1024,
+    frontMaxPageCount: 999,
+    resetUploadedFile() {},
+    resetUploadProgress() {},
+    clearFileInputValue() {},
+    setText: (id, value) => texts.push([id, value]),
+    applyWorkflowMode() {},
+    refreshSubmitControls() {},
+    workflowNeedsUpload: () => true,
+    viewPort: {
+      clearPageRanges() {},
+      closeTranslationOptions() {},
+      markUploadReady() {},
+      openTranslationOptions() {},
+      readPageRanges: () => pageRangeInputs,
+      selectedFile: () => null,
+      setFileLabel() {},
+      setInlinePageRangeVisible() {},
+      showUploadStatus() {},
+      writePageRanges() {},
+    },
+  });
+
+  assert.equal(feature.validatePageRanges(), false);
+  assert.deepEqual(texts, [["error-box", "页码必须为数字"]]);
+  assert.equal(snapshot.appliedPageRange, "");
+  assert.deepEqual(calls, []);
+
+  pageRangeInputs = { start: "2", end: "xyz" };
+  assert.equal(feature.validatePageRanges(), false);
+  assert.equal(texts.at(-1)[0], "error-box");
+  assert.equal(snapshot.appliedPageRange, "");
+
+  pageRangeInputs = { start: "2", end: "8" };
+  assert.equal(feature.validatePageRanges(), true);
+  assert.equal(snapshot.appliedPageRange, "2-8");
 });

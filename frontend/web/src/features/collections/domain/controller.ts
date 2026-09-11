@@ -23,7 +23,7 @@ export type CollectionRecord = {
 // 合集域的唯一装配面（领域名统一为 collections，历史别名 categories）。
 // 这是一个纯 React 时代新建的域,没有旧世界 controller.js 可复用,所以不套其余域那套 mountXFeature()/viewPort 壳子——
 // 直接是一层绑好 apiPrefix 的薄函数集合,create-home-composition.ts 建一次实例,
-// CollectionsView.jsx（兼容名 CategoriesView）/CollectionManageDialog.jsx 经 services.collections.controller 消费。
+// CollectionsView.jsx（兼容名 CategoriesView）/CollectionDialog.jsx 经 services.collections.controller 消费。
 // 三名一物映射：features/collections（领域） == LibraryTopTabs key "categories"（UI 契约） == CollectionsView/CategoriesView（视图）
 
 export function createCollectionsController({ apiPrefix }) {

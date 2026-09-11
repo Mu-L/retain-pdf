@@ -35,7 +35,18 @@ async function bootHome() {
   });
   services.initialize();
 
-  mountShellPage("home-root", <><DecorStage /><HomeApp services={services} /></>, { createIfMissing: true });
+  const unmount = mountShellPage("home-root", <><DecorStage /><HomeApp services={services} /></>, { createIfMissing: true });
+
+  // 生产 MPA 不卸载；保留句柄供测试/HMR 在同一 document 二次挂载前释放，
+  // 避免旧 composition 的 document 监听与轮询常驻导致事件双发。
+  const teardown = () => {
+    try {
+      services.dispose();
+    } finally {
+      unmount();
+    }
+  };
+  (globalThis as Record<string, unknown>).__retainHomeTeardown = teardown;
 
   if (desktopMode) {
     await services.features.browserCredentialsFeature.ready();

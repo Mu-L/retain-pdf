@@ -36,6 +36,8 @@ export function mountGlossariesFeature({
     currentDetail: null,
     draftOnly: false,
   };
+  // 并发选择守卫：只保留最后一次 selectGlossary 的回包，过期响应直接丢弃。
+  let selectRequestSeq = 0;
 
   function renderList() {
     viewPort.renderList(state.items, state.selectedId);
@@ -71,15 +73,22 @@ export function mountGlossariesFeature({
     if (!normalizedGlossaryId) {
       return;
     }
+    const requestSeq = ++selectRequestSeq;
     state.selectedId = normalizedGlossaryId;
     state.draftOnly = false;
     renderList();
     viewPort.setStatus("正在读取术语表...");
     try {
       const detail = await fetchGlossary(normalizedGlossaryId, apiPrefix);
+      if (requestSeq !== selectRequestSeq) {
+        return;
+      }
       renderDraft(detail);
       viewPort.setStatus("");
     } catch (err) {
+      if (requestSeq !== selectRequestSeq) {
+        return;
+      }
       viewPort.setStatus(err.message || String(err), "error");
     }
   }
@@ -118,7 +127,7 @@ export function mountGlossariesFeature({
       return;
     }
     if (payload.skippedMissingTarget?.length > 0) {
-      viewPort.setStatus("固定译法/偏好译法需要填写译文。", "error");
+      viewPort.setStatus("需要填写译文的术语还有空缺。", "error");
       return;
     }
     delete payload.skippedMissingTarget;

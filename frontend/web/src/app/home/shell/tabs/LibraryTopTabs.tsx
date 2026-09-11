@@ -1,5 +1,5 @@
 // 主页顶部"图书馆 / 合集 / 收藏 / AI 问答"分栏(裸 Tabs 原语,不经 src/components/ui/tabs.jsx
-// 默认皮肤——同 StatusDetailDialog/SettingsHubDialog 的既有选择,用项目自有
+// 默认皮肤——同 StatusDetailDialog/SettingsDialog 的既有选择,用项目自有
 // class,不接 shadcn 默认视觉)。
 //
 // 图标化:每个 tab 前置语义图标 + 短文字(纯图标伤 wayfinding)。

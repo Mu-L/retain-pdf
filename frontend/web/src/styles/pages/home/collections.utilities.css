@@ -1,7 +1,7 @@
 /* 合集管理弹窗（从 components.utilities 拆出） */
 
 
-/* CollectionManageDialog(分类文件夹 新建/管理弹窗)——名称输入镜像
+/* CollectionDialog(分类文件夹 新建/管理弹窗)——名称输入镜像
    professional-glossary-field 的字段样式(span 标题 + 12px 圆角输入),勾选
    清单是本项目第一处 checkbox 列表,没有现成样式可直接复用,新写一份和
    lib-search-hit/recent-job-delete-popover 同一视觉语言的浅色卡片列表。 */

@@ -107,6 +107,9 @@ test("仅收藏：关闭对话框且不提交翻译 job", async () => {
   const { services, root, host } = await bootHomeApp(dom);
   const { APP_EVENTS } = await import("@/platform/contracts/app-contract.js");
 
+  const opened = [];
+  services.library.actions.openBookDetail = (item) => opened.push(item);
+
   click(dom, byId("library-add-pdf-btn"));
   await waitFor(() => byId("translation-workflow-dialog") !== null, "添加对话框打开");
 
@@ -114,12 +117,42 @@ test("仅收藏：关闭对话框且不提交翻译 job", async () => {
   dom.window.document.addEventListener(APP_EVENTS.libraryJobCreated, () => { jobSubmitted = true; });
 
   services.uploadViewActions.patch({ ready: true, actionSlotVisible: true });
+  // 上传响应现在带 document_id（= 内容哈希），前端存入 upload session。
+  services.ports.uploadStatePort.setUpload({ documentId: "doc-uploaded" });
   await waitFor(() => !byId("store-only-btn").disabled, "仅收藏可选择");
   click(dom, byId("store-only-btn"));
 
   await waitFor(() => byId("translation-workflow-dialog") === null, "仅收藏后关闭对话框");
   await wait(50);
   assert.equal(jobSubmitted, false, "仅收藏不提交翻译 job");
+  await waitFor(() => opened.length === 1, "仅收藏后跳到该文档详情");
+  assert.equal(opened[0].document_id, "doc-uploaded");
+
+  root.unmount();
+  services.dispose();
+  host.remove();
+});
+
+test("提交任务：成功后关闭弹窗并跳到该文档详情（进度 Tab）", async () => {
+  const dom = makeDom("?mock=parallel");
+  const byId = (id) => dom.window.document.getElementById(id);
+  const { services, root, host } = await bootHomeApp(dom);
+
+  const opened = [];
+  services.library.actions.openBookDetail = (item) => opened.push(item);
+  services.bridge.submitForm = async () => ({ status: "submitted", payload: { job_id: "job-x" } });
+
+  click(dom, byId("library-add-pdf-btn"));
+  await waitFor(() => byId("translation-workflow-dialog") !== null, "添加对话框打开");
+  services.uploadViewActions.patch({ ready: true, actionSlotVisible: true });
+  services.ports.uploadStatePort.setUpload({ documentId: "doc-uploaded" });
+  await waitFor(() => byId("job-form"), "上传表单就位");
+  byId("job-form").dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
+
+  await waitFor(() => opened.length === 1, "提交成功后跳到该文档详情");
+  assert.equal(opened[0].document_id, "doc-uploaded");
+  assert.equal(opened[0].job_id, "job-x");
+  assert.equal(opened[0].prefer_translate_tab, true, "任务提交后落在进度 Tab");
 
   root.unmount();
   services.dispose();

@@ -1,6 +1,6 @@
 /* 设置面板 v2：左导航 + 右内容区（原"门厅弹窗"横向 pill 布局退役）。
  *
- * DOM 契约（ids / data-attrs / hidden 语义）由 SettingsHubDialog.tsx 保证，
+ * DOM 契约（ids / data-attrs / hidden 语义）由 SettingsDialog.tsx 保证，
  * 测试锁定；本文件只管观感。颜色一律语义 token（棘轮门禁）。
  * 旧版曾注册全局短名 @utility is-active（status-card.css 头注释明令禁止的
  * 模式，会波及全站同名 class）——v2 改回嵌套写法，短名不再外泄。 */
@@ -186,7 +186,7 @@
   }
 }
 
-/* API / 词表：启动区（真实表单在独立子对话框，本区是干净的入口说明） */
+/* 接口 / 术语表：启动区（真实表单在独立子对话框，本区是干净的入口说明） */
 @utility app-settings-launcher {
   display: grid;
   justify-items: start;

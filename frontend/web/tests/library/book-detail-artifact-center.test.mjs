@@ -232,3 +232,33 @@ test("artifact center: 元数据格式只在字段存在时使用", () => {
   assert.equal(formatArtifactTime(""), "");
   assert.match(formatArtifactTime("2026-09-01T08:30:00Z"), /09\/01/);
 });
+
+test("artifact center: 内部文件名映射人话标签，不裸奔", () => {
+  const sections = buildArtifactCenterSections({
+    documentId: "doc-1",
+    source,
+    jobs,
+    manifests: {
+      "translate-1": {
+        items: [
+          { artifact_key: "job_events", ready: true, file_name: "events.json", resource_url: "/e" },
+          { artifact_key: "ocr_provider_raw", ready: true, file_name: "paddle_result.json", resource_url: "/p" },
+          { artifact_key: "translate_request_journal", ready: true, file_name: "translation-request-journal.jsonl", resource_url: "/j" },
+          { artifact_key: "page_layout", ready: true, file_name: "layout.json", resource_url: "/l" },
+          { artifact_key: "normalized_document_json", ready: true, file_name: "document.v1.json", resource_url: "/d" },
+        ],
+      },
+    },
+  });
+  const labels = sections.flatMap((section) => section.items.map((item) => item.label));
+  for (const [file, label] of [
+    ["events.json", "事件记录"],
+    ["paddle_result.json", "识别原始数据"],
+    ["translation-request-journal.jsonl", "翻译请求记录"],
+    ["layout.json", "版式数据"],
+    ["document.v1.json", "结构化文档"],
+  ]) {
+    assert.ok(labels.includes(label), `${file} → ${label}`);
+    assert.ok(!labels.some((text) => text === file), `${file} 不裸奔`);
+  }
+});

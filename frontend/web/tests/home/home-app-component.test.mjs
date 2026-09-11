@@ -102,8 +102,8 @@ test("HomeApp：契约 id、idle 链、工作流对话框事件契约与交互",
   // 注意:"translation-workflow-dialog"及其内部整个 job-form 家族(job-form/
   // ocr_provider/.../status-section/job-status-card)、"app-update-dialog"/
   // "app-update-status"/"app-update-check-btn"、"page-range-dialog"及其内部
-  // 契约 id 都不在这个列表里——阶段 C(shadcn 改造)后 TranslationWorkflowDialog/
-  // SettingsHubDialog/AppUpdateBanner/PageRangeDialog 换成 Radix Dialog,不
+  // 契约 id 都不在这个列表里——阶段 C(shadcn 改造)后 IngestDialog/
+  // SettingsDialog/AppUpdateBanner/TranslationOptionsPanel 换成 Radix Dialog,不
   // forceMount Content,这些 id 挂在各自 Content 子树下,只有对应对话框被
   // 打开过之后才存在于 DOM(此前原生 <dialog> 或 bespoke <div> 是常驻挂载,
   // 只是显示态切换)。它们的存在性挪到下面分别打开对话框后再断言。
@@ -119,7 +119,7 @@ test("HomeApp：契约 id、idle 链、工作流对话框事件契约与交互",
     assert.ok(byId(id), `契约 id 缺失：#${id}`);
   }
 
-  // ---- app-update-* 三个契约 id:"app-update-btn" 挂在 SettingsHubDialog
+  // ---- app-update-* 三个契约 id:"app-update-btn" 挂在 SettingsDialog
   //      Content 下(TabsPrimitive.Content 的 forceMount 让"更新"tab 面板即使
   //      非激活也常驻挂载,只是 hidden),打开设置对话框即存在;
   //      "app-update-dialog"/"app-update-status"/"app-update-check-btn" 则是
@@ -161,7 +161,6 @@ test("HomeApp：契约 id、idle 链、工作流对话框事件契约与交互",
     "translation-budget-note",
     "ocr-only-toggle", "upload-action-slot",
     "page-range-btn", "store-only-btn", "submit-btn", "error-box-inline",
-    "status-section", "job-status-card",
   ];
   for (const id of workflowContractIds) {
     assert.ok(byId(id), `契约 id 缺失：#${id}`);
@@ -187,7 +186,6 @@ test("HomeApp：契约 id、idle 链、工作流对话框事件契约与交互",
   assert.equal(byId("submit-btn").disabled, true);
   assert.equal(byId("submit-btn").textContent.trim(), "直接翻译");
   assert.equal(byId("job-warning").classList.contains("hidden"), true);
-  assert.equal(byId("status-section").classList.contains("hidden"), true);
 
   // ---- 模式切换只改变工作流，不替换上传说明。长短不同的说明会让
   //      上传卡和外层 Dialog 在翻译 / OCR 间发生 18px 高度抖动。 ----
@@ -218,47 +216,30 @@ test("HomeApp：契约 id、idle 链、工作流对话框事件契约与交互",
   typeInput(byId("page-range-start"), "99");
   await waitFor(() => byId("page-range-start").value === "10", "起始页被约束到总页数");
 
-  // ---- 状态区可见性 → 对话框模式同步(statusAreaVisibilityChanged 契约,
-  //      对话框全程保持打开,不需要重新点击"添加") ----
-  services.bridge.setWorkflowSections({ job_id: "job-1", status: "running" });
-  await waitFor(() => byId("status-section").classList.contains("hidden") === false, "状态区显示");
-  await waitFor(() => dialog.classList.contains("is-status-mode"), "对话框切到状态模式");
-  assert.equal(byId("translation-workflow-title").textContent, "任务进度");
-  assert.equal(byId("translation-workflow-title").classList.contains("sr-only"), false, "任务进度标题保持可见");
-  services.bridge.setWorkflowSections(null);
-  await waitFor(() => byId("status-section").classList.contains("hidden") === true, "状态区隐藏");
-  await waitFor(() => dialog.classList.contains("is-upload-mode"), "对话框回到上传模式");
-
-  // ---- 状态模式下点 × = 一次点击直接关闭(不再是两段式:不 returnHome、不
-  //      弹回上传表单;中止任务由 StatusCard 的"取消任务"按钮负责) ----
-  services.bridge.setWorkflowSections({ job_id: "job-2", status: "running" });
-  await waitFor(() => dialog.classList.contains("is-status-mode"), "回到状态模式");
-  let returnHomeCount = 0;
-  dom.window.document.addEventListener(APP_EVENTS.returnHome, () => { returnHomeCount += 1; });
-  const closesBefore = events.close;
+  // ---- 关闭按钮路径(点 × = 一次点击直接关闭,经 closeTranslationWorkflow 事件;
+  //      上传弹窗不再有 STATUS 模式,也没有进度卡) ----
+  const closesBeforeButton = events.close;
   click(byId("translation-workflow-close-btn"));
-  await waitFor(() => byId("translation-workflow-dialog") === null, "状态模式点 × 直接关闭对话框");
-  assert.equal(returnHomeCount, 0, "状态模式关闭不应再走 returnHome(两段式已废除)");
-  assert.equal(events.close, closesBefore + 1, "状态模式关闭应 dispatch 一次 closeTranslationWorkflow");
+  await waitFor(() => byId("translation-workflow-dialog") === null, "点 × 直接关闭对话框");
+  assert.equal(events.close, closesBeforeButton + 1, "关闭必须 dispatch 一次 closeTranslationWorkflow");
   assert.equal(dom.window.document.documentElement.classList.contains("translation-workflow-open"), false);
 
   // ---- Escape 关闭路径(重新打开→Escape,验证 Escape 也一次到位、且经
   //      closeTranslationWorkflow 事件,3b 库刷新恢复依赖) ----
   click(byId("library-add-pdf-btn"));
   await waitFor(() => byId("translation-workflow-dialog") !== null, "再次打开(上传态)");
+  const closesBeforeEscape = events.close;
   dom.window.document.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   await waitFor(() => byId("translation-workflow-dialog") === null, "Escape 关闭对话框");
-  assert.equal(events.close, closesBefore + 2, "Escape 关闭必须经 APP_EVENTS.closeTranslationWorkflow");
+  assert.equal(events.close, closesBeforeEscape + 1, "Escape 关闭必须经 APP_EVENTS.closeTranslationWorkflow");
 
-  // ---- 关闭按钮路径(重新打开后走关闭按钮;顺带验证 openUpload 的会话复位) ----
+  // ---- openUpload 复位上传会话(uploadId 清空) ----
   click(byId("library-add-pdf-btn"));
   await waitFor(() => byId("translation-workflow-dialog") !== null, "再次打开");
-  // openUpload 会复位上传会话(uploadId 清空)
   assert.equal(services.ports.uploadStatePort.getSnapshot().uploadId, "");
   dialog = byId("translation-workflow-dialog");
   click(byId("translation-workflow-close-btn"));
   await waitFor(() => byId("translation-workflow-dialog") === null, "关闭按钮关闭对话框");
-  assert.equal(events.close, closesBefore + 3);
 
   root.unmount();
   services.dispose();
@@ -344,7 +325,7 @@ test("HomeApp：顶部图书馆/合集/收藏/AI 分栏 + 分类管理对话框"
 });
 
 test("HomeApp：分类管理对话框快速切换编辑目标不被迟到响应覆盖(回归)", async () => {
-  // 回归覆盖:CollectionManageDialog 的 open-effect 曾经没有 cancelled 守卫——
+  // 回归覆盖:CollectionDialog 的 open-effect 曾经没有 cancelled 守卫——
   // 快速为 A 打开对话框、关闭、再为 B 打开,如果 A 的网络请求比 B 的晚
   // resolve(真实网络下完全可能发生的乱序),会把正在显示 B 的表单勾选状态
   // 覆盖回 A 的旧数据。用可控 resolve 顺序的假 controller 复现这个乱序。

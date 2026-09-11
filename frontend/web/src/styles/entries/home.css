@@ -23,7 +23,7 @@
 @source "../../features/**/*.{ts,tsx}";
 @source "../../ui/**/*.{ts,tsx}";
 @source "../../platform/**/*.{ts,tsx}";
-@source inline("app-settings-panel credential-provider-panel credential-tabs credential-top-up-link glossary-list-item progress-bar recent-job-cover status-result-actions status-substage-flow status-substage-step");
+@source inline("app-settings-panel credential-provider-panel credential-tabs credential-top-up-link glossary-list-item library-bottom-bar progress-bar recent-job-cover status-result-actions status-substage-flow status-substage-step");
 
 @layer tokens, base, pages;
 

@@ -6,13 +6,13 @@
 // 主页在 HomeApp 的挂载点把 services.glossaries 拆开传进来
 // （见 HomeApp 的 GlossariesDialogSlot，镜像 AppUpdateBannerSlot）。
 //
-// 打开触发:SettingsHubDialog"词表"tab 的 #glossary-btn 直接调
+// 打开触发:SettingsDialog"术语表"tab 的 #glossary-btn 直接调
 // services.glossaries.dialogStore.open()(蓝图 §0.4 占位调用点,composition
 // 就位后即生效),不经 APP_EVENTS——页面侧的 Slot 把 dialogStore 的 open 状态
 // 读成 open prop 传进来，本 hook 用一个 open 状态迁移 effect 把"对话框被打开"
 // 这件事接回 controller.js 的 open()(内部会 openDialog() + reloadGlossaries()),
-// 语义等价旧世界"点击词表按钮 → open()"的单一入口,不需要改
-// SettingsHubDialog.jsx 的既有占位调用。
+// 语义等价旧世界"点击术语表按钮 → open()"的单一入口,不需要改
+// SettingsDialog.jsx 的既有占位调用。
 //
 // 旧 refreshGlossaries 事件已删（0 生产派发）：外部刷新直接调 handlers.reload()。
 

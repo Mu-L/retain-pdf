@@ -85,6 +85,7 @@ export interface CreateRecentJobsLoaderOptions {
 }
 
 export interface RecentJobsLoader {
+  dispose: () => void;
   isLoading: () => boolean;
   load: (options?: LoadRecentJobsOptions) => Promise<void>;
 }
@@ -110,9 +111,16 @@ export function createRecentJobsLoader({
 }: CreateRecentJobsLoaderOptions): RecentJobsLoader {
   let loading = false;
   let pendingLoad: LoadRecentJobsOptions | null = null;
+  let disposed = false;
 
   function isLoading() {
     return loading;
+  }
+
+  // 卸载后丢弃：回包不再写 store，不再追发 pending，避免已销毁视图被覆写。
+  function dispose() {
+    disposed = true;
+    pendingLoad = null;
   }
 
   async function loadLibraryBooksPage(params: {
@@ -150,6 +158,9 @@ export function createRecentJobsLoader({
     silent = false,
     query = getQuery?.() || "",
   }: LoadRecentJobsOptions = {}): Promise<void> {
+    if (disposed) {
+      return;
+    }
     if (loading) {
       pendingLoad = {
         reset: reset || Boolean(pendingLoad?.reset),
@@ -193,6 +204,9 @@ export function createRecentJobsLoader({
         query,
       });
 
+      if (disposed) {
+        return;
+      }
       if (reset && collected.length === 0) {
         commitRecentJobsEmpty({
           query,
@@ -241,17 +255,20 @@ export function createRecentJobsLoader({
       });
     } finally {
       loading = false;
-      if (pendingLoad) {
+      if (!disposed && pendingLoad) {
         const nextLoad = pendingLoad;
         pendingLoad = null;
         window.setTimeout(() => {
           void load(nextLoad);
         }, 0);
+      } else {
+        pendingLoad = null;
       }
     }
   }
 
   return {
+    dispose,
     isLoading,
     load,
   };

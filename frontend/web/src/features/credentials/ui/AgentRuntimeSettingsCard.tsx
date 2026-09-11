@@ -5,52 +5,19 @@ import {
   type AgentRuntimeConfigView,
   type AgentRuntimeMode,
 } from "@/platform/api/index.js";
-// 直接取 @retainpdf/reader 的真值，不经 @/shared/reader/host/ai —— 后者会
-// import 回 credentials 功能，形成 index -> ui -> host -> index 的循环，
-// 循环下 defaultCredentialsStatePort 在模块初始化期为 undefined。
-import { CREDENTIALS_CHANGED_EVENT } from "@retainpdf/reader/runtime/ai";
-import { Bot, Check, FlaskConical, Save, ShieldCheck, Zap } from "lucide-react";
-import { SecretInput } from "./SecretInput.js";
-
-function activeMode(runtime = ""): AgentRuntimeMode | null {
-  const normalized = runtime.toLowerCase();
-  if (normalized.includes("openai")) return "openai";
-  if (normalized.includes("fx")) return "fx";
-  if (
-    normalized.includes("python")
-    || normalized.includes("markdown")
-    || normalized.includes("retrieval")
-  ) return "python";
-  return null;
-}
-
-function modeLabel(mode: AgentRuntimeMode) {
-  if (mode === "openai") return "OpenAI 兼容 Agent";
-  return mode === "fx" ? "FX Gateway Agent" : "Markdown 检索问答";
-}
-
-function modeShortLabel(mode: AgentRuntimeMode | null) {
-  if (mode === "openai") return "OpenAI";
-  if (mode === "fx") return "FX";
-  if (mode === "python") return "Markdown";
-  return "不可用";
-}
-
-function delay(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
-function announceRuntimeConfigChanged() {
-  document.dispatchEvent(new CustomEvent(CREDENTIALS_CHANGED_EVENT));
-}
-
-function runtimeRestartPending(config: AgentRuntimeConfigView) {
-  return (
-    config.restart_required
-    || config.restart_state === "pending"
-    || config.active_revision !== config.configured_revision
-  );
-}
+import { Bot, FlaskConical, Save } from "lucide-react";
+import { DialogFooter } from "@/ui/components/dialog.js";
+import { FormStatusLine } from "@/ui/components/form-status-line.js";
+import {
+  activeMode,
+  announceRuntimeConfigChanged,
+  delay,
+  modeLabel,
+  modeShortLabel,
+  runtimeRestartPending,
+} from "./agent-runtime-helpers.js";
+import { AgentRuntimeConfirmationField } from "./AgentRuntimeConfirmationField.jsx";
+import { AgentRuntimeFields } from "./AgentRuntimeFields.jsx";
 
 export function AgentRuntimeSettingsCard() {
   const [config, setConfig] = useState<AgentRuntimeConfigView | null>(null);
@@ -206,11 +173,7 @@ export function AgentRuntimeSettingsCard() {
 
   const currentMode = activeMode(config?.active_runtime || "");
   const busy = loading || saving || restarting;
-  const statusClass = [
-    "credential-agent-runtime-message",
-    tone === "valid" ? "is-valid" : "",
-    tone === "error" ? "is-error" : "",
-  ].filter(Boolean).join(" ");
+  const statusState = { message, tone };
 
   return (
     <section className="credential-card credential-agent-card">
@@ -235,145 +198,33 @@ export function AgentRuntimeSettingsCard() {
         </span>
       </div>
 
-      <div className="credential-agent-grid">
-        <label className="credential-agent-mode-field">
-          <span className="developer-label">运行模式</span>
-          <select
-            aria-label="AI Agent 运行模式"
-            value={mode}
-            onChange={(event) => setMode(event.target.value as AgentRuntimeMode)}
-            disabled={busy}
-          >
-            <option value="python">Markdown 检索问答</option>
-            <option value="openai">OpenAI 兼容 Agent</option>
-            <option value="fx">FX Gateway Agent</option>
-          </select>
-        </label>
+      <AgentRuntimeFields
+        mode={mode}
+        onModeChange={setMode}
+        config={config}
+        busy={busy}
+        baseUrl={baseUrl}
+        onBaseUrlChange={setBaseUrl}
+        model={model}
+        onModelChange={setModel}
+        modelKey={modelKey}
+        onModelKeyChange={setModelKey}
+        fxGatewayBaseUrl={fxGatewayBaseUrl}
+        onFxGatewayBaseUrlChange={setFxGatewayBaseUrl}
+        fxModel={fxModel}
+        onFxModelChange={setFxModel}
+        gatewayKey={gatewayKey}
+        onGatewayKeyChange={setGatewayKey}
+      />
 
-        {mode !== "fx" ? (
-          <>
-            <label className="credential-agent-url-field">
-              <span className="developer-label">模型 API URL</span>
-              <input
-                aria-label="模型 API URL"
-                type="url"
-                value={baseUrl}
-                onChange={(event) => setBaseUrl(event.target.value)}
-                disabled={busy}
-              />
-            </label>
-            <label className="credential-agent-model-field">
-              <span className="developer-label">模型</span>
-              <input
-                aria-label="AI 模型"
-                value={model}
-                onChange={(event) => setModel(event.target.value)}
-                disabled={busy}
-              />
-            </label>
-            <label className="credential-agent-key-field">
-              <span className="developer-label">模型 API Key</span>
-              <SecretInput
-                aria-label="模型 API Key"
-                secretLabel="模型 API Key"
-                autoComplete="new-password"
-                value={modelKey}
-                placeholder={
-                  config?.llm_api_key_configured
-                    ? `已保存 ${config.llm_api_key_masked}`
-                    : "输入后将安全保存"
-                }
-                onChange={(event) => setModelKey(event.target.value)}
-                disabled={busy}
-              />
-            </label>
-          </>
-        ) : (
-          <>
-            <label className="credential-agent-url-field">
-              <span className="developer-label">FX Gateway URL（可选）</span>
-              <input
-                aria-label="FX Gateway URL"
-                type="url"
-                value={fxGatewayBaseUrl}
-                placeholder="http://127.0.0.1:端口"
-                onChange={(event) => setFxGatewayBaseUrl(event.target.value)}
-                disabled={busy}
-              />
-            </label>
-            <p className="credential-agent-fx-url-note">
-              仅支持本机 HTTP + 端口；远程地址请使用 OpenAI 模式。留空使用官方 Gateway。
-            </p>
-            <label className="credential-agent-model-field">
-              <span className="developer-label">FX 模型（可选）</span>
-              <input
-                aria-label="FX 模型"
-                value={fxModel}
-                placeholder="使用 Gateway 默认模型"
-                onChange={(event) => setFxModel(event.target.value)}
-                disabled={busy}
-              />
-            </label>
-            <label className="credential-agent-key-field">
-              <span className="developer-label">Gateway Key</span>
-              <SecretInput
-                aria-label="FX Gateway Key"
-                secretLabel="FX Gateway Key"
-                autoComplete="new-password"
-                value={gatewayKey}
-                placeholder={
-                  config?.fx_gateway_api_key_configured
-                    ? `已保存 ${config.fx_gateway_api_key_masked}`
-                    : "输入后将安全保存"
-                }
-                onChange={(event) => setGatewayKey(event.target.value)}
-                disabled={busy}
-              />
-            </label>
-          </>
-        )}
-      </div>
+      <AgentRuntimeConfirmationField
+        confirmationMode={confirmationMode}
+        onConfirmationModeChange={setConfirmationMode}
+        busy={busy}
+      />
 
-      <fieldset className="credential-agent-confirmation">
-        <legend>
-          操作确认
-          <span>全局设置</span>
-        </legend>
-        <div className="credential-agent-confirmation-options" role="radiogroup" aria-label="Agent 操作确认方式">
-          <button
-            type="button"
-            role="radio"
-            aria-checked={confirmationMode === "explicit"}
-            className={confirmationMode === "explicit" ? "is-selected" : ""}
-            onClick={() => setConfirmationMode("explicit")}
-            disabled={busy}
-          >
-            <ShieldCheck aria-hidden="true" />
-            <span>需要确认</span>
-            {confirmationMode === "explicit" ? <Check className="credential-agent-confirmation-check" aria-hidden="true" /> : null}
-          </button>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={confirmationMode === "green_light"}
-            className={confirmationMode === "green_light" ? "is-selected" : ""}
-            onClick={() => setConfirmationMode("green_light")}
-            disabled={busy}
-          >
-            <Zap aria-hidden="true" />
-            <span>绿灯模式</span>
-            {confirmationMode === "green_light" ? <Check className="credential-agent-confirmation-check" aria-hidden="true" /> : null}
-          </button>
-        </div>
-        {confirmationMode === "green_light" ? (
-          <p>
-            AI 可直接执行并应用受支持的 PDF 操作，无需逐步确认；不允许执行 shell 或任意系统命令。
-          </p>
-        ) : null}
-      </fieldset>
-
-      <div className="credential-agent-actions">
-        <span className={statusClass} role="status" aria-live="polite">{message}</span>
+      <DialogFooter className="credential-agent-actions">
+        <FormStatusLine status={message ? statusState : null} className="credential-agent-runtime-message" />
         <button
           type="button"
           className="app-button secondary credential-agent-save-button"
@@ -383,7 +234,7 @@ export function AgentRuntimeSettingsCard() {
           <Save aria-hidden="true" />
           {saving ? "正在保存…" : restarting ? "重启中…" : "保存设置"}
         </button>
-      </div>
+      </DialogFooter>
     </section>
   );
 }

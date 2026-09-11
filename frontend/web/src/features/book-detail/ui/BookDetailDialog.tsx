@@ -25,7 +25,7 @@ import {
   isDocumentJobActive,
   useDocumentJobs,
 } from "./use-document-jobs.js";
-import { useBookDetailCover } from "./use-book-detail-cover.js";
+import { canStartTranslation, useBookDetailCover } from "./use-book-detail-cover.js";
 import { useBookDetailTab } from "./use-book-detail-tab.js";
 import { useBookDetailArtifactCenter } from "./use-book-detail-artifact-center.js";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
@@ -105,11 +105,9 @@ export function BookDetailDialog() {
     pageCount: docState.pageCount,
     actions,
     onStarted: documentJobs.upsert,
+    onCancelled: () => documentJobs.refresh(),
   });
   const latestTranslation: any = documentJobs.latestTranslation;
-  // 失败后表单不能消失：latestTranslation存在但failed时，照样给重提入口
-  // （TranslateForm按钮文案本来就是“重新翻译整本”），否则用户找不到按钮。
-  const latestTranslationFailed = `${latestTranslation?.status || ""}`.trim().toLowerCase() === "failed";
   const overviewOcrStatus = documentJobPresentation(documentJobs.ocrStatusJob, "尚未执行");
   const translationActive = isDocumentJobActive(latestTranslation);
   const translationStatus = documentJobPresentation(latestTranslation, "尚未翻译");
@@ -165,7 +163,7 @@ export function BookDetailDialog() {
       open={open}
       onOpenChange={handleOpenChange}
       onCloseAutoFocus={onCloseAutoFocus}
-      title={`${docState.doc?.title || item.title || "文档"} · 书籍详情`}
+      title={`${docState.doc?.title || item.title || "文档"}`}
       left={(
         <CoverActionsPanel
           coverUrl={coverUrl}
@@ -233,8 +231,11 @@ export function BookDetailDialog() {
                   collectionsBusy={docState.collectionsBusy}
                   onToggleCollection={docState.toggleCollection}
                   error={docState.error}
-                  confirmingDelete={docState.confirmingDelete}
                   onDelete={docState.handleDelete}
+                  deleteTitle={docState.doc?.title || docState.titleText || item.title}
+                  deleteBlockedFavoriteCount={docState.deleteBlocked?.favoriteCount || 0}
+                  onClearFavoritesAndDelete={docState.clearFavoritesAndDelete}
+                  onDismissDeleteBlocked={docState.dismissDeleteBlocked}
                 />
               )}
             />
@@ -250,17 +251,24 @@ export function BookDetailDialog() {
                 endPage: ocrState.endPage,
                 pageCount: docState.pageCount,
                 pending: ocrState.pending,
+                cancelling: ocrState.cancelling,
                 error: ocrState.error,
                 onRangeOnChange: ocrState.setRangeOn,
                 onStartPageChange: ocrState.setStartPage,
                 onEndPageChange: ocrState.setEndPage,
                 onOcr: ocrState.handleOcr,
+                onCancel: ocrState.handleCancel,
               }}
               translation={{
                 item: translationItem,
                 status: translationStatus,
                 isActive: translationActive,
-                canTranslate: (!latestTranslation || latestTranslationFailed) && !translationActive && canTranslate,
+                // OCR 提交待定期间不能同时发起翻译，避免两份任务并发。
+                canTranslate: canStartTranslation({
+                  latestTranslation,
+                  translationActive,
+                  baseCanTranslate: canTranslate,
+                }) && !ocrState.pending,
                 readerAvailable: translationSucceeded || readerAvailable,
                 dialogOpen: open,
                 tabActive: activeTab === "processing",

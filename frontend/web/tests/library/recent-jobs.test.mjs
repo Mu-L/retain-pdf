@@ -663,7 +663,7 @@ test("library books resource owns recent jobs page loading and cache keys", asyn
   assert.equal(first.status, "success");
   assert.deepEqual(first.data.collected.map((item) => item.job_id), ["job-2", "job-3"]);
   assert.deepEqual(first.data.latestInvocationSummary, { total: 3 });
-  assert.equal(first.data.nextOffset, 24);
+  assert.equal(first.data.nextOffset, 7);
   assert.equal(calls.length, 1);
   assert.equal(second.status, "success");
   assert.deepEqual(second.data.collected.map((item) => item.job_id), ["job-2", "job-3"]);
@@ -693,7 +693,7 @@ test("recent jobs pagination renders short first library page without waiting fo
     "job-short-3",
   ]);
   assert.equal(result.hasMore, false);
-  assert.equal(result.nextOffset, 24);
+  assert.equal(result.nextOffset, 3);
   assert.equal(calls.length, 1);
 });
 
@@ -2833,6 +2833,116 @@ test("recent jobs refresh scheduler pauses through injected workflow state", () 
 
   assert.equal(scheduler.isSuspended(), true);
   assert.deepEqual(timers.map((timer) => timer.delay), [20]);
+});
+
+test("recent jobs refresh scheduler keeps force pending when plain request arrives later", () => {
+  const loads = [];
+  const timers = [];
+  let now = 10000;
+  const scheduler = createRecentJobsRefreshScheduler({
+    loadRecentJobs: (options) => loads.push(options),
+    scheduleAutoLoadCheck() {},
+    setDialogOpen() {},
+    environment: createRecentJobsRefreshEnvironment({
+      now: () => now,
+      clearTimeoutFn() {},
+      setTimeoutFn(callback, delay) {
+        timers.push({ callback, delay });
+        return timers.length;
+      },
+      isWorkflowOpen: () => true,
+    }),
+  });
+  scheduler.setSuspended(true);
+  scheduler.scheduleRefresh({ delay: 10, force: true });
+  scheduler.scheduleRefresh({ delay: 20 });
+  scheduler.setSuspended(false);
+  now += 10000;
+  assert.equal(timers.length, 1, "replay 恰好一次且带 force 跳过节流");
+  assert.equal(timers[0].delay, 10);
+});
+
+test("recent jobs refresh scheduler dispose clears timers and drops pending", () => {
+  const loads = [];
+  const cleared = [];
+  const scheduler = createRecentJobsRefreshScheduler({
+    loadRecentJobs: (options) => loads.push(options),
+    scheduleAutoLoadCheck() {},
+    setDialogOpen() {},
+    environment: createRecentJobsRefreshEnvironment({
+      now: () => 10000,
+      clearTimeoutFn: (timer) => cleared.push(timer),
+      setTimeoutFn(callback, delay) {
+        return 7;
+      },
+      isWorkflowOpen: () => false,
+    }),
+  });
+  scheduler.scheduleRefresh({ delay: 10 });
+  scheduler.updateSearch("test1");
+  scheduler.dispose();
+  assert.deepEqual(cleared.slice(-2), [7, 7], "refresh 与 search timer 都清除");
+  assert.equal(scheduler.hasPendingRefresh(), false);
+});
+
+test("recent jobs loader dispose drops in-flight response and pending load", async () => {
+  const rendered = [];
+  const viewPort = {
+    hasView: () => true,
+    renderLoading() {},
+    setLoadMoreLoading() {},
+    renderList: ({ items }) => {
+      rendered.push(...items.map((item) => item.job_id));
+    },
+    renderEmpty() {},
+    renderError() {},
+  };
+  let resolveLoad;
+  const statePort = (await import("../../src/features/library/domain/recent-jobs/state.js")).createRecentJobsStatePort({
+    recentJobsOffset: 0,
+    recentJobsHasMore: true,
+    recentJobsItems: [],
+  });
+  const loader = createRecentJobsLoader({
+    apiPrefix: "/api/v1",
+    fetchJobList: async () => ({ items: [] }),
+    getQuery: () => "",
+    recentJobActions: {
+      recoverActiveJob() {},
+      selectJob() {},
+      deleteJob() {},
+      openJobReader() {},
+    },
+    runtimePatches: {
+      apply() {},
+      applyExisting() {},
+    },
+    activeRefreshLoop: () => ({ schedule() {}, stop() {} }),
+    scheduleAutoLoadIfNeeded() {},
+    homeStatePort: {
+      setRecentJobsLoadingState() {},
+    },
+    recentJobsStatePort: statePort,
+    libraryBooksResource: {
+      async load() {
+        await new Promise((resolve) => {
+          resolveLoad = resolve;
+        });
+        return {
+          status: "success",
+          data: { collected: [{ job_id: "job-late", status: "succeeded" }], hasMore: false, latestInvocationSummary: null, nextOffset: 24 },
+        };
+      },
+    },
+    viewPort,
+  });
+  const loadPromise = loader.load({ reset: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  loader.dispose();
+  resolveLoad();
+  await loadPromise;
+  assert.deepEqual(rendered, [], "卸载后回包不渲染");
+  assert.deepEqual(statePort.getSnapshot().items, [], "卸载后回包不写 store");
 });
 
 test("recent jobs workflow open port owns translation dialog DOM state", () => {

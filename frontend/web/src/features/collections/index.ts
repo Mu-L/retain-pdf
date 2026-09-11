@@ -6,8 +6,8 @@
 
 export { CollectionsView } from "./ui/CollectionsView.jsx";
 export type { CollectionsViewProps } from "./ui/CollectionsView.jsx";
-export { CollectionManageDialog } from "./ui/CollectionManageDialog.jsx";
-export type { CollectionManageDialogProps } from "./ui/CollectionManageDialog.jsx";
+export { CollectionDialog } from "./ui/CollectionDialog.jsx";
+export type { CollectionDialogProps } from "./ui/CollectionDialog.jsx";
 export { createCollectionsController } from "./domain/controller.js";
 export type { CollectionRecord } from "./domain/controller.js";
 export type {

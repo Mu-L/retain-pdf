@@ -367,10 +367,7 @@ test("job detail data port owns overview markdown and action API calls", async (
       calls.push(["resume-plan", jobId, apiPrefix]);
       throw new Error("resume unavailable");
     },
-    loadMarkdownDocument: async (jobId, apiPrefix) => {
-      calls.push(["markdown-document", jobId, apiPrefix]);
-      return null;
-    },
+    // job-detail 只用 /markdown JSON；/markdown/document 已弃用（端点可删）。
     loadMarkdown: async (jobId, apiPrefix) => {
       calls.push(["markdown", jobId, apiPrefix]);
       return { content: "# ok" };
@@ -408,7 +405,6 @@ test("job detail data port owns overview markdown and action API calls", async (
     ["manifest", "job-detail", "/detail-api"],
     ["diagnostics", "job-detail", "/detail-api"],
     ["resume-plan", "job-detail", "/detail-api"],
-    ["markdown-document", "job-detail", "/detail-api"],
     ["markdown", "job-detail", "/detail-api"],
     ["events", "job-detail", "/detail-api", 10, 20],
     ["resume", "job-detail", "/detail-api"],

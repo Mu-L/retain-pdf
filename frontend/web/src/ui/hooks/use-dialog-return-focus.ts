@@ -3,7 +3,7 @@
 // Radix 默认的"关闭后焦点归还触发元素"依赖 DialogPrimitive.Trigger 记录
 // context.triggerRef——但本项目 9 个对话框全部不是"Trigger 和 Content 同一
 // 子树"的经典用法:没有一处渲染 DialogPrimitive.Trigger(触发按钮都是普通
-// <button onClick={...}>,分散在 HeroUpload/SettingsHubDialog 面板/
+// <button onClick={...}>,分散在 HeroUpload/SettingsDialog 面板/
 // AppShellHeader/EventsTimeline 触发卡片等完全不同的组件里,状态经
 // dialogStore.open()/APP_EVENTS/本地 useState 驱动),Radix 无法知道"是谁
 // 打开了我",于是默认的 onCloseAutoFocus(尝试 focus triggerRef.current)

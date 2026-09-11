@@ -56,21 +56,33 @@ export function createStatusDetailTranslationDataPort({
   fetchTranslationItem,
   replayTranslationItem,
 }: TranslationDataPortDeps) {
+  // 跨任务串话防护：单调 token；发起加载/重置时推进，await 后校验，不一致丢弃写入。
+  let requestToken = 0;
+
   function jobId() {
     return `${currentJobId?.() || ""}`.trim();
   }
 
   function reset(nextJobId = "") {
+    requestToken += 1;
+    // 首次绑定（此前无任务）保留调用方预置的过滤器；切任务/清空不继承旧过滤器。
+    // 调用方确认：syncJob 切任务与无任务清空均无保留语义依赖；applyFilter 先设过滤
+    // 后首绑加载属于用户本次显式选择，应予以保留。
+    const firstBind = !translationState.jobId && nextJobId;
     translationState.jobId = nextJobId;
     translationState.loaded = false;
     translationState.summary = null;
+    if (!firstBind) {
+      translationState.query.finalStatus = "";
+      translationState.query.q = "";
+      translationState.query.offset = 0;
+    }
     translationState.list = [];
     translationState.total = 0;
     translationState.selectedItemId = "";
     translationState.selectedItem = null;
     translationState.replay = null;
   }
-
   function syncJob() {
     const nextJobId = jobId();
     if (!nextJobId) {
@@ -82,17 +94,43 @@ export function createStatusDetailTranslationDataPort({
     }
     return nextJobId;
   }
-
-  async function loadSummary(nextJobId: string) {
-    translationState.summary = await fetchTranslationDiagnostics(nextJobId, apiPrefix);
+  async function loadSummary(nextJobId: string, token: number) {
+    const payload = await fetchTranslationDiagnostics(nextJobId, apiPrefix);
+    if (token !== requestToken) {
+      return translationState.summary;
+    }
+    const current = jobId();
+    if (current && current !== nextJobId) {
+      return translationState.summary;
+    }
+    translationState.summary = payload;
     return translationState.summary;
   }
 
-  async function loadItems(nextJobId: string, { selectFirst = false }: TranslationLoadItemsOptions = {}) {
+  async function readItems(
+    nextJobId: string,
+    { selectFirst = false }: TranslationLoadItemsOptions = {},
+    token: number,
+  ) {
     const payload = await fetchTranslationItems(nextJobId, apiPrefix, translationState.query) as {
       items?: Array<{ item_id?: string; [key: string]: unknown }>;
       total?: number;
     } | null | undefined;
+    if (token !== requestToken) {
+      return {
+        selectedItemId: translationState.selectedItemId,
+        shouldLoadSelectedItem: false,
+        selectionChanged: false,
+      };
+    }
+    const current = jobId();
+    if (current && current !== nextJobId) {
+      return {
+        selectedItemId: translationState.selectedItemId,
+        shouldLoadSelectedItem: false,
+        selectionChanged: false,
+      };
+    }
     translationState.list = Array.isArray(payload?.items) ? payload.items : [];
     translationState.total = Number(payload?.total || 0);
     const shouldKeepCurrent = translationState.list.some((item) => item.item_id === translationState.selectedItemId);
@@ -116,6 +154,10 @@ export function createStatusDetailTranslationDataPort({
     };
   }
 
+  async function loadItems(nextJobId: string, options: TranslationLoadItemsOptions = {}) {
+    return readItems(nextJobId, options, ++requestToken);
+  }
+
   async function loadSummaryAndItems({ selectFirst = false }: TranslationLoadItemsOptions = {}) {
     const nextJobId = syncJob();
     if (!nextJobId) {
@@ -126,8 +168,18 @@ export function createStatusDetailTranslationDataPort({
         selectionChanged: true,
       };
     }
-    await loadSummary(nextJobId);
-    const itemSelection = await loadItems(nextJobId, { selectFirst });
+    const token = ++requestToken;
+    await loadSummary(nextJobId, token);
+    const current = jobId();
+    if (token !== requestToken || (current && current !== nextJobId)) {
+      return {
+        jobId: nextJobId,
+        selectedItemId: translationState.selectedItemId,
+        shouldLoadSelectedItem: false,
+        selectionChanged: false,
+      };
+    }
+    const itemSelection = await readItems(nextJobId, { selectFirst }, token);
     return {
       jobId: nextJobId,
       ...itemSelection,
@@ -139,9 +191,18 @@ export function createStatusDetailTranslationDataPort({
     if (!normalizedItemId) {
       return null;
     }
+    const token = ++requestToken;
     translationState.selectedItemId = normalizedItemId;
     translationState.replay = null;
-    translationState.selectedItem = await fetchTranslationItem(nextJobId, normalizedItemId, apiPrefix);
+    const payload = await fetchTranslationItem(nextJobId, normalizedItemId, apiPrefix);
+    if (token !== requestToken) {
+      return translationState.selectedItem;
+    }
+    const current = jobId();
+    if (current && current !== nextJobId) {
+      return translationState.selectedItem;
+    }
+    translationState.selectedItem = payload;
     return translationState.selectedItem;
   }
 

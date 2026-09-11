@@ -188,3 +188,25 @@ test("publishSubmitSuccess transfers the job to runtime before closing the uploa
   timers[1].handler();
   assert.deepEqual(calls.at(-1), ["refresh", { delay: 0, force: true }]);
 });
+
+test("publishSubmitSuccess 返回取消函数，调用后撤掉两路兜底刷新", () => {
+  const cleared = [];
+  const timers = [];
+  const cancel = publishSubmitSuccess({
+    payload: { job_id: "job-new" },
+    state: {},
+    libraryEventPort: {},
+    documentRef: { defaultView: undefined, dispatchEvent: () => true },
+    windowRef: {
+      setTimeout: (handler, delay) => {
+        timers.push({ handler, delay });
+        return timers.length;
+      },
+      clearTimeout: (id) => cleared.push(id),
+    },
+    now: () => "2026-09-03T00:00:00.000Z",
+  });
+  assert.equal(typeof cancel, "function");
+  cancel();
+  assert.deepEqual(cleared, [1, 2]);
+});

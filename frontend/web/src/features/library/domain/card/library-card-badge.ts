@@ -29,7 +29,7 @@ import { isOcrOnlyItem } from "./library-card-semantics.js";
 export function libraryCardBadge(item: LibraryCardItem = {}): LibraryCardBadge | null {
   if (isLibraryOnlyItem(item)) {
     return {
-      label: "馆藏",
+      label: "存档",
       icon: "archive",
       cls: "border border-border bg-white/95 text-muted-foreground",
     };

@@ -86,11 +86,41 @@ export function deriveBookDetailCoverState({
   };
 }
 
+// 终态里只有「成功」不可再翻；其余（失败/取消/超时/无任务）都应允许重新发起。
+const RETRYABLE_TRANSLATION_STATUSES = new Set([
+  "",
+  "failed",
+  "cancelled",
+  "canceled",
+  "timeout",
+  "dead",
+]);
+
+/**
+ * 翻译按钮是否可发起：不能被正在运行的任务挡（translationActive），且当前不是
+ * 已成功的翻译。有 latestTranslation（如被取消/失败）本身就证明该文档可翻译，
+ * 不再依赖 cover 的 libraryOnly/ocrOnly 门禁。
+ */
+export function canStartTranslation({
+  latestTranslation,
+  translationActive,
+  baseCanTranslate,
+}: {
+  latestTranslation?: { status?: string } | null;
+  translationActive?: boolean;
+  baseCanTranslate?: boolean;
+} = {}): boolean {
+  if (translationActive) return false;
+  const status = `${latestTranslation?.status || ""}`.trim().toLowerCase();
+  const retryable = !latestTranslation || RETRYABLE_TRANSLATION_STATUSES.has(status);
+  return Boolean(retryable && (baseCanTranslate || Boolean(latestTranslation)));
+}
+
 export function useBookDetailCover({
   item = {},
   statusCardState = null,
   isActive: isActiveProp,
-}: UseBookDetailCoverOptions) {
+}: UseBookDetailCoverOptions = {}) {
   return useMemo(
     () => deriveBookDetailCoverState({
       item,

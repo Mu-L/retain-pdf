@@ -18,7 +18,7 @@ import {
 function StageHistoryItem({ entry, index, job, finishedAtFallback }) {
   const duration = resolveStageHistoryDuration(entry, job, { finishedAtFallback });
   const enterAt = entry?.enter_at ? formatEventTimestamp(entry.enter_at) : "-";
-  const exitAt = entry?.exit_at ? formatEventTimestamp(entry.exit_at) : (isJobTerminal(job) ? "-" : "进行中");
+  const exitAt = entry?.exit_at ? formatEventTimestamp(entry.exit_at) : (isJobTerminal(job) ? "-" : "处理中");
   const display = stageHistoryDisplay(entry);
   const terminalText = entry?.terminal_status ? ` · ${entry.terminal_status}` : "";
   return (

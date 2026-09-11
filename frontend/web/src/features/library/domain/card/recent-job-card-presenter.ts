@@ -11,7 +11,7 @@ export function recentJobStatusLabel(status) {
     case "queued":
       return "排队中";
     case "running":
-      return "进行中";
+      return "处理中";
     case "succeeded":
       return "已完成";
     case "failed":

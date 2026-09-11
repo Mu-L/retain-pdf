@@ -157,7 +157,7 @@ function DetailModal({ modalId, titleId, title, subtitle, closeButtonId, open, o
 
 function StageHistoryItem({ entry, index, job }) {
   const enterAt = entry?.enter_at ? formatEventTimestamp(entry.enter_at) : "-";
-  const exitAt = entry?.exit_at ? formatEventTimestamp(entry.exit_at) : (isJobTerminal(job) ? "-" : "进行中");
+  const exitAt = entry?.exit_at ? formatEventTimestamp(entry.exit_at) : (isJobTerminal(job) ? "-" : "处理中");
   const terminalText = entry?.terminal_status ? ` · ${entry.terminal_status}` : "";
   const display = stageHistoryDisplay(entry);
   return (

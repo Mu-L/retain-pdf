@@ -39,19 +39,23 @@ export function resolveShellHost(
   return host;
 }
 
-// 不开 StrictMode：见文件头约定。
-export function mountShellApp(host: HTMLElement, app: ReactNode): void {
-  createRoot(host).render(app);
+// 不开 StrictMode：见文件头约定。返回卸载函数供测试/HMR 复用同一 document
+// 二次挂载前释放（生产 MPA 不卸载，页面级生命周期即进程级）。
+export function mountShellApp(host: HTMLElement, app: ReactNode): () => void {
+  const root = createRoot(host);
+  root.render(app);
+  return () => root.unmount();
 }
 
 // 一行启动：bootTheme → 找根 → 挂载。缺根时静默跳过（detail 旧语义）。
+// 返回卸载函数（缺根时返回空操作），调用方负责在 teardown 时连带释放业务 dispose。
 export function mountShellPage(
   rootId: string,
   app: ReactNode,
   options: ShellHostOptions = {},
-): void {
+): () => void {
   bootTheme();
   const host = resolveShellHost(rootId, options);
-  if (!host) return;
-  mountShellApp(host, app);
+  if (!host) return () => {};
+  return mountShellApp(host, app);
 }

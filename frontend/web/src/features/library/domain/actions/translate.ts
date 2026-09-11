@@ -25,9 +25,11 @@ export function buildTranslateBookCardAction(
     return [];
   }
   const status = `${item.status || ""}`.trim().toLowerCase();
+  // 终态里只有「成功」不可再翻；失败/取消/超时都应保留重新翻译入口。
+  const retryableTerminal = ["failed", "cancelled", "canceled", "timeout", "dead"].includes(status);
   const canTranslate =
     isLibraryOnlyItem(item) ||
-    status === "failed" ||
+    retryableTerminal ||
     (isOcrOnlyItem(item) && status === "succeeded");
   if (!canTranslate) {
     return [];

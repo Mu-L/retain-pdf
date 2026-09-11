@@ -5,7 +5,7 @@
 // 收进底部一条居中浮动栏(AppBottomBar.jsx,取代早期分离的 AppBottomActions +
 // LibrarySearchDock 两个浮岛)。
 // 其余区块(library-view 网格、status 卡、credentials/glossaries/status-detail 等)
-// 已陆续接上;ReaderDialog 仅导航到 reader.html(无 UI)。
+// 已陆续接上;ReaderNavigation 仅导航到 reader.html(无 UI)。
 // 自定义元素只剩 <library-search-island> 一个真实注册点(见下方 islands 说明);
 // 其余占位标签在新世界不注册定义,已随 cutover 从 JSX 移除。
 //
@@ -27,7 +27,7 @@ import type { HomeServices } from "./composition/types.js";
 import { AppTopBar } from "./shell/AppTopBar.jsx";
 import { AppBottomBar } from "./shell/AppBottomBar.jsx";
 import { MockModeBanner } from "./shell/MockModeBanner.jsx";
-import { TranslationWorkflowDialog } from "@/features/ingest/index.js";
+import { IngestDialog } from "@/features/ingest/index.js";
 import {
   RecentJobsLibrary,
 } from "@/features/library/index.js";
@@ -44,11 +44,11 @@ import {
   HiddenCredentialInputs,
 } from "@/features/credentials/index.js";
 import { useDialogState } from "@/ui/hooks/use-dialog-state.js";
-import { SettingsHubDialog } from "@/features/settings/index.js";
+import { SettingsDialog } from "@/features/settings/index.js";
 import { StatusDetailDialog } from "@/features/job-detail/index.js";
-import { ReaderDialog, SoftReaderHost } from "@/features/reader/index.js";
+import { ReaderNavigation, SoftReaderHost } from "@/features/reader/index.js";
 import {
-  CollectionManageDialog,
+  CollectionDialog,
   CollectionsView,
 } from "@/features/collections/index.js";
 import { DownloadToastHost } from "@/ui/download-toast/DownloadToastHost.jsx";
@@ -133,21 +133,20 @@ function CollectionsViewSlot() {
   );
 }
 
-function CollectionManageDialogSlot() {
+function CollectionDialogSlot() {
   const { collections } = useHomeServices();
   return (
-    <CollectionManageDialog
+    <CollectionDialog
       controller={collections.controller}
       dialogStore={collections.dialogStore}
       reloadSignal={collections.reloadSignal}
     />
   );
 }
-
-function SettingsHubDialogSlot() {
+function SettingsDialogSlot() {
   const { settingsHub, glossaries, credentials } = useHomeServices();
   return (
-    <SettingsHubDialog
+    <SettingsDialog
       dialogStore={settingsHub.dialogStore}
       onOpenGlossaries={() => glossaries.dialogStore.open()}
       onPrepareCredentialPanels={() => credentials?.feature?.prepareCredentialsPanels?.()}
@@ -187,8 +186,8 @@ function HomeShell() {
   // 合集/收藏/AI tab：视图挂载即可尝试恢复 panel 滚动（图书馆由 RecentJobsLibrary 在有列表后恢复）
   useHomeReturnRestore(isCategoriesTab || isFavoritesTab || isAskTab);
 
-  // Decoupled composition: HomeShell 只取 statusArea 窄口(读侧),跨域 slot
-  // 照旧由 props 下发,不再 useHomeServices 大包直取 services.stores。
+  // 主页状态卡：进度主场在书籍详情，这里只在未打开详情时兜底显示（详情内的
+  // BookTranslateProgressPanel 会把它隐藏）。不再嵌在上传弹窗里。
   const statusAreaStore = useHomeStatusAreaStore();
   const statusAreaSnap = useStoreSnapshot(statusAreaStore);
 
@@ -220,19 +219,15 @@ function HomeShell() {
             <HomeAskView />
           ) : null}
         </div>
-        <button id="open-query-btn" type="button" className="secondary hidden" aria-hidden="true">最近任务</button>
-        <SettingsHubDialogSlot />
-        <TranslationWorkflowDialog
-          hiddenInputsSlot={<HiddenCredentialInputs />}
-          statusCardSlot={
-            <StatusCard
-              visible={Boolean(statusAreaSnap.visible)}
-              showResultActions
-              showHiddenContract
-              rootId="job-status-card"
-            />
-          }
+        <StatusCard
+          visible={Boolean(statusAreaSnap.visible)}
+          showResultActions
+          showHiddenContract
+          rootId="job-status-card"
         />
+        <button id="open-query-btn" type="button" className="secondary hidden" aria-hidden="true">最近任务</button>
+        <SettingsDialogSlot />
+        <IngestDialog hiddenInputsSlot={<HiddenCredentialInputs />} />
       </main>
       {/* dialogs.html 区块:credentials 域已 React 化,其余占位(3b) */}
       <CredentialsDialog />
@@ -240,10 +235,10 @@ function HomeShell() {
       <developer-auth-dialog></developer-auth-dialog>
       <developer-settings-dialog></developer-settings-dialog>
       <StatusDetailDialog />
-      <ReaderDialog />
+      <ReaderNavigation />
       {/* 软打开阅读器：全屏层，主页不卸载（关 × 不刷新） */}
       <SoftReaderHost />
-      <CollectionManageDialogSlot />
+      <CollectionDialogSlot />
       <BookDetailDialog />
       <DownloadToastHost />
     </>

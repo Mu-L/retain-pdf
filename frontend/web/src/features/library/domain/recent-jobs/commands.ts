@@ -60,6 +60,7 @@ export function createRecentJobsCommandPort({
     return commands.dispatch(RECENT_JOBS_COMMANDS.refreshRequested, {
       delay: Number.isFinite(Number(detail.delay)) ? Number(detail.delay) : undefined,
       force: Boolean(detail.force),
+      ...(detail.bypassThrottle ? { bypassThrottle: true } : null),
     }) as RecentJobsCommandDispatchResult;
   }
 

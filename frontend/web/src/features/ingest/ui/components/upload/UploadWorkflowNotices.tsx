@@ -27,7 +27,7 @@ export function CredentialGateNotice({
             <circle cx="12" cy="16" r="1.2" fill="currentColor" />
           </svg>
         </span>
-        <strong id="credential-gate-title">处理前需要完成 API 设置</strong>
+        <strong id="credential-gate-title">处理前需要完成接口设置</strong>
         <em id="credential-gate-help">仍可上传或收藏 PDF；执行 OCR 或翻译前，请先填写对应 API 凭据。</em>
         <button
           id="credential-gate-action"

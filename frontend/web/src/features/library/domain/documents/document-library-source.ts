@@ -7,18 +7,14 @@
 // library/books?job_ids= 取这些 job 的实时活态,再按 job_id 合并
 // (shapeDocumentCardItem)。馆藏文档(无 active_job_id)拿合成 job_id 穿过引擎。
 //
-// 搜索:/documents 目前没有服务端文本搜索(仅 reading_status/tag/collection 过滤),
-// 这里 query 走**客户端标题/文件名过滤**;有 query 时一次多拉一批再过滤、并关掉
-// 继续分页。文档级服务端全文/标题搜索是后端待补项(见 memory
-// f2-document-centric-grid-design)。
+// 搜索：query 经 `q` 透传给后端（标题/原始文件名 LIKE，total 已是过滤后计数），
+// 分页照常走 limit/offset，不做客户端过滤或首屏多拉。
 
 import { shapeDocumentsWithBooks } from "./shape-documents-with-books.js";
 import {
   libraryCardIdentity,
   libraryCardIdentityAliases,
 } from "../recent-jobs/library-card-identity.js";
-
-const SEARCH_FETCH_LIMIT = 200;
 
 function normalizedJobId(value) {
   return `${value || ""}`.trim();
@@ -42,8 +38,7 @@ export async function collectDocumentLibraryPage({
   existingJobIds = new Set(),
   query = "",
 }: any) {
-  const trimmedQuery = `${query || ""}`.trim().toLowerCase();
-  const searching = trimmedQuery.length > 0;
+  const trimmedQuery = `${query || ""}`.trim();
   const seenCardIdentities = new Set(
     Array.from(existingJobIds instanceof Set
       ? existingJobIds
@@ -52,10 +47,14 @@ export async function collectDocumentLibraryPage({
       .filter(Boolean),
   );
 
-  const limit = searching ? Math.max(pageSize, SEARCH_FETCH_LIMIT) : pageSize;
-  const offset = searching ? 0 : startOffset;
+  const limit = pageSize;
+  const offset = startOffset;
 
-  const payload = await fetchDocumentList(apiPrefix, { limit, offset });
+  const payload = await fetchDocumentList(apiPrefix, {
+    limit,
+    offset,
+    ...(trimmedQuery ? { q: trimmedQuery } : null),
+  });
   const documents = Array.isArray(payload?.documents) ? payload.documents : [];
   // `total` is the server-side count for the same filter snapshot. Pagination
   // must not infer this from the current page length, especially on a full
@@ -65,8 +64,8 @@ export async function collectDocumentLibraryPage({
     ? responseTotal
     : offset + documents.length;
 
-  // 文档 → 卡片的映射走统一编排(shapeDocumentsWithBooks);去重/搜索过滤这些
-  // 分页数据源自己的关切留在下面。
+  // 文档 → 卡片的映射走统一编排(shapeDocumentsWithBooks);去重是分页数据源
+  // 自己的关切（搜索过滤已在服务端完成）。
   const shaped = await shapeDocumentsWithBooks(documents, {
     fetchLibraryBookList,
     fetchJobPayload,
@@ -80,18 +79,12 @@ export async function collectDocumentLibraryPage({
     if (!identity || aliases.some((alias) => seenCardIdentities.has(alias))) {
       continue;
     }
-    if (searching) {
-      const haystack = `${item.title || ""} ${item.display_name || ""} ${item.source_file_name || ""}`.toLowerCase();
-      if (!haystack.includes(trimmedQuery)) {
-        continue;
-      }
-    }
     aliases.forEach((alias) => seenCardIdentities.add(alias));
     collected.push(item);
   }
 
-  const hasMore = searching ? false : offset + documents.length < total;
-  const nextOffset = searching ? startOffset : offset + documents.length;
+  const hasMore = offset + documents.length < total;
+  const nextOffset = offset + documents.length;
 
   return {
     collected,

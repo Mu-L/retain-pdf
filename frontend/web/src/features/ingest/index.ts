@@ -6,11 +6,13 @@
 // domain/ upload/ 上传流程与容量  workflow/ 工作流规则与 payload
 //         actions/ 提交编排        dialog/ 弹窗状态与状态区端口
 //         以及三个视图 store（无 React）
+// 调度归属：提交兜底归 domain/actions/submit-flow.ts publishSubmitSuccess
+// （800ms/5s 两路刷新，返回取消函数；总表见 platform/contracts/app-contract.ts）。
 //
 // 非 React 调用方请从 ./domain.js 导入。
 
 export * from "./domain.js";
-export { TranslationWorkflowDialog } from "./ui/TranslationWorkflowDialog.jsx";
+export { IngestDialog } from "./ui/IngestDialog.jsx";
 export { WorkflowPanel } from "./ui/WorkflowPanel.jsx";
-export { PageRangeDialog } from "./ui/components/PageRangeDialog.jsx";
+export { TranslationOptionsPanel } from "./ui/components/TranslationOptionsPanel.jsx";
 export { UploadTile } from "./ui/components/UploadTile.jsx";

@@ -36,7 +36,7 @@ type LibraryEventPort = {
   requestRefresh?: (opts?: unknown) => void;
 };
 
-type SettingsHubDialogStore = {
+type SettingsDialogStore = {
   open: (payload?: { tab?: string } | null) => void;
 };
 
@@ -52,7 +52,7 @@ type CreateAppActionsArgs = {
   statusCardPresenter: StatusCardPresenterPort;
   libraryEventPort: LibraryEventPort;
   /** 常规凭据入口：打开设置 → API，避免与首次配置弹窗双轨 */
-  settingsHubDialogStore?: SettingsHubDialogStore | null;
+  settingsHubDialogStore?: SettingsDialogStore | null;
 };
 
 export function createAppActions({

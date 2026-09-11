@@ -1,6 +1,7 @@
 // 详情「翻译」Tab：发起 / 重新翻译表单。
 // 从原 TranslateWorkspacePanel 抽出；书已在馆，无需 WorkflowPanel 上传瓦片。
 
+import type { ReactNode } from "react";
 import { Check, Languages } from "lucide-react";
 import { btn } from "../ui.jsx";
 
@@ -16,6 +17,8 @@ export type BookTranslateLaunchFormProps = {
   busy?: string;
   error?: string;
   ocrReuse?: { jobId: string } | null;
+  /** 与「翻译整本」同排的附加动作（例如「仅 OCR」按钮），统一成一行。 */
+  extraActions?: ReactNode;
   onRangeOnChange: (value: boolean) => void;
   onStartPageChange: (value: string) => void;
   onEndPageChange: (value: string) => void;
@@ -34,6 +37,7 @@ export function BookTranslateLaunchForm({
   busy = "",
   error = "",
   ocrReuse = null,
+  extraActions = null,
   onRangeOnChange,
   onStartPageChange,
   onEndPageChange,
@@ -98,22 +102,30 @@ export function BookTranslateLaunchForm({
               </div>
             ) : null}
           </div>
-          <button
-            id="book-detail-translate-btn"
-            type="button"
-            className={btn("default")}
-            disabled={Boolean(busy)}
-            onClick={onTranslate}
-          >
-            <Languages className="mr-1 size-4" aria-hidden="true" />
-            {busy === "translate"
-              ? "提交中…"
-              : rangeOn
-                ? "翻译选定页码"
-                : statusTone === "failed"
-                  ? "重新翻译整本"
-                  : "翻译整本"}
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {extraActions}
+            <button
+              id="book-detail-translate-btn"
+              type="button"
+              className={btn("default")}
+              disabled={Boolean(busy)}
+              onClick={onTranslate}
+            >
+              <Languages className="mr-1 size-4" aria-hidden="true" />
+              {busy === "translate"
+                ? "提交中…"
+                : rangeOn
+                  ? "翻译选定页码"
+                  : statusTone === "failed"
+                    ? "重新翻译整本"
+                    : "翻译整本"}
+            </button>
+          </div>
+        </div>
+      ) : extraActions ? (
+        <div className="book-detail-processing-actions flex flex-wrap items-center justify-end gap-2">
+          {readerAvailable ? <p className="book-detail-processing-hint">左侧可直接对照阅读</p> : null}
+          {extraActions}
         </div>
       ) : readerAvailable ? (
         <p className="book-detail-processing-hint">左侧可直接对照阅读</p>

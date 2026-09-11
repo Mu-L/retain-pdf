@@ -6,6 +6,8 @@ import { mountGlossariesFeature } from "../../src/features/glossaries/domain/con
 function createGlossariesFeature({
   createdId = "glossary-created",
   refreshCalls = [],
+  fetchGlossaries = null,
+  fetchGlossary = null,
   view = {},
   viewPort,
 } = {}) {
@@ -44,16 +46,16 @@ function createGlossariesFeature({
   };
   return mountGlossariesFeature({
     apiPrefix: "/api",
-    fetchGlossaries: async () => ({
+    fetchGlossaries: fetchGlossaries || (async () => ({
       items: [
         { glossary_id: createdId, name: "Terms", entry_count: 1 },
       ],
-    }),
-    fetchGlossary: async (glossaryId) => ({
+    })),
+    fetchGlossary: fetchGlossary || (async (glossaryId) => ({
       glossary_id: glossaryId,
       name: "Terms",
       entries: [],
-    }),
+    })),
     createGlossary: async () => ({
       glossary_id: createdId,
     }),
@@ -128,4 +130,55 @@ test("glossary controller routes dialog operations through view port", async () 
   assert.equal(calls.includes("open"), true);
   assert.equal(calls.includes("render-list"), true);
   assert.equal(calls.includes("render-editor"), true);
+});
+
+test("glossary select discards stale detail responses in request order", async () => {
+  let releaseFirst = null;
+  const gatedFirst = new Promise((resolve) => {
+    releaseFirst = resolve;
+  });
+  const rendered = [];
+  let boundHandlers = null;
+  const feature = createGlossariesFeature({
+    fetchGlossary: (glossaryId) => {
+      if (glossaryId === "glossary-a") {
+        return gatedFirst.then(() => ({
+          glossary_id: glossaryId,
+          name: "Terms A",
+          entries: [],
+        }));
+      }
+      return Promise.resolve({
+        glossary_id: glossaryId,
+        name: "Terms B",
+        entries: [],
+      });
+    },
+    viewPort: {
+      addEntryRow: () => {},
+      bindEvents: (handlers) => {
+        boundHandlers = handlers;
+      },
+      closeDialog: () => {},
+      openDialog: () => {},
+      readEditorPayload: () => ({
+        name: "Terms",
+        entries: [],
+        skippedMissingTarget: [],
+      }),
+      renderEditor: (detail) => rendered.push(detail?.glossary_id),
+      renderList: () => {},
+      setImportVisible: () => {},
+      setStatus: () => {},
+    },
+  });
+
+  feature.bindEvents();
+  const first = boundHandlers.selectGlossary("glossary-a");
+  const second = boundHandlers.selectGlossary("glossary-b");
+  await second;
+  releaseFirst();
+  await first;
+
+  assert.deepEqual(rendered, ["glossary-b"]);
 });

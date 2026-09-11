@@ -4,6 +4,8 @@
 // 这是本功能对外的唯一出口。
 // ui/     状态卡及其阶段流/进度/重试子组件与动画 hook
 // domain/ 状态卡展示 store 与进度模型、runtime/ 轮询与当前任务状态机
+// 调度归属：任务轮询归 domain/runtime/（失败指数退避 1s→15s 封顶，不可见暂停；
+// 成功清错；总表见 platform/contracts/app-contract.ts）。
 //
 // 展示模型的真值在 @retainpdf/domain 的 job / job-status 两个入口，
 // 本功能直接消费，不经主页装配层转发。

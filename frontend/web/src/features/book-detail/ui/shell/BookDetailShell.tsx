@@ -25,7 +25,7 @@ import {
  * @param {boolean} props.open
  * @param {(open: boolean) => void} props.onOpenChange
  * @param {(event: Event) => void} [props.onCloseAutoFocus]
- * @param {string} [props.title] 无障碍标题（默认「书籍详情」）
+ * @param {string} [props.title] 可见标题（书名；默认「书籍详情」）
  * @param {import("react").ReactNode} props.left  左栏（封面、主操作）
  * @param {import("react").ReactNode} props.right 右栏（元数据、翻译、合集…）
  * @param {string} [props.contentClassName]
@@ -50,7 +50,7 @@ export function BookDetailShell({
         >
           <DialogShell className="book-detail-dialog-shell relative">
             <DialogTitle asChild>
-              <h2 className="sr-only">{title}</h2>
+              <h2 className="book-detail-dialog-title">{title}</h2>
             </DialogTitle>
             <DialogCloseButton
               id="book-detail-close-btn"

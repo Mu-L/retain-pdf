@@ -49,6 +49,7 @@ export async function collectRecentJobsPage({
   let nextOffset = startOffset;
   let hasMore = true;
   let requestCount = 0;
+  let zeroGrowthPages = 0;
 
   while (collected.length < pageSize) {
     requestCount += 1;
@@ -67,7 +68,12 @@ export async function collectRecentJobsPage({
     }
 
     const beforeCount = collected.length;
+    // P0: count raw rows actually scanned. Filling the page only stops the
+    // push; the unconsumed tail stays server-side and is refetched from the
+    // returned nextOffset instead of being skipped by a full fetchLimit jump.
+    let consumedRows = 0;
     for (const item of items) {
+      consumedRows += 1;
       if (!isPrimaryRecentJob(item)) {
         continue;
       }
@@ -83,18 +89,36 @@ export async function collectRecentJobsPage({
       }
     }
 
-    nextOffset += fetchLimit;
+    nextOffset += consumedRows;
 
-    if (pageHasMore === false || items.length < fetchLimit) {
+    // P1: a capped server page may be shorter than fetchLimit. Trust an
+    // explicit has_more signal when present; only use the short-page
+    // heuristic when the field is absent.
+    if (pageHasMore === false) {
       hasMore = false;
       break;
     }
-    if (!hasMore || collected.length >= pageSize) {
-      break;
-    }
-    if (collected.length === beforeCount || requestCount >= 12) {
+    if (pageHasMore !== true && items.length < fetchLimit) {
       hasMore = false;
       break;
+    }
+    if (collected.length >= pageSize) {
+      break;
+    }
+    if (requestCount >= 12) {
+      hasMore = false;
+      break;
+    }
+    // P1: a fully filtered page is zero growth, not exhaustion. Keep pulling
+    // the next page; only consecutive zero-growth pages mean no more.
+    if (collected.length === beforeCount) {
+      zeroGrowthPages += 1;
+      if (zeroGrowthPages >= 2) {
+        hasMore = false;
+        break;
+      }
+    } else {
+      zeroGrowthPages = 0;
     }
   }
 

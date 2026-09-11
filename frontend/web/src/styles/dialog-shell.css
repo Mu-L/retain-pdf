@@ -145,6 +145,11 @@
     background: color-mix(in srgb, var(--danger) 10%, transparent);
     color: var(--danger);
   }
+
+  &.app-confirm-icon-info {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--accent);
+  }
 }
 
 @utility app-confirm-body {

@@ -64,11 +64,11 @@ export function TranslationItemsPanel({ translation, onSelect, onChangePage }) {
 
   return (
     <section className="translation-debug-column translation-debug-column-list">
-      <div className="translation-debug-subhead"><h4>Item 列表</h4><span id={ids.itemsMeta} className="status-panel-note">{meta}</span></div>
+      <div className="translation-debug-subhead"><h4>条目列表</h4><span id={ids.itemsMeta} className="status-panel-note">{meta}</span></div>
       <div className="translation-panel-body">
-        <div id={ids.itemsLoading} className={loading ? "events-empty" : "events-empty hidden"}>正在读取翻译 item...</div>
+        <div id={ids.itemsLoading} className={loading ? "events-empty" : "events-empty hidden"}>正在读取翻译条目...</div>
         <div id={ids.itemsEmpty} className={!loading && !hasItems ? "events-empty" : "events-empty hidden"}>
-          {translation.itemsErrorText || "没有匹配的翻译 item"}
+          {translation.itemsErrorText || "没有匹配的翻译条目"}
         </div>
         <div id={ids.itemsList} className={!loading && hasItems ? "translation-items-list" : "translation-items-list hidden"}>
           {list.map((item) => (

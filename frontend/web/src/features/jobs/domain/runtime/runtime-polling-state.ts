@@ -2,6 +2,29 @@ import { createStore, type Store } from "@/platform/store/store.js";
 
 export const JOB_POLL_INTERVAL_MS = 1000;
 
+/** 瞬态失败指数退避：基线 1s ×2 / 上限 15s（1s→2s→4s→8s→15s→…）。 */
+export const JOB_POLL_BACKOFF_FACTOR = 2;
+export const JOB_POLL_MAX_INTERVAL_MS = 15000;
+
+/**
+ * 按连续瞬态失败次数算下一次轮询间隔（纯函数）。
+ * failures<=1 取基线，之后按 factor 指数增长，maxMs 封顶。
+ */
+export function nextJobPollBackoffDelay(
+  failures: number,
+  baseMs: number = JOB_POLL_INTERVAL_MS,
+  maxMs: number = JOB_POLL_MAX_INTERVAL_MS,
+): number {
+  const attempts = Math.max(0, Math.floor(Number(failures) || 0));
+  if (attempts <= 1) return baseMs;
+  let delay = baseMs;
+  for (let i = 1; i < attempts; i += 1) {
+    delay = Math.min(delay * JOB_POLL_BACKOFF_FACTOR, maxMs);
+    if (delay >= maxMs) break;
+  }
+  return Math.min(delay, maxMs);
+}
+
 const RUNTIME_POLLING_STORE_KEY = Symbol.for("retainpdf.runtimePollingStore");
 
 /** Normalized runtime-polling sub-store snapshot. */
@@ -132,6 +155,11 @@ export interface RuntimePollingStatePort {
     callback: (...args: unknown[]) => void,
     intervalMs?: number,
   ) => unknown;
+  /**
+   * 暂停轮询 timer（页面不可见用）：只清 timer，不涨 generation、
+   * 不碰在途状态；可见恢复时由调用方 startTimer 重启 + 补拉一次。
+   */
+  pauseTimer: () => void;
 }
 
 function normalizePollingState(
@@ -258,6 +286,12 @@ export function createRuntimePollingStatePort(
         host.timer = timer;
       }
       return timer;
+    },
+    pauseTimer() {
+      if (host?.timer) {
+        clearIntervalFn(host.timer);
+        host.timer = null;
+      }
     },
   };
 }

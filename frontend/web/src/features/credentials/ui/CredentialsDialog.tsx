@@ -82,13 +82,13 @@ export function CredentialsDialog() {
             <DialogHeader className="desktop-head">
               <div className="credential-dialog-head">
                 <DialogTitle asChild>
-                  <h2 id={BROWSER_IDS.title}>{setupMode ? "首次配置" : "接口设置"}</h2>
+                  <h2 id={BROWSER_IDS.title}>接口设置</h2>
                 </DialogTitle>
-                <p id={BROWSER_IDS.subtitle} className="muted hidden"></p>
+                {setupMode ? <p id={BROWSER_IDS.subtitle} className="muted">先配好接口再开始</p> : null}
               </div>
               <DialogCloseButton id={BROWSER_IDS.closeButton} />
             </DialogHeader>
-            {/* 表单主体抽到 CredentialsWorkbench（与 SettingsHubDialog API 区
+            {/* 表单主体抽到 CredentialsWorkbench（与 SettingsDialog 接口区
                 共用同一实现），本弹窗只剩首次配置门（setupMode）一个场景。 */}
             <DialogBody className="desktop-body credential-dialog-body">
               <CredentialsWorkbench />

@@ -12,8 +12,11 @@ export function BookDetailManageTab({
   collectionsBusy,
   onToggleCollection,
   error,
-  confirmingDelete,
   onDelete,
+  deleteTitle = "",
+  deleteBlockedFavoriteCount = 0,
+  onClearFavoritesAndDelete,
+  onDismissDeleteBlocked,
 }) {
   return (
     <div
@@ -32,9 +35,12 @@ export function BookDetailManageTab({
       />
       <DeleteFooterPanel
         error={error}
-        confirmingDelete={confirmingDelete}
         busy={busy}
         onDelete={onDelete}
+        title={deleteTitle}
+        blockedFavoriteCount={deleteBlockedFavoriteCount}
+        onClearFavorites={onClearFavoritesAndDelete}
+        onDismissBlocked={onDismissDeleteBlocked}
       />
     </div>
   );

@@ -64,6 +64,9 @@ export function bindRecentJobsFeatureEvents({
       doc.removeEventListener(APP_EVENTS.closeTranslationWorkflow, onCloseTranslationWorkflow);
       commandSubscription?.destroy?.();
       librarySubscription?.destroy?.();
+      refreshScheduler?.dispose?.();
+      runtime?.recentJobsLoader?.dispose?.();
+      runtime?.activeRefreshLoop?.dispose?.();
     },
   };
 }

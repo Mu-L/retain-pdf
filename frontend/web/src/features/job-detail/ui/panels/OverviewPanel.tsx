@@ -106,7 +106,7 @@ export function OverviewPanel({ overview, active }: OverviewPanelProps) {
           <summary><SlidersHorizontal aria-hidden="true" />运行参数</summary>
           <div className="status-detail-runtime-grid">
             <DetailItem id={ids.runtime.inputProtocol} label="输入协议" value={runtime.inputProtocol} compact />
-            <DetailItem id={ids.runtime.stageSpecVersion} label="Stage Schema" value={runtime.stageSpecVersion} compact />
+            <DetailItem id={ids.runtime.stageSpecVersion} label="阶段协议" value={runtime.stageSpecVersion} compact />
             <DetailItem id={ids.runtime.mathMode} label="公式模式" value={runtime.mathMode} compact />
           </div>
         </details>

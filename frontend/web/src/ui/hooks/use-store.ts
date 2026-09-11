@@ -35,7 +35,7 @@ export function shallowEqual(a, b) {
 }
 
 export function useStoreSnapshot(store, selector = null, isEqual = shallowEqual) {
-  const selectionRef = useRef({ hasValue: false, value: null });
+  const selectionRef = useRef({ store: null, hasValue: false, value: null });
 
   const subscribe = useCallback(
     (onStoreChange) => store.subscribe((snapshot) => {
@@ -52,10 +52,11 @@ export function useStoreSnapshot(store, selector = null, isEqual = shallowEqual)
     }
     const next = selector(snapshot);
     const previous = selectionRef.current;
-    if (previous.hasValue && isEqual(previous.value, next)) {
+    // 同 hook 位换 store 实例时旧选择失效：新旧结果浅相等也不得返回旧 store 对象。
+    if (previous.hasValue && previous.store === store && isEqual(previous.value, next)) {
       return previous.value;
     }
-    selectionRef.current = { hasValue: true, value: next };
+    selectionRef.current = { store, hasValue: true, value: next };
     return next;
   }, [store, selector, isEqual]);
 

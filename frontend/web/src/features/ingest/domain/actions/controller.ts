@@ -165,7 +165,7 @@ export function mountAppActionsFeature({
     setSubmitBusyState(true);
     try {
       const uploadSnapshot = readUploadState();
-      await runSubmitFlow({
+      return await runSubmitFlow({
         workflow,
         desktopMode,
         configPort,

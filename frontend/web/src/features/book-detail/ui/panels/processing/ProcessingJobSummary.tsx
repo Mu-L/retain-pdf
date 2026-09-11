@@ -1,25 +1,16 @@
 import { cn } from "@/ui/lib/utils";
 import type { DocumentJobSummary } from "@/features/library/domain.js";
 import { documentJobPresentation } from "../../use-document-jobs.js";
+import { countFromProgress, percentFromProgress } from "../../../domain/progress-value.js";
 
 function progressOf(job?: DocumentJobSummary | null) {
   const progress: any = job?.stage_snapshot?.progress || job?.progress || {};
-  const percent = Number(progress.percent);
-  if (Number.isFinite(percent)) return Math.max(0, Math.min(100, percent));
-  const current = Number(progress.current);
-  const total = Number(progress.total);
-  return Number.isFinite(current) && Number.isFinite(total) && total > 0
-    ? Math.max(0, Math.min(100, (current / total) * 100))
-    : null;
+  return percentFromProgress(progress);
 }
 
 function progressCountOf(job?: DocumentJobSummary | null) {
   const progress: any = job?.stage_snapshot?.progress || job?.progress || {};
-  const current = Number(progress.current);
-  const total = Number(progress.total);
-  return Number.isFinite(current) && Number.isFinite(total) && total > 0
-    ? { current, total }
-    : null;
+  return countFromProgress(progress);
 }
 
 function elapsedMsOf(job?: DocumentJobSummary | null): number | null {

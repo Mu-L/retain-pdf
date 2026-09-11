@@ -25,10 +25,10 @@ frontend/web/src/styles/
 ├── pages/detail/         # 详情页领域样式
 ├── tokens.css / base.css / shadcn-theme.css
 ├── components*.css / dialog-shell.css
-└── reader/               # 迁移后保留的旧镜像，不是当前 Reader 构建真值
 ```
 
-Reader 样式请修改 `frontend/packages/reader/styles/*`。不要继续双写 `frontend/web/src/styles/reader/*`；该旧镜像应在独立清理和视觉验证后删除。
+Reader 样式只改 `frontend/packages/reader/styles/*`。`src/styles/reader/` 旧镜像已于 2026-09-10 删除
+（零引用、构建产物一致；命名空间门禁已跟随真值，`*-legacy.css` 与壳归一化 `base.css` 除外）。
 
 ### 书籍详情样式边界
 

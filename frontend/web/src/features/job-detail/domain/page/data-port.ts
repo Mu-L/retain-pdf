@@ -2,7 +2,6 @@ import { API_PREFIX } from "@/platform/config/api-constants.js";
 import {
   fetchJobArtifactsManifest,
   fetchJobMarkdown,
-  fetchJobMarkdownDocument,
 } from "@/platform/api/index.js";
 import {
   fetchJobDiagnostics,
@@ -22,7 +21,6 @@ export function createJobDetailDataPort({
   loadManifest = fetchJobArtifactsManifest,
   loadDiagnostics = fetchJobDiagnostics,
   loadResumePlan = fetchResumePlan,
-  loadMarkdownDocument = fetchJobMarkdownDocument,
   loadMarkdown = fetchJobMarkdown,
   loadEvents = fetchJobEvents,
   rerun = rerunJob,
@@ -44,9 +42,10 @@ export function createJobDetailDataPort({
     };
   }
 
+  // 只走 /markdown JSON（content + raw_url + images_base_url）；不再用昂贵的
+  // /markdown/document（整篇返回两份 + walkdir images）。这条端点因此可删。
   async function loadMarkdownPayload(jobId) {
-    return await loadMarkdownDocument(jobId, apiPrefix)
-      || await loadMarkdown(jobId, apiPrefix);
+    return await loadMarkdown(jobId, apiPrefix);
   }
 
   return Object.freeze({

@@ -8,7 +8,19 @@ import { resumeJob as resumeJobRequest } from "@/platform/api/index.js";
 import type { DocumentJobSummary } from "@/features/library/domain.js";
 import { isDocumentJobActive } from "./use-document-jobs.js";
 
+// job_id -> stage-actions 视图。跨文档/跨弹窗复用，但必须有上限，避免长会话无限增长。
+const STAGE_ACTIONS_CACHE_LIMIT = 200;
 const stageActionsCache = new Map<string, JobStageActionsView>();
+
+function rememberStageActions(jobId: string, view: JobStageActionsView) {
+  stageActionsCache.delete(jobId);
+  stageActionsCache.set(jobId, view);
+  while (stageActionsCache.size > STAGE_ACTIONS_CACHE_LIMIT) {
+    const oldest = stageActionsCache.keys().next().value;
+    if (oldest === undefined) break;
+    stageActionsCache.delete(oldest);
+  }
+}
 
 // 失败恢复走 POST /resume（服务端按 resume-plan 自动续跑）：
 // render 原地同 job_id，其余新建任务。只有已完成任务的显式重做、
@@ -75,7 +87,7 @@ export function useBookDetailStageActions({
       const result = await actions.getJobStageActions(jobId) as JobStageActionsView | null;
       if (request === requestRef.current) {
         const next = result && Array.isArray(result.stages) ? result : null;
-        if (next) stageActionsCache.set(jobId, next);
+        if (next) rememberStageActions(jobId, next);
         setView(next);
         setResolvedJobId(jobId);
         setError("");

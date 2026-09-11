@@ -9,6 +9,15 @@
 //         snapshot/ 详情快照与事件/历史模型
 //         page/    detail.html 页面的产物、续跑、路由与摘要
 //
+// 双实现分区（有意保留，禁止不经重做测试擅自合并）：
+//   A. 弹窗实现 —— ui/StatusDetail*.tsx + ui/panels/* + domain/dialog/*，
+//      经 createStatusDetailController 驱动，ConfirmDialog 做二次确认。
+//   B. 整页实现 —— ui/page/* + domain/page/*，命令式写入 DOM，
+//      整页无 React，用同一按钮两步态做二次确认（见 page/resume.ts）。
+//   共享真值：domain/snapshot/*（徽标/备注/事件/历史呈现）与
+//   @retainpdf/domain（状态/阶段归一化）。新增展示语义先落 snapshot，
+//   两端只做薄投影；同概念文案以弹窗侧为准（见命名规则 R1）。
+//
 // 展示模型真值在 @retainpdf/domain；跨功能依赖走对方的出口，
 // 本功能不引用主页装配层。
 

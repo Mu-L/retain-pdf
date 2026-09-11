@@ -1,0 +1,227 @@
+// 凭据弹窗/设置面板的同步、开关与门禁。
+//
+// 负责把 credentialsStatePort 的凭据状态回填到对话框元素、切换凭据 tab、
+// 打开/准备面板，以及计算上传门禁是否展示。全部通过注入的端口操作视图，
+// 不直接触碰 DOM。
+
+import { normalizeOcrProvider } from "@/platform/config/providers.js";
+import { syncCredentialDialogFields } from "./dialog-sync.js";
+import type { UpdateCredentialGateViewOptions } from "./view-contracts.js";
+
+type OpenBrowserCredentialsDialogOptions = {
+  setupMode?: boolean;
+};
+
+type UpdateCredentialGateOptions = {
+  workflowNeedsCredentials?: () => boolean;
+  workflowNeedsUpload?: () => boolean;
+  hasCredentials?: () => boolean;
+  refreshSubmitControls?: () => void;
+};
+
+type DialogFlowElements = {
+  dialog?: HTMLDialogElement | HTMLElement | boolean | null;
+  apiKeyInput?: { value?: string } | null;
+  modelBaseUrlInput?: { value?: string } | null;
+  modelNameInput?: { value?: string } | null;
+  translationWorkersInput?: { value?: string } | null;
+  mathModeSelect?: { value?: string } | null;
+};
+
+type DialogFlowViewPort = {
+  activateTab?: (tabName?: string) => void;
+  closeDialog?: () => void;
+  dialogElements?: () => DialogFlowElements;
+  openDialog?: () => void;
+  setDeepSeekTopUpVisible?: (visible?: boolean) => void;
+  setDeepSeekValidationMessage?: (message?: string, tone?: string) => void;
+  setDialogMode?: (options?: {
+    setupMode?: boolean;
+    activateCredentialTab?: (tabName?: string) => void;
+  }) => void;
+  setDialogStatus?: (message?: string, tone?: string) => void;
+  setHiddenOcrProvider?: (providerId?: string) => void;
+  setOcrValidationMessage?: (message?: string, tone?: string, providerId?: string) => void;
+  setTranslationProvider?: (provider?: string) => void;
+  syncOcrProviderControls?: (providerId?: string) => void;
+  updateCredentialGate?: (options?: UpdateCredentialGateViewOptions) => boolean | void;
+};
+
+type TranslationProfileManager = {
+  hydrate: (credentials?: Record<string, unknown>, taskOptions?: Record<string, unknown>) => void;
+  captureCurrent: () => void;
+  applyProfile: (providerId?: string) => void;
+  getCurrentProvider: () => string;
+  getCurrentProfile: () => Record<string, unknown>;
+};
+
+type CredentialAccess = {
+  readCurrentCredentials: () => any;
+  currentOcrProvider: () => string;
+  hasBrowserCredentials: () => boolean;
+};
+
+export function createCredentialDialogFlow({
+  viewPort,
+  credentialsStatePort,
+  getTaskOptions,
+  defaultModelBaseUrl,
+  defaultModelApiKey,
+  dialogElementsPort,
+  balanceState,
+  translation,
+  access,
+  uploadState,
+  runtimeEnv,
+  onCredentialStateChange,
+}: {
+  viewPort: DialogFlowViewPort;
+  credentialsStatePort: { patchCredentials?: (payload?: Record<string, unknown>) => unknown };
+  getTaskOptions?: () => Record<string, unknown> | unknown;
+  defaultModelBaseUrl?: () => string;
+  defaultModelApiKey?: () => string;
+  dialogElementsPort: {
+    elements: () => DialogFlowElements;
+    syncTranslationProvider?: (baseUrl?: string) => void;
+    syncOcrProviderControls?: (providerId?: string) => void;
+  };
+  balanceState: { resetDeepSeekBalance?: () => unknown };
+  translation: TranslationProfileManager;
+  access: CredentialAccess;
+  uploadState: { getSnapshot?: () => { uploadId?: string } };
+  runtimeEnv: { isDesktopMode?: () => boolean };
+  onCredentialStateChange?: () => void;
+}) {
+  function setCredentialDialogMode(setupMode = false) {
+    viewPort.setDialogMode({ setupMode, activateCredentialTab });
+  }
+
+  function activateCredentialTab(tabName = "api") {
+    viewPort.activateTab(tabName);
+  }
+
+  function syncOcrProviderControls(providerId = access.currentOcrProvider()) {
+    const activeProvider = normalizeOcrProvider(providerId);
+    viewPort.syncOcrProviderControls(activeProvider);
+  }
+
+  function readUploadState() {
+    return uploadState.getSnapshot?.() || {};
+  }
+
+  function syncBrowserDialogFromCredentialState() {
+    const credentials = access.readCurrentCredentials();
+    const taskOptions = (getTaskOptions?.() || {}) as Record<string, unknown>;
+    translation.hydrate(credentials as unknown as Record<string, unknown>, taskOptions);
+    const profile = translation.getCurrentProfile();
+    syncCredentialDialogFields({
+      credentials: { ...credentials, modelApiKey: profile.apiKey },
+      taskOptions: {
+        ...taskOptions,
+        baseUrl: profile.baseUrl,
+        model: profile.model,
+        workers: profile.workers,
+      },
+      defaultModelBaseUrl,
+      defaultModelApiKey,
+      elementsPort: dialogElementsPort,
+    });
+    viewPort.setTranslationProvider?.(translation.getCurrentProvider());
+    viewPort.setOcrValidationMessage("", "", "paddle");
+    viewPort.setDeepSeekValidationMessage("", "");
+    if (credentials.ocrCredentialRef) {
+      viewPort.setOcrValidationMessage("Paddle Token 已安全保存", "valid", "paddle");
+    }
+    if (credentials.translationCredentialRef) {
+      viewPort.setDeepSeekValidationMessage("翻译 API Key 已安全保存", "valid");
+    }
+    viewPort.setDeepSeekTopUpVisible(false);
+    balanceState.resetDeepSeekBalance();
+    viewPort.setDialogStatus("", "");
+  }
+
+  function openBrowserCredentialsDialog(options: OpenBrowserCredentialsDialogOptions = {}) {
+    const { dialog } = viewPort.dialogElements();
+    if (!dialog) {
+      return;
+    }
+    syncBrowserDialogFromCredentialState();
+    setCredentialDialogMode(!!options.setupMode);
+    activateCredentialTab("api");
+    viewPort.openDialog();
+  }
+
+  /**
+   * 设置面板内嵌模式（SettingsDialog 接口区）：只做"从凭据状态回填表单 +
+   * 复位到 api tab"，不经 viewPort.openDialog()——表单宿主是设置面板本身，
+   * 没有独立弹窗可开。首次配置门（setupMode）仍走 openBrowserCredentialsDialog。
+   */
+  function prepareCredentialsPanels() {
+    syncBrowserDialogFromCredentialState();
+    setCredentialDialogMode(false);
+    activateCredentialTab("api");
+  }
+
+  function updateCredentialGate({
+    workflowNeedsCredentials,
+    workflowNeedsUpload,
+    hasCredentials,
+    refreshSubmitControls,
+  }: UpdateCredentialGateOptions) {
+    const uploadEnabled = workflowNeedsUpload();
+    const desktopMode = runtimeEnv.isDesktopMode();
+    const uploadSnapshot = readUploadState();
+    if (desktopMode) {
+      if (!viewPort.updateCredentialGate({
+        desktopMode: true,
+        show: false,
+        uploadEnabled,
+        uploadReady: !!uploadSnapshot.uploadId,
+      })) {
+        return;
+      }
+      refreshSubmitControls();
+      return;
+    }
+    const credentialsReady = hasCredentials?.() ?? access.hasBrowserCredentials();
+    const show = workflowNeedsCredentials() && !credentialsReady;
+    if (!viewPort.updateCredentialGate({
+      desktopMode: false,
+      show,
+      uploadEnabled,
+      uploadReady: !!uploadSnapshot.uploadId,
+    })) {
+      return;
+    }
+    refreshSubmitControls();
+  }
+
+  function handleOcrProviderChange(event: Event) {
+    const target = event.currentTarget as HTMLSelectElement | HTMLInputElement | null;
+    const provider = normalizeOcrProvider(target?.value);
+    credentialsStatePort.patchCredentials?.({ ocrProvider: provider });
+    viewPort.setHiddenOcrProvider(provider);
+    syncOcrProviderControls(provider);
+  }
+
+  function handleTranslationProviderChange(providerId: string) {
+    translation.captureCurrent?.();
+    translation.applyProfile(`${providerId || "custom"}`);
+    viewPort.setDeepSeekValidationMessage("", "");
+    viewPort.setDeepSeekTopUpVisible(false);
+    balanceState.resetDeepSeekBalance();
+    onCredentialStateChange?.();
+  }
+
+  return {
+    setCredentialDialogMode,
+    activateCredentialTab,
+    syncOcrProviderControls,
+    syncBrowserDialogFromCredentialState,
+    openBrowserCredentialsDialog,
+    prepareCredentialsPanels,
+    updateCredentialGate,
+    handleOcrProviderChange,
+    handleTranslationProviderChange,
+  };
+}

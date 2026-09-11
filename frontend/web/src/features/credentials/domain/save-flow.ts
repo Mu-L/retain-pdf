@@ -1,0 +1,230 @@
+// 浏览器凭据保存流程。
+//
+// perform 负责输入值回落、校验、任务选项组装与（浏览器 + 桌面）持久化；
+// handle 在外层加"保存中"并发门，保证同一时刻只有一次保存。
+// 所有外部依赖显式注入，便于单测。
+
+import {
+  getOcrProviderDefinition,
+  TRANSLATION_PROVIDER_DEFINITION,
+} from "@/platform/config/providers.js";
+import { savePersistedBrowserStoredConfig } from "@/platform/config/persisted-config.js";
+import { notifyCredentialsChanged } from "@/features/reader/domain.js";
+import {
+  buildTaskOptionsFromDialogValues,
+  ocrTokenFromDialogValues,
+  readCredentialDialogValues,
+} from "./dialog-values.js";
+import {
+  translationConfigError,
+  translationWorkersError,
+} from "./translation-profile.js";
+import {
+  persistDesktopCredentialsFromDialog as persistDesktopCredentials,
+} from "./persistence.js";
+
+type SaveFlowViewPort = {
+  setOcrValidationMessage?: (message?: string, tone?: string, providerId?: string) => void;
+  setDeepSeekValidationMessage?: (message?: string, tone?: string) => void;
+  setDialogStatus?: (message?: string, tone?: string) => void;
+  closeDialog?: () => void;
+};
+
+type CredentialAccess = {
+  readCurrentCredentials: () => any;
+  currentOcrProvider: () => string;
+};
+
+type TranslationProfileManager = {
+  captureCurrent: () => void;
+  recordCurrentProfile: (profile: Record<string, unknown>) => void;
+  persistable: () => Record<string, unknown>;
+  getCurrentProvider: () => string;
+  defaultWorkers: () => number;
+};
+
+type CredentialVault = {
+  storeOcrCredential: (options: { secret: string; provider: string }) => Promise<string>;
+  storeTranslationCredential: (options: { secret: string; baseUrl: string }) => Promise<string>;
+};
+
+export function createBrowserCredentialSaveFlow({
+  viewPort,
+  credentialsStatePort,
+  access,
+  translation,
+  vault,
+  getTaskOptions,
+  defaultModelBaseUrl,
+  defaultModelApiKey,
+  saveTaskOptions,
+  saveDesktopConfig,
+  checkApiConnectivity,
+  setupModePort,
+  onCredentialStateChange,
+  dialogElementsPort,
+  syncBrowserDialogFromCredentialState,
+  runtimeEnv,
+}: {
+  viewPort: SaveFlowViewPort;
+  credentialsStatePort: {
+    setCredentials?: (payload?: Record<string, unknown>) => unknown;
+  };
+  access: CredentialAccess;
+  translation: TranslationProfileManager;
+  vault: CredentialVault;
+  getTaskOptions?: () => Record<string, unknown> | unknown;
+  defaultModelBaseUrl?: () => string;
+  defaultModelApiKey?: () => string;
+  saveTaskOptions?: (options?: Record<string, unknown> | unknown) => unknown;
+  saveDesktopConfig?: (
+    browserConfig?: Record<string, unknown> | unknown,
+    afterSave?: () => unknown,
+  ) => Promise<unknown> | unknown;
+  checkApiConnectivity?: () => Promise<unknown> | unknown;
+  setupModePort: { currentSetupMode?: () => boolean };
+  onCredentialStateChange?: () => void;
+  dialogElementsPort: { elements: () => any };
+  syncBrowserDialogFromCredentialState: () => void;
+  runtimeEnv: { isDesktopMode?: () => boolean };
+}) {
+  let credentialSaveInFlight = false;
+
+  async function performSave() {
+    const definition = getOcrProviderDefinition(access.currentOcrProvider());
+    const existing = access.readCurrentCredentials();
+    translation.captureCurrent();
+    const raw = readCredentialDialogValues({ elementsPort: dialogElementsPort });
+    const existingTaskOptions = (getTaskOptions?.() || {}) as Record<string, unknown>;
+    // 输入框留空时沿用当前值，避免保存其他设置时误删凭据。
+    const values = {
+      ...raw,
+      paddleToken: `${raw.paddleToken || ""}`.trim() || `${existing.paddleToken || ""}`.trim(),
+      modelApiKey: `${raw.modelApiKey || ""}`.trim() || `${existing.modelApiKey || ""}`.trim(),
+      modelBaseUrl: `${raw.modelBaseUrl || ""}`.trim()
+        || `${existingTaskOptions.baseUrl || ""}`.trim()
+        || `${defaultModelBaseUrl?.() || ""}`.trim(),
+      modelName: `${raw.modelName || ""}`.trim()
+        || `${existingTaskOptions.model || ""}`.trim(),
+      translationWorkers: `${raw.translationWorkers || ""}`.trim()
+        || `${existingTaskOptions.workers || translation.defaultWorkers() || 5}`,
+    };
+    const ocrToken = ocrTokenFromDialogValues(values);
+    const modelApiKey = `${values.modelApiKey || ""}`.trim();
+    const existingOcrCredentialRef = `${existing.ocrCredentialRef || ""}`.trim();
+    const existingTranslationCredentialRef = `${existing.translationCredentialRef || ""}`.trim();
+    const translationError = translationConfigError(values.modelBaseUrl, values.modelName);
+    const workersError = translationWorkersError(values.translationWorkers, translation.getCurrentProvider());
+    if ((!ocrToken && !existingOcrCredentialRef)
+      || (!modelApiKey && !existingTranslationCredentialRef)
+      || translationError
+      || workersError) {
+      if (!ocrToken && !existingOcrCredentialRef) {
+        viewPort.setOcrValidationMessage(definition.validationMissingMessage, "error", definition.id);
+      }
+      if (!modelApiKey && !existingTranslationCredentialRef) {
+        viewPort.setDeepSeekValidationMessage(TRANSLATION_PROVIDER_DEFINITION.validationMissingMessage, "error");
+      } else if (translationError || workersError) {
+        viewPort.setDeepSeekValidationMessage(translationError || workersError, "error");
+      }
+      viewPort.setDialogStatus(
+        translationError || workersError || "请填写尚未保存的 OCR Token 或翻译 API Key",
+        "error",
+      );
+      return;
+    }
+
+    translation.recordCurrentProfile({
+      apiKey: values.modelApiKey,
+      baseUrl: values.modelBaseUrl,
+      model: values.modelName,
+      workers: values.translationWorkers,
+    });
+    const nextTaskOptions = {
+      ...buildTaskOptionsFromDialogValues({
+        values,
+        defaultModelBaseUrl,
+      }),
+      translationProvider: translation.getCurrentProvider(),
+      translationProfiles: translation.persistable(),
+    };
+
+    // 保存只做落盘；联网校验留给「检测」按钮。
+    // 必须 await 完整持久化（含桌面 snapshot），再通知 AI 门禁刷新。
+    try {
+      const ocrCredentialRef = await vault.storeOcrCredential({
+        secret: ocrToken,
+        provider: access.currentOcrProvider(),
+      });
+      const translationCredentialRef = await vault.storeTranslationCredential({
+        secret: modelApiKey,
+        baseUrl: values.modelBaseUrl,
+      });
+      const nextCredentials = {
+        ocrProvider: access.currentOcrProvider(),
+        ocrCredentialRef,
+        paddleToken: ocrToken,
+        translationCredentialRef,
+        modelApiKey,
+      };
+      credentialsStatePort.setCredentials?.(nextCredentials);
+      // 统一走 savePersisted*：localStorage + 桌面 snapshot/IPC 一次写齐
+      await savePersistedBrowserStoredConfig(nextCredentials);
+      // 兼容旧注入（桌面 markConfigured / 任务选项）
+      if (runtimeEnv.isDesktopMode() && saveDesktopConfig) {
+        await persistDesktopCredentials({
+          currentOcrProvider: access.currentOcrProvider,
+          defaultModelApiKey,
+          defaultModelBaseUrl,
+          saveTaskOptions: undefined,
+          saveDesktopConfig,
+          checkApiConnectivity: async () => {
+            try {
+              await checkApiConnectivity?.();
+            } catch {
+              /* ignore connectivity on save */
+            }
+          },
+          values: {
+            ...values,
+            ocrCredentialRef,
+            paddleToken: ocrToken,
+            modelApiKey,
+            translationCredentialRef,
+          },
+          setupModePort,
+        });
+      }
+      saveTaskOptions?.(nextTaskOptions);
+      // 再次保证内存态与刚写入的 next 一致
+      credentialsStatePort.setCredentials?.(nextCredentials);
+    } catch (error) {
+      const message = (error as { message?: string })?.message || String(error);
+      viewPort.setDialogStatus(message, "error");
+      viewPort.setDeepSeekValidationMessage(message, "error");
+      return;
+    }
+    // 写回可见输入，避免保存后输入框仍显示空
+    syncBrowserDialogFromCredentialState();
+    onCredentialStateChange?.();
+    notifyCredentialsChanged();
+    viewPort.setDialogStatus("已保存", "valid");
+    // 首次配置弹窗保存后关闭；设置中心内嵌时保持打开以便继续改任务选项
+    if (setupModePort.currentSetupMode?.()) {
+      viewPort.closeDialog();
+    }
+  }
+
+  async function handleSave() {
+    if (credentialSaveInFlight) return;
+    credentialSaveInFlight = true;
+    viewPort.setDialogStatus("正在保存…", "");
+    try {
+      await performSave();
+    } finally {
+      credentialSaveInFlight = false;
+    }
+  }
+
+  return { performSave, handleSave };
+}

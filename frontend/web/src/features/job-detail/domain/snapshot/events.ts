@@ -46,7 +46,7 @@ export function buildEventsPresentation(eventsPayload) {
         ${record.progressText && record.progressText !== title ? `<div class="event-progress">${escapeHtml(record.progressText)}</div>` : ""}
         ${payloadText ? `
           <details class="event-payload-wrap">
-            <summary class="event-payload-toggle">查看 payload</summary>
+            <summary class="event-payload-toggle">查看数据</summary>
             <pre class="event-payload">${escapeHtml(payloadText)}</pre>
           </details>
         ` : ""}

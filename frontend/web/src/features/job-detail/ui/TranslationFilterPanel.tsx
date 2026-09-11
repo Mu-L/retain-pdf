@@ -42,7 +42,7 @@ export function TranslationFilterPanel({ query, onApply }) {
           <input
             id={ids.filterQuery}
             type="search"
-            placeholder="输入 item_id、路由、原文片段"
+            placeholder="输入条目 ID、路由、原文片段"
             value={q}
             onChange={(event) => setQ(event.target.value)}
             onKeyDown={(event) => {

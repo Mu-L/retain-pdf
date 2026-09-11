@@ -6,7 +6,8 @@
 //         island/ 搜索自定义元素
 // domain/ controller 与动作、卡片语义与徽标模型、recent-jobs 运行时（31 文件）、
 //         documents 书目资源，全部与 React 无关
-//
+// 调度归属：书架刷新归 domain/recent-jobs/refresh-scheduler.ts
+// （防抖/节流/挂起/force 粘滞，dispose 纳入 bindings；总表见 platform/contracts/app-contract.ts）。
 // 出口按外部实际需要逐条列举，不用 export * 整体转出内部模块——
 // 那会把 recent-jobs 等子域的模块级副作用全部提前触发，改变初始化时序
 // （曾因此让 mock 书库刷新与测试写入竞争，书架渲染成内置馆藏卡）。

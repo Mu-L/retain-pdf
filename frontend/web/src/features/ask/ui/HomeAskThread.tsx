@@ -22,7 +22,7 @@ export const HOME_ASK_SUGGESTIONS: Array<{
 }> = [
   {
     prompt: "最近入库的文献里，有哪些值得优先阅读的主题？",
-    label: "浏览馆藏主题",
+    label: "浏览存档主题",
     icon: BookOpen,
   },
   {

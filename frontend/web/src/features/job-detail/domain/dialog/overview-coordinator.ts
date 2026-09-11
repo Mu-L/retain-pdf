@@ -12,6 +12,7 @@ export function createStatusDetailOverviewCoordinator({
 }: any = {}) {
   const state = {
     loadingPromise: null,
+    loadingJobId: "",
   };
 
   function cachedContextFor(jobId) {
@@ -51,12 +52,14 @@ export function createStatusDetailOverviewCoordinator({
     if (!jobId) {
       return;
     }
-    if (state.loadingPromise && !force) {
+    // loadingPromise 绑定 jobId：切任务后不得复用旧任务的 in-flight 刷新。
+    if (state.loadingPromise && !force && state.loadingJobId === jobId) {
       await state.loadingPromise;
       return;
     }
     const previousContext = runtimePort.currentRenderContext(jobId);
     renderOverviewSnapshot(cachedContextFor(jobId));
+    state.loadingJobId = jobId;
     state.loadingPromise = (async () => {
       try {
         const renderContext = await loadFreshContext(jobId, previousContext);
@@ -68,7 +71,11 @@ export function createStatusDetailOverviewCoordinator({
       } catch (error) {
         setErrorText?.(error.message || String(error));
       } finally {
-        state.loadingPromise = null;
+        // 旧任务的 finally 不得清除新任务发起的刷新。
+        if (state.loadingJobId === jobId) {
+          state.loadingPromise = null;
+          state.loadingJobId = "";
+        }
       }
     })();
     await state.loadingPromise;

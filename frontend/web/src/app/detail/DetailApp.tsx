@@ -165,7 +165,7 @@ export function DetailApp({
   // 模态在本页面结构下永远互斥(同一时刻至多一个 open=true)。这意味着
   // "关两个"和"只关当前这个"在所有可达状态下结果恒等——setStageHistoryOpen/
   // setEventsOpen 对已经是 false 的一侧调用是幂等 no-op,不会有 double-fire
-  // 语义坍缩的风险(不同于 TranslationWorkflowDialog 的两段式关闭那种真正会
+  // 语义坍缩的风险(不同于 IngestDialog 的两段式关闭那种真正会
   // 被"多调一次"破坏语义的场景)。保留原样是这批改造里风险最低的选择,不
   // 引入新分支去做一个在当前 UI 下不可观测的行为收紧。
   //
@@ -316,7 +316,7 @@ export function DetailApp({
             <MetaRow label="最近切换" id="detail-runtime-last-transition" value={t("detail-runtime-last-transition")} />
             <MetaRow label="终态原因" id="detail-runtime-terminal-reason" value={t("detail-runtime-terminal-reason")} />
             <MetaRow label="输入协议" id="detail-runtime-input-protocol" value={t("detail-runtime-input-protocol")} />
-            <MetaRow label="Stage Schema" id="detail-runtime-stage-spec-version" value={t("detail-runtime-stage-spec-version")} />
+            <MetaRow label="阶段协议" id="detail-runtime-stage-spec-version" value={t("detail-runtime-stage-spec-version")} />
             <MetaRow label="公式模式" id="detail-runtime-math-mode" value={t("detail-runtime-math-mode")} />
           </JobSummaryCard>
           <JobSummaryCard title="失败诊断">

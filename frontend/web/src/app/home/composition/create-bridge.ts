@@ -51,9 +51,9 @@ export function createBridge({
     updateActionButtons: () => {},
     resetEventsList: () => {},
     activateDetailTab: (name = "overview") => {
-      statusDetail.store.actions.resetOverview();
-      statusDetail.store.actions.resetTranslation();
-      if (statusDetail.dialogStore.getState().open) {
+      statusDetail.store?.actions?.resetOverview?.();
+      statusDetail.store?.actions?.resetTranslation?.();
+      if (statusDetail.dialogStore?.getState?.().open) {
         statusDetail.dialogStore.open({ activeTab: name || "overview" });
       }
     },

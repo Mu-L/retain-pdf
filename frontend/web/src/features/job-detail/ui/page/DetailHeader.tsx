@@ -63,7 +63,7 @@ export function DetailHeader({ t, links, onProtectedDownload }) {
         <span id="detail-rerun-status" className="detail-inline-note">{t("detail-rerun-status", "当前任务暂不可恢复。")}</span>
       </div>
       <div className="detail-meta-list">
-        <MetaRow label="Job ID" id="detail-job-id" mono value={t("detail-job-id")} />
+        <MetaRow label="任务 ID" id="detail-job-id" mono value={t("detail-job-id")} />
         <MetaRow label="状态摘要" id="detail-status-summary" value={t("detail-status-summary")} />
         <MetaRow label="当前阶段" id="detail-stage-detail" value={t("detail-stage-detail")} />
         <MetaRow label="完成时间" id="detail-finished-at" value={t("detail-finished-at")} />

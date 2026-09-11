@@ -62,7 +62,7 @@ export const CREDENTIAL_DOM_DATASETS = {
   ocrProviderPanel: "ocrProviderPanel",
 };
 
-// SettingsHubDialog(蓝图 §0.4,拷贝自
+// SettingsDialog(蓝图 §0.4,拷贝自
 // src/js/components/dialogs/app-settings-dialog-contract.js)。
 // Decoupled: 真值随 settings 功能迁至 src/features/settings。
 // (settings → credentials coupling removed). Re-export for backward-compat.

@@ -299,7 +299,7 @@ test("StatusDetailDialog：Paddle QueueFull 提供结构化恢复、Trace 复制
   host.remove();
 });
 
-test("StatusDetailDialog：切换 OCR 服务只打开 API 设置，不自动修改 provider", async () => {
+test("StatusDetailDialog：切换 OCR 服务只打开接口设置，不自动修改 provider", async () => {
   const dom = makeDom("?mock=failed");
   const { services, root, host } = await bootHomeApp(dom);
   const originalJobId = await openStatusDetailDialog(dom, services);
@@ -324,7 +324,7 @@ test("StatusDetailDialog：切换 OCR 服务只打开 API 设置，不自动修�
 
   click(dom, byId(dom, "failure-switch-provider-btn"));
   await waitFor(() => byId(dom, "status-detail-dialog") === null, "任务详情关闭");
-  await waitFor(() => byId(dom, "app-settings-dialog"), "API 设置打开");
+  await waitFor(() => byId(dom, "app-settings-dialog"), "接口设置打开");
   assert.equal(
     services.statusDetail.store.getSnapshot().overview.failureRecovery.provider,
     "paddle",

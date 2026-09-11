@@ -234,6 +234,70 @@ test("RecentJobsLibrary：批量删除使用应用确认弹窗，支持取消与
   host.remove();
 });
 
+test("RecentJobsLibrary：批量删除遇到收藏保护时二次确认清空收藏后重试", async () => {
+  const dom = makeDom("?mock=parallel");
+  const { services, root, host } = await bootHomeApp(dom);
+
+  const items = [
+    makeItem(1, { document_id: "doc-1" }),
+    makeItem(2, { document_id: "doc-2" }),
+  ];
+  services.library.recentJobsStore.actions.setItems(items);
+  await waitFor(() => byId(dom, "recent-jobs-list").querySelectorAll(".recent-job-item").length === 2, "两张卡片就位");
+
+  const clearCalls = [];
+  const deleteCalls = [];
+  services.library.actions.clearFavorites = async (path) => {
+    clearCalls.push(path);
+    return 2;
+  };
+  services.library.actions.deleteDocuments = async (ids) => {
+    deleteCalls.push([...ids]);
+    if (deleteCalls.length === 1) {
+      return {
+        confirmed: 0,
+        failed: 0,
+        blocked: [
+          { documentId: "doc-1", favoriteCount: 2, clearFavoritesPath: "/api/v1/documents/doc-1/favorites" },
+        ],
+      };
+    }
+    return { confirmed: ids.length, failed: 0, blocked: [] };
+  };
+
+  const clickBatchDelete = () => {
+    const toolbar = dom.window.document.querySelector('[aria-label="批量操作工具栏"]');
+    const deleteButton = [...toolbar.querySelectorAll("button")].find((button) => button.textContent.trim() === "删除");
+    assert.ok(deleteButton, "批量工具栏必须有删除按钮");
+    click(dom, deleteButton);
+  };
+
+  click(dom, dom.window.document.querySelector('button[aria-label="批量操作"]'));
+  await waitFor(() => dom.window.document.querySelector('[aria-label="批量操作工具栏"]'), "进入批量模式");
+  click(dom, byId(dom, "recent-jobs-list").querySelector('[data-document-id="doc-1"]'));
+  await waitFor(
+    () => dom.window.document.querySelector('[aria-label="批量操作工具栏"]')?.textContent.includes("已选 1"),
+    "选中一篇文档",
+  );
+  clickBatchDelete();
+  await waitFor(() => byId(dom, "batch-delete-confirm-dialog"), "第一层确认弹窗");
+  click(dom, byId(dom, "batch-delete-confirm-dialog-confirm"));
+  await waitFor(() => byId(dom, "batch-delete-favorites-confirm-dialog"), "收藏保护二次确认弹窗");
+  assert.match(byId(dom, "batch-delete-favorites-confirm-dialog").textContent, /2 条收藏/);
+  assert.equal(clearCalls.length, 0, "未确认前不得清空收藏");
+
+  click(dom, byId(dom, "batch-delete-favorites-confirm-dialog-confirm"));
+  await waitFor(() => clearCalls.length === 1, "确认后清空收藏");
+  assert.deepEqual(clearCalls, ["/api/v1/documents/doc-1/favorites"]);
+  await waitFor(() => deleteCalls.length === 2, "清空后重试删除");
+  assert.deepEqual(deleteCalls[1], ["doc-1"]);
+  await waitFor(() => !byId(dom, "batch-delete-favorites-confirm-dialog"), "完成后关闭二次确认");
+
+  root.unmount();
+  services.dispose();
+  host.remove();
+});
+
 test("RecentJobsLibrary：同一 document_id 刷新 job 时网格与列表复用稳定卡片身份", async () => {
   const dom = makeDom("?mock=parallel");
   const { services, root, host } = await bootHomeApp(dom);
@@ -375,7 +439,7 @@ test("RecentJobsLibrary：馆藏文档卡(未翻译)——徽标/点卡片开详
   const card = byId(dom, "recent-jobs-list").querySelector('.recent-job-item[data-library-only="true"]');
   assert.ok(card, "馆藏卡片渲染出来了");
   assert.equal(card.getAttribute("data-document-id"), "doc-ref-6a1f2c");
-  assert.match(card.textContent, /馆藏/, "显示馆藏徽标");
+  assert.match(card.textContent, /存档/, "显示存档徽标");
   assert.equal(card.querySelector(".recent-job-delete"), null, "卡片无删除(在详情弹窗里)");
 
   const { APP_EVENTS } = await import("@/platform/contracts/app-contract.js");
@@ -427,7 +491,7 @@ test("书籍详情弹窗:馆藏点翻译 → 立刻接进度 + 网格静默更�
     "translateDocument 给文档挂上 active_job_id",
   );
 
-  // 详情 payload 立刻挂真实 job（处理 Tab 可嵌 StatusCard）
+  // 详情 payload 立刻挂真实 job（进度 Tab 可嵌 StatusCard）
   await waitFor(() => {
     const payload = services.bookDetail.dialogStore.getState().payload;
     const jobId = `${payload?.job_id || ""}`.trim();
@@ -435,7 +499,7 @@ test("书籍详情弹窗:馆藏点翻译 → 立刻接进度 + 网格静默更�
   }, "详情 payload 立刻有真实 job_id");
 
   // 进度卡应出现在详情内 bd-job-status-inner（不需等整页重载）
-  await waitFor(() => byId(dom, "book-detail-job-status-card"), "处理 Tab 立刻出现 StatusCard");
+  await waitFor(() => byId(dom, "book-detail-job-status-card"), "进度 Tab 立刻出现 StatusCard");
   const statusCard = byId(dom, "book-detail-job-status-card");
   assert.ok(
     statusCard.querySelector(".bd-job-status-inner"),

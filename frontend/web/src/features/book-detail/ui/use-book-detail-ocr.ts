@@ -7,9 +7,11 @@ export function useBookDetailOcr({
   pageCount,
   actions,
   onStarted,
+  onCancelled,
 }: any) {
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const range = usePageRange({ open, documentId, pageCount });
 
   async function handleOcr() {
@@ -40,10 +42,28 @@ export function useBookDetailOcr({
     }
   }
 
+  // 取消运行中的 OCR 任务（jobId 由详情侧从当前 OCR 状态任务取出）。
+  async function handleCancel(jobId?: string | null) {
+    const id = `${jobId || ""}`.trim();
+    if (!id || cancelling) return;
+    setError("");
+    setCancelling(true);
+    try {
+      await actions.cancelJob?.(id, "ocr");
+      await onCancelled?.();
+    } catch (cause) {
+      setError(`${cause?.message || cause || "取消 OCR 失败"}`);
+    } finally {
+      setCancelling(false);
+    }
+  }
+
   return {
     ...range,
     error,
     pending,
+    cancelling,
     handleOcr,
+    handleCancel,
   };
 }

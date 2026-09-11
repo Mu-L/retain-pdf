@@ -64,7 +64,7 @@ export function TranslationItemDetailPanel({ translation, onReplay }) {
   const loading = translation.itemDetailLoading;
   const hasItem = Boolean(payload?.item);
   const emptyText = translation.itemErrorText
-    || (translation.selectedItemId ? "请选择左侧 item" : "没有可查看的 item");
+    || (translation.selectedItemId ? "请选择左侧条目" : "没有可查看的条目");
   const meta = loading
     ? "读取中..."
     : hasItem
@@ -82,16 +82,16 @@ export function TranslationItemDetailPanel({ translation, onReplay }) {
 
   return (
     <section className="translation-debug-column translation-debug-column-detail">
-      <div className="translation-debug-subhead"><h4>Item 详情</h4><span id={ids.itemMeta} className="status-panel-note">{meta}</span></div>
+      <div className="translation-debug-subhead"><h4>条目详情</h4><span id={ids.itemMeta} className="status-panel-note">{meta}</span></div>
       <div className="translation-panel-body translation-panel-body-detail">
-        <div id={ids.itemLoading} className={loading ? "events-empty" : "events-empty hidden"}>正在读取 item 详情...</div>
+        <div id={ids.itemLoading} className={loading ? "events-empty" : "events-empty hidden"}>正在读取条目详情...</div>
         <div id={ids.itemEmpty} className={!loading && !hasItem ? "events-empty" : "events-empty hidden"}>{emptyText}</div>
         <div id={ids.itemDetail} className={!loading && hasItem ? "translation-item-detail" : "translation-item-detail hidden"}>
           {!loading && hasItem ? <ItemDetailBody payload={payload} /> : null}
         </div>
       </div>
       <div className="translation-replay-actions">
-        <button id={ids.itemReplay} type="button" className="button-link secondary" disabled={!hasItem} onClick={onReplay}>重放当前 item</button>
+        <button id={ids.itemReplay} type="button" className="button-link secondary" disabled={!hasItem} onClick={onReplay}>重放当前条目</button>
         <span id={ids.replayStatus} className="status-panel-note">{replayStatus}</span>
       </div>
       <div id={ids.replayResult} className={hasReplayResult ? "translation-replay-result" : "translation-replay-result hidden"}>

@@ -88,6 +88,11 @@
   border-radius: 20px;
   color: var(--paper);
   background: color-mix(in srgb, var(--paper) 8%, transparent);
+  transition: transform 160ms var(--ease-out);
+}
+
+.book-detail-overview-action:active {
+  transform: scale(0.96);
 }
 
 .book-detail-overview-action.is-primary {
@@ -246,6 +251,11 @@
   border-radius: 999px;
   color: var(--ink);
   background: var(--paper);
+  transition: transform 160ms var(--ease-out);
+}
+
+.book-detail-overview-icon-link:active {
+  transform: scale(0.94);
 }
 
 .book-detail-overview-icon-link svg {
@@ -314,7 +324,7 @@
 }
 
 .book-detail-overview-capability > div > strong.is-failed {
-  color: var(--ink);
+  color: var(--danger);
 }
 
 .book-detail-overview-capability > div > strong.is-active {
@@ -424,9 +434,12 @@
 }
 
 .book-detail-overview-activity-icon.is-done,
-.book-detail-overview-activity-icon.is-failed,
 .book-detail-overview-activity-icon.is-active {
   color: var(--ink);
+}
+
+.book-detail-overview-activity-icon.is-failed {
+  color: var(--danger);
 }
 
 .book-detail-overview-activity li > div {

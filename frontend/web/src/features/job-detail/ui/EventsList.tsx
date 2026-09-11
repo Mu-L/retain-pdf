@@ -57,7 +57,7 @@ function EventItem({ item }) {
       {showProgress ? <div className="event-progress">{record.progressText}</div> : null}
       {payloadText ? (
         <details className="event-payload-wrap" open={payloadOpen} onToggle={(event) => setPayloadOpen(event.currentTarget.open)}>
-          <summary className="event-payload-toggle">查看 payload</summary>
+          <summary className="event-payload-toggle">查看数据</summary>
           <pre className="event-payload">{payloadText}</pre>
         </details>
       ) : null}

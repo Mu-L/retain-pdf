@@ -1,6 +1,6 @@
 "use client"
 
-import { AlertTriangle } from "lucide-react"
+import { AlertTriangle, Info } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { Button } from "@/ui/components/button.js"
@@ -13,6 +13,8 @@ import {
   DialogHeader,
   DialogShell,
   DialogTitle,
+  type DialogLevel,
+  type DialogSize,
 } from "@/ui/components/dialog.js"
 
 type ConfirmDialogProps = {
@@ -20,12 +22,14 @@ type ConfirmDialogProps = {
   confirmLabel?: string
   description: ReactNode
   id: string
+  level?: DialogLevel
   onConfirm: () => void | Promise<void>
   onOpenChange: (open: boolean) => void
   open: boolean
   pending?: boolean
+  size?: DialogSize
   title: string
-  tone?: "default" | "danger"
+  tone?: "default" | "danger" | "info"
 }
 
 function ConfirmDialog({
@@ -33,23 +37,26 @@ function ConfirmDialog({
   confirmLabel = "确认",
   description,
   id,
+  level = "base",
   onConfirm,
   onOpenChange,
   open,
   pending = false,
+  size = "compact",
   title,
   tone = "default",
 }: ConfirmDialogProps) {
+  const ToneIcon = tone === "info" ? Info : AlertTriangle
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => {
       if (!pending) onOpenChange(nextOpen)
     }}>
-      <DialogContent id={id} showCloseButton={false} size="compact">
+      <DialogContent id={id} showCloseButton={false} size={size} level={level}>
         <DialogShell>
           <DialogHeader>
             <div className="app-confirm-heading">
               <span className={`app-confirm-icon app-confirm-icon-${tone}`} aria-hidden="true">
-                <AlertTriangle className="h-4 w-4" />
+                <ToneIcon className="h-4 w-4" />
               </span>
               <DialogTitle>{title}</DialogTitle>
             </div>

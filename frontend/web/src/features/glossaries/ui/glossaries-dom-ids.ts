@@ -28,9 +28,9 @@ export const GLOSSARY_DOM_IDS = Object.freeze({
 });
 
 export const ENTRY_LEVEL_OPTIONS = [
-  ["preserve", "保留"],
+  ["preserve", "保留原词"],
   ["canonical", "固定译法"],
-  ["preferred", "偏好译法"],
+  ["preferred", "优先译法"],
 ];
 
 export const MATCH_MODE_OPTIONS = [

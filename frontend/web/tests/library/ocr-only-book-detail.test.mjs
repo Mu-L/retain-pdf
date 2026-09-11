@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 import { buildTranslateBookCardAction } from "../../src/features/library/domain/actions/translate.js";
-import { deriveBookDetailCoverState } from "../../src/features/book-detail/ui/use-book-detail-cover.js";
+import { canStartTranslation, deriveBookDetailCoverState } from "../../src/features/book-detail/ui/use-book-detail-cover.js";
 
 const OCR_DONE_ITEM = {
   job_id: "job-ocr-detail",
@@ -112,6 +112,36 @@ test("详情派生区分 OCR、翻译成功和馆藏，OCR 翻译 action 仍可�
     workflow: "book",
     job_type: "book",
   }, { onTranslate }).length, 0);
+  // 取消/失败/超时也应保留重新翻译入口（只有 succeeded 不可再翻）
+  for (const status of ["failed", "cancelled", "canceled", "timeout", "dead"]) {
+    assert.equal(
+      buildTranslateBookCardAction({ ...OCR_DONE_ITEM, workflow: "book", job_type: "book", status }, { onTranslate }).length,
+      1,
+      `翻译 ${status} 后卡片应保留翻译入口`,
+    );
+  }
+});
+
+test("canStartTranslation：失败/取消/超时可重发，运行中与成功不可", () => {
+  assert.equal(canStartTranslation({ latestTranslation: null, translationActive: false, baseCanTranslate: true }), true);
+  assert.equal(canStartTranslation({ latestTranslation: null, translationActive: false, baseCanTranslate: false }), false);
+  for (const status of ["failed", "cancelled", "canceled", "timeout", "dead"]) {
+    assert.equal(
+      canStartTranslation({ latestTranslation: { status }, translationActive: false, baseCanTranslate: false }),
+      true,
+      `翻译 ${status} 后可重新发起`,
+    );
+  }
+  assert.equal(
+    canStartTranslation({ latestTranslation: { status: "succeeded" }, translationActive: false, baseCanTranslate: true }),
+    false,
+    "已成功的翻译不可再发起",
+  );
+  assert.equal(
+    canStartTranslation({ latestTranslation: { status: "running" }, translationActive: true, baseCanTranslate: true }),
+    false,
+    "运行中不可再发起",
+  );
 });
 
 test("OCR-only 成功详情：OCR 状态、job reader 主操作和继续翻译闭环一致", async () => {

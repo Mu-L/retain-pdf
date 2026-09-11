@@ -109,7 +109,7 @@ export function FavoritesView({ onRequestUpload }: FavoritesViewProps) {
           id="favorites-empty"
           className="favorites-empty"
           instrument="flask"
-          title="还没有收藏"
+          title="暂无收藏"
           hint="打开一本书，选中段落或图表后点「收藏」，之后就能在这里快速跳回原文。"
         >
           <button

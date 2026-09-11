@@ -690,3 +690,91 @@ test("browser credentials controller reads runtime and balance state through por
   assert.ok(calls.some((call) => call[0] === "gate" && call[1] === false && call[2] === true));
   assert.ok(calls.some((call) => call[0] === "credential-change"));
 });
+
+test("browser credential save falls back to stored model api key when input is blank", async () => {
+  const previousWindow = globalThis.window;
+  const credentialCalls = [];
+  const statuses = [];
+  const state = createLegacyStateFixture();
+  const credentialsStatePort = createCredentialsStatePort({
+    initialState: {
+      ocrProvider: "paddle",
+      paddleToken: "paddle-token",
+      modelApiKey: "existing-key",
+    },
+  });
+  const elements = {
+    paddleInput: createCredentialNode({ value: "" }),
+    apiKeyInput: createCredentialNode({ value: "" }),
+    modelBaseUrlInput: createCredentialNode({ value: "" }),
+    modelNameInput: createCredentialNode({ value: "" }),
+    translationWorkersInput: createCredentialNode({ value: "" }),
+    mathModeSelect: createCredentialNode({ value: "direct_typst" }),
+  };
+  let boundHandlers = null;
+  const feature = mountBrowserCredentialsFeature({
+    apiPrefix: "api/v1",
+    state,
+    credentialsStatePort,
+    applyHiddenCredentialInputs() {},
+    defaultPaddleToken: () => "",
+    defaultModelApiKey: () => "",
+    defaultModelBaseUrl: () => "",
+    getTaskOptions: () => ({
+      baseUrl: "https://api.deepseek.com",
+      model: "deepseek-chat",
+      workers: 5,
+    }),
+    saveTaskOptions() {},
+    saveBrowserStoredConfig() {},
+    readHiddenCredentialInputs: () => credentialsStatePort.getCredentials(),
+    saveDesktopConfig() {},
+    checkApiConnectivity: async () => true,
+    validateOcrToken: async () => ({ ok: true }),
+    validateDeepSeekToken: async () => ({ ok: true }),
+    queryDeepSeekBalance: async () => ({ ok: true, balance_cny: 100 }),
+    listCredentials: async () => ({ revision: 1, credentials: [] }),
+    createCredential: async (apiPrefix, payload) => {
+      credentialCalls.push(payload);
+      return { revision: 1, credential: { credential_ref: `ref-${payload.kind}`, revision: 1 } };
+    },
+    updateCredential: async (apiPrefix, ref, payload) => {
+      credentialCalls.push({ ...payload, credential_ref: ref });
+      return { revision: 2, credential: { credential_ref: ref, revision: 2 } };
+    },
+    onCredentialStateChange() {},
+    viewPort: {
+      activateTab() {},
+      bindEvents: (handlers) => {
+        boundHandlers = handlers;
+      },
+      closeDialog() {},
+      dialogElements: () => ({ dialog: { dataset: {} } }),
+      openDialog() {},
+      setDeepSeekTopUpVisible() {},
+      setDeepSeekValidationMessage() {},
+      setDialogMode() {},
+      setDialogStatus: (message, tone) => statuses.push([message, tone]),
+      setHiddenOcrProvider() {},
+      setOcrValidationMessage() {},
+      syncOcrProviderControls() {},
+      updateCredentialGate: () => true,
+    },
+    dialogElementsPort: {
+      elements: () => elements,
+      syncOcrProviderControls: () => {},
+    },
+  });
+
+  globalThis.window = {};
+  try {
+    await boundHandlers.save();
+  } finally {
+    globalThis.window = previousWindow;
+  }
+
+  const translationCall = credentialCalls.find((payload) => payload.kind === "translation_api_key");
+  assert.equal(translationCall?.secret, "existing-key");
+  assert.equal(credentialsStatePort.getCredentials().modelApiKey, "existing-key");
+  assert.deepEqual(statuses.at(-1), ["已保存", "valid"]);
+});

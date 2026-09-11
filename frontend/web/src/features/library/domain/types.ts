@@ -7,7 +7,7 @@ import type {
   StoreChangeMeta,
 } from "@/platform/store/store.js";
 
-// 这两个型别已下沉到 platform（platform/mock 与 api/legacy 需要它们，
+// 这两个型别已下沉到 platform（platform/mock 需要它们，
 // features → platform 才是正方向）。本文件内部仍要用它们，所以 import 与
 // re-export 各写一条：`export type {} from` 只转出，不引入本地作用域。
 import type {
@@ -126,9 +126,18 @@ export type DeleteCardTarget = {
   jobId?: string;
 };
 
+/** 批量删除里被收藏锚点挡住的一篇（DELETE_BLOCKED_BY_FAVORITES）。 */
+export type DeleteBlockedDocument = {
+  documentId: string;
+  favoriteCount: number;
+  clearFavoritesPath: string;
+};
+
 export type DeleteDocumentsResult = {
   confirmed: number;
   failed: number;
+  /** 被收藏挡住、需要用户确认清空收藏后重试的条目。 */
+  blocked: DeleteBlockedDocument[];
 };
 
 export type ReloadRecentJobsOptions = {
@@ -213,7 +222,14 @@ export type LibraryController = {
     stage?: string | null,
     payload?: Record<string, unknown>,
   ) => Promise<JobSubmissionView | null>;
+  /** 取消文档下的任务（workflow==="ocr" 走 OCR cancel 端点，其余走通用 cancel）。 */
+  cancelJob: (jobId?: string | null, workflow?: string | null) => Promise<unknown>;
   deleteDocument: (documentId?: string | null) => Promise<void>;
+  /**
+   * DELETE clear_favorites_path（DELETE_BLOCKED_BY_FAVORITES 的
+   * error.details 里给好的路径），返回实际删除的收藏条数。
+   */
+  clearFavorites: (clearFavoritesPath?: string | null) => Promise<number>;
   deleteDocuments: (
     documentIds?: Array<string | null | undefined>,
   ) => Promise<DeleteDocumentsResult>;

@@ -5,8 +5,8 @@ import { JSDOM } from "jsdom";
 // CredentialsDialog(Phase 3 dialogs 群,蓝图 §2)组件级测试。
 // 校验:契约 id、openBrowserCredentials 事件打开(含 setupMode 首次配置态)、
 // OCR/DeepSeek 校验三态、保存两分支(浏览器/桌面)、隐藏 input 与
-// credentialsStatePort 双向同步、SettingsHubDialog 的 #credentials-btn 触发点、
-// 词表/更新两个 tab 的占位 id 契约。
+// credentialsStatePort 双向同步、SettingsDialog 的 #credentials-btn 触发点、
+// 术语表/更新两个 tab 的占位 id 契约。
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/index.html" });
 for (const key of ["window", "document", "DocumentFragment", "HTMLElement", "HTMLButtonElement", "HTMLFormElement", "HTMLInputElement", "CustomEvent", "Event", "KeyboardEvent", "MouseEvent", "Node", "MutationObserver", "NodeFilter"]) {
@@ -55,7 +55,7 @@ function byId(id) {
 
 function click(element) {
   // Radix Tabs 的 Trigger 激活逻辑挂在 onMouseDown(不是 onClick)上——阶段 B
-  // 迁移到 Radix Tabs 后(CredentialsDialog/SettingsHubDialog 的 tab),只
+  // 迁移到 Radix Tabs 后(CredentialsDialog/SettingsDialog 的 tab),只
   // dispatch "click" 不会触发 tab 切换。真实浏览器点击本来就是
   // mousedown→mouseup→click 全套,这里补上 mousedown 让模拟点击更贴近真实
   // 交互,而不是放宽任何断言。
@@ -182,12 +182,13 @@ test("CredentialsDialog：常规入口走设置 API；setupMode 仍开独立首�
   services.settingsHub.dialogStore.close();
   await waitFor(() => byId("app-settings-dialog") === null, "关闭设置");
 
-  // ---- setupMode 首次配置态：独立弹窗，标题/保存文案切换 ----
+  // ---- setupMode 首次配置态：独立弹窗，标题统一接口设置 + 副标题引导 ----
   dom.window.document.dispatchEvent(new dom.window.CustomEvent(APP_EVENTS.openBrowserCredentials, {
     detail: { setupMode: true },
   }));
   await waitFor(() => byId("browser-credentials-dialog") !== null, "setupMode 打开独立弹窗");
-  await waitFor(() => byId("browser-credentials-title")?.textContent === "首次配置", "setupMode 标题切换");
+  await waitFor(() => byId("browser-credentials-title")?.textContent === "接口设置", "setupMode 标题统一接口设置");
+  await waitFor(() => byId("browser-credentials-subtitle")?.textContent === "先配好接口再开始", "setupMode 副标题引导");
 
   for (const id of [
     "browser-credentials-title", "browser-credentials-close-btn", "browser-credentials-status",
@@ -316,7 +317,7 @@ test("凭据入口：设置 API 区内嵌工作台；#credential-gate-action 也
   await waitFor(() => byId("credential-gate-action"), "工作流对话框打开后 credential-gate-action 挂载");
   click(byId("credential-gate-action"));
   await waitFor(() => byId("app-settings-dialog") !== null, "credential-gate-action 打开设置中心");
-  await waitFor(() => byId("browser-api-key") !== null, "落到 API 设置工作台");
+  await waitFor(() => byId("browser-api-key") !== null, "落到接口设置工作台");
   assert.equal(byId("browser-credentials-dialog"), null, "常规门禁不弹独立接口窗");
 
   root.unmount();
@@ -773,16 +774,16 @@ test("CredentialsDialog：隐藏 input 与 credentialsStatePort 单向受控同�
   host.remove();
 });
 
-test("SettingsHubDialog：词表/外观/更新 tab 契约", async () => {
+test("SettingsDialog：术语表/外观/更新 tab 契约", async () => {
   const services = createServices();
   const { host, root } = await mountHome(services);
 
-  click(byId("app-settings-btn"));
-  await waitFor(() => byId("app-settings-dialog") !== null, "设置对话框打开");
-
+  const settingsHub = services.settingsHub;
+  settingsHub.dialogStore.open({ tab: "api" });
+  await waitFor(() => byId("app-settings-dialog"), "设置中心打开");
   const glossaryTab = dom.window.document.querySelector('[data-settings-tab="glossary"]');
   click(glossaryTab);
-  await waitFor(() => byId("glossary-btn"), "词表 tab 占位按钮存在");
+  await waitFor(() => byId("glossary-btn"), "术语表 tab 占位按钮存在");
   assert.equal(dom.window.document.querySelector('[data-settings-panel="glossary"]').hidden, false);
 
   const appearanceTab = dom.window.document.querySelector('[data-settings-tab="appearance"]');

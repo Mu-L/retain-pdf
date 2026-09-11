@@ -10,7 +10,7 @@ import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { APP_EVENTS } from "@/platform/contracts/app-contract.js";
 import { useHomeServices } from "@/app/home/home-services-context.js";
 import type { UploadViewStore } from "../../domain/upload-store.js";
-import { TranslationOptionsPanel } from "./PageRangeDialog.jsx";
+import { TranslationOptionsPanel } from "./TranslationOptionsPanel.jsx";
 import { ProcessingChoicePanel } from "./upload/ProcessingChoicePanel.jsx";
 import { UploadDropzone } from "./upload/UploadDropzone.jsx";
 import {
@@ -61,13 +61,13 @@ export function HeroUpload() {
     void uploadFeature?.handleFileSelected();
   }
 
-  // —— 具名回调：翻译选项弹窗开/关切换 ——
+  // —— 具名回调：翻译选项开/关切换 ——
   function handleToggleTranslationOptions() {
-    if (upload.pageRangeDialogOpen) {
-      (stores.uploadView as unknown as UploadViewStore).actions.closePageRangeDialog();
+    if (upload.translationOptionsOpen) {
+      (stores.uploadView as unknown as UploadViewStore).actions.closeTranslationOptions();
       return;
     }
-    uploadFeature?.openPageRangeDialog();
+    uploadFeature?.openTranslationOptions();
   }
 
   // —— 具名回调：打开浏览器凭据设置 ——
@@ -108,7 +108,7 @@ export function HeroUpload() {
         submitLabel={workflow.submitLabel}
         ocrOnly={workflow.ocrOnly}
         pageRangeButtonVisible={workflow.pageRangeButtonVisible}
-        pageRangeOpen={upload.pageRangeDialogOpen}
+        pageRangeOpen={upload.translationOptionsOpen}
         onToggleTranslationOptions={handleToggleTranslationOptions}
         onStoreOnly={handleStoreOnly}
         translationOptionsSlot={<TranslationOptionsPanel />}

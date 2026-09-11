@@ -184,7 +184,8 @@ export function commitRecentJobsPage({
     });
   }
 
-  if (hasMore && !`${query || ""}`.trim()) {
+  // 服务端已按 query 过滤，首屏不满同样自动补拉；搜索多页不再依赖手点“更多”。
+  if (hasMore) {
     setTimeoutFn(() => scheduleAutoLoadIfNeeded?.(), 0);
   }
 

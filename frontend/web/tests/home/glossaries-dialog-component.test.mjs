@@ -4,7 +4,7 @@ import { JSDOM } from "jsdom";
 
 // GlossariesDialog(Phase 3 dialogs 群,蓝图 §3)组件级测试。
 // 校验:契约 id、列表加载/选中/新建草稿、保存的名称回退与
-// "固定/偏好译法缺译文"校验、CSV 导入解析、CSV 导出、refreshWorkflowGlossaries
+// "术语缺译文"校验、CSV 导入解析、CSV 导出、refreshWorkflowGlossaries
 // 反向回调断言(mock workflow 域)、handlers.reload 直调刷新。
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/index.html" });
@@ -194,7 +194,7 @@ async function settle(services, calls) {
 }
 
 async function openGlossariesDialog() {
-  // 阶段 C(shadcn 改造):SettingsHubDialog/GlossariesDialog 换成 Radix Dialog
+  // 阶段 C(shadcn 改造):SettingsDialog/GlossariesDialog 换成 Radix Dialog
   // 后不 forceMount Content,关闭态下整个内容都不挂载(不再是原生
   // <dialog>.open 布尔属性),这里改用"是否挂载"判断打开态。
   click(byId("app-settings-btn"));
@@ -294,7 +294,7 @@ test("GlossariesDialog：非 preserve 词条缺译文时保存被拦截(校验)"
   // 译文(target)保持留空。
 
   click(byId("glossary-save-btn"));
-  await waitFor(() => byId("glossary-status").textContent === "固定译法/偏好译法需要填写译文。", "校验拦截提示");
+  await waitFor(() => byId("glossary-status").textContent === "需要填写译文的术语还有空缺。", "校验拦截提示");
   assert.equal(byId("glossary-status").classList.contains("is-error"), true);
   assert.equal(calls.createGlossary.length, 0, "校验未通过不应调用保存接口");
 
@@ -386,7 +386,10 @@ test("GlossariesDialog：删除当前术语表回调 workflow 域刷新", async 
   await waitFor(() => byId("glossary-name").value === "量子化学术语", "自动选中首条");
 
   click(byId("glossary-delete-btn"));
-  await waitFor(() => calls.deleteGlossary.length === 1, "触发删除请求");
+  await waitFor(() => byId("glossary-delete-confirm") !== null, "删除先弹确认框");
+  assert.equal(calls.deleteGlossary.length, 0, "确认前不删除");
+  click(byId("glossary-delete-confirm-confirm"));
+  await waitFor(() => calls.deleteGlossary.length === 1, "确认后触发删除请求");
   assert.equal(calls.deleteGlossary[0], "g-1");
   await waitFor(() => calls.refreshWorkflowGlossaries.some((options) => options.selectedId === ""), "删除后回调 workflow 域刷新(selectedId 清空)");
 

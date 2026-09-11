@@ -24,7 +24,8 @@ export function createRecentJobsRefreshScheduler({
   // 状态机：
   //   idle --scheduleRefresh--> armed --timer触发--> idle
   //   armed --scheduleRefresh--> armed（旧 timer 被覆盖）
-  //   * --suspend--> suspended（pending队列长度<=1，后写覆盖先写）
+  //   * --suspend--> suspended（pending队列长度<=1；force 粘滞：后写非 force
+  //     不得清除先写 force，保证终态对齐 replay 时仍带 force 跳过节流）
   //   suspended --resume+pending--> armed（replay一次）/ --resume无pending--> idle
   //   armed请求命中 throttle 则直接丢弃（不入pending、不改lastRefreshAt）
 
@@ -42,6 +43,7 @@ export function createRecentJobsRefreshScheduler({
   }
 
   function queuePendingRefresh(request: any) {
+    if (pendingRefresh?.force && !request.force) return;
     pendingRefresh = request;
   }
 
@@ -126,12 +128,21 @@ export function createRecentJobsRefreshScheduler({
     loadRecentJobs({ reset: true });
   }
 
+  function dispose() {
+    environment.clearTimeout(refreshTimer);
+    environment.clearTimeout(searchTimer);
+    refreshTimer = null;
+    searchTimer = null;
+    pendingRefresh = null;
+  }
+
   function scheduleAutoLoadIfNeeded() {
     scheduleAutoLoadCheck({ isSuspended });
   }
 
   return {
     closeDialog,
+    dispose,
     getQuery,
     hasPendingRefresh,
     initialize,
