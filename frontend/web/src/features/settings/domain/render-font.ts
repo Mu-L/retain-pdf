@@ -1,8 +1,9 @@
 // Render font family persistence (typst_font_family)
 // Stores selected font family in localStorage, defaults to workflow default.
 import { DEFAULT_TYPST_FONT_FAMILY } from "@/platform/config/workflow-defaults.js";
+import { RENDER_FONT_STORAGE_KEY } from "@/platform/config/storage-keys.js";
 
-export const RENDER_FONT_STORAGE_KEY = "retainpdf.render.typst_font_family";
+export { RENDER_FONT_STORAGE_KEY };
 export const RENDER_FONT_CHANGE_EVENT = "retainpdf:render-font-change";
 
 export function getStoredFontFamily(): string {

@@ -1,4 +1,5 @@
 import { isMockMode } from "@/platform/config/runtime.js";
+import { parseReaderParams } from "@/platform/navigation/pages.js";
 
 function defaultSearch() {
   return globalThis.window?.location?.search || "";
@@ -8,7 +9,7 @@ export function resolveMockScenario({
   search = defaultSearch(),
   fallback = "running",
 }: any = {}) {
-  return new URLSearchParams(search).get("mock") || fallback;
+  return parseReaderParams(search).mock || fallback;
 }
 
 export function createWorkflowConfigPort({

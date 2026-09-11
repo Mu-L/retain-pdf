@@ -15,6 +15,7 @@
 
 import { memo } from "react";
 import { cn } from "@retainpdf/ui/lib/utils";
+import { formatZhDate } from "@/platform/utils/datetime.js";
 import { isLibraryCardProcessing, libraryCardBadge } from "../../domain/card/library-card-badge.js";
 import { BadgeIcon } from "../display/library-card-badge-icon.jsx";
 import { BookCardProcessingOverlay } from "../display/BookCardProcessingOverlay.jsx";
@@ -38,11 +39,7 @@ function formatCardDate(value: string | null | undefined) {
   if (!raw) return "-";
   const parsed = new Date(raw);
   if (Number.isNaN(parsed.getTime())) return raw;
-  return new Intl.DateTimeFormat("zh-CN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(parsed);
+  return formatZhDate(parsed);
 }
 
 /**

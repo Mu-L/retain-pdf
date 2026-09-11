@@ -1,8 +1,7 @@
 import {
-  fileNameFromDisposition,
+  downloadProtectedResponse,
   formatTransferSize,
   prepareDownloadTarget,
-  saveResponseDownload,
 } from "@/platform/utils/downloads.js";
 import {
   completeDownloadToast,
@@ -28,7 +27,8 @@ export async function downloadProtectedResource(
   onStatus = null,
   onBusy = null,
 ) {
-  const suggestedName = `${preferredName || ""}`.trim() || fallbackName;
+  const trimmedName = `${preferredName || ""}`.trim();
+  const suggestedName = trimmedName || fallbackName;
   const downloadTarget = await prepareDownloadTarget(suggestedName);
   if (downloadTarget.kind === "aborted") {
     return;
@@ -38,22 +38,15 @@ export async function downloadProtectedResource(
   }
   try {
     showDownloadPreparing(suggestedName);
-    const resp = await fetchProtected(url);
-    if (!resp.ok) {
-      const text = await resp.text();
-      const error: any = new Error(`下载失败: ${resp.status} ${text || "unknown error"}`);
-      error.status = resp.status;
-      error.url = url;
-      throw error;
-    }
-    const disposition = resp.headers.get("content-disposition") || "";
-    const finalName = `${preferredName || ""}`.trim() || fileNameFromDisposition(disposition, fallbackName);
-    await saveResponseDownload(resp, {
+    return await downloadProtectedResponse({
+      fetchResponse: () => fetchProtected(url),
+      url,
+      fallbackName,
+      preferredName: trimmedName,
       target: downloadTarget,
-      filename: finalName,
-      onProgress: ({ receivedBytes, totalBytes, percent, done }) => {
+      onProgress: ({ filename, receivedBytes, totalBytes, percent, done }) => {
         if (typeof onStatus === "function") {
-          onStatus({ filename: finalName, receivedBytes, totalBytes, percent, done });
+          onStatus({ filename, receivedBytes, totalBytes, percent, done });
         }
         if (typeof onBusy === "function") {
           onBusy(
@@ -66,10 +59,10 @@ export async function downloadProtectedResource(
           );
         }
         if (done) {
-          completeDownloadToast(finalName);
+          completeDownloadToast(filename);
           return;
         }
-        updateDownloadProgress({ filename: finalName, receivedBytes, totalBytes, percent });
+        updateDownloadProgress({ filename, receivedBytes, totalBytes, percent });
       },
     });
   } finally {

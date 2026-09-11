@@ -5,9 +5,8 @@ import {
   updateDownloadProgress,
 } from "@/platform/utils/download-feedback.js";
 import {
-  fileNameFromDisposition,
+  downloadProtectedResponse,
   prepareDownloadTarget,
-  saveResponseDownload,
 } from "@/platform/utils/downloads.js";
 
 export type GlossariesFeature = {
@@ -182,18 +181,16 @@ export function mountGlossariesFeature({
     viewPort.setStatus("正在导出 CSV...");
     try {
       showDownloadPreparing(fallbackName);
-      const resp = await exportGlossaryCsv(apiPrefix, state.selectedId);
-      const disposition = resp.headers.get("content-disposition") || "";
-      const filename = fileNameFromDisposition(disposition, fallbackName);
-      await saveResponseDownload(resp, {
+      const filename = await downloadProtectedResponse({
+        fetchResponse: () => exportGlossaryCsv(apiPrefix, state.selectedId),
+        fallbackName,
         target: downloadTarget,
-        filename,
-        onProgress: ({ receivedBytes, totalBytes, percent, done }) => {
+        onProgress: ({ filename: progressFilename, receivedBytes, totalBytes, percent, done }) => {
           if (done) {
-            completeDownloadToast(filename);
+            completeDownloadToast(progressFilename);
             return;
           }
-          updateDownloadProgress({ filename, receivedBytes, totalBytes, percent });
+          updateDownloadProgress({ filename: progressFilename, receivedBytes, totalBytes, percent });
         },
       });
       viewPort.setStatus(`已导出 ${filename}。`, "valid");

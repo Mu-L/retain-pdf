@@ -3,6 +3,7 @@
 
 import { memo } from "react";
 import { cn } from "@/ui/lib/utils";
+import { formatZhDateCompact } from "@/platform/utils/datetime.js";
 import { cardSignatureOf } from "./BookCard.jsx";
 import { isLibraryCardProcessing, libraryCardBadge } from "../../domain/card/library-card-badge.js";
 import { BadgeIcon } from "../display/library-card-badge-icon.jsx";
@@ -19,7 +20,7 @@ function formatDate(value: string | null | undefined) {
   if (!raw) return "—";
   const parsed = new Date(raw);
   if (Number.isNaN(parsed.getTime())) return raw;
-  return new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "numeric", day: "numeric" }).format(parsed);
+  return formatZhDateCompact(parsed);
 }
 
 type BookListRowProps = {

@@ -12,6 +12,7 @@ import type {
   AgentOperationStatus,
   AgentOperationView,
 } from "./types.js";
+import { AGENT_OPERATION_ACTION_KEY_PREFIX as ACTION_KEY_PREFIX } from "@/platform/config/storage-keys.js";
 
 export type AgentOperationApi = {
   list: (options: { conversationId: string }) => Promise<unknown>;
@@ -24,7 +25,6 @@ export type AgentOperationApi = {
 
 type Dispatch = (action: AgentOperationReducerAction) => void;
 
-const ACTION_KEY_PREFIX = "retainpdf.agent-operation.action-key.v1:";
 const ACTION_KEY_ID_PREFIX = "ui-";
 
 function browserActionKeyStorage(): AgentOperationActionKeyStorage | undefined {

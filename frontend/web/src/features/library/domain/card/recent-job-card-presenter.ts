@@ -108,7 +108,8 @@ export function isRecentJobActive(item) {
   if (status === "queued" || status === "running") {
     return true;
   }
-  if (isJobTerminal(item) || status === "failed" || status === "canceled") {
+  // isJobTerminal 已覆盖 failed/canceled，无需再手写一份状态集合。
+  if (isJobTerminal(item)) {
     return false;
   }
   const percent = recentJobProgressPercent(item);

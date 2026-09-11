@@ -1,8 +1,7 @@
 import {
-  fileNameFromDisposition,
+  downloadProtectedResponse,
   formatTransferSize,
   prepareDownloadTarget,
-  saveResponseDownload,
 } from "@/platform/utils/downloads.js";
 import {
   completeDownloadToast,
@@ -70,23 +69,13 @@ export function mountArtifactDownloadsFeature({
     try {
       viewPort.setLinkBusy(link, true, "下载中...");
       showDownloadPreparing(preferredName);
-      const resp = await fetchProtected(url);
-      if (!resp.ok) {
-        const text = await resp.text();
-        const error: any = new Error(`下载失败: ${resp.status} ${text || "unknown error"}`);
-        error.status = resp.status;
-        error.url = url;
-        throw error;
-      }
-
-      const disposition = resp.headers.get("content-disposition") || "";
-      const filename = preferSuggestedName
-        ? preferredName
-        : fileNameFromDisposition(disposition, fallbackName);
-      await saveResponseDownload(resp, {
+      await downloadProtectedResponse({
+        fetchResponse: () => fetchProtected(url),
+        url,
+        fallbackName,
+        preferredName: preferSuggestedName ? preferredName : "",
         target: downloadTarget,
-        filename,
-        onProgress: ({ receivedBytes, totalBytes, percent, done }) => {
+        onProgress: ({ filename, receivedBytes, totalBytes, percent, done }) => {
           if (done) {
             setText("error-box", `已开始保存 ${filename}`);
             viewPort.setLinkBusy(link, true, "已完成");

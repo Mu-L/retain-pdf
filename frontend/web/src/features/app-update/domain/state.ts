@@ -1,6 +1,6 @@
 import { APP_VERSION } from "@/platform/generated/app-version.js";
+import { UPDATE_CHECK_CACHE_STORAGE_KEY as CACHE_KEY } from "@/platform/config/storage-keys.js";
 
-const CACHE_KEY = "retainpdf:update-check:v1";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 function isObject(value) {

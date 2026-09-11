@@ -233,3 +233,29 @@ export async function saveResponseDownload(response, { target, filename, onProgr
     onProgress,
   }), filename);
 }
+
+export async function downloadProtectedResponse({
+  fetchResponse,
+  url = "",
+  fallbackName,
+  preferredName = "",
+  target,
+  onProgress,
+}) {
+  const resp = await fetchResponse();
+  if (resp.ok === false) {
+    const text = await resp.text();
+    const error: any = new Error(`下载失败: ${resp.status} ${text || "unknown error"}`);
+    error.status = resp.status;
+    error.url = url;
+    throw error;
+  }
+  const disposition = resp.headers.get("content-disposition") || "";
+  const filename = preferredName || fileNameFromDisposition(disposition, fallbackName);
+  await saveResponseDownload(resp, {
+    target,
+    filename,
+    onProgress,
+  });
+  return filename;
+}

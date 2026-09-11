@@ -52,6 +52,7 @@ import {
   CollectionsView,
 } from "@/features/collections/index.js";
 import { DownloadToastHost } from "@/ui/download-toast/DownloadToastHost.jsx";
+import { parseHomeTab } from "@/platform/navigation/pages.js";
 import {
   readInitialLibraryTabFromReturn,
   useHomeReturnRestore,
@@ -74,7 +75,7 @@ function isHomeTab(tab: string): tab is HomeTab {
 // 兜底图书馆。非法值一律回图书馆,不抛错。
 function readInitialHomeTab(): string {
   try {
-    const fromUrl = new URLSearchParams(window.location.search).get("tab") ?? "";
+    const fromUrl = parseHomeTab();
     if (isHomeTab(fromUrl)) return fromUrl;
   } catch {
     // 非浏览器/jsdom 无 location 时忽略,走返回恢复

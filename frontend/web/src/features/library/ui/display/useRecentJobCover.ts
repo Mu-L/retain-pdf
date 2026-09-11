@@ -18,6 +18,7 @@ import {
 import {
   recentJobRawImageUrls,
 } from "../../domain/card/recent-job-card-presenter.js";
+import { isTerminalJobStatus } from "@/platform/contracts/job-status.js";
 
 // 缓存版本只在"封面可能真的变了"时才变。封面由后端 /jobs/{id}/cover 渲染
 // (运行中 = 原始 PDF 首页,任务完成后才可能换成成品封面),运行过程中封面
@@ -30,11 +31,9 @@ import {
 // 每拍重拉);到终态(succeeded/failed/canceled)才把 updated_at 计入——这时
 // 封面可能刚产出/更新,需要 bust 一次;updated_at 也能区分不同 run(重跑会有
 // 新的完成时间戳,封面随之刷新),不丢原来"重跑后换新封面"的能力。
-const TERMINAL_COVER_STATUSES = new Set(["succeeded", "failed", "canceled", "cancelled"]);
-
 function imageCacheVersionOf(item: LibraryCardItem = {}) {
   const status = `${item.status || ""}`.trim();
-  if (TERMINAL_COVER_STATUSES.has(status)) {
+  if (isTerminalJobStatus(status)) {
     return `${status}|${item.updated_at ?? ""}`;
   }
   return status;

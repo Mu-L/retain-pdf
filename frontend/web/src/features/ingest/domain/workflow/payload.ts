@@ -1,4 +1,5 @@
 import { getOcrProviderDefinition, normalizeOcrProvider } from "@/platform/config/providers.js";
+import { RENDER_FONT_STORAGE_KEY } from "@/platform/config/storage-keys.js";
 
 /** Developer/workflow config fields consumed by payload builders. */
 export interface WorkflowDeveloperConfig {
@@ -133,7 +134,7 @@ function resolveStoredFontFamily(fallback: unknown): string {
   void fromConfig;
   try {
     if (typeof localStorage !== "undefined") {
-      const stored = `${localStorage.getItem("retainpdf.render.typst_font_family") || ""}`.trim();
+      const stored = `${localStorage.getItem(RENDER_FONT_STORAGE_KEY) || ""}`.trim();
       if (stored) return stored;
     }
   } catch {}

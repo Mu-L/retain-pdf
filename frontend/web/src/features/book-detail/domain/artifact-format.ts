@@ -1,5 +1,7 @@
 // 产物中心的展示格式化：字节数与生成时间的用户可读文本。
 
+import { formatZhDateTime } from "@/platform/utils/datetime.js";
+
 export function formatArtifactBytes(value: number | null): string {
   if (value == null) return "";
   if (value < 1024) return `${value} B`;
@@ -11,11 +13,5 @@ export function formatArtifactTime(value: string): string {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(date);
+  return formatZhDateTime(date);
 }

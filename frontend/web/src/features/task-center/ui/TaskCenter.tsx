@@ -12,6 +12,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatZhDateTime } from "@/platform/utils/datetime.js";
 import {
   groupTaskCenterJobs,
   taskCenterCounts,
@@ -46,12 +47,7 @@ function shortJobId(jobId: string): string {
 function formatUpdatedAt(value: string): string {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "";
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+  return formatZhDateTime(date);
 }
 
 function TaskRow({ job, busyAction, onOpen, onCancel, onRetry }: {

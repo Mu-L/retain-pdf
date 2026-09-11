@@ -16,6 +16,7 @@ import {
   ScanText,
 } from "lucide-react";
 import { TitleMetaPanel } from "../panels/overview/TitleMetaPanel.jsx";
+import { formatZhDate, formatZhDateTime } from "@/platform/utils/datetime.js";
 
 type OverviewStatus = {
   label: string;
@@ -69,11 +70,7 @@ function formatDate(value) {
   if (!raw) return "";
   const parsed = new Date(raw);
   if (Number.isNaN(parsed.getTime())) return raw;
-  return new Intl.DateTimeFormat("zh-CN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(parsed);
+  return formatZhDate(parsed);
 }
 
 function activityTime(value?: string | null) {
@@ -81,12 +78,7 @@ function activityTime(value?: string | null) {
   if (!raw) return "";
   const parsed = new Date(raw);
   if (Number.isNaN(parsed.getTime())) return "";
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(parsed);
+  return formatZhDateTime(parsed);
 }
 
 function jobActivity(job: OverviewJob) {

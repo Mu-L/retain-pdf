@@ -9,6 +9,7 @@ import {
   resolveMarkdownImagesBaseUrl,
   isMarkdownReady,
 } from "@retainpdf/domain/job";
+import { escapeHtml } from "@/platform/utils/html-formatting.js";
 
 export {
   formatSizeBytes,
@@ -17,18 +18,6 @@ export {
   resolveMarkdownImagesBaseUrl,
   isMarkdownReady,
 };
-
-function escapeHtml(value) {
-  return `${value ?? ""}`
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-
-
 
 
 export function revokeMarkdownImageUrls(markdownImageUrls) {

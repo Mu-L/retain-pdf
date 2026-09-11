@@ -1,4 +1,4 @@
-const ACTIVE_JOB_STORAGE_KEY = "retainpdf.activeJobId";
+import { ACTIVE_JOB_STORAGE_KEY } from "@/platform/config/storage-keys.js";
 
 function localStorageHandle() {
   try {

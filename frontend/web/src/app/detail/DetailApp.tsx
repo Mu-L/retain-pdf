@@ -40,9 +40,8 @@ import {
   revokeJobDetailMarkdownImageUrls,
 } from "@/features/job-detail/index.js";
 import {
-  fileNameFromDisposition,
+  downloadProtectedResponse,
   prepareDownloadTarget,
-  saveResponseDownload,
 } from "@/platform/utils/downloads.js";
 import {
   completeDownloadToast,
@@ -278,17 +277,12 @@ export function DetailApp({
     }
     try {
       showDownloadPreparing(fallbackName);
-      const resp = await dataPort.fetchProtected(url);
-      if (!resp.ok) {
-        const text = await resp.text();
-        throw new Error(`下载失败: ${resp.status} ${text || "unknown error"}`);
-      }
-      const disposition = resp.headers.get("content-disposition") || "";
-      const filename = fileNameFromDisposition(disposition, fallbackName);
-      await saveResponseDownload(resp, {
+      await downloadProtectedResponse({
+        fetchResponse: () => dataPort.fetchProtected(url),
+        url,
+        fallbackName,
         target: downloadTarget,
-        filename,
-        onProgress: ({ receivedBytes, totalBytes, percent, done }) => {
+        onProgress: ({ filename, receivedBytes, totalBytes, percent, done }) => {
           if (done) {
             setText("detail-head-note", `已开始保存 ${filename}`);
             completeDownloadToast(filename);

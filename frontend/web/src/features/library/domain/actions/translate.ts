@@ -8,6 +8,7 @@ import {
   isLibraryOnlyItem,
 } from "../documents/document-card-item.js";
 import { isOcrOnlyItem } from "../card/library-card-semantics.js";
+import { isRetryableTerminalStatus } from "@/platform/contracts/job-status.js";
 
 export const BOOK_CARD_ACTION_TRANSLATE = "translate";
 
@@ -26,7 +27,7 @@ export function buildTranslateBookCardAction(
   }
   const status = `${item.status || ""}`.trim().toLowerCase();
   // 终态里只有「成功」不可再翻；失败/取消/超时都应保留重新翻译入口。
-  const retryableTerminal = ["failed", "cancelled", "canceled", "timeout", "dead"].includes(status);
+  const retryableTerminal = isRetryableTerminalStatus(status);
   const canTranslate =
     isLibraryOnlyItem(item) ||
     retryableTerminal ||

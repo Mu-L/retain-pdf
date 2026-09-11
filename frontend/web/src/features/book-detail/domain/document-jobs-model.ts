@@ -3,9 +3,9 @@
 
 import type { DocumentJobSummary } from "@/features/library/domain.js";
 import { isPollingBootstrapPlaceholder } from "@/features/jobs/index.js";
+import { isTerminalJobStatus } from "@/platform/contracts/job-status.js";
 
 const ACTIVE_STATUSES = new Set(["queued", "pending", "running", "validating"]);
-const TERMINAL_STATUSES = new Set(["succeeded", "failed", "cancelled", "canceled"]);
 export const DOCUMENT_JOBS_REFRESH_INTERVAL_MS = 2_000;
 
 export function jobIdOf(job?: Partial<DocumentJobSummary> | null) {
@@ -21,7 +21,7 @@ export function isDocumentJobActive(job?: DocumentJobSummary | null) {
 }
 
 export function isDocumentJobTerminal(job?: DocumentJobSummary | null) {
-  return TERMINAL_STATUSES.has(`${job?.status || ""}`.trim().toLowerCase());
+  return isTerminalJobStatus(`${job?.status || ""}`.trim().toLowerCase());
 }
 
 export function workflowOf(job?: DocumentJobSummary | null) {

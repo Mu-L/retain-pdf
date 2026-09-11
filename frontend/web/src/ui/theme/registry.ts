@@ -2,7 +2,9 @@
 // 组件只读 listThemes() / setTheme()，不要 hardcode 皮肤 id 列表。
 // 设计：docs/core/frontend/theme-system/THEME_SYSTEM.md · ADDING_A_THEME.md
 
-export const THEME_STORAGE_KEY = "retainpdf.theme";
+import { THEME_STORAGE_KEY } from "@/platform/config/storage-keys.js";
+
+export { THEME_STORAGE_KEY };
 export const DEFAULT_THEME_ID = "classic";
 
 /** 设置页色块预览（与 CSS 皮肤主色一致，仅用于 UI 缩略） */

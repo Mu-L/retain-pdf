@@ -21,6 +21,7 @@ import {
   stageKeyForRecentJobLabel,
 } from "./recent-job-card-presenter.js";
 import { isOcrOnlyItem } from "./library-card-semantics.js";
+import { isCanceledStatus, isFailedStatus } from "@/platform/contracts/job-status.js";
 
 /**
  * @returns 终态/馆藏徽标；进行中返回 null（用中央 loading 代替，见上表）。
@@ -38,14 +39,14 @@ export function libraryCardBadge(item: LibraryCardItem = {}): LibraryCardBadge |
   const status = `${item.status || ""}`.trim().toLowerCase();
   const stageKey = stageKeyForRecentJobLabel(item);
 
-  if (status === "failed" || stageKey === "failed") {
+  if (isFailedStatus(status) || stageKey === "failed") {
     return {
       label: "失败",
       icon: "alert",
       cls: "bg-destructive/12 text-destructive",
     };
   }
-  if (status === "canceled" || status === "cancelled" || stageKey === "canceled") {
+  if (isCanceledStatus(status) || stageKey === "canceled") {
     return {
       label: "已取消",
       icon: "clock",
@@ -108,7 +109,7 @@ export function isLibraryCardProcessing(item: LibraryCardItem = {}): boolean {
   if (isLibraryOnlyItem(item)) return false;
   const RUNNING_STAGES = new Set(["ocr", "translate", "render", "queued", "processing", "validating"]);
   const status = `${item.status || ""}`.trim().toLowerCase();
-  if (status === "failed" || status === "canceled" || status === "cancelled") {
+  if (isFailedStatus(status) || isCanceledStatus(status)) {
     return false;
   }
   // OCR-only 的公共终态仍可能停在 display_stage=ocr / ocr_result_ready；

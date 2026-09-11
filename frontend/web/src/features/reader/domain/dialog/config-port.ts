@@ -3,7 +3,7 @@ import {
   isTrustedWindowMessage,
   mockScenario,
 } from "@/platform/config/runtime.js";
-import { buildReaderParams } from "@/platform/navigation/pages.js";
+import { buildReaderParams, parseReaderParams } from "@/platform/navigation/pages.js";
 
 // 注入点签名直接取自 platform 运行时真值，避免 `any` 让宿主错配/漏接静默通过。
 type ReaderDialogConfigPortOptions = {
@@ -74,7 +74,7 @@ export function createReaderDialogConfigPort({
   function requestedReaderJobIdFromLocation() {
     const url = new URL(currentHref());
     const view = `${url.searchParams.get("view") || ""}`.trim();
-    const jobId = `${url.searchParams.get("job_id") || ""}`.trim();
+    const jobId = parseReaderParams(url.search).jobId;
     return view === "reader" && jobId ? jobId : "";
   }
 

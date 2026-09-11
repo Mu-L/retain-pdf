@@ -2,7 +2,7 @@
 //
 // 纯逻辑，不依赖 React：home-ask runtime 与阅读器侧各自按 job 维度持久化。
 
-const CONV_STORAGE_KEY = "retainpdf.home.ai.conversation.v1";
+import { HOME_ASK_CONVERSATION_STORAGE_KEY as CONV_STORAGE_KEY } from "@/platform/config/storage-keys.js";
 
 export function loadConversationId(): string {
   try {

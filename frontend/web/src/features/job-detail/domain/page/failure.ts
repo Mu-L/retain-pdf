@@ -1,17 +1,7 @@
 import { summarizeRuntimeField, firstDefinedValue, stringifyDebugValue } from "@retainpdf/domain/job";
+import { escapeHtml } from "@/platform/utils/html-formatting.js";
 
 export { firstDefinedValue, stringifyDebugValue };
-
-function escapeHtml(value) {
-  return `${value ?? ""}`
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-
 
 export function applyDiagnostics(diagnostics, job, setText) {
   if (!diagnostics) {

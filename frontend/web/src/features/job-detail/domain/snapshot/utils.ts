@@ -16,13 +16,6 @@ export {
   summarizeStageName,
 } from "@retainpdf/domain/job";
 
-export function escapeHtml(value) {
-  return `${value ?? ""}`
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
+export { escapeHtml } from "@/platform/utils/html-formatting.js";
 
 export { formatEventTimestamp, formatRuntimeDuration, isJobTerminal, isTerminalStatus };
