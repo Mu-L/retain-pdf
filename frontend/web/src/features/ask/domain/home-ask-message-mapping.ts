@@ -3,15 +3,22 @@
 import type { HomeAskCitation, HomeAskMessage } from "./types.js";
 import { makeId } from "./home-ask-ids.js";
 
-export function describeToolEvent(event: unknown): string {
-  const e = event as { tool?: string; name?: string } | null;
-  const tool = `${e?.tool || e?.name || ""}`.trim();
-  if (!tool) return "正在检索…";
-  if (tool.includes("search")) return "正在全文检索…";
-  if (tool.includes("read")) return "正在阅读相关段落…";
-  if (tool.includes("list")) return "正在浏览文档库…";
-  if (tool.includes("favorite")) return "正在查阅收藏…";
-  return `正在调用 ${tool}…`;
+export const TOOL_EVENT_LABELS: Record<string, string> = {
+  search_markdown: "检索 Markdown",
+  read_markdown_chunk: "阅读 Markdown 片段",
+  list_documents: "确认文档信息",
+  read_blocks: "阅读相关段落",
+  search_favorites: "查找收藏",
+  search_fulltext: "检索文档内容",
+};
+
+export function describeToolEvent(
+  event: { tool?: string; event?: string; type?: string } | string | null | undefined,
+): string {
+  const key = typeof event === "string"
+    ? event
+    : (event?.tool || event?.event || event?.type || "");
+  return TOOL_EVENT_LABELS[key] || (key ? `执行 ${key}` : "处理中");
 }
 
 export function parseCitations(raw: unknown): HomeAskCitation[] {

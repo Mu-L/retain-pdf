@@ -39,9 +39,6 @@ function defaultLoadMarkdown(): Promise<unknown> {
 function defaultLoadMarkdownDocument(): Promise<unknown> {
   return Promise.resolve(null);
 }
-function defaultLoadAiChat(): Promise<unknown> {
-  return Promise.resolve({ answer: "" } as unknown);
-}
 function defaultLoadRegions(): Promise<unknown> {
   return Promise.resolve({ items: [] } as unknown);
 }
@@ -84,7 +81,6 @@ export function createReaderDataPort({
   loadMarkdownDocument = defaultLoadMarkdownDocument,
   loadMarkdownSource = null,
   fetchMarkdownRange = null,
-  loadAiChat = defaultLoadAiChat,
   loadRegions = defaultLoadRegions,
   loadMetadata = defaultLoadMetadata,
   loadTranslationItem = defaultLoadTranslationItem,
@@ -97,7 +93,6 @@ export function createReaderDataPort({
   loadMarkdownDocument?: (jobId: string, apiPrefix: string) => Promise<unknown>;
   loadMarkdownSource?: ((jobId: string, apiPrefix: string) => Promise<MarkdownSourceDescriptor | null>) | null;
   fetchMarkdownRange?: ((rawUrl: string, start: number, endInclusive: number, etag?: string, signal?: AbortSignal) => Promise<MarkdownRangeResult>) | null;
-  loadAiChat?: (jobId: string, payload: unknown, apiPrefix: string) => Promise<unknown>;
   loadRegions?: (jobId: string, apiPrefix: string) => Promise<unknown>;
   loadMetadata?: (jobId: string, apiPrefix: string) => Promise<unknown>;
   loadTranslationItem?: (jobId: string, itemId: string, apiPrefix: string) => Promise<unknown>;
@@ -185,10 +180,6 @@ export function createReaderDataPort({
     return loadJobShared(jobId);
   }
 
-  function fetchRegionTranslationItem(jobId: string, itemId: string) {
-    return loadTranslationItem(jobId, itemId, apiPrefix);
-  }
-
   async function loadMarkdownPayload(jobId: string) {
     const currentPayload = await loadMarkdownPayloadWithFallback(
       () => loadMarkdownDocument(jobId, apiPrefix),
@@ -238,20 +229,14 @@ export function createReaderDataPort({
     return fetchMarkdownRange(rawUrl, start, endInclusive, etag, signal);
   }
 
-  function submitAiChat(jobId: string, payload: unknown) {
-    return loadAiChat(jobId, payload, apiPrefix);
-  }
-
   return Object.freeze({
     apiPrefix,
     fetchProtected: fetchProtectedResource,
-    fetchRegionTranslationItem,
     loadMarkdownPayload,
     loadMarkdownSource: resolveMarkdownSource,
     loadMarkdownRange,
     loadJobPayload,
     loadReaderPayload,
-    submitAiChat,
   });
 }
 

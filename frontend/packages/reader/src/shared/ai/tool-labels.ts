@@ -7,7 +7,11 @@ export const TOOL_EVENT_LABELS: Record<string, string> = {
   search_favorites: "查找收藏",
   search_fulltext: "检索文档内容",
 };
-export function describeToolEvent(event: { tool?: string; event?: string; type?: string } | string): string {
-  const key = typeof event === "string" ? event : (event.tool || event.event || event.type || "");
+export function describeToolEvent(
+  event: { tool?: string; event?: string; type?: string } | string | null | undefined,
+): string {
+  const key = typeof event === "string"
+    ? event
+    : (event?.tool || event?.event || event?.type || "");
   return TOOL_EVENT_LABELS[key] || (key ? `执行 ${key}` : "处理中");
 }

@@ -66,13 +66,13 @@ test("resolveScopesForAsk: 无范围返回空; 单文档返回 primary", async (
   assert.deepEqual(two.resolvedDocs.map((d) => d.id), ["d1", "d2"]);
 });
 
-test("describeToolEvent: 按 tool 名给出进度文案", () => {
-  assert.equal(describeToolEvent({ tool: "search_docs" }), "正在全文检索…");
-  assert.equal(describeToolEvent({ name: "read_block" }), "正在阅读相关段落…");
-  assert.equal(describeToolEvent({ tool: "list_documents" }), "正在浏览文档库…");
-  assert.equal(describeToolEvent({ tool: "favorite_x" }), "正在查阅收藏…");
-  assert.equal(describeToolEvent({ tool: "custom_op" }), "正在调用 custom_op…");
-  assert.equal(describeToolEvent({}), "正在检索…");
+test("describeToolEvent: 精确 tool 映射,未知回退执行文案", () => {
+  assert.equal(describeToolEvent({ tool: "search_fulltext" }), "检索文档内容");
+  assert.equal(describeToolEvent({ tool: "read_blocks" }), "阅读相关段落");
+  assert.equal(describeToolEvent({ tool: "list_documents" }), "确认文档信息");
+  assert.equal(describeToolEvent({ tool: "search_favorites" }), "查找收藏");
+  assert.equal(describeToolEvent({ tool: "custom_op" }), "执行 custom_op");
+  assert.equal(describeToolEvent({}), "处理中");
 });
 
 test("parseCitations: 数组/JSON 字符串/非法输入", () => {

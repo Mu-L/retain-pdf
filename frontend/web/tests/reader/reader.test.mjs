@@ -420,10 +420,6 @@ test("reader data port owns page API orchestration and fallbacks", async () => {
       calls.push(["markdown", jobId, apiPrefix]);
       return { content: "# ok" };
     },
-    loadAiChat: async (jobId, payload, apiPrefix) => {
-      calls.push(["ai-chat", jobId, payload.message, apiPrefix]);
-      return { answer: "ok" };
-    },
     loadRegions: async (jobId, apiPrefix) => {
       calls.push(["regions", jobId, apiPrefix]);
       throw new Error("regions unavailable");
@@ -431,10 +427,6 @@ test("reader data port owns page API orchestration and fallbacks", async () => {
     loadMetadata: async (jobId, apiPrefix) => {
       calls.push(["metadata", jobId, apiPrefix]);
       throw new Error("metadata unavailable");
-    },
-    loadTranslationItem: async (jobId, itemId, apiPrefix) => {
-      calls.push(["translation", jobId, itemId, apiPrefix]);
-      return { item_id: itemId };
     },
     fetchProtectedResource: async (url) => ({ url }),
   });
@@ -448,26 +440,18 @@ test("reader data port owns page API orchestration and fallbacks", async () => {
   });
   assert.equal(readerErrors.regions.message, "regions unavailable");
   assert.equal(readerErrors.metadata.message, "metadata unavailable");
-  assert.deepEqual(await port.fetchRegionTranslationItem("job-reader", "item-1"), {
-    item_id: "item-1",
-  });
   assert.deepEqual(await port.fetchProtected("http://asset.test/file.pdf"), {
     url: "http://asset.test/file.pdf",
   });
   assert.deepEqual(await port.loadMarkdownPayload("job-reader"), {
     content: "# ok",
   });
-  assert.deepEqual(await port.submitAiChat("job-reader", { message: "hi" }), {
-    answer: "ok",
-  });
   assert.deepEqual(calls, [
     ["job", "job-reader", "/reader-api"],
     ["manifest", "job-reader", "/reader-api"],
     ["regions", "job-reader", "/reader-api"],
     ["metadata", "job-reader", "/reader-api"],
-    ["translation", "job-reader", "item-1", "/reader-api"],
     ["markdown", "job-reader", "/reader-api"],
-    ["ai-chat", "job-reader", "hi", "/reader-api"],
   ]);
 });
 
