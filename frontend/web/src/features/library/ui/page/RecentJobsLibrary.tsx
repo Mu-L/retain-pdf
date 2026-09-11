@@ -10,8 +10,7 @@
 // 唯一不会陈旧的信号源;libraryViewStore 的 mode 只在 items 为空时才可信
 // (loading/empty/error 三态由 renderLoading()/actions.js 的边缘路径驱动)。
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
+import { useRef, useState } from "react";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import {
   useHomeCollections,
@@ -19,53 +18,21 @@ import {
   useHomeLibrary,
   useHomeWorkflowDialog,
 } from "@/ui/context/home-services-context.js";
-import { BookCard, buildDefaultBookCardActions } from "../shell/BookCard.jsx";
-import { BookListRow } from "../shell/BookListRow.jsx";
 import { LibraryToolbar } from "./LibraryToolbar.jsx";
-import {
-  countLibraryStatusFilters,
-  LibraryFilterMenu,
-  matchesLibraryFilter,
-} from "./LibraryFilterMenu.jsx";
+import { LibraryFilterMenu } from "./LibraryFilterMenu.jsx";
 import { LibraryBatchToolbar } from "./LibraryBatchToolbar.jsx";
 import { useLibraryAutoLoad } from "./useLibraryAutoLoad.js";
 import { useHomeReturnRestore } from "./useHomeReturnRestore.js";
 import { deriveLibraryPageState } from "../../domain/library-page-state.js";
-import { EmptyState } from "@/ui/icons/EmptyState.jsx";
-import { ConfirmDialog } from "@/ui/components/confirm-dialog.js";
-import {
-  isRecentJobActive,
-} from "../../domain/card/recent-job-card-presenter.js";
-import {
-  isLibraryOnlyItem,
-} from "../../domain/documents/document-card-item.js";
-import {
-  libraryCardIdentity,
-} from "../../domain/recent-jobs/library-card-identity.js";
 import {
   buildRecentJobsSummaryViewModel,
 } from "../../domain/recent-jobs/summary-view-model.js";
-import type { DeleteBlockedDocument } from "../../domain/types.js";
-
-// 客户端排序(只排已加载的这几页;/documents 无 sort 参数,和参考项目一样在前端排)。
-function sortItems(items, sortMode) {
-  const arr = [...items];
-  const desc = (key) => (a, b) => `${b?.[key] || ""}`.localeCompare(`${a?.[key] || ""}`);
-  switch (sortMode) {
-    case "created": return arr.sort(desc("added_at"));
-    case "opened": return arr.sort(desc("last_opened_at"));
-    case "title":
-      return arr.sort((a, b) => `${a?.title || a?.display_name || ""}`.localeCompare(`${b?.title || b?.display_name || ""}`, "zh-CN"));
-    case "updated":
-    default:
-      return arr.sort(desc("updated_at"));
-  }
-}
-
-const VIEW_TEXT = Object.freeze({
-  loadMore: "更多",
-  loadMoreLoading: "加载中…",
-});
+import { RecentJobsLibraryEmpty } from "./RecentJobsLibraryEmpty.jsx";
+import { RecentJobsLibraryGrid } from "./RecentJobsLibraryGrid.jsx";
+import { RecentJobsLibraryBatchDialogs } from "./RecentJobsLibraryBatchDialogs.jsx";
+import { useRecentJobsListDerivation } from "./useRecentJobsListDerivation.js";
+import { useRecentJobsBatchSelection } from "./useRecentJobsBatchSelection.js";
+import { VIEW_TEXT } from "./recent-jobs-library-helpers.js";
 
 export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
   const { viewPort, recentJobsStore, actions } = useHomeLibrary();
@@ -83,190 +50,40 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState("");
 
-  // 批量选择(#31):选中态用 document_id 做 key(和网格主键一致);批量模式
-  // 开关经 onBatchModeChange 上报给 HomeApp,由它把底部栏(AppBottomBar)用
-  // CSS 隐藏(batchMode 期间让位给这条批量工具栏——两者都固定在底部居中)。
-  const [batchMode, setBatchModeState] = useState(false);
-  const [selectedIds, setSelectedIds] = useState(() => new Set<string>());
-  const [batchBusy, setBatchBusy] = useState(false);
-  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null);
-  const [pendingBlockedDelete, setPendingBlockedDelete] = useState<DeleteBlockedDocument[] | null>(null);
-  const [collections, setCollections] = useState([]);
-
-  function setBatchMode(next) {
-    setBatchModeState(next);
-    if (!next) setSelectedIds(new Set());
-    onBatchModeChange?.(next);
-  }
-  // useCallback:稳定引用——传给每张卡片当 onToggleSelect,不然
-  // areCardPropsEqual 里的 onToggleSelect 每次 render 都判不相等,
-  // RecentJobsLibrary 一重渲就拖着所有卡片一起重渲(memo 白做)。
-  const toggleSelect = useCallback((documentId) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(documentId)) next.delete(documentId);
-      else next.add(documentId);
-      return next;
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!batchMode) return;
-    collectionsController?.listCollections().then((list) => {
-      const rows = Array.isArray(list?.collections) ? list.collections : (Array.isArray(list) ? list : []);
-      setCollections(rows);
-    }).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batchMode]);
-
   const items = Array.isArray(recentJobs.items) ? recentJobs.items : [];
 
-  // 标签列表 + 各状态计数(供筛选面板显示,基于已加载项)。
-  const { tags, statusCounts } = useMemo(() => {
-    const tagSet = new Set<string>();
-    for (const item of items) {
-      (Array.isArray(item.tags) ? item.tags : []).forEach((t: any) => t && tagSet.add(`${t}`));
-    }
-    return {
-      tags: [...tagSet].sort((a: string, b: string) => a.localeCompare(b, "zh-CN")),
-      statusCounts: countLibraryStatusFilters(items, {
-        isLibraryOnly: isLibraryOnlyItem,
-        isActive: isRecentJobActive,
-      }),
-    };
-  }, [items]);
+  const { tags, statusCounts, visibleItems } = useRecentJobsListDerivation({
+    items,
+    statusFilter,
+    tagFilter,
+    sortMode,
+  });
 
-  const visibleItems = useMemo(() => {
-    const filtered = (statusFilter === "all" && !tagFilter)
-      ? items
-      : items.filter((item) => matchesLibraryFilter(item, statusFilter, tagFilter, { isLibraryOnly: isLibraryOnlyItem, isActive: isRecentJobActive }));
-    return sortItems(filtered, sortMode);
-  }, [items, statusFilter, tagFilter, sortMode]);
-
-  // 批量选择只作用"可选中"的项(有 document_id 的);极少见的运行时插入
-  // job-only 项(无 document_id)选不了,也不计入"全选已加载"的分母。
-  const selectableIds = useMemo(
-    () => visibleItems.map((item) => `${item.document_id || ""}`.trim()).filter(Boolean),
-    [visibleItems],
-  );
-  const selectableIdSet = useMemo(() => new Set(selectableIds), [selectableIds]);
-  const effectiveSelectedIds = useMemo(() => {
-    const next = new Set<string>();
-    for (const id of selectedIds) {
-      if (selectableIdSet.has(id)) next.add(id);
-    }
-    return next;
-  }, [selectedIds, selectableIdSet]);
-
-  // 删除、整页刷新或筛选都会改变当前可操作集合。同步清掉已不可见的选择，
-  // 避免工具栏计数和后续批量命令继续携带“幽灵” document_id。
-  useEffect(() => {
-    setSelectedIds((previous) => {
-      let changed = false;
-      const next = new Set<string>();
-      for (const id of previous) {
-        if (selectableIdSet.has(id)) next.add(id);
-        else changed = true;
-      }
-      return changed ? next : previous;
-    });
-  }, [selectableIdSet]);
-
-  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => effectiveSelectedIds.has(id));
-
-  function handleSelectAllToggle() {
-    setSelectedIds(allSelected ? new Set() : new Set(selectableIds));
-  }
-
-  function handleBatchDelete() {
-    const ids = [...effectiveSelectedIds];
-    if (!ids.length || batchBusy) return;
-    setPendingDeleteIds(ids);
-  }
-
-  function reportBatchDeleteResult(confirmed, failed) {
-    if (failed === 0) toast.success(`已删除 ${confirmed} 篇`);
-    else if (confirmed > 0) toast.warning(`已删除 ${confirmed} 篇，${failed} 篇失败`);
-    else toast.error("删除失败，请稍后重试");
-  }
-
-  async function confirmBatchDelete() {
-    const ids = pendingDeleteIds || [];
-    if (!ids.length || batchBusy) return;
-    setBatchBusy(true);
-    try {
-      const result = await actions.deleteDocuments(ids);
-      const confirmed = result?.confirmed || 0;
-      const failed = result?.failed || 0;
-      const blocked = result?.blocked || [];
-      if (blocked.length > 0) {
-        // 已删除的报告完，剩下的被收藏挡住：弹第二步让用户决定是否清空收藏。
-        if (confirmed > 0) toast.success(`已删除 ${confirmed} 篇`);
-        setPendingDeleteIds(null);
-        setPendingBlockedDelete(blocked);
-        return;
-      }
-      reportBatchDeleteResult(confirmed, failed);
-      setBatchMode(false);
-      setPendingDeleteIds(null);
-    } catch (err) {
-      toast.error(err?.message || "删除失败，请稍后重试");
-      setPendingDeleteIds(null);
-    } finally {
-      setBatchBusy(false);
-    }
-  }
-
-  // 第二步：清空被引用文档的收藏，再重试删除这些文档。
-  async function confirmClearFavoritesBatchDelete() {
-    const blocked = pendingBlockedDelete || [];
-    if (!blocked.length || batchBusy) return;
-    setBatchBusy(true);
-    try {
-      const clearedPaths = new Set<string>();
-      for (const entry of blocked) {
-        if (!entry.clearFavoritesPath || clearedPaths.has(entry.clearFavoritesPath)) continue;
-        clearedPaths.add(entry.clearFavoritesPath);
-        await actions.clearFavorites(entry.clearFavoritesPath);
-      }
-      const ids = blocked.map((entry) => entry.documentId);
-      const result = await actions.deleteDocuments(ids);
-      const confirmed = result?.confirmed || 0;
-      const failed = result?.failed || 0;
-      const stillBlocked = result?.blocked || [];
-      if (stillBlocked.length > 0) {
-        // 清空后又被并发收藏回来：保留确认态，更新计数让用户重试。
-        if (confirmed > 0 || failed > 0) {
-          reportBatchDeleteResult(confirmed, failed);
-        }
-        setPendingBlockedDelete(stillBlocked);
-        return;
-      }
-      reportBatchDeleteResult(confirmed, failed);
-      setPendingBlockedDelete(null);
-      setBatchMode(false);
-    } catch (err) {
-      toast.error(err?.message || "删除失败，请稍后重试");
-      setPendingBlockedDelete(null);
-    } finally {
-      setBatchBusy(false);
-    }
-  }
-
-  async function handleBatchAddToCollection(collectionId) {
-    const ids = [...effectiveSelectedIds];
-    if (!ids.length || batchBusy) return;
-    setBatchBusy(true);
-    try {
-      await collectionsController.addDocuments(collectionId, ids);
-      toast.success(`已加入合集，共 ${ids.length} 篇`);
-      setBatchMode(false);
-    } catch (err) {
-      toast.error(err?.message || "加入合集失败，请稍后重试");
-    } finally {
-      setBatchBusy(false);
-    }
-  }
+  const {
+    batchMode,
+    setBatchMode,
+    effectiveSelectedIds,
+    selectableIds,
+    allSelected,
+    batchBusy,
+    pendingDeleteIds,
+    setPendingDeleteIds,
+    pendingBlockedDelete,
+    setPendingBlockedDelete,
+    collections,
+    toggleSelect,
+    handleSelectAllToggle,
+    handleBatchDelete,
+    confirmBatchDelete,
+    confirmClearFavoritesBatchDelete,
+    handleBatchAddToCollection,
+    blockedFavoriteTotal,
+  } = useRecentJobsBatchSelection({
+    visibleItems,
+    onBatchModeChange,
+    collectionsController,
+    actions,
+  });
 
   const {
     mode,
@@ -284,8 +101,6 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
   const hasItems = mode === "list";
 
   const summary = buildRecentJobsSummaryViewModel(recentJobs.invocationSummary, items);
-  const blockedFavoriteTotal = (pendingBlockedDelete || [])
-    .reduce((sum, entry) => sum + (Number(entry.favoriteCount) || 0), 0);
 
   useLibraryAutoLoad({
     scrollBodyRef,
@@ -305,27 +120,12 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
     <section id="library-view" className="library-view" aria-label="图书馆">
       <div id="recent-jobs-scroll-body" className="library-scroll-body" ref={scrollBodyRef}>
         <div id="recent-jobs-summary" className="status-panel-note library-summary">{summary.text}</div>
-        <div id="recent-jobs-empty" className={mode === "list" ? "hidden" : undefined}>
-          {mode === "loading" ? (
-            <div className="events-empty">正在加载最近任务…</div>
-          ) : mode === "error" ? (
-            <div className="events-empty">{errorMessage}</div>
-          ) : (
-            <EmptyState
-              instrument="microscope"
-              title={emptyMessage || "暂无最近任务"}
-              hint="上传 PDF 后会出现在这里，处理完成即可阅读。"
-            >
-              <button
-                type="button"
-                className="app-button empty-state-action"
-                onClick={() => workflowDialog.requestOpenUpload()}
-              >
-                上传 PDF
-              </button>
-            </EmptyState>
-          )}
-        </div>
+        <RecentJobsLibraryEmpty
+          mode={mode}
+          errorMessage={errorMessage}
+          emptyMessage={emptyMessage}
+          onUpload={() => workflowDialog.requestOpenUpload()}
+        />
         {mode === "list" ? (
           <LibraryToolbar
             count={visibleItems.length}
@@ -347,43 +147,15 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
             )}
           />
         ) : null}
-        <div id="library-grid" className={viewMode === "list" ? "" : "recent-jobs-list library-grid"}>
-          <div
-            id="recent-jobs-list"
-            className={`${viewMode === "list" ? "flex flex-col gap-1" : "recent-jobs-list library-grid"}${mode === "list" ? "" : " hidden"}`}
-          >
-            {visibleItems.map((item) => (
-              viewMode === "list" ? (
-                <BookListRow
-                  key={libraryCardIdentity(item)}
-                  item={item}
-                  onSelect={actions.selectJob}
-                  onReader={actions.openJobReader}
-                  onReadSource={actions.openSourceReader}
-                  onOpenDetail={actions.openBookDetail}
-                  batchMode={batchMode}
-                  selected={effectiveSelectedIds.has(`${item.document_id || ""}`.trim())}
-                  onToggleSelect={toggleSelect}
-                />
-              ) : (
-                <BookCard
-                  key={libraryCardIdentity(item)}
-                  item={item}
-                  // 壳 + 按钮:默认只有「快速阅读」;要加翻译等在此 concat 即可
-                  actions={buildDefaultBookCardActions(item, {
-                    onReader: actions.openJobReader,
-                    onReadSource: actions.openSourceReader,
-                  })}
-                  onSelect={actions.selectJob}
-                  onOpenDetail={actions.openBookDetail}
-                  batchMode={batchMode}
-                  selected={effectiveSelectedIds.has(`${item.document_id || ""}`.trim())}
-                  onToggleSelect={toggleSelect}
-                />
-              )
-            ))}
-          </div>
-        </div>
+        <RecentJobsLibraryGrid
+          visibleItems={visibleItems}
+          viewMode={viewMode}
+          mode={mode}
+          batchMode={batchMode}
+          effectiveSelectedIds={effectiveSelectedIds}
+          actions={actions}
+          toggleSelect={toggleSelect}
+        />
         <div className="recent-jobs-more-row">
           <button
             id="load-more-jobs-btn"
@@ -409,31 +181,15 @@ export function RecentJobsLibrary({ onBatchModeChange }: any = {}) {
           busy={batchBusy}
         />
       ) : null}
-      <ConfirmDialog
-        id="batch-delete-confirm-dialog"
-        open={Boolean(pendingDeleteIds)}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) setPendingDeleteIds(null);
-        }}
-        title="删除所选文档？"
-        description={`将永久删除选中的 ${pendingDeleteIds?.length || 0} 篇文档，此操作无法撤销。`}
-        confirmLabel="确认删除"
-        pending={batchBusy}
-        tone="danger"
-        onConfirm={confirmBatchDelete}
-      />
-      <ConfirmDialog
-        id="batch-delete-favorites-confirm-dialog"
-        open={Boolean(pendingBlockedDelete)}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) setPendingBlockedDelete(null);
-        }}
-        title="部分文档被收藏引用"
-        description={`选中的文档里有 ${pendingBlockedDelete?.length || 0} 篇被收藏引用（共 ${blockedFavoriteTotal} 条收藏）。一并删除收藏后才能删除这些文档，此操作无法撤销。`}
-        confirmLabel="一并删除收藏并删除"
-        pending={batchBusy}
-        tone="danger"
-        onConfirm={confirmClearFavoritesBatchDelete}
+      <RecentJobsLibraryBatchDialogs
+        pendingDeleteIds={pendingDeleteIds}
+        pendingBlockedDelete={pendingBlockedDelete}
+        blockedFavoriteTotal={blockedFavoriteTotal}
+        batchBusy={batchBusy}
+        onCancelDelete={() => setPendingDeleteIds(null)}
+        onConfirmDelete={confirmBatchDelete}
+        onCancelBlocked={() => setPendingBlockedDelete(null)}
+        onConfirmBlocked={confirmClearFavoritesBatchDelete}
       />
     </section>
   );

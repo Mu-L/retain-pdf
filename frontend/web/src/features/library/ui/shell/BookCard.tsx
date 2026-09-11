@@ -12,13 +12,16 @@
 //
 // 默认按钮见 ../actions/ → buildDefaultBookCardActions。
 // 加按钮 = 调用方拼更大的 actions 数组,不必改本文件。
+//
+// 机械拆分(行为/DOM/class 不变):
+//   - ./book-card/format.ts                日期与展示签名
+//   - ./book-card/BookCardActionButton.tsx 操作钮与图标
+//   - ./book-card/BookCardCover.tsx        封面/徽标/进度覆盖层
+//   - ./book-card/BookCardMediaOverlays.tsx 批量选择与 hover 操作菜单
 
 import { memo } from "react";
 import { cn } from "@retainpdf/ui/lib/utils";
-import { formatZhDate } from "@/platform/utils/datetime.js";
 import { isLibraryCardProcessing, libraryCardBadge } from "../../domain/card/library-card-badge.js";
-import { BadgeIcon } from "../display/library-card-badge-icon.jsx";
-import { BookCardProcessingOverlay } from "../display/BookCardProcessingOverlay.jsx";
 import { useRecentJobCover } from "../display/useRecentJobCover.js";
 import {
   bookCardActionsSignature,
@@ -33,58 +36,12 @@ import {
 import {
   isLibraryOnlyItem,
 } from "../../domain/documents/document-card-item.js";
+import { cardSignatureOf, formatCardDate } from "./book-card/format.js";
+import { BookCardCover } from "./book-card/BookCardCover.jsx";
+import { BookCardMediaOverlays } from "./book-card/BookCardMediaOverlays.jsx";
 
-function formatCardDate(value: string | null | undefined) {
-  const raw = `${value || ""}`.trim();
-  if (!raw) return "-";
-  const parsed = new Date(raw);
-  if (Number.isNaN(parsed.getTime())) return raw;
-  return formatZhDate(parsed);
-}
-
-/**
- * memo / 列表行共用：item 展示签名（命中才重渲）。
- * 身份：job_id/document_id/workflow/job_type/library_only/reading_status —— 决定点卡进详情还是切选中态。
- * 时间：updated_at —— 卡片副标题日期。
- * 状态三件套：status（后端终态 succeeded/failed/canceled/running…）/ stage（列表投影原生 stage，live.rs 无 display_stage）/ display_stage（轮询·lane 合并后的公开阶段）/ substage（阶段内细分）。
- * 进度：progress.*（顶层）+ runtime_status.progress.*（轮询快照）—— 驱动中央 loading 与底部进度条。
- * 展示：title/display_name/page_count/cover_url/thumbnail_url/stage_detail/runtime_status.detail —— 标题·页数·封面·副文案。
- */
-export function cardSignatureOf(item: LibraryCardItem = {}) {
-  const progress = item.progress && typeof item.progress === "object" ? item.progress : {};
-  const runtimeProgress =
-    item.runtime_status?.progress && typeof item.runtime_status.progress === "object"
-      ? item.runtime_status.progress
-      : {};
-  return [
-    item.job_id,
-    item.document_id,
-    item.workflow,
-    item.job_type,
-    item.library_only ? "lib" : "",
-    item.reading_status,
-    item.updated_at,
-    item.status,
-    item.stage,
-    item.display_stage,
-    item.substage,
-    progress.current,
-    progress.total,
-    progress.percent,
-    runtimeProgress.current,
-    runtimeProgress.total,
-    runtimeProgress.percent,
-    item.title,
-    item.display_name,
-    item.page_count,
-    item.cover_url,
-    item.thumbnail_url,
-    item.stage_detail,
-    item.runtime_status?.detail,
-  ]
-    .map((value) => `${value ?? ""}`)
-    .join("|");
-}
+export { cardSignatureOf } from "./book-card/format.js";
+export { BookCardActionButton } from "./book-card/BookCardActionButton.jsx";
 
 const renderCountsForTests = new Map<string, number>();
 export function getCardRenderCountForTests(jobId?: string | null) {
@@ -92,97 +49,6 @@ export function getCardRenderCountForTests(jobId?: string | null) {
 }
 export function resetCardRenderCountsForTests() {
   renderCountsForTests.clear();
-}
-
-function IconEye(props) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" width="16" height="16" {...props}>
-      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
-      <circle cx="12" cy="12" r="2.6" />
-    </svg>
-  );
-}
-function IconLanguages(props) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="15" height="15" {...props}>
-      <path d="m5 8 6 6" />
-      <path d="m4 14 6-6 2-3" />
-      <path d="M2 5h12" />
-      <path d="M7 2h1" />
-      <path d="m22 22-5-10-5 10" />
-      <path d="M14 18h6" />
-    </svg>
-  );
-}
-function IconInfo(props) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="15" height="15" {...props}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 10v6" strokeLinecap="round" />
-      <circle cx="12" cy="7.5" r="0.8" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-function IconFile(props) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" width="34" height="34" {...props}>
-      <path d="M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
-      <path d="M14 3v4h4" />
-    </svg>
-  );
-}
-function IconCheck(props) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" width="13" height="13" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="m5 12 5 5L20 7" />
-    </svg>
-  );
-}
-
-function resolveActionIcon(icon) {
-  if (icon == null || icon === "eye") return <IconEye aria-hidden="true" />;
-  if (icon === "languages") return <IconLanguages aria-hidden="true" />;
-  if (icon === "info") return <IconInfo aria-hidden="true" />;
-  // 自定义 React 节点
-  return icon;
-}
-
-/**
- * 壳上的单个圆形操作钮(封面 hover 区)。
- * 也可被外部单独 import 复用。
- */
-export function BookCardActionButton({
-  action,
-  item,
-  className,
-}: {
-  action?: BookCardAction | null;
-  item?: LibraryCardItem;
-  className?: string;
-}) {
-  const label = `${action?.label || action?.id || "操作"}`.trim();
-  return (
-    <button
-      type="button"
-      data-book-card-action={action?.id || ""}
-      className={cn(
-        "book-card-action-btn pointer-events-auto flex h-10 w-10 items-center justify-center rounded-[var(--btn-radius)] bg-paper/95 text-foreground shadow-md transition hover:bg-paper active:scale-90 disabled:opacity-50",
-        action?.className,
-        className,
-      )}
-      title={label}
-      aria-label={label}
-      disabled={Boolean(action?.disabled)}
-      onClick={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        if (action?.disabled) return;
-        action?.onClick?.(event, item);
-      }}
-    >
-      {resolveActionIcon(action?.icon)}
-    </button>
-  );
 }
 
 /**
@@ -296,76 +162,18 @@ function BookCardImpl({
           batchMode && selected && "ring-2 ring-foreground ring-offset-2",
         )}
       >
-        {coverUrl ? (
-          <img src={coverUrl} alt="" className="h-full w-full bg-paper object-contain" />
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-muted/60 to-background text-muted-foreground/50">
-            <IconFile aria-hidden="true" />
-            <span className="text-[10px] text-muted-foreground/60">PDF</span>
-          </div>
-        )}
-
-        {/* 进行中：封面中央 loading，不在右上角写 OCR/翻译/渲染（易截断） */}
-        {processing ? <BookCardProcessingOverlay /> : null}
-
-        {/* 右上角终态/馆藏：禁止 truncate/flex 收缩，否则「已翻译」会被裁成省略号 */}
-        {badge && !processing ? (
-          <div className="pointer-events-none absolute right-2 top-2 z-10 max-w-[none]">
-            <span
-              className={cn(
-                "book-card-status-badge inline-flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded-full pl-1.5 pr-2 text-[10px] font-medium leading-none shadow-sm",
-                badge.cls,
-              )}
-              data-badge-label={badge.label}
-              data-badge-icon={badge.icon}
-            >
-              <BadgeIcon name={badge.icon} />
-              <span className="shrink-0 whitespace-nowrap">{badge.label}</span>
-            </span>
-          </div>
-        ) : null}
-
-        {processing && Number.isFinite(percent) ? (
-          <div className="absolute inset-x-0 bottom-0 z-10 h-1 bg-scrim/15">
-            <div
-              className="h-full bg-primary transition-[width] duration-500"
-              style={{ width: `${percent}%` }}
-            />
-          </div>
-        ) : null}
-
-        {batchMode ? (
-          <>
-            <div
-              className={cn(
-                "pointer-events-none absolute inset-0 z-[6] transition-colors",
-                selected ? "bg-foreground/10" : "bg-transparent",
-              )}
-              aria-hidden
-            />
-            <div
-              className={cn(
-                "absolute left-2 top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full border transition-colors",
-                selected
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-paper/80 bg-paper/70 text-transparent",
-              )}
-              aria-hidden
-            >
-              <IconCheck />
-            </div>
-          </>
-        ) : actions.length > 0 ? (
-          <div className="book-card-actions pointer-events-none absolute inset-0 z-[6] flex items-center justify-center gap-2 bg-scrim/35 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-            {actions.map((action) => (
-              <BookCardActionButton
-                key={action.id || action.label}
-                action={action}
-                item={item}
-              />
-            ))}
-          </div>
-        ) : null}
+        <BookCardCover
+          coverUrl={coverUrl}
+          badge={badge}
+          processing={processing}
+          percent={percent}
+        />
+        <BookCardMediaOverlays
+          batchMode={batchMode}
+          selected={selected}
+          actions={actions}
+          item={item}
+        />
       </div>
 
       <div className="mt-2 flex flex-col gap-0.5">
