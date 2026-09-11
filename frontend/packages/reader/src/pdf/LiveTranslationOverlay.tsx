@@ -211,6 +211,117 @@ type LiveTranslationTextItemProps = {
   pageScale: number;
 };
 
+export type LiveTranslationFitMeasure = (fontSize: number) => {
+  width: number;
+  height: number;
+};
+
+export type LiveTranslationFitInput = {
+  minFontSizePx: number;
+  maxFontSizePx: number;
+  requestedFontSizePx: number;
+  exact: boolean;
+};
+
+/**
+ * Binary-search the largest font size whose measured content still fits the
+ * available box. This is the exact original search (same brackets, iteration
+ * counts and rounding), with two output-preserving reductions in layout reads:
+ * repeated probes of the same size are answered from a per-fit memo, and a
+ * collapsed bracket stops early instead of re-probing the same endpoint.
+ */
+export function computeLiveTranslationFit(
+  measure: LiveTranslationFitMeasure,
+  availableWidth: number,
+  availableHeight: number,
+  input: LiveTranslationFitInput,
+): number {
+  const { minFontSizePx, maxFontSizePx } = input;
+  const probed = new Map<number, boolean>();
+  const fits = (size: number) => {
+    const known = probed.get(size);
+    if (known !== undefined) return known;
+    const { width, height } = measure(size);
+    const result = width <= availableWidth + 0.5 && height <= availableHeight + 0.5;
+    probed.set(size, result);
+    return result;
+  };
+  let low = minFontSizePx;
+  let high = maxFontSizePx;
+  let fitted = Math.min(input.requestedFontSizePx, high);
+  if (!fits(fitted)) {
+    high = fitted;
+    fitted = low;
+    for (let iteration = 0; iteration < 8; iteration += 1) {
+      if (!(high > low)) break;
+      const candidate = (low + high) / 2;
+      if (fits(candidate)) {
+        fitted = candidate;
+        low = candidate;
+      } else {
+        high = candidate;
+      }
+    }
+  } else if (!input.exact) {
+    low = fitted;
+    for (let iteration = 0; iteration < 6; iteration += 1) {
+      if (!(high > low)) break;
+      const candidate = (low + high) / 2;
+      if (fits(candidate)) {
+        fitted = candidate;
+        low = candidate;
+      } else {
+        high = candidate;
+      }
+    }
+  }
+  return Math.max(minFontSizePx, fitted);
+}
+
+// A block's fitted size is a pure function of its rendered HTML and the exact
+// box/style it is measured in. Cache it (bounded, oldest-evicted) so SSE
+// re-renders and remounts reuse the measured size instead of forcing a fresh
+// binary search (up to ~9 synchronous layouts) for every block on the page.
+const FIT_CACHE_LIMIT = 512;
+const fittedSizeCache = new Map<string, number>();
+
+// Web fonts change glyph metrics, so a measurement taken before they settle can
+// go stale. Fold a font epoch into the cache key so any later re-render
+// re-measures once fonts finish loading (matching the old per-render behavior).
+let fontLayoutEpoch = 0;
+if (typeof document !== "undefined" && document.fonts) {
+  void document.fonts.ready.then(() => { fontLayoutEpoch += 1; }).catch(() => {});
+  if (typeof document.fonts.addEventListener === "function") {
+    document.fonts.addEventListener("loadingdone", () => { fontLayoutEpoch += 1; });
+  }
+}
+
+export function clearLiveTranslationFitCache(): void {
+  fittedSizeCache.clear();
+}
+
+function fittedSizeCacheKey(
+  html: string,
+  availableWidth: number,
+  availableHeight: number,
+  textStyle: LiveTranslationTextStyle,
+): string {
+  return [
+    fontLayoutEpoch,
+    textStyle.fontFamily,
+    textStyle.fontWeight,
+    textStyle.lineHeight,
+    textStyle.textAlign,
+    textStyle.minFontSizePx,
+    textStyle.maxFontSizePx,
+    textStyle.fontSizePx,
+    textStyle.exact ? 1 : 0,
+    availableWidth,
+    availableHeight,
+    html,
+  ].join("\u0001");
+}
+
 function LiveTranslationTextItem({ item, pageScale }: LiveTranslationTextItemProps) {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const prepared = useMemo(
@@ -242,38 +353,30 @@ function LiveTranslationTextItem({ item, pageScale }: LiveTranslationTextItemPro
     const [paddingTop, paddingRight, paddingBottom, paddingLeft] = textStyle.padding;
     const availableWidth = Math.max(1, item.rect.width - paddingLeft - paddingRight);
     const availableHeight = Math.max(1, item.rect.height - paddingTop - paddingBottom);
-    let low = textStyle.minFontSizePx;
-    let high = textStyle.maxFontSizePx;
-    let fitted = Math.min(textStyle.fontSizePx, high);
-    const fits = (size: number) => {
-      content.style.fontSize = `${size}px`;
-      return content.scrollWidth <= availableWidth + 0.5 && content.scrollHeight <= availableHeight + 0.5;
-    };
-    if (!fits(fitted)) {
-      high = fitted;
-      fitted = low;
-      for (let iteration = 0; iteration < 8; iteration += 1) {
-        const candidate = (low + high) / 2;
-        if (fits(candidate)) {
-          fitted = candidate;
-          low = candidate;
-        } else {
-          high = candidate;
-        }
-      }
-    } else if (!textStyle.exact) {
-      low = fitted;
-      for (let iteration = 0; iteration < 6; iteration += 1) {
-        const candidate = (low + high) / 2;
-        if (fits(candidate)) {
-          fitted = candidate;
-          low = candidate;
-        } else {
-          high = candidate;
-        }
+    const cacheKey = fittedSizeCacheKey(html, availableWidth, availableHeight, textStyle);
+    let fitted = fittedSizeCache.get(cacheKey);
+    if (fitted === undefined) {
+      fitted = computeLiveTranslationFit(
+        (size) => {
+          content.style.fontSize = `${size}px`;
+          return { width: content.scrollWidth, height: content.scrollHeight };
+        },
+        availableWidth,
+        availableHeight,
+        {
+          minFontSizePx: textStyle.minFontSizePx,
+          maxFontSizePx: textStyle.maxFontSizePx,
+          requestedFontSizePx: textStyle.fontSizePx,
+          exact: textStyle.exact,
+        },
+      );
+      fittedSizeCache.set(cacheKey, fitted);
+      if (fittedSizeCache.size > FIT_CACHE_LIMIT) {
+        const oldest = fittedSizeCache.keys().next().value;
+        if (oldest !== undefined) fittedSizeCache.delete(oldest);
       }
     }
-    content.style.fontSize = `${Math.max(textStyle.minFontSizePx, fitted).toFixed(2)}px`;
+    content.style.fontSize = `${fitted.toFixed(2)}px`;
   }, [html, item.rect.height, item.rect.width, textStyle]);
 
   const [paddingTop, paddingRight, paddingBottom, paddingLeft] = textStyle.padding;

@@ -217,6 +217,22 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
       }
     }, []);
 
+    // One stable ref callback per page. Inline `(el) => registerSentinel(...)`
+    // callbacks are recreated on every render, which (a) invalidates
+    // memo(PdfPageSlot) for every page when the pane re-renders and (b) makes
+    // React detach/re-attach placeholder refs, churning the observer. Caching
+    // by page keeps both identities stable for the life of the pane.
+    const sentinelCallbacksRef = useRef<Map<number, (el: HTMLDivElement | null) => void>>(new Map());
+    const getSentinelRef = useCallback((pn: number) => {
+      const callbacks = sentinelCallbacksRef.current;
+      let callback = callbacks.get(pn);
+      if (!callback) {
+        callback = (el: HTMLDivElement | null) => registerSentinel(pn, el);
+        callbacks.set(pn, callback);
+      }
+      return callback;
+    }, [registerSentinel]);
+
     // Single pane-level observer replaces the old pair (pane window + per-slot
     // shared observer). It uses the slot's former 120% root margin, then:
     //   - nearPages drives the +/- OVERSCAN mount window (same window semantics)
@@ -452,7 +468,7 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
                       onMetrics={onMetrics}
                       cachedAspect={aspectCache.get(pageNumber)}
                       onAspectChange={handleAspectChange}
-                      sentinelRef={(el) => registerSentinel(pageNumber, el)}
+                      sentinelRef={getSentinelRef(pageNumber)}
                       regionHighlight={regionHighlight?.box.page === pageNumber ? regionHighlight : null}
                       regionTargets={regionTargetsByPage.get(pageNumber)}
                       onSelectRegion={onSelectRegion}
@@ -470,7 +486,7 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
                 return (
                   <div
                     key={`${pane}-${pageNumber}`}
-                    ref={(el) => registerSentinel(pageNumber, el)}
+                    ref={getSentinelRef(pageNumber)}
                     data-reader-page={pageNumber}
                     data-reader-pane={pane}
                     data-natural-height={naturalHeight}
