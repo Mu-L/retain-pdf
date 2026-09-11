@@ -429,8 +429,10 @@ def _block_record_from_lines(
 ) -> dict:
     block_id = f"p{page_idx + 1:03d}-b{page_block_index:04d}"
     block_text = _join_line_texts(lines, preserve_lines=preserve_lines)
+    # Copies, not aliases: downstream passes (rescale, inherit) mutate lines
+    # and segments independently; shared dicts would be scaled twice.
     block_segments = [
-        span
+        dict(span)
         for line in lines
         if isinstance(line, dict)
         for span in (line.get("spans", []) or [])
