@@ -3,15 +3,16 @@ from __future__ import annotations
 import fitz
 
 
+from retainpdf_pipeline.render.source_cleanup.pdf.constants import BBOX_TEXT_STRIP_FORMULA_GUARD_PAD_X_PT
+from retainpdf_pipeline.render.source_cleanup.pdf.constants import BBOX_TEXT_STRIP_FORMULA_GUARD_PAD_Y_PT
+from retainpdf_pipeline.render.source_cleanup.pdf.constants import FORMULA_SPLIT_SEGMENT_PAD_X_PT
+from retainpdf_pipeline.render.source_cleanup.pdf.constants import FORMULA_SPLIT_SEGMENT_PAD_Y_PT
+from retainpdf_pipeline.render.source_cleanup.pdf.constants import STRIP_SEGMENT_PAD_X_PT
+from retainpdf_pipeline.render.source_cleanup.pdf.constants import STRIP_SEGMENT_PAD_Y_PT
+
 MIN_CLEANUP_SEGMENT_WIDTH_PT = 1.0
 MIN_CLEANUP_SEGMENT_HEIGHT_PT = 1.0
 MIN_CLEANUP_SEGMENT_AREA_PT2 = 2.0
-STRIP_SEGMENT_PAD_X_PT = 1.0
-STRIP_SEGMENT_PAD_Y_PT = 1.0
-FORMULA_SPLIT_SEGMENT_PAD_X_PT = 1.0
-FORMULA_SPLIT_SEGMENT_PAD_Y_PT = 0.0
-BBOX_TEXT_STRIP_FORMULA_GUARD_PAD_X_PT = 1.0
-BBOX_TEXT_STRIP_FORMULA_GUARD_PAD_Y_PT = 1.0
 
 
 def strip_segments_for_text_rect(text_rect: fitz.Rect, formula_rects: list[fitz.Rect]) -> list[fitz.Rect]:

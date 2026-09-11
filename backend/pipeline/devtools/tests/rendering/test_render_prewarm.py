@@ -234,9 +234,9 @@ def test_render_source_prewarm_manifest_is_reused_without_temp_cleanup() -> None
         with mock.patch(
             "retainpdf_pipeline.render.workflow.executor.build_render_source_pdf",
             side_effect=AssertionError("synchronous render source prep should not run"),
-        ), mock.patch(
-            "retainpdf_pipeline.render.workflow.executor.run_overlay_render",
-            side_effect=_fake_overlay,
+        ), mock.patch.dict(
+            "retainpdf_pipeline.render.workflow.modes.RENDER_MODE_HANDLERS",
+            {"overlay": _fake_overlay},
         ):
             pages = execute_render_plan(
                 render_plan=render_plan,
@@ -336,9 +336,9 @@ def test_render_plan_persists_sync_overlay_source_cleanup_for_next_render() -> N
         with mock.patch(
             "retainpdf_pipeline.render.workflow.executor.build_render_source_pdf",
             side_effect=_spy_build_render_source_pdf,
-        ), mock.patch(
-            "retainpdf_pipeline.render.workflow.executor.run_overlay_render",
-            side_effect=_fake_overlay,
+        ), mock.patch.dict(
+            "retainpdf_pipeline.render.workflow.modes.RENDER_MODE_HANDLERS",
+            {"overlay": _fake_overlay},
         ):
             pages = execute_render_plan(
                 render_plan=render_plan,
@@ -373,9 +373,9 @@ def test_render_plan_persists_sync_overlay_source_cleanup_for_next_render() -> N
         with mock.patch(
             "retainpdf_pipeline.render.workflow.executor.build_render_source_pdf",
             side_effect=AssertionError("persisted sync render source should be reused"),
-        ), mock.patch(
-            "retainpdf_pipeline.render.workflow.executor.run_overlay_render",
-            side_effect=_fake_overlay,
+        ), mock.patch.dict(
+            "retainpdf_pipeline.render.workflow.modes.RENDER_MODE_HANDLERS",
+            {"overlay": _fake_overlay},
         ):
             pages = execute_render_plan(
                 render_plan=render_plan,
@@ -418,9 +418,9 @@ def test_render_plan_reuses_source_prewarm_without_sync_document_analysis() -> N
             assert source_pdf_path.exists()
             return 1, {"route": "sync-cache-test"}
 
-        with mock.patch(
-            "retainpdf_pipeline.render.workflow.executor.run_overlay_render",
-            side_effect=_fake_overlay,
+        with mock.patch.dict(
+            "retainpdf_pipeline.render.workflow.modes.RENDER_MODE_HANDLERS",
+            {"overlay": _fake_overlay},
         ):
             execute_render_plan(
                 render_plan=render_plan,
@@ -438,9 +438,9 @@ def test_render_plan_reuses_source_prewarm_without_sync_document_analysis() -> N
         ), mock.patch(
             "retainpdf_pipeline.render.workflow.executor.build_render_source_pdf",
             side_effect=AssertionError("persisted sync render source should be reused"),
-        ), mock.patch(
-            "retainpdf_pipeline.render.workflow.executor.run_overlay_render",
-            side_effect=_fake_overlay,
+        ), mock.patch.dict(
+            "retainpdf_pipeline.render.workflow.modes.RENDER_MODE_HANDLERS",
+            {"overlay": _fake_overlay},
         ):
             pages = execute_render_plan(
                 render_plan=render_plan,
@@ -567,9 +567,9 @@ def test_sync_source_prewarm_preserves_existing_payload_prewarm() -> None:
             seen_colors.append(context.render_colors_by_item_id or {})
             return 1, {"route": "sync-cache-payload-preserve"}
 
-        with mock.patch(
-            "retainpdf_pipeline.render.workflow.executor.run_overlay_render",
-            side_effect=_fake_overlay,
+        with mock.patch.dict(
+            "retainpdf_pipeline.render.workflow.modes.RENDER_MODE_HANDLERS",
+            {"overlay": _fake_overlay},
         ):
             pages = execute_render_plan(
                 render_plan=render_plan,
@@ -1270,15 +1270,14 @@ def test_execute_typst_visual_uses_prewarmed_background_page_specs() -> None:
             effective_render_mode="typst_visual",
         )
 
-        def _fake_background(*, source_pdf_path, translated_pages, context, visual_only_background):
-            assert visual_only_background is True
+        def _fake_background(*, source_pdf_path, translated_pages, context):
             assert context.background_render_page_specs is not None
             assert context.background_render_page_specs[0].blocks[0].plain_text
             return 1, {"route": "prewarmed-background-specs"}
 
-        with mock.patch(
-            "retainpdf_pipeline.render.workflow.executor.run_background_typst_render",
-            side_effect=_fake_background,
+        with mock.patch.dict(
+            "retainpdf_pipeline.render.workflow.modes.RENDER_MODE_HANDLERS",
+            {"typst_visual": _fake_background},
         ):
             pages = execute_render_plan(
                 render_plan=render_plan,
@@ -1375,3 +1374,24 @@ def test_payload_prewarm_manifest_exposes_geometry_adjustments() -> None:
         adjusted = payload_prewarm.effective_inner_bbox_lookup["p001-b001"]
         assert adjusted[1] > 20.0
         assert adjusted[3] < 70.0
+
+
+def test_background_specs_manifest_builds_without_precomputed_color_pages() -> None:
+    from retainpdf_pipeline.render.source.prewarm_page_specs import build_background_render_page_specs_manifest
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        source_pdf = root / "source.pdf"
+        _source_pdf(source_pdf)
+
+        manifest = build_background_render_page_specs_manifest(
+            source_pdf_path=source_pdf,
+            translated_pages=_translated_page_payload(),
+            first_line_indent_lookup={},
+            effective_inner_bbox_lookup={},
+            prepared_translated_pages=None,
+            color_adapted_pages=None,
+        )
+
+        assert manifest.get("page_count") == 1
+        assert manifest.get("block_count", 0) >= 1

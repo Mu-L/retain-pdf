@@ -279,3 +279,182 @@ def test_background_render_color_adapt_samples_original_pdf_not_cleaned_backgrou
 
     assert "fill: rgb(216, 216, 216)" in source
     assert "fill: rgb(255, 255, 255)" not in source
+
+
+def test_background_render_resilient_compile_falls_back_to_page_overlay() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        source_pdf = root / "source.pdf"
+        background_pdf = root / "background.pdf"
+
+        doc = fitz.open()
+        doc.new_page(width=200, height=300)
+        doc.save(source_pdf)
+        doc.save(background_pdf)
+        doc.close()
+
+        translated_pages = {
+            0: [
+                {
+                    "item_id": "p001-b001",
+                    "page_idx": 0,
+                    "block_type": "text",
+                    "bbox": [10.0, 20.0, 180.0, 80.0],
+                    "lines": [{"text": "raw"}],
+                    "source_text": "raw text",
+                    "protected_source_text": "raw text",
+                    "protected_translated_text": "translated text",
+                }
+            ]
+        }
+        page_specs = build_render_page_specs(
+            source_pdf_path=source_pdf,
+            translated_pages=translated_pages,
+        )
+
+        sanitized_pages = {
+            0: [
+                {
+                    "item_id": "p001-b001",
+                    "page_idx": 0,
+                    "block_type": "text",
+                    "bbox": [10.0, 20.0, 180.0, 80.0],
+                    "lines": [{"text": "raw"}],
+                    "source_text": "raw text",
+                    "protected_source_text": "raw text",
+                    "protected_translated_text": "sanitized text",
+                }
+            ]
+        }
+
+        with mock.patch(
+            "retainpdf_pipeline.render.output.typst.book_renderer.compile_typst_render_pages_pdf",
+            side_effect=[RuntimeError("mitex failed"), root / "probe.pdf", RuntimeError("still failing")],
+        ) as compile_mock, mock.patch(
+            "retainpdf_pipeline.render.output.typst.book_renderer.collect_background_page_specs",
+            return_value=[(0, 200.0, 300.0, translated_pages[0])],
+        ), mock.patch(
+            "retainpdf_pipeline.render.output.typst.book_renderer.sanitize_page_specs_for_typst_book_background",
+            return_value=[(0, 200.0, 300.0, sanitized_pages[0])],
+        ), mock.patch(
+            "retainpdf_pipeline.render.output.typst.book_renderer.overlay_pages_via_page_fallback",
+            return_value={},
+        ) as fallback_mock, mock.patch(
+            "retainpdf_pipeline.render.output.typst.book_renderer.save_optimized_pdf",
+        ) as save_mock:
+            result, diagnostics = _compile_render_pages_pdf_resilient(
+                source_pdf_path=source_pdf,
+                color_sample_pdf_path=source_pdf,
+                background_pdf_path=background_pdf,
+                translated_pages=translated_pages,
+                page_specs=page_specs,
+                work_dir=root,
+            )
+
+        assert result == root / "book-background-overlay-fallback.pdf"
+        assert diagnostics["background_fallback_overlay"] is True
+        assert diagnostics["background_compile_retried"] is True
+        assert compile_mock.call_count == 3
+        fallback_mock.assert_called_once()
+        _doc, ordered_pages, fallback_specs, fallback_translated = fallback_mock.call_args.args[:4]
+        assert ordered_pages == [0]
+        assert len(fallback_specs) == 1
+        assert fallback_specs[0][:3] == (0, 200.0, 300.0)
+        assert fallback_specs[0][4] == "book-background-overlay-fallback-000"
+        assert fallback_translated[0][0]["protected_translated_text"] == "sanitized text"
+        assert fallback_mock.call_args.kwargs["cover_only"] is False
+        assert fallback_mock.call_args.kwargs["apply_source_overlay"] is True
+        save_mock.assert_called_once()
+        assert save_mock.call_args.args[1] == root / "book-background-overlay-fallback.pdf"
+
+
+def _locate_with_bad_positions(total: int, bad: set[int]):
+    from types import SimpleNamespace
+
+    from retainpdf_pipeline.render.output.typst import book_renderer
+
+    specs = [SimpleNamespace(page_index=index) for index in range(total)]
+    stems: list[str] = []
+
+    def fake_subset(*, page_indices, stem, **kwargs):
+        stems.append(stem)
+        if any(index in bad for index in page_indices):
+            raise RuntimeError("mitex failed")
+
+    with mock.patch.object(book_renderer, "_compile_render_page_subset", side_effect=fake_subset):
+        found = book_renderer._locate_bad_render_page_indices(
+            background_pdf_path=Path("/tmp/background.pdf"),
+            page_specs=specs,
+            font_family="Source Han Serif SC",
+            font_paths=None,
+            work_dir=Path("/tmp"),
+        )
+    return found, stems
+
+
+def test_locate_bad_pages_probes_level_order() -> None:
+    found, stems = _locate_with_bad_positions(4, {2})
+
+    assert found == [2]
+    assert len(stems) == 4
+    assert len(set(stems)) == 4
+    assert all("probe" in stem for stem in stems)
+
+
+def test_locate_bad_pages_finds_multiple_without_full_reprobe() -> None:
+    found, stems = _locate_with_bad_positions(4, {1, 3})
+
+    assert found == [1, 3]
+    assert len(stems) == 6
+
+
+def test_locate_bad_pages_empty_and_singleton() -> None:
+    found, stems = _locate_with_bad_positions(0, set())
+    assert found == []
+    assert stems == []
+
+    from types import SimpleNamespace
+
+    from retainpdf_pipeline.render.output.typst import book_renderer
+
+    specs = [SimpleNamespace(page_index=0)]
+    with mock.patch.object(
+        book_renderer, "_compile_render_page_subset", side_effect=RuntimeError("mitex failed")
+    ) as subset_mock:
+        found = book_renderer._locate_bad_render_page_indices(
+            background_pdf_path=Path("/tmp/background.pdf"),
+            page_specs=specs,
+            font_family="Source Han Serif SC",
+            font_paths=None,
+            work_dir=Path("/tmp"),
+        )
+
+    assert found == [0]
+    assert subset_mock.call_count == 1
+
+
+def test_locate_bad_pages_probes_frontier_concurrently() -> None:
+    import threading
+    from types import SimpleNamespace
+
+    from retainpdf_pipeline.render.output.typst import book_renderer
+
+    specs = [SimpleNamespace(page_index=index) for index in range(4)]
+    barrier = threading.Barrier(2, timeout=30)
+
+    def fake_subset(*, page_indices, stem, **kwargs):
+        barrier.wait(timeout=30)
+        if 2 in page_indices:
+            raise RuntimeError("mitex failed")
+
+    with mock.patch.object(book_renderer, "_compile_render_page_subset", side_effect=fake_subset):
+        found = book_renderer._locate_bad_render_page_indices(
+            background_pdf_path=Path("/tmp/background.pdf"),
+            page_specs=specs,
+            font_family="Source Han Serif SC",
+            font_paths=None,
+            work_dir=Path("/tmp"),
+            compile_workers=2,
+        )
+
+    assert found == [2]

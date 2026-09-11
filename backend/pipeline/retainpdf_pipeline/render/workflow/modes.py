@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import os
+from functools import partial
 from pathlib import Path
+from typing import Callable
 
 import fitz
 
@@ -198,3 +200,15 @@ def run_background_typst_render(
     diagnostics["mode"] = mode
     diagnostics["final_image_compressed"] = final_compressed
     return len(translated_pages), diagnostics
+
+
+RenderModeHandler = Callable[
+    ..., tuple[int, dict[str, object]],
+]
+
+RENDER_MODE_HANDLERS: dict[str, RenderModeHandler] = {
+    "dual": run_dual_render,
+    "overlay": run_overlay_render,
+    "typst": partial(run_background_typst_render, visual_only_background=False),
+    "typst_visual": partial(run_background_typst_render, visual_only_background=True),
+}

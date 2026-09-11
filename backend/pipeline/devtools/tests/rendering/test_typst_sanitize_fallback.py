@@ -283,3 +283,56 @@ def test_sanitize_book_overlay_can_limit_to_candidate_pages() -> None:
     assert sanitized_specs[0][3][0]["protected_translated_text"] == "page 1"
     assert sanitized_specs[1][3][0]["protected_translated_text"] == "sanitized book-overlay-001"
     assert sanitized_specs[2][3][0]["protected_translated_text"] == "page 3"
+
+
+def test_cjk_math_command_detector_only_matches_backslash_cjk_in_math() -> None:
+    from retainpdf_pipeline.render.layout.payload.formula_cost import item_has_cjk_math_command
+
+    assert item_has_cjk_math_command(
+        {"item_id": "bad", "protected_translated_text": "闭包上 $ L $ 和 $ H_*\\二十一 $ 不"}
+    ) is True
+    assert item_has_cjk_math_command(
+        {"item_id": "good", "protected_translated_text": "方向为 $(1,0)$，系数 $\\alpha$"}
+    ) is False
+    assert item_has_cjk_math_command(
+        {"item_id": "plain", "protected_translated_text": "中文没有公式"}
+    ) is False
+
+
+def test_prescreen_cjk_math_items_matches_ladder_plain_text_transform() -> None:
+    from retainpdf_pipeline.render.layout.payload.formula_cost import prescreen_cjk_math_items
+
+    bad = {"item_id": "bad", "protected_translated_text": "闭包上 $ L $ 和 $ H_*\\二十一 $ 不"}
+    good = {"item_id": "good", "protected_translated_text": "方向为 $(1,0)$"}
+
+    pages, count = prescreen_cjk_math_items({0: [bad, good]})
+
+    assert count == 1
+    assert pages[0][1] is good
+    assert pages[0][0]["protected_translated_text"] == "闭包上 L 和 H_*\\二十一 不"
+    assert "$" not in pages[0][0]["protected_translated_text"]
+
+
+def test_unicode_math_command_detector_matches_llm_escaped_dash_in_math() -> None:
+    from retainpdf_pipeline.render.layout.payload.formula_cost import item_has_unicode_math_command
+
+    assert item_has_unicode_math_command(
+        {"item_id": "bad", "protected_translated_text": "范围 $20\\unicode{x2013}30\\ \\mathrm{nm}$ 内"}
+    ) is True
+    assert item_has_unicode_math_command(
+        {"item_id": "good", "protected_translated_text": "系数 $\\alpha$ 和 $(1,0)$"}
+    ) is False
+
+
+def test_prescreen_catches_unicode_math_command() -> None:
+    from retainpdf_pipeline.render.layout.payload.formula_cost import prescreen_cjk_math_items
+
+    bad = {"item_id": "bad", "protected_translated_text": "范围 $20\\unicode{x2013}30\\ \\mathrm{nm}$ 内"}
+    good = {"item_id": "good", "protected_translated_text": "系数 $\\alpha$"}
+
+    pages, count = prescreen_cjk_math_items({0: [bad, good]})
+
+    assert count == 1
+    assert pages[0][1] is good
+    assert pages[0][0]["protected_translated_text"] == "范围 20x201330\\nm 内"
+    assert "$" not in pages[0][0]["protected_translated_text"]

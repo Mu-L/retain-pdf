@@ -77,12 +77,13 @@ class ContentStreamState:
         self._text_state_stack.append(self.text_state.copy())
 
     def pop_graphics_state(self, _: object) -> None:
-        self.ctm = self._ctm_stack.pop() if self._ctm_stack else IDENTITY_MATRIX
-        self.text_state = (
-            self._text_state_stack.pop()
-            if self._text_state_stack
-            else TextState(render_mode=TEXT_DEFAULT_RENDER_MODE)
-        )
+        # Unbalanced Q (truncated/malformed stream): ignore it and keep the
+        # accumulated state. Resetting to identity would silently misplace
+        # every later hit-test in this stream.
+        if self._ctm_stack:
+            self.ctm = self._ctm_stack.pop()
+        if self._text_state_stack:
+            self.text_state = self._text_state_stack.pop()
 
     def concat_matrix(self, operands: object) -> None:
         matrix = matrix_from_operands(operands)

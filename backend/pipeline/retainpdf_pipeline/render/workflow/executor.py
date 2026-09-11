@@ -14,9 +14,7 @@ from retainpdf_pipeline.render.workflow.document_analysis import document_analys
 from retainpdf_pipeline.render.workflow.document_analysis import document_analysis_prewarm_hit
 from retainpdf_pipeline.render.workflow.document_analysis import build_sync_workflow_document_analysis
 from retainpdf_pipeline.render.workflow.document_analysis import resolve_cached_workflow_document_analysis
-from retainpdf_pipeline.render.workflow.modes import run_background_typst_render
-from retainpdf_pipeline.render.workflow.modes import run_dual_render
-from retainpdf_pipeline.render.workflow.modes import run_overlay_render
+from retainpdf_pipeline.render.workflow.modes import RENDER_MODE_HANDLERS
 from retainpdf_pipeline.render.workflow.modes import run_selected_pages_overlay_render
 from retainpdf_pipeline.render.workflow.prewarm_cache import build_full_sync_payload_prewarm
 from retainpdf_pipeline.render.workflow.prewarm_cache import build_sync_payload_prewarm
@@ -296,7 +294,6 @@ def execute_render_plan(
             else None
         ),
         no_cache=no_cache,
-        page_routes_by_index=document_analysis.pages if document_analysis is not None else None,
         visual_cover_page_indices=cover_fallback_plan.page_indices,
     )
     render_diagnostics: dict[str, object] = {}
@@ -347,36 +344,19 @@ def _dispatch_render_mode(
     context: RenderExecutionContext,
     extract_selected_pages: bool,
 ) -> tuple[int, dict[str, object]]:
-    if mode == "dual":
-        return run_dual_render(
-            source_pdf_path=source_pdf_path,
-            translated_pages=translated_pages,
-            context=context,
-        )
-
     if extract_selected_pages:
         return run_selected_pages_overlay_render(
             source_pdf_path=source_pdf_path,
             translated_pages=translated_pages,
             context=context,
         )
-
-    if mode == "overlay":
-        return run_overlay_render(
-            source_pdf_path=source_pdf_path,
-            translated_pages=translated_pages,
-            context=context,
-        )
-
-    if mode in {"typst", "typst_visual"}:
-        return run_background_typst_render(
-            source_pdf_path=source_pdf_path,
-            translated_pages=translated_pages,
-            context=context,
-            visual_only_background=mode == "typst_visual",
-        )
-
-    return run_overlay_render(
+    try:
+        handler = RENDER_MODE_HANDLERS[mode]
+    except KeyError:
+        raise ValueError(
+            f"unknown render mode: {mode!r} (expected one of {sorted(RENDER_MODE_HANDLERS)})"
+        ) from None
+    return handler(
         source_pdf_path=source_pdf_path,
         translated_pages=translated_pages,
         context=context,

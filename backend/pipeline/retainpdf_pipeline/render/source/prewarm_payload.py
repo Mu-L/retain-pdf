@@ -111,6 +111,7 @@ def build_payload_prewarm(
                     source_pdf_path=source_pdf_path,
                     translated_pages=translated_pages,
                     skip_formula_pages=False,
+                    skip_form_xobject_pages=False,
                     pdf_structure_profile=pdf_structure_profile,
                 )
             )

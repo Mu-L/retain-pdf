@@ -7,14 +7,15 @@ from retainpdf_pipeline.render.layout.model.models import RenderLayoutBlock
 from retainpdf_pipeline.render.layout.model.models import RenderLineBox
 from retainpdf_pipeline.render.layout.model.models import RenderPageSpec
 from retainpdf_pipeline.render.layout.model.models import RenderTocEntry
+from retainpdf_pipeline.render.layout.payload.formula_cost import prescreen_cjk_math_items
 from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
 from retainpdf_pipeline.render.output.typst.book_support import prepare_translated_pages_for_render
+from retainpdf_pipeline.render.source.prewarm_color_profile import apply_page_color_adapt_for_prewarm
 from retainpdf_pipeline.render.source.prewarm_manifest import color_tuple
 from retainpdf_pipeline.render.source.prewarm_manifest import float_list
-from retainpdf_pipeline.render.source.prewarm_color_profile import apply_page_color_adapt_for_prewarm
 
 
-BACKGROUND_RENDER_PAGE_SPECS_ALGORITHM_VERSION = "background_render_page_specs_v5_inline_math_compat"
+BACKGROUND_RENDER_PAGE_SPECS_ALGORITHM_VERSION = "background_render_page_specs_v6_cjk_math_prescreen"
 
 
 def build_background_render_page_specs_manifest(
@@ -34,15 +35,17 @@ def build_background_render_page_specs_manifest(
             effective_inner_bbox_lookup=effective_inner_bbox_lookup,
         )
         adapted = color_adapted_pages or apply_page_color_adapt_for_prewarm(source_pdf_path, prepared)
+        prescreened_adapted, math_prescreen_items = prescreen_cjk_math_items(adapted)
         page_specs = build_render_page_specs(
             source_pdf_path=source_pdf_path,
-            translated_pages=adapted,
+            translated_pages=prescreened_adapted,
             prepared=True,
         )
         return {
             "algorithm": BACKGROUND_RENDER_PAGE_SPECS_ALGORITHM_VERSION,
             "page_count": len(page_specs),
             "block_count": sum(len(spec.blocks) for spec in page_specs),
+            "math_prescreen_items": math_prescreen_items,
             "block_ids_by_page": {
                 str(spec.page_index): [block.block_id for block in spec.blocks]
                 for spec in page_specs

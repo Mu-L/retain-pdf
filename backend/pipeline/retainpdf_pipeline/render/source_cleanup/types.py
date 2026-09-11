@@ -53,6 +53,8 @@ class BBoxTextStripCandidates:
     skipped_form_xobject_page_indices: frozenset[int] = frozenset()
     strip_no_effect_page_indices: frozenset[int] = frozenset()
     page_features: dict[int, dict[str, object]] = field(default_factory=dict)
+    protected_fingerprint: str = ""
+
 
     def fitz_page_rects(self) -> dict[int, list[fitz.Rect]]:
         return {
@@ -65,6 +67,21 @@ class BBoxTextStripCandidates:
             page_idx: [fitz.Rect(rect) for rect in rects]
             for page_idx, rects in (self.page_protected_rects or {}).items()
         }
+def protected_pages_fingerprint(protected_pages: dict[int, list[dict]] | None) -> str:
+    if not protected_pages:
+        return ""
+    parts: list[tuple[int, tuple[tuple[float, ...], ...]]] = []
+    for page_idx in sorted(protected_pages):
+        boxes: list[tuple[float, ...]] = []
+        for item in protected_pages[page_idx] or []:
+            if not isinstance(item, dict):
+                continue
+            try:
+                boxes.append(tuple(round(float(value), 3) for value in list(item.get("bbox", []))[:4]))
+            except Exception:
+                continue
+        parts.append((page_idx, tuple(sorted(boxes))))
+    return repr(parts)
 
 
 @dataclass(frozen=True)

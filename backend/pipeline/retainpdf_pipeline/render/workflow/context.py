@@ -5,7 +5,6 @@ from pathlib import Path
 
 from retainpdf_pipeline.foundation.config import fonts
 from retainpdf_pipeline.foundation.config import runtime
-from retainpdf_pipeline.render.contracts import RenderPageAnalysis
 from retainpdf_pipeline.render.layout.model.models import RenderPageSpec
 
 
@@ -35,5 +34,4 @@ class RenderExecutionContext:
     pdf_structure_profile_path: Path | None = None
     overlay_source_path: Path | None = None
     no_cache: bool = False
-    page_routes_by_index: dict[int, RenderPageAnalysis] | None = None
     visual_cover_page_indices: frozenset[int] = frozenset()

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import as_completed
 from pathlib import Path
 import shutil
 import time
@@ -24,14 +26,16 @@ from retainpdf_pipeline.render.output.typst.book_support import prepare_single_p
 from retainpdf_pipeline.render.output.typst.book_support import prepare_translated_pages_for_render
 from retainpdf_pipeline.render.output.typst.book_support import resolve_typst_temp_root
 from retainpdf_pipeline.render.output.typst.book_support import save_background_pdf_to_output
-from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
+from retainpdf_pipeline.render.layout.payload.formula_cost import prescreen_cjk_math_items
 from retainpdf_pipeline.render.layout.model.models import RenderLayoutBlock
 from retainpdf_pipeline.render.layout.model.models import RenderPageSpec
+from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
 from retainpdf_pipeline.render.output.typst.compiler import compile_typst_render_pages_pdf
 from retainpdf_pipeline.render.output.typst.color_adapt import apply_adaptive_overlay_colors
+from retainpdf_pipeline.render.output.typst.overlay_book import overlay_pages_via_page_fallback
 from retainpdf_pipeline.render.output.typst.overlay_ops import overlay_translated_items_on_page
-from retainpdf_pipeline.render.output.typst.overlay_ops import overlay_translated_pages_on_doc
 from retainpdf_pipeline.render.output.typst.sanitize import sanitize_page_specs_for_typst_book_background
+from retainpdf_pipeline.render.output.typst.shared import default_compile_workers
 from retainpdf_pipeline.render.visual_profile import merge_visual_profile_colors
 from retainpdf_pipeline.render.visual_profile import load_visual_profile_runtime
 from retainpdf_pipeline.render.visual_profile import VisualProfileRuntime
@@ -225,6 +229,15 @@ def _compile_render_page_subset(
     )
 
 
+_PROBE_MAX_WORKERS = 8
+
+
+def _probe_worker_count(total: int, compile_workers: int | None) -> int:
+    if compile_workers and compile_workers > 0:
+        return max(1, min(compile_workers, _PROBE_MAX_WORKERS, total))
+    return max(1, min(_PROBE_MAX_WORKERS, default_compile_workers(total)))
+
+
 def _locate_bad_render_page_indices(
     *,
     background_pdf_path: Path,
@@ -232,35 +245,50 @@ def _locate_bad_render_page_indices(
     font_family: str,
     font_paths: list[Path] | None,
     work_dir: Path,
+    compile_workers: int | None = None,
 ) -> list[int]:
-    bad_indices: list[int] = []
-    probe_counter = 0
+    total = len(page_specs)
+    if total == 0:
+        return []
 
-    def probe(indices: list[int]) -> None:
-        nonlocal probe_counter
-        if not indices:
-            return
-        probe_counter += 1
+    def probe_range(bounds: tuple[int, int]) -> tuple[int, int]:
+        lo, hi = bounds
+        _compile_render_page_subset(
+            background_pdf_path=background_pdf_path,
+            page_specs=page_specs,
+            page_indices=list(range(lo, hi)),
+            stem=f"book-background-overlay-probe-{lo:04d}-{hi:04d}",
+            font_family=font_family,
+            font_paths=font_paths,
+            work_dir=work_dir,
+        )
+        return bounds
+
+    if total == 1:
         try:
-            _compile_render_page_subset(
-                background_pdf_path=background_pdf_path,
-                page_specs=page_specs,
-                page_indices=indices,
-                stem=f"book-background-overlay-probe-{probe_counter:04d}",
-                font_family=font_family,
-                font_paths=font_paths,
-                work_dir=work_dir,
-            )
-            return
+            probe_range((0, 1))
+            return []
         except RuntimeError:
-            if len(indices) == 1:
-                bad_indices.append(indices[0])
-                return
-            midpoint = len(indices) // 2
-            probe(indices[:midpoint])
-            probe(indices[midpoint:])
-
-    probe(list(range(len(page_specs))))
+            return [0]
+    # The caller only locates after the full-book compile failed, so the
+    # root re-probe is skipped and the frontier starts at both halves.
+    frontier = [(0, total // 2), (total // 2, total)]
+    bad_indices: list[int] = []
+    workers = _probe_worker_count(total, compile_workers)
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="typst-probe") as executor:
+        while frontier:
+            futures = {executor.submit(probe_range, bounds): bounds for bounds in frontier}
+            frontier = []
+            for future in as_completed(futures):
+                lo, hi = futures[future]
+                try:
+                    future.result()
+                except RuntimeError:
+                    if hi - lo <= 1:
+                        bad_indices.append(lo)
+                    else:
+                        mid = (lo + hi) // 2
+                        frontier.extend([(lo, mid), (mid, hi)])
     return sorted(set(bad_indices))
 
 
@@ -287,6 +315,9 @@ def _compile_render_pages_pdf_resilient(
     precomputed_colors_by_item_id: dict[str, dict[str, tuple[float, float, float]]] | None = None,
     visual_profile_path: Path | None = None,
     request_chat_content_fn: TypstRepairRequestFn | None = None,
+    redaction_strategy: str | None = None,
+    temp_root: Path | None = None,
+    compile_workers: int | None = None,
 ) -> tuple[Path, dict[str, object]]:
     diagnostics: dict[str, object] = {
         "background_compile_retried": False,
@@ -338,6 +369,7 @@ def _compile_render_pages_pdf_resilient(
             font_family=font_family,
             font_paths=font_paths,
             work_dir=work_dir,
+            compile_workers=compile_workers,
         )
         diagnostics["background_bad_page_indices"] = list(failed_page_indices)
         diagnostics["background_bad_page_count"] = len(failed_page_indices)
@@ -394,14 +426,69 @@ def _compile_render_pages_pdf_resilient(
             on_page_spec_built=_emit_page_spec_progress,
         )
         sanitized_compile_started = time.perf_counter()
-        compiled_path = compile_typst_render_pages_pdf(
-            background_pdf_path=background_pdf_path,
-            page_specs=sanitized_render_page_specs,
-            stem="book-background-overlay-sanitized",
-            font_family=font_family,
-            font_paths=font_paths,
-            work_dir=work_dir,
-        )
+        try:
+            compiled_path = compile_typst_render_pages_pdf(
+                background_pdf_path=background_pdf_path,
+                page_specs=sanitized_render_page_specs,
+                stem="book-background-overlay-sanitized",
+                font_family=font_family,
+                font_paths=font_paths,
+                work_dir=work_dir,
+            )
+        except RuntimeError as recompile_exc:
+            diagnostics["background_sanitized_compile_elapsed_seconds"] = (
+                time.perf_counter() - sanitized_compile_started
+            )
+            print("typst background sanitized recompile failed; falling back to per-page overlay", flush=True)
+            print(str(recompile_exc), flush=True)
+            fallback_pdf_path = work_dir / "book-background-overlay-fallback.pdf"
+            fallback_doc = _build_overlay_base_doc(source_pdf_path)
+            try:
+                ordered_fallback_pages = sorted(
+                    spec.page_index
+                    for spec in sanitized_render_page_specs
+                    if 0 <= spec.page_index < len(fallback_doc)
+                )
+                fallback_page_specs = [
+                    (
+                        spec.page_index,
+                        spec.page_width_pt,
+                        spec.page_height_pt,
+                        sanitized_pages[spec.page_index],
+                        f"book-background-overlay-fallback-{position:03d}",
+                    )
+                    for position, spec in enumerate(sanitized_render_page_specs)
+                    if spec.page_index in ordered_fallback_pages
+                ]
+                overlay_pages_via_page_fallback(
+                    fallback_doc,
+                    ordered_fallback_pages,
+                    fallback_page_specs,
+                    sanitized_pages,
+                    api_key=api_key,
+                    model=model,
+                    base_url=base_url,
+                    font_family=font_family,
+                    font_paths=font_paths,
+                    temp_root=temp_root,
+                    compile_workers=compile_workers,
+                    cover_only=False,
+                    apply_source_overlay=True,
+                    redaction_strategy=redaction_strategy,
+                    visual_profile_path=visual_profile_path,
+                    request_chat_content_fn=request_chat_content_fn,
+                )
+                save_optimized_pdf(fallback_doc, fallback_pdf_path)
+            finally:
+                fallback_doc.close()
+            diagnostics["background_fallback_overlay"] = True
+            emit_render_compile_progress(
+                current=5,
+                total=5,
+                message=f"修复后重编仍失败，已逐页降级，共 {len(ordered_fallback_pages)} 页",
+                payload={"render_stage": "background_typst_fallback_overlay_done"},
+            )
+            return fallback_pdf_path, diagnostics
         diagnostics["background_sanitized_compile_elapsed_seconds"] = (
             time.perf_counter() - sanitized_compile_started
         )
@@ -634,7 +721,6 @@ def build_book_typst_background_pdf(
     fast_save: bool = False,
     request_chat_content_fn: TypstRepairRequestFn | None = None,
 ) -> dict[str, object]:
-    del compile_workers
     diagnostics: dict[str, object] = {"mode": "typst"}
     total_started = time.perf_counter()
     work_dir = prepare_background_work_dir(output_pdf_path, temp_root)
@@ -645,6 +731,8 @@ def build_book_typst_background_pdf(
         diagnostics["background_color_adapt_elapsed_seconds"] = 0.0
         diagnostics["background_page_specs_elapsed_seconds"] = 0.0
         diagnostics["background_page_specs_prewarm_hit"] = True
+        translated_pages, math_prescreen_items = prescreen_cjk_math_items(translated_pages)
+        diagnostics["background_math_prescreen_items"] = math_prescreen_items
     else:
         prepare_started = time.perf_counter()
         translated_pages = prepare_translated_pages_for_render(
@@ -662,6 +750,8 @@ def build_book_typst_background_pdf(
             visual_profile_path=visual_profile_path,
         )
         diagnostics["background_color_adapt_elapsed_seconds"] = time.perf_counter() - color_started
+        translated_pages, math_prescreen_items = prescreen_cjk_math_items(translated_pages)
+        diagnostics["background_math_prescreen_items"] = math_prescreen_items
         specs_started = time.perf_counter()
         page_specs = build_render_page_specs(
             source_pdf_path=source_pdf_path,
@@ -723,6 +813,9 @@ def build_book_typst_background_pdf(
         precomputed_colors_by_item_id=precomputed_colors_by_item_id,
         visual_profile_path=visual_profile_path,
         request_chat_content_fn=request_chat_content_fn,
+        redaction_strategy=redaction_strategy,
+        temp_root=temp_root,
+        compile_workers=compile_workers,
     )
     diagnostics.update(compile_diagnostics)
     save_started = time.perf_counter()

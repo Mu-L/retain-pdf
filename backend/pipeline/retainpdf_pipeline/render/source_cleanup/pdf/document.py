@@ -4,6 +4,7 @@ from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import as_completed
 from dataclasses import dataclass
 import os
+import tempfile
 from pathlib import Path
 import time
 
@@ -184,13 +185,16 @@ def _save_pdf_atomic(pdf: pikepdf.Pdf, output_pdf_path: Path) -> None:
     - parent must exist (mkdir already done by caller)
     - qpdf/pikepdf write-temp next to destination fails with opaque FileNotFoundError
     """
-    output_pdf_path = Path(output_pdf_path)
     output_pdf_path.parent.mkdir(parents=True, exist_ok=True)
-    # Short temp name in the same directory (avoid compounding long titles).
-    tmp_path = output_pdf_path.parent / f".{os.getpid()}-{output_pdf_path.stem[:12]}.tmp.pdf"
-    # If even that is long, fall back to a fixed short name.
-    if len(str(tmp_path)) > 240 and os.name == "nt":
-        tmp_path = output_pdf_path.parent / f".rpsave-{os.getpid()}.tmp.pdf"
+    # mkstemp guarantees uniqueness across concurrent processes sharing the
+    # output directory (a bare pid suffix can collide on pid reuse).
+    tmp_fd, tmp_name = tempfile.mkstemp(
+        dir=str(output_pdf_path.parent),
+        prefix=f".{output_pdf_path.stem[:12]}-",
+        suffix=".tmp.pdf",
+    )
+    os.close(tmp_fd)
+    tmp_path = Path(tmp_name)
     try:
         pdf.save(
             tmp_path,
@@ -343,13 +347,18 @@ def _strip_pages(
                 chunk_timings.append((page_count, weight, elapsed))
                 for page_idx, content_stream, removed, forms_changed in worker_results:
                     results_by_page[page_idx] = (page_idx, content_stream, removed, forms_changed)
+    deadline_skipped_pages: list[int] = []
     if form_page_rects:
         if skip_form_xobject_pages:
             skipped_form_pages.update(form_page_rects)
         else:
             for page_idx, rects in form_page_rects.items():
                 if deadline is not None and time.perf_counter() >= deadline:
+                    # Kept in the form-skip bucket so cover-fallback still covers
+                    # the page; logged separately because the cause is budget,
+                    # not form content.
                     skipped_form_pages.add(page_idx)
+                    deadline_skipped_pages.append(page_idx)
                     continue
                 results_by_page[page_idx] = _strip_page_in_open_pdf(
                     pdf=pdf,
@@ -361,6 +370,11 @@ def _strip_pages(
     for page_idx in set(page_rects) - set(results_by_page):
         results_by_page[page_idx] = (page_idx, None, 0, 0)
     results = [results_by_page[page_idx] for page_idx in page_rects]
+    if deadline_skipped_pages:
+        print(
+            f"bbox text strip: deadline skipped pages={sorted(deadline_skipped_pages)}",
+            flush=True,
+        )
     return results, time.perf_counter() - started, frozenset(skipped_form_pages), chunk_timings
 
 
@@ -430,15 +444,16 @@ def _strip_page_chunk_worker(
 
 
 def _parallel_worker_count(page_count: int) -> int:
+    cpu_count = os.cpu_count() or 1
+    page_limited_workers = max(1, (page_count + BBOX_TEXT_STRIP_PAGES_PER_WORKER - 1) // BBOX_TEXT_STRIP_PAGES_PER_WORKER)
+    ceiling = max(1, min(BBOX_TEXT_STRIP_PARALLEL_MAX_WORKERS, cpu_count, page_count, page_limited_workers))
     raw = str(os.environ.get("RETAIN_BBOX_TEXT_STRIP_WORKERS", "") or "").strip()
     if raw:
         try:
-            return max(1, int(raw))
+            return max(1, min(int(raw), ceiling))
         except ValueError:
             pass
-    cpu_count = os.cpu_count() or 1
-    page_limited_workers = max(1, (page_count + BBOX_TEXT_STRIP_PAGES_PER_WORKER - 1) // BBOX_TEXT_STRIP_PAGES_PER_WORKER)
-    return max(1, min(BBOX_TEXT_STRIP_PARALLEL_MAX_WORKERS, cpu_count, page_count, page_limited_workers))
+    return ceiling
 
 
 def _rect_tuples(rects: list[fitz.Rect]) -> tuple[tuple[float, float, float, float], ...]:

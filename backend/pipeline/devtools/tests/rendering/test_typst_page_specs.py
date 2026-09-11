@@ -173,3 +173,38 @@ def test_build_render_page_specs_reports_progress_only_via_callback() -> None:
         assert [spec.page_index for spec in page_specs] == [0, 1]
         assert progress == [(1, 2, 0), (2, 2, 1)]
 
+
+
+def test_page_specs_parallel_matches_sequential() -> None:
+    from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs_from_page_sizes
+
+    translated_pages = {
+        page_idx: [
+            {
+                "item_id": f"p{page_idx + 1:03d}-b001",
+                "page_idx": page_idx,
+                "block_type": "text",
+                "bbox": [10.0, 20.0, 180.0, 80.0],
+                "lines": [{"text": "raw"}],
+                "source_text": "raw text",
+                "protected_source_text": "raw text",
+                "protected_translated_text": f"译文 {page_idx}",
+            }
+        ]
+        for page_idx in range(32)
+    }
+    page_size_lookup = {page_idx: (200.0, 300.0) for page_idx in range(32)}
+
+    sequential = build_render_page_specs_from_page_sizes(
+        translated_pages=translated_pages,
+        page_size_lookup=page_size_lookup,
+        max_workers=1,
+    )
+    parallel = build_render_page_specs_from_page_sizes(
+        translated_pages=translated_pages,
+        page_size_lookup=page_size_lookup,
+        max_workers=2,
+    )
+
+    assert parallel == sequential
+    assert [spec.page_index for spec in parallel] == list(range(32))
