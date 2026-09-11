@@ -9,16 +9,19 @@ export type StoredReaderSplitLayout = {
   right: StoredReaderPaneContent;
 };
 
+export type StoredReaderMode = "source" | "compare" | "translated";
+
 export type ReaderViewState = {
   schema: "retainpdf_reader_view_v1";
   anchor?: PageScrollProgress;
   zoom?: number;
+  mode?: StoredReaderMode;
   splitLayout?: StoredReaderSplitLayout | null;
   assistantPanel?: "markdown" | "ai" | null;
   updatedAt: number;
 };
 
-type ReaderViewStatePatch = Partial<Pick<ReaderViewState, "anchor" | "zoom" | "splitLayout" | "assistantPanel">>;
+type ReaderViewStatePatch = Partial<Pick<ReaderViewState, "anchor" | "zoom" | "mode" | "splitLayout" | "assistantPanel">>;
 
 type StorageLike = Pick<Storage, "getItem" | "setItem">;
 
@@ -28,6 +31,11 @@ const VALID_PANE_CONTENT = new Set<StoredReaderPaneContent>([
   "translated",
   "markdown",
   "ai",
+]);
+const VALID_READER_MODE = new Set<StoredReaderMode>([
+  "source",
+  "compare",
+  "translated",
 ]);
 
 function defaultStorage(): StorageLike | null {
@@ -87,18 +95,26 @@ function normalizeAssistantPanel(value: unknown): "markdown" | "ai" | null | und
   return value === "markdown" || value === "ai" ? value : undefined;
 }
 
+function normalizeReaderMode(value: unknown): StoredReaderMode | undefined {
+  return VALID_READER_MODE.has(value as StoredReaderMode)
+    ? (value as StoredReaderMode)
+    : undefined;
+}
+
 export function normalizeReaderViewState(value: unknown): ReaderViewState | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as Partial<ReaderViewState>;
   if (raw.schema !== "retainpdf_reader_view_v1") return null;
   const anchor = normalizeAnchor(raw.anchor);
   const zoom = Number(raw.zoom);
+  const mode = normalizeReaderMode(raw.mode);
   const splitLayout = normalizeSplitLayout(raw.splitLayout);
   const assistantPanel = normalizeAssistantPanel(raw.assistantPanel);
   return {
     schema: "retainpdf_reader_view_v1",
     ...(anchor ? { anchor } : {}),
     ...(Number.isFinite(zoom) ? { zoom: Math.max(0.25, Math.min(1, zoom)) } : {}),
+    ...(mode !== undefined ? { mode } : {}),
     ...(splitLayout !== undefined ? { splitLayout } : {}),
     ...(assistantPanel !== undefined ? { assistantPanel } : {}),
     updatedAt: Number.isFinite(Number(raw.updatedAt)) ? Number(raw.updatedAt) : 0,

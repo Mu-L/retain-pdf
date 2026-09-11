@@ -80,7 +80,6 @@ export type ReaderReactController = {
     bindShell: (node: HTMLDivElement | null) => void;
     shellEl: HTMLElement | null;
     shellWidth: number;
-    compareColWidth: number;
     shellRef: RefObject<HTMLDivElement | null>;
   };
   panes: ReaderPaneModel;
@@ -160,7 +159,7 @@ export function useReaderReactController(): ReaderReactController {
     enabled: liveTranslationTracked,
   });
   const tools = useReaderTools();
-  const { shellRef, shellEl, shellWidth, compareColWidth, bindShell } = useReaderShell();
+  const { shellRef, shellEl, shellWidth, bindShell } = useReaderShell();
   const viewStateKey = readerViewStateScope({
     documentId: session.documentId,
     jobId: session.jobId,
@@ -344,7 +343,7 @@ export function useReaderReactController(): ReaderReactController {
   // tools 对象引用稳定到 active 变化时
   const toolsApi = useMemo(() => tools, [tools.active, tools.open, tools.close, tools.toggle, tools.isOpen]);
 
-  const shellMemo = useMemo(() => ({ bindShell, shellEl, shellWidth, compareColWidth, shellRef }), [bindShell, shellEl, shellWidth, compareColWidth, shellRef]);
+  const shellMemo = useMemo(() => ({ bindShell, shellEl, shellWidth, shellRef }), [bindShell, shellEl, shellWidth, shellRef]);
   const sessionFilesMemo = useMemo(() => ({
     sourceUrl: session.sourceUrl,
     translatedUrl: session.translatedUrl,

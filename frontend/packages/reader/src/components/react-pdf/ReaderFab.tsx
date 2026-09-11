@@ -18,6 +18,7 @@ import {
   FileText,
   Languages,
   Sparkles,
+  StickyNote,
   X,
 } from "lucide-react";
 import type { ReaderDownloadContext } from "../../hooks/use-reader-session.js";
@@ -33,10 +34,14 @@ import {
   trimReaderDownloadString,
 } from "../../external.js";
 
-const TOOL_ICONS: Record<ReaderToolId, typeof Bookmark> = {
+/** FAB 菜单里的工具 id：除注册表工具外，批注由 FAB 直接开合本地面板。 */
+export type ReaderFabToolId = ReaderToolId | "notes";
+
+const TOOL_ICONS: Record<ReaderFabToolId, typeof Bookmark> = {
   favorites: Bookmark,
   markdown: FileCode2,
   ai: Sparkles,
+  notes: StickyNote,
 };
 
 const STORAGE_KEY = "retainpdf.reader.fab.pos.v1";
@@ -65,9 +70,11 @@ type FabPos = { x: number; y: number };
 
 export type ReaderFabProps = {
   /** 当前打开的工具 id；null 表示都关 */
-  activeTool: ReaderToolId | null;
+  activeTool: ReaderFabToolId | null;
+  /** 本批注数量，用于工具项 badge */
+  noteCount: number;
   sourceOnly: boolean;
-  onToggleTool: (id: ReaderToolId) => void;
+  onToggleTool: (id: ReaderFabToolId) => void;
   download: ReaderDownloadContext;
 };
 
@@ -132,6 +139,7 @@ function resolveDownloadUrls(ctx: ReaderDownloadContext) {
 
 export function ReaderFab({
   activeTool,
+  noteCount,
   sourceOnly,
   onToggleTool,
   download,
@@ -181,7 +189,7 @@ export function ReaderFab({
     };
   }, [open]);
 
-  const handleTool = useCallback((id: ReaderToolId) => {
+  const handleTool = useCallback((id: ReaderFabToolId) => {
     onToggleTool(id);
     setOpen(false);
   }, [onToggleTool]);
@@ -304,6 +312,33 @@ export function ReaderFab({
             </button>
           </header>
 
+          {(() => {
+            const notesActive = activeTool === "notes";
+            return (
+              <button
+                type="button"
+                role="menuitem"
+                className={`reader-fab-row${notesActive ? " is-active" : ""}`}
+                aria-pressed={notesActive}
+                onClick={() => handleTool("notes")}
+                style={{ ["--fab-i" as string]: 0 }}
+              >
+                <span className="reader-fab-row-icon" aria-hidden="true">
+                  <StickyNote size={18} strokeWidth={2} />
+                </span>
+                <span className="reader-fab-row-copy">
+                  <span className="reader-fab-row-title">批注</span>
+                  <span className="reader-fab-row-sub">
+                    {notesActive ? "关闭悬浮窗" : "本地批注 · 导出"}
+                  </span>
+                </span>
+                {noteCount > 0 ? (
+                  <span className="reader-fab-row-badge">{noteCount}</span>
+                ) : null}
+              </button>
+            );
+          })()}
+
           {AUXILIARY_TOOLS.map((tool, index) => {
             const Icon = TOOL_ICONS[tool.id];
             const isActive = activeTool === tool.id;
@@ -321,7 +356,7 @@ export function ReaderFab({
                 aria-pressed={isActive}
                 disabled={disabled}
                 onClick={() => handleTool(tool.id)}
-                style={{ ["--fab-i" as string]: index }}
+                style={{ ["--fab-i" as string]: index + 1 }}
               >
                 <span className="reader-fab-row-icon" aria-hidden="true">
                   <Icon size={18} strokeWidth={2} />

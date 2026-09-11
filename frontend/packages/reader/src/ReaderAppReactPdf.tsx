@@ -1,6 +1,5 @@
 // 从 frontend/web 迁入的 React-pdf 视图真值，现为 @retainpdf/reader 主入口
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { StickyNote } from "lucide-react";
 import { useReaderReactController } from "./hooks/use-reader-react-controller.js";
 import {
   ReaderAiSplitResizeHandle,
@@ -15,6 +14,7 @@ import {
   ReaderNotesPanel,
 } from "./components/react-pdf/index.js";
 import type { ReaderAssistantPanel, ReaderWorkspaceMode } from "./components/react-pdf/index.js";
+import type { ReaderFabToolId } from "./components/react-pdf/ReaderFab.js";
 import { useReaderAnnotations } from "./hooks/use-reader-annotations.js";
 import type { ReaderNote } from "./annotations/types.js";
 import { DownloadToastHost } from "./shared/react/DownloadToastHost.jsx";
@@ -89,10 +89,12 @@ export function ReaderAppReactPdf() {
   const [aiSelectionContext, setAiSelectionContext] = useState<ReaderSelection | null>(null);
   const [liveTranslationVisible, setLiveTranslationVisible] = useState(true);
   const layoutScopeRef = useRef(c.viewStateKey);
+  const modeScopeRef = useRef<string | null>(null);
 
   // 本地批注：选中文字后生成注记，面板内按页分组 / 编辑 / 删除 / 导出。
   const [notesOpen, setNotesOpen] = useState(false);
   const openNotes = useCallback(() => setNotesOpen(true), []);
+  const toggleNotes = useCallback(() => setNotesOpen((value) => !value), []);
   const annotations = useReaderAnnotations(
     { jobId: session.jobId, documentId: session.documentId },
     { onAfterAdd: openNotes },
@@ -126,6 +128,21 @@ export function ReaderAppReactPdf() {
     }
     saveReaderViewState(c.viewStateKey, { assistantPanel, splitLayout: null });
   }, [assistantPanel, boot.loading, c.mode, c.viewStateKey]);
+
+  // 阅读模式恢复/持久化：与 anchor/zoom 对齐。sourceViewOnly 时只允许 source。
+  useEffect(() => {
+    if (boot.loading || boot.failed) return;
+    if (modeScopeRef.current !== c.viewStateKey) {
+      modeScopeRef.current = c.viewStateKey;
+      const saved = loadReaderViewState(c.viewStateKey);
+      const target = sourceViewOnly ? "source" : saved?.mode;
+      if (target && target !== c.mode) {
+        c.setModeKeepingPage(target);
+      }
+      return;
+    }
+    saveReaderViewState(c.viewStateKey, { mode: c.mode });
+  }, [boot.failed, boot.loading, c.mode, c.setModeKeepingPage, c.viewStateKey, sourceViewOnly]);
   const workspaceView = assistantPanel || (c.mode === "compare" ? "compare" : "reading");
   const assistantOpen = assistantPanel !== null;
   // 三个 lazy 面板各自的挂载 latch，见 useMountedSinceFirstOpen。
@@ -141,6 +158,14 @@ export function ReaderAppReactPdf() {
   );
   const visiblePdfMode = liveTranslationPair ? "compare" : pdfMode;
   const closeTool = useCallback(() => { tools.close(); }, [tools]);
+  // 批注作为 FAB 工具项：notesOpen 独立于 tools 的 active，保留与辅助面板并存的能力。
+  const handleFabTool = useCallback((id: ReaderFabToolId) => {
+    if (id === "notes") {
+      toggleNotes();
+      return;
+    }
+    tools.toggle(id);
+  }, [toggleNotes, tools]);
   const closeAssistant = useCallback(() => {
     setAssistantPanel(null);
     setAssistantPdfPane(null);
@@ -208,28 +233,8 @@ export function ReaderAppReactPdf() {
       />
       <ReaderAssistantDock active={assistantPanel} onSelect={selectAssistant} onClose={closeAssistant} />
       {assistantOpen ? <ReaderAiSplitResizeHandle /> : null}
-      {c.showHud ? <ReaderFab activeTool={tools.active} sourceOnly={c.sourceOnly} onToggleTool={tools.toggle} download={c.download} /> : null}
-      {c.showHud ? (
-        <div
-          className="reader-assistant-rail"
-          style={{ left: 12, right: "auto" }}
-          role="group"
-          aria-label="批注"
-        >
-          <button
-            type="button"
-            className={`reader-assistant-rail-button${notesOpen ? " is-active" : ""}`}
-            aria-pressed={notesOpen}
-            aria-label="打开批注"
-            title="批注"
-            onClick={() => setNotesOpen((value) => !value)}
-          >
-            <StickyNote size={16} strokeWidth={2.2} aria-hidden />
-            <span>批注{annotations.count > 0 ? ` ${annotations.count}` : ""}</span>
-          </button>
-        </div>
-      ) : null}
-      <ReaderCompareGrid mode={visiblePdfMode} bindShell={shell.bindShell} shellEl={shell.shellEl} userZoom={c.userZoom} compareMode={visiblePdfMode === "compare"} shellWidth={shell.shellWidth} compareColWidth={shell.compareColWidth} rowHeights={c.rowHeights} mountSource={panes.mountSource} mountTranslated={panes.mountTranslated} showSource={liveTranslationPair || visiblePdfMode !== "translated"} showTranslated={liveTranslationPair || visiblePdfMode === "translated" || visiblePdfMode === "compare"} sourceOnly={sourceViewOnly} sourceUrl={sessionFiles.sourceUrl} translatedUrl={sessionFiles.translatedUrl} sourceFile={sessionFiles.sourceFile} translatedFile={sessionFiles.translatedFile} activeRegion={c.activeRegion} regions={session.regions} readerMetadata={session.readerMetadata} onSelectRegion={c.selectRegion} markdownSplit={assistantPanel === "markdown"} assistantSplit={assistantOpen} onMetrics={panes.onMetrics} onNumPagesChange={panes.onNumPages} liveTranslation={liveTranslationVisible ? c.liveTranslation : undefined} liveTranslationPair={liveTranslationPair} />
+      {c.showHud ? <ReaderFab activeTool={notesOpen ? "notes" : tools.active} noteCount={annotations.count} sourceOnly={c.sourceOnly} onToggleTool={handleFabTool} download={c.download} /> : null}
+      <ReaderCompareGrid mode={visiblePdfMode} bindShell={shell.bindShell} shellEl={shell.shellEl} userZoom={c.userZoom} compareMode={visiblePdfMode === "compare"} shellWidth={shell.shellWidth} rowHeights={c.rowHeights} mountSource={panes.mountSource} mountTranslated={panes.mountTranslated} showSource={liveTranslationPair || visiblePdfMode !== "translated"} showTranslated={liveTranslationPair || visiblePdfMode === "translated" || visiblePdfMode === "compare"} sourceOnly={sourceViewOnly} sourceUrl={sessionFiles.sourceUrl} translatedUrl={sessionFiles.translatedUrl} sourceFile={sessionFiles.sourceFile} translatedFile={sessionFiles.translatedFile} activeRegion={c.activeRegion} regions={session.regions} readerMetadata={session.readerMetadata} onSelectRegion={c.selectRegion} markdownSplit={assistantPanel === "markdown"} assistantSplit={assistantOpen} onMetrics={panes.onMetrics} onNumPagesChange={panes.onNumPages} liveTranslation={liveTranslationVisible ? c.liveTranslation : undefined} liveTranslationPair={liveTranslationPair} />
       {c.showHud ? (
         <ReaderZoomHud
           userZoom={c.userZoom}
