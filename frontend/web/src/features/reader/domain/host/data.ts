@@ -9,7 +9,6 @@ import {
   fetchReaderMetadata as fetchApiReaderMetadata,
   fetchReaderRegions as fetchApiReaderRegions,
 } from "@retainpdf/api/reader";
-import { fetchTranslationItem as fetchApiTranslationItem } from "@retainpdf/api/translation-debug";
 import {
   findReadyManifestArtifact,
   resolveJobActions,
@@ -30,7 +29,6 @@ import {
   getMockJobMarkdown,
 } from "@/platform/mock/index.js";
 import { getMockReaderRegions } from "@/platform/mock/documents.js";
-import { getMockTranslationItem } from "@/platform/mock/translation.js";
 import { API_PREFIX } from "@/platform/config/api-constants.js";
 import { isMockMode } from "@/platform/config/runtime.js";
 import { resolvePdfjsVendorUrl } from "@/platform/runtime/vendor-url.js";
@@ -148,14 +146,6 @@ async function fetchReaderMetadata(jobId: string, apiPrefix?: string): Promise<a
   return fetchApiReaderMetadata(jobId, apiPrefix);
 }
 
-async function fetchTranslationItem(jobId: string, itemId: string, apiPrefix?: string): Promise<any> {
-  if (isMockMode()) {
-    void apiPrefix;
-    return getMockTranslationItem(jobId, itemId);
-  }
-  return fetchApiTranslationItem(jobId, itemId, apiPrefix);
-}
-
 export async function fetchProtected(url: string, options: RequestInit = {}): Promise<Response> {
   if (isMockMode() && `${url || ""}`.startsWith("mock://")) {
     return fetchMockProtected(url);
@@ -193,7 +183,6 @@ export const createReaderDataPort = (options: ReaderDataPortOptions = {}) =>
     fetchMarkdownRange: fetchJobMarkdownRange,
     loadRegions: fetchReaderRegions,
     loadMetadata: fetchReaderMetadata,
-    loadTranslationItem: fetchTranslationItem,
     fetchProtectedResource: fetchProtected,
     ...options,
   });

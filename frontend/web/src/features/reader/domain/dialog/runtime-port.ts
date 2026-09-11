@@ -81,5 +81,3 @@ export function createReaderDialogRuntimePort({
     translatedPdfDownloadName: (state, fallback = "") => resolveTranslatedName(artifactNameState(state), fallback),
   });
 }
-
-export const defaultReaderDialogRuntimePort = createReaderDialogRuntimePort();

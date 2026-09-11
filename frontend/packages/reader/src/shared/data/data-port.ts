@@ -45,9 +45,6 @@ function defaultLoadRegions(): Promise<unknown> {
 function defaultLoadMetadata(): Promise<unknown> {
   return Promise.resolve(null);
 }
-function defaultLoadTranslationItem(): Promise<unknown> {
-  return Promise.resolve(null);
-}
 function defaultFetchProtected(input: any, init?: RequestInit): Promise<Response> {
   if (typeof globalThis.fetch === "function") {
     return (globalThis.fetch as any)(input, init);
@@ -83,7 +80,6 @@ export function createReaderDataPort({
   fetchMarkdownRange = null,
   loadRegions = defaultLoadRegions,
   loadMetadata = defaultLoadMetadata,
-  loadTranslationItem = defaultLoadTranslationItem,
   fetchProtectedResource = defaultFetchProtected,
 }: {
   apiPrefix?: string;
@@ -95,7 +91,6 @@ export function createReaderDataPort({
   fetchMarkdownRange?: ((rawUrl: string, start: number, endInclusive: number, etag?: string, signal?: AbortSignal) => Promise<MarkdownRangeResult>) | null;
   loadRegions?: (jobId: string, apiPrefix: string) => Promise<unknown>;
   loadMetadata?: (jobId: string, apiPrefix: string) => Promise<unknown>;
-  loadTranslationItem?: (jobId: string, itemId: string, apiPrefix: string) => Promise<unknown>;
   fetchProtectedResource?: typeof fetch;
 } = {}) {
   // 同一 jobId 的短期 in-flight / 结果复用。status 轮询、loader 编排与

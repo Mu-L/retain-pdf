@@ -1,10 +1,16 @@
-// @retainpdf/reader — 自包含 external（不再代理 frontend/web）
-// 保留与 frontend/web/src/pages/reader/external.ts 同样的导出面，但实现改为 adapters 注入 + 轻量 fallback
-// 未注入时返回空/默认，保证 standalone 可 tsc/build，深功能需宿主 setReaderAdapters
+// @retainpdf/reader — 包内运行时访问层（runtime access layer）。
+//
+// 与 frontend/web/src/app/reader/external.ts 同名但方向相反、职责不同：
+//   - 本文件（包内）：包内代码「读取」宿主注入能力的访问层，实现是
+//     adapters 注入 + 轻量 fallback，未注入时返回空/默认，保证 standalone
+//     可 tsc/build；深功能需宿主先 setReaderAdapters。
+//   - web app/reader/external.ts（宿主）：RetainPDF Web「提供」给包的能力出口。
+// 二者不是互相转发关系，改动任一侧前先确认方向，避免误把宿主导出搬进包内。
 //
 // 职责边界：adapters.ts 是宿主能力的「注入注册表」，本文件是包内读取这些
 // 能力的「运行时访问层」。历史上独立的 config-port.ts 已删除，其宿主配置
 // 能力统一由 adapters + runtime/config 承载，不要再新增平行入口。
+// 未注入的 port 尽量给出空/默认实现；缺失关键能力时才 requireAdapter 抛错。
 // 极少数 `as any` 仅用于 port 签名比宿主实现窄（0 参 vs 可选入参）或 port
 // 形状为 unknown 的动态转发，属有意为之且已就近注释。
 

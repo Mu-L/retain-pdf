@@ -1,5 +1,11 @@
 // 共享真值（原 frontend/web/src/js/reader/server-favorites-port.ts），已抽离为可注入依赖
 // 不直接 import frontend/web 的 config/api，仅通过参数注入，默认提供空实现保证纯函数可测试
+//
+// 这是「共享工厂」：两条宿主接线都汇到此处，避免逻辑分叉——
+//   - web: features/reader/domain/host/state.ts 注入 platform/api 的读写函数；
+//   - 包内: packages/reader/src/external.ts 注入 adapters 注册表里的函数。
+// 两条路径都通过公开 package 出口暴露同名 createReaderServerFavoritesPort，但只是
+// 同一工厂的不同注入，不要再复制业务逻辑。
 import type {
   CreateServerFavoritesPortOptions,
   FavoriteItem,

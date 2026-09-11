@@ -1,6 +1,10 @@
-// @retainpdf/reader 对 RetainPDF Web 宿主能力的单一出口。
-// Reader 实现通过公开 package exports 消费这里注入的 API、配置、下载、
-// 收藏与 AI 能力；缺少宿主符号时只扩展本文件和 adapters/retainpdf.ts。
+// RetainPDF Web 宿主能力出口（host capability exit）：方向是 Web → 包。
+// 这里汇总宿主提供给 @retainpdf/reader 的 API、配置、下载、收藏与 AI 能力，
+// 由 src/app/reader/adapters/retainpdf.ts 显式注册进包的 ReaderAdapters。
+//
+// 不要与包内 frontend/packages/reader/src/external.ts 混淆：那个是包内
+// 「运行时访问层」（读取本出口注册的能力），方向相反。缺少宿主符号时，
+// 只扩展本文件和 adapters/retainpdf.ts，不要把包内访问层搬到这里。
 
 // —— config / mock / messaging ——
 export { isMockMode } from "@/platform/config/runtime.js";

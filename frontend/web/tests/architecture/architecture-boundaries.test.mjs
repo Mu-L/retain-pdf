@@ -926,7 +926,9 @@ test("reader, search, and recent-job images use the canonical API package", () =
     join(PROJECT_ROOT, "src/features/reader/domain/host/data.ts"),
     "utf8",
   );
-  for (const entry of ["http", "jobs-artifacts", "jobs", "reader", "translation-debug"]) {
+  // translation-debug 的 canonical 消费方是 web 平台 barrel；reader 宿主不再
+  // 取翻译条目（该能力已作为死代码移除），故不再要求它出现在这里的清单。
+  for (const entry of ["http", "jobs-artifacts", "jobs", "reader"]) {
     assert.match(
       readerData,
       new RegExp(`from ["']@retainpdf/api/${entry}["']`),
