@@ -85,3 +85,28 @@ uv run --project backend python backend/pipeline/devtools/run_golden_flow.py \
 - 翻译诊断中没有非白名单 unresolved 项。
 - 最终 PDF 存在且页数和源 PDF 一致。
 - 抽样 item 的 Typst 放置坐标和 OCR bbox 左上角一致，默认检查 `p001-b013`。
+
+## 渲染速度基准集
+
+`manifest.csv` 里 `focus` 含 `background-render` 的 7 个样本另组成渲染基准集，
+覆盖 10–166 页、中英论文，用于回归渲染耗时与首编成功率：
+
+| id | 页数 | 用途 |
+|---|---|---|
+| navier-stokes-166 | 166 | 大体量；p143 曾因公式内 CJK 命令首编失败（CJK 预筛回归样本） |
+| d3cs00837a-69 | 69 | 翻译含 `\unicode` 转义曾致首编失败（unicode 预筛回归样本） |
+| cr5c00021-55 | 55 | 中等体量速度回归 |
+| tibetan-plateau-21 | 21 | 小体量速度回归 |
+| lda-lithiation-zh-17 | 17 | 中文文档 CJK 覆盖 |
+| yakubenko-halogen-10 | 10 | 小体量速度回归 |
+| babeldoc-10 | 10 | 小体量速度回归 |
+
+可跑用例定义在 `backend/pipeline/devtools/render_speed_cases.json`
+（PDF 指本目录，翻译产物指各 `data/jobs`，只读引用），一键冷跑：
+
+```bash
+PYTHONPATH=backend/pipeline python backend/pipeline/devtools/run_render_speed_bench.py [--cases ID,...]
+```
+
+每个 case 起全新 job 目录（构造上无缓存，保证冷启动可比），结果落
+`tmp/render-speed-bench/<stamp>/results.json`。当前基线（M1 Max，166p 冷启动约 30s）。
