@@ -28,10 +28,10 @@ function anchorFromEventDetail(detail: any = {}) {
 }
 
 /**
- * 无 UI：只负责把「打开阅读」事件 / 深链 转成跳转 reader.html。
- * 组件名保留 ReaderDialog，避免 HomeApp / 测试 import 大面积改动。
+ * 无 UI 的导航组件：只负责把「打开阅读」事件 / 深链 转成跳转 reader.html。
+ * 注：domain/dialog 下的 ReaderDialog*Port 是阅读会话端口命名，保留不改。
  */
-export function ReaderDialog() {
+export function ReaderNavigation() {
   useAppEvent(APP_EVENTS.openReaderRequested, (event) => {
     const detail = event?.detail || {};
     const jobId = `${detail.jobId || ""}`.trim();

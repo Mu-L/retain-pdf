@@ -4,7 +4,7 @@ import { Square as wt, ArrowUp as vt, Copy as It, GitBranch as bt, RefreshCw as 
 import { R as Dt } from "./ReaderFloatShell-DTFWp_bv.js";
 import { ThreadPrimitive as pe, ComposerPrimitive as Me, MessagePrimitive as nt, ActionBarPrimitive as xe, useExternalStoreRuntime as Ft, AssistantRuntimeProvider as qt } from "@assistant-ui/react";
 import { A as zt } from "./AiMarkdownAnswer-DET_KlrE.js";
-import { e as rt, g as Lt, d as Bt } from "./ReaderApp-BgACXe1b.js";
+import { e as rt, g as Lt, d as Bt } from "./ReaderApp-Ci3nCLCY.js";
 import { M as jt, C as Be, h as Wt } from "./config-CgaWliJ_.js";
 import { k as ye, q as me, v as Kt } from "./answer-enhance-W8TBaAUL.js";
 import { Chat as Ut, useChat as Gt } from "@ai-sdk/react";
@@ -2433,4 +2433,4 @@ function Mr({
 export {
   Mr as ReaderAiPanel
 };
-//# sourceMappingURL=ReaderAiPanel-CEIa3qAz.js.map
+//# sourceMappingURL=ReaderAiPanel-CV2d0Jzz.js.map

@@ -12,7 +12,7 @@ export type MarkdownOutlineItem = {
     level: number;
     text: string;
 };
-export declare function buildMarkdownOutline(container: ParentNode): MarkdownOutlineItem[];
+export declare function buildMarkdownOutline(container: ParentNode, used?: Map<string, number>): MarkdownOutlineItem[];
 export declare function clearMarkdownSearchHighlights(container: ParentNode): void;
 export declare function findMarkdownSearchTargets(container: ParentNode, query: string): HTMLElement[];
 type MarkdownImageProgress = {

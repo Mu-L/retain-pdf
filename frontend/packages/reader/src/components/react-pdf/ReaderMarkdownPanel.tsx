@@ -13,6 +13,7 @@ import {
   materializeMarkdownMathHtml,
 } from "../../shared/content/markdown-math.js";
 import { normalizeMarkdownPayload } from "../../shared/data/markdown-payload.js";
+import { takeCompleteMarkdownChunk } from "../../shared/content/markdown-windowing.js";
 import { ReaderFloatShell } from "./ReaderFloatShell.js";
 
 export type ReaderMarkdownPanelProps = {
@@ -111,8 +112,10 @@ function markdownHeadingSlug(text: string): string {
     .replace(/^-+|-+$/g, "") || "section";
 }
 
-export function buildMarkdownOutline(container: ParentNode): MarkdownOutlineItem[] {
-  const used = new Map<string, number>();
+export function buildMarkdownOutline(
+  container: ParentNode,
+  used: Map<string, number> = new Map(),
+): MarkdownOutlineItem[] {
   return [...container.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6")]
     .flatMap((heading) => {
       const text = (heading.textContent || "").replace(/\s+/g, " ").trim();
@@ -288,6 +291,12 @@ export function ReaderMarkdownPanel({
   const imageLoaderCleanupRef = useRef<(() => void) | null>(null);
   const searchMatchesRef = useRef<HTMLElement[]>([]);
   const searchQueryRef = useRef("");
+  // 递增式渲染：目录 id 去重表、每块图片加载清理、滚动续渲染的监听清理。
+  const outlineUsedRef = useRef<Map<string, number>>(new Map());
+  const chunkImageCleanupsRef = useRef<Array<() => void>>([]);
+  const resumeCleanupRef = useRef<(() => void) | null>(null);
+  // 搜索/跳转需要整篇：置真后分段渲染器不再因视口暂停，直到全部渲染完。
+  const renderAllRef = useRef(false);
   const [outline, setOutline] = useState<MarkdownOutlineItem[]>([]);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -318,6 +327,11 @@ export function ReaderMarkdownPanel({
   };
 
   const applySearch = (query: string, scroll = false) => {
+    const needle = `${query || ""}`.trim();
+    // 搜索要覆盖整篇：让分段渲染器解除视口暂停并把剩余块全部渲染；渲染完成后
+    // 会再调一次 applySearch 重算匹配。
+    renderAllRef.current = needle.length > 0;
+    if (renderAllRef.current) resumeCleanupRef.current?.();
     if (!contentRef.current) return;
     const matches = findMarkdownSearchTargets(contentRef.current, query);
     searchMatchesRef.current = matches;
@@ -341,10 +355,17 @@ export function ReaderMarkdownPanel({
       return;
     }
     let cancelled = false;
-    // 每次重新加载前回收上一轮 blob，避免 jobId 切换/重开时泄漏
+    // 每次重新加载前回收上一轮 blob / 图片 / 滚动监听，避免 jobId 切换/重开时泄漏
     revokeAll();
     imageLoaderCleanupRef.current?.();
     imageLoaderCleanupRef.current = null;
+    for (const cleanup of chunkImageCleanupsRef.current) cleanup();
+    chunkImageCleanupsRef.current = [];
+    resumeCleanupRef.current?.();
+    resumeCleanupRef.current = null;
+    outlineUsedRef.current = new Map();
+
+    const dataPort: any = defaultReaderDataPort;
 
     async function load() {
       const isSynthetic = jobId.startsWith("doc:");
@@ -361,6 +382,24 @@ export function ReaderMarkdownPanel({
       setStatus("正在加载 Markdown…");
       contentRef.current?.replaceChildren();
       contentRef.current?.classList.add("hidden");
+
+      // ---- 分段读取（真实后端：?raw=true 支持 HTTP Range）----
+      // 仅在宿主注入 loadMarkdownSource/fetchMarkdownRange 时启用；mock/旧宿主回退整篇。
+      try {
+        if (typeof dataPort?.loadMarkdownSource === "function"
+          && typeof dataPort?.loadMarkdownRange === "function") {
+          const source = await dataPort.loadMarkdownSource(jobId);
+          if (cancelled) return;
+          if (source?.rawUrl) {
+            await loadProgressive(source);
+            return;
+          }
+        }
+      } catch {
+        // 来源解析失败：回退整篇加载
+      }
+
+      // ---- 整篇加载（mock / 旧宿主）----
       try {
         const payload = await defaultReaderDataPort.loadMarkdownPayload(jobId);
         if (cancelled) return;
@@ -405,11 +444,152 @@ export function ReaderMarkdownPanel({
       }
     }
 
+    // 分段读取：Range 拉取（单 TextDecoder 跨块解码）→ 按块边界增量渲染 →
+    // 滚动到接近底部再续拉/续渲染。这样几百页 md 首屏只解析前几块，不再一次性
+    // parse + 挂载整篇。
+    async function loadProgressive(source: any) {
+      const container = contentRef.current;
+      if (!container) return;
+      const WINDOW = 262144;
+      const MIN_CHUNK = 8192;
+      const imagesBaseUrl = `${source.imagesBaseUrl || ""}`;
+      const scrollRoot = container.closest(".reader-notes-panel-body") as HTMLElement | null;
+      const decoder = new TextDecoder();
+      let cursor = 0;
+      let etag = `${source.etag || ""}`;
+      let total: number | null = Number.isFinite(Number(source.totalBytes))
+        ? Number(source.totalBytes)
+        : null;
+      let pending = "";
+      let atEof = false;
+
+      const mountChunk = async (markdownChunk: string) => {
+        const { marked } = await loadMarked();
+        if (cancelled || !contentRef.current) return;
+        const { text, slots } = extractMarkdownMath(markdownChunk);
+        const parsedHtml = String(marked.parse(text, { async: false }));
+        const html = slots.length > 0
+          ? await materializeMarkdownMathHtml(parsedHtml, slots)
+          : parsedHtml;
+        if (cancelled || !contentRef.current) return;
+        const section = container.ownerDocument.createElement("section");
+        section.className = "reader-markdown-chunk";
+        const images = mountRenderedMarkdown(section, html, imagesBaseUrl);
+        container.appendChild(section);
+        container.classList.remove("hidden");
+        const items = buildMarkdownOutline(section, outlineUsedRef.current);
+        if (items.length) setOutline((prev) => [...prev, ...items]);
+        const cleanup = startMarkdownImageLoading(images, {
+          root: scrollRoot,
+          protectedBaseUrl: imagesBaseUrl || container.ownerDocument.baseURI,
+          fetchImage: fetchProtected,
+          onObjectUrl: (url) => objectUrlsRef.current.push(url),
+          onProgress: ({ failed }) => {
+            if (!cancelled && failed > 0) setStatus(`正文已加载 · ${failed} 张图片不可用`);
+          },
+        });
+        chunkImageCleanupsRef.current.push(cleanup);
+      };
+
+      // 已渲染内容超过约两屏时暂停，等用户滚动到接近底部再继续。
+      const pauseIfLongEnough = async () => {
+        if (renderAllRef.current || !scrollRoot || cancelled) return;
+        if (container.scrollHeight <= scrollRoot.clientHeight * 2) return;
+        await new Promise<void>((resolve) => {
+          const onScroll = () => {
+            if (container.scrollHeight <= scrollRoot.clientHeight * 2
+              || scrollRoot.scrollTop + scrollRoot.clientHeight >= container.scrollHeight - 800) {
+              scrollRoot.removeEventListener("scroll", onScroll);
+              resumeCleanupRef.current = null;
+              resolve();
+            }
+          };
+          resumeCleanupRef.current = () => {
+            scrollRoot.removeEventListener("scroll", onScroll);
+            resolve();
+          };
+          scrollRoot.addEventListener("scroll", onScroll, { passive: true });
+        });
+      };
+
+      try {
+        while (!atEof && !cancelled) {
+          const res = await dataPort.loadMarkdownRange(
+            source.rawUrl,
+            cursor,
+            cursor + WINDOW - 1,
+            etag || undefined,
+          );
+          if (cancelled) return;
+          if (res.status === 404) {
+            setStatus("该任务暂无 Markdown 产物");
+            container.replaceChildren();
+            container.classList.add("hidden");
+            return;
+          }
+          if (res.status === 200) {
+            // 服务端忽略了 Range（ETag 变了 / 无 Range 支持）：按整篇重建。
+            container.replaceChildren();
+            setOutline([]);
+            outlineUsedRef.current = new Map();
+            pending = decoder.decode(res.bytes, { stream: false });
+            atEof = true;
+          } else if (res.status === 206) {
+            // 段落之间 ETag 变了（文件被就地改写）：已拼内容会是两个版本的混合，
+            // 静默错误最危险 —— 直接清零，从 0 重来。
+            if (etag && res.etag && res.etag !== etag) {
+              container.replaceChildren();
+              setOutline([]);
+              outlineUsedRef.current = new Map();
+              pending = "";
+              cursor = 0;
+              atEof = false;
+              etag = res.etag;
+              continue;
+            }
+            if (!etag && res.etag) etag = res.etag;
+            if (res.totalBytes != null) total = res.totalBytes;
+            const next = res.rangeEnd != null ? res.rangeEnd + 1 : cursor + res.bytes.length;
+            atEof = total != null ? next >= total : res.bytes.length < WINDOW;
+            pending += decoder.decode(res.bytes, { stream: !atEof });
+            cursor = next;
+          } else {
+            throw new Error(`读取 Markdown 失败，请稍后重试。(${res.status})`);
+          }
+
+          let chunk = takeCompleteMarkdownChunk(pending, { minChars: MIN_CHUNK });
+          while (chunk && !cancelled) {
+            pending = chunk.rest;
+            await mountChunk(chunk.complete);
+            if (cancelled) return;
+            await pauseIfLongEnough();
+            chunk = takeCompleteMarkdownChunk(pending, { minChars: MIN_CHUNK });
+          }
+          if (atEof && pending.trim()) {
+            await mountChunk(pending);
+            pending = "";
+          }
+        }
+        if (!cancelled) {
+          setStatus("");
+          // 整篇渲染完成后重算搜索：覆盖之前只渲染部分块时漏掉的命中。
+          if (searchQueryRef.current.trim()) applySearch(searchQueryRef.current);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setStatus(err instanceof Error ? err.message : "Markdown 加载失败");
+      }
+    }
+
     void load();
     return () => {
       cancelled = true;
       imageLoaderCleanupRef.current?.();
       imageLoaderCleanupRef.current = null;
+      resumeCleanupRef.current?.();
+      resumeCleanupRef.current = null;
+      for (const cleanup of chunkImageCleanupsRef.current) cleanup();
+      chunkImageCleanupsRef.current = [];
       // 中途取消时，若已创建了 blob 也需回收；下一轮 load 开头的 revokeAll 会兜底
       // 这里不直接 revoke，避免与正在进行的 Promise 竞争，依赖 cancelled 检查回收
     };

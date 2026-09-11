@@ -44,6 +44,9 @@ const {
   resetMarkdownMathEngineLoader,
   setMarkdownMathEngineLoader,
 } = await import("../../../../frontend/packages/reader/src/shared/content/markdown-math.ts");
+const { takeCompleteMarkdownChunk } = await import(
+  "../../../../frontend/packages/reader/src/shared/content/markdown-windowing.ts"
+);
 const { retainPdfReaderAdapters } = await import(
   "../../src/app/reader/adapters/retainpdf.ts"
 );
@@ -288,4 +291,95 @@ test("protected Markdown images wait for the reader viewport before fetching", a
   cleanup();
   root.remove();
   globalThis.IntersectionObserver = previousObserver;
+});
+
+test("mock markdown also flows through the Range path", async () => {
+  dom.window.history.replaceState({}, "", "/reader.html?mock=succeeded&job_id=job-markdown");
+  try {
+    const { defaultReaderDataPort } = await import(
+      "../../src/features/reader/domain/host/data.ts"
+    );
+    const source = await defaultReaderDataPort.loadMarkdownSource("mock-job-20260415");
+    assert.ok(source?.rawUrl?.startsWith("mock://"), "mock 也提供 Range 来源");
+    const first = await defaultReaderDataPort.loadMarkdownRange(source.rawUrl, 0, 63);
+    assert.equal(first.status, 206);
+    assert.ok(first.bytes.length > 0, "mock 切片返回字节");
+    assert.equal(first.rangeEnd, first.bytes.length - 1);
+    assert.equal(first.totalBytes, source.totalBytes);
+  } finally {
+    dom.window.history.replaceState({}, "", "/reader.html?job_id=job-markdown");
+  }
+});
+
+test("markdown windowing slices at top-level blank lines and never inside a fence", () => {
+  const text = "para one\n\n```\ncode\n\ncode\n```\n\npara two\n\npara three\n";
+  const first = takeCompleteMarkdownChunk(text, { minChars: 1 });
+  assert.equal(first.complete, "para one\n\n");
+  // 围栏内的空行不算边界；第二块跨过整个代码块
+  const second = takeCompleteMarkdownChunk(first.rest, { minChars: 1 });
+  assert.equal(second.complete, "```\ncode\n\ncode\n```\n\n");
+  assert.equal(takeCompleteMarkdownChunk("no blank line yet", { minChars: 1 }), null);
+  assert.equal(takeCompleteMarkdownChunk("short\n\n", { minChars: 100 }), null);
+});
+
+test("reader markdown reads via HTTP Range and renders incrementally", async () => {
+  const paragraphs = Array.from(
+    { length: 30 },
+    (_, index) => `第 ${index} 段 中文内容 ${"x".repeat(400)}`,
+  );
+  const full = `# 分段标题 Range\n\n${paragraphs.join("\n\n")}\n`;
+  const bytes = new TextEncoder().encode(full);
+  const calls = [];
+  setReaderAdapters({
+    ...retainPdfReaderAdapters,
+    defaultReaderDataPort: {
+      loadMarkdownSource: async () => ({
+        rawUrl: "/api/v1/jobs/job-range/markdown?raw=true",
+        totalBytes: bytes.length,
+        imagesBaseUrl: "",
+      }),
+      loadMarkdownRange: async (_url, start, end) => {
+        calls.push([start, end]);
+        // 每次只回 64 字节，强制走多段 Range；跨块多字节由单 TextDecoder 承担
+        const length = Math.max(0, Math.min(end - start + 1, 64, bytes.length - start));
+        const slice = bytes.slice(start, start + length);
+        return {
+          status: 206,
+          bytes: slice,
+          totalBytes: bytes.length,
+          rangeEnd: start + slice.length - 1,
+          etag: 'W/"v1"',
+        };
+      },
+    },
+  });
+
+  const host = dom.window.document.createElement("div");
+  dom.window.document.body.appendChild(host);
+  const root = createRoot(host);
+  root.render(React.createElement(ReaderMarkdownPanel, {
+    open: true,
+    jobId: "job-range",
+    sourceOnly: false,
+    onClose: () => {},
+  }));
+
+  await waitFor(
+    () => dom.window.document.querySelector("#reader-markdown-content h1")?.textContent === "分段标题 Range",
+    "Range 首块渲染",
+  );
+  await waitFor(
+    () => dom.window.document.querySelectorAll("#reader-markdown-content .reader-markdown-chunk p").length >= 30,
+    "全部段落增量渲染",
+  );
+  assert.ok(calls.length > 1, "应分多次 Range 拉取，而不是整篇一次");
+  assert.equal(calls[0][0], 0, "首段从 0 开始");
+  await waitFor(
+    () => dom.window.document.querySelector("#reader-markdown-panel .reader-notes-count")?.textContent === "已加载",
+    "加载完成后状态回到已加载",
+  );
+
+  root.unmount();
+  host.remove();
+  setReaderAdapters(null);
 });

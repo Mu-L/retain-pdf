@@ -1,7 +1,7 @@
 import { jsx as r, jsxs as o, Fragment as N } from "react/jsx-runtime";
 import { useState as m, useCallback as k, useEffect as g } from "react";
 import { Bookmark as x } from "lucide-react";
-import { c as F, f as b, A as R } from "./ReaderApp-BgACXe1b.js";
+import { c as F, f as b, A as R } from "./ReaderApp-Ci3nCLCY.js";
 import { R as S } from "./ReaderFloatShell-DTFWp_bv.js";
 import { normalizeServerFavorite as A } from "./runtime/state.js";
 function E(a) {
@@ -88,4 +88,4 @@ function B({
 export {
   B as ReaderFavoritesPanel
 };
-//# sourceMappingURL=ReaderFavoritesPanel-_iYMXvnU.js.map
+//# sourceMappingURL=ReaderFavoritesPanel-CYRiRcr2.js.map

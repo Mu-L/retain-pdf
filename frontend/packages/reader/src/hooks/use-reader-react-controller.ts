@@ -32,6 +32,35 @@ import type { LiveTranslationState } from "../shared/data/live-translation-state
 
 export const CITATION_HIGHLIGHT_MS = 2000;
 
+/**
+ * 无 region 命中时的页码回退：区分 0 基与 1 基来源再换算。
+ * - number：视为 0 基 page_idx，+1；
+ * - page_idx（0 基）：+1；
+ * - page（1 基）：直用，page_idx 缺席时才看它；
+ * - 非法/缺席返回 null。
+ */
+export function resolveReaderAnchorFallbackPage(target: ReaderAnchorTarget): number | null {
+  if (typeof target === "number") {
+    const pageIdx = Number(target);
+    if (!Number.isFinite(pageIdx) || pageIdx < 0) return null;
+    return Math.floor(pageIdx) + 1;
+  }
+  if (!target || typeof target !== "object") return null;
+  const rawIdx = target.page_idx;
+  if (rawIdx !== undefined && rawIdx !== null && `${rawIdx}`.trim() !== "") {
+    const pageIdx = Number(rawIdx);
+    if (!Number.isFinite(pageIdx) || pageIdx < 0) return null;
+    return Math.floor(pageIdx) + 1;
+  }
+  const rawPage = target.page;
+  if (rawPage !== undefined && rawPage !== null && `${rawPage}`.trim() !== "") {
+    const page = Number(rawPage);
+    if (!Number.isFinite(page) || page < 1) return null;
+    return Math.floor(page);
+  }
+  return null;
+}
+
 export type ReaderAnchorTarget = number | {
   page_idx?: number;
   page?: number;
@@ -236,25 +265,20 @@ export function useReaderReactController(): ReaderReactController {
       ? regionBoxForPane(region, targetPane).page
       : null;
     if (page == null) {
-      const raw = typeof target === "number"
-        ? target
-        : target?.page_idx ?? target?.page;
-      if (raw !== undefined && raw !== null && `${raw}`.trim() !== "") {
-        const pageIdx = Number(raw);
-        if (Number.isFinite(pageIdx) && pageIdx >= 0) page = Math.floor(pageIdx) + 1;
-      }
+      page = resolveReaderAnchorFallbackPage(target as ReaderAnchorTarget);
     }
     if (page == null || page < 1) return;
     activateRegion(region);
     goToPage(page, targetPane);
   }, [activateRegion, goToPage, panes.primaryPane, session.regions]);
-
   // 收藏 / 搜索回跳：URL ?page_idx= → 页码（0 基 → 1 基）
   useUrlAnchorJump({
     enabled: !session.boot.loading && !session.boot.failed && session.assetsReady,
     numPages: panes.hudNumPages || 0,
     goToPage,
     resolveBlockPage,
+    jobId: session.jobId,
+    documentId: session.documentId,
     onAnchorApplied: (anchor) => {
       activateRegion(findReaderRegion(session.regions, anchor.blockId));
     },

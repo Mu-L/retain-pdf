@@ -3,7 +3,6 @@ import { fetchProtected as fetchApiProtected } from "@retainpdf/api/http";
 import {
   fetchJobArtifactsManifest as fetchApiJobArtifactsManifest,
   fetchJobMarkdown as fetchApiJobMarkdown,
-  fetchJobMarkdownDocument as fetchApiJobMarkdownDocument,
 } from "@retainpdf/api/jobs-artifacts";
 import { fetchJobPayload as fetchApiJobPayload } from "@retainpdf/api/jobs";
 import {
@@ -14,6 +13,7 @@ import { fetchTranslationItem as fetchApiTranslationItem } from "@retainpdf/api/
 import {
   findReadyManifestArtifact,
   resolveJobActions,
+  resolveJobMarkdownContract,
   resolveManifestArtifactUrl,
   resolveResourceUrl,
 } from "@retainpdf/domain/job";
@@ -57,13 +57,66 @@ async function fetchJobMarkdown(jobId: string, apiPrefix?: string): Promise<any>
   return fetchApiJobMarkdown(jobId, apiPrefix);
 }
 
-async function fetchJobMarkdownDocument(jobId: string, apiPrefix?: string): Promise<any> {
+// Markdown 原文来源：job detail 的 artifacts.markdown 已提供 raw_url /
+// images_base_url / size_bytes，无需额外的 metadata 端点。mock 也走同一分段路径
+// （把 mock 正文当成本地文件切片），保证开发/测试与生产行为一致。
+async function fetchJobMarkdownSource(jobId: string, apiPrefix?: string): Promise<any> {
   if (isMockMode()) {
     void jobId;
     void apiPrefix;
-    return getMockJobMarkdown();
+    const mock = getMockJobMarkdown() as any;
+    const content = `${mock?.content || ""}`;
+    if (!content) return null;
+    return {
+      rawUrl: `${mock?.raw_url || "mock://markdown.raw"}`,
+      totalBytes: new TextEncoder().encode(content).byteLength,
+      imagesBaseUrl: `${mock?.images_base_url || ""}`,
+    };
   }
-  return fetchApiJobMarkdownDocument(jobId, apiPrefix);
+  const job = await fetchApiJobPayload(jobId, apiPrefix ? { apiPrefix } : undefined);
+  const contract = resolveJobMarkdownContract(job as any);
+  if (!contract?.rawUrl) return null;
+  return {
+    rawUrl: contract.rawUrl,
+    totalBytes: contract.sizeBytes ?? null,
+    imagesBaseUrl: contract.imagesBaseUrl || "",
+  };
+}
+
+// 一次 HTTP Range 拉取；后端 ?raw=true 走 stream_file，支持 206/Content-Range/ETag。
+async function fetchJobMarkdownRange(
+  rawUrl: string,
+  start: number,
+  endInclusive: number,
+  etag?: string,
+): Promise<any> {
+  if (isMockMode() && `${rawUrl || ""}`.startsWith("mock://")) {
+    const bytes = new TextEncoder().encode(`${(getMockJobMarkdown() as any)?.content || ""}`);
+    const slice = bytes.slice(start, Math.min(endInclusive + 1, bytes.length));
+    return {
+      status: 206,
+      bytes: slice,
+      totalBytes: bytes.length,
+      rangeEnd: start + slice.length - 1,
+      etag: 'W/"mock"',
+    };
+  }
+  const headers: Record<string, string> = { Range: `bytes=${start}-${endInclusive}` };
+  // If-Range 只接受强校验器；弱 ETag（W/"…"）会被服务端忽略并回整篇。
+  if (etag && !etag.startsWith("W/")) headers["If-Range"] = etag;
+  const resp = await fetchApiProtected(rawUrl, { headers });
+  const contentRange = resp.headers.get("Content-Range") || "";
+  const match = contentRange.match(/bytes\s+(\d+)-(\d+)\/(\d+|\*)/i);
+  const rangeEnd = match ? Number(match[2]) : null;
+  const totalBytes = match && match[3] !== "*" ? Number(match[3]) : null;
+  const bytes = new Uint8Array(await resp.arrayBuffer());
+  return {
+    status: resp.status,
+    bytes,
+    totalBytes,
+    rangeEnd,
+    etag: resp.headers.get("ETag"),
+  };
 }
 
 async function fetchReaderRegions(jobId: string, apiPrefix?: string): Promise<any> {
@@ -105,7 +158,8 @@ export const createReaderDataPort = (options: any = {}) =>
     loadJob: fetchJobPayload,
     loadManifest: fetchJobArtifactsManifest,
     loadMarkdown: fetchJobMarkdown,
-    loadMarkdownDocument: fetchJobMarkdownDocument,
+    loadMarkdownSource: fetchJobMarkdownSource,
+    fetchMarkdownRange: fetchJobMarkdownRange,
     loadRegions: fetchReaderRegions,
     loadMetadata: fetchReaderMetadata,
     loadTranslationItem: fetchTranslationItem,

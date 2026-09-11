@@ -13,6 +13,13 @@
   display: none;
 }
 
+/* 分段渲染块：离屏块跳过布局/绘制，几百页正文滚动才不卡。
+   contain-intrinsic-size 需要一个估计高度，否则滚动条会随渲染跳动。 */
+.reader-markdown-chunk {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 640px;
+}
+
 .reader-markdown-nav {
   position: sticky;
   z-index: 3;

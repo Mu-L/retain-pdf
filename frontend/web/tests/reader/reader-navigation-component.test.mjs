@@ -2,7 +2,7 @@ import test, { afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 
-// ReaderDialog 已改为「跳转 reader.html」，不再挂 iframe 对话框。
+// ReaderNavigation 已改为「跳转 reader.html」，不再挂 iframe 对话框。
 
 function makeDom(search = "") {
   const dom = new JSDOM("<!doctype html><html><body></body></html>", {
@@ -173,7 +173,7 @@ test("深链 ?view=reader&job_id=：replace 到 reader.html", async () => {
   const { setReaderNavigateForTests } = await import(
     "../../src/features/reader/domain.ts"
   );
-  // 必须在 boot 前注入：深链在 ReaderDialog mount effect 里触发
+  // 必须在 boot 前注入：深链在 ReaderNavigation mount effect 里触发
   setReaderNavigateForTests((url, { replace } = {}) => {
     if (replace) hits.replace.push(url);
     else hits.assign.push(url);

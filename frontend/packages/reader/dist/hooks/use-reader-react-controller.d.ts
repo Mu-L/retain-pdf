@@ -7,6 +7,14 @@ import type { ReaderPaneModel } from "./use-reader-pane-model.js";
 import { type ReaderRegion, type ReaderSelection, type ReaderRegionSelection } from "../shared/data/reader-regions.js";
 import type { LiveTranslationState } from "../shared/data/live-translation-state.js";
 export declare const CITATION_HIGHLIGHT_MS = 2000;
+/**
+ * 无 region 命中时的页码回退：区分 0 基与 1 基来源再换算。
+ * - number：视为 0 基 page_idx，+1；
+ * - page_idx（0 基）：+1；
+ * - page（1 基）：直用，page_idx 缺席时才看它；
+ * - 非法/缺席返回 null。
+ */
+export declare function resolveReaderAnchorFallbackPage(target: ReaderAnchorTarget): number | null;
 export type ReaderAnchorTarget = number | {
     page_idx?: number;
     page?: number;

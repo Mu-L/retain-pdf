@@ -34,6 +34,23 @@ export function pageNumberFromUrlAnchor(
   const page = Math.floor(raw) + 1;
   return page >= 1 ? page : null;
 }
+/**
+ * 去重键：混入会话身份（jobId/documentId），跨文档同 anchor 不再互相吞跳。
+ * 同会话同 anchor 保持稳定，仍只跳一次。
+ */
+export function buildUrlAnchorAppliedKey(
+  anchor: UrlReaderAnchor | null | undefined,
+  page: number | null,
+  session?: { jobId?: string | null; documentId?: string | null },
+): string {
+  const jobId = `${session?.jobId || ""}`.trim();
+  const documentId = `${session?.documentId || ""}`.trim();
+  const scope = `j:${jobId}:d:${documentId}`;
+  if (page == null) {
+    return `${scope}:none:${anchor?.blockId || ""}`;
+  }
+  return `${scope}:p:${page}:b:${anchor?.blockId || ""}`;
+}
 
 const JUMP_DELAYS_MS = [0, 80, 200, 400, 800];
 
@@ -47,8 +64,11 @@ export function useUrlAnchorJump(options: {
   goToPage: (page: number) => void;
   resolveBlockPage?: (blockId: string) => number | null;
   onAnchorApplied?: (anchor: UrlReaderAnchor, page: number) => void;
+  /** 会话身份：跨文档同 anchor 不跳的根因，缺席时退化为旧全局去重 */
+  jobId?: string | null;
+  documentId?: string | null;
 }) {
-  const { enabled, numPages, goToPage, resolveBlockPage, onAnchorApplied } = options;
+  const { enabled, numPages, goToPage, resolveBlockPage, onAnchorApplied, jobId, documentId } = options;
   const appliedKeyRef = useRef("");
   const goToPageRef = useRef(goToPage);
   goToPageRef.current = goToPage;
@@ -65,9 +85,7 @@ export function useUrlAnchorJump(options: {
     const anchor = resolveReaderAnchor() as UrlReaderAnchor | null;
     const page = pageNumberFromUrlAnchor(anchor, resolveBlockPageRef.current);
     // 无有效页码：视为已处理，避免后续反复读 URL
-    const key = page == null
-      ? `none:${anchor?.blockId || ""}`
-      : `p:${page}:b:${anchor?.blockId || ""}`;
+    const key = buildUrlAnchorAppliedKey(anchor, page, { jobId, documentId });
     if (appliedKeyRef.current === key) {
       return;
     }
@@ -89,5 +107,5 @@ export function useUrlAnchorJump(options: {
     return () => {
       for (const t of timers) clearTimeout(t);
     };
-  }, [enabled, numPages]);
+  }, [enabled, numPages, jobId, documentId]);
 }

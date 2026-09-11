@@ -9,5 +9,5 @@
 // 非 React 调用方（reader 页自身）请从 ./domain.js 导入，不要走本文件。
 
 export * from "./domain.js";
-export { ReaderDialog } from "./ui/ReaderDialog.jsx";
+export { ReaderNavigation } from "./ui/ReaderNavigation.jsx";
 export { SoftReaderHost } from "./ui/SoftReaderHost.jsx";
