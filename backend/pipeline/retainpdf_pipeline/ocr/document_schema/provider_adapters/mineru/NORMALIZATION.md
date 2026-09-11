@@ -14,19 +14,19 @@
 
 | 输入 | 形状（逐层键） | 探测（`adapters.py` 注册顺序：generic → v2 → mineru → paddle，首中即停） |
 |---|---|---|
-| middle.json | `pdf_info[]` → 每页 `para_blocks[]` + `discarded_blocks[]`（L1 根，按 `block.index` 排序，见 `_ordered_page_roots`）→ `block.blocks[]`（L2 子块）→ `lines[]` → `spans[]`；页尺寸 `page_size`；版本信号 `_backend` / `_version_name` | `mineru/__init__.looks_like_mineru_layout`：`pdf_info` 为 list，且空或首页含 `para_blocks` |
+| middle.json | `pdf_info[]` → 每页 `para_blocks[]` + `discarded_blocks[]`（L1 根，按 `block.index` 排序，见 `ordered_page_roots`）→ `block.blocks[]`（L2 子块）→ `lines[]` → `spans[]`；页尺寸 `page_size`；版本信号 `_backend` / `_version_name` | `mineru/__init__.looks_like_mineru_layout`：`pdf_info` 为 list，且空或首页含 `para_blocks` |
 | content_list_v2 | 顶层为 `list`（每页一块 `list`）→ block `{type, bbox, sub_type?, content}`；文本类经 `*_content` 键取值，`list`/`index` 经 `content.list_items[]`（`item_content`），`code`/`algorithm` 经 `code_content`/`algorithm_content`，行间公式经 `math_content`（见 `extract_text_structure`） | `looks_like_mineru_content_list_v2`：顶层 list，首块含 `type` + `content` |
 
 bbox 单位/原点：
 
 | 输入 | block/line/span bbox 写法 | 页尺寸 | `source` 落盘标记 |
 |---|---|---|---|
-| middle.json | provider 原样透传（`_effective_block_bbox`；仅 `list`/`index` 聚合时对有效子行 bbox 取并集） | `page_size` 原样，`unit="pt"` | `raw_unit="pt"`, `raw_origin="top_left"`，`raw_path=/pdf_info/{i}/…` |
+| middle.json | provider 原样透传（`effective_block_bbox`；仅 `list`/`index` 聚合时对有效子行 bbox 取并集） | `page_size` 原样，`unit="pt"` | `raw_unit="pt"`, `raw_origin="top_left"`，`raw_path=/pdf_info/{i}/…` |
 | content_list_v2 | `common/normalize.normalize_bbox` 只做 float 化（非法→`[0,0,0,0]`，不做缩放） | `max(x1)/max(y1)` 推导，`unit="pt"`（名义值，待重缩放纠正） | `raw_unit="normalized_1000"`, `raw_origin="top_left"`，无 `raw_path` |
 
 span 类型归一（两条路径一致）：`inline_equation`→`inline_formula`，
 `interline_equation`/`equation`→`formula`，其余→`text`；
-`hyperlink` 的子 span 被展平混入（`_iter_spans` / v2 `normalize_segments`）。
+`hyperlink` 的子 span 被展平混入（`iter_spans` / v2 `normalize_segments`）。
 v2 另有 label 翻译层 `_V2_TO_MIDDLE_LABEL`：
 `paragraph`→`text`，`equation_interline`→`interline_equation`，
 `page_header`→`header`，`page_footer`→`footer`，`page_aside_text`→`aside_text`，
@@ -64,7 +64,7 @@ RetainPDF 策略在 `projection.py:project_mineru_block`。
 |---|---|---|---|
 | `header` / `footer` | text / metadata | header \| footer / metadata / metadata | `provider_non_body:<raw>` |
 | `page_number` | text / page_number | page_number / metadata / metadata | 同上 |
-| `aside_text`, `phonetic`, `formula_number`, `discarded` | text / metadata | unknown / metadata / metadata | 同上（注意 `discarded_blocks` 根仍被 `_ordered_page_roots` 遍历，只是内容判为元数据） |
+| `aside_text`, `phonetic`, `formula_number`, `discarded` | text / metadata | unknown / metadata / metadata | 同上（注意 `discarded_blocks` 根仍被 `ordered_page_roots` 遍历，只是内容判为元数据） |
 
 ### 2.3 非文本系（translate 全否）
 
@@ -91,9 +91,9 @@ RetainPDF 策略在 `projection.py:project_mineru_block`。
 
 ## 3. 坐标旅程（谁做哪段）
 
-1. **透传（adapter）**：`adapter._build_block_record` / v2 `build_block_spec`
+1. **透传（adapter）**：`records.build_block_record` / v2 `build_block_spec`
    原样拷贝 provider bbox（block/line/span 三级）；`block_id=p{页:03d}-b{序:04d}`；
-   合法性只用 `_valid_bbox`（4 元 float、x1≥x0、y1≥y0）过滤，无效时回退到 provider 原值。
+   合法性只用 `valid_bbox`（4 元 float、x1≥x0、y1≥y0）过滤，无效时回退到 provider 原值。
    span/line 具有效 bbox 者打 `bbox_precision="provider_layout"`。
 2. **补默认（`adapters.adapt_payload_to_document_v1_with_report` → `defaults.apply_document_defaults_with_report(in_place=True)`）**：
    硬键 `HARD_REQUIRED_*` 缺失即错；软默认 `SOFT_DEFAULT_DOCUMENT_FIELDS={derived,markers}`、
@@ -115,21 +115,21 @@ RetainPDF 策略在 `projection.py:project_mineru_block`。
 
 ## 4. 文本 / 公式 / 表格 / 图片 / 代码
 
-- **文本**：`_normalize_text` 先 `_repair_math_control_chars`
+- **文本**：`normalize_text` 先 `repair_math_control_chars`
   （仅修复遗留 MinerU 数学控制字节 `[\x00-\x08\x0b\x0c\x0e-\x1f]`），再空白折叠；
   仅 `code/code_body/algorithm` 用 `preserve_lines`（保留换行、`\n` 连接），其余空格连接。
-  空 span 丢弃（`_normalized_line_and_segments`）。v2 同语义经
+  空 span 丢弃（`normalized_line_and_segments`）。v2 同语义经
   `common` 的 `build_text_segments/build_line_records` + `text_flow.classify_text_flow`。
 - **公式**：块 kind=`formula`，行内/行间经 segment `type=inline_formula/formula` 区分。
-  **适配/OCR 阶段无 `formula_map`**（`_build_block_record` 从不写该键）：
+  **适配/OCR 阶段无 `formula_map`**（`build_block_record` 从不写该键）：
   占位符→latex 映射是下游 `document_schema/protected_formula_tokens.py`
  （及 render 侧 `formula_map`/`protected_text`）的事；下游若见公式 segment 无 map，
   应按“未保护原文”处理，不得反推。
 - **表格**：取块内首个 span `html` → `content={kind:table, table_html}`，
   同时 `metadata.provider_table_html_available/count` + `content_format="html_table"`
- （`_provider_payload_metadata` / `_first_provider_table_html`）。
+ （`provider_payload_metadata` / `first_provider_table_html`）。
 - **图片**：span `image_path` **只进 metadata，不进 content**
- （`_provider_payload_metadata` → `provider_image_paths` +
+ （`provider_payload_metadata` → `provider_image_paths` +
   `assets.build_mineru_asset_metadata` → `asset_key(s)/asset_path(s)`、
   `asset_kind="markdown_image"`、`asset_resolved=False`、`asset_resolved_count=0`；
   页级再汇总 `metadata.markdown.images: {relative: md/images/page-{n}/{relative}}`）。
@@ -180,12 +180,18 @@ RetainPDF 策略在 `projection.py:project_mineru_block`。
   `TEXTUAL_BLOCK_TYPES` / `_V2_TO_MIDDLE_LABEL`，`adapters._ADAPTER_BUILDERS/_ADAPTER_DETECTORS/register_ocr_adapter`，
   `providers.PROVIDER_MINERU/PROVIDER_MINERU_CONTENT_LIST_V2`，
   `mineru/contracts.MINERU_CONTENT_LIST_V2_FILE_NAME`。
-- 主适配：`mineru/adapter.build_mineru_document` /
+- 编排（`adapter.py`）：`build_mineru_document` /
   `build_normalized_document_from_layout_payload/_path` /
-  `_build_page_record.visit_block` / `_ordered_page_roots` / `_build_block_record` /
-  `_extract_text_structure` / `_normalized_line_and_segments` / `_iter_spans` /
-  `_effective_block_bbox` / `_valid_bbox` / `_provider_payload_metadata` /
-  `_first_provider_table_html` / `_derived_for_projection` / `_collect_raw_label_counts`。
+  `_build_page_record.visit_block`（容器递归、组挂接、页元数据）/ `_collect_raw_label_counts`。
+- 记录装配（`records.py`）：`ordered_page_roots` / `build_block_record` /
+  `block_record_from_lines` / `effective_block_bbox` / `make_raw_path` /
+  `default_derived` / `derived_for_projection` / `provider_payload_metadata` /
+  `first_provider_table_html`。
+- 文本抽取（`text.py`）：`extract_text_structure` / `normalized_line_and_segments` /
+  `iter_spans` / `iter_child_blocks` / `iter_descendant_lines` / `iter_direct_lines` /
+  `iter_layout_pages` / `join_line_texts` / `normalize_text` / `repair_math_control_chars`。
+- 几何（`geometry.py`）：`valid_bbox` / `intersect_bbox` /
+  `clamp_descendant_bboxes` / `split_orphan_line_runs`。
 - 目录/投影/关系/资产：`label_catalog.get_mineru_label_definition/is_mineru_structural_container/MINERU_TEXT_AGGREGATE_CONTAINERS/MINERU_MIDDLE_BLOCK_LABELS/MINERU_MIDDLE_SPAN_LABELS`，
   `projection.project_mineru_block/MinerUBlockProjection`，
   `relations.attach_mineru_group_relations`，
