@@ -1,4 +1,6 @@
 import { getReaderAdapters } from "./adapters.js";
+import type { createReaderDataPort } from "./runtime/data.js";
+import type { createReaderPageConfigPort } from "./runtime/config.js";
 import { resolveReaderDownloadName as defaultResolveReaderDownloadName, resolveReaderDownloadUrls as defaultResolveReaderDownloadUrls } from "./shared/state/downloads/resolve.js";
 import type { CreateServerFavoritesPortOptions } from "./shared/types/types.js";
 export declare const isMockMode: (...args: any[]) => boolean;
@@ -9,8 +11,10 @@ export declare const READER_DIALOG_MESSAGES: Readonly<{
 export declare const resolveResourceUrl: (url: string) => string;
 export declare const fetchProtected: typeof fetch;
 export declare const resolvePdfjsVendorUrl: (relativePath?: string) => string;
-export declare const defaultReaderDataPort: any;
-export declare const defaultReaderPageConfigPort: any;
+type ReaderDataPort = ReturnType<typeof createReaderDataPort>;
+type ReaderPageConfigPort = ReturnType<typeof createReaderPageConfigPort>;
+export declare const defaultReaderDataPort: ReaderDataPort;
+export declare const defaultReaderPageConfigPort: ReaderPageConfigPort;
 export declare const resolveReaderAnchor: (...a: any[]) => any;
 export declare const resolveReaderDocumentId: () => string;
 export declare const resolveReaderJobId: (...a: any[]) => string;
@@ -48,7 +52,7 @@ export declare const fetchDocumentByJobId: (...args: [string, string]) => Promis
 export declare const fetchFavorites: (apiPrefix?: string, options?: {
     documentId?: string;
 }) => Promise<{
-    favorites?: any[];
+    favorites?: import("./runtime/state.js").ServerFavoriteRaw[];
 }>;
 export declare function createReaderServerFavoritesPort(options?: CreateServerFavoritesPortOptions): Readonly<{
     loadServerFavorites: () => Promise<import("./external.js").ServerFavorite[]>;

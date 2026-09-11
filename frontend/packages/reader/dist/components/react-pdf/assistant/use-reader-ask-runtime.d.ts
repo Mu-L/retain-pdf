@@ -8,6 +8,12 @@ export type { ReaderRequestSnapshot } from "./reader-request-snapshots.js";
 export declare function useReaderAskRuntime(options: {
     jobId: string;
     documentId?: string;
+    /**
+     * route 身份（job+document 组合）。jobId/documentId 任一变化都会改变它，
+     * 因此用它作为 AI 运行时的统一重置 scope，避免只按 jobId 重置时
+     * 「documentId 变了但 jobId 不变」导致会话/操作状态串档。
+     */
+    sessionIdentity?: string;
     enabled: boolean;
     selectionContext?: ReaderSelection | null;
     onDocumentCommitted?: (input: {

@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
-export type ReaderAssistantPanel = "markdown" | "ai";
+import type { ReaderAssistantPanel } from "./reader-assistant-types.js";
+export type { ReaderAssistantPanel } from "./reader-assistant-types.js";
 export type ReaderAssistantDockProps = {
     active: ReaderAssistantPanel | null;
     /** 缺省时从 reader context 的 assistant actions 取 */

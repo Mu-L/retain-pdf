@@ -1,4 +1,4 @@
-import type { PageScrollProgress } from "../../pdf/scroll-to-page.js";
+import type { PageScrollProgress } from "../types/reader-scroll.js";
 export type StoredReaderPaneContent = "source" | "translated" | "markdown" | "ai";
 export type StoredReaderSplitLayout = {
     left: StoredReaderPaneContent;

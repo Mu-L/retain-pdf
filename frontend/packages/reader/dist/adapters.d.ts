@@ -1,30 +1,15 @@
+import type { createReaderDataPort } from "./runtime/data.js";
+import type { createReaderPageConfigPort } from "./runtime/config.js";
+import type { FavoriteApiRecord, ServerFavoriteRaw } from "./shared/types/types.js";
+import type { askLibraryAi } from "@retainpdf/api/ai";
 export { hasMarkdownContent, loadMarkdownPayloadWithFallback, normalizeMarkdownPayload, } from "./shared/data/markdown-payload.js";
-export type ReaderMode = "source" | "translated" | "compare";
-export type ReaderDocumentSource = {
-    sourceUrl: string;
-    translatedUrl?: string | null;
-    sourceFile?: unknown | null;
-    translatedFile?: unknown | null;
-    title?: string;
-};
 export type ReaderSessionAdapters = {
-    resolveSession?: () => {
-        jobId?: string;
-        documentId?: string;
-        sourceOnly?: boolean;
-        mode?: ReaderMode;
-    };
-    resolveDocument?: () => Promise<ReaderDocumentSource> | ReaderDocumentSource;
-    fetchPdf?: (url: string, init?: RequestInit) => Promise<Response>;
-    favoritesPort?: unknown;
-    aiAnswerer?: unknown;
-    markdownLoader?: (jobId: string) => Promise<string>;
     isMockMode?: () => boolean;
     resolveResourceUrl?: (url: string) => string;
     fetchProtected?: typeof fetch;
     resolvePdfjsVendorUrl?: () => string;
-    defaultReaderDataPort?: unknown;
-    defaultReaderPageConfigPort?: unknown;
+    defaultReaderDataPort?: ReturnType<typeof createReaderDataPort>;
+    defaultReaderPageConfigPort?: ReturnType<typeof createReaderPageConfigPort>;
     resolveReaderAnchor?: (...args: any[]) => any;
     resolveReaderDocumentId?: () => string;
     resolveReaderJobId?: () => string;
@@ -41,7 +26,7 @@ export type ReaderDownloadContext = {
     manifestPayload?: unknown;
 };
 export type ReaderDownloadUrls = {
-    source: any;
+    source: string;
     sideBySide: string;
     translated: string;
 };
@@ -58,11 +43,11 @@ export type ReaderFavoritesAdapters = {
         active_job_id?: string | null;
         active_version_id?: string | null;
     } | null>;
-    createFavorite: (apiPrefix: string, payload: Record<string, unknown>) => Promise<any>;
+    createFavorite: (apiPrefix: string, payload: Record<string, unknown>) => Promise<FavoriteApiRecord>;
     fetchFavorites: (apiPrefix: string, options?: {
         documentId?: string;
     }) => Promise<{
-        favorites?: any[];
+        favorites?: ServerFavoriteRaw[];
     }>;
     deleteFavorite: (apiPrefix: string, favoriteId: string) => Promise<unknown>;
 };
@@ -76,10 +61,17 @@ export type ReaderCredentialsAdapters = {
 };
 export type ReaderAiAdapters = {
     /** Canonical /ai/ask client supplied by the host (SSE + credentials). */
-    askDocumentAi: (options: Record<string, unknown>) => Promise<any>;
+    askDocumentAi: (options: Parameters<typeof askLibraryAi>[0]) => ReturnType<typeof askLibraryAi>;
 };
 export type ReaderAdapters = ReaderSessionAdapters & ReaderMarkdownAdapters & ReaderDownloadAdapters & ReaderFavoritesAdapters & ReaderCredentialsAdapters & ReaderAiAdapters;
-export declare const DEFAULT_READER_ADAPTERS: Partial<ReaderAdapters>;
+/**
+ * ReaderAdapters 声明键的运行时镜像（TS 类型在运行时被擦除）。
+ * 注册层与门禁测试共用，避免手工复制字段集漂移；`satisfies` 保证不引入拼错键。
+ * 完整性由紧随其后的编译期断言守护。
+ */
+export declare const READER_ADAPTER_KEYS: readonly ["isMockMode", "resolveResourceUrl", "fetchProtected", "resolvePdfjsVendorUrl", "defaultReaderDataPort", "defaultReaderPageConfigPort", "resolveReaderAnchor", "resolveReaderDocumentId", "resolveReaderJobId", "resolveReaderArtifactUrl", "resolveReaderSourcePdf", "resolveReaderTranslatedPdfUrl", "resolveMarkdownAssetUrl", "resolveReaderDownloadUrls", "resolveReaderDownloadName", "downloadProtectedResource", "failDownloadToast", "apiPrefix", "fetchDocumentByJobId", "createFavorite", "fetchFavorites", "deleteFavorite", "credentialsPort", "askDocumentAi"];
+/** 必填（非 `?`）适配键子集，供门禁断言最小注入面。 */
+export declare const READER_REQUIRED_ADAPTER_KEYS: readonly ["resolveMarkdownAssetUrl", "resolveReaderDownloadUrls", "resolveReaderDownloadName", "downloadProtectedResource", "failDownloadToast", "fetchDocumentByJobId", "createFavorite", "fetchFavorites", "deleteFavorite", "credentialsPort", "askDocumentAi"];
 export declare function setReaderAdapters(a: ReaderAdapters | null): void;
 export declare function getReaderAdapters(): ReaderAdapters | null;
 export declare function requireAdapter<T extends keyof ReaderAdapters>(key: T): NonNullable<ReaderAdapters[T]>;

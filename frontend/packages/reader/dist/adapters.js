@@ -1,29 +1,67 @@
-import { s as n } from "./config-CgaWliJ_.js";
-import { s as o, r as s } from "./answer-enhance-W8TBaAUL.js";
-import { h as u, l as R, n as h } from "./markdown-payload-kK3ewW_I.js";
-const l = {};
+import { s as t } from "./config-CgaWliJ_.js";
+import { s as a, r as s } from "./answer-enhance-W8TBaAUL.js";
+import { h as A, l as P, n as w } from "./markdown-payload-kK3ewW_I.js";
+const n = [
+  "isMockMode",
+  "resolveResourceUrl",
+  "fetchProtected",
+  "resolvePdfjsVendorUrl",
+  "defaultReaderDataPort",
+  "defaultReaderPageConfigPort",
+  "resolveReaderAnchor",
+  "resolveReaderDocumentId",
+  "resolveReaderJobId",
+  "resolveReaderArtifactUrl",
+  "resolveReaderSourcePdf",
+  "resolveReaderTranslatedPdfUrl",
+  "resolveMarkdownAssetUrl",
+  "resolveReaderDownloadUrls",
+  "resolveReaderDownloadName",
+  "downloadProtectedResource",
+  "failDownloadToast",
+  "apiPrefix",
+  "fetchDocumentByJobId",
+  "createFavorite",
+  "fetchFavorites",
+  "deleteFavorite",
+  "credentialsPort",
+  "askDocumentAi"
+], c = [
+  "resolveMarkdownAssetUrl",
+  "resolveReaderDownloadUrls",
+  "resolveReaderDownloadName",
+  "downloadProtectedResource",
+  "failDownloadToast",
+  "fetchDocumentByJobId",
+  "createFavorite",
+  "fetchFavorites",
+  "deleteFavorite",
+  "credentialsPort",
+  "askDocumentAi"
+];
 let r = null;
-function c(e) {
-  r = e, n({ credentialsPort: (e == null ? void 0 : e.credentialsPort) ?? null }), s(), e && o({
+function i(e) {
+  r = e, t({ credentialsPort: (e == null ? void 0 : e.credentialsPort) ?? null }), s(), e && a({
     fetchProtected: e.fetchProtected,
     resolveResourceUrl: e.resolveResourceUrl
   });
 }
-function i() {
+function R() {
   return r;
 }
-function A(e) {
-  const t = r == null ? void 0 : r[e];
-  if (t == null) throw new Error(`Reader adapter missing: ${String(e)} (call setReaderAdapters)`);
-  return t;
+function f(e) {
+  const o = r == null ? void 0 : r[e];
+  if (o == null) throw new Error(`Reader adapter missing: ${String(e)} (call setReaderAdapters)`);
+  return o;
 }
 export {
-  l as DEFAULT_READER_ADAPTERS,
-  i as getReaderAdapters,
-  u as hasMarkdownContent,
-  R as loadMarkdownPayloadWithFallback,
-  h as normalizeMarkdownPayload,
-  A as requireAdapter,
-  c as setReaderAdapters
+  n as READER_ADAPTER_KEYS,
+  c as READER_REQUIRED_ADAPTER_KEYS,
+  R as getReaderAdapters,
+  A as hasMarkdownContent,
+  P as loadMarkdownPayloadWithFallback,
+  w as normalizeMarkdownPayload,
+  f as requireAdapter,
+  i as setReaderAdapters
 };
 //# sourceMappingURL=adapters.js.map

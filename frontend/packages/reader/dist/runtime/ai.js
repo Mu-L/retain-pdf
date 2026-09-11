@@ -3,7 +3,7 @@ import { b as be, c as ke, a as Me, d as _e, l as Ne, s as Re } from "../ask-ans
 import { C as xe, M as He, h as Fe, n as Le, a as Pe, b as Oe, r as De, s as ze } from "../config-CgaWliJ_.js";
 import { c as Ke, a as Ue, l as Xe, s as qe, b as Be, t as je, v as We } from "../thread-branch-store-Jy9wH_F1.js";
 import { Marked as T } from "marked";
-import { p as x } from "../markdown-math-Cb17EyYs.js";
+import { p as x } from "../markdown-math-DjYQuQQe.js";
 const w = "CITE_", C = "";
 function v(t) {
   return `${t}`.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");

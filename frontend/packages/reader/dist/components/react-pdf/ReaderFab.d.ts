@@ -8,7 +8,7 @@ export type ReaderFabProps = {
     activeTool: ReaderFabToolId | null;
     /** 本批注数量，用于工具项 badge */
     noteCount: number;
-    /** 缺省时从 reader context 取 controller.sourceOnly */
+    /** 无 job 时为 true；缺省从 reader context 取 controller.sourceOnly（不是 sourceViewOnly） */
     sourceOnly?: boolean;
     onToggleTool: (id: ReaderFabToolId) => void;
     /** 缺省时从 reader context 取 controller.download */

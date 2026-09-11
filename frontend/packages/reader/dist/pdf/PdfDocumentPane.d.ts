@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { type ProtectedPdfFile } from "./useProtectedPdfFile.js";
 import type { PageRowHeights } from "./usePageRowSync.js";
 import { type ReaderPaneId } from "./reader-dom-contract.js";
@@ -34,6 +35,8 @@ type PdfDocumentPaneProps = {
     showLiveTranslation?: boolean;
     /** Non-fatal live-translation wait state shown over the still-valid source canvas. */
     liveTranslationPendingLabel?: string;
+    /** 栏右上角动作（如源栏「译文」叠加开关）。 */
+    paneAction?: ReactNode;
 };
 export declare const PdfDocumentPane: import("react").NamedExoticComponent<PdfDocumentPaneProps & import("react").RefAttributes<HTMLElement>>;
 export {};

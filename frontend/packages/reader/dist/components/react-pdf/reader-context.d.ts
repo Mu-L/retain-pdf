@@ -4,7 +4,7 @@ import type { ReaderDownloadContext } from "../../hooks/use-reader-session.js";
 import type { ReaderMetadata, ReaderRegion, ReaderRegionSelection } from "../../shared/data/reader-regions.js";
 import type { ProtectedPdfFile } from "../../pdf/useProtectedPdfFile.js";
 import type { PageRowHeights } from "../../pdf/usePageRowSync.js";
-import type { ReaderAssistantPanel } from "./ReaderAssistantDock.js";
+import type { ReaderAssistantPanel } from "./reader-assistant-types.js";
 export type ReaderContextValue = {
     bindShell: (node: HTMLDivElement | null) => void;
     shellEl: HTMLElement | null;
@@ -24,9 +24,16 @@ export type ReaderContextValue = {
     readerMetadata: ReaderMetadata | null;
     activeRegion: ReaderRegion | null;
     onSelectRegion: (selection: ReaderRegionSelection) => void;
-    /** controller 原生 sourceOnly（FAB 工具禁用判断） */
+    /**
+     * 真源语义 =「无 job」：判断 Markdown / AI / 收藏等需要任务的能力。
+     * 仅 FAB 工具禁用等「无 job」场景取用；不要用它判断能否并排。
+     */
     sourceOnly: boolean;
-    /** sourceOnly 或缺少译文产物；外壳按此禁对照/译文（grid、workspace tabs） */
+    /**
+     * 真源语义 =「无可并排的最终译文」(sourceOnly || !translatedUrl)。
+     * Grid 源文件缺失文案、Workspace tabs 对照/译文禁用取用。
+     * 与 sourceOnly 语义不同，消费方必须显式选择，禁止互相顶替。
+     */
     sourceViewOnly: boolean;
     download: ReaderDownloadContext;
     goToPage: (page: number, pane?: "source" | "translated") => void;
