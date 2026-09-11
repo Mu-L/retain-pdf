@@ -1,6 +1,7 @@
 // 从 frontend/web 迁入的 React-pdf 视图真值，现为 @retainpdf/reader 主入口
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReaderReactController } from "./hooks/use-reader-react-controller.js";
+import { useReaderKeyboard } from "./hooks/use-reader-keyboard.js";
 import {
   ReaderAiSplitResizeHandle,
   ReaderAssistantDock,
@@ -162,6 +163,19 @@ export function ReaderAppReactPdf() {
     c.liveTranslationAvailable && liveTranslationVisible && !assistantOpen,
   );
   const visiblePdfMode = liveTranslationPair ? "compare" : pdfMode;
+  // 键盘与 UI 共用同一「可见模式」真源：实时译文覆盖后的 visiblePdfMode。
+  // 「0」重置缩放据此取模式默认，避免与 HUD/网格显示的模式脱节。
+  useReaderKeyboard({
+    mode: visiblePdfMode,
+    sourceOnly: c.sourceOnly,
+    setMode: c.setModeKeepingPage,
+    userZoom: c.userZoom,
+    onZoomChange: c.onZoomChange,
+    currentPage: c.currentPage,
+    numPages: panes.hudNumPages,
+    goToPage: c.goToPage,
+    enabled: c.showHud,
+  });
   const closeTool = useCallback(() => { tools.close(); }, [tools]);
   // 批注作为 FAB 工具项：notesOpen 独立于 tools 的 active，保留与辅助面板并存的能力。
   const handleFabTool = useCallback((id: ReaderFabToolId) => {
@@ -274,7 +288,7 @@ export function ReaderAppReactPdf() {
   return (
     <ReaderProvider value={readerContext} hud={readerHud}>
       <div className={rootClasses} data-reader-engine="react-pdf" data-reader-workspace={workspaceView}>
-        <ReaderReactBoot loading={boot.loading} failed={boot.failed} text={boot.text} percent={boot.percent} />
+        <ReaderReactBoot loading={boot.loading} failed={boot.failed} text={boot.text} percent={boot.percent} regionsError={Boolean(session.readerErrors.regions)} metadataError={Boolean(session.readerErrors.metadata)} />
         <ReaderCloseHome onBeforeClose={session.prepareClose} />
         <ReaderWorkspaceTabs
           mode={visiblePdfMode}

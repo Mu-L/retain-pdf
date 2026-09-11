@@ -1,10 +1,14 @@
 import type { ReactElement } from "react";
+import { ReaderErrorNotice } from "./ReaderErrorNotice.js";
 
 export type ReaderReactBootProps = {
   loading: boolean;
   failed: boolean;
   text: string;
   percent: number;
+  /** 可选产物失败标记：加载完成后以可关闭 notice 呈现，happy path 不显示。 */
+  regionsError?: boolean;
+  metadataError?: boolean;
 };
 
 export function ReaderReactBoot({
@@ -12,9 +16,13 @@ export function ReaderReactBoot({
   failed,
   text,
   percent,
+  regionsError = false,
+  metadataError = false,
 }: ReaderReactBootProps): ReactElement | null {
   if (!loading && !failed) {
-    return null;
+    return (
+      <ReaderErrorNotice regionsFailed={regionsError} metadataFailed={metadataError} />
+    );
   }
 
   return (

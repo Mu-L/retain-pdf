@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useReaderSession } from "./use-reader-session.js";
-import { useReaderKeyboard } from "./use-reader-keyboard.js";
 import { useReaderShell } from "./use-reader-shell.js";
 import { useReaderPaneModel } from "./use-reader-pane-model.js";
 import { useReaderZoom } from "./use-reader-zoom.js";
@@ -327,18 +326,6 @@ export function useReaderReactController(): ReaderReactController {
   }, [readerContentKey, activateRegion, clearSelection]);
 
   const showHud = !session.boot.loading && !session.boot.failed;
-
-  useReaderKeyboard({
-    mode: session.mode,
-    sourceOnly: session.sourceOnly,
-    setMode: setModeKeepingPage,
-    userZoom,
-    onZoomChange,
-    currentPage,
-    numPages: panes.hudNumPages,
-    goToPage,
-    enabled: showHud,
-  });
 
   // tools 对象引用稳定到 active 变化时
   const toolsApi = useMemo(() => tools, [tools.active, tools.open, tools.close, tools.toggle, tools.isOpen]);

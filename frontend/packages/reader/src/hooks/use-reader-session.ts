@@ -156,6 +156,7 @@ export function useReaderSession(): ReaderSessionState {
     title: assets.title,
     regions: assets.regions,
     readerMetadata: assets.readerMetadata,
+    readerErrors: assets.readerErrors,
     download,
     refreshJobArtifacts,
     refreshJobStatus,

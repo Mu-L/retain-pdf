@@ -39,7 +39,7 @@
   pointer-events: none;
 }
 
-/* 对齐旧 #reader-scroll-shell：唯一纵向滚动容器；双栏不各自 overflow */
+/* 唯一纵向滚动容器；双栏不各自 overflow */
 .reader-react-scroll-shell {
   position: absolute;
   inset: 60px 0 0;
@@ -546,6 +546,52 @@
   color: var(--paper);
   font-size: 12px;
   font-weight: 600;
+}
+
+/* 可选产物失败：不遮挡阅读，仅在外壳上浮一行可关闭提示。 */
+.reader-error-notice {
+  position: fixed;
+  left: 50%;
+  top: 56px;
+  z-index: var(--z-dialog, 50);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(520px, calc(100vw - 32px));
+  max-width: min(520px, calc(100dvw - 32px));
+  padding: 8px 10px 8px 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+  background: color-mix(in srgb, var(--warn) 14%, var(--paper, #fff));
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+
+.reader-error-notice-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.reader-error-notice-dismiss {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.reader-error-notice-dismiss:hover {
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
 }
 
 .reader-react-pdf-page-placeholder {

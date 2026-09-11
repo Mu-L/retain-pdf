@@ -32,6 +32,7 @@ import type {
   CommittedDocumentSource,
   LinkedDocumentRecord,
   ReaderMode,
+  ReaderOptionalArtifactErrors,
   ReaderSessionState,
 } from "./types.js";
 import type { SessionIdentityEvent } from "./job-identity.js";
@@ -64,7 +65,13 @@ export type SessionAssets = {
   title: string;
   regions: ReaderRegion[];
   readerMetadata: ReaderMetadata;
+  readerErrors: ReaderOptionalArtifactErrors;
   boot: ReaderSessionState["boot"];
+};
+
+const NO_OPTIONAL_ARTIFACT_ERRORS: ReaderOptionalArtifactErrors = {
+  regions: null,
+  metadata: null,
 };
 
 export type SessionAssetCommands = {
@@ -128,6 +135,9 @@ export function useSessionAssets(options: {
     source: null,
     translated: null,
   }));
+  const [readerErrors, setReaderErrors] = useState<ReaderOptionalArtifactErrors>(
+    NO_OPTIONAL_ARTIFACT_ERRORS,
+  );
   const [boot, setBoot] = useState<ReaderSessionState["boot"]>({
     loading: true,
     percent: 4,
@@ -352,6 +362,9 @@ export function useSessionAssets(options: {
       setReaderMetadata(committedSource
         ? { source: null, translated: null }
         : normalizeReaderMetadata(payload.readerMetadata));
+      setReaderErrors(committedSource
+        ? NO_OPTIONAL_ARTIFACT_ERRORS
+        : payload.readerErrors ?? NO_OPTIONAL_ARTIFACT_ERRORS);
 
       if (!sourceFinal && !translatedFinal) {
         failBoot(READER_PROGRESS_COPY.failed, READER_PROGRESS_COPY.failed);
@@ -383,6 +396,7 @@ export function useSessionAssets(options: {
       setTranslatedFile(null);
       setRegions([]);
       setReaderMetadata({ source: null, translated: null });
+      setReaderErrors(NO_OPTIONAL_ARTIFACT_ERRORS);
       setBootProgress(setBoot, 8, READER_PROGRESS_COPY.metadata, "metadata");
 
       try {
@@ -445,6 +459,7 @@ export function useSessionAssets(options: {
     title,
     regions,
     readerMetadata,
+    readerErrors,
     boot,
   };
 }
