@@ -5,7 +5,7 @@ import {
   type ReaderRegionRect,
 } from "../shared/data/reader-regions.js";
 
-export type ReaderTextHoverTarget = {
+type ReaderTextHoverTarget = {
   itemId: string;
   highlight: ReaderRegionHighlight;
   rect: ReaderRegionRect;

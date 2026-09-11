@@ -1,4 +1,4 @@
-// 单栏 PDF：栏不滚动；纵向由共享 scroll shell 负责（对齐旧 reader-scroll-shell）。
+// 单栏 PDF：栏不滚动；纵向由共享 scroll shell 负责。
 // 对照等高由父级 usePageRowSync 完成，不做 display:contents。
 
 import {
@@ -60,7 +60,7 @@ function readerDevicePixelRatio(): number {
   return Math.max(1, Math.min(dpr, 2));
 }
 
-export type PdfDocumentPaneProps = {
+type PdfDocumentPaneProps = {
   pane: ReaderPaneId;
   url?: string;
   preloadedFile?: ProtectedPdfFile | null;
@@ -462,7 +462,6 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
                       pageNumber={pageNumber}
                       width={pageWidth}
                       devicePixelRatio={dpr}
-                      scrollRoot={scrollRoot}
                       active={activePages.has(pageNumber)}
                       syncedMinHeight={rowHeights?.get(pageNumber) || 0}
                       onMetrics={onMetrics}

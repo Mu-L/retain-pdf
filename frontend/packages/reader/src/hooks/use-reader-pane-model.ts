@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReaderMode } from "./use-reader-session.js";
 import type { ProtectedPdfFile } from "../pdf/useProtectedPdfFile.js";
 
-export type ReaderPaneModelInput = {
+type ReaderPaneModelInput = {
   mode: ReaderMode;
   sourceOnly: boolean;
   assetsReady: boolean;
@@ -14,7 +14,7 @@ export type ReaderPaneModelInput = {
   translatedFile: ProtectedPdfFile | null;
 };
 
-export type ReaderPaneFlags = {
+type ReaderPaneFlags = {
   mountSource: boolean;
   mountTranslated: boolean;
   showSource: boolean;

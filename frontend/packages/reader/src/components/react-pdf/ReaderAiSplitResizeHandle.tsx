@@ -6,27 +6,32 @@ import {
   type Layout,
   type LayoutChangedMeta,
 } from "react-resizable-panels";
+import {
+  DEFAULT_ASSISTANT_PERCENT,
+  MAX_ASSISTANT_PERCENT,
+  MAX_DOCUMENT_PERCENT,
+  MIN_ASSISTANT_PERCENT,
+  MIN_DOCUMENT_PERCENT,
+  clampAssistantPercent,
+  documentPercentForAssistant,
+  panelPercent,
+} from "./reader-ai-split-constraints.js";
 
 const DOCUMENT_PANEL_ID = "reader-document";
 const ASSISTANT_PANEL_ID = "reader-assistant";
 const STORAGE_KEY = "retainpdf.reader.ai-split-layout.v1";
-const MIN_ASSISTANT_PERCENT = 30;
-const MAX_ASSISTANT_PERCENT = 65;
 
 const DEFAULT_LAYOUT: Layout = {
-  [DOCUMENT_PANEL_ID]: 50,
-  [ASSISTANT_PANEL_ID]: 50,
+  [DOCUMENT_PANEL_ID]: documentPercentForAssistant(DEFAULT_ASSISTANT_PERCENT),
+  [ASSISTANT_PANEL_ID]: DEFAULT_ASSISTANT_PERCENT,
 };
 
 export function normalizeReaderAiSplitLayout(
   layout: Partial<Layout> | null | undefined,
 ): Layout {
-  const rawAssistant = Number(layout?.[ASSISTANT_PANEL_ID]);
-  const assistant = Number.isFinite(rawAssistant)
-    ? Math.min(MAX_ASSISTANT_PERCENT, Math.max(MIN_ASSISTANT_PERCENT, rawAssistant))
-    : 50;
+  const assistant = clampAssistantPercent(layout?.[ASSISTANT_PANEL_ID]);
   return {
-    [DOCUMENT_PANEL_ID]: 100 - assistant,
+    [DOCUMENT_PANEL_ID]: documentPercentForAssistant(assistant),
     [ASSISTANT_PANEL_ID]: assistant,
   };
 }
@@ -97,9 +102,9 @@ export function ReaderAiSplitResizeHandle() {
     >
       <Panel
         id={DOCUMENT_PANEL_ID}
-        defaultSize="50%"
-        minSize="35%"
-        maxSize="70%"
+        defaultSize={panelPercent(documentPercentForAssistant(DEFAULT_ASSISTANT_PERCENT))}
+        minSize={panelPercent(MIN_DOCUMENT_PERCENT)}
+        maxSize={panelPercent(MAX_DOCUMENT_PERCENT)}
       />
       <Separator
         id="reader-ai-split-separator"
@@ -110,9 +115,9 @@ export function ReaderAiSplitResizeHandle() {
       </Separator>
       <Panel
         id={ASSISTANT_PANEL_ID}
-        defaultSize="50%"
-        minSize="30%"
-        maxSize="65%"
+        defaultSize={panelPercent(DEFAULT_ASSISTANT_PERCENT)}
+        minSize={panelPercent(MIN_ASSISTANT_PERCENT)}
+        maxSize={panelPercent(MAX_ASSISTANT_PERCENT)}
       />
     </Group>
   );

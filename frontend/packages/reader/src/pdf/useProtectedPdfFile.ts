@@ -17,7 +17,7 @@ export function cloneProtectedPdfFileForWorker(
   return file ? { data: file.data.slice() } : null;
 }
 
-export type ProtectedPdfState = {
+type ProtectedPdfState = {
   file: ProtectedPdfFile | null;
   loading: boolean;
   error: string;
@@ -38,7 +38,7 @@ function evictIfNeeded(excludeKey?: string): void {
   if (oldest) fileCache.delete(oldest);
 }
 
-export function getCachedProtectedPdf(url: string): ProtectedPdfFile | null {
+function getCachedProtectedPdf(url: string): ProtectedPdfFile | null {
   const key = `${url || ""}`.trim();
   if (!key || !fileCache.has(key)) return null;
   const hit = fileCache.get(key)!;
@@ -47,7 +47,7 @@ export function getCachedProtectedPdf(url: string): ProtectedPdfFile | null {
   return hit;
 }
 
-export function setCachedProtectedPdf(url: string, file: ProtectedPdfFile) {
+function setCachedProtectedPdf(url: string, file: ProtectedPdfFile) {
   const key = `${url || ""}`.trim();
   if (!key) return;
   if (fileCache.has(key)) {
@@ -87,34 +87,6 @@ export async function loadProtectedPdfFile(
     fileCache.set(normalized, file);
   }
   return file;
-}
-
-/** 并行下载多份 PDF，全部完成才 resolve；onItem 用于进度文案 */
-export async function loadProtectedPdfFiles(
-  urls: string[],
-  {
-    fetchResource = fetchProtected,
-    onItem,
-  }: {
-    fetchResource?: typeof fetchProtected;
-    onItem?: (info: { index: number; total: number; url: string }) => void;
-  } = {},
-): Promise<(ProtectedPdfFile | null)[]> {
-  const list = urls.map((u) => `${u || ""}`.trim());
-  const total = list.filter(Boolean).length || 1;
-  let done = 0;
-  return Promise.all(
-    list.map(async (url, index) => {
-      if (!url) {
-        return null;
-      }
-      onItem?.({ index, total, url });
-      const file = await loadProtectedPdfFile(url, fetchResource);
-      done += 1;
-      onItem?.({ index: done - 1, total, url });
-      return file;
-    }),
-  );
 }
 
 export function useProtectedPdfFile(

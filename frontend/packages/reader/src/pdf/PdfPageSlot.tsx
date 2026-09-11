@@ -28,11 +28,10 @@ import type { LiveTranslationPageState } from "../shared/data/live-translation-s
 
 export const DEFAULT_ASPECT = 1.414;
 
-export type PdfPageSlotProps = {
+type PdfPageSlotProps = {
   pageNumber: number;
   width: number;
   devicePixelRatio: number;
-  scrollRoot: HTMLElement | null;
   pane?: ReaderPaneId;
   /** pane-level windowing decides whether the page canvas should be mounted */
   active?: boolean;
@@ -70,7 +69,6 @@ function PdfPageSlotInner({
   liveTranslationPage,
   showLiveTranslation = pane === "source",
 }: PdfPageSlotProps) {
-  const slotRef = useRef<HTMLDivElement | null>(null);
   const aspectRef = useRef(cachedAspect ?? DEFAULT_ASPECT);
   const [aspect, setAspect] = useState(aspectRef.current);
 
@@ -84,9 +82,10 @@ function PdfPageSlotInner({
 
   const sentinelRefRef = useRef(sentinelRef);
   sentinelRefRef.current = sentinelRef;
-  // stable callback ref that merges internal slotRef + pane windowing sentinel registration
-  const mergedRefCallback = useRef<(el: HTMLDivElement | null) => void>((el: HTMLDivElement | null) => {
-    (slotRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+  // Stable callback ref that forwards the slot node to the pane's per-page
+  // sentinel registration. Keeping its identity stable avoids re-attaching the
+  // observer on every render.
+  const sentinelCallbackRef = useRef<(el: HTMLDivElement | null) => void>((el: HTMLDivElement | null) => {
     sentinelRefRef.current?.(el);
   }).current;
 
@@ -160,7 +159,7 @@ function PdfPageSlotInner({
 
   return (
     <div
-      ref={mergedRefCallback}
+      ref={sentinelCallbackRef}
       data-reader-page={pageNumber}
       data-reader-pane={pane}
       data-natural-height={naturalHeight}

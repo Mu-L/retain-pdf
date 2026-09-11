@@ -24,7 +24,7 @@ import {
   type ReaderRegionRect,
 } from "../shared/data/reader-regions.js";
 
-export type ProjectedLiveTranslationItem = {
+type ProjectedLiveTranslationItem = {
   itemId: string;
   translatedText: string;
   status: string;
@@ -98,7 +98,7 @@ export function projectLiveTranslationItems(
   return projected;
 }
 
-export type LiveTranslationOverlayProps = {
+type LiveTranslationOverlayProps = {
   layoutPage?: LiveTranslationLayoutPage;
   pageState?: LiveTranslationPageState;
   width: number;
@@ -211,12 +211,12 @@ type LiveTranslationTextItemProps = {
   pageScale: number;
 };
 
-export type LiveTranslationFitMeasure = (fontSize: number) => {
+type LiveTranslationFitMeasure = (fontSize: number) => {
   width: number;
   height: number;
 };
 
-export type LiveTranslationFitInput = {
+type LiveTranslationFitInput = {
   minFontSizePx: number;
   maxFontSizePx: number;
   requestedFontSizePx: number;

@@ -8,7 +8,7 @@ import {
 } from "../shared/data/reader-regions.js";
 import type { ReaderPaneId } from "./reader-dom-contract.js";
 
-export type ReaderStructureSelectionLayerProps = {
+type ReaderStructureSelectionLayerProps = {
   pane: ReaderPaneId;
   width: number;
   height: number;

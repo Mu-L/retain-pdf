@@ -7,14 +7,13 @@
 
 export const READER_ZOOM_MIN = 0.25;
 export const READER_ZOOM_MAX = 1;
-export const READER_ZOOM_STEP = 0.05;
+const READER_ZOOM_STEP = 0.05;
 /** 默认 50%：半屏宽，对照两侧刚好铺满 */
 export const READER_ZOOM_DEFAULT = 0.5;
-export const READER_ZOOM_COMPARE_DEFAULT = 0.5;
 
 /** 栏内左右 padding 合计 */
-export const READER_PANE_PAD_X = 16;
-export const READER_PANE_FIT_GUTTER = 8;
+const READER_PANE_PAD_X = 16;
+const READER_PANE_FIT_GUTTER = 8;
 
 export type ReaderZoomMode = "source" | "translated" | "compare";
 

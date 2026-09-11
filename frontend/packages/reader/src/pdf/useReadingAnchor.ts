@@ -18,7 +18,7 @@ import {
   saveReaderViewState,
 } from "../shared/state/reader-view-state.js";
 
-export type ReadingAnchorPane = "source" | "translated";
+type ReadingAnchorPane = "source" | "translated";
 
 const MODE_RESTORE_DELAYS_MS = [0, 48, 140, 320, 560];
 const MODE_RESTORE_SAFETY_MS = 700;
