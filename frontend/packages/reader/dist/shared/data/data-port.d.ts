@@ -21,7 +21,7 @@ export declare function createReaderDataPort({ apiPrefix, loadJob, loadManifest,
     loadMarkdown?: (jobId: string, apiPrefix: string) => Promise<unknown>;
     loadMarkdownDocument?: (jobId: string, apiPrefix: string) => Promise<unknown>;
     loadMarkdownSource?: ((jobId: string, apiPrefix: string) => Promise<MarkdownSourceDescriptor | null>) | null;
-    fetchMarkdownRange?: ((rawUrl: string, start: number, endInclusive: number, etag?: string) => Promise<MarkdownRangeResult>) | null;
+    fetchMarkdownRange?: ((rawUrl: string, start: number, endInclusive: number, etag?: string, signal?: AbortSignal) => Promise<MarkdownRangeResult>) | null;
     loadAiChat?: (jobId: string, payload: unknown, apiPrefix: string) => Promise<unknown>;
     loadRegions?: (jobId: string, apiPrefix: string) => Promise<unknown>;
     loadMetadata?: (jobId: string, apiPrefix: string) => Promise<unknown>;
@@ -33,13 +33,21 @@ export declare function createReaderDataPort({ apiPrefix, loadJob, loadManifest,
     fetchRegionTranslationItem: (jobId: string, itemId: string) => Promise<unknown>;
     loadMarkdownPayload: (jobId: string) => Promise<any>;
     loadMarkdownSource: (jobId: string) => Promise<MarkdownSourceDescriptor | null>;
-    loadMarkdownRange: (rawUrl: string, start: number, endInclusive: number, etag?: string) => Promise<MarkdownRangeResult>;
+    loadMarkdownRange: (rawUrl: string, start: number, endInclusive: number, etag?: string, signal?: AbortSignal) => Promise<MarkdownRangeResult>;
     loadJobPayload: (jobId: string) => Promise<unknown>;
-    loadReaderPayload: (jobId: string) => Promise<{
+    loadReaderPayload: (jobId: string, options?: {
+        includeOptionalArtifacts?: boolean;
+    }) => Promise<{
         jobPayload: unknown;
         manifestPayload: unknown;
         readerMetadata: any;
-        regionsPayload: any;
+        regionsPayload: {
+            items: any[];
+        };
+        readerErrors: {
+            regions: unknown;
+            metadata: unknown;
+        };
     }>;
     submitAiChat: (jobId: string, payload: unknown) => Promise<unknown>;
 }>;
@@ -49,13 +57,21 @@ export declare const defaultReaderDataPort: Readonly<{
     fetchRegionTranslationItem: (jobId: string, itemId: string) => Promise<unknown>;
     loadMarkdownPayload: (jobId: string) => Promise<any>;
     loadMarkdownSource: (jobId: string) => Promise<MarkdownSourceDescriptor | null>;
-    loadMarkdownRange: (rawUrl: string, start: number, endInclusive: number, etag?: string) => Promise<MarkdownRangeResult>;
+    loadMarkdownRange: (rawUrl: string, start: number, endInclusive: number, etag?: string, signal?: AbortSignal) => Promise<MarkdownRangeResult>;
     loadJobPayload: (jobId: string) => Promise<unknown>;
-    loadReaderPayload: (jobId: string) => Promise<{
+    loadReaderPayload: (jobId: string, options?: {
+        includeOptionalArtifacts?: boolean;
+    }) => Promise<{
         jobPayload: unknown;
         manifestPayload: unknown;
         readerMetadata: any;
-        regionsPayload: any;
+        regionsPayload: {
+            items: any[];
+        };
+        readerErrors: {
+            regions: unknown;
+            metadata: unknown;
+        };
     }>;
     submitAiChat: (jobId: string, payload: unknown) => Promise<unknown>;
 }>;

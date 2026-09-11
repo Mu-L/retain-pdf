@@ -1,33 +1,32 @@
 import { jsx as r, jsxs as o, Fragment as N } from "react/jsx-runtime";
 import { useState as m, useCallback as k, useEffect as g } from "react";
-import { Bookmark as x } from "lucide-react";
-import { c as F, f as b, A as R } from "./ReaderApp-Ci3nCLCY.js";
-import { R as S } from "./ReaderFloatShell-DTFWp_bv.js";
-import { normalizeServerFavorite as A } from "./runtime/state.js";
-function E(a) {
-  const t = `${a || ""}`.trim();
-  return t === "figure" ? "图表" : t === "data" ? "数据" : t === "sentence" ? "摘录" : t || "摘录";
+import { Bookmark as b } from "lucide-react";
+import { c as x, f as F, A as S, b as A } from "./ReaderApp-D8gLVCsS.js";
+import { normalizeServerFavorite as E } from "./runtime/state.js";
+function P(t) {
+  const a = `${t || ""}`.trim();
+  return a === "figure" ? "图表" : a === "data" ? "数据" : a === "sentence" ? "摘录" : a || "摘录";
 }
-function B({
-  open: a,
-  jobId: t,
+function z({
+  open: t,
+  jobId: a,
   documentId: s,
   onClose: h,
   onJumpPage: v
 }) {
   const [n, i] = m([]), [l, p] = m(!1), [u, c] = m(""), d = k(async () => {
-    if (!t && !s) {
+    if (!a && !s) {
       i([]), c("当前没有可关联的文档");
       return;
     }
     p(!0), c("");
     try {
       let e = [];
-      if (t)
-        e = await F({ jobId: t }).loadServerFavorites();
+      if (a)
+        e = await x({ jobId: a }).loadServerFavorites();
       else if (s) {
-        const { favorites: f = [] } = await b(R, { documentId: s });
-        e = (Array.isArray(f) ? f : []).map((y) => A(y)).filter(Boolean);
+        const { favorites: f = [] } = await F(S, { documentId: s });
+        e = (Array.isArray(f) ? f : []).map((y) => E(y)).filter(Boolean);
       }
       i(e);
     } catch (e) {
@@ -35,17 +34,17 @@ function B({
     } finally {
       p(!1);
     }
-  }, [t, s]);
+  }, [a, s]);
   return g(() => {
-    a && d();
-  }, [a, d]), /* @__PURE__ */ r(
-    S,
+    t && d();
+  }, [t, d]), /* @__PURE__ */ r(
+    A,
     {
       id: "reader-favorites-panel",
-      open: a,
+      open: t,
       title: "摘录",
       subtitle: "本书云端收藏 · 本地保存",
-      titleIcon: /* @__PURE__ */ r(x, { size: 14, strokeWidth: 2.25, "aria-hidden": !0 }),
+      titleIcon: /* @__PURE__ */ r(b, { size: 14, strokeWidth: 2.25, "aria-hidden": !0 }),
       storageKey: "retainpdf.reader.favorites-float.pos.v1",
       ariaLabel: "摘录",
       onClose: h,
@@ -64,7 +63,7 @@ function B({
       ] }),
       children: u ? /* @__PURE__ */ r("p", { className: "reader-notes-empty", role: "alert", children: u }) : l ? /* @__PURE__ */ r("p", { className: "reader-notes-empty", children: "正在加载摘录…" }) : n.length === 0 ? /* @__PURE__ */ r("p", { className: "reader-notes-empty", children: "暂无摘录。可从主页收藏内容后在这里定位阅读。" }) : n.map((e) => /* @__PURE__ */ o("article", { className: "reader-notes-item", children: [
         /* @__PURE__ */ o("div", { className: "reader-notes-item-top", children: [
-          /* @__PURE__ */ r("span", { className: "reader-notes-kind", children: E(e.kind) }),
+          /* @__PURE__ */ r("span", { className: "reader-notes-kind", children: P(e.kind) }),
           /* @__PURE__ */ r("div", { className: "reader-notes-item-actions", children: /* @__PURE__ */ o(
             "button",
             {
@@ -86,6 +85,6 @@ function B({
   );
 }
 export {
-  B as ReaderFavoritesPanel
+  z as ReaderFavoritesPanel
 };
-//# sourceMappingURL=ReaderFavoritesPanel-CYRiRcr2.js.map
+//# sourceMappingURL=ReaderFavoritesPanel-DJVH5Afy.js.map

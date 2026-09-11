@@ -19,8 +19,6 @@ export declare function pickPageAtFocus(pages: HTMLElement[], focusY: number): {
 export declare function measurePageScrollProgress(root: HTMLElement | null | undefined, pane?: ReaderPaneId | null, readingOffsetPx?: number): PageScrollProgress | null;
 export declare function applyPageScrollProgress(root: HTMLElement | null | undefined, progress: PageScrollProgress, behavior?: ScrollBehavior, pane?: ReaderPaneId | null, readingOffsetPx?: number): boolean;
 export declare function scrollShellToPage(root: HTMLElement | null | undefined, pageNumber: number, behavior?: ScrollBehavior, pane?: ReaderPaneId | null): boolean;
-/** @deprecated 兼容旧名 */
-export declare function scrollPaneToPage(root: HTMLElement | null | undefined, pageNumber: number, behavior?: ScrollBehavior): boolean;
 /**
  * 用锁定的 progress 恢复位置。
  * 布局未稳时重试；同一 progress 反复 apply 是幂等的（不会越滚越远）。

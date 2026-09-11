@@ -45,7 +45,7 @@ export type ReaderReactController = {
     };
     rowHeights: PageRowHeights;
     currentPage: number;
-    goToPage: (page: number) => void;
+    goToPage: (page: number, pane?: "source" | "translated") => void;
     activeRegion: ReaderRegion | null;
     jumpToAnchor: (target: ReaderAnchorTarget, pane?: "source" | "translated") => void;
     setModeKeepingPage: (next: ReaderMode) => void;

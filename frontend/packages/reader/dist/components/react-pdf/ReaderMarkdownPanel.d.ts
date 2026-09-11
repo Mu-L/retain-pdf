@@ -21,11 +21,13 @@ type MarkdownImageProgress = {
     total: number;
 };
 type ProtectedMarkdownImageLoaderOptions = {
-    fetchImage: (url: string) => Promise<Response>;
+    fetchImage: (url: string, init?: RequestInit) => Promise<Response>;
     onObjectUrl: (url: string) => void;
     onProgress?: (progress: MarkdownImageProgress) => void;
     protectedBaseUrl?: string;
     root?: Element | null;
+    /** 外部取消信号：卸载/重来时中止在途的受保护图片请求。 */
+    signal?: AbortSignal;
 };
 /**
  * Direct public images rely on native lazy loading. Protected images cannot set src until

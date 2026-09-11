@@ -1,10 +1,9 @@
 import { jsx as r, jsxs as E, Fragment as $e } from "react/jsx-runtime";
 import { useState as Q, useRef as H, useEffect as Z, useMemo as ae, useCallback as X, useId as yt } from "react";
-import { Square as wt, ArrowUp as vt, Copy as It, GitBranch as bt, RefreshCw as _t, Sigma as Qe, Table2 as Nt, Image as Rt, Type as kt, X as Te, BookOpen as Je, Sparkles as be, Loader2 as Ee, FileText as qe, ArrowDown as Xe, ListTree as Mt, FlaskConical as Ct, ShieldCheck as At, Bot as St, ChevronUp as $t, ChevronDown as Ze, TriangleAlert as et, ExternalLink as Tt, Check as tt, Circle as Et, Plus as xt, Pencil as Pt, Trash2 as Ot } from "lucide-react";
-import { R as Dt } from "./ReaderFloatShell-DTFWp_bv.js";
-import { ThreadPrimitive as pe, ComposerPrimitive as Me, MessagePrimitive as nt, ActionBarPrimitive as xe, useExternalStoreRuntime as Ft, AssistantRuntimeProvider as qt } from "@assistant-ui/react";
-import { A as zt } from "./AiMarkdownAnswer-DET_KlrE.js";
-import { e as rt, g as Lt, d as Bt } from "./ReaderApp-Ci3nCLCY.js";
+import { Square as wt, ArrowUp as vt, Copy as It, GitBranch as bt, RefreshCw as _t, Sigma as Qe, Table2 as Nt, Image as kt, Type as Mt, X as Te, BookOpen as Je, Sparkles as be, Loader2 as Ee, FileText as qe, ArrowDown as Xe, ListTree as Rt, FlaskConical as Ct, ShieldCheck as At, Bot as St, ChevronUp as $t, ChevronDown as Ze, TriangleAlert as et, ExternalLink as Tt, Check as tt, Circle as Et, Plus as xt, Pencil as Pt, Trash2 as Ot } from "lucide-react";
+import { g as nt, h as Dt, d as Ft, b as qt } from "./ReaderApp-D8gLVCsS.js";
+import { ThreadPrimitive as pe, ComposerPrimitive as Re, MessagePrimitive as rt, ActionBarPrimitive as xe, useExternalStoreRuntime as zt, AssistantRuntimeProvider as Lt } from "@assistant-ui/react";
+import { A as Bt } from "./AiMarkdownAnswer-DET_KlrE.js";
 import { M as jt, C as Be, h as Wt } from "./config-CgaWliJ_.js";
 import { k as ye, q as me, v as Kt } from "./answer-enhance-W8TBaAUL.js";
 import { Chat as Ut, useChat as Gt } from "@ai-sdk/react";
@@ -24,7 +23,7 @@ function We({ label: t }) {
   ] });
 }
 function ln({ message: t }) {
-  return /* @__PURE__ */ r(nt.Root, { className: "aui-msg aui-msg-user", "data-role": "user", children: /* @__PURE__ */ r("div", { className: "aui-msg-bubble", children: /* @__PURE__ */ r("div", { className: "aui-md-plain", children: st(t) }) }) });
+  return /* @__PURE__ */ r(rt.Root, { className: "aui-msg aui-msg-user", "data-role": "user", children: /* @__PURE__ */ r("div", { className: "aui-msg-bubble", children: /* @__PURE__ */ r("div", { className: "aui-md-plain", children: st(t) }) }) });
 }
 function un({
   jobId: t,
@@ -37,11 +36,11 @@ function un({
   onBranchFromAnswer: c
 }) {
   const m = st(e);
-  return /* @__PURE__ */ r(nt.Root, { className: "aui-msg aui-msg-assistant", "data-role": "assistant", children: /* @__PURE__ */ E("div", { className: "aui-msg-stack", children: [
+  return /* @__PURE__ */ r(rt.Root, { className: "aui-msg aui-msg-assistant", "data-role": "assistant", children: /* @__PURE__ */ E("div", { className: "aui-msg-stack", children: [
     i && s ? /* @__PURE__ */ r(We, { label: s }) : null,
     i && !s && !m ? /* @__PURE__ */ r(We, { label: "思考中…" }) : null,
     m ? /* @__PURE__ */ r("div", { className: "aui-msg-bubble", children: /* @__PURE__ */ r(
-      zt,
+      Bt,
       {
         content: m,
         streaming: i,
@@ -94,10 +93,10 @@ function at({
   onBranchFromAnswer: c
 }) {
   return /* @__PURE__ */ r("div", { className: "aui-message-group", "data-slot": "aui_message-group", children: /* @__PURE__ */ r(pe.Messages, { children: ({ message: m }) => {
-    var M;
+    var R;
     if (m.role === "user") return /* @__PURE__ */ r(ln, { message: m });
     if (m.role !== "assistant") return null;
-    const y = ((M = m.status) == null ? void 0 : M.type) === "running" || i && s === m.id;
+    const y = ((R = m.status) == null ? void 0 : R.type) === "running" || i && s === m.id;
     return /* @__PURE__ */ r(
       un,
       {
@@ -154,9 +153,9 @@ function mn({
   onClear: e
 }) {
   if (!t) return null;
-  const n = t.selectionType === "text" ? "text" : t.kind, s = t.selectionType === "text" ? t.quote : rt(t.region, t.pane), i = n === "formula" ? "公式" : n === "table" ? "表格" : n === "figure" ? "图片" : "文字";
+  const n = t.selectionType === "text" ? "text" : t.kind, s = t.selectionType === "text" ? t.quote : nt(t.region, t.pane), i = n === "formula" ? "公式" : n === "table" ? "表格" : n === "figure" ? "图片" : "文字";
   return /* @__PURE__ */ E("div", { className: "aui-selection-context", "data-reader-ai-selection-context": "", children: [
-    /* @__PURE__ */ r(n === "formula" ? Qe : n === "table" ? Nt : n === "figure" ? Rt : kt, { size: 14, strokeWidth: 2.1, "aria-hidden": !0 }),
+    /* @__PURE__ */ r(n === "formula" ? Qe : n === "table" ? Nt : n === "figure" ? kt : Mt, { size: 14, strokeWidth: 2.1, "aria-hidden": !0 }),
     /* @__PURE__ */ E("span", { className: "aui-selection-context-meta", children: [
       t.pane === "translated" ? "译文" : "原文",
       " · ",
@@ -186,11 +185,11 @@ function it({
   selectionContext: i,
   onClearSelectionContext: a
 }) {
-  return /* @__PURE__ */ E(Me.Root, { className: "aui-composer", "data-reader-ai-composer": "", children: [
+  return /* @__PURE__ */ E(Re.Root, { className: "aui-composer", "data-reader-ai-composer": "", children: [
     /* @__PURE__ */ E("div", { className: "aui-composer-shell", children: [
       n !== "operations" ? /* @__PURE__ */ r(mn, { selectionContext: i, onClear: a }) : null,
       /* @__PURE__ */ r(
-        Me.Input,
+        Re.Input,
         {
           className: "aui-input",
           rows: 1,
@@ -204,7 +203,7 @@ function it({
       ),
       /* @__PURE__ */ E("div", { className: "aui-composer-toolbar", children: [
         /* @__PURE__ */ r(pn, { mode: n, disabled: t || e, onChange: s }),
-        /* @__PURE__ */ r("div", { className: "aui-composer-actions", children: t ? /* @__PURE__ */ r(Me.Cancel, { className: "aui-send aui-send-stop", "aria-label": "停止生成", children: /* @__PURE__ */ r(wt, { size: 12, strokeWidth: 2.6, "aria-hidden": !0 }) }) : /* @__PURE__ */ r(Me.Send, { className: "aui-send", "aria-label": "发送", children: /* @__PURE__ */ r(vt, { size: 16, strokeWidth: 2.5, "aria-hidden": !0 }) }) })
+        /* @__PURE__ */ r("div", { className: "aui-composer-actions", children: t ? /* @__PURE__ */ r(Re.Cancel, { className: "aui-send aui-send-stop", "aria-label": "停止生成", children: /* @__PURE__ */ r(wt, { size: 12, strokeWidth: 2.6, "aria-hidden": !0 }) }) : /* @__PURE__ */ r(Re.Send, { className: "aui-send", "aria-label": "发送", children: /* @__PURE__ */ r(vt, { size: 16, strokeWidth: 2.5, "aria-hidden": !0 }) }) })
       ] })
     ] }),
     /* @__PURE__ */ r("p", { className: "aui-hint", children: "AI 可能会出错，请核对原文与引用" })
@@ -231,7 +230,7 @@ function hn({
   branchBusy: c,
   agentRequestBlocked: m = !1,
   agentOperationPanel: y,
-  onModeChange: M,
+  onModeChange: R,
   onJumpCitation: A,
   onBranchFromAnswer: v
 }) {
@@ -289,7 +288,7 @@ function hn({
           isRunning: a,
           branchBusy: I,
           mode: "operations",
-          onModeChange: M,
+          onModeChange: R,
           selectionContext: null,
           onClearSelectionContext: void 0
         }
@@ -299,7 +298,7 @@ function hn({
 }
 const gn = [
   { prompt: "用几句话总结这篇文献的核心内容。", label: "总结本文", icon: Je },
-  { prompt: "这篇文献的主要结论是什么？", label: "提炼主要结论", icon: Mt },
+  { prompt: "这篇文献的主要结论是什么？", label: "提炼主要结论", icon: Rt },
   { prompt: "作者用了什么方法或模型？", label: "梳理方法与模型", icon: Ct },
   { prompt: "解释文中的关键公式。", label: "解释关键公式", icon: Qe }
 ];
@@ -314,7 +313,7 @@ function yn({
   branchBusy: c,
   composerDisabled: m = !1,
   onModeChange: y,
-  onJumpCitation: M,
+  onJumpCitation: R,
   onBranchFromAnswer: A,
   selectionContext: v = null,
   onClearSelectionContext: I,
@@ -353,7 +352,7 @@ function yn({
         streamingAssistantId: i,
         isRunning: a,
         branchBusy: c,
-        onJumpCitation: M,
+        onJumpCitation: R,
         onBranchFromAnswer: A
       }
     ),
@@ -392,14 +391,14 @@ function wn({
   branchBusy: c,
   agentRequestBlocked: m = !1,
   agentOperationPanel: y,
-  assistantMode: M = "reading",
+  assistantMode: R = "reading",
   onAssistantModeChange: A,
   onJumpCitation: v,
   onBranchFromAnswer: I,
   selectionContext: l = null,
   onClearSelectionContext: T
 }) {
-  const B = e.length === 0, b = M === "operations";
+  const B = e.length === 0, b = R === "operations";
   return /* @__PURE__ */ r(
     pe.Root,
     {
@@ -534,7 +533,7 @@ function _n(t) {
 function Nn(t) {
   return t === "failed" || t === "ambiguous" ? et : t === "cancelled" ? Te : t === "committed" || t === "result_ready" ? tt : ["queued", "running", "validating"].includes(t) ? Ee : Et;
 }
-function Rn({ events: t, mode: e }) {
+function kn({ events: t, mode: e }) {
   return /* @__PURE__ */ r("ol", { className: "reader-agent-operation-timeline", "aria-label": "PDF 操作步骤", children: t.map((n) => {
     const s = Nn(n.status), i = ["queued", "running", "validating"].includes(n.status);
     return /* @__PURE__ */ E("li", { children: [
@@ -544,16 +543,16 @@ function Rn({ events: t, mode: e }) {
     ] }, `${n.attempt}:${n.seq}`);
   }) });
 }
-function kn({
+function Mn({
   operation: t,
   loadCandidate: e
 }) {
   const [n, s] = Q(!1), [i, a] = Q(""), [o, c] = Q(""), m = H("");
   return Z(() => {
     let y = !1;
-    return c(""), e(t).then((M) => {
+    return c(""), e(t).then((R) => {
       if (y) return;
-      const A = URL.createObjectURL(M);
+      const A = URL.createObjectURL(R);
       m.current && URL.revokeObjectURL(m.current), m.current = A, a(A);
     }).catch(() => {
       y || c("候选 PDF 加载失败，请重试。");
@@ -584,7 +583,7 @@ function kn({
     o ? /* @__PURE__ */ r("p", { className: "reader-agent-operation-error", role: "alert", children: o }) : null
   ] });
 }
-function Mn({
+function Rn({
   entry: t,
   mode: e,
   loadCandidate: n,
@@ -592,7 +591,7 @@ function Mn({
   onDismiss: i
 }) {
   var B;
-  const { operation: a, pendingAction: o, error: c } = t, [m, y] = Q(!1), [M, A] = Q(!1), v = a.events || [], I = _n(a.status), l = !!((a.status === "result_ready" || a.status === "committed") && a.candidate_available), T = vn.has(a.status);
+  const { operation: a, pendingAction: o, error: c } = t, [m, y] = Q(!1), [R, A] = Q(!1), v = a.events || [], I = _n(a.status), l = !!((a.status === "result_ready" || a.status === "committed") && a.candidate_available), T = vn.has(a.status);
   return /* @__PURE__ */ E("article", { className: `reader-agent-operation-card is-${a.status}`, "data-operation-id": a.operation_id, children: [
     /* @__PURE__ */ E("header", { children: [
       /* @__PURE__ */ r("span", { className: "reader-agent-operation-icon", "aria-hidden": !0, children: /* @__PURE__ */ r(St, { size: 15 }) }),
@@ -624,11 +623,11 @@ function Mn({
         m ? /* @__PURE__ */ r($t, { size: 12, "aria-hidden": !0 }) : /* @__PURE__ */ r(Ze, { size: 12, "aria-hidden": !0 }),
         m ? "收起步骤" : `执行步骤 ${v.length}`
       ] }),
-      m ? /* @__PURE__ */ r(Rn, { events: v, mode: e }) : null
+      m ? /* @__PURE__ */ r(kn, { events: v, mode: e }) : null
     ] }) : null,
-    l ? /* @__PURE__ */ r(kn, { operation: a, loadCandidate: n }) : null,
+    l ? /* @__PURE__ */ r(Mn, { operation: a, loadCandidate: n }) : null,
     c ? /* @__PURE__ */ r("p", { className: "reader-agent-operation-error", role: "alert", children: c }) : null,
-    M ? /* @__PURE__ */ E("div", { className: "reader-agent-operation-risk", role: "alertdialog", "aria-label": "确认重复执行风险", children: [
+    R ? /* @__PURE__ */ E("div", { className: "reader-agent-operation-risk", role: "alertdialog", "aria-label": "确认重复执行风险", children: [
       /* @__PURE__ */ r(et, { size: 14, "aria-hidden": !0 }),
       /* @__PURE__ */ r("p", { children: "上一次执行结果不确定，重试可能重复操作。确认接受风险后再继续。" }),
       /* @__PURE__ */ E("div", { children: [
@@ -670,10 +669,10 @@ function Cn({
 }) {
   const [a, o] = Q(In), c = t.filter((y) => !a.has(Ke(y.operation)));
   function m(y) {
-    const M = Ke(y);
+    const R = Ke(y);
     o((A) => {
       const v = new Set(A);
-      return v.add(M), bn(v), v;
+      return v.add(R), bn(v), v;
     });
   }
   return /* @__PURE__ */ E("section", { className: `reader-agent-operations${c.length ? " has-operations" : ""}`, "aria-label": "AI PDF 操作", children: [
@@ -686,7 +685,7 @@ function Cn({
       "正在重启 Agent，新请求暂不可用"
     ] }) : null,
     c.map((y) => /* @__PURE__ */ r(
-      Mn,
+      Rn,
       {
         entry: y,
         mode: e,
@@ -729,7 +728,7 @@ function Pn({
   onSubmit: c,
   onRetry: m,
   onCancel: y,
-  onJumpCitation: M,
+  onJumpCitation: R,
   onBranchFromAnswer: A,
   branchBusy: v = !1,
   agentOperations: I = Tn,
@@ -758,7 +757,7 @@ function Pn({
     !f || o || v || I.runtimeRestarting || j || await c(f);
   }, [I.runtimeRestarting, v, o, j, c]), N = X(async () => {
     await y();
-  }, [y]), k = ae(() => ({
+  }, [y]), M = ae(() => ({
     messages: S,
     isRunning: o,
     isDisabled: v || I.runtimeRestarting || j,
@@ -775,8 +774,8 @@ function Pn({
     j,
     D,
     S
-  ]), h = Ft(k);
-  return /* @__PURE__ */ r(qt, { runtime: h, children: /* @__PURE__ */ r(
+  ]), h = zt(M);
+  return /* @__PURE__ */ r(Lt, { runtime: h, children: /* @__PURE__ */ r(
     wn,
     {
       jobId: t,
@@ -802,7 +801,7 @@ function Pn({
           onAction: I.perform
         }
       ) : null,
-      onJumpCitation: M,
+      onJumpCitation: R,
       onBranchFromAnswer: A
     }
   ) });
@@ -821,7 +820,7 @@ function On({
   onDelete: c,
   onRename: m
 }) {
-  const y = t.length > 0, M = n || s, [A, v] = Q(!1), [I, l] = Q(""), [T, B] = Q(""), b = H(null), z = yt();
+  const y = t.length > 0, R = n || s, [A, v] = Q(!1), [I, l] = Q(""), [T, B] = Q(""), b = H(null), z = yt();
   function j(g) {
     const x = `${g || ""}`.match(/^fork-(\d+)-(.*)$/i);
     if (!x) return g;
@@ -851,9 +850,9 @@ function On({
     const g = D.current;
     g && (g.focus(), g.select());
   }, [I]);
-  const k = (g) => {
+  const M = (g) => {
     const x = `${g || ""}`.trim();
-    !x || M || S.current || I || (S.current = !0, Se(1e3, 0), requestAnimationFrame(() => {
+    !x || R || S.current || I || (S.current = !0, Se(1e3, 0), requestAnimationFrame(() => {
       v(!1), window.setTimeout(() => {
         (async () => {
           try {
@@ -865,7 +864,7 @@ function On({
       }, 40);
     }));
   }, h = (g) => {
-    M || (l(g.id), B(g.title || ""));
+    R || (l(g.id), B(g.title || ""));
   }, u = () => {
     const g = I, x = T;
     l(""), g && m(g, x);
@@ -873,7 +872,7 @@ function On({
     l(""), B("");
   }, p = (g) => {
     var C;
-    if (M || S.current) return;
+    if (R || S.current) return;
     const x = g.title || "未命名对话";
     (C = globalThis.confirm) != null && C.call(globalThis, `确定删除对话「${x}」？此操作不可恢复。`) && (S.current = !0, Se(800, 0), (async () => {
       try {
@@ -906,10 +905,10 @@ function On({
               "aria-haspopup": "listbox",
               "aria-expanded": A,
               "aria-controls": z,
-              disabled: M || !y,
+              disabled: R || !y,
               title: N,
               onClick: () => {
-                M || !y || v((g) => !g);
+                R || !y || v((g) => !g);
               },
               children: [
                 /* @__PURE__ */ r("span", { className: "aui-session-trigger-label", children: N }),
@@ -922,11 +921,11 @@ function On({
             {
               type: "button",
               className: "aui-session-btn",
-              disabled: M,
+              disabled: R,
               title: "新对话窗口",
               "aria-label": "新对话",
               onClick: () => {
-                M || S.current || (S.current = !0, Se(800), v(!1), l(""), window.setTimeout(() => {
+                R || S.current || (S.current = !0, Se(800), v(!1), l(""), window.setTimeout(() => {
                   (async () => {
                     try {
                       await o();
@@ -961,7 +960,7 @@ function On({
                     value: T,
                     maxLength: 80,
                     "aria-label": "对话标题",
-                    disabled: M,
+                    disabled: R,
                     onChange: (P) => B(P.target.value),
                     onKeyDown: (P) => {
                       P.key === "Enter" ? (P.preventDefault(), u()) : P.key === "Escape" && (P.preventDefault(), f());
@@ -976,7 +975,7 @@ function On({
                     className: "aui-session-icon-btn",
                     "aria-label": "保存标题",
                     title: "保存",
-                    disabled: M || !T.trim(),
+                    disabled: R || !T.trim(),
                     onClick: (P) => {
                       P.stopPropagation(), u();
                     },
@@ -990,7 +989,7 @@ function On({
                     className: "aui-session-icon-btn",
                     "aria-label": "取消重命名",
                     title: "取消",
-                    disabled: M,
+                    disabled: R,
                     onClick: (P) => {
                       P.stopPropagation(), f();
                     },
@@ -1005,17 +1004,17 @@ function On({
                     role: "option",
                     "aria-selected": W,
                     className: `aui-session-item${W ? " is-active" : ""}`,
-                    disabled: M,
+                    disabled: R,
                     title: x,
                     onPointerDown: (P) => {
-                      P.stopPropagation(), !W && !M && me(1e3);
+                      P.stopPropagation(), !W && !R && me(1e3);
                     },
                     onClick: (P) => {
                       if (P.preventDefault(), P.stopPropagation(), W) {
                         v(!1);
                         return;
                       }
-                      k(g.id);
+                      M(g.id);
                     },
                     children: [
                       /* @__PURE__ */ r("span", { className: "aui-session-item-title", children: x }),
@@ -1030,7 +1029,7 @@ function On({
                     className: "aui-session-icon-btn",
                     "aria-label": `重命名 ${x}`,
                     title: "重命名",
-                    disabled: M,
+                    disabled: R,
                     onClick: (P) => {
                       P.preventDefault(), P.stopPropagation(), h(g);
                     },
@@ -1044,7 +1043,7 @@ function On({
                     className: "aui-session-icon-btn is-danger",
                     "aria-label": `删除 ${x}`,
                     title: "删除",
-                    disabled: M,
+                    disabled: R,
                     onClick: (P) => {
                       P.preventDefault(), P.stopPropagation(), p(g);
                     },
@@ -1103,7 +1102,7 @@ class Ln {
     var l, T, B, b;
     const a = n || {}, o = qn(s, a);
     if (!o) throw new Error("请输入问题。");
-    const c = a.assistantMode || ((T = (l = this.options).getAssistantMode) == null ? void 0 : T.call(l)) || "reading", m = a.scope || "document", y = a.context ? { ...a.context } : null, M = `${a.assistantMessageId || ""}`.trim() || `a-${Date.now().toString(36)}`, A = `${M}-text`, v = this.options.getRemoteAnswerer(), I = ((b = (B = this.options).getLocalAnswerer) == null ? void 0 : b.call(B)) || null;
+    const c = a.assistantMode || ((T = (l = this.options).getAssistantMode) == null ? void 0 : T.call(l)) || "reading", m = a.scope || "document", y = a.context ? { ...a.context } : null, R = `${a.assistantMessageId || ""}`.trim() || `a-${Date.now().toString(36)}`, A = `${R}-text`, v = this.options.getRemoteAnswerer(), I = ((b = (B = this.options).getLocalAnswerer) == null ? void 0 : b.call(B)) || null;
     if (!v && !I)
       throw new Error("问答暂不可用：请确认已打开任务阅读器。");
     return new ReadableStream({
@@ -1113,15 +1112,15 @@ class Ln {
           progress: i === "regenerate-message" ? "正在重新生成…" : "正在检索文档…",
           status: "running"
         };
-        const O = (k) => {
-          j || z.enqueue(k);
-        }, N = (k) => {
-          D = { ...D, ...k }, O({ type: "message-metadata", messageMetadata: D });
+        const O = (M) => {
+          j || z.enqueue(M);
+        }, N = (M) => {
+          D = { ...D, ...M }, O({ type: "message-metadata", messageMetadata: D });
         };
-        O({ type: "start", messageId: M, messageMetadata: D }), O({ type: "start-step" }), O({ type: "text-start", id: A }), (async () => {
-          var k, h, u, f, p, g;
+        O({ type: "start", messageId: R, messageMetadata: D }), O({ type: "start-step" }), O({ type: "text-start", id: A }), (async () => {
+          var M, h, u, f, p, g;
           try {
-            if (await ((k = v == null ? void 0 : v.ensureLoaded) == null ? void 0 : k.call(v, this.options.jobId)), e != null && e.aborted) throw new Error("aborted");
+            if (await ((M = v == null ? void 0 : v.ensureLoaded) == null ? void 0 : M.call(v, this.options.jobId)), e != null && e.aborted) throw new Error("aborted");
             let x = v || I, W = !1, C;
             try {
               C = await x.answer({
@@ -1132,7 +1131,7 @@ class Ln {
                 parentId: `${a.parentId || ""}`.trim(),
                 regenerate: a.regenerate ?? i === "regenerate-message",
                 userMessageId: `${a.userMessageId || ""}`.trim(),
-                assistantMessageId: M,
+                assistantMessageId: R,
                 onAgentSessionEvent: ($) => {
                   var oe, ce, _e;
                   const K = (oe = $ == null ? void 0 : $.capabilities) == null ? void 0 : oe.document_operation_confirmation_mode;
@@ -1367,11 +1366,11 @@ function Gn(t, e) {
   return i.reverse();
 }
 function Hn(t, e, n) {
-  var M, A, v, I;
+  var R, A, v, I;
   const s = `${e || ""}`.trim();
   if (!s || !t.length) return [];
   let i = s;
-  t.some((l) => l.message.id === i) || (n && t.some((l) => l.message.id === n) ? i = n : i = ((M = [...t].reverse().find((l) => l.message.role === "assistant")) == null ? void 0 : M.message.id) || "");
+  t.some((l) => l.message.id === i) || (n && t.some((l) => l.message.id === n) ? i = n : i = ((R = [...t].reverse().find((l) => l.message.role === "assistant")) == null ? void 0 : R.message.id) || "");
   let a = Gn(t, i);
   if (a.length >= 2 && ((A = a.at(-1)) == null ? void 0 : A.message.role) === "assistant") return a;
   a.length === 1 && ((v = a[0]) == null ? void 0 : v.message.role) === "user" && (a = []);
@@ -1407,33 +1406,33 @@ function Yn(t) {
     enabled: s,
     remoteAnswerer: i = null,
     stream: a = Vn
-  } = t, [o, c] = Q([]), [m, y] = Q(null), [M, A] = Q([]), [v, I] = Q(""), [l, T] = Q(!1), [B, b] = Q(""), z = H(o), j = H(m), S = H(v), D = H(!1), O = H(""), N = H(""), k = H(0), h = H(0), u = H(a);
+  } = t, [o, c] = Q([]), [m, y] = Q(null), [R, A] = Q([]), [v, I] = Q(""), [l, T] = Q(!1), [B, b] = Q(""), z = H(o), j = H(m), S = H(v), D = H(!1), O = H(""), N = H(""), M = H(0), h = H(0), u = H(a);
   u.current = a;
   const f = H(i);
   f.current = i, z.current = o, j.current = m, S.current = v;
-  const p = X(async (R = "", w) => {
-    const d = `${R || N.current || ""}`.trim(), _ = ++h.current;
+  const p = X(async (k = "", w) => {
+    const d = `${k || N.current || ""}`.trim(), _ = ++h.current;
     if (!d)
-      return _ === h.current && (w === void 0 || w === k.current) && A([]), [];
+      return _ === h.current && (w === void 0 || w === M.current) && A([]), [];
     try {
       const ee = (await Qt({ document_id: d, limit: 50 })).conversations || [];
-      return _ === h.current && d === `${N.current || ""}`.trim() && (w === void 0 || w === k.current) ? (A(ee), ee) : null;
+      return _ === h.current && d === `${N.current || ""}`.trim() && (w === void 0 || w === M.current) ? (A(ee), ee) : null;
     } catch {
       return null;
     }
-  }, []), g = X((R, w) => {
+  }, []), g = X((k, w) => {
     var F;
-    const d = De(R), _ = `${w || ""}`.trim() || ((F = d[d.length - 1]) == null ? void 0 : F.message.id) || null;
+    const d = De(k), _ = `${w || ""}`.trim() || ((F = d[d.length - 1]) == null ? void 0 : F.message.id) || null;
     c(d), y(_), u.current.showMessages(fe(d, _));
   }, []), x = X(() => `${n || N.current || e}`.trim(), [n, e]);
   Z(() => {
-    const R = f.current;
+    const k = f.current;
     if (!e) {
-      h.current += 1, k.current += 1, c([]), y(null), A([]), I(""), u.current.clearMessages(), S.current = "", O.current = "", N.current = "", D.current = !1;
+      h.current += 1, M.current += 1, c([]), y(null), A([]), I(""), u.current.clearMessages(), S.current = "", O.current = "", N.current = "", D.current = !1;
       return;
     }
     const w = O.current !== e;
-    if (w && (h.current += 1, k.current += 1, O.current = e, D.current = !1, c([]), y(null), u.current.clearMessages(), A([]), I(""), S.current = "", N.current = "", T(!1)), !s || !R) {
+    if (w && (h.current += 1, M.current += 1, O.current = e, D.current = !1, c([]), y(null), u.current.clearMessages(), A([]), I(""), S.current = "", N.current = "", T(!1)), !s || !k) {
       h.current += 1;
       return;
     }
@@ -1443,7 +1442,7 @@ function Yn(t) {
       let _ = `${n || N.current || ""}`.trim();
       if (!_) {
         try {
-          _ = `${await ((J = R.getDocumentId) == null ? void 0 : J.call(R)) || ""}`.trim();
+          _ = `${await ((J = k.getDocumentId) == null ? void 0 : J.call(k)) || ""}`.trim();
         } catch {
           _ = "";
         }
@@ -1455,9 +1454,9 @@ function Yn(t) {
         d || (D.current = !0);
         return;
       }
-      const re = Yt({ jobId: e, documentId: _ }) || `${((ue = R.getConversationId) == null ? void 0 : ue.call(R)) || ""}`.trim();
+      const re = Yt({ jobId: e, documentId: _ }) || `${((ue = k.getConversationId) == null ? void 0 : ue.call(k)) || ""}`.trim();
       if (re) {
-        I(re), S.current = re, (G = R.setConversationId) == null || G.call(R, re, _);
+        I(re), S.current = re, (G = k.setConversationId) == null || G.call(k, re, _);
         try {
           const L = await Ce(re);
           if (d) return;
@@ -1478,7 +1477,7 @@ function Yn(t) {
           const Y = L[0];
           if (Y != null && Y.conversation_id) {
             const te = Y.conversation_id;
-            I(te), S.current = te, (V = R.setConversationId) == null || V.call(R, te, _);
+            I(te), S.current = te, (V = k.setConversationId) == null || V.call(k, te, _);
             try {
               const de = await Ce(te);
               if (d) return;
@@ -1509,12 +1508,12 @@ function Yn(t) {
     };
   }, [e, n, s, p, g]), Z(() => {
     if (!e || !D.current) return;
-    const R = v, w = { jobId: e, documentId: n || N.current }, d = window.setTimeout(() => {
+    const k = v, w = { jobId: e, documentId: n || N.current }, d = window.setTimeout(() => {
       if (!o.length) {
-        ve(w, R);
+        ve(w, k);
         return;
       }
-      Pe(w, Oe(o, m), R);
+      Pe(w, Oe(o, m), k);
     }, 280);
     return () => window.clearTimeout(d);
   }, [e, n, o, m, v]);
@@ -1523,33 +1522,33 @@ function Yn(t) {
     [o, m]
   ), C = ae(() => {
     var w;
-    const R = {};
+    const k = {};
     for (const d of o) {
       const _ = d.message;
-      _.role === "assistant" && ((w = _.citations) != null && w.length) && (R[_.id] = _.citations);
+      _.role === "assistant" && ((w = _.citations) != null && w.length) && (k[_.id] = _.citations);
     }
-    return R;
+    return k;
   }, [o]), P = ae(() => {
-    const R = {};
+    const k = {};
     for (const w of o) {
       const d = w.message;
-      d.role === "assistant" && d.progress && (R[d.id] = d.progress);
+      d.role === "assistant" && d.progress && (k[d.id] = d.progress);
     }
-    return R;
+    return k;
   }, [o]), se = ae(() => {
-    const R = {};
+    const k = {};
     for (const w of o) {
       const d = w.message;
-      d.content && (R[d.id] = d.content);
+      d.content && (k[d.id] = d.content);
     }
-    return R;
+    return k;
   }, [o]), U = ae(() => ({
     readItems: () => z.current,
     readHeadId: () => j.current,
-    appendExchange: ({ parentId: R, userId: w, assistantId: d, question: _, progress: F }) => {
+    appendExchange: ({ parentId: k, userId: w, assistantId: d, question: _, progress: F }) => {
       c((ee) => [
         ...ee,
-        { parentId: R, message: { id: w, role: "user", content: _ } },
+        { parentId: k, message: { id: w, role: "user", content: _ } },
         {
           parentId: w,
           message: {
@@ -1563,13 +1562,13 @@ function Yn(t) {
         }
       ]), y(d);
     },
-    appendRetryTurn: ({ assistantId: R, branchParent: w }) => {
+    appendRetryTurn: ({ assistantId: k, branchParent: w }) => {
       c((d) => [
         ...d,
         {
           parentId: w,
           message: {
-            id: R,
+            id: k,
             role: "assistant",
             content: "",
             progress: "正在重新生成…",
@@ -1577,11 +1576,11 @@ function Yn(t) {
             citations: []
           }
         }
-      ]), y(R);
+      ]), y(k);
     },
     markRunningCancelled: () => {
       c(
-        (R) => R.map(
+        (k) => k.map(
           (w) => {
             var d;
             return ((d = w.message.status) == null ? void 0 : d.type) === "running" ? {
@@ -1597,8 +1596,8 @@ function Yn(t) {
         )
       );
     },
-    markRunningAsError: (R) => {
-      const w = `${R || ""}`.trim() || "生成回答失败，请重试。";
+    markRunningAsError: (k) => {
+      const w = `${k || ""}`.trim() || "生成回答失败，请重试。";
       c((d) => d.map((_) => {
         var F;
         return ((F = _.message.status) == null ? void 0 : F.type) === "running" ? {
@@ -1613,53 +1612,53 @@ function Yn(t) {
         } : _;
       }));
     },
-    mergeChatMirror: (R) => {
-      R.size && c((w) => w.map((d) => {
-        const _ = R.get(d.message.id);
+    mergeChatMirror: (k) => {
+      k.size && c((w) => w.map((d) => {
+        const _ = k.get(d.message.id);
         return _ ? { ...d, message: { ...d.message, ..._ } } : d;
       }));
     }
   }), []), ne = X(() => {
     var w, d;
-    const R = `${((d = (w = f.current) == null ? void 0 : w.getConversationId) == null ? void 0 : d.call(w)) || ""}`.trim();
-    R && I(R);
+    const k = `${((d = (w = f.current) == null ? void 0 : w.getConversationId) == null ? void 0 : d.call(w)) || ""}`.trim();
+    k && I(k);
   }, []), le = X(async () => {
     var w, d;
     if (l) return;
     await u.current.stopStream(), ye(900), me(900), T(!0), b("");
-    const R = ++k.current;
+    const k = ++M.current;
     try {
       if (await new Promise((ee) => {
         window.setTimeout(ee, 40);
-      }), R !== k.current) return;
+      }), k !== M.current) return;
       const _ = f.current, F = N.current || `${await ((w = _ == null ? void 0 : _.getDocumentId) == null ? void 0 : w.call(_)) || ""}`.trim();
-      if (R !== k.current) return;
-      N.current = F, (d = _ == null ? void 0 : _.clearConversationId) == null || d.call(_, F), I(""), S.current = "", c([]), y(null), u.current.clearMessages(), ve({ jobId: e, documentId: F }), F && await p(F, R);
+      if (k !== M.current) return;
+      N.current = F, (d = _ == null ? void 0 : _.clearConversationId) == null || d.call(_, F), I(""), S.current = "", c([]), y(null), u.current.clearMessages(), ve({ jobId: e, documentId: F }), F && await p(F, k);
     } catch (_) {
       console.warn("[reader-ai] new session failed", _), b("无法创建新对话，请重试。");
     } finally {
-      R === k.current && T(!1);
+      k === M.current && T(!1);
     }
-  }, [e, p, l]), $ = X(async (R) => {
+  }, [e, p, l]), $ = X(async (k) => {
     var F, ee, re, q, J, ue, G, V;
-    const w = `${R || ""}`.trim(), d = S.current || ((ee = (F = f.current) == null ? void 0 : F.getConversationId) == null ? void 0 : ee.call(F)) || "";
+    const w = `${k || ""}`.trim(), d = S.current || ((ee = (F = f.current) == null ? void 0 : F.getConversationId) == null ? void 0 : ee.call(F)) || "";
     if (!w || w === d || l) return;
     await u.current.stopStream(), ye(1200), me(1200), T(!0), b("");
-    const _ = ++k.current;
+    const _ = ++M.current;
     D.current = !1, I(w), S.current = w, c([]), y(null), u.current.clearMessages();
     try {
       if (await new Promise((we) => {
         window.setTimeout(we, 80);
-      }), _ !== k.current) return;
+      }), _ !== M.current) return;
       try {
         (J = (q = (re = globalThis.document) == null ? void 0 : re.activeElement) == null ? void 0 : q.blur) == null || J.call(q);
       } catch {
       }
       const L = f.current, Y = N.current || `${await ((ue = L == null ? void 0 : L.getDocumentId) == null ? void 0 : ue.call(L)) || ""}`.trim();
-      if (_ !== k.current) return;
+      if (_ !== M.current) return;
       N.current = Y;
       const te = await Ce(w);
-      if (_ !== k.current) return;
+      if (_ !== M.current) return;
       ye(800), me(800);
       const de = Ae(te.messages || []);
       if (g(de, te.head_id), (G = L == null ? void 0 : L.setConversationId) == null || G.call(L, w, Y), D.current = !0, de.length) {
@@ -1676,7 +1675,7 @@ function Yn(t) {
         ve({ jobId: e, documentId: Y }, w);
       Y && await p(Y, _), ye(350), me(350);
     } catch (L) {
-      if (console.warn("[reader-ai] switch session failed", L), _ === k.current) {
+      if (console.warn("[reader-ai] switch session failed", L), _ === M.current) {
         b("加载该对话失败，请检查网络后重试。");
         const Y = je(
           { jobId: e, documentId: n || N.current },
@@ -1690,7 +1689,7 @@ function Yn(t) {
         D.current = !0;
       }
     } finally {
-      _ === k.current && T(!1);
+      _ === M.current && T(!1);
     }
   }, [
     g,
@@ -1698,9 +1697,9 @@ function Yn(t) {
     n,
     p,
     l
-  ]), K = X(async (R) => {
+  ]), K = X(async (k) => {
     var ee, re, q, J, ue;
-    const w = `${R || ""}`.trim();
+    const w = `${k || ""}`.trim();
     if (!w)
       return b("无法分支：消息 id 无效。"), !1;
     if (l)
@@ -1712,68 +1711,68 @@ function Yn(t) {
     if (d[d.length - 1].message.role !== "assistant")
       return b("只能从助手答案处开新对话。"), !1;
     T(!0), b("");
-    const F = ++k.current;
+    const F = ++M.current;
     try {
       if (await new Promise((ie) => {
         window.setTimeout(ie, 40);
-      }), F !== k.current) return !1;
+      }), F !== M.current) return !1;
       const G = f.current;
       let V = N.current || `${await ((ee = G == null ? void 0 : G.getDocumentId) == null ? void 0 : ee.call(G)) || ""}`.trim();
-      if (F !== k.current) return !1;
+      if (F !== M.current) return !1;
       if (N.current = V, !V)
         try {
-          if (V = `${await ((re = G == null ? void 0 : G.getDocumentId) == null ? void 0 : re.call(G)) || ""}`.trim(), F !== k.current) return !1;
+          if (V = `${await ((re = G == null ? void 0 : G.getDocumentId) == null ? void 0 : re.call(G)) || ""}`.trim(), F !== M.current) return !1;
           N.current = V;
         } catch {
           V = "";
         }
       if (!V)
         return b("无法分支：文档未就绪，请稍后重试。"), !1;
-      const L = d.map((ie, ke) => ({
+      const L = d.map((ie, Me) => ({
         id: ie.message.id,
         role: ie.message.role,
         content: ie.message.content,
         citations: ie.message.citations,
-        parentId: ke === 0 ? null : d[ke - 1].message.id
-      })), Y = S.current || ((q = G == null ? void 0 : G.getConversationId) == null ? void 0 : q.call(G)) || "", te = (M || []).find((ie) => ie.conversation_id === Y), de = L.find((ie) => ie.role === "user"), we = `${(te == null ? void 0 : te.title) || ""}`.trim() || `${(de == null ? void 0 : de.content) || ""}`.replace(/\s+/g, " ").trim() || "未命名对话", ft = (M || []).map((ie) => ie.title || ""), Le = Jt(we, ft), Ne = await Xt({
+        parentId: Me === 0 ? null : d[Me - 1].message.id
+      })), Y = S.current || ((q = G == null ? void 0 : G.getConversationId) == null ? void 0 : q.call(G)) || "", te = (R || []).find((ie) => ie.conversation_id === Y), de = L.find((ie) => ie.role === "user"), we = `${(te == null ? void 0 : te.title) || ""}`.trim() || `${(de == null ? void 0 : de.content) || ""}`.replace(/\s+/g, " ").trim() || "未命名对话", ft = (R || []).map((ie) => ie.title || ""), Le = Jt(we, ft), Ne = await Xt({
         documentId: V,
         title: Le,
         path: L
       });
-      if (F !== k.current) return !1;
-      const he = De(Ne.items), Re = ((J = he[he.length - 1]) == null ? void 0 : J.message.id) || null, ge = Ne.conversation.conversation_id;
+      if (F !== M.current) return !1;
+      const he = De(Ne.items), ke = ((J = he[he.length - 1]) == null ? void 0 : J.message.id) || null, ge = Ne.conversation.conversation_id;
       if (!ge || !he.length)
         throw new Error("fork returned empty conversation");
-      return ye(600), me(600), c(he), y(Re), u.current.showMessages(fe(he, Re)), I(ge), S.current = ge, (ue = G == null ? void 0 : G.setConversationId) == null || ue.call(G, ge, V), A((ie) => {
-        const ke = {
+      return ye(600), me(600), c(he), y(ke), u.current.showMessages(fe(he, ke)), I(ge), S.current = ge, (ue = G == null ? void 0 : G.setConversationId) == null || ue.call(G, ge, V), A((ie) => {
+        const Me = {
           conversation_id: ge,
           title: Le,
           document_id: V,
           created_at: Ne.conversation.created_at || (/* @__PURE__ */ new Date()).toISOString(),
           updated_at: Ne.conversation.updated_at || (/* @__PURE__ */ new Date()).toISOString(),
           message_count: he.length,
-          head_id: Re || ""
+          head_id: ke || ""
         }, ht = ie.filter((gt) => gt.conversation_id !== ge);
-        return [ke, ...ht];
+        return [Me, ...ht];
       }), Pe(
         { jobId: e, documentId: V },
-        Oe(he, Re),
+        Oe(he, ke),
         ge
       ), await p(V, F), !0;
     } catch (G) {
-      return console.warn("[reader-ai] branch from answer failed", G), F === k.current && b("分支失败：未能复制上文到新对话。请检查网络后重试。"), !1;
+      return console.warn("[reader-ai] branch from answer failed", G), F === M.current && b("分支失败：未能复制上文到新对话。请检查网络后重试。"), !1;
     } finally {
-      F === k.current && T(!1);
+      F === M.current && T(!1);
     }
-  }, [e, p, l, M]), oe = X(async (R) => {
+  }, [e, p, l, R]), oe = X(async (k) => {
     var _, F, ee, re;
-    const w = `${R || ""}`.trim();
+    const w = `${k || ""}`.trim();
     if (!w || l) return;
     await u.current.stopStream(), T(!0), b("");
-    const d = ++k.current;
+    const d = ++M.current;
     try {
       const q = f.current, J = N.current || `${await ((_ = q == null ? void 0 : q.getDocumentId) == null ? void 0 : _.call(q)) || ""}`.trim();
-      if (d !== k.current) return;
+      if (d !== M.current) return;
       N.current = J;
       try {
         await Zt(w);
@@ -1785,14 +1784,14 @@ function Yn(t) {
       if (A((V) => V.filter((L) => L.conversation_id !== w)), G) {
         (ee = q == null ? void 0 : q.clearConversationId) == null || ee.call(q, J), I(""), S.current = "", c([]), y(null), u.current.clearMessages(), ve({ jobId: e, documentId: J });
         const V = J ? await p(J, d) : [];
-        if (d !== k.current || !V) return;
+        if (d !== M.current || !V) return;
         const L = V[0];
         if (L != null && L.conversation_id) {
           const Y = L.conversation_id;
           I(Y), S.current = Y;
           try {
             const te = await Ce(Y);
-            if (d !== k.current) return;
+            if (d !== M.current) return;
             g(
               Ae(te.messages || []),
               te.head_id
@@ -1805,16 +1804,16 @@ function Yn(t) {
     } catch (q) {
       console.warn("[reader-ai] delete session failed", q), b("删除对话失败，请重试。");
     } finally {
-      d === k.current && T(!1);
+      d === M.current && T(!1);
     }
-  }, [g, e, p, l]), ce = X(async (R, w) => {
-    const d = `${R || ""}`.trim(), _ = `${w || ""}`.replace(/\s+/g, " ").trim();
+  }, [g, e, p, l]), ce = X(async (k, w) => {
+    const d = `${k || ""}`.trim(), _ = `${w || ""}`.replace(/\s+/g, " ").trim();
     if (!d || !_ || l) return;
     T(!0), b("");
-    const F = ++k.current;
+    const F = ++M.current;
     try {
       const ee = _.slice(0, 80);
-      if (await en(d, { title: ee }), F !== k.current) return;
+      if (await en(d, { title: ee }), F !== M.current) return;
       A(
         (q) => q.map(
           (J) => J.conversation_id === d ? { ...J, title: ee } : J
@@ -1825,19 +1824,19 @@ function Yn(t) {
     } catch (ee) {
       console.warn("[reader-ai] rename session failed", ee), b("重命名失败，请重试。");
     } finally {
-      F === k.current && T(!1);
+      F === M.current && T(!1);
     }
   }, [p, l]), _e = ae(() => {
     var w;
-    const R = v || ((w = i == null ? void 0 : i.getConversationId) == null ? void 0 : w.call(i)) || "";
-    return (M || []).map((d) => ({
+    const k = v || ((w = i == null ? void 0 : i.getConversationId) == null ? void 0 : w.call(i)) || "";
+    return (R || []).map((d) => ({
       id: d.conversation_id,
       title: `${d.title || ""}`.trim() || "未命名对话",
       updatedAt: d.updated_at || "",
       messageCount: Number(d.message_count) || 0,
-      active: d.conversation_id === R
+      active: d.conversation_id === k
     }));
-  }, [M, v, i]), mt = ae(() => ({
+  }, [R, v, i]), mt = ae(() => ({
     refreshSessions: p,
     adoptRemoteConversationId: ne,
     newSession: le,
@@ -1927,8 +1926,8 @@ function tr(t) {
   m.current = a;
   const y = H(n);
   y.current = n;
-  const M = H(s);
-  M.current = s;
+  const R = H(s);
+  R.current = s;
   const A = H(o);
   A.current = o;
   const v = a.status, I = v === "submitted" || v === "streaming", l = H(I);
@@ -1936,9 +1935,9 @@ function tr(t) {
   const T = I ? `${((D = Kn(a.messages)) == null ? void 0 : D.id) || ""}` : "", B = a.messages, b = a.error;
   Z(() => {
     if (!B.length) return;
-    const O = new Map(B.map((k) => [k.id, k])), N = /* @__PURE__ */ new Map();
-    for (const [k, h] of O)
-      N.set(k, jn(h));
+    const O = new Map(B.map((M) => [M.id, M])), N = /* @__PURE__ */ new Map();
+    for (const [M, h] of O)
+      N.set(M, jn(h));
     c.current.mergeChatMirror(N);
   }, [B]), Z(() => {
     !b || v !== "error" || c.current.markRunningAsError(b.message);
@@ -1947,7 +1946,7 @@ function tr(t) {
     if (l.current) return;
     const N = `${O || ""}`.trim();
     if (!N) return;
-    const k = c.current, h = m.current, u = y.current, f = M.current, p = A.current(), g = k.readHeadId(), x = Fe("u"), W = Fe("a"), C = er({
+    const M = c.current, h = m.current, u = y.current, f = R.current, p = A.current(), g = M.readHeadId(), x = Fe("u"), W = Fe("a"), C = er({
       assistantMode: u,
       selectionContext: (f == null ? void 0 : f.selectionType) === "text" ? {
         page: f.page,
@@ -1962,10 +1961,10 @@ function tr(t) {
         pane: f.pane,
         kind: f.kind,
         block_id: f.selectionType === "region" ? f.region.itemId : "",
-        quoteText: rt(f.region, f.pane)
+        quoteText: nt(f.region, f.pane)
       } : null
     });
-    He(p, W, C), k.appendExchange({
+    He(p, W, C), M.appendExchange({
       parentId: g,
       userId: x,
       assistantId: W,
@@ -1988,7 +1987,7 @@ function tr(t) {
     );
   }, []), j = X(async (O) => {
     if (l.current) return;
-    const N = c.current, k = m.current, h = N.readItems(), u = h.find(
+    const N = c.current, M = m.current, h = N.readItems(), u = h.find(
       (U) => U.message.id === O && U.message.role === "assistant"
     ), f = (u == null ? void 0 : u.parentId) ?? null, p = f ? Un(h, f) : null;
     let g = "", x = f;
@@ -2008,7 +2007,7 @@ function tr(t) {
       jobId: e,
       assistantMessageId: O
     });
-    He(P, W, se), N.appendRetryTurn({ assistantId: W, branchParent: C }), k.replaceVisible(ut(fe(h, O))), await k.regenerateFrom({
+    He(P, W, se), N.appendRetryTurn({ assistantId: W, branchParent: C }), M.replaceVisible(ut(fe(h, O))), await M.regenerateFrom({
       messageId: O,
       body: {
         assistantMessageId: W,
@@ -2061,7 +2060,7 @@ function dr({
   confirmationModeHint: i,
   onDocumentCommitted: a
 }) {
-  const [o, c] = Q({}), [m, y] = Q("explicit"), [M, A] = Q(!1), [v, I] = Q(!1), l = H(/* @__PURE__ */ new Set()), T = H(/* @__PURE__ */ new Map()), B = H(/* @__PURE__ */ new Set()), b = H(/* @__PURE__ */ new Set()), z = X((h, u = !1) => {
+  const [o, c] = Q({}), [m, y] = Q("explicit"), [R, A] = Q(!1), [v, I] = Q(!1), l = H(/* @__PURE__ */ new Set()), T = H(/* @__PURE__ */ new Map()), B = H(/* @__PURE__ */ new Set()), b = H(/* @__PURE__ */ new Set()), z = X((h, u = !1) => {
     h != null && h.operation_id && c((f) => {
       const p = f[h.operation_id];
       return ar(p == null ? void 0 : p.operation, h) ? {
@@ -2229,24 +2228,24 @@ function dr({
     } finally {
       l.current.delete(g);
     }
-  }, [j, z]), k = X((h) => cn(h.operation_id), []);
+  }, [j, z]), M = X((h) => cn(h.operation_id), []);
   return {
     entries: D,
     confirmationMode: m,
-    runtimeRestarting: M,
+    runtimeRestarting: R,
     runtimeCredentialConfigured: v,
     perform: N,
-    loadCandidate: k
+    loadCandidate: M
   };
 }
 function lr(t) {
   var O;
-  const { jobId: e, documentId: n = "", enabled: s, selectionContext: i = null, onDocumentCommitted: a } = t, [o, c] = Q("reading"), [m, y] = Q(null), [M, A] = Q();
+  const { jobId: e, documentId: n = "", enabled: s, selectionContext: i = null, onDocumentCommitted: a } = t, [o, c] = Q("reading"), [m, y] = Q(null), [R, A] = Q();
   Z(() => {
     c("reading"), y(null), A(void 0);
   }, [e]);
-  const v = ae(() => !s || !e ? null : Lt({ jobId: e, documentId: n }), [n, s, e]), I = ae(() => !s || !e ? null : Vt({
-    loadMarkdownPayload: Bt.loadMarkdownPayload
+  const v = ae(() => !s || !e ? null : Dt({ jobId: e, documentId: n }), [n, s, e]), I = ae(() => !s || !e ? null : Vt({
+    loadMarkdownPayload: Ft.loadMarkdownPayload
   }), [s, e]), l = Wn({
     jobId: e,
     enabled: s,
@@ -2261,9 +2260,9 @@ function lr(t) {
     messages: l.messages,
     status: l.status,
     error: l.error,
-    sendUserMessage: (N, k) => l.sendMessage(
+    sendUserMessage: (N, M) => l.sendMessage(
       N,
-      k
+      M
     ),
     regenerateFrom: (N) => l.regenerate(
       N
@@ -2292,7 +2291,7 @@ function lr(t) {
     enabled: s,
     discovering: z.isRunning,
     signal: m,
-    confirmationModeHint: M,
+    confirmationModeHint: R,
     onDocumentCommitted: a
   }), D = H(!1);
   return Z(() => {
@@ -2335,7 +2334,7 @@ function Mr({
   selectionContext: m = null,
   onClearSelectionContext: y
 }) {
-  const M = t && !!e, {
+  const R = t && !!e, {
     citationsByMessageId: A,
     progressByMessageId: v,
     contentByMessageId: I,
@@ -2349,7 +2348,7 @@ function Mr({
     submitQuestion: D,
     retryAnswer: O,
     cancelAnswer: N,
-    newSession: k,
+    newSession: M,
     switchSession: h,
     removeSession: u,
     renameSession: f,
@@ -2360,7 +2359,7 @@ function Mr({
   } = lr({
     jobId: e,
     documentId: n,
-    enabled: M,
+    enabled: R,
     selectionContext: m,
     onDocumentCommitted: a
   }), [C, P] = Q(""), se = X(async (ne) => {
@@ -2371,7 +2370,7 @@ function Mr({
     i(ne);
   }, [i]);
   return /* @__PURE__ */ r(
-    Dt,
+    qt,
     {
       id: "reader-ai-panel",
       open: t,
@@ -2393,7 +2392,7 @@ function Mr({
             busy: z,
             errorText: j,
             onSwitch: h,
-            onNew: k,
+            onNew: M,
             onDelete: u,
             onRename: f
           }
@@ -2433,4 +2432,4 @@ function Mr({
 export {
   Mr as ReaderAiPanel
 };
-//# sourceMappingURL=ReaderAiPanel-CV2d0Jzz.js.map
+//# sourceMappingURL=ReaderAiPanel-CeMNeMh2.js.map
