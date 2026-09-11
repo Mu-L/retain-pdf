@@ -12,7 +12,9 @@ import {
   loadBrowserStoredConfig,
   loadDeveloperStoredConfig,
 } from "@/platform/config/persisted-config.js";
-import { defaultCredentialsStatePort } from "@/features/credentials/domain.js";
+import {
+  getDefaultCredentialsStatePort,
+} from "@/platform/contracts/credentials-contract.js";
 import { fetchProtected } from "./data.js";
 
 // 注册点参数类型直接取自 reader 包公开工厂签名，避免 any 掩盖契约漂移。
@@ -27,7 +29,11 @@ type ReaderAskAnswererOptions = NonNullable<
 >;
 
 readerAi.setReaderAiConfigAdapters({
-  credentialsPort: defaultCredentialsStatePort,
+  // 惰性读取 platform 注册表：不直接 import credentials feature，
+  // reader 页由 app/reader/adapters 注入真值，home 经注册表拿到默认实现。
+  credentialsPort: {
+    getCredentials: () => getDefaultCredentialsStatePort()?.getCredentials() ?? null,
+  },
   loadBrowserStoredConfig,
   loadDeveloperStoredConfig,
   defaultModelBaseUrl,

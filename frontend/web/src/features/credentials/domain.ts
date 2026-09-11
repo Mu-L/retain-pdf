@@ -5,6 +5,13 @@
 //
 // index.ts 转出本文件的全部内容，故两个出口不会各自漂移。
 
+import { setDefaultCredentialsStatePort } from "@/platform/contracts/credentials-contract.js";
+import { defaultCredentialsStatePort } from "./domain/default-state-port.js";
+
+// 把默认凭据端口注册到 platform 中性契约：reader 宿主等下游惰性读取，
+// 避免 features/reader/domain 反向 import 本功能。
+setDefaultCredentialsStatePort(defaultCredentialsStatePort);
+
 export { mountBrowserCredentialsFeature } from "./domain/browser.js";
 export { createCredentialsViewFeature } from "./domain/credentials-view-store.js";
 export type {

@@ -40,6 +40,9 @@ import {
   createArtifactDownloadsRuntimePort,
   mountArtifactDownloadsFeature,
 } from "@/features/artifacts/index.js";
+import {
+  resetStatusDetailRuntimeView,
+} from "@/features/job-detail/index.js";
 import { isMockMode } from "@/platform/config/runtime.js";
 import type {
   HomeBridge,
@@ -168,6 +171,9 @@ export function createRuntimeFeatures({
     clearPageRanges: () => features.uploadFeature.clearPageRanges(),
     updateJobWarning: bridge.updateJobWarning,
     activateDetailTab: bridge.activateDetailTab,
+    // job-detail 的 idle 视图清场经组合层注入，断开 jobs → job-detail 的
+    // index.js 值依赖。
+    resetStatusDetailRuntimeView,
     // 主页不再嵌入阅读 iframe；sync/close 保留给 job-runtime 契约，实现为空。
     onReaderDialogSync: () => {},
     onReaderDialogClose: () => {},

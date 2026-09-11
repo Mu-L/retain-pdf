@@ -1,4 +1,3 @@
-import { resetStatusDetailRuntimeView } from "@/features/job-detail/index.js";
 import { clearActiveJobId } from "./active-job-storage.js";
 import { createJobRuntimeShellViewPort } from "./shell-view-port.js";
 import { createJobRuntimeResetStatePort } from "./reset-state-port.js";
@@ -20,6 +19,7 @@ export function returnJobRuntimeToHome({
   setText,
   updateJobWarning,
   activateDetailTab,
+  resetStatusDetailRuntimeView,
   uploadStatePort,
   resetStatePort,
   shellViewPort = createJobRuntimeShellViewPort(),
@@ -47,7 +47,7 @@ export function returnJobRuntimeToHome({
   setText("query-job-duration", "-");
   setText("job-finished-at", "-");
   clearPageRanges();
-  resetStatusDetailRuntimeView({
+  resetStatusDetailRuntimeView?.({
     setText,
     resetEventsList: shellViewPort.resetEvents,
     activateDetailTab,

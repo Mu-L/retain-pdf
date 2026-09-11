@@ -1,6 +1,6 @@
 // live mock job 的事件列表：由当前 payload 快照投影出一条 stage_progress。
 
-import { buildLiveMockJobPayload } from "./live-jobs.js";
+import { buildLiveMockJobPayload } from "./live-jobs-shared.js";
 
 export function buildLiveMockJobEvents(jobId?: string | null, nowMs = Date.now()) {
   const payload = buildLiveMockJobPayload(jobId, nowMs);

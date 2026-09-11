@@ -82,6 +82,11 @@ test("returnJobRuntimeToHome clears page range through upload state port", () =>
       setText: (...args) => calls.push(["text", ...args]),
       updateJobWarning: (value) => calls.push(["warning", value]),
       activateDetailTab: (value) => calls.push(["tab", value]),
+      resetStatusDetailRuntimeView: ({ resetEventsList, activateDetailTab }) => {
+        calls.push("reset-detail-runtime");
+        resetEventsList();
+        activateDetailTab("overview");
+      },
       jobPresentationPort: {
         summarizeStatus: (status) => `summary:${status}`,
       },

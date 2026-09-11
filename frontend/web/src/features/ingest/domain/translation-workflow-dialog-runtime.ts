@@ -5,7 +5,7 @@ import type { TranslationWorkflowDialogStatePort } from "./dialog/state.js";
 import {
   TRANSLATION_WORKFLOW_DIALOG,
   TRANSLATION_WORKFLOW_MODES,
-} from "../domain.js";
+} from "./dialog/contract.js";
 
 // 翻译工作流对话框 runtime(React 世界版控制器)。
 //

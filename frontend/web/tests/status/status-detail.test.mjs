@@ -61,6 +61,16 @@ import {
   resolveOcrAmbiguityRecovery,
 } from "../../src/features/job-detail/domain/ocr-ambiguity-recovery.js";
 
+// createStatusDetailRuntimePort 现在要求组合层注入 job-runtime 三个 kept 端口；
+// 测试从 jobs 域直接构造同一份端口（与组合层 create-status-domain.ts 等价）。
+function createRuntimePort(state) {
+  return createStatusDetailRuntimePort({
+    currentJobPort: currentJobStateModule.createCurrentJobStatePort(state),
+    secondaryResourcePort: createSecondaryResourceStatePort(state),
+    renderContextPort: createJobRenderContextPort(state),
+  });
+}
+
 global.window ||= {};
 global.window.location ||= {
   protocol: "http:",
@@ -687,7 +697,7 @@ test("job detail page state owns initial shape and markdown image cleanup", () =
 
 test("status detail runtime port narrows current job cache access", () => {
   const state = createLegacyStateFixture();
-  const port = createStatusDetailRuntimePort(state);
+  const port = createRuntimePort(state);
   const job = { job_id: "job-detail-port", status: "running" };
   const events = { items: [{ seq: 1, display_stage: "translation" }] };
   const diagnostics = { summary: "ok" };
@@ -725,7 +735,7 @@ test("status detail runtime port ignores stale resume plans", () => {
   currentJobStateModule.syncCurrentJobSnapshot(state, job, job.job_id);
   currentJobStateModule.cacheJobResumePlan(state, "job-old", { can_resume: true });
 
-  const port = createStatusDetailRuntimePort(state);
+  const port = createRuntimePort(state);
 
   assert.equal(port.currentJobId(), job.job_id);
   assert.deepEqual(port.rerunContext().job, job);
@@ -750,7 +760,7 @@ test("status detail runtime port reads current job store instead of legacy field
   state.currentJobResumePlan = { can_resume: false };
   state.currentJobFinishedAt = "legacy-finished-at";
 
-  const port = createStatusDetailRuntimePort(state);
+  const port = createRuntimePort(state);
 
   assert.equal(port.currentJobId(), job.job_id);
   assert.deepEqual(port.currentJobSnapshot(), job);
@@ -817,7 +827,7 @@ test("status detail resume actions route UI side effects through view port", asy
 
 test("status detail overview coordinator renders cached snapshot before fresh payload", async () => {
   const state = createLegacyStateFixture();
-  const runtimePort = createStatusDetailRuntimePort(state);
+  const runtimePort = createRuntimePort(state);
   const snapshots = [];
   const renders = [];
   currentJobStateModule.syncCurrentJobSnapshot(state, {
@@ -871,7 +881,7 @@ test("status detail overview coordinator renders cached snapshot before fresh pa
 
 test("status detail overview coordinator reuses in-flight refresh", async () => {
   const state = createLegacyStateFixture();
-  const runtimePort = createStatusDetailRuntimePort(state);
+  const runtimePort = createRuntimePort(state);
   currentJobStateModule.syncCurrentJobSnapshot(state, {
     job_id: "job-overview-inflight",
     status: "running",
@@ -901,7 +911,7 @@ test("status detail overview coordinator reuses in-flight refresh", async () => 
 
 test("status detail overview coordinator ignores stale fresh payloads", async () => {
   const state = createLegacyStateFixture();
-  const runtimePort = createStatusDetailRuntimePort(state);
+  const runtimePort = createRuntimePort(state);
   const renders = [];
   currentJobStateModule.syncCurrentJobSnapshot(state, {
     job_id: "job-a",

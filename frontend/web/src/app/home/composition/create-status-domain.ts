@@ -18,6 +18,9 @@ import {
 } from "@/platform/api/index.js";
 import { copyText } from "@/platform/utils/clipboard.js";
 import {
+  createCurrentJobStatePort,
+  createJobRenderContextPort,
+  createSecondaryResourceStatePort,
   currentJobStoreFor,
   secondaryResourceStoreFor,
 } from "@/features/jobs/index.js";
@@ -61,7 +64,14 @@ export function createStatusDomain({
   statusDetailHolder.dialogStore = statusDetailDialogStore;
 
   const statusDetailController = createStatusDetailController({
-    runtimePort: createStatusDetailRuntimePort(jobRuntimeState),
+    // job-detail 的三个 kept 端口由这里从 features/jobs 构造后注入，
+    // 断开 job-detail → features/jobs/index.js 的值依赖（见 platform/contracts/
+    // status-detail-runtime-contract.ts）。
+    runtimePort: createStatusDetailRuntimePort({
+      currentJobPort: createCurrentJobStatePort(jobRuntimeState),
+      secondaryResourcePort: createSecondaryResourceStatePort(jobRuntimeState),
+      renderContextPort: createJobRenderContextPort(jobRuntimeState),
+    }),
     apiPrefix: API_PREFIX,
     fetchJobPayload: fetchJobPayload as (
       jobId: string,

@@ -9,7 +9,7 @@ import {
   TRANSLATION_PROVIDER_DEFINITION,
 } from "@/platform/config/providers.js";
 import { savePersistedBrowserStoredConfig } from "@/platform/config/persisted-config.js";
-import { notifyCredentialsChanged } from "@/features/reader/domain.js";
+import { notifyCredentialsChanged } from "@/platform/contracts/credentials-contract.js";
 import {
   buildTaskOptionsFromDialogValues,
   ocrTokenFromDialogValues,

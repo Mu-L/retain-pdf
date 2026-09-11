@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 
 import { createLegacyStateFixture } from "../helpers/legacy-state-fixture.mjs";
 import * as currentJobStateModule from "../../src/features/jobs/domain/runtime/current-job-state.js";
+import { createSecondaryResourceStatePort } from "../../src/features/jobs/domain/runtime/secondary-resource-cache.js";
+import { createJobRenderContextPort } from "../../src/features/jobs/domain/runtime/render-context.js";
 import { createStatusDetailRuntimePort } from "../../src/features/job-detail/domain/status-detail-runtime-port.js";
 import {
   createTranslationState,
@@ -146,7 +148,11 @@ test("translation reset：切任务同时重置 query 过滤器与 offset", asyn
 
 test("overview coordinator：切任务后不复用旧任务的 in-flight refresh", async () => {
   const state = createLegacyStateFixture();
-  const runtimePort = createStatusDetailRuntimePort(state);
+  const runtimePort = createStatusDetailRuntimePort({
+    currentJobPort: currentJobStateModule.createCurrentJobStatePort(state),
+    secondaryResourcePort: createSecondaryResourceStatePort(state),
+    renderContextPort: createJobRenderContextPort(state),
+  });
   currentJobStateModule.syncCurrentJobSnapshot(state, {
     job_id: "job-a",
     status: "running",

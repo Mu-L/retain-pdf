@@ -9,7 +9,8 @@
 // 两个消费方：
 //   - app/home/composition/create-lifecycle.ts（idle 首帧）
 //   - features/jobs/domain/runtime/runtime-reset.ts（返回主页时清场），
-//     它跨功能经 @/features/job-detail/index.js 取，不直连本文件。
+//     它不再直连本文件或 features/job-detail 的出口，而是由组合层
+//     (app/home/composition/create-runtime-features.ts) 注入。
 
 type RuntimeViewResetPorts = {
   setText: (id: string, value: string) => void;
