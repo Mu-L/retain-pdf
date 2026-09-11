@@ -11,7 +11,62 @@
 //
 // 非 React 调用方请从 ./domain.js 导入。
 
-export * from "./domain.js";
+// 逐条显式列举（不用 export *）——barrel 无差别转出会连带触发模块级副作用。
+export {
+  clearAppliedPageRange,
+  collectUploadFormData,
+  countPdfPages,
+  createAppActionsRuntimeEnvPort,
+  createTranslationWorkflowDialogRuntime,
+  createTranslationWorkflowDialogStatePort,
+  createTranslationWorkflowStatusAreaPort,
+  createUploadStatePort,
+  createUploadStore,
+  createUploadViewFeature,
+  createWorkflowViewFeature,
+  defaultAppActionsConfigPort,
+  defaultUploadConfigPort,
+  defaultWorkflowConfigPort,
+  getUploadState,
+  getUploadStatePort,
+  mountAppActionsFeature,
+  mountUploadFeature,
+  mountWorkflowFeature,
+  normalizeMathMode,
+  normalizeWorkflow,
+  resetUploadState,
+  setAppliedPageRange,
+  setUploadState,
+  setUploadSubmitBusy,
+  TRANSLATION_WORKFLOW_DIALOG,
+  TRANSLATION_WORKFLOW_MODES,
+  workflowConstants,
+  WORKFLOW_BOOK,
+  WORKFLOW_OCR,
+  WORKFLOW_RENDER,
+  WORKFLOW_TRANSLATE,
+} from "./domain.js";
+export type {
+  ConstrainPageRangesOptions,
+  LoadGlossaryOptionsParams,
+  MountUploadFeatureOptions,
+  MountWorkflowFeatureOptions,
+  TranslationWorkflowDialogStatePort,
+  UploadActions,
+  UploadConfigPortLike,
+  UploadPayload,
+  UploadResetOptions,
+  UploadResponsePayload,
+  UploadState,
+  UploadStatePort,
+  UploadStore,
+  UploadViewPort,
+  WorkflowConfigPortLike,
+  WorkflowConstants,
+  WorkflowRunPayload,
+  WorkflowSubmitValues,
+  WorkflowViewPortLike,
+} from "./domain.js";
 export { IngestDialog } from "./ui/IngestDialog.jsx";
 export { WorkflowPanel } from "./ui/WorkflowPanel.jsx";
 export { TranslationOptionsPanel } from "./ui/components/TranslationOptionsPanel.jsx";

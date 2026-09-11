@@ -20,5 +20,22 @@ export {
   CREDENTIAL_DOM_IDS,
 } from "./ui/credentials-dom-ids.js";
 
-// 非 React 出口统一在 domain.ts，这里整体转出，两处不会漂移。
-export * from "./domain.js";
+// 非 React 出口统一在 domain.ts，这里逐条转出，两处不会漂移。
+// 显式列举（不用 export *）——barrel 无差别转出会连带触发模块级副作用。
+export {
+  applyDefaultCredentialInputs,
+  createCredentialRuntimeEnvPort,
+  createCredentialsViewFeature,
+  defaultCredentialsStatePort,
+  mountBrowserCredentialsFeature,
+  readHiddenCredentialDomInputs,
+} from "./domain.js";
+export type {
+  BindCredentialViewEventsOptions,
+  CredentialUploadTilePort,
+  CredentialsElementsRef,
+  CredentialsStatePort,
+  HandlersBag,
+  OpenCredentialDialogOptions,
+  UpdateCredentialGateViewOptions,
+} from "./domain.js";
