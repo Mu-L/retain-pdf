@@ -138,7 +138,10 @@ export function prepareLiveTranslationMathHtml(text: string): {
   hasMath: boolean;
 } {
   const source = `${text || ""}`;
-  const { text: protectedText, slots } = extractMarkdownMath(source);
+  // Live translations frequently lose their `$...$` delimiters around inline
+  // math (e.g. `\mathrm{Pd_2(dba)_3}`, `CHCl_{3}`, `^{6}`). Recognize those
+  // bare fragments too; the shared extractor stays delimiter-only by default.
+  const { text: protectedText, slots } = extractMarkdownMath(source, { bareLatex: true });
   const escaped = escapeHtml(protectedText);
   const fallbackHtml = materializeMarkdownMathFallbackHtml(escaped, slots);
   if (!slots.length) {

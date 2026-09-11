@@ -1,7 +1,7 @@
 // Markdown 取数/分窗渲染：Range + ETag + 取消，按块挂载并维护目录、续带与 blob 生命周期。
 
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { defaultReaderDataPort, fetchProtected } from "../../external.js";
+import { defaultReaderDataPort, fetchProtected, resolveMarkdownAssetUrl } from "../../external.js";
 import {
   extractMarkdownMath,
   materializeMarkdownMathFallbackHtml,
@@ -163,10 +163,14 @@ export function useReaderMarkdownDocument({
         }
         const { marked } = await loadMarked();
         if (cancelled || !contentRef.current) return;
-        const { text: protectedMarkdown, slots } = extractMarkdownMath(content);
+        // 与实时叠加一致：Markdown 原文也可能含未用 `$` 包裹的裸 LaTeX
+        // （如 `\mathrm{Pd_2(dba)_3}`），开启 bareLatex 才能渲染。
+        const { text: protectedMarkdown, slots } = extractMarkdownMath(content, { bareLatex: true });
         const parsedHtml = String(marked.parse(protectedMarkdown, { async: false }));
         const fastHtml = materializeMarkdownMathFallbackHtml(parsedHtml, slots);
-        mountRenderedMarkdown(contentRef.current, fastHtml, imagesBaseUrl);
+        mountRenderedMarkdown(contentRef.current, fastHtml, imagesBaseUrl, {
+          resolveAssetUrl: resolveMarkdownAssetUrl,
+        });
         setOutline(buildMarkdownOutline(contentRef.current));
         reapplySearchRef.current?.();
         setStatus(slots.length > 0 ? `正文已显示 · 正在渲染 ${slots.length} 个公式…` : "");
@@ -175,7 +179,9 @@ export function useReaderMarkdownDocument({
           ? await materializeMarkdownMathHtml(parsedHtml, slots)
           : parsedHtml;
         if (cancelled || !contentRef.current) return;
-        const images = mountRenderedMarkdown(contentRef.current, html, imagesBaseUrl);
+        const images = mountRenderedMarkdown(contentRef.current, html, imagesBaseUrl, {
+          resolveAssetUrl: resolveMarkdownAssetUrl,
+        });
         setOutline(buildMarkdownOutline(contentRef.current));
         outlineCompleteRef.current = true;
         setOutlineComplete(true);
@@ -235,7 +241,7 @@ export function useReaderMarkdownDocument({
       const mountChunk = async (markdownChunk: string) => {
         const { marked } = await loadMarked();
         if (cancelled || !contentRef.current) return;
-        const { text, slots } = extractMarkdownMath(markdownChunk);
+        const { text, slots } = extractMarkdownMath(markdownChunk, { bareLatex: true });
         const parsedHtml = String(marked.parse(text, { async: false }));
         const html = slots.length > 0
           ? await materializeMarkdownMathHtml(parsedHtml, slots)
@@ -243,7 +249,9 @@ export function useReaderMarkdownDocument({
         if (cancelled || !contentRef.current) return;
         const section = container.ownerDocument.createElement("section");
         section.className = "reader-markdown-chunk";
-        const images = mountRenderedMarkdown(section, html, imagesBaseUrl);
+        const images = mountRenderedMarkdown(section, html, imagesBaseUrl, {
+          resolveAssetUrl: resolveMarkdownAssetUrl,
+        });
         container.appendChild(section);
         container.classList.remove("hidden");
         const items = buildMarkdownOutline(section, outlineUsedRef.current);

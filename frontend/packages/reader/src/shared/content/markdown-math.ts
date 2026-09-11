@@ -13,6 +13,19 @@ export type ExtractMarkdownMathResult = {
   slots: MarkdownMathSlot[];
 };
 
+export type ExtractMarkdownMathOptions = {
+  /**
+   * Also treat un-delimited LaTeX fragments (e.g. `^{6}`, `\mathbf{Q}`,
+   * `CHCl_{3}`) as math. Off by default so plain-text/markdown callers keep
+   * treating bare `^`/`_`/`\` as literal text.
+   *
+   * Only strong LaTeX signals qualify (a `\command`, or a braced subscript /
+   * superscript like `_{...}` / `^{...}`), so code identifiers such as
+   * `pdf_font`, `page_layout` or `get_imports(url)` are never turned into math.
+   */
+  bareLatex?: boolean;
+};
+
 export type MathJaxEngine = {
   convert(tex: string, display: boolean): string;
 };
@@ -50,10 +63,46 @@ function makeToken(index: number): string {
 }
 
 /**
- * 抽出 LaTeX 片段并换成占位符，避免 marked 破坏下标/命令。
- * 顺序：块级 $$ / \[ \] → 行内 \( \) / $...$
+ * A maximal whitespace-free run of LaTeX-ish characters. Used to grow a bare
+ * fragment around its trigger so `[\mathrm{Bu_3PH}]BF_4` is captured whole.
  */
-export function extractMarkdownMath(source: string): ExtractMarkdownMathResult {
+const BARE_MATH_RUN = /[0-9A-Za-z\\{}_^()\[\]|+\-=,.:;'~*/<>!\u00b0\u00b1\u00d7\u00f7\u2212\u2202\u03b1-\u03c9\u0391-\u03a9]+/g;
+/**
+ * Strong LaTeX signals only. A lone `_`/`^` (snake_case, URLs, code
+ * identifiers) must NOT match; an explicit `_{...}` / `^{...}` group or a
+ * `\command` does.
+ */
+const BARE_MATH_TRIGGER = /\\[A-Za-z]+|[_^]\{/;
+
+function extractBareMathFragments(
+  text: string,
+  push: (rawTex: string, display: boolean) => string,
+): string {
+  const tokenPattern = new RegExp(`${TOKEN_PREFIX}\\d+${TOKEN_SUFFIX}`, "g");
+  const scan = (segment: string): string =>
+    segment.replace(BARE_MATH_RUN, (run) =>
+      BARE_MATH_TRIGGER.test(run) ? push(run, false) : run,
+    );
+
+  let result = "";
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  while ((match = tokenPattern.exec(text)) !== null) {
+    result += scan(text.slice(cursor, match.index)) + match[0];
+    cursor = match.index + match[0].length;
+  }
+  result += scan(text.slice(cursor));
+  return result;
+}
+
+/**
+ * 抽出 LaTeX 片段并换成占位符，避免 marked 破坏下标/命令。
+ * 顺序：块级 $$ / \[ \] → 行内 \( \) / $...$ →（可选）未包裹的裸 LaTeX。
+ */
+export function extractMarkdownMath(
+  source: string,
+  options: ExtractMarkdownMathOptions = {},
+): ExtractMarkdownMathResult {
   const slots: MarkdownMathSlot[] = [];
   let text = `${source ?? ""}`;
 
@@ -80,6 +129,10 @@ export function extractMarkdownMath(source: string): ExtractMarkdownMathResult {
     return push(tex, false);
   });
 
+  if (options.bareLatex) {
+    text = extractBareMathFragments(text, push);
+  }
+
   return { text, slots };
 }
 
@@ -104,7 +157,9 @@ async function loadDefaultMathJaxEngine(): Promise<MathJaxEngine> {
   RegisterHTMLHandler(adaptor);
   const document = mathjax.document("", {
     InputJax: new TeX({
-      packages: AllPackages,
+      // 方案 C：宽容渲染。`unicode` 包让 Unicode 数学符号（⟨⟩、希腊字母、
+      // 运算符等）尽量直接渲染，减少严格 TeX 的报错面。
+      packages: Array.from(new Set([...AllPackages, "unicode"])),
     }),
     OutputJax: new SVG({ fontCache: "none" }),
   });
@@ -116,6 +171,11 @@ async function loadDefaultMathJaxEngine(): Promise<MathJaxEngine> {
       // 完全失败（无 SVG）才抛，交给外层回退；含 merror 的 SVG 仍展示
       if (!/<svg[\s>]/i.test(html)) {
         throw new Error("mathjax produced no svg");
+      }
+      // 方案 C 错误降级：MathJax 报错会整条渲染成 merror（红框）。这里视为
+      // 失败，交由外层回退显示原始公式文本，避免出现错误框。
+      if (/data-mjx-error|merror/i.test(html)) {
+        throw new Error("mathjax error node");
       }
       return html;
     },
@@ -149,6 +209,157 @@ export function wrapMathSvgHtml(svgHtml: string, display: boolean): string {
   return `<${tag} class="${cls}">${svgHtml}</${tag}>`;
 }
 
+/**
+ * 译文/OCR 里常混入 Unicode 数学符号（尤其 `\left⟨`/`\right⟩` 这种把 Unicode
+ * 尖括号当定界符的写法），MathJax 会直接报错（merror）。这里把常见 Unicode
+ * 数学符号归一化回 LaTeX 命令后再交给 MathJax。只作用于公式片段，不影响正文。
+ */
+const UNICODE_MATH_MAP: Array<[RegExp, string]> = [
+  [/[⟨〈]/g, "\\langle "],
+  [/[⟩〉]/g, "\\rangle "],
+  [/∣/g, "\\mid "],
+  [/‖/g, "\\| "],
+  [/[≤⩽]/g, "\\le "],
+  [/[≥⩾]/g, "\\ge "],
+  [/≠/g, "\\ne "],
+  [/≈/g, "\\approx "],
+  [/≡/g, "\\equiv "],
+  [/×/g, "\\times "],
+  [/÷/g, "\\div "],
+  [/[·⋅]/g, "\\cdot "],
+  [/±/g, "\\pm "],
+  [/∓/g, "\\mp "],
+  [/[−–]/g, "-"],
+  [/∞/g, "\\infty "],
+  [/∑/g, "\\sum "],
+  [/∏/g, "\\prod "],
+  [/∫/g, "\\int "],
+  [/√/g, "\\surd "],
+  [/∂/g, "\\partial "],
+  [/∇/g, "\\nabla "],
+  [/→/g, "\\to "],
+  [/←/g, "\\leftarrow "],
+  [/⇒/g, "\\Rightarrow "],
+  [/⇔/g, "\\Leftrightarrow "],
+  [/∈/g, "\\in "],
+  [/∉/g, "\\notin "],
+  [/∀/g, "\\forall "],
+  [/∃/g, "\\exists "],
+  [/∅/g, "\\emptyset "],
+  [/∝/g, "\\propto "],
+  [/≃/g, "\\simeq "],
+  [/≅/g, "\\cong "],
+  [/⊥/g, "\\perp "],
+  [/∥/g, "\\parallel "],
+  [/[′ʹ]/g, "'"],
+  [/[″ʺ]/g, "''"],
+  [/Δ/g, "\\Delta "],
+  [/Ω/g, "\\Omega "],
+  [/μ/g, "\\mu "],
+  [/λ/g, "\\lambda "],
+  [/σ/g, "\\sigma "],
+  [/π/g, "\\pi "],
+  [/θ/g, "\\theta "],
+  [/φ/g, "\\varphi "],
+  [/α/g, "\\alpha "],
+  [/β/g, "\\beta "],
+  [/γ/g, "\\gamma "],
+  [/ω/g, "\\omega "],
+];
+
+export function normalizeMathTex(tex: string): string {
+  let out = `${tex ?? ""}`;
+  for (const [pattern, replacement] of UNICODE_MATH_MAP) {
+    out = out.replace(pattern, replacement);
+  }
+  // 只在真的存在畸形上下标时才合并，避免把正常 `x_i` 也改写成 `x_{i}`
+  //（会改变交给引擎的 tex，且无必要）。
+  return needsScriptRepair(out) ? mergeRepeatedScripts(out) : out;
+}
+
+/**
+ * 检测畸形脚本：连续同类型脚本（`T_0_*`、`relied_m_j`）、脚本后紧跟撇号
+ * （`^0'`、`^w'`）、`^^{...}`、`__`。正常的 `x_i` / `x^2` / `a_{i,j}` 不命中。
+ */
+function needsScriptRepair(tex: string): boolean {
+  const scriptArg = "(?:\\{[^{}]*\\}|\\\\[A-Za-z]+|[A-Za-z0-9*])";
+  const scriptThenScript = new RegExp(`[_^]${scriptArg}\\s*(?=[_^])`);
+  const scriptThenPrime = new RegExp(`[_^]${scriptArg}\\s*'`);
+  return scriptThenScript.test(tex)
+    || scriptThenPrime.test(tex)
+    || /\^\s*\^/.test(tex)
+    || /__/.test(tex);
+}
+
+/**
+ * 译文里常见畸形脚本：`T_0_*`、`relied_m_j^t`、`^0'`、`^w'`、`^^{...}`。
+ * TeX 会因「双下标/双上标」直接报错。这里把 `'` 展开为 `^{\prime}`，再把相邻
+ * 同类型脚本合并成一层（`X_a_b` → `X_{a_b}`），保证能渲染（视觉嵌套，无 merror）。
+ */
+function readBalanced(source: string, start: number): { arg: string; next: number } {
+  let depth = 0;
+  let j = start;
+  for (; j < source.length; j += 1) {
+    if (source[j] === "{") depth += 1;
+    else if (source[j] === "}") {
+      depth -= 1;
+      if (depth === 0) { j += 1; break; }
+    }
+  }
+  return { arg: source.slice(start, j), next: j };
+}
+
+function readScriptArg(source: string, start: number): { arg: string; next: number } {
+  let i = start;
+  while (i < source.length && source[i] === " ") i += 1;
+  if (source[i] === "{") return readBalanced(source, i);
+  if (source[i] === "\\") {
+    let j = i + 1;
+    while (j < source.length && /[A-Za-z]/.test(source[j])) j += 1;
+    let end = j > i + 1 ? j : j + 1;
+    // 命令作为脚本参数时要带上其花括号参数（\text{H}、\mathrm{a}、\frac{1}{2}）。
+    for (;;) {
+      let k = end;
+      while (k < source.length && source[k] === " ") k += 1;
+      if (source[k] !== "{") break;
+      end = readBalanced(source, k).next;
+    }
+    return { arg: source.slice(i, end), next: end };
+  }
+  return { arg: source[i] ?? "", next: i + 1 };
+}
+
+function mergeRepeatedScripts(tex: string): string {
+  const expanded = tex
+    .replace(/\^\s*\^/g, "^")
+    .replace(/''/g, "^{\\prime\\prime}")
+    .replace(/'/g, "^{\\prime}");
+  let out = "";
+  let i = 0;
+  while (i < expanded.length) {
+    const op = expanded[i];
+    if (op !== "_" && op !== "^") {
+      out += op;
+      i += 1;
+      continue;
+    }
+    const first = readScriptArg(expanded, i + 1);
+    let arg = first.arg;
+    let j = first.next;
+    while (j < expanded.length) {
+      let k = j;
+      while (k < expanded.length && expanded[k] === " ") k += 1;
+      if (expanded[k] !== op) break;
+      const next = readScriptArg(expanded, k + 1);
+      arg = `${arg}${expanded.slice(j, k)}${op}${next.arg}`;
+      j = next.next;
+    }
+    out += `${op}{${arg}}`;
+    i = j;
+  }
+  return out;
+}
+
 /** 将 HTML 中的占位符替换为 MathJax SVG（失败则回退为代码片段）。 */
 export async function materializeMarkdownMathHtml(
   html: string,
@@ -171,7 +382,7 @@ export async function materializeMarkdownMathHtml(
     let replacement: string;
     if (engine) {
       try {
-        replacement = wrapMathSvgHtml(engine.convert(slot.tex, slot.display), slot.display);
+        replacement = wrapMathSvgHtml(engine.convert(normalizeMathTex(slot.tex), slot.display), slot.display);
       } catch {
         replacement = renderMathFallbackHtml(slot.tex, slot.display);
       }
