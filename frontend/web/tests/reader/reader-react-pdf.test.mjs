@@ -176,19 +176,19 @@ test("compare mode requires a translated artifact unless live translation suppli
   assert.equal(isReaderWorkspaceDisabled({
     id: "compare",
     documentReady: true,
-    sourceOnly: true,
+    sourceViewOnly: true,
     liveTranslationAvailable: false,
   }), true);
   assert.equal(isReaderWorkspaceDisabled({
     id: "compare",
     documentReady: true,
-    sourceOnly: true,
+    sourceViewOnly: true,
     liveTranslationAvailable: true,
   }), false);
   assert.equal(isReaderWorkspaceDisabled({
     id: "translated",
     documentReady: true,
-    sourceOnly: true,
+    sourceViewOnly: true,
     liveTranslationAvailable: true,
   }), true);
 });
@@ -353,15 +353,32 @@ test("Markdown split turns PDF compare into source PDF + Markdown", () => {
   );
 });
 
-test("live translation uses a source-left and live-canvas-right compare layout", () => {
+test("live translation overlays a single source pane instead of a second live canvas", () => {
   assert.deepEqual(
     resolveReaderGridPresentation({
+      mode: "compare",
+      compareMode: true,
+      showSource: true,
+      showTranslated: true,
+      markdownSplit: false,
+      overlayOnSource: true,
+    }),
+    {
       mode: "source",
       compareMode: false,
       showSource: true,
       showTranslated: false,
+    },
+  );
+  // 最终译文未叠加时，正常对照呈现不变。
+  assert.deepEqual(
+    resolveReaderGridPresentation({
+      mode: "compare",
+      compareMode: true,
+      showSource: true,
+      showTranslated: true,
       markdownSplit: false,
-      liveTranslationPair: true,
+      overlayOnSource: false,
     }),
     {
       mode: "compare",
@@ -493,11 +510,33 @@ test("defaultZoom 50% unifies single and compare column fill", () => {
 import {
   READER_PAGE_ATTR,
   READER_PANE_ATTR,
+  READER_NATURAL_HEIGHT_ATTR,
+  READER_MD_SRC_ATTR,
+  READER_ROOT_CLASS,
+  READER_GRID_CLASS,
+  READER_SCROLL_SHELL_CLASS,
+  READER_PDF_PANE_CLASS,
+  READER_PDF_PAGE_CLASS,
+  READER_PDF_PAGE_PLACEHOLDER_CLASS,
   READER_PAGE_SLOT_CLASS,
   pageSelector,
   pageInPaneSelector,
   pageSlotSelector,
 } from "../../../../frontend/packages/reader/src/pdf/reader-dom-contract.ts";
+
+test("reader-dom-contract: DOM attr/class constants stay canonical", () => {
+  assert.equal(READER_PAGE_ATTR, "data-reader-page");
+  assert.equal(READER_PANE_ATTR, "data-reader-pane");
+  assert.equal(READER_NATURAL_HEIGHT_ATTR, "data-natural-height");
+  assert.equal(READER_MD_SRC_ATTR, "data-reader-md-src");
+  assert.equal(READER_ROOT_CLASS, "reader-react-root");
+  assert.equal(READER_GRID_CLASS, "reader-react-grid");
+  assert.equal(READER_SCROLL_SHELL_CLASS, "reader-react-scroll-shell");
+  assert.equal(READER_PDF_PANE_CLASS, "reader-react-pdf-pane");
+  assert.equal(READER_PDF_PAGE_CLASS, "reader-react-pdf-page");
+  assert.equal(READER_PDF_PAGE_PLACEHOLDER_CLASS, "reader-react-pdf-page-placeholder");
+  assert.equal(READER_PAGE_SLOT_CLASS, "reader-react-pdf-page-slot");
+});
 
 test("reader-dom-contract: pageSelector strings", () => {
   assert.equal(pageSelector(), `[${READER_PAGE_ATTR}]`);

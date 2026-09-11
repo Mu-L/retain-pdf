@@ -13,6 +13,7 @@ import {
   useState,
 } from "react";
 import { Document } from "react-pdf";
+import type { ReactNode } from "react";
 import {
   cloneProtectedPdfFileForWorker,
   useProtectedPdfFile,
@@ -22,7 +23,16 @@ import { setupReactPdf } from "./setup-react-pdf.js";
 import { pageWidthFromShell } from "./reader-zoom.js";
 import { DEFAULT_ASPECT, PdfPageSlot } from "./PdfPageSlot.js";
 import type { PageRowHeights } from "./usePageRowSync.js";
-import { READER_PAGE_SLOT_CLASS, type ReaderPaneId } from "./reader-dom-contract.js";
+import {
+  getPageAttr,
+  READER_NATURAL_HEIGHT_ATTR,
+  READER_PAGE_ATTR,
+  READER_PAGE_SLOT_CLASS,
+  READER_PANE_ATTR,
+  READER_PDF_PAGE_PLACEHOLDER_CLASS,
+  READER_PDF_PANE_CLASS,
+  type ReaderPaneId,
+} from "./reader-dom-contract.js";
 import { resolvePdfjsVendorUrl } from "../external.js";
 import {
   resolveReaderRegionHighlight,
@@ -88,6 +98,8 @@ type PdfDocumentPaneProps = {
   showLiveTranslation?: boolean;
   /** Non-fatal live-translation wait state shown over the still-valid source canvas. */
   liveTranslationPendingLabel?: string;
+  /** 栏右上角动作（如源栏「译文」叠加开关）。 */
+  paneAction?: ReactNode;
 };
 
 const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
@@ -113,6 +125,7 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
       liveTranslation,
       showLiveTranslation = pane === "source",
       liveTranslationPendingLabel = "",
+      paneAction,
     },
     ref,
   ) {
@@ -248,7 +261,7 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
           const leaving: number[] = [];
           for (const ent of entries) {
             const target = ent.target as HTMLElement;
-            const pn = Number(target.getAttribute("data-reader-page"));
+            const pn = getPageAttr(target);
             if (!Number.isFinite(pn)) continue;
             (ent.isIntersecting ? entering : leaving).push(pn);
           }
@@ -416,14 +429,17 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
     return (
       <section
         ref={setPaneEl}
-        className={`reader-panel reader-react-pdf-pane${visible ? "" : " is-hidden"}`}
-        data-reader-pane={pane}
+        className={`reader-panel ${READER_PDF_PANE_CLASS}${visible ? "" : " is-hidden"}`}
+        {...{ [READER_PANE_ATTR]: pane }}
         data-reader-engine="react-pdf"
         data-reader-visible={visible ? "true" : "false"}
         data-live-translation-status={liveTranslation?.jobStatus || undefined}
         aria-hidden={visible ? undefined : true}
         aria-label={pane === "source" ? "原文 PDF" : "译文 PDF"}
       >
+        {paneAction ? (
+          <div className="reader-react-pdf-pane-action">{paneAction}</div>
+        ) : null}
         {liveTranslationPendingLabel ? (
           <div className="reader-live-translation-waiting" role="status">
             <span className="reader-live-translation-waiting-dot" aria-hidden="true" />
@@ -486,9 +502,11 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
                   <div
                     key={`${pane}-${pageNumber}`}
                     ref={getSentinelRef(pageNumber)}
-                    data-reader-page={pageNumber}
-                    data-reader-pane={pane}
-                    data-natural-height={naturalHeight}
+                    {...{
+                      [READER_PAGE_ATTR]: pageNumber,
+                      [READER_PANE_ATTR]: pane,
+                      [READER_NATURAL_HEIGHT_ATTR]: naturalHeight,
+                    }}
                     className={READER_PAGE_SLOT_CLASS}
                     style={{
                       width: pageWidth,
@@ -497,7 +515,7 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
                     }}
                   >
                     <div
-                      className="reader-react-pdf-page-placeholder"
+                      className={READER_PDF_PAGE_PLACEHOLDER_CLASS}
                       style={{ width: pageWidth, height: naturalHeight }}
                       aria-hidden
                     />

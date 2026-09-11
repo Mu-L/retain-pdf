@@ -19,6 +19,7 @@ import type { ReaderFabToolId } from "./components/react-pdf/ReaderFab.js";
 import { useReaderAnnotations } from "./hooks/use-reader-annotations.js";
 import type { ReaderNote } from "./annotations/types.js";
 import { DownloadToastHost } from "./shared/react/DownloadToastHost.jsx";
+import { READER_ROOT_CLASS } from "./pdf/reader-dom-contract.js";
 import {
   loadReaderViewState,
   saveReaderViewState,
@@ -67,6 +68,86 @@ export function resolveVisiblePdfMode(
     : mode;
 }
 
+/** 阅读视图可见台面的判别联合。 */
+export type ReaderPaneComposition = {
+  /**
+   * 台面形态（单一真源）：
+   * - source-only：单栏原文；
+   * - translated-only：仅译文（右栏语义）；
+   * - final-compare：左源右最终译文的并排；
+   * - live-overlay：单栏原文 + 流式实时译文叠加。
+   */
+  kind: "source-only" | "translated-only" | "final-compare" | "live-overlay";
+  /** 顶栏页签 / 键盘 / HUD 使用的可见 PDF 模式 */
+  visibleMode: "source" | "compare" | "translated";
+  compareMode: boolean;
+  showSource: boolean;
+  showTranslated: boolean;
+  /**
+   * 单一真值：是否把流式实时译文叠加到原文 PDF 上（Grid 消费）。
+   * 仅在实时译文可用（最终译文 PDF 未就绪）时为 true；最终就绪后恒为 false。
+   */
+  overlayOnSource: boolean;
+  /** 无 job：FAB / Markdown / AI 等「需要任务」能力判定 */
+  sourceOnly: boolean;
+  /** 无可并排的最终译文 (sourceOnly || !translatedUrl)：页签禁用判定 */
+  sourceViewOnly: boolean;
+};
+
+/**
+ * 单一纯函数，从 session.mode、实时译文可用/可见、助手开合与译文产物派生
+ * 可见台面。原先散落在 app 的实时对照 / visiblePdfMode /
+ * resolveReaderGridPresentation 全部收口到这里，Grid/Tabs/键盘/HUD 只消费结果。
+ *
+ * liveTranslationVisible 只作为「用户是否想开实时译文」的用户意图（默认关）：
+ * 源栏按钮切换后，实时译文直接叠加在原文 PDF 上（overlayOnSource）；
+ * overlayContentAvailable 表示「有可叠加的流式译文内容」（进行中或已完成都成立）。
+ * 默认不叠加，避免旧「左右都是中文」的自动叠加 bug。
+ */
+export function resolveReaderPaneComposition(input: {
+  mode: "source" | "compare" | "translated";
+  sourceOnly: boolean;
+  translatedUrl: string;
+  overlayContentAvailable: boolean;
+  liveTranslationVisible: boolean;
+  assistantOpen: boolean;
+  assistantPdfPane?: "source" | "translated" | null;
+}): ReaderPaneComposition {
+  const sourceViewOnly = input.sourceOnly || !input.translatedUrl;
+  // 单一真值：仅「有可叠加译文内容且用户主动开启且无助手接管」时，
+  // 在当前原文 PDF 上叠加流式译文。
+  const overlayOnSource = Boolean(
+    input.overlayContentAvailable
+    && input.liveTranslationVisible
+    && !input.assistantOpen,
+  );
+  // AI 从某栏选区发起时锁定该栏；否则助手分栏把对照降级为单栏原文。
+  const pdfMode = input.assistantPdfPane
+    || (input.assistantOpen && input.mode === "compare" ? "source" : input.mode);
+  const visibleMode = pdfMode;
+  const compareMode = !overlayOnSource && visibleMode === "compare";
+  const showSource = overlayOnSource || visibleMode !== "translated";
+  const showTranslated = !overlayOnSource
+    && (visibleMode === "translated" || visibleMode === "compare");
+  const kind: ReaderPaneComposition["kind"] = overlayOnSource
+    ? "live-overlay"
+    : visibleMode === "compare"
+      ? "final-compare"
+      : visibleMode === "translated"
+        ? "translated-only"
+        : "source-only";
+  return {
+    kind,
+    visibleMode,
+    compareMode,
+    showSource,
+    showTranslated,
+    overlayOnSource,
+    sourceOnly: input.sourceOnly,
+    sourceViewOnly,
+  };
+}
+
 export function resolveInitialAssistantPanel(
   mode: "source" | "compare" | "translated",
   saved: ReturnType<typeof loadReaderViewState>,
@@ -87,16 +168,32 @@ export function resolveInitialAssistantPanel(
 export function ReaderAppReactPdf() {
   const c = useReaderReactController();
   const { boot, panes, sessionFiles, tools, session } = c;
-  const sourceViewOnly = c.sourceOnly || !sessionFiles.translatedUrl;
   const [assistantPanel, setAssistantPanel] = useState<ReaderAssistantPanel | null>(() => (
     resolveInitialAssistantPanel(c.mode, loadReaderViewState(c.viewStateKey))
   ));
   const [assistantPdfPane, setAssistantPdfPane] = useState<"source" | "translated" | null>(null);
   const [aiSelectionContext, setAiSelectionContext] = useState<ReaderSelection | null>(null);
-  const [liveTranslationVisible, setLiveTranslationVisible] = useState(true);
+  const [liveTranslationVisible, setLiveTranslationVisible] = useState(false);
   const layoutScopeRef = useRef(c.viewStateKey);
   const modeScopeRef = useRef<string | null>(null);
 
+  const assistantOpen = assistantPanel !== null;
+  // 是否有「可叠加到原文 PDF 上的流式译文内容」：进行中（available）或已完成
+  // （实时页仍在 state 里）都成立，供源栏开关显示与叠加判定。
+  const hasOverlayContent = c.liveTranslationAvailable
+    || c.liveTranslation.pagesByPage.size > 0;
+  // 可见台面唯一真源：Grid / Tabs / 键盘 / HUD 都从这里取。
+  const paneComposition = resolveReaderPaneComposition({
+    mode: c.mode,
+    sourceOnly: c.sourceOnly,
+    translatedUrl: sessionFiles.translatedUrl,
+    overlayContentAvailable: hasOverlayContent,
+    liveTranslationVisible,
+    assistantOpen,
+    assistantPdfPane,
+  });
+  const sourceViewOnly = paneComposition.sourceViewOnly;
+  const visiblePdfMode = paneComposition.visibleMode;
   // 本地批注：选中文字后生成注记，面板内按页分组 / 编辑 / 删除 / 导出。
   const [notesOpen, setNotesOpen] = useState(false);
   const openNotes = useCallback(() => setNotesOpen(true), []);
@@ -122,6 +219,12 @@ export function ReaderAppReactPdf() {
     setLiveTranslationVisible(true);
     setNotesOpen(false);
   }, [c.viewStateKey]);
+
+  // 任务到终态后自动取消「实时译文」选中：终态应回到最终译文 PDF / 对照，
+  // 不应默认停留在实时叠加态（用户仍可手动再点开）。
+  useEffect(() => {
+    if (c.session.jobTerminal) setLiveTranslationVisible(false);
+  }, [c.session.jobTerminal]);
 
   useEffect(() => {
     if (boot.loading) return;
@@ -150,20 +253,11 @@ export function ReaderAppReactPdf() {
     saveReaderViewState(c.viewStateKey, { mode: c.mode });
   }, [boot.failed, boot.loading, c.mode, c.setModeKeepingPage, c.viewStateKey, sourceViewOnly]);
   const workspaceView = assistantPanel || (c.mode === "compare" ? "compare" : "reading");
-  const assistantOpen = assistantPanel !== null;
   // 三个 lazy 面板各自的挂载 latch，见 useMountedSinceFirstOpen。
   const favoritesMounted = useMountedSinceFirstOpen(tools.isOpen("favorites"));
   const markdownMounted = useMountedSinceFirstOpen(assistantPanel === "markdown");
   const aiMounted = useMountedSinceFirstOpen(assistantPanel === "ai");
-  const pdfMode = assistantPdfPane || resolveVisiblePdfMode(c.mode, assistantPanel);
-  // Live translation is a dedicated reading workspace: the source remains
-  // stable on the left while committed blocks materialize on a source-backed
-  // canvas on the right. Markdown/AI splits keep their existing composition.
-  const liveTranslationPair = Boolean(
-    c.liveTranslationAvailable && liveTranslationVisible && !assistantOpen,
-  );
-  const visiblePdfMode = liveTranslationPair ? "compare" : pdfMode;
-  // 键盘与 UI 共用同一「可见模式」真源：实时译文覆盖后的 visiblePdfMode。
+  // 键盘与 UI 共用同一「可见模式」真源：paneComposition.visibleMode。
   // 「0」重置缩放据此取模式默认，避免与 HUD/网格显示的模式脱节。
   useReaderKeyboard({
     mode: visiblePdfMode,
@@ -205,13 +299,30 @@ export function ReaderAppReactPdf() {
     // top-bar selection in sync instead of asking the session mode (which is
     // correctly source-only until the final artifact arrives) to represent
     // this temporary live pair.
-    if (next === "compare" && c.liveTranslationAvailable) {
+    if (next === "compare" && hasOverlayContent) {
       setLiveTranslationVisible(true);
     } else if (next !== "compare") {
       setLiveTranslationVisible(false);
     }
     c.setModeKeepingPage(next);
-  }, [c.liveTranslationAvailable, c.setModeKeepingPage, tools]);
+  }, [hasOverlayContent, c.setModeKeepingPage, tools]);
+
+  // 源栏「译文」开关：把流式译文直接叠在原文 PDF 上 / 收起。进行中与完成后
+  // 都可用（只要有可叠加内容）。默认关，避免自动叠加造成「左右都中文」。
+  const sourcePaneAction = useMemo(() => {
+    if (!hasOverlayContent || !paneComposition.showSource) return null;
+    return (
+      <button
+        type="button"
+        className={`reader-live-translation-toggle${liveTranslationVisible ? " is-active" : ""}`}
+        onClick={() => setLiveTranslationVisible((visible) => !visible)}
+        aria-pressed={liveTranslationVisible}
+        title={liveTranslationVisible ? "隐藏实时译文" : "在原文 PDF 上叠加实时译文"}
+      >
+        译文
+      </button>
+    );
+  }, [hasOverlayContent, paneComposition.showSource, liveTranslationVisible]);
 
   const selectAssistant = useCallback((next: ReaderAssistantPanel) => {
     setAssistantPanel(next);
@@ -279,10 +390,10 @@ export function ReaderAppReactPdf() {
   }), [c.currentPage, panes.hudNumPages]);
 
   const rootClasses = [
-    "reader-react-root",
+    READER_ROOT_CLASS,
     `is-workspace-${workspaceView}`,
     assistantOpen ? "is-assistant-open" : "",
-    liveTranslationPair ? "is-live-translation-pair" : "",
+    paneComposition.overlayOnSource ? "is-live-translation-overlay" : "",
   ].filter(Boolean).join(" ");
 
   return (
@@ -293,8 +404,9 @@ export function ReaderAppReactPdf() {
         <ReaderWorkspaceTabs
           mode={visiblePdfMode}
           documentReady={Boolean(session.jobId)}
+          sourceViewOnly={sourceViewOnly}
           onModeChange={changeWorkspace}
-          liveTranslation={c.liveTranslationAvailable ? {
+          liveTranslation={hasOverlayContent ? {
             visible: liveTranslationVisible,
             state: c.liveTranslation,
             onToggle: () => setLiveTranslationVisible((visible) => !visible),
@@ -303,7 +415,7 @@ export function ReaderAppReactPdf() {
         <ReaderAssistantDock active={assistantPanel} />
         {assistantOpen ? <ReaderAiSplitResizeHandle /> : null}
         {c.showHud ? <ReaderFab activeTool={notesOpen ? "notes" : tools.active} noteCount={annotations.count} onToggleTool={handleFabTool} /> : null}
-        <ReaderCompareGrid mode={visiblePdfMode} compareMode={visiblePdfMode === "compare"} showSource={liveTranslationPair || visiblePdfMode !== "translated"} showTranslated={liveTranslationPair || visiblePdfMode === "translated" || visiblePdfMode === "compare"} markdownSplit={assistantPanel === "markdown"} assistantSplit={assistantOpen} liveTranslation={liveTranslationVisible ? c.liveTranslation : undefined} liveTranslationPair={liveTranslationPair} />
+        <ReaderCompareGrid paneComposition={paneComposition} markdownSplit={assistantPanel === "markdown"} assistantSplit={assistantOpen} liveTranslation={c.liveTranslation} sourcePaneAction={sourcePaneAction} />
         {c.showHud ? (
           <ReaderZoomHud
             mode={visiblePdfMode}
@@ -313,7 +425,7 @@ export function ReaderAppReactPdf() {
         <Suspense fallback={null}>
           {favoritesMounted ? <ReaderFavoritesPanel open={tools.isOpen("favorites")} jobId={session.jobId} documentId={session.documentId} onClose={closeTool} onJumpPage={c.goToPage} /> : null}
           {markdownMounted ? <ReaderMarkdownPanel open={assistantPanel === "markdown"} jobId={session.jobId} sourceOnly={c.sourceOnly} layout="workspace" side="right" onClose={closeAssistant} /> : null}
-          {aiMounted ? <ReaderAiPanel key={session.documentId || session.jobId || "reader-ai-pending"} open={assistantPanel === "ai"} jobId={session.jobId} documentId={session.documentId} layout={resolveReaderAiLayout(c.mode)} side="right" selectionContext={aiSelectionContext} onClearSelectionContext={() => setAiSelectionContext(null)} onClose={closeAssistant} onJumpCitation={jumpCitation} onDocumentCommitted={refreshCommittedDocument} /> : null}
+          {aiMounted ? <ReaderAiPanel key={session.documentId || session.jobId || "reader-ai-pending"} open={assistantPanel === "ai"} jobId={session.jobId} documentId={session.documentId} sessionIdentity={session.sessionIdentity} layout={resolveReaderAiLayout(c.mode)} side="right" selectionContext={aiSelectionContext} onClearSelectionContext={() => setAiSelectionContext(null)} onClose={closeAssistant} onJumpCitation={jumpCitation} onDocumentCommitted={refreshCommittedDocument} /> : null}
         </Suspense>
         <ReaderNotesPanel
           open={notesOpen}

@@ -1,9 +1,11 @@
 import type { ReactElement } from "react";
+import type { ReactNode } from "react";
 import { PdfDocumentPane } from "../../pdf/PdfDocumentPane.js";
 import type { ProtectedPdfFile } from "../../pdf/useProtectedPdfFile.js";
 import type { PageRowHeights } from "../../pdf/usePageRowSync.js";
 import { READER_ZOOM_DEFAULT } from "../../pdf/reader-zoom.js";
 import {
+  READER_GRID_CLASS,
   READER_SCROLL_SHELL_CLASS,
 } from "../../pdf/reader-dom-contract.js";
 import {
@@ -13,6 +15,7 @@ import {
   type ReaderRegionSelection,
 } from "../../shared/data/reader-regions.js";
 import type { LiveTranslationState } from "../../shared/data/live-translation-state.js";
+import type { ReaderPaneComposition } from "../../ReaderAppReactPdf.js";
 import { useReaderContext } from "./reader-context.js";
 
 export type ReaderCompareGridProps = {
@@ -29,7 +32,8 @@ export type ReaderCompareGridProps = {
   mountTranslated?: boolean;
   showSource?: boolean;
   showTranslated?: boolean;
-  sourceOnly?: boolean;
+  /** 「无可并排的最终译文」；仅决定源文件缺失文案，不是 FAB 的 sourceOnly */
+  sourceViewOnly?: boolean;
   sourceUrl?: string;
   translatedUrl?: string;
   sourceFile?: ProtectedPdfFile | null;
@@ -43,8 +47,18 @@ export type ReaderCompareGridProps = {
   markdownSplit?: boolean;
   assistantSplit?: boolean;
   liveTranslation?: LiveTranslationState;
-  /** Running translation: stable source PDF on the left, source-backed live canvas on the right. */
-  liveTranslationPair?: boolean;
+  /** 源栏右上角动作（如「译文」叠加开关）；挂在 pane="source" 容器内。 */
+  sourcePaneAction?: ReactNode;
+  /**
+   * 单一真值：是否把流式实时译文叠加到原文 PDF 上。
+   * 仅当实时译文可用（最终译文 PDF 未就绪）时为 true；就绪后恒为 false。
+   */
+  overlayOnSource?: boolean;
+  /**
+   * 可见台面判别联合（单一真源）。提供时覆盖 mode/compareMode/
+   * showSource/showTranslated/overlayOnSource 这几个散落输入。
+   */
+  paneComposition?: ReaderPaneComposition;
 };
 
 export function resolveReaderGridPresentation({
@@ -53,17 +67,18 @@ export function resolveReaderGridPresentation({
   showSource,
   showTranslated,
   markdownSplit,
-  liveTranslationPair = false,
+  overlayOnSource = false,
 }: Pick<ReaderCompareGridProps, "mode" | "compareMode" | "showSource" | "showTranslated"> & {
   markdownSplit: boolean;
-  liveTranslationPair?: boolean;
+  overlayOnSource?: boolean;
 }) {
-  if (liveTranslationPair) {
+  if (overlayOnSource) {
+    // 流式译文直接叠加在原文单栏；不再额外挂第二块实时画布（避免双叠）。
     return {
-      mode: "compare",
-      compareMode: true,
+      mode: "source",
+      compareMode: false,
       showSource: true,
-      showTranslated: true,
+      showTranslated: false,
     };
   }
   const splitSourceCompare = markdownSplit && mode === "compare";
@@ -113,15 +128,19 @@ export function liveTranslationPendingCopy(state: LiveTranslationState | undefin
 export function ReaderCompareGrid(props: ReaderCompareGridProps): ReactElement {
   const ctx = useReaderContext();
   const {
-    mode = "compare",
     markdownSplit = false,
     assistantSplit = false,
     liveTranslation,
-    liveTranslationPair = false,
+    paneComposition,
   } = props;
-  const compareMode = props.compareMode ?? mode === "compare";
-  const showSource = props.showSource ?? true;
-  const showTranslated = props.showTranslated ?? (mode === "compare" || mode === "translated");
+  // 可见台面以 paneComposition 为单一真源；缺省时回退到显式 props（直接单测）。
+  const mode = paneComposition?.visibleMode ?? props.mode ?? "compare";
+  const compareMode = paneComposition?.compareMode ?? props.compareMode ?? mode === "compare";
+  const showSource = paneComposition?.showSource ?? props.showSource ?? true;
+  const showTranslated = paneComposition?.showTranslated
+    ?? props.showTranslated
+    ?? (mode === "compare" || mode === "translated");
+  const overlayOnSource = paneComposition?.overlayOnSource ?? props.overlayOnSource ?? false;
   const bindShell = props.bindShell ?? ctx?.bindShell;
   const shellEl = props.shellEl ?? ctx?.shellEl ?? null;
   const userZoom = props.userZoom ?? ctx?.userZoom ?? READER_ZOOM_DEFAULT;
@@ -129,7 +148,8 @@ export function ReaderCompareGrid(props: ReaderCompareGridProps): ReactElement {
   const rowHeights = props.rowHeights ?? ctx?.rowHeights;
   const mountSource = props.mountSource ?? ctx?.mountSource ?? false;
   const mountTranslated = props.mountTranslated ?? ctx?.mountTranslated ?? false;
-  const sourceOnly = props.sourceOnly ?? ctx?.sourceViewOnly ?? false;
+  // 源文件缺失文案要的是「无可并排的最终译文」，显式取 sourceViewOnly。
+  const sourceViewOnly = props.sourceViewOnly ?? ctx?.sourceViewOnly ?? false;
   const sourceUrl = props.sourceUrl ?? ctx?.sourceUrl ?? "";
   const translatedUrl = props.translatedUrl ?? ctx?.translatedUrl ?? "";
   const sourceFile = props.sourceFile ?? ctx?.sourceFile ?? null;
@@ -147,7 +167,7 @@ export function ReaderCompareGrid(props: ReaderCompareGridProps): ReactElement {
     showSource,
     showTranslated,
     markdownSplit,
-    liveTranslationPair,
+    overlayOnSource,
   });
   // zoom 的产品语义一直相对完整阅读器宽度：Markdown / AI 分栏后 shell
   // 只有半屏，因此用双倍基准保持 50% 恰好铺满左栏。
@@ -161,13 +181,12 @@ export function ReaderCompareGrid(props: ReaderCompareGridProps): ReactElement {
     <div
       ref={bindShell}
       className={READER_SCROLL_SHELL_CLASS}
-      data-reader-scroll-shell="true"
       data-reader-region-count={regions.length}
       data-reader-structured-region-count={regions.filter(isStructuredReaderRegion).length}
       data-reader-metadata-ready={readerMetadata ? "true" : "false"}
     >
       <main
-        className={`reader-react-grid reader-mode-${presentation.mode}`}
+        className={`${READER_GRID_CLASS} reader-mode-${presentation.mode}`}
         data-reader-mode={markdownSplit ? "markdown-split" : assistantSplit ? "assistant-split" : mode}
       >
         {mountSource ? (
@@ -182,7 +201,7 @@ export function ReaderCompareGrid(props: ReaderCompareGridProps): ReactElement {
             rowHeights={presentation.compareMode ? rowHeights : undefined}
             onMetrics={onMetrics}
             emptyLabel={
-              sourceOnly
+              sourceViewOnly
                 ? "源文件不可用：该文档没有可读取的源 PDF。"
                 : "暂无原文 PDF"
             }
@@ -191,15 +210,22 @@ export function ReaderCompareGrid(props: ReaderCompareGridProps): ReactElement {
             regions={regions}
             readerMetadata={readerMetadata}
             onSelectRegion={onSelectRegion}
-            liveTranslation={liveTranslationPair ? undefined : liveTranslation}
-            showLiveTranslation={!liveTranslationPair}
+            // 流式译文直接叠加在原文 PDF 上，但仅在「实时译文可用、最终译文
+            // 未就绪」时（overlayOnSource）。最终译文就绪后 overlayOnSource
+            // 恒为 false，源栏恢复纯原文，避免「左右都是中文」的旧 bug。
+            liveTranslation={overlayOnSource ? liveTranslation : undefined}
+            showLiveTranslation={overlayOnSource}
+            liveTranslationPendingLabel={overlayOnSource
+              ? liveTranslationPendingCopy(liveTranslation)
+              : ""}
+            paneAction={props.sourcePaneAction}
           />
         ) : null}
-        {mountTranslated || liveTranslationPair ? (
+        {mountTranslated && !overlayOnSource ? (
           <PdfDocumentPane
             pane="translated"
-            url={liveTranslationPair ? sourceUrl : translatedUrl}
-            preloadedFile={liveTranslationPair ? sourceFile : translatedFile}
+            url={translatedUrl}
+            preloadedFile={translatedFile}
             userZoom={userZoom}
             visible={presentation.showTranslated}
             scrollRoot={shellEl}
@@ -212,11 +238,9 @@ export function ReaderCompareGrid(props: ReaderCompareGridProps): ReactElement {
             regions={regions}
             readerMetadata={readerMetadata}
             onSelectRegion={onSelectRegion}
-            liveTranslation={liveTranslationPair ? liveTranslation : undefined}
-            showLiveTranslation={liveTranslationPair}
-            liveTranslationPendingLabel={liveTranslationPair
-              ? liveTranslationPendingCopy(liveTranslation)
-              : ""}
+            // 译文 PDF 栏就是最终译文本身，绝不叠加流式画布。
+            liveTranslation={undefined}
+            showLiveTranslation={false}
           />
         ) : null}
       </main>
