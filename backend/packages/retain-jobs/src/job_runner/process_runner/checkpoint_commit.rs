@@ -85,15 +85,48 @@ pub(super) fn apply_durable_checkpoint(
     // progress; stage observations and committed units own that state.
     if authoritative_transition {
         if let Some(progress) = observation.progress.as_object() {
-            job.progress_current = progress
+            let current = progress
                 .get("completed_item_count")
                 .and_then(serde_json::Value::as_i64);
-            job.progress_total = progress
+            let total = progress
                 .get("item_count")
                 .and_then(serde_json::Value::as_i64);
+            job.progress_current = current;
+            job.progress_total = total;
+            // 数字换了,说明它的那句话也得换。
+            //
+            // 这里原先只写 progress、不碰 stage_detail,于是随后持久化发出的
+            // 事件带着新数字、配着进入该阶段时设下的入场语。实测长这样:
+            //
+            //     stage_progress | 10/26 | 已完成第 10/26 批翻译（最近页: 1,2）
+            //     stage_progress | 35/50 | OCR 完成，开始翻译
+            //     stage_progress | 50/50 | OCR 完成，开始翻译
+            //
+            // 前端取该阶段最后一条,就会显示成「进度 100%,正在开始翻译」。
+            //
+            // 26 与 50 两个分母不是矛盾,是两种粒度在量同一件事:pipeline 报的
+            // 是批次,durable checkpoint 记的是翻译单元(文本块),50 个块分成
+            // 26 批,两者的百分比都单调递增。所以不必统一分母,只要每条事件
+            // 自己的数字和文字对得上。
+            if let (Some(current), Some(total)) = (current, total) {
+                job.stage_detail = Some(durable_progress_detail(&observation.phase, current, total));
+            }
         }
     }
     Ok(())
+}
+
+/// 与 durable 单元进度配套的说明文字。
+///
+/// 刻意不复用阶段入场语:那句话描述的是「进入这个阶段」,而这里描述的是
+/// 「在这个阶段里推进到哪了」,两者会在同一个 stage 内反复交替出现。
+fn durable_progress_detail(phase: &str, current: i64, total: i64) -> String {
+    let unit = match phase {
+        "translating" | "translate" => "个文本块",
+        "rendering" | "render" => "页",
+        _ => "项",
+    };
+    format!("已完成 {current}/{total} {unit}")
 }
 
 fn batch_commits(
@@ -185,6 +218,14 @@ mod tests {
         assert_eq!(units[0].generation, units[1].generation);
         assert_eq!(runtime.progress_current, Some(3));
         assert_eq!(runtime.progress_total, Some(10));
+        // 数字与它的说明文字必须配套。原先这里只写数字,文案留着阶段入场语
+        // 「OCR 完成，开始翻译」,于是发出去的事件是「50/50 · 开始翻译」——
+        // 前端取最后一条就会显示「进度 100%,正在开始翻译」。
+        assert_eq!(
+            runtime.stage_detail.as_deref(),
+            Some("已完成 3/10 个文本块"),
+            "durable 进度更新后,stage_detail 必须描述这个进度,不能留着入场语"
+        );
         let events = db
             .list_translation_commit_events_after("job-1", 0, 10)
             .expect("commit events");
@@ -195,5 +236,17 @@ mod tests {
         );
 
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn durable_progress_detail_names_the_unit_each_stage_actually_counts() {
+        // 各阶段数的东西不一样:翻译按文本块、渲染按页。文案说错单位比不说
+        // 更糟——「已完成 3/10 页」出现在一个 4 页的文档上会让人以为出了问题。
+        assert_eq!(
+            durable_progress_detail("translating", 3, 10),
+            "已完成 3/10 个文本块"
+        );
+        assert_eq!(durable_progress_detail("rendering", 2, 4), "已完成 2/4 页");
+        assert_eq!(durable_progress_detail("unknown_phase", 1, 2), "已完成 1/2 项");
     }
 }
