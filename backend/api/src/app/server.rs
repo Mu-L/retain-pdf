@@ -57,6 +57,11 @@ async fn serve_with_shutdown(
         config.cleanup.interval,
     );
 
+    // 端点使用计数:同样属于运维观测,只在真实服务启动时开,不打扰单测。
+    // 计数累加式落盘,重启不清零——要的是跨天的样本。
+    super::route_usage::init(&state.config.data_root);
+    let _usage_handle = spawn_periodic_route_usage_flush();
+
     let app = build_app(state.clone());
     let simple_app = build_simple_app(state);
 
@@ -149,4 +154,17 @@ pub fn spawn_servers(config: AppConfig) -> RunningServers {
         shutdown_tx: Some(shutdown_tx),
         join_handle,
     }
+}
+
+/// 周期把端点计数写盘。60 秒一次:丢掉最后一分钟对「这个端点有没有人用」
+/// 毫无影响,而每请求写盘纯属浪费。
+fn spawn_periodic_route_usage_flush() -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async {
+        let mut ticker = tokio::time::interval(std::time::Duration::from_secs(60));
+        ticker.tick().await; // interval 的第一 tick 立即返回,跳过
+        loop {
+            ticker.tick().await;
+            super::route_usage::flush();
+        }
+    })
 }

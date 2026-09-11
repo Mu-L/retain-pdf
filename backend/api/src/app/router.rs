@@ -26,6 +26,9 @@ pub fn build_app(state: AppState) -> Router {
         .merge(authenticated_api_routes(&state))
         .merge(crate::routes::model_requests::worker_routes())
         .fallback(unknown_route)
+        // 计端点使用量。挂在 CORS/Trace 之下、路由之上,这样能从 `MatchedPath`
+        // 拿到路由模板而不是具体 URL。见 `route_usage`：删端点之前先量。
+        .layer(middleware::from_fn(super::route_usage::record))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(state)
