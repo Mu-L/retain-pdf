@@ -175,6 +175,7 @@ async fn upload_route_preserves_success_view_and_document_deduplication() {
             keys,
             [
                 "bytes",
+                "document_id",
                 "filename",
                 "page_count",
                 "upload_id",

@@ -539,6 +539,7 @@ pub fn summarize_list_invocation(items: &[JobListItemView]) -> JobListInvocation
 pub fn upload_to_response(upload: &UploadRecord) -> UploadView {
     UploadView {
         upload_id: upload.upload_id.clone(),
+        document_id: upload.content_hash.clone(),
         filename: upload.filename.clone(),
         bytes: upload.bytes,
         page_count: upload.page_count,
