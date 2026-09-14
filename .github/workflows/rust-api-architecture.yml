@@ -1,6 +1,7 @@
 name: Rust API Architecture
 
 "on":
+  workflow_call: {}
   pull_request:
     paths:
       - "backend/api/**"
@@ -42,7 +43,7 @@ permissions:
 
 concurrency:
   group: rust-api-architecture-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
   rust-api-architecture:

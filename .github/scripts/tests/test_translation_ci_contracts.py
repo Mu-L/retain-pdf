@@ -11,8 +11,8 @@ def test_daily_gate_uses_full_offline_entry_and_keeps_stage_tests():
     assert f'python "{ENTRY}"' in workflow
     assert ENTRY + '" --reverse' not in workflow
     assert "pipeline/devtools/tests/translation/test_" not in workflow
-    assert "pipeline/devtools/tests/pipeline" in workflow
-    assert "ai/tests/test_page_program.py" in workflow
+    assert 'python -m pytest "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests" -q' in workflow
+    assert 'python -m pytest "$RETAIN_PDF_SERVICES_ROOT/ai/tests" -q' in workflow
     assert "uses: ./.github/actions/setup-test-typst" in workflow
 
 

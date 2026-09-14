@@ -2,8 +2,8 @@ name: Tests
 
 # 全量测试门禁：rust workspace + 前端（含棘轮/边界门禁）+ Python 服务。
 # 此前这三套只在本地跑，CI 无人站岗——门禁存在但拦不住绕过（先例：v4.1.9
-# home-ask 带着 4 类门禁违规发布）。pipeline 当前覆盖命令契约、包边界，
-# 以及最容易影响断点续跑的 translation/document_operations 单元测试。
+# home-ask 带着 4 类门禁违规发布）。pipeline 覆盖全量离线回归，
+# 包括渲染、排版、命令契约、包边界及 durable stage 测试。
 
 "on":
   workflow_call: {}
@@ -23,6 +23,9 @@ concurrency:
   cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
+  architecture:
+    uses: ./.github/workflows/rust-api-architecture.yml
+
   rust-workspace:
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -171,20 +174,14 @@ jobs:
       - name: AI Service Tests
         run: uv run --project "$RETAIN_PDF_SERVICES_ROOT" python -m pytest "$RETAIN_PDF_SERVICES_ROOT/ai/tests" -q
 
-      - name: Pipeline package entrypoint tests
-        run: uv run --project "$RETAIN_PDF_SERVICES_ROOT" python -m pytest "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/entrypoints/test_console.py" -q
-
       - name: Setup Typst for offline formula tests
         uses: ./.github/actions/setup-test-typst
 
       - name: Offline translation regression
         run: uv run --project "$RETAIN_PDF_SERVICES_ROOT" python "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/run_translation_tests.py"
 
-      - name: Pipeline durable stage tests
-        run: |
-          uv run --project "$RETAIN_PDF_SERVICES_ROOT" python -m pytest -q \
-            "$RETAIN_PDF_SERVICES_ROOT/ai/tests/test_page_program.py" \
-            "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests/pipeline"
+      - name: Full offline pipeline regression (including rendering and durable stages)
+        run: uv run --project "$RETAIN_PDF_SERVICES_ROOT" python -m pytest "$RETAIN_PDF_SERVICES_ROOT/pipeline/devtools/tests" -q
 
   backend-standalone:
     runs-on: ubuntu-latest
