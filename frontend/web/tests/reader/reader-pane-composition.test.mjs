@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   resolveReaderPaneComposition,
+  resolveLiveTranslationVisibleOnWorkspaceChange,
 } from "../../../../frontend/packages/reader/src/ReaderAppReactPdf.tsx";
 
 // 可见台面的单一真源：paneComposition 判别联合。
@@ -156,6 +157,31 @@ test("live overlay is a single source pane with the live translation on top", ()
   assert.doesNotMatch(grid, /liveTranslationPair/);
 });
 
+test("live overlay in compare keeps the right translated pane plus a source badge", () => {
+  const composition = compose({
+    mode: "compare",
+    sourceViewOnly: false,
+    hasTranslated: true,
+    liveAvailable: true,
+    liveVisible: true,
+  });
+  // 对照态叠加不再「消栏」：右栏保留，只在源栏叠加。
+  assert.equal(composition.kind, "live-overlay");
+  assert.equal(composition.overlayOnSource, true);
+  assert.equal(composition.compareMode, true);
+  assert.equal(composition.showSource, true);
+  assert.equal(composition.showTranslated, true);
+  assert.equal(composition.visibleMode, "compare");
+
+  const grid = readFileSync(
+    new URL("../../../../frontend/packages/reader/src/components/react-pdf/ReaderCompareGrid.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(grid, /reader-source-overlay-badge/);
+  assert.match(grid, /原文\+实时译文叠加/);
+  assert.doesNotMatch(grid, /mountTranslated && !overlayOnSource/);
+});
+
 test("final-compare keeps source left and translated right without live overlay", () => {
   const composition = compose({
     mode: "compare",
@@ -189,7 +215,8 @@ test("源栏提供「译文」开关，直接叠在原文 PDF 上（不再另开
     new URL("../../../../frontend/packages/reader/src/components/react-pdf/ReaderCompareGrid.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(grid, /paneAction=\{props\.sourcePaneAction\}/);
+  assert.match(grid, /props\.sourcePaneAction/);
+  assert.match(grid, /reader-source-overlay-badge/);
   assert.doesNotMatch(grid, /ReaderTranslatedPreview/);
 });
 
@@ -199,4 +226,24 @@ test("任务到终态自动取消「实时译文」选中", () => {
     "utf8",
   );
   assert.match(app, /jobTerminal\)\s*setLiveTranslationVisible\(false\)/);
+});
+
+test("切换到对照不自动选中已完成的实时译文", () => {
+  // 进行中（available）：切对照自动打开叠加
+  assert.equal(resolveLiveTranslationVisibleOnWorkspaceChange("compare", true), true);
+  // 已完成（available=false，残留已提交页）：保持不动，不自动选中
+  assert.equal(resolveLiveTranslationVisibleOnWorkspaceChange("compare", false), null);
+  // 离开对照：关闭
+  assert.equal(resolveLiveTranslationVisibleOnWorkspaceChange("source", true), false);
+  assert.equal(resolveLiveTranslationVisibleOnWorkspaceChange("source", false), false);
+  assert.equal(resolveLiveTranslationVisibleOnWorkspaceChange("translated", true), false);
+  assert.equal(resolveLiveTranslationVisibleOnWorkspaceChange("translated", false), false);
+
+  // changeWorkspace 必须用 available（最终译文未就绪）而非残留内容做自动打开判定
+  const app = readFileSync(
+    new URL("../../../../frontend/packages/reader/src/ReaderAppReactPdf.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(app, /resolveLiveTranslationVisibleOnWorkspaceChange\(next, c\.liveTranslationAvailable\)/);
+  assert.doesNotMatch(app, /next === "compare" && hasOverlayContent/);
 });

@@ -10,14 +10,32 @@ export function hasActiveRecentJobs(items = []) {
   return (Array.isArray(items) ? items : []).some(isRecentJobActive);
 }
 
-export function recentJobsEligibleForActiveRefresh(items = [], currentJobId = "") {
+export function recentJobsEligibleForActiveRefresh(items = [], currentJobId = "", includeJobIds: any = []) {
   const activeJobId = `${currentJobId || ""}`.trim();
+  const included = normalizeJobIdSet(includeJobIds);
   return (Array.isArray(items) ? items : [])
     .filter(isRecentJobActive)
     .filter((item) => {
       const jobId = `${item?.job_id || ""}`.trim();
-      return jobId && jobId !== activeJobId;
+      if (!jobId) {
+        return false;
+      }
+      // 默认排除当前 job：详情页自有 job-runtime 轮询，避免双路 patch 打扰详情。
+      // 例外：本次提交的新 job（调用方经 includeJobIds 声明）在详情页仍需单卡对齐，
+      // 只 patch、不全量 loadRecentJobs，不破坏“不打扰详情”初衷。
+      if (jobId === activeJobId && !included.has(jobId)) {
+        return false;
+      }
+      return true;
     });
+}
+
+function normalizeJobIdSet(source: any) {
+  const raw = typeof source === "function" ? source() : source;
+  const list = raw instanceof Set ? [...raw] : (Array.isArray(raw) ? raw : (raw ? [raw] : []));
+  return new Set(
+    list.map((id) => `${id || ""}`.trim()).filter((id) => id),
+  );
 }
 
 /**
@@ -41,6 +59,9 @@ export function createActiveLibraryRefreshLoop({
   loadRecentJobs: _loadRecentJobs,
   isRecentJobsLoading,
   environment = defaultRecentJobsRefreshEnvironment,
+  // 本次提交的新 job id（函数或静态集合）：缺省空，等价于旧行为（排除当前 job）。
+  // 接线方（如 runtime）在提交后传入，使新 job 在详情页也能被单卡对齐。
+  includeJobIds = [],
 }: any) {
   let activeLibraryRefreshTimer = null;
   let loopGen = 0;
@@ -79,15 +100,16 @@ export function createActiveLibraryRefreshLoop({
   }
 
   // 规则4 idle熄火：无其它活跃卡则不 arm，自然停轮询。
+  // （includeJobIds 放行的提交 job 计入可轮询卡，避免详情页新任务零对齐。）
   function shouldIdleWithoutEligible() {
-    return recentJobsEligibleForActiveRefresh(getItems(), currentJobId()).length === 0;
+    return recentJobsEligibleForActiveRefresh(getItems(), currentJobId(), includeJobIds).length === 0;
   }
 
   function selectCardsForTick(gen) {
     if (!isCurrentGeneration(gen)) {
       return [];
     }
-    return recentJobsEligibleForActiveRefresh(getItems(), currentJobId())
+    return recentJobsEligibleForActiveRefresh(getItems(), currentJobId(), includeJobIds)
       .slice(0, LIBRARY_ACTIVE_REFRESH_MAX_CARDS_PER_TICK);
   }
 

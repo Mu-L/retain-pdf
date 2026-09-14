@@ -60,6 +60,14 @@ function normalizedPatchStage(value = "") {
   return PATCH_STAGE_KEYS.has(normalized) ? normalized : "";
 }
 
+function finiteProgressOrNull(value: unknown): number | null {
+  // book-detail 口径收紧：Number(null)/Number("") === 0 会把缺数当成 0%，
+  // 进度单调性只在双边有限数下才可比。
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function trustedStageSnapshot(
   job: RuntimeJobPatch = {},
   stageAdapterPort: StageAdapterPort = {},
@@ -145,8 +153,8 @@ function shouldKeepPreviousRuntimePatch(
   if (previousUnit !== nextUnit) {
     return false;
   }
-  const previousTotal = numberOrNull(previousProgress.total ?? previous.progress_total);
-  const nextTotal = numberOrNull(nextProgress.total ?? next.progress_total);
+  const previousTotal = finiteProgressOrNull(previousProgress.total ?? previous.progress_total);
+  const nextTotal = finiteProgressOrNull(nextProgress.total ?? next.progress_total);
   if (previousTotal === null || nextTotal === null) {
     return false;
   }
@@ -154,8 +162,8 @@ function shouldKeepPreviousRuntimePatch(
     return false;
   }
   // [I1] 同口径下 current 倒退 -> 保留旧帧（运行态不降级）。
-  const previousCurrent = numberOrNull(previousProgress.current ?? previous.progress_current);
-  const nextCurrent = numberOrNull(nextProgress.current ?? next.progress_current);
+  const previousCurrent = finiteProgressOrNull(previousProgress.current ?? previous.progress_current);
+  const nextCurrent = finiteProgressOrNull(nextProgress.current ?? next.progress_current);
   if (previousCurrent === null || nextCurrent === null) {
     return false;
   }

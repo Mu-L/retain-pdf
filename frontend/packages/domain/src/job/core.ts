@@ -51,6 +51,7 @@ export function isTerminalStatus(status: JobStatus | string | null | undefined):
 function activeStageSignal(payload: JobLike | JobPayload | null | undefined = {}): string {
   const text = firstNonEmpty(
     payload?.display_stage,
+    payload?.stage_snapshot?.display_stage,
     payload?.stage_snapshot?.publicStage,
     payload?.stage_snapshot?.stageKey,
   ).toLowerCase();
@@ -102,10 +103,26 @@ function hasExplicitDoneSignal(payload: JobLike | JobPayload | null | undefined 
   }
   const runtime = (payload?.runtime || {}) as { terminal_reason?: string };
   const terminalReason = firstNonEmpty(payload?.terminal_reason, runtime.terminal_reason).toLowerCase();
-  if (terminalReason === "completed" || terminalReason === "done") {
+  if (terminalReason === "succeeded" || terminalReason === "completed" || terminalReason === "done") {
     return true;
   }
   return hasFinalArtifactSignal(payload);
+}
+
+function hasAuthoritativeTerminalSnapshot(payload: JobLike | JobPayload): boolean {
+  // Modern wire responses explicitly clear the active snapshot on completion.
+  // Missing/undefined is deliberately not enough for legacy partial payloads.
+  if (Object.hasOwn(payload, "stage_snapshot") && payload.stage_snapshot === null) return true;
+  const raw = payload.raw_response;
+  if (!raw || raw.status !== payload.status || raw.stage_snapshot !== null
+    || !Object.hasOwn(raw, "stage_snapshot")
+    || (raw.job_id && payload.job_id && raw.job_id !== payload.job_id)) return false;
+
+  // normalizeJobPayload replaces the wire snapshot with a UI snapshot. Accept
+  // its retained source, but not a newer active wire snapshot or stage override.
+  if (payload.stage_snapshot && Object.hasOwn(payload.stage_snapshot, "display_stage")) return false;
+  const stage = activeStageSignal(payload);
+  return !stage || stage === "done" || stage === activeStageSignal(raw as JobLike);
 }
 
 export function isJobTerminal(
@@ -121,5 +138,5 @@ export function isJobTerminal(
   if (typeof payload === "string" || !payload || typeof payload !== "object") {
     return true;
   }
-  return hasExplicitDoneSignal(payload);
+  return hasAuthoritativeTerminalSnapshot(payload) || hasExplicitDoneSignal(payload);
 }

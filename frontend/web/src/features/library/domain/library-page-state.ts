@@ -20,6 +20,15 @@ export type LibraryPageState = {
 const EMPTY_MESSAGE = "暂无最近任务";
 const EMPTY_SEARCH_MESSAGE = "没有匹配的书籍";
 
+/** 空态 CTA 推导：有搜索词 → 「清搜索」；新库（无搜索词）→ 「去上传」。 */
+export type LibraryEmptyAction = "upload" | "clear-search";
+
+export function deriveLibraryEmptyAction({
+  query,
+}: Pick<DeriveLibraryPageStateInput, "query"> = {}): LibraryEmptyAction {
+  return text(query) ? "clear-search" : "upload";
+}
+
 function text(value: unknown): string {
   return `${value ?? ""}`.trim();
 }

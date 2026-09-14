@@ -10,6 +10,8 @@
   "src/features/ingest/domain/upload/state.ts::let-var::defaultUploadStatePort",
   "src/features/job-detail/domain/ocr-ambiguity-recovery.ts::new-collection::RECEIPT_FIELD_NAMES",
   "src/features/job-detail/domain/ocr-ambiguity-recovery.ts::new-collection::RESOLUTIONS",
+  "src/features/jobs/domain/progress-model.ts::new-collection::VISIBLE_STAGE_KEYS",
+  "src/features/jobs/domain/progress-model.ts::new-collection::VISIBLE_STATUSES",
   "src/features/jobs/domain/runtime/current-job-secondary-selectors.ts::symbol-for-store::CURRENT_JOB_STORE_KEY",
   "src/features/jobs/domain/runtime/current-job-state.ts::symbol-for-store::CURRENT_JOB_STORE_KEY",
   "src/features/jobs/domain/runtime/runtime-polling-state.ts::symbol-for-store::RUNTIME_POLLING_STORE_KEY",

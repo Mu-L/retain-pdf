@@ -17,6 +17,15 @@ import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { useLibrarySearchBinding } from "@/features/library/index.js";
 import { TRANSLATION_WORKFLOW_DIALOG } from "@/features/ingest/domain.js";
 
+// 任务中心浮层入口事件：平台 ?tab= 白名单（platform/navigation/pages.js）没有
+// tasks 键且不可动（别的 agent 领地），故任务中心不做顶栏 Tab，走主页浮层——
+// AppBottomBar 只负责派发打开事件，HomeApp 监听后挂载 TaskCenter。
+export const HOME_TASK_CENTER_OPEN_EVENT = "retainpdf:open-task-center";
+
+export function openTaskCenter() {
+  document.dispatchEvent(new CustomEvent(HOME_TASK_CENTER_OPEN_EVENT));
+}
+
 export function AppBottomBar({ showSearch = true, hidden = false }) {
   // Shell 窄口直取:dialog 读侧 + workflow/settings 动作口,不再 useHomeServices 大包。
   const dialogStore = useHomeDialogStore();
@@ -62,8 +71,38 @@ export function AppBottomBar({ showSearch = true, hidden = false }) {
             value={query}
             onChange={onSearchChange}
           />
+          {/* 空态"清搜索" CTA 的配合位：有搜索词时才出现，一键回到全量列表 */}
+          {query ? (
+            <button
+              id="library-search-clear-btn"
+              type="button"
+              className="library-bottom-search-clear"
+              aria-label="清除搜索"
+              title="清除搜索"
+              onClick={() => onSearchChange({ target: { value: "" } })}
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+              </svg>
+            </button>
+          ) : null}
         </div>
       ) : null}
+
+      <button
+        id="home-task-center-btn"
+        type="button"
+        className="library-bottom-icon-btn"
+        aria-label="任务中心"
+        title="任务中心"
+        onClick={openTaskCenter}
+      >
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M3 12h4l3 8 4-16 3 8h4" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        {/* 装饰钩子：同添加钮，皮肤可贴图换装 */}
+        <span className="library-bottom-icon-btn-ornament" aria-hidden="true" />
+      </button>
 
       <button
         id="app-settings-btn"

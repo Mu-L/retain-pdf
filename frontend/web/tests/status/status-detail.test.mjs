@@ -382,8 +382,8 @@ test("job detail data port owns overview markdown and action API calls", async (
       calls.push(["markdown", jobId, apiPrefix]);
       return { content: "# ok" };
     },
-    loadEvents: async (jobId, apiPrefix, limit, offset) => {
-      calls.push(["events", jobId, apiPrefix, limit, offset]);
+    loadEvents: async (jobId, apiPrefix, query) => {
+      calls.push(["events", jobId, apiPrefix, query]);
       return { items: [] };
     },
     rerun: async (url) => {
@@ -404,7 +404,7 @@ test("job detail data port owns overview markdown and action API calls", async (
     resumePlan: null,
   });
   assert.deepEqual(await port.loadMarkdownPayload("job-detail"), { content: "# ok" });
-  assert.deepEqual(await port.fetchJobEvents("job-detail", port.apiPrefix, 10, 20), { items: [] });
+  assert.deepEqual(await port.fetchJobEvents("job-detail", port.apiPrefix, { limit: 10, cursor: "test-cursor" }), { items: [] });
   assert.deepEqual(await port.resumeJob("job-detail", port.apiPrefix), { job_id: "job-resume" });
   assert.deepEqual(await port.rerunJob("/rerun"), { job_id: "job-rerun" });
   assert.deepEqual(await port.fetchProtected("http://asset.test/file.pdf"), {
@@ -416,7 +416,7 @@ test("job detail data port owns overview markdown and action API calls", async (
     ["diagnostics", "job-detail", "/detail-api"],
     ["resume-plan", "job-detail", "/detail-api"],
     ["markdown", "job-detail", "/detail-api"],
-    ["events", "job-detail", "/detail-api", 10, 20],
+    ["events", "job-detail", "/detail-api", { limit: 10, cursor: "test-cursor" }],
     ["resume", "job-detail", "/detail-api"],
     ["rerun", "/rerun"],
   ]);
@@ -820,6 +820,8 @@ test("status detail resume actions route UI side effects through view port", asy
     ["disabled", true],
     ["rerun", actionUrl],
     ["close"],
+    // finally 语义：settled 即解禁，成功也不残留禁用。
+    ["disabled", false],
   ]);
   assert.deepEqual(textCalls, [["error-box", "已创建恢复任务 job-resumed-action，开始轮询。"]]);
   assert.deepEqual(pollingCalls, ["job-resumed-action"]);
@@ -849,9 +851,8 @@ test("status detail overview coordinator renders cached snapshot before fresh pa
         display_stage: "done",
       };
     },
-    fetchJobEvents: async (_jobId, _apiPrefix, limit, afterSeq) => {
-      assert.equal(limit, 200);
-      assert.equal(afterSeq, 0);
+    fetchJobEvents: async (_jobId, _apiPrefix, query) => {
+      assert.deepEqual(query, { limit: 500, start: "tail" });
       return { items: [{ seq: 2, display_stage: "done" }] };
     },
     fetchJobDiagnostics: async () => ({ summary: "ok" }),

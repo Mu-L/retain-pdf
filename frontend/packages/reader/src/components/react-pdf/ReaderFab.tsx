@@ -1,5 +1,7 @@
 // 可拖动悬浮工具钮（FAB）：点击展开菜单，拖动改位置。
-// 菜单：摘录 + 下载（原始 / 译文 / 对照）。
+// 菜单：摘录 / Markdown / AI + 批注 + 下载（原始 / 译文 / 对照）。
+// Markdown / AI 与 ReaderAssistantDock 同行为（workspace 辅助面板），
+// 展示行与 registry.ts READER_TOOLS 对齐。
 //
 // 拖拽定位、菜单/外点关闭、三路下载 busy 与菜单展示行已拆到同目录子模块：
 // use-reader-fab-position / use-reader-fab-menu / use-reader-fab-downloads /
@@ -30,7 +32,7 @@ const TOOL_ICONS: Record<ReaderFabToolId, typeof Bookmark> = {
   notes: StickyNote,
 };
 
-const AUXILIARY_TOOLS = READER_TOOLS.filter((tool) => tool.id === "favorites");
+const AUXILIARY_TOOLS = READER_TOOLS;
 
 export type ReaderFabProps = {
   /** 当前打开的工具 id；null 表示都关 */

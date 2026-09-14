@@ -41,6 +41,7 @@ export function createDocumentLibraryResource({
       pageSize = RECENT_JOBS_PAGE_SIZE,
       existingJobIds = new Set(),
       query = "",
+      onPreview = undefined as ((page: any) => void) | undefined,
     } = {}) => collectDocumentLibraryPage({
       fetchDocumentList,
       fetchLibraryBookList,
@@ -50,6 +51,7 @@ export function createDocumentLibraryResource({
       pageSize,
       existingJobIds: normalizeExistingJobIds(existingJobIds),
       query,
+      onPreview,
     }),
   });
 }

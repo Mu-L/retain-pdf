@@ -12,10 +12,35 @@ import {
   loadPickerOptions,
   parseAtQuery,
 } from "../domain/document-picker.js";
+import { OPEN_BROWSER_CREDENTIALS_EVENT } from "./use-home-ask-composer-effects.js";
 import type { HomeAskScope } from "../domain/types.js";
 import { scopeKey } from "../domain/types.js";
 
 export const MAX_SCOPES = 4;
+
+/**
+ * 缺凭据时发送的引导：不锁输入，只把焦点送到凭据横幅的「打开设置」按钮
+ * （横幅直达「设置 → API 设置」）；横幅不存在才兜底派发打开设置事件。
+ */
+export function guideToCredentialSetup(anchor?: HTMLTextAreaElement | null) {
+  try {
+    const scope =
+      anchor?.closest?.(".home-ask-composer") ??
+      (typeof document !== "undefined" ? document : null);
+    const target = scope?.querySelector?.(".home-ask-key-banner-btn") as HTMLElement | null;
+    if (target && typeof target.focus === "function") {
+      target.focus();
+      return;
+    }
+  } catch {
+    /* 取 DOM 引用失败就走事件兜底 */
+  }
+  try {
+    document.dispatchEvent(new CustomEvent(OPEN_BROWSER_CREDENTIALS_EVENT));
+  } catch {
+    /* 非浏览器环境静默忽略 */
+  }
+}
 
 export type UseHomeAskComposerParams = {
   disabled: boolean;
@@ -117,14 +142,23 @@ export function useHomeAskComposer({
   }, [syncAtState]);
 
   const handleSend = () => {
+    if (disabled || isRunning) return;
+    // 缺凭据不锁输入/不锁发送键：发送时刻才引导补 Key（焦点送横幅按钮），
+    // 历史、@ 选文档、草稿输入全程可用。
+    if (credentialBlocked) {
+      if (!text.trim()) return;
+      guideToCredentialSetup(textareaRef.current);
+      return;
+    }
     const q = text.trim();
-    if (!q || disabled || isRunning || credentialBlocked) return;
+    if (!q) return;
     onSend(q);
     setText("");
     closePicker();
   };
 
-  const inputDisabled = disabled || credentialBlocked;
+  // 缺凭据只影响发送时刻的去向，不禁用输入框本身。
+  const inputDisabled = disabled;
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
     if (pickerOpen && filtered.length > 0) {
@@ -155,7 +189,7 @@ export function useHomeAskComposer({
     }
   };
 
-  const canSend = Boolean(text.trim()) && !disabled && !isRunning && !credentialBlocked;
+  const canSend = Boolean(text.trim()) && !disabled && !isRunning;
 
   const scopeHint = (() => {
     if (credentialBlocked) return credentialMessage;

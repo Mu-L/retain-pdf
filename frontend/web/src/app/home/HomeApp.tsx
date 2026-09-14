@@ -13,7 +13,7 @@
 // HomeShell 承载 tabs 本地态 + AppTopBar/BottomBar + home-paper-stage。
 // tabs 切页只改本地 state + URL ?tab=(replaceState,不导航、不碰 store)。
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BookDetailDialog } from "@/features/book-detail/index.js";
 import type { ReactNode } from "react";
 import {
@@ -25,7 +25,7 @@ import {
 } from "./home-services-context.js";
 import type { HomeServices } from "./composition/types.js";
 import { AppTopBar } from "./shell/AppTopBar.jsx";
-import { AppBottomBar } from "./shell/AppBottomBar.jsx";
+import { AppBottomBar, HOME_TASK_CENTER_OPEN_EVENT } from "./shell/AppBottomBar.jsx";
 import { MockModeBanner } from "./shell/MockModeBanner.jsx";
 import { IngestDialog } from "@/features/ingest/index.js";
 import {
@@ -35,6 +35,7 @@ import { StatusCard } from "@/features/jobs/index.js";
 import { AppUpdateBanner } from "@/features/app-update/index.js";
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { HomeAskView } from "@/features/ask/index.js";
+import { TaskCenter } from "@/features/task-center/index.js";
 import { GlossariesDialog } from "@/features/glossaries/index.js";
 import { FavoritesView } from "@/features/favorites/index.js";
 import {
@@ -144,6 +145,19 @@ function CollectionDialogSlot() {
     />
   );
 }
+
+// 任务中心浮层插槽：点任务卡片走同一套书籍详情（job_id 兜底开详情壳，
+// 见 library/domain/documents/navigation-actions），与网格行为一致。
+function TaskCenterSlot() {
+  const { library } = useHomeServices();
+  return (
+    <TaskCenter
+      onOpenBookDetail={(input) => {
+        (library.actions.openBookDetail as (item: any) => void)(input);
+      }}
+    />
+  );
+}
 function SettingsDialogSlot() {
   const { settingsHub, glossaries, credentials } = useHomeServices();
   return (
@@ -183,6 +197,14 @@ function HomeShell() {
   // 隐藏(不卸载——搜索 input 卸载会让 library-search-island 的引用失效)让位
   // 给批量工具栏,两者不同时可见。
   const [batchModeActive, setBatchModeActive] = useState(false);
+  // 任务中心浮层：不占 ?tab=（平台白名单无 tasks 键），只盖住纸心舞台，
+  // 由 AppBottomBar 的 #home-task-center-btn 经事件打开。
+  const [tasksOpen, setTasksOpen] = useState(false);
+  useEffect(() => {
+    const open = () => setTasksOpen(true);
+    document.addEventListener(HOME_TASK_CENTER_OPEN_EVENT, open);
+    return () => document.removeEventListener(HOME_TASK_CENTER_OPEN_EVENT, open);
+  }, []);
 
   // 合集/收藏/AI tab：视图挂载即可尝试恢复 panel 滚动（图书馆由 RecentJobsLibrary 在有列表后恢复）
   useHomeReturnRestore(isCategoriesTab || isFavoritesTab || isAskTab);
@@ -199,7 +221,23 @@ function HomeShell() {
         <MockModeBanner />
         {/* 纸心舞台：材质/比例层级（非传统符号拼贴）；侧栏筛选暂不做 */}
         <div className="home-paper-stage">
-          {isLibraryTab ? (
+          {tasksOpen ? (
+            <>
+              <div className="tasks-view-toolbar">
+                <button
+                  id="task-center-back-btn"
+                  type="button"
+                  className="secondary"
+                  aria-label="返回"
+                  onClick={() => setTasksOpen(false)}
+                >
+                  ← 返回
+                </button>
+              </div>
+              <TaskCenterSlot />
+              <AppBottomBar showSearch={false} />
+            </>
+          ) : isLibraryTab ? (
             <>
               <RecentJobsLibrary {...({ onBatchModeChange: setBatchModeActive } as any)} />
               <AppBottomBar showSearch hidden={batchModeActive} />
@@ -241,6 +279,9 @@ function HomeShell() {
       <SoftReaderHost />
       <CollectionDialogSlot />
       <BookDetailDialog />
+      {/* sonner 全局宿主：DownloadToastHost 内含 <Toaster/>，任务中心取消/重试、
+          收藏等处的 toast.success/error 都经它渲染——TaskCenter 不自带 Toaster，
+          挂载在 HomeApp 下即接入现有宿主，不另起第二个（sonner 双宿主会重影）。 */}
       <DownloadToastHost />
     </>
   );

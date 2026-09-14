@@ -72,15 +72,11 @@ export function resolveReaderGridPresentation({
   markdownSplit: boolean;
   overlayOnSource?: boolean;
 }) {
-  if (overlayOnSource) {
-    // 流式译文直接叠加在原文单栏；不再额外挂第二块实时画布（避免双叠）。
-    return {
-      mode: "source",
-      compareMode: false,
-      showSource: true,
-      showTranslated: false,
-    };
-  }
+  // 对照态叠加不再「消栏」：overlayOnSource 只决定源栏是否挂流式画布，
+  // 不再强制单栏。右栏（最终译文 PDF）由 paneComposition.showTranslated
+  // 保留，避免右栏消失像对照坏了。overlayOnSource 保留在签名中以兼容
+  // 旧调用方（未使用）。
+  void overlayOnSource;
   const splitSourceCompare = markdownSplit && mode === "compare";
   return {
     mode: splitSourceCompare ? "source" : mode,
@@ -210,18 +206,29 @@ export function ReaderCompareGrid(props: ReaderCompareGridProps): ReactElement {
             regions={regions}
             readerMetadata={readerMetadata}
             onSelectRegion={onSelectRegion}
-            // 流式译文直接叠加在原文 PDF 上，但仅在「实时译文可用、最终译文
-            // 未就绪」时（overlayOnSource）。最终译文就绪后 overlayOnSource
-            // 恒为 false，源栏恢复纯原文，避免「左右都是中文」的旧 bug。
+            // 流式译文直接叠加在源栏原文 PDF 上（overlayOnSource，用户主动触发）。
+            // 对照态不再消栏：右栏（最终译文 PDF）照常保留。叠加 badge 由
+            // sourcePaneAction 组合透出，避免与「左右都是中文」混淆。
             liveTranslation={overlayOnSource ? liveTranslation : undefined}
             showLiveTranslation={overlayOnSource}
             liveTranslationPendingLabel={overlayOnSource
               ? liveTranslationPendingCopy(liveTranslation)
               : ""}
-            paneAction={props.sourcePaneAction}
+            paneAction={overlayOnSource ? (
+              <>
+                {props.sourcePaneAction}
+                <span
+                  className="reader-source-overlay-badge"
+                  data-source-overlay-badge="true"
+                  title="源栏正在叠加实时译文，右栏为最终译文 PDF"
+                >
+                  原文+实时译文叠加
+                </span>
+              </>
+            ) : props.sourcePaneAction}
           />
         ) : null}
-        {mountTranslated && !overlayOnSource ? (
+        {mountTranslated ? (
           <PdfDocumentPane
             pane="translated"
             url={translatedUrl}

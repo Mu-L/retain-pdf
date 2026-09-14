@@ -75,7 +75,7 @@ export type ReaderPaneComposition = {
    * - source-only：单栏原文；
    * - translated-only：仅译文（右栏语义）；
    * - final-compare：左源右最终译文的并排；
-   * - live-overlay：单栏原文 + 流式实时译文叠加。
+   * - live-overlay：源栏原文 + 流式实时译文叠加（对照态保留右栏最终译文）。
    */
   kind: "source-only" | "translated-only" | "final-compare" | "live-overlay";
   /** 顶栏页签 / 键盘 / HUD 使用的可见 PDF 模式 */
@@ -125,10 +125,11 @@ export function resolveReaderPaneComposition(input: {
   const pdfMode = input.assistantPdfPane
     || (input.assistantOpen && input.mode === "compare" ? "source" : input.mode);
   const visibleMode = pdfMode;
-  const compareMode = !overlayOnSource && visibleMode === "compare";
+  // 对照态叠加不再「消栏」：overlay 只在源栏叠加流式画布，右栏（最终译文）
+  // 照常保留。compareMode / showTranslated 不再被 overlay 强制关闭。
+  const compareMode = visibleMode === "compare";
   const showSource = overlayOnSource || visibleMode !== "translated";
-  const showTranslated = !overlayOnSource
-    && (visibleMode === "translated" || visibleMode === "compare");
+  const showTranslated = visibleMode === "translated" || visibleMode === "compare";
   const kind: ReaderPaneComposition["kind"] = overlayOnSource
     ? "live-overlay"
     : visibleMode === "compare"
@@ -146,6 +147,23 @@ export function resolveReaderPaneComposition(input: {
     sourceOnly: input.sourceOnly,
     sourceViewOnly,
   };
+}
+
+/**
+ * 切换工作区页签时，是否自动开关实时译文叠加。
+ * - 切到对照：仅在“实时译文真正可用（最终译文 PDF 未就绪）”时自动打开。
+ *   任务完成后即使残留已提交的实时页，也不得自动选中「实时译文 · 已完成」。
+ * - 离开对照（原文/译文）：关闭，回到页签自身的显示。
+ * 返回 null 表示保持用户当前选择不动。
+ */
+export function resolveLiveTranslationVisibleOnWorkspaceChange(
+  next: ReaderWorkspaceMode,
+  liveTranslationAvailable: boolean,
+): boolean | null {
+  if (next === "compare") {
+    return liveTranslationAvailable ? true : null;
+  }
+  return false;
 }
 
 export function resolveInitialAssistantPanel(
@@ -271,14 +289,6 @@ export function ReaderAppReactPdf() {
     enabled: c.showHud,
   });
   const closeTool = useCallback(() => { tools.close(); }, [tools]);
-  // 批注作为 FAB 工具项：notesOpen 独立于 tools 的 active，保留与辅助面板并存的能力。
-  const handleFabTool = useCallback((id: ReaderFabToolId) => {
-    if (id === "notes") {
-      toggleNotes();
-      return;
-    }
-    tools.toggle(id);
-  }, [toggleNotes, tools]);
   const closeAssistant = useCallback(() => {
     setAssistantPanel(null);
     setAssistantPdfPane(null);
@@ -299,13 +309,10 @@ export function ReaderAppReactPdf() {
     // top-bar selection in sync instead of asking the session mode (which is
     // correctly source-only until the final artifact arrives) to represent
     // this temporary live pair.
-    if (next === "compare" && hasOverlayContent) {
-      setLiveTranslationVisible(true);
-    } else if (next !== "compare") {
-      setLiveTranslationVisible(false);
-    }
+    const autoEnable = resolveLiveTranslationVisibleOnWorkspaceChange(next, c.liveTranslationAvailable);
+    if (autoEnable !== null) setLiveTranslationVisible(autoEnable);
     c.setModeKeepingPage(next);
-  }, [hasOverlayContent, c.setModeKeepingPage, tools]);
+  }, [c.liveTranslationAvailable, c.setModeKeepingPage, tools]);
 
   // 源栏「译文」开关：把流式译文直接叠在原文 PDF 上 / 收起。进行中与完成后
   // 都可用（只要有可叠加内容）。默认关，避免自动叠加造成「左右都中文」。
@@ -328,6 +335,32 @@ export function ReaderAppReactPdf() {
     setAssistantPanel(next);
     if (next !== "ai") setAiSelectionContext(null);
   }, []);
+
+  // FAB 与 Dock 行为一致：favorites 走 tools，markdown/ai 走辅助面板
+  // （workspace），notes 走本地批注。markdown/ai 点击为 toggle（再点关闭）。
+  const handleFabTool = useCallback((id: ReaderFabToolId) => {
+    if (id === "notes") {
+      toggleNotes();
+      return;
+    }
+    if (id === "markdown" || id === "ai") {
+      if (assistantPanel === id) {
+        setAssistantPanel(null);
+        setAssistantPdfPane(null);
+        setAiSelectionContext(null);
+      } else {
+        setAssistantPanel(id);
+        setAssistantPdfPane(null);
+        if (id !== "ai") setAiSelectionContext(null);
+      }
+      return;
+    }
+    tools.toggle(id);
+  }, [assistantPanel, toggleNotes, tools]);
+  // FAB 高亮：批注 > 辅助面板（与 Dock 同真源）> tools（摘录）。
+  const fabActiveTool: ReaderFabToolId | null = notesOpen
+    ? "notes"
+    : (assistantPanel ?? tools.active);
 
   const askSelectedRegion = useCallback((selection: ReaderSelection) => {
     const pdf = selection.pane === "translated" && !sourceViewOnly
@@ -414,7 +447,7 @@ export function ReaderAppReactPdf() {
         />
         <ReaderAssistantDock active={assistantPanel} />
         {assistantOpen ? <ReaderAiSplitResizeHandle /> : null}
-        {c.showHud ? <ReaderFab activeTool={notesOpen ? "notes" : tools.active} noteCount={annotations.count} onToggleTool={handleFabTool} /> : null}
+        {c.showHud ? <ReaderFab activeTool={fabActiveTool} noteCount={annotations.count} onToggleTool={handleFabTool} /> : null}
         <ReaderCompareGrid paneComposition={paneComposition} markdownSplit={assistantPanel === "markdown"} assistantSplit={assistantOpen} liveTranslation={c.liveTranslation} sourcePaneAction={sourcePaneAction} />
         {c.showHud ? (
           <ReaderZoomHud

@@ -39,8 +39,7 @@ export interface StatusDetailControllerDeps {
   fetchJobEvents?: (
     jobId: string,
     apiPrefix?: string,
-    limit?: number,
-    offset?: number,
+    query?: import("@retainpdf/api/jobs-events").JobEventsQuery,
   ) => Promise<unknown>;
   fetchJobDiagnostics?: (jobId: string, apiPrefix?: string) => Promise<unknown>;
   fetchResumePlan?: (jobId: string, apiPrefix?: string) => Promise<unknown>;

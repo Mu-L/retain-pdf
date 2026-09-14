@@ -76,7 +76,7 @@ export function HomeAskComposer({
   });
 
   return (
-    <div className={`home-ask-composer home-ask-composer-${variant}${credentialBlocked ? " is-locked" : ""}`}>
+    <div className={`home-ask-composer home-ask-composer-${variant}`}>
       {credentialBlocked ? (
         <HomeAskComposerBanner
           message={credentialMessage}
@@ -92,12 +92,10 @@ export function HomeAskComposer({
         />
       ) : null}
 
-      <div className="home-ask-composer-shell" aria-disabled={credentialBlocked || undefined}>
+      <div className="home-ask-composer-shell">
         <HomeAskComposerInput
           textareaRef={textareaRef}
           text={text}
-          credentialBlocked={credentialBlocked}
-          credentialMessage={credentialMessage}
           inputDisabled={inputDisabled}
           scopeCount={scopes.length}
           variant={variant}

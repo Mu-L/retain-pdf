@@ -110,14 +110,35 @@ export function mergeSnapshotWithFallback(
       : {};
   const fallbackDetail = `${stageSnapshot.stage_detail || fallbackItem.stage_detail || ""}`.trim();
   const fallbackStage = `${stageSnapshot.display_stage || ""}`.trim();
-  const itemPercent = Number(progress.percent);
-  const itemCurrent = Number(progress.current);
-  const itemTotal = Number(progress.total);
+  // book-detail 口径：null/"" 不变 0，必须先判缺失再 Number()。
+  const finiteOrNull = (value: unknown): number | null => {
+    if (value === null || value === undefined || value === "") return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const clampPercent = (value: number): number => Math.max(0, Math.min(100, value));
+  const rawItemPercent = finiteOrNull((progress as Record<string, unknown>).percent);
+  const rawItemCurrent = finiteOrNull((progress as Record<string, unknown>).current);
+  const rawItemTotal = finiteOrNull((progress as Record<string, unknown>).total);
+  const rawItemUnit = `${(progress as Record<string, unknown>).unit || ""}`.trim();
+  // 真实截断：显式 percent 优先，否则 current/total 推导，否则 null（不伪造 0）。
+  const derivedItemPercent = rawItemPercent !== null
+    ? clampPercent(rawItemPercent)
+    : rawItemCurrent !== null && rawItemTotal !== null && rawItemTotal > 0
+      ? clampPercent((rawItemCurrent / rawItemTotal) * 100)
+      : null;
+  const itemPercent = rawItemPercent !== null ? clampPercent(rawItemPercent) : NaN;
+  const itemCurrent = rawItemCurrent ?? NaN;
+  const itemTotal = rawItemTotal ?? NaN;
 
   if (itemStatus === "succeeded" && (snapIsWeak || snapStatus !== "succeeded")) {
     const snapJobRecord = isolatedSnapshot?.job as StatusCardJobRecord | null | undefined;
     const jobMatches = snapJobRecord
       && `${snapJobRecord.job_id || isolatedSnapshot?.jobId || ""}`.trim() === itemJob;
+    // 完成才 100：percent 固定 100，但 current/total/unit 保留真实值（不断尾）。
+    const succeededCurrent = Number.isFinite(itemCurrent) ? itemCurrent : 100;
+    const succeededTotal = Number.isFinite(itemTotal) && itemTotal > 0 ? itemTotal : 100;
+    const succeededUnit = rawItemUnit || "percent";
     const succeededJob: StatusCardJobRecord = jobMatches && snapJobRecord
       ? snapJobRecord
       : {
@@ -127,9 +148,9 @@ export function mergeSnapshotWithFallback(
           stage_detail: fallbackDetail || "任务完成",
           progress: {
             percent: 100,
-            current: itemCurrent || 100,
-            total: itemTotal || 100,
-            unit: "percent",
+            current: succeededCurrent,
+            total: succeededTotal,
+            unit: succeededUnit,
           },
           timestamps: {
             started_at: (fallbackItem.created_at as string) || "",
@@ -146,11 +167,11 @@ export function mergeSnapshotWithFallback(
       detail: fallbackDetail || "任务完成",
       displayPercent: 100,
       progressPercent: 100,
-      progressCurrent: Number.isFinite(itemCurrent) ? itemCurrent : 100,
-      progressTotal: Number.isFinite(itemTotal) && itemTotal > 0 ? itemTotal : 100,
+      progressCurrent: succeededCurrent,
+      progressTotal: succeededTotal,
       progressFallbackText: "完成",
       progressText: "渲染完成",
-      progressUnit: "percent",
+      progressUnit: succeededUnit,
       progressIndeterminate: false,
       visualStageKey: "done",
       stageProgressByKey: {},
@@ -163,12 +184,37 @@ export function mergeSnapshotWithFallback(
   }
 
   if (itemStatus === "failed" && snapIsWeak) {
+    // 失败不归零：保留真实截断（显式 percent 或 current/total 推导），无真实值才回退快照。
+    const failedPercent = derivedItemPercent
+      ?? (Number.isFinite(Number(isolatedSnapshot?.displayPercent))
+        ? Number(isolatedSnapshot?.displayPercent)
+        : Number.isFinite(Number(isolatedSnapshot?.progressPercent))
+          ? Number(isolatedSnapshot?.progressPercent)
+          : null);
+    const failedCurrent = Number.isFinite(itemCurrent)
+      ? itemCurrent
+      : (isolatedSnapshot?.progressCurrent ?? NaN);
+    const failedTotal = Number.isFinite(itemTotal)
+      ? itemTotal
+      : (isolatedSnapshot?.progressTotal ?? NaN);
+    const failedUnit = rawItemUnit
+      || `${isolatedSnapshot?.progressUnit || ""}`.trim()
+      || "";
+    const failedText = fallbackDetail
+      || (failedPercent !== null && Number.isFinite(failedPercent)
+        ? `失败于约 ${Math.round(failedPercent)}%`
+        : "任务失败");
     const failedJob: StatusCardJobRecord = {
       job_id: itemJob,
       status: "failed",
       stage: fallbackStage || "failed",
       stage_detail: fallbackDetail || "任务失败",
-      progress: { percent: 0, current: 0, total: 0 },
+      progress: {
+        percent: failedPercent ?? undefined,
+        current: Number.isFinite(failedCurrent) ? failedCurrent : undefined,
+        total: Number.isFinite(failedTotal) ? failedTotal : undefined,
+        unit: failedUnit || undefined,
+      },
       timestamps: {
         started_at: (fallbackItem.created_at as string) || "",
         finished_at: (fallbackItem.updated_at as string) || "",
@@ -183,13 +229,13 @@ export function mergeSnapshotWithFallback(
       detail: fallbackDetail,
       stageKey: fallbackStage,
       visualStageKey: fallbackStage,
-      displayPercent: 0,
-      progressPercent: 0,
-      progressCurrent: 0,
-      progressTotal: 0,
-      progressFallbackText: "",
-      progressText: "",
-      progressUnit: "",
+      displayPercent: failedPercent,
+      progressPercent: failedPercent ?? NaN,
+      progressCurrent: failedCurrent,
+      progressTotal: failedTotal,
+      progressFallbackText: failedText,
+      progressText: failedText,
+      progressUnit: failedUnit,
       progressIndeterminate: false,
       stageProgressByKey: {},
       stageRetryActions: {},

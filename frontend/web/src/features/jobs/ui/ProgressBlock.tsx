@@ -9,9 +9,10 @@ import type { CSSProperties } from "react";
 import { buildProgressRenderModel, type ProgressRenderModelInput } from "../domain/progress-model.js";
 import { useStatusCardIds } from "./status-card-ids-context.js";
 
-function roundPercent(percent: number) {
+function roundPercent(percent: number): number | null {
   const numeric = Number(percent);
-  return Math.round(Math.max(0, Math.min(100, Number.isFinite(numeric) ? numeric : 0)));
+  if (!Number.isFinite(numeric)) return null;
+  return Math.round(Math.max(0, Math.min(100, numeric)));
 }
 
 type ProgressBlockProps = {
@@ -30,9 +31,12 @@ export function ProgressBlock({ renderOptions }: ProgressBlockProps) {
     legacyIndeterminate = false,
   } = model || {};
   const rounded = roundPercent(percent);
-  const ringText = indeterminate ? "..." : `${rounded}%`;
-  const ringMetaText = componentText || (indeterminate ? "处理中" : `${rounded}%`);
-  const footPercentText = indeterminate ? "处理中" : `${rounded}%`;
+  const finitePercent = rounded === null ? null : rounded;
+  // book-detail 口径：缺数不伪造 0%。bar 宽度用 0 兜底（空条），文案显示 —/原文案。
+  const barPercent = Number.isFinite(percent) ? percent : 0;
+  const ringText = indeterminate ? "..." : (finitePercent === null ? "—" : `${finitePercent}%`);
+  const ringMetaText = componentText || (indeterminate ? "处理中" : (finitePercent === null ? "—" : `${finitePercent}%`));
+  const footPercentText = indeterminate ? "处理中" : (finitePercent === null ? "—" : `${finitePercent}%`);
 
   return (
     <>
@@ -44,9 +48,9 @@ export function ProgressBlock({ renderOptions }: ProgressBlockProps) {
           aria-label="任务进度"
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-valuenow={visible ? percent : 0}
-          data-value={visible ? percent : 0}
-          style={{ ["--status-progress-percent"]: `${visible ? percent : 0}%` } as CSSProperties}
+          aria-valuenow={visible ? barPercent : 0}
+          data-value={visible ? barPercent : 0}
+          style={{ ["--status-progress-percent"]: `${visible ? barPercent : 0}%` } as CSSProperties}
         >
           <div className="status-progress-bar-fill" />
         </div>
@@ -54,7 +58,7 @@ export function ProgressBlock({ renderOptions }: ProgressBlockProps) {
           <div
             id={ids.legacyProgressBar}
             className={`progress-bar${visible && legacyIndeterminate ? " is-indeterminate" : ""}`}
-            style={{ width: visible ? `${percent}%` : "0%" }}
+            style={{ width: visible ? `${barPercent}%` : "0%" }}
           />
         </div>
         <div className="status-progress-foot">
@@ -70,9 +74,9 @@ export function ProgressBlock({ renderOptions }: ProgressBlockProps) {
           aria-label="任务进度"
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-valuenow={percent}
-          data-value={percent}
-          style={{ ["--status-ring-percent"]: `${indeterminate ? 42 : percent}%` } as CSSProperties}
+          aria-valuenow={barPercent}
+          data-value={barPercent}
+          style={{ ["--status-ring-percent"]: `${indeterminate ? 42 : barPercent}%` } as CSSProperties}
         >
           <span className="status-progress-ring-text">{ringText}</span>
         </div>

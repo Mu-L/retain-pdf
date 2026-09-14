@@ -24,14 +24,23 @@ export function StageRetry({ selectedStageKey = "", action = null }) {
     return <div id={ids.stageRetry} className="status-stage-retry is-empty" aria-hidden="true" />;
   }
   const stage = action.stage || (selectedStageKey === "translate" ? "translation" : selectedStageKey);
+  // 口径说明：此处 disabled = !canRetry 是按钮的直显语义；status-card/retry.ts:78 的
+  // `canRetry || failed || succeeded` 决定的是“是否返回按钮配置”（不满足则返回 null
+  // 隐藏按钮），两者分层不冲突——能走到这里说明已满足展示条件，是否可点只看 canRetry。
+  // 禁用原因必须可达：后端 disabledReason 为空时给默认文案。
+  const disabled = !action.canRetry;
+  const disabledReasonText = `${action.disabledReason || ""}`.trim();
+  const title = disabled
+    ? (disabledReasonText || "当前阶段暂不可重试，请稍后刷新重试。")
+    : (action.disabledReason || undefined);
   return (
     <div id={ids.stageRetry} className="status-stage-retry" aria-hidden="false">
       <button
         type="button"
         className="status-stage-retry-btn"
         data-retry-stage={stage}
-        disabled={!action.canRetry}
-        title={action.disabledReason || undefined}
+        disabled={disabled}
+        title={title}
         onClick={() => {
           if (action.canRetry) {
             dispatchRetryStage(stage);

@@ -74,11 +74,26 @@ test("ReaderAppReactPdf routes notes through ReaderFab instead of a duplicate le
   const app = readerSource(
     "../../../../frontend/packages/reader/src/ReaderAppReactPdf.tsx",
   );
-  assert.match(app, /activeTool=\{notesOpen \? "notes" : tools\.active\}/);
+  assert.match(app, /activeTool=\{fabActiveTool\}/);
   assert.match(app, /noteCount=\{annotations\.count\}/);
   assert.match(app, /onToggleTool=\{handleFabTool\}/);
-  assert.doesNotMatch(app, /reader-assistant-rail/);
   assert.doesNotMatch(app, /打开批注/);
+});
+
+test("ReaderFab exposes favorites/markdown/ai aligned with the tool registry", () => {
+  const fab = readerSource(
+    "../../../../frontend/packages/reader/src/components/react-pdf/ReaderFab.tsx",
+  );
+  // 与 tools/registry.ts READER_TOOLS 对齐：不再只展示摘录。
+  assert.doesNotMatch(fab, /filter\(\(tool\) => tool\.id === "favorites"\)/);
+  assert.match(fab, /AUXILIARY_TOOLS = READER_TOOLS/);
+
+  const app = readerSource(
+    "../../../../frontend/packages/reader/src/ReaderAppReactPdf.tsx",
+  );
+  // FAB 的 markdown/ai 与 Dock 同行为：走辅助面板 toggle，而非 tools。
+  assert.match(app, /if \(id === "markdown" \|\| id === "ai"\)/);
+  assert.match(app, /assistantPanel \?\? tools\.active/);
 });
 
 test("ReaderAppReactPdf restores and persists reading mode with a sourceViewOnly guard", () => {

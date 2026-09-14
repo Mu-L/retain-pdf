@@ -12,7 +12,6 @@ import {
 import { createRuntimePollingStatePort } from "./runtime-polling-state.js";
 import {
   createJobEventsResource,
-  mergeJobEventsPayload,
 } from "./job-events-resource.js";
 import {
   createSecondaryResourceStatePort,
@@ -45,15 +44,23 @@ export function scheduleSecondaryResourceFetches({
     || defaultBuildJobPatchWithDisplayState;
   const cachedManifest = secondaryResourcePort.cachedFor("manifest", jobId);
   const cachedStageActions = secondaryResourcePort.cachedFor("stageActions", jobId);
+  const eventsResource = jobEventsResource || createJobEventsResource({ fetchJobEvents, apiPrefix });
+  const terminalNeedsHistory = terminal && !eventsResource.hasFullHistory?.(jobId);
+  const eventsOwner = secondaryResourcePort.getSnapshot?.()?.events?.ownerGen;
+  // A terminal transition stops polling and advances its generation. Its one
+  // full-history load must not be lost behind the previous generation's read.
+  const canLoadEvents = !secondaryResourcePort.isInFlight("events")
+    || (terminalNeedsHistory && eventsOwner !== generation);
 
-  if (!secondaryResourcePort.isInFlight("events") && secondaryResourcePort.shouldRefresh("events", JOB_EVENTS_REFRESH_MS, true)) {
+  if (canLoadEvents && secondaryResourcePort.shouldRefresh("events", JOB_EVENTS_REFRESH_MS, terminalNeedsHistory)) {
     secondaryResourcePort.setInFlight("events", true, generation);
     const eventsGeneration = generation;
-    const eventsResource = jobEventsResource || createJobEventsResource({
-      fetchJobEvents,
-      apiPrefix,
-    });
-    void eventsResource.load({ jobId, terminal }, { cache: false })
+    const isCurrent = () => pollingPort.isCurrentGeneration(jobId, eventsGeneration);
+    void eventsResource.load({ jobId, terminal, isCurrent, onReset: () => {
+      if (!isCurrent()) return;
+      secondaryResourcePort.cache("events", jobId, { items: [] }, eventsGeneration);
+      renderJobSecondaryPatch?.({ context: renderContextPort.currentFor(jobId), source: "events" });
+    } }, { cache: false })
       .then((eventsSnapshot) => {
         if (!pollingPort.isCurrentGeneration(jobId, eventsGeneration)) {
           return;
@@ -62,8 +69,8 @@ export function scheduleSecondaryResourceFetches({
           throw eventsSnapshot.error || new Error("job events resource failed");
         }
         const eventsPayload = eventsSnapshot?.data || { items: [] };
-        const mergedEventsPayload = mergeJobEventsPayload(secondaryResourcePort.cachedFor("events", jobId), eventsPayload);
-        secondaryResourcePort.cache("events", jobId, mergedEventsPayload, eventsGeneration);
+        // The resource owns cursor merging and epoch resets; never re-add stale events here.
+        secondaryResourcePort.cache("events", jobId, eventsPayload, eventsGeneration);
         renderJobSecondaryPatch?.({
           context: renderContextPort.currentFor(jobId),
           source: "events",
@@ -128,7 +135,7 @@ export function createSecondaryResourceSchedulerPort({
   state,
   apiPrefix,
   fetchJobEvents,
-  jobEventsResource = null,
+  jobEventsResource = createJobEventsResource({ fetchJobEvents, apiPrefix }),
   fetchJobArtifactsManifest,
   fetchJobStageActions,
   renderJobSecondaryPatch,

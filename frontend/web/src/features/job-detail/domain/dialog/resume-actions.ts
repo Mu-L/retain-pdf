@@ -68,10 +68,12 @@ export async function rerunCurrentJob({
   if (!actionUrl) {
     syncRerunAction({
       ...rerunContext,
-      statusText: "当前任务暂不可从断点恢复。",
+      statusText: "当前任务暂不可从断点恢复（缺少恢复入口，请刷新后重试）。",
       viewPort,
       resolveActions,
     });
+    // finally 语义：无入口也恢复可点，避免永久禁用。
+    viewPort.setRerunDisabled(false);
     return;
   }
   try {
@@ -80,7 +82,7 @@ export async function rerunCurrentJob({
     if (!nextJobId) {
       syncRerunAction({
         ...rerunContext,
-        statusText: "恢复任务已提交，但响应中没有 job_id。",
+        statusText: "恢复任务已提交，但响应中没有 job_id（请刷新后重试，或去详情页确认新任务）。",
         viewPort,
         resolveActions,
       });
@@ -96,5 +98,8 @@ export async function rerunCurrentJob({
       viewPort,
       resolveActions,
     });
+  } finally {
+    // 失败也恢复可点；成功时对话框已关闭且新轮询接管，解禁无副作用。
+    viewPort.setRerunDisabled(false);
   }
 }

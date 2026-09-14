@@ -47,6 +47,7 @@ export interface LibraryBooksResourcePort {
       pageSize?: number;
       existingJobIds?: Set<string> | string[];
       query?: string;
+      onPreview?: (page: LibraryBooksPageData) => void;
     },
     options?: { cache?: boolean },
   ) => Promise<LibraryBooksResourceSnapshot>;
@@ -128,6 +129,7 @@ export function createRecentJobsLoader({
     pageSize?: number;
     existingJobIds?: Set<string> | string[];
     query?: string;
+    onPreview?: (page: LibraryBooksPageData) => void;
   }): Promise<{
     collected: LibraryJobItem[];
     hasMore: boolean;
@@ -202,9 +204,25 @@ export function createRecentJobsLoader({
         pageSize: RECENT_JOBS_PAGE_SIZE,
         existingJobIds,
         query,
+        onPreview: ({ collected = [] }) => {
+          if (disposed || pendingLoad?.reset || !collected.length) return;
+          // Initial empty view only: refreshes retain already hydrated cards.
+          if (recentJobsStatePort.getSnapshot().items.length) return;
+          const items = runtimePatches.applyExisting?.(collected) || collected;
+          recentJobsStatePort.setItems(items);
+          homeStatePort.setRecentJobsLoadingState(RECENT_JOBS_LOADING_STATES.READY);
+          if (!storeDrivenRendering) {
+            viewPort.renderList({
+              items, allItems: items, reset: true,
+              onSelect: recentJobActions?.selectJob,
+              onDelete: recentJobActions?.deleteJob,
+              onReader: recentJobActions?.openJobReader,
+            });
+          }
+        },
       });
 
-      if (disposed) {
+      if (disposed || pendingLoad?.reset) {
         return;
       }
       if (reset && collected.length === 0) {

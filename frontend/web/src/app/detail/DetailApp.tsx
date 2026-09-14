@@ -12,6 +12,7 @@
 //   modal-bindings.js / events.js 启动器 / downloads.js 的职责)。
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { fetchJobEventPages } from "@retainpdf/api/jobs-events";
 // 五个展示组件已归入 job-detail 功能（C1）；app 层跨功能引用经其 index 出口。
 import {
   DetailHeader,
@@ -49,8 +50,6 @@ import {
   showDownloadPreparing,
   updateDownloadProgress,
 } from "@/platform/utils/download-feedback.js";
-
-const JOB_EVENTS_PAGE_SIZE = 200;
 
 function eventsStatusText(payload) {
   const count = Array.isArray(payload?.items) ? payload.items.length : 0;
@@ -208,30 +207,18 @@ export function DetailApp({
     }
     if (!state.eventsLoadingPromise) {
       setEventsStatus("正在加载全部事件...");
-      state.eventsLoadingPromise = (async () => {
-        const items = [];
-        let offset = 0;
-        while (true) {
-          const payload = await dataPort.fetchJobEvents(
-            state.job.job_id,
-            dataPort.apiPrefix,
-            JOB_EVENTS_PAGE_SIZE,
-            offset,
-          );
-          const page = (payload || {}) as { items?: unknown[] };
-          const batch = Array.isArray(page.items) ? page.items : [];
-          items.push(...batch);
-          if (batch.length < JOB_EVENTS_PAGE_SIZE) {
-            return {
-              ...(typeof payload === "object" && payload ? payload : {}),
-              items,
-              offset: 0,
-              limit: items.length,
-            };
-          }
-          offset += batch.length;
-        }
-      })()
+      const loadHistory = () => fetchJobEventPages({
+        fetchPage: dataPort.fetchJobEvents,
+        jobId: state.job.job_id,
+        apiPrefix: dataPort.apiPrefix,
+        query: { limit: 500, start: "head" },
+        isCurrent: () => pageStateRef.current === state,
+      });
+      state.eventsLoadingPromise = loadHistory()
+        .catch((error) => {
+          if (error?.status === 410 && error?.code === "EVENT_CURSOR_EXPIRED") return loadHistory();
+          throw error;
+        })
         .then((payload) => {
           state.eventsPayload = payload;
           return payload;

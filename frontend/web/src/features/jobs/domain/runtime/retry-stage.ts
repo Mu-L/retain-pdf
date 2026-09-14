@@ -44,6 +44,9 @@ export function createRetryStage({
   setText,
   normalizeJobPayload,
 }: any) {
+  // 口径说明：本执行器不复核 canRetry（按钮层 StageRetry / TranslationStageActions
+  // 已按 can_retry 直显禁用；status-card/retry.ts:78 的 `canRetry || failed || succeeded`
+  // 只决定是否返回按钮配置）。缺 job/stage 时给明确理由，不静默吞错。
   return async function retryStage(stage: string, options: { jobId?: string } = {}) {
     const normalizedStage = `${stage || ""}`.trim();
     // 优先事件带的 jobId → 当前轮询 → 上次 snapshot（详情卡上点重试时可能尚未 currentJobId）

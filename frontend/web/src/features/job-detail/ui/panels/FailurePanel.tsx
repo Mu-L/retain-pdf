@@ -71,6 +71,16 @@ export function FailurePanel({
   }, [overview.ocrAmbiguity.jobId, recovery.retryAtMs]);
 
   const retrySeconds = retryCountdownSeconds(recovery, countdownNow);
+  // 重试按钮禁用必有理由：后端 disabled_reason 为空时给默认文案，保证 title 可达。
+  const retryDisabledReason = retryPending
+    ? "正在创建 OCR 恢复任务…"
+    : recovery.retryOcr.requiresDuplicateRisk
+      ? "需要确认重复风险后重试"
+      : (!recovery.retryOcr.enabled
+        ? (recovery.retryOcr.reason || "后端当前未开放安全的 OCR 重试操作。")
+        : "");
+  const retryDisabled = (!recovery.retryOcr.enabled && !recovery.retryOcr.requiresDuplicateRisk) || retryPending;
+  const rerunDisabledReason = (rerun.status || "").trim() || "当前任务暂不可从断点恢复。";
 
   async function confirmOcrRecovery() {
     const outcome = await controller.acceptOcrDuplicateRiskAndRecover?.();
@@ -95,6 +105,8 @@ export function FailurePanel({
       await controller.retryOcrNow?.(options);
     } catch (error) {
       setRecoveryFeedback(error instanceof Error ? error.message : String(error));
+    } finally {
+      // settled 即清零：成功也恢复可点，不再只靠 jobId 切换的 effect。
       setRetryPending(false);
     }
   }
@@ -152,6 +164,7 @@ export function FailurePanel({
                   type="button"
                   className="button-link secondary"
                   disabled={ocrAmbiguityPending}
+                  title={ocrAmbiguityPending ? "正在处理 OCR 恢复…" : undefined}
                   onClick={() => setReceiptDialogOpen(true)}
                 >
                   <Link2 className="h-4 w-4" aria-hidden="true" />
@@ -164,6 +177,7 @@ export function FailurePanel({
                   type="button"
                   className="button-link secondary"
                   disabled={ocrAmbiguityPending}
+                  title={ocrAmbiguityPending ? "正在处理 OCR 恢复…" : undefined}
                   onClick={() => setOcrConfirmOpen(true)}
                 >
                   <RefreshCw className="h-4 w-4" aria-hidden="true" />
@@ -171,7 +185,7 @@ export function FailurePanel({
                 </button>
               ) : null}
               {!descriptor ? (
-                <button type="button" className="button-link secondary" disabled>
+                <button type="button" className="button-link secondary" disabled title="后端未返回可操作的 OCR 恢复信息，请刷新诊断。">
                   恢复信息不可用
                 </button>
               ) : null}
@@ -205,8 +219,8 @@ export function FailurePanel({
                   id={ids.failure.retryOcrButton}
                   type="button"
                   className="button-link secondary"
-                  disabled={(!recovery.retryOcr.enabled && !recovery.retryOcr.requiresDuplicateRisk) || retryPending}
-                  title={recovery.retryOcr.requiresDuplicateRisk ? "需要确认重复风险后重试" : undefined}
+                  disabled={retryDisabled}
+                  title={retryDisabled ? retryDisabledReason : undefined}
                   onClick={() => void retryOcrImmediately()}
                 >
                   <RefreshCw className="h-4 w-4" aria-hidden="true" />
@@ -257,6 +271,7 @@ export function FailurePanel({
                 type="button"
                 className="button-link secondary"
                 disabled={rerun.disabled}
+                title={rerun.disabled ? rerunDisabledReason : undefined}
                 onClick={rerun.run}
               >
                 从断点恢复/重新运行

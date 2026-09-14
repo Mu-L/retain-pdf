@@ -20,6 +20,7 @@ export function createRecentJobsRefreshScheduler({
   let suspended = false;
   let lastRefreshAt = 0;
   let pendingRefresh = null;
+  let resumeRetryTimer = null;
 
   // 状态机：
   //   idle --scheduleRefresh--> armed --timer触发--> idle
@@ -28,6 +29,8 @@ export function createRecentJobsRefreshScheduler({
   //     不得清除先写 force，保证终态对齐 replay 时仍带 force 跳过节流）
   //   suspended --resume+pending--> armed（replay一次）/ --resume无pending--> idle
   //   armed请求命中 throttle 则直接丢弃（不入pending、不改lastRefreshAt）
+  //   resume瞬间若 DOM data-open 仍滞后为开（见下），replay 会被重新排队，
+  //   此时追加一次 RESUME_DELAY 延迟重试（单发、不叠加）。
 
   function isSuspended() {
     return suspended || environment.isWorkflowOpen();
@@ -54,9 +57,24 @@ export function createRecentJobsRefreshScheduler({
   }
 
   // 规则2 pending队列：resume 时若有积压则 replay 恰好一次。
+  // DOM 竞态兜底：resume 瞬间 environment.isWorkflowOpen()（DOM data-open）可能
+  // 仍为真——dialog-runtime 的同步写与 document 监听器注册顺序决定了 bindings 的
+  // onClose 不一定能看到已清掉的 data-open。此时 replay 会被 shouldQueueWhileSuspended
+  // 重新排进 pending，而本机 suspended 标记已是 false，再无 resume 来消费 → 丢刷新。
+  // 若重排后本机标记已为 false（只剩 DOM 一侧滞后），则追加一次 RESUME_DELAY 延迟
+  // 重试（单发：retry timer 已存在不再叠加；重试仍挂起则保留 pending，等下一次
+  // resume/force 覆盖，不自旋）。force 的 replay 不受 DOM 影响，不会走到这里。
   function replayPendingRefreshOnResume(was: boolean, next: boolean) {
     if (was && !next && pendingRefresh) {
       scheduleRefresh(takePendingRefresh());
+      if (pendingRefresh && !suspended && !resumeRetryTimer) {
+        resumeRetryTimer = environment.setTimeout(() => {
+          resumeRetryTimer = null;
+          if (pendingRefresh && !suspended) {
+            scheduleRefresh(takePendingRefresh());
+          }
+        }, LIBRARY_REFRESH_RESUME_DELAY_MS);
+      }
     }
   }
 
@@ -131,8 +149,10 @@ export function createRecentJobsRefreshScheduler({
   function dispose() {
     environment.clearTimeout(refreshTimer);
     environment.clearTimeout(searchTimer);
+    environment.clearTimeout(resumeRetryTimer);
     refreshTimer = null;
     searchTimer = null;
+    resumeRetryTimer = null;
     pendingRefresh = null;
   }
 

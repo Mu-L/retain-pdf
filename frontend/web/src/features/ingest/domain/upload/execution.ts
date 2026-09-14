@@ -149,12 +149,14 @@ export function createFileUploadHandler(deps: FileUploadHandlerDeps) {
       });
       updateAppliedPageRange(currentPageRanges());
       viewPort.markUploadReady(!!snapshot.uploadId);
-      viewPort.showUploadStatus("上传完成：请选择仅收藏、仅 OCR 或翻译。");
+      // 成功态只落一条稳定文案：余额检查全程静默，只在失败/缺失时追加一句，
+      // 不再覆盖成功态（曾在 800ms 内连刷三条状态造成闪烁）。
+      const uploadDoneStatus = "上传完成：请选择仅收藏、仅 OCR 或翻译。";
+      viewPort.showUploadStatus(uploadDoneStatus);
       clearFileInputValue?.();
       renderPageRangeSummary();
       refreshSubmitControls();
       if (refreshDeepSeekBalance) {
-        viewPort.showUploadStatus("上传完成，正在检查翻译接口…");
         void withTimeout(
           refreshDeepSeekBalance({ silent: true }),
           BALANCE_CHECK_TIMEOUT_MS,
@@ -163,13 +165,11 @@ export function createFileUploadHandler(deps: FileUploadHandlerDeps) {
           .then((result) => {
             const status = `${(result as { status?: string } | null | undefined)?.status || ""}`;
             if (status === "network_error" || status === "missing_key") {
-              viewPort.showUploadStatus("上传完成，翻译接口状态未确认，提交前会再次检查。");
-              return;
+              viewPort.showUploadStatus(`${uploadDoneStatus}翻译接口状态未确认，提交前会再次检查。`);
             }
-            viewPort.showUploadStatus("上传完成，可以开始任务。");
           })
           .catch(() => {
-            viewPort.showUploadStatus("上传完成，翻译接口状态未确认，提交前会再次检查。");
+            viewPort.showUploadStatus(`${uploadDoneStatus}翻译接口状态未确认，提交前会再次检查。`);
           })
           .finally(() => {
             refreshSubmitControls();

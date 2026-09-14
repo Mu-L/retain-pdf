@@ -36,6 +36,14 @@ export function libraryCardBadge(item: LibraryCardItem = {}): LibraryCardBadge |
     };
   }
 
+  if (!item.status && (item.runtime_pending || item.runtime_unavailable)) {
+    return {
+      label: item.runtime_pending ? "读取状态…" : "状态待刷新",
+      icon: "clock",
+      cls: "bg-muted text-muted-foreground",
+    };
+  }
+
   const status = `${item.status || ""}`.trim().toLowerCase();
   const stageKey = stageKeyForRecentJobLabel(item);
 

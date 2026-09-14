@@ -28,25 +28,48 @@ export type ProgressRenderModel = {
   legacyIndeterminate: boolean;
 };
 
-function progressRenderPercent(value: unknown): number {
-  if (value === null || value === undefined || value === "") {
-    return NaN;
-  }
-  const numericValue = Number(value);
-  return Math.max(0, Math.min(100, Number.isFinite(numericValue) ? numericValue : 0));
+function finiteNumberOrNull(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
-function capRunningRenderPercent(percent: number, stageKey = "", status = ""): number {
-  const normalizedStageKey = `${stageKey || ""}`.trim();
-  const normalizedStatus = `${status || ""}`.trim();
-  if (
-    normalizedStatus === "running"
-    && ["ocr", "translate", "render"].includes(normalizedStageKey)
-    && Number(percent) >= 100
-  ) {
-    return 99;
-  }
-  return percent;
+function clampPercent(percent: number): number {
+  return Math.max(0, Math.min(100, percent));
+}
+
+function progressRenderPercent(value: unknown): number {
+  const parsed = finiteNumberOrNull(value);
+  if (parsed === null) return NaN;
+  return clampPercent(parsed);
+}
+
+const VISIBLE_STAGE_KEYS = new Set([
+  "ocr",
+  "translate",
+  "render",
+  "queued",
+  "validating",
+  "done",
+  "failed",
+]);
+
+const VISIBLE_STATUSES = new Set([
+  "queued",
+  "validating",
+  "failed",
+  "succeeded",
+]);
+
+function defaultTextForTerminalState(stageKey: string, status: string, fallbackText: string): string {
+  const fallback = `${fallbackText || ""}`.trim();
+  const hasFallback = fallback !== "" && fallback !== "-";
+  if (hasFallback) return fallback;
+  if (status === "failed" || stageKey === "failed") return "失败";
+  if (status === "succeeded" || stageKey === "done") return "完成";
+  if (stageKey === "queued" || status === "queued") return "排队中";
+  if (stageKey === "validating" || status === "validating") return "校验中";
+  return fallbackText;
 }
 
 export function buildProgressRenderModel({
@@ -63,7 +86,10 @@ export function buildProgressRenderModel({
   indeterminate = false,
 }: ProgressRenderModelInput = {}): ProgressRenderModel {
   const normalizedStageKey = `${stageKey || ""}`.trim();
-  const visible = forceVisible ?? ["ocr", "translate", "render"].includes(normalizedStageKey);
+  const normalizedStatus = `${status || ""}`.trim().toLowerCase();
+  const visible = forceVisible ?? (
+    VISIBLE_STAGE_KEYS.has(normalizedStageKey) || VISIBLE_STATUSES.has(normalizedStatus)
+  );
   if (!visible) {
     return {
       visible: false,
@@ -75,12 +101,12 @@ export function buildProgressRenderModel({
     };
   }
 
-  const numericCurrent = Number(current);
-  const numericTotal = Number(total);
+  const numericCurrent = finiteNumberOrNull(current) ?? NaN;
+  const numericTotal = finiteNumberOrNull(total) ?? NaN;
   const numericDisplayPercent = progressRenderPercent(displayPercent);
-  const numericPercent = Number(percent);
+  const numericPercent = finiteNumberOrNull(percent) ?? NaN;
   const normalizedProgressUnit = `${progressUnit || ""}`.trim();
-  const textFallback = progressText || fallbackText;
+  const textFallback = progressText || defaultTextForTerminalState(normalizedStageKey, normalizedStatus, fallbackText);
 
   if (indeterminate) {
     return {
@@ -94,7 +120,7 @@ export function buildProgressRenderModel({
   }
 
   if (Number.isFinite(numericDisplayPercent)) {
-    const safePercent = capRunningRenderPercent(numericDisplayPercent, normalizedStageKey, status);
+    const safePercent = clampPercent(numericDisplayPercent);
     const text = progressText || `进度 ${safePercent.toFixed(0)}%`;
     return {
       visible: true,
@@ -108,11 +134,7 @@ export function buildProgressRenderModel({
 
   const hasNumbers = Number.isFinite(numericCurrent) && Number.isFinite(numericTotal) && numericTotal > 0;
   if (hasNumbers && normalizedProgressUnit === "percent") {
-    const safePercent = capRunningRenderPercent(
-      progressRenderPercent((numericCurrent / numericTotal) * 100),
-      normalizedStageKey,
-      status,
-    );
+    const safePercent = clampPercent((numericCurrent / numericTotal) * 100);
     const text = progressText || `进度 ${safePercent.toFixed(0)}%`;
     return {
       visible: true,
@@ -125,11 +147,7 @@ export function buildProgressRenderModel({
   }
 
   if (hasNumbers) {
-    const safePercent = capRunningRenderPercent(
-      progressRenderPercent((numericCurrent / numericTotal) * 100),
-      normalizedStageKey,
-      status,
-    );
+    const safePercent = clampPercent((numericCurrent / numericTotal) * 100);
     const text = progressText || `${numericCurrent} / ${numericTotal} (${safePercent.toFixed(0)}%)`;
     return {
       visible: true,
@@ -142,11 +160,7 @@ export function buildProgressRenderModel({
   }
 
   if (Number.isFinite(numericPercent)) {
-    const safePercent = capRunningRenderPercent(
-      progressRenderPercent(numericPercent),
-      normalizedStageKey,
-      status,
-    );
+    const safePercent = clampPercent(numericPercent);
     const text = progressText || `进度 ${safePercent.toFixed(0)}%`;
     return {
       visible: true,
@@ -157,10 +171,18 @@ export function buildProgressRenderModel({
       legacyIndeterminate: false,
     };
   }
-  const text = progressText || fallbackText;
+  // 无可用数字：不再伪造 0%。终态按真实语义兜底（完成 100 / 排队 0），
+  // 失败与缺数返回 NaN，由 ProgressBlock 显示非 0% 文案（失败/—）。
+  const isDone = normalizedStatus === "succeeded" || normalizedStageKey === "done";
+  const isQueuedState = normalizedStageKey === "queued"
+    || normalizedStageKey === "validating"
+    || normalizedStatus === "queued"
+    || normalizedStatus === "validating";
+  const fallbackPercent = isDone ? 100 : isQueuedState ? 0 : NaN;
+  const text = progressText || defaultTextForTerminalState(normalizedStageKey, normalizedStatus, fallbackText);
   return {
     visible: true,
-    percent: 0,
+    percent: fallbackPercent,
     text,
     componentText: text,
     indeterminate: false,

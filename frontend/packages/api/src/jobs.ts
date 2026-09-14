@@ -94,6 +94,7 @@ export async function fetchJobList(
     provider = "",
     scope = "jobs",
     q = "",
+    includeLiveStage = true,
   }: {
     limit?: number;
     offset?: number;
@@ -102,6 +103,7 @@ export async function fetchJobList(
     provider?: string;
     scope?: string;
     q?: string;
+    includeLiveStage?: boolean;
   } = {},
 ): Promise<JobListView> {
   const params = new URLSearchParams();
@@ -111,6 +113,7 @@ export async function fetchJobList(
   if (workflow) params.set("workflow", workflow);
   if (provider) params.set("provider", provider);
   if (`${q || ""}`.trim()) params.set("q", `${q || ""}`.trim());
+  if (!includeLiveStage) params.set("include_live_stage", "false");
   const endpoint = buildJobsEndpoint(apiPrefix, scope);
   const resp = await fetch(`${endpoint}?${params.toString()}`, { headers: buildApiHeaders() });
   if (!resp.ok) throw new Error(`读取最近任务失败，请稍后重试。(${resp.status})`);

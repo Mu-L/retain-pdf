@@ -51,9 +51,31 @@ export function TranslationStageActions({
   ) => Promise<unknown>;
 }) {
   const [confirmAction, setConfirmAction] = useState<JobStageRetryActionView | null>(null);
+  // 父级 hook 已把错误写入 error prop；本地兜底覆盖 onRetry 直接抛错
+  // 但父级未落 error 的场景（如 mock/装配差异），保证错误仍落到 UI。
+  const [localError, setLocalError] = useState("");
   const checking = loading && !actions.length;
   const visibleActions = checking ? LOADING_ACTIONS : actions;
-  if (!visibleActions.length && !error) return null;
+  const shownError = error || localError;
+  if (!visibleActions.length && !shownError) return null;
+
+  function describeRetryError(cause: unknown): string {
+    const message = `${(cause as Error)?.message || cause || ""}`.trim();
+    return message || "重新处理失败，请稍后重试。";
+  }
+
+  async function runRetry(
+    stage: JobRetryStage,
+    options?: { acceptDuplicateRisk?: boolean },
+  ) {
+    setLocalError("");
+    try {
+      await onRetry(stage, options);
+    } catch (cause) {
+      // 错误落到 UI 文案，按钮保持可操作（disabled 仅由 checking/pending/can_retry 决定）。
+      setLocalError(describeRetryError(cause));
+    }
+  }
 
   // 一键断点恢复：按钮先调 POST /resume（服务端按 resume-plan 自动续跑，
   // render 原地同任务、其余新建）；仅二次确认接受重复风险后，才用
@@ -62,9 +84,11 @@ export function TranslationStageActions({
     if (!confirmAction) return;
     try {
       await onRetry(confirmAction.stage, { acceptDuplicateRisk: true });
+      setLocalError("");
       setConfirmAction(null);
-    } catch {
-      // 错误由所属处理卡展示；确认框保持打开，允许用户取消。
+    } catch (cause) {
+      // 失败给文案且不吞错：确认框保持打开，允许用户取消或重试。
+      setLocalError(describeRetryError(cause));
     }
   }
 
@@ -89,7 +113,7 @@ export function TranslationStageActions({
               title={!action.can_retry && reason ? reason : undefined}
               onClick={() => {
                 if (action.danger) setConfirmAction(action);
-                else void onRetry(action.stage).catch(() => {});
+                else void runRetry(action.stage);
               }}
             >
               {checking
@@ -100,7 +124,7 @@ export function TranslationStageActions({
           );
         })}
       </div>
-      {error ? <p className="rounded-md border border-foreground/20 bg-muted/40 px-3 py-2 text-xs text-foreground" role="alert">{error}</p> : null}
+      {shownError ? <p className="rounded-md border border-foreground/20 bg-muted/40 px-3 py-2 text-xs text-foreground" role="alert">{shownError}</p> : null}
       <ConfirmDialog
         id="book-detail-translation-risk-confirm"
         open={Boolean(confirmAction)}

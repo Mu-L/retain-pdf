@@ -80,8 +80,7 @@ export function createStatusDomain({
     fetchJobEvents: fetchJobEvents as (
       jobId: string,
       apiPrefix?: string,
-      limit?: number,
-      offset?: number,
+      query?: import("@retainpdf/api/jobs-events").JobEventsQuery,
     ) => Promise<import("@retainpdf/domain/job-status").EventsPayload | null | undefined>,
     fetchJobDiagnostics,
     fetchResumePlan,

@@ -11,6 +11,7 @@
 // 分页照常走 limit/offset，不做客户端过滤或首屏多拉。
 
 import { shapeDocumentsWithBooks } from "./shape-documents-with-books.js";
+import { shapeDocumentCardItem } from "./document-card-item.js";
 import {
   libraryCardIdentity,
   libraryCardIdentityAliases,
@@ -37,6 +38,7 @@ export async function collectDocumentLibraryPage({
   pageSize,
   existingJobIds = new Set(),
   query = "",
+  onPreview,
 }: any) {
   const trimmedQuery = `${query || ""}`.trim();
   const seenCardIdentities = new Set(
@@ -64,13 +66,36 @@ export async function collectDocumentLibraryPage({
     ? responseTotal
     : offset + documents.length;
 
+  // Publish bibliographic data before live projections/OCR fallbacks. This
+  // callback is request-scoped; the loader owns stale/disposed-view guards.
+  const preview = documents.map((doc) => ({
+    ...shapeDocumentCardItem(doc),
+    runtime_pending: Boolean(doc.active_job_id),
+  }));
+  const hasMore = offset + documents.length < total;
+  const nextOffset = offset + documents.length;
+  if (typeof onPreview === "function") {
+    onPreview({ collected: preview, hasMore, nextOffset, latestInvocationSummary: null });
+  }
+
   // 文档 → 卡片的映射走统一编排(shapeDocumentsWithBooks);去重是分页数据源
   // 自己的关切（搜索过滤已在服务端完成）。
-  const shaped = await shapeDocumentsWithBooks(documents, {
-    fetchLibraryBookList,
-    fetchJobPayload,
-    apiPrefix,
-  });
+  let shaped;
+  try {
+    shaped = await shapeDocumentsWithBooks(documents, {
+      fetchLibraryBookList, fetchJobPayload, apiPrefix,
+    });
+    if (typeof onPreview === "function") {
+      shaped = shaped.map((item) => ({
+        ...item, runtime_pending: false,
+        runtime_unavailable: Boolean(item.active_job_id && !item.status),
+      }));
+    }
+  } catch (error) {
+    if (typeof onPreview !== "function") throw error;
+    // An optional live-state failure must not hide the available documents.
+    shaped = preview.map((item) => ({ ...item, runtime_pending: false, runtime_unavailable: true }));
+  }
 
   const collected = [];
   for (const item of shaped) {
@@ -82,9 +107,6 @@ export async function collectDocumentLibraryPage({
     aliases.forEach((alias) => seenCardIdentities.add(alias));
     collected.push(item);
   }
-
-  const hasMore = offset + documents.length < total;
-  const nextOffset = offset + documents.length;
 
   return {
     collected,

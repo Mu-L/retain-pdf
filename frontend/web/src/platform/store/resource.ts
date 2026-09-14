@@ -151,7 +151,8 @@ export function createResource({
   }
 
   function reset(options: any = {}) {
-    state = emptyState();
+    // Never reuse an in-flight request ID after reset: an old promise may still settle.
+    state = { ...emptyState(), requestId: state.requestId + 1 };
     // reset 默认清 cache(旧数据不跨重置复活);传 keepCache:true 显式保留。
     if (options.keepCache !== true) {
       cache.clear();

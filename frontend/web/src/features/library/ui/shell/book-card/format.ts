@@ -35,6 +35,8 @@ export function cardSignatureOf(item: LibraryCardItem = {}) {
     item.reading_status,
     item.updated_at,
     item.status,
+    item.runtime_pending,
+    item.runtime_unavailable,
     item.stage,
     item.display_stage,
     item.substage,

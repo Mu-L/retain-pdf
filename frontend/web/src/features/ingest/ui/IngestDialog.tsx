@@ -15,6 +15,7 @@
 // 成功则跳详情。
 
 import { useEffect, useRef } from "react";
+import { SUBMIT_BLOCK_REASONS } from "@/platform/contracts/submit-readiness-contract.js";
 import {
   TRANSLATION_WORKFLOW_DIALOG,
 } from "../domain.js";
@@ -86,6 +87,30 @@ export function IngestDialog({
   }
 
   const submittingRef = useRef(false);
+  // 被拦提交的下一步定位：凭据/配置缺失由 submit-flow 弹框承接，这里只处理
+  // 有明确站内目标的缺失项（文件选择 / Render 源与术语表入口 / 余额提示）。
+  function focusBlockedSubmitTarget(readiness: { reason?: string } | null | undefined) {
+    try {
+      const reason = `${readiness?.reason || ""}`;
+      let targetId = "";
+      if (reason === SUBMIT_BLOCK_REASONS.MISSING_UPLOAD) {
+        targetId = "file";
+      } else if (reason === SUBMIT_BLOCK_REASONS.MISSING_RENDER_SOURCE) {
+        targetId = "page-range-btn";
+      } else if (reason === SUBMIT_BLOCK_REASONS.BUDGET_BLOCKING) {
+        targetId = "translation-budget-note";
+      }
+      if (!targetId) return;
+      const target = document.getElementById(targetId) as HTMLElement | null;
+      if (!target || typeof target.focus !== "function") return;
+      if (!target.hasAttribute("tabindex") && !/^(A|BUTTON|INPUT|SELECT|TEXTAREA)$/.test(target.tagName)) {
+        target.setAttribute("tabindex", "-1");
+      }
+      target.focus({ preventScroll: true });
+    } catch {
+      // 定位失败不影响留屏可重提。
+    }
+  }
   function handleJobFormSubmitCapture(event: React.FormEvent) {
     const target = event.target as unknown as Element | null;
     const form = target && typeof target.closest === "function"
@@ -106,6 +131,10 @@ export function IngestDialog({
         // submit-flow 已落 error-box 行内错误，这里只保对话框不关。
       }
       submittingRef.current = false;
+      if (`${result?.status || ""}` === "blocked") {
+        focusBlockedSubmitTarget(result?.readiness);
+        return; // 被拦：留屏可重提，并已把焦点带到缺失项。
+      }
       if (`${result?.status || ""}` !== "submitted") return; // 失败/被拦：留屏可重提。
       openUploadedDocumentDetail(result?.payload);
     })();

@@ -1499,6 +1499,7 @@ test("status card progress options cap running stages but not done or succeeded 
 });
 
 test("status card render model caps running terminal-looking fallback percent", () => {
+  // P0 三口径统一为 book-detail 口径（percentFromProgress）：不封顶 99，running 100 显示 100。
   assert.equal(buildProgressRenderModel({
     stageKey: "render",
     status: "running",
@@ -1506,7 +1507,7 @@ test("status card render model caps running terminal-looking fallback percent", 
     total: 100,
     progressUnit: "percent",
     progressText: "正在编译 PDF",
-  }).percent, 99);
+  }).percent, 100);
 
   assert.equal(buildProgressRenderModel({
     stageKey: "done",

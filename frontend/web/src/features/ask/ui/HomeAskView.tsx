@@ -12,6 +12,7 @@ import {
 import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { useHomeCredentialsStatePort } from "@/ui/context/home-services-context.js";
 import { HomeAskComposer } from "./HomeAskComposer.js";
+import { guideToCredentialSetup } from "./use-home-ask-composer.js";
 import { HomeAskSidebar } from "./HomeAskSidebar.js";
 import { HomeAskThread, HOME_ASK_SUGGESTIONS } from "./HomeAskThread.js";
 import { useHomeAskRuntime } from "./use-home-ask-runtime.js";
@@ -201,9 +202,13 @@ export function HomeAskView() {
                     key={item.prompt}
                     type="button"
                     className="home-ask-suggestion"
-                    disabled={credentialGate.blocked || isRunning}
+                    disabled={isRunning}
                     onClick={() => {
-                      if (credentialGate.blocked) return;
+                      // 缺凭据不锁推荐问题：点击走发送时刻的统一引导（横幅按钮直达设置）。
+                      if (credentialGate.blocked) {
+                        guideToCredentialSetup();
+                        return;
+                      }
                       void send(item.prompt, scopes);
                     }}
                   >

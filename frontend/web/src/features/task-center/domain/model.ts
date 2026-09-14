@@ -87,14 +87,24 @@ export function taskCenterCounts(items: JobListItemView[] = []): Record<TaskCent
   };
 }
 
+function finiteNumberOrNull(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function clampPercent(percent: number): number {
+  return Math.max(0, Math.min(100, percent));
+}
+
 export function taskProgressPercent(job: JobListItemView): number | null {
   const progress = job.stage_snapshot?.progress;
-  const percent = Number(progress?.percent);
-  if (Number.isFinite(percent)) return Math.max(0, Math.min(100, percent));
-  const current = Number(progress?.current);
-  const total = Number(progress?.total);
-  if (Number.isFinite(current) && Number.isFinite(total) && total > 0) {
-    return Math.max(0, Math.min(100, (current / total) * 100));
+  const percent = finiteNumberOrNull(progress?.percent);
+  if (percent !== null) return clampPercent(percent);
+  const current = finiteNumberOrNull(progress?.current);
+  const total = finiteNumberOrNull(progress?.total);
+  if (current !== null && total !== null && total > 0) {
+    return clampPercent((current / total) * 100);
   }
   return null;
 }

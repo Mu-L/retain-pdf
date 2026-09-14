@@ -353,7 +353,8 @@ test("Markdown split turns PDF compare into source PDF + Markdown", () => {
   );
 });
 
-test("live translation overlays a single source pane instead of a second live canvas", () => {
+test("live translation overlays source without hiding the compare right pane", () => {
+  // 对照态叠加不再「消栏」：右栏保留，只在源栏叠加。
   assert.deepEqual(
     resolveReaderGridPresentation({
       mode: "compare",
@@ -364,10 +365,10 @@ test("live translation overlays a single source pane instead of a second live ca
       overlayOnSource: true,
     }),
     {
-      mode: "source",
-      compareMode: false,
+      mode: "compare",
+      compareMode: true,
       showSource: true,
-      showTranslated: false,
+      showTranslated: true,
     },
   );
   // 最终译文未叠加时，正常对照呈现不变。

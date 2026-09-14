@@ -417,18 +417,21 @@ async function fetchJob(apiBase, xApiKey, workflow, jobId) {
 
 async function fetchAllEvents(apiBase, xApiKey, workflow, jobId) {
   const items = [];
-  let offset = 0;
+  let query = "limit=500&start=head";
   while (true) {
-    const response = await safeFetch(`${apiBase}${jobApiPath(workflow, jobId)}/events?limit=200&offset=${offset}`, {
+    const response = await safeFetch(`${apiBase}${jobApiPath(workflow, jobId)}/events?${query}`, {
       headers: buildHeaders(xApiKey),
     });
     const data = await readApiEnvelope(response, "fetch events failed");
-    const batch = Array.isArray(data.items) ? data.items : [];
-    items.push(...batch);
-    if (batch.length < 200) {
+    if (data.protocol_version !== 2 || !Array.isArray(data.items) || !data.next_cursor
+      || typeof data.has_more !== "boolean") throw new Error("event v2 protocol mismatch");
+    items.push(...data.items);
+    if (!data.has_more) {
       return items;
     }
-    offset += batch.length;
+    const nextQuery = `limit=500&cursor=${encodeURIComponent(data.next_cursor)}`;
+    if (nextQuery === query) throw new Error("event cursor did not advance");
+    query = nextQuery;
   }
 }
 

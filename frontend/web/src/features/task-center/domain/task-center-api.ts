@@ -9,12 +9,14 @@ import {
 } from "@/platform/api/index.js";
 import { resolveJobActions } from "@retainpdf/domain/job";
 
-export const TASK_CENTER_PAGE_LIMIT = 500;
+export const TASK_CENTER_PAGE_LIMIT = 50;
 export const TASK_CENTER_MAX_ITEMS = 2000;
 
 export type TaskCenterLoadResult = {
   items: JobListItemView[];
   reachedLimit: boolean;
+  hasMore: boolean;
+  nextOffset: number;
 };
 
 export type TaskCenterApiDependencies = {
@@ -37,27 +39,65 @@ const DEFAULT_DEPENDENCIES: TaskCenterApiDependencies = {
 
 export async function loadTaskCenterJobs(
   dependencies: Pick<TaskCenterApiDependencies, "fetchList"> = DEFAULT_DEPENDENCIES,
+  { offset = 0 }: { offset?: number } = {},
 ): Promise<TaskCenterLoadResult> {
+  const start = Math.min(TASK_CENTER_MAX_ITEMS, Math.max(0, Math.trunc(offset) || 0));
+  if (start >= TASK_CENTER_MAX_ITEMS) {
+    return { items: [], reachedLimit: true, hasMore: false, nextOffset: start };
+  }
+  const limit = Math.min(TASK_CENTER_PAGE_LIMIT, TASK_CENTER_MAX_ITEMS - start);
+  const page = await dependencies.fetchList(API_PREFIX, {
+    limit, offset: start, includeLiveStage: false,
+  }) as JobListView;
+  const pageItems = Array.isArray(page?.items) ? page.items : [];
   const items: JobListItemView[] = [];
   const seen = new Set<string>();
-  let reachedLimit = false;
-  for (let offset = 0; offset < TASK_CENTER_MAX_ITEMS; offset += TASK_CENTER_PAGE_LIMIT) {
-    const page = await dependencies.fetchList(API_PREFIX, {
-      limit: TASK_CENTER_PAGE_LIMIT,
-      offset,
-    }) as JobListView;
-    const pageItems = Array.isArray(page?.items) ? page.items : [];
-    for (const item of pageItems) {
-      const jobId = `${item?.job_id || ""}`.trim();
-      if (jobId && !seen.has(jobId)) {
-        seen.add(jobId);
-        items.push(item);
+  for (const item of pageItems) {
+    const jobId = `${item?.job_id || ""}`.trim();
+    if (jobId && !seen.has(jobId)) {
+      seen.add(jobId);
+      items.push(item);
+    }
+  }
+  const nextOffset = start + pageItems.length;
+  const reachedLimit = nextOffset >= TASK_CENTER_MAX_ITEMS;
+  return { items, reachedLimit, nextOffset, hasMore: !reachedLimit && pageItems.length === limit };
+}
+
+/** Hydrate only visible active tasks; completed history never gates first paint. */
+export async function loadTaskCenterLiveJobs(
+  items: JobListItemView[],
+  dependencies: Pick<TaskCenterApiDependencies, "fetchDetail"> = DEFAULT_DEPENDENCIES,
+): Promise<JobListItemView[]> {
+  const active = items.filter((item) => (
+    item.status === "running" || item.status === "queued"
+  ));
+  const result: JobListItemView[] = [];
+  let offset = 0;
+  async function worker() {
+    while (offset < active.length) {
+      const item = active[offset++];
+      try {
+        const detail = await dependencies.fetchDetail(item.job_id, { apiPrefix: API_PREFIX });
+        if (detail?.job_id === item.job_id) result.push({ ...item, ...detail });
+      } catch {
+        // One missing task must not discard another task's live progress.
       }
     }
-    if (pageItems.length < TASK_CENTER_PAGE_LIMIT) break;
-    if (offset + TASK_CENTER_PAGE_LIMIT >= TASK_CENTER_MAX_ITEMS) reachedLimit = true;
   }
-  return { items, reachedLimit };
+  await Promise.all(Array.from({ length: Math.min(2, active.length) }, () => worker()));
+  return result;
+}
+
+export function mergeTaskCenterJobs(previous: JobListItemView[], incoming: JobListItemView[]) {
+  const updates = new Map(incoming.map((item) => [item.job_id, item]));
+  const merged = previous.map((item) => {
+    const next = updates.get(item.job_id);
+    updates.delete(item.job_id);
+    if (!next || (item.updated_at && next.updated_at && item.updated_at > next.updated_at)) return item;
+    return next;
+  });
+  return [...merged, ...updates.values()];
 }
 
 export async function cancelTaskCenterJob(

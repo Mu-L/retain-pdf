@@ -41,10 +41,12 @@ export function useStagedProgressAnimation({ selected, selectedIsCurrent, snapsh
   const selectedCurrent = progressNumber(selectedProgress?.current);
   const selectedTotal = progressNumber(selectedProgress?.total);
   const selectedProgressUnit = `${selectedProgress?.progressUnit || ""}`;
-  const selectedDisplayPercent = selectedProgress?.displayPercent === null
-    || selectedProgress?.displayPercent === undefined
-    ? null
-    : Number(selectedProgress.displayPercent);
+  const selectedDisplayPercent = (() => {
+    const raw = selectedProgress?.displayPercent;
+    if (raw === null || raw === undefined || raw === "") return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  })();
   const selectedProgressText = `${selectedProgress?.progressText || ""}`;
   const selectedIndeterminate = Boolean(selectedProgress?.indeterminate);
   const stableSnapshot = useMemo(() => ({
@@ -163,15 +165,23 @@ export function useStagedProgressAnimation({ selected, selectedIsCurrent, snapsh
     && animationFrame?.stageKey === normalizedSelected
     ? animationFrame.displayedCurrent
     : null;
+  // 120ms 爬升保留，但爬升追上事件数字后必须回到真实值，避免与事件数字长期不一致
+  //（动画帧停留在目标值会导致 progressUnit 恒为 ""、文案走爬升分支）。
+  const effectiveDisplayedCurrent = displayedCurrent !== null
+    && Number.isFinite(Number(displayedCurrent))
+    && Number.isFinite(selectedCurrent)
+    && Number(displayedCurrent) >= Number(selectedCurrent)
+    ? null
+    : displayedCurrent;
 
   return useMemo(() => buildProgressOptions({
     selected: normalizedSelected,
     selectedIsCurrent,
     snapshot: stableSnapshot,
     selectedProgress: stableSelectedProgress,
-    displayedCurrent,
+    displayedCurrent: effectiveDisplayedCurrent,
   }), [
-    displayedCurrent,
+    effectiveDisplayedCurrent,
     normalizedSelected,
     selectedIsCurrent,
     stableSelectedProgress,

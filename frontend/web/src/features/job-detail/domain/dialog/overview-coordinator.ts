@@ -29,7 +29,7 @@ export function createStatusDetailOverviewCoordinator({
   async function loadFreshContext(jobId, previousContext) {
     const [payload, eventsPayload, diagnosticsPayload, resumePlan, stageActionsPayload] = await Promise.all([
       fetchJobPayload ? fetchJobPayload(jobId, { apiPrefix }) : Promise.resolve(previousContext.job),
-      fetchJobEvents ? fetchJobEvents(jobId, apiPrefix, 200, 0).catch(() => previousContext.events) : Promise.resolve(previousContext.events),
+      fetchJobEvents ? fetchJobEvents(jobId, apiPrefix, { limit: 500, start: "tail" }).catch(() => previousContext.events) : Promise.resolve(previousContext.events),
       fetchJobDiagnostics ? fetchJobDiagnostics(jobId, apiPrefix).catch(() => null) : Promise.resolve(null),
       fetchResumePlan ? fetchResumePlan(jobId, apiPrefix).catch(() => null) : Promise.resolve(null),
       fetchJobStageActions ? fetchJobStageActions(jobId, apiPrefix).catch(() => null) : Promise.resolve(null),

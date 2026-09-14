@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { eventPage } from "../helpers/job-events-fixture.mjs";
 import { JSDOM } from "jsdom";
 
 // DetailApp(任务详情页 React 编排根)组件级测试:
@@ -121,9 +122,9 @@ function makePorts() {
         raw_url: "/api/v1/jobs/job-react-detail/markdown/raw",
         images: [],
       }),
-      fetchJobEvents: async (jobId, apiPrefix, limit, offset) => {
-        calls.events.push([jobId, apiPrefix, limit, offset]);
-        return { items: eventItems };
+      fetchJobEvents: async (jobId, apiPrefix, query) => {
+        calls.events.push([jobId, apiPrefix, query]);
+        return eventPage(eventItems);
       },
       fetchProtected: async () => {
         throw new Error("本测试不应发起受保护请求");
@@ -204,7 +205,7 @@ test("DetailApp:加载编排、文案适配、产物孤岛、事件流模态框"
     "事件流条目渲染",
   );
   assert.ok(byId("detail-events-modal"), "事件流模态框已挂载");
-  assert.deepEqual(ports.calls.events, [["job-react-detail", "/api/v1", 200, 0]]);
+  assert.deepEqual(ports.calls.events, [["job-react-detail", "/api/v1", { limit: 500, start: "head" }]]);
   assert.equal(byId("detail-events-status")?.textContent, "全部事件 · 2 条");
   assert.equal(byId("detail-open-events-btn")?.textContent, "查看");
 

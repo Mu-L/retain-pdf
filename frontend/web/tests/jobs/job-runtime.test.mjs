@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { eventPage } from "../helpers/job-events-fixture.mjs";
 
 import { createLegacyStateFixture } from "../helpers/legacy-state-fixture.mjs";
 import * as jobEventsResourceModule from "../../src/features/jobs/domain/runtime/job-events-resource.js";
@@ -136,26 +137,14 @@ test("elapsed view model owns runtime duration text", () => {
 test("fetchRecentJobEvents returns the latest event page for long jobs", async () => {
   const calls = [];
   const payload = await fetchRecentJobEvents({
-    apiPrefix: "/api/v1",
-    jobId: "job-long-events",
-    fetchJobEvents: async (_jobId, _apiPrefix, limit, offset) => {
-      calls.push({ limit, offset });
-      const count = offset >= 1000 ? 20 : limit;
-      return {
-        items: Array.from({ length: count }, (_, index) => ({ seq: offset + index + 1 })),
-        limit,
-        offset,
-      };
+    apiPrefix: "/api/v1", jobId: "job-long-events",
+    fetchJobEvents: async (_jobId, _apiPrefix, query) => {
+      calls.push(query);
+      return eventPage(Array.from({ length: 500 }, (_, index) => ({ seq: 9501 + index })));
     },
   });
-
-  assert.deepEqual(calls, [
-    { limit: 500, offset: 0 },
-    { limit: 500, offset: 500 },
-    { limit: 500, offset: 1000 },
-  ]);
-  assert.equal(payload.offset, 1000);
-  assert.equal(payload.items[0].seq, 1001);
+  assert.deepEqual(calls, [{ limit: 500, start: "tail" }]);
+  assert.equal(payload.items[0].seq, 9501);
 });
 
 test("mergeJobEventsPayload keeps newer translation progress events", () => {
@@ -164,12 +153,14 @@ test("mergeJobEventsPayload keeps newer translation progress events", () => {
       items: [
         {
           seq: 10,
+          event_id: "event-10",
           display_stage: "translation",
           substage: "translation_batches",
           progress: { unit: "batch", current: 28, total: 5216 },
         },
         {
           seq: 11,
+          event_id: "event-11",
           display_stage: "translation",
           substage: "translation_batches",
           progress: { unit: "batch", current: 29, total: 5216 },
@@ -180,12 +171,14 @@ test("mergeJobEventsPayload keeps newer translation progress events", () => {
       items: [
         {
           seq: 11,
+          event_id: "event-11",
           display_stage: "translation",
           substage: "translation_batches",
           progress: { unit: "batch", current: 29, total: 5216 },
         },
         {
           seq: 12,
+          event_id: "event-12",
           display_stage: "translation",
           substage: "translation_batches",
           progress: { unit: "batch", current: 4000, total: 5216 },
@@ -205,6 +198,7 @@ test("mergeJobEventsPayload keeps same-seq events from different lanes and subst
         {
           seq: 20,
           lane: "main",
+          event_id: "main-20",
           display_stage: "translation",
           substage: "translation_batches",
           event_type: "progress",
@@ -217,6 +211,7 @@ test("mergeJobEventsPayload keeps same-seq events from different lanes and subst
         {
           seq: 20,
           lane: "background",
+          event_id: "background-20",
           display_stage: "render",
           substage: "render_prewarm",
           event_type: "progress",
@@ -227,6 +222,7 @@ test("mergeJobEventsPayload keeps same-seq events from different lanes and subst
           lane: "main",
           display_stage: "translation",
           substage: "agent_repair",
+          event_id: "repair-20",
           event_type: "progress",
           progress: { unit: "percent", current: 65, total: 100 },
         },
@@ -498,43 +494,27 @@ test("job events resource caches by job and switches terminal jobs to full histo
   const calls = [];
   const resource = createJobEventsResource({
     apiPrefix: "/api/v1",
-    fetchJobEvents: async (jobId, _apiPrefix, limit, offset) => {
-      calls.push({ jobId, limit, offset });
-      if (jobId === "terminal" && offset === 0) {
-        return {
-          items: Array.from({ length: limit }, (_, index) => ({ seq: index + 1 })),
-          limit,
-          offset,
-        };
+    fetchJobEvents: async (jobId, _apiPrefix, query) => {
+      calls.push({ jobId, ...query });
+      if (jobId === "terminal" && query.start === "head") {
+        return eventPage(Array.from({ length: 500 }, (_, index) => ({ seq: index + 1 })),
+          { has_more: true, next_cursor: "terminal-first" });
       }
-      if (jobId === "terminal" && offset === JOB_EVENTS_PAGE_SIZE) {
-        return {
-          items: [{ seq: JOB_EVENTS_PAGE_SIZE + 1 }],
-          limit,
-          offset,
-        };
-      }
-      return {
-        items: [{ seq: offset + 1 }],
-        limit,
-        offset,
-      };
+      return eventPage([{ seq: query.cursor ? 501 : 1 }], { next_cursor: "complete" });
     },
   });
-
   const first = await resource.load({ jobId: "active" });
   const cached = await resource.load({ jobId: "active" });
   const terminal = await resource.load({ jobId: "terminal", terminal: true });
-
   assert.equal(first.status, "success");
   assert.equal(cached.status, "success");
   assert.equal(terminal.status, "success");
   assert.deepEqual(calls, [
-    { jobId: "active", limit: JOB_EVENTS_PREVIEW_PAGE_SIZE, offset: 0 },
-    { jobId: "terminal", limit: JOB_EVENTS_PAGE_SIZE, offset: 0 },
-    { jobId: "terminal", limit: JOB_EVENTS_PAGE_SIZE, offset: JOB_EVENTS_PAGE_SIZE },
+    { jobId: "active", limit: 500, start: "tail" },
+    { jobId: "terminal", limit: 500, start: "head" },
+    { jobId: "terminal", limit: 500, cursor: "terminal-first", signal: undefined },
   ]);
-  assert.equal(terminal.data.items.length, JOB_EVENTS_PAGE_SIZE + 1);
+  assert.equal(terminal.data.items.length, 501);
 });
 
 test("secondary event refresh consumes the injected job events resource", async () => {
@@ -591,7 +571,9 @@ test("secondary event refresh consumes the injected job events resource", async 
 
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  assert.deepEqual(resourceLoads, [
+  assert.equal(typeof resourceLoads[0].params.isCurrent, "function");
+  assert.equal(typeof resourceLoads[0].params.onReset, "function");
+  assert.deepEqual(resourceLoads.map(({ params: { isCurrent, onReset, ...params }, options }) => ({ params, options })), [
     {
       params: { jobId, terminal: false },
       options: { cache: false },
@@ -715,7 +697,7 @@ test("secondary resource scheduler port owns controller scheduling dependencies"
 
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  assert.deepEqual(loads, [
+  assert.deepEqual(loads.map(({ params: { isCurrent, onReset, ...params }, options }) => ({ params, options })), [
     {
       params: { jobId, terminal: false },
       options: { cache: false },
@@ -1597,8 +1579,7 @@ test("secondary event refresh uses patch renderer instead of full job render", a
     payload: job,
     generation: 1,
     terminal: false,
-    fetchJobEvents: async () => ({
-      items: [
+    fetchJobEvents: async () => eventPage([
         {
           seq: 1,
           display_stage: "translation",
@@ -1606,8 +1587,7 @@ test("secondary event refresh uses patch renderer instead of full job render", a
           substage: "translation_batches",
           progress: { unit: "batch", current: 2, total: 10 },
         },
-      ],
-    }),
+    ]),
     fetchJobArtifactsManifest: async () => ({ artifacts: [] }),
     fetchJobStageActions: async () => ({ actions: [] }),
     renderJobSecondaryPatch: (patch) => patches.push(patch),
@@ -1650,7 +1630,7 @@ test("secondary resource patches pass render context instead of raw cache inputs
     payload: job,
     generation: 1,
     terminal: false,
-    fetchJobEvents: async () => ({ items: [{ seq: 1, progress: { current: 3, total: 9 } }] }),
+    fetchJobEvents: async () => eventPage([{ seq: 1, progress: { current: 3, total: 9 } }]),
     fetchJobArtifactsManifest: async () => ({ artifacts: [{ artifact_key: "pdf" }] }),
     fetchJobStageActions: async () => ({ actions: [{ stage: "render" }] }),
     renderJobSecondaryPatch: (patch) => patches.push(patch),

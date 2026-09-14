@@ -26,6 +26,8 @@ import {
 import {
   cancelTaskCenterJob,
   loadTaskCenterJobs,
+  loadTaskCenterLiveJobs,
+  mergeTaskCenterJobs,
   retryTaskCenterJob,
   TASK_CENTER_MAX_ITEMS,
 } from "../domain/task-center-api.js";
@@ -150,20 +152,51 @@ export function TaskCenter({ onOpenBookDetail }: TaskCenterProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [reachedLimit, setReachedLimit] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [busyByJob, setBusyByJob] = useState<Record<string, string>>({});
   const mountedRef = useRef(true);
   const requestInFlightRef = useRef(false);
+  const liveInFlightRef = useRef(false);
+  const itemsRef = useRef<JobListItemView[]>([]);
+  const nextOffsetRef = useRef(0);
+  const generationRef = useRef(0);
 
-  const load = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+  const refreshLive = useCallback(async () => {
+    if (liveInFlightRef.current) return;
+    const generation = generationRef.current;
+    liveInFlightRef.current = true;
+    try {
+      const live = await loadTaskCenterLiveJobs(itemsRef.current);
+      if (!mountedRef.current || generation !== generationRef.current) return;
+      // Only update cards still present; a late response must not resurrect
+      // another page or a task removed by a refresh.
+      const ids = new Set(itemsRef.current.map((item) => item.job_id));
+      const merged = mergeTaskCenterJobs(itemsRef.current, live.filter((item) => ids.has(item.job_id)));
+      itemsRef.current = merged;
+      setItems(merged);
+    } catch {
+      // Keep the persisted summaries visible; the next active poll retries.
+    } finally {
+      liveInFlightRef.current = false;
+    }
+  }, []);
+
+  const load = useCallback(async ({ append = false }: { append?: boolean } = {}) => {
     if (requestInFlightRef.current) return;
     requestInFlightRef.current = true;
-    if (!silent) setRefreshing(true);
+    setRefreshing(true);
+    generationRef.current += 1;
     try {
-      const result = await loadTaskCenterJobs();
+      const result = await loadTaskCenterJobs(undefined, { offset: append ? nextOffsetRef.current : 0 });
       if (!mountedRef.current) return;
-      setItems(Array.isArray(result?.items) ? result.items : []);
+      const next = append ? mergeTaskCenterJobs(itemsRef.current, result.items) : result.items;
+      itemsRef.current = next;
+      nextOffsetRef.current = result.nextOffset;
+      setItems(next);
+      setHasMore(result.hasMore);
       setReachedLimit(Boolean(result?.reachedLimit));
       setError("");
+      void refreshLive();
     } catch (cause) {
       if (!mountedRef.current) return;
       setError(cause instanceof Error ? cause.message : "读取任务失败，请稍后重试。");
@@ -174,20 +207,20 @@ export function TaskCenter({ onOpenBookDetail }: TaskCenterProps) {
         setRefreshing(false);
       }
     }
-  }, []);
+  }, [refreshLive]);
 
   useEffect(() => {
     mountedRef.current = true;
     void load();
-    return () => { mountedRef.current = false; };
+    return () => { mountedRef.current = false; generationRef.current += 1; };
   }, [load]);
 
   const hasActiveTasks = items.some((job) => ACTIVE_STATUSES.has(`${job.status || ""}`.toLowerCase()));
   useEffect(() => {
     if (!hasActiveTasks) return undefined;
-    const timer = window.setInterval(() => { void load({ silent: true }); }, 3000);
+    const timer = window.setInterval(() => { void refreshLive(); }, 3000);
     return () => window.clearInterval(timer);
-  }, [hasActiveTasks, load]);
+  }, [hasActiveTasks, refreshLive]);
 
   const groups = useMemo(() => groupTaskCenterJobs(items), [items]);
   const counts = useMemo(() => taskCenterCounts(items), [items]);
@@ -220,7 +253,7 @@ export function TaskCenter({ onOpenBookDetail }: TaskCenterProps) {
     try {
       await cancelTaskCenterJob(job);
       toast.success("已提交取消请求");
-      await load({ silent: true });
+      await load();
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "取消失败，请稍后重试。");
     } finally {
@@ -233,7 +266,7 @@ export function TaskCenter({ onOpenBookDetail }: TaskCenterProps) {
     try {
       await retryTaskCenterJob(job.job_id);
       toast.success("已创建恢复任务");
-      await load({ silent: true });
+      await load();
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "重试失败，请稍后重试。");
     } finally {
@@ -250,7 +283,7 @@ export function TaskCenter({ onOpenBookDetail }: TaskCenterProps) {
           <p className="mt-1 text-xs text-muted-foreground">
             {reachedLimit
               ? `当前已加载最近 ${TASK_CENTER_MAX_ITEMS} 条，达到前端安全上限。`
-              : `当前加载 ${items.length} 条；每次处理按独立任务展示。`}
+              : `当前加载 ${items.length} 条${hasMore ? "，可继续加载更多" : ""}；每次处理按独立任务展示。`}
           </p>
         </div>
         <button
@@ -331,6 +364,14 @@ export function TaskCenter({ onOpenBookDetail }: TaskCenterProps) {
               );
             })}
           </div>
+          {hasMore ? (
+            <div className="flex justify-center py-4">
+              <button type="button" className="rounded-xl border border-border px-4 py-2 text-sm disabled:opacity-50"
+                disabled={refreshing} onClick={() => void load({ append: true })}>
+                {refreshing ? "加载中…" : "加载更多任务"}
+              </button>
+            </div>
+          ) : null}
         </div>
       )}
     </section>

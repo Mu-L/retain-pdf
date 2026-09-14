@@ -127,18 +127,40 @@ test("HomeAskComposer：isRunning 展示停止按钮", async () => {
   host.remove();
 });
 
-test("HomeAskComposer：credentialBlocked 渲染横幅、锁定层并派发 CustomEvent", async () => {
+test("HomeAskComposer：credentialBlocked 只留横幅引导，不锁输入；发送时聚焦横幅按钮", async () => {
   let events = 0;
   const onEvent = () => { events += 1; };
   dom.window.document.addEventListener("retainpdf:open-browser-credentials", onEvent);
   try {
-    const { host, root } = await mount({ credentialBlocked: true, credentialMessage: "未配置" });
-    assert.ok(host.querySelector(".home-ask-composer").classList.contains("is-locked"));
+    let sent = null;
+    const { host, root } = await mount({
+      credentialBlocked: true,
+      credentialMessage: "未配置",
+      onSend: (q) => { sent = q; },
+    });
+    // 横幅仍在（发送时刻的引导入口），但面板不再锁死
+    assert.equal(host.querySelector(".home-ask-composer").classList.contains("is-locked"), false);
     assert.equal(host.querySelector(".home-ask-key-banner p").textContent, "未配置");
-    assert.ok(host.querySelector(".home-ask-composer-lock"));
-    assert.equal(host.querySelector(".home-ask-input").getAttribute("aria-disabled"), "true");
-    assert.equal(host.querySelector(".home-ask-scope-hint").textContent, "未配置");
+    assert.equal(host.querySelector(".home-ask-composer-lock"), null);
+    const textarea = host.querySelector(".home-ask-input");
+    assert.equal(textarea.disabled, false);
+    assert.equal(textarea.hasAttribute("readonly"), false);
 
+    // 可输入：草稿保留，不被清空
+    setTextareaValue(textarea, "帮我总结");
+    await wait();
+    assert.equal(textarea.value, "帮我总结");
+    assert.equal(host.querySelector(".home-ask-send").disabled, false);
+
+    // 发送时不直调 onSend，而是把焦点送到横幅按钮引导补 Key
+    host.querySelector(".home-ask-send").dispatchEvent(
+      new dom.window.MouseEvent("click", { bubbles: true }),
+    );
+    await wait();
+    assert.equal(sent, null);
+    assert.equal(dom.window.document.activeElement, host.querySelector(".home-ask-key-banner-btn"));
+
+    // 横幅按钮仍派发 CustomEvent（直达设置）
     host.querySelector(".home-ask-key-banner-btn").dispatchEvent(
       new dom.window.MouseEvent("click", { bubbles: true }),
     );
