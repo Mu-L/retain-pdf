@@ -63,7 +63,7 @@ export async function fetchJobPayload(a, b) {
     }
     return unwrapEnvelope(await resp.json());
 }
-export async function fetchJobList(apiPrefix = API_PREFIX, { limit = 20, offset = 0, status = "", workflow = "", provider = "", scope = "jobs", q = "", } = {}) {
+export async function fetchJobList(apiPrefix = API_PREFIX, { limit = 20, offset = 0, status = "", workflow = "", provider = "", scope = "jobs", q = "", includeLiveStage = true, } = {}) {
     const params = new URLSearchParams();
     params.set("limit", `${limit}`);
     params.set("offset", `${offset}`);
@@ -75,6 +75,8 @@ export async function fetchJobList(apiPrefix = API_PREFIX, { limit = 20, offset 
         params.set("provider", provider);
     if (`${q || ""}`.trim())
         params.set("q", `${q || ""}`.trim());
+    if (!includeLiveStage)
+        params.set("include_live_stage", "false");
     const endpoint = buildJobsEndpoint(apiPrefix, scope);
     const resp = await fetch(`${endpoint}?${params.toString()}`, { headers: buildApiHeaders() });
     if (!resp.ok)

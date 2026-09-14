@@ -7,7 +7,7 @@ export declare function fetchJobPayload(jobId: string, options?: FetchJobPayload
 export declare function fetchJobPayload(jobId: string, apiPrefix?: string): Promise<JobDetailView>;
 /** @deprecated swapped order: use fetchJobPayload(jobId, { apiPrefix }) */
 export declare function fetchJobPayload(apiPrefix: string, jobId: string): Promise<JobDetailView>;
-export declare function fetchJobList(apiPrefix?: string, { limit, offset, status, workflow, provider, scope, q, }?: {
+export declare function fetchJobList(apiPrefix?: string, { limit, offset, status, workflow, provider, scope, q, includeLiveStage, }?: {
     limit?: number;
     offset?: number;
     status?: string;
@@ -15,4 +15,5 @@ export declare function fetchJobList(apiPrefix?: string, { limit, offset, status
     provider?: string;
     scope?: string;
     q?: string;
+    includeLiveStage?: boolean;
 }): Promise<JobListView>;

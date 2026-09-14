@@ -1,4 +1,4 @@
-import type { ReaderAssistantPanel } from "./components/react-pdf/index.js";
+import type { ReaderAssistantPanel, ReaderWorkspaceMode } from "./components/react-pdf/index.js";
 import { loadReaderViewState } from "./shared/state/reader-view-state.js";
 export declare function resolveReaderAiLayout(_mode: string): "workspace";
 export declare function resolveVisiblePdfMode(mode: "source" | "compare" | "translated", assistantPanel: ReaderAssistantPanel | null): "compare" | "source" | "translated";
@@ -9,7 +9,7 @@ export type ReaderPaneComposition = {
      * - source-only：单栏原文；
      * - translated-only：仅译文（右栏语义）；
      * - final-compare：左源右最终译文的并排；
-     * - live-overlay：单栏原文 + 流式实时译文叠加。
+     * - live-overlay：源栏原文 + 流式实时译文叠加（对照态保留右栏最终译文）。
      */
     kind: "source-only" | "translated-only" | "final-compare" | "live-overlay";
     /** 顶栏页签 / 键盘 / HUD 使用的可见 PDF 模式 */
@@ -46,6 +46,14 @@ export declare function resolveReaderPaneComposition(input: {
     assistantOpen: boolean;
     assistantPdfPane?: "source" | "translated" | null;
 }): ReaderPaneComposition;
+/**
+ * 切换工作区页签时，是否自动开关实时译文叠加。
+ * - 切到对照：仅在“实时译文真正可用（最终译文 PDF 未就绪）”时自动打开。
+ *   任务完成后即使残留已提交的实时页，也不得自动选中「实时译文 · 已完成」。
+ * - 离开对照（原文/译文）：关闭，回到页签自身的显示。
+ * 返回 null 表示保持用户当前选择不动。
+ */
+export declare function resolveLiveTranslationVisibleOnWorkspaceChange(next: ReaderWorkspaceMode, liveTranslationAvailable: boolean): boolean | null;
 export declare function resolveInitialAssistantPanel(mode: "source" | "compare" | "translated", saved: ReturnType<typeof loadReaderViewState>): ReaderAssistantPanel | null;
 export declare function ReaderAppReactPdf(): import("react").JSX.Element;
 //# sourceMappingURL=ReaderAppReactPdf.d.ts.map
