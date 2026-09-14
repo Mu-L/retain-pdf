@@ -6,7 +6,7 @@ use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::response::Response;
 
-use crate::routes::common::{build_jobs_route_deps, ApiPath, ApiQuery};
+use crate::routes::common::{build_jobs_download_route_deps, ApiPath, ApiQuery};
 use crate::routes::download_response::{
     bundle_response, cover_response, download_document_response, markdown_document_response,
     markdown_image_response, markdown_response, page_preview_response,
@@ -19,7 +19,7 @@ pub async fn download_pdf(
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
     download_document_response(
-        &build_jobs_route_deps(&state),
+        &build_jobs_download_route_deps(&state),
         &headers,
         &job_id,
         false,
@@ -33,7 +33,7 @@ pub async fn download_side_by_side_pdf(
     ApiPath(job_id): ApiPath<String>,
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
-    side_by_side_pdf_response(&build_jobs_route_deps(&state), &headers, &job_id).await
+    side_by_side_pdf_response(&build_jobs_download_route_deps(&state), &headers, &job_id).await
 }
 
 pub async fn download_cover(
@@ -41,7 +41,7 @@ pub async fn download_cover(
     ApiPath(job_id): ApiPath<String>,
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
-    cover_response(&build_jobs_route_deps(&state), &headers, &job_id).await
+    cover_response(&build_jobs_download_route_deps(&state), &headers, &job_id).await
 }
 
 pub async fn download_thumbnail(
@@ -49,7 +49,7 @@ pub async fn download_thumbnail(
     ApiPath(job_id): ApiPath<String>,
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
-    thumbnail_response(&build_jobs_route_deps(&state), &headers, &job_id).await
+    thumbnail_response(&build_jobs_download_route_deps(&state), &headers, &job_id).await
 }
 
 pub async fn download_page_preview(
@@ -59,7 +59,7 @@ pub async fn download_page_preview(
     ApiQuery(query): ApiQuery<PagePreviewQuery>,
 ) -> Result<Response, AppError> {
     page_preview_response(
-        &build_jobs_route_deps(&state),
+        &build_jobs_download_route_deps(&state),
         &headers,
         &job_id,
         page,
@@ -75,7 +75,7 @@ pub async fn download_artifact_by_key(
     ApiQuery(query): ApiQuery<ArtifactDownloadQuery>,
 ) -> Result<Response, AppError> {
     registered_artifact_response(
-        &build_jobs_route_deps(&state),
+        &build_jobs_download_route_deps(&state),
         &headers,
         &job_id,
         &artifact_key,
@@ -92,7 +92,7 @@ pub async fn download_ocr_artifact_by_key(
     ApiQuery(query): ApiQuery<ArtifactDownloadQuery>,
 ) -> Result<Response, AppError> {
     registered_artifact_response(
-        &build_jobs_route_deps(&state),
+        &build_jobs_download_route_deps(&state),
         &headers,
         &job_id,
         &artifact_key,
@@ -108,7 +108,7 @@ pub async fn download_normalized_document(
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
     download_document_response(
-        &build_jobs_route_deps(&state),
+        &build_jobs_download_route_deps(&state),
         &headers,
         &job_id,
         false,
@@ -123,7 +123,7 @@ pub async fn download_ocr_normalized_document(
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
     download_document_response(
-        &build_jobs_route_deps(&state),
+        &build_jobs_download_route_deps(&state),
         &headers,
         &job_id,
         true,
@@ -138,7 +138,7 @@ pub async fn download_normalization_report(
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
     download_document_response(
-        &build_jobs_route_deps(&state),
+        &build_jobs_download_route_deps(&state),
         &headers,
         &job_id,
         false,
@@ -153,7 +153,7 @@ pub async fn download_ocr_normalization_report(
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
     download_document_response(
-        &build_jobs_route_deps(&state),
+        &build_jobs_download_route_deps(&state),
         &headers,
         &job_id,
         true,
@@ -168,7 +168,13 @@ pub async fn download_markdown(
     headers: HeaderMap,
     ApiQuery(query): ApiQuery<MarkdownQuery>,
 ) -> Result<Response, AppError> {
-    markdown_response(&build_jobs_route_deps(&state), &headers, job_id, &query).await
+    markdown_response(
+        &build_jobs_download_route_deps(&state),
+        &headers,
+        job_id,
+        &query,
+    )
+    .await
 }
 
 pub async fn get_markdown_document(
@@ -176,7 +182,7 @@ pub async fn get_markdown_document(
     ApiPath(job_id): ApiPath<String>,
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
-    markdown_document_response(&build_jobs_route_deps(&state), &headers, &job_id).await
+    markdown_document_response(&build_jobs_download_route_deps(&state), &headers, &job_id).await
 }
 
 pub async fn download_markdown_image(
@@ -184,7 +190,13 @@ pub async fn download_markdown_image(
     ApiPath((job_id, path)): ApiPath<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
-    markdown_image_response(&build_jobs_route_deps(&state), &headers, &job_id, &path).await
+    markdown_image_response(
+        &build_jobs_download_route_deps(&state),
+        &headers,
+        &job_id,
+        &path,
+    )
+    .await
 }
 
 pub async fn download_bundle(
@@ -192,5 +204,5 @@ pub async fn download_bundle(
     ApiPath(job_id): ApiPath<String>,
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
-    bundle_response(&build_jobs_route_deps(&state), &headers, &job_id).await
+    bundle_response(&build_jobs_download_route_deps(&state), &headers, &job_id).await
 }

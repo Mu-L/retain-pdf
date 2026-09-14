@@ -71,6 +71,33 @@ async fn credential_api_persists_only_safe_metadata_in_responses() {
     );
     assert!(!listed.to_string().contains(secret));
 
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/credentials?include_values=true")
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+    let local_values = read_json(response).await;
+    assert_eq!(local_values["data"]["credentials"][0]["secret"], secret);
+    let denied = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/credentials?include_values=true")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(denied.status(), StatusCode::UNAUTHORIZED);
+
     let (status, stale) = request(
         app.clone(),
         Method::PUT,

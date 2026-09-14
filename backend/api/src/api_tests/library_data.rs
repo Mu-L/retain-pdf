@@ -128,7 +128,7 @@ async fn json_response(response: axum::response::Response) -> serde_json::Value 
 }
 
 #[tokio::test]
-async fn documents_list_and_patch_roundtrip() {
+async fn documents_list_get_and_patch_roundtrip() {
     let state = test_state("library-documents");
     let app = build_app(state.clone());
     let document_id = seed_document(&state, b"doc one");
@@ -188,6 +188,21 @@ async fn documents_list_and_patch_roundtrip() {
         .unwrap_or("")
         .contains("/source.pdf"));
 
+    let patched_document = payload["data"].clone();
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/v1/documents/{document_id}"))
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("detail request"),
+        )
+        .await
+        .expect("detail response");
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(json_response(response).await["data"], patched_document);
+
     // 非法状态被拒绝
     let response = app
         .clone()
@@ -205,6 +220,55 @@ async fn documents_list_and_patch_roundtrip() {
         .await
         .expect("bad patch response");
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[test]
+fn library_route_dependencies_do_not_capture_job_runtime() {
+    let state = test_state("library-route-dependencies");
+    let runtime_owners = Arc::strong_count(&state.job_runtime);
+    let deps = crate::routes::common::build_library_route_deps(&state);
+
+    assert!(std::ptr::eq(deps.library.db, state.db.as_ref()));
+    assert_eq!(
+        Arc::strong_count(&state.job_runtime),
+        runtime_owners,
+        "ordinary Library requests must not assemble the jobs launcher"
+    );
+}
+
+#[tokio::test]
+async fn documents_read_and_patch_preserve_auth_and_not_found_contracts() {
+    let app = build_app(test_state("library-document-errors"));
+    let collection = "/api/v1/documents";
+    let missing = "/api/v1/documents/missing-document";
+    for (method, path, key, expected) in [
+        ("GET", collection, None, StatusCode::UNAUTHORIZED),
+        ("GET", missing, None, StatusCode::UNAUTHORIZED),
+        ("PATCH", missing, None, StatusCode::UNAUTHORIZED),
+        ("GET", collection, Some("invalid"), StatusCode::UNAUTHORIZED),
+        ("GET", missing, Some("invalid"), StatusCode::UNAUTHORIZED),
+        ("PATCH", missing, Some("invalid"), StatusCode::UNAUTHORIZED),
+        ("GET", missing, Some("test-key"), StatusCode::NOT_FOUND),
+        ("PATCH", missing, Some("test-key"), StatusCode::NOT_FOUND),
+    ] {
+        let mut request = Request::builder()
+            .method(method)
+            .uri(path)
+            .header("content-type", "application/json");
+        if let Some(key) = key {
+            request = request.header("X-API-Key", key);
+        }
+        let response = app
+            .clone()
+            .oneshot(request.body(Body::from("{}")).expect("request"))
+            .await
+            .expect("response");
+        assert_eq!(response.status(), expected, "{method} {path}");
+        let payload = json_response(response).await;
+        assert_eq!(payload["error"]["http_status"], expected.as_u16());
+        assert_eq!(payload["code"], u32::from(expected.as_u16()) * 100);
+        assert!(payload.get("data").is_none());
+    }
 }
 
 #[tokio::test]
@@ -438,7 +502,10 @@ async fn documents_list_supports_text_search_over_title_and_filename() {
         .expect("miss response");
     let miss = json_response(miss).await;
     assert_eq!(miss["data"]["total"], 0);
-    assert_eq!(miss["data"]["documents"].as_array().expect("array").len(), 0);
+    assert_eq!(
+        miss["data"]["documents"].as_array().expect("array").len(),
+        0
+    );
 
     // 不带 q 时行为不变（回归保护：新参数不能影响既有列表）
     let unfiltered = app
@@ -738,7 +805,10 @@ async fn library_book_delete_fails_closed_when_favorites_lookup_errors() {
         .expect("drop favorites table");
     drop(conn);
     assert!(
-        state.db.favorites_referencing_job("job-lookup-error").is_err(),
+        state
+            .db
+            .favorites_referencing_job("job-lookup-error")
+            .is_err(),
         "前置条件：此时收藏查询必须真的失败"
     );
 
@@ -876,9 +946,9 @@ async fn ai_proxy_returns_bad_gateway_when_upstream_is_down() {
 
     // 场景 1(Phase 2 快速失败):监督器判定 unhealthy → 不发起上游连接,立即 503
     let mut state = test_state("ai-proxy-unhealthy");
-    state.ai_gateway = std::sync::Arc::new(AiGateway::new(
-        &state.config.ai_proxy, "http://127.0.0.1:9".into(), || 3,
-    ).unwrap());
+    state.ai_gateway = std::sync::Arc::new(
+        AiGateway::new(&state.config.ai_proxy, "http://127.0.0.1:9".into(), || 3).unwrap(),
+    );
     let app = build_app(state);
     let response = app
         .oneshot(
@@ -1861,6 +1931,9 @@ async fn document_translate_reuses_succeeded_ocr_artifacts_without_ocr_credentia
     let detail_path = payload["data"]["links"]["self_path"]
         .as_str()
         .expect("detail path");
+    // Let the in-process workflow driver poll before fetching its new job.
+    // Read-only blocking isolation must not hide an oversized workflow stack.
+    tokio::task::yield_now().await;
     let detail_response = app
         .oneshot(
             Request::builder()

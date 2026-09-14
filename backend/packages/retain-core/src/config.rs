@@ -42,9 +42,8 @@ pub use upload::{
     DEFAULT_UPLOAD_MAX_BYTES,
 };
 
-// console-mode 唯一入口：RUST_API_PYTHON_ENTRYPOINT_MODE 已退役。
-// 两阶段退役的第一阶段：读到非空值只 warn 忽略（兼容已部署桌面旧版硬编码
-// script），强制走 console，不再 parse/bail。
+// RUST_API_PYTHON_ENTRYPOINT_MODE 已退役。兼容旧版桌面注入的值，
+// 只告警、不切换入口；主阶段固定使用 Python 模块，辅助任务使用 console。
 fn warn_ignored_python_entrypoint_mode_env() {
     let configured = env_vars::env_optional_string("RUST_API_PYTHON_ENTRYPOINT_MODE");
     if configured
@@ -53,7 +52,7 @@ fn warn_ignored_python_entrypoint_mode_env() {
     {
         eprintln!(
             "warning: RUST_API_PYTHON_ENTRYPOINT_MODE is deprecated and ignored; \
-             console mode (retainpdf-pipeline) is always used"
+             stage workers use Python module entrypoints"
         );
     }
 }
@@ -272,6 +271,7 @@ impl AppConfig {
             asset,
         } = parts;
 
+        auth.validate_bind_host(&server.bind_host)?;
         let ai_service = AiServiceConfig::from_env(&paths.project_root, &server.python_bin);
         let jobs_service = JobsServiceConfig::from_env();
         let pipeline_command = env_vars::env_optional_string("RUST_API_PIPELINE_COMMAND")

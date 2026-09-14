@@ -114,7 +114,10 @@ class BodyFontInheritanceTests(unittest.TestCase):
         ]
 
         self.assertGreaterEqual(short_block.font_size_pt, min(anchor_fonts) - 0.9)
-        self.assertGreaterEqual(short_block.fit_min_font_size_pt, min(anchor_fonts) - 1.1)
+        # Inherited short text bypasses bbox fitting; a second fit must not
+        # shrink the inherited font back down to the original short OCR box.
+        self.assertFalse(short_block.fit_to_box)
+        self.assertEqual(short_block.fit_min_font_size_pt, 0.0)
 
     def test_similar_body_fonts_unify_before_underfill_growth(self):
         items = [

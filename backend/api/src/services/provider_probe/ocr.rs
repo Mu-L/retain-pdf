@@ -1,6 +1,7 @@
 use crate::config::{MineruRuntimeConfig, PaddleRuntimeConfig};
 use crate::error::AppError;
 use crate::models::domain::now_iso;
+use crate::ocr_provider::mineru::client::MineruUploadOptions;
 use crate::ocr_provider::mineru::{
     extract_provider_error_code, extract_provider_message, extract_provider_trace_id,
     map_provider_error_code, MineruClient,
@@ -32,13 +33,15 @@ pub(crate) async fn validate_mineru_token_view(
     let view = match client
         .apply_upload_url(
             "retain-pdf-token-check.pdf",
-            if model_version.is_empty() {
-                "vlm"
-            } else {
-                model_version.as_str()
+            &MineruUploadOptions {
+                model_version: if model_version.is_empty() {
+                    "vlm"
+                } else {
+                    &model_version
+                },
+                data_id: "retain-pdf-token-check",
+                ..Default::default()
             },
-            "",
-            "retain-pdf-token-check",
         )
         .await
     {

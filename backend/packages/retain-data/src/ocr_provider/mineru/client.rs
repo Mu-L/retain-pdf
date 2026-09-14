@@ -4,7 +4,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
-use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, RANGE};
+use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, RANGE, RETRY_AFTER};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -12,13 +12,11 @@ use serde_json::{json, Value};
 use zip::ZipArchive;
 
 use crate::config::MineruRuntimeConfig;
-use crate::ocr_provider::mineru::errors::{
-    extract_provider_error_code, extract_provider_message, extract_provider_trace_id,
-};
 use crate::ocr_provider::mineru::models::{
     MineruApiEnvelope, MineruApplyUploadUrlsData, MineruBatchResultItem, MineruBatchStatusData,
     MineruTaskData,
 };
+use crate::ocr_provider::mineru::response_error::{parse_retry_after, MineruResponseError};
 use crate::ocr_provider::types::OcrProviderCapabilities;
 
 #[derive(Debug, Clone)]
@@ -46,6 +44,33 @@ pub struct MineruUploadTarget {
 pub struct MineruCreatedTask {
     pub task_id: String,
     pub trace_id: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MineruUploadOptions<'a> {
+    pub model_version: &'a str,
+    pub is_ocr: bool,
+    pub enable_formula: bool,
+    pub enable_table: bool,
+    pub language: &'a str,
+    pub page_ranges: &'a str,
+    pub data_id: &'a str,
+    pub extra_formats: &'a [String],
+}
+
+impl Default for MineruUploadOptions<'_> {
+    fn default() -> Self {
+        Self {
+            model_version: "vlm",
+            is_ocr: false,
+            enable_formula: true,
+            enable_table: true,
+            language: "ch",
+            page_ranges: "",
+            data_id: "",
+            extra_formats: &[],
+        }
+    }
 }
 
 impl MineruClient {
@@ -83,11 +108,9 @@ impl MineruClient {
     pub async fn apply_upload_url(
         &self,
         file_name: &str,
-        model_version: &str,
-        page_ranges: &str,
-        data_id: &str,
+        options: &MineruUploadOptions<'_>,
     ) -> Result<MineruUploadTarget> {
-        let payload = build_apply_upload_payload(file_name, model_version, page_ranges, data_id);
+        let payload = build_apply_upload_payload(file_name, options);
         let envelope: MineruApiEnvelope<MineruApplyUploadUrlsData> = self
             .post_json("/api/v4/file-urls/batch", &payload)
             .await
@@ -291,15 +314,30 @@ impl MineruClient {
         response: reqwest::Response,
     ) -> Result<MineruApiEnvelope<T>> {
         let status = response.status();
+        let retry_after = parse_retry_after(
+            response
+                .headers()
+                .get(RETRY_AFTER)
+                .and_then(|h| h.to_str().ok()),
+        );
         let text = response
             .text()
             .await
             .context("failed to read MinerU response body")?;
         if !status.is_success() {
-            bail!(
-                "MinerU HTTP {}: {}",
-                status.as_u16(),
-                summarize_error_text(&text)
+            return Err(
+                MineruResponseError::from_response(status.as_u16(), &text, retry_after).into(),
+            );
+        }
+        // Inspect the envelope before decoding success-only data. A provider error
+        // may contain a different data shape and must retain its code and trace.
+        let raw: MineruApiEnvelope<Value> = serde_json::from_str(&text)
+            .map_err(|_| MineruResponseError::from_response(status.as_u16(), &text, retry_after))?;
+        if !matches!(&raw.code, Value::Number(n) if n.as_i64() == Some(0))
+            && !matches!(&raw.code, Value::String(s) if s.trim() == "0")
+        {
+            return Err(
+                MineruResponseError::from_response(status.as_u16(), &text, retry_after).into(),
             );
         }
         let envelope: MineruApiEnvelope<T> = serde_json::from_str(&text).with_context(|| {
@@ -308,7 +346,6 @@ impl MineruClient {
                 summarize_error_text(&text)
             )
         })?;
-        ensure_envelope_ok(&envelope, &text)?;
         Ok(envelope)
     }
 
@@ -359,24 +396,25 @@ pub fn find_extract_result_in_batch<'a>(
         .find(|item| item.file_name == file_name)
 }
 
-fn build_apply_upload_payload(
-    file_name: &str,
-    model_version: &str,
-    page_ranges: &str,
-    data_id: &str,
-) -> Value {
-    let mut file_spec = if data_id.trim().is_empty() {
-        json!({ "name": file_name })
-    } else {
-        json!({ "name": file_name, "data_id": data_id.trim() })
-    };
-    if !page_ranges.trim().is_empty() {
-        file_spec["page_ranges"] = Value::String(page_ranges.trim().to_string());
+fn build_apply_upload_payload(file_name: &str, options: &MineruUploadOptions<'_>) -> Value {
+    let mut file_spec = json!({ "name": file_name, "is_ocr": options.is_ocr });
+    if !options.data_id.trim().is_empty() {
+        file_spec["data_id"] = Value::String(options.data_id.trim().to_string());
     }
-    json!({
+    if !options.page_ranges.trim().is_empty() {
+        file_spec["page_ranges"] = Value::String(options.page_ranges.trim().to_string());
+    }
+    let mut payload = json!({
         "files": [file_spec],
-        "model_version": model_version,
-    })
+        "model_version": options.model_version,
+        "enable_formula": options.enable_formula,
+        "enable_table": options.enable_table,
+        "language": options.language,
+    });
+    if !options.extra_formats.is_empty() {
+        payload["extra_formats"] = json!(options.extra_formats);
+    }
+    payload
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -420,28 +458,6 @@ fn build_extract_task_payload(
     payload
 }
 
-fn ensure_envelope_ok<T>(envelope: &MineruApiEnvelope<T>, raw_text: &str) -> Result<()> {
-    match &envelope.code {
-        Value::Number(value) if value.as_i64() == Some(0) => Ok(()),
-        Value::String(value) if value.trim() == "0" => Ok(()),
-        Value::Null => Ok(()),
-        other => {
-            let code = other.to_string();
-            let message = extract_provider_message(raw_text)
-                .or_else(|| (!envelope.msg.trim().is_empty()).then(|| envelope.msg.clone()))
-                .unwrap_or_else(|| "unknown MinerU error".to_string());
-            let trace_id = extract_provider_trace_id(raw_text)
-                .or_else(|| normalize_trace_id(&envelope.trace_id));
-            let provider_code = extract_provider_error_code(raw_text).unwrap_or(code);
-            let trace_suffix = trace_id
-                .as_deref()
-                .map(|trace| format!(" trace_id={trace}"))
-                .unwrap_or_default();
-            bail!("MinerU API error code={provider_code}: {message}{trace_suffix}");
-        }
-    }
-}
-
 fn summarize_error_text(text: &str) -> String {
     text.trim().chars().take(300).collect()
 }
@@ -452,24 +468,95 @@ fn normalize_trace_id(trace_id: &str) -> Option<String> {
 }
 
 #[cfg(test)]
+#[path = "http_tests.rs"]
+mod http_tests;
+
+#[cfg(test)]
 mod tests {
-    use super::{build_apply_upload_payload, build_extract_task_payload};
+    use super::{build_apply_upload_payload, build_extract_task_payload, MineruUploadOptions};
 
     #[test]
     fn build_apply_upload_payload_includes_page_ranges_when_present() {
-        let payload = build_apply_upload_payload("sample.pdf", "doclayout_yolo", "1-5", "data-1");
+        let payload = build_apply_upload_payload(
+            "sample.pdf",
+            &MineruUploadOptions {
+                page_ranges: "1-5",
+                data_id: "data-1",
+                ..Default::default()
+            },
+        );
 
-        assert_eq!(payload["model_version"], "doclayout_yolo");
+        assert_eq!(payload["model_version"], "vlm");
         assert_eq!(payload["files"][0]["name"], "sample.pdf");
         assert_eq!(payload["files"][0]["data_id"], "data-1");
         assert_eq!(payload["files"][0]["page_ranges"], "1-5");
     }
 
     #[test]
+    fn local_upload_matches_remote_parsing_options_at_correct_wire_levels() {
+        let formats = vec!["html".to_string(), "docx".to_string()];
+        let local = build_apply_upload_payload(
+            "scan.pdf",
+            &MineruUploadOptions {
+                model_version: "pipeline",
+                is_ocr: true,
+                enable_formula: false,
+                enable_table: false,
+                language: "en",
+                page_ranges: "2,4-6",
+                data_id: "scan-1",
+                extra_formats: &formats,
+            },
+        );
+        let remote = build_extract_task_payload(
+            "https://example.com/scan.pdf",
+            "pipeline",
+            true,
+            false,
+            false,
+            "en",
+            "2,4-6",
+            "scan-1",
+            false,
+            900,
+            &formats,
+        );
+        for field in [
+            "model_version",
+            "enable_formula",
+            "enable_table",
+            "language",
+            "extra_formats",
+        ] {
+            assert_eq!(local[field], remote[field], "{field}");
+        }
+        for field in ["is_ocr", "page_ranges", "data_id"] {
+            assert_eq!(local["files"][0][field], remote[field], "{field}");
+            assert!(local.get(field).is_none(), "{field} belongs to each file");
+        }
+        assert!(
+            local.get("no_cache").is_none(),
+            "URL caching is not an upload option"
+        );
+    }
+
+    #[test]
+    fn local_upload_defaults_preserve_optional_field_absence() {
+        let payload = build_apply_upload_payload("sample.pdf", &Default::default());
+        assert_eq!(payload["files"][0]["is_ocr"], false);
+        assert_eq!(payload["enable_formula"], true);
+        assert_eq!(payload["enable_table"], true);
+        assert_eq!(payload["language"], "ch");
+        assert!(payload["files"][0].get("page_ranges").is_none());
+        assert!(payload["files"][0].get("data_id").is_none());
+        assert!(payload.get("extra_formats").is_none());
+    }
+
+    #[test]
     fn build_extract_task_payload_includes_page_ranges_when_present() {
         let payload = build_extract_task_payload(
             "https://example.com/a.pdf",
-            "doclayout_yolo",
+            "vlm",
             false,
             true,
             true,
@@ -478,11 +565,11 @@ mod tests {
             "data-2",
             false,
             0,
-            &["markdown".to_string()],
+            &["html".to_string()],
         );
 
         assert_eq!(payload["page_ranges"], "2,4-6");
         assert_eq!(payload["data_id"], "data-2");
-        assert_eq!(payload["extra_formats"][0], "markdown");
+        assert_eq!(payload["extra_formats"][0], "html");
     }
 }

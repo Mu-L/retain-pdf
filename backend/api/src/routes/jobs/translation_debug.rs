@@ -9,18 +9,18 @@ use crate::models::api::{
 };
 use crate::AppState;
 
-use super::json_response::{
-    replay_translation_item_response, translation_diagnostics_response, translation_item_response,
-    translation_items_response,
+use super::json_response::replay_translation_item_response;
+use crate::routes::common::{
+    build_jobs_query_route_deps, build_jobs_route_deps, ok_json, ApiPath, ApiQuery,
 };
-use crate::routes::common::{build_jobs_route_deps, ApiPath, ApiQuery};
 
 pub async fn get_translation_diagnostics(
     State(state): State<AppState>,
     ApiPath(job_id): ApiPath<String>,
     _headers: HeaderMap,
 ) -> Result<Json<ApiResponse<TranslationDiagnosticsView>>, AppError> {
-    translation_diagnostics_response(build_jobs_route_deps(&state), &job_id)
+    let deps = build_jobs_query_route_deps(&state);
+    Ok(ok_json(deps.jobs.translation_diagnostics_view(&job_id)?))
 }
 
 pub async fn list_translation_items(
@@ -28,14 +28,16 @@ pub async fn list_translation_items(
     ApiPath(job_id): ApiPath<String>,
     ApiQuery(query): ApiQuery<ListTranslationItemsQuery>,
 ) -> Result<Json<ApiResponse<TranslationDebugListView>>, AppError> {
-    translation_items_response(build_jobs_route_deps(&state), &job_id, &query)
+    let deps = build_jobs_query_route_deps(&state);
+    Ok(ok_json(deps.jobs.translation_items_view(&job_id, &query)?))
 }
 
 pub async fn get_translation_item(
     State(state): State<AppState>,
     ApiPath((job_id, item_id)): ApiPath<(String, String)>,
 ) -> Result<Json<ApiResponse<TranslationDebugItemView>>, AppError> {
-    translation_item_response(build_jobs_route_deps(&state), &job_id, &item_id)
+    let deps = build_jobs_query_route_deps(&state);
+    Ok(ok_json(deps.jobs.translation_item_view(&job_id, &item_id)?))
 }
 
 pub async fn replay_translation_item_route(

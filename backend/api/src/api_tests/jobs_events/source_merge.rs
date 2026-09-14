@@ -47,7 +47,7 @@ async fn job_events_route_merges_pipeline_jsonl_events() {
         .expect("append db event");
     fs::write(
         job_root.join("logs").join("pipeline_events.jsonl"),
-        r#"{"job_id":"job-route-events-jsonl","seq":1,"ts":"2026-04-24T01:00:00Z","level":"info","stage":"translating","stage_detail":"batch done","provider":"paddle","provider_stage":"","event_type":"stage_progress","message":"batch done","progress_current":2,"progress_total":5,"retry_count":0,"elapsed_ms":1000,"payload":{"origin":"python"}}"#,
+        concat!(r#"{"job_id":"job-route-events-jsonl","seq":1,"ts":"2026-04-24T01:00:00Z","level":"info","stage":"translating","stage_detail":"batch done","provider":"paddle","provider_stage":"","event_type":"stage_progress","message":"batch done","progress_current":2,"progress_total":5,"retry_count":0,"elapsed_ms":1000,"payload":{"origin":"python"}}"#, "\n"),
     )
     .expect("write pipeline events");
 
@@ -153,7 +153,7 @@ async fn durable_stage_event_replaces_matching_jsonl_projection() {
         .expect("commit stage observation");
     fs::write(
         job_root.join("logs").join("pipeline_events.jsonl"),
-        r#"{"schema":"pipeline_stage_observation_v1","schema_version":1,"job_id":"job-route-events-durable","seq":7,"ts":"2026-08-26T00:00:00Z","level":"info","user_stage":"translation","stage":"translating","substage":"translation_batches","stage_detail":"uncommitted file projection","event_type":"stage_progress","message":"uncommitted file projection","progress_current":4,"progress_total":5,"progress_unit":"batch","payload":{"origin":"jsonl"}}"#,
+        concat!(r#"{"schema":"pipeline_stage_observation_v1","schema_version":1,"job_id":"job-route-events-durable","seq":7,"ts":"2026-08-26T00:00:00Z","level":"info","user_stage":"translation","stage":"translating","substage":"translation_batches","stage_detail":"uncommitted file projection","event_type":"stage_progress","message":"uncommitted file projection","progress_current":4,"progress_total":5,"progress_unit":"batch","payload":{"origin":"jsonl"}}"#, "\n"),
     )
     .expect("write pipeline events");
 

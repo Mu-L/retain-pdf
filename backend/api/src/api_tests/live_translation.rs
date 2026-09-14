@@ -2,7 +2,7 @@ use std::fs;
 use std::time::Duration;
 
 use axum::body::Body;
-use axum::http::{Request, StatusCode};
+use axum::http::{HeaderName, Request, StatusCode};
 use futures_util::StreamExt;
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -317,4 +317,56 @@ async fn live_events_streams_authoritative_commit_with_database_sequence() {
     assert!(event.contains("event: translation_units_committed"));
     assert!(event.contains(&format!("\"page_hash\":\"{}\"", sha256_hex(&snapshot))));
     assert!(event.contains("\"changed_item_ids\":[\"p001-b0003\"]"));
+    let sse_id = event
+        .lines()
+        .find_map(|line| line.strip_prefix("id: "))
+        .expect("SSE id line")
+        .parse::<i64>()
+        .expect("numeric SSE id");
+
+    let data = event
+        .lines()
+        .find_map(|line| line.strip_prefix("data: "))
+        .expect("SSE data line");
+    let payload: serde_json::Value = serde_json::from_str(data).expect("SSE event JSON");
+    assert_eq!(payload["event"], "translation_units_committed");
+    assert_eq!(payload["seq"], sse_id);
+    assert!(payload["attempt"].as_u64().is_some());
+    assert!(payload["generation"].as_u64().is_some());
+    assert_eq!(payload["page_idx"], 0);
+    assert_eq!(payload["page_hash"], sha256_hex(&snapshot));
+    assert_eq!(payload["changed_item_ids"], json!(["p001-b0003"]));
+}
+
+#[tokio::test]
+async fn live_events_use_the_greater_of_after_seq_and_last_event_id() {
+    let state = test_state("live-translation-events-cursor");
+    let (job, _) = seed_live_translation_job(&state, "cursor");
+    let committed_seq = state
+        .db
+        .list_translation_commit_events_after(&job.job_id, 0, 10)
+        .expect("list durable translation commits")
+        .into_iter()
+        .map(|record| record.seq)
+        .max()
+        .expect("seeded commit sequence");
+    let app = build_app(state);
+
+    // Both cursor forms address the same durable sequence. Last-Event-ID is
+    // the greater cursor, so the already observed commit must not replay.
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/v1/jobs/{}/live-events?after_seq=0", job.job_id))
+                .header("X-API-Key", "test-key")
+                .header(HeaderName::from_static("last-event-id"), committed_seq.to_string())
+                .body(Body::empty())
+                .expect("events request"),
+        )
+        .await
+        .expect("events response");
+    assert_eq!(response.status(), StatusCode::OK);
+    let mut stream = response.into_body().into_data_stream();
+    let first = tokio::time::timeout(Duration::from_millis(900), stream.next()).await;
+    assert!(first.is_err(), "Last-Event-ID must advance the replay cursor");
 }

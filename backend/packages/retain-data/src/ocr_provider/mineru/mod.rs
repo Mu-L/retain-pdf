@@ -1,6 +1,7 @@
 pub mod client;
 pub mod errors;
 pub mod models;
+pub mod response_error;
 pub mod status;
 
 #[allow(unused_imports)]

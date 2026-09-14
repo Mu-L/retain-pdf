@@ -420,7 +420,12 @@ fn update_document_fields_manages_tags_and_status() {
 
 /// 建一篇文档并设好标题：`upload_with_hash` 的文件名是写死的，
 /// 文本搜索要同时验标题列与文件名列，所以这里让调用方两者都能指定。
-fn seed_titled_document(db: &crate::db::Db, seed: &str, filename: &str, title: Option<&str>) -> String {
+fn seed_titled_document(
+    db: &crate::db::Db,
+    seed: &str,
+    filename: &str,
+    title: Option<&str>,
+) -> String {
     let hash = sha256_hex(seed.as_bytes());
     let mut upload = upload_with_hash(&format!("up-{seed}"), &hash);
     upload.filename = filename.to_string();
@@ -440,7 +445,12 @@ fn document_text_search_matches_title_or_filename() {
     let db = fs.db();
     db.init().expect("init");
     seed_titled_document(&db, "a", "spectra.pdf", Some("光谱计算方法综述"));
-    seed_titled_document(&db, "b", "attention-is-all-you-need.pdf", Some("Attention Is All You Need"));
+    seed_titled_document(
+        &db,
+        "b",
+        "attention-is-all-you-need.pdf",
+        Some("Attention Is All You Need"),
+    );
     seed_titled_document(&db, "c", "misc.pdf", Some("无关文档"));
 
     // 标题命中

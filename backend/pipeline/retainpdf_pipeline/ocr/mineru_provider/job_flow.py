@@ -121,6 +121,12 @@ def run_mineru_to_job_dir(args: Namespace) -> tuple[JobDirs, Path, Path, Path]:
             file_path=file_path,
             model_version=args.model_version,
             data_id=args.data_id,
+            is_ocr=args.is_ocr,
+            enable_formula=enable_formula,
+            enable_table=enable_table,
+            language=args.language,
+            page_ranges=args.page_ranges,
+            extra_formats=extra_formats,
             poll_interval=args.poll_interval,
             poll_timeout=args.poll_timeout,
         )

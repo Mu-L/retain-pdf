@@ -84,17 +84,10 @@ pub fn build_jobs_facade_from_state(state: &AppState) -> JobsFacade<'_> {
         &state.config.project_root,
         &state.config.scripts_dir,
         &state.config.python_bin,
-        &state.config.pipeline_command,
         &state.config.data_root,
     );
     build_jobs_facade(
         CommandJobsDeps::new(state.db.as_ref(), submit, control),
-        QueryJobsDeps::new(
-            state.db.as_ref(),
-            &state.config.data_root,
-            &state.config.downloads_dir,
-            &state.download_generation,
-            replay,
-        ),
+        QueryJobsDeps::new(state.db.as_ref(), &state.config.data_root, replay),
     )
 }

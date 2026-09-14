@@ -156,6 +156,13 @@ Rust API 对应暴露了：
 
 ### 外部公开入口
 
+离线修复使用 `translate.public.prepare_relocated_translation_copy`：调用方先在
+OCR 层得到标准化文档和块重定位映射，翻译 workflow 再负责新副本中的译文复用、
+manifest/诊断引用重映射、checkpoint 指纹与 generation 更新。它不读取 provider
+raw、不调用 OCR/LLM，也不修改源任务。副本的后续发布仍由既有持久化流程负责。
+`CheckpointStore`、checkpoint 状态推进和指纹 helper 保持内部实现，不作为修复
+脚本可调用的公共能力。该脚本不得通过翻译内部 import 或扩大 allowlist 绕过入口。
+
 production 代码在 translation 外部引用本模块时，默认只允许：
 
 - `translate.public`

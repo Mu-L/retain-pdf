@@ -1,12 +1,13 @@
 use std::time::Instant;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use tokio::time::{sleep, Duration};
 
 use super::save_ocr_job;
 use crate::job_events::record_custom_runtime_event_with_resources;
 use crate::job_runner::{register_job_retry, ProcessRuntimeDeps};
 use crate::models::domain::{now_iso, JobRuntimeState};
+use crate::ocr_provider::mineru::response_error::MineruResponseError;
 
 pub(super) fn mineru_error_chain_text(err: &anyhow::Error) -> String {
     err.chain()
@@ -20,7 +21,7 @@ pub(super) async fn query_with_retry<T, F, Fut>(
     job: &mut JobRuntimeState,
     resource_label: &str,
     resource_id: &str,
-    timeout_secs: u64,
+    deadline: Instant,
     parent_job_id: Option<&str>,
     mut fetch: F,
 ) -> Result<Option<T>>
@@ -29,17 +30,39 @@ where
     Fut: std::future::Future<Output = Result<T>>,
 {
     let runtime = deps.mineru_runtime();
-    let started = Instant::now();
     let mut attempt = 0usize;
     loop {
-        match fetch().await {
+        if super::polling::should_stop_polling(&deps.canceled_jobs, &job.job_id).await {
+            return Ok(None);
+        }
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(anyhow!("MinerU polling deadline exceeded"));
+        }
+        let result = tokio::time::timeout(remaining, fetch())
+            .await
+            .map_err(|_| anyhow!("MinerU polling deadline exceeded during query"))?;
+        match result {
             Ok(value) => return Ok(Some(value)),
             Err(err) => {
                 attempt += 1;
-                if !should_retry_mineru_poll_error(&err)
-                    || started.elapsed().as_secs() >= timeout_secs
-                {
+                if !should_retry_mineru_poll_error(&err) || Instant::now() >= deadline {
                     return Err(err);
+                }
+                let delay_secs = retry_delay_secs(
+                    &err,
+                    attempt,
+                    runtime.poll_retry_base_delay_secs,
+                    runtime.poll_retry_max_delay_secs,
+                );
+                // Applies to degraded cycles as well: do not resume polling sooner
+                // than Retry-After when the per-cycle attempt budget is exhausted.
+                if Duration::from_secs(delay_secs)
+                    >= deadline.saturating_duration_since(Instant::now())
+                {
+                    return Err(
+                        err.context("MinerU retry delay exceeds remaining polling deadline")
+                    );
                 }
                 if attempt >= runtime.poll_retry_limit {
                     job.append_log(&format!(
@@ -69,12 +92,9 @@ where
                         })),
                     );
                     save_ocr_job(deps, job, parent_job_id).await?;
+                    wait_retry_delay(deps, &job.job_id, Duration::from_secs(delay_secs)).await;
                     return Ok(None);
                 }
-                let delay_secs = std::cmp::min(
-                    runtime.poll_retry_base_delay_secs * attempt as u64,
-                    runtime.poll_retry_max_delay_secs,
-                );
                 job.append_log(&format!(
                     "MinerU {resource_label} poll retry {attempt}/{}: {resource_id} after error: {}",
                     runtime.poll_retry_limit,
@@ -105,13 +125,38 @@ where
                     })),
                 );
                 save_ocr_job(deps, job, parent_job_id).await?;
-                sleep(Duration::from_secs(delay_secs)).await;
+                wait_retry_delay(deps, &job.job_id, Duration::from_secs(delay_secs)).await;
             }
         }
     }
 }
 
+async fn wait_retry_delay(deps: &ProcessRuntimeDeps, job_id: &str, delay: Duration) {
+    let until = Instant::now() + delay;
+    loop {
+        if super::polling::should_stop_polling(&deps.canceled_jobs, job_id).await {
+            return;
+        }
+        let remaining = until.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return;
+        }
+        sleep(remaining.min(Duration::from_millis(250))).await;
+    }
+}
+
 pub(super) fn should_retry_mineru_poll_error(err: &anyhow::Error) -> bool {
+    if let Some(response) = err.downcast_ref::<MineruResponseError>() {
+        return response.retryable_query();
+    }
+    if let Some(network) = err.downcast_ref::<reqwest::Error>() {
+        if let Some(status) = network.status() {
+            return matches!(status.as_u16(), 408 | 429 | 500 | 502 | 503 | 504);
+        }
+        return network.is_timeout() || network.is_connect() || network.is_body();
+    }
+    // Compatibility for older process/string-only errors; never match bare
+    // status numbers, which can occur in a URL, trace ID, or filename.
     let text = mineru_error_chain_text(err);
     text.contains("timed out")
         || text.contains("connection timed out")
@@ -121,14 +166,58 @@ pub(super) fn should_retry_mineru_poll_error(err: &anyhow::Error) -> bool {
         || text.contains("sendrequest")
         || text.contains("tempor")
         || text.contains("service unavailable")
-        || text.contains("502")
-        || text.contains("503")
-        || text.contains("504")
+}
+
+fn retry_delay_secs(err: &anyhow::Error, attempt: usize, base: u64, cap: u64) -> u64 {
+    let backoff = base.saturating_mul(attempt as u64).min(cap);
+    let requested = err
+        .downcast_ref::<MineruResponseError>()
+        .and_then(|response| response.retry_after_secs)
+        .unwrap_or_default();
+    backoff.max(requested)
 }
 
 #[cfg(test)]
+#[path = "mineru_retry_tests.rs"]
+mod integration_tests;
+
+#[cfg(test)]
 mod tests {
-    use super::{mineru_error_chain_text, should_retry_mineru_poll_error};
+    use super::{
+        mineru_error_chain_text, retry_delay_secs, should_retry_mineru_poll_error,
+        MineruResponseError,
+    };
+
+    #[test]
+    fn structured_business_errors_override_retry_sounding_messages() {
+        for (code, expected) in [
+            ("A0211", false),
+            ("-60018", false),
+            ("-60009", true),
+            ("-10001", true),
+        ] {
+            let err = anyhow::Error::new(MineruResponseError::from_response(
+                200,
+                &serde_json::json!({"code": code, "msg": "503 temporary timeout"}).to_string(),
+                None,
+            ))
+            .context("query batch failed");
+            assert_eq!(should_retry_mineru_poll_error(&err), expected, "{code}");
+        }
+        assert!(!should_retry_mineru_poll_error(&anyhow::anyhow!(
+            "bad request trace_id=503 file=502.pdf"
+        )));
+    }
+
+    #[test]
+    fn rate_limit_retains_server_delay_and_fallback_is_bounded() {
+        let err = anyhow::Error::new(MineruResponseError::from_response(429, "", Some(45)));
+        assert!(should_retry_mineru_poll_error(&err));
+        assert_eq!(retry_delay_secs(&err, 2, 2, 10), 45);
+        let plain = anyhow::anyhow!("timeout");
+        assert_eq!(retry_delay_secs(&plain, 3, 2, 10), 6);
+        assert_eq!(retry_delay_secs(&plain, usize::MAX, u64::MAX, 10), 10);
+    }
 
     #[test]
     fn should_retry_mineru_poll_error_matches_dns_and_timeout_noise() {

@@ -125,6 +125,19 @@ service projections such as `book_projection`:
 They are intentionally outside `presentation` so library/book projections do not
 depend on job view internals.
 
+Shared artifact display belongs to `services/artifacts/presentation.rs`, exposed
+only through `services::artifacts::build_artifacts_display`. It consumes
+`ArtifactLinksView` without loading jobs, files, or database records. Both book
+and job views may depend on it; jobs must not import `book_projection` back.
+
+## Runner leaf dependencies
+
+`ocr_flow/bundle_events`, `render_flow_artifacts`, and
+`translation_flow_artifacts` consume only `JobPersistDeps` (database and data/output
+roots). Orchestrators pass `&deps.persist`, not the full `ProcessRuntimeDeps`.
+Architecture checks protect these modules and any nested modules from acquiring
+global configuration or execution control capabilities again.
+
 ## Persistence
 
 `../../database/retain-db/src/db/**` should stay focused on SQLite rows and records.

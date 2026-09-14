@@ -52,6 +52,7 @@ TRANSLATION_WORKFLOW_ALLOWED_FILES = {
     "page_policies.py",
     "page_range.py",
     "pages.py",
+    "recovery.py",
     "stages.py",
     "translation_workflow.py",
     "workers.py",

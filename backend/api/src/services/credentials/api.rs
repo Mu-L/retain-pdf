@@ -6,6 +6,7 @@
 
 pub use super::service::{
     create_credential, delete_credential, get_credential_metadata, list_credentials,
-    update_credential, CreateCredentialInput, CredentialDeleteView, CredentialListView,
-    CredentialMutationView, DeleteCredentialQuery, UpdateCredentialInput,
+    list_credentials_with_values, update_credential, CreateCredentialInput, CredentialDeleteView,
+    CredentialListView, CredentialMutationView, DeleteCredentialQuery, ListCredentialQuery,
+    UpdateCredentialInput,
 };

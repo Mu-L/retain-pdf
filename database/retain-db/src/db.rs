@@ -21,6 +21,10 @@ mod document_metadata_suggestions;
 mod document_operations;
 #[path = "db/documents.rs"]
 pub mod documents;
+#[path = "db/event_feed.rs"]
+mod event_feed;
+#[path = "db/event_projection_inputs.rs"]
+mod event_projection_inputs;
 #[path = "db/events.rs"]
 mod events;
 #[path = "db/glossaries.rs"]
@@ -108,6 +112,11 @@ pub use document_operations::{
     CommitDocumentCandidateResult, DocumentOperationEventRecord, DocumentVersionRecord,
     StoredDocumentOperation, StoredDocumentOperationAttempt,
 };
+pub use event_feed::{
+    EventSourceVersion, NewFeedItem, SourceEvent, StoredEventFeed, StoredFeedItem,
+};
+pub use event_projection_inputs::EventProjectionInput;
+pub use jobs::JobListSelection;
 pub use model_requests::{
     ModelOperation, ModelRecoverySummary, ModelReservation, ModelSession, ModelSessionConflict,
 };
@@ -259,6 +268,20 @@ impl Db {
             CREATE INDEX IF NOT EXISTS idx_glossaries_updated_at ON glossaries(updated_at DESC);
             "#,
         )?;
+        // New migrations can reference these columns on pre-library databases.
+        // Ensure them before running the migration ladder, not after connect().
+        ensure_jobs_column(conn, "document_id", "TEXT")?;
+        for column in ["stage_detail", "provider", "provider_stage", "event_type"] {
+            ensure_events_column(conn, column, "TEXT")?;
+        }
+        for column in [
+            "progress_current",
+            "progress_total",
+            "retry_count",
+            "elapsed_ms",
+        ] {
+            ensure_events_column(conn, column, "INTEGER")?;
+        }
         // 图书馆表走版本化迁移,随 schema 保证存在(不依赖 init 被调用)
         run_versioned_migrations(&conn)?;
         *ready = true;

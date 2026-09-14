@@ -4,7 +4,7 @@ pipeline and the backend workspace share one version; ai-service is
 versioned independently and is intentionally excluded.
 """
 
-import sys
+import re
 import tomllib
 from pathlib import Path
 
@@ -31,17 +31,30 @@ def test_workspace_version_matches_release_tag() -> None:
     import subprocess
 
     proc = subprocess.run(
-        ["git", "describe", "--tags", "--abbrev=0"],
+        ["git", "describe", "--tags", "--exact-match", "HEAD"],
         capture_output=True,
         text=True,
         cwd=SERVICES_ROOT.parent,
     )
     tag = proc.stdout.strip()
     if proc.returncode != 0 or not tag:
-        pytest.skip("no release tag available in this checkout")
-    assert tag.lstrip("v") == WORKSPACE_VERSION, (
+        pytest.skip("HEAD is not a tagged release; member alignment is checked separately")
+    # Delivery tags can carry hotfix/prerelease/build labels while the Python
+    # workspace keeps the shared numeric package version.
+    assert _release_base_version(tag) == WORKSPACE_VERSION, (
         f"workspace {WORKSPACE_VERSION} != release tag {tag}"
     )
+
+
+def _release_base_version(tag: str) -> str:
+    match = re.fullmatch(r"v?(\d+\.\d+\.\d+)(?:[-+][0-9A-Za-z.+-]+)?", tag)
+    assert match is not None, f"invalid release version tag: {tag}"
+    return match[1]
+
+
+@pytest.mark.parametrize("tag", ["4.2.2", "v4.2.2", "v4.2.2-hotfix-4", "4.2.2-rc.1+build.2"])
+def test_release_base_version_accepts_delivery_labels(tag: str) -> None:
+    assert _release_base_version(tag) == "4.2.2"
 
 
 def test_wheel_data_files_covered() -> None:

@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::LibraryDeps;
 use crate::db::Db;
@@ -14,24 +14,23 @@ use crate::services::book_projection::{
 use crate::services::managed_credential_gc::cleanup_deleted_job_credentials;
 
 pub fn list_library_books(
-    deps: &LibraryDeps<'_>,
+    db: &Db,
+    data_root: &Path,
     query: &ListJobsQuery,
     base_url: &str,
 ) -> Result<LibraryBookListView, AppError> {
-    build_library_book_list_view(deps.db, deps.data_root, query, base_url)
+    build_library_book_list_view(db, data_root, query, base_url)
 }
 
 pub fn get_library_book(
-    deps: &LibraryDeps<'_>,
+    db: &Db,
+    data_root: &Path,
     job_id: &str,
     base_url: &str,
 ) -> Result<LibraryBookDetailView, AppError> {
-    let job = load_library_job(deps.db, job_id)?;
+    let job = load_library_job(db, job_id)?;
     Ok(build_library_book_detail_view(
-        deps.db,
-        deps.data_root,
-        &job,
-        base_url,
+        db, data_root, &job, base_url,
     ))
 }
 

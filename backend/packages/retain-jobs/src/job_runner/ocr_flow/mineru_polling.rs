@@ -30,12 +30,15 @@ pub(super) async fn poll_uploaded_batch_until_ready(
             job,
             "batch",
             batch_id,
-            timeout_secs,
+            started + std::time::Duration::from_secs(timeout_secs),
             parent_job_id,
             || client.query_batch_status(batch_id),
         )
         .await?
         else {
+            if should_stop_polling(&deps.canceled_jobs, &job.job_id).await {
+                return Ok(());
+            }
             wait_next_poll_or_timeout(started, timeout_secs, poll_interval, || {
                 format!("Timed out waiting for MinerU batch result: {batch_id}")
             })
@@ -85,12 +88,15 @@ pub(super) async fn poll_remote_task_until_ready(
             job,
             "task",
             task_id,
-            timeout_secs,
+            started + std::time::Duration::from_secs(timeout_secs),
             parent_job_id,
             || client.query_task(task_id),
         )
         .await?
         else {
+            if should_stop_polling(&deps.canceled_jobs, &job.job_id).await {
+                return Ok(());
+            }
             wait_next_poll_or_timeout(started, timeout_secs, poll_interval, || {
                 format!("Timed out waiting for MinerU task {task_id}")
             })

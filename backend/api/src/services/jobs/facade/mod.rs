@@ -4,8 +4,8 @@ mod query;
 use crate::models::api::JobSubmissionView;
 use crate::models::domain::{JobSnapshot, JobStatusKind, WorkflowKind};
 
-use crate::services::jobs::deps::{CommandJobsDeps, QueryJobsDeps};
 use super::support::build_submission_view;
+use crate::services::jobs::deps::{CommandJobsDeps, QueryJobsDeps};
 
 #[derive(Clone)]
 pub struct JobsFacade<'a> {

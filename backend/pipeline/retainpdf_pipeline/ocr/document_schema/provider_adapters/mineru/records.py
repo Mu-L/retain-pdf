@@ -111,9 +111,7 @@ def build_block_record(
         raw_type, raw_sub_type=raw_sub_type, has_text=bool(text)
     )
     block_id = f"p{page_idx + 1:03d}-b{page_block_index:04d}"
-    normalized_bbox = effective_block_bbox(
-        block, aggregate_children=aggregate_children
-    )
+    normalized_bbox = effective_block_bbox(block, aggregate_children=aggregate_children)
     # MinerU's own hierarchy is occasionally off by rounding noise (e.g. a
     # line bottom 1pt below its block). Clamp descendants into the block so
     # the document validator's containment invariant holds; disjoint boxes
@@ -125,6 +123,7 @@ def build_block_record(
         "raw_sub_type": raw_sub_type,
         "parent_block_id": "",
         **provider_payload_metadata(block),
+        **block.get("_retainpdf_cross_page_recovery", {}),
     }
     if parent_group:
         metadata.update(parent_group)
@@ -267,6 +266,7 @@ def ordered_page_roots(page: dict) -> list[tuple[dict, list[str | int]]]:
             ordinal += 1
     roots.sort(key=lambda item: (item[2], item[3]))
     return [(block, path) for block, path, _index, _ordinal in roots]
+
 
 __all__ = [
     "build_block_record",

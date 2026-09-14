@@ -1,20 +1,11 @@
-use std::path::Path;
-
 use serde_json::Value;
 
 use crate::models::api::NormalizationSummaryView;
-use crate::models::domain::JobSnapshot;
-use crate::storage_paths::resolve_normalization_report;
 
-use super::shared::read_json_value;
-
-pub(crate) fn load_normalization_summary(
-    job: &JobSnapshot,
-    data_root: &Path,
+pub(super) fn load_normalization_summary_from_json(
+    payload: &Value,
 ) -> Option<NormalizationSummaryView> {
-    let path = resolve_normalization_report(job, data_root)?;
-    let payload = read_json_value(&path).ok()?;
-    let normalization = payload.get("normalization").unwrap_or(&payload);
+    let normalization = payload.get("normalization").unwrap_or(payload);
     let defaults = normalization.get("defaults");
     let validation = normalization.get("validation");
     Some(NormalizationSummaryView {

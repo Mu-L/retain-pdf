@@ -60,12 +60,24 @@ def run_local_extract_task(
     data_id: str,
     poll_interval: int,
     poll_timeout: int,
+    is_ocr: bool = False,
+    enable_formula: bool = True,
+    enable_table: bool = True,
+    language: str = "ch",
+    page_ranges: str = "",
+    extra_formats: list[str] | None = None,
 ) -> dict:
     batch_id, upload_url = apply_upload_url(
         token=token,
         file_name=file_path.name,
         model_version=model_version,
         data_id=data_id,
+        is_ocr=is_ocr,
+        enable_formula=enable_formula,
+        enable_table=enable_table,
+        language=language,
+        page_ranges=page_ranges,
+        extra_formats=extra_formats,
     )
     print(f"batch_id: {batch_id}")
     upload_file(upload_url, file_path)

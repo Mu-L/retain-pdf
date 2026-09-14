@@ -1,6 +1,6 @@
 use anyhow::Result;
 use chrono::{Duration as ChronoDuration, SecondsFormat, Utc};
-use rusqlite::params;
+use rusqlite::{params, TransactionBehavior};
 
 use crate::models::domain::{JobStatusKind, UploadRecord};
 use crate::storage_paths::resolve_data_path;
@@ -25,8 +25,46 @@ impl Db {
         let succeeded = serde_json::to_string(&JobStatusKind::Succeeded)?;
         let failed = serde_json::to_string(&JobStatusKind::Failed)?;
         let canceled = serde_json::to_string(&JobStatusKind::Canceled)?;
-        let conn = self.connect()?;
-        let deleted = conn.execute(
+        let mut conn = self.connect()?;
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        // Remember cleanup for feeds that have not been initialized yet. A
+        // later projection rebuild must not resurrect expired JSONL history.
+        tx.execute(
+            "INSERT INTO event_feed_retention(singleton, cutoff) VALUES(1, ?1)
+             ON CONFLICT(singleton) DO UPDATE SET cutoff = MAX(cutoff, excluded.cutoff)",
+            [&cutoff],
+        )?;
+        // A terminal child may only have been read through its parent's feed.
+        // Persist its own cutoff even without raw events or a child feed, so
+        // rerendering that child cannot restore already expired JSONL history.
+        tx.execute(
+            "INSERT INTO event_source_versions(job_id, revision, retention_cutoff)
+             SELECT job_id, 1, ?1 FROM jobs WHERE status_json IN (?2, ?3, ?4)
+             ON CONFLICT(job_id) DO UPDATE SET
+                 revision = revision + 1, retention_cutoff = excluded.retention_cutoff
+             WHERE retention_cutoff IS NULL OR retention_cutoff < excluded.retention_cutoff",
+            params![cutoff, succeeded, failed, canceled],
+        )?;
+        tx.execute(
+            "UPDATE event_feeds SET
+                 epoch = CASE WHEN EXISTS (
+                     SELECT 1 FROM event_feed_items
+                     WHERE owner_job_id = event_feeds.owner_job_id AND ts < ?1
+                 ) THEN lower(hex(randomblob(16))) ELSE epoch END,
+                 revision = revision + 1, retention_cutoff = ?1
+             WHERE (retention_cutoff IS NULL OR retention_cutoff < ?1)
+               AND owner_job_id IN (
+                   SELECT job_id FROM jobs WHERE status_json IN (?2, ?3, ?4)
+               )",
+            params![cutoff, succeeded, failed, canceled],
+        )?;
+        tx.execute(
+            "DELETE FROM event_feed_items WHERE ts < ?1 AND owner_job_id IN (
+                 SELECT job_id FROM jobs WHERE status_json IN (?2, ?3, ?4)
+             )",
+            params![cutoff, succeeded, failed, canceled],
+        )?;
+        let deleted = tx.execute(
             r#"
             DELETE FROM events
             WHERE ts < ?1
@@ -36,6 +74,7 @@ impl Db {
             "#,
             params![cutoff, succeeded, failed, canceled],
         )?;
+        tx.commit()?;
         Ok(deleted)
     }
 

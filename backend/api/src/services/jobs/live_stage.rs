@@ -6,14 +6,14 @@ use crate::models::domain::JobSnapshot;
 // Public live-stage projection stays here; event loading, child-event merging,
 // and snapshot selection are split out to keep the progress contract auditable.
 mod canonical_events;
-mod combined_events;
 mod pipeline_events;
-mod records;
 mod snapshot;
 
-pub(crate) use combined_events::list_combined_job_events;
+pub(super) use canonical_events::canonicalize_job_event;
+pub(super) use pipeline_events::parse_feed_line;
+pub(super) use snapshot::{compact_stage_basis, select_live_stage_snapshot};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct LiveStageSnapshot {
     pub display_stage: Option<String>,
     pub stage: Option<String>,
@@ -31,6 +31,13 @@ pub(crate) fn load_live_stage_snapshot(
     job: &JobSnapshot,
     data_root: &Path,
 ) -> Option<LiveStageSnapshot> {
-    let items = list_combined_job_events(db, data_root, job).ok()?;
-    snapshot::select_live_stage_snapshot(&items, &job.status)
+    super::event_feed::live_snapshot(db, data_root, job)
+}
+
+pub(crate) fn load_live_stage_snapshots(
+    db: &Db,
+    jobs: &[JobSnapshot],
+    data_root: &Path,
+) -> std::collections::HashMap<String, LiveStageSnapshot> {
+    super::event_feed::live_snapshots(db, data_root, jobs)
 }

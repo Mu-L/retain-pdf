@@ -10,7 +10,11 @@ pub(super) fn provider_case_command(
     config: &WorkerCommandRuntimeConfig<'_>,
     spec_path: &Path,
 ) -> Vec<String> {
-    let mut cmd = CommandBuilder::new(config.python_bin, "retainpdf_pipeline.ocr", Some("provider-case"));
+    let mut cmd = CommandBuilder::new(
+        config.python_bin,
+        "retainpdf_pipeline.ocr",
+        Some("provider-case"),
+    );
     cmd.path_arg("--spec", spec_path);
     cmd.finish()
 }
@@ -19,7 +23,11 @@ pub(super) fn provider_ocr_command(
     config: &WorkerCommandRuntimeConfig<'_>,
     spec_path: &Path,
 ) -> Vec<String> {
-    let mut cmd = CommandBuilder::new(config.python_bin, "retainpdf_pipeline.ocr", Some("provider-ocr"));
+    let mut cmd = CommandBuilder::new(
+        config.python_bin,
+        "retainpdf_pipeline.ocr",
+        Some("provider-ocr"),
+    );
     cmd.path_arg("--spec", spec_path);
     cmd.finish()
 }
@@ -46,7 +54,11 @@ pub(super) fn normalize_ocr_command(
     config: &WorkerCommandRuntimeConfig<'_>,
     spec_path: &Path,
 ) -> Vec<String> {
-    let mut cmd = CommandBuilder::new(config.python_bin, "retainpdf_pipeline.ocr", Some("normalize-ocr"));
+    let mut cmd = CommandBuilder::new(
+        config.python_bin,
+        "retainpdf_pipeline.ocr",
+        Some("normalize-ocr"),
+    );
     cmd.path_arg("--spec", spec_path);
     cmd.finish()
 }

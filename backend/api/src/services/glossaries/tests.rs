@@ -67,9 +67,14 @@ fn test_state() -> AppState {
     ));
     db.init().expect("init db");
     AppState {
-        ai_gateway: Arc::new(crate::services::ai::AiGateway::new(
-            &config.ai_proxy, config.ai_service.base_url(), || 0,
-        ).unwrap()),
+        ai_gateway: Arc::new(
+            crate::services::ai::AiGateway::new(
+                &config.ai_proxy,
+                config.ai_service.base_url(),
+                || 0,
+            )
+            .unwrap(),
+        ),
         uploads: Arc::new(crate::services::uploads::UploadService::new(
             db.clone(),
             crate::services::uploads::UploadServiceConfig {
@@ -84,6 +89,7 @@ fn test_state() -> AppState {
         config,
         db,
         download_generation: Arc::default(),
+        query_execution: Arc::default(),
         canceled_jobs: Arc::new(RwLock::new(HashSet::new())),
         job_slots: Arc::new(Semaphore::new(1)),
         job_drivers: Arc::default(),

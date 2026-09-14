@@ -10,18 +10,23 @@ use crate::models::api::{
 use crate::models::domain::WorkflowKind;
 use crate::AppState;
 
-use super::super::json_response::{
-    job_artifact_manifest_response, job_artifacts_response, job_detail_response,
-    job_events_response, list_jobs_response,
+use crate::routes::common::{
+    build_jobs_query_route_deps, ok_json, request_base_url, run_job_query, run_job_query_once,
+    ApiPath, ApiQuery,
 };
-use crate::routes::common::{build_jobs_route_deps, ApiPath, ApiQuery};
 
 pub async fn list_jobs(
     State(state): State<AppState>,
     headers: HeaderMap,
     ApiQuery(query): ApiQuery<ListJobsQuery>,
 ) -> Result<Json<ApiResponse<JobListView>>, AppError> {
-    list_jobs_response(build_jobs_route_deps(&state), &headers, &query)
+    let deps = build_jobs_query_route_deps(&state);
+    let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
+    let view = run_job_query_once(&state, "jobs:list".into(), move |jobs| {
+        jobs.list_jobs_view(&base_url, &query)
+    })
+    .await?;
+    Ok(ok_json(view))
 }
 
 pub async fn list_ocr_jobs(
@@ -38,7 +43,13 @@ pub async fn get_ocr_job(
     ApiPath(job_id): ApiPath<String>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<JobDetailView>>, AppError> {
-    job_detail_response(build_jobs_route_deps(&state), &headers, &job_id, true)
+    let deps = build_jobs_query_route_deps(&state);
+    let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
+    let view = run_job_query_once(&state, format!("ocr:detail:{job_id}"), move |jobs| {
+        jobs.job_detail_view(&base_url, &job_id, true)
+    })
+    .await?;
+    Ok(ok_json(view))
 }
 
 pub async fn get_ocr_job_events(
@@ -46,7 +57,16 @@ pub async fn get_ocr_job_events(
     ApiPath(job_id): ApiPath<String>,
     ApiQuery(query): ApiQuery<ListJobEventsQuery>,
 ) -> Result<Json<ApiResponse<JobEventListView>>, AppError> {
-    job_events_response(build_jobs_route_deps(&state), &job_id, &query, true)
+    let key = format!(
+        "events:ocr:{job_id}:{:?}:{}:{:?}",
+        query.start, query.limit, query.cursor
+    );
+    Ok(ok_json(
+        run_job_query(&state, key, move |jobs| {
+            jobs.job_events_view(&job_id, &query, true)
+        })
+        .await?,
+    ))
 }
 
 pub async fn get_ocr_job_artifacts(
@@ -54,7 +74,13 @@ pub async fn get_ocr_job_artifacts(
     ApiPath(job_id): ApiPath<String>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<ArtifactLinksView>>, AppError> {
-    job_artifacts_response(build_jobs_route_deps(&state), &headers, &job_id, true)
+    let deps = build_jobs_query_route_deps(&state);
+    let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
+    let view = run_job_query_once(&state, format!("ocr:artifacts:{job_id}"), move |jobs| {
+        jobs.job_artifacts_view(&base_url, &job_id, true)
+    })
+    .await?;
+    Ok(ok_json(view))
 }
 
 pub async fn get_ocr_job_artifacts_manifest(
@@ -62,7 +88,13 @@ pub async fn get_ocr_job_artifacts_manifest(
     ApiPath(job_id): ApiPath<String>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<JobArtifactManifestView>>, AppError> {
-    job_artifact_manifest_response(build_jobs_route_deps(&state), &headers, &job_id, true)
+    let deps = build_jobs_query_route_deps(&state);
+    let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
+    let view = run_job_query_once(&state, format!("ocr:manifest:{job_id}"), move |jobs| {
+        jobs.job_artifact_manifest_view(&base_url, &job_id, true)
+    })
+    .await?;
+    Ok(ok_json(view))
 }
 
 pub async fn get_job(
@@ -70,7 +102,13 @@ pub async fn get_job(
     ApiPath(job_id): ApiPath<String>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<JobDetailView>>, AppError> {
-    job_detail_response(build_jobs_route_deps(&state), &headers, &job_id, false)
+    let deps = build_jobs_query_route_deps(&state);
+    let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
+    let view = run_job_query_once(&state, format!("jobs:detail:{job_id}"), move |jobs| {
+        jobs.job_detail_view(&base_url, &job_id, false)
+    })
+    .await?;
+    Ok(ok_json(view))
 }
 
 pub async fn get_job_events(
@@ -78,7 +116,16 @@ pub async fn get_job_events(
     ApiPath(job_id): ApiPath<String>,
     ApiQuery(query): ApiQuery<ListJobEventsQuery>,
 ) -> Result<Json<ApiResponse<JobEventListView>>, AppError> {
-    job_events_response(build_jobs_route_deps(&state), &job_id, &query, false)
+    let key = format!(
+        "events:all:{job_id}:{:?}:{}:{:?}",
+        query.start, query.limit, query.cursor
+    );
+    Ok(ok_json(
+        run_job_query(&state, key, move |jobs| {
+            jobs.job_events_view(&job_id, &query, false)
+        })
+        .await?,
+    ))
 }
 
 pub async fn get_job_artifacts(
@@ -86,7 +133,13 @@ pub async fn get_job_artifacts(
     ApiPath(job_id): ApiPath<String>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<ArtifactLinksView>>, AppError> {
-    job_artifacts_response(build_jobs_route_deps(&state), &headers, &job_id, false)
+    let deps = build_jobs_query_route_deps(&state);
+    let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
+    let view = run_job_query_once(&state, format!("jobs:artifacts:{job_id}"), move |jobs| {
+        jobs.job_artifacts_view(&base_url, &job_id, false)
+    })
+    .await?;
+    Ok(ok_json(view))
 }
 
 pub async fn get_job_artifacts_manifest(
@@ -94,5 +147,11 @@ pub async fn get_job_artifacts_manifest(
     ApiPath(job_id): ApiPath<String>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<JobArtifactManifestView>>, AppError> {
-    job_artifact_manifest_response(build_jobs_route_deps(&state), &headers, &job_id, false)
+    let deps = build_jobs_query_route_deps(&state);
+    let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
+    let view = run_job_query_once(&state, format!("jobs:manifest:{job_id}"), move |jobs| {
+        jobs.job_artifact_manifest_view(&base_url, &job_id, false)
+    })
+    .await?;
+    Ok(ok_json(view))
 }

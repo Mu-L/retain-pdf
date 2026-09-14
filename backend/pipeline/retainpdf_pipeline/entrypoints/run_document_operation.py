@@ -16,11 +16,12 @@ except ImportError:  # pragma: no cover - Windows fallback
 
 
 def _page_program_fns():
-    # Lazy: retainpdf_ai lives outside the pipeline package (ai service).
-    # Top-level import would break pipeline-only environments (tests, workers
-    # without the ai service on PYTHONPATH) and the Windows import fallback.
-    from retainpdf_ai.document_operations.page_program import execute_page_program
-    from retainpdf_ai.document_operations.visual_validation import validate_page_program_visuals
+    # Load optional PDF dependencies only when executing a program. Importing
+    # the entrypoint, --help, and the Windows resource fallback stay lightweight.
+    from retainpdf_pipeline.document_operations import (
+        execute_page_program,
+        validate_page_program_visuals,
+    )
 
     return execute_page_program, validate_page_program_visuals
 

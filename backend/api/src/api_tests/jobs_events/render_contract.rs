@@ -112,7 +112,7 @@ async fn job_events_route_canonicalizes_render_prewarm_even_when_user_stage_is_s
     state.db.save_job(&job).expect("save job");
     fs::write(
         job_root.join("logs").join("pipeline_events.jsonl"),
-        r#"{"job_id":"job-route-render-prewarm-canonical","seq":1,"ts":"2026-04-24T01:00:00Z","level":"info","user_stage":"translation","stage":"rendering","substage":"render_prewarm","stage_detail":"渲染预热完成","event_type":"stage_progress","message":"render payload prewarm: ready indents=333 geometry=836 elapsed=1.58s","progress_current":2,"progress_total":3,"progress_unit":"step","payload":{"render_stage":"payload_prewarm"}}"#,
+        concat!(r#"{"job_id":"job-route-render-prewarm-canonical","seq":1,"ts":"2026-04-24T01:00:00Z","level":"info","user_stage":"translation","stage":"rendering","substage":"render_prewarm","stage_detail":"渲染预热完成","event_type":"stage_progress","message":"render payload prewarm: ready indents=333 geometry=836 elapsed=1.58s","progress_current":2,"progress_total":3,"progress_unit":"step","payload":{"render_stage":"payload_prewarm"}}"#, "\n"),
     )
     .expect("write pipeline events");
 

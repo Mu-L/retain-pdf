@@ -5,23 +5,17 @@ use crate::error::AppError;
 use crate::routes::job_helpers::stream_file;
 use crate::services::jobs::{DocumentDownloadKind, FileDownload};
 
-use crate::routes::common::JobsRouteDeps;
-
-pub(super) fn jobs_facade_ref<'a>(
-    deps: &'a JobsRouteDeps<'a>,
-) -> crate::services::jobs::JobsFacade<'a> {
-    deps.jobs.clone()
-}
+use crate::routes::common::JobsDownloadRouteDeps;
 
 pub async fn download_document_response(
-    deps: &JobsRouteDeps<'_>,
+    deps: &JobsDownloadRouteDeps<'_>,
     headers: &HeaderMap,
     job_id: &str,
     ocr_only: bool,
     kind: DocumentDownloadKind,
 ) -> Result<Response, AppError> {
     file_download_response(
-        jobs_facade_ref(deps)
+        deps.downloads
             .download_job_document(job_id, ocr_only, kind)
             .await?,
         headers,
@@ -30,62 +24,56 @@ pub async fn download_document_response(
 }
 
 pub async fn markdown_image_response(
-    deps: &JobsRouteDeps<'_>,
+    deps: &JobsDownloadRouteDeps<'_>,
     headers: &HeaderMap,
     job_id: &str,
     path: &str,
 ) -> Result<Response, AppError> {
     file_download_response(
-        jobs_facade_ref(deps).markdown_image_download(job_id, path)?,
+        deps.downloads.markdown_image_download(job_id, path)?,
         headers,
     )
     .await
 }
 
 pub async fn cover_response(
-    deps: &JobsRouteDeps<'_>,
+    deps: &JobsDownloadRouteDeps<'_>,
     headers: &HeaderMap,
     job_id: &str,
 ) -> Result<Response, AppError> {
-    file_download_response(jobs_facade_ref(deps).cover_download(job_id)?, headers).await
+    file_download_response(deps.downloads.cover_download(job_id).await?, headers).await
 }
 
 pub async fn thumbnail_response(
-    deps: &JobsRouteDeps<'_>,
+    deps: &JobsDownloadRouteDeps<'_>,
     headers: &HeaderMap,
     job_id: &str,
 ) -> Result<Response, AppError> {
-    file_download_response(jobs_facade_ref(deps).thumbnail_download(job_id)?, headers).await
+    file_download_response(deps.downloads.thumbnail_download(job_id).await?, headers).await
 }
 
 pub async fn side_by_side_pdf_response(
-    deps: &JobsRouteDeps<'_>,
+    deps: &JobsDownloadRouteDeps<'_>,
     headers: &HeaderMap,
     job_id: &str,
 ) -> Result<Response, AppError> {
     file_download_response(
-        jobs_facade_ref(deps)
-            .side_by_side_pdf_download(job_id)
-            .await?,
+        deps.downloads.side_by_side_pdf_download(job_id).await?,
         headers,
     )
     .await
 }
 
 pub async fn bundle_response(
-    deps: &JobsRouteDeps<'_>,
+    deps: &JobsDownloadRouteDeps<'_>,
     headers: &HeaderMap,
     job_id: &str,
 ) -> Result<Response, AppError> {
-    file_download_response(
-        jobs_facade_ref(deps).bundle_download(job_id).await?,
-        headers,
-    )
-    .await
+    file_download_response(deps.downloads.bundle_download(job_id).await?, headers).await
 }
 
 pub async fn registered_artifact_response(
-    deps: &JobsRouteDeps<'_>,
+    deps: &JobsDownloadRouteDeps<'_>,
     headers: &HeaderMap,
     job_id: &str,
     artifact_key: &str,
@@ -93,7 +81,7 @@ pub async fn registered_artifact_response(
     ocr_only: bool,
 ) -> Result<Response, AppError> {
     file_download_response(
-        jobs_facade_ref(deps)
+        deps.downloads
             .registered_artifact_download(job_id, artifact_key, include_job_dir, ocr_only)
             .await?,
         headers,

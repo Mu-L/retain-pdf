@@ -5,7 +5,7 @@ use crate::storage_paths::{resolve_markdown_images_dir, resolve_markdown_path};
 
 use super::super::query::load_supported_job;
 use super::paths::safe_markdown_image_path;
-use super::{FileDownload, MarkdownDownload, QueryJobsDeps};
+use super::{DownloadJobsDeps, FileDownload, MarkdownDownload};
 
 // 匹配 ![alt](images/...)，路径内可含空格；可选 "title"/'title'、尖括号、./ 前缀
 // path 用贪婪 [^)>\n]+；title 必须带引号，避免把 `chart a.png` 的空格误当 title 分隔
@@ -15,8 +15,8 @@ const MARKDOWN_IMAGE_LINK_RE: &str =
 const HTML_IMAGE_SRC_DQ_RE: &str = r#"(?i)(<img\b[^>]*?\bsrc\s*=\s*")((?:\./)?images/[^"]+)(")"#;
 const HTML_IMAGE_SRC_SQ_RE: &str = r#"(?i)(<img\b[^>]*?\bsrc\s*=\s*')((?:\./)?images/[^']+)(')"#;
 
-pub(crate) async fn markdown_download(
-    deps: &QueryJobsDeps<'_>,
+pub(super) async fn markdown_download(
+    deps: &DownloadJobsDeps<'_>,
     job_id: String,
 ) -> Result<MarkdownDownload, AppError> {
     let job = load_supported_job(deps.db, deps.data_root, &job_id)?;
@@ -35,8 +35,8 @@ pub(crate) async fn markdown_download(
 /// HTTP Range:阅读器要的"滚到底再拉下一段"用 `Range: bytes=a-b` 就够,不需要
 /// 另造一套游标端点。顺带修掉了原先每次请求都把整篇(实测最大 620 KB)读进
 /// 堆的问题。
-pub(crate) fn markdown_raw_download(
-    deps: &QueryJobsDeps<'_>,
+pub(super) fn markdown_raw_download(
+    deps: &DownloadJobsDeps<'_>,
     job_id: &str,
 ) -> Result<FileDownload, AppError> {
     let job = load_supported_job(deps.db, deps.data_root, job_id)?;
@@ -49,8 +49,8 @@ pub(crate) fn markdown_raw_download(
     ))
 }
 
-pub(crate) async fn markdown_document_view(
-    deps: &QueryJobsDeps<'_>,
+pub(super) async fn markdown_document_view(
+    deps: &DownloadJobsDeps<'_>,
     job_id: &str,
     base_url: &str,
 ) -> Result<MarkdownDocumentView, AppError> {
@@ -79,8 +79,8 @@ pub(crate) async fn markdown_document_view(
     })
 }
 
-pub(crate) fn markdown_image_download(
-    deps: &QueryJobsDeps<'_>,
+pub(super) fn markdown_image_download(
+    deps: &DownloadJobsDeps<'_>,
     job_id: &str,
     path: &str,
 ) -> Result<FileDownload, AppError> {
@@ -99,7 +99,7 @@ pub(crate) fn markdown_image_download(
 }
 
 fn markdown_images_view(
-    deps: &QueryJobsDeps<'_>,
+    deps: &DownloadJobsDeps<'_>,
     job: &JobSnapshot,
     base_url: &str,
 ) -> Result<Vec<MarkdownImageView>, AppError> {
@@ -141,7 +141,7 @@ fn markdown_images_view(
 /// 把 markdown/html 里的相对图片引用改成可直连的 API 绝对 URL。
 /// 同时修掉「images_base + images/...」双重 images 的前端拼法隐患：
 /// 绝对 URL 直接指向 /markdown/images/<rel>，不再依赖 base 拼接。
-pub(crate) fn rewrite_markdown_image_links_to_absolute_urls(
+pub(super) fn rewrite_markdown_image_links_to_absolute_urls(
     content: &str,
     job_id: &str,
     base_url: &str,

@@ -6,12 +6,12 @@ use crate::models::api::{to_absolute_url, MarkdownQuery, MarkdownView};
 use crate::routes::common::ok_json;
 use crate::services::jobs::MarkdownDownload;
 
-use super::files::{file_download_response, jobs_facade_ref};
+use super::files::file_download_response;
+use crate::routes::common::{request_base_url, JobsDownloadRouteDeps};
 use crate::routes::job_helpers::file_etag;
-use crate::routes::common::{request_base_url, JobsRouteDeps};
 
 pub async fn markdown_response(
-    deps: &JobsRouteDeps<'_>,
+    deps: &JobsDownloadRouteDeps<'_>,
     headers: &HeaderMap,
     job_id: String,
     query: &MarkdownQuery,
@@ -23,7 +23,7 @@ pub async fn markdown_response(
     //
     // 非 raw 仍走 JSON,那条路要把正文塞进 JSON 字段,没法流式给。
     if query.raw {
-        let download = jobs_facade_ref(deps).markdown_raw_download(&job_id)?;
+        let download = deps.downloads.markdown_raw_download(&job_id)?;
         let etag = file_etag(&download.path);
         let mut response = file_download_response(download, headers).await?;
         if let Some(etag) = etag {
@@ -35,7 +35,7 @@ pub async fn markdown_response(
         }
         return Ok(response);
     }
-    let markdown = jobs_facade_ref(deps).markdown_document(job_id).await?;
+    let markdown = deps.downloads.markdown_document(job_id).await?;
     markdown_download_response(
         headers,
         markdown,
@@ -46,12 +46,13 @@ pub async fn markdown_response(
 }
 
 pub async fn markdown_document_response(
-    deps: &JobsRouteDeps<'_>,
+    deps: &JobsDownloadRouteDeps<'_>,
     headers: &HeaderMap,
     job_id: &str,
 ) -> Result<Response, AppError> {
     let base_url = request_base_url(headers, deps.default_port, &deps.bind_host);
-    let view = jobs_facade_ref(deps)
+    let view = deps
+        .downloads
         .markdown_document_view(job_id, &base_url)
         .await?;
     Ok(ok_json(view).into_response())

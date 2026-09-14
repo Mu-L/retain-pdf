@@ -22,7 +22,7 @@ bbox 单位/原点：
 | 输入 | block/line/span bbox 写法 | 页尺寸 | `source` 落盘标记 |
 |---|---|---|---|
 | middle.json | provider 原样透传（`effective_block_bbox`；仅 `list`/`index` 聚合时对有效子行 bbox 取并集） | `page_size` 原样，`unit="pt"` | `raw_unit="pt"`, `raw_origin="top_left"`，`raw_path=/pdf_info/{i}/…` |
-| content_list_v2 | `common/normalize.normalize_bbox` 只做 float 化（非法→`[0,0,0,0]`，不做缩放） | `max(x1)/max(y1)` 推导，`unit="pt"`（名义值，待重缩放纠正） | `raw_unit="normalized_1000"`, `raw_origin="top_left"`，无 `raw_path` |
+| content_list_v2 | `common/normalize.normalize_bbox` 只做 float 化（非法→`[0,0,0,0]`，不做缩放） | 固定 `1000×1000`，包含留白和空白页；`unit="pt"` 为中间契约名义值，须按原 PDF 页尺寸重缩放后才是物理点 | `raw_unit="normalized_1000"`, `raw_origin="top_left"`，无 `raw_path` |
 
 span 类型归一（两条路径一致）：`inline_equation`→`inline_formula`，
 `interline_equation`/`equation`→`formula`，其余→`text`；
@@ -31,6 +31,21 @@ v2 另有 label 翻译层 `_V2_TO_MIDDLE_LABEL`：
 `paragraph`→`text`，`equation_interline`→`interline_equation`，
 `page_header`→`header`，`page_footer`→`footer`，`page_aside_text`→`aside_text`，
 之后复用同一 `project_mineru_block`。
+
+### 1.1 跨页合段必须先恢复物理页
+
+MinerU middle 的 `para_blocks` 可能把下一页文字并到上一页段落，保留下一页
+坐标并在 span 上设置 `cross_page: true`；原位置成为 `lines_deleted` 空壳。
+在按页发射记录前，`cross_page.restore_cross_page_spans` 用原始 span 类型、文字、
+坐标与 `preproc_blocks` 做唯一匹配，恢复目标段落并移除上一页的跨页副本。
+只有原始 span 覆盖完整、目标段落唯一时才恢复；缺失或歧义会报错，不猜页码。
+同页合并空壳仍跳过，未标记的离散行仍使用原来的 orphan 拆分规则。
+
+修复不改原始 payload，归一化块保留实际页码、目标 raw_path 与恢复来源元数据；
+报告包含 `cross_page_recovered_block_count` / `cross_page_recovered_span_count`。
+已有任务可用 `backend/pipeline/devtools/repair_mineru_cross_page.py` 在新目录离线
+重建：要求文字块一一对应，复用译文并生成新的 checkpoint。验收、备份后才能发布；
+发布时还需通过持久化状态接口提交新快照，不能仅替换 PDF 或篡改旧快照哈希。
 
 ## 2. label 映射全表
 

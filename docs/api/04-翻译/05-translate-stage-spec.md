@@ -7,10 +7,10 @@
 Rust 会启动：
 
 ```bash
-retainpdf-pipeline translate-only --spec <job_root>/specs/translate.spec.json
+python -m retainpdf_pipeline.translate --spec <job_root>/specs/translate.spec.json
 ```
 
-未安装 retainpdf-pipeline 的桌面兼容目录回退到 python backend/pipeline/entrypoints/run_translate_only.py --spec <job_root>/specs/translate.spec.json。
+Python 可执行文件由 `PYTHON_BIN` 配置，不再回退到旧脚本。
 
 ## Spec 结构
 

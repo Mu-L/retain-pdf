@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 from devtools.architecture_checks.common import imported_modules
 from devtools.architecture_checks.common import module_allowed
+from devtools.architecture_checks.common import parse_python_file
 from devtools.architecture_checks.common import read_text
 from devtools.architecture_checks.common import rel
 from devtools.architecture_checks.common import scan_py_files
@@ -143,6 +145,31 @@ def check_devtools_translation_internal_usage(errors: list[str]) -> None:
         errors.append(
             f"{rel(path)}: devtools script imports translation internals; add it to DEVTOOLS_TRANSLATION_INTERNAL_IMPORT_ALLOWLIST or use services.translation.public"
         )
+
+
+def check_translation_recovery_boundary(errors: list[str]) -> None:
+    """Recovery callers get one operation; provider raw stays outside translation."""
+    script = DEVTOOLS_ROOT / "repair_mineru_cross_page.py"
+    if script.is_file():
+        for node in ast.walk(parse_python_file(script)):
+            if isinstance(node, ast.Import):
+                modules = [alias.name for alias in node.names]
+                invalid = any(module_allowed(module, ("retainpdf_pipeline.translate",)) for module in modules)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                invalid = module_allowed(node.module, ("retainpdf_pipeline.translate",)) and (
+                    node.module != "retainpdf_pipeline.translate.public"
+                    or any(alias.name != "prepare_relocated_translation_copy" for alias in node.names)
+                )
+            else:
+                continue
+            if invalid:
+                errors.append(f"{rel(script)}: repair must use only the public prepare_relocated_translation_copy operation")
+                break
+    recovery = TRANSLATION_ROOT / "workflow" / "recovery.py"
+    if recovery.is_file():
+        for module in imported_modules(recovery):
+            if module_allowed(module, ("retainpdf_pipeline.ocr", "devtools", "retainpdf_ai")):
+                errors.append(f"{rel(recovery)}: translation recovery must consume normalized documents and mappings, not provider/AI/devtools implementations")
 
 
 def check_translation_rendering_separation(errors: list[str]) -> None:

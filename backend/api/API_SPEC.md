@@ -58,6 +58,7 @@ only for compatibility. See the detailed credential contract below.
 | --- | --- |
 | [Runtime, configuration, and events](docs/api-spec/runtime-and-events.md) | Rust/Python boundary, runtime knobs, status model, queue semantics, historical job events |
 | [Jobs and workflows](docs/api-spec/jobs.md) | Upload, create, OCR reuse, list/detail, stage retry, ambiguity policy, cancel, document-scoped history |
+| [Reader read model](docs/api-spec/reader-read-model.md) | Reader host data ports, identity, coordinates, availability, and durable live recovery |
 | [Reader regions and artifacts](docs/api-spec/artifacts.md) | Reader alignment, artifact JSON, PDF, cover, thumbnail, Markdown, images, bundles |
 | [Glossary resources](docs/api-spec/glossaries.md) | Glossary CRUD, CSV parsing/export, and JSON import |
 | [Translation diagnostics](docs/api-spec/translation-diagnostics.md) | Summary, item index/detail, redaction, and single-item replay |

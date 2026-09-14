@@ -4,10 +4,10 @@ use crate::error::AppError;
 use crate::models::domain::JobSnapshot;
 use crate::services::derived_artifacts;
 
-use super::QueryJobsDeps;
+use super::DownloadJobsDeps;
 
 pub(super) fn linearized_pdf_or_original(
-    deps: &QueryJobsDeps<'_>,
+    deps: &DownloadJobsDeps<'_>,
     job: &JobSnapshot,
     input_pdf: &Path,
     label: &str,

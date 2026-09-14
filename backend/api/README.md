@@ -69,20 +69,38 @@
 - 想接前端或第三方：
   `docs/core/api/index.md -> CURRENT_API_MAP`
 
+## 当前查询与事件边界
+
+- `JobQueries` 只接收数据库与数据根，不装配任务提交、执行或 replay 能力。
+- 同步查询通过独立 `QueryExecution` 限制阻塞工作；下载使用 `JobDownloads`
+  和独立生成调度器，相同产物生成可共享执行。
+- 普通／OCR `/events` 已统一升级为 cursor v2，旧 `offset` 请求不再支持；
+  API、契约、SDK 与第一方客户端需一起发布。翻译 `/live-events` SSE 不变。
+  详见 [事件 v2 协议与迁移说明](../../docs/core/api/event-feed-v2.md)。
+
 ## 架构门禁
 
 后端改动默认至少跑这几项：
 
 - `python3 backend/api/scripts/check_architecture.py`
-- `cargo build --manifest-path backend/api/Cargo.toml`
-- `cargo test --manifest-path backend/api/Cargo.toml --lib job_runner::process_runner::tests::execute_process_job_injects_provider_and_translation_envs`
-- `cargo test --manifest-path backend/api/Cargo.toml --lib routes::jobs::query::tests::job_detail_and_events_routes_redact_secrets`
+- `python3 -B -m unittest discover -s backend/api/scripts -p 'test_check_*.py'`
+- `uv run --project backend --locked --all-extras python backend/api/scripts/check_test_filters.py`
+- `uv run --project backend --locked --all-extras cargo build --locked -p rust_api`
+- `uv run --project backend --locked --all-extras cargo test --locked -p retain-jobs --lib job_runner::process_runner::tests::execute_process_job_injects_provider_and_translation_envs -- --exact`
+- `uv run --project backend --locked --all-extras cargo test --locked -p rust_api --lib api_tests::jobs_security::job_detail_and_events_routes_redact_secrets -- --exact`
+
+以上命令从仓库根目录执行。`check_test_filters.py` 只通过 `cargo test -- --list`
+确认两个精确过滤器匹配实际测试（必要时会编译测试二进制，不执行测试），匹配 0 项即失败；
+它不能替代后面的实际测试。运行时测试现在属于 `retain-jobs`，HTTP 脱敏测试属于
+`rust_api::api_tests`，不要继续使用迁移前的 crate/模块路径。
 
 第一条负责卡住最容易回退的架构问题：
 
 - `AppState` 回流到 `services/job_runner/ocr_provider`
 - `routes` 直接依赖 `job_runner`
 - `routes/jobs/*` 重新手写局部 `route_deps(...)`
+- 已迁移的 jobs 只读/下载路由重新装配完整 `JobsFacade`；Reader AI / translation replay 命令除外
+- `JobQueries` / 下载模块（含拆分后的子模块）重新持有任务提交、运行时控制、上传或 replay 能力
 - `routes` 直接 `state.db` / `state.config`，或绕过 facade import 内部 service
 - library / glossary / upload route 不经 `*_api` 入口
 - `ProcessRuntimeDeps::new(...)` 在 `app` 边界层之外被随手组装

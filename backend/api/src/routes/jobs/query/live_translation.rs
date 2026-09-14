@@ -14,7 +14,7 @@ use crate::models::api::{
     ApiResponse, LiveTranslationCommitEventView, LiveTranslationEventsQuery,
     LiveTranslationLayoutView, LiveTranslationPageView,
 };
-use crate::routes::common::{ok_json, ApiPath, ApiQuery};
+use crate::routes::common::{ok_json, run_job_query, ApiPath, ApiQuery};
 use crate::AppState;
 
 const EVENT_BATCH_LIMIT: u32 = 128;
@@ -49,11 +49,7 @@ pub async fn get_live_translation_events(
         .and_then(|value| value.parse::<i64>().ok())
         .unwrap_or(0);
     let cursor = query.after_seq.max(last_event_id).max(0);
-    let initial = build_jobs_facade_from_state(&state).live_translation_events_after(
-        &job_id,
-        cursor,
-        EVENT_BATCH_LIMIT,
-    )?;
+    let initial = read_commit_events(&state, &job_id, cursor).await?;
     let stream = stream::unfold(
         LiveEventStreamState {
             app: state,
@@ -90,11 +86,7 @@ async fn next_live_event(
                 .expect("live translation event is serializable");
             return Some((Ok(event), state));
         }
-        match build_jobs_facade_from_state(&state.app).live_translation_events_after(
-            &state.job_id,
-            state.cursor,
-            EVENT_BATCH_LIMIT,
-        ) {
+        match read_commit_events(&state.app, &state.job_id, state.cursor).await {
             Ok(events) if events.is_empty() => {
                 tokio::time::sleep(Duration::from_millis(750)).await;
             }
@@ -109,4 +101,17 @@ async fn next_live_event(
             }
         }
     }
+}
+
+async fn read_commit_events(
+    state: &AppState,
+    job_id: &str,
+    after: i64,
+) -> Result<Vec<LiveTranslationCommitEventView>, AppError> {
+    let key = format!("translation-commits:{job_id}:{after}");
+    let job_id = job_id.to_owned();
+    run_job_query(state, key, move |jobs| {
+        jobs.live_translation_events_after(&job_id, after, EVENT_BATCH_LIMIT)
+    })
+    .await
 }

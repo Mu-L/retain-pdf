@@ -14,9 +14,9 @@ use crate::services::runtime_gateway::JobRuntimeLauncher;
 use crate::AppState;
 
 use super::bundle::create_translation_bundle_job;
-use crate::services::jobs::deps::{JobSubmitDeps, SnapshotBuildDeps};
 use super::job_builders::{build_ocr_job_snapshot, build_translation_job_snapshot};
 use super::submit::create_translation_job;
+use crate::services::jobs::deps::{JobSubmitDeps, SnapshotBuildDeps};
 use crate::services::uploads::UploadedPdfInput;
 
 fn test_state(test_name: &str) -> AppState {
@@ -83,14 +83,20 @@ fn test_state(test_name: &str) -> AppState {
         },
     ));
     AppState {
-        ai_gateway: Arc::new(crate::services::ai::AiGateway::new(
-            &config.ai_proxy, config.ai_service.base_url(), || 0,
-        ).unwrap()),
+        ai_gateway: Arc::new(
+            crate::services::ai::AiGateway::new(
+                &config.ai_proxy,
+                config.ai_service.base_url(),
+                || 0,
+            )
+            .unwrap(),
+        ),
         model_executor: None,
         config: config.clone(),
         db,
         uploads,
         download_generation: Arc::default(),
+        query_execution: Arc::default(),
         canceled_jobs: Arc::new(RwLock::new(HashSet::new())),
         job_slots: Arc::new(Semaphore::new(1)),
         job_drivers: Arc::default(),
@@ -731,8 +737,9 @@ fn negative_no_output_timeout_is_rejected_but_zero_means_disabled() {
         let mut ok_input = base_translation_input(WorkflowKind::Ocr);
         ok_input.source.source_url = "https://example.com/input.pdf".to_string();
         ok_input.runtime.no_output_timeout_seconds = value;
-        build_ocr_job_snapshot(&snapshot_context(&state), &ok_input, None)
-            .unwrap_or_else(|error| panic!("no_output_timeout_seconds={value} 必须放行: {error:?}"));
+        build_ocr_job_snapshot(&snapshot_context(&state), &ok_input, None).unwrap_or_else(
+            |error| panic!("no_output_timeout_seconds={value} 必须放行: {error:?}"),
+        );
     }
 }
 

@@ -1,15 +1,14 @@
-use crate::app::{build_jobs_facade_from_state, AppState};
-use crate::services::jobs::JobsFacade;
+use crate::app::AppState;
 use crate::services::library::LibraryDeps;
 
 pub struct LibraryRouteDeps<'a> {
     pub library: LibraryDeps<'a>,
-    /// Jobs creation path for document translate-from-library (and future library→job flows).
-    pub jobs: JobsFacade<'a>,
     pub default_port: u16,
     pub bind_host: String,
 }
 
+/// Ordinary library requests need no job runtime. Routes that operate on jobs
+/// compose these resources with the existing jobs route dependencies explicitly.
 pub fn build_library_route_deps(state: &AppState) -> LibraryRouteDeps<'_> {
     LibraryRouteDeps {
         library: LibraryDeps {
@@ -21,7 +20,6 @@ pub fn build_library_route_deps(state: &AppState) -> LibraryRouteDeps<'_> {
             python_bin: &state.config.python_bin,
             asset_config: &state.config.asset,
         },
-        jobs: build_jobs_facade_from_state(state),
         default_port: state.config.port,
         bind_host: state.config.bind_host.clone(),
     }

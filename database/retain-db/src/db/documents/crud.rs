@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::{Context, Result};
 use rusqlite::{params, Connection, OptionalExtension, ToSql, TransactionBehavior};
 
@@ -5,10 +7,7 @@ use crate::models::api::DocumentRecord;
 use crate::models::domain::{now_iso, UploadRecord};
 use crate::storage_paths::resolve_data_path;
 
-use super::rows::{
-    default_title_from_filename, load_document_tags, query_document, row_to_document,
-    DOCUMENT_COLUMNS,
-};
+use super::rows::{default_title_from_filename, query_document, row_to_document, DOCUMENT_COLUMNS};
 use crate::db::Db;
 
 struct DocumentFilterQuery {
@@ -109,10 +108,40 @@ fn query_documents(
     for row in rows {
         documents.push(row?);
     }
-    for document in &mut documents {
-        document.tags = load_document_tags(conn, &document.document_id)?;
-    }
+    load_page_tags(conn, &mut documents)?;
     Ok(documents)
+}
+
+fn load_page_tags(conn: &Connection, documents: &mut [DocumentRecord]) -> Result<()> {
+    if documents.is_empty() {
+        return Ok(());
+    }
+    let ids: Vec<_> = documents
+        .iter()
+        .map(|document| document.document_id.as_str())
+        .collect();
+    #[cfg(test)]
+    PAGE_TAG_QUERIES.with(|count| count.set(count.get() + 1));
+    let mut stmt = conn.prepare(
+        "SELECT document_id, tag FROM document_tags WHERE document_id IN (SELECT value FROM json_each(?1)) ORDER BY document_id, tag",
+    )?;
+    let rows = stmt.query_map(params![serde_json::to_string(&ids)?], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
+    let mut tags: HashMap<String, Vec<String>> = HashMap::new();
+    for row in rows {
+        let (document_id, tag) = row?;
+        tags.entry(document_id).or_default().push(tag);
+    }
+    for document in documents {
+        document.tags = tags.remove(&document.document_id).unwrap_or_default();
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+thread_local! {
+    static PAGE_TAG_QUERIES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 fn count_documents_with_filter(conn: &Connection, filter: &DocumentFilterQuery) -> Result<u64> {
@@ -544,4 +573,47 @@ fn delete_job_rows(tx: &rusqlite::Transaction<'_>, job_ids: &[String]) -> Result
         tx.execute("DELETE FROM jobs WHERE job_id = ?1", params![job_id])?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod page_io_tests {
+    use super::*;
+
+    #[test]
+    fn tags_use_one_query_for_a_page_and_keep_order_and_empty_lists() {
+        let root =
+            std::env::temp_dir().join(format!("retain-document-page-tags-{}", fastrand::u64(..)));
+        let db = Db::new(root.join("jobs.db"), root.clone());
+        let conn = db.connect().unwrap();
+        conn.execute_batch(
+            "WITH RECURSIVE ids(n) AS (VALUES(1) UNION ALL SELECT n + 1 FROM ids WHERE n < 500)
+             INSERT INTO uploads (upload_id, filename, stored_path, bytes, page_count, uploaded_at, developer_mode, content_hash)
+             SELECT 'upload-' || n, 'paper.pdf', 'uploads/paper.pdf', 10, 1, 'now', 0, 'document-' || n FROM ids;
+             INSERT INTO documents (document_id, title, source_filename, page_count, bytes, added_at, updated_at)
+             SELECT content_hash, filename, filename, page_count, bytes, uploaded_at, uploaded_at FROM uploads;
+             INSERT INTO document_tags (document_id, tag)
+             SELECT document_id, 'zebra' FROM documents WHERE document_id <> 'document-1';
+             INSERT INTO document_tags (document_id, tag)
+             SELECT document_id, 'alpha' FROM documents WHERE document_id <> 'document-1';",
+        ).unwrap();
+        PAGE_TAG_QUERIES.with(|count| count.set(0));
+        let (page, total) = db
+            .list_documents_with_total(500, 0, None, None, None, None)
+            .unwrap();
+        assert_eq!(total, 500);
+        assert_eq!(page.len(), 500);
+        assert_eq!(PAGE_TAG_QUERIES.with(|count| count.get()), 1);
+        let by_id: HashMap<_, _> = page
+            .iter()
+            .map(|doc| (doc.document_id.as_str(), &doc.tags))
+            .collect();
+        assert!(by_id["document-1"].is_empty());
+        assert_eq!(by_id["document-2"].as_slice(), ["alpha", "zebra"]);
+        assert_eq!(by_id["document-500"].as_slice(), ["alpha", "zebra"]);
+        let empty = db.list_documents(500, 500, None, None, None, None).unwrap();
+        assert!(empty.is_empty());
+        assert_eq!(PAGE_TAG_QUERIES.with(|count| count.get()), 1);
+        drop(conn);
+        std::fs::remove_dir_all(root).unwrap();
+    }
 }

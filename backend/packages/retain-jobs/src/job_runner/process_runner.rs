@@ -117,8 +117,11 @@ pub(super) mod tests {
         let mut config = (*state.config).clone();
         config.job_runner.queue_poll_interval_ms = 1;
         ProcessRuntimeDeps::new(
-            Arc::new(config), state.db, state.canceled_jobs,
-            Arc::new(Semaphore::new(slots)), Arc::default(),
+            Arc::new(config),
+            state.db,
+            state.canceled_jobs,
+            Arc::new(Semaphore::new(slots)),
+            Arc::default(),
         )
     }
 
@@ -144,9 +147,17 @@ pub(super) mod tests {
             &deps.worker_process_runtime(),
             stale,
             &[],
-        ).await;
-        assert!(result.err().unwrap().to_string().contains("no longer eligible"));
-        assert_eq!(deps.db.get_job(&canceled.job_id).unwrap().status, JobStatusKind::Canceled);
+        )
+        .await;
+        assert!(result
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("no longer eligible"));
+        assert_eq!(
+            deps.db.get_job(&canceled.job_id).unwrap().status,
+            JobStatusKind::Canceled
+        );
         fs::remove_dir_all(&deps.config.project_root).unwrap();
     }
 

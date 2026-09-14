@@ -270,9 +270,5 @@ async fn raw_markdown_serves_byte_ranges_so_readers_can_page_through_it() {
         assembled.extend_from_slice(chunk.as_ref());
         start = end + 1;
     }
-    assert_eq!(
-        assembled,
-        full.as_bytes(),
-        "分段拼回去必须与整篇逐字节相等"
-    );
+    assert_eq!(assembled, full.as_bytes(), "分段拼回去必须与整篇逐字节相等");
 }

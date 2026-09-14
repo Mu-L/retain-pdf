@@ -8,6 +8,7 @@ and the AI service, matching the packaged backend topology.
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import os
 import shutil
 import signal
@@ -304,6 +305,20 @@ def build_runtime_env(
 ) -> dict[str, str]:
     env = dict(environ)
     api_keys = env.get("RUST_API_KEYS", "").strip() or DEFAULT_API_KEY
+    keys = {key.strip() for key in api_keys.split(",") if key.strip()}
+    try:
+        address = ipaddress.ip_address(options.host)
+    except ValueError as exc:
+        raise StackError("bind host must be an IPv4 or IPv6 address") from exc
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+        address = address.ipv4_mapped
+    if not keys or (not address.is_loopback and DEFAULT_API_KEY in keys):
+        raise StackError(
+            "a non-default RUST_API_KEYS value is required for non-loopback listening"
+        )
+    # The launcher selects the installed runtime explicitly. Do not forward the
+    # retired script/console selector from an older developer environment.
+    env.pop("RUST_API_PYTHON_ENTRYPOINT_MODE", None)
     bin_path = os.pathsep.join((str(paths.target_debug), str(paths.venv_python.parent)))
     inherited_path = env.get("PATH", "")
     env.update(
@@ -327,7 +342,6 @@ def build_runtime_env(
             "RUST_API_DATA_ROOT": str(options.data_root),
             "RUST_API_SCRIPTS_DIR": str(paths.pipeline),
             "RUST_API_PIPELINE_COMMAND": str(paths.pipeline_command),
-            "RUST_API_PYTHON_ENTRYPOINT_MODE": "console",
             "RUST_API_BIND_HOST": options.host,
             "RUST_API_PORT": str(options.port),
             "RUST_API_SIMPLE_PORT": str(options.simple_port),
@@ -534,13 +548,15 @@ def run(
     repo = paths or RepoPaths.from_script()
     source_env = dict(os.environ if environ is None else environ)
     options = parse_args(argv, paths=repo, environ=source_env)
+    runtime_env = build_runtime_env(repo, options, source_env)
     prepare(repo, options, source_env)
     validate_artifacts(repo)
     fx_command = preflight_fx(source_env) if options.runtime == "fx" else None
     if options.prepare_only:
         print("[dev-stack] backend preparation complete")
         return 0
-    runtime_env = build_runtime_env(repo, options, source_env, fx_command=fx_command)
+    if fx_command is not None:
+        runtime_env["RETAIN_AI_FX_COMMAND"] = fx_command
     return launch(repo, options, runtime_env)
 
 

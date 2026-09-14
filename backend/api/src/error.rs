@@ -31,6 +31,8 @@ pub enum AppError {
     #[error("{0}")]
     Conflict(String),
     #[error("{0}")]
+    EventCursorExpired(String),
+    #[error("{0}")]
     TooManyRequests(String),
     #[error("{0}")]
     BadGateway(String),
@@ -71,10 +73,7 @@ pub enum AppError {
     /// 消息里正则抠数字和 id 是唯一的替代方案,而它会在任何一次文案改动
     /// (包括翻译)时静默失效。
     #[error("{message}")]
-    DeleteBlockedByFavorites {
-        message: String,
-        details: Value,
-    },
+    DeleteBlockedByFavorites { message: String, details: Value },
 }
 
 #[derive(Serialize)]
@@ -197,6 +196,10 @@ impl AppError {
 
     pub fn conflict(msg: impl Into<String>) -> Self {
         Self::Conflict(msg.into())
+    }
+
+    pub fn event_cursor_expired(msg: impl Into<String>) -> Self {
+        Self::EventCursorExpired(msg.into())
     }
 
     pub fn too_many_requests(msg: impl Into<String>) -> Self {
@@ -408,6 +411,7 @@ impl IntoResponse for AppError {
                 (StatusCode::METHOD_NOT_ALLOWED, 40500, "METHOD_NOT_ALLOWED")
             }
             AppError::Conflict(_) => (StatusCode::CONFLICT, 40900, "CONFLICT"),
+            AppError::EventCursorExpired(_) => (StatusCode::GONE, 41000, "EVENT_CURSOR_EXPIRED"),
             AppError::TooManyRequests(_) => {
                 (StatusCode::TOO_MANY_REQUESTS, 42900, "TOO_MANY_REQUESTS")
             }
@@ -553,6 +557,12 @@ mod tests {
                 StatusCode::CONFLICT,
                 40900,
                 "CONFLICT",
+            ),
+            (
+                AppError::event_cursor_expired("event cursor expired"),
+                StatusCode::GONE,
+                41000,
+                "EVENT_CURSOR_EXPIRED",
             ),
             (
                 AppError::too_many_requests("too many requests"),

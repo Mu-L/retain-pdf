@@ -5,14 +5,12 @@
 从仓库根目录启动：
 
 ```bash
-PRODUCT_ROOT="$(pwd)"
-BACKEND_ROOT="$(python3 .github/scripts/resolve_backend_source.py --print-path)"
-cd "$BACKEND_ROOT/api"
-RUST_API_BIND_HOST=0.0.0.0 \
-RUST_API_DATA_ROOT="$PRODUCT_ROOT/data" \
-RUST_API_SCRIPTS_DIR="$BACKEND_ROOT/pipeline" \
-cargo run
+python3 ops/development/dev_stack.py --runtime python
 ```
+
+该入口准备锁定的 Python 环境及 Rust 二进制，再由 Rust 监督 jobsd 和 AI。
+默认只监听回环。需要局域网访问时，先设置强随机的 `RUST_API_KEYS`，再传
+`--host 0.0.0.0`；启动器和 Rust 都拒绝非回环监听使用默认开发 key。
 
 默认监听：
 
@@ -44,8 +42,12 @@ X-API-Key: your-rust-api-key
 
 本地 key 来源：
 
-- `$BACKEND_ROOT/api/auth.local.json`
-- 环境变量 `RUST_API_KEYS`
+- 显式环境变量 `RUST_API_KEYS` 优先；值为空会报错。
+- 未设置环境变量时读取 `backend/api/auth.local.json`（可由 `RUST_API_ROOT` 改变位置）。
+- 开发启动器会显式设置 key：未提供 `RUST_API_KEYS` 时，在回环使用开发默认值。
+
+`RUST_API_SIMPLE_PORT`、`RUST_API_MAX_RUNNING_JOBS` 同样以显式环境变量优先，
+不再被本地文件覆盖。损坏的本地文件仍会阻止启动，不静默忽略配置错误。
 
 Docker 中 `ops/deployment/docker/delivery/docker/auth.local.json` 的 `api_keys` 必须和 `ops/deployment/docker/delivery/docker/web.env` 里的 `FRONT_X_API_KEY` 对上。
 
@@ -53,14 +55,14 @@ Docker 中 `ops/deployment/docker/delivery/docker/auth.local.json` 的 `api_keys
 
 - `RUST_API_ROOT`：Rust API 根目录。
 - `RUST_API_PROJECT_ROOT`：项目根目录。
-- `RUST_API_BIND_HOST`：监听地址，默认 `0.0.0.0`。
+- `RUST_API_BIND_HOST`：监听 IP 地址，默认 `127.0.0.1`。
 - `RUST_API_PORT`：完整 API 端口，默认 `41000`。
 - `RUST_API_SIMPLE_PORT`：multipart 异步提交端口，默认 `42000`。
 - `RUST_API_DATA_ROOT`：运行时数据根目录。
 - `RUST_API_DATA_DIR`：旧别名，仅在 `RUST_API_DATA_ROOT` 未设置时使用。
-- `RUST_API_SCRIPTS_DIR`：Python 脚本目录（script-mode 仅桌面兼容；默认 console-mode 不需要）。
-- `RUST_API_PYTHON_ENTRYPOINT_MODE`：worker 启动模式，`auto|console|script`。`auto` 为默认：`PATH` 中能找到 `retainpdf-pipeline` 时用 `retainpdf-pipeline <subcommand> --spec ...`（console-mode，为正式主链），否则回退到桌面兼容目录 `python backend/pipeline/entrypoints/run_*.py --spec ...`（script-mode，仅桌面兼容）；`console` 强制使用 console-mode；`script` 强制使用 script-mode（仅桌面兼容）。
-- `RUST_API_PIPELINE_COMMAND`：显式指定 `retainpdf-pipeline` 可执行文件绝对路径；设置后 console-mode 不再依赖 `PATH` 查找。未安装 retainpdf-pipeline 的桌面兼容目录回退到 python backend/pipeline/entrypoints/run_*.py --spec <job_root>/specs/<stage>.spec.json。
+- `RUST_API_SCRIPTS_DIR`：pipeline 包根目录，保留给运行路径和辅助工具配置。
+- `RUST_API_PYTHON_ENTRYPOINT_MODE`：已废弃，不再选择 worker 模式；开发启动器不再传递该变量。
+- `RUST_API_PIPELINE_COMMAND`：辅助任务（如 document-operation）使用的 `retainpdf-pipeline` 命令路径。OCR、翻译、渲染主阶段固定使用 `PYTHON_BIN -m retainpdf_pipeline.ocr|translate|render --spec ...`，不再回退到旧脚本。
 - `PYTHON_BIN`：Python 可执行文件。
 - `RUST_API_UPLOAD_MAX_BYTES`：普通上传大小限制，`0` 表示不限制。
 - `RUST_API_UPLOAD_MAX_PAGES`：普通上传页数限制，`0` 表示不限制。

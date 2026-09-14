@@ -135,7 +135,7 @@ def test_runtime_credentials_reject_group_readable_file(tmp_path):
         load_runtime_credentials(tmp_path)
 
 
-def test_runtime_config_endpoint_never_returns_raw_secrets(tmp_path):
+def test_runtime_config_returns_editable_local_keys_to_authenticated_settings(tmp_path):
     restarts: list[str] = []
     settings = Settings(
         api_keys=frozenset({"test-key"}),
@@ -164,9 +164,10 @@ def test_runtime_config_endpoint_never_returns_raw_secrets(tmp_path):
         },
     )
     assert response.status_code == 200
-    encoded = response.text
-    assert "sk-new-private-value" not in encoded
     view = response.json()["data"]
+    assert view["llm_api_key"] == "sk-new-private-value"
+    reread = client.get("/v1/runtime-config", headers={"X-API-Key": "test-key"})
+    assert reread.json()["data"]["llm_api_key"] == "sk-new-private-value"
     assert view["llm_api_key_configured"] is True
     assert view["llm_api_key_masked"].endswith("alue")
     assert view["fx_gateway_base_url"] == "http://localhost:43231/gateway"
@@ -230,8 +231,8 @@ def test_runtime_config_uses_shared_credential_refs_without_copying_secrets(tmp_
     assert view["fx_gateway_credential_ref"] == fx_ref
     assert view["llm_api_key_masked"] == "••••"
     assert view["fx_gateway_api_key_masked"] == "••••"
-    assert "sk-shared-agent-secret" not in response.text
-    assert "fx-shared-gateway-secret" not in response.text
+    assert view["llm_api_key"] == "sk-shared-agent-secret"
+    assert view["fx_gateway_api_key"] == "fx-shared-gateway-secret"
     stored = load_runtime_credentials(tmp_path)
     assert stored["llm_credential_ref"] == llm_ref
     assert stored["fx_gateway_credential_ref"] == fx_ref
@@ -623,6 +624,6 @@ def test_runtime_config_accepts_openai_document_agent_with_custom_url(tmp_path):
     view = response.json()["data"]
     assert view["configured_runtime"] == "openai"
     assert view["llm_base_url"] == "http://127.0.0.1:1561/v1"
-    assert "custom-private-key" not in response.text
+    assert view["llm_api_key"] == "custom-private-key"
     stored = load_runtime_credentials(tmp_path)
     assert stored["agent_runtime"] == "openai"

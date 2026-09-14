@@ -123,6 +123,12 @@ pub struct DeleteCredentialQuery {
     pub force: bool,
 }
 
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct ListCredentialQuery {
+    #[serde(default)]
+    pub include_values: bool,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct CredentialMetadataView {
     pub credential_ref: String,
@@ -133,6 +139,8 @@ pub struct CredentialMetadataView {
     pub revision: u64,
     pub created_at: String,
     pub updated_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub secret: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -155,12 +163,25 @@ pub struct CredentialDeleteView {
 }
 
 pub fn list_credentials(data_root: &Path) -> Result<CredentialListView, AppError> {
+    list_credentials_with_values(data_root, false)
+}
+
+pub fn list_credentials_with_values(
+    data_root: &Path,
+    include_values: bool,
+) -> Result<CredentialListView, AppError> {
     let vault = load_vault(data_root)?;
     Ok(CredentialListView {
         credentials: vault
             .credentials
             .iter()
-            .map(|(credential_ref, credential)| metadata(credential_ref, credential))
+            .map(|(credential_ref, credential)| {
+                let mut view = metadata(credential_ref, credential);
+                if include_values {
+                    view.secret = Some(credential.secret.clone());
+                }
+                view
+            })
             .collect(),
         revision: vault.revision,
     })
@@ -464,6 +485,7 @@ fn metadata(credential_ref: &str, credential: &StoredCredential) -> CredentialMe
         revision: credential.revision,
         created_at: credential.created_at.clone(),
         updated_at: credential.updated_at.clone(),
+        secret: None,
     }
 }
 

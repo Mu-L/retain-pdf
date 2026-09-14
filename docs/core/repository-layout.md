@@ -35,8 +35,9 @@
 本地 API 鉴权配置默认位于 `backend/api/auth.local.json`，不加入 Git，文件权限
 应限制为仅当前用户可读写。显式 `RUST_API_ROOT` 仍决定自定义配置位置；桌面
 使用其原有用户目录。默认新布局不再回退读取 `services/api/auth.local.json`。
-配置文件中的有效密钥优先于 `RUST_API_KEYS`，无有效文件密钥时才使用环境变量；
-文件损坏时明确报错，不静默绕过。迁移配置不要改变实际密钥、并发或端口值。
+显式 `RUST_API_KEYS`、`RUST_API_MAX_RUNNING_JOBS`、`RUST_API_SIMPLE_PORT`
+优先于配置文件，未设置时使用文件值；显式空 key 或损坏的文件会明确报错，
+不静默绕过。开发启动器会显式设置 key 和端口，非回环监听拒绝默认开发 key。
 
 本轮只迁移源码：现有 `data/`、`tmp/`、凭据及任务产物路径保持原样。
 `var/` 是未来运行产物归一化的候选，不是本轮的新运行根。测试 fixture 是

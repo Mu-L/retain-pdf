@@ -4,12 +4,12 @@ use crate::storage_paths::{resolve_output_pdf, resolve_source_pdf};
 
 use super::artifact_deps::derived_artifact_deps;
 use super::pdf::linearized_pdf_or_original;
+use super::DownloadJobsDeps;
 use super::FileDownload;
-use super::QueryJobsDeps;
 use crate::services::jobs::query::load_supported_job;
 
-pub(crate) fn side_by_side_pdf_download(
-    deps: &QueryJobsDeps<'_>,
+pub(super) fn side_by_side_pdf_download(
+    deps: &DownloadJobsDeps<'_>,
     job_id: &str,
 ) -> Result<FileDownload, AppError> {
     let job = load_supported_job(deps.db, deps.data_root, job_id)?;

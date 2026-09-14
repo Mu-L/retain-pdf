@@ -4,7 +4,9 @@ use std::path::Path;
 
 use crate::job_runner::{ocr_provider_diagnostics_mut, ProcessRuntimeDeps};
 use crate::models::domain::{now_iso, JobRuntimeState};
-use crate::ocr_provider::mineru::client::{MineruCreatedTask, MineruUploadTarget};
+use crate::ocr_provider::mineru::client::{
+    MineruCreatedTask, MineruUploadOptions, MineruUploadTarget,
+};
 use crate::ocr_provider::mineru::{parse_extra_formats, MineruClient};
 
 use super::dispatch_journal::{
@@ -27,11 +29,17 @@ pub(super) async fn run_local_ocr_transport_mineru(
         .file_name()
         .and_then(|item| item.to_str())
         .ok_or_else(|| anyhow!("invalid upload filename"))?;
+    let extra_formats = parse_extra_formats(&job.request_payload.ocr.extra_formats);
     let request_identity = json!({
         "source_kind": "local_upload",
         "upload_id": job.request_payload.source.upload_id,
         "file_name": upload_file_name,
         "model_version": job.request_payload.ocr.model_version,
+        "is_ocr": job.request_payload.ocr.is_ocr,
+        "enable_formula": !job.request_payload.ocr.disable_formula,
+        "enable_table": !job.request_payload.ocr.disable_table,
+        "language": job.request_payload.ocr.language,
+        "extra_formats": extra_formats,
         "page_ranges": job.request_payload.ocr.page_ranges,
         "data_id": job.request_payload.ocr.data_id,
     });
@@ -41,9 +49,16 @@ pub(super) async fn run_local_ocr_transport_mineru(
                 let target = client
                     .apply_upload_url(
                         upload_file_name,
-                        &job.request_payload.ocr.model_version,
-                        &job.request_payload.ocr.page_ranges,
-                        &job.request_payload.ocr.data_id,
+                        &MineruUploadOptions {
+                            model_version: &job.request_payload.ocr.model_version,
+                            is_ocr: job.request_payload.ocr.is_ocr,
+                            enable_formula: !job.request_payload.ocr.disable_formula,
+                            enable_table: !job.request_payload.ocr.disable_table,
+                            language: &job.request_payload.ocr.language,
+                            page_ranges: &job.request_payload.ocr.page_ranges,
+                            data_id: &job.request_payload.ocr.data_id,
+                            extra_formats: &extra_formats,
+                        },
                     )
                     .await?;
                 receipt_ocr_dispatch(

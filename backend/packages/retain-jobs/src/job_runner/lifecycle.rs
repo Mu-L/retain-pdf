@@ -88,35 +88,38 @@ async fn dispatch_workflow(
     deps: ProcessRuntimeDeps,
     job: JobRuntimeState,
 ) -> Result<JobRuntimeState> {
+    // Keep pipeline state machines out of the driver future. In debug builds,
+    // nested inline workflow polling can exhaust the default runtime thread
+    // stack as soon as another request yields to this background task.
     let durable_stage = deps.db.running_pipeline_stage_key(&job.job_id)?;
     match (&job.workflow, durable_stage.as_deref()) {
         (WorkflowKind::Book, Some("render")) => {
-            return resume_render_stage_from_durable_state(deps, job).await;
+            return Box::pin(resume_render_stage_from_durable_state(deps, job)).await;
         }
         (WorkflowKind::Book, Some("translate")) => {
-            return resume_translation_stage_from_durable_state(deps, job, true).await;
+            return Box::pin(resume_translation_stage_from_durable_state(deps, job, true)).await;
         }
         (WorkflowKind::Translate, Some("translate")) => {
             let render_after_translation = job.request_payload.runtime.render_after_translation;
-            return resume_translation_stage_from_durable_state(
+            return Box::pin(resume_translation_stage_from_durable_state(
                 deps,
                 job,
                 render_after_translation,
-            )
+            ))
             .await;
         }
         (WorkflowKind::Translate, Some("render"))
             if job.request_payload.runtime.render_after_translation =>
         {
-            return resume_render_stage_from_durable_state(deps, job).await;
+            return Box::pin(resume_render_stage_from_durable_state(deps, job)).await;
         }
         _ => {}
     }
     match job.workflow {
-        WorkflowKind::Ocr => execute_ocr_job(deps, job, None, None).await,
-        WorkflowKind::Book => run_translation_job_with_ocr(deps, job).await,
-        WorkflowKind::Translate => run_translate_only_job_with_ocr(deps, job).await,
-        WorkflowKind::Render => run_render_job_from_artifacts(deps, job).await,
+        WorkflowKind::Ocr => Box::pin(execute_ocr_job(deps, job, None, None)).await,
+        WorkflowKind::Book => Box::pin(run_translation_job_with_ocr(deps, job)).await,
+        WorkflowKind::Translate => Box::pin(run_translate_only_job_with_ocr(deps, job)).await,
+        WorkflowKind::Render => Box::pin(run_render_job_from_artifacts(deps, job)).await,
     }
 }
 

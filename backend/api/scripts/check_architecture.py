@@ -179,11 +179,9 @@ ROUTE_SERVICE_IMPORT_ALLOWLIST = {
     ),
     Path("src/routes/common/jobs.rs"): (
         "crate::app::{build_jobs_facade_from_state, AppState}",
-        "crate::services::jobs::JobsFacade",
+        "crate::services::jobs::{JobDownloads, JobQueries, JobsFacade}",
     ),
     Path("src/routes/common/library.rs"): (
-        "crate::app::{build_jobs_facade_from_state, AppState}",
-        "crate::services::jobs::JobsFacade",
         "crate::services::library::LibraryDeps",
     ),
     Path("src/routes/download_response/files.rs"): (
@@ -216,10 +214,7 @@ ROUTE_SERVICE_IMPORT_ALLOWLIST = {
     ),
 }
 
-ROUTE_QUALIFIED_SERVICE_ACCESS_ALLOWLIST = {
-    # Download response assembly retains a typed JobsFacade compatibility helper.
-    Path("src/routes/download_response/files.rs"),
-}
+ROUTE_QUALIFIED_SERVICE_ACCESS_ALLOWLIST: set[Path] = set()
 
 ARTIFACT_BOUNDARY_FILES = {
     Path("src/storage_paths.rs"),
@@ -227,6 +222,7 @@ ARTIFACT_BOUNDARY_FILES = {
     Path("src/services/artifacts/bundle.rs"),
     Path("src/services/artifacts/registry.rs"),
     Path("src/services/artifacts/response.rs"),
+    Path("src/services/artifacts/presentation.rs"),
     Path("src/routes/jobs/download.rs"),
 }
 
@@ -246,6 +242,13 @@ STAGE_VIEW_CONSUMER_ROOTS = (
     SRC_ROOT / "services" / "book_projection",
 )
 WORKER_COMMAND_FACADE = abs_src(Path("src/worker_command.rs"))
+
+# These leaves need persistence only, even if they are split into submodules.
+PERSIST_ONLY_RUNNER_MODULES = (
+    Path("src/job_runner/ocr_flow/bundle_events"),
+    Path("src/job_runner/render_flow_artifacts"),
+    Path("src/job_runner/translation_flow_artifacts"),
+)
 
 def rel(path: Path) -> Path:
     for root in ALL_SRC_ROOTS[1:]:
@@ -273,7 +276,7 @@ def check_appstate_boundaries(errors: list[str]) -> None:
             rel_path = rel(path)
             if rel_path in ALLOWED_APPSTATE_FILES:
                 continue
-            text = route_source_without_tests(path)
+            text = rust_boundary_source(path)
             if "AppState" in text:
                 errors.append(
                     f"{rel_path}: forbidden AppState usage outside route/app assembly or test whitelist"
@@ -328,21 +331,98 @@ def check_multipart_field_buffering(errors: list[str]) -> None:
 
 
 def check_jobs_route_deps_dedup(errors: list[str]) -> None:
-    jobs_dir = SRC_ROOT / "routes" / "jobs"
-    for path in scan_rs_files(jobs_dir):
+    narrow_modules = (
+        Path("src/routes/jobs/query/read"),
+        Path("src/routes/jobs/query/diagnostics"),
+        Path("src/routes/jobs/download"),
+        Path("src/routes/download_response"),
+    )
+    mixed_modules = {
+        Path("src/routes/jobs/query/reader"): {"reader_ai_chat"},
+        Path("src/routes/jobs/translation_debug"): {"replay_translation_item_route"},
+    }
+    full_capabilities = r"build_jobs_route_deps|build_jobs_facade_from_state|jobs_facade|JobsFacade|JobsRouteDeps"
+    for path in scan_rs_files(SRC_ROOT / "routes"):
         rel_path = rel(path)
-        if rel_path == Path("src/routes/common.rs"):
-            continue
-        text = path.read_text(encoding="utf-8")
-        if re.search(r"\bfn\s+route_deps\s*\(", text):
+        text = rust_boundary_source(path)
+        if path.is_relative_to(SRC_ROOT / "routes" / "jobs") and re.search(r"\bfn\s+route_deps\s*\(", text):
             errors.append(
                 f"{rel_path}: local jobs route_deps helper is forbidden; use build_jobs_route_deps"
             )
+        if any(is_rust_module_path(rel_path, module) for module in narrow_modules):
+            if re.search(rf"\b(?:{full_capabilities})\b", text):
+                errors.append(f"{rel_path}: read/download routes must use narrow dependencies")
+        elif commands := next((commands for module, commands in mixed_modules.items()
+                               if is_rust_module_path(rel_path, module)), None):
+            # Imports are shared with the explicit command handlers. Inspect
+            # function bodies, including local helpers, rather than the file.
+            aliases = re.findall(rf"\b(?:{full_capabilities})\s+as\s+(\w+)", text)
+            forbidden = "|".join([full_capabilities, *aliases])
+            for name, body in rust_function_bodies(text):
+                if name not in commands and re.search(rf"\b(?:{forbidden})\b", body):
+                    errors.append(f"{rel_path}:{name}: query handlers must use query-only dependencies")
 
 
 def route_source_without_tests(path: Path) -> str:
     text = path.read_text(encoding="utf-8")
     return text.split("\n#[cfg(test)]", 1)[0]
+
+
+def is_rust_module_path(path: Path, module: Path) -> bool:
+    """Cover both foo.rs and foo/{mod,child,...}.rs after module splits."""
+    return path == module.with_suffix(".rs") or path.is_relative_to(module)
+
+
+def rust_code_only(text: str) -> str:
+    """Mask comments and literals, preserving offsets and nested block comments.
+
+    These guards inspect Rust identifiers and braces, not strings or comments.
+    Masking literals also keeps URLs and raw strings from confusing // or {}.
+    """
+    token = re.compile(r'''//|/\*|(?:br|cr|r)\#*"|(?:b|c)?"|b?'(?:\\(?:u\{[^}]*\}|x[0-9a-fA-F]{2}|.)|[^'\\\n])' ''', re.VERBOSE)
+    result = list(text)
+    cursor = 0
+    while match := token.search(text, cursor):
+        start, end = match.span()
+        value = match.group()
+        if value == "//":
+            end = text.find("\n", end)
+            end = len(text) if end < 0 else end
+        elif value == "/*":
+            depth = 1
+            while depth and end < len(text):
+                next_token = re.search(r"/\*|\*/", text[end:])
+                if next_token is None:
+                    end = len(text)
+                    break
+                depth += 1 if next_token.group() == "/*" else -1
+                end += next_token.end()
+        elif value.endswith('"'):
+            if "r" in value:
+                closing = '"' + "#" * value.count("#")
+                closing_at = text.find(closing, end)
+                end = len(text) if closing_at < 0 else closing_at + len(closing)
+            else:
+                closing = re.search(r'(?s)(?:\\.|[^"\\])*"', text[end:])
+                end = len(text) if closing is None else end + closing.end()
+        result[start:end] = ["\n" if char == "\n" else " " for char in text[start:end]]
+        cursor = end
+    return "".join(result)
+
+
+def rust_boundary_source(path: Path) -> str:
+    return rust_code_only(path.read_text(encoding="utf-8")).split("\n#[cfg(test)]", 1)[0]
+
+
+def rust_function_bodies(code: str):
+    """Read named function bodies from literal/comment-masked route source."""
+    for match in re.finditer(r"\bfn\s+(\w+)\b[^;{]*\{", code):
+        depth = 1
+        end = match.end()
+        while depth and end < len(code):
+            depth += (code[end] == "{") - (code[end] == "}")
+            end += 1
+        yield match.group(1), code[match.end():end - 1]
 
 
 def check_route_state_resource_access(errors: list[str]) -> None:
@@ -365,7 +445,7 @@ def check_route_service_imports(errors: list[str]) -> None:
     pattern = re.compile(r"^use crate::services::[^\n;]+", re.MULTILINE)
     for path in scan_rs_files(SRC_ROOT / "routes"):
         rel_path = rel(path)
-        text = route_source_without_tests(path)
+        text = rust_boundary_source(path)
         imports = pattern.findall(text)
         allowed_prefixes = ROUTE_SERVICE_IMPORT_ALLOWLIST.get(rel_path, ())
         for item in imports:
@@ -544,15 +624,27 @@ def check_service_model_facade_boundaries(errors: list[str]) -> None:
 
 def check_jobs_dependency_boundaries(errors: list[str]) -> None:
     root = SRC_ROOT / "services" / "jobs" / "deps"
-    for path in scan_rs_files(root):
-        text = route_source_without_tests(path)
-        text = re.sub(r"/\*.*?\*/|//[^\n]*", "", text, flags=re.DOTALL)
+    paths = scan_rs_files(root)
+    narrow_modules = (
+        SRC_ROOT / "services" / "jobs" / "query",
+        SRC_ROOT / "services" / "jobs" / "downloads",
+    )
+    for module in narrow_modules:
+        paths.extend(scan_rs_files(module))
+        if module.with_suffix(".rs").is_file():
+            paths.append(module.with_suffix(".rs"))
+    for path in paths:
+        text = rust_boundary_source(path)
         if re.search(r"\b(?:AppState|AppConfig|from_env)\b|\benv\s*::\s*var\s*\(", text):
             errors.append(f"{rel(path)}: jobs dependencies must be explicitly assembled from narrow capabilities")
-        if path.name == "query.rs" and re.search(
-            r"\b(?:CommandJobsDeps|JobSubmitDeps|JobRuntime|RuntimeControl|JobLaunchDeps|UploadService)\b", text
+        if (is_rust_module_path(path, root / "query") or any(
+            is_rust_module_path(path, module) for module in narrow_modules
+        )) and re.search(
+            r"\b(?:JobsFacade|CommandJobsDeps|JobSubmitDeps|JobRuntime|RuntimeControl|JobLaunchDeps|JobRuntimeLauncher|UploadService)\b", text
         ):
             errors.append(f"{rel(path)}: query dependencies must not acquire submission or runtime control capabilities")
+        if any(is_rust_module_path(path, module) for module in narrow_modules) and re.search(r"\b(?:ReplayDeps|QueryJobsDeps)\b", text):
+            errors.append(f"{rel(path)}: read/download dependencies must not acquire replay capabilities")
     if (SRC_ROOT / "services" / "jobs" / "creation" / "context.rs").exists():
         errors.append("jobs/creation/context.rs: shared dependencies belong in jobs/deps")
 
@@ -689,13 +781,50 @@ def check_job_persist_deps_usage(errors: list[str]) -> None:
     }
     for path in scan_all_rs_files():
         rel_path = rel(path)
-        if rel_path in allowed:
+        if path.stem == "tests" or path.stem.endswith("_tests"):
             continue
-        text = path.read_text(encoding="utf-8")
-        if "JobPersistDeps" in text:
+        text = rust_boundary_source(path)
+        if any(is_rust_module_path(rel_path, module) for module in PERSIST_ONLY_RUNNER_MODULES):
+            if re.search(
+                r"\b(?:ProcessRuntimeDeps|AppState|AppConfig|JobRuntime|JobRuntimeLauncher|RuntimeControl|JobDriverRegistry|Semaphore)\b",
+                text,
+            ):
+                errors.append(
+                    f"{rel_path}: persistence-only runner leaves must use JobPersistDeps, not full runtime or execution capabilities"
+                )
+            continue
+        if any(is_rust_module_path(rel_path, module.with_suffix("")) for module in allowed):
+            continue
+        if re.search(r"\bJobPersistDeps\b", text):
             errors.append(
                 f"{rel_path}: JobPersistDeps is a leaf helper boundary; keep it out of unrelated modules"
             )
+
+
+def check_shared_artifact_presentation(errors: list[str]) -> None:
+    for path in scan_rs_files(SRC_ROOT / "services"):
+        if path.stem == "tests" or path.stem.endswith("_tests"):
+            continue
+        relative = rel(path)
+        text = rust_boundary_source(path)
+        if is_rust_module_path(relative, Path("src/services/jobs")):
+            if re.search(r"\bbook_projection\b", text):
+                errors.append(
+                    f"{relative}: jobs must not depend on book_projection; shared display belongs in services::artifacts"
+                )
+        if is_rust_module_path(relative, Path("src/services/artifacts/presentation")):
+            if re.search(
+                r"\b(?:jobs|book_projection|library|AppState|AppConfig|JobSnapshot|Db|storage_paths|ocr_provider|fs|File|OpenOptions|Command|process|reqwest)\b",
+                text,
+            ):
+                errors.append(
+                    f"{relative}: shared artifact presentation must consume artifact view data, not business services or runtime/storage dependencies"
+                )
+            for token in PROVIDER_RAW_INTERNAL_TOKENS:
+                if token in route_source_without_tests(path):
+                    errors.append(f"{relative}: shared artifact presentation must not interpret provider raw token '{token}'")
+    if (SRC_ROOT / "services" / "book_projection" / "artifacts.rs").exists():
+        errors.append("services/book_projection/artifacts.rs: shared artifact display belongs in services/artifacts/presentation.rs")
 
 
 def check_runtime_deps_module_boundary(errors: list[str]) -> None:
@@ -1099,6 +1228,7 @@ def main() -> int:
     check_jobs_dependency_boundaries(errors)
     check_process_runtime_deps_usage(errors)
     check_job_persist_deps_usage(errors)
+    check_shared_artifact_presentation(errors)
     check_runtime_deps_module_boundary(errors)
     check_state_recovery_boundary(errors)
     check_lifecycle_helper_boundaries(errors)

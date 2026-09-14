@@ -223,6 +223,7 @@ def test_local_backend_entrypoints_resolve_the_embedded_package() -> None:
     package = json.loads((REPO_ROOT / "package.json").read_text(encoding="utf-8"))
     api_test = package["scripts"]["test:api"]
     assert ".github/scripts/run_with_backend_source.py" in api_test
+    assert "uv run --project {backend} --locked --all-extras cargo test --locked --workspace" in api_test
     assert "{source_root}/Cargo.toml" in api_test
 
     wrapper = (REPO_ROOT / ".github" / "scripts" / "run_with_backend_source.py").read_text(

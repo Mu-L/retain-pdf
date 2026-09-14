@@ -10,6 +10,7 @@ Rust API 的详细实现契约按领域维护在：
 
 - [Rust API Spec 入口](../API_SPEC.md)
 - [分领域实现契约目录](../API_SPEC.md#contract-map)
+- [Reader read-model handoff](api-spec/reader-read-model.md)
 
 后端实现和协作边界看：
 

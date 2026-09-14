@@ -611,8 +611,7 @@ mod restricted_tests {
         };
         materialize_operation_workspace(&data_root, &source, &program, &manifest, &state)
             .expect("workspace");
-        let executor =
-            RestrictedPageProgramExecutor::new(&data_root, &stub.to_string_lossy());
+        let executor = RestrictedPageProgramExecutor::new(&data_root, &stub.to_string_lossy());
         let receipt = executor.start(&manifest).expect("start worker");
         assert!(retain_proc::worker_process_exists(
             executor

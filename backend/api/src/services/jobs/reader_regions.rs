@@ -85,7 +85,7 @@ pub(crate) fn load_reader_regions_view(
                     text: source_text_from_item(&item),
                 });
             items.push(ReaderRegionItemView {
-                item_id,
+                item_id: canonical_item_id(&item_id),
                 source,
                 translated: ReaderRegionBoxView {
                     page: translated_page_idx + 1,

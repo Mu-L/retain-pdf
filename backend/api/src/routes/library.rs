@@ -8,9 +8,11 @@ use crate::models::api::{
     ApiResponse, LibraryBatchDeleteInput, LibraryBatchDeleteResultView, LibraryBookDetailView,
     LibraryBookListView, LibraryDeleteQuery, LibraryDeleteResultView, ListJobsQuery,
 };
-use crate::routes::common::build_jobs_route_deps;
+use crate::routes::common::build_jobs_download_route_deps;
 use crate::routes::common::request_base_url;
-use crate::routes::common::{build_library_route_deps, ok_json, ApiJson, ApiPath, ApiQuery};
+use crate::routes::common::{
+    build_library_route_deps, ok_json, run_read_query_once, ApiJson, ApiPath, ApiQuery,
+};
 use crate::routes::download_response::{cover_response, thumbnail_response};
 use crate::services::library::api::{
     delete_library_book_view, delete_library_books_view, get_library_book_view,
@@ -25,11 +27,11 @@ pub async fn list_books(
 ) -> Result<Json<ApiResponse<LibraryBookListView>>, AppError> {
     let deps = build_library_route_deps(&state);
     let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
-    Ok(ok_json(list_library_books_view(
-        &deps.library,
-        &query,
-        &base_url,
-    )?))
+    let view = run_read_query_once(&state, "library:books:list".into(), move |db, root| {
+        list_library_books_view(db, root, &query, &base_url)
+    })
+    .await?;
+    Ok(ok_json(view))
 }
 
 pub async fn get_book(
@@ -39,11 +41,13 @@ pub async fn get_book(
 ) -> Result<Json<ApiResponse<LibraryBookDetailView>>, AppError> {
     let deps = build_library_route_deps(&state);
     let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
-    Ok(ok_json(get_library_book_view(
-        &deps.library,
-        &job_id,
-        &base_url,
-    )?))
+    let view = run_read_query_once(
+        &state,
+        format!("library:books:{job_id}"),
+        move |db, root| get_library_book_view(db, root, &job_id, &base_url),
+    )
+    .await?;
+    Ok(ok_json(view))
 }
 
 pub async fn delete_book(
@@ -72,7 +76,7 @@ pub async fn download_book_cover(
     ApiPath(job_id): ApiPath<String>,
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
-    cover_response(&build_jobs_route_deps(&state), &headers, &job_id).await
+    cover_response(&build_jobs_download_route_deps(&state), &headers, &job_id).await
 }
 
 pub async fn download_book_thumbnail(
@@ -80,5 +84,5 @@ pub async fn download_book_thumbnail(
     ApiPath(job_id): ApiPath<String>,
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
-    thumbnail_response(&build_jobs_route_deps(&state), &headers, &job_id).await
+    thumbnail_response(&build_jobs_download_route_deps(&state), &headers, &job_id).await
 }

@@ -1,5 +1,6 @@
 use crate::models::api::{ArtifactDisplayItemView, ArtifactLinksView};
 
+// Shared presentation only: callers resolve artifact links and readiness first.
 pub(crate) fn build_artifacts_display(
     artifacts: &ArtifactLinksView,
 ) -> Vec<ArtifactDisplayItemView> {

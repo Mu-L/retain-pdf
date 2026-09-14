@@ -85,22 +85,13 @@ fn build_console_job(subcommand: &str) -> JobRuntimeState {
 
 #[cfg(test)]
 fn build_stage_module_job(module: &str, worker: Option<&str>) -> JobRuntimeState {
-    let mut command = vec![
-        "python".to_string(),
-        "-m".to_string(),
-        module.to_string(),
-    ];
+    let mut command = vec!["python".to_string(), "-m".to_string(), module.to_string()];
     if let Some(worker) = worker {
         command.push(worker.to_string());
     }
     command.push("--spec".to_string());
     command.push("/tmp/spec.json".to_string());
-    JobSnapshot::new(
-        "job-test".to_string(),
-        CreateJobInput::default(),
-        command,
-    )
-    .into_runtime()
+    JobSnapshot::new("job-test".to_string(), CreateJobInput::default(), command).into_runtime()
 }
 
 #[cfg(test)]

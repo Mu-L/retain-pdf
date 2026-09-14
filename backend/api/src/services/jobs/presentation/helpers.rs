@@ -1,32 +1,32 @@
 use std::path::Path;
 
-use crate::db::Db;
+use super::super::summary_loaders::SummaryCache;
 use crate::models::api::{
     to_absolute_url, BookSummaryView, JobFailureDiagnosticView, OcrJobSummaryView,
 };
-use crate::models::domain::{JobFailureInfo, JobSnapshot};
+use crate::models::domain::{JobFailureInfo, JobSnapshot, UploadRecord};
 use crate::storage_paths::resolve_source_pdf;
 
-pub(super) fn derive_display_name(db: &Db, job: &JobSnapshot) -> String {
-    if let Some(source_file_name) = source_file_name(db, job) {
+pub(super) fn derive_display_name(upload: Option<&UploadRecord>, job: &JobSnapshot) -> String {
+    if let Some(source_file_name) = source_file_name(upload, job) {
         return source_file_name;
     }
 
     job.job_id.clone()
 }
 
-pub(super) fn source_file_name(db: &Db, job: &JobSnapshot) -> Option<String> {
-    if let Some(upload_id) = job
-        .upload_id
+pub(super) fn upload_id(job: &JobSnapshot) -> Option<&str> {
+    job.upload_id
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
-    {
-        if let Ok(upload) = db.get_upload(upload_id) {
-            let file_name = upload.filename.trim();
-            if !file_name.is_empty() {
-                return Some(file_name.to_string());
-            }
+}
+
+pub(super) fn source_file_name(upload: Option<&UploadRecord>, job: &JobSnapshot) -> Option<String> {
+    if let Some(upload) = upload {
+        let file_name = upload.filename.trim();
+        if !file_name.is_empty() {
+            return Some(file_name.to_string());
         }
     }
 
@@ -37,23 +37,20 @@ pub(super) fn source_file_name(db: &Db, job: &JobSnapshot) -> Option<String> {
     None
 }
 
-pub(super) fn upload_book_stats(db: &Db, job: &JobSnapshot) -> (Option<i64>, Option<u64>) {
-    let Some(upload_id) = job
-        .upload_id
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    else {
-        return (None, None);
-    };
-    match db.get_upload(upload_id) {
-        Ok(upload) => (Some(upload.page_count as i64), Some(upload.bytes)),
-        Err(_) => (None, None),
+pub(super) fn upload_book_stats(upload: Option<&UploadRecord>) -> (Option<i64>, Option<u64>) {
+    match upload {
+        Some(upload) => (Some(upload.page_count as i64), Some(upload.bytes)),
+        None => (None, None),
     }
 }
 
-pub(super) fn page_count_for_job(db: &Db, job: &JobSnapshot, data_root: &Path) -> Option<i64> {
-    upload_book_stats(db, job)
+pub(super) fn page_count_for_job(
+    upload: Option<&UploadRecord>,
+    summaries: &mut SummaryCache,
+    job: &JobSnapshot,
+    data_root: &Path,
+) -> Option<i64> {
+    upload_book_stats(upload)
         .0
         .or_else(|| {
             job.artifacts
@@ -61,27 +58,30 @@ pub(super) fn page_count_for_job(db: &Db, job: &JobSnapshot, data_root: &Path) -
                 .and_then(|artifacts| artifacts.pages_processed)
         })
         .or_else(|| {
-            super::super::summary_loaders::load_normalization_summary(job, data_root)
+            summaries
+                .normalization(job, data_root)
                 .and_then(|summary| summary.page_count.or(summary.pages_seen))
         })
 }
 
 pub(super) fn build_book_summary(
-    db: &Db,
+    upload: Option<&UploadRecord>,
+    summaries: &mut SummaryCache,
     job: &JobSnapshot,
     data_root: &Path,
     base_url: &str,
     display_name: &str,
 ) -> BookSummaryView {
-    let (upload_page_count, upload_size) = upload_book_stats(db, job);
+    let (upload_page_count, upload_size) = upload_book_stats(upload);
     BookSummaryView {
         title: display_name.to_string(),
         authors: None,
-        page_count: upload_page_count.or_else(|| page_count_for_job(db, job, data_root)),
+        page_count: upload_page_count
+            .or_else(|| page_count_for_job(upload, summaries, job, data_root)),
         source_language: Some(job.request_payload.ocr.language.clone())
             .filter(|value| !value.trim().is_empty()),
         target_language: None,
-        source_file_name: source_file_name(db, job),
+        source_file_name: source_file_name(upload, job),
         cover_url: cover_url(job, data_root, base_url),
         thumbnail_url: thumbnail_url(job, data_root, base_url),
         file_size_bytes: upload_size,
@@ -154,7 +154,58 @@ pub(super) fn job_failure_to_legacy_view(failure: &JobFailureInfo) -> JobFailure
 
 #[cfg(test)]
 mod tests {
-    use super::source_url_file_name;
+    use super::*;
+    use crate::models::domain::{CreateJobInput, JobArtifacts};
+
+    #[test]
+    fn optional_upload_metadata_keeps_display_and_page_count_precedence() {
+        let root = std::env::temp_dir().join(format!("retain-page-metadata-{}", fastrand::u64(..)));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(
+            root.join("normalization.json"),
+            r#"{"normalization":{"defaults":{"pages_seen":9}}}"#,
+        )
+        .unwrap();
+        let mut job = JobSnapshot::new("job-fallback".into(), CreateJobInput::default(), vec![]);
+        job.request_payload.source.source_url = "https://example.test/source.pdf?dl=1".into();
+        job.artifacts = Some(JobArtifacts {
+            pages_processed: Some(5),
+            normalization_report_json: Some("normalization.json".into()),
+            ..Default::default()
+        });
+        let mut upload = UploadRecord {
+            upload_id: "upload".into(),
+            filename: " upload.pdf ".into(),
+            stored_path: root.join("upload.pdf").to_string_lossy().into_owned(),
+            bytes: 20,
+            page_count: 0,
+            uploaded_at: "now".into(),
+            developer_mode: false,
+            content_hash: String::new(),
+        };
+        let mut summaries = SummaryCache::default();
+        assert_eq!(derive_display_name(Some(&upload), &job), "upload.pdf");
+        // A stored zero is still metadata, not a signal to substitute artifacts.
+        assert_eq!(
+            page_count_for_job(Some(&upload), &mut summaries, &job, &root),
+            Some(0)
+        );
+        assert_eq!(
+            page_count_for_job(None, &mut summaries, &job, &root),
+            Some(5)
+        );
+        job.artifacts.as_mut().unwrap().pages_processed = None;
+        assert_eq!(
+            page_count_for_job(None, &mut summaries, &job, &root),
+            Some(9)
+        );
+        upload.filename = " ".into();
+        assert_eq!(derive_display_name(Some(&upload), &job), "source.pdf");
+        assert_eq!(source_file_name(None, &job), Some("source.pdf".into()));
+        job.request_payload.source.source_url.clear();
+        assert_eq!(derive_display_name(None, &job), "job-fallback");
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn source_url_file_name_extracts_tail() {

@@ -3,7 +3,7 @@ use crate::models::domain::{job_stage_rank, JobStatusKind};
 
 use super::LiveStageSnapshot;
 
-pub(super) fn select_live_stage_snapshot(
+pub(in crate::services::jobs) fn select_live_stage_snapshot(
     items: &[JobEventRecord],
     status: &JobStatusKind,
 ) -> Option<LiveStageSnapshot> {
@@ -59,6 +59,59 @@ pub(super) fn select_live_stage_snapshot(
             .or_else(|| fallback_progress.and_then(progress_unit)),
         background_stages: latest_background_stages(items),
     })
+}
+
+/// Sufficient statistics for the existing selector. This is closed under
+/// merging: compact(compact(history) + delta) yields the same stage as history
+/// + delta, including late timestamps, retries, and background lanes.
+pub(in crate::services::jobs) fn compact_stage_basis(
+    items: &[JobEventRecord],
+) -> Vec<JobEventRecord> {
+    let mut basis = Vec::new();
+    let main = items
+        .iter()
+        .filter(|item| item_is_selectable_main_stage(item));
+    if let Some(item) = main.clone().max_by(|left, right| {
+        job_stage_rank(left.stage.as_deref())
+            .cmp(&job_stage_rank(right.stage.as_deref()))
+            .then_with(|| left.ts.cmp(&right.ts))
+            .then_with(|| left.seq.cmp(&right.seq))
+    }) {
+        basis.push(item.clone());
+    }
+    if let Some(item) = latest_by_time(main.filter(|item| !item_is_terminal_done_stage(item))) {
+        basis.push(item.clone());
+    }
+    if let Some(item) = latest_render_page_progress(items) {
+        basis.push(item.clone());
+    }
+    if let Some(item) = latest_progress(items) {
+        basis.push(item.clone());
+    }
+    let mut backgrounds =
+        std::collections::BTreeMap::<String, (&JobEventRecord, &JobEventRecord)>::new();
+    for item in items.iter().filter(|item| {
+        item.lane.as_deref() == Some("background")
+            && item.display_stage.is_some()
+            && item.substage.is_some()
+    }) {
+        let key = background_key(item);
+        let (first, last) = backgrounds.entry(key).or_insert((item, item));
+        if event_is_newer(first, item) {
+            *first = item;
+        }
+        if event_is_newer(item, last) {
+            *last = item;
+        }
+    }
+    basis.extend(
+        backgrounds
+            .into_values()
+            .flat_map(|(first, last)| [first.clone(), last.clone()]),
+    );
+    basis.sort_by(|a, b| a.ts.cmp(&b.ts).then_with(|| a.seq.cmp(&b.seq)));
+    basis.dedup_by(|a, b| a.seq == b.seq);
+    basis
 }
 
 fn select_main_stage_event<'a>(
@@ -239,4 +292,54 @@ fn progress_unit(item: &JobEventRecord) -> Option<String> {
         .as_ref()
         .and_then(|progress| progress.unit.clone())
         .or_else(|| item.progress_unit.clone())
+}
+
+#[cfg(test)]
+mod compact_tests {
+    use super::*;
+    use crate::models::domain::JobStatusKind;
+
+    #[test]
+    fn bounded_basis_matches_full_history_with_late_events_and_background_stages() {
+        let mut history = Vec::new();
+        for seq in 1..=512 {
+            let stage = ["ocr", "translating", "rendering", "finished", "failed"][seq as usize % 5];
+            let mut event: JobEventRecord = serde_json::from_value(serde_json::json!({
+                "job_id":"compact", "seq":seq, "ts":format!("{:08}", (seq * 37) % 211),
+                "created_at":"", "level":"info", "event":"stage_progress", "message":"",
+                "stage":stage, "progress_current":seq, "progress_total":1000, "progress_unit":"page"
+            }))
+            .unwrap();
+            crate::services::jobs::live_stage::canonicalize_job_event(&mut event, "db");
+            if seq % 3 == 0 {
+                event.lane = Some("background".into());
+                event.substage = Some(format!("background-{}", seq % 7));
+            }
+            history.push(event);
+        }
+        let mut sorted = history.clone();
+        sorted.sort_by(|a, b| a.ts.cmp(&b.ts).then_with(|| a.seq.cmp(&b.seq)));
+        for chunk_size in [1, 7, 31, 512] {
+            let mut basis = Vec::new();
+            for chunk in history.chunks(chunk_size) {
+                basis.extend_from_slice(chunk);
+                basis = compact_stage_basis(&basis);
+            }
+            assert!(
+                basis.len() <= 74,
+                "bounded by stage categories, not event count"
+            );
+            for status in [
+                JobStatusKind::Running,
+                JobStatusKind::Succeeded,
+                JobStatusKind::Failed,
+            ] {
+                assert_eq!(
+                    serde_json::to_value(select_live_stage_snapshot(&basis, &status)).unwrap(),
+                    serde_json::to_value(select_live_stage_snapshot(&sorted, &status)).unwrap(),
+                    "chunk size {chunk_size}, status {status:?}"
+                );
+            }
+        }
+    }
 }

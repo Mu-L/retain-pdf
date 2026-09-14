@@ -3,7 +3,7 @@ use std::path::{Component, Path, PathBuf};
 use crate::error::AppError;
 use crate::models::domain::JobSnapshot;
 
-use super::QueryJobsDeps;
+use super::DownloadJobsDeps;
 
 pub(super) fn safe_markdown_image_path(path: &str) -> Result<PathBuf, AppError> {
     let raw = Path::new(path);
@@ -31,7 +31,7 @@ pub(super) fn safe_markdown_image_path(path: &str) -> Result<PathBuf, AppError> 
 }
 
 pub(super) fn job_artifacts_dir(
-    deps: &QueryJobsDeps<'_>,
+    deps: &DownloadJobsDeps<'_>,
     job: &JobSnapshot,
 ) -> Result<PathBuf, AppError> {
     let output_dir = deps

@@ -111,7 +111,7 @@ async fn reader_regions_route_maps_translated_items_to_source_blocks() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let payload = read_json(response).await;
-    assert_eq!(payload["data"]["items"][0]["item_id"], "p008-b009");
+    assert_eq!(payload["data"]["items"][0]["item_id"], "p008-b0009");
     assert_eq!(payload["data"]["items"][0]["source"]["page"], 8);
     assert_eq!(payload["data"]["items"][0]["translated"]["page"], 8);
     assert_eq!(
@@ -130,6 +130,17 @@ async fn reader_regions_route_maps_translated_items_to_source_blocks() {
     assert_eq!(payload["data"]["items"][0]["markdown"], "译文 markdown");
     assert_eq!(payload["data"]["items"][0]["region_type"], "text");
     assert_eq!(payload["data"]["items"][0]["status"], "translated");
+    assert!(payload["data"]["items"][0].get("asset_ids").is_some());
+    assert!(payload["data"]["items"][0].get("asset_urls").is_some());
+    assert_eq!(payload["data"]["items"][0]["asset_ids"], json!([]));
+    assert_eq!(payload["data"]["items"][0]["asset_urls"], json!([]));
+    // Reader wire convention: pages are one-based and boxes are top-left PDF points.
+    assert_eq!(payload["data"]["items"][0]["source"]["unit"], "pdf_point");
+    assert_eq!(payload["data"]["items"][0]["source"]["origin"], "top_left");
+    assert_eq!(payload["data"]["items"][0]["translated"]["unit"], "pdf_point");
+    assert_eq!(payload["data"]["items"][0]["translated"]["origin"], "top_left");
+    assert_eq!(payload["data"]["items"][0]["source"]["page"], 8);
+    assert_eq!(payload["data"]["items"][0]["translated"]["page"], 8);
     assert_eq!(payload["data"]["items"].as_array().unwrap().len(), 2);
     assert_eq!(payload["data"]["items"][1]["item_id"], "p008-b0010");
     assert_eq!(payload["data"]["items"][1]["region_type"], "image");

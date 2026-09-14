@@ -68,6 +68,9 @@
   顶层 translate worker。只接受已经标准化的 `document.v1.json`。
 - `retainpdf-pipeline render-only --spec <job_root>/specs/render.spec.json`
   顶层 render worker。只接受翻译产物和 PDF。
+- `retainpdf-pipeline document-operation --help`
+  页面删除、重排、复制和旋转的固定解释器；执行页面程序并生成候选 PDF、结果和视觉校验报告。
+  实现随 Pipeline wheel 安装，不依赖 AI 服务包。
 - `retainpdf-pipeline translate-from-ocr --spec <job_root>/specs/book.spec.json`
   provider/normalize 后继续翻译和渲染的入口之一（顶层垫片已删除，只有包内入口和 console 子命令）。
 - `retainpdf-pipeline diagnose-failure --spec <job_root>/specs/<stage>.spec.json`
@@ -99,6 +102,19 @@
 1. `retainpdf_pipeline/translate/README.md`
 2. `retainpdf_pipeline/translate/llm/README.md`
 3. 再按需要进入 `retainpdf_pipeline/translate/llm/providers/` 或 `retainpdf_pipeline/translate/llm/shared/orchestration/`
+
+## 页面操作独立安装验收
+
+将 Pipeline wheel 及其声明依赖安装到全新虚拟环境，不安装 AI 包，也不使用 editable workspace。
+再由开发环境运行下列测试，并把子进程解释器指向该独立环境：
+
+```bash
+RETAINPDF_PIPELINE_ONLY_PYTHON=/path/to/isolated/venv/bin/python \
+  backend/.venv/bin/python -m pytest backend/pipeline/devtools/tests/document_operations/test_document_operation_cli.py -q
+```
+
+此模式检查 AI/FastAPI 实际不存在，并执行真实页面操作及结果、像素校验。
+不设置该变量时只验证 AI 导入阻断，不能替代独立安装验收。
 
 ## 新 Provider 接入顺序
 
@@ -133,6 +149,10 @@
   OCR payload 到翻译 JSON（含 `translation_stage.py` 阶段门面）。
 - `retainpdf_pipeline/render`
   翻译 JSON 到 PDF（含 `render_stage.py`、`translation_loader.py`、`render_inputs.py` 阶段门面）。
+- `retainpdf_pipeline/document_operations`
+  页面程序执行与逐页像素校验；仅公开 `execute_page_program`、`validate_page_program` 和
+  `validate_page_program_visuals`。AI 通过 Rust API 提交操作，不能直接导入 Pipeline；
+  Pipeline 也不能导入 AI 包。架构检查包含延迟导入，防止反向依赖重新出现。
 - `retainpdf_pipeline/runtime/pipeline`
   本地 book 串联收口（仅 `book_pipeline.py`）；生产编排在 Rust 侧。
 - `retainpdf_pipeline/entrypoints`

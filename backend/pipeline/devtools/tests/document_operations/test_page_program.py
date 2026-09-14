@@ -6,14 +6,14 @@ from pathlib import Path
 import fitz
 import pikepdf
 import pytest
-from retainpdf_ai.document_operations.page_program import (
-    build_page_plan,
-    canonical_program_bytes,
+from retainpdf_pipeline.document_operations import (
     execute_page_program,
     validate_page_program,
-)
-from retainpdf_ai.document_operations.visual_validation import (
     validate_page_program_visuals,
+)
+from retainpdf_pipeline.document_operations.page_program import (
+    build_page_plan,
+    canonical_program_bytes,
 )
 
 

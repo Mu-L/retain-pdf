@@ -111,7 +111,7 @@ async fn run_translate_only_job_from_artifacts(
         .trim()
         .to_string();
     let (job, _source_pdf_path) = translation_flow_artifacts::prepare_job_from_ocr_artifacts(
-        &deps,
+        &deps.persist,
         job,
         &source_job_id,
         "继续翻译",
@@ -143,7 +143,7 @@ async fn run_book_job_from_artifacts(
         .trim()
         .to_string();
     let (job, _source_pdf_path) = translation_flow_artifacts::prepare_job_from_ocr_artifacts(
-        &deps,
+        &deps.persist,
         job,
         &source_job_id,
         "继续翻译并渲染",

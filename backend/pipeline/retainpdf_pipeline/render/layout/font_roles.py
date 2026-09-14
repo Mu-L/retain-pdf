@@ -53,7 +53,9 @@ def is_body_text_candidate(item: dict, page_text_width_med: float) -> bool:
     if not is_plain_text_block(item):
         if layout_role not in {"paragraph", "list_item"}:
             return False
-    if semantic_role not in {"", "body", "abstract"}:
+    # Canonical profiles represent an unspecified role as "unknown". Legacy
+    # OCR text still needs the same geometry/text heuristics as an empty role.
+    if semantic_role not in {"", "unknown", "body", "abstract"}:
         return False
     if formula_ratio(item) > BODY_FORMULA_RATIO_MAX:
         return False

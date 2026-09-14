@@ -7,7 +7,7 @@ use crate::storage_paths::{resolve_output_pdf, resolve_source_pdf};
 
 use super::artifact_deps::derived_artifact_deps;
 use super::paths::job_artifacts_dir;
-use super::{FileDownload, QueryJobsDeps};
+use super::{DownloadJobsDeps, FileDownload};
 use crate::services::jobs::query::load_supported_job;
 
 #[derive(Clone, Copy)]
@@ -35,14 +35,46 @@ pub(super) fn preview_kind(kind: &str) -> Result<PagePreviewKind, AppError> {
     }
 }
 
-pub(crate) fn page_preview_download(
-    deps: &QueryJobsDeps<'_>,
-    job_id: &str,
+/// The scheduler key and on-disk artifact name use the exact same normalized
+/// parameters. Validation still runs after job scope/layout checks.
+pub(super) struct PagePreviewSpec {
+    kind: String,
     page: u32,
-    query: &PagePreviewQuery,
+    width_px: u32,
+    dpi: u32,
+}
+
+impl PagePreviewSpec {
+    pub(super) fn new(page: u32, query: &PagePreviewQuery) -> Self {
+        Self {
+            kind: query.kind.trim().to_ascii_lowercase(),
+            page,
+            width_px: query.width.unwrap_or(1200).clamp(240, 2400),
+            dpi: query.dpi.unwrap_or(0).min(300),
+        }
+    }
+
+    pub(super) fn generation_key(&self, job_id: &str) -> String {
+        serde_json::to_string(&(
+            job_id,
+            "page-preview",
+            &self.kind,
+            self.page,
+            self.width_px,
+            self.dpi,
+        ))
+        .expect("preview key contains only strings and integers")
+    }
+}
+
+pub(super) fn page_preview_download(
+    deps: &DownloadJobsDeps<'_>,
+    job_id: &str,
+    spec: &PagePreviewSpec,
 ) -> Result<FileDownload, AppError> {
     let job = load_supported_job(deps.db, deps.data_root, job_id)?;
-    let source_pdf = match preview_kind(&query.kind)? {
+    let kind = preview_kind(&spec.kind)?;
+    let source_pdf = match kind {
         PagePreviewKind::Source => resolve_source_pdf(&job, deps.data_root)
             .ok_or_else(|| AppError::not_found(format!("source pdf not ready: {}", job.job_id)))?,
         PagePreviewKind::Translated => {
@@ -51,16 +83,17 @@ pub(crate) fn page_preview_download(
             })?
         }
     };
-    let page_index = page
+    let page_index = spec
+        .page
         .checked_sub(1)
         .ok_or_else(|| AppError::bad_request("page must be 1-based"))?;
-    let width_px = query.width.unwrap_or(1200).clamp(240, 2400);
-    let dpi = query.dpi.unwrap_or(0).min(300);
+    let width_px = spec.width_px;
+    let dpi = spec.dpi;
     let output_dir = job_artifacts_dir(deps, &job)?;
     let output_path = output_dir.join(format!(
         "preview-{}-p{:04}-w{}-d{}.jpg",
-        preview_kind(&query.kind)?.as_str(),
-        page,
+        kind.as_str(),
+        spec.page,
         width_px,
         dpi
     ));
@@ -75,8 +108,8 @@ pub(crate) fn page_preview_download(
     Ok(FileDownload::new(path, "image/jpeg", None))
 }
 
-pub(crate) fn cover_download(
-    deps: &QueryJobsDeps<'_>,
+pub(super) fn cover_download(
+    deps: &DownloadJobsDeps<'_>,
     job_id: &str,
 ) -> Result<FileDownload, AppError> {
     let path = book_image_download_path(
@@ -87,8 +120,8 @@ pub(crate) fn cover_download(
     Ok(FileDownload::new(path, "image/jpeg", None))
 }
 
-pub(crate) fn thumbnail_download(
-    deps: &QueryJobsDeps<'_>,
+pub(super) fn thumbnail_download(
+    deps: &DownloadJobsDeps<'_>,
     job_id: &str,
 ) -> Result<FileDownload, AppError> {
     let path = book_image_download_path(
@@ -100,7 +133,7 @@ pub(crate) fn thumbnail_download(
 }
 
 fn book_image_download_path(
-    deps: &QueryJobsDeps<'_>,
+    deps: &DownloadJobsDeps<'_>,
     job_id: &str,
     kind: derived_artifacts::preview::BookImageKind,
 ) -> Result<PathBuf, AppError> {

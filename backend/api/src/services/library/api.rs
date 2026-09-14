@@ -1,6 +1,10 @@
 //! Application facade for the Library domain.
 //!
 //! Routes must import only this module from `services::*` (see architecture check).
+//! Domain functions that already implement the API contract are re-exported
+//! directly; a public entrypoint does not need an extra forwarding function.
+
+pub use super::documents::{get_document, list_documents, patch_document};
 
 use crate::error::AppError;
 use crate::models::api::{
@@ -8,48 +12,50 @@ use crate::models::api::{
     AssetRecord, CollectionListView, CollectionMutationResult, CollectionRecord,
     ConversationDetailView, ConversationListView, ConversationMutationResult, ConversationRecord,
     CreateCollectionInput, CreateConversationInput, CreateDocumentMetadataSuggestionInput,
-    CreateFavoriteInput, DocumentDeleteResultView, DocumentJobListView, DocumentListView,
-    DocumentMetadataSuggestionApplyView, DocumentMetadataSuggestionListView,
-    DocumentMetadataSuggestionView, DocumentRecord, FavoriteListView, FavoriteMutationResult,
-    FavoriteRecord, FavoritesClearedResult, JobSubmissionView, LibraryBatchDeleteInput,
-    LibraryBatchDeleteResultView,
-    LibraryBookDetailView, LibraryBookListView, LibraryDeleteResultView, ListConversationsQuery,
-    ListDocumentJobsQuery, ListDocumentMetadataSuggestionsQuery, ListDocumentsQuery,
-    ListFavoritesQuery, ListJobsQuery, MessageRecord, PatchCollectionInput, PatchConversationInput,
-    PatchDocumentInput, PatchFavoriteInput, SearchQuery, SearchResultView,
+    CreateFavoriteInput, DocumentDeleteResultView, DocumentMetadataSuggestionApplyView,
+    DocumentMetadataSuggestionListView, DocumentMetadataSuggestionView, FavoriteListView,
+    FavoriteMutationResult, FavoriteRecord, FavoritesClearedResult, JobSubmissionView,
+    LibraryBatchDeleteInput, LibraryBatchDeleteResultView, LibraryBookDetailView,
+    LibraryBookListView, LibraryDeleteResultView, ListConversationsQuery,
+    ListDocumentMetadataSuggestionsQuery, ListFavoritesQuery, ListJobsQuery, MessageRecord,
+    PatchCollectionInput, PatchConversationInput, PatchFavoriteInput, SearchQuery,
+    SearchResultView,
 };
 use crate::models::request::CreateJobInput;
+use crate::services::download_generation::DownloadGeneration;
 use crate::services::jobs::JobsFacade;
+use std::sync::Arc;
 
 use super::{
     add_collection_documents, append_message, apply_metadata_suggestion,
     clear_favorites_for_document, clear_favorites_for_job, create_collection, create_conversation,
-    create_favorite, create_metadata_suggestion, delete_collection,
-    delete_conversation, delete_document, delete_favorite, delete_library_book,
-    delete_library_books, document_cover, document_source_pdf, document_thumbnail,
-    get_conversation, get_document, get_library_book, list_collections, list_conversations,
-    list_documents, list_favorites, list_library_books, list_metadata_suggestions, load_asset,
-    ocr_document, patch_collection, patch_conversation, patch_document, patch_favorite,
-    remove_collection_document, search_blocks, store_asset, translate_document, AssetDownload,
-    DocumentFileDownload, LibraryDeps,
+    create_favorite, create_metadata_suggestion, delete_collection, delete_conversation,
+    delete_document, delete_favorite, delete_library_book, delete_library_books, document_cover,
+    document_source_pdf, document_thumbnail, get_conversation, get_library_book, list_collections,
+    list_conversations, list_favorites, list_library_books, list_metadata_suggestions, load_asset,
+    ocr_document, patch_collection, patch_conversation, patch_favorite, remove_collection_document,
+    search_blocks, store_asset, translate_document, AssetDownload, DocumentFileDownload,
+    LibraryDeps,
 };
 
 // --- books ---
 
 pub fn list_library_books_view(
-    deps: &LibraryDeps<'_>,
+    db: &crate::db::Db,
+    data_root: &std::path::Path,
     query: &ListJobsQuery,
     base_url: &str,
 ) -> Result<LibraryBookListView, AppError> {
-    list_library_books(deps, query, base_url)
+    list_library_books(db, data_root, query, base_url)
 }
 
 pub fn get_library_book_view(
-    deps: &LibraryDeps<'_>,
+    db: &crate::db::Db,
+    data_root: &std::path::Path,
     job_id: &str,
     base_url: &str,
 ) -> Result<LibraryBookDetailView, AppError> {
-    get_library_book(deps, job_id, base_url)
+    get_library_book(db, data_root, job_id, base_url)
 }
 
 pub fn delete_library_book_view(
@@ -68,31 +74,6 @@ pub fn delete_library_books_view(
 }
 
 // --- documents ---
-
-pub fn list_documents_view(
-    deps: &LibraryDeps<'_>,
-    query: &ListDocumentsQuery,
-    base_url: &str,
-) -> Result<DocumentListView, AppError> {
-    list_documents(deps, query, base_url)
-}
-
-pub fn get_document_view(
-    deps: &LibraryDeps<'_>,
-    document_id: &str,
-    base_url: &str,
-) -> Result<DocumentRecord, AppError> {
-    get_document(deps, document_id, base_url)
-}
-
-pub fn patch_document_view(
-    deps: &LibraryDeps<'_>,
-    document_id: &str,
-    payload: &PatchDocumentInput,
-    base_url: &str,
-) -> Result<DocumentRecord, AppError> {
-    patch_document(deps, document_id, payload, base_url)
-}
 
 pub fn delete_document_view(
     deps: &LibraryDeps<'_>,
@@ -127,19 +108,6 @@ pub fn apply_document_metadata_suggestion_view(
     apply_metadata_suggestion(deps, document_id, suggestion_id, input)
 }
 
-pub fn list_document_jobs_view(
-    deps: &LibraryDeps<'_>,
-    jobs: &JobsFacade<'_>,
-    document_id: &str,
-    query: &ListDocumentJobsQuery,
-    base_url: &str,
-) -> Result<DocumentJobListView, AppError> {
-    deps.db
-        .get_document(document_id)
-        .map_err(|_| AppError::not_found(format!("document not found: {document_id}")))?;
-    jobs.document_jobs_view(base_url, document_id, query)
-}
-
 // --- media ---
 
 pub fn document_source_pdf_download(
@@ -149,18 +117,20 @@ pub fn document_source_pdf_download(
     document_source_pdf(deps, document_id)
 }
 
-pub fn document_cover_download(
+pub async fn document_cover_download(
     deps: &LibraryDeps<'_>,
+    generation: &Arc<DownloadGeneration>,
     document_id: &str,
 ) -> Result<DocumentFileDownload, AppError> {
-    document_cover(deps, document_id)
+    document_cover(deps, generation, document_id).await
 }
 
-pub fn document_thumbnail_download(
+pub async fn document_thumbnail_download(
     deps: &LibraryDeps<'_>,
+    generation: &Arc<DownloadGeneration>,
     document_id: &str,
 ) -> Result<DocumentFileDownload, AppError> {
-    document_thumbnail(deps, document_id)
+    document_thumbnail(deps, generation, document_id).await
 }
 
 // --- translate ---

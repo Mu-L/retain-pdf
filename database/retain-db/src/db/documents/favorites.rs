@@ -117,10 +117,7 @@ impl Db {
     /// 与 [`Db::delete_favorites_for_document`] 同理,服务于馆藏图书的删除保护。
     pub fn delete_favorites_referencing_job(&self, job_id: &str) -> Result<u64> {
         let conn = self.connect()?;
-        let changed = conn.execute(
-            "DELETE FROM favorites WHERE job_id = ?1",
-            params![job_id],
-        )?;
+        let changed = conn.execute("DELETE FROM favorites WHERE job_id = ?1", params![job_id])?;
         Ok(changed as u64)
     }
 

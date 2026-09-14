@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use rusqlite::params;
+use rusqlite::{params, params_from_iter, types::Value, Row};
 
 use crate::models::domain::{
     JobFailureInfo, JobRuntimeInfo, JobSnapshot, JobStatusKind, WorkflowKind,
@@ -8,7 +8,145 @@ use crate::models::domain::{
 use super::rows::{row_to_job_snapshot, JOB_SELECT_SQL};
 use super::{Db, JobProcessRecord};
 
+/// Read-side selection. Pagination is applied to valid, matching snapshots, not
+/// to raw rows which may subsequently be rejected by decoding or presentation.
+#[derive(Default)]
+pub struct JobListSelection<'a> {
+    pub status: Option<&'a JobStatusKind>,
+    pub workflow: Option<&'a WorkflowKind>,
+    pub provider: Option<&'a str>,
+    pub exclude_ocr: bool,
+    pub job_ids: Option<&'a [String]>,
+    /// Join source metadata only for callers that actually search filenames.
+    pub include_upload_filename: bool,
+    pub limit: Option<u32>,
+    pub offset: u32,
+}
+
+// The Unicode White_Space set used by Rust str::trim, for legacy upload IDs.
+const UPLOAD_ID_WHITESPACE: &str = "\t\n\u{b}\u{c}\r \u{85}\u{a0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200a}\u{2028}\u{2029}\u{202f}\u{205f}\u{3000}";
+
+#[cfg(test)]
+#[path = "jobs/tests.rs"]
+mod tests;
+
+fn joined_upload_filename(row: &Row<'_>, data_root: &std::path::Path) -> Option<String> {
+    // Match get_upload's failure behavior: malformed metadata or an unsafe path
+    // must fall back to the source URL, not introduce a new searchable filename.
+    let filename: String = row.get(21).ok()?;
+    let stored_path: String = row.get(22).ok()?;
+    row.get::<_, i64>(23).ok()?;
+    row.get::<_, i64>(24).ok()?;
+    row.get::<_, String>(25).ok()?;
+    row.get::<_, i64>(26).ok()?;
+    row.get::<_, String>(27).ok()?;
+    crate::storage_paths::resolve_data_path(data_root, &stored_path).ok()?;
+    Some(filename)
+}
+
 impl Db {
+    /// Stream SQL-filtered candidates and stop after the requested matching page.
+    /// The optional joined upload filename lets callers preserve domain-specific
+    /// search rules without opening one upload query for every historical job.
+    pub fn select_jobs(
+        &self,
+        selection: &JobListSelection<'_>,
+        mut matches: impl FnMut(&JobSnapshot, Option<&str>) -> bool,
+    ) -> Result<Vec<JobSnapshot>> {
+        if selection.limit == Some(0) {
+            return Ok(Vec::new());
+        }
+        let mut conditions = Vec::new();
+        let mut values: Vec<Value> = Vec::new();
+        if let Some(status) = selection.status {
+            conditions.push("jobs.status_json = ?");
+            values.push(serde_json::to_string(status)?.into());
+        }
+        if let Some(workflow) = selection.workflow {
+            conditions.push("jobs.workflow = ?");
+            values.push(serde_json::to_string(workflow)?.into());
+        }
+        if selection.exclude_ocr {
+            conditions.push("jobs.workflow != ?");
+            values.push(serde_json::to_string(&WorkflowKind::Ocr)?.into());
+        }
+        let provider = selection.provider.map(str::to_ascii_lowercase);
+        if let Some(provider) = provider.as_ref() {
+            // CASE guards malformed JSON: SQLite's json_extract alone would
+            // otherwise fail the whole request instead of skipping diagnostics.
+            conditions.push("CASE WHEN json_valid(artifacts.artifacts_json) THEN json_extract(artifacts.artifacts_json, '$.ocr_provider_diagnostics.provider') END = ?");
+            values.push(provider.clone().into());
+        }
+        if let Some(ids) = selection.job_ids {
+            // One bound JSON array avoids SQLite's parameter-count limit for
+            // large exact-ID sets and keeps IDs out of interpolated SQL.
+            conditions.push("jobs.job_id IN (SELECT value FROM json_each(?))");
+            values.push(serde_json::to_string(ids)?.into());
+        }
+        let predicate = if conditions.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", conditions.join(" AND "))
+        };
+        let query = if selection.include_upload_filename {
+            values.push(UPLOAD_ID_WHITESPACE.to_string().into());
+            format!(
+                "SELECT candidates.*, uploads.filename, uploads.stored_path, uploads.bytes, \
+                 uploads.page_count, uploads.uploaded_at, uploads.developer_mode, uploads.content_hash \
+                 FROM ({JOB_SELECT_SQL} {predicate}) AS candidates \
+                 LEFT JOIN uploads ON uploads.upload_id = trim(candidates.upload_id, ?) \
+                 ORDER BY candidates.updated_at DESC, candidates.job_id DESC"
+            )
+        } else {
+            format!("{JOB_SELECT_SQL} {predicate} ORDER BY jobs.updated_at DESC, jobs.job_id DESC")
+        };
+        let conn = self.connect()?;
+        let mut stmt = conn.prepare(&query)?;
+        let mut rows = stmt.query(params_from_iter(values))?;
+        let mut jobs = Vec::new();
+        let mut remaining_offset = selection.offset;
+        while let Some(row) = rows.next()? {
+            let job = match row_to_job_snapshot(row) {
+                Ok(job) => job,
+                Err(error) => {
+                    eprintln!("[db] skipping malformed job row during select_jobs: {error}");
+                    continue;
+                }
+            };
+            // The complete artifacts object may be malformed even when its
+            // provider string passed the SQL prefilter. Preserve typed semantics.
+            if let Some(provider) = provider.as_deref() {
+                let actual = job
+                    .artifacts
+                    .as_ref()
+                    .and_then(|artifacts| artifacts.ocr_provider_diagnostics.as_ref())
+                    .map(|diag| format!("{:?}", diag.provider).to_ascii_lowercase());
+                if actual.as_deref() != Some(provider) {
+                    continue;
+                }
+            }
+            let upload_filename = selection
+                .include_upload_filename
+                .then(|| joined_upload_filename(row, &self.data_root))
+                .flatten();
+            if !matches(&job, upload_filename.as_deref()) {
+                continue;
+            }
+            if remaining_offset > 0 {
+                remaining_offset -= 1;
+                continue;
+            }
+            jobs.push(job);
+            if selection
+                .limit
+                .is_some_and(|limit| jobs.len() >= limit as usize)
+            {
+                break;
+            }
+        }
+        Ok(jobs)
+    }
+
     pub fn get_job(&self, job_id: &str) -> Result<JobSnapshot> {
         let conn = self.connect()?;
         let job = conn
@@ -33,10 +171,10 @@ impl Db {
         let workflow_json = workflow.map(serde_json::to_string).transpose()?;
         let base_sql = JOB_SELECT_SQL;
         let query = match (status_json.as_ref(), workflow_json.as_ref()) {
-            (Some(_), Some(_)) => format!("{base_sql} WHERE jobs.status_json = ?1 AND jobs.workflow = ?2 ORDER BY jobs.updated_at DESC LIMIT ?3 OFFSET ?4"),
-            (Some(_), None) => format!("{base_sql} WHERE jobs.status_json = ?1 ORDER BY jobs.updated_at DESC LIMIT ?2 OFFSET ?3"),
-            (None, Some(_)) => format!("{base_sql} WHERE jobs.workflow = ?1 ORDER BY jobs.updated_at DESC LIMIT ?2 OFFSET ?3"),
-            (None, None) => format!("{base_sql} ORDER BY jobs.updated_at DESC LIMIT ?1 OFFSET ?2"),
+            (Some(_), Some(_)) => format!("{base_sql} WHERE jobs.status_json = ?1 AND jobs.workflow = ?2 ORDER BY jobs.updated_at DESC, jobs.job_id DESC LIMIT ?3 OFFSET ?4"),
+            (Some(_), None) => format!("{base_sql} WHERE jobs.status_json = ?1 ORDER BY jobs.updated_at DESC, jobs.job_id DESC LIMIT ?2 OFFSET ?3"),
+            (None, Some(_)) => format!("{base_sql} WHERE jobs.workflow = ?1 ORDER BY jobs.updated_at DESC, jobs.job_id DESC LIMIT ?2 OFFSET ?3"),
+            (None, None) => format!("{base_sql} ORDER BY jobs.updated_at DESC, jobs.job_id DESC LIMIT ?1 OFFSET ?2"),
         };
         let mut stmt = conn.prepare(&query)?;
         let rows = match (status_json.as_ref(), workflow_json.as_ref()) {

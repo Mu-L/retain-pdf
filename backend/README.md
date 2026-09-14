@@ -30,7 +30,14 @@ python3 ops/development/dev_stack.py --runtime python
 
 For the default loopback launch, the script injects a development key when
 `RUST_API_KEYS` is unset. Set an explicit, non-default key before using
-`--host 0.0.0.0` or any other non-loopback bind address.
+`--host 0.0.0.0` or any other non-loopback bind address; both the launcher and
+Rust reject the default development key on non-loopback listeners.
+
+Explicit `RUST_API_KEYS`, `RUST_API_SIMPLE_PORT`, and
+`RUST_API_MAX_RUNNING_JOBS` override `api/auth.local.json`. The launcher sets
+the key and listener ports explicitly (including its loopback development
+default); pass `RUST_API_KEYS` to select a different key. Raw Rust launches
+still use the local file when these environment variables are absent.
 
 Startup succeeds only after `http://127.0.0.1:41000/ready` reports that the
 database and supervised services are ready. `Ctrl+C` stops the complete process
@@ -118,11 +125,15 @@ monorepo root:
 uv sync --locked --all-extras
 uv run retainpdf-pipeline --help
 uv run python -c "import retainpdf_ai, retainpdf_pipeline"
-cargo test --locked --workspace --manifest-path ../Cargo.toml
+uv run cargo test --locked --workspace --manifest-path ../Cargo.toml
 python3 api/scripts/check_architecture.py
 PYTHONPATH=pipeline uv run python pipeline/devtools/check_pipeline_architecture.py
 uv run python -m pytest ai/tests pipeline/devtools/tests -q
 ```
+
+Rust integration tests launch Python helpers and therefore need the locked
+Python environment on `PATH`. From the monorepo root, `npm run test:api`
+sets this up through `uv run --locked --all-extras`.
 
 From the monorepo root, the extraction smoke test builds a clean Git snapshot
 of the explicit backend delivery file set and verifies that it does not import source

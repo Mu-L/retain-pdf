@@ -66,10 +66,17 @@ def _parse_font_dirs() -> list[Path]:
 BACKEND_FONTS_DIRS: list[Path] = _parse_font_dirs()
 BACKEND_FONTS_DIR: Path = BACKEND_FONTS_DIRS[0]
 
-DEFAULT_FONT_PATH = Path(
-    os.environ.get("RETAIN_PDF_FONT_PATH", "").strip()
-    or "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf"
-)
+def _default_font_path() -> Path:
+    override = os.environ.get("RETAIN_PDF_FONT_PATH", "").strip()
+    if override:
+        return Path(override).expanduser()
+    # Use the shipped CJK font on every platform, not a Linux-only system path.
+    candidates = [directory / "SourceHanSerifSC-Regular.otf" for directory in BACKEND_FONTS_DIRS]
+    candidates.append(Path("/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf"))
+    return next((path for path in candidates if path.is_file()), candidates[0])
+
+
+DEFAULT_FONT_PATH = _default_font_path()
 TITLE_BOLD_FONT_PATH = Path(
     os.environ.get("RETAIN_PDF_TITLE_BOLD_FONT_PATH", "").strip()
     or str(BACKEND_FONTS_DIR / "SourceHanSerifSC-Bold.otf")

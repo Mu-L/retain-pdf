@@ -46,7 +46,7 @@ pub(super) async fn wait_for_mineru_bundle_ready(
                         err
                     ));
                     record_bundle_retry_degraded(
-                        deps,
+                        &deps.persist,
                         job,
                         BundleRetryEvent {
                             scope: "mineru_bundle_ready_wait",
@@ -71,7 +71,7 @@ pub(super) async fn wait_for_mineru_bundle_ready(
                     runtime.bundle_ready_retry_limit, err
                 ));
                 record_bundle_retry_scheduled(
-                    deps,
+                    &deps.persist,
                     job,
                     format!(
                         "OCR provider 已返回 done，bundle 尚未就绪，{delay_secs}s 后重试（第 {attempt}/{} 次）",

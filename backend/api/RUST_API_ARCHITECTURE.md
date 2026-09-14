@@ -113,6 +113,9 @@ app -> routes -> application services -> internal services -> job_runner / ocr_p
   只保留 orchestrator 级入口使用
 - `JobPersistDeps`
   负责 `db + data_root + output_root` 这组持久化/事件资源；叶子 helper 优先拿它，不再顺手拿整包 runtime deps
+  - `ocr_flow/bundle_events`、`render_flow_artifacts`、`translation_flow_artifacts`
+    已固定为 persistence-only 边界；调用方传 `&deps.persist`。这些模块不能再接收
+    `ProcessRuntimeDeps`、全局配置或执行控制资源；拆成子模块后规则仍然适用。
 - `app/state.rs`
   只负责 `AppState` 组装；启动期遗留 running 任务恢复已经下沉到 `app/state_recovery.rs`
 - `job_runner/lifecycle.rs`
@@ -517,6 +520,10 @@ routes/library*.rs, collections.rs
   负责图书馆域业务（见 2.3）
 - [src/services/book_projection](src/services/book_projection)
   负责 library books 投影（由 `library/books` 调用）
+- [src/services/artifacts/presentation.rs](src/services/artifacts/presentation.rs)
+  只将 `ArtifactLinksView` 转为公共产物展示数据，通过 `services::artifacts` 的
+  crate 内导出供 book/job 投影共用；不读取 DB、任务状态或文件系统。
+  `jobs` 不能反向依赖 `book_projection`，公共展示也不能回调这些业务模块。
 - [src/services/derived_artifacts](src/services/derived_artifacts)
   负责 cover/thumbnail/page preview 等派生产物（由 library media / jobs downloads 调用，**不**被 route 直连）
 

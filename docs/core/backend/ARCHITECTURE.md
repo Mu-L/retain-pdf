@@ -1,6 +1,6 @@
 # RetainPDF 后端架构
 
-> 当前快照：2026-09-02。本文描述现行 `services/` 后端；历史进程拆分决策见
+> 当前快照：2026-09-14。本文描述现行 `backend/` 后端；历史进程拆分决策见
 > [ADR-0005](../../adr/0005-shell-and-backends.md)。
 
 ## 部署边界
@@ -28,7 +28,7 @@ Rust 的原始配置默认使用进程内 jobs runtime，并关闭两个子服�
 | 直接运行 `rust_api` | 默认 in-process | 默认不监督 | 由环境变量显式改变 |
 | `ops/development/dev_stack.py` | remote，Rust 监督 jobsd | Rust 监督 | 当前权威开发入口 |
 | 打包 Electron | remote，Rust 监督 jobsd | Rust 监督 | desktop main 为 packaged 模式注入配置 |
-| `ops/deployment/docker/Dockerfile.app` | 默认 in-process | Rust 监督 | jobsd 二进制已打包，但默认不启动 |
+| `ops/deployment/docker/backend/Dockerfile.app` | 默认 in-process | Rust 监督 | jobsd 二进制已打包，但默认不启动 |
 
 `/health` 始终提供诊断视图；`/ready` 只把数据库和当前配置为“受监督”的子服务
 列为必需组件。41002、41100 必须保持回环地址。任何非回环 API 部署都必须显式
@@ -54,6 +54,15 @@ Rust 的原始配置默认使用进程内 jobs runtime，并关闭两个子服�
 `backend/pipeline/devtools/check_pipeline_architecture.py`。
 
 ## 状态所有权
+
+API 内部继续保持模块化单体：读模型 `JobQueries` 仅依赖数据库与数据根，
+命令仍由 `JobsFacade` 承担；`JobDownloads` 独立持有下载与派生产物所需能力。
+同步读工作经 `QueryExecution` 有界阻塞池，下载生成使用独立调度器。这里只
+收窄进程内依赖，不新增微服务或消息代理。
+
+普通／OCR 事件查询使用 SQLite 可重建投影、来源检查点与 cursor v2；其
+delivery seq 不等于原始事件 seq，也不等于翻译 SSE seq。协议、保留策略及
+协同发布要求见 [事件 v2](../api/event-feed-v2.md)。
 
 - Rust 后端是 document、conversation、credential、job、pipeline attempt/unit、
   document operation、candidate 与 commit 状态的权威来源。
@@ -126,7 +135,7 @@ Docker 使用 `/data`，桌面端传入应用数据目录；`services/data/` 不
 
 ```bash
 python3 backend/api/scripts/check_architecture.py
-cargo test --locked --workspace --manifest-path backend/api/Cargo.toml
+uv run --project backend --locked --all-extras cargo test --locked --workspace
 PYTHONPATH=backend/pipeline uv run --project backend python backend/pipeline/devtools/check_pipeline_architecture.py
 uv run --project backend python -m pytest backend/ai/tests backend/pipeline/devtools/tests -q
 python3 backend/contracts/check_parity.py --require-upstream

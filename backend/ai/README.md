@@ -49,7 +49,7 @@ SSE 另提供 `agent_session`、统一的 `agent_tool`、`agent_operation`；don
 | `conversation_tree.py` | 纯消息树可见分支投影；兼容旧线性消息 |
 | `runtime_config_api.py` | runtime 配置查询/更新、CAS revision、自检和 `/readyz` |
 | `credential_vault.py` | 读取 Rust 凭据库、校验 kind，并用共享锁保护引用生命周期 |
-| `runtime_credential_refs.py` | runtime key/ref 互斥选择、脱敏响应和无 secret 持久化投影 |
+| `runtime_credential_refs.py` | runtime key/ref 互斥选择、受鉴权的可见 Key 响应，以及按输入模式保存 Key 或引用 |
 | `runtime.py` | 兼容 façade；实现位于 `runtimes/` |
 | `agent.py` | 检索 Agent 兼容 façade |
 | `retrieval_agent.py` | bounded function-calling 检索循环和 document/job scope |
@@ -144,21 +144,22 @@ FX 0.0.5 没有公开的任意远程 endpoint 参数。它只接受环境变量�
 官方地址。需要远程自定义域名时应升级或修改 FX；普通 OpenAI-compatible 地址继续
 使用 `openai` 模式。
 
-推荐先通过 Rust `POST /api/v1/credentials` 创建 `agent_llm_api_key` 或
-`fx_gateway_api_key`，再把返回的不透明引用写入 runtime-config 的
-`llm_credential_ref` 或 `fx_gateway_credential_ref`。AI 服务只把引用写到
-`$RETAIN_AI_DATA_ROOT/secrets/ai-runtime.json`，实际模型调用或 FX subprocess 启动前
-才从 Rust 凭据库解析 secret。GET 会返回引用和 configured 状态，但引用模式的掩码
-固定为 `••••`，不会泄露 secret 后四位。配置文件目录权限为 `0700`、文件权限为
+设置页可直接提交 `llm_api_key` / `fx_gateway_api_key`，Key 保存在本机
+`$RETAIN_AI_DATA_ROOT/secrets/ai-runtime.json`，受鉴权的 GET/PUT 响应返回当前值，
+供设置页显示与编辑；不要求客户端改用引用。也支持通过 Rust
+`POST /api/v1/credentials` 创建 `agent_llm_api_key` 或 `fx_gateway_api_key`，
+再提交 `llm_credential_ref` 或 `fx_gateway_credential_ref`；引用模式只保存引用，
+实际模型调用或 FX subprocess 启动前解析 secret，配置响应同样返回解析后的 Key。
+兼容字段 configured 和 masked 继续保留，引用模式的 masked 固定为 `••••`。
+配置文件目录权限为 `0700`、文件权限为
 `0600`。配置文件使用单调 revision、进程内锁、
 跨进程文件锁和 compare-and-swap，避免两个局部更新互相覆盖；写入完成后还会
 fsync 文件及父目录。保存前会校验 URL、必需 Key、FX ACP 能力，并对自定义本地
 Gateway 做有界 TCP 可达性检查；保存成功后由 Rust 监督器重启 AI 子进程。
 `/readyz` 只有在新进程载入同一 configured revision 且自定义 Gateway 仍可达时
-才返回 200，`/healthz` 只表示进程存活。环境变量仍作为未创建安全配置文件时的
+才返回 200，`/healthz` 只表示进程存活。环境变量仍作为未创建本地配置文件时的
 启动回退；显式保存空 FX URL 表示官方默认 Gateway，不会重新落回环境变量 URL。
-旧客户端提交的 `llm_api_key` / `fx_gateway_api_key` 暂时仍兼容，并继续写入这个权限
-保护的本地明文 JSON；新客户端应只提交引用。引用与对应的旧 key 字段互斥。AI 配置
+直接提交的 Key 写入本地明文 JSON；引用与对应的 Key 字段互斥。AI 配置
 写入会持有 Rust 凭据生命周期共享锁，删除凭据会持有独占锁并检查 Agent 引用，避免
 “引用校验成功后、配置落盘前”被并发删除。普通问答每个 turn、FX 每次 subprocess
 启动都会重新解析引用，因此凭据轮换不会继续长期使用进程启动时的旧 secret。
@@ -176,9 +177,11 @@ AI sidecar 的直接路径是 `GET/PUT /v1/runtime-config`。两者的 `data` �
 则分别由 `ai-ask.v1.schema.json` 和 `public-document-operation.v1.schema.json`
 锁定。
 
-响应绝不包含原始 Key。空输入表示沿用已保存值；显式清除使用
+受鉴权的响应始终包含 `llm_api_key` 和 `fx_gateway_api_key` 字符串，未配置时为
+空字符串；`*_configured` / `*_masked` 是兼容状态字段，不替代可见值。空输入表示
+沿用已保存值；显式清除使用
 `clear_llm_api_key` / `clear_fx_gateway_api_key`，并继续受当前模式的必需凭据
-校验约束；清除只解除 runtime-config 的引用，不删除 Rust 凭据记录。客户端可把
+校验约束；清除会移除本地 Key 或解除 runtime-config 的引用，不删除 Rust 凭据记录。客户端可把
 GET 返回的 `configured_revision` 作为 PUT 的
 `expected_revision`；过期写入返回 409。GET 同时返回 `active_revision`、
 `restart_state` 和实际派生的 FX base/chat URL，因而无需靠轮询猜测重启是否完成。
@@ -207,7 +210,10 @@ Rust API key。默认 `explicit` 模式下，`operation run/commit/retry` 还要
 
 当前已支持 `retainpdf_page_program_v1`：通过 `select_pages` 和
 `rotate_pages` 的顺序组合完成页面删除、重排、复制和旋转，生成真实 PDF
-candidate。每个输出页还会按批准的页面计划做最长边最大 512px 的整页栅格化，
+candidate。AI 只通过 Rust API 提交页面程序；执行器与视觉校验归属于
+`retainpdf_pipeline.document_operations`，由 Rust 启动 Pipeline 的
+`document-operation` 子命令。Pipeline 可独立安装运行，两个 Python 包不互相导入。
+每个输出页还会按批准的页面计划做最长边最大 512px 的整页栅格化，
 与对应源页的预期旋转结果做 RGB 像素比较；visual report 的 hash 由 Rust 在
 发布前复核。执行的是固定
 后端解释器，不是模型 Python；任意 Python、Typst、Ghostscript 程序仍需独立

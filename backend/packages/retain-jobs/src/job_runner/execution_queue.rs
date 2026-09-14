@@ -24,7 +24,10 @@ pub(super) async fn wait_for_execution_slot(
             return Ok(None);
         }
         let current_job = db.get_job(job_id)?;
-        if !matches!(current_job.status, JobStatusKind::Queued | JobStatusKind::Running) {
+        if !matches!(
+            current_job.status,
+            JobStatusKind::Queued | JobStatusKind::Running
+        ) {
             clear_cancel_request_with_registry(canceled_jobs, job_id).await;
             return Ok(None);
         }

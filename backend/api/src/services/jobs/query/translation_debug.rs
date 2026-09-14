@@ -4,20 +4,19 @@ use crate::models::api::{
     TranslationDiagnosticsView,
 };
 
-use super::super::super::debug::{
+use super::super::debug::{
     load_translation_debug_item_view, load_translation_debug_list_view,
     load_translation_diagnostics_view,
 };
-use super::super::super::query::load_supported_job;
-use super::super::JobsFacade;
+use super::{load_supported_job, JobQueries};
 
-impl<'a> JobsFacade<'a> {
+impl JobQueries<'_> {
     pub fn translation_diagnostics_view(
         &self,
         job_id: &str,
     ) -> Result<TranslationDiagnosticsView, AppError> {
-        let job = load_supported_job(self.query.db, self.query.data_root, job_id)?;
-        load_translation_diagnostics_view(self.query.data_root, &job)
+        let job = load_supported_job(self.db, self.data_root, job_id)?;
+        load_translation_diagnostics_view(self.data_root, &job)
     }
 
     pub fn translation_items_view(
@@ -25,8 +24,8 @@ impl<'a> JobsFacade<'a> {
         job_id: &str,
         query: &ListTranslationItemsQuery,
     ) -> Result<TranslationDebugListView, AppError> {
-        let job = load_supported_job(self.query.db, self.query.data_root, job_id)?;
-        load_translation_debug_list_view(self.query.data_root, &job, query)
+        let job = load_supported_job(self.db, self.data_root, job_id)?;
+        load_translation_debug_list_view(self.data_root, &job, query)
     }
 
     pub fn translation_item_view(
@@ -34,7 +33,7 @@ impl<'a> JobsFacade<'a> {
         job_id: &str,
         item_id: &str,
     ) -> Result<TranslationDebugItemView, AppError> {
-        let job = load_supported_job(self.query.db, self.query.data_root, job_id)?;
-        load_translation_debug_item_view(self.query.data_root, &job, item_id)
+        let job = load_supported_job(self.db, self.data_root, job_id)?;
+        load_translation_debug_item_view(self.data_root, &job, item_id)
     }
 }

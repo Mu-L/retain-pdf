@@ -3,7 +3,7 @@ use std::path::Path;
 use crate::db::Db;
 use crate::models::api::JobProgressView;
 use crate::models::domain::JobSnapshot;
-use crate::services::jobs::live_stage::load_live_stage_snapshot;
+use crate::services::jobs::live_stage::{load_live_stage_snapshot, LiveStageSnapshot};
 use crate::services::jobs::stage_view::build_job_stage_view;
 
 pub(super) struct BookLiveProjection {
@@ -18,7 +18,14 @@ pub(super) fn build_live_projection(
     data_root: &Path,
 ) -> BookLiveProjection {
     let live_stage = load_live_stage_snapshot(db, job, data_root);
-    let stage = build_job_stage_view(job, live_stage.as_ref());
+    project_live_stage(job, live_stage.as_ref())
+}
+
+pub(super) fn project_live_stage(
+    job: &JobSnapshot,
+    live_stage: Option<&LiveStageSnapshot>,
+) -> BookLiveProjection {
+    let stage = build_job_stage_view(job, live_stage);
     BookLiveProjection {
         stage: stage.stage,
         stage_detail: stage.stage_detail,

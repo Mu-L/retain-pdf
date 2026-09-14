@@ -7,6 +7,4 @@ mod normalization;
 #[path = "summary_loaders/shared.rs"]
 mod shared;
 
-pub(crate) use glossary::load_glossary_summary;
-pub(crate) use invocation::load_invocation_summary;
-pub(crate) use normalization::load_normalization_summary;
+pub(crate) use shared::SummaryCache;

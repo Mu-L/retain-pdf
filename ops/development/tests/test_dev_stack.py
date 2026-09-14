@@ -124,7 +124,7 @@ def test_runtime_env_uses_absolute_commands_and_rust_supervision(tmp_path: Path)
     assert env["RUST_API_AI_SERVICE_BASE"] == "http://127.0.0.1:43100"
     assert env["PYTHON_BIN"] == str(paths.venv_python)
     assert env["RUST_API_PIPELINE_COMMAND"] == str(paths.pipeline_command)
-    assert env["RUST_API_PYTHON_ENTRYPOINT_MODE"] == "console"
+    assert "RUST_API_PYTHON_ENTRYPOINT_MODE" not in env
     assert env["RETAIN_AI_AGENT_CLI_COMMAND"] == str(paths.agent)
     assert env["RETAIN_AI_FX_AGENT_CLI_COMMAND"] == str(paths.agent)
     assert env["RETAIN_AI_FX_COMMAND"] == "/fixed/fx"
@@ -154,6 +154,33 @@ def test_output_does_not_leak_api_key(tmp_path: Path, capsys: object) -> None:
     captured = capsys.readouterr()
     assert secret not in captured.out
     assert secret not in captured.err
+
+
+@pytest.mark.parametrize("host", ["0.0.0.0", "::", "192.168.1.2", "::ffff:192.168.1.2"])
+@pytest.mark.parametrize("key", ["", "dev-local-key", "custom, dev-local-key", " , "])
+def test_network_bind_rejects_default_or_empty_keys_before_preparation(
+    tmp_path: Path, host: str, key: str,
+) -> None:
+    paths = make_paths(tmp_path)
+    with (
+        mock.patch.object(dev_stack, "prepare") as prepare,
+        mock.patch.object(dev_stack, "launch") as launch,
+        pytest.raises(dev_stack.StackError, match="non-default RUST_API_KEYS"),
+    ):
+        dev_stack.run(["--host", host], paths=paths, environ={"RUST_API_KEYS": key})
+    prepare.assert_not_called()
+    launch.assert_not_called()
+
+
+def test_runtime_env_preserves_explicit_key_and_drops_retired_selector(tmp_path: Path) -> None:
+    paths = make_paths(tmp_path)
+    opts = options(paths, "--host", "0.0.0.0", "--simple-port", "43200")
+    env = dev_stack.build_runtime_env(paths, opts, {
+        "RUST_API_KEYS": "explicit-test-key", "RUST_API_PYTHON_ENTRYPOINT_MODE": "script",
+    })
+    assert env["RUST_API_KEYS"] == "explicit-test-key"
+    assert env["RUST_API_SIMPLE_PORT"] == "43200"
+    assert "RUST_API_PYTHON_ENTRYPOINT_MODE" not in env
 
 
 def test_readiness_timeout_reclaims_process_group(tmp_path: Path) -> None:

@@ -1,23 +1,28 @@
 use std::path::Path;
 
-use crate::db::Db;
+use crate::config::limits::MAX_JOB_LIMIT;
+use crate::db::{Db, JobListSelection};
 use crate::error::AppError;
 use crate::models::api::{
     build_artifact_links, to_absolute_url, LibraryBookDetailView, LibraryBookListItemView,
     LibraryBookListView, ListJobsQuery,
 };
-use crate::models::domain::{JobSnapshot, WorkflowKind};
+use crate::models::domain::{JobSnapshot, UploadRecord};
 use crate::storage_paths::resolve_source_pdf;
 
+use crate::services::artifacts::build_artifacts_display;
 use crate::services::jobs::job_readiness;
+use crate::services::jobs::live_stage::{load_live_stage_snapshots, LiveStageSnapshot};
+use crate::services::jobs::summary_loaders::SummaryCache;
 
-mod artifacts;
 mod live;
 mod metadata;
 
-pub(crate) use artifacts::build_artifacts_display;
-use live::build_live_projection;
-use metadata::{build_book_summary, derive_display_name, page_count_for_library, source_file_name};
+use live::{build_live_projection, project_live_stage};
+use metadata::{
+    build_book_summary, derive_display_name, page_count_for_library, source_file_name,
+    source_url_file_name, upload_id,
+};
 
 pub(crate) fn build_library_book_list_view(
     db: &Db,
@@ -25,12 +30,28 @@ pub(crate) fn build_library_book_list_view(
     query: &ListJobsQuery,
     base_url: &str,
 ) -> Result<LibraryBookListView, AppError> {
-    let mut query = query.clone();
-    query.workflow = None;
-    let items = list_books_filtered(db, &query)?
+    let jobs = list_books_filtered(db, query)?;
+    let ids: Vec<_> = jobs.iter().filter_map(upload_id).collect();
+    let uploads = db.get_uploads(&ids).unwrap_or_default();
+    let live_stages = if query.include_live_stage != Some(false) {
+        load_live_stage_snapshots(db, &jobs, data_root)
+    } else {
+        Default::default()
+    };
+    let mut summaries = SummaryCache::default();
+    let items = jobs
         .iter()
-        .filter(|job| job.workflow != WorkflowKind::Ocr)
-        .map(|job| build_library_book_list_item(db, data_root, job, base_url))
+        .map(|job| {
+            let upload = upload_id(job).and_then(|id| uploads.get(id));
+            build_library_book_list_item(
+                data_root,
+                job,
+                base_url,
+                upload,
+                &mut summaries,
+                live_stages.get(&job.job_id),
+            )
+        })
         .collect();
     Ok(LibraryBookListView { items })
 }
@@ -41,8 +62,12 @@ pub(crate) fn build_library_book_detail_view(
     job: &JobSnapshot,
     base_url: &str,
 ) -> LibraryBookDetailView {
-    let display_name = derive_display_name(db, job);
-    let summary = build_book_summary(db, job, data_root, base_url, &display_name)
+    let ids: Vec<_> = upload_id(job).into_iter().collect();
+    let uploads = db.get_uploads(&ids).unwrap_or_default();
+    let upload = upload_id(job).and_then(|id| uploads.get(id));
+    let mut summaries = SummaryCache::default();
+    let display_name = derive_display_name(upload, job);
+    let summary = build_book_summary(upload, &mut summaries, job, data_root, &display_name)
         .with_cover_url(library_image_url(job, data_root, base_url, "cover"))
         .with_thumbnail_url(library_image_url(job, data_root, base_url, "thumbnail"));
     let live = build_live_projection(db, job, data_root);
@@ -75,22 +100,24 @@ pub(crate) fn build_library_book_detail_view(
 }
 
 fn build_library_book_list_item(
-    db: &Db,
     data_root: &Path,
     job: &JobSnapshot,
     base_url: &str,
+    upload: Option<&UploadRecord>,
+    summaries: &mut SummaryCache,
+    live_stage: Option<&LiveStageSnapshot>,
 ) -> LibraryBookListItemView {
-    let display_name = derive_display_name(db, job);
-    let live = build_live_projection(db, job, data_root);
+    let display_name = derive_display_name(upload, job);
+    let live = project_live_stage(job, live_stage);
     let (output_pdf_ready, markdown_ready, bundle_ready) = job_readiness(job, data_root);
     LibraryBookListItemView {
         id: job.job_id.clone(),
         job_id: job.job_id.clone(),
         title: display_name.clone(),
         display_name,
-        source_file_name: source_file_name(db, job),
+        source_file_name: source_file_name(upload, job),
         authors: None,
-        page_count: page_count_for_library(db, job, data_root),
+        page_count: page_count_for_library(upload, summaries, job, data_root),
         status: job.status.clone(),
         stage: live.stage,
         stage_detail: live.stage_detail,
@@ -127,7 +154,7 @@ fn list_books_filtered(db: &Db, query: &ListJobsQuery) -> Result<Vec<JobSnapshot
         .filter(|value| !value.is_empty());
     // 分类文件夹展开时用 job_ids 精确点名一批 job(见 ListJobsQuery 字段注释)——
     // 和 q 一样需要先在全量里过滤,不能先按 limit/offset 截断再匹配。
-    let job_ids: Option<std::collections::HashSet<String>> = query
+    let job_ids: Option<Vec<String>> = query
         .job_ids
         .as_deref()
         .map(|raw| {
@@ -135,108 +162,52 @@ fn list_books_filtered(db: &Db, query: &ListJobsQuery) -> Result<Vec<JobSnapshot
                 .map(str::trim)
                 .filter(|id| !id.is_empty())
                 .map(str::to_string)
-                .collect::<std::collections::HashSet<_>>()
+                .collect::<Vec<_>>()
         })
         .filter(|ids| !ids.is_empty());
-    let wide_fetch = search_query.is_some() || job_ids.is_some();
-    let (fetch_limit, fetch_offset) = if wide_fetch {
-        (10_000, 0)
-    } else {
-        (query.limit, query.offset)
-    };
-    let jobs = db.list_jobs(
-        fetch_limit,
-        fetch_offset,
-        query.status.as_ref(),
-        query.workflow.as_ref(),
-    )?;
     let search_query = search_query.map(|value| value.to_ascii_lowercase());
-    let filtered: Vec<JobSnapshot> = jobs
-        .into_iter()
-        .filter(|job| {
+    // Exact IDs request the complete matching set, as before. Ordinary pages
+    // apply their offset only after OCR exclusion, decoded validity and search.
+    Ok(db.select_jobs(
+        &JobListSelection {
+            status: query.status.as_ref(),
+            provider: query.provider.as_deref(),
+            exclude_ocr: true,
+            job_ids: job_ids.as_deref(),
+            include_upload_filename: search_query.is_some(),
+            limit: job_ids
+                .is_none()
+                .then_some(query.limit.clamp(1, MAX_JOB_LIMIT)),
+            offset: if job_ids.is_some() { 0 } else { query.offset },
+            ..Default::default()
+        },
+        |job, upload_filename| {
             search_query
                 .as_deref()
-                .map(|q| library_search_text(db, job).contains(q))
+                .map(|q| library_search_text(job, upload_filename).contains(q))
                 .unwrap_or(true)
-        })
-        .filter(|job| {
-            job_ids
-                .as_ref()
-                .map(|ids| ids.contains(&job.job_id))
-                .unwrap_or(true)
-        })
-        .filter(|job| {
-            query
-                .provider
-                .as_deref()
-                .map(|provider| {
-                    job.artifacts
-                        .as_ref()
-                        .and_then(|artifacts| artifacts.ocr_provider_diagnostics.as_ref())
-                        .map(|diag| {
-                            format!("{:?}", diag.provider).to_ascii_lowercase()
-                                == provider.to_ascii_lowercase()
-                        })
-                        .unwrap_or(false)
-                })
-                .unwrap_or(true)
-        })
-        .collect();
-    if job_ids.is_some() {
-        // 精确集合查询:调用方要的是"这些 job 的完整数据",不是一页列表,
-        // 不做 limit/offset 截断。
-        return Ok(filtered);
-    }
-    Ok(filtered
-        .into_iter()
-        .skip(if search_query.is_some() {
-            query.offset as usize
-        } else {
-            0
-        })
-        .take(query.limit as usize)
-        .collect())
+        },
+    )?)
 }
 
-fn library_search_text(db: &Db, job: &JobSnapshot) -> String {
+fn library_search_text(job: &JobSnapshot, upload_filename: Option<&str>) -> String {
+    let source_filename = upload_filename
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_string)
+        .or_else(|| source_url_file_name(&job.request_payload.source.source_url));
     [
         job.job_id.as_str(),
         job.stage.as_deref().unwrap_or(""),
         job.stage_detail.as_deref().unwrap_or(""),
         job.error.as_deref().unwrap_or(""),
         job.request_payload.source.source_url.as_str(),
-        source_file_name(db, job).as_deref().unwrap_or(""),
+        source_filename.as_deref().unwrap_or(""),
     ]
     .join(" ")
     .to_ascii_lowercase()
 }
 
 #[cfg(test)]
-mod tests {
-    use std::path::PathBuf;
-
-    use super::*;
-    use crate::models::domain::{JobArtifacts, JobSnapshot};
-    use crate::models::request::CreateJobInput;
-
-    #[test]
-    fn library_projection_uses_library_media_urls() {
-        let data_root = PathBuf::from("/tmp/retainpdf-data");
-        let mut job = JobSnapshot::new(
-            "job-library-projection".to_string(),
-            CreateJobInput::default(),
-            Vec::new(),
-        );
-        job.artifacts = Some(JobArtifacts {
-            source_pdf: Some("jobs/job-library-projection/source/input.pdf".to_string()),
-            ..JobArtifacts::default()
-        });
-
-        let url = library_image_url(&job, &data_root, "https://api.example", "cover");
-
-        assert_eq!(
-            url.as_deref(),
-            Some("https://api.example/api/v1/library/books/job-library-projection/cover")
-        );
-    }
-}
+#[path = "book_projection/tests.rs"]
+mod tests;

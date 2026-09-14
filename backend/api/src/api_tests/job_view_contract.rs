@@ -263,7 +263,7 @@ async fn real_job_and_library_views_match_published_schemas() {
     let job_detail = get_data(app.clone(), &format!("/api/v1/jobs/{job_id}")).await;
     let job_events = get_data(
         app.clone(),
-        &format!("/api/v1/jobs/{job_id}/events?limit=20&offset=0"),
+        &format!("/api/v1/jobs/{job_id}/events?limit=20&start=head"),
     )
     .await;
     let library_list = get_data(app.clone(), "/api/v1/library/books").await;
@@ -272,7 +272,19 @@ async fn real_job_and_library_views_match_published_schemas() {
     let job_contract = contract("job-status.v1.schema.json");
     assert_definition(&job_list, &job_contract, "JobListView", "job_list");
     assert_definition(&job_detail, &job_contract, "JobDetailView", "job_detail");
-    assert_definition(&job_events, &job_contract, "JobEventListView", "job_events");
+    let events_contract = contract("job-events.v2.schema.json");
+    assert_definition(
+        &job_events,
+        &events_contract,
+        "JobEventListView",
+        "job_events",
+    );
+    assert_exact_object_keys(
+        &job_events,
+        &events_contract,
+        "JobEventListView",
+        "job_events",
+    );
     assert_exact_object_keys(&job_list, &job_contract, "JobListView", "job_list");
     assert_exact_object_keys(
         &job_list["items"][0],
@@ -292,7 +304,9 @@ async fn real_job_and_library_views_match_published_schemas() {
         format!("http://127.0.0.1:41000/api/v1/jobs/{job_id}/thumbnail")
     );
     assert_eq!(job_events["limit"], 20);
-    assert_eq!(job_events["offset"], 0);
+    assert_eq!(job_events["protocol_version"], 2);
+    assert_eq!(job_events["has_more"], false);
+    assert!(job_events["next_cursor"].is_string());
     assert_eq!(
         job_events["items"][0]["payload"]["metadata"]["flags"][1],
         false

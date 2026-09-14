@@ -178,7 +178,10 @@ mod layout_tests {
         std::fs::write(root.join("services/api/auth.local.json"), "{}").unwrap();
         for api in [root.join("backend/api"), root.join("custom-api")] {
             let config = RuntimePathsConfig::from_roots_unchecked(
-                root.clone(), api.clone(), root.join("data"), root.join("backend/pipeline"),
+                root.clone(),
+                api.clone(),
+                root.join("data"),
+                root.join("backend/pipeline"),
             );
             assert_eq!(config.auth_config_path, api.join("auth.local.json"));
         }

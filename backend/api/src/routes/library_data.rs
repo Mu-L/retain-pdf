@@ -15,22 +15,23 @@ use crate::models::api::{
     DocumentMetadataSuggestionApplyView, DocumentMetadataSuggestionListView,
     DocumentMetadataSuggestionView, DocumentRecord, FavoriteListView, FavoriteMutationResult,
     FavoriteRecord, FavoritesClearedResult, JobSubmissionView, LibraryDeleteQuery,
-    ListDocumentJobsQuery,
-    ListDocumentMetadataSuggestionsQuery, ListDocumentsQuery, ListFavoritesQuery,
-    PatchDocumentInput, PatchFavoriteInput, SearchQuery, SearchResultView,
+    ListDocumentJobsQuery, ListDocumentMetadataSuggestionsQuery, ListDocumentsQuery,
+    ListFavoritesQuery, PatchDocumentInput, PatchFavoriteInput, SearchQuery, SearchResultView,
 };
 use crate::models::request::CreateJobInput;
 use crate::routes::common::{
-    build_library_route_deps, ok_json, request_base_url, ApiJson, ApiPath, ApiQuery,
+    build_jobs_route_deps, build_library_route_deps, ok_json, request_base_url, run_job_query_once,
+    ApiJson, ApiPath, ApiQuery,
 };
 use crate::routes::job_helpers::stream_file;
 use crate::services::library::api::{
     apply_document_metadata_suggestion_view, clear_favorites_for_document_view,
-    clear_favorites_for_job_view, create_document_metadata_suggestion_view, create_favorite_view, delete_document_view, delete_favorite_view, document_cover_download,
-    document_source_pdf_download, document_thumbnail_download, get_document_view,
-    list_document_jobs_view, list_document_metadata_suggestions_view, list_documents_view,
-    list_favorites_view, ocr_document_view, patch_document_view, patch_favorite_view,
-    search_blocks_view, translate_document_view,
+    clear_favorites_for_job_view, create_document_metadata_suggestion_view, create_favorite_view,
+    delete_document_view, delete_favorite_view, document_cover_download,
+    document_source_pdf_download, document_thumbnail_download, get_document,
+    list_document_metadata_suggestions_view, list_documents, list_favorites_view,
+    ocr_document_view, patch_document, patch_favorite_view, search_blocks_view,
+    translate_document_view,
 };
 use crate::AppState;
 
@@ -43,11 +44,7 @@ pub async fn list_documents_route(
 ) -> Result<Json<ApiResponse<DocumentListView>>, AppError> {
     let deps = build_library_route_deps(&state);
     let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
-    Ok(ok_json(list_documents_view(
-        &deps.library,
-        &query,
-        &base_url,
-    )?))
+    Ok(ok_json(list_documents(&deps.library, &query, &base_url)?))
 }
 
 pub async fn get_document_route(
@@ -57,7 +54,7 @@ pub async fn get_document_route(
 ) -> Result<Json<ApiResponse<DocumentRecord>>, AppError> {
     let deps = build_library_route_deps(&state);
     let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
-    Ok(ok_json(get_document_view(
+    Ok(ok_json(get_document(
         &deps.library,
         &document_id,
         &base_url,
@@ -88,7 +85,8 @@ pub async fn download_document_cover_route(
     ApiPath(document_id): ApiPath<String>,
 ) -> Result<Response, AppError> {
     let deps = build_library_route_deps(&state);
-    let file = document_cover_download(&deps.library, &document_id)?;
+    let file =
+        document_cover_download(&deps.library, &state.download_generation, &document_id).await?;
     stream_file(
         file.path,
         file.content_type,
@@ -105,7 +103,8 @@ pub async fn download_document_thumbnail_route(
     ApiPath(document_id): ApiPath<String>,
 ) -> Result<Response, AppError> {
     let deps = build_library_route_deps(&state);
-    let file = document_thumbnail_download(&deps.library, &document_id)?;
+    let file = document_thumbnail_download(&deps.library, &state.download_generation, &document_id)
+        .await?;
     stream_file(
         file.path,
         file.content_type,
@@ -123,7 +122,7 @@ pub async fn patch_document_route(
 ) -> Result<Json<ApiResponse<DocumentRecord>>, AppError> {
     let deps = build_library_route_deps(&state);
     let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
-    Ok(ok_json(patch_document_view(
+    Ok(ok_json(patch_document(
         &deps.library,
         &document_id,
         &payload,
@@ -197,10 +196,11 @@ pub async fn translate_document_route(
     ApiJson(request): ApiJson<CreateJobInput>,
 ) -> Result<Json<ApiResponse<JobSubmissionView>>, AppError> {
     let deps = build_library_route_deps(&state);
+    let jobs = build_jobs_route_deps(&state).jobs;
     let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
     Ok(ok_json(translate_document_view(
         &deps.library,
-        &deps.jobs,
+        &jobs,
         &document_id,
         request,
         &base_url,
@@ -216,9 +216,10 @@ pub async fn ocr_document_route(
     ApiJson(request): ApiJson<CreateJobInput>,
 ) -> Result<Json<ApiResponse<JobSubmissionView>>, AppError> {
     let deps = build_library_route_deps(&state);
+    let jobs = build_jobs_route_deps(&state).jobs;
     let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
     Ok(ok_json(
-        ocr_document_view(&deps.library, &deps.jobs, &document_id, request, &base_url).await?,
+        ocr_document_view(&deps.library, &jobs, &document_id, request, &base_url).await?,
     ))
 }
 
@@ -232,13 +233,13 @@ pub async fn list_document_jobs_route(
 ) -> Result<Json<ApiResponse<DocumentJobListView>>, AppError> {
     let deps = build_library_route_deps(&state);
     let base_url = request_base_url(&headers, deps.default_port, &deps.bind_host);
-    Ok(ok_json(list_document_jobs_view(
-        &deps.library,
-        &deps.jobs,
-        &document_id,
-        &query,
-        &base_url,
-    )?))
+    let view = run_job_query_once(
+        &state,
+        format!("documents:jobs:{document_id}"),
+        move |jobs| jobs.document_jobs_view(&base_url, &document_id, &query),
+    )
+    .await?;
+    Ok(ok_json(view))
 }
 
 // --- favorites ---
@@ -299,7 +300,10 @@ pub async fn clear_book_favorites_route(
     ApiPath(job_id): ApiPath<String>,
 ) -> Result<Json<ApiResponse<FavoritesClearedResult>>, AppError> {
     let deps = build_library_route_deps(&state);
-    Ok(ok_json(clear_favorites_for_job_view(&deps.library, &job_id)?))
+    Ok(ok_json(clear_favorites_for_job_view(
+        &deps.library,
+        &job_id,
+    )?))
 }
 
 // --- search ---

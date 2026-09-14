@@ -101,9 +101,7 @@ pub struct ReaderRegionItemView {
     pub markdown: Option<String>,
     pub region_type: String,
     pub status: String,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub asset_ids: Vec<String>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub asset_urls: Vec<String>,
 }
 

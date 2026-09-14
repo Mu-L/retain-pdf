@@ -1,8 +1,9 @@
 mod control;
 mod creation;
 mod debug;
-mod downloads;
 mod deps;
+mod downloads;
+pub(crate) mod event_feed;
 mod facade;
 pub(super) mod live_stage;
 mod live_translation;
@@ -21,9 +22,10 @@ pub use control::wait_for_terminal_job;
 pub(crate) use deps::{
     CommandJobsDeps, ControlDeps, JobSubmitDeps, QueryJobsDeps, ReplayDeps, SnapshotBuildDeps,
 };
-pub(crate) use downloads::{DocumentDownloadKind, FileDownload, MarkdownDownload};
+pub(crate) use downloads::{DocumentDownloadKind, FileDownload, JobDownloads, MarkdownDownload};
 pub(crate) use facade::build_jobs_facade;
 pub use facade::JobsFacade;
+pub use query::JobQueries;
 pub(crate) use readiness::job_readiness;
 
 pub use crate::services::job_validation::{

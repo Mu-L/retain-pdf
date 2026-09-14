@@ -1,51 +1,23 @@
 # Reader Regions and Published Artifacts
 
-[API spec index](../../API_SPEC.md)
+[API spec index](../../API_SPEC.md) · [Reader read model](reader-read-model.md)
 
 ## Reader Regions
 
-`GET /api/v1/jobs/{job_id}/reader/regions`
+`GET /api/v1/jobs/{job_id}/reader/regions` projects stable source/translated
+hover and selection regions. The full endpoint contract, coordinate convention,
+canonical item identity, source-only behavior, and consumer rules are owned by
+[Reader read model](reader-read-model.md#identity-and-coordinates).
 
-Reader-only endpoint for source/translated hover alignment. The backend projects
-stable item regions from normalized OCR blocks and translation page payloads, so
-frontend readers do not need to parse internal artifacts directly.
+In short, every item contains a canonical `item_id`, source and translated
+one-based page boxes in top-left PDF points, optional source/translated text and
+Markdown, `region_type`, `status`, and zero-or-more published asset IDs/URLs.
+The backend provides this projection so Reader clients do not parse normalized
+OCR or translation artifacts directly.
 
-Response:
-
-```json
-{
-  "ok": true,
-  "data": {
-    "items": [
-      {
-        "item_id": "p008-b009",
-        "source": {
-          "page": 8,
-          "bbox": [72.1, 132.4, 310.8, 186.2],
-          "unit": "pdf_point",
-          "origin": "top_left"
-        },
-        "translated": {
-          "page": 8,
-          "bbox": [74.0, 130.0, 330.0, 190.0],
-          "unit": "pdf_point",
-          "origin": "top_left"
-        }
-      }
-    ]
-  }
-}
-```
-
-Notes:
-
-- `page` is 1-based.
-- `bbox` is `[x0, y0, x1, y1]` in PDF points with a top-left origin.
-- `source.bbox` is read from normalized OCR `document.v1.json` when a matching
-  block exists.
-- `translated.bbox` currently uses the translated page item bbox. Future render
-  diagnostics may replace it with the final rendered Typst block bbox while
-  keeping this response shape stable.
+`GET /api/v1/jobs/{job_id}/reader/metadata` returns independently nullable
+source and translated PDF page dimensions. It is also part of the Reader read
+model and is an optional overlay rather than an authority for PDF availability.
 
 ## Artifact JSON
 

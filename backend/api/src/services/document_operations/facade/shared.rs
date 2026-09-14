@@ -17,9 +17,10 @@ pub(super) fn executor_for(
 ) -> Result<Box<dyn DocumentOperationExecutor>, AppError> {
     match profile {
         CONTROL_PLANE_PREVIEW_PROFILE => Ok(Box::new(ControlPlanePreviewExecutor)),
-        RESTRICTED_PAGE_PROGRAM_PROFILE => Ok(Box::new(
-            RestrictedPageProgramExecutor::new(&config.data_root, &config.pipeline_command),
-        )),
+        RESTRICTED_PAGE_PROGRAM_PROFILE => Ok(Box::new(RestrictedPageProgramExecutor::new(
+            &config.data_root,
+            &config.pipeline_command,
+        ))),
         _ => Err(AppError::conflict(format!(
             "document operation executor profile is unavailable: {profile}"
         ))),

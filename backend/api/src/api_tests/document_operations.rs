@@ -1017,10 +1017,8 @@ async fn tampered_visual_validation_fails_closed_before_candidate_publication() 
     // Dispatch through the same control plane without invoking the route's
     // eager refresh, so the test can mutate the durable artifact in the exact
     // worker-complete / Rust-validation-not-yet-started crash window.
-    let executor = RestrictedPageProgramExecutor::new(
-        &state.config.data_root,
-        &state.config.pipeline_command,
-    );
+    let executor =
+        RestrictedPageProgramExecutor::new(&state.config.data_root, &state.config.pipeline_command);
     let control = DocumentOperationControl::new(&state.db, &executor);
     control.confirm(&operation_id).expect("confirm operation");
     control.dispatch(&operation_id).expect("dispatch operation");

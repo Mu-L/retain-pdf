@@ -17,6 +17,74 @@ spec.loader.exec_module(checks)
 
 
 class UploadBoundaryTests(unittest.TestCase):
+    def test_persistence_only_runner_leaves_accept_only_narrow_dependencies(self):
+        for name in (
+            "ocr_flow/bundle_events.rs", "render_flow_artifacts.rs",
+            "translation_flow_artifacts.rs", "render_flow_artifacts/prepare.rs",
+        ):
+            path = f"job_runner/{name}"
+            self.assertEqual([], self.check_sources(
+                {path: "fn prepare(deps: &JobPersistDeps) { let db = &deps.db; }"},
+                checks.check_job_persist_deps_usage,
+            ))
+            for capability in ("ProcessRuntimeDeps", "AppState", "AppConfig", "RuntimeControl", "Semaphore"):
+                with self.subTest(path=path, capability=capability):
+                    self.assertTrue(self.check_sources(
+                        {path: f"use crate::job_runner::{{{capability} as Runtime}};"},
+                        checks.check_job_persist_deps_usage,
+                    ))
+        self.assertTrue(self.check_sources(
+            {"services/jobs/unrelated.rs": "struct Wide { persist: JobPersistDeps }"},
+            checks.check_job_persist_deps_usage,
+        ))
+        self.assertEqual([], self.check_sources({
+            "job_runner/process_runner/io_support/events.rs": "fn emit(deps: &JobPersistDeps) {}",
+            "job_runner/process_runner/startup/mod.rs": "fn start(deps: &JobPersistDeps) {}",
+            "job_runner/process_runner/persistence_tests.rs": "let deps: JobPersistDeps;",
+        }, checks.check_job_persist_deps_usage))
+
+    def test_persist_leaf_guard_ignores_documentation_literals_and_local_tests(self):
+        self.assertEqual([], self.check_sources({"job_runner/ocr_flow/bundle_events.rs": '''
+            // Formerly ProcessRuntimeDeps; AppConfig is deliberately absent.
+            const NOTE: &str = r#"RuntimeControl"#;
+            fn emit(deps: &JobPersistDeps) {}
+#[cfg(test)]
+mod tests { fn fixture() { let runtime: ProcessRuntimeDeps; } }
+        '''}, checks.check_job_persist_deps_usage))
+
+    def test_shared_artifact_display_cannot_reintroduce_business_cycles(self):
+        self.assertEqual([], self.check_sources({
+            "services/jobs/presentation/detail_projection.rs": "use crate::services::artifacts::build_artifacts_display;",
+            "services/book_projection.rs": "use crate::services::artifacts::build_artifacts_display; use crate::services::jobs::job_readiness;",
+            "services/artifacts/presentation.rs": "use crate::models::api::{ArtifactLinksView, ArtifactDisplayItemView};",
+            "services/jobs/event_feed/batch_tests.rs": "use crate::services::book_projection;",
+        }, checks.check_shared_artifact_presentation))
+        for path in ("services/jobs/presentation/detail_projection.rs", "services/jobs/query/nested.rs"):
+            self.assertTrue(self.check_sources(
+                {path: "use crate::services::{book_projection::build_artifacts_display};"},
+                checks.check_shared_artifact_presentation,
+            ))
+        for source in (
+            "use crate::services::jobs;", "use crate::services::{library};", "fn build(db: &Db) {}",
+            "std::fs::read(path);", "use crate::ocr_provider;", "use crate::storage_paths;",
+            "use std::{fs as files};", "tokio::process::Command::new(program);",
+            'let raw = payload["layoutParsingResults"];',
+        ):
+            self.assertTrue(self.check_sources(
+                {"services/artifacts/presentation/nested.rs": source},
+                checks.check_shared_artifact_presentation,
+            ))
+        self.assertTrue(self.check_sources(
+            {"services/book_projection/artifacts.rs": ""},
+            checks.check_shared_artifact_presentation,
+        ))
+
+    def test_shared_artifact_guard_ignores_comments_and_literals(self):
+        self.assertEqual([], self.check_sources({
+            "services/artifacts/presentation.rs": '// no jobs or Db access\nconst LABEL: &str = "library";',
+            "services/jobs/query.rs": 'const NOTE: &str = r#"book_projection"#;',
+        }, checks.check_shared_artifact_presentation))
+
     def test_jobs_dependencies_allow_explicit_query_resources(self):
         self.assertEqual([], self.check_sources({
             "services/jobs/deps/query.rs": "use crate::db::Db; use super::ReplayDeps; struct QueryJobsDeps;",
@@ -39,6 +107,122 @@ class UploadBoundaryTests(unittest.TestCase):
             "app/server.rs": "crate::runtime::ai_supervisor::spawn_ai_supervisor();",
             "services/health_api.rs": "crate::runtime::jobsd_supervisor::jobsd_status();",
         }, checks.check_runtime_ownership))
+
+    def test_basic_job_queries_cannot_acquire_execution_dependencies(self):
+        path = "services/jobs/query.rs"
+        for source in ("AppState", "AppConfig", "Config::from_env()", 'env::var("ROOT")',
+                       "JobsFacade", "CommandJobsDeps", "JobSubmitDeps", "JobRuntime",
+                       "RuntimeControl", "JobLaunchDeps", "UploadService"):
+            with self.subTest(source=source):
+                self.assertTrue(self.check_sources({path: source},
+                                                   checks.check_jobs_dependency_boundaries))
+        self.assertEqual([], self.check_sources(
+            {path: "struct JobQueries<'a> { db: &'a Db, data_root: &'a Path }"},
+            checks.check_jobs_dependency_boundaries,
+        ))
+
+    def test_basic_job_read_routes_use_query_only_builder(self):
+        path = "routes/jobs/query/read.rs"
+        for builder in ("build_jobs_route_deps", "build_jobs_facade_from_state", "jobs_facade"):
+            with self.subTest(builder=builder):
+                self.assertTrue(self.check_sources(
+                    {path: f"let deps = {builder}(&state);"}, checks.check_jobs_route_deps_dedup,
+                ))
+        self.assertEqual([], self.check_sources(
+            {path: "let deps = build_jobs_query_route_deps(&state);"},
+            checks.check_jobs_route_deps_dedup,
+        ))
+
+    def test_narrow_job_service_boundaries_follow_module_splits(self):
+        for path in (
+            "services/jobs/query/diagnostics.rs", "services/jobs/query/reader/metadata.rs",
+            "services/jobs/deps/query/nested.rs", "services/jobs/downloads.rs",
+            "services/jobs/downloads/deps.rs", "services/jobs/downloads/files/cache.rs",
+        ):
+            for capability in ("AppState", "AppConfig", "JobsFacade", "JobRuntimeLauncher", "UploadService"):
+                with self.subTest(path=path, capability=capability):
+                    self.assertTrue(self.check_sources({path: capability}, checks.check_jobs_dependency_boundaries))
+        for path in ("services/jobs/query/diagnostics.rs", "services/jobs/downloads/deps.rs"):
+            for capability in ("ReplayDeps", "QueryJobsDeps"):
+                self.assertTrue(self.check_sources({path: capability}, checks.check_jobs_dependency_boundaries))
+        self.assertEqual([], self.check_sources({
+            "services/jobs/query/reader.rs": "struct ReadDeps<'a> { db: &'a Db, events: &'a JobEventFeed }",
+            "services/jobs/downloads/deps.rs": "struct DownloadJobsDeps { scheduler: DownloadGenerationScheduler }",
+            "services/jobs/deps/query.rs": "struct QueryJobsDeps<'a> { replay: ReplayDeps<'a> }",
+        }, checks.check_jobs_dependency_boundaries))
+
+    def test_narrow_job_route_boundaries_follow_module_splits(self):
+        for path in (
+            "routes/jobs/query/read/listing.rs", "routes/jobs/query/diagnostics.rs",
+            "routes/jobs/query/diagnostics/resume.rs", "routes/jobs/download.rs",
+            "routes/jobs/download/files.rs", "routes/download_response/files.rs",
+            "routes/download_response/markdown/cache.rs",
+        ):
+            with self.subTest(path=path):
+                self.assertTrue(self.check_sources(
+                    {path: "let deps = build_jobs_route_deps(&state);"}, checks.check_jobs_route_deps_dedup,
+                ))
+
+    def test_mixed_job_routes_keep_only_explicit_commands_wide(self):
+        for path, reader, command in (
+            ("routes/jobs/query/reader.rs", "get_reader_regions", "reader_ai_chat"),
+            ("routes/jobs/query/reader/metadata.rs", "get_reader_metadata", "reader_ai_chat"),
+            ("routes/jobs/translation_debug.rs", "get_translation_item", "replay_translation_item_route"),
+        ):
+            source = f"""
+                use crate::routes::common::{{build_jobs_route_deps, build_jobs_query_route_deps}};
+                pub async fn {reader}() {{
+                    if ready {{ return build_jobs_query_route_deps(&state); }}
+                    build_jobs_query_route_deps(&state)
+                }}
+                pub async fn {command}() {{ build_jobs_route_deps(&state); }}
+            """
+            with self.subTest(path=path):
+                self.assertEqual([], self.check_sources({path: source}, checks.check_jobs_route_deps_dedup))
+                self.assertTrue(self.check_sources(
+                    {path: source.replace("return build_jobs_query_route_deps", "return build_jobs_route_deps")},
+                    checks.check_jobs_route_deps_dedup,
+                ))
+                self.assertTrue(self.check_sources(
+                    {path: source + "fn local_helper() { build_jobs_route_deps(&state); }"},
+                    checks.check_jobs_route_deps_dedup,
+                ))
+
+    def test_mixed_job_routes_detect_full_builder_import_aliases(self):
+        self.assertTrue(self.check_sources({"routes/jobs/query/reader.rs": """
+            use crate::routes::common::build_jobs_route_deps as full;
+            pub async fn get_reader_regions() { full(&state); }
+        """}, checks.check_jobs_route_deps_dedup))
+
+    def test_job_boundaries_ignore_comments_and_rust_literals(self):
+        notes = '''
+            // migrated from build_jobs_route_deps; AppState must stay out
+            /* JobsFacade /* nested UploadService */ JobRuntimeLauncher */
+            const URL: &str = "https://example.com/JobsFacade";
+            const NOTE: &str = r##"raw } build_jobs_route_deps /* AppState */"##;
+            const BRACE: char = '}';
+        '''
+        self.assertEqual([], self.check_sources({
+            "routes/jobs/query/read.rs": notes + "fn list_jobs() { build_jobs_query_route_deps(&state); }",
+        }, checks.check_jobs_route_deps_dedup))
+        self.assertEqual([], self.check_sources({
+            "services/jobs/query/nested.rs": notes + "struct JobQueries<'a> { db: &'a Db }",
+        }, checks.check_jobs_dependency_boundaries))
+        self.assertEqual([], self.check_sources({
+            "services/jobs/query/nested.rs": notes + "struct JobQueries<'a> { db: &'a Db }",
+        }, checks.check_appstate_boundaries))
+        self.assertEqual([], self.check_sources({
+            "routes/jobs/query/read.rs": "/* use crate::services::jobs::JobsFacade; */",
+        }, checks.check_route_service_imports))
+        self.assertTrue(self.check_sources({
+            "services/jobs/query/nested.rs": notes + "struct Bad { runtime: JobRuntime }",
+        }, checks.check_jobs_dependency_boundaries))
+        self.assertTrue(self.check_sources({"routes/jobs/query/reader.rs": notes + '''
+            async fn get_reader_regions() {
+                let ignored = r#"} fn reader_ai_chat() {"#;
+                build_jobs_route_deps(&state)
+            }
+        '''}, checks.check_jobs_route_deps_dedup))
 
     def test_runtime_ownership_rejects_reverse_dependencies_and_old_locations(self):
         for path, source in (
@@ -174,6 +358,20 @@ class UploadBoundaryTests(unittest.TestCase):
                     checks.check_route_service_imports,
                 )
                 self.assertTrue(any("must not import internal services" in error for error in errors))
+
+    def test_library_route_dependencies_do_not_import_job_capabilities(self):
+        self.assertEqual([], self.check_sources(
+            {"routes/common/library.rs": "use crate::services::library::LibraryDeps;"},
+            checks.check_route_service_imports,
+        ))
+        for source in (
+            "use crate::services::jobs::JobsFacade;",
+            "use crate::services::{jobs::JobsFacade, library::LibraryDeps};",
+        ):
+            with self.subTest(source=source):
+                self.assertTrue(self.check_sources(
+                    {"routes/common/library.rs": source}, checks.check_route_service_imports,
+                ))
 
     def test_ai_private_gateway_rejects_external_and_grouped_access(self):
         for source in (

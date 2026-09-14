@@ -269,7 +269,7 @@
       "package_name": "PyMuPDF",
       "runtime_files": [
         "retainpdf_pipeline/runtime/pipeline/render_mode.py",
-        "retainpdf_pipeline/services/document_operations/visual_validation.py",
+        "retainpdf_pipeline/document_operations/visual_validation.py",
         "retainpdf_pipeline/services/ocr_provider/paddle_normalize.py",
         "retainpdf_pipeline/services/ocr_provider/paddle_runner.py",
         "retainpdf_pipeline/services/rendering/analysis/classifier.py",
@@ -474,7 +474,7 @@
       "import_name": "pikepdf",
       "package_name": "pikepdf",
       "runtime_files": [
-        "retainpdf_pipeline/services/document_operations/page_program.py",
+        "retainpdf_pipeline/document_operations/page_program.py",
         "retainpdf_pipeline/services/rendering/document/pikepdf_overlay.py",
         "retainpdf_pipeline/services/rendering/document/pikepdf_pages.py",
         "retainpdf_pipeline/services/rendering/source/compression/image_ops.py",

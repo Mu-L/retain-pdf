@@ -75,6 +75,7 @@ def select_runtime_credentials(
 def runtime_credential_view_fields(settings: Settings) -> dict[str, Any]:
     return {
         "llm_credential_ref": settings.llm_credential_ref,
+        "llm_api_key": settings.llm_api_key,
         "llm_api_key_configured": bool(settings.llm_api_key.strip()),
         "llm_api_key_masked": (
             "••••"
@@ -82,6 +83,7 @@ def runtime_credential_view_fields(settings: Settings) -> dict[str, Any]:
             else masked_secret(settings.llm_api_key)
         ),
         "fx_gateway_credential_ref": settings.fx_gateway_credential_ref,
+        "fx_gateway_api_key": settings.fx_gateway_api_key,
         "fx_gateway_api_key_configured": bool(settings.fx_gateway_api_key.strip()),
         "fx_gateway_api_key_masked": (
             "••••"

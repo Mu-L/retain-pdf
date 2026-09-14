@@ -86,21 +86,18 @@ def build_mineru_content_list_v2_document(
 
 def build_page_spec(page: list, *, page_idx: int) -> dict:
     blocks = []
-    x1_max = 0.0
-    y1_max = 0.0
     for order, block in enumerate(page or []):
         record = build_block_record(
             build_block_spec(block, page_idx=page_idx, order=order)
         )
         blocks.append(record)
-        bbox = record["bbox"]
-        if len(bbox) == 4:
-            x1_max = max(x1_max, float(bbox[2]))
-            y1_max = max(y1_max, float(bbox[3]))
     return {
         "page_index": page_idx,
-        "width": x1_max,
-        "height": y1_max,
+        # V2 bboxes cover a fixed 1000 x 1000 canvas, including page margins.
+        # Content extrema are not page dimensions (and empty pages still exist).
+        # The existing PDF rescaler maps this canvas into physical PDF points.
+        "width": 1000.0,
+        "height": 1000.0,
         "unit": "pt",
         "blocks": blocks,
     }

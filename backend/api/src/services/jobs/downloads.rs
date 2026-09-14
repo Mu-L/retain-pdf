@@ -1,26 +1,63 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-use crate::services::jobs::deps::QueryJobsDeps;
+use crate::db::Db;
+use crate::services::download_generation::DownloadGeneration;
+
+use self::deps::DownloadJobsDeps;
 
 // Keep this file as the small public facade for job downloads. Concrete
 // handlers live in submodules so PDF, markdown, preview, and artifact behavior
 // can evolve without turning one route helper into another large grab bag.
 mod artifact_deps;
 mod artifacts;
+mod deps;
 mod documents;
 mod markdown;
 mod paths;
 mod pdf;
 mod previews;
+mod service;
 mod side_by_side;
 
-pub(crate) use artifacts::{bundle_download, registered_artifact_download};
-pub(crate) use documents::{document_download, DocumentDownloadKind};
-pub(crate) use markdown::{
+#[cfg(all(test, unix))]
+mod tests;
+
+use artifacts::{bundle_download, registered_artifact_download};
+use documents::document_download;
+pub(crate) use documents::DocumentDownloadKind;
+use markdown::{
     markdown_document_view, markdown_download, markdown_image_download, markdown_raw_download,
 };
-pub(crate) use previews::{cover_download, page_preview_download, thumbnail_download};
-pub(crate) use side_by_side::side_by_side_pdf_download;
+use previews::{cover_download, page_preview_download, thumbnail_download};
+use side_by_side::side_by_side_pdf_download;
+
+/// Download capabilities contain no launcher, upload, control, or replay state.
+pub struct JobDownloads<'a> {
+    deps: DownloadJobsDeps<'a>,
+}
+
+impl<'a> JobDownloads<'a> {
+    pub(crate) fn new(
+        db: &'a Db,
+        data_root: &'a Path,
+        downloads_dir: &'a Path,
+        download_generation: &'a Arc<DownloadGeneration>,
+        python_bin: &'a str,
+        pipeline_command: &'a str,
+    ) -> Self {
+        Self {
+            deps: DownloadJobsDeps {
+                db,
+                data_root,
+                downloads_dir,
+                download_generation,
+                python_bin,
+                pipeline_command,
+            },
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct FileDownload {

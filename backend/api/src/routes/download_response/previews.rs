@@ -5,17 +5,20 @@ use crate::error::AppError;
 use crate::models::api::PagePreviewQuery;
 use crate::routes::job_helpers::file_etag;
 
-use super::files::{file_download_response, jobs_facade_ref};
-use crate::routes::common::JobsRouteDeps;
+use super::files::file_download_response;
+use crate::routes::common::JobsDownloadRouteDeps;
 
 pub async fn page_preview_response(
-    deps: &JobsRouteDeps<'_>,
+    deps: &JobsDownloadRouteDeps<'_>,
     headers: &HeaderMap,
     job_id: &str,
     page: u32,
     query: &PagePreviewQuery,
 ) -> Result<Response, AppError> {
-    let download = jobs_facade_ref(deps).page_preview_download(job_id, page, query)?;
+    let download = deps
+        .downloads
+        .page_preview_download(job_id, page, query)
+        .await?;
     let etag = file_etag(&download.path);
     let mut response = file_download_response(download, headers).await?;
     response.headers_mut().insert(

@@ -1,7 +1,6 @@
-"""Private, backend-owned credentials for the AI runtime.
+"""Local configuration for the AI runtime, editable through runtime-config.
 
-The browser may submit a credential once, but it never receives the raw value
-back.  The file lives below the configured data root so every checkout/runtime
+The file lives below the configured data root so every checkout/runtime
 uses the same explicit persistence boundary as the rest of RetainPDF data.
 """
 

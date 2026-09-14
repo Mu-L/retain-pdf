@@ -244,7 +244,10 @@ mod tests {
 
         assert_eq!(cmd.first().map(String::as_str), Some("python"));
         assert_eq!(cmd.get(1).map(String::as_str), Some("-m"));
-        assert_eq!(cmd.get(2).map(String::as_str), Some("retainpdf_pipeline.translate"));
+        assert_eq!(
+            cmd.get(2).map(String::as_str),
+            Some("retainpdf_pipeline.translate")
+        );
         assert!(contains(&cmd, "--spec"));
         assert!(!contains(&cmd, "--source-json"));
         assert!(!contains(&cmd, "--api-key"));
@@ -289,7 +292,10 @@ mod tests {
 
         assert_eq!(cmd.first().map(String::as_str), Some("python"));
         assert_eq!(cmd.get(1).map(String::as_str), Some("-m"));
-        assert_eq!(cmd.get(2).map(String::as_str), Some("retainpdf_pipeline.render"));
+        assert_eq!(
+            cmd.get(2).map(String::as_str),
+            Some("retainpdf_pipeline.render")
+        );
         assert!(contains(&cmd, "--spec"));
         assert!(!contains(&cmd, "--mode"));
         assert!(!contains(&cmd, "--batch-size"));
@@ -334,7 +340,10 @@ mod tests {
 
         assert_eq!(cmd.first().map(String::as_str), Some("python"));
         assert_eq!(cmd.get(1).map(String::as_str), Some("-m"));
-        assert_eq!(cmd.get(2).map(String::as_str), Some("retainpdf_pipeline.ocr"));
+        assert_eq!(
+            cmd.get(2).map(String::as_str),
+            Some("retainpdf_pipeline.ocr")
+        );
         assert_eq!(cmd.get(3).map(String::as_str), Some("normalize-ocr"));
         assert!(contains(&cmd, "--spec"));
         assert!(!contains(&cmd, "--provider"));
@@ -365,7 +374,10 @@ mod tests {
 
         assert_eq!(cmd.first().map(String::as_str), Some("python"));
         assert_eq!(cmd.get(1).map(String::as_str), Some("-m"));
-        assert_eq!(cmd.get(2).map(String::as_str), Some("retainpdf_pipeline.render"));
+        assert_eq!(
+            cmd.get(2).map(String::as_str),
+            Some("retainpdf_pipeline.render")
+        );
         assert!(contains(&cmd, "--spec"));
     }
 
@@ -384,7 +396,10 @@ mod tests {
 
         assert_eq!(cmd.first().map(String::as_str), Some("python"));
         assert_eq!(cmd.get(1).map(String::as_str), Some("-m"));
-        assert_eq!(cmd.get(2).map(String::as_str), Some("retainpdf_pipeline.ocr"));
+        assert_eq!(
+            cmd.get(2).map(String::as_str),
+            Some("retainpdf_pipeline.ocr")
+        );
         assert_eq!(cmd.get(3).map(String::as_str), Some("provider-case"));
         assert!(contains(&cmd, "--spec"));
         let spec_path = arg_value(&cmd, "--spec").expect("provider spec path");
@@ -426,7 +441,10 @@ mod tests {
 
         assert_eq!(cmd.first().map(String::as_str), Some("python"));
         assert_eq!(cmd.get(1).map(String::as_str), Some("-m"));
-        assert_eq!(cmd.get(2).map(String::as_str), Some("retainpdf_pipeline.ocr"));
+        assert_eq!(
+            cmd.get(2).map(String::as_str),
+            Some("retainpdf_pipeline.ocr")
+        );
         assert_eq!(cmd.get(3).map(String::as_str), Some("provider-case"));
         let spec_path = arg_value(&cmd, "--spec").expect("provider spec path");
         let spec_json =
@@ -542,7 +560,10 @@ mod tests {
 
         assert_eq!(cmd.first().map(String::as_str), Some("python"));
         assert_eq!(cmd.get(1).map(String::as_str), Some("-m"));
-        assert_eq!(cmd.get(2).map(String::as_str), Some("retainpdf_pipeline.ocr"));
+        assert_eq!(
+            cmd.get(2).map(String::as_str),
+            Some("retainpdf_pipeline.ocr")
+        );
         assert_eq!(cmd.get(3).map(String::as_str), Some("provider-ocr"));
         assert!(contains(&cmd, "--spec"));
         let spec_path = arg_value(&cmd, "--spec").expect("provider spec path");

@@ -38,6 +38,22 @@ async fn succeeded(_: ProcessRuntimeDeps, mut job: JobRuntimeState) -> Result<Jo
     Ok(job)
 }
 
+#[test]
+fn workflow_dispatch_does_not_embed_large_pipeline_futures() {
+    fn future_size<F, Fut>(_: F) -> usize
+    where
+        F: FnOnce(ProcessRuntimeDeps, JobRuntimeState) -> Fut,
+        Fut: std::future::Future<Output = Result<JobRuntimeState>>,
+    {
+        std::mem::size_of::<Fut>()
+    }
+    let size = future_size(dispatch_workflow);
+    assert!(
+        size <= 64 * 1024,
+        "workflow dispatcher retains {size} bytes; pipeline branches must be heap-pinned"
+    );
+}
+
 #[tokio::test]
 async fn repeated_launch_has_one_driver_even_while_queued() {
     let fixture = Fixture::new(1);

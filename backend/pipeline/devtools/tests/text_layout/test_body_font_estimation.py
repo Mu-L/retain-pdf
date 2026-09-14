@@ -42,6 +42,16 @@ def _sample_item(*, wide_aspect: bool) -> dict:
     }
 
 class BodyFontEstimationTests(unittest.TestCase):
+    def test_unspecified_semantic_role_keeps_legacy_body_heuristics(self):
+        item = _sample_item(wide_aspect=False)
+        for role in (None, "", "unknown", "body", "abstract"):
+            with self.subTest(role=role):
+                candidate = {**item, "semantic_role": role}
+                self.assertTrue(is_body_text_candidate(candidate, page_text_width_med=472.0))
+        for role in ("reference", "metadata", "caption"):
+            with self.subTest(role=role):
+                self.assertFalse(is_body_text_candidate({**item, "semantic_role": role}, 472.0))
+
     def test_local_font_size_uses_glyph_height_not_loose_line_pitch(self):
         item = {
             "block_type": "text",
@@ -156,4 +166,3 @@ class BodyFontEstimationTests(unittest.TestCase):
         self.assertLessEqual(footnote_font, 8.8)
         self.assertLess(footnote_font, body_font - 1.0)
         self.assertFalse(is_body_text_candidate(footnote, page_text_width_med=300.0))
-

@@ -31,7 +31,7 @@ pub use conversations::{
     append_message, create_conversation, delete_conversation, fork_conversation, get_conversation,
     list_conversations, patch_conversation,
 };
-pub use documents::{delete_document, get_document, list_documents, patch_document};
+pub use documents::delete_document;
 pub use favorites::{
     clear_favorites_for_document, clear_favorites_for_job, create_favorite, delete_favorite,
     list_favorites, patch_favorite,

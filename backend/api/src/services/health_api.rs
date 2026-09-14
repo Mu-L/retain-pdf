@@ -100,7 +100,8 @@ pub(crate) fn build_readiness_view(
     let ai_required = deps.ai_supervised;
     let jobsd_required = deps.jobsd_supervised;
     let ai_ok = !ai_required || ai_status == crate::runtime::ai_supervisor::AI_STATUS_HEALTHY;
-    let jobsd_ok = !jobsd_required || jobsd_status == crate::runtime::jobsd_supervisor::JOBSD_STATUS_HEALTHY;
+    let jobsd_ok =
+        !jobsd_required || jobsd_status == crate::runtime::jobsd_supervisor::JOBSD_STATUS_HEALTHY;
 
     let mut reasons = Vec::new();
     if !db_ok {

@@ -24,9 +24,6 @@ use tokio::process::Command;
 use tokio::time::{sleep, Duration};
 
 #[cfg(unix)]
-use std::os::unix::process::CommandExt;
-
-#[cfg(unix)]
 pub fn configure_child_process(command: &mut Command) {
     unsafe {
         command.pre_exec(|| {

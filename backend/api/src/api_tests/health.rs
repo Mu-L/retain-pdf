@@ -6,8 +6,8 @@ use crate::api_tests::jobs_common::{read_json, test_state};
 use crate::app::{build_app, build_simple_app};
 use crate::config::JobsRuntimeMode;
 use crate::routes::common::build_health_route_deps;
-use crate::services::health_api::build_readiness_view;
 use crate::runtime::{ai_supervisor, jobsd_supervisor};
+use crate::services::health_api::build_readiness_view;
 
 #[tokio::test]
 async fn liveness_and_readiness_are_public_on_both_routers() {

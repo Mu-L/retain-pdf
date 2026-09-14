@@ -141,11 +141,27 @@ def apply_upload_url(
     file_name: str,
     model_version: str,
     data_id: str,
+    is_ocr: bool = False,
+    enable_formula: bool = True,
+    enable_table: bool = True,
+    language: str = "ch",
+    page_ranges: str = "",
+    extra_formats: list[str] | None = None,
 ) -> tuple[str, str]:
+    file_spec: dict[str, Any] = {"name": file_name, "is_ocr": is_ocr}
+    if data_id.strip():
+        file_spec["data_id"] = data_id.strip()
+    if page_ranges.strip():
+        file_spec["page_ranges"] = page_ranges.strip()
     payload: dict[str, Any] = {
-        "files": [{"name": file_name, "data_id": data_id} if data_id else {"name": file_name}],
+        "files": [file_spec],
         "model_version": model_version,
+        "enable_formula": enable_formula,
+        "enable_table": enable_table,
+        "language": language,
     }
+    if extra_formats:
+        payload["extra_formats"] = extra_formats
     data = post_json(f"{MINERU_BASE_URL}/api/v4/file-urls/batch", build_headers(token), payload)
     batch_id = data["data"]["batch_id"]
     file_urls = data["data"]["file_urls"]
@@ -279,6 +295,12 @@ def main() -> None:
             file_name=file_path.name,
             model_version=args.model_version,
             data_id=args.data_id,
+            is_ocr=args.is_ocr,
+            enable_formula=enable_formula,
+            enable_table=enable_table,
+            language=args.language,
+            page_ranges=args.page_ranges,
+            extra_formats=extra_formats,
         )
         print(f"batch_id: {batch_id}")
         print(f"upload_url: {sanitize_url_for_log(upload_url)}")

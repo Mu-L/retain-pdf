@@ -3,11 +3,11 @@ use crate::models::api::JobSubmissionView;
 use crate::models::domain::{JobStatusKind, WorkflowKind};
 use crate::models::request::CreateJobInput;
 
-use crate::services::jobs::deps::BundleBuildDeps;
 use super::super::super::creation::{
     create_ocr_job_from_upload, create_translation_bundle_job, create_translation_job,
 };
 use super::super::JobsFacade;
+use crate::services::jobs::deps::BundleBuildDeps;
 use crate::services::uploads::UploadedPdfInput;
 
 impl<'a> JobsFacade<'a> {

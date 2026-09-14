@@ -12,7 +12,7 @@ pub(super) async fn run_render_job_from_artifacts(
     deps: ProcessRuntimeDeps,
     job: JobRuntimeState,
 ) -> Result<JobRuntimeState> {
-    let (mut job, render_inputs) = prepare_render_job_from_artifacts(&deps, job)?;
+    let (mut job, render_inputs) = prepare_render_job_from_artifacts(&deps.persist, job)?;
     let job_paths = crate::storage_paths::build_job_paths(&deps.persist.output_root, &job.job_id)?;
 
     job.command = build_worker_stage_command(

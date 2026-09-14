@@ -48,7 +48,7 @@ pub(super) async fn download_mineru_bundle_with_retry(
                     runtime.bundle_download_retry_limit, err
                 ));
                 record_bundle_retry_scheduled(
-                    deps,
+                    &deps.persist,
                     job,
                     format!(
                         "OCR provider bundle 下载异常，{delay_secs}s 后重试（第 {attempt}/{} 次）",

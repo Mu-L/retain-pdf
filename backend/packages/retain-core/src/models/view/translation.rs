@@ -73,11 +73,20 @@ pub struct JobEventRecord {
     pub payload: Option<Value>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct JobEventFeedItem {
+    pub event_id: String,
+    #[serde(flatten)]
+    pub event: JobEventRecord,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct JobEventListView {
-    pub items: Vec<JobEventRecord>,
+    pub protocol_version: u32,
+    pub items: Vec<JobEventFeedItem>,
+    pub next_cursor: String,
+    pub has_more: bool,
     pub limit: u32,
-    pub offset: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]

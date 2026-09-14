@@ -95,6 +95,10 @@ pub struct JobActionsView {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ListJobsQuery {
+    /// false reads the persisted job summary only, without importing event
+    /// history. Omitted/true preserves the complete live-stage projection.
+    #[serde(default)]
+    pub include_live_stage: Option<bool>,
     #[serde(default = "default_limit")]
     pub limit: u32,
     #[serde(default)]
@@ -137,12 +141,22 @@ pub struct ListGlossariesQuery {
     pub q: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ListJobEventsStart {
+    Head,
+    Tail,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct ListJobEventsQuery {
     #[serde(default = "default_event_limit")]
     pub limit: u32,
     #[serde(default)]
-    pub offset: u32,
+    pub start: Option<ListJobEventsStart>,
+    #[serde(default)]
+    pub cursor: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

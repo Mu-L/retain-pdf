@@ -83,7 +83,7 @@ pub(crate) fn default_limit() -> u32 {
     crate::config::limits::DEFAULT_LIST_LIMIT
 }
 pub(crate) fn default_event_limit() -> u32 {
-    100
+    500
 }
 
 // ---- Pagination max limits (centralized) ----

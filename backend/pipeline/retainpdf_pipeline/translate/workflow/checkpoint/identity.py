@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from retainpdf_pipeline.translate.core.engine_identity import translation_engine_identity
@@ -27,6 +28,19 @@ def _sha256_json(payload: object) -> str:
         separators=(",", ":"),
     ).encode("utf-8")
     return hashlib.sha256(canonical).hexdigest()
+
+
+def build_document_identity(
+    *,
+    normalized_document_path: Path,
+    parameters_sha256: str,
+) -> dict[str, str]:
+    """Bind normalized document bytes to an existing translation parameter identity."""
+    payload = {
+        "normalized_document_sha256": _sha256_file(normalized_document_path),
+        "parameters_sha256": parameters_sha256,
+    }
+    return {**payload, "fingerprint": _sha256_json(payload)}
 
 
 def build_translation_identity(
@@ -63,11 +77,7 @@ def build_translation_identity(
             for entry in plan.glossary_entries
         ],
     }
-    fingerprint_payload = {
-        "normalized_document_sha256": _sha256_file(request.source_json_path),
-        "parameters_sha256": _sha256_json(parameters),
-    }
-    return {
-        **fingerprint_payload,
-        "fingerprint": _sha256_json(fingerprint_payload),
-    }
+    return build_document_identity(
+        normalized_document_path=request.source_json_path,
+        parameters_sha256=_sha256_json(parameters),
+    )

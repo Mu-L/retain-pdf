@@ -6,7 +6,7 @@ mod entries;
 mod records;
 
 #[cfg(test)]
-use csv::{parse_glossary_csv, parse_glossary_csv_text};
+use csv::parse_glossary_csv_text;
 pub(crate) use entries::resolve_task_glossary_request;
 #[cfg(test)]
 use entries::{merge_glossary_entries, normalize_glossary_entries, MAX_GLOSSARY_ENTRIES};

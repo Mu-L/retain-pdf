@@ -271,7 +271,7 @@ def register_runtime_config_routes(
         except Exception as exc:
             raise HTTPException(
                 status_code=500,
-                detail=f"安全保存 AI 配置失败：{exc}",
+                detail=f"保存 AI 配置失败：{exc}",
             ) from exc
         saved = configured_settings()
         background_tasks.add_task(restart_runtime)

@@ -6,7 +6,10 @@ use crate::models::domain::{
     public_stage_for_raw_stage, public_stage_for_substage,
 };
 
-pub(super) fn canonicalize_job_event(item: &mut JobEventRecord, source_kind: &str) {
+pub(in crate::services::jobs) fn canonicalize_job_event(
+    item: &mut JobEventRecord,
+    source_kind: &str,
+) {
     let raw_stage = clean(item.stage.as_deref());
     let raw_user_stage = clean(item.user_stage.as_deref());
     let raw_event_type = clean(item.raw_event_type.as_deref())

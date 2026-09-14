@@ -1,4 +1,6 @@
+#[cfg(test)]
 use std::fs::File;
+#[cfg(test)]
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
@@ -57,6 +59,7 @@ struct PipelineEventJsonlRecord {
     payload: Option<Value>,
 }
 
+#[cfg(test)]
 pub(super) fn load_pipeline_events_jsonl(
     job_id: &str,
     path: &Path,
@@ -225,6 +228,28 @@ fn push_pipeline_event_line(
         payload: Some(payload),
     });
     true
+}
+
+/// Parse exactly one committed line for the durable feed. Its source identity
+/// is supplied by the reader, never taken from untrusted payload fields.
+pub(in crate::services::jobs) fn parse_feed_line(
+    job_id: &str,
+    path: &Path,
+    line: &str,
+    source_seq: i64,
+) -> Option<JobEventRecord> {
+    let mut records = Vec::new();
+    push_pipeline_event_line(
+        job_id,
+        path,
+        source_seq - 1,
+        &mut records,
+        line.to_owned(),
+        true,
+        1,
+        false,
+    );
+    records.pop()
 }
 
 fn user_stage_for_event(stage: Option<&str>) -> Option<String> {

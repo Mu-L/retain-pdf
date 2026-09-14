@@ -78,6 +78,10 @@ _EXPORTS = {
         "recover_blocking_untranslated_items",
     ),
     "translate_items_to_path": ("retainpdf_pipeline.translate.workflow", "translate_items_to_path"),
+    "prepare_relocated_translation_copy": (
+        "retainpdf_pipeline.translate.workflow.recovery",
+        "prepare_relocated_translation_copy",
+    ),
 }
 
 __all__ = list(_EXPORTS)

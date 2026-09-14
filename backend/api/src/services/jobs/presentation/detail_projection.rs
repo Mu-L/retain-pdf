@@ -10,17 +10,16 @@ use crate::models::api::{
     OcrJobSummaryView, PublicResolvedJobSpec,
 };
 use crate::models::domain::{JobFailureInfo, JobRuntimeInfo, JobSnapshot, OcrProviderDiagnostics};
-use crate::services::book_projection::build_artifacts_display;
+use crate::services::artifacts::build_artifacts_display;
 
 use super::super::job_readiness;
 use super::super::live_stage::load_live_stage_snapshot;
 use super::super::stage_view::build_job_stage_view;
-use super::super::summary_loaders::{
-    load_glossary_summary, load_invocation_summary, load_normalization_summary,
-};
+use super::super::summary_loaders::SummaryCache;
 use super::contracts::build_job_contracts_view;
 use super::helpers::{
     build_book_summary, build_ocr_job_summary, derive_display_name, job_failure_to_legacy_view,
+    upload_id,
 };
 use super::security::{redacted_error, redacted_log_tail};
 
@@ -144,20 +143,30 @@ pub(super) fn build_summary_projection(
     job: &JobSnapshot,
     base_url: &str,
 ) -> DetailSummaryProjection {
-    let display_name = derive_display_name(db, job);
+    let upload = upload_id(job).and_then(|id| db.get_upload(id).ok());
+    let upload = upload.as_ref();
+    let mut summaries = SummaryCache::default();
+    let display_name = derive_display_name(upload, job);
     let cover_url = super::helpers::cover_url(job, data_root, base_url);
     DetailSummaryProjection {
-        book: build_book_summary(db, job, data_root, base_url, &display_name)
-            .with_cover_url(cover_url),
+        book: build_book_summary(
+            upload,
+            &mut summaries,
+            job,
+            data_root,
+            base_url,
+            &display_name,
+        )
+        .with_cover_url(cover_url),
         contracts: build_job_contracts_view(job, data_root),
         ocr_job: build_ocr_job_summary(job, base_url),
         ocr_provider_diagnostics: job
             .artifacts
             .as_ref()
             .and_then(|artifacts| artifacts.ocr_provider_diagnostics.clone()),
-        normalization: load_normalization_summary(job, data_root),
-        glossary: load_glossary_summary(job, data_root),
-        invocation: load_invocation_summary(job, data_root),
+        normalization: summaries.normalization(job, data_root),
+        glossary: summaries.glossary(job, data_root),
+        invocation: summaries.invocation(job, data_root),
     }
 }
 

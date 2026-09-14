@@ -1,5 +1,5 @@
 use crate::job_events::record_custom_runtime_event_with_resources;
-use crate::job_runner::{register_job_retry, ProcessRuntimeDeps};
+use crate::job_runner::{register_job_retry, JobPersistDeps};
 use crate::models::domain::{now_iso, JobRuntimeState};
 
 pub(super) struct BundleRetryEvent<'a> {
@@ -20,7 +20,7 @@ pub(super) fn mark_ocr_result_ready(job: &mut JobRuntimeState, stage_detail: Str
 }
 
 pub(super) fn record_bundle_retry_scheduled(
-    deps: &ProcessRuntimeDeps,
+    deps: &JobPersistDeps,
     job: &mut JobRuntimeState,
     stage_detail: String,
     message: &str,
@@ -34,8 +34,8 @@ pub(super) fn record_bundle_retry_scheduled(
     }
     record_custom_runtime_event_with_resources(
         deps.db.as_ref(),
-        &deps.persist.data_root,
-        &deps.persist.output_root,
+        &deps.data_root,
+        &deps.output_root,
         &job.snapshot(),
         "warn",
         "retry_scheduled",
@@ -45,7 +45,7 @@ pub(super) fn record_bundle_retry_scheduled(
 }
 
 pub(super) fn record_bundle_retry_degraded(
-    deps: &ProcessRuntimeDeps,
+    deps: &JobPersistDeps,
     job: &mut JobRuntimeState,
     event: BundleRetryEvent<'_>,
 ) {
@@ -64,8 +64,8 @@ pub(super) fn record_bundle_retry_degraded(
     payload["fallback"] = serde_json::json!("direct_download");
     record_custom_runtime_event_with_resources(
         deps.db.as_ref(),
-        &deps.persist.data_root,
-        &deps.persist.output_root,
+        &deps.data_root,
+        &deps.output_root,
         &job.snapshot(),
         "warn",
         "retry_degraded",
@@ -82,4 +82,88 @@ fn bundle_retry_payload(event: &BundleRetryEvent<'_>) -> serde_json::Value {
         "reason": event.reason,
         "url": event.url,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::*;
+    use crate::db::Db;
+    use crate::models::domain::JobSnapshot;
+    use crate::models::request::CreateJobInput;
+
+    #[test]
+    fn bundle_retry_events_need_only_persistence_resources() {
+        let root = std::env::temp_dir().join(format!(
+            "retain-bundle-events-persist-{}",
+            fastrand::u64(..)
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let db = Arc::new(Db::new(root.join("jobs.db"), root.clone()));
+        db.init().unwrap();
+        let deps = JobPersistDeps::new(db, root.clone(), root.join("jobs"));
+        let mut job = JobSnapshot::new("bundle-retry".into(), CreateJobInput::default(), vec![])
+            .into_runtime();
+        deps.db.save_job(&job.snapshot()).unwrap();
+        let event = || BundleRetryEvent {
+            scope: "mineru_bundle_ready_wait",
+            attempt: 2,
+            max_attempts: 3,
+            delay_secs: Some(5),
+            elapsed_secs: Some(10),
+            timeout_secs: Some(30),
+            reason: "temporarily unavailable".into(),
+            url: "https://example.invalid/bundle.zip",
+        };
+
+        record_bundle_retry_scheduled(
+            &deps,
+            &mut job,
+            "waiting for bundle".into(),
+            "retry scheduled",
+            event(),
+        );
+        assert_eq!(job.stage.as_deref(), Some("ocr_result_ready"));
+        assert_eq!(job.stage_detail.as_deref(), Some("waiting for bundle"));
+        record_bundle_retry_degraded(&deps, &mut job, event());
+
+        let events = deps.db.list_job_events(&job.job_id, 10, 0).unwrap();
+        assert_eq!(events.len(), 2);
+        let scheduled = events
+            .iter()
+            .find(|e| e.event == "retry_scheduled")
+            .unwrap();
+        assert_eq!(scheduled.retry_count, Some(1));
+        assert_eq!(scheduled.level, "warn");
+        assert_eq!(scheduled.stage.as_deref(), Some("ocr_result_ready"));
+        assert_eq!(
+            scheduled.payload.as_ref().unwrap(),
+            &serde_json::json!({
+                "scope": "mineru_bundle_ready_wait",
+                "attempt": 2,
+                "max_attempts": 3,
+                "reason": "temporarily unavailable",
+                "url": "https://example.invalid/bundle.zip",
+                "delay_seconds": 5,
+            })
+        );
+        let degraded = events.iter().find(|e| e.event == "retry_degraded").unwrap();
+        assert_eq!(degraded.retry_count, Some(2));
+        assert_eq!(
+            degraded.payload.as_ref().unwrap(),
+            &serde_json::json!({
+                "scope": "mineru_bundle_ready_wait",
+                "attempt": 2,
+                "max_attempts": 3,
+                "reason": "temporarily unavailable",
+                "url": "https://example.invalid/bundle.zip",
+                "elapsed_seconds": 10,
+                "timeout_seconds": 30,
+                "fallback": "direct_download",
+            })
+        );
+        drop(deps);
+        std::fs::remove_dir_all(root).unwrap();
+    }
 }

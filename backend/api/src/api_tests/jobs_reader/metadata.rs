@@ -56,3 +56,33 @@ async fn reader_metadata_route_returns_pdf_page_dimensions_when_ready() {
     assert_eq!(payload["data"]["translated"]["pages"][0]["width"], 612.0);
     assert_eq!(payload["data"]["translated"]["pages"][0]["height"], 792.0);
 }
+
+#[tokio::test]
+async fn reader_metadata_route_keeps_missing_pdfs_nullable() {
+    let state = test_state("reader-metadata-missing");
+    let mut input = CreateJobInput::default();
+    input.runtime.job_id = "reader-metadata-missing-job".to_string();
+    let job = JobSnapshot::new(
+        "reader-metadata-missing-job".to_string(),
+        input,
+        vec!["python".to_string()],
+    );
+    state.db.save_job(&job).expect("save job");
+
+    let response = build_app(state)
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/v1/jobs/reader-metadata-missing-job/reader/metadata")
+                .header("X-API-Key", "test-key")
+                .body(Body::empty())
+                .expect("metadata request"),
+        )
+        .await
+        .expect("metadata response");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let payload = read_json(response).await;
+    assert!(payload["data"]["source"].is_null());
+    assert!(payload["data"]["translated"].is_null());
+}

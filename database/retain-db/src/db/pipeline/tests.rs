@@ -996,10 +996,7 @@ fn stuck_queued_lists_jobs_without_running_attempts() {
     failed.status = crate::models::domain::JobStatusKind::Failed;
     fixture.db.save_job(&failed).expect("seed failed job");
 
-    let mut stuck = fixture
-        .db
-        .list_stuck_queued_job_ids()
-        .expect("stuck queue");
+    let mut stuck = fixture.db.list_stuck_queued_job_ids().expect("stuck queue");
     stuck.sort();
     assert_eq!(stuck, vec!["job-1".to_string(), "job-stuck".to_string()]);
 

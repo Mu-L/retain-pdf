@@ -10,10 +10,10 @@ use crate::storage_paths::{
 
 use super::super::query::load_supported_job;
 use super::pdf::linearized_pdf_or_original;
-use super::{FileDownload, QueryJobsDeps};
+use super::{DownloadJobsDeps, FileDownload};
 
-pub(crate) fn bundle_download(
-    deps: &QueryJobsDeps<'_>,
+pub(super) fn bundle_download(
+    deps: &DownloadJobsDeps<'_>,
     job_id: &str,
 ) -> Result<FileDownload, AppError> {
     let job = load_supported_job(deps.db, deps.data_root, job_id)?;
@@ -27,8 +27,8 @@ pub(crate) fn bundle_download(
     )
 }
 
-pub(crate) fn registered_artifact_download(
-    deps: &QueryJobsDeps<'_>,
+pub(super) fn registered_artifact_download(
+    deps: &DownloadJobsDeps<'_>,
     job: &JobSnapshot,
     artifact_key: &str,
     include_job_dir: bool,

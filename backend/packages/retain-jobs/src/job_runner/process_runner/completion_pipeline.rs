@@ -51,7 +51,12 @@ pub(super) async fn finalize_completed_process(
             &mut completion,
         );
     }
-    apply_process_completion(&mut latest_job, completion, &completed.stderr_text, stage_kind);
+    apply_process_completion(
+        &mut latest_job,
+        completion,
+        &completed.stderr_text,
+        stage_kind,
+    );
     // 这条提示以「任务完成，但……」开头,只有真正的终点才该挂。
     if matches!(stage_kind, ProcessStageKind::Final)
         && matches!(

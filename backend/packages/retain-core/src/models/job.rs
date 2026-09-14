@@ -30,7 +30,6 @@ pub use stage::{
 mod tests {
     use crate::models::{CreateJobInput, JobSnapshot, JobStatusKind};
 
-    #[test]
     /// 一个阶段不得归档上一阶段的进度。
     ///
     /// `progress_current/total` 是 job 级的、跨阶段不自动重置。渲染阶段的进度
@@ -138,6 +137,7 @@ mod tests {
         assert_eq!(rendering.exit_at, None);
     }
 
+    #[test]
     fn sync_runtime_state_tracks_stage_history_and_elapsed() {
         let mut job = JobSnapshot::new(
             "job-runtime-metrics".to_string(),

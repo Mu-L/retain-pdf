@@ -66,6 +66,10 @@
 6. 阅读问答和受限 PDF 操作统一使用 `POST /api/v1/ai/ask`；旧的
    `/api/v1/jobs/{job_id}/reader/ai/chat` 只保留兼容
 
+Reader 宿主接入 job/artifact、Markdown、区域、页面元数据和实时译文时，使用
+[Reader read model](../../../backend/api/docs/api-spec/reader-read-model.md)；它锁定
+`document_id`/`job_id` 身份、页码坐标、可用性与 SSE 恢复语义。
+
 ## 3. 图书馆接口
 
 列表：

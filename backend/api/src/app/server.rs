@@ -100,10 +100,8 @@ async fn serve_with_shutdown(
     }
 
     // Phase 3（ADR-002）：RUST_API_JOBS_SUPERVISE=1 且 RUST_API_JOBS_MODE=remote 时壳监督 jobsd
-    let jobsd_supervisor_handle = crate::runtime::jobsd_supervisor::spawn_jobsd_supervisor(
-        config.clone(),
-        shutdown_rx_watch,
-    );
+    let jobsd_supervisor_handle =
+        crate::runtime::jobsd_supervisor::spawn_jobsd_supervisor(config.clone(), shutdown_rx_watch);
     if jobsd_supervisor_handle.is_some() {
         tracing::info!("jobsd_supervisor enabled: managing retain-jobsd lifecycle");
     }

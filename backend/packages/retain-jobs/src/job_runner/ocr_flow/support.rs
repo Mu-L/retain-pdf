@@ -184,6 +184,15 @@ pub(super) fn fail_ocr_transport(job: &mut JobRuntimeState, err: &anyhow::Error)
     let message = format_error_chain(err);
     append_error_chain_log(job, err);
     attach_job_provider_failure(job, &message);
+    if let Some(response) =
+        err.downcast_ref::<crate::ocr_provider::mineru::response_error::MineruResponseError>()
+    {
+        if let Some(trace) = &response.info.trace_id {
+            job_artifacts_mut(job).provider_trace_id = Some(trace.clone());
+        }
+        crate::job_runner::ocr_provider_diagnostics_mut(job).last_error =
+            Some(response.info.clone());
+    }
     job.status = JobStatusKind::Failed;
     job.stage = Some(job_stage_str(JobStage::Failed).to_string());
     if job

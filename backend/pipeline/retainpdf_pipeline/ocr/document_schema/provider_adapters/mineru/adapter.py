@@ -6,6 +6,9 @@ import json
 from collections import Counter
 from pathlib import Path
 
+from retainpdf_pipeline.ocr.document_schema.provider_adapters.mineru.cross_page import (
+    restore_cross_page_spans,
+)
 from retainpdf_pipeline.ocr.document_schema.provider_adapters.mineru.label_catalog import (
     MINERU_MIDDLE_TAXONOMY_PROFILE,
     MINERU_TEXT_AGGREGATE_CONTAINERS,
@@ -150,9 +153,12 @@ def build_mineru_document(
     source_json_path: Path,
     provider_version: str,
 ) -> dict:
+    physical_pages, cross_page_signals = restore_cross_page_spans(
+        iter_layout_pages(payload)
+    )
     page_results = [
         build_page_record(page, page_idx=page_idx)
-        for page_idx, page in enumerate(iter_layout_pages(payload))
+        for page_idx, page in enumerate(physical_pages)
     ]
     pages = [page for page, _skipped in page_results]
     raw_label_counts = collect_raw_label_counts(payload)
@@ -184,6 +190,7 @@ def build_mineru_document(
                 "structural_containers_not_emitted": sum(
                     skipped for _page, skipped in page_results
                 ),
+                **cross_page_signals,
             },
         },
     }
@@ -217,6 +224,7 @@ def build_normalized_document_from_layout_path(
         layout_json_path=layout_json_path,
         provider_version=provider_version,
     )
+
 
 __all__ = [
     "build_mineru_document",

@@ -21,10 +21,7 @@ impl<'a> DerivedArtifactDeps<'a> {
         }
     }
 
-    pub(crate) fn with_pipeline_command(
-        python_bin: &'a str,
-        pipeline_command: &'a str,
-    ) -> Self {
+    pub(crate) fn with_pipeline_command(python_bin: &'a str, pipeline_command: &'a str) -> Self {
         Self {
             python_bin,
             pipeline_command,

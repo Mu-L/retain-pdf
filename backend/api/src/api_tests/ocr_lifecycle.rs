@@ -118,7 +118,8 @@ async fn ocr_only_submission_reaches_reader_and_document_outputs() {
     let fake_lib = bin_dir.join("fakelib");
     let fake_stage = fake_lib.join("retainpdf_pipeline").join("ocr");
     fs::create_dir_all(&fake_stage).expect("create fake stage package");
-    fs::write(fake_lib.join("retainpdf_pipeline").join("__init__.py"), b"").expect("write fake package init");
+    fs::write(fake_lib.join("retainpdf_pipeline").join("__init__.py"), b"")
+        .expect("write fake package init");
     fs::write(fake_stage.join("__init__.py"), b"").expect("write fake stage init");
     fs::write(fake_stage.join("__main__.py"), FAKE_OCR_WORKER).expect("write fake stage worker");
     let python_stub = bin_dir.join("python3");

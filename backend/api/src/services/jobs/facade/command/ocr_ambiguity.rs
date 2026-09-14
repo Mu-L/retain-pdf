@@ -3,9 +3,8 @@ use serde_json::{json, Map, Value};
 use crate::db::{Db, PipelineDispatchRecord};
 use crate::error::AppError;
 use crate::models::api::{
-    AmbiguousRequestPolicy, OcrAmbiguityReceiptFieldView, OcrAmbiguityResolutionKind,
-    OcrAmbiguityResolutionRequest, OcrAmbiguityResolutionView, OcrAmbiguityView, RetryStageKind,
-    RetryStageRequest,
+    AmbiguousRequestPolicy, OcrAmbiguityResolutionKind, OcrAmbiguityResolutionRequest,
+    OcrAmbiguityResolutionView, RetryStageKind, RetryStageRequest,
 };
 use crate::services::jobs::stage_plan::stage_plan;
 
@@ -110,59 +109,6 @@ pub(crate) fn ambiguous_ocr_dispatch(
         .filter(|dispatch| dispatch.stage_key == "ocr" && dispatch.status == "ambiguous"))
 }
 
-pub(crate) fn build_ocr_ambiguity_view(
-    dispatch: &PipelineDispatchRecord,
-) -> Option<OcrAmbiguityView> {
-    if dispatch.stage_key != "ocr" || dispatch.status != "ambiguous" {
-        return None;
-    }
-    let receipt_fields = receipt_field_contract(&dispatch.provider, &dispatch.operation)?;
-    Some(OcrAmbiguityView {
-        status: "ambiguous".to_string(),
-        provider: dispatch.provider.clone(),
-        operation: dispatch.operation.clone(),
-        resolution_revision: dispatch.generation,
-        allowed_resolutions: vec![
-            OcrAmbiguityResolutionKind::BindExistingReceipt,
-            OcrAmbiguityResolutionKind::AcceptDuplicateRisk,
-        ],
-        receipt_fields,
-    })
-}
-
-fn receipt_field_contract(
-    provider: &str,
-    operation: &str,
-) -> Option<Vec<OcrAmbiguityReceiptFieldView>> {
-    let mut fields = match (provider, operation) {
-        ("mineru", "apply_upload_url") => vec![
-            receipt_field("batch_id", "Batch ID", true, false),
-            receipt_field("upload_url", "Upload URL", true, true),
-        ],
-        ("mineru", "create_extract_task")
-        | ("paddle", "submit_local_file" | "submit_remote_url") => {
-            vec![receipt_field("task_id", "Task ID", true, false)]
-        }
-        _ => return None,
-    };
-    fields.push(receipt_field("trace_id", "Trace ID", false, false));
-    Some(fields)
-}
-
-fn receipt_field(
-    name: &str,
-    label: &str,
-    required: bool,
-    secret: bool,
-) -> OcrAmbiguityReceiptFieldView {
-    OcrAmbiguityReceiptFieldView {
-        name: name.to_string(),
-        label: label.to_string(),
-        required,
-        secret,
-    }
-}
-
 fn build_bound_receipt(
     dispatch: &crate::db::PipelineDispatchRecord,
     request: &OcrAmbiguityResolutionRequest,
@@ -249,6 +195,7 @@ fn reject_receipt_fields(request: &OcrAmbiguityResolutionRequest) -> Result<(), 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::services::jobs::presentation::build_ocr_ambiguity_view;
 
     fn dispatch(provider: &str, operation: &str) -> PipelineDispatchRecord {
         PipelineDispatchRecord {

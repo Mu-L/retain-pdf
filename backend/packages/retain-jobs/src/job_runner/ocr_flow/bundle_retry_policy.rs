@@ -1,6 +1,17 @@
 use super::mineru_retry::{mineru_error_chain_text, should_retry_mineru_poll_error};
 
 pub(super) fn should_retry_mineru_bundle_ready_error(err: &anyhow::Error) -> bool {
+    if let Some(response) =
+        err.downcast_ref::<crate::ocr_provider::mineru::response_error::MineruResponseError>()
+    {
+        return response.retryable_query();
+    }
+    if let Some(network) = err.downcast_ref::<reqwest::Error>() {
+        if network.status() == Some(reqwest::StatusCode::NOT_FOUND) {
+            return true;
+        }
+        return should_retry_mineru_poll_error(err);
+    }
     let text = mineru_error_chain_text(err);
     should_retry_mineru_poll_error(err) || text.contains("404") || text.contains("not found")
 }

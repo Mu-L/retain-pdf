@@ -34,12 +34,7 @@ pub fn complete_agent_calculation(
     calculation_id: &str,
     input: &CompleteAgentCalculationInput,
 ) -> Result<AgentCalculationView, AppError> {
-    super::service::complete_agent_calculation(
-        deps.db,
-        deps.data_root,
-        calculation_id,
-        input,
-    )
+    super::service::complete_agent_calculation(deps.db, deps.data_root, calculation_id, input)
 }
 
 pub fn fail_agent_calculation(

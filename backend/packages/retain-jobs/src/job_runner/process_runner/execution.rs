@@ -168,7 +168,8 @@ pub(super) async fn collect_process_execution(
         }
     };
 
-    let (stdout_text, latest_job) = drain_stdout(stdout_handle, persist, &job_id, drain_secs).await?;
+    let (stdout_text, latest_job) =
+        drain_stdout(stdout_handle, persist, &job_id, drain_secs).await?;
     let stderr_text = drain_stderr(stderr_handle, &job_id, drain_secs).await;
     Ok(ProcessExecution::Completed(CompletedProcess {
         status,

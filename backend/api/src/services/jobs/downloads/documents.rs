@@ -5,7 +5,7 @@ use crate::storage_paths::{
 };
 
 use super::pdf::linearized_pdf_or_original;
-use super::{FileDownload, QueryJobsDeps};
+use super::{DownloadJobsDeps, FileDownload};
 
 #[derive(Clone, Copy)]
 pub(crate) enum DocumentDownloadKind {
@@ -43,8 +43,8 @@ impl DocumentDownloadKind {
     }
 }
 
-pub(crate) fn document_download(
-    deps: &QueryJobsDeps<'_>,
+pub(super) fn document_download(
+    deps: &DownloadJobsDeps<'_>,
     job: &JobSnapshot,
     kind: DocumentDownloadKind,
 ) -> Result<FileDownload, AppError> {

@@ -6,16 +6,14 @@ use crate::services::jobs::stage_plan::resume_plan;
 use crate::services::jobs::translation_request_recovery::load_translation_request_recovery_with_db;
 use crate::storage_paths::resolve_pipeline_summary;
 
-use super::super::super::query::load_supported_job;
-use super::super::command::ocr_ambiguity::build_ocr_ambiguity_view;
-use super::super::JobsFacade;
+use super::super::presentation::build_ocr_ambiguity_view;
+use super::{load_supported_job, JobQueries};
 
-impl<'a> JobsFacade<'a> {
+impl JobQueries<'_> {
     pub fn job_diagnostics_view(&self, job_id: &str) -> Result<JobDiagnosticsView, AppError> {
-        let job = load_supported_job(self.query.db, self.query.data_root, job_id)?;
+        let job = load_supported_job(self.db, self.data_root, job_id)?;
         let ocr_ambiguity = if matches!(job.status, JobStatusKind::Failed) {
-            self.query
-                .db
+            self.db
                 .latest_pipeline_dispatch(job_id, "ocr-submit")?
                 .as_ref()
                 .and_then(build_ocr_ambiguity_view)
@@ -23,16 +21,16 @@ impl<'a> JobsFacade<'a> {
             None
         };
         Ok(build_job_diagnostics_view(
-            self.query.db,
+            self.db,
             &job,
-            self.query.data_root,
+            self.data_root,
             ocr_ambiguity,
         ))
     }
 
     pub fn resume_plan_view(&self, job_id: &str) -> Result<JobResumePlanView, AppError> {
-        let job = load_supported_job(self.query.db, self.query.data_root, job_id)?;
-        Ok(build_resume_plan_view(&job, self.query.data_root))
+        let job = load_supported_job(self.db, self.data_root, job_id)?;
+        Ok(build_resume_plan_view(&job, self.data_root))
     }
 }
 

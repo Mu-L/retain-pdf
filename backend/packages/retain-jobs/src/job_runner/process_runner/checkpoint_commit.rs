@@ -109,7 +109,8 @@ pub(super) fn apply_durable_checkpoint(
             // 26 批,两者的百分比都单调递增。所以不必统一分母,只要每条事件
             // 自己的数字和文字对得上。
             if let (Some(current), Some(total)) = (current, total) {
-                job.stage_detail = Some(durable_progress_detail(&observation.stage, current, total));
+                job.stage_detail =
+                    Some(durable_progress_detail(&observation.stage, current, total));
             }
         }
     }
@@ -256,6 +257,9 @@ mod tests {
             "已完成 3/10 个文本块"
         );
         assert_eq!(durable_progress_detail("render", 2, 4), "已完成 2/4 页");
-        assert_eq!(durable_progress_detail("unknown_stage", 1, 2), "已完成 1/2 项");
+        assert_eq!(
+            durable_progress_detail("unknown_stage", 1, 2),
+            "已完成 1/2 项"
+        );
     }
 }

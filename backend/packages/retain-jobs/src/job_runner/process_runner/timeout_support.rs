@@ -24,6 +24,7 @@ pub(super) fn no_output_timeout_detail(no_output_secs: i64) -> String {
     format!("no output for {no_output_secs}s")
 }
 
+#[cfg(test)]
 pub(super) fn apply_timeout_failure(job: &mut JobSnapshot, timestamp: String) {
     let detail = timeout_detail_for_stage(job.stage.as_deref()).to_string();
     apply_timeout_failure_with_detail(job, timestamp, detail);
