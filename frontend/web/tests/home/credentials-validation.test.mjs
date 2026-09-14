@@ -773,8 +773,7 @@ test("browser credential save falls back to stored model api key when input is b
     globalThis.window = previousWindow;
   }
 
-  const translationCall = credentialCalls.find((payload) => payload.kind === "translation_api_key");
-  assert.equal(translationCall?.secret, "existing-key");
+  assert.equal(credentialCalls.length, 0, "ordinary local saves do not write credentials remotely");
   assert.equal(credentialsStatePort.getCredentials().modelApiKey, "existing-key");
   assert.deepEqual(statuses.at(-1), ["已保存", "valid"]);
 });

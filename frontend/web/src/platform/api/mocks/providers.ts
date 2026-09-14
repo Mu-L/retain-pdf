@@ -1,4 +1,14 @@
 // mock-only 适配器:index.ts 的 mockable() 只在 mock 模式调用这些实现。
+export async function validateMineruToken(apiPrefix, payload) {
+  void apiPrefix;
+  void payload;
+  return {
+    ok: true,
+    status: "valid",
+    summary: "模拟模式：MinerU Token 检测通过（未访问远端）",
+  };
+}
+
 export async function validatePaddleToken(apiPrefix, payload) {
   void apiPrefix;
   void payload;

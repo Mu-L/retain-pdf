@@ -22,6 +22,7 @@ const view = {
   llm_base_url: "https://api.example/v1",
   llm_model: "model-a",
   llm_api_key_configured: true,
+  llm_api_key: "local-model-value",
   llm_api_key_masked: "••••alue",
   fx_gateway_base_url: "",
   fx_gateway_mode: "official_default",
@@ -33,7 +34,7 @@ const view = {
   restart_required: false,
 };
 
-test("agent runtime settings: GET 使用本地服务鉴权并解析安全视图", async () => {
+test("agent runtime settings: GET 使用本地服务鉴权并返回可回填 Key", async () => {
   const calls = [];
   const result = await fetchAgentRuntimeConfig({
     fetchImpl: async (url, options) => {
@@ -45,9 +46,26 @@ test("agent runtime settings: GET 使用本地服务鉴权并解析安全视图"
     },
   });
   assert.equal(result.llm_api_key_masked, "••••alue");
+  assert.equal(result.llm_api_key, "local-model-value");
   assert.match(calls[0][0], /\/api\/v1\/ai\/runtime-config$/);
   assert.equal(calls[0][1].method, "GET");
   assert.equal(calls[0][1].headers["X-API-Key"], "test-key");
+});
+
+test("agent runtime settings: Python data-only GET/PUT returns editable local keys", async () => {
+  const localView = { ...view, fx_gateway_api_key: "local-gateway-value" };
+  const fetchImpl = async () => new Response(JSON.stringify({ data: localView }), { status: 200 });
+  assert.deepEqual(await fetchAgentRuntimeConfig({ fetchImpl }), localView);
+  assert.deepEqual(await updateAgentRuntimeConfig({ llm_api_key: "local-model-value" }, { fetchImpl }), localView);
+});
+
+test("agent runtime settings: invalid views and business errors do not become empty forms", async () => {
+  await assert.rejects(fetchAgentRuntimeConfig({
+    fetchImpl: async () => new Response(JSON.stringify({ data: {} }), { status: 200 }),
+  }), /返回格式不正确/);
+  await assert.rejects(fetchAgentRuntimeConfig({
+    fetchImpl: async () => new Response(JSON.stringify({ code: 409, message: "conflict", data: view }), { status: 200 }),
+  }), /conflict/);
 });
 
 test("agent runtime settings: PUT 只发送本次录入且不要求浏览器持久化", async () => {

@@ -10,6 +10,7 @@ export interface WorkflowSubmitValues {
   ocrCredentialRef?: string;
   ocrToken?: string;
   translationCredentialRef?: string;
+  modelApiKey?: string;
   selectedGlossaryId?: string;
 }
 

@@ -56,7 +56,7 @@ export async function handleBrowserDeepSeekValidate({
   onBalanceChange?.();
   if (!modelApiKey) {
     if (!silent && storedCredentials.translationCredentialRef) {
-      viewPort.setValidationMessage("翻译 API Key 已安全保存；如需重新检测，请输入新 Key", "valid");
+      viewPort.setValidationMessage("翻译 API 使用旧配置；请填写 Key 后检测", "");
     }
     return { ok: false, status: "missing_key" };
   }

@@ -24,6 +24,7 @@ export async function persistDesktopCredentialsFromDialog({
       ocrProvider: provider,
       ocrCredentialRef,
       paddleToken,
+      mineruToken: `${values.mineruToken || ""}`.trim(),
       translationCredentialRef,
       modelApiKey,
       markConfigured: setupModePort.currentSetupMode(),

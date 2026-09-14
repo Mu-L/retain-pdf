@@ -2,6 +2,7 @@
 // 多为对下层流程的薄转发；集中于此让 browser.ts 只做装配。
 
 import { runOcrTokenValidation } from "./validation.js";
+import { getOcrProviderDefinition } from "@/platform/config/providers.js";
 import { handleBrowserDeepSeekValidate as runBrowserDeepSeekValidate } from "./deepseek-flow.js";
 import { ensureOcrCredentialValidationReady } from "./ocr-readiness-flow.js";
 import {
@@ -98,11 +99,12 @@ export function createCredentialValidationFlow({
     const provider = access.currentOcrProvider();
     const token = ocrTokenFromDialogValues(
       readCredentialDialogValues({ elementsPort: dialogElementsPort }),
+      provider,
     );
     if (!token && access.readCurrentCredentials().ocrCredentialRef) {
       viewPort.setOcrValidationMessage(
-        "Paddle Token 已安全保存；如需重新检测，请输入新 Token",
-        "valid",
+        `${getOcrProviderDefinition(provider).label} 使用旧配置；请填写 Token 后检测`,
+        "",
         provider,
       );
       return;

@@ -100,16 +100,22 @@ test("buildOcrPayload maps provider token field and paddle api url", () => {
   assert.equal(payload.page_ranges, "1-3");
 });
 
-test("buildOcrPayload prefers credential ref and omits Paddle token plaintext", () => {
+test("buildOcrPayload prefers the locally edited token over a legacy credential ref", () => {
   const payload = buildOcrPayload({
     pageRanges: "1-3",
     ocrProvider: "paddle",
     ocrCredentialRef: "cred_ocr",
-    ocrToken: "must-not-leak",
+    ocrToken: "local-token",
     defaultPaddleApiUrl: () => "https://paddle.example/v1",
     constants,
   });
 
+  assert.equal(payload.credential_ref, "");
+  assert.equal(payload.paddle_token, "local-token");
+});
+
+test("buildOcrPayload retains legacy reference-only configuration", () => {
+  const payload = buildOcrPayload({ ocrProvider: "paddle", ocrCredentialRef: "cred_ocr", defaultPaddleApiUrl: () => "", constants });
   assert.equal(payload.credential_ref, "cred_ocr");
   assert.equal("paddle_token" in payload, false);
 });
@@ -223,8 +229,8 @@ test("collectRunPayload builds book submit payload from resolved workflow inputs
   assert.deepEqual(payload.source, { upload_id: "upload-1" });
   assert.equal(payload.runtime.timeout_seconds, 1800);
   assert.equal(payload.ocr.provider, "paddle");
-  assert.equal(payload.ocr.credential_ref, "cred_ocr");
-  assert.equal("paddle_token" in payload.ocr, false);
+  assert.equal(payload.ocr.credential_ref, "");
+  assert.equal(payload.ocr.paddle_token, "ocr-token");
   assert.equal(payload.ocr.page_ranges, "2-4");
   assert.equal(payload.translation.credential_ref, "cred_translation");
   assert.equal("api_key" in payload.translation, false);

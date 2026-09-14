@@ -158,6 +158,7 @@ export function createCredentialsViewFeature({
   function elements() {
     return {
       paddleInput: elementsRef.tokenInputs.paddle || null,
+      mineruInput: elementsRef.tokenInputs.mineru || null,
       apiKeyInput: elementsRef.apiKeyInput,
       modelBaseUrlInput: elementsRef.modelBaseUrlInput,
       modelNameInput: elementsRef.modelNameInput,

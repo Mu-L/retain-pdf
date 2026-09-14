@@ -41,9 +41,10 @@ export function loadBrowserStoredConfig() {
     ocrProvider: fromSnap.ocrProvider || fromStorage.ocrProvider,
     ocrCredentialRef: preferNonEmpty(
       fromSnap.ocrCredentialRef,
-      fromStorage.ocrCredentialRef,
+      fromSnap.ocrProvider === fromStorage.ocrProvider ? fromStorage.ocrCredentialRef : "",
     ),
     paddleToken: preferNonEmpty(fromSnap.paddleToken, fromStorage.paddleToken),
+    mineruToken: preferNonEmpty(fromSnap.mineruToken, fromStorage.mineruToken),
     translationCredentialRef: preferNonEmpty(
       fromSnap.translationCredentialRef,
       fromStorage.translationCredentialRef,

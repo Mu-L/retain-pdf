@@ -18,8 +18,8 @@ async function credentialRequest(url, options = {}) {
     }
     return unwrapEnvelope(envelope);
 }
-export function listCredentials(apiPrefix) {
-    return credentialRequest(buildApiEndpoint(apiPrefix, "credentials"));
+export function listCredentials(apiPrefix, { includeValues = false } = {}) {
+    return credentialRequest(`${buildApiEndpoint(apiPrefix, "credentials")}${includeValues ? "?include_values=true" : ""}`, { cache: "no-store" });
 }
 export function createCredential(apiPrefix, input) {
     return credentialRequest(buildApiEndpoint(apiPrefix, "credentials"), {

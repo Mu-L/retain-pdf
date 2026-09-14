@@ -26,6 +26,7 @@ import {
   createCredential,
   listCredentials,
   updateCredential,
+  validateMineruToken,
   validatePaddleToken,
 } from "@/platform/api/index.js";
 import { createCredentialsViewFeature } from "@/features/credentials/index.js";
@@ -103,11 +104,17 @@ export function createCredentials({
 
   async function validateCredentialOcrToken(
     apiPrefixArg: unknown,
-    _providerId: unknown,
+    providerId: unknown,
     token: unknown,
   ) {
     const resolvedApiPrefix = typeof apiPrefixArg === "string" ? apiPrefixArg : API_PREFIX;
     const resolvedToken = typeof token === "string" ? token : "";
+    if (providerId === "mineru") {
+      return validateMineruToken(resolvedApiPrefix, { mineru_token: resolvedToken });
+    }
+    if (providerId !== "paddle") {
+      return { ok: false, status: "unsupported", summary: "该 OCR 提供商暂不支持单独检测 Token" };
+    }
     return validatePaddleToken(resolvedApiPrefix, {
       paddle_token: resolvedToken,
       base_url: "https://paddleocr.aistudio-app.com",
@@ -132,7 +139,7 @@ export function createCredentials({
     validateOcrToken: validateOcrTokenOverride || validateCredentialOcrToken,
     validateDeepSeekToken: validateDeepSeekTokenOverride,
     queryDeepSeekBalance: queryDeepSeekBalanceOverride,
-    listCredentials: listCredentialsOverride || listCredentials,
+    listCredentials: listCredentialsOverride || ((prefix) => listCredentials(prefix, { includeValues: true })),
     createCredential: createCredentialOverride || createCredential,
     updateCredential: updateCredentialOverride || updateCredential,
     onCredentialStateChange: () => {

@@ -12,6 +12,7 @@ export type CredentialMetadata = {
   revision: number;
   created_at: string;
   updated_at: string;
+  secret?: string;
 };
 
 export type CredentialListView = {
@@ -76,8 +77,8 @@ async function credentialRequest<T>(
   return unwrapEnvelope<T>(envelope);
 }
 
-export function listCredentials(apiPrefix?: string): Promise<CredentialListView> {
-  return credentialRequest(buildApiEndpoint(apiPrefix, "credentials"));
+export function listCredentials(apiPrefix?: string, { includeValues = false } = {}): Promise<CredentialListView> {
+  return credentialRequest(`${buildApiEndpoint(apiPrefix, "credentials")}${includeValues ? "?include_values=true" : ""}`, { cache: "no-store" });
 }
 
 export function createCredential(

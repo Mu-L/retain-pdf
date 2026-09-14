@@ -47,6 +47,8 @@ export function AgentRuntimeSettingsCard() {
       setModel(next.llm_model || "deepseek-v4-flash");
       setFxGatewayBaseUrl(next.fx_gateway_base_url || "");
       setFxModel(next.fx_model || "");
+      setModelKey(next.llm_api_key || "");
+      setGatewayKey(next.fx_gateway_api_key || "");
     }
     return next;
   }
@@ -63,6 +65,8 @@ export function AgentRuntimeSettingsCard() {
         setModel(next.llm_model || "deepseek-v4-flash");
         setFxGatewayBaseUrl(next.fx_gateway_base_url || "");
         setFxModel(next.fx_model || "");
+        setModelKey(next.llm_api_key || "");
+        setGatewayKey(next.fx_gateway_api_key || "");
         if (runtimeRestartPending(next)) {
           setRestarting(true);
           setMessage("正在重启 Agent…");
@@ -92,7 +96,7 @@ export function AgentRuntimeSettingsCard() {
             activeMode(next.active_runtime) === expected
             && !runtimeRestartPending(next)
           ) {
-            setMessage(`${modeLabel(expected)}已启用，密钥仅保存在本机后端。`);
+            setMessage(`${modeLabel(expected)}已启用，配置已保存在本机。`);
             setTone("valid");
             announceRuntimeConfigChanged();
             return;
@@ -125,7 +129,7 @@ export function AgentRuntimeSettingsCard() {
       return;
     }
     setSaving(true);
-    setMessage("正在安全保存并检查运行环境…");
+    setMessage("正在保存并检查运行环境…");
     setTone("");
     try {
       const next = await updateAgentRuntimeConfig({
@@ -142,15 +146,15 @@ export function AgentRuntimeSettingsCard() {
           : {}),
       });
       setConfig(next);
-      setModelKey("");
-      setGatewayKey("");
+      setModelKey(next.llm_api_key ?? modelKey.trim());
+      setGatewayKey(next.fx_gateway_api_key ?? gatewayKey.trim());
       announceRuntimeConfigChanged();
       if (runtimeRestartPending(next)) {
         setRestarting(true);
         setMessage("已保存，正在重启 Agent…");
         void waitForRuntime(mode);
       } else {
-        setMessage("已安全保存，浏览器未保留密钥。");
+        setMessage("已保存在本机，可直接查看和修改 Key。");
         setTone("valid");
       }
     } catch (error) {

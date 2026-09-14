@@ -31,6 +31,7 @@ const { createRoot } = await import("react-dom/client");
 const React = await import("react");
 const { createHomeComposition } = await import("../../src/app/home/create-home-composition.js");
 const { HomeApp } = await import("../../src/app/home/HomeApp.jsx");
+const { AgentRuntimeSettingsCard } = await import("../../src/features/credentials/ui/AgentRuntimeSettingsCard.jsx");
 const { APP_EVENTS } = await import("@/platform/contracts/app-contract.js");
 const { defaultCredentialsStatePort } = await import("../../src/features/credentials/domain/default-state-port.js");
 
@@ -117,7 +118,7 @@ function createServices(overrides = {}) {
       vaultRevision += 1;
       const credential = {
         credential_ref: payload.kind === "ocr_provider_token"
-          ? "cred_test_ocr"
+          ? (payload.provider === "mineru" ? "cred_test_ocr_mineru" : "cred_test_ocr")
           : "cred_test_translation",
         kind: payload.kind,
         provider: payload.provider,
@@ -163,6 +164,162 @@ async function mountHome(services) {
   await wait(0);
   return { host, root };
 }
+
+test("Agent Key：读取 Python 接口后明文回填，保存和重新挂载后保留", async () => {
+  const previousFetch = globalThis.fetch;
+  let saved = {
+    schema: "retainpdf_ai_runtime_config_view_v1",
+    active_runtime: "python-retrieval-v1", configured_runtime: "python",
+    configured_revision: 1, active_revision: 1, restart_state: "active",
+    agent_confirmation_mode: "explicit", restart_required: false,
+    llm_base_url: "https://model.example/v1", llm_model: "fixture-model",
+    llm_api_key: "saved-agent-key", llm_api_key_configured: true,
+    fx_gateway_api_key: "saved-fx-key", fx_gateway_api_key_configured: true,
+  };
+  globalThis.fetch = async (url, options) => {
+    assert.match(`${url}`, /\/ai\/runtime-config$/);
+    if (options.method === "PUT") saved = { ...saved, ...JSON.parse(options.body) };
+    return new Response(JSON.stringify({ data: saved }), { status: 200 });
+  };
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  let root = createRoot(host);
+  const input = (label) => host.querySelector(`input[aria-label="${label}"]`);
+  try {
+    root.render(React.createElement(AgentRuntimeSettingsCard));
+    await waitFor(() => input("模型 API Key")?.value === "saved-agent-key", "Agent Key 回填");
+    assert.equal(input("模型 API Key").type, "text");
+    typeInput(input("模型 API Key"), "edited-agent-key");
+    click(host.querySelector(".credential-agent-save-button"));
+    await waitFor(() => host.textContent.includes("已保存在本机"), "Agent 保存完成");
+    assert.equal(saved.llm_api_key, "edited-agent-key");
+    assert.equal(input("模型 API Key").value, "edited-agent-key");
+    root.unmount();
+    root = createRoot(host);
+    root.render(React.createElement(AgentRuntimeSettingsCard));
+    await waitFor(() => input("模型 API Key")?.value === "edited-agent-key", "重新打开后恢复 Agent Key");
+    const mode = host.querySelector('select[aria-label="AI Agent 运行模式"]');
+    mode.value = "fx";
+    mode.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+    await waitFor(() => input("FX Gateway Key")?.value === "saved-fx-key", "FX Key 回填");
+    assert.equal(input("FX Gateway Key").type, "text");
+  } finally {
+    root.unmount();
+    host.remove();
+    globalThis.fetch = previousFetch;
+  }
+});
+
+test("MinerU：Token 本机保存、明文回填，切回 Paddle 保留各自 Token", async () => {
+  const services = createServices();
+  const { host, root } = await mountHome(services);
+  try {
+    dom.window.document.dispatchEvent(new dom.window.CustomEvent(APP_EVENTS.openBrowserCredentials));
+    await waitFor(() => byId("browser-ocr-provider-select"), "OCR 提供商选择器");
+    const select = byId("browser-ocr-provider-select");
+    assert.deepEqual([...select.options].map((option) => option.value), ["paddle", "mineru"]);
+    typeInput(byId("browser-paddle-token"), "paddle-ui-fixture");
+    typeInput(byId("browser-api-key"), "translation-ui-fixture");
+    click(byId("browser-credentials-save-btn"));
+    await waitFor(() => byId("browser-credentials-status").textContent.includes("已保存"), "保存 Paddle");
+    const paddleRef = defaultCredentialsStatePort.getCredentials().ocrCredentialRef;
+
+    select.value = "mineru";
+    select.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+    await waitFor(() => !byId("browser-mineru-token").closest("section").hidden, "显示 MinerU 面板");
+    assert.equal(byId("browser-paddle-token").closest("section").hidden, true);
+    assert.equal(byId("browser-mineru-token").type, "text");
+    assert.ok(byId("browser-mineru-validate-btn"), "显示 MinerU 独立检测按钮");
+    assert.doesNotMatch(byId("browser-mineru-token").closest("section").textContent, /暂不支持单独检测|提交 OCR 任务时校验/);
+    assert.equal(byId("browser-mineru-token").placeholder, "MinerU API Token");
+    assert.equal(defaultCredentialsStatePort.getCredentials().ocrCredentialRef, "");
+    typeInput(byId("browser-mineru-token"), "mineru-ui-fixture");
+    click(byId("browser-credentials-save-btn"));
+    await waitFor(() => defaultCredentialsStatePort.getCredentials().mineruToken === "mineru-ui-fixture", "保存独立 MinerU Token");
+    await waitFor(() => byId("browser-credentials-status").textContent === "已保存", "等待 MinerU 本机保存完成");
+    assert.equal(byId("browser-mineru-token").value, "mineru-ui-fixture");
+    assert.equal(defaultCredentialsStatePort.getCredentials().ocrCredentialRef, "");
+    assert.equal(defaultCredentialsStatePort.getCredentials().paddleToken, "paddle-ui-fixture");
+    assert.equal(JSON.stringify(dom.window.localStorage).includes("mineru-ui-fixture"), true);
+    assert.equal(dom.window.document.querySelector('input[type="hidden"][value="mineru-ui-fixture"]'), null);
+
+    select.value = "paddle";
+    select.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+    await waitFor(() => defaultCredentialsStatePort.getCredentials().ocrProvider === "paddle", "切回 Paddle");
+    assert.equal(defaultCredentialsStatePort.getCredentials().ocrCredentialRef, paddleRef);
+    assert.equal(byId("browser-paddle-token").value, "paddle-ui-fixture");
+  } finally {
+    root.unmount();
+    services.dispose();
+    host.remove();
+  }
+});
+
+test("MinerU：独立检测接入真实 API transport，显示缺失、过期、网络失败和成功状态", async () => {
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  let outcome = "expired";
+  let finish;
+  globalThis.fetch = async (url, options = {}) => {
+    if (!`${url}`.endsWith("/providers/mineru/validate-token")) {
+      throw new Error(`unexpected test request: ${url}`);
+    }
+    calls.push({ url: `${url}`, method: options.method, payload: JSON.parse(options.body) });
+    if (outcome === "network_error") throw new TypeError("offline fixture");
+    if (outcome === "valid") await new Promise((resolve) => { finish = resolve; });
+    return new Response(JSON.stringify({ code: 0, data: {
+      ok: outcome === "valid", status: outcome,
+      summary: outcome === "valid" ? "MinerU Token 可用" : "MinerU Token 已过期",
+    } }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  const services = createServices({ validateOcrToken: undefined });
+  const { host, root } = await mountHome(services);
+  try {
+    document.dispatchEvent(new CustomEvent(APP_EVENTS.openBrowserCredentials));
+    await waitFor(() => byId("browser-ocr-provider-select"), "OCR 提供商选择器");
+    const select = byId("browser-ocr-provider-select");
+    select.value = "mineru";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    await waitFor(() => !byId("browser-mineru-token").closest("section").hidden, "MinerU 面板");
+    const input = byId("browser-mineru-token");
+    const button = byId("browser-mineru-validate-btn");
+    const status = byId("browser-mineru-validation");
+    const statusMessage = () => status.getAttribute("aria-label") || "";
+    typeInput(input, "");
+    click(button);
+    await waitFor(() => /请(?:先)?填写/.test(statusMessage()), "提示填写 Token");
+    assert.equal(calls.length, 0);
+    typeInput(input, " mineru-transport-fixture ");
+    click(button);
+    await waitFor(() => statusMessage().includes("已过期"), "过期检测结果");
+    assert.equal(calls[0].method, "POST");
+    assert.deepEqual(calls[0].payload, { mineru_token: "mineru-transport-fixture" });
+    assert.match(calls[0].url, /\/api\/v1\/providers\/mineru\/validate-token$/);
+    assert.ok(status.classList.contains("is-error"));
+    assert.equal(button.disabled, false);
+    outcome = "network_error";
+    click(button);
+    await waitFor(() => statusMessage().includes("检测失败"), "网络错误提示");
+    assert.equal(button.disabled, false);
+    outcome = "valid";
+    click(button);
+    await waitFor(() => finish && button.disabled, "检测中禁用按钮");
+    assert.match(statusMessage(), /正在检测 MinerU Token/);
+    finish();
+    await waitFor(() => statusMessage().includes("Token 可用"), "Token 检测成功");
+    assert.ok(status.classList.contains("is-valid"));
+    assert.equal(button.disabled, false);
+    assert.equal(input.type, "text");
+    assert.equal(input.value.trim(), "mineru-transport-fixture");
+    assert.equal(calls.length, 3, "只调用检测接口，不提交 OCR 任务");
+  } finally {
+    finish?.();
+    root.unmount();
+    services.dispose();
+    host.remove();
+    globalThis.fetch = previousFetch;
+  }
+});
 
 test("CredentialsDialog：常规入口走设置 API；setupMode 仍开独立首次配置门", async () => {
   const services = createServices();
@@ -231,23 +388,23 @@ test("凭据入口：设置 API 区内嵌工作台；#credential-gate-action 也
   assert.equal(byId("browser-credentials-save-btn").textContent, "保存接口");
   assert.equal(byId("browser-job-math-mode"), null, "API 页面不再展示公式处理方式");
   const translationKeyInput = byId("browser-api-key");
-  const showTranslationKey = dom.window.document.querySelector('[aria-label="显示翻译 API Key"]');
-  assert.ok(showTranslationKey, "翻译 Key 默认提供显示按钮");
+  const hideTranslationKey = dom.window.document.querySelector('[aria-label="隐藏翻译 API Key"]');
+  assert.ok(hideTranslationKey, "翻译 Key 默认可见，可手动隐藏");
   assert.equal(
     translationKeyInput.nextElementSibling,
-    showTranslationKey,
+    hideTranslationKey,
     "小眼睛按钮应紧跟输入框并显示在右侧",
   );
-  assert.equal(translationKeyInput.type, "password");
+  assert.equal(translationKeyInput.type, "text");
   typeInput(translationKeyInput, "visibility-check");
-  click(showTranslationKey);
-  await waitFor(() => translationKeyInput.type === "text", "显示翻译 Key");
-  assert.equal(translationKeyInput.value, "visibility-check", "切换可见性不能清空用户输入");
-  const hideTranslationKey = dom.window.document.querySelector('[aria-label="隐藏翻译 API Key"]');
-  assert.ok(hideTranslationKey, "显示后按钮切换为隐藏状态");
   assert.equal(hideTranslationKey.getAttribute("aria-pressed"), "true");
   click(hideTranslationKey);
-  await waitFor(() => translationKeyInput.type === "password", "重新隐藏翻译 Key");
+  await waitFor(() => translationKeyInput.type === "password", "手动隐藏翻译 Key");
+  const showTranslationKey = dom.window.document.querySelector('[aria-label="显示翻译 API Key"]');
+  assert.ok(showTranslationKey);
+  click(showTranslationKey);
+  await waitFor(() => translationKeyInput.type === "text", "重新显示翻译 Key");
+  assert.equal(translationKeyInput.value, "visibility-check", "切换可见性不能清空用户输入");
   const apiCards = [...dom.window.document.querySelectorAll(".credential-api-grid > .credential-card")];
   assert.deepEqual(
     apiCards.map((card) => [
@@ -275,7 +432,7 @@ test("凭据入口：设置 API 区内嵌工作台；#credential-gate-action 也
   );
   const agentModeSelect = dom.window.document.querySelector('[aria-label="AI Agent 运行模式"]');
   assert.ok(
-    dom.window.document.querySelector('[aria-label="显示模型 API Key"]'),
+    dom.window.document.querySelector('[aria-label="隐藏模型 API Key"]'),
     "AI Agent 模型 Key 使用相同的双态显示控件",
   );
   assert.deepEqual(
@@ -293,7 +450,7 @@ test("凭据入口：设置 API 区内嵌工作台；#credential-gate-action 也
     "FX 模式显示自定义 Gateway URL",
   );
   assert.ok(
-    dom.window.document.querySelector('[aria-label="显示 FX Gateway Key"]'),
+    dom.window.document.querySelector('[aria-label="隐藏 FX Gateway Key"]'),
     "FX Gateway Key 使用相同的双态显示控件",
   );
   assert.match(
@@ -500,7 +657,7 @@ test("CredentialsDialog：保存(浏览器模式)——写隐藏 input、同步 
 
   click(byId("browser-credentials-save-btn"));
   await waitFor(
-    () => defaultCredentialsStatePort.getCredentials().translationCredentialRef === "cred_test_translation",
+    () => defaultCredentialsStatePort.getCredentials().modelApiKey === "deepseek-secret",
     "保存后 credentialsStatePort 更新",
   );
 
@@ -509,11 +666,11 @@ test("CredentialsDialog：保存(浏览器模式)——写隐藏 input、同步 
   assert.equal(byId("ocr_provider").value, "paddle");
 
   const credentials = defaultCredentialsStatePort.getCredentials();
-  assert.equal(credentials.ocrCredentialRef, "cred_test_ocr");
+  assert.equal(credentials.ocrCredentialRef, "");
   assert.equal(credentials.paddleToken, "paddle-secret");
   assert.equal(credentials.modelApiKey, "deepseek-secret");
-  assert.equal(credentials.translationCredentialRef, "cred_test_translation");
-  assert.equal(byId("browser-api-key").type, "password", "保存后默认继续遮蔽 Key");
+  assert.equal(credentials.translationCredentialRef, "");
+  assert.equal(byId("browser-api-key").type, "text", "保存后保持可见");
   assert.equal(byId("browser-api-key").value, "deepseek-secret", "保存后回填翻译 Key");
   const persistedValues = Array.from({ length: dom.window.localStorage.length }, (_, index) => (
     dom.window.localStorage.getItem(dom.window.localStorage.key(index)) || ""
@@ -592,8 +749,8 @@ test("CredentialsDialog：保存(桌面模式)——走 saveDesktopConfig 分支
   );
   await waitFor(() => desktopCalls.length === 1, "saveDesktopConfig 被调用");
   assert.equal(desktopCalls[0].browserConfig.modelApiKey, "deepseek-desktop");
-  assert.equal(desktopCalls[0].browserConfig.translationCredentialRef, "cred_test_translation");
-  assert.equal(desktopCalls[0].browserConfig.ocrCredentialRef, "cred_test_ocr");
+  assert.equal(desktopCalls[0].browserConfig.translationCredentialRef, "");
+  assert.equal(desktopCalls[0].browserConfig.ocrCredentialRef, "");
   assert.equal(desktopCalls[0].browserConfig.paddleToken, "paddle-desktop");
   assert.equal(desktopCalls[0].browserConfig.markConfigured, true, "setupMode 下应标记首次配置完成");
   await waitFor(() => byId("browser-credentials-dialog") === null, "保存成功后对话框关闭");
@@ -603,14 +760,11 @@ test("CredentialsDialog：保存(桌面模式)——走 saveDesktopConfig 分支
   host.remove();
 });
 
-test("CredentialsDialog：既有翻译凭据按记录 revision 更新并串行化重复保存", async () => {
+test("CredentialsDialog：旧凭据读回具体值，编辑后只保存本机配置", async () => {
   const updatePayloads = [];
-  let releaseUpdate;
-  const updateGate = new Promise((resolve) => {
-    releaseUpdate = resolve;
-  });
   const existingCredential = {
     credential_ref: "cred_existing_translation",
+    secret: "translation-existing",
     kind: "translation_api_key",
     provider: "deepseek",
     label: "翻译 API",
@@ -621,6 +775,7 @@ test("CredentialsDialog：既有翻译凭据按记录 revision 更新并串行�
   };
   const existingOcrCredential = {
     credential_ref: "cred_existing_ocr",
+    secret: "paddle-existing",
     kind: "ocr_provider_token",
     provider: "paddle",
     label: "Paddle OCR",
@@ -635,20 +790,9 @@ test("CredentialsDialog：既有翻译凭据按记录 revision 更新并串行�
       // Simulate an unrelated OCR import after this credential was created.
       revision: 12,
     }),
-    createCredential: async () => { throw new Error("existing credential must be updated"); },
+    createCredential: async () => { throw new Error("new saves must remain local"); },
     updateCredential: async (_apiPrefix, credentialRef, payload) => {
-      if (payload.kind === "ocr_provider_token") {
-        return {
-          credential: { ...existingOcrCredential, revision: 4 },
-          revision: 13,
-        };
-      }
       updatePayloads.push({ credentialRef, payload });
-      await updateGate;
-      return {
-        credential: { ...existingCredential, revision: 8 },
-        revision: 14,
-      };
     },
   });
   const { host, root } = await mountHome(services);
@@ -656,27 +800,28 @@ test("CredentialsDialog：既有翻译凭据按记录 revision 更新并串行�
   dom.window.document.dispatchEvent(new dom.window.CustomEvent(APP_EVENTS.openBrowserCredentials));
   await waitFor(() => byId("browser-api-key") !== null, "API 工作台就绪");
   await waitFor(
-    () => defaultCredentialsStatePort.getCredentials().translationCredentialRef === existingCredential.credential_ref,
-    "既有翻译凭据元数据加载完成",
+    () => defaultCredentialsStatePort.getCredentials().modelApiKey === "translation-existing",
+    "既有翻译 Key 加载完成",
   );
+  assert.equal(byId("browser-api-key").value, "translation-existing");
+  assert.equal(byId("browser-paddle-token").value, "paddle-existing");
   typeInput(byId("browser-paddle-token"), "paddle-existing");
   typeInput(byId("browser-api-key"), "translation-updated");
 
   click(byId("browser-credentials-save-btn"));
   click(byId("browser-credentials-save-btn"));
-  await waitFor(() => updatePayloads.length === 1, "重复点击只发起一次更新");
-  assert.equal(updatePayloads[0].credentialRef, existingCredential.credential_ref);
-  assert.equal(updatePayloads[0].payload.expected_revision, 13);
-  assert.equal(updatePayloads[0].payload.expected_credential_revision, 7);
-  releaseUpdate();
   await waitFor(() => byId("browser-credentials-status")?.textContent === "已保存", "更新完成");
+  assert.equal(updatePayloads.length, 0, "不再写入旧凭据保险箱");
+  assert.equal(defaultCredentialsStatePort.getCredentials().modelApiKey, "translation-updated");
+  assert.equal(byId("browser-api-key").value, "translation-updated");
+  assert.equal(JSON.stringify(dom.window.localStorage).includes("translation-updated"), true);
 
   root.unmount();
   services.dispose();
   host.remove();
 });
 
-test("CredentialsDialog：重启后从浏览器存储恢复可查看值并关联 vault 引用", async () => {
+test("CredentialsDialog：重启后从浏览器存储恢复可查看值，不再关联 vault 引用", async () => {
   const vaultCredentials = [
     {
       credential_ref: "cred_saved_ocr",
@@ -713,8 +858,8 @@ test("CredentialsDialog：重启后从浏览器存储恢复可查看值并关联
 
   await services.features.browserCredentialsFeature.ready();
   const restored = defaultCredentialsStatePort.getCredentials();
-  assert.equal(restored.ocrCredentialRef, "cred_saved_ocr");
-  assert.equal(restored.translationCredentialRef, "cred_saved_translation");
+  assert.equal(restored.ocrCredentialRef, "");
+  assert.equal(restored.translationCredentialRef, "");
   assert.equal(restored.paddleToken, "saved-ocr-value");
   assert.equal(restored.modelApiKey, "saved-translation-value");
 
@@ -722,8 +867,8 @@ test("CredentialsDialog：重启后从浏览器存储恢复可查看值并关联
   await waitFor(() => byId("browser-api-key") !== null, "API 工作台就绪");
   assert.equal(byId("browser-paddle-token").value, "saved-ocr-value");
   assert.equal(byId("browser-api-key").value, "saved-translation-value");
-  assert.match(byId("browser-paddle-validation").title, /已安全保存/);
-  assert.match(byId("browser-deepseek-validation").title, /已安全保存/);
+  assert.match(byId("browser-paddle-validation").title, /已保存在本机/);
+  assert.match(byId("browser-deepseek-validation").title, /已保存在本机/);
 
   root.unmount();
   services.dispose();

@@ -8,7 +8,7 @@ const DEFAULT_BASE_URL = "https://api.deepseek.com/v1";
 function createDesktopConfigStore(app, options = {}) {
   const desktopApiKey = options.desktopApiKey || "";
   const resolveCredentialSecret = options.resolveCredentialSecret
-    || ((credentialRef, expectedKind) => resolveVaultCredentialSecret(app, credentialRef, expectedKind));
+    || ((credentialRef, expectedKind, expectedProvider) => resolveVaultCredentialSecret(app, credentialRef, expectedKind, expectedProvider));
   // Actual Rust API port chosen at startup (dynamic fallback when the
   // default is occupied). IPC config responses read it so the frontend
   // follows without a restart.
@@ -86,10 +86,12 @@ function createDesktopConfigStore(app, options = {}) {
 
   function buildResolvedBrowserConfig(config) {
     const browserConfig = buildBrowserConfig(config);
-    if (!browserConfig.paddleToken && browserConfig.ocrCredentialRef) {
-      browserConfig.paddleToken = resolveCredentialSecret(
+    const ocrTokenField = browserConfig.ocrProvider === "mineru" ? "mineruToken" : "paddleToken";
+    if (!browserConfig[ocrTokenField] && browserConfig.ocrCredentialRef) {
+      browserConfig[ocrTokenField] = resolveCredentialSecret(
         browserConfig.ocrCredentialRef,
         "ocr_provider_token",
+        browserConfig.ocrProvider,
       );
     }
     if (!browserConfig.modelApiKey && browserConfig.translationCredentialRef) {
@@ -113,7 +115,7 @@ function createDesktopConfigStore(app, options = {}) {
   };
 }
 
-function resolveVaultCredentialSecret(app, credentialRef, expectedKind) {
+function resolveVaultCredentialSecret(app, credentialRef, expectedKind, expectedProvider) {
   const normalizedRef = normalizeTrimmedString(credentialRef);
   if (!normalizedRef) return "";
   try {
@@ -122,6 +124,7 @@ function resolveVaultCredentialSecret(app, credentialRef, expectedKind) {
     const vault = JSON.parse(fs.readFileSync(vaultPath, "utf8"));
     const credential = vault?.credentials?.[normalizedRef];
     if (!credential || credential.kind !== expectedKind) return "";
+    if (expectedProvider && credential.provider !== expectedProvider) return "";
     return normalizeTrimmedString(credential.secret);
   } catch {
     return "";
@@ -144,7 +147,7 @@ function hasOwn(target, key) {
 }
 
 function normalizeOcrProvider(value) {
-  return value === "paddle" ? "paddle" : DEFAULT_OCR_PROVIDER;
+  return value === "mineru" ? "mineru" : DEFAULT_OCR_PROVIDER;
 }
 
 function normalizeTrimmedString(value, fallback = "") {

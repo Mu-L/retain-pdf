@@ -9,7 +9,6 @@ import { validationIcon } from "../domain/validation-icon.js";
 import { Check, ChevronDown, Code2, ExternalLink, Languages, PlugZap, TriangleAlert } from "lucide-react";
 import { Select as SelectPrimitive } from "radix-ui";
 import { SecretInput } from "./SecretInput.js";
-import { storedSecretPlaceholder } from "./provider-panel-shared.js";
 
 const { browser: BROWSER_IDS } = CREDENTIAL_DOM_IDS;
 
@@ -139,9 +138,7 @@ export function TranslationPanel({ footerAction = null }: { footerAction?: React
             id={BROWSER_IDS.apiKey}
             secretLabel="翻译 API Key"
             autoComplete="off"
-            placeholder={credentials.translationCredentialRef
-              ? storedSecretPlaceholder("翻译 API Key")
-              : TRANSLATION_PROVIDER_DEFINITION.keyPlaceholder}
+            placeholder={TRANSLATION_PROVIDER_DEFINITION.keyPlaceholder}
             defaultValue=""
             ref={(node) => { elementsRef.apiKeyInput = node || null; }}
             onInput={() => handlers?.resetDeepSeekValidation?.()}

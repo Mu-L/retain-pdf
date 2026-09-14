@@ -11,6 +11,7 @@ export interface DesktopConfigPayload {
   ocrProvider?: string;
   ocrCredentialRef?: string;
   paddleToken?: string;
+  mineruToken?: string;
   translationCredentialRef?: string;
   modelApiKey?: string;
   browserConfig?: Partial<BrowserStoredConfig> | BrowserStoredConfig;

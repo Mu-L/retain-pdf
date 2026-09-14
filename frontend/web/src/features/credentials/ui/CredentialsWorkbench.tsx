@@ -13,6 +13,7 @@ import { AgentRuntimeSettingsCard } from "./AgentRuntimeSettingsCard.jsx";
 import { DialogFooter } from "@/ui/components/dialog.js";
 import { FormStatusLine } from "@/ui/components/form-status-line.js";
 import { Save, ScanText } from "lucide-react";
+import { OCR_PROVIDER_DEFINITIONS } from "@/platform/config/providers.js";
 
 // Button.size 在未注解源文件里被推断为必填;unstyled 路径运行时不用 size。
 const Button = ButtonBase as any;
@@ -20,7 +21,7 @@ const Button = ButtonBase as any;
 const { browser: BROWSER_IDS } = CREDENTIAL_DOM_IDS;
 
 export function CredentialsWorkbench() {
-  const { view, handlers } = useCredentialsController();
+  const { credentials, view, handlers } = useCredentialsController();
 
   const setupMode = Boolean(view.setupMode);
 
@@ -49,7 +50,18 @@ export function CredentialsWorkbench() {
                 <div className="credential-card-copy">
                   <h3>OCR 识别</h3>
                 </div>
-                <span className="credential-card-tag">Paddle</span>
+                <select
+                  id={BROWSER_IDS.ocrProviderSelect}
+                  className="credential-ocr-provider-select"
+                  aria-label="OCR 提供商"
+                  value={credentials.ocrProvider}
+                  disabled={view.dialogStatus.message === "正在保存…"}
+                  onChange={(event) => handlers?.changeProvider?.(event)}
+                >
+                  {OCR_PROVIDER_DEFINITIONS.map((provider) => (
+                    <option key={provider.id} value={provider.id}>{provider.label}</option>
+                  ))}
+                </select>
               </div>
               <OcrPanels />
             </section>

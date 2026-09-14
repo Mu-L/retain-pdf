@@ -4,6 +4,7 @@
 import {
   getOcrProviderDefinition,
   normalizeOcrProvider,
+  OCR_PROVIDER_DEFINITIONS,
 } from "@/platform/config/providers.js";
 import { savePersistedBrowserStoredConfig } from "@/platform/config/persisted-config.js";
 import type { CredentialsStatePort } from "./state.js";
@@ -41,12 +42,17 @@ export function createCredentialVault({
   ) => Promise<unknown> | unknown;
 }) {
   let credentialVaultRevision: number | undefined;
-  let ocrCredentialRevision: number | undefined;
+  let referenceRequest = 0;
+  let ocrCredentials: Record<string, { credential_ref: string; revision?: number }> = {};
   let translationCredentialRevision: number | undefined;
 
   async function refreshCredentialReferences({ persist = true } = {}) {
     if (!listCredentials) return null;
+    const request = ++referenceRequest;
+    const provider = currentOcrProvider();
     const result = await listCredentials(apiPrefix);
+    // Late results must not restore another provider or overwrite a newer save.
+    if (request !== referenceRequest || provider !== currentOcrProvider()) return null;
     credentialVaultRevision = Number.isFinite(Number(result?.revision))
       ? Number(result.revision)
       : undefined;
@@ -64,20 +70,23 @@ export function createCredentialVault({
       ? Number(selectedTranslation.revision)
       : undefined;
 
-    const provider = currentOcrProvider();
-    const ocrCandidates = items.filter((item) => (
-      item?.kind === "ocr_provider_token"
-      && item?.configured !== false
-      && `${item?.provider || ""}`.trim().toLowerCase() === provider
-    ));
     const existingOcrRef = `${currentCredentials?.ocrCredentialRef || ""}`.trim();
-    const selectedOcr = ocrCandidates.find((item) => item?.credential_ref === existingOcrRef)
-      || ocrCandidates.sort((a, b) => `${b?.updated_at || ""}`.localeCompare(`${a?.updated_at || ""}`))[0]
-      || null;
+    const ocrCandidates = items.filter((item) => (
+      item?.kind === "ocr_provider_token" && item?.configured !== false
+    )).sort((a, b) => `${b?.updated_at || ""}`.localeCompare(`${a?.updated_at || ""}`));
+    const nextOcrCredentials: typeof ocrCredentials = {};
+    for (const definition of OCR_PROVIDER_DEFINITIONS) {
+      const candidates = ocrCandidates.filter((item) => (
+        `${item?.provider || ""}`.trim().toLowerCase() === definition.id
+      ));
+      const preferredRef = (definition.id === provider ? existingOcrRef : "")
+        || ocrCredentials[definition.id]?.credential_ref;
+      const selected = candidates.find((item) => item.credential_ref === preferredRef) || candidates[0];
+      if (selected) nextOcrCredentials[definition.id] = selected;
+    }
+    ocrCredentials = nextOcrCredentials;
+    const selectedOcr = ocrCredentials[provider] || null;
     const ocrCredentialRef = `${selectedOcr?.credential_ref || ""}`.trim();
-    ocrCredentialRevision = Number.isFinite(Number(selectedOcr?.revision))
-      ? Number(selectedOcr.revision)
-      : undefined;
 
     credentialsStatePort.patchCredentials?.({
       ocrCredentialRef,
@@ -89,7 +98,8 @@ export function createCredentialVault({
     )) {
       await savePersistedBrowserStoredConfig(readCurrentCredentials());
     }
-    if (ocrCredentialRef && translationCredentialRef && runtimeEnv.isDesktopMode?.() && saveDesktopConfig) {
+    if (persist && request === referenceRequest && provider === currentOcrProvider()
+      && ocrCredentialRef && translationCredentialRef && runtimeEnv.isDesktopMode?.() && saveDesktopConfig) {
       const restoredCredentials = readCurrentCredentials();
       await saveDesktopConfig({
         ocrProvider: provider,
@@ -105,16 +115,21 @@ export function createCredentialVault({
 
   async function storeOcrCredential({ secret, provider }: { secret: string; provider: string }) {
     const normalizedSecret = `${secret || ""}`.trim();
-    let existingRef = `${readCurrentCredentials()?.ocrCredentialRef || ""}`.trim();
-    if (!normalizedSecret) return existingRef;
+    const normalizedProvider = normalizeOcrProvider(provider);
     if (!createCredential || !updateCredential || !listCredentials) {
       throw new Error("当前前端未接入安全凭据服务，请刷新后重试");
     }
     if (credentialVaultRevision === undefined) {
       await refreshCredentialReferences({ persist: false });
     }
-    existingRef = `${readCurrentCredentials()?.ocrCredentialRef || ""}`.trim();
-    const normalizedProvider = normalizeOcrProvider(provider);
+    const existingCredential = ocrCredentials[normalizedProvider];
+    const existingRef = `${existingCredential?.credential_ref || ""}`.trim();
+    if (!normalizedSecret) {
+      if (!existingRef) throw new Error(`未找到 ${getOcrProviderDefinition(normalizedProvider).label} 凭据，请重新填写 Token`);
+      return existingRef;
+    }
+    ++referenceRequest;
+    const ocrCredentialRevision = existingCredential?.revision;
     const payload = {
       kind: "ocr_provider_token",
       provider: normalizedProvider,
@@ -133,10 +148,14 @@ export function createCredentialVault({
     credentialVaultRevision = Number.isFinite(Number(result?.revision))
       ? Number(result.revision)
       : credentialVaultRevision;
-    ocrCredentialRevision = Number.isFinite(Number(result?.credential?.revision))
-      ? Number(result.credential.revision)
-      : ocrCredentialRevision;
-    return `${result?.credential?.credential_ref || existingRef}`.trim();
+    const credentialRef = `${result?.credential?.credential_ref || existingRef}`.trim();
+    ocrCredentials[normalizedProvider] = {
+      credential_ref: credentialRef,
+      revision: Number.isFinite(Number(result?.credential?.revision))
+        ? Number(result.credential.revision)
+        : ocrCredentialRevision,
+    };
+    return credentialRef;
   }
 
   async function storeTranslationCredential({ secret, baseUrl }: { secret: string; baseUrl: string }) {

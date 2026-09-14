@@ -4,7 +4,7 @@ import {
 } from "./default-state-port.js";
 import { createCredentialRuntimeEnvPort } from "./runtime-env-port.js";
 import { createCredentialUploadReadinessPort } from "./upload-readiness-port.js";
-import { createCredentialVault } from "./credential-vault.js";
+import { restoreLocalCredentialValues } from "./local-credential-restore.js";
 import { createCredentialAccess } from "./credential-access.js";
 import { createTranslationProfiles } from "./translation-profiles.js";
 import { createCredentialDialogFlow } from "./dialog-flow.js";
@@ -26,6 +26,7 @@ import type {
 export interface CredentialDialogElements {
   dialog?: HTMLDialogElement | HTMLElement | boolean | null;
   paddleInput?: HTMLInputElement | null;
+  mineruInput?: HTMLInputElement | null;
   apiKeyInput?: HTMLInputElement | null;
   modelBaseUrlInput?: HTMLInputElement | null;
   modelNameInput?: HTMLInputElement | null;
@@ -222,26 +223,11 @@ export function mountBrowserCredentialsFeature({
     onCredentialStateChange,
   });
 
-  // 凭据保险箱：引用解析 / OCR token / 翻译 Key（revision 状态内聚在 vault）。
-  const vault = createCredentialVault({
-    apiPrefix,
-    credentialsStatePort,
-    runtimeEnv,
-    readCurrentCredentials: access.readCurrentCredentials,
-    currentOcrProvider: access.currentOcrProvider,
-    translationProvider: translation.providerFromBaseUrl,
-    listCredentials,
-    createCredential,
-    updateCredential,
-    saveDesktopConfig,
-  });
-
   const saveFlow = createBrowserCredentialSaveFlow({
     viewPort,
     credentialsStatePort,
     access,
     translation,
-    vault,
     getTaskOptions,
     defaultModelBaseUrl,
     defaultModelApiKey,
@@ -275,6 +261,10 @@ export function mountBrowserCredentialsFeature({
   });
 
   viewPort.bindEvents({
+    resetOcrValidation: () => {
+      credentialsStatePort.resetOcrValidationCache?.();
+      viewPort.setOcrValidationMessage("", "", access.currentOcrProvider());
+    },
     resetPaddleValidation: () => {
       credentialsStatePort.resetOcrValidationCache?.();
       viewPort.setOcrValidationMessage("", "", "paddle");
@@ -290,14 +280,32 @@ export function mountBrowserCredentialsFeature({
     save: saveFlow.handleSave,
     open: dialogFlow.openBrowserCredentialsDialog,
     activateCredentialTab: dialogFlow.activateCredentialTab,
-    changeProvider: dialogFlow.handleOcrProviderChange,
+    changeProvider: (event) => {
+      if (saveFlow.isSaving()) return;
+      dialogFlow.handleOcrProviderChange(event);
+      credentialsStatePort.resetOcrValidationCache?.();
+      onCredentialStateChange?.();
+    },
     changeTranslationProvider: dialogFlow.handleTranslationProviderChange,
   });
 
-  // Resolve the backend-owned translation credential on mount. This also
-  // repairs a missing local reference without ever returning the secret.
-  const credentialReferencesReady = vault.refreshCredentialReferences().catch(() => {
-    // Keep startup non-blocking; save will surface actionable vault errors.
+  // Restore older keys once; saving and provider switching never write to a vault.
+  const credentialReferencesReady = restoreLocalCredentialValues({
+    apiPrefix, credentialsStatePort, listCredentials,
+    baseUrl: `${(getTaskOptions?.() as Record<string, unknown>)?.baseUrl || defaultModelBaseUrl?.() || ""}`,
+  }).then(() => {
+    const current = access.readCurrentCredentials();
+    const elements = dialogElementsPort.elements();
+    for (const [input, value] of [
+      [elements.paddleInput, current.paddleToken],
+      [elements.mineruInput, current.mineruToken],
+      [elements.apiKeyInput, current.modelApiKey],
+    ] as const) {
+      if (input && !input.value) input.value = value || "";
+    }
+    onCredentialStateChange?.();
+  }).catch(() => {
+    // Local config remains usable offline; existing keys are never erased.
   });
 
   return {

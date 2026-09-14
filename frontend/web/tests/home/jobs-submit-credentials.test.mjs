@@ -12,7 +12,7 @@ globalThis.window = {
 
 const { submitJobRequest } = await import("@retainpdf/api/jobs-submit");
 
-test("OCR multipart submission sends ocr_credential_ref without Paddle token plaintext", async () => {
+for (const provider of ["paddle", "mineru"]) test(`${provider} OCR multipart submission sends ocr_credential_ref without token plaintext`, async () => {
   let submittedForm = null;
   const previousXhr = globalThis.XMLHttpRequest;
   globalThis.XMLHttpRequest = class {
@@ -37,7 +37,7 @@ test("OCR multipart submission sends ocr_credential_ref without Paddle token pla
       workflow: "ocr",
       source: { upload_id: "upload-ocr" },
       ocr: {
-        provider: "paddle",
+        provider,
         credential_ref: "cred_saved_ocr",
         paddle_token: "",
       },
@@ -47,6 +47,8 @@ test("OCR multipart submission sends ocr_credential_ref without Paddle token pla
     assert.equal(submittedForm.get("ocr_credential_ref"), "cred_saved_ocr");
     assert.equal(submittedForm.has("credential_ref"), false);
     assert.equal(submittedForm.has("paddle_token"), false);
+    assert.equal(submittedForm.has("mineru_token"), false);
+    assert.equal(submittedForm.get("provider"), provider);
   } finally {
     globalThis.XMLHttpRequest = previousXhr;
   }

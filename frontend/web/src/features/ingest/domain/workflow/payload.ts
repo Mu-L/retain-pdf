@@ -58,6 +58,7 @@ export interface BuildOcrPayloadOptions {
 
 export interface BuildTranslationPayloadOptions {
   developerConfig: WorkflowDeveloperConfig;
+  modelApiKey?: string;
   translationCredentialRef?: string;
   selectedGlossaryId?: string;
   constants: WorkflowPayloadConstants;
@@ -91,7 +92,7 @@ export function buildOcrPayload({
   const definition = getOcrProviderDefinition(provider);
   const payload: Record<string, unknown> = {
     provider,
-    credential_ref: `${ocrCredentialRef || ""}`.trim(),
+    credential_ref: ocrToken ? "" : `${ocrCredentialRef || ""}`.trim(),
     model_version: constants.DEFAULT_MODEL_VERSION,
     language: constants.DEFAULT_LANGUAGE,
     page_ranges: pageRanges,
@@ -108,6 +109,7 @@ export function buildOcrPayload({
 export function buildTranslationPayload({
   developerConfig,
   translationCredentialRef,
+  modelApiKey,
   selectedGlossaryId,
   constants,
 }: BuildTranslationPayloadOptions) {
@@ -116,7 +118,9 @@ export function buildTranslationPayload({
     math_mode: developerConfig.mathMode,
     model: developerConfig.model,
     base_url: developerConfig.baseUrl,
-    credential_ref: `${translationCredentialRef || ""}`.trim(),
+    ...(modelApiKey?.trim()
+      ? { api_key: modelApiKey.trim() }
+      : { credential_ref: `${translationCredentialRef || ""}`.trim() }),
     workers: developerConfig.workers,
     batch_size: developerConfig.batchSize,
     classify_batch_size: developerConfig.classifyBatchSize,

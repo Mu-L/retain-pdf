@@ -4,8 +4,9 @@
 // 打开/准备面板，以及计算上传门禁是否展示。全部通过注入的端口操作视图，
 // 不直接触碰 DOM。
 
-import { normalizeOcrProvider } from "@/platform/config/providers.js";
+import { getOcrProviderDefinition, normalizeOcrProvider } from "@/platform/config/providers.js";
 import { syncCredentialDialogFields } from "./dialog-sync.js";
+import { ocrTokenFromCredentials } from "./state-selectors.js";
 import type { UpdateCredentialGateViewOptions } from "./view-contracts.js";
 
 type OpenBrowserCredentialsDialogOptions = {
@@ -109,6 +110,16 @@ export function createCredentialDialogFlow({
     return uploadState.getSnapshot?.() || {};
   }
 
+  function syncOcrCredentialFeedback() {
+    const credentials = access.readCurrentCredentials();
+    const definition = getOcrProviderDefinition(credentials.ocrProvider);
+    viewPort.setOcrValidationMessage(
+      ocrTokenFromCredentials(credentials) ? `${definition.label} Token 已保存在本机` : "",
+      ocrTokenFromCredentials(credentials) ? "valid" : "",
+      definition.id,
+    );
+  }
+
   function syncBrowserDialogFromCredentialState() {
     const credentials = access.readCurrentCredentials();
     const taskOptions = (getTaskOptions?.() || {}) as Record<string, unknown>;
@@ -127,13 +138,10 @@ export function createCredentialDialogFlow({
       elementsPort: dialogElementsPort,
     });
     viewPort.setTranslationProvider?.(translation.getCurrentProvider());
-    viewPort.setOcrValidationMessage("", "", "paddle");
+    syncOcrCredentialFeedback();
     viewPort.setDeepSeekValidationMessage("", "");
-    if (credentials.ocrCredentialRef) {
-      viewPort.setOcrValidationMessage("Paddle Token 已安全保存", "valid", "paddle");
-    }
-    if (credentials.translationCredentialRef) {
-      viewPort.setDeepSeekValidationMessage("翻译 API Key 已安全保存", "valid");
+    if (profile.apiKey) {
+      viewPort.setDeepSeekValidationMessage("翻译 API Key 已保存在本机", "valid");
     }
     viewPort.setDeepSeekTopUpVisible(false);
     balanceState.resetDeepSeekBalance();
@@ -199,9 +207,14 @@ export function createCredentialDialogFlow({
   function handleOcrProviderChange(event: Event) {
     const target = event.currentTarget as HTMLSelectElement | HTMLInputElement | null;
     const provider = normalizeOcrProvider(target?.value);
-    credentialsStatePort.patchCredentials?.({ ocrProvider: provider });
+    // A reference belongs to one provider. Clear it before the asynchronous lookup.
+    if (provider !== access.currentOcrProvider()) {
+      credentialsStatePort.patchCredentials?.({ ocrProvider: provider, ocrCredentialRef: "" });
+    }
     viewPort.setHiddenOcrProvider(provider);
     syncOcrProviderControls(provider);
+    syncOcrCredentialFeedback();
+    onCredentialStateChange?.();
   }
 
   function handleTranslationProviderChange(providerId: string) {
@@ -217,6 +230,7 @@ export function createCredentialDialogFlow({
     setCredentialDialogMode,
     activateCredentialTab,
     syncOcrProviderControls,
+    syncOcrCredentialFeedback,
     syncBrowserDialogFromCredentialState,
     openBrowserCredentialsDialog,
     prepareCredentialsPanels,

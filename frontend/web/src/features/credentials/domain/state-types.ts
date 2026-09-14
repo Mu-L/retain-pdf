@@ -7,6 +7,7 @@ export interface CredentialsFields {
   ocrProvider: string;
   ocrCredentialRef: string;
   paddleToken: string;
+  mineruToken?: string;
   translationCredentialRef: string;
   modelApiKey: string;
 }
@@ -34,6 +35,7 @@ export interface DeepSeekBalanceState {
 }
 
 export interface OcrTokenOptions {
+  providerId?: string;
   defaultPaddleToken?: () => string;
 }
 

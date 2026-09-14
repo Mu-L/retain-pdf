@@ -2,11 +2,15 @@ import type {
   CredentialsFields,
   OcrTokenOptions,
 } from "./state-types.js";
+import { normalizeOcrProvider } from "@/platform/config/providers.js";
 
 export function ocrTokenFromCredentials(
   credentials: Partial<CredentialsFields> = {},
-  { defaultPaddleToken }: OcrTokenOptions = {},
+  { defaultPaddleToken, providerId }: OcrTokenOptions = {},
 ): string {
+  if (normalizeOcrProvider(providerId || credentials.ocrProvider) === "mineru") {
+    return credentials.mineruToken || "";
+  }
   const token = credentials.paddleToken;
   if (token) {
     return token;
@@ -20,6 +24,6 @@ export function hasCompleteCredentials(
 ): boolean {
   return Boolean(
     (credentials.ocrCredentialRef || ocrTokenFromCredentials(credentials, options))
-    && credentials.translationCredentialRef,
+    && (credentials.modelApiKey || credentials.translationCredentialRef),
   );
 }

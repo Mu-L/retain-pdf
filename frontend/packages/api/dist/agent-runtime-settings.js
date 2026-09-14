@@ -10,6 +10,18 @@ async function responseError(response) {
     }
     return new Error(`${message} (${response.status})`);
 }
+function parseRuntimeConfig(payload) {
+    // Python AI returns { data: view }; Rust clients may use { code: 0, data: view }.
+    // Keep this compatibility local to this endpoint, not the generic envelope parser.
+    const unwrapped = unwrapEnvelope(payload);
+    const view = unwrapped?.schema === "retainpdf_ai_runtime_config_view_v1"
+        ? unwrapped
+        : unwrapped?.data;
+    if (view?.schema !== "retainpdf_ai_runtime_config_view_v1") {
+        throw new Error("AI Agent 配置返回格式不正确");
+    }
+    return view;
+}
 export async function fetchAgentRuntimeConfig({ apiPrefix = API_PREFIX, fetchImpl = fetch, } = {}) {
     const response = await fetchImpl(buildApiUrl(apiPrefix, "ai/runtime-config"), {
         method: "GET",
@@ -18,7 +30,7 @@ export async function fetchAgentRuntimeConfig({ apiPrefix = API_PREFIX, fetchImp
     });
     if (!response.ok)
         throw await responseError(response);
-    return unwrapEnvelope(await response.json());
+    return parseRuntimeConfig(await response.json());
 }
 export async function updateAgentRuntimeConfig(update, { apiPrefix = API_PREFIX, fetchImpl = fetch, } = {}) {
     const response = await fetchImpl(buildApiUrl(apiPrefix, "ai/runtime-config"), {
@@ -28,5 +40,5 @@ export async function updateAgentRuntimeConfig(update, { apiPrefix = API_PREFIX,
     });
     if (!response.ok)
         throw await responseError(response);
-    return unwrapEnvelope(await response.json());
+    return parseRuntimeConfig(await response.json());
 }

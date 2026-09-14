@@ -13,12 +13,14 @@ export interface AgentRuntimeConfigView {
     llm_model: string;
     llm_api_key_configured: boolean;
     llm_api_key_masked: string;
+    llm_api_key?: string;
     fx_gateway_base_url: string;
     fx_gateway_mode: FxGatewayMode;
     fx_gateway_effective_base_url: string;
     fx_gateway_effective_chat_url: string;
     fx_gateway_api_key_configured: boolean;
     fx_gateway_api_key_masked: string;
+    fx_gateway_api_key?: string;
     fx_model: string;
     restart_required: boolean;
 }

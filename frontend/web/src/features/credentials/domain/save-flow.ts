@@ -6,6 +6,7 @@
 
 import {
   getOcrProviderDefinition,
+  inferTranslationProvider,
   TRANSLATION_PROVIDER_DEFINITION,
 } from "@/platform/config/providers.js";
 import { savePersistedBrowserStoredConfig } from "@/platform/config/persisted-config.js";
@@ -43,17 +44,11 @@ type TranslationProfileManager = {
   defaultWorkers: () => number;
 };
 
-type CredentialVault = {
-  storeOcrCredential: (options: { secret: string; provider: string }) => Promise<string>;
-  storeTranslationCredential: (options: { secret: string; baseUrl: string }) => Promise<string>;
-};
-
 export function createBrowserCredentialSaveFlow({
   viewPort,
   credentialsStatePort,
   access,
   translation,
-  vault,
   getTaskOptions,
   defaultModelBaseUrl,
   defaultModelApiKey,
@@ -72,7 +67,6 @@ export function createBrowserCredentialSaveFlow({
   };
   access: CredentialAccess;
   translation: TranslationProfileManager;
-  vault: CredentialVault;
   getTaskOptions?: () => Record<string, unknown> | unknown;
   defaultModelBaseUrl?: () => string;
   defaultModelApiKey?: () => string;
@@ -96,11 +90,16 @@ export function createBrowserCredentialSaveFlow({
     translation.captureCurrent();
     const raw = readCredentialDialogValues({ elementsPort: dialogElementsPort });
     const existingTaskOptions = (getTaskOptions?.() || {}) as Record<string, unknown>;
+    const sameTranslationProvider = translation.getCurrentProvider() === (
+      existingTaskOptions.translationProvider || inferTranslationProvider(`${existingTaskOptions.baseUrl || defaultModelBaseUrl?.() || ""}`)
+    ) && (translation.getCurrentProvider() !== "custom"
+      || !raw.modelBaseUrl || raw.modelBaseUrl === existingTaskOptions.baseUrl);
     // 输入框留空时沿用当前值，避免保存其他设置时误删凭据。
     const values = {
       ...raw,
       paddleToken: `${raw.paddleToken || ""}`.trim() || `${existing.paddleToken || ""}`.trim(),
-      modelApiKey: `${raw.modelApiKey || ""}`.trim() || `${existing.modelApiKey || ""}`.trim(),
+      mineruToken: `${raw.mineruToken || ""}`.trim() || `${existing.mineruToken || ""}`.trim(),
+      modelApiKey: `${raw.modelApiKey || ""}`.trim() || (sameTranslationProvider ? `${existing.modelApiKey || ""}`.trim() : ""),
       modelBaseUrl: `${raw.modelBaseUrl || ""}`.trim()
         || `${existingTaskOptions.baseUrl || ""}`.trim()
         || `${defaultModelBaseUrl?.() || ""}`.trim(),
@@ -109,10 +108,10 @@ export function createBrowserCredentialSaveFlow({
       translationWorkers: `${raw.translationWorkers || ""}`.trim()
         || `${existingTaskOptions.workers || translation.defaultWorkers() || 5}`,
     };
-    const ocrToken = ocrTokenFromDialogValues(values);
+    const ocrToken = ocrTokenFromDialogValues(values, definition.id);
     const modelApiKey = `${values.modelApiKey || ""}`.trim();
     const existingOcrCredentialRef = `${existing.ocrCredentialRef || ""}`.trim();
-    const existingTranslationCredentialRef = `${existing.translationCredentialRef || ""}`.trim();
+    const existingTranslationCredentialRef = sameTranslationProvider ? `${existing.translationCredentialRef || ""}`.trim() : "";
     const translationError = translationConfigError(values.modelBaseUrl, values.modelName);
     const workersError = translationWorkersError(values.translationWorkers, translation.getCurrentProvider());
     if ((!ocrToken && !existingOcrCredentialRef)
@@ -152,18 +151,14 @@ export function createBrowserCredentialSaveFlow({
     // 保存只做落盘；联网校验留给「检测」按钮。
     // 必须 await 完整持久化（含桌面 snapshot），再通知 AI 门禁刷新。
     try {
-      const ocrCredentialRef = await vault.storeOcrCredential({
-        secret: ocrToken,
-        provider: access.currentOcrProvider(),
-      });
-      const translationCredentialRef = await vault.storeTranslationCredential({
-        secret: modelApiKey,
-        baseUrl: values.modelBaseUrl,
-      });
+      // New keys are ordinary local settings. References only support older configs.
+      const ocrCredentialRef = ocrToken ? "" : existingOcrCredentialRef;
+      const translationCredentialRef = modelApiKey ? "" : existingTranslationCredentialRef;
       const nextCredentials = {
-        ocrProvider: access.currentOcrProvider(),
+        ocrProvider: definition.id,
         ocrCredentialRef,
-        paddleToken: ocrToken,
+        paddleToken: definition.id === "paddle" ? ocrToken : existing.paddleToken || "",
+        mineruToken: definition.id === "mineru" ? ocrToken : existing.mineruToken || "",
         translationCredentialRef,
         modelApiKey,
       };
@@ -173,7 +168,7 @@ export function createBrowserCredentialSaveFlow({
       // 兼容旧注入（桌面 markConfigured / 任务选项）
       if (runtimeEnv.isDesktopMode() && saveDesktopConfig) {
         await persistDesktopCredentials({
-          currentOcrProvider: access.currentOcrProvider,
+          currentOcrProvider: () => definition.id,
           defaultModelApiKey,
           defaultModelBaseUrl,
           saveTaskOptions: undefined,
@@ -188,7 +183,8 @@ export function createBrowserCredentialSaveFlow({
           values: {
             ...values,
             ocrCredentialRef,
-            paddleToken: ocrToken,
+            paddleToken: nextCredentials.paddleToken,
+            mineruToken: nextCredentials.mineruToken,
             modelApiKey,
             translationCredentialRef,
           },
@@ -226,5 +222,5 @@ export function createBrowserCredentialSaveFlow({
     }
   }
 
-  return { performSave, handleSave };
+  return { performSave, handleSave, isSaving: () => credentialSaveInFlight };
 }

@@ -98,15 +98,17 @@ export function createWorkflowAndUpload({
   } = {}) {
     const credentials = credentialsStatePort.getCredentials();
     const ocrProvider = credentials?.ocrProvider || ocrProviderFallback;
-    // providerId 仅作历史调用透传；getOcrToken 实现只读 defaultPaddleToken。
+    // 两家 OCR 分开读取本机 Token；引用仅兼容尚未迁移的旧配置。
     const ocrToken = credentialsStatePort.getOcrToken({
+      providerId: ocrProvider,
       defaultPaddleToken: () => paddleTokenFallback || "",
     }) || "";
     return {
       ocrProvider,
-      ocrCredentialRef: credentials?.ocrCredentialRef || "",
+      ocrCredentialRef: ocrToken ? "" : credentials?.ocrCredentialRef || "",
       ocrToken,
-      translationCredentialRef: credentials?.translationCredentialRef || "",
+      translationCredentialRef: credentials?.modelApiKey ? "" : credentials?.translationCredentialRef || "",
+      modelApiKey: credentials?.modelApiKey || _modelApiKeyFallback || "",
       selectedGlossaryId: workflowView.selectedGlossaryId(),
     };
   }

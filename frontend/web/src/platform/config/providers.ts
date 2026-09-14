@@ -17,6 +17,22 @@ export const OCR_PROVIDER_DEFINITIONS = [
     docsLabel: "获取 Token",
     supportsValidation: true,
   },
+  {
+    id: "mineru",
+    label: "MinerU",
+    description: "MinerU 在线文档解析。",
+    tokenField: "mineru_token",
+    runtimeConfigKey: "mineruToken",
+    tokenLabel: "MinerU API Token",
+    tokenPlaceholder: "MinerU API Token",
+    validationButtonLabel: "检测 MinerU",
+    validationIdleMessage: "未检测",
+    validationMissingMessage: "请先填写 MinerU API Token。",
+    validationUnavailableMessage: "",
+    docsUrl: "https://mineru.net/apiManage/docs",
+    docsLabel: "获取 Token / API 文档",
+    supportsValidation: true,
+  },
 ];
 
 export const TRANSLATION_PROVIDER_DEFINITION = {

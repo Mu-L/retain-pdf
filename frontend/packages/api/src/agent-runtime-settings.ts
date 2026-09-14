@@ -21,12 +21,14 @@ export interface AgentRuntimeConfigView {
   llm_model: string;
   llm_api_key_configured: boolean;
   llm_api_key_masked: string;
+  llm_api_key?: string;
   fx_gateway_base_url: string;
   fx_gateway_mode: FxGatewayMode;
   fx_gateway_effective_base_url: string;
   fx_gateway_effective_chat_url: string;
   fx_gateway_api_key_configured: boolean;
   fx_gateway_api_key_masked: string;
+  fx_gateway_api_key?: string;
   fx_model: string;
   restart_required: boolean;
 }
@@ -56,6 +58,19 @@ async function responseError(response: Response): Promise<Error> {
   return new Error(`${message} (${response.status})`);
 }
 
+function parseRuntimeConfig(payload: unknown): AgentRuntimeConfigView {
+  // Python AI returns { data: view }; Rust clients may use { code: 0, data: view }.
+  // Keep this compatibility local to this endpoint, not the generic envelope parser.
+  const unwrapped = unwrapEnvelope<any>(payload);
+  const view = unwrapped?.schema === "retainpdf_ai_runtime_config_view_v1"
+    ? unwrapped
+    : unwrapped?.data;
+  if (view?.schema !== "retainpdf_ai_runtime_config_view_v1") {
+    throw new Error("AI Agent 配置返回格式不正确");
+  }
+  return view as AgentRuntimeConfigView;
+}
+
 export async function fetchAgentRuntimeConfig({
   apiPrefix = API_PREFIX,
   fetchImpl = fetch,
@@ -69,7 +84,7 @@ export async function fetchAgentRuntimeConfig({
     cache: "no-store",
   });
   if (!response.ok) throw await responseError(response);
-  return unwrapEnvelope<AgentRuntimeConfigView>(await response.json());
+  return parseRuntimeConfig(await response.json());
 }
 
 export async function updateAgentRuntimeConfig(
@@ -88,5 +103,5 @@ export async function updateAgentRuntimeConfig(
     body: JSON.stringify(update),
   });
   if (!response.ok) throw await responseError(response);
-  return unwrapEnvelope<AgentRuntimeConfigView>(await response.json());
+  return parseRuntimeConfig(await response.json());
 }

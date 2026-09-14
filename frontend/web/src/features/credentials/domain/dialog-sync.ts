@@ -9,6 +9,7 @@ export function syncCredentialDialogFields({
 }: any) {
   const {
     paddleInput,
+    mineruInput,
     apiKeyInput,
     modelBaseUrlInput,
     modelNameInput,
@@ -18,6 +19,9 @@ export function syncCredentialDialogFields({
 
   if (paddleInput) {
     paddleInput.value = credentials.paddleToken || "";
+  }
+  if (mineruInput) {
+    mineruInput.value = credentials.mineruToken || "";
   }
   if (apiKeyInput) {
     apiKeyInput.value = credentials.modelApiKey || defaultModelApiKey?.() || "";

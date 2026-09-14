@@ -10,7 +10,6 @@ import { ExternalLink, PlugZap } from "lucide-react";
 import { SecretInput } from "./SecretInput.js";
 import {
   resetHandlerFor,
-  storedSecretPlaceholder,
 } from "./provider-panel-shared.js";
 
 export function OcrPanels() {
@@ -39,19 +38,20 @@ export function OcrPanels() {
             hidden={!active}
           >
             <label>
-              <span className="developer-label">Paddle Access Token</span>
+              <span className="developer-label">{provider.tokenLabel}</span>
               <SecretInput
                 id={credentialTokenInputId(provider.id)}
-                secretLabel="Paddle Access Token"
+                secretLabel={provider.tokenLabel}
                 autoComplete="off"
-                placeholder={credentials.ocrCredentialRef
-                  ? storedSecretPlaceholder("Paddle Token")
-                  : provider.tokenPlaceholder}
+                placeholder={provider.tokenPlaceholder}
                 defaultValue=""
                 ref={tokenInputRef(provider.id)}
                 onInput={() => resetHandlerFor(handlers)?.()}
               />
             </label>
+            {!provider.supportsValidation ? (
+              <p className="credential-ocr-hint">{provider.validationUnavailableMessage}</p>
+            ) : null}
             <div className="credential-card-footer">
               <div className="credential-card-actions">
                 {provider.supportsValidation ? (
@@ -70,6 +70,7 @@ export function OcrPanels() {
                   id={credentialValidationId(provider.id)}
                   className={badgeClasses}
                   title={content || provider.validationIdleMessage}
+                  aria-label={content || provider.validationIdleMessage}
                   role="status"
                   aria-live="polite"
                 >

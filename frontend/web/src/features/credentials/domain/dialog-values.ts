@@ -2,6 +2,7 @@
 /** Values read from the browser credential dialog inputs. */
 export interface CredentialDialogValues {
   paddleToken: string;
+  mineruToken?: string;
   modelApiKey: string;
   modelBaseUrl: string;
   modelName: string;
@@ -13,6 +14,7 @@ export interface CredentialDialogValues {
 
 export interface CredentialDialogElementsLike {
   paddleInput?: { value?: string } | null;
+  mineruInput?: { value?: string } | null;
   apiKeyInput?: { value?: string } | null;
   modelBaseUrlInput?: { value?: string } | null;
   modelNameInput?: { value?: string } | null;
@@ -27,7 +29,7 @@ export interface ReadCredentialDialogValuesOptions {
 }
 
 export interface BuildBrowserCredentialConfigOptions {
-  values: Pick<CredentialDialogValues, "paddleToken" | "modelApiKey" | "ocrCredentialRef" | "translationCredentialRef">;
+  values: Pick<CredentialDialogValues, "paddleToken" | "mineruToken" | "modelApiKey" | "ocrCredentialRef" | "translationCredentialRef">;
   currentOcrProvider: () => string;
   defaultModelApiKey?: () => string;
 }
@@ -42,6 +44,7 @@ export function readCredentialDialogValues({
 }: ReadCredentialDialogValuesOptions = {}): CredentialDialogValues {
   const {
     paddleInput,
+    mineruInput,
     apiKeyInput,
     modelBaseUrlInput,
     modelNameInput,
@@ -50,6 +53,7 @@ export function readCredentialDialogValues({
   } = elementsPort.elements();
   return {
     paddleToken: paddleInput?.value?.trim() || "",
+    mineruToken: mineruInput?.value?.trim() || "",
     modelApiKey: apiKeyInput?.value?.trim() || "",
     modelBaseUrl: modelBaseUrlInput?.value?.trim() || "",
     modelName: modelNameInput?.value?.trim() || "",
@@ -67,6 +71,7 @@ export function buildBrowserCredentialConfig({
     ocrProvider: currentOcrProvider(),
     ocrCredentialRef: `${values.ocrCredentialRef || ""}`.trim(),
     paddleToken: values.paddleToken,
+    mineruToken: values.mineruToken || "",
     translationCredentialRef: `${values.translationCredentialRef || ""}`.trim(),
     modelApiKey: `${values.modelApiKey || defaultModelApiKey?.() || ""}`.trim(),
   };
@@ -86,7 +91,8 @@ export function buildTaskOptionsFromDialogValues({
 }
 
 export function ocrTokenFromDialogValues(
-  values: Partial<Pick<CredentialDialogValues, "paddleToken">> = {},
+  values: Partial<Pick<CredentialDialogValues, "paddleToken" | "mineruToken">> = {},
+  providerId = "paddle",
 ) {
-  return values.paddleToken;
+  return (providerId === "mineru" ? values.mineruToken : values.paddleToken) || "";
 }

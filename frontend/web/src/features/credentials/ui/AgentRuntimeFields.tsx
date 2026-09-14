@@ -83,13 +83,9 @@ export function AgentRuntimeFields({
             <SecretInput
               aria-label="模型 API Key"
               secretLabel="模型 API Key"
-              autoComplete="new-password"
+              autoComplete="off"
               value={modelKey}
-              placeholder={
-                config?.llm_api_key_configured
-                  ? `已保存 ${config.llm_api_key_masked}`
-                  : "输入后将安全保存"
-              }
+              placeholder="模型 API Key"
               onChange={(event) => onModelKeyChange(event.target.value)}
               disabled={busy}
             />
@@ -126,13 +122,9 @@ export function AgentRuntimeFields({
             <SecretInput
               aria-label="FX Gateway Key"
               secretLabel="FX Gateway Key"
-              autoComplete="new-password"
+              autoComplete="off"
               value={gatewayKey}
-              placeholder={
-                config?.fx_gateway_api_key_configured
-                  ? `已保存 ${config.fx_gateway_api_key_masked}`
-                  : "输入后将安全保存"
-              }
+              placeholder="Gateway Key"
               onChange={(event) => onGatewayKeyChange(event.target.value)}
               disabled={busy}
             />

@@ -18,7 +18,11 @@ export async function ensureOcrCredentialValidationReady({
 }: any) {
   const definition = getOcrProviderDefinition(providerId);
   const credentialRef = `${credentials?.ocrCredentialRef || ""}`.trim();
-  if (credentialRef) {
+  const token = credentialOcrToken(credentials, {
+    providerId: definition.id,
+    defaultPaddleToken,
+  }).trim();
+  if (!token && credentialRef) {
     return {
       ok: true,
       status: "stored",
@@ -28,10 +32,6 @@ export async function ensureOcrCredentialValidationReady({
       result: null,
     };
   }
-  const token = credentialOcrToken(credentials, {
-    providerId: definition.id,
-    defaultPaddleToken,
-  }).trim();
 
   if (!token) {
     return {

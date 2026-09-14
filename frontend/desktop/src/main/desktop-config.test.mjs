@@ -80,7 +80,7 @@ test("restores desktop values from existing vault references during migration", 
   fs.mkdirSync(secretsDir, { recursive: true });
   fs.writeFileSync(path.join(secretsDir, "credentials.json"), JSON.stringify({
     credentials: {
-      cred_ocr: { kind: "ocr_provider_token", secret: "restored-ocr" },
+      cred_ocr: { kind: "ocr_provider_token", provider: "paddle", secret: "restored-ocr" },
       cred_translation: { kind: "translation_api_key", secret: "restored-model" },
     },
   }));
@@ -107,4 +107,33 @@ test("restores desktop values from existing vault references during migration", 
 
   assert.equal(response.browserConfig.paddleToken, "restored-ocr");
   assert.equal(response.browserConfig.modelApiKey, "restored-model");
+});
+
+test("MinerU remains independently saved locally and restores only matching legacy tokens", (t) => {
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), "retainpdf-desktop-mineru-"));
+  t.after(() => fs.rmSync(userData, { recursive: true, force: true }));
+  const secretsDir = path.join(userData, "data", "secrets");
+  fs.mkdirSync(secretsDir, { recursive: true });
+  fs.writeFileSync(path.join(secretsDir, "credentials.json"), JSON.stringify({
+    credentials: {
+      cred_mineru: { kind: "ocr_provider_token", provider: "mineru", secret: "legacy-mineru" },
+      cred_paddle: { kind: "ocr_provider_token", provider: "paddle", secret: "legacy-paddle" },
+    },
+  }));
+  const store = createDesktopConfigStore({ getPath: () => userData });
+  const saved = store.saveDesktopConfig({
+    ocrProvider: "mineru", mineruToken: "local-mineru", paddleToken: "local-paddle",
+  });
+  assert.equal(saved.ocrProvider, "mineru");
+  assert.equal(store.loadDesktopConfig().mineruToken, "local-mineru");
+  assert.equal(store.loadDesktopConfig().paddleToken, "local-paddle");
+  assert.equal(store.buildDesktopConfigResponse({
+    ...saved, mineruToken: "", ocrCredentialRef: "cred_mineru",
+  }).browserConfig.mineruToken, "legacy-mineru");
+  assert.equal(store.buildDesktopConfigResponse({
+    ...saved, mineruToken: "", ocrCredentialRef: "cred_paddle",
+  }).browserConfig.mineruToken, "");
+  assert.equal(store.buildDesktopConfigResponse({
+    ...saved, ocrCredentialRef: "cred_mineru",
+  }).browserConfig.mineruToken, "local-mineru", "local edits win over legacy values");
 });
