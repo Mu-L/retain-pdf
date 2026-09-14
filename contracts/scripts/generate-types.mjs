@@ -8,6 +8,11 @@ const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CHECK_ONLY = process.argv.includes("--check");
 const TARGETS = [
   {
+    input: "job-events.v2.schema.json",
+    output: "src/job-events.ts",
+    rootName: "JobEventsSchema",
+  },
+  {
     input: "job-status.v1.schema.json",
     output: "src/job-status.ts",
     rootName: "JobStatusSchema",
@@ -16,6 +21,11 @@ const TARGETS = [
     input: "library-books.v1.schema.json",
     output: "src/library-books.ts",
     rootName: "LibraryBooksSchema",
+  },
+  {
+    input: "reader-data.v1.schema.json",
+    output: "src/reader-data.ts",
+    rootName: "ReaderDataSchema",
   },
 ];
 

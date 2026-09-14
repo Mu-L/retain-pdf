@@ -7,7 +7,7 @@ function schema(name) {
   return JSON.parse(readFileSync(resolve(name), "utf8"));
 }
 
-test("runtime config keeps the update and redacted view boundaries explicit", () => {
+test("runtime config keeps update constraints and authenticated local key visibility explicit", () => {
   const contract = schema("runtime-config.v1.schema.json");
   const update = contract.definitions.RuntimeConfigUpdate;
   const view = contract.definitions.RuntimeConfigView;
@@ -33,8 +33,13 @@ test("runtime config keeps the update and redacted view boundaries explicit", ()
   assert.deepEqual(contract.definitions.AgentConfirmationMode.enum, ["explicit", "green_light"]);
   assert.deepEqual(new Set(view.required), new Set(Object.keys(view.properties)));
   assert.equal(view.additionalProperties, false);
-  assert.equal(Object.hasOwn(view.properties, "llm_api_key"), false);
-  assert.equal(Object.hasOwn(view.properties, "fx_gateway_api_key"), false);
+  for (const key of ["llm_api_key", "fx_gateway_api_key"]) {
+    assert.equal(view.properties[key].type, "string");
+    assert.ok(view.required.includes(key));
+    assert.equal(view.properties[key].minLength ?? 0, 0, "unconfigured keys must allow an empty string");
+    assert.deepEqual(update.properties[key].type, ["string", "null"]);
+    assert.equal(update.properties[key].maxLength, 8192);
+  }
   assert.equal(Object.hasOwn(view.properties, "llm_credential_ref"), true);
   assert.equal(Object.hasOwn(view.properties, "fx_gateway_credential_ref"), true);
 });

@@ -9,11 +9,13 @@ const EXPECTED_SCHEMAS = [
   "agent-calculation.v1.schema.json",
   "ai-ask.v1.schema.json",
   "ai-conversations.v1.schema.json",
+  "job-events.v2.schema.json",
   "job-status.v1.schema.json",
   "jobs-control.v1.schema.json",
   "library-books.v1.schema.json",
   "pipeline-stdout.v1.schema.json",
   "public-document-operation.v1.schema.json",
+  "reader-data.v1.schema.json",
   "runtime-config.v1.schema.json",
 ];
 
@@ -49,11 +51,11 @@ const ids = new Set();
 for (const fileName of EXPECTED_SCHEMAS) {
   const text = await readFile(resolve(PACKAGE_ROOT, fileName), "utf8");
   const schema = JSON.parse(text);
-  const slug = fileName.replace(/\.v1\.schema\.json$/, "");
+  const [, slug, version] = fileName.match(/^(.+)\.v(\d+)\.schema\.json$/);
   assert.equal(typeof schema, "object", `${fileName} must contain an object schema`);
   assert.equal(Array.isArray(schema), false, `${fileName} must not contain an array root`);
   assert.equal(schema.$schema, EXPECTED_DIALECT, `${fileName} must use JSON Schema 2020-12`);
-  assert.equal(schema.$id, `retainpdf/contracts/${slug}/v1`, `${fileName} must use the canonical $id`);
+  assert.equal(schema.$id, `retainpdf/contracts/${slug}/v${version}`, `${fileName} must use the canonical $id`);
   assert.equal(ids.has(schema.$id), false, `duplicate schema $id: ${schema.$id}`);
   ids.add(schema.$id);
   assert.equal(typeof schema.title, "string", `${fileName} must declare title`);

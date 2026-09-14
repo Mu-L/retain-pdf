@@ -12,11 +12,13 @@ CONTRACT_NAMES = (
     "ai-ask.v1.schema.json",
     "agent-calculation.v1.schema.json",
     "ai-conversations.v1.schema.json",
+    "job-events.v2.schema.json",
     "job-status.v1.schema.json",
     "jobs-control.v1.schema.json",
     "library-books.v1.schema.json",
     "pipeline-stdout.v1.schema.json",
     "public-document-operation.v1.schema.json",
+    "reader-data.v1.schema.json",
     "runtime-config.v1.schema.json",
 )
 

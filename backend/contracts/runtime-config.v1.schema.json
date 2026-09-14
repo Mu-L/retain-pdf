@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "retainpdf/contracts/runtime-config/v1",
   "title": "AI Runtime 配置契约",
-  "description": "services/ai 的 GET/PUT /v1/runtime-config 以及 services/api 的透明代理 /api/v1/ai/runtime-config 共用契约。本契约描述 data 载荷；响应只投影脱敏状态，绝不返回原始模型或 Gateway key。",
+  "description": "services/ai 的 GET/PUT /v1/runtime-config 以及 services/api 的透明代理 /api/v1/ai/runtime-config 共用契约。本契约描述受 API 鉴权保护的 data 载荷；响应包含当前模型和 Gateway key，供本机设置页显示与编辑，未配置时返回空字符串。",
   "endpoints": [
     {
       "method": "GET",
@@ -72,7 +72,7 @@
         "llm_api_key": {
           "type": ["string", "null"],
           "maxLength": 8192,
-          "description": "旧版兼容只写字段；响应与日志不得回显。新客户端应使用 llm_credential_ref。"
+          "description": "本机保存的模型 Key；受鉴权的响应返回当前值。与 llm_credential_ref 互斥；空输入沿用原值，显式清除使用 clear_llm_api_key。"
         },
         "llm_credential_ref": {
           "type": ["string", "null"],
@@ -91,7 +91,7 @@
         "fx_gateway_api_key": {
           "type": ["string", "null"],
           "maxLength": 8192,
-          "description": "旧版兼容只写字段；响应与日志不得回显。新客户端应使用 fx_gateway_credential_ref。"
+          "description": "本机保存的 Gateway Key；受鉴权的响应返回当前值。与 fx_gateway_credential_ref 互斥；空输入沿用原值，显式清除使用 clear_fx_gateway_api_key。"
         },
         "fx_gateway_credential_ref": {
           "type": ["string", "null"],
@@ -122,6 +122,7 @@
         "llm_base_url",
         "llm_model",
         "llm_credential_ref",
+        "llm_api_key",
         "llm_api_key_configured",
         "llm_api_key_masked",
         "fx_gateway_base_url",
@@ -129,6 +130,7 @@
         "fx_gateway_effective_base_url",
         "fx_gateway_effective_chat_url",
         "fx_gateway_credential_ref",
+        "fx_gateway_api_key",
         "fx_gateway_api_key_configured",
         "fx_gateway_api_key_masked",
         "fx_model",
@@ -145,6 +147,7 @@
         "llm_base_url": { "type": "string" },
         "llm_model": { "type": "string" },
         "llm_credential_ref": { "type": "string", "maxLength": 64 },
+        "llm_api_key": { "type": "string", "description": "当前模型 Key，包括引用解析后的值；未配置时为空字符串。" },
         "llm_api_key_configured": { "type": "boolean" },
         "llm_api_key_masked": { "type": "string" },
         "fx_gateway_base_url": { "type": "string" },
@@ -152,6 +155,7 @@
         "fx_gateway_effective_base_url": { "type": "string" },
         "fx_gateway_effective_chat_url": { "type": "string" },
         "fx_gateway_credential_ref": { "type": "string", "maxLength": 64 },
+        "fx_gateway_api_key": { "type": "string", "description": "当前 Gateway Key，包括引用解析后的值；未配置时为空字符串。" },
         "fx_gateway_api_key_configured": { "type": "boolean" },
         "fx_gateway_api_key_masked": { "type": "string" },
         "fx_model": { "type": "string" },

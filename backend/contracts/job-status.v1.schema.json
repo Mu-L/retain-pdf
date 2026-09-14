@@ -22,12 +22,6 @@
     },
     {
       "method": "GET",
-      "path": "/api/v1/jobs/:job_id/events",
-      "query": "ListJobEventsQuery",
-      "output": "JobEventListView"
-    },
-    {
-      "method": "GET",
       "path": "/api/v1/ocr/jobs/:job_id",
       "output": "JobDetailView",
       "note": "WorkflowKind::Ocr 走 /api/v1/ocr/jobs 前缀，view 形状与 book 一致"
@@ -776,68 +770,6 @@
         "log_tail": { "type": "array", "items": { "type": "string" } }
       }
     },
-    "JobEventProgressView": {
-      "type": "object",
-      "description": "translation.rs :: JobEventProgressView。字段为可选，因为未知进度可序列化为空对象。",
-      "additionalProperties": false,
-      "properties": {
-        "unit": { "type": "string" },
-        "current": { "type": "integer" },
-        "total": { "type": "integer" },
-        "percent": { "type": "number", "minimum": 0, "maximum": 100 }
-      }
-    },
-    "JobEventRawView": {
-      "type": "object",
-      "description": "事件进入 API 归一化之前的来源追踪字段。",
-      "additionalProperties": false,
-      "properties": {
-        "source_kind": { "type": "string" },
-        "source_seq": { "type": "integer" },
-        "stage": { "type": "string" },
-        "user_stage": { "type": "string" },
-        "event_type": { "type": "string" }
-      }
-    },
-    "JobEventRecord": {
-      "type": "object",
-      "description": "translation.rs :: JobEventRecord 的公开序列化形状。payload 保留递归 JSON 类型，不再退化为 {}。",
-      "required": ["job_id", "seq", "ts", "level", "lane", "stage", "substage", "stage_detail", "provider", "provider_stage", "event", "event_type", "raw_event_type", "message", "retry_count", "elapsed_ms", "payload"],
-      "additionalProperties": false,
-      "properties": {
-        "job_id": { "type": "string" },
-        "seq": { "type": "integer" },
-        "ts": { "type": "string", "format": "date-time" },
-        "created_at": { "type": "string", "format": "date-time" },
-        "level": { "type": "string" },
-        "lane": { "type": ["string", "null"] },
-        "display_stage": { "type": "string" },
-        "stage": { "type": ["string", "null"] },
-        "substage": { "type": ["string", "null"] },
-        "stage_detail": { "type": ["string", "null"] },
-        "provider": { "type": ["string", "null"] },
-        "provider_stage": { "type": ["string", "null"] },
-        "event": { "type": "string" },
-        "event_type": { "type": ["string", "null"] },
-        "raw_event_type": { "type": ["string", "null"] },
-        "raw": { "$ref": "#/definitions/JobEventRawView" },
-        "progress": { "$ref": "#/definitions/JobEventProgressView" },
-        "message": { "type": "string" },
-        "retry_count": { "type": ["integer", "null"] },
-        "elapsed_ms": { "type": ["integer", "null"] },
-        "payload": { "$ref": "#/definitions/JsonValue" }
-      }
-    },
-    "JobEventListView": {
-      "type": "object",
-      "required": ["items", "limit", "offset"],
-      "additionalProperties": false,
-      "properties": {
-        "items": { "type": "array", "items": { "$ref": "#/definitions/JobEventRecord" } },
-        "limit": { "type": "integer", "minimum": 1 },
-        "offset": { "type": "integer", "minimum": 0 }
-      }
-    },
     "ListJobsQuery": {
       "type": "object",
       "properties": {
@@ -848,13 +780,6 @@
         "provider": { "type": "string" },
         "q": { "type": "string" },
         "job_ids": { "type": "string" }
-      }
-    },
-    "ListJobEventsQuery": {
-      "type": "object",
-      "properties": {
-        "limit": { "type": "integer" },
-        "offset": { "type": "integer" }
       }
     }
   }

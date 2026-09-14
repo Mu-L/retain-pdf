@@ -11,6 +11,7 @@ The mirrored files are:
 - `ai-ask.v1.schema.json`
 - `agent-calculation.v1.schema.json`
 - `ai-conversations.v1.schema.json`
+- `job-events.v2.schema.json`
 - `job-status.v1.schema.json`
 - `jobs-control.v1.schema.json`
 - `library-books.v1.schema.json`
@@ -33,7 +34,7 @@ absent. From the extracted `backend/` root, run:
 python3 contracts/check_parity.py
 ```
 
-This validates that all nine local contract files exist and contain valid
+This validates that all ten local contract files exist and contain valid
 JSON, then explicitly skips upstream parity. In the monorepo, schema changes
 start in `contracts`, are copied byte-for-byte here, and must pass the
 `--require-upstream` gate.

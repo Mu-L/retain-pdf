@@ -5,7 +5,7 @@
 /**
  * Endpoint input, query, and output DTOs published by job-status.v1.schema.json.
  */
-export type JobStatusSchema = JobDetailView | JobEventListView | JobListView | ListJobEventsQuery | ListJobsQuery;
+export type JobStatusSchema = JobDetailView | JobListView | ListJobsQuery;
 export type WorkflowKind = "book" | "ocr" | "translate" | "render";
 /**
  * crate::models::common::JobStatusKind
@@ -505,56 +505,6 @@ export interface TranslationRequestRecoveryView {
     supported_retry_policies: ("block" | "accept_duplicate_risk")[];
     detail: string | null;
 }
-export interface JobEventListView {
-    items: JobEventRecord[];
-    limit: number;
-    offset: number;
-}
-/**
- * translation.rs :: JobEventRecord 的公开序列化形状。payload 保留递归 JSON 类型，不再退化为 {}。
- */
-export interface JobEventRecord {
-    job_id: string;
-    seq: number;
-    ts: string;
-    created_at?: string;
-    level: string;
-    lane: string | null;
-    display_stage?: string;
-    stage: string | null;
-    substage: string | null;
-    stage_detail: string | null;
-    provider: string | null;
-    provider_stage: string | null;
-    event: string;
-    event_type: string | null;
-    raw_event_type: string | null;
-    raw?: JobEventRawView;
-    progress?: JobEventProgressView;
-    message: string;
-    retry_count: number | null;
-    elapsed_ms: number | null;
-    payload: JsonValue;
-}
-/**
- * 事件进入 API 归一化之前的来源追踪字段。
- */
-export interface JobEventRawView {
-    source_kind?: string;
-    source_seq?: number;
-    stage?: string;
-    user_stage?: string;
-    event_type?: string;
-}
-/**
- * translation.rs :: JobEventProgressView。字段为可选，因为未知进度可序列化为空对象。
- */
-export interface JobEventProgressView {
-    unit?: string;
-    current?: number;
-    total?: number;
-    percent?: number;
-}
 export interface JobListView {
     items: JobListItemView[];
     invocation_summary: JobListInvocationSummaryView;
@@ -590,10 +540,6 @@ export interface JobListItemView {
 export interface JobListInvocationSummaryView {
     stage_spec_count: number;
     unknown_count: number;
-}
-export interface ListJobEventsQuery {
-    limit?: number;
-    offset?: number;
 }
 export interface ListJobsQuery {
     limit?: number;
