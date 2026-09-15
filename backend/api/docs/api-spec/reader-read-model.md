@@ -48,6 +48,12 @@ conversation APIs, and public document-operation APIs instead.
   when those surfaces describe that block.
 - `ReaderRegionsView.source.page` and `.translated.page` are **one-based**.
   Their boxes are `[x0, y0, x1, y1]` in `pdf_point` with `top_left` origin.
+- Reader metadata dimensions describe the **visible page**, matching PDF.js's
+  scale-1 viewport: the non-empty intersection of CropBox and MediaBox, with
+  inherited page boxes/rotation and page-local UserUnit applied. Empty or invalid
+  crops fall back to MediaBox. Region coordinates are already relative to the
+  visible page's top-left; hosts must not apply the CropBox offset a second time
+  or scale regions using the uncropped MediaBox dimensions.
 - Live translation `page_idx` is **zero-based**. Its layout boxes are also PDF
   points with top-left origin. The index conversion is deliberately explicit:
   a host must convert only at its UI boundary, not silently mix the two models.
