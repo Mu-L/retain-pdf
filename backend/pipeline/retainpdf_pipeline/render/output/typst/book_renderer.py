@@ -31,6 +31,7 @@ from retainpdf_pipeline.render.layout.model.models import RenderLayoutBlock
 from retainpdf_pipeline.render.layout.model.models import RenderPageSpec
 from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
 from retainpdf_pipeline.render.output.typst.compiler import compile_typst_render_pages_pdf
+from retainpdf_pipeline.render.output.typst.compiler import is_typst_runtime_failure
 from retainpdf_pipeline.render.output.typst.color_adapt import apply_adaptive_overlay_colors
 from retainpdf_pipeline.render.output.typst.overlay_book import overlay_pages_via_page_fallback
 from retainpdf_pipeline.render.output.typst.overlay_ops import overlay_translated_items_on_page
@@ -269,7 +270,9 @@ def _locate_bad_render_page_indices(
         try:
             probe_range((0, 1))
             return []
-        except RuntimeError:
+        except RuntimeError as exc:
+            if is_typst_runtime_failure(exc):
+                raise
             return [0]
     # The caller only locates after the full-book compile failed, so the
     # root re-probe is skipped and the frontier starts at both halves.
@@ -284,7 +287,11 @@ def _locate_bad_render_page_indices(
                 lo, hi = futures[future]
                 try:
                     future.result()
-                except RuntimeError:
+                except RuntimeError as exc:
+                    if is_typst_runtime_failure(exc):
+                        for pending in futures:
+                            pending.cancel()
+                        raise
                     if hi - lo <= 1:
                         bad_indices.append(lo)
                     else:
@@ -352,6 +359,8 @@ def _compile_render_pages_pdf_resilient(
         )
         return compiled_path, diagnostics
     except RuntimeError as exc:
+        if is_typst_runtime_failure(exc):
+            raise
         diagnostics["background_compile_retried"] = True
         diagnostics["background_compile_failed"] = True
         diagnostics["background_first_compile_elapsed_seconds"] = time.perf_counter() - compile_started
@@ -437,6 +446,8 @@ def _compile_render_pages_pdf_resilient(
                 work_dir=work_dir,
             )
         except RuntimeError as recompile_exc:
+            if is_typst_runtime_failure(recompile_exc):
+                raise
             diagnostics["background_sanitized_compile_elapsed_seconds"] = (
                 time.perf_counter() - sanitized_compile_started
             )

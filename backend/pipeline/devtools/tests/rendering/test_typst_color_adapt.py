@@ -122,15 +122,16 @@ def test_old_overlay_prebuilt_source_without_render_version_is_not_reused() -> N
 
 
 def test_overlay_prebuilt_source_cover_fill_mode_does_not_reuse_plain_source() -> None:
-    from retainpdf_pipeline.render.output.typst.overlay_source_cache import PREBUILT_SOURCE_RENDER_VERSION
     from retainpdf_pipeline.render.output.typst.overlay_source_cache import prebuilt_source_matches_page_specs
+    from retainpdf_pipeline.render.output.typst.overlay_source_cache import resolve_prebuilt_overlay_source
 
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "book-overlay.typ.prebuilt"
-        path.write_text(
-            f"// {PREBUILT_SOURCE_RENDER_VERSION}\n"
-            '#set page(width: 200pt, height: 120pt, margin: 0pt, fill: none)\n',
-            encoding="utf-8",
+        resolve_prebuilt_overlay_source(
+            prebuilt_source_path=path,
+            temp_root=Path(tmp),
+            stem="book-overlay",
+            book_specs=[(200.0, 120.0, [])],
         )
 
         assert prebuilt_source_matches_page_specs(path, [(200.0, 120.0, [])])

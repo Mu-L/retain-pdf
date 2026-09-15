@@ -10,6 +10,7 @@ import time
 from retainpdf_pipeline.foundation.config import fonts
 from retainpdf_pipeline.services.pipeline_shared.events import emit_render_page_progress
 from retainpdf_pipeline.render.output.typst.compiler import compile_typst_book_overlay_pdf
+from retainpdf_pipeline.render.output.typst.compiler import is_typst_runtime_failure
 from retainpdf_pipeline.render.output.typst.shared import default_compile_workers
 from retainpdf_pipeline.render.output.typst.shared import prepare_typst_work_dir
 
@@ -79,7 +80,13 @@ def compile_book_overlay_pdf_chunks(
         total_pages = len(book_specs)
         for future in as_completed(future_map):
             chunk_index = future_map[future]
-            chunk_pdf_paths[chunk_index] = future.result()
+            try:
+                chunk_pdf_paths[chunk_index] = future.result()
+            except RuntimeError as exc:
+                if is_typst_runtime_failure(exc):
+                    for pending in future_map:
+                        pending.cancel()
+                raise
             completed_pages += len(chunks[chunk_index][1])
             emit_render_page_progress(
                 current=min(completed_pages, total_pages),

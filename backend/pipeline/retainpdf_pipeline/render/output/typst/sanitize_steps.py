@@ -9,6 +9,7 @@ from retainpdf_pipeline.render.layout.payload.formula_cost import replace_item_m
 from retainpdf_pipeline.render.layout.text_analysis import analyze_text
 from retainpdf_pipeline.render.output.typst.compiler import compile_typst_overlay_pdf
 from retainpdf_pipeline.render.output.typst.compiler import TypstCompileError
+from retainpdf_pipeline.render.output.typst.compiler import is_typst_runtime_failure
 from retainpdf_pipeline.render.output.typst.repair import repair_items_with_llm_for_typst
 from retainpdf_pipeline.render.output.typst.shared import force_plain_text_item_at_index
 from retainpdf_pipeline.render.output.typst.shared import strip_formula_commands_for_item_at_index
@@ -46,6 +47,8 @@ def find_bad_item_indices(
                 work_dir=work_dir,
             )
         except RuntimeError as exc:
+            if is_typst_runtime_failure(exc):
+                raise
             bad_indices.append(index)
             if failure_details is not None:
                 detail = {"item_index": index, "item_id": translated_items[index].get("item_id", ""), "error": str(exc)}
@@ -84,6 +87,8 @@ def try_selective_formula_strip(
         )
         return patched_items
     except RuntimeError as exc:
+        if is_typst_runtime_failure(exc):
+            raise
         if diagnostics is not None:
             diagnostics["selective_formula_strip_error"] = exc.to_dict() if isinstance(exc, TypstCompileError) else str(exc)
         return None
@@ -130,6 +135,8 @@ def try_selective_llm_repair(
         )
         return patched_items
     except RuntimeError as exc:
+        if is_typst_runtime_failure(exc):
+            raise
         if diagnostics is not None:
             diagnostics["selective_llm_repair_error"] = exc.to_dict() if isinstance(exc, TypstCompileError) else str(exc)
         return None
@@ -174,6 +181,8 @@ def try_selective_math_token_plain_text(
             diagnostics["math_token_plain_text_indices"] = changed_indices
         return patched_items
     except RuntimeError as exc:
+        if is_typst_runtime_failure(exc):
+            raise
         if diagnostics is not None:
             diagnostics["math_token_plain_text_error"] = exc.to_dict() if isinstance(exc, TypstCompileError) else str(exc)
         return None
@@ -216,6 +225,8 @@ def try_selective_plain_text(
         )
         return patched_items
     except RuntimeError as exc:
+        if is_typst_runtime_failure(exc):
+            raise
         if diagnostics is not None:
             diagnostics["selective_plain_text_error"] = exc.to_dict() if isinstance(exc, TypstCompileError) else str(exc)
         return None

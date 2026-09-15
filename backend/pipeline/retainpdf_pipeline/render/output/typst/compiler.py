@@ -78,6 +78,18 @@ class TypstCompileError(RuntimeError):
         return payload
 
 
+def is_typst_runtime_failure(error: BaseException) -> bool:
+    """Runtime failures cannot be repaired by changing page content.
+
+    The compiler marks launch failures and timeouts explicitly. Negative exit
+    codes also identify a compiler terminated by a signal rather than a Typst
+    content diagnostic. Keep ordinary nonzero exits on the existing repair path.
+    """
+    return isinstance(error, TypstCompileError) and (
+        bool(error.extra.get("runtime_error_type")) or error.return_code < 0
+    )
+
+
 def _run_typst_compile(
     *,
     command: list[str],

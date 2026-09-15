@@ -11,6 +11,7 @@ from retainpdf_pipeline.render.document.pikepdf_overlay import PikepdfOverlayChu
 from retainpdf_pipeline.render.document.pikepdf_overlay import overlay_pdf_chunks_with_pikepdf
 from retainpdf_pipeline.render.document.pikepdf_overlay import overlay_pdf_pages_with_pikepdf
 from retainpdf_pipeline.render.output.typst.compiler import TypstCompileError
+from retainpdf_pipeline.render.output.typst.compiler import is_typst_runtime_failure
 from retainpdf_pipeline.render.output.typst.book_support import prepare_translated_pages_for_render
 from retainpdf_pipeline.render.output.typst.overlay_book import build_overlay_page_specs
 from retainpdf_pipeline.render.output.typst.overlay_book import overlay_pages_via_page_fallback
@@ -399,6 +400,8 @@ def overlay_translated_pages_on_doc(
         diagnostics.setdefault("sanitize_page_diagnostics", [])
         return _with_visual_profile_diagnostics(diagnostics, visual_profile_diagnostics)
     except RuntimeError as exc:
+        if is_typst_runtime_failure(exc):
+            raise
         first_compile_elapsed = time.perf_counter() - compile_started
         failed_overlay_indices = _extract_failed_overlay_indices(exc, page_specs)
         print("typst book compile failed; sanitizing pages before per-page fallback", flush=True)
@@ -546,6 +549,8 @@ def overlay_translated_pages_on_doc(
             diagnostics["targeted_sanitize_overlay_indices"] = sorted(failed_overlay_indices)
             return _with_visual_profile_diagnostics(diagnostics, visual_profile_diagnostics)
         except RuntimeError as exc:
+            if is_typst_runtime_failure(exc):
+                raise
             print("typst sanitized book compile failed; falling back to per-page compilation", flush=True)
             print(str(exc), flush=True)
             compile_errors.append(exc.to_dict() if isinstance(exc, TypstCompileError) else str(exc))

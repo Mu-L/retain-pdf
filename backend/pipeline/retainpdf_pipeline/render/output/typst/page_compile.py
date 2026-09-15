@@ -7,6 +7,7 @@ import time
 from typing import Callable
 
 from retainpdf_pipeline.foundation.config import fonts
+from retainpdf_pipeline.render.output.typst.compiler import is_typst_runtime_failure
 from retainpdf_pipeline.render.output.typst.overlay_compile import compile_page_overlay_pdf
 from retainpdf_pipeline.render.output.typst.shared import default_compile_workers
 from retainpdf_pipeline.services.pipeline_shared.events import emit_render_page_progress
@@ -75,6 +76,10 @@ def compile_overlay_page_specs(
             try:
                 overlay_path, compile_diag = future.result()
             except RuntimeError as exc:
+                if is_typst_runtime_failure(exc):
+                    for pending in future_map:
+                        pending.cancel()
+                    raise
                 raise RuntimeError(f"page overlay compile failed page={page_idx + 1} stem={page_stem}: {exc}") from exc
             overlay_paths[page_idx] = overlay_path
             page_compile_diagnostics[page_idx] = compile_diag

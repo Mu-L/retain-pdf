@@ -13,6 +13,7 @@ from retainpdf_pipeline.render.document.page_map import RenderPageMap
 from retainpdf_pipeline.render.document.metadata import copy_toc
 from retainpdf_pipeline.render.document.metadata import copy_toc_for_page_map
 from retainpdf_pipeline.render.output.typst.compiler import compile_typst_book_background_pdf
+from retainpdf_pipeline.render.output.typst.compiler import is_typst_runtime_failure
 from retainpdf_pipeline.render.output.typst.sanitize import sanitize_page_specs_for_typst_book_background
 from retainpdf_pipeline.render.output.typst.shared import default_typst_temp_root
 from retainpdf_pipeline.render.output.typst.shared import prepare_typst_work_dir
@@ -106,6 +107,8 @@ def compile_background_pdf_resilient(
             request_chat_content_fn=request_chat_content_fn,
         )
     except RuntimeError as exc:
+        if is_typst_runtime_failure(exc):
+            raise
         print("typst background book compile failed; sanitizing pages", flush=True)
         print(str(exc), flush=True)
         sanitized_page_specs = sanitize_page_specs_for_typst_book_background(

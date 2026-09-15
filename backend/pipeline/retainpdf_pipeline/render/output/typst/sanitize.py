@@ -7,6 +7,7 @@ from typing import Callable
 from retainpdf_pipeline.foundation.config import fonts
 from retainpdf_pipeline.render.output.typst.compiler import compile_typst_overlay_pdf
 from retainpdf_pipeline.render.output.typst.compiler import TypstCompileError
+from retainpdf_pipeline.render.output.typst.compiler import is_typst_runtime_failure
 from retainpdf_pipeline.render.output.typst.shared import TYPST_OVERLAY_DIR
 from retainpdf_pipeline.render.output.typst.sanitize_steps import find_bad_item_indices
 from retainpdf_pipeline.render.output.typst.sanitize_steps import replace_item_math_tokens_with_plain_text
@@ -77,6 +78,8 @@ def sanitize_items_for_typst_compile(
             diagnostics["initial_compile_error"] = (
                 page_error.to_dict() if isinstance(page_error, TypstCompileError) else str(page_error)
             )
+        if is_typst_runtime_failure(page_error):
+            raise
         bad_indices = find_bad_item_indices(
             page_width,
             page_height,

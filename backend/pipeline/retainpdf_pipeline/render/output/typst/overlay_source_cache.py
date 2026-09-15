@@ -3,17 +3,13 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-import re
 
 from retainpdf_pipeline.foundation.config import fonts
 from retainpdf_pipeline.render.output.typst.source_builder import build_typst_book_overlay_source
 
 
-PREBUILT_SOURCE_RENDER_VERSION = "overlay_cover_fill_title_color_v13_abstract_bbox"
+PREBUILT_SOURCE_RENDER_VERSION = "overlay_cover_fill_title_color_v14_font_identity"
 PAGE_SIZE_TOLERANCE_PT = 0.5
-TYPST_PAGE_SIZE_RE = re.compile(
-    r"#set\s+page\(\s*width:\s*(?P<width>[0-9.]+)pt,\s*height:\s*(?P<height>[0-9.]+)pt",
-)
 SOURCE_FINGERPRINT_PREFIX = "// overlay_source_fingerprint="
 
 
@@ -21,34 +17,18 @@ def prebuilt_source_matches_page_specs(
     prebuilt_source_path: Path,
     book_specs: list[tuple[float, float, list[dict]]],
     *,
+    font_family: str = fonts.TYPST_DEFAULT_FONT_FAMILY,
     include_cover_rect: bool = False,
 ) -> bool:
     expected_fingerprint = overlay_source_fingerprint(
         book_specs,
+        font_family=font_family,
         include_cover_rect=include_cover_rect,
     )
     header_fingerprint = prebuilt_source_fingerprint(prebuilt_source_path)
-    if header_fingerprint:
-        return header_fingerprint == expected_fingerprint
-    try:
-        source = prebuilt_source_path.read_text(encoding="utf-8")
-    except OSError:
-        return False
-    version_marker = _source_version_marker(include_cover_rect=include_cover_rect)
-    if version_marker not in source:
-        return False
-    sizes = [
-        (float(match.group("width")), float(match.group("height")))
-        for match in TYPST_PAGE_SIZE_RE.finditer(source)
-    ]
-    if len(sizes) != len(book_specs):
-        return False
-    for (actual_w, actual_h), (expected_w, expected_h, _items) in zip(sizes, book_specs):
-        if abs(actual_w - float(expected_w)) > PAGE_SIZE_TOLERANCE_PT:
-            return False
-        if abs(actual_h - float(expected_h)) > PAGE_SIZE_TOLERANCE_PT:
-            return False
-    return True
+    # Legacy page-size-only sources cannot prove either content or font identity.
+    # A missing/old fingerprint is a cache miss and is rebuilt on normal demand.
+    return header_fingerprint == expected_fingerprint
 
 
 def resolve_prebuilt_overlay_source(
@@ -72,6 +52,7 @@ def resolve_prebuilt_overlay_source(
         and prebuilt_source_matches_page_specs(
             active_path,
             book_specs,
+            font_family=font_family,
             include_cover_rect=include_cover_rect,
         )
     ):
@@ -84,6 +65,7 @@ def resolve_prebuilt_overlay_source(
     active_path = active_path or source_work_dir / f"{stem}.typ.prebuilt"
     fingerprint = overlay_source_fingerprint(
         book_specs,
+        font_family=font_family,
         include_cover_rect=include_cover_rect,
     )
     active_path.write_text(
@@ -121,10 +103,13 @@ def prebuilt_source_fingerprint(path: Path) -> str:
 def overlay_source_fingerprint(
     book_specs: list[tuple[float, float, list[dict]]],
     *,
+    font_family: str = fonts.TYPST_DEFAULT_FONT_FAMILY,
     include_cover_rect: bool = False,
 ) -> str:
     digest = hashlib.sha256()
     digest.update(_source_version_marker(include_cover_rect=include_cover_rect).encode("utf-8"))
+    digest.update(b"\n")
+    digest.update(json.dumps(font_family, ensure_ascii=False).encode("utf-8"))
     digest.update(b"\n")
     for page_width, page_height, items in book_specs:
         digest.update(f"{float(page_width):.3f},{float(page_height):.3f}\n".encode("utf-8"))

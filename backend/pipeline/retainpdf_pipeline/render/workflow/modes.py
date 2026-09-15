@@ -15,6 +15,8 @@ from retainpdf_pipeline.render.output.typst.book_renderer import build_book_typs
 from retainpdf_pipeline.render.output.typst.book_renderer import build_book_typst_pdf
 from retainpdf_pipeline.render.output.typst.book_renderer import build_dual_book_pdf
 from retainpdf_pipeline.render.workflow.context import RenderExecutionContext
+from retainpdf_pipeline.render.workflow.selected_pages import remap_selected_render_pages
+from retainpdf_pipeline.render.workflow.selected_pages import remap_selected_visual_profile
 from retainpdf_pipeline.render.output.typst.shared import default_typst_temp_root
 from retainpdf_pipeline.render.source.intermediate_paths import intermediate_pdf_path
 
@@ -58,7 +60,6 @@ def run_dual_render(
         base_url=context.base_url,
         font_family=context.typst_font_family,
         cover_only=False,
-        fast_save=_should_fast_save(context),
         indent_detection_pdf_path=_indent_detection_pdf_path(context, source_pdf_path),
         first_line_indent_lookup=context.first_line_indent_lookup,
         effective_inner_bbox_lookup=context.effective_inner_bbox_lookup,
@@ -85,11 +86,44 @@ def run_selected_pages_overlay_render(
         start_page=context.start_page,
         end_page=context.end_page,
     )
-    remapped_pages = {
-        page_idx - context.start_page: items
-        for page_idx, items in translated_pages.items()
-        if context.start_page <= page_idx <= context.end_page
-    }
+    # Geometry/colour sampling must see the same page window as the overlay
+    # base. Keep the original pixels when the base has already been cleaned.
+    sample_source_path = _indent_detection_pdf_path(context, source_pdf_path)
+    selected_sample_path = selected_source_path
+    if sample_source_path.resolve() != source_pdf_path.resolve():
+        selected_sample_path = intermediate_pdf_path(
+            work_root=default_typst_temp_root(context.output_pdf_path),
+            output_pdf_path=context.output_pdf_path,
+            suffix=".selected-sample.pdf",
+        )
+        extract_pages_with_pikepdf(
+            source_pdf_path=sample_source_path,
+            output_pdf_path=selected_sample_path,
+            start_page=context.start_page,
+            end_page=context.end_page,
+        )
+    remapped_pages = remap_selected_render_pages(
+        translated_pages, start_page=context.start_page, end_page=context.end_page
+    )
+    remapped_prepared_pages = (
+        remap_selected_render_pages(
+            context.prepared_overlay_pages,
+            start_page=context.start_page,
+            end_page=context.end_page,
+        )
+        if context.prepared_overlay_pages is not None
+        else None
+    )
+    selected_visual_profile_path = remap_selected_visual_profile(
+        context.visual_profile_path,
+        intermediate_pdf_path(
+            work_root=default_typst_temp_root(context.output_pdf_path),
+            output_pdf_path=context.output_pdf_path,
+            suffix=".selected-visual-profile.json",
+        ),
+        start_page=context.start_page,
+        end_page=context.end_page,
+    )
     remapped_precleaned_pages = frozenset(
         page_idx - context.start_page
         for page_idx in context.source_text_precleaned_page_indices
@@ -111,14 +145,16 @@ def run_selected_pages_overlay_render(
         font_family=context.typst_font_family,
         cover_only=False,
         fast_save=_should_fast_save(context),
-        indent_detection_pdf_path=_indent_detection_pdf_path(context, source_pdf_path),
+        indent_detection_pdf_path=selected_sample_path,
         first_line_indent_lookup=context.first_line_indent_lookup,
         effective_inner_bbox_lookup=context.effective_inner_bbox_lookup,
         source_text_precleaned_page_indices=remapped_precleaned_pages,
         source_cleanup_strategy=context.source_cleanup_strategy,
+        prepared_overlay_pages=remapped_prepared_pages,
         precomputed_colors_by_item_id=context.render_colors_by_item_id,
-        visual_profile_path=context.visual_profile_path,
+        visual_profile_path=selected_visual_profile_path,
         visual_cover_page_indices=remapped_visual_cover_pages,
+        no_cache=context.no_cache,
         request_chat_content_fn=None,
     )
     final_compressed = _compress_final_pdf_if_needed(context, mode="selected_pages_overlay")
