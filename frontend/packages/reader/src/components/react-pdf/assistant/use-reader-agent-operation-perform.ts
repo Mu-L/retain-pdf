@@ -4,13 +4,8 @@
 // and never the polling store.
 
 import { useCallback, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import {
-  cancelAgentOperation,
-  commitAgentOperation,
-  retryAgentOperation,
-  runAgentOperation,
-  type AgentOperationView,
-} from "@retainpdf/api/document-operations";
+import type { ReaderAgentOperation, ReaderAgentRuntimeConfig } from "../../../contracts/ai-operations.js";
+import { readerAgentOperationPort } from "../../../external.js";
 import {
   errorMessage,
   errorStatus,
@@ -29,7 +24,7 @@ export function useReaderAgentOperationPerform({
   inFlightRef,
 }: {
   refresh: (operationId: string, settlePending?: boolean) => Promise<void>;
-  upsert: (operation: AgentOperationView, settlePending?: boolean) => void;
+  upsert: (operation: ReaderAgentOperation, settlePending?: boolean) => void;
   setEntriesById: Dispatch<SetStateAction<Record<string, ReaderAgentOperationEntry>>>;
   inFlightRef: MutableRefObject<Set<string>>;
 }) {
@@ -37,7 +32,7 @@ export function useReaderAgentOperationPerform({
 
   const perform = useCallback(async (
     action: "run" | "cancel" | "commit" | "retry",
-    operation: AgentOperationView,
+    operation: ReaderAgentOperation,
     options: ReaderAgentOperationPerformOptions = {},
   ) => {
     const operationId = `${operation.operation_id || ""}`.trim();
@@ -69,13 +64,15 @@ export function useReaderAgentOperationPerform({
       expected_program_sha256: operation.program_sha256 || "",
     };
     try {
-      let next: AgentOperationView;
-      if (action === "run") next = await runAgentOperation(operationId, common);
+      const port = readerAgentOperationPort();
+      if (!port) throw new Error("Reader AI operations unavailable");
+      let next: ReaderAgentOperation;
+      if (action === "run") next = await port.run(operationId, common);
       else if (action === "cancel") {
-        next = await cancelAgentOperation(operationId, { ...common, reason: "user_rejected" });
-      } else if (action === "commit") next = await commitAgentOperation(operationId, common);
+        next = await port.cancel(operationId, { ...common, reason: "user_rejected" });
+      } else if (action === "commit") next = await port.commit(operationId, common);
       else {
-        next = await retryAgentOperation(operationId, options.acceptDuplicateRisk
+        next = await port.retry(operationId, options.acceptDuplicateRisk
           ? { ...common, accept_duplicate_risk: true }
           : common);
       }

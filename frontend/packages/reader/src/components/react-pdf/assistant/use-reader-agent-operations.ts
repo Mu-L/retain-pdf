@@ -6,11 +6,8 @@
 // names, storage keys, poll intervals, and CAS behavior are unchanged.
 
 import { useCallback } from "react";
-import {
-  fetchAgentOperationCandidate,
-  type AgentOperationView,
-} from "@retainpdf/api/document-operations";
-import type { AgentConfirmationMode } from "@retainpdf/api/agent-runtime-settings";
+import type { ReaderAgentOperation, ReaderAgentRuntimeConfig } from "../../../contracts/ai-operations.js";
+import { readerAgentOperationPort } from "../../../external.js";
 import {
   type ReaderAgentOperationSignal,
 } from "./reader-agent-operation-model.js";
@@ -36,7 +33,7 @@ export function useReaderAgentOperations({
   enabled: boolean;
   discovering: boolean;
   signal: ReaderAgentOperationSignal | null;
-  confirmationModeHint?: AgentConfirmationMode;
+  confirmationModeHint?: ReaderAgentRuntimeConfig["agent_confirmation_mode"];
   onDocumentCommitted?: (input: { documentId: string; revision: string }) => void;
 }) {
   const poll = useReaderAgentOperationPoll({
@@ -55,8 +52,9 @@ export function useReaderAgentOperations({
     inFlightRef: poll.inFlightRef,
   });
 
-  const loadCandidate = useCallback((operation: AgentOperationView) => (
-    fetchAgentOperationCandidate(operation.operation_id)
+  const loadCandidate = useCallback((operation: ReaderAgentOperation) => (
+    readerAgentOperationPort()?.fetchCandidate(operation.operation_id)
+      ?? Promise.reject(new Error("Reader AI operations unavailable"))
   ), []);
 
   return {

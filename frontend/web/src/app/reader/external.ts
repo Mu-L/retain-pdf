@@ -8,6 +8,7 @@
 
 // —— config / mock / messaging ——
 export { isMockMode } from "@/platform/config/runtime.js";
+export { aiOperationsPort, askChatPort, conversationPort } from "@/features/reader/domain.js";
 export { MOCK_DOCUMENT_SOURCE_PDF_URL } from "@/platform/mock/documents.js";
 export { READER_DIALOG_MESSAGES } from "@/features/reader/domain.js";
 
@@ -20,7 +21,7 @@ export {
 } from "@/platform/runtime/vendor-url.js";
 
 // —— Reader 宿主 ports：直连 shared/*，不经历史中转层 ——
-export { defaultReaderDataPort } from "@/features/reader/domain.js";
+export { defaultReaderDataPort, liveTranslationPort, pdfPort, sessionDataPort } from "@/features/reader/domain.js";
 export {
   defaultReaderPageConfigPort,
   resolveReaderAnchor,

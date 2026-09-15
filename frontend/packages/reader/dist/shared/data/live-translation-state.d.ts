@@ -1,4 +1,4 @@
-import type { LiveTranslationCommitEvent, LiveTranslationItem, LiveTranslationLayout, LiveTranslationLayoutPage, LiveTranslationPageSnapshot } from "@retainpdf/api/live-translation";
+import type { ReaderLiveTranslationCommitEvent as LiveTranslationCommitEvent, ReaderLiveTranslationItem as LiveTranslationItem, ReaderLiveTranslationLayout as LiveTranslationLayout, ReaderLiveTranslationLayoutPage as LiveTranslationLayoutPage, ReaderLiveTranslationPageSnapshot as LiveTranslationPageSnapshot } from "../../contracts/live-translation.js";
 export type LiveTranslationPageState = {
     attempt: number;
     generation: number;

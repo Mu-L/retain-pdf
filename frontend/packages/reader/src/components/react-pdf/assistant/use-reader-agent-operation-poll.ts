@@ -4,15 +4,8 @@
 // interval (3000 ms config, 1400 ms operation poll) and effect dependency list.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  getAgentOperation,
-  listAgentOperations,
-  type AgentOperationView,
-} from "@retainpdf/api/document-operations";
-import {
-  fetchAgentRuntimeConfig,
-  type AgentConfirmationMode,
-} from "@retainpdf/api/agent-runtime-settings";
+import type { ReaderAgentOperation, ReaderAgentRuntimeConfig } from "../../../contracts/ai-operations.js";
+import { readerAgentOperationPort } from "../../../external.js";
 import {
   shouldPoll,
   shouldReplaceAgentOperation,
@@ -33,18 +26,18 @@ export function useReaderAgentOperationPoll({
   enabled: boolean;
   discovering: boolean;
   signal: ReaderAgentOperationSignal | null;
-  confirmationModeHint?: AgentConfirmationMode;
+  confirmationModeHint?: ReaderAgentRuntimeConfig["agent_confirmation_mode"];
   onDocumentCommitted?: (input: { documentId: string; revision: string }) => void;
 }) {
   const [entriesById, setEntriesById] = useState<Record<string, ReaderAgentOperationEntry>>({});
-  const [confirmationMode, setConfirmationMode] = useState<AgentConfirmationMode>("explicit");
+  const [confirmationMode, setConfirmationMode] = useState<ReaderAgentRuntimeConfig["agent_confirmation_mode"]>("explicit");
   const [runtimeRestarting, setRuntimeRestarting] = useState(false);
   const [runtimeCredentialConfigured, setRuntimeCredentialConfigured] = useState(false);
   const inFlightRef = useRef(new Set<string>());
   const notifiedCommittedRef = useRef(new Set<string>());
   const recoveredConversationRef = useRef(new Set<string>());
 
-  const upsert = useCallback((operation: AgentOperationView, settlePending = false) => {
+  const upsert = useCallback((operation: ReaderAgentOperation, settlePending = false) => {
     if (!operation?.operation_id) return;
     setEntriesById((current) => {
       const entry = current[operation.operation_id];
@@ -73,7 +66,9 @@ export function useReaderAgentOperationPoll({
     if (!id || inFlightRef.current.has(slot)) return;
     inFlightRef.current.add(slot);
     try {
-      upsert(await getAgentOperation(id), settlePending);
+      const port = readerAgentOperationPort();
+      if (!port) return;
+      upsert(await port.get(id), settlePending);
     } catch {
       // SSE events are hints. A following list/poll remains authoritative.
     } finally {
@@ -87,7 +82,9 @@ export function useReaderAgentOperationPoll({
     if (!enabled || !id || inFlightRef.current.has(slot)) return;
     inFlightRef.current.add(slot);
     try {
-      const result = await listAgentOperations({ conversationId: id, limit: 50 });
+      const port = readerAgentOperationPort();
+      if (!port) return;
+      const result = await port.list(id, { });
       // The first list request hydrates history. A committed operation found in
       // that baseline is not a new commit and must not force the Reader back to
       // the source PDF. Later transitions are still announced normally.
@@ -112,7 +109,9 @@ export function useReaderAgentOperationPoll({
     let cancelled = false;
     const load = async () => {
       try {
-        const config = await fetchAgentRuntimeConfig();
+        const port = readerAgentOperationPort();
+        if (!port) return;
+        const config = await port.fetchRuntimeConfig();
         if (cancelled) return;
         setConfirmationMode(config.agent_confirmation_mode || "explicit");
         setRuntimeCredentialConfigured(Boolean(config.llm_api_key_configured));

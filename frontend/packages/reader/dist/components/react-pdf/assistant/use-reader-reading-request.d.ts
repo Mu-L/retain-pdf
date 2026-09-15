@@ -1,6 +1,6 @@
 import type { ReaderChatMessage } from "./retainpdf-chat-transport.js";
 import type { ReaderConversationTreePort } from "./use-reader-conversation.js";
-import type { ReaderChatRequest } from "./retainpdf-chat-transport.js";
+import type { ReaderChatRequest } from "../../../contracts/ai-chat.js";
 import type { ReaderAssistantMode } from "../../../shared/ai/ask-answerer.js";
 import { type ReaderSelection } from "../../../shared/data/reader-regions.js";
 /** Narrow chat projection this hook drives. Adapted by the facade from the

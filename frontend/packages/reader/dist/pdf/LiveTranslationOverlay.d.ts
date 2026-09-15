@@ -1,4 +1,4 @@
-import type { LiveTranslationLayoutPage, LiveTranslationTypography } from "@retainpdf/api/live-translation";
+import type { ReaderLiveTranslationLayoutPage as LiveTranslationLayoutPage, ReaderLiveTranslationTypography as LiveTranslationTypography } from "../contracts/live-translation.js";
 import type { LiveTranslationPageState } from "../shared/data/live-translation-state.js";
 import { type ReaderRegionRect } from "../shared/data/reader-regions.js";
 type ProjectedLiveTranslationItem = {

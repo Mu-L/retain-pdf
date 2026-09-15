@@ -6,7 +6,7 @@
 // - 瞬时状态错误不得替换可用的 Reader 快照。
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { defaultReaderDataPort } from "../../external.js";
+import { readerSessionDataPort } from "../../external.js";
 import { normalizeJobStatus, TERMINAL_JOB_STATUSES } from "./session-helpers.js";
 
 export type JobStatusPolling = {
@@ -87,7 +87,7 @@ export function useJobStatusPolling(options: {
   const refreshJobStatus = useCallback(async () => {
     const targetJobId = sessionJobIdRef.current;
     if (!targetJobId || statusRefreshInFlightRef.current === targetJobId) return;
-    const loadJobPayload = defaultReaderDataPort.loadJobPayload;
+    const loadJobPayload = readerSessionDataPort().loadJobPayload;
     if (typeof loadJobPayload !== "function") return;
     const sessionEpoch = sessionEpochRef.current.value;
     statusRefreshInFlightRef.current = targetJobId;

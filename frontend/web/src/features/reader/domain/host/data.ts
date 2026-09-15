@@ -5,10 +5,16 @@ import {
   fetchJobMarkdown as fetchApiJobMarkdown,
 } from "@retainpdf/api/jobs-artifacts";
 import { fetchJobPayload as fetchApiJobPayload } from "@retainpdf/api/jobs";
+import { fetchDocumentByJobId } from "@/platform/api/index.js";
 import {
   fetchReaderMetadata as fetchApiReaderMetadata,
   fetchReaderRegions as fetchApiReaderRegions,
 } from "@retainpdf/api/reader";
+import {
+  fetchLiveTranslationLayout,
+  fetchLiveTranslationPage,
+  streamLiveTranslationEvents,
+} from "@retainpdf/api/live-translation";
 import {
   findReadyManifestArtifact,
   resolveJobActions,
@@ -18,6 +24,8 @@ import {
 } from "@retainpdf/domain/job";
 import type { JobLike } from "@retainpdf/domain/job";
 import * as readerData from "@retainpdf/reader/runtime/data";
+import type { ReaderLiveTranslationPort, ReaderPdfPort, ReaderSessionDataPort, ReaderSessionSnapshot } from "@retainpdf/reader/contracts";
+import { normalizeReaderMetadata, normalizeReaderRegions } from "@retainpdf/reader/runtime/data";
 import type {
   MarkdownRangeResult,
   MarkdownSourceDescriptor,
@@ -146,6 +154,108 @@ async function fetchReaderMetadata(jobId: string, apiPrefix?: string): Promise<a
   return fetchApiReaderMetadata(jobId, apiPrefix);
 }
 
+
+export const pdfPort: ReaderPdfPort = {
+  fetchProtected: (input, init) => fetchProtected(input, init),
+  resolvePdfjsVendorUrl,
+};
+
+function asRecord(value: unknown): Record<string, any> {
+  return value && typeof value === "object" ? value as Record<string, any> : {};
+}
+function normalizedString(value: unknown): string { return `${value ?? ""}`.trim(); }
+function resolveSnapshotDocumentId(payload: unknown): string {
+  const record = asRecord(payload);
+  for (const value of [record.document_id, record.documentId, record.document?.document_id, record.book_summary?.document_id, record.request_payload?.source?.document_id]) {
+    const id = normalizedString(value);
+    if (id) return id;
+  }
+  return "";
+}
+function snapshotTitle(payload: unknown, jobId: string): string {
+  const record = asRecord(payload);
+  for (const value of [record.title, record.display_name, record.source_file_name, record.book_summary?.source_file_name]) {
+    const text = normalizedString(value);
+    if (text && text !== jobId && text !== `${jobId}.pdf`) return text.replace(/\.pdf$/i, "");
+  }
+  return "";
+}
+function snapshotStatus(payload: unknown): string { return normalizedString(asRecord(payload).status).toLowerCase(); }
+function snapshotWorkflow(payload: unknown): string { return normalizedString(asRecord(payload).workflow || asRecord(payload).job_type).toLowerCase(); }
+
+export const sessionDataPort: ReaderSessionDataPort = {
+  loadSessionSnapshot: async (input): Promise<ReaderSessionSnapshot> => {
+    const payload = await defaultReaderDataPort.loadReaderPayload(input.jobId, {
+      includeOptionalArtifacts: input.includeOptionalArtifacts !== false,
+    });
+    const jobRecord = asRecord(payload.jobPayload);
+    const linked = input.jobId && !input.routeDocumentId
+      ? await fetchDocumentByJobId(API_PREFIX, input.jobId).catch(() => null)
+      : null;
+    const payloadDocumentId = resolveSnapshotDocumentId(payload.jobPayload);
+    const documentId = input.documentId || input.routeDocumentId || payloadDocumentId || normalizedString(linked?.document_id);
+    const activeJobId = normalizedString(linked?.active_job_id);
+    const activeVersionId = normalizedString(linked?.active_version_id);
+    const committed = input.committedSource;
+    const restoreCommitted = Boolean(
+      payloadDocumentId && activeVersionId && activeJobId === input.jobId && !committed,
+    );
+    const sourceItem = resolveReaderSourcePdf(payload.manifestPayload);
+    const sourceArtifact = typeof sourceItem === "string" ? sourceItem : resolveReaderArtifactUrl(sourceItem);
+    const translated = resolveReaderTranslatedPdfUrl(payload.jobPayload, payload.manifestPayload);
+    const sourceUrl = committed?.documentId
+      ? resolveResourceUrl(`/api/v1/documents/${encodeURIComponent(committed.documentId)}/source.pdf?version=${encodeURIComponent(committed.revision)}`)
+      : sourceArtifact || (documentId ? resolveResourceUrl(`/api/v1/documents/${encodeURIComponent(documentId)}/source.pdf`) : "");
+    const translatedUrl = committed || restoreCommitted ? "" : translated || "";
+    return {
+      loadPlan: restoreCommitted
+        ? { kind: "restore-committed-source", documentId: payloadDocumentId, revision: activeVersionId }
+        : { kind: "open-job-artifacts" },
+      jobId: input.jobId,
+      documentId,
+      jobStatus: snapshotStatus(payload.jobPayload),
+      workflow: snapshotWorkflow(payload.jobPayload),
+      title: snapshotTitle(payload.jobPayload, input.jobId),
+      sourceUrl,
+      translatedUrl,
+      sourceOnly: !input.jobId,
+      sourcePayload: payload.jobPayload,
+      manifestPayload: payload.manifestPayload,
+      regions: normalizeReaderRegions(payload.regionsPayload),
+      readerMetadata: normalizeReaderMetadata(payload.readerMetadata),
+      readerErrors: payload.readerErrors,
+    };
+  },
+  loadReaderPayload: (jobId, options) => defaultReaderDataPort.loadReaderPayload(jobId, options),
+  loadJobPayload: (jobId) => defaultReaderDataPort.loadJobPayload(jobId),
+  fetchDocumentByJobId: async (apiPrefix, jobId) => fetchDocumentByJobId(apiPrefix, jobId),
+  fetchProtected: (input, init) => fetchProtected(input, init),
+  resolveResourceUrl,
+  resolveReaderSourcePdf: (manifestPayload) => resolveReaderSourcePdf(manifestPayload),
+  resolveReaderTranslatedPdfUrl: (jobPayload, manifestPayload) => resolveReaderTranslatedPdfUrl(jobPayload, manifestPayload),
+  resolveReaderArtifactUrl: (item) => resolveReaderArtifactUrl(item),
+};
+
+export const liveTranslationPort: ReaderLiveTranslationPort = {
+  fetchLayout: (jobId, options: { signal?: AbortSignal } = {}) =>
+    fetchLiveTranslationLayout(jobId, {
+      apiPrefix: API_PREFIX,
+      signal: options.signal,
+    }),
+  fetchPage: (jobId, pageIdx, options: { signal?: AbortSignal } = {}) =>
+    fetchLiveTranslationPage(jobId, pageIdx, {
+      apiPrefix: API_PREFIX,
+      signal: options.signal,
+    }),
+  streamEvents: (jobId, options) =>
+    streamLiveTranslationEvents(jobId, {
+      apiPrefix: API_PREFIX,
+      afterSeq: options.afterSeq,
+      signal: options.signal,
+      onEvent: options.onEvent,
+    }),
+};
+
 export async function fetchProtected(url: string, options: RequestInit = {}): Promise<Response> {
   if (isMockMode() && `${url || ""}`.startsWith("mock://")) {
     return fetchMockProtected(url);
@@ -184,6 +294,7 @@ export const createReaderDataPort = (options: ReaderDataPortOptions = {}) =>
     loadRegions: fetchReaderRegions,
     loadMetadata: fetchReaderMetadata,
     fetchProtectedResource: fetchProtected,
+    liveTranslation: liveTranslationPort,
     ...options,
   });
 export const defaultReaderDataPort = createReaderDataPort();

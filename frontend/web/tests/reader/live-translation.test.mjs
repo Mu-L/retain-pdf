@@ -316,11 +316,31 @@ test("live translation consumes session terminal status without polling the job"
 
   const root = createRoot(document.getElementById("root"));
   let latest = null;
+  const liveTranslationPort = {
+    fetchLayout: async (jobId, options = {}) => {
+      const response = await fetch(`/api/v1/jobs/${jobId}/live-translation/layout`, { signal: options.signal });
+      return (await response.json()).data;
+    },
+    fetchPage: async (jobId, pageIdx, options = {}) => {
+      const response = await fetch(`/api/v1/jobs/${jobId}/live-translation/pages/${pageIdx}`, { signal: options.signal });
+      return (await response.json()).data;
+    },
+    streamEvents: async (jobId, options) => {
+      const response = await fetch(`/api/v1/jobs/${jobId}/live-events?after_seq=${options.afterSeq || 0}`, {
+        signal: options.signal,
+        headers: { Accept: "text/event-stream" },
+      });
+      const reader = response.body.getReader();
+      await reader.read();
+      reader.releaseLock();
+    },
+  };
   function Harness({ jobStatus }) {
     latest = useLiveTranslation({
       jobId: "job-session",
       jobStatus,
       enabled: true,
+      liveTranslationPort,
     });
     return null;
   }

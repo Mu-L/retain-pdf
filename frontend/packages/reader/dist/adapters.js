@@ -1,6 +1,6 @@
 import { s as t } from "./config-CgaWliJ_.js";
 import { s as a, r as s } from "./answer-enhance-W8TBaAUL.js";
-import { h as A, l as P, n as w } from "./markdown-payload-kK3ewW_I.js";
+import { h as A, l as P, n as D } from "./markdown-payload-kK3ewW_I.js";
 const n = [
   "isMockMode",
   "resolveResourceUrl",
@@ -14,6 +14,12 @@ const n = [
   "resolveReaderArtifactUrl",
   "resolveReaderSourcePdf",
   "resolveReaderTranslatedPdfUrl",
+  "liveTranslation",
+  "pdf",
+  "sessionData",
+  "aiOperations",
+  "conversations",
+  "askChat",
   "resolveMarkdownAssetUrl",
   "resolveReaderDownloadUrls",
   "resolveReaderDownloadName",
@@ -60,7 +66,7 @@ export {
   R as getReaderAdapters,
   A as hasMarkdownContent,
   P as loadMarkdownPayloadWithFallback,
-  w as normalizeMarkdownPayload,
+  D as normalizeMarkdownPayload,
   f as requireAdapter,
   i as setReaderAdapters
 };

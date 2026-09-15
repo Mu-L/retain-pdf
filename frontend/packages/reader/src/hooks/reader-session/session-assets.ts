@@ -12,15 +12,10 @@ import { useEffect, useState } from "react";
 import type { ProtectedPdfFile } from "../../pdf/useProtectedPdfFile.js";
 import {
   isMockMode,
-  resolveResourceUrl,
   MOCK_DOCUMENT_SOURCE_PDF_URL,
-  defaultReaderDataPort,
-  resolveReaderArtifactUrl,
-  resolveReaderSourcePdf,
-  resolveReaderTranslatedPdfUrl,
+  readerSessionDataPort,
   READER_PROGRESS_COPY,
   API_PREFIX,
-  fetchDocumentByJobId,
 } from "../../external.js";
 import {
   normalizeReaderMetadata,
@@ -156,6 +151,7 @@ export function useSessionAssets(options: {
       sessionEpoch,
     });
     activeLoadAbortRef.current = abort;
+    const dataPort = readerSessionDataPort();
 
     if (closingRef.current) {
       abort.abort();
@@ -198,15 +194,15 @@ export function useSessionAssets(options: {
         )
         : isMockMode()
           ? MOCK_DOCUMENT_SOURCE_PDF_URL
-          : resolveResourceUrl(`/api/v1/documents/${encodeURIComponent(routeDocumentId)}/source.pdf`);
+          : dataPort.resolveResourceUrl(`/api/v1/documents/${encodeURIComponent(routeDocumentId)}/source.pdf`);
     }
 
     async function loadSourceOnlyDocument(): Promise<void> {
       // OCR 吸怪：document_id 直开时，若文档已有 active_job_id（OCR-only 已回填），则按 job 链路加载以提供 Markdown/译文
       let link: DocumentLink = { activeJobId: "", activeVersionId: "" };
       try {
-        const docResp = await defaultReaderDataPort.fetchProtected(
-          resolveResourceUrl(`/api/v1/documents/${encodeURIComponent(routeDocumentId)}`),
+        const docResp = await dataPort.fetchProtected(
+          dataPort.resolveResourceUrl(`/api/v1/documents/${encodeURIComponent(routeDocumentId)}`),
         );
         if (docResp?.ok) {
           const docJson: unknown = await docResp.json().catch(() => null);
@@ -287,7 +283,20 @@ export function useSessionAssets(options: {
       // 历史翻译任务会因为 document.active_version_id 而失去对照阅读。
       // Reader 当前会话内完成 Agent 提交时，refreshCommittedDocument
       // 会显式设置 committedDocumentSource，并切换到新的文档源版本。
-      const payload = await defaultReaderDataPort.loadReaderPayload(sessionJobId, {
+      const snapshot = await dataPort.loadSessionSnapshot?.({
+        jobId: sessionJobId,
+        documentId: routeDocumentId,
+        routeDocumentId,
+        committedSource,
+        includeOptionalArtifacts: !committedSource,
+      });
+      const payload = snapshot ? {
+        jobPayload: snapshot.sourcePayload,
+        manifestPayload: snapshot.manifestPayload,
+        readerMetadata: snapshot.readerMetadata,
+        regionsPayload: snapshot.regions,
+        readerErrors: snapshot.readerErrors,
+      } : await dataPort.loadReaderPayload(sessionJobId, {
         // committedSource 分支会丢弃 regions/metadata（旧页序已失效），
         // 直接跳过这两个可选请求，避免无效网络往返。
         includeOptionalArtifacts: !committedSource,
@@ -296,7 +305,7 @@ export function useSessionAssets(options: {
       let linkedDocument: LinkedDocumentRecord | null = null;
       if (jobId && !routeDocumentId) {
         try {
-          linkedDocument = await fetchDocumentByJobId(API_PREFIX, sessionJobId) as LinkedDocumentRecord | null;
+          linkedDocument = await dataPort.fetchDocumentByJobId(API_PREFIX, sessionJobId) as LinkedDocumentRecord | null;
         } catch {
           // Standalone/package consumers may not provide document lookup.
         }
@@ -330,11 +339,11 @@ export function useSessionAssets(options: {
         return;
       }
 
-      const source = resolveReaderSourcePdf(payload.manifestPayload);
-      const translated = resolveReaderTranslatedPdfUrl(payload.jobPayload, payload.manifestPayload);
+      const source = dataPort.resolveReaderSourcePdf(payload.manifestPayload);
+      const translated = dataPort.resolveReaderTranslatedPdfUrl(payload.jobPayload, payload.manifestPayload);
       const resolvedSourceFinal = typeof source === "string"
         ? source
-        : resolveReaderArtifactUrl(source);
+        : dataPort.resolveReaderArtifactUrl(source);
       // OCR-only job 未必生成 PDF artifact；从 document_id 进入时继续使用
       // 馆藏源文件，同时保留真实 jobId 供 Markdown/AI 使用。
       const sourceDocumentId = routeDocumentId || payloadDocumentId;
@@ -344,7 +353,7 @@ export function useSessionAssets(options: {
           committedSource.revision,
         )
         : resolvedSourceFinal || (sourceDocumentId
-          ? resolveResourceUrl(`/api/v1/documents/${encodeURIComponent(sourceDocumentId)}/source.pdf`)
+          ? dataPort.resolveResourceUrl(`/api/v1/documents/${encodeURIComponent(sourceDocumentId)}/source.pdf`)
           : "");
       // 文档操作产生的是新的源版本；旧 job 的译文、region 与 metadata
       // 仍对应旧页序，不能继续和新源文件并排显示。

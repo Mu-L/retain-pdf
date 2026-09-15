@@ -13,13 +13,10 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import {
   armReaderAiClickShield,
   clearThreadBranchSnapshot,
-  getConversation,
-  listConversations,
   loadThreadBranchSnapshot,
   lockReaderAiNavigation,
   messagesToBranchItems,
   saveThreadBranchSnapshot,
-  type ConversationRecord,
 } from "../../../external.js";
 import {
   snapshotFromTree,
@@ -36,12 +33,14 @@ import {
   type ReaderConversationStreamPort,
   type ReaderConversationTreePort,
 } from "./reader-conversation-ports.js";
+import { readerConversationPort } from "../../../external.js";
 import {
   buildReaderAskSessionSummaries,
   citationsByMessageIdFromItems,
   contentByMessageIdFromItems,
   progressByMessageIdFromItems,
 } from "./reader-conversation-derived.js";
+import type { ReaderConversationRecord } from "../../../contracts/conversations.js";
 import { createReaderConversationTreePort } from "./reader-conversation-tree.js";
 import { useReaderConversationHydrate } from "./use-reader-conversation-hydrate.js";
 import { useReaderConversationPersistence } from "./use-reader-conversation-persistence.js";
@@ -71,7 +70,7 @@ export function useReaderConversation(options: {
   } = options;
   const [items, setItems] = useState<ReaderAskTreeItem[]>([]);
   const [headId, setHeadId] = useState<string | null>(null);
-  const [sessions, setSessions] = useState<ConversationRecord[]>([]);
+  const [sessions, setSessions] = useState<ReaderConversationRecord[]>([]);
   const [activeConversationId, setActiveConversationId] = useState("");
   const [sessionBusy, setSessionBusy] = useState(false);
   const [sessionError, setSessionError] = useState("");
@@ -95,7 +94,7 @@ export function useReaderConversation(options: {
   const refreshSessions = useCallback(async (
     docId = "",
     expectedSwitchToken?: number,
-  ): Promise<ConversationRecord[] | null> => {
+  ): Promise<ReaderConversationRecord[] | null> => {
     const doc = `${docId || documentIdRef.current || ""}`.trim();
     const generation = ++sessionListGenerationRef.current;
     if (!doc) {
@@ -106,7 +105,9 @@ export function useReaderConversation(options: {
       return [];
     }
     try {
-      const res = await listConversations({ document_id: doc, limit: 50 });
+      const port = readerConversationPort();
+      if (!port) return null;
+      const res = await port.list({ document_id: doc, limit: 50 });
       const rows = res.conversations || [];
       if (
         generation === sessionListGenerationRef.current
@@ -273,7 +274,9 @@ export function useReaderConversation(options: {
       if (token !== switchTokenRef.current) return;
       documentIdRef.current = docId;
 
-      const detail = await getConversation(id);
+      const port = readerConversationPort();
+      if (!port) throw new Error("Reader conversations unavailable");
+      const detail = await port.get(id);
       if (token !== switchTokenRef.current) return;
 
       armReaderAiClickShield(800);

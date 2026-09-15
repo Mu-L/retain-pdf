@@ -15,7 +15,7 @@
 // 本文件只做组合：维护跨模块的 session epoch/refs 栅栏，拼出 ReaderSessionState。
 
 import { useCallback, useMemo, useRef } from "react";
-import { defaultReaderDataPort } from "../external.js";
+import { readerSessionDataPort } from "../external.js";
 import type {
   ReaderDownloadContext,
   ReaderSessionState,
@@ -127,7 +127,7 @@ export function useReaderSession(): ReaderSessionState {
 
   const download = useMemo<ReaderDownloadContext>(
     () => ({
-      fetchProtected: defaultReaderDataPort.fetchProtected,
+      fetchProtected: readerSessionDataPort().fetchProtected,
       jobId: sessionJobId,
       jobPayload: scopedJobPayload,
       manifestPayload: scopedManifestPayload,

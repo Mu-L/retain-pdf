@@ -1,8 +1,8 @@
 import type { ChatTransport, UIMessage, UIMessageChunk } from "ai";
 import type { AiCitationLike } from "../../../shared/ai/answer-enhance.js";
-import type { AgentConfirmationMode } from "@retainpdf/api/agent-runtime-settings";
+import type { ReaderAgentRuntimeConfig } from "../../../contracts/ai-operations.js";
+import type { ReaderAnswerer, ReaderAssistantMode } from "../../../contracts/ai-chat.js";
 import type { ReaderAgentOperationSignal } from "./use-reader-agent-operations.js";
-import type { ReaderAssistantMode } from "../../../shared/ai/ask-answerer.js";
 export type ReaderChatMetadata = {
     citations?: AiCitationLike[];
     progress?: string;
@@ -10,32 +10,6 @@ export type ReaderChatMetadata = {
     status?: "running" | "complete" | "cancelled" | "error";
 };
 export type ReaderChatMessage = UIMessage<ReaderChatMetadata>;
-type ReaderAnswerer = {
-    ensureLoaded?: (jobId?: string) => Promise<unknown>;
-    answer: (options: Record<string, unknown>) => Promise<{
-        answer?: string;
-        citations?: unknown[];
-        persisted?: boolean;
-        conversationId?: string;
-        confirmationMode?: AgentConfirmationMode | "";
-        operationRefs?: Array<string | {
-            operation_id?: string;
-        }>;
-        confirmationRequests?: Array<{
-            operation_id?: string;
-        }>;
-    }>;
-};
-export type ReaderChatRequest = {
-    assistantMode?: ReaderAssistantMode;
-    assistantMessageId?: string;
-    parentId?: string;
-    question?: string;
-    regenerate?: boolean;
-    userMessageId?: string;
-    scope?: "document" | "selection" | "page";
-    context?: Record<string, unknown> | null;
-};
 /**
  * Translate RetainPDF's small SSE contract into AI SDK UI message chunks.
  *
@@ -50,11 +24,10 @@ export declare class RetainPdfChatTransport implements ChatTransport<ReaderChatM
         getLocalAnswerer?: () => ReaderAnswerer | null;
         getAssistantMode?: () => ReaderAssistantMode;
         onAgentOperationSignal?: (signal: Omit<ReaderAgentOperationSignal, "nonce">) => void;
-        onConfirmationMode?: (mode: AgentConfirmationMode) => void;
+        onConfirmationMode?: (mode: ReaderAgentRuntimeConfig["agent_confirmation_mode"]) => void;
     });
     sendMessages({ abortSignal, body, messages, trigger, }: Parameters<ChatTransport<ReaderChatMessage>["sendMessages"]>[0]): Promise<ReadableStream<UIMessageChunk>>;
     reconnectToStream(): Promise<ReadableStream<UIMessageChunk> | null>;
 }
 export declare function readerChatMessageText(message: ReaderChatMessage): string;
-export {};
 //# sourceMappingURL=retainpdf-chat-transport.d.ts.map

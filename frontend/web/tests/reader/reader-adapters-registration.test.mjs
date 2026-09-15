@@ -84,4 +84,10 @@ test("host registration preserves the exact injected host implementations", () =
   assert.equal(retainPdfReaderAdapters.failDownloadToast, ext.failDownloadToast);
   assert.equal(retainPdfReaderAdapters.resolveResourceUrl, ext.resolveResourceUrl);
   assert.equal(retainPdfReaderAdapters.fetchProtected, ext.fetchProtected);
+  assert.equal(retainPdfReaderAdapters.liveTranslation, ext.liveTranslationPort);
+  assert.equal(retainPdfReaderAdapters.pdf, ext.pdfPort);
+  assert.equal(retainPdfReaderAdapters.sessionData, ext.sessionDataPort);
+  assert.equal(retainPdfReaderAdapters.aiOperations, ext.aiOperationsPort);
+  assert.equal(retainPdfReaderAdapters.conversations, ext.conversationPort);
+  assert.equal(retainPdfReaderAdapters.askChat, ext.askChatPort);
 });

@@ -7,9 +7,9 @@ import type { AiCitationLike } from "../../../shared/ai/answer-enhance.js";
 import { normalizeAiCitations } from "../../../shared/ai/answer-enhance.js";
 import { sanitizeAssistantAnswer } from "../../../shared/ai/sanitize-answer.js";
 import { describeToolEvent } from "../../../shared/ai/tool-labels.js";
-import type { AgentConfirmationMode } from "@retainpdf/api/agent-runtime-settings";
+import type { ReaderAgentRuntimeConfig } from "../../../contracts/ai-operations.js";
+import type { ReaderChatRequest, ReaderAnswerer, ReaderAssistantMode } from "../../../contracts/ai-chat.js";
 import type { ReaderAgentOperationSignal } from "./use-reader-agent-operations.js";
-import type { ReaderAssistantMode } from "../../../shared/ai/ask-answerer.js";
 
 export type ReaderChatMetadata = {
   citations?: AiCitationLike[];
@@ -20,29 +20,8 @@ export type ReaderChatMetadata = {
 
 export type ReaderChatMessage = UIMessage<ReaderChatMetadata>;
 
-type ReaderAnswerer = {
-  ensureLoaded?: (jobId?: string) => Promise<unknown>;
-  answer: (options: Record<string, unknown>) => Promise<{
-    answer?: string;
-    citations?: unknown[];
-    persisted?: boolean;
-    conversationId?: string;
-    confirmationMode?: AgentConfirmationMode | "";
-    operationRefs?: Array<string | { operation_id?: string }>;
-    confirmationRequests?: Array<{ operation_id?: string }>;
-  }>;
-};
 
-export type ReaderChatRequest = {
-  assistantMode?: ReaderAssistantMode;
-  assistantMessageId?: string;
-  parentId?: string;
-  question?: string;
-  regenerate?: boolean;
-  userMessageId?: string;
-  scope?: "document" | "selection" | "page";
-  context?: Record<string, unknown> | null;
-};
+
 
 function textFromMessage(message: ReaderChatMessage | undefined): string {
   return (message?.parts || [])
@@ -88,7 +67,7 @@ export class RetainPdfChatTransport implements ChatTransport<ReaderChatMessage> 
     getLocalAnswerer?: () => ReaderAnswerer | null;
     getAssistantMode?: () => ReaderAssistantMode;
     onAgentOperationSignal?: (signal: Omit<ReaderAgentOperationSignal, "nonce">) => void;
-    onConfirmationMode?: (mode: AgentConfirmationMode) => void;
+    onConfirmationMode?: (mode: ReaderAgentRuntimeConfig["agent_confirmation_mode"]) => void;
   }) {}
 
   async sendMessages({

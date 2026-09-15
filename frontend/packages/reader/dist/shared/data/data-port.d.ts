@@ -1,3 +1,4 @@
+import type { ReaderLiveTranslationPort } from "../../contracts/live-translation.js";
 /** Markdown 原文的来源描述（来自 job detail artifacts.markdown）。 */
 export type MarkdownSourceDescriptor = {
     rawUrl: string;
@@ -14,7 +15,7 @@ export type MarkdownRangeResult = {
     rangeEnd: number | null;
     etag: string | null;
 };
-export declare function createReaderDataPort({ apiPrefix, loadJob, loadManifest, loadMarkdown, loadMarkdownDocument, loadMarkdownSource, fetchMarkdownRange, loadRegions, loadMetadata, fetchProtectedResource, }?: {
+export declare function createReaderDataPort({ apiPrefix, loadJob, loadManifest, loadMarkdown, loadMarkdownDocument, loadMarkdownSource, fetchMarkdownRange, loadRegions, loadMetadata, fetchProtectedResource, liveTranslation, }?: {
     apiPrefix?: string;
     loadJob?: (jobId: string, apiPrefix: string) => Promise<unknown>;
     loadManifest?: (jobId: string, apiPrefix: string) => Promise<unknown>;
@@ -25,6 +26,7 @@ export declare function createReaderDataPort({ apiPrefix, loadJob, loadManifest,
     loadRegions?: (jobId: string, apiPrefix: string) => Promise<unknown>;
     loadMetadata?: (jobId: string, apiPrefix: string) => Promise<unknown>;
     fetchProtectedResource?: typeof fetch;
+    liveTranslation?: ReaderLiveTranslationPort | null;
 }): Readonly<{
     apiPrefix: string;
     fetchProtected: typeof fetch;
@@ -46,6 +48,7 @@ export declare function createReaderDataPort({ apiPrefix, loadJob, loadManifest,
             metadata: unknown;
         };
     }>;
+    liveTranslation: ReaderLiveTranslationPort;
 }>;
 export declare const defaultReaderDataPort: Readonly<{
     apiPrefix: string;
@@ -68,5 +71,6 @@ export declare const defaultReaderDataPort: Readonly<{
             metadata: unknown;
         };
     }>;
+    liveTranslation: ReaderLiveTranslationPort;
 }>;
 //# sourceMappingURL=data-port.d.ts.map

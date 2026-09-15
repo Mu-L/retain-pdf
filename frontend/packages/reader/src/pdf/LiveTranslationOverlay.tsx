@@ -7,10 +7,10 @@ import {
   useState,
 } from "react";
 import type {
-  LiveTranslationLayoutBlock,
-  LiveTranslationLayoutPage,
-  LiveTranslationTypography,
-} from "@retainpdf/api/live-translation";
+  ReaderLiveTranslationLayoutBlock as LiveTranslationLayoutBlock,
+  ReaderLiveTranslationLayoutPage as LiveTranslationLayoutPage,
+  ReaderLiveTranslationTypography as LiveTranslationTypography,
+} from "../contracts/live-translation.js";
 import type { LiveTranslationPageState } from "../shared/data/live-translation-state.js";
 import {
   extractMarkdownMath,
@@ -203,7 +203,9 @@ export function resolveLiveTranslationTextStyle(
     // Typst leading is the additional inter-line gap, unlike CSS line-height.
     lineHeight: leadingEm ? 1 + leadingEm : 1.3,
     fontWeight: typography?.font_weight || (isDisplayKind(item.kind) ? 600 : 400),
-    textAlign: typography?.text_align || (isDisplayKind(item.kind) ? "center" : "justify"),
+    textAlign: ["left", "center", "right", "justify"].includes(`${typography?.text_align || ""}`)
+      ? typography?.text_align as LiveTranslationTextStyle["textAlign"]
+      : (isDisplayKind(item.kind) ? "center" : "justify"),
     padding,
     exact: Boolean(exactFontSize),
   };

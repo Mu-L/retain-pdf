@@ -1,12 +1,13 @@
 import { type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import { messagesToBranchItems, type ConversationRecord } from "../../../external.js";
+import { messagesToBranchItems } from "../../../external.js";
 import { type ReaderAskTreeItem } from "./reader-ask-tree.js";
+import type { ReaderConversationRecord } from "../../../contracts/conversations.js";
 import type { ReaderConversationRemotePort, ReaderConversationStreamPort } from "./reader-conversation-ports.js";
 export declare function useReaderSessionCommands(params: {
     jobId: string;
     documentId: string;
     sessionBusy: boolean;
-    sessions: readonly ConversationRecord[];
+    sessions: readonly ReaderConversationRecord[];
     streamRef: MutableRefObject<ReaderConversationStreamPort>;
     remoteRef: MutableRefObject<ReaderConversationRemotePort | null>;
     itemsRef: MutableRefObject<ReaderAskTreeItem[]>;
@@ -20,8 +21,8 @@ export declare function useReaderSessionCommands(params: {
     setActiveConversationId: (conversationId: string) => void;
     setItems: Dispatch<SetStateAction<ReaderAskTreeItem[]>>;
     setHeadId: Dispatch<SetStateAction<string | null>>;
-    setSessions: Dispatch<SetStateAction<ConversationRecord[]>>;
-    refreshSessions: (documentId?: string, expectedSwitchToken?: number) => Promise<ConversationRecord[] | null>;
+    setSessions: Dispatch<SetStateAction<ReaderConversationRecord[]>>;
+    refreshSessions: (documentId?: string, expectedSwitchToken?: number) => Promise<ReaderConversationRecord[] | null>;
     applyConversationTree: (branchItems: ReturnType<typeof messagesToBranchItems>, head?: string | null) => void;
 }): {
     adoptRemoteConversationId: () => void;

@@ -33,7 +33,7 @@ import {
   READER_PDF_PANE_CLASS,
   type ReaderPaneId,
 } from "./reader-dom-contract.js";
-import { resolvePdfjsVendorUrl } from "../external.js";
+import { readerPdfPort } from "../external.js";
 import {
   resolveReaderRegionHighlight,
   type ReaderMetadata,
@@ -148,9 +148,9 @@ const PdfDocumentPaneInner = forwardRef<HTMLElement, PdfDocumentPaneProps>(
     const lastWidthRef = useRef(0);
     const dpr = useMemo(() => readerDevicePixelRatio(), []);
     const documentOptions = useMemo(() => ({
-      cMapUrl: resolvePdfjsVendorUrl("cmaps/"),
+      cMapUrl: readerPdfPort().resolvePdfjsVendorUrl("cmaps/"),
       cMapPacked: true,
-      standardFontDataUrl: resolvePdfjsVendorUrl("standard_fonts/"),
+      standardFontDataUrl: readerPdfPort().resolvePdfjsVendorUrl("standard_fonts/"),
     }), []);
 
     useImperativeHandle(ref, () => paneEl as HTMLElement, [paneEl]);

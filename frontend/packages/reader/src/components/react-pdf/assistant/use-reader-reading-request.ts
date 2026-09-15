@@ -7,7 +7,7 @@
 // lifecycle elsewhere and are deliberately untouched.
 
 import { useCallback, useEffect, useRef } from "react";
-import { makeId } from "@retainpdf/domain/session";
+import { createReaderMessageId } from "../../../contracts/ai-chat.js";
 import {
   findMessage,
   visibleMessages,
@@ -25,7 +25,7 @@ import {
 } from "./use-reader-chat.js";
 import type { ReaderChatMessage } from "./retainpdf-chat-transport.js";
 import type { ReaderConversationTreePort } from "./use-reader-conversation.js";
-import type { ReaderChatRequest } from "./retainpdf-chat-transport.js";
+import type { ReaderChatRequest } from "../../../contracts/ai-chat.js";
 import type { ReaderAssistantMode } from "../../../shared/ai/ask-answerer.js";
 import {
   readerRegionContent,
@@ -106,8 +106,8 @@ export function useReaderReadingRequest(options: {
     const selection = selectionRef.current;
     const scopeKey = scopeKeyRef.current();
     const parentId = liveTree.readHeadId();
-    const userId = makeId("u");
-    const assistantId = makeId("a");
+    const userId = createReaderMessageId("u");
+    const assistantId = createReaderMessageId("a");
     const snapshot = buildReaderRequestSnapshot({
       assistantMode: mode,
       selectionContext: selection?.selectionType === "text"
@@ -183,7 +183,7 @@ export function useReaderReadingRequest(options: {
     }
     if (!question) return;
 
-    const assistantId = makeId("a");
+    const assistantId = createReaderMessageId("a");
     const branchParent = userId || parentId;
     const scopeKey = scopeKeyRef.current();
     // New requests persist this snapshot; legacy history falls back to the

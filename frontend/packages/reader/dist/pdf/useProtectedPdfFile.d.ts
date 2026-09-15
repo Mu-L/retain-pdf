@@ -1,4 +1,3 @@
-import { fetchProtected } from "../external.js";
 export type ProtectedPdfFile = {
     data: Uint8Array;
 };
@@ -13,7 +12,7 @@ type ProtectedPdfState = {
     loading: boolean;
     error: string;
 };
-export declare function loadProtectedPdfFile(url: string, fetchResource?: typeof fetchProtected, options?: {
+export declare function loadProtectedPdfFile(url: string, fetchResource?: typeof fetch, options?: {
     signal?: AbortSignal;
 }): Promise<ProtectedPdfFile | null>;
 export declare function useProtectedPdfFile(url?: string, 

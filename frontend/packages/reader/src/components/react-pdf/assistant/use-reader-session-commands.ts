@@ -7,15 +7,10 @@ import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction 
 import {
   armReaderAiClickShield,
   clearThreadBranchSnapshot,
-  deleteConversation,
-  forkConversationFromPath,
-  getConversation,
   lockReaderAiNavigation,
   messagesToBranchItems,
   nextForkConversationTitle,
-  patchConversation,
   saveThreadBranchSnapshot,
-  type ConversationRecord,
 } from "../../../external.js";
 import {
   pathForBranch,
@@ -24,6 +19,8 @@ import {
   visibleMessages,
   type ReaderAskTreeItem,
 } from "./reader-ask-tree.js";
+import type { ReaderConversationRecord } from "../../../contracts/conversations.js";
+import { readerConversationPort } from "../../../external.js";
 import type {
   ReaderConversationRemotePort,
   ReaderConversationStreamPort,
@@ -33,7 +30,7 @@ export function useReaderSessionCommands(params: {
   jobId: string;
   documentId: string;
   sessionBusy: boolean;
-  sessions: readonly ConversationRecord[];
+  sessions: readonly ReaderConversationRecord[];
   streamRef: MutableRefObject<ReaderConversationStreamPort>;
   remoteRef: MutableRefObject<ReaderConversationRemotePort | null>;
   itemsRef: MutableRefObject<ReaderAskTreeItem[]>;
@@ -47,11 +44,11 @@ export function useReaderSessionCommands(params: {
   setActiveConversationId: (conversationId: string) => void;
   setItems: Dispatch<SetStateAction<ReaderAskTreeItem[]>>;
   setHeadId: Dispatch<SetStateAction<string | null>>;
-  setSessions: Dispatch<SetStateAction<ConversationRecord[]>>;
+  setSessions: Dispatch<SetStateAction<ReaderConversationRecord[]>>;
   refreshSessions: (
     documentId?: string,
     expectedSwitchToken?: number,
-  ) => Promise<ConversationRecord[] | null>;
+  ) => Promise<ReaderConversationRecord[] | null>;
   applyConversationTree: (
     branchItems: ReturnType<typeof messagesToBranchItems>,
     head?: string | null,
@@ -205,7 +202,7 @@ export function useReaderSessionCommands(params: {
       const branchTitle = nextForkConversationTitle(sourceTitle, existingTitles);
 
       // 必须完整 fork 到服务端（含消息），禁止只建空会话
-      const forked = await forkConversationFromPath({
+      const forked = await readerConversationPort()!.forkFromPath({
         documentId: docId,
         title: branchTitle,
         path: pathPayload,
@@ -231,7 +228,7 @@ export function useReaderSessionCommands(params: {
 
       // 乐观插入列表（带正确标题与消息数），再 refresh 对齐服务端
       setSessions((prev) => {
-        const row: ConversationRecord = {
+        const row: ReaderConversationRecord = {
           conversation_id: nextConvId,
           title: branchTitle,
           document_id: docId,
@@ -279,7 +276,7 @@ export function useReaderSessionCommands(params: {
       documentIdRef.current = docId;
 
       try {
-        await deleteConversation(id);
+        await readerConversationPort()!.delete(id);
       } catch (error) {
         const status = Number((error as { status?: number })?.status) || 0;
         if (status !== 404) throw error;
@@ -313,7 +310,7 @@ export function useReaderSessionCommands(params: {
           setActiveConversationId(nextId);
           activeConversationIdRef.current = nextId;
           try {
-            const detail = await getConversation(nextId);
+            const detail = await readerConversationPort()!.get(nextId);
             if (token !== switchTokenRef.current) return;
             applyConversationTree(
               messagesToBranchItems(detail.messages || []),
@@ -346,7 +343,7 @@ export function useReaderSessionCommands(params: {
     const token = ++switchTokenRef.current;
     try {
       const clipped = nextTitle.slice(0, 80);
-      await patchConversation(id, { title: clipped });
+      await readerConversationPort()!.patch(id, { title: clipped });
       if (token !== switchTokenRef.current) return;
       setSessions((prev) =>
         prev.map((s) =>

@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  LiveTranslationApiError,
-  fetchLiveTranslationLayout,
-  fetchLiveTranslationPage,
-  streamLiveTranslationEvents,
-  type LiveTranslationCommitEvent,
-  type LiveTranslationPageSnapshot,
-} from "@retainpdf/api/live-translation";
+  createReaderTransportError,
+  isReaderTransportError,
+  type ReaderLiveTranslationCommitEvent as LiveTranslationCommitEvent,
+  type ReaderLiveTranslationPageSnapshot as LiveTranslationPageSnapshot,
+  type ReaderLiveTranslationPort,
+} from "../contracts/live-translation.js";
+import { readerLiveTranslation } from "../external.js";
 import {
   EMPTY_LIVE_TRANSLATION_STATE,
   applyLiveTranslationSnapshot,
@@ -38,14 +38,17 @@ function wait(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
+function errorCode(error: unknown): string {
+  return isReaderTransportError(error) ? `${error.code || ""}`.trim() : "";
+}
+
 function errorMessage(error: unknown, fallback: string): string {
-  if (error instanceof LiveTranslationApiError) {
-    if (error.code === "LIVE_TRANSLATION_PAGE_NOT_COMMITTED") {
-      return "尚未收到可显示的页面译文";
-    }
-    if (error.code === "LIVE_TRANSLATION_LAYOUT_NOT_READY") {
-      return "正在等待 OCR 版面数据";
-    }
+  const code = errorCode(error);
+  if (code === "LIVE_TRANSLATION_PAGE_NOT_COMMITTED") {
+    return "尚未收到可显示的页面译文";
+  }
+  if (code === "LIVE_TRANSLATION_LAYOUT_NOT_READY") {
+    return "正在等待 OCR 版面数据";
   }
   const message = `${(error as Error)?.message || ""}`.trim();
   return message || fallback;
@@ -56,15 +59,16 @@ async function fetchMatchingPage(
   event: LiveTranslationCommitEvent,
   current: LiveTranslationState,
   signal: AbortSignal,
+  port: ReaderLiveTranslationPort,
 ): Promise<LiveTranslationPageSnapshot> {
   let lastError: unknown = null;
   for (let attempt = 0; ; attempt += 1) {
     try {
-      const snapshot = await fetchLiveTranslationPage(jobId, event.page_idx, { signal });
+      const snapshot = await port.fetchPage(jobId, event.page_idx, { signal });
       if (decideLiveTranslationSnapshot(current.pagesByPage.get(event.page_idx), event, snapshot) !== "retry") {
         return snapshot;
       }
-      lastError = new LiveTranslationApiError(
+      lastError = createReaderTransportError(
         "Authoritative page snapshot has not reached the event generation",
         409,
         "LIVE_TRANSLATION_SNAPSHOT_UNAVAILABLE",
@@ -72,7 +76,7 @@ async function fetchMatchingPage(
     } catch (error) {
       if ((error as Error)?.name === "AbortError") throw error;
       lastError = error;
-      const code = error instanceof LiveTranslationApiError ? error.code : "";
+      const code = errorCode(error);
       if (code && ![
         "LIVE_TRANSLATION_PAGE_NOT_COMMITTED",
         "LIVE_TRANSLATION_SNAPSHOT_UNAVAILABLE",
@@ -89,12 +93,15 @@ export type UseLiveTranslationOptions = {
   /** Authoritative status owned and refreshed by the Reader session. */
   jobStatus: string;
   enabled: boolean;
+  /** Test/embedded-host override; production uses the registered Reader adapter. */
+  liveTranslationPort?: ReaderLiveTranslationPort | null;
 };
 
 export function useLiveTranslation({
   jobId,
   jobStatus,
   enabled,
+  liveTranslationPort = undefined,
 }: UseLiveTranslationOptions): LiveTranslationState {
   const [state, setState] = useState<LiveTranslationState>(EMPTY_LIVE_TRANSLATION_STATE);
   const stateRef = useRef(state);
@@ -115,8 +122,20 @@ export function useLiveTranslation({
       return;
     }
 
+    const port = liveTranslationPort === undefined ? readerLiveTranslation() : liveTranslationPort;
     const sameJob = stateJobIdRef.current === normalizedJobId;
     stateJobIdRef.current = normalizedJobId;
+    if (!port) {
+      const unavailableState: LiveTranslationState = {
+        ...(sameJob ? stateRef.current : EMPTY_LIVE_TRANSLATION_STATE),
+        connection: terminalStatus ? "terminal" : "unavailable",
+        jobStatus: normalizedJobStatus,
+        error: "实时译文暂不可用",
+      };
+      stateRef.current = unavailableState;
+      setState(unavailableState);
+      return;
+    }
     const abort = new AbortController();
     let layoutReady = false;
     // A failed/cancelled translation is a paused pipeline, not a failed reader.
@@ -143,7 +162,7 @@ export function useLiveTranslation({
       let retry = 0;
       while (!abort.signal.aborted) {
         try {
-          const layout = await fetchLiveTranslationLayout(normalizedJobId, { signal: abort.signal });
+          const layout = await port.fetchLayout(normalizedJobId, { signal: abort.signal });
           layoutReady = true;
           publish((current) => ({
             ...current,
@@ -154,8 +173,7 @@ export function useLiveTranslation({
           return;
         } catch (error) {
           if ((error as Error)?.name === "AbortError") return;
-          const canRetry = error instanceof LiveTranslationApiError
-            && error.code === "LIVE_TRANSLATION_LAYOUT_NOT_READY";
+          const canRetry = errorCode(error) === "LIVE_TRANSLATION_LAYOUT_NOT_READY";
           if (!canRetry) {
             publish((current) => ({
               ...current,
@@ -200,7 +218,7 @@ export function useLiveTranslation({
           }));
         }
         try {
-          await streamLiveTranslationEvents(normalizedJobId, {
+          await port.streamEvents(normalizedJobId, {
             afterSeq: stateRef.current.lastSeq,
             signal: abort.signal,
             onEvent: async (event) => {
@@ -210,6 +228,7 @@ export function useLiveTranslation({
                 event,
                 stateRef.current,
                 abort.signal,
+                port,
               );
               publish((current) => {
                 const next = applyLiveTranslationSnapshot(current, event, snapshot);
@@ -252,7 +271,7 @@ export function useLiveTranslation({
 
     void stream();
     return () => abort.abort();
-  }, [enabled, normalizedJobId, terminalStatus]);
+  }, [enabled, liveTranslationPort, normalizedJobId, terminalStatus]);
 
   return state;
 }

@@ -17,6 +17,7 @@ const REQUIRED_EXPORTS = [
   "./adapters",
   "./boot",
   "./ai",
+  "./contracts",
   "./runtime/ai",
   "./runtime/config",
   "./runtime/content",
@@ -213,6 +214,72 @@ test("importing Reader root and runtime exports does not require or mutate the D
     timeout: 30_000,
     maxBuffer: 10 * 1024 * 1024,
   });
+});
+
+test("Reader live translation implementation depends on package contracts, not API transport", () => {
+  const migratedFiles = [
+    "hooks/use-live-translation.ts",
+    "shared/data/live-translation-state.ts",
+    "pdf/LiveTranslationOverlay.tsx",
+    "pdf/PdfPageSlot.tsx",
+  ];
+  const offenders = migratedFiles.flatMap((relativePath) => {
+    const file = join(READER_SOURCE_ROOT, relativePath);
+    return importSpecifiers(readFileSync(file, "utf8"))
+      .filter((specifier) => specifier === "@retainpdf/api/live-translation")
+      .map((specifier) => `${relativePath} -> ${specifier}`);
+  });
+  assert.deepEqual(offenders, []);
+});
+
+test("Reader ask runtime uses the dedicated Ask/Chat port", () => {
+  const file = join(READER_SOURCE_ROOT, "components/react-pdf/assistant/use-reader-ask-runtime.ts");
+  const source = readFileSync(file, "utf8");
+  assert.match(source, /readerAskChatPort/);
+  assert.doesNotMatch(source, /@retainpdf\/api\/ai/);
+});
+
+test("Reader conversation shell uses the dedicated conversation port", () => {
+  const files = [
+    join(READER_SOURCE_ROOT, "components/react-pdf/assistant/use-reader-conversation.ts"),
+    join(READER_SOURCE_ROOT, "components/react-pdf/assistant/use-reader-session-commands.ts"),
+  ];
+  const offenders = files.flatMap((file) => importSpecifiers(readFileSync(file, "utf8"))
+    .filter((specifier) => specifier === "@retainpdf/api/conversations")
+    .map((specifier) => `${relative(REPO_ROOT, file)} -> ${specifier}`));
+  assert.deepEqual(offenders, []);
+});
+
+test("Reader operation UI uses the dedicated AI operation port", () => {
+  const files = sourceFilesUnder(join(READER_SOURCE_ROOT, "components/react-pdf/assistant"));
+  const offenders = files.flatMap((file) => importSpecifiers(readFileSync(file, "utf8"))
+    .filter((specifier) => specifier === "@retainpdf/api/document-operations" || specifier === "@retainpdf/api/agent-runtime-settings")
+    .map((specifier) => `${relative(REPO_ROOT, file)} -> ${specifier}`));
+  assert.deepEqual(offenders, []);
+});
+
+test("session hooks consume the dedicated SessionDataPort accessor", () => {
+  for (const relativePath of [
+    "hooks/reader-session/session-assets.ts",
+    "hooks/reader-session/job-status.ts",
+    "hooks/use-reader-session.ts",
+  ]) {
+    const source = readFileSync(join(READER_SOURCE_ROOT, relativePath), "utf8");
+    assert.match(source, /readerSessionDataPort/);
+    assert.doesNotMatch(source, /defaultReaderDataPort/);
+  }
+});
+
+test("PDF implementation consumes the dedicated PDF port accessor", () => {
+  for (const relativePath of [
+    "pdf/useProtectedPdfFile.ts",
+    "pdf/setup-react-pdf.ts",
+    "pdf/PdfDocumentPane.tsx",
+  ]) {
+    const source = readFileSync(join(READER_SOURCE_ROOT, relativePath), "utf8");
+    assert.match(source, /readerPdfPort/);
+    assert.doesNotMatch(source, /import \{ (?:fetchProtected|resolvePdfjsVendorUrl) \} from "\.\.\/external\.js"/);
+  }
 });
 
 test("production consumers do not deep-link into frontend/packages/reader/src", () => {

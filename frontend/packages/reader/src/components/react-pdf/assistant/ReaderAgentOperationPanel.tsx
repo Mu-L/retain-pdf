@@ -13,13 +13,11 @@ import {
   X,
 } from "lucide-react";
 import type {
-  AgentConfirmationMode,
-} from "@retainpdf/api/agent-runtime-settings";
-import type {
-  AgentOperationEventView,
-  AgentOperationStatus,
-  AgentOperationView,
-} from "@retainpdf/api/document-operations";
+  ReaderAgentOperationEvent,
+  ReaderAgentOperationStatus,
+  ReaderAgentOperation,
+  ReaderAgentRuntimeConfig,
+} from "../../../contracts/ai-operations.js";
 import type {
   ReaderAgentOperationEntry,
   ReaderAgentOperationPerformOptions,
@@ -27,9 +25,9 @@ import type {
 
 type OperationAction = "run" | "cancel" | "commit" | "retry";
 const DISMISSED_OPERATIONS_STORAGE_KEY = "retainpdf.reader-agent-operation.dismissed.v1";
-const DISMISSIBLE_STATUSES = new Set<AgentOperationStatus>(["failed", "cancelled"]);
+const DISMISSIBLE_STATUSES = new Set<ReaderAgentOperationStatus>(["failed", "cancelled"]);
 
-export function readerAgentOperationDismissalKey(operation: AgentOperationView): string {
+export function readerAgentOperationDismissalKey(operation: ReaderAgentOperation): string {
   return [
     `${operation.operation_id || ""}`.trim(),
     Number(operation.current_attempt) || 0,
@@ -57,7 +55,7 @@ function writeDismissedOperationKeys(keys: Set<string>) {
   }
 }
 
-function statusLabel(status: AgentOperationStatus, mode: AgentConfirmationMode): string {
+function statusLabel(status: ReaderAgentOperationStatus, mode: ReaderAgentRuntimeConfig["agent_confirmation_mode"]): string {
   switch (status) {
     case "draft":
     case "awaiting_confirmation": return mode === "green_light" ? "等待自动执行" : "等待确认";
@@ -73,7 +71,7 @@ function statusLabel(status: AgentOperationStatus, mode: AgentConfirmationMode):
   }
 }
 
-function actionItems(status: AgentOperationStatus) {
+function actionItems(status: ReaderAgentOperationStatus) {
   switch (status) {
     case "draft":
     case "awaiting_confirmation":
@@ -99,7 +97,7 @@ function actionItems(status: AgentOperationStatus) {
   }
 }
 
-function eventIcon(status: AgentOperationStatus) {
+function eventIcon(status: ReaderAgentOperationStatus) {
   if (status === "failed" || status === "ambiguous") return TriangleAlert;
   if (status === "cancelled") return X;
   if (status === "committed" || status === "result_ready") return Check;
@@ -108,8 +106,8 @@ function eventIcon(status: AgentOperationStatus) {
 }
 
 function OperationTimeline({ events, mode }: {
-  events: AgentOperationEventView[];
-  mode: AgentConfirmationMode;
+  events: ReaderAgentOperationEvent[];
+  mode: ReaderAgentRuntimeConfig["agent_confirmation_mode"];
 }) {
   return (
     <ol className="reader-agent-operation-timeline" aria-label="PDF 操作步骤">
@@ -132,8 +130,8 @@ function CandidatePreview({
   operation,
   loadCandidate,
 }: {
-  operation: AgentOperationView;
-  loadCandidate: (operation: AgentOperationView) => Promise<Blob>;
+  operation: ReaderAgentOperation;
+  loadCandidate: (operation: ReaderAgentOperation) => Promise<Blob>;
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [objectUrl, setObjectUrl] = useState("");
@@ -198,14 +196,14 @@ function OperationCard({
   onDismiss,
 }: {
   entry: ReaderAgentOperationEntry;
-  mode: AgentConfirmationMode;
-  loadCandidate: (operation: AgentOperationView) => Promise<Blob>;
+  mode: ReaderAgentRuntimeConfig["agent_confirmation_mode"];
+  loadCandidate: (operation: ReaderAgentOperation) => Promise<Blob>;
   onAction: (
     action: OperationAction,
-    operation: AgentOperationView,
+    operation: ReaderAgentOperation,
     options?: ReaderAgentOperationPerformOptions,
   ) => void | Promise<void>;
-  onDismiss: (operation: AgentOperationView) => void;
+  onDismiss: (operation: ReaderAgentOperation) => void;
 }) {
   const { operation, pendingAction, error } = entry;
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -309,12 +307,12 @@ export function ReaderAgentOperationPanel({
   onAction,
 }: {
   entries: ReaderAgentOperationEntry[];
-  confirmationMode: AgentConfirmationMode;
+  confirmationMode: ReaderAgentRuntimeConfig["agent_confirmation_mode"];
   runtimeRestarting: boolean;
-  loadCandidate: (operation: AgentOperationView) => Promise<Blob>;
+  loadCandidate: (operation: ReaderAgentOperation) => Promise<Blob>;
   onAction: (
     action: OperationAction,
-    operation: AgentOperationView,
+    operation: ReaderAgentOperation,
     options?: ReaderAgentOperationPerformOptions,
   ) => void | Promise<void>;
 }) {
@@ -323,7 +321,7 @@ export function ReaderAgentOperationPanel({
     !dismissedKeys.has(readerAgentOperationDismissalKey(entry.operation))
   ));
 
-  function dismissOperation(operation: AgentOperationView) {
+  function dismissOperation(operation: ReaderAgentOperation) {
     const key = readerAgentOperationDismissalKey(operation);
     setDismissedKeys((current) => {
       const next = new Set(current);

@@ -10,6 +10,12 @@ import type {
   ServerFavoriteRaw,
 } from "./shared/types/types.js";
 import type { askLibraryAi } from "@retainpdf/api/ai";
+import type { ReaderLiveTranslationPort } from "./contracts/live-translation.js";
+import type { ReaderPdfPort } from "./contracts/pdf.js";
+import type { ReaderSessionDataPort } from "./contracts/session.js";
+import type { ReaderAgentOperationPort } from "./contracts/ai-operations.js";
+import type { ReaderConversationPort } from "./contracts/conversations.js";
+import type { ReaderAskPort } from "./contracts/ai-chat.js";
 export {
   hasMarkdownContent,
   loadMarkdownPayloadWithFallback,
@@ -23,7 +29,7 @@ export type ReaderSessionAdapters = {
   isMockMode?: () => boolean;
   resolveResourceUrl?: (url: string) => string;
   fetchProtected?: typeof fetch;
-  resolvePdfjsVendorUrl?: () => string;
+  resolvePdfjsVendorUrl?: (relativePath?: string) => string;
   // 形状直接取自包内 runtime 工厂签名，宿主漏注入/结构漂移在 tsc 阶段暴露。
   defaultReaderDataPort?: ReturnType<typeof createReaderDataPort>;
   defaultReaderPageConfigPort?: ReturnType<typeof createReaderPageConfigPort>;
@@ -33,6 +39,18 @@ export type ReaderSessionAdapters = {
   resolveReaderArtifactUrl?: (...args: any[]) => string;
   resolveReaderSourcePdf?: (...args: any[]) => any;
   resolveReaderTranslatedPdfUrl?: (...args: any[]) => string;
+  /** Optional during migration; hosts without live translation remain supported. */
+  liveTranslation?: ReaderLiveTranslationPort;
+  /** Optional during migration; legacy flat fields remain supported. */
+  pdf?: ReaderPdfPort;
+  /** Optional during migration; legacy data/runtime fields remain supported. */
+  sessionData?: ReaderSessionDataPort;
+  /** Optional during migration; assistant operation UI uses an unavailable fallback. */
+  aiOperations?: ReaderAgentOperationPort;
+  /** Optional during migration; legacy conversation exports remain available. */
+  conversations?: ReaderConversationPort;
+  /** Optional during migration; assistant displays the existing unavailable state without it. */
+  askChat?: ReaderAskPort;
 };
 export type ReaderMarkdownAdapters = {
   resolveMarkdownAssetUrl: (imagesBaseUrl: unknown, relativePath: unknown) => string;
@@ -109,6 +127,12 @@ export const READER_ADAPTER_KEYS = [
   "resolveReaderArtifactUrl",
   "resolveReaderSourcePdf",
   "resolveReaderTranslatedPdfUrl",
+  "liveTranslation",
+  "pdf",
+  "sessionData",
+  "aiOperations",
+  "conversations",
+  "askChat",
   "resolveMarkdownAssetUrl",
   "resolveReaderDownloadUrls",
   "resolveReaderDownloadName",

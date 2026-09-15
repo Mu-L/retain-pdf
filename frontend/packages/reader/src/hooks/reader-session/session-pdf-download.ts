@@ -10,7 +10,7 @@ import {
   loadProtectedPdfFile,
   type ProtectedPdfFile,
 } from "../../pdf/useProtectedPdfFile.js";
-import { defaultReaderDataPort } from "../../external.js";
+import { readerPdfPort } from "../../external.js";
 import { setBootProgress } from "./session-helpers.js";
 import type { BootState } from "./types.js";
 
@@ -60,7 +60,7 @@ export async function downloadOnePdf(options: {
     return null;
   }
   setBootProgress(setBoot, percentStart, label, "download");
-  const file = await loadProtectedPdfFile(url, defaultReaderDataPort.fetchProtected, {
+  const file = await loadProtectedPdfFile(url, readerPdfPort().fetchProtected, {
     signal: fence.signal,
   });
   if (fence.isInactive()) {

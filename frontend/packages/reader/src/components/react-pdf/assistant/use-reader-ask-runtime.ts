@@ -12,6 +12,7 @@ import {
   createReaderAskAnswerer,
   createReaderMarkdownAnswerer,
   defaultReaderDataPort,
+  readerAskChatPort,
 } from "../../../external.js";
 import {
   storeMessagesToChat,
@@ -26,7 +27,7 @@ import {
   useReaderReadingRequest,
   type ReaderReadingChatPort,
 } from "./use-reader-reading-request.js";
-import type { AgentConfirmationMode } from "@retainpdf/api/agent-runtime-settings";
+import type { ReaderAgentRuntimeConfig } from "../../../contracts/ai-operations.js";
 import type { ReaderAssistantMode } from "../../../shared/ai/ask-answerer.js";
 import type { ReaderSelection } from "../../../shared/data/reader-regions.js";
 import {
@@ -66,7 +67,7 @@ export function useReaderAskRuntime(options: {
   const resetScopeKey = `${jobId}\u0000${documentId}\u0000${sessionIdentity}`;
   const [assistantMode, setAssistantMode] = useState<ReaderAssistantMode>("reading");
   const [agentOperationSignal, setAgentOperationSignal] = useState<ReaderAgentOperationSignal | null>(null);
-  const [agentConfirmationModeHint, setAgentConfirmationModeHint] = useState<AgentConfirmationMode>();
+  const [agentConfirmationModeHint, setAgentConfirmationModeHint] = useState<ReaderAgentRuntimeConfig["agent_confirmation_mode"]>();
 
   // Default to reading Q&A on every document; PDF Agent is always explicit.
   useEffect(() => {
@@ -77,14 +78,16 @@ export function useReaderAskRuntime(options: {
 
   const remoteAnswerer = useMemo(() => {
     if (!enabled || !jobId) return null;
-    return createReaderAskAnswerer({ jobId, documentId });
+    return readerAskChatPort()?.createRemoteAnswerer({ jobId, documentId })
+      ?? createReaderAskAnswerer({ jobId, documentId });
   }, [documentId, enabled, jobId]);
 
   const localAnswerer = useMemo(() => {
     if (!enabled || !jobId) return null;
-    return createReaderMarkdownAnswerer({
-      loadMarkdownPayload: defaultReaderDataPort.loadMarkdownPayload,
-    });
+    return readerAskChatPort()?.createLocalAnswerer({ jobId })
+      ?? createReaderMarkdownAnswerer({
+        loadMarkdownPayload: defaultReaderDataPort.loadMarkdownPayload,
+      });
   }, [enabled, jobId]);
 
   const chatOwner = useReaderChat({

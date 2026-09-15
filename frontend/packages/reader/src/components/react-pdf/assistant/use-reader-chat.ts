@@ -8,7 +8,7 @@ import {
   type ReaderChatMessage,
   type ReaderChatMetadata,
 } from "./retainpdf-chat-transport.js";
-import type { AgentConfirmationMode } from "@retainpdf/api/agent-runtime-settings";
+import type { ReaderAgentRuntimeConfig } from "../../../contracts/ai-operations.js";
 import type { ReaderAgentOperationSignal } from "./use-reader-agent-operations.js";
 import type { ReaderAssistantMode } from "../../../shared/ai/ask-answerer.js";
 
@@ -67,7 +67,7 @@ export function useReaderChat(options: {
   localAnswerer: ReaderAnswerer;
   assistantMode: ReaderAssistantMode;
   onAgentOperationSignal?: (signal: Omit<ReaderAgentOperationSignal, "nonce">) => void;
-  onConfirmationMode?: (mode: AgentConfirmationMode) => void;
+  onConfirmationMode?: (mode: ReaderAgentRuntimeConfig["agent_confirmation_mode"]) => void;
 }) {
   const remoteRef = useRef(options.remoteAnswerer);
   const localRef = useRef(options.localAnswerer);

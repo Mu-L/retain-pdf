@@ -1,4 +1,4 @@
-import type { defaultReaderDataPort } from "../../external.js";
+import type { ReaderSessionDataPort, ReaderOptionalArtifactErrors, LinkedDocumentRecord } from "../../contracts/session.js";
 import type { ReaderMetadata, ReaderRegion } from "../../shared/data/reader-regions.js";
 import type { ProtectedPdfFile } from "../../pdf/useProtectedPdfFile.js";
 export type ReaderMode = "source" | "translated" | "compare";
@@ -7,13 +7,9 @@ export type ReaderMode = "source" | "translated" | "compare";
  * 两者失败都不致命：正文仍可读，但要向用户如实说明，而不是静默降级。
  * 成功或请求被跳过时为 null。
  */
-export type ReaderOptionalArtifactErrors = {
-    regions: unknown;
-    metadata: unknown;
-};
 /** 与 legacy ReaderDownloadMenu 相同的下载上下文 */
 export type ReaderDownloadContext = {
-    fetchProtected: typeof defaultReaderDataPort.fetchProtected;
+    fetchProtected: ReaderSessionDataPort["fetchProtected"];
     jobId: string;
     jobPayload: Record<string, unknown> | null;
     manifestPayload: Record<string, unknown> | null;
@@ -74,10 +70,6 @@ export type ResolvedJobDocument = {
     jobId: string;
     documentId: string;
 };
-export type LinkedDocumentRecord = {
-    document_id?: string;
-    active_job_id?: string | null;
-    active_version_id?: string | null;
-};
+export type { ReaderOptionalArtifactErrors, LinkedDocumentRecord };
 export type BootState = ReaderSessionState["boot"];
 //# sourceMappingURL=types.d.ts.map

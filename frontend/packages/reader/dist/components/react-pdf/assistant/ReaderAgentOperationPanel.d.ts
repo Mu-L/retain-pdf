@@ -1,14 +1,13 @@
-import type { AgentConfirmationMode } from "@retainpdf/api/agent-runtime-settings";
-import type { AgentOperationView } from "@retainpdf/api/document-operations";
+import type { ReaderAgentOperation, ReaderAgentRuntimeConfig } from "../../../contracts/ai-operations.js";
 import type { ReaderAgentOperationEntry, ReaderAgentOperationPerformOptions } from "./use-reader-agent-operations.js";
 type OperationAction = "run" | "cancel" | "commit" | "retry";
-export declare function readerAgentOperationDismissalKey(operation: AgentOperationView): string;
+export declare function readerAgentOperationDismissalKey(operation: ReaderAgentOperation): string;
 export declare function ReaderAgentOperationPanel({ entries, confirmationMode, runtimeRestarting, loadCandidate, onAction, }: {
     entries: ReaderAgentOperationEntry[];
-    confirmationMode: AgentConfirmationMode;
+    confirmationMode: ReaderAgentRuntimeConfig["agent_confirmation_mode"];
     runtimeRestarting: boolean;
-    loadCandidate: (operation: AgentOperationView) => Promise<Blob>;
-    onAction: (action: OperationAction, operation: AgentOperationView, options?: ReaderAgentOperationPerformOptions) => void | Promise<void>;
+    loadCandidate: (operation: ReaderAgentOperation) => Promise<Blob>;
+    onAction: (action: OperationAction, operation: ReaderAgentOperation, options?: ReaderAgentOperationPerformOptions) => void | Promise<void>;
 }): import("react").JSX.Element;
 export {};
 //# sourceMappingURL=ReaderAgentOperationPanel.d.ts.map

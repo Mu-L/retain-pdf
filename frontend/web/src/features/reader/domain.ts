@@ -50,6 +50,8 @@ export {
   trimSessions,
   visiblePathFromSnapshot,
 } from "./domain/host/ai.js";
+export { aiOperationsPort, askChatPort, conversationPort } from "./domain/host/ai.js";
+
 export type {
   AiCitationLike,
   ThreadBranchCitation,
@@ -83,6 +85,9 @@ export {
   buildPdfDocumentOptions,
   defaultReaderDataPort,
   fetchProtected,
+  liveTranslationPort,
+  pdfPort,
+  sessionDataPort,
   resolveReaderArtifactUrl,
   resolveReaderSourcePdf,
   resolveReaderTranslatedPdfUrl,

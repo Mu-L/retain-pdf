@@ -1,5 +1,25 @@
 /** RetainPDF host bindings for the package-owned Reader AI runtime. */
 import { resolveResourceUrl } from "@retainpdf/domain/job";
+import type { ReaderAgentOperationPort, ReaderConversationPort, ReaderAskPort } from "@retainpdf/reader/contracts";
+import {
+  appendConversationMessage,
+  createConversation,
+  deleteConversation,
+  forkConversationFromPath,
+  getConversation,
+  listConversations,
+  patchConversation,
+} from "@/platform/api/index.js";
+import {
+  cancelAgentOperation,
+  commitAgentOperation,
+  fetchAgentOperationCandidate,
+  fetchAgentRuntimeConfig,
+  getAgentOperation,
+  listAgentOperations,
+  retryAgentOperation,
+  runAgentOperation,
+} from "@/platform/api/index.js";
 import * as readerAi from "@retainpdf/reader/runtime/ai";
 import { askLibraryAi } from "@/platform/api/index.js";
 import { fetchDocumentByJobId } from "@/platform/api/index.js";
@@ -15,7 +35,35 @@ import {
 import {
   getDefaultCredentialsStatePort,
 } from "@/platform/contracts/credentials-contract.js";
-import { fetchProtected } from "./data.js";
+import { defaultReaderDataPort, fetchProtected } from "./data.js";
+
+export const askChatPort: ReaderAskPort = {
+  createRemoteAnswerer: ({ jobId, documentId = "" }) => createReaderAskAnswerer({ jobId, documentId }),
+  createLocalAnswerer: () => readerAi.createReaderMarkdownAnswerer({
+    loadMarkdownPayload: defaultReaderDataPort.loadMarkdownPayload,
+  }),
+};
+
+export const conversationPort: ReaderConversationPort = {
+  create: createConversation,
+  list: listConversations,
+  get: getConversation,
+  delete: deleteConversation,
+  patch: patchConversation,
+  appendMessage: appendConversationMessage,
+  forkFromPath: forkConversationFromPath,
+};
+
+export const aiOperationsPort: ReaderAgentOperationPort = {
+  list: (conversationId, options) => listAgentOperations({ conversationId, limit: 50, signal: options?.signal }),
+  get: (operationId, options) => getAgentOperation(operationId, { signal: options?.signal }),
+  run: (operationId, input, options) => runAgentOperation(operationId, input, { signal: options?.signal }),
+  cancel: (operationId, input, options) => cancelAgentOperation(operationId, input, { signal: options?.signal }),
+  commit: (operationId, input, options) => commitAgentOperation(operationId, input, { signal: options?.signal }),
+  retry: (operationId, input, options) => retryAgentOperation(operationId, input, { signal: options?.signal }),
+  fetchCandidate: (operationId, options) => fetchAgentOperationCandidate(operationId, { signal: options?.signal }),
+  fetchRuntimeConfig: (options) => fetchAgentRuntimeConfig({ fetchImpl: fetch, apiPrefix: API_PREFIX }),
+};
 
 // 注册点参数类型直接取自 reader 包公开工厂签名，避免 any 掩盖契约漂移。
 type ReaderAiConfigAdapters = NonNullable<

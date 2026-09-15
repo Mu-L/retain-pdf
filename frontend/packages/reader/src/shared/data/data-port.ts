@@ -1,6 +1,8 @@
 // 共享真值（原 frontend/web/src/js/reader/data-port.ts），已抽离为纯函数 + 可注入依赖
 // 不直接 import frontend/web 的 api/http，改为参数注入，默认用 window/fetch 或空实现
 
+import type { ReaderLiveTranslationPort } from "../../contracts/live-translation.js";
+
 import {
   hasMarkdownContent,
   loadMarkdownPayloadWithFallback,
@@ -81,6 +83,7 @@ export function createReaderDataPort({
   loadRegions = defaultLoadRegions,
   loadMetadata = defaultLoadMetadata,
   fetchProtectedResource = defaultFetchProtected,
+  liveTranslation = null,
 }: {
   apiPrefix?: string;
   loadJob?: (jobId: string, apiPrefix: string) => Promise<unknown>;
@@ -92,6 +95,7 @@ export function createReaderDataPort({
   loadRegions?: (jobId: string, apiPrefix: string) => Promise<unknown>;
   loadMetadata?: (jobId: string, apiPrefix: string) => Promise<unknown>;
   fetchProtectedResource?: typeof fetch;
+  liveTranslation?: ReaderLiveTranslationPort | null;
 } = {}) {
   // 同一 jobId 的短期 in-flight / 结果复用。status 轮询、loader 编排与
   // markdown fallback 可能在同一时刻打同一端点，这里合并为一次请求。
@@ -232,6 +236,7 @@ export function createReaderDataPort({
     loadMarkdownRange,
     loadJobPayload,
     loadReaderPayload,
+    liveTranslation,
   });
 }
 

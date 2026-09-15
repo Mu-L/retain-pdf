@@ -13,18 +13,17 @@ import {
   agentOperationShouldReplace,
   makeAgentOperationActionKey,
 } from "@retainpdf/api/agent-operation-model";
-import type { AgentOperationView } from "@retainpdf/api/document-operations";
-import type { AgentConfirmationMode } from "@retainpdf/api/agent-runtime-settings";
+import type { ReaderAgentOperation, ReaderAgentRuntimeConfig } from "../../../contracts/ai-operations.js";
 
 export type ReaderAgentOperationSignal = {
   operationId: string;
   conversationId?: string;
-  confirmationMode?: AgentConfirmationMode;
+  confirmationMode?: ReaderAgentRuntimeConfig["agent_confirmation_mode"];
   nonce: number;
 };
 
 export type ReaderAgentOperationEntry = {
-  operation: AgentOperationView;
+  operation: ReaderAgentOperation;
   pendingAction?: "run" | "cancel" | "commit" | "retry";
   error?: string;
 };
@@ -38,17 +37,17 @@ export const READER_ACTION_KEY_ID_PREFIX = "reader-";
 export const ACTIVE_STATUSES = AGENT_OPERATION_ACTIVE_STATUSES;
 export const GREEN_LIGHT_TRANSITION_STATUSES = AGENT_OPERATION_GREEN_LIGHT_TRANSITION_STATUSES;
 
-export function shouldPoll(status: string, mode: AgentConfirmationMode): boolean {
+export function shouldPoll(status: string, mode: ReaderAgentRuntimeConfig["agent_confirmation_mode"]): boolean {
   return agentOperationShouldPoll(status, mode);
 }
 
-export function eventSeq(operation: AgentOperationView): number {
+export function eventSeq(operation: ReaderAgentOperation): number {
   return agentOperationEventSeq(operation);
 }
 
 export function shouldReplaceAgentOperation(
-  current: AgentOperationView | undefined,
-  next: AgentOperationView,
+  current: ReaderAgentOperation | undefined,
+  next: ReaderAgentOperation,
 ): boolean {
   return agentOperationShouldReplace(current, next);
 }

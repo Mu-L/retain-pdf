@@ -18,6 +18,11 @@
 import { getReaderAdapters, requireAdapter } from "./adapters.js";
 import type { createReaderDataPort } from "./runtime/data.js";
 import type { createReaderPageConfigPort } from "./runtime/config.js";
+import type { ReaderPdfPort } from "./contracts/pdf.js";
+import type { ReaderSessionDataPort } from "./contracts/session.js";
+import type { ReaderAgentOperationPort } from "./contracts/ai-operations.js";
+import type { ReaderConversationPort } from "./contracts/conversations.js";
+import type { ReaderAskPort } from "./contracts/ai-chat.js";
 import {
   resolveReaderDownloadName as defaultResolveReaderDownloadName,
   resolveReaderDownloadUrls as defaultResolveReaderDownloadUrls,
@@ -65,11 +70,41 @@ export const defaultReaderDataPort: ReaderDataPort = {
     readDataPort().loadMarkdownRange(rawUrl, start, endInclusive, etag, signal),
   loadJobPayload: (jobId) => readDataPort().loadJobPayload(jobId),
   loadReaderPayload: (jobId, options) => readDataPort().loadReaderPayload(jobId, options),
+  get liveTranslation() { return readDataPort().liveTranslation; },
 };
 export const defaultReaderPageConfigPort: ReaderPageConfigPort = {
   messageTargetOrigin: () => readPageConfigPort().messageTargetOrigin(),
   readerJobId: () => readPageConfigPort().readerJobId(),
 };
+
+export const readerLiveTranslation = () => getReaderAdapters()?.liveTranslation ?? null;
+export const readerPdfPort = (): ReaderPdfPort => {
+  const adapters = getReaderAdapters();
+  return adapters?.pdf ?? {
+    fetchProtected: adapters?.fetchProtected ?? adapters?.defaultReaderDataPort?.fetchProtected ?? fetch,
+    resolvePdfjsVendorUrl: (relativePath = "") => adapters?.resolvePdfjsVendorUrl?.(relativePath) ?? "",
+  };
+};
+export const readerSessionDataPort = (): ReaderSessionDataPort => {
+  const adapters = getReaderAdapters();
+  if (adapters?.sessionData) return adapters.sessionData;
+  const data = adapters?.defaultReaderDataPort;
+  if (!data) throw new Error("Reader adapter missing: defaultReaderDataPort (call setReaderAdapters)");
+  return {
+    loadReaderPayload: data.loadReaderPayload,
+    loadJobPayload: data.loadJobPayload,
+    fetchDocumentByJobId: (...args) => requireAdapter("fetchDocumentByJobId")(...args),
+    fetchProtected: data.fetchProtected,
+    resolveResourceUrl: adapters.resolveResourceUrl ?? ((url) => url),
+    resolveReaderSourcePdf: (manifestPayload) => adapters.resolveReaderSourcePdf?.(manifestPayload) ?? null,
+    resolveReaderTranslatedPdfUrl: (jobPayload, manifestPayload) => adapters.resolveReaderTranslatedPdfUrl?.(jobPayload, manifestPayload) ?? "",
+    resolveReaderArtifactUrl: (item) => adapters.resolveReaderArtifactUrl?.(item) ?? "",
+  };
+};
+export const readerAgentOperationPort = (): ReaderAgentOperationPort | null => getReaderAdapters()?.aiOperations ?? null;
+export const readerConversationPort = (): ReaderConversationPort | null => getReaderAdapters()?.conversations ?? null;
+export const readerAskChatPort = (): ReaderAskPort | null => getReaderAdapters()?.askChat ?? null;
+
 export const resolveReaderAnchor = (...a: any[]) => getReaderAdapters()?.resolveReaderAnchor?.(...a) ?? null;
 export const resolveReaderDocumentId = (): string => getReaderAdapters()?.resolveReaderDocumentId?.() ?? "";
 // resolveReaderJobId / resolvePdfjsVendorUrl 的 port 签名比宿主实现窄

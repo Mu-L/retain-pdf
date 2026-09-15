@@ -1,6 +1,6 @@
 import { type ReaderPaneId } from "./reader-dom-contract.js";
 import { type ReaderRegionHighlight, type ReaderRegionSelection } from "../shared/data/reader-regions.js";
-import type { LiveTranslationLayoutPage } from "@retainpdf/api/live-translation";
+import type { ReaderLiveTranslationLayoutPage as LiveTranslationLayoutPage } from "../contracts/live-translation.js";
 import type { LiveTranslationPageState } from "../shared/data/live-translation-state.js";
 export declare const DEFAULT_ASPECT = 1.414;
 type PdfPageSlotProps = {

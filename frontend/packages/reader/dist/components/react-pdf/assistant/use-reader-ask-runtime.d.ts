@@ -1,4 +1,3 @@
-import type { AgentConfirmationMode } from "@retainpdf/api/agent-runtime-settings";
 import type { ReaderAssistantMode } from "../../../shared/ai/ask-answerer.js";
 import type { ReaderSelection } from "../../../shared/data/reader-regions.js";
 export type { ReaderAskStoreMessage } from "./reader-ask-tree.js";
@@ -41,11 +40,11 @@ export declare function useReaderAskRuntime(options: {
     branchFromAnswer: (assistantMessageId: string) => Promise<boolean>;
     agentOperations: {
         entries: import("./reader-agent-operation-model.js").ReaderAgentOperationEntry[];
-        confirmationMode: AgentConfirmationMode;
+        confirmationMode: "explicit" | "green_light";
         runtimeRestarting: boolean;
         runtimeCredentialConfigured: boolean;
-        perform: (action: "run" | "cancel" | "commit" | "retry", operation: import("@retainpdf/api/document-operations").AgentOperationView, options?: import("./reader-agent-operation-model.js").ReaderAgentOperationPerformOptions) => Promise<void>;
-        loadCandidate: (operation: import("@retainpdf/api/document-operations").AgentOperationView) => Promise<Blob>;
+        perform: (action: "run" | "cancel" | "commit" | "retry", operation: import("../../../contracts/ai-operations.js").ReaderAgentOperation, options?: import("./reader-agent-operation-model.js").ReaderAgentOperationPerformOptions) => Promise<void>;
+        loadCandidate: (operation: import("../../../contracts/ai-operations.js").ReaderAgentOperation) => Promise<Blob>;
     };
     assistantMode: ReaderAssistantMode;
     setAssistantMode: import("react").Dispatch<import("react").SetStateAction<ReaderAssistantMode>>;

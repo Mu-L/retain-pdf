@@ -28,7 +28,7 @@ import {
   ReaderTextHoverLayer,
 } from "./ReaderTextHoverLayer.js";
 import { LiveTranslationOverlay } from "./LiveTranslationOverlay.js";
-import type { LiveTranslationLayoutPage } from "@retainpdf/api/live-translation";
+import type { ReaderLiveTranslationLayoutPage as LiveTranslationLayoutPage } from "../contracts/live-translation.js";
 import type { LiveTranslationPageState } from "../shared/data/live-translation-state.js";
 
 export const DEFAULT_ASPECT = 1.414;

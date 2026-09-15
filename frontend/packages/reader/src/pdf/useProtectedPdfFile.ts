@@ -2,7 +2,7 @@
 // 会话层会先整文件下载完成再展示；本 hook 也可独立使用。
 
 import { useEffect, useState } from "react";
-import { fetchProtected } from "../external.js";
+import { readerPdfPort } from "../external.js";
 
 export type ProtectedPdfFile = { data: Uint8Array };
 
@@ -60,7 +60,7 @@ function setCachedProtectedPdf(url: string, file: ProtectedPdfFile) {
 
 export async function loadProtectedPdfFile(
   url: string,
-  fetchResource: typeof fetchProtected = fetchProtected,
+  fetchResource: typeof fetch = readerPdfPort().fetchProtected,
   options: { signal?: AbortSignal } = {},
 ): Promise<ProtectedPdfFile | null> {
   const normalized = `${url || ""}`.trim();
