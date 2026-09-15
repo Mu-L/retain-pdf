@@ -1,5 +1,9 @@
 use serde::Deserialize;
 
+#[cfg(test)]
+#[path = "job_failure_structured_tests.rs"]
+mod tests;
+
 use crate::models::domain::{JobFailureInfo, JobSnapshot};
 use crate::models::domain::{OcrErrorCategory, OcrProviderDiagnostics};
 
@@ -11,15 +15,23 @@ use super::job_failure_support::{
 
 #[derive(Debug, Clone, Deserialize)]
 pub(super) struct PythonStructuredFailure {
-    #[serde(default, alias = "stage")]
+    #[serde(default)]
     pub(super) failed_stage: Option<String>,
-    #[serde(default, alias = "error_type")]
+    #[serde(default)]
     pub(super) failure_code: Option<String>,
     #[serde(default)]
     pub(super) failure_category: Option<String>,
     pub(super) summary: Option<String>,
-    #[serde(default, alias = "detail")]
+    #[serde(default)]
     pub(super) root_cause: Option<String>,
+    // Workers can emit both protocol generations in the same JSON object.
+    // serde aliases reject that as duplicate fields, so normalize explicitly.
+    #[serde(default, rename = "stage")]
+    legacy_stage: Option<String>,
+    #[serde(default, rename = "error_type")]
+    legacy_error_type: Option<String>,
+    #[serde(default, rename = "detail")]
+    legacy_detail: Option<String>,
     pub(super) retryable: Option<bool>,
     pub(super) upstream_host: Option<String>,
     pub(super) provider: Option<String>,
@@ -34,6 +46,21 @@ pub(super) struct PythonStructuredFailure {
     pub(super) raw_exception_type: Option<String>,
     pub(super) raw_exception_message: Option<String>,
     pub(super) traceback: Option<String>,
+}
+
+impl PythonStructuredFailure {
+    fn normalize_legacy_fields(mut self) -> Self {
+        self.failed_stage = prefer_non_empty(self.failed_stage, self.legacy_stage.take());
+        self.failure_code = prefer_non_empty(self.failure_code, self.legacy_error_type.take());
+        self.root_cause = prefer_non_empty(self.root_cause, self.legacy_detail.take());
+        self
+    }
+}
+
+fn prefer_non_empty(current: Option<String>, legacy: Option<String>) -> Option<String> {
+    current
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| legacy.filter(|value| !value.trim().is_empty()))
 }
 
 pub(super) fn classify_structured_failure(
@@ -170,7 +197,7 @@ pub(super) fn extract_structured_failure(
             continue;
         }
         if let Ok(parsed) = serde_json::from_str::<PythonStructuredFailure>(raw_json) {
-            return Some(parsed);
+            return Some(parsed.normalize_legacy_fields());
         }
     }
     None
