@@ -37,12 +37,15 @@ export function TranslationPanel({ footerAction = null }: { footerAction?: React
   const fixedBaseUrl = providerDefinition.id !== "custom";
   const validation = view.deepSeek || { message: "", tone: "" };
   const content = `${validation.message || ""}`.trim();
+  // 只有 tone === "pending" 才算「检测进行中」。此前用「有消息且无 tone」推断，
+  // 会把中性提示（如「使用旧配置；请填写 Key 后检测」）误判成进行中并锁死按钮。
+  const pending = validation.tone === "pending";
   const badgeClasses = [
     "token-inline-status",
     content ? "" : "hidden",
     validation.tone === "valid" ? "is-valid" : "",
     validation.tone === "error" ? "is-error" : "",
-    content && !validation.tone ? "is-pending" : "",
+    content && pending ? "is-pending" : "",
   ].filter(Boolean).join(" ");
 
   return (
@@ -174,7 +177,7 @@ export function TranslationPanel({ footerAction = null }: { footerAction?: React
             id={BROWSER_IDS.deepSeekValidateButton}
             type="button"
             className="app-button secondary"
-            disabled={Boolean(content && !validation.tone)}
+            disabled={pending}
             onClick={() => handlers?.validateDeepSeek?.()}
           >
             <PlugZap aria-hidden="true" />

@@ -42,14 +42,51 @@ function summarizeJobRequestContext(payload: unknown): string {
 export interface HttpError extends Error {
   status?: number;
   url?: string;
+  /** true 表示被 submitJson 的 timeoutMs 中止，而非对端返回了错误。 */
+  timedOut?: boolean;
 }
 
-export async function submitJson(url: string, payload: unknown): Promise<any> {
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: buildApiHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify(payload),
-  });
+export interface SubmitJsonOptions {
+  /** 超过该毫秒数就 abort。省略或 <=0 表示不设超时（保持既有调用方行为）。 */
+  timeoutMs?: number;
+  /** 超时后抛出的文案，便于调用方给出场景化提示。 */
+  timeoutMessage?: string;
+}
+
+export async function submitJson(
+  url: string,
+  payload: unknown,
+  options: SubmitJsonOptions = {},
+): Promise<any> {
+  const timeoutMs = Number(options.timeoutMs) || 0;
+  // 裸 fetch 没有超时：对端挂起时 promise 永不 settle，调用方的"进行中"状态
+  // 就再也回不来（凭据面板的检测按钮曾因此永久卡在灰色）。需要超时的调用方
+  // 显式传 timeoutMs，其余调用方行为不变。
+  const controller = timeoutMs > 0 ? new AbortController() : null;
+  const timer = controller
+    ? setTimeout(() => controller.abort(), timeoutMs)
+    : null;
+  let resp: Response;
+  try {
+    resp = await fetch(url, {
+      method: "POST",
+      headers: buildApiHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(payload),
+      ...(controller ? { signal: controller.signal } : {}),
+    });
+  } catch (err) {
+    if (controller?.signal.aborted) {
+      const error = new Error(
+        options.timeoutMessage || `请求超时（${Math.round(timeoutMs / 1000)}s）`,
+      ) as HttpError;
+      error.url = url;
+      error.timedOut = true;
+      throw error;
+    }
+    throw err;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
   if (!resp.ok) {
     const requestContext = /\/api\/v1\/jobs(?:$|\?)/.test(url) ? summarizeJobRequestContext(payload) : "";
     const contentType = resp.headers.get("content-type") || "";

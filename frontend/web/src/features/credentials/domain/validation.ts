@@ -52,6 +52,8 @@ export interface RunDeepSeekConnectivityCheckOptions {
   apiPrefix?: string;
   apiKey?: string;
   baseUrl?: string;
+  /** 翻译真正要调用的模型名。不传则后端只能验 Key，验不到模型。 */
+  model?: string;
   validateDeepSeekToken?: (
     apiPrefix?: unknown,
     payload?: unknown,
@@ -81,6 +83,12 @@ function setOcrValidationRuntime(
   payload: OcrValidationCachePayload = {},
 ) {
   credentialsStatePort?.setOcrValidationCache?.(payload);
+}
+
+/** submitJson 超时中止的错误带 timedOut 标记；其余异常一律按通用网络失败处理。 */
+function timeoutSummary(err: unknown): string {
+  const candidate = err as { timedOut?: boolean; message?: string } | null;
+  return candidate?.timedOut ? `${candidate.message || ""}`.trim() : "";
 }
 
 function asValidationResult(value: unknown): ProviderValidationResult {
@@ -126,7 +134,7 @@ export async function runOcrTokenValidation({
     };
   }
   if (showResult) {
-    setOcrValidationMessage(`正在检测 ${definition.label} Token…`, "", definition.id);
+    setOcrValidationMessage(`正在检测 ${definition.label} Token…`, "pending", definition.id);
   }
   try {
     const result = asValidationResult(await validateOcrToken(apiPrefix, definition.id, normalizedToken));
@@ -141,15 +149,17 @@ export async function runOcrTokenValidation({
       setOcrValidationMessage(`${message}${hint}`.trim(), result.ok ? "valid" : "error", definition.id);
     }
     return result;
-  } catch (_err) {
+  } catch (err) {
     resetOcrValidationRuntime({ state, credentialsStatePort, legacyRuntimePort });
+    const timedOut = timeoutSummary(err);
+    const summary = timedOut || `${definition.label} Token 检测失败，请稍后重试。`;
     if (showResult) {
-      setOcrValidationMessage(`${definition.label} Token 检测失败，请稍后重试。`, "error", definition.id);
+      setOcrValidationMessage(summary, "error", definition.id);
     }
     return {
       ok: false,
-      status: "network_error",
-      summary: `${definition.label} Token 检测失败，请稍后重试。`,
+      status: timedOut ? "timeout" : "network_error",
+      summary,
     };
   }
 }
@@ -158,12 +168,14 @@ export async function runDeepSeekConnectivityCheck({
   apiPrefix,
   apiKey,
   baseUrl,
+  model,
   validateDeepSeekToken,
   setDeepSeekValidationMessage,
   showResult = true,
 }: RunDeepSeekConnectivityCheckOptions) {
   const modelApiKey = `${apiKey || ""}`.trim();
   const modelBaseUrl = `${baseUrl || ""}`.trim();
+  const modelName = `${model || ""}`.trim();
   if (!modelApiKey) {
     if (showResult) {
       setDeepSeekValidationMessage(TRANSLATION_PROVIDER_DEFINITION.validationMissingMessage, "error");
@@ -171,12 +183,13 @@ export async function runDeepSeekConnectivityCheck({
     return { ok: false, status: 0 };
   }
   if (showResult) {
-    setDeepSeekValidationMessage("正在检测翻译接口…");
+    setDeepSeekValidationMessage("正在检测翻译接口…", "pending");
   }
   try {
     const result = asValidationResult(await validateDeepSeekToken(apiPrefix, {
       api_key: modelApiKey,
       base_url: modelBaseUrl,
+      model: modelName,
     }));
     if (showResult) {
       setDeepSeekValidationMessage(
@@ -187,11 +200,13 @@ export async function runDeepSeekConnectivityCheck({
       );
     }
     return result;
-  } catch (_err) {
+  } catch (err) {
+    const timedOut = timeoutSummary(err);
+    const summary = timedOut || TRANSLATION_PROVIDER_DEFINITION.validationNetworkMessage;
     if (showResult) {
-      setDeepSeekValidationMessage(TRANSLATION_PROVIDER_DEFINITION.validationNetworkMessage, "error");
+      setDeepSeekValidationMessage(summary, "error");
     }
-    return { ok: false, status: 0 };
+    return { ok: false, status: timedOut ? "timeout" : 0, summary };
   }
 }
 

@@ -10,6 +10,20 @@ use super::types::{
 };
 use super::url_policy::validate_provider_base_url;
 
+/// 翻译接口探针。
+///
+/// 探针必须走**和翻译流水线完全相同的调用路径**，否则绿灯是假的：
+/// `translate/llm/providers/deepseek/transport.py` 对所有服务商一律发
+/// `POST {base_url}/chat/completions` + `Authorization: Bearer`。曾经这里
+/// 打的是 `GET {base_url}/models`，两个后果：
+///   1. 只验 Key 能否列模型，不验用户填的模型名真能调通 —— 模型名写错时
+///      检测显示可用，真正翻译才失败；
+///   2. Anthropic 的 OpenAI 兼容层只覆盖 `/chat/completions`，`/models`
+///      仍要求 `x-api-key`，于是正确的 Key 被判成无效。
+///
+/// 改用 `max_tokens: 1` 的最小 chat 请求后，一次请求同时验证 base_url、
+/// Key 与模型三者。代价是每次检测消耗个位数 token，这是拿到真实结论的
+/// 必要成本。模型名为空时无法构造 chat 请求，才退回 `/models` 连通性探针。
 pub(crate) async fn validate_deepseek_token_view(
     payload: DeepSeekTokenValidationRequest,
     runtime: DeepSeekRuntimeConfig,
@@ -26,15 +40,158 @@ pub(crate) async fn validate_deepseek_token_view(
         .timeout(std::time::Duration::from_secs(runtime.probe_timeout_secs))
         .build()
         .map_err(|err| AppError::internal(format!("build deepseek probe client failed: {err}")))?;
-    let models_url = format!("{}/models", base_url.trim_end_matches('/'));
 
-    let response = client.get(&models_url).bearer_auth(api_key).send().await;
+    let model = payload.model.trim();
+    if model.is_empty() {
+        let models_url = format!("{}/models", base_url.trim_end_matches('/'));
+        let response = client.get(&models_url).bearer_auth(api_key).send().await;
+        let view = match response {
+            Ok(resp) => classify_deepseek_probe_response(resp, base_url.clone(), checked_at).await,
+            Err(err) => classify_deepseek_probe_transport_error(err, base_url.clone(), checked_at),
+        };
+        return Ok(view);
+    }
+
+    let chat_url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
+    let body = serde_json::json!({
+        "model": model,
+        "messages": [{"role": "user", "content": "ping"}],
+        "max_tokens": 1,
+        "stream": false,
+    });
+    let response = client
+        .post(&chat_url)
+        .bearer_auth(api_key)
+        .json(&body)
+        .send()
+        .await;
     let view = match response {
-        Ok(resp) => classify_deepseek_probe_response(resp, base_url.clone(), checked_at).await,
+        Ok(resp) => {
+            classify_deepseek_chat_probe_response(resp, model, base_url.clone(), checked_at).await
+        }
         Err(err) => classify_deepseek_probe_transport_error(err, base_url.clone(), checked_at),
     };
 
     Ok(view)
+}
+
+/// 判定一次失败响应是否在拒绝**模型**（而非 Key 或网络）。
+/// OpenAI 兼容服务对未知模型的返回很不统一：DeepSeek/OpenAI 用 400 +
+/// `model_not_found`，部分中转站用 404，智谱用 400 + 中文文案。只在 4xx 且
+/// 错误正文提到模型时才认定，避免把限流或鉴权错误误分类。
+pub(super) fn is_model_rejection(
+    status_code: reqwest::StatusCode,
+    provider_message: Option<&str>,
+) -> bool {
+    if status_code != reqwest::StatusCode::BAD_REQUEST
+        && status_code != reqwest::StatusCode::NOT_FOUND
+        && status_code != reqwest::StatusCode::UNPROCESSABLE_ENTITY
+    {
+        return false;
+    }
+    let Some(message) = provider_message else {
+        // 404 且无可解析正文：兼容层根本没有 /chat/completions，等价于模型不可用。
+        return status_code == reqwest::StatusCode::NOT_FOUND;
+    };
+    let lowered = message.to_lowercase();
+    lowered.contains("model")
+        || lowered.contains("模型")
+        || lowered.contains("does not exist")
+        || lowered.contains("not found")
+}
+
+async fn classify_deepseek_chat_probe_response(
+    response: reqwest::Response,
+    model: &str,
+    base_url: String,
+    checked_at: String,
+) -> MineruTokenValidationView {
+    let status_code = response.status();
+    let trace_id = response
+        .headers()
+        .get("x-request-id")
+        .and_then(|value| value.to_str().ok())
+        .map(|value| value.to_string());
+    let body_text = response.text().await.unwrap_or_default();
+
+    if status_code.is_success() {
+        return MineruTokenValidationView {
+            ok: true,
+            status: "valid",
+            summary: format!("翻译 API 与模型 {model} 可用"),
+            retryable: false,
+            provider_code: Some(status_code.as_u16().to_string()),
+            provider_message: Some(format!("chat probe ok: {model}")),
+            operator_hint: None,
+            trace_id,
+            base_url,
+            checked_at,
+        };
+    }
+
+    // 限流说明 Key 与模型都已被服务商接受，只是此刻配额受限——判成失败会误导用户。
+    if status_code == reqwest::StatusCode::TOO_MANY_REQUESTS {
+        return MineruTokenValidationView {
+            ok: true,
+            status: "rate_limited",
+            summary: format!("翻译 API 与模型 {model} 可用（当前被限流）"),
+            retryable: false,
+            provider_code: Some(status_code.as_u16().to_string()),
+            provider_message: summarize_deepseek_error_payload(&body_text),
+            operator_hint: Some("服务商正在限流，翻译时建议调低并发数。".to_string()),
+            trace_id,
+            base_url,
+            checked_at,
+        };
+    }
+
+    let provider_message = summarize_deepseek_error_payload(&body_text);
+    let unauthorized = status_code == reqwest::StatusCode::UNAUTHORIZED
+        || status_code == reqwest::StatusCode::FORBIDDEN;
+    let model_rejected =
+        !unauthorized && is_model_rejection(status_code, provider_message.as_deref());
+
+    let (status, summary, operator_hint) = if unauthorized {
+        (
+            "unauthorized",
+            "翻译 API Key 无效".to_string(),
+            Some("请确认 Key 与所选 API 服务是否匹配。".to_string()),
+        )
+    } else if model_rejected {
+        (
+            "model_unavailable",
+            format!("模型 {model} 不可用"),
+            Some("Key 已通过鉴权，请确认模型名称在该服务商下存在且已开通。".to_string()),
+        )
+    } else if status_code == reqwest::StatusCode::PAYMENT_REQUIRED {
+        (
+            "insufficient_balance",
+            "翻译 API 余额不足".to_string(),
+            None,
+        )
+    } else if status_code.is_server_error() {
+        ("network_error", "翻译 API 连通性校验失败".to_string(), None)
+    } else {
+        (
+            "provider_error",
+            format!("翻译 API 返回 {}", status_code.as_u16()),
+            None,
+        )
+    };
+
+    MineruTokenValidationView {
+        ok: false,
+        status,
+        summary,
+        // 只有网络/服务商瞬时错误值得重试；Key、模型、余额都要用户先改配置。
+        retryable: status == "network_error" || status == "provider_error",
+        provider_code: Some(status_code.as_u16().to_string()),
+        provider_message,
+        operator_hint,
+        trace_id,
+        base_url,
+        checked_at,
+    }
 }
 
 pub(crate) async fn query_deepseek_balance_view(

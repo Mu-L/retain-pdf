@@ -1,3 +1,4 @@
+use super::deepseek::is_model_rejection;
 use super::ocr::{classify_paddle_probe_error, classify_probe_error};
 use super::url_policy::validate_provider_base_url;
 use crate::ocr_provider::paddle::PaddleProviderError;
@@ -127,4 +128,58 @@ fn classify_paddle_probe_error_maps_not_found_as_valid() {
     );
     assert!(view.ok);
     assert_eq!(view.status, "valid");
+}
+
+// --- 翻译接口探针的模型拒绝分类 -------------------------------------------
+// 探针改走 /chat/completions 后，4xx 既可能是 Key 问题也可能是模型问题，
+// 两者给用户的下一步动作完全不同，分类错了就把人指向错误的输入框。
+
+#[test]
+fn is_model_rejection_detects_openai_style_model_not_found() {
+    assert!(is_model_rejection(
+        reqwest::StatusCode::BAD_REQUEST,
+        Some("The model `gpt-nonexistent` does not exist"),
+    ));
+}
+
+#[test]
+fn is_model_rejection_detects_chinese_model_error() {
+    assert!(is_model_rejection(
+        reqwest::StatusCode::BAD_REQUEST,
+        Some("模型不存在或无权限"),
+    ));
+}
+
+#[test]
+fn is_model_rejection_treats_bare_404_as_model_unavailable() {
+    // 兼容层缺少 /chat/completions 时正文常常不可解析，等价于该模型不可用。
+    assert!(is_model_rejection(reqwest::StatusCode::NOT_FOUND, None));
+}
+
+#[test]
+fn is_model_rejection_ignores_unrelated_bad_request() {
+    assert!(!is_model_rejection(
+        reqwest::StatusCode::BAD_REQUEST,
+        Some("invalid temperature value"),
+    ));
+}
+
+#[test]
+fn is_model_rejection_ignores_rate_limit_and_server_errors() {
+    assert!(!is_model_rejection(
+        reqwest::StatusCode::TOO_MANY_REQUESTS,
+        Some("model rate limit exceeded"),
+    ));
+    assert!(!is_model_rejection(
+        reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+        Some("model backend crashed"),
+    ));
+}
+
+#[test]
+fn is_model_rejection_ignores_unauthorized_even_when_body_mentions_model() {
+    assert!(!is_model_rejection(
+        reqwest::StatusCode::UNAUTHORIZED,
+        Some("no access to model"),
+    ));
 }

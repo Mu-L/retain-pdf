@@ -36,12 +36,37 @@ function summarizeJobRequestContext(payload) {
         parts.push(`source.artifact_job_id=${artifactJobId}`);
     return parts.length > 0 ? ` [${parts.join(", ")}]` : "";
 }
-export async function submitJson(url, payload) {
-    const resp = await fetch(url, {
-        method: "POST",
-        headers: buildApiHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify(payload),
-    });
+export async function submitJson(url, payload, options = {}) {
+    const timeoutMs = Number(options.timeoutMs) || 0;
+    // 裸 fetch 没有超时：对端挂起时 promise 永不 settle，调用方的"进行中"状态
+    // 就再也回不来（凭据面板的检测按钮曾因此永久卡在灰色）。需要超时的调用方
+    // 显式传 timeoutMs，其余调用方行为不变。
+    const controller = timeoutMs > 0 ? new AbortController() : null;
+    const timer = controller
+        ? setTimeout(() => controller.abort(), timeoutMs)
+        : null;
+    let resp;
+    try {
+        resp = await fetch(url, {
+            method: "POST",
+            headers: buildApiHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify(payload),
+            ...(controller ? { signal: controller.signal } : {}),
+        });
+    }
+    catch (err) {
+        if (controller?.signal.aborted) {
+            const error = new Error(options.timeoutMessage || `请求超时（${Math.round(timeoutMs / 1000)}s）`);
+            error.url = url;
+            error.timedOut = true;
+            throw error;
+        }
+        throw err;
+    }
+    finally {
+        if (timer)
+            clearTimeout(timer);
+    }
     if (!resp.ok) {
         const requestContext = /\/api\/v1\/jobs(?:$|\?)/.test(url) ? summarizeJobRequestContext(payload) : "";
         const contentType = resp.headers.get("content-type") || "";

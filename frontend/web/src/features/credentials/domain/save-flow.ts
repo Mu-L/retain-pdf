@@ -24,6 +24,12 @@ import {
   persistDesktopCredentialsFromDialog as persistDesktopCredentials,
 } from "./persistence.js";
 
+/** HH:MM:SS。刻意不走 toLocaleTimeString——它随环境 locale 变，测试会飘。 */
+function formatClockTime(date: Date): string {
+  const pad = (value: number) => `${value}`.padStart(2, "0");
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 type SaveFlowViewPort = {
   setOcrValidationMessage?: (message?: string, tone?: string, providerId?: string) => void;
   setDeepSeekValidationMessage?: (message?: string, tone?: string) => void;
@@ -60,6 +66,7 @@ export function createBrowserCredentialSaveFlow({
   dialogElementsPort,
   syncBrowserDialogFromCredentialState,
   runtimeEnv,
+  now = () => new Date(),
 }: {
   viewPort: SaveFlowViewPort;
   credentialsStatePort: {
@@ -81,6 +88,8 @@ export function createBrowserCredentialSaveFlow({
   dialogElementsPort: { elements: () => any };
   syncBrowserDialogFromCredentialState: () => void;
   runtimeEnv: { isDesktopMode?: () => boolean };
+  /** 注入时钟，保持本模块可预测；UI 用它区分"这次刚存"与"上次的残留"。 */
+  now?: () => Date;
 }) {
   let credentialSaveInFlight = false;
 
@@ -191,7 +200,9 @@ export function createBrowserCredentialSaveFlow({
           setupModePort,
         });
       }
-      saveTaskOptions?.(nextTaskOptions);
+      // 与上面的凭据落盘同等对待：本行注释里"必须 await 完整持久化"说的就是
+      // 这里，漏掉 await 会让任务选项(模型名/URL/并发/profile)写盘失去保障。
+      await saveTaskOptions?.(nextTaskOptions);
       // 再次保证内存态与刚写入的 next 一致
       credentialsStatePort.setCredentials?.(nextCredentials);
     } catch (error) {
@@ -204,7 +215,10 @@ export function createBrowserCredentialSaveFlow({
     syncBrowserDialogFromCredentialState();
     onCredentialStateChange?.();
     notifyCredentialsChanged();
-    viewPort.setDialogStatus("已保存", "valid");
+    // 带上时刻：否则连续保存的状态是"已保存"→"已保存"，屏幕零变化，
+    // 用户无法判断这次到底存没存，只能反复点。时刻也让 UI 能识别出
+    // "这是一次新的保存"，从而重新播放成功反馈。
+    viewPort.setDialogStatus(`已保存 ${formatClockTime(now())}`, "valid");
     // 首次配置弹窗保存后关闭；设置中心内嵌时保持打开以便继续改任务选项
     if (setupModePort.currentSetupMode?.()) {
       viewPort.closeDialog();
@@ -214,7 +228,7 @@ export function createBrowserCredentialSaveFlow({
   async function handleSave() {
     if (credentialSaveInFlight) return;
     credentialSaveInFlight = true;
-    viewPort.setDialogStatus("正在保存…", "");
+    viewPort.setDialogStatus("正在保存…", "pending");
     try {
       await performSave();
     } finally {

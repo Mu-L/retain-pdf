@@ -79,9 +79,14 @@ export function createCredentials({
   const settingsHubDialogStore = createDialogStore({ tab: "api" });
   const credentialsView = createCredentialsViewFeature({ dialogStore: credentialsDialogStore });
 
-  function saveCredentialTaskOptions(options: Record<string, unknown> = {}) {
+  // 返回 Promise 并由调用方 await：桌面端这条是异步 IPC 写 snapshot，
+  // 此前 `void` 掉会让模型名 / API URL / 并发数 / 各服务商 profile 的落盘
+  // 变成 fire-and-forget——凭据(Key)是 await 的、任务选项不是，用户保存后
+  // 立刻退出就会只丢一半，重进来 Key 还在但模型名没了，只能重填再存一次。
+  // 失败也不再静默：抛给 save-flow 的 catch 去显示，别让用户以为已经存上。
+  async function saveCredentialTaskOptions(options: Record<string, unknown> = {}) {
     setDeveloperConfig(legacyState, { ...getDeveloperConfig(legacyState), ...options });
-    void savePersistedDeveloperStoredConfig(getDeveloperConfig(legacyState));
+    return savePersistedDeveloperStoredConfig(getDeveloperConfig(legacyState));
   }
 
   async function saveDesktopCredentialConfig(

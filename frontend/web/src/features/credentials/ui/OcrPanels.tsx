@@ -27,7 +27,7 @@ export function OcrPanels() {
           content ? "" : "hidden",
           validation.tone === "valid" ? "is-valid" : "",
           validation.tone === "error" ? "is-error" : "",
-          content && !validation.tone ? "is-pending" : "",
+          content && validation.tone === "pending" ? "is-pending" : "",
         ].filter(Boolean).join(" ");
 
         return (
@@ -59,7 +59,7 @@ export function OcrPanels() {
                     id={credentialValidateButtonId(provider.id)}
                     type="button"
                     className="app-button secondary"
-                    disabled={Boolean(content && !validation.tone)}
+                    disabled={validation.tone === "pending"}
                     onClick={() => handlers?.validateOcr?.()}
                   >
                     <PlugZap aria-hidden="true" />

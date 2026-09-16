@@ -236,7 +236,7 @@ test("MinerU：Token 本机保存、明文回填，切回 Paddle 保留各自 To
     typeInput(byId("browser-mineru-token"), "mineru-ui-fixture");
     click(byId("browser-credentials-save-btn"));
     await waitFor(() => defaultCredentialsStatePort.getCredentials().mineruToken === "mineru-ui-fixture", "保存独立 MinerU Token");
-    await waitFor(() => byId("browser-credentials-status").textContent === "已保存", "等待 MinerU 本机保存完成");
+    await waitFor(() => byId("browser-credentials-status").textContent.startsWith("已保存"), "等待 MinerU 本机保存完成");
     assert.equal(byId("browser-mineru-token").value, "mineru-ui-fixture");
     assert.equal(defaultCredentialsStatePort.getCredentials().ocrCredentialRef, "");
     assert.equal(defaultCredentialsStatePort.getCredentials().paddleToken, "paddle-ui-fixture");
@@ -319,6 +319,58 @@ test("MinerU：独立检测接入真实 API transport，显示缺失、过期、
     host.remove();
     globalThis.fetch = previousFetch;
   }
+});
+
+test("保存按钮每次点击都有可见反馈，不会让人以为没生效", async () => {
+  const services = createServices();
+  const { host, root } = await mountHome(services);
+  dom.window.document.dispatchEvent(new dom.window.CustomEvent(APP_EVENTS.openBrowserCredentials));
+  await waitFor(() => byId("browser-api-key") !== null, "API 区");
+
+  const statusEl = () => byId("browser-credentials-status");
+  const saveBtn = () => byId("browser-credentials-save-btn");
+
+  // MutationObserver 捕获所有中间帧——这个缺陷的本质就是"中间帧存在但
+  // 起点与终点相同"，只看最终态是测不出来的。
+  const frames = [];
+  const record = () => {
+    const entry = `${statusEl()?.textContent ?? ""}|${saveBtn()?.disabled}|${saveBtn()?.textContent ?? ""}`;
+    if (frames[frames.length - 1] !== entry) frames.push(entry);
+  };
+  const observer = new dom.window.MutationObserver(record);
+  observer.observe(dom.window.document.body, { subtree: true, childList: true, characterData: true, attributes: true });
+
+  typeInput(byId("browser-paddle-token"), "paddle-fixture");
+  typeInput(byId("browser-api-key"), "sk-key");
+  typeInput(byId("browser-model-name"), "m1");
+
+  click(saveBtn());
+  await waitFor(() => statusEl().textContent.startsWith("已保存"), "首次保存完成");
+  await waitFor(() => saveBtn().textContent === "已保存", "按钮进入成功态");
+
+  // 关键场景：什么都不改，直接再点一次。旧实现下状态是
+  // "已保存"→"已保存"，按钮全程可点且文案不变，屏幕毫无变化。
+  frames.length = 0;
+  record();
+  click(saveBtn());
+  await waitFor(() => frames.some((f) => f.includes("|true|")), "保存中按钮应被禁用");
+  await waitFor(() => saveBtn().textContent === "已保存", "重新播放成功反馈");
+  await wait(30);
+  observer.disconnect();
+
+  assert.ok(
+    frames.some((f) => f.startsWith("正在保存…|true|正在保存…")),
+    `重复保存应出现"正在保存…"且按钮禁用，实际帧：${JSON.stringify(frames)}`,
+  );
+  assert.ok(
+    frames.length >= 3,
+    `重复保存必须产生可见的状态变化，实际帧：${JSON.stringify(frames)}`,
+  );
+  assert.match(statusEl().textContent, /^已保存 \d{2}:\d{2}:\d{2}$/, "状态行带时刻");
+
+  root.unmount();
+  services.dispose();
+  host.remove();
 });
 
 test("CredentialsDialog：常规入口走设置 API；setupMode 仍开独立首次配置门", async () => {
@@ -810,7 +862,7 @@ test("CredentialsDialog：旧凭据读回具体值，编辑后只保存本机配
 
   click(byId("browser-credentials-save-btn"));
   click(byId("browser-credentials-save-btn"));
-  await waitFor(() => byId("browser-credentials-status")?.textContent === "已保存", "更新完成");
+  await waitFor(() => byId("browser-credentials-status")?.textContent.startsWith("已保存"), "更新完成");
   assert.equal(updatePayloads.length, 0, "不再写入旧凭据保险箱");
   assert.equal(defaultCredentialsStatePort.getCredentials().modelApiKey, "translation-updated");
   assert.equal(byId("browser-api-key").value, "translation-updated");

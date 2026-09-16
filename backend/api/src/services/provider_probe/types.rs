@@ -35,6 +35,9 @@ pub struct DeepSeekTokenValidationRequest {
     pub api_key: String,
     #[serde(default)]
     pub base_url: String,
+    /// 翻译实际要调用的模型名。为空时探针只能验 Key，不能验模型。
+    #[serde(default)]
+    pub model: String,
 }
 
 #[derive(Debug, Serialize)]
