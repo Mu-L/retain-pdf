@@ -45,7 +45,7 @@ Python 可执行文件由 `PYTHON_BIN` 配置，不再回退到旧脚本。
     "context_mode": "needed",
     "glossary_mode": "matched",
     "memory_mode": "matched",
-    "model": "deepseek-v4-flash",
+    "model": "deepseek-flash",
     "base_url": "https://api.deepseek.com/v1",
     "credential_ref": "env:RETAIN_TRANSLATION_API_KEY"
   }

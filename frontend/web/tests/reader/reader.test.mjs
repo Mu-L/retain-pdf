@@ -383,7 +383,7 @@ test("reader ai model key comes only from settings (no runtime secret fallback)"
   setRuntimeConfig({
     modelApiKey: "sk-from-runtime",
     baseUrl: "https://api.deepseek.com/v1",
-    model: "deepseek-v4-flash",
+    model: "deepseek-flash",
   });
   // 模型 Key 只认设置；runtime 里的 modelApiKey 不得解锁
   const config = readerAiConfig.resolveReaderAiConfig({
@@ -392,7 +392,7 @@ test("reader ai model key comes only from settings (no runtime secret fallback)"
   });
   assert.equal(config.apiKey, "");
   assert.equal(config.baseUrl, "https://api.deepseek.com/v1");
-  assert.equal(config.model, "deepseek-v4-flash");
+  assert.equal(config.model, "deepseek-flash");
   assert.equal(config.provider, "deepseek");
   // hasModelApiKey / readSettingsModelApiKey 只认设置里的 modelApiKey
   assert.equal(readerAiConfig.readSettingsModelApiKey({ modelApiKey: "" }), "");

@@ -26,7 +26,7 @@ export function AgentRuntimeSettingsCard() {
     AgentRuntimeConfigView["agent_confirmation_mode"]
   >("explicit");
   const [baseUrl, setBaseUrl] = useState("https://api.deepseek.com/v1");
-  const [model, setModel] = useState("deepseek-v4-flash");
+  const [model, setModel] = useState("deepseek-flash");
   const [fxGatewayBaseUrl, setFxGatewayBaseUrl] = useState("");
   const [fxModel, setFxModel] = useState("");
   const [modelKey, setModelKey] = useState("");
@@ -44,7 +44,7 @@ export function AgentRuntimeSettingsCard() {
       setMode(next.configured_runtime || activeMode(next.active_runtime) || "python");
       setConfirmationMode(next.agent_confirmation_mode || "explicit");
       setBaseUrl(next.llm_base_url || "https://api.deepseek.com/v1");
-      setModel(next.llm_model || "deepseek-v4-flash");
+      setModel(next.llm_model || "deepseek-flash");
       setFxGatewayBaseUrl(next.fx_gateway_base_url || "");
       setFxModel(next.fx_model || "");
       setModelKey(next.llm_api_key || "");
@@ -62,7 +62,7 @@ export function AgentRuntimeSettingsCard() {
         setMode(next.configured_runtime || activeMode(next.active_runtime) || "python");
         setConfirmationMode(next.agent_confirmation_mode || "explicit");
         setBaseUrl(next.llm_base_url || "https://api.deepseek.com/v1");
-        setModel(next.llm_model || "deepseek-v4-flash");
+        setModel(next.llm_model || "deepseek-flash");
         setFxGatewayBaseUrl(next.fx_gateway_base_url || "");
         setFxModel(next.fx_model || "");
         setModelKey(next.llm_api_key || "");

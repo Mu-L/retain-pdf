@@ -74,14 +74,14 @@ def test_translation_cache_key_includes_policy_version(monkeypatch) -> None:
 
     before = cache.cache_key_for_item(
         item,
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         base_url="https://api.deepseek.com/v1",
         mode="sci",
     )
     monkeypatch.setattr(engine_identity, "TRANSLATION_POLICY_VERSION", "policy-test-version")
     after = cache.cache_key_for_item(
         item,
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         base_url="https://api.deepseek.com/v1",
         mode="sci",
     )
@@ -97,7 +97,7 @@ def test_translation_cache_sanitizes_reasoning_leak_on_load(monkeypatch, tmp_pat
     }
     cache_key = cache.cache_key_for_item(
         item,
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         base_url="https://api.deepseek.com/v1",
         mode="sci",
     )
@@ -115,7 +115,7 @@ def test_translation_cache_sanitizes_reasoning_leak_on_load(monkeypatch, tmp_pat
 
     result = cache.load_cached_translation(
         item,
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         base_url="https://api.deepseek.com/v1",
         mode="sci",
     )
@@ -134,14 +134,14 @@ def test_translation_cache_persists_validated_item_atomically(monkeypatch, tmp_p
     cache.store_cached_translation(
         item,
         {"decision": "translate", "translated_text": "一个持久的中间结果。"},
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         base_url="https://api.deepseek.com/v1",
         mode="sci",
     )
 
     restored = cache.load_cached_translation(
         item,
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         base_url="https://api.deepseek.com/v1",
         mode="sci",
     )

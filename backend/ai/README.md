@@ -99,7 +99,7 @@ retainpdf-ai
 | `RETAIN_AI_LLM_CREDENTIAL_REF` | 空 | Rust 凭据库中 `kind=agent_llm_api_key` 的启动期引用；优先于 LLM key |
 | `RETAIN_AI_RUST_API_BASE` | `http://127.0.0.1:41000` | Rust API 地址 |
 | `RETAIN_AI_LLM_BASE_URL` | `https://api.deepseek.com/v1` | LLM 端点 |
-| `RETAIN_AI_LLM_MODEL` | `deepseek-v4-flash` | 模型 |
+| `RETAIN_AI_LLM_MODEL` | `deepseek-flash` | 模型 |
 | `RETAIN_AI_LLM_TIMEOUT_S` | `60` | 普通 OpenAI-compatible 请求超时秒数 |
 | `RETAIN_AI_PORT` | `41100` | 监听端口 |
 | `RETAIN_AI_MAX_TOOL_ROUNDS` | `6` | agent 工具轮数上限 |

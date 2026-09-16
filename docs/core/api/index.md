@@ -224,7 +224,7 @@ Reader 宿主接入 job/artifact、Markdown、区域、页面元数据和实时�
   "translation": {
     "mode": "sci",
     "math_mode": "direct_typst",
-    "model": "deepseek-v4-flash",
+    "model": "deepseek-flash",
     "base_url": "https://api.deepseek.com/v1",
     "credential_ref": "cred_translation_primary",
     "batch_size": 1,

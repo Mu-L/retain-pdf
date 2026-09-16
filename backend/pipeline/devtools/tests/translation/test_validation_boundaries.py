@@ -32,7 +32,7 @@ def test_translation_cache_hash_includes_all_active_prompt_files() -> None:
     }
     before = cache.cache_key_for_item(
         item,
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         base_url="https://api.deepseek.com/v1",
         mode="sci",
     )
@@ -49,7 +49,7 @@ def test_translation_cache_hash_includes_all_active_prompt_files() -> None:
         cache._PROMPT_HASHES.clear()
         after = cache.cache_key_for_item(
             item,
-            model="deepseek-v4-flash",
+            model="deepseek-flash",
             base_url="https://api.deepseek.com/v1",
             mode="sci",
         )

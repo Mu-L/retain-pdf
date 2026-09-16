@@ -135,7 +135,7 @@ test("runDeepSeekConnectivityCheck passes injected apiPrefix and model to DeepSe
     apiPrefix: "/custom/api",
     apiKey: "sk-test",
     baseUrl: "https://example.test/v1",
-    model: "deepseek-v4-flash",
+    model: "deepseek-flash",
     validateDeepSeekToken: async (...args) => {
       calls.push(args);
       return { ok: true, status: 200, summary: "ok" };
@@ -151,7 +151,7 @@ test("runDeepSeekConnectivityCheck passes injected apiPrefix and model to DeepSe
     {
       api_key: "sk-test",
       base_url: "https://example.test/v1",
-      model: "deepseek-v4-flash",
+      model: "deepseek-flash",
     },
   ]]);
 });
@@ -280,7 +280,7 @@ test("handleBrowserDeepSeekValidate writes balance through credentials state por
       elements: () => ({
         apiKeyInput: createCredentialNode({ value: "sk-test" }),
         modelBaseUrlInput: createCredentialNode({ value: "" }),
-        modelNameInput: createCredentialNode({ value: "deepseek-v4-flash" }),
+        modelNameInput: createCredentialNode({ value: "deepseek-flash" }),
       }),
       setTopUpVisible: (visible) => calls.push(["top-up", visible]),
       setValidationMessage: (message, tone) => messages.push([message, tone]),
@@ -420,7 +420,7 @@ test("silent balance refresh must not overwrite the visible validation badge", a
       elements: () => ({
         apiKeyInput: createCredentialNode({ value: "sk-test" }),
         modelBaseUrlInput: createCredentialNode({ value: "https://api.deepseek.com/v1" }),
-        modelNameInput: createCredentialNode({ value: "deepseek-v4-flash" }),
+        modelNameInput: createCredentialNode({ value: "deepseek-flash" }),
       }),
       setTopUpVisible: (visible) => topUpCalls.push(visible),
       setValidationMessage: (message, tone) => messages.push([message, tone]),
@@ -460,7 +460,7 @@ test("low-balance top-up prompt ignores non-CNY balances instead of summing curr
       elements: () => ({
         apiKeyInput: createCredentialNode({ value: "sk-test" }),
         modelBaseUrlInput: createCredentialNode({ value: "https://api.deepseek.com/v1" }),
-        modelNameInput: createCredentialNode({ value: "deepseek-v4-flash" }),
+        modelNameInput: createCredentialNode({ value: "deepseek-flash" }),
       }),
       setTopUpVisible: (visible) => topUpCalls.push(visible),
       setValidationMessage: () => {},

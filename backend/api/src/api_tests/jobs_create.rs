@@ -31,7 +31,7 @@ async fn translate_bundle_route_returns_async_job_submission_json() {
     );
     body.extend_from_slice(
         format!(
-            "--{boundary}\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\ndeepseek-v4-flash\r\n"
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\ndeepseek-flash\r\n"
         )
         .as_bytes(),
     );

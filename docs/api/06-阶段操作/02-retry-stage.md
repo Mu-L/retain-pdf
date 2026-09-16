@@ -17,7 +17,7 @@ POST /api/v1/jobs/{job_id}/retry-stage
   "create_new_job": true,
   "overrides": {
     "translation": {
-      "model": "deepseek-v4-flash",
+      "model": "deepseek-flash",
       "workers": 100
     },
     "render": {

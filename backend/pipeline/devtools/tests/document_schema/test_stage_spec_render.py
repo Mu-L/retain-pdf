@@ -64,7 +64,7 @@ def test_render_stage_spec_loads_and_resolves_paths(tmp_path: Path) -> None:
                     "inner_bbox_dense_shrink_x": 0.0,
                     "inner_bbox_dense_shrink_y": 0.0,
                     "font_unify_mode": "off",
-                    "model": "deepseek-v4-flash",
+                    "model": "deepseek-flash",
                     "base_url": "https://api.deepseek.com/v1",
                     "credential_ref": "",
                 },
@@ -123,7 +123,7 @@ def test_render_stage_spec_empty_font_family_uses_default_font(tmp_path: Path) -
                     "inner_bbox_shrink_y": 0.0,
                     "inner_bbox_dense_shrink_x": 0.0,
                     "inner_bbox_dense_shrink_y": 0.0,
-                    "model": "deepseek-v4-flash",
+                    "model": "deepseek-flash",
                     "base_url": "https://api.deepseek.com/v1",
                     "credential_ref": ""
                 },

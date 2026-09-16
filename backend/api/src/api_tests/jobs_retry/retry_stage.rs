@@ -571,7 +571,7 @@ async fn retry_stage_route_creates_translation_recovery_job_with_overrides() {
                         "stage": "translation",
                         "overrides": {
                             "translation": {
-                                "model": "deepseek-v4-flash",
+                                "model": "deepseek-flash",
                                 "workers": 50
                             },
                             "render": {

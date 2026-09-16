@@ -135,7 +135,7 @@ Content-Type: application/json
   "translation": {
     "base_url": "https://api.deepseek.com/v1",
     "api_key": "your-deepseek-api-key",
-    "model": "deepseek-v4-flash",
+    "model": "deepseek-flash",
     "mode": "sci",
     "math_mode": "direct_typst",
     "workers": 50,

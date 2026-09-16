@@ -1845,7 +1845,7 @@ async fn document_translate_reuses_upload_id() {
                         },
                         "translation": {
                             "api_key": "sk-test",
-                            "model": "deepseek-v4-flash",
+                            "model": "deepseek-flash",
                             "base_url": "https://api.deepseek.com/v1"
                         }
                     })
@@ -1897,7 +1897,7 @@ async fn document_translate_reuses_succeeded_ocr_artifacts_without_ocr_credentia
                         "translation": {
                             "page_ranges": [],
                             "api_key": "sk-test",
-                            "model": "deepseek-v4-flash",
+                            "model": "deepseek-flash",
                             "base_url": "https://api.deepseek.com/v1"
                         }
                     })
@@ -2039,7 +2039,7 @@ async fn document_translate_reuses_failed_parent_when_ocr_child_succeeded() {
                         "source": { "artifact_job_id": source_job_id },
                         "translation": {
                             "api_key": "sk-test",
-                            "model": "deepseek-v4-flash",
+                            "model": "deepseek-flash",
                             "base_url": "https://api.deepseek.com/v1"
                         }
                     })

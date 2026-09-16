@@ -21,7 +21,7 @@ DEFAULT_OCR_PROVIDER = os.environ.get("RETAIN_PDF_FRONTEND_OCR_PROVIDER", "").st
 DEFAULT_PADDLE_TOKEN = os.environ.get("RETAIN_PDF_FRONTEND_PADDLE_TOKEN", "").strip()
 DEFAULT_MINERU_TOKEN = os.environ.get("RETAIN_PDF_FRONTEND_MINERU_TOKEN", "").strip()
 DEFAULT_MODEL_API_KEY = os.environ.get("RETAIN_PDF_FRONTEND_MODEL_API_KEY", "").strip()
-DEFAULT_MODEL = os.environ.get("RETAIN_PDF_FRONTEND_MODEL", "deepseek-v4-flash").strip()
+DEFAULT_MODEL = os.environ.get("RETAIN_PDF_FRONTEND_MODEL", "deepseek-flash").strip()
 DEFAULT_BASE_URL = os.environ.get("RETAIN_PDF_FRONTEND_BASE_URL", "https://api.deepseek.com/v1").strip()
 
 

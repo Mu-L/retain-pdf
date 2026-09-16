@@ -35,7 +35,7 @@ Options:
   --ocr-provider <name>      paddle | mineru | local, default paddle
   --ocr-token <token>        OCR provider token, default from env or backend/pipeline/.env
   --model-api-key <key>      Translation API key, default from env or backend/pipeline/.env/deepseek.env
-  --model <name>             Default deepseek-v4-flash
+  --model <name>             Default deepseek-flash
   --base-url <url>           Default https://api.deepseek.com/v1
   --page-ranges <ranges>     Optional page ranges, e.g. 1-3
   --ocr-options <json>       Provider options JSON; local requires a configured command
@@ -53,7 +53,7 @@ function parseArgs(argv) {
   const result = {
     workflow: "book",
     ocrProvider: "paddle",
-    model: "deepseek-v4-flash",
+    model: "deepseek-flash",
     baseUrl: "https://api.deepseek.com/v1",
     timeoutSeconds: 1800,
     pollMs: 1000,

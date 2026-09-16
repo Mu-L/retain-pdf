@@ -697,10 +697,10 @@ test("askLibraryAi 携带 llm_api_key/base/model,仅非空字段进 payload", as
     apiPrefix: "/api/v1",
     fetchImpl: fakeFetch,
     llmApiKey: "  sk-frontend  ",
-    llmModel: "deepseek-v4-flash",
+    llmModel: "deepseek-flash",
   });
   assert.equal(sentBody.llm_api_key, "sk-frontend");
-  assert.equal(sentBody.llm_model, "deepseek-v4-flash");
+  assert.equal(sentBody.llm_model, "deepseek-flash");
   assert.equal("llm_base_url" in sentBody, false);
   assert.equal(sentBody.document_id, "doc-1");
 });

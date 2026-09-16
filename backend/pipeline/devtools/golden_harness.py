@@ -265,7 +265,7 @@ def _run_render(job_root: Path) -> dict:
                 "translated_pdf_name": "",
                 "start_page": 0,
                 "end_page": -1,
-                "model": "deepseek-v4-flash",
+                "model": "deepseek-flash",
                 "base_url": "https://api.deepseek.com/v1",
                 "credential_ref": "",
             },

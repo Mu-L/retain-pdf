@@ -89,7 +89,7 @@ Request:
   "ambiguous_request_policy": "block",
   "overrides": {
     "translation": {
-      "model": "deepseek-v4-flash",
+      "model": "deepseek-flash",
       "glossary_id": "glossary-xxx",
       "workers": 50
     },

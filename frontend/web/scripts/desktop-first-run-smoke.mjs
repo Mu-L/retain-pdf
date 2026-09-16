@@ -23,7 +23,7 @@ function buildRuntimeConfig(config) {
     apiBase: "http://127.0.0.1:41000",
     xApiKey: "retain-pdf-desktop",
     ...buildBrowserConfig(config),
-    model: "deepseek-v4-flash",
+    model: "deepseek-flash",
     baseUrl: "https://api.deepseek.com/v1",
     developerConfig: config.developerConfig || {},
   };

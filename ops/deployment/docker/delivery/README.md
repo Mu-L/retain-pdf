@@ -134,7 +134,7 @@ http://127.0.0.1:40001
 - `FRONT_MODEL_API_KEY`
   前端默认带出的模型 API key。留空时由最终用户自己填写。
 - `FRONT_MODEL`
-  前端默认模型名，例如 `deepseek-v4-flash`。
+  前端默认模型名，例如 `deepseek-flash`。
 - `FRONT_BASE_URL`
   前端默认模型服务地址，例如 `https://api.deepseek.com/v1`。
 
@@ -260,7 +260,7 @@ export OCR_PROVIDER="paddle"
 export PADDLE_TOKEN="your-paddle-token"
 export MINERU_TOKEN="your-mineru-token"
 export MODEL_API_KEY="your-model-api-key"
-export MODEL="deepseek-v4-flash"
+export MODEL="deepseek-flash"
 export BASE_URL="https://api.deepseek.com/v1"
 ```
 

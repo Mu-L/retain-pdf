@@ -73,7 +73,7 @@ export const TRANSLATION_PROVIDER_OPTIONS = [
     id: "deepseek",
     label: "DeepSeek",
     baseUrl: DEEPSEEK_TRANSLATION_BASE_URL,
-    defaultModel: "deepseek-v4-flash",
+    defaultModel: "deepseek-flash",
     defaultWorkers: 50,
     maxWorkers: 100,
     logoUrl: "src/assets/providers/deepseek.svg",

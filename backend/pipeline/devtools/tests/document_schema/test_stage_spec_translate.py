@@ -63,7 +63,7 @@ def test_translate_stage_spec_loads_and_resolves_env_credential(tmp_path: Path, 
                     "glossary_inline_entry_count": 0,
                     "glossary_overridden_entry_count": 0,
                     "glossary_entries": [],
-                    "model": "deepseek-v4-flash",
+                    "model": "deepseek-flash",
                     "base_url": "https://api.deepseek.com/v1",
                     "credential_ref": "env:RETAIN_TRANSLATION_API_KEY",
                 },
@@ -78,7 +78,7 @@ def test_translate_stage_spec_loads_and_resolves_env_credential(tmp_path: Path, 
     spec = TranslateStageSpec.load(spec_path)
 
     assert spec.stage == "translate"
-    assert spec.params.model == "deepseek-v4-flash"
+    assert spec.params.model == "deepseek-flash"
     assert resolve_credential_ref(spec.params.credential_ref) == "sk-stage-test"
 
 
@@ -107,7 +107,7 @@ def test_translate_stage_spec_defaults_math_mode_to_direct_typst(tmp_path: Path)
                     "layout_json": "",
                 },
                 "params": {
-                    "model": "deepseek-v4-flash",
+                    "model": "deepseek-flash",
                     "base_url": "https://api.deepseek.com/v1",
                     "credential_ref": "",
                 },

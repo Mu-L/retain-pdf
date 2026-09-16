@@ -109,7 +109,7 @@ Canonical JSON request:
     "custom_rules_text": "",
     "glossary_id": "",
     "glossary_entries": [],
-    "model": "deepseek-v4-flash",
+    "model": "deepseek-flash",
     "base_url": "https://api.deepseek.com/v1",
     "credential_ref": "cred_0123456789abcdef",
     "start_page": 0,

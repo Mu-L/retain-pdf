@@ -16,7 +16,7 @@ pub(super) fn source_job_with_artifacts(job_id: &str, mut artifacts: JobArtifact
     let mut input = CreateJobInput::default();
     input.runtime.job_id = job_id.to_string();
     input.translation.api_key = "sk-rerun-test".to_string();
-    input.translation.model = "deepseek-v4-flash".to_string();
+    input.translation.model = "deepseek-flash".to_string();
     input.translation.base_url = "https://api.deepseek.com/v1".to_string();
     let mut job = JobSnapshot::new(job_id.to_string(), input, vec!["python".to_string()]);
     job.artifacts = Some(artifacts);

@@ -683,7 +683,7 @@ const desktopRuntimeConfig = `window.__FRONT_RUNTIME_CONFIG__ = {
   mineruToken: "",
   paddleToken: "",
   modelApiKey: "",
-  model: "deepseek-v4-flash",
+  model: "deepseek-flash",
   baseUrl: "https://api.deepseek.com/v1",
 };
 `;

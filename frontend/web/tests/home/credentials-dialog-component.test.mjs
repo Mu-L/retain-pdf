@@ -605,7 +605,7 @@ test("CredentialsDialog：保存(浏览器模式)——写隐藏 input、同步 
   assert.ok(byId("browser-translation-provider"), "翻译 API 使用服务商下拉选择");
   assert.match(byId("browser-translation-provider").textContent, /DeepSeek/);
   assert.equal(byId("browser-model-base-url").readOnly, true, "DeepSeek 预设地址不可直接修改");
-  assert.equal(byId("browser-model-name").value, "deepseek-v4-flash");
+  assert.equal(byId("browser-model-name").value, "deepseek-flash");
   assert.equal(byId("browser-translation-workers").value, "50");
   assert.equal(byId("browser-translation-workers").max, "100");
   typeInput(byId("browser-api-key"), "deepseek-profile-key");

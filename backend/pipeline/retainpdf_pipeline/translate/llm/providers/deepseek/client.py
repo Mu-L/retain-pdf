@@ -22,7 +22,7 @@ from retainpdf_pipeline.translate.llm.shared.response_parsing import unwrap_tran
 
 
 DEFAULT_BASE_URL = "https://api.deepseek.com/v1"
-DEFAULT_MODEL = "deepseek-v4-flash"
+DEFAULT_MODEL = "deepseek-flash"
 DEFAULT_API_KEY_ENV = "DEEPSEEK_API_KEY"
 DEFAULT_API_KEY_FILE = "deepseek.env"
 STREAM_RESPONSES_ENV = "PDF_TRANSLATOR_DEEPSEEK_STREAM"
