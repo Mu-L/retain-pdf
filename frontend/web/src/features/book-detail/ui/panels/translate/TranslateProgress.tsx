@@ -83,10 +83,8 @@ export function BookTranslateProgressPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, dialogOpen, shouldAttach, jobId, cardJobId, cardPollingActive, showDetailedProgress]);
 
-  // 「压住主页那张状态卡」不再由这里负责：条件是 active && dialogOpen &&
-  // shouldAttach，只跑过 OCR、没有翻译任务的文档走下面的空闲分支直接返回
-  // sr-only 占位，这段永远不执行，主卡于是留在弹窗背后重复播同一份进度。
-  // 现在由 BookDetailDialog 按 open 整体抬落抑制闸（statusArea.setSuppressed）。
+  // 「压住主页那张状态卡」这件事已经不存在了：主页那张页面级状态卡整个下线，
+  // 抑制闸（statusArea.setSuppressed）随之删除。进度只有书籍详情一个主场。
 
   // 空闲态由任务卡标题和启动表单表达，不渲染静态路线图。
   if (!showProgress) {

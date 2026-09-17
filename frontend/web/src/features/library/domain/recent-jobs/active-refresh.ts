@@ -62,7 +62,24 @@ export function createActiveLibraryRefreshLoop({
   // 本次提交的新 job id（函数或静态集合）：缺省空，等价于旧行为（排除当前 job）。
   // 接线方（如 runtime）在提交后传入，使新 job 在详情页也能被单卡对齐。
   includeJobIds = [],
+  // 详情弹窗此刻是否正持有当前 job 的展示权。
+  //
+  // 下面那条「排除 currentJobId」的规则，理由写在它自己的注释里：「详情页自有
+  // job-runtime 轮询」。可那个前提只在弹窗开着时成立——attachJobProgress 抢走
+  // 全局轮询插槽后不会在关窗时归还，于是 currentJobId 一直占着，排除也一直生效。
+  //
+  // 后果是用户可见的：打开一本正在跑的书的详情，它的网格卡就从「2.5s 全量对齐」
+  // 降级成「只在 status/stage 变化时被推一次」（silent 模式下 shouldPublishLibrary
+  // 的判据），同一阶段内进度条冻结；关掉弹窗也不恢复。
+  //
+  // 缺省 true = 旧行为，接线方传入真实信号后，关窗即把卡片还给书架。
+  detailOwnsCurrentJob = () => true,
 }: any) {
+  // 弹窗没开着就当没有「当前 job」——排除规则随之失效，卡片回到书架的 2.5s 覆盖。
+  function ownedCurrentJobId() {
+    return detailOwnsCurrentJob() ? currentJobId() : "";
+  }
+
   let activeLibraryRefreshTimer = null;
   let loopGen = 0;
   let stopped = false;
@@ -102,14 +119,14 @@ export function createActiveLibraryRefreshLoop({
   // 规则4 idle熄火：无其它活跃卡则不 arm，自然停轮询。
   // （includeJobIds 放行的提交 job 计入可轮询卡，避免详情页新任务零对齐。）
   function shouldIdleWithoutEligible() {
-    return recentJobsEligibleForActiveRefresh(getItems(), currentJobId(), includeJobIds).length === 0;
+    return recentJobsEligibleForActiveRefresh(getItems(), ownedCurrentJobId(), includeJobIds).length === 0;
   }
 
   function selectCardsForTick(gen) {
     if (!isCurrentGeneration(gen)) {
       return [];
     }
-    return recentJobsEligibleForActiveRefresh(getItems(), currentJobId(), includeJobIds)
+    return recentJobsEligibleForActiveRefresh(getItems(), ownedCurrentJobId(), includeJobIds)
       .slice(0, LIBRARY_ACTIVE_REFRESH_MAX_CARDS_PER_TICK);
   }
 

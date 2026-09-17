@@ -255,6 +255,9 @@ export function createHomeComposition({
     recentJobsNavigationPort: library.recentJobsNavigationPort,
     documentLibraryResource: library.documentLibraryResource,
     homeStatePort,
+    // 详情弹窗开着时，书架单卡轮询继续排除当前 job（详情自有 job-runtime 轮询，
+    // 避免双路 patch 打扰它）；关掉就把这张卡还给书架的 2.5s 覆盖。
+    detailOwnsCurrentJob: () => Boolean(library.bookDetailStore?.getState?.()?.open),
   });
   Object.assign(features, runtime.features);
 

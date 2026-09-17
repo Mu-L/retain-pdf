@@ -117,6 +117,8 @@ type CreateRuntimeFeaturesArgs = {
   recentJobsNavigationPort: RecentJobsNavigationPort;
   documentLibraryResource: unknown;
   homeStatePort: HomeStatePort;
+  /** 详情弹窗是否正持有当前 job 的展示权（书架单卡轮询据此决定是否排除它）。 */
+  detailOwnsCurrentJob?: () => boolean;
 };
 
 export function createRuntimeFeatures({
@@ -135,6 +137,7 @@ export function createRuntimeFeatures({
   recentJobsNavigationPort,
   documentLibraryResource,
   homeStatePort,
+  detailOwnsCurrentJob,
 }: CreateRuntimeFeaturesArgs): {
   features: {
     jobRuntimeFeature: JobRuntimeFeature;
@@ -215,6 +218,7 @@ export function createRuntimeFeatures({
     deleteLibraryBook,
     apiPrefix: API_PREFIX,
     currentJobId: () => jobRuntimeFeature.currentJobId() || "",
+    detailOwnsCurrentJob,
     activeJobRecoveryPort: { readActiveJobId },
     jobRuntimePort: recentJobsJobRuntimePort,
     readerPort: recentJobsReaderPort,

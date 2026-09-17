@@ -58,6 +58,8 @@ export interface CreateRecentJobsRuntimeOptions {
   deleteLibraryBook?: (apiPrefix: string, jobId: string) => Promise<unknown>;
   apiPrefix?: string;
   currentJobId?: () => string;
+  /** 详情弹窗是否正持有当前 job 的展示权（见 active-refresh 的说明）。 */
+  detailOwnsCurrentJob?: () => boolean;
   jobRuntimePort?: unknown;
   activeJobRecoveryPort?: unknown;
   navigationPort?: RecentJobsNavigationPort;
@@ -95,6 +97,8 @@ export function createRecentJobsRuntime({
   deleteLibraryBook,
   apiPrefix,
   currentJobId = () => "",
+  // 详情弹窗是否正持有当前 job 的展示权（见 active-refresh 的说明）。
+  detailOwnsCurrentJob,
   jobRuntimePort,
   activeJobRecoveryPort,
   navigationPort,
@@ -148,6 +152,7 @@ export function createRecentJobsRuntime({
     updateFromRuntime: runtimePatches.update,
     loadRecentJobs,
     isRecentJobsLoading: () => recentJobsLoader?.isLoading?.() || false,
+    ...(detailOwnsCurrentJob ? { detailOwnsCurrentJob } : {}),
   });
 
   const recentJobNavigationPort = navigationPort || createRecentJobsNavigationPort({
