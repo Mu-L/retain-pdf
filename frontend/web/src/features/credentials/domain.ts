@@ -23,6 +23,8 @@ export {
   defaultCredentialsStatePort,
 } from "./domain/default-state-port.js";
 export type { CredentialsStatePort } from "./domain/state.js";
+export { hasDesktopCredentials } from "./domain/desktop-readiness.js";
+export type { DesktopCredentialSnapshot } from "./domain/desktop-readiness.js";
 export { readHiddenCredentialDomInputs } from "./domain/hidden-input-dom-port.js";
 export { createCredentialRuntimeEnvPort } from "./domain/runtime-env-port.js";
 export type {

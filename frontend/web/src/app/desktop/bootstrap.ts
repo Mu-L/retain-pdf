@@ -1,6 +1,7 @@
 import { loadPersistedConfig } from "@/platform/config/desktop-persistence.js";
 import {
   applyDefaultCredentialInputs,
+  hasDesktopCredentials,
 } from "@/features/credentials/domain.js";
 import { desktopBootstrapState as state } from "@/platform/desktop/state.js";
 import {
@@ -27,7 +28,13 @@ export async function bootstrapDesktop(initialConfig = null) {
   const payload = initialConfig || await loadPersistedConfig();
   setDeveloperConfig(state, payload.developerConfig || {});
   applyDefaultCredentialInputs(payload.browserConfig || {});
-  setDesktopConfigured(state, payload.firstRunCompleted);
+  // 不只看 firstRunCompleted：那个布尔只在「首配门里保存」时才写，从设置中心
+  // 保存不写、配置文件重建也会丢，于是 Key 明明都在也每次启动被拦一道。凭据
+  // 齐全本身就是已配置，这样现有装机下次启动就自愈，不必再存一遍。
+  setDesktopConfigured(
+    state,
+    Boolean(payload.firstRunCompleted) || hasDesktopCredentials(payload.browserConfig),
+  );
   if (!isDesktopConfigured(state)) {
     openSetupDialog();
   }
