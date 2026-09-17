@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -16,9 +17,14 @@ except ImportError as exc:
     raise SystemExit("python websocket-client is required for this smoke script") from exc
 
 
+# 40002 是 frontend/web-react（Vite 迁移工作区）；本脚本断言的是
+# frontend/web 的 DOM，它跑在 40001。
+DEFAULT_URL = "http://127.0.0.1:40001/?mock=translate"
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Smoke test RetainPDF mock submit lifecycle in Chromium.")
-    parser.add_argument("--url", default="http://127.0.0.1:40002/?mock=translate")
+    parser.add_argument("--url", default=DEFAULT_URL)
     parser.add_argument("--chromium", default="")
     parser.add_argument("--debug-port", type=int, default=9233)
     parser.add_argument("--wait-seconds", type=float, default=6)
@@ -35,7 +41,12 @@ def chromium_binary(explicit):
         "/usr/bin/chromium-browser",
         "/usr/bin/google-chrome",
         "/usr/bin/google-chrome-stable",
+        # macOS：上面几个路径都不存在，缺这一条会直接 SystemExit
+        #（与 frontend-homepage-smoke.py 对齐）。
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     ):
+        if candidate.startswith("/Applications/") and os.path.exists(candidate):
+            return candidate
         if shutil.which(candidate) or shutil.which(candidate.split("/")[-1]):
             return candidate
     raise SystemExit("Chromium/Chrome binary not found")
@@ -125,7 +136,13 @@ def run_mock_submit(send):
       firstText: (first?.innerText || first?.textContent || "").replace(/\\s+/g, " ").trim(),
       workflowOpen: document.getElementById("translation-workflow-dialog")?.dataset?.open || "",
       submitDisabled: Boolean(document.getElementById("submit-btn")?.disabled),
-      statusPanelHidden: Boolean(document.getElementById("status-section")?.classList?.contains("hidden")),
+      // 进行中的状态改读卡片真正画出来的东西：data-status + 封面进度条宽度。
+      // （原来这里还采 #status-section 的 hidden 类——那个 id 早就不在 DOM 里了，
+      //  Boolean(null?.…) 恒为 false，而且从来没有任何断言读它，纯死字段。）
+      firstStatus: first?.dataset?.status || "",
+      firstProgressWidths: first
+        ? Array.from(first.querySelectorAll("[style*='width']")).map((node) => node.style.width)
+        : [],
     });
   };
 
@@ -162,11 +179,16 @@ def assert_mock_submit(report, events):
         errors.append("mock submit button is disabled")
     if report.get("createdEvents", 0) < 1:
         errors.append("mock submit did not publish library-job-created")
-    submitted_text = f"{submitted.get('firstText', '')} {settled.get('firstText', '')}"
     if "mock-job-20260415" not in f"{submitted.get('firstJobId', '')} {settled.get('firstJobId', '')}":
         errors.append("mock job card was not present after submit")
-    if "翻译中" not in submitted_text and "处理中" not in submitted_text:
-        errors.append("mock job card did not show an active translation/processing state")
+    # 进行中的卡片不再写阶段角标（library-card-badge.ts 的决策：角标文案易截断，
+    # 改由封面进度/动画表达），所以 "翻译中"/"处理中" 在 DOM 里确实不存在了。
+    # 改断言卡片真正画出来的两样东西：运行态 + 封面进度条。
+    active = [item for item in (submitted, settled) if item]
+    if not any(f"{item.get('firstStatus', '')}" in {"running", "queued"} for item in active):
+        errors.append("mock job card did not enter a running state after submit")
+    if not any(item.get("firstProgressWidths") for item in active):
+        errors.append("mock job card drew no progress bar while running")
     if int(settled.get("cardCount") or 0) < 1:
         errors.append("recent job cards disappeared after mock submit")
     exceptions = [event for event in events if event and event[0] == "exception"]
