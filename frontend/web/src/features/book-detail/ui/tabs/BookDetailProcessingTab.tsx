@@ -52,7 +52,12 @@ function ScanIcon() {
   );
 }
 
-export function BookDetailProcessingTab({ ocr, translation, loading = false, error = "" }: any) {
+// resultActionsSlot：结果操作行（下载 / 对照阅读）由调用方注入，和交给
+// WorkflowPanel 的 ocrActionSlot 同款。本组件保持纯展示——只读传入的 ocr/translation，不自己去
+// 取全局服务；那四个按钮要读 statusCard store（useStatusCardModel），一旦直接
+// 写在这里，孤立挂载本组件的组件级测试就会因为缺少 HomeShellProviders 而崩。
+// 真正的注入点在 BookDetailDialog（它本来就在 providers 里）。
+export function BookDetailProcessingTab({ ocr, translation, loading = false, error = "", resultActionsSlot = null }: any) {
   const ocrJob = ocr?.job ?? null;
   const ocrActive = isDocumentJobActive(ocrJob);
   const ocrStatus = documentJobPresentation(ocrJob, "尚未执行");
@@ -64,12 +69,24 @@ export function BookDetailProcessingTab({ ocr, translation, loading = false, err
         ? "失败"
         : "未执行";
   const ocrShowDetail = ocrActive || ocrStatus.tone === "failed";
-  const ocrConfigurable = !ocrActive && !ocr?.pending;
   const unifiedPercent = unifiedPercentOf(ocr, translation);
 
   const translationItem = translation?.item || {};
   const translationJobId = `${translationItem.job_id || translationItem.active_job_id || ""}`.trim();
   const hasTranslationJob = Boolean(translationJobId) && !translationJobId.startsWith("doc:");
+
+  // 「还不知道」不等于「确定没有」。这一段以前只让 loading 控制一行提示文案，
+  // 下面整张流水线照旧渲染，于是 GET /documents/:id/jobs 还在路上的那几百毫秒，
+  // 一份正在跑 OCR 的文档会被画成「OCR 未执行 / 尚未翻译」，「开始 OCR」还可点，
+  // 点下去就并发出第二个任务。
+  //
+  // 判据是「有没有已知数据」而不是 loading 本身：use-document-jobs 的 loading
+  // 每次非静默 refresh 都会翻真，若按 loading 直接切骨架，正盯进度的用户会看到
+  // 界面反复闪回占位。所以只有「loading 且一条任务都还没见过」才算首帧未知。
+  const hasKnownJobData = Boolean(ocrJob) || hasTranslationJob || Boolean(translation?.isActive);
+  const bootstrapping = Boolean(loading) && !hasKnownJobData;
+
+  const ocrConfigurable = !bootstrapping && !ocrActive && !ocr?.pending;
   const translationDescription = translation.ocrReuse
     ? "复用已有 OCR，直接翻译并生成阅读产物"
     : "执行 OCR、翻译并生成阅读产物";
@@ -89,12 +106,12 @@ export function BookDetailProcessingTab({ ocr, translation, loading = false, err
         id="book-detail-start-ocr-btn"
         type="button"
         className={btn("outline")}
-        disabled={Boolean(ocr?.pending) || ocrActive || ocrBlockedByTranslation || Boolean(translation?.busy)}
+        disabled={bootstrapping || Boolean(ocr?.pending) || ocrActive || ocrBlockedByTranslation || Boolean(translation?.busy)}
         title={ocrBlockedByTranslation ? "翻译进行中，暂不能单独执行 OCR" : undefined}
         onClick={ocr?.onOcr}
       >
         <ScanIcon />
-        <span className="ml-1.5">{ocr?.pending ? "提交中…" : ocrActive ? "OCR 处理中" : ocrJob ? "重新 OCR" : "开始 OCR"}</span>
+        <span className="ml-1.5">{bootstrapping ? "读取中…" : ocr?.pending ? "提交中…" : ocrActive ? "OCR 处理中" : ocrJob ? "重新 OCR" : "开始 OCR"}</span>
       </button>
       {ocrCancelable ? (
         <button
@@ -127,12 +144,15 @@ export function BookDetailProcessingTab({ ocr, translation, loading = false, err
           <div className="book-detail-processing-head-copy">
             <h3>处理</h3>
             <p className="book-detail-processing-unified-status" data-processing-unified-status="true">
-              {unifiedHeadline(ocr, translation)}
+              {bootstrapping ? "正在读取处理状态…" : unifiedHeadline(ocr, translation)}
             </p>
           </div>
         </header>
 
-        {unifiedPercent !== null ? (
+        {/* 首帧未知时留一条空轨占位：进度条稍后可能出现，先占好位置避免跳变。 */}
+        {bootstrapping ? (
+          <div className="book-detail-processing-progress overflow-hidden rounded-full bg-muted" aria-hidden="true" />
+        ) : unifiedPercent !== null ? (
           <div className="book-detail-processing-progress overflow-hidden rounded-full bg-muted" aria-hidden="true">
             <div className="h-full rounded-full bg-foreground transition-[width]" style={{ width: `${unifiedPercent}%` }} />
           </div>
@@ -145,6 +165,7 @@ export function BookDetailProcessingTab({ ocr, translation, loading = false, err
           ocrStatus={{ ...ocrStatus, label: ocrStatusLabel }}
           translationStatus={translation.status}
           translationDescription={translationDescription}
+          loading={bootstrapping}
         />
 
         {/* OCR 细化：只保留当前阶段的进度/错误；动作已并入翻译行动行。 */}
@@ -158,7 +179,12 @@ export function BookDetailProcessingTab({ ocr, translation, loading = false, err
               subject="OCR"
             />
           ) : (
-            <span id="book-detail-ocr-progress" className="sr-only" data-job-status={ocrJob?.status || "idle"} aria-hidden="true" />
+            <span
+              id="book-detail-ocr-progress"
+              className="sr-only"
+              data-job-status={ocrJob?.status || (bootstrapping ? "loading" : "idle")}
+              aria-hidden="true"
+            />
           )}
           {ocr?.error ? <p className="rounded-md border border-foreground/20 bg-muted/40 px-3 py-2 text-xs text-foreground" role="alert">{ocr.error}</p> : null}
           {ocrConfigurable ? (
@@ -202,9 +228,17 @@ export function BookDetailProcessingTab({ ocr, translation, loading = false, err
         <div className="book-detail-processing-segment" data-processing-region="translation">
           <BookTranslationWorkflowPanel
             {...translation}
+            // 首帧未知时「翻译整本」同样不能是可点的确定态：这时 canTranslate
+            // 由「还没见过任何任务」推出，点下去可能与在跑的任务撞车。
+            canTranslate={bootstrapping ? false : translation.canTranslate}
             ocrActionSlot={ocrAction}
           />
         </div>
+
+        {/* 结果操作行（下载 / 对照阅读）。原挂在已下线的主页状态卡上，
+            契约 id 原样保留——artifacts 域的 document 级委托靠它们接管点击。
+            首帧未知时不渲染，避免「还不知道」被画成「已完成，请下载」。 */}
+        {bootstrapping ? null : resultActionsSlot}
       </section>
     </div>
   );

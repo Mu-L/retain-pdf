@@ -5,6 +5,12 @@
 // - 根节点 data-translation-process="true"，四个站点各带 data-stage-key；
 // - OCR 站带 data-processing-capability="ocr"，翻译站带 ="translation"；
 // - 两站内各有一个 .book-detail-status 显示该站状态，翻译站还带一句说明。
+//
+// loading（首帧未知）：任务数据还没回来时，轨道只占位不下结论——四站显示
+// 「读取中…」，data-state="loading"，根节点带 data-loading="true"。
+// 曾经这里没有这个态，首帧一律按 pending 渲染成「未执行 / 尚未翻译」，
+// 而那份文档的 OCR 其实正在跑。视觉沿用 is-pending 的样式类，
+// 避免引入尚未打进 CSS 产物的新类名。
 
 import { Check, TriangleAlert, X } from "lucide-react";
 
@@ -50,6 +56,16 @@ function deriveOcrModel(ocrStatus: StatusTone = {}) {
   };
 }
 
+/** 首帧未知：四站都停在占位，不声称任何一站「没跑过」。 */
+function loadingModel() {
+  return {
+    currentStage: "",
+    status: "",
+    ocrReused: false,
+    steps: STAGES.map((stage) => ({ ...stage, state: "pending" as StepState })),
+  };
+}
+
 function StepMark({ state }: { state: string }) {
   if (state === "done") return <Check aria-hidden="true" />;
   if (state === "failed") return <TriangleAlert aria-hidden="true" />;
@@ -64,6 +80,8 @@ export type ProcessingPipelineRailProps = {
   translationStatus?: StatusTone;
   /** 翻译站说明，例如"复用已有 OCR，直接翻译并生成阅读产物" */
   translationDescription?: string;
+  /** 首帧未知：任务数据还没回来，轨道只占位，不给「未执行 / 尚未翻译」的结论。 */
+  loading?: boolean;
 };
 
 export function ProcessingPipelineRail({
@@ -72,11 +90,14 @@ export function ProcessingPipelineRail({
   ocrStatus = {},
   translationStatus = {},
   translationDescription = "",
+  loading = false,
 }: ProcessingPipelineRailProps) {
-  const model = hasTranslationJob ? translationProcessModel(item) : deriveOcrModel(ocrStatus);
+  const model = loading
+    ? loadingModel()
+    : hasTranslationJob ? translationProcessModel(item) : deriveOcrModel(ocrStatus);
   const stationLabels: Record<StageKey, string> = {
-    ocr: ocrStatus.label || "未执行",
-    translate: translationStatus.label || "未翻译",
+    ocr: loading ? "读取中…" : ocrStatus.label || "未执行",
+    translate: loading ? "读取中…" : translationStatus.label || "未翻译",
     render: "",
     done: "",
   };
@@ -88,6 +109,7 @@ export function ProcessingPipelineRail({
       data-translation-process="true"
       data-current-stage={model.currentStage}
       data-status={model.status}
+      {...(loading ? { "data-loading": "true", "aria-busy": true } : {})}
     >
       <ol className="book-detail-pipeline-track" aria-label="OCR、翻译、渲染、完成">
         {STAGES.map((stage) => {
@@ -104,7 +126,7 @@ export function ProcessingPipelineRail({
               key={stage.key}
               className={`book-detail-pipeline-stage is-${step.state}`}
               data-stage-key={stage.key}
-              data-state={step.state}
+              data-state={loading ? "loading" : step.state}
               {...(capability ? { "data-processing-capability": capability } : {})}
             >
               <span className="book-detail-pipeline-rail" aria-hidden="true">
