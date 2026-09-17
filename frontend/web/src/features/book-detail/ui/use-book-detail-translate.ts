@@ -55,10 +55,23 @@ export function useBookDetailTranslate({
       }
       const { s, e } = checked as { s: number; e: number };
       if (artifactJobId) {
+        // 复用已有 OCR：不裁页，artifact 里是整本的 OCR JSON，
+        // 所以这里给的是**原文 1 基页号**，由 ocr_artifact_reuse.rs 按页号挑页。
         payload.translation = { page_ranges: inclusivePageNumbers(s, e) };
       } else {
+        // 无可复用 OCR：ocr.page_ranges 会让 runner 先把 PDF 裁成子集
+        // （ocr_flow/transport.rs 的 prepare_uploaded_source_pdf），
+        // 于是 OCR JSON 里只剩选中的那 e-s+1 页。翻译阶段要做的是把这份
+        // 裁后 JSON **整个**翻完，因此不能再传选页参数。
+        //
+        // 此前这里传了 `start_page: s, end_page: e`，但 translation 的
+        // start/end 是 execution_plan.py:60 交给 resolve_page_range 的
+        // **0 基下标**、且基准是裁后的 JSON，与用户输入的 1 基原文页号
+        // 不是同一套坐标：选 3-5 → 裁成 3 页 → resolve(3,3,5) 直接抛
+        // "Invalid page range"；选 5-12 → 裁成 8 页 → 只翻到原文 10-12 页，
+        // 前 5 页被静默吞掉。省略这两个字段即取默认 0 / -1（-1 表示到末页），
+        // 语义正是"全部翻完"，与主上传弹窗的做法一致。
         payload.ocr = { page_ranges: `${s}-${e}` };
-        payload.translation = { start_page: s, end_page: e };
       }
     }
     // 先切到处理 Tab，保证 bd-job-status-inner 在视口内再接进度

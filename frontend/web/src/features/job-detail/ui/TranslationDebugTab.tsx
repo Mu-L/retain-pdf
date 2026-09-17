@@ -11,18 +11,27 @@ import { STATUS_DETAIL_DIALOG_IDS } from "../domain/status-detail-dom-ids.js";
 
 export function TranslationDebugTab({ translation, controller }) {
   const ids = STATUS_DETAIL_DIALOG_IDS.translation;
-  const hidden = Boolean(translation.emptyMessage);
+  // 只看 emptyMessage 是不够的：面板 forceMount 常驻，切任务/运行时重置会把
+  // translation 打回初始 slice（emptyMessage 为空、summary 为 null、loaded 为
+  // false）而不触发加载。此时内容区会渲染出一副"数据完整"的样子——
+  // 已翻译 0 / 保留原文 0 / 失败 0 / 共 0 条，正是最容易骗人的假象。
+  // 数据真正到位（loaded 且 summary 非 null）才允许显示内容区。
+  // 判据用 summary 而不是 loaded：loaded 只存在于 data-port 的内部状态，
+  // markLoaded() 从不调 syncTranslation，所以 store 里的它恒为 false。
+  // summary 是真正到手的数据，null 就说明这一屏还不能信。
+  const hidden = Boolean(translation.emptyMessage) || translation.summary == null;
+  const placeholder = translation.emptyMessage || "暂无翻译调试数据";
 
   return (
     <section className="status-panel translation-debug-panel">
       <div className="status-panel-head">
         <h3>翻译调试</h3>
         <span id={ids.debugStatus} className="status-panel-note">
-          {hidden ? "暂无翻译调试数据" : "按 item 排查为什么没翻译、为什么保留原文"}
+          {hidden ? placeholder : "按 item 排查为什么没翻译、为什么保留原文"}
         </span>
       </div>
       <div id={ids.debugEmpty} className={hidden ? "events-empty" : "events-empty hidden"}>
-        {translation.emptyMessage || "暂无翻译调试数据"}
+        {placeholder}
       </div>
       <div id={ids.debugContent} className={hidden ? "translation-debug-content hidden" : "translation-debug-content"}>
         <TranslationSummary translation={translation} />

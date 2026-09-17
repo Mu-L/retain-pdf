@@ -44,7 +44,28 @@ function timestampOf(job: DocumentJobSummary): number {
 }
 
 /**
- * Pick the newest successful OCR-only job as a translation source candidate.
+ * 复用候选的优先级：0 = 独立 OCR 任务，1 = OCR 阶段已成功的 book/translate/render 任务。
+ * 返回 -1 表示该任务不能作为复用候选。
+ */
+function reuseRank(job: DocumentJobSummary): number {
+  const jobId = text(job?.job_id || job?.id);
+  // 后端明确的不可复用信号，任何工作流都不放宽。
+  if (!jobId || jobId.startsWith("doc:")) return -1;
+  if (job?.ocr_reusable === false || job?.translation_source_ready === false) return -1;
+
+  if (workflowOf(job) === "ocr") {
+    return text(job?.status).toLowerCase() === "succeeded" ? 0 : -1;
+  }
+  // 后端 ocr_artifact_reuse 支持从整本/翻译/渲染任务复用其自身 OCR 产物，
+  // 即使任务整体失败；判定沿用文档 OCR 状态那一套。
+  return translationOcrStatus(job) === "succeeded" ? 1 : -1;
+}
+
+/**
+ * Pick the newest job whose OCR artifact can seed a translation.
+ *
+ * Standalone succeeded OCR jobs win over jobs that merely cleared their OCR
+ * stage; within one tier the newest wins.
  *
  * This is deliberately only a candidate: artifact completeness, provider
  * compatibility, document ownership and page coverage remain backend-owned
@@ -55,17 +76,12 @@ export function selectReusableOcrJob(
   jobs: DocumentJobSummary[] = [],
 ): DocumentJobSummary | null {
   return jobs
-    .filter((job) => {
-      const jobId = text(job?.job_id || job?.id);
-      return workflowOf(job) === "ocr"
-        && text(job?.status).toLowerCase() === "succeeded"
-        && Boolean(jobId)
-        && !jobId.startsWith("doc:")
-        && job?.ocr_reusable !== false
-        && job?.translation_source_ready !== false;
-    })
-    .map((job, index) => ({ job, index, timestamp: timestampOf(job) }))
-    .sort((left, right) => right.timestamp - left.timestamp || left.index - right.index)[0]?.job || null;
+    .map((job, index) => ({ job, index, rank: reuseRank(job) }))
+    .filter((entry) => entry.rank >= 0)
+    .map((entry) => ({ ...entry, timestamp: timestampOf(entry.job) }))
+    .sort((left, right) => left.rank - right.rank
+      || right.timestamp - left.timestamp
+      || left.index - right.index)[0]?.job || null;
 }
 
 /**

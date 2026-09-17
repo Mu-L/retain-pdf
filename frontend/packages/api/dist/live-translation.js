@@ -153,6 +153,7 @@ export async function streamLiveTranslationEvents(jobId, options) {
             }
         }
     };
+    let failed = false;
     try {
         while (true) {
             const { done, value } = await reader.read();
@@ -163,7 +164,19 @@ export async function streamLiveTranslationEvents(jobId, options) {
         }
         await flushFrames(true);
     }
+    catch (error) {
+        failed = true;
+        throw error;
+    }
     finally {
+        // 异常退出（onEvent 抛错、帧解析失败）不经过 abort signal，fetch 不会被中止：
+        // 只 releaseLock 的话 HTTP 响应体仍然开着，而调用方紧接着就退避重连。
+        // 后端的事件循环空结果时 sleep 750ms 继续查库、永不自行结束，于是每条孤儿
+        // 连接都常驻一个 tokio task + 每 750ms 一次 DB 查询；HTTP/1.1 下浏览器每源
+        // 约 6 条连接，几轮之后阅读器其它请求会被排队饿死。
+        if (failed) {
+            await reader.cancel().catch(() => { });
+        }
         reader.releaseLock();
     }
 }

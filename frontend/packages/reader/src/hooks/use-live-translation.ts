@@ -173,7 +173,14 @@ export function useLiveTranslation({
           return;
         } catch (error) {
           if ((error as Error)?.name === "AbortError") return;
-          const canRetry = errorCode(error) === "LIVE_TRANSLATION_LAYOUT_NOT_READY";
+          const layoutErrorCode = errorCode(error);
+          // 没有业务 code 的一律当作传输层故障（`TypeError: Failed to fetch`、
+          // 代理 502、API 重启…），这些恰恰是最该重试的。此前只认
+          // LAYOUT_NOT_READY 可重试，于是打开文档时网络抖一下就被判永久失败：
+          // publish 成 unavailable 后直接 return，stream() 因 !layoutReady 立刻
+          // 退出，SSE 根本不会打开，而 UI 上没有任何重试入口——只能刷新页面。
+          const canRetry = layoutErrorCode === "LIVE_TRANSLATION_LAYOUT_NOT_READY"
+            || !layoutErrorCode;
           if (!canRetry) {
             publish((current) => ({
               ...current,
@@ -214,7 +221,10 @@ export function useLiveTranslation({
             ...current,
             connection: current.lastSeq > 0 ? "reconnecting" : "connecting",
             jobStatus: normalizedJobStatus,
-            error: current.lastSeq > 0 ? current.error : "",
+            // 保留已有错误：首页还没提交（lastSeq 为 0）时恰恰是最容易出错的阶段，
+            // 此前这里把它清成空串，UI 于是一直显示「连接中」，用户看到的是
+            // "正在努力"，实际可能已经在反复失败。
+            error: current.error,
           }));
         }
         try {
@@ -223,13 +233,29 @@ export function useLiveTranslation({
             signal: abort.signal,
             onEvent: async (event) => {
               if (event.seq <= stateRef.current.lastSeq) return;
-              const snapshot = await fetchMatchingPage(
-                normalizedJobId,
-                event,
-                stateRef.current,
-                abort.signal,
-                port,
-              );
+              let snapshot: LiveTranslationPageSnapshot;
+              try {
+                snapshot = await fetchMatchingPage(
+                  normalizedJobId,
+                  event,
+                  stateRef.current,
+                  abort.signal,
+                  port,
+                );
+              } catch (error) {
+                if ((error as Error)?.name === "AbortError" || abort.signal.aborted) throw error;
+                // 这一页的权威快照始终追不上事件（后端还没落库、或 sha256 对不上）。
+                // 此前这里把异常抛出去，会击穿整条 SSE；而重连用的 afterSeq 取自
+                // 从未推进的 lastSeq，于是同一个事件被无限重放——约每 8.5 秒 9 次
+                // 请求，永远不前进，期间整条流还被 await 堵住，后面所有页的译文
+                // 一起卡住。改为放弃这一页、推进游标，让后续页继续流下去。
+                publish((current) => ({
+                  ...current,
+                  lastSeq: Math.max(current.lastSeq, event.seq),
+                  error: errorMessage(error, "部分页面的实时译文暂时取不到"),
+                }));
+                return;
+              }
               publish((current) => {
                 const next = applyLiveTranslationSnapshot(current, event, snapshot);
                 return terminalStatus

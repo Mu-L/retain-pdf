@@ -35,6 +35,18 @@ function jsToTsResolvePlugin() {
         const absBase = path.isAbsolute(args.path)
           ? args.path
           : path.join(dir, args.path);
+        // 依赖包交回 esbuild 原生解析。本插件只为"项目源码 import 写 .js、
+        // 实际是 .ts"这一条兼容存在，node_modules 里没有这种情况。
+        //
+        // 必须跳过：onResolve 返回 { path } 会绕过 esbuild 对 package.json
+        // 的读取，连带丢掉 sideEffects: false，于是该文件被当成有副作用、
+        // 无法 tree-shake。lucide-react 内部全是 `./icons/xxx.mjs` 相对导入，
+        // 正好落进本插件的 filter，结果 1787 个图标一个不漏地进了产物——
+        // 实测同一句 `import { Save, Check } from "lucide-react"`，拦截时
+        // 572.7 KB，跳过时 10.7 KB。
+        if (absBase.includes("node_modules")) {
+          return undefined;
+        }
         const withoutExt = absBase.replace(/\.(jsx?|mjs)$/, "");
         for (const ext of candidates) {
           const candidate = `${withoutExt}${ext}`;

@@ -85,6 +85,9 @@ export function createStatusDetailTranslationTabCoordinator({
       renderItems();
       renderSelectionPlaceholder(selection);
       await loadSelectedItem(selection);
+      // applyQuery 不再提前置 loaded，成功之后才认；失败时保持未加载，
+      // 下次进 tab 会重新拉，而不是被 `loaded && !force` 短路卡在错误态。
+      dataPort.markLoaded();
     } catch (error) {
       renderItems({
         loading: false,
@@ -95,12 +98,17 @@ export function createStatusDetailTranslationTabCoordinator({
   }
 
   async function changePage(direction) {
+    const previousOffset = dataPort.state.query.offset;
     if (!dataPort.changePage(direction)) {
       return;
     }
     try {
       await loadItems(dataPort.jobId(), { selectFirst: true });
     } catch (error) {
+      // 翻页失败要把 offset 退回去：changePage 是先就地改 query 再发请求，
+      // 不回滚的话列表区显示错误、而分页 meta 已经写着新的页码，
+      // "上一页/下一页"的可用状态也跟着错位。
+      dataPort.state.query.offset = previousOffset;
       renderItems({
         loading: false,
         hasItems: false,

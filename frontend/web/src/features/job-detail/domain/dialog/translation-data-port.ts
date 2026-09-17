@@ -212,7 +212,25 @@ export function createStatusDetailTranslationDataPort({
     if (!nextJobId || !itemId) {
       return null;
     }
-    translationState.replay = await replayTranslationItem(nextJobId, itemId, apiPrefix);
+    // 与 loadSummary / readItems / loadItem 同款守卫。重放会真的跑一次翻译，
+    // 窗口以秒计；此前这里既不推进 requestToken 也不校验回来时的上下文，
+    // 迟到的结果会无条件写入 translationState.replay，盖掉 loadItem 已经做过的
+    // `replay = null` 清理——于是 A 条目的重放结果显示在 B 条目详情下方，
+    // 状态栏还写着"重放完成"。跨任务同理。
+    const token = ++requestToken;
+    const payload = await replayTranslationItem(nextJobId, itemId, apiPrefix);
+    if (token !== requestToken) {
+      return translationState.replay;
+    }
+    const current = jobId();
+    if (current && current !== nextJobId) {
+      return translationState.replay;
+    }
+    if (`${translationState.selectedItemId || ""}`.trim() !== itemId) {
+      // 请求在途时用户改选了别的条目：结果已经不属于当前详情，丢弃。
+      return translationState.replay;
+    }
+    translationState.replay = payload;
     return translationState.replay;
   }
 
@@ -220,7 +238,11 @@ export function createStatusDetailTranslationDataPort({
     translationState.query.finalStatus = finalStatus;
     translationState.query.q = q;
     translationState.query.offset = 0;
-    translationState.loaded = true;
+    // 刻意不在这里置 loaded：此刻一个请求都还没发出去。
+    // 旧代码在这里就置真，而 applyFilter 的失败路径不回滚，于是诊断 404 的任务
+    // 点一次"刷新"后 loaded 永久为真 → ensureTranslationData 的 `loaded && !force`
+    // 短路生效 → 之后怎么切 tab 都只重放旧状态，屏幕停在一屏全 0。
+    // 真正加载成功后由 markLoaded() 置位。
   }
 
   function changePage(direction: string) {
