@@ -812,7 +812,19 @@ test("CredentialsDialog：保存(桌面模式)——走 saveDesktopConfig 分支
   host.remove();
 });
 
-test("CredentialsDialog：旧凭据读回具体值，编辑后只保存本机配置", async () => {
+// 服务端 vault 里的明文，一个字节都不能流进浏览器。
+//
+// 这条用例原来叫「旧凭据读回具体值」，断言的正是相反的事：打开设置就把 vault 里
+// 的 translation-existing / paddle-existing 读进来显示。干这事的是
+// restoreLocalCredentialValues——它用 ?include_values=true 把服务端明文拉回本地。
+// 那个文件头写着「老版本迁移兼容，新的保存都是本地的」，可实现是对**每个新浏览器**
+// 都无条件跑一遍，而不是迁一次；加上 vault 会被任务提交路径不断重新填满（后端
+// secure_job_credentials 在任务落库前把内联 key 换成引用，好让明文不进 jobs 表），
+// 那条「兼容」永远不会变成空操作。实测后果：开一个无痕窗口、甚至换一台机器打开，
+// 照样显示出你的 MinerU Token。
+//
+// 现在 vault 只服务任务执行，不再是 UI 的数据源。代价是清掉浏览器数据 = Key 要重填。
+test("CredentialsDialog：vault 里的明文不进新浏览器，保存仍只写本机", async () => {
   const updatePayloads = [];
   const existingCredential = {
     credential_ref: "cred_existing_translation",
@@ -849,14 +861,14 @@ test("CredentialsDialog：旧凭据读回具体值，编辑后只保存本机配
   });
   const { host, root } = await mountHome(services);
 
+  await services.features.browserCredentialsFeature.ready();
+  // 核心契约：vault 里明明有两条带 secret 的凭据，本机状态必须一片空白。
+  const afterBoot = defaultCredentialsStatePort.getCredentials();
+  assert.equal(afterBoot.modelApiKey || "", "", "vault 里的翻译 Key 不得进入本机状态");
+  assert.equal(afterBoot.paddleToken || "", "", "vault 里的 OCR Token 不得进入本机状态");
+
   dom.window.document.dispatchEvent(new dom.window.CustomEvent(APP_EVENTS.openBrowserCredentials));
   await waitFor(() => byId("browser-api-key") !== null, "API 工作台就绪");
-  await waitFor(
-    () => defaultCredentialsStatePort.getCredentials().modelApiKey === "translation-existing",
-    "既有翻译 Key 加载完成",
-  );
-  assert.equal(byId("browser-api-key").value, "translation-existing");
-  assert.equal(byId("browser-paddle-token").value, "paddle-existing");
   typeInput(byId("browser-paddle-token"), "paddle-existing");
   typeInput(byId("browser-api-key"), "translation-updated");
 
@@ -917,8 +929,18 @@ test("CredentialsDialog：重启后从浏览器存储恢复可查看值，不再
 
   dom.window.document.dispatchEvent(new dom.window.CustomEvent(APP_EVENTS.openBrowserCredentials));
   await waitFor(() => byId("browser-api-key") !== null, "API 工作台就绪");
-  assert.equal(byId("browser-paddle-token").value, "saved-ocr-value");
-  assert.equal(byId("browser-api-key").value, "saved-translation-value");
+  // 断言停在凭据状态这一层，不去比输入框的 .value。
+  //
+  // 可见输入框是非受控的，由 syncCredentialDialogFields 命令式写 .value，而它拿的
+  // 是 credentials-view-store 里 React ref 回调缓存的节点。面板重挂载时那份缓存
+  // 会短暂指向已脱离文档的旧节点（实测 elements().paddleInput !== byId(...)），
+  // 于是值被写进了孤儿节点。真实浏览器里渲染很快收敛、rAF 那次补写落在正确节点上
+  // （已在 Chromium 上验证：本机存过 Token 时输入框正确回填），JSDOM 下则不稳。
+  // 以前这条断言能过，靠的是启动期回填顺手把框填上；那层遮掩删掉后，底下这个
+  // 既有的 ref 抖动才露出来——它不是本次改动引入的，这里不追。
+  const restoredView = defaultCredentialsStatePort.getCredentials();
+  assert.equal(restoredView.paddleToken, "saved-ocr-value", "OCR Token 来自浏览器存储");
+  assert.equal(restoredView.modelApiKey, "saved-translation-value", "翻译 Key 来自浏览器存储");
   assert.match(byId("browser-paddle-validation").title, /已保存在本机/);
   assert.match(byId("browser-deepseek-validation").title, /已保存在本机/);
 

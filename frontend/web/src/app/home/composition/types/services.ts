@@ -226,7 +226,6 @@ export type CreateHomeCompositionOptions = {
   validateOcrToken?: AsyncFn | null;
   validateDeepSeekToken?: AsyncFn;
   queryDeepSeekBalance?: AsyncFn;
-  listCredentials?: AsyncFn;
   createCredential?: AsyncFn;
   updateCredential?: AsyncFn;
   checkApiConnectivity?: AsyncFn | null;

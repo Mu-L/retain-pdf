@@ -4,7 +4,6 @@ import {
 } from "./default-state-port.js";
 import { createCredentialRuntimeEnvPort } from "./runtime-env-port.js";
 import { createCredentialUploadReadinessPort } from "./upload-readiness-port.js";
-import { restoreLocalCredentialValues } from "./local-credential-restore.js";
 import { createCredentialAccess } from "./credential-access.js";
 import { createTranslationProfiles } from "./translation-profiles.js";
 import { createCredentialDialogFlow } from "./dialog-flow.js";
@@ -133,7 +132,6 @@ export interface MountBrowserCredentialsFeatureOptions {
     apiPrefix?: unknown,
     payload?: unknown,
   ) => Promise<ProviderValidationResult | unknown> | ProviderValidationResult | unknown;
-  listCredentials?: (apiPrefix?: string) => Promise<any>;
   createCredential?: (apiPrefix: string | undefined, payload: Record<string, unknown>) => Promise<any>;
   updateCredential?: (
     apiPrefix: string | undefined,
@@ -174,7 +172,6 @@ export function mountBrowserCredentialsFeature({
   validateOcrToken,
   validateDeepSeekToken,
   queryDeepSeekBalance,
-  listCredentials,
   createCredential,
   updateCredential,
   onCredentialStateChange,
@@ -289,11 +286,19 @@ export function mountBrowserCredentialsFeature({
     changeTranslationProvider: dialogFlow.handleTranslationProviderChange,
   });
 
-  // Restore older keys once; saving and provider switching never write to a vault.
-  const credentialReferencesReady = restoreLocalCredentialValues({
-    apiPrefix, credentialsStatePort, listCredentials,
-    baseUrl: `${(getTaskOptions?.() as Record<string, unknown>)?.baseUrl || defaultModelBaseUrl?.() || ""}`,
-  }).then(() => {
+  // 凭据只住在这个浏览器里，一个字节都不向服务端要。
+  //
+  // 这里曾经先跑 restoreLocalCredentialValues：用 ?include_values=true 把服务端
+  // vault 里的明文拉回来，填进输入框并写进 localStorage。它的本意写在那个文件
+  // 头上——「老版本迁移兼容，新的保存都是本地的」——但实现是每个新浏览器都无条件
+  // 跑一遍，而不是迁一次。加上 vault 会被任务提交路径不断重新填满（后端
+  // secure_job_credentials 在任务落库前把内联 key 换成引用，好让明文不进 jobs
+  // 表），那条「兼容」永远不会变成空操作，于是成了服务端↔浏览器的永久往返：
+  // 换一个无痕窗口、甚至换一台机器打开，照样显示出你的 MinerU Token。
+  //
+  // 现在只用本机已有的凭据回填输入框。vault 仍然存在，但退回成任务执行的内部
+  // 实现细节，不再是 UI 的数据源。代价是清掉浏览器数据 = Key 需要重新填。
+  const credentialReferencesReady = Promise.resolve().then(() => {
     const current = access.readCurrentCredentials();
     const elements = dialogElementsPort.elements();
     for (const [input, value] of [

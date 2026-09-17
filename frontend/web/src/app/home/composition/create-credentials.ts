@@ -24,7 +24,6 @@ import {
 } from "@/platform/desktop/state.js";
 import {
   createCredential,
-  listCredentials,
   updateCredential,
   validateMineruToken,
   validatePaddleToken,
@@ -48,7 +47,6 @@ type CreateCredentialsArgs = {
   validateOcrTokenOverride?: AsyncFn | null;
   validateDeepSeekTokenOverride?: AsyncFn;
   queryDeepSeekBalanceOverride?: AsyncFn;
-  listCredentialsOverride?: AsyncFn;
   createCredentialOverride?: AsyncFn;
   updateCredentialOverride?: AsyncFn;
   checkApiConnectivityOverride?: AsyncFn | null;
@@ -63,7 +61,6 @@ export function createCredentials({
   validateOcrTokenOverride,
   validateDeepSeekTokenOverride,
   queryDeepSeekBalanceOverride,
-  listCredentialsOverride,
   createCredentialOverride,
   updateCredentialOverride,
   checkApiConnectivityOverride,
@@ -144,7 +141,6 @@ export function createCredentials({
     validateOcrToken: validateOcrTokenOverride || validateCredentialOcrToken,
     validateDeepSeekToken: validateDeepSeekTokenOverride,
     queryDeepSeekBalance: queryDeepSeekBalanceOverride,
-    listCredentials: listCredentialsOverride || ((prefix) => listCredentials(prefix, { includeValues: true })),
     createCredential: createCredentialOverride || createCredential,
     updateCredential: updateCredentialOverride || updateCredential,
     onCredentialStateChange: () => {

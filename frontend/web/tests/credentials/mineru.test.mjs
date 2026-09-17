@@ -169,18 +169,30 @@ function controllerHarness(overrides = {}) {
   return { ...harness, feature, handlers, elements, messages };
 }
 
-test("switching uses separate locally restored tokens without vault writes", async () => {
+// 切换 OCR 提供商只看本机存过的 Token，vault 里有值也绝不回灌。
+//
+// 这条用例原来叫 "switching uses separate locally restored tokens"，断言切到
+// MinerU 会自动拿到 vault 里的 mineru-restored——本机明明从没填过。那是
+// restoreLocalCredentialValues 干的：它用 ?include_values=true 把服务端明文拉回
+// 来写进 localStorage，而且对每个新浏览器都跑一遍，等于把 vault 当成了 UI 的
+// 数据源。后果是开一个无痕窗口、换一台机器，照样显示出你的 MinerU Token。
+//
+// 现在 vault 只服务任务执行（后端要在任务落库前把明文换成引用，否则密钥会进
+// jobs 表），不再回灌界面。本机没有就是没有。
+test("切换 OCR 提供商只用本机 Token，vault 里有值也不回灌", async () => {
   const { port, feature, handlers, writes } = controllerHarness();
   await feature.ready();
+  // fixtures 里的 vault 明明有 mineru-restored，但本机 state 只存过 paddleToken。
   const pending = handlers.changeProvider({ currentTarget: { value: "mineru" } });
   assert.equal(port.getCredentials().ocrCredentialRef, "");
-  assert.equal(port.getOcrToken(), "mineru-restored");
+  assert.equal(port.getOcrToken(), "", "本机没存过 MinerU Token 就必须是空，不得从 vault 取回明文");
   await pending;
   assert.equal(port.getCredentials().ocrCredentialRef, "");
-  assert.equal(feature.hasOcrCredentials(), true);
+  assert.equal(feature.hasOcrCredentials(), false, "没有本机 Token 就该判定为未配置，而不是靠 vault 兜底");
+  // 切回 Paddle 仍拿到本机那份，两个提供商互不串味。
   await handlers.changeProvider({ currentTarget: { value: "paddle" } });
   assert.equal(port.getOcrToken(), "paddle-legacy");
-  assert.deepEqual(writes, []);
+  assert.deepEqual(writes, [], "切换提供商从不写 vault");
 });
 
 test("failed lookup cannot unlock MinerU using the previous Paddle reference", async () => {
