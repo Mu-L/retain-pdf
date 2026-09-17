@@ -38,10 +38,29 @@ export interface TranslationWorkflowUploadSessionPort {
   resetUploadSession?: () => void;
 }
 
+// 「以上传态打开弹窗」= 开始一次全新的上传，处理方式选择必须回默认态。
+//
+// uploadSessionPort.resetUploadSession 只负责 upload 域(文件/进度/页码/提交态)，
+// 而用户在弹窗里做的另外两个选择住在别的 store 里：
+//   - ocrOnly(「翻译」/「仅 OCR」Tab)   → workflowView store
+//   - translationOptionsOpen(选项面板)  → uploadView store
+// 这两个都只有「设置」没有「复位」的写入点，于是跨次打开被带过来：上一次做完
+// OCR，下一次点「添加 PDF」弹窗仍停在「仅 OCR」+ 选项面板还开着，用户很容易
+// 把想翻译的书误提交成 OCR 任务。
+// 复位属于「打开」这一步而不是「关闭」：关闭路径有多个(× / 背板 / Escape /
+// 提交成功自动关)，而且关闭时组件还挂着，就地改状态会让用户看到界面在消失前
+// 跳一下；打开前复位则只有 openUpload 一个入口，且组件挂载时读到的已经是干净
+// 快照。runtime 不该直接 import workflow/upload 的 store(分层)，所以这里只声明
+// 端口，实际动作在 app/home/create-home-composition.ts 的装配处注入。
+export interface TranslationWorkflowProcessingChoicePort {
+  resetProcessingChoice?: () => void;
+}
+
 export interface CreateTranslationWorkflowDialogRuntimeOptions {
   dialogStatePort?: TranslationWorkflowDialogStatePort;
   statusAreaPort?: TranslationWorkflowStatusAreaPort;
   uploadSessionPort?: TranslationWorkflowUploadSessionPort | null;
+  processingChoicePort?: TranslationWorkflowProcessingChoicePort | null;
   documentRef?: Document;
 }
 
@@ -57,6 +76,7 @@ export function createTranslationWorkflowDialogRuntime({
   dialogStatePort,
   statusAreaPort,
   uploadSessionPort = null,
+  processingChoicePort = null,
   documentRef = globalThis.document,
 }: CreateTranslationWorkflowDialogRuntimeOptions = {}) {
   // 3b 修复(实测发现,非预先设计):recent-jobs 的 refresh-environment.js
@@ -92,11 +112,19 @@ export function createTranslationWorkflowDialogRuntime({
   }
 
   // ---- 状态落地(document 监听调用;镜像旧 controller 的 openUpload/openFromEvent/close/sync) ----
-  // open 职责:上传入口,成功→ 切 UPLOAD 态 + 复位上传会话 + 点亮 DOM data-open;
-  // 失败→ 停留原态,不抛错(调用方 requestOpenUpload 只发事件,不直接改状态)。
+  // open 职责:上传入口,成功→ 切 UPLOAD 态 + 复位处理方式选择 + 复位上传会话 +
+  // 点亮 DOM data-open;失败→ 停留原态,不抛错(调用方 requestOpenUpload 只发事件,
+  // 不直接改状态)。
+  //
+  // 两个复位都严格排在 dialogStatePort.open() 之前:open() 才是让 React 挂载
+  // 弹窗内容的那一拍,复位晚于它的话组件会先读到上一次的脏快照。
+  // resetProcessingChoice 又排在 resetUploadSession 之前:后者末尾会
+  // refreshSubmitControls(),而提交按钮的文案/工作流是按 ocrOnly 算的——先把
+  // ocrOnly 归位,这次刷新算出来的才是「直接翻译」而不是残留的「开始 OCR」。
 
   function openUpload() {
     statusAreaPort?.hide?.();
+    processingChoicePort?.resetProcessingChoice?.();
     uploadSessionPort?.resetUploadSession?.();
     dialogStatePort.open(TRANSLATION_WORKFLOW_MODES.UPLOAD);
     syncOpenAttributeToDom(true);

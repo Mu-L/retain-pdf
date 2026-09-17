@@ -34,14 +34,17 @@ import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import {
   useHomeBridge,
   useHomeFeatures,
+  useHomeUploadViewStore,
   useHomeWorkflowViewActions,
   useHomeWorkflowViewStore,
 } from "@/ui/context/home-services-context.js";
+import type { UploadViewStore } from "../domain/upload-store.js";
 import { HeroUpload } from "./components/UploadTile.jsx";
 import { InlineErrorBox } from "./InlineErrorBox.jsx";
 
 export function WorkflowPanel({ hiddenInputsSlot = null }: { hiddenInputsSlot?: React.ReactNode | null }) {
   const workflowViewStore = useHomeWorkflowViewStore();
+  const uploadViewStore = useHomeUploadViewStore();
   const bridge = useHomeBridge();
   const workflowViewActions = useHomeWorkflowViewActions();
   const features = useHomeFeatures();
@@ -54,11 +57,31 @@ export function WorkflowPanel({ hiddenInputsSlot = null }: { hiddenInputsSlot?: 
     bridge.submitForm(event);
   }
 
+  // 模式切换是 ocrOnly 的唯一写入点，「仅 OCR」下该收起的东西也只能在这里收。
+  //
+  // 「翻译选项」面板(TranslationOptionsPanel)的显隐只看 upload.translationOptionsOpen，
+  // 而它的开关按钮 #page-range-btn 在 ProcessingChoicePanel 里带了 `&& !ocrOnly`。
+  // 于是曾经出现过:在「翻译」下展开选项面板，再切到「仅 OCR」——面板原地留在
+  // 屏上(标题还写着「翻译选项」)，开关按钮却消失了，成了没有入口的孤儿。
+  //
+  // 为什么是「收起」而不是「保留面板 + 改文案」：页码范围本身对 OCR 任务是有效
+  // 的(payload-assembly.collectRunPayload 在 ocrOnly 分支里照样把 pageRanges
+  // 塞进 ocr.page_ranges，书籍详情页的「OCR 选定页码」也走同一条路)，但这个面板
+  // 在上传弹窗里被定位成「翻译选项」:一半是页码范围、一半是术语表(纯翻译概念)，
+  // 而且产品已经决定 OCR 模式下不给选项入口(#page-range-btn 的 !ocrOnly 是既有
+  // 行为，不在本次修复范围)。既然没有入口，面板就不该独自留在屏上。
+  //
+  // 收起只翻 translationOptionsOpen 这个开关，closeTranslationOptions 刻意不清
+  // pageRangeStart/End(见 upload/view-actions.ts)，所以已填的页码不会丢:切回
+  // 「翻译」重新展开还在，切到 OCR 提交也仍然按这个范围跑。
   function handleModeChange(value: string) {
     const nextOcrOnly = value === "ocr";
     if (nextOcrOnly === ocrOnly) return;
 
     workflowViewActions.setOcrOnly(nextOcrOnly);
+    if (nextOcrOnly) {
+      (uploadViewStore as unknown as UploadViewStore).actions.closeTranslationOptions();
+    }
     features.workflowFeature?.refreshSubmitControls?.();
     features.workflowFeature?.applyWorkflowMode?.();
   }

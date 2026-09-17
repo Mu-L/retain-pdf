@@ -136,6 +136,17 @@ export function createHomeComposition({
   const workflowDialog = createTranslationWorkflowDialogRuntime({
     dialogStatePort,
     statusAreaPort: statusArea.statusAreaPort,
+    // 「打开上传弹窗」= 开始一次全新的上传，所以处理方式的两个选择也要回默认：
+    // 模式回「翻译」、翻译选项面板收起。它们分别住在 workflowView / uploadView
+    // 两个 store 里（uploadSessionPort 只管 upload 域，从来不碰这两个），
+    // 而 runtime 不该跨层 import 这些 store，因此在装配处注入为端口。
+    // 复位排在 dialogStatePort.open() 之前，保证组件挂载时读到的已是干净状态。
+    processingChoicePort: {
+      resetProcessingChoice: () => {
+        workflowView.setOcrOnly(false);
+        uploadView.closeTranslationOptions();
+      },
+    },
     uploadSessionPort: {
       resetUploadSession: () => features.uploadFeature.resetUploadSession(),
     },
