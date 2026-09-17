@@ -85,7 +85,7 @@ test("从「翻译」切到「仅 OCR」时，已展开的翻译选项面板不�
   await waitFor(() => byId("translation-workflow-dialog") !== null, "添加对话框打开");
 
   // 文件就绪才会露出处理方式区（含「选项」开关按钮）
-  services.uploadViewActions.patch({ ready: true, actionSlotVisible: true });
+  services.stores.uploadView.actions.patch({ ready: true, actionSlotVisible: true });
   await waitFor(() => byId("page-range-btn"), "翻译选项开关按钮出现");
 
   click(dom, byId("page-range-btn"));
@@ -128,7 +128,7 @@ test("切回「翻译」后已填的页码还在（收起只翻开关，不吃�
 
   click(dom, byId("library-add-pdf-btn"));
   await waitFor(() => byId("translation-workflow-dialog") !== null, "添加对话框打开");
-  services.uploadViewActions.patch({ ready: true, actionSlotVisible: true });
+  services.stores.uploadView.actions.patch({ ready: true, actionSlotVisible: true });
   await waitFor(() => byId("page-range-btn"), "翻译选项开关按钮出现");
 
   click(dom, byId("page-range-btn"));

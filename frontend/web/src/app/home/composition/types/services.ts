@@ -56,7 +56,6 @@ import type {
   TextPort,
   UploadDomRefs,
   UploadPort,
-  UploadViewActions,
   WorkflowDialogRuntime,
   WorkflowPort,
   WorkflowViewActions,
@@ -146,9 +145,7 @@ export type HomeNarrowPorts = {
 export type HomeServices = HomeCoreServices &
   HomeDomainServices & {
     /** text-store 的 selector 帮助函数（配合 useStoreSnapshot） */
-    textOf: (snapshot: unknown, id: string, fallback?: unknown) => unknown;
     uploadDomRefs: UploadDomRefs;
-    uploadViewActions: UploadViewActions;
     workflowViewActions: WorkflowViewActions;
     workflowDialog: WorkflowDialogRuntime;
   };
@@ -157,7 +154,6 @@ export type HomeServices = HomeCoreServices &
 export type HomeServicesViews = {
   textStore: {
     store: AppStore;
-    textOf: HomeServices["textOf"];
     setText?: (id: string, value?: string) => void;
   };
   uploadView: {

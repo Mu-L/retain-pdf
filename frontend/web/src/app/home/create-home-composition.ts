@@ -263,7 +263,6 @@ export function createHomeComposition({
     documentRef,
     disposeWorkflowDialogEvents,
   });
-  features.appShellFeature = lifecycle.appShellFeature;
 
   return buildHomeServices({
     bridge,

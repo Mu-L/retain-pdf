@@ -81,7 +81,7 @@ test("上传弹窗：恢复顶部模式切换 + 就绪后执行当前模式或�
   assert.equal(byId("file-label").textContent, "点击选择文件或拖到这里");
 
   // 模拟上传完成
-  services.uploadViewActions.patch({ ready: true, actionSlotVisible: true });
+  services.stores.uploadView.actions.patch({ ready: true, actionSlotVisible: true });
   await waitFor(() => !byId("store-only-btn").disabled, "仅收藏动作可用");
   await waitFor(() => dom.window.document.querySelector(".upload-tile.is-ready"), "上传区进入就绪态");
   assert.ok(byId("page-range-btn"), "文件就绪后显示翻译选项入口");
@@ -116,7 +116,7 @@ test("仅收藏：关闭对话框且不提交翻译 job", async () => {
   let jobSubmitted = false;
   dom.window.document.addEventListener(APP_EVENTS.libraryJobCreated, () => { jobSubmitted = true; });
 
-  services.uploadViewActions.patch({ ready: true, actionSlotVisible: true });
+  services.stores.uploadView.actions.patch({ ready: true, actionSlotVisible: true });
   // 上传响应现在带 document_id（= 内容哈希），前端存入 upload session。
   services.ports.uploadStatePort.setUpload({ documentId: "doc-uploaded" });
   await waitFor(() => !byId("store-only-btn").disabled, "仅收藏可选择");
@@ -144,7 +144,7 @@ test("提交任务：成功后关闭弹窗并跳到该文档详情（进度 Tab�
 
   click(dom, byId("library-add-pdf-btn"));
   await waitFor(() => byId("translation-workflow-dialog") !== null, "添加对话框打开");
-  services.uploadViewActions.patch({ ready: true, actionSlotVisible: true });
+  services.stores.uploadView.actions.patch({ ready: true, actionSlotVisible: true });
   services.ports.uploadStatePort.setUpload({ documentId: "doc-uploaded" });
   await waitFor(() => byId("job-form"), "上传表单就位");
   byId("job-form").dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));

@@ -122,7 +122,6 @@ export function createLifecycle({
   return {
     initialize,
     dispose,
-    appShellFeature: { initializeIdleView },
   };
 }
 

@@ -30,14 +30,6 @@ export type HomeReadStore<T = any> = {
 // ── 窄口值类型（全部本地结构化定义，不引用功能/composition 类型） ──
 
 export type HomeDialogStoreValue = HomeReadStore;
-export type HomeStatusAreaStoreValue = HomeReadStore;
-
-/** services.statusArea —— 域 bag（可见性动作，读侧走 stores.statusArea）。 */
-export type HomeStatusAreaValue = {
-  isVisible: () => boolean;
-  setVisible: (visible: boolean) => void;
-  setWorkflowSections?: (job?: unknown) => void;
-};
 
 export type HomeWorkflowDialogValue = {
   requestOpenUpload: () => void;
@@ -117,7 +109,6 @@ export type HomeFeaturesValue = {
   jobRuntimeFeature?: any;
   recentJobsFeature?: any;
   artifactDownloadsFeature?: any;
-  appShellFeature?: any;
 };
 
 export type HomeCredentialsStatePortValue = {
@@ -136,8 +127,6 @@ export type HomeReaderValue = {
 /** app 侧映射出的窄口聚合；HomeShellProviders 按此一次灌入全部窄 Context。 */
 export type HomeNarrowServices = {
   dialogStore: HomeDialogStoreValue;
-  statusAreaStore: HomeStatusAreaStoreValue;
-  statusArea: HomeStatusAreaValue;
   workflowDialog: HomeWorkflowDialogValue;
   settingsHub: HomeSettingsHubValue;
   bridge: HomeBridgeValue;
@@ -167,8 +156,6 @@ export const HomeServicesContext = createContext<unknown>(null);
 export const HomeServicesProvider = HomeServicesContext.Provider;
 
 export const HomeDialogStoreContext = createContext<HomeDialogStoreValue | null>(null);
-export const HomeStatusAreaStoreContext = createContext<HomeStatusAreaStoreValue | null>(null);
-export const HomeStatusAreaContext = createContext<HomeStatusAreaValue | null>(null);
 export const HomeWorkflowDialogContext = createContext<HomeWorkflowDialogValue | null>(null);
 export const HomeSettingsHubContext = createContext<HomeSettingsHubValue | null>(null);
 export const HomeBridgeContext = createContext<HomeBridgeValue | null>(null);
@@ -213,16 +200,6 @@ export const useHomeDialogStore = createNarrowHook(
   HomeDialogStoreContext,
   (s) => s.stores.dialog,
   "useHomeDialogStore",
-);
-export const useHomeStatusAreaStore = createNarrowHook(
-  HomeStatusAreaStoreContext,
-  (s) => s.stores.statusArea,
-  "useHomeStatusAreaStore",
-);
-export const useHomeStatusArea = createNarrowHook(
-  HomeStatusAreaContext,
-  (s) => s.statusArea,
-  "useHomeStatusArea",
 );
 export const useHomeWorkflowDialog = createNarrowHook(
   HomeWorkflowDialogContext,
@@ -335,8 +312,6 @@ export const useHomeReader = createNarrowHook(
 export function HomeShellProviders({ services, children }: { services: HomeNarrowServices; children: ReactNode }) {
   const providers: Array<[Context<any>, any]> = [
     [HomeDialogStoreContext, services.dialogStore],
-    [HomeStatusAreaStoreContext, services.statusAreaStore],
-    [HomeStatusAreaContext, services.statusArea],
     [HomeWorkflowDialogContext, services.workflowDialog],
     [HomeSettingsHubContext, services.settingsHub],
     [HomeBridgeContext, services.bridge],

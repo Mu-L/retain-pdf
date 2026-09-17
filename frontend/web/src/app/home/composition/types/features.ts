@@ -92,10 +92,6 @@ export type ArtifactDownloadsFeature = {
   handleProtectedArtifactClick: (event: Event, link?: Element) => unknown;
 };
 
-export type AppShellFeature = {
-  initializeIdleView: () => void;
-};
-
 /** 装配期逐步填满的 features 注册表（10 字段） */
 export type HomeFeatures = {
   workflowFeature?: WorkflowFeature;
@@ -107,5 +103,4 @@ export type HomeFeatures = {
   jobRuntimeFeature?: JobRuntimeFeature;
   recentJobsFeature?: RecentJobsFeature;
   artifactDownloadsFeature?: ArtifactDownloadsFeature;
-  appShellFeature?: AppShellFeature;
 };

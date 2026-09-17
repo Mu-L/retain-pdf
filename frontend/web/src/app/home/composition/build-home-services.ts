@@ -140,11 +140,7 @@ export function buildHomeServices({
       openReader: library.recentJobsReaderPort.openReader,
     },
     // 视图帮助别名
-    textOf: views.textStore.textOf,
     uploadDomRefs: views.uploadView.domRefs,
-    uploadViewActions: {
-      patch: views.uploadView.patch,
-    },
     workflowViewActions: {
       setSelectedGlossaryId: views.workflowView.setSelectedGlossaryId,
       setOcrOnly: views.workflowView.setOcrOnly,

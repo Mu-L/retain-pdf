@@ -28,8 +28,6 @@ export {
   HomeTabsProvider,
   useHomeTabs,
   useHomeDialogStore,
-  useHomeStatusAreaStore,
-  useHomeStatusArea,
   useHomeWorkflowDialog,
   useHomeSettingsHub,
   useHomeBridge,
@@ -65,8 +63,6 @@ export function useHomeServices(): HomeServices {
 function toNarrowServices(services: HomeServices): HomeNarrowServices {
   return {
     dialogStore: services.stores.dialog,
-    statusAreaStore: services.stores.statusArea,
-    statusArea: services.statusArea,
     workflowDialog: services.workflowDialog,
     settingsHub: services.settingsHub,
     bridge: services.bridge,
