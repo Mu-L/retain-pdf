@@ -6,7 +6,14 @@ import re
 EN_WORD_RE = re.compile(r"[A-Za-z]+(?:[-'][A-Za-z]+)?")
 SHORT_FRAGMENT_RE = re.compile(r"^[A-Za-z][A-Za-z0-9._/-]{0,7}$")
 EN_RESIDUE_SEGMENT_RE = re.compile(r"[A-Za-z][A-Za-z0-9\s,;:()'./%+-]{30,}")
-AUTHOR_NAME_TOKEN_RE = re.compile(r"\b(?:[A-Z]\.\s*)?[A-ZÀ-ÖØ-Þ][A-Za-zÀ-ÖØ-öø-ÿ'`´.-]{1,}\b")
+# 姓名词。字符类必须覆盖 Latin Extended-A（U+0100–U+017F），否则土耳其语的
+# ğ/ı/ş、波兰语的ł/ń、捷克语的 č/ř 这些字母会落在类外——而末尾的 \b 在
+# "Uluda|ğ" 之间不成立（两侧都是 word 字符），于是整个姓名**一个都匹配不上**。
+# 实测：旧式 À-ÖØ-öø-ÿ 下 "Nesimi Uludağ" 只认出 "Nesimi"，"Goncagül Serdaroğlu"
+# 只认出 "Goncagül"，作者行豁免因此失效，署名块被当成未翻译的英文正文。
+AUTHOR_NAME_TOKEN_RE = re.compile(
+    r"\b(?:[A-Z]\.\s*)?[A-ZÀ-ÖØ-Þ\u0100-\u017F][A-Za-zÀ-ÖØ-öø-ÿ\u0100-\u017F'`´.-]{1,}\b"
+)
 EN_CHUNK_RE = re.compile(r"[A-Za-z][A-Za-z0-9'./%+\-]*(?:\s+[A-Za-z][A-Za-z0-9'./%+\-]*)*")
 
 

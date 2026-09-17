@@ -7,7 +7,11 @@ from .models import FinalStatus
 
 ALLOWED_UNTRANSLATED_ROUTE_NAMES = {
     "fast_path_keep_origin",
+    # 死信队列。与下方 dead_letter_queue 成对，覆盖两种打标方式：
+    # transport.py 往 route_path 追加 "dlq"，finalization 走 fallback_to。
+    "dlq",
 }
+# 前七项是「主动跳过」：这些块按策略本来就不该翻译，未翻译是正确结果。
 ALLOWED_UNTRANSLATED_REASONS = {
     "code",
     "keep_origin",
@@ -16,6 +20,17 @@ ALLOWED_UNTRANSLATED_REASONS = {
     "skip_interline_equation",
     "skip_display_formula",
     "skip_model_keep_origin",
+    # 死信是另一回事：该块本应翻译，重试与两轮补救（agent_repair、
+    # final_untranslated_recovery）都用尽了仍拿不到可用译文，于是保留原文并隔离。
+    # 它是失败的终态，但同样不该阻断导出——一个块救不回来，不值得让同一份文档里
+    # 其余上百个已成功的块一起作废。
+    #
+    # 这推翻了此前「死信仍然 blocking」的设计（原由
+    # test_final_untranslated_recovery_dead_letters_unrecoverable_item 锁定）。
+    # 放行后它并不会被悄悄忽略：io.py 仍单独统计 dead_letter_count，
+    # Rust 侧 completion_pipeline.rs 据此把任务标成「完成，但有 N 个内容块
+    # 保留原文未翻译」，用户看得到，也能重试补翻。
+    "dead_letter_queue",
 }
 KEEP_ORIGIN_POLICY_LABELS = {
     "code",

@@ -77,14 +77,20 @@ def test_final_untranslated_recovery_dead_letters_unrecoverable_item() -> None:
 
     assert summary.recovered_items == 0
     assert summary.dead_letter_items == 1
-    assert summary.blocking_after == 1
+    # 这一项没救回来（recovered_items == 0），但打上死信后不再计入阻断项，
+    # 于是收口结束时 blocking_after 归零、导出门禁放行。
+    assert summary.blocking_after == 0
     assert payload[0]["final_status"] == "failed"
     assert payload[0]["should_translate"] is True
     assert payload[0]["classification_label"] == ""
     assert payload[0]["skip_reason"] == ""
     assert payload[0]["source_text"] == "The output remains unavailable after all retry stages."
     assert payload[0]["translation_diagnostics"]["dead_letter"] is True
-    assert len(blocking_untranslated_items({0: payload})) == 1
+    # 死信仍然是失败终态、仍然被单独计数，但**不再阻断导出**：
+    # 一个块救不回来不该让同文档其余已成功的块一起作废。放行后由
+    # dead_letter_count 驱动 Rust 侧的「完成，但有 N 个块保留原文」提示。
+    # （此前这里断言 == 1，即死信照样拦下整份产物。）
+    assert blocking_untranslated_items({0: payload}) == []
 
 
 def test_final_untranslated_recovery_skips_protocol_hex_dump() -> None:

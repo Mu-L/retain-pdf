@@ -125,6 +125,22 @@ def _looks_like_copy_dominant_english_output(source_text: str, translated_text: 
     return similarity >= 0.82
 
 
+# 隶属/通讯标记：ASCII 星号与剑标之外，还要认 Unicode 上标星号 ⁎(U+204E)、
+# 星号 ∗(U+2217)、通讯作者常用的 ✉ 以及上标数字，否则它们会被当成独立作者段。
+_AFFILIATION_MARK_CHARS = " *†‡§¶⁎∗✉#0123456789⁰¹²³⁴⁵⁶⁷⁸⁹,;."
+
+
+def _is_affiliation_mark(segment: str) -> bool:
+    """整段只是隶属标记（单个字母或一串标记符号），不含任何姓名信息。"""
+    stripped = segment.strip()
+    if not stripped:
+        return True
+    # "a" / "b" / "cd" 这类纯小写单字母标记
+    if len(stripped) <= 2 and stripped.isalpha() and stripped.islower():
+        return True
+    return all(char in _AFFILIATION_MARK_CHARS for char in stripped)
+
+
 def _looks_like_author_name_list(text: str) -> bool:
     cleaned = strip_placeholders(text).strip()
     if not cleaned:
@@ -134,7 +150,13 @@ def _looks_like_author_name_list(text: str) -> bool:
     if "@" in cleaned or "http://" in cleaned or "https://" in cleaned:
         return False
     normalized = cleaned.replace(" and ", ", ")
-    segments = [segment.strip(" *†‡§,;") for segment in re.split(r",|;|\band\b", normalized) if segment.strip(" *†‡§,;")]
+    segments = [segment.strip(_AFFILIATION_MARK_CHARS) for segment in re.split(r",|;|\band\b", normalized)]
+    # 隶属标记自成一段时必须整段丢弃，不能留下来充数。
+    # 作者行的标记常写成 "Serdaroğlu a,⁎" 或 "Sugumar c,d"——按逗号切开后
+    # "⁎" 和 "d" 各成一段、姓名词为 0，既拉高了 len(segments)，又让下面
+    # `>= len(segments) - 1` 的门槛跟着水涨船高，真正的姓名段反而凑不够数。
+    # 实测 b009（5 位作者）被切成 7 段、门槛升到 6，合格段只有 5，豁免失效。
+    segments = [segment for segment in segments if segment and not _is_affiliation_mark(segment)]
     if len(segments) < 3:
         return False
     name_like = 0
