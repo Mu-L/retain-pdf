@@ -84,6 +84,25 @@ pub(super) fn create_ocr_child_job(
         &ocr_child,
     )?;
 
+    // 子任务也要有文档归属，否则它的 OCR 产物永远无法被复用：
+    // validate_ocr_artifact_reuse 的第一道校验就是 get_document_by_job_id，
+    // 查不到归属即判 document_mismatch。主任务的归属由 lifecycle.rs 的
+    // update_document_after_job 在终态时补上，而 OCR 子任务由本文件独立创建、
+    // 直接落库，从不经过那条流程，于是 document_id 一直是 NULL——表现就是
+    // 「OCR 明明成功了，重试却还要整本重跑一遍 OCR」。
+    //
+    // 尽力而为：link 依赖 uploads.content_hash，失败只记日志，不影响任务本身。
+    if let Err(error) = deps
+        .persist
+        .db
+        .link_job_to_document(&ocr_job_id, &source.upload_id)
+    {
+        tracing::warn!(
+            "library: link ocr child {} to document failed: {error}",
+            ocr_job_id
+        );
+    }
+
     if let Some(artifacts) = parent_job.artifacts.as_mut() {
         artifacts.ocr_job_id = Some(ocr_job_id.clone());
         artifacts.ocr_trace_id = Some(format!("ocr-{ocr_job_id}"));
@@ -109,3 +128,7 @@ pub(super) fn create_ocr_child_job(
 
     Ok(ocr_child)
 }
+
+#[cfg(test)]
+#[path = "translation_flow_child_tests.rs"]
+mod translation_flow_child_tests;
