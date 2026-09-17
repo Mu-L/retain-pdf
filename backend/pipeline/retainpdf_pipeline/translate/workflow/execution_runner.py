@@ -103,6 +103,11 @@ def run_translation_execution_plan(
                 "translation export gate blocked: "
                 f"unresolved_translation_count={len(blocking)} preview={preview}"
             )
+        # 先确认 checkpoint 收得了尾，再发布 manifest。顺序反过来的话，一次
+        # 收尾失败会把 status="complete" 的 manifest 留在输出目录里——渲染阶段
+        # 的 load_translated_pages 只认这个文件，会把一份没翻译完的文档当成
+        # 完整结果渲染出去。
+        checkpoint.assert_committable()
         manifest_path = write_translation_manifest(
             request.output_dir,
             {

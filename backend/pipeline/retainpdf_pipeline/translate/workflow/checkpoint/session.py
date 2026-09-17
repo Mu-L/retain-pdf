@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from .contract import (
     advance_checkpoint,
+    assert_checkpoint_committable,
     commit_checkpoint,
     committed_pages_for_changes,
     new_checkpoint,
@@ -193,6 +194,12 @@ class TranslationCheckpointSession:
         else:
             committed_changes = {}
         return committed_changes
+
+    def assert_committable(self) -> None:
+        """发布 manifest 之前先问一次：这次运行到底能不能收尾。"""
+        if self.payload is None:
+            raise RuntimeError("Translation checkpoint session is not initialized")
+        assert_checkpoint_committable(self.payload)
 
     def complete(self, manifest_path: Path) -> None:
         if self.payload is None:

@@ -288,11 +288,21 @@ def committed_pages_for_changes(
     return committed
 
 
-def commit_checkpoint(payload: dict[str, Any], *, manifest_name: str) -> dict[str, Any]:
+def assert_checkpoint_committable(payload: dict[str, Any]) -> None:
+    """提交的两条前置条件。单独暴露，是为了能在**发布 manifest 之前**先问一次。
+
+    manifest 一旦落盘就带着 status="complete"，而 load_translated_pages 只认它；
+    先写盘再在这里失败，会把一份「0 个块翻译成功」的文档留在输出目录里冒充完整
+    结果。所以调用方必须先过这道门，再发布。
+    """
     if payload.get("phase") != "validating":
         raise RuntimeError("Translation checkpoint can only commit after validation")
     if int((payload.get("progress") or {}).get("pending_item_count", -1)) != 0:
         raise RuntimeError("Translation checkpoint cannot commit with pending items")
+
+
+def commit_checkpoint(payload: dict[str, Any], *, manifest_name: str) -> dict[str, Any]:
+    assert_checkpoint_committable(payload)
     payload.update(
         {
             "status": "complete",
