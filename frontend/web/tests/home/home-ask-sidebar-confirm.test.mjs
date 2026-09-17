@@ -40,7 +40,7 @@ async function mountSidebar({ onDelete }) {
 }
 
 async function waitFor(predicate, description) {
-  const deadline = Date.now() + 3000;
+  const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, 15));

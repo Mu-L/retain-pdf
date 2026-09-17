@@ -36,7 +36,7 @@ const { syncAnswerImageDisplaySize } = await import(
 );
 
 async function waitFor(predicate, description) {
-  const deadline = Date.now() + 2500;
+  const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, 10));

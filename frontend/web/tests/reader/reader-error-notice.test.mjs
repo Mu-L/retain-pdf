@@ -209,7 +209,7 @@ test("reader session exposes optional artifact failures from the payload", async
   }
 
   const waitFor = async (predicate, description) => {
-    const deadline = Date.now() + 2_000;
+    const deadline = Date.now() + 15_000;
     while (Date.now() < deadline) {
       if (predicate()) return;
       await act(async () => {

@@ -45,7 +45,7 @@ function deferred() {
 }
 
 async function waitFor(predicate, message) {
-  const deadline = Date.now() + 4000;
+  const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, 10));

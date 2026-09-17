@@ -121,7 +121,7 @@ test("40001/index.html可200(41000可达才断言API)", async (t) => {
       cwd: PROJECT_ROOT,
       stdio: "ignore",
     });
-    const deadline = Date.now() + 10000;
+    const deadline = Date.now() + 15_000;
     do {
       await new Promise((r) => setTimeout(r, 300));
       res = await probe(`${FRONT_URL}/index.html`);

@@ -30,7 +30,7 @@ function wait(ms) {
 }
 
 async function waitFor(predicate, description) {
-  const deadline = Date.now() + 2000;
+  const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
     if (predicate()) {
       return;

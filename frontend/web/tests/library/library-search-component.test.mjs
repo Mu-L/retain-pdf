@@ -71,7 +71,7 @@ test("库检索面板:渲染命中高亮与文档行,状态切换调用 PATCH", 
   // 并行跑测时进程负载不定,固定短等待会在 subscribe 尚未发生时拿到 null;
   // 轮询直到岛屿完成订阅(deliverQuery 就绪)再继续。
   {
-    const deadline = Date.now() + 3000;
+    const deadline = Date.now() + 15_000;
     while (typeof deliverQuery !== "function" && Date.now() < deadline) {
       await wait(20);
     }
@@ -83,7 +83,7 @@ test("库检索面板:渲染命中高亮与文档行,状态切换调用 PATCH", 
   // 搜索有防抖 + 异步取数;满载并发时固定 400ms 不够。轮询直到命中片段真渲染出来
   // (面板 div 会先出、命中内容后填,只等面板不够)。
   {
-    const deadline = Date.now() + 3000;
+    const deadline = Date.now() + 15_000;
     while (!host.querySelector(".lib-search-snippet mark") && Date.now() < deadline) {
       await wait(20);
     }
@@ -99,7 +99,7 @@ test("库检索面板:渲染命中高亮与文档行,状态切换调用 PATCH", 
   );
   {
     // 等乐观更新(setState + 重渲)真正把状态文字变成"在读",而不是猜固定毫秒。
-    const deadline = Date.now() + 3000;
+    const deadline = Date.now() + 15_000;
     while (host.querySelector(".lib-search-doc-status")?.textContent !== "在读" && Date.now() < deadline) {
       await wait(20);
     }

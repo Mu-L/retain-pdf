@@ -166,7 +166,7 @@ test("same mounted reading anchor sends a new document without saved state to pa
   }
 
   const waitFor = async (predicate, description) => {
-    const deadline = Date.now() + 2_000;
+    const deadline = Date.now() + 15_000;
     while (Date.now() < deadline) {
       if (predicate()) return;
       await act(async () => {
@@ -261,7 +261,7 @@ test("same mounted Reader clears document A selection and highlight when its ide
   }
 
   const waitFor = async (predicate, description) => {
-    const deadline = Date.now() + 2_000;
+    const deadline = Date.now() + 15_000;
     while (Date.now() < deadline) {
       if (predicate()) return;
       await act(async () => {

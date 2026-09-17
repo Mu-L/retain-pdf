@@ -36,7 +36,7 @@ function wait(ms) {
 
 // 并行跑测时进程负载不定,固定等待会抖;轮询直到条件成立(上限 3s)
 async function waitFor(predicate, description) {
-  const deadline = Date.now() + 3000;
+  const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
     if (predicate()) {
       return;

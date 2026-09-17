@@ -24,6 +24,16 @@ const { WORKFLOW_CONSTANTS } = await import(
 //
 // 省略这两个字段即取默认 0 / -1（-1 = 到末页），语义正是「把裁后的整份翻完」。
 
+// 预算只是防挂死的兜底，不是断言：条件成立就立刻返回，调大它不会让任何用例变慢。
+async function waitUntil(predicate, description) {
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 15));
+  }
+  assert.fail(`等待超时：${description}`);
+}
+
 test("选页码翻译只发 ocr.page_ranges，不发会错位的 start_page/end_page", async () => {
   const { JSDOM } = await import("jsdom");
   const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/" });
@@ -64,13 +74,20 @@ test("选页码翻译只发 ocr.page_ranges，不发会错位的 start_page/end_
     dom.window.document.body.appendChild(host);
     const root = createRoot(host);
     root.render(React.createElement(Probe));
-    await new Promise((r) => setTimeout(r, 30));
+    await waitUntil(() => api !== null, "Probe 首次渲染");
     api.setRangeOn(true);
     api.setStartPage("3");
     api.setEndPage("5");
-    await new Promise((r) => setTimeout(r, 30));
+    // 等选页状态真的落到下一次渲染，而不是赌一个固定毫秒数：三个 setter 各触发
+    // 一次更新，CI 上负载高时 30ms 未必够，handleTranslate 就会读到旧状态、
+    // 什么都不提交，captured 保持 null，最后炸在一个与本用例断言无关的
+    // "Cannot read properties of undefined"。
+    await waitUntil(
+      () => api.rangeOn === true && api.startPage === "3" && api.endPage === "5",
+      "选页状态落到下一次渲染",
+    );
     await api.handleTranslate();
-    await new Promise((r) => setTimeout(r, 30));
+    await waitUntil(() => captured !== null, "捕获提交 payload");
     root.unmount();
     host.remove();
     return captured;

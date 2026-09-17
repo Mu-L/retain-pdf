@@ -5,7 +5,7 @@ import { JSDOM } from "jsdom";
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function waitFor(predicate, description) {
-  const deadline = Date.now() + 3000;
+  const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
     if (predicate()) return;
     await wait(15);

@@ -544,7 +544,7 @@ test("chat:agentic 回答渲染 [n] 可点击引用与脚注,模型文本 XSS �
   }));
 
   const waitFor = async (predicate, description) => {
-    const deadline = Date.now() + 3000;
+    const deadline = Date.now() + 15_000;
     while (Date.now() < deadline) {
       if (predicate()) {
         return;
