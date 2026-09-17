@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,7 +17,25 @@ import { mountAppUpdateFeature } from "../../src/features/app-update/domain/cont
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const frontendRoot = path.resolve(__dirname, "../..");
-const generatedVersionPath = path.join(frontendRoot, "src/platform/generated/app-version.ts");
+
+// 生成脚本的产物改道到临时目录。此前这三个用例直接覆盖真实的
+// src/platform/generated/app-version.ts 再还原，而 error-diagnostics.ts 会
+// import 它；--test-concurrency=4 下，别的测试文件在还原窗口里动态 import
+// 就可能读到写了一半的文件，报 "does not provide an export named APP_VERSION"。
+function generateAppVersion(env) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "retainpdf-app-version-"));
+  const outputPath = path.join(dir, "app-version.ts");
+  try {
+    execFileSync(process.execPath, ["./scripts/generate-app-version.mjs"], {
+      cwd: frontendRoot,
+      env: { ...process.env, RETAIN_PDF_APP_VERSION_OUT: outputPath, ...env },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    return fs.readFileSync(outputPath, "utf8");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
 
 function createMemoryStorage() {
   const store = new Map();
@@ -135,68 +154,30 @@ test("legacy update cache helpers use the default browser storage", () => {
 });
 
 test("generate-app-version uses release version override", () => {
-  const before = fs.readFileSync(generatedVersionPath, "utf8");
-  try {
-    execFileSync(process.execPath, ["./scripts/generate-app-version.mjs"], {
-      cwd: frontendRoot,
-      env: {
-        ...process.env,
-        RETAIN_PDF_VERSION: "9.8.7-beta10",
-      },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+  const generated = generateAppVersion({ RETAIN_PDF_VERSION: "9.8.7-beta10" });
 
-    const generated = fs.readFileSync(generatedVersionPath, "utf8");
-
-    assert.match(generated, /export const APP_VERSION = "9\.8\.7-beta10";/);
-  } finally {
-    fs.writeFileSync(generatedVersionPath, before, "utf8");
-  }
+  assert.match(generated, /export const APP_VERSION = "9\.8\.7-beta10";/);
 });
 
 test("generate-app-version uses GitHub tag version before package version", () => {
-  const before = fs.readFileSync(generatedVersionPath, "utf8");
-  try {
-    execFileSync(process.execPath, ["./scripts/generate-app-version.mjs"], {
-      cwd: frontendRoot,
-      env: {
-        ...process.env,
-        RETAIN_PDF_VERSION: "",
-        GITHUB_REF_TYPE: "tag",
-        GITHUB_REF_NAME: "v8.7.6-beta3",
-      },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+  const generated = generateAppVersion({
+    RETAIN_PDF_VERSION: "",
+    GITHUB_REF_TYPE: "tag",
+    GITHUB_REF_NAME: "v8.7.6-beta3",
+  });
 
-    const generated = fs.readFileSync(generatedVersionPath, "utf8");
-
-    assert.match(generated, /export const APP_VERSION = "8\.7\.6-beta3";/);
-  } finally {
-    fs.writeFileSync(generatedVersionPath, before, "utf8");
-  }
+  assert.match(generated, /export const APP_VERSION = "8\.7\.6-beta3";/);
 });
 
 test("generate-app-version does not fall back to package or local version files", () => {
-  const before = fs.readFileSync(generatedVersionPath, "utf8");
-  try {
-    execFileSync(process.execPath, ["./scripts/generate-app-version.mjs"], {
-      cwd: frontendRoot,
-      env: {
-        ...process.env,
-        RETAIN_PDF_VERSION: "",
-        GITHUB_REF_TYPE: "",
-        GITHUB_REF_NAME: "",
-        PATH: "",
-      },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+  const generated = generateAppVersion({
+    RETAIN_PDF_VERSION: "",
+    GITHUB_REF_TYPE: "",
+    GITHUB_REF_NAME: "",
+    PATH: "",
+  });
 
-    const generated = fs.readFileSync(generatedVersionPath, "utf8");
-
-    assert.match(generated, /export const APP_VERSION = "0\.0\.0\+unknown";/);
-  } finally {
-    fs.writeFileSync(generatedVersionPath, before, "utf8");
-  }
+  assert.match(generated, /export const APP_VERSION = "0\.0\.0\+unknown";/);
 });
 
 

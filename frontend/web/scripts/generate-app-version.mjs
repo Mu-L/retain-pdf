@@ -8,7 +8,14 @@ const __dirname = path.dirname(__filename);
 const frontendRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(frontendRoot, "..", "..");
 const desktopPackagePath = path.resolve(repoRoot, "frontend/desktop/package.json");
-const outputPath = path.join(frontendRoot, "src/platform/generated/app-version.ts");
+// 默认写回真实产物；RETAIN_PDF_APP_VERSION_OUT 让调用方改道。
+// 测试需要验证这里的版本解析，但不能去覆盖真实的 app-version.ts——业务代码
+// import 它，并发跑测试时别的用例可能正好读到它被 truncate 的那一瞬间，
+// 拿到一个没有任何导出的模块。
+const outputPath = path.resolve(
+  frontendRoot,
+  (process.env.RETAIN_PDF_APP_VERSION_OUT || "").trim() || "src/platform/generated/app-version.ts",
+);
 
 function repoFromHomepage(homepage = "") {
   const match = `${homepage || ""}`.match(/github\.com\/([^/]+\/[^/#?]+)/i);
