@@ -1,5 +1,5 @@
 use anyhow::Result;
-use rusqlite::params;
+use rusqlite::{params, TransactionBehavior};
 
 use crate::models::domain::{JobArtifactRecord, JobSnapshot};
 use crate::storage_paths::{collect_job_artifact_entries, normalize_job_paths_for_storage};
@@ -141,7 +141,12 @@ impl Db {
             .map(serde_json::to_string)
             .transpose()?;
         let mut conn = self.connect()?;
-        let tx = conn.transaction()?;
+        // BEGIN IMMEDIATE，不能用默认的 DEFERRED：本事务先 SELECT 再写，
+        // DEFERRED 会先拿 SHARED 读锁、写时再升级成写锁，而 SQLite 对**锁升级**
+        // 不应用 busy_timeout（两个连接都持 SHARED 又都想升级时等待必然死锁，
+        // 所以直接返回 SQLITE_BUSY）。表现就是配了 5s 超时却瞬间 "database is
+        // locked"。IMMEDIATE 在 BEGIN 时就取写锁，此时 busy_timeout 正常生效。
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         // Check current status
         let current_status: Option<String> = tx
             .query_row(
