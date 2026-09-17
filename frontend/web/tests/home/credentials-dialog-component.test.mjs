@@ -39,8 +39,12 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// 预算只是防挂死的兜底，不是断言：条件成立就立刻返回，调大它不会让任何用例变慢。
+// 原来写死 3000ms —— 这个文件要在 jsdom 里挂起整个 home 装配再走一遍异步保存，
+// CI 上并发跑多个文件时单次就要 4s 出头，于是"保存 Paddle"那步偶发超时，报出来的
+// 是一个和它断言的东西毫无关系的假失败。真正坏掉的用例仍然会失败，只是晚一点。
 async function waitFor(predicate, description) {
-  const deadline = Date.now() + 3000;
+  const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
     if (predicate()) {
       return;
