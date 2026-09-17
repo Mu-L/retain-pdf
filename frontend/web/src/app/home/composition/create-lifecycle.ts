@@ -39,6 +39,7 @@ type CreateLifecycleArgs = {
   bridge: HomeBridge;
   documentRef: Document;
   disposeWorkflowDialogEvents?: (() => void) | null;
+  disposeArtifactDownloadsEvents?: (() => void) | null;
 };
 
 export function createLifecycle({
@@ -46,6 +47,7 @@ export function createLifecycle({
   bridge,
   documentRef,
   disposeWorkflowDialogEvents,
+  disposeArtifactDownloadsEvents,
 }: CreateLifecycleArgs) {
   let disposeDocumentEvents: (() => void) | null = null;
   let started = false;
@@ -106,16 +108,36 @@ export function createLifecycle({
     initializeIdleView();
   }
 
+  // 销毁顺序是**显式声明**的，不是 initialize 的机械倒放。
+  //
+  // 关键在第一条：workflowDialog 的 closeTranslationWorkflow 监听会触发
+  // recent-jobs 的 scheduleRefresh，所以必须先解绑它，否则后面每解绑一个消费者
+  // 都可能再被它唤起一轮。整体是「先解绑消费者、再停生产者」——stopPolling 放
+  // 最后，保证轮询终止事件不会打到已失效的视图上。
+  //
+  // 写成一张具名表而不是一串语句：顺序本身是跨 4 个域的契约，散在语句里只有
+  // 注释在维持它；一旦有人插一行或调个位置，不会有任何东西报错。
+  function disposeSteps(): Array<[string, (() => void) | null | undefined]> {
+    return [
+      ["workflowDialogEvents", disposeWorkflowDialogEvents],
+      ["documentEvents", disposeDocumentEvents],
+      ["recentJobsEvents", features.recentJobsFeature?.disposeFeatureEvents],
+      ["artifactDownloadsEvents", disposeArtifactDownloadsEvents],
+      ["jobRuntimePolling", features.jobRuntimeFeature?.stopPolling],
+    ];
+  }
+
   function dispose() {
-    disposeWorkflowDialogEvents?.();
-    disposeDocumentEvents?.();
-    disposeDocumentEvents = null;
-    features.recentJobsFeature?.disposeFeatureEvents?.();
-    const disposeArtifactDownloads = (features.artifactDownloadsFeature as { disposeEvents?: unknown } | undefined)?.disposeEvents;
-    if (typeof disposeArtifactDownloads === "function") {
-      (disposeArtifactDownloads as () => void)();
+    for (const [name, step] of disposeSteps()) {
+      if (typeof step !== "function") continue;
+      try {
+        step();
+      } catch (error) {
+        // 一个域解绑失败不得让后面的域漏解绑（否则泄漏面积随失败位置而变）。
+        console.error(`home dispose step "${name}" failed:`, error);
+      }
     }
-    features.jobRuntimeFeature?.stopPolling?.();
+    disposeDocumentEvents = null;
     started = false;
   }
 

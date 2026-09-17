@@ -239,7 +239,7 @@ export function createHomeComposition({
   const disposeWorkflowDialogEvents = workflowDialog.bindEvents();
 
   // job-runtime / recent-jobs / artifacts：一次挂齐
-  Object.assign(features, createRuntimeFeatures({
+  const runtime = createRuntimeFeatures({
     features,
     bridge,
     jobRuntimeState: status.jobRuntimeState,
@@ -255,13 +255,15 @@ export function createHomeComposition({
     recentJobsNavigationPort: library.recentJobsNavigationPort,
     documentLibraryResource: library.documentLibraryResource,
     homeStatePort,
-  }));
+  });
+  Object.assign(features, runtime.features);
 
   const lifecycle = createLifecycle({
     features,
     bridge,
     documentRef,
     disposeWorkflowDialogEvents,
+    disposeArtifactDownloadsEvents: runtime.disposeArtifactDownloadsEvents,
   });
 
   return buildHomeServices({

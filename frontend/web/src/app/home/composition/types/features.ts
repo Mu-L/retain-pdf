@@ -87,8 +87,9 @@ export type RecentJobsFeature = {
 };
 
 export type ArtifactDownloadsFeature = {
-  bindEvents: () => unknown;
-  disposeEvents?: unknown;
+  /** 返回解绑函数。它由 createRuntimeFeatures 显式往上传给 lifecycle，
+   *  不再猴补成对象上的 disposeEvents 字段再被 duck-type 取回。 */
+  bindEvents: () => () => void;
   handleProtectedArtifactClick: (event: Event, link?: Element) => unknown;
 };
 

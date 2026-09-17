@@ -136,9 +136,12 @@ export function createRuntimeFeatures({
   documentLibraryResource,
   homeStatePort,
 }: CreateRuntimeFeaturesArgs): {
-  jobRuntimeFeature: JobRuntimeFeature;
-  recentJobsFeature: RecentJobsFeature;
-  artifactDownloadsFeature: ArtifactDownloadsFeature;
+  features: {
+    jobRuntimeFeature: JobRuntimeFeature;
+    recentJobsFeature: RecentJobsFeature;
+    artifactDownloadsFeature: ArtifactDownloadsFeature;
+  };
+  disposeArtifactDownloadsEvents: () => void;
 } {
   const documentAutoNaming = createDocumentAutoNaming({
     fetchDocumentByJobId: (jobId) => fetchDocumentByJobId(API_PREFIX, jobId),
@@ -200,8 +203,9 @@ export function createRuntimeFeatures({
       resolveTranslatedPdfName: resolveTranslatedPdfDownloadName,
     },
   }) as ArtifactDownloadsFeature;
+  // disposer 显式往上传，不再猴补到 feature 对象上再由 lifecycle duck-type 取回
+  // ——那条路径没有任何类型保障，改名/漏挂都只会在运行时静默少解绑一次。
   const disposeArtifactDownloadsEvents = artifactDownloadsFeature.bindEvents();
-  (artifactDownloadsFeature as { disposeEvents?: unknown }).disposeEvents = disposeArtifactDownloadsEvents;
 
   // startPolling/openReader 已由 jobRuntimePort/readerPort/navigationPort 注入；签名仍标必填。
   const recentJobsFeature = mountRecentJobsFeature({
@@ -223,5 +227,8 @@ export function createRuntimeFeatures({
     libraryBooksResource: documentLibraryResource,
   }) as RecentJobsFeature;
 
-  return { jobRuntimeFeature, recentJobsFeature, artifactDownloadsFeature };
+  return {
+    features: { jobRuntimeFeature, recentJobsFeature, artifactDownloadsFeature },
+    disposeArtifactDownloadsEvents,
+  };
 }
