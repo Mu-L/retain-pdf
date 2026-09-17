@@ -19,8 +19,15 @@ import type { ReactNode } from "react";
 import {
   HomeShellProviders,
   HomeTabsProvider,
-  useHomeServices,
   useHomeTabs,
+  useHomeAppUpdate,
+  useHomeCollections,
+  useHomeCredentials,
+  useHomeCredentialsStatePort,
+  useHomeGlossaries,
+  useHomeLibrary,
+  useHomeSettingsHub,
+  useHomeWorkflowDialog,
 } from "./home-services-context.js";
 import type { HomeServices } from "./composition/types.js";
 import { AppTopBar } from "./shell/AppTopBar.jsx";
@@ -111,17 +118,18 @@ function HomeTabsRoot({ children }: { children: ReactNode }) {
 // detail/reader 或测试独立复用。每迁入一个功能就在这里加一个对应的 Slot。
 
 function AppUpdateBannerSlot() {
-  const { appUpdate } = useHomeServices();
+  const appUpdate = useHomeAppUpdate();
   return <AppUpdateBanner view={appUpdate.view} handlersRef={appUpdate.handlersRef} />;
 }
 
 function FavoritesViewSlot() {
-  const { workflowDialog } = useHomeServices();
+  const workflowDialog = useHomeWorkflowDialog();
   return <FavoritesView onRequestUpload={() => workflowDialog.requestOpenUpload()} />;
 }
 
 function CollectionsViewSlot() {
-  const { collections, library } = useHomeServices();
+  const collections = useHomeCollections();
+  const library = useHomeLibrary();
   return (
     <CollectionsView
       controller={collections.controller}
@@ -133,7 +141,7 @@ function CollectionsViewSlot() {
 }
 
 function CollectionDialogSlot() {
-  const { collections } = useHomeServices();
+  const collections = useHomeCollections();
   return (
     <CollectionDialog
       controller={collections.controller}
@@ -146,7 +154,7 @@ function CollectionDialogSlot() {
 // 任务中心浮层插槽：点任务卡片走同一套书籍详情（job_id 兜底开详情壳，
 // 见 library/domain/documents/navigation-actions），与网格行为一致。
 function TaskCenterSlot() {
-  const { library } = useHomeServices();
+  const library = useHomeLibrary();
   return (
     <TaskCenter
       onOpenBookDetail={(input) => {
@@ -156,7 +164,9 @@ function TaskCenterSlot() {
   );
 }
 function SettingsDialogSlot() {
-  const { settingsHub, glossaries, credentials } = useHomeServices();
+  const settingsHub = useHomeSettingsHub();
+  const glossaries = useHomeGlossaries();
+  const credentials = useHomeCredentials();
   return (
     <SettingsDialog
       dialogStore={settingsHub.dialogStore}
@@ -169,7 +179,7 @@ function SettingsDialogSlot() {
 }
 
 function GlossariesDialogSlot() {
-  const { glossaries } = useHomeServices();
+  const glossaries = useHomeGlossaries();
   const dialogState = useDialogState(glossaries.dialogStore);
   return (
     <GlossariesDialog
@@ -286,15 +296,17 @@ function HomeShell() {
  * HiddenInputs），逐层传 prop 过于侵入，故功能自持 context，页面只提供值。
  */
 function CredentialsProviderSlot({ children }: { children: React.ReactNode }) {
-  const services = useHomeServices();
+  const credentials = useHomeCredentials();
+  const credentialsStatePort = useHomeCredentialsStatePort();
+  const settingsHub = useHomeSettingsHub();
   return (
     <CredentialsProvider
       value={{
-        feature: services.credentials?.feature,
-        view: services.credentials?.view,
-        dialogStore: services.credentials?.dialogStore,
-        credentialsStatePort: services.ports.credentialsStatePort,
-        openSettingsHubApiTab: () => services.settingsHub?.dialogStore?.open?.({ tab: "api" }),
+        feature: credentials?.feature,
+        view: credentials?.view,
+        dialogStore: credentials?.dialogStore,
+        credentialsStatePort,
+        openSettingsHubApiTab: () => settingsHub?.dialogStore?.open?.({ tab: "api" }),
       }}
     >
       {children}

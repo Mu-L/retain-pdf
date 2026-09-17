@@ -125,8 +125,12 @@ test("详情翻译提交接进度:静默 attach + 状态区占位,不弹上传�
   // —— 提交中状态区先行占位:busy=translate 即挂载详情状态区 ——
   const React = await import("react");
   const { createRoot } = await import("react-dom/client");
-  const { HomeServicesProvider } = await import(
-    "../../src/app/home/home-services-context.js"
+  // 挂窄口 Provider，不再走「泛型大包 + pick 回退」那条路：那条兼容口是上一轮
+  // 迁移期留的，本文件曾是全仓唯一还靠它活着的地方。窄口下只需给出组件真正
+  // 用到的那几个域（TranslateProgress 要 library.actions / statusCard.store /
+  // statusDetail.controller），其余域缺席即可——没被调用的 hook 不会取上下文。
+  const { HomeShellProviders } = await import(
+    "../../src/ui/context/home-services-context.js"
   );
   const { BookTranslationWorkflowPanel } = await import(
     "../../src/features/book-detail/ui/panels/translate/WorkflowPanel.jsx"
@@ -137,7 +141,6 @@ test("详情翻译提交接进度:静默 attach + 状态区占位,不弹上传�
     statusCard: {
       store: { getSnapshot: () => ({ snapshot: {} }), subscribe: () => () => {} },
     },
-    statusArea: { isVisible: () => false, setVisible: () => {} },
     statusDetail: { controller: { openStatusDetailDialog: () => {} } },
   };
   const noop = () => {};
@@ -166,8 +169,8 @@ test("详情翻译提交接进度:静默 attach + 状态区占位,不弹上传�
   const root = createRoot(host);
   root.render(
     React.createElement(
-      HomeServicesProvider,
-      { value: fakeServices },
+      HomeShellProviders,
+      { services: fakeServices },
       React.createElement(BookTranslationWorkflowPanel, baseProps),
     ),
   );
@@ -189,8 +192,8 @@ test("详情翻译提交接进度:静默 attach + 状态区占位,不弹上传�
   const idleRoot = createRoot(idleHost);
   idleRoot.render(
     React.createElement(
-      HomeServicesProvider,
-      { value: fakeServices },
+      HomeShellProviders,
+      { services: fakeServices },
       React.createElement(BookTranslationWorkflowPanel, { ...baseProps, busy: "" }),
     ),
   );

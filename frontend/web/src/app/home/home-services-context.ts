@@ -14,15 +14,12 @@
 import { createElement, useContext } from "react";
 import type { ReactNode } from "react";
 import {
-  HomeServicesContext,
-  HomeServicesProvider,
   HomeShellProviders as NarrowHomeShellProviders,
 } from "@/ui/context/home-services-context.js";
 import type { HomeNarrowServices } from "@/ui/context/home-services-context.js";
 import type { HomeServices } from "./composition/types.js";
 
 // 兼容旧导出:窄口 hook/provider 原样再转出,消费方 import 路径不变。
-export { HomeServicesContext, HomeServicesProvider };
 export {
   HomeTabsContext,
   HomeTabsProvider,
@@ -37,6 +34,9 @@ export {
   useHomeJobRuntime,
   useHomeBookDetail,
   useHomeCollections,
+  useHomeAppUpdate,
+  useHomeGlossaries,
+  useHomeCredentials,
   useHomeArtifactDownloads,
   useHomeTextStore,
   useHomeHomeStateStore,
@@ -51,13 +51,6 @@ export {
 } from "@/ui/context/home-services-context.js";
 export type { HomeTabsValue, HomeNarrowServices } from "@/ui/context/home-services-context.js";
 
-export function useHomeServices(): HomeServices {
-  const services = useContext(HomeServicesContext);
-  if (!services) {
-    throw new Error("useHomeServices 必须在 <HomeServicesProvider> 内使用(entry.jsx 先建 composition)");
-  }
-  return services as HomeServices;
-}
 
 /** composition 的 HomeServices → 平台侧窄口聚合(同一实例按域切片,不新建对象)。 */
 function toNarrowServices(services: HomeServices): HomeNarrowServices {
@@ -72,6 +65,9 @@ function toNarrowServices(services: HomeServices): HomeNarrowServices {
     jobRuntime: services.jobRuntime,
     bookDetail: services.bookDetail,
     collections: services.collections,
+    appUpdate: services.appUpdate,
+    glossaries: services.glossaries,
+    credentials: services.credentials,
     artifactDownloads: services.artifactDownloads,
     textStore: services.stores.text,
     homeStateStore: services.stores.homeState,
@@ -92,9 +88,7 @@ function toNarrowServices(services: HomeServices): HomeNarrowServices {
  * 照旧消费),内层按域灌入全部窄 Context(供已迁移/待迁移的消费方直取)。
  */
 export function HomeShellProviders({ services, children }: { services: HomeServices; children: ReactNode }) {
-  return createElement(
-    HomeServicesProvider,
-    { value: services },
-    createElement(NarrowHomeShellProviders, { services: toNarrowServices(services), children }),
-  );
+  // 泛型大包（HomeServicesContext）已退役：这里不再套外层 Provider，
+  // 只把 composition 的 HomeServices 按域映射成窄口聚合往下灌。
+  return createElement(NarrowHomeShellProviders, { services: toNarrowServices(services), children });
 }

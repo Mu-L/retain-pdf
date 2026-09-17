@@ -31,16 +31,11 @@ export type HomeReadStore<T = any> = {
 
 export type HomeDialogStoreValue = HomeReadStore;
 
+// 组件只用得到这两个「请求」口；openUpload/close/isOpen/bindEvents/sync/statePort
+// 是 runtime 自己的内部面，由 composition 直接持有，不经 React。
 export type HomeWorkflowDialogValue = {
   requestOpenUpload: () => void;
   requestClose: () => void;
-  openUpload?: () => void;
-  openFromEvent?: (event?: Event) => void;
-  close?: () => void;
-  isOpen?: () => boolean;
-  bindEvents?: () => () => void;
-  sync?: () => void;
-  statePort?: unknown;
 };
 
 export type HomeSettingsHubValue = {
@@ -82,8 +77,33 @@ export type HomeCollectionsValue = {
   dialogStore: DialogStore<any>;
 };
 
+/** services.appUpdate —— 版本检查横幅的视图与处理函数表。 */
+export type HomeAppUpdateValue = {
+  feature?: any;
+  view: any;
+  handlersRef: any;
+};
+
+/** services.glossaries —— 术语表弹窗的 feature/视图/开合。 */
+export type HomeGlossariesValue = {
+  feature?: any;
+  view: any;
+  dialogStore: DialogStore<any>;
+};
+
+/** services.credentials —— 凭据工作台的 feature/视图/开合。 */
+export type HomeCredentialsValue = {
+  feature?: any;
+  view?: any;
+  dialogStore?: DialogStore<any>;
+};
+
 export type HomeArtifactDownloadsValue = {
-  busyStore: HomeReadStore;
+  // any 而不是 HomeReadStore：消费方（ResultActions / OverviewPanel）要的是
+  // artifacts 域的 busy store 全貌（getActionState/setBusy/clearBusy…），而 ui
+  // 层不能 import features 的类型。删掉 createNarrowHook 的 pick 回退后类型
+  // 收紧，这处债才显形——此前 pick 的 any 让所有窄 hook 都返回 any。
+  busyStore: any;
 };
 
 /** uploadView 读侧之外 TranslationOptionsPanel 还经 .actions 写页码范围。 */
@@ -99,16 +119,12 @@ export type HomeUploadDomRefsValue = {
   fileInput: HTMLInputElement | null;
 };
 
+// 只登记窄口消费方真正读到的两个。其余七个 feature 仍然活在 composition 的
+// HomeFeatures 上（entry/测试经 services.features 直取），只是没有任何组件
+// 经这个 hook 读它们——写在这里只是让 useHomeFeatures() 的返回值显得什么都有。
 export type HomeFeaturesValue = {
   workflowFeature?: any;
   uploadFeature?: any;
-  browserCredentialsFeature?: any;
-  glossariesFeature?: any;
-  appUpdateFeature?: any;
-  appActionsFeature?: any;
-  jobRuntimeFeature?: any;
-  recentJobsFeature?: any;
-  artifactDownloadsFeature?: any;
 };
 
 export type HomeCredentialsStatePortValue = {
@@ -116,7 +132,8 @@ export type HomeCredentialsStatePortValue = {
 };
 
 export type HomeUploadStatePortValue = {
-  getSnapshot?: () => { documentId?: string } | unknown;
+  // 同上：联合里的 unknown 会把整个返回值拖成 unknown，消费方读 documentId 即报错。
+  getSnapshot?: () => { documentId?: string } | undefined;
 };
 
 /** 主页阅读入口（跳独立 reader.html）。 */
@@ -136,6 +153,9 @@ export type HomeNarrowServices = {
   jobRuntime: HomeJobRuntimeValue;
   bookDetail: HomeBookDetailValue;
   collections: HomeCollectionsValue;
+  appUpdate: HomeAppUpdateValue;
+  glossaries: HomeGlossariesValue;
+  credentials: HomeCredentialsValue;
   artifactDownloads: HomeArtifactDownloadsValue;
   textStore: HomeReadStore;
   homeStateStore: HomeReadStore;
@@ -152,8 +172,6 @@ export type HomeNarrowServices = {
 
 // ── 泛型 bag + 窄 Context ──
 
-export const HomeServicesContext = createContext<unknown>(null);
-export const HomeServicesProvider = HomeServicesContext.Provider;
 
 export const HomeDialogStoreContext = createContext<HomeDialogStoreValue | null>(null);
 export const HomeWorkflowDialogContext = createContext<HomeWorkflowDialogValue | null>(null);
@@ -165,6 +183,9 @@ export const HomeStatusDetailContext = createContext<HomeStatusDetailValue | nul
 export const HomeJobRuntimeContext = createContext<HomeJobRuntimeValue | null>(null);
 export const HomeBookDetailContext = createContext<HomeBookDetailValue | null>(null);
 export const HomeCollectionsContext = createContext<HomeCollectionsValue | null>(null);
+export const HomeAppUpdateContext = createContext<HomeAppUpdateValue | null>(null);
+export const HomeGlossariesContext = createContext<HomeGlossariesValue | null>(null);
+export const HomeCredentialsContext = createContext<HomeCredentialsValue | null>(null);
 export const HomeArtifactDownloadsContext = createContext<HomeArtifactDownloadsValue | null>(null);
 export const HomeTextStoreContext = createContext<HomeReadStore | null>(null);
 export const HomeHomeStateStoreContext = createContext<HomeReadStore | null>(null);
@@ -180,130 +201,126 @@ export const HomeReaderContext = createContext<HomeReaderValue | null>(null);
 
 // ── 窄 hook 工厂：窄 Context 缺失时回退到 app 灌入的 HomeServices 大包 ──
 
-function createNarrowHook<T>(
-  context: Context<T | null>,
-  pick: (bag: any) => T,
-  name: string,
-): () => T {
+// 窄口是唯一来源。
+//
+// 这里曾经有第二条路：窄 Context 缺席时回退到泛型大包（HomeServicesContext，
+// 值类型 unknown），用一个 pick(bag) 现取。那是上一轮迁移期留的兼容口——新建
+// 窄口时老代码和老测试还只挂着大包 Provider，有它就不用一次性改完。
+//
+// 兼容口只要还在，大包就删不掉：你无法知道还有谁在靠它活着，而且组件的真实
+// 依赖不会出现在任何签名里。现在生产侧对大包的引用已归零，唯一靠回退活着的
+// 测试（retranslate-flow）也改挂了窄口 Provider，所以这条路收掉。
+//
+// 缺 Provider 直接抛错，比静默 pick 一个 undefined 出来好——后者的症状是
+// 下游某处读属性炸掉，栈指向的是受害者而不是原因。
+function createNarrowHook<T>(context: Context<T | null>, name: string): () => T {
   return function useNarrow(): T {
     const narrow = useContext(context);
-    const bag = useContext(HomeServicesContext);
-    if (narrow) return narrow;
-    if (!bag) {
+    if (!narrow) {
       throw new Error(`${name} 必须在 <HomeShellProviders> 内使用`);
     }
-    return pick(bag);
+    return narrow;
   };
 }
 
 export const useHomeDialogStore = createNarrowHook(
   HomeDialogStoreContext,
-  (s) => s.stores.dialog,
   "useHomeDialogStore",
 );
 export const useHomeWorkflowDialog = createNarrowHook(
   HomeWorkflowDialogContext,
-  (s) => s.workflowDialog,
   "useHomeWorkflowDialog",
 );
 export const useHomeSettingsHub = createNarrowHook(
   HomeSettingsHubContext,
-  (s) => s.settingsHub,
   "useHomeSettingsHub",
 );
 export const useHomeBridge = createNarrowHook(
   HomeBridgeContext,
-  (s) => s.bridge,
   "useHomeBridge",
 );
 export const useHomeLibrary = createNarrowHook(
   HomeLibraryContext,
-  (s) => s.library,
   "useHomeLibrary",
 );
 export const useHomeStatusCard = createNarrowHook(
   HomeStatusCardContext,
-  (s) => s.statusCard,
   "useHomeStatusCard",
 );
 export const useHomeStatusDetail = createNarrowHook(
   HomeStatusDetailContext,
-  (s) => s.statusDetail,
   "useHomeStatusDetail",
 );
 export const useHomeJobRuntime = createNarrowHook(
   HomeJobRuntimeContext,
-  (s) => s.jobRuntime,
   "useHomeJobRuntime",
 );
 export const useHomeBookDetail = createNarrowHook(
   HomeBookDetailContext,
-  (s) => s.bookDetail,
   "useHomeBookDetail",
 );
 export const useHomeCollections = createNarrowHook(
   HomeCollectionsContext,
-  (s) => s.collections,
   "useHomeCollections",
+);
+export const useHomeAppUpdate = createNarrowHook(
+  HomeAppUpdateContext,
+  "useHomeAppUpdate",
+);
+export const useHomeGlossaries = createNarrowHook(
+  HomeGlossariesContext,
+  "useHomeGlossaries",
+);
+export const useHomeCredentials = createNarrowHook(
+  HomeCredentialsContext,
+  "useHomeCredentials",
 );
 export const useHomeArtifactDownloads = createNarrowHook(
   HomeArtifactDownloadsContext,
-  (s) => s.artifactDownloads,
   "useHomeArtifactDownloads",
 );
 export const useHomeTextStore = createNarrowHook(
   HomeTextStoreContext,
-  (s) => s.stores.text,
   "useHomeTextStore",
 );
 export const useHomeHomeStateStore = createNarrowHook(
   HomeHomeStateStoreContext,
-  (s) => s.stores.homeState,
   "useHomeHomeStateStore",
 );
 export const useHomeWorkflowViewStore = createNarrowHook(
   HomeWorkflowViewStoreContext,
-  (s) => s.stores.workflowView,
   "useHomeWorkflowViewStore",
 );
 export const useHomeUploadViewStore = createNarrowHook(
   HomeUploadViewStoreContext,
-  (s) => s.stores.uploadView,
   "useHomeUploadViewStore",
 );
 export const useHomeCredentialsViewStore = createNarrowHook(
   HomeCredentialsViewStoreContext,
-  (s) => s.stores.credentialsView,
   "useHomeCredentialsViewStore",
 );
 export const useHomeFeatures = createNarrowHook(
   HomeFeaturesContext,
-  (s) => s.features,
   "useHomeFeatures",
 );
 export const useHomeWorkflowViewActions = createNarrowHook(
   HomeWorkflowViewActionsContext,
-  (s) => s.workflowViewActions,
   "useHomeWorkflowViewActions",
 );
 export const useHomeUploadDomRefs = createNarrowHook(
   HomeUploadDomRefsContext,
-  (s) => s.uploadDomRefs,
   "useHomeUploadDomRefs",
 );
 export const useHomeCredentialsStatePort = createNarrowHook(
   HomeCredentialsStatePortContext,
-  (s) => s.ports.credentialsStatePort,
   "useHomeCredentialsStatePort",
 );
 export const useHomeUploadStatePort = createNarrowHook(
   HomeUploadStatePortContext,
-  (s) => s.ports.uploadStatePort,
   "useHomeUploadStatePort",
 );
 export const useHomeReader = createNarrowHook(
   HomeReaderContext,
-  (s) => s.reader,
   "useHomeReader",
 );
 
@@ -321,6 +338,9 @@ export function HomeShellProviders({ services, children }: { services: HomeNarro
     [HomeJobRuntimeContext, services.jobRuntime],
     [HomeBookDetailContext, services.bookDetail],
     [HomeCollectionsContext, services.collections],
+    [HomeAppUpdateContext, services.appUpdate],
+    [HomeGlossariesContext, services.glossaries],
+    [HomeCredentialsContext, services.credentials],
     [HomeArtifactDownloadsContext, services.artifactDownloads],
     [HomeTextStoreContext, services.textStore],
     [HomeHomeStateStoreContext, services.homeStateStore],
