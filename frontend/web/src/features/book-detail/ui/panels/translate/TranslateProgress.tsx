@@ -7,7 +7,6 @@ import { useEffect } from "react";
 import { ArrowUpRight, Radio } from "lucide-react";
 import {
   useHomeLibrary,
-  useHomeStatusArea,
   useHomeStatusCard,
   useHomeStatusDetail,
 } from "@/ui/context/home-services-context.js";
@@ -55,7 +54,6 @@ export function BookTranslateProgressPanel({
   const library = useHomeLibrary();
   const actions = library?.actions;
   const { store: statusCardStore } = useHomeStatusCard();
-  const statusArea = useHomeStatusArea();
   const statusDetail = useHomeStatusDetail();
   const statusCardState = useStoreSnapshot(statusCardStore);
   const cardJobId = `${statusCardState?.snapshot?.jobId || ""}`.trim();
@@ -85,15 +83,10 @@ export function BookTranslateProgressPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, dialogOpen, shouldAttach, jobId, cardJobId, cardPollingActive, showDetailedProgress]);
 
-  // 进度主场在详情：仅当主状态区当前可见时才关掉（避免 setVisible 每帧通知死循环）
-  useEffect(() => {
-    if (!active || !dialogOpen || !shouldAttach) return undefined;
-    if (statusArea?.isVisible?.()) {
-      statusArea.setVisible(false);
-    }
-    return undefined;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, dialogOpen, shouldAttach]);
+  // 「压住主页那张状态卡」不再由这里负责：条件是 active && dialogOpen &&
+  // shouldAttach，只跑过 OCR、没有翻译任务的文档走下面的空闲分支直接返回
+  // sr-only 占位，这段永远不执行，主卡于是留在弹窗背后重复播同一份进度。
+  // 现在由 BookDetailDialog 按 open 整体抬落抑制闸（statusArea.setSuppressed）。
 
   // 空闲态由任务卡标题和启动表单表达，不渲染静态路线图。
   if (!showProgress) {
@@ -180,14 +173,14 @@ export function BookTranslateProgressPanel({
         </button>
       ) : null}
       <div className="book-detail-status-card-host">
+        {/* StatusCard 现在只有嵌入这一套形态（主页那张页面级卡已下线），
+            所以不再需要 embedded / showHiddenContract / showResultActions 这些
+            用来区分两套形态的开关。 */}
         <StatusCard
           visible={active}
-          embedded
           idPrefix="book-detail-"
           rootId="book-detail-job-status-card"
           fallbackItem={liveFallback}
-          showHiddenContract={false}
-          showResultActions={false}
         />
       </div>
     </div>

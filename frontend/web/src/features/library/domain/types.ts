@@ -192,7 +192,6 @@ export type LibraryControllerDeps = {
       recovering?: boolean;
     },
   ) => void;
-  hideStatusArea?: () => void;
   /** 网格状态端口（供 selectJob 的 findItem 内聚到 controller） */
   recentJobsStatePort?: any | null;
 };

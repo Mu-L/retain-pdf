@@ -32,7 +32,6 @@ import { createHomeStatePort } from "./state/home-store.js";
 import {
   validateDeepSeekToken,
   queryDeepSeekBalance,
-  listCredentials,
   createCredential,
   updateCredential,
   fetchGlossariesApi,
@@ -98,7 +97,6 @@ export function createHomeComposition({
   validateOcrToken: validateOcrTokenOverride = null,
   validateDeepSeekToken: validateDeepSeekTokenOverride = validateDeepSeekToken,
   queryDeepSeekBalance: queryDeepSeekBalanceOverride = queryDeepSeekBalance,
-  listCredentials: listCredentialsOverride = (prefix) => listCredentials(typeof prefix === "string" ? prefix : undefined, { includeValues: true }),
   createCredential: createCredentialOverride = createCredential,
   updateCredential: updateCredentialOverride = updateCredential,
   checkApiConnectivity: checkApiConnectivityOverride = null,
@@ -187,7 +185,6 @@ export function createHomeComposition({
     validateOcrTokenOverride,
     validateDeepSeekTokenOverride,
     queryDeepSeekBalanceOverride,
-    listCredentialsOverride,
     createCredentialOverride,
     updateCredentialOverride,
     checkApiConnectivityOverride,
@@ -219,7 +216,7 @@ export function createHomeComposition({
     statusDetailHolder,
   });
 
-  const library = createLibraryDomain({ features, documentRef, statusArea });
+  const library = createLibraryDomain({ features, documentRef });
 
   const { appActionsFeature } = createAppActions({
     features,

@@ -4,7 +4,7 @@
 // 品牌 + 图书馆/分类分栏(AppTopBar.jsx,去掉白卡背景);添加/搜索/设置 三样
 // 收进底部一条居中浮动栏(AppBottomBar.jsx,取代早期分离的 AppBottomActions +
 // LibrarySearchDock 两个浮岛)。
-// 其余区块(library-view 网格、status 卡、credentials/glossaries/status-detail 等)
+// 其余区块(library-view 网格、credentials/glossaries/status-detail 等)
 // 已陆续接上;ReaderNavigation 仅导航到 reader.html(无 UI)。
 // 自定义元素只剩 <library-search-island> 一个真实注册点(见下方 islands 说明);
 // 其余占位标签在新世界不注册定义,已随 cutover 从 JSX 移除。
@@ -20,7 +20,6 @@ import {
   HomeShellProviders,
   HomeTabsProvider,
   useHomeServices,
-  useHomeStatusAreaStore,
   useHomeTabs,
 } from "./home-services-context.js";
 import type { HomeServices } from "./composition/types.js";
@@ -31,9 +30,7 @@ import { IngestDialog } from "@/features/ingest/index.js";
 import {
   RecentJobsLibrary,
 } from "@/features/library/index.js";
-import { StatusCard } from "@/features/jobs/index.js";
 import { AppUpdateBanner } from "@/features/app-update/index.js";
-import { useStoreSnapshot } from "@/ui/hooks/use-store.js";
 import { HomeAskView } from "@/features/ask/index.js";
 import { TaskCenter } from "@/features/task-center/index.js";
 import { GlossariesDialog } from "@/features/glossaries/index.js";
@@ -209,10 +206,11 @@ function HomeShell() {
   // 合集/收藏/AI tab：视图挂载即可尝试恢复 panel 滚动（图书馆由 RecentJobsLibrary 在有列表后恢复）
   useHomeReturnRestore(isCategoriesTab || isFavoritesTab || isAskTab);
 
-  // 主页状态卡：进度主场在书籍详情，这里只在未打开详情时兜底显示（详情内的
-  // BookTranslateProgressPanel 会把它隐藏）。不再嵌在上传弹窗里。
-  const statusAreaStore = useHomeStatusAreaStore();
-  const statusAreaSnap = useStoreSnapshot(statusAreaStore);
+  // 这里曾挂一张页面级状态卡 #job-status-card。已下线：进度主场是书籍详情的
+  // 「进度」Tab（#book-detail-job-status-card），图书馆卡片与任务中心也各自
+  // 显示进度——主页这张只是重复的遗留界面，实测还会留在详情弹窗背后讲同一份
+  // 进度、并被视口左缘截掉一半。statusArea 状态机本身保留（工作流弹窗靠
+  // statusAreaPort.isVisible() 算 upload/status 模式）。
 
   return (
     <>
@@ -258,12 +256,6 @@ function HomeShell() {
             <HomeAskView />
           ) : null}
         </div>
-        <StatusCard
-          visible={Boolean(statusAreaSnap.visible)}
-          showResultActions
-          showHiddenContract
-          rootId="job-status-card"
-        />
         <button id="open-query-btn" type="button" className="secondary hidden" aria-hidden="true">最近任务</button>
         <SettingsDialogSlot />
         <IngestDialog hiddenInputsSlot={<HiddenCredentialInputs />} />

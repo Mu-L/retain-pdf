@@ -14,12 +14,15 @@ import type {
   Store,
 } from "@/platform/store/store.js";
 
-// 状态区(#status-section)可见性 feature。
+// 状态区可见性 feature（"当前有没有一个在跑的任务"这一位状态）。
 //
-// 3a 只落"可见性 + 事件契约"(镜像 ui/status-area-view.js 的 setStatusAreaVisible
-// 与 ui/presentation-view.js 的 setWorkflowSectionsView):StatusCard 本体是 3b
-// (recent-jobs + job-runtime 蓝图 features/status/)的范围,这里的 store 届时
-// 直接被 StatusCard.jsx 家族复用。
+// 它曾经驱动主页那张页面级状态卡 #job-status-card；那张卡已下线（进度主场是
+// 书籍详情的「进度」Tab，图书馆卡片与任务中心各自也显示进度），所以这里只剩
+// **状态机**，没有渲染消费方：
+//   - translation-workflow-dialog-runtime 经 statusAreaPort.isVisible() 算
+//     upload / status 两种模式；
+//   - setWorkflowSections(job) 仍是 idle 复位链(create-lifecycle /
+//     runtime-reset)与轮询启动链共用的回调。
 //
 // 事件契约:每次 setVisible 都 dispatch statusAreaVisibilityChanged(旧世界
 // 同款,translation-workflow-dialog 靠它同步 upload/status 模式)。

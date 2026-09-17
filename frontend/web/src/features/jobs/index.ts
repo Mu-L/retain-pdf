@@ -65,3 +65,12 @@ export {
 export {
   StatusCard,
 } from "./ui/StatusCard.jsx";
+// 结果操作行（Markdown / 原始 PDF / 对照阅读 / 译文 PDF）。
+// 它原本只挂在主页那张已下线的状态卡上；进度主场收敛到书籍详情后，
+// 由 book-detail 的处理卡复用同一套契约 id（document 级委托据此拦截点击）。
+export {
+  ResultActions,
+} from "./ui/ResultActions.jsx";
+export {
+  useStatusCardModel,
+} from "./ui/status-card/use-status-card-model.js";

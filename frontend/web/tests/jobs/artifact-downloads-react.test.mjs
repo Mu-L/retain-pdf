@@ -85,15 +85,50 @@ async function bootHomeApp(dom) {
   const root = createRoot(host);
   root.render(React.createElement(HomeApp, { services }));
   await waitFor(() => byId(dom, "library-add-pdf-btn"), "HomeApp 首帧渲染");
-  // 阶段 C(shadcn 改造):TranslationWorkflowDialog 换成 Radix Dialog 后不
-  // forceMount Content——job-status-card/ResultActions 的下载按钮嵌在这个
-  // 对话框内部,只有对话框打开过才会挂载(同 CredentialsDialog 等阶段 C 第一批
-  // 对话框的先例)。
-  services.workflowDialog.openUpload();
-  await waitFor(() => byId(dom, "job-status-card"), "工作流对话框打开后 job-status-card 挂载");
+  // 主页那张页面级状态卡 #job-status-card 已下线（进度主场收敛到书籍详情的
+  // 「进度」Tab），它曾是 ResultActions 三个下载按钮的宿主。本文件里只有真正
+  // 依赖那三个按钮的用例才需要另找宿主（见 openProcessingTab），其余
+  // （document 级委托、StatusDetailDialog 概览面板）本来就不经过它。
   await wait(0);
 
   return { services, root, host };
+}
+
+// 「真实任务数据到达」的等待条件。
+// 旧写法等的是主页状态卡的 #status-ring-value 文案不再是「准备中」；那张卡随
+// 状态卡下线一并消失，于是改读同一份真值来源——statusCard store 的快照：
+// startPolling 会在网络请求之前先同步落一帧占位快照
+// （isPollingBootstrapPlaceholder：status=queued + 「正在读取任务状态」），
+// 占位清掉且 status 非空即等价于旧的「离开准备中」。判据不变，只是换了读法。
+async function waitForRealJobData(services) {
+  const { isPollingBootstrapPlaceholder } = await import("@/features/jobs/index.js");
+  await waitFor(() => {
+    const snapshot = services.statusCard.store.getSnapshot().snapshot;
+    return Boolean(`${snapshot?.status || ""}`.trim()) && !isPollingBootstrapPlaceholder(snapshot);
+  }, "真实任务数据到达(statusCard 快照脱离首帧占位)");
+}
+
+// 把 ResultActions 三个下载按钮的新宿主打开：书籍详情弹窗的「进度」Tab。
+//
+// 为什么换宿主：status-markdown-bundle-btn / source-pdf-btn / pdf-btn 原来只长在
+// 主页页面级状态卡 #job-status-card 上，那张卡已下线；同一组契约 id 现在由
+// book-detail 处理卡底部的 ProcessingResultActions 渲染（数据源仍是
+// useStatusCardModel → statusCard store，口径没变）。
+//
+// 为什么用 services.library.actions.openBookDetail 而不是点馆藏卡：
+// RecentJobsLibraryGrid 的卡片 onOpenDetail 调的就是这个 action（等价入口），
+// 但程序化调用不依赖网格排序与渲染时序，而且能精确打开「正在被轮询的这个 job
+// 所属的那份文档」，不会误开一张与当前任务无关的馆藏卡。
+async function openProcessingTab(dom, services, jobId) {
+  // 注意：本文件的 waitFor 只等条件成立、不回传值，所以命中后要重新取一次。
+  const findCard = () => (services.library.recentJobsStore.getSnapshot?.().items || []).find(
+    (row) => `${row?.job_id || ""}`.trim() === jobId,
+  );
+  await waitFor(() => Boolean(findCard()), "书架出现被轮询任务所属的文档卡");
+  services.library.actions.openBookDetail(findCard());
+  await waitFor(() => byId(dom, "book-detail-dialog"), "书籍详情弹窗打开");
+  click(dom, byId(dom, "book-detail-tab-processing"));
+  await waitFor(() => byId(dom, "book-detail-panel-processing")?.hidden === false, "切到「进度」Tab");
 }
 
 // jsdom 未实现 URL.createObjectURL/revokeObjectURL(downloads.js#downloadBlob
@@ -122,9 +157,14 @@ test("artifact-downloads：真实轮询(mock=done)驱动 ResultActions 三个下
   const dom = makeDom("?mock=done");
   const { services, root, host } = await bootHomeApp(dom);
   const { getMockJobId } = await import("@/platform/mock/index.js");
+  const jobId = getMockJobId();
 
-  services.features.jobRuntimeFeature.startPolling(getMockJobId());
-  await waitFor(() => byId(dom, "status-ring-value").textContent.trim() !== "准备中", "真实任务数据到达");
+  services.features.jobRuntimeFeature.startPolling(jobId);
+  await waitForRealJobData(services);
+  await openProcessingTab(dom, services, jobId);
+  // 只等结果操作行"挂出来"(ProcessingResultActions 在没有任何就绪产物时整体
+  // 返回 null)——就绪态/url/样式一律由下面的断言负责，不靠 waitFor 兜。
+  await waitFor(() => byId(dom, "pdf-btn"), "处理卡渲染出结果操作行");
 
   const markdownBtn = byId(dom, "status-markdown-bundle-btn");
   const sourcePdfBtn = byId(dom, "source-pdf-btn");
@@ -146,12 +186,15 @@ test("artifact-downloads：点击 ResultActions 的 3 个受保护下载按钮�
   const dom = makeDom("?mock=done");
   const { services, root, host } = await bootHomeApp(dom);
   const { getMockJobId } = await import("@/platform/mock/index.js");
+  const jobId = getMockJobId();
   const urlStub = stubObjectUrl();
 
   try {
-    services.features.jobRuntimeFeature.startPolling(getMockJobId());
-    await waitFor(() => byId(dom, "status-ring-value").textContent.trim() !== "准备中", "真实任务数据到达");
-    await waitFor(() => byId(dom, "pdf-btn").getAttribute("aria-disabled") === "false", "下载按钮就绪");
+    services.features.jobRuntimeFeature.startPolling(jobId);
+    await waitForRealJobData(services);
+    // 按钮宿主已从下线的主页状态卡换成书籍详情「进度」Tab（见 openProcessingTab）。
+    await openProcessingTab(dom, services, jobId);
+    await waitFor(() => byId(dom, "pdf-btn")?.getAttribute("aria-disabled") === "false", "下载按钮就绪");
 
     const startHref = dom.window.location.href;
     const cases = [
@@ -203,8 +246,10 @@ test("artifact-downloads：StatusDetailDialog 概览面板的 markdown-bundle-bt
 
   try {
     services.features.jobRuntimeFeature.startPolling(getMockJobId());
-    await waitFor(() => byId(dom, "status-detail-btn"), "状态卡详情按钮就绪");
-    click(dom, byId(dom, "status-detail-btn"));
+    // #status-detail-btn 长在已下线的主页状态卡上；它的 onClick 就是下面这一句
+    // （features/jobs/ui/status-card/use-status-card-model.ts 的 openDetail），
+    // 直接调 controller 与点按钮等价。本用例测的是概览面板的下载按钮，不是入口。
+    services.statusDetail.controller.openStatusDetailDialog("overview");
     // 阶段 C(shadcn 改造):StatusDetailDialog 换成 Radix Dialog 后不 forceMount
   // Content——断言从"open 属性真假"改为"是否挂载"。
   await waitFor(() => byId(dom, "status-detail-dialog") !== null, "详情对话框打开");
@@ -235,8 +280,10 @@ test("artifact-downloads：document 级委托覆盖全部 7 个契约 id(含当�
 
   try {
     services.features.jobRuntimeFeature.startPolling(getMockJobId());
-    await waitFor(() => byId(dom, "status-ring-value").textContent.trim() !== "准备中", "真实任务数据到达");
+    await waitForRealJobData(services);
 
+    // 本用例刻意不打开任何按钮宿主(主页状态卡已下线、书籍详情「进度」Tab 也不
+    // 渲染这 3 个 id)——委托挂在 document 上，验的就是"与谁渲染按钮无关"。
     // download-btn/markdown-btn/markdown-raw-btn 当前没有任何 React 组件渲染
     // (recent-jobs 承建方判定为死代码清单之外),但 controller.js 的
     // document 级委托点击是纯 id 选择器匹配,与谁渲染了按钮无关——用合成节点
@@ -273,14 +320,19 @@ test("artifact-downloads：document 级委托覆盖全部 7 个契约 id(含当�
   host.remove();
 });
 
-test("artifact-downloads：busy 态文案不被父组件(StatusCard)重渲染覆盖(蓝图 §7.5 方案二核心保障)", async () => {
+// 用例名随宿主更新：这三个按钮的父组件不再是主页 StatusCard，而是书籍详情
+// 「进度」Tab 的处理卡(ProcessingResultActions)。被验证的机制没变——父组件因
+// 无关的 statusCard store 变化重渲染时，busy 文案不应被打回原始 label。
+test("artifact-downloads：busy 态文案不被父组件(书籍详情处理卡)重渲染覆盖(蓝图 §7.5 方案二核心保障)", async () => {
   const dom = makeDom("?mock=done");
   const { services, root, host } = await bootHomeApp(dom);
   const { getMockJobId } = await import("@/platform/mock/index.js");
+  const jobId = getMockJobId();
 
-  services.features.jobRuntimeFeature.startPolling(getMockJobId());
-  await waitFor(() => byId(dom, "status-ring-value").textContent.trim() !== "准备中", "真实任务数据到达");
-  await waitFor(() => byId(dom, "pdf-btn").getAttribute("aria-disabled") === "false", "下载按钮就绪");
+  services.features.jobRuntimeFeature.startPolling(jobId);
+  await waitForRealJobData(services);
+  await openProcessingTab(dom, services, jobId);
+  await waitFor(() => byId(dom, "pdf-btn")?.getAttribute("aria-disabled") === "false", "下载按钮就绪");
 
   const { DOWNLOAD_ACTION_IDS } = await import("@/platform/contracts/download-action-contract.js");
   const actionId = DOWNLOAD_ACTION_IDS.PDF; // "pdf-btn"
@@ -291,18 +343,31 @@ test("artifact-downloads：busy 态文案不被父组件(StatusCard)重渲染覆
   await waitFor(() => byId(dom, actionId).querySelector("span").textContent === "37%", "busy 态文案立即生效");
   assert.equal(byId(dom, actionId).getAttribute("aria-disabled"), "true", "下载中应视为不可再次点击");
 
-  // 制造一次与下载无关的父组件(StatusCard)重渲染——镜像
+  // 制造一次与下载无关的父组件重渲染——镜像
   // status-card-component.test.mjs「无关的 store 通知不应重置手动选择」先例，
   // 这里验证的是下载 busy 文案不应被同款重渲染打回原始 label(旧世界直改 DOM
-  // 会在这里被虚拟 DOM diff 吃掉，方案二应该扛住)。
+  // 会在这里被虚拟 DOM diff 吃掉，方案二应该扛住)。宿主换成书籍详情处理卡后，
+  // 父组件仍订阅同一个 statusCard store(useStatusCardModel → useStoreSnapshot)，
+  // 所以同一个 store 变化依旧会把整行结果操作重渲染一遍。
   for (let i = 0; i < 5; i += 1) {
     services.statusCard.store.actions.setCancelDisabled(i % 2 === 0);
   }
+  // 证明这次重渲染真的落到了这一行按钮上(否则本用例会退化成"什么都没发生"):
+  // 改写同一份快照里另一个兄弟按钮的 url，它必须被 diff 出来。
+  const rerenderedSnapshot = services.statusCard.store.getSnapshot().snapshot;
+  services.statusCard.store.actions.setSnapshot({
+    ...rerenderedSnapshot,
+    sourcePdfUrl: "mock://source-rerendered.pdf",
+  });
+  await waitFor(
+    () => byId(dom, "source-pdf-btn")?.dataset.url === "mock://source-rerendered.pdf",
+    "兄弟按钮 url 随父组件重渲染更新(证明确实发生了重渲染)",
+  );
   await wait(30);
   assert.equal(
     byId(dom, actionId).querySelector("span").textContent,
     "37%",
-    "父组件(StatusCard)因无关 store 变化重渲染后，下载中文案应保持不变(不被打回'下载 PDF')",
+    "父组件(书籍详情处理卡)因无关 store 变化重渲染后，下载中文案应保持不变(不被打回'下载 PDF')",
   );
   assert.equal(byId(dom, actionId).getAttribute("aria-disabled"), "true");
 
@@ -323,8 +388,8 @@ test("artifact-downloads：StatusDetailDialog 概览下载按钮的 busy 态同�
   const { getMockJobId } = await import("@/platform/mock/index.js");
 
   services.features.jobRuntimeFeature.startPolling(getMockJobId());
-  await waitFor(() => byId(dom, "status-detail-btn"), "状态卡详情按钮就绪");
-  click(dom, byId(dom, "status-detail-btn"));
+  // 同上：入口改走 controller，主页状态卡已下线。
+  services.statusDetail.controller.openStatusDetailDialog("overview");
   // 阶段 C(shadcn 改造):StatusDetailDialog 换成 Radix Dialog 后不 forceMount
   // Content——断言从"open 属性真假"改为"是否挂载"。
   await waitFor(() => byId(dom, "status-detail-dialog") !== null, "详情对话框打开");

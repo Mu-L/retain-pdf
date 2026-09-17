@@ -32,12 +32,11 @@ export type HomeReadStore<T = any> = {
 export type HomeDialogStoreValue = HomeReadStore;
 export type HomeStatusAreaStoreValue = HomeReadStore;
 
-/** services.statusArea —— 域 bag（可见性动作），区别于 stores.statusArea 读侧。 */
+/** services.statusArea —— 域 bag（可见性动作，读侧走 stores.statusArea）。 */
 export type HomeStatusAreaValue = {
   isVisible: () => boolean;
   setVisible: (visible: boolean) => void;
   setWorkflowSections?: (job?: unknown) => void;
-  store?: HomeReadStore;
 };
 
 export type HomeWorkflowDialogValue = {

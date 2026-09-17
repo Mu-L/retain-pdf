@@ -33,7 +33,6 @@ export function createLibraryController({
   buildTranslateConfig,
   buildOcrConfig,
   startPolling,
-  hideStatusArea,
   recentJobsStatePort,
 }: LibraryControllerDeps = {}): LibraryController {
   // payload = 被点开的那张网格卡片 item；弹窗再按 document_id 拉完整文档补齐元数据。
@@ -65,7 +64,7 @@ export function createLibraryController({
     dispatchAppEvent(APP_EVENTS.closeTranslationWorkflow);
   }
 
-  const attachJobProgress = createAttachJobProgress({ hideStatusArea, startPolling });
+  const attachJobProgress = createAttachJobProgress({ startPolling });
 
   const promote = (
     documentId: string,

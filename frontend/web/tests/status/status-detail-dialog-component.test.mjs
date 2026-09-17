@@ -97,13 +97,9 @@ async function bootHomeApp(dom) {
   const root = createRoot(host);
   root.render(React.createElement(HomeApp, { services }));
   await waitFor(() => byId(dom, "library-add-pdf-btn"), "HomeApp 首帧渲染");
-  // 阶段 C(shadcn 改造):TranslationWorkflowDialog 换成 Radix Dialog 后不
-  // forceMount Content——job-status-card 嵌在这个对话框内部,只有对话框打开过
-  // 才会挂载(同 CredentialsDialog 等阶段 C 第一批对话框的先例)。
-  // openStatusDetailDialog() 走的 startPolling 依赖 job-status-card 相关的
-  // statusCardStore 消费方就位,这里先打开一次工作流对话框保证挂载。
-  services.workflowDialog.openUpload();
-  await waitFor(() => byId(dom, "job-status-card"), "工作流对话框打开后 job-status-card 挂载");
+  // 主页那张页面级状态卡 #job-status-card 已下线(进度主场是书籍详情的「进度」
+  // Tab)。它曾经是本文件打开详情弹窗的入口,所以这里原本要先把它挂出来。
+  // 现在不需要了——见下面 openStatusDetailDialog 的说明。
   await wait(0);
 
   return { services, root, host };
@@ -112,8 +108,12 @@ async function bootHomeApp(dom) {
 async function openStatusDetailDialog(dom, services) {
   const { getMockJobId } = await import("@/platform/mock/index.js");
   services.features.jobRuntimeFeature.startPolling(getMockJobId());
-  await waitFor(() => byId(dom, "status-detail-btn"), "状态卡详情按钮就绪");
-  click(dom, byId(dom, "status-detail-btn"));
+  // 本文件测的是 StatusDetailDialog 本身,入口只是搭便车。原来点的
+  // #status-detail-btn 长在主页状态卡上,那张卡已随「进度主场收敛到书籍详情」
+  // 一并下线;而那个按钮的 onClick 做的就是下面这一句
+  // (见 features/jobs/ui/status-card/use-status-card-model.ts 的 openDetail),
+  // 所以直接调 controller 与点按钮等价,不削弱本文件的断言。
+  services.statusDetail.controller.openStatusDetailDialog("overview");
   // 阶段 C(shadcn 改造):StatusDetailDialog 换成 Radix Dialog 后不 forceMount
   // Content——对话框关闭时不挂载,断言从"open 属性真假"改为"是否挂载"(同
   // CredentialsDialog 等阶段 C 第一批对话框的先例)。

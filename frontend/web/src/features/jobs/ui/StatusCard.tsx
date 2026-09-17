@@ -1,56 +1,46 @@
-// StatusCard 入口：主流程 / 书籍详情两套展示拆成独立文件。
+// StatusCard 入口。
 //
-// - StatusCardMain：工作流弹窗 #job-status-card（DOM 契约 / smoke）
-// - StatusCardEmbedded：详情 #book-detail-job-status-card（bd-job-status-* 固定高度）
-// - useStatusCardModel：共享 store → display / lottie / progress
+// 只剩一套展示：StatusCardEmbedded —— 书籍详情的 #book-detail-job-status-card
+// （bd-job-status-* 固定高度）。useStatusCardModel 提供共享的
+// store → display / lottie / progress。
+//
+// 曾经还有一套 StatusCardMain（主页那张页面级卡 #job-status-card，带一批不加
+// 前缀的 DOM 契约 id 和隐藏区 job-id/job-status/job-stage-detail/
+// query-job-duration/job-finished-at）。进度主场收敛到书籍详情的「进度」Tab 之后
+// 它零渲染点，连同那批契约一并下线：那些 id 没有任何代码从 DOM 读（setText 写的
+// 是 text-store，不碰 DOM），纯属遗留压舱物。它承载的两样能力已各自安家——
+// 结果操作行搬进了详情处理卡（ProcessingResultActions，契约 id 原样保留，
+// artifacts 域的 document 级委托据此拦截点击），任务详情入口走
+// statusDetail.controller.openStatusDetailDialog()。
 
-import { StatusCardMain } from "./StatusCardMain.jsx";
 import { StatusCardEmbedded } from "./StatusCardEmbedded.jsx";
 
 /**
  * @param {object} props
  * @param {boolean} [props.visible]
- * @param {boolean} [props.embedded]
  * @param {string} [props.idPrefix]
- * @param {boolean} [props.showResultActions]
- * @param {boolean} [props.showHiddenContract]
  * @param {string} [props.rootId]
  * @param {string} [props.className]
  * @param {object} [props.fallbackItem]
  */
 export function StatusCard({
   visible = true,
-  embedded = false,
   idPrefix = "book-detail-",
-  showResultActions,
-  showHiddenContract,
   rootId,
   className = "",
   fallbackItem = null,
 }) {
-  if (embedded) {
-    return (
-      <StatusCardEmbedded
-        visible={visible}
-        idPrefix={idPrefix}
-        rootId={rootId || `${idPrefix}job-status-card`}
-        className={className}
-        fallbackItem={fallbackItem}
-      />
-    );
-  }
-
   return (
-    <StatusCardMain
+    <StatusCardEmbedded
       visible={visible}
-      showResultActions={showResultActions ?? true}
-      showHiddenContract={showHiddenContract ?? true}
+      idPrefix={idPrefix}
+      rootId={rootId || `${idPrefix}job-status-card`}
       className={className}
+      fallbackItem={fallbackItem}
     />
   );
 }
 
-export { StatusCardMain } from "./StatusCardMain.jsx";
 export { StatusCardEmbedded } from "./StatusCardEmbedded.jsx";
 export { useStatusCardModel } from "./use-status-card-model.js";
 export { mergeSnapshotWithFallback, isPollingBootstrapPlaceholder } from "../domain/merge-snapshot-with-fallback.js";

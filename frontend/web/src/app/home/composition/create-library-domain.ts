@@ -53,10 +53,9 @@ type ReaderAnchor = {
 type CreateLibraryDomainArgs = {
   features: HomeFeatures;
   documentRef: Document;
-  statusArea: { setVisible: (visible: boolean) => void };
 };
 
-export function createLibraryDomain({ features, documentRef, statusArea }: CreateLibraryDomainArgs) {
+export function createLibraryDomain({ features, documentRef }: CreateLibraryDomainArgs) {
   // 装配顺序:事件/状态/视图 → 文档资源 → 运行时/阅读器/导航 → actions → controller。
   const libraryEventPort = createRecentJobsLibraryRefreshPort({ target: documentRef });
   const recentJobsStatePort = createRecentJobsStatePort();
@@ -166,7 +165,6 @@ export function createLibraryDomain({ features, documentRef, statusArea }: Creat
     }) => {
       features.jobRuntimeFeature.startPolling(jobId, options);
     },
-    hideStatusArea: () => statusArea.setVisible(false),
     recentJobsStatePort,
   }) as LibraryController;
 

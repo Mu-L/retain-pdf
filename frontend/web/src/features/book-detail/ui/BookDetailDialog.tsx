@@ -14,6 +14,7 @@ import { useRecentJobCover } from "@/features/library/index.js";
 import { BookDetailShell } from "./shell/BookDetailShell.jsx";
 import { CoverActionsPanel } from "./panels/CoverActionsPanel.jsx";
 import { ArtifactQuickDownloads } from "./panels/ArtifactQuickDownloads.js";
+import { ProcessingResultActions } from "./panels/processing/ProcessingResultActions.jsx";
 import {
   BookDetailRightTabs,
   BookDetailOverviewTab,
@@ -253,6 +254,9 @@ export function BookDetailDialog() {
             <BookDetailProcessingTab
               loading={documentJobs.loading}
               error={documentJobs.error}
+              // 结果操作行读全局 statusCard store，注入点放在这里（对话框本身
+              // 长在 HomeShellProviders 内），让「进度」Tab 组件保持纯展示。
+              resultActionsSlot={<ProcessingResultActions />}
               ocr={{
                 job: documentJobs.ocrStatusJob,
                 rangeOn: ocrState.rangeOn,
