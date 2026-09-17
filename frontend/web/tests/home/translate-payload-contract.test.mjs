@@ -74,7 +74,10 @@ test("选页码翻译只发 ocr.page_ranges，不发会错位的 start_page/end_
     dom.window.document.body.appendChild(host);
     const root = createRoot(host);
     root.render(React.createElement(Probe));
-    await waitUntil(() => api !== null, "Probe 首次渲染");
+    // 必须等挂载副作用跑完，不能只等首次渲染：usePageRange 的作用域 effect 会把
+    // rangeOn/startPage/endPage 清成初值，随后另一个 effect 按 pageCount 回填
+    // endPage。在回填之前设值会被这次重置整个抹掉，后面就永远等不到选页状态。
+    await waitUntil(() => api !== null && api.endPage === "20", "页码范围初始回填完成");
     api.setRangeOn(true);
     api.setStartPage("3");
     api.setEndPage("5");

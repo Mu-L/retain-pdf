@@ -51,7 +51,28 @@ async function waitFor(predicate, description) {
     }
     await wait(15);
   }
-  assert.fail(`等待超时：${description}`);
+  // 带上状态条的真实内容：等 "已保存" 超时时，真正的原因几乎总是保存走了
+  // 错误分支、状态条上写着别的东西，而光报"等待超时"完全看不出是哪一条。
+  const status = byId("browser-credentials-status")?.textContent ?? "(无状态条)";
+  assert.fail(`等待超时：${description}；状态条=${JSON.stringify(status)}`);
+}
+
+// 表单填好之前别点保存。
+//
+// save-flow 的前置校验直接读 DOM 里的 modelBaseUrl / modelName /
+// translationWorkers；弹窗打开后这几项由一次异步回填写入，而用例此前只等
+// "OCR 提供商选择器出现" 就开点。机器一忙就会在回填之前点下去，校验失败 →
+// 状态条变成错误文案 → 等 "已保存" 一直等到超时，报出来的却是一个和本用例
+// 断言毫无关系的"等待超时"。
+async function waitForDialogReady() {
+  await waitFor(() => {
+    const model = byId("browser-model-name");
+    const workers = byId("browser-translation-workers");
+    const baseUrl = byId("browser-model-base-url");
+    return Boolean(model && workers && baseUrl
+      && `${model.value || ""}`.trim()
+      && `${workers.value || ""}`.trim());
+  }, "翻译配置回填完成");
 }
 
 function byId(id) {
@@ -222,6 +243,7 @@ test("MinerU：Token 本机保存、明文回填，切回 Paddle 保留各自 To
     await waitFor(() => byId("browser-ocr-provider-select"), "OCR 提供商选择器");
     const select = byId("browser-ocr-provider-select");
     assert.deepEqual([...select.options].map((option) => option.value), ["paddle", "mineru"]);
+    await waitForDialogReady();
     typeInput(byId("browser-paddle-token"), "paddle-ui-fixture");
     typeInput(byId("browser-api-key"), "translation-ui-fixture");
     click(byId("browser-credentials-save-btn"));
