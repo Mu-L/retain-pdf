@@ -89,6 +89,33 @@ export async function loadTaskCenterLiveJobs(
   return result;
 }
 
+/**
+ * 从「第 0 页」里挑出手上还没有的任务。
+ *
+ * 任务中心的 3s 周期只对已在列表里的 job 拉详情，拉列表只在挂载/手动刷新/
+ * 加载更多时发生——所以别处新建的任务此前永远不会出现，直到用户点刷新。
+ *
+ * 列表是新任务在前，因此第 0 页里我们没有的那些必然比手上全部都新，调用方
+ * 应当**前插**而不是用 mergeTaskCenterJobs 追加到末尾（那会让顺序错位）。
+ * 返回值同时给出 addedCount，调用方据此把分页游标后移同样的距离：服务端列表
+ * 整体右移了这么多，不移的话「加载更多」会重复取到已有的那几条。
+ */
+export function discoverNewTaskCenterJobs(
+  previous: JobListItemView[],
+  pageItems: JobListItemView[],
+): { fresh: JobListItemView[]; addedCount: number } {
+  const known = new Set(
+    (Array.isArray(previous) ? previous : [])
+      .map((item) => `${item?.job_id || ""}`.trim())
+      .filter(Boolean),
+  );
+  const fresh = (Array.isArray(pageItems) ? pageItems : []).filter((item) => {
+    const jobId = `${item?.job_id || ""}`.trim();
+    return Boolean(jobId) && !known.has(jobId);
+  });
+  return { fresh, addedCount: fresh.length };
+}
+
 export function mergeTaskCenterJobs(previous: JobListItemView[], incoming: JobListItemView[]) {
   const updates = new Map(incoming.map((item) => [item.job_id, item]));
   const merged = previous.map((item) => {

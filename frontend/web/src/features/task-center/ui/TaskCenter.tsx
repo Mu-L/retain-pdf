@@ -12,6 +12,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTaskCenterAutoRefresh } from "./use-task-center-discovery.js";
 import { formatZhDateTime } from "@/platform/utils/datetime.js";
 import {
   groupTaskCenterJobs,
@@ -157,6 +158,7 @@ export function TaskCenter({ onOpenBookDetail }: TaskCenterProps) {
   const mountedRef = useRef(true);
   const requestInFlightRef = useRef(false);
   const liveInFlightRef = useRef(false);
+
   const itemsRef = useRef<JobListItemView[]>([]);
   const nextOffsetRef = useRef(0);
   const generationRef = useRef(0);
@@ -209,6 +211,7 @@ export function TaskCenter({ onOpenBookDetail }: TaskCenterProps) {
     }
   }, [refreshLive]);
 
+
   useEffect(() => {
     mountedRef.current = true;
     void load();
@@ -216,11 +219,9 @@ export function TaskCenter({ onOpenBookDetail }: TaskCenterProps) {
   }, [load]);
 
   const hasActiveTasks = items.some((job) => ACTIVE_STATUSES.has(`${job.status || ""}`.toLowerCase()));
-  useEffect(() => {
-    if (!hasActiveTasks) return undefined;
-    const timer = window.setInterval(() => { void refreshLive(); }, 3000);
-    return () => window.clearInterval(timer);
-  }, [hasActiveTasks, refreshLive]);
+  useTaskCenterAutoRefresh({
+    itemsRef, nextOffsetRef, generationRef, mountedRef, setItems, hasActiveTasks, refreshLive,
+    listInFlightRef: requestInFlightRef });
 
   const groups = useMemo(() => groupTaskCenterJobs(items), [items]);
   const counts = useMemo(() => taskCenterCounts(items), [items]);
