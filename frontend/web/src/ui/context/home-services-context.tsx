@@ -8,12 +8,10 @@
 //   @/features/*——一旦引入就又成环（ui 只允许 ui/platform）。
 // - 所有窄口类型在本模块内结构化定义，不引用 composition/types 或任何功能类型。
 // - app 侧（src/app/home/home-services-context.ts）负责用 composition 的
-//   HomeServices 实例映射出这些窄口值并经 HomeShellProviders 注入；未迁移的
-//   15 个消费方仍走 app 的 useHomeServices 大包，行为不变。
+//   HomeServices 实例映射出这些窄口值并经 HomeShellProviders 注入。
 //
-// 兼容回退：窄 Context 缺席时回退到泛型 bag（HomeServicesContext，值类型是
-// unknown，由 app 侧灌入 HomeServices 实例），这样只挂 HomeServicesProvider
-// 孤立渲染 Shell 的旧测试仍能工作。
+// 窄口是唯一来源：曾经的「泛型大包 + pick 回退」兼容口已退役（见下方
+// createNarrowHook 的说明），缺 Provider 直接按名字抛错。
 
 import { createContext, createElement, useContext } from "react";
 import type { Context, ReactNode } from "react";

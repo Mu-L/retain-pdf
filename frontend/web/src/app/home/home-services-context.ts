@@ -1,14 +1,16 @@
-// 组合根下发通道:单个页级 Context(总计划「状态策略」第 3 条)。
-// entry.jsx 先建 composition,再经 <HomeServicesProvider> 灌给组件树;
-// Shell 层(TopBar/BottomBar/home-paper-stage)只取窄口,不大包直取。
+// 组合根下发通道:app 侧**适配层**。
+// entry.jsx 先建 composition,再经 <HomeShellProviders> 把它按域映射成窄口值
+// 灌给组件树;所有消费方(含 Shell 的 TopBar/BottomBar)一律走窄 hook。
 //
-// 本文件现在是 app 侧**适配层**:窄 Context/hook/provider 已下沉到
-// @/ui/context/home-services-context.js(平台/UI 侧,不 import app/features),
-// 这样下一步迁移功能时它们可直接 features → ui 消费,不再回头 import app 的
-// 上帝包(composition/types 聚合了所有功能类型,是 40 文件环的根)。
-// 这里仍负责两件事,行为与拆窄前一致:
-//   1) 保留 useHomeServices + HomeServicesProvider 大包,未迁移的 15 个消费方照旧;
-//   2) 用 composition 的 HomeServices 实例映射出窄口聚合,经 HomeShellProviders 注入。
+// 窄 Context/hook/provider 本身住在 @/ui/context/home-services-context.js
+// (平台/UI 侧,不 import app/features),所以功能可以 features → ui 消费,不必
+// 回头 import app 的聚合类型(composition/types 汇总了所有功能类型,曾是
+// 40 文件环的根)。
+//
+// 本文件现在只剩两件事:
+//   1) 把窄口 hook 原样再转出,消费方的 import 路径不变;
+//   2) toNarrowServices():用 composition 的 HomeServices 实例映射出窄口聚合。
+// 泛型大包(useHomeServices / HomeServicesProvider)已退役,不再是第三条路。
 // HomeTabsProvider 承载 tabs 本地态(?tab= 同步在 HomeApp 维护)。
 
 import { createElement, useContext } from "react";
@@ -83,10 +85,7 @@ function toNarrowServices(services: HomeServices): HomeNarrowServices {
   };
 }
 
-/**
- * Shell 窄口注入:外层保留 HomeServicesProvider(深层 features 经 useHomeServices
- * 照旧消费),内层按域灌入全部窄 Context(供已迁移/待迁移的消费方直取)。
- */
+/** Shell 窄口注入:把 composition 的 HomeServices 按域映射,灌入全部窄 Context。 */
 export function HomeShellProviders({ services, children }: { services: HomeServices; children: ReactNode }) {
   // 泛型大包（HomeServicesContext）已退役：这里不再套外层 Provider，
   // 只把 composition 的 HomeServices 按域映射成窄口聚合往下灌。

@@ -1,4 +1,5 @@
-// 组装 HomeServices 对外 bag（HomeApp / useHomeServices 消费）。
+// 组装 HomeServices：composition 的返回值，经 app 侧 toNarrowServices 映射成
+// 窄口后灌给组件树；entry 与整机启动的测试也直接持有它。
 // Hide Store behind read-only selectors; 业务内聚到 domain 工厂（不再在此拼闭包）。
 // 装配位：末端只读features/domains/views/ports→HomeServices，不写features；
 // 写者见create-home-composition顺序图；敏感读：statusCard.cancel晚绑features.jobRuntime，library.selectJob读libraryController。

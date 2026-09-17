@@ -9,7 +9,7 @@ import { LibraryTopTabs } from "./tabs/LibraryTopTabs.jsx";
 import { useHomeTabs } from "../home-services-context.js";
 
 // Shell 顶栏:优先 props(显式装配),缺省时取 HomeTabsProvider 窄口——
-// 不再经 HomeApp 逐层透传,不直取 useHomeServices 大包。视觉/DOM 不变。
+// 不再经 HomeApp 逐层透传,改走窄口 hook。视觉/DOM 不变。
 export function AppTopBar({ activeTab, onTabChange }: { activeTab?: string; onTabChange?: (tab: string) => void }) {
   let tabs: { activeTab: string; onTabChange: (tab: string) => void } | null = null;
   try {

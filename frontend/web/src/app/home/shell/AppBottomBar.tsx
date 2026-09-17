@@ -27,7 +27,7 @@ export function openTaskCenter() {
 }
 
 export function AppBottomBar({ showSearch = true, hidden = false }) {
-  // Shell 窄口直取:dialog 读侧 + workflow/settings 动作口,不再 useHomeServices 大包。
+  // Shell 窄口直取:dialog 读侧 + workflow/settings 动作口。
   const dialogStore = useHomeDialogStore();
   const workflowDialog = useHomeWorkflowDialog();
   const settingsHub = useHomeSettingsHub();
