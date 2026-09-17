@@ -139,6 +139,9 @@ export interface RunSubmitFlowOptions {
   ensureOcrCredentialsReady?: EnsureOcrCredentialsForSubmitOptions["ensureOcrCredentialsReady"];
   hasBrowserCredentials?: () => boolean | unknown;
   refreshDeepSeekBalance?: EnsureDeepSeekBudgetReadyOptions["refreshDeepSeekBalance"];
+  /** provider 预检（余额/OCR Token）失败时的告知口。预检不再挡提交，
+   *  结果也不再写 error-box（弹窗那时已关），composition 接的是 toast。 */
+  notifyPreflightWarning?: (message: string) => void;
   syncCurrentJobSnapshot?: PublishSubmitSuccessOptions["syncCurrentJobSnapshot"];
   renderJob?: (payload?: unknown) => void;
   startJobPolling?: (jobId?: string) => void;

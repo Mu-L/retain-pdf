@@ -1,6 +1,7 @@
 // app-actions（提交任务 / 桌面输出目录）。
 
 import { API_PREFIX } from "@/platform/config/api-constants.js";
+import { toast } from "sonner";
 import { openDesktopOutputDirectory } from "@/platform/config/desktop-persistence.js";
 import {
   createAppActionsRuntimeEnvPort,
@@ -141,6 +142,16 @@ export function createAppActions({
         creds().openBrowserCredentialsDialog(opts);
       },
       refreshDeepSeekBalance: (options?: unknown) => creds().refreshDeepSeekBalance(options),
+      // provider 预检（余额 / OCR Token）已不再挡在提交前面，任务先落盘。
+      // 预检结果因此不能再写 error-box（提交成功后弹窗已关、跳到书籍详情），
+      // 改用 toast：任务照跑，问题也不至于要等流水线跑到那一步才暴露。
+      notifyPreflightWarning: (message: string) => {
+        try {
+          toast.error(message);
+        } catch {
+          /* toast 宿主未挂载时静默，不影响已提交的任务 */
+        }
+      },
       startJobPolling: (jobId: string) => jobRuntime().startPolling(jobId),
       libraryEventPort,
       jobSnapshotPort,

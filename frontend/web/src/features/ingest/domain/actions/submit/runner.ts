@@ -1,7 +1,6 @@
 import type { RunSubmitFlowOptions } from "./contracts.js";
 import { currentSubmitReadiness, handleSubmitReadinessBlock } from "./readiness.js";
-import { ensureDeepSeekBudgetReady } from "./budget.js";
-import { ensureOcrCredentialsForSubmit } from "./credentials.js";
+import { startSubmitPreflight } from "./preflight.js";
 import { publishSubmitSuccess } from "./progress.js";
 import { reportSubmitError } from "./errors.js";
 
@@ -35,6 +34,7 @@ export async function runSubmitFlow({
   documentRef,
   windowRef,
   now,
+  notifyPreflightWarning,
 }: RunSubmitFlowOptions = {}) {
   // ---- 分支[MOCK]:不做表单校验/组参/预算/凭证,成功→ publishSubmitSuccess→
   // submitted;失败(抛错)→ 上抛由调用方处理,不落 error-box,不关框。 ----
@@ -83,27 +83,25 @@ export async function runSubmitFlow({
   if (!validateBeforeSubmit?.()) {
     return { status: "invalid_page_ranges" };
   }
-  // [3] 预算/余额:成功→ 下一步;失败→ budget_not_ready + error-box,不发请求。
-  if (!(await ensureDeepSeekBudgetReady({
-    workflow,
-    workflowNeedsUpload,
-    currentBudgetState,
-    refreshDeepSeekBalance,
-    setText,
-  }))) {
-    return { status: "budget_not_ready" };
-  }
-  // [4] OCR 凭证:成功→ 下一步;失败→ ocr_credentials_not_ready + error-box/弹框,不发请求。
-  if (!(await ensureOcrCredentialsForSubmit({
+  // [3] provider 预检(余额/OCR Token):**不再挡在提交前面**。
+  //
+  // 这两道各是一次第三方网络往返(余额检测超时上限 12 秒),而 OCR 校验缓存是纯
+  // 内存的,每次刷新后的第一次提交都要重跑全程——点「直接翻译」要干等,任务迟迟
+  // 不落盘。这里只负责发起,不 await;结果经 notifyPreflightWarning 报出。
+  //
+  // 为什么这样是安全的:「压根没填凭据」由上面 [1] 的 readiness 拦着(纯本地判断,
+  // 不走网络),这两道只覆盖「填了但无效 / 余额不够」——那类问题本来也要等流水线
+  // 跑到那一步才暴露,提前告知是加分项,不是提交的前置条件。
+  void startSubmitPreflight({
     workflow,
     desktopMode,
+    workflowNeedsUpload,
     workflowNeedsCredentials,
+    currentBudgetState,
+    refreshDeepSeekBalance,
     ensureOcrCredentialsReady,
-    openBrowserCredentialsDialog,
-    setText,
-  }))) {
-    return { status: "ocr_credentials_not_ready" };
-  }
+    notifyPreflightWarning,
+  });
 
   setText("error-box", "-");
 

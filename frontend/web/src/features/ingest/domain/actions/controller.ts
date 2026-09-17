@@ -62,6 +62,8 @@ export interface SubmitFlowDeps {
   refreshDeepSeekBalance?: (options?: {
     silent?: boolean;
   } | unknown) => Promise<unknown> | unknown;
+  /** provider 预检失败的告知口（预检已改为后台并行，不再挡提交）。 */
+  notifyPreflightWarning?: (message: string) => void;
   startJobPolling?: (jobId?: string) => void;
   libraryEventPort?: LibraryEventPortLike;
   jobSnapshotPort?: AppActionsJobSnapshotPort;
@@ -94,6 +96,7 @@ export interface MountAppActionsFeatureOptions {
   hasBrowserCredentials?: () => boolean | unknown;
   openBrowserCredentialsDialog?: (options?: unknown) => void;
   refreshDeepSeekBalance?: SubmitFlowDeps["refreshDeepSeekBalance"];
+  notifyPreflightWarning?: SubmitFlowDeps["notifyPreflightWarning"];
   startJobPolling?: (jobId?: string) => void;
   libraryEventPort?: LibraryEventPortLike;
   configPort?: AppActionsConfigPort;
@@ -126,6 +129,7 @@ export function mountAppActionsFeature({
   hasBrowserCredentials = submitFlow?.hasBrowserCredentials,
   openBrowserCredentialsDialog = submitFlow?.openBrowserCredentialsDialog,
   refreshDeepSeekBalance = submitFlow?.refreshDeepSeekBalance,
+  notifyPreflightWarning = submitFlow?.notifyPreflightWarning,
   startJobPolling = submitFlow?.startJobPolling,
   libraryEventPort = submitFlow?.libraryEventPort,
   jobSnapshotPort: submitFlowJobSnapshotPort = submitFlow?.jobSnapshotPort,
@@ -186,6 +190,7 @@ export function mountAppActionsFeature({
         ensureOcrCredentialsReady,
         hasBrowserCredentials,
         refreshDeepSeekBalance,
+        notifyPreflightWarning,
         syncCurrentJobSnapshot: (_state, payload, jobId, meta) => {
           jobSnapshot.syncCurrentJobSnapshot(payload, jobId, meta);
         },
