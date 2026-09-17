@@ -100,11 +100,24 @@ async function bootHomeApp(dom) {
 // startPolling 会在网络请求之前先同步落一帧占位快照
 // （isPollingBootstrapPlaceholder：status=queued + 「正在读取任务状态」），
 // 占位清掉且 status 非空即等价于旧的「离开准备中」。判据不变，只是换了读法。
-async function waitForRealJobData(services) {
-  const { isPollingBootstrapPlaceholder } = await import("@/features/jobs/index.js");
+// 等真实任务数据落进 statusCard store（而不是 startPolling 的首帧占位）。
+//
+// 不要用 isPollingBootstrapPlaceholder 判这件事：它认的是「书架 live 行」的形状
+// （status=queued 且 stage_detail/detail 含「正在读取任务状态」），而 store 里这份
+// 是**状态卡快照**——buildRuntimeStatusCardSnapshot 把占位文案换成了阶段展示，
+// detail 恒为 ""，快照上也根本没有 stage_detail。实测占位帧就是
+//   { status: "queued", detail: "", label: "第 1/4 步 · OCR 解析", value: "正在识别 PDF 内容" }
+// 对它调 isPollingBootstrapPlaceholder 永远返回 false。那样写的话，唯一还起作用的
+// 条件只剩 Boolean(status)，而占位帧的 "queued" 是 truthy——这个 wait 会在占位帧
+// 立刻返回，等于没等。
+//
+// 改判「快照已经指向本次轮询的 job，且离开了 queued 占位态」。本文件用的两个
+// mock 场景（done → succeeded、translate → running）都会离开 queued。
+async function waitForRealJobData(services, jobId) {
   await waitFor(() => {
     const snapshot = services.statusCard.store.getSnapshot().snapshot;
-    return Boolean(`${snapshot?.status || ""}`.trim()) && !isPollingBootstrapPlaceholder(snapshot);
+    const status = `${snapshot?.status || ""}`.trim();
+    return `${snapshot?.jobId || ""}` === jobId && status !== "" && status !== "queued";
   }, "真实任务数据到达(statusCard 快照脱离首帧占位)");
 }
 
@@ -160,7 +173,7 @@ test("artifact-downloads：真实轮询(mock=done)驱动 ResultActions 三个下
   const jobId = getMockJobId();
 
   services.features.jobRuntimeFeature.startPolling(jobId);
-  await waitForRealJobData(services);
+  await waitForRealJobData(services, jobId);
   await openProcessingTab(dom, services, jobId);
   // 只等结果操作行"挂出来"(ProcessingResultActions 在没有任何就绪产物时整体
   // 返回 null)——就绪态/url/样式一律由下面的断言负责，不靠 waitFor 兜。
@@ -191,7 +204,7 @@ test("artifact-downloads：点击 ResultActions 的 3 个受保护下载按钮�
 
   try {
     services.features.jobRuntimeFeature.startPolling(jobId);
-    await waitForRealJobData(services);
+    await waitForRealJobData(services, jobId);
     // 按钮宿主已从下线的主页状态卡换成书籍详情「进度」Tab（见 openProcessingTab）。
     await openProcessingTab(dom, services, jobId);
     await waitFor(() => byId(dom, "pdf-btn")?.getAttribute("aria-disabled") === "false", "下载按钮就绪");
@@ -279,8 +292,9 @@ test("artifact-downloads：document 级委托覆盖全部 7 个契约 id(含当�
   const urlStub = stubObjectUrl();
 
   try {
-    services.features.jobRuntimeFeature.startPolling(getMockJobId());
-    await waitForRealJobData(services);
+    const jobId = getMockJobId();
+    services.features.jobRuntimeFeature.startPolling(jobId);
+    await waitForRealJobData(services, jobId);
 
     // 本用例刻意不打开任何按钮宿主(主页状态卡已下线、书籍详情「进度」Tab 也不
     // 渲染这 3 个 id)——委托挂在 document 上，验的就是"与谁渲染按钮无关"。
@@ -330,7 +344,7 @@ test("artifact-downloads：busy 态文案不被父组件(书籍详情处理卡)�
   const jobId = getMockJobId();
 
   services.features.jobRuntimeFeature.startPolling(jobId);
-  await waitForRealJobData(services);
+  await waitForRealJobData(services, jobId);
   await openProcessingTab(dom, services, jobId);
   await waitFor(() => byId(dom, "pdf-btn")?.getAttribute("aria-disabled") === "false", "下载按钮就绪");
 
