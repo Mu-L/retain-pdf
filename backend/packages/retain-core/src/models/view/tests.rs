@@ -285,6 +285,7 @@ fn summarize_list_invocation_counts_stage_spec_and_unknown() {
             retry_count: 0,
             last_retry_at: None,
             trace_id: None,
+            completion_note: None,
             stage_snapshot: None,
             background_snapshots: Vec::new(),
             stages: test_stages(),
@@ -314,6 +315,7 @@ fn summarize_list_invocation_counts_stage_spec_and_unknown() {
             retry_count: 0,
             last_retry_at: None,
             trace_id: None,
+            completion_note: None,
             stage_snapshot: None,
             background_snapshots: Vec::new(),
             stages: JobStagesView {

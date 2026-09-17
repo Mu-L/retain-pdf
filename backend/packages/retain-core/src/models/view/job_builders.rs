@@ -323,6 +323,7 @@ pub fn job_to_detail(
             .artifacts
             .as_ref()
             .and_then(|item| item.provider_trace_id.clone()),
+        completion_note: test_completion_note(job),
         stage_snapshot: stage_snapshot.clone(),
         background_snapshots: Vec::new(),
         stages: test_stages(job, stage_snapshot.as_ref()),
@@ -413,6 +414,7 @@ pub fn job_to_list_item(
             .artifacts
             .as_ref()
             .and_then(|item| item.trace_id.clone()),
+        completion_note: test_completion_note(job),
         stage_snapshot: stage_snapshot.clone(),
         background_snapshots: Vec::new(),
         stages: test_stages(job, stage_snapshot.as_ref()),
@@ -432,6 +434,26 @@ pub fn job_to_list_item(
         detail_path: detail_path.clone(),
         detail_url: to_absolute_url(base_url, &detail_path),
     }
+}
+
+/// `terminal_completion_note` 的测试镜像。
+///
+/// 生产实现在 backend/api 的 stage_view.rs，retain-core 不依赖它，所以这里照抄
+/// 语义：只有终态、且 stage_detail 不是无条件写入的「任务完成」时才算有额外信息。
+/// 这两个构造器本来就是 cfg(test) 的镜像，写死 None 会让它悄悄偏离生产形状。
+#[cfg(test)]
+fn test_completion_note(job: &JobSnapshot) -> Option<String> {
+    if !matches!(
+        job.status,
+        JobStatusKind::Succeeded | JobStatusKind::Failed | JobStatusKind::Canceled
+    ) {
+        return None;
+    }
+    let detail = job.stage_detail.as_deref()?.trim();
+    if detail.is_empty() || detail == "任务完成" {
+        return None;
+    }
+    Some(detail.to_string())
 }
 
 #[cfg(test)]
