@@ -95,6 +95,8 @@ export interface StageEvent {
     substage?: string;
     lane?: string;
     stage_detail?: string;
+    /** 终态完成说明，仅在有额外信息时出现（后端已滤掉通用的「任务完成」）。 */
+    completion_note?: string;
     status?: string;
     progress?: JobProgress | null;
     progress_current?: number | null;

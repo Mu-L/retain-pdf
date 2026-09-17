@@ -31,6 +31,10 @@ export interface JobListItemView {
     retry_count: number;
     last_retry_at: string | null;
     trace_id?: string | null;
+    /**
+     * 终态任务的完成说明，仅在有额外信息时出现（正常完成为 null）。例如「任务完成，但有 N 个内容块保留原文未翻译」。这不是阶段字段——终态的 stage_snapshot 恒为 null。
+     */
+    completion_note?: string | null;
     stage_snapshot: JobStageSnapshotView | null;
     background_snapshots: JobStageSnapshotView[];
     stages: JobStagesView;

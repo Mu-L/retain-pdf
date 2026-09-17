@@ -114,6 +114,7 @@ fn build_job_list_item_view(
         display_name: derive_display_name(upload, job),
         workflow: job.workflow.clone(),
         status: job.status.clone(),
+        completion_note: crate::services::jobs::stage_view::terminal_completion_note(job),
         attempt: job
             .runtime
             .as_ref()

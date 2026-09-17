@@ -172,6 +172,18 @@ pub struct JobDetailView {
     pub request_payload: PublicResolvedJobSpec,
     pub trace_id: Option<String>,
     pub provider_trace_id: Option<String>,
+    /// 终态任务的完成说明，仅在有额外信息时出现（正常完成为 None）。
+    ///
+    /// 这**不是**阶段字段：`build_public_stage_snapshot` 对终态一律返回 None
+    /// 是有意的（jobs_live_stage.rs 的 terminal_job_detail_uses_status_...
+    /// 钉住了这条——终态该看 status，而不是把 "done" 当成一个阶段），
+    /// 顶层那组 display_stage/stage/substage/lane/stage_detail/progress
+    /// 也被 assert_no_legacy_top_level_stage_fields 禁止回流。
+    ///
+    /// 但 completion_pipeline.rs 恰恰在成功收尾时把「任务完成，但有 N 个内容块
+    /// 保留原文未翻译」写进 job.stage_detail，若不另开通道就永远送不出去，
+    /// 用户只会看到一个与完全成功无异的绿色「已翻译」。故用独立语义的字段承载。
+    pub completion_note: Option<String>,
     pub stage_snapshot: Option<JobStageSnapshotView>,
     pub background_snapshots: Vec<JobStageSnapshotView>,
     pub stages: JobStagesView,
@@ -472,6 +484,18 @@ pub struct JobListItemView {
     /// Stable timestamp of the most recently accepted retry, if any.
     pub last_retry_at: Option<String>,
     pub trace_id: Option<String>,
+    /// 终态任务的完成说明，仅在有额外信息时出现（正常完成为 None）。
+    ///
+    /// 这**不是**阶段字段：`build_public_stage_snapshot` 对终态一律返回 None
+    /// 是有意的（jobs_live_stage.rs 的 terminal_job_detail_uses_status_...
+    /// 钉住了这条——终态该看 status，而不是把 "done" 当成一个阶段），
+    /// 顶层那组 display_stage/stage/substage/lane/stage_detail/progress
+    /// 也被 assert_no_legacy_top_level_stage_fields 禁止回流。
+    ///
+    /// 但 completion_pipeline.rs 恰恰在成功收尾时把「任务完成，但有 N 个内容块
+    /// 保留原文未翻译」写进 job.stage_detail，若不另开通道就永远送不出去，
+    /// 用户只会看到一个与完全成功无异的绿色「已翻译」。故用独立语义的字段承载。
+    pub completion_note: Option<String>,
     pub stage_snapshot: Option<JobStageSnapshotView>,
     pub background_snapshots: Vec<JobStageSnapshotView>,
     pub stages: JobStagesView,

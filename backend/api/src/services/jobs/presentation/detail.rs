@@ -52,6 +52,7 @@ pub fn build_job_detail_view(
         request_payload: core.request_payload,
         trace_id: core.trace_id,
         provider_trace_id: core.provider_trace_id,
+        completion_note: crate::services::jobs::stage_view::terminal_completion_note(job),
         stage_snapshot: live.stage_snapshot,
         background_snapshots: live.background_snapshots,
         stages: live.stages,

@@ -236,6 +236,17 @@ function labelForStage(job = {}, stageKey = "", substageKey = "", progress = {})
 }
 function detailForStage(job = {}, stageKey = "", substageKey = "", progress = {}) {
     if (stageKey === "done") {
+        // 后端写的说明优先。completion_pipeline.rs 在成功收尾时会把
+        // 「任务完成，但有 N 个内容块保留原文未翻译…」经 completion_note 送出；
+        // 此前这里无条件返回写死的「翻译 PDF 已生成」，把它整句盖掉，
+        // 于是部分未翻译的任务在界面上和完全成功的任务一模一样。
+        //
+        // 后端已在 terminal_completion_note 里滤掉通用的「任务完成」，
+        // 所以这里只要字段非空就一定是值得显示给用户的额外信息。
+        const note = `${job?.completion_note || ""}`.trim();
+        if (note) {
+            return note;
+        }
         return successDetailForWorkflow(job);
     }
     if (stageKey === "failed") {

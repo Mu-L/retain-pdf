@@ -318,6 +318,22 @@ fn stage_order(stage_name: &str) -> i32 {
     }
 }
 
+/// 终态任务的完成说明。只在后端确实写了额外信息时返回 Some。
+///
+/// completion.rs 先无条件写「任务完成」，completion_pipeline.rs 只有在存在
+/// 保留原文/死信块时才把它覆盖成带数量的警告；所以"等于任务完成"就等价于
+/// "没有额外信息"，过滤掉可以让前端仅凭该字段是否存在来决定要不要提示。
+pub fn terminal_completion_note(job: &JobSnapshot) -> Option<String> {
+    if !is_terminal_status(&job.status) {
+        return None;
+    }
+    let detail = job.stage_detail.as_deref()?.trim();
+    if detail.is_empty() || detail == "任务完成" {
+        return None;
+    }
+    Some(detail.to_string())
+}
+
 fn is_terminal_status(status: &JobStatusKind) -> bool {
     matches!(
         status,
