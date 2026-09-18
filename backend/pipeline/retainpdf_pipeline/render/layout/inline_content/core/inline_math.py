@@ -226,6 +226,10 @@ def sanitize_direct_typst_inline_math(text: str) -> str:
         normalize_formula_for_latex_math,
     )
 
+    from retainpdf_pipeline.foundation.shared.latex_source_repair import (
+        collapse_doubled_command_backslashes,
+    )
+
     def _sanitize_token(token: TextToken) -> str:
         is_display = token.kind == TextTokenKind.DISPLAY_MATH
         expr = math_token_body(token)
@@ -237,7 +241,9 @@ def sanitize_direct_typst_inline_math(text: str) -> str:
         if spreadsheet_cell:
             return f"{spreadsheet_cell.group(1)}{spreadsheet_cell.group(2)}"
         # 这三条修的是 OCR / 模型产物，不是 mitex 的能力缺口，所以留着。
-        expr = re.sub(r"\\{2,}(?=[A-Za-z])", r"\\", expr)
+        # 第一条曾经是无条件的，把矩阵/cases 的换行符 `\\` 也合并掉，自己制造了
+        # `unknown command: \b`——约束和缘由都在 latex_source_repair 里。
+        expr = collapse_doubled_command_backslashes(expr)
         expr = re.sub(r"\\langlen\b", r"\\langle n", expr)
         expr = re.sub(r"\\angle(?=[A-Za-z])", r"\\angle ", expr)
         # Do not rewrite prefix scripts (e.g. ⟨^{N} → ⟨{}^{N}).

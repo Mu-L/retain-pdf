@@ -18,12 +18,14 @@ from __future__ import annotations
 import re
 
 from retainpdf_pipeline.foundation.shared.latex_commands import mitex_rewrite_database
+from retainpdf_pipeline.foundation.shared.latex_source_repair import (
+    collapse_doubled_command_backslashes,
+)
 
 MAX_INLINE_MATH_CHARS = 1200
 
 _LEFT_NO_SPACE = set("([{\"'“‘（【「『")
 _RIGHT_NO_SPACE = set(".,;:!?)]}，。！？；：、（）【】「」『』")
-_DOUBLE_BACKSLASH_COMMAND_RE = re.compile(r"\\{2,}(?=[A-Za-z])")
 _MULTI_SPACE_RE = re.compile(r"[ \t]{2,}")
 
 
@@ -144,7 +146,7 @@ def _collapse_newlines_inside_inline_math(text: str) -> str:
 def _normalize_math_body(value: str, *, display: bool) -> str:
     marker = "$$" if display else "$"
     body = value[len(marker) : len(value) - len(marker)]
-    body = _DOUBLE_BACKSLASH_COMMAND_RE.sub(r"\\", body)
+    body = collapse_doubled_command_backslashes(body)
     return f"{marker}{body}{marker}"
 
 
