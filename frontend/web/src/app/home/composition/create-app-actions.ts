@@ -38,7 +38,7 @@ type LibraryEventPort = {
 };
 
 type SettingsDialogStore = {
-  open: (payload?: { tab?: string } | null) => void;
+  open: (payload?: { tab?: string; setupMode?: boolean } | null) => void;
 };
 
 type CreateAppActionsArgs = {
@@ -110,7 +110,7 @@ export function createAppActions({
     openDesktopOutputDirectory,
     resetUploadedFile: bridge.resetUploadedFile,
     submitFlow: {
-      openSetupDialog: () => creds().openBrowserCredentialsDialog({ setupMode: true }),
+      openSetupDialog: () => settingsHubDialogStore?.open?.({ tab: "api", setupMode: true }),
       renderJob: statusCardPresenter.renderMain,
       submitJobRequest,
       currentWorkflow: () => (isOcrOnly() ? "ocr" : workflow().currentWorkflow()),
@@ -128,18 +128,11 @@ export function createAppActions({
         if (isOcrOnly()) return creds().hasOcrCredentials();
         return Boolean(creds().hasBrowserCredentials());
       },
+      // 缺 Key 和首次配置门是同一个落点：设置弹窗停在 api tab，
+      // 区别只在 setupMode（引导语 + 「保存并启动」+ 存完标记首配完成）。
       openBrowserCredentialsDialog: (options?: unknown) => {
         const opts = (options && typeof options === "object" ? options : {}) as { setupMode?: boolean };
-        if (opts.setupMode) {
-          creds().openBrowserCredentialsDialog({ setupMode: true });
-          return;
-        }
-        // 常规缺 Key：设置 → API（与 UI 事件路由一致）
-        if (settingsHubDialogStore?.open) {
-          settingsHubDialogStore.open({ tab: "api" });
-          return;
-        }
-        creds().openBrowserCredentialsDialog(opts);
+        settingsHubDialogStore?.open?.({ tab: "api", setupMode: Boolean(opts.setupMode) });
       },
       refreshDeepSeekBalance: (options?: unknown) => creds().refreshDeepSeekBalance(options),
       // provider 预检（余额 / OCR Token）已不再挡在提交前面，任务先落盘。

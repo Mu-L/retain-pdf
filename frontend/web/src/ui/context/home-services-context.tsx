@@ -37,7 +37,8 @@ export type HomeWorkflowDialogValue = {
 };
 
 export type HomeSettingsHubValue = {
-  dialogStore: DialogStore<{ tab?: string } | null>;
+  /** payload.setupMode：首次配置门也开这个弹窗，只是停在 api tab 并换成引导形态。 */
+  dialogStore: DialogStore<{ tab?: string; setupMode?: boolean } | null>;
 };
 
 export type HomeBridgeValue = {

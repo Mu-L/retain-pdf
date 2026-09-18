@@ -94,24 +94,34 @@ const PANE_HEADS = {
   update: { title: "更新", desc: "查看当前版本，并从 GitHub Releases 重新检查更新。" },
 };
 
-function PaneHead({ tab }: { tab: keyof typeof PANE_HEADS }) {
+function PaneHead({ tab, subtitle = null }: { tab: keyof typeof PANE_HEADS; subtitle?: React.ReactNode }) {
   const head = PANE_HEADS[tab];
   return (
     <header className="app-settings-pane-head">
       <h3>{head.title}</h3>
+      {subtitle}
       {head.desc ? <p>{head.desc}</p> : null}
     </header>
   );
 }
 
 export type SettingsDialogProps = {
-  /** 弹窗开合状态；payload.tab 决定打开时激活哪个 tab（api/glossary/update）。 */
-  dialogStore: DialogStore<{ tab?: string } | null>;
+  /**
+   * 弹窗开合状态。payload.tab 决定打开时激活哪个 tab（api/glossary/update）；
+   * payload.setupMode 表示这次是首次配置门——首配不再另开一个外壳，就是本弹窗
+   * 停在 api tab，只是多一句引导、表单按钮变成「保存并启动」。
+   */
+  dialogStore: DialogStore<{ tab?: string; setupMode?: boolean } | null>;
   /** 「术语表」tab 里点 #glossary-btn 时打开术语表弹窗。 */
   onOpenGlossaries: () => void;
-  /** 切到 API tab 前让凭据域预热表单（可选）。 */
-  onPrepareCredentialPanels?: () => void;
+  /** 切到 API tab 前让凭据域预热表单（可选）。setupMode 原样透传。 */
+  onPrepareCredentialPanels?: (options?: { setupMode?: boolean }) => void;
   credentialsWorkbenchSlot?: React.ReactNode | null;
+  /**
+   * 首次配置门的一句引导，只在 payload.setupMode 时渲染。由 HomeApp 注入而不是
+   * 本文件直接 import credentials-dom-ids——那正是当初被拆成 slot 的原因。
+   */
+  apiPaneSetupHintSlot?: React.ReactNode | null;
   appUpdateBannerSlot?: React.ReactNode | null;
 };
 
@@ -120,6 +130,7 @@ export function SettingsDialog({
   onOpenGlossaries,
   onPrepareCredentialPanels,
   credentialsWorkbenchSlot = null,
+  apiPaneSetupHintSlot = null,
   appUpdateBannerSlot = null,
 }: SettingsDialogProps) {
 
@@ -127,6 +138,7 @@ export function SettingsDialog({
   const open = Boolean(dialogState.open);
   const { onCloseAutoFocus } = useDialogReturnFocus(open);
   const [activeTab, setActiveTab] = useState(dialogState.payload?.tab || "api");
+  const setupMode = Boolean(dialogState.payload?.setupMode);
 
   useEffect(() => {
     if (open) {
@@ -140,11 +152,13 @@ export function SettingsDialog({
     if (!open || activeTab !== "api") {
       return;
     }
-    const prepare = () => onPrepareCredentialPanels?.();
+    // setupMode 必须跟着一起传：这个 effect 每次进 api tab 都跑，若只调无参版本
+    // 就会把首配门刚设上的 setupMode 冲回 false，表单立刻退回普通形态。
+    const prepare = () => onPrepareCredentialPanels?.({ setupMode });
     prepare();
     const raf = requestAnimationFrame(prepare);
     return () => cancelAnimationFrame(raf);
-  }, [open, activeTab, onPrepareCredentialPanels]);
+  }, [open, activeTab, onPrepareCredentialPanels, setupMode]);
 
   function handleOpenChange(nextOpen) {
     if (!nextOpen) {
@@ -209,7 +223,7 @@ export function SettingsDialog({
                   className={panelClass("api")}
                   data-settings-panel="api"
                 >
-                  <PaneHead tab="api" />
+                  <PaneHead tab="api" subtitle={setupMode ? apiPaneSetupHintSlot : null} />
                   {credentialsWorkbenchSlot}
                 </TabsPrimitive.Content>
 

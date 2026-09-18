@@ -43,13 +43,15 @@ import { TaskCenter } from "@/features/task-center/index.js";
 import { GlossariesDialog } from "@/features/glossaries/index.js";
 import { FavoritesView } from "@/features/favorites/index.js";
 import {
-  CredentialsDialog,
   CredentialsProvider,
   CredentialsWorkbench,
   HiddenCredentialInputs,
 } from "@/features/credentials/index.js";
 import { useDialogState } from "@/ui/hooks/use-dialog-state.js";
 import { SettingsDialog } from "@/features/settings/index.js";
+import { useAppEvent } from "@/ui/hooks/use-app-event.js";
+import { APP_EVENTS } from "@/platform/contracts/app-contract.js";
+import { CREDENTIAL_DOM_IDS } from "@/features/credentials/ui/credentials-dom-ids.js";
 import { StatusDetailDialog } from "@/features/job-detail/index.js";
 import { ReaderNavigation, SoftReaderHost } from "@/features/reader/index.js";
 import {
@@ -167,12 +169,24 @@ function SettingsDialogSlot() {
   const settingsHub = useHomeSettingsHub();
   const glossaries = useHomeGlossaries();
   const credentials = useHomeCredentials();
+
+  // 「打开接口设置」只有这一个落点了。首次配置门曾经另开一个独立弹窗
+  // （CredentialsDialog），于是同一件事有两个长得不一样的壳；现在两条路都是
+  // 本弹窗停在 api tab，区别只在 payload.setupMode。
+  useAppEvent(APP_EVENTS.openBrowserCredentials, (event) => {
+    const detail = event?.detail || {};
+    settingsHub?.dialogStore?.open?.({ tab: "api", setupMode: Boolean(detail.setupMode) });
+  });
+
   return (
     <SettingsDialog
       dialogStore={settingsHub.dialogStore}
       onOpenGlossaries={() => glossaries.dialogStore.open()}
-      onPrepareCredentialPanels={() => credentials?.feature?.prepareCredentialsPanels?.()}
+      onPrepareCredentialPanels={(options) => credentials?.feature?.prepareCredentialsPanels?.(options)}
       credentialsWorkbenchSlot={<CredentialsWorkbench />}
+      apiPaneSetupHintSlot={
+        <p id={CREDENTIAL_DOM_IDS.browser.subtitle} className="muted">先配好接口再开始</p>
+      }
       appUpdateBannerSlot={<AppUpdateBannerSlot />}
     />
   );
@@ -271,7 +285,6 @@ function HomeShell() {
         <IngestDialog hiddenInputsSlot={<HiddenCredentialInputs />} />
       </main>
       {/* dialogs.html 区块:credentials 域已 React 化,其余占位(3b) */}
-      <CredentialsDialog />
       <GlossariesDialogSlot />
       <developer-auth-dialog></developer-auth-dialog>
       <developer-settings-dialog></developer-settings-dialog>

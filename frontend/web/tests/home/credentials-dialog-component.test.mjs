@@ -399,42 +399,62 @@ test("保存按钮每次点击都有可见反馈，不会让人以为没生效",
   host.remove();
 });
 
-test("CredentialsDialog：常规入口走设置 API；setupMode 仍开独立首次配置门", async () => {
+// 「打开接口设置」只有一个落点：设置弹窗停在 api tab。
+//
+// 此前首次配置门另有一个独立外壳（CredentialsDialog），于是同一件事有两个长得
+// 不一样的窗——用户从设置里看到的和首次启动时看到的不是同一个东西。现在两条路
+// 都是本弹窗，区别只在 payload.setupMode：多一句引导、保存按钮变成「保存并启动」、
+// 收起 AI Agent 卡片（首配不该被非必填项挡住），保存时写 firstRunCompleted。
+//
+// 两种形态都钉住，因为它们各自都能悄悄退化：常规入口混进 setupMode 会让用户在
+// 设置里看到莫名其妙的「保存并启动」；setupMode 丢掉则首配存完不标记完成，
+// 下次启动又被拦一遍。
+test("接口设置只有一个弹窗：常规与首次配置共用设置中心 API 区", async () => {
   const services = createServices();
   const { host, root } = await mountHome(services);
 
-  // 阶段 C(shadcn 改造):CredentialsDialog 换成 Radix Dialog 后不 forceMount
-  // Content——对话框关闭时整个内容(含下面这批契约 id)都不挂载。
-  assert.equal(byId("browser-credentials-dialog"), null, "初始未打开时不挂载");
+  assert.equal(byId("app-settings-dialog"), null, "初始未打开时不挂载");
+  assert.equal(byId("browser-credentials-dialog"), null, "独立首配弹窗已退役，任何时候都不该出现");
 
-  // 常规：openBrowserCredentials → 设置中心 API 区（唯一日常入口）
+  // ---- 常规入口 ----
   dom.window.document.dispatchEvent(new dom.window.CustomEvent(APP_EVENTS.openBrowserCredentials));
   await waitFor(() => byId("app-settings-dialog") !== null, "常规打开设置中心");
   await waitFor(() => byId("browser-api-key") !== null, "API 区内嵌工作台");
   assert.equal(byId("browser-credentials-dialog"), null, "常规不再弹独立接口设置窗");
-  assert.ok(byId("browser-credentials-save-btn"), "内嵌工作台有保存");
+  assert.equal(byId("browser-credentials-save-btn").textContent, "保存接口");
+  assert.equal(byId("browser-credentials-subtitle"), null, "常规入口不该出现首配引导语");
+  assert.ok(
+    dom.window.document.querySelector(".credential-agent-section > .credential-agent-card"),
+    "常规入口展示 AI Agent 表单",
+  );
 
   services.settingsHub.dialogStore.close();
   await waitFor(() => byId("app-settings-dialog") === null, "关闭设置");
 
-  // ---- setupMode 首次配置态：独立弹窗，标题统一接口设置 + 副标题引导 ----
+  // ---- 首次配置门：同一个弹窗，换成引导形态 ----
   dom.window.document.dispatchEvent(new dom.window.CustomEvent(APP_EVENTS.openBrowserCredentials, {
     detail: { setupMode: true },
   }));
-  await waitFor(() => byId("browser-credentials-dialog") !== null, "setupMode 打开独立弹窗");
-  await waitFor(() => byId("browser-credentials-title")?.textContent === "接口设置", "setupMode 标题统一接口设置");
-  await waitFor(() => byId("browser-credentials-subtitle")?.textContent === "先配好接口再开始", "setupMode 副标题引导");
+  await waitFor(() => byId("app-settings-dialog") !== null, "setupMode 开的仍是设置中心");
+  assert.equal(byId("browser-credentials-dialog"), null, "setupMode 不再另开一个壳");
+  await waitFor(
+    () => byId("browser-credentials-subtitle")?.textContent === "先配好接口再开始",
+    "setupMode 引导语",
+  );
+  await waitFor(
+    () => byId("browser-credentials-save-btn")?.textContent === "保存并启动",
+    "setupMode 保存按钮",
+  );
 
   for (const id of [
-    "browser-credentials-title", "browser-credentials-close-btn", "browser-credentials-status",
-    "browser-credentials-save-btn", "browser-paddle-token", "browser-paddle-validate-btn",
-    "browser-paddle-validation", "browser-api-key", "browser-deepseek-validate-btn",
-    "browser-deepseek-validation", "browser-deepseek-top-up-link",
+    "browser-credentials-status", "browser-credentials-save-btn",
+    "browser-paddle-token", "browser-paddle-validate-btn", "browser-paddle-validation",
+    "browser-api-key", "browser-deepseek-validate-btn", "browser-deepseek-validation",
+    "browser-deepseek-top-up-link",
   ]) {
     assert.ok(byId(id), `契约 id 缺失：#${id}`);
   }
 
-  assert.equal(byId("browser-credentials-save-btn").textContent, "保存并启动");
   assert.equal(byId("browser-credentials-tabs"), null, "首次配置也不显示多余的二级 Tab");
   assert.equal(
     dom.window.document.querySelector(".credential-agent-card"),
@@ -445,7 +465,6 @@ test("CredentialsDialog：常规入口走设置 API；setupMode 仍开独立首�
     dom.window.document.querySelector(".credential-agent-setup-note").textContent,
     /稍后在设置中配置/,
   );
-  assert.equal(byId("browser-credentials-dialog").dataset.setupMode, "1");
 
   root.unmount();
   services.dispose();
@@ -813,7 +832,8 @@ test("CredentialsDialog：保存(桌面模式)——走 saveDesktopConfig 分支
   dom.window.document.dispatchEvent(new dom.window.CustomEvent(APP_EVENTS.openBrowserCredentials, {
     detail: { setupMode: true },
   }));
-  await waitFor(() => byId("browser-credentials-dialog") !== null, "打开对话框(setupMode)");
+  // 首配门现在就是设置中心停在 api tab（独立外壳已退役）。
+  await waitFor(() => byId("browser-api-key") !== null, "打开接口设置(setupMode)");
 
   typeInput(byId("browser-paddle-token"), "paddle-desktop");
   typeInput(byId("browser-api-key"), "deepseek-desktop");

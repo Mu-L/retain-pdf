@@ -35,7 +35,11 @@ export type HomeCredentials = {
 };
 
 export type HomeSettingsHub = {
-  dialogStore: DialogStore<{ tab?: string } | null>;
+  /**
+   * payload.tab 选中哪个 tab；payload.setupMode 表示这次是首次配置门。
+   * 首配不再另开外壳，就是本弹窗停在 api tab（见 SettingsDialog 的注释）。
+   */
+  dialogStore: DialogStore<{ tab?: string; setupMode?: boolean } | null>;
 };
 
 export type HomeGlossaries = {

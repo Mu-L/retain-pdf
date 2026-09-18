@@ -162,11 +162,16 @@ export function createCredentialDialogFlow({
   /**
    * 设置面板内嵌模式（SettingsDialog 接口区）：只做"从凭据状态回填表单 +
    * 复位到 api tab"，不经 viewPort.openDialog()——表单宿主是设置面板本身，
-   * 没有独立弹窗可开。首次配置门（setupMode）仍走 openBrowserCredentialsDialog。
+   * 没有独立弹窗可开。
+   *
+   * setupMode 由设置弹窗的 payload 透传进来（和 tab 同一个来源）。首次配置门
+   * 现在也开这一个弹窗，只是带上 setupMode：表单据此换成「保存并启动」、收起
+   * AI Agent 卡片，保存时写 firstRunCompleted。此前它另有一个独立外壳，
+   * 同一件事两套壳，用户看到的是两个长得不一样的「接口设置」。
    */
-  function prepareCredentialsPanels() {
+  function prepareCredentialsPanels({ setupMode = false }: { setupMode?: boolean } = {}) {
     syncBrowserDialogFromCredentialState();
-    setCredentialDialogMode(false);
+    setCredentialDialogMode(setupMode);
     activateCredentialTab("api");
   }
 

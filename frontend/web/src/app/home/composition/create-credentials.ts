@@ -155,7 +155,13 @@ export function createCredentials({
     },
     runtimeEnvPort: createCredentialRuntimeEnvPort(legacyState),
     uploadStatePort,
-    viewPort: credentialsView.viewPort,
+    // 首配保存成功后 save-flow 会调 viewPort.closeDialog() 自动收起。宿主已经
+    // 换成设置弹窗，所以这里把关闭指过去——留着原来那个只会关一个没人渲染的
+    // store，表现为"存完了窗还开着"。
+    viewPort: {
+      ...credentialsView.viewPort,
+      closeDialog: () => settingsHubDialogStore.close(),
+    },
     dialogElementsPort: credentialsView.elementsPort,
     setupModePort: {
       currentSetupMode: () => credentialsView.store.getSnapshot().setupMode,
