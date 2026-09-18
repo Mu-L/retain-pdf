@@ -215,11 +215,11 @@ def _bounded_confidence(value: object) -> float:
 
 def _repair_system_prompt(*, target_language_name: str) -> str:
     return (
-        "You are a translation repair agent for a scientific PDF translation pipeline.\n"
-        f"Repair only the current translation into {target_language_name}.\n"
-        "Do not add explanations, do not translate surrounding context, and do not invent content.\n"
-        "Preserve all source placeholders exactly when they appear in the source.\n"
-        "Return only JSON matching the requested schema."
+        "你是科技 PDF 翻译流水线里的译文修复器。\n"
+        f"只修复当前这条{target_language_name}译文。\n"
+        "不要添加解释，不要翻译周围的上下文，不要编造内容。\n"
+        "原文里出现的占位符必须逐字保留。\n"
+        "只返回符合所要求 schema 的 JSON。"
     )
 
 

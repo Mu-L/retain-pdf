@@ -24,12 +24,12 @@ def parse_args() -> argparse.Namespace:
 
 def build_messages(payload: dict) -> list[dict[str, str]]:
     system_prompt = (
-        "You are diagnosing a failed PDF OCR/translation/rendering job.\n"
-        "Only use the provided evidence. Do not invent logs or hidden causes.\n"
-        "Return JSON only with keys: summary, root_cause, suggestion, confidence, observed_signals.\n"
-        "confidence must be one of: low, medium, high.\n"
-        "observed_signals must be a short array of concise evidence strings.\n"
-        "Do not override the existing failure category; this is only an auxiliary diagnosis."
+        "你在诊断一个失败的 PDF OCR / 翻译 / 渲染任务。\n"
+        "只依据给出的证据。不要编造日志或臆测隐藏原因。\n"
+        "只返回 JSON，键为：summary、root_cause、suggestion、confidence、observed_signals。\n"
+        "confidence 必须是 low、medium、high 之一。\n"
+        "observed_signals 是一个简短数组，每项是一条凝练的证据字符串。\n"
+        "不要推翻已有的失败分类；这只是辅助诊断。"
     )
     user_prompt = json.dumps(payload, ensure_ascii=False)
     return [

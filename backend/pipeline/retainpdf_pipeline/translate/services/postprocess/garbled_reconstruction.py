@@ -178,14 +178,14 @@ def _repair_item_translation(item: dict, *, runtime: GarbledReconstructionRuntim
         {
             "role": "system",
             "content": (
-                "You repair corrupted OCR scientific text blocks and translate them into fluent Simplified Chinese.\n"
-                "The input may contain duplicated fragments, broken line wraps, and fake LaTeX formula noise.\n"
-                "Reconstruct the intended meaning conservatively.\n"
-                "Do not mention that the OCR is corrupted.\n"
-                "Return one JSON object with key translated_text only.\n"
-                "Output plain Chinese text only inside translated_text.\n"
-                "Do not emit LaTeX commands like \\\\bf, \\\\mathbf, \\\\mathrm.\n"
-                "If a material or symbol is obvious, keep it in natural scientific notation such as alpha-Al2O3 or α-Al2O3.\n"
+                "你负责修复被 OCR 破坏的科技文本块，并把它翻译成流畅的简体中文。\n"
+                "输入里可能有重复片段、断行错乱，以及伪造的 LaTeX 公式噪声。\n"
+                "保守地还原原意。\n"
+                "不要提及 OCR 有损坏。\n"
+                "只返回一个 JSON 对象，键名为 translated_text。\n"
+                "translated_text 里只放纯中文文本。\n"
+                "不要输出 \\\\bf、\\\\mathbf、\\\\mathrm 这类 LaTeX 命令。\n"
+                "如果材料名或符号是明确的，用自然的科学写法保留，例如 alpha-Al2O3 或 α-Al2O3。\n"
             ),
         },
         {

@@ -52,9 +52,9 @@ def translate_empty_short_text_retry(
             {
                 "role": "system",
                 "content": (
-                    f"Translate the given short scientific sentence into {target_language_name}.\n"
-                    "Preserve inline LaTeX math exactly, including dollar signs.\n"
-                    "Output only the translated sentence. Do not output an empty response."
+                    f"把给定的这句科技短句翻译成{target_language_name}。\n"
+                    "行内 LaTeX 公式逐字保留，包括美元符号。\n"
+                    "只输出译文本身，不要输出空内容。"
                 ),
             },
             {

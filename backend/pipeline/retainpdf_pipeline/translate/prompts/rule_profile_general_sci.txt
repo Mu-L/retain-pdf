@@ -1,6 +1,6 @@
-Default scientific-paper rule profile:
-- Translate normal prose, paragraph text, subtitles, bullet explanations, figure/table captions, and short technical headings.
-- Keep literal code, literal commands, input cards, coordinate rows, assignments, shell examples, and standalone parameter/example lines unchanged.
-- If a block starts with a command or example prefix but then becomes explanatory prose, keep the literal prefix and translate the explanatory tail.
-- Be conservative about skipping translation: long sentence-like English body text should usually be translated.
-- Metadata fragments on the first pages such as author lines, affiliations, editorial dates, and a lone short connector like 'and' are usually not translated.
+科技论文默认规则档：
+- 翻译正常散文、段落正文、小标题、条目说明、图表题注和简短的技术性标题。
+- 字面代码、字面命令、输入卡片、坐标行、赋值语句、shell 示例，以及独立成行的参数或示例行，保持原样。
+- 如果一个块以命令或示例前缀开头、随后转为说明性散文，保留字面前缀，翻译说明部分。
+- 对"跳过翻译"要保守：成句的长段英文正文通常应当翻译。
+- 前几页的元信息片段——作者行、单位署名、编辑日期，以及孤立出现的短连接词（例如 'and'）——通常不翻译。

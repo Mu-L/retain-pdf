@@ -8,43 +8,43 @@ from retainpdf_pipeline.translate.llm.shared.orchestration.segment_plan import s
 
 def segment_translation_system_prompt(domain_guidance: str = "") -> str:
     prompt = (
-        "You are translating fixed text segments extracted from one scientific OCR item.\n"
-        "Each segment is a natural-language span that sits between protected formulas or literal tokens.\n"
-        "Those protected formulas/literals are omitted from the request and will be reinserted automatically by software after translation.\n"
-        "You are NOT translating the whole item as one sentence. You are translating each provided segment independently while respecting the original segment order.\n"
-        "Use concise publication-style Simplified Chinese suitable for scientific writing.\n"
-        "Keep abbreviations, symbols, and standard model names in their normal technical form.\n"
-        "If a segment is only a connector or incomplete phrase, keep it equally short and incomplete in Chinese.\n"
-        "Do not repair truncated grammar by pulling content from neighboring segments.\n"
-        "Do not output any formula placeholders, formula markers, reconstructed full-item text, commentary, markdown, or code fences.\n"
-        'Return only JSON matching {"segments":[{"segment_id":"1","translated_text":"..."}]}.\n'
-        "Hard rules:\n"
-        "- Every requested segment_id must appear exactly once.\n"
-        "- Do not merge, split, omit, renumber, reorder, or invent segments.\n"
-        "- Do not copy hidden formulas back into the output in any form.\n"
-        "- Short connectors such as 'and', 'for', 'with', or 'by considering the possible' must stay terse rather than expanded into full sentences."
+        "你在翻译从同一个科技 OCR 条目里切出来的固定文本段。\n"
+        "每一段都是夹在受保护公式或字面记号之间的自然语言跨度。\n"
+        "那些受保护的公式和字面量没有出现在请求里，翻译完成后由程序自动插回。\n"
+        "你不是把整个条目当成一句话翻译。你要逐段独立翻译，并保持原有的段序。\n"
+        "使用适合科技写作的、凝练的出版体简体中文。\n"
+        "缩写、符号和标准模型名保持其通行的技术写法。\n"
+        "如果某一段只是连接词或不完整的短语，中文也要同样简短、同样不完整。\n"
+        "不要从相邻段落借内容来补全被截断的语法。\n"
+        "不要输出任何公式占位符、公式标记、拼回的整条文本、评论、markdown 或代码块围栏。\n"
+        '只返回符合 {"segments":[{"segment_id":"1","translated_text":"..."}]} 的 JSON。\n'
+        "硬性规则：\n"
+        "- 每个请求中的 segment_id 必须且只能出现一次。\n"
+        "- 不要合并、拆分、遗漏、重新编号、调序或凭空新增段。\n"
+        "- 不要以任何形式把隐藏的公式抄回输出。\n"
+        "- 'and'、'for'、'with'、'by considering the possible' 这类短连接词必须保持简短，不要扩写成完整句子。"
     )
     if domain_guidance.strip():
-        prompt = f"{prompt}\nDocument-specific translation guidance:\n{domain_guidance.strip()}"
+        prompt = f"{prompt}\n本文档专属的翻译指引：\n{domain_guidance.strip()}"
     return prompt
 
 
 def segment_translation_tagged_prompt(domain_guidance: str = "") -> str:
     prompt = (
-        "You are translating fixed text segments extracted from one scientific OCR item.\n"
-        "Each segment is an independent natural-language span between protected formulas or literals.\n"
-        "Protected formulas are omitted and will be reinserted by software after translation.\n"
-        "Translate each segment independently into concise publication-style Simplified Chinese.\n"
-        "Do not merge, split, omit, reorder, or renumber segments.\n"
-        "Do not output formulas, markdown, commentary, code fences, or reconstructed full-item text.\n"
-        "Return one tagged block per segment using this exact format:\n"
+        "你在翻译从同一个科技 OCR 条目里切出来的固定文本段。\n"
+        "每一段都是夹在受保护公式或字面量之间、彼此独立的自然语言跨度。\n"
+        "受保护的公式没有出现在请求里，翻译完成后由程序插回。\n"
+        "逐段独立翻译成凝练的出版体简体中文。\n"
+        "不要合并、拆分、遗漏、调序或重新编号。\n"
+        "不要输出公式、markdown、评论、代码块围栏，或拼回的整条文本。\n"
+        "每一段返回一个标记块，格式严格如下：\n"
         "<<<SEG id=1>>>\n"
         "translated text\n"
         "<<<END>>>\n"
-        "Output one block for every requested segment_id exactly once."
+        "请求中的每个 segment_id 都要输出一个块，且只输出一次。"
     )
     if domain_guidance.strip():
-        prompt = f"{prompt}\nDocument-specific translation guidance:\n{domain_guidance.strip()}"
+        prompt = f"{prompt}\n本文档专属的翻译指引：\n{domain_guidance.strip()}"
     return prompt
 
 

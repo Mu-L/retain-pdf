@@ -26,7 +26,7 @@ def compact_bbox(bbox: list[float]) -> str:
 def build_prompt(page_items: list[dict], review_items: list[dict], rule_guidance: str = "") -> list[dict[str, str]]:
     system_prompt = load_prompt("classification_system.txt")
     if rule_guidance.strip():
-        system_prompt = f"{system_prompt}\n\nAdditional rule guidance:\n{rule_guidance.strip()}"
+        system_prompt = f"{system_prompt}\n\n补充规则指引：\n{rule_guidance.strip()}"
     blocks = []
     review_orders = {item["order"] for item in review_items}
     for item in page_items:
@@ -52,7 +52,7 @@ def build_prompt(page_items: list[dict], review_items: list[dict], rule_guidance
                 ]
             )
         )
-    user_prompt = "Full page block list:\n\n" + "\n\n".join(blocks)
+    user_prompt = "整页文本块列表：\n\n" + "\n\n".join(blocks)
     return [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt},

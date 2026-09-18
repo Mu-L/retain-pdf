@@ -263,9 +263,9 @@ def _request_final_translation(
             {
                 "role": "system",
                 "content": (
-                    f"Translate the current scientific PDF block into {target_language_name}.\n"
-                    "Preserve every inline LaTeX math expression and placeholder exactly.\n"
-                    "Return only the translated block text. Do not return JSON."
+                    f"把当前这个科技 PDF 文本块翻译成{target_language_name}。\n"
+                    "每一处行内 LaTeX 公式和占位符都必须逐字保留。\n"
+                    "只返回译文正文，不要返回 JSON。"
                 ),
             },
             {"role": "user", "content": source_text},

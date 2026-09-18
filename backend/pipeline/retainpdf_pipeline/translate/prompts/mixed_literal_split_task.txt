@@ -1,9 +1,9 @@
-Decide how to handle this OCR block.
+判断这个 OCR 文本块该怎么处理。
 
-Choose:
-- keep_all: preserve the whole block as-is
-- translate_all: translate the whole block
-- translate_tail: keep a literal prefix and translate only the remaining tail
+从以下三者中选择：
+- keep_all：整块原样保留
+- translate_all：整块翻译
+- translate_tail：保留字面前缀，只翻译剩余部分
 
-The block may contain commands, flags, assignments, file names, or short parameter names followed by explanation text.
-If soft_hints suggest a command prefix plus prose tail, keep the literal prefix and translate the explanatory tail.
+该块可能包含命令、参数标志、赋值语句、文件名，或者一个简短的参数名后面跟着说明文字。
+如果 soft_hints 提示这是"命令前缀 + 散文尾巴"的结构，就保留字面前缀，翻译说明部分。
