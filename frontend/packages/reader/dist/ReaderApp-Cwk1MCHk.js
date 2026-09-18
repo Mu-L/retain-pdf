@@ -16,7 +16,7 @@ import { sortByPageAndCreatedAt as xo, buildAnnotationsMarkdown as Co, groupByPa
 import { toast as Jt, Toaster as zo } from "sonner";
 import { X as Xe, Radio as Do, FileText as Rr, Columns2 as Tr, Languages as Er, FileCode2 as Mr, Sparkles as un, GripHorizontal as _o, StickyNote as xt, Sigma as Fo, Table2 as Oo, Type as $o, Image as jo, Check as Uo, Copy as Bo, Keyboard as Ho, Download as Wo, Bookmark as Jo } from "lucide-react";
 import { pdfjs as qo, Page as Vo, Document as Ko } from "react-pdf";
-import { e as Go, m as Yo, a as Zo } from "./markdown-math-CZeKND-M.js";
+import { e as Go, m as Yo, a as Zo } from "./markdown-math-DUStTa8Y.js";
 const Xo = (...e) => {
   var t, n;
   return ((n = (t = le()) == null ? void 0 : t.isMockMode) == null ? void 0 : n.call(t, ...e)) ?? !1;
@@ -6648,7 +6648,7 @@ function il() {
     /* @__PURE__ */ p("download-toast", { style: { display: "none" }, "aria-hidden": "true", ref: e })
   ] });
 }
-const cl = dn(() => import("./ReaderFavoritesPanel-Dsqq3Oq4.js").then((e) => ({ default: e.ReaderFavoritesPanel }))), ll = dn(() => import("./ReaderMarkdownPanel-BUEI_fwm.js").then((e) => ({ default: e.ReaderMarkdownPanel }))), dl = dn(() => import("./ReaderAiPanel-Dz93T0ER.js").then((e) => ({ default: e.ReaderAiPanel })));
+const cl = dn(() => import("./ReaderFavoritesPanel-C-wBfVa9.js").then((e) => ({ default: e.ReaderFavoritesPanel }))), ll = dn(() => import("./ReaderMarkdownPanel-Bt0zQg7s.js").then((e) => ({ default: e.ReaderMarkdownPanel }))), dl = dn(() => import("./ReaderAiPanel-CmZcjscC.js").then((e) => ({ default: e.ReaderAiPanel })));
 function Wt(e) {
   const t = x(!1);
   return e && (t.current = !0), t.current;
@@ -6889,4 +6889,4 @@ export {
   _l as j,
   Dl as r
 };
-//# sourceMappingURL=ReaderApp-D-24LVAS.js.map
+//# sourceMappingURL=ReaderApp-Cwk1MCHk.js.map

@@ -1,22 +1,22 @@
-const M = "RP_MATH_";
-let g = null, h = null;
-function U(t) {
-  h = t, g = null;
+const x = "RP_MATH_";
+let d = null, h = null;
+function Z(t) {
+  h = t, d = null;
 }
-function Z() {
-  h = null, g = null;
+function B() {
+  h = null, d = null;
 }
 function S(t) {
   return `${t}`.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
 function b(t) {
-  return `${M}${t}`;
+  return `${x}${t}`;
 }
-const y = /[0-9A-Za-z\\{}_^()\[\]|+\-=,.:;'~*/<>!\u00b0\u00b1\u00d7\u00f7\u2212\u2202\u03b1-\u03c9\u0391-\u03a9]+/g, H = /\\[A-Za-z]+|[_^]\{/;
-function F(t, n) {
-  const a = new RegExp(`${M}\\d+`, "g"), e = (i) => i.replace(
+const y = /[0-9A-Za-z\\{}_^()\[\]|+\-=,.:;'~*/<>!\u00b0\u00b1\u00d7\u00f7\u2212\u2202\u03b1-\u03c9\u0391-\u03a9]+/g, F = /\\[A-Za-z]+|[_^]\{/;
+function H(t, n) {
+  const a = new RegExp(`${x}\\d+`, "g"), e = (i) => i.replace(
     y,
-    (s) => H.test(s) ? n(s, !1) : s
+    (s) => F.test(s) ? n(s, !1) : s
   );
   let l = "", r = 0, o;
   for (; (o = a.exec(t)) !== null; )
@@ -33,9 +33,10 @@ function N(t, n = {}) {
     const s = b(a.length);
     return a.push({ token: s, tex: i, display: o }), s;
   };
-  return e = e.replace(/\$\$([\s\S]+?)\$\$/g, (r, o) => l(o, !0)), e = e.replace(/\\\[([\s\S]+?)\\\]/g, (r, o) => l(o, !0)), e = e.replace(/\\\(([\s\S]+?)\\\)/g, (r, o) => l(o, !1)), e = e.replace(new RegExp("(?<![\\\\$])\\$(?!\\$)((?:\\\\.|[^$\\n])+?)\\$(?!\\$)", "g"), (r, o) => `${o}`.trim() ? l(o, !1) : r), n.bareLatex && (e = F(e, l)), { text: e, slots: a };
+  return e = e.replace(/\$\$([\s\S]+?)\$\$/g, (r, o) => l(o, !0)), e = e.replace(/\\\[([\s\S]+?)\\\]/g, (r, o) => l(o, !0)), e = e.replace(/\\\(([\s\S]+?)\\\)/g, (r, o) => l(o, !1)), e = e.replace(new RegExp("(?<![\\\\$])\\$(?!\\$)((?:\\\\.|[^$\\n])+?)\\$(?!\\$)", "g"), (r, o) => `${o}`.trim() ? l(o, !1) : r), n.bareLatex && (e = H(e, l)), { text: e, slots: a };
 }
-function c(t, n) {
+const L = 20, j = /data-mml-node="mtext"[^>]*fill="red"/;
+function g(t, n) {
   var r;
   const a = t, e = a == null ? void 0 : a[n];
   if (e !== void 0)
@@ -45,7 +46,7 @@ function c(t, n) {
     return l;
   throw new Error(`mathjax-full 未导出 ${n}（CJS/ESM 互操作问题）`);
 }
-async function j() {
+async function P() {
   const [t, n, a, e, l, r] = await Promise.all([
     import("mathjax-full/js/mathjax.js"),
     import("mathjax-full/js/input/tex.js"),
@@ -53,54 +54,62 @@ async function j() {
     import("mathjax-full/js/adaptors/liteAdaptor.js"),
     import("mathjax-full/js/handlers/html.js"),
     import("mathjax-full/js/input/tex/AllPackages.js")
-  ]), o = c(t, "mathjax"), i = c(n, "TeX"), s = c(a, "SVG"), d = c(e, "liteAdaptor"), A = c(l, "RegisterHTMLHandler"), _ = c(r, "AllPackages"), f = d();
-  A(f);
+  ]), o = g(t, "mathjax"), i = g(n, "TeX"), s = g(a, "SVG"), m = g(e, "liteAdaptor"), k = g(l, "RegisterHTMLHandler"), A = g(r, "AllPackages"), f = m();
+  k(f);
   const E = o.document("", {
     InputJax: new i({
       // 方案 C：宽容渲染。`unicode` 包让 Unicode 数学符号（⟨⟩、希腊字母、
       // 运算符等）尽量直接渲染，减少严格 TeX 的报错面。
-      packages: Array.from(/* @__PURE__ */ new Set([..._, "unicode"]))
+      packages: Array.from(/* @__PURE__ */ new Set([...A, "unicode"]))
     }),
     OutputJax: new s({ fontCache: "none" })
   });
   return {
-    convert(v, R) {
-      const T = E.convert(v, { display: R }), m = f.outerHTML(T);
-      if (!/<svg[\s>]/i.test(m))
+    convert(T, v) {
+      const R = E.convert(T, { display: v }), p = f.outerHTML(R);
+      if (!/<svg[\s>]/i.test(p))
         throw new Error("mathjax produced no svg");
-      if (/data-mjx-error|merror/i.test(m))
+      if (/data-mjx-error|merror/i.test(p))
         throw new Error("mathjax error node");
-      return m;
+      if (j.test(p))
+        throw new Error("mathjax undefined command");
+      return p;
     }
   };
 }
-const p = {
+const c = {
   engineLoad: 0,
   convert: 0,
-  lastReason: ""
+  lastReason: "",
+  /** 最近若干条失败的公式原文，用来判断是哪一类写法出了问题。 */
+  samples: []
 };
+try {
+  globalThis.__retainMathFailures = c;
+} catch {
+}
 function $(t, n, a = "") {
   const e = `${(n == null ? void 0 : n.message) || n}`;
-  if (p.lastReason = e, t === "engine-load") {
-    p.engineLoad += 1, console.warn("[markdown-math] MathJax 引擎加载失败，公式将退回纯文本：", e);
+  if (c.lastReason = e, t === "engine-load") {
+    c.engineLoad += 1, console.warn("[markdown-math] MathJax 引擎加载失败，公式将退回纯文本：", e);
     return;
   }
-  p.convert += 1, p.convert <= 5 && console.warn(`[markdown-math] 公式渲染失败（第 ${p.convert} 条）：`, a, e);
+  c.convert += 1, c.samples.length < L && c.samples.push(a), c.convert <= 5 && console.warn(`[markdown-math] 公式渲染失败（第 ${c.convert} 条）：`, a, e);
 }
-function P() {
-  return g || (g = (h ?? j)().catch((n) => {
-    throw g = null, n;
-  })), g;
+function I() {
+  return d || (d = (h ?? P)().catch((n) => {
+    throw d = null, n;
+  })), d;
 }
 function u(t, n) {
   const a = `<code class="reader-md-math-error" title="公式渲染失败">${S(t)}</code>`;
   return n ? `<div class="reader-md-math reader-md-math-display reader-md-math-failed">${a}</div>` : `<span class="reader-md-math reader-md-math-inline reader-md-math-failed">${a}</span>`;
 }
-function L(t, n) {
+function z(t, n) {
   const a = n ? "reader-md-math reader-md-math-display" : "reader-md-math reader-md-math-inline", e = n ? "div" : "span";
   return `<${e} class="${a}">${t}</${e}>`;
 }
-const z = [
+const O = [
   [/[⟨〈]/g, "\\langle "],
   [/[⟩〉]/g, "\\rangle "],
   [/∣/g, "\\mid "],
@@ -152,13 +161,13 @@ const z = [
   [/γ/g, "\\gamma "],
   [/ω/g, "\\omega "]
 ];
-function I(t) {
+function U(t) {
   let n = `${t ?? ""}`;
-  for (const [a, e] of z)
+  for (const [a, e] of O)
     n = n.replace(a, e);
-  return O(n) ? J(n) : n;
+  return D(n) ? J(n) : n;
 }
-function O(t) {
+function D(t) {
   const n = "(?:\\{[^{}]*\\}|\\\\[A-Za-z]+|[A-Za-z0-9*])", a = new RegExp(`[_^]${n}\\s*(?=[_^])`), e = new RegExp(`[_^]${n}\\s*'`);
   return a.test(t) || e.test(t) || /\^\s*\^/.test(t) || /__/.test(t);
 }
@@ -172,7 +181,7 @@ function w(t, n) {
     }
   return { arg: t.slice(n, e), next: e };
 }
-function x(t, n) {
+function M(t, n) {
   let a = n;
   for (; a < t.length && t[a] === " "; ) a += 1;
   if (t[a] === "{") return w(t, a);
@@ -199,14 +208,14 @@ function J(t) {
       a += l, e += 1;
       continue;
     }
-    const r = x(n, e + 1);
+    const r = M(n, e + 1);
     let o = r.arg, i = r.next;
     for (; i < n.length; ) {
       let s = i;
       for (; s < n.length && n[s] === " "; ) s += 1;
       if (n[s] !== l) break;
-      const d = x(n, s + 1);
-      o = `${o}${n.slice(i, s)}${l}${d.arg}`, i = d.next;
+      const m = M(n, s + 1);
+      o = `${o}${n.slice(i, s)}${l}${m.arg}`, i = m.next;
     }
     a += `${l}{${o}}`, e = i;
   }
@@ -217,7 +226,7 @@ async function X(t, n) {
     return t;
   let a = null;
   try {
-    a = await P();
+    a = await I();
   } catch (r) {
     a = null, $("engine-load", r);
   }
@@ -227,7 +236,7 @@ async function X(t, n) {
     let o;
     if (a)
       try {
-        o = L(a.convert(I(r.tex), r.display), r.display);
+        o = z(a.convert(U(r.tex), r.display), r.display);
       } catch (i) {
         o = u(r.tex, r.display), $("convert", i, r.tex);
       }
@@ -235,9 +244,9 @@ async function X(t, n) {
       o = u(r.tex, r.display);
     e.set(r.token, o), l += 1, l % 24 === 0 && await new Promise((i) => setTimeout(i, 0));
   }
-  return k(`${t ?? ""}`, n, e);
+  return _(`${t ?? ""}`, n, e);
 }
-function k(t, n, a) {
+function _(t, n, a) {
   if (!n.length) return t;
   const e = new RegExp(
     n.map((l) => l.token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"),
@@ -245,11 +254,11 @@ function k(t, n, a) {
   );
   return t.replace(e, (l) => a.get(l) || l);
 }
-function B(t, n) {
+function C(t, n) {
   const a = new Map(
     n.map((e) => [e.token, u(e.tex, e.display)])
   );
-  return k(`${t ?? ""}`, n, a);
+  return _(`${t ?? ""}`, n, a);
 }
 async function G(t, n) {
   const { text: a, slots: e } = N(t), l = n(a);
@@ -257,14 +266,14 @@ async function G(t, n) {
 }
 export {
   X as a,
-  p as b,
-  Z as c,
+  c as b,
+  B as c,
   N as e,
-  B as m,
-  I as n,
+  C as m,
+  U as n,
   G as p,
   u as r,
-  U as s,
-  L as w
+  Z as s,
+  z as w
 };
-//# sourceMappingURL=markdown-math-CZeKND-M.js.map
+//# sourceMappingURL=markdown-math-DUStTa8Y.js.map

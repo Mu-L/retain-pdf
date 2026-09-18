@@ -36,6 +36,8 @@ export declare const mathFailureStats: {
     engineLoad: number;
     convert: number;
     lastReason: string;
+    /** 最近若干条失败的公式原文，用来判断是哪一类写法出了问题。 */
+    samples: string[];
 };
 export declare function renderMathFallbackHtml(tex: string, display: boolean): string;
 export declare function wrapMathSvgHtml(svgHtml: string, display: boolean): string;
