@@ -108,6 +108,8 @@ export class RetainPdfChatTransport implements ChatTransport<ReaderChatMessage> 
     // 被调用并抛 ERR_INVALID_STATE——它把真正的原因覆盖掉，整个 IIFE 变成未捕获的
     // rejection，和「三层 catch 吞掉一切」是同一族。
     let closed = false;
+    // 每条流一份:同一个操作在下一个 turn 里再次请求确认时要重新上报。
+    const seenConfirmations = new Set<string>();
     return new ReadableStream<UIMessageChunk>({
       cancel: () => {
         closed = true;
@@ -170,8 +172,21 @@ export class RetainPdfChatTransport implements ChatTransport<ReaderChatMessage> 
                   });
                 },
                 onAgentConfirmationRequiredEvent: (event: unknown) => {
+                  // 同一个确认请求会到两次:turn 进行中的 SSE 事件，以及 done 里的
+                  // confirmation_requests 清单。两条路都要留——非流式调用拿不到中途的
+                  // 事件，监听器挂载晚了也会漏——所以 readAiAskStream 有意都发，
+                  // 由这一层按 operation/action/attempt 去重（那边的测试写着这条分工）。
+                  //
+                  // 去重前每个操作触发两次，每次带新 nonce，于是重复轮询一轮。幂等键
+                  // 挡住了重复执行，所以只是白跑，不是数据损坏。
                   const operationId = `${(event as any)?.operation_id || ""}`.trim();
-                  if (operationId) this.options.onAgentOperationSignal?.({ operationId });
+                  if (!operationId) return;
+                  const action = `${(event as any)?.action || ""}`;
+                  const attempt = `${(event as any)?.current_attempt ?? ""}`;
+                  const key = `${operationId}:${attempt}:${action}`;
+                  if (seenConfirmations.has(key)) return;
+                  seenConfirmations.add(key);
+                  this.options.onAgentOperationSignal?.({ operationId });
                 },
                 onToolEvent: (event: unknown) => {
                   if (streamedAnswer || abortSignal?.aborted) return;
