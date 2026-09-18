@@ -129,12 +129,42 @@ def _structured_chunks_reconstruct_group(chunks: list[str], protected_group_text
     return bool(compact_group) and compact_chunks == compact_group
 
 
-def apply_group_translated_entry(items: list[dict], raw_result) -> None:
+def _group_source_text(items: list[dict]) -> str:
+    first = items[0]
+    return str(
+        first.get("translation_unit_protected_source_text")
+        or first.get("group_protected_source_text")
+        or first.get("protected_source_text")
+        or first.get("source_text")
+        or ""
+    )
+
+
+def apply_group_translated_entry(
+    items: list[dict],
+    raw_result,
+    *,
+    next_item: dict | None = None,
+) -> None:
     if not items:
         return
     metadata = extract_result_metadata(raw_result)
     decision, protected_translated_text = normalize_result_entry(raw_result)
     protected_translated_text, metadata = with_sanitized_translation(protected_translated_text, metadata)
+    # 邻段泄漏裁剪此前只接在 apply_single_translated_entry 上,群组这条路从来没调过。
+    # 而 quality.py 正是以「apply 层会确定性修剪」为由,把续接条目的 context_bleed
+    # 从 error 降成 warning——`__cg__:` 群组两头落空:既不重试,也不裁剪,泄漏进来的
+    # 后文公式直接落盘。
+    #
+    # 用合并后的组源文,不是成员自己的。quality.py 的 context_bleed 判的就是组源文,
+    # 两边前提条件（_source_looks_incomplete）必须落在同一段文本上,否则一边报、
+    # 另一边不修。
+    protected_translated_text, metadata = _sanitize_neighbor_continuation_leak(
+        protected_translated_text,
+        metadata,
+        {"protected_source_text": _group_source_text(items)},
+        next_item if next_item not in items else None,
+    )
     if str(metadata.get("final_status", "") or "").strip() == "failed":
         for item in items:
             mark_translation_failed(item, metadata)
@@ -280,7 +310,14 @@ def apply_translated_text_map(payload: list[dict], translated: dict) -> None:
     for item_id, raw_result in translated.items():
         if not is_group_unit_id(item_id):
             continue
-        apply_group_translated_entry(group_items.get(item_id, []), raw_result)
+        members = group_items.get(item_id, [])
+        # 组的后邻是**最后一个成员**之后那一条,不是第一个成员之后。
+        last_member_id = str(members[-1].get("item_id", "") or "") if members else ""
+        apply_group_translated_entry(
+            members,
+            raw_result,
+            next_item=next_item_by_id.get(last_member_id),
+        )
 
     for item in payload:
         item_id = item.get("item_id")
