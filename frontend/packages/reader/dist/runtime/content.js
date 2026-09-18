@@ -1,53 +1,53 @@
-import { e as x, m as A, a as k, n as I, p as w, r as $, b as T, s as b, w as y } from "../markdown-math-DjYQuQQe.js";
-import { n as B } from "../block-key-BTxcG28S.js";
-const f = Object.freeze({
+import { e as x, m as A, a as k, b as I, n as w, p as $, r as T, c as b, s as y, w as z } from "../markdown-math-CZeKND-M.js";
+import { n as N } from "../block-key-BTxcG28S.js";
+const h = Object.freeze({
   sentence: { label: "句子" },
   data: { label: "数据" },
   figure: { label: "图表" }
 });
-function c(e, u) {
-  return Array.isArray(e) ? [...e].sort((t, o) => {
-    const s = u(t) - u(o);
+function n(e, o) {
+  return Array.isArray(e) ? [...e].sort((t, a) => {
+    const s = o(t) - o(a);
     if (s !== 0)
       return s;
-    const a = `${(t == null ? void 0 : t.createdAt) || ""}`, r = `${(o == null ? void 0 : o.createdAt) || ""}`;
-    return a < r ? -1 : a > r ? 1 : 0;
+    const u = `${(t == null ? void 0 : t.createdAt) || ""}`, r = `${(a == null ? void 0 : a.createdAt) || ""}`;
+    return u < r ? -1 : u > r ? 1 : 0;
   }) : [];
 }
-function d(e, u) {
+function d(e, o) {
   const t = [];
-  for (const o of c(e, u)) {
-    const s = u(o), a = t[t.length - 1];
-    a && a.pageIdx === s ? a.items.push(o) : t.push({ pageIdx: s, items: [o] });
+  for (const a of n(e, o)) {
+    const s = o(a), u = t[t.length - 1];
+    u && u.pageIdx === s ? u.items.push(a) : t.push({ pageIdx: s, items: [a] });
   }
   return t;
 }
 const l = (e) => Number((e == null ? void 0 : e.pageIdx) ?? 0);
-function g(e) {
-  return c(e, l);
+function f(e) {
+  return n(e, l);
 }
 function p(e) {
   return d(e, l);
 }
-function n(e) {
+function c(e) {
   return `${e || ""}`.split(`
-`).map((u) => `> ${u}`);
+`).map((o) => `> ${o}`);
 }
-function h({
+function g({
   title: e = "",
-  annotations: u = []
+  annotations: o = []
 } = {}) {
-  const t = e ? `# ${e} 批注` : "# 批注", o = p(u);
-  if (o.length === 0)
+  const t = e ? `# ${e} 批注` : "# 批注", a = p(o);
+  if (a.length === 0)
     return `${t}
 
 (暂无批注)
 `;
   const s = [t, ""];
-  for (const a of o) {
-    s.push(`## 第 ${a.pageIdx + 1} 页`, "");
-    for (const r of a.items)
-      s.push(...n(r == null ? void 0 : r.quoteText)), r != null && r.translatedQuoteText && s.push(...n(`—— ${r.translatedQuoteText}`)), r != null && r.note && s.push("", `笔记:${r.note}`), s.push("");
+  for (const u of a) {
+    s.push(`## 第 ${u.pageIdx + 1} 页`, "");
+    for (const r of u.items)
+      s.push(...c(r == null ? void 0 : r.quoteText)), r != null && r.translatedQuoteText && s.push(...c(`—— ${r.translatedQuoteText}`)), r != null && r.note && s.push("", `笔记:${r.note}`), s.push("");
   }
   return s.join(`
 `);
@@ -59,22 +59,23 @@ function i(e) {
   };
 }
 export {
-  f as ANNOTATION_KIND_META,
+  h as ANNOTATION_KIND_META,
   i as annotationAnchor,
-  h as buildAnnotationsMarkdown,
+  g as buildAnnotationsMarkdown,
   x as extractMarkdownMath,
   p as groupAnnotationsByPage,
   d as groupByPageAndCreatedAt,
   A as materializeMarkdownMathFallbackHtml,
   k as materializeMarkdownMathHtml,
-  B as normalizeBlockKey,
-  I as normalizeMathTex,
-  w as parseMarkdownWithMath,
-  $ as renderMathFallbackHtml,
-  T as resetMarkdownMathEngineLoader,
-  b as setMarkdownMathEngineLoader,
-  g as sortAnnotations,
-  c as sortByPageAndCreatedAt,
-  y as wrapMathSvgHtml
+  I as mathFailureStats,
+  N as normalizeBlockKey,
+  w as normalizeMathTex,
+  $ as parseMarkdownWithMath,
+  T as renderMathFallbackHtml,
+  b as resetMarkdownMathEngineLoader,
+  y as setMarkdownMathEngineLoader,
+  f as sortAnnotations,
+  n as sortByPageAndCreatedAt,
+  z as wrapMathSvgHtml
 };
 //# sourceMappingURL=content.js.map

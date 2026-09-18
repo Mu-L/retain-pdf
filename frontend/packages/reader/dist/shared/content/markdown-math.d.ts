@@ -31,6 +31,12 @@ export declare function resetMarkdownMathEngineLoader(): void;
  * 顺序：块级 $$ / \[ \] → 行内 \( \) / $...$ →（可选）未包裹的裸 LaTeX。
  */
 export declare function extractMarkdownMath(source: string, options?: ExtractMarkdownMathOptions): ExtractMarkdownMathResult;
+/** 公式渲染失败的计数与最近一次原因，供控制台排查。 */
+export declare const mathFailureStats: {
+    engineLoad: number;
+    convert: number;
+    lastReason: string;
+};
 export declare function renderMathFallbackHtml(tex: string, display: boolean): string;
 export declare function wrapMathSvgHtml(svgHtml: string, display: boolean): string;
 export declare function normalizeMathTex(tex: string): string;
