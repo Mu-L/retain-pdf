@@ -144,3 +144,9 @@ def test_equivalent_rewrites_are_not_counted_as_dropped_commands() -> None:
     assert dropped_latex_commands(r"$\bar { x }$", "$x$") == {"bar": 1}
     # 整个字体命令消失仍要报——折叠的是拼法,不是存在与否
     assert dropped_latex_commands(r"$\bf R$", "$R$") == {"mathbf": 1}
+
+    # 只折叠老拼法。粗体三兄弟不等价:`\mathbf` 正体粗、`\boldsymbol` 斜体粗
+    # （希腊字母和矢量靠它区分）、`\pmb` 叠印粗,而 translation_typst_repair.txt
+    # 明令禁止模型做这种替换。折叠它们等于对提示词认定的损坏视而不见。
+    assert dropped_latex_commands(r"$\pmb { H }$", r"$\mathbf{H}$") == {"pmb": 1}
+    assert dropped_latex_commands(r"$\boldsymbol { \xi }$", r"$\mathbf{\xi}$") == {"boldsymbol": 1}

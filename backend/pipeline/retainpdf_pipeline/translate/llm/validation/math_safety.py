@@ -3,39 +3,19 @@ from __future__ import annotations
 import collections
 import re
 
+from retainpdf_pipeline.foundation.shared.latex_commands import command_aliases
+from retainpdf_pipeline.foundation.shared.latex_commands import expected_to_drift
+
 
 UNESCAPED_INLINE_DOLLAR_RE = re.compile(r"(?<!\\)\$")
 LATEX_COMMAND_RE = re.compile(r"\\([A-Za-z]+)")
 
-# 这些命令本来就会在翻译中正常消失或出现，计入丢失只会淹没真正的信号：
-# - \text / \mathrm 等包裹中文时，模型改用别的包裹是等价的
-# - \cite / \ref 一类引用命令按产品规则会被改写成上标
-# - \begin / \end 成对出现，单看数量容易误判
-# - \prime 有等价的 ASCII 写法：`A ^ { \prime }` 和 `A'` 是同一个东西，而 `'`
-#   不是命令、数不进来，于是每一次正常的规范化都被记成丢失
-# - 字号与间距命令只影响排版，不影响「和原文是不是一回事」，而 OCR 产物里
-#   \scriptstyle、\quad 这类多半本身就是切分噪声
-EXPECTED_TO_DRIFT = frozenset({
-    "text", "textrm", "textit", "textbf",
-    "cite", "citep", "citet", "ref", "label",
-    "begin", "end",
-    "prime",
-    "scriptstyle", "scriptscriptstyle", "displaystyle", "textstyle",
-    "quad", "qquad", "big", "Big", "bigg", "Bigg",
-})
-
-# 同一件事的两种拼法：TeX 老式字体切换 vs 现代数学字体命令。模型统一成后者不是
-# 丢失。折叠成同一个名字再计数，而不是把两边都放过——`\bf` 整个消失仍要报。
-COMMAND_ALIASES = {
-    "bf": "mathbf",
-    "rm": "mathrm",
-    "it": "mathit",
-    "sf": "mathsf",
-    "tt": "mathtt",
-    "cal": "mathcal",
-    "boldsymbol": "mathbf",
-    "pmb": "mathbf",
-}
+# 什么算丢失、哪些拼法等价——规则在 foundation/shared/latex_commands.json，这里只消费。
+# 第一版把这两张表手写在本文件里，于是和提示词的「不许替换」清单对不上：`\pmb` 在
+# 这里被当成 `\mathbf` 的等价拼法折叠掉，而提示词明令禁止那个替换。登记表的一致性
+# 闸门现在盯着这类矛盾。
+EXPECTED_TO_DRIFT = expected_to_drift()
+COMMAND_ALIASES = command_aliases()
 
 
 def _semantic_commands(text: str) -> collections.Counter:

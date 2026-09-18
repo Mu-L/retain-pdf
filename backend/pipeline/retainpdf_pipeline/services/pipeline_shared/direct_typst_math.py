@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import re
 
+from retainpdf_pipeline.foundation.shared.latex_commands import mitex_rewrite_database
+
 MAX_INLINE_MATH_CHARS = 1200
 
 _LEFT_NO_SPACE = set("([{\"'“‘（【「『")
@@ -178,20 +180,11 @@ def normalize_direct_typst_translation(text: str) -> str:
     return _MULTI_SPACE_RE.sub(" ", "".join(chunks))
 
 
-# mitex 渲染不了的写法。翻译前扫描源文本,命中哪条就把哪条提示给模型,由模型在
-# 语义层完成替换——复杂公式里正则改写必然出错,但"检测某命令出现过"是可靠的。
-#
-# 这张表曾经有八条,另外六条(\hbar \partial \otimes \mathscr \varPhi
-# \langle/\rangle)是 mitex 0.2.6 吐旧版 Typst 符号名时加的,不是 mitex 不认识
-# 它们。0.2.7 起全部原生可渲染,继续提示模型替换就是在源头上主动降级:把命令换成
-# Unicode 字符会脱离数学字体处理,\mathscr → \mathcal 更是直接换了字体。
-#
-# 往这张表里加东西之前,先用 tests/rendering/test_mitex_latex_coverage.py 的方式
-# 真编译一次确认——渲染失败更可能是版本脱节,而不是覆盖度不足。
-MITEX_REWRITE_DATABASE: tuple[tuple[str, str], ...] = (
-    (r"\circled", "圈内的字符本身"),
-    (r"\textcircled", "圈内的字符本身"),
-)
+# 渲染不了的写法 → 提示给模型替换。规则在 foundation/shared/latex_commands.json，
+# 每一条的 pipeline 状态都由真编译闸门验证过；往里加东西之前先让闸门实测一次——
+# 渲染失败更可能是版本脱节，而不是覆盖度不足（0.2.6 吐旧版 Typst 符号名，曾被误读成
+# 「mitex 不支持」，长出一整批降级规则）。
+MITEX_REWRITE_DATABASE: tuple[tuple[str, str], ...] = mitex_rewrite_database()
 
 
 def find_mitex_rewrites(text: str) -> list[tuple[str, str]]:
