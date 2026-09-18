@@ -4,7 +4,10 @@ from retainpdf_pipeline.render.layout.inline_content.core.markdown import build_
 from retainpdf_pipeline.render.layout.inline_content.fallback.placeholder_markdown import build_markdown_from_parts
 
 
-DEFAULT_RENDER_MATH_MODE = "placeholder"
+# 渲染侧同理:条目上没写 math_mode 时按 direct_typst 处理。placeholder 那条
+# 路径靠 LATEX_FORMULA_RE 在无定界符的 OCR 散文里猜公式边界,原理上做不到可靠,
+# 生产里也从未启用过。
+DEFAULT_RENDER_MATH_MODE = "direct_typst"
 DIRECT_TYPST_MATH_MODE = "direct_typst"
 
 

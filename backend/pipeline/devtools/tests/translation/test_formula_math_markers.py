@@ -29,10 +29,16 @@ def test_typst_markdown_supports_direct_math_text_without_formula_map() -> None:
     assert markdown == r"转移矩阵Q_t表明，且x_t∈{0,1}^K。"
 
 
-def test_render_markdown_defaults_to_placeholder_mode() -> None:
-    assert item_render_math_mode({}) == "placeholder"
-    assert not is_direct_typst_math_mode({})
+def test_render_markdown_defaults_to_direct_typst_mode() -> None:
+    """条目上没写 math_mode 时按 direct_typst 处理。
 
+    这里曾经默认 placeholder。placeholder 靠 LATEX_FORMULA_RE 在没有定界符的 OCR
+    散文里猜公式边界,原理上做不到可靠,生产里也从未启用过(真实产物全是
+    direct_typst,四个保护映射全空)。把它留作默认值的后果是:任何忘记传
+    math_mode 的路径都会静默走进一条没人验证的分支。
+    """
+    assert item_render_math_mode({}) == "direct_typst"
+    assert is_direct_typst_math_mode({})
 
 def test_render_markdown_uses_direct_typst_path_for_item() -> None:
     item = {"math_mode": "direct_typst"}

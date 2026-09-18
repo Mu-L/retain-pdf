@@ -71,7 +71,7 @@ def translate_book_with_global_continuations(
         data=data,
         output_dir=output_dir,
         page_indices=page_indices,
-        math_mode=(policy_config.math_mode if policy_config is not None else "placeholder"),
+        math_mode=(policy_config.math_mode if policy_config is not None else "direct_typst"),
     )
     if checkpoint is not None:
         checkpoint.update("preparing", page_payloads, translation_paths)

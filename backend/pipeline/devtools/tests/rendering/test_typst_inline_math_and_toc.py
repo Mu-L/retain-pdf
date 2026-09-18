@@ -75,9 +75,17 @@ from retainpdf_pipeline.render.layout.payload.formula_safety import has_long_inl
 
 
 def test_text_heavy_inline_math_demotes_latex_text_to_plain_text() -> None:
+    # 显式声明 placeholder:这条降级只发生在 build_markdown_from_direct_text 里,
+    # direct_typst 的 passthrough 不做。此前 fixture 不写 math_mode,靠默认值落进
+    # placeholder 才过——默认值一改就暴露了。
+    #
+    # 顺带记一笔:生产任务全是 direct_typst,所以这条降级实际从未生效。整段中文塞
+    # 在 \text{} 里用数学字体和数学间距渲染是歪的,要不要给 direct_typst 也补上,
+    # 是个待定的产品问题。
     blocks = build_render_blocks(
         [
             {
+                "math_mode": "placeholder",
                 "item_id": "p020-b015",
                 "page_idx": 19,
                 "block_type": "text",

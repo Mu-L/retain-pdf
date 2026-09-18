@@ -50,7 +50,7 @@ def translate_items_to_path(
     custom_rules_text: str = "",
     policy_config: TranslationPolicyConfig | None = None,
 ) -> dict:
-    math_mode = policy_config.math_mode if policy_config is not None else "placeholder"
+    math_mode = policy_config.math_mode if policy_config is not None else "direct_typst"
     ensure_translation_template(items, translation_path, page_idx=page_idx, math_mode=math_mode)
 
     payload = load_translations(translation_path)
@@ -72,7 +72,7 @@ def translate_items_to_path(
     if policy_config is None:
         policy_config = build_translation_policy_config(
             mode=mode,
-            math_mode="placeholder",
+            math_mode="direct_typst",
             skip_title_translation=skip_title_translation,
             sci_cutoff_page_idx=sci_cutoff_page_idx,
             sci_cutoff_block_idx=sci_cutoff_block_idx,

@@ -45,7 +45,10 @@ _DIGESTS = {
 def test_messages_match_pre_snapshot_bytes(math_mode, route):
     messages = _BUILDERS[route](_item(math_mode))
     digest = hashlib.sha256(json.dumps(messages, ensure_ascii=False).encode()).hexdigest()
-    assert digest == _DIGESTS[math_mode.strip() == "direct_typst"][route]
+    # 空串走默认值,而默认值已从 placeholder 改成 direct_typst——所以这里只有明确
+    # 写了 "placeholder" 才算 placeholder,其余(含空串)都是 direct_typst。
+    is_direct = math_mode.strip() != "placeholder"
+    assert digest == _DIGESTS[is_direct][route]
 
 
 @pytest.mark.parametrize("direct_constructor", [False, True])

@@ -71,7 +71,10 @@ class TranslationItemContext:
     line_texts: list[str] | None = None
     text_flow: str = "flow"
     has_inline_formula: bool = False
-    math_mode: str = "placeholder"
+    # 没指定时按 direct_typst 走。placeholder 模式在生产里一条都没跑过
+    # (真实产物 1822 条全是 direct_typst,四个保护映射全空),继续把它当默认值
+    # 意味着任何忘记传 math_mode 的路径都会静默掉进一个没人验证的模式。
+    math_mode: str = "direct_typst"
     style_hint: str = ""
     continuation_group: str = ""
     context_before: str = ""
@@ -253,7 +256,7 @@ def build_item_context(item: dict[str, Any], *, order: int = 0, page_idx: int | 
         text_flow=str(item.get("text_flow", "") or "flow").strip().lower() or "flow",
         toc_entries=list(item.get("toc_entries", []) or []),
         has_inline_formula=bool(formula_map) or _count_inline_formulas(segments) > 0,
-        math_mode=str(item.get("math_mode", "placeholder") or "placeholder").strip() or "placeholder",
+        math_mode=str(item.get("math_mode", "direct_typst") or "direct_typst").strip() or "direct_typst",
         style_hint=structure_style_hint(item),
         continuation_group=str(item.get("continuation_group", "") or ""),
         context_before=_merge_context_text(

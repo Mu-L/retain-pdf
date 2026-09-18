@@ -137,6 +137,9 @@ def test_build_messages_sanitizes_continuation_context_placeholders() -> None:
     messages = deepseek_client.build_messages(
         [
             {
+                # 显式 placeholder:本用例测的是 <f1-2e5/> 这类保护 token 要从
+                # continuation 上下文里清掉,而保护 token 只在 placeholder 模式产生。
+                "math_mode": "placeholder",
                 "item_id": "p006-b056",
                 "protected_source_text": "The combination of these results",
                 "continuation_group": "cg-001",

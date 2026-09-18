@@ -54,7 +54,7 @@ def export_translation_template(
     output_path: Path,
     page_idx: int,
     *,
-    math_mode: str = "placeholder",
+    math_mode: str = "direct_typst",
 ) -> None:
     del page_idx
     payload = [build_translation_record(item, math_mode=math_mode) for item in items]
@@ -98,7 +98,7 @@ def ensure_translation_template(
     output_path: Path,
     page_idx: int,
     *,
-    math_mode: str = "placeholder",
+    math_mode: str = "direct_typst",
 ) -> Path:
     if not output_path.exists():
         output_path.parent.mkdir(parents=True, exist_ok=True)
