@@ -167,18 +167,17 @@ test("StatusCard：真实轮询(mock=translate)驱动 ring/进度/阶段流(首�
     return activeStep?.classList.contains("is-active");
   }, "translate 阶段在流程条上高亮");
 
-  // 旧断言「.status-progress-block 不带 hidden」——嵌入卡没有这个包裹块，进度区
-  // 就是 #book-detail-status-progress-bar(role=progressbar) + 百分比标签，
-  // 断言对象平移到它们身上，语义不变：translate 阶段进度区应当可见且有数值。
+  // 进度条不在这张卡上——它归 ProcessingPipelineRail 独有。
+  //
+  // 这条断言此前钉的是卡内的进度条。那条进度条和轨道画的是同一个百分比，于是
+  // 「进度」Tab 里同一个任务出现两条进度和两套阶段，看上去像两个任务在跑。
+  // 现在卡只负责「取消 / 详情 / 耗时 / 选阶段 / 重试」，进度只有轨道一处。
+  //
+  // 契约 id 仍在（保留成隐藏节点，setText 可能写），但必须是隐藏的——它要是又
+  // 显示出来，就是重复回来了。
   const progressBar = byId(dom, `${BD}status-progress-bar`);
-  assert.ok(progressBar, "translate 阶段应渲染进度条");
-  assert.equal(progressBar.classList.contains("hidden"), false, "translate 阶段进度条应可见");
-  assert.equal(progressBar.getAttribute("role"), "progressbar");
-  assert.ok(
-    Number.isFinite(Number(progressBar.getAttribute("aria-valuenow"))),
-    "进度条必须给出真实的 aria-valuenow",
-  );
-  assert.match(byId(dom, `${BD}status-progress-percent`).textContent.trim(), /^\d+%$/, "百分比标签应渲染数值");
+  assert.ok(progressBar, "契约 id 应保留");
+  assert.equal(progressBar.classList.contains("hidden"), true, "卡内不得再画进度条，进度归流水线轨道");
 
   // 旧断言等的是隐藏区 #job-status 摘要更新（那批隐藏 id 无 DOM 读者，已随主卡
   // 下线）。同一份真值在嵌入卡根节点上就有：data-status 直接写 snapshot.status。

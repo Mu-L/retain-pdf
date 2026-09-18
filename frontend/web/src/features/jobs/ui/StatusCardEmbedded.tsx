@@ -219,26 +219,13 @@ export function StatusCardEmbedded({
               >
                 {detailText || "\u00a0"}
               </div>
-              <div className="bd-job-status-bar-row">
-                <div
-                  id={ids.progressBar}
-                  className={`bd-job-status-bar${succeeded ? " is-done" : ""}${failed ? " is-failed" : ""}`}
-                  role="progressbar"
-                  aria-label="翻译进度"
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={rounded}
-                >
-                  <div className="bd-job-status-bar-fill" style={{ width: `${rounded}%` }} />
-                </div>
-                <span
-                  id={ids.progressPercent}
-                  className="bd-job-status-percent"
-                  aria-hidden="true"
-                >
-                  {rounded}%
-                </span>
-              </div>
+              {/* 进度条归 ProcessingPipelineRail 独有。这里曾经也画一条,于是同一个
+                  百分比在「进度」Tab 里出现两次(上面轨道 289/344 84%,下面这张卡
+                  第 289/344 批 84%),看上去像两个任务。
+                  契约 id 保留成隐藏节点:progressBar/progressPercent 没有任何代码
+                  从 DOM 读,但 setText 仍可能写,留着比删了安全。 */}
+              <div id={ids.progressBar} className="hidden" aria-hidden="true" data-value={rounded} />
+              <div id={ids.progressPercent} className="hidden" aria-hidden="true" />
               <div id={ids.progressRing} className="hidden" aria-hidden="true" />
               <div
                 id={ids.progressText}

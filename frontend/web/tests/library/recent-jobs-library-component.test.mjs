@@ -505,9 +505,17 @@ test("书籍详情弹窗:馆藏点翻译 → 立刻接进度 + 网格静默更�
     statusCard.querySelector(".bd-job-status-inner"),
     "进度落在 bd-job-status-inner（详情内嵌，非工作流弹窗）",
   );
+  // 进度条已归 ProcessingPipelineRail 独有：卡内那条和轨道画同一个百分比，
+  // 同屏出现两条进度像两个任务。这里改成断言卡确实在承担它剩下的职责——
+  // 取消/详情那一行——而不是断言它还画着进度。
   assert.ok(
+    statusCard.querySelector(".bd-job-status-head"),
+    "内嵌卡应有取消/详情操作行",
+  );
+  assert.equal(
     statusCard.querySelector(".bd-job-status-bar"),
-    "内嵌区用进度条（无圆环）",
+    null,
+    "卡内不得再画进度条，否则与流水线轨道重复",
   );
   assert.ok(
     statusCard.querySelector(".status-stage-flow"),
