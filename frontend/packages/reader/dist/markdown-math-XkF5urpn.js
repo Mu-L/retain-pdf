@@ -6,22 +6,22 @@ function Z(e) {
 function B() {
   f = null, m = null;
 }
-function S(e) {
+function b(e) {
   return `${e}`.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
-function b(e) {
+function N(e) {
   return `${k}${e}`;
 }
-const N = /[0-9A-Za-z\\{}_^()\[\]|+\-=,.:;'~*/<>!\u00b0\u00b1\u00d7\u00f7\u2212\u2202\u03b1-\u03c9\u0391-\u03a9]+/g, F = /\\[A-Za-z]+|[_^]\{/;
-function H(e, t) {
+const F = /[0-9A-Za-z\\{}_^()\[\]|+\-=,.:;'~*/<>!\u00b0\u00b1\u00d7\u00f7\u2212\u2202\u03b1-\u03c9\u0391-\u03a9]+/g, H = /\\[A-Za-z]+|[_^]\{/;
+function S(e, t) {
   const n = new RegExp(`${k}\\d+`, "g"), a = (i) => i.replace(
-    N,
-    (c) => F.test(c) ? t(c, !1) : c
+    F,
+    (c) => H.test(c) ? t(c, !1) : c
   );
-  let r = "", l = 0, o;
-  for (; (o = n.exec(e)) !== null; )
-    r += a(e.slice(l, o.index)) + o[0], l = o.index + o[0].length;
-  return r += a(e.slice(l)), r;
+  let r = "", o = 0, l;
+  for (; (l = n.exec(e)) !== null; )
+    r += a(e.slice(o, l.index)) + l[0], o = l.index + l[0].length;
+  return r += a(e.slice(o)), r;
 }
 const y = /<([futnvc]\d+-[0-9a-z]{3})\/>/g;
 function P(e) {
@@ -34,37 +34,37 @@ function L(e, t = {}) {
     `[markdown-math] 译文里有 ${a.count} 个未还原的保护 token，已原样显示`
   ));
   let r = a.text;
-  const l = (o, i) => {
-    const c = `${o ?? ""}`.trim();
+  const o = (l, i) => {
+    const c = `${l ?? ""}`.trim();
     if (!c)
-      return i ? `$$${o}$$` : `$${o}$`;
-    const g = b(n.length);
+      return i ? `$$${l}$$` : `$${l}$`;
+    const g = N(n.length);
     return n.push({ token: g, tex: c, display: i }), g;
   };
-  return r = r.replace(/\$\$([\s\S]+?)\$\$/g, (o, i) => l(i, !0)), r = r.replace(/\\\[([\s\S]+?)\\\]/g, (o, i) => l(i, !0)), r = r.replace(/\\\(([\s\S]+?)\\\)/g, (o, i) => l(i, !1)), r = r.replace(new RegExp("(?<![\\\\$])\\$(?!\\$)((?:\\\\.|[^$\\n])+?)\\$(?!\\$)", "g"), (o, i) => `${i}`.trim() ? l(i, !1) : o), t.bareLatex && (r = H(r, l)), { text: r, slots: n };
+  return r = r.replace(/\$\$([\s\S]+?)\$\$/g, (l, i) => o(i, !0)), r = r.replace(new RegExp("(?<![\\\\$])\\$(?!\\$)((?:\\\\.|[^$\\n])+?)\\$(?!\\$)", "g"), (l, i) => `${i}`.trim() ? o(i, !1) : l), t.bareLatex && (r = S(r, o)), { text: r, slots: n };
 }
 const j = 20, I = /data-mml-node="mtext"[^>]*fill="red"/;
 function d(e, t) {
-  var l;
+  var o;
   const n = e, a = n == null ? void 0 : n[t];
   if (a !== void 0)
     return a;
-  const r = (l = n == null ? void 0 : n.default) == null ? void 0 : l[t];
+  const r = (o = n == null ? void 0 : n.default) == null ? void 0 : o[t];
   if (r !== void 0)
     return r;
   throw new Error(`mathjax-full 未导出 ${t}（CJS/ESM 互操作问题）`);
 }
 async function O() {
-  const [e, t, n, a, r, l] = await Promise.all([
+  const [e, t, n, a, r, o] = await Promise.all([
     import("mathjax-full/js/mathjax.js"),
     import("mathjax-full/js/input/tex.js"),
     import("mathjax-full/js/output/svg.js"),
     import("mathjax-full/js/adaptors/liteAdaptor.js"),
     import("mathjax-full/js/handlers/html.js"),
     import("mathjax-full/js/input/tex/AllPackages.js")
-  ]), o = d(e, "mathjax"), i = d(t, "TeX"), c = d(n, "SVG"), g = d(a, "liteAdaptor"), E = d(r, "RegisterHTMLHandler"), T = d(l, "AllPackages"), $ = g();
-  E($);
-  const A = o.document("", {
+  ]), l = d(e, "mathjax"), i = d(t, "TeX"), c = d(n, "SVG"), g = d(a, "liteAdaptor"), _ = d(r, "RegisterHTMLHandler"), T = d(o, "AllPackages"), $ = g();
+  _($);
+  const A = l.document("", {
     InputJax: new i({
       // 方案 C：宽容渲染。`unicode` 包让 Unicode 数学符号（⟨⟩、希腊字母、
       // 运算符等）尽量直接渲染，减少严格 TeX 的报错面。
@@ -124,7 +124,7 @@ function z() {
   })), m;
 }
 function h(e, t) {
-  const n = `<code class="reader-md-math-error" title="公式渲染失败">${S(e)}</code>`;
+  const n = `<code class="reader-md-math-error" title="公式渲染失败">${b(e)}</code>`;
   return t ? `<div class="reader-md-math reader-md-math-display reader-md-math-failed">${n}</div>` : `<span class="reader-md-math reader-md-math-inline reader-md-math-failed">${n}</span>`;
 }
 function D(e, t) {
@@ -212,10 +212,10 @@ function M(e, t) {
     for (; a < e.length && /[A-Za-z]/.test(e[a]); ) a += 1;
     let r = a > n + 1 ? a : a + 1;
     for (; ; ) {
-      let l = r;
-      for (; l < e.length && e[l] === " "; ) l += 1;
-      if (e[l] !== "{") break;
-      r = x(e, l).next;
+      let o = r;
+      for (; o < e.length && e[o] === " "; ) o += 1;
+      if (e[o] !== "{") break;
+      r = x(e, o).next;
     }
     return { arg: e.slice(n, r), next: r };
   }
@@ -230,16 +230,16 @@ function C(e) {
       n += r, a += 1;
       continue;
     }
-    const l = M(t, a + 1);
-    let o = l.arg, i = l.next;
+    const o = M(t, a + 1);
+    let l = o.arg, i = o.next;
     for (; i < t.length; ) {
       let c = i;
       for (; c < t.length && t[c] === " "; ) c += 1;
       if (t[c] !== r) break;
       const g = M(t, c + 1);
-      o = `${o}${t.slice(i, c)}${r}${g.arg}`, i = g.next;
+      l = `${l}${t.slice(i, c)}${r}${g.arg}`, i = g.next;
     }
-    n += `${r}{${o}}`, a = i;
+    n += `${r}{${l}}`, a = i;
   }
   return n;
 }
@@ -249,26 +249,26 @@ async function K(e, t) {
   let n = null;
   try {
     n = await z();
-  } catch (l) {
-    n = null, w("engine-load", l);
+  } catch (o) {
+    n = null, w("engine-load", o);
   }
   const a = /* @__PURE__ */ new Map();
   let r = 0;
-  for (const l of t) {
-    let o;
+  for (const o of t) {
+    let l;
     if (n)
       try {
-        o = D(n.convert(J(l.tex), l.display), l.display);
+        l = D(n.convert(J(o.tex), o.display), o.display);
       } catch (i) {
-        o = h(l.tex, l.display), w("convert", i, l.tex);
+        l = h(o.tex, o.display), w("convert", i, o.tex);
       }
     else
-      o = h(l.tex, l.display);
-    a.set(l.token, o), r += 1, r % 24 === 0 && await new Promise((i) => setTimeout(i, 0));
+      l = h(o.tex, o.display);
+    a.set(o.token, l), r += 1, r % 24 === 0 && await new Promise((i) => setTimeout(i, 0));
   }
-  return _(`${e ?? ""}`, t, a);
+  return E(`${e ?? ""}`, t, a);
 }
-function _(e, t, n) {
+function E(e, t, n) {
   if (!t.length) return e;
   const a = new RegExp(
     t.map((r) => r.token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"),
@@ -280,7 +280,7 @@ function G(e, t) {
   const n = new Map(
     t.map((a) => [a.token, h(a.tex, a.display)])
   );
-  return _(`${e ?? ""}`, t, n);
+  return E(`${e ?? ""}`, t, n);
 }
 async function q(e, t) {
   const { text: n, slots: a } = L(e), r = t(n);
@@ -299,4 +299,4 @@ export {
   Z as s,
   D as w
 };
-//# sourceMappingURL=markdown-math-DBZNUWa_.js.map
+//# sourceMappingURL=markdown-math-XkF5urpn.js.map

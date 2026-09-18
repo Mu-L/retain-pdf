@@ -1,4 +1,4 @@
-import { e as x, m as A, a as k, b as I, n as w, p as $, r as T, c as b, d as y, s as z, w as B } from "../markdown-math-DBZNUWa_.js";
+import { e as x, m as A, a as k, b as I, n as w, p as $, r as T, c as b, d as y, s as z, w as B } from "../markdown-math-XkF5urpn.js";
 import { n as P } from "../block-key-BTxcG28S.js";
 const h = Object.freeze({
   sentence: { label: "句子" },
