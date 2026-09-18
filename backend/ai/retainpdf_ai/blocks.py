@@ -26,8 +26,15 @@ class Block:
     asset_uris: tuple[str, ...]
 
 
-def load_job_blocks(job_root: Path) -> list[Block]:
-    normalized_path = job_root / "ocr" / "normalized" / "document.v1.json"
+def load_job_blocks(job_root: Path, *, source_root: Path | None = None) -> list[Block]:
+    """读出一页的块。OCR 产物与译文可以来自**不同**的 job。
+
+    上传之后先跑 OCR、再跑翻译复用它的产物,于是文档的内容分在两个 job 目录里:
+    `ocr/normalized/` 在 OCR 那个 job,`translated/` 在翻译那个 job。两边都从
+    `job_root` 读的话,要么读不到结构化数据,要么读得到原文但**静默丢掉全部译文**——
+    用户用中文提问,拿回一堆英文原文,没有任何提示。
+    """
+    normalized_path = (source_root or job_root) / "ocr" / "normalized" / "document.v1.json"
     document = json.loads(normalized_path.read_text(encoding="utf-8"))
     asset_catalog = document.get("assets") if isinstance(document.get("assets"), dict) else {}
 
@@ -93,9 +100,14 @@ def read_page_blocks(
     *,
     around_block_id: str = "",
     max_blocks: int = 12,
+    source_root: Path | None = None,
 ) -> list[Block]:
     """取某页的块;给定 around_block_id 时以它为中心取窗口。"""
-    page_blocks = [block for block in load_job_blocks(job_root) if block.page_idx == page_idx]
+    page_blocks = [
+        block
+        for block in load_job_blocks(job_root, source_root=source_root)
+        if block.page_idx == page_idx
+    ]
     if not around_block_id:
         return page_blocks[: max(1, max_blocks)]
     center = next(

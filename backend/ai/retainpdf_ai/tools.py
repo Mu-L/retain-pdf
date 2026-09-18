@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import json
+
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -169,6 +171,69 @@ class ToolRegistry:
         return self._content_source_resolver(document_id.strip(), job_id.strip())
 
 
+_JOB_PATH_RE = re.compile(r"/jobs/(?P<job_id>[^/]+)/")
+
+
+def _has_readable_artifacts(job_root: Path) -> bool:
+    for relative in (("ocr", "normalized", "document.v1.json"), ("md", "full.md")):
+        candidate = job_root.joinpath(*relative)
+        try:
+            if candidate.is_file() and candidate.stat().st_size > 2:
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def _provenance_job_id(job_root: Path) -> str:
+    """从流水线自己的溯源记录里找出「源产物在哪个 job」。
+
+    上传之后先跑 OCR、再跑翻译复用它的产物,于是 active job（翻译运行）里
+    `ocr/` 和 `md/` 都是空的,只有 `translated/`。而 AI 判定「有没有可问答产物」只看
+    active job,于是整本书被判成「没有可用于问答的结构化数据或 Markdown 产物」,
+    提问直接 409——实测就是这么坏的。
+
+    不用 `GET /api/v1/jobs?document_id=` 反查:实测那个过滤被静默忽略,传一个不存在的
+    document_id 照样返回全部 42 条。改读翻译 job 自己写下的 pipeline_summary.json,
+    它记着源 PDF 与源 document.v1 的绝对路径,路径里就带着来源 job id。
+    """
+    summary_path = job_root / "artifacts" / "pipeline_summary.json"
+    try:
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    if not isinstance(summary, dict):
+        return ""
+    for key in ("source_json_used", "source_pdf"):
+        match = _JOB_PATH_RE.search(str(summary.get(key) or ""))
+        if match:
+            return match.group("job_id")
+    return ""
+
+
+def _resolve_source_root(settings: Settings, job_id: str, job_root: Path) -> tuple[str, Path]:
+    """返回真正持有 OCR/Markdown 产物的 job。找不到就退回原来的。
+
+    只跟三跳并记录走过的 job,免得损坏的溯源记录把这里转成死循环。
+    """
+    if _has_readable_artifacts(job_root):
+        return job_id, job_root
+    seen = {job_id}
+    current_id, current_root = job_id, job_root
+    for _ in range(3):
+        next_id = _provenance_job_id(current_root)
+        if not next_id or next_id in seen:
+            break
+        seen.add(next_id)
+        next_root = _safe_job_root(settings, next_id)
+        if next_root is None:
+            break
+        current_id, current_root = next_id, next_root
+        if _has_readable_artifacts(current_root):
+            return current_id, current_root
+    return job_id, job_root
+
+
 def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegistry:
     # Imported lazily because the unified calculation adapter reuses Tool.
     from .unified_tools import calculation_tools
@@ -197,7 +262,9 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
         job_root = _safe_job_root(settings, job_id)
         if job_root is None:
             return {"error": f"invalid job_id: {job_id!r}"}
-        return document_id, job_id, job_root
+        # 译文留在阅读中的 job,OCR/Markdown 产物可能在上游那个 job 里。
+        source_job_id, source_root = _resolve_source_root(settings, job_id, job_root)
+        return document_id, job_id, job_root, source_job_id, source_root
 
     def structured_data_for_scope(
         arguments: dict[str, Any],
@@ -215,9 +282,9 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
         scope = document_artifact_scope(arguments)
         if isinstance(scope, dict):
             return False, "", {}
-        _, job_id, job_root = scope
+        _, job_id, job_root, _source_job_id, source_root = scope
         try:
-            blocks = load_job_blocks(job_root)
+            blocks = load_job_blocks(job_root, source_root=source_root)
         except (OSError, ValueError, TypeError):
             return False, job_id, {}
         block_map = {
@@ -234,8 +301,8 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
         )
         if isinstance(scope, dict):
             return "none"
-        _, _resolved_job_id, job_root = scope
-        normalized_path = job_root / "ocr" / "normalized" / "document.v1.json"
+        _, _resolved_job_id, _job_root, _source_job_id, source_root = scope
+        normalized_path = source_root / "ocr" / "normalized" / "document.v1.json"
         try:
             if normalized_path.is_file() and normalized_path.stat().st_size > 2:
                 # Keep preflight O(1): parsing a whole-book document here would
@@ -244,7 +311,7 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
                 return "structured"
         except OSError:
             pass
-        markdown_path = job_root / "md" / "full.md"
+        markdown_path = source_root / "md" / "full.md"
         try:
             if markdown_path.is_file() and markdown_path.stat().st_size > 0:
                 with markdown_path.open("r", encoding="utf-8") as source:
@@ -261,8 +328,8 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
         scope = document_artifact_scope(arguments)
         if isinstance(scope, dict):
             return scope
-        document_id, job_id, job_root = scope
-        chunks = load_markdown_chunks(job_root)
+        document_id, job_id, _job_root, job_id_for_assets, source_root = scope
+        chunks = load_markdown_chunks(source_root)
         ranked = search_markdown_chunks(
             chunks,
             query,
@@ -270,7 +337,7 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
         )
         hits = []
         for chunk, score in ranked:
-            assets = _markdown_chunk_assets(job_root, job_id, chunk)
+            assets = _markdown_chunk_assets(source_root, job_id_for_assets, chunk)
             hits.append({
                 "document_id": document_id,
                 "job_id": job_id,
@@ -304,8 +371,8 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
         scope = document_artifact_scope(arguments)
         if isinstance(scope, dict):
             return scope
-        document_id, job_id, job_root = scope
-        chunk = find_markdown_chunk(load_markdown_chunks(job_root), chunk_id)
+        document_id, job_id, _job_root, job_id_for_assets, source_root = scope
+        chunk = find_markdown_chunk(load_markdown_chunks(source_root), chunk_id)
         if chunk is None:
             return {"error": f"Markdown chunk not found: {chunk_id}"}
         max_chars = max(400, min(int(arguments.get("max_chars") or 4000), 8000))
@@ -321,7 +388,7 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
                     "chunk_id": chunk.chunk_id,
                     "heading": chunk.heading,
                     "source_text": markdown_text_for_model(chunk.text)[:max_chars],
-                    "assets": _markdown_chunk_assets(job_root, job_id, chunk),
+                    "assets": _markdown_chunk_assets(source_root, job_id_for_assets, chunk),
                     "translated_text": "",
                     "char_start": chunk.char_start,
                     "source_text_length": len(chunk.text),
@@ -361,12 +428,18 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
             if hit_job_id:
                 job_root = _safe_job_root(settings, hit_job_id)
                 if job_root is not None:
+                    # 命中的 job 也可能是只有译文的翻译运行,结构化产物在上游那个 job。
+                    hit_source_job_id, hit_source_root = _resolve_source_root(
+                        settings, hit_job_id, job_root
+                    )
                     block_map = block_cache.get(hit_job_id)
                     if block_map is None:
                         try:
                             block_map = {
                                 _canonical_block_id(block.block_id): block
-                                for block in load_job_blocks(job_root)
+                                for block in load_job_blocks(
+                                    job_root, source_root=hit_source_root
+                                )
                             }
                         except (OSError, ValueError, TypeError):
                             block_map = {}
@@ -374,7 +447,9 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
                     block = block_map.get(_canonical_block_id(str(item.get("block_id") or "")))
                     images: list[str] = []
                     if block is not None:
-                        images = _block_asset_urls(job_root, hit_job_id, block)
+                        images = _block_asset_urls(
+                            hit_source_root, hit_source_job_id, block
+                        )
                         item.update(
                             {
                                 "bbox": list(block.bbox) if block.bbox is not None else None,
@@ -465,18 +540,20 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
         scope = document_artifact_scope(arguments)
         if isinstance(scope, dict):
             return scope
-        document_id, job_id, job_root = scope
+        document_id, job_id, job_root, source_job_id, source_root = scope
         page_i = int(page_idx)
         blocks = read_page_blocks(
             job_root,
             page_i,
+            source_root=source_root,
             around_block_id=str(arguments.get("around_block_id") or ""),
             max_blocks=int(arguments.get("max_blocks") or 12),
         )
         char_start = max(0, int(arguments.get("char_start") or 0))
         char_limit = max(200, min(int(arguments.get("char_limit") or 2000), 8000))
         block_asset_urls = {
-            block.block_id: _block_asset_urls(job_root, job_id, block) for block in blocks
+            block.block_id: _block_asset_urls(source_root, source_job_id, block)
+            for block in blocks
         }
         exact_image_urls: list[str] = []
         for block in blocks:
