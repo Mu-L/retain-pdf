@@ -113,21 +113,20 @@ def _public_anchor(entry: dict[str, Any]) -> dict[str, Any] | None:
         page_idx = int(raw_page_idx) if raw_page_idx is not None else None
     except (TypeError, ValueError):
         page_idx = None
+    # 模型看到的片段取原文——和 blocks 分支同一个理由:原文权威、覆盖完整。
+    # 此前优先取译文，而且还会再带上 source_snippet 与 translated_snippet，
+    # 同一段文字最多发三份。
     snippet = str(
-        entry.get("translated_snippet")
-        or entry.get("translated_text")
-        or entry.get("translated_quote_text")
-        or entry.get("source_snippet")
+        entry.get("source_snippet")
         or entry.get("source_text")
         or entry.get("quote_text")
+        or entry.get("translated_snippet")
+        or entry.get("translated_text")
+        or entry.get("translated_quote_text")
         or entry.get("snippet")
         or ""
     )[:280]
     public = {"ref": int(ref), "snippet": snippet}
-    for key in ("source_snippet", "translated_snippet"):
-        value = str(entry.get(key) or "").strip()
-        if value:
-            public[key] = value[:280]
     if page_idx is not None and page_idx >= 0:
         public["page"] = page_idx + 1
     for key in ("chunk_id", "heading", "source"):
@@ -230,14 +229,26 @@ def public_tool_payload(result: dict[str, Any]) -> dict[str, Any]:
                     # image_url 是 asset_image_urls 的第一条,同样重复。
                     if item.get("image_url") and item.get("asset_image_urls"):
                         item.pop("image_url", None)
+                    # 只发原文，不发译文。
+                    #
+                    # 不是为了省上下文——实测只省 18%，三个方案里最少（只发译文省 45%）。
+                    # 理由是可靠性:
+                    #
+                    # 1. 原文是权威文本，译文是派生物。让模型拿译文当依据，等于把我们
+                    #    自己的翻译缺陷（丢 LaTeX 命令、截断、术语替换）当成文档的主张。
+                    # 2. 公式保真:OCR 的原文 LaTeX 比译文里那份更接近原件。
+                    # 3. 覆盖完整:实测 140 个块里只有 78 个有译文（55%）——翻译失败的
+                    #    那 45% 恰恰是余额不足/限流/超时的块，不是无关紧要的部分。
+                    #    只发译文会让模型对它们完全失明。
+                    #
+                    # 用户看到的仍是中文:引用卡片的 snippet 由 assign_refs 生成，它在
+                    # 这份投影**之前**跑、并且优先取译文，不受这里影响。
                     item["source_text"] = str(block.get("source_text") or "")
-                    item["translated_text"] = str(block.get("translated_text") or "")
                     item["char_start"] = int(block.get("char_start") or 0)
                     # 不发 source_text_length / translated_text_length:
                     # *_has_more 已经说明有没有被截断,而长度本身模型用不上。两个键名
                     # 加值每块约 45 字符,48 块就是 2K 字符。
                     item["source_has_more"] = bool(block.get("source_has_more"))
-                    item["translated_has_more"] = bool(block.get("translated_has_more"))
                     public_blocks.append(item)
         if public_blocks:
             public["blocks"] = public_blocks

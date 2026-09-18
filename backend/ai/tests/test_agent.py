@@ -209,7 +209,11 @@ def test_agent_runs_tools_then_answers_with_cited_anchors():
     assert result.citations[0].block_id == "p008-b0001"
     payload = json.loads(seen_tool_messages[0]["content"])
     assert payload["hits"][0]["ref"] == 1
-    assert payload["hits"][0]["translated_snippet"] == "反应速率显著提高"
+    # 模型看到的片段只有一份 `snippet`，不再同时发 source_snippet / translated_snippet。
+    # 这条 fixture 只有译文，所以回退取它——没有原文时用现有的，是预期行为。
+    assert payload["hits"][0]["snippet"] == "反应速率显著提高"
+    assert "translated_snippet" not in payload["hits"][0]
+    assert "source_snippet" not in payload["hits"][0]
     assert result.tool_trace == [
         {"round": 1, "tool": "search_fulltext", "arguments": {"query": "选择性"}}
     ]
@@ -675,3 +679,61 @@ def test_streaming_pure_answer_still_streams_and_short_answer_flushes():
     deltas2 = []
     assemble_streaming_message(_sse([_content_chunk("短答案")]), on_delta=deltas2.append)
     assert "".join(deltas2) == "短答案"
+
+
+def test_model_sees_the_source_text_not_the_translation() -> None:
+    """模型的依据取原文，用户看到的引用仍是译文。
+
+    原文是权威文本，译文是派生物——让模型拿译文当依据，等于把我们自己的翻译缺陷
+    （丢 LaTeX 命令、截断、术语替换）当成文档的主张。而且实测 140 个块里只有 78 个
+    有译文，翻译失败的那 45% 正是余额不足/限流/超时的块。
+
+    两者的分工:assign_refs 在投影**之前**跑、优先取译文，所以引用卡片显示中文；
+    public_tool_payload 只把原文给模型。
+    """
+    raw = {
+        "document_id": "doc-a",
+        "job_id": "job-1",
+        "page_idx": 2,
+        "blocks": [
+            {
+                "block_id": "p003-b0002",
+                "source_text": "Conical intersections govern the dynamics.",
+                "translated_text": "锥形交叉支配动力学。",
+                "source_has_more": False,
+                "translated_has_more": False,
+            }
+        ],
+    }
+    citations: dict = {}
+    _assign_refs(raw, citations, 1)
+    block = _public_tool_payload(raw)["blocks"][0]
+
+    assert block["source_text"] == "Conical intersections govern the dynamics."
+    assert "translated_text" not in block, "译文又被发给模型了"
+    assert "translated_has_more" not in block
+    # 用户那一侧仍是中文。
+    assert citations[1].snippet == "锥形交叉支配动力学。"
+
+
+def test_a_hit_with_both_languages_shows_the_model_the_source() -> None:
+    raw = {
+        "document_id": "doc-a",
+        "job_id": "job-1",
+        "hits": [
+            {
+                "document_id": "doc-a",
+                "job_id": "job-1",
+                "block_id": "p004-b0001",
+                "page_idx": 3,
+                "source_snippet": "the derivative coupling diverges",
+                "translated_snippet": "导数耦合发散",
+            }
+        ],
+    }
+    citations: dict = {}
+    _assign_refs(raw, citations, 1)
+    hit = _public_tool_payload(raw)["hits"][0]
+
+    assert hit["snippet"] == "the derivative coupling diverges"
+    assert citations[1].snippet == "导数耦合发散"
