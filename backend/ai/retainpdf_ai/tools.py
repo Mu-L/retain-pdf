@@ -453,16 +453,19 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
         page_idx = arguments.get("page_idx")
         if not document_id or page_idx is None:
             return {"error": "document_id and page_idx are required"}
-        # 优先请求里的 job_id（当前阅读任务，含历史 run），再回退 active_job_id
-        job_id = str(arguments.get("job_id") or "").strip()
-        if not job_id:
-            document = rust.get_document(document_id)
-            job_id = str(document.get("active_job_id") or "")
-        if not job_id:
-            return {"error": f"document {document_id} has no active job"}
-        job_root = _safe_job_root(settings, job_id)
-        if job_root is None:
-            return {"error": f"invalid job_id: {job_id!r}"}
+        # 走 document_artifact_scope 而不是自己解析 job_id。这里原本只做
+        # _safe_job_root 的路径白名单，**从不校验这个 job 属不属于 document_id**,
+        # 于是模型在 tool_call 里自带一个 job_id 就能读到别的文档的正文;更糟的是
+        # assign_refs 会把 result 的 document_id 贴到 block 上,生成「本文档 id +
+        # 外部 job id」的引用,而前端点引用是用 citation.job_id 拼 reader URL——
+        # 点一下跳到另一个文档。
+        #
+        # 同一个仓库里正确写法就在隔壁:document_artifact_scope 会用
+        # get_document_by_job 反查归属并拒绝不匹配，同时仍然允许同一文档的历史 run。
+        scope = document_artifact_scope(arguments)
+        if isinstance(scope, dict):
+            return scope
+        document_id, job_id, job_root = scope
         page_i = int(page_idx)
         blocks = read_page_blocks(
             job_root,

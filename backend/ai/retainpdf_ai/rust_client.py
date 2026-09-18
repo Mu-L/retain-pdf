@@ -2,11 +2,28 @@
 
 from __future__ import annotations
 
+from urllib.parse import quote
+
 from typing import Any
 
 import httpx
 
 from .config import Settings
+
+
+def _segment(value: object) -> str:
+    """把一个值编码成**单个** URL 路径段。
+
+    这里的路径原本是 f-string 直接拼的,而 `document_id` 在全库会话里是模型可控的
+    （scope_tool_arguments 在没有 document scope 时原样透传）。httpx 会规范化 `..`,
+    于是 `../internal/agent/runtime-sessions/X` 会把本服务的全权 key 打到
+    `/api/v1/internal/...`——只能读不能写,但会话与文档的隔离边界就此失效,提示注入
+    因此可以变成跨会话读取。`job_id` 早有格式白名单,`document_id` 漏了。
+
+    编码而不是加白名单:漏的本来就是「没编码」这件事,而编码不会拒绝任何合法 id。
+    `/` 和 `?` 都被转义,值再怎么写也跳不出自己这一段。
+    """
+    return quote(str(value or ""), safe="")
 
 
 class RustApiClient:
@@ -55,7 +72,7 @@ class RustApiClient:
         return list(data.get("documents") or [])
 
     def get_document(self, document_id: str) -> dict[str, Any]:
-        return self._get(f"/api/v1/documents/{document_id}")
+        return self._get(f"/api/v1/documents/{_segment(document_id)}")
 
     def get_document_by_job(self, job_id: str) -> dict[str, Any] | None:
         """任意 job_id(含历史 run)→ 所属文档;查不到返回 None。"""
@@ -86,7 +103,7 @@ class RustApiClient:
 
     def get_conversation(self, conversation_id: str) -> dict[str, Any] | None:
         try:
-            return self._get(f"/api/v1/ai/conversations/{conversation_id}")
+            return self._get(f"/api/v1/ai/conversations/{_segment(conversation_id)}")
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
                 return None
@@ -103,7 +120,7 @@ class RustApiClient:
         if not normalized:
             return []
         data = self._get(
-            f"/api/v1/ai/conversations/{normalized}/operations",
+            f"/api/v1/ai/conversations/{_segment(normalized)}/operations",
             {"limit": max(1, min(int(limit), 100))},
         )
         return [item for item in list(data.get("operations") or []) if isinstance(item, dict)]
@@ -149,7 +166,7 @@ class RustApiClient:
         if mid:
             payload["message_id"] = mid
         return self._post(
-            f"/api/v1/ai/conversations/{conversation_id}/messages",
+            f"/api/v1/ai/conversations/{_segment(conversation_id)}/messages",
             payload,
         )
 
@@ -166,13 +183,13 @@ class RustApiClient:
         if (title or "").strip():
             payload["title"] = title.strip()
         return self._patch(
-            f"/api/v1/ai/conversations/{conversation_id}",
+            f"/api/v1/ai/conversations/{_segment(conversation_id)}",
             payload,
         )
 
     def get_agent_runtime_session(self, conversation_id: str) -> dict[str, Any]:
         return self._get(
-            f"/api/v1/internal/agent/runtime-sessions/{conversation_id}"
+            f"/api/v1/internal/agent/runtime-sessions/{_segment(conversation_id)}"
         )
 
     def put_agent_runtime_session(
@@ -282,7 +299,7 @@ class RustApiClient:
         artifacts: list[dict[str, Any]],
     ) -> dict[str, Any]:
         return self._post(
-            f"/api/v1/internal/agent/calculations/{calculation_id}/complete",
+            f"/api/v1/internal/agent/calculations/{_segment(calculation_id)}/complete",
             {
                 "schema": "agent_calculation_complete_v1",
                 "result": result,
@@ -298,7 +315,7 @@ class RustApiClient:
         message: str,
     ) -> dict[str, Any]:
         return self._post(
-            f"/api/v1/internal/agent/calculations/{calculation_id}/fail",
+            f"/api/v1/internal/agent/calculations/{_segment(calculation_id)}/fail",
             {
                 "schema": "agent_calculation_fail_v1",
                 "code": code,
@@ -307,12 +324,12 @@ class RustApiClient:
         )
 
     def get_agent_calculation(self, calculation_id: str) -> dict[str, Any]:
-        return self._get(f"/api/v1/ai/calculations/{calculation_id}")
+        return self._get(f"/api/v1/ai/calculations/{_segment(calculation_id)}")
 
     def list_agent_calculations(
         self, conversation_id: str, *, limit: int = 50, offset: int = 0
     ) -> dict[str, Any]:
         return self._get(
-            f"/api/v1/ai/conversations/{conversation_id}/calculations",
+            f"/api/v1/ai/conversations/{_segment(conversation_id)}/calculations",
             {"limit": max(1, min(int(limit), 100)), "offset": max(0, int(offset))},
         )

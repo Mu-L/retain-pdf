@@ -53,7 +53,12 @@ def test_client_paths_are_contract_endpoints() -> None:
 
 
 def test_operation_context_uses_the_public_conversation_scoped_projection() -> None:
-    assert "/api/v1/ai/conversations/{normalized}/operations" in CLIENT_SOURCE
+    # 按形状匹配而不是写死字面量:插值表达式会变（路径段现在过 _segment() 做百分号
+    # 编码），但「会话作用域的 operations 投影」这个契约没变。上面
+    # _contract_path_patterns 用的也是 `\{[^}]+\}`,保持一致。
+    assert re.search(r"/api/v1/ai/conversations/\{[^}]+\}/operations", CLIENT_SOURCE), (
+        "operation context 不再走会话作用域的公开投影"
+    )
 
 
 def _payload_keys_near(function_name: str) -> set[str]:
