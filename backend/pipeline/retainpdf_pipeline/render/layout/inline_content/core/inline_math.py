@@ -20,15 +20,6 @@ MARKDOWN_EMPHASIS_RE = re.compile(
 )
 TEXT_HEAVY_INLINE_MATH_MIN_TEXT_CHARS = 10
 TEXT_HEAVY_INLINE_MATH_MIN_TEXT_BLOCKS = 2
-ANGLE_EXPECTATION_RE = re.compile(
-    r"\\langle\s*(?P<body>[^$]+?)\s*\\rangle(?P<script>_\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})"
-)
-BARE_ANGLE_EXPECTATION_RE = re.compile(
-    r"\\langle\s*(?P<body>[^$]+?)\s*\\rangle"
-)
-LATEX_SIZED_DELIMITER_RE = re.compile(
-    r"\\(?:left|right)\s*(?P<delimiter>\\langle|\\rangle|[⟨⟩|()\[\]{}.]|\\[{}])"
-)
 
 
 def apply_to_non_math_segments(text: str, replacer) -> str:
@@ -230,33 +221,6 @@ def demote_text_heavy_inline_math(text: str) -> str:
     return "".join(chunks)
 
 
-def normalize_angle_bracket_expectation_for_mitex(expr: str) -> str:
-    normalized = ANGLE_EXPECTATION_RE.sub(
-        lambda match: f"⟨{match.group('body').strip()}⟩{match.group('script')}",
-        expr or "",
-    )
-    return BARE_ANGLE_EXPECTATION_RE.sub(
-        lambda match: f"⟨{match.group('body').strip()}⟩",
-        normalized,
-    )
-
-
-def normalize_sized_delimiters_for_mitex(expr: str) -> str:
-    def _replacement(match: re.Match[str]) -> str:
-        delimiter = match.group("delimiter")
-        if delimiter in {r"\langle", "⟨"}:
-            return "⟨"
-        if delimiter in {r"\rangle", "⟩"}:
-            return "⟩"
-        if delimiter == ".":
-            return ""
-        if delimiter in {r"\{", r"\}"}:
-            return delimiter[-1]
-        return delimiter
-
-    return LATEX_SIZED_DELIMITER_RE.sub(_replacement, expr or "")
-
-
 def sanitize_direct_typst_inline_math(text: str) -> str:
     from retainpdf_pipeline.render.layout.inline_content.fallback.latex_normalizer import (
         normalize_formula_for_latex_math,
@@ -272,19 +236,10 @@ def sanitize_direct_typst_inline_math(text: str) -> str:
         spreadsheet_cell = re.fullmatch(r"\\([A-Za-z]{1,3})\\([0-9]{1,7})", expr)
         if spreadsheet_cell:
             return f"{spreadsheet_cell.group(1)}{spreadsheet_cell.group(2)}"
+        # 这三条修的是 OCR / 模型产物，不是 mitex 的能力缺口，所以留着。
         expr = re.sub(r"\\{2,}(?=[A-Za-z])", r"\\", expr)
         expr = re.sub(r"\\langlen\b", r"\\langle n", expr)
         expr = re.sub(r"\\angle(?=[A-Za-z])", r"\\angle ", expr)
-        expr = re.sub(r"\\mathscr\b", r"\\mathcal", expr)
-        expr = re.sub(r"\\varPhi(?=[^A-Za-z]|$)", r"\\Phi", expr)
-        expr = re.sub(r"\\hbar\b", "ℏ", expr)
-        expr = re.sub(r"\\partial\b", "∂", expr)
-        expr = re.sub(r"\\otimes\b", "⊗", expr)
-        expr = normalize_sized_delimiters_for_mitex(expr)
-        expr = normalize_angle_bracket_expectation_for_mitex(expr)
-        expr = re.sub(r"\\langle\b", "⟨", expr)
-        expr = re.sub(r"\\rangle\b", "⟩", expr)
-        expr = normalize_sized_delimiters_for_mitex(expr)
         # Do not rewrite prefix scripts (e.g. ⟨^{N} → ⟨{}^{N}).
         # That regex treated LaTeX "\ " (backslash-space) as a delimiter and
         # corrupted temperatures like -78\ ^{\circ}\mathrm{C} into -78\{}^{\circ}...

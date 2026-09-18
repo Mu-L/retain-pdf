@@ -184,24 +184,30 @@ def test_direct_typst_passthrough_keeps_existing_inline_math_latex_shape() -> No
     assert markdown.startswith(r"$\mathbf{f}_{\alpha}^{IJ}(\mathbf{R})$ 是理解")
 
 
-def test_direct_typst_passthrough_normalizes_angle_expectation_for_mitex() -> None:
+def test_direct_typst_passthrough_keeps_angle_expectation_as_latex() -> None:
+    """期望值的 \\langle..\\rangle 原样交给 mitex，不再替换成 ⟨⟩ 字符。
+
+    这里曾经断言被改写成 Unicode 尖括号——那是 mitex 0.2.6 吐旧符号名
+    （angle.l）时的权宜之计，0.2.7 起没有必要。渲染能不能过由
+    tests/rendering/test_mitex_latex_coverage.py 真编译一次来保证。
+    """
     markdown = build_direct_typst_passthrough_text(
         r"其中 $ \langle S^{2}\rangle_{T_{1}} $ 和 $ \langle S^{2}\rangle_{BS} $ 分别是 $ T_{1} $ 态。"
     )
 
-    assert r"$⟨S^{2}⟩_{T_{1}}$" in markdown
-    assert r"$⟨S^{2}⟩_{BS}$" in markdown
+    assert r"$\langle S^{2}\rangle_{T_{1}}$" in markdown
+    assert r"$\langle S^{2}\rangle_{BS}$" in markdown
     assert r"$T_{1}$" in markdown
+    assert "⟨" not in markdown and "⟩" not in markdown
 
 
-def test_direct_typst_passthrough_normalizes_bare_angle_expectation_for_mitex() -> None:
+def test_direct_typst_passthrough_keeps_bare_angle_expectation_as_latex() -> None:
     markdown = build_direct_typst_passthrough_text(
         r"表1. $ \langle\Delta E_{ST}\rangle $（单位：eV）。"
     )
 
-    assert r"$⟨\Delta E_{ST}⟩$" in markdown
-    assert r"\langle" not in markdown
-    assert r"\rangle" not in markdown
+    assert r"$\langle\Delta E_{ST}\rangle$" in markdown
+    assert "⟨" not in markdown
 
 
 def test_direct_typst_passthrough_separates_adjacent_inline_math_blocks() -> None:
@@ -239,14 +245,20 @@ def test_convert_latexish_to_typst_splits_attached_angle_command() -> None:
     assert convert_latexish_to_typst(r"\angleCSH") == "angle CSH"
 
 
-def test_direct_typst_passthrough_rewrites_mathscr_for_mitex_compatibility() -> None:
+def test_direct_typst_passthrough_keeps_mathscr_distinct_from_mathcal() -> None:
+    """\\mathscr 不再被改写成 \\mathcal——那是两种不同的字体。
+
+    mitex 0.2.7 把 \\mathscr 映射到 mathscr()、\\mathcal 映射到 cal()，改写会把
+    手写体静默换成花体。0.2.6 不认识 \\mathscr，当时只能这么绕。
+    """
     markdown = build_direct_typst_passthrough_text(r"$\mathscr{P}$ 空间")
-    assert markdown == r"$\mathcal{P}$ 空间"
+    assert markdown == r"$\mathscr{P}$ 空间"
 
 
-def test_direct_typst_sanitizer_keeps_only_inline_math_compat_cleanup() -> None:
+def test_direct_typst_sanitizer_keeps_only_ocr_artifact_cleanup() -> None:
+    """留在 sanitizer 里的只剩 OCR/模型产物的修补，不含 mitex 兼容性改写。"""
     markdown = sanitize_direct_typst_inline_math(r"正文 $\mathscr{P}$ 与 $\angleABC$ 保持")
-    assert markdown == r"正文 $\mathcal{P}$ 与 $\angle ABC$ 保持"
+    assert markdown == r"正文 $\mathscr{P}$ 与 $\angle ABC$ 保持"
 
 
 def test_direct_typst_sanitizer_normalizes_double_backslash_math_commands() -> None:
@@ -259,25 +271,29 @@ def test_direct_typst_sanitizer_rewrites_unsupported_circled_command() -> None:
     assert markdown == r"路径 $\otimes$ 与 $A$ 保持"
 
 
-def test_direct_typst_sanitizer_rewrites_hbar_for_mitex_compatibility() -> None:
+def test_direct_typst_sanitizer_keeps_hbar_as_latex() -> None:
     markdown = sanitize_direct_typst_inline_math(r"动量算符 $-i\hbar d/dq_k$ 和 $i\hbar d/dp_j$。")
-    assert markdown == "动量算符 $-iℏ d/dq_k$ 和 $iℏ d/dp_j$。"
+    assert markdown == r"动量算符 $-i\hbar d/dq_k$ 和 $i\hbar d/dp_j$。"
 
 
-def test_direct_typst_sanitizer_rewrites_partial_for_mitex_compatibility() -> None:
+def test_direct_typst_sanitizer_keeps_partial_as_latex() -> None:
     markdown = sanitize_direct_typst_inline_math(r"导数 $\partial E/\partial N = \mu$ 保持。")
-    assert markdown == r"导数 $∂ E/∂ N = \mu$ 保持。"
+    assert markdown == r"导数 $\partial E/\partial N = \mu$ 保持。"
 
 
-def test_direct_typst_sanitizer_rewrites_bra_ket_rangle_for_mitex_compatibility() -> None:
+def test_direct_typst_sanitizer_keeps_bra_ket_rangle_as_latex() -> None:
     markdown = sanitize_direct_typst_inline_math(r"态 $|k\rangle$ 与 $|0\rangle$ 保持。")
-    assert markdown == r"态 $|k⟩$ 与 $|0⟩$ 保持。"
+    assert markdown == r"态 $|k\rangle$ 与 $|0\rangle$ 保持。"
 
 
-def test_direct_typst_sanitizer_rewrites_varphi_for_mitex_compatibility() -> None:
-    # sanitizer 同时会剥掉 mitex 不支持的 \left/\right 尺寸修饰
+def test_direct_typst_sanitizer_keeps_varphi_and_sized_delimiters_as_latex() -> None:
+    """\\varPhi 和 \\left/\\right 都原样保留——mitex 0.2.7 两者都支持。
+
+    此前这里连 \\left/\\right 一起剥掉，因为 0.2.6 处理不了带尺寸修饰的
+    \\langle/\\rangle；剥掉的代价是失去括号随内容自动放大的能力。
+    """
     markdown = sanitize_direct_typst_inline_math(r"基态 $\left|\varPhi_{0}\right\rangle$ 保持。")
-    assert markdown == r"基态 $|\Phi_{0}⟩$ 保持。"
+    assert markdown == r"基态 $\left|\varPhi_{0}\right\rangle$ 保持。"
 
 
 def test_direct_typst_sanitizer_restores_spreadsheet_cell_pseudo_math() -> None:

@@ -90,62 +90,66 @@ def test_direct_typst_keeps_short_latex_text_tags_inside_math() -> None:
     assert r"n_{$ hc $}" not in markdown
 
 
-def test_direct_typst_renders_hbar_as_unicode_symbol_for_mitex() -> None:
+# 下面这组曾经断言「LaTeX 被降级成 Unicode 字符」。那是 mitex 0.2.6 吐旧版 Typst
+# 符号名时的权宜之计，0.2.7 起这些命令原生可渲染，降级只会白白丢掉保真度
+# （括号不再随内容放大、手写体被换成花体）。现在断言的是「原样送出去」，
+# 能不能渲染由 test_mitex_latex_coverage.py 真编译一次来保证。
+
+
+def test_direct_typst_keeps_hbar_as_latex() -> None:
     markdown = build_direct_typst_passthrough_text(
         r"振动常数 $ \omega_e = \hbar \sqrt{k / \mu} $ 等间距分布。"
     )
 
-    assert "ℏ" in markdown
-    assert r"\hbar" not in markdown
-    assert " hbar " not in markdown
+    assert r"\hbar" in markdown
+    assert "ℏ" not in markdown
 
 
-def test_direct_typst_renders_partial_as_unicode_symbol_for_mitex() -> None:
+def test_direct_typst_keeps_partial_as_latex() -> None:
     markdown = build_direct_typst_passthrough_text(
         r"曲率 $ k=\left(\frac{\partial^{2}U}{\partial R^{2}}\right) $。"
     )
 
-    assert "∂" in markdown
-    assert r"\partial" not in markdown
+    assert r"\partial" in markdown
+    assert "∂" not in markdown
 
 
-def test_direct_typst_renders_otimes_as_unicode_symbol_for_mitex() -> None:
+def test_direct_typst_keeps_otimes_as_latex() -> None:
     markdown = build_direct_typst_passthrough_text(
         r"选择规则 $ \Gamma_i \otimes \Gamma_f \ni \Gamma_\mu $。"
     )
 
-    assert "⊗" in markdown
-    assert r"\otimes" not in markdown
+    assert r"\otimes" in markdown
+    assert "⊗" not in markdown
 
 
-def test_direct_typst_normalizes_left_right_angle_ket_for_mitex() -> None:
+def test_direct_typst_keeps_left_right_angle_ket_as_latex() -> None:
+    """保留 \left/\right：括号要随内容自动放大，剥掉就永远是基准尺寸。"""
     markdown = build_direct_typst_passthrough_text(
         r"将单激发行列式与 $ \left|\Psi_0\right\rangle $ 混合。"
     )
 
-    assert r"\left" not in markdown
-    assert r"\right" not in markdown
-    assert r"$|\Psi_0⟩$" in markdown
+    assert r"\left|\Psi_0\right\rangle" in markdown
+    assert "⟩" not in markdown
 
 
-def test_direct_typst_normalizes_left_right_bra_matrix_for_mitex() -> None:
+def test_direct_typst_keeps_left_right_bra_matrix_as_latex() -> None:
     markdown = build_direct_typst_passthrough_text(
         r"非对角元满足 $ \left\langle\chi_i\right|f|\chi_j\rangle=0 $。"
     )
 
-    assert r"\left" not in markdown
-    assert r"\right" not in markdown
-    assert r"$⟨\chi_i|f|\chi_j⟩=0$" in markdown
+    assert r"\left\langle\chi_i\right|f|\chi_j\rangle=0" in markdown
+    assert "⟨" not in markdown
 
 
-def test_direct_typst_normalizes_nested_left_right_matrix_element_for_mitex() -> None:
+def test_direct_typst_keeps_nested_left_right_matrix_element_as_latex() -> None:
     markdown = build_direct_typst_passthrough_text(
         r"矩阵元 $ \left\langle\Psi_a^{rs}\right|\mathcal{H}\left|\Psi_{ab}^{rs}\right\rangle $。"
     )
 
-    assert r"\left" not in markdown
-    assert r"\right" not in markdown
-    assert r"$⟨\Psi_a^{rs}|\mathcal{H}|\Psi_{ab}^{rs}⟩$" in markdown
+    assert r"\left\langle\Psi_a^{rs}\right|" in markdown
+    assert r"\left|\Psi_{ab}^{rs}\right\rangle" in markdown
+    assert "⟨" not in markdown
 
 
 def test_direct_typst_does_not_inject_empty_base_for_prefix_scripts() -> None:
@@ -155,7 +159,7 @@ def test_direct_typst_does_not_inject_empty_base_for_prefix_scripts() -> None:
     )
 
     assert r"\{}^{" not in markdown
-    assert "⟨" in markdown and "⟩" in markdown
+    assert r"\langle" in markdown and r"\rangle" in markdown
     assert r"^{N}\Psi_0" in markdown
 
 
