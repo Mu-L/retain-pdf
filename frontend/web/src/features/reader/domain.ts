@@ -75,8 +75,11 @@ export {
   groupAnnotationsByPage,
   materializeMarkdownMathFallbackHtml,
   materializeMarkdownMathHtml,
+  mathFailureStats,
   normalizeBlockKey,
   parseMarkdownWithMath,
+  resetMarkdownMathEngineLoader,
+  setMarkdownMathEngineLoader,
   sortAnnotations,
   wrapMathSvgHtml,
 } from "./domain/host/content.js";

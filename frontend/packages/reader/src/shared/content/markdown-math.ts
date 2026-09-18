@@ -147,6 +147,13 @@ export function extractMarkdownMath(
  * 这正是此前的故障：单测全绿，浏览器里引擎加载失败，所有公式退回纯文本显示成
  * 裸 LaTeX，而三层 catch 把原因全吞了。取不到时带上名字抛，别再让它沉默。
  */
+const MATH_FAILURE_SAMPLE_LIMIT = 20;
+
+// `noundefined` 把未定义命令渲染成红色的 mtext 节点；而合法的 `\textcolor{red}`
+// 走的是 mstyle。两者都带 fill="red"，只看颜色会把前者和后者混为一谈，所以连节点
+// 类型一起认。实测 `\textcolor{red}{\text{abc}}` 这种嵌套不会误判。
+const UNDEFINED_COMMAND_RE = /data-mml-node="mtext"[^>]*fill="red"/;
+
 function pickExport<T>(namespace: unknown, name: string): T {
   const source = namespace as Record<string, unknown> | undefined;
   const direct = source?.[name];
@@ -202,6 +209,14 @@ async function loadDefaultMathJaxEngine(): Promise<MathJaxEngine> {
       if (/data-mjx-error|merror/i.test(html)) {
         throw new Error("mathjax error node");
       }
+      // 未定义命令**不**产生 merror。`AllPackages` 自带 `noundefined`，它把
+      // `\circled{R}` 这类画成 MathJax 硬编码的红色字面文本，照上面那条检查看
+      // 就是「渲染成功」。于是最常见的那类坏公式——模型造词、命令拼错、OCR 粘连
+      // ——完全绕过失败计数，页面上留下一段谁也管不着的红字（实时翻译叠层的 CSS
+      // 压不掉它，因为红色写在 SVG 的 fill 属性上）。
+      if (UNDEFINED_COMMAND_RE.test(html)) {
+        throw new Error("mathjax undefined command");
+      }
       return html;
     },
   };
@@ -212,7 +227,18 @@ export const mathFailureStats = {
   engineLoad: 0,
   convert: 0,
   lastReason: "",
+  /** 最近若干条失败的公式原文，用来判断是哪一类写法出了问题。 */
+  samples: [] as string[],
 };
+
+// 只写不读的统计等于没有统计。上一次公式事故（引擎加载被三层 catch 吞掉）之后加了
+// 这个对象，却没有任何读取方、没挂 window、不进界面——生产环境下在控制台里根本拿
+// 不到它。挂上去，排查时 `__retainMathFailures` 直接可见。
+try {
+  (globalThis as Record<string, unknown>).__retainMathFailures = mathFailureStats;
+} catch {
+  // 只读的全局对象（严格沙箱）不该影响渲染。
+}
 
 function reportMathFailure(kind: "engine-load" | "convert", error: unknown, tex = ""): void {
   const reason = `${(error as { message?: string })?.message || error}`;
@@ -223,6 +249,10 @@ function reportMathFailure(kind: "engine-load" | "convert", error: unknown, tex 
     return;
   }
   mathFailureStats.convert += 1;
+  // 留几条原文。控制台上限之后仍然看得出是哪一类写法。
+  if (mathFailureStats.samples.length < MATH_FAILURE_SAMPLE_LIMIT) {
+    mathFailureStats.samples.push(tex);
+  }
   // 逐条刷屏没有意义,前几条足够定位是哪一类写法。
   if (mathFailureStats.convert <= 5) {
     console.warn(`[markdown-math] 公式渲染失败（第 ${mathFailureStats.convert} 条）：`, tex, reason);
