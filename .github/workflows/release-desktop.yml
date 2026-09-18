@@ -18,7 +18,7 @@ env:
   DESKTOP_ROOT: frontend/desktop
   TYPST_VERSION: "0.14.2"
   CMARKER_VERSION: "0.1.8"
-  MITEX_VERSION: "0.2.6"
+  MITEX_VERSION: "0.2.7"
 
 jobs:
   quality-gate:

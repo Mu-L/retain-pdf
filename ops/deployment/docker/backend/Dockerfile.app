@@ -2,7 +2,7 @@ FROM rust:1.89-slim-bookworm AS builder
 
 ARG TYPST_VERSION=0.14.2
 ARG CMARKER_VERSION=0.1.8
-ARG MITEX_VERSION=0.2.6
+ARG MITEX_VERSION=0.2.7
 
 WORKDIR /build
 
@@ -42,7 +42,7 @@ FROM python:3.11-slim-bookworm AS typstsrc
 
 ARG TYPST_VERSION=0.14.2
 ARG CMARKER_VERSION=0.1.8
-ARG MITEX_VERSION=0.2.6
+ARG MITEX_VERSION=0.2.7
 ARG FX_VERSION=0.0.5
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -108,7 +108,7 @@ RUN set -eux; \
 FROM python:3.11-slim-bookworm AS runtime
 
 ARG CMARKER_VERSION=0.1.8
-ARG MITEX_VERSION=0.2.6
+ARG MITEX_VERSION=0.2.7
 ARG FX_VERSION=0.0.5
 ARG RETAINPDF_UID=10001
 ARG RETAINPDF_GID=10001

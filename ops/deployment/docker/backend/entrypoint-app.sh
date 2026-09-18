@@ -12,7 +12,7 @@ TMPDIR="${TMPDIR:-/tmp/retainpdf}"
 XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 CMARKER_VERSION="${CMARKER_VERSION:-0.1.8}"
-MITEX_VERSION="${MITEX_VERSION:-0.2.6}"
+MITEX_VERSION="${MITEX_VERSION:-0.2.7}"
 
 ensure_writable_directory() {
   directory="$1"
