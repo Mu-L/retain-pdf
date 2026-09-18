@@ -8,6 +8,9 @@ export type ReaderChatMetadata = {
     progress?: string;
     persisted?: boolean;
     status?: "running" | "complete" | "cancelled" | "error";
+    /** 终态文案。流还没开始就失败时（例如 409），消息里一个文本片段都没有，
+     *  错误只存在于 error chunk 里，最终渲染成一个空气泡。 */
+    statusText?: string;
 };
 export type ReaderChatMessage = UIMessage<ReaderChatMetadata>;
 /**
