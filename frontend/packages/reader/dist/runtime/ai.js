@@ -1,7 +1,7 @@
-import { k as ee, l as te, m as re, j as ae, n as ne, d as se, f as ie, h as oe, o as ce, g as de, i as le, p as ue, q as fe, t as Ae, u as me, v as pe, w as ge, e as he, r as ye, b as ve, x as $e, a as Ie, c as Se, s as we, y as Ce } from "../answer-enhance-C7Ufl5ur.js";
-import { b as be, c as ke, a as Me, d as _e, l as Ne, s as Re } from "../ask-answerer-GNQdzitl.js";
-import { C as xe, M as He, h as Fe, n as Le, a as Pe, b as Oe, r as De, s as ze } from "../config-CgaWliJ_.js";
-import { c as Ke, a as Ue, l as Xe, s as qe, b as Be, t as je, v as We } from "../thread-branch-store-Jy9wH_F1.js";
+import { c as ee, l as te, m as re, n as ae, k as ne, o as se, e as ie, f as oe, h as ce, p as de, j as ue, i as le, q as fe, t as Ae, u as me, v as pe, w as ge, x as he, g as ye, r as ve, b as $e, y as Ie, a as Se, d as we, s as Ce, z as Ee } from "../answer-enhance-R3v1qw4c.js";
+import { b as ke, c as Me, a as _e, d as Ne, l as Re, s as Te } from "../ask-answerer-GNQdzitl.js";
+import { C as He, M as Fe, h as Le, n as Pe, a as De, b as Oe, r as ze, s as Ge } from "../config-CgaWliJ_.js";
+import { c as Ue, a as Xe, l as qe, s as Be, b as je, t as We, v as Je } from "../thread-branch-store-Jy9wH_F1.js";
 import { Marked as T } from "marked";
 import { p as x } from "../markdown-math-XkF5urpn.js";
 const w = "CITE_", C = "";
@@ -40,7 +40,7 @@ $.use({
   }
 });
 const P = /^\s*(?:javascript|vbscript|data:text\/html)/i;
-function O(t) {
+function D(t) {
   const a = globalThis.document;
   if (!a)
     return v(t);
@@ -62,7 +62,7 @@ function O(t) {
     }
   }), r.innerHTML;
 }
-const f = /* @__PURE__ */ new Map(), D = 48;
+const f = /* @__PURE__ */ new Map(), O = 48;
 function J(t) {
   const a = `${t || ""}`.trim();
   return a ? f.get(a) ?? null : null;
@@ -70,7 +70,7 @@ function J(t) {
 function z(t, a) {
   const r = `${t || ""}`.trim();
   if (r)
-    for (f.has(r) && f.delete(r), f.set(r, a); f.size > D; ) {
+    for (f.has(r) && f.delete(r), f.set(r, a); f.size > O; ) {
       const n = f.keys().next().value;
       if (n == null) break;
       f.delete(n);
@@ -81,9 +81,9 @@ async function Q(t) {
   if (!a.trim()) return "";
   const r = f.get(a);
   if (r != null) return r;
-  const { text: n, refs: o } = H(a), d = await x(n, (u) => {
-    const p = String($.parse(u, { async: !1 }));
-    return O(p);
+  const { text: n, refs: o } = H(a), d = await x(n, (l) => {
+    const p = String($.parse(l, { async: !1 }));
+    return D(p);
   }), i = F(d, o);
   return z(a, i), i;
 }
@@ -111,10 +111,10 @@ function U({ sessions: t = [], activeId: a = "" } = {}, r = G) {
   if (n.length <= r)
     return n;
   const d = n.sort(
-    (i, u) => (Number(u == null ? void 0 : u.updatedAt) || 0) - (Number(i == null ? void 0 : i.updatedAt) || 0)
+    (i, l) => (Number(l == null ? void 0 : l.updatedAt) || 0) - (Number(i == null ? void 0 : i.updatedAt) || 0)
   ).slice(0, r);
   if (a && !d.some((i) => `${i == null ? void 0 : i.id}` == `${a}`)) {
-    const i = n.find((u) => `${u == null ? void 0 : u.id}` == `${a}`);
+    const i = n.find((l) => `${l == null ? void 0 : l.id}` == `${a}`);
     i && (d[d.length - 1] = i);
   }
   return d;
@@ -143,7 +143,7 @@ function V({
     return o += 1, `s-${A().toString(36)}-${o}`;
   }
   function i() {
-    var l;
+    var u;
     const s = { activeId: "", sessions: [] };
     if (!n)
       return s;
@@ -158,7 +158,7 @@ function V({
       return s;
     if (Array.isArray(e.sessions)) {
       const c = e.sessions.filter((g) => g && `${g.id || ""}`.trim());
-      return { activeId: c.some((g) => `${g.id}` == `${e.activeId}`) ? `${e.activeId}` : `${((l = c[0]) == null ? void 0 : l.id) || ""}`, sessions: c };
+      return { activeId: c.some((g) => `${g.id}` == `${e.activeId}`) ? `${e.activeId}` : `${((u = c[0]) == null ? void 0 : u.id) || ""}`, sessions: c };
     }
     if (Array.isArray(e.messages) || Array.isArray(e.history)) {
       const c = A(), m = {
@@ -170,23 +170,23 @@ function V({
     }
     return s;
   }
-  function u(s) {
+  function l(s) {
     var e;
     if (n)
       try {
-        const l = U(s), c = l.some((m) => `${m.id}` == `${s.activeId}`) ? s.activeId : `${((e = l[0]) == null ? void 0 : e.id) || ""}`;
-        a.setItem(r, JSON.stringify({ v: 2, activeId: c, sessions: l }));
+        const u = U(s), c = u.some((m) => `${m.id}` == `${s.activeId}`) ? s.activeId : `${((e = u[0]) == null ? void 0 : e.id) || ""}`;
+        a.setItem(r, JSON.stringify({ v: 2, activeId: c, sessions: u }));
       } catch {
       }
   }
   function p(s) {
-    let e = s.sessions.find((l) => `${l.id}` == `${s.activeId}`);
+    let e = s.sessions.find((u) => `${u.id}` == `${s.activeId}`);
     return e || (e = h(d(), A()), s.sessions.push(e), s.activeId = e.id), e;
   }
   function y() {
     if (!n)
       return { messages: [], history: [] };
-    const s = i(), e = s.sessions.find((l) => `${l.id}` == `${s.activeId}`);
+    const s = i(), e = s.sessions.find((u) => `${u.id}` == `${s.activeId}`);
     return {
       messages: Array.isArray(e == null ? void 0 : e.messages) ? e.messages : [],
       history: Array.isArray(e == null ? void 0 : e.history) ? e.history : []
@@ -195,14 +195,14 @@ function V({
   function E({ messages: s = [], history: e = [] } = {}) {
     if (!n)
       return;
-    const l = i(), c = p(l);
-    c.messages = s.slice(-40), c.history = e.slice(-40), c.updatedAt = A(), u(l);
+    const u = i(), c = p(u);
+    c.messages = s.slice(-40), c.history = e.slice(-40), c.updatedAt = A(), l(u);
   }
   function b() {
     if (!n)
       return;
     const s = i(), e = p(s);
-    e.messages = [], e.history = [], e.title = "", e.updatedAt = A(), u(s);
+    e.messages = [], e.history = [], e.title = "", e.updatedAt = A(), l(s);
   }
   function k() {
     return n ? S(i()) : [];
@@ -214,19 +214,19 @@ function V({
     if (!n)
       return "";
     const s = i(), e = h(d(), A());
-    return s.sessions.push(e), s.activeId = e.id, u(s), e.id;
+    return s.sessions.push(e), s.activeId = e.id, l(s), e.id;
   }
   function N(s) {
     if (!n)
       return { messages: [], history: [] };
     const e = i();
-    return e.sessions.some((l) => `${l.id}` == `${s}`) && (e.activeId = `${s}`, u(e)), y();
+    return e.sessions.some((u) => `${u.id}` == `${s}`) && (e.activeId = `${s}`, l(e)), y();
   }
   function R(s) {
     if (!n)
       return { messages: [], history: [] };
-    const e = i(), l = `${s || e.activeId}`;
-    if (e.sessions = e.sessions.filter((c) => `${c.id}` !== l), `${e.activeId}` === l) {
+    const e = i(), u = `${s || e.activeId}`;
+    if (e.sessions = e.sessions.filter((c) => `${c.id}` !== u), `${e.activeId}` === u) {
       const c = S(e)[0];
       e.activeId = c ? c.id : "";
     }
@@ -234,7 +234,7 @@ function V({
       const c = h(d(), A());
       e.sessions.push(c), e.activeId = c.id;
     }
-    return u(e), y();
+    return l(e), y();
   }
   return {
     load: y,
@@ -249,61 +249,62 @@ function V({
   };
 }
 export {
-  xe as CREDENTIALS_CHANGED_EVENT,
+  He as CREDENTIALS_CHANGED_EVENT,
   G as MAX_SESSIONS,
-  He as MISSING_MODEL_API_KEY_MESSAGE,
-  ee as armReaderAiClickShield,
-  te as buildMarkdownImageApiUrl,
-  re as buildPagePreviewUrl,
-  be as buildScopedQuestion,
-  ae as clearReaderAiNavigationLock,
-  ke as clearStoredConversationId,
-  Ke as clearThreadBranchSnapshot,
-  ne as clipSnippet,
-  Me as conversationStorageKey,
+  Fe as MISSING_MODEL_API_KEY_MESSAGE,
+  ee as answerDocumentIds,
+  te as armReaderAiClickShield,
+  re as buildMarkdownImageApiUrl,
+  ae as buildPagePreviewUrl,
+  ke as buildScopedQuestion,
+  ne as clearReaderAiNavigationLock,
+  Me as clearStoredConversationId,
+  Ue as clearThreadBranchSnapshot,
+  se as clipSnippet,
+  _e as conversationStorageKey,
   V as createReaderAiHistoryStore,
-  _e as createReaderAskAnswerer,
-  Ue as createReaderMarkdownAnswerer,
-  se as decorateCitationMarkdown,
+  Ne as createReaderAskAnswerer,
+  Xe as createReaderMarkdownAnswerer,
+  ie as decorateCitationMarkdown,
   K as deriveSessionTitle,
-  ie as findCitationForAnswerImage,
-  Fe as hasModelApiKey,
-  oe as hydrateProtectedImages,
-  ce as injectCitationMarkers,
-  de as installReaderWindowOpenGuard,
+  oe as findCitationForAnswerImage,
+  Le as hasModelApiKey,
+  ce as hydrateProtectedImages,
+  de as injectCitationMarkers,
+  ue as installReaderWindowOpenGuard,
   le as isAgenticCitation,
-  ue as isReaderAiNavigationLocked,
-  Ne as loadStoredConversationId,
-  Xe as loadThreadBranchSnapshot,
-  fe as lockReaderAiNavigation,
-  Ae as mountAnswerHtml,
-  me as neutralizeMarkdownAnchors,
-  pe as normalizeAiCitations,
-  Le as notifyCredentialsChanged,
+  fe as isReaderAiNavigationLocked,
+  Re as loadStoredConversationId,
+  qe as loadThreadBranchSnapshot,
+  Ae as lockReaderAiNavigation,
+  me as mountAnswerHtml,
+  pe as neutralizeMarkdownAnchors,
+  ge as normalizeAiCitations,
+  Pe as notifyCredentialsChanged,
   J as peekFinalAnswerHtmlCache,
-  ge as pickCitationsForAnswer,
+  he as pickCitationsForAnswer,
   H as protectNumericCitations,
-  Pe as readSettingsModelApiKey,
-  he as renderCitationFooter,
+  De as readSettingsModelApiKey,
+  ye as renderCitationFooter,
   Q as renderFinalAnswerHtml,
   W as renderStreamingPreviewHtml,
-  ye as resetAnswerEnhanceAdapters,
+  ve as resetAnswerEnhanceAdapters,
   Oe as resetReaderAiConfigAdapters,
-  ve as resolveAnswerImageUrl,
-  $e as resolveCitationPageIdx,
-  Ie as resolveCitationPageNumber,
-  De as resolveReaderAiConfig,
+  $e as resolveAnswerImageUrl,
+  Ie as resolveCitationPageIdx,
+  Se as resolveCitationPageNumber,
+  ze as resolveReaderAiConfig,
   F as restoreNumericCitations,
-  Se as revokeHydratedImageUrls,
-  qe as sanitizeAssistantAnswer,
-  Re as saveStoredConversationId,
-  Be as saveThreadBranchSnapshot,
-  we as setAnswerEnhanceAdapters,
-  ze as setReaderAiConfigAdapters,
-  Ce as shouldIgnoreReaderAiNavEvent,
+  we as revokeHydratedImageUrls,
+  Be as sanitizeAssistantAnswer,
+  Te as saveStoredConversationId,
+  je as saveThreadBranchSnapshot,
+  Ce as setAnswerEnhanceAdapters,
+  Ge as setReaderAiConfigAdapters,
+  Ee as shouldIgnoreReaderAiNavEvent,
   S as summarizeSessions,
-  je as threadBranchStorageKey,
+  We as threadBranchStorageKey,
   U as trimSessions,
-  We as visiblePathFromSnapshot
+  Je as visiblePathFromSnapshot
 };
 //# sourceMappingURL=ai.js.map

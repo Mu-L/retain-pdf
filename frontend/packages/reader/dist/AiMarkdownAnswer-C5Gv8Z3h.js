@@ -1,52 +1,52 @@
 import { jsx as u, jsxs as P } from "react/jsx-runtime";
-import { createContext as x, useContext as M, useRef as $, useCallback as j, useEffect as I, useId as E, useMemo as A } from "react";
-import { a as L, b as D, f as S, c as k, h as W, i as O, d as U, e as B } from "./answer-enhance-C7Ufl5ur.js";
-import F, { setCustomComponents as H, MathInlineNode as z } from "markstream-react";
-const T = "retainpdf-ai-answer", C = 320, K = 2, v = x({
+import { createContext as x, useContext as M, useRef as I, useCallback as j, useEffect as $, useId as E, useMemo as A } from "react";
+import { a as L, b as D, c as S, f as W, d as k, h as O, i as U, e as B, g as F } from "./answer-enhance-R3v1qw4c.js";
+import H, { setCustomComponents as z, MathInlineNode as K } from "markstream-react";
+const T = "retainpdf-ai-answer", C = 320, q = 2, v = x({
   final: !1,
   jobId: "",
   citations: []
 });
-function q(e) {
-  const r = Number(e.naturalWidth) || 0, t = e.closest(".reader-ai-image-jump"), o = t || e, i = r > 0 && r < C;
+function G(e) {
+  const r = Number(e.naturalWidth) || 0, t = e.closest(".reader-ai-image-jump"), n = t || e, i = r > 0 && r < C;
   if (e.classList.toggle("is-low-resolution", i), t == null || t.classList.toggle("is-low-resolution", i), i) {
     const l = Math.min(
       C,
-      Math.max(r, r * K)
+      Math.max(r, r * q)
     );
-    o.style.setProperty("--reader-ai-image-width", `${l}px`);
+    n.style.setProperty("--reader-ai-image-width", `${l}px`);
   } else
-    o.style.removeProperty("--reader-ai-image-width");
+    n.style.removeProperty("--reader-ai-image-width");
 }
-function G({ node: e }) {
-  const { final: r, jobId: t, citations: o, onJumpCitation: i } = M(v), l = $(null), n = $(null), d = `${e.alt || ""}`.trim(), g = D(e.src, t), f = S(e.src, o, t), m = L(f), N = j((s) => {
-    var w;
+function X({ node: e }) {
+  const { final: r, jobId: t, citations: n, onJumpCitation: i } = M(v), l = I(null), s = I(null), d = `${e.alt || ""}`.trim(), g = D(e.src, t, {}, S(n)), f = W(e.src, n, t), m = L(f), w = j((o) => {
+    var N;
     const h = l.current;
-    if (h === s || ((w = n.current) == null || w.abort(), n.current = null, h && k(h), l.current = s, !s || !g)) return;
+    if (h === o || ((N = s.current) == null || N.abort(), s.current = null, h && k(h), l.current = o, !o || !g)) return;
     const b = new AbortController();
-    n.current = b, (async () => {
+    s.current = b, (async () => {
       for (const y of [0, 250, 750, 1500]) {
         if (y && await new Promise((c) => globalThis.setTimeout(c, y)), b.signal.aborted) return;
         const a = l.current;
-        if (!a || a !== s || a.classList.contains("is-hydrated") && a.src.startsWith("blob:")) return;
-        await W(a, { signal: b.signal });
+        if (!a || a !== o || a.classList.contains("is-hydrated") && a.src.startsWith("blob:")) return;
+        await O(a, { signal: b.signal });
       }
     })();
   }, [g]);
-  if (I(() => () => {
-    var s;
-    (s = n.current) == null || s.abort(), n.current = null, k(l.current), l.current = null;
+  if ($(() => () => {
+    var o;
+    (o = s.current) == null || o.abort(), s.current = null, k(l.current), l.current = null;
   }, []), !g)
     return r ? /* @__PURE__ */ u("span", { className: "aui-image-blocked", children: d ? `[图片不可用：${d}]` : "[图片不可用]" }) : /* @__PURE__ */ u("span", { className: "aui-image-pending", "aria-label": d || "图片加载中", children: d ? `[图片：${d}]` : "[图片加载中]" });
   const p = /* @__PURE__ */ u(
     "img",
     {
-      ref: N,
+      ref: w,
       alt: d,
       "data-ai-src": g,
       decoding: "async",
       loading: "lazy",
-      onLoad: (s) => q(s.currentTarget),
+      onLoad: (o) => G(o.currentTarget),
       title: e.title || void 0
     }
   );
@@ -57,8 +57,8 @@ function G({ node: e }) {
       className: "reader-ai-image-jump",
       "data-page": m ?? void 0,
       title: m ? `定位到 PDF 第 ${m} 页` : "定位到图片来源",
-      onClick: (s) => {
-        s.preventDefault(), s.stopPropagation(), i({ ...f, image_url: g });
+      onClick: (o) => {
+        o.preventDefault(), o.stopPropagation(), i({ ...f, image_url: g });
       },
       children: [
         p,
@@ -67,23 +67,23 @@ function G({ node: e }) {
     }
   );
 }
-function X({ node: e }) {
-  const { citations: r, onJumpCitation: t } = M(v), o = `${e.href || ""}`.match(/^#retainpdf-citation-(\d+)$/), i = o ? r.find((n) => `${n.ref}` === o[1]) : null;
+function Q({ node: e }) {
+  const { citations: r, onJumpCitation: t } = M(v), n = `${e.href || ""}`.match(/^#retainpdf-citation-(\d+)$/), i = n ? r.find((s) => `${s.ref}` === n[1]) : null;
   if (i) {
-    const n = L(i);
+    const s = L(i);
     return /* @__PURE__ */ P(
       "button",
       {
         type: "button",
         className: "reader-ai-citation-ref",
-        "data-page": n ?? void 0,
-        title: n ? `跳到第 ${n} 页` : "定位来源",
+        "data-page": s ?? void 0,
+        title: s ? `跳到第 ${s} 页` : "定位来源",
         onClick: (d) => {
           d.preventDefault(), d.stopPropagation(), t == null || t(i);
         },
         children: [
           "[",
-          o == null ? void 0 : o[1],
+          n == null ? void 0 : n[1],
           "]"
         ]
       }
@@ -100,36 +100,36 @@ function X({ node: e }) {
     }
   );
 }
-function Q({ node: e }) {
+function V({ node: e }) {
   return /* @__PURE__ */ u(
-    z,
+    K,
     {
       node: e.markup === "$$" ? { ...e, markup: "$" } : e
     }
   );
 }
-H(T, {
-  image: G,
-  link: X,
-  math_inline: Q
+z(T, {
+  image: X,
+  link: Q,
+  math_inline: V
 });
-function V({
+function Y({
   content: e,
   final: r,
   indexKey: t,
-  jobId: o,
+  jobId: n,
   citations: i = [],
   onJumpCitation: l,
-  onClickCapture: n
+  onClickCapture: s
 }) {
-  return /* @__PURE__ */ u(v.Provider, { value: { final: r, jobId: o, citations: i, onJumpCitation: l }, children: /* @__PURE__ */ u(
+  return /* @__PURE__ */ u(v.Provider, { value: { final: r, jobId: n, citations: i, onJumpCitation: l }, children: /* @__PURE__ */ u(
     "div",
     {
       className: "retain-markstream-shell",
       "data-markdown-renderer": "markstream-react",
-      onClickCapture: n,
+      onClickCapture: s,
       children: /* @__PURE__ */ u(
-        F,
+        H,
         {
           batchRendering: !r,
           content: e,
@@ -148,29 +148,29 @@ function V({
     }
   ) });
 }
-function te({
+function re({
   content: e,
   streaming: r = !1,
   citations: t = [],
-  jobId: o = "",
+  jobId: n = "",
   className: i = "",
   streamingClassName: l = "",
-  pendingClassName: n = "",
+  pendingClassName: s = "",
   finalClassName: d = "",
   citationFooterMax: g = 5,
   onJumpCitation: f
 }) {
   var y;
-  const m = $(null), N = E(), p = r ? `${e || ""}` : `${e || ""}`.trim(), s = `${o || ((y = t.find((a) => a.job_id)) == null ? void 0 : y.job_id) || ""}`.trim(), h = A(() => {
+  const m = I(null), w = E(), p = r ? `${e || ""}` : `${e || ""}`.trim(), o = `${n || ((y = t.find((a) => a.job_id)) == null ? void 0 : y.job_id) || ""}`.trim(), h = A(() => {
     const a = /* @__PURE__ */ new Map();
     for (const c of t)
-      O(c) && a.set(`${c.ref}`, c);
+      U(c) && a.set(`${c.ref}`, c);
     return a;
   }, [t]), b = A(
-    () => U(p, h),
+    () => B(p, h),
     [p, h]
   );
-  return I(() => {
+  return $(() => {
     var R;
     const a = m.current;
     if (!a || !p) return;
@@ -180,19 +180,19 @@ function te({
         (R = c.querySelector(".reader-ai-citations")) == null || R.remove();
         return;
       }
-      B(c, t, {
+      F(c, t, {
         onJump: (_) => f == null ? void 0 : f(_),
         answerText: p,
         max: g
       });
     }
-  }, [r, s, h, t, f, p, g]), I(() => () => k(m.current), []), p.trim() ? /* @__PURE__ */ u("div", { ref: m, className: `${i} ${r ? l : d || n}`.trim(), children: /* @__PURE__ */ u(
-    V,
+  }, [r, o, h, t, f, p, g]), $(() => () => k(m.current), []), p.trim() ? /* @__PURE__ */ u("div", { ref: m, className: `${i} ${r ? l : d || s}`.trim(), children: /* @__PURE__ */ u(
+    Y,
     {
       content: b,
       final: !r,
-      indexKey: N,
-      jobId: s,
+      indexKey: w,
+      jobId: o,
       citations: t,
       onJumpCitation: f,
       onClickCapture: (a) => {
@@ -203,6 +203,6 @@ function te({
   ) }) : null;
 }
 export {
-  te as A
+  re as A
 };
-//# sourceMappingURL=AiMarkdownAnswer-C5j4jJzH.js.map
+//# sourceMappingURL=AiMarkdownAnswer-C5Gv8Z3h.js.map
