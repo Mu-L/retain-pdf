@@ -1,5 +1,5 @@
-import { e as x, m as A, a as k, b as I, n as w, p as $, r as T, c as b, s as y, w as z } from "../markdown-math-DUStTa8Y.js";
-import { n as N } from "../block-key-BTxcG28S.js";
+import { e as x, m as A, a as k, b as I, n as w, p as $, r as T, c as b, d as y, s as z, w as B } from "../markdown-math-DBZNUWa_.js";
+import { n as P } from "../block-key-BTxcG28S.js";
 const h = Object.freeze({
   sentence: { label: "句子" },
   data: { label: "数据" },
@@ -68,14 +68,15 @@ export {
   A as materializeMarkdownMathFallbackHtml,
   k as materializeMarkdownMathHtml,
   I as mathFailureStats,
-  N as normalizeBlockKey,
+  P as normalizeBlockKey,
   w as normalizeMathTex,
   $ as parseMarkdownWithMath,
   T as renderMathFallbackHtml,
   b as resetMarkdownMathEngineLoader,
-  y as setMarkdownMathEngineLoader,
+  y as revealProtectedTokens,
+  z as setMarkdownMathEngineLoader,
   f as sortAnnotations,
   n as sortByPageAndCreatedAt,
-  z as wrapMathSvgHtml
+  B as wrapMathSvgHtml
 };
 //# sourceMappingURL=content.js.map
