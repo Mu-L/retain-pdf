@@ -42,6 +42,26 @@ class PreparedAsk:
     max_tool_rounds: int
 
 
+def _pending_terminal_event(events: "queue.Queue") -> dict | None:
+    """宣布超时之前，先看看队列里是不是已经躺着一个终态事件。
+
+    worker 跑完之后会先 persist_turn 再 events.put(done)。如果此刻 deadline 恰好到期,
+    照 deadline 收口就会把一件**已经完整落库**的事说成失败,而用户的重试会造出第二条
+    turn。所以宁可发那个 done。
+
+    只认 done / error。非终态事件（delta / heartbeat / tool）的积压仍然不能掩盖过期的
+    deadline——那是相反方向的约束,test_stream_reliability 用 100 个 answer_delta 钉着。
+    """
+    terminal: dict | None = None
+    while True:
+        try:
+            event = events.get_nowait()
+        except queue.Empty:
+            return terminal
+        if isinstance(event, dict) and event.get("type") in {"done", "error"}:
+            return event
+
+
 class AskOrchestrator:
     """Coordinate runtime routing, durable conversation state, and SSE delivery."""
 
@@ -264,7 +284,14 @@ class AskOrchestrator:
                     chain_parent_id=summary_id,
                     prepersisted_user_id=request_message_id,
                 )
-                control.raise_if_stopped()
+                # persist_turn 之后**不再**查 deadline。这里原本还有一次
+                # raise_if_stopped():写库是两次真实 Rust HTTP 请求,写完那一刻 deadline
+                # 恰好到期的话,一次**已经完整落库**的成功 turn 会被改判成
+                # AI_RESPONSE_TIMEOUT。用户看到「响应超时，请重试」,一点重试库里就有了
+                # 两条 turn;刷新页面还会发现那个「超时」的问题其实带着完整答案。
+                #
+                # 工作已经提交,结果就是成功的。往一个可能已经没人读的队列里放一个 done
+                # 是无害的,把成功报成失败不是。
                 events.put(
                     {
                         "type": "done",
@@ -290,7 +317,10 @@ class AskOrchestrator:
                 if control.remaining_seconds <= 0:
                     control.cancel("deadline_exceeded")
                     terminal_seen = True
-                    yield self._encode_event(public_error_event(AIRequestTimeout()))
+                    pending = _pending_terminal_event(events)
+                    yield self._encode_event(
+                        pending if pending is not None else public_error_event(AIRequestTimeout())
+                    )
                     break
                 timeout = min(
                     self._settings.ai_heartbeat_interval_s,
@@ -310,9 +340,16 @@ class AskOrchestrator:
                     )
                     continue
                 if control.remaining_seconds <= 0:
+                    # 手里这个事件如果是终态,就发它,别换成超时。它意味着 worker 已经
+                    # 跑完（done 时 persist_turn 也已经跑完）,此刻报超时就是在把一件
+                    # 已完成的事说成失败,而用户的重试会造出第二条 turn。
+                    # 非终态事件（delta/heartbeat/tool）照旧丢弃并收口。
                     control.cancel("deadline_exceeded")
                     terminal_seen = True
-                    yield self._encode_event(public_error_event(AIRequestTimeout()))
+                    if isinstance(event, dict) and event.get("type") in {"done", "error"}:
+                        yield self._encode_event(event)
+                    else:
+                        yield self._encode_event(public_error_event(AIRequestTimeout()))
                     break
                 if event is None:
                     if not terminal_seen:

@@ -236,7 +236,25 @@ class RetrievalAgent:
         # provide credentials per request while the startup transport has none.
         if request_control is not None:
             request_control.raise_if_stopped()
-        message = chat(messages, [])
+        if requires_document_search and not citations:
+            # 轮数用完了,而一条证据都没拿到。此前这里无条件强制收尾——模型照样输出一段
+            # 自信的、纯参数知识的回答,没有任何引用,UI 也看不出它是被逼着收尾的。
+            # 用户拿到的是一个看起来正常、实际上没有依据的答案。
+            #
+            # 强制检索闸在「模型主动不调工具」那条路上会返回这句护栏文案,这条路上
+            # 同样该返回它:两条路的失败原因是同一个——没有证据。
+            return AskResult(
+                answer="当前回答尚未完成文档检索，无法可靠回答。请重试。",
+                tool_trace=trace,
+                rounds=round_limit,
+            )
+        message = _chat_round(
+            chat,
+            messages,
+            [],
+            stream_answer=True,
+            delta_sanitizer=StreamingAnswerSanitizer(citations),
+        )
         return _answer_result(
             message,
             citations,
