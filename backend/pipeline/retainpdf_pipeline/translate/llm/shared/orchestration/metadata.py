@@ -74,13 +74,13 @@ def restore_runtime_term_tokens(
 ) -> dict[str, dict[str, str]]:
     """把译文里的保护 token 换回原文。
 
-    名字里只说了 term,是因为它起初只处理术语。现在 protected_map 里还可能有按
-    OCR 标注锁住的公式（见 span_formula_protection）,两种都必须在这里还原——
-    这是所有翻译路径的统一还原点,漏掉哪一类,那类 token 就会原样留在译文里。
+    名字里只说了 term,是因为它起初只处理术语。这是所有翻译路径的统一还原点,
+    protected_map 里有哪些类型就还原哪些——漏掉一类,那类 token 就原样留在译文里
+    显示成 `<f1-e32/>`,一次事故 262 条里泄漏了 79 条。
 
-    公式和术语的还原方式不同:公式要补回 `$...$`（原文 OCR 没有定界符,补上正是
-    保护它的目的之一）,术语只换回文本。所以走 restore_protected_tokens 而不是
-    restore_tokens_by_type——前者对 formula 类型会调 wrap_formula_inline_math。
+    生产里现在只有 term 会进 map（公式边界交给模型,见 placeholder_transform）,
+    但这里仍按 formula 一并处理:曾经有过 formula token,将来也可能再有,而
+    restore_tokens_by_type({"term"}) 那种写法正是上面那次事故的直接原因。
     """
     protected_map = list(item.get("translation_unit_protected_map") or item.get("protected_map") or [])
     if not protected_map:

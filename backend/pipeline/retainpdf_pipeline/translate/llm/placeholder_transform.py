@@ -11,8 +11,6 @@ from retainpdf_pipeline.translate.llm.validation.placeholder_tokens import PLACE
 from retainpdf_pipeline.translate.llm.validation.placeholder_tokens import placeholder_sequence
 from retainpdf_pipeline.translate.core.payload.formula_protection import protected_map_from_formula_map
 from retainpdf_pipeline.translate.core.payload.term_protection import protect_glossary_terms
-from retainpdf_pipeline.translate.core.payload.span_formula_protection import iter_ocr_formula_texts
-from retainpdf_pipeline.translate.core.payload.span_formula_protection import protect_ocr_formulas
 
 
 def repair_safe_duplicate_placeholders(source_text: str, translated_text: str) -> str | None:
@@ -94,22 +92,17 @@ def item_with_runtime_hard_glossary(item: dict, glossary_entries: list[dict] | l
     elif not normalized_map and item.get("formula_map"):
         normalized_map = protected_map_from_formula_map(item.get("formula_map") or [])
     source_text = unit_source_text(item)
-    # 先按 OCR 标注锁住行内公式，再保护术语——两者共用一份 protected_map，
-    # token 序号自然衔接。
-    #
-    # 为什么公式要在这里锁：direct_typst 把扁平的 source_text 交给模型，让它重新
-    # 识别 OCR 早已精确标注过的公式并自己加 `$...$`。模型一动手就会顺带改没坏的
-    # 东西——实测 236 个含公式条目里 132 个丢了 LaTeX 命令（\mathrm 62 次、
-    # \mathsf 55 次、\bar 25 次）。锁住之后模型碰不到，`$` 由还原时确定性补上。
-    protected_text, protected_map = protect_ocr_formulas(
-        source_text,
-        iter_ocr_formula_texts(item),
-        existing_map=normalized_map,
-    )
+    # 这里只保护术语。公式边界交给模型——不是因为模型更准，而是因为 OCR 的
+    # inline_equation span 根本不是公式边界：实测同一句里 `so that \` 留在 text
+    # span、`E { \bf q }` 划进公式 span（还原补 `$` 后拼出 `\E`，mitex 直接
+    # 报 unknown command），英文单词 `gives` 被划进公式，一个 `A_I({\bf R})`
+    # 被切成 text/equation/text 三段。逐字锁住只会把这些坏边界固化下来，
+    # 而且模型仍按提示词自己包 `$`，两层叠加会拼出
+    # `$A ( { $\bf R$ } )` 这种嵌套。span 能逐字定位，不代表它是对的。
     protected_text, protected_map = protect_glossary_terms(
-        protected_text,
+        source_text,
         glossary_entries=glossary_entries,
-        existing_map=protected_map,
+        existing_map=normalized_map,
     )
     if protected_text == source_text and protected_map == normalized_map:
         return dict(item)
