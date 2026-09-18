@@ -255,4 +255,53 @@ if (dispatchedEvents.some((e) => e.type === "retainpdf:open-browser-credentials"
   throw new Error("expected no setup-dialog event when first run already completed");
 }
 
+// ── 场景 3：首配标志没写，但凭据已经齐全 → 不该再拦 ──
+//
+// 这是真实用户最常落到的那格，此前没被覆盖：firstRunCompleted 只在「首配门里
+// 保存」时才写（persistence.ts 的 markConfigured），从设置中心存 Key 不会写它，
+// 配置文件被重建（重装 / 换机器 / userData 目录变了）也会丢。于是 Key 明明都在、
+// 输入框也都回填好了，每次启动还要被拦一道，让人重填一遍已经在屏幕上的东西。
+desktopStore.firstRunCompleted = false;
+desktopStore.ocrProvider = "mineru";
+desktopStore.mineruToken = "mineru-token-fixture";
+desktopStore.modelApiKey = "translation-key-fixture";
+dispatchedEvents.length = 0;
+
+await bootstrapDesktop();
+
+if (state.desktopConfigured !== true) {
+  throw new Error("expected credentials alone to count as configured");
+}
+if (dispatchedEvents.some((e) => e.type === "retainpdf:open-browser-credentials")) {
+  throw new Error("expected no setup-dialog event when credentials are already present");
+}
+
+// ── 场景 4：凭据只有一半 → 仍然要拦 ──
+// 只有翻译 Key 没有 OCR 凭据（或反之）跑不起来，这时候放行等于把失败推到提交时。
+desktopStore.mineruToken = "";
+dispatchedEvents.length = 0;
+
+await bootstrapDesktop();
+
+if (state.desktopConfigured !== false) {
+  throw new Error("expected a half-filled credential set to stay unconfigured");
+}
+if (dispatchedEvents.filter(
+  (e) => e.type === "retainpdf:open-browser-credentials" && e.detail?.setupMode === true,
+).length !== 1) {
+  throw new Error("expected the setup dialog when OCR credentials are missing");
+}
+
+// ── 场景 5：provider 对不上的 token 不算数 ──
+// 填了 MinerU 但 provider 选的是 paddle——提交时照样跑不起来。
+desktopStore.ocrProvider = "paddle";
+desktopStore.mineruToken = "mineru-token-fixture";
+dispatchedEvents.length = 0;
+
+await bootstrapDesktop();
+
+if (state.desktopConfigured !== false) {
+  throw new Error("expected a token belonging to another provider not to count");
+}
+
 console.log("desktop-first-run-smoke: ok");
