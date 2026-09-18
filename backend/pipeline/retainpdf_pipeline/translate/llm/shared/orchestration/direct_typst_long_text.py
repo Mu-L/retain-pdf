@@ -3,6 +3,10 @@ from __future__ import annotations
 from retainpdf_pipeline.translate.artifacts import TranslationDiagnosticsCollector
 from retainpdf_pipeline.translate.core.item_reader import item_content_kind
 from retainpdf_pipeline.translate.llm.result_payload import result_entry
+from retainpdf_pipeline.translate.core.payload.parts.final_status import (
+    PARTIALLY_TRANSLATED_STATUS,
+)
+from retainpdf_pipeline.translate.core.payload.parts.final_status import set_final_status
 from retainpdf_pipeline.translate.llm.validation.english_residue import is_direct_math_mode
 from retainpdf_pipeline.translate.llm.shared.orchestration.common import chunk_source_text_fallback
 from retainpdf_pipeline.translate.llm.shared.orchestration.common import SENTENCE_SPLIT_RE
@@ -130,6 +134,13 @@ def translate_direct_typst_long_text_chunks(
             )
 
     payload = result_entry("translate", " ".join(part for part in translated_parts if part).strip())
+    if degraded_chunks:
+        # 顶层也要写。result_entry 无条件把顶层 final_status 设成 "translated",而
+        # should_store_translation_result 读的正是顶层——只写进 translation_diagnostics
+        # 的话,一段夹着未翻译英文原文的译文会被当成完整成功结果写进单元缓存(默认
+        # TTL 90 天),此后每一次重翻都命中它。sentence_level 那条路一直是这么写的,
+        # 这里漏了。
+        set_final_status(payload, PARTIALLY_TRANSLATED_STATUS)
     payload["translation_diagnostics"] = {
         "item_id": item.get("item_id", ""),
         "page_idx": item.get("page_idx"),
