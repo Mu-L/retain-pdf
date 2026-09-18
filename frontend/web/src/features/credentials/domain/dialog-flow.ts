@@ -9,9 +9,6 @@ import { syncCredentialDialogFields } from "./dialog-sync.js";
 import { ocrTokenFromCredentials } from "./state-selectors.js";
 import type { UpdateCredentialGateViewOptions } from "./view-contracts.js";
 
-type OpenBrowserCredentialsDialogOptions = {
-  setupMode?: boolean;
-};
 
 type UpdateCredentialGateOptions = {
   workflowNeedsCredentials?: () => boolean;
@@ -148,17 +145,6 @@ export function createCredentialDialogFlow({
     viewPort.setDialogStatus("", "");
   }
 
-  function openBrowserCredentialsDialog(options: OpenBrowserCredentialsDialogOptions = {}) {
-    const { dialog } = viewPort.dialogElements();
-    if (!dialog) {
-      return;
-    }
-    syncBrowserDialogFromCredentialState();
-    setCredentialDialogMode(!!options.setupMode);
-    activateCredentialTab("api");
-    viewPort.openDialog();
-  }
-
   /**
    * 设置面板内嵌模式（SettingsDialog 接口区）：只做"从凭据状态回填表单 +
    * 复位到 api tab"，不经 viewPort.openDialog()——表单宿主是设置面板本身，
@@ -237,7 +223,6 @@ export function createCredentialDialogFlow({
     syncOcrProviderControls,
     syncOcrCredentialFeedback,
     syncBrowserDialogFromCredentialState,
-    openBrowserCredentialsDialog,
     prepareCredentialsPanels,
     updateCredentialGate,
     handleOcrProviderChange,

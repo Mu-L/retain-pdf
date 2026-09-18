@@ -9,7 +9,7 @@
 //   提交兜底 —— ingest/domain/actions/submit-flow.ts publishSubmitSuccess
 //     （800ms/5s 两路，返回取消函数）
 // 事件契约（P=生产者，C=消费者；document CustomEvent）。
-// openBrowserCredentials: P UploadTile/desktop → C CredentialsDialog(useAppEvent)/credentials/view
+// openBrowserCredentials: P UploadTile/desktop → C SettingsDialogSlot(useAppEvent) → 设置中心 API 区
 // returnHome: P status-area.returnHome → C create-lifecycle → jobRuntime.returnToHome
 // retryStage: P StageRetry/StatusCardEmbedded → C create-lifecycle → jobRuntime.retryStage
 // statusAreaVisibilityChanged: P status-area.setVisible → C recent-jobs/bindings + workflow-dialog-runtime

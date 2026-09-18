@@ -101,7 +101,6 @@ export function buildHomeServices({
     credentials: {
       feature: features.browserCredentialsFeature,
       view: credentials.credentialsView,
-      dialogStore: credentials.credentialsDialogStore,
     },
     settingsHub: {
       dialogStore: credentials.settingsHubDialogStore,

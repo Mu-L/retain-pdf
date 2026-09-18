@@ -1,4 +1,4 @@
-// 通用对话框开合状态工厂(蓝图 §0.3)——CredentialsDialog/GlossariesDialog/
+// 通用对话框开合状态工厂(蓝图 §0.3)——SettingsDialog/GlossariesDialog/
 // AppUpdate 详情/SettingsDialog 等常驻挂载的 AppDialog 共用同一套语义。
 //
 // 实现 = createStore 引擎 + 读侧稳定投影(view):

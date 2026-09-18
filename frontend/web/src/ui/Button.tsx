@@ -8,7 +8,7 @@
 // - variant="unstyled"(默认):项目既有视觉系统各自的 bespoke CSS class 直接
 //   通过 className 传入,本组件只负责 <button> 元素本身的通用行为(默认
 //   type="button",避免裸 <button> 缺省 type="submit" 时误触发所在 <form> 提交
-//   ——CredentialsDialog/StatusDetailDialog 的 <form method="dialog"> 就是这个
+//   ——SettingsDialog/StatusDetailDialog 的 <form method="dialog"> 就是这个
 //   坑的现成案例,本组件把"忘记写 type"这类问题在共享入口收掉)。不叠加
 //   shadcn 默认视觉,因为 buttonVariants 的 Tailwind 工具类(bg-primary/
 //   rounded-md 等)会和这些已经成熟的 bespoke class 系统正面冲突,现在硬套会

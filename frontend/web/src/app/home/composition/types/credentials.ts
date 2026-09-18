@@ -31,7 +31,6 @@ export type CredentialsViewBag = {
 export type HomeCredentials = {
   feature: BrowserCredentialsFeature | undefined;
   view: CredentialsViewBag;
-  dialogStore: DialogStore;
 };
 
 export type HomeSettingsHub = {

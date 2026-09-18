@@ -726,7 +726,6 @@ test("browser credentials controller routes UI operations through view port", ()
         },
         closeDialog: () => calls.push(["close"]),
         dialogElements: () => ({ dialog: {} }),
-        openDialog: () => calls.push(["open"]),
         setDeepSeekTopUpVisible: (visible) => calls.push(["top-up", visible]),
         setDeepSeekValidationMessage: (message, tone) => calls.push(["deepseek-message", message, tone]),
         setDialogMode: ({ setupMode }) => calls.push(["mode", setupMode]),
@@ -751,7 +750,7 @@ test("browser credentials controller routes UI operations through view port", ()
       },
     });
 
-  feature.openBrowserCredentialsDialog({ setupMode: true });
+  feature.prepareCredentialsPanels({ setupMode: true });
   assert.equal(feature.hasOcrCredentials(), true, "仅 OCR 有 token 即满足静态凭据门");
   assert.equal(feature.hasBrowserCredentials(), false, "完整翻译仍要求模型 API Key");
   feature.updateCredentialGate({
@@ -763,7 +762,6 @@ test("browser credentials controller routes UI operations through view port", ()
   boundHandlers.changeProvider({ currentTarget: { value: "unknown-provider" } });
 
   assert.equal(calls.some(([kind]) => kind === "bind"), true);
-  assert.equal(calls.some(([kind]) => kind === "open"), true);
   assert.equal(calls.some(([kind, setupMode]) => kind === "mode" && setupMode === true), true);
   assert.equal(calls.some(([kind, show]) => kind === "gate" && show === false), true);
   assert.equal(calls.some(([kind]) => kind === "refresh-submit"), true);
@@ -827,7 +825,6 @@ test("browser credentials controller reads runtime and balance state through por
       },
       closeDialog: () => calls.push(["close"]),
       dialogElements: () => ({ dialog: { dataset: {} } }),
-      openDialog: () => calls.push(["open"]),
       setDeepSeekTopUpVisible: (visible) => calls.push(["top-up", visible]),
       setDeepSeekValidationMessage: (message, tone) => calls.push(["deepseek-message", message, tone]),
       setDialogMode: ({ setupMode }) => calls.push(["mode", setupMode]),
@@ -852,7 +849,7 @@ test("browser credentials controller reads runtime and balance state through por
     },
   });
 
-  feature.openBrowserCredentialsDialog();
+  feature.prepareCredentialsPanels();
   feature.updateCredentialGate({
     workflowNeedsCredentials: () => true,
     workflowNeedsUpload: () => true,
@@ -927,7 +924,6 @@ test("browser credential save falls back to stored model api key when input is b
       },
       closeDialog() {},
       dialogElements: () => ({ dialog: { dataset: {} } }),
-      openDialog() {},
       setDeepSeekTopUpVisible() {},
       setDeepSeekValidationMessage() {},
       setDialogMode() {},

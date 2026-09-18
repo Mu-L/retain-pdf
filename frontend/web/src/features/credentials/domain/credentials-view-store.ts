@@ -80,9 +80,14 @@ export type CredentialsViewActions = {
 export type CredentialsViewStore = Store<CredentialsViewState, CredentialsViewActions>;
 
 export function createCredentialsViewFeature({
-  dialogStore,
+  closeDialog,
 }: {
-  dialogStore: DialogStore;
+  /**
+   * 收起承载本表单的弹窗。save-flow 在首配保存成功后调它。
+   * 曾经这里挂的是 credentials 自己的 dialogStore——那个独立弹窗已经并进设置
+   * 中心，store 随之退役，留下的只有"关掉宿主"这一个动作。
+   */
+  closeDialog: () => void;
 }) {
   const store = createStore<CredentialsViewState, CredentialsViewActions>({
     name: "credentialsView",
@@ -197,9 +202,8 @@ export function createCredentialsViewFeature({
     bindEvents: (handlers: HandlersBag) => {
       handlersRef.current = handlers;
     },
-    closeDialog: () => dialogStore.close(),
+    closeDialog,
     dialogElements: () => ({ dialog: true, ...elements() }),
-    openDialog: () => dialogStore.open(),
     setDeepSeekTopUpVisible: (visible = false) => store.actions.setDeepSeekTopUpVisible(visible),
     setTranslationProvider: (provider = "custom") => store.actions.setTranslationProvider(provider),
     setDeepSeekValidationMessage: (message = "", tone = "") => store.actions.setDeepSeek({ message, tone }),

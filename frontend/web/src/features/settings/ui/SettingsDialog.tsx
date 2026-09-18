@@ -2,9 +2,9 @@
 //
 // 布局：左侧竖排导航（图标+名称，Radix Tabs orientation=vertical，方向键可用），
 // 右侧内容窗格（每区自带标题行 + 正文，独立滚动）。外观区升格为主题卡片网格
-// 的主舞台；接口/术语表因真实表单仍是独立顶层对话框（CredentialsDialog/
-// GlossariesDialog，各有 controller/store/测试契约），本面板作为"启动区"
-// 保留入口按钮——后续如要内嵌，动的是那两个 feature，不是这里。
+// 的主舞台；接口区直接内嵌 CredentialsWorkbench——首次配置门也是本弹窗停在
+// api tab（payload.setupMode），不再有第二个外壳。术语表仍是独立顶层对话框
+// （GlossariesDialog，自带 controller/store/测试契约），本面板只留入口按钮。
 //
 // 【测试契约，改版不许破】（credentials/glossaries/app-update component tests）：
 // - #app-settings-dialog / #app-settings-close-btn
@@ -14,8 +14,9 @@
 // - 外观面板 #theme-appearance-panel 与 #theme-option-<id>
 //
 // 开合状态跨子树走 settings-hub-dialog-store；tab 切换是子树内瞬态（useState）。
-// 不 forceMount Dialog 的 Content/Overlay（Radix hideOthers 依赖真实
-// mount/unmount，见 CredentialsDialog 头注释）。AppUpdateBanner 的挂载生命
+// 不 forceMount Dialog 的 Content/Overlay：Radix modal Content 内部的
+// hideOthers(content) effect 依赖真实的 mount/unmount 生命周期（deps=[]），
+// forceMount 会让它在对话框从未打开时就永久生效，反而制造无障碍缺陷。AppUpdateBanner 的挂载生命
 // 周期说明见旧版头注释结论：后台自检由 composition 的纯逻辑控制器驱动，
 // 与本组件是否挂载无关。
 

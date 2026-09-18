@@ -317,9 +317,7 @@ function CredentialsProviderSlot({ children }: { children: React.ReactNode }) {
       value={{
         feature: credentials?.feature,
         view: credentials?.view,
-        dialogStore: credentials?.dialogStore,
         credentialsStatePort,
-        openSettingsHubApiTab: () => settingsHub?.dialogStore?.open?.({ tab: "api" }),
       }}
     >
       {children}

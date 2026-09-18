@@ -12,12 +12,8 @@ export type CredentialsServices = {
   feature: any;
   /** credentials-view-store 的视图态与 handlersRef/ref 集合。 */
   view: any;
-  /** 弹窗开合。 */
-  dialogStore: any;
   /** 凭据状态 store，组件按切片订阅。 */
   credentialsStatePort: any;
-  /** 从弹窗跳到「设置 → API 设置」。 */
-  openSettingsHubApiTab?: () => void;
 };
 
 const CredentialsServicesContext = createContext<CredentialsServices | null>(null);

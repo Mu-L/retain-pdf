@@ -275,7 +275,6 @@ export function mountBrowserCredentialsFeature({
     validateOcr: validation.handleOcrValidate,
     validateDeepSeek: validation.handleDeepSeekValidate,
     save: saveFlow.handleSave,
-    open: dialogFlow.openBrowserCredentialsDialog,
     activateCredentialTab: dialogFlow.activateCredentialTab,
     changeProvider: (event) => {
       if (saveFlow.isSaving()) return;
@@ -319,7 +318,6 @@ export function mountBrowserCredentialsFeature({
     ensureOcrCredentialsReady: validation.ensureOcrReady,
     hasBrowserCredentials: access.hasBrowserCredentials,
     hasOcrCredentials: access.hasOcrCredentials,
-    openBrowserCredentialsDialog: dialogFlow.openBrowserCredentialsDialog,
     prepareCredentialsPanels: dialogFlow.prepareCredentialsPanels,
     refreshDeepSeekBalance: validation.refreshDeepSeekBalance,
     setDialogStatus: viewPort.setDialogStatus,

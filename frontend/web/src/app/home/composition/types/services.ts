@@ -176,7 +176,6 @@ export type HomeServicesDomains = {
   credentials: {
     browserCredentialsFeature: BrowserCredentialsFeature;
     credentialsView: CredentialsViewBag;
-    credentialsDialogStore: DialogStore;
     settingsHubDialogStore: DialogStore;
   };
   glossaries: {

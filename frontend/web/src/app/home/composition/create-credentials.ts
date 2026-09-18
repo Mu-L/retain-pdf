@@ -68,13 +68,13 @@ export function createCredentials({
 }: CreateCredentialsArgs): {
   browserCredentialsFeature: BrowserCredentialsFeature;
   credentialsView: CredentialsViewBag;
-  credentialsDialogStore: DialogStore;
   settingsHubDialogStore: DialogStore;
 } {
-  const credentialsDialogStore = createDialogStore();
   // payload 承载"打开时激活哪个 tab"（api/glossary/update），默认 api。
   const settingsHubDialogStore = createDialogStore({ tab: "api" });
-  const credentialsView = createCredentialsViewFeature({ dialogStore: credentialsDialogStore });
+  const credentialsView = createCredentialsViewFeature({
+    closeDialog: () => settingsHubDialogStore.close(),
+  });
 
   // 返回 Promise 并由调用方 await：桌面端这条是异步 IPC 写 snapshot，
   // 此前 `void` 掉会让模型名 / API URL / 并发数 / 各服务商 profile 的落盘
@@ -155,13 +155,7 @@ export function createCredentials({
     },
     runtimeEnvPort: createCredentialRuntimeEnvPort(legacyState),
     uploadStatePort,
-    // 首配保存成功后 save-flow 会调 viewPort.closeDialog() 自动收起。宿主已经
-    // 换成设置弹窗，所以这里把关闭指过去——留着原来那个只会关一个没人渲染的
-    // store，表现为"存完了窗还开着"。
-    viewPort: {
-      ...credentialsView.viewPort,
-      closeDialog: () => settingsHubDialogStore.close(),
-    },
+    viewPort: credentialsView.viewPort,
     dialogElementsPort: credentialsView.elementsPort,
     setupModePort: {
       currentSetupMode: () => credentialsView.store.getSnapshot().setupMode,
@@ -171,7 +165,6 @@ export function createCredentials({
   return {
     browserCredentialsFeature,
     credentialsView: credentialsView as CredentialsViewBag,
-    credentialsDialogStore,
     settingsHubDialogStore,
   };
 }
