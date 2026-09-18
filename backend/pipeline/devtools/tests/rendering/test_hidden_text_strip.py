@@ -92,6 +92,22 @@ def test_text_object_is_hidden_when_effective_opacity_is_zero() -> None:
     assert _text_object_is_hidden(text_object) is False
 
 
+def _shows_text(content_stream: bytes, text: str) -> bool:
+    """内容流里还显示着这段文字吗——十六进制串和字面串都算。
+
+    qpdf 重新序列化字符串时用哪种形式随版本变：pikepdf 7.2 写
+    `<76697369626c652074657874>`，10.13 写 `(visible text)`。本用例要钉的是
+    「可见文字保留、隐藏文字删掉」，不是它被编码成哪一种。
+
+    只认其中一种的话，升 pikepdf 会让这个用例凭空变红，而被测行为完全正确——
+    那种红比不测还糟，它会训练人去无视它。
+    """
+    raw = text.encode("latin-1")
+    literal = b"(" + raw + b")"
+    hexed = b"<" + raw.hex().encode("ascii") + b">"
+    return literal in content_stream or hexed in content_stream
+
+
 def test_strip_removes_zero_opacity_text_but_keeps_opaque_text() -> None:
     pdf = pikepdf.Pdf.new()
     page = pdf.add_blank_page(page_size=[300, 400])
@@ -111,7 +127,5 @@ def test_strip_removes_zero_opacity_text_but_keeps_opaque_text() -> None:
     content_stream, removed = _strip_hidden_text_objects_from_page(page)
     assert removed >= 1
     assert content_stream is not None
-    visible_hex = b"<" + "visible text".encode("latin-1").hex().encode("ascii") + b">"
-    hidden_hex = b"<" + "hidden text".encode("latin-1").hex().encode("ascii") + b">"
-    assert visible_hex in content_stream
-    assert hidden_hex not in content_stream
+    assert _shows_text(content_stream, "visible text")
+    assert not _shows_text(content_stream, "hidden text")
