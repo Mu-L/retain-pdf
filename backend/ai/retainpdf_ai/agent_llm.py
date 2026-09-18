@@ -185,7 +185,16 @@ def build_deepseek_chat_fn(
     def chat(
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
+        *,
+        stream_answer: bool = True,
     ) -> dict[str, Any]:
+        """stream_answer=False:这一轮的正文不推给浏览器。
+
+        调用方有时**在发起这一轮之前**就知道「如果这轮不调工具，它的回答会被丢弃」
+        （见 retrieval_agent 的强制检索闸）。而本函数末尾对没有 tool_calls 的轮次
+        一定会 flush，于是一段注定被丢弃的答案已经流到了用户屏幕上，随后真答案再流
+        一遍——用户看到的是「废弃答案 + 真答案」拼接。
+        """
         if request_control is not None:
             request_control.raise_if_stopped()
         body: dict[str, Any] = {
@@ -229,7 +238,11 @@ def build_deepseek_chat_fn(
                 try:
                     if response.status_code >= 400:
                         raise friendly_llm_error(response.status_code)
-                    message = assemble_streaming_message(response.iter_lines(), on_delta, request_control)
+                    message = assemble_streaming_message(
+                        response.iter_lines(),
+                        on_delta if stream_answer else None,
+                        request_control,
+                    )
                     if request_control is not None:
                         request_control.raise_if_stopped()
                     return message
