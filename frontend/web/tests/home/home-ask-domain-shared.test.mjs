@@ -8,7 +8,10 @@ test("domain/ai describeToolEvent: canonical labels and fallbacks", () => {
   assert.equal(ai.describeToolEvent("search_markdown"), "检索 Markdown");
   assert.equal(ai.describeToolEvent({ tool: "read_markdown_chunk" }), "阅读 Markdown 片段");
   assert.equal(ai.describeToolEvent({ event: "list_documents" }), "确认文档信息");
-  assert.equal(ai.describeToolEvent({ type: "read_blocks" }), "阅读相关段落");
+  // 不再看 `type`。后端事件的 `type` 永远是信封名（`agent_tool`），不是工具名，
+  // 而这条宽松兜底正是界面上出现「执行 agent_tool」的原因。
+  assert.equal(ai.describeToolEvent({ type: "read_blocks" }), "处理中");
+  assert.equal(ai.describeToolEvent({ type: "agent_tool", tool: "read_blocks" }), "阅读相关段落");
   assert.equal(ai.describeToolEvent({ tool: "unknown_tool" }), "执行 unknown_tool");
   assert.equal(ai.describeToolEvent({}), "处理中");
   assert.equal(ai.describeToolEvent(null), "处理中");
@@ -19,6 +22,10 @@ test("domain/ai describeToolEvent: canonical labels and fallbacks", () => {
     read_blocks: "阅读相关段落",
     search_favorites: "查找收藏",
     search_fulltext: "检索文档内容",
+    calculate_expression: "计算表达式",
+    calculate_statistics: "计算统计量",
+    analyze_table: "分析文档表格",
+    generate_chart: "生成图表",
   });
 });
 

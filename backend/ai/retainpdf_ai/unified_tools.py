@@ -222,6 +222,10 @@ def agent_tool_event(
             summary = f"Calculation {result['calculation_id']} completed"
     event = {
         "type": "agent_tool",
+        # 工具名要发出去。前端按工具名查它自己那张中文标签表,拿不到就退到信封的
+        # `type`——于是界面上显示「执行 agent_tool」,把 SSE 的事件类型当成了工具名。
+        # `title` 是英文的,给日志和非中文客户端用,不适合直接上界面。
+        "tool": name,
         "tool_call_id": tool_call_id[:256],
         "kind": kind,
         "title": _tool_title(name),

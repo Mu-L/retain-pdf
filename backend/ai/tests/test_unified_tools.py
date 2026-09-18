@@ -198,8 +198,12 @@ def test_agent_tool_event_does_not_echo_arguments_or_result_values():
         {"calculation_id": "calc-a", "value": 123, "secret": "do-not-echo"},
     )
 
+    # `tool` 是工具自己的名字,既不是参数也不是结果——`title` 本来就是它的英文说法。
+    # 前端按它查中文标签表;不发的话前端会退到信封的 `type`,界面上显示
+    # 「执行 agent_tool」。
     assert event == {
         "type": "agent_tool",
+        "tool": "calculate_expression",
         "tool_call_id": "tool-1",
         "kind": "calculation",
         "title": "Calculate expression",
@@ -207,6 +211,8 @@ def test_agent_tool_event_does_not_echo_arguments_or_result_values():
         "summary": "Calculation calc-a completed",
         "calculation_id": "calc-a",
     }
+    assert "do-not-echo" not in json.dumps(event, ensure_ascii=False)
+    assert "123" not in json.dumps({k: v for k, v in event.items() if k != "summary"})
 
 
 def test_fx_tool_command_is_an_exact_base64url_json_grammar():
