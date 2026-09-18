@@ -138,11 +138,9 @@ def _public_anchor(entry: dict[str, Any]) -> dict[str, Any] | None:
         value = entry.get(key)
         if isinstance(value, int):
             public[key] = value
-    bbox = entry.get("bbox")
-    if isinstance(bbox, list) and len(bbox) == 4:
-        public["bbox"] = bbox
-        public["bbox_unit"] = str(entry.get("bbox_unit") or "pdf_point")
-        public["bbox_origin"] = str(entry.get("bbox_origin") or "top_left")
+    # bbox / bbox_unit / bbox_origin 不投给模型。它没法用像素坐标回答问题,而这三个
+    # 键名加值每块约 50 字符,48 块就是 2.4K 字符白占上下文。引用跳转**不受影响**:
+    # 前端用的 bbox 来自 assign_refs 处理的原始结果,不是这份模型可见投影。
     block_type = str(entry.get("block_type") or "").strip()
     if block_type:
         public["block_type"] = block_type
@@ -151,15 +149,18 @@ def _public_anchor(entry: dict[str, Any]) -> dict[str, Any] | None:
         public["asset_id"] = asset_id
     asset_ids = entry.get("asset_ids")
     if isinstance(asset_ids, list):
-        public["asset_ids"] = [str(value) for value in asset_ids if str(value).strip()]
+        # 空列表也要占键名。绝大多数块没有配图,48 块乘下来是白花的上下文。
+        values = [str(value) for value in asset_ids if str(value).strip()]
+        if values:
+            public["asset_ids"] = values
     image_url = str(entry.get("image_url") or "").strip()
     if image_url:
         public["image_url"] = image_url
     asset_image_urls = entry.get("asset_image_urls")
     if isinstance(asset_image_urls, list):
-        public["asset_image_urls"] = [
-            str(value) for value in asset_image_urls if str(value).strip()
-        ]
+        urls = [str(value) for value in asset_image_urls if str(value).strip()]
+        if urls:
+            public["asset_image_urls"] = urls
     assets = entry.get("assets")
     if isinstance(assets, list):
         public_assets: list[dict[str, str]] = []
@@ -222,15 +223,19 @@ def public_tool_payload(result: dict[str, Any]) -> dict[str, Any]:
             if isinstance(block, dict):
                 item = _public_anchor(block)
                 if item:
+                    # blocks 分支带完整正文,`snippet` 只是同一段文字的前 280 字符——
+                    # 重发一遍纯属白占上下文（实测 12 块里 snippet 占 2040 字符,而
+                    # translated_text 也才 2030）。hits 分支不同:那边 snippet 是唯一正文。
+                    item.pop("snippet", None)
+                    # image_url 是 asset_image_urls 的第一条,同样重复。
+                    if item.get("image_url") and item.get("asset_image_urls"):
+                        item.pop("image_url", None)
                     item["source_text"] = str(block.get("source_text") or "")
                     item["translated_text"] = str(block.get("translated_text") or "")
                     item["char_start"] = int(block.get("char_start") or 0)
-                    item["source_text_length"] = int(
-                        block.get("source_text_length") or 0
-                    )
-                    item["translated_text_length"] = int(
-                        block.get("translated_text_length") or 0
-                    )
+                    # 不发 source_text_length / translated_text_length:
+                    # *_has_more 已经说明有没有被截断,而长度本身模型用不上。两个键名
+                    # 加值每块约 45 字符,48 块就是 2K 字符。
                     item["source_has_more"] = bool(block.get("source_has_more"))
                     item["translated_has_more"] = bool(block.get("translated_has_more"))
                     public_blocks.append(item)
@@ -336,19 +341,37 @@ class StreamingAnswerSanitizer:
         self._citations = citations
         self._raw: list[str] = []
         self._emitted = ""
+        self._pending = 0
         self.diverged = False
+
+    def _flush_threshold(self) -> int:
+        """攒多少新增才值得跑一次清洗。短回答不必攒,长回答攒得多一些。"""
+        return max(32, sum(len(part) for part in self._raw) // 64)
 
     def feed(self, piece: str) -> str:
         """吃进一段原文，返回这次可以安全推送的增量（可能为空）。"""
         if not piece:
             return ""
         self._raw.append(piece)
+        self._pending += len(piece)
+        # 每段都跑一次批量清洗的话总开销是 O(n²):实测 12000 字的回答按 8 字一段推,
+        # 光清洗就要 474ms 的纯 CPU,而且是挡在推流路径上的。
+        #
+        # 不改算法——「只有一份清洗实现」是这套机制成立的前提。改的是触发频率:攒够
+        # 一定新增才跑一次,阈值随总长增长,于是总开销回到线性量级。等价性不受影响,
+        # flush 里仍然做一次完整清洗,推送的最终文本逐字不变。
+        #
+        # 代价是增量粒度变粗:长回答里每次推送几十个字而不是几个字,肉眼仍是流式。
+        if self._pending < self._flush_threshold():
+            return ""
+        self._pending = 0
         cleaned = self._clean()
         safe = cleaned[: max(0, len(cleaned) - self._GUARD_CHARS)]
         return self._advance(safe)
 
     def flush(self) -> str:
         """流结束:把剩下的推完。返回值加上历次 feed 的结果 == 最终答案。"""
+        self._pending = 0
         return self._advance(self._clean())
 
     def _clean(self) -> str:

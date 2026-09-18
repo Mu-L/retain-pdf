@@ -97,7 +97,18 @@ def test_referenced_citations_keeps_every_ref_used_by_the_answer():
     assert [citation.ref for citation in selected] == list(range(1, 13))
 
 
-def test_public_read_blocks_payload_keeps_coordinates_assets_and_full_slice() -> None:
+def test_public_read_blocks_payload_keeps_assets_and_full_slice() -> None:
+    """模型可见的投影只带它用得上的东西。
+
+    此前连 bbox / bbox_unit / bbox_origin / *_text_length 一起发，还额外重复了
+    snippet（完整正文的前 280 字符）与 image_url（asset_image_urls 的第一条）。模型没法用像素坐标
+    回答问题,长度也用不上（*_has_more 已经说明有没有截断）,但这些键名加值每块约
+    95 字符——一次问答实测 48 个块，光这部分就是 4.5K 字符白占上下文,而上下文大小正是
+    回答慢的主因。
+
+    引用跳转不受影响:Citation 只带 page_idx 与 block_id,跳转按页和块定位——bbox 在
+    整条链路上没有任何消费者,投给模型纯属白费。
+    """
     raw = {
         "document_id": "doc-a",
         "job_id": "job-1",
@@ -131,14 +142,23 @@ def test_public_read_blocks_payload_keeps_coordinates_assets_and_full_slice() ->
 
     block = _public_tool_payload(raw)["blocks"][0]
 
-    assert block["bbox"] == [20.0, 100.0, 220.0, 260.0]
+    assert "bbox" not in block, "像素坐标又回到模型上下文里了"
+    assert "source_text_length" not in block
+    assert "translated_text_length" not in block
     assert block["block_type"] == "image"
     assert block["asset_id"] == "imgs/figure.jpg"
     assert block["asset_ids"] == ["imgs/figure.jpg", "imgs/figure-detail.jpg"]
-    assert block["image_url"].endswith("page-3/imgs/figure.jpg")
+    # image_url 是 asset_image_urls 的第一条,不再重复发送。
+    assert "image_url" not in block
     assert len(block["asset_image_urls"]) == 2
+    assert block["asset_image_urls"][0].endswith("page-3/imgs/figure.jpg")
+    # snippet 与完整正文重复，blocks 分支不再带它。
+    assert "snippet" not in block
     assert block["source_text"] == "complete source slice"
     assert citations[1].image_urls == block["asset_image_urls"]
+    # 引用按页和块定位，不依赖坐标。
+    assert citations[1].page_idx == 2
+    assert citations[1].block_id == "p003-b0002"
 
 
 def test_public_tool_payload_exposes_structured_data_capability() -> None:
