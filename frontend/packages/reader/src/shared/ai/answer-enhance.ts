@@ -167,13 +167,32 @@ export function pickCitationsForAnswer(
  * Fenced/inline code and existing links remain untouched, so streaming renders never need
  * a post-render DOM replacement that Markstream can overwrite on its next batch.
  */
+// 引用注入只能作用于正文。这些片段里出现的 `[1]` 不是引用标记:
+//
+// - `$...$` / `$$...$$`：数学下标带方括号极常见。注进去之后
+//   `$E_{[1]} = mc^2$` 变成 `$E_{[1](#retainpdf-citation-1)} = mc^2$`，
+//   KaTeX 直接报 ParseError，整条公式渲染成红色原文。
+// - 图片 alt 与链接地址：注进去会把 URL 改坏。
+//
+// 代码围栏和行内 code 原本就挡住了，漏的是这三类。和后端「术语保护不许伸进公式」
+// 是同一类问题——注入式改写必须先知道哪些区间不属于正文。
+const PROTECTED_FROM_CITATION_RE = new RegExp(
+  "(" + [
+    "`+[^`\\n]*?`+",                          // 行内 code
+    "\\$\\$[\\s\\S]*?\\$\\$",                    // 块级公式
+    "(?<!\\\\)\\$(?:\\\\.|[^$\\\\\\n])+(?<!\\\\)\\$",      // 行内公式
+    "!?\\[(?:[^\\][]|\\[[^\\]]*\\])*\\]\\([^)]*\\)",       // 图片与链接（含 URL）
+  ].join("|") + ")",
+  "g",
+);
+
 export function decorateCitationMarkdown(
   markdown: string,
   citationByRef: Map<string, AiCitationLike>,
 ): string {
   if (!citationByRef.size || !markdown) return markdown;
   const decoratePlainText = (value: string) => value
-    .split(/(`+[^`\n]*?`+)/g)
+    .split(PROTECTED_FROM_CITATION_RE)
     .map((part, index) => {
       if (index % 2 === 1) return part;
       return part.replace(/(?<!!)\[(\d+)\](?!\s*\()/g, (marker, ref: string) => (

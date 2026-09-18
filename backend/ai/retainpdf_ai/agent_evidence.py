@@ -12,6 +12,8 @@ BLOCK_ID_BRACKET_RE = re.compile(r"\[\s*(p\d+[-_]b\d+)\s*\]", re.IGNORECASE)
 BLOCK_ID_BARE_RE = re.compile(r"(?<![\w/])(p\d+[-_]b\d+)(?![\w/])", re.IGNORECASE)
 MARKDOWN_ID_BRACKET_RE = re.compile(r"\[\s*(md-\d+)\s*\]", re.IGNORECASE)
 MARKDOWN_ID_BARE_RE = re.compile(r"(?<![\w/])(md-\d+)(?![\w/])", re.IGNORECASE)
+# 围栏块（含流式末尾未闭合的）与行内 code。
+CODE_SEGMENT_RE = re.compile(r"```[\s\S]*?(?:```|$)|`[^`\n]+`")
 
 
 def _citation_image_urls(entry: dict[str, Any]) -> list[str]:
@@ -269,18 +271,45 @@ def sanitize_answer_text(answer: str, citations: dict[int, Citation]) -> str:
         if citation.block_id
     }
 
-    def replace_identifier(match: re.Match[str]) -> str:
+    def replace_bracketed(match: re.Match[str]) -> str:
+        """`[p002-b0004]` 明显是引用标记:映射得到就换成 `[n]`,否则删掉。"""
         key = match.group(1).lower().replace("_", "-")
         ref = by_block.get(key)
         return f"[{ref}]" if ref is not None else ""
 
-    cleaned = BLOCK_ID_BRACKET_RE.sub(replace_identifier, answer)
-    cleaned = BLOCK_ID_BARE_RE.sub(replace_identifier, cleaned)
-    cleaned = MARKDOWN_ID_BRACKET_RE.sub(replace_identifier, cleaned)
-    cleaned = MARKDOWN_ID_BARE_RE.sub(replace_identifier, cleaned)
+    def replace_bare(match: re.Match[str]) -> str:
+        """裸标识符只在**映射得到**时才动,映射不到就原样留着。
+
+        以前无条件按形状删除,于是正文被吃掉:`机型 MD-11 与 MD-80 的对比` 变成
+        `机型 与 的对比`、`引脚 P1-B2 接地` 变成 `引脚 接地`。这两个正则大小写不敏感
+        又没有词表,机型号、引脚、料号、图表编号全都撞得上。
+
+        代价是无法映射的内部 id 会留在正文里——看得见,但比静默删掉用户内容好得多。
+        """
+        key = match.group(1).lower().replace("_", "-")
+        ref = by_block.get(key)
+        return f"[{ref}]" if ref is not None else match.group(0)
+
+    # 代码段整段抽出后再清洗。空白压缩会把 Python 缩进和表格对齐压平,而这份文本是
+    # 落库的权威版本——前端 sanitize-answer.ts 早就加了同样的保护,后端没跟上,前端
+    # 再补也晚了。
+    code_slots: list[str] = []
+
+    def _stash_code(match: re.Match[str]) -> str:
+        code_slots.append(match.group(0))
+        return f"\x00CODE{len(code_slots) - 1}\x00"
+
+    cleaned = CODE_SEGMENT_RE.sub(_stash_code, answer)
+    cleaned = BLOCK_ID_BRACKET_RE.sub(replace_bracketed, cleaned)
+    cleaned = BLOCK_ID_BARE_RE.sub(replace_bare, cleaned)
+    cleaned = MARKDOWN_ID_BRACKET_RE.sub(replace_bracketed, cleaned)
+    cleaned = MARKDOWN_ID_BARE_RE.sub(replace_bare, cleaned)
     cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
     cleaned = re.sub(r" *\n", "\n", cleaned)
-    return cleaned.strip()
+    cleaned = cleaned.strip()
+    for index, segment in enumerate(code_slots):
+        cleaned = cleaned.replace(f"\x00CODE{index}\x00", segment)
+    return cleaned
 
 
 def referenced_citations(
