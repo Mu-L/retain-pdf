@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 
 
-CMARKER_VERSION = "0.1.8"
+CMARKER_VERSION = "0.1.10"
 MITEX_VERSION = "0.2.7"
 OUTPUT_LIMIT = 2_000
 

@@ -31,8 +31,8 @@ def test_order_check_is_manual_and_never_starts_live_evaluation():
 def test_formula_runtime_matches_repository_version():
     action = (ROOT / ".github/actions/setup-test-typst/action.yml").read_text()
     sample = (ROOT / ".github/workflows/translate-sample-pdf.yml").read_text()
-    assert 'TYPST_VERSION: "0.14.2"' in sample
-    assert "/download/v0.14.2/" in action
+    assert 'TYPST_VERSION: "0.15.1"' in sample
+    assert "/download/v0.15.1/" in action
     assert "curl --fail" in action
     assert '"$GITHUB_ENV"' in action
     assert "TYPST_BIN=" in action

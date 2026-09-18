@@ -29,7 +29,7 @@ The runner does not launch `live_smoke.py` or promptfoo. Live evaluations requir
 authorization. The main `Tests` workflow runs this full suite in normal order;
 the manual `Translation Offline Order Check` workflow runs reverse file order.
 Neither workflow requests provider secrets or launches a live evaluation. CI
-installs Typst 0.14.2 for the real formula-compilation regression; locally install
+installs Typst 0.15.1 for the real formula-compilation regression; locally install
 Typst or set `TYPST_BIN` to its executable.
 
 Keep these layers separate: component tests locate individual rules; static golden
