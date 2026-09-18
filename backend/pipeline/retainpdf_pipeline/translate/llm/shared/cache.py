@@ -67,7 +67,12 @@ def _has_balanced_inline_math_delimiters(text: str) -> bool:
     return len(UNESCAPED_INLINE_DOLLAR_RE.findall(text or "")) % 2 == 0
 
 
-UNRESTORED_PROTECTED_TOKEN_RE = re.compile(r"<[futnvc]\d+-[0-9a-z]{3}/>")
+# 两种形状都要认。模型把 token 当成数学符号时会把尖括号改写掉:实测译文里出现过
+# `\langle f5-4bb\rangle`——原文是 `<f5-4bb/>`。还原按原样匹配,匹配不上,于是那条
+# 公式的内容整个消失,而只认原样的护栏放它进了缓存。
+UNRESTORED_PROTECTED_TOKEN_RE = re.compile(
+    r"(?:<|\\langle\s*|&lt;)\s*[futnvc]\d+-[0-9a-z]{3}\s*(?:/>|\\rangle|&gt;|>)"
+)
 
 
 def has_unrestored_protected_tokens(text: str) -> bool:

@@ -20,6 +20,9 @@
 `$A _ { I } ( { $\\bf R$ } )` 这种嵌套 `$`。
 
 三、模型会把 token 当成数学符号改写尖括号,还原对不上,那段内容整个消失。
+
+而那 55% 本身是度量假象——见
+test_equivalent_rewrites_are_not_counted_as_dropped_commands。
 """
 
 from __future__ import annotations
@@ -38,6 +41,9 @@ from retainpdf_pipeline.translate.llm.shared.cache import (  # noqa: E402
 )
 from retainpdf_pipeline.translate.llm.shared.orchestration.metadata import (  # noqa: E402
     restore_runtime_term_tokens,
+)
+from retainpdf_pipeline.translate.llm.validation.math_safety import (  # noqa: E402
+    dropped_latex_commands,
 )
 
 
@@ -104,3 +110,37 @@ def test_translation_with_leaked_tokens_never_reaches_the_cache() -> None:
     assert not has_unrestored_protected_tokens("普通译文,没有任何占位符")
     # 形近但不是 token 的写法不能误伤
     assert not has_unrestored_protected_tokens("区间 <f1> 与 a<b 比较")
+
+
+def test_guard_also_catches_tokens_whose_brackets_the_model_rewrote() -> None:
+    """token 被改写成数学写法,同样算泄漏。
+
+    实测译文里出现过 `$\\langle f5-4bb\\rangle / \\langle f6-ec4\\rangle$`,原文是
+    `<f5-4bb/>`——模型在公式里把尖括号当成了 `\\langle`/`\\rangle`。还原按原样匹配,
+    对不上,`\\partial \\pmb{H}(\\mathbf{R}_r)` 整段内容就这么消失了,而只认原样的
+    护栏放它进了缓存。
+    """
+    assert has_unrestored_protected_tokens(r"$\langle f5-4bb\rangle / \langle f6-ec4\rangle$")
+    assert has_unrestored_protected_tokens(r"$\langle t1-abc\rangle$")
+    # 真正的 \langle 数学写法不能误伤
+    assert not has_unrestored_protected_tokens(r"内积 $\langle \psi | \phi \rangle$ 与 $\langle n \rangle$")
+
+
+def test_equivalent_rewrites_are_not_counted_as_dropped_commands() -> None:
+    """公式命令丢失的检测只数语义损失,不数等价改写。
+
+    第一版把两者混在一起,虚报得离谱:一个真实任务报「158 条含公式、79 条丢命令
+    （50%）」,其中 140 次是 `A ^ { \\prime }` 写成 `A'`——同一个数学对象;`\\bf` 写成
+    `\\mathbf` 同理。正是这个数字支撑了「必须锁住公式」的判断,而那套机制把整页渲染
+    搞崩了。虚高的指标不只是没用,它会指错方向。
+
+    同时不能把真信号一起放过:`\\overset{\\cdot}{k}` 变成 `k` 是另一个量。
+    """
+    assert dropped_latex_commands(r"$A ^ { \prime }$", "$A'$") == {}
+    assert dropped_latex_commands(r"$\bf R$", r"$\mathbf{R}$") == {}
+    assert dropped_latex_commands(r"$\scriptstyle x$", "$x$") == {}
+
+    assert dropped_latex_commands(r"$\overset { \cdot } { k }$", "$k$") == {"overset": 1, "cdot": 1}
+    assert dropped_latex_commands(r"$\bar { x }$", "$x$") == {"bar": 1}
+    # 整个字体命令消失仍要报——折叠的是拼法,不是存在与否
+    assert dropped_latex_commands(r"$\bf R$", "$R$") == {"mathbf": 1}
