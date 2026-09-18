@@ -11,6 +11,8 @@ from retainpdf_pipeline.translate.llm.validation.placeholder_tokens import PLACE
 from retainpdf_pipeline.translate.llm.validation.placeholder_tokens import placeholder_sequence
 from retainpdf_pipeline.translate.core.payload.formula_protection import protected_map_from_formula_map
 from retainpdf_pipeline.translate.core.payload.term_protection import protect_glossary_terms
+from retainpdf_pipeline.translate.core.payload.span_formula_protection import iter_ocr_formula_texts
+from retainpdf_pipeline.translate.core.payload.span_formula_protection import protect_ocr_formulas
 
 
 def repair_safe_duplicate_placeholders(source_text: str, translated_text: str) -> str | None:
@@ -91,12 +93,25 @@ def item_with_runtime_hard_glossary(item: dict, glossary_entries: list[dict] | l
         normalized_map = protected_map_from_formula_map(item.get("translation_unit_formula_map") or [])
     elif not normalized_map and item.get("formula_map"):
         normalized_map = protected_map_from_formula_map(item.get("formula_map") or [])
-    protected_text, protected_map = protect_glossary_terms(
-        unit_source_text(item),
-        glossary_entries=glossary_entries,
+    source_text = unit_source_text(item)
+    # 先按 OCR 标注锁住行内公式，再保护术语——两者共用一份 protected_map，
+    # token 序号自然衔接。
+    #
+    # 为什么公式要在这里锁：direct_typst 把扁平的 source_text 交给模型，让它重新
+    # 识别 OCR 早已精确标注过的公式并自己加 `$...$`。模型一动手就会顺带改没坏的
+    # 东西——实测 236 个含公式条目里 132 个丢了 LaTeX 命令（\mathrm 62 次、
+    # \mathsf 55 次、\bar 25 次）。锁住之后模型碰不到，`$` 由还原时确定性补上。
+    protected_text, protected_map = protect_ocr_formulas(
+        source_text,
+        iter_ocr_formula_texts(item),
         existing_map=normalized_map,
     )
-    if protected_text == unit_source_text(item) and protected_map == normalized_map:
+    protected_text, protected_map = protect_glossary_terms(
+        protected_text,
+        glossary_entries=glossary_entries,
+        existing_map=protected_map,
+    )
+    if protected_text == source_text and protected_map == normalized_map:
         return dict(item)
     updated = dict(item)
     updated["translation_unit_protected_source_text"] = protected_text
