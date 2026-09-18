@@ -312,6 +312,64 @@ def sanitize_answer_text(answer: str, citations: dict[int, Citation]) -> str:
     return cleaned
 
 
+class StreamingAnswerSanitizer:
+    """把 sanitize_answer_text 的结果一边流一边推出去。
+
+    要解决的问题:流式路径上已经推给浏览器的文本改不掉（AI SDK 6 没有 reset-step），
+    而最终答案是清洗过的——清洗会**重写**文本（`[p002-b0004]` → `[1]`、空白压缩），
+    重写之后它不再是已流文本的前缀,前端的 `startsWith` 判据不成立,于是整份清洗结果
+    被丢弃,用户看到的是未清洗原文:内部 block id 裸露、行内引用按钮一个都生成不出来。
+
+    做法是让流出去的文本**就是**最终文本。这里不重写一套增量清洗规则——两份实现
+    早晚漂移,而漂移的表现正是本类要消灭的那个 bug。取而代之:每收到一段就对**累积
+    的原文**跑一次批量清洗,只推送「不会再被后续输入改动」的那一段前缀。
+
+    `_GUARD_CHARS` 就是「不会再被改动」的安全边界:结尾可能是半个标记
+    （`...[p002-` 还差 `b0004]`），也可能是等着被压缩的空白。留足尾巴，等下一段到了
+    再决定。批量清洗是 O(n)，每段跑一次是 O(n²)，答案只有几 KB、分段上百，可以忽略。
+    """
+
+    # 最长的标记形如 `[p0001-b00001]`，再留一倍余量。
+    _GUARD_CHARS = 48
+
+    def __init__(self, citations: dict[int, Citation]) -> None:
+        self._citations = citations
+        self._raw: list[str] = []
+        self._emitted = ""
+        self.diverged = False
+
+    def feed(self, piece: str) -> str:
+        """吃进一段原文，返回这次可以安全推送的增量（可能为空）。"""
+        if not piece:
+            return ""
+        self._raw.append(piece)
+        cleaned = self._clean()
+        safe = cleaned[: max(0, len(cleaned) - self._GUARD_CHARS)]
+        return self._advance(safe)
+
+    def flush(self) -> str:
+        """流结束:把剩下的推完。返回值加上历次 feed 的结果 == 最终答案。"""
+        return self._advance(self._clean())
+
+    def _clean(self) -> str:
+        return sanitize_answer_text("".join(self._raw), self._citations)
+
+    def _advance(self, target: str) -> str:
+        if self._emitted.startswith(target):
+            # 安全窗口回缩了（新输入让 guard 多吃掉几个字符），内容本身一致,
+            # 这次没有可推送的增量。不是背离。
+            return ""
+        if not target.startswith(self._emitted):
+            # 清洗结果不再以已推送内容开头。理论上不该发生（留了 guard），真发生了
+            # 也不能反悔——已经在用户屏幕上了。停止推送,让前端退回它原有的
+            # `startsWith` 分支,表现不比修复前更差,并把这次背离记下来。
+            self.diverged = True
+            return ""
+        delta = target[len(self._emitted) :]
+        self._emitted = target
+        return delta
+
+
 def referenced_citations(
     answer: str,
     citations: dict[int, Citation],

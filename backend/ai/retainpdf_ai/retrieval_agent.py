@@ -8,6 +8,7 @@ from collections.abc import Callable
 from typing import Any
 
 from .agent_evidence import (
+    StreamingAnswerSanitizer,
     assign_refs,
     public_tool_payload,
     referenced_citations,
@@ -109,8 +110,15 @@ class RetrievalAgent:
             # 注定被丢弃的正文不推给浏览器,否则用户会看到「废弃答案 + 真答案」拼接,
             # 而且下面那句「尚未完成文档检索」的护栏文案永远排在它后面。
             will_discard_bare_answer = requires_document_search and not searched_document
+            # 清洗器按轮新建:它累积的是**这一轮**的原文,而最终答案也只来自一轮。
+            # 引用映射此刻已经齐了——最终答案那一轮按定义不再调工具，所以
+            # citations 在它开始流之前就不会再变。
             message = _chat_round(
-                chat, messages, tool_specs, stream_answer=not will_discard_bare_answer
+                chat,
+                messages,
+                tool_specs,
+                stream_answer=not will_discard_bare_answer,
+                delta_sanitizer=StreamingAnswerSanitizer(citations),
             )
             tool_calls = message.get("tool_calls") or []
             if not tool_calls:
@@ -277,22 +285,27 @@ def _chat_round(
     tools: list[dict[str, Any]],
     *,
     stream_answer: bool,
+    delta_sanitizer: Any = None,
 ) -> dict[str, Any]:
     """调用 chat,能关推流就关。
 
     chat_fn 是可插拔的（测试注入自己的双替身,别的 runtime 也有各自实现）,所以先看
     它认不认这个关键字,不认就照常调用——退化成「照旧推流」,不会因为签名不匹配而报错。
     """
-    if stream_answer or not _accepts_stream_answer(chat):
-        return chat(messages, tools)
-    return chat(messages, tools, stream_answer=False)
+    supported = _supported_chat_kwargs(chat)
+    extra: dict[str, Any] = {}
+    if not stream_answer and "stream_answer" in supported:
+        extra["stream_answer"] = False
+    if delta_sanitizer is not None and "delta_sanitizer" in supported:
+        extra["delta_sanitizer"] = delta_sanitizer
+    return chat(messages, tools, **extra)
 
 
-def _accepts_stream_answer(chat: Any) -> bool:
+def _supported_chat_kwargs(chat: Any) -> frozenset[str]:
     try:
-        return "stream_answer" in inspect.signature(chat).parameters
+        return frozenset(inspect.signature(chat).parameters)
     except (TypeError, ValueError):
-        return False
+        return frozenset()
 
 
 def _request_required_document_search(

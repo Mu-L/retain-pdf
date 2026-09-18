@@ -187,6 +187,7 @@ def build_deepseek_chat_fn(
         tools: list[dict[str, Any]],
         *,
         stream_answer: bool = True,
+        delta_sanitizer: Any = None,
     ) -> dict[str, Any]:
         """stream_answer=False:这一轮的正文不推给浏览器。
 
@@ -238,11 +239,30 @@ def build_deepseek_chat_fn(
                 try:
                     if response.status_code >= 400:
                         raise friendly_llm_error(response.status_code)
+                    raw_on_delta = on_delta if stream_answer else None
+                    # 推给浏览器的必须**就是**最终文本。已流出的改不掉（AI SDK 6 没有
+                    # reset-step），而最终答案是清洗过的——不在这里清洗，前端的
+                    # startsWith 判据就不成立，整份清洗结果被丢弃。
+                    streamed_on_delta = raw_on_delta
+                    if raw_on_delta is not None and delta_sanitizer is not None:
+                        def streamed_on_delta(piece: str, _emit=raw_on_delta) -> None:
+                            cleaned = delta_sanitizer.feed(piece)
+                            if cleaned:
+                                _emit(cleaned)
+
                     message = assemble_streaming_message(
                         response.iter_lines(),
-                        on_delta if stream_answer else None,
+                        streamed_on_delta,
                         request_control,
                     )
+                    if (
+                        raw_on_delta is not None
+                        and delta_sanitizer is not None
+                        and not message.get("tool_calls")
+                    ):
+                        tail = delta_sanitizer.flush()
+                        if tail:
+                            raw_on_delta(tail)
                     if request_control is not None:
                         request_control.raise_if_stopped()
                     return message
