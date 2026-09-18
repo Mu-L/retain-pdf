@@ -3,7 +3,7 @@ from __future__ import annotations
 from retainpdf_pipeline.translate.llm.result_payload import is_internal_placeholder_degraded
 from retainpdf_pipeline.translate.llm.result_payload import result_entry
 from retainpdf_pipeline.translate.llm.shared.orchestration.common import formula_placeholder_count
-from retainpdf_pipeline.translate.core.payload.formula_protection import restore_tokens_by_type
+from retainpdf_pipeline.translate.core.payload.token_protection import restore_protected_tokens
 from retainpdf_pipeline.translate.llm.shared.orchestration.segment_routing import build_formula_segment_plan
 from retainpdf_pipeline.translate.llm.shared.orchestration.segment_routing import effective_formula_segment_count
 from retainpdf_pipeline.translate.llm.shared.orchestration.segment_routing import formula_segment_translation_route
@@ -72,16 +72,31 @@ def restore_runtime_term_tokens(
     *,
     item: dict,
 ) -> dict[str, dict[str, str]]:
+    """把译文里的保护 token 换回原文。
+
+    名字里只说了 term,是因为它起初只处理术语。现在 protected_map 里还可能有按
+    OCR 标注锁住的公式（见 span_formula_protection）,两种都必须在这里还原——
+    这是所有翻译路径的统一还原点,漏掉哪一类,那类 token 就会原样留在译文里。
+
+    公式和术语的还原方式不同:公式要补回 `$...$`（原文 OCR 没有定界符,补上正是
+    保护它的目的之一）,术语只换回文本。所以走 restore_protected_tokens 而不是
+    restore_tokens_by_type——前者对 formula 类型会调 wrap_formula_inline_math。
+    """
     protected_map = list(item.get("translation_unit_protected_map") or item.get("protected_map") or [])
     if not protected_map:
+        return result
+    term_and_formula = [
+        entry for entry in protected_map
+        if str(entry.get("token_type", "") or "") in {"term", "formula"}
+    ]
+    if not term_and_formula:
         return result
     restored: dict[str, dict[str, str]] = {}
     for item_id, payload in result.items():
         next_payload = dict(payload)
-        next_payload["translated_text"] = restore_tokens_by_type(
+        next_payload["translated_text"] = restore_protected_tokens(
             str(payload.get("translated_text", "") or ""),
-            protected_map,
-            {"term"},
+            term_and_formula,
         )
         restored[item_id] = next_payload
     return restored

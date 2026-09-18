@@ -109,3 +109,33 @@ def test_existing_protected_map_keeps_its_token_numbering() -> None:
     tags = [entry["token_tag"] for entry in protected_map]
     assert tags[0] == "<f1-abc/>"
     assert tags[1].startswith("<f2-"), f"新 token 应从 2 起编，实际 {tags[1]}"
+
+
+def test_restore_covers_formula_tokens_not_only_terms() -> None:
+    """保护了就必须还原——公式 token 漏在译文里会直接显示成 `<f1-e32/>`。
+
+    真实事故：给 protected_map 加了 formula 类型的 token，但统一还原点
+    restore_runtime_term_tokens 只处理 {"term"}。一次翻译 262 个条目里 79 个
+    （30%）译文带着未还原的 token 落盘，渲染出来是 `< 𝑓1 − 𝑒32/ >` 这种东西。
+
+    保护和还原是一对，加了一类就要同时检查另一头。
+    """
+    from retainpdf_pipeline.translate.llm.shared.orchestration.metadata import (
+        restore_runtime_term_tokens,
+    )
+
+    item = {
+        "protected_map": [
+            {"token_tag": "<f1-e32/>", "token_type": "formula", "restore_text": r"\mathrm{D}"},
+            {"token_tag": "<t1-abc/>", "token_type": "term", "restore_text": "势能面"},
+        ]
+    }
+    result = restore_runtime_term_tokens(
+        {"p001-b008": {"translated_text": "交换反应 <f1-e32/> 在 <t1-abc/> 上"}},
+        item=item,
+    )
+    text = result["p001-b008"]["translated_text"]
+
+    assert "<f1-" not in text and "<t1-" not in text, f"仍有未还原的 token：{text}"
+    assert text == r"交换反应 $\mathrm{D}$ 在 势能面 上"
+    assert "$" in text, "公式还原必须补回定界符，原文 OCR 里没有"
