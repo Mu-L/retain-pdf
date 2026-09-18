@@ -147,7 +147,15 @@ export function pickCitationsForAnswer(
     return orderedRefs.slice(0, max).map((ref) => byRef.get(ref)!);
   }
 
-  // 正文未标 [n] 时只留少量高质量锚点（按页去重）
+  // 「一个 [n] 都没写」和「写了但全是编造的」是两回事。
+  //
+  // 兜底是给前者的:模型给了回答却忘了标注，按页去重取少量锚点聊胜于无。而模型写了
+  // `[42]`、citations 里只有 1–4 时，orderedRefs 同样为空，于是正文写着 `[42]`、
+  // 脚注却列着三条它根本没引用的块——凭空造出来的依据比没有依据更糟。
+  //
+  // 后端 referenced_citations 有同一份逻辑，两边要一起改，否则只修了一半。
+  if (/\[\d+\]/.test(`${answerText || ""}`)) return [];
+
   const fallback: AiCitationLike[] = [];
   const pages = new Set<number>();
   for (const c of agentic) {

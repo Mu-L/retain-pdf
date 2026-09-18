@@ -103,9 +103,16 @@ export class RetainPdfChatTransport implements ChatTransport<ReaderChatMessage> 
       throw new Error("问答暂不可用：请确认已打开任务阅读器。");
     }
 
+    // `closed` 由两侧置位:我们自己收尾时，以及**消费者取消这条流时**。
+    // 原本只有前者,于是用户按停止/关面板之后，`controller.close()` 仍会在 finally 里
+    // 被调用并抛 ERR_INVALID_STATE——它把真正的原因覆盖掉，整个 IIFE 变成未捕获的
+    // rejection，和「三层 catch 吞掉一切」是同一族。
+    let closed = false;
     return new ReadableStream<UIMessageChunk>({
+      cancel: () => {
+        closed = true;
+      },
       start: (controller) => {
-        let closed = false;
         let streamedAnswer = "";
         let metadata: ReaderChatMetadata = {
           citations: [],
@@ -114,7 +121,13 @@ export class RetainPdfChatTransport implements ChatTransport<ReaderChatMessage> 
         };
 
         const enqueue = (chunk: UIMessageChunk) => {
-          if (!closed) controller.enqueue(chunk);
+          if (closed) return;
+          try {
+            controller.enqueue(chunk);
+          } catch {
+            // 取消与入队之间存在竞态:标记为已关闭，后续不再尝试。
+            closed = true;
+          }
         };
         const updateMetadata = (patch: Partial<ReaderChatMetadata>) => {
           metadata = { ...metadata, ...patch };
@@ -282,7 +295,12 @@ export class RetainPdfChatTransport implements ChatTransport<ReaderChatMessage> 
           } finally {
             if (!closed) {
               closed = true;
-              controller.close();
+              try {
+                controller.close();
+              } catch {
+                // 消费者可能刚好在这一刻关掉了流。收尾失败不该盖掉上面那个真正的
+                // 错误,更不该逃成未捕获的 rejection。
+              }
             }
           }
         })();

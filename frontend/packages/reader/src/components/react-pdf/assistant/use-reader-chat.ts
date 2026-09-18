@@ -73,11 +73,16 @@ export function useReaderChat(options: {
   assistantMode: ReaderAssistantMode;
   onAgentOperationSignal?: (signal: Omit<ReaderAgentOperationSignal, "nonce">) => void;
   onConfirmationMode?: (mode: ReaderAgentRuntimeConfig["agent_confirmation_mode"]) => void;
+  /** chat.stop() 之后调用。显式「停止」按钮那条路在它自己那边收尾,这里管的是
+   *  关面板与切文档——它们只调 stop()，消息会永远停在 running。 */
+  onStopped?: () => void;
 }) {
   const remoteRef = useRef(options.remoteAnswerer);
   const localRef = useRef(options.localAnswerer);
   const operationSignalRef = useRef(options.onAgentOperationSignal);
   const confirmationModeRef = useRef(options.onConfirmationMode);
+  const stoppedRef = useRef(options.onStopped);
+  stoppedRef.current = options.onStopped;
   const assistantModeRef = useRef(options.assistantMode);
   remoteRef.current = options.remoteAnswerer;
   localRef.current = options.localAnswerer;
@@ -101,14 +106,17 @@ export function useReaderChat(options: {
   // model stream that belongs to it. Chat.stop() only aborts this transport's
   // request; durable PDF operations already dispatched through the operation
   // API keep their own lifecycle and are deliberately not cancelled here.
+  // 只调 stop() 不够。消息的 running 状态会被镜像写进本地快照并原样恢复,重开面板后
+  // 那条消息永远显示「思考中…」,而且因为流已经停了,连停止按钮都不会出现。
   useEffect(() => {
-    if (!options.enabled) void chat.stop();
+    if (options.enabled) return;
+    void chat.stop().finally(() => stoppedRef.current?.());
   }, [chat, options.enabled]);
 
   // A document/job switch replaces the Chat instance. AI SDK unsubscribes the
   // old external store, but it does not abort that Chat's active transport.
   useEffect(() => () => {
-    void chat.stop();
+    void chat.stop().finally(() => stoppedRef.current?.());
   }, [chat]);
 
   // A job switch creates a fresh Chat instance whose initial message list is

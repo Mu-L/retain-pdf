@@ -90,6 +90,10 @@ export function useReaderAskRuntime(options: {
       });
   }, [enabled, jobId]);
 
+  // conversation 在下面才创建，而 useReaderChat 现在就要拿到收尾回调，所以用 ref
+  // 反向接线。
+  const conversationTreeRef = useRef<{ markRunningCancelled: () => void } | null>(null);
+
   const chatOwner = useReaderChat({
     jobId,
     enabled,
@@ -100,6 +104,7 @@ export function useReaderAskRuntime(options: {
       setAgentOperationSignal({ ...signal, nonce: Date.now() + Math.random() });
     },
     onConfirmationMode: setAgentConfirmationModeHint,
+    onStopped: () => conversationTreeRef.current?.markRunningCancelled(),
   });
 
   // Narrow adapter: the reading hook drives sends/regenerates and the
@@ -133,6 +138,8 @@ export function useReaderAskRuntime(options: {
     remoteAnswerer,
     stream: streamPort,
   });
+
+  conversationTreeRef.current = conversation.tree;
 
   const reading = useReaderReadingRequest({
     jobId,

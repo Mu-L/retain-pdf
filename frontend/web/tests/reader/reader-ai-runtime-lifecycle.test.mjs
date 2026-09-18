@@ -7,8 +7,21 @@ test("hiding Reader AI aborts its active model stream", async () => {
     new URL("../../../../frontend/packages/reader/src/components/react-pdf/assistant/use-reader-chat.ts", import.meta.url),
     "utf8",
   );
-  assert.match(source, /if \(!options\.enabled\) void chat\.stop\(\)/);
-  assert.match(source, /useEffect\(\(\) => \(\) => \{[\s\S]*?void chat\.stop\(\)/);
+  // 按意图匹配，不写死语句形状:两条取消路径都必须 stop()，并且都必须补上收尾回调
+  // ——只 stop() 会让消息永远停在 running，重开面板后一直显示「思考中…」。
+  assert.match(source, /if \(options\.enabled\) return;[\s\S]*?chat\.stop\(\)/);
+  assert.match(source, /useEffect\(\(\) => \(\) => \{[\s\S]*?chat\.stop\(\)/);
+  // 只看代码，不看注释（注释里也会提到 chat.stop()）。
+  const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  const stopCalls = code.match(/chat\.stop\(\)/g) || [];
+  const withHook = code.match(/chat\.stop\(\)\.finally\(\(\) => stoppedRef\.current\?\.\(\)\)/g) || [];
+  assert.ok(stopCalls.length >= 2, `取消路径少了：只找到 ${stopCalls.length} 处 chat.stop()`);
+  assert.equal(
+    withHook.length,
+    stopCalls.length,
+    "每一处 chat.stop() 都要跟一次收尾回调，否则消息会停在 running",
+  );
+  // durable 的 PDF operation 有自己的生命周期，这里不许取消它们。
   assert.doesNotMatch(source, /cancelAgentOperation|\.cancel\(/);
 });
 

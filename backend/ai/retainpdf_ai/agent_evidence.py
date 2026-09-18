@@ -384,7 +384,16 @@ def referenced_citations(
         seen.add(ref)
         ordered_refs.append(ref)
     selected = [citations[ref] for ref in ordered_refs]
-    if not selected and citations:
+    # 「一个标记都没写」和「写了但全是编造的」是两回事,此前混在一起。
+    #
+    # fallback 是为前者准备的:模型给了回答却忘了标注,按页去重取前几条聊胜于无。
+    # 而模型写了 `[42]`、citations 里只有 1–4 时,同一个条件也会命中,于是正文写着
+    # `[42]`、脚注却列着三条它根本没引用的块——凭空造出来的依据比没有依据更糟。
+    #
+    # 正文里那个 `[42]` 不动:学术文档里方括号数字很可能是原文自己的参考文献编号,
+    # 按形状删除会破坏内容。
+    fabricated_only = bool(CITATION_RE.search(answer)) and not ordered_refs
+    if not selected and citations and not fabricated_only:
         picked: list[Citation] = []
         anchors: set[tuple[str, int | str]] = set()
         for ref in sorted(citations):
