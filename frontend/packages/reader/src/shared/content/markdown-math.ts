@@ -136,15 +136,32 @@ export function extractMarkdownMath(
   return { text, slots };
 }
 
+/**
+ * 从动态 import 的命名空间里取一个导出，CJS 和 ESM 两种形态都认。
+ *
+ * mathjax-full 的 `js/` 全是 CommonJS（无 `type: "module"`）。Node 里
+ * `import()` 会把 `exports` 的键提升成命名导出，所以单测解构 `{ mathjax }`
+ * 正常；浏览器里经打包器处理后，同样的东西可能只挂在 `default` 下，解构就得到
+ * `undefined`，下一行调用直接抛 `... is not a function`。
+ *
+ * 这正是此前的故障：单测全绿，浏览器里引擎加载失败，所有公式退回纯文本显示成
+ * 裸 LaTeX，而三层 catch 把原因全吞了。取不到时带上名字抛，别再让它沉默。
+ */
+function pickExport<T>(namespace: unknown, name: string): T {
+  const source = namespace as Record<string, unknown> | undefined;
+  const direct = source?.[name];
+  if (direct !== undefined) {
+    return direct as T;
+  }
+  const fallback = (source?.default as Record<string, unknown> | undefined)?.[name];
+  if (fallback !== undefined) {
+    return fallback as T;
+  }
+  throw new Error(`mathjax-full 未导出 ${name}（CJS/ESM 互操作问题）`);
+}
+
 async function loadDefaultMathJaxEngine(): Promise<MathJaxEngine> {
-  const [
-    { mathjax },
-    { TeX },
-    { SVG },
-    { liteAdaptor },
-    { RegisterHTMLHandler },
-    { AllPackages },
-  ] = await Promise.all([
+  const [mathjaxNs, texNs, svgNs, adaptorNs, handlerNs, packagesNs] = await Promise.all([
     import("mathjax-full/js/mathjax.js"),
     import("mathjax-full/js/input/tex.js"),
     import("mathjax-full/js/output/svg.js"),
@@ -152,10 +169,18 @@ async function loadDefaultMathJaxEngine(): Promise<MathJaxEngine> {
     import("mathjax-full/js/handlers/html.js"),
     import("mathjax-full/js/input/tex/AllPackages.js"),
   ]);
+  const mathjax = pickExport<{ document: (...args: never[]) => unknown }>(mathjaxNs, "mathjax");
+  const TeX = pickExport<new (options: unknown) => unknown>(texNs, "TeX");
+  const SVG = pickExport<new (options: unknown) => unknown>(svgNs, "SVG");
+  const liteAdaptor = pickExport<() => { outerHTML: (node: unknown) => string }>(adaptorNs, "liteAdaptor");
+  const RegisterHTMLHandler = pickExport<(adaptor: unknown) => void>(handlerNs, "RegisterHTMLHandler");
+  const AllPackages = pickExport<string[]>(packagesNs, "AllPackages");
 
   const adaptor = liteAdaptor();
   RegisterHTMLHandler(adaptor);
-  const document = mathjax.document("", {
+  const document = (mathjax.document as (src: string, options: unknown) => {
+    convert: (tex: string, options: { display: boolean }) => unknown;
+  })("", {
     InputJax: new TeX({
       // 方案 C：宽容渲染。`unicode` 包让 Unicode 数学符号（⟨⟩、希腊字母、
       // 运算符等）尽量直接渲染，减少严格 TeX 的报错面。
@@ -180,6 +205,28 @@ async function loadDefaultMathJaxEngine(): Promise<MathJaxEngine> {
       return html;
     },
   };
+}
+
+/** 公式渲染失败的计数与最近一次原因，供控制台排查。 */
+export const mathFailureStats = {
+  engineLoad: 0,
+  convert: 0,
+  lastReason: "",
+};
+
+function reportMathFailure(kind: "engine-load" | "convert", error: unknown, tex = ""): void {
+  const reason = `${(error as { message?: string })?.message || error}`;
+  mathFailureStats.lastReason = reason;
+  if (kind === "engine-load") {
+    mathFailureStats.engineLoad += 1;
+    console.warn("[markdown-math] MathJax 引擎加载失败，公式将退回纯文本：", reason);
+    return;
+  }
+  mathFailureStats.convert += 1;
+  // 逐条刷屏没有意义,前几条足够定位是哪一类写法。
+  if (mathFailureStats.convert <= 5) {
+    console.warn(`[markdown-math] 公式渲染失败（第 ${mathFailureStats.convert} 条）：`, tex, reason);
+  }
 }
 
 function loadMathJaxEngine(): Promise<MathJaxEngine> {
@@ -372,8 +419,11 @@ export async function materializeMarkdownMathHtml(
   let engine: MathJaxEngine | null = null;
   try {
     engine = await loadMathJaxEngine();
-  } catch {
+  } catch (error) {
+    // 静默吞掉会让界面显示「公式渲染失败」而没有任何线索:引擎没加载、还是
+    // 某条公式转换抛错,两者外观完全一样,只能靠猜。至少把原因说出来。
     engine = null;
+    reportMathFailure("engine-load", error);
   }
 
   const replacements = new Map<string, string>();
@@ -383,8 +433,9 @@ export async function materializeMarkdownMathHtml(
     if (engine) {
       try {
         replacement = wrapMathSvgHtml(engine.convert(normalizeMathTex(slot.tex), slot.display), slot.display);
-      } catch {
+      } catch (error) {
         replacement = renderMathFallbackHtml(slot.tex, slot.display);
+        reportMathFailure("convert", error, slot.tex);
       }
     } else {
       replacement = renderMathFallbackHtml(slot.tex, slot.display);
