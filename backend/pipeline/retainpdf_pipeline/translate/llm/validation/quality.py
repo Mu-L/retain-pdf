@@ -16,6 +16,7 @@ from retainpdf_pipeline.translate.llm.validation.english_residue import looks_li
 from retainpdf_pipeline.translate.llm.validation.english_residue import looks_like_untranslated_english_output
 from retainpdf_pipeline.translate.llm.validation.english_residue import should_force_translate_body_text
 from retainpdf_pipeline.translate.llm.validation.english_residue import unit_source_text
+from retainpdf_pipeline.translate.llm.validation.math_safety import dropped_latex_commands
 from retainpdf_pipeline.translate.llm.validation.math_safety import has_balanced_inline_math_delimiters
 from retainpdf_pipeline.translate.llm.validation.placeholder_tokens import placeholder_sequence
 from retainpdf_pipeline.translate.llm.validation.placeholder_tokens import placeholders
@@ -219,6 +220,19 @@ def _review_translated_text(
                 message="Translated output has unbalanced inline math delimiters",
             )
         )
+    if is_direct_math_mode(item):
+        dropped = dropped_latex_commands(source_text, translated_text)
+        if dropped:
+            preview = "，".join(f"\\{name}×{count}" for name, count in sorted(dropped.items()))
+            issues.append(
+                TranslationQualityIssue(
+                    item_id=item_id,
+                    kind="formula_commands_dropped",
+                    severity="warning",
+                    message=f"译文丢失了原文的 LaTeX 命令：{preview}",
+                    details={"dropped_commands": dropped},
+                )
+            )
     if looks_like_protocol_shell_output(translated_text):
         issues.append(
             TranslationQualityIssue(
