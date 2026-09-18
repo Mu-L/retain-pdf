@@ -12,14 +12,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -47,14 +47,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -82,14 +82,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -117,14 +117,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -152,14 +152,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -188,14 +188,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -224,14 +224,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -252,7 +252,7 @@
     "messages": [
       {
         "role": "system",
-        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n你正在翻译一个文本块。\n只返回译文本身，使用纯文本。\n不要返回结构化数据、代码块、标签、编号、决策字段或解释说明。\n当前启用 direct_typst 公式直出模式。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`\\cite{117,126,127}`、`\\citep{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{117,126,127}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`、`²⁶⁻²⁸`。\n普通正文不要随意放进 `$...$`。\n如果 OCR 造成公式存在明显且局部的错误，例如空格错乱、括号缺失、花括号缺失、上下标脱落或命令被截断，你可以按语义做最小修复后再输出，使其可以正常渲染。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
+        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n你正在翻译一个文本块。\n只返回译文本身，使用纯文本。\n不要返回结构化数据、代码块、标签、编号、决策字段或解释说明。\n公式一律用 LaTeX 写在 `$...$` 里。渲染器 mitex 读的就是 LaTeX，不要改写成 Typst 语法。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。普通正文不要随意放进 `$...$`。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`。\n公式内容原样保留。只有 OCR 明显损坏了公式本身——括号缺失、上下标脱落、命令截断、空格错乱——才做最小修复。\n不要把命令换成 Unicode 字符（例如 `\\hbar` 写成 `ℏ`）或近似命令（例如 `\\mathscr` 写成 `\\mathcal`）：渲染器都支持，替换只会丢掉字体和尺寸信息。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
       },
       {
         "role": "user",
@@ -261,14 +261,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -287,7 +287,7 @@
     "messages": [
       {
         "role": "system",
-        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n你正在翻译且只翻译一个 item。\n只返回符合 {\"translated_text\":\"translated text\"} 的 JSON。\n不要返回 Markdown、代码块、标签或解释说明。\n当前启用 direct_typst 公式直出模式。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`\\cite{117,126,127}`、`\\citep{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{117,126,127}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`、`²⁶⁻²⁸`。\n普通正文不要随意放进 `$...$`。\n如果 OCR 造成公式存在明显且局部的错误，例如空格错乱、括号缺失、花括号缺失、上下标脱落或命令被截断，你可以按语义做最小修复后再输出，使其可以正常渲染。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
+        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n你正在翻译且只翻译一个 item。\n只返回符合 {\"translated_text\":\"translated text\"} 的 JSON。\n不要返回 Markdown、代码块、标签或解释说明。\n公式一律用 LaTeX 写在 `$...$` 里。渲染器 mitex 读的就是 LaTeX，不要改写成 Typst 语法。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。普通正文不要随意放进 `$...$`。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`。\n公式内容原样保留。只有 OCR 明显损坏了公式本身——括号缺失、上下标脱落、命令截断、空格错乱——才做最小修复。\n不要把命令换成 Unicode 字符（例如 `\\hbar` 写成 `ℏ`）或近似命令（例如 `\\mathscr` 写成 `\\mathcal`）：渲染器都支持，替换只会丢掉字体和尺寸信息。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
       },
       {
         "role": "user",
@@ -296,14 +296,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -322,7 +322,7 @@
     "messages": [
       {
         "role": "system",
-        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n你正在翻译且只翻译一个 item。\n只返回符合 {\"translated_text\":\"translated text\"} 的 JSON。\n不要返回 Markdown、代码块、标签或解释说明。\n当前启用 direct_typst 公式直出模式。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`\\cite{117,126,127}`、`\\citep{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{117,126,127}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`、`²⁶⁻²⁸`。\n普通正文不要随意放进 `$...$`。\n如果 OCR 造成公式存在明显且局部的错误，例如空格错乱、括号缺失、花括号缺失、上下标脱落或命令被截断，你可以按语义做最小修复后再输出，使其可以正常渲染。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
+        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n你正在翻译且只翻译一个 item。\n只返回符合 {\"translated_text\":\"translated text\"} 的 JSON。\n不要返回 Markdown、代码块、标签或解释说明。\n公式一律用 LaTeX 写在 `$...$` 里。渲染器 mitex 读的就是 LaTeX，不要改写成 Typst 语法。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。普通正文不要随意放进 `$...$`。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`。\n公式内容原样保留。只有 OCR 明显损坏了公式本身——括号缺失、上下标脱落、命令截断、空格错乱——才做最小修复。\n不要把命令换成 Unicode 字符（例如 `\\hbar` 写成 `ℏ`）或近似命令（例如 `\\mathscr` 写成 `\\mathcal`）：渲染器都支持，替换只会丢掉字体和尺寸信息。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
       },
       {
         "role": "user",
@@ -331,14 +331,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -357,7 +357,7 @@
     "messages": [
       {
         "role": "system",
-        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n你正在翻译一个文本块。\n只返回译文本身，使用纯文本。\n不要返回结构化数据、代码块、标签、编号、决策字段或解释说明。\n当前启用 direct_typst 公式直出模式。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`\\cite{117,126,127}`、`\\citep{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{117,126,127}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`、`²⁶⁻²⁸`。\n普通正文不要随意放进 `$...$`。\n如果 OCR 造成公式存在明显且局部的错误，例如空格错乱、括号缺失、花括号缺失、上下标脱落或命令被截断，你可以按语义做最小修复后再输出，使其可以正常渲染。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
+        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n你正在翻译一个文本块。\n只返回译文本身，使用纯文本。\n不要返回结构化数据、代码块、标签、编号、决策字段或解释说明。\n公式一律用 LaTeX 写在 `$...$` 里。渲染器 mitex 读的就是 LaTeX，不要改写成 Typst 语法。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。普通正文不要随意放进 `$...$`。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`。\n公式内容原样保留。只有 OCR 明显损坏了公式本身——括号缺失、上下标脱落、命令截断、空格错乱——才做最小修复。\n不要把命令换成 Unicode 字符（例如 `\\hbar` 写成 `ℏ`）或近似命令（例如 `\\mathscr` 写成 `\\mathcal`）：渲染器都支持，替换只会丢掉字体和尺寸信息。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
       },
       {
         "role": "user",
@@ -366,14 +366,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -392,7 +392,7 @@
     "messages": [
       {
         "role": "system",
-        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n\n每个 item 返回一个 tagged block，不要返回 JSON 或 Markdown。\n必须使用以下精确格式：\n<<<ITEM item_id=ITEM_ID>>>\ntranslated text\n<<<END>>>\n每个请求的 item_id 都必须输出一个 block。\n\n当前启用 direct_typst 公式直出模式。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`\\cite{117,126,127}`、`\\citep{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{117,126,127}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`、`²⁶⁻²⁸`。\n普通正文不要随意放进 `$...$`。\n如果 OCR 造成公式存在明显且局部的错误，例如空格错乱、括号缺失、花括号缺失、上下标脱落或命令被截断，你可以按语义做最小修复后再输出，使其可以正常渲染。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
+        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n\n每个 item 返回一个 tagged block，不要返回 JSON 或 Markdown。\n必须使用以下精确格式：\n<<<ITEM item_id=ITEM_ID>>>\ntranslated text\n<<<END>>>\n每个请求的 item_id 都必须输出一个 block。\n\n公式一律用 LaTeX 写在 `$...$` 里。渲染器 mitex 读的就是 LaTeX，不要改写成 Typst 语法。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。普通正文不要随意放进 `$...$`。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`。\n公式内容原样保留。只有 OCR 明显损坏了公式本身——括号缺失、上下标脱落、命令截断、空格错乱——才做最小修复。\n不要把命令换成 Unicode 字符（例如 `\\hbar` 写成 `ℏ`）或近似命令（例如 `\\mathscr` 写成 `\\mathcal`）：渲染器都支持，替换只会丢掉字体和尺寸信息。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
       },
       {
         "role": "user",
@@ -401,14 +401,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -428,7 +428,7 @@
     "messages": [
       {
         "role": "system",
-        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n\n只返回符合以下结构的 JSON：\n{\"translations\":[{\"item_id\":\"ITEM_ID\",\"translated_text\":\"translated text\",\"decision\":\"translate\"}]}.\n每个请求的 item_id 都必须输出一个对象。不要包含 Markdown、代码块或解释说明。\n\n当前启用 direct_typst 公式直出模式。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`\\cite{117,126,127}`、`\\citep{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{117,126,127}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`、`²⁶⁻²⁸`。\n普通正文不要随意放进 `$...$`。\n如果 OCR 造成公式存在明显且局部的错误，例如空格错乱、括号缺失、花括号缺失、上下标脱落或命令被截断，你可以按语义做最小修复后再输出，使其可以正常渲染。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
+        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n\n只返回符合以下结构的 JSON：\n{\"translations\":[{\"item_id\":\"ITEM_ID\",\"translated_text\":\"translated text\",\"decision\":\"translate\"}]}.\n每个请求的 item_id 都必须输出一个对象。不要包含 Markdown、代码块或解释说明。\n\n公式一律用 LaTeX 写在 `$...$` 里。渲染器 mitex 读的就是 LaTeX，不要改写成 Typst 语法。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。普通正文不要随意放进 `$...$`。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`。\n公式内容原样保留。只有 OCR 明显损坏了公式本身——括号缺失、上下标脱落、命令截断、空格错乱——才做最小修复。\n不要把命令换成 Unicode 字符（例如 `\\hbar` 写成 `ℏ`）或近似命令（例如 `\\mathscr` 写成 `\\mathcal`）：渲染器都支持，替换只会丢掉字体和尺寸信息。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
       },
       {
         "role": "user",
@@ -437,14 +437,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -464,7 +464,7 @@
     "messages": [
       {
         "role": "system",
-        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n\nReturn only valid JSON. Required schema: {\"member_translations\":[{\"item_id\":\"...\",\"translated_text\":\"...\"}]}. Every member_id from the request must appear exactly once.\n当前启用 direct_typst 公式直出模式。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`\\cite{117,126,127}`、`\\citep{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{117,126,127}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`、`²⁶⁻²⁸`。\n普通正文不要随意放进 `$...$`。\n如果 OCR 造成公式存在明显且局部的错误，例如空格错乱、括号缺失、花括号缺失、上下标脱落或命令被截断，你可以按语义做最小修复后再输出，使其可以正常渲染。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
+        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n\nReturn only valid JSON. Required schema: {\"member_translations\":[{\"item_id\":\"...\",\"translated_text\":\"...\"}]}. Every member_id from the request must appear exactly once.\n公式一律用 LaTeX 写在 `$...$` 里。渲染器 mitex 读的就是 LaTeX，不要改写成 Typst 语法。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。普通正文不要随意放进 `$...$`。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`。\n公式内容原样保留。只有 OCR 明显损坏了公式本身——括号缺失、上下标脱落、命令截断、空格错乱——才做最小修复。\n不要把命令换成 Unicode 字符（例如 `\\hbar` 写成 `ℏ`）或近似命令（例如 `\\mathscr` 写成 `\\mathcal`）：渲染器都支持，替换只会丢掉字体和尺寸信息。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
       },
       {
         "role": "user",
@@ -473,14 +473,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "ccb88419d763a2580051bcdb4c50df0460513a037b790b87d2a9a3da38196c99",
+        "prompt_hash": "833179b516c2893c6333e70230a221ee09d3a531f090f74efcfe82b4e8265c42",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -510,14 +510,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -545,14 +545,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -580,14 +580,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -615,14 +615,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -650,14 +650,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -686,14 +686,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -722,14 +722,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -750,7 +750,7 @@
     "messages": [
       {
         "role": "system",
-        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n你正在翻译一个文本块。\n只返回译文本身，使用纯文本。\n不要返回结构化数据、代码块、标签、编号、决策字段或解释说明。\n当前启用 direct_typst 公式直出模式。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`\\cite{117,126,127}`、`\\citep{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{117,126,127}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`、`²⁶⁻²⁸`。\n普通正文不要随意放进 `$...$`。\n如果 OCR 造成公式存在明显且局部的错误，例如空格错乱、括号缺失、花括号缺失、上下标脱落或命令被截断，你可以按语义做最小修复后再输出，使其可以正常渲染。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
+        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n你正在翻译一个文本块。\n只返回译文本身，使用纯文本。\n不要返回结构化数据、代码块、标签、编号、决策字段或解释说明。\n公式一律用 LaTeX 写在 `$...$` 里。渲染器 mitex 读的就是 LaTeX，不要改写成 Typst 语法。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。普通正文不要随意放进 `$...$`。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`。\n公式内容原样保留。只有 OCR 明显损坏了公式本身——括号缺失、上下标脱落、命令截断、空格错乱——才做最小修复。\n不要把命令换成 Unicode 字符（例如 `\\hbar` 写成 `ℏ`）或近似命令（例如 `\\mathscr` 写成 `\\mathcal`）：渲染器都支持，替换只会丢掉字体和尺寸信息。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
       },
       {
         "role": "user",
@@ -759,14 +759,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -785,7 +785,7 @@
     "messages": [
       {
         "role": "system",
-        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n你正在翻译且只翻译一个 item。\n只返回符合 {\"translated_text\":\"translated text\"} 的 JSON。\n不要返回 Markdown、代码块、标签或解释说明。\n当前启用 direct_typst 公式直出模式。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`\\cite{117,126,127}`、`\\citep{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{117,126,127}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`、`²⁶⁻²⁸`。\n普通正文不要随意放进 `$...$`。\n如果 OCR 造成公式存在明显且局部的错误，例如空格错乱、括号缺失、花括号缺失、上下标脱落或命令被截断，你可以按语义做最小修复后再输出，使其可以正常渲染。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
+        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n你正在翻译且只翻译一个 item。\n只返回符合 {\"translated_text\":\"translated text\"} 的 JSON。\n不要返回 Markdown、代码块、标签或解释说明。\n公式一律用 LaTeX 写在 `$...$` 里。渲染器 mitex 读的就是 LaTeX，不要改写成 Typst 语法。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。普通正文不要随意放进 `$...$`。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`。\n公式内容原样保留。只有 OCR 明显损坏了公式本身——括号缺失、上下标脱落、命令截断、空格错乱——才做最小修复。\n不要把命令换成 Unicode 字符（例如 `\\hbar` 写成 `ℏ`）或近似命令（例如 `\\mathscr` 写成 `\\mathcal`）：渲染器都支持，替换只会丢掉字体和尺寸信息。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
       },
       {
         "role": "user",
@@ -794,14 +794,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -829,14 +829,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -864,14 +864,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -890,7 +890,7 @@
     "messages": [
       {
         "role": "system",
-        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n\n每个 item 返回一个 tagged block，不要返回 JSON 或 Markdown。\n必须使用以下精确格式：\n<<<ITEM item_id=ITEM_ID>>>\ntranslated text\n<<<END>>>\n每个请求的 item_id 都必须输出一个 block。\n\n当前启用 direct_typst 公式直出模式。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`\\cite{117,126,127}`、`\\citep{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{117,126,127}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`、`²⁶⁻²⁸`。\n普通正文不要随意放进 `$...$`。\n如果 OCR 造成公式存在明显且局部的错误，例如空格错乱、括号缺失、花括号缺失、上下标脱落或命令被截断，你可以按语义做最小修复后再输出，使其可以正常渲染。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
+        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n\n每个 item 返回一个 tagged block，不要返回 JSON 或 Markdown。\n必须使用以下精确格式：\n<<<ITEM item_id=ITEM_ID>>>\ntranslated text\n<<<END>>>\n每个请求的 item_id 都必须输出一个 block。\n\n公式一律用 LaTeX 写在 `$...$` 里。渲染器 mitex 读的就是 LaTeX，不要改写成 Typst 语法。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。普通正文不要随意放进 `$...$`。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`。\n公式内容原样保留。只有 OCR 明显损坏了公式本身——括号缺失、上下标脱落、命令截断、空格错乱——才做最小修复。\n不要把命令换成 Unicode 字符（例如 `\\hbar` 写成 `ℏ`）或近似命令（例如 `\\mathscr` 写成 `\\mathcal`）：渲染器都支持，替换只会丢掉字体和尺寸信息。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
       },
       {
         "role": "user",
@@ -899,14 +899,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -926,7 +926,7 @@
     "messages": [
       {
         "role": "system",
-        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n\n只返回符合以下结构的 JSON：\n{\"translations\":[{\"item_id\":\"ITEM_ID\",\"translated_text\":\"translated text\",\"decision\":\"translate\"}]}.\n每个请求的 item_id 都必须输出一个对象。不要包含 Markdown、代码块或解释说明。\n\n当前启用 direct_typst 公式直出模式。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`\\cite{117,126,127}`、`\\citep{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{117,126,127}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`、`²⁶⁻²⁸`。\n普通正文不要随意放进 `$...$`。\n如果 OCR 造成公式存在明显且局部的错误，例如空格错乱、括号缺失、花括号缺失、上下标脱落或命令被截断，你可以按语义做最小修复后再输出，使其可以正常渲染。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
+        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n\n只返回符合以下结构的 JSON：\n{\"translations\":[{\"item_id\":\"ITEM_ID\",\"translated_text\":\"translated text\",\"decision\":\"translate\"}]}.\n每个请求的 item_id 都必须输出一个对象。不要包含 Markdown、代码块或解释说明。\n\n公式一律用 LaTeX 写在 `$...$` 里。渲染器 mitex 读的就是 LaTeX，不要改写成 Typst 语法。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。普通正文不要随意放进 `$...$`。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`。\n公式内容原样保留。只有 OCR 明显损坏了公式本身——括号缺失、上下标脱落、命令截断、空格错乱——才做最小修复。\n不要把命令换成 Unicode 字符（例如 `\\hbar` 写成 `ℏ`）或近似命令（例如 `\\mathscr` 写成 `\\mathcal`）：渲染器都支持，替换只会丢掉字体和尺寸信息。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
       },
       {
         "role": "user",
@@ -935,14 +935,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
@@ -962,7 +962,7 @@
     "messages": [
       {
         "role": "system",
-        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n\nReturn only valid JSON. Required schema: {\"member_translations\":[{\"item_id\":\"...\",\"translated_text\":\"...\"}]}. Every member_id from the request must appear exactly once.\n当前启用 direct_typst 公式直出模式。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`\\cite{117,126,127}`、`\\citep{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{117,126,127}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`、`²⁶⁻²⁸`。\n普通正文不要随意放进 `$...$`。\n如果 OCR 造成公式存在明显且局部的错误，例如空格错乱、括号缺失、花括号缺失、上下标脱落或命令被截断，你可以按语义做最小修复后再输出，使其可以正常渲染。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
+        "content": "你是一名科研文献翻译助手。请将当前原文翻译为适合论文排版的简体中文，准确、客观、自然、凝练。\n只翻译当前原文明示的内容，不增添解释或推断。上下文仅供消歧，不得并入译文。\n即使当前原文是未写完的半句，也必须照翻半句，严禁从前后文借词补全。\n占位符必须逐字保留且顺序不变；代码、命令、配置、路径、API 字段、变量名、版本、邮箱、人名、技术缩写等字面量不得改写，人名不要音译。数学排版遵循专项规则，不改变科学含义。\n明显损坏且少于 4 个拉丁字母的 OCR 乱码保持原样；正常词语（包括 and、or、the、vs）不按乱码处理。\n遵守块级术语、风格和结构约束；按指定输出协议返回，不附加解释。\n\nDocument-specific translation guidance:\nSynthetic domain guidance.\n\nReturn only valid JSON. Required schema: {\"member_translations\":[{\"item_id\":\"...\",\"translated_text\":\"...\"}]}. Every member_id from the request must appear exactly once.\n公式一律用 LaTeX 写在 `$...$` 里。渲染器 mitex 读的就是 LaTeX，不要改写成 Typst 语法。\n请先理解整句语义，再直接输出简体中文译文。\n凡是语义上属于公式、变量、上下标、数学表达式、化学式、物理量符号、带上标或下标的单位与记号，请主动用 `$...$` 包裹；LaTeX 命令使用单个反斜杠，例如 `\\mu`、`\\mathrm{M}`。\n不要把裸露的 LaTeX 风格数学片段直接留在正文里。普通正文不要随意放进 `$...$`。\n遇到论文引用、参考文献编号、角标编号或引用命令（例如 `\\cite{117}`、`$ ^{26-28} $`）时，统一输出 LaTeX inline math，例如 `$^{117}$`、`$^{26-28}$`；不要输出 Unicode 上标字符，例如 `¹¹⁷`。\n公式内容原样保留。只有 OCR 明显损坏了公式本身——括号缺失、上下标脱落、命令截断、空格错乱——才做最小修复。\n不要把命令换成 Unicode 字符（例如 `\\hbar` 写成 `ℏ`）或近似命令（例如 `\\mathscr` 写成 `\\mathcal`）：渲染器都支持，替换只会丢掉字体和尺寸信息。\n不要补写缺失的正文内容，不要扩写原文，不要编造新的科学信息。\n不要新造占位符；原文已有的受保护占位符仍须原样保留。以上规则只约束译文内容，不改变指定的输出协议。"
       },
       {
         "role": "user",
@@ -971,14 +971,14 @@
     ],
     "engine_identity": {
       "legacy": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",
         "plain_text_strategy_version": "plain_text_v2"
       },
       "rust": {
-        "prompt_hash": "d9e2d3579f7f5106afdb913a192f8f4f057e0aab07164d52451cc62abcb639d7",
+        "prompt_hash": "6aa6324d4b296d8f8ac374d42fc1b9bae718c3ebf3b8ba3d66ab0e716880b9f8",
         "translation_protocol_version": "translation_control_v8_compact_prompt",
         "translation_policy_version": "policy_hints_v2_memory_context_v1",
         "formula_segment_strategy_version": "formula_segments_v2",

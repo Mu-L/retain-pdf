@@ -178,20 +178,19 @@ def normalize_direct_typst_translation(text: str) -> str:
     return _MULTI_SPACE_RE.sub(" ", "".join(chunks))
 
 
-# mitex 不兼容写法数据库:与渲染层 sanitize_direct_typst_inline_math 的
-# 改写规则对应(services/rendering/layout/inline_content/core/inline_math.py)。
-# 用途:翻译前扫描源文本,匹配到哪条就把哪条提示给模型,由模型在语义层
-# 完成替换——复杂公式里正则改写必然出错,但"检测某命令出现过"是可靠的。
-# 渲染期正则改写保留作兜底。
+# mitex 渲染不了的写法。翻译前扫描源文本,命中哪条就把哪条提示给模型,由模型在
+# 语义层完成替换——复杂公式里正则改写必然出错,但"检测某命令出现过"是可靠的。
+#
+# 这张表曾经有八条,另外六条(\hbar \partial \otimes \mathscr \varPhi
+# \langle/\rangle)是 mitex 0.2.6 吐旧版 Typst 符号名时加的,不是 mitex 不认识
+# 它们。0.2.7 起全部原生可渲染,继续提示模型替换就是在源头上主动降级:把命令换成
+# Unicode 字符会脱离数学字体处理,\mathscr → \mathcal 更是直接换了字体。
+#
+# 往这张表里加东西之前,先用 tests/rendering/test_mitex_latex_coverage.py 的方式
+# 真编译一次确认——渲染失败更可能是版本脱节,而不是覆盖度不足。
 MITEX_REWRITE_DATABASE: tuple[tuple[str, str], ...] = (
-    (r"\hbar", "ℏ"),
-    (r"\partial", "∂"),
-    (r"\otimes", "⊗"),
-    (r"\mathscr", r"\mathcal"),
-    (r"\varPhi", r"\Phi"),
-    (r"\langle", "⟨"),
-    (r"\rangle", "⟩"),
-    (r"\circled", r"\otimes 或普通字符"),
+    (r"\circled", "圈内的字符本身"),
+    (r"\textcircled", "圈内的字符本身"),
 )
 
 

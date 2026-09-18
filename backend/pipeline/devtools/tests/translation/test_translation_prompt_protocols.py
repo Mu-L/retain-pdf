@@ -304,7 +304,10 @@ def test_build_messages_direct_typst_includes_inline_math_and_local_ocr_repair_g
     )
     system_prompt = messages[0]["content"]
     user_prompt = messages[1]["content"]
-    assert "当前启用 direct_typst 公式直出模式" in system_prompt
+    assert "公式一律用 LaTeX 写在 `$...$` 里" in system_prompt
+    # 渲染器读的是 LaTeX，提示词必须明说别转 Typst——历史上这里含糊过，
+    # 模型就真的开始吐 Typst 语法。
+    assert "不要改写成 Typst 语法" in system_prompt
     assert "请先理解整句语义" in system_prompt
     assert "请主动用 `$...$` 包裹" in system_prompt
     assert "使用单个反斜杠" in system_prompt
@@ -339,7 +342,10 @@ def test_build_single_item_fallback_messages_direct_typst_includes_inline_math_a
         response_style="plain_text",
     )
     system_prompt = messages[0]["content"]
-    assert "当前启用 direct_typst 公式直出模式" in system_prompt
+    assert "公式一律用 LaTeX 写在 `$...$` 里" in system_prompt
+    # 渲染器读的是 LaTeX，提示词必须明说别转 Typst——历史上这里含糊过，
+    # 模型就真的开始吐 Typst 语法。
+    assert "不要改写成 Typst 语法" in system_prompt
     assert "请先理解整句语义" in system_prompt
     assert "请主动用 `$...$` 包裹" in system_prompt
     assert "使用单个反斜杠" in system_prompt
@@ -538,7 +544,7 @@ def test_direct_typst_single_prompt_lists_mitex_rewrites_found_in_source() -> No
     messages = deepseek_client.build_single_item_fallback_messages(
         {
             "item_id": "p001-b001",
-            "protected_source_text": r"The operator $-i\hbar \partial/\partial q$ acts on $|\varPhi_0\rangle$.",
+            "protected_source_text": r"标记 $\circled{A}$ 与 $x$。",
             "math_mode": "direct_typst",
             "metadata": {"structure_role": "body"},
         },
@@ -547,11 +553,31 @@ def test_direct_typst_single_prompt_lists_mitex_rewrites_found_in_source() -> No
     )
     user_prompt = messages[1]["content"]
     assert "渲染器不支持" in user_prompt
-    assert r"`\hbar` 改用 `ℏ`" in user_prompt
-    assert r"`\varPhi` 改用 `\Phi`" in user_prompt
-    assert r"`\rangle` 改用 `⟩`" in user_prompt
+    assert r"`\circled`" in user_prompt
     # 数据库里有但本段没出现的命令,不应进提示词
-    assert r"\mathscr" not in user_prompt
+    assert r"\textcircled" not in user_prompt
+
+
+def test_direct_typst_single_prompt_no_longer_asks_to_degrade_supported_commands() -> None:
+    """mitex 0.2.7 能渲染的命令不该再出现在替换提示里。
+
+    这条提示是逐条注入到每个待翻译条目的,是整条链路上最早、也最难追查的降级点:
+    模型照做之后,译文里存下来的就已经是 `ℏ` 而不是 `\hbar`,后面任何环节都救不回来。
+    """
+    messages = deepseek_client.build_single_item_fallback_messages(
+        {
+            "item_id": "p001-b001",
+            "protected_source_text": r"The operator $-i\hbar \partial/\partial q$ acts on $|\varPhi_0\rangle$.",
+            "math_mode": "direct_typst",
+            "metadata": {"structure_role": "body"},
+        },
+        mode="sci",
+        response_style="plain_text",
+    )
+    user_prompt = messages[1]["content"]
+    assert "渲染器不支持" not in user_prompt
+    for degraded in ("ℏ", "∂", "⟨", "⟩", r"\Phi"):
+        assert degraded not in user_prompt
 
 
 def test_direct_typst_single_prompt_has_no_rewrite_hint_for_clean_source() -> None:

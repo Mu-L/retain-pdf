@@ -23,13 +23,20 @@ def _item(math_mode):
 
 _BUILDERS = [build_single_item_fallback_messages, lambda item: build_messages([item]), build_group_member_messages]
 # Captured from the previous implementation, not computed by the new renderer.
+#
+# direct_typst 这组在 mitex 升到 0.2.7 后重录过一次:公式指引改成明确要求 LaTeX
+# (原文说的是"direct_typst 公式直出模式",含糊到模型真的会吐 Typst 语法),并去掉
+# 了让模型把 \hbar 之类换成 Unicode 的降级要求。提示词是有意改的,所以摘要跟着变。
+#
+# placeholder 那组一字未动,正说明改动只落在 direct_typst 路径上——重录时要一并
+# 确认这一点,否则就是改宽了。
 _DIGESTS = {
     False: ["92f286faeba1db6ce9a76cf68360a3a3fe1c4806ea528d8258d879677fe7b4c0",
             "517126bb63dbde134291b00af08c9892b901f623335067179400430a24ecaf27",
             "5e819e5e3685f7a25bb9d7360d34537933633ab035287c3ed85daaa8e8539a59"],
-    True: ["43061554f49d7d4ec056bbe2c1bab3c05b37579a1652dc910682b66b59202722",
-           "27dc11dfd8d26b4e12b99c2614349404b48b72a694b7b6d681c65a4309d1f80a",
-           "137a1fecb22255568923b813a86ad8d4bd72ba93412ff13c35619133cf92b15e"],
+    True: ["47b3870e63d9fcaa35e531da60c62013cc3b02025555fa6e762febe484bf0ab9",
+           "0760237ce536bab523d0d490bb4f79eaa92dda405ed56811a735acaa1906eb8d",
+           "cf5fbb8b3a35d20d0c63a65a6f88259ad495eb3bac030def152904153193c217"],
 }
 
 

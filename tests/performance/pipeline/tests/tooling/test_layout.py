@@ -43,5 +43,9 @@ def test_shared_layout_resolves_probes_and_unchanged_baseline():
     assert PROBE == HERE / "support/translation_io_probe.py"
     assert PROBE.is_file()
     assert (HERE / "support/production_translation_probe.py").is_file()
+    # 基线文件的哈希是第二道守卫:改基线必须同时改这里,防止为了让重构测试变绿
+    # 而顺手重生成(见 README「不要为了通过重构测试重新生成基线」)。
+    # 上次更新:公式指引改成明确要求 LaTeX 并去掉降级要求后,逐例审阅过范围——
+    # 12 个 direct_typst 用例的消息变了,16 个 placeholder 用例只有 prompt_hash 变。
     baseline = HERE / "fixtures/refactor_baseline.json"
-    assert hashlib.sha256(baseline.read_bytes()).hexdigest() == "7a3d6fb32e656983518739bd207ed6b10131833f484ba56ff998ac5ca4aae2ca"
+    assert hashlib.sha256(baseline.read_bytes()).hexdigest() == "e245975b49b4a042c766c79e1a39f3cd69bf6a260f47d512f9796a25ed4942a9"
