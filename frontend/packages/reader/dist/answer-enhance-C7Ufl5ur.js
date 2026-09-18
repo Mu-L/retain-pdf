@@ -1,15 +1,15 @@
-let v = 0, b = null, w = null, C = !1;
-function $(t = Date.now()) {
-  return t < v;
+let k = 0, b = null, w = null, E = !1;
+function v(t = Date.now()) {
+  return t < k;
 }
-function D(t = 700) {
+function R(t = 700) {
   const a = Date.now() + Math.max(0, t);
-  a > v && (v = a);
-}
-function j() {
-  v = 0, b == null || b(), b = null, _();
+  a > k && (k = a);
 }
 function I() {
+  k = 0, b == null || b(), b = null, _();
+}
+function j() {
   if (typeof document > "u") return null;
   if (w && w.isConnected) return w;
   const t = document.createElement("div");
@@ -51,13 +51,13 @@ function _() {
     w = null;
   }
 }
-function F(t = 700, a = {}) {
-  if (D(t), typeof document > "u") return;
+function O(t = 700, a = {}) {
+  if (R(t), typeof document > "u") return;
   b == null || b(), b = null;
   const e = Date.now() + Math.max(0, t), r = Math.max(0, Number(a.overlayDelayMs) || 0);
   let n = null;
-  r === 0 ? I() : n = setTimeout(() => {
-    n = null, Date.now() < e && I();
+  r === 0 ? j() : n = setTimeout(() => {
+    n = null, Date.now() < e && j();
   }, r);
   const o = (i) => {
     var d;
@@ -79,35 +79,35 @@ function F(t = 700, a = {}) {
     document.addEventListener(i, o, c);
   b = s, window.setTimeout(s, Math.max(0, t) + 48);
 }
-function M(t) {
-  return $() ? !0 : t ? typeof MouseEvent < "u" && t instanceof MouseEvent && t.isTrusted === !1 : !1;
+function D(t) {
+  return v() ? !0 : t ? typeof MouseEvent < "u" && t instanceof MouseEvent && t.isTrusted === !1 : !1;
 }
 function q() {
   if (typeof window > "u" || typeof window.open != "function")
     return () => {
     };
-  if (C) return () => {
+  if (E) return () => {
   };
-  C = !0, j();
+  E = !0, I();
   const t = window.open.bind(window);
-  window.open = ((e, r, n) => $() ? null : t(e, r, n));
+  window.open = ((e, r, n) => v() ? null : t(e, r, n));
   const a = (e) => {
-    if (!$()) return;
+    if (!v()) return;
     const r = e.target;
     if (!(r instanceof Element) || r.closest("[data-reader-ai-sessions]")) return;
     r.closest("a[href]") && (e.preventDefault(), e.stopPropagation());
   };
   return document.addEventListener("click", a, !0), () => {
-    window.open = t, document.removeEventListener("click", a, !0), C = !1, j();
+    window.open = t, document.removeEventListener("click", a, !0), E = !1, I();
   };
 }
 let N = (t) => `${t ?? ""}`.trim(), U = globalThis.fetch ?? (async () => {
   throw new Error("fetch not available");
 });
-function O(t = {}) {
+function G(t = {}) {
   t.resolveResourceUrl && (N = t.resolveResourceUrl), t.fetchProtected && (U = t.fetchProtected);
 }
-function G() {
+function H() {
   N = (t) => `${t ?? ""}`.trim(), U = globalThis.fetch ?? (async () => {
     throw new Error("fetch not available");
   });
@@ -119,7 +119,7 @@ function T(t) {
     return `${t ?? ""}`.trim();
   }
 }
-function R(t) {
+function M(t) {
   return !!t && typeof t == "object" && `${t.block_id || ""}`.trim() !== "";
 }
 function A(t) {
@@ -145,7 +145,7 @@ function L(t) {
   const a = A(t);
   return a === null ? null : a + 1;
 }
-function H(t) {
+function K(t) {
   if (!Array.isArray(t)) return [];
   const a = [];
   for (const e of t) {
@@ -165,12 +165,12 @@ function H(t) {
   }
   return a;
 }
-function E(t = "", a = 72) {
+function C(t = "", a = 72) {
   const e = `${t}`.replace(/\s+/g, " ").trim();
   return e.length <= a ? e : `${e.slice(0, a).trim()}…`;
 }
 function S(t, a, { max: e = 5 } = {}) {
-  const r = a.filter(R).map((i) => ({
+  const r = a.filter(M).map((i) => ({
     ...i,
     page_idx: A(i) ?? i.page_idx
   }));
@@ -196,12 +196,25 @@ function S(t, a, { max: e = 5 } = {}) {
   }
   return u;
 }
-function K(t, a) {
+const W = new RegExp(
+  "(" + [
+    "`+[^`\\n]*?`+",
+    // 行内 code
+    "\\$\\$[\\s\\S]*?\\$\\$",
+    // 块级公式
+    "(?<!\\\\)\\$(?:\\\\.|[^$\\\\\\n])+(?<!\\\\)\\$",
+    // 行内公式
+    "!?\\[(?:[^\\][]|\\[[^\\]]*\\])*\\]\\([^)]*\\)"
+    // 图片与链接（含 URL）
+  ].join("|") + ")",
+  "g"
+);
+function Q(t, a) {
   if (!a.size || !t) return t;
-  const e = (r) => r.split(/(`+[^`\n]*?`+)/g).map((n, o) => o % 2 === 1 ? n : n.replace(new RegExp("(?<!!)\\[(\\d+)\\](?!\\s*\\()", "g"), (c, u) => a.has(u) ? `[${u}](#retainpdf-citation-${u})` : c)).join("");
+  const e = (r) => r.split(W).map((n, o) => o % 2 === 1 ? n : n.replace(new RegExp("(?<!!)\\[(\\d+)\\](?!\\s*\\()", "g"), (c, u) => a.has(u) ? `[${u}](#retainpdf-citation-${u})` : c)).join("");
   return t.split(/(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$))/g).map((r, n) => n % 2 === 1 ? r : e(r)).join("");
 }
-function Q(t, a, e = "translated", r = {}) {
+function V(t, a, e = "translated", r = {}) {
   const n = r.resolveResourceUrl ?? T, o = `${t || ""}`.trim(), c = Math.max(1, Math.floor(Number(a) || 0) + 1);
   if (!o) return "";
   const u = `/api/v1/jobs/${encodeURIComponent(o)}/preview/pages/${c}?kind=${e}&width=240`;
@@ -260,7 +273,7 @@ function x(t, a, e = {}) {
   }
   return u !== n ? "" : P(n, c[2], e);
 }
-function W(t) {
+function z(t) {
   const a = [
     t.image_url,
     ...Array.isArray(t.image_urls) ? t.image_urls : [],
@@ -276,7 +289,7 @@ function W(t) {
   }
   return r;
 }
-function z(t) {
+function F(t) {
   var n;
   let a = `${t || ""}`.trim();
   try {
@@ -292,16 +305,16 @@ function z(t) {
   const r = Number(e[1]);
   return Number.isFinite(r) && r >= 1 ? Math.floor(r) : null;
 }
-function V(t, a, e) {
+function X(t, a, e) {
   const r = x(t, e);
   if (!r) return null;
   for (const o of a)
-    for (const c of W(o))
+    for (const c of z(o))
       if (x(c, e) === r) return o;
-  const n = z(r);
+  const n = F(r);
   return n == null ? null : a.find((o) => L(o) === n) || null;
 }
-function X(t, a, { jobId: e, documentRef: r = t.ownerDocument }) {
+function Y(t, a, { jobId: e, documentRef: r = t.ownerDocument }) {
   const n = r.createElement("template");
   n.innerHTML = `${a || ""}`;
   let o = 0;
@@ -316,7 +329,7 @@ function X(t, a, { jobId: e, documentRef: r = t.ownerDocument }) {
     c.setAttribute("data-ai-src", s), c.setAttribute("loading", "lazy"), c.setAttribute("decoding", "async"), o += 1;
   }), t.replaceChildren(n.content), o;
 }
-function Y(t, {
+function Z(t, {
   onOpen: a,
   documentRef: e = globalThis.document
 } = {}) {
@@ -330,7 +343,7 @@ function Y(t, {
     if (!((c = l.textContent) != null && c.trim()) && i && (l.textContent = i), i && !i.startsWith("#") && !/^\s*javascript:/i.test(i)) {
       l.dataset.href = i, l.setAttribute("role", "link"), l.tabIndex = 0, l.title = `打开链接：${i}`;
       const d = (f) => {
-        f.preventDefault(), f.stopPropagation(), !M(f) && ($() || f instanceof MouseEvent && (f.button !== 0 || f.detail === 0) || a == null || a(i, f));
+        f.preventDefault(), f.stopPropagation(), !D(f) && (v() || f instanceof MouseEvent && (f.button !== 0 || f.detail === 0) || a == null || a(i, f));
       };
       l.addEventListener("click", d), l.addEventListener("auxclick", (f) => {
         f.preventDefault(), f.stopPropagation();
@@ -353,7 +366,7 @@ function Y(t, {
     !0
   ));
 }
-function Z(t, a, e, r = globalThis.document) {
+function B(t, a, e, r = globalThis.document) {
   var c, u, s, i;
   if (!a.size || !t) return;
   (c = t.querySelectorAll) == null || c.call(t, "button.reader-ai-citation-ref").forEach((l) => {
@@ -378,8 +391,8 @@ function Z(t, a, e, r = globalThis.document) {
         const h = r.createElement("button");
         h.type = "button", h.className = "reader-ai-citation-ref", h.textContent = g;
         const y = L(m);
-        h.title = y ? `跳到第 ${y} 页 · ${E(m.snippet || "", 60)}` : E(m.snippet || "相关片段", 60), y != null && (h.dataset.page = `${y}`), h.addEventListener("click", (k) => {
-          k.preventDefault(), k.stopPropagation(), e == null || e(m);
+        h.title = y ? `跳到第 ${y} 页 · ${C(m.snippet || "", 60)}` : C(m.snippet || "相关片段", 60), y != null && (h.dataset.page = `${y}`), h.addEventListener("click", ($) => {
+          $.preventDefault(), $.stopPropagation(), e == null || e(m);
         }), f.appendChild(h);
       } else
         f.appendChild(r.createTextNode(g));
@@ -387,7 +400,7 @@ function Z(t, a, e, r = globalThis.document) {
     l.replaceWith(f);
   }
 }
-function B(t) {
+function J(t) {
   var r, n;
   if (!t) return;
   const a = t, e = [
@@ -404,7 +417,7 @@ function B(t) {
     c.classList.remove("is-hydrated"), u.startsWith("blob:") && c.removeAttribute("src");
   }
 }
-async function J(t, { fetchImpl: a = U, signal: e } = {}) {
+async function tt(t, { fetchImpl: a = U, signal: e } = {}) {
   var o, c;
   const r = t, n = [
     ...(o = r.matches) != null && o.call(r, "img[data-ai-src]") ? [r] : [],
@@ -451,7 +464,7 @@ async function J(t, { fetchImpl: a = U, signal: e } = {}) {
       }
   }));
 }
-function tt(t, a, {
+function et(t, a, {
   onJump: e = null,
   answerText: r = "",
   max: n = 5,
@@ -469,43 +482,43 @@ function tt(t, a, {
   i.className = "reader-ai-citations-list";
   for (const d of c) {
     const f = L(d), g = f != null ? `p.${f}` : "", p = o.createElement("button");
-    p.type = "button", p.className = "reader-ai-citation-item", f != null && (p.dataset.page = `${f}`), p.title = f != null ? `跳到第 ${f} 页` : "定位来源", p.addEventListener("click", (k) => {
-      k.preventDefault(), k.stopPropagation(), e == null || e(d);
+    p.type = "button", p.className = "reader-ai-citation-item", f != null && (p.dataset.page = `${f}`), p.title = f != null ? `跳到第 ${f} 页` : "定位来源", p.addEventListener("click", ($) => {
+      $.preventDefault(), $.stopPropagation(), e == null || e(d);
     });
     const m = o.createElement("span");
     m.className = "reader-ai-citation-refno", m.textContent = `[${d.ref ?? "?"}]`;
     const h = o.createElement("span");
     h.className = "reader-ai-citation-meta", h.textContent = g || "—";
     const y = o.createElement("span");
-    y.className = "reader-ai-citation-copy", y.textContent = E(d.snippet || "相关片段", 64), p.append(m, h, y), i.appendChild(p);
+    y.className = "reader-ai-citation-copy", y.textContent = C(d.snippet || "相关片段", 64), p.append(m, h, y), i.appendChild(p);
   }
   u.appendChild(i), t.appendChild(u);
 }
 export {
   L as a,
   x as b,
-  B as c,
-  K as d,
-  tt as e,
-  V as f,
+  J as c,
+  Q as d,
+  et as e,
+  X as f,
   q as g,
-  J as h,
-  R as i,
-  j,
-  F as k,
+  tt as h,
+  M as i,
+  I as j,
+  O as k,
   P as l,
-  Q as m,
-  E as n,
-  Z as o,
-  $ as p,
-  D as q,
-  G as r,
-  O as s,
-  X as t,
-  Y as u,
-  H as v,
+  V as m,
+  C as n,
+  B as o,
+  v as p,
+  R as q,
+  H as r,
+  G as s,
+  Y as t,
+  Z as u,
+  K as v,
   S as w,
   A as x,
-  M as y
+  D as y
 };
-//# sourceMappingURL=answer-enhance-W8TBaAUL.js.map
+//# sourceMappingURL=answer-enhance-C7Ufl5ur.js.map

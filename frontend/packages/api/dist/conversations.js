@@ -154,9 +154,33 @@ export async function forkConversationFromPath(options, apiPrefix = API_PREFIX) 
 }
 export function messagesToBranchItems(messages) {
     const items = [];
+    // 记忆压缩的摘要以 role="assistant" 落库（Rust 只接受 user/assistant），而且必须留在
+    // 链上——下一条 user 消息以它为 parent，压缩后的上下文靠它延续。但它不是回答:第 13
+    // 轮起用户会在聊天里看到一条自己没问过的、机器生成的「【对话摘要】…」。
+    //
+    // 落库时带的 model="memory/extractive_v1" 就是标记。这里按它跳过，并把它的子节点
+    // **重新接到它的父节点上**——直接跳过会让下一条 user 消息变成孤儿，整段历史断掉。
+    const hidden = new Map();
+    for (const m of messages) {
+        if (`${m.model || ""}`.startsWith("memory/")) {
+            const parent = `${m.parent_id || ""}`.trim();
+            hidden.set(m.message_id, hidden.has(parent) ? hidden.get(parent) ?? null : parent || null);
+        }
+    }
+    const resolveParent = (raw) => {
+        let parent = raw || null;
+        const guard = new Set();
+        while (parent && hidden.has(parent) && !guard.has(parent)) {
+            guard.add(parent);
+            parent = hidden.get(parent) ?? null;
+        }
+        return parent;
+    };
     for (const m of messages) {
         const role = m.role === "user" || m.role === "assistant" ? m.role : null;
         if (!role)
+            continue;
+        if (hidden.has(m.message_id))
             continue;
         let citations;
         try {
@@ -165,8 +189,8 @@ export function messagesToBranchItems(messages) {
                 citations = raw;
         }
         catch { }
-        const parent = `${m.parent_id || ""}`.trim();
-        items.push({ parentId: parent || null, message: { id: m.message_id, role, content: m.content || "", ...(citations ? { citations } : {}), ...(role === "assistant" ? { status: { type: "complete", reason: "stop" } } : {}) } });
+        const parent = resolveParent(`${m.parent_id || ""}`.trim());
+        items.push({ parentId: parent, message: { id: m.message_id, role, content: m.content || "", ...(citations ? { citations } : {}), ...(role === "assistant" ? { status: { type: "complete", reason: "stop" } } : {}) } });
     }
     return items;
 }

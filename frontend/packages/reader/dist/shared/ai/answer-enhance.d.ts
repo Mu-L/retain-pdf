@@ -33,11 +33,6 @@ export declare function clipSnippet(text?: string, maxLength?: number): string;
 export declare function pickCitationsForAnswer(answerText: string, citations: AiCitationLike[], { max }?: {
     max?: number;
 }): AiCitationLike[];
-/**
- * Turn bare citation markers into internal Markdown links before Markstream parses them.
- * Fenced/inline code and existing links remain untouched, so streaming renders never need
- * a post-render DOM replacement that Markstream can overwrite on its next batch.
- */
 export declare function decorateCitationMarkdown(markdown: string, citationByRef: Map<string, AiCitationLike>): string;
 export declare function buildPagePreviewUrl(jobId: string, pageIdx0: number, kind?: "translated" | "source", adapters?: {
     resolveResourceUrl?: (v: unknown) => string;
