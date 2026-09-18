@@ -151,11 +151,19 @@ export function extractMarkdownMath(
     return token;
   };
 
-  // 块级
+  // 块级。只认 `$$`——OCR 的 markdown fallback 对公式块产出的就是这个
+  // （markdown_fallback.py 的 _render_formula）。
   text = text.replace(/\$\$([\s\S]+?)\$\$/g, (_m, tex: string) => push(tex, true));
-  text = text.replace(/\\\[([\s\S]+?)\\\]/g, (_m, tex: string) => push(tex, true));
-  // 行内 \( ... \)
-  text = text.replace(/\\\(([\s\S]+?)\\\)/g, (_m, tex: string) => push(tex, false));
+
+  // 不认 `\[...\]` 和 `\(...\)`。
+  //
+  // 按 CommonMark，`\[` 是**转义的方括号**，不是公式定界符。我们自己的后端就这么
+  // 用它——markdown_fallback.py 的 _escape_image_alt 把字面 `[` `]` 转义成 `\[`
+  // `\]`；LLM 译文里写 `参见 \[1\] 与 \[2\]` 更是家常便饭。当成公式的后果是
+  // 一整段正文被劈成三块、中间两个编号变成居中的块级公式。
+  //
+  // 另一头也没有来源：渲染 PDF 的那条路（inline_math.py）无条件输出 `$...$`，
+  // cmarker 同样只认 `$`。两边都不产出这两种写法，只有前端在认。
   // 行内 $...$（单行；OCR 常在 $ 内侧加空格）
   text = text.replace(/(?<![\\$])\$(?!\$)((?:\\.|[^$\n])+?)\$(?!\$)/g, (full, tex: string) => {
     if (!`${tex}`.trim()) {

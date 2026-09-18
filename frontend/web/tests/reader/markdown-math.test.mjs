@@ -10,6 +10,9 @@ import {
 } from "../../src/features/reader/domain.js";
 
 test("extractMarkdownMath protects display and inline delimiters", () => {
+  // `\\(...\\)` 和 `\\[...\\]` 曾经也算公式。按 CommonMark 它们是转义括号，
+  // 而且两端都没有来源：后端渲染只输出 `$...$`，cmarker 也只认 `$`。
+  // 详见 markdown-math-delimiters.test.mjs。
   const src = [
     "Intro $E=mc^2$ and more.",
     "",
@@ -19,12 +22,13 @@ test("extractMarkdownMath protects display and inline delimiters", () => {
   ].join("\n");
 
   const { text, slots } = extractMarkdownMath(src);
-  assert.equal(slots.length, 4);
+  assert.equal(slots.length, 2);
 
   const byTex = Object.fromEntries(slots.map((s) => [s.tex, s]));
   assert.equal(byTex["E=mc^2"]?.display, false);
-  assert.equal(byTex["x_i"]?.display, false);
-  assert.equal(byTex["y=1"]?.display, true);
+  assert.equal(byTex["x_i"], undefined, "转义圆括号被当成了公式");
+  assert.equal(byTex["y=1"], undefined, "转义方括号被当成了公式");
+  assert.ok(text.includes("\\(x_i\\)"), "转义圆括号应当原样留在正文里");
   const frac = slots.find((s) => s.tex.includes("\\frac"));
   assert.ok(frac);
   assert.equal(frac.display, true);
