@@ -254,11 +254,14 @@ def test_markdown_asset_url_accepts_canonical_and_legacy_page_local_ids(tmp_path
     )
 
     assert canonical == legacy == catalog_uri
-    assert canonical.endswith("page-3/imgs/figure.jpg")
+    # URL 末尾多了 `?doc=<document_id>`:图片常常不在阅读中的那个 job 里，前端拿它和
+    # 本次回答引用里的 document_id 比对，免得把「任意 job 都放行」当成修法。
+    # 这里钉的仍然是「路径锚定正确」，所以只比对路径部分。
+    assert canonical.split("?")[0].endswith("page-3/imgs/figure.jpg")
     encoded_once = _markdown_asset_url(
         job_root, "job-1", 2, "images/page-3/imgs/figure%20detail.jpg"
     )
-    assert encoded_once.endswith("page-3/imgs/figure%20detail.jpg")
+    assert encoded_once.split("?")[0].endswith("page-3/imgs/figure%20detail.jpg")
     assert "%2520" not in encoded_once
     assert _markdown_asset_url(job_root, "job-1", 2, "../secret.png") == ""
     assert (
@@ -318,7 +321,7 @@ def test_default_registry_tools_return_anchored_results(tmp_path):
     assert blocks["blocks"][1]["translated_text"] == "第二个块的译文"
     assert blocks["blocks"][1]["bbox"] == [10.0, 50.0, 180.0, 80.0]
     assert blocks["blocks"][2]["block_type"] == "image"
-    assert blocks["blocks"][2]["image_url"].endswith("page-3/imgs/figure.jpg")
+    assert blocks["blocks"][2]["image_url"].split("?")[0].endswith("page-3/imgs/figure.jpg")
     assert len(blocks["blocks"][2]["asset_image_urls"]) == 2
     assert blocks["blocks"][1]["source_text_length"] == len("second block")
 
@@ -366,7 +369,7 @@ def test_default_registry_markdown_tools_only_read_full_markdown(tmp_path):
     assert searched["hits"][0]["page_idx"] is None
     assert searched["hits"][0]["assets"] == [
         {
-            "image_url": "/api/v1/jobs/job-1/markdown/images/page-3/imgs/figure%20detail.jpg",
+            "image_url": "/api/v1/jobs/job-1/markdown/images/page-3/imgs/figure%20detail.jpg?doc=doc-a",
             "alt": "反应图",
         }
     ]

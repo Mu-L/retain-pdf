@@ -243,10 +243,22 @@ export function buildMarkdownImageApiUrl(jobId: string, relativePath: string, ad
  * AI 回答图片只允许当前 job 的 Markdown 资产。外链、data/blob/file、其它 job
  * 一律 fail closed；绝不把鉴权 fetch 发往模型提供的任意 URL。
  */
+/**
+ * 把回答里的图片引用解析成可请求的 URL，解析不出来就返回空串（fail closed）。
+ *
+ * `allowedDocumentIds` 是给「图片不在阅读中的那个 job 里」准备的。上传先跑 OCR、
+ * 翻译另起一个 job 复用它的产物，图片留在 OCR 那边，于是路径里的 job 和当前阅读的
+ * job 对不上，图片一律显示成「图片不可用」。
+ *
+ * 但不能因此放行任意 job——那等于把「引用指向别的文档」那类问题放回来。后端在 URL 上
+ * 带了 `?doc=<document_id>`，只有它出现在本次回答的引用里才放行；URL 写在译文里，
+ * 所以这个判据对历史回答同样成立。
+ */
 export function resolveAnswerImageUrl(
   rawValue: string,
   jobId: string,
   adapters: { resolveResourceUrl?: (v: unknown) => string } = {},
+  allowedDocumentIds: Iterable<string> = [],
 ): string {
   const raw = `${rawValue || ""}`.trim();
   const job = `${jobId || ""}`.trim();
@@ -264,8 +276,15 @@ export function resolveAnswerImageUrl(
   if (!match) return "";
   let pathJob = "";
   try { pathJob = decodeURIComponent(match[1]); } catch { return ""; }
-  if (pathJob !== job) return "";
-  return buildMarkdownImageApiUrl(job, match[2], adapters);
+  if (pathJob === job) return buildMarkdownImageApiUrl(job, match[2], adapters);
+  const declaredDocument = `${url.searchParams.get("doc") || ""}`.trim();
+  if (!declaredDocument) return "";
+  const allowed = new Set(
+    [...allowedDocumentIds].map((value) => `${value || ""}`.trim()).filter(Boolean),
+  );
+  if (!allowed.has(declaredDocument)) return "";
+  // 用路径里的 job 重建,不是当前 job——图片就在那个 job 里。查询串丢掉,只是校验用的。
+  return buildMarkdownImageApiUrl(pathJob, match[2], adapters);
 }
 
 function collectCitationImageUrls(citation: AiCitationLike): string[] {
@@ -303,18 +322,29 @@ function pageNumberFromImageUrl(rawValue: string): number | null {
   return Number.isFinite(page) && page >= 1 ? Math.floor(page) : null;
 }
 
+/** 本次回答引用涉及的文档。图片 URL 声明的 `?doc=` 必须落在这里面。 */
+export function answerDocumentIds(citations: AiCitationLike[] = []): string[] {
+  const ids = new Set<string>();
+  for (const citation of citations) {
+    const value = `${(citation as { document_id?: unknown })?.document_id || ""}`.trim();
+    if (value) ids.add(value);
+  }
+  return [...ids];
+}
+
 /** Resolve an answer image to the same structured citation used by inline [n] jumps. */
 export function findCitationForAnswerImage(
   rawValue: string,
   citations: AiCitationLike[],
   jobId: string,
 ): AiCitationLike | null {
-  const safeImageUrl = resolveAnswerImageUrl(rawValue, jobId);
+  const allowed = answerDocumentIds(citations);
+  const safeImageUrl = resolveAnswerImageUrl(rawValue, jobId, {}, allowed);
   if (!safeImageUrl) return null;
 
   for (const citation of citations) {
     for (const candidate of collectCitationImageUrls(citation)) {
-      if (resolveAnswerImageUrl(candidate, jobId) === safeImageUrl) return citation;
+      if (resolveAnswerImageUrl(candidate, jobId, {}, allowed) === safeImageUrl) return citation;
     }
   }
 

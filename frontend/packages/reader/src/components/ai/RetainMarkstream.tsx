@@ -16,6 +16,7 @@ import MarkdownRender, {
 import {
   findCitationForAnswerImage,
   hydrateProtectedImages,
+  answerDocumentIds,
   resolveAnswerImageUrl,
   resolveCitationPageNumber,
   revokeHydratedImageUrls,
@@ -66,7 +67,7 @@ function RetainImageNode({ node }: ImageNodeProps) {
   const imageRef = useRef<HTMLImageElement | null>(null);
   const hydrationControllerRef = useRef<AbortController | null>(null);
   const alt = `${node.alt || ""}`.trim();
-  const safeUrl = resolveAnswerImageUrl(node.src, jobId);
+  const safeUrl = resolveAnswerImageUrl(node.src, jobId, {}, answerDocumentIds(citations));
   const citation = findCitationForAnswerImage(node.src, citations, jobId);
   const pageNumber = resolveCitationPageNumber(citation);
 

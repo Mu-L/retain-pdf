@@ -47,8 +47,19 @@ def _markdown_asset_url(
     page_idx: int,
     asset_id: str,
     asset_uri: str = "",
+    document_id: str = "",
 ) -> str:
-    """Resolve one normalized asset ID to its authenticated Markdown image URL."""
+    """把一个归一化的 asset ID 解析成带鉴权的 Markdown 图片 URL。
+
+    URL 带上 `?doc=<document_id>`。图片常常不在阅读中的那个 job 里——上传先跑 OCR、
+    翻译另起一个 job 复用它的产物,图片留在 OCR 那边。而前端对图片是 fail-closed 的:
+    只接受「路径里的 job == 当前阅读的 job」,于是这类图片一律显示成「图片不可用」。
+    直接放宽成「任意 job 都行」会把「引用指向别的文档」那类风险放回来,所以让 URL
+    自己声明它属于哪个文档,前端拿它和本次回答引用里的 document_id 比对。
+
+    这个参数只用于校验:前端重建请求 URL 时会丢掉查询串,Rust 那边看不到它。URL 本身
+    写在译文里,所以标记天然可持久化——历史回答重新加载时同样成立。
+    """
     normalized = str(asset_uri or asset_id or "").replace("\\", "/").lstrip("/")
     while normalized.startswith("./"):
         normalized = normalized[2:]
@@ -80,16 +91,18 @@ def _markdown_asset_url(
     if not path.is_file():
         return ""
     encoded = "/".join(quote(part, safe="") for part in rel.split("/"))
-    return f"/api/v1/jobs/{job_id}/markdown/images/{encoded}"
+    url = f"/api/v1/jobs/{job_id}/markdown/images/{encoded}"
+    document = str(document_id or "").strip()
+    return f"{url}?doc={quote(document, safe='')}" if document else url
 
 
 def _markdown_chunk_assets(
-    job_root: Path, job_id: str, chunk: MarkdownChunk
+    job_root: Path, job_id: str, chunk: MarkdownChunk, document_id: str = ""
 ) -> list[dict[str, str]]:
     assets: list[dict[str, str]] = []
     seen: set[str] = set()
     for image in chunk.images:
-        url = _markdown_asset_url(job_root, job_id, 0, image.path, image.path)
+        url = _markdown_asset_url(job_root, job_id, 0, image.path, image.path, document_id)
         if not url or url in seen:
             continue
         seen.add(url)
@@ -97,7 +110,7 @@ def _markdown_chunk_assets(
     return assets
 
 
-def _block_asset_urls(job_root: Path, job_id: str, block: Block) -> list[str]:
+def _block_asset_urls(job_root: Path, job_id: str, block: Block, document_id: str = "") -> list[str]:
     urls: list[str] = []
     for index, asset_id in enumerate(block.asset_ids):
         asset_uri = block.asset_uris[index] if index < len(block.asset_uris) else ""
@@ -107,6 +120,7 @@ def _block_asset_urls(job_root: Path, job_id: str, block: Block) -> list[str]:
             block.page_idx,
             asset_id,
             asset_uri,
+            document_id,
         )
         if url and url not in urls:
             urls.append(url)
@@ -337,7 +351,7 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
         )
         hits = []
         for chunk, score in ranked:
-            assets = _markdown_chunk_assets(source_root, job_id_for_assets, chunk)
+            assets = _markdown_chunk_assets(source_root, job_id_for_assets, chunk, document_id)
             hits.append({
                 "document_id": document_id,
                 "job_id": job_id,
@@ -388,7 +402,7 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
                     "chunk_id": chunk.chunk_id,
                     "heading": chunk.heading,
                     "source_text": markdown_text_for_model(chunk.text)[:max_chars],
-                    "assets": _markdown_chunk_assets(source_root, job_id_for_assets, chunk),
+                    "assets": _markdown_chunk_assets(source_root, job_id_for_assets, chunk, document_id),
                     "translated_text": "",
                     "char_start": chunk.char_start,
                     "source_text_length": len(chunk.text),
@@ -448,7 +462,10 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
                     images: list[str] = []
                     if block is not None:
                         images = _block_asset_urls(
-                            hit_source_root, hit_source_job_id, block
+                            hit_source_root,
+                            hit_source_job_id,
+                            block,
+                            str(item.get("document_id") or "").strip(),
                         )
                         item.update(
                             {
@@ -552,7 +569,7 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
         char_start = max(0, int(arguments.get("char_start") or 0))
         char_limit = max(200, min(int(arguments.get("char_limit") or 2000), 8000))
         block_asset_urls = {
-            block.block_id: _block_asset_urls(source_root, source_job_id, block)
+            block.block_id: _block_asset_urls(source_root, source_job_id, block, document_id)
             for block in blocks
         }
         exact_image_urls: list[str] = []
