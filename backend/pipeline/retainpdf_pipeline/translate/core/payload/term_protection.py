@@ -15,6 +15,7 @@ direct_typst 的三条编排路径（batched_plain、single_item_flow、tagged_p
 
 from __future__ import annotations
 
+from retainpdf_pipeline.translate.core.payload.parts.group_split import INLINE_MATH_SPAN_RE
 from retainpdf_pipeline.translate.core.placeholder_tokens import PROTECTED_TOKEN_RE
 from retainpdf_pipeline.translate.core.payload.token_protection import ProtectedToken
 from retainpdf_pipeline.translate.core.payload.token_protection import Span
@@ -34,6 +35,16 @@ def collect_term_spans(text: str, glossary_entries: list[GlossaryEntry] | None) 
     selected: list[Span] = [
         Span(match.start(), match.end(), "protected", match.group(0), match.group(0))
         for match in PROTECTED_TOKEN_RE.finditer(text)
+    ]
+    # 公式内部同样不许匹配。term_pattern 的词边界是 `[A-Za-z0-9_]`,`{`/`}`/`(`/`)`
+    # 全都算边界,于是术语 `Si` 会在 `$\mathrm{Si}_2\mathrm{O}$` 里命中:canonical
+    # 条目还原时填的是译名,结果是 `$\mathrm{硅}_2\mathrm{O}$`——中文进了公式,
+    # 渲染器要么报错要么把中文排进数学。preserve 条目内容虽然不变,中间态却把
+    # `<t1-9e7/>` 暴露在 `$...$` 里,正是模型会把尖括号当 `\langle`/`\rangle` 改写
+    # 的那个形状。
+    selected += [
+        Span(match.start(), match.end(), "math", match.group(0), match.group(0))
+        for match in INLINE_MATH_SPAN_RE.finditer(text)
     ]
     term_spans: list[Span] = []
     for entry in glossary_hard_entries(normalize_glossary_entries(glossary_entries)):
