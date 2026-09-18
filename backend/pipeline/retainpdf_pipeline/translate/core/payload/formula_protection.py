@@ -1,23 +1,38 @@
 from __future__ import annotations
 
-from dataclasses import asdict
 from dataclasses import dataclass
-import hashlib
 import re
 from typing import Iterable
 
+from retainpdf_pipeline.translate.core.payload.token_protection import (
+    INLINE_MATH_RE,
+    LEGACY_ALIAS_PLACEHOLDER_RE,
+    LEGACY_FORMULA_PLACEHOLDER_RE,
+    ProtectedToken,
+    TOKEN_TYPE_PREFIX,
+    TYPED_TOKEN_RE,
+    Span as _Span,
+    checksum as _checksum,
+    formula_map_from_protected_map,
+    next_token_indexes as _next_token_indexes,
+    overlaps_any as _overlaps_any,
+    protected_map_from_formula_map,
+    restore_protected_tokens,
+    restore_tokens_by_type,
+    token_tag as _token_tag,
+    wrap_formula_inline_math,
+)
+# 术语保护搬去 term_protection.py:它在 direct_typst 路径上是活的,而本文件只服务
+# placeholder 模式。此处转出仅为兼容既有 import 点。
+from retainpdf_pipeline.translate.core.payload.term_protection import (
+    collect_term_spans as _collect_term_spans,
+    protect_glossary_terms,
+)
+# PROTECTED_TOKEN_RE 此前经本文件转出给 payload/__init__,保留这条转出避免
+# 无关模块跟着改 import 路径。
 from retainpdf_pipeline.translate.core.placeholder_tokens import PROTECTED_TOKEN_RE
-from retainpdf_pipeline.translate.core.terms.glossary import GlossaryEntry
-from retainpdf_pipeline.translate.core.terms.glossary import context_matches
-from retainpdf_pipeline.translate.core.terms.glossary import glossary_hard_entries
-from retainpdf_pipeline.translate.core.terms.glossary import normalize_glossary_entries
-from retainpdf_pipeline.translate.core.terms.glossary import term_pattern
 
 
-LEGACY_FORMULA_PLACEHOLDER_RE = re.compile(r"\[\[FORMULA_(\d+)]]")
-LEGACY_ALIAS_PLACEHOLDER_RE = re.compile(r"@@F\d+@@")
-TYPED_TOKEN_RE = re.compile(r"<(?P<prefix>[futnvc])(?P<index>\d+)-(?P<checksum>[0-9a-z]{3})/>")
-INLINE_MATH_RE = re.compile(r"\$(?P<body>[^$\n]+)\$")
 PROSE_BOUNDARY_RE = re.compile(r"([}\]])([A-Za-z][a-z]{2,})")
 LATEX_FORMULA_RE = re.compile(
     r"""
@@ -85,38 +100,6 @@ FORMULA_NEIGHBOR_ALLOWED_RE = re.compile(r"^[A-Za-z0-9(){}\[\]_^\-+*/=~.,%\\:;]+
 FORMULA_NEIGHBOR_PUNCT_RE = re.compile(r"^[,.;:)\]}]+$")
 
 
-TOKEN_TYPE_PREFIX = {
-    "formula": "f",
-    "term": "t",
-    "unit": "u",
-    "numeric": "n",
-    "variable": "v",
-    "citation": "c",
-}
-
-
-@dataclass(frozen=True)
-class ProtectedToken:
-    token_tag: str
-    token_type: str
-    original_text: str
-    restore_text: str
-    source_offset: int
-    checksum: str
-
-    def to_dict(self) -> dict[str, object]:
-        return asdict(self)
-
-
-@dataclass(frozen=True)
-class _Span:
-    start: int
-    end: int
-    token_type: str
-    original_text: str
-    restore_text: str
-
-
 @dataclass(frozen=True)
 class _SegmentRecord:
     index: int
@@ -128,15 +111,6 @@ class _SegmentRecord:
 
 def _prepare_text(text: str) -> str:
     return PROSE_BOUNDARY_RE.sub(r"\1 \2", text)
-
-
-def _checksum(value: str, token_type: str) -> str:
-    return hashlib.blake2s(f"{token_type}\0{value}".encode("utf-8"), digest_size=2).hexdigest()[:3]
-
-
-def _token_tag(token_type: str, index: int, checksum: str) -> str:
-    prefix = TOKEN_TYPE_PREFIX[token_type]
-    return f"<{prefix}{index}-{checksum}/>"
 
 
 def _iter_formula_matches(text: str) -> Iterable[tuple[int, int, str]]:
@@ -245,11 +219,6 @@ def _should_protect_segment_formula_candidate(value: str, *, merged_left_fragmen
     return not _should_skip_formula_candidate(value)
 
 
-def _overlaps_any(span: tuple[int, int], selected: list[_Span]) -> bool:
-    start, end = span
-    return any(start < existing.end and end > existing.start for existing in selected)
-
-
 def _collect_formula_spans(text: str) -> list[_Span]:
     raw_matches = sorted(_iter_formula_matches(text), key=lambda item: (item[0], -(item[1] - item[0])))
     selected: list[_Span] = []
@@ -260,28 +229,6 @@ def _collect_formula_spans(text: str) -> list[_Span]:
         selected.append(_Span(start, end, "formula", value, value))
         cursor = end
     return selected
-
-
-def _collect_term_spans(text: str, glossary_entries: list[GlossaryEntry] | None) -> list[_Span]:
-    selected: list[_Span] = [
-        _Span(match.start(), match.end(), "protected", match.group(0), match.group(0))
-        for match in PROTECTED_TOKEN_RE.finditer(text)
-    ]
-    term_spans: list[_Span] = []
-    for entry in glossary_hard_entries(normalize_glossary_entries(glossary_entries)):
-        pattern = term_pattern(entry)
-        for match in pattern.finditer(text):
-            start, end = match.span()
-            if start == end or _overlaps_any((start, end), selected):
-                continue
-            if not context_matches(text, entry, start=start, end=end):
-                continue
-            original = match.group(0)
-            restore_text = original if entry.level == "preserve" else entry.target
-            span = _Span(start, end, "term", original, restore_text)
-            selected.append(span)
-            term_spans.append(span)
-    return term_spans
 
 
 def _protect_spans(text: str, spans: list[_Span]) -> tuple[str, list[dict]]:
@@ -301,55 +248,6 @@ def _protect_spans(text: str, spans: list[_Span]) -> tuple[str, list[dict]]:
         counters[span.token_type] = counters.get(span.token_type, 0) + 1
         checksum = _checksum(span.original_text, span.token_type)
         token_tag = _token_tag(span.token_type, counters[span.token_type], checksum)
-        protected_map.append(
-            ProtectedToken(
-                token_tag=token_tag,
-                token_type=span.token_type,
-                original_text=span.original_text,
-                restore_text=span.restore_text,
-                source_offset=span.start,
-                checksum=checksum,
-            ).to_dict()
-        )
-        chunks.append(token_tag)
-        cursor = span.end
-    chunks.append(text[cursor:])
-    return "".join(chunks), protected_map
-
-
-def _next_token_indexes(existing_map: list[dict]) -> dict[str, int]:
-    counters = {token_type: 0 for token_type in TOKEN_TYPE_PREFIX}
-    for entry in existing_map or []:
-        token_type = str(entry.get("token_type", "") or "")
-        token_tag = str(entry.get("token_tag") or entry.get("placeholder") or "")
-        match = TYPED_TOKEN_RE.fullmatch(token_tag)
-        if token_type in counters and match is not None:
-            counters[token_type] = max(counters[token_type], int(match.group("index")))
-    return counters
-
-
-def protect_glossary_terms(
-    text: str,
-    *,
-    glossary_entries: list[GlossaryEntry] | None = None,
-    existing_map: list[dict] | None = None,
-) -> tuple[str, list[dict]]:
-    normalized = normalize_glossary_entries(glossary_entries)
-    if not normalized:
-        return text, list(existing_map or [])
-    term_spans = _collect_term_spans(text, normalized)
-    if not term_spans:
-        return text, list(existing_map or [])
-    counters = _next_token_indexes(existing_map or [])
-    selected = sorted(term_spans, key=lambda span: (span.start, -(span.end - span.start)))
-    protected_map = list(existing_map or [])
-    chunks: list[str] = []
-    cursor = 0
-    for span in selected:
-        chunks.append(text[cursor:span.start])
-        counters["term"] += 1
-        checksum = _checksum(span.original_text, span.token_type)
-        token_tag = _token_tag(span.token_type, counters["term"], checksum)
         protected_map.append(
             ProtectedToken(
                 token_tag=token_tag,
@@ -458,91 +356,6 @@ def protect_inline_formulas_in_segments(
     spans = formula_spans + _collect_term_spans(text, glossary_entries)
     protected_text, protected_map = _protect_spans(text, spans)
     return protected_text, _formula_map_from_protected_map(protected_map), protected_map
-
-
-def protected_map_from_formula_map(formula_map: list[dict]) -> list[dict]:
-    protected_map: list[dict] = []
-    if isinstance(formula_map, dict):
-        iterable = []
-    else:
-        iterable = list(formula_map or [])
-    for index, item in enumerate(iterable, start=1):
-        if not isinstance(item, dict):
-            continue
-        token_tag = str(item.get("placeholder", "") or "")
-        restore_text = str(item.get("formula_text", "") or "")
-        token_type = "formula"
-        checksum = _checksum(restore_text, token_type)
-        protected_map.append(
-            ProtectedToken(
-                token_tag=token_tag,
-                token_type=token_type,
-                original_text=restore_text,
-                restore_text=restore_text,
-                source_offset=-1,
-                checksum=checksum,
-            ).to_dict()
-        )
-    return protected_map
-
-
-def formula_map_from_protected_map(protected_map: list[dict]) -> list[dict]:
-    formula_map: list[dict] = []
-    if isinstance(protected_map, dict):
-        iterable = []
-    else:
-        iterable = list(protected_map or [])
-    for item in iterable:
-        if not isinstance(item, dict):
-            continue
-        if str(item.get("token_type", "") or "") != "formula":
-            continue
-        placeholder = str(item.get("token_tag") or item.get("placeholder") or "")
-        formula_text = str(item.get("restore_text") or item.get("formula_text") or item.get("original_text") or "")
-        if not placeholder or not formula_text:
-            continue
-        formula_map.append(
-            {
-                "placeholder": placeholder,
-                "token_tag": placeholder,
-                "formula_text": formula_text,
-            }
-        )
-    return formula_map
-
-
-def wrap_formula_inline_math(formula_text: str) -> str:
-    text = str(formula_text or "").strip()
-    if not text:
-        return ""
-    match = INLINE_MATH_RE.fullmatch(text)
-    if match is not None:
-        text = match.group("body").strip()
-    return f"${text}$"
-
-
-def restore_protected_tokens(text: str, protected_map: list[dict]) -> str:
-    restored = text or ""
-    for item in protected_map or []:
-        token_tag = str(item.get("token_tag") or item.get("placeholder") or "")
-        restore_text = str(item.get("restore_text") or item.get("formula_text") or item.get("original_text") or "")
-        if str(item.get("token_type", "") or "") == "formula":
-            restore_text = wrap_formula_inline_math(restore_text)
-        if token_tag:
-            restored = restored.replace(token_tag, restore_text)
-    return restored
-
-
-def restore_tokens_by_type(text: str, protected_map: list[dict], token_types: set[str]) -> str:
-    restored = text or ""
-    for item in protected_map or []:
-        if str(item.get("token_type", "") or "") not in token_types:
-            continue
-        token_tag = str(item.get("token_tag") or item.get("placeholder") or "")
-        restore_text = str(item.get("restore_text") or item.get("formula_text") or item.get("original_text") or "")
-        if token_tag:
-            restored = restored.replace(token_tag, restore_text)
-    return restored
 
 
 def restore_inline_formulas(text: str, formula_map: list[dict]) -> str:
