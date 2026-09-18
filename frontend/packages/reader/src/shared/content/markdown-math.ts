@@ -99,12 +99,47 @@ function extractBareMathFragments(
  * 抽出 LaTeX 片段并换成占位符，避免 marked 破坏下标/命令。
  * 顺序：块级 $$ / \[ \] → 行内 \( \) / $...$ →（可选）未包裹的裸 LaTeX。
  */
+// 后端保护 token 的形状:类型前缀 + 序号 + 校验和。落盘前本该全部还原,漏了就是
+// 确定性的垃圾。
+const PROTECTED_TOKEN_RE = /<([futnvc]\d+-[0-9a-z]{3})\/>/g;
+
+/**
+ * 把漏还原的保护 token 变成看得见的文本。
+ *
+ * `<f1-e32/>` 在 Markdown 里会被当成未知 HTML 元素——不是显示成乱码，而是**整段
+ * 消失**:实测 `结果为 <f1-e32/> 所示` 渲染出来的 textContent 是 `结果为  所示`,
+ * 公式连痕迹都不剩。比显示成垃圾更糟,因为没人会发现译文少了东西。
+ *
+ * 后端对这类 token 只在缓存读写处设了闸（坏译文不入缓存、命中即作废）,不拦投递,
+ * 所以前端仍会拿到。这里只保证它可见,不试图还原——还原信息在后端。
+ */
+export function revealProtectedTokens(source: string): { text: string; count: number } {
+  let count = 0;
+  const text = `${source ?? ""}`.replace(PROTECTED_TOKEN_RE, (_match, body: string) => {
+    count += 1;
+    // 不能只是转义或加反引号:两条下游路径对 HTML 的处理方式不同（Markdown 走
+    // marked，叠层走 escapeHtml），任何带尖括号的形式都会在其中一条里被解析掉或
+    // 显示成二次转义的乱码。换成完全不含尖括号的写法，哪条路都原样可见。
+    return `[未还原 token ${body}]`;
+  });
+  return { text, count };
+}
+
 export function extractMarkdownMath(
   source: string,
   options: ExtractMarkdownMathOptions = {},
 ): ExtractMarkdownMathResult {
   const slots: MarkdownMathSlot[] = [];
-  let text = `${source ?? ""}`;
+  const revealed = revealProtectedTokens(`${source ?? ""}`);
+  if (revealed.count) {
+    mathFailureStats.protectedTokens += revealed.count;
+    if (mathFailureStats.protectedTokens <= 5) {
+      console.warn(
+        `[markdown-math] 译文里有 ${revealed.count} 个未还原的保护 token，已原样显示`,
+      );
+    }
+  }
+  let text = revealed.text;
 
   const push = (rawTex: string, display: boolean): string => {
     const tex = `${rawTex ?? ""}`.trim();
@@ -191,7 +226,19 @@ async function loadDefaultMathJaxEngine(): Promise<MathJaxEngine> {
     InputJax: new TeX({
       // 方案 C：宽容渲染。`unicode` 包让 Unicode 数学符号（⟨⟩、希腊字母、
       // 运算符等）尽量直接渲染，减少严格 TeX 的报错面。
-      packages: Array.from(new Set([...AllPackages, "unicode"])),
+      //
+      // 摘掉 `html` 包。它提供 `\href`/`\class`/`\cssId`，链接原样进 SVG，而译文
+      // 是模型对 OCR 文本的输出、源头是用户上传的 PDF——不是可信输入。实测
+      // `$\href{javascript:alert(1)}{x}$` 渲染出 `<a href="javascript:alert(1)">`，
+      // 而实时翻译叠层是 dangerouslySetInnerHTML 直接注入，中间没有任何消毒层。
+      //
+      // 试过在字符串层用正则摘掉危险协议，不成立：`jav&#x61;script:` 在字符串里
+      // 看着无害，浏览器解析属性时会把实体解码回 `javascript:`。能被绕过的清洗器
+      // 比没有更糟，它只提供虚假的安全感。所以从根上不产生这类属性。
+      //
+      // 代价：文档里真有 `\href` 时不再渲染成链接，退化成失败回退显示原文。渲染
+      // PDF 的 mitex 本来也不支持 `\href`，两边因此一致。
+      packages: AllPackages.filter((name: string) => name !== "html").concat("unicode"),
     }),
     OutputJax: new SVG({ fontCache: "none" }),
   });
@@ -229,6 +276,8 @@ export const mathFailureStats = {
   lastReason: "",
   /** 最近若干条失败的公式原文，用来判断是哪一类写法出了问题。 */
   samples: [] as string[],
+  /** 译文里漏还原的后端保护 token 数量。不是渲染失败，是上游漏了一步。 */
+  protectedTokens: 0,
 };
 
 // 只写不读的统计等于没有统计。上一次公式事故（引擎加载被三层 catch 吞掉）之后加了

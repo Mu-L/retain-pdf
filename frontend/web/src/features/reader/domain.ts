@@ -79,6 +79,7 @@ export {
   normalizeBlockKey,
   parseMarkdownWithMath,
   resetMarkdownMathEngineLoader,
+  revealProtectedTokens,
   setMarkdownMathEngineLoader,
   sortAnnotations,
   wrapMathSvgHtml,
