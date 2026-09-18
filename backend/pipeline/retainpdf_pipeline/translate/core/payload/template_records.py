@@ -11,7 +11,7 @@ from retainpdf_pipeline.translate.core.item_reader import item_is_bodylike
 from retainpdf_pipeline.translate.core.item_reader import item_policy_translate
 from retainpdf_pipeline.translate.core.ocr.models import TextItem
 
-from .formula_protection import protect_inline_formulas_in_segments
+from .inline_protection import protect_inline_formulas_in_segments
 
 
 def item_policy_payload(block_type: str, metadata: dict | None = None, *, contract_fields: dict | None = None) -> dict:

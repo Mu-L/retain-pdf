@@ -119,6 +119,46 @@ def restore_tokens_by_type(text: str, protected_map: list[dict], token_types: se
     return restored
 
 
+def protect_spans(text: str, spans: list[Span]) -> tuple[str, list[dict]]:
+    """把若干跨度换成 token，重叠的按「靠左、更长」优先取舍。
+
+    公式和术语必须共用这一次取舍：各自打各自的会在重叠处互相覆盖。所以取舍放在
+    这里，由上层把两边的 span 合并后一次性交进来——这也是 formula 和 term 两个
+    模块之所以不必互相依赖的原因。
+    """
+    ordered = sorted(spans, key=lambda span: (span.start, -(span.end - span.start)))
+    selected: list[Span] = []
+    for span in ordered:
+        if overlaps_any((span.start, span.end), selected):
+            continue
+        selected.append(span)
+
+    counters: dict[str, int] = {}
+    protected_map: list[dict] = []
+    chunks: list[str] = []
+    cursor = 0
+    for span in selected:
+        chunks.append(text[cursor:span.start])
+        counters[span.token_type] = counters.get(span.token_type, 0) + 1
+        value_checksum = checksum(span.original_text, span.token_type)
+        tag = token_tag(span.token_type, counters[span.token_type], value_checksum)
+        protected_map.append(
+            ProtectedToken(
+                token_tag=tag,
+                token_type=span.token_type,
+                original_text=span.original_text,
+                restore_text=span.restore_text,
+                source_offset=span.start,
+                checksum=value_checksum,
+            ).to_dict()
+        )
+        chunks.append(tag)
+        cursor = span.end
+    chunks.append(text[cursor:])
+    return "".join(chunks), protected_map
+
+
+
 def protected_map_from_formula_map(formula_map: list[dict]) -> list[dict]:
     protected_map: list[dict] = []
     iterable = [] if isinstance(formula_map, dict) else list(formula_map or [])
@@ -175,6 +215,7 @@ __all__ = [
     "formula_map_from_protected_map",
     "next_token_indexes",
     "overlaps_any",
+    "protect_spans",
     "protected_map_from_formula_map",
     "restore_protected_tokens",
     "restore_tokens_by_type",

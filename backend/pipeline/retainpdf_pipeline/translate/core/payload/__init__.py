@@ -1,5 +1,5 @@
-from retainpdf_pipeline.translate.core.payload.formula_protection import protect_inline_formulas
-from retainpdf_pipeline.translate.core.payload.formula_protection import protect_inline_formulas_in_segments
+from retainpdf_pipeline.translate.core.payload.inline_protection import protect_inline_formulas
+from retainpdf_pipeline.translate.core.payload.inline_protection import protect_inline_formulas_in_segments
 from retainpdf_pipeline.translate.core.payload.formula_protection import PROTECTED_TOKEN_RE
 from retainpdf_pipeline.translate.core.payload.formula_protection import re_protect_restored_formulas
 from retainpdf_pipeline.translate.core.payload.formula_protection import restore_inline_formulas

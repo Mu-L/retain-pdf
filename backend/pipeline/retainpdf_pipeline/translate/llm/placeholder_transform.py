@@ -10,7 +10,7 @@ from retainpdf_pipeline.translate.llm.validation.placeholder_tokens import FORMU
 from retainpdf_pipeline.translate.llm.validation.placeholder_tokens import PLACEHOLDER_RE
 from retainpdf_pipeline.translate.llm.validation.placeholder_tokens import placeholder_sequence
 from retainpdf_pipeline.translate.core.payload.formula_protection import protected_map_from_formula_map
-from retainpdf_pipeline.translate.core.payload.formula_protection import protect_glossary_terms
+from retainpdf_pipeline.translate.core.payload.term_protection import protect_glossary_terms
 
 
 def repair_safe_duplicate_placeholders(source_text: str, translated_text: str) -> str | None:

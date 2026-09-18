@@ -24,10 +24,6 @@ from retainpdf_pipeline.translate.core.payload.token_protection import (
 )
 # 术语保护搬去 term_protection.py:它在 direct_typst 路径上是活的,而本文件只服务
 # placeholder 模式。此处转出仅为兼容既有 import 点。
-from retainpdf_pipeline.translate.core.payload.term_protection import (
-    collect_term_spans as _collect_term_spans,
-    protect_glossary_terms,
-)
 # PROTECTED_TOKEN_RE 此前经本文件转出给 payload/__init__,保留这条转出避免
 # 无关模块跟着改 import 路径。
 from retainpdf_pipeline.translate.core.placeholder_tokens import PROTECTED_TOKEN_RE
@@ -101,7 +97,7 @@ FORMULA_NEIGHBOR_PUNCT_RE = re.compile(r"^[,.;:)\]}]+$")
 
 
 @dataclass(frozen=True)
-class _SegmentRecord:
+class SegmentRecord:
     index: int
     segment_type: str
     content: str
@@ -109,7 +105,7 @@ class _SegmentRecord:
     end: int
 
 
-def _prepare_text(text: str) -> str:
+def prepare_text(text: str) -> str:
     return PROSE_BOUNDARY_RE.sub(r"\1 \2", text)
 
 
@@ -187,7 +183,7 @@ def _should_skip_formula_candidate(value: str) -> bool:
     )
 
 
-def _looks_like_formula_neighbor_fragment(text: str) -> bool:
+def looks_like_formula_neighbor_fragment(text: str) -> bool:
     normalized = " ".join((text or "").split()).strip()
     if not normalized or len(normalized) > 24:
         return False
@@ -211,7 +207,7 @@ def _looks_like_formula_neighbor_fragment(text: str) -> bool:
     return bool(re.search(r"[A-Za-z]+\d|\d+[A-Za-z]|[A-Z][a-z]?[A-Z]", compact))
 
 
-def _should_protect_segment_formula_candidate(value: str, *, merged_left_fragment: bool = False) -> bool:
+def should_protect_segment_formula_candidate(value: str, *, merged_left_fragment: bool = False) -> bool:
     if merged_left_fragment:
         return False
     if "\ufffd" in value or "��" in value:
@@ -219,7 +215,7 @@ def _should_protect_segment_formula_candidate(value: str, *, merged_left_fragmen
     return not _should_skip_formula_candidate(value)
 
 
-def _collect_formula_spans(text: str) -> list[_Span]:
+def collect_formula_spans(text: str) -> list[_Span]:
     raw_matches = sorted(_iter_formula_matches(text), key=lambda item: (item[0], -(item[1] - item[0])))
     selected: list[_Span] = []
     cursor = 0
@@ -231,40 +227,7 @@ def _collect_formula_spans(text: str) -> list[_Span]:
     return selected
 
 
-def _protect_spans(text: str, spans: list[_Span]) -> tuple[str, list[dict]]:
-    ordered = sorted(spans, key=lambda span: (span.start, -(span.end - span.start)))
-    selected: list[_Span] = []
-    for span in ordered:
-        if _overlaps_any((span.start, span.end), selected):
-            continue
-        selected.append(span)
-
-    counters: dict[str, int] = {}
-    protected_map: list[dict] = []
-    chunks: list[str] = []
-    cursor = 0
-    for span in selected:
-        chunks.append(text[cursor:span.start])
-        counters[span.token_type] = counters.get(span.token_type, 0) + 1
-        checksum = _checksum(span.original_text, span.token_type)
-        token_tag = _token_tag(span.token_type, counters[span.token_type], checksum)
-        protected_map.append(
-            ProtectedToken(
-                token_tag=token_tag,
-                token_type=span.token_type,
-                original_text=span.original_text,
-                restore_text=span.restore_text,
-                source_offset=span.start,
-                checksum=checksum,
-            ).to_dict()
-        )
-        chunks.append(token_tag)
-        cursor = span.end
-    chunks.append(text[cursor:])
-    return "".join(chunks), protected_map
-
-
-def _formula_map_from_protected_map(protected_map: list[dict]) -> list[dict]:
+def formula_map_from_protected_map_entries(protected_map: list[dict]) -> list[dict]:
     return [
         {
             "placeholder": str(entry.get("token_tag", "") or ""),
@@ -273,89 +236,6 @@ def _formula_map_from_protected_map(protected_map: list[dict]) -> list[dict]:
         for entry in protected_map
         if str(entry.get("token_type", "") or "") == "formula"
     ]
-
-
-def protect_inline_formulas(
-    text: str,
-    *,
-    glossary_entries: list[GlossaryEntry] | None = None,
-) -> tuple[str, list[dict]]:
-    protected_text, protected_map = protect_inline_content(text, glossary_entries=glossary_entries)
-    return protected_text, _formula_map_from_protected_map(protected_map)
-
-
-def protect_inline_content(
-    text: str,
-    *,
-    glossary_entries: list[GlossaryEntry] | None = None,
-) -> tuple[str, list[dict]]:
-    prepared = _prepare_text(text)
-    spans = _collect_formula_spans(prepared)
-    spans.extend(_collect_term_spans(prepared, glossary_entries))
-    return _protect_spans(prepared, spans)
-
-
-def protect_inline_formulas_in_segments(
-    segments: list[dict],
-    *,
-    glossary_entries: list[GlossaryEntry] | None = None,
-) -> tuple[str, list[dict], list[dict]]:
-    chunks: list[str] = []
-    records: list[_SegmentRecord] = []
-    cursor = 0
-    for index, segment in enumerate(segments):
-        content = segment.get("content", "").strip()
-        if not content:
-            continue
-        if chunks:
-            chunks.append(" ")
-            cursor += 1
-        start = cursor
-        chunks.append(content)
-        cursor += len(content)
-        records.append(
-            _SegmentRecord(
-                index=index,
-                segment_type=str(segment.get("type", "") or ""),
-                content=content,
-                start=start,
-                end=cursor,
-            )
-        )
-    text = _prepare_text("".join(chunks))
-    formula_spans: list[_Span] = []
-    consumed_indexes: set[int] = set()
-    for position, record in enumerate(records):
-        if record.index in consumed_indexes:
-            continue
-        if record.segment_type != "inline_equation":
-            continue
-        if GREEK_COMMA_PAIR_RE.match(record.content):
-            continue
-        start_record = record
-        end_record = record
-        merged_left_fragment = False
-        if position > 0:
-            left = records[position - 1]
-            if (
-                left.index not in consumed_indexes
-                and left.segment_type == "text"
-                and _looks_like_formula_neighbor_fragment(left.content)
-            ):
-                start_record = left
-                consumed_indexes.add(left.index)
-                merged_left_fragment = True
-        merged_content = text[start_record.start:end_record.end]
-        if not _should_protect_segment_formula_candidate(
-            merged_content,
-            merged_left_fragment=merged_left_fragment,
-        ):
-            continue
-        consumed_indexes.add(record.index)
-        formula_spans.append(_Span(start_record.start, end_record.end, "formula", merged_content, merged_content))
-    spans = formula_spans + _collect_term_spans(text, glossary_entries)
-    protected_text, protected_map = _protect_spans(text, spans)
-    return protected_text, _formula_map_from_protected_map(protected_map), protected_map
 
 
 def restore_inline_formulas(text: str, formula_map: list[dict]) -> str:
