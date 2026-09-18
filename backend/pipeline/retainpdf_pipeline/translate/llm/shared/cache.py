@@ -67,6 +67,25 @@ def _has_balanced_inline_math_delimiters(text: str) -> bool:
     return len(UNESCAPED_INLINE_DOLLAR_RE.findall(text or "")) % 2 == 0
 
 
+UNRESTORED_PROTECTED_TOKEN_RE = re.compile(r"<[futnvc]\d+-[0-9a-z]{3}/>")
+
+
+def has_unrestored_protected_tokens(text: str) -> bool:
+    """译文里还留着 `<f1-e32/>` 这类保护 token。
+
+    保护 token 是给模型看的占位符,落盘前必须换回原文。留在译文里就是确定性的
+    垃圾——渲染出来是 `< 𝑓1 − 𝑒32/ >` 这种东西。
+
+    这条检查存在的原因是一次真实事故:公式保护加上了、统一还原点却只认 term,
+    于是 30% 的译文带着 token 写进了缓存。修好还原之后重跑并不会好转——缓存键
+    只包含提示词与源文,不包含"还原逻辑的版本",于是照旧命中那份坏数据。
+    一次写入,污染此后每一次运行。
+
+    所以两头都堵:坏结果不入缓存,已在缓存里的读到就作废重翻。
+    """
+    return bool(UNRESTORED_PROTECTED_TOKEN_RE.search(text or ""))
+
+
 def cache_key_for_item(
     item: dict,
     *,
@@ -229,6 +248,9 @@ def load_cached_translation(
     translated_text, sanitized = _sanitize_cached_translation_text(translated_text)
     if str(item.get("math_mode", "") or "").strip() == "direct_typst" and translated_text and not _has_balanced_inline_math_delimiters(translated_text):
         return {}
+    if has_unrestored_protected_tokens(translated_text):
+        # 旧版本写进来的坏条目:当作未命中,重翻一次覆盖掉。
+        return {}
     if translated_text != raw_translated_text or sanitized:
         healed_payload = {
             "cache_key": cache_key,
@@ -258,6 +280,9 @@ def store_cached_translation(
     translated_text = extract_single_item_translation_text(translated_text, str(item.get("item_id", "") or ""))
     translated_text, _sanitized = _sanitize_cached_translation_text(translated_text)
     if not translated_text and decision != "keep_origin":
+        return
+    if has_unrestored_protected_tokens(translated_text):
+        # 宁可下次重翻,也不要把坏译文固化下来——缓存里的一条坏数据比一次失败贵得多。
         return
     cache_key = cache_key_for_item(
         item,

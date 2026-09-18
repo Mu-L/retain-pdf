@@ -139,3 +139,23 @@ def test_restore_covers_formula_tokens_not_only_terms() -> None:
     assert "<f1-" not in text and "<t1-" not in text, f"仍有未还原的 token：{text}"
     assert text == r"交换反应 $\mathrm{D}$ 在 势能面 上"
     assert "$" in text, "公式还原必须补回定界符，原文 OCR 里没有"
+
+
+def test_translation_with_leaked_tokens_never_reaches_the_cache() -> None:
+    """带未还原 token 的译文既不能写进缓存，也不能从缓存里读出来。
+
+    真实事故的第二幕：还原修好之后重翻，结果一模一样——262 条目、79 条泄漏，
+    两次数字逐位相同。原因是缓存命中：坏译文在修复前已经写进去了，而缓存键只
+    包含提示词和源文，不包含"还原逻辑的版本"，所以键没变、照旧命中。
+
+    一次写入污染此后每一次运行，而且表现成"修复没生效"——最难排查的那种。
+    所以两头都堵，而不是只修还原。
+    """
+    from retainpdf_pipeline.translate.llm.shared.cache import has_unrestored_protected_tokens
+
+    assert has_unrestored_protected_tokens("项 <f1-2d4/> 是奇异绝热修正")
+    assert has_unrestored_protected_tokens("术语 <t2-abc/> 保留")
+    assert not has_unrestored_protected_tokens("项 $\\mathrm{D}$ 是修正")
+    assert not has_unrestored_protected_tokens("普通译文，没有任何占位符")
+    # 形近但不是 token 的写法不能误伤
+    assert not has_unrestored_protected_tokens("区间 <f1> 与 a<b 比较")
