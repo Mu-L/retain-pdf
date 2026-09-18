@@ -16,6 +16,9 @@ export type ReaderChatMetadata = {
   progress?: string;
   persisted?: boolean;
   status?: "running" | "complete" | "cancelled" | "error";
+  /** 终态文案。流还没开始就失败时（例如 409），消息里一个文本片段都没有，
+   *  错误只存在于 error chunk 里，最终渲染成一个空气泡。 */
+  statusText?: string;
 };
 
 export type ReaderChatMessage = UIMessage<ReaderChatMetadata>;
@@ -203,7 +206,7 @@ export class RetainPdfChatTransport implements ChatTransport<ReaderChatMessage> 
             }
 
             if (abortSignal?.aborted) {
-              updateMetadata({ progress: "", status: "cancelled" });
+              updateMetadata({ progress: "", status: "cancelled", statusText: "已取消" });
               enqueue({ type: "abort", reason: "cancelled" });
               return;
             }
@@ -264,14 +267,17 @@ export class RetainPdfChatTransport implements ChatTransport<ReaderChatMessage> 
             enqueue({ type: "finish", finishReason: "stop", messageMetadata: metadata });
           } catch (error) {
             if (abortSignal?.aborted) {
-              updateMetadata({ progress: "", status: "cancelled" });
+              updateMetadata({ progress: "", status: "cancelled", statusText: "已取消" });
               enqueue({ type: "abort", reason: "cancelled" });
             } else {
-              updateMetadata({ progress: "", status: "error" });
-              enqueue({
-                type: "error",
-                errorText: error instanceof Error ? error.message : "生成回答失败，请重试。",
-              });
+              const errorText = error instanceof Error && error.message
+                ? error.message
+                : "生成回答失败，请重试。";
+              // 文案同时进 metadata。AI SDK 的 error chunk 不会往消息里加文本片段,
+              // 而流还没开始就失败时（例如后端 409）消息里本来就没有任何片段——
+              // 只发 error chunk 的话，用户看到的是一个空气泡加三个按钮。
+              updateMetadata({ progress: "", status: "error", statusText: errorText });
+              enqueue({ type: "error", errorText });
             }
           } finally {
             if (!closed) {

@@ -41,10 +41,15 @@ export function chatMessageToStore(message: ReaderChatMessage): ReaderAskStoreMe
   const metadata = (message.metadata || {}) as ReaderChatMetadata;
   const running = metadata.status === "running";
   const incomplete = metadata.status === "cancelled" || metadata.status === "error";
+  // 终态但没有正文时用状态文案兜底。markRunningAsError 指望不上:它只处理
+  // status 还是 "running" 的条目，而这份镜像已经把它推进 incomplete 了，
+  // 于是那条补文案的逻辑一次也不会命中。
+  const text = readerChatMessageText(message);
+  const content = text.trim() || (incomplete ? `${metadata.statusText || ""}`.trim() : "");
   return {
     id: message.id,
     role: message.role as "user" | "assistant",
-    content: readerChatMessageText(message),
+    content: message.role === "assistant" ? content : text,
     ...(message.role === "assistant" ? {
       citations: metadata.citations || [],
       progress: metadata.progress || "",
