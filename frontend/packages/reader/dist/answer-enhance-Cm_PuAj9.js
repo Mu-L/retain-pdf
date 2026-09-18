@@ -2,7 +2,7 @@ let k = 0, b = null, y = null, E = !1;
 function v(t = Date.now()) {
   return t < k;
 }
-function R(t = 700) {
+function T(t = 700) {
   const a = Date.now() + Math.max(0, t);
   a > k && (k = a);
 }
@@ -52,7 +52,7 @@ function j() {
   }
 }
 function q(t = 700, a = {}) {
-  if (R(t), typeof document > "u") return;
+  if (T(t), typeof document > "u") return;
   b == null || b(), b = null;
   const e = Date.now() + Math.max(0, t), n = Math.max(0, Number(a.overlayDelayMs) || 0);
   let r = null;
@@ -112,7 +112,7 @@ function B() {
     throw new Error("fetch not available");
   });
 }
-function T(t) {
+function R(t) {
   try {
     return U(t) || `${t ?? ""}`.trim();
   } catch {
@@ -185,6 +185,7 @@ function S(t, a, { max: e = 5 } = {}) {
   }
   if (i.length)
     return i.slice(0, e).map((o) => r.get(o));
+  if (/\[\d+\]/.test(`${t || ""}`)) return [];
   const l = [], c = /* @__PURE__ */ new Set();
   for (const o of n) {
     const u = A(o);
@@ -215,7 +216,7 @@ function Q(t, a) {
   return t.split(/(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$))/g).map((n, r) => r % 2 === 1 ? n : e(n)).join("");
 }
 function V(t, a, e = "translated", n = {}) {
-  const r = n.resolveResourceUrl ?? T, i = `${t || ""}`.trim(), s = Math.max(1, Math.floor(Number(a) || 0) + 1);
+  const r = n.resolveResourceUrl ?? R, i = `${t || ""}`.trim(), s = Math.max(1, Math.floor(Number(a) || 0) + 1);
   if (!i) return "";
   const l = `/api/v1/jobs/${encodeURIComponent(i)}/preview/pages/${s}?kind=${e}&width=240`;
   try {
@@ -225,7 +226,7 @@ function V(t, a, e = "translated", n = {}) {
   }
 }
 function C(t, a, e = {}) {
-  const n = e.resolveResourceUrl ?? T, r = `${t || ""}`.trim();
+  const n = e.resolveResourceUrl ?? R, r = `${t || ""}`.trim();
   let i = `${a || ""}`.trim().replace(/\\/g, "/").replace(/^\.\//, "");
   if (!r || !i || i.startsWith("/") || i.startsWith("//") || /^[a-z][a-z\d+.-]*:/i.test(i))
     return "";
@@ -526,7 +527,7 @@ export {
   v as q,
   B as r,
   H as s,
-  R as t,
+  T as t,
   Y as u,
   Z as v,
   K as w,
@@ -534,4 +535,4 @@ export {
   A as y,
   D as z
 };
-//# sourceMappingURL=answer-enhance-R3v1qw4c.js.map
+//# sourceMappingURL=answer-enhance-Cm_PuAj9.js.map

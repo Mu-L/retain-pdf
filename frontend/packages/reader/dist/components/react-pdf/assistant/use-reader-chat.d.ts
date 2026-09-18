@@ -17,6 +17,9 @@ export declare function useReaderChat(options: {
     assistantMode: ReaderAssistantMode;
     onAgentOperationSignal?: (signal: Omit<ReaderAgentOperationSignal, "nonce">) => void;
     onConfirmationMode?: (mode: ReaderAgentRuntimeConfig["agent_confirmation_mode"]) => void;
+    /** chat.stop() 之后调用。显式「停止」按钮那条路在它自己那边收尾,这里管的是
+     *  关面板与切文档——它们只调 stop()，消息会永远停在 running。 */
+    onStopped?: () => void;
 }): import("@ai-sdk/react").UseChatHelpers<ReaderChatMessage>;
 export declare function lastAssistantMessage(messages: readonly UIMessage[]): UIMessage | undefined;
 export {};
