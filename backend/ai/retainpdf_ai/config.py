@@ -91,6 +91,10 @@ class Settings:
     # agent 循环护栏
     max_tool_rounds: int = 6
     reading_max_tool_rounds: int = 3
+    # 纯计算轮的额外预算。检索上限压得低是为了不让模型乱逛,但复杂问题的后半段是计算
+    # (算 → 画图),被同一个上限砍断就只能拿半截结果硬答。全是本地计算工具的轮次改从
+    # 这份预算里扣,总轮数仍被两者之和夹住。
+    computation_round_bonus: int = 3
     ai_request_deadline_s: float = 90.0
     ai_heartbeat_interval_s: float = 5.0
     # 追问建议:一轮答完之后多跑一次轻量调用。它要花钱、也让 done 晚一点,所以留一个
@@ -239,6 +243,9 @@ def load_settings() -> Settings:
         llm_credential_ref=os.environ.get("RETAIN_AI_LLM_CREDENTIAL_REF", "").strip(),
         llm_timeout_s=float(os.environ.get("RETAIN_AI_LLM_TIMEOUT_S", "60")),
         max_tool_rounds=int(os.environ.get("RETAIN_AI_MAX_TOOL_ROUNDS", "6")),
+        computation_round_bonus=max(
+            0, int(os.environ.get("RETAIN_AI_COMPUTATION_ROUND_BONUS", "3"))
+        ),
         reading_max_tool_rounds=max(
             1,
             min(

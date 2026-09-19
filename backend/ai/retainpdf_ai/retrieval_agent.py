@@ -18,6 +18,7 @@ from .prompts import build_reading_system_prompt
 from .request_control import RequestControl
 from .runtimes.contracts import AskResult, ChatFn, Citation
 from .tools import ToolRegistry
+from .chart_tools import CHART_TOOL_NAMES
 from .unified_tools import (
     CALCULATION_TOOL_NAMES,
     agent_tool_event,
@@ -27,6 +28,8 @@ from .unified_tools import (
 SYSTEM_PROMPT = build_reading_system_prompt()
 MARKDOWN_TOOL_NAMES = frozenset({"search_markdown", "read_markdown_chunk"})
 STRUCTURED_READING_TOOL_NAMES = frozenset({"search_fulltext", "read_blocks"})
+# 本地、确定性、不出网的工具。它们是"拿到证据之后"的加工步骤,不是检索。
+COMPUTATION_TOOL_NAMES = frozenset((*CALCULATION_TOOL_NAMES, *CHART_TOOL_NAMES))
 DOCUMENT_READING_TOOL_NAMES = frozenset(
     (*STRUCTURED_READING_TOOL_NAMES, *MARKDOWN_TOOL_NAMES)
 )
@@ -42,10 +45,12 @@ class RetrievalAgent:
         chat_fn: ChatFn,
         *,
         max_tool_rounds: int = 6,
+        computation_round_bonus: int = 3,
     ) -> None:
         self._registry = registry
         self._chat = chat_fn
         self._max_tool_rounds = max(1, max_tool_rounds)
+        self._computation_round_bonus = max(0, computation_round_bonus)
 
     @property
     def registry(self) -> ToolRegistry:
@@ -103,7 +108,20 @@ class RetrievalAgent:
             ),
         )
 
-        for round_index in range(1, round_limit + 1):
+        # 轮次预算。
+        #
+        # 上限存在是为了不让模型在**检索**上乱逛,但复杂问题的后半段是计算:检索 → 读块
+        # → 算 → 画图 → 作答,在 reading 模式的 3 轮里做不完,会被强制收尾、拿着半截结果
+        # 硬答。直接把上限调高会把"别乱逛"那条约束一起放掉,而问题只出在计算阶段。
+        #
+        # 所以:**一轮里调的全是本地计算工具时,不吃检索预算**,改从一份单独的、有限的
+        # 计算预算里扣。混着调了检索工具的轮次照旧计入——那一轮仍然在检索。
+        budget_left = round_limit
+        computation_left = self._computation_round_bonus
+        round_index = 0
+
+        while True:
+            round_index += 1
             if request_control is not None:
                 request_control.raise_if_stopped()
             # 这一轮如果不调工具就会被下面的强制检索闸丢弃——而这件事**现在**就知道。
@@ -123,7 +141,8 @@ class RetrievalAgent:
             tool_calls = message.get("tool_calls") or []
             if not tool_calls:
                 if requires_document_search and not searched_document:
-                    if round_index < round_limit:
+                    if budget_left > 1:
+                        budget_left -= 1
                         _request_required_document_search(messages, content_source)
                         continue
                     return AskResult(
@@ -134,6 +153,17 @@ class RetrievalAgent:
                 return _answer_result(
                     message, citations, trace, round_index, calculation_refs
                 )
+
+            called = {
+                str(call.get("function", {}).get("name") or "")
+                for call in tool_calls
+            }
+            # 「全是计算工具」才走计算预算。只要掺了一个检索工具,这一轮就还在检索。
+            computation_only = bool(called) and called <= COMPUTATION_TOOL_NAMES
+            if computation_only and computation_left > 0:
+                computation_left -= 1
+            else:
+                budget_left -= 1
 
             messages.append(
                 {
@@ -223,6 +253,12 @@ class RetrievalAgent:
                     }
                 )
 
+            # 收尾条件仍然只看检索预算。曾经试过「两份预算都见底才停」,那会让检索
+            # 预算耗尽之后再多跑一次模型调用,而那一轮要是又去检索就只能整轮丢弃——
+            # 白花一次往返。计算预算的作用是让计算轮不扣检索预算,不是延长循环。
+            if budget_left <= 0:
+                break
+
         messages.append(
             {
                 "role": "user",
@@ -246,7 +282,7 @@ class RetrievalAgent:
             return AskResult(
                 answer="当前回答尚未完成文档检索，无法可靠回答。请重试。",
                 tool_trace=trace,
-                rounds=round_limit,
+                rounds=round_index,
             )
         message = _chat_round(
             chat,
@@ -259,7 +295,7 @@ class RetrievalAgent:
             message,
             citations,
             trace,
-            round_limit,
+            round_index,
             calculation_refs,
         )
 

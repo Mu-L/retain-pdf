@@ -54,6 +54,7 @@ def build_app(
             build_default_registry(settings, rust),
             build_deepseek_chat_fn(settings),
             max_tool_rounds=settings.max_tool_rounds,
+            computation_round_bonus=settings.computation_round_bonus,
         )
     if runtime is None:
         if agent is None:
