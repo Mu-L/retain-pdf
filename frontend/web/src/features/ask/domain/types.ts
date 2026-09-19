@@ -39,7 +39,15 @@ export type HomeAskMessage = {
   content: string;
   citations?: HomeAskCitation[];
   progress?: string;
-  status?: "pending" | "streaming" | "complete" | "error";
+  /**
+   * `cancelled` = 用户点了停止、回答只写了半截。
+   *
+   * 它此前不存在：中断被标成 `complete`，再往正文尾巴上拼一句 Markdown 斜体
+   * `_（已停止生成）_` 当标记。那样做的代价是标记混进了 `content`——半截回答和写完的
+   * 回答在数据上分不出来，标记会被「复制」抄走、被「引用」带进下一个问题，也会跟着
+   * `content` 一起被当成回答内容。中断是一种状态，不是正文的一部分。
+   */
+  status?: "pending" | "streaming" | "complete" | "cancelled" | "error";
   /**
    * 服务端消息树里的父节点。会话本来就是一棵树（后端存 parent_id/head_id），
    * 重新生成要靠它把新答案挂成同一个提问下的兄弟分支，而不是再追加一轮提问。

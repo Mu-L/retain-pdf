@@ -1,7 +1,7 @@
 // 主页 AI 消息列表：轻量 markdown 预览 + 引用跳阅读器
 
 import { useState } from "react";
-import { BookOpen, FlaskConical, ListTree, Loader2, Pencil, Sparkles } from "lucide-react";
+import { BookOpen, CircleSlash, FlaskConical, ListTree, Loader2, Pencil, Sparkles } from "lucide-react";
 import { AiMarkdownAnswer, type AiCitationLike } from "@retainpdf/reader/ai";
 import { buildReaderUrl } from "@/platform/navigation/pages.js";
 import { navigateToReader } from "@/features/reader/domain.js";
@@ -185,11 +185,17 @@ export function HomeAskThread({
         const streaming = m.status === "streaming";
         const hasBody = Boolean(m.content?.trim());
         const failed = m.status === "error";
+        // 用户点停止、只写了半截。它是一等状态，不再靠正文里那句斜体标记来认。
+        const interrupted = m.status === "cancelled";
         // 重新生成要用触发这条回答的那次提问。消息是成对追加的,所以取它前面那条 user。
         const askedIndex = messages.findIndex((item) => item.id === m.id) - 1;
-        const askedQuestion = askedIndex >= 0 && messages[askedIndex]?.role === "user"
-          ? `${messages[askedIndex].content || ""}`.trim()
-          : "";
+        const asked = askedIndex >= 0 && messages[askedIndex]?.role === "user"
+          ? messages[askedIndex]
+          : null;
+        const askedQuestion = `${asked?.content || ""}`.trim();
+        // 中断后的「改写提问」出口：点它就是打开那一轮提问的内联编辑框，和用户气泡上
+        // 的「编辑」是同一条路径。首问没有父节点、服务端造不出第二个根，所以同样不给。
+        const canEditAsked = Boolean(onEditQuestion) && Boolean(asked?.parentId) && !isRunning;
         const operations = operationsFor(m.id);
         return (
           <div key={m.id} className="home-ask-msg home-ask-msg-assistant">
@@ -206,16 +212,31 @@ export function HomeAskThread({
               </div>
             ) : null}
             {hasBody || failed ? (
-              <div className={`home-ask-msg-bubble${failed ? " is-error" : ""}`}>
+              <div
+                className={`home-ask-msg-bubble${failed ? " is-error" : ""}${interrupted ? " is-interrupted" : ""}`}
+              >
                 <AssistantBody message={m} />
               </div>
             ) : null}
-            {!streaming && (hasBody || failed) ? (
+            {/* 「已中断」是标识，不是正文：它在气泡外面，复制/引用都带不走它。
+                一个字都没来得及出来的中断也要显示——否则这条消息在线程里什么都不剩，
+                连重新生成的入口都跟着消失，看上去像提问石沉大海。 */}
+            {interrupted ? (
+              <div className="home-ask-msg-interrupted" role="status">
+                <CircleSlash size={13} strokeWidth={2.2} aria-hidden />
+                <span>已中断{hasBody ? "，回答只写了一半" : "，还没开始作答"}</span>
+              </div>
+            ) : null}
+            {!streaming && (hasBody || failed || interrupted) ? (
               <MessageActions
                 content={m.content || ""}
                 failed={failed}
+                interrupted={interrupted}
                 canRegenerate={Boolean(askedQuestion) && !isRunning}
                 onRegenerate={() => onRegenerate?.(m.id, askedQuestion)}
+                onEditQuestion={canEditAsked && asked
+                  ? () => setEditingId(asked.id)
+                  : undefined}
                 branch={branches[m.id]}
                 onSwitchBranch={isRunning ? undefined : onSwitchBranch}
               />

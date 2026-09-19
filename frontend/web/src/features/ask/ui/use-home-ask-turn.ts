@@ -9,11 +9,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import {
-  askLibraryAi,
-  AiAskError,
-  createConversation,
-} from "@/platform/api/index.js";
+import { askLibraryAi, createConversation } from "@/platform/api/index.js";
 import {
   resolveReaderAiConfig,
   sanitizeAssistantAnswer,
@@ -23,6 +19,7 @@ import { buildScopedQuestion, resolveScopesForAsk } from "../domain/home-ask-sco
 import { describeToolEvent, findTurnUserMessage } from "../domain/home-ask-message-mapping.js";
 import { operationSignalsFromResult } from "../domain/home-ask-operation-signal.js";
 import { makeId } from "../domain/home-ask-ids.js";
+import { classifyTurnFailure } from "../domain/home-ask-turn-failure.js";
 import { saveConversationId } from "../domain/home-ask-conversation-storage.js";
 import type { HomeAskCitation, HomeAskMessage, HomeAskScope } from "../domain/types.js";
 
@@ -304,38 +301,31 @@ export function useHomeAskTurn({
       });
       void refreshSessions();
     } catch (error) {
-      const aborted = (
-        (error instanceof DOMException && error.name === "AbortError")
-        || (error instanceof Error && (
-          error.name === "AbortError"
-          || /abort/i.test(error.message)
-        ))
-        || abort.signal.aborted
-      );
-      if (aborted) {
+      // 「是不是用户点了停止」只看信号和 AbortError，不看消息文本——理由见
+      // home-ask-turn-failure.ts（上游一句 "Request aborted by upstream" 曾经足以
+      // 让一次真失败伪装成一次用户中止）。
+      const failure = classifyTurnFailure(error, abort.signal);
+      if (failure.kind === "cancelled") {
         const partial = `${messagesRef.current.find((m) => m.id === assistantId)?.content || ""}`.trim();
         if (!partial && priorAssistant) {
           // 重新生成一个字都没出来就被停掉:把空壳摘掉、切回原答案。留着它会变成一个
           // 什么都没有的"版本",白占一格分支计数。
           dropNode(assistantId, priorAssistant.id);
         } else {
-          // 保留已流式输出的正文，追加「已停止」
+          // 已经流出来的正文原样留着，中断本身进 status。不再往正文尾巴上拼
+          // `_（已停止生成）_`：那句标记会被复制走、被引用进下一个问题，也会让半截
+          // 回答和写完的回答在数据上分不出来。界面上的「已中断」标识由 status 派生。
           patchMessage(assistantId, {
-            content: partial ? `${partial}\n\n_（已停止生成）_` : "_（已停止生成）_",
+            content: partial,
             progress: "",
-            status: "complete",
+            status: "cancelled",
           });
         }
       } else {
-        const msg = error instanceof AiAskError
-          ? error.message
-          : error instanceof Error
-            ? error.message
-            : "生成回答失败，请重试。";
         // 重新生成失败时错误就停在这一版上。它和原答案是兄弟，切换器给出 « 1/2 »，
         // 一键就能切回原来那版——两条不可能同时显示，它们共用一个父节点。
         patchMessage(assistantId, {
-          content: msg,
+          content: failure.message,
           progress: "",
           status: "error",
           citations: [],

@@ -497,6 +497,30 @@
   line-height: 1.55;
 }
 
+/* 被中断的半截回答。
+   标识在气泡外面：它是这条消息的状态，不是回答的内容——拼进正文就会被「复制」
+   抄走、被「引用」带进下一个问题。正文本身只做一点淡化和一条左侧竖线，让人一眼
+   看出「这段没写完」，同时不至于淡到读不了（半截答案往往已经够用）。 */
+.home-ask-msg-bubble.is-interrupted {
+  padding-left: 10px;
+  border-left: 2px solid color-mix(in srgb, var(--warn) 55%, transparent);
+  color: color-mix(in srgb, var(--ink) 82%, var(--paper));
+}
+
+.home-ask-msg-interrupted {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border: 1px solid color-mix(in srgb, var(--warn) 32%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  color: color-mix(in srgb, var(--warn) 70%, var(--ink));
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .home-ask-thinking {
   display: inline-flex;
   align-items: center;
