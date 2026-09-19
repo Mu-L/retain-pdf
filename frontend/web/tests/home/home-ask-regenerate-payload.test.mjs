@@ -55,7 +55,7 @@ Object.defineProperty(globalThis, "fetch", {
     const url = `${typeof input === "string" ? input : input?.url || ""}`;
     let body = null;
     try { body = init.body ? JSON.parse(`${init.body}`) : null; } catch { /* 非 JSON 请求 */ }
-    requests.push({ url, body });
+    requests.push({ url, body, method: `${init.method || "GET"}`.toUpperCase() });
     if (/\/conversations(\?|$)/.test(url)) {
       return jsonResponse({ conversation_id: "conv-1", title: "t", created_at: "", updated_at: "" });
     }
@@ -75,6 +75,9 @@ const { createRoot } = await import("react-dom/client");
 const { useHomeAskRuntime } = await import("../../src/features/ask/ui/use-home-ask-runtime.ts");
 
 const askBodies = () => requests.filter((r) => /ai\/ask/.test(r.url)).map((r) => r.body);
+const patchedHeads = () => requests
+  .filter((r) => r.method === "PATCH" && /\/conversations\//.test(r.url))
+  .map((r) => r.body?.head_id);
 
 function mountRuntime() {
   const host = dom.window.document.createElement("div");
@@ -88,7 +91,9 @@ function mountRuntime() {
   act(() => { root.render(React.createElement(Probe)); });
   return {
     get messages() { return api.current.messages; },
+    get branches() { return api.current.branches; },
     send: async (...args) => { await act(async () => { await api.current.send(...args); }); },
+    switchBranch: async (id) => { await act(async () => { api.current.switchBranch(id); }); },
     unmount: () => act(() => root.unmount()),
   };
 }
@@ -169,6 +174,75 @@ describe("重新生成发出去的请求", () => {
 
     await runtime.send("问题", [], { regenerateOf: "不存在的消息" });
     assert.equal(askBodies().length, before, "对着不存在的回答也发了请求");
+    runtime.unmount();
+  });
+});
+
+
+describe("重新生成之后切回上一版", () => {
+  beforeEach(() => {
+    requests.length = 0;
+    try { dom.window.localStorage.clear(); } catch { /* ignore */ }
+  });
+
+  it("旧答案没有被丢掉，切换器给出 1/2", async () => {
+    const runtime = mountRuntime();
+    await runtime.send("问题");
+    const firstAnswer = runtime.messages.find((m) => m.role === "assistant");
+
+    await runtime.send("问题", [], { regenerateOf: firstAnswer.id });
+    const current = runtime.messages.find((m) => m.role === "assistant");
+    const nav = runtime.branches[current.id];
+    assert.ok(nav, "重新生成之后没有出现版本切换器");
+    assert.deepEqual([nav.index, nav.count, nav.prevId], [2, 2, firstAnswer.id]);
+    runtime.unmount();
+  });
+
+  it("切回去之后线程里显示的是旧那版", async () => {
+    const runtime = mountRuntime();
+    await runtime.send("问题");
+    const firstAnswer = runtime.messages.find((m) => m.role === "assistant");
+
+    await runtime.send("问题", [], { regenerateOf: firstAnswer.id });
+    await runtime.switchBranch(firstAnswer.id);
+
+    const shown = runtime.messages.find((m) => m.role === "assistant");
+    assert.equal(shown.id, firstAnswer.id, "切回上一版之后显示的还是新那版");
+    // 同一个提问下只能显示一条:它们共用一个父节点。
+    assert.equal(runtime.messages.filter((m) => m.role === "assistant").length, 1);
+    runtime.unmount();
+  });
+
+  it("切换写回服务端的 head——只改本地的话一刷新就跳回去了", async () => {
+    const runtime = mountRuntime();
+    await runtime.send("问题");
+    const firstAnswer = runtime.messages.find((m) => m.role === "assistant");
+
+    await runtime.send("问题", [], { regenerateOf: firstAnswer.id });
+    await runtime.switchBranch(firstAnswer.id);
+
+    assert.deepEqual(patchedHeads(), [firstAnswer.id], "没有把 head 写回服务端");
+    runtime.unmount();
+  });
+
+  it("切回旧那版之后再提问，挂在旧那版底下", async () => {
+    const runtime = mountRuntime();
+    await runtime.send("问题");
+    const firstAnswer = runtime.messages.find((m) => m.role === "assistant");
+
+    await runtime.send("问题", [], { regenerateOf: firstAnswer.id });
+    await runtime.switchBranch(firstAnswer.id);
+    await runtime.send("追问");
+
+    const body = askBodies().at(-1);
+    assert.equal(body.parent_id, firstAnswer.id, "新一轮接到了被切走的那条分支上");
+    runtime.unmount();
+  });
+
+  it("只有一版时不给切换器", async () => {
+    const runtime = mountRuntime();
+    await runtime.send("问题");
+    assert.deepEqual(runtime.branches, {});
     runtime.unmount();
   });
 });

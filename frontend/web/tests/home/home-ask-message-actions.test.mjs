@@ -206,3 +206,46 @@ describe("操作卡片的归位", () => {
     view.unmount();
   });
 });
+
+
+describe("版本切换器", () => {
+  const nav = { index: 2, count: 2, prevId: "a0", nextId: "" };
+
+  it("有多版时显示第几版/共几版", () => {
+    const view = render({ branches: { a1: nav }, onSwitchBranch: () => {} });
+    const [first] = assistantTurns(view.host);
+    assert.ok(textOf(first).includes("2/2"), "没有显示版本序号");
+    view.unmount();
+  });
+
+  it("只有一版的消息不显示切换器", () => {
+    const view = render({ branches: { a1: nav }, onSwitchBranch: () => {} });
+    const [, second] = assistantTurns(view.host);
+    assert.ok(!second.querySelector(".home-ask-msg-branch"), "只有一版也显示了切换器");
+    view.unmount();
+  });
+
+  it("点上一版报的是上一版的 id", async () => {
+    const switched = [];
+    const view = render({ branches: { a1: nav }, onSwitchBranch: (id) => switched.push(id) });
+    const [first] = assistantTurns(view.host);
+    await click(first.querySelector("[aria-label='上一版回答']"));
+    assert.deepEqual(switched, ["a0"]);
+    view.unmount();
+  });
+
+  it("到头的那一侧禁用，但仍然占位——否则 1/2 会左右跳", () => {
+    const view = render({ branches: { a1: nav }, onSwitchBranch: () => {} });
+    const [first] = assistantTurns(view.host);
+    const next = first.querySelector("[aria-label='下一版回答']");
+    assert.ok(next, "到头的按钮被整个拿掉了");
+    assert.equal(next.disabled, true);
+    view.unmount();
+  });
+
+  it("正在生成时不给切", () => {
+    const view = render({ branches: { a1: nav }, onSwitchBranch: () => {}, isRunning: true });
+    assert.equal(view.host.querySelectorAll(".home-ask-msg-branch").length, 0);
+    view.unmount();
+  });
+});

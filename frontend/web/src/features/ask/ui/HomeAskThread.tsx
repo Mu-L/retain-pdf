@@ -1,11 +1,12 @@
 // 主页 AI 消息列表：轻量 markdown 预览 + 引用跳阅读器
 
 import { useCallback, useState } from "react";
-import { BookOpen, Check, Copy, FlaskConical, ListTree, Loader2, RotateCcw, Sparkles } from "lucide-react";
+import { BookOpen, Check, ChevronLeft, ChevronRight, Copy, FlaskConical, ListTree, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import { AiMarkdownAnswer, type AiCitationLike } from "@retainpdf/reader/ai";
 import { buildReaderUrl } from "@/platform/navigation/pages.js";
 import { navigateToReader } from "@/features/reader/domain.js";
 import type { HomeAskCitation, HomeAskMessage } from "../domain/types.js";
+import type { HomeAskBranchNav } from "../domain/home-ask-branches.js";
 import { AgentOperationCard } from "./operations/AgentOperationCard.js";
 import type {
   AgentOperationAction,
@@ -93,6 +94,10 @@ export type HomeAskThreadProps = {
    * 提问下成为兄弟分支，光有问题文本会退化成再追加一轮重复提问。
    */
   onRegenerate?: (assistantMessageId: string, question: string) => void;
+  /** 有多版回答的消息 → 它是第几版、共几版、前后两版的 id。 */
+  branches?: Record<string, HomeAskBranchNav>;
+  /** 切到另一版回答。 */
+  onSwitchBranch?: (messageId: string) => void;
 };
 
 export function HomeAskThread({
@@ -103,6 +108,8 @@ export function HomeAskThread({
   confirmationMode = "explicit",
   onOperationAction = () => {},
   onRegenerate,
+  branches = {},
+  onSwitchBranch,
 }: HomeAskThreadProps) {
   const empty = messages.length === 0;
   // 操作卡片按「触发它的那条请求消息」归位,而不是全部堆在线程最底部。
@@ -169,6 +176,8 @@ export function HomeAskThread({
                 failed={failed}
                 canRegenerate={Boolean(askedQuestion) && !isRunning}
                 onRegenerate={() => onRegenerate?.(m.id, askedQuestion)}
+                branch={branches[m.id]}
+                onSwitchBranch={isRunning ? undefined : onSwitchBranch}
               />
             ) : null}
             {operations.map((entry) => (
@@ -195,11 +204,15 @@ function MessageActions({
   failed,
   canRegenerate,
   onRegenerate,
+  branch,
+  onSwitchBranch,
 }: {
   content: string;
   failed: boolean;
   canRegenerate: boolean;
   onRegenerate: () => void;
+  branch?: HomeAskBranchNav;
+  onSwitchBranch?: (messageId: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const copy = useCallback(() => {
@@ -218,6 +231,9 @@ function MessageActions({
 
   return (
     <div className="home-ask-msg-actions">
+      {branch && onSwitchBranch ? (
+        <BranchSwitcher branch={branch} onSwitch={onSwitchBranch} />
+      ) : null}
       {content.trim() ? (
         <button type="button" className="home-ask-msg-action" onClick={copy} title="复制回答">
           {copied
@@ -237,6 +253,49 @@ function MessageActions({
           <span>{failed ? "重试" : "重新生成"}</span>
         </button>
       ) : null}
+    </div>
+  );
+}
+
+
+/**
+ * 同一个提问下的多版回答之间来回切。
+ *
+ * 重新生成会把新答案挂成兄弟版本，旧的那版从可见路径上换下去但还在树里。没有这个
+ * 切换器的话，重新生成一次就等于把上一版永久藏起来了。
+ */
+function BranchSwitcher({
+  branch,
+  onSwitch,
+}: {
+  branch: HomeAskBranchNav;
+  onSwitch: (messageId: string) => void;
+}) {
+  return (
+    <div className="home-ask-msg-branch" role="group" aria-label="回答版本">
+      <button
+        type="button"
+        className="home-ask-msg-branch-nav"
+        onClick={() => branch.prevId && onSwitch(branch.prevId)}
+        disabled={!branch.prevId}
+        aria-label="上一版回答"
+        title="上一版回答"
+      >
+        <ChevronLeft size={13} strokeWidth={2.4} aria-hidden />
+      </button>
+      <span className="home-ask-msg-branch-count">
+        {branch.index}/{branch.count}
+      </span>
+      <button
+        type="button"
+        className="home-ask-msg-branch-nav"
+        onClick={() => branch.nextId && onSwitch(branch.nextId)}
+        disabled={!branch.nextId}
+        aria-label="下一版回答"
+        title="下一版回答"
+      >
+        <ChevronRight size={13} strokeWidth={2.4} aria-hidden />
+      </button>
     </div>
   );
 }

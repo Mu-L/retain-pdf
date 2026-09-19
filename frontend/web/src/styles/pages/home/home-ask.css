@@ -572,6 +572,54 @@
   outline-offset: 1px;
 }
 
+/* 多版回答之间的切换器。和复制/重新生成同处一行，所以沿用同一套尺寸与配色。 */
+.home-ask-msg-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  margin-right: 2px;
+}
+
+.home-ask-msg-branch-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.home-ask-msg-branch-nav:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  color: var(--ink);
+}
+
+.home-ask-msg-branch-nav:disabled {
+  /* 到头了仍然占位:按钮忽隐忽现会让 1/2 这组数字左右跳。 */
+  opacity: 0.32;
+  cursor: default;
+}
+
+.home-ask-msg-branch-nav:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ink) 35%, transparent);
+  outline-offset: 1px;
+}
+
+.home-ask-msg-branch-count {
+  min-width: 26px;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  text-align: center;
+}
+
 .home-ask-operation-card {
   display: grid;
   gap: 14px;

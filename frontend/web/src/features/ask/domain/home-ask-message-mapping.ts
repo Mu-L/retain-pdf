@@ -49,7 +49,7 @@ function visiblePath(items: BranchItem[], headId: string): BranchItem[] {
   return path.reverse();
 }
 
-export function messagesFromDetail(detail: {
+type ConversationDetailLike = {
   head_id?: string;
   messages?: Array<{
     message_id?: string;
@@ -59,7 +59,18 @@ export function messagesFromDetail(detail: {
     parent_id?: string;
     model?: string;
   }>;
-}): HomeAskMessage[] {
+};
+
+/**
+ * 会话详情 → 整棵消息树 + 当前 head。
+ *
+ * 线程里看得见的那一条由 `visibleThread(nodes, headId)` 派生。树要整棵留着，切分支
+ * 就是换一个 head——被换下去的那一版还在树里，不然切过去就没内容可显示了。
+ */
+export function nodesFromDetail(detail: ConversationDetailLike): {
+  nodes: HomeAskMessage[];
+  headId: string;
+} {
   const list = Array.isArray(detail?.messages) ? detail.messages : [];
   // 先补齐 id：messagesToBranchItems 直接拿 message_id 当节点键，服务端漏给 id 的消息
   // 会退化成同一个 undefined 键，整棵树塌成一条。
@@ -71,9 +82,7 @@ export function messagesFromDetail(detail: {
   // 记忆压缩的摘要以 role="assistant" 落库，但它不是回答——messagesToBranchItems 会按
   // model="memory/…" 把它藏掉并把子节点重新接到它父节点上。主页此前没有这一步，压缩一
   // 发生，线程里就会冒出一条用户没问过的「【对话摘要】…」。
-  const items = messagesToBranchItems(records);
-
-  return visiblePath(items, `${detail?.head_id || ""}`.trim()).map((item) => ({
+  const nodes = messagesToBranchItems(records).map((item) => ({
     id: item.message.id,
     role: item.message.role,
     content: `${item.message.content || ""}`,
@@ -81,6 +90,27 @@ export function messagesFromDetail(detail: {
     status: "complete" as const,
     ...(item.parentId ? { parentId: item.parentId } : {}),
   }));
+
+  return { nodes, headId: `${detail?.head_id || ""}`.trim() };
+}
+
+/** 树里当前可见的那一条线程。规则见 visiblePath。 */
+export function visibleThread(
+  nodes: HomeAskMessage[],
+  headId: string,
+): HomeAskMessage[] {
+  const items = nodes.map((message) => ({
+    parentId: `${message.parentId || ""}` || null,
+    message: { id: message.id },
+  }));
+  const path = visiblePath(items as BranchItem[], `${headId || ""}`.trim());
+  const byId = new Map(nodes.map((message) => [message.id, message]));
+  return path.map((item) => byId.get(item.message.id)!).filter(Boolean);
+}
+
+export function messagesFromDetail(detail: ConversationDetailLike): HomeAskMessage[] {
+  const { nodes, headId } = nodesFromDetail(detail);
+  return visibleThread(nodes, headId);
 }
 
 /**

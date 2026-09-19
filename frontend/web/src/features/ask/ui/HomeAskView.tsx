@@ -47,6 +47,8 @@ export function HomeAskView() {
   const credentialsStatePort = useHomeCredentialsStatePort();
   const {
     messages,
+    branches,
+    switchBranch,
     isRunning,
     conversationId,
     sessions,
@@ -241,6 +243,8 @@ export function HomeAskView() {
                 onOperationAction={(action, operation, options) => (
                   agentOperations.perform(action, operation, options)
                 )}
+                branches={branches}
+                onSwitchBranch={switchBranch}
                 onRegenerate={(assistantMessageId, question) => {
                   // 带上 regenerateOf:新答案挂到同一个提问下成为兄弟分支，而不是
                   // 在对话里再追加一条重复的提问。

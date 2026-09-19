@@ -37,7 +37,10 @@ type HomeAskTurnDeps = {
   conversationIdRef: { current: string };
   messagesRef: { current: HomeAskMessage[] };
   patchMessage: (id: string, patch: Partial<HomeAskMessage>) => void;
-  setMessages: Dispatch<SetStateAction<HomeAskMessage[]>>;
+  /** 往树上挂节点，head 移到最后一个。 */
+  appendNodes: (nodes: HomeAskMessage[]) => void;
+  /** 摘掉一个节点并把 head 交给另一条消息。 */
+  dropNode: (id: string, nextHeadId: string) => void;
   setConversationId: Dispatch<SetStateAction<string>>;
   setAgentRuntime: Dispatch<SetStateAction<string>>;
   enqueueOperationSignal: EnqueueOperationSignal;
@@ -49,7 +52,8 @@ export function useHomeAskTurn({
   conversationIdRef,
   messagesRef,
   patchMessage,
-  setMessages,
+  appendNodes,
+  dropNode,
   setConversationId,
   setAgentRuntime,
   enqueueOperationSignal,
@@ -148,11 +152,11 @@ export function useHomeAskTurn({
       status: "streaming",
       parentId: userId,
     };
-    setMessages((prev) => (regenerating
-      // 原答案从可见路径上换下来（服务端保留为兄弟分支），而不是在它下面再堆一条。
-      ? prev.map((m) => (m.id === regenerateOf ? streamingAssistant : m))
+    // 重新生成只挂一个新答案:它和旧答案同一个 parent，成为兄弟版本，head 一移，
+    // 可见路径自然换成新的那条，旧的留在树里等着被切回来。
+    appendNodes(regenerating
+      ? [streamingAssistant]
       : [
-        ...prev,
         {
           id: userId,
           role: "user",
@@ -161,7 +165,7 @@ export function useHomeAskTurn({
           ...(headId ? { parentId: headId } : {}),
         },
         streamingAssistant,
-      ]));
+      ]);
 
     try {
       const { primaryDoc, resolvedDocs } = await resolveScopesForAsk(scopes);
@@ -298,47 +302,33 @@ export function useHomeAskTurn({
         || abort.signal.aborted
       );
       if (aborted) {
-        // 保留已流式输出的正文，追加「已停止」
-        setMessages((prev) => prev.map((m) => {
-          if (m.id !== assistantId) return m;
-          const partial = `${m.content || ""}`.trim();
-          // 重新生成一个字都没出来就被停掉:把原答案放回去，别留一条空壳。
-          if (!partial && priorAssistant) return priorAssistant;
-          return {
-            ...m,
-            content: partial
-              ? `${partial}\n\n_（已停止生成）_`
-              : "_（已停止生成）_",
+        const partial = `${messagesRef.current.find((m) => m.id === assistantId)?.content || ""}`.trim();
+        if (!partial && priorAssistant) {
+          // 重新生成一个字都没出来就被停掉:把空壳摘掉、切回原答案。留着它会变成一个
+          // 什么都没有的"版本",白占一格分支计数。
+          dropNode(assistantId, priorAssistant.id);
+        } else {
+          // 保留已流式输出的正文，追加「已停止」
+          patchMessage(assistantId, {
+            content: partial ? `${partial}\n\n_（已停止生成）_` : "_（已停止生成）_",
             progress: "",
-            status: "complete" as const,
-          };
-        }));
+            status: "complete",
+          });
+        }
       } else {
         const msg = error instanceof AiAskError
           ? error.message
           : error instanceof Error
             ? error.message
             : "生成回答失败，请重试。";
-        if (priorAssistant) {
-          // 重新生成失败:原答案回位，错误另起一条。把原答案改写成报错等于因为一次
-          // 失败的重试就把用户手里已有的回答弄没了。
-          setMessages((prev) => prev.flatMap((m) => (m.id === assistantId
-            ? [priorAssistant, {
-              ...m,
-              content: msg,
-              progress: "",
-              status: "error" as const,
-              citations: [],
-            }]
-            : [m])));
-        } else {
-          patchMessage(assistantId, {
-            content: msg,
-            progress: "",
-            status: "error",
-            citations: [],
-          });
-        }
+        // 重新生成失败时错误就停在这一版上。它和原答案是兄弟，切换器给出 « 1/2 »，
+        // 一键就能切回原来那版——两条不可能同时显示，它们共用一个父节点。
+        patchMessage(assistantId, {
+          content: msg,
+          progress: "",
+          status: "error",
+          citations: [],
+        });
       }
     } finally {
       if (abortRef.current === abort) {
@@ -353,11 +343,12 @@ export function useHomeAskTurn({
     enqueueOperationSignal,
     messagesRef,
     patchMessage,
+    appendNodes,
+    dropNode,
     refreshSessions,
     runningRef,
     setAgentRuntime,
     setConversationId,
-    setMessages,
   ]);
 
   return { isRunning, send, stop, resetRunState };

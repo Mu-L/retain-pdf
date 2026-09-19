@@ -12,7 +12,7 @@ import {
   loadConversationId,
   saveConversationId,
 } from "../domain/home-ask-conversation-storage.js";
-import { messagesFromDetail } from "../domain/home-ask-message-mapping.js";
+import { nodesFromDetail } from "../domain/home-ask-message-mapping.js";
 import { recordToSession, type HomeAskSession } from "../domain/home-ask-session.js";
 import type { HomeAskMessage } from "../domain/types.js";
 
@@ -20,7 +20,8 @@ type HomeAskSessionsDeps = {
   runningRef: { current: boolean };
   conversationIdRef: { current: string };
   messagesLength: number;
-  setMessages: Dispatch<SetStateAction<HomeAskMessage[]>>;
+  /** 整棵树 + head 一起换掉:线程是从它们派生的。 */
+  replaceThread: (nodes: HomeAskMessage[], headId: string) => void;
   setConversationId: Dispatch<SetStateAction<string>>;
   setAgentRuntime: Dispatch<SetStateAction<string>>;
 };
@@ -29,7 +30,7 @@ export function useHomeAskSessions({
   runningRef,
   conversationIdRef,
   messagesLength,
-  setMessages,
+  replaceThread,
   setConversationId,
   setAgentRuntime,
 }: HomeAskSessionsDeps) {
@@ -67,7 +68,8 @@ export function useHomeAskSessions({
         if (cancelled) return;
         setConversationId(id);
         conversationIdRef.current = id;
-        setMessages(messagesFromDetail(detail));
+        const thread = nodesFromDetail(detail);
+        replaceThread(thread.nodes, thread.headId);
       } catch {
         if (!cancelled) {
           saveConversationId("");
@@ -79,7 +81,7 @@ export function useHomeAskSessions({
     return () => {
       cancelled = true;
     };
-  }, [conversationIdRef, setConversationId, setMessages]);
+  }, [conversationIdRef, setConversationId, replaceThread]);
 
   const switchSession = useCallback(async (id: string) => {
     const next = `${id || ""}`.trim();
@@ -92,13 +94,14 @@ export function useHomeAskSessions({
       setAgentRuntime("");
       conversationIdRef.current = next;
       saveConversationId(next);
-      setMessages(messagesFromDetail(detail));
+      const thread = nodesFromDetail(detail);
+        replaceThread(thread.nodes, thread.headId);
     } catch {
       // 切失败保持现状
     } finally {
       setSessionBusy(false);
     }
-  }, [conversationIdRef, messagesLength, runningRef, sessionBusy, setAgentRuntime, setConversationId, setMessages]);
+  }, [conversationIdRef, messagesLength, runningRef, sessionBusy, setAgentRuntime, setConversationId, replaceThread]);
 
   const removeSession = useCallback(async (id: string) => {
     const next = `${id || ""}`.trim();
@@ -108,7 +111,7 @@ export function useHomeAskSessions({
       await deleteConversation(next);
       setSessions((prev) => prev.filter((s) => s.id !== next));
       if (conversationIdRef.current === next) {
-        setMessages([]);
+        replaceThread([], "");
         setConversationId("");
         setAgentRuntime("");
         conversationIdRef.current = "";
@@ -120,7 +123,7 @@ export function useHomeAskSessions({
       setSessionBusy(false);
       void refreshSessions();
     }
-  }, [conversationIdRef, refreshSessions, runningRef, sessionBusy, setAgentRuntime, setConversationId, setMessages]);
+  }, [conversationIdRef, refreshSessions, runningRef, sessionBusy, setAgentRuntime, setConversationId, replaceThread]);
 
   const renameSession = useCallback(async (id: string, title: string) => {
     const next = `${id || ""}`.trim();
