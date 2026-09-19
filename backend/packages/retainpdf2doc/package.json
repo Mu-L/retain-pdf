@@ -5,12 +5,17 @@
   "description": "RetainPDF 排版规格 → 保留排版的 Word 文档（公式走原生 OMML）。",
   "type": "module",
   "license": "MIT",
-  "engines": { "node": ">=20" },
-  "bin": { "retainpdf2doc": "./dist/cli.mjs" },
-  "exports": { ".": "./dist/index.mjs" },
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "retainpdf2doc": "./dist/cli.mjs"
+  },
+  "exports": {
+    ".": "./dist/index.mjs"
+  },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "prepare": "node scripts/build.mjs",
     "test": "node --experimental-strip-types --test tests/"
   },
   "dependencies": {

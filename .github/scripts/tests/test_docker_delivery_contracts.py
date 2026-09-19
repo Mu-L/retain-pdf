@@ -196,3 +196,46 @@ def test_desktop_bundle_ships_the_word_document_builder():
     assert "RETAINPDF_NODE_BIN" in env, (
         "没有把 node 传给后端；装好的应用里没有系统 node，要用 Electron 自己"
     )
+
+
+def test_no_workspace_package_builds_itself_during_npm_ci():
+    """workspace 包不能带 `prepare` 脚本。
+
+    镜像构建为了利用缓存，会先只拷 manifest 再 `npm ci`。那一刻包的 `scripts/` 还不
+    存在——而 npm 10（node:22 镜像里自带的那个）**不理会 `--ignore-scripts`**，仍然去跑
+    workspace 的 `prepare`，于是
+    `Cannot find module '.../retainpdf2doc/scripts/build.mjs'`，两个镜像一起构建失败。
+    本机 npm 11 会跳过，所以这个差异在本地看不出来。
+
+    构建要由显式的 `npm run build --workspace <pkg>` 触发，不靠 npm 的生命周期钩子。
+    """
+    import json
+
+    root = json.loads((REPO_ROOT / "package.json").read_text(encoding="utf-8"))
+    offenders = []
+    for pattern in root.get("workspaces", []):
+        for manifest in sorted(REPO_ROOT.glob(f"{pattern}/package.json")):
+            if "node_modules" in manifest.parts:
+                continue
+            scripts = json.loads(manifest.read_text(encoding="utf-8")).get("scripts", {})
+            if "prepare" in scripts:
+                offenders.append(str(manifest.relative_to(REPO_ROOT)))
+    assert not offenders, (
+        f"这些 workspace 包带了 prepare 脚本，会在只有 manifest 的 npm ci 阶段炸掉："
+        f"{offenders}。改成显式 build 脚本。"
+    )
+
+
+def test_the_desktop_packaging_chain_builds_the_document_builder():
+    """桌面打包链条必须自己构建 retainpdf2doc。
+
+    去掉 `prepare` 之后，`npm ci` 不再顺带把 dist 建出来；打包链条不显式构建的话，
+    `prepare-app.mjs` 会因为找不到 dist/cli.mjs 直接失败。
+    """
+    import json
+
+    desktop = json.loads((REPO_ROOT / "frontend/desktop/package.json").read_text(encoding="utf-8"))
+    chain = desktop["scripts"]["prepare-app"]
+    assert "build:doc" in chain or "retainpdf2doc" in chain, (
+        f"prepare-app 没有构建 retainpdf2doc：{chain}"
+    )
