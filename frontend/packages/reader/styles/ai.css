@@ -5,3 +5,6 @@
 /* 引用皮肤（.reader-ai-citation-*）随 AI 子集一起分发，主页软宿主不再
  * 在自己的域 CSS 里重定义 reader 类。 */
 @import "./ai-citations.css";
+
+/* 回答里的图表（AnswerChart）。 */
+@import "./answer-chart.css";

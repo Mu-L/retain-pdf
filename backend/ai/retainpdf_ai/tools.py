@@ -251,6 +251,7 @@ def _resolve_source_root(settings: Settings, job_id: str, job_root: Path) -> tup
 def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegistry:
     # Imported lazily because the unified calculation adapter reuses Tool.
     from .unified_tools import calculation_tools
+    from .chart_tools import chart_tools
 
     def document_artifact_scope(arguments: dict[str, Any]) -> tuple[str, str, Path] | dict[str, Any]:
         document_id = str(arguments.get("document_id") or "").strip()
@@ -758,6 +759,7 @@ def build_default_registry(settings: Settings, rust: RustApiClient) -> ToolRegis
                 handler=search_favorites,
             ),
             *calculation_tools(settings, rust),
+            *chart_tools(),
         ],
         content_source_resolver=content_source,
     )

@@ -12,7 +12,14 @@ import MarkdownRender, {
   type ImageNodeProps,
   type LinkNodeProps,
   type MathInlineNodeProps,
+  CodeBlockNode,
+  type CodeBlockNodeProps,
 } from "markstream-react";
+import { AnswerChart } from "./AnswerChart.js";
+import {
+  CHART_FENCE_LANGUAGE,
+  parseChartSpec,
+} from "../../shared/content/chart-spec.js";
 import {
   findCitationForAnswerImage,
   hydrateProtectedImages,
@@ -187,6 +194,21 @@ function RetainLinkNode({ node }: LinkNodeProps) {
   );
 }
 
+/**
+ * ```retainpdf-chart 围栏块 → 图表；其余一切照旧走默认代码块。
+ *
+ * 规格解析不通过就原样当代码块显示——流式过程中 JSON 还没写完是常态，而写坏了的
+ * 时候让用户看见模型原本写了什么，比给一块空白或半截图形有用。
+ */
+function RetainCodeBlockNode(props: CodeBlockNodeProps) {
+  const node = props.node as { language?: string; code?: string } | undefined;
+  if (`${node?.language || ""}`.trim().toLowerCase() === CHART_FENCE_LANGUAGE) {
+    const spec = parseChartSpec(`${node?.code || ""}`);
+    if (spec) return <AnswerChart spec={spec} />;
+  }
+  return <CodeBlockNode {...props} />;
+}
+
 function RetainMathInlineNode({ node }: MathInlineNodeProps) {
   // Markstream accepts $$...$$ in the middle of a paragraph and then asks
   // KaTeX to use display mode inside an inline span. That produces the giant
@@ -207,6 +229,7 @@ setCustomComponents(RETAINPDF_MARKSTREAM_ID, {
   image: RetainImageNode,
   link: RetainLinkNode,
   math_inline: RetainMathInlineNode,
+  code_block: RetainCodeBlockNode,
 });
 
 export type RetainMarkstreamProps = {
