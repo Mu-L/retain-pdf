@@ -607,6 +607,14 @@ pub struct PagePreviewQuery {
     pub dpi: Option<u32>,
 }
 
+/// 保留排版的 Word 导出。`dpi` 决定每页背景位图的清晰度，也直接决定文件大小——
+/// 它是缓存键的一部分，换一个值就是另一份产物。
+#[derive(Debug, Deserialize)]
+pub struct LayoutDocxQuery {
+    #[serde(default)]
+    pub dpi: Option<u32>,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct LibraryBatchDeleteInput {
     pub ids: Vec<String>,

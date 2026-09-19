@@ -1,5 +1,5 @@
 use crate::error::AppError;
-use crate::models::api::{ArtifactDownloadQuery, MarkdownQuery, PagePreviewQuery};
+use crate::models::api::{ArtifactDownloadQuery, LayoutDocxQuery, MarkdownQuery, PagePreviewQuery};
 use crate::services::jobs::DocumentDownloadKind;
 use crate::AppState;
 use axum::extract::State;
@@ -9,7 +9,7 @@ use axum::response::Response;
 use crate::routes::common::{build_jobs_download_route_deps, ApiPath, ApiQuery};
 use crate::routes::download_response::{
     bundle_response, cover_response, download_document_response, markdown_document_response,
-    markdown_image_response, markdown_response, page_preview_response,
+    layout_docx_response, markdown_image_response, markdown_response, page_preview_response,
     registered_artifact_response, side_by_side_pdf_response, thumbnail_response,
 };
 
@@ -34,6 +34,21 @@ pub async fn download_side_by_side_pdf(
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
     side_by_side_pdf_response(&build_jobs_download_route_deps(&state), &headers, &job_id).await
+}
+
+pub async fn download_layout_docx(
+    State(state): State<AppState>,
+    ApiPath(job_id): ApiPath<String>,
+    headers: HeaderMap,
+    ApiQuery(query): ApiQuery<LayoutDocxQuery>,
+) -> Result<Response, AppError> {
+    layout_docx_response(
+        &build_jobs_download_route_deps(&state),
+        &headers,
+        &job_id,
+        &query,
+    )
+    .await
 }
 
 pub async fn download_cover(

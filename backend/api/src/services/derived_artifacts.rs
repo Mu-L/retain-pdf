@@ -6,6 +6,7 @@ use crate::models::domain::JobSnapshot;
 pub(crate) mod pdf;
 pub(crate) mod preview;
 pub(crate) mod side_by_side;
+pub(crate) mod word;
 
 #[derive(Clone, Copy)]
 pub(crate) struct DerivedArtifactDeps<'a> {

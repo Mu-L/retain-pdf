@@ -3,6 +3,8 @@ use axum::response::Response;
 
 use crate::error::AppError;
 use crate::routes::job_helpers::stream_file;
+use crate::models::api::LayoutDocxQuery;
+use crate::services::derived_artifacts::word::LayoutDocxOptions;
 use crate::services::jobs::{DocumentDownloadKind, FileDownload};
 
 use crate::routes::common::JobsDownloadRouteDeps;
@@ -59,6 +61,24 @@ pub async fn side_by_side_pdf_response(
 ) -> Result<Response, AppError> {
     file_download_response(
         deps.downloads.side_by_side_pdf_download(job_id).await?,
+        headers,
+    )
+    .await
+}
+
+pub async fn layout_docx_response(
+    deps: &JobsDownloadRouteDeps<'_>,
+    headers: &HeaderMap,
+    job_id: &str,
+    query: &LayoutDocxQuery,
+) -> Result<Response, AppError> {
+    let mut options = LayoutDocxOptions::default();
+    if let Some(dpi) = query.dpi {
+        // 夹在可用区间里:太低看不清背景,太高单页几十 MB,整本能把浏览器拖垮。
+        options.dpi = dpi.clamp(72, 300);
+    }
+    file_download_response(
+        deps.downloads.layout_docx_download(job_id, options).await?,
         headers,
     )
     .await

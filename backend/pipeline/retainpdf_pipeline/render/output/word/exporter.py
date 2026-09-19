@@ -6,17 +6,16 @@ from docx import Document
 from docx.enum.section import WD_SECTION
 from docx.shared import Pt
 
-from devtools.word_export.backgrounds import render_page_backgrounds
-from devtools.word_export.document_builder import add_background_image
-from devtools.word_export.document_builder import add_page_break
-from devtools.word_export.document_builder import set_section_page
-from devtools.word_export.job_io import single_pdf
-from devtools.word_export.job_io import translated_pages
-from devtools.word_export.paths import PIPELINE_ROOT  # noqa: F401
-from devtools.word_export.textboxes import append_absolute_textbox
-from devtools.word_export.typography_readback import converged_typography
-from devtools.word_export.typography_readback import open_translated_document
-from devtools.word_export.typography_readback import read_page_lines
+from retainpdf_pipeline.render.output.word.backgrounds import render_page_backgrounds
+from retainpdf_pipeline.render.output.word.document_builder import add_background_image
+from retainpdf_pipeline.render.output.word.document_builder import add_page_break
+from retainpdf_pipeline.render.output.word.document_builder import set_section_page
+from retainpdf_pipeline.render.output.word.job_io import single_pdf
+from retainpdf_pipeline.render.output.word.job_io import translated_pages
+from retainpdf_pipeline.render.output.word.textboxes import append_absolute_textbox
+from retainpdf_pipeline.render.output.word.typography_readback import converged_typography
+from retainpdf_pipeline.render.output.word.typography_readback import open_translated_document
+from retainpdf_pipeline.render.output.word.typography_readback import read_page_lines
 from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
 
 
@@ -35,7 +34,12 @@ def export_layout_docx(
         page_specs = page_specs[:max_pages]
 
     rendered_dir = job_root / "rendered" / "docx"
-    bg_paths = render_page_backgrounds(source_pdf_path, rendered_dir / "background-pages", dpi=dpi)
+    # 背景图目录带上 DPI:同一个 job 的两次导出（不同清晰度）可以同时在跑——
+    # API 那边的 in-flight 去重键也是按 DPI 分的。共用一个目录的话，两边写的是同一批
+    # 文件名，先跑的那个会读到后跑的那个覆盖进去的图。
+    bg_paths = render_page_backgrounds(
+        source_pdf_path, rendered_dir / f"background-pages-{int(dpi)}", dpi=dpi,
+    )
 
     # `block.font_size_pt` 是**上界**不是结果：Typst 拿它当 max_size 二分找能装下的字号。
     # 照上界排，凡是当初被缩过的块在 Word 里都会溢出。收敛后的字号读流水线自己渲染的译文

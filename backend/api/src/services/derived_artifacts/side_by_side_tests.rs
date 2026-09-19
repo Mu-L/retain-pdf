@@ -78,7 +78,7 @@ fn successful_builder_atomically_replaces_old_output_and_uses_unique_temps() {
     std::fs::write(&output, b"old").unwrap();
     let mut temporary_paths = Vec::new();
     for _ in 0..2 {
-        build_with_command(&output, Duration::from_secs(10), |temporary| {
+        build_with_command(&output, "side-by-side", Duration::from_secs(10), |temporary| {
             assert_eq!(temporary.parent(), output.parent());
             temporary_paths.push(temporary.to_path_buf());
             fixture.command(temporary, "success")
@@ -88,6 +88,12 @@ fn successful_builder_atomically_replaces_old_output_and_uses_unique_temps() {
     }
     assert_ne!(temporary_paths[0], temporary_paths[1]);
     assert!(temporary_paths.iter().all(|path| !path.exists()));
+    // 临时文件名带 label 和真实扩展名：两条派生链路（side-by-side PDF / layout DOCX）
+    // 共用这段监管，产物目录里必须看得出临时文件是谁的。
+    assert!(temporary_paths.iter().all(|path| {
+        let name = path.file_name().unwrap().to_str().unwrap();
+        name.starts_with(".side-by-side-") && name.ends_with(".pdf.tmp")
+    }));
 }
 
 #[test]
@@ -103,7 +109,7 @@ fn failed_missing_and_timed_out_builds_preserve_old_output_and_cleanup() {
         } else {
             Duration::from_secs(10)
         };
-        let result = build_with_command(&output, deadline, |temporary| {
+        let result = build_with_command(&output, "side-by-side", deadline, |temporary| {
             temporary_path = temporary.to_path_buf();
             if mode == "spawn-failure" {
                 Command::new(fixture.0.join("does-not-exist"))

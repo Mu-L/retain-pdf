@@ -37,7 +37,11 @@ fn linearize_pdf_with_qpdf(input_pdf: &Path, output_pdf: &Path) -> bool {
     };
     // Linearization is optional: timeout/spawn/output failures keep serving the
     // original PDF and never replace a previous good cached derivative.
-    super::side_by_side::build_with_command(output_pdf, Duration::from_secs(120), |temporary| {
+    super::side_by_side::build_with_command(
+        output_pdf,
+        "linearized-pdf",
+        Duration::from_secs(120),
+        |temporary| {
         let mut command = std::process::Command::new(qpdf);
         command.arg("--linearize").arg(input_pdf).arg(temporary);
         command

@@ -84,6 +84,10 @@ pub(super) fn routes() -> Router<AppState> {
             "/api/v1/jobs/:job_id/pdf/side-by-side",
             get(jobs::download_side_by_side_pdf),
         )
+        .route(
+            "/api/v1/jobs/:job_id/docx",
+            get(jobs::download_layout_docx),
+        )
         .route("/api/v1/jobs/:job_id/cover", get(jobs::download_cover))
         .route(
             "/api/v1/jobs/:job_id/thumbnail",

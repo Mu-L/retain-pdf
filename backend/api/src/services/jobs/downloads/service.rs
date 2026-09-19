@@ -3,9 +3,10 @@ use crate::models::api::{MarkdownDocumentView, PagePreviewQuery};
 use crate::services::jobs::downloads::{
     bundle_download, cover_download, document_download, markdown_document_view, markdown_download,
     markdown_image_download, markdown_raw_download, page_preview_download,
-    registered_artifact_download, side_by_side_pdf_download, thumbnail_download,
-    DocumentDownloadKind, FileDownload, MarkdownDownload,
+    layout_docx_download, registered_artifact_download, side_by_side_pdf_download,
+    thumbnail_download, DocumentDownloadKind, FileDownload, MarkdownDownload,
 };
+use crate::services::derived_artifacts::word::LayoutDocxOptions;
 
 use super::previews::PagePreviewSpec;
 use super::JobDownloads;
@@ -116,6 +117,23 @@ impl<'a> JobDownloads<'a> {
             .download_generation
             .run(format!("{job_id}:side-by-side"), move || {
                 side_by_side_pdf_download(&deps.borrowed(), &job_id)
+            })
+            .await
+    }
+
+    pub(crate) async fn layout_docx_download(
+        &self,
+        job_id: &str,
+        options: LayoutDocxOptions,
+    ) -> Result<FileDownload, AppError> {
+        let deps = self.deps.owned();
+        let job_id = job_id.to_owned();
+        // 缓存键带上 DPI:换了清晰度就是另一份产物,不能和上一份挤在同一个 in-flight 槽里。
+        let key = format!("{job_id}:layout-docx:{}", options.cache_suffix());
+        self.deps
+            .download_generation
+            .run(key, move || {
+                layout_docx_download(&deps.borrowed(), &job_id, options)
             })
             .await
     }

@@ -19,6 +19,7 @@ mod pdf;
 mod previews;
 mod service;
 mod side_by_side;
+mod word;
 
 #[cfg(all(test, unix))]
 mod tests;
@@ -31,6 +32,7 @@ use markdown::{
 };
 use previews::{cover_download, page_preview_download, thumbnail_download};
 use side_by_side::side_by_side_pdf_download;
+use word::layout_docx_download;
 
 /// Download capabilities contain no launcher, upload, control, or replay state.
 pub struct JobDownloads<'a> {

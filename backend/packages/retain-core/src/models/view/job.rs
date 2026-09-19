@@ -19,7 +19,7 @@ pub use types::{
     LibraryBookDetailView, LibraryBookListItemView, LibraryBookListView, LibraryDeleteQuery,
     LibraryDeleteResultView, MarkdownArtifactView, NormalizationSummaryView,
     OcrAmbiguityReceiptFieldView, OcrAmbiguityResolutionKind, OcrAmbiguityResolutionRequest,
-    OcrAmbiguityResolutionView, OcrAmbiguityView, OcrJobSummaryView, PagePreviewQuery,
+    OcrAmbiguityResolutionView, OcrAmbiguityView, OcrJobSummaryView, LayoutDocxQuery, PagePreviewQuery,
     ReaderDocumentMetadataView, ReaderMetadataView, ReaderPageMetadataView, ReaderRegionBoxView,
     ReaderRegionItemView, ReaderRegionsView, ResourceLinkView, RetryStageKind, RetryStageRequest,
     RetryStageSubmissionView, StageActionsView, StageRetryActionLinkView, StageRetryActionView,

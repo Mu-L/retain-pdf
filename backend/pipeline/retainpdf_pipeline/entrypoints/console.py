@@ -80,6 +80,12 @@ def run_diagnose_failure() -> int:
     return 0
 
 
+def run_layout_docx() -> int:
+    from retainpdf_pipeline.render.output.word.cli import main
+
+    return _run_structured(main, default_stage="rendering", provider="rendering")
+
+
 COMMANDS: dict[str, tuple[Callable[[], int], str]] = {
     "book": (run_book, "normalize, translate, and render a document"),
     "provider-ocr": (run_provider_ocr, "run the configured OCR provider only"),
@@ -98,6 +104,10 @@ COMMANDS: dict[str, tuple[Callable[[], int], str]] = {
     "side-by-side-pdf": (
         run_side_by_side_pdf,
         "build a left/right source-vs-translated PDF",
+    ),
+    "layout-docx": (
+        run_layout_docx,
+        "export the layout-preserving translation as a DOCX",
     ),
     "diagnose-failure": (
         run_diagnose_failure,

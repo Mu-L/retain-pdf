@@ -40,7 +40,7 @@ pub use super::view::{
     LiveTranslationLayoutView, LiveTranslationPageView, LiveTranslationTypographyView,
     MarkdownDocumentView, MarkdownImageView, MarkdownQuery, MarkdownView, NormalizationSummaryView,
     OcrAmbiguityReceiptFieldView, OcrAmbiguityResolutionKind, OcrAmbiguityResolutionRequest,
-    OcrAmbiguityResolutionView, OcrAmbiguityView, OcrJobSummaryView, PagePreviewQuery,
+    OcrAmbiguityResolutionView, OcrAmbiguityView, OcrJobSummaryView, LayoutDocxQuery, PagePreviewQuery,
     ReaderAiChatRequest, ReaderAiChatView, ReaderAiCitationView, ReaderAiContextView,
     ReaderAiHistoryMessageView, ReaderAiRectView, ReaderAiSelectionView, ReaderAiUsedContextView,
     ReaderDocumentMetadataView, ReaderMetadataView, ReaderPageMetadataView, ReaderRegionBoxView,

@@ -41,11 +41,11 @@ def test_every_module_imports():
     这一条就能挡住当初那次改名:`exporter` import 了一个已经不存在的名字,而它是
     整条链路的入口。
     """
-    import devtools.word_export as package
+    import retainpdf_pipeline.render.output.word as package
 
     failures = []
     for module in pkgutil.iter_modules(package.__path__):
-        name = f"devtools.word_export.{module.name}"
+        name = f"retainpdf_pipeline.render.output.word.{module.name}"
         try:
             importlib.import_module(name)
         except Exception as exc:  # noqa: BLE001 - 这里就是要把失败原因摊开
@@ -58,7 +58,7 @@ def test_cli_has_an_entry_point():
 
     少了这一段,命令跑完既没有产物也没有报错——排查时看起来像「成功但没输出」。
     """
-    source = (PIPELINE_ROOT / "devtools" / "word_export" / "cli.py").read_text()
+    source = (PIPELINE_ROOT / "retainpdf_pipeline" / "render" / "output" / "word" / "cli.py").read_text()
     assert '__name__ == "__main__"' in source, "cli.py 没有入口,python -m 跑了等于没跑"
 
 
@@ -143,7 +143,7 @@ def tiny_job_without_render(tiny_job: Path) -> Path:
 
 
 def _export(job_root: Path, out: Path, **kwargs):
-    from devtools.word_export.exporter import export_layout_docx
+    from retainpdf_pipeline.render.output.word.exporter import export_layout_docx
 
     return export_layout_docx(
         job_root=job_root, output_path=out, dpi=kwargs.pop("dpi", 72), **kwargs,
@@ -209,7 +209,7 @@ def test_upstream_already_drops_blocks_without_text(tiny_job: Path, tmp_path: Pa
     所以这里钉的是真正成立的那件事:上游保证了这一点。它哪天不再保证，这条会红，
     到时候 exporter 那句防御才真的开始起作用。
     """
-    from devtools.word_export.job_io import single_pdf, translated_pages
+    from retainpdf_pipeline.render.output.word.job_io import single_pdf, translated_pages
     from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
 
     page_path = next((tiny_job / "translated").glob("page-*.json"))
@@ -244,20 +244,56 @@ def test_max_pages_limits_the_export(tiny_job: Path, tmp_path: Path):
     assert len(docx.Document(str(out)).sections) == 1
 
 
-def test_cli_runs_end_to_end(tiny_job: Path, tmp_path: Path):
-    """走一遍真正的命令行——单测直接调函数时，入口坏了是看不出来的。"""
-    out = tmp_path / "cli.docx"
+def test_the_console_subcommand_runs_end_to_end(tiny_job: Path, tmp_path: Path):
+    """走 `retainpdf-pipeline layout-docx` 这条真实路径。
+
+    Rust 那边起的就是这个——`derived_artifacts` 用 `deps.pipeline_command` 拼命令行，
+    和 `side-by-side-pdf` 同一套。直接调函数测不出「子命令没注册」「参数名对不上」
+    这两类错，而它们恰好是接 API 时最容易犯的。
+    """
+    out = tmp_path / "console.docx"
     proc = subprocess.run(
-        [sys.executable, "-m", "devtools.word_export.cli",
-         "--job-root", str(tiny_job), "--output", str(out), "--dpi", "72"],
+        [sys.executable, "-m", "retainpdf_pipeline.entrypoints.console", "layout-docx",
+         "--job-root", str(tiny_job), "--output-docx", str(out), "--dpi", "72"],
         cwd=str(PIPELINE_ROOT), capture_output=True, text=True, timeout=300,
     )
     assert proc.returncode == 0, proc.stderr[-800:]
-    assert out.exists(), f"CLI 没有产出文件\nstdout={proc.stdout}\nstderr={proc.stderr[-500:]}"
+    assert out.exists(), f"子命令没有产出文件\nstdout={proc.stdout}\nstderr={proc.stderr[-500:]}"
+
+
+def test_the_subcommand_is_listed_in_usage():
+    """没注册进 COMMANDS 的话，Rust 那边拿到的是 exit code 2 加一句 unknown command。"""
+    from retainpdf_pipeline.entrypoints import console
+
+    assert "layout-docx" in console.COMMANDS
+
+
+def test_the_export_ships_in_the_installed_package(tiny_job: Path):
+    """导出代码必须在发布产物里——API 起的是**装好的** `retainpdf-pipeline`。
+
+    它原来住在 `devtools/`，而 pyproject 的 `packages.find` 只收 `retainpdf_pipeline*`：
+    装出来的 venv 里 `import devtools` 直接 ModuleNotFoundError。本地 pytest 能跑是因为
+    仓库根目录恰好在 sys.path 上，这个差别在接 API 之前一直看不出来。
+    """
+    import tomllib
+
+    manifest = tomllib.loads((PIPELINE_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    included = manifest["tool"]["setuptools"]["packages"]["find"]["include"]
+    assert any(pattern.startswith("retainpdf_pipeline") for pattern in included)
+
+    module = importlib.import_module("retainpdf_pipeline.render.output.word.exporter")
+    assert Path(module.__file__).is_relative_to(PIPELINE_ROOT / "retainpdf_pipeline"), (
+        f"导出模块在 {module.__file__}，不在发布包里"
+    )
+
+    # python-docx 同理:它原来只在 test extra 里，装出来的运行环境没有它。
+    assert any("python-docx" in dep for dep in manifest["project"]["dependencies"]), (
+        "python-docx 不在运行时依赖里，装出来的环境跑 layout-docx 会 ImportError"
+    )
 
 
 def _first_block(job_root: Path):
-    from devtools.word_export.job_io import single_pdf, translated_pages
+    from retainpdf_pipeline.render.output.word.job_io import single_pdf, translated_pages
     from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
 
     specs = build_render_page_specs(
@@ -269,7 +305,7 @@ def _first_block(job_root: Path):
 
 def _observed(job_root: Path, block):
     """这个块在译文 PDF 里真正排出来的字号/行距。"""
-    from devtools.word_export.typography_readback import (
+    from retainpdf_pipeline.render.output.word.typography_readback import (
         converged_typography, open_translated_document, read_page_lines)
 
     document = open_translated_document(job_root)
@@ -291,7 +327,7 @@ def test_font_size_is_the_size_typst_converged_to_not_the_upper_bound(
     被缩过的块在 Word 里都会溢出。本仓真实 job 的前 5 页里有 10 个块被缩过，最狠的一个
     是 11.35pt → 7.84pt。
     """
-    from devtools.word_export.job_io import single_pdf, translated_pages
+    from retainpdf_pipeline.render.output.word.job_io import single_pdf, translated_pages
     from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
 
     specs = build_render_page_specs(
@@ -327,7 +363,7 @@ def test_line_height_is_measured_from_the_rendered_baselines(tiny_job: Path, tmp
     当倍数），但结果偏高很多——本仓真实 job 上按字符加权，折算值比真实行距平均高
     **2.37pt**，一行十二三磅就是高了两成，正文一长就顶出框外。
     """
-    from devtools.word_export.job_io import single_pdf, translated_pages
+    from retainpdf_pipeline.render.output.word.job_io import single_pdf, translated_pages
     from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
 
     specs = build_render_page_specs(
@@ -388,7 +424,7 @@ def test_a_block_is_not_given_a_neighbours_font_size(tiny_job: Path):
     字号和 spec 对不上」，那个数字整个是假的。这条钉的是:一个框里读不到自己的字时，
     宁可返回 None 退回 spec，也不要拿邻居的字号顶上。
     """
-    from devtools.word_export.typography_readback import converged_typography, _ObservedLine
+    from retainpdf_pipeline.render.output.word.typography_readback import converged_typography, _ObservedLine
 
     neighbour = _ObservedLine(
         x0=0.0, y0=0.0, x1=100.0, y1=10.0, baseline=8.0, sizes=((20.0, 300),),
@@ -406,7 +442,7 @@ def test_a_block_is_not_given_a_neighbours_font_size(tiny_job: Path):
 
 def test_bold_blocks_are_bold(tiny_job: Path, tmp_path: Path):
     """字重来自 font_weight。不接的话标题和正文一样粗，Word 里读不出层次。"""
-    from devtools.word_export.job_io import single_pdf, translated_pages
+    from retainpdf_pipeline.render.output.word.job_io import single_pdf, translated_pages
     from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
 
     specs = build_render_page_specs(
@@ -431,7 +467,7 @@ def test_regular_blocks_are_not_bold(tiny_job: Path, tmp_path: Path):
     OMML 公式里的 run 走的是另一条路、永远不带 w:b，所以那个不等式恒成立。
     改成按**文本框**比:常规字重的块里不该出现加粗。
     """
-    from devtools.word_export.job_io import single_pdf, translated_pages
+    from retainpdf_pipeline.render.output.word.job_io import single_pdf, translated_pages
     from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
 
     specs = build_render_page_specs(
@@ -464,10 +500,10 @@ def test_first_line_indent_is_wired_even_though_this_fixture_has_none(tiny_job: 
     与其留一条骗人的测试，不如把缺口写下来:这里只钉「接线在」，行为等遇到真有缩进
     的文档再补。
     """
-    source = (PIPELINE_ROOT / "devtools" / "word_export" / "exporter.py").read_text()
+    source = (PIPELINE_ROOT / "retainpdf_pipeline" / "render" / "output" / "word" / "exporter.py").read_text()
     assert "first_line_indent_pt=block.first_line_indent_pt" in source
 
-    from devtools.word_export.job_io import single_pdf, translated_pages
+    from retainpdf_pipeline.render.output.word.job_io import single_pdf, translated_pages
     from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
 
     specs = build_render_page_specs(
@@ -478,3 +514,26 @@ def test_first_line_indent_is_wired_even_though_this_fixture_has_none(tiny_job: 
     assert indents == {0.0}, (
         f"夹具里出现了非零缩进 {indents}——可以把这条换成真正的行为断言了"
     )
+
+
+def test_two_dpis_do_not_share_a_background_image_directory(tiny_job: Path, tmp_path: Path):
+    """不同清晰度的背景图必须分开放。
+
+    API 那边的 in-flight 去重键按 DPI 分（`{job}:layout-docx:dpi{n}`），所以同一个 job
+    的两次不同清晰度导出**可以同时在跑**。共用一个目录的话两边写同一批文件名，先跑的
+    那个会把后跑的那个覆盖进去的图嵌进自己的文档里。
+    """
+    _export(tiny_job, tmp_path / "low.docx", dpi=72)
+    _export(tiny_job, tmp_path / "high.docx", dpi=200)
+
+    dirs = sorted(p.name for p in (tiny_job / "rendered" / "docx").iterdir() if p.is_dir())
+    assert len(dirs) == 2, f"两个 DPI 共用了背景图目录：{dirs}"
+
+    from PIL import Image
+
+    sizes = []
+    for name in dirs:
+        page = sorted((tiny_job / "rendered" / "docx" / name).glob("*.png"))[0]
+        with Image.open(page) as image:
+            sizes.append(image.size)
+    assert sizes[0] != sizes[1], f"两个目录里的背景图尺寸一样，说明没按 DPI 分开：{sizes}"

@@ -10,15 +10,22 @@ use super::{cached_output_is_fresh, job_artifacts_dir, DerivedArtifactDeps};
 const BUILD_TIMEOUT: Duration = Duration::from_secs(120);
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
 
-struct TemporaryPdf(PathBuf);
+struct TemporaryOutput(PathBuf);
 
-impl TemporaryPdf {
-    fn create(output_pdf: &Path) -> Result<Self, AppError> {
-        let parent = output_pdf
+impl TemporaryOutput {
+    fn create(output_path: &Path, label: &str) -> Result<Self, AppError> {
+        let parent = output_path
             .parent()
-            .ok_or_else(|| AppError::internal("PDF output has no parent"))?;
+            .ok_or_else(|| AppError::internal("output has no parent"))?;
+        let extension = output_path
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("tmp");
         for _ in 0..16 {
-            let path = parent.join(format!(".side-by-side-{:016x}.pdf.tmp", fastrand::u64(..)));
+            let path = parent.join(format!(
+                ".{label}-{:016x}.{extension}.tmp",
+                fastrand::u64(..)
+            ));
             match std::fs::OpenOptions::new()
                 .write(true)
                 .create_new(true)
@@ -29,11 +36,11 @@ impl TemporaryPdf {
                 Err(error) => return Err(error.into()),
             }
         }
-        Err(AppError::internal("could not reserve a temporary PDF"))
+        Err(AppError::internal("could not reserve a temporary output file"))
     }
 }
 
-impl Drop for TemporaryPdf {
+impl Drop for TemporaryOutput {
     fn drop(&mut self) {
         let _ = std::fs::remove_file(&self.0);
     }
@@ -60,7 +67,7 @@ fn build_side_by_side_pdf(
     translated_pdf: &Path,
     output_pdf: &Path,
 ) -> Result<(), AppError> {
-    build_with_command(output_pdf, BUILD_TIMEOUT, |tmp_pdf| {
+    build_with_command(output_pdf, "side-by-side", BUILD_TIMEOUT, |tmp_pdf| {
         let mut command = side_by_side_command(deps);
         command
             .arg("--source-pdf")
@@ -73,12 +80,15 @@ fn build_side_by_side_pdf(
     })
 }
 
+/// `label` 只用来给临时文件命名和给报错定位——两条派生链路（side-by-side PDF 和
+/// layout DOCX）共用这段进程监管，失败信息里必须能看出是哪一条挂了。
 pub(super) fn build_with_command(
-    output_pdf: &Path,
+    output_path: &Path,
+    label: &str,
     timeout: Duration,
     command_for_output: impl FnOnce(&Path) -> Command,
 ) -> Result<(), AppError> {
-    let temporary = TemporaryPdf::create(output_pdf)?;
+    let temporary = TemporaryOutput::create(output_path, label)?;
     let mut command = command_for_output(&temporary.0);
     // Do not inherit provider output or hold unread pipes that can deadlock.
     let mut child = command
@@ -86,9 +96,7 @@ pub(super) fn build_with_command(
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-        .map_err(|error| {
-            AppError::internal(format!("failed to start side-by-side pdf builder: {error}"))
-        })?;
+        .map_err(|error| AppError::internal(format!("failed to start {label} builder: {error}")))?;
     let started = Instant::now();
     let status = loop {
         match child.try_wait() {
@@ -105,17 +113,15 @@ pub(super) fn build_with_command(
                     let _ = child.try_wait();
                 }
                 return Err(AppError::internal(if result.is_err() {
-                    "failed to monitor side-by-side pdf builder"
+                    format!("failed to monitor {label} builder")
                 } else {
-                    "side-by-side pdf builder timed out"
+                    format!("{label} builder timed out")
                 }));
             }
         }
     };
     if !status.success() || !temporary.0.is_file() || std::fs::metadata(&temporary.0)?.len() == 0 {
-        return Err(AppError::internal(
-            "failed to build side-by-side pdf from source and translated pdf",
-        ));
+        return Err(AppError::internal(format!("failed to build {label}")));
     }
     let file = std::fs::OpenOptions::new()
         .read(true)
@@ -123,7 +129,7 @@ pub(super) fn build_with_command(
         .open(&temporary.0)?;
     file.sync_all()?;
     drop(file);
-    std::fs::rename(&temporary.0, output_pdf)?;
+    std::fs::rename(&temporary.0, output_path)?;
     Ok(())
 }
 
