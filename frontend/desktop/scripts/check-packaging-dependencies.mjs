@@ -5,7 +5,6 @@ const require = createRequire(import.meta.url);
 const desktopPackage = require("../package.json");
 const installedElectron = require("electron/package.json").version;
 const installedElectronBuilder = require("electron-builder/package.json").version;
-const { appBuilderPath } = require("app-builder-bin");
 const dependencyElectron = desktopPackage.devDependencies?.electron;
 const dependencyElectronBuilder = desktopPackage.devDependencies?.["electron-builder"];
 const configuredElectron = desktopPackage.build?.electronVersion;
@@ -54,8 +53,12 @@ if (runtimeDependencyNames.length > 0) {
   );
 }
 
-fs.accessSync(appBuilderPath, fs.constants.X_OK);
+// electron-builder 26 把 `app-builder-bin` 和 `7zip-bin` 都从依赖树里去掉了（25.x 还
+// 有），所以这里不再校验那个可执行文件存不存在——它已经不由 npm 依赖提供。改成校验
+// 打包入口本身能被解析到，这是这个脚本真正要保证的事:工具链装齐了、版本对得上。
+const builderEntry = require.resolve("electron-builder");
+fs.accessSync(builderEntry, fs.constants.R_OK);
 
 console.log(
-  `Desktop packaging dependencies verified: electron=${installedElectron}, electron-builder=${installedElectronBuilder}, app-builder=${appBuilderPath}`,
+  `Desktop packaging dependencies verified: electron=${installedElectron}, electron-builder=${installedElectronBuilder}, entry=${builderEntry}`,
 );

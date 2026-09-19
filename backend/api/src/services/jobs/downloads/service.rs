@@ -1,5 +1,5 @@
 use crate::error::AppError;
-use crate::models::api::{MarkdownDocumentView, PagePreviewQuery};
+use crate::models::api::{LayoutDocxQuery, MarkdownDocumentView, PagePreviewQuery};
 use crate::services::jobs::downloads::{
     bundle_download, cover_download, document_download, markdown_document_view, markdown_download,
     markdown_image_download, markdown_raw_download, page_preview_download,
@@ -124,8 +124,13 @@ impl<'a> JobDownloads<'a> {
     pub(crate) async fn layout_docx_download(
         &self,
         job_id: &str,
-        options: LayoutDocxOptions,
+        query: &LayoutDocxQuery,
     ) -> Result<FileDownload, AppError> {
+        let mut options = LayoutDocxOptions::default();
+        if let Some(dpi) = query.dpi {
+            // 夹在可用区间里:太低看不清背景,太高单页几十 MB,整本能把浏览器拖垮。
+            options.dpi = dpi.clamp(72, 300);
+        }
         let deps = self.deps.owned();
         let job_id = job_id.to_owned();
         // 缓存键带上 DPI:换了清晰度就是另一份产物,不能和上一份挤在同一个 in-flight 槽里。

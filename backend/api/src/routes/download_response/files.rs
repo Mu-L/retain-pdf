@@ -4,7 +4,6 @@ use axum::response::Response;
 use crate::error::AppError;
 use crate::routes::job_helpers::stream_file;
 use crate::models::api::LayoutDocxQuery;
-use crate::services::derived_artifacts::word::LayoutDocxOptions;
 use crate::services::jobs::{DocumentDownloadKind, FileDownload};
 
 use crate::routes::common::JobsDownloadRouteDeps;
@@ -72,13 +71,10 @@ pub async fn layout_docx_response(
     job_id: &str,
     query: &LayoutDocxQuery,
 ) -> Result<Response, AppError> {
-    let mut options = LayoutDocxOptions::default();
-    if let Some(dpi) = query.dpi {
-        // 夹在可用区间里:太低看不清背景,太高单页几十 MB,整本能把浏览器拖垮。
-        options.dpi = dpi.clamp(72, 300);
-    }
+    // 只把 query 往下传,DPI 的取值范围由 service 决定——路由层不该知道
+    // `LayoutDocxOptions` 这种内部类型（架构门禁盯着这条，和 page_preview 一个路子）。
     file_download_response(
-        deps.downloads.layout_docx_download(job_id, options).await?,
+        deps.downloads.layout_docx_download(job_id, query).await?,
         headers,
     )
     .await
