@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::job_events::persist_runtime_job_with_resources;
+use crate::job_events::cas_persist_job_with_resources;
 use crate::models::domain::{now_iso, JobRuntimeState, JobStatusKind};
 use crate::storage_paths::build_job_paths;
 
@@ -177,12 +177,26 @@ async fn run_job_with_ocr(
         Some(parent_job.job_id.clone()),
     )
     .await?;
-    persist_runtime_job_with_resources(
-        deps.db.as_ref(),
-        &deps.persist.data_root,
-        &deps.persist.output_root,
-        &ocr_finished,
-    )?;
+    // 子任务收尾也要走 CAS,否则会把 `save_ocr_job` 刚挡下的复活又放回去。
+    //
+    // `ocr_finished` 是 `execute_ocr_job` 返回的**内存**结果。取消若落在子任务
+    // 自查之后,`save_ocr_job` 的 CAS 会拒绝写入、DB 保持 canceled——而这里若是
+    // 无条件写,就会把内存里的 Succeeded 原样盖回去,等于绕过那道保护。
+    let ocr_finished = {
+        let updated = cas_persist_job_with_resources(
+            deps.db.as_ref(),
+            &deps.persist.data_root,
+            &deps.persist.output_root,
+            &ocr_finished.snapshot(),
+            &["queued", "running"],
+        )?;
+        if updated {
+            ocr_finished
+        } else {
+            // 别人已经给子任务落了终态,以 DB 为准往下走。
+            deps.db.get_job(&ocr_finished.job_id)?.into_runtime()
+        }
+    };
     sync_parent_with_ocr_child(&mut parent_job, &ocr_finished);
     record_ocr_child_finished(&deps, &parent_job, &ocr_finished);
 
@@ -190,24 +204,10 @@ async fn run_job_with_ocr(
         return Ok(parent_job);
     }
 
-    // OCR 期间用户可能已经取消了父任务。取消走的是独立的 CAS 写,而 `parent_job`
-    // 是这个 driver 在阶段开始时取的内存快照——它会一直显示 Running。
-    //
-    // 不重读就往下走的话:`prepare_translation_stage` 会用一次**无条件覆盖写**
-    // 把 DB 里的 canceled 复活成 running,于是 `spawn_job_with_workflow` 里那道
-    // 「canceled 不要覆盖」的守卫失效,任务最终被写成 failed。用户点了取消,看到
-    // 的却是「失败」外加一条内部错误,而 OCR 的钱已经花掉了。
-    //
-    // 这里重读一次就够:终态就停,把 DB 的真实状态返回上去。
-    // 隔壁 `ocr_flow::support::mirror_parent_ocr_status` 一直是这么做的。
-    let persisted_parent = deps.db.get_job(&parent_job.job_id)?;
-    if matches!(
-        persisted_parent.status,
-        JobStatusKind::Succeeded | JobStatusKind::Failed | JobStatusKind::Canceled
-    ) {
-        return Ok(persisted_parent.into_runtime());
-    }
-
+    // 这里曾有一道「重读 DB 判终态」的守卫(见 98381cbc)。它已经并入
+    // `prepare_translation_stage` 的 CAS 写:那一步只在 DB 里还是 queued/running
+    // 时才落库,否则原样返回 DB 的真实状态,整条链在 spawn 之前收口。
+    // 重读是 check-then-act,两步之间仍有窗口;CAS 是一步,严格更强,所以不再叠一层。
     let translation_stage = run_translation_stage(&deps, parent_job, &parent_job_paths).await?;
     let translated_job = translation_stage.job;
     let source_pdf_path = translation_stage.source_pdf_path;
@@ -226,38 +226,31 @@ async fn run_job_with_ocr(
 }
 
 #[cfg(test)]
-mod terminal_guard_contract {
-    /// OCR 跑完后进翻译之前,必须**重读数据库**判终态,不能看内存快照。
+mod ocr_child_persist_contract {
+    /// OCR 子任务收尾的那次写必须走 CAS。
     ///
-    /// 为什么盯源码而不是写单测:这条守卫真正要挡的场景是「OCR 期间用户取消了
-    /// 父任务」,复现它要完整跑一遍 book 流程(起 OCR 子任务、中途取消、等子任务
-    /// 成功),单元测试够不着。而这里最容易被后人改坏的正是「重读」这个动作——
-    /// 把 `deps.db.get_job(...)` 换成手边的 `parent_job.status`,编译通过、所有
-    /// 单测全绿,但 bug 原样回来:内存快照永远是 Running,于是 canceled 被一次
-    /// 无条件覆盖写复活,任务最后写成 failed。
-    ///
-    /// 参见 job 20260919094352-fa6af6:用户点了取消,结果显示「失败」,OCR 的钱白花。
+    /// 盯调用点而非结果:这一段在 `run_job_with_ocr` 里,要复现得跑完整的 OCR
+    /// 流程(起子任务、中途取消、等它返回),单测够不着。而最容易被改坏的恰恰是
+    /// 「用 CAS 还是无条件写」这一个选择——退回 `persist_runtime_job_with_resources`
+    /// 编译通过、133 个测试全绿,但 `save_ocr_job` 那道 CAS 刚挡下的复活会被
+    /// 这里原样盖回去,保护形同虚设。
     #[test]
-    fn translation_entry_rereads_status_from_db() {
+    fn ocr_child_result_is_persisted_with_cas() {
         let source = include_str!("translation_flow.rs");
         let anchor = source
-            .find("let translation_stage = run_translation_stage(&deps, parent_job")
-            .expect("run_job_with_ocr 必须调用 run_translation_stage");
-        // 窗口取「finalize_parent_after_ocr 之后、run_translation_stage 之前」,
-        // 避免被文件里别处的 get_job 蒙混过关。按锚点切而不是按字节数退,
-        // 否则会切进中文注释的多字节字符里。
+            .find("sync_parent_with_ocr_child(&mut parent_job, &ocr_finished);")
+            .expect("OCR 收尾必须调用 sync_parent_with_ocr_child");
         let prev = source[..anchor]
-            .rfind("finalize_parent_after_ocr(&mut parent_job")
-            .expect("守卫必须在 finalize_parent_after_ocr 之后");
+            .rfind("let ocr_finished = execute_ocr_job(")
+            .expect("这段之前必须是 execute_ocr_job");
         let window = &source[prev..anchor];
         assert!(
-            window.contains("deps.db.get_job(&parent_job.job_id)"),
-            "进翻译前必须重读数据库:内存里的 parent_job 是阶段开始时的快照,\
-             期间的取消它看不见"
+            window.contains("cas_persist_job_with_resources("),
+            "子任务收尾必须走 CAS：无条件写会把 save_ocr_job 挡下的复活放回去"
         );
         assert!(
-            window.contains("JobStatusKind::Canceled"),
-            "重读之后必须把 Canceled 当成终态停下,否则守卫形同虚设"
+            !window.contains("persist_runtime_job_with_resources("),
+            "这一段不该再有无条件覆盖写"
         );
     }
 }
