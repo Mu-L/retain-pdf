@@ -245,6 +245,11 @@ export function HomeAskView() {
                 )}
                 branches={branches}
                 onSwitchBranch={switchBranch}
+                onEditQuestion={(userMessageId, question) => {
+                  // 改写后的提问挂到原提问的父节点下，成为它的兄弟版本；原提问和它
+                  // 底下的整棵回答都留着，靠提问上的切换器切回去。
+                  void send(question, scopes, { editOf: userMessageId });
+                }}
                 onRegenerate={(assistantMessageId, question) => {
                   // 带上 regenerateOf:新答案挂到同一个提问下成为兄弟分支，而不是
                   // 在对话里再追加一条重复的提问。

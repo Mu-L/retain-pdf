@@ -246,3 +246,98 @@ describe("重新生成之后切回上一版", () => {
     runtime.unmount();
   });
 });
+
+
+describe("改写历史提问", () => {
+  beforeEach(() => {
+    requests.length = 0;
+    try { dom.window.localStorage.clear(); } catch { /* ignore */ }
+  });
+
+  /** 两轮对话，返回第二轮的提问（它有父节点，可以改）。 */
+  async function twoTurns(runtime) {
+    await runtime.send("第一个问题");
+    await runtime.send("第二个问题");
+    return runtime.messages.filter((m) => m.role === "user")[1];
+  }
+
+  it("改写后的提问挂到原提问的父节点下，成为兄弟版本", async () => {
+    const runtime = mountRuntime();
+    const second = await twoTurns(runtime);
+
+    await runtime.send("换个问法", [], { editOf: second.id });
+    const body = askBodies().at(-1);
+    assert.equal(body.parent_id, second.parentId, "改写后的提问没有和原提问同父");
+    assert.equal(body.regenerate, undefined, "改写提问不是重新生成，要真的写一条新提问");
+    runtime.unmount();
+  });
+
+  it("原提问和它底下的回答都还在，靠切换器切回去", async () => {
+    const runtime = mountRuntime();
+    const second = await twoTurns(runtime);
+
+    await runtime.send("换个问法", [], { editOf: second.id });
+    const shownQuestions = runtime.messages.filter((m) => m.role === "user");
+    assert.equal(shownQuestions.at(-1).content, "换个问法", "线程里显示的不是改写后的提问");
+
+    const nav = runtime.branches[shownQuestions.at(-1).id];
+    assert.ok(nav, "改写之后提问上没有出现版本切换器");
+    assert.deepEqual([nav.index, nav.count, nav.prevId], [2, 2, second.id]);
+    runtime.unmount();
+  });
+
+  it("切回原提问，它那版的回答也跟着回来", async () => {
+    const runtime = mountRuntime();
+    const second = await twoTurns(runtime);
+    const originalAnswer = runtime.messages.at(-1);
+
+    await runtime.send("换个问法", [], { editOf: second.id });
+    await runtime.switchBranch(second.id);
+
+    const shown = runtime.messages;
+    assert.equal(shown.filter((m) => m.role === "user").at(-1).content, "第二个问题");
+    assert.equal(shown.at(-1).id, originalAnswer.id, "切回原提问后回答没跟着回来");
+    runtime.unmount();
+  });
+
+  it("首问改不了——服务端造不出第二个根，所以一个字都不发", async () => {
+    const runtime = mountRuntime();
+    await runtime.send("第一个问题");
+    const first = runtime.messages.find((m) => m.role === "user");
+    assert.equal(first.parentId, undefined, "首问不该有父节点");
+
+    const before = askBodies().length;
+    await runtime.send("换个问法", [], { editOf: first.id });
+    assert.equal(askBodies().length, before, "对首问发起了改写请求");
+    runtime.unmount();
+  });
+
+  it("改写一条不存在的提问，什么都不发", async () => {
+    const runtime = mountRuntime();
+    await twoTurns(runtime);
+    const before = askBodies().length;
+
+    await runtime.send("换个问法", [], { editOf: "不存在" });
+    assert.equal(askBodies().length, before);
+    runtime.unmount();
+  });
+
+  it("对着回答发起改写会被拒——editOf 只认提问", async () => {
+    const runtime = mountRuntime();
+    await twoTurns(runtime);
+    const answer = runtime.messages.filter((m) => m.role === "assistant").at(-1);
+    const before = askBodies().length;
+
+    await runtime.send("换个问法", [], { editOf: answer.id });
+    assert.equal(askBodies().length, before);
+    runtime.unmount();
+  });
+
+  it("记下用户输入的原文，编辑框回填用它而不是带范围后缀的展示文本", async () => {
+    const runtime = mountRuntime();
+    await runtime.send("原始问题");
+    const question = runtime.messages.find((m) => m.role === "user");
+    assert.equal(question.rawQuestion, "原始问题");
+    runtime.unmount();
+  });
+});

@@ -54,7 +54,9 @@ const { HomeAskThread } = await import("../../src/features/ask/ui/HomeAskThread.
 const TWO_TURNS = [
   { id: "u1", role: "user", content: "第一轮问题" },
   { id: "a1", role: "assistant", content: "第一轮回答", status: "done" },
-  { id: "u2", role: "user", content: "第二轮问题" },
+  // content 是展示文本（带 @ 范围后缀），rawQuestion 才是用户敲进去的原文——
+  // 两者必须不同，否则「回填用哪个」这条测试分辨不出来。
+  { id: "u2", role: "user", content: "第二轮问题\n\n@某文档", parentId: "a1", rawQuestion: "第二轮问题" },
   { id: "a2", role: "assistant", content: "第二轮回答", status: "done" },
 ];
 
@@ -246,6 +248,81 @@ describe("版本切换器", () => {
   it("正在生成时不给切", () => {
     const view = render({ branches: { a1: nav }, onSwitchBranch: () => {}, isRunning: true });
     assert.equal(view.host.querySelectorAll(".home-ask-msg-branch").length, 0);
+    view.unmount();
+  });
+});
+
+
+describe("改写历史提问的入口", () => {
+  const userTurns = (host) => [...host.querySelectorAll(".home-ask-msg-user")];
+
+  it("有父节点的提问给编辑入口", () => {
+    const view = render({ onEditQuestion: () => {} });
+    const second = userTurns(view.host)[1];
+    assert.ok(buttonWith(second, "编辑"), "第二轮提问没有编辑入口");
+    view.unmount();
+  });
+
+  it("会话首问不给编辑入口——服务端造不出第二个根，给了也点不动", () => {
+    const view = render({ onEditQuestion: () => {} });
+    const first = userTurns(view.host)[0];
+    assert.ok(!buttonWith(first, "编辑"), "首问也给了编辑入口");
+    view.unmount();
+  });
+
+  it("正在生成时不给编辑", () => {
+    const view = render({ onEditQuestion: () => {}, isRunning: true });
+    assert.ok(!buttonWith(userTurns(view.host)[1], "编辑"));
+    view.unmount();
+  });
+
+  it("点编辑打开输入框，回填的是用户输入的原文", async () => {
+    const view = render({ onEditQuestion: () => {} });
+    await click(buttonWith(userTurns(view.host)[1], "编辑"));
+    const input = view.host.querySelector(".home-ask-msg-editor-input");
+    assert.ok(input, "没有打开编辑框");
+    assert.equal(input.value, "第二轮问题");
+    view.unmount();
+  });
+
+  it("发送报上提问 id 和改写后的文本", async () => {
+    const edits = [];
+    const view = render({ onEditQuestion: (id, q) => edits.push([id, q]) });
+    await click(buttonWith(userTurns(view.host)[1], "编辑"));
+    const input = view.host.querySelector(".home-ask-msg-editor-input");
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(
+        dom.window.HTMLTextAreaElement.prototype, "value").set;
+      setter.call(input, "换个问法");
+      input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    });
+    await click(buttonWith(view.host, "发送"));
+    assert.deepEqual(edits, [["u2", "换个问法"]]);
+    view.unmount();
+  });
+
+  it("取消不发任何东西，并且把原文放回去", async () => {
+    const edits = [];
+    const view = render({ onEditQuestion: (id, q) => edits.push([id, q]) });
+    await click(buttonWith(userTurns(view.host)[1], "编辑"));
+    await click(buttonWith(view.host, "取消"));
+    assert.deepEqual(edits, []);
+    assert.ok(!view.host.querySelector(".home-ask-msg-editor-input"), "编辑框没有关掉");
+    assert.ok(textOf(userTurns(view.host)[1]).includes("第二轮问题"));
+    view.unmount();
+  });
+
+  it("空内容不给发", async () => {
+    const view = render({ onEditQuestion: () => {} });
+    await click(buttonWith(userTurns(view.host)[1], "编辑"));
+    const input = view.host.querySelector(".home-ask-msg-editor-input");
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(
+        dom.window.HTMLTextAreaElement.prototype, "value").set;
+      setter.call(input, "   ");
+      input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    });
+    assert.equal(buttonWith(view.host, "发送").disabled, true);
     view.unmount();
   });
 });

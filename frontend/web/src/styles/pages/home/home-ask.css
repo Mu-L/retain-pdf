@@ -572,6 +572,59 @@
   outline-offset: 1px;
 }
 
+/* 用户消息的操作条靠右，跟气泡对齐（气泡本身是右对齐的）。 */
+.home-ask-msg-actions.is-user {
+  justify-content: flex-end;
+}
+
+/* 历史提问的内联编辑框。宽度跟用户气泡一致，避免切换编辑态时整行跳动。 */
+.home-ask-msg-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-self: flex-end;
+  width: min(100%, 560px);
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--ink) 16%, var(--line));
+  border-radius: 14px;
+  background: var(--surface, transparent);
+}
+
+.home-ask-msg-editor-input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.home-ask-msg-editor-input:focus {
+  outline: none;
+}
+
+.home-ask-msg-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.home-ask-msg-action.is-primary {
+  background: color-mix(in srgb, var(--ink) 88%, transparent);
+  color: var(--paper);
+}
+
+.home-ask-msg-action.is-primary:hover:not(:disabled) {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.home-ask-msg-action:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 /* 多版回答之间的切换器。和复制/重新生成同处一行，所以沿用同一套尺寸与配色。 */
 .home-ask-msg-branch {
   display: inline-flex;

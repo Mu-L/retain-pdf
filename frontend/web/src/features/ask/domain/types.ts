@@ -51,6 +51,11 @@ export type HomeAskMessage = {
    * 去发会把「@标题」那串后缀也当成问题的一部分。
    */
   prompt?: string;
+  /**
+   * 用户当初敲进输入框的原文。编辑历史提问时拿它回填——`content` 带着「@标题」后缀、
+   * 从服务端恢复的那份还是拼过范围的整段 prompt，两者都不适合直接放进编辑框。
+   */
+  rawQuestion?: string;
 };
 
 export function scopeKey(s: HomeAskScope): string {

@@ -96,7 +96,7 @@ export function useHomeAskTurn({
   const send = useCallback(async (
     rawQuestion: string,
     scopes: HomeAskScope[] = [],
-    { regenerateOf = "" }: { regenerateOf?: string } = {},
+    { regenerateOf = "", editOf = "" }: { regenerateOf?: string; editOf?: string } = {},
   ) => {
     const question = `${rawQuestion || ""}`.trim();
     if (!question || runningRef.current) return;
@@ -106,6 +106,16 @@ export function useHomeAskTurn({
     // （不然模型会看见自己刚被否掉的那一版）。少传 parent_id 就会退化成多一轮重复提问。
     const priorMessages = messagesRef.current;
     const regenerating = Boolean(regenerateOf);
+
+    // 编辑历史提问 = 在**同一个父节点**下挂一条新的提问，成为原提问的兄弟版本，
+    // 它自己再带一棵新的回答子树。原提问和它底下的回答都留在树里。
+    const editedFrom = editOf
+      ? priorMessages.find((m) => m.id === editOf && m.role === "user") || null
+      : null;
+    if (editOf && !editedFrom) return;
+    // 会话第一条提问没有父节点，而服务端不接受「显式的根」——parent_id 传空会被解析成
+    // 「挂到当前 head」，造不出第二个根。所以首问暂时不能改，UI 那边也不给入口。
+    if (editedFrom && !editedFrom.parentId) return;
     const parentUser = regenerating
       ? findTurnUserMessage(priorMessages, regenerateOf)
       : null;
@@ -115,9 +125,9 @@ export function useHomeAskTurn({
     const priorAssistant = regenerating
       ? priorMessages.find((m) => m.id === regenerateOf) || null
       : null;
-    const headId = priorMessages.length
-      ? `${priorMessages[priorMessages.length - 1].id}`
-      : "";
+    const headId = editedFrom
+      ? `${editedFrom.parentId || ""}`
+      : (priorMessages.length ? `${priorMessages[priorMessages.length - 1].id}` : "");
 
     // 运行配置及密钥以本机后端的 runtime-config 为权威。浏览器里的旧配置
     // 只作为本次请求的可选覆盖；为空时让后端使用安全保存的凭据。
@@ -162,6 +172,7 @@ export function useHomeAskTurn({
           role: "user",
           content: displayUser,
           status: "complete",
+          rawQuestion: question,
           ...(headId ? { parentId: headId } : {}),
         },
         streamingAssistant,
