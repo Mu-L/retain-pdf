@@ -66,6 +66,8 @@ export type AssistantMessageRowProps = {
   message: MessageState;
   citations: AiCitationLike[];
   progress: string;
+  /** 这条回答为什么不完整（"rounds_exhausted" 等）；空 = 正常答完。 */
+  incompleteReason: string;
   streaming: boolean;
   branchBusy: boolean;
   onJumpCitation?: (citation: AiCitationLike) => void;
@@ -77,6 +79,7 @@ export function AssistantMessageRow({
   message,
   citations,
   progress,
+  incompleteReason,
   streaming,
   branchBusy,
   onJumpCitation,
@@ -88,6 +91,14 @@ export function AssistantMessageRow({
       <div className="aui-msg-stack">
         {streaming && progress ? <ThinkingRow label={progress} /> : null}
         {streaming && !progress && !content ? <ThinkingRow label="思考中…" /> : null}
+        {/* 轮次预算用尽、模型被强制收尾。它写出来的话语气照常,不标出来就看不出。
+            阅读模式的预算(3)比主页(6)更紧,这一侧其实更容易撞上。
+            只认识的原因才渲染——将来契约多一种值时,宁可不显示也别瞎解释一句。 */}
+        {!streaming && incompleteReason === "rounds_exhausted" ? (
+          <div className="aui-msg-truncated" role="status">
+            检索与计算的步数已用尽，这个回答是提前收尾的——追问一句可以让它接着做。
+          </div>
+        ) : null}
         {content ? (
           <div className="aui-msg-bubble">
             <AiMarkdownAnswer
@@ -141,6 +152,7 @@ export function ThreadMessageList({
   jobId,
   citationsByMessageId,
   progressByMessageId,
+  incompleteByMessageId,
   streamingAssistantId,
   isRunning,
   branchBusy,
@@ -150,6 +162,7 @@ export function ThreadMessageList({
   jobId: string;
   citationsByMessageId: Record<string, AiCitationLike[]>;
   progressByMessageId: Record<string, string>;
+  incompleteByMessageId: Record<string, string>;
   streamingAssistantId: string;
   isRunning: boolean;
   branchBusy: boolean;
@@ -170,6 +183,7 @@ export function ThreadMessageList({
               message={message}
               citations={citationsByMessageId[message.id] || []}
               progress={progressByMessageId[message.id] || ""}
+              incompleteReason={incompleteByMessageId[message.id] || ""}
               streaming={streaming}
               branchBusy={branchBusy}
               onJumpCitation={onJumpCitation}

@@ -14,16 +14,19 @@ export type AssistantMessageRowProps = {
     message: MessageState;
     citations: AiCitationLike[];
     progress: string;
+    /** 这条回答为什么不完整（"rounds_exhausted" 等）；空 = 正常答完。 */
+    incompleteReason: string;
     streaming: boolean;
     branchBusy: boolean;
     onJumpCitation?: (citation: AiCitationLike) => void;
     onBranchFromAnswer?: (assistantMessageId: string) => void | Promise<boolean | void>;
 };
-export declare function AssistantMessageRow({ jobId, message, citations, progress, streaming, branchBusy, onJumpCitation, onBranchFromAnswer, }: AssistantMessageRowProps): import("react").JSX.Element;
-export declare function ThreadMessageList({ jobId, citationsByMessageId, progressByMessageId, streamingAssistantId, isRunning, branchBusy, onJumpCitation, onBranchFromAnswer, }: {
+export declare function AssistantMessageRow({ jobId, message, citations, progress, incompleteReason, streaming, branchBusy, onJumpCitation, onBranchFromAnswer, }: AssistantMessageRowProps): import("react").JSX.Element;
+export declare function ThreadMessageList({ jobId, citationsByMessageId, progressByMessageId, incompleteByMessageId, streamingAssistantId, isRunning, branchBusy, onJumpCitation, onBranchFromAnswer, }: {
     jobId: string;
     citationsByMessageId: Record<string, AiCitationLike[]>;
     progressByMessageId: Record<string, string>;
+    incompleteByMessageId: Record<string, string>;
     streamingAssistantId: string;
     isRunning: boolean;
     branchBusy: boolean;

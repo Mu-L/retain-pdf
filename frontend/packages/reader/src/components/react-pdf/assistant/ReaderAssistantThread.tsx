@@ -75,6 +75,10 @@ function assistantStatus(
     return { type: "running" };
   }
   if (message.status?.type === "incomplete" || message.status?.type === "error") {
+    // assistant-ui 的 incomplete reason 是闭合集合(cancelled/length/content-filter/…),
+    // 塞不进 "rounds_exhausted"。所以这里照旧窄化,真正的原因由
+    // incompleteByMessageId 单独带下去渲染——否则「提前收尾」这条提示在阅读器
+    // 这一侧完全落空,而阅读模式的轮次预算(3)比主页(6)还紧。
     return {
       type: "incomplete",
       reason: message.status?.reason === "cancelled" ? "cancelled" : "error",
@@ -127,6 +131,20 @@ export function ReaderAssistantThread({
       : {}),
   })), [contentByMessageId, isRunning, messages, streamingAssistantId]);
 
+  // 每条回答「为什么不完整」。服务端把它记在 ai_messages.finish_reason 上,
+  // messagesToBranchItems 读成 status.reason;直播路径由 transport 写进 metadata。
+  const incompleteByMessageId = useMemo<Record<string, string>>(() => {
+    const out: Record<string, string> = {};
+    for (const message of messages) {
+      if (message.role !== "assistant") continue;
+      const reason = `${message.status?.reason || ""}`.trim();
+      if (message.status?.type === "incomplete" && reason && reason !== "cancelled") {
+        out[message.id] = reason;
+      }
+    }
+    return out;
+  }, [messages]);
+
   const retryFromParent = useCallback(async (parentId: string | null) => {
     const start = parentId
       ? Math.max(0, messages.findIndex((message) => message.id === parentId) + 1)
@@ -173,6 +191,7 @@ export function ReaderAssistantThread({
         messages={messages}
         citationsByMessageId={citationsByMessageId}
         progressByMessageId={progressByMessageId}
+        incompleteByMessageId={incompleteByMessageId}
         streamingAssistantId={streamingAssistantId}
         isRunning={isRunning}
         missingLlmKey={missingLlmKey}

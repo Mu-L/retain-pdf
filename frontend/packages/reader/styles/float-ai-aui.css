@@ -257,6 +257,15 @@
   line-height: 1.55;
 }
 
+/* 轮次预算用尽、提前收尾。回答本身是写完的,只是背后的工作没做完,所以是一行提示
+   而不是错误态。它在气泡外面,复制和引用都带不走它。 */
+.reader-float-ai .aui-msg-truncated {
+  margin-top: 5px;
+  color: color-mix(in srgb, var(--warn) 62%, var(--ink));
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
 /* 答案卡内部由 Markstream 负责 Markdown 结构。 */
 .reader-float-ai .aui-msg-assistant .aui-msg-bubble {
   padding: 0;

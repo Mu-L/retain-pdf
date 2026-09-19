@@ -53,6 +53,8 @@ export function chatMessageToStore(message: ReaderChatMessage): ReaderAskStoreMe
     ...(message.role === "assistant" ? {
       citations: metadata.citations || [],
       progress: metadata.progress || "",
+      // 「答完了但没做完」和「中断/出错」是两回事:正文是完整的一段话,只是背后的
+      // 工作被轮次预算截断了。所以它走 incomplete + 具体原因,而不是 error。
       status: running
         ? { type: "running" as const }
         : incomplete
@@ -60,7 +62,12 @@ export function chatMessageToStore(message: ReaderChatMessage): ReaderAskStoreMe
             type: "incomplete" as const,
             reason: metadata.status === "cancelled" ? "cancelled" as const : "error" as const,
           }
-          : { type: "complete" as const, reason: "stop" as const },
+          : `${metadata.incompleteReason || ""}`.trim()
+            ? {
+              type: "incomplete" as const,
+              reason: `${metadata.incompleteReason}`.trim(),
+            }
+            : { type: "complete" as const, reason: "stop" as const },
     } : {}),
   };
 }

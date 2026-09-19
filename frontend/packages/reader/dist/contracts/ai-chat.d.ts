@@ -10,6 +10,8 @@ export type ReaderChatRequest = {
     context?: Record<string, unknown> | null;
 };
 export type ReaderAnswerResult = {
+    /** 这一轮为什么不完整（"rounds_exhausted"）；空/缺席 = 正常答完。 */
+    incompleteReason?: string;
     answer?: string;
     citations?: unknown[];
     persisted?: boolean;

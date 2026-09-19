@@ -6648,7 +6648,7 @@ function il() {
     /* @__PURE__ */ p("download-toast", { style: { display: "none" }, "aria-hidden": "true", ref: e })
   ] });
 }
-const cl = dn(() => import("./ReaderFavoritesPanel-DgeAs3nN.js").then((e) => ({ default: e.ReaderFavoritesPanel }))), ll = dn(() => import("./ReaderMarkdownPanel-CHmJrt3M.js").then((e) => ({ default: e.ReaderMarkdownPanel }))), dl = dn(() => import("./ReaderAiPanel-BYMoql6X.js").then((e) => ({ default: e.ReaderAiPanel })));
+const cl = dn(() => import("./ReaderFavoritesPanel-CIUrWOiv.js").then((e) => ({ default: e.ReaderFavoritesPanel }))), ll = dn(() => import("./ReaderMarkdownPanel-COE88HH3.js").then((e) => ({ default: e.ReaderMarkdownPanel }))), dl = dn(() => import("./ReaderAiPanel-C2r39Rxn.js").then((e) => ({ default: e.ReaderAiPanel })));
 function Wt(e) {
   const t = x(!1);
   return e && (t.current = !0), t.current;
@@ -6889,4 +6889,4 @@ export {
   _l as j,
   Dl as r
 };
-//# sourceMappingURL=ReaderApp-DmpnN2it.js.map
+//# sourceMappingURL=ReaderApp-C3YFiy6i.js.map

@@ -243,23 +243,6 @@ export function HomeAskView() {
                 type="button"
                 className="home-ask-quote-float"
                 style={{ left: `${selection.left}px`, top: `${selection.top}px` }}
-                // pointerdown 而不是 click：click 之前浏览器会先清掉选区，
-                // 到那时 selection 已经没了。
-                onPointerDown={(event) => {
-                  event.preventDefault();
-                  setQuoteRequest({ id: `${Date.now()}`, text: selection.text });
-                  clearSelection();
-                }}
-              >
-                <Quote size={12} strokeWidth={2.4} aria-hidden />
-                <span>引用</span>
-              </button>
-            ) : null}
-            {selection ? (
-              <button
-                type="button"
-                className="home-ask-quote-float"
-                style={{ left: `${selection.left}px`, top: `${selection.top}px` }}
                 // pointerdown 而不是 click：click 触发前浏览器会先清掉选区，
                 // 到那时 selection 已经没了。
                 onPointerDown={(event) => {

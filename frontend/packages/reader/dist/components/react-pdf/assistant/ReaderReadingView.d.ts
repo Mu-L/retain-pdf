@@ -6,6 +6,7 @@ export type ReaderReadingViewProps = {
     empty: boolean;
     citationsByMessageId: Record<string, AiCitationLike[]>;
     progressByMessageId: Record<string, string>;
+    incompleteByMessageId: Record<string, string>;
     streamingAssistantId: string;
     isRunning: boolean;
     missingLlmKey: boolean;
@@ -18,5 +19,5 @@ export type ReaderReadingViewProps = {
     onClearSelectionContext?: () => void;
     footerExtra?: ReactNode;
 };
-export declare function ReaderReadingView({ jobId, empty, citationsByMessageId, progressByMessageId, streamingAssistantId, isRunning, missingLlmKey, branchBusy, composerDisabled, onModeChange, onJumpCitation, onBranchFromAnswer, selectionContext, onClearSelectionContext, footerExtra, }: ReaderReadingViewProps): import("react").JSX.Element;
+export declare function ReaderReadingView({ jobId, empty, citationsByMessageId, progressByMessageId, incompleteByMessageId, streamingAssistantId, isRunning, missingLlmKey, branchBusy, composerDisabled, onModeChange, onJumpCitation, onBranchFromAnswer, selectionContext, onClearSelectionContext, footerExtra, }: ReaderReadingViewProps): import("react").JSX.Element;
 //# sourceMappingURL=ReaderReadingView.d.ts.map

@@ -22,6 +22,7 @@ export type ReaderOperationsViewProps = {
   empty: boolean;
   citationsByMessageId: Record<string, AiCitationLike[]>;
   progressByMessageId: Record<string, string>;
+  incompleteByMessageId: Record<string, string>;
   streamingAssistantId: string;
   isRunning: boolean;
   missingLlmKey: boolean;
@@ -38,6 +39,7 @@ export function ReaderOperationsView({
   empty,
   citationsByMessageId,
   progressByMessageId,
+  incompleteByMessageId,
   streamingAssistantId,
   isRunning,
   missingLlmKey,
@@ -84,6 +86,7 @@ export function ReaderOperationsView({
         jobId={jobId}
         citationsByMessageId={citationsByMessageId}
         progressByMessageId={progressByMessageId}
+        incompleteByMessageId={incompleteByMessageId}
         streamingAssistantId={streamingAssistantId}
         isRunning={isRunning}
         branchBusy={branchBusy}

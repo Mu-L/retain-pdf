@@ -8,6 +8,7 @@ export type ReaderAssistantSurfaceProps = {
     messages: readonly ReaderAskStoreMessage[];
     citationsByMessageId: Record<string, AiCitationLike[]>;
     progressByMessageId: Record<string, string>;
+    incompleteByMessageId: Record<string, string>;
     streamingAssistantId: string;
     isRunning: boolean;
     missingLlmKey: boolean;
@@ -21,5 +22,5 @@ export type ReaderAssistantSurfaceProps = {
     selectionContext?: ReaderSelection | null;
     onClearSelectionContext?: () => void;
 };
-export declare function ReaderAssistantSurface({ jobId, messages, citationsByMessageId, progressByMessageId, streamingAssistantId, isRunning, missingLlmKey, branchBusy, agentRequestBlocked, agentOperationPanel, assistantMode, onAssistantModeChange, onJumpCitation, onBranchFromAnswer, selectionContext, onClearSelectionContext, }: ReaderAssistantSurfaceProps): import("react").JSX.Element;
+export declare function ReaderAssistantSurface({ jobId, messages, citationsByMessageId, progressByMessageId, incompleteByMessageId, streamingAssistantId, isRunning, missingLlmKey, branchBusy, agentRequestBlocked, agentOperationPanel, assistantMode, onAssistantModeChange, onJumpCitation, onBranchFromAnswer, selectionContext, onClearSelectionContext, }: ReaderAssistantSurfaceProps): import("react").JSX.Element;
 //# sourceMappingURL=ReaderAssistantSurface.d.ts.map

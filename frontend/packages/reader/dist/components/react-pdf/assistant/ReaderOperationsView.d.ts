@@ -5,6 +5,7 @@ export type ReaderOperationsViewProps = {
     empty: boolean;
     citationsByMessageId: Record<string, AiCitationLike[]>;
     progressByMessageId: Record<string, string>;
+    incompleteByMessageId: Record<string, string>;
     streamingAssistantId: string;
     isRunning: boolean;
     missingLlmKey: boolean;
@@ -15,5 +16,5 @@ export type ReaderOperationsViewProps = {
     onJumpCitation?: (citation: AiCitationLike) => void;
     onBranchFromAnswer?: (assistantMessageId: string) => void | Promise<boolean | void>;
 };
-export declare function ReaderOperationsView({ jobId, empty, citationsByMessageId, progressByMessageId, streamingAssistantId, isRunning, missingLlmKey, branchBusy, agentRequestBlocked, agentOperationPanel, onModeChange, onJumpCitation, onBranchFromAnswer, }: ReaderOperationsViewProps): import("react").JSX.Element;
+export declare function ReaderOperationsView({ jobId, empty, citationsByMessageId, progressByMessageId, incompleteByMessageId, streamingAssistantId, isRunning, missingLlmKey, branchBusy, agentRequestBlocked, agentOperationPanel, onModeChange, onJumpCitation, onBranchFromAnswer, }: ReaderOperationsViewProps): import("react").JSX.Element;
 //# sourceMappingURL=ReaderOperationsView.d.ts.map

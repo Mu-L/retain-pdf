@@ -16,6 +16,7 @@ export type ReaderAssistantSurfaceProps = {
   messages: readonly ReaderAskStoreMessage[];
   citationsByMessageId: Record<string, AiCitationLike[]>;
   progressByMessageId: Record<string, string>;
+  incompleteByMessageId: Record<string, string>;
   streamingAssistantId: string;
   isRunning: boolean;
   missingLlmKey: boolean;
@@ -35,6 +36,7 @@ export function ReaderAssistantSurface({
   messages,
   citationsByMessageId,
   progressByMessageId,
+  incompleteByMessageId,
   streamingAssistantId,
   isRunning,
   missingLlmKey,
@@ -69,6 +71,7 @@ export function ReaderAssistantSurface({
               empty={empty}
               citationsByMessageId={citationsByMessageId}
               progressByMessageId={progressByMessageId}
+              incompleteByMessageId={incompleteByMessageId}
               streamingAssistantId={streamingAssistantId}
               isRunning={isRunning}
               missingLlmKey={missingLlmKey}
@@ -85,6 +88,7 @@ export function ReaderAssistantSurface({
               empty={empty}
               citationsByMessageId={citationsByMessageId}
               progressByMessageId={progressByMessageId}
+              incompleteByMessageId={incompleteByMessageId}
               streamingAssistantId={streamingAssistantId}
               isRunning={isRunning}
               missingLlmKey={missingLlmKey}
