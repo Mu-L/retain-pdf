@@ -1,9 +1,9 @@
 import { jsx as i, jsxs as E, Fragment as be } from "react/jsx-runtime";
 import { useState as W, useRef as B, useEffect as U, useMemo as Q, useCallback as H, useId as pt } from "react";
 import { Square as mt, ArrowUp as ft, Copy as ht, GitBranch as gt, RefreshCw as yt, Sigma as He, Table2 as wt, Image as It, Type as vt, X as Re, BookOpen as Ge, Sparkles as ge, Loader2 as Ce, FileText as Ae, ArrowDown as Ve, ListTree as bt, FlaskConical as Rt, ShieldCheck as Ct, Bot as Mt, ChevronUp as Nt, ChevronDown as Ye, TriangleAlert as Je, ExternalLink as _t, Check as Qe, Circle as kt, Plus as At, Pencil as St, Trash2 as $t } from "lucide-react";
-import { g as me, h as fe, i as De, j as xt, d as Tt, b as Et } from "./ReaderApp-LhF9IqIy.js";
+import { g as me, h as fe, i as De, j as xt, d as Tt, b as Et } from "./ReaderApp-CCbPO1TU.js";
 import { ThreadPrimitive as se, ComposerPrimitive as we, MessagePrimitive as Xe, ActionBarPrimitive as _e, useExternalStoreRuntime as Pt, AssistantRuntimeProvider as Ot } from "@assistant-ui/react";
-import { A as Dt } from "./AiMarkdownAnswer-Bz0m-n05.js";
+import { A as Dt } from "./AiMarkdownAnswer-6TVFe9T9.js";
 import { r as Ze } from "./reader-regions-DsePY7B_.js";
 import { M as Ft, C as Fe, h as zt } from "./config-CgaWliJ_.js";
 import { b as ue, n as oe, q as qt } from "./answer-enhance-D8zK9znw.js";
@@ -2655,4 +2655,4 @@ function Sr({
 export {
   Sr as ReaderAiPanel
 };
-//# sourceMappingURL=ReaderAiPanel-BMJMc_OA.js.map
+//# sourceMappingURL=ReaderAiPanel-CSfFNKAz.js.map

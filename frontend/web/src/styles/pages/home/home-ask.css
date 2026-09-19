@@ -527,20 +527,25 @@
 }
 
 /* 一条回答下面的操作。默认低对比，鼠标移到消息上才显出来——不抢正文的注意力。 */
+/* 操作条默认淡显，不是全隐。
+   全隐意味着复制 / 重新生成 / 切版本 / 编辑提问这几件事，用户不把鼠标移上去就
+   根本不知道存在；而且其中的「2/2」是**信息**（这条回答有几个版本），信息不该藏。
+   另外旧规则只写了 .home-ask-msg-assistant:hover，挂在用户消息上的编辑入口
+   因此在桌面上永远是 opacity 0——元素在、看不见，点不到。 */
 .home-ask-msg-actions {
   display: flex;
   gap: 4px;
   margin-top: 4px;
-  opacity: 0;
+  opacity: 0.55;
   transition: opacity 120ms ease;
 }
 
-.home-ask-msg-assistant:hover .home-ask-msg-actions,
+.home-ask-msg:hover .home-ask-msg-actions,
 .home-ask-msg-actions:focus-within {
   opacity: 1;
 }
 
-/* 指针粗糙（触屏）时没有 hover，直接常显，否则按钮永远点不到。 */
+/* 指针粗糙（触屏）时没有 hover，直接全显。 */
 @media (hover: none) {
   .home-ask-msg-actions {
     opacity: 1;
@@ -941,7 +946,7 @@
 .home-ask-md :where(h2),
 .home-ask-md :where(h3),
 .home-ask-md :where(h4) {
-  margin: 1.15em 0 0.45em;
+  margin: 1.6em 0 0.5em;
   color: var(--ink);
   font-weight: 600;
   line-height: 1.35;
@@ -954,10 +959,17 @@
   margin-top: 0;
 }
 
-.home-ask-md :where(h1) { font-size: 1.15em; }
-.home-ask-md :where(h2) { font-size: 1.08em; }
-.home-ask-md :where(h3),
-.home-ask-md :where(h4) { font-size: 1.02em; }
+/* 标题要真的分得出层级。原来 h1/h2/h3 是 1.15/1.08/1.02em——在 15px 正文下分别是
+   17.2/16.2/15.3px，比正文只大 1~2px，一篇带小标题的回答读起来是一坨。 */
+.home-ask-md :where(h1) { font-size: 1.34em; }
+.home-ask-md :where(h2) { font-size: 1.18em; }
+.home-ask-md :where(h3) { font-size: 1.06em; }
+.home-ask-md :where(h4) { font-size: 1em; }
+
+/* h4 和正文同号，靠字重区分，再加字距免得和正文糊在一起。 */
+.home-ask-md :where(h4) {
+  letter-spacing: 0.01em;
+}
 
 .home-ask-md :where(ul),
 .home-ask-md :where(ol) {
@@ -1017,8 +1029,37 @@
 .home-ask-md :where(table) {
   display: block;
   max-width: 100%;
+  margin: 0.9em 0;
   overflow-x: auto;
   border-collapse: collapse;
+  font-size: 0.94em;
+}
+
+/* 表头只靠字重立不住，给一条底线和一层极淡的底色。 */
+.home-ask-md :where(th) {
+  border-bottom: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  font-weight: 600;
+  text-align: left;
+}
+
+.home-ask-md :where(th),
+.home-ask-md :where(td) {
+  padding: 6px 12px;
+  border-right: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.home-ask-md :where(th:last-child),
+.home-ask-md :where(td:last-child) {
+  border-right: 0;
+}
+
+.home-ask-md :where(tbody tr) {
+  border-bottom: 1px solid color-mix(in srgb, var(--ink) 7%, transparent);
+}
+
+.home-ask-md :where(tbody tr:last-child) {
+  border-bottom: 0;
 }
 
 .home-ask-md :where(img) {

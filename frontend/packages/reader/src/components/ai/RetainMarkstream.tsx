@@ -12,10 +12,11 @@ import MarkdownRender, {
   type ImageNodeProps,
   type LinkNodeProps,
   type MathInlineNodeProps,
-  CodeBlockNode,
+  PreCodeNode,
   type CodeBlockNodeProps,
 } from "markstream-react";
 import { AnswerChart } from "./AnswerChart.js";
+import { AnswerCodeBlock } from "./AnswerCodeBlock.js";
 import {
   CHART_FENCE_LANGUAGE,
   parseChartSpec,
@@ -206,7 +207,15 @@ function RetainCodeBlockNode(props: CodeBlockNodeProps) {
     const spec = parseChartSpec(`${node?.code || ""}`);
     if (spec) return <AnswerChart spec={spec} />;
   }
-  return <CodeBlockNode {...props} />;
+  // 委托给 PreCodeNode 而不是 CodeBlockNode:后者是 markstream 的富代码块，带一整排
+  // 工具按钮和 HTML 预览 iframe。这个渲染器有意用 renderCodeBlocksAsPre 关掉了它
+  // （AI 输出不可信，htmlPolicy 也设成了 escape）——而自定义组件是绕过那个开关的，
+  // 直接调 CodeBlockNode 等于把那条防线连同渲染方式一起换掉。
+  return (
+    <AnswerCodeBlock language={`${node?.language || ""}`} code={`${node?.code || ""}`}>
+      <PreCodeNode node={props.node} />
+    </AnswerCodeBlock>
+  );
 }
 
 function RetainMathInlineNode({ node }: MathInlineNodeProps) {

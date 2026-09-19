@@ -217,7 +217,8 @@ export function useHomeAskComposer({
   const canSend = Boolean(text.trim()) && !disabled && !isRunning;
 
   const scopeHint = (() => {
-    if (credentialBlocked) return credentialMessage;
+    // 缺凭据的提示归横幅管——横幅就在上面几十像素处，而且带「打开设置」按钮。
+    // 这里再说一遍等于同一句话在同一屏出现两次，还是不带动作的那一遍。
     if (!scopes.length) return "全库 · @ 文章或合集";
     const cols = scopes.filter((s) => s.kind === "collection").length;
     const docs = scopes.filter((s) => s.kind === "document").length;

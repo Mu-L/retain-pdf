@@ -29,6 +29,19 @@ globalThis.matchMedia = () => ({
 });
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
+const clipboardWrites = [];
+let clipboardFails = false;
+Object.defineProperty(dom.window.navigator, "clipboard", {
+  value: {
+    writeText: (text) => {
+      if (clipboardFails) return Promise.reject(new Error("拒绝访问剪贴板"));
+      clipboardWrites.push(text);
+      return Promise.resolve();
+    },
+  },
+  configurable: true,
+});
+
 const React = await import("react");
 const { act } = await import("react");
 const { createRoot } = await import("react-dom/client");
@@ -146,5 +159,82 @@ describe("图表块的渲染", () => {
     const one = await render(chartBlock(VALID));
     assert.ok(!one.host.querySelector(".reader-answer-chart-legend"), "单系列不该有图例");
     one.unmount();
+  });
+});
+
+
+describe("代码块的外壳", () => {
+  const codeShell = (host) => host.querySelector(".reader-answer-code");
+
+  async function clickCopy(host) {
+    const btn = host.querySelector(".reader-answer-code-copy");
+    await act(async () => {
+      btn.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+    return btn;
+  }
+
+  it("普通代码块带语言标签和复制按钮", async () => {
+    const view = await render("```python\ndef f(x):\n    return x\n```\n");
+    assert.ok(codeShell(view.host), "代码块没有外壳");
+    assert.equal(view.host.querySelector(".reader-answer-code-lang").textContent, "Python");
+    assert.ok(view.host.querySelector(".reader-answer-code-copy"), "没有复制按钮");
+    view.unmount();
+  });
+
+  it("代码正文是朴素的 pre，没有第二层工具条", async () => {
+    // markstream 的富代码块自带一排按钮和 HTML 预览 iframe，这个渲染器有意用
+    // renderCodeBlocksAsPre 关掉了它（AI 输出不可信）。但自定义组件绕过那个开关，
+    // 委托时必须显式选 PreCodeNode——错委托给 CodeBlockNode 的话，既多出一层重复的
+    // 工具条，也把那条防线换掉了。
+    const view = await render("```python\ndef f(x):\n    return x\n```\n");
+    assert.ok(view.host.querySelector("pre"), "代码正文不是 pre");
+    const buttons = [...view.host.querySelectorAll("button")]
+      .map((b) => (b.textContent || "").trim());
+    assert.deepEqual(buttons, ["复制"], `代码块里有多余的按钮: ${buttons.join(" / ")}`);
+    view.unmount();
+  });
+
+  it("复制的是代码原文，不带语言标签和围栏", async () => {
+    clipboardWrites.length = 0;
+    clipboardFails = false;
+    const view = await render("```python\ndef f(x):\n    return x\n```\n");
+    await clickCopy(view.host);
+    assert.equal(clipboardWrites.length, 1);
+    assert.ok(clipboardWrites[0].includes("def f(x):"));
+    assert.ok(!clipboardWrites[0].includes("```"), "把围栏也复制进去了");
+    assert.ok(!clipboardWrites[0].toLowerCase().includes("python"), "把语言标签也复制进去了");
+    view.unmount();
+  });
+
+  it("复制成功后给反馈", async () => {
+    clipboardWrites.length = 0;
+    clipboardFails = false;
+    const view = await render("```js\nconst a = 1;\n```\n");
+    const btn = await clickCopy(view.host);
+    assert.equal(btn.textContent, "已复制");
+    view.unmount();
+  });
+
+  it("剪贴板被拒时不假装成功", async () => {
+    clipboardFails = true;
+    const view = await render("```js\nconst a = 1;\n```\n");
+    const btn = await clickCopy(view.host);
+    assert.notEqual(btn.textContent, "已复制", "复制失败却显示成功");
+    clipboardFails = false;
+    view.unmount();
+  });
+
+  it("没有语言的围栏块不显示语言标签", async () => {
+    const view = await render("```\n纯文本\n```\n");
+    assert.equal(view.host.querySelector(".reader-answer-code-lang").textContent, "");
+    view.unmount();
+  });
+
+  it("图表块不套代码外壳——它已经不是代码了", async () => {
+    const view = await render(chartBlock(VALID));
+    assert.ok(!codeShell(view.host), "图表块也套上了代码外壳");
+    view.unmount();
   });
 });
