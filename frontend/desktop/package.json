@@ -98,10 +98,12 @@
       ],
       "maintainer": "wxyhgk <wxyhgk@qq.com>",
       "desktop": {
-        "Name": "RetainPDF",
-        "Comment": "PDF retain-layout translation desktop application",
-        "Categories": "Office;Utility;",
-        "StartupWMClass": "RetainPDF"
+        "entry": {
+          "Name": "RetainPDF",
+          "Comment": "PDF retain-layout translation desktop application",
+          "Categories": "Office;Utility;",
+          "StartupWMClass": "RetainPDF"
+        }
       },
       "artifactName": "RetainPDF-Linux-${version}.${ext}"
     },

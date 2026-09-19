@@ -59,6 +59,37 @@ if (runtimeDependencyNames.length > 0) {
 const builderEntry = require.resolve("electron-builder");
 fs.accessSync(builderEntry, fs.constants.R_OK);
 
+// 用 electron-builder 自带的 schema 校验 `build` 配置。
+//
+// 升级 electron-builder 大版本时，配置字段的形状会变，而这类错误**只有在真正打包时
+// 才暴露**——CI 上要等四分钟走到 "Build Linux package" 才报
+// `Invalid configuration object`。v4.2.5 就吃过一次:eb 25 收扁平的
+// `linux.desktop: { Name, ... }`，eb 26 要求包在 `linux.desktop.entry` 里。
+//
+// ajv 和 scheme.json 都由 electron-builder 自己带（它的 validateConfiguration 用的就是
+// 这两个）。万一取不到就只警告不拦——这一条是加分项，不该让整个检查脚本挂掉。
+let schemaChecked = false;
+try {
+  const Ajv = require("ajv");
+  const schema = require("app-builder-lib/scheme.json");
+  const ajv = new Ajv({ allErrors: true, verbose: true, schemaId: "auto" });
+  // 上游同样对函数型字段放行:schema 里用 `typeof` 关键字标注它们，ajv 本身不认。
+  ajv.addKeyword("typeof", { validate: () => true });
+  const validate = ajv.compile(schema);
+  if (!validate(desktopPackage.build)) {
+    const details = validate.errors
+      .map((error) => `  ${error.dataPath || "(root)"} ${error.message}`)
+      .join("\n");
+    throw new Error(
+      `electron-builder ${installedElectronBuilder} 不接受当前的 build 配置：\n${details}`,
+    );
+  }
+  schemaChecked = true;
+} catch (error) {
+  if (error instanceof Error && error.message.startsWith("electron-builder ")) throw error;
+  console.warn(`warning: 跳过 build 配置的 schema 校验（${error.message}）`);
+}
+
 console.log(
-  `Desktop packaging dependencies verified: electron=${installedElectron}, electron-builder=${installedElectronBuilder}, entry=${builderEntry}`,
+  `Desktop packaging dependencies verified: electron=${installedElectron}, electron-builder=${installedElectronBuilder}, config-schema=${schemaChecked ? "ok" : "skipped"}`,
 );
