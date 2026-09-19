@@ -17,6 +17,7 @@ import MarkdownRender, {
 } from "markstream-react";
 import { AnswerChart } from "./AnswerChart.js";
 import { AnswerCodeBlock } from "./AnswerCodeBlock.js";
+import { CitationRef } from "./CitationRef.js";
 import {
   CHART_FENCE_LANGUAGE,
   parseChartSpec,
@@ -160,27 +161,19 @@ function RetainImageNode({ node }: ImageNodeProps) {
 }
 
 function RetainLinkNode({ node }: LinkNodeProps) {
-  const { citations, onJumpCitation } = useContext(AssetContext);
+  const { citations, jobId, onJumpCitation } = useContext(AssetContext);
   const citationMatch = `${node.href || ""}`.match(/^#retainpdf-citation-(\d+)$/);
   const citation = citationMatch
     ? citations.find((item) => `${item.ref}` === citationMatch[1])
     : null;
   if (citation) {
-    const pageNumber = resolveCitationPageNumber(citation);
     return (
-      <button
-        type="button"
-        className="reader-ai-citation-ref"
-        data-page={pageNumber ?? undefined}
-        title={pageNumber ? `跳到第 ${pageNumber} 页` : "定位来源"}
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onJumpCitation?.(citation);
-        }}
-      >
-        [{citationMatch?.[1]}]
-      </button>
+      <CitationRef
+        citation={citation}
+        label={`${citationMatch?.[1] ?? ""}`}
+        jobId={jobId}
+        onJump={onJumpCitation}
+      />
     );
   }
   const label = `${node.text || node.href || ""}`.trim();

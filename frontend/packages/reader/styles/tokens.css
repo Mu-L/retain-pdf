@@ -29,5 +29,7 @@
   --z-selection-pop: 55;
   --z-fab: 70;
   --z-region-popover: 80;
+  /* 引用悬停预览卡：portal 到 body，必须压住浮层 AI 面板与 FAB */
+  --z-citation-hover: 90;
   --reader-topbar-offset: 48px;
 }
