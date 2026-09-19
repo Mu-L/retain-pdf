@@ -72,3 +72,7 @@ VERSION
 
 # macOS
 .DS_Store
+
+# 第三方资料/参考实现的落脚处。解压出来动辄几十万文件、还带 node_modules，
+# 不进版本库。
+research/

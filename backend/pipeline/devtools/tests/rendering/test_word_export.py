@@ -53,6 +53,29 @@ def test_every_module_imports():
     assert not failures, "有模块 import 不了:\n" + "\n".join(failures)
 
 
+def test_no_module_still_imports_the_removed_python_docx_builder():
+    """整个 pipeline 包里不该再有指向已删模块的 import。
+
+    `math_omml` / `textboxes` / `document_builder` 这三个是 python-docx 时代的东西，
+    文档生成搬去 retainpdf2doc 之后删掉了。删的时候漏了一个 `devtools/export_layout_docx.py`
+    ——它 import 的是 `devtools.word_export.cli`，早就不存在，而没有任何测试碰过它，
+    所以整个套件全绿也发现不了。
+    """
+    removed = ("math_omml", "textboxes", "document_builder", "devtools.word_export")
+    offenders = []
+    this_file = Path(__file__).resolve()
+    for path in PIPELINE_ROOT.rglob("*.py"):
+        # 跳过自己:这条测试的说明文字里就写着那几个模块名，会匹配到自身。
+        if "__pycache__" in path.parts or path.resolve() == this_file:
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for name in removed:
+            # ocr/document_schema 下另有一个同名的 document_builder，那个还在用。
+            if f"word.{name}" in text or f"word_export.{name}" in text or "devtools.word_export" in text:
+                offenders.append(f"{path.relative_to(PIPELINE_ROOT)} → {name}")
+    assert not offenders, "还有模块引用已删掉的 python-docx 实现：" + "; ".join(sorted(set(offenders)))
+
+
 def test_cli_has_an_entry_point():
     """`python -m …cli` 必须真的执行 main()。
 
@@ -268,39 +291,34 @@ def test_the_subcommand_is_listed_in_usage():
     assert "layout-docx" in console.COMMANDS
 
 
-def test_the_export_ships_in_the_installed_package(tiny_job: Path):
-    """导出代码必须在发布产物里——API 起的是**装好的** `retainpdf-pipeline`。
+def test_the_document_builder_is_wired_and_built(tiny_job: Path):
+    """文档由 `backend/packages/retainpdf2doc`（Node）生成，它必须真的构建好。
 
-    它原来住在 `devtools/`，而 pyproject 的 `packages.find` 只收 `retainpdf_pipeline*`：
-    装出来的 venv 里 `import devtools` 直接 ModuleNotFoundError。本地 pytest 能跑是因为
-    仓库根目录恰好在 sys.path 上，这个差别在接 API 之前一直看不出来。
+    这条钉的是「环境说得清楚」：以前 Python 侧自己用 python-docx 生成，装漏了依赖
+    只会在运行时抛 ImportError；现在换成起子进程，没构建的话必须给出一句能照着做的
+    错误，而不是让人对着非零退出码猜。
     """
-    import tomllib
+    import json
 
-    manifest = tomllib.loads((PIPELINE_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    included = manifest["tool"]["setuptools"]["packages"]["find"]["include"]
-    assert any(pattern.startswith("retainpdf_pipeline") for pattern in included)
+    from retainpdf_pipeline.render.output.word import exporter
 
-    module = importlib.import_module("retainpdf_pipeline.render.output.word.exporter")
-    assert Path(module.__file__).is_relative_to(PIPELINE_ROOT / "retainpdf_pipeline"), (
-        f"导出模块在 {module.__file__}，不在发布包里"
+    assert exporter._CLI_ENTRY.is_file(), (
+        f"retainpdf2doc 没构建（缺 {exporter._CLI_ENTRY}）；"
+        "跑 npm run build --workspace retainpdf2doc"
+    )
+    manifest = json.loads((PIPELINE_ROOT.parents[1] / "package.json").read_text(encoding="utf-8"))
+    assert "backend/packages/retainpdf2doc" in manifest["workspaces"], (
+        "retainpdf2doc 没注册进 npm workspaces，npm ci 不会装它的依赖"
     )
 
-    # python-docx 同理:它原来只在 test extra 里，装出来的运行环境没有它。
-    assert any("python-docx" in dep for dep in manifest["project"]["dependencies"]), (
-        "python-docx 不在运行时依赖里，装出来的环境跑 layout-docx 会 ImportError"
-    )
-
-
-def _first_block(job_root: Path):
-    from retainpdf_pipeline.render.output.word.job_io import single_pdf, translated_pages
-    from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
-
-    specs = build_render_page_specs(
-        source_pdf_path=single_pdf(job_root / "source"),
-        translated_pages=translated_pages(job_root),
-    )
-    return specs[0].blocks[0]
+    # 没构建时的报错要自己说清楚怎么修。
+    original = exporter._CLI_ENTRY
+    try:
+        exporter._CLI_ENTRY = original.with_name("does-not-exist.mjs")
+        with pytest.raises(exporter.LayoutDocxToolchainError, match="npm run build"):
+            exporter._resolve_cli()
+    finally:
+        exporter._CLI_ENTRY = original
 
 
 def _observed(job_root: Path, block):
@@ -397,80 +415,81 @@ def test_line_height_is_measured_from_the_rendered_baselines(tiny_job: Path, tmp
     assert derived not in values, f"还在用折算的 {derived / 20:.2f}pt，正文会顶出框外"
 
 
+def _spec_blocks(job_root: Path, **kwargs):
+    from retainpdf_pipeline.render.output.word.exporter import build_layout_spec
+
+    spec, _base = build_layout_spec(job_root=job_root, dpi=kwargs.pop("dpi", 72), **kwargs)
+    return spec, [block for page in spec["pages"] for block in page["blocks"]]
+
+
 def test_without_a_rendered_pdf_it_falls_back_to_the_html_fit_not_the_upper_bound(
-    tiny_job_without_render: Path, tmp_path: Path,
+    tiny_job_without_render: Path,
 ):
     """读不到译文 PDF 时走阅读器那套字号收敛，**不是**退回 spec 的上界。
 
     上界是 Typst 二分的起点而不是结果。跨 9 本书 295 个块实测，照上界排会有 44.6%
     的字符顶出框外；换成这套收敛之后降到 1.5%，而且误差方向是偏小。
-
-    这条钉的是「至少有一个块没有按上界排」——夹具里被缩过的块必须真的变小了。
     """
     from retainpdf_pipeline.render.output.word.html_fit import fitted_typography
     from retainpdf_pipeline.render.output.word.job_io import single_pdf, translated_pages
     from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
 
-    specs = build_render_page_specs(
+    layout = build_render_page_specs(
         source_pdf_path=single_pdf(tiny_job_without_render / "source"),
         translated_pages=translated_pages(tiny_job_without_render),
     )
-    blocks = [b for b in specs[0].blocks if b.plain_text.strip()]
-    shrunk = [
-        (b, fitted_typography(b)[0]) for b in blocks
-        if b.font_size_pt - fitted_typography(b)[0] > 0.15
-    ]
+    shrunk = {
+        b.block_id: fitted_typography(b)[0] for b in layout[0].blocks
+        if b.plain_text.strip() and b.font_size_pt - fitted_typography(b)[0] > 0.15
+    }
     assert shrunk, "夹具这一页没有任何块被收敛算法缩小，这条分辨不出对错"
+    upper = {b.block_id: b.font_size_pt for b in layout[0].blocks}
 
-    out = tmp_path / "layout.docx"
-    _export(tiny_job_without_render, out)
-    body = docx.Document(str(out)).element.body
-    sizes = {int(s.get(qn("w:val"))) for s in body.findall(".//" + qn("w:sz")) if s.get(qn("w:val"))}
-
-    block, fitted = max(shrunk, key=lambda pair: pair[0].font_size_pt - pair[1])
-    converged, upper = int(max(1.0, fitted) * 2), int(max(1.0, block.font_size_pt) * 2)
-    assert converged != upper, "这块缩得太少，半磅取整后两个值一样，换一块"
-    assert converged in sizes, f"没有用收敛后的 {fitted:.2f}pt；出现的是 {sorted(sizes)}"
-    assert upper not in sizes, f"还在按上界 {block.font_size_pt}pt 排，这块会溢出"
+    _spec, blocks = _spec_blocks(tiny_job_without_render)
+    checked = 0
+    for block in blocks:
+        if block["id"] not in shrunk:
+            continue
+        checked += 1
+        assert block["fontSizePt"] == pytest.approx(shrunk[block["id"]], abs=0.01), block["id"]
+        assert block["fontSizePt"] < upper[block["id"]] - 0.1, (
+            f"{block['id']} 还在按上界 {upper[block['id']]}pt 排，这块会溢出"
+        )
+    assert checked, "规格里一个被缩过的块都没有"
 
 
 def test_the_fallback_line_height_is_the_measured_ratio_not_one_plus_leading(
-    tiny_job_without_render: Path, tmp_path: Path,
+    tiny_job_without_render: Path,
 ):
     """兜底行距用实测比值 1.289，不是 `1 + leading_em`。
 
     折算方向看着合理（Typst 的 `par(leading:)` 是行间空隙，Word 的 `w:line` 是行高
     本身），但结果**系统性高 21%**:跨 9 本书 111 个块实测，真实行距是字号的 1.289 倍，
-    而 `1 + leading_em` 给出 1.560。行盒本身不是 1em，这个换算从一开始就不成立。
+    而 `1 + leading_em` 给出 1.560。
     """
-    from retainpdf_pipeline.render.output.word.html_fit import fitted_typography, LINE_STEP_RATIO
+    from retainpdf_pipeline.render.output.word.html_fit import LINE_STEP_RATIO
     from retainpdf_pipeline.render.output.word.job_io import single_pdf, translated_pages
     from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
 
-    specs = build_render_page_specs(
+    layout = build_render_page_specs(
         source_pdf_path=single_pdf(tiny_job_without_render / "source"),
         translated_pages=translated_pages(tiny_job_without_render),
     )
-    candidates = []
-    for block in specs[0].blocks:
-        if not block.plain_text.strip() or block.leading_em <= 0:
-            continue
-        _size, step = fitted_typography(block)
-        derived = int(max(1.0, block.font_size_pt * (1.0 + block.leading_em)) * 20)
-        measured = int(max(1.0, step) * 20)
-        if derived != measured:
-            candidates.append((derived, measured))
-    assert candidates, "夹具这一页两种算法给不出不同的行距，这条分辨不出对错"
+    leading = {b.block_id: b.leading_em for b in layout[0].blocks if b.leading_em > 0}
+    assert leading, "夹具里没有带行距值的块"
 
-    out = tmp_path / "layout.docx"
-    _export(tiny_job_without_render, out)
-    body = docx.Document(str(out)).element.body
-    values = {
-        int(s.get(qn("w:line"))) for s in body.findall(".//" + qn("w:spacing")) if s.get(qn("w:line"))
-    }
-    derived, measured = max(candidates, key=lambda row: abs(row[0] - row[1]))
-    assert measured in values, f"没有用实测比值算的 {measured / 20:.2f}pt；出现的是 {sorted(values)}"
-    assert derived not in values, f"还在用 (1+leading_em) 折算的 {derived / 20:.2f}pt，高约两成"
+    _spec, blocks = _spec_blocks(tiny_job_without_render)
+    checked = 0
+    for block in blocks:
+        if block["id"] not in leading:
+            continue
+        checked += 1
+        assert block["lineStepPt"] == pytest.approx(block["fontSizePt"] * LINE_STEP_RATIO, abs=0.01)
+        derived = block["fontSizePt"] * (1.0 + leading[block["id"]])
+        assert block["lineStepPt"] < derived - 0.1, (
+            f"{block['id']} 的行距还是按 (1+leading_em) 折算的，高约两成"
+        )
+    assert checked, "规格里一个带行距的块都没有"
     assert LINE_STEP_RATIO == 1.289, "改这个常数要重新跑实测，别凭感觉调"
 
 
@@ -547,53 +566,25 @@ def test_regular_blocks_are_not_bold(tiny_job: Path, tmp_path: Path):
     )
 
 
-def test_first_line_indent_is_wired_even_though_this_fixture_has_none(tiny_job: Path):
-    """首行缩进接上了，但**这份夹具测不到它**。
+def test_first_line_indent_reaches_the_spec_even_though_this_fixture_has_none(tiny_job: Path):
+    """首行缩进进了规格。
 
-    真实数据里这一页所有块的 first_line_indent_pt 都是 0（中文正文的两字缩进由
-    翻译侧直接写进文本，而不是靠排版属性）。所以任何「导出后有没有 w:ind」的断言
-    在这里都恒成立——反证时确认过:把接线改成写死 0，测试照样全绿。
-
-    与其留一条骗人的测试，不如把缺口写下来:这里只钉「接线在」，行为等遇到真有缩进
-    的文档再补。
+    这份夹具测不到它的**效果**——真实数据里这一页所有块的 first_line_indent_pt 都是 0
+    （中文正文的两字缩进由翻译侧直接写进文本，不靠排版属性）。以前这条只能去 grep
+    exporter.py 的源码，现在规格是个普通 dict，至少能钉住字段真的在、且值是照搬的。
     """
-    source = (PIPELINE_ROOT / "retainpdf_pipeline" / "render" / "output" / "word" / "exporter.py").read_text()
-    assert "first_line_indent_pt=block.first_line_indent_pt" in source
-
     from retainpdf_pipeline.render.output.word.job_io import single_pdf, translated_pages
     from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
 
-    specs = build_render_page_specs(
-        source_pdf_path=single_pdf(tiny_job / "source"),
-        translated_pages=translated_pages(tiny_job),
+    layout = build_render_page_specs(
+        source_pdf_path=single_pdf(tiny_job / "source"), translated_pages=translated_pages(tiny_job),
     )
-    indents = {b.first_line_indent_pt for b in specs[0].blocks}
-    assert indents == {0.0}, (
-        f"夹具里出现了非零缩进 {indents}——可以把这条换成真正的行为断言了"
-    )
-
-
-def test_two_dpis_do_not_share_a_background_image_directory(tiny_job: Path, tmp_path: Path):
-    """不同清晰度的背景图必须分开放。
-
-    API 那边的 in-flight 去重键按 DPI 分（`{job}:layout-docx:dpi{n}`），所以同一个 job
-    的两次不同清晰度导出**可以同时在跑**。共用一个目录的话两边写同一批文件名，先跑的
-    那个会把后跑的那个覆盖进去的图嵌进自己的文档里。
-    """
-    _export(tiny_job, tmp_path / "low.docx", dpi=72)
-    _export(tiny_job, tmp_path / "high.docx", dpi=200)
-
-    dirs = sorted(p.name for p in (tiny_job / "rendered" / "docx").iterdir() if p.is_dir())
-    assert len(dirs) == 2, f"两个 DPI 共用了背景图目录：{dirs}"
-
-    from PIL import Image
-
-    sizes = []
-    for name in dirs:
-        page = sorted((tiny_job / "rendered" / "docx" / name).glob("*.png"))[0]
-        with Image.open(page) as image:
-            sizes.append(image.size)
-    assert sizes[0] != sizes[1], f"两个目录里的背景图尺寸一样，说明没按 DPI 分开：{sizes}"
+    expected = {b.block_id: round(b.first_line_indent_pt or 0.0, 3) for b in layout[0].blocks}
+    _spec, blocks = _spec_blocks(tiny_job)
+    assert blocks, "规格里没有块"
+    for block in blocks:
+        assert "firstLineIndentPt" in block, f"{block['id']} 的规格里没有首行缩进字段"
+        assert block["firstLineIndentPt"] == expected[block["id"]]
 
 
 @pytest.fixture

@@ -11,7 +11,6 @@ dependencies = [
   "Pillow==10.4.0",
   "PyMuPDF==1.26.5",
   "pikepdf==7.2.0",
-  "python-docx==1.1.2",
   "requests==2.32.5",
   "urllib3==2.5.0",
 ]
@@ -19,6 +18,8 @@ dependencies = [
 [project.optional-dependencies]
 test = [
   "pytest==9.0.3",
+  # 只用来在测试里检查产出的 docx；文档现在由 retainpdf2doc（Node）生成。
+  "python-docx==1.1.2",
 ]
 
 [project.scripts]
