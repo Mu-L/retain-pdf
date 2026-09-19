@@ -9,7 +9,10 @@ from fastapi.testclient import TestClient
 from retainpdf_ai.agent import AskResult, Citation, RetrievalAgent
 from retainpdf_ai.app import _confirmation_requests, build_app
 from retainpdf_ai.blocks import read_page_blocks
+import re
+
 from retainpdf_ai.config import Settings
+from retainpdf_ai.request_control import AIRequestCancelled
 from retainpdf_ai.runtime import RuntimeCapabilities
 from retainpdf_ai.tools import _markdown_asset_url, build_default_registry
 
@@ -1336,3 +1339,30 @@ def test_a_complete_answer_is_persisted_without_a_reason():
     rows = _assistant_rows(rust, conversation_id)
     assert rows
     assert rows[-1]["finish_reason"] == ""
+
+
+def test_a_cancelled_agent_leaves_nothing_behind():
+    """agent 在中途抛出取消时,不留半截回答。
+
+    注意这条只覆盖「抛在落库之前」这一种;真正的顺序不变式由下面那条源码测试钉。
+    """
+    settings = Settings(api_keys=frozenset({"test-key"}), llm_api_key="env-llm-key")
+    rust = FakeRust()
+
+    class _StoppedAgent(FakeAgent):
+        def ask(self, *args, **kwargs):
+            raise AIRequestCancelled()
+
+    client = TestClient(build_app(settings, agent=_StoppedAgent(), rust=rust))
+    client.post(
+        "/v1/ask",
+        json={"question": "会被停掉的问题", "document_id": "doc-a"},
+        headers={"X-API-Key": "test-key"},
+    )
+    answers = [
+        m
+        for conv in rust.conversations.values()
+        for m in conv["messages"]
+        if m["role"] == "assistant"
+    ]
+    assert answers == [], f"被停止的那一轮留下了回答:{answers}"

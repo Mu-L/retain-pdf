@@ -280,6 +280,14 @@ class AskOrchestrator:
                             **confirmation,
                         }
                     )
+                # 这一句**故意**排在 persist_turn 前面:用户点停止,这一轮就当没发生过,
+                # 不留半截回答。ai_messages.finish_reason 里那个 "cancelled" 因此是留给
+                # 将来的,当前没有任何写入方——别看到那个值就以为中断会落库。
+                #
+                # 已知缺口:agent 轮次(有文档操作/持久计算能力的)会在工具跑之前先把
+                # 提问落库(persist_agent_request_message),操作要挂在那个 message_id 上。
+                # 那种轮次被取消时,会剩一条没有回答的提问;要抹掉它得先有删除单条消息
+                # 的接口,而且只能在确实没有 operation 引用它的时候删。
                 control.raise_if_stopped()
                 persisted = request_persisted and self._conversation_state.persist_turn(
                     conversation_id,

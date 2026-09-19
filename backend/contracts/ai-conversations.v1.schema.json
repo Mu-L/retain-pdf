@@ -140,7 +140,7 @@
         },
         "finish_reason": {
           "type": "string",
-          "description": "这条消息是怎么结束的。空串 = 正常答完；cancelled = 用户中途停止，正文只有半截；rounds_exhausted = 工具轮次用尽、模型被强制收尾。旧消息读出来是空串。"
+          "description": "这条消息是怎么结束的。空串/省略 = 正常答完；rounds_exhausted = 工具轮次用尽、模型被强制收尾。用户中途停止的那一轮整个不落库（当这轮没发生过），所以不会出现在这里。旧消息读出来是空串。"
         }
       }
     },
@@ -297,7 +297,7 @@
         },
         "finish_reason": {
           "type": "string",
-          "description": "这条消息是怎么结束的。省略/空串 = 正常答完；cancelled = 用户中途停止；rounds_exhausted = 工具轮次用尽、被强制收尾。"
+          "description": "这条消息是怎么结束的。空串/省略 = 正常答完；rounds_exhausted = 工具轮次用尽、模型被强制收尾。用户中途停止的那一轮整个不落库（当这轮没发生过），所以不会出现在这里。旧消息读出来是空串。"
         },
         "set_head": {
           "type": "boolean",

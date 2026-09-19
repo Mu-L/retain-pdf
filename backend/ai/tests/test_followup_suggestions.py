@@ -254,6 +254,7 @@ class State:
         return ("req-1", True)
 
     def persist_turn(self, *args, **kwargs):
+        self.persisted = getattr(self, "persisted", 0) + 1
         return True
 
 
@@ -396,3 +397,32 @@ def test_incomplete_reason_is_in_the_contract():
     field = schema["definitions"]["DonePayload"]["properties"]["incomplete_reason"]
     assert "rounds_exhausted" in field["enum"]
     assert "incomplete_reason" not in schema["definitions"]["DonePayload"].get("required", [])
+
+
+def test_a_stopped_turn_is_not_persisted():
+    """用户点停止 = 这一轮当没发生过,不留半截回答。
+
+    这是产品决定,不是疏漏。ai_messages.finish_reason 里那个 "cancelled" 因此
+    目前没有任何写入方——别看到那个值就以为中断会落库。这条测试在这里,是为了
+    不让人顺手「把它修好」。
+
+    交错是真实发生的:模型已经把回答流完、结果也拿到了,而请求在落库之前被取消。
+    sse_events 收 request_control,所以这个缝是公开的,不用为测试另开口子。
+    """
+    orchestrator, prepared, _ = _make(Runtime(_result()), REPLY)
+    state = orchestrator._conversation_state
+    control = RequestControl(30)
+    payload = AskInput(question="会被停掉的问题", stream=True, document_id="doc-1")
+
+    # 让模型这一轮跑完之后立刻取消:落库那一步必须被挡住。
+    original = Runtime(_result()).ask
+
+    def cancel_then_answer(*args, **kwargs):
+        result = original(*args, **kwargs)
+        control.cancel("client_disconnected")
+        return result
+
+    prepared.runtime.ask = cancel_then_answer
+    list(orchestrator.sse_events(payload, prepared, request_control=control))
+
+    assert getattr(state, "persisted", 0) == 0, "被停止的那一轮落库了"
