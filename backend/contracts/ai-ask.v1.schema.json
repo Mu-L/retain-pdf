@@ -177,7 +177,13 @@
         "calculation_refs": { "type": "array", "items": { "$ref": "#/definitions/AgentCalculationRef" }, "description": "本轮创建或复用的 durable calculation 引用" },
         "confirmation_mode": { "type": "string", "enum": ["explicit", "green_light"] },
         "confirmation_requests": { "type": "array", "items": { "$ref": "#/definitions/AgentConfirmationRequest" } },
-        "memory": { "type": "object", "description": "记忆装配调试信息（had_summary 等），前端可忽略" }
+        "memory": { "type": "object", "description": "记忆装配调试信息（had_summary 等），前端可忽略" },
+        "followups": {
+          "type": "array",
+          "maxItems": 3,
+          "items": { "type": "string", "minLength": 8, "maxLength": 80 },
+          "description": "基于本轮证据产出的追问建议；每条都是可直接再次提问的问句。没有可依据的证据时整个字段缺席——不发空数组，也不凑数。"
+        }
       }
     },
     "ProgressEvent": {

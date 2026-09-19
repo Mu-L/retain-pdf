@@ -26,6 +26,9 @@ class AskResult:
     rounds: int = 0
     operation_refs: list[dict[str, Any]] = field(default_factory=list)
     calculation_refs: list[dict[str, Any]] = field(default_factory=list)
+    # 本轮结束后可以接着问的问题。默认空:runtime 不填,由编排层在答案定稿之后单独产出
+    # (见 followups.py 开头对这条路径的取舍说明)。runtime 自己填了就以它为准。
+    followups: list[str] = field(default_factory=list)
 
 
 ChatFn = Callable[[list[dict[str, Any]], list[dict[str, Any]]], dict[str, Any]]

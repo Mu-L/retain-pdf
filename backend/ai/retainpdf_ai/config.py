@@ -93,6 +93,9 @@ class Settings:
     reading_max_tool_rounds: int = 3
     ai_request_deadline_s: float = 90.0
     ai_heartbeat_interval_s: float = 5.0
+    # 追问建议:一轮答完之后多跑一次轻量调用。它要花钱、也让 done 晚一点,所以留一个
+    # 关得掉的开关。关掉之后 done 里就不再有 followups 字段。
+    followup_suggestions: bool = True
     # B2 memory：近期窗口 / 超过则压缩 / MemoryView 字符上限
     memory_window_turns: int = 6
     memory_compress_after_turns: int = 12
@@ -254,6 +257,10 @@ def load_settings() -> Settings:
                 float(os.environ.get("RETAIN_AI_HEARTBEAT_INTERVAL_SECS", "5")),
             ),
         ),
+        followup_suggestions=os.environ.get(
+            "RETAIN_AI_FOLLOWUP_SUGGESTIONS", "1"
+        ).strip().lower()
+        not in {"0", "false", "no", "off"},
         memory_window_turns=int(os.environ.get("RETAIN_AI_MEMORY_WINDOW_TURNS", "6")),
         memory_compress_after_turns=int(
             os.environ.get("RETAIN_AI_MEMORY_COMPRESS_AFTER_TURNS", "12")

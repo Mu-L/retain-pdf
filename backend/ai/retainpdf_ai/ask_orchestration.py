@@ -16,6 +16,7 @@ from .api_contracts import AskInput
 from .config import Settings
 from .conversation_state import ConversationState
 from .credential_vault import CredentialReferenceError, resolve_credential
+from .followups import generate_followups, has_evidence, normalize_followups
 from .request_control import (
     AIRequestError,
     AIRequestTimeout,
@@ -153,6 +154,9 @@ class AskOrchestrator:
             )
             control.raise_if_stopped()
             self._ensure_answer(result)
+            # 在 finally 的 control.finish() 关掉本请求的 transport 之前产出建议。
+            # 这条路没有流式响应在外面盯着 deadline,所以晚一点写库是安全的。
+            followups = self._followup_suggestions(payload, prepared, result, control)
         except AIRequestError as exc:
             event = public_error_event(exc)
             raise HTTPException(
@@ -178,6 +182,7 @@ class AskOrchestrator:
                 conversation_id=conversation_id,
                 persisted=persisted,
                 memory=memory_debug,
+                followups=followups,
             ),
         }
 
@@ -292,6 +297,13 @@ class AskOrchestrator:
                 #
                 # 工作已经提交,结果就是成功的。往一个可能已经没人读的队列里放一个 done
                 # 是无害的,把成功报成失败不是。
+                #
+                # 追问建议排在 persist_turn **之后**:它要多跑一次模型往返,这段时间里
+                # 进程挂掉、客户端断开或 deadline 到期都不该让这一轮丢失。它只推迟
+                # done,不推迟落库。
+                followups = self._followup_suggestions(
+                    payload, prepared, result, control
+                )
                 events.put(
                     {
                         "type": "done",
@@ -301,6 +313,7 @@ class AskOrchestrator:
                             conversation_id=conversation_id,
                             memory=memory_debug,
                             persisted=persisted,
+                            followups=followups,
                         ),
                     }
                 )
@@ -565,6 +578,39 @@ class AskOrchestrator:
             },
         }
 
+    def _followup_suggestions(
+        self,
+        payload: AskInput,
+        prepared: PreparedAsk,
+        result: Any,
+        control: RequestControl,
+    ) -> list[str]:
+        """一轮答完之后,单独跑一次轻量调用问「接着可以问什么」。
+
+        为什么不让主回答那一轮顺带产出:见 followups.py 开头。要点是主回答边生成边推流,
+        建议一旦出现在正文里就已经到用户屏幕上了,而答案清洗和引用校验都在那之后。
+
+        这里建的是一条**不带 on_delta** 的 transport,所以建议在结构上没有推流的出口,
+        也不经过 citations。三道闸放在建 transport 之前,免得白开一个连接。
+        """
+        if getattr(result, "followups", None):
+            # runtime 自己给了就用它的,不再多花一次调用。
+            return []
+        if not self._settings.followup_suggestions:
+            return []
+        if prepared.runtime.capabilities.model_transport == "runtime_managed":
+            # fx 一类的 runtime 自己管模型,宿主这边没有可用的 chat transport。
+            return []
+        if not has_evidence(result):
+            # 闲聊、连通性测试、被检索护栏挡下的回答:没有证据可依,宁可不给。
+            return []
+        return generate_followups(
+            self._build_chat_fn(prepared.settings, request_control=control),
+            question=payload.question,
+            result=result,
+            request_control=control,
+        )
+
     def _result_payload(
         self,
         result: Any,
@@ -573,6 +619,7 @@ class AskOrchestrator:
         conversation_id: str = "",
         memory: dict[str, Any] | None = None,
         persisted: bool = True,
+        followups: list[str] | None = None,
     ) -> dict[str, Any]:
         confirmation_requests = self._confirmation_projector(
             result, self._settings.agent_confirmation_mode
@@ -595,4 +642,10 @@ class AskOrchestrator:
             payload["conversation_id"] = conversation_id
         if memory:
             payload["memory"] = memory
+        # 空的时候整个字段都不发。凑数的建议比没有建议更糟,而「没有」要能一眼看出来。
+        suggestions = normalize_followups(
+            list(getattr(result, "followups", None) or []) or list(followups or [])
+        )
+        if suggestions:
+            payload["followups"] = suggestions
         return payload
