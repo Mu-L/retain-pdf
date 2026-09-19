@@ -130,8 +130,9 @@ def converged_typography(
     )
 
 
-def open_translated_document(job_root: Path):
-    path = translated_pdf_path(job_root)
+def open_translated_document(job_root: Path, translated_pdf: Path | None = None):
+    # 和源 PDF 同理:调用方解析好了就用它，别在这里靠 job_root 猜。
+    path = translated_pdf if translated_pdf and translated_pdf.is_file() else translated_pdf_path(job_root)
     if path is None:
         return None
     try:

@@ -594,3 +594,61 @@ def test_two_dpis_do_not_share_a_background_image_directory(tiny_job: Path, tmp_
         with Image.open(page) as image:
             sizes.append(image.size)
     assert sizes[0] != sizes[1], f"两个目录里的背景图尺寸一样，说明没按 DPI 分开：{sizes}"
+
+
+@pytest.fixture
+def translate_only_job(tiny_job: Path, tmp_path: Path) -> tuple[Path, Path]:
+    """长得像 translate-only 任务的 job:自己的 source/ 是空的。
+
+    这类任务复用上游 OCR 任务的产物，源 PDF 在**父任务**目录里（job 记录的
+    `source_artifact_job_id` 指过去）。Rust 那边 `resolve_source_pdf` 从记录解析得到
+    正确路径，而导出这边如果按 `job_root/source/` 自己找，就是 0 个 PDF。
+    """
+    upstream = tmp_path / "upstream-source"
+    upstream.mkdir()
+    moved = sorted((tiny_job / "source").glob("*.pdf"))[0]
+    target = upstream / moved.name
+    shutil.move(str(moved), target)
+    assert not list((tiny_job / "source").glob("*.pdf")), "夹具的 source/ 没清空"
+    return tiny_job, target
+
+
+def test_a_job_whose_source_pdf_lives_elsewhere_still_exports(
+    translate_only_job: tuple[Path, Path], tmp_path: Path,
+):
+    """源 PDF 不在 job_root 下时，调用方给了路径就该用它。
+
+    真实案例:20260918070141-be37aa（translate-only）。Rust 侧解析到了父任务里的源
+    PDF、检查通过，Python 侧却按 job_root 重新找，找到 0 个直接抛异常——整条导出 500，
+    而且子进程的 stderr 是丢弃的，报错里只有一句 "failed to build layout-docx"。
+    """
+    job_root, source_pdf = translate_only_job
+    out = tmp_path / "translate-only.docx"
+    _export(job_root, out, source_pdf=source_pdf)
+    assert out.exists() and out.stat().st_size > 0
+    assert docx.Document(str(out)).element.body.findall(".//" + qn("w:txbxContent")), "没有文本框"
+
+
+def test_without_the_resolved_path_such_a_job_fails_loudly(
+    translate_only_job: tuple[Path, Path], tmp_path: Path,
+):
+    """不给路径时仍然按 job_root 找——找不到要明确报错，不是产出一份空文档。"""
+    job_root, _source_pdf = translate_only_job
+    with pytest.raises(RuntimeError, match="expected exactly one PDF"):
+        _export(job_root, tmp_path / "boom.docx")
+
+
+def test_the_console_subcommand_forwards_the_resolved_paths(
+    translate_only_job: tuple[Path, Path], tmp_path: Path,
+):
+    """Rust 起的是子命令，所以参数名对不上等于没修。"""
+    job_root, source_pdf = translate_only_job
+    out = tmp_path / "console-translate-only.docx"
+    proc = subprocess.run(
+        [sys.executable, "-m", "retainpdf_pipeline.entrypoints.console", "layout-docx",
+         "--job-root", str(job_root), "--output-docx", str(out),
+         "--source-pdf", str(source_pdf), "--dpi", "72"],
+        cwd=str(PIPELINE_ROOT), capture_output=True, text=True, timeout=300,
+    )
+    assert proc.returncode == 0, proc.stderr[-800:]
+    assert out.exists(), f"子命令没有产出文件\nstderr={proc.stderr[-500:]}"

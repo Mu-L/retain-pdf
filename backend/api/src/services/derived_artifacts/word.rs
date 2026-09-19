@@ -65,7 +65,16 @@ pub(crate) fn ensure_layout_docx(
                     .arg("--output-docx")
                     .arg(temporary)
                     .arg("--dpi")
-                    .arg(options.dpi.to_string());
+                    .arg(options.dpi.to_string())
+                    // 把已经解析好的路径传过去，别让 Python 靠 job_root 再猜一遍。
+                    // translate-only 的任务自己的 source/ 是空的，源 PDF 在上游 OCR
+                    // 任务目录里——这边 resolve_source_pdf 找得到，那边按 job_root 找
+                    // 不到，表现是整条导出 500 而报错里看不出原因。
+                    .arg("--source-pdf")
+                    .arg(source_pdf);
+                if let Some(path) = translated_pdf {
+                    command.arg("--translated-pdf").arg(path);
+                }
                 command
             },
         )?;

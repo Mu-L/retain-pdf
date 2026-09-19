@@ -28,8 +28,15 @@ def export_layout_docx(
     dpi: int,
     max_pages: int = 0,
     font_family: str = MEASURED_FONT_FAMILY,
+    source_pdf: Path | None = None,
+    translated_pdf: Path | None = None,
 ) -> Path:
-    source_pdf_path = single_pdf(job_root / "source")
+    # 源 PDF 不一定在 `job_root/source/` 下。translate-only 的任务复用上游 OCR 任务的
+    # 产物，它自己的 source/ 是**空的**，源 PDF 在父任务目录里（job 记录的
+    # `source_artifact_job_id` 指过去）。调用方（Rust 的 resolve_source_pdf）已经解析
+    # 好了就直接用，别在这里凭 job_root 重新猜——猜错的表现是整条导出 500，而且
+    # 因为子进程的 stderr 被丢弃，报错里看不出是路径问题。
+    source_pdf_path = source_pdf or single_pdf(job_root / "source")
     pages = translated_pages(job_root)
     page_specs = build_render_page_specs(source_pdf_path=source_pdf_path, translated_pages=pages)
     if max_pages > 0:
@@ -46,7 +53,7 @@ def export_layout_docx(
     # `block.font_size_pt` 是**上界**不是结果：Typst 拿它当 max_size 二分找能装下的字号。
     # 照上界排，凡是当初被缩过的块在 Word 里都会溢出。收敛后的字号读流水线自己渲染的译文
     # PDF 最准；读不到就退回 spec（见 typography_readback 的模块注释）。
-    translated_document = open_translated_document(job_root)
+    translated_document = open_translated_document(job_root, translated_pdf)
 
     document = Document()
     if page_specs:
