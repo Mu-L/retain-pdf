@@ -1,6 +1,6 @@
 // 主页 AI 问答：Notion 式 —— 左历史侧栏（可折叠）+ 中空态居中 / 对话流
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { CREDENTIALS_CHANGED_EVENT } from "@retainpdf/reader/runtime/ai";
 // hasModelApiKey 依赖 features/reader/domain 顶层注册的适配器，不可直连包。
@@ -16,6 +16,7 @@ import { guideToCredentialSetup } from "./use-home-ask-composer.js";
 import { HomeAskSidebar } from "./HomeAskSidebar.js";
 import { HomeAskThread, HOME_ASK_SUGGESTIONS } from "./HomeAskThread.js";
 import { useHomeAskRuntime } from "./use-home-ask-runtime.js";
+import { useStickToBottom } from "./use-stick-to-bottom.js";
 import type { HomeAskScope } from "../domain/types.js";
 import { useAgentOperations } from "./operations/use-agent-operations.js";
 import {
@@ -134,6 +135,15 @@ export function HomeAskView() {
   }, []);
   void credTick;
   void credentialsSnap;
+  const threadScrollRef = useRef<HTMLDivElement | null>(null);
+  // 跟随底部的判据只取「消息数 + 最后一条的长度」:流式期间每个增量都让它变化，
+  // 而切换会话这种整体替换也会变，正好覆盖两种场景。
+  const threadChangeKey = useMemo(() => {
+    const last = messages[messages.length - 1];
+    return `${messages.length}:${last?.id || ""}:${last?.content?.length || 0}:${last?.progress || ""}`;
+  }, [messages]);
+  useStickToBottom(threadScrollRef, threadChangeKey, { streaming: isRunning });
+
   const credentialGate = resolveAgentRuntimeCredentialGate({
     config: runtimeConfig,
     loading: runtimeConfigLoading,
@@ -221,7 +231,7 @@ export function HomeAskView() {
           </div>
         ) : (
           <>
-            <div className="home-ask-scroll">
+            <div className="home-ask-scroll" ref={threadScrollRef}>
               <HomeAskThread
                 messages={messages}
                 isRunning={isRunning}
@@ -231,6 +241,9 @@ export function HomeAskView() {
                 onOperationAction={(action, operation, options) => (
                   agentOperations.perform(action, operation, options)
                 )}
+                onRegenerate={(question) => {
+                  void send(question, scopes);
+                }}
               />
             </div>
             <HomeAskComposer
