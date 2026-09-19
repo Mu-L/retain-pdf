@@ -7,13 +7,21 @@ node_modules/
 target/
 build/
 
+# `output/` 不带斜杠前缀，会匹配**任意深度**的同名目录——包括
+# `retainpdf_pipeline/render/output/` 这个真实的源码包。下面的解除忽略规则必须跟着
+# 它走。
+#
+# 这几条原来写的是改名前的 `services/pipeline/services/rendering/output/`，改名之后
+# 没人更新，于是那个源码包被无差别忽略了很久:已跟踪的文件不受影响，所以谁都没发现，
+# 但**新建的文件会被 `git add -A` 静默跳过**。v4.2.5 就是这么少推了两个模块
+# （html_fit.py、cli.py），CI 报 ModuleNotFoundError 才查出来。
 output/
-!services/pipeline/services/rendering/output/
-!services/pipeline/services/rendering/output/**/
-!services/pipeline/services/rendering/output/**/*.py
-!services/pipeline/services/rendering/output/**/*.md
-services/pipeline/services/rendering/output/**/__pycache__/
-services/pipeline/services/rendering/output/**/.ipynb_checkpoints/
+!backend/pipeline/retainpdf_pipeline/render/output/
+!backend/pipeline/retainpdf_pipeline/render/output/**/
+!backend/pipeline/retainpdf_pipeline/render/output/**/*.py
+!backend/pipeline/retainpdf_pipeline/render/output/**/*.md
+backend/pipeline/retainpdf_pipeline/render/output/**/__pycache__/
+backend/pipeline/retainpdf_pipeline/render/output/**/.ipynb_checkpoints/
 pipeline/.env/*.env
 Fast_API/jobs/
 Fast_API/jobs.db

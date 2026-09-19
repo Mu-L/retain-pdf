@@ -643,3 +643,40 @@ def test_the_console_subcommand_forwards_the_resolved_paths(
     )
     assert proc.returncode == 0, proc.stderr[-800:]
     assert out.exists(), f"子命令没有产出文件\nstderr={proc.stderr[-500:]}"
+
+
+def test_every_module_in_the_word_package_is_tracked_by_git():
+    """这个包里的每个 .py 都必须在版本库里。
+
+    `.gitignore` 有一条不带斜杠前缀的 `output/`，它匹配**任意深度**的同名目录——
+    包括 `retainpdf_pipeline/render/output/` 这个真实源码包。解除忽略的 `!` 规则原来
+    写的是改名前的 `services/pipeline/services/rendering/output/`，改名后没人更新。
+
+    后果很隐蔽:已跟踪的文件照常工作，谁都看不出问题，但**新建的文件会被
+    `git add -A` 静默跳过**，`git status` 里也不显示。v4.2.5 就是这么少推了
+    `html_fit.py` 和 `cli.py`，本地全绿、CI 报 ModuleNotFoundError 才查出来。
+
+    .gitignore 已经修好；这条测试盯着它别再退化。
+    """
+    import subprocess
+
+    package = PIPELINE_ROOT / "retainpdf_pipeline" / "render" / "output" / "word"
+    on_disk = {
+        path.name for path in package.glob("*.py")
+        if "__pycache__" not in path.parts
+    }
+    assert on_disk, "包目录是空的，这条测试分辨不出对错"
+
+    result = subprocess.run(
+        ["git", "ls-files", str(package.relative_to(PIPELINE_ROOT.parents[1]))],
+        cwd=PIPELINE_ROOT.parents[1], capture_output=True, text=True, check=False,
+    )
+    if result.returncode != 0:
+        pytest.skip("不在 git 检出里")
+    tracked = {Path(line).name for line in result.stdout.split() if line.endswith(".py")}
+
+    missing = sorted(on_disk - tracked)
+    assert not missing, (
+        f"这些模块没进版本库，CI 上会 ModuleNotFoundError：{missing}。"
+        "多半又是 .gitignore 那条 `output/` 把它们吃了——检查解除忽略规则的路径。"
+    )
