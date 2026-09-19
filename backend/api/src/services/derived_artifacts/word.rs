@@ -37,7 +37,7 @@ pub(crate) fn ensure_layout_docx(
     job: &JobSnapshot,
     job_root: &Path,
     source_pdf: &Path,
-    translated_pdf: &Path,
+    translated_pdf: Option<&Path>,
     options: LayoutDocxOptions,
 ) -> Result<PathBuf, AppError> {
     let output_dir = job_artifacts_dir(data_root, job)?;
@@ -46,9 +46,12 @@ pub(crate) fn ensure_layout_docx(
         job.job_id,
         options.cache_suffix()
     ));
-    // 译文 PDF 也算输入：收敛后的字号和行距是从它里面读回来的（见 Python 侧
-    // `typography_readback`），它一重渲染，这份 docx 就过期了。
-    if !cached_output_is_fresh(&output_docx, &[source_pdf, translated_pdf])? {
+    // 译文 PDF 在的时候也算输入:收敛后的字号和行距是从它里面读回来的（见 Python 侧
+    // `typography_readback`），它一重渲染这份 docx 就过期了。不在的时候导出走
+    // `html_fit`，只跟着源 PDF 和译文变。
+    let mut inputs: Vec<&Path> = vec![source_pdf];
+    inputs.extend(translated_pdf);
+    if !cached_output_is_fresh(&output_docx, &inputs)? {
         super::side_by_side::build_with_command(
             &output_docx,
             "layout-docx",

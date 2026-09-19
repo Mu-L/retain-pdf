@@ -4,6 +4,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from lxml import etree
 
+from retainpdf_pipeline.render.output.word.html_fit import LINE_STEP_RATIO
 from retainpdf_pipeline.render.output.word.math_omml import append_inline_content
 
 
@@ -65,18 +66,14 @@ def append_absolute_textbox(
         spacing = OxmlElement("w:spacing")
         spacing.set(qn("w:before"), "0")
         spacing.set(qn("w:after"), "0")
-        # 行距用排版层算出的 leading_em，而不是写死一个倍数——那个值是按块的实际
-        # 内容和框高定出来的，写死会让同一份文档在 PDF 里排得下、在 Word 里挤出框外。
+        # 行距一律由上游给（line_step_pt）:要么是从译文 PDF 的相邻基线量到的真值，
+        # 要么是 html_fit 按实测比值算的。
         #
-        # 但两边的单位语义不同，不能照搬:Typst 的 `par(leading:)` 是**行与行之间额外
-        # 的空隙**（`leading: 0.5em` → 行高约 1.5em），而 Word 的 `w:line` 要的是**行高
-        # 本身**。真实数据里 leading_em 普遍在 0.34~0.58，直接当倍数用会把行高压到字号
-        # 的一半，整段糊成一团。
-        #
-        # 能从译文 PDF 的相邻基线量到真实行距时优先用它（line_step_pt）——那是这一页
-        # 真正排出来的行距，比任何换算都准。量不到才退回上面这套换算。
-        line_height_em = (1.0 + leading_em) if leading_em > 0 else 1.1
-        line_pt = line_step_pt if line_step_pt > 0 else font_size_pt * line_height_em
+        # 这里曾经按 `font_size_pt * (1 + leading_em)` 自己折算。方向看着合理——Typst
+        # 的 `par(leading:)` 是行间空隙、Word 的 `w:line` 是行高本身，不能照搬当倍数。
+        # 但折算出来**系统性高 21%**:跨 9 本书 111 个块实测，真实行距是字号的 1.289 倍，
+        # 而 `1 + leading_em` 给出 1.560。行盒本身不是 1em，这个换算从一开始就不成立。
+        line_pt = line_step_pt if line_step_pt > 0 else font_size_pt * LINE_STEP_RATIO
         spacing.set(qn("w:line"), str(int(max(1.0, line_pt) * 20)))
         spacing.set(qn("w:lineRule"), "exact")
         # 首行缩进也来自排版层：中文正文常有两字缩进，不接的话段落起头和原文对不齐。

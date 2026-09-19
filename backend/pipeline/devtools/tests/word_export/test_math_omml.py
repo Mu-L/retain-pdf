@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from lxml import etree
 
-from devtools.word_export.math_omml import MathRegistry
-from devtools.word_export.math_omml import iter_marked_text
-from devtools.word_export.math_omml import mark_math_tokens
-from devtools.word_export.math_omml import omml_math_from_latex
+from retainpdf_pipeline.render.output.word.math_omml import MathRegistry
+from retainpdf_pipeline.render.output.word.math_omml import iter_marked_text
+from retainpdf_pipeline.render.output.word.math_omml import mark_math_tokens
+from retainpdf_pipeline.render.output.word.math_omml import omml_math_from_latex
 
 
 def _xml(node) -> str:

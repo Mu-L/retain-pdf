@@ -397,24 +397,81 @@ def test_line_height_is_measured_from_the_rendered_baselines(tiny_job: Path, tmp
     assert derived not in values, f"还在用折算的 {derived / 20:.2f}pt，正文会顶出框外"
 
 
-def test_without_a_rendered_pdf_it_falls_back_to_the_spec(
+def test_without_a_rendered_pdf_it_falls_back_to_the_html_fit_not_the_upper_bound(
     tiny_job_without_render: Path, tmp_path: Path,
 ):
-    """读不到译文 PDF 时照样导得出来，并且退回 spec 的字号与折算行距。"""
-    block = _first_block(tiny_job_without_render)
+    """读不到译文 PDF 时走阅读器那套字号收敛，**不是**退回 spec 的上界。
+
+    上界是 Typst 二分的起点而不是结果。跨 9 本书 295 个块实测，照上界排会有 44.6%
+    的字符顶出框外；换成这套收敛之后降到 1.5%，而且误差方向是偏小。
+
+    这条钉的是「至少有一个块没有按上界排」——夹具里被缩过的块必须真的变小了。
+    """
+    from retainpdf_pipeline.render.output.word.html_fit import fitted_typography
+    from retainpdf_pipeline.render.output.word.job_io import single_pdf, translated_pages
+    from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
+
+    specs = build_render_page_specs(
+        source_pdf_path=single_pdf(tiny_job_without_render / "source"),
+        translated_pages=translated_pages(tiny_job_without_render),
+    )
+    blocks = [b for b in specs[0].blocks if b.plain_text.strip()]
+    shrunk = [
+        (b, fitted_typography(b)[0]) for b in blocks
+        if b.font_size_pt - fitted_typography(b)[0] > 0.15
+    ]
+    assert shrunk, "夹具这一页没有任何块被收敛算法缩小，这条分辨不出对错"
+
     out = tmp_path / "layout.docx"
     _export(tiny_job_without_render, out)
-
     body = docx.Document(str(out)).element.body
     sizes = {int(s.get(qn("w:val"))) for s in body.findall(".//" + qn("w:sz")) if s.get(qn("w:val"))}
+
+    block, fitted = max(shrunk, key=lambda pair: pair[0].font_size_pt - pair[1])
+    converged, upper = int(max(1.0, fitted) * 2), int(max(1.0, block.font_size_pt) * 2)
+    assert converged != upper, "这块缩得太少，半磅取整后两个值一样，换一块"
+    assert converged in sizes, f"没有用收敛后的 {fitted:.2f}pt；出现的是 {sorted(sizes)}"
+    assert upper not in sizes, f"还在按上界 {block.font_size_pt}pt 排，这块会溢出"
+
+
+def test_the_fallback_line_height_is_the_measured_ratio_not_one_plus_leading(
+    tiny_job_without_render: Path, tmp_path: Path,
+):
+    """兜底行距用实测比值 1.289，不是 `1 + leading_em`。
+
+    折算方向看着合理（Typst 的 `par(leading:)` 是行间空隙，Word 的 `w:line` 是行高
+    本身），但结果**系统性高 21%**:跨 9 本书 111 个块实测，真实行距是字号的 1.289 倍，
+    而 `1 + leading_em` 给出 1.560。行盒本身不是 1em，这个换算从一开始就不成立。
+    """
+    from retainpdf_pipeline.render.output.word.html_fit import fitted_typography, LINE_STEP_RATIO
+    from retainpdf_pipeline.render.output.word.job_io import single_pdf, translated_pages
+    from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
+
+    specs = build_render_page_specs(
+        source_pdf_path=single_pdf(tiny_job_without_render / "source"),
+        translated_pages=translated_pages(tiny_job_without_render),
+    )
+    candidates = []
+    for block in specs[0].blocks:
+        if not block.plain_text.strip() or block.leading_em <= 0:
+            continue
+        _size, step = fitted_typography(block)
+        derived = int(max(1.0, block.font_size_pt * (1.0 + block.leading_em)) * 20)
+        measured = int(max(1.0, step) * 20)
+        if derived != measured:
+            candidates.append((derived, measured))
+    assert candidates, "夹具这一页两种算法给不出不同的行距，这条分辨不出对错"
+
+    out = tmp_path / "layout.docx"
+    _export(tiny_job_without_render, out)
+    body = docx.Document(str(out)).element.body
     values = {
         int(s.get(qn("w:line"))) for s in body.findall(".//" + qn("w:spacing")) if s.get(qn("w:line"))
     }
-    assert int(max(1.0, block.font_size_pt) * 2) in sizes, "没有退回 spec 的字号"
-    assert block.leading_em > 0, "夹具里这一块没有行距值，测不到折算那一支"
-    assert int(max(1.0, block.font_size_pt * (1.0 + block.leading_em)) * 20) in values, (
-        "没有退回 (1 + leading_em) 的折算行距"
-    )
+    derived, measured = max(candidates, key=lambda row: abs(row[0] - row[1]))
+    assert measured in values, f"没有用实测比值算的 {measured / 20:.2f}pt；出现的是 {sorted(values)}"
+    assert derived not in values, f"还在用 (1+leading_em) 折算的 {derived / 20:.2f}pt，高约两成"
+    assert LINE_STEP_RATIO == 1.289, "改这个常数要重新跑实测，别凭感觉调"
 
 
 def test_a_block_is_not_given_a_neighbours_font_size(tiny_job: Path):

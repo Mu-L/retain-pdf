@@ -12,6 +12,8 @@ from retainpdf_pipeline.render.output.word.document_builder import add_page_brea
 from retainpdf_pipeline.render.output.word.document_builder import set_section_page
 from retainpdf_pipeline.render.output.word.job_io import single_pdf
 from retainpdf_pipeline.render.output.word.job_io import translated_pages
+from retainpdf_pipeline.render.output.word.html_fit import fitted_typography
+from retainpdf_pipeline.render.output.word.html_fit import MEASURED_FONT_FAMILY
 from retainpdf_pipeline.render.output.word.textboxes import append_absolute_textbox
 from retainpdf_pipeline.render.output.word.typography_readback import converged_typography
 from retainpdf_pipeline.render.output.word.typography_readback import open_translated_document
@@ -25,7 +27,7 @@ def export_layout_docx(
     output_path: Path,
     dpi: int,
     max_pages: int = 0,
-    font_family: str = "SimSun",
+    font_family: str = MEASURED_FONT_FAMILY,
 ) -> Path:
     source_pdf_path = single_pdf(job_root / "source")
     pages = translated_pages(job_root)
@@ -85,6 +87,13 @@ def export_layout_docx(
             observed = converged_typography(
                 rendered_lines, block.content_rect, len(block.plain_text.strip()),
             )
+            # 读不到译文 PDF（只翻译没渲染、产物被清掉、块对不上）时不能退回裸上界——
+            # 上界是 Typst 二分的**起点**，实测跨 9 本书有 44.6% 的字符照它排会溢出。
+            # 退回阅读器那套字号收敛：误差只会偏小，溢出降到 1.5%。
+            font_size_pt, line_step_pt = (
+                (observed.font_size_pt, observed.line_step_pt) if observed
+                else fitted_typography(block)
+            )
             append_absolute_textbox(
                 overlay_paragraph,
                 shape_id=f"pdftr_p{spec.page_index + 1:03d}_b{block_index:03d}",
@@ -93,13 +102,13 @@ def export_layout_docx(
                 y_pt=y0,
                 width_pt=max(8.0, x1 - x0),
                 height_pt=max(8.0, y1 - y0),
-                font_size_pt=observed.font_size_pt if observed else block.font_size_pt,
+                font_size_pt=font_size_pt,
                 font_family=font_family,
                 # 排版层已经为这个块算好了行距、字重和首行缩进（PDF 和阅读器的
                 # HTML 浮层都在用同一组值）。不接的话 Word 是三个渲染面里唯一
                 # 跑偏的那个：行距写死、标题不粗、段落起头对不齐。
                 leading_em=block.leading_em,
-                line_step_pt=observed.line_step_pt if observed else 0.0,
+                line_step_pt=line_step_pt,
                 bold=str(block.font_weight or "").strip().lower() == "bold",
                 first_line_indent_pt=block.first_line_indent_pt,
                 include_shapetype=not textbox_shapetype_added,

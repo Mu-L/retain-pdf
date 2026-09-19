@@ -3,11 +3,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 
+from retainpdf_pipeline.render.layout.text_analysis import analyze_text
+from retainpdf_pipeline.render.layout.text_analysis import math_token_body
+from retainpdf_pipeline.render.layout.text_analysis import RAW_MATH_TOKEN_KINDS
+from retainpdf_pipeline.render.layout.text_analysis import TextTokenKind
+
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
 
-MATH_TOKEN_RE = re.compile(r"\$\$(.+?)\$\$|\$(.+?)\$", re.DOTALL)
+
 MARKER_RE = re.compile(r"@@MATH:(INLINE|DISPLAY):(\d+)@@")
 LATEX_SYMBOLS = {
     "\\Alpha": "Α",
@@ -108,14 +113,26 @@ def append_inline_content(
 
 
 def mark_math_tokens(text: str, registry: MathRegistry) -> str:
-    def replace(match: re.Match[str]) -> str:
-        display_source = match.group(1)
-        inline_source = match.group(2)
-        if display_source is not None:
-            return registry.register(display_source, kind="DISPLAY")
-        return registry.register(inline_source or "", kind="INLINE")
+    """把 `$...$` / `$$...$$` 换成占位标记。
 
-    return MATH_TOKEN_RE.sub(replace, str(text or ""))
+    美元符从哪里开始、到哪里结束，全仓只有 `render.layout.text_analysis` 一处实现，
+    架构门禁盯着这条（`devtools/architecture_checks/rendering.py`，它扫的是源码子串，
+    所以连注释里都不能贴那种正则）。这里曾经自带一份非贪婪匹配的行内/行间公式正则
+    ——转义美元、嵌套、跨行这些边界情况迟早和共享实现走偏。
+    """
+    source = str(text or "")
+    pieces: list[str] = []
+    cursor = 0
+    for token in analyze_text(source).tokens:
+        if token.kind not in RAW_MATH_TOKEN_KINDS:
+            continue
+        start = source.index(token.value, cursor)
+        pieces.append(source[cursor:start])
+        kind = "DISPLAY" if token.kind is TextTokenKind.DISPLAY_MATH else "INLINE"
+        pieces.append(registry.register(math_token_body(token), kind=kind))
+        cursor = start + len(token.value)
+    pieces.append(source[cursor:])
+    return "".join(pieces)
 
 
 def iter_marked_text(text: str):
@@ -390,9 +407,13 @@ def strip_latex_text_commands(text: str) -> str:
 
 
 def strip_outer_math_delimiters(text: str) -> str:
+    """剥掉最外层的 `$` / `$$`。
+
+    同上:边界判定走共享分词器，不在这里自己数美元符号。整串正好是一个数学 token
+    时才剥——`$a$ + $b$` 这种不该被当成一个公式剥成 `a$ + $b`。
+    """
     stripped = text.strip()
-    if stripped.startswith("$$") and stripped.endswith("$$") and len(stripped) >= 4:
-        return stripped[2:-2].strip()
-    if stripped.startswith("$") and stripped.endswith("$") and len(stripped) >= 2:
-        return stripped[1:-1].strip()
+    tokens = [t for t in analyze_text(stripped).tokens if t.kind in RAW_MATH_TOKEN_KINDS]
+    if len(tokens) == 1 and tokens[0].value == stripped:
+        return math_token_body(tokens[0]).strip()
     return stripped
