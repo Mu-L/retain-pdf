@@ -30,3 +30,9 @@ def main() -> None:
         font_family=args.font_family,
     )
     print(result)
+
+
+# `python -m devtools.word_export.cli` 只会执行模块顶层。少了这一段，命令跑完
+# 什么都不做也不报错——排查时看起来像「成功但没有产物」。
+if __name__ == "__main__":
+    main()
