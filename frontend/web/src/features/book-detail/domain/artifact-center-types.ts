@@ -94,7 +94,7 @@ export type ArtifactCenterSection = {
   jobs: ArtifactCenterJob[];
 };
 
-export type ArtifactQuickDownloadId = "source" | "markdown" | "translated" | "comparison";
+export type ArtifactQuickDownloadId = "source" | "markdown" | "translated" | "comparison" | "word";
 export type ArtifactQuickDownloads = Record<ArtifactQuickDownloadId, ArtifactCenterItem | null>;
 
 export type BuildArtifactCenterInput = {

@@ -19,6 +19,15 @@ function sideBySideUrl(pdfUrl: string): string {
 }
 
 /**
+ * Word 排版稿走的是 `/jobs/{id}/docx`，和译文 PDF 是兄弟路由而不是它的子路径——
+ * 这里要把结尾的 `/pdf` 换掉，不能像 side-by-side 那样往后拼。
+ */
+function layoutDocxUrl(pdfUrl: string): string {
+  const clean = pdfUrl.split("?")[0].replace(/\/$/, "");
+  return clean.endsWith("/pdf") ? `${clean.slice(0, -"/pdf".length)}/docx` : "";
+}
+
+/**
  * Completes a detailed manifest with the stable published links also used by
  * Reader. Some older successful jobs legitimately have an empty detailed
  * manifest while /artifacts still advertises working downloads.
@@ -112,6 +121,13 @@ export function mergeArtifactLinksIntoManifest(
     sideBySideUrl(pdfUrl),
     `${jobId || "document"}-side-by-side.pdf`,
     "application/pdf",
+  );
+  add(
+    "layout_docx",
+    isTranslation && pdfReady,
+    layoutDocxUrl(pdfUrl),
+    `${jobId || "document"}-layout.docx`,
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   );
   add(
     "artifact_bundle_zip",

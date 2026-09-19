@@ -26,6 +26,7 @@ export function groupFor(job: DocumentJobSummary, item: ArtifactManifestItem): A
 
 export function labelFor(item: ArtifactManifestItem): string {
   const key = `${artifactKey(item)} ${text(item.file_name || item.filename).toLowerCase()}`;
+  if (/layout.docx|\.docx$/.test(key)) return "Word 排版稿";
   if (/side.by.side|comparison|bilingual/.test(key)) return "对照 PDF";
   if (/translated.pdf|output.pdf|result.pdf|^pdf$/.test(key)) return "译文 PDF";
   if (/normalized.document|document\.v1/.test(key)) return "结构化文档";

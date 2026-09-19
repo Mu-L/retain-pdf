@@ -130,11 +130,87 @@
   animation: spin 900ms linear infinite;
 }
 
+.book-detail-quick-downloads-settings {
+  display: flex;
+  margin-left: auto;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  background: transparent;
+  transition:
+    color 150ms var(--ease-out),
+    background-color 150ms var(--ease-out);
+}
+
+/* 加载指示器也占着 margin-left:auto。两个都在时靠右排，齿轮在最外侧。 */
+.book-detail-quick-downloads-loader + .book-detail-quick-downloads-settings {
+  margin-left: 6px;
+}
+
+.book-detail-quick-downloads-settings > svg {
+  width: 13px;
+  height: 13px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .book-detail-quick-downloads-settings:hover {
+    color: var(--ink);
+    background: color-mix(in srgb, var(--ink) 6%, transparent);
+  }
+}
+
 .book-detail-quick-download-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 6px;
 }
+
+.book-detail-export-settings {
+  display: grid;
+  margin-top: 10px;
+  gap: 7px;
+}
+
+.book-detail-export-settings-option {
+  display: grid;
+  gap: 2px;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  border-radius: 10px;
+  color: var(--ink);
+  text-align: left;
+  background: var(--paper);
+  transition:
+    border-color 150ms var(--ease-out),
+    background-color 150ms var(--ease-out);
+}
+
+.book-detail-export-settings-option > strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.book-detail-export-settings-option > span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.book-detail-export-settings-option[aria-checked="true"] {
+  border-color: color-mix(in srgb, var(--ink) 38%, var(--line));
+  background: color-mix(in srgb, var(--ink) 5%, var(--paper));
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .book-detail-export-settings-option:hover {
+    border-color: color-mix(in srgb, var(--ink) 30%, var(--line));
+  }
+}
+
 
 .book-detail-quick-download-trigger {
   display: block;

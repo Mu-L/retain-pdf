@@ -16,7 +16,7 @@ function latestArtifact(items: ArtifactCenterItem[]): ArtifactCenterItem | null 
   })[0] || null;
 }
 
-/** 常用下载只投影四种稳定入口；完整产物仍由文件 Tab 展示。 */
+/** 常用下载只投影五种稳定入口；完整产物仍由文件 Tab 展示。 */
 export function selectArtifactQuickDownloads(
   sections: ArtifactCenterSection[] = [],
 ): ArtifactQuickDownloads {
@@ -27,5 +27,6 @@ export function selectArtifactQuickDownloads(
     markdown: byLabel("Markdown") || latestArtifact(items.filter((item) => item.label.startsWith("Markdown"))),
     translated: byLabel("译文 PDF"),
     comparison: byLabel("对照 PDF"),
+    word: byLabel("Word 排版稿"),
   };
 }
