@@ -14,6 +14,9 @@ from devtools.word_export.job_io import single_pdf
 from devtools.word_export.job_io import translated_pages
 from devtools.word_export.paths import PIPELINE_ROOT  # noqa: F401
 from devtools.word_export.textboxes import append_absolute_textbox
+from devtools.word_export.typography_readback import converged_typography
+from devtools.word_export.typography_readback import open_translated_document
+from devtools.word_export.typography_readback import read_page_lines
 from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
 
 
@@ -33,6 +36,11 @@ def export_layout_docx(
 
     rendered_dir = job_root / "rendered" / "docx"
     bg_paths = render_page_backgrounds(source_pdf_path, rendered_dir / "background-pages", dpi=dpi)
+
+    # `block.font_size_pt` 是**上界**不是结果：Typst 拿它当 max_size 二分找能装下的字号。
+    # 照上界排，凡是当初被缩过的块在 Word 里都会溢出。收敛后的字号读流水线自己渲染的译文
+    # PDF 最准；读不到就退回 spec（见 typography_readback 的模块注释）。
+    translated_document = open_translated_document(job_root)
 
     document = Document()
     if page_specs:
@@ -58,6 +66,10 @@ def export_layout_docx(
             height_pt=spec.page_height_pt,
         )
 
+        rendered_lines = (
+            read_page_lines(translated_document, spec.page_index) if translated_document is not None else []
+        )
+
         overlay_paragraph = document.add_paragraph()
         overlay_paragraph.paragraph_format.space_before = Pt(0)
         overlay_paragraph.paragraph_format.space_after = Pt(0)
@@ -66,6 +78,9 @@ def export_layout_docx(
             if not block.plain_text.strip():
                 continue
             x0, y0, x1, y1 = block.content_rect
+            observed = converged_typography(
+                rendered_lines, block.content_rect, len(block.plain_text.strip()),
+            )
             append_absolute_textbox(
                 overlay_paragraph,
                 shape_id=f"pdftr_p{spec.page_index + 1:03d}_b{block_index:03d}",
@@ -74,12 +89,13 @@ def export_layout_docx(
                 y_pt=y0,
                 width_pt=max(8.0, x1 - x0),
                 height_pt=max(8.0, y1 - y0),
-                font_size_pt=block.font_size_pt,
+                font_size_pt=observed.font_size_pt if observed else block.font_size_pt,
                 font_family=font_family,
                 # 排版层已经为这个块算好了行距、字重和首行缩进（PDF 和阅读器的
                 # HTML 浮层都在用同一组值）。不接的话 Word 是三个渲染面里唯一
                 # 跑偏的那个：行距写死、标题不粗、段落起头对不齐。
                 leading_em=block.leading_em,
+                line_step_pt=observed.line_step_pt if observed else 0.0,
                 bold=str(block.font_weight or "").strip().lower() == "bold",
                 first_line_indent_pt=block.first_line_indent_pt,
                 include_shapetype=not textbox_shapetype_added,
@@ -88,6 +104,9 @@ def export_layout_docx(
 
         if spec_index + 1 < len(page_specs):
             add_page_break(document)
+
+    if translated_document is not None:
+        translated_document.close()
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     document.save(output_path)

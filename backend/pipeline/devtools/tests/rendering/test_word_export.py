@@ -116,7 +116,30 @@ def tiny_job(tmp_path: Path) -> Path:
     (job_root / "translated" / "translation-manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False), encoding="utf-8",
     )
+
+    # 流水线自己渲染出来的译文 PDF 也裁一页带上——收敛后的字号和行距要从它里面读回来。
+    rendered = sorted((source_job / "rendered").glob("*-translated.pdf")) if (source_job / "rendered").is_dir() else []
+    if rendered:
+        translated = fitz.open(rendered[0])
+        if translated.page_count:
+            one_page = fitz.open()
+            one_page.insert_pdf(translated, from_page=0, to_page=0)
+            (job_root / "rendered").mkdir(parents=True, exist_ok=True)
+            one_page.save(job_root / "rendered" / rendered[0].name)
+            one_page.close()
+        translated.close()
     return job_root
+
+
+@pytest.fixture
+def tiny_job_without_render(tiny_job: Path) -> Path:
+    """同一份 job，但没有译文 PDF。
+
+    读不回来的时候导出还得能跑完，并且退回 spec 的值——这条路在真实场景里很常见
+    （只跑了翻译还没渲染，或者产物被清掉了）。
+    """
+    shutil.rmtree(tiny_job / "rendered", ignore_errors=True)
+    return tiny_job
 
 
 def _export(job_root: Path, out: Path, **kwargs):
@@ -244,31 +267,141 @@ def _first_block(job_root: Path):
     return specs[0].blocks[0]
 
 
-def test_line_height_comes_from_the_layout_not_a_hardcoded_multiple(
+def _observed(job_root: Path, block):
+    """这个块在译文 PDF 里真正排出来的字号/行距。"""
+    from devtools.word_export.typography_readback import (
+        converged_typography, open_translated_document, read_page_lines)
+
+    document = open_translated_document(job_root)
+    assert document is not None, "夹具里没带译文 PDF，读回路径测不到"
+    try:
+        lines = read_page_lines(document, 0)
+        return converged_typography(lines, block.content_rect, len(block.plain_text.strip()))
+    finally:
+        document.close()
+
+
+def test_font_size_is_the_size_typst_converged_to_not_the_upper_bound(
     tiny_job: Path, tmp_path: Path,
 ):
-    """行距用排版层算出的 leading_em。
+    """字号要用译文 PDF 里真正排出来的那个，不是 spec 里的上界。
 
-    单位语义两边不同,这是这条最容易做错的地方:Typst 的 `par(leading:)` 是**行间额外
-    的空隙**(`leading: 0.5em` → 行高约 1.5em),而 Word 的 `w:line` 要的是**行高本身**。
-    真实数据里 leading_em 普遍是 0.34~0.58,照搬当倍数用会把行高压到字号的一半。
+    `block.font_size_pt` 是交给 Typst `pdftr_fit_markdown` 的 `max_size`——Typst 会在
+    `[fit_min_font_size_pt, font_size_pt]` 里二分找装得下的字号。照上界排版，凡是当初
+    被缩过的块在 Word 里都会溢出。本仓真实 job 的前 5 页里有 10 个块被缩过，最狠的一个
+    是 11.35pt → 7.84pt。
     """
-    block = _first_block(tiny_job)
-    assert block.leading_em > 0, "夹具里这一块没有行距值，测不到东西"
-    # 真实值确实小于 1——正因如此才不能当倍数用。
-    assert block.leading_em < 1.0
+    from devtools.word_export.job_io import single_pdf, translated_pages
+    from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
+
+    specs = build_render_page_specs(
+        source_pdf_path=single_pdf(tiny_job / "source"),
+        translated_pages=translated_pages(tiny_job),
+    )
+    blocks = [b for b in specs[0].blocks if b.plain_text.strip()]
+    shrunk = [
+        (b, o) for b in blocks
+        if (o := _observed(tiny_job, b)) is not None and b.font_size_pt - o.font_size_pt > 0.15
+    ]
+    assert shrunk, "夹具这一页没有任何块被缩过字号，这条分辨不出对错"
 
     out = tmp_path / "layout.docx"
     _export(tiny_job, out)
     body = docx.Document(str(out)).element.body
-    spacings = body.findall(".//" + qn("w:spacing"))
-    values = {int(s.get(qn("w:line"))) for s in spacings if s.get(qn("w:line"))}
+    sizes = {int(s.get(qn("w:val"))) for s in body.findall(".//" + qn("w:sz")) if s.get(qn("w:val"))}
 
-    expected = int(max(1.0, block.font_size_pt * (1.0 + block.leading_em)) * 20)
-    assert expected in values, f"没有按 (1 + leading_em) 折算；出现的行高是 {sorted(values)}"
+    block, observed = max(shrunk, key=lambda pair: pair[0].font_size_pt - pair[1].font_size_pt)
+    # w:sz 的单位是半磅，会取整；两个值取整后撞在一起就说明这块分辨不出来。
+    converged = int(max(1.0, observed.font_size_pt) * 2)
+    upper_bound = int(max(1.0, block.font_size_pt) * 2)
+    assert converged != upper_bound, "这块缩得太少，半磅取整后两个值一样，换一块"
+    assert converged in sizes, f"没有用收敛后的 {observed.font_size_pt}pt；出现的字号是 {sorted(sizes)}"
+    assert upper_bound not in sizes, f"还在用上界 {block.font_size_pt}pt 排版，这块会溢出"
 
-    wrong = int(max(1.0, block.font_size_pt * block.leading_em) * 20)
-    assert wrong not in values, "把 leading_em 当成了行高倍数，行会挤在一起"
+
+def test_line_height_is_measured_from_the_rendered_baselines(tiny_job: Path, tmp_path: Path):
+    """行距量自译文 PDF 相邻行的基线距离。
+
+    此前是拿 spec 的 leading_em 折算成 `font_size_pt * (1 + leading_em)`。折算本身方向
+    是对的（Typst 的 `par(leading:)` 是行间空隙，Word 的 `w:line` 是行高本身，不能照搬
+    当倍数），但结果偏高很多——本仓真实 job 上按字符加权，折算值比真实行距平均高
+    **2.37pt**，一行十二三磅就是高了两成，正文一长就顶出框外。
+    """
+    from devtools.word_export.job_io import single_pdf, translated_pages
+    from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
+
+    specs = build_render_page_specs(
+        source_pdf_path=single_pdf(tiny_job / "source"),
+        translated_pages=translated_pages(tiny_job),
+    )
+    candidates = []
+    for block in specs[0].blocks:
+        if not block.plain_text.strip() or block.leading_em <= 0:
+            continue
+        observed = _observed(tiny_job, block)
+        if observed is None or observed.line_step_pt <= 0:
+            continue
+        derived = int(max(1.0, block.font_size_pt * (1.0 + block.leading_em)) * 20)
+        measured = int(max(1.0, observed.line_step_pt) * 20)
+        if derived != measured:
+            candidates.append((block, observed, derived, measured))
+    assert candidates, "夹具这一页量不到和折算值不同的行距，这条分辨不出对错"
+
+    out = tmp_path / "layout.docx"
+    _export(tiny_job, out)
+    body = docx.Document(str(out)).element.body
+    values = {
+        int(s.get(qn("w:line"))) for s in body.findall(".//" + qn("w:spacing")) if s.get(qn("w:line"))
+    }
+
+    _block, _observed_typography, derived, measured = max(
+        candidates, key=lambda row: abs(row[2] - row[3]),
+    )
+    assert measured in values, f"没有用量到的行距 {measured / 20:.2f}pt；出现的是 {sorted(values)}"
+    assert derived not in values, f"还在用折算的 {derived / 20:.2f}pt，正文会顶出框外"
+
+
+def test_without_a_rendered_pdf_it_falls_back_to_the_spec(
+    tiny_job_without_render: Path, tmp_path: Path,
+):
+    """读不到译文 PDF 时照样导得出来，并且退回 spec 的字号与折算行距。"""
+    block = _first_block(tiny_job_without_render)
+    out = tmp_path / "layout.docx"
+    _export(tiny_job_without_render, out)
+
+    body = docx.Document(str(out)).element.body
+    sizes = {int(s.get(qn("w:val"))) for s in body.findall(".//" + qn("w:sz")) if s.get(qn("w:val"))}
+    values = {
+        int(s.get(qn("w:line"))) for s in body.findall(".//" + qn("w:spacing")) if s.get(qn("w:line"))
+    }
+    assert int(max(1.0, block.font_size_pt) * 2) in sizes, "没有退回 spec 的字号"
+    assert block.leading_em > 0, "夹具里这一块没有行距值，测不到折算那一支"
+    assert int(max(1.0, block.font_size_pt * (1.0 + block.leading_em)) * 20) in values, (
+        "没有退回 (1 + leading_em) 的折算行距"
+    )
+
+
+def test_a_block_is_not_given_a_neighbours_font_size(tiny_job: Path):
+    """归属按「行的中心落在框内」，不是 PyMuPDF 的 clip。
+
+    用 `clip=` 量的话，压在框边上的邻块文字会被一起裁进来——之前拿它量出「52.7% 的
+    字号和 spec 对不上」，那个数字整个是假的。这条钉的是:一个框里读不到自己的字时，
+    宁可返回 None 退回 spec，也不要拿邻居的字号顶上。
+    """
+    from devtools.word_export.typography_readback import converged_typography, _ObservedLine
+
+    neighbour = _ObservedLine(
+        x0=0.0, y0=0.0, x1=100.0, y1=10.0, baseline=8.0, sizes=((20.0, 300),),
+    )
+    # 框在 (0,100)-(100,140)，邻居那一行的中心在 y=5，压根不在框里。
+    assert converged_typography([neighbour], [0.0, 100.0, 100.0, 140.0], 200) is None
+
+    # 就算落在框内，读到的字远少于这个块该有的量，也不该据此定字号。
+    inside = _ObservedLine(
+        x0=0.0, y0=100.0, x1=100.0, y1=110.0, baseline=108.0, sizes=((20.0, 5),),
+    )
+    assert converged_typography([inside], [0.0, 100.0, 100.0, 140.0], 200) is None
+    assert converged_typography([inside], [0.0, 100.0, 100.0, 140.0], 8) is not None
 
 
 def test_bold_blocks_are_bold(tiny_job: Path, tmp_path: Path):
@@ -319,16 +452,6 @@ def test_regular_blocks_are_not_bold(tiny_job: Path, tmp_path: Path):
     assert bold_boxes == expected_bold, (
         f"{bold_boxes} 个文本框加粗，排版层说的是 {expected_bold} 个"
     )
-
-
-def test_font_size_still_comes_from_the_layout(tiny_job: Path, tmp_path: Path):
-    """字号本来就接了；这条防止改行距时把它带坏。"""
-    block = _first_block(tiny_job)
-    out = tmp_path / "layout.docx"
-    _export(tiny_job, out)
-    body = docx.Document(str(out)).element.body
-    sizes = {int(s.get(qn("w:val"))) for s in body.findall(".//" + qn("w:sz")) if s.get(qn("w:val"))}
-    assert int(max(1.0, block.font_size_pt) * 2) in sizes
 
 
 def test_first_line_indent_is_wired_even_though_this_fixture_has_none(tiny_job: Path):

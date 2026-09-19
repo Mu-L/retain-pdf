@@ -23,6 +23,7 @@ def append_absolute_textbox(
     font_size_pt: float,
     font_family: str,
     leading_em: float = 0.0,
+    line_step_pt: float = 0.0,
     bold: bool = False,
     first_line_indent_pt: float = 0.0,
     include_shapetype: bool = False,
@@ -71,8 +72,12 @@ def append_absolute_textbox(
         # 的空隙**（`leading: 0.5em` → 行高约 1.5em），而 Word 的 `w:line` 要的是**行高
         # 本身**。真实数据里 leading_em 普遍在 0.34~0.58，直接当倍数用会把行高压到字号
         # 的一半，整段糊成一团。
+        #
+        # 能从译文 PDF 的相邻基线量到真实行距时优先用它（line_step_pt）——那是这一页
+        # 真正排出来的行距，比任何换算都准。量不到才退回上面这套换算。
         line_height_em = (1.0 + leading_em) if leading_em > 0 else 1.1
-        spacing.set(qn("w:line"), str(int(max(1.0, font_size_pt * line_height_em) * 20)))
+        line_pt = line_step_pt if line_step_pt > 0 else font_size_pt * line_height_em
+        spacing.set(qn("w:line"), str(int(max(1.0, line_pt) * 20)))
         spacing.set(qn("w:lineRule"), "exact")
         # 首行缩进也来自排版层：中文正文常有两字缩进，不接的话段落起头和原文对不齐。
         if first_line_indent_pt > 0:
