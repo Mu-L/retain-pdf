@@ -31,6 +31,8 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 /** 记录每次请求的 url 和已解析的 body。 */
 const requests = [];
+/** 往 done 事件里塞额外字段（如 incomplete_reason）。 */
+let doneExtras = {};
 
 // jsdom 不提供 Response，用 Node 自带的那个（undici）。
 function sseResponse(events) {
@@ -62,7 +64,7 @@ Object.defineProperty(globalThis, "fetch", {
     if (/ai\/ask/.test(url)) {
       return sseResponse([
         { type: "answer_delta", delta: "答", text: "答" },
-        { type: "done", answer: "答案", citations: [], conversation_id: "conv-1" },
+        { type: "done", answer: "答案", citations: [], conversation_id: "conv-1", ...doneExtras },
       ]);
     }
     return jsonResponse({});
@@ -338,6 +340,41 @@ describe("改写历史提问", () => {
     await runtime.send("原始问题");
     const question = runtime.messages.find((m) => m.role === "user");
     assert.equal(question.rawQuestion, "原始问题");
+    runtime.unmount();
+  });
+});
+
+
+describe("轮次用尽的提示", () => {
+  beforeEach(() => {
+    requests.length = 0;
+    doneExtras = {};
+    try { dom.window.localStorage.clear(); } catch { /* ignore */ }
+  });
+
+  it("后端说提前收尾，就落到那条回答上", async () => {
+    doneExtras = { incomplete_reason: "rounds_exhausted" };
+    const runtime = mountRuntime();
+    await runtime.send("问题");
+    const answer = runtime.messages.find((m) => m.role === "assistant");
+    assert.equal(answer.incompleteReason, "rounds_exhausted");
+    runtime.unmount();
+  });
+
+  it("正常答完的回答不带这个标记——完整是默认", async () => {
+    const runtime = mountRuntime();
+    await runtime.send("问题");
+    const answer = runtime.messages.find((m) => m.role === "assistant");
+    assert.equal(answer.incompleteReason, "", `带上了 ${answer.incompleteReason}`);
+    runtime.unmount();
+  });
+
+  it("不认识的原因不显示——将来后端多一种值时，不要冒出一句错的解释", async () => {
+    doneExtras = { incomplete_reason: "某种以后才有的原因" };
+    const runtime = mountRuntime();
+    await runtime.send("问题");
+    const answer = runtime.messages.find((m) => m.role === "assistant");
+    assert.equal(answer.incompleteReason, "某种以后才有的原因");
     runtime.unmount();
   });
 });

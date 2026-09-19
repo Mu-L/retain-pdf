@@ -64,6 +64,11 @@ export type HomeAskMessage = {
    * 从服务端恢复的那份还是拼过范围的整段 prompt，两者都不适合直接放进编辑框。
    */
   rawQuestion?: string;
+  /**
+   * 回答为什么不完整。目前只有 "rounds_exhausted"：模型的工具轮次预算用尽，是被
+   * 强制收尾的。它写出来的话语气照常，用户看不出它其实没做完——所以要标出来。
+   */
+  incompleteReason?: string;
 };
 
 export function scopeKey(s: HomeAskScope): string {

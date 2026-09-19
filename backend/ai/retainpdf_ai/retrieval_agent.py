@@ -291,12 +291,15 @@ class RetrievalAgent:
             stream_answer=True,
             delta_sanitizer=StreamingAnswerSanitizer(citations),
         )
+        # 走到这里说明轮次预算用尽、模型是被那句「不要再调用工具」逼着收尾的。
+        # 它照样会写出一段语气正常的回答,用户看不出它其实没做完——所以要标出来。
         return _answer_result(
             message,
             citations,
             trace,
             round_index,
             calculation_refs,
+            incomplete_reason="rounds_exhausted",
         )
 
 
@@ -467,6 +470,7 @@ def _answer_result(
     trace: list[dict[str, Any]],
     rounds: int,
     calculation_refs: dict[str, dict[str, Any]] | None = None,
+    incomplete_reason: str = "",
 ) -> AskResult:
     answer = sanitize_answer_text(str(message.get("content") or "").strip(), citations)
     return AskResult(
@@ -475,6 +479,7 @@ def _answer_result(
         tool_trace=trace,
         rounds=rounds,
         calculation_refs=list((calculation_refs or {}).values()),
+        incomplete_reason=incomplete_reason,
     )
 
 

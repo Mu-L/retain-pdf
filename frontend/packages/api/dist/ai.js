@@ -62,6 +62,8 @@ function normalizeDonePayload(payload = {}) {
         citations: Array.isArray(payload?.citations) ? payload.citations : [],
         toolTrace: Array.isArray(payload?.tool_trace) ? payload.tool_trace : [],
         rounds: Number(payload?.rounds) || 0,
+        // 回答为什么不完整。正常答完时后端整个字段缺席，所以这里是空串。
+        incompleteReason: `${payload?.incomplete_reason || payload?.["incompleteReason"] || ""}`.trim(),
         conversationId: `${payload?.conversation_id || payload?.conversationId || ""}`.trim(),
         agentRuntime: `${payload?.agent_runtime || payload?.["agentRuntime"] || ""}`.trim(),
         operationRefs: normalizeOperationRefs(payload?.operation_refs || payload?.["operationRefs"]),

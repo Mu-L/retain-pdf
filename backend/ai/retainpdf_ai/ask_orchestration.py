@@ -638,6 +638,10 @@ class AskOrchestrator:
             "confirmation_mode": self._settings.agent_confirmation_mode,
             "confirmation_requests": confirmation_requests,
         }
+        # 正常答完时整个字段缺席——"这条回答是完整的"是默认,不该每次都说一遍。
+        incomplete_reason = f"{getattr(result, 'incomplete_reason', '') or ''}".strip()
+        if incomplete_reason:
+            payload["incomplete_reason"] = incomplete_reason
         if conversation_id:
             payload["conversation_id"] = conversation_id
         if memory:

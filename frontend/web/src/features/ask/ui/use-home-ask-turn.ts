@@ -298,6 +298,7 @@ export function useHomeAskTurn({
         citations,
         progress: "",
         status: "complete",
+        incompleteReason: `${result?.incompleteReason || ""}`.trim(),
       });
       void refreshSessions();
     } catch (error) {

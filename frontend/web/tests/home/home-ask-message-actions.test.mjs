@@ -326,3 +326,53 @@ describe("改写历史提问的入口", () => {
     view.unmount();
   });
 });
+
+
+describe("提前收尾的提示", () => {
+  const cutShort = [
+    { id: "u1", role: "user", content: "要算的问题" },
+    { id: "a1", role: "assistant", content: "一个语气正常的回答。", status: "complete",
+      parentId: "u1", incompleteReason: "rounds_exhausted" },
+  ];
+
+  it("标出来——不标的话它和正常回答一模一样", () => {
+    const view = render({ messages: cutShort });
+    assert.ok(view.host.querySelector(".home-ask-msg-truncated"), "没有提示提前收尾");
+    view.unmount();
+  });
+
+  it("提示在气泡外面，复制带不走它", () => {
+    const view = render({ messages: cutShort });
+    const badge = view.host.querySelector(".home-ask-msg-truncated");
+    assert.equal(badge.closest(".home-ask-msg-bubble"), null, "提示被塞进了正文气泡里");
+    const bubbles = [...view.host.querySelectorAll(".home-ask-msg-bubble")];
+    assert.ok(bubbles.every((b) => !textOf(b).includes("步数已用尽")), "提示混进了正文");
+    view.unmount();
+  });
+
+  it("正常回答不显示", () => {
+    const view = render();
+    assert.equal(view.host.querySelectorAll(".home-ask-msg-truncated").length, 0);
+    view.unmount();
+  });
+
+  it("不认识的原因不显示——将来后端多一种值时不要冒出一句错的解释", () => {
+    const unknown = cutShort.map((m) => (
+      m.role === "assistant" ? { ...m, incompleteReason: "以后才有的原因" } : m
+    ));
+    const view = render({ messages: unknown });
+    assert.equal(view.host.querySelectorAll(".home-ask-msg-truncated").length, 0);
+    view.unmount();
+  });
+
+  it("被中断的回答只说中断，不重复说提前收尾", () => {
+    const both = cutShort.map((m) => (
+      m.role === "assistant" ? { ...m, status: "cancelled" } : m
+    ));
+    const view = render({ messages: both });
+    assert.ok(view.host.querySelector(".home-ask-msg-interrupted"));
+    assert.equal(view.host.querySelectorAll(".home-ask-msg-truncated").length, 0,
+      "同一条回答同时挂了两个标识");
+    view.unmount();
+  });
+});

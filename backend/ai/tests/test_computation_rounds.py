@@ -133,3 +133,23 @@ def test_reported_rounds_reflect_what_actually_ran():
         [["search_fulltext"], ["calculate_expression"]], max_tool_rounds=2, bonus=1,
     )
     assert result.rounds >= 2
+
+
+def test_a_forced_finish_is_marked_incomplete():
+    """轮次用尽时模型是被逼着收尾的,它写出来的话语气照常——不标出来没人看得出。"""
+    rounds = [["search_fulltext"], ["search_fulltext"], ["search_fulltext"]]
+    result, _ = _run(rounds, max_tool_rounds=2, bonus=0)
+    assert result.incomplete_reason == "rounds_exhausted"
+
+
+def test_a_normal_answer_carries_no_reason():
+    """"这条回答是完整的"是默认,不该每次都说一遍。"""
+    result, _ = _run([["search_fulltext"], []], max_tool_rounds=3, bonus=1)
+    assert result.incomplete_reason == ""
+
+
+def test_computation_rounds_delay_the_forced_finish():
+    """算完再答不该被算成"提前收尾"。"""
+    rounds = [["search_fulltext"], ["calculate_expression"], ["make_chart"], []]
+    result, _ = _run(rounds, max_tool_rounds=2, bonus=3)
+    assert result.incomplete_reason == ""

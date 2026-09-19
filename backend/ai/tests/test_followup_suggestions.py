@@ -371,3 +371,28 @@ def test_contract_and_implementation_agree_on_the_shape():
     # 可选字段:空的时候不发,所以不能进 required。
     assert "followups" not in schema["definitions"]["DonePayload"]["required"]
     assert "followups" in {f.name for f in __import__("dataclasses").fields(AskResult)}
+
+
+def test_done_marks_an_answer_that_was_cut_short():
+    """轮次用尽时模型被强制收尾,语气照常——不在 done 里说一声,前端看不出来。"""
+    orchestrator, prepared, _ = _make(
+        Runtime(_result(incomplete_reason="rounds_exhausted")), REPLY,
+    )
+    done = [e for e in _stream(orchestrator, prepared) if e["type"] == "done"][0]
+    assert done["incomplete_reason"] == "rounds_exhausted"
+
+
+def test_done_says_nothing_when_the_answer_is_complete():
+    """"完整"是默认,不该每轮都声明一次。"""
+    orchestrator, prepared, _ = _make(Runtime(_result()), REPLY)
+    done = [e for e in _stream(orchestrator, prepared) if e["type"] == "done"][0]
+    assert "incomplete_reason" not in done
+
+
+def test_incomplete_reason_is_in_the_contract():
+    schema = json.loads(
+        (Path(__file__).resolve().parents[3] / "contracts" / "ai-ask.v1.schema.json").read_text()
+    )
+    field = schema["definitions"]["DonePayload"]["properties"]["incomplete_reason"]
+    assert "rounds_exhausted" in field["enum"]
+    assert "incomplete_reason" not in schema["definitions"]["DonePayload"].get("required", [])

@@ -24,6 +24,9 @@ class AskResult:
     citations: list[Citation] = field(default_factory=list)
     tool_trace: list[dict[str, Any]] = field(default_factory=list)
     rounds: int = 0
+    # 回答为什么不完整。空串 = 正常答完。目前只有 "rounds_exhausted":轮次预算用尽,
+    # 模型是被逼着收尾的——它照样会写出一段语气正常的话,用户看不出它没做完。
+    incomplete_reason: str = ""
     operation_refs: list[dict[str, Any]] = field(default_factory=list)
     calculation_refs: list[dict[str, Any]] = field(default_factory=list)
     # 本轮结束后可以接着问的问题。默认空:runtime 不填,由编排层在答案定稿之后单独产出

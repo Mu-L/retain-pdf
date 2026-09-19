@@ -1,7 +1,7 @@
 // 主页 AI 消息列表：轻量 markdown 预览 + 引用跳阅读器
 
 import { useState } from "react";
-import { BookOpen, CircleSlash, FlaskConical, ListTree, Loader2, Pencil, Sparkles } from "lucide-react";
+import { AlertTriangle, BookOpen, CircleSlash, FlaskConical, ListTree, Loader2, Pencil, Sparkles } from "lucide-react";
 import { AiMarkdownAnswer, type AiCitationLike } from "@retainpdf/reader/ai";
 import { buildReaderUrl } from "@/platform/navigation/pages.js";
 import { navigateToReader } from "@/features/reader/domain.js";
@@ -187,6 +187,9 @@ export function HomeAskThread({
         const failed = m.status === "error";
         // 用户点停止、只写了半截。它是一等状态，不再靠正文里那句斜体标记来认。
         const interrupted = m.status === "cancelled";
+        // 轮次预算用尽、模型被强制收尾。和「中断」不同:它不是用户喊停的，回答也写完
+        // 了——只是背后的工作没做完。语气照常，所以不标出来就看不出来。
+        const cutShort = !interrupted && m.incompleteReason === "rounds_exhausted";
         // 重新生成要用触发这条回答的那次提问。消息是成对追加的,所以取它前面那条 user。
         const askedIndex = messages.findIndex((item) => item.id === m.id) - 1;
         const asked = askedIndex >= 0 && messages[askedIndex]?.role === "user"
@@ -227,7 +230,13 @@ export function HomeAskThread({
                 <span>已中断{hasBody ? "，回答只写了一半" : "，还没开始作答"}</span>
               </div>
             ) : null}
-            {!streaming && (hasBody || failed || interrupted) ? (
+            {cutShort ? (
+              <div className="home-ask-msg-truncated" role="status">
+                <AlertTriangle size={13} strokeWidth={2.2} aria-hidden />
+                <span>检索与计算的步数已用尽，这个回答是提前收尾的——追问一句可以让它接着做。</span>
+              </div>
+            ) : null}
+            {!streaming && (hasBody || failed || interrupted || cutShort) ? (
               <MessageActions
                 content={m.content || ""}
                 failed={failed}

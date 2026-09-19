@@ -521,6 +521,23 @@
   line-height: 1.5;
 }
 
+/* 轮次用尽、提前收尾。比「已中断」更轻:回答本身是写完的,只是背后的工作没做完,
+   所以不做成胶囊,做成一行提示。 */
+.home-ask-msg-truncated {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 6px;
+  color: color-mix(in srgb, var(--warn) 62%, var(--ink));
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.home-ask-msg-truncated svg {
+  flex: none;
+  margin-top: 2px;
+}
+
 .home-ask-thinking {
   display: inline-flex;
   align-items: center;
