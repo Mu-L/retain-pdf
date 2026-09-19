@@ -241,8 +241,10 @@ export function HomeAskView() {
                 onOperationAction={(action, operation, options) => (
                   agentOperations.perform(action, operation, options)
                 )}
-                onRegenerate={(question) => {
-                  void send(question, scopes);
+                onRegenerate={(assistantMessageId, question) => {
+                  // 带上 regenerateOf:新答案挂到同一个提问下成为兄弟分支，而不是
+                  // 在对话里再追加一条重复的提问。
+                  void send(question, scopes, { regenerateOf: assistantMessageId });
                 }}
               />
             </div>

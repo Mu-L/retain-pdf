@@ -130,12 +130,14 @@ describe("主页问答的消息级操作", () => {
     view.unmount();
   });
 
-  it("重新生成用的是这一轮的提问，不是最后一轮的", async () => {
+  it("重新生成报的是这一轮的回答和提问，不是最后一轮的", async () => {
+    // 两个参数都是必须的：光有问题文本，发出去就成了「把同一个问题再问一遍」，
+    // 对话里会多出一条重复提问；回答 id 才能让新答案挂成兄弟分支。
     const asked = [];
-    const view = render({ onRegenerate: (q) => asked.push(q) });
+    const view = render({ onRegenerate: (id, q) => asked.push([id, q]) });
     const [first] = assistantTurns(view.host);
     await click(buttonWith(first, "重新生成"));
-    assert.deepEqual(asked, ["第一轮问题"], "重新生成串到了别的轮次");
+    assert.deepEqual(asked, [["a1", "第一轮问题"]], "重新生成串到了别的轮次");
     view.unmount();
   });
 

@@ -31,6 +31,11 @@ export function useHomeAskRuntime() {
   const runningRef = useRef(false);
   const conversationIdRef = useRef(conversationId);
   conversationIdRef.current = conversationId;
+  // 发一轮请求要知道当前可见路径的末端（挂 parent_id）和某条回答对应的提问
+  // （重新生成）。turn 里拿不到 messages 的当前值，和 conversationIdRef 同样用
+  // 渲染期赋值的 ref 递过去。
+  const messagesRef = useRef<HomeAskMessage[]>(messages);
+  messagesRef.current = messages;
 
   const patchMessage = useCallback((id: string, patch: Partial<HomeAskMessage>) => {
     setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
@@ -48,6 +53,7 @@ export function useHomeAskRuntime() {
   const turn = useHomeAskTurn({
     runningRef,
     conversationIdRef,
+    messagesRef,
     patchMessage,
     setMessages,
     setConversationId,

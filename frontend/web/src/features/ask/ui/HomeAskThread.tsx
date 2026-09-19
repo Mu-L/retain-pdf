@@ -88,8 +88,11 @@ export type HomeAskThreadProps = {
     operation: AgentOperationView,
     options?: AgentOperationPerformOptions,
   ) => void | Promise<void>;
-  /** 重新生成/重试:用对应的用户提问重新发一次。 */
-  onRegenerate?: (question: string) => void;
+  /**
+   * 重新生成/重试。给的是**这条回答**的 id 加上它那一轮的提问——新答案要挂到同一个
+   * 提问下成为兄弟分支，光有问题文本会退化成再追加一轮重复提问。
+   */
+  onRegenerate?: (assistantMessageId: string, question: string) => void;
 };
 
 export function HomeAskThread({
@@ -165,7 +168,7 @@ export function HomeAskThread({
                 content={m.content || ""}
                 failed={failed}
                 canRegenerate={Boolean(askedQuestion) && !isRunning}
-                onRegenerate={() => onRegenerate?.(askedQuestion)}
+                onRegenerate={() => onRegenerate?.(m.id, askedQuestion)}
               />
             ) : null}
             {operations.map((entry) => (

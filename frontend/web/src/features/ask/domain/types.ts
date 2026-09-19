@@ -40,6 +40,17 @@ export type HomeAskMessage = {
   citations?: HomeAskCitation[];
   progress?: string;
   status?: "pending" | "streaming" | "complete" | "error";
+  /**
+   * 服务端消息树里的父节点。会话本来就是一棵树（后端存 parent_id/head_id），
+   * 重新生成要靠它把新答案挂成同一个提问下的兄弟分支，而不是再追加一轮提问。
+   */
+  parentId?: string;
+  /**
+   * 用户消息真正发给模型的那串文本（`buildScopedQuestion` 拼过范围之后的结果），
+   * 只在它和展示用的 `content` 不一致时才有。重新生成要原样重发它——拿展示文本
+   * 去发会把「@标题」那串后缀也当成问题的一部分。
+   */
+  prompt?: string;
 };
 
 export function scopeKey(s: HomeAskScope): string {
