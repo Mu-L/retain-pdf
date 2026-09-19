@@ -231,3 +231,127 @@ def test_cli_runs_end_to_end(tiny_job: Path, tmp_path: Path):
     )
     assert proc.returncode == 0, proc.stderr[-800:]
     assert out.exists(), f"CLI 没有产出文件\nstdout={proc.stdout}\nstderr={proc.stderr[-500:]}"
+
+
+def _first_block(job_root: Path):
+    from devtools.word_export.job_io import single_pdf, translated_pages
+    from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
+
+    specs = build_render_page_specs(
+        source_pdf_path=single_pdf(job_root / "source"),
+        translated_pages=translated_pages(job_root),
+    )
+    return specs[0].blocks[0]
+
+
+def test_line_height_comes_from_the_layout_not_a_hardcoded_multiple(
+    tiny_job: Path, tmp_path: Path,
+):
+    """行距用排版层算出的 leading_em。
+
+    单位语义两边不同,这是这条最容易做错的地方:Typst 的 `par(leading:)` 是**行间额外
+    的空隙**(`leading: 0.5em` → 行高约 1.5em),而 Word 的 `w:line` 要的是**行高本身**。
+    真实数据里 leading_em 普遍是 0.34~0.58,照搬当倍数用会把行高压到字号的一半。
+    """
+    block = _first_block(tiny_job)
+    assert block.leading_em > 0, "夹具里这一块没有行距值，测不到东西"
+    # 真实值确实小于 1——正因如此才不能当倍数用。
+    assert block.leading_em < 1.0
+
+    out = tmp_path / "layout.docx"
+    _export(tiny_job, out)
+    body = docx.Document(str(out)).element.body
+    spacings = body.findall(".//" + qn("w:spacing"))
+    values = {int(s.get(qn("w:line"))) for s in spacings if s.get(qn("w:line"))}
+
+    expected = int(max(1.0, block.font_size_pt * (1.0 + block.leading_em)) * 20)
+    assert expected in values, f"没有按 (1 + leading_em) 折算；出现的行高是 {sorted(values)}"
+
+    wrong = int(max(1.0, block.font_size_pt * block.leading_em) * 20)
+    assert wrong not in values, "把 leading_em 当成了行高倍数，行会挤在一起"
+
+
+def test_bold_blocks_are_bold(tiny_job: Path, tmp_path: Path):
+    """字重来自 font_weight。不接的话标题和正文一样粗，Word 里读不出层次。"""
+    from devtools.word_export.job_io import single_pdf, translated_pages
+    from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
+
+    specs = build_render_page_specs(
+        source_pdf_path=single_pdf(tiny_job / "source"),
+        translated_pages=translated_pages(tiny_job),
+    )
+    blocks = specs[0].blocks
+    bold_blocks = [b for b in blocks if str(b.font_weight or "").lower() == "bold"]
+    assert bold_blocks, "夹具里没有加粗块，测不到东西"
+
+    out = tmp_path / "layout.docx"
+    _export(tiny_job, out)
+    body = docx.Document(str(out)).element.body
+    bold_runs = body.findall(".//" + qn("w:b"))
+    assert bold_runs, "一个加粗都没有"
+
+
+def test_regular_blocks_are_not_bold(tiny_job: Path, tmp_path: Path):
+    """反过来也要成立——不能整篇都加粗。
+
+    第一版比的是「加粗的 run 数 < 总 run 数」，反证时发现整篇强制加粗它照样绿:
+    OMML 公式里的 run 走的是另一条路、永远不带 w:b，所以那个不等式恒成立。
+    改成按**文本框**比:常规字重的块里不该出现加粗。
+    """
+    from devtools.word_export.job_io import single_pdf, translated_pages
+    from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
+
+    specs = build_render_page_specs(
+        source_pdf_path=single_pdf(tiny_job / "source"),
+        translated_pages=translated_pages(tiny_job),
+    )
+    blocks = [b for b in specs[0].blocks if b.plain_text.strip()]
+    expected_bold = sum(1 for b in blocks if str(b.font_weight or "").lower() == "bold")
+    assert 0 < expected_bold < len(blocks), (
+        f"夹具里字重不够混杂（{expected_bold}/{len(blocks)} 加粗），这条分辨不出对错"
+    )
+
+    out = tmp_path / "layout.docx"
+    _export(tiny_job, out)
+    body = docx.Document(str(out)).element.body
+    boxes = body.findall(".//" + qn("w:txbxContent"))
+    bold_boxes = sum(1 for box in boxes if box.findall(".//" + qn("w:b")))
+    assert bold_boxes == expected_bold, (
+        f"{bold_boxes} 个文本框加粗，排版层说的是 {expected_bold} 个"
+    )
+
+
+def test_font_size_still_comes_from_the_layout(tiny_job: Path, tmp_path: Path):
+    """字号本来就接了；这条防止改行距时把它带坏。"""
+    block = _first_block(tiny_job)
+    out = tmp_path / "layout.docx"
+    _export(tiny_job, out)
+    body = docx.Document(str(out)).element.body
+    sizes = {int(s.get(qn("w:val"))) for s in body.findall(".//" + qn("w:sz")) if s.get(qn("w:val"))}
+    assert int(max(1.0, block.font_size_pt) * 2) in sizes
+
+
+def test_first_line_indent_is_wired_even_though_this_fixture_has_none(tiny_job: Path):
+    """首行缩进接上了，但**这份夹具测不到它**。
+
+    真实数据里这一页所有块的 first_line_indent_pt 都是 0（中文正文的两字缩进由
+    翻译侧直接写进文本，而不是靠排版属性）。所以任何「导出后有没有 w:ind」的断言
+    在这里都恒成立——反证时确认过:把接线改成写死 0，测试照样全绿。
+
+    与其留一条骗人的测试，不如把缺口写下来:这里只钉「接线在」，行为等遇到真有缩进
+    的文档再补。
+    """
+    source = (PIPELINE_ROOT / "devtools" / "word_export" / "exporter.py").read_text()
+    assert "first_line_indent_pt=block.first_line_indent_pt" in source
+
+    from devtools.word_export.job_io import single_pdf, translated_pages
+    from retainpdf_pipeline.render.layout.page_specs import build_render_page_specs
+
+    specs = build_render_page_specs(
+        source_pdf_path=single_pdf(tiny_job / "source"),
+        translated_pages=translated_pages(tiny_job),
+    )
+    indents = {b.first_line_indent_pt for b in specs[0].blocks}
+    assert indents == {0.0}, (
+        f"夹具里出现了非零缩进 {indents}——可以把这条换成真正的行为断言了"
+    )

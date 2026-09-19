@@ -87,16 +87,22 @@ class MathRegistry:
         return item if item.marker == marker else None
 
 
-def append_inline_content(paragraph, text: str, *, font_size_pt: float, font_family: str) -> None:
+def append_inline_content(
+    paragraph, text: str, *, font_size_pt: float, font_family: str, bold: bool = False,
+) -> None:
     registry = MathRegistry()
     marked_text = mark_math_tokens(text, registry)
     for token_kind, value in iter_marked_text(marked_text):
         if token_kind == "text":
-            paragraph.append(word_text_run(value, font_size_pt=font_size_pt, font_family=font_family))
+            paragraph.append(word_text_run(
+                value, font_size_pt=font_size_pt, font_family=font_family, bold=bold,
+            ))
             continue
         formula = registry.get(value)
         if formula is None:
-            paragraph.append(word_text_run(value, font_size_pt=font_size_pt, font_family=font_family))
+            paragraph.append(word_text_run(
+                value, font_size_pt=font_size_pt, font_family=font_family, bold=bold,
+            ))
             continue
         paragraph.append(omml_math_from_latex(formula.source, font_family=font_family))
 
@@ -123,10 +129,15 @@ def iter_marked_text(text: str):
         yield "text", text[pos:]
 
 
-def word_text_run(text: str, *, font_size_pt: float, font_family: str):
+def word_text_run(text: str, *, font_size_pt: float, font_family: str, bold: bool = False):
     r = OxmlElement("w:r")
     r_pr = OxmlElement("w:rPr")
     r_pr.append(word_run_fonts(font_family))
+    # 字重来自排版层算出的 font_weight。不接的话标题和正文一样粗,而同一份文档在
+    # PDF 里是有层次的——两边看起来不像同一个东西。
+    if bold:
+        r_pr.append(OxmlElement("w:b"))
+        r_pr.append(OxmlElement("w:bCs"))
     sz = OxmlElement("w:sz")
     sz.set(qn("w:val"), str(int(max(1.0, font_size_pt) * 2)))
     r_pr.append(sz)

@@ -76,6 +76,12 @@ def export_layout_docx(
                 height_pt=max(8.0, y1 - y0),
                 font_size_pt=block.font_size_pt,
                 font_family=font_family,
+                # 排版层已经为这个块算好了行距、字重和首行缩进（PDF 和阅读器的
+                # HTML 浮层都在用同一组值）。不接的话 Word 是三个渲染面里唯一
+                # 跑偏的那个：行距写死、标题不粗、段落起头对不齐。
+                leading_em=block.leading_em,
+                bold=str(block.font_weight or "").strip().lower() == "bold",
+                first_line_indent_pt=block.first_line_indent_pt,
                 include_shapetype=not textbox_shapetype_added,
             )
             textbox_shapetype_added = True
