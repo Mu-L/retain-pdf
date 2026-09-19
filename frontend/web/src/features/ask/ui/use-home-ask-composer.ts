@@ -2,6 +2,7 @@
 
 import {
   useCallback,
+  useEffect,
   useId,
   useRef,
   useState,
@@ -13,6 +14,7 @@ import {
   parseAtQuery,
 } from "../domain/document-picker.js";
 import { OPEN_BROWSER_CREDENTIALS_EVENT } from "./use-home-ask-composer-effects.js";
+import { buildQuoteBlock, mergeQuoteIntoDraft } from "../domain/home-ask-quote.js";
 import type { HomeAskScope } from "../domain/types.js";
 import { scopeKey } from "../domain/types.js";
 
@@ -50,6 +52,11 @@ export type UseHomeAskComposerParams = {
   scopes: HomeAskScope[];
   onScopesChange: (next: HomeAskScope[]) => void;
   onSend: (question: string) => void;
+  /**
+   * 待插入的引用。带 id 是因为要靠它判断「这是一次新的引用」——同一段话可能被连着
+   * 引用两次，光比文本会把第二次吃掉。
+   */
+  quoteRequest?: { id: string; text: string } | null;
 };
 
 export function useHomeAskComposer({
@@ -60,6 +67,7 @@ export function useHomeAskComposer({
   scopes,
   onScopesChange,
   onSend,
+  quoteRequest = null,
 }: UseHomeAskComposerParams) {
   const [text, setText] = useState("");
   const [options, setOptions] = useState<HomeAskScope[]>([]);
@@ -71,6 +79,23 @@ export function useHomeAskComposer({
   const [loadingOpts, setLoadingOpts] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const listId = useId();
+  const lastQuoteIdRef = useRef("");
+
+  // 引用进草稿：不覆盖已经写了一半的内容，插完把光标送到末尾等着接着写。
+  useEffect(() => {
+    const id = `${quoteRequest?.id || ""}`;
+    if (!id || id === lastQuoteIdRef.current) return;
+    lastQuoteIdRef.current = id;
+    const block = buildQuoteBlock(quoteRequest?.text || "");
+    if (!block) return;
+    setText((prev) => mergeQuoteIntoDraft(prev, block));
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    });
+  }, [quoteRequest]);
 
   const filtered = filterDocumentOptions(
     options,

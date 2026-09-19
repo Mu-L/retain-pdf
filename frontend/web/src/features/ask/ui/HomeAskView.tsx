@@ -1,7 +1,7 @@
 // 主页 AI 问答：Notion 式 —— 左历史侧栏（可折叠）+ 中空态居中 / 对话流
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { Quote, Sparkles } from "lucide-react";
 import { CREDENTIALS_CHANGED_EVENT } from "@retainpdf/reader/runtime/ai";
 // hasModelApiKey 依赖 features/reader/domain 顶层注册的适配器，不可直连包。
 import { hasModelApiKey } from "@/features/reader/domain.js";
@@ -17,6 +17,7 @@ import { HomeAskSidebar } from "./HomeAskSidebar.js";
 import { HomeAskThread, HOME_ASK_SUGGESTIONS } from "./HomeAskThread.js";
 import { useHomeAskRuntime } from "./use-home-ask-runtime.js";
 import { useStickToBottom } from "./use-stick-to-bottom.js";
+import { useQuoteSelection } from "./use-quote-selection.js";
 import type { HomeAskScope } from "../domain/types.js";
 import { useAgentOperations } from "./operations/use-agent-operations.js";
 import {
@@ -146,6 +147,10 @@ export function HomeAskView() {
   }, [messages]);
   useStickToBottom(threadScrollRef, threadChangeKey, { streaming: isRunning });
 
+  // 选中回答里的一段 → 浮出「引用」→ 进输入框，用户接着写要问什么。
+  const { selection, clear: clearSelection } = useQuoteSelection(threadScrollRef);
+  const [quoteRequest, setQuoteRequest] = useState<{ id: string; text: string } | null>(null);
+
   const credentialGate = resolveAgentRuntimeCredentialGate({
     config: runtimeConfig,
     loading: runtimeConfigLoading,
@@ -233,6 +238,40 @@ export function HomeAskView() {
           </div>
         ) : (
           <>
+            {selection ? (
+              <button
+                type="button"
+                className="home-ask-quote-float"
+                style={{ left: `${selection.left}px`, top: `${selection.top}px` }}
+                // pointerdown 而不是 click：click 之前浏览器会先清掉选区，
+                // 到那时 selection 已经没了。
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  setQuoteRequest({ id: `${Date.now()}`, text: selection.text });
+                  clearSelection();
+                }}
+              >
+                <Quote size={12} strokeWidth={2.4} aria-hidden />
+                <span>引用</span>
+              </button>
+            ) : null}
+            {selection ? (
+              <button
+                type="button"
+                className="home-ask-quote-float"
+                style={{ left: `${selection.left}px`, top: `${selection.top}px` }}
+                // pointerdown 而不是 click：click 触发前浏览器会先清掉选区，
+                // 到那时 selection 已经没了。
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  setQuoteRequest({ id: `q-${Date.now()}`, text: selection.text });
+                  clearSelection();
+                }}
+              >
+                <Quote size={12} strokeWidth={2.4} aria-hidden />
+                <span>引用</span>
+              </button>
+            ) : null}
             <div className="home-ask-scroll" ref={threadScrollRef}>
               <HomeAskThread
                 messages={messages}
@@ -266,6 +305,7 @@ export function HomeAskView() {
               onSend={(q) => {
                 void send(q, scopes);
               }}
+              quoteRequest={quoteRequest}
               onStop={stop}
               variant="dock"
             />

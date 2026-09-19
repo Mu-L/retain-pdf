@@ -24,6 +24,8 @@ export type HomeAskComposerProps = {
   scopes: HomeAskScope[];
   onScopesChange: (next: HomeAskScope[]) => void;
   onSend: (question: string) => void;
+  /** 从线程里「引用」过来的文字，插到草稿最前面。 */
+  quoteRequest?: { id: string; text: string } | null;
   onStop?: () => void;
   /** hero：空态居中大输入；dock：对话底栏 */
   variant?: "hero" | "dock";
@@ -37,6 +39,7 @@ export function HomeAskComposer({
   scopes,
   onScopesChange,
   onSend,
+  quoteRequest = null,
   onStop,
   variant = "dock",
 }: HomeAskComposerProps) {
@@ -67,6 +70,7 @@ export function HomeAskComposer({
     scopes,
     onScopesChange,
     onSend,
+    quoteRequest,
   });
 
   useHomeAskComposerOutsideClose({

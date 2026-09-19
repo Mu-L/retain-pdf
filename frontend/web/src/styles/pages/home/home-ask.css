@@ -572,6 +572,31 @@
   outline-offset: 1px;
 }
 
+/* 选中线程里的文字后浮出来的「引用」按钮。
+   position: fixed 直接吃选区的视口坐标；一滚动就收起（见 use-quote-selection）。 */
+.home-ask-quote-float {
+  position: fixed;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  /* 贴在选区正上方、水平居中于选区 */
+  transform: translate(-50%, calc(-100% - 8px));
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, var(--line));
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--shadow-color, var(--ink)) 14%, transparent);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.home-ask-quote-float:hover {
+  background: color-mix(in srgb, var(--ink) 5%, var(--paper));
+}
+
 /* 用户消息的操作条靠右，跟气泡对齐（气泡本身是右对齐的）。 */
 .home-ask-msg-actions.is-user {
   justify-content: flex-end;
