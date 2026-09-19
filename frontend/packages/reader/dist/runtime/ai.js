@@ -1,7 +1,7 @@
 import { a as ee, b as te, d as re, e as ae, c as ne, f as se, g as ie, h as oe, j as ce, k as de, i as ue, l as le, m as fe, n as Ae, o as me, p as pe, q as ge, t as he, u as ye, r as ve, v as $e, w as Ie, x as Se, y as we, s as Ce, z as Ee } from "../answer-enhance-D8zK9znw.js";
-import { b as ke, c as Me, a as _e, d as Ne, l as Re, s as Te } from "../ask-answerer-GNQdzitl.js";
-import { C as He, M as Fe, h as Le, n as Pe, a as De, b as Oe, r as ze, s as Ge } from "../config-CgaWliJ_.js";
-import { c as Ue, a as Xe, l as qe, s as Be, b as je, t as We, v as Je } from "../thread-branch-store-Jy9wH_F1.js";
+import { M as ke, b as Me, c as _e, a as Ne, l as Re, m as Te, s as xe, d as He, t as Fe, v as Le } from "../answer-quote-Div0HO_p.js";
+import { b as De, c as Oe, a as ze, d as Ue, l as Xe, s as Be } from "../ask-answerer-GNQdzitl.js";
+import { C as Ke, M as qe, h as je, n as Qe, a as We, b as Je, r as Ve, s as Ye } from "../config-CgaWliJ_.js";
 import { Marked as T } from "marked";
 import { p as x } from "../markdown-math-XkF5urpn.js";
 const w = "CITE_", C = "";
@@ -24,7 +24,7 @@ function F(t, a) {
     }
   ) : t;
 }
-function W(t) {
+function Q(t) {
   return v(t || "").replace(/`([^`\n]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br />");
 }
 function L(t) {
@@ -63,7 +63,7 @@ function D(t) {
   }), r.innerHTML;
 }
 const f = /* @__PURE__ */ new Map(), O = 48;
-function J(t) {
+function W(t) {
   const a = `${t || ""}`.trim();
   return a ? f.get(a) ?? null : null;
 }
@@ -76,7 +76,7 @@ function z(t, a) {
       f.delete(n);
     }
 }
-async function Q(t) {
+async function J(t) {
   const a = `${t || ""}`;
   if (!a.trim()) return "";
   const r = f.get(a);
@@ -87,8 +87,8 @@ async function Q(t) {
   }), i = F(d, o);
   return z(a, i), i;
 }
-const G = 20, I = 18;
-function K(t = {}) {
+const U = 20, I = 18;
+function X(t = {}) {
   const r = (Array.isArray(t == null ? void 0 : t.messages) ? t.messages : []).find(
     (o) => (o == null ? void 0 : o.role) === "user" && `${(o == null ? void 0 : o.text) || ""}`.trim()
   ), n = `${(r == null ? void 0 : r.text) || (t == null ? void 0 : t.title) || ""}`.replace(/\s+/g, " ").trim();
@@ -100,13 +100,13 @@ function S({
 } = {}) {
   return (Array.isArray(t) ? t : []).map((r) => ({
     id: `${(r == null ? void 0 : r.id) || ""}`,
-    title: K(r),
+    title: X(r),
     updatedAt: Number(r == null ? void 0 : r.updatedAt) || 0,
     messageCount: Array.isArray(r == null ? void 0 : r.messages) ? r.messages.length : 0,
     active: `${(r == null ? void 0 : r.id) || ""}` == `${a}`
   })).filter((r) => r.id).sort((r, n) => n.updatedAt - r.updatedAt);
 }
-function U({ sessions: t = [], activeId: a = "" } = {}, r = G) {
+function B({ sessions: t = [], activeId: a = "" } = {}, r = U) {
   const n = Array.isArray(t) ? [...t] : [];
   if (n.length <= r)
     return n;
@@ -119,9 +119,9 @@ function U({ sessions: t = [], activeId: a = "" } = {}, r = G) {
   }
   return d;
 }
-const X = "retainpdf-ai-chat-v1:";
-function q(t) {
-  return `${X}${`${t || ""}`.trim()}`;
+const G = "retainpdf-ai-chat-v1:";
+function K(t) {
+  return `${G}${`${t || ""}`.trim()}`;
 }
 function A() {
   try {
@@ -137,7 +137,7 @@ function V({
   jobId: t = "",
   storage: a = globalThis.localStorage || null
 } = {}) {
-  const r = q(t), n = !!(`${t || ""}`.trim() && a);
+  const r = K(t), n = !!(`${t || ""}`.trim() && a);
   let o = 0;
   function d() {
     return o += 1, `s-${A().toString(36)}-${o}`;
@@ -174,7 +174,7 @@ function V({
     var e;
     if (n)
       try {
-        const u = U(s), c = u.some((m) => `${m.id}` == `${s.activeId}`) ? s.activeId : `${((e = u[0]) == null ? void 0 : e.id) || ""}`;
+        const u = B(s), c = u.some((m) => `${m.id}` == `${s.activeId}`) ? s.activeId : `${((e = u[0]) == null ? void 0 : e.id) || ""}`;
         a.setItem(r, JSON.stringify({ v: 2, activeId: c, sessions: u }));
       } catch {
       }
@@ -249,62 +249,65 @@ function V({
   };
 }
 export {
-  He as CREDENTIALS_CHANGED_EVENT,
-  G as MAX_SESSIONS,
-  Fe as MISSING_MODEL_API_KEY_MESSAGE,
+  Ke as CREDENTIALS_CHANGED_EVENT,
+  ke as MAX_QUOTE_CHARS,
+  U as MAX_SESSIONS,
+  qe as MISSING_MODEL_API_KEY_MESSAGE,
   ee as answerDocumentIds,
   te as armReaderAiClickShield,
   re as buildMarkdownImageApiUrl,
   ae as buildPagePreviewUrl,
-  ke as buildScopedQuestion,
+  Me as buildQuoteBlock,
+  De as buildScopedQuestion,
   ne as clearReaderAiNavigationLock,
-  Me as clearStoredConversationId,
-  Ue as clearThreadBranchSnapshot,
+  Oe as clearStoredConversationId,
+  _e as clearThreadBranchSnapshot,
   se as clipSnippet,
-  _e as conversationStorageKey,
+  ze as conversationStorageKey,
   V as createReaderAiHistoryStore,
-  Ne as createReaderAskAnswerer,
-  Xe as createReaderMarkdownAnswerer,
+  Ue as createReaderAskAnswerer,
+  Ne as createReaderMarkdownAnswerer,
   ie as decorateCitationMarkdown,
-  K as deriveSessionTitle,
+  X as deriveSessionTitle,
   oe as findCitationForAnswerImage,
-  Le as hasModelApiKey,
+  je as hasModelApiKey,
   ce as hydrateProtectedImages,
   de as injectCitationMarkers,
   ue as installReaderWindowOpenGuard,
   le as isAgenticCitation,
   fe as isReaderAiNavigationLocked,
-  Re as loadStoredConversationId,
-  qe as loadThreadBranchSnapshot,
+  Xe as loadStoredConversationId,
+  Re as loadThreadBranchSnapshot,
   Ae as lockReaderAiNavigation,
+  Te as mergeQuoteIntoDraft,
   me as mountAnswerHtml,
   pe as neutralizeMarkdownAnchors,
   ge as normalizeAiCitations,
-  Pe as notifyCredentialsChanged,
-  J as peekFinalAnswerHtmlCache,
+  Qe as notifyCredentialsChanged,
+  W as peekFinalAnswerHtmlCache,
   he as pickCitationsForAnswer,
   H as protectNumericCitations,
-  De as readSettingsModelApiKey,
+  We as readSettingsModelApiKey,
   ye as renderCitationFooter,
-  Q as renderFinalAnswerHtml,
-  W as renderStreamingPreviewHtml,
+  J as renderFinalAnswerHtml,
+  Q as renderStreamingPreviewHtml,
   ve as resetAnswerEnhanceAdapters,
-  Oe as resetReaderAiConfigAdapters,
+  Je as resetReaderAiConfigAdapters,
   $e as resolveAnswerImageUrl,
   Ie as resolveCitationPageIdx,
   Se as resolveCitationPageNumber,
-  ze as resolveReaderAiConfig,
+  Ve as resolveReaderAiConfig,
   F as restoreNumericCitations,
   we as revokeHydratedImageUrls,
-  Be as sanitizeAssistantAnswer,
-  Te as saveStoredConversationId,
-  je as saveThreadBranchSnapshot,
+  xe as sanitizeAssistantAnswer,
+  Be as saveStoredConversationId,
+  He as saveThreadBranchSnapshot,
   Ce as setAnswerEnhanceAdapters,
-  Ge as setReaderAiConfigAdapters,
+  Ye as setReaderAiConfigAdapters,
   Ee as shouldIgnoreReaderAiNavEvent,
   S as summarizeSessions,
-  We as threadBranchStorageKey,
-  U as trimSessions,
-  Je as visiblePathFromSnapshot
+  Fe as threadBranchStorageKey,
+  B as trimSessions,
+  Le as visiblePathFromSnapshot
 };
 //# sourceMappingURL=ai.js.map

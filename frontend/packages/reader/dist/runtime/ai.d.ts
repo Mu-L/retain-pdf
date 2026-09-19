@@ -1,5 +1,6 @@
 /** Stable non-React AI runtime used by Reader host adapters. */
 export * from "../shared/ai/answer-enhance.js";
+export * from "../shared/ai/answer-quote.js";
 export * from "../shared/ai/ask-answerer.js";
 export * from "../shared/ai/chat-history-store.js";
 export * from "../shared/ai/chat-sessions-view-model.js";

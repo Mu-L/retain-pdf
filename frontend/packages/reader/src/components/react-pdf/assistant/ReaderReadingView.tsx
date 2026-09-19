@@ -12,6 +12,7 @@ import {
   LockedComposer,
   ThreadMessageList,
 } from "./reader-assistant-primitives.js";
+import { AnswerSelectionToolbar } from "./AnswerSelectionToolbar.js";
 
 const READING_SUGGESTIONS = [
   { prompt: "用几句话总结这篇文献的核心内容。", label: "总结本文", icon: BookOpen },
@@ -86,6 +87,7 @@ export function ReaderReadingView({
           </div>
         </div>
       ) : null}
+      <AnswerSelectionToolbar />
       <ThreadMessageList
         jobId={jobId}
         citationsByMessageId={citationsByMessageId}

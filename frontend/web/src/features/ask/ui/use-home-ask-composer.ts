@@ -14,7 +14,7 @@ import {
   parseAtQuery,
 } from "../domain/document-picker.js";
 import { OPEN_BROWSER_CREDENTIALS_EVENT } from "./use-home-ask-composer-effects.js";
-import { buildQuoteBlock, mergeQuoteIntoDraft } from "../domain/home-ask-quote.js";
+import { buildQuoteBlock, mergeQuoteIntoDraft } from "@retainpdf/reader/runtime/ai";
 import type { HomeAskScope } from "../domain/types.js";
 import { scopeKey } from "../domain/types.js";
 

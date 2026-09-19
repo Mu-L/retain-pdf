@@ -11,3 +11,6 @@
 
 /* 引用 [n] 的悬停预览卡（portal 到 body，与引用皮肤同属公开契约）。 */
 @import "./ai-citation-hover.css";
+
+/* 回答上的选区引用工具条。 */
+@import "./ai-selection-toolbar.css";
