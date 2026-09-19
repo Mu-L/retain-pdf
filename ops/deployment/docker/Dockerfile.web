@@ -15,6 +15,10 @@ COPY frontend/packages/api/package.json ./frontend/packages/api/package.json
 COPY frontend/packages/domain/package.json ./frontend/packages/domain/package.json
 COPY frontend/packages/reader/package.json ./frontend/packages/reader/package.json
 COPY contracts/package.json ./contracts/package.json
+# retainpdf2doc 是后端用的 Node 包（保留排版的 Word 导出）。web 镜像不跑它，但
+# 它是 npm workspace 的一员——少了这份 manifest，`npm ci` 会因为 lockfile 和
+# workspace 集合对不上而失败。
+COPY backend/packages/retainpdf2doc/package.json ./backend/packages/retainpdf2doc/package.json
 COPY frontend/packages/ui/package.json ./frontend/packages/ui/package.json
 RUN npm ci --ignore-scripts
 
