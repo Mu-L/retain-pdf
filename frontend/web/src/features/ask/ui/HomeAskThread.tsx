@@ -227,7 +227,15 @@ export function HomeAskThread({
             {interrupted ? (
               <div className="home-ask-msg-interrupted" role="status">
                 <CircleSlash size={13} strokeWidth={2.2} aria-hidden />
-                <span>已中断{hasBody ? "，回答只写了一半" : "，还没开始作答"}</span>
+                {/* 停止时服务端在落库之前就抛出了(raise_if_stopped 排在 persist_turn
+                    前面),所以这半截回答只活在这个页面里。刷新就没了——用户有权在
+                    刷新之前知道这件事,而不是回来发现整轮消失了。
+                    「复制」就在下面那条操作条上,所以指过去而不是另加一个按钮。 */}
+                <span>
+                  {hasBody
+                    ? "已中断，回答只写了一半；它不会保存，刷新后就没了——要留就先复制"
+                    : "已中断，还没开始作答；这一轮不会保存"}
+                </span>
               </div>
             ) : null}
             {cutShort ? (
