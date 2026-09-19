@@ -11,11 +11,15 @@
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { createDocxTheme } from "../vendor/visualtex/office/docx/config/index.ts";
+import { prepareEmbeddedFont } from "../vendor/visualtex/office/docx/fonts/fontEmbedding.ts";
+import { deterministicEmbeddedFontKey } from "../vendor/visualtex/office/nodeFontKey.ts";
 import { buildDocxPackage } from "../vendor/visualtex/office/docx/package/packageParts.ts";
 import { validateDocxPackage } from "../vendor/visualtex/office/docx/package/validatePackage.ts";
 import { buildBody } from "./body.mjs";
+import { FORMULA_FONT_NAME } from "./formula.mjs";
 import { parseSpec } from "./spec.mjs";
 
 const IMAGE_CONTENT_TYPES = new Map([
@@ -25,6 +29,32 @@ const IMAGE_CONTENT_TYPES = new Map([
 ]);
 
 const TWIPS_PER_POINT = 20;
+
+// 字体随包一起走（GUST 协议允许再分发，见 assets/fonts/）。esbuild 打包之后
+// import.meta.url 指向 dist/，所以要从包根往回找。
+const PACKAGE_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const FORMULA_FONT_PATH = path.join(PACKAGE_ROOT, "assets", "fonts", "latinmodern-math.otf");
+
+/**
+ * 数学字体嵌进文档，而不是只写个名字。
+ *
+ * 只写名字的话，目标机器没装这个字体时 Word 会拿别的字体替换，而普通字体没有数学
+ * 字形——积分号、求和号、可伸缩括号会变成豆腐块。嵌入之后跟装没装无关。
+ *
+ * 读不到字体就退回「只声明名字」:少一份保障，但不该因此导不出文档。
+ */
+async function loadFormulaFont() {
+  try {
+    const bytes = new Uint8Array(await readFile(FORMULA_FONT_PATH));
+    return prepareEmbeddedFont({
+      fontName: FORMULA_FONT_NAME,
+      fontBytes: bytes,
+      fontKey: deterministicEmbeddedFontKey(bytes),
+    });
+  } catch {
+    return undefined;
+  }
+}
 
 async function loadBackgrounds(spec, baseDir) {
   const media = [];
@@ -81,16 +111,17 @@ export async function buildLayoutDocx(rawSpec, { baseDir = process.cwd() } = {})
     },
   });
 
+  const embeddedFont = await loadFormulaFont();
   const bytes = buildDocxPackage(
     body,
-    spec.font.mathFamily,
+    FORMULA_FONT_NAME,
     {
       title: spec.job.title || "RetainPDF 保留排版译文",
       creator: "RetainPDF",
       description: "RetainPDF layout-preserving translation with native Office Math.",
     },
     theme,
-    undefined,
+    embeddedFont,
     // 保留排版的导出不要页眉页脚:它们会把绝对定位的内容整体挤走。
     { media, includeHeaderFooter: false },
   );
@@ -98,6 +129,7 @@ export async function buildLayoutDocx(rawSpec, { baseDir = process.cwd() } = {})
   return {
     bytes,
     pageCount: spec.pages.length,
+    embeddedFormulaFont: Boolean(embeddedFont),
     textboxCount,
     formulaCount,
     formulaErrors: errors,

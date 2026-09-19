@@ -42,7 +42,23 @@ npm test --workspace retainpdf2doc
 
 `dist/` 不在版本库里。Python 侧找不到它时会直接报出这条命令，不会让人对着非零退出码猜。
 
-## 公式转换失败时
+## 覆盖面
 
-保留原始 LaTeX 文本，**并在 stderr 报出来**，不让一个写坏的公式毁掉整份文档。
-（真实数据里遇到过一个：`\L` 是文本模式的 Ł，数学模式里非法。）
+全仓 3579 个公式逐个跑过：**3579 个全部转成原生 OMML**（每个约 0.09ms）。
+
+补到 100% 之前差 9 个，8 个是 `\AA`（埃）、1 个是 `\L`（Ł）——都是**文本模式**符号
+命令，MathJax 的 TeX 输入不实现。`src/text-symbols.mjs` 把它们换成 Unicode。
+
+那张表**不是**旧版 47 条符号表的复活，区别在兜底：表里没有、MathJax 也不认的命令会
+**响亮失败**（`assertResolvedPresentationMathMl` 主动拒绝未解析命令），调用方保留原始
+LaTeX 文本并在 stderr 报出来。静默印错是不可能的。
+
+## 数学字体
+
+公式用 **Latin Modern Math**，而且**随文档嵌入**（`assets/fonts/`，GUST 协议允许再分发）。
+
+不用 Cambria Math 是因为它只在 Windows 版 Office 自带——macOS 的 Word、LibreOffice、
+WPS 上不一定有，缺了 Word 会拿没有数学字形的字体替换，积分号、求和号、可伸缩括号
+直接变豆腐块。嵌入之后跟机器上装没装无关。
+
+代价是固定 **+0.49 MB**（压缩后）。5 页的文档 +35%，29 页的 +6%，文档越大占比越小。

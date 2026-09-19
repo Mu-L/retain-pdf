@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { latexToOmml, clearFormulaCache, FormulaConversionError } from "../src/formula.mjs";
+import { normalizeTextModeSymbols, TEXT_MODE_SYMBOLS } from "../src/text-symbols.mjs";
 
 const textOf = (omml) => [...omml.matchAll(/<m:t[^>]*>([^<]*)<\/m:t>/g)].map((m) => m[1]).join("");
 const tagsOf = (omml) => new Set([...omml.matchAll(/<(m:[a-zA-Z]+)[ >/]/g)].map((m) => m[1]));
@@ -87,5 +88,47 @@ describe("LaTeX → 原生 OMML", () => {
       assert.ok(caught.latex.includes("frac"), "异常里没带上原始 LaTeX");
     }
     // MathJax 对很多残缺输入是容错的；容错时不该悄悄丢内容。
+  });
+});
+
+describe("文本模式符号", () => {
+  it("MathJax 不认的文本模式命令换成 Unicode 后能转换", () => {
+    // 全仓 3579 个公式实测:补这张表之前 9 个失败，其中 8 个是 `\AA`（埃）。
+    const cases = [
+      [String.raw`2.5\ \text{\AA}`, "Å"],
+      [String.raw`\L`, "Ł"],
+      [String.raw`\o`, "ø"],
+      [String.raw`\ddag`, "‡"],
+    ];
+    for (const [latex, expected] of cases) {
+      const text = textOf(latexToOmml(latex));
+      assert.ok(text.includes(expected), `${latex} 排出来是 ${JSON.stringify(text)}`);
+    }
+  });
+
+  it("不会截断更长的命令名", () => {
+    // `\L` 不能把 `\Lambda` 的头吃掉——这正是旧版 `\le` 吃掉 `\left` 的那类错误。
+    assert.equal(normalizeTextModeSymbols(String.raw`\Lambda`), String.raw`\Lambda`);
+    assert.equal(normalizeTextModeSymbols(String.raw`\alpha`), String.raw`\alpha`);
+    // 短名是长名前缀的情况:`o` 不能把 `\oe` 截成 `ø` + `e`。
+    assert.equal(normalizeTextModeSymbols(String.raw`\oe`), "œ");
+    assert.equal(normalizeTextModeSymbols(String.raw`\OE`), "Œ");
+    assert.equal(normalizeTextModeSymbols(String.raw`\ddag`), "‡");
+    assert.ok(textOf(latexToOmml(String.raw`\Lambda`)).includes("Λ"), "\\Lambda 被破坏了");
+  });
+
+  it("表里没有、MathJax 也不认的命令**响亮失败**，不会印成字母", () => {
+    // 这是和旧版那张 47 条符号表的根本区别:旧版表里没有就剥掉反斜杠当字母印出去。
+    assert.throws(
+      () => latexToOmml(String.raw`\thiscommandreallydoesnotexist`),
+      /did not resolve|公式转换失败/,
+    );
+  });
+
+  it("MathJax 自己认识的符号不去覆盖", () => {
+    // 表里不该收 `\S`、`\textdegree` 这类——覆盖掉 MathJax 自己的处理只会引入偏差。
+    for (const name of ["S", "textdegree", "micro", "celsius"]) {
+      assert.ok(!(name in TEXT_MODE_SYMBOLS), `\\${name} 不该进表，MathJax 自己认识`);
+    }
   });
 });

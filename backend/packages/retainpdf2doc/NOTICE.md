@@ -28,8 +28,15 @@ pptx、markdown 解析、`docx/paddleocr/` 的固定排版构建器、语义重�
 排版层的收敛结果（读回译文 PDF，或阅读器那套二分）。我们自己写这一层是因为我们的更准，
 不是因为嫌它不好用。
 
+## 字体
+
+`assets/fonts/latinmodern-math.otf` —— Latin Modern Math，GUST Font License
+（允许再分发，见同目录的 GUST-FONT-LICENSE.txt / README / MANIFEST）。随文档嵌入，
+所以目标机器不需要预装。
+
 ## 包里还有什么
 
 - `src/` —— 我们自己的:排版规格契约（`spec.mjs`）、文档主体构建（`body.mjs`，
-  DrawingML 绝对定位文本框 + 背景图 + 分节）、公式桥接（`formula.mjs`）、CLI。
+  DrawingML 绝对定位文本框 + 背景图 + 分节）、公式桥接（`formula.mjs`）、
+  文本模式符号规范化（`text-symbols.mjs`）、CLI。
 - `vendor/` —— 上游的公式链路与 docx 打包原语，见上。

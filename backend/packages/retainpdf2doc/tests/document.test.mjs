@@ -149,6 +149,21 @@ describe("文档结构", () => {
     assert.ok(!documentXml.includes("mathbf"), "命令名被当成文字印出来了");
   });
 
+  it("数学字体随文档嵌入，不只是写个名字", () => {
+    // 只写名字的话，目标机器没装这个字体时 Word 会拿普通字体替换，而普通字体没有
+    // 数学字形——积分号、求和号、可伸缩括号会变成豆腐块。Cambria Math 只在 Windows
+    // 版 Office 自带，macOS Word / LibreOffice / WPS 上都不一定有。
+    const fontTable = parts["word/fontTable.xml"];
+    assert.ok(fontTable, "没有 fontTable.xml，字体没嵌进来");
+    const xml = strFromU8(fontTable);
+    assert.ok(xml.includes('w:name="Latin Modern Math"'), "fontTable 里没声明数学字体");
+    assert.ok(xml.includes("embedRegular"), "字体只是声明了名字，没有真的嵌入");
+    const embedded = Object.keys(parts).filter((name) => name.endsWith(".odttf"));
+    assert.equal(embedded.length, 1, `嵌入的字体文件有 ${embedded.length} 个`);
+    assert.ok(parts[embedded[0]].length > 100_000, "嵌入的字体文件小得不像真字体");
+    assert.ok(documentXml.includes('w:ascii="Latin Modern Math"'), "公式没有声明数学字体");
+  });
+
   it("保留排版的导出不带页眉页脚——它们会把绝对定位的内容挤走", () => {
     assert.ok(!documentXml.includes("<w:headerReference"), "引用了页眉");
     assert.ok(!documentXml.includes("<w:footerReference"), "引用了页脚");
@@ -171,5 +186,32 @@ describe("规格校验", () => {
       () => buildLayoutDocx(spec(), { baseDir: dir }),
       /第 1 页的背景图读不到/,
     );
+  });
+});
+
+
+describe("公式边界", () => {
+  it("公式体里的转义美元不会让整串掉回字面文本", async () => {
+    // 真实语料里有一处：`总反应成本约为 $\$1.4$。`——公式体里是个转义的美元符（价格）。
+    // 第一版正则的公式体写成 `[^$\n]`，把美元符整个排除了，于是匹配不上，整串
+    // `$\$1.4$` 会被当字面文本印进文档。
+    const dir = await mkdtemp(path.join(tmpdir(), "retainpdf2doc-escaped-"));
+    const withEscape = spec();
+    withEscape.pages = [withEscape.pages[1]];
+    withEscape.pages[0].blocks[0].text = "总反应成本约为 $\\$1.4$。";
+    const result = await buildLayoutDocx(withEscape, { baseDir: dir });
+    const xml = strFromU8(unzipSync(result.bytes)["word/document.xml"]);
+    assert.equal(result.formulaCount, 1, "转义美元的公式没被认出来");
+    assert.ok(xml.includes("<m:oMath"), "没有产出原生公式");
+    assert.ok(!xml.includes("$1.4$"), "整串被当字面文本印出来了");
+  });
+
+  it("`$$...$$` 当成一个公式，不是两个空的", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "retainpdf2doc-display-"));
+    const display = spec();
+    display.pages = [display.pages[1]];
+    display.pages[0].blocks[0].text = "行间 $$x^2+y^2=z^2$$ 结束";
+    const result = await buildLayoutDocx(display, { baseDir: dir });
+    assert.equal(result.formulaCount, 1, `认成了 ${result.formulaCount} 个公式`);
   });
 });
