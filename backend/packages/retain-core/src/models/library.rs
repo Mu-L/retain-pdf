@@ -113,6 +113,10 @@ pub struct MessageRecord {
     /// 父消息 id;空字符串 = 根节点。
     #[serde(default)]
     pub parent_id: String,
+    /// 这条消息是怎么结束的。空 = 正常答完;"cancelled" = 用户中途停止;
+    /// "rounds_exhausted" = 工具轮次用尽、被强制收尾。旧行读出来是空串。
+    #[serde(default)]
+    pub finish_reason: String,
 }
 
 /// 分类文件夹(合集)。v1 只用扁平结构展示,parent_id 为未来嵌套子分类预留
@@ -409,6 +413,10 @@ pub struct AppendMessageInput {
     /// 客户端稳定 id(与 assistant-ui store id 对齐);空则服务端生成。
     #[serde(default)]
     pub message_id: String,
+    /// 这条消息是怎么结束的。空/省略 = 正常答完;"cancelled" = 用户中途停止;
+    /// "rounds_exhausted" = 工具轮次用尽、被强制收尾。
+    #[serde(default)]
+    pub finish_reason: String,
     /// 追加后是否把 head 指到本条;默认 true。
     #[serde(default = "default_true")]
     pub set_head: bool,

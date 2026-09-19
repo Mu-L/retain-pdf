@@ -161,6 +161,9 @@ class ConversationState:
                 if request_runtime.capabilities.model_transport == "runtime_managed"
                 else payload.llm_model or self._settings.llm_model
             )
+            # 这条回答是怎么结束的,要跟着它一起落库。只活在当前这一轮的话,刷新回来
+            # 就看不出它其实没做完——而它写出来的话语气和正常回答没有区别。
+            finish_reason = f"{getattr(result, 'incomplete_reason', '') or ''}".strip()
             if payload.regenerate:
                 self._store.append_conversation_message(
                     conversation_id,
@@ -172,6 +175,7 @@ class ConversationState:
                     parent_id=parent_hint,
                     message_id=payload.assistant_message_id.strip(),
                     set_head=True,
+                    finish_reason=finish_reason,
                 )
                 return True
             user_id = prepersisted_user_id.strip()
@@ -195,6 +199,7 @@ class ConversationState:
                 parent_id=user_id or parent_hint,
                 message_id=payload.assistant_message_id.strip(),
                 set_head=True,
+                finish_reason=finish_reason,
             )
             return True
         except Exception as exc:  # noqa: BLE001 - answer remains usable

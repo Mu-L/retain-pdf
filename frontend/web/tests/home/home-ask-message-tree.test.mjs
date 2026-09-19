@@ -132,3 +132,49 @@ describe("定位某条回答对应的提问", () => {
     assert.equal(findTurnUserMessage([{ id: "a1", role: "assistant", content: "孤儿" }], "a1"), null);
   });
 });
+
+
+describe("刷新之后还记得这条回答是怎么结束的", () => {
+  /**
+   * 以前恢复出来的消息一律标成 complete：半截回答和被强制收尾的回答，刷新一次就都
+   * 变成看起来正常的答案。现在服务端在 ai_messages.finish_reason 上记着。
+   */
+  const restored = (finish) => messagesFromDetail({
+    head_id: "a1",
+    messages: [
+      { message_id: "u1", role: "user", content: "问题", parent_id: "" },
+      { message_id: "a1", role: "assistant", content: "半截回答", parent_id: "u1", finish_reason: finish },
+    ],
+  });
+
+  it("中断的回答恢复成 cancelled，而不是「正常答完」", () => {
+    assert.equal(restored("cancelled").at(-1).status, "cancelled");
+  });
+
+  it("被强制收尾的回答带回原因", () => {
+    const answer = restored("rounds_exhausted").at(-1);
+    assert.equal(answer.status, "complete");
+    assert.equal(answer.incompleteReason, "rounds_exhausted");
+  });
+
+  it("正常答完的不带任何标记", () => {
+    const answer = restored("").at(-1);
+    assert.equal(answer.status, "complete");
+    assert.equal(answer.incompleteReason, undefined);
+  });
+
+  it("旧消息没有这个字段，照旧当成正常答完", () => {
+    const out = messagesFromDetail({
+      head_id: "a1",
+      messages: [
+        { message_id: "u1", role: "user", content: "问题", parent_id: "" },
+        { message_id: "a1", role: "assistant", content: "回答", parent_id: "u1" },
+      ],
+    });
+    assert.equal(out.at(-1).status, "complete");
+  });
+
+  it("提问不受影响——结束原因只描述回答", () => {
+    assert.equal(restored("cancelled")[0].status, "complete");
+  });
+});

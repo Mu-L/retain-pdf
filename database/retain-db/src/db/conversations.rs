@@ -13,7 +13,7 @@ const CONVERSATION_COLUMNS: &str =
 
 const MESSAGE_COLUMNS: &str = "message_id, conversation_id, seq, role, content,
                    citations_json, tool_trace_json, model, created_at,
-                   COALESCE(parent_id, '')";
+                   COALESCE(parent_id, ''), COALESCE(finish_reason, '')";
 
 impl Db {
     pub fn get_agent_runtime_session(
@@ -324,6 +324,7 @@ impl Db {
         model: &str,
         parent_id: &str,
         set_head: bool,
+        finish_reason: &str,
     ) -> Result<MessageRecord> {
         let mut conn = self.connect()?;
         let now = now_iso();
@@ -338,8 +339,9 @@ impl Db {
             r#"
             INSERT INTO ai_messages (
                 message_id, conversation_id, seq, role, content,
-                citations_json, tool_trace_json, model, created_at, parent_id
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+                citations_json, tool_trace_json, model, created_at, parent_id,
+                finish_reason
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
             "#,
             params![
                 message_id,
@@ -352,6 +354,7 @@ impl Db {
                 model,
                 now,
                 parent,
+                finish_reason.trim(),
             ],
         )?;
         if set_head {
@@ -384,6 +387,7 @@ impl Db {
             model: model.to_string(),
             created_at: now,
             parent_id: parent.to_string(),
+            finish_reason: finish_reason.trim().to_string(),
         })
     }
 
@@ -449,6 +453,9 @@ impl Db {
                 citations_json: citations_json.clone(),
                 tool_trace_json: tool_trace_json.clone(),
                 model: model.clone(),
+                // fork 出来的是历史路径的副本，批量接口没有带结束原因这一列。
+                // 空串 = 正常答完,和此前的呈现一致;要带过来得先扩这个接口的元组。
+                finish_reason: String::new(),
                 created_at: now.clone(),
                 parent_id: parent.to_string(),
             });
@@ -491,5 +498,6 @@ fn row_to_message(row: &rusqlite::Row<'_>) -> rusqlite::Result<MessageRecord> {
         model: row.get(7)?,
         created_at: row.get(8)?,
         parent_id: row.get(9).unwrap_or_default(),
+        finish_reason: row.get(10).unwrap_or_default(),
     })
 }

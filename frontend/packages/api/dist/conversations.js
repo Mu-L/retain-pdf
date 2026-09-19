@@ -190,7 +190,15 @@ export function messagesToBranchItems(messages) {
         }
         catch { }
         const parent = resolveParent(`${m.parent_id || ""}`.trim());
-        items.push({ parentId: parent, message: { id: m.message_id, role, content: m.content || "", ...(citations ? { citations } : {}), ...(role === "assistant" ? { status: { type: "complete", reason: "stop" } } : {}) } });
+        const finish = `${m.finish_reason || ""}`.trim();
+        // 结束原因落在 status 上：assistant-ui 的 MessageStatus 本来就是这个形状
+        // （incomplete + reason），阅读器那侧已经在用它。
+        const status = role === "assistant"
+            ? (finish
+                ? { type: "incomplete", reason: finish }
+                : { type: "complete", reason: "stop" })
+            : null;
+        items.push({ parentId: parent, message: { id: m.message_id, role, content: m.content || "", ...(citations ? { citations } : {}), ...(status ? { status } : {}) } });
     }
     return items;
 }

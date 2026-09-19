@@ -268,6 +268,7 @@ pub fn append_message(
         &payload.model,
         &parent_id,
         payload.set_head,
+        &payload.finish_reason,
     )?)
 }
 

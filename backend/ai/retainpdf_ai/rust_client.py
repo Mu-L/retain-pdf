@@ -150,6 +150,7 @@ class RustApiClient:
         parent_id: str = "",
         message_id: str = "",
         set_head: bool = True,
+        finish_reason: str = "",
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "role": role,
@@ -165,6 +166,10 @@ class RustApiClient:
         mid = (message_id or "").strip()
         if mid:
             payload["message_id"] = mid
+        # 正常答完时整个字段不发:"完整"是默认,旧服务端也认不出这个键。
+        reason = (finish_reason or "").strip()
+        if reason:
+            payload["finish_reason"] = reason
         return self._post(
             f"/api/v1/ai/conversations/{_segment(conversation_id)}/messages",
             payload,

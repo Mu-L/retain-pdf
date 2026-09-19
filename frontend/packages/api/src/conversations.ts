@@ -23,6 +23,11 @@ export type MessageRecord = {
   model?: string;
   created_at: string;
   parent_id?: string;
+  /**
+   * 这条消息是怎么结束的。空/缺席 = 正常答完；"cancelled" = 用户中途停止，正文只有
+   * 半截；"rounds_exhausted" = 工具轮次用尽、模型被强制收尾。旧消息读出来是空。
+   */
+  finish_reason?: string;
 };
 
 export type ConversationDetail = ConversationRecord & { messages: MessageRecord[] };
@@ -202,7 +207,15 @@ export function messagesToBranchItems(messages: MessageRecord[]): Array<{ parent
     let citations: unknown[] | undefined;
     try { const raw = JSON.parse(m.citations_json || "[]"); if (Array.isArray(raw) && raw.length) citations = raw; } catch {}
     const parent = resolveParent(`${m.parent_id || ""}`.trim());
-    items.push({ parentId: parent, message: { id: m.message_id, role, content: m.content || "", ...(citations ? { citations } : {}), ...(role === "assistant" ? { status: { type: "complete", reason: "stop" } } : {}) } });
+    const finish = `${m.finish_reason || ""}`.trim();
+    // 结束原因落在 status 上：assistant-ui 的 MessageStatus 本来就是这个形状
+    // （incomplete + reason），阅读器那侧已经在用它。
+    const status = role === "assistant"
+      ? (finish
+        ? { type: "incomplete", reason: finish }
+        : { type: "complete", reason: "stop" })
+      : null;
+    items.push({ parentId: parent, message: { id: m.message_id, role, content: m.content || "", ...(citations ? { citations } : {}), ...(status ? { status } : {}) } });
   }
   return items;
 }

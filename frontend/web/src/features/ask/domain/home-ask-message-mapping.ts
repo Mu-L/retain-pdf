@@ -58,6 +58,7 @@ type ConversationDetailLike = {
     citations_json?: string;
     parent_id?: string;
     model?: string;
+    finish_reason?: string;
   }>;
 };
 
@@ -82,14 +83,21 @@ export function nodesFromDetail(detail: ConversationDetailLike): {
   // 记忆压缩的摘要以 role="assistant" 落库，但它不是回答——messagesToBranchItems 会按
   // model="memory/…" 把它藏掉并把子节点重新接到它父节点上。主页此前没有这一步，压缩一
   // 发生，线程里就会冒出一条用户没问过的「【对话摘要】…」。
-  const nodes = messagesToBranchItems(records).map((item) => ({
-    id: item.message.id,
-    role: item.message.role,
-    content: `${item.message.content || ""}`,
-    citations: (item.message.citations || []) as HomeAskCitation[],
-    status: "complete" as const,
-    ...(item.parentId ? { parentId: item.parentId } : {}),
-  }));
+  const nodes = messagesToBranchItems(records).map((item) => {
+    // 服务端记下了这条消息是怎么结束的（ai_messages.finish_reason）。此前这里一律
+    // 标成 complete——刷新之后，半截回答和被强制收尾的回答都会变成看起来正常的答案。
+    const finish = `${item.message.status?.reason || ""}`.trim();
+    const incomplete = item.message.status?.type === "incomplete" && finish;
+    return {
+      id: item.message.id,
+      role: item.message.role,
+      content: `${item.message.content || ""}`,
+      citations: (item.message.citations || []) as HomeAskCitation[],
+      status: (incomplete && finish === "cancelled" ? "cancelled" : "complete") as HomeAskMessage["status"],
+      ...(incomplete && finish !== "cancelled" ? { incompleteReason: finish } : {}),
+      ...(item.parentId ? { parentId: item.parentId } : {}),
+    };
+  });
 
   return { nodes, headId: `${detail?.head_id || ""}`.trim() };
 }

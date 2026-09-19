@@ -91,6 +91,7 @@ fn seed_document_and_conversation(state: &crate::AppState, suffix: &str) -> (Str
             "",
             "",
             true,
+            "",
         )
         .expect("seed request message");
     (document_id, conversation_id)

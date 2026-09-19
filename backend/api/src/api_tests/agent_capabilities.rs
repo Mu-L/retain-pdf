@@ -46,6 +46,7 @@ fn seed_scope(state: &crate::AppState, marker: char) -> (String, String, String)
             "",
             "",
             true,
+            "",
         )
         .expect("seed request message");
     (document_id, conversation_id, message_id)

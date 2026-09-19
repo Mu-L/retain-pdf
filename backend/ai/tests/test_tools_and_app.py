@@ -112,6 +112,7 @@ class FakeRust:
         parent_id="",
         message_id="",
         set_head=True,
+        finish_reason="",
     ):
         record = self.conversations.setdefault(
             conversation_id,
@@ -132,6 +133,7 @@ class FakeRust:
             "tool_trace_json": tool_trace_json,
             "model": model,
             "parent_id": (parent_id or "").strip(),
+            "finish_reason": (finish_reason or "").strip(),
             "seq": len(record["messages"]) + 1,
         }
         record["messages"].append(msg)
@@ -1281,3 +1283,56 @@ def test_agent_places_history_between_system_and_current_question():
     assert roles == ["system", "user", "assistant", "user"]
     assert seen["messages"][1]["content"] == "上一问"
     assert seen["messages"][-1]["content"] == "当前问题"
+
+
+class _CutShortAgent(FakeAgent):
+    """轮次用尽、被强制收尾的那种回答。"""
+
+    def ask(self, *args, **kwargs):
+        result = super().ask(*args, **kwargs)
+        result.incomplete_reason = "rounds_exhausted"
+        return result
+
+
+def _assistant_rows(rust, conversation_id):
+    return [
+        m for m in rust.conversations[conversation_id]["messages"]
+        if m["role"] == "assistant"
+    ]
+
+
+def test_persisted_answer_remembers_that_it_was_cut_short():
+    """结束原因要跟着回答一起落库。
+
+    只活在当前这一轮的话,刷新回来就看不出它没做完——而它写出来的话和正常回答
+    没有区别,用户拿到的是一个看上去正常、其实提前收尾的答案。
+    """
+    settings = Settings(api_keys=frozenset({"test-key"}), llm_api_key="env-llm-key")
+    rust = FakeRust()
+    client = TestClient(build_app(settings, agent=_CutShortAgent(), rust=rust))
+    res = client.post(
+        "/v1/ask",
+        json={"question": "算一下", "document_id": "doc-a"},
+        headers={"X-API-Key": "test-key"},
+    )
+    assert res.status_code == 200
+    conversation_id = res.json()["data"]["conversation_id"]
+    rows = _assistant_rows(rust, conversation_id)
+    assert rows, "回答没有落库"
+    assert rows[-1]["finish_reason"] == "rounds_exhausted"
+
+
+def test_a_complete_answer_is_persisted_without_a_reason():
+    """"完整"是默认,不该在每条消息上都写一遍。"""
+    settings = Settings(api_keys=frozenset({"test-key"}), llm_api_key="env-llm-key")
+    rust = FakeRust()
+    client = TestClient(build_app(settings, agent=FakeAgent(), rust=rust))
+    res = client.post(
+        "/v1/ask",
+        json={"question": "普通问题", "document_id": "doc-a"},
+        headers={"X-API-Key": "test-key"},
+    )
+    conversation_id = res.json()["data"]["conversation_id"]
+    rows = _assistant_rows(rust, conversation_id)
+    assert rows
+    assert rows[-1]["finish_reason"] == ""

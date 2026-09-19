@@ -18,6 +18,11 @@ export type MessageRecord = {
     model?: string;
     created_at: string;
     parent_id?: string;
+    /**
+     * 这条消息是怎么结束的。空/缺席 = 正常答完；"cancelled" = 用户中途停止，正文只有
+     * 半截；"rounds_exhausted" = 工具轮次用尽、模型被强制收尾。旧消息读出来是空。
+     */
+    finish_reason?: string;
 };
 export type ConversationDetail = ConversationRecord & {
     messages: MessageRecord[];

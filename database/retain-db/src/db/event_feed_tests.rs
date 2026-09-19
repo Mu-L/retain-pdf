@@ -74,6 +74,10 @@ fn event_uid_is_backfilled_for_legacy_schema_and_migrations_are_idempotent() {
          DROP TABLE event_source_versions;
          ALTER TABLE events DROP COLUMN event_uid;
          ALTER TABLE jobs DROP COLUMN document_id;
+         -- 这里回退到 v13，所以 v14 之后的每一条迁移都会重跑一遍。SQLite 没有
+         -- ADD COLUMN IF NOT EXISTS，凡是被重跑的加列迁移，都要在这里先撤掉，
+         -- 否则第二次执行会以「列已存在」失败。新增迁移时记得跟上这一段。
+         ALTER TABLE ai_messages DROP COLUMN finish_reason;
          PRAGMA user_version = 13;",
     )
     .unwrap();

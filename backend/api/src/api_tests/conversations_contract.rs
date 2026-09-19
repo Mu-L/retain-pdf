@@ -65,6 +65,7 @@ fn sample_message() -> MessageRecord {
         role: "user".into(),
         content: "hi".into(),
         citations_json: String::new(),
+        finish_reason: String::new(),
         tool_trace_json: String::new(),
         model: String::new(),
         created_at: "2026-01-01T00:00:00Z".into(),
