@@ -17,6 +17,7 @@ Node 包生成。
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -41,27 +42,56 @@ _REPO_ROOT = Path(__file__).resolve().parents[6]
 _PACKAGE_DIR = _REPO_ROOT / "backend" / "packages" / "retainpdf2doc"
 _CLI_ENTRY = _PACKAGE_DIR / "dist" / "cli.mjs"
 
+# 上面那个相对路径只在**仓库检出**里成立。装进桌面应用或 Docker 镜像之后，这个包
+# 是从 site-packages 里跑的，往上数六层会数到 python 运行时目录里去，`dist/cli.mjs`
+# 当然不存在——v4.2.5 的 Mac 应用就是这么导不出 Word 的。
+#
+# 所以打包方必须通过这两个环境变量把真实位置告诉我们:
+#   RETAINPDF2DOC_CLI  —— dist/cli.mjs 的绝对路径
+#   RETAINPDF_NODE_BIN —— node 可执行文件（桌面应用可以指向 Electron 自己，
+#                         配合 ELECTRON_RUN_AS_NODE=1）
+_CLI_ENV_VAR = "RETAINPDF2DOC_CLI"
+_NODE_ENV_VAR = "RETAINPDF_NODE_BIN"
+
 
 class LayoutDocxToolchainError(RuntimeError):
     """retainpdf2doc 没装好/没构建。单独一个类型，方便上游区分「环境问题」和「数据问题」。"""
 
 
 def _resolve_node() -> str:
+    configured = os.environ.get(_NODE_ENV_VAR, "").strip()
+    if configured:
+        if not Path(configured).is_file():
+            raise LayoutDocxToolchainError(
+                f"{_NODE_ENV_VAR} 指向的文件不存在：{configured}",
+            )
+        return configured
     node = shutil.which("node")
     if not node:
         raise LayoutDocxToolchainError(
-            "找不到 node。Word 导出由 backend/packages/retainpdf2doc 生成，需要 Node >= 20。",
+            "找不到 node。Word 导出由 retainpdf2doc（Node >= 20）生成。"
+            f"打包环境请用 {_NODE_ENV_VAR} 指定 node 可执行文件"
+            "（桌面应用可指向 Electron 自身并设 ELECTRON_RUN_AS_NODE=1）。",
         )
     return node
 
 
 def _resolve_cli() -> Path:
+    configured = os.environ.get(_CLI_ENV_VAR, "").strip()
+    if configured:
+        path = Path(configured)
+        if not path.is_file():
+            raise LayoutDocxToolchainError(
+                f"{_CLI_ENV_VAR} 指向的文件不存在：{configured}",
+            )
+        return path
     if not _CLI_ENTRY.is_file():
-        # 这条信息要能自己说清楚怎么修——今天刚吃过一次亏，一个路径问题只表现成
-        # "failed to build layout-docx"，什么线索都没有。
+        # 这条信息要能自己说清楚怎么修——排查一个路径问题只能对着
+        # "failed to build layout-docx" 猜，那种体验不能再来一次。
         raise LayoutDocxToolchainError(
-            f"retainpdf2doc 还没构建（缺 {_CLI_ENTRY}）。"
-            f"在仓库根目录跑：npm run build --workspace retainpdf2doc",
+            f"找不到 retainpdf2doc 的 CLI（试过 {_CLI_ENTRY}）。"
+            f"仓库里跑：npm run build --workspace retainpdf2doc；"
+            f"打包环境请用 {_CLI_ENV_VAR} 指定 dist/cli.mjs 的位置。",
         )
     return _CLI_ENTRY
 
@@ -174,9 +204,13 @@ def export_layout_docx(
     spec_path.write_text(json.dumps(spec, ensure_ascii=False), encoding="utf-8")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    env = dict(os.environ)
+    # 桌面应用会把 node 指向 Electron 本体，必须带上这个它才以 Node 模式启动。
+    if os.environ.get(_NODE_ENV_VAR, "").strip():
+        env.setdefault("ELECTRON_RUN_AS_NODE", "1")
     result = subprocess.run(
         [node, str(cli), str(spec_path), str(output_path)],
-        capture_output=True, text=True, timeout=1800,
+        capture_output=True, text=True, timeout=1800, env=env,
     )
     if result.returncode != 0:
         # 把子进程的 stderr 带上。上游只会看到这一条，吞掉它就等于让人对着

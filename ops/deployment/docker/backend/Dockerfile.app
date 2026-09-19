@@ -105,6 +105,25 @@ RUN set -eux; \
     install -m 0644 /tmp/fx/THIRD_PARTY_NOTICES.md /opt/fx/licenses/THIRD_PARTY_NOTICES.md; \
     test "$(/opt/fx/bin/fx --version)" = "$FX_VERSION"
 
+# 保留排版的 Word 导出由 retainpdf2doc（Node 包）生成，Python 流水线会起它。
+# 它的 dist/ 不进版本库，所以镜像里得自己构建一次。
+FROM node:22-bookworm-slim AS docbuilder
+WORKDIR /build
+# 从仓库根的 lock 安装:workspace 集合必须齐全，少一份 manifest `npm ci` 就对不上。
+COPY package.json package-lock.json ./
+COPY frontend/desktop/package.json ./frontend/desktop/package.json
+COPY frontend/web/package.json ./frontend/web/package.json
+COPY frontend/packages/api/package.json ./frontend/packages/api/package.json
+COPY frontend/packages/domain/package.json ./frontend/packages/domain/package.json
+COPY frontend/packages/reader/package.json ./frontend/packages/reader/package.json
+COPY frontend/packages/ui/package.json ./frontend/packages/ui/package.json
+COPY contracts/package.json ./contracts/package.json
+COPY backend/packages/retainpdf2doc/package.json ./backend/packages/retainpdf2doc/package.json
+RUN npm ci --ignore-scripts
+COPY backend/packages/retainpdf2doc/ ./backend/packages/retainpdf2doc/
+RUN npm run build --workspace retainpdf2doc \
+    && test -f backend/packages/retainpdf2doc/dist/cli.mjs
+
 FROM python:3.11-slim-bookworm AS runtime
 
 ARG CMARKER_VERSION=0.1.10
@@ -116,6 +135,7 @@ ARG RETAINPDF_GID=10001
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PROJECT_ROOT=/app \
+    RETAINPDF2DOC_CLI=/app/services/retainpdf2doc/dist/cli.mjs \
     RUST_API_ROOT=/app/services/api \
     RUST_API_DATA_ROOT=/data \
     OUTPUT_ROOT=/data/jobs \
@@ -180,6 +200,11 @@ COPY --from=builder /build/target/release/retain-jobsd /usr/local/bin/retain-job
 COPY --from=builder /build/target/release/retainpdf-agent /usr/local/bin/retainpdf-agent
 COPY backend/config /app/services/config
 COPY backend/pipeline /app/services/pipeline
+# Node 运行时:直接从官方 node 镜像取二进制（两边都是 bookworm，ABI 一致），
+# 比 apt 装一个过时的 nodejs 干净。
+COPY --from=docbuilder /usr/local/bin/node /usr/local/bin/node
+COPY --from=docbuilder /build/backend/packages/retainpdf2doc/dist /app/services/retainpdf2doc/dist
+COPY --from=docbuilder /build/backend/packages/retainpdf2doc/assets /app/services/retainpdf2doc/assets
 COPY backend/ai /app/services/ai
 RUN pip install --no-cache-dir --no-deps /app/services/pipeline /app/services/ai
 COPY backend/api/auth.local.example.json /app/services/api/auth.local.example.json

@@ -67,6 +67,12 @@ function buildBackendEnv(options = {}) {
     PYTHONUTF8: "1",
     PYTHONDONTWRITEBYTECODE: "1",
     PDF_TRANSLATOR_TRUST_ENV_PROXY: "1",
+    // 保留排版的 Word 导出由 retainpdf2doc（Node 包）生成，Python 流水线会起它。
+    //
+    // 装好的应用里没有仓库布局，所以必须显式告诉它 CLI 在哪；node 用 Electron 自己
+    // （配 ELECTRON_RUN_AS_NODE=1，Python 侧会带上），这样不用再往包里塞一个 node。
+    RETAINPDF2DOC_CLI: path.join(backendRoot, "retainpdf2doc", "dist", "cli.mjs"),
+    RETAINPDF_NODE_BIN: process.execPath,
     RETAIN_PDF_FONT_PATH: bundledFontPath,
     RETAIN_PDF_TITLE_BOLD_FONT_PATH: bundledTitleBoldFontPath,
     RETAIN_PDF_TYPST_FONT_DIRS: bundledTypstFontDir,

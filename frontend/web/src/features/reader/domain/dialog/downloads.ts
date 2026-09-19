@@ -29,10 +29,8 @@ export async function downloadProtectedResource(
 ) {
   const trimmedName = `${preferredName || ""}`.trim();
   const suggestedName = trimmedName || fallbackName;
-  const downloadTarget = await prepareDownloadTarget(suggestedName);
-  if (downloadTarget.kind === "aborted") {
-    return;
-  }
+  // 惰性:响应确认成功之后才问保存位置（见 downloads.ts）。
+  const downloadTarget = () => prepareDownloadTarget(suggestedName);
   if (typeof onBusy === "function") {
     onBusy(true, "下载中...");
   }

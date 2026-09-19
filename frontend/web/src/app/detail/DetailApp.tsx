@@ -258,10 +258,8 @@ export function DetailApp({
     event.preventDefault();
     const state = pageStateRef.current;
     const fallbackName = fallbackNameFactory(state.job?.job_id || "job");
-    const downloadTarget = await prepareDownloadTarget(fallbackName);
-    if (downloadTarget.kind === "aborted") {
-      return;
-    }
+    // 惰性:响应确认成功之后才问保存位置，否则请求失败会在磁盘上留下一个 0 字节文件。
+    const downloadTarget = () => prepareDownloadTarget(fallbackName);
     try {
       showDownloadPreparing(fallbackName);
       await downloadProtectedResponse({

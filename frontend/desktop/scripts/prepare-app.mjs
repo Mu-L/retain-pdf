@@ -700,6 +700,27 @@ desktopIndexHtml = desktopIndexHtml.replace('\n    <script src="./runtime-config
 fs.writeFileSync(desktopIndexPath, desktopIndexHtml, "utf8");
 
 if (!frontendOnly) {
+  // Word 导出（保留排版）由 retainpdf2doc 这个 Node 包生成，Python 流水线会起它。
+  // 不打进来的话，装好的应用里 `dist/cli.mjs` 根本不存在——v4.2.5 的 Mac 应用就是
+  // 这样导不出 Word 的。node 本体不用带:main.js 会把 Electron 自己指过去
+  // （ELECTRON_RUN_AS_NODE=1）。
+  const docBuilderRoot = path.join(repoRoot, "backend", "packages", "retainpdf2doc");
+  const docBuilderDist = path.join(docBuilderRoot, "dist", "cli.mjs");
+  if (!fs.existsSync(docBuilderDist)) {
+    throw new Error(
+      `missing retainpdf2doc build at ${docBuilderDist}; run: npm run build --workspace retainpdf2doc`,
+    );
+  }
+  const docBuilderDst = path.join(outputBackendRoot, "retainpdf2doc");
+  // dist/ 是**自包含**的（依赖全部内联，见 retainpdf2doc/scripts/build.mjs），
+  // assets/ 里是随文档嵌入的数学字体。不用拷 node_modules。
+  for (const entry of ["dist", "assets", "package.json"]) {
+    fs.cpSync(path.join(docBuilderRoot, entry), path.join(docBuilderDst, entry), {
+      recursive: true,
+      force: true,
+    });
+  }
+
   // Keep the bundled layout aligned with main.js and RUST_API_SCRIPTS_DIR.
   const pipelineScriptsRoot = servicesPipelineRoot;
   if (!fs.existsSync(path.join(pipelineScriptsRoot, "pyproject.toml"))) {

@@ -174,10 +174,8 @@ export function mountGlossariesFeature({
       return;
     }
     const fallbackName = `${state.currentDetail?.name || state.selectedId || "glossary"}.csv`;
-    const downloadTarget = await prepareDownloadTarget(fallbackName);
-    if (downloadTarget.kind === "aborted") {
-      return;
-    }
+    // 惰性:响应确认成功之后才问保存位置（见 downloads.ts）。
+    const downloadTarget = () => prepareDownloadTarget(fallbackName);
     viewPort.setStatus("正在导出 CSV...");
     try {
       showDownloadPreparing(fallbackName);

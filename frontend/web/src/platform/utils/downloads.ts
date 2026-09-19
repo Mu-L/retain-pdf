@@ -252,8 +252,16 @@ export async function downloadProtectedResponse({
   }
   const disposition = resp.headers.get("content-disposition") || "";
   const filename = preferredName || fileNameFromDisposition(disposition, fallbackName);
+  // target 允许传一个函数:那样**要等响应确认成功之后**才去问保存位置。
+  //
+  // 提前创建 target 是有代价的:`showSaveFilePicker` 在用户点确定的那一刻就把文件
+  // 建出来了（0 字节）。随后请求失败、抛异常，磁盘上就留下一个空文件——用户看到的
+  // 不是错误提示，而是一份"打开什么都没有的文档"。Word 导出在打包环境里失败时就是
+  // 这么表现的，排查了很久才发现根本没请求成功。
+  const resolvedTarget = typeof target === "function" ? await target() : target;
+  if (resolvedTarget?.kind === "aborted") return "";
   await saveResponseDownload(resp, {
-    target,
+    target: resolvedTarget,
     filename,
     onProgress,
   });

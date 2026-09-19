@@ -680,3 +680,45 @@ def test_every_module_in_the_word_package_is_tracked_by_git():
         f"这些模块没进版本库，CI 上会 ModuleNotFoundError：{missing}。"
         "多半又是 .gitignore 那条 `output/` 把它们吃了——检查解除忽略规则的路径。"
     )
+
+
+def test_packaged_deployments_can_point_at_the_cli_and_node(tmp_path: Path, monkeypatch):
+    """打包环境用环境变量告知 retainpdf2doc 和 node 的真实位置。
+
+    `_CLI_ENTRY` 是按仓库布局往上数六层算出来的，这只在**检出**里成立。装进桌面应用
+    或 Docker 之后这个包从 site-packages 跑，往上数会数到 python 运行时目录里，
+    `dist/cli.mjs` 当然不存在——v4.2.5 的 Mac 应用就是这么导不出 Word 的（而且当时
+    前端会在请求失败前就把文件创建出来，于是表现成"打开什么都没有的空白文档"）。
+    """
+    from retainpdf_pipeline.render.output.word import exporter
+
+    cli = tmp_path / "cli.mjs"
+    cli.write_text("// stub", encoding="utf-8")
+    node = tmp_path / "node"
+    node.write_text("#!/bin/sh\n", encoding="utf-8")
+
+    monkeypatch.setenv(exporter._CLI_ENV_VAR, str(cli))
+    monkeypatch.setenv(exporter._NODE_ENV_VAR, str(node))
+    assert exporter._resolve_cli() == cli
+    assert exporter._resolve_node() == str(node)
+
+    # 指错了要明确报出来，不能悄悄退回仓库布局。
+    monkeypatch.setenv(exporter._CLI_ENV_VAR, str(tmp_path / "nope.mjs"))
+    with pytest.raises(exporter.LayoutDocxToolchainError, match="不存在"):
+        exporter._resolve_cli()
+    monkeypatch.setenv(exporter._NODE_ENV_VAR, str(tmp_path / "nope"))
+    with pytest.raises(exporter.LayoutDocxToolchainError, match="不存在"):
+        exporter._resolve_node()
+
+
+def test_the_missing_toolchain_message_says_how_to_fix_it(monkeypatch):
+    """两种环境各自的修法都要写在报错里。"""
+    from retainpdf_pipeline.render.output.word import exporter
+
+    monkeypatch.delenv(exporter._CLI_ENV_VAR, raising=False)
+    monkeypatch.setattr(exporter, "_CLI_ENTRY", Path("/definitely/not/here/cli.mjs"))
+    with pytest.raises(exporter.LayoutDocxToolchainError) as caught:
+        exporter._resolve_cli()
+    message = str(caught.value)
+    assert "npm run build --workspace retainpdf2doc" in message, "没告诉仓库里怎么修"
+    assert exporter._CLI_ENV_VAR in message, "没告诉打包环境怎么指定路径"

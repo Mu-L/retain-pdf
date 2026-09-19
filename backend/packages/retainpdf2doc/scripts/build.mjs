@@ -20,9 +20,12 @@ const shared = {
   format: "esm",
   platform: "node",
   target: "node20",
-  // 这三个留在 node_modules 里:mathjax-full 体积大且自带运行时假设，另外两个是
-  // 纯粹的第三方库，没必要内联进产物。
-  external: ["mathjax-full", "mathjax-full/*", "@xmldom/xmldom", "fflate"],
+  // 全部内联，不留外部依赖。
+  //
+  // 反直觉但实测如此:mathjax-full 在 node_modules 里是 **40MB**，而 tree-shake 之后
+  // 内联进产物只占 ~3MB。桌面应用因此从 42MB 降到 5.8MB，而且不用再往包里拷
+  // node_modules——运行时只要一个 node 和这两个 .mjs 就够了。
+  external: [],
   logLevel: "warning",
 };
 

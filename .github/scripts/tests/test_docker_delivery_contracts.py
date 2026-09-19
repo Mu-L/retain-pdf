@@ -166,3 +166,33 @@ def test_dockerignore_excludes_local_credentials_and_runtime_overrides(
     }
 
     assert required <= rules, f"{relative} is missing: {sorted(required - rules)}"
+
+
+def test_backend_image_ships_the_word_document_builder():
+    """后端镜像里必须有 node 和 retainpdf2doc。
+
+    保留排版的 Word 导出由 retainpdf2doc（Node 包）生成，Python 流水线起子进程调它。
+    镜像里没有 Node 运行时或没有那份构建产物的话，导出必然失败——而且失败在前端会
+    表现成"下载到一份打开什么都没有的空白文档"（保存对话框先建了文件）。
+
+    v4.2.5 的 Mac 应用就是这么坏的:打包时漏带了这个包。
+    """
+    dockerfile = (REPO_ROOT / "ops/deployment/docker/backend/Dockerfile.app").read_text(encoding="utf-8")
+    assert "AS docbuilder" in dockerfile, "没有构建 retainpdf2doc 的阶段"
+    assert "/usr/local/bin/node" in dockerfile, "运行时镜像里没有 node"
+    assert "retainpdf2doc/dist" in dockerfile, "没有把构建产物拷进运行时镜像"
+    assert "RETAINPDF2DOC_CLI=" in dockerfile, (
+        "没有设 RETAINPDF2DOC_CLI——镜像里没有仓库布局，流水线按相对路径找不到 CLI"
+    )
+
+
+def test_desktop_bundle_ships_the_word_document_builder():
+    """桌面打包同理:要带上 retainpdf2doc，并把路径和 node 告诉后端。"""
+    prepare = (REPO_ROOT / "frontend/desktop/scripts/prepare-app.mjs").read_text(encoding="utf-8")
+    assert "retainpdf2doc" in prepare, "prepare-app 没有把 retainpdf2doc 打进 app/backend"
+
+    env = (REPO_ROOT / "frontend/desktop/src/main/backend-env.js").read_text(encoding="utf-8")
+    assert "RETAINPDF2DOC_CLI" in env, "没有把 CLI 路径传给后端"
+    assert "RETAINPDF_NODE_BIN" in env, (
+        "没有把 node 传给后端；装好的应用里没有系统 node，要用 Electron 自己"
+    )

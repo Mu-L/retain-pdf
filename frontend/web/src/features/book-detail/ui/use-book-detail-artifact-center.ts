@@ -198,10 +198,15 @@ export function useBookDetailArtifactCenter({
     setDownloadingId(item.id);
     setError("");
     try {
-      const target = await prepareDownloadTarget(item.filename || item.label);
-      if (target.kind === "aborted") return;
+      // 先把响应拿到手并确认成功，**再**问用户保存到哪。
+      //
+      // 反过来的话，`showSaveFilePicker` 会在用户点确定的那一刻就创建出文件（0 字节），
+      // 随后请求失败抛异常，磁盘上留下一个空文件。用户看到的不是错误，而是一份
+      // "打开什么都没有的文档"——Word 导出在打包环境里失败时就是这么表现的。
       const response = await fetchProtected(item.url);
       if (!response.ok) throw new Error(`下载失败，请稍后重试。(${response.status})`);
+      const target = await prepareDownloadTarget(item.filename || item.label);
+      if (target.kind === "aborted") return;
       const filename = fileNameFromDisposition(
         response.headers.get("content-disposition") || "",
         item.filename || item.label,

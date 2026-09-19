@@ -61,10 +61,8 @@ export function mountArtifactDownloadsFeature({
       jobId,
       nameResolver: downloadNameResolver,
     });
-    const downloadTarget = await prepareDownloadTarget(preferredName);
-    if (downloadTarget.kind === "aborted") {
-      return;
-    }
+    // 惰性:响应确认成功之后才问保存位置（见 downloads.ts）。
+    const downloadTarget = () => prepareDownloadTarget(preferredName);
 
     try {
       viewPort.setLinkBusy(link, true, "下载中...");
